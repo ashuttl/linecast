@@ -21,11 +21,12 @@ from linecast._graphics import (
     lerp, interp_stops, visible_len, fmt_time,
     get_terminal_size, Framebuffer, live_loop,
 )
-from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
+from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, read_stale, write_cache
 from linecast._location import get_location
 
 CACHE_DIR = CACHE_ROOT / "tides"
 USER_AGENT = "linecast/1.0"
+NEAREST_STATION_CACHE_MAX_AGE = 3600
 
 # ---------------------------------------------------------------------------
 # Ocean palette
@@ -62,10 +63,10 @@ def find_nearest_station(lat, lng):
     """Find closest NOAA tide station by haversine distance.
 
     Returns (station_id, station_name) or (None, None).
-    Cached for 30 days.
+    Cached per location for 1 hour.
     """
-    cache_file = CACHE_DIR / "station.json"
-    cached = read_cache(cache_file, 30 * 86400)
+    cache_file = CACHE_DIR / f"station_{location_cache_key(lat, lng)}.json"
+    cached = read_cache(cache_file, NEAREST_STATION_CACHE_MAX_AGE)
     if cached:
         return cached["id"], cached["name"]
 
@@ -97,7 +98,7 @@ def find_nearest_station(lat, lng):
     if best_dist > 100:  # > 100 nautical miles
         return None, None
 
-    result = {"id": best_id, "name": best_name}
+    result = {"id": best_id, "name": best_name, "lat": lat, "lng": lng}
     write_cache(cache_file, result)
     return best_id, best_name
 
@@ -393,7 +394,8 @@ def _ocean_gradient(t):
 def render(station_id, station_name, station_meta=None, fullscreen=False, offset_minutes=0):
     """Build the complete multi-line tide display."""
     now_local = _station_now(station_meta)
-    date = now_local.date()
+    display_local = now_local + timedelta(minutes=offset_minutes) if offset_minutes else now_local
+    date = display_local.date()
 
     predictions = fetch_tides(station_id, date)
     if not predictions:
@@ -461,8 +463,8 @@ def render(station_id, station_name, station_meta=None, fullscreen=False, offset
 
     curve_spy = [height_to_spy(h) for h in curve_heights]
 
-    # Current position (offset_minutes shifts the marker for scrubbing)
-    now_hour = now_local.hour + now_local.minute / 60 + now_local.second / 3600 + offset_minutes / 60
+    # Current position follows the scrubbed local datetime.
+    now_hour = display_local.hour + display_local.minute / 60 + display_local.second / 3600
     now_x = max(0, min(graph_w - 1, int(now_hour / 24 * graph_w)))
     now_height = interp_height(now_hour)
     now_spy = height_to_spy(now_height)
@@ -505,13 +507,35 @@ def render(station_id, station_name, station_meta=None, fullscreen=False, offset
     lines = fb.render(overlays)
 
     # --- info line ---
-    tz_label = now_local.strftime("%Z") or (station_meta or {}).get("timezone_abbr", "")
-    lines.append(_info_line(hilo, now_height, station_name, cols, now_hour, offset_minutes, tz_label))
+    tz_label = display_local.strftime("%Z") or (station_meta or {}).get("timezone_abbr", "")
+    lines.append(
+        _info_line(
+            hilo,
+            now_height,
+            station_name,
+            cols,
+            now_hour,
+            offset_minutes,
+            tz_label,
+            display_date=display_local.date(),
+            reference_date=now_local.date(),
+        )
+    )
 
     return "\n".join(lines)
 
 
-def _info_line(hilo, now_height, station_name, width, now_hour=None, offset_minutes=0, tz_label=""):
+def _info_line(
+    hilo,
+    now_height,
+    station_name,
+    width,
+    now_hour=None,
+    offset_minutes=0,
+    tz_label="",
+    display_date=None,
+    reference_date=None,
+):
     """High/Low times · Range · Current height · Station name (truncated to fit)."""
     text = fg(200, 205, 215)
     dim = fg(70, 80, 100)
@@ -538,6 +562,8 @@ def _info_line(hilo, now_height, station_name, width, now_hour=None, offset_minu
 
     if offset_minutes:
         now_part = f"{text}{fmt_time(now_hour)} {now_height:.1f}ft"
+        if display_date and reference_date and display_date != reference_date:
+            now_part += f" {dim}{display_date.strftime('%a %b %-d')}"
     else:
         now_part = f"{text}Now {now_height:.1f}ft"
     if tz_label:

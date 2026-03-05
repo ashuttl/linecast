@@ -6,7 +6,7 @@ from pathlib import Path
 from linecast._cache import CACHE_ROOT
 
 _CACHE_FILE = CACHE_ROOT / "location.json"
-_MAX_AGE = 7 * 86400  # 7 days
+_MAX_AGE = 3600  # 1 hour; implicit IP geolocation should refresh as users move.
 
 
 def get_location():
