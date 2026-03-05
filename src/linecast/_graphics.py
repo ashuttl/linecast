@@ -7,7 +7,7 @@ characters with 24-bit true color.
 Used by: weather, sunshine, tides
 """
 
-import math, os, re, sys, time as _time
+import math, os, re, sys, time as _time, unicodedata
 
 # ---------------------------------------------------------------------------
 # ANSI helpers
@@ -62,8 +62,36 @@ def halfblock(top, bot):
 
 
 def visible_len(s):
-    """Length of a string ignoring ANSI escape sequences."""
-    return len(re.sub(r'\033\[[^m]*m', '', s))
+    """Length of a string ignoring ANSI escapes, counting wide/emoji chars as 2."""
+    stripped = re.sub(r'\033\[[^m]*m', '', s)
+    chars = list(stripped)
+    n = 0
+    i = 0
+    while i < len(chars):
+        ch = chars[i]
+        cp = ord(ch)
+        # Check if next char is VS16 (emoji presentation selector)
+        has_vs16 = (i + 1 < len(chars) and chars[i + 1] == '\ufe0f')
+        if ch == '\ufe0f':
+            # VS16 itself is zero-width (already accounted for on the base char)
+            i += 1
+            continue
+        cat = unicodedata.category(ch)
+        eaw = unicodedata.east_asian_width(ch)
+        if cat == 'Co':
+            # Private Use Area (Nerd Font icons) — single-width
+            n += 1
+        elif eaw in ('W', 'F'):
+            n += 2
+        elif has_vs16:
+            # Base char + VS16 → emoji presentation → double-width
+            n += 2
+        elif cp >= 0x1F000:
+            n += 2
+        else:
+            n += 1
+        i += 1
+    return n
 
 
 def fmt_time(hours):

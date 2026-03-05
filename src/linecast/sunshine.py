@@ -10,10 +10,10 @@ Uses half-block characters with 24-bit true color ANSI for smooth
 rendering at 2x vertical sub-pixel resolution. Location is cached from
 IP geolocation (~1 network call per week).
 
-Usage: sunshine [--live]
+Usage: sunshine [--live] [--emoji]
 """
 
-import math, sys
+import math, os, sys
 from datetime import datetime, timezone
 
 from linecast._graphics import (
@@ -26,24 +26,40 @@ from linecast._location import get_location
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-SUN_CHAR   = "\U000F0F62"      # 󰽢 Nerd Font full moon (large filled circle)
+def _use_emoji():
+    return "--emoji" in sys.argv or os.environ.get("LINECAST_ICONS", "").lower() == "emoji"
+
 HORIZON_COLOR = (40, 46, 65)   # subtle divider
 CURVE_COLOR   = (160, 168, 195) # neutral silver — the arc itself
 
-# Nerd Font icons
-SUN_ICON    = "\U000F0599"     # 󰖙
-SUNSET_ICON = "\U000F059B"     # 󰖛
-
-MOON_ICONS = [
-    "\U000F0F64",  # New Moon
-    "\U000F0F67",  # Waxing Crescent
-    "\U000F0F61",  # First Quarter
-    "\U000F0F68",  # Waxing Gibbous
-    "\U000F0F62",  # Full Moon
-    "\U000F0F66",  # Waning Gibbous
-    "\U000F0F63",  # Last Quarter
-    "\U000F0F65",  # Waning Crescent
-]
+if _use_emoji():
+    SUN_CHAR    = "\u25cf"          # ● filled circle — cleaner than emoji in the arc
+    SUN_ICON    = "\U0001f305"      # 🌅
+    SUNSET_ICON = "\U0001f307"      # 🌇
+    MOON_ICONS = [
+        "\U0001f311",  # 🌑 New Moon
+        "\U0001f312",  # 🌒 Waxing Crescent
+        "\U0001f313",  # 🌓 First Quarter
+        "\U0001f314",  # 🌔 Waxing Gibbous
+        "\U0001f315",  # 🌕 Full Moon
+        "\U0001f316",  # 🌖 Waning Gibbous
+        "\U0001f317",  # 🌗 Last Quarter
+        "\U0001f318",  # 🌘 Waning Crescent
+    ]
+else:
+    SUN_CHAR    = "\U000F0F62"      # 󰽢 Nerd Font filled circle
+    SUN_ICON    = "\U000F0599"      # 󰖙
+    SUNSET_ICON = "\U000F059B"      # 󰖛
+    MOON_ICONS = [
+        "\U000F0F64",  # New Moon
+        "\U000F0F67",  # Waxing Crescent
+        "\U000F0F61",  # First Quarter
+        "\U000F0F68",  # Waxing Gibbous
+        "\U000F0F62",  # Full Moon
+        "\U000F0F66",  # Waning Gibbous
+        "\U000F0F63",  # Last Quarter
+        "\U000F0F65",  # Waning Crescent
+    ]
 MOON_NAMES = [
     "New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous",
     "Full Moon", "Waning Gibbous", "Last Quarter", "Waning Crescent",

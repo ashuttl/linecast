@@ -7,7 +7,7 @@ Temperature-driven color palette, Nerd Font icons, clean column alignment.
 
 Alerts are sourced from NWS (US) and Environment Canada (CA).
 
-Usage: weather [--live] [--location LAT,LNG] [--search CITY]
+Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji]
 """
 
 import json, os, sys, time as _time, urllib.request
@@ -56,7 +56,7 @@ WIND_COLOR   = fg(140, 150, 170)
 SEP = f"{MUTED} \u00b7 "
 
 # Nerd Font WMO icons
-WMO_ICONS = {
+_WMO_ICONS_NERD = {
     0: "\U000F0599", 1: "\U000F0599", 2: "\U000F0595", 3: "\U000F0590",
     45: "\U000F0591", 48: "\U000F0591",
     51: "\U000F0597", 53: "\U000F0597", 55: "\U000F0597",
@@ -68,6 +68,26 @@ WMO_ICONS = {
     85: "\U000F0F36", 86: "\U000F0F36",
     95: "\U000F0593", 96: "\U000F0593", 99: "\U000F0593",
 }
+
+# Emoji fallback WMO icons (no Nerd Font required)
+_WMO_ICONS_EMOJI = {
+    0: "\u2600\ufe0f",  1: "\U0001f324\ufe0f",  2: "\u26c5", 3: "\u2601\ufe0f",
+    45: "\U0001f32b\ufe0f", 48: "\U0001f32b\ufe0f",
+    51: "\U0001f326\ufe0f", 53: "\U0001f326\ufe0f", 55: "\U0001f326\ufe0f",
+    56: "\U0001f327\ufe0f", 57: "\U0001f327\ufe0f",
+    61: "\U0001f327\ufe0f", 63: "\U0001f327\ufe0f", 65: "\U0001f327\ufe0f",
+    66: "\U0001f327\ufe0f", 67: "\U0001f327\ufe0f",
+    71: "\U0001f328\ufe0f", 73: "\U0001f328\ufe0f", 75: "\U0001f328\ufe0f", 77: "\U0001f328\ufe0f",
+    80: "\U0001f326\ufe0f", 81: "\U0001f326\ufe0f", 82: "\U0001f326\ufe0f",
+    85: "\U0001f328\ufe0f", 86: "\U0001f328\ufe0f",
+    95: "\u26c8\ufe0f",  96: "\u26c8\ufe0f",  99: "\u26c8\ufe0f",
+}
+
+def _use_emoji():
+    """Check if emoji mode is requested (--emoji flag or LINECAST_ICONS=emoji)."""
+    return "--emoji" in sys.argv or os.environ.get("LINECAST_ICONS", "").lower() == "emoji"
+
+WMO_ICONS = _WMO_ICONS_EMOJI if _use_emoji() else _WMO_ICONS_NERD
 WMO_NAMES = {
     0: "Clear", 1: "Mostly Clear", 2: "Partly Cloudy", 3: "Overcast",
     45: "Fog", 48: "Rime Fog",
@@ -767,11 +787,37 @@ def render_hourly(data, width, n_braille_rows=2):
 
     lines = []
 
+    # Compute day names at midnight boundaries for the header line
+    midnight_day_names = {}  # col -> day name (e.g. "Friday")
+    if window_dts:
+        for h_off in range(int(total_hours) + 1):
+            dt = window_dts[0] + timedelta(hours=h_off)
+            if dt.hour == 0:
+                x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
+                if 0 < x < graph_w - 1:
+                    midnight_day_names[x] = dt.strftime("%A")
+
     # "Today" label with chart temperature range
     today_left = f" {TEXT}Today"
     today_right = f"{_colored_temp(chart_lo, '°')} {TEXT}\u2192 {_colored_temp(chart_hi, '°F')}"
-    pad = width - visible_len(today_left) - visible_len(today_right) - 2
-    lines.append(f"{today_left}{' ' * max(1, pad)}{today_right} {RESET}")
+    # Insert day names at midnight column positions
+    if midnight_day_names:
+        # Build padded label area between "Today" and the temp range
+        label_start = visible_len(today_left)
+        right_len = visible_len(today_right) + 2
+        avail = width - right_len
+        mid_section = [" "] * max(0, avail - label_start)
+        for col, name in sorted(midnight_day_names.items()):
+            pos = col + 1 - label_start  # +1 for leading margin
+            if pos >= 0 and pos + len(name) <= len(mid_section):
+                for j, c in enumerate(name):
+                    mid_section[pos + j] = c
+        mid_str = "".join(mid_section)
+        pad = width - visible_len(today_left) - visible_len(mid_str) - visible_len(today_right) - 2
+        lines.append(f"{today_left}{TEXT}{mid_str}{' ' * max(0, pad)}{today_right} {RESET}")
+    else:
+        pad = width - visible_len(today_left) - visible_len(today_right) - 2
+        lines.append(f"{today_left}{' ' * max(1, pad)}{today_right} {RESET}")
 
     # Peak annotations (above braille curve)
     peaks = sorted([(x, t) for x, t, p in extrema if p])
@@ -1032,61 +1078,73 @@ def render_daily(data, width):
     return lines
 
 
+def _render_single_alert(alert, width, max_lines=999):
+    """Render one alert (pill + wrapped description), up to max_lines."""
+    DARK_FG = fg(20, 20, 25)
+    severity = alert.get("severity", "")
+    r, g, b = _severity_rgb(severity)
+    bg_color = bg(r, g, b)
+    event = alert.get("event", "Unknown")
+    effective = _parse_alert_time(alert.get("effective", ""))
+    expires = _parse_alert_time(alert.get("expires", ""))
+    timing = ""
+    if effective and expires:
+        timing = f" {effective} \u2013 {expires}"
+    elif expires:
+        timing = f" until {expires}"
+
+    pill = f"{bg_color}{DARK_FG}{BOLD} \u26a0 {event} {RESET}"
+    line1 = f" {pill} {MUTED}\u00b7{WIND_COLOR}{timing}{RESET}" if timing else f" {pill}{RESET}"
+    lines = [line1]
+
+    desc = alert.get("description", "").strip()
+    if desc and max_lines > 1:
+        desc = " ".join(desc.split())
+        wrap_w = width - 2
+        words = desc.split()
+        current_line = ""
+        desc_lines = 0
+        max_desc = max_lines - 1  # 1 line for pill
+        for word in words:
+            if current_line and len(current_line) + 1 + len(word) > wrap_w:
+                lines.append(f"  {MUTED}{current_line}{RESET}")
+                desc_lines += 1
+                if desc_lines >= max_desc:
+                    break
+                current_line = word
+            else:
+                current_line = f"{current_line} {word}" if current_line else word
+        if current_line and desc_lines < max_desc:
+            lines.append(f"  {MUTED}{current_line}{RESET}")
+
+    return lines
+
+
 def render_alerts(alerts, width=80, remaining_rows=None):
     """NWS/ECCC alert banners — severity-colored background pill + description."""
     if not alerts:
         return []
     cols, _ = get_terminal_size()
     width = cols
-    DARK_FG = fg(20, 20, 25)
+    n = len(alerts)
+
+    if remaining_rows is not None:
+        # Blank line between each alert, evenly distribute remaining space
+        separator_lines = n - 1
+        usable = max(n, remaining_rows - separator_lines)
+        per_alert = usable // n
+        # Distribute remainder to earlier alerts
+        extras = usable - per_alert * n
+    else:
+        per_alert = 999
+        extras = 0
+
     lines = []
-    for a in alerts:
-        severity = a.get("severity", "")
-        color = _severity_color(severity)
-        r, g, b = _severity_rgb(severity)
-        bg_color = bg(r, g, b)
-        event = a.get("event", "Unknown")
-        effective = _parse_alert_time(a.get("effective", ""))
-        expires = _parse_alert_time(a.get("expires", ""))
-        timing = ""
-        if effective and expires:
-            timing = f" {effective} \u2013 {expires}"
-        elif expires:
-            timing = f" until {expires}"
-
-        # Line 1: bg pill with knocked-out text for event, then timing
-        pill = f"{bg_color}{DARK_FG}{BOLD} \u26a0 {event} {RESET}"
-        if timing:
-            line1 = f" {pill} {MUTED}\u00b7{WIND_COLOR}{timing}{RESET}"
-        else:
-            line1 = f" {pill}{RESET}"
-        lines.append(line1)
-
-        # Description: word-wrapped, indented to match daily forecast
-        desc = a.get("description", "").strip()
-        if desc:
-            # Clean up NWS formatting (collapse newlines/whitespace)
-            desc = " ".join(desc.split())
-            wrap_w = width - 2
-            words = desc.split()
-            current_line = ""
-            # 1 line used for the pill; budget the rest for description
-            if remaining_rows is not None:
-                max_desc_lines = max(1, remaining_rows - len(lines))
-            else:
-                max_desc_lines = 999
-            desc_lines = 0
-            for word in words:
-                if current_line and len(current_line) + 1 + len(word) > wrap_w:
-                    lines.append(f"  {MUTED}{current_line}{RESET}")
-                    desc_lines += 1
-                    if desc_lines >= max_desc_lines:
-                        break
-                    current_line = word
-                else:
-                    current_line = f"{current_line} {word}" if current_line else word
-            if current_line and desc_lines < max_desc_lines:
-                lines.append(f"  {MUTED}{current_line}{RESET}")
+    for idx, a in enumerate(alerts):
+        if idx > 0:
+            lines.append("")  # blank separator between alerts
+        budget = per_alert + (1 if idx < extras else 0)
+        lines.extend(_render_single_alert(a, width, max_lines=budget))
 
     return lines
 

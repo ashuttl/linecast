@@ -59,12 +59,13 @@ Other regions get forecasts but no alerts yet.
 |---|---|
 | `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `35.43,-101.17`) |
 | `TIDE_STATION` | Default NOAA station ID for tides (e.g., `8518750`) |
+| `LINECAST_ICONS` | Set to `emoji` to use standard emoji instead of Nerd Font icons |
 
 ## Requirements
 
 - Python 3.10+
 - A terminal with true color support (iTerm2, Ghostty, Kitty, WezTerm, etc.)
-- A [Nerd Font](https://www.nerdfonts.com/) for weather/moon/tide icons
+- A [Nerd Font](https://www.nerdfonts.com/) for best icon rendering (optional — use `--emoji` for standard emoji fallback)
 - macOS or Linux (uses `termios` for live mode)
 
 ## License
