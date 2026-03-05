@@ -42,6 +42,7 @@ brew install linecast
 weather                          # current location via IP geolocation
 weather --location 44.54,-68.42  # specific coordinates
 weather --search québec          # find coordinates by city name
+weather --celsius                # metric units (°C, km/h, mm)
 weather --live                   # full-screen, auto-refresh
 
 sunshine                         # solar arc for today
@@ -68,6 +69,7 @@ Other regions get forecasts but no alerts yet.
 |---|---|
 | `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `44.54,-68.42`) |
 | `TIDE_STATION` | Default NOAA station ID for tides (e.g., `8413320`) |
+| `WEATHER_UNITS` | Set to `metric` for Celsius, km/h, and mm (same as `--celsius`) |
 | `LINECAST_ICONS` | Set to `emoji` to use standard emoji instead of Nerd Font icons |
 
 ## Requirements

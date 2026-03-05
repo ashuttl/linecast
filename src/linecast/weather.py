@@ -7,7 +7,7 @@ Temperature-driven color palette, Nerd Font icons, clean column alignment.
 
 Alerts are sourced from NWS (US) and Environment Canada (CA).
 
-Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji]
+Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji] [--celsius/--metric]
 """
 
 import json, os, sys, time as _time, urllib.request
@@ -86,6 +86,16 @@ _WMO_ICONS_EMOJI = {
 def _use_emoji():
     """Check if emoji mode is requested (--emoji flag or LINECAST_ICONS=emoji)."""
     return "--emoji" in sys.argv or os.environ.get("LINECAST_ICONS", "").lower() == "emoji"
+
+def _use_metric():
+    """Check if metric/Celsius mode is requested (--celsius/--metric flag or WEATHER_UNITS=metric)."""
+    return ("--celsius" in sys.argv or "--metric" in sys.argv
+            or os.environ.get("WEATHER_UNITS", "").lower() == "metric")
+
+METRIC = _use_metric()
+TEMP_UNIT = "°C" if METRIC else "°F"
+WIND_UNIT = "km/h" if METRIC else "mph"
+PRECIP_UNIT = "mm" if METRIC else "in"
 
 WMO_ICONS = _WMO_ICONS_EMOJI if _use_emoji() else _WMO_ICONS_NERD
 WMO_NAMES = {
@@ -184,7 +194,8 @@ def _reverse_geocode(lat, lng):
 # ---------------------------------------------------------------------------
 def fetch_forecast(lat, lng):
     """Fetch hourly + daily forecast from Open-Meteo. Cached 1h."""
-    cache_file = CACHE_DIR / f"forecast_{location_cache_key(lat, lng)}.json"
+    unit_suffix = "_metric" if METRIC else ""
+    cache_file = CACHE_DIR / f"forecast_{location_cache_key(lat, lng)}{unit_suffix}.json"
     cached = read_cache(cache_file, 3600)
     if cached:
         return cached
@@ -197,7 +208,9 @@ def fetch_forecast(lat, lng):
             "wind_speed_10m,wind_gusts_10m,weather_code"
             "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,"
             "precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max"
-            "&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch"
+            f"&temperature_unit={'celsius' if METRIC else 'fahrenheit'}"
+            f"&wind_speed_unit={'kmh' if METRIC else 'mph'}"
+            f"&precipitation_unit={'mm' if METRIC else 'inch'}"
             "&timezone=auto&forecast_days=7&past_days=1"
             "&current=temperature_2m,apparent_temperature,weather_code,"
             "wind_speed_10m,wind_gusts_10m"
@@ -384,13 +397,14 @@ def _search_locations(query):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def _temp_color(temp_f):
+def _temp_color(temp):
+    temp_f = temp * 9 / 5 + 32 if METRIC else temp
     return interp_stops(TEMP_COLORS, temp_f)
 
 
-def _colored_temp(temp_f, suffix=""):
-    r, g, b = _temp_color(temp_f)
-    return f"{fg(r, g, b)}{temp_f:.0f}{suffix}"
+def _colored_temp(temp, suffix=""):
+    r, g, b = _temp_color(temp)
+    return f"{fg(r, g, b)}{temp:.0f}{suffix}"
 
 
 def _precip_type(wmo_code):
@@ -556,12 +570,14 @@ def _comparative_line(daily, now):
         subject = "Tomorrow"
 
     abs_diff = abs(diff)
-    if abs_diff < 3:
+    # Thresholds in degrees (smaller for Celsius since 1°C ≈ 1.8°F)
+    t_same, t_bit, t_much = (2, 4, 8) if METRIC else (3, 8, 15)
+    if abs_diff < t_same:
         comparison = f"about the same as {ref_day}"
-    elif abs_diff < 8:
+    elif abs_diff < t_bit:
         word = "warmer" if diff > 0 else "cooler"
         comparison = f"a bit {word} than {ref_day}"
-    elif abs_diff < 15:
+    elif abs_diff < t_much:
         word = "warmer" if diff > 0 else "cooler"
         comparison = f"{word} than {ref_day}"
     else:
@@ -671,13 +687,13 @@ def render_header(data, width, location_name=""):
     icon = WMO_ICONS.get(wmo, WMO_ICONS[0])
     name = WMO_NAMES.get(wmo, "")
 
-    left = f" {TEXT}{icon} {name}  {_colored_temp(temp, '°F')}  {MUTED}feels {_colored_temp(feels, '°F')}"
+    left = f" {TEXT}{icon} {name}  {_colored_temp(temp, TEMP_UNIT)}  {MUTED}feels {_colored_temp(feels, TEMP_UNIT)}"
 
     right_parts = []
-    if wind > 10 or gusts > 20:
-        parts = [f"Wind {wind:.0f}mph"]
-        if gusts > 20:
-            parts.append(f"gusts {gusts:.0f}mph")
+    if wind > (15 if METRIC else 10) or gusts > (30 if METRIC else 20):
+        parts = [f"Wind {wind:.0f}{WIND_UNIT}"]
+        if gusts > (30 if METRIC else 20):
+            parts.append(f"gusts {gusts:.0f}{WIND_UNIT}")
         right_parts.append(f"{WIND_COLOR}{'  '.join(parts)}")
     if location_name:
         right_parts.append(f"{MUTED}{location_name}")
@@ -813,7 +829,7 @@ def render_hourly(data, width, n_braille_rows=2, now=None):
 
     # "Today" label with chart temperature range
     today_left = f" {TEXT}Today"
-    today_right = f"{_colored_temp(chart_lo, '°')} {TEXT}\u2192 {_colored_temp(chart_hi, '°F')}"
+    today_right = f"{_colored_temp(chart_lo, '°')} {TEXT}\u2192 {_colored_temp(chart_hi, TEMP_UNIT)}"
     # Insert day names at midnight column positions
     if midnight_day_names:
         # Build padded label area between "Today" and the temp range
@@ -1075,17 +1091,17 @@ def render_daily(data, width):
         line = f"  {TEXT}{day_name}  {icon}  {bar}"
 
         # Precipitation (only when meaningful) — colored by type
-        if precip >= 0.05 or prob > 25:
+        if precip >= (1 if METRIC else 0.05) or prob > 25:
             ptype = _precip_type(wmo)
             pcolor = _precip_color(wmo)
-            if precip >= 0.05:
-                line += f"  {pcolor}{ptype} {precip:.1f}in"
+            if precip >= (1 if METRIC else 0.05):
+                line += f"  {pcolor}{ptype} {precip:.0f}{PRECIP_UNIT}" if METRIC else f"  {pcolor}{ptype} {precip:.1f}{PRECIP_UNIT}"
             if prob > 25:
                 line += f"  {pcolor}{prob:.0f}%"
 
         # Wind (only when gusty)
-        if wind > 15:
-            line += f"  {WIND_COLOR}Wind {wind:.0f}mph"
+        if wind > (25 if METRIC else 15):
+            line += f"  {WIND_COLOR}Wind {wind:.0f}{WIND_UNIT}"
 
         lines.append(f"{line}{RESET}")
 
