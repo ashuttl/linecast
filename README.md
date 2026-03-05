@@ -31,16 +31,16 @@ brew install linecast
 
 ```
 weather                          # current location via IP geolocation
-weather --location 35.43,-101.17 # specific coordinates
-weather --search "Portland"      # find coordinates by city name
+weather --location 44.54,-68.42  # specific coordinates
+weather --search québec          # find coordinates by city name
 weather --live                   # full-screen, auto-refresh
 
 sunshine                         # solar arc for today
 sunshine --live                  # full-screen with time scrubbing
 
 tides                            # nearest NOAA station
-tides --station 8518750          # specific station ID
-tides --search "San Francisco"   # find stations by name
+tides --station 8413320          # specific station ID
+tides --search "Bar Harbor"      # find stations by name
 tides --live                     # full-screen
 ```
 
@@ -57,8 +57,8 @@ Other regions get forecasts but no alerts yet.
 
 | Variable | Description |
 |---|---|
-| `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `35.43,-101.17`) |
-| `TIDE_STATION` | Default NOAA station ID for tides (e.g., `8518750`) |
+| `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `44.54,-68.42`) |
+| `TIDE_STATION` | Default NOAA station ID for tides (e.g., `8413320`) |
 | `LINECAST_ICONS` | Set to `emoji` to use standard emoji instead of Nerd Font icons |
 
 ## Requirements
