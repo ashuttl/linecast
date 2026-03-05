@@ -45,13 +45,17 @@ gh run watch "$RUN_ID" --exit-status
 
 echo "PyPI publish succeeded."
 
-# --- 4. Wait for PyPI to serve the new sdist ---
-PYPI_URL="https://files.pythonhosted.org/packages/source/l/linecast/linecast-${NEW_VERSION}.tar.gz"
-echo "Waiting for $PYPI_URL to become available..."
+# --- 4. Get download URL and sha256 from PyPI JSON API ---
+PYPI_API="https://pypi.org/pypi/linecast/${NEW_VERSION}/json"
+echo "Waiting for PyPI to index version $NEW_VERSION..."
 
 for i in $(seq 1 30); do
-  HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' "$PYPI_URL")
+  RESPONSE=$(curl -s -w '\n%{http_code}' "$PYPI_API")
+  HTTP_CODE=$(echo "$RESPONSE" | tail -1)
   if [ "$HTTP_CODE" = "200" ]; then
+    JSON=$(echo "$RESPONSE" | sed '$d')
+    PYPI_URL=$(echo "$JSON" | python3 -c "import sys,json; urls=json.load(sys.stdin)['urls']; print(next(u['url'] for u in urls if u['packagetype']=='sdist'))")
+    SHA256=$(echo "$JSON" | python3 -c "import sys,json; urls=json.load(sys.stdin)['urls']; print(next(u['digests']['sha256'] for u in urls if u['packagetype']=='sdist'))")
     echo "Package is live on PyPI."
     break
   fi
@@ -62,8 +66,7 @@ for i in $(seq 1 30); do
   sleep 10
 done
 
-# --- 5. Compute sha256 ---
-SHA256=$(curl -sL "$PYPI_URL" | shasum -a 256 | awk '{print $1}')
+echo "URL: $PYPI_URL"
 echo "SHA256: $SHA256"
 
 # --- 6. Update homebrew formula ---
