@@ -1,6 +1,6 @@
 [project]
 name = "linecast"
-version = "1.0.3"
+version = "1.0.4"
 description = "Terminal weather, solar arc, and tide visualizations"
 authors = [{name = "Andrew Shuttleworth Fowler"}]
 readme = "README.md"
