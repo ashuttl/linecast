@@ -6,7 +6,23 @@ on:
       - "v*"
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: pip install build
+      - run: python -m compileall -q src
+      - run: python -m build
+      - run: pip install dist/*.whl
+      - run: weather --version
+      - run: sunshine --version
+      - run: tides --version
+
   publish:
+    needs: quality
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

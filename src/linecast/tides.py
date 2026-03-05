@@ -102,6 +102,97 @@ def find_nearest_station(lat, lng):
     return best_id, best_name
 
 
+def _fetch_station_metadata(station_id):
+    """Fetch station metadata needed for timezone handling. Cached 30 days."""
+    cache_file = CACHE_DIR / f"station_meta_{station_id}.json"
+    cached = read_cache(cache_file, 30 * 86400)
+    if cached:
+        return cached
+
+    try:
+        url = (
+            "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/"
+            f"stations/{station_id}.json?expand=details"
+        )
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        resp = urllib.request.urlopen(req, timeout=10)
+        data = json.loads(resp.read())
+        stations = data.get("stations", [])
+        if not stations:
+            return None
+        s = stations[0]
+        details = s.get("details", {})
+        meta = {
+            "id": str(s.get("id", station_id)),
+            "name": s.get("name", ""),
+            "state": s.get("state", ""),
+            "timezone_abbr": str(s.get("timezone", "")).upper(),
+            "timezonecorr": s.get("timezonecorr", details.get("timezone")),
+            "observedst": bool(s.get("observedst", False)),
+        }
+        write_cache(cache_file, meta)
+        return meta
+    except Exception:
+        stale = read_stale(cache_file)
+        return stale or None
+
+
+def _station_tzinfo(meta):
+    """Resolve a station timezone to tzinfo using metadata and safe fallbacks."""
+    if not meta:
+        return None
+
+    tz_abbr = str(meta.get("timezone_abbr", "")).upper()
+    state = str(meta.get("state", "")).upper()
+    observedst = bool(meta.get("observedst", False))
+
+    zone_name = None
+    if tz_abbr in ("UTC", "GMT", "Z"):
+        return timezone.utc
+    elif tz_abbr in ("EST", "EDT"):
+        zone_name = "America/Puerto_Rico" if state in ("PR", "VI") else "America/New_York"
+    elif tz_abbr in ("CST", "CDT"):
+        zone_name = "America/Chicago"
+    elif tz_abbr in ("MST", "MDT"):
+        if not observedst or state == "AZ":
+            zone_name = "America/Phoenix"
+        else:
+            zone_name = "America/Denver"
+    elif tz_abbr in ("PST", "PDT"):
+        zone_name = "America/Los_Angeles"
+    elif tz_abbr in ("AKST", "AKDT"):
+        zone_name = "America/Anchorage"
+    elif tz_abbr in ("HST", "HDT"):
+        zone_name = "Pacific/Honolulu"
+    elif tz_abbr in ("AST", "ADT"):
+        zone_name = "America/Halifax" if observedst else "America/Puerto_Rico"
+    elif tz_abbr == "CHST":
+        zone_name = "Pacific/Guam"
+    elif tz_abbr == "SST":
+        zone_name = "Pacific/Pago_Pago"
+
+    if zone_name:
+        try:
+            from zoneinfo import ZoneInfo
+            return ZoneInfo(zone_name)
+        except Exception:
+            pass
+
+    # Fallback: fixed offset from metadata (less precise around DST boundaries)
+    try:
+        return timezone(timedelta(hours=float(meta.get("timezonecorr"))))
+    except Exception:
+        return None
+
+
+def _station_now(meta):
+    """Current datetime in station local time when possible."""
+    tz = _station_tzinfo(meta)
+    if tz is not None:
+        return datetime.now(tz)
+    return datetime.now()
+
+
 def fetch_tides(station_id, date):
     """Fetch 6-minute interval tide predictions for a date.
 
@@ -299,17 +390,17 @@ def _ocean_gradient(t):
     return interp_stops(stops, t)
 
 
-def render(station_id, station_name, lat, lng, fullscreen=False, offset_minutes=0):
+def render(station_id, station_name, station_meta=None, fullscreen=False, offset_minutes=0):
     """Build the complete multi-line tide display."""
-    today = datetime.now()
-    date = today.date()
+    now_local = _station_now(station_meta)
+    date = now_local.date()
 
-    predictions = fetch_tides(station_id, today)
+    predictions = fetch_tides(station_id, date)
     if not predictions:
         print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)
         sys.exit(1)
 
-    hilo = fetch_hilo(station_id, today)
+    hilo = fetch_hilo(station_id, date)
 
     cols, rows = get_terminal_size()
 
@@ -340,7 +431,7 @@ def render(station_id, station_name, lat, lng, fullscreen=False, offset_minutes=
         curve_heights.append(interp_height(h))
 
     # --- vertical scale (sized to monthly range for context) ---
-    monthly = fetch_monthly_range(station_id, today)
+    monthly = fetch_monthly_range(station_id, date)
     if monthly:
         scale_lo, scale_hi = monthly
         # Ensure today's data still fits
@@ -371,7 +462,7 @@ def render(station_id, station_name, lat, lng, fullscreen=False, offset_minutes=
     curve_spy = [height_to_spy(h) for h in curve_heights]
 
     # Current position (offset_minutes shifts the marker for scrubbing)
-    now_hour = today.hour + today.minute / 60 + today.second / 3600 + offset_minutes / 60
+    now_hour = now_local.hour + now_local.minute / 60 + now_local.second / 3600 + offset_minutes / 60
     now_x = max(0, min(graph_w - 1, int(now_hour / 24 * graph_w)))
     now_height = interp_height(now_hour)
     now_spy = height_to_spy(now_height)
@@ -414,12 +505,13 @@ def render(station_id, station_name, lat, lng, fullscreen=False, offset_minutes=
     lines = fb.render(overlays)
 
     # --- info line ---
-    lines.append(_info_line(hilo, now_height, station_name, cols, now_hour, offset_minutes))
+    tz_label = now_local.strftime("%Z") or (station_meta or {}).get("timezone_abbr", "")
+    lines.append(_info_line(hilo, now_height, station_name, cols, now_hour, offset_minutes, tz_label))
 
     return "\n".join(lines)
 
 
-def _info_line(hilo, now_height, station_name, width, now_hour=None, offset_minutes=0):
+def _info_line(hilo, now_height, station_name, width, now_hour=None, offset_minutes=0, tz_label=""):
     """High/Low times · Range · Current height · Station name (truncated to fit)."""
     text = fg(200, 205, 215)
     dim = fg(70, 80, 100)
@@ -445,9 +537,12 @@ def _info_line(hilo, now_height, station_name, width, now_hour=None, offset_minu
         parts.append(f"{text}Range {tide_range:.1f}ft")
 
     if offset_minutes:
-        parts.append(f"{text}{fmt_time(now_hour)} {now_height:.1f}ft")
+        now_part = f"{text}{fmt_time(now_hour)} {now_height:.1f}ft"
     else:
-        parts.append(f"{text}Now {now_height:.1f}ft")
+        now_part = f"{text}Now {now_height:.1f}ft"
+    if tz_label:
+        now_part += f" {dim}{tz_label}"
+    parts.append(now_part)
 
     # Station name — truncate to fit remaining space
     name = station_name.title() if station_name else "Unknown"
@@ -524,8 +619,21 @@ def main():
             )
             sys.exit(1)
 
+    station_meta = _fetch_station_metadata(station_id)
+    if station_meta:
+        meta_name = station_meta.get("name", "")
+        meta_state = station_meta.get("state", "")
+        if meta_name:
+            station_name = f"{meta_name}, {meta_state}" if meta_state else meta_name
+
     live = "--live" in sys.argv
-    _render = lambda offset_minutes=0: render(station_id, station_name, None, None, fullscreen=live, offset_minutes=offset_minutes)
+    _render = lambda offset_minutes=0: render(
+        station_id,
+        station_name,
+        station_meta=station_meta,
+        fullscreen=live,
+        offset_minutes=offset_minutes,
+    )
 
     if live:
         live_loop(_render)

@@ -126,6 +126,22 @@ def _location_from_timezone(tz_str):
     return tz_str.rsplit("/", 1)[-1].replace("_", " ")
 
 
+def _local_now_for_data(data):
+    """Current local time in the forecast's timezone (as naive local datetime)."""
+    tz_name = data.get("timezone", "")
+    if tz_name:
+        try:
+            from zoneinfo import ZoneInfo
+            return datetime.now(ZoneInfo(tz_name)).replace(tzinfo=None)
+        except Exception:
+            pass
+    try:
+        offset_sec = int(data.get("utc_offset_seconds", 0))
+        return (datetime.now(timezone.utc) + timedelta(seconds=offset_sec)).replace(tzinfo=None)
+    except Exception:
+        return datetime.now()
+
+
 def _reverse_geocode(lat, lng):
     """Reverse geocode coordinates to a display name via Nominatim. Cached.
 
@@ -522,15 +538,13 @@ def _build_braille_curve(temps, graph_w, n_rows=2):
 # ---------------------------------------------------------------------------
 # Comparative weather line
 # ---------------------------------------------------------------------------
-def _comparative_line(daily):
+def _comparative_line(daily, now):
     """Natural language comparing today vs yesterday/tomorrow."""
     hi_temps = daily.get("temperature_2m_max", [])
 
     # With past_days=1: index 0=yesterday, 1=today, 2=tomorrow
     if len(hi_temps) < 3:
         return ""
-
-    now = datetime.now()
 
     if now.hour < 14:
         diff = hi_temps[1] - hi_temps[0]
@@ -574,7 +588,7 @@ _PRECIP_DESCS = {
 }
 
 
-def _precipitation_line(hourly):
+def _precipitation_line(hourly, now):
     """Natural language description of upcoming precipitation."""
     times = hourly.get("time", [])
     precip_prob = hourly.get("precipitation_probability", [])
@@ -583,7 +597,6 @@ def _precipitation_line(hourly):
     if not times or not precip_prob or not codes:
         return ""
 
-    now = datetime.now()
     current_hour = now.replace(minute=0, second=0, microsecond=0)
 
     # Build window: (data_index, datetime) for next 24h
@@ -677,7 +690,7 @@ def render_header(data, width, location_name=""):
     return f"{left}{RESET}"
 
 
-def render_hourly(data, width, n_braille_rows=2):
+def render_hourly(data, width, n_braille_rows=2, now=None):
     """Hourly forecast: braille temperature curve + precipitation sparkline."""
     hourly = data.get("hourly", {})
     times = hourly.get("time", [])
@@ -688,7 +701,8 @@ def render_hourly(data, width, n_braille_rows=2):
     if not times or not temps:
         return []
 
-    now = datetime.now()
+    if now is None:
+        now = _local_now_for_data(data)
 
     # Parse all hourly timestamps
     parsed = []
@@ -1156,6 +1170,7 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0):
         return f"{TEXT}Could not fetch weather data.{RESET}"
 
     cols, rows = get_terminal_size()
+    now_local = _local_now_for_data(data)
 
     # Adaptive braille chart height based on terminal height
     if rows >= 40:
@@ -1172,15 +1187,15 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0):
     lines.append("")
 
     # Hourly
-    lines.extend(render_hourly(data, cols, n_braille))
+    lines.extend(render_hourly(data, cols, n_braille, now=now_local))
 
     # Comparative line
-    comp = _comparative_line(data.get("daily", {}))
+    comp = _comparative_line(data.get("daily", {}), now_local)
     if comp:
         lines.append(comp)
 
     # Precipitation forecast
-    precip = _precipitation_line(data.get("hourly", {}))
+    precip = _precipitation_line(data.get("hourly", {}), now_local)
     if precip:
         lines.append(precip)
 
