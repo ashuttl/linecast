@@ -8,9 +8,18 @@ Three commands that turn your terminal into a living dashboard — temperature-c
 
 **`weather`** — Current conditions, hourly braille temperature curve, 7-day forecast with color range bars, precipitation sparkline, natural language comparisons, and NWS/Environment Canada weather alerts.
 
+![weather](screenshots/weather.png)
+
 **`sunshine`** — Solar arc inspired by the Apple Watch Solar face. Shows the sun's position on its daily arc with sky color gradients, day length with daily delta, and moon phase.
 
+<p align="center">
+  <img src="screenshots/sunshine-day.png" width="49%" alt="sunshine — midday">
+  <img src="screenshots/sunshine-dusk.png" width="49%" alt="sunshine — dusk">
+</p>
+
 **`tides`** — NOAA tide predictions rendered as an ocean-themed half-block chart with gradient fill, current water level, and high/low extremes.
+
+![tides](screenshots/tides.png)
 
 All three support `--live` for a full-screen auto-refreshing display with arrow-key time scrubbing.
 
