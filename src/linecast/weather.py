@@ -549,6 +549,59 @@ def _build_braille_curve(temps, graph_w, n_rows=2):
     return result
 
 
+def _build_precip_blocks(precip_probs, weather_codes, graph_w, n_rows=1):
+    """Build multi-row block bar graph for precipitation probability.
+
+    Returns a list of rendered line strings (n_rows lines).
+    Bars grow upward from the bottom using partial block characters (▁▂▃▄▅▆▇█),
+    giving 8 levels of vertical resolution per character row.
+    """
+    total_eighths = n_rows * 8  # total vertical resolution units
+
+    # Interpolate precip probability to 1 sample per column
+    col_probs = []
+    col_codes = []
+    for x in range(graph_w):
+        t = x / max(1, graph_w - 1) * max(0, len(precip_probs) - 1)
+        lo_i = int(t)
+        hi_i = min(lo_i + 1, len(precip_probs) - 1)
+        frac = t - lo_i
+        col_probs.append(precip_probs[lo_i] + (precip_probs[hi_i] - precip_probs[lo_i]) * frac)
+
+        code_t = x / max(1, graph_w - 1) * max(0, len(weather_codes) - 1)
+        code_i = max(0, min(len(weather_codes) - 1, int(round(code_t))))
+        col_codes.append(weather_codes[code_i] if weather_codes else 0)
+
+    # Build rows top-down (row 0 = top, row n_rows-1 = bottom)
+    result = []
+    for r in range(n_rows):
+        line = " "
+        row_bottom = (n_rows - 1 - r) * 8  # eighths at bottom of this row
+        row_top = row_bottom + 8             # eighths at top of this row
+        for x in range(graph_w):
+            p = col_probs[x]
+            if p <= 5:
+                line += " "
+                continue
+            # Bar height in eighths (0 to total_eighths)
+            bar_h = max(1, int(p / 100 * total_eighths + 0.5))
+            if bar_h <= row_bottom:
+                # Bar doesn't reach this row
+                line += " "
+            elif bar_h >= row_top:
+                # Bar fills this row completely
+                color = _precip_color(col_codes[x])
+                line += f"{color}\u2588"
+            else:
+                # Bar partially fills this row
+                eighths_in_row = bar_h - row_bottom  # 1-7
+                color = _precip_color(col_codes[x])
+                line += f"{color}{SPARKLINE[eighths_in_row - 1]}"
+        result.append(f"{line}{RESET}")
+
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Comparative weather line
 # ---------------------------------------------------------------------------
@@ -706,8 +759,8 @@ def render_header(data, width, location_name=""):
     return f"{left}{RESET}"
 
 
-def render_hourly(data, width, n_braille_rows=2, now=None):
-    """Hourly forecast: braille temperature curve + precipitation sparkline."""
+def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None):
+    """Hourly forecast: braille temperature curve + precipitation graph."""
     hourly = data.get("hourly", {})
     times = hourly.get("time", [])
     temps = hourly.get("temperature_2m", [])
@@ -942,27 +995,34 @@ def render_hourly(data, width, n_braille_rows=2, now=None):
 
         lines.append(f" {DIM}{''.join(canvas)}{RESET}")
 
-    # Precipitation sparkline with type-based colors
+    # Precipitation graph with type-based colors
     if window_precip and max(window_precip, default=0) > 5:
-        precip_chars = []
-        for x in range(graph_w):
-            t = x / max(1, graph_w - 1) * max(0, len(window_precip) - 1)
-            lo_i = int(t)
-            hi_i = min(lo_i + 1, len(window_precip) - 1)
-            frac = t - lo_i
-            p = window_precip[lo_i] + (window_precip[hi_i] - window_precip[lo_i]) * frac
+        if n_precip_rows >= 1:
+            # Multi-row block bar graph for precipitation probability
+            precip_lines = _build_precip_blocks(
+                window_precip, window_codes, graph_w, n_precip_rows
+            )
+            lines.extend(precip_lines)
+        else:
+            # Fallback: single sparkline row
+            precip_chars = []
+            for x in range(graph_w):
+                t = x / max(1, graph_w - 1) * max(0, len(window_precip) - 1)
+                lo_i = int(t)
+                hi_i = min(lo_i + 1, len(window_precip) - 1)
+                frac = t - lo_i
+                p = window_precip[lo_i] + (window_precip[hi_i] - window_precip[lo_i]) * frac
 
-            if p > 5:
-                # Determine WMO code at this position for color
-                code_t = x / max(1, graph_w - 1) * max(0, len(window_codes) - 1)
-                code_i = max(0, min(len(window_codes) - 1, int(round(code_t))))
-                wmo = window_codes[code_i] if window_codes else 0
-                color = _precip_color(wmo)
-                idx = max(0, min(7, int(p / 100 * 7.99)))
-                precip_chars.append(f"{color}{SPARKLINE[idx]}")
-            else:
-                precip_chars.append(" ")
-        lines.append(f" {''.join(precip_chars)}{RESET}")
+                if p > 5:
+                    code_t = x / max(1, graph_w - 1) * max(0, len(window_codes) - 1)
+                    code_i = max(0, min(len(window_codes) - 1, int(round(code_t))))
+                    wmo = window_codes[code_i] if window_codes else 0
+                    color = _precip_color(wmo)
+                    idx = max(0, min(7, int(p / 100 * 7.99)))
+                    precip_chars.append(f"{color}{SPARKLINE[idx]}")
+                else:
+                    precip_chars.append(" ")
+            lines.append(f" {''.join(precip_chars)}{RESET}")
 
     return lines
 
@@ -995,8 +1055,27 @@ def render_daily(data, width):
     scale_min = min(all_lo)
     scale_max = max(all_hi)
 
-    # Bar width: adaptive based on terminal width
-    bar_w = max(10, min(30, width - 35))
+    # Measure widest right-side detail text across all days to size bars properly
+    left_prefix_w = 10  # "  Tod  ⛅  " = day(3) + icon(1) + spacing(6)
+    max_right_w = 0
+    for i in range(1, display_end):
+        precip_i = precip_sum[i] if i < len(precip_sum) else 0
+        prob_i = precip_prob[i] if i < len(precip_prob) else 0
+        wind_i = wind_max[i] if i < len(wind_max) else 0
+        wmo_i = wmo_codes[i] if i < len(wmo_codes) else 0
+        right_w = 0
+        if precip_i >= (1 if METRIC else 0.05) or prob_i > 25:
+            if precip_i >= (1 if METRIC else 0.05):
+                ptype = _precip_type(wmo_i)
+                right_w += len(f"  {ptype} {precip_i:.0f}{PRECIP_UNIT}" if METRIC else f"  {ptype} {precip_i:.1f}{PRECIP_UNIT}")
+            if prob_i > 25:
+                right_w += len(f"  {prob_i:.0f}%")
+        if wind_i > (25 if METRIC else 15):
+            right_w += len(f"  Wind {wind_i:.0f}{WIND_UNIT}")
+        max_right_w = max(max_right_w, right_w)
+
+    # Bar gets all remaining width after left prefix, right details, and padding
+    bar_w = max(10, width - left_prefix_w - max_right_w - 2)
 
     # Ensure outside labels always fit
     max_lo_label = max(
@@ -1188,13 +1267,31 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0):
     cols, rows = get_terminal_size()
     now_local = _local_now_for_data(data)
 
-    # Adaptive braille chart height based on terminal height
-    if rows >= 40:
-        n_braille = 4
-    elif rows >= 25:
-        n_braille = 3
+    # Estimate fixed-height sections to budget remaining rows for graphs
+    # Header(1) + blank(1) + hourly_header(1) + peaks(1) + valleys(1)
+    # + tick_labels(1) + comp_line(1) + precip_text(1) + blank(1)
+    # + daily(7) = ~16 fixed lines, plus alerts
+    alerts = fetch_alerts(lat, lng, country_code)
+    alert_lines_est = 0
+    if alerts:
+        alert_lines_est = max(4, len(alerts) * 3)  # rough estimate
+
+    fixed_lines = 16 + alert_lines_est
+    available = max(0, rows - fixed_lines)
+
+    # Distribute available rows between temperature graph and precip graph
+    # Precip gets up to 3 braille rows, temp gets the rest
+    hourly = data.get("hourly", {})
+    has_precip_graph = bool(hourly.get("precipitation_probability")) and max(hourly.get("precipitation_probability", [0])) > 5
+    if has_precip_graph:
+        n_precip_braille = min(3, max(1, available // 6))
+        remaining_for_temp = available - n_precip_braille
     else:
-        n_braille = 2
+        n_precip_braille = 0
+        remaining_for_temp = available
+
+    # Temperature graph: minimum 2 braille rows, grows to fill available space
+    n_braille = max(2, remaining_for_temp)
 
     lines = []
 
@@ -1203,7 +1300,7 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0):
     lines.append("")
 
     # Hourly
-    lines.extend(render_hourly(data, cols, n_braille, now=now_local))
+    lines.extend(render_hourly(data, cols, n_braille, n_precip_braille, now=now_local))
 
     # Comparative line
     comp = _comparative_line(data.get("daily", {}), now_local)
@@ -1221,7 +1318,6 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0):
     lines.extend(render_daily(data, cols))
 
     # Alerts
-    alerts = fetch_alerts(lat, lng, country_code)
     if alerts:
         lines.append("")
         remaining = max(4, rows - len(lines) - 1)
