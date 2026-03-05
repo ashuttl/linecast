@@ -1,0 +1,30 @@
+[project]
+name = "linecast"
+version = "1.0.0"
+description = "Terminal weather, solar arc, and tide visualizations"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+keywords = ["weather", "terminal", "cli", "tides", "solar", "braille", "true-color"]
+classifiers = [
+    "Environment :: Console",
+    "Topic :: Utilities",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+Homepage = "https://github.com/ashuttl/linecast"
+Issues = "https://github.com/ashuttl/linecast/issues"
+
+[project.scripts]
+weather = "linecast.weather:main"
+sunshine = "linecast.sunshine:main"
+tides = "linecast.tides:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/linecast"]
