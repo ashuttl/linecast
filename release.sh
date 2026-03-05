@@ -36,10 +36,19 @@ git push origin main "$TAG"
 echo "Pushed $TAG — waiting for PyPI publish..."
 
 # --- 3. Wait for GitHub Action to succeed ---
-# Give GH Actions a moment to pick up the tag
-sleep 5
+# Wait for GH Actions to pick up the tag
+for i in $(seq 1 30); do
+  RUN_ID=$(gh run list --workflow=publish.yml --branch="$TAG" --limit=1 --json databaseId --jq '.[0].databaseId')
+  if [ -n "$RUN_ID" ]; then
+    break
+  fi
+  if [ "$i" = "30" ]; then
+    echo "Timed out waiting for GitHub Actions to start. Check manually."
+    exit 1
+  fi
+  sleep 5
+done
 
-RUN_ID=$(gh run list --workflow=publish.yml --limit=1 --json databaseId --jq '.[0].databaseId')
 echo "Watching run $RUN_ID..."
 gh run watch "$RUN_ID" --exit-status
 
