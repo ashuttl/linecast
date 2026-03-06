@@ -53,6 +53,10 @@ ALERT_AMBER  = fg(220, 170, 50)
 ALERT_YELLOW = fg(200, 200, 80)
 WIND_COLOR   = fg(140, 150, 170)
 
+# Wind direction arrows: indexed by compass sector (N=0, NE=1, E=2, ... NW=7)
+# Arrow points in the direction the wind is blowing FROM (meteorological convention)
+WIND_ARROWS = "↓↙←↖↑↗→↘"  # N wind blows south, NE blows southwest, etc.
+
 SEP = f"{MUTED} \u00b7 "
 
 # Nerd Font WMO icons
@@ -205,9 +209,10 @@ def fetch_forecast(lat, lng):
             "https://api.open-meteo.com/v1/forecast"
             f"?latitude={lat}&longitude={lng}"
             "&hourly=temperature_2m,apparent_temperature,precipitation,precipitation_probability,"
-            "wind_speed_10m,wind_gusts_10m,weather_code"
+            "wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code"
             "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,"
-            "precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max"
+            "precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max,"
+            "sunrise,sunset"
             f"&temperature_unit={'celsius' if METRIC else 'fahrenheit'}"
             f"&wind_speed_unit={'kmh' if METRIC else 'mph'}"
             f"&precipitation_unit={'mm' if METRIC else 'inch'}"
@@ -462,6 +467,58 @@ def _severity_rgb(severity):
     if severity == "Moderate":
         return (220, 170, 50)
     return (200, 200, 80)
+
+
+def _daylight_factor(col_dt, sun_events):
+    """Return a brightness factor (0.0–1.0) for a given datetime.
+
+    1.0 = full daylight, 0.0 = full night.
+    Transitions smoothly over ~40 minutes at dawn/dusk.
+    sun_events is a list of (sunrise_dt, sunset_dt) tuples for each day.
+    """
+    TRANSITION_MINS = 40
+    best = 0.0
+    for rise, sset in sun_events:
+        if rise is None or sset is None:
+            continue
+        # Minutes relative to sunrise/sunset
+        mins_from_rise = (col_dt - rise).total_seconds() / 60
+        mins_from_set = (col_dt - sset).total_seconds() / 60
+
+        if mins_from_rise >= TRANSITION_MINS and mins_from_set <= -TRANSITION_MINS:
+            # Full day
+            return 1.0
+        elif mins_from_rise < 0 and mins_from_set > 0:
+            # Full night (before sunrise, after sunset)
+            pass
+        else:
+            # In transition zone
+            dawn_f = max(0.0, min(1.0, mins_from_rise / TRANSITION_MINS))
+            dusk_f = max(0.0, min(1.0, -mins_from_set / TRANSITION_MINS))
+            f = min(dawn_f, dusk_f)
+            best = max(best, f)
+    return best
+
+
+def _parse_sun_events(daily):
+    """Parse sunrise/sunset ISO strings from daily data into datetime pairs."""
+    events = []
+    sunrises = daily.get("sunrise", [])
+    sunsets = daily.get("sunset", [])
+    for i in range(max(len(sunrises), len(sunsets))):
+        rise = sunset = None
+        try:
+            if i < len(sunrises) and sunrises[i]:
+                rise = datetime.fromisoformat(sunrises[i])
+        except Exception:
+            pass
+        try:
+            if i < len(sunsets) and sunsets[i]:
+                sunset = datetime.fromisoformat(sunsets[i])
+        except Exception:
+            pass
+        events.append((rise, sunset))
+    return events
 
 
 # ---------------------------------------------------------------------------
@@ -762,10 +819,14 @@ def render_header(data, width, location_name=""):
 def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None):
     """Hourly forecast: braille temperature curve + precipitation graph."""
     hourly = data.get("hourly", {})
+    daily = data.get("daily", {})
     times = hourly.get("time", [])
     temps = hourly.get("temperature_2m", [])
     precip_prob = hourly.get("precipitation_probability", [])
     weather_codes = hourly.get("weather_code", [])
+    wind_speeds = hourly.get("wind_speed_10m", [])
+    wind_directions = hourly.get("wind_direction_10m", [])
+    sun_events = _parse_sun_events(daily)
 
     if not times or not temps:
         return []
@@ -802,6 +863,8 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None):
     window_temps = temps[start_idx:end_idx + 1]
     window_precip = precip_prob[start_idx:end_idx + 1] if precip_prob else []
     window_codes = weather_codes[start_idx:end_idx + 1] if weather_codes else []
+    window_winds = wind_speeds[start_idx:end_idx + 1] if wind_speeds else []
+    window_wind_dirs = wind_directions[start_idx:end_idx + 1] if wind_directions else []
     window_dts = [dt for i, dt in parsed if start_idx <= i <= end_idx]
 
     if len(window_temps) < 2:
@@ -826,6 +889,39 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None):
                 x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
                 if 0 < x < graph_w - 1:
                     midnight_cols.add(x)
+
+    # Sunrise/sunset column positions
+    sunrise_cols = set()
+    sunset_cols = set()
+    if window_dts and sun_events:
+        t0 = window_dts[0]
+        for rise, sset in sun_events:
+            if rise:
+                off_h = (rise - t0).total_seconds() / 3600
+                if 0 < off_h < total_hours:
+                    x = int(off_h / total_hours * (graph_w - 1))
+                    if 0 < x < graph_w - 1:
+                        sunrise_cols.add(x)
+            if sset:
+                off_h = (sset - t0).total_seconds() / 3600
+                if 0 < off_h < total_hours:
+                    x = int(off_h / total_hours * (graph_w - 1))
+                    if 0 < x < graph_w - 1:
+                        sunset_cols.add(x)
+
+    # Per-column daylight factor for brightness modulation
+    col_daylight = []
+    if window_dts and sun_events:
+        for x in range(graph_w):
+            t_frac = x / max(1, graph_w - 1) * max(0, len(window_dts) - 1)
+            lo_i = int(t_frac)
+            hi_i = min(lo_i + 1, len(window_dts) - 1)
+            frac = t_frac - lo_i
+            secs = (window_dts[lo_i] + (window_dts[hi_i] - window_dts[lo_i]) * frac).timestamp()
+            col_dt = datetime.fromtimestamp(secs, tz=window_dts[0].tzinfo) if window_dts[0].tzinfo else datetime.fromtimestamp(secs)
+            col_daylight.append(_daylight_factor(col_dt, sun_events))
+    else:
+        col_daylight = [1.0] * graph_w
 
     # Per-column temperatures for peak/valley labels
     col_temps = []
@@ -925,16 +1021,26 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None):
                     line += text
             lines.append(f"{line}{RESET}")
 
-    # Braille temperature curve with midnight markers
+    # Braille temperature curve with midnight/sunrise/sunset markers
+    # Nighttime dimming: blend toward NIGHT_DIM at night, full brightness in day
+    NIGHT_DIM = 0.45  # nighttime brightness multiplier
     braille_rows = _build_braille_curve(window_temps, graph_w, n_braille_rows)
     for row in braille_rows:
         line = " "
         for ci, (ch, temp) in enumerate(row):
             if ci in midnight_cols and ch == '\u2800':
-                # Empty cell on midnight col: show dim separator line
                 line += f"{DIM}\u2502"
+            elif ci in sunrise_cols and ch == '\u2800':
+                line += f"{fg(200, 160, 60)}\u2502"
+            elif ci in sunset_cols and ch == '\u2800':
+                line += f"{fg(200, 100, 50)}\u2502"
             else:
                 r, g, b = _temp_color(temp)
+                dl = col_daylight[ci] if ci < len(col_daylight) else 1.0
+                brightness = NIGHT_DIM + (1.0 - NIGHT_DIM) * dl
+                r = int(r * brightness)
+                g = int(g * brightness)
+                b = int(b * brightness)
                 line += f"{fg(r, g, b)}{ch}"
         lines.append(f"{line}{RESET}")
 
@@ -994,6 +1100,39 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None):
             last_end = x + len(tick_label) + 1
 
         lines.append(f" {DIM}{''.join(canvas)}{RESET}")
+
+    # Wind row — only shown when high wind exists, only at high-wind positions
+    wind_threshold = 25 if METRIC else 15
+    if window_winds and max(window_winds, default=0) > wind_threshold:
+        wind_canvas = [" "] * graph_w
+        # Sample every ~3 hours
+        sample_interval = max(1, int(3 / total_hours * (graph_w - 1))) if total_hours > 0 else 6
+        for x in range(0, graph_w, max(1, sample_interval)):
+            # Interpolate wind speed and direction at this column
+            t = x / max(1, graph_w - 1) * max(0, len(window_winds) - 1)
+            lo_i = int(t)
+            hi_i = min(lo_i + 1, len(window_winds) - 1)
+            frac = t - lo_i
+            speed = window_winds[lo_i] + (window_winds[hi_i] - window_winds[lo_i]) * frac
+            if speed <= wind_threshold:
+                continue
+            # Direction (nearest sample, not interpolated — direction doesn't interpolate well)
+            dir_i = max(0, min(len(window_wind_dirs) - 1, int(round(t)))) if window_wind_dirs else 0
+            deg = window_wind_dirs[dir_i] if window_wind_dirs else 0
+            sector = int((deg + 22.5) / 45) % 8
+            arrow = WIND_ARROWS[sector]
+            label = f"{arrow}{speed:.0f}"
+            # Place label centered on sample position
+            start = max(0, x - len(label) // 2)
+            if start + len(label) > graph_w:
+                start = graph_w - len(label)
+            # Check for overlap with existing content
+            if all(wind_canvas[start + j] == " " for j in range(len(label)) if start + j < graph_w):
+                for j, ch in enumerate(label):
+                    if start + j < graph_w:
+                        wind_canvas[start + j] = ch
+        if any(c != " " for c in wind_canvas):
+            lines.append(f" {WIND_COLOR}{''.join(wind_canvas)}{RESET}")
 
     # Precipitation graph with type-based colors
     if window_precip and max(window_precip, default=0) > 5:
@@ -1269,14 +1408,14 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0):
 
     # Estimate fixed-height sections to budget remaining rows for graphs
     # Header(1) + blank(1) + hourly_header(1) + peaks(1) + valleys(1)
-    # + tick_labels(1) + comp_line(1) + precip_text(1) + blank(1)
-    # + daily(7) = ~16 fixed lines, plus alerts
+    # + tick_labels(1) + wind_row(1) + comp_line(1) + precip_text(1) + blank(1)
+    # + daily(7) = ~17 fixed lines, plus alerts
     alerts = fetch_alerts(lat, lng, country_code)
     alert_lines_est = 0
     if alerts:
         alert_lines_est = max(4, len(alerts) * 3)  # rough estimate
 
-    fixed_lines = 16 + alert_lines_est
+    fixed_lines = 17 + alert_lines_est
     available = max(0, rows - fixed_lines)
 
     # Distribute available rows between temperature graph and precip graph
