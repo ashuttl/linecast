@@ -7,7 +7,7 @@ Temperature-driven color palette, Nerd Font icons, clean column alignment.
 
 Alerts are sourced from NWS (US) and Environment Canada (CA).
 
-Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji] [--celsius/--metric]
+Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji] [--celsius/--metric] [--shading]
 """
 
 import json, os, sys, time as _time, urllib.request
@@ -95,6 +95,10 @@ def _use_metric():
     """Check if metric/Celsius mode is requested (--celsius/--metric flag or WEATHER_UNITS=metric)."""
     return ("--celsius" in sys.argv or "--metric" in sys.argv
             or os.environ.get("WEATHER_UNITS", "").lower() == "metric")
+
+def _use_shading():
+    """Check if day/night background shading is requested (--shading flag or WEATHER_SHADING=1)."""
+    return "--shading" in sys.argv or os.environ.get("WEATHER_SHADING", "").lower() in ("1", "true", "yes")
 
 METRIC = _use_metric()
 TEMP_UNIT = "°C" if METRIC else "°F"
@@ -880,19 +884,23 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None):
         total_secs = (window_dts[-1] - window_dts[0]).total_seconds()
         total_hours = total_secs / 3600 if total_secs > 0 else 24
 
-    # Midnight column positions for vertical markers
+    # Time-of-day column markers: midnight, noon
     midnight_cols = set()
+    noon_cols = set()
     if window_dts:
         for h_off in range(int(total_hours) + 1):
             dt = window_dts[0] + timedelta(hours=h_off)
-            if dt.hour == 0:
-                x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
-                if 0 < x < graph_w - 1:
+            x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
+            if 0 < x < graph_w - 1:
+                if dt.hour == 0:
                     midnight_cols.add(x)
+                elif dt.hour == 12:
+                    noon_cols.add(x)
 
-    # Sunrise/sunset column positions
-    sunrise_cols = set()
-    sunset_cols = set()
+    # Sunrise/sunset column positions and formatted times (for tick labels)
+    sun_labels = {}  # col -> (label_str, is_rise)
+    _sunrise_icon = "\u2600\ufe0f" if _use_emoji() else "\ue34c"
+    _sunset_icon = "\U0001f305" if _use_emoji() else "\ue34d"
     if window_dts and sun_events:
         t0 = window_dts[0]
         for rise, sset in sun_events:
@@ -901,15 +909,17 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None):
                 if 0 < off_h < total_hours:
                     x = int(off_h / total_hours * (graph_w - 1))
                     if 0 < x < graph_w - 1:
-                        sunrise_cols.add(x)
+                        lbl = rise.strftime("%-I:%M%p").lower().replace("am", "a").replace("pm", "p")
+                        sun_labels[x] = (f"{_sunrise_icon}{lbl}", True)
             if sset:
                 off_h = (sset - t0).total_seconds() / 3600
                 if 0 < off_h < total_hours:
                     x = int(off_h / total_hours * (graph_w - 1))
                     if 0 < x < graph_w - 1:
-                        sunset_cols.add(x)
+                        lbl = sset.strftime("%-I:%M%p").lower().replace("am", "a").replace("pm", "p")
+                        sun_labels[x] = (f"{_sunset_icon}{lbl}", False)
 
-    # Per-column daylight factor for brightness modulation
+    # Per-column daylight factor for background tinting
     col_daylight = []
     if window_dts and sun_events:
         for x in range(graph_w):
@@ -976,24 +986,57 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None):
                 if 0 < x < graph_w - 1:
                     midnight_day_names[x] = dt.strftime("%A")
 
-    # "Today" label with chart temperature range
+    # "Today" label with chart temperature range, day names, and sunrise/sunset times
     today_left = f" {TEXT}Today"
     today_right = f"{_colored_temp(chart_lo, '°')} {TEXT}\u2192 {_colored_temp(chart_hi, TEMP_UNIT)}"
-    # Insert day names at midnight column positions
-    if midnight_day_names:
-        # Build padded label area between "Today" and the temp range
+    if midnight_day_names or sun_labels:
         label_start = visible_len(today_left)
         right_len = visible_len(today_right) + 2
         avail = width - right_len
-        mid_section = [" "] * max(0, avail - label_start)
+        mid_w = max(0, avail - label_start)
+
+        # Build a canvas and a color layer for the mid section
+        mid_canvas = [" "] * mid_w
+        mid_colors = [None] * mid_w  # None = default TEXT, or (r,g,b) tuple
+
+        # Place day names (plain text color)
         for col, name in sorted(midnight_day_names.items()):
             pos = col + 1 - label_start  # +1 for leading margin
-            if pos >= 0 and pos + len(name) <= len(mid_section):
+            if pos >= 0 and pos + len(name) <= mid_w:
                 for j, c in enumerate(name):
-                    mid_section[pos + j] = c
-        mid_str = "".join(mid_section)
-        pad = width - visible_len(today_left) - visible_len(mid_str) - visible_len(today_right) - 2
-        lines.append(f"{today_left}{TEXT}{mid_str}{' ' * max(0, pad)}{today_right} {RESET}")
+                    mid_canvas[pos + j] = c
+
+        # Place sunrise/sunset labels (colored)
+        for col, (lbl, is_rise) in sorted(sun_labels.items()):
+            pos = col + 1 - label_start
+            if pos < 0:
+                pos = 0
+            if pos + len(lbl) > mid_w:
+                continue
+            # Check no overlap
+            if all(mid_canvas[pos + j] == " " for j in range(len(lbl))):
+                color = (200, 160, 60) if is_rise else (200, 100, 50)
+                for j, c in enumerate(lbl):
+                    mid_canvas[pos + j] = c
+                    mid_colors[pos + j] = color
+
+        # Build colored mid string
+        mid_str = ""
+        cur_color = None
+        for i in range(mid_w):
+            c = mid_colors[i]
+            if c != cur_color:
+                if c is None:
+                    mid_str += f"{TEXT}"
+                else:
+                    mid_str += f"{fg(*c)}"
+                cur_color = c
+            mid_str += mid_canvas[i]
+        if cur_color is not None:
+            mid_str += f"{TEXT}"
+
+        pad = width - visible_len(today_left) - mid_w - visible_len(today_right) - 2
+        lines.append(f"{today_left}{mid_str}{' ' * max(0, pad)}{today_right} {RESET}")
     else:
         pad = width - visible_len(today_left) - visible_len(today_right) - 2
         lines.append(f"{today_left}{' ' * max(1, pad)}{today_right} {RESET}")
@@ -1021,27 +1064,40 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None):
                     line += text
             lines.append(f"{line}{RESET}")
 
-    # Braille temperature curve with midnight/sunrise/sunset markers
-    # Nighttime dimming: blend toward NIGHT_DIM at night, full brightness in day
-    NIGHT_DIM = 0.45  # nighttime brightness multiplier
+    # Braille temperature curve with optional day/night background shading
+    shading = _use_shading()
+    NIGHT_DIM = 0.6  # nighttime brightness multiplier (non-shading mode)
+    MIDNIGHT_FG = fg(50, 30, 80)     # deep midnight purple
+    NOON_FG     = fg(100, 120, 150)  # whitish-blue sky, muted
+    BG_NIGHT = (12, 12, 22)   # barely-there deep navy
+    BG_DAY   = (18, 22, 32)   # subtle cool sky tint
+
     braille_rows = _build_braille_curve(window_temps, graph_w, n_braille_rows)
     for row in braille_rows:
         line = " "
         for ci, (ch, temp) in enumerate(row):
-            if ci in midnight_cols and ch == '\u2800':
-                line += f"{DIM}\u2502"
-            elif ci in sunrise_cols and ch == '\u2800':
-                line += f"{fg(200, 160, 60)}\u2502"
-            elif ci in sunset_cols and ch == '\u2800':
-                line += f"{fg(200, 100, 50)}\u2502"
+            dl = col_daylight[ci] if ci < len(col_daylight) else 1.0
+
+            if shading:
+                br = int(BG_NIGHT[0] + (BG_DAY[0] - BG_NIGHT[0]) * dl)
+                bg_g = int(BG_NIGHT[1] + (BG_DAY[1] - BG_NIGHT[1]) * dl)
+                bb = int(BG_NIGHT[2] + (BG_DAY[2] - BG_NIGHT[2]) * dl)
+                bg_str = bg(br, bg_g, bb)
+
+                if ci in midnight_cols and ch == '\u2800':
+                    line += f"{bg_str}{MIDNIGHT_FG}\u2502{RESET}"
+                elif ci in noon_cols and ch == '\u2800':
+                    line += f"{bg_str}{NOON_FG}\u2502{RESET}"
+                else:
+                    r, g, b = _temp_color(temp)
+                    line += f"{bg_str}{fg(r, g, b)}{ch}{RESET}"
             else:
-                r, g, b = _temp_color(temp)
-                dl = col_daylight[ci] if ci < len(col_daylight) else 1.0
-                brightness = NIGHT_DIM + (1.0 - NIGHT_DIM) * dl
-                r = int(r * brightness)
-                g = int(g * brightness)
-                b = int(b * brightness)
-                line += f"{fg(r, g, b)}{ch}"
+                if ci in midnight_cols and ch == '\u2800':
+                    line += f"{DIM}\u2502"
+                else:
+                    r, g, b = _temp_color(temp)
+                    brightness = NIGHT_DIM + (1.0 - NIGHT_DIM) * dl
+                    line += f"{fg(int(r*brightness), int(g*brightness), int(b*brightness))}{ch}"
         lines.append(f"{line}{RESET}")
 
     # Valley annotations (below braille curve)
