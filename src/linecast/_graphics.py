@@ -418,6 +418,14 @@ def _read_key():
                     seq += c
                     if c.isalpha() or c == '~':
                         break
+                # SGR mouse event: \033[<Cb;Cx;CyM or \033[<Cb;Cx;Cym
+                if seq.startswith('<') and seq[-1:] in ('M', 'm'):
+                    try:
+                        parts = seq[1:-1].split(';')
+                        cb, cx, cy = int(parts[0]), int(parts[1]), int(parts[2])
+                        return ('mouse', cb, cx, cy, seq[-1] == 'm')
+                    except (ValueError, IndexError):
+                        return None
                 final = seq[-1:] if seq else ''
                 return {'A': 'fwd', 'B': 'back', 'C': 'fwd', 'D': 'back'}.get(final)
             elif ch2 == 'O':
@@ -433,12 +441,14 @@ def _read_key():
     return None
 
 
-def live_loop(render_fn, interval=60):
+def live_loop(render_fn, interval=60, mouse=False):
     """Run render_fn() in a loop on the alternate screen buffer.
 
     render_fn: callable(offset_minutes=0) returning the display string.
+               If mouse=True, also receives mouse_pos=(col, row) or None.
                Scroll/arrow keys adjust offset_minutes to scrub through time.
     interval: seconds between refreshes.
+    mouse: if True, enable SGR mouse tracking and pass mouse_pos to render_fn.
     Re-renders immediately on terminal resize (SIGWINCH) or input.
     """
     import select, signal, termios, threading, tty
@@ -446,18 +456,36 @@ def live_loop(render_fn, interval=60):
     wake = threading.Event()
     signal.signal(signal.SIGWINCH, lambda *_: wake.set())
 
+    # Terminal.app lacks SGR mouse support; disable gracefully
+    if mouse and os.environ.get('TERM_PROGRAM') == 'Apple_Terminal':
+        mouse = False
+
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     offset = 0
+    mouse_pos = None
 
-    sys.stdout.write("\033[?1049h\033[?25l")  # alt screen + hide cursor
+    init = "\033[?1049h\033[?25l"
+    if mouse:
+        init += "\033[?1003h\033[?1006h"
+    sys.stdout.write(init)
     sys.stdout.flush()
     try:
         tty.setcbreak(fd)
 
         while True:
-            output = render_fn(offset_minutes=offset)
-            sys.stdout.write(f"\033[2J\033[H{output}\033[0m")
+            if mouse:
+                output = render_fn(offset_minutes=offset, mouse_pos=mouse_pos)
+            else:
+                output = render_fn(offset_minutes=offset)
+            # Separate cursor-positioned overlay from main output (\x00 delimiter)
+            parts = output.split('\x00', 1)
+            main_out = parts[0]
+            overlay = parts[1] if len(parts) > 1 else ""
+            # \033[H homes cursor; \033[K clears line remainders;
+            # \033[J clears below; overlay draws on top after clear
+            padded = main_out.replace('\n', '\033[K\n')
+            sys.stdout.write(f"\033[H{padded}\033[K\033[J\033[0m{overlay}\033[0m")
             sys.stdout.flush()
             wake.clear()
 
@@ -484,9 +512,21 @@ def live_loop(render_fn, interval=60):
                     elif action == 'reset':
                         offset = 0
                         break
+                    elif mouse and isinstance(action, tuple) and action[0] == 'mouse':
+                        _, cb, cx, cy, _is_rel = action
+                        if cb in (64, 65):
+                            offset += 15 if cb == 64 else -15
+                            break
+                        if cb & 32:  # motion
+                            mouse_pos = (cx, cy)
+                            break
     except (KeyboardInterrupt, SystemExit):
         pass
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        sys.stdout.write("\033[?25h\033[?1049l")  # show cursor + restore screen
+        cleanup = ""
+        if mouse:
+            cleanup += "\033[?1003l\033[?1006l"
+        cleanup += "\033[?25h\033[?1049l"
+        sys.stdout.write(cleanup)
         sys.stdout.flush()

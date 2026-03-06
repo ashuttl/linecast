@@ -169,12 +169,13 @@ def _build_braille_curve(temps, graph_w, n_rows=2):
     return result
 
 
-def _build_precip_blocks(precip_probs, weather_codes, graph_w, n_rows=1):
+def _build_precip_blocks(precip_probs, weather_codes, graph_w, n_rows=1, indicator_cols=None):
     """Build multi-row block bar graph for precipitation probability.
 
     Returns a list of rendered line strings (n_rows lines).
     Bars grow upward from the bottom using partial block characters (▁▂▃▄▅▆▇█),
     giving 8 levels of vertical resolution per character row.
+    indicator_cols: set of 0-based graph columns to draw │ where cell is empty.
     """
     total_eighths = n_rows * 8  # total vertical resolution units
 
@@ -200,20 +201,20 @@ def _build_precip_blocks(precip_probs, weather_codes, graph_w, n_rows=1):
         row_top = row_bottom + 8             # eighths at top of this row
         for x in range(graph_w):
             p = col_probs[x]
-            if p <= 5:
-                line += " "
-                continue
-            # Bar height in eighths (0 to total_eighths)
-            bar_h = max(1, int(p / 100 * total_eighths + 0.5))
-            if bar_h <= row_bottom:
-                # Bar doesn't reach this row
-                line += " "
+            is_empty = p <= 5
+            if not is_empty:
+                bar_h = max(1, int(p / 100 * total_eighths + 0.5))
+                is_empty = bar_h <= row_bottom
+
+            if is_empty:
+                if indicator_cols and x in indicator_cols:
+                    line += f"{DIM}\u2502"
+                else:
+                    line += " "
             elif bar_h >= row_top:
-                # Bar fills this row completely
                 color = _precip_color(col_codes[x])
                 line += f"{color}\u2588"
             else:
-                # Bar partially fills this row
                 eighths_in_row = bar_h - row_bottom  # 1-7
                 color = _precip_color(col_codes[x])
                 line += f"{color}{SPARKLINE[eighths_in_row - 1]}"
@@ -242,6 +243,7 @@ def _prepare_hourly_window(hourly, now, graph_w):
     weather_codes = hourly.get("weather_code", [])
     wind_speeds = hourly.get("wind_speed_10m", [])
     wind_directions = hourly.get("wind_direction_10m", [])
+    apparent_temps = hourly.get("apparent_temperature", [])
     if not times or not temps:
         return None
 
@@ -274,6 +276,7 @@ def _prepare_hourly_window(hourly, now, graph_w):
     window_codes = weather_codes[start_idx:end_idx + 1] if weather_codes else []
     window_winds = wind_speeds[start_idx:end_idx + 1] if wind_speeds else []
     window_wind_dirs = wind_directions[start_idx:end_idx + 1] if wind_directions else []
+    window_apparent = apparent_temps[start_idx:end_idx + 1] if apparent_temps else []
     window_dts = [dt for i, dt in parsed if start_idx <= i <= end_idx]
 
     total_hours = 24
@@ -287,6 +290,7 @@ def _prepare_hourly_window(hourly, now, graph_w):
         "codes": window_codes,
         "winds": window_winds,
         "wind_dirs": window_wind_dirs,
+        "apparent_temps": window_apparent,
         "dts": window_dts,
         "total_hours": total_hours,
     }
@@ -525,15 +529,15 @@ def _compute_extrema_overlays(extrema, col_temps, n_rows, graph_w, runtime):
     return overlays
 
 
-def _render_braille_rows(braille_rows, col_daylight, midnight_cols, noon_cols, runtime,
-                         overlays=None):
+def _render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime,
+                         overlays=None, hover_col=None):
     """Render braille temperature rows with optional day/night shading."""
     if overlays is None:
         overlays = {}
     shading = runtime.shading
     night_dim = 0.6
-    midnight_fg = fg(50, 30, 80)
-    noon_fg = fg(100, 120, 150)
+    midnight_fg = DIM
+    hover_fg = fg(80, 90, 120)
     bg_night = (12, 12, 22)
     bg_day = (18, 22, 32)
 
@@ -563,22 +567,28 @@ def _render_braille_rows(braille_rows, col_daylight, midnight_cols, noon_cols, r
                     line += f"{fg(*oc_color)}{oc}"
                 continue
 
+            # Pick indicator color for empty cells (hover > midnight)
+            indicator = None
+            if ch == '\u2800':
+                if hover_col is not None and ci == hover_col:
+                    indicator = hover_fg
+                elif ci in midnight_cols:
+                    indicator = midnight_fg
+
             if shading:
                 br = int(bg_night[0] + (bg_day[0] - bg_night[0]) * dl)
                 bg_g = int(bg_night[1] + (bg_day[1] - bg_night[1]) * dl)
                 bb = int(bg_night[2] + (bg_day[2] - bg_night[2]) * dl)
                 bg_str = bg(br, bg_g, bb)
 
-                if ci in midnight_cols and ch == '\u2800':
-                    line += f"{bg_str}{midnight_fg}\u2502{RESET}"
-                elif ci in noon_cols and ch == '\u2800':
-                    line += f"{bg_str}{noon_fg}\u2502{RESET}"
+                if indicator:
+                    line += f"{bg_str}{indicator}\u2502{RESET}"
                 else:
                     r, g, b = _temp_color(temp, runtime)
                     line += f"{bg_str}{fg(r, g, b)}{ch}{RESET}"
             else:
-                if ci in midnight_cols and ch == '\u2800':
-                    line += f"{DIM}\u2502"
+                if indicator:
+                    line += f"{indicator}\u2502"
                 else:
                     r, g, b = _temp_color(temp, runtime)
                     brightness = night_dim + (1.0 - night_dim) * dl
@@ -587,7 +597,7 @@ def _render_braille_rows(braille_rows, col_daylight, midnight_cols, noon_cols, r
     return lines
 
 
-def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None):
+def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None, hover_col=None):
     """Render compact timeline tick labels under the chart."""
     if not window_dts:
         return None
@@ -618,6 +628,8 @@ def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None):
             if x + j < graph_w:
                 canvas[x + j] = c
         last_end = x + len(tick_label) + 1
+    if hover_col is not None and 0 <= hover_col < graph_w and canvas[hover_col] == " ":
+        canvas[hover_col] = "\u2502"
     return f" {DIM}{''.join(canvas)}{RESET}"
 
 
@@ -656,18 +668,22 @@ def _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runti
     return None
 
 
-def _render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows):
+def _render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows, indicator_cols=None):
     """Render precipitation probability graph rows."""
     if not window_precip or max(window_precip, default=0) <= 5:
         return []
     if n_precip_rows >= 1:
-        return _build_precip_blocks(window_precip, window_codes, graph_w, n_precip_rows)
+        return _build_precip_blocks(window_precip, window_codes, graph_w, n_precip_rows,
+                                    indicator_cols=indicator_cols)
 
     precip_chars = []
     col_precip = _interpolate_columns(window_precip, graph_w)
     for x, p in enumerate(col_precip):
         if p <= 5:
-            precip_chars.append(" ")
+            if indicator_cols and x in indicator_cols:
+                precip_chars.append(f"{DIM}\u2502")
+            else:
+                precip_chars.append(" ")
             continue
         code_t = x / max(1, graph_w - 1) * max(0, len(window_codes) - 1)
         code_i = max(0, min(len(window_codes) - 1, int(round(code_t))))
@@ -678,7 +694,7 @@ def _render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows):
     return [f" {''.join(precip_chars)}{RESET}"]
 
 
-def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runtime=None):
+def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runtime=None, hover_col=None):
     """Hourly forecast: braille temperature curve + precipitation graph."""
     if runtime is None:
         runtime = WeatherRuntime.from_sources()
@@ -702,7 +718,7 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     chart_lo = min(window_temps)
     chart_hi = max(window_temps)
 
-    midnight_cols, noon_cols, midnight_day_names = _compute_time_markers(
+    midnight_cols, _noon_cols, midnight_day_names = _compute_time_markers(
         window_dts, total_hours, graph_w, runtime
     )
     sun_labels = _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime)
@@ -723,9 +739,10 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
 
     braille_rows = _build_braille_curve(window_temps, graph_w, n_braille_rows)
     overlays = _compute_extrema_overlays(extrema, col_temps, n_braille_rows, graph_w, runtime)
-    lines.extend(_render_braille_rows(braille_rows, col_daylight, midnight_cols, noon_cols, runtime, overlays))
+    lines.extend(_render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime, overlays,
+                                       hover_col=hover_col))
 
-    tick_line = _render_tick_labels(window_dts, total_hours, graph_w, runtime)
+    tick_line = _render_tick_labels(window_dts, total_hours, graph_w, runtime, hover_col=hover_col)
     if tick_line:
         lines.append(tick_line)
 
@@ -733,5 +750,10 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     if wind_line:
         lines.append(wind_line)
 
-    lines.extend(_render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows))
+    # Indicator columns for precip: midnight dividers + hover
+    indicator_cols = set(midnight_cols)
+    if hover_col is not None:
+        indicator_cols.add(hover_col)
+    lines.extend(_render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows,
+                                     indicator_cols=indicator_cols if indicator_cols else None))
     return lines

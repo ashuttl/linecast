@@ -13,7 +13,7 @@ Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji] [--celsiu
 import os
 import sys
 
-from linecast._graphics import get_terminal_size, live_loop
+from linecast._graphics import bg, fg, get_terminal_size, live_loop, visible_len
 from linecast._location import get_location
 from linecast._runtime import WeatherRuntime, arg_value, has_flag
 from linecast._weather_i18n import (
@@ -96,7 +96,102 @@ from linecast._weather_sources import (
 )
 
 
-def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0):
+def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, cols, rows, runtime):
+    """Build a tooltip overlay for mouse hover on the hourly chart.
+
+    Returns cursor-positioned escape sequences to draw the tooltip, or "".
+    mouse_col/mouse_row are 1-based terminal coordinates.
+    hourly_start/hourly_end are 0-based line indices in the output.
+    """
+    # Check if mouse is over the hourly section (convert 1-based row to 0-based)
+    line_idx = mouse_row - 1
+    if not (hourly_start <= line_idx < hourly_end):
+        return ""
+
+    graph_w = max(10, cols - 2)
+    graph_col = mouse_col - 2  # 1-based terminal col → 0-based graph col (1 char margin)
+    if graph_col < 0 or graph_col >= graph_w:
+        return ""
+
+    hourly = data.get("hourly", {})
+    now = _local_now_for_data(data)
+    window = _prepare_hourly_window(hourly, now, graph_w)
+    if window is None:
+        return ""
+
+    # Map graph column to nearest hour index (use int() to match midnight divider formula)
+    n = len(window["temps"])
+    total_hours = window["total_hours"]
+    idx = int(graph_col / max(1, graph_w - 1) * total_hours + 0.5)
+    idx = max(0, min(n - 1, idx))
+
+    dt = window["dts"][idx] if idx < len(window["dts"]) else None
+    temp = window["temps"][idx]
+    apparent = window["apparent_temps"][idx] if idx < len(window.get("apparent_temps", [])) else None
+    code = window["codes"][idx] if idx < len(window["codes"]) else 0
+    wind = window["winds"][idx] if idx < len(window["winds"]) else 0
+    wind_dir = window["wind_dirs"][idx] if idx < len(window["wind_dirs"]) else 0
+
+    TBG = bg(0, 0, 0)
+    TFG = fg(200, 205, 215)
+
+    lines = []
+
+    # Time
+    if dt:
+        time_str = _fmt_time(dt, use_24h=runtime.metric)
+        lines.append(f"{TBG}{TFG} {time_str} ")
+
+    # Temperature + feels like
+    temp_line = f"{TBG} {_colored_temp(temp, runtime, '\u00b0')}"
+    if apparent is not None and abs(apparent - temp) >= 3:
+        temp_line += f" {TFG}feels {_colored_temp(apparent, runtime, '\u00b0')}"
+    temp_line += " "
+    lines.append(temp_line)
+
+    # Weather description
+    wmo_name = WMO_NAMES_I18N.get(runtime.lang, {}).get(code) or WMO_NAMES.get(code, "")
+    if wmo_name:
+        lines.append(f"{TBG}{TFG} {wmo_name} ")
+
+    # Wind (if notable)
+    wind_threshold = 25 if runtime.metric else 15
+    if wind > wind_threshold:
+        sector = int((wind_dir + 22.5) / 45) % 8
+        arrow = WIND_ARROWS[sector]
+        lines.append(f"{TBG}{TFG} {arrow} {wind:.0f}{runtime.wind_unit} ")
+
+    if not lines:
+        return ""
+
+    # Pad all lines to the same visible width
+    max_w = max(visible_len(line) for line in lines)
+    padded = []
+    for line in lines:
+        pad = max_w - visible_len(line)
+        padded.append(f"{line}{' ' * pad}{RESET}")
+
+    # Snapped hour column (1-based terminal col) — use int() to match midnight divider formula
+    snap_col = int(idx / max(1, total_hours) * (graph_w - 1)) + 2
+
+    # Position: top-left anchored to snapped column, pushed inward at edges
+    tooltip_w = max_w
+    tooltip_h = len(padded)
+    tooltip_col = snap_col
+    tooltip_row = mouse_row
+    if tooltip_col + tooltip_w - 1 > cols:
+        tooltip_col = max(1, cols - tooltip_w + 1)
+    if tooltip_row + tooltip_h - 1 > rows:
+        tooltip_row = max(1, rows - tooltip_h + 1)
+
+    # Tooltip
+    result = ""
+    for i, line in enumerate(padded):
+        result += f"\033[{tooltip_row + i};{tooltip_col}H{line}"
+    return result
+
+
+def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, mouse_pos=None):
     """Build the complete weather dashboard from preloaded data."""
     if not data:
         return f"{TEXT}Could not fetch weather data.{RESET}"
@@ -139,17 +234,38 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0):
     lines.append(render_header(data, cols, location_name, runtime=runtime))
     lines.append("")
 
-    # Hourly
-    lines.extend(
-        render_hourly(
-            data,
-            cols,
-            n_braille_rows=n_braille,
-            n_precip_rows=n_precip_braille,
-            now=now_local,
-            runtime=runtime,
-        )
+    # Hourly — first pass without hover to establish line boundaries
+    hourly_start = len(lines)
+    hourly_lines = render_hourly(
+        data, cols, n_braille_rows=n_braille, n_precip_rows=n_precip_braille,
+        now=now_local, runtime=runtime,
     )
+    hourly_end = hourly_start + len(hourly_lines)
+
+    # Compute hover column only if mouse is within hourly section
+    hover_graph_col = None
+    if mouse_pos:
+        mouse_row_idx = mouse_pos[1] - 1  # 1-based → 0-based
+        if hourly_start <= mouse_row_idx < hourly_end:
+            graph_w = max(10, cols - 2)
+            mouse_col_raw = mouse_pos[0] - 2  # 1-based terminal col → 0-based graph col
+            if 0 <= mouse_col_raw < graph_w:
+                window = _prepare_hourly_window(hourly, now_local, graph_w)
+                if window:
+                    n = len(window["temps"])
+                    total_hours = window["total_hours"]
+                    idx = int(mouse_col_raw / max(1, graph_w - 1) * total_hours + 0.5)
+                    idx = max(0, min(n - 1, idx))
+                    hover_graph_col = int(idx / max(1, total_hours) * (graph_w - 1))
+
+    # Re-render hourly with hover indicator if needed
+    if hover_graph_col is not None:
+        hourly_lines = render_hourly(
+            data, cols, n_braille_rows=n_braille, n_precip_rows=n_precip_braille,
+            now=now_local, runtime=runtime, hover_col=hover_graph_col,
+        )
+
+    lines.extend(hourly_lines)
 
     # Comparative line
     comp = _comparative_line(data.get("daily", {}), now_local, runtime)
@@ -179,10 +295,22 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0):
             alert_lines = render_alerts(alerts, width=cols, remaining_rows=remaining, runtime=runtime)
         lines.extend(alert_lines)
 
-    return "\n".join(lines)
+    output = "\n".join(lines)
+
+    if mouse_pos:
+        mouse_col, mouse_row = mouse_pos
+        overlay = _build_hover_tooltip(
+            data, mouse_col, mouse_row,
+            hourly_start, hourly_end,
+            cols, rows, runtime,
+        )
+        if overlay:
+            output += "\x00" + overlay
+
+    return output
 
 
-def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtime=None, data=None, alerts=None):
+def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtime=None, data=None, alerts=None, mouse_pos=None):
     """Build the complete weather dashboard."""
     if runtime is None:
         runtime = WeatherRuntime.from_sources()
@@ -190,7 +318,7 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtim
         data = fetch_forecast(lat, lng, runtime)
     if alerts is None:
         alerts = fetch_alerts(lat, lng, country_code, lang=runtime.lang)
-    return render_from_data(data, alerts, runtime, location_name=location_name, offset_minutes=offset_minutes)
+    return render_from_data(data, alerts, runtime, location_name=location_name, offset_minutes=offset_minutes, mouse_pos=mouse_pos)
 
 
 # ---------------------------------------------------------------------------
@@ -271,15 +399,17 @@ def main():
 
     if runtime.live:
         live_loop(
-            lambda offset_minutes=0: render(
+            lambda offset_minutes=0, mouse_pos=None: render(
                 lat,
                 lng,
                 location_name,
                 final_country,
                 offset_minutes=offset_minutes,
                 runtime=runtime,
+                mouse_pos=mouse_pos,
             ),
             interval=300,
+            mouse=True,
         )
     else:
         print(
