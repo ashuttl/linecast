@@ -22,9 +22,9 @@ from linecast._cache import (
     CACHE_ROOT, read_cache, read_stale, write_cache, location_cache_key,
 )
 from linecast._location import get_location
+from linecast import USER_AGENT
 
 CACHE_DIR = CACHE_ROOT / "weather"
-USER_AGENT = "linecast/1.0"
 
 # ---------------------------------------------------------------------------
 # Palette

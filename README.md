@@ -54,6 +54,14 @@ tides --search "Bar Harbor"      # find stations by name
 tides --live                     # full-screen
 ```
 
+All commands are also available under the `linecast` namespace if the short names conflict with other tools on your system:
+
+```
+linecast weather --live
+linecast sunshine
+linecast tides --station 8413320
+```
+
 ## Weather alerts
 
 Alerts are sourced automatically based on your location:

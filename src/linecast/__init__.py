@@ -5,3 +5,5 @@ try:
     __version__ = version("linecast")
 except Exception:
     __version__ = "dev"
+
+USER_AGENT = f"linecast/{__version__}"

@@ -4,6 +4,7 @@ import json, time, urllib.request
 from pathlib import Path
 
 from linecast._cache import CACHE_ROOT
+from linecast import USER_AGENT
 
 _CACHE_FILE = CACHE_ROOT / "location.json"
 _MAX_AGE = 3600  # 1 hour; implicit IP geolocation should refresh as users move.
@@ -27,7 +28,7 @@ def get_location():
     try:
         req = urllib.request.Request(
             "https://ipinfo.io/json",
-            headers={"Accept": "application/json", "User-Agent": "linecast/1.0"},
+            headers={"Accept": "application/json", "User-Agent": USER_AGENT},
         )
         resp = urllib.request.urlopen(req, timeout=3)
         d = json.loads(resp.read())

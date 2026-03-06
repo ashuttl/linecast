@@ -19,6 +19,7 @@ Homepage = "https://github.com/ashuttl/linecast"
 Issues = "https://github.com/ashuttl/linecast/issues"
 
 [project.scripts]
+linecast = "linecast.__main__:main"
 weather = "linecast.weather:main"
 sunshine = "linecast.sunshine:main"
 tides = "linecast.tides:main"

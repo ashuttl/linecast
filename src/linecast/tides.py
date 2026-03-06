@@ -23,9 +23,9 @@ from linecast._graphics import (
 )
 from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, read_stale, write_cache
 from linecast._location import get_location
+from linecast import USER_AGENT
 
 CACHE_DIR = CACHE_ROOT / "tides"
-USER_AGENT = "linecast/1.0"
 NEAREST_STATION_CACHE_MAX_AGE = 3600
 
 # ---------------------------------------------------------------------------
