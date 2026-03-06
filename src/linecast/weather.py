@@ -296,21 +296,6 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
         for i in range(len(alert_lines)):
             alert_row_map[alert_start + i] = i
 
-    # Hover highlight on alert rows (in --live mode with mouse)
-    hover_alert_idx = None
-    if mouse_pos and alert_row_map and active_alert is None:
-        mouse_row_idx = mouse_pos[1] - 1  # 1-based → 0-based
-        if mouse_row_idx in alert_row_map:
-            hover_alert_idx = alert_row_map[mouse_row_idx]
-            orig = lines[mouse_row_idx]
-            # Black bg after the pill — replace every RESET with
-            # RESET + hover_bg so the background persists through
-            # timing and description, but don't prepend it (avoids
-            # black before the pill)
-            hover_bg = bg(10, 12, 18)
-            patched = orig.replace(RESET, f"{RESET}{hover_bg}")
-            lines[mouse_row_idx] = f"{patched}{RESET}"
-
     output = "\n".join(lines)
 
     overlay = ""

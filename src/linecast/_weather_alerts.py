@@ -201,12 +201,13 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0):
     horiz = "\u2500" * (modal_w - 2)
 
     # Top border (with scroll-up indicator)
+    bar_ch = "\u2500"
     if can_scroll_up:
         arrow = f" {MUTED}\u25b2 "
         arrow_len = 3
         left_bar = (modal_w - 2 - arrow_len) // 2
         right_bar = modal_w - 2 - arrow_len - left_bar
-        top_line = f"{BORDER}\u256d{'\u2500' * left_bar}{arrow}{BORDER}{'\u2500' * right_bar}\u256e"
+        top_line = f"{BORDER}\u256d{bar_ch * left_bar}{arrow}{BORDER}{bar_ch * right_bar}\u256e"
     else:
         top_line = f"{BORDER}\u256d{horiz}\u256e"
     result += f"\033[{top_row};{left_col}H{MBG}{top_line}{RESET}"
@@ -231,7 +232,7 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0):
     if hint_len + 2 < modal_w - 2:
         left_bar = (modal_w - 2 - hint_len) // 2
         right_bar = modal_w - 2 - hint_len - left_bar
-        bot_line = f"{BORDER}\u2570{'\u2500' * left_bar}{MUTED}{hint}{BORDER}{'\u2500' * right_bar}\u256f"
+        bot_line = f"{BORDER}\u2570{bar_ch * left_bar}{MUTED}{hint}{BORDER}{bar_ch * right_bar}\u256f"
     else:
         bot_line = f"{BORDER}\u2570{horiz}\u256f"
     result += f"\033[{bot_row};{left_col}H{MBG}{bot_line}{RESET}"
