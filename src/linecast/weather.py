@@ -642,7 +642,7 @@ def _comparative_line(daily, now, runtime=None):
     # Thresholds in degrees (smaller for Celsius since 1°C ≈ 1.8°F)
     t_same, t_bit, t_much = (2, 4, 8) if runtime.metric else (3, 8, 15)
     if abs_diff < t_same:
-        comparison = f"about the same as {ref_day}"
+        comparison = f"about the same temperature as {ref_day}"
     elif abs_diff < t_bit:
         word = "warmer" if diff > 0 else "cooler"
         comparison = f"a bit {word} than {ref_day}"
@@ -1554,13 +1554,13 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0):
 
     # Estimate fixed-height sections to budget remaining rows for graphs
     # Header(1) + blank(1) + hourly_header(1) + peaks(1) + valleys(1)
-    # + tick_labels(1) + wind_row(1) + comp_line(1) + precip_text(1) + blank(1)
-    # + daily(7) = ~17 fixed lines, plus alerts
+    # + tick_labels(1) + wind_row(1) + comp_line(1) + precip_text(1)
+    # + past_precip(1) + blank(1) + daily(7) = ~18 fixed lines, plus alerts
     alert_lines_est = 0
     if alerts:
         alert_lines_est = max(4, len(alerts) * 3)  # rough estimate
 
-    fixed_lines = 17 + alert_lines_est
+    fixed_lines = 18 + alert_lines_est
     available = max(0, rows - fixed_lines)
 
     # Distribute available rows between temperature graph and precip graph
