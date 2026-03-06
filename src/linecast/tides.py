@@ -5,9 +5,9 @@ Renders a multi-line graphical display of the day's tide curve with an
 ocean-themed color palette. Shows water level as a smooth curve with
 gradient fill, current tide position, and high/low extremes.
 
-Uses half-block characters with 24-bit true color ANSI for smooth
-rendering at 2x vertical sub-pixel resolution. Station is auto-detected
-from IP geolocation or overridden with TIDE_STATION env var.
+Uses half-block characters with ANSI color for smooth rendering at 2x
+vertical sub-pixel resolution (true color when available). Station is
+auto-detected from IP geolocation or overridden with TIDE_STATION env var.
 
 Usage: tides [--live] [--station ID] [--search QUERY]
 """

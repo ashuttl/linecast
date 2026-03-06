@@ -2,30 +2,202 @@
 
 Provides ANSI color helpers, color interpolation, and a Framebuffer class
 that renders at 2x vertical sub-pixel resolution using Unicode half-block
-characters with 24-bit true color.
+characters. Uses true color when available, with 256/16/none fallbacks.
 
 Used by: weather, sunshine, tides
 """
 
-import math, os, re, sys, time as _time, unicodedata
+import functools
+import math
+import os
+import re
+import sys
+import time as _time
+import unicodedata
 
 # ---------------------------------------------------------------------------
 # ANSI helpers
 # ---------------------------------------------------------------------------
-RESET = "\033[0m"
-BOLD  = "\033[1m"
+_COLOR_TRUECOLOR = "truecolor"
+_COLOR_256 = "256"
+_COLOR_16 = "16"
+_COLOR_NONE = "none"
+
+_CUBE_LEVELS = (0, 95, 135, 175, 215, 255)
+_ANSI16_RGB = (
+    (0, 0, 0),
+    (128, 0, 0),
+    (0, 128, 0),
+    (128, 128, 0),
+    (0, 0, 128),
+    (128, 0, 128),
+    (0, 128, 128),
+    (192, 192, 192),
+    (128, 128, 128),
+    (255, 0, 0),
+    (0, 255, 0),
+    (255, 255, 0),
+    (92, 92, 255),
+    (255, 0, 255),
+    (0, 255, 255),
+    (255, 255, 255),
+)
+
+
+def _normalize_color_mode(value):
+    raw = str(value or "").strip().lower()
+    aliases = {
+        "": "auto",
+        "auto": "auto",
+        "truecolor": _COLOR_TRUECOLOR,
+        "24bit": _COLOR_TRUECOLOR,
+        "24-bit": _COLOR_TRUECOLOR,
+        "full": _COLOR_TRUECOLOR,
+        "256": _COLOR_256,
+        "256color": _COLOR_256,
+        "256-color": _COLOR_256,
+        "8bit": _COLOR_256,
+        "8-bit": _COLOR_256,
+        "16": _COLOR_16,
+        "ansi": _COLOR_16,
+        "basic": _COLOR_16,
+        "none": _COLOR_NONE,
+        "off": _COLOR_NONE,
+        "mono": _COLOR_NONE,
+        "monochrome": _COLOR_NONE,
+        "bw": _COLOR_NONE,
+    }
+    return aliases.get(raw)
+
+
+def detect_color_mode(environ=None, stream=None):
+    """Return one of: truecolor, 256, 16, none."""
+    env = os.environ if environ is None else environ
+    mode = _normalize_color_mode(env.get("LINECAST_COLOR", "auto"))
+    if mode is None:
+        mode = "auto"
+    if mode != "auto":
+        return mode
+
+    if str(env.get("NO_COLOR", "")).strip():
+        return _COLOR_NONE
+    if str(env.get("CLICOLOR", "")).strip() == "0":
+        return _COLOR_NONE
+
+    term = str(env.get("TERM", "")).strip().lower()
+    colorterm = str(env.get("COLORTERM", "")).strip().lower()
+    if term in ("", "dumb"):
+        return _COLOR_NONE
+
+    if stream is None:
+        stream = sys.stdout
+    try:
+        is_tty = bool(stream.isatty())
+    except Exception:
+        is_tty = False
+
+    force = str(env.get("CLICOLOR_FORCE", "")).strip()
+    if force and force != "0":
+        is_tty = True
+    if not is_tty:
+        return _COLOR_NONE
+
+    if "truecolor" in colorterm or "24bit" in colorterm:
+        return _COLOR_TRUECOLOR
+    if "truecolor" in term or "24bit" in term:
+        return _COLOR_TRUECOLOR
+    if "256color" in term:
+        return _COLOR_256
+    return _COLOR_16
+
+
+_COLOR_MODE = detect_color_mode()
+if _COLOR_MODE == _COLOR_NONE:
+    RESET = ""
+    BOLD = ""
+else:
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
 
 HALF_BLOCK = "\u2584"          # ▄ lower half block
 
 BG_PRIMARY = (15, 23, 42)     # #0f172a slate-900 — shared dark base
 
 
+def color_mode():
+    """Current terminal color mode: truecolor, 256, 16, or none."""
+    return _COLOR_MODE
+
+
+def _channel(v):
+    try:
+        n = int(round(v))
+    except Exception:
+        n = 0
+    return max(0, min(255, n))
+
+
+@functools.lru_cache(maxsize=4096)
+def _rgb_to_xterm256(r, g, b):
+    ri = min(range(6), key=lambda i: abs(_CUBE_LEVELS[i] - r))
+    gi = min(range(6), key=lambda i: abs(_CUBE_LEVELS[i] - g))
+    bi = min(range(6), key=lambda i: abs(_CUBE_LEVELS[i] - b))
+    cube_idx = 16 + 36 * ri + 6 * gi + bi
+    cube_rgb = (_CUBE_LEVELS[ri], _CUBE_LEVELS[gi], _CUBE_LEVELS[bi])
+
+    gray_i = max(0, min(23, int(round((((r + g + b) / 3) - 8) / 10))))
+    gray_level = 8 + 10 * gray_i
+    gray_rgb = (gray_level, gray_level, gray_level)
+
+    cube_dist = sum((a - b_) ** 2 for a, b_ in zip((r, g, b), cube_rgb))
+    gray_dist = sum((a - b_) ** 2 for a, b_ in zip((r, g, b), gray_rgb))
+    if gray_dist < cube_dist:
+        return 232 + gray_i
+    return cube_idx
+
+
+@functools.lru_cache(maxsize=4096)
+def _rgb_to_ansi16(r, g, b):
+    return min(
+        range(len(_ANSI16_RGB)),
+        key=lambda i: (
+            (_ANSI16_RGB[i][0] - r) ** 2
+            + (_ANSI16_RGB[i][1] - g) ** 2
+            + (_ANSI16_RGB[i][2] - b) ** 2
+        ),
+    )
+
+
+@functools.lru_cache(maxsize=16384)
+def _fg_for_mode(mode, r, g, b):
+    if mode == _COLOR_NONE:
+        return ""
+    if mode == _COLOR_TRUECOLOR:
+        return f"\033[38;2;{r};{g};{b}m"
+    if mode == _COLOR_256:
+        return f"\033[38;5;{_rgb_to_xterm256(r, g, b)}m"
+    idx = _rgb_to_ansi16(r, g, b)
+    return f"\033[{30 + idx if idx < 8 else 90 + (idx - 8)}m"
+
+
+@functools.lru_cache(maxsize=16384)
+def _bg_for_mode(mode, r, g, b):
+    if mode == _COLOR_NONE:
+        return ""
+    if mode == _COLOR_TRUECOLOR:
+        return f"\033[48;2;{r};{g};{b}m"
+    if mode == _COLOR_256:
+        return f"\033[48;5;{_rgb_to_xterm256(r, g, b)}m"
+    idx = _rgb_to_ansi16(r, g, b)
+    return f"\033[{40 + idx if idx < 8 else 100 + (idx - 8)}m"
+
+
 def fg(r, g, b):
-    return f"\033[38;2;{r};{g};{b}m"
+    return _fg_for_mode(_COLOR_MODE, _channel(r), _channel(g), _channel(b))
 
 
 def bg(r, g, b):
-    return f"\033[48;2;{r};{g};{b}m"
+    return _bg_for_mode(_COLOR_MODE, _channel(r), _channel(g), _channel(b))
 
 
 # ---------------------------------------------------------------------------

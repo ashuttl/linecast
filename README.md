@@ -79,11 +79,13 @@ Other regions get forecasts but no alerts yet.
 | `TIDE_STATION` | Default NOAA station ID for tides (e.g., `8413320`) |
 | `WEATHER_UNITS` | Set to `metric` for Celsius, km/h, and mm (same as `--celsius`) |
 | `LINECAST_ICONS` | Set to `emoji` to use standard emoji instead of Nerd Font icons |
+| `LINECAST_COLOR` | Color mode: `auto` (default), `truecolor`, `256`, `16`, or `none` |
+| `NO_COLOR` | Any non-empty value disables ANSI colors (standard convention) |
 
 ## Requirements
 
 - Python 3.10+
-- A terminal with true color support (iTerm2, Ghostty, Kitty, WezTerm, etc.)
+- A terminal with ANSI color support (`truecolor` looks best; weather remains usable in low/no color)
 - A [Nerd Font](https://www.nerdfonts.com/) for best icon rendering (optional — use `--emoji` for standard emoji fallback)
 - macOS or Linux (uses `termios` for live mode)
 

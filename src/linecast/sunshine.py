@@ -6,9 +6,9 @@ face. Shows the sun's sinusoidal arc above and below the horizon with a
 warm glow centered on the sun's current position, seasonal scaling, day
 length with daily delta, and moon phase.
 
-Uses half-block characters with 24-bit true color ANSI for smooth
-rendering at 2x vertical sub-pixel resolution. Location is cached from
-IP geolocation (~1 network call per week).
+Uses half-block characters with ANSI color for smooth rendering at 2x
+vertical sub-pixel resolution (true color when available). Location is
+cached from IP geolocation (~1 network call per week).
 
 Usage: sunshine [--live] [--emoji]
 """
