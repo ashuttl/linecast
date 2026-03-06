@@ -227,7 +227,8 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0):
         parts.append("o to open in browser")
     if can_scroll_down:
         parts.append("\u25bc scroll")
-    hint = f" {' \u00b7 '.join(parts)} "
+    sep = " \u00b7 "
+    hint = f" {sep.join(parts)} "
     hint_len = len(hint)
     if hint_len + 2 < modal_w - 2:
         left_bar = (modal_w - 2 - hint_len) // 2
