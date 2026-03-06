@@ -181,7 +181,7 @@ def fetch_forecast(lat, lng, runtime=None):
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lng}"
         "&hourly=temperature_2m,apparent_temperature,precipitation,precipitation_probability,"
-        "wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code"
+        "snowfall,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code"
         "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,"
         "precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max,"
         "sunrise,sunset"
@@ -739,6 +739,73 @@ def _precipitation_line(hourly, now):
             if is_precip(i):
                 return f" {MUTED}{desc(i).capitalize()} likely starting {time_phrase(dt)}{RESET}"
         return ""
+
+
+def _past_precip_line(hourly, now, runtime):
+    """Natural language summary of precipitation in the last 24 hours."""
+    times = hourly.get("time", [])
+    precip = hourly.get("precipitation", [])
+    snowfall = hourly.get("snowfall", [])
+    codes = hourly.get("weather_code", [])
+
+    if not times or not precip:
+        return ""
+
+    current_hour = now.replace(minute=0, second=0, microsecond=0)
+    past_start = current_hour - timedelta(hours=24)
+
+    total_precip = 0.0
+    total_snow_cm = 0.0
+    snow_hours = 0
+    rain_hours = 0
+    mix_hours = 0
+
+    for i, t in enumerate(times):
+        try:
+            dt = datetime.fromisoformat(t)
+        except Exception:
+            continue
+        if dt < past_start or dt > current_hour:
+            continue
+        p = precip[i] if i < len(precip) else 0
+        s = snowfall[i] if i < len(snowfall) else 0
+        c = codes[i] if i < len(codes) else 0
+        if p > 0 or s > 0:
+            total_precip += p
+            total_snow_cm += s
+            if c in (71, 73, 75, 77, 85, 86):
+                snow_hours += 1
+            elif c in (56, 57, 66, 67):
+                mix_hours += 1
+            else:
+                rain_hours += 1
+
+    if total_precip < (0.5 if runtime.metric else 0.01) and total_snow_cm < 0.1:
+        return ""
+
+    # Determine dominant type and format amount
+    if snow_hours >= rain_hours and snow_hours >= mix_hours:
+        # Show snow accumulation (Open-Meteo snowfall is in cm)
+        if runtime.metric:
+            amt = f"{total_snow_cm:.1f}cm"
+        else:
+            inches = total_snow_cm / 2.54
+            amt = f"{inches:.1f}in" if inches >= 1 else f"{inches:.2f}in"
+        ptype = "snow"
+    elif mix_hours >= rain_hours:
+        if runtime.metric:
+            amt = f"{total_precip:.1f}mm"
+        else:
+            amt = f"{total_precip:.2f}in"
+        ptype = "mixed precipitation"
+    else:
+        if runtime.metric:
+            amt = f"{total_precip:.1f}mm"
+        else:
+            amt = f"{total_precip:.2f}in"
+        ptype = "rain"
+
+    return f" {MUTED}{amt} of {ptype} in the last 24h{RESET}"
 
 
 def _interpolate_columns(values, graph_w):
@@ -1537,6 +1604,11 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0):
     precip = _precipitation_line(data.get("hourly", {}), now_local)
     if precip:
         lines.append(precip)
+
+    # Past 24h precipitation
+    past_precip = _past_precip_line(data.get("hourly", {}), now_local, runtime)
+    if past_precip:
+        lines.append(past_precip)
 
     lines.append("")
 
