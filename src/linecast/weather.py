@@ -1250,24 +1250,39 @@ def render_daily(data, width):
     scale_min = min(all_lo)
     scale_max = max(all_hi)
 
-    # Measure widest right-side detail text across all days to size bars properly
+    # Measure widest right-side detail columns across all days for alignment
     left_prefix_w = 10  # "  Tod  ⛅  " = day(3) + icon(1) + spacing(6)
-    max_right_w = 0
+    # Compute per-day detail fields and find max width of each column
+    day_details = []  # list of (precip_str, prob_str, wind_str) per day
+    max_precip_w = 0
+    max_prob_w = 0
+    max_wind_w = 0
     for i in range(1, display_end):
         precip_i = precip_sum[i] if i < len(precip_sum) else 0
         prob_i = precip_prob[i] if i < len(precip_prob) else 0
         wind_i = wind_max[i] if i < len(wind_max) else 0
         wmo_i = wmo_codes[i] if i < len(wmo_codes) else 0
-        right_w = 0
-        if precip_i >= (1 if METRIC else 0.05) or prob_i > 25:
-            if precip_i >= (1 if METRIC else 0.05):
-                ptype = _precip_type(wmo_i)
-                right_w += len(f"  {ptype} {precip_i:.0f}{PRECIP_UNIT}" if METRIC else f"  {ptype} {precip_i:.1f}{PRECIP_UNIT}")
-            if prob_i > 25:
-                right_w += len(f"  {prob_i:.0f}%")
-        if wind_i > (25 if METRIC else 15):
-            right_w += len(f"  Wind {wind_i:.0f}{WIND_UNIT}")
-        max_right_w = max(max_right_w, right_w)
+        precip_s = ""
+        if precip_i >= (1 if METRIC else 0.05):
+            ptype = _precip_type(wmo_i)
+            precip_s = f"{ptype} {precip_i:.0f}{PRECIP_UNIT}" if METRIC else f"{ptype} {precip_i:.1f}{PRECIP_UNIT}"
+        prob_s = f"{prob_i:.0f}%" if prob_i > 25 else ""
+        wind_s = f"Wind {wind_i:.0f}{WIND_UNIT}" if wind_i > (25 if METRIC else 15) else ""
+        day_details.append((precip_s, prob_s, wind_s))
+        if precip_s:
+            max_precip_w = max(max_precip_w, len(precip_s))
+        if prob_s:
+            max_prob_w = max(max_prob_w, len(prob_s))
+        if wind_s:
+            max_wind_w = max(max_wind_w, len(wind_s))
+
+    max_right_w = 0
+    if max_precip_w:
+        max_right_w += 2 + max_precip_w
+    if max_prob_w:
+        max_right_w += 2 + max_prob_w
+    if max_wind_w:
+        max_right_w += 2 + max_wind_w
 
     # Bar gets all remaining width after left prefix, right details, and padding
     bar_w = max(10, width - left_prefix_w - max_right_w - 2)
@@ -1361,21 +1376,17 @@ def render_daily(data, width):
 
         bar = "".join(f"{prefix}{ch}{RESET}" for ch, prefix in cells)
 
-        # Build the line
+        # Build the line with aligned right-side columns
         line = f"  {TEXT}{day_name}  {icon}  {bar}"
 
-        # Precipitation (only when meaningful) — colored by type
-        if precip >= (1 if METRIC else 0.05) or prob > 25:
-            ptype = _precip_type(wmo)
-            pcolor = _precip_color(wmo)
-            if precip >= (1 if METRIC else 0.05):
-                line += f"  {pcolor}{ptype} {precip:.0f}{PRECIP_UNIT}" if METRIC else f"  {pcolor}{ptype} {precip:.1f}{PRECIP_UNIT}"
-            if prob > 25:
-                line += f"  {pcolor}{prob:.0f}%"
-
-        # Wind (only when gusty)
-        if wind > (25 if METRIC else 15):
-            line += f"  {WIND_COLOR}Wind {wind:.0f}{WIND_UNIT}"
+        precip_s, prob_s, wind_s = day_details[i - 1]
+        pcolor = _precip_color(wmo)
+        if max_precip_w:
+            line += f"  {pcolor}{precip_s:<{max_precip_w}}" if precip_s else f"  {' ' * max_precip_w}"
+        if max_prob_w:
+            line += f"  {pcolor}{prob_s:>{max_prob_w}}" if prob_s else f"  {' ' * max_prob_w}"
+        if max_wind_w:
+            line += f"  {WIND_COLOR}{wind_s:<{max_wind_w}}" if wind_s else f"  {' ' * max_wind_w}"
 
         lines.append(f"{line}{RESET}")
 
