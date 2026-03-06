@@ -7,7 +7,7 @@ Temperature-driven color palette, Nerd Font icons, clean column alignment.
 
 Alerts are sourced from NWS (US) and Environment Canada (CA).
 
-Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji] [--celsius/--metric] [--shading]
+Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji] [--celsius/--metric] [--shading] [--lang fr]
 """
 
 import os
@@ -106,7 +106,135 @@ WMO_NAMES = {
 
 SPARKLINE = "\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588"  # ▁▂▃▄▅▆▇█
 
-DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+DAY_NAMES = {
+    "en": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "fr": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+}
+FULL_DAY_NAMES = {
+    "en": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    "fr": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"],
+}
+
+WMO_NAMES_I18N = {
+    "fr": {
+        0: "Dégagé", 1: "Peu nuageux", 2: "Partiellement nuageux", 3: "Couvert",
+        45: "Brouillard", 48: "Brouillard givrant",
+        51: "Bruine légère", 53: "Bruine", 55: "Forte bruine",
+        56: "Bruine verglaçante", 57: "Bruine verglaçante",
+        61: "Pluie légère", 63: "Pluie", 65: "Forte pluie",
+        66: "Pluie verglaçante", 67: "Pluie verglaçante",
+        71: "Neige légère", 73: "Neige", 75: "Forte neige", 77: "Grains de neige",
+        80: "Averses légères", 81: "Averses", 82: "Fortes averses",
+        85: "Averses de neige", 86: "Fortes averses de neige",
+        95: "Orage", 96: "Orage", 99: "Orage",
+    },
+}
+
+_PRECIP_DESCS_I18N = {
+    "fr": {
+        51: "bruine légère", 53: "bruine", 55: "forte bruine",
+        56: "bruine verglaçante", 57: "bruine verglaçante",
+        61: "pluie légère", 63: "pluie", 65: "forte pluie",
+        66: "pluie verglaçante", 67: "pluie verglaçante",
+        71: "neige légère", 73: "neige", 75: "forte neige", 77: "grains de neige",
+        80: "averses légères", 81: "averses", 82: "fortes averses",
+        85: "averses de neige", 86: "fortes averses de neige",
+        95: "orages", 96: "orages", 99: "orages",
+    },
+}
+
+# Localized UI strings
+_STRINGS = {
+    "en": {
+        "today": "Today",
+        "today_short": "Tod",
+        "feels": "feels",
+        "wind": "Wind",
+        "gusts": "gusts",
+        # Comparative line
+        "same_temp": "about the same temperature as {ref_day}",
+        "bit_warmer": "a bit warmer than {ref_day}",
+        "bit_cooler": "a bit cooler than {ref_day}",
+        "warmer": "warmer than {ref_day}",
+        "cooler": "cooler than {ref_day}",
+        "much_warmer": "much warmer than {ref_day}",
+        "much_cooler": "much cooler than {ref_day}",
+        "today_subj": "Today",
+        "tomorrow_subj": "Tomorrow",
+        "yesterday": "yesterday",
+        "today_ref": "today",
+        "will_be": "{subject} will be {comparison}",
+        # Precipitation line
+        "ending": "{desc} ending {time}",
+        "continuing": "{desc} continuing through the day",
+        "starting": "{desc} likely starting {time}",
+        "shortly": "shortly",
+        "in_about_an_hour": "in about an hour",
+        "in_a_couple_hours": "in a couple hours",
+        "around": "around {time}",
+        "tomorrow_morning": "tomorrow morning",
+        "tomorrow_afternoon": "tomorrow afternoon",
+        "tomorrow_evening": "tomorrow evening",
+        "on_day": "on {day}",
+        # Past precip
+        "past_precip": "{amt} of {ptype} in the last 24h",
+        "snow": "snow",
+        "rain": "rain",
+        "mixed_precip": "mixed precipitation",
+        # Daily precip types
+        "Snow": "Snow",
+        "Rain": "Rain",
+        "Mix": "Mix",
+    },
+    "fr": {
+        "today": "Aujourd'hui",
+        "today_short": "Auj",
+        "feels": "ressenti",
+        "wind": "Vent",
+        "gusts": "rafales",
+        # Comparative line
+        "same_temp": "\u00e0 peu pr\u00e8s la m\u00eame temp\u00e9rature qu'{ref_day}",
+        "bit_warmer": "un peu plus chaud qu'{ref_day}",
+        "bit_cooler": "un peu plus frais qu'{ref_day}",
+        "warmer": "plus chaud qu'{ref_day}",
+        "cooler": "plus frais qu'{ref_day}",
+        "much_warmer": "beaucoup plus chaud qu'{ref_day}",
+        "much_cooler": "beaucoup plus frais qu'{ref_day}",
+        "today_subj": "Aujourd'hui",
+        "tomorrow_subj": "Demain",
+        "yesterday": "hier",
+        "today_ref": "aujourd'hui",
+        "will_be": "{subject}, il fera {comparison}",
+        # Precipitation line
+        "ending": "{desc} se terminant {time}",
+        "continuing": "{desc} se poursuivant toute la journ\u00e9e",
+        "starting": "{desc} probable {time}",
+        "shortly": "tr\u00e8s bient\u00f4t",
+        "in_about_an_hour": "dans environ une heure",
+        "in_a_couple_hours": "dans quelques heures",
+        "around": "vers {time}",
+        "tomorrow_morning": "demain matin",
+        "tomorrow_afternoon": "demain apr\u00e8s-midi",
+        "tomorrow_evening": "demain soir",
+        "on_day": "{day}",
+        # Past precip
+        "past_precip": "{amt} de {ptype} dans les derni\u00e8res 24h",
+        "snow": "neige",
+        "rain": "pluie",
+        "mixed_precip": "pr\u00e9cipitations mixtes",
+        # Daily precip types
+        "Snow": "Neige",
+        "Rain": "Pluie",
+        "Mix": "Mixte",
+    },
+}
+
+
+def _s(key, runtime, **kwargs):
+    """Look up a localized string, with optional format substitution."""
+    lang = getattr(runtime, "lang", "en")
+    template = _STRINGS.get(lang, _STRINGS["en"]).get(key, _STRINGS["en"].get(key, key))
+    return template.format(**kwargs) if kwargs else template
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +333,7 @@ def fetch_forecast(lat, lng, runtime=None):
 # ---------------------------------------------------------------------------
 # Alerts — multi-provider router
 # ---------------------------------------------------------------------------
-def fetch_alerts(lat, lng, country_code=""):
+def fetch_alerts(lat, lng, country_code="", lang="en"):
     """Fetch active weather alerts from the appropriate provider.
 
     Routes to NWS (US), Environment Canada (CA), or returns [] for unsupported regions.
@@ -213,7 +341,7 @@ def fetch_alerts(lat, lng, country_code=""):
     if country_code == "US":
         return _fetch_alerts_nws(lat, lng)
     elif country_code == "CA":
-        return _fetch_alerts_eccc(lat, lng)
+        return _fetch_alerts_eccc(lat, lng, lang=lang)
     else:
         return []
 
@@ -249,17 +377,17 @@ def _fetch_alerts_nws(lat, lng):
     return alerts
 
 
-def _fetch_alerts_eccc(lat, lng):
+def _fetch_alerts_eccc(lat, lng, lang="en"):
     """Fetch active Environment Canada alerts (CA). Cached 15min.
 
     Uses the OGC API at api.weather.gc.ca with bbox query.
     """
-    cache_file = CACHE_DIR / f"alerts_ca_{location_cache_key(lat, lng)}.json"
+    cache_file = CACHE_DIR / f"alerts_ca_{location_cache_key(lat, lng)}_{lang}.json"
     # bbox: lng-0.5, lat-0.5, lng+0.5, lat+0.5 (~50km radius)
     bbox = f"{lng - 0.5},{lat - 0.5},{lng + 0.5},{lat + 0.5}"
     url = (
         f"https://api.weather.gc.ca/collections/weather-alerts/items"
-        f"?f=json&bbox={bbox}&lang=en&limit=20"
+        f"?f=json&bbox={bbox}&lang={lang}&limit=20"
     )
     data = fetch_json_cached(
         cache_file,
@@ -272,15 +400,23 @@ def _fetch_alerts_eccc(lat, lng):
     if isinstance(data, list):
         return data
 
+    # Use language-appropriate fields, falling back to the other language
+    name_key = f"alert_name_{lang}"
+    name_fallback = "alert_name_en" if lang != "en" else "alert_name_fr"
+    short_name_key = f"alert_short_name_{lang}"
+    text_key = f"alert_text_{lang}"
+    text_fallback = "alert_text_en" if lang != "en" else "alert_text_fr"
+
     features = data.get("features", [])
     alerts = []
     seen_events = set()  # deduplicate by event name
     for f in features:
         p = f.get("properties", {})
-        # ECCC field names: alert_name_en, alert_text_en, etc.
-        event = p.get("alert_name_en", "").title() or p.get("alert_short_name_en", "")
+        event = (p.get(name_key, "").title()
+                 or p.get(short_name_key, "")
+                 or p.get(name_fallback, "").title())
         severity = _eccc_severity(p)
-        desc = p.get("alert_text_en") or p.get("alert_text_fr") or ""
+        desc = p.get(text_key) or p.get(text_fallback) or ""
         effective = p.get("validity_datetime") or p.get("publication_datetime") or ""
         expires = p.get("expiration_datetime") or ""
 
@@ -321,12 +457,12 @@ def _eccc_severity(props):
 # ---------------------------------------------------------------------------
 # Search (geocoding via Open-Meteo)
 # ---------------------------------------------------------------------------
-def _search_locations(query):
+def _search_locations(query, lang="en"):
     """Search cities using Open-Meteo geocoding API and print results."""
     import urllib.parse
     url = (
         "https://geocoding-api.open-meteo.com/v1/search"
-        f"?name={urllib.parse.quote(query)}&count=10&language=en"
+        f"?name={urllib.parse.quote(query)}&count=10&language={lang}"
     )
     try:
         data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=10)
@@ -389,9 +525,11 @@ def _precip_color(wmo_code):
     return PRECIP_RAIN
 
 
-def _fmt_hour(h):
-    """Format hour as compact label: 6a, 12p, etc."""
+def _fmt_hour(h, use_24h=False):
+    """Format hour as compact label: 6a, 12p (12h) or 06, 14 (24h)."""
     h = h % 24
+    if use_24h:
+        return f"{h:02d}"
     if h == 0:
         return "12a"
     if h == 12:
@@ -401,11 +539,17 @@ def _fmt_hour(h):
     return f"{h - 12}p"
 
 
-def _parse_alert_time(iso_str):
+def _parse_alert_time(iso_str, runtime=None):
     """Parse ISO time string to a short display string."""
     try:
         dt = datetime.fromisoformat(iso_str)
-        return dt.strftime("%a %-I%p").replace("AM", "am").replace("PM", "pm")
+        use_24h = runtime.metric if runtime else False
+        lang = getattr(runtime, "lang", "en") if runtime else "en"
+        day_names = DAY_NAMES.get(lang, DAY_NAMES["en"])
+        day = day_names[dt.weekday()]
+        if use_24h:
+            return f"{day} {dt.strftime('%H:%M')}"
+        return f"{day} {dt.strftime('%-I%p').replace('AM', 'am').replace('PM', 'pm')}"
     except Exception:
         return ""
 
@@ -631,29 +775,28 @@ def _comparative_line(daily, now, runtime=None):
 
     if now.hour < 14:
         diff = hi_temps[1] - hi_temps[0]
-        ref_day = "yesterday"
-        subject = "Today"
+        ref_day = _s("yesterday", runtime)
+        subject = _s("today_subj", runtime)
     else:
         diff = hi_temps[2] - hi_temps[1]
-        ref_day = "today"
-        subject = "Tomorrow"
+        ref_day = _s("today_ref", runtime)
+        subject = _s("tomorrow_subj", runtime)
 
     abs_diff = abs(diff)
     # Thresholds in degrees (smaller for Celsius since 1°C ≈ 1.8°F)
     t_same, t_bit, t_much = (2, 4, 8) if runtime.metric else (3, 8, 15)
     if abs_diff < t_same:
-        comparison = f"about the same temperature as {ref_day}"
+        key = "same_temp"
     elif abs_diff < t_bit:
-        word = "warmer" if diff > 0 else "cooler"
-        comparison = f"a bit {word} than {ref_day}"
+        key = "bit_warmer" if diff > 0 else "bit_cooler"
     elif abs_diff < t_much:
-        word = "warmer" if diff > 0 else "cooler"
-        comparison = f"{word} than {ref_day}"
+        key = "warmer" if diff > 0 else "cooler"
     else:
-        word = "warmer" if diff > 0 else "cooler"
-        comparison = f"much {word} than {ref_day}"
+        key = "much_warmer" if diff > 0 else "much_cooler"
 
-    return f" {MUTED}{subject} will be {comparison}{RESET}"
+    comparison = _s(key, runtime, ref_day=ref_day)
+    sentence = _s("will_be", runtime, subject=subject, comparison=comparison)
+    return f" {MUTED}{sentence}{RESET}"
 
 
 # ---------------------------------------------------------------------------
@@ -673,8 +816,11 @@ _PRECIP_DESCS = {
 }
 
 
-def _precipitation_line(hourly, now):
+def _precipitation_line(hourly, now, runtime=None):
     """Natural language description of upcoming precipitation."""
+    if runtime is None:
+        runtime = WeatherRuntime.from_sources()
+    lang = runtime.lang
     times = hourly.get("time", [])
     precip_prob = hourly.get("precipitation_probability", [])
     codes = hourly.get("weather_code", [])
@@ -704,27 +850,31 @@ def _precipitation_line(hourly, now):
 
     def desc(idx):
         c = codes[idx] if idx < len(codes) else 0
-        return _PRECIP_DESCS.get(c, "precipitation")
+        descs = _PRECIP_DESCS_I18N.get(lang, _PRECIP_DESCS)
+        return descs.get(c, _PRECIP_DESCS.get(c, "precipitation"))
 
     def time_phrase(dt):
         delta = (dt - now).total_seconds() / 3600
         if delta < 1.5:
-            return "shortly"
+            return _s("shortly", runtime)
         if delta < 2.5:
-            return "in about an hour"
+            return _s("in_about_an_hour", runtime)
         if delta < 4:
-            return "in a couple hours"
+            return _s("in_a_couple_hours", runtime)
         if dt.date() == now.date():
+            if runtime.metric:
+                return _s("around", runtime, time=f"{dt.hour:02d}h")
             h12 = dt.hour % 12 or 12
             suffix = "am" if dt.hour < 12 else "pm"
-            return f"around {h12}{suffix}"
+            return _s("around", runtime, time=f"{h12}{suffix}")
         if dt.date() == (now + timedelta(days=1)).date():
             if dt.hour < 12:
-                return "tomorrow morning"
+                return _s("tomorrow_morning", runtime)
             if dt.hour < 17:
-                return "tomorrow afternoon"
-            return "tomorrow evening"
-        return f"on {DAY_NAMES[dt.weekday()]}"
+                return _s("tomorrow_afternoon", runtime)
+            return _s("tomorrow_evening", runtime)
+        day_names = DAY_NAMES.get(lang, DAY_NAMES["en"])
+        return _s("on_day", runtime, day=day_names[dt.weekday()])
 
     first_idx = window[0][0]
 
@@ -732,12 +882,15 @@ def _precipitation_line(hourly, now):
         current_desc = desc(first_idx)
         for i, dt in window[1:]:
             if not is_precip(i):
-                return f" {MUTED}{current_desc.capitalize()} ending {time_phrase(dt)}{RESET}"
-        return f" {MUTED}{current_desc.capitalize()} continuing through the day{RESET}"
+                text = _s("ending", runtime, desc=current_desc.capitalize(), time=time_phrase(dt))
+                return f" {MUTED}{text}{RESET}"
+        text = _s("continuing", runtime, desc=current_desc.capitalize())
+        return f" {MUTED}{text}{RESET}"
     else:
         for i, dt in window[1:]:
             if is_precip(i):
-                return f" {MUTED}{desc(i).capitalize()} likely starting {time_phrase(dt)}{RESET}"
+                text = _s("starting", runtime, desc=desc(i).capitalize(), time=time_phrase(dt))
+                return f" {MUTED}{text}{RESET}"
         return ""
 
 
@@ -791,21 +944,21 @@ def _past_precip_line(hourly, now, runtime):
         else:
             inches = total_snow_cm / 2.54
             amt = f"{inches:.1f}in" if inches >= 1 else f"{inches:.2f}in"
-        ptype = "snow"
+        ptype = _s("snow", runtime)
     elif mix_hours >= rain_hours:
         if runtime.metric:
             amt = f"{total_precip:.1f}mm"
         else:
             amt = f"{total_precip:.2f}in"
-        ptype = "mixed precipitation"
+        ptype = _s("mixed_precip", runtime)
     else:
         if runtime.metric:
             amt = f"{total_precip:.1f}mm"
         else:
             amt = f"{total_precip:.2f}in"
-        ptype = "rain"
+        ptype = _s("rain", runtime)
 
-    return f" {MUTED}{amt} of {ptype} in the last 24h{RESET}"
+    return f" {MUTED}{_s('past_precip', runtime, amt=amt, ptype=ptype)}{RESET}"
 
 
 def _interpolate_columns(values, graph_w):
@@ -878,8 +1031,9 @@ def _prepare_hourly_window(hourly, now, graph_w):
     }
 
 
-def _compute_time_markers(window_dts, total_hours, graph_w):
+def _compute_time_markers(window_dts, total_hours, graph_w, runtime=None):
     """Compute notable timeline columns (midnight, noon) and day labels."""
+    lang = getattr(runtime, "lang", "en") if runtime else "en"
     midnight_cols = set()
     noon_cols = set()
     midnight_day_names = {}
@@ -891,15 +1045,23 @@ def _compute_time_markers(window_dts, total_hours, graph_w):
                 continue
             if dt.hour == 0:
                 midnight_cols.add(x)
-                midnight_day_names[x] = dt.strftime("%A")
+                midnight_day_names[x] = FULL_DAY_NAMES.get(lang, FULL_DAY_NAMES["en"])[dt.weekday()]
             elif dt.hour == 12:
                 noon_cols.add(x)
     return midnight_cols, noon_cols, midnight_day_names
 
 
+def _fmt_time(dt, use_24h=False):
+    """Format a datetime as a compact time string."""
+    if use_24h:
+        return dt.strftime("%H:%M")
+    return dt.strftime("%-I:%M%p").lower().replace("am", "a").replace("pm", "p")
+
+
 def _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime):
     """Compute sunrise/sunset labels mapped to graph columns."""
     sun_labels = {}
+    use_24h = runtime.metric
     sunrise_icon = "\u2600\ufe0f" if runtime.emoji else "\ue34c"
     sunset_icon = "\U0001f305" if runtime.emoji else "\ue34d"
     if window_dts and sun_events:
@@ -910,14 +1072,14 @@ def _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime):
                 if 0 < off_h < total_hours:
                     x = int(off_h / total_hours * (graph_w - 1))
                     if 0 < x < graph_w - 1:
-                        lbl = rise.strftime("%-I:%M%p").lower().replace("am", "a").replace("pm", "p")
+                        lbl = _fmt_time(rise, use_24h)
                         sun_labels[x] = (f"{sunrise_icon}{lbl}", True)
             if sset:
                 off_h = (sset - t0).total_seconds() / 3600
                 if 0 < off_h < total_hours:
                     x = int(off_h / total_hours * (graph_w - 1))
                     if 0 < x < graph_w - 1:
-                        lbl = sset.strftime("%-I:%M%p").lower().replace("am", "a").replace("pm", "p")
+                        lbl = _fmt_time(sset, use_24h)
                         sun_labels[x] = (f"{sunset_icon}{lbl}", False)
     return sun_labels
 
@@ -996,19 +1158,19 @@ def render_header(data, width, location_name="", runtime=None):
 
     icons = _wmo_icons(runtime)
     icon = icons.get(wmo, icons[0])
-    name = WMO_NAMES.get(wmo, "")
+    name = WMO_NAMES_I18N.get(runtime.lang, {}).get(wmo) or WMO_NAMES.get(wmo, "")
 
     left = (
         f" {TEXT}{icon} {name}  "
         f"{_colored_temp(temp, runtime, runtime.temp_unit)}"
-        f"  {MUTED}feels {_colored_temp(feels, runtime, runtime.temp_unit)}"
+        f"  {MUTED}{_s('feels', runtime)} {_colored_temp(feels, runtime, runtime.temp_unit)}"
     )
 
     right_parts = []
     if wind > (15 if runtime.metric else 10) or gusts > (30 if runtime.metric else 20):
-        parts = [f"Wind {wind:.0f}{runtime.wind_unit}"]
+        parts = [f"{_s('wind', runtime)} {wind:.0f}{runtime.wind_unit}"]
         if gusts > (30 if runtime.metric else 20):
-            parts.append(f"gusts {gusts:.0f}{runtime.wind_unit}")
+            parts.append(f"{_s('gusts', runtime)} {gusts:.0f}{runtime.wind_unit}")
         right_parts.append(f"{WIND_COLOR}{'  '.join(parts)}")
     if location_name:
         right_parts.append(f"{MUTED}{location_name}")
@@ -1023,7 +1185,7 @@ def render_header(data, width, location_name="", runtime=None):
 
 def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels, runtime):
     """Render the hourly section header with day and sun-event labels."""
-    today_left = f" {TEXT}Today"
+    today_left = f" {TEXT}{_s('today', runtime)}"
     today_right = (
         f"{_colored_temp(chart_lo, runtime, '°')} "
         f"{TEXT}\u2192 {_colored_temp(chart_hi, runtime, runtime.temp_unit)}"
@@ -1142,10 +1304,11 @@ def _render_braille_rows(braille_rows, col_daylight, midnight_cols, noon_cols, r
     return lines
 
 
-def _render_tick_labels(window_dts, total_hours, graph_w):
+def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None):
     """Render compact timeline tick labels under the chart."""
     if not window_dts:
         return None
+    use_24h = runtime.metric if runtime else False
     if graph_w < 40:
         interval = 6
     elif graph_w < 80:
@@ -1159,7 +1322,7 @@ def _render_tick_labels(window_dts, total_hours, graph_w):
     for h_off in range(0, int(total_hours) + 1, interval):
         x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
         dt = window_dts[0] + timedelta(hours=h_off)
-        label_items.append((x, _fmt_hour(dt.hour), dt.hour == 0))
+        label_items.append((x, _fmt_hour(dt.hour, use_24h), dt.hour == 0))
 
     canvas = [" "] * graph_w
     last_end = 0
@@ -1257,7 +1420,7 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     chart_hi = max(window_temps)
 
     midnight_cols, noon_cols, midnight_day_names = _compute_time_markers(
-        window_dts, total_hours, graph_w
+        window_dts, total_hours, graph_w, runtime
     )
     sun_labels = _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime)
     col_daylight = _compute_daylight_columns(window_dts, sun_events, graph_w)
@@ -1286,7 +1449,7 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     if valley_line:
         lines.append(valley_line)
 
-    tick_line = _render_tick_labels(window_dts, total_hours, graph_w)
+    tick_line = _render_tick_labels(window_dts, total_hours, graph_w, runtime)
     if tick_line:
         lines.append(tick_line)
 
@@ -1342,13 +1505,13 @@ def render_daily(data, width, runtime=None):
         wmo_i = wmo_codes[i] if i < len(wmo_codes) else 0
         precip_s = ""
         if precip_i >= (1 if runtime.metric else 0.05):
-            ptype = _precip_type(wmo_i)
+            ptype = _s(_precip_type(wmo_i), runtime)
             if runtime.metric:
                 precip_s = f"{ptype} {precip_i:.0f}{runtime.precip_unit}"
             else:
                 precip_s = f"{ptype} {precip_i:.1f}{runtime.precip_unit}"
         prob_s = f"{prob_i:.0f}%" if prob_i > 25 else ""
-        wind_s = f"Wind {wind_i:.0f}{runtime.wind_unit}" if wind_i > (25 if runtime.metric else 15) else ""
+        wind_s = f"{_s('wind', runtime)} {wind_i:.0f}{runtime.wind_unit}" if wind_i > (25 if runtime.metric else 15) else ""
         day_details.append((precip_s, prob_s, wind_s))
         if precip_s:
             max_precip_w = max(max_precip_w, len(precip_s))
@@ -1387,13 +1550,16 @@ def render_daily(data, width, runtime=None):
     DARK_FG = fg(20, 20, 25)
     icons = _wmo_icons(runtime)
 
+    lang = runtime.lang
+    day_name_list = DAY_NAMES.get(lang, DAY_NAMES["en"])
+
     for i in range(1, display_end):
         if i == 1:
-            day_name = "Tod"
+            day_name = _s("today_short", runtime)
         else:
             try:
                 dt = datetime.fromisoformat(times[i])
-                day_name = DAY_NAMES[dt.weekday()]
+                day_name = day_name_list[dt.weekday()]
             except Exception:
                 day_name = "???"
 
@@ -1475,20 +1641,21 @@ def render_daily(data, width, runtime=None):
     return lines
 
 
-def _render_single_alert(alert, width, max_lines=999):
+def _render_single_alert(alert, width, max_lines=999, runtime=None):
     """Render one alert (pill + wrapped description), up to max_lines."""
     DARK_FG = fg(20, 20, 25)
     severity = alert.get("severity", "")
     r, g, b = _severity_rgb(severity)
     bg_color = bg(r, g, b)
     event = alert.get("event", "Unknown")
-    effective = _parse_alert_time(alert.get("effective", ""))
-    expires = _parse_alert_time(alert.get("expires", ""))
+    effective = _parse_alert_time(alert.get("effective", ""), runtime)
+    expires = _parse_alert_time(alert.get("expires", ""), runtime)
     timing = ""
     if effective and expires:
         timing = f" {effective} \u2013 {expires}"
     elif expires:
-        timing = f" until {expires}"
+        until = "jusqu'\u00e0" if (runtime and runtime.lang == "fr") else "until"
+        timing = f" {until} {expires}"
 
     pill = f"{bg_color}{DARK_FG}{BOLD} \u26a0 {event} {RESET}"
     line1 = f" {pill} {MUTED}\u00b7{WIND_COLOR}{timing}{RESET}" if timing else f" {pill}{RESET}"
@@ -1517,7 +1684,7 @@ def _render_single_alert(alert, width, max_lines=999):
     return lines
 
 
-def render_alerts(alerts, width=80, remaining_rows=None):
+def render_alerts(alerts, width=80, remaining_rows=None, runtime=None):
     """NWS/ECCC alert banners — severity-colored background pill + description."""
     if not alerts:
         return []
@@ -1539,7 +1706,7 @@ def render_alerts(alerts, width=80, remaining_rows=None):
         if idx > 0:
             lines.append("")  # blank separator between alerts
         budget = per_alert + (1 if idx < extras else 0)
-        lines.extend(_render_single_alert(a, width, max_lines=budget))
+        lines.extend(_render_single_alert(a, width, max_lines=budget, runtime=runtime))
 
     return lines
 
@@ -1601,7 +1768,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0):
         lines.append(comp)
 
     # Precipitation forecast
-    precip = _precipitation_line(data.get("hourly", {}), now_local)
+    precip = _precipitation_line(data.get("hourly", {}), now_local, runtime)
     if precip:
         lines.append(precip)
 
@@ -1619,7 +1786,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0):
     if alerts:
         lines.append("")
         remaining = max(4, rows - len(lines) - 1)
-        lines.extend(render_alerts(alerts, width=cols, remaining_rows=remaining))
+        lines.extend(render_alerts(alerts, width=cols, remaining_rows=remaining, runtime=runtime))
 
     return "\n".join(lines)
 
@@ -1631,7 +1798,7 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtim
     if data is None:
         data = fetch_forecast(lat, lng, runtime)
     if alerts is None:
-        alerts = fetch_alerts(lat, lng, country_code)
+        alerts = fetch_alerts(lat, lng, country_code, lang=runtime.lang)
     return render_from_data(data, alerts, runtime, location_name=location_name, offset_minutes=offset_minutes)
 
 
@@ -1652,7 +1819,7 @@ def main():
     # --search: geocode cities and exit
     search_q = arg_value("--search")
     if search_q:
-        _search_locations(search_q)
+        _search_locations(search_q, lang=runtime.lang)
         return
 
     # Location: --location flag > WEATHER_LOCATION env > geolocation
@@ -1684,7 +1851,7 @@ def main():
         result["name"] = name
         result["country_code"] = cc or country_code
         result["data"] = fetch_forecast(lat, lng, runtime)
-        result["alerts"] = fetch_alerts(lat, lng, result["country_code"])
+        result["alerts"] = fetch_alerts(lat, lng, result["country_code"], lang=runtime.lang)
         if not result["name"] and result["data"]:
             result["name"] = _location_from_timezone(result["data"].get("timezone", ""))
         done.set()

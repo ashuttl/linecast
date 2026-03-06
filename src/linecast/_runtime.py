@@ -39,14 +39,21 @@ def env_truthy(value):
 class RuntimeConfig:
     live: bool
     emoji: bool
+    lang: str
 
     @classmethod
     def from_sources(cls, argv=None, environ=None):
         args = _argv(argv)
         env = _environ(environ)
+        lang = (
+            arg_value("--lang", args)
+            or env.get("LINECAST_LANG", "").strip()
+            or "en"
+        ).lower()[:2]
         return cls(
             live="--live" in args,
             emoji="--emoji" in args or env.get("LINECAST_ICONS", "").lower() == "emoji",
+            lang=lang if lang in ("en", "fr") else "en",
         )
 
 
@@ -63,6 +70,7 @@ class WeatherRuntime(RuntimeConfig):
         return cls(
             live=base.live,
             emoji=base.emoji,
+            lang=base.lang,
             metric=(
                 "--celsius" in args
                 or "--metric" in args
