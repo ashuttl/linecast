@@ -1,0 +1,77 @@
+{
+  "count": 1,
+  "units": null,
+  "stations": [
+    {
+      "tidal": true,
+      "greatlakes": false,
+      "shefcode": "ATGM1",
+      "details": {
+        "id": "8413320",
+        "established": "1947-08-16 00:00:00",
+        "removed": "",
+        "noaachart": "13318",
+        "timemeridian": -75,
+        "timezone": -5.0,
+        "origyear": "1999-06-09 00:00:00",
+        "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320/details.json"
+      },
+      "sensors": {
+        "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320/sensors.json"
+      },
+      "floodlevels": {
+        "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320/floodlevels.json"
+      },
+      "datums": {
+        "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320/datums.json"
+      },
+      "supersededdatums": {
+        "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320/supersededdatums.json"
+      },
+      "harmonicConstituents": {
+        "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320/harcon.json"
+      },
+      "benchmarks": {
+        "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320/benchmarks.json"
+      },
+      "tidePredOffsets": {
+        "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320/tidepredoffsets.json"
+      },
+      "ofsMapOffsets": {
+        "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320/ofsmapoffsets.json"
+      },
+      "state": "ME",
+      "timezone": "EST",
+      "timezonecorr": -5,
+      "observedst": true,
+      "stormsurge": false,
+      "nearby": {
+        "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320/nearby.json"
+      },
+      "forecast": true,
+      "outlook": true,
+      "HTFhistorical": true,
+      "HTFmonthly": true,
+      "nonNavigational": false,
+      "id": "8413320",
+      "name": "Bar Harbor",
+      "lat": 44.392193,
+      "lng": -68.20428,
+      "affiliations": "NWLON",
+      "portscode": null,
+      "products": {
+        "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320/products.json"
+      },
+      "disclaimers": {
+        "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320/disclaimers.json"
+      },
+      "notices": {
+        "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320/notices.json"
+      },
+      "self": "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/8413320.json",
+      "expand": "details,sensors,floodlevels,datums,harcon,tidepredoffsets,ofsmapoffsets,products,disclaimers,notices",
+      "tideType": "Mixed"
+    }
+  ],
+  "self": null
+}
