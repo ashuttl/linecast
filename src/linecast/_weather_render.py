@@ -10,6 +10,7 @@ from linecast._weather_alerts import (
     _render_single_alert,
     _severity_color,
     _severity_rgb,
+    build_alert_modal,
     render_alerts,
 )
 from linecast._weather_daily import render_daily

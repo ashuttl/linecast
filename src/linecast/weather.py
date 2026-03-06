@@ -77,6 +77,7 @@ from linecast._weather_render import (
     _severity_color,
     _severity_rgb,
     _temp_color,
+    build_alert_modal,
     render_alerts,
     render_daily,
     render_header,
@@ -192,10 +193,10 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     return result
 
 
-def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, mouse_pos=None):
+def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
     """Build the complete weather dashboard from preloaded data."""
     if not data:
-        return f"{TEXT}Could not fetch weather data.{RESET}"
+        return f"{TEXT}Could not fetch weather data.{RESET}", {}
 
     cols, rows = get_terminal_size()
     now_local = _local_now_for_data(data)
@@ -203,9 +204,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     # Pre-render alerts to get their exact line count for budgeting
     alert_lines = []
     if alerts:
-        # Use a generous budget for the initial render; we'll re-render later
-        # if needed once we know the actual remaining space
-        alert_lines = render_alerts(alerts, width=cols, remaining_rows=max(4, rows // 3), runtime=runtime)
+        alert_lines = render_alerts(alerts, width=cols, runtime=runtime)
 
     # Count fixed-height sections to budget remaining rows for graphs
     # Header(1) + blank(1) + hourly_header(1) + tick_labels(1) + wind_row(1)
@@ -288,30 +287,51 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     # Daily
     lines.extend(render_daily(data, cols, runtime))
 
-    # Alerts (re-render with exact remaining space if needed)
+    # Alerts — one line per alert
+    alert_row_map = {}  # 0-based line index → alert index
     if alerts:
         lines.append("")
-        remaining = max(4, rows - len(lines) - 1)
-        if remaining != max(4, rows // 3):
-            alert_lines = render_alerts(alerts, width=cols, remaining_rows=remaining, runtime=runtime)
+        alert_start = len(lines)
         lines.extend(alert_lines)
+        for i in range(len(alert_lines)):
+            alert_row_map[alert_start + i] = i
+
+    # Hover highlight on alert rows (in --live mode with mouse)
+    hover_alert_idx = None
+    if mouse_pos and alert_row_map and active_alert is None:
+        mouse_row_idx = mouse_pos[1] - 1  # 1-based → 0-based
+        if mouse_row_idx in alert_row_map:
+            hover_alert_idx = alert_row_map[mouse_row_idx]
+            orig = lines[mouse_row_idx]
+            # Black bg after the pill — replace every RESET with
+            # RESET + hover_bg so the background persists through
+            # timing and description, but don't prepend it (avoids
+            # black before the pill)
+            hover_bg = bg(10, 12, 18)
+            patched = orig.replace(RESET, f"{RESET}{hover_bg}")
+            lines[mouse_row_idx] = f"{patched}{RESET}"
 
     output = "\n".join(lines)
 
-    if mouse_pos:
+    overlay = ""
+    if active_alert is not None and 0 <= active_alert < len(alerts):
+        overlay, _max_scroll = build_alert_modal(
+            alerts[active_alert], cols, rows, runtime=runtime, scroll=modal_scroll,
+        )
+    elif mouse_pos:
         mouse_col, mouse_row = mouse_pos
         overlay = _build_hover_tooltip(
             data, mouse_col, mouse_row,
             hourly_start, hourly_end,
             cols, rows, runtime,
         )
-        if overlay:
-            output += "\x00" + overlay
+    if overlay:
+        output += "\x00" + overlay
 
-    return output
+    return output, alert_row_map
 
 
-def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtime=None, data=None, alerts=None, mouse_pos=None):
+def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtime=None, data=None, alerts=None, mouse_pos=None, active_alert=None, modal_scroll=0):
     """Build the complete weather dashboard."""
     if runtime is None:
         runtime = WeatherRuntime.from_sources()
@@ -319,7 +339,7 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtim
         data = fetch_forecast(lat, lng, runtime)
     if alerts is None:
         alerts = fetch_alerts(lat, lng, country_code, lang=runtime.lang)
-    return render_from_data(data, alerts, runtime, location_name=location_name, offset_minutes=offset_minutes, mouse_pos=mouse_pos)
+    return render_from_data(data, alerts, runtime, location_name=location_name, offset_minutes=offset_minutes, mouse_pos=mouse_pos, active_alert=active_alert, modal_scroll=modal_scroll)
 
 
 # ---------------------------------------------------------------------------
@@ -399,8 +419,15 @@ def main():
     alerts = result.get("alerts", [])
 
     if runtime.live:
+        def _open_alert_url(idx):
+            if 0 <= idx < len(alerts):
+                url = alerts[idx].get("url", "")
+                if url:
+                    import webbrowser
+                    webbrowser.open(url)
+
         live_loop(
-            lambda offset_minutes=0, mouse_pos=None: render(
+            lambda offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0: render(
                 lat,
                 lng,
                 location_name,
@@ -408,22 +435,24 @@ def main():
                 offset_minutes=offset_minutes,
                 runtime=runtime,
                 mouse_pos=mouse_pos,
+                active_alert=active_alert,
+                modal_scroll=modal_scroll,
             ),
             interval=300,
             mouse=True,
+            on_open=_open_alert_url,
         )
     else:
-        print(
-            render(
-                lat,
-                lng,
-                location_name,
-                final_country,
-                runtime=runtime,
-                data=data,
-                alerts=alerts,
-            )
+        output, _alert_map = render(
+            lat,
+            lng,
+            location_name,
+            final_country,
+            runtime=runtime,
+            data=data,
+            alerts=alerts,
         )
+        print(output)
 
 
 if __name__ == "__main__":

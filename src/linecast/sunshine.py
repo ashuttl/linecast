@@ -48,7 +48,7 @@ _EMOJI_ICONS = {
 
 _NERD_ICONS = {
     "sun_char": "\U000F0F62",      # 󰽢
-    "sun_icon": "\U000F0599",      # 󰖙
+    "sun_icon": "\U000F059C",      # 󰖜
     "sunset_icon": "\U000F059B",   # 󰖛
     "moon_icons": [
         "\U000F0F64",  # New Moon

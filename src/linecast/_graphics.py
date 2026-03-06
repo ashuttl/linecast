@@ -404,16 +404,21 @@ def _read_key():
     """Read a keypress from stdin in cbreak mode. Returns action string or None.
 
     Fully consumes CSI/SS3 escape sequences so leftover bytes don't leak.
+    Uses a longer timeout (150ms) to avoid splitting mouse escape sequences
+    when the system is busy (e.g. after a re-render).
     """
     import select as _sel
     ch = sys.stdin.read(1)
     if ch == '\033':
-        if _sel.select([sys.stdin], [], [], 0.05)[0]:
+        # Use 150ms timeout — 50ms is too short when the system is busy
+        # rendering; mouse release sequences (\033[<0;x;ym) can arrive late
+        # and the \033 gets read as a bare ESC.
+        if _sel.select([sys.stdin], [], [], 0.15)[0]:
             ch2 = sys.stdin.read(1)
             if ch2 == '[':
                 # CSI sequence: read params + final byte (letter or ~)
                 seq = ''
-                while _sel.select([sys.stdin], [], [], 0.05)[0]:
+                while _sel.select([sys.stdin], [], [], 0.15)[0]:
                     c = sys.stdin.read(1)
                     seq += c
                     if c.isalpha() or c == '~':
@@ -430,25 +435,30 @@ def _read_key():
                 return {'A': 'fwd', 'B': 'back', 'C': 'fwd', 'D': 'back'}.get(final)
             elif ch2 == 'O':
                 # SS3 sequence (some terminals use for arrows)
-                if _sel.select([sys.stdin], [], [], 0.05)[0]:
+                if _sel.select([sys.stdin], [], [], 0.15)[0]:
                     ch3 = sys.stdin.read(1)
                     return {'A': 'fwd', 'B': 'back', 'C': 'fwd', 'D': 'back'}.get(ch3)
-        return None  # bare ESC or unknown — ignore, don't reset
+        return 'escape'
     elif ch in ('q', 'Q'):
         return 'quit'
+    elif ch in ('o', 'O'):
+        return 'open'
     elif ch in ('n', 'N', ' '):
         return 'reset'
     return None
 
 
-def live_loop(render_fn, interval=60, mouse=False):
+def live_loop(render_fn, interval=60, mouse=False, on_open=None):
     """Run render_fn() in a loop on the alternate screen buffer.
 
-    render_fn: callable(offset_minutes=0) returning the display string.
-               If mouse=True, also receives mouse_pos=(col, row) or None.
+    render_fn: callable(offset_minutes=0) returning (display_string, metadata)
+               or just display_string.
+               If mouse=True, also receives mouse_pos=(col, row) or None
+               and active_alert=int_or_None.
                Scroll/arrow keys adjust offset_minutes to scrub through time.
     interval: seconds between refreshes.
     mouse: if True, enable SGR mouse tracking and pass mouse_pos to render_fn.
+    on_open: optional callback(alert_index) called when user presses 'o' on a modal.
     Re-renders immediately on terminal resize (SIGWINCH) or input.
     """
     import select, signal, termios, threading, tty
@@ -464,6 +474,9 @@ def live_loop(render_fn, interval=60, mouse=False):
     old_settings = termios.tcgetattr(fd)
     offset = 0
     mouse_pos = None
+    active_alert = None  # index of alert whose modal is open, or None
+    modal_scroll = 0     # scroll offset within the modal
+    alert_row_map = {}   # 0-based line index → alert index
 
     init = "\033[?1049h\033[?25l"
     if mouse:
@@ -475,9 +488,15 @@ def live_loop(render_fn, interval=60, mouse=False):
 
         while True:
             if mouse:
-                output = render_fn(offset_minutes=offset, mouse_pos=mouse_pos)
+                result = render_fn(offset_minutes=offset, mouse_pos=mouse_pos, active_alert=active_alert, modal_scroll=modal_scroll)
             else:
-                output = render_fn(offset_minutes=offset)
+                result = render_fn(offset_minutes=offset)
+            # render_fn may return (output, metadata) or just output
+            if isinstance(result, tuple):
+                output, alert_row_map = result
+            else:
+                output = result
+                alert_row_map = {}
             # Separate cursor-positioned overlay from main output (\x00 delimiter)
             parts = output.split('\x00', 1)
             main_out = parts[0]
@@ -502,7 +521,22 @@ def live_loop(render_fn, interval=60, mouse=False):
                 if ready:
                     action = _read_key()
                     if action == 'quit':
+                        if active_alert is not None:
+                            active_alert = None
+                            modal_scroll = 0
+                            break
                         return
+                    elif action == 'escape':
+                        # With mouse tracking, bare ESC is almost always a
+                        # split mouse sequence (release bytes arriving late).
+                        # Only honour ESC to dismiss when mouse is off.
+                        if not mouse and active_alert is not None:
+                            active_alert = None
+                            break
+                    elif action == 'open':
+                        if active_alert is not None and on_open:
+                            on_open(active_alert)
+                            break
                     elif action == 'fwd':
                         offset += 15
                         break
@@ -513,10 +547,30 @@ def live_loop(render_fn, interval=60, mouse=False):
                         offset = 0
                         break
                     elif mouse and isinstance(action, tuple) and action[0] == 'mouse':
-                        _, cb, cx, cy, _is_rel = action
+                        _, cb, cx, cy, is_rel = action
                         if cb in (64, 65):
-                            offset += 15 if cb == 64 else -15
+                            if active_alert is not None:
+                                # Scroll the modal
+                                modal_scroll += 3 if cb == 65 else -3
+                                modal_scroll = max(0, modal_scroll)
+                            else:
+                                offset += 15 if cb == 64 else -15
                             break
+                        if is_rel:
+                            # Button release — ignore
+                            continue
+                        if cb == 0:
+                            # Left button press (not release, not motion)
+                            row_idx = cy - 1  # 1-based → 0-based
+                            if active_alert is not None:
+                                # Click while modal open — dismiss
+                                active_alert = None
+                                modal_scroll = 0
+                                break
+                            elif row_idx in alert_row_map:
+                                active_alert = alert_row_map[row_idx]
+                                modal_scroll = 0
+                                break
                         if cb & 32:  # motion
                             mouse_pos = (cx, cy)
                             break

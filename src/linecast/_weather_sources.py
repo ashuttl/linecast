@@ -138,6 +138,7 @@ def _fetch_alerts_nws(lat, lng):
             "effective": props.get("effective", ""),
             "expires": props.get("expires", ""),
             "severity": props.get("severity", ""),
+            "url": props.get("web", ""),
         })
     write_cache(cache_file, alerts)
     return alerts
@@ -204,6 +205,7 @@ def _fetch_alerts_eccc(lat, lng, lang="en"):
             "effective": effective,
             "expires": expires,
             "severity": severity,
+            "url": "",
         })
     write_cache(cache_file, alerts)
     return alerts

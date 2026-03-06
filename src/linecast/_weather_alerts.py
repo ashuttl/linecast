@@ -1,8 +1,9 @@
 """Weather alert rendering."""
 
+import textwrap
 from datetime import datetime
 
-from linecast._graphics import bg, fg, RESET, BOLD
+from linecast._graphics import bg, fg, visible_len, RESET, BOLD
 from linecast._weather_i18n import DAY_NAMES
 from linecast._weather_style import ALERT_AMBER, ALERT_RED, ALERT_YELLOW, MUTED, WIND_COLOR
 
@@ -39,7 +40,7 @@ def _severity_rgb(severity):
 
 
 def _render_single_alert(alert, width, max_lines=999, runtime=None):
-    """Render one alert (pill + wrapped description), up to max_lines."""
+    """Render one alert as a single compact line: pill + date range + truncated body."""
     dark_fg = fg(20, 20, 25)
     severity = alert.get("severity", "")
     r, g, b = _severity_rgb(severity)
@@ -49,60 +50,190 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None):
     expires = _parse_alert_time(alert.get("expires", ""), runtime)
     timing = ""
     if effective and expires:
-        timing = f" {effective} \u2013 {expires}"
+        timing = f"{effective} \u2013 {expires}"
     elif expires:
         until = "jusqu'\u00e0" if (runtime and runtime.lang == "fr") else "until"
-        timing = f" {until} {expires}"
+        timing = f"{until} {expires}"
 
     pill = f"{bg_color}{dark_fg}{BOLD} \u26a0 {event} {RESET}"
-    line1 = f" {pill} {MUTED}\u00b7{WIND_COLOR}{timing}{RESET}" if timing else f" {pill}{RESET}"
-    lines = [line1]
+    pill_vis = visible_len(pill)
+
+    # Build the single line: pill + timing + truncated description
+    parts = [f" {pill}"]
+    used = 1 + pill_vis  # leading space + pill
+
+    if timing:
+        timing_str = f" {WIND_COLOR}{timing}{RESET}"
+        used += 1 + len(timing)
+        parts.append(timing_str)
 
     desc = alert.get("description", "").strip()
-    if desc and max_lines > 1:
-        desc = " ".join(desc.split())
-        wrap_w = width - 2
-        words = desc.split()
-        current_line = ""
-        desc_lines = 0
-        max_desc = max_lines - 1  # 1 line for pill
-        for word in words:
-            if current_line and len(current_line) + 1 + len(word) > wrap_w:
-                lines.append(f"  {MUTED}{current_line}{RESET}")
-                desc_lines += 1
-                if desc_lines >= max_desc:
-                    break
-                current_line = word
-            else:
-                current_line = f"{current_line} {word}" if current_line else word
-        if current_line and desc_lines < max_desc:
-            lines.append(f"  {MUTED}{current_line}{RESET}")
+    if desc:
+        flat = " ".join(desc.split())
+        remaining = width - used - 2  # 2 for " " prefix and trailing space
+        if remaining > 10:
+            truncated = flat[:remaining]
+            if len(flat) > remaining:
+                truncated = truncated[:remaining - 1] + "\u2026"
+            parts.append(f" {MUTED}{truncated}{RESET}")
 
-    return lines
+    return ["".join(parts)]
 
 
 def render_alerts(alerts, width=80, remaining_rows=None, runtime=None):
-    """NWS/ECCC alert banners - severity-colored background pill + description."""
+    """NWS/ECCC alert banners — compact one-line format."""
     if not alerts:
         return []
-    n = len(alerts)
+    lines = []
+    for alert in alerts:
+        lines.extend(_render_single_alert(alert, width, runtime=runtime))
+    return lines
 
-    if remaining_rows is not None:
-        # Blank line between each alert, evenly distribute remaining space
-        separator_lines = n - 1
-        usable = max(n, remaining_rows - separator_lines)
-        per_alert = usable // n
-        # Distribute remainder to earlier alerts
-        extras = usable - per_alert * n
-    else:
-        per_alert = 999
-        extras = 0
+
+# ---------------------------------------------------------------------------
+# Alert modal (full detail overlay for --live click)
+# ---------------------------------------------------------------------------
+
+_MODAL_BG = (10, 12, 18)
+
+
+def _build_modal_content(alert, inner_w, runtime=None):
+    """Build the full list of content lines for the alert modal.
+
+    Returns a list of (text, is_blank) tuples. Each text string already
+    contains ANSI color codes and will be padded by the caller.
+    """
+    MBG = bg(*_MODAL_BG)
+    TFG = fg(200, 205, 215)
+    dark_fg = fg(20, 20, 25)
+    severity = alert.get("severity", "")
+    r, g, b = _severity_rgb(severity)
+    bg_color = bg(r, g, b)
+    event = alert.get("event", "Unknown")
 
     lines = []
-    for idx, alert in enumerate(alerts):
-        if idx > 0:
-            lines.append("")  # blank separator between alerts
-        budget = per_alert + (1 if idx < extras else 0)
-        lines.extend(_render_single_alert(alert, width, max_lines=budget, runtime=runtime))
+
+    # Title pill — pad remainder with modal bg
+    pill = f"{bg_color}{dark_fg}{BOLD} \u26a0 {event} {RESET}"
+    lines.append(pill)
+
+    # Timing
+    effective = _parse_alert_time(alert.get("effective", ""), runtime)
+    expires = _parse_alert_time(alert.get("expires", ""), runtime)
+    if effective and expires:
+        lines.append(f"{MBG}{WIND_COLOR}{effective} \u2013 {expires}{RESET}")
+    elif expires:
+        until = "jusqu'\u00e0" if (runtime and runtime.lang == "fr") else "until"
+        lines.append(f"{MBG}{WIND_COLOR}{until} {expires}{RESET}")
+
+    lines.append("")  # blank line
+
+    # Headline (if different from event name)
+    headline = alert.get("headline", "")
+    if headline and headline != event:
+        for wrapped in textwrap.wrap(headline, inner_w):
+            lines.append(f"{MBG}{TFG}{BOLD}{wrapped}{RESET}")
+        lines.append("")
+
+    # Description — preserve paragraph breaks from source
+    desc = alert.get("description", "").strip()
+    if desc:
+        # Split on double newlines for paragraphs
+        paragraphs = desc.split("\n\n")
+        for pi, para in enumerate(paragraphs):
+            if pi > 0:
+                lines.append("")  # paragraph break
+            # Collapse whitespace within each paragraph, then wrap
+            flat = " ".join(para.split())
+            for wrapped in textwrap.wrap(flat, inner_w):
+                lines.append(f"{MBG}{TFG}{wrapped}{RESET}")
+
+    # URL
+    url = alert.get("url", "")
+    if url:
+        lines.append("")
+        link_color = fg(80, 140, 220)
+        osc_link = f"\033]8;;{url}\033\\{link_color}{MBG}{url}\033]8;;\033\\{RESET}"
+        lines.append(osc_link)
 
     return lines
+
+
+def build_alert_modal(alert, cols, rows, runtime=None, scroll=0):
+    """Build a centered modal overlay showing the full alert detail.
+
+    Returns cursor-positioned ANSI escape sequences to draw the modal.
+    scroll: number of content lines scrolled down (0 = top).
+    """
+    MBG = bg(*_MODAL_BG)
+    TFG = fg(200, 205, 215)
+    BORDER = fg(70, 80, 100)
+
+    # Modal dimensions
+    modal_w = min(cols - 4, 80)
+    inner_w = modal_w - 4  # 2 border + 2 padding
+    modal_max_h = rows - 4
+
+    all_content = _build_modal_content(alert, inner_w, runtime=runtime)
+    total_content = len(all_content)
+
+    # Visible content area height (excluding top/bottom border)
+    visible_h = min(total_content, modal_max_h - 2)
+
+    # Clamp scroll
+    max_scroll = max(0, total_content - visible_h)
+    scroll = max(0, min(scroll, max_scroll))
+
+    # Slice visible window
+    visible_lines = all_content[scroll:scroll + visible_h]
+
+    # Scroll indicator
+    can_scroll_up = scroll > 0
+    can_scroll_down = scroll < max_scroll
+
+    total_h = visible_h + 2  # content + top/bottom borders
+
+    # Center the modal
+    top_row = max(1, (rows - total_h) // 2 + 1)
+    left_col = max(1, (cols - modal_w) // 2 + 1)
+
+    result = ""
+    horiz = "\u2500" * (modal_w - 2)
+
+    # Top border (with scroll-up indicator)
+    if can_scroll_up:
+        arrow = f" {MUTED}\u25b2 "
+        arrow_len = 3
+        left_bar = (modal_w - 2 - arrow_len) // 2
+        right_bar = modal_w - 2 - arrow_len - left_bar
+        top_line = f"{BORDER}\u256d{'\u2500' * left_bar}{arrow}{BORDER}{'\u2500' * right_bar}\u256e"
+    else:
+        top_line = f"{BORDER}\u256d{horiz}\u256e"
+    result += f"\033[{top_row};{left_col}H{MBG}{top_line}{RESET}"
+
+    # Content lines — every cell gets the modal bg
+    for i, line in enumerate(visible_lines):
+        r_pos = top_row + 1 + i
+        line_vis = visible_len(line)
+        pad = max(0, inner_w - line_vis)
+        result += f"\033[{r_pos};{left_col}H{MBG}{BORDER}\u2502{RESET}{MBG} {line}{MBG}{' ' * pad} {BORDER}\u2502{RESET}"
+
+    # Bottom border with hints
+    bot_row = top_row + visible_h + 1
+    url = alert.get("url", "")
+    parts = ["q to close"]
+    if url:
+        parts.append("o to open in browser")
+    if can_scroll_down:
+        parts.append("\u25bc scroll")
+    hint = f" {' \u00b7 '.join(parts)} "
+    hint_len = len(hint)
+    if hint_len + 2 < modal_w - 2:
+        left_bar = (modal_w - 2 - hint_len) // 2
+        right_bar = modal_w - 2 - hint_len - left_bar
+        bot_line = f"{BORDER}\u2570{'\u2500' * left_bar}{MUTED}{hint}{BORDER}{'\u2500' * right_bar}\u256f"
+    else:
+        bot_line = f"{BORDER}\u2570{horiz}\u256f"
+    result += f"\033[{bot_row};{left_col}H{MBG}{bot_line}{RESET}"
+
+    return result, max_scroll
