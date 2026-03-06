@@ -4,6 +4,8 @@ Terminal weather, solar arc, and tide visualizations. Pure Python, zero dependen
 
 All data comes from free public APIs with no keys required.
 
+![linecast](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/triptych.png)
+
 ## Commands
 
 **`weather`** — Current conditions, hourly braille temperature curve, 7-day forecast with color range bars, precipitation sparkline, natural language comparisons, and NWS/Environment Canada weather alerts.
