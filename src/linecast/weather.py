@@ -1277,10 +1277,10 @@ def render_daily(data, width):
             max_wind_w = max(max_wind_w, len(wind_s))
 
     max_right_w = 0
-    if max_precip_w:
-        max_right_w += 2 + max_precip_w
     if max_prob_w:
         max_right_w += 2 + max_prob_w
+    if max_precip_w:
+        max_right_w += 2 + max_precip_w
     if max_wind_w:
         max_right_w += 2 + max_wind_w
 
@@ -1381,10 +1381,10 @@ def render_daily(data, width):
 
         precip_s, prob_s, wind_s = day_details[i - 1]
         pcolor = _precip_color(wmo)
-        if max_precip_w:
-            line += f"  {pcolor}{precip_s:<{max_precip_w}}" if precip_s else f"  {' ' * max_precip_w}"
         if max_prob_w:
             line += f"  {pcolor}{prob_s:>{max_prob_w}}" if prob_s else f"  {' ' * max_prob_w}"
+        if max_precip_w:
+            line += f"  {pcolor}{precip_s:<{max_precip_w}}" if precip_s else f"  {' ' * max_precip_w}"
         if max_wind_w:
             line += f"  {WIND_COLOR}{wind_s:<{max_wind_w}}" if wind_s else f"  {' ' * max_wind_w}"
 
