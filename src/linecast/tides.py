@@ -12,9 +12,11 @@ from IP geolocation or overridden with TIDE_STATION env var.
 Usage: tides [--live] [--station ID] [--search QUERY]
 """
 
-import json, math, os, sys, time as _time, urllib.request
+import math
+import os
+import sys
+import time as _time
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
 
 from linecast._graphics import (
     fg, bg, RESET, BOLD, BG_PRIMARY,
@@ -22,7 +24,9 @@ from linecast._graphics import (
     get_terminal_size, Framebuffer, live_loop,
 )
 from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, read_stale, write_cache
+from linecast._http import fetch_json, fetch_json_cached
 from linecast._location import get_location
+from linecast._runtime import RuntimeConfig, arg_value, has_flag
 from linecast import USER_AGENT
 
 CACHE_DIR = CACHE_ROOT / "tides"
@@ -72,9 +76,7 @@ def find_nearest_station(lat, lng):
 
     try:
         url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions"
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        resp = urllib.request.urlopen(req, timeout=10)
-        data = json.loads(resp.read())
+        data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=10)
     except Exception:
         # Try stale cache
         stale = read_stale(cache_file)
@@ -106,36 +108,38 @@ def find_nearest_station(lat, lng):
 def _fetch_station_metadata(station_id):
     """Fetch station metadata needed for timezone handling. Cached 30 days."""
     cache_file = CACHE_DIR / f"station_meta_{station_id}.json"
-    cached = read_cache(cache_file, 30 * 86400)
-    if cached:
-        return cached
+    url = (
+        "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/"
+        f"stations/{station_id}.json?expand=details"
+    )
+    data = fetch_json_cached(
+        cache_file,
+        30 * 86400,
+        url,
+        headers={"User-Agent": USER_AGENT},
+        timeout=10,
+        fallback=None,
+    )
+    if not data:
+        return None
+    if "timezone_abbr" in data:
+        return data
 
-    try:
-        url = (
-            "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/"
-            f"stations/{station_id}.json?expand=details"
-        )
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        resp = urllib.request.urlopen(req, timeout=10)
-        data = json.loads(resp.read())
-        stations = data.get("stations", [])
-        if not stations:
-            return None
-        s = stations[0]
-        details = s.get("details", {})
-        meta = {
-            "id": str(s.get("id", station_id)),
-            "name": s.get("name", ""),
-            "state": s.get("state", ""),
-            "timezone_abbr": str(s.get("timezone", "")).upper(),
-            "timezonecorr": s.get("timezonecorr", details.get("timezone")),
-            "observedst": bool(s.get("observedst", False)),
-        }
-        write_cache(cache_file, meta)
-        return meta
-    except Exception:
-        stale = read_stale(cache_file)
-        return stale or None
+    stations = data.get("stations", [])
+    if not stations:
+        return None
+    s = stations[0]
+    details = s.get("details", {})
+    meta = {
+        "id": str(s.get("id", station_id)),
+        "name": s.get("name", ""),
+        "state": s.get("state", ""),
+        "timezone_abbr": str(s.get("timezone", "")).upper(),
+        "timezonecorr": s.get("timezonecorr", details.get("timezone")),
+        "observedst": bool(s.get("observedst", False)),
+    }
+    write_cache(cache_file, meta)
+    return meta
 
 
 def _station_tzinfo(meta):
@@ -194,6 +198,75 @@ def _station_now(meta):
     return datetime.now()
 
 
+def _prediction_url(station_id, begin_date, end_date, interval):
+    return (
+        "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+        f"?begin_date={begin_date}&end_date={end_date}"
+        f"&station={station_id}&product=predictions&datum=MLLW"
+        f"&units=english&time_zone=lst_ldt&interval={interval}&format=json"
+    )
+
+
+def _fetch_payload(cache_file, max_age, url, fallback=None):
+    """Read fresh cache, otherwise fetch JSON with stale-cache fallback."""
+    cached = read_cache(cache_file, max_age)
+    if cached is not None:
+        return cached
+    return fetch_json_cached(
+        cache_file,
+        0,
+        url,
+        headers={"User-Agent": USER_AGENT},
+        timeout=10,
+        fallback=fallback,
+    )
+
+
+def _parse_prediction_hour(t_str):
+    try:
+        parts = t_str.split(" ")
+        time_parts = parts[1].split(":")
+        return int(time_parts[0]) + int(time_parts[1]) / 60
+    except (IndexError, ValueError):
+        return None
+
+
+def _build_tide_row(prediction):
+    hour = _parse_prediction_hour(prediction.get("t", ""))
+    if hour is None:
+        return None
+    return {"h": hour, "v": float(prediction.get("v", 0))}
+
+
+def _build_hilo_row(prediction):
+    row = _build_tide_row(prediction)
+    if row is None:
+        return None
+    row["t"] = prediction.get("type", "")
+    return row
+
+
+def _fetch_prediction_rows(cache_file, url, row_builder, tuple_builder):
+    """Fetch NOAA prediction payload and return parsed tuple rows."""
+    data = _fetch_payload(cache_file, 86400, url, fallback=None)
+    if not data:
+        return None
+    if isinstance(data, list):
+        return [tuple_builder(row) for row in data]
+
+    predictions = data.get("predictions", [])
+    if not predictions:
+        return None
+
+    rows = []
+    for prediction in predictions:
+        row = row_builder(prediction)
+        if row is not None:
+            rows.append(row)
+    write_cache(cache_file, rows)
+    return [tuple_builder(row) for row in rows]
+
+
 def fetch_tides(station_id, date):
     """Fetch 6-minute interval tide predictions for a date.
 
@@ -201,45 +274,13 @@ def fetch_tides(station_id, date):
     """
     date_str = date.strftime("%Y%m%d")
     cache_file = CACHE_DIR / f"pred_{station_id}_{date_str}.json"
-    cached = read_cache(cache_file, 86400)
-    if cached:
-        return [(p["h"], p["v"]) for p in cached]
-
-    try:
-        url = (
-            f"https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-            f"?begin_date={date_str}&end_date={date_str}"
-            f"&station={station_id}&product=predictions&datum=MLLW"
-            f"&units=english&time_zone=lst_ldt&interval=6&format=json"
-        )
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        resp = urllib.request.urlopen(req, timeout=10)
-        data = json.loads(resp.read())
-    except Exception:
-        stale = read_stale(cache_file)
-        if stale:
-            return [(p["h"], p["v"]) for p in stale]
-        return None
-
-    predictions = data.get("predictions", [])
-    if not predictions:
-        return None
-
-    result = []
-    for p in predictions:
-        # Parse "2024-03-03 14:06"
-        t_str = p.get("t", "")
-        v = float(p.get("v", 0))
-        try:
-            parts = t_str.split(" ")
-            time_parts = parts[1].split(":")
-            hour = int(time_parts[0]) + int(time_parts[1]) / 60
-        except (IndexError, ValueError):
-            continue
-        result.append({"h": hour, "v": v})
-
-    write_cache(cache_file, result)
-    return [(p["h"], p["v"]) for p in result]
+    url = _prediction_url(station_id, date_str, date_str, "6")
+    return _fetch_prediction_rows(
+        cache_file,
+        url,
+        row_builder=_build_tide_row,
+        tuple_builder=lambda row: (row["h"], row["v"]),
+    )
 
 
 def fetch_hilo(station_id, date):
@@ -249,45 +290,13 @@ def fetch_hilo(station_id, date):
     """
     date_str = date.strftime("%Y%m%d")
     cache_file = CACHE_DIR / f"hilo_{station_id}_{date_str}.json"
-    cached = read_cache(cache_file, 86400)
-    if cached:
-        return [(p["h"], p["v"], p["t"]) for p in cached]
-
-    try:
-        url = (
-            f"https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-            f"?begin_date={date_str}&end_date={date_str}"
-            f"&station={station_id}&product=predictions&datum=MLLW"
-            f"&units=english&time_zone=lst_ldt&interval=hilo&format=json"
-        )
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        resp = urllib.request.urlopen(req, timeout=10)
-        data = json.loads(resp.read())
-    except Exception:
-        stale = read_stale(cache_file)
-        if stale:
-            return [(p["h"], p["v"], p["t"]) for p in stale]
-        return None
-
-    predictions = data.get("predictions", [])
-    if not predictions:
-        return None
-
-    result = []
-    for p in predictions:
-        t_str = p.get("t", "")
-        v = float(p.get("v", 0))
-        typ = p.get("type", "")
-        try:
-            parts = t_str.split(" ")
-            time_parts = parts[1].split(":")
-            hour = int(time_parts[0]) + int(time_parts[1]) / 60
-        except (IndexError, ValueError):
-            continue
-        result.append({"h": hour, "v": v, "t": typ})
-
-    write_cache(cache_file, result)
-    return [(p["h"], p["v"], p["t"]) for p in result]
+    url = _prediction_url(station_id, date_str, date_str, "hilo")
+    return _fetch_prediction_rows(
+        cache_file,
+        url,
+        row_builder=_build_hilo_row,
+        tuple_builder=lambda row: (row["h"], row["v"], row["t"]),
+    )
 
 
 def fetch_monthly_range(station_id, date):
@@ -299,25 +308,12 @@ def fetch_monthly_range(station_id, date):
     end = date + timedelta(days=30)
     end_str = end.strftime("%Y%m%d")
     cache_file = CACHE_DIR / f"range_{station_id}_{date_str}.json"
-    cached = read_cache(cache_file, 86400)
-    if cached:
-        return cached["min"], cached["max"]
-
-    try:
-        url = (
-            f"https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-            f"?begin_date={date_str}&end_date={end_str}"
-            f"&station={station_id}&product=predictions&datum=MLLW"
-            f"&units=english&time_zone=lst_ldt&interval=hilo&format=json"
-        )
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        resp = urllib.request.urlopen(req, timeout=10)
-        data = json.loads(resp.read())
-    except Exception:
-        stale = read_stale(cache_file)
-        if stale:
-            return stale["min"], stale["max"]
+    url = _prediction_url(station_id, date_str, end_str, "hilo")
+    data = _fetch_payload(cache_file, 86400, url, fallback=None)
+    if not data:
         return None
+    if isinstance(data, dict) and "min" in data and "max" in data:
+        return data["min"], data["max"]
 
     predictions = data.get("predictions", [])
     if not predictions:
@@ -332,19 +328,10 @@ def fetch_monthly_range(station_id, date):
 def _fetch_all_stations():
     """Fetch the full NOAA tide-prediction station list (cached 30 days)."""
     cache_file = CACHE_DIR / "all_stations.json"
-    cached = read_cache(cache_file, 30 * 86400)
-    if cached:
-        return cached
-
-    try:
-        url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions"
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        resp = urllib.request.urlopen(req, timeout=10)
-        data = json.loads(resp.read())
-    except Exception:
-        stale = read_stale(cache_file)
-        return stale or []
-
+    url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions"
+    data = _fetch_payload(cache_file, 30 * 86400, url, fallback=[])
+    if isinstance(data, list):
+        return data
     stations = data.get("stations", [])
     write_cache(cache_file, stations)
     return stations
@@ -586,38 +573,27 @@ def _info_line(
 
 
 # ---------------------------------------------------------------------------
-# Argument parsing
-# ---------------------------------------------------------------------------
-def _parse_arg(flag):
-    """Return the value after --flag, or None if not present."""
-    for i, a in enumerate(sys.argv[1:], 1):
-        if a == flag and i + 1 < len(sys.argv):
-            return sys.argv[i + 1]
-        if a.startswith(f"{flag}="):
-            return a.split("=", 1)[1]
-    return None
-
-
-# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    if "--help" in sys.argv or "-h" in sys.argv:
+    runtime = RuntimeConfig.from_sources()
+
+    if has_flag("--help") or has_flag("-h"):
         print(__doc__.strip())
         return
-    if "--version" in sys.argv:
+    if has_flag("--version"):
         from linecast import __version__
         print(f"tides (linecast {__version__})")
         return
 
     # --search: find stations by name and exit
-    search_q = _parse_arg("--search")
+    search_q = arg_value("--search")
     if search_q:
         _search_stations(search_q)
         return
 
     # Station: --station flag > TIDE_STATION env var > geolocation
-    station_arg = _parse_arg("--station")
+    station_arg = arg_value("--station")
     override = station_arg or os.environ.get("TIDE_STATION", "").strip()
 
     if override:
@@ -652,7 +628,7 @@ def main():
         if meta_name:
             station_name = f"{meta_name}, {meta_state}" if meta_state else meta_name
 
-    live = "--live" in sys.argv
+    live = runtime.live
     _render = lambda offset_minutes=0: render(
         station_id,
         station_name,

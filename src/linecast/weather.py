@@ -10,18 +10,20 @@ Alerts are sourced from NWS (US) and Environment Canada (CA).
 Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji] [--celsius/--metric] [--shading]
 """
 
-import json, os, sys, time as _time, urllib.request
+import os
+import sys
 from datetime import datetime, timezone, timedelta
-from pathlib import Path
 
 from linecast._graphics import (
     fg, bg, RESET, BOLD, interp_stops, visible_len, get_terminal_size,
     live_loop,
 )
 from linecast._cache import (
-    CACHE_ROOT, read_cache, read_stale, write_cache, location_cache_key,
+    CACHE_ROOT, read_cache, write_cache, location_cache_key,
 )
+from linecast._http import fetch_json, fetch_json_cached
 from linecast._location import get_location
+from linecast._runtime import WeatherRuntime, arg_value, has_flag
 from linecast import USER_AGENT
 
 CACHE_DIR = CACHE_ROOT / "weather"
@@ -87,25 +89,8 @@ _WMO_ICONS_EMOJI = {
     95: "\u26c8\ufe0f",  96: "\u26c8\ufe0f",  99: "\u26c8\ufe0f",
 }
 
-def _use_emoji():
-    """Check if emoji mode is requested (--emoji flag or LINECAST_ICONS=emoji)."""
-    return "--emoji" in sys.argv or os.environ.get("LINECAST_ICONS", "").lower() == "emoji"
-
-def _use_metric():
-    """Check if metric/Celsius mode is requested (--celsius/--metric flag or WEATHER_UNITS=metric)."""
-    return ("--celsius" in sys.argv or "--metric" in sys.argv
-            or os.environ.get("WEATHER_UNITS", "").lower() == "metric")
-
-def _use_shading():
-    """Check if day/night background shading is requested (--shading flag or WEATHER_SHADING=1)."""
-    return "--shading" in sys.argv or os.environ.get("WEATHER_SHADING", "").lower() in ("1", "true", "yes")
-
-METRIC = _use_metric()
-TEMP_UNIT = "°C" if METRIC else "°F"
-WIND_UNIT = "km/h" if METRIC else "mph"
-PRECIP_UNIT = "mm" if METRIC else "in"
-
-WMO_ICONS = _WMO_ICONS_EMOJI if _use_emoji() else _WMO_ICONS_NERD
+def _wmo_icons(runtime):
+    return _WMO_ICONS_EMOJI if runtime.emoji else _WMO_ICONS_NERD
 WMO_NAMES = {
     0: "Clear", 1: "Mostly Clear", 2: "Partly Cloudy", 3: "Overcast",
     45: "Fog", 48: "Rime Fog",
@@ -125,18 +110,6 @@ DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
 # ---------------------------------------------------------------------------
-# Argument parsing
-# ---------------------------------------------------------------------------
-def _parse_arg(flag):
-    """Return the value after --flag, or None if not present."""
-    for i, a in enumerate(sys.argv[1:], 1):
-        if a == flag and i + 1 < len(sys.argv):
-            return sys.argv[i + 1]
-        if a.startswith(f"{flag}="):
-            return a.split("=", 1)[1]
-    return None
-
-
 def _location_from_timezone(tz_str):
     """Extract display name from timezone like 'America/New_York' → 'New York'."""
     if not tz_str or "/" not in tz_str:
@@ -175,9 +148,7 @@ def _reverse_geocode(lat, lng):
             f"https://nominatim.openstreetmap.org/reverse"
             f"?lat={lat}&lon={lng}&format=json&zoom=10"
         )
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        resp = urllib.request.urlopen(req, timeout=10)
-        data = json.loads(resp.read())
+        data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=10)
         addr = data.get("address", {})
         name = addr.get("city") or addr.get("town") or addr.get("village") or ""
         state = addr.get("state", "")
@@ -200,41 +171,35 @@ def _reverse_geocode(lat, lng):
 # ---------------------------------------------------------------------------
 # Data fetching
 # ---------------------------------------------------------------------------
-def fetch_forecast(lat, lng):
+def fetch_forecast(lat, lng, runtime=None):
     """Fetch hourly + daily forecast from Open-Meteo. Cached 1h."""
-    unit_suffix = "_metric" if METRIC else ""
+    if runtime is None:
+        runtime = WeatherRuntime.from_sources()
+    unit_suffix = "_metric" if runtime.metric else ""
     cache_file = CACHE_DIR / f"forecast_{location_cache_key(lat, lng)}{unit_suffix}.json"
-    cached = read_cache(cache_file, 3600)
-    if cached:
-        return cached
-
-    try:
-        url = (
-            "https://api.open-meteo.com/v1/forecast"
-            f"?latitude={lat}&longitude={lng}"
-            "&hourly=temperature_2m,apparent_temperature,precipitation,precipitation_probability,"
-            "wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code"
-            "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,"
-            "precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max,"
-            "sunrise,sunset"
-            f"&temperature_unit={'celsius' if METRIC else 'fahrenheit'}"
-            f"&wind_speed_unit={'kmh' if METRIC else 'mph'}"
-            f"&precipitation_unit={'mm' if METRIC else 'inch'}"
-            "&timezone=auto&forecast_days=7&past_days=1"
-            "&current=temperature_2m,apparent_temperature,weather_code,"
-            "wind_speed_10m,wind_gusts_10m"
-        )
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        resp = urllib.request.urlopen(req, timeout=10)
-        data = json.loads(resp.read())
-    except Exception:
-        stale = read_stale(cache_file)
-        if stale:
-            return stale
-        return None
-
-    write_cache(cache_file, data)
-    return data
+    url = (
+        "https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat}&longitude={lng}"
+        "&hourly=temperature_2m,apparent_temperature,precipitation,precipitation_probability,"
+        "wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code"
+        "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,"
+        "precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max,"
+        "sunrise,sunset"
+        f"&temperature_unit={'celsius' if runtime.metric else 'fahrenheit'}"
+        f"&wind_speed_unit={'kmh' if runtime.metric else 'mph'}"
+        f"&precipitation_unit={'mm' if runtime.metric else 'inch'}"
+        "&timezone=auto&forecast_days=7&past_days=1"
+        "&current=temperature_2m,apparent_temperature,weather_code,"
+        "wind_speed_10m,wind_gusts_10m"
+    )
+    return fetch_json_cached(
+        cache_file,
+        3600,
+        url,
+        headers={"User-Agent": USER_AGENT},
+        timeout=10,
+        fallback=None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -256,37 +221,32 @@ def fetch_alerts(lat, lng, country_code=""):
 def _fetch_alerts_nws(lat, lng):
     """Fetch active NWS alerts (US). Cached 15min."""
     cache_file = CACHE_DIR / f"alerts_{location_cache_key(lat, lng)}.json"
-    cached = read_cache(cache_file, 900)
-    if cached is not None:
-        return cached
+    url = f"https://api.weather.gov/alerts/active?point={lat},{lng}"
+    data = fetch_json_cached(
+        cache_file,
+        900,
+        url,
+        headers={"User-Agent": USER_AGENT, "Accept": "application/geo+json"},
+        timeout=10,
+        fallback=[],
+    )
+    if isinstance(data, list):
+        return data
 
-    try:
-        url = f"https://api.weather.gov/alerts/active?point={lat},{lng}"
-        req = urllib.request.Request(url, headers={
-            "User-Agent": USER_AGENT,
-            "Accept": "application/geo+json",
+    features = data.get("features", [])
+    alerts = []
+    for f in features:
+        p = f.get("properties", {})
+        alerts.append({
+            "event": p.get("event", ""),
+            "headline": p.get("headline", ""),
+            "description": p.get("description", ""),
+            "effective": p.get("effective", ""),
+            "expires": p.get("expires", ""),
+            "severity": p.get("severity", ""),
         })
-        resp = urllib.request.urlopen(req, timeout=10)
-        data = json.loads(resp.read())
-        features = data.get("features", [])
-        alerts = []
-        for f in features:
-            p = f.get("properties", {})
-            alerts.append({
-                "event": p.get("event", ""),
-                "headline": p.get("headline", ""),
-                "description": p.get("description", ""),
-                "effective": p.get("effective", ""),
-                "expires": p.get("expires", ""),
-                "severity": p.get("severity", ""),
-            })
-        write_cache(cache_file, alerts)
-        return alerts
-    except Exception:
-        stale = read_stale(cache_file)
-        if stale is not None:
-            return stale
-        return []
+    write_cache(cache_file, alerts)
+    return alerts
 
 
 def _fetch_alerts_eccc(lat, lng):
@@ -295,59 +255,54 @@ def _fetch_alerts_eccc(lat, lng):
     Uses the OGC API at api.weather.gc.ca with bbox query.
     """
     cache_file = CACHE_DIR / f"alerts_ca_{location_cache_key(lat, lng)}.json"
-    cached = read_cache(cache_file, 900)
-    if cached is not None:
-        return cached
+    # bbox: lng-0.5, lat-0.5, lng+0.5, lat+0.5 (~50km radius)
+    bbox = f"{lng - 0.5},{lat - 0.5},{lng + 0.5},{lat + 0.5}"
+    url = (
+        f"https://api.weather.gc.ca/collections/weather-alerts/items"
+        f"?f=json&bbox={bbox}&lang=en&limit=20"
+    )
+    data = fetch_json_cached(
+        cache_file,
+        900,
+        url,
+        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+        timeout=10,
+        fallback=[],
+    )
+    if isinstance(data, list):
+        return data
 
-    try:
-        # bbox: lng-0.5, lat-0.5, lng+0.5, lat+0.5 (~50km radius)
-        bbox = f"{lng - 0.5},{lat - 0.5},{lng + 0.5},{lat + 0.5}"
-        url = (
-            f"https://api.weather.gc.ca/collections/weather-alerts/items"
-            f"?f=json&bbox={bbox}&lang=en&limit=20"
-        )
-        req = urllib.request.Request(url, headers={
-            "User-Agent": USER_AGENT,
-            "Accept": "application/json",
+    features = data.get("features", [])
+    alerts = []
+    seen_events = set()  # deduplicate by event name
+    for f in features:
+        p = f.get("properties", {})
+        # ECCC field names: alert_name_en, alert_text_en, etc.
+        event = p.get("alert_name_en", "").title() or p.get("alert_short_name_en", "")
+        severity = _eccc_severity(p)
+        desc = p.get("alert_text_en") or p.get("alert_text_fr") or ""
+        effective = p.get("validity_datetime") or p.get("publication_datetime") or ""
+        expires = p.get("expiration_datetime") or ""
+
+        if not event:
+            continue
+
+        # Deduplicate — ECCC returns one feature per affected zone
+        dedup_key = (event, severity)
+        if dedup_key in seen_events:
+            continue
+        seen_events.add(dedup_key)
+
+        alerts.append({
+            "event": event,
+            "headline": event,
+            "description": desc,
+            "effective": effective,
+            "expires": expires,
+            "severity": severity,
         })
-        resp = urllib.request.urlopen(req, timeout=10)
-        data = json.loads(resp.read())
-        features = data.get("features", [])
-        alerts = []
-        seen_events = set()  # deduplicate by event name
-        for f in features:
-            p = f.get("properties", {})
-            # ECCC field names: alert_name_en, alert_text_en, etc.
-            event = p.get("alert_name_en", "").title() or p.get("alert_short_name_en", "")
-            severity = _eccc_severity(p)
-            desc = p.get("alert_text_en") or p.get("alert_text_fr") or ""
-            effective = p.get("validity_datetime") or p.get("publication_datetime") or ""
-            expires = p.get("expiration_datetime") or ""
-
-            if not event:
-                continue
-
-            # Deduplicate — ECCC returns one feature per affected zone
-            dedup_key = (event, severity)
-            if dedup_key in seen_events:
-                continue
-            seen_events.add(dedup_key)
-
-            alerts.append({
-                "event": event,
-                "headline": event,
-                "description": desc,
-                "effective": effective,
-                "expires": expires,
-                "severity": severity,
-            })
-        write_cache(cache_file, alerts)
-        return alerts
-    except Exception:
-        stale = read_stale(cache_file)
-        if stale is not None:
-            return stale
-        return []
+    write_cache(cache_file, alerts)
+    return alerts
 
 
 def _eccc_severity(props):
@@ -374,9 +329,7 @@ def _search_locations(query):
         f"?name={urllib.parse.quote(query)}&count=10&language=en"
     )
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        resp = urllib.request.urlopen(req, timeout=10)
-        data = json.loads(resp.read())
+        data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=10)
     except Exception as e:
         print(f"Search failed: {e}", file=sys.stderr)
         sys.exit(1)
@@ -406,13 +359,13 @@ def _search_locations(query):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def _temp_color(temp):
-    temp_f = temp * 9 / 5 + 32 if METRIC else temp
+def _temp_color(temp, runtime):
+    temp_f = temp * 9 / 5 + 32 if runtime.metric else temp
     return interp_stops(TEMP_COLORS, temp_f)
 
 
-def _colored_temp(temp, suffix=""):
-    r, g, b = _temp_color(temp)
+def _colored_temp(temp, runtime, suffix=""):
+    r, g, b = _temp_color(temp, runtime)
     return f"{fg(r, g, b)}{temp:.0f}{suffix}"
 
 
@@ -666,8 +619,10 @@ def _build_precip_blocks(precip_probs, weather_codes, graph_w, n_rows=1):
 # ---------------------------------------------------------------------------
 # Comparative weather line
 # ---------------------------------------------------------------------------
-def _comparative_line(daily, now):
+def _comparative_line(daily, now, runtime=None):
     """Natural language comparing today vs yesterday/tomorrow."""
+    if runtime is None:
+        runtime = WeatherRuntime.from_sources()
     hi_temps = daily.get("temperature_2m_max", [])
 
     # With past_days=1: index 0=yesterday, 1=today, 2=tomorrow
@@ -685,7 +640,7 @@ def _comparative_line(daily, now):
 
     abs_diff = abs(diff)
     # Thresholds in degrees (smaller for Celsius since 1°C ≈ 1.8°F)
-    t_same, t_bit, t_much = (2, 4, 8) if METRIC else (3, 8, 15)
+    t_same, t_bit, t_much = (2, 4, 8) if runtime.metric else (3, 8, 15)
     if abs_diff < t_same:
         comparison = f"about the same as {ref_day}"
     elif abs_diff < t_bit:
@@ -786,11 +741,185 @@ def _precipitation_line(hourly, now):
         return ""
 
 
+def _interpolate_columns(values, graph_w):
+    """Linearly interpolate values to one sample per terminal column."""
+    cols = []
+    for x in range(graph_w):
+        t = x / max(1, graph_w - 1) * max(0, len(values) - 1)
+        lo_i = int(t)
+        hi_i = min(lo_i + 1, len(values) - 1)
+        frac = t - lo_i
+        cols.append(values[lo_i] + (values[hi_i] - values[lo_i]) * frac)
+    return cols
+
+
+def _prepare_hourly_window(hourly, now, graph_w):
+    """Slice hourly arrays to the upcoming visible window."""
+    times = hourly.get("time", [])
+    temps = hourly.get("temperature_2m", [])
+    precip_prob = hourly.get("precipitation_probability", [])
+    weather_codes = hourly.get("weather_code", [])
+    wind_speeds = hourly.get("wind_speed_10m", [])
+    wind_directions = hourly.get("wind_direction_10m", [])
+    if not times or not temps:
+        return None
+
+    parsed = []
+    for i, t in enumerate(times):
+        try:
+            parsed.append((i, datetime.fromisoformat(t)))
+        except Exception:
+            continue
+
+    current_hour_dt = now.replace(minute=0, second=0, microsecond=0)
+    start_idx = 0
+    for i, dt in parsed:
+        if dt >= current_hour_dt:
+            start_idx = i
+            break
+
+    hours_shown = max(24, min(48, graph_w // 2))
+    end_time = current_hour_dt + timedelta(hours=hours_shown)
+    end_idx = start_idx
+    for i, dt in parsed:
+        if i >= start_idx and dt <= end_time:
+            end_idx = i
+
+    window_temps = temps[start_idx:end_idx + 1]
+    if len(window_temps) < 2:
+        return None
+
+    window_precip = precip_prob[start_idx:end_idx + 1] if precip_prob else []
+    window_codes = weather_codes[start_idx:end_idx + 1] if weather_codes else []
+    window_winds = wind_speeds[start_idx:end_idx + 1] if wind_speeds else []
+    window_wind_dirs = wind_directions[start_idx:end_idx + 1] if wind_directions else []
+    window_dts = [dt for i, dt in parsed if start_idx <= i <= end_idx]
+
+    total_hours = 24
+    if window_dts and len(window_dts) > 1:
+        total_secs = (window_dts[-1] - window_dts[0]).total_seconds()
+        total_hours = total_secs / 3600 if total_secs > 0 else 24
+
+    return {
+        "temps": window_temps,
+        "precip": window_precip,
+        "codes": window_codes,
+        "winds": window_winds,
+        "wind_dirs": window_wind_dirs,
+        "dts": window_dts,
+        "total_hours": total_hours,
+    }
+
+
+def _compute_time_markers(window_dts, total_hours, graph_w):
+    """Compute notable timeline columns (midnight, noon) and day labels."""
+    midnight_cols = set()
+    noon_cols = set()
+    midnight_day_names = {}
+    if window_dts:
+        for h_off in range(int(total_hours) + 1):
+            dt = window_dts[0] + timedelta(hours=h_off)
+            x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
+            if not (0 < x < graph_w - 1):
+                continue
+            if dt.hour == 0:
+                midnight_cols.add(x)
+                midnight_day_names[x] = dt.strftime("%A")
+            elif dt.hour == 12:
+                noon_cols.add(x)
+    return midnight_cols, noon_cols, midnight_day_names
+
+
+def _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime):
+    """Compute sunrise/sunset labels mapped to graph columns."""
+    sun_labels = {}
+    sunrise_icon = "\u2600\ufe0f" if runtime.emoji else "\ue34c"
+    sunset_icon = "\U0001f305" if runtime.emoji else "\ue34d"
+    if window_dts and sun_events:
+        t0 = window_dts[0]
+        for rise, sset in sun_events:
+            if rise:
+                off_h = (rise - t0).total_seconds() / 3600
+                if 0 < off_h < total_hours:
+                    x = int(off_h / total_hours * (graph_w - 1))
+                    if 0 < x < graph_w - 1:
+                        lbl = rise.strftime("%-I:%M%p").lower().replace("am", "a").replace("pm", "p")
+                        sun_labels[x] = (f"{sunrise_icon}{lbl}", True)
+            if sset:
+                off_h = (sset - t0).total_seconds() / 3600
+                if 0 < off_h < total_hours:
+                    x = int(off_h / total_hours * (graph_w - 1))
+                    if 0 < x < graph_w - 1:
+                        lbl = sset.strftime("%-I:%M%p").lower().replace("am", "a").replace("pm", "p")
+                        sun_labels[x] = (f"{sunset_icon}{lbl}", False)
+    return sun_labels
+
+
+def _compute_daylight_columns(window_dts, sun_events, graph_w):
+    """Compute per-column daylight factor for day/night tinting."""
+    if window_dts and sun_events:
+        col_daylight = []
+        for x in range(graph_w):
+            t_frac = x / max(1, graph_w - 1) * max(0, len(window_dts) - 1)
+            lo_i = int(t_frac)
+            hi_i = min(lo_i + 1, len(window_dts) - 1)
+            frac = t_frac - lo_i
+            secs = (window_dts[lo_i] + (window_dts[hi_i] - window_dts[lo_i]) * frac).timestamp()
+            if window_dts[0].tzinfo:
+                col_dt = datetime.fromtimestamp(secs, tz=window_dts[0].tzinfo)
+            else:
+                col_dt = datetime.fromtimestamp(secs)
+            col_daylight.append(_daylight_factor(col_dt, sun_events))
+        return col_daylight
+    return [1.0] * graph_w
+
+
+def _find_temperature_extrema(col_temps, graph_w):
+    """Detect prominent peaks and valleys for chart annotations."""
+    extrema = []  # (x, temp, is_peak)
+    if len(col_temps) < 5:
+        return extrema
+
+    min_gap = max(8, graph_w // 15)
+    for i in range(2, len(col_temps) - 2):
+        local = col_temps[max(0, i - 3):i + 4]
+        is_peak = col_temps[i] >= max(local) and (
+            col_temps[i] > col_temps[i - 1] or col_temps[i] > col_temps[i + 1]
+        )
+        is_valley = col_temps[i] <= min(local) and (
+            col_temps[i] < col_temps[i - 1] or col_temps[i] < col_temps[i + 1]
+        )
+        if not is_peak and not is_valley:
+            continue
+        neighbors_l = col_temps[max(0, i - 15):i]
+        neighbors_r = col_temps[i + 1:min(len(col_temps), i + 16)]
+        if not neighbors_l or not neighbors_r:
+            continue
+        if is_peak:
+            prom = col_temps[i] - max(min(neighbors_l), min(neighbors_r))
+        else:
+            prom = min(max(neighbors_l), max(neighbors_r)) - col_temps[i]
+        if prom < 3:
+            continue
+        if not any(abs(i - ex) < min_gap for ex, _, _ in extrema):
+            extrema.append((i, col_temps[i], is_peak))
+
+    global_max_x = max(range(len(col_temps)), key=lambda i: col_temps[i])
+    global_min_x = min(range(len(col_temps)), key=lambda i: col_temps[i])
+    for gx, is_peak in [(global_max_x, True), (global_min_x, False)]:
+        if not any(abs(gx - ex) < min_gap and p == is_peak for ex, _, p in extrema):
+            extrema.append((gx, col_temps[gx], is_peak))
+
+    return extrema
+
+
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
-def render_header(data, width, location_name=""):
+def render_header(data, width, location_name="", runtime=None):
     """Current conditions header line."""
+    if runtime is None:
+        runtime = WeatherRuntime.from_sources()
     current = data.get("current", {})
     temp = current.get("temperature_2m", 0)
     feels = current.get("apparent_temperature", 0)
@@ -798,16 +927,21 @@ def render_header(data, width, location_name=""):
     wind = current.get("wind_speed_10m", 0)
     gusts = current.get("wind_gusts_10m", 0)
 
-    icon = WMO_ICONS.get(wmo, WMO_ICONS[0])
+    icons = _wmo_icons(runtime)
+    icon = icons.get(wmo, icons[0])
     name = WMO_NAMES.get(wmo, "")
 
-    left = f" {TEXT}{icon} {name}  {_colored_temp(temp, TEMP_UNIT)}  {MUTED}feels {_colored_temp(feels, TEMP_UNIT)}"
+    left = (
+        f" {TEXT}{icon} {name}  "
+        f"{_colored_temp(temp, runtime, runtime.temp_unit)}"
+        f"  {MUTED}feels {_colored_temp(feels, runtime, runtime.temp_unit)}"
+    )
 
     right_parts = []
-    if wind > (15 if METRIC else 10) or gusts > (30 if METRIC else 20):
-        parts = [f"Wind {wind:.0f}{WIND_UNIT}"]
-        if gusts > (30 if METRIC else 20):
-            parts.append(f"gusts {gusts:.0f}{WIND_UNIT}")
+    if wind > (15 if runtime.metric else 10) or gusts > (30 if runtime.metric else 20):
+        parts = [f"Wind {wind:.0f}{runtime.wind_unit}"]
+        if gusts > (30 if runtime.metric else 20):
+            parts.append(f"gusts {gusts:.0f}{runtime.wind_unit}")
         right_parts.append(f"{WIND_COLOR}{'  '.join(parts)}")
     if location_name:
         right_parts.append(f"{MUTED}{location_name}")
@@ -820,410 +954,287 @@ def render_header(data, width, location_name=""):
     return f"{left}{RESET}"
 
 
-def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None):
-    """Hourly forecast: braille temperature curve + precipitation graph."""
-    hourly = data.get("hourly", {})
-    daily = data.get("daily", {})
-    times = hourly.get("time", [])
-    temps = hourly.get("temperature_2m", [])
-    precip_prob = hourly.get("precipitation_probability", [])
-    weather_codes = hourly.get("weather_code", [])
-    wind_speeds = hourly.get("wind_speed_10m", [])
-    wind_directions = hourly.get("wind_direction_10m", [])
-    sun_events = _parse_sun_events(daily)
+def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels, runtime):
+    """Render the hourly section header with day and sun-event labels."""
+    today_left = f" {TEXT}Today"
+    today_right = (
+        f"{_colored_temp(chart_lo, runtime, '°')} "
+        f"{TEXT}\u2192 {_colored_temp(chart_hi, runtime, runtime.temp_unit)}"
+    )
+    if not (midnight_day_names or sun_labels):
+        pad = width - visible_len(today_left) - visible_len(today_right) - 2
+        return f"{today_left}{' ' * max(1, pad)}{today_right} {RESET}"
 
-    if not times or not temps:
-        return []
+    label_start = visible_len(today_left)
+    right_len = visible_len(today_right) + 2
+    avail = width - right_len
+    mid_w = max(0, avail - label_start)
 
-    if now is None:
-        now = _local_now_for_data(data)
+    mid_canvas = [" "] * mid_w
+    mid_colors = [None] * mid_w
 
-    # Parse all hourly timestamps
-    parsed = []
-    for i, t in enumerate(times):
-        try:
-            parsed.append((i, datetime.fromisoformat(t)))
-        except Exception:
+    for col, name in sorted(midnight_day_names.items()):
+        pos = col + 1 - label_start
+        if pos >= 0 and pos + len(name) <= mid_w:
+            for j, c in enumerate(name):
+                mid_canvas[pos + j] = c
+
+    for col, (lbl, is_rise) in sorted(sun_labels.items()):
+        pos = max(0, col + 1 - label_start)
+        if pos + len(lbl) > mid_w:
             continue
+        if all(mid_canvas[pos + j] == " " for j in range(len(lbl))):
+            color = (200, 160, 60) if is_rise else (200, 100, 50)
+            for j, c in enumerate(lbl):
+                mid_canvas[pos + j] = c
+                mid_colors[pos + j] = color
 
-    # Find start: current hour (rounded down)
-    current_hour_dt = now.replace(minute=0, second=0, microsecond=0)
-    start_idx = 0
-    for i, dt in parsed:
-        if dt >= current_hour_dt:
-            start_idx = i
-            break
-
-    # Responsive time window: wider terminal → more hours (24–48h)
-    graph_w = max(10, width - 2)
-    hours_shown = max(24, min(48, graph_w // 2))
-
-    end_time = current_hour_dt + timedelta(hours=hours_shown)
-    end_idx = start_idx
-    for i, dt in parsed:
-        if i >= start_idx and dt <= end_time:
-            end_idx = i
-
-    window_temps = temps[start_idx:end_idx + 1]
-    window_precip = precip_prob[start_idx:end_idx + 1] if precip_prob else []
-    window_codes = weather_codes[start_idx:end_idx + 1] if weather_codes else []
-    window_winds = wind_speeds[start_idx:end_idx + 1] if wind_speeds else []
-    window_wind_dirs = wind_directions[start_idx:end_idx + 1] if wind_directions else []
-    window_dts = [dt for i, dt in parsed if start_idx <= i <= end_idx]
-
-    if len(window_temps) < 2:
-        return []
-
-    # Chart range (actual visible min/max, not daily)
-    chart_lo = min(window_temps)
-    chart_hi = max(window_temps)
-
-    # Timeline parameters (needed for midnight markers and tick labels)
-    total_hours = 24
-    if window_dts and len(window_dts) > 1:
-        total_secs = (window_dts[-1] - window_dts[0]).total_seconds()
-        total_hours = total_secs / 3600 if total_secs > 0 else 24
-
-    # Time-of-day column markers: midnight, noon
-    midnight_cols = set()
-    noon_cols = set()
-    if window_dts:
-        for h_off in range(int(total_hours) + 1):
-            dt = window_dts[0] + timedelta(hours=h_off)
-            x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
-            if 0 < x < graph_w - 1:
-                if dt.hour == 0:
-                    midnight_cols.add(x)
-                elif dt.hour == 12:
-                    noon_cols.add(x)
-
-    # Sunrise/sunset column positions and formatted times (for tick labels)
-    sun_labels = {}  # col -> (label_str, is_rise)
-    _sunrise_icon = "\u2600\ufe0f" if _use_emoji() else "\ue34c"
-    _sunset_icon = "\U0001f305" if _use_emoji() else "\ue34d"
-    if window_dts and sun_events:
-        t0 = window_dts[0]
-        for rise, sset in sun_events:
-            if rise:
-                off_h = (rise - t0).total_seconds() / 3600
-                if 0 < off_h < total_hours:
-                    x = int(off_h / total_hours * (graph_w - 1))
-                    if 0 < x < graph_w - 1:
-                        lbl = rise.strftime("%-I:%M%p").lower().replace("am", "a").replace("pm", "p")
-                        sun_labels[x] = (f"{_sunrise_icon}{lbl}", True)
-            if sset:
-                off_h = (sset - t0).total_seconds() / 3600
-                if 0 < off_h < total_hours:
-                    x = int(off_h / total_hours * (graph_w - 1))
-                    if 0 < x < graph_w - 1:
-                        lbl = sset.strftime("%-I:%M%p").lower().replace("am", "a").replace("pm", "p")
-                        sun_labels[x] = (f"{_sunset_icon}{lbl}", False)
-
-    # Per-column daylight factor for background tinting
-    col_daylight = []
-    if window_dts and sun_events:
-        for x in range(graph_w):
-            t_frac = x / max(1, graph_w - 1) * max(0, len(window_dts) - 1)
-            lo_i = int(t_frac)
-            hi_i = min(lo_i + 1, len(window_dts) - 1)
-            frac = t_frac - lo_i
-            secs = (window_dts[lo_i] + (window_dts[hi_i] - window_dts[lo_i]) * frac).timestamp()
-            col_dt = datetime.fromtimestamp(secs, tz=window_dts[0].tzinfo) if window_dts[0].tzinfo else datetime.fromtimestamp(secs)
-            col_daylight.append(_daylight_factor(col_dt, sun_events))
-    else:
-        col_daylight = [1.0] * graph_w
-
-    # Per-column temperatures for peak/valley labels
-    col_temps = []
-    for x in range(graph_w):
-        t = x / max(1, graph_w - 1) * max(0, len(window_temps) - 1)
-        lo_i = int(t)
-        hi_i = min(lo_i + 1, len(window_temps) - 1)
-        frac = t - lo_i
-        col_temps.append(window_temps[lo_i] + (window_temps[hi_i] - window_temps[lo_i]) * frac)
-
-    # Detect peaks and valleys for annotation
-    extrema = []  # (x, temp, is_peak)
-    if len(col_temps) >= 5:
-        min_gap = max(8, graph_w // 15)
-        for i in range(2, len(col_temps) - 2):
-            local = col_temps[max(0, i - 3):i + 4]
-            is_peak = col_temps[i] >= max(local) and (
-                col_temps[i] > col_temps[i - 1] or col_temps[i] > col_temps[i + 1])
-            is_valley = col_temps[i] <= min(local) and (
-                col_temps[i] < col_temps[i - 1] or col_temps[i] < col_temps[i + 1])
-            if not is_peak and not is_valley:
-                continue
-            neighbors_l = col_temps[max(0, i - 15):i]
-            neighbors_r = col_temps[i + 1:min(len(col_temps), i + 16)]
-            if not neighbors_l or not neighbors_r:
-                continue
-            if is_peak:
-                prom = col_temps[i] - max(min(neighbors_l), min(neighbors_r))
+    mid_str = ""
+    cur_color = None
+    for i in range(mid_w):
+        color = mid_colors[i]
+        if color != cur_color:
+            if color is None:
+                mid_str += f"{TEXT}"
             else:
-                prom = min(max(neighbors_l), max(neighbors_r)) - col_temps[i]
-            if prom < 3:
-                continue
-            if not any(abs(i - ex) < min_gap for ex, _, _ in extrema):
-                extrema.append((i, col_temps[i], is_peak))
+                mid_str += f"{fg(*color)}"
+            cur_color = color
+        mid_str += mid_canvas[i]
+    if cur_color is not None:
+        mid_str += f"{TEXT}"
 
-        # Ensure global min and max are always annotated
-        global_max_x = max(range(len(col_temps)), key=lambda i: col_temps[i])
-        global_min_x = min(range(len(col_temps)), key=lambda i: col_temps[i])
-        for gx, is_peak in [(global_max_x, True), (global_min_x, False)]:
-            if not any(abs(gx - ex) < min_gap and p == is_peak for ex, _, p in extrema):
-                extrema.append((gx, col_temps[gx], is_peak))
+    pad = width - visible_len(today_left) - mid_w - visible_len(today_right) - 2
+    return f"{today_left}{mid_str}{' ' * max(0, pad)}{today_right} {RESET}"
+
+
+def _render_extrema_line(extrema, graph_w, runtime, is_peak):
+    """Render one extrema annotation line (peaks above or valleys below)."""
+    points = sorted([(x, t) for x, t, peak in extrema if peak == is_peak])
+    if not points:
+        return None
+
+    segments, cursor = [], 0
+    for x, temp in points:
+        label = f"{temp:.0f}\u00b0"
+        pos = max(cursor, x + 1 - len(label) // 2)
+        if pos + len(label) > graph_w + 1:
+            continue
+        if pos > cursor:
+            segments.append((" " * (pos - cursor), None))
+        segments.append((label, temp))
+        cursor = pos + len(label)
+    if not segments:
+        return None
+
+    line = ""
+    for text, temp in segments:
+        if temp is None:
+            line += text
+            continue
+        r, g, b = _temp_color(temp, runtime)
+        line += f"{fg(r, g, b)}{text}"
+    return f"{line}{RESET}"
+
+
+def _render_braille_rows(braille_rows, col_daylight, midnight_cols, noon_cols, runtime):
+    """Render braille temperature rows with optional day/night shading."""
+    shading = runtime.shading
+    night_dim = 0.6
+    midnight_fg = fg(50, 30, 80)
+    noon_fg = fg(100, 120, 150)
+    bg_night = (12, 12, 22)
+    bg_day = (18, 22, 32)
 
     lines = []
-
-    # Compute day names at midnight boundaries for the header line
-    midnight_day_names = {}  # col -> day name (e.g. "Friday")
-    if window_dts:
-        for h_off in range(int(total_hours) + 1):
-            dt = window_dts[0] + timedelta(hours=h_off)
-            if dt.hour == 0:
-                x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
-                if 0 < x < graph_w - 1:
-                    midnight_day_names[x] = dt.strftime("%A")
-
-    # "Today" label with chart temperature range, day names, and sunrise/sunset times
-    today_left = f" {TEXT}Today"
-    today_right = f"{_colored_temp(chart_lo, '°')} {TEXT}\u2192 {_colored_temp(chart_hi, TEMP_UNIT)}"
-    if midnight_day_names or sun_labels:
-        label_start = visible_len(today_left)
-        right_len = visible_len(today_right) + 2
-        avail = width - right_len
-        mid_w = max(0, avail - label_start)
-
-        # Build a canvas and a color layer for the mid section
-        mid_canvas = [" "] * mid_w
-        mid_colors = [None] * mid_w  # None = default TEXT, or (r,g,b) tuple
-
-        # Place day names (plain text color)
-        for col, name in sorted(midnight_day_names.items()):
-            pos = col + 1 - label_start  # +1 for leading margin
-            if pos >= 0 and pos + len(name) <= mid_w:
-                for j, c in enumerate(name):
-                    mid_canvas[pos + j] = c
-
-        # Place sunrise/sunset labels (colored)
-        for col, (lbl, is_rise) in sorted(sun_labels.items()):
-            pos = col + 1 - label_start
-            if pos < 0:
-                pos = 0
-            if pos + len(lbl) > mid_w:
-                continue
-            # Check no overlap
-            if all(mid_canvas[pos + j] == " " for j in range(len(lbl))):
-                color = (200, 160, 60) if is_rise else (200, 100, 50)
-                for j, c in enumerate(lbl):
-                    mid_canvas[pos + j] = c
-                    mid_colors[pos + j] = color
-
-        # Build colored mid string
-        mid_str = ""
-        cur_color = None
-        for i in range(mid_w):
-            c = mid_colors[i]
-            if c != cur_color:
-                if c is None:
-                    mid_str += f"{TEXT}"
-                else:
-                    mid_str += f"{fg(*c)}"
-                cur_color = c
-            mid_str += mid_canvas[i]
-        if cur_color is not None:
-            mid_str += f"{TEXT}"
-
-        pad = width - visible_len(today_left) - mid_w - visible_len(today_right) - 2
-        lines.append(f"{today_left}{mid_str}{' ' * max(0, pad)}{today_right} {RESET}")
-    else:
-        pad = width - visible_len(today_left) - visible_len(today_right) - 2
-        lines.append(f"{today_left}{' ' * max(1, pad)}{today_right} {RESET}")
-
-    # Peak annotations (above braille curve)
-    peaks = sorted([(x, t) for x, t, p in extrema if p])
-    if peaks:
-        segments, cursor = [], 0
-        for x, temp in peaks:
-            label = f"{temp:.0f}\u00b0"
-            pos = max(cursor, x + 1 - len(label) // 2)
-            if pos + len(label) > graph_w + 1:
-                continue
-            if pos > cursor:
-                segments.append((" " * (pos - cursor), None))
-            segments.append((label, temp))
-            cursor = pos + len(label)
-        if segments:
-            line = ""
-            for text, temp in segments:
-                if temp is not None:
-                    r, g, b = _temp_color(temp)
-                    line += f"{fg(r, g, b)}{text}"
-                else:
-                    line += text
-            lines.append(f"{line}{RESET}")
-
-    # Braille temperature curve with optional day/night background shading
-    shading = _use_shading()
-    NIGHT_DIM = 0.6  # nighttime brightness multiplier (non-shading mode)
-    MIDNIGHT_FG = fg(50, 30, 80)     # deep midnight purple
-    NOON_FG     = fg(100, 120, 150)  # whitish-blue sky, muted
-    BG_NIGHT = (12, 12, 22)   # barely-there deep navy
-    BG_DAY   = (18, 22, 32)   # subtle cool sky tint
-
-    braille_rows = _build_braille_curve(window_temps, graph_w, n_braille_rows)
     for row in braille_rows:
         line = " "
         for ci, (ch, temp) in enumerate(row):
             dl = col_daylight[ci] if ci < len(col_daylight) else 1.0
 
             if shading:
-                br = int(BG_NIGHT[0] + (BG_DAY[0] - BG_NIGHT[0]) * dl)
-                bg_g = int(BG_NIGHT[1] + (BG_DAY[1] - BG_NIGHT[1]) * dl)
-                bb = int(BG_NIGHT[2] + (BG_DAY[2] - BG_NIGHT[2]) * dl)
+                br = int(bg_night[0] + (bg_day[0] - bg_night[0]) * dl)
+                bg_g = int(bg_night[1] + (bg_day[1] - bg_night[1]) * dl)
+                bb = int(bg_night[2] + (bg_day[2] - bg_night[2]) * dl)
                 bg_str = bg(br, bg_g, bb)
 
                 if ci in midnight_cols and ch == '\u2800':
-                    line += f"{bg_str}{MIDNIGHT_FG}\u2502{RESET}"
+                    line += f"{bg_str}{midnight_fg}\u2502{RESET}"
                 elif ci in noon_cols and ch == '\u2800':
-                    line += f"{bg_str}{NOON_FG}\u2502{RESET}"
+                    line += f"{bg_str}{noon_fg}\u2502{RESET}"
                 else:
-                    r, g, b = _temp_color(temp)
+                    r, g, b = _temp_color(temp, runtime)
                     line += f"{bg_str}{fg(r, g, b)}{ch}{RESET}"
             else:
                 if ci in midnight_cols and ch == '\u2800':
                     line += f"{DIM}\u2502"
                 else:
-                    r, g, b = _temp_color(temp)
-                    brightness = NIGHT_DIM + (1.0 - NIGHT_DIM) * dl
-                    line += f"{fg(int(r*brightness), int(g*brightness), int(b*brightness))}{ch}"
+                    r, g, b = _temp_color(temp, runtime)
+                    brightness = night_dim + (1.0 - night_dim) * dl
+                    line += f"{fg(int(r * brightness), int(g * brightness), int(b * brightness))}{ch}"
         lines.append(f"{line}{RESET}")
-
-    # Valley annotations (below braille curve)
-    valleys = sorted([(x, t) for x, t, p in extrema if not p])
-    if valleys:
-        segments, cursor = [], 0
-        for x, temp in valleys:
-            label = f"{temp:.0f}\u00b0"
-            pos = max(cursor, x + 1 - len(label) // 2)
-            if pos + len(label) > graph_w + 1:
-                continue
-            if pos > cursor:
-                segments.append((" " * (pos - cursor), None))
-            segments.append((label, temp))
-            cursor = pos + len(label)
-        if segments:
-            line = ""
-            for text, temp in segments:
-                if temp is not None:
-                    r, g, b = _temp_color(temp)
-                    line += f"{fg(r, g, b)}{text}"
-                else:
-                    line += text
-            lines.append(f"{line}{RESET}")
-
-    # Tick marks + hour labels
-    if window_dts:
-        # Adaptive label interval based on available width
-        if graph_w < 40:
-            interval = 6
-        elif graph_w < 80:
-            interval = 4
-        elif graph_w < 140:
-            interval = 3
-        else:
-            interval = 2
-
-        # Build label list as (x, text, is_midnight)
-        label_items = []
-        for h_off in range(0, int(total_hours) + 1, interval):
-            x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
-            dt = window_dts[0] + timedelta(hours=h_off)
-            label_items.append((x, _fmt_hour(dt.hour), dt.hour == 0))
-
-        # Render with tick marks — │ for midnight, ╵ otherwise
-        canvas = [" "] * graph_w
-        last_end = 0
-        for x, label, is_midnight in label_items:
-            tick = "\u2502" if is_midnight else "\u2575"
-            tick_label = f"{tick}{label}"
-            if x < last_end or x + len(tick_label) > graph_w:
-                continue
-            for j, c in enumerate(tick_label):
-                if x + j < graph_w:
-                    canvas[x + j] = c
-            last_end = x + len(tick_label) + 1
-
-        lines.append(f" {DIM}{''.join(canvas)}{RESET}")
-
-    # Wind row — only shown when high wind exists, only at high-wind positions
-    wind_threshold = 25 if METRIC else 15
-    if window_winds and max(window_winds, default=0) > wind_threshold:
-        wind_canvas = [" "] * graph_w
-        # Sample every ~3 hours
-        sample_interval = max(1, int(3 / total_hours * (graph_w - 1))) if total_hours > 0 else 6
-        for x in range(0, graph_w, max(1, sample_interval)):
-            # Interpolate wind speed and direction at this column
-            t = x / max(1, graph_w - 1) * max(0, len(window_winds) - 1)
-            lo_i = int(t)
-            hi_i = min(lo_i + 1, len(window_winds) - 1)
-            frac = t - lo_i
-            speed = window_winds[lo_i] + (window_winds[hi_i] - window_winds[lo_i]) * frac
-            if speed <= wind_threshold:
-                continue
-            # Direction (nearest sample, not interpolated — direction doesn't interpolate well)
-            dir_i = max(0, min(len(window_wind_dirs) - 1, int(round(t)))) if window_wind_dirs else 0
-            deg = window_wind_dirs[dir_i] if window_wind_dirs else 0
-            sector = int((deg + 22.5) / 45) % 8
-            arrow = WIND_ARROWS[sector]
-            label = f"{arrow}{speed:.0f}"
-            # Place label centered on sample position
-            start = max(0, x - len(label) // 2)
-            if start + len(label) > graph_w:
-                start = graph_w - len(label)
-            # Check for overlap with existing content
-            if all(wind_canvas[start + j] == " " for j in range(len(label)) if start + j < graph_w):
-                for j, ch in enumerate(label):
-                    if start + j < graph_w:
-                        wind_canvas[start + j] = ch
-        if any(c != " " for c in wind_canvas):
-            lines.append(f" {WIND_COLOR}{''.join(wind_canvas)}{RESET}")
-
-    # Precipitation graph with type-based colors
-    if window_precip and max(window_precip, default=0) > 5:
-        if n_precip_rows >= 1:
-            # Multi-row block bar graph for precipitation probability
-            precip_lines = _build_precip_blocks(
-                window_precip, window_codes, graph_w, n_precip_rows
-            )
-            lines.extend(precip_lines)
-        else:
-            # Fallback: single sparkline row
-            precip_chars = []
-            for x in range(graph_w):
-                t = x / max(1, graph_w - 1) * max(0, len(window_precip) - 1)
-                lo_i = int(t)
-                hi_i = min(lo_i + 1, len(window_precip) - 1)
-                frac = t - lo_i
-                p = window_precip[lo_i] + (window_precip[hi_i] - window_precip[lo_i]) * frac
-
-                if p > 5:
-                    code_t = x / max(1, graph_w - 1) * max(0, len(window_codes) - 1)
-                    code_i = max(0, min(len(window_codes) - 1, int(round(code_t))))
-                    wmo = window_codes[code_i] if window_codes else 0
-                    color = _precip_color(wmo)
-                    idx = max(0, min(7, int(p / 100 * 7.99)))
-                    precip_chars.append(f"{color}{SPARKLINE[idx]}")
-                else:
-                    precip_chars.append(" ")
-            lines.append(f" {''.join(precip_chars)}{RESET}")
-
     return lines
 
 
-def render_daily(data, width):
+def _render_tick_labels(window_dts, total_hours, graph_w):
+    """Render compact timeline tick labels under the chart."""
+    if not window_dts:
+        return None
+    if graph_w < 40:
+        interval = 6
+    elif graph_w < 80:
+        interval = 4
+    elif graph_w < 140:
+        interval = 3
+    else:
+        interval = 2
+
+    label_items = []
+    for h_off in range(0, int(total_hours) + 1, interval):
+        x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
+        dt = window_dts[0] + timedelta(hours=h_off)
+        label_items.append((x, _fmt_hour(dt.hour), dt.hour == 0))
+
+    canvas = [" "] * graph_w
+    last_end = 0
+    for x, label, is_midnight in label_items:
+        tick = "\u2502" if is_midnight else "\u2575"
+        tick_label = f"{tick}{label}"
+        if x < last_end or x + len(tick_label) > graph_w:
+            continue
+        for j, c in enumerate(tick_label):
+            if x + j < graph_w:
+                canvas[x + j] = c
+        last_end = x + len(tick_label) + 1
+    return f" {DIM}{''.join(canvas)}{RESET}"
+
+
+def _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime):
+    """Render wind arrows/speed labels at high-wind positions."""
+    wind_threshold = 25 if runtime.metric else 15
+    if not window_winds or max(window_winds, default=0) <= wind_threshold:
+        return None
+
+    wind_canvas = [" "] * graph_w
+    sample_interval = max(1, int(3 / total_hours * (graph_w - 1))) if total_hours > 0 else 6
+    for x in range(0, graph_w, max(1, sample_interval)):
+        t = x / max(1, graph_w - 1) * max(0, len(window_winds) - 1)
+        lo_i = int(t)
+        hi_i = min(lo_i + 1, len(window_winds) - 1)
+        frac = t - lo_i
+        speed = window_winds[lo_i] + (window_winds[hi_i] - window_winds[lo_i]) * frac
+        if speed <= wind_threshold:
+            continue
+
+        dir_i = max(0, min(len(window_wind_dirs) - 1, int(round(t)))) if window_wind_dirs else 0
+        deg = window_wind_dirs[dir_i] if window_wind_dirs else 0
+        sector = int((deg + 22.5) / 45) % 8
+        arrow = WIND_ARROWS[sector]
+        label = f"{arrow}{speed:.0f}"
+
+        start = max(0, x - len(label) // 2)
+        if start + len(label) > graph_w:
+            start = graph_w - len(label)
+        if all(wind_canvas[start + j] == " " for j in range(len(label)) if start + j < graph_w):
+            for j, ch in enumerate(label):
+                if start + j < graph_w:
+                    wind_canvas[start + j] = ch
+    if any(c != " " for c in wind_canvas):
+        return f" {WIND_COLOR}{''.join(wind_canvas)}{RESET}"
+    return None
+
+
+def _render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows):
+    """Render precipitation probability graph rows."""
+    if not window_precip or max(window_precip, default=0) <= 5:
+        return []
+    if n_precip_rows >= 1:
+        return _build_precip_blocks(window_precip, window_codes, graph_w, n_precip_rows)
+
+    precip_chars = []
+    col_precip = _interpolate_columns(window_precip, graph_w)
+    for x, p in enumerate(col_precip):
+        if p <= 5:
+            precip_chars.append(" ")
+            continue
+        code_t = x / max(1, graph_w - 1) * max(0, len(window_codes) - 1)
+        code_i = max(0, min(len(window_codes) - 1, int(round(code_t))))
+        wmo = window_codes[code_i] if window_codes else 0
+        color = _precip_color(wmo)
+        idx = max(0, min(7, int(p / 100 * 7.99)))
+        precip_chars.append(f"{color}{SPARKLINE[idx]}")
+    return [f" {''.join(precip_chars)}{RESET}"]
+
+
+def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runtime=None):
+    """Hourly forecast: braille temperature curve + precipitation graph."""
+    if runtime is None:
+        runtime = WeatherRuntime.from_sources()
+    daily = data.get("daily", {})
+    sun_events = _parse_sun_events(daily)
+    if now is None:
+        now = _local_now_for_data(data)
+
+    graph_w = max(10, width - 2)
+    window = _prepare_hourly_window(data.get("hourly", {}), now, graph_w)
+    if window is None:
+        return []
+
+    window_temps = window["temps"]
+    window_precip = window["precip"]
+    window_codes = window["codes"]
+    window_winds = window["winds"]
+    window_wind_dirs = window["wind_dirs"]
+    window_dts = window["dts"]
+    total_hours = window["total_hours"]
+    chart_lo = min(window_temps)
+    chart_hi = max(window_temps)
+
+    midnight_cols, noon_cols, midnight_day_names = _compute_time_markers(
+        window_dts, total_hours, graph_w
+    )
+    sun_labels = _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime)
+    col_daylight = _compute_daylight_columns(window_dts, sun_events, graph_w)
+    col_temps = _interpolate_columns(window_temps, graph_w)
+    extrema = _find_temperature_extrema(col_temps, graph_w)
+
+    lines = [
+        _render_today_line(
+            width,
+            chart_lo,
+            chart_hi,
+            midnight_day_names,
+            sun_labels,
+            runtime,
+        )
+    ]
+
+    peak_line = _render_extrema_line(extrema, graph_w, runtime, is_peak=True)
+    if peak_line:
+        lines.append(peak_line)
+
+    braille_rows = _build_braille_curve(window_temps, graph_w, n_braille_rows)
+    lines.extend(_render_braille_rows(braille_rows, col_daylight, midnight_cols, noon_cols, runtime))
+
+    valley_line = _render_extrema_line(extrema, graph_w, runtime, is_peak=False)
+    if valley_line:
+        lines.append(valley_line)
+
+    tick_line = _render_tick_labels(window_dts, total_hours, graph_w)
+    if tick_line:
+        lines.append(tick_line)
+
+    wind_line = _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime)
+    if wind_line:
+        lines.append(wind_line)
+
+    lines.extend(_render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows))
+    return lines
+
+
+def render_daily(data, width, runtime=None):
     """Daily forecast with temperature range bars."""
+    if runtime is None:
+        runtime = WeatherRuntime.from_sources()
     daily = data.get("daily", {})
     times = daily.get("time", [])
     hi_temps = daily.get("temperature_2m_max", [])
@@ -1263,11 +1274,14 @@ def render_daily(data, width):
         wind_i = wind_max[i] if i < len(wind_max) else 0
         wmo_i = wmo_codes[i] if i < len(wmo_codes) else 0
         precip_s = ""
-        if precip_i >= (1 if METRIC else 0.05):
+        if precip_i >= (1 if runtime.metric else 0.05):
             ptype = _precip_type(wmo_i)
-            precip_s = f"{ptype} {precip_i:.0f}{PRECIP_UNIT}" if METRIC else f"{ptype} {precip_i:.1f}{PRECIP_UNIT}"
+            if runtime.metric:
+                precip_s = f"{ptype} {precip_i:.0f}{runtime.precip_unit}"
+            else:
+                precip_s = f"{ptype} {precip_i:.1f}{runtime.precip_unit}"
         prob_s = f"{prob_i:.0f}%" if prob_i > 25 else ""
-        wind_s = f"Wind {wind_i:.0f}{WIND_UNIT}" if wind_i > (25 if METRIC else 15) else ""
+        wind_s = f"Wind {wind_i:.0f}{runtime.wind_unit}" if wind_i > (25 if runtime.metric else 15) else ""
         day_details.append((precip_s, prob_s, wind_s))
         if precip_s:
             max_precip_w = max(max_precip_w, len(precip_s))
@@ -1304,6 +1318,7 @@ def render_daily(data, width):
     scale_range = max(scale_max - scale_min, 1)
 
     DARK_FG = fg(20, 20, 25)
+    icons = _wmo_icons(runtime)
 
     for i in range(1, display_end):
         if i == 1:
@@ -1316,7 +1331,7 @@ def render_daily(data, width):
                 day_name = "???"
 
         wmo = wmo_codes[i] if i < len(wmo_codes) else 0
-        icon = WMO_ICONS.get(wmo, WMO_ICONS[0])
+        icon = icons.get(wmo, icons[0])
         hi = hi_temps[i] if i < len(hi_temps) else 0
         lo = lo_temps[i] if i < len(lo_temps) else 0
         precip = precip_sum[i] if i < len(precip_sum) else 0
@@ -1339,15 +1354,15 @@ def render_daily(data, width):
         hi_inside = not both_inside and filled_w >= hi_len + 1
         lo_inside = both_inside
 
-        lo_r, lo_g, lo_b = _temp_color(lo)
-        hi_r, hi_g, hi_b = _temp_color(hi)
+        lo_r, lo_g, lo_b = _temp_color(lo, runtime)
+        hi_r, hi_g, hi_b = _temp_color(hi, runtime)
 
         cells = []
         for bx in range(bar_w):
             if lo_pos <= bx <= hi_pos:
                 t_frac = (bx - lo_pos) / max(1, hi_pos - lo_pos)
                 temp_at = lo + (hi - lo) * t_frac
-                r, g, b = _temp_color(temp_at)
+                r, g, b = _temp_color(temp_at, runtime)
                 rel = bx - lo_pos
                 if lo_inside and rel < lo_len:
                     cells.append((lo_label[rel], f"{bg(r, g, b)}{DARK_FG}{BOLD}"))
@@ -1439,8 +1454,6 @@ def render_alerts(alerts, width=80, remaining_rows=None):
     """NWS/ECCC alert banners — severity-colored background pill + description."""
     if not alerts:
         return []
-    cols, _ = get_terminal_size()
-    width = cols
     n = len(alerts)
 
     if remaining_rows is not None:
@@ -1464,9 +1477,8 @@ def render_alerts(alerts, width=80, remaining_rows=None):
     return lines
 
 
-def render(lat, lng, location_name="", country_code="", offset_minutes=0):
-    """Build the complete weather dashboard."""
-    data = fetch_forecast(lat, lng)
+def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0):
+    """Build the complete weather dashboard from preloaded data."""
     if not data:
         return f"{TEXT}Could not fetch weather data.{RESET}"
 
@@ -1477,7 +1489,6 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0):
     # Header(1) + blank(1) + hourly_header(1) + peaks(1) + valleys(1)
     # + tick_labels(1) + wind_row(1) + comp_line(1) + precip_text(1) + blank(1)
     # + daily(7) = ~17 fixed lines, plus alerts
-    alerts = fetch_alerts(lat, lng, country_code)
     alert_lines_est = 0
     if alerts:
         alert_lines_est = max(4, len(alerts) * 3)  # rough estimate
@@ -1502,14 +1513,23 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0):
     lines = []
 
     # Header
-    lines.append(render_header(data, cols, location_name))
+    lines.append(render_header(data, cols, location_name, runtime=runtime))
     lines.append("")
 
     # Hourly
-    lines.extend(render_hourly(data, cols, n_braille, n_precip_braille, now=now_local))
+    lines.extend(
+        render_hourly(
+            data,
+            cols,
+            n_braille_rows=n_braille,
+            n_precip_rows=n_precip_braille,
+            now=now_local,
+            runtime=runtime,
+        )
+    )
 
     # Comparative line
-    comp = _comparative_line(data.get("daily", {}), now_local)
+    comp = _comparative_line(data.get("daily", {}), now_local, runtime)
     if comp:
         lines.append(comp)
 
@@ -1521,37 +1541,50 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0):
     lines.append("")
 
     # Daily
-    lines.extend(render_daily(data, cols))
+    lines.extend(render_daily(data, cols, runtime))
 
     # Alerts
     if alerts:
         lines.append("")
         remaining = max(4, rows - len(lines) - 1)
-        lines.extend(render_alerts(alerts, remaining_rows=remaining))
+        lines.extend(render_alerts(alerts, width=cols, remaining_rows=remaining))
 
     return "\n".join(lines)
+
+
+def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtime=None, data=None, alerts=None):
+    """Build the complete weather dashboard."""
+    if runtime is None:
+        runtime = WeatherRuntime.from_sources()
+    if data is None:
+        data = fetch_forecast(lat, lng, runtime)
+    if alerts is None:
+        alerts = fetch_alerts(lat, lng, country_code)
+    return render_from_data(data, alerts, runtime, location_name=location_name, offset_minutes=offset_minutes)
 
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    if "--help" in sys.argv or "-h" in sys.argv:
+    runtime = WeatherRuntime.from_sources()
+
+    if has_flag("--help") or has_flag("-h"):
         print(__doc__.strip())
         return
-    if "--version" in sys.argv:
+    if has_flag("--version"):
         from linecast import __version__
         print(f"weather (linecast {__version__})")
         return
 
     # --search: geocode cities and exit
-    search_q = _parse_arg("--search")
+    search_q = arg_value("--search")
     if search_q:
         _search_locations(search_q)
         return
 
     # Location: --location flag > WEATHER_LOCATION env > geolocation
-    loc_arg = _parse_arg("--location")
+    loc_arg = arg_value("--location")
     override = loc_arg or os.environ.get("WEATHER_LOCATION", "").strip()
 
     if override:
@@ -1578,7 +1611,8 @@ def main():
         name, cc = _reverse_geocode(lat, lng)
         result["name"] = name
         result["country_code"] = cc or country_code
-        result["data"] = fetch_forecast(lat, lng)
+        result["data"] = fetch_forecast(lat, lng, runtime)
+        result["alerts"] = fetch_alerts(lat, lng, result["country_code"])
         if not result["name"] and result["data"]:
             result["name"] = _location_from_timezone(result["data"].get("timezone", ""))
         done.set()
@@ -1602,11 +1636,33 @@ def main():
     t.join()
     location_name = result.get("name", "")
     final_country = result.get("country_code", "")
+    data = result.get("data")
+    alerts = result.get("alerts", [])
 
-    if "--live" in sys.argv:
-        live_loop(lambda offset_minutes=0: render(lat, lng, location_name, final_country, offset_minutes=offset_minutes), interval=300)
+    if runtime.live:
+        live_loop(
+            lambda offset_minutes=0: render(
+                lat,
+                lng,
+                location_name,
+                final_country,
+                offset_minutes=offset_minutes,
+                runtime=runtime,
+            ),
+            interval=300,
+        )
     else:
-        print(render(lat, lng, location_name, final_country))
+        print(
+            render(
+                lat,
+                lng,
+                location_name,
+                final_country,
+                runtime=runtime,
+                data=data,
+                alerts=alerts,
+            )
+        )
 
 
 if __name__ == "__main__":

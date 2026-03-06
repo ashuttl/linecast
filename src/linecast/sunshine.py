@@ -13,30 +13,28 @@ IP geolocation (~1 network call per week).
 Usage: sunshine [--live] [--emoji]
 """
 
-import math, os, sys
+import math
+import sys
 from datetime import datetime, timezone
 
 from linecast._graphics import (
-    fg, bg, RESET, BOLD, HALF_BLOCK, BG_PRIMARY,
-    lerp, interp_stops, halfblock, visible_len, fmt_time,
+    fg, RESET, BG_PRIMARY, lerp, interp_stops, visible_len, fmt_time,
     get_terminal_size, Framebuffer, live_loop,
 )
 from linecast._location import get_location
+from linecast._runtime import RuntimeConfig, has_flag
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-def _use_emoji():
-    return "--emoji" in sys.argv or os.environ.get("LINECAST_ICONS", "").lower() == "emoji"
-
 HORIZON_COLOR = (40, 46, 65)   # subtle divider
 CURVE_COLOR   = (160, 168, 195) # neutral silver — the arc itself
 
-if _use_emoji():
-    SUN_CHAR    = "\u25cf"          # ● filled circle — cleaner than emoji in the arc
-    SUN_ICON    = "\U0001f305"      # 🌅
-    SUNSET_ICON = "\U0001f307"      # 🌇
-    MOON_ICONS = [
+_EMOJI_ICONS = {
+    "sun_char": "\u25cf",         # ●
+    "sun_icon": "\U0001f305",     # 🌅
+    "sunset_icon": "\U0001f307",  # 🌇
+    "moon_icons": [
         "\U0001f311",  # 🌑 New Moon
         "\U0001f312",  # 🌒 Waxing Crescent
         "\U0001f313",  # 🌓 First Quarter
@@ -45,12 +43,14 @@ if _use_emoji():
         "\U0001f316",  # 🌖 Waning Gibbous
         "\U0001f317",  # 🌗 Last Quarter
         "\U0001f318",  # 🌘 Waning Crescent
-    ]
-else:
-    SUN_CHAR    = "\U000F0F62"      # 󰽢 Nerd Font filled circle
-    SUN_ICON    = "\U000F0599"      # 󰖙
-    SUNSET_ICON = "\U000F059B"      # 󰖛
-    MOON_ICONS = [
+    ],
+}
+
+_NERD_ICONS = {
+    "sun_char": "\U000F0F62",      # 󰽢
+    "sun_icon": "\U000F0599",      # 󰖙
+    "sunset_icon": "\U000F059B",   # 󰖛
+    "moon_icons": [
         "\U000F0F64",  # New Moon
         "\U000F0F67",  # Waxing Crescent
         "\U000F0F61",  # First Quarter
@@ -59,7 +59,12 @@ else:
         "\U000F0F66",  # Waning Gibbous
         "\U000F0F63",  # Last Quarter
         "\U000F0F65",  # Waning Crescent
-    ]
+    ],
+}
+
+
+def _icon_set(runtime):
+    return _EMOJI_ICONS if runtime.emoji else _NERD_ICONS
 MOON_NAMES = [
     "New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous",
     "Full Moon", "Waning Gibbous", "Last Quarter", "Waning Crescent",
@@ -153,7 +158,7 @@ def sun_elevation(lat, lng, local_hour, doy):
 # ---------------------------------------------------------------------------
 SYNODIC_MONTH = 29.53058867
 
-def moon_phase(dt):
+def moon_phase(dt, runtime=None):
     """Returns (index 0-7, name, nerd_font_icon).
 
     Uses narrow ~24h windows for principal phases (New, Full, Quarters)
@@ -183,13 +188,18 @@ def moon_phase(dt):
         idx = 5   # Waning Gibbous
     else:
         idx = 7   # Waning Crescent
-    return idx, MOON_NAMES[idx], MOON_ICONS[idx]
+    if runtime is None:
+        runtime = RuntimeConfig.from_sources()
+    return idx, MOON_NAMES[idx], _icon_set(runtime)["moon_icons"][idx]
 
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
-def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0):
+def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=None):
     """Build the complete multi-line solar arc display."""
+    if runtime is None:
+        runtime = RuntimeConfig.from_sources()
+    icons = _icon_set(runtime)
     cols, rows = get_terminal_size()
 
     # --- dimensions: fill the terminal ---
@@ -298,16 +308,29 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0):
 
     # --- render framebuffer with sun dot overlay ---
     sun_cell_row = sun_spy_i // 2
-    overlays = {(now_x, sun_cell_row): (SUN_CHAR, (255, 255, 255))}
+    overlays = {(now_x, sun_cell_row): (icons["sun_char"], (255, 255, 255))}
     lines = fb.render(overlays)
 
     # --- info line ---
-    lines.append(_info_line(lat, lng, doy, sunrise, sunset, cols, now_hour, offset_minutes))
+    lines.append(
+        _info_line(
+            lat,
+            lng,
+            doy,
+            sunrise,
+            sunset,
+            cols,
+            runtime,
+            now_hour,
+            offset_minutes,
+        )
+    )
 
     return "\n".join(lines)
 
-def _info_line(lat, lng, doy, sunrise, sunset, width, now_hour=None, offset_minutes=0):
+def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, offset_minutes=0):
     """Sunrise — day length (delta) · moon phase — sunset."""
+    icons = _icon_set(runtime)
     day_len = sunset - sunrise
     dl_h = int(day_len)
     dl_m = int((day_len - dl_h) * 60)
@@ -319,7 +342,7 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, now_hour=None, offset_minu
     d_m = int(d_abs) // 60
     d_s = int(d_abs) % 60
 
-    _, phase_name, moon_icon = moon_phase(datetime.now(timezone.utc))
+    _, phase_name, moon_icon = moon_phase(datetime.now(timezone.utc), runtime)
 
     amber = fg(251, 191, 36)
     purple = fg(167, 139, 250)
@@ -329,12 +352,12 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, now_hour=None, offset_minu
 
     delta_str = f"{d_sign}{d_m}m {d_s}s" if d_s > 0 else f"{d_sign}{d_m}m"
 
-    left = f"{amber}{SUN_ICON} {text}{fmt_time(sunrise)}"
+    left = f"{amber}{icons['sun_icon']} {text}{fmt_time(sunrise)}"
     if offset_minutes:
         center = f"{text}{fmt_time(now_hour)}{muted}  \u00b7  {purple}{moon_icon} {dim}{phase_name}"
     else:
         center = f"{text}{dl_h}h {dl_m:02d}m {dim}({delta_str}){muted}  \u00b7  {purple}{moon_icon} {dim}{phase_name}"
-    right = f"{text}{fmt_time(sunset)} {purple}{SUNSET_ICON}"
+    right = f"{text}{fmt_time(sunset)} {purple}{icons['sunset_icon']}"
 
     lw = visible_len(left)
     cw = visible_len(center)
@@ -351,10 +374,12 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, now_hour=None, offset_minu
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    if "--help" in sys.argv or "-h" in sys.argv:
+    runtime = RuntimeConfig.from_sources()
+
+    if has_flag("--help") or has_flag("-h"):
         print(__doc__.strip())
         return
-    if "--version" in sys.argv:
+    if has_flag("--version"):
         from linecast import __version__
         print(f"sunshine (linecast {__version__})")
         return
@@ -364,7 +389,7 @@ def main():
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
 
-    live = "--live" in sys.argv
+    live = runtime.live
 
     def _render(offset_minutes=0):
         now = datetime.now()
@@ -373,7 +398,15 @@ def main():
             now = now + timedelta(minutes=offset_minutes)
         doy = now.timetuple().tm_yday
         now_hour = now.hour + now.minute / 60 + now.second / 3600
-        return render(lat, lng, doy, now_hour, fullscreen=live, offset_minutes=offset_minutes)
+        return render(
+            lat,
+            lng,
+            doy,
+            now_hour,
+            fullscreen=live,
+            offset_minutes=offset_minutes,
+            runtime=runtime,
+        )
 
     if live:
         live_loop(_render)

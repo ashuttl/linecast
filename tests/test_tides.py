@@ -1,17 +1,8 @@
-import json
 import unittest
 from datetime import date, datetime
 from unittest.mock import patch
 
 from linecast import tides
-
-
-class _FakeResponse:
-    def __init__(self, payload):
-        self._payload = payload
-
-    def read(self):
-        return json.dumps(self._payload).encode()
 
 
 class FindNearestStationTests(unittest.TestCase):
@@ -33,7 +24,7 @@ class FindNearestStationTests(unittest.TestCase):
 
         with patch.object(tides, "read_cache", side_effect=fake_read_cache), \
              patch.object(tides, "read_stale", return_value=None), \
-             patch.object(tides.urllib.request, "urlopen", return_value=_FakeResponse(payload)), \
+             patch.object(tides, "fetch_json", return_value=payload), \
              patch.object(tides, "write_cache") as write_cache:
             station_id, station_name = tides.find_nearest_station(47.61, -122.33)
 
