@@ -112,11 +112,11 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0):
         alert_lines = render_alerts(alerts, width=cols, remaining_rows=max(4, rows // 3), runtime=runtime)
 
     # Count fixed-height sections to budget remaining rows for graphs
-    # Header(1) + blank(1) + hourly_header(1) + peaks(1) + valleys(1)
-    # + tick_labels(1) + wind_row(1) + comp_line(1) + precip_text(1)
-    # + past_precip(1) + blank(1) + daily(7) = ~18 fixed lines, plus alerts
+    # Header(1) + blank(1) + hourly_header(1) + tick_labels(1) + wind_row(1)
+    # + comp_line(1) + precip_text(1) + past_precip(1) + blank(1)
+    # + daily(7) = ~16 fixed lines, plus alerts
     alert_lines_count = (len(alert_lines) + 1) if alert_lines else 0  # +1 for blank separator
-    fixed_lines = 18 + alert_lines_count
+    fixed_lines = 16 + alert_lines_count
     available = max(0, rows - fixed_lines)
 
     # Distribute available rows between temperature graph and precip graph

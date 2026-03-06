@@ -485,8 +485,51 @@ def _render_extrema_line(extrema, graph_w, runtime, is_peak):
     return f"{line}{RESET}"
 
 
-def _render_braille_rows(braille_rows, col_daylight, midnight_cols, noon_cols, runtime):
+def _compute_extrema_overlays(extrema, col_temps, n_rows, graph_w, runtime):
+    """Map temperature extrema to overlay labels on specific braille rows."""
+    if not extrema or n_rows < 1:
+        return {}
+
+    t_min, t_max = min(col_temps), max(col_temps)
+    total_dots = n_rows * 4
+    overlays = {}  # row_idx -> [(start_col, label_text, (r, g, b)), ...]
+    occupied_by_row = {}
+
+    sorted_extrema = sorted(extrema, key=lambda e: -e[1] if e[2] else e[1])
+
+    for x, temp, is_peak in sorted_extrema:
+        if t_max == t_min:
+            curve_row = n_rows // 2
+        else:
+            y = (total_dots - 1) * (1 - (temp - t_min) / (t_max - t_min))
+            curve_row = max(0, min(n_rows - 1, int(round(y)) // 4))
+
+        if is_peak:
+            label_row = max(0, curve_row - 1)
+        else:
+            label_row = min(n_rows - 1, curve_row + 1)
+
+        label = f"{temp:.0f}\u00b0"
+        start = max(0, min(graph_w - len(label), x - len(label) // 2))
+
+        if label_row not in occupied_by_row:
+            occupied_by_row[label_row] = set()
+        cols = set(range(start, start + len(label)))
+        if cols & occupied_by_row[label_row]:
+            continue
+        occupied_by_row[label_row] |= cols
+
+        color = _temp_color(temp, runtime)
+        overlays.setdefault(label_row, []).append((start, label, color))
+
+    return overlays
+
+
+def _render_braille_rows(braille_rows, col_daylight, midnight_cols, noon_cols, runtime,
+                         overlays=None):
     """Render braille temperature rows with optional day/night shading."""
+    if overlays is None:
+        overlays = {}
     shading = runtime.shading
     night_dim = 0.6
     midnight_fg = fg(50, 30, 80)
@@ -495,10 +538,30 @@ def _render_braille_rows(braille_rows, col_daylight, midnight_cols, noon_cols, r
     bg_day = (18, 22, 32)
 
     lines = []
-    for row in braille_rows:
+    for row_idx, row in enumerate(braille_rows):
+        # Build overlay char map for this row
+        overlay_chars = {}
+        for start_col, label, color in overlays.get(row_idx, []):
+            for j, c in enumerate(label):
+                col = start_col + j
+                if 0 <= col < len(row):
+                    overlay_chars[col] = (c, color)
+
         line = " "
         for ci, (ch, temp) in enumerate(row):
             dl = col_daylight[ci] if ci < len(col_daylight) else 1.0
+
+            if ci in overlay_chars:
+                oc, oc_color = overlay_chars[ci]
+                if shading:
+                    br = int(bg_night[0] + (bg_day[0] - bg_night[0]) * dl)
+                    bg_g = int(bg_night[1] + (bg_day[1] - bg_night[1]) * dl)
+                    bb = int(bg_night[2] + (bg_day[2] - bg_night[2]) * dl)
+                    bg_str = bg(br, bg_g, bb)
+                    line += f"{bg_str}{fg(*oc_color)}{oc}{RESET}"
+                else:
+                    line += f"{fg(*oc_color)}{oc}"
+                continue
 
             if shading:
                 br = int(bg_night[0] + (bg_day[0] - bg_night[0]) * dl)
@@ -658,16 +721,9 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
         )
     ]
 
-    peak_line = _render_extrema_line(extrema, graph_w, runtime, is_peak=True)
-    if peak_line:
-        lines.append(peak_line)
-
     braille_rows = _build_braille_curve(window_temps, graph_w, n_braille_rows)
-    lines.extend(_render_braille_rows(braille_rows, col_daylight, midnight_cols, noon_cols, runtime))
-
-    valley_line = _render_extrema_line(extrema, graph_w, runtime, is_peak=False)
-    if valley_line:
-        lines.append(valley_line)
+    overlays = _compute_extrema_overlays(extrema, col_temps, n_braille_rows, graph_w, runtime)
+    lines.extend(_render_braille_rows(braille_rows, col_daylight, midnight_cols, noon_cols, runtime, overlays))
 
     tick_line = _render_tick_labels(window_dts, total_hours, graph_w, runtime)
     if tick_line:
