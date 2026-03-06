@@ -2,7 +2,7 @@
 
 Terminal weather, solar arc, and tide visualizations. Pure Python, zero dependencies.
 
-Three commands that turn your terminal into a living dashboard — temperature-colored braille curves, half-block pixel art, true color gradients, and Nerd Font icons. All data comes from free public APIs with no keys required.
+All data comes from free public APIs with no keys required.
 
 ## Commands
 
@@ -10,7 +10,7 @@ Three commands that turn your terminal into a living dashboard — temperature-c
 
 ![weather](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
 
-**`sunshine`** — Solar arc inspired by the Apple Watch Solar face. Shows the sun's position on its daily arc with sky color gradients, day length with daily delta, and moon phase.
+**`sunshine`** — Solar arc inspired by the Apple Watch Solar Graph face. Shows the sun's position on its daily arc with sky color gradients, day length with daily delta, and moon phase.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-day.png" width="49%" alt="sunshine — midday">
@@ -42,17 +42,20 @@ brew install linecast
 weather                          # current location via IP geolocation
 weather --location 44.54,-68.42  # specific coordinates
 weather --search québec          # find coordinates by city name
-weather --celsius                # metric units (°C, km/h, mm)
+weather --metric                 # metric units (°C, km/h, mm)
 weather --live                   # full-screen, auto-refresh
+weather --lang fr                # descriptions et interface en français
 
 sunshine                         # solar arc for today
-sunshine --live                  # full-screen with time scrubbing
+sunshine --live                  # full-screen, scrubbable, auto-updating
 
 tides                            # nearest NOAA station
 tides --station 8413320          # specific station ID
 tides --search "Bar Harbor"      # find stations by name
-tides --live                     # full-screen
+tides --live                     # full-screen, scrubbable, auto-updating
 ```
+
+> **`weather --lang fr`** — Descriptions météorologiques, dates et interface en français. Utilise également la version française des alertes d'Environnement Canada, si disponible.
 
 All commands are also available under the `linecast` namespace if the short names conflict with other tools on your system:
 
@@ -64,7 +67,7 @@ linecast tides --station 8413320
 
 ## Weather alerts
 
-Alerts are sourced automatically based on your location:
+Alerts are sourced automatically based on location:
 
 - **US** — National Weather Service (api.weather.gov)
 - **Canada** — Environment and Climate Change Canada (api.weather.gc.ca)
@@ -73,14 +76,14 @@ Other regions get forecasts but no alerts yet.
 
 ## Environment variables
 
-| Variable | Description |
-|---|---|
-| `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `44.54,-68.42`) |
-| `TIDE_STATION` | Default NOAA station ID for tides (e.g., `8413320`) |
-| `WEATHER_UNITS` | Set to `metric` for Celsius, km/h, and mm (same as `--celsius`) |
-| `LINECAST_ICONS` | Set to `emoji` to use standard emoji instead of Nerd Font icons |
-| `LINECAST_COLOR` | Color mode: `auto` (default), `truecolor`, `256`, `16`, or `none` |
-| `NO_COLOR` | Any non-empty value disables ANSI colors (standard convention) |
+| Variable           | Description                                                       |
+| ------------------ | ----------------------------------------------------------------- |
+| `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `44.54,-68.42`)                |
+| `TIDE_STATION`     | Default NOAA station ID for tides (e.g., `8413320`)               |
+| `WEATHER_UNITS`    | Set to `metric` for Celsius, km/h, and mm (same as `--celsius`)   |
+| `LINECAST_ICONS`   | Set to `emoji` to use standard emoji instead of Nerd Font icons   |
+| `LINECAST_COLOR`   | Color mode: `auto` (default), `truecolor`, `256`, `16`, or `none` |
+| `NO_COLOR`         | Any non-empty value disables ANSI colors (standard convention)    |
 
 ## Requirements
 
