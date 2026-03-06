@@ -464,7 +464,7 @@ def render(station_id, station_name, station_meta=None, fullscreen=False, offset
         fb.fill_hline(datum_spy, DATUM_COLOR)
 
     # 2. Water fill below the tide curve
-    fb.draw_fill(curve_spy, total_spy, _ocean_gradient)
+    fb.draw_fill(curve_spy, total_spy, _ocean_gradient, aspect=1.8)
 
     # 3. Vertical "now" line
     now_spy_i = int(round(now_spy))

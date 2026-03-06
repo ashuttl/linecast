@@ -153,12 +153,14 @@ class Framebuffer:
                 if alpha > 0.02:
                     self.fb[spy][x] = lerp(self.fb[spy][x], color, alpha)
 
-    def draw_fill(self, curve_spy, fill_to_spy, color_func):
+    def draw_fill(self, curve_spy, fill_to_spy, color_func, aspect=1.0):
         """Fill between a curve and a boundary with a gradient.
 
         curve_spy: list of float y-positions per column (the curve edge).
         fill_to_spy: int sub-pixel row to fill toward (e.g. bottom of buffer).
         color_func: callable(t) -> RGB tuple, where t=0.0 at curve, t=1.0 at boundary.
+        aspect: vertical stretch correction (>1 compresses gradient to compensate
+                for sub-pixels being taller than wide on screen).
         """
         for x in range(self.graph_w):
             cf = curve_spy[x]
@@ -166,13 +168,13 @@ class Framebuffer:
             if fill_to_spy > top_spy:
                 span = fill_to_spy - top_spy
                 for spy in range(max(0, top_spy), min(self.total_spy, fill_to_spy)):
-                    t = (spy - top_spy) / max(1, span)
+                    t = min(1.0, (spy - top_spy) * aspect / max(1, span))
                     color = color_func(t)
                     self.fb[spy][x] = lerp(self.fb[spy][x], color, 0.85)
             else:
                 span = top_spy - fill_to_spy
                 for spy in range(max(0, fill_to_spy), min(self.total_spy, top_spy)):
-                    t = (top_spy - spy) / max(1, span)
+                    t = min(1.0, (top_spy - spy) * aspect / max(1, span))
                     color = color_func(t)
                     self.fb[spy][x] = lerp(self.fb[spy][x], color, 0.85)
 
