@@ -4,7 +4,7 @@ Provides ANSI color helpers, color interpolation, and a Framebuffer class
 that renders at 2x vertical sub-pixel resolution using Unicode half-block
 characters. Uses true color when available, with 256/16/none fallbacks.
 
-Used by: weather, sunshine, tides
+Used by: weather, sunshine
 """
 
 import functools

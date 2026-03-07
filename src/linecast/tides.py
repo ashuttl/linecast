@@ -2,12 +2,12 @@
 """Tides — terminal visualization of NOAA tide predictions.
 
 Renders a multi-line graphical display of the day's tide curve with an
-ocean-themed color palette. Shows water level as a smooth curve with
-gradient fill, current tide position, and high/low extremes.
+ocean-themed color palette. Shows water level as a braille line graph
+with height-colored curve, high/low labels, and current position indicator.
 
-Uses half-block characters with ANSI color for smooth rendering at 2x
-vertical sub-pixel resolution (true color when available). Station is
-auto-detected from IP geolocation or overridden with TIDE_STATION env var.
+Uses Unicode braille characters with ANSI color for smooth line rendering
+(true color when available). Station is auto-detected from IP geolocation
+or overridden with TIDE_STATION env var.
 
 Usage: tides [--live] [--station ID] [--search QUERY]
 """
@@ -19,9 +19,9 @@ import time as _time
 from datetime import datetime, timezone, timedelta
 
 from linecast._graphics import (
-    fg, bg, RESET, BOLD, BG_PRIMARY,
-    lerp, interp_stops, visible_len, fmt_time,
-    get_terminal_size, Framebuffer, live_loop,
+    fg, RESET,
+    visible_len, fmt_time,
+    get_terminal_size, live_loop,
 )
 from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
@@ -35,16 +35,9 @@ NEAREST_STATION_CACHE_MAX_AGE = 3600
 # ---------------------------------------------------------------------------
 # Ocean palette
 # ---------------------------------------------------------------------------
-OCEAN_DEEP    = (8, 28, 54)
-OCEAN_MID     = (15, 55, 90)
-OCEAN_SURFACE = (22, 90, 130)
-OCEAN_FOAM    = (140, 210, 225)
-CURVE_COLOR   = (120, 200, 220)      # bright cyan curve line
-DATUM_COLOR   = (35, 50, 75)         # MLLW reference line
-NOW_LINE_COLOR = (65, 95, 140)        # vertical "now" line
-MARKER_COLOR  = (180, 240, 255)      # current position glow
-
-DIAMOND = "\u25c6"                    # ◆
+CURVE_COLOR   = (120, 200, 220)      # teal curve line
+NOW_LINE_COLOR = (65, 95, 140)        # "now" indicator
+NIGHT_DIM     = 0.6                   # brightness floor for nighttime
 
 # Nerd Font icons
 WAVE_ICON = "\U000F0F85"             # 󰾅
@@ -134,6 +127,8 @@ def _fetch_station_metadata(station_id):
         "id": str(s.get("id", station_id)),
         "name": s.get("name", ""),
         "state": s.get("state", ""),
+        "lat": s.get("lat"),
+        "lng": s.get("lng"),
         "timezone_abbr": str(s.get("timezone", "")).upper(),
         "timezonecorr": s.get("timezonecorr", details.get("timezone")),
         "observedst": bool(s.get("observedst", False)),
@@ -365,17 +360,257 @@ def _search_stations(query):
 
 
 # ---------------------------------------------------------------------------
-# Rendering
+# Braille rendering
 # ---------------------------------------------------------------------------
-def _ocean_gradient(t):
-    """Color gradient for water fill. t=0 at surface (bright), t=1 at depth (dark)."""
-    stops = [
-        (0.0, OCEAN_FOAM),
-        (0.15, OCEAN_SURFACE),
-        (0.5, OCEAN_MID),
-        (1.0, OCEAN_DEEP),
+def _compute_daylight(graph_w, date, station_meta):
+    """Compute per-column daylight factor (0.0=night, 1.0=day) using solar math.
+
+    Uses the station's lat/lng and timezone to approximate sunrise/sunset,
+    then applies a smooth 40-minute transition at dawn and dusk.
+    Falls back to uniform full brightness when coordinates are unavailable.
+    """
+    if not station_meta:
+        return [1.0] * graph_w
+
+    try:
+        lat = float(station_meta["lat"])
+        tz_offset_h = float(station_meta["timezonecorr"])
+    except (KeyError, TypeError, ValueError):
+        return [1.0] * graph_w
+
+    try:
+        lng = float(station_meta["lng"])
+    except (KeyError, TypeError, ValueError):
+        lng = None
+
+    doy = date.timetuple().tm_yday
+
+    # Solar declination (degrees)
+    decl = -23.44 * math.cos(math.radians(360 / 365 * (doy + 10)))
+    lat_rad = math.radians(lat)
+    decl_rad = math.radians(decl)
+
+    cos_ha = -math.tan(lat_rad) * math.tan(decl_rad)
+    if cos_ha <= -1:
+        return [1.0] * graph_w   # midnight sun
+    if cos_ha >= 1:
+        return [0.0] * graph_w   # polar night
+
+    ha = math.degrees(math.acos(cos_ha))
+
+    # Solar noon in local clock time
+    solar_noon = 12.0
+    if lng is not None:
+        tz_meridian = tz_offset_h * 15
+        solar_noon += (tz_meridian - lng) / 15
+
+    sunrise = solar_noon - ha / 15
+    sunset = solar_noon + ha / 15
+    transition = 40 / 60  # 40 minutes
+
+    col_daylight = []
+    for x in range(graph_w):
+        hour = (x + 0.5) / graph_w * 24
+        if hour < sunrise - transition or hour > sunset + transition:
+            col_daylight.append(0.0)
+        elif sunrise + transition <= hour <= sunset - transition:
+            col_daylight.append(1.0)
+        elif hour < sunrise + transition:
+            col_daylight.append((hour - sunrise + transition) / (2 * transition))
+        else:
+            col_daylight.append((sunset + transition - hour) / (2 * transition))
+    return col_daylight
+
+
+def _build_tide_braille(col_heights, graph_w, n_rows):
+    """Build an n_rows-high braille line graph from tide heights.
+
+    Returns list of n_rows rows, each a list of (char, avg_height) tuples.
+    Together the rows form a (n_rows*4)-dot-high graph spanning graph_w chars.
+    """
+    n = 2 * graph_w  # samples: 2 per braille char (left col, right col)
+    total_dots = n_rows * 4
+
+    # Interpolate to 2 samples per braille char
+    samples = []
+    for i in range(n):
+        t = i / max(1, n - 1) * max(0, len(col_heights) - 1)
+        lo_i = int(t)
+        hi_i = min(lo_i + 1, len(col_heights) - 1)
+        frac = t - lo_i
+        samples.append(col_heights[lo_i] + (col_heights[hi_i] - col_heights[lo_i]) * frac)
+
+    s_min, s_max = min(samples), max(samples)
+    if s_max == s_min:
+        ys = [total_dots / 2] * n
+    else:
+        s_range = s_max - s_min
+        ys = [(total_dots - 1) * (1 - (s - s_min) / s_range) for s in samples]
+
+    ys_i = [max(0, min(total_dots - 1, int(round(y)))) for y in ys]
+
+    # Braille dot bit positions: BITS[col][row] for 2x4 grid within each char
+    bits = [[0x01, 0x02, 0x04, 0x40], [0x08, 0x10, 0x20, 0x80]]
+    rows_bits = [[0] * graph_w for _ in range(n_rows)]
+
+    def _set_dot(ci, y, col):
+        if ci < 0 or ci >= graph_w or y < 0 or y >= total_dots:
+            return
+        rows_bits[y // 4][ci] |= bits[col][y % 4]
+
+    for i in range(graph_w):
+        left_y = ys_i[2 * i]
+        right_y = ys_i[2 * i + 1]
+
+        _set_dot(i, left_y, 0)
+        _set_dot(i, right_y, 1)
+
+        # Connect left->right within char
+        if left_y != right_y:
+            y_lo, y_hi = min(left_y, right_y), max(left_y, right_y)
+            for y in range(y_lo, y_hi + 1):
+                x_frac = (y - left_y) / (right_y - left_y)
+                _set_dot(i, y, 0 if abs(x_frac) < 0.5 else 1)
+
+        # Cross-char continuity: bridge from previous char's right col
+        if i > 0:
+            prev_y = ys_i[2 * i - 1]
+            if prev_y != left_y:
+                y_lo, y_hi = min(prev_y, left_y), max(prev_y, left_y)
+                for y in range(y_lo, y_hi + 1):
+                    _set_dot(i, y, 0)
+
+    result = []
+    for r in range(n_rows):
+        row = []
+        for ci in range(graph_w):
+            avg_h = (samples[2 * ci] + samples[2 * ci + 1]) / 2
+            row.append((chr(0x2800 + rows_bits[r][ci]), avg_h))
+        result.append(row)
+    return result
+
+
+def _hilo_to_extrema(hilo, graph_w):
+    """Convert hi/lo tide data to extrema positions for labeling."""
+    if not hilo:
+        return []
+    return [
+        (max(0, min(graph_w - 1, int(hour / 24 * graph_w))), height, typ == "H")
+        for hour, height, typ in hilo
     ]
-    return interp_stops(stops, t)
+
+
+def _compute_tide_overlays(extrema, col_heights, n_rows, graph_w):
+    """Map tide extrema to overlay labels on specific braille rows."""
+    if not extrema or n_rows < 1:
+        return {}
+
+    h_min, h_max = min(col_heights), max(col_heights)
+    total_dots = n_rows * 4
+    overlays = {}
+    occupied_by_row = {}
+
+    for x, height, is_peak in extrema:
+        if h_max == h_min:
+            curve_row = n_rows // 2
+        else:
+            y = (total_dots - 1) * (1 - (height - h_min) / (h_max - h_min))
+            curve_row = max(0, min(n_rows - 1, int(round(y)) // 4))
+
+        label_row = max(0, curve_row - 1) if is_peak else min(n_rows - 1, curve_row + 1)
+
+        label = f"{height:.1f}'"
+        start = max(0, min(graph_w - len(label), x - len(label) // 2))
+
+        if label_row not in occupied_by_row:
+            occupied_by_row[label_row] = set()
+        label_cols = set(range(start, start + len(label)))
+        if label_cols & occupied_by_row[label_row]:
+            continue
+        occupied_by_row[label_row] |= label_cols
+
+        overlays.setdefault(label_row, []).append((start, label, CURVE_COLOR))
+
+    return overlays
+
+
+def _render_tide_braille_rows(braille_rows, now_col, col_daylight, overlays=None):
+    """Render braille tide rows with daylight dimming and now indicator."""
+    if overlays is None:
+        overlays = {}
+
+    now_fg = fg(*NOW_LINE_COLOR)
+    cr, cg, cb = CURVE_COLOR
+    lines = []
+    for row_idx, row in enumerate(braille_rows):
+        overlay_chars = {}
+        for start_col, label, color in overlays.get(row_idx, []):
+            for j, c in enumerate(label):
+                col = start_col + j
+                if 0 <= col < len(row):
+                    overlay_chars[col] = (c, color)
+
+        line = " "
+        for ci, (ch, _height) in enumerate(row):
+            if ci in overlay_chars:
+                oc, oc_color = overlay_chars[ci]
+                line += f"{fg(*oc_color)}{oc}"
+            elif ch == '\u2800' and ci == now_col:
+                line += f"{now_fg}\u2502"
+            elif ch == '\u2800':
+                line += " "
+            else:
+                dl = col_daylight[ci] if ci < len(col_daylight) else 1.0
+                brightness = NIGHT_DIM + (1.0 - NIGHT_DIM) * dl
+                line += f"{fg(int(cr * brightness), int(cg * brightness), int(cb * brightness))}{ch}"
+        lines.append(f"{line}{RESET}")
+    return lines
+
+
+def _fmt_hour_12(h):
+    """Format hour (0-24) as compact 12-hour label."""
+    h = h % 24
+    if h == 0:
+        return "12a"
+    if h == 12:
+        return "12p"
+    if h < 12:
+        return f"{h}a"
+    return f"{h - 12}p"
+
+
+def _render_tide_ticks(graph_w, now_hour=None):
+    """Render time axis labels for 24-hour tide chart."""
+    if graph_w < 40:
+        interval = 6
+    elif graph_w < 80:
+        interval = 4
+    elif graph_w < 140:
+        interval = 3
+    else:
+        interval = 2
+
+    canvas = [" "] * graph_w
+    last_end = 0
+    for h in range(0, 25, interval):
+        x = int(h / 24 * (graph_w - 1)) if h < 24 else graph_w - 1
+        label = _fmt_hour_12(h)
+        tick = "\u2575"
+        tick_label = f"{tick}{label}"
+        if x < last_end or x + len(tick_label) > graph_w:
+            continue
+        for j, c in enumerate(tick_label):
+            if x + j < graph_w:
+                canvas[x + j] = c
+        last_end = x + len(tick_label) + 1
+
+    if now_hour is not None:
+        now_x = max(0, min(graph_w - 1, int(now_hour / 24 * graph_w)))
+        if canvas[now_x] == " ":
+            canvas[now_x] = "\u2502"
+
+    dim = fg(70, 80, 100)
+    return f" {dim}{''.join(canvas)}{RESET}"
 
 
 def render(station_id, station_name, station_meta=None, fullscreen=False, offset_minutes=0):
@@ -395,8 +630,7 @@ def render(station_id, station_name, station_meta=None, fullscreen=False, offset
 
     # --- dimensions ---
     graph_w = max(30, cols - 2)
-    graph_h = max(6, rows - (1 if fullscreen else 6))
-    total_spy = graph_h * 2
+    n_braille_rows = max(2, rows - (2 if fullscreen else 7))
 
     # --- interpolate predictions to graph columns ---
     hours = [p[0] for p in predictions]
@@ -414,84 +648,30 @@ def render(station_id, station_name, station_meta=None, fullscreen=False, offset
                 return heights[i] + (heights[i + 1] - heights[i]) * t
         return heights[-1]
 
-    curve_heights = []
+    col_heights = []
     for x in range(graph_w):
         h = (x + 0.5) / graph_w * 24
-        curve_heights.append(interp_height(h))
+        col_heights.append(interp_height(h))
 
-    # --- vertical scale (sized to monthly range for context) ---
-    monthly = fetch_monthly_range(station_id, date)
-    if monthly:
-        scale_lo, scale_hi = monthly
-        # Ensure today's data still fits
-        scale_lo = min(scale_lo, min(curve_heights))
-        scale_hi = max(scale_hi, max(curve_heights))
-    else:
-        scale_lo = min(curve_heights)
-        scale_hi = max(curve_heights)
-
-    scale_range_base = max(scale_hi - scale_lo, 0.5)
-    padding = scale_range_base * 0.10
-    scale_min = scale_lo - padding
-    scale_max = scale_hi + padding
-    scale_range = scale_max - scale_min
-
-    # MLLW datum line position (height=0 in the scale)
-    datum_spy = None
-    if scale_min < 0 < scale_max:
-        datum_frac = (scale_max - 0) / scale_range
-        datum_spy = int(total_spy * datum_frac)
-        datum_spy = max(0, min(total_spy - 1, datum_spy))
-
-    def height_to_spy(height):
-        """Tide height → sub-pixel row (float). 0=top (high water), total_spy-1=bottom."""
-        frac = (scale_max - height) / scale_range
-        return max(0.0, min(total_spy - 1.0, frac * (total_spy - 1)))
-
-    curve_spy = [height_to_spy(h) for h in curve_heights]
-
-    # Current position follows the scrubbed local datetime.
+    # Current position
     now_hour = display_local.hour + display_local.minute / 60 + display_local.second / 3600
-    now_x = max(0, min(graph_w - 1, int(now_hour / 24 * graph_w)))
+    now_col = max(0, min(graph_w - 1, int(now_hour / 24 * graph_w)))
     now_height = interp_height(now_hour)
-    now_spy = height_to_spy(now_height)
 
-    # --- build framebuffer ---
-    fb = Framebuffer(graph_w, graph_h)
+    # --- build braille curve ---
+    braille_rows = _build_tide_braille(col_heights, graph_w, n_braille_rows)
 
-    # 1. MLLW datum line (if visible)
-    if datum_spy is not None:
-        fb.fill_hline(datum_spy, DATUM_COLOR)
+    # --- extrema labels from hi/lo data ---
+    extrema = _hilo_to_extrema(hilo, graph_w)
+    overlays = _compute_tide_overlays(extrema, col_heights, n_braille_rows, graph_w)
 
-    # 2. Water fill below the tide curve
-    fb.draw_fill(curve_spy, total_spy, _ocean_gradient, aspect=1.8)
+    # --- daylight dimming ---
+    col_daylight = _compute_daylight(graph_w, date, station_meta)
 
-    # 3. Vertical "now" line
-    now_spy_i = int(round(now_spy))
-    for spy in range(total_spy):
-        alpha = 0.45 if spy != now_spy_i else 0.0
-        fb.set_pixel(now_x, spy, NOW_LINE_COLOR, alpha)
-
-    # 4. Tide curve
-    fb.draw_curve(curve_spy, CURVE_COLOR, sigma=0.8)
-
-    # 5. Current position — radial glow on the curve
-    glow_r = max(4, int(min(graph_w, total_spy) * 0.035))
-    fb.draw_radial(now_x, now_spy, MARKER_COLOR, glow_r, peak_alpha=0.5)
-
-    # Bright core
-    for dy in range(-1, 2):
-        for dx in range(-1, 2):
-            sx = now_x + dx
-            sy = int(round(now_spy)) + dy
-            if 0 <= sx < graph_w and 0 <= sy < total_spy:
-                d = math.sqrt(dx * dx + (dy * 1.5) ** 2)
-                fb.set_pixel(sx, sy, (255, 255, 255), max(0, 0.8 - d * 0.3))
-
-    # --- render with diamond overlay ---
-    diamond_cell_row = int(round(now_spy)) // 2
-    overlays = {(now_x, diamond_cell_row): (DIAMOND, (255, 255, 255))}
-    lines = fb.render(overlays)
+    # --- assemble output ---
+    lines = []
+    lines.extend(_render_tide_braille_rows(braille_rows, now_col, col_daylight, overlays))
+    lines.append(_render_tide_ticks(graph_w, now_hour))
 
     # --- info line ---
     tz_label = display_local.strftime("%Z") or (station_meta or {}).get("timezone_abbr", "")

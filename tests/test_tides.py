@@ -56,13 +56,11 @@ class RenderTests(unittest.TestCase):
                  "fetch_hilo",
                  return_value=[(4.5, 1.8, "H"), (11.0, 0.2, "L")],
              ) as fetch_hilo, \
-             patch.object(tides, "fetch_monthly_range", return_value=(0.0, 2.0)) as fetch_range, \
              patch.object(tides, "get_terminal_size", return_value=(80, 24)):
             output = tides.render("123", "Test Harbor", offset_minutes=120)
 
         self.assertEqual(fetch_tides.call_args.args[1], scrubbed_date)
         self.assertEqual(fetch_hilo.call_args.args[1], scrubbed_date)
-        self.assertEqual(fetch_range.call_args.args[1], scrubbed_date)
         self.assertIn("Fri Mar 6", output)
 
 
