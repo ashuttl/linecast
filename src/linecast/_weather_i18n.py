@@ -163,7 +163,7 @@ _STRINGS = {
         "tomorrow_evening": "demain soir",
         "on_day": "{day}",
         # Past precip
-        "past_precip": "{amt} de {ptype} ces derni\u00e8res 24 h",
+        "past_precip": "{amt} de {ptype} au cours des derni\u00e8res 24 h",
         "snow": "neige",
         "rain": "pluie",
         "mixed_precip": "pr\u00e9cipitations mixtes",
