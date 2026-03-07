@@ -38,7 +38,7 @@ SPARKLINE = "\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588"  # ▁▂▃▄�
 
 
 def _temp_color(temp, runtime):
-    temp_f = temp * 9 / 5 + 32 if runtime.metric else temp
+    temp_f = temp * 9 / 5 + 32 if runtime.celsius else temp
     return interp_stops(TEMP_COLORS, temp_f)
 
 

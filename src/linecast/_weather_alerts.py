@@ -12,7 +12,7 @@ def _parse_alert_time(iso_str, runtime=None):
     """Parse ISO time string to a short display string."""
     try:
         dt = datetime.fromisoformat(iso_str)
-        use_24h = runtime.metric if runtime else False
+        use_24h = runtime.use_24h if runtime else False
         lang = getattr(runtime, "lang", "en") if runtime else "en"
         day_names = DAY_NAMES.get(lang, DAY_NAMES["en"])
         day = day_names[dt.weekday()]

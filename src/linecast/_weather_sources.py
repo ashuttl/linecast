@@ -73,8 +73,9 @@ def fetch_forecast(lat, lng, runtime=None):
     """Fetch hourly + daily forecast from Open-Meteo. Cached 1h."""
     if runtime is None:
         runtime = WeatherRuntime.from_sources()
-    unit_suffix = "_metric" if runtime.metric else ""
-    cache_file = CACHE_DIR / f"forecast_{location_cache_key(lat, lng)}{unit_suffix}.json"
+    temp_tag = "C" if runtime.celsius else "F"
+    wind_tag = "m" if runtime.metric else "i"
+    cache_file = CACHE_DIR / f"forecast_{location_cache_key(lat, lng)}_{temp_tag}{wind_tag}.json"
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lng}"
@@ -83,7 +84,7 @@ def fetch_forecast(lat, lng, runtime=None):
         "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,"
         "precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max,"
         "sunrise,sunset"
-        f"&temperature_unit={'celsius' if runtime.metric else 'fahrenheit'}"
+        f"&temperature_unit={'celsius' if runtime.celsius else 'fahrenheit'}"
         f"&wind_speed_unit={'kmh' if runtime.metric else 'mph'}"
         f"&precipitation_unit={'mm' if runtime.metric else 'inch'}"
         "&timezone=auto&forecast_days=7&past_days=1"

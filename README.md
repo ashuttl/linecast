@@ -45,6 +45,8 @@ weather                          # current location via IP geolocation
 weather --location 44.54,-68.42  # specific coordinates
 weather --search québec          # find coordinates by city name
 weather --metric                 # metric units (°C, km/h, mm)
+weather --celsius                # celsius only (wind/precip stay imperial)
+weather --metric --fahrenheit    # °F with km/h and mm
 weather --live                   # full-screen, auto-refresh
 weather --lang fr                # descriptions et interface en français
 
@@ -57,7 +59,7 @@ tides --search "Bar Harbor"      # find stations by name
 tides --live                     # full-screen, scrubbable, auto-updating
 ```
 
-> **`weather --lang fr`** — Descriptions météorologiques, dates et interface en français. Utilise également la version française des alertes d'Environnement Canada, si disponible.
+> **`weather --lang fr`** — Descriptions météorologiques, dates et interface en français, avec l'heure en format 24 h. Utilise également la version française des alertes d'Environnement Canada, si disponible.
 
 All commands are also available under the `linecast` namespace if the short names conflict with other tools on your system:
 
@@ -82,7 +84,7 @@ Other regions get forecasts but no alerts yet.
 | ------------------ | ----------------------------------------------------------------- |
 | `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `44.54,-68.42`)                |
 | `TIDE_STATION`     | Default NOAA station ID for tides (e.g., `8413320`)               |
-| `WEATHER_UNITS`    | Set to `metric` for Celsius, km/h, and mm (same as `--celsius`)   |
+| `WEATHER_UNITS`    | Set to `metric` for Celsius, km/h, and mm (same as `--metric`)   |
 | `LINECAST_ICONS`   | Set to `emoji` to use standard emoji instead of Nerd Font icons   |
 | `LINECAST_COLOR`   | Color mode: `auto` (default), `truecolor`, `256`, `16`, or `none` |
 | `NO_COLOR`         | Any non-empty value disables ANSI colors (standard convention)    |

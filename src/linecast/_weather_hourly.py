@@ -326,7 +326,7 @@ def _fmt_time(dt, use_24h=False):
 def _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime):
     """Compute sunrise/sunset labels mapped to graph columns."""
     sun_labels = {}
-    use_24h = runtime.metric
+    use_24h = runtime.use_24h
     sunrise_icon = "\u2600\ufe0f" if runtime.emoji else "\U000F059C"
     sunset_icon = "\U0001f305" if runtime.emoji else "\U000F059B"
     if window_dts and sun_events:
@@ -658,7 +658,7 @@ def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None, hover_co
     """Render compact timeline tick labels under the chart."""
     if not window_dts:
         return None
-    use_24h = runtime.metric if runtime else False
+    use_24h = runtime.use_24h if runtime else False
     if graph_w < 40:
         interval = 6
     elif graph_w < 80:

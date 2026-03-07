@@ -7,7 +7,7 @@ Temperature-driven color palette, Nerd Font icons, clean column alignment.
 
 Alerts are sourced from NWS (US) and Environment Canada (CA).
 
-Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji] [--celsius/--metric] [--shading] [--lang fr]
+Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--shading] [--lang fr]
 """
 
 import os
@@ -140,7 +140,7 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
 
     # Time
     if dt:
-        time_str = _fmt_time(dt, use_24h=runtime.metric)
+        time_str = _fmt_time(dt, use_24h=runtime.use_24h)
         lines.append(f"{TBG}{TFG} {time_str} ")
 
     # Temperature + feels like

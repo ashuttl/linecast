@@ -70,7 +70,7 @@ def _comparative_line(daily, now, runtime=None):
 
     abs_diff = abs(diff)
     # Thresholds in degrees (smaller for Celsius since 1°C ≈ 1.8°F)
-    t_same, t_bit, t_much = (2, 4, 8) if runtime.metric else (3, 8, 15)
+    t_same, t_bit, t_much = (2, 4, 8) if runtime.celsius else (3, 8, 15)
     if abs_diff < t_same:
         key = "same_temp"
     elif abs_diff < t_bit:
@@ -148,7 +148,7 @@ def _precipitation_line(hourly, now, runtime=None):
         if delta < 4:
             return _s("in_a_couple_hours", runtime)
         if dt.date() == now.date():
-            if runtime.metric:
+            if runtime.use_24h:
                 return _s("around", runtime, time=f"{dt.hour:02d}h")
             h12 = dt.hour % 12 or 12
             suffix = "am" if dt.hour < 12 else "pm"

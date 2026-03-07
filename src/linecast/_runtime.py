@@ -59,7 +59,8 @@ class RuntimeConfig:
 
 @dataclass(frozen=True)
 class WeatherRuntime(RuntimeConfig):
-    metric: bool
+    celsius: bool
+    metric: bool  # wind (km/h) and precipitation (mm)
     shading: bool
 
     @classmethod
@@ -67,21 +68,33 @@ class WeatherRuntime(RuntimeConfig):
         args = _argv(argv)
         env = _environ(environ)
         base = RuntimeConfig.from_sources(args, env)
+        all_metric = (
+            "--metric" in args
+            or env.get("WEATHER_UNITS", "").lower() == "metric"
+        )
+        # --celsius / --fahrenheit override temperature independently
+        if "--fahrenheit" in args:
+            celsius = False
+        elif "--celsius" in args or all_metric:
+            celsius = True
+        else:
+            celsius = False
         return cls(
             live=base.live,
             emoji=base.emoji,
             lang=base.lang,
-            metric=(
-                "--celsius" in args
-                or "--metric" in args
-                or env.get("WEATHER_UNITS", "").lower() == "metric"
-            ),
+            celsius=celsius,
+            metric="--metric" in args or all_metric,
             shading="--shading" in args or env_truthy(env.get("WEATHER_SHADING", "")),
         )
 
     @property
+    def use_24h(self):
+        return self.lang != "en"
+
+    @property
     def temp_unit(self):
-        return "°C" if self.metric else "°F"
+        return "°C" if self.celsius else "°F"
 
     @property
     def wind_unit(self):

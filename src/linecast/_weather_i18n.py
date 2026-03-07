@@ -48,12 +48,12 @@ WMO_NAMES = {
 
 DAY_NAMES = {
     "en": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    "fr": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+    "fr": ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"],
 }
 
 FULL_DAY_NAMES = {
     "en": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-    "fr": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"],
+    "fr": ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"],
 }
 
 WMO_NAMES_I18N = {
@@ -132,8 +132,8 @@ _STRINGS = {
         "scroll": "scroll",
     },
     "fr": {
-        "today": "Aujourd'hui",
-        "today_short": "Auj",
+        "today": "aujourd'hui",
+        "today_short": "auj",
         "feels": "ressenti",
         "wind": "Vent",
         "gusts": "rafales",
