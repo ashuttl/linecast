@@ -88,6 +88,11 @@ def _comparative_line(daily, now, runtime=None):
 # ---------------------------------------------------------------------------
 # Precipitation forecast line
 # ---------------------------------------------------------------------------
+def _ucfirst(s):
+    """Uppercase first character without lowering the rest (preserves German noun caps)."""
+    return s[:1].upper() + s[1:] if s else s
+
+
 _PRECIP_CODES = {51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99}
 
 _PRECIP_DESCS = {
@@ -168,14 +173,14 @@ def _precipitation_line(hourly, now, runtime=None):
         current_desc = desc(first_idx)
         for i, dt in window[1:]:
             if not is_precip(i):
-                text = _s("ending", runtime, desc=current_desc.capitalize(), time=time_phrase(dt))
+                text = _s("ending", runtime, desc=_ucfirst(current_desc), time=time_phrase(dt))
                 return f" {MUTED}{text}{RESET}"
-        text = _s("continuing", runtime, desc=current_desc.capitalize())
+        text = _s("continuing", runtime, desc=_ucfirst(current_desc))
         return f" {MUTED}{text}{RESET}"
 
     for i, dt in window[1:]:
         if is_precip(i):
-            text = _s("starting", runtime, desc=desc(i).capitalize(), time=time_phrase(dt))
+            text = _s("starting", runtime, desc=_ucfirst(desc(i)), time=time_phrase(dt))
             return f" {MUTED}{text}{RESET}"
     return ""
 

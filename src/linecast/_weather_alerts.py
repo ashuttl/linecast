@@ -52,7 +52,7 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None):
     if effective and expires:
         timing = f"{effective} \u2013 {expires}"
     elif expires:
-        until = "jusqu'\u00e0" if (runtime and runtime.lang == "fr") else "until"
+        until = _s("until", runtime) if runtime else "until"
         timing = f"{until} {expires}"
 
     pill = f"{bg_color}{dark_fg}{BOLD} \u26a0 {event} {RESET}"
@@ -123,7 +123,7 @@ def _build_modal_content(alert, inner_w, runtime=None):
     if effective and expires:
         lines.append(f"{MBG}{WIND_COLOR}{effective} \u2013 {expires}{RESET}")
     elif expires:
-        until = "jusqu'\u00e0" if (runtime and runtime.lang == "fr") else "until"
+        until = _s("until", runtime) if runtime else "until"
         lines.append(f"{MBG}{WIND_COLOR}{until} {expires}{RESET}")
 
     lines.append("")  # blank line

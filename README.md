@@ -8,7 +8,7 @@ All data comes from free public APIs with no keys required.
 
 ## Commands
 
-**`weather`** — Current conditions, hourly braille temperature curve, 7-day forecast with color range bars, precipitation sparkline, natural language comparisons, and NWS/Environment Canada weather alerts.
+**`weather`** — Current conditions, hourly braille temperature curve, 7-day forecast with color range bars, precipitation sparkline, natural language comparisons, and weather alerts for 35 countries.
 
 ![weather](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
 
@@ -48,7 +48,9 @@ weather --metric                 # metric units (°C, km/h, mm)
 weather --celsius                # celsius only (wind/precip stay imperial)
 weather --metric --fahrenheit    # °F with km/h and mm
 weather --live                   # full-screen, auto-refresh
-weather --lang fr                # descriptions et interface en français
+weather --lang fr                # interface en français
+weather --lang de                # Oberfläche auf Deutsch
+weather --lang is                # viðmót á íslensku
 
 sunshine                         # solar arc for today
 sunshine --live                  # full-screen, scrubbable, auto-updating
@@ -59,7 +61,11 @@ tides --search "Bar Harbor"      # find stations by name
 tides --live                     # full-screen, scrubbable, auto-updating
 ```
 
-> **`weather --lang fr`** — Descriptions météorologiques, dates et interface en français, avec l'heure en format 24 h. Utilise également la version française des alertes d'Environnement Canada, si disponible.
+### Language support
+
+`--lang` (or `LINECAST_LANG`) switches the full UI — weather descriptions, day names, natural language comparisons, precipitation forecasts, and alert timing — into the chosen language. Non-English languages also use 24-hour time.
+
+Supported: **English**, **French**, **Spanish**, **German**, **Norwegian**, **Icelandic**, **Danish**
 
 All commands are also available under the `linecast` namespace if the short names conflict with other tools on your system:
 
@@ -71,12 +77,16 @@ linecast tides --station 8413320
 
 ## Weather alerts
 
-Alerts are sourced automatically based on location:
+Alerts are sourced automatically based on location from five providers covering 35 countries:
 
-- **US** — National Weather Service (api.weather.gov)
-- **Canada** — Environment and Climate Change Canada (api.weather.gc.ca)
+- **US** — National Weather Service
+- **Canada** — Environment and Climate Change Canada
+- **Germany** — Deutscher Wetterdienst (via BrightSky)
+- **Norway** — MET Norway
+- **Ireland** — Met Éireann
+- **30 European countries** — MeteoAlarm (Austria, Belgium, Bulgaria, Croatia, Cyprus, Czechia, Denmark, Estonia, Finland, France, Greece, Hungary, Iceland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Poland, Portugal, Romania, Serbia, Slovakia, Slovenia, Spain, Sweden, Switzerland, UK)
 
-Other regions get forecasts but no alerts yet.
+Alert text comes from each national weather service in its native language. Where available, alerts are served in your `--lang` preference.
 
 ## Environment variables
 
@@ -84,6 +94,7 @@ Other regions get forecasts but no alerts yet.
 | ------------------ | ----------------------------------------------------------------- |
 | `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `44.54,-68.42`)                |
 | `TIDE_STATION`     | Default NOAA station ID for tides (e.g., `8413320`)               |
+| `LINECAST_LANG`    | UI language: `en`, `fr`, `es`, `de`, `no`, `is`, `da`            |
 | `WEATHER_UNITS`    | Set to `metric` for Celsius, km/h, and mm (same as `--metric`)   |
 | `LINECAST_ICONS`   | Set to `emoji` to use standard emoji instead of Nerd Font icons   |
 | `LINECAST_COLOR`   | Color mode: `auto` (default), `truecolor`, `256`, `16`, or `none` |
