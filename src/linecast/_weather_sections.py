@@ -23,26 +23,65 @@ def render_header(data, width, location_name="", runtime=None):
     icon = icons.get(wmo, icons[0])
     name = WMO_NAMES_I18N.get(runtime.lang, {}).get(wmo) or WMO_NAMES.get(wmo, "")
 
-    left = (
-        f" {TEXT}{icon} {name}  "
-        f"{_colored_temp(temp, runtime, runtime.temp_unit)}"
-        f"  {MUTED}{_s('feels', runtime)} {_colored_temp(feels, runtime, runtime.temp_unit)}"
-    )
+    deg = runtime.temp_unit
+    left_core = f" {TEXT}{icon} {name}  {_colored_temp(temp, runtime, deg)}"
+    left_feels = f"  {MUTED}{_s('feels', runtime)} {_colored_temp(feels, runtime, deg)}"
 
-    right_parts = []
+    # Right side: wind info + location (progressively droppable)
+    wind_part = ""
     if wind > (15 if runtime.metric else 10) or gusts > (30 if runtime.metric else 20):
         parts = [f"{_s('wind', runtime)} {wind:.0f}{runtime.wind_unit}"]
         if gusts > (30 if runtime.metric else 20):
             parts.append(f"{_s('gusts', runtime)} {gusts:.0f}{runtime.wind_unit}")
-        right_parts.append(f"{WIND_COLOR}{'  '.join(parts)}")
-    if location_name:
-        right_parts.append(f"{MUTED}{location_name}")
+        wind_part = f"{WIND_COLOR}{'  '.join(parts)}"
+    loc_part = f"{MUTED}{location_name}" if location_name else ""
 
-    right = f"  {MUTED}\u00b7  ".join(right_parts) if right_parts else ""
+    def _join_right(*parts):
+        filled = [p for p in parts if p]
+        return f"  {MUTED}\u00b7  ".join(filled) if filled else ""
 
-    if right:
+    def _assemble(left, right):
+        if not right:
+            return f"{left}{RESET}"
         pad = width - visible_len(left) - visible_len(right) - 2
-        return f"{left}{' ' * max(1, pad)}{right} {RESET}"
+        if pad >= 1:
+            return f"{left}{' ' * pad}{right} {RESET}"
+        return None  # doesn't fit
+
+    left = left_core + left_feels
+
+    # Try full header
+    right = _join_right(wind_part, loc_part)
+    result = _assemble(left, right)
+    if result:
+        return result
+
+    # Drop location
+    right = _join_right(wind_part)
+    result = _assemble(left, right)
+    if result:
+        return result
+
+    # Drop feels-like
+    left = left_core
+    right = _join_right(wind_part, loc_part)
+    result = _assemble(left, right)
+    if result:
+        return result
+
+    # Drop feels-like + location
+    right = _join_right(wind_part)
+    result = _assemble(left, right)
+    if result:
+        return result
+
+    # Minimal: just conditions + temp, location on right
+    right = _join_right(loc_part)
+    result = _assemble(left, right)
+    if result:
+        return result
+
+    # Last resort: left only
     return f"{left}{RESET}"
 
 

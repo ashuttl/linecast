@@ -1,9 +1,73 @@
 """Weather alert rendering."""
 
 import textwrap
+import unicodedata
 from datetime import datetime
 
 from linecast._graphics import bg, fg, visible_len, RESET, BOLD
+
+
+def _char_width(ch):
+    eaw = unicodedata.east_asian_width(ch)
+    return 2 if eaw in ("W", "F") else 1
+
+
+def _wrap_display_width(text, width):
+    """Wrap plain text to fit within a terminal display width.
+
+    Handles CJK double-width characters correctly.  Falls back to
+    ``textwrap.wrap`` when the text contains no wide characters.
+    """
+    if not text:
+        return [""]
+    # Fast path: no wide chars → stdlib is fine
+    if not any(_char_width(ch) == 2 for ch in text):
+        return textwrap.wrap(text, width) or [""]
+
+    lines = []
+    line = ""
+    line_w = 0
+    last_sp = -1
+
+    for ch in text:
+        cw = _char_width(ch)
+        if line_w + cw > width:
+            if ch == " ":
+                lines.append(line)
+                line, line_w, last_sp = "", 0, -1
+                continue
+            if last_sp >= 0:
+                lines.append(line[:last_sp])
+                rest = line[last_sp + 1:]
+                line = rest + ch
+                line_w = sum(_char_width(c) for c in line)
+                last_sp = -1
+            else:
+                lines.append(line)
+                line, line_w, last_sp = ch, cw, -1
+            continue
+        if ch == " ":
+            last_sp = len(line)
+        line += ch
+        line_w += cw
+
+    if line:
+        lines.append(line)
+    return lines or [""]
+
+
+def _truncate_display_width(text, width):
+    """Truncate plain text to fit within a terminal display width, adding \u2026 if needed."""
+    w = 0
+    for i, ch in enumerate(text):
+        cw = _char_width(ch)
+        if w + cw > width:
+            # Back up for the ellipsis
+            if w > 0:
+                return text[:i] + "\u2026"
+            return "\u2026"
+        w += cw
+    return text
 from linecast._weather_i18n import DAY_NAMES, _s
 from linecast._weather_style import ALERT_AMBER, ALERT_RED, ALERT_YELLOW, MUTED, WIND_COLOR
 
@@ -64,7 +128,7 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None):
 
     if timing:
         timing_str = f" {WIND_COLOR}{timing}{RESET}"
-        used += 1 + len(timing)
+        used += 1 + visible_len(timing_str)
         parts.append(timing_str)
 
     desc = alert.get("description", "").strip()
@@ -72,9 +136,7 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None):
         flat = " ".join(desc.split())
         remaining = width - used - 2  # 2 for " " prefix and trailing space
         if remaining > 10:
-            truncated = flat[:remaining]
-            if len(flat) > remaining:
-                truncated = truncated[:remaining - 1] + "\u2026"
+            truncated = _truncate_display_width(flat, remaining)
             parts.append(f" {MUTED}{truncated}{RESET}")
 
     return ["".join(parts)]
@@ -131,7 +193,7 @@ def _build_modal_content(alert, inner_w, runtime=None):
     # Headline (if different from event name)
     headline = alert.get("headline", "")
     if headline and headline != event:
-        for wrapped in textwrap.wrap(headline, inner_w):
+        for wrapped in _wrap_display_width(headline, inner_w):
             lines.append(f"{MBG}{TFG}{BOLD}{wrapped}{RESET}")
         lines.append("")
 
@@ -145,7 +207,7 @@ def _build_modal_content(alert, inner_w, runtime=None):
                 lines.append("")  # paragraph break
             # Collapse whitespace within each paragraph, then wrap
             flat = " ".join(para.split())
-            for wrapped in textwrap.wrap(flat, inner_w):
+            for wrapped in _wrap_display_width(flat, inner_w):
                 lines.append(f"{MBG}{TFG}{wrapped}{RESET}")
 
     # URL
@@ -153,7 +215,7 @@ def _build_modal_content(alert, inner_w, runtime=None):
     if url:
         lines.append("")
         link_color = fg(80, 140, 220)
-        display_url = url if len(url) <= inner_w else url[:inner_w - 1] + "\u2026"
+        display_url = url if visible_len(url) <= inner_w else _truncate_display_width(url, inner_w)
         osc_link = f"\033]8;;{url}\033\\{link_color}{MBG}{display_url}\033]8;;\033\\{RESET}"
         lines.append(osc_link)
 
@@ -230,7 +292,7 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0):
         parts.append("\u25bc " + _s("scroll", runtime))
     sep = " \u00b7 "
     hint = f" {sep.join(parts)} "
-    hint_len = len(hint)
+    hint_len = visible_len(hint)
     if hint_len + 2 < modal_w - 2:
         left_bar = (modal_w - 2 - hint_len) // 2
         right_bar = modal_w - 2 - hint_len - left_bar

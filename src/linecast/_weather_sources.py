@@ -117,6 +117,8 @@ def fetch_alerts(lat, lng, country_code="", lang="en", address=None):
         return _fetch_alerts_metno(lat, lng)
     if country_code == "IE":
         return _fetch_alerts_meteireann(lat, lng)
+    if country_code == "JP":
+        return _fetch_alerts_jma(lat, lng, lang=lang)
     slug = _METEOALARM_SLUGS.get(country_code)
     if slug:
         return _fetch_alerts_meteoalarm(lat, lng, slug, lang=lang, address=address)
@@ -505,6 +507,164 @@ def _area_matches(area_desc, location_words):
         return False
     desc_lower = area_desc.lower()
     return any(word in desc_lower for word in location_words)
+
+
+# ---------------------------------------------------------------------------
+# JMA (Japan Meteorological Agency)
+# ---------------------------------------------------------------------------
+
+# Center coordinates for each JMA forecast office, used for nearest-match lookup.
+# Hokkaido is subdivided into 8 offices; Okinawa into 3; all others are 1:1 with prefectures.
+_JMA_OFFICES = [
+    # Hokkaido
+    (45.4, 141.7, "011000"), (43.8, 142.4, "012000"),
+    (44.0, 144.3, "013000"), (42.9, 143.2, "014030"),
+    (43.0, 145.0, "014100"), (41.8, 140.7, "015000"),
+    (43.1, 141.3, "016000"), (42.6, 141.6, "017000"),
+    # Tohoku
+    (40.8, 140.7, "020000"), (39.7, 141.1, "030000"),
+    (38.3, 140.9, "040000"), (39.7, 140.1, "050000"),
+    (38.2, 140.3, "060000"), (37.7, 140.5, "070000"),
+    # Kanto
+    (36.3, 140.4, "080000"), (36.6, 139.9, "090000"),
+    (36.4, 139.1, "100000"), (35.9, 139.6, "110000"),
+    (35.6, 140.1, "120000"), (35.7, 139.7, "130000"),
+    (35.4, 139.6, "140000"),
+    # Chubu
+    (37.9, 139.0, "150000"), (36.7, 137.2, "160000"),
+    (36.6, 136.6, "170000"), (36.1, 136.2, "180000"),
+    (35.7, 138.6, "190000"), (36.2, 138.2, "200000"),
+    (35.4, 136.8, "210000"), (34.9, 138.4, "220000"),
+    (35.2, 137.0, "230000"),
+    # Kinki
+    (34.7, 136.5, "240000"), (35.0, 136.1, "250000"),
+    (35.0, 135.8, "260000"), (34.7, 135.5, "270000"),
+    (34.9, 134.7, "280000"), (34.7, 135.8, "290000"),
+    (34.0, 135.4, "300000"),
+    # Chugoku
+    (35.5, 134.2, "310000"), (35.5, 133.1, "320000"),
+    (34.7, 133.9, "330000"), (34.4, 132.5, "340000"),
+    (34.2, 131.5, "350000"),
+    # Shikoku
+    (34.1, 134.6, "360000"), (34.3, 134.0, "370000"),
+    (33.8, 132.8, "380000"), (33.6, 133.5, "390000"),
+    # Kyushu
+    (33.6, 130.4, "400000"), (33.3, 130.3, "410000"),
+    (32.7, 129.9, "420000"), (32.8, 130.7, "430000"),
+    (33.2, 131.6, "440000"), (31.9, 131.4, "450000"),
+    (31.6, 130.6, "460100"),
+    # Okinawa
+    (26.3, 127.8, "471000"), (24.8, 125.3, "472000"),
+    (24.3, 124.2, "473000"),
+]
+
+# JMA warning code -> (English name, Japanese name, severity)
+_JMA_WARNING_NAMES = {
+    # Special Warnings (\u7279\u5225\u8b66\u5831)
+    "32": ("Special Blizzard Warning", "\u66b4\u98a8\u96ea\u7279\u5225\u8b66\u5831", "Extreme"),
+    "33": ("Special Heavy Rain Warning", "\u5927\u96e8\u7279\u5225\u8b66\u5831", "Extreme"),
+    "35": ("Special Storm Warning", "\u66b4\u98a8\u7279\u5225\u8b66\u5831", "Extreme"),
+    "36": ("Special Heavy Snow Warning", "\u5927\u96ea\u7279\u5225\u8b66\u5831", "Extreme"),
+    "37": ("Special High Wave Warning", "\u6ce2\u6d6a\u7279\u5225\u8b66\u5831", "Extreme"),
+    "38": ("Special Storm Surge Warning", "\u9ad8\u6f6e\u7279\u5225\u8b66\u5831", "Extreme"),
+    # Warnings (\u8b66\u5831)
+    "02": ("Blizzard Warning", "\u66b4\u98a8\u96ea\u8b66\u5831", "Severe"),
+    "03": ("Heavy Rain Warning", "\u5927\u96e8\u8b66\u5831", "Severe"),
+    "04": ("Flood Warning", "\u6d2a\u6c34\u8b66\u5831", "Severe"),
+    "05": ("Storm Warning", "\u66b4\u98a8\u8b66\u5831", "Severe"),
+    "06": ("Heavy Snow Warning", "\u5927\u96ea\u8b66\u5831", "Severe"),
+    "07": ("High Wave Warning", "\u6ce2\u6d6a\u8b66\u5831", "Severe"),
+    "08": ("Storm Surge Warning", "\u9ad8\u6f6e\u8b66\u5831", "Severe"),
+    # Watches (\u6ce8\u610f\u5831)
+    "10": ("Heavy Rain Watch", "\u5927\u96e8\u6ce8\u610f\u5831", "Moderate"),
+    "12": ("Heavy Snow Watch", "\u5927\u96ea\u6ce8\u610f\u5831", "Moderate"),
+    "13": ("Wind Snow Watch", "\u98a8\u96ea\u6ce8\u610f\u5831", "Moderate"),
+    "14": ("Thunderstorm Watch", "\u96f7\u6ce8\u610f\u5831", "Moderate"),
+    "15": ("High Wind Watch", "\u5f37\u98a8\u6ce8\u610f\u5831", "Moderate"),
+    "16": ("High Wave Watch", "\u6ce2\u6d6a\u6ce8\u610f\u5831", "Moderate"),
+    "17": ("Snowmelt Watch", "\u878d\u96ea\u6ce8\u610f\u5831", "Moderate"),
+    "18": ("Flood Watch", "\u6d2a\u6c34\u6ce8\u610f\u5831", "Moderate"),
+    "19": ("Storm Surge Watch", "\u9ad8\u6f6e\u6ce8\u610f\u5831", "Moderate"),
+    "20": ("Dense Fog Watch", "\u6fc3\u9727\u6ce8\u610f\u5831", "Moderate"),
+    "21": ("Dry Air Watch", "\u4e7e\u71e5\u6ce8\u610f\u5831", "Minor"),
+    "22": ("Avalanche Watch", "\u306a\u3060\u308c\u6ce8\u610f\u5831", "Moderate"),
+    "23": ("Low Temperature Watch", "\u4f4e\u6e29\u6ce8\u610f\u5831", "Minor"),
+    "24": ("Frost Watch", "\u971c\u6ce8\u610f\u5831", "Minor"),
+    "25": ("Icing Watch", "\u7740\u6c37\u6ce8\u610f\u5831", "Moderate"),
+    "26": ("Snow Accretion Watch", "\u7740\u96ea\u6ce8\u610f\u5831", "Moderate"),
+    "27": ("Other Watch", "\u305d\u306e\u4ed6\u306e\u6ce8\u610f\u5831", "Minor"),
+}
+
+_JMA_ACTIVE = {"\u767a\u8868", "\u7d99\u7d9a"}
+
+
+def _jma_office_for_coords(lat, lng):
+    """Find the nearest JMA office code for given coordinates."""
+    import math
+    cos_lat = math.cos(math.radians(lat))
+    best_code = "130000"
+    best_dist = float("inf")
+    for olat, olng, code in _JMA_OFFICES:
+        dlat = lat - olat
+        dlng = (lng - olng) * cos_lat
+        dist = dlat * dlat + dlng * dlng
+        if dist < best_dist:
+            best_dist = dist
+            best_code = code
+    return best_code
+
+
+def _fetch_alerts_jma(lat, lng, lang="en"):
+    """Fetch active JMA weather warnings (Japan). Cached 15min."""
+    office_code = _jma_office_for_coords(lat, lng)
+    cache_file = CACHE_DIR / f"alerts_jp_{office_code}_{lang}.json"
+    url = f"https://www.jma.go.jp/bosai/warning/data/warning/{office_code}.json"
+    data = fetch_json_cached(
+        cache_file, 900, url,
+        headers={"User-Agent": USER_AGENT},
+        timeout=10, fallback=[],
+    )
+    if isinstance(data, list):
+        return data
+
+    headline = data.get("headlineText", "")
+    report_dt = data.get("reportDatetime", "")
+    use_ja = lang == "ja"
+
+    # Collect all active warning codes across all areas
+    active_codes = set()
+    for area_type in data.get("areaTypes", []):
+        for area in area_type.get("areas", []):
+            for w in area.get("warnings", []):
+                if w.get("status", "") in _JMA_ACTIVE:
+                    active_codes.add(w.get("code", ""))
+
+    severity_order = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
+    alerts = []
+    seen = set()
+    for code in sorted(active_codes, key=lambda c: severity_order.get(
+            _JMA_WARNING_NAMES.get(c, ("", "", "Minor"))[2], 3)):
+        info = _JMA_WARNING_NAMES.get(code)
+        if not info:
+            continue
+        en_name, ja_name, severity = info
+        event = ja_name if use_ja else en_name
+        dedup_key = (event, severity)
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+        alerts.append({
+            "event": event,
+            "headline": headline if use_ja else event,
+            "description": headline,
+            "effective": report_dt,
+            "expires": "",
+            "severity": severity,
+            "url": "https://www.jma.go.jp/bosai/warning/",
+        })
+
+    write_cache(cache_file, alerts)
+    return alerts
 
 
 def _search_locations(query, lang="en"):

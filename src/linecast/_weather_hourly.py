@@ -485,19 +485,34 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
 
     for col, name in sorted(midnight_day_names.items()):
         pos = col + 1 - label_start
-        if pos >= 0 and pos + len(name) <= mid_w:
-            for j, c in enumerate(name):
-                mid_canvas[pos + j] = c
+        name_w = visible_len(name)
+        if pos >= 0 and pos + name_w <= mid_w:
+            cx = pos
+            for c in name:
+                mid_canvas[cx] = c
+                cw = visible_len(c)
+                for k in range(1, cw):
+                    if cx + k < mid_w:
+                        mid_canvas[cx + k] = ""
+                cx += cw
 
     for col, (lbl, is_rise) in sorted(sun_labels.items()):
         pos = max(0, col + 1 - label_start)
-        if pos + len(lbl) > mid_w:
+        lbl_w = visible_len(lbl)
+        if pos + lbl_w > mid_w:
             continue
-        if all(mid_canvas[pos + j] == " " for j in range(len(lbl))):
+        if all(mid_canvas[pos + j] == " " for j in range(lbl_w)):
             color = (200, 160, 60) if is_rise else (200, 100, 50)
-            for j, c in enumerate(lbl):
-                mid_canvas[pos + j] = c
-                mid_colors[pos + j] = color
+            cx = pos
+            for c in lbl:
+                mid_canvas[cx] = c
+                mid_colors[cx] = color
+                cw = visible_len(c)
+                for k in range(1, cw):
+                    if cx + k < mid_w:
+                        mid_canvas[cx + k] = ""
+                        mid_colors[cx + k] = color
+                cx += cw
 
     mid_str = ""
     cur_color = None

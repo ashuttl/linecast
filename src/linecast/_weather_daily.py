@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from linecast._graphics import bg, fg, RESET, BOLD
+from linecast._graphics import bg, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime
 from linecast._weather_i18n import DAY_NAMES, _s, _wmo_icons
 from linecast._weather_style import DIM, TEXT, WIND_COLOR, _precip_color, _precip_type, _temp_color
@@ -39,7 +39,10 @@ def render_daily(data, width, runtime=None):
     scale_max = max(all_hi)
 
     # Measure widest right-side detail columns across all days for alignment
-    left_prefix_w = 10  # "  Tod  ⛅  " = day(3) + icon(1) + spacing(6)
+    lang = runtime.lang
+    day_name_list = DAY_NAMES.get(lang, DAY_NAMES["en"])
+    day_col_w = max(visible_len(n) for n in day_name_list + [_s("today_short", runtime)])
+    left_prefix_w = 2 + day_col_w + 2 + 2 + 2  # "  day  ic  "
     # Compute per-day detail fields and find max width of each column
     day_details = []  # list of (precip_str, prob_str, wind_str) per day
     max_precip_w = 0
@@ -101,10 +104,6 @@ def render_daily(data, width, runtime=None):
     dark_fg = fg(20, 20, 25)
     icons = _wmo_icons(runtime)
 
-    lang = runtime.lang
-    day_name_list = DAY_NAMES.get(lang, DAY_NAMES["en"])
-    day_col_w = max(len(n) for n in day_name_list + [_s("today_short", runtime)])
-
     for i in range(1, display_end):
         if i == 1:
             day_name = _s("today_short", runtime)
@@ -114,7 +113,7 @@ def render_daily(data, width, runtime=None):
                 day_name = day_name_list[dt.weekday()]
             except Exception:
                 day_name = "???"
-        day_name = day_name.ljust(day_col_w)
+        day_name = day_name + " " * (day_col_w - visible_len(day_name))
 
         wmo = wmo_codes[i] if i < len(wmo_codes) else 0
         icon = icons.get(wmo, icons[0])

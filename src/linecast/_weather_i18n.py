@@ -60,6 +60,7 @@ DAY_NAMES = {
     "pt": ["seg", "ter", "qua", "qui", "sex", "s\u00e1b", "dom"],
     "sv": ["m\u00e5n", "tis", "ons", "tor", "fre", "l\u00f6r", "s\u00f6n"],
     "fi": ["ma", "ti", "ke", "to", "pe", "la", "su"],
+    "ja": ["\u6708", "\u706b", "\u6c34", "\u6728", "\u91d1", "\u571f", "\u65e5"],
 }
 
 FULL_DAY_NAMES = {
@@ -76,6 +77,7 @@ FULL_DAY_NAMES = {
     "pt": ["segunda-feira", "ter\u00e7a-feira", "quarta-feira", "quinta-feira", "sexta-feira", "s\u00e1bado", "domingo"],
     "sv": ["m\u00e5ndag", "tisdag", "onsdag", "torsdag", "fredag", "l\u00f6rdag", "s\u00f6ndag"],
     "fi": ["maanantai", "tiistai", "keskiviikko", "torstai", "perjantai", "lauantai", "sunnuntai"],
+    "ja": ["\u6708\u66dc\u65e5", "\u706b\u66dc\u65e5", "\u6c34\u66dc\u65e5", "\u6728\u66dc\u65e5", "\u91d1\u66dc\u65e5", "\u571f\u66dc\u65e5", "\u65e5\u66dc\u65e5"],
 }
 
 WMO_NAMES_I18N = {
@@ -223,6 +225,18 @@ WMO_NAMES_I18N = {
         85: "Lumikuurot", 86: "Voimakkaat lumikuurot",
         95: "Ukkonen", 96: "Ukkonen", 99: "Ukkonen",
     },
+    "ja": {
+        0: "\u5feb\u6674", 1: "\u6674\u308c", 2: "\u4e00\u90e8\u66c7\u308a", 3: "\u66c7\u308a",
+        45: "\u9727", 48: "\u7740\u6c37\u6027\u306e\u9727",
+        51: "\u5f31\u3044\u9727\u96e8", 53: "\u9727\u96e8", 55: "\u5f37\u3044\u9727\u96e8",
+        56: "\u7740\u6c37\u6027\u306e\u9727\u96e8", 57: "\u7740\u6c37\u6027\u306e\u9727\u96e8",
+        61: "\u5f31\u3044\u96e8", 63: "\u96e8", 65: "\u5f37\u3044\u96e8",
+        66: "\u7740\u6c37\u6027\u306e\u96e8", 67: "\u7740\u6c37\u6027\u306e\u96e8",
+        71: "\u5f31\u3044\u96ea", 73: "\u96ea", 75: "\u5f37\u3044\u96ea", 77: "\u9727\u96ea",
+        80: "\u5f31\u3044\u306b\u308f\u304b\u96e8", 81: "\u306b\u308f\u304b\u96e8", 82: "\u5f37\u3044\u306b\u308f\u304b\u96e8",
+        85: "\u306b\u308f\u304b\u96ea", 86: "\u5f37\u3044\u306b\u308f\u304b\u96ea",
+        95: "\u96f7\u96e8", 96: "\u96f7\u96e8", 99: "\u96f7\u96e8",
+    },
 }
 
 _PRECIP_DESCS_I18N = {
@@ -345,6 +359,16 @@ _PRECIP_DESCS_I18N = {
         80: "kevyet kuurot", 81: "kuurot", 82: "voimakkaat kuurot",
         85: "lumikuurot", 86: "voimakkaat lumikuurot",
         95: "ukkonen", 96: "ukkonen", 99: "ukkonen",
+    },
+    "ja": {
+        51: "\u5f31\u3044\u9727\u96e8", 53: "\u9727\u96e8", 55: "\u5f37\u3044\u9727\u96e8",
+        56: "\u7740\u6c37\u6027\u306e\u9727\u96e8", 57: "\u7740\u6c37\u6027\u306e\u9727\u96e8",
+        61: "\u5f31\u3044\u96e8", 63: "\u96e8", 65: "\u5f37\u3044\u96e8",
+        66: "\u7740\u6c37\u6027\u306e\u96e8", 67: "\u7740\u6c37\u6027\u306e\u96e8",
+        71: "\u5f31\u3044\u96ea", 73: "\u96ea", 75: "\u5f37\u3044\u96ea", 77: "\u9727\u96ea",
+        80: "\u5f31\u3044\u306b\u308f\u304b\u96e8", 81: "\u306b\u308f\u304b\u96e8", 82: "\u5f37\u3044\u306b\u308f\u304b\u96e8",
+        85: "\u306b\u308f\u304b\u96ea", 86: "\u5f37\u3044\u306b\u308f\u304b\u96ea",
+        95: "\u96f7\u96e8", 96: "\u96f7\u96e8", 99: "\u96f7\u96e8",
     },
 }
 
@@ -947,6 +971,52 @@ _STRINGS = {
         "q_to_close": "q sulkeaksesi",
         "o_to_open": "o avataksesi selaimessa",
         "scroll": "vierit\u00e4",
+    },
+    "ja": {
+        "today": "\u4eca\u65e5",
+        "today_short": "\u4eca\u65e5",
+        "feels": "\u4f53\u611f",
+        "wind": "\u98a8",
+        "gusts": "\u7a81\u98a8",
+        "until": "\u307e\u3067",
+        # Comparative line
+        "same_temp": "{ref_day}\u3068\u307b\u307c\u540c\u3058\u6c17\u6e29",
+        "bit_warmer": "{ref_day}\u3088\u308a\u3084\u3084\u6696\u304b\u3044",
+        "bit_cooler": "{ref_day}\u3088\u308a\u3084\u3084\u6dbc\u3057\u3044",
+        "warmer": "{ref_day}\u3088\u308a\u6696\u304b\u3044",
+        "cooler": "{ref_day}\u3088\u308a\u6dbc\u3057\u3044",
+        "much_warmer": "{ref_day}\u3088\u308a\u304b\u306a\u308a\u6696\u304b\u3044",
+        "much_cooler": "{ref_day}\u3088\u308a\u304b\u306a\u308a\u6dbc\u3057\u3044",
+        "today_subj": "\u4eca\u65e5",
+        "tomorrow_subj": "\u660e\u65e5",
+        "yesterday": "\u6628\u65e5",
+        "today_ref": "\u4eca\u65e5",
+        "will_be": "{subject}\u306f{comparison}",
+        # Precipitation line
+        "ending": "{desc} {time}\u3084\u3080",
+        "continuing": "{desc} \u4e00\u65e5\u4e2d\u7d9a\u304f",
+        "starting": "{desc} {time}\u964d\u308a\u305d\u3046",
+        "shortly": "\u307e\u3082\u306a\u304f",
+        "in_about_an_hour": "\u7d041\u6642\u9593\u5f8c\u306b",
+        "in_a_couple_hours": "\u6570\u6642\u9593\u5f8c\u306b",
+        "around": "{time}\u9803\u306b",
+        "tomorrow_morning": "\u660e\u65e5\u306e\u671d\u306b",
+        "tomorrow_afternoon": "\u660e\u65e5\u306e\u5348\u5f8c\u306b",
+        "tomorrow_evening": "\u660e\u65e5\u306e\u5915\u65b9\u306b",
+        "on_day": "{day}\u306b",
+        # Past precip
+        "past_precip": "\u904e\u53bb24\u6642\u9593\u306e{ptype} {amt}",
+        "snow": "\u964d\u96ea",
+        "rain": "\u964d\u96e8",
+        "mixed_precip": "\u6df7\u5408\u964d\u6c34",
+        # Daily precip types
+        "Snow": "\u96ea",
+        "Rain": "\u96e8",
+        "Mix": "\u6df7\u5408",
+        # Alert modal hints
+        "q_to_close": "q \u3067\u9589\u3058\u308b",
+        "o_to_open": "o \u3067\u30d6\u30e9\u30a6\u30b6\u3092\u958b\u304f",
+        "scroll": "\u30b9\u30af\u30ed\u30fc\u30eb",
     },
 }
 

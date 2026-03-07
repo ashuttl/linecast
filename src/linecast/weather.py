@@ -6,9 +6,9 @@ curve, daily range bars, comparative weather line, and weather alerts.
 Temperature-driven color palette, Nerd Font icons, clean column alignment.
 
 Alerts sourced from NWS (US), Environment Canada (CA), Bright Sky/DWD (DE),
-MET Norway (NO), Met \u00c9ireann (IE), and MeteoAlarm (30 European countries).
+MET Norway (NO), Met \u00c9ireann (IE), JMA (Japan), and MeteoAlarm (30 European countries).
 
-Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi
+Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja
 
 Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--shading] [--lang fr]
 """
