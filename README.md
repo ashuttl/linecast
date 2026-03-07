@@ -65,7 +65,7 @@ tides --live                     # full-screen, scrubbable, auto-updating
 
 `--lang` (or `LINECAST_LANG`) switches the full UI — weather descriptions, day names, natural language comparisons, precipitation forecasts, and alert timing — into the chosen language. Non-English languages also use 24-hour time.
 
-Supported: **English**, **French**, **Spanish**, **German**, **Norwegian**, **Icelandic**, **Danish**
+Supported: **English**, **French**, **Spanish**, **German**, **Italian**, **Portuguese**, **Dutch**, **Polish**, **Norwegian**, **Swedish**, **Icelandic**, **Danish**
 
 All commands are also available under the `linecast` namespace if the short names conflict with other tools on your system:
 
@@ -94,7 +94,7 @@ Alert text comes from each national weather service in its native language. Wher
 | ------------------ | ----------------------------------------------------------------- |
 | `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `44.54,-68.42`)                |
 | `TIDE_STATION`     | Default NOAA station ID for tides (e.g., `8413320`)               |
-| `LINECAST_LANG`    | UI language: `en`, `fr`, `es`, `de`, `no`, `is`, `da`            |
+| `LINECAST_LANG`    | UI language: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da` |
 | `WEATHER_UNITS`    | Set to `metric` for Celsius, km/h, and mm (same as `--metric`)   |
 | `LINECAST_ICONS`   | Set to `emoji` to use standard emoji instead of Nerd Font icons   |
 | `LINECAST_COLOR`   | Color mode: `auto` (default), `truecolor`, `256`, `16`, or `none` |

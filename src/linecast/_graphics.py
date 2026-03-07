@@ -235,7 +235,8 @@ def halfblock(top, bot):
 
 def visible_len(s):
     """Length of a string ignoring ANSI escapes, counting wide/emoji chars as 2."""
-    stripped = re.sub(r'\033\[[^m]*m', '', s)
+    stripped = re.sub(r'\033\][^\033]*\033\\', '', s)  # strip OSC sequences (hyperlinks)
+    stripped = re.sub(r'\033\[[^m]*m', '', stripped)
     chars = list(stripped)
     n = 0
     i = 0

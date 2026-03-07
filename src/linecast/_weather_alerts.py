@@ -153,7 +153,8 @@ def _build_modal_content(alert, inner_w, runtime=None):
     if url:
         lines.append("")
         link_color = fg(80, 140, 220)
-        osc_link = f"\033]8;;{url}\033\\{link_color}{MBG}{url}\033]8;;\033\\{RESET}"
+        display_url = url if len(url) <= inner_w else url[:inner_w - 1] + "\u2026"
+        osc_link = f"\033]8;;{url}\033\\{link_color}{MBG}{display_url}\033]8;;\033\\{RESET}"
         lines.append(osc_link)
 
     return lines

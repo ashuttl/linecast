@@ -103,6 +103,7 @@ def render_daily(data, width, runtime=None):
 
     lang = runtime.lang
     day_name_list = DAY_NAMES.get(lang, DAY_NAMES["en"])
+    day_col_w = max(len(n) for n in day_name_list + [_s("today_short", runtime)])
 
     for i in range(1, display_end):
         if i == 1:
@@ -113,6 +114,7 @@ def render_daily(data, width, runtime=None):
                 day_name = day_name_list[dt.weekday()]
             except Exception:
                 day_name = "???"
+        day_name = day_name.ljust(day_col_w)
 
         wmo = wmo_codes[i] if i < len(wmo_codes) else 0
         icon = icons.get(wmo, icons[0])
