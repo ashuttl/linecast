@@ -8,7 +8,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -276,6 +276,114 @@ class TestMeteoAlarmAlerts:
         with patch("linecast._weather_sources.fetch_json_cached", return_value=self.data):
             alerts = _fetch_alerts_meteoalarm(52.37, 4.89, "netherlands", address=None)
         assert isinstance(alerts, list)
+
+
+# ---------------------------------------------------------------------------
+# JMA alerts parsing
+# ---------------------------------------------------------------------------
+
+class TestJMAAlerts:
+    """Verify we can parse a real JMA warning response."""
+
+    def setup_method(self):
+        self.data = _load("jma_warning_tokyo.json")
+
+    def test_top_level_structure(self):
+        assert "headlineText" in self.data
+        assert "reportDatetime" in self.data
+        assert "areaTypes" in self.data
+        assert isinstance(self.data["areaTypes"], list)
+
+    def test_parse_produces_normalized_alerts_en(self):
+        from linecast._weather_sources import _fetch_alerts_jma
+        with patch("linecast._weather_sources.fetch_json_cached", return_value=self.data):
+            alerts = _fetch_alerts_jma(35.6764, 139.6500, lang="en")
+        assert isinstance(alerts, list)
+        assert len(alerts) > 0
+        for a in alerts:
+            for key in ("event", "headline", "description", "severity", "effective", "expires", "url"):
+                assert key in a, f"Missing normalized key: {key}"
+        # Active warning codes should be deduped across areas.
+        assert len(alerts) == 3
+        assert alerts[0]["severity"] == "Severe"
+        assert alerts[0]["event"] == "Heavy Rain Warning"
+        assert alerts[0]["headline"] == "Heavy Rain Warning"
+        assert alerts[0]["effective"] == "2026-03-07T09:00:00+09:00"
+        assert alerts[0]["expires"] == ""
+        assert alerts[0]["url"] == "https://www.jma.go.jp/bosai/warning/"
+
+    def test_parse_produces_normalized_alerts_ja(self):
+        from linecast._weather_sources import _fetch_alerts_jma
+        with patch("linecast._weather_sources.fetch_json_cached", return_value=self.data):
+            alerts = _fetch_alerts_jma(35.6764, 139.6500, lang="ja")
+        assert isinstance(alerts, list)
+        assert len(alerts) == 3
+        # In Japanese mode, event names are localized and headline uses JMA headline text.
+        assert alerts[0]["event"] == "大雨警報"
+        assert alerts[0]["headline"] == self.data["headlineText"]
+        assert alerts[0]["description"] == self.data["headlineText"]
+
+
+# ---------------------------------------------------------------------------
+# Alert provider dispatch tests
+# ---------------------------------------------------------------------------
+
+class TestAlertProviderRouting:
+    """Ensure fetch_alerts routes to the expected provider for each country."""
+
+    def test_routes_us_to_nws(self):
+        from linecast._weather_sources import fetch_alerts
+        with patch("linecast._weather_sources._fetch_alerts_nws", return_value=[{"event": "x"}]) as mock_fn:
+            result = fetch_alerts(40.7, -74.0, country_code="US")
+        mock_fn.assert_called_once_with(40.7, -74.0)
+        assert result == [{"event": "x"}]
+
+    def test_routes_ca_to_eccc(self):
+        from linecast._weather_sources import fetch_alerts
+        with patch("linecast._weather_sources._fetch_alerts_eccc", return_value=[{"event": "x"}]) as mock_fn:
+            result = fetch_alerts(45.4, -75.7, country_code="CA", lang="fr")
+        mock_fn.assert_called_once_with(45.4, -75.7, lang="fr")
+        assert result == [{"event": "x"}]
+
+    def test_routes_de_to_brightsky(self):
+        from linecast._weather_sources import fetch_alerts
+        with patch("linecast._weather_sources._fetch_alerts_brightsky", return_value=[{"event": "x"}]) as mock_fn:
+            result = fetch_alerts(52.52, 13.405, country_code="DE", lang="de")
+        mock_fn.assert_called_once_with(52.52, 13.405, lang="de")
+        assert result == [{"event": "x"}]
+
+    def test_routes_no_to_metno(self):
+        from linecast._weather_sources import fetch_alerts
+        with patch("linecast._weather_sources._fetch_alerts_metno", return_value=[{"event": "x"}]) as mock_fn:
+            result = fetch_alerts(59.91, 10.75, country_code="NO")
+        mock_fn.assert_called_once_with(59.91, 10.75)
+        assert result == [{"event": "x"}]
+
+    def test_routes_ie_to_meteireann(self):
+        from linecast._weather_sources import fetch_alerts
+        with patch("linecast._weather_sources._fetch_alerts_meteireann", return_value=[{"event": "x"}]) as mock_fn:
+            result = fetch_alerts(53.35, -6.26, country_code="IE")
+        mock_fn.assert_called_once_with(53.35, -6.26)
+        assert result == [{"event": "x"}]
+
+    def test_routes_jp_to_jma(self):
+        from linecast._weather_sources import fetch_alerts
+        with patch("linecast._weather_sources._fetch_alerts_jma", return_value=[{"event": "x"}]) as mock_fn:
+            result = fetch_alerts(35.68, 139.76, country_code="JP", lang="ja")
+        mock_fn.assert_called_once_with(35.68, 139.76, lang="ja")
+        assert result == [{"event": "x"}]
+
+    def test_routes_meteoalarm_country(self):
+        from linecast._weather_sources import fetch_alerts
+        address = {"city": "Amsterdam", "state": "Noord-Holland"}
+        with patch("linecast._weather_sources._fetch_alerts_meteoalarm", return_value=[{"event": "x"}]) as mock_fn:
+            result = fetch_alerts(52.37, 4.89, country_code="NL", lang="en", address=address)
+        mock_fn.assert_called_once_with(52.37, 4.89, "netherlands", lang="en", address=address)
+        assert result == [{"event": "x"}]
+
+    def test_unknown_country_returns_empty(self):
+        from linecast._weather_sources import fetch_alerts
+        assert fetch_alerts(0, 0, country_code="XX") == []
 
 
 # ---------------------------------------------------------------------------

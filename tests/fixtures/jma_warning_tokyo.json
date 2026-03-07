@@ -1,0 +1,28 @@
+{
+  "reportDatetime": "2026-03-07T09:00:00+09:00",
+  "headlineText": "東京地方では大雨や強風に警戒してください。",
+  "areaTypes": [
+    {
+      "name": "警報・注意報",
+      "areas": [
+        {
+          "code": "130000",
+          "name": "東京都",
+          "warnings": [
+            { "code": "03", "status": "発表" },
+            { "code": "10", "status": "継続" },
+            { "code": "21", "status": "解除" }
+          ]
+        },
+        {
+          "code": "140000",
+          "name": "神奈川県",
+          "warnings": [
+            { "code": "03", "status": "継続" },
+            { "code": "15", "status": "発表" }
+          ]
+        }
+      ]
+    }
+  ]
+}
