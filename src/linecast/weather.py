@@ -201,31 +201,37 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     cols, rows = get_terminal_size()
     now_local = _local_now_for_data(data)
 
-    # Pre-render alerts to get their exact line count for budgeting
-    alert_lines = []
-    if alerts:
-        alert_lines = render_alerts(alerts, width=cols, runtime=runtime)
+    # Pre-render fixed-height sections to budget graph rows accurately
+    alert_lines = render_alerts(alerts, width=cols, runtime=runtime) if alerts else []
+    comp = _comparative_line(data.get("daily", {}), now_local, runtime)
+    precip = _precipitation_line(data.get("hourly", {}), now_local, runtime)
+    past_precip = _past_precip_line(data.get("hourly", {}), now_local, runtime)
+    daily_lines_rendered = render_daily(data, cols, runtime)
 
-    # Count fixed-height sections to budget remaining rows for graphs
-    # Header(1) + blank(1) + hourly_header(1) + tick_labels(1) + wind_row(1)
-    # + comp_line(1) + precip_text(1) + past_precip(1) + blank(1)
-    # + daily(7) = ~16 fixed lines, plus alerts
-    alert_lines_count = (len(alert_lines) + 1) if alert_lines else 0  # +1 for blank separator
-    fixed_lines = 16 + alert_lines_count
-    available = max(0, rows - fixed_lines)
+    # Count non-hourly lines precisely
+    non_hourly = 2  # header + blank
+    if comp: non_hourly += 1
+    if precip: non_hourly += 1
+    if past_precip: non_hourly += 1
+    non_hourly += 1  # blank before daily
+    non_hourly += len(daily_lines_rendered)
+    if alert_lines:
+        non_hourly += 1 + len(alert_lines)  # blank + alerts
 
-    # Distribute available rows between temperature graph and precip graph
-    # Precip gets up to 3 braille rows, temp gets the rest
+    # All remaining rows go to hourly section
+    # hourly contains: today_line(1) + braille(N) + tick(1) + wind(0-1) + precip(0-P)
+    hourly_budget = max(4, rows - non_hourly)
+    graph_budget = hourly_budget - 2  # today_line + tick_labels
+
     hourly = data.get("hourly", {})
     has_precip_graph = bool(hourly.get("precipitation_probability")) and max(hourly.get("precipitation_probability", [0])) > 5
     if has_precip_graph:
-        n_precip_braille = min(3, max(1, available // 6))
-        remaining_for_temp = available - n_precip_braille
+        n_precip_braille = min(3, max(1, graph_budget // 6))
+        remaining_for_temp = graph_budget - n_precip_braille
     else:
         n_precip_braille = 0
-        remaining_for_temp = available
+        remaining_for_temp = graph_budget
 
-    # Temperature graph: minimum 2 braille rows, grows to fill available space
     n_braille = max(2, remaining_for_temp)
 
     lines = []
@@ -240,6 +246,18 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
         data, cols, n_braille_rows=n_braille, n_precip_rows=n_precip_braille,
         now=now_local, runtime=runtime,
     )
+
+    # Adjust if hourly used more/fewer lines than budgeted (wind appeared,
+    # or precip didn't render for the visible window)
+    if len(hourly_lines) != hourly_budget and n_braille > 2:
+        adjusted = max(2, n_braille - (len(hourly_lines) - hourly_budget))
+        if adjusted != n_braille:
+            n_braille = adjusted
+            hourly_lines = render_hourly(
+                data, cols, n_braille_rows=n_braille, n_precip_rows=n_precip_braille,
+                now=now_local, runtime=runtime,
+            )
+
     hourly_end = hourly_start + len(hourly_lines)
 
     # Compute hover column only if mouse is within hourly section
@@ -268,24 +286,21 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     lines.extend(hourly_lines)
 
     # Comparative line
-    comp = _comparative_line(data.get("daily", {}), now_local, runtime)
     if comp:
         lines.append(comp)
 
     # Precipitation forecast
-    precip = _precipitation_line(data.get("hourly", {}), now_local, runtime)
     if precip:
         lines.append(precip)
 
     # Past 24h precipitation
-    past_precip = _past_precip_line(data.get("hourly", {}), now_local, runtime)
     if past_precip:
         lines.append(past_precip)
 
     lines.append("")
 
     # Daily
-    lines.extend(render_daily(data, cols, runtime))
+    lines.extend(daily_lines_rendered)
 
     # Alerts — one line per alert
     alert_row_map = {}  # 0-based line index → alert index

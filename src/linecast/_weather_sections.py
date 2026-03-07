@@ -80,7 +80,7 @@ def _comparative_line(daily, now, runtime=None):
     else:
         key = "much_warmer" if diff > 0 else "much_cooler"
 
-    comparison = _s(key, runtime, ref_day=ref_day)
+    comparison = _s(key, runtime, ref_day=ref_day, subject=subject.lower())
     sentence = _s("will_be", runtime, subject=subject, comparison=comparison)
     return f" {MUTED}{sentence}{RESET}"
 
@@ -229,19 +229,19 @@ def _past_precip_line(hourly, now, runtime):
             amt = f"{total_snow_cm:.1f}cm"
         else:
             inches = total_snow_cm / 2.54
-            amt = f"{inches:.1f}in" if inches >= 1 else f"{inches:.2f}in"
+            amt = f"{inches:.1f}\u2033" if inches >= 1 else f"{inches:.2f}\u2033"
         ptype = _s("snow", runtime)
     elif mix_hours >= rain_hours:
         if runtime.metric:
             amt = f"{total_precip:.1f}mm"
         else:
-            amt = f"{total_precip:.2f}in"
+            amt = f"{total_precip:.2f}\u2033"
         ptype = _s("mixed_precip", runtime)
     else:
         if runtime.metric:
             amt = f"{total_precip:.1f}mm"
         else:
-            amt = f"{total_precip:.2f}in"
+            amt = f"{total_precip:.2f}\u2033"
         ptype = _s("rain", runtime)
 
     return f" {MUTED}{_s('past_precip', runtime, amt=amt, ptype=ptype)}{RESET}"

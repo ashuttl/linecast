@@ -19,7 +19,7 @@ import time as _time
 from datetime import datetime, timezone, timedelta
 
 from linecast._graphics import (
-    fg, RESET,
+    bg, fg, RESET,
     visible_len, fmt_time,
     get_terminal_size, live_loop,
 )
@@ -441,6 +441,10 @@ def _build_tide_braille(col_heights, graph_w, n_rows):
         samples.append(col_heights[lo_i] + (col_heights[hi_i] - col_heights[lo_i]) * frac)
 
     s_min, s_max = min(samples), max(samples)
+    # Vertical padding so curve doesn't reach edges (room for labels)
+    pad = max(0.3, (s_max - s_min) * 0.15)
+    s_min -= pad
+    s_max += pad
     if s_max == s_min:
         ys = [total_dots / 2] * n
     else:
@@ -506,6 +510,10 @@ def _compute_tide_overlays(extrema, col_heights, n_rows, graph_w):
         return {}
 
     h_min, h_max = min(col_heights), max(col_heights)
+    # Match padding from _build_tide_braille
+    pad = max(0.3, (h_max - h_min) * 0.15)
+    h_min -= pad
+    h_max += pad
     total_dots = n_rows * 4
     overlays = {}
     occupied_by_row = {}
@@ -519,7 +527,7 @@ def _compute_tide_overlays(extrema, col_heights, n_rows, graph_w):
 
         label_row = max(0, curve_row - 1) if is_peak else min(n_rows - 1, curve_row + 1)
 
-        label = f"{height:.1f}'"
+        label = f"{height:.1f}\u2032"
         start = max(0, min(graph_w - len(label), x - len(label) // 2))
 
         if label_row not in occupied_by_row:
@@ -629,8 +637,9 @@ def render(station_id, station_name, station_meta=None, fullscreen=False, offset
     cols, rows = get_terminal_size()
 
     # --- dimensions ---
+    # Reserve: station_name(1) + braille + tick(1) + info(1)
     graph_w = max(30, cols - 2)
-    n_braille_rows = max(2, rows - (2 if fullscreen else 7))
+    n_braille_rows = max(2, rows - (3 if fullscreen else 7))
 
     # --- interpolate predictions to graph columns ---
     hours = [p[0] for p in predictions]
@@ -670,20 +679,31 @@ def render(station_id, station_name, station_meta=None, fullscreen=False, offset
 
     # --- assemble output ---
     lines = []
+
+    # Station name pinned to top-right
+    name = station_name.title() if station_name else ""
+    muted = fg(100, 110, 130)
+    if name:
+        lines.append(f"{muted}{' ' * max(0, cols - len(name) - 1)}{name}{RESET}")
+    else:
+        lines.append("")
+
     lines.extend(_render_tide_braille_rows(braille_rows, now_col, col_daylight, overlays))
     lines.append(_render_tide_ticks(graph_w, now_hour))
 
     # --- info line ---
-    tz_label = display_local.strftime("%Z") or (station_meta or {}).get("timezone_abbr", "")
+    # Determine tide direction from local slope
+    eps = 0.1  # ~6 minutes
+    rising = interp_height(min(24, now_hour + eps)) > interp_height(max(0, now_hour - eps))
+
     lines.append(
         _info_line(
             hilo,
             now_height,
-            station_name,
             cols,
             now_hour,
             offset_minutes,
-            tz_label,
+            rising=rising,
             display_date=display_local.date(),
             reference_date=now_local.date(),
         )
@@ -695,22 +715,38 @@ def render(station_id, station_name, station_meta=None, fullscreen=False, offset
 def _info_line(
     hilo,
     now_height,
-    station_name,
     width,
     now_hour=None,
     offset_minutes=0,
-    tz_label="",
+    rising=True,
     display_date=None,
     reference_date=None,
 ):
-    """High/Low times · Range · Current height · Station name (truncated to fit)."""
+    """Iconic pill-shaped tide info bar with knocked-out current stat."""
     text = fg(200, 205, 215)
     dim = fg(70, 80, 100)
-    muted = fg(100, 110, 130)
-    sep = f"{muted}  \u00b7  "
+    sep = "  "
 
-    # Build parts as (visible_text, ansi_text) pairs
-    parts = []
+    # Pill colors
+    pill_rgb = (22, 28, 42)
+    now_rgb = (100, 170, 190)  # teal for current stat knockout
+    now_text = fg(12, 20, 30)
+
+    # Nerd Font icons
+    arrow = "\U000F0795" if rising else "\U000F0792"  # 󰞕 / 󰞒 (arrow_collapse_up/down)
+    icon_hi = "\U000F0799"   # 󰞙
+    icon_lo = "\U000F0796"   # 󰞖
+
+    # --- Current stat (knocked out: dark text on teal) ---
+    if offset_minutes:
+        now_content = f"{now_text}{arrow} {fmt_time(now_hour)} {now_height:.1f}\u2032"
+        if display_date and reference_date and display_date != reference_date:
+            now_content += f" {fg(40, 60, 70)}{display_date.strftime('%a %b %-d')}"
+    else:
+        now_content = f"{now_text}{arrow} {now_height:.1f}\u2032"
+
+    # --- High/low/range parts (light text on dark pill) ---
+    rest_parts = []
     if hilo:
         highs = [(h, v) for h, v, t in hilo if t == "H"]
         lows = [(h, v) for h, v, t in hilo if t == "L"]
@@ -719,37 +755,40 @@ def _info_line(
 
         if highs:
             h, v = highs[0]
-            parts.append(f"{text}High {v:.1f}ft {dim}{fmt_time(h)}")
+            rest_parts.append(f"{text}{icon_hi}{v:.1f}\u2032 {dim}{fmt_time(h)}")
         if lows:
             h, v = lows[0]
-            parts.append(f"{text}Low {v:.1f}ft {dim}{fmt_time(h)}")
+            rest_parts.append(f"{text}{icon_lo}{v:.1f}\u2032 {dim}{fmt_time(h)}")
 
         tide_range = h_max - h_min
-        parts.append(f"{text}Range {tide_range:.1f}ft")
+        rest_parts.append(f"{text}\u0394{tide_range:.1f}\u2032")
 
-    if offset_minutes:
-        now_part = f"{text}{fmt_time(now_hour)} {now_height:.1f}ft"
-        if display_date and reference_date and display_date != reference_date:
-            now_part += f" {dim}{display_date.strftime('%a %b %-d')}"
+    # --- Assemble pill ---
+    now_fg = fg(*now_rgb)
+    now_bg = bg(*now_rgb)
+    pill_fg_esc = fg(*pill_rgb)
+    pill_bg_esc = bg(*pill_rgb)
+
+    if rest_parts:
+        rest_content = sep.join(rest_parts)
+        line = (
+            f"{now_fg}\u2590"                          # left edge: → teal
+            f"{now_bg} {now_content} "                 # current stat on teal
+            f"{now_fg}{pill_bg_esc}\u258c"             # transition: teal → pill_bg
+            f" {rest_content} "                        # rest on pill_bg
+            f"{RESET}{pill_fg_esc}\u258c{RESET}"       # right edge: pill_bg →
+        )
     else:
-        now_part = f"{text}Now {now_height:.1f}ft"
-    if tz_label:
-        now_part += f" {dim}{tz_label}"
-    parts.append(now_part)
+        line = (
+            f"{now_fg}\u2590"                          # left edge
+            f"{now_bg} {now_content} "                 # current stat on teal
+            f"{RESET}{now_fg}\u258c{RESET}"            # right edge
+        )
 
-    # Station name — truncate to fit remaining space
-    name = station_name.title() if station_name else "Unknown"
-    core = sep.join(parts)
-    core_w = visible_len(core) + 2  # leading/trailing spaces
-    sep_w = visible_len(sep)
-    avail = width - core_w - sep_w
-    if avail >= len(name):
-        parts.append(f"{muted}{name}")
-    elif avail >= 4:
-        parts.append(f"{muted}{name[:avail - 1]}\u2026")
-
-    line = f" {sep.join(parts)} "
-    return f"{RESET}{line}{RESET}"
+    # Center the pill
+    pill_w = visible_len(line)
+    pad = max(0, width - pill_w)
+    return f"{' ' * (pad // 2)}{line}"
 
 
 # ---------------------------------------------------------------------------

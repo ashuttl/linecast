@@ -89,4 +89,4 @@ class WeatherRuntime(RuntimeConfig):
 
     @property
     def precip_unit(self):
-        return "mm" if self.metric else "in"
+        return "mm" if self.metric else "\u2033"
