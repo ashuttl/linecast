@@ -136,3 +136,188 @@ class TestECCCAlerts:
             props = feature["properties"]
             # At minimum, ECCC features have these
             assert isinstance(props, dict)
+
+
+# ---------------------------------------------------------------------------
+# Bright Sky (DWD/Germany) alerts parsing
+# ---------------------------------------------------------------------------
+
+class TestBrightSkyAlerts:
+    """Verify we can parse a real Bright Sky alerts response."""
+
+    def setup_method(self):
+        self.data = _load("brightsky_alerts.json")
+
+    def test_top_level_structure(self):
+        assert "alerts" in self.data
+        assert isinstance(self.data["alerts"], list)
+
+    def test_alert_fields(self):
+        for alert in self.data["alerts"]:
+            for key in ("severity", "event_en", "headline_en", "effective", "expires"):
+                assert key in alert, f"Missing Bright Sky alert key: {key}"
+
+    def test_parse_produces_normalized_alerts(self):
+        """Smoke test: _fetch_alerts_brightsky parser produces our standard dict."""
+        from linecast._weather_sources import _fetch_alerts_brightsky
+        with patch("linecast._weather_sources.fetch_json_cached", return_value=self.data):
+            alerts = _fetch_alerts_brightsky(52.52, 13.405)
+        assert isinstance(alerts, list)
+        for a in alerts:
+            for key in ("event", "headline", "description", "severity", "effective", "expires", "url"):
+                assert key in a, f"Missing normalized key: {key}"
+
+
+# ---------------------------------------------------------------------------
+# MET Norway alerts parsing
+# ---------------------------------------------------------------------------
+
+class TestMetNoAlerts:
+    """Verify we can parse a real MET Norway MetAlerts response."""
+
+    def setup_method(self):
+        self.data = _load("metno_alerts.json")
+
+    def test_top_level_structure(self):
+        assert "features" in self.data
+        assert isinstance(self.data["features"], list)
+        assert len(self.data["features"]) > 0
+
+    def test_feature_has_when(self):
+        for feature in self.data["features"]:
+            assert "when" in feature, "Feature missing 'when'"
+            interval = feature["when"].get("interval", [])
+            assert len(interval) == 2, "when.interval should have [onset, expires]"
+
+    def test_feature_properties(self):
+        for feature in self.data["features"]:
+            props = feature["properties"]
+            for key in ("event", "severity", "title"):
+                assert key in props, f"Missing MetNo property: {key}"
+
+    def test_parse_produces_normalized_alerts(self):
+        from linecast._weather_sources import _fetch_alerts_metno
+        with patch("linecast._weather_sources.fetch_json_cached", return_value=self.data):
+            alerts = _fetch_alerts_metno(59.91, 10.75)
+        assert isinstance(alerts, list)
+        assert len(alerts) > 0
+        for a in alerts:
+            for key in ("event", "headline", "severity", "effective", "expires"):
+                assert key in a, f"Missing normalized key: {key}"
+
+
+# ---------------------------------------------------------------------------
+# Met Éireann alerts parsing
+# ---------------------------------------------------------------------------
+
+class TestMetEireannAlerts:
+    """Verify we can parse a real Met Éireann warnings response."""
+
+    def setup_method(self):
+        self.data = _load("meteireann_warnings.json")
+
+    def test_top_level_structure(self):
+        assert "warnings" in self.data
+        warnings = self.data["warnings"]
+        for cat in ("national", "marine", "environmental"):
+            assert cat in warnings, f"Missing category: {cat}"
+            assert isinstance(warnings[cat], list)
+
+    def test_parse_produces_normalized_alerts(self):
+        from linecast._weather_sources import _fetch_alerts_meteireann
+        with patch("linecast._weather_sources.fetch_json_cached", return_value=self.data):
+            alerts = _fetch_alerts_meteireann(53.35, -6.26)
+        assert isinstance(alerts, list)
+        for a in alerts:
+            for key in ("event", "headline", "severity", "effective", "expires"):
+                assert key in a, f"Missing normalized key: {key}"
+
+
+# ---------------------------------------------------------------------------
+# MeteoAlarm (pan-European) alerts parsing
+# ---------------------------------------------------------------------------
+
+class TestMeteoAlarmAlerts:
+    """Verify we can parse a real MeteoAlarm response."""
+
+    def setup_method(self):
+        self.data = _load("meteoalarm_netherlands.json")
+
+    def test_top_level_structure(self):
+        assert "warnings" in self.data
+        assert isinstance(self.data["warnings"], list)
+
+    def test_warning_has_alert_with_info(self):
+        for w in self.data["warnings"]:
+            assert "alert" in w
+            assert "info" in w["alert"]
+            assert isinstance(w["alert"]["info"], list)
+            assert len(w["alert"]["info"]) > 0
+
+    def test_info_has_required_fields(self):
+        for w in self.data["warnings"]:
+            for info in w["alert"]["info"]:
+                for key in ("severity", "event", "language"):
+                    assert key in info, f"Missing MeteoAlarm info key: {key}"
+
+    def test_parse_with_area_filter(self):
+        from linecast._weather_sources import _fetch_alerts_meteoalarm
+        address = {"city": "Amsterdam", "state": "Noord-Holland"}
+        with patch("linecast._weather_sources.fetch_json_cached", return_value=self.data):
+            alerts = _fetch_alerts_meteoalarm(52.37, 4.89, "netherlands", address=address)
+        assert isinstance(alerts, list)
+        for a in alerts:
+            for key in ("event", "headline", "severity", "effective", "expires"):
+                assert key in a, f"Missing normalized key: {key}"
+
+    def test_parse_without_address(self):
+        """Without address, should still return Severe+ alerts."""
+        from linecast._weather_sources import _fetch_alerts_meteoalarm
+        with patch("linecast._weather_sources.fetch_json_cached", return_value=self.data):
+            alerts = _fetch_alerts_meteoalarm(52.37, 4.89, "netherlands", address=None)
+        assert isinstance(alerts, list)
+
+
+# ---------------------------------------------------------------------------
+# Helper unit tests
+# ---------------------------------------------------------------------------
+
+class TestLocationMatching:
+    """Test MeteoAlarm area matching helpers."""
+
+    def test_extract_location_words(self):
+        from linecast._weather_sources import _extract_location_words
+        address = {"city": "Madrid", "state": "Comunidad de Madrid"}
+        words = _extract_location_words(address)
+        assert "madrid" in words
+        assert "comunidad" in words
+        assert "de" not in words  # too short
+
+    def test_area_matches_positive(self):
+        from linecast._weather_sources import _area_matches
+        words = {"madrid", "comunidad"}
+        assert _area_matches("Sierra de Madrid", words)
+
+    def test_area_matches_negative(self):
+        from linecast._weather_sources import _area_matches
+        words = {"madrid", "comunidad"}
+        assert not _area_matches("Bizkaia interior", words)
+
+    def test_area_matches_empty(self):
+        from linecast._weather_sources import _area_matches
+        assert not _area_matches("", {"madrid"})
+        assert not _area_matches("Madrid", set())
+
+    def test_meteireann_severity(self):
+        from linecast._weather_sources import _meteireann_severity
+        assert _meteireann_severity("red") == "Extreme"
+        assert _meteireann_severity("orange") == "Severe"
+        assert _meteireann_severity("yellow") == "Moderate"
+        assert _meteireann_severity("green") == "Minor"
+
+    def test_parse_meteireann_dt(self):
+        from linecast._weather_sources import _parse_meteireann_dt
+        assert _parse_meteireann_dt("00:00 Saturday 07/03/2026") == "2026-03-07T00:00:00"
+        assert _parse_meteireann_dt("14:30 Monday 15/12/2025") == "2025-12-15T14:30:00"
+        assert _parse_meteireann_dt("") == ""
+        assert _parse_meteireann_dt(None) == ""

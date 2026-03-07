@@ -37,12 +37,12 @@ def _local_now_for_data(data):
 def _reverse_geocode(lat, lng):
     """Reverse geocode coordinates to a display name via Nominatim. Cached.
 
-    Returns (display_name, country_code) tuple.
+    Returns (display_name, country_code, address) tuple.
     """
     cache_file = CACHE_DIR / "location.json"
     cached = read_cache(cache_file, 86400)  # 24h cache
     if cached and cached.get("lat") == round(lat, 4) and cached.get("lng") == round(lng, 4):
-        return cached.get("name", ""), cached.get("country_code", "")
+        return cached.get("name", ""), cached.get("country_code", ""), cached.get("address", {})
 
     try:
         url = (
@@ -63,10 +63,11 @@ def _reverse_geocode(lat, lng):
         write_cache(cache_file, {
             "lat": round(lat, 4), "lng": round(lng, 4),
             "name": display, "country_code": country_code,
+            "address": addr,
         })
-        return display, country_code
+        return display, country_code, addr
     except Exception:
-        return "", ""
+        return "", "", {}
 
 
 def fetch_forecast(lat, lng, runtime=None):
@@ -101,15 +102,24 @@ def fetch_forecast(lat, lng, runtime=None):
     )
 
 
-def fetch_alerts(lat, lng, country_code="", lang="en"):
+def fetch_alerts(lat, lng, country_code="", lang="en", address=None):
     """Fetch active weather alerts from the appropriate provider.
 
-    Routes to NWS (US), Environment Canada (CA), or returns [] for unsupported regions.
+    Routes to the best available source for each country.
     """
     if country_code == "US":
         return _fetch_alerts_nws(lat, lng)
     if country_code == "CA":
         return _fetch_alerts_eccc(lat, lng, lang=lang)
+    if country_code == "DE":
+        return _fetch_alerts_brightsky(lat, lng)
+    if country_code == "NO":
+        return _fetch_alerts_metno(lat, lng)
+    if country_code == "IE":
+        return _fetch_alerts_meteireann(lat, lng)
+    slug = _METEOALARM_SLUGS.get(country_code)
+    if slug:
+        return _fetch_alerts_meteoalarm(lat, lng, slug, address=address)
     return []
 
 
@@ -223,6 +233,265 @@ def _eccc_severity(props):
     if alert_type in ("advisory", "statement", "ending"):
         return "Minor"
     return "Minor"
+
+
+def _fetch_alerts_brightsky(lat, lng):
+    """Fetch DWD alerts via Bright Sky API (Germany). Cached 15min."""
+    cache_file = CACHE_DIR / f"alerts_de_{location_cache_key(lat, lng)}.json"
+    url = f"https://api.brightsky.dev/alerts?lat={lat}&lon={lng}"
+    data = fetch_json_cached(
+        cache_file, 900, url,
+        headers={"User-Agent": USER_AGENT},
+        timeout=10, fallback=[],
+    )
+    if isinstance(data, list):
+        return data
+
+    alerts = []
+    for a in data.get("alerts", []):
+        severity = (a.get("severity") or "").capitalize()
+        event = a.get("event_en") or a.get("event_de") or ""
+        alerts.append({
+            "event": event.capitalize() if event else "",
+            "headline": a.get("headline_en") or a.get("headline_de") or "",
+            "description": a.get("description_en") or a.get("description_de") or "",
+            "effective": a.get("effective", ""),
+            "expires": a.get("expires", ""),
+            "severity": severity,
+            "url": "",
+        })
+    write_cache(cache_file, alerts)
+    return alerts
+
+
+def _fetch_alerts_metno(lat, lng):
+    """Fetch MetAlerts from MET Norway. Cached 15min.
+
+    Uses api.met.no with lat/lon coordinate filtering.
+    """
+    cache_file = CACHE_DIR / f"alerts_no_{location_cache_key(lat, lng)}.json"
+    url = (
+        f"https://api.met.no/weatherapi/metalerts/2.0/current.json"
+        f"?lat={lat}&lon={lng}"
+    )
+    data = fetch_json_cached(
+        cache_file, 900, url,
+        headers={"User-Agent": USER_AGENT},
+        timeout=10, fallback=[],
+    )
+    if isinstance(data, list):
+        return data
+
+    alerts = []
+    seen = set()
+    for feature in data.get("features", []):
+        props = feature.get("properties", {})
+        event = (props.get("event") or "").capitalize()
+        severity = props.get("severity", "")
+        if not event:
+            continue
+        dedup_key = (event, severity)
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+        when = feature.get("when", {}).get("interval", ["", ""])
+        effective = when[0] if len(when) > 0 else ""
+        expires = when[1] if len(when) > 1 else ""
+        web = (props.get("web") or "").strip()
+        alerts.append({
+            "event": event,
+            "headline": (props.get("title") or "").strip(),
+            "description": props.get("description") or props.get("instruction") or "",
+            "effective": effective,
+            "expires": expires,
+            "severity": severity,
+            "url": web,
+        })
+    write_cache(cache_file, alerts)
+    return alerts
+
+
+def _fetch_alerts_meteireann(lat, lng):
+    """Fetch active warnings from Met Éireann (Ireland). Cached 15min."""
+    import re
+
+    cache_file = CACHE_DIR / f"alerts_ie_{location_cache_key(lat, lng)}.json"
+    url = "https://prodapi.metweb.ie/warnings/active"
+    data = fetch_json_cached(
+        cache_file, 900, url,
+        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+        timeout=10, fallback=[],
+    )
+    if isinstance(data, list):
+        return data
+
+    warnings_data = data.get("warnings", {})
+    alerts = []
+    seen = set()
+    for category in ("national", "marine", "environmental"):
+        for w in warnings_data.get(category, []):
+            headline = w.get("headline") or ""
+            if not headline:
+                continue
+            desc = w.get("description") or w.get("text") or ""
+            if desc.lower() in ("nil", ""):
+                desc = ""
+            level = (w.get("level") or "").lower()
+            severity = _meteireann_severity(level)
+
+            dedup_key = (headline, severity)
+            if dedup_key in seen:
+                continue
+            seen.add(dedup_key)
+
+            effective = _parse_meteireann_dt(w.get("validFrom") or w.get("issuedAt") or "")
+            expires = _parse_meteireann_dt(w.get("validUntil") or "")
+            alerts.append({
+                "event": headline,
+                "headline": headline,
+                "description": desc,
+                "effective": effective,
+                "expires": expires,
+                "severity": severity,
+                "url": "",
+            })
+    write_cache(cache_file, alerts)
+    return alerts
+
+
+def _meteireann_severity(level):
+    """Map Met Éireann colour levels to standard severity."""
+    if level == "red":
+        return "Extreme"
+    if level == "orange":
+        return "Severe"
+    if level == "yellow":
+        return "Moderate"
+    return "Minor"
+
+
+def _parse_meteireann_dt(s):
+    """Parse Met Éireann datetime to ISO format.
+
+    Input: "HH:MM Weekday DD/MM/YYYY" -> "YYYY-MM-DDTHH:MM:00"
+    """
+    import re
+    if not s:
+        return ""
+    m = re.match(r"(\d{2}):(\d{2})\s+\w+\s+(\d{2})/(\d{2})/(\d{4})", s)
+    if m:
+        hour, minute, day, month, year = m.groups()
+        return f"{year}-{month}-{day}T{hour}:{minute}:00"
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# MeteoAlarm (pan-European, 32 countries)
+# ---------------------------------------------------------------------------
+
+# ISO 3166-1 alpha-2 -> MeteoAlarm feed slug
+# DE, NO, IE excluded — they have dedicated providers above
+_METEOALARM_SLUGS = {
+    "AT": "austria", "BE": "belgium", "BG": "bulgaria", "HR": "croatia",
+    "CY": "cyprus", "CZ": "czechia", "DK": "denmark", "EE": "estonia",
+    "FI": "finland", "FR": "france", "GR": "greece",
+    "HU": "hungary", "IS": "iceland", "IT": "italy",
+    "LV": "latvia", "LT": "lithuania", "LU": "luxembourg", "MT": "malta",
+    "NL": "netherlands", "PL": "poland", "PT": "portugal",
+    "RO": "romania", "RS": "serbia", "SK": "slovakia", "SI": "slovenia",
+    "ES": "spain", "SE": "sweden", "CH": "switzerland", "GB": "united-kingdom",
+}
+
+
+def _fetch_alerts_meteoalarm(lat, lng, slug, address=None):
+    """Fetch MeteoAlarm warnings for a European country. Cached 15min.
+
+    Filters by severity and area match against the user's Nominatim address.
+    """
+    cache_file = CACHE_DIR / f"alerts_eu_{slug}_{location_cache_key(lat, lng)}.json"
+    url = f"https://feeds.meteoalarm.org/api/v1/warnings/feeds-{slug}"
+    data = fetch_json_cached(
+        cache_file, 900, url,
+        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+        timeout=15, fallback=[],
+    )
+    if isinstance(data, list):
+        return data
+
+    location_words = _extract_location_words(address)
+    alerts = []
+    seen = set()
+    for w in data.get("warnings", []):
+        alert_obj = w.get("alert", {})
+        infos = alert_obj.get("info", [])
+        # Find English info, fall back to first available
+        en_info = None
+        native_info = None
+        area_descs = []
+        for info in infos:
+            lang = info.get("language", "")
+            if lang.startswith("en"):
+                en_info = info
+            elif native_info is None:
+                native_info = info
+            for area in info.get("area", []):
+                area_descs.append(area.get("areaDesc", ""))
+        info = en_info or native_info
+        if not info:
+            continue
+
+        severity = info.get("severity", "")
+        if severity == "Minor":
+            continue
+
+        event = info.get("event") or ""
+        if not event:
+            continue
+
+        # For Moderate: only include if area matches user's location
+        if severity == "Moderate" and location_words:
+            if not any(_area_matches(ad, location_words) for ad in area_descs):
+                continue
+
+        dedup_key = (event, severity)
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+
+        alerts.append({
+            "event": event,
+            "headline": info.get("headline") or event,
+            "description": info.get("description") or "",
+            "effective": info.get("effective") or info.get("onset") or "",
+            "expires": info.get("expires") or "",
+            "severity": severity,
+            "url": info.get("web") or "",
+        })
+    write_cache(cache_file, alerts)
+    return alerts
+
+
+def _extract_location_words(address):
+    """Extract location words from a Nominatim address for area matching."""
+    if not address:
+        return set()
+    words = set()
+    for key in ("city", "town", "village", "county", "state", "municipality",
+                "suburb", "district", "region"):
+        val = address.get(key, "")
+        if val:
+            for word in val.split():
+                if len(word) >= 3:
+                    words.add(word.lower())
+    return words
+
+
+def _area_matches(area_desc, location_words):
+    """Check if a MeteoAlarm areaDesc contains any of the user's location words."""
+    if not area_desc or not location_words:
+        return False
+    desc_lower = area_desc.lower()
+    return any(word in desc_lower for word in location_words)
 
 
 def _search_locations(query, lang="en"):

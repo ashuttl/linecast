@@ -86,7 +86,11 @@ from linecast._weather_render import (
 from linecast._weather_sources import (
     CACHE_DIR,
     _eccc_severity,
+    _fetch_alerts_brightsky,
     _fetch_alerts_eccc,
+    _fetch_alerts_meteireann,
+    _fetch_alerts_meteoalarm,
+    _fetch_alerts_metno,
     _fetch_alerts_nws,
     _local_now_for_data,
     _location_from_timezone,
@@ -387,11 +391,11 @@ def main():
     result = {}
 
     def _fetch():
-        name, cc = _reverse_geocode(lat, lng)
+        name, cc, addr = _reverse_geocode(lat, lng)
         result["name"] = name
         result["country_code"] = cc or country_code
         result["data"] = fetch_forecast(lat, lng, runtime)
-        result["alerts"] = fetch_alerts(lat, lng, result["country_code"], lang=runtime.lang)
+        result["alerts"] = fetch_alerts(lat, lng, result["country_code"], lang=runtime.lang, address=addr)
         if not result["name"] and result["data"]:
             result["name"] = _location_from_timezone(result["data"].get("timezone", ""))
         done.set()
