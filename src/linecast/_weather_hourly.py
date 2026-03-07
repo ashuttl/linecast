@@ -369,13 +369,31 @@ def _compute_daylight_columns(window_dts, sun_events, graph_w):
 
 
 def _find_temperature_extrema(col_temps, graph_w):
-    """Detect prominent peaks and valleys for chart annotations."""
+    """Detect notable points for chart annotations: peaks, valleys, and bends.
+
+    All candidate label points are scored and placed greedily from highest to
+    lowest priority, respecting a minimum gap between labels.  This naturally
+    adapts to terminal width — wider charts get more labels.
+
+    Candidate types (unified scoring in comparable degree units):
+      - Global max/min: score 100 (always placed)
+      - Peaks/valleys:  score = topographic prominence (degrees)
+      - Curvature bends: score = equivalent temperature displacement over the
+        label-gap window, capturing elbows and plateaus
+    """
     extrema = []  # (x, temp, is_peak)
     if len(col_temps) < 5:
         return extrema
 
     min_gap = max(8, graph_w // 15)
-    for i in range(2, len(col_temps) - 2):
+    prom_radius = max(15, graph_w // 10)
+    n = len(col_temps)
+
+    # All candidates: (x, temp, is_peak, score)
+    scored = []
+
+    # --- Peaks and valleys (scored by prominence in degrees) ---
+    for i in range(2, n - 2):
         local = col_temps[max(0, i - 3):i + 4]
         is_peak = col_temps[i] >= max(local) and (
             col_temps[i] > col_temps[i - 1] or col_temps[i] > col_temps[i + 1]
@@ -385,24 +403,63 @@ def _find_temperature_extrema(col_temps, graph_w):
         )
         if not is_peak and not is_valley:
             continue
-        neighbors_l = col_temps[max(0, i - 15):i]
-        neighbors_r = col_temps[i + 1:min(len(col_temps), i + 16)]
-        if not neighbors_l or not neighbors_r:
+        nl = col_temps[max(0, i - prom_radius):i]
+        nr = col_temps[i + 1:min(n, i + prom_radius + 1)]
+        if not nl or not nr:
             continue
         if is_peak:
-            prom = col_temps[i] - max(min(neighbors_l), min(neighbors_r))
+            prom = col_temps[i] - max(min(nl), min(nr))
         else:
-            prom = min(max(neighbors_l), max(neighbors_r)) - col_temps[i]
-        if prom < 3:
-            continue
-        if not any(abs(i - ex) < min_gap for ex, _, _ in extrema):
-            extrema.append((i, col_temps[i], is_peak))
+            prom = min(max(nl), max(nr)) - col_temps[i]
+        if prom >= 1:
+            scored.append((i, col_temps[i], is_peak, prom))
 
-    global_max_x = max(range(len(col_temps)), key=lambda i: col_temps[i])
-    global_min_x = min(range(len(col_temps)), key=lambda i: col_temps[i])
+    # --- Global max/min (always placed first) ---
+    global_max_x = max(range(n), key=lambda i: col_temps[i])
+    global_min_x = min(range(n), key=lambda i: col_temps[i])
     for gx, is_peak in [(global_max_x, True), (global_min_x, False)]:
-        if not any(abs(gx - ex) < min_gap and p == is_peak for ex, _, p in extrema):
-            extrema.append((gx, col_temps[gx], is_peak))
+        scored.append((gx, col_temps[gx], is_peak, 100))
+
+    # --- Curvature points: elbows and plateaus ---
+    # Sagitta = how far the curve deviates from a straight chord.
+    # Directly in degrees, comparable to peak/valley prominence.
+    half_w = min_gap * 2
+    detect_r = max(3, graph_w // 40)
+    sagittas = [0.0] * n
+    for i in range(detect_r, n - detect_r):
+        hw = min(half_w, i, n - 1 - i)
+        if hw < min_gap:
+            continue
+        sagittas[i] = col_temps[i] - (col_temps[i - hw] + col_temps[i + hw]) / 2
+
+    for i in range(detect_r, n - detect_r):
+        abs_sag = abs(sagittas[i])
+        if abs_sag < 1:
+            continue
+        # Only label slope bends — skip near local temperature extrema
+        local_slice = col_temps[max(0, i - min_gap):min(n, i + min_gap + 1)]
+        local_hi, local_lo = max(local_slice), min(local_slice)
+        band = (local_hi - local_lo) * 0.15
+        if col_temps[i] > local_hi - band or col_temps[i] < local_lo + band:
+            continue
+        # Must be a local maximum of |sagitta|
+        if any(abs(sagittas[j]) > abs_sag
+               for j in range(i - detect_r, i + detect_r + 1)):
+            continue
+        # Concave up (sag<0, elbow) → label above; concave down (sag>0) → below
+        is_peak = sagittas[i] < 0
+        scored.append((i, col_temps[i], is_peak, abs_sag))
+
+    # --- Greedily place from highest to lowest score ---
+    for x, temp, is_peak, score in sorted(scored, key=lambda c: -c[3]):
+        if any(abs(x - ex) < min_gap for ex, _, _ in extrema):
+            continue
+        # Skip if a nearby label already shows the same rounded temperature
+        label_int = int(round(temp))
+        if any(abs(x - ex) < min_gap * 3 and int(round(t)) == label_int
+               for ex, t, _ in extrema):
+            continue
+        extrema.append((x, temp, is_peak))
 
     return extrema
 
