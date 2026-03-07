@@ -59,6 +59,7 @@ DAY_NAMES = {
     "nl": ["maa", "din", "woe", "don", "vri", "zat", "zon"],
     "pt": ["seg", "ter", "qua", "qui", "sex", "s\u00e1b", "dom"],
     "sv": ["m\u00e5n", "tis", "ons", "tor", "fre", "l\u00f6r", "s\u00f6n"],
+    "fi": ["ma", "ti", "ke", "to", "pe", "la", "su"],
 }
 
 FULL_DAY_NAMES = {
@@ -74,6 +75,7 @@ FULL_DAY_NAMES = {
     "nl": ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"],
     "pt": ["segunda-feira", "ter\u00e7a-feira", "quarta-feira", "quinta-feira", "sexta-feira", "s\u00e1bado", "domingo"],
     "sv": ["m\u00e5ndag", "tisdag", "onsdag", "torsdag", "fredag", "l\u00f6rdag", "s\u00f6ndag"],
+    "fi": ["maanantai", "tiistai", "keskiviikko", "torstai", "perjantai", "lauantai", "sunnuntai"],
 }
 
 WMO_NAMES_I18N = {
@@ -209,6 +211,18 @@ WMO_NAMES_I18N = {
         85: "Sn\u00f6byar", 86: "Kraftiga sn\u00f6byar",
         95: "\u00c5skv\u00e4der", 96: "\u00c5skv\u00e4der", 99: "\u00c5skv\u00e4der",
     },
+    "fi": {
+        0: "Selke\u00e4", 1: "Enimm\u00e4kseen selke\u00e4", 2: "Puolipilvinen", 3: "Pilvinen",
+        45: "Sumu", 48: "H\u00e4rm\u00e4sumu",
+        51: "Kevyt tihku", 53: "Tihku", 55: "Voimakas tihku",
+        56: "J\u00e4\u00e4t\u00e4v\u00e4 tihku", 57: "J\u00e4\u00e4t\u00e4v\u00e4 tihku",
+        61: "Kevyt sade", 63: "Sade", 65: "Voimakas sade",
+        66: "J\u00e4\u00e4t\u00e4v\u00e4 sade", 67: "J\u00e4\u00e4t\u00e4v\u00e4 sade",
+        71: "Kevyt lumisade", 73: "Lumisade", 75: "Voimakas lumisade", 77: "Lumijyv\u00e4set",
+        80: "Kevyet kuurot", 81: "Kuurot", 82: "Voimakkaat kuurot",
+        85: "Lumikuurot", 86: "Voimakkaat lumikuurot",
+        95: "Ukkonen", 96: "Ukkonen", 99: "Ukkonen",
+    },
 }
 
 _PRECIP_DESCS_I18N = {
@@ -321,6 +335,16 @@ _PRECIP_DESCS_I18N = {
         80: "l\u00e4tta skurar", 81: "skurar", 82: "kraftiga skurar",
         85: "sn\u00f6byar", 86: "kraftiga sn\u00f6byar",
         95: "\u00e5skv\u00e4der", 96: "\u00e5skv\u00e4der", 99: "\u00e5skv\u00e4der",
+    },
+    "fi": {
+        51: "kevyt tihku", 53: "tihku", 55: "voimakas tihku",
+        56: "j\u00e4\u00e4t\u00e4v\u00e4 tihku", 57: "j\u00e4\u00e4t\u00e4v\u00e4 tihku",
+        61: "kevyt sade", 63: "sade", 65: "voimakas sade",
+        66: "j\u00e4\u00e4t\u00e4v\u00e4 sade", 67: "j\u00e4\u00e4t\u00e4v\u00e4 sade",
+        71: "kevyt lumisade", 73: "lumisade", 75: "voimakas lumisade", 77: "lumijyv\u00e4set",
+        80: "kevyet kuurot", 81: "kuurot", 82: "voimakkaat kuurot",
+        85: "lumikuurot", 86: "voimakkaat lumikuurot",
+        95: "ukkonen", 96: "ukkonen", 99: "ukkonen",
     },
 }
 
@@ -877,6 +901,52 @@ _STRINGS = {
         "q_to_close": "q f\u00f6r att st\u00e4nga",
         "o_to_open": "o f\u00f6r att \u00f6ppna i webbl\u00e4sare",
         "scroll": "rulla",
+    },
+    "fi": {
+        "today": "t\u00e4n\u00e4\u00e4n",
+        "today_short": "t\u00e4n",
+        "feels": "tunt.",
+        "wind": "Tuuli",
+        "gusts": "puuskat",
+        "until": "asti",
+        # Comparative line
+        "same_temp": "suunnilleen sama l\u00e4mp\u00f6tila kuin {ref_day}",
+        "bit_warmer": "hieman l\u00e4mpim\u00e4mpi kuin {ref_day}",
+        "bit_cooler": "hieman viile\u00e4mpi kuin {ref_day}",
+        "warmer": "l\u00e4mpim\u00e4mpi kuin {ref_day}",
+        "cooler": "viile\u00e4mpi kuin {ref_day}",
+        "much_warmer": "paljon l\u00e4mpim\u00e4mpi kuin {ref_day}",
+        "much_cooler": "paljon viile\u00e4mpi kuin {ref_day}",
+        "today_subj": "T\u00e4n\u00e4\u00e4n",
+        "tomorrow_subj": "Huomenna",
+        "yesterday": "eilen",
+        "today_ref": "t\u00e4n\u00e4\u00e4n",
+        "will_be": "{subject} on {comparison}",
+        # Precipitation line
+        "ending": "{desc} loppuu {time}",
+        "continuing": "{desc} koko p\u00e4iv\u00e4n",
+        "starting": "{desc} todenn\u00e4k\u00f6isesti {time}",
+        "shortly": "pian",
+        "in_about_an_hour": "noin tunnin kuluttua",
+        "in_a_couple_hours": "parin tunnin kuluttua",
+        "around": "noin {time}",
+        "tomorrow_morning": "huomenna aamulla",
+        "tomorrow_afternoon": "huomenna iltap\u00e4iv\u00e4ll\u00e4",
+        "tomorrow_evening": "huomenna illalla",
+        "on_day": "{day}",
+        # Past precip
+        "past_precip": "{amt} {ptype} viimeisen 24 t aikana",
+        "snow": "lunta",
+        "rain": "sadetta",
+        "mixed_precip": "sekasadetta",
+        # Daily precip types
+        "Snow": "Lumi",
+        "Rain": "Sade",
+        "Mix": "Seka",
+        # Alert modal hints
+        "q_to_close": "q sulkeaksesi",
+        "o_to_open": "o avataksesi selaimessa",
+        "scroll": "vierit\u00e4",
     },
 }
 

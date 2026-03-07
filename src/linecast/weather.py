@@ -5,7 +5,10 @@ Renders a text-based dashboard with current conditions, braille temperature
 curve, daily range bars, comparative weather line, and weather alerts.
 Temperature-driven color palette, Nerd Font icons, clean column alignment.
 
-Alerts are sourced from NWS (US) and Environment Canada (CA).
+Alerts sourced from NWS (US), Environment Canada (CA), Bright Sky/DWD (DE),
+MET Norway (NO), Met \u00c9ireann (IE), and MeteoAlarm (30 European countries).
+
+Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi
 
 Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--shading] [--lang fr]
 """
