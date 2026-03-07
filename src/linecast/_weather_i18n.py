@@ -126,6 +126,10 @@ _STRINGS = {
         "Snow": "Snow",
         "Rain": "Rain",
         "Mix": "Mix",
+        # Alert modal hints
+        "q_to_close": "q to close",
+        "o_to_open": "o to open in browser",
+        "scroll": "scroll",
     },
     "fr": {
         "today": "Aujourd'hui",
@@ -167,6 +171,10 @@ _STRINGS = {
         "Snow": "Neige",
         "Rain": "Pluie",
         "Mix": "Mixte",
+        # Alert modal hints
+        "q_to_close": "q pour fermer",
+        "o_to_open": "o pour ouvrir dans le navigateur",
+        "scroll": "défiler",
     },
 }
 

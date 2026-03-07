@@ -147,7 +147,7 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     deg = "\u00b0"
     temp_line = f"{TBG} {_colored_temp(temp, runtime, deg)}"
     if apparent is not None and abs(apparent - temp) >= 3:
-        temp_line += f" {TFG}feels {_colored_temp(apparent, runtime, deg)}"
+        temp_line += f" {TFG}{_s('feels', runtime)} {_colored_temp(apparent, runtime, deg)}"
     temp_line += " "
     lines.append(temp_line)
 

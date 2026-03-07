@@ -4,7 +4,7 @@ import textwrap
 from datetime import datetime
 
 from linecast._graphics import bg, fg, visible_len, RESET, BOLD
-from linecast._weather_i18n import DAY_NAMES
+from linecast._weather_i18n import DAY_NAMES, _s
 from linecast._weather_style import ALERT_AMBER, ALERT_RED, ALERT_YELLOW, MUTED, WIND_COLOR
 
 
@@ -222,11 +222,11 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0):
     # Bottom border with hints
     bot_row = top_row + visible_h + 1
     url = alert.get("url", "")
-    parts = ["q to close"]
+    parts = [_s("q_to_close", runtime)]
     if url:
-        parts.append("o to open in browser")
+        parts.append(_s("o_to_open", runtime))
     if can_scroll_down:
-        parts.append("\u25bc scroll")
+        parts.append("\u25bc " + _s("scroll", runtime))
     sep = " \u00b7 "
     hint = f" {sep.join(parts)} "
     hint_len = len(hint)
