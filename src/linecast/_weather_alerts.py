@@ -199,7 +199,7 @@ def _build_modal_content(alert, inner_w, runtime=None):
 
     # Description — preserve paragraph breaks from source
     desc = alert.get("description", "").strip()
-    if desc:
+    if desc and desc != headline:
         # Split on double newlines for paragraphs
         paragraphs = desc.split("\n\n")
         for pi, para in enumerate(paragraphs):
