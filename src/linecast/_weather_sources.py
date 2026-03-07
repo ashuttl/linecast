@@ -112,14 +112,14 @@ def fetch_alerts(lat, lng, country_code="", lang="en", address=None):
     if country_code == "CA":
         return _fetch_alerts_eccc(lat, lng, lang=lang)
     if country_code == "DE":
-        return _fetch_alerts_brightsky(lat, lng)
+        return _fetch_alerts_brightsky(lat, lng, lang=lang)
     if country_code == "NO":
         return _fetch_alerts_metno(lat, lng)
     if country_code == "IE":
         return _fetch_alerts_meteireann(lat, lng)
     slug = _METEOALARM_SLUGS.get(country_code)
     if slug:
-        return _fetch_alerts_meteoalarm(lat, lng, slug, address=address)
+        return _fetch_alerts_meteoalarm(lat, lng, slug, lang=lang, address=address)
     return []
 
 
@@ -235,9 +235,9 @@ def _eccc_severity(props):
     return "Minor"
 
 
-def _fetch_alerts_brightsky(lat, lng):
+def _fetch_alerts_brightsky(lat, lng, lang="en"):
     """Fetch DWD alerts via Bright Sky API (Germany). Cached 15min."""
-    cache_file = CACHE_DIR / f"alerts_de_{location_cache_key(lat, lng)}.json"
+    cache_file = CACHE_DIR / f"alerts_de_{location_cache_key(lat, lng)}_{lang}.json"
     url = f"https://api.brightsky.dev/alerts?lat={lat}&lon={lng}"
     data = fetch_json_cached(
         cache_file, 900, url,
@@ -247,14 +247,23 @@ def _fetch_alerts_brightsky(lat, lng):
     if isinstance(data, list):
         return data
 
+    # Prefer user's language, fall back to English, then German
+    prefer_de = lang == "de"
     alerts = []
     for a in data.get("alerts", []):
         severity = (a.get("severity") or "").capitalize()
-        event = a.get("event_en") or a.get("event_de") or ""
+        if prefer_de:
+            event = a.get("event_de") or a.get("event_en") or ""
+            headline = a.get("headline_de") or a.get("headline_en") or ""
+            description = a.get("description_de") or a.get("description_en") or ""
+        else:
+            event = a.get("event_en") or a.get("event_de") or ""
+            headline = a.get("headline_en") or a.get("headline_de") or ""
+            description = a.get("description_en") or a.get("description_de") or ""
         alerts.append({
             "event": event.capitalize() if event else "",
-            "headline": a.get("headline_en") or a.get("headline_de") or "",
-            "description": a.get("description_en") or a.get("description_de") or "",
+            "headline": headline,
+            "description": description,
             "effective": a.get("effective", ""),
             "expires": a.get("expires", ""),
             "severity": severity,
@@ -403,12 +412,13 @@ _METEOALARM_SLUGS = {
 }
 
 
-def _fetch_alerts_meteoalarm(lat, lng, slug, address=None):
+def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
     """Fetch MeteoAlarm warnings for a European country. Cached 15min.
 
     Filters by severity and area match against the user's Nominatim address.
+    Prefers the user's language for alert text, falling back to English.
     """
-    cache_file = CACHE_DIR / f"alerts_eu_{slug}_{location_cache_key(lat, lng)}.json"
+    cache_file = CACHE_DIR / f"alerts_eu_{slug}_{location_cache_key(lat, lng)}_{lang}.json"
     url = f"https://feeds.meteoalarm.org/api/v1/warnings/feeds-{slug}"
     data = fetch_json_cached(
         cache_file, 900, url,
@@ -424,19 +434,22 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, address=None):
     for w in data.get("warnings", []):
         alert_obj = w.get("alert", {})
         infos = alert_obj.get("info", [])
-        # Find English info, fall back to first available
+        # Prefer user's language, fall back to English, then first available
+        preferred_info = None
         en_info = None
-        native_info = None
+        other_info = None
         area_descs = []
         for info in infos:
-            lang = info.get("language", "")
-            if lang.startswith("en"):
+            info_lang = info.get("language", "")
+            if info_lang.startswith(lang):
+                preferred_info = info
+            elif info_lang.startswith("en"):
                 en_info = info
-            elif native_info is None:
-                native_info = info
+            elif other_info is None:
+                other_info = info
             for area in info.get("area", []):
                 area_descs.append(area.get("areaDesc", ""))
-        info = en_info or native_info
+        info = preferred_info or en_info or other_info
         if not info:
             continue
 

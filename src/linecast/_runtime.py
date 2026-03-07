@@ -53,7 +53,7 @@ class RuntimeConfig:
         return cls(
             live="--live" in args,
             emoji="--emoji" in args or env.get("LINECAST_ICONS", "").lower() == "emoji",
-            lang=lang if lang in ("en", "fr") else "en",
+            lang=lang if len(lang) == 2 and lang.isalpha() else "en",
         )
 
 
