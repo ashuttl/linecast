@@ -180,9 +180,9 @@ def _fetch_alerts_eccc(lat, lng, lang="en"):
     for feature in features:
         props = feature.get("properties", {})
         event = (
-            props.get(name_key, "").title()
+            props.get(name_key, "").capitalize()
             or props.get(short_name_key, "")
-            or props.get(name_fallback, "").title()
+            or props.get(name_fallback, "").capitalize()
         )
         severity = _eccc_severity(props)
         desc = props.get(text_key) or props.get(text_fallback) or ""
