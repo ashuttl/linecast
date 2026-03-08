@@ -27,6 +27,7 @@ PRECIP_STORM = fg(220, 190, 50)   # amber
 ALERT_RED    = fg(220, 60, 50)
 ALERT_AMBER  = fg(220, 170, 50)
 ALERT_YELLOW = fg(200, 200, 80)
+ALERT_BLUE   = fg(80, 160, 220)
 WIND_COLOR   = fg(140, 150, 170)
 
 # Wind direction arrows: indexed by compass sector (N=0, NE=1, E=2, ... NW=7)

@@ -4,7 +4,7 @@ import sys
 from datetime import datetime, timezone, timedelta
 
 from linecast import USER_AGENT
-from linecast._cache import CACHE_ROOT, read_cache, write_cache, location_cache_key
+from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache, location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._runtime import WeatherRuntime
 
@@ -119,6 +119,8 @@ def fetch_alerts(lat, lng, country_code="", lang="en", address=None):
         return _fetch_alerts_meteireann(lat, lng)
     if country_code == "JP":
         return _fetch_alerts_jma(lat, lng, lang=lang)
+    if country_code == "CN":
+        return _fetch_alerts_cma(lat, lng, lang=lang)
     slug = _METEOALARM_SLUGS.get(country_code)
     if slug:
         return _fetch_alerts_meteoalarm(lat, lng, slug, lang=lang, address=address)
@@ -665,6 +667,230 @@ def _fetch_alerts_jma(lat, lng, lang="en"):
 
     write_cache(cache_file, alerts)
     return alerts
+
+
+# ---------------------------------------------------------------------------
+# CMA (China Meteorological Administration)
+# ---------------------------------------------------------------------------
+
+# Warning type names parsed from titles: Chinese -> English
+_CMA_WARNING_NAMES = {
+    "\u53f0\u98ce": "Typhoon",
+    "\u66b4\u96e8": "Rainstorm",
+    "\u66b4\u96ea": "Blizzard",
+    "\u5bd2\u6f6e": "Cold Wave",
+    "\u5927\u98ce": "Strong Wind",
+    "\u6c99\u5c18\u66b4": "Sandstorm",
+    "\u9ad8\u6e29": "Heat Wave",
+    "\u5e72\u65f1": "Drought",
+    "\u96f7\u7535": "Thunderstorm",
+    "\u51b0\u96b9": "Hail",
+    "\u971c\u51bb": "Frost",
+    "\u5927\u96fe": "Dense Fog",
+    "\u973e": "Haze",
+    "\u9053\u8def\u7ed3\u51b0": "Road Icing",
+    "\u68ee\u6797\u706b\u9669": "Forest Fire Risk",
+    "\u96f7\u96e8\u5927\u98ce": "Thunderstorm Gale",
+    "\u5f3a\u5bf9\u6d41": "Severe Convection",
+}
+
+# CMA color -> severity
+_CMA_COLORS = {
+    "\u7ea2": "Extreme",   # red
+    "\u6a59": "Severe",    # orange
+    "\u9ec4": "Moderate",  # yellow
+    "\u84dd": "Minor",     # blue
+}
+
+# CMA color -> English name
+_CMA_COLOR_EN = {
+    "\u7ea2": "Red",
+    "\u6a59": "Orange",
+    "\u9ec4": "Yellow",
+    "\u84dd": "Blue",
+}
+
+# Pic URL level code -> severity
+_CMA_PIC_LEVELS = {
+    "001": "Extreme",
+    "002": "Severe",
+    "003": "Moderate",
+    "004": "Minor",
+}
+
+# Center coordinates for each Chinese province, used for nearest-match lookup.
+# Maps (lat, lng) -> 2-digit GB/T 2260 province code prefix.
+_CMA_PROVINCES = [
+    (39.9, 116.4, "11"),    # Beijing
+    (39.1, 117.2, "12"),    # Tianjin
+    (38.0, 114.5, "13"),    # Hebei
+    (37.9, 112.5, "14"),    # Shanxi
+    (40.8, 111.7, "15"),    # Inner Mongolia
+    (41.8, 123.4, "21"),    # Liaoning
+    (43.9, 125.3, "22"),    # Jilin
+    (45.8, 126.5, "23"),    # Heilongjiang
+    (31.2, 121.5, "31"),    # Shanghai
+    (32.1, 118.8, "32"),    # Jiangsu
+    (30.3, 120.2, "33"),    # Zhejiang
+    (31.8, 117.3, "34"),    # Anhui
+    (26.1, 119.3, "35"),    # Fujian
+    (28.7, 115.9, "36"),    # Jiangxi
+    (36.7, 117.0, "37"),    # Shandong
+    (34.8, 113.7, "41"),    # Henan
+    (30.6, 114.3, "42"),    # Hubei
+    (28.2, 112.9, "43"),    # Hunan
+    (23.1, 113.3, "44"),    # Guangdong
+    (22.8, 108.3, "45"),    # Guangxi
+    (20.0, 110.3, "46"),    # Hainan
+    (29.6, 106.5, "50"),    # Chongqing
+    (30.6, 104.1, "51"),    # Sichuan
+    (26.6, 106.7, "52"),    # Guizhou
+    (25.0, 102.7, "53"),    # Yunnan
+    (29.6, 91.1, "54"),     # Tibet
+    (34.3, 108.9, "61"),    # Shaanxi
+    (36.1, 103.8, "62"),    # Gansu
+    (36.6, 101.8, "63"),    # Qinghai
+    (38.5, 106.3, "64"),    # Ningxia
+    (43.8, 87.6, "65"),     # Xinjiang
+]
+
+
+def _cma_provinces_for_coords(lat, lng, n=3):
+    """Return the *n* nearest CMA province codes for given coordinates.
+
+    Using multiple candidates handles border cities that are closer to a
+    neighbouring province's centre than their own.
+    """
+    import math
+    cos_lat = math.cos(math.radians(lat))
+    dists = []
+    for plat, plng, code in _CMA_PROVINCES:
+        dlat = lat - plat
+        dlng = (lng - plng) * cos_lat
+        dists.append((dlat * dlat + dlng * dlng, code))
+    dists.sort()
+    return [code for _, code in dists[:n]]
+
+
+def _fetch_alerts_cma(lat, lng, lang="en"):
+    """Fetch active CMA weather warnings (China). Cached 15min.
+
+    Uses nmc.cn/rest/findAlarm which has county-level alerts nationwide,
+    filtered by the nearest province codes from the alertid prefix.
+    """
+    provinces = _cma_provinces_for_coords(lat, lng)
+    tag = provinces[0]
+    cache_file = CACHE_DIR / f"alerts_cn_{tag}_{lang}.json"
+
+    data = fetch_json_cached(
+        cache_file, 900,
+        "http://www.nmc.cn/rest/findAlarm?pageNo=1&pageSize=500",
+        headers={"User-Agent": USER_AGENT},
+        timeout=10, fallback=[],
+    )
+    if isinstance(data, list):
+        return data
+
+    alerts = _parse_cma_data(data, provinces, lang)
+    write_cache(cache_file, alerts)
+    return alerts
+
+
+def _parse_cma_data(data, provinces, lang="en"):
+    """Parse CMA findAlarm response into normalized alerts.
+
+    *provinces* is a list of 2-digit province code strings; alerts whose
+    alertid starts with any of them are included.
+    """
+    import re
+
+    if not isinstance(data, dict):
+        return []
+
+    prefixes = tuple(provinces) if isinstance(provinces, list) else (provinces,)
+
+    page = data.get("data", {}).get("page", {})
+    entries = page.get("list", [])
+    province_alarms = data.get("data", {}).get("provinceAlarms", [])
+
+    use_zh = lang == "zh"
+    alerts = []
+    seen = set()
+
+    # Province-level alarms first (most important), then county-level
+    for entry in province_alarms + entries:
+        alertid = entry.get("alertid", "")
+        if not alertid[:2] in prefixes:
+            continue
+
+        title = entry.get("title", "")
+        pic = entry.get("pic", "")
+        issuetime = entry.get("issuetime", "")
+        detail_url = entry.get("url", "")
+
+        # Extract warning type and color from title
+        tm = re.search(r'\u53d1\u5e03(.+?)(\u7ea2|\u6a59|\u9ec4|\u84dd)\u8272\u9884\u8b66', title)
+        if tm:
+            zh_type = tm.group(1)
+            color = tm.group(2)
+            severity = _CMA_COLORS.get(color, "Moderate")
+        else:
+            zh_type = ""
+            severity = _cma_severity_from_pic(pic)
+            color = ""
+
+        # Build event name — deduplicate by warning type + severity
+        if use_zh:
+            event = title.split("\u53d1\u5e03")[-1] if "\u53d1\u5e03" in title else title
+        else:
+            en_name = _CMA_WARNING_NAMES.get(zh_type, "") if zh_type else ""
+            if en_name:
+                color_en = _CMA_COLOR_EN.get(color, "")
+                event = f"{color_en} {en_name} Warning".strip()
+            else:
+                event = title
+
+        dedup_key = (zh_type or title, severity)
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+
+        effective = _parse_cma_issuetime(issuetime)
+        url = f"http://www.nmc.cn{detail_url}" if detail_url else ""
+
+        alerts.append({
+            "event": event,
+            "headline": title if use_zh else event,
+            "description": title,
+            "effective": effective,
+            "expires": "",
+            "severity": severity,
+            "url": url,
+        })
+
+    severity_order = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
+    alerts.sort(key=lambda a: severity_order.get(a["severity"], 3))
+    return alerts
+
+
+def _cma_severity_from_pic(pic_url):
+    """Extract severity from CMA pic URL like .../p0007003.png."""
+    if not pic_url:
+        return "Moderate"
+    base = pic_url.rsplit(".", 1)[0]  # strip .png
+    code = base[-3:] if len(base) >= 3 else ""
+    return _CMA_PIC_LEVELS.get(code, "Moderate")
+
+
+def _parse_cma_issuetime(s):
+    """Parse CMA issuetime '2026/03/07 22:39' -> '2026-03-07T22:39:00'."""
+    if not s:
+        return ""
+    s = s.strip()
+    # Format: "2026/03/07 22:39"
+    if len(s) >= 16 and s[4] == "/" and s[7] == "/" and s[10] == " ":
+        return f"{s[0:4]}-{s[5:7]}-{s[8:10]}T{s[11:16]}:00"
+    return ""
 
 
 def _search_locations(query, lang="en"):

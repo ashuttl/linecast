@@ -69,7 +69,7 @@ def _truncate_display_width(text, width):
         w += cw
     return text
 from linecast._weather_i18n import DAY_NAMES, _s
-from linecast._weather_style import ALERT_AMBER, ALERT_RED, ALERT_YELLOW, MUTED, WIND_COLOR
+from linecast._weather_style import ALERT_AMBER, ALERT_BLUE, ALERT_RED, ALERT_YELLOW, MUTED, WIND_COLOR
 
 
 def _parse_alert_time(iso_str, runtime=None):
@@ -92,6 +92,8 @@ def _severity_color(severity):
         return ALERT_RED
     if severity == "Moderate":
         return ALERT_AMBER
+    if severity == "Minor":
+        return ALERT_BLUE
     return ALERT_YELLOW
 
 
@@ -100,6 +102,8 @@ def _severity_rgb(severity):
         return (220, 60, 50)
     if severity == "Moderate":
         return (220, 170, 50)
+    if severity == "Minor":
+        return (80, 160, 220)
     return (200, 200, 80)
 
 
@@ -143,12 +147,50 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None):
 
 
 def render_alerts(alerts, width=80, remaining_rows=None, runtime=None):
-    """NWS/ECCC alert banners — compact one-line format."""
+    """NWS/ECCC/JMA alert banners — compact format.
+
+    When multiple alerts share the same description, their pills are grouped
+    on one line with the shared description shown once on the next line.
+    """
     if not alerts:
         return []
-    lines = []
+
+    # Group alerts by description text
+    from collections import OrderedDict
+    groups = OrderedDict()
     for alert in alerts:
-        lines.extend(_render_single_alert(alert, width, runtime=runtime))
+        desc = alert.get("description", "").strip()
+        key = desc or id(alert)  # unique key for alerts without description
+        groups.setdefault(key, []).append(alert)
+
+    lines = []
+    for key, group in groups.items():
+        if len(group) == 1:
+            # Single alert — render normally
+            lines.extend(_render_single_alert(group[0], width, runtime=runtime))
+        else:
+            # Multiple alerts share a description — pills on one line,
+            # shared description on the next
+            dark_fg = fg(20, 20, 25)
+            pills = []
+            for alert in group:
+                severity = alert.get("severity", "")
+                r, g, b = _severity_rgb(severity)
+                bg_color = bg(r, g, b)
+                event = alert.get("event", "Unknown")
+                pills.append(f"{bg_color}{dark_fg}{BOLD} \u26a0 {event} {RESET}")
+
+            pill_line = " " + " ".join(pills)
+            lines.append(pill_line)
+
+            desc = group[0].get("description", "").strip()
+            if desc:
+                flat = " ".join(desc.split())
+                remaining = width - 2  # leading space + margin
+                if remaining > 10:
+                    truncated = _truncate_display_width(flat, remaining)
+                    lines.append(f" {MUTED}{truncated}{RESET}")
+
     return lines
 
 

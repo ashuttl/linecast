@@ -6,9 +6,10 @@ curve, daily range bars, comparative weather line, and weather alerts.
 Temperature-driven color palette, Nerd Font icons, clean column alignment.
 
 Alerts sourced from NWS (US), Environment Canada (CA), Bright Sky/DWD (DE),
-MET Norway (NO), Met \u00c9ireann (IE), JMA (Japan), and MeteoAlarm (30 European countries).
+MET Norway (NO), Met \u00c9ireann (IE), JMA (Japan), CMA (China),
+and MeteoAlarm (30 European countries).
 
-Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja
+Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 
 Usage: weather [--live] [--location LAT,LNG] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--shading] [--lang fr]
 """
@@ -90,6 +91,7 @@ from linecast._weather_sources import (
     CACHE_DIR,
     _eccc_severity,
     _fetch_alerts_brightsky,
+    _fetch_alerts_cma,
     _fetch_alerts_eccc,
     _fetch_alerts_meteireann,
     _fetch_alerts_meteoalarm,

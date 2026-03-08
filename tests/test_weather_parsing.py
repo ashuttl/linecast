@@ -429,3 +429,114 @@ class TestLocationMatching:
         assert _parse_meteireann_dt("14:30 Monday 15/12/2025") == "2025-12-15T14:30:00"
         assert _parse_meteireann_dt("") == ""
         assert _parse_meteireann_dt(None) == ""
+
+    def test_cma_severity_from_pic(self):
+        from linecast._weather_sources import _cma_severity_from_pic
+        assert _cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0005001.png") == "Extreme"
+        assert _cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0007002.png") == "Severe"
+        assert _cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0007003.png") == "Moderate"
+        assert _cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0007004.png") == "Minor"
+        assert _cma_severity_from_pic("") == "Moderate"
+
+    def test_parse_cma_issuetime(self):
+        from linecast._weather_sources import _parse_cma_issuetime
+        assert _parse_cma_issuetime("2026/03/07 22:39") == "2026-03-07T22:39:00"
+        assert _parse_cma_issuetime("2026/03/07 06:00") == "2026-03-07T06:00:00"
+        assert _parse_cma_issuetime("") == ""
+        assert _parse_cma_issuetime(None) == ""
+
+    def test_cma_provinces_for_coords(self):
+        from linecast._weather_sources import _cma_provinces_for_coords
+        # Beijing is unambiguous
+        codes = _cma_provinces_for_coords(39.9, 116.4)
+        assert codes[0] == "11"
+        # Jincheng is a Shanxi border city — "14" must be in the top 3
+        codes = _cma_provinces_for_coords(35.5, 112.8)
+        assert "14" in codes
+        # Shanghai
+        codes = _cma_provinces_for_coords(31.2, 121.5)
+        assert codes[0] == "31"
+        # Xinjiang
+        codes = _cma_provinces_for_coords(43.8, 87.6)
+        assert codes[0] == "65"
+
+
+# ---------------------------------------------------------------------------
+# CMA alerts parsing
+# ---------------------------------------------------------------------------
+
+class TestCMAAlerts:
+    """Verify we can parse CMA findAlarm response."""
+
+    def setup_method(self):
+        self.data = _load("cma_warnings.json")
+
+    def test_fixture_structure(self):
+        assert isinstance(self.data, dict)
+        assert "data" in self.data
+        page = self.data["data"]["page"]
+        assert isinstance(page["list"], list)
+        assert len(page["list"]) == 5
+
+    def test_parse_shanxi_en(self):
+        """Parse alerts for Shanxi province (14) in English."""
+        from linecast._weather_sources import _parse_cma_data
+        alerts = _parse_cma_data(self.data, "14", lang="en")
+        assert isinstance(alerts, list)
+        assert len(alerts) == 2  # Dense Fog + Road Icing (deduped across county/province)
+        types = {a["event"] for a in alerts}
+        assert "Yellow Dense Fog Warning" in types
+        assert "Yellow Road Icing Warning" in types
+        for a in alerts:
+            assert a["severity"] == "Moderate"
+            assert a["effective"]  # non-empty
+            assert "nmc.cn" in a["url"]
+            for key in ("event", "headline", "description", "severity", "effective", "expires", "url"):
+                assert key in a
+
+    def test_parse_shanxi_zh(self):
+        """Parse alerts for Shanxi province in Chinese."""
+        from linecast._weather_sources import _parse_cma_data
+        alerts = _parse_cma_data(self.data, "14", lang="zh")
+        assert len(alerts) == 2
+        # Events should be in Chinese
+        events = " ".join(a["event"] for a in alerts)
+        assert "\u5927\u96fe" in events or "\u9053\u8def\u7ed3\u51b0" in events
+
+    def test_parse_beijing_en(self):
+        """Parse alerts for Beijing (11) — red fog warning."""
+        from linecast._weather_sources import _parse_cma_data
+        alerts = _parse_cma_data(self.data, "11", lang="en")
+        assert len(alerts) == 1
+        a = alerts[0]
+        assert a["event"] == "Red Dense Fog Warning"
+        assert a["severity"] == "Extreme"
+        assert a["effective"] == "2026-03-07T06:00:00"
+
+    def test_parse_other_province_returns_empty(self):
+        """Province with no alerts in fixture returns empty list."""
+        from linecast._weather_sources import _parse_cma_data
+        alerts = _parse_cma_data(self.data, "65", lang="en")  # Xinjiang
+        assert alerts == []
+
+    def test_parse_with_fetch_mock(self):
+        """Smoke test: _fetch_alerts_cma parser produces our standard dict."""
+        from linecast._weather_sources import _fetch_alerts_cma
+        with patch("linecast._weather_sources.fetch_json_cached", return_value=self.data):
+            alerts = _fetch_alerts_cma(35.5, 112.8, lang="en")  # Jincheng, Shanxi
+        assert isinstance(alerts, list)
+        # Jincheng is a Shanxi border city — must find Shanxi alerts via multi-province match
+        assert len(alerts) >= 2
+        events = {a["event"] for a in alerts}
+        assert "Yellow Dense Fog Warning" in events
+        for a in alerts:
+            for key in ("event", "headline", "description", "severity", "effective", "expires", "url"):
+                assert key in a
+
+    def test_routing_cn_to_cma(self):
+        """fetch_alerts routes CN to _fetch_alerts_cma."""
+        from linecast._weather_sources import fetch_alerts
+        with patch("linecast._weather_sources._fetch_alerts_cma", return_value=[{"event": "x"}]) as mock_fn:
+            result = fetch_alerts(39.9, 116.4, country_code="CN", lang="zh")
+        mock_fn.assert_called_once_with(39.9, 116.4, lang="zh")
+        assert result == [{"event": "x"}]
