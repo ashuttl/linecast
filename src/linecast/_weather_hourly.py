@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 
+from linecast._braille import build_braille_curve
 from linecast._graphics import bg, fg, RESET, visible_len
 from linecast._runtime import WeatherRuntime
 from linecast._weather_i18n import DAY_NAMES, FULL_DAY_NAMES, _s
@@ -88,85 +89,7 @@ def _parse_sun_events(daily):
 # ---------------------------------------------------------------------------
 # Braille temperature curve (multi-row, smooth line)
 # ---------------------------------------------------------------------------
-def _build_braille_curve(temps, graph_w, n_rows=2):
-    """Build an n_rows-high braille line graph from temperature data.
-
-    Returns a list of n_rows rows, each a list of (char, avg_temp) tuples.
-    Together the rows form a (n_rows*4)-dot-high graph spanning graph_w chars.
-    Uses proper column assignment for thin diagonal lines instead of thick bands.
-    """
-    n = 2 * graph_w  # samples: 2 per braille char (left col, right col)
-    total_dots = n_rows * 4
-
-    # Interpolate temps to n evenly spaced samples
-    samples = []
-    for i in range(n):
-        t = i / max(1, n - 1) * max(0, len(temps) - 1)
-        lo_i = int(t)
-        hi_i = min(lo_i + 1, len(temps) - 1)
-        frac = t - lo_i
-        samples.append(temps[lo_i] + (temps[hi_i] - temps[lo_i]) * frac)
-
-    s_min, s_max = min(samples), max(samples)
-
-    # Map to float y: 0=top(max temp), total_dots-1=bottom(min temp)
-    if s_max == s_min:
-        ys = [total_dots / 2] * n
-    else:
-        s_range = s_max - s_min
-        ys = [(total_dots - 1) * (1 - (s - s_min) / s_range) for s in samples]
-
-    # Round to integer dot positions
-    ys_i = [max(0, min(total_dots - 1, int(round(y)))) for y in ys]
-
-    # Braille dot bit positions: BITS[col][row] for 2x4 grid within each char
-    bits = [[0x01, 0x02, 0x04, 0x40], [0x08, 0x10, 0x20, 0x80]]
-
-    # Bit storage per (braille_row, char_col)
-    rows_bits = [[0] * graph_w for _ in range(n_rows)]
-
-    def _set_dot(ci, y, col):
-        """Set a single braille dot at char index ci, dot row y, column col."""
-        if ci < 0 or ci >= graph_w or y < 0 or y >= total_dots:
-            return
-        row_idx = y // 4
-        local_y = y % 4
-        rows_bits[row_idx][ci] |= bits[col][local_y]
-
-    for i in range(graph_w):
-        left_y = ys_i[2 * i]
-        right_y = ys_i[2 * i + 1]
-
-        # Place endpoint dots
-        _set_dot(i, left_y, 0)
-        _set_dot(i, right_y, 1)
-
-        # Connect left->right: assign intermediate dots to correct column
-        if left_y != right_y:
-            y_lo, y_hi = min(left_y, right_y), max(left_y, right_y)
-            for y in range(y_lo, y_hi + 1):
-                x_frac = (y - left_y) / (right_y - left_y)
-                col = 0 if abs(x_frac) < 0.5 else 1
-                _set_dot(i, y, col)
-
-        # Cross-char continuity: bridge from previous char's right col
-        if i > 0:
-            prev_y = ys_i[2 * i - 1]
-            if prev_y != left_y:
-                y_lo, y_hi = min(prev_y, left_y), max(prev_y, left_y)
-                for y in range(y_lo, y_hi + 1):
-                    _set_dot(i, y, 0)
-
-    # Convert to (char, avg_temp) tuples per row
-    result = []
-    for r in range(n_rows):
-        row = []
-        for ci in range(graph_w):
-            avg_temp = (samples[2 * ci] + samples[2 * ci + 1]) / 2
-            row.append((chr(0x2800 + rows_bits[r][ci]), avg_temp))
-        result.append(row)
-
-    return result
+_build_braille_curve = build_braille_curve  # alias for existing callers
 
 
 def _build_precip_blocks(precip_probs, weather_codes, graph_w, n_rows=1, indicator_cols=None):

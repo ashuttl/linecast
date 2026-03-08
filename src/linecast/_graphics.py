@@ -274,6 +274,27 @@ def fmt_time(hours):
     return f"{h}:{m:02d}"
 
 
+def fmt_hour(h, use_24h=False):
+    """Format hour as compact label: 6a, 12p (12h) or 06, 14 (24h)."""
+    h = h % 24
+    if use_24h:
+        return f"{h:02d}"
+    if h == 0:
+        return "12a"
+    if h == 12:
+        return "12p"
+    if h < 12:
+        return f"{h}a"
+    return f"{h - 12}p"
+
+
+def fmt_time_dt(dt, use_24h=False):
+    """Format a datetime as a compact time string."""
+    if use_24h:
+        return dt.strftime("%H:%M")
+    return dt.strftime("%-I:%M%p").lower().replace("am", "a").replace("pm", "p")
+
+
 def get_terminal_size(fallback=(80, 24)):
     """Safe wrapper around os.get_terminal_size."""
     try:
@@ -449,7 +470,7 @@ def _read_key():
     return None
 
 
-def live_loop(render_fn, interval=60, mouse=False, on_open=None):
+def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15):
     """Run render_fn() in a loop on the alternate screen buffer.
 
     render_fn: callable(offset_minutes=0) returning (display_string, metadata)
@@ -460,6 +481,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None):
     interval: seconds between refreshes.
     mouse: if True, enable SGR mouse tracking and pass mouse_pos to render_fn.
     on_open: optional callback(alert_index) called when user presses 'o' on a modal.
+    scroll_step: minutes to advance/retreat per scroll or arrow key event.
     Re-renders immediately on terminal resize (SIGWINCH) or input.
     """
     import select, signal, termios, threading, tty
@@ -539,10 +561,10 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None):
                             on_open(active_alert)
                             break
                     elif action == 'fwd':
-                        offset += 15
+                        offset += scroll_step
                         break
                     elif action == 'back':
-                        offset -= 15
+                        offset -= scroll_step
                         break
                     elif action == 'reset':
                         offset = 0
@@ -555,7 +577,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None):
                                 modal_scroll += 3 if cb == 65 else -3
                                 modal_scroll = max(0, modal_scroll)
                             else:
-                                offset += 15 if cb == 64 else -15
+                                offset += scroll_step if cb == 64 else -scroll_step
                             break
                         if is_rel:
                             # Button release — ignore

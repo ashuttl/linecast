@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tides — terminal visualization of NOAA tide predictions.
 
-Renders a multi-line graphical display of the day's tide curve with an
+Renders a multi-line graphical display of the tide curve with an
 ocean-themed color palette. Shows water level as a braille line graph
 with height-colored curve, high/low labels, and current position indicator.
 
@@ -9,7 +9,7 @@ Uses Unicode braille characters with ANSI color for smooth line rendering
 (true color when available). Station is auto-detected from IP geolocation
 or overridden with TIDE_STATION env var.
 
-Usage: tides [--live] [--station ID] [--search QUERY]
+Usage: tides [--live] [--station ID] [--search QUERY] [--metric] [--lang LANG]
 """
 
 import math
@@ -18,15 +18,17 @@ import sys
 import time as _time
 from datetime import datetime, timezone, timedelta
 
+from linecast._braille import build_braille_curve
 from linecast._graphics import (
     bg, fg, RESET,
-    visible_len, fmt_time,
+    visible_len, fmt_hour, fmt_time_dt,
     get_terminal_size, live_loop,
 )
 from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._location import get_location
-from linecast._runtime import RuntimeConfig, arg_value, has_flag
+from linecast._runtime import TidesRuntime, arg_value, has_flag
+from linecast._tides_i18n import FULL_DAY_NAMES, _ts
 from linecast import USER_AGENT
 
 CACHE_DIR = CACHE_ROOT / "tides"
@@ -35,12 +37,14 @@ NEAREST_STATION_CACHE_MAX_AGE = 3600
 # ---------------------------------------------------------------------------
 # Ocean palette
 # ---------------------------------------------------------------------------
-CURVE_COLOR   = (120, 200, 220)      # teal curve line
-NOW_LINE_COLOR = (65, 95, 140)        # "now" indicator
-NIGHT_DIM     = 0.6                   # brightness floor for nighttime
+CURVE_COLOR = (120, 200, 220)       # teal curve line
+NOW_LINE_COLOR = (65, 95, 140)      # "now" indicator
+HOVER_COLOR = (80, 90, 120)         # hover indicator
+DIM = fg(70, 80, 100)
+NIGHT_DIM = 0.6                     # brightness floor for nighttime
 
 # Nerd Font icons
-WAVE_ICON = "\U000F0F85"             # 󰾅
+WAVE_ICON = "\U000F0F85"            # 󰾅
 
 # ---------------------------------------------------------------------------
 # Data layer
@@ -294,32 +298,6 @@ def fetch_hilo(station_id, date):
     )
 
 
-def fetch_monthly_range(station_id, date):
-    """Fetch min/max tide heights over a 30-day window for y-axis scaling.
-
-    Returns (min_height, max_height) or None. Cached 24h.
-    """
-    date_str = date.strftime("%Y%m%d")
-    end = date + timedelta(days=30)
-    end_str = end.strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"range_{station_id}_{date_str}.json"
-    url = _prediction_url(station_id, date_str, end_str, "hilo")
-    data = _fetch_payload(cache_file, 86400, url, fallback=None)
-    if not data:
-        return None
-    if isinstance(data, dict) and "min" in data and "max" in data:
-        return data["min"], data["max"]
-
-    predictions = data.get("predictions", [])
-    if not predictions:
-        return None
-
-    heights = [float(p.get("v", 0)) for p in predictions]
-    result = {"min": min(heights), "max": max(heights)}
-    write_cache(cache_file, result)
-    return result["min"], result["max"]
-
-
 def _fetch_all_stations():
     """Fetch the full NOAA tide-prediction station list (cached 30 days)."""
     cache_file = CACHE_DIR / "all_stations.json"
@@ -360,15 +338,149 @@ def _search_stations(query):
 
 
 # ---------------------------------------------------------------------------
-# Braille rendering
+# Multi-day fetch & stitch
 # ---------------------------------------------------------------------------
-def _compute_daylight(graph_w, date, station_meta):
-    """Compute per-column daylight factor (0.0=night, 1.0=day) using solar math.
+def _day_to_dt(hour_decimal, date, station_tz):
+    """Convert a day-relative decimal hour to an aware datetime."""
+    h = int(hour_decimal)
+    m = int(round((hour_decimal - h) * 60))
+    if h >= 24:
+        date = date + timedelta(days=1)
+        h -= 24
+    try:
+        dt = datetime(date.year, date.month, date.day, h, m)
+    except ValueError:
+        return None
+    if station_tz is not None:
+        dt = dt.replace(tzinfo=station_tz)
+    return dt
 
-    Uses the station's lat/lng and timezone to approximate sunrise/sunset,
-    then applies a smooth 40-minute transition at dawn and dusk.
-    Falls back to uniform full brightness when coordinates are unavailable.
+
+def fetch_tides_range(station_id, start_date, end_date, station_tz):
+    """Fetch and stitch tide predictions across a date range.
+
+    Returns sorted list of (datetime, height_ft) tuples.
     """
+    points = []
+    d = start_date
+    while d <= end_date:
+        day_data = fetch_tides(station_id, d)
+        if day_data:
+            for hour, height in day_data:
+                dt = _day_to_dt(hour, d, station_tz)
+                if dt is not None:
+                    points.append((dt, height))
+        d += timedelta(days=1)
+    # De-duplicate by datetime (day boundaries may overlap at 00:00)
+    seen = set()
+    unique = []
+    for dt, h in points:
+        key = dt.replace(second=0, microsecond=0)
+        if key not in seen:
+            seen.add(key)
+            unique.append((dt, h))
+    unique.sort(key=lambda p: p[0])
+    return unique
+
+
+def fetch_hilo_range(station_id, start_date, end_date, station_tz):
+    """Fetch and stitch hi/lo extremes across a date range.
+
+    Returns sorted list of (datetime, height_ft, "H"/"L") tuples.
+    """
+    points = []
+    d = start_date
+    while d <= end_date:
+        day_data = fetch_hilo(station_id, d)
+        if day_data:
+            for hour, height, typ in day_data:
+                dt = _day_to_dt(hour, d, station_tz)
+                if dt is not None:
+                    points.append((dt, height, typ))
+        d += timedelta(days=1)
+    points.sort(key=lambda p: p[0])
+    return points
+
+
+# ---------------------------------------------------------------------------
+# Sliding window
+# ---------------------------------------------------------------------------
+def _interp_height(target_dt, predictions):
+    """Linearly interpolate tide height at a given datetime."""
+    if not predictions:
+        return 0.0
+    if target_dt <= predictions[0][0]:
+        return predictions[0][1]
+    if target_dt >= predictions[-1][0]:
+        return predictions[-1][1]
+    for i in range(len(predictions) - 1):
+        if predictions[i][0] <= target_dt <= predictions[i + 1][0]:
+            span = (predictions[i + 1][0] - predictions[i][0]).total_seconds()
+            if span == 0:
+                return predictions[i][1]
+            frac = (target_dt - predictions[i][0]).total_seconds() / span
+            return predictions[i][1] + (predictions[i + 1][1] - predictions[i][1]) * frac
+    return predictions[-1][1]
+
+
+def _prepare_tide_window(predictions, hilo, start_dt, hours_shown=24):
+    """Slice prediction data to a visible window starting at start_dt.
+
+    Returns dict with: predictions (filtered), hilo (filtered),
+    start, end, total_hours.
+    """
+    end_dt = start_dt + timedelta(hours=hours_shown)
+    margin = timedelta(minutes=10)
+    win_preds = [(dt, h) for dt, h in predictions
+                 if start_dt - margin <= dt <= end_dt + margin]
+    win_hilo = [(dt, h, t) for dt, h, t in hilo
+                if start_dt <= dt <= end_dt]
+    return {
+        "predictions": win_preds,
+        "hilo": win_hilo,
+        "start": start_dt,
+        "end": end_dt,
+        "total_hours": hours_shown,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Daylight computation (datetime-window aware)
+# ---------------------------------------------------------------------------
+def _solar_daylight_at(hour, doy, lat, lng, tz_offset_h):
+    """Compute daylight factor (0.0–1.0) at a local clock hour on a given day."""
+    decl = -23.44 * math.cos(math.radians(360 / 365 * (doy + 10)))
+    lat_rad = math.radians(lat)
+    decl_rad = math.radians(decl)
+
+    cos_ha = -math.tan(lat_rad) * math.tan(decl_rad)
+    if cos_ha <= -1:
+        return 1.0  # midnight sun
+    if cos_ha >= 1:
+        return 0.0  # polar night
+
+    ha = math.degrees(math.acos(cos_ha))
+
+    solar_noon = 12.0
+    if lng is not None:
+        tz_meridian = tz_offset_h * 15
+        solar_noon += (tz_meridian - lng) / 15
+
+    sunrise = solar_noon - ha / 15
+    sunset = solar_noon + ha / 15
+    transition = 40 / 60  # 40 minutes
+
+    if hour < sunrise - transition or hour > sunset + transition:
+        return 0.0
+    if sunrise + transition <= hour <= sunset - transition:
+        return 1.0
+    if hour < sunrise + transition:
+        return (hour - sunrise + transition) / (2 * transition)
+    return (sunset + transition - hour) / (2 * transition)
+
+
+def _compute_daylight_window(graph_w, window_start, total_hours, station_meta):
+    """Compute per-column daylight factor for a datetime window."""
     if not station_meta:
         return [1.0] * graph_w
 
@@ -383,134 +495,69 @@ def _compute_daylight(graph_w, date, station_meta):
     except (KeyError, TypeError, ValueError):
         lng = None
 
-    doy = date.timetuple().tm_yday
-
-    # Solar declination (degrees)
-    decl = -23.44 * math.cos(math.radians(360 / 365 * (doy + 10)))
-    lat_rad = math.radians(lat)
-    decl_rad = math.radians(decl)
-
-    cos_ha = -math.tan(lat_rad) * math.tan(decl_rad)
-    if cos_ha <= -1:
-        return [1.0] * graph_w   # midnight sun
-    if cos_ha >= 1:
-        return [0.0] * graph_w   # polar night
-
-    ha = math.degrees(math.acos(cos_ha))
-
-    # Solar noon in local clock time
-    solar_noon = 12.0
-    if lng is not None:
-        tz_meridian = tz_offset_h * 15
-        solar_noon += (tz_meridian - lng) / 15
-
-    sunrise = solar_noon - ha / 15
-    sunset = solar_noon + ha / 15
-    transition = 40 / 60  # 40 minutes
-
     col_daylight = []
     for x in range(graph_w):
-        hour = (x + 0.5) / graph_w * 24
-        if hour < sunrise - transition or hour > sunset + transition:
-            col_daylight.append(0.0)
-        elif sunrise + transition <= hour <= sunset - transition:
-            col_daylight.append(1.0)
-        elif hour < sunrise + transition:
-            col_daylight.append((hour - sunrise + transition) / (2 * transition))
-        else:
-            col_daylight.append((sunset + transition - hour) / (2 * transition))
+        frac = (x + 0.5) / graph_w
+        col_dt = window_start + timedelta(hours=frac * total_hours)
+        doy = col_dt.timetuple().tm_yday
+        hour = col_dt.hour + col_dt.minute / 60
+        col_daylight.append(_solar_daylight_at(hour, doy, lat, lng, tz_offset_h))
     return col_daylight
 
 
-def _build_tide_braille(col_heights, graph_w, n_rows):
-    """Build an n_rows-high braille line graph from tide heights.
+# ---------------------------------------------------------------------------
+# Time markers (day divisions)
+# ---------------------------------------------------------------------------
+def _compute_time_markers(window_start, total_hours, graph_w, runtime):
+    """Compute midnight column positions and day labels for the window."""
+    lang = runtime.lang if runtime else "en"
+    midnight_cols = set()
+    midnight_day_names = {}
 
-    Returns list of n_rows rows, each a list of (char, avg_height) tuples.
-    Together the rows form a (n_rows*4)-dot-high graph spanning graph_w chars.
-    """
-    n = 2 * graph_w  # samples: 2 per braille char (left col, right col)
-    total_dots = n_rows * 4
+    # Find first midnight at or after window_start
+    first_midnight = window_start.replace(hour=0, minute=0, second=0, microsecond=0)
+    if first_midnight <= window_start:
+        first_midnight += timedelta(days=1)
 
-    # Interpolate to 2 samples per braille char
-    samples = []
-    for i in range(n):
-        t = i / max(1, n - 1) * max(0, len(col_heights) - 1)
-        lo_i = int(t)
-        hi_i = min(lo_i + 1, len(col_heights) - 1)
-        frac = t - lo_i
-        samples.append(col_heights[lo_i] + (col_heights[hi_i] - col_heights[lo_i]) * frac)
+    dt = first_midnight
+    window_secs = total_hours * 3600
+    while dt < window_start + timedelta(hours=total_hours):
+        offset_secs = (dt - window_start).total_seconds()
+        x = int(offset_secs / window_secs * (graph_w - 1))
+        if 0 < x < graph_w - 1:
+            midnight_cols.add(x)
+            day_names = FULL_DAY_NAMES.get(lang, FULL_DAY_NAMES["en"])
+            midnight_day_names[x] = day_names[dt.weekday()]
+        dt += timedelta(days=1)
 
-    s_min, s_max = min(samples), max(samples)
-    # Vertical padding so curve doesn't reach edges (room for labels)
-    pad = max(0.3, (s_max - s_min) * 0.15)
-    s_min -= pad
-    s_max += pad
-    if s_max == s_min:
-        ys = [total_dots / 2] * n
-    else:
-        s_range = s_max - s_min
-        ys = [(total_dots - 1) * (1 - (s - s_min) / s_range) for s in samples]
-
-    ys_i = [max(0, min(total_dots - 1, int(round(y)))) for y in ys]
-
-    # Braille dot bit positions: BITS[col][row] for 2x4 grid within each char
-    bits = [[0x01, 0x02, 0x04, 0x40], [0x08, 0x10, 0x20, 0x80]]
-    rows_bits = [[0] * graph_w for _ in range(n_rows)]
-
-    def _set_dot(ci, y, col):
-        if ci < 0 or ci >= graph_w or y < 0 or y >= total_dots:
-            return
-        rows_bits[y // 4][ci] |= bits[col][y % 4]
-
-    for i in range(graph_w):
-        left_y = ys_i[2 * i]
-        right_y = ys_i[2 * i + 1]
-
-        _set_dot(i, left_y, 0)
-        _set_dot(i, right_y, 1)
-
-        # Connect left->right within char
-        if left_y != right_y:
-            y_lo, y_hi = min(left_y, right_y), max(left_y, right_y)
-            for y in range(y_lo, y_hi + 1):
-                x_frac = (y - left_y) / (right_y - left_y)
-                _set_dot(i, y, 0 if abs(x_frac) < 0.5 else 1)
-
-        # Cross-char continuity: bridge from previous char's right col
-        if i > 0:
-            prev_y = ys_i[2 * i - 1]
-            if prev_y != left_y:
-                y_lo, y_hi = min(prev_y, left_y), max(prev_y, left_y)
-                for y in range(y_lo, y_hi + 1):
-                    _set_dot(i, y, 0)
-
-    result = []
-    for r in range(n_rows):
-        row = []
-        for ci in range(graph_w):
-            avg_h = (samples[2 * ci] + samples[2 * ci + 1]) / 2
-            row.append((chr(0x2800 + rows_bits[r][ci]), avg_h))
-        result.append(row)
-    return result
+    return midnight_cols, midnight_day_names
 
 
-def _hilo_to_extrema(hilo, graph_w):
-    """Convert hi/lo tide data to extrema positions for labeling."""
+# ---------------------------------------------------------------------------
+# Overlays (hi/lo labels)
+# ---------------------------------------------------------------------------
+def _hilo_to_extrema(window, graph_w, runtime):
+    """Convert window hilo data to extrema positions for labeling."""
+    hilo = window["hilo"]
     if not hilo:
         return []
-    return [
-        (max(0, min(graph_w - 1, int(hour / 24 * graph_w))), height, typ == "H")
-        for hour, height, typ in hilo
-    ]
+    start = window["start"]
+    secs = window["total_hours"] * 3600
+    extrema = []
+    for dt, height, typ in hilo:
+        frac = (dt - start).total_seconds() / secs
+        x = max(0, min(graph_w - 1, int(frac * (graph_w - 1))))
+        h_display = runtime.convert_height(height)
+        extrema.append((x, height, h_display, typ == "H"))
+    return extrema
 
 
-def _compute_tide_overlays(extrema, col_heights, n_rows, graph_w):
+def _compute_tide_overlays(extrema, col_heights, n_rows, graph_w, runtime):
     """Map tide extrema to overlay labels on specific braille rows."""
     if not extrema or n_rows < 1:
         return {}
 
     h_min, h_max = min(col_heights), max(col_heights)
-    # Match padding from _build_tide_braille
     pad = max(0.3, (h_max - h_min) * 0.15)
     h_min -= pad
     h_max += pad
@@ -518,16 +565,16 @@ def _compute_tide_overlays(extrema, col_heights, n_rows, graph_w):
     overlays = {}
     occupied_by_row = {}
 
-    for x, height, is_peak in extrema:
+    for x, height_ft, height_display, is_peak in extrema:
         if h_max == h_min:
             curve_row = n_rows // 2
         else:
-            y = (total_dots - 1) * (1 - (height - h_min) / (h_max - h_min))
+            y = (total_dots - 1) * (1 - (height_ft - h_min) / (h_max - h_min))
             curve_row = max(0, min(n_rows - 1, int(round(y)) // 4))
 
         label_row = max(0, curve_row - 1) if is_peak else min(n_rows - 1, curve_row + 1)
 
-        label = f"{height:.1f}\u2032"
+        label = f"{height_display:.1f}{runtime.height_unit}"
         start = max(0, min(graph_w - len(label), x - len(label) // 2))
 
         if label_row not in occupied_by_row:
@@ -542,12 +589,17 @@ def _compute_tide_overlays(extrema, col_heights, n_rows, graph_w):
     return overlays
 
 
-def _render_tide_braille_rows(braille_rows, now_col, col_daylight, overlays=None):
-    """Render braille tide rows with daylight dimming and now indicator."""
+# ---------------------------------------------------------------------------
+# Braille rendering
+# ---------------------------------------------------------------------------
+def _render_tide_braille_rows(braille_rows, col_daylight, midnight_cols,
+                               now_col=None, hover_col=None, overlays=None):
+    """Render braille tide rows with daylight dimming, indicators, and overlays."""
     if overlays is None:
         overlays = {}
 
     now_fg = fg(*NOW_LINE_COLOR)
+    hover_fg = fg(*HOVER_COLOR)
     cr, cg, cb = CURVE_COLOR
     lines = []
     for row_idx, row in enumerate(braille_rows):
@@ -563,10 +615,16 @@ def _render_tide_braille_rows(braille_rows, now_col, col_daylight, overlays=None
             if ci in overlay_chars:
                 oc, oc_color = overlay_chars[ci]
                 line += f"{fg(*oc_color)}{oc}"
-            elif ch == '\u2800' and ci == now_col:
-                line += f"{now_fg}\u2502"
             elif ch == '\u2800':
-                line += " "
+                # Empty cell — check for indicators (hover > now > midnight)
+                if hover_col is not None and ci == hover_col:
+                    line += f"{hover_fg}\u2502"
+                elif now_col is not None and ci == now_col:
+                    line += f"{now_fg}\u2502"
+                elif ci in midnight_cols:
+                    line += f"{DIM}\u2502"
+                else:
+                    line += " "
             else:
                 dl = col_daylight[ci] if ci < len(col_daylight) else 1.0
                 brightness = NIGHT_DIM + (1.0 - NIGHT_DIM) * dl
@@ -575,20 +633,13 @@ def _render_tide_braille_rows(braille_rows, now_col, col_daylight, overlays=None
     return lines
 
 
-def _fmt_hour_12(h):
-    """Format hour (0-24) as compact 12-hour label."""
-    h = h % 24
-    if h == 0:
-        return "12a"
-    if h == 12:
-        return "12p"
-    if h < 12:
-        return f"{h}a"
-    return f"{h - 12}p"
-
-
-def _render_tide_ticks(graph_w, now_hour=None):
-    """Render time axis labels for 24-hour tide chart."""
+# ---------------------------------------------------------------------------
+# Tick labels
+# ---------------------------------------------------------------------------
+def _render_tide_ticks(window_start, total_hours, graph_w, runtime,
+                        now_col=None, hover_col=None):
+    """Render time axis labels under the chart."""
+    use_24h = runtime.use_24h
     if graph_w < 40:
         interval = 6
     elif graph_w < 80:
@@ -598,12 +649,16 @@ def _render_tide_ticks(graph_w, now_hour=None):
     else:
         interval = 2
 
+    label_items = []
+    for h_off in range(0, int(total_hours) + 1, interval):
+        dt = window_start + timedelta(hours=h_off)
+        x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
+        label_items.append((x, fmt_hour(dt.hour, use_24h), dt.hour == 0))
+
     canvas = [" "] * graph_w
     last_end = 0
-    for h in range(0, 25, interval):
-        x = int(h / 24 * (graph_w - 1)) if h < 24 else graph_w - 1
-        label = _fmt_hour_12(h)
-        tick = "\u2575"
+    for x, label, is_midnight in label_items:
+        tick = "\u2502" if is_midnight else "\u2575"
         tick_label = f"{tick}{label}"
         if x < last_end or x + len(tick_label) > graph_w:
             continue
@@ -612,156 +667,162 @@ def _render_tide_ticks(graph_w, now_hour=None):
                 canvas[x + j] = c
         last_end = x + len(tick_label) + 1
 
-    if now_hour is not None:
-        now_x = max(0, min(graph_w - 1, int(now_hour / 24 * graph_w)))
-        if canvas[now_x] == " ":
-            canvas[now_x] = "\u2502"
+    if hover_col is not None and 0 <= hover_col < graph_w and canvas[hover_col] == " ":
+        canvas[hover_col] = "\u2502"
+    elif now_col is not None and 0 <= now_col < graph_w and canvas[now_col] == " ":
+        canvas[now_col] = "\u2502"
 
-    dim = fg(70, 80, 100)
-    return f" {dim}{''.join(canvas)}{RESET}"
+    return f" {DIM}{''.join(canvas)}{RESET}"
 
 
-def render(station_id, station_name, station_meta=None, fullscreen=False, offset_minutes=0):
-    """Build the complete multi-line tide display."""
-    now_local = _station_now(station_meta)
-    display_local = now_local + timedelta(minutes=offset_minutes) if offset_minutes else now_local
-    date = display_local.date()
-
-    predictions = fetch_tides(station_id, date)
-    if not predictions:
-        print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)
-        sys.exit(1)
-
-    hilo = fetch_hilo(station_id, date)
-
-    cols, rows = get_terminal_size()
-
-    # --- dimensions ---
-    # Reserve: station_name(1) + braille + tick(1) + info(1)
-    graph_w = max(30, cols - 2)
-    n_braille_rows = max(2, rows - (3 if fullscreen else 7))
-
-    # --- interpolate predictions to graph columns ---
-    hours = [p[0] for p in predictions]
-    heights = [p[1] for p in predictions]
-
-    def interp_height(hour):
-        """Linearly interpolate tide height at a given hour."""
-        if hour <= hours[0]:
-            return heights[0]
-        if hour >= hours[-1]:
-            return heights[-1]
-        for i in range(len(hours) - 1):
-            if hours[i] <= hour <= hours[i + 1]:
-                t = (hour - hours[i]) / (hours[i + 1] - hours[i])
-                return heights[i] + (heights[i + 1] - heights[i]) * t
-        return heights[-1]
-
-    col_heights = []
-    for x in range(graph_w):
-        h = (x + 0.5) / graph_w * 24
-        col_heights.append(interp_height(h))
-
-    # Current position
-    now_hour = display_local.hour + display_local.minute / 60 + display_local.second / 3600
-    now_col = max(0, min(graph_w - 1, int(now_hour / 24 * graph_w)))
-    now_height = interp_height(now_hour)
-
-    # --- build braille curve ---
-    braille_rows = _build_tide_braille(col_heights, graph_w, n_braille_rows)
-
-    # --- extrema labels from hi/lo data ---
-    extrema = _hilo_to_extrema(hilo, graph_w)
-    overlays = _compute_tide_overlays(extrema, col_heights, n_braille_rows, graph_w)
-
-    # --- daylight dimming ---
-    col_daylight = _compute_daylight(graph_w, date, station_meta)
-
-    # --- assemble output ---
-    lines = []
-
-    # Station name pinned to top-right
-    name = station_name.title() if station_name else ""
+# ---------------------------------------------------------------------------
+# Header line (day names at midnight boundaries)
+# ---------------------------------------------------------------------------
+def _render_header_line(cols, station_name, midnight_day_names, graph_w, runtime):
+    """Render the top line with station name and day labels at midnight boundaries."""
     muted = fg(100, 110, 130)
+    name = station_name.title() if station_name else ""
+
+    if not midnight_day_names:
+        if name:
+            return f"{muted}{' ' * max(0, cols - len(name) - 1)}{name}{RESET}"
+        return ""
+
+    # Build day name labels at their positions
+    canvas = [" "] * graph_w
+    for col, day_name in sorted(midnight_day_names.items()):
+        pos = col + 1  # offset for 1-char left margin
+        for j, c in enumerate(day_name):
+            if pos + j < graph_w:
+                canvas[pos + j] = c
+
+    mid = f"{muted}{''.join(canvas)}"
+
+    # Append station name right-aligned
     if name:
-        lines.append(f"{muted}{' ' * max(0, cols - len(name) - 1)}{name}{RESET}")
-    else:
-        lines.append("")
-
-    lines.extend(_render_tide_braille_rows(braille_rows, now_col, col_daylight, overlays))
-    lines.append(_render_tide_ticks(graph_w, now_hour))
-
-    # --- info line ---
-    # Determine tide direction from local slope
-    eps = 0.1  # ~6 minutes
-    rising = interp_height(min(24, now_hour + eps)) > interp_height(max(0, now_hour - eps))
-
-    lines.append(
-        _info_line(
-            hilo,
-            now_height,
-            cols,
-            now_hour,
-            offset_minutes,
-            rising=rising,
-            display_date=display_local.date(),
-            reference_date=now_local.date(),
-        )
-    )
-
-    return "\n".join(lines)
+        name_padded = f"{' ' * max(1, cols - visible_len(mid) - len(name) - 2)}{name}"
+        return f"{mid}{muted}{name_padded}{RESET}"
+    return f"{mid}{RESET}"
 
 
-def _info_line(
-    hilo,
-    now_height,
-    width,
-    now_hour=None,
-    offset_minutes=0,
-    rising=True,
-    display_date=None,
-    reference_date=None,
-):
-    """Iconic pill-shaped tide info bar with knocked-out current stat."""
+# ---------------------------------------------------------------------------
+# Hover tooltip
+# ---------------------------------------------------------------------------
+def _build_tide_hover_tooltip(window, graph_col, mouse_row, chart_start, chart_end,
+                               cols, rows, graph_w, runtime):
+    """Build cursor-positioned tooltip overlay for mouse hover on the chart."""
+    line_idx = mouse_row - 1  # 1-based -> 0-based
+    if not (chart_start <= line_idx < chart_end):
+        return ""
+    if graph_col < 0 or graph_col >= graph_w:
+        return ""
+
+    predictions = window["predictions"]
+    if not predictions:
+        return ""
+
+    total_hours = window["total_hours"]
+    start_dt = window["start"]
+
+    # Map graph column to datetime
+    t_frac = graph_col / max(1, graph_w - 1)
+    target_dt = start_dt + timedelta(hours=t_frac * total_hours)
+    height = _interp_height(target_dt, predictions)
+
+    # Rising or falling?
+    eps = timedelta(minutes=6)
+    rising = _interp_height(target_dt + eps, predictions) > _interp_height(target_dt - eps, predictions)
+
+    TBG = bg(0, 0, 0)
+    TFG = fg(200, 205, 215)
+
+    arrow = "\u2197" if rising else "\u2198"
+    time_str = fmt_time_dt(target_dt, use_24h=runtime.use_24h)
+    h_display = runtime.convert_height(height)
+
+    tip_lines = [
+        f"{TBG}{TFG} {time_str} ",
+        f"{TBG}{TFG} {arrow} {h_display:.1f}{runtime.height_unit} ",
+    ]
+
+    # Pad all lines to the same visible width
+    max_w = max(visible_len(line) for line in tip_lines)
+    padded = []
+    for line in tip_lines:
+        pad = max_w - visible_len(line)
+        padded.append(f"{line}{' ' * pad}{RESET}")
+
+    # Position tooltip near snap column
+    snap_col = graph_col + 2  # 0-based graph -> 1-based terminal (1 char margin)
+    tooltip_col = snap_col
+    tooltip_row = mouse_row
+    tooltip_w = max_w
+    tooltip_h = len(padded)
+    if tooltip_col + tooltip_w - 1 > cols:
+        tooltip_col = max(1, cols - tooltip_w + 1)
+    if tooltip_row + tooltip_h - 1 > rows:
+        tooltip_row = max(1, rows - tooltip_h + 1)
+
+    result = ""
+    for i, line in enumerate(padded):
+        result += f"\033[{tooltip_row + i};{tooltip_col}H{line}"
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Info line
+# ---------------------------------------------------------------------------
+def _info_line(window, now_height, now_dt, width, offset_minutes, rising, runtime):
+    """Iconic pill-shaped tide info bar."""
     text = fg(200, 205, 215)
     dim = fg(70, 80, 100)
     sep = "  "
 
-    # Pill colors
     pill_rgb = (22, 28, 42)
-    now_rgb = (100, 170, 190)  # teal for current stat knockout
+    now_rgb = (100, 170, 190)
     now_text = fg(12, 20, 30)
 
-    # Nerd Font icons
-    arrow = "\u2197" if rising else "\u2198"  # ↗ / ↘ (diagonal arrows for rising/falling)
+    arrow = "\u2197" if rising else "\u2198"
     icon_hi = "\U000F0799"   # 󰞙
     icon_lo = "\U000F0796"   # 󰞖
 
-    # --- Current stat (knocked out: dark text on teal) ---
-    if offset_minutes:
-        now_content = f"{now_text}{arrow} {fmt_time(now_hour)} {now_height:.1f}\u2032"
-        if display_date and reference_date and display_date != reference_date:
-            now_content += f" {fg(40, 60, 70)}{display_date.strftime('%a %b %-d')}"
-    else:
-        now_content = f"{now_text}{arrow} {now_height:.1f}\u2032"
+    h_display = runtime.convert_height(now_height)
+    unit = runtime.height_unit
 
-    # --- High/low/range parts (light text on dark pill) ---
+    # --- Current stat ---
+    if offset_minutes:
+        time_str = fmt_time_dt(now_dt, use_24h=runtime.use_24h)
+        now_content = f"{now_text}{arrow} {time_str} {h_display:.1f}{unit}"
+    else:
+        now_content = f"{now_text}{arrow} {h_display:.1f}{unit}"
+
+    # --- High/low/range parts ---
     rest_parts = []
+    hilo = window["hilo"]
     if hilo:
-        highs = [(h, v) for h, v, t in hilo if t == "H"]
-        lows = [(h, v) for h, v, t in hilo if t == "L"]
+        highs = [(dt, v) for dt, v, t in hilo if t == "H"]
+        lows = [(dt, v) for dt, v, t in hilo if t == "L"]
         h_max = max((v for _, v, t in hilo if t == "H"), default=0)
         h_min = min((v for _, v, t in hilo if t == "L"), default=0)
 
         if highs:
-            h, v = highs[0]
-            rest_parts.append(f"{text}{icon_hi}{v:.1f}\u2032 {dim}{fmt_time(h)}")
+            dt, v = highs[0]
+            v_d = runtime.convert_height(v)
+            t_str = fmt_time_dt(dt, use_24h=runtime.use_24h)
+            rest_parts.append(f"{text}{icon_hi}{v_d:.1f}{unit} {dim}{t_str}")
         if lows:
-            h, v = lows[0]
-            rest_parts.append(f"{text}{icon_lo}{v:.1f}\u2032 {dim}{fmt_time(h)}")
+            dt, v = lows[0]
+            v_d = runtime.convert_height(v)
+            t_str = fmt_time_dt(dt, use_24h=runtime.use_24h)
+            rest_parts.append(f"{text}{icon_lo}{v_d:.1f}{unit} {dim}{t_str}")
 
-        tide_range = h_max - h_min
-        rest_parts.append(f"{text}\u0394{tide_range:.1f}\u2032")
+        tide_range = runtime.convert_height(h_max - h_min)
+        rest_parts.append(f"{text}\u0394{tide_range:.1f}{unit}")
+
+    # --- "Space to return" hint ---
+    if offset_minutes:
+        hint = _ts("space_to_now", runtime)
+        rest_parts.append(f"{dim}{hint}")
 
     # --- Assemble pill ---
     now_fg = fg(*now_rgb)
@@ -772,30 +833,174 @@ def _info_line(
     if rest_parts:
         rest_content = sep.join(rest_parts)
         line = (
-            f"{now_fg}\u2590"                          # left edge: → teal
-            f"{now_bg} {now_content} "                 # current stat on teal
-            f"{now_fg}{pill_bg_esc}\u258c"             # transition: teal → pill_bg
-            f" {rest_content} "                        # rest on pill_bg
-            f"{RESET}{pill_fg_esc}\u258c{RESET}"       # right edge: pill_bg →
+            f"{now_fg}\u2590"
+            f"{now_bg} {now_content} "
+            f"{now_fg}{pill_bg_esc}\u258c"
+            f" {rest_content} "
+            f"{RESET}{pill_fg_esc}\u258c{RESET}"
         )
     else:
         line = (
-            f"{now_fg}\u2590"                          # left edge
-            f"{now_bg} {now_content} "                 # current stat on teal
-            f"{RESET}{now_fg}\u258c{RESET}"            # right edge
+            f"{now_fg}\u2590"
+            f"{now_bg} {now_content} "
+            f"{RESET}{now_fg}\u258c{RESET}"
         )
 
-    # Center the pill
     pill_w = visible_len(line)
     pad = max(0, width - pill_w)
     return f"{' ' * (pad // 2)}{line}"
 
 
 # ---------------------------------------------------------------------------
+# Main render
+# ---------------------------------------------------------------------------
+def render(station_id, station_name, station_meta=None, runtime=None,
+           fullscreen=False, offset_minutes=0, mouse_pos=None,
+           predictions=None, hilo=None):
+    """Build the complete multi-line tide display.
+
+    When predictions/hilo are provided (live mode), renders a sliding 24h
+    window with hover and scroll support.  Otherwise fetches the current
+    day's data for a static view.
+    """
+    if runtime is None:
+        runtime = TidesRuntime.from_sources()
+
+    now_local = _station_now(station_meta)
+    station_tz = _station_tzinfo(station_meta)
+    cols, rows = get_terminal_size()
+    graph_w = max(30, cols - 2)
+
+    # --- build the window ---
+    if predictions is not None:
+        # Live mode: sliding window from center_dt forward
+        center_dt = now_local + timedelta(minutes=offset_minutes)
+        window = _prepare_tide_window(
+            predictions, hilo or [], center_dt, hours_shown=24,
+        )
+    else:
+        # Static mode: show current calendar day
+        date = now_local.date()
+        day_preds = fetch_tides(station_id, date)
+        if not day_preds:
+            print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)
+            sys.exit(1)
+        day_hilo = fetch_hilo(station_id, date) or []
+        preds_dt = []
+        for hour, height in day_preds:
+            dt = _day_to_dt(hour, date, station_tz)
+            if dt is not None:
+                preds_dt.append((dt, height))
+        hilo_dt = []
+        for hour, height, typ in day_hilo:
+            dt = _day_to_dt(hour, date, station_tz)
+            if dt is not None:
+                hilo_dt.append((dt, height, typ))
+        day_start = datetime(date.year, date.month, date.day)
+        if station_tz is not None:
+            day_start = day_start.replace(tzinfo=station_tz)
+        window = _prepare_tide_window(preds_dt, hilo_dt, day_start, hours_shown=24)
+
+    w_start = window["start"]
+    w_total = window["total_hours"]
+    w_preds = window["predictions"]
+    w_secs = w_total * 3600
+
+    # --- dimensions ---
+    n_braille_rows = max(2, rows - (3 if fullscreen else 7))
+
+    # --- interpolate predictions to graph columns ---
+    col_heights = []
+    for x in range(graph_w):
+        frac = (x + 0.5) / graph_w
+        dt = w_start + timedelta(hours=frac * w_total)
+        col_heights.append(_interp_height(dt, w_preds))
+
+    # --- now position ---
+    now_offset = (now_local - w_start).total_seconds()
+    if 0 <= now_offset <= w_secs:
+        now_col = max(0, min(graph_w - 1, int(now_offset / w_secs * (graph_w - 1))))
+    else:
+        now_col = None
+
+    # --- center position (what we're "looking at") ---
+    center_dt = now_local + timedelta(minutes=offset_minutes)
+    center_offset = (center_dt - w_start).total_seconds()
+    center_hour_frac = center_offset / 3600 if w_total > 0 else 0
+    center_height = _interp_height(center_dt, w_preds)
+
+    # Determine tide direction at center
+    eps = timedelta(minutes=6)
+    rising = _interp_height(center_dt + eps, w_preds) > _interp_height(center_dt - eps, w_preds)
+
+    # --- day divisions ---
+    midnight_cols, midnight_day_names = _compute_time_markers(w_start, w_total, graph_w, runtime)
+
+    # --- hover ---
+    hover_graph_col = None
+    chart_start = 1  # line index where braille starts (after header)
+    chart_end = chart_start + n_braille_rows
+    if mouse_pos:
+        mcol, mrow = mouse_pos
+        mrow_idx = mrow - 1  # 1-based -> 0-based
+        if chart_start <= mrow_idx < chart_end:
+            gc = mcol - 2  # 1-based terminal col -> 0-based graph col
+            if 0 <= gc < graph_w:
+                hover_graph_col = gc
+
+    # --- build braille curve ---
+    braille_rows = build_braille_curve(col_heights, graph_w, n_braille_rows, pad_frac=0.15)
+
+    # --- extrema labels ---
+    extrema = _hilo_to_extrema(window, graph_w, runtime)
+    overlays = _compute_tide_overlays(extrema, col_heights, n_braille_rows, graph_w, runtime)
+
+    # --- daylight dimming ---
+    col_daylight = _compute_daylight_window(graph_w, w_start, w_total, station_meta)
+
+    # --- assemble output ---
+    lines = []
+
+    # Header with day labels and station name
+    lines.append(_render_header_line(cols, station_name, midnight_day_names, graph_w, runtime))
+
+    # Braille chart
+    lines.extend(_render_tide_braille_rows(
+        braille_rows, col_daylight, midnight_cols,
+        now_col=now_col, hover_col=hover_graph_col, overlays=overlays,
+    ))
+
+    # Tick labels
+    lines.append(_render_tide_ticks(
+        w_start, w_total, graph_w, runtime,
+        now_col=now_col, hover_col=hover_graph_col,
+    ))
+
+    # Info line
+    lines.append(_info_line(
+        window, center_height, center_dt, cols,
+        offset_minutes, rising, runtime,
+    ))
+
+    output = "\n".join(lines)
+
+    # --- tooltip overlay ---
+    if mouse_pos and hover_graph_col is not None:
+        tooltip = _build_tide_hover_tooltip(
+            window, hover_graph_col, mouse_pos[1],
+            chart_start, chart_end, cols, rows, graph_w, runtime,
+        )
+        if tooltip:
+            output += "\x00" + tooltip
+
+    return output
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    runtime = RuntimeConfig.from_sources()
+    runtime = TidesRuntime.from_sources()
 
     if has_flag("--help") or has_flag("-h"):
         print(__doc__.strip())
@@ -817,7 +1022,6 @@ def main():
 
     if override:
         station_id = override
-        # Try to resolve a proper name from the station list
         station_name = f"Station {override}"
         for s in (_fetch_all_stations() or []):
             if str(s.get("id", "")) == override:
@@ -847,19 +1051,67 @@ def main():
         if meta_name:
             station_name = f"{meta_name}, {meta_state}" if meta_state else meta_name
 
-    live = runtime.live
-    _render = lambda offset_minutes=0: render(
-        station_id,
-        station_name,
-        station_meta=station_meta,
-        fullscreen=live,
-        offset_minutes=offset_minutes,
-    )
+    station_tz = _station_tzinfo(station_meta)
 
-    if live:
-        live_loop(_render)
+    if runtime.live:
+        # Pre-fetch ~7 days in each direction
+        now_local = _station_now(station_meta)
+        today = now_local.date()
+        fetch_start = today - timedelta(days=7)
+        fetch_end = today + timedelta(days=7)
+
+        all_predictions = fetch_tides_range(station_id, fetch_start, fetch_end, station_tz)
+        all_hilo = fetch_hilo_range(station_id, fetch_start, fetch_end, station_tz)
+        fetched_range = [fetch_start, fetch_end]
+
+        if not all_predictions:
+            print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)
+            sys.exit(1)
+
+        def _maybe_expand(offset_minutes):
+            """Expand fetched range if user has scrolled near the edge."""
+            nonlocal all_predictions, all_hilo
+            center = now_local + timedelta(minutes=offset_minutes)
+            center_date = center.date()
+
+            need_expand = False
+            new_start, new_end = fetched_range[0], fetched_range[1]
+
+            if center_date - timedelta(days=2) < fetched_range[0]:
+                new_start = center_date - timedelta(days=7)
+                need_expand = True
+            if center_date + timedelta(days=2) > fetched_range[1]:
+                new_end = center_date + timedelta(days=7)
+                need_expand = True
+
+            if need_expand:
+                all_predictions = fetch_tides_range(station_id, new_start, new_end, station_tz)
+                all_hilo = fetch_hilo_range(station_id, new_start, new_end, station_tz)
+                fetched_range[0] = new_start
+                fetched_range[1] = new_end
+
+        def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
+            _maybe_expand(offset_minutes)
+            return render(
+                station_id,
+                station_name,
+                station_meta=station_meta,
+                runtime=runtime,
+                fullscreen=True,
+                offset_minutes=offset_minutes,
+                mouse_pos=mouse_pos,
+                predictions=all_predictions,
+                hilo=all_hilo,
+            ), {}
+
+        live_loop(_render, interval=60, mouse=True, scroll_step=5)
     else:
-        print(_render())
+        print(render(
+            station_id,
+            station_name,
+            station_meta=station_meta,
+            runtime=runtime,
+        ))
 
 
 if __name__ == "__main__":

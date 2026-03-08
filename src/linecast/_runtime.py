@@ -56,6 +56,10 @@ class RuntimeConfig:
             lang=lang if len(lang) == 2 and lang.isalpha() else "en",
         )
 
+    @property
+    def use_24h(self):
+        return self.lang != "en"
+
 
 @dataclass(frozen=True)
 class WeatherRuntime(RuntimeConfig):
@@ -89,10 +93,6 @@ class WeatherRuntime(RuntimeConfig):
         )
 
     @property
-    def use_24h(self):
-        return self.lang != "en"
-
-    @property
     def temp_unit(self):
         return "°C" if self.celsius else "°F"
 
@@ -103,3 +103,30 @@ class WeatherRuntime(RuntimeConfig):
     @property
     def precip_unit(self):
         return "mm" if self.metric else "\u2033"
+
+
+@dataclass(frozen=True)
+class TidesRuntime(RuntimeConfig):
+    metric: bool  # heights in meters instead of feet
+
+    @classmethod
+    def from_sources(cls, argv=None, environ=None):
+        args = _argv(argv)
+        env = _environ(environ)
+        base = RuntimeConfig.from_sources(args, env)
+        return cls(
+            live=base.live,
+            emoji=base.emoji,
+            lang=base.lang,
+            metric=(
+                "--metric" in args
+                or env.get("TIDES_UNITS", "").lower() == "metric"
+            ),
+        )
+
+    @property
+    def height_unit(self):
+        return "m" if self.metric else "\u2032"
+
+    def convert_height(self, ft):
+        return ft * 0.3048 if self.metric else ft
