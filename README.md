@@ -47,13 +47,9 @@ weather --search québec          # find coordinates by city name
 weather --metric                 # metric units (°C, km/h, mm)
 weather --celsius                # celsius only (wind/precip stay imperial)
 weather --metric --fahrenheit    # °F with km/h and mm
+weather --lang fr                # UI in French (also covers alert text when available)
+# other language codes: es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 weather --live                   # full-screen, auto-refresh
-weather --lang fr                # interface en français
-weather --lang de                # Oberfläche auf Deutsch
-weather --lang is                # viðmót á íslensku
-weather --lang ja                # 日本語インターフェース
-weather --lang ko                # 한국어 인터페이스
-weather --lang zh                # 中文界面
 
 sunshine                         # solar arc for today
 sunshine --live                  # full-screen, scrubbable, auto-updating
@@ -91,19 +87,19 @@ Alerts are sourced automatically based on location from eight providers covering
 - **Norway** — MET Norway
 - **29 European countries** — MeteoAlarm (Austria, Belgium, Bulgaria, Croatia, Cyprus, Czechia, Denmark, Estonia, Finland, France, Greece, Hungary, Iceland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Poland, Portugal, Romania, Serbia, Slovakia, Slovenia, Spain, Sweden, Switzerland, UK)
 
-Alert text comes from each national weather service in its native language. Where available, alerts are served in your `--lang` preference.
+Alert text comes from each national weather service in its native language. When available, alerts are served in your `--lang` preference.
 
 ## Environment variables
 
-| Variable           | Description                                                       |
-| ------------------ | ----------------------------------------------------------------- |
-| `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `44.54,-68.42`)                |
-| `TIDE_STATION`     | Default NOAA station ID for tides (e.g., `8413320`)               |
-| `LINECAST_LANG`    | UI language: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh` |
-| `WEATHER_UNITS`    | Set to `metric` for Celsius, km/h, and mm (same as `--metric`)   |
-| `LINECAST_ICONS`   | Set to `emoji` to use standard emoji instead of Nerd Font icons   |
-| `LINECAST_COLOR`   | Color mode: `auto` (default), `truecolor`, `256`, `16`, or `none` |
-| `NO_COLOR`         | Any non-empty value disables ANSI colors (standard convention)    |
+| Variable           | Description                                                                                                                                  |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `44.54,-68.42`)                                                                                           |
+| `TIDE_STATION`     | Default NOAA station ID for tides (e.g., `8413320`)                                                                                          |
+| `LINECAST_LANG`    | UI language, including alerts when available: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh` |
+| `WEATHER_UNITS`    | Set to `metric` for Celsius, km/h, and mm (same as `--metric`)                                                                               |
+| `LINECAST_ICONS`   | Set to `emoji` to use standard emoji instead of Nerd Font icons                                                                              |
+| `LINECAST_COLOR`   | Color mode: `auto` (default), `truecolor`, `256`, `16`, or `none`                                                                            |
+| `NO_COLOR`         | Any non-empty value disables ANSI colors (standard convention)                                                                               |
 
 ## Requirements
 
