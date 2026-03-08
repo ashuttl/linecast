@@ -733,7 +733,7 @@ def _info_line(
     now_text = fg(12, 20, 30)
 
     # Nerd Font icons
-    arrow = "\U000F0795" if rising else "\U000F0792"  # 󰞕 / 󰞒 (arrow_collapse_up/down)
+    arrow = "\u2197" if rising else "\u2198"  # ↗ / ↘ (diagonal arrows for rising/falling)
     icon_hi = "\U000F0799"   # 󰞙
     icon_lo = "\U000F0796"   # 󰞖
 
