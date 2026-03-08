@@ -8,7 +8,7 @@ All data comes from free public APIs with no keys required.
 
 ## Commands
 
-**`weather`** — Current conditions, hourly braille temperature curve, 7-day forecast with color range bars, precipitation sparkline, natural language comparisons, and weather alerts for 35 countries.
+**`weather`** — Current conditions, hourly braille temperature curve, 7-day forecast with color range bars, precipitation sparkline, natural language comparisons, and weather alerts for 36 countries. Available in 16 languages.
 
 ![weather](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
 
@@ -19,7 +19,7 @@ All data comes from free public APIs with no keys required.
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-dusk.png" width="49%" alt="sunshine — dusk">
 </p>
 
-**`tides`** — NOAA tide predictions rendered as an ocean-themed half-block chart with gradient fill, current water level, and high/low extremes.
+**`tides`** — NOAA tide predictions rendered as a sunlight-shaded braille chart with current water level and high/low extremes.
 
 ![tides](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
 
@@ -52,6 +52,8 @@ weather --lang fr                # interface en français
 weather --lang de                # Oberfläche auf Deutsch
 weather --lang is                # viðmót á íslensku
 weather --lang ja                # 日本語インターフェース
+weather --lang ko                # 한국어 인터페이스
+weather --lang zh                # 中文界面
 
 sunshine                         # solar arc for today
 sunshine --live                  # full-screen, scrubbable, auto-updating
@@ -64,9 +66,9 @@ tides --live                     # full-screen, scrubbable, auto-updating
 
 ### Language support
 
-`--lang` (or `LINECAST_LANG`) switches the full UI — weather descriptions, day names, natural language comparisons, precipitation forecasts, and alert timing — into the chosen language. Non-English languages also use 24-hour time.
+Use `--lang` or set `LINECAST_LANG` to switch the full UI into another language. This covers weather descriptions, day names, natural language comparisons, precipitation forecasts, and alert timing. Non-English languages also use 24-hour time.
 
-Supported: **English**, **French**, **Spanish**, **German**, **Italian**, **Portuguese**, **Dutch**, **Polish**, **Norwegian**, **Swedish**, **Icelandic**, **Danish**, **Finnish**, **Japanese**
+Supported: **English**, **French**, **Spanish**, **German**, **Italian**, **Portuguese**, **Dutch**, **Polish**, **Norwegian**, **Swedish**, **Icelandic**, **Danish**, **Finnish**, **Japanese**, **Korean**, **Chinese**
 
 All commands are also available under the `linecast` namespace if the short names conflict with other tools on your system:
 
@@ -78,15 +80,16 @@ linecast tides --station 8413320
 
 ## Weather alerts
 
-Alerts are sourced automatically based on location from five providers covering 35 countries:
+Alerts are sourced automatically based on location from eight providers covering 36 countries:
 
 - **US** — National Weather Service
 - **Canada** — Environment and Climate Change Canada
+- **China** — China Meteorological Administration
 - **Germany** — Deutscher Wetterdienst (via BrightSky)
-- **Norway** — MET Norway
 - **Ireland** — Met Éireann
 - **Japan** — Japan Meteorological Agency
-- **30 European countries** — MeteoAlarm (Austria, Belgium, Bulgaria, Croatia, Cyprus, Czechia, Denmark, Estonia, Finland, France, Greece, Hungary, Iceland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Poland, Portugal, Romania, Serbia, Slovakia, Slovenia, Spain, Sweden, Switzerland, UK)
+- **Norway** — MET Norway
+- **29 European countries** — MeteoAlarm (Austria, Belgium, Bulgaria, Croatia, Cyprus, Czechia, Denmark, Estonia, Finland, France, Greece, Hungary, Iceland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Poland, Portugal, Romania, Serbia, Slovakia, Slovenia, Spain, Sweden, Switzerland, UK)
 
 Alert text comes from each national weather service in its native language. Where available, alerts are served in your `--lang` preference.
 
@@ -96,7 +99,7 @@ Alert text comes from each national weather service in its native language. Wher
 | ------------------ | ----------------------------------------------------------------- |
 | `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `44.54,-68.42`)                |
 | `TIDE_STATION`     | Default NOAA station ID for tides (e.g., `8413320`)               |
-| `LINECAST_LANG`    | UI language: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja` |
+| `LINECAST_LANG`    | UI language: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh` |
 | `WEATHER_UNITS`    | Set to `metric` for Celsius, km/h, and mm (same as `--metric`)   |
 | `LINECAST_ICONS`   | Set to `emoji` to use standard emoji instead of Nerd Font icons   |
 | `LINECAST_COLOR`   | Color mode: `auto` (default), `truecolor`, `256`, `16`, or `none` |
