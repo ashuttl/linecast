@@ -6,7 +6,7 @@ and the tides chart.
 """
 
 
-def build_braille_curve(values, graph_w, n_rows=2, pad_frac=0.0):
+def build_braille_curve(values, graph_w, n_rows=2, pad_frac=0.0, value_range=None):
     """Build an n_rows-high braille line graph from numeric data.
 
     Returns list of n_rows rows, each a list of (char, avg_value) tuples.
@@ -15,6 +15,7 @@ def build_braille_curve(values, graph_w, n_rows=2, pad_frac=0.0):
 
     pad_frac: fraction of value range to pad above/below (0.0 = no padding).
               Useful for curves that need room for overlay labels.
+    value_range: optional (min, max) to fix the y-axis scale.
     """
     n = 2 * graph_w  # samples: 2 per braille char (left col, right col)
     total_dots = n_rows * 4
@@ -28,7 +29,10 @@ def build_braille_curve(values, graph_w, n_rows=2, pad_frac=0.0):
         frac = t - lo_i
         samples.append(values[lo_i] + (values[hi_i] - values[lo_i]) * frac)
 
-    s_min, s_max = min(samples), max(samples)
+    if value_range is not None:
+        s_min, s_max = value_range
+    else:
+        s_min, s_max = min(samples), max(samples)
     if pad_frac > 0:
         pad = max(0.3, (s_max - s_min) * pad_frac)
         s_min -= pad
