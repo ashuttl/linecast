@@ -404,6 +404,13 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
         return f"{today_left}{' ' * max(1, pad)}{today_right} {RESET}"
 
     label_start = visible_len(today_left)
+
+    # Drop the "today" label if it would crowd out a midnight day name
+    if midnight_day_names:
+        first_col = min(midnight_day_names)
+        if first_col + 1 < label_start:
+            today_left = " "
+            label_start = 1
     right_len = visible_len(today_right) + 2
     avail = width - right_len
     mid_w = max(0, avail - label_start)

@@ -1,5 +1,6 @@
 """Weather data/source helpers: geocoding, forecast fetches, and alerts."""
 
+import re
 import sys
 from datetime import datetime, timezone, timedelta
 
@@ -464,6 +465,10 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
         event = info.get("event") or ""
         if not event:
             continue
+        # MeteoAlarm providers (e.g. DMI) often prefix the event name with
+        # the English color level ("yellow Tåge", "orange Regn").  Strip it
+        # since we already convey severity via the pill background colour.
+        event = re.sub(r"^(?:yellow|orange|red|green)\s+", "", event, flags=re.IGNORECASE)
 
         # For Moderate: only include if area matches user's location
         if severity == "Moderate" and location_words:
