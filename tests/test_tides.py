@@ -1,5 +1,5 @@
 import unittest
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from unittest.mock import patch
 
 from linecast import tides
@@ -43,6 +43,36 @@ class FindNearestStationTests(unittest.TestCase):
 
 
 class RenderTests(unittest.TestCase):
+    def test_render_live_window_starts_with_now_at_quarter_width(self):
+        now_local = datetime(2026, 3, 5, 18, 30, 0)
+        captured = {}
+
+        class _StopRender(Exception):
+            pass
+
+        def fake_prepare_tide_window(predictions, hilo, start_dt, hours_shown=24):
+            captured["start_dt"] = start_dt
+            captured["hours_shown"] = hours_shown
+            raise _StopRender()
+
+        with patch.object(tides, "_station_now", return_value=now_local), \
+             patch.object(tides, "get_terminal_size", return_value=(80, 24)), \
+             patch.object(tides, "_prepare_tide_window", side_effect=fake_prepare_tide_window), \
+             self.assertRaises(_StopRender):
+            tides.render(
+                "123",
+                "Test Harbor",
+                offset_minutes=120,
+                predictions=[(now_local, 1.0)],
+                hilo=[],
+            )
+
+        self.assertEqual(captured["hours_shown"], 24)
+        self.assertEqual(
+            captured["start_dt"],
+            now_local - timedelta(hours=6) + timedelta(minutes=120),
+        )
+
     def test_render_fetches_scrubbed_day_when_offset_crosses_midnight(self):
         now_local = datetime(2026, 3, 5, 23, 30, 0)
         scrubbed_date = date(2026, 3, 6)

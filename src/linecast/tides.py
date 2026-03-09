@@ -97,6 +97,9 @@ NIGHT_DIM = 0.6 if not is_light_theme() else 0.78
 # Nerd Font icons
 WAVE_ICON = "\U000F0F85"            # 󰾅
 
+LIVE_WINDOW_HOURS = 24
+LIVE_NOW_RATIO = 0.25  # Keep "now" ~25% from the left in live mode.
+
 # ---------------------------------------------------------------------------
 # Data layer
 # ---------------------------------------------------------------------------
@@ -169,6 +172,16 @@ def _station_now(meta):
     if tz is not None:
         return datetime.now(tz)
     return datetime.now()
+
+
+def _live_window_start(now_local, offset_minutes, hours_shown=LIVE_WINDOW_HOURS, now_ratio=LIVE_NOW_RATIO):
+    """Start datetime for the live view window.
+
+    Keeps "now" at a fixed fraction of the viewport so the default view
+    favors upcoming tide changes while preserving a short recent history.
+    """
+    past_hours = hours_shown * now_ratio
+    return now_local - timedelta(hours=past_hours) + timedelta(minutes=offset_minutes)
 
 
 def _search_stations(query):
@@ -570,11 +583,14 @@ def render(station_id, station_name, station_meta=None, runtime=None,
 
     # --- build the window ---
     if predictions is not None:
-        # Live mode: sliding window from most recent midnight, scrollable
-        midnight = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
-        center_dt = midnight + timedelta(minutes=offset_minutes)
+        # Live mode: keep "now" near the left so most of the chart looks ahead.
+        start_dt = _live_window_start(
+            now_local,
+            offset_minutes=offset_minutes,
+            hours_shown=LIVE_WINDOW_HOURS,
+        )
         window = _prepare_tide_window(
-            predictions, hilo or [], center_dt, hours_shown=24,
+            predictions, hilo or [], start_dt, hours_shown=LIVE_WINDOW_HOURS,
         )
     else:
         # Static mode: show current calendar day
@@ -597,7 +613,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         day_start = datetime(date.year, date.month, date.day)
         if station_tz is not None:
             day_start = day_start.replace(tzinfo=station_tz)
-        window = _prepare_tide_window(preds_dt, hilo_dt, day_start, hours_shown=24)
+        window = _prepare_tide_window(preds_dt, hilo_dt, day_start, hours_shown=LIVE_WINDOW_HOURS)
 
     w_start = window["start"]
     w_total = window["total_hours"]
@@ -807,18 +823,24 @@ def main():
         def _maybe_expand(offset_minutes):
             """Expand fetched range if user has scrolled near the edge."""
             nonlocal all_predictions, all_hilo
-            midnight = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
-            center = midnight + timedelta(minutes=offset_minutes)
-            center_date = center.date()
+            current_now = _station_now(station_meta)
+            view_start = _live_window_start(
+                current_now,
+                offset_minutes=offset_minutes,
+                hours_shown=LIVE_WINDOW_HOURS,
+            )
+            view_end = view_start + timedelta(hours=LIVE_WINDOW_HOURS)
+            view_start_date = view_start.date()
+            view_end_date = view_end.date()
 
             need_expand = False
             new_start, new_end = fetched_range[0], fetched_range[1]
 
-            if center_date - timedelta(days=2) < fetched_range[0]:
-                new_start = center_date - timedelta(days=7)
+            if view_start_date - timedelta(days=2) < fetched_range[0]:
+                new_start = view_start_date - timedelta(days=7)
                 need_expand = True
-            if center_date + timedelta(days=2) > fetched_range[1]:
-                new_end = center_date + timedelta(days=7)
+            if view_end_date + timedelta(days=2) > fetched_range[1]:
+                new_end = view_end_date + timedelta(days=7)
                 need_expand = True
 
             if need_expand:
@@ -842,7 +864,8 @@ def main():
                 y_range=y_range,
             ), {}
 
-        live_loop(_render, interval=60, mouse=True, scroll_step=5)
+        # Larger step makes wheel/arrow scrubbing practical for multi-day browsing.
+        live_loop(_render, interval=60, mouse=True, scroll_step=30)
     else:
         if use_chs:
             preds = fetch_tides_range_chs(

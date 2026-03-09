@@ -504,7 +504,9 @@ def main():
 
     live = runtime.live
 
-    def _render(offset_minutes=0):
+    def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
+        # mouse_pos/active_alert/modal_scroll are ignored; accepted so sunshine
+        # can use shared live_loop mouse-wheel scrubbing support.
         now = datetime.now()
         if offset_minutes:
             from datetime import timedelta
@@ -522,7 +524,7 @@ def main():
         )
 
     if live:
-        live_loop(_render)
+        live_loop(_render, mouse=True)
     else:
         print(_render())
 

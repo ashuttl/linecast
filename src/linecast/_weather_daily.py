@@ -2,10 +2,13 @@
 
 from datetime import datetime
 
-from linecast._graphics import bg, fg, visible_len, RESET, BOLD
+from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime
 from linecast._weather_i18n import DAY_NAMES, _s, _wmo_icons
 from linecast._weather_style import DIM, TEXT, WIND_COLOR, _precip_color, _precip_type, _temp_color
+
+
+_USE_BG_FILL = color_mode() != "none"
 
 
 def render_daily(data, width, runtime=None):
@@ -158,7 +161,11 @@ def render_daily(data, width, runtime=None):
                     hi_idx = rel - (filled_w - hi_len)
                     cells.append((hi_label[hi_idx], f"{bg(r, g, b)}{dark_fg}{BOLD}"))
                 else:
-                    cells.append(("\u2588", f"{fg(r, g, b)}"))
+                    # Background-painted cells avoid seam artifacts between block glyphs.
+                    if _USE_BG_FILL:
+                        cells.append((" ", f"{bg(r, g, b)}"))
+                    else:
+                        cells.append(("\u2588", f"{fg(r, g, b)}"))
             else:
                 cells.append(("\u2500", f"{DIM}"))
 

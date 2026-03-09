@@ -427,7 +427,42 @@ class Framebuffer:
 # ---------------------------------------------------------------------------
 # Live mode (alternate screen, auto-refresh, scroll-to-scrub)
 # ---------------------------------------------------------------------------
-def _read_key():
+def _decode_sgr_mouse(seq):
+    """Decode an SGR mouse sequence payload like b'<64;10;20M'."""
+    if not seq.startswith(b'<') or seq[-1:] not in (b'M', b'm'):
+        return None
+    try:
+        parts = seq[1:-1].decode("ascii").split(";")
+        cb, cx, cy = int(parts[0]), int(parts[1]), int(parts[2])
+    except (ValueError, IndexError, UnicodeDecodeError):
+        return None
+    return ('mouse', cb, cx, cy, seq[-1:] == b'm')
+
+
+def _decode_legacy_mouse(payload):
+    """Decode legacy X10/VT200 mouse payload bytes (Cb,Cx,Cy)."""
+    if len(payload) != 3:
+        return None
+    cb = payload[0] - 32
+    cx = payload[1] - 32
+    cy = payload[2] - 32
+    if cb < 0 or cx < 1 or cy < 1:
+        return None
+    is_rel = (cb & 0b11) == 0b11 and not (cb & 0x40)
+    return ('mouse', cb, cx, cy, is_rel)
+
+
+def _normalize_wheel_cb(cb):
+    """Return canonical wheel code 64 (up) / 65 (down), or None."""
+    if not (cb & 0x40):
+        return None
+    base = cb & 0b11
+    if base in (0, 1):
+        return 64 + base
+    return None
+
+
+def _read_key(fd):
     """Read a keypress from stdin in cbreak mode. Returns action string or None.
 
     Fully consumes CSI/SS3 escape sequences so leftover bytes don't leak.
@@ -435,42 +470,80 @@ def _read_key():
     when the system is busy (e.g. after a re-render).
     """
     import select as _sel
-    ch = sys.stdin.read(1)
-    if ch == '\033':
+
+    def _read_byte():
+        try:
+            data = os.read(fd, 1)
+        except OSError:
+            return None
+        return data or None
+
+    def _read_byte_timeout(timeout=0.15):
+        if _sel.select([fd], [], [], timeout)[0]:
+            return _read_byte()
+        return None
+
+    b = _read_byte()
+    if b is None:
+        return None
+
+    if b == b'\033':
         # Use 150ms timeout — 50ms is too short when the system is busy
         # rendering; mouse release sequences (\033[<0;x;ym) can arrive late
         # and the \033 gets read as a bare ESC.
-        if _sel.select([sys.stdin], [], [], 0.15)[0]:
-            ch2 = sys.stdin.read(1)
-            if ch2 == '[':
-                # CSI sequence: read params + final byte (letter or ~)
-                seq = ''
-                while _sel.select([sys.stdin], [], [], 0.15)[0]:
-                    c = sys.stdin.read(1)
-                    seq += c
-                    if c.isalpha() or c == '~':
-                        break
-                # SGR mouse event: \033[<Cb;Cx;CyM or \033[<Cb;Cx;Cym
-                if seq.startswith('<') and seq[-1:] in ('M', 'm'):
-                    try:
-                        parts = seq[1:-1].split(';')
-                        cb, cx, cy = int(parts[0]), int(parts[1]), int(parts[2])
-                        return ('mouse', cb, cx, cy, seq[-1] == 'm')
-                    except (ValueError, IndexError):
-                        return None
-                final = seq[-1:] if seq else ''
-                return {'A': 'fwd', 'B': 'back', 'C': 'fwd', 'D': 'back'}.get(final)
-            elif ch2 == 'O':
-                # SS3 sequence (some terminals use for arrows)
-                if _sel.select([sys.stdin], [], [], 0.15)[0]:
-                    ch3 = sys.stdin.read(1)
-                    return {'A': 'fwd', 'B': 'back', 'C': 'fwd', 'D': 'back'}.get(ch3)
+        b2 = _read_byte_timeout(0.15)
+        if b2 is None:
+            return 'escape'
+
+        if b2 == b'[':
+            seq = bytearray()
+            while True:
+                c = _read_byte_timeout(0.15)
+                if c is None:
+                    break
+                seq.extend(c)
+                # Legacy mouse: \033[M Cb Cx Cy
+                if c == b'M' and len(seq) == 1:
+                    tail = bytearray()
+                    for _ in range(3):
+                        c_tail = _read_byte_timeout(0.15)
+                        if c_tail is None:
+                            return None
+                        tail.extend(c_tail)
+                    return _decode_legacy_mouse(bytes(tail))
+                c0 = c[0]
+                if (65 <= c0 <= 90) or (97 <= c0 <= 122) or c0 == 126:
+                    break
+
+            action = _decode_sgr_mouse(bytes(seq))
+            if action is not None:
+                return action
+
+            final = bytes(seq[-1:]) if seq else b''
+            return {
+                b'A': 'fwd',
+                b'B': 'back',
+                b'C': 'fwd',
+                b'D': 'back',
+            }.get(final)
+
+        if b2 == b'O':
+            # SS3 sequence (some terminals use for arrows)
+            b3 = _read_byte_timeout(0.15)
+            if b3 is not None:
+                return {
+                    b'A': 'fwd',
+                    b'B': 'back',
+                    b'C': 'fwd',
+                    b'D': 'back',
+                }.get(b3)
         return 'escape'
-    elif ch in ('q', 'Q'):
+
+    if b in (b'q', b'Q'):
         return 'quit'
-    elif ch in ('o', 'O'):
+    if b in (b'o', b'O'):
         return 'open'
-    elif ch in ('n', 'N', ' '):
+    if b in (b'n', b'N', b' '):
         return 'reset'
     return None
 
@@ -494,9 +567,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
     wake = threading.Event()
     signal.signal(signal.SIGWINCH, lambda *_: wake.set())
 
-    # Terminal.app lacks SGR mouse support; disable gracefully
-    if mouse and os.environ.get('TERM_PROGRAM') == 'Apple_Terminal':
-        mouse = False
+    is_apple_terminal = os.environ.get('TERM_PROGRAM') == 'Apple_Terminal'
 
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
@@ -508,7 +579,11 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
 
     init = "\033[?1049h\033[?25l"
     if mouse:
-        init += "\033[?1003h\033[?1006h"
+        # Enable both legacy and SGR mouse reporting for broad compatibility.
+        init += "\033[?1000h\033[?1002h\033[?1003h\033[?1006h"
+        # Alternate-scroll mode helps terminals that don't report wheel as mouse.
+        if is_apple_terminal:
+            init += "\033[?1007h"
     sys.stdout.write(init)
     sys.stdout.flush()
     try:
@@ -543,11 +618,11 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
                 if remaining <= 0 or wake.is_set():
                     break
                 try:
-                    ready, _, _ = select.select([sys.stdin], [], [], min(0.1, remaining))
+                    ready, _, _ = select.select([fd], [], [], min(0.1, remaining))
                 except (InterruptedError, OSError):
                     continue
                 if ready:
-                    action = _read_key()
+                    action = _read_key(fd)
                     if action == 'quit':
                         if active_alert is not None:
                             active_alert = None
@@ -576,18 +651,19 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
                         break
                     elif mouse and isinstance(action, tuple) and action[0] == 'mouse':
                         _, cb, cx, cy, is_rel = action
-                        if cb in (64, 65):
+                        wheel_cb = _normalize_wheel_cb(cb)
+                        if wheel_cb in (64, 65):
                             if active_alert is not None:
                                 # Scroll the modal
-                                modal_scroll += 3 if cb == 65 else -3
+                                modal_scroll += 3 if wheel_cb == 65 else -3
                                 modal_scroll = max(0, modal_scroll)
                             else:
-                                offset += scroll_step if cb == 64 else -scroll_step
+                                offset += scroll_step if wheel_cb == 64 else -scroll_step
                             break
                         if is_rel:
                             # Button release — ignore
                             continue
-                        if cb == 0:
+                        if (cb & 0b11) == 0 and not (cb & 0x20):
                             # Left button press (not release, not motion)
                             row_idx = cy - 1  # 1-based → 0-based
                             if active_alert is not None:
@@ -599,7 +675,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
                                 active_alert = alert_row_map[row_idx]
                                 modal_scroll = 0
                                 break
-                        if cb & 32:  # motion
+                        if cb & 32:
+                            # Hover-capable terminals.
+                            mouse_pos = (cx, cy)
+                            break
+                        # Fallback for terminals without motion reporting:
+                        # update pointer on press so tooltip can still appear.
+                        if (cb & 0b11) in (0, 1, 2):
                             mouse_pos = (cx, cy)
                             break
     except (KeyboardInterrupt, SystemExit):
@@ -608,7 +690,9 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         cleanup = ""
         if mouse:
-            cleanup += "\033[?1003l\033[?1006l"
+            cleanup += "\033[?1006l\033[?1003l\033[?1002l\033[?1000l"
+            if is_apple_terminal:
+                cleanup += "\033[?1007l"
         cleanup += "\033[?25h\033[?1049l"
         sys.stdout.write(cleanup)
         sys.stdout.flush()
