@@ -38,6 +38,7 @@ from linecast._tides_chs import (
     _fetch_all_stations_chs,
 )
 from linecast import USER_AGENT
+from linecast.sunshine import moon_phase
 
 CACHE_DIR = CACHE_ROOT / "tides"
 NEAREST_STATION_CACHE_MAX_AGE = 3600
@@ -849,9 +850,17 @@ def _render_tide_ticks(window_start, total_hours, graph_w, runtime,
 # ---------------------------------------------------------------------------
 # Header line (day names at midnight boundaries)
 # ---------------------------------------------------------------------------
-def _render_header_line(cols, station_name, runtime, offset_minutes=0):
-    """Render the top line with pill-styled station name and scroll hint."""
-    name = station_name.title() if station_name else ""
+def _render_header_line(cols, station_name, runtime, offset_minutes=0,
+                        now_info=None):
+    """Render the top line with pill-styled station name and current tide info."""
+    # Title-case the city name but preserve short uppercase tokens (state/province codes)
+    if station_name:
+        parts = station_name.split(",")
+        parts = [p.strip().title() if len(p.strip()) > 2 else p.strip().upper()
+                 for p in parts]
+        name = ", ".join(parts)
+    else:
+        name = ""
 
     # Station name pill (left)
     if name:
@@ -864,13 +873,30 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0):
         pill = ""
         pill_w = 0
 
+    # Current tide info (inline after station name)
+    now_suffix = ""
+    now_suffix_w = 0
+    if now_info:
+        time_str, height_display, unit = now_info
+        now_suffix = f"  {DIM}{time_str}  {height_display:.1f}{unit}{RESET}"
+        now_suffix_w = 2 + len(time_str) + 2 + len(f"{height_display:.1f}{unit}")
+
+    # Moon phase (right-aligned)
+    _, phase_name, moon_icon = moon_phase(datetime.now(timezone.utc), runtime)
+    moon_color = fg(100, 110, 130)
+    moon_str = f"{moon_color}{moon_icon} {DIM}{phase_name}{RESET}"
+    moon_w = len(moon_icon) + 1 + len(phase_name)
+
     # "Space to return" hint (right, only when scrolled)
     if offset_minutes:
         hint_text = _ts("space_to_now", runtime)
         hint = f"{DIM}{hint_text}{RESET}"
-        padding = max(1, cols - 1 - pill_w - len(hint_text))
-        return f"{pill}{' ' * padding}{hint}"
-    return pill
+        right_w = len(hint_text)
+        padding = max(1, cols - 1 - pill_w - now_suffix_w - right_w)
+        return f"{pill}{now_suffix}{' ' * padding}{hint}"
+
+    padding = max(1, cols - 1 - pill_w - now_suffix_w - moon_w)
+    return f"{pill}{now_suffix}{' ' * padding}{moon_str}"
 
 
 def _render_day_label_line(midnight_day_names, graph_w):
@@ -936,78 +962,6 @@ def _build_tide_hover_tooltip(window, graph_col, mouse_row, chart_start, chart_e
     if tooltip_col + tooltip_w - 1 > cols:
         tooltip_col = max(1, cols - tooltip_w + 1)
     if tooltip_row + tooltip_h - 1 > rows:
-        tooltip_row = max(1, rows - tooltip_h + 1)
-
-    result = ""
-    for i, line in enumerate(padded):
-        result += f"\033[{tooltip_row + i};{tooltip_col}H{line}"
-    return result
-
-
-# ---------------------------------------------------------------------------
-# "Now" label
-# ---------------------------------------------------------------------------
-def _build_now_label(window, now_col, now_local, chart_start, n_braille_rows,
-                     cols, rows, graph_w, runtime, value_range=None):
-    """Build a tooltip-like label attached to the 'now' line."""
-    if now_col is None:
-        return ""
-
-    predictions = window["predictions"]
-    if not predictions:
-        return ""
-
-    now_height = _interp_height(now_local, predictions)
-    h_display = runtime.convert_height(now_height)
-    time_str = fmt_time_dt(now_local, use_24h=runtime.use_24h)
-
-    TBG = bg(0, 0, 0)
-    TFG = fg(200, 205, 215)
-
-    tip_lines = [
-        f"{TBG}{TFG} {time_str} ",
-        f"{TBG}{TFG} {h_display:.1f}{runtime.height_unit} ",
-    ]
-
-    max_w = max(visible_len(line) for line in tip_lines)
-    padded = []
-    for line in tip_lines:
-        pad_n = max_w - visible_len(line)
-        padded.append(f"{line}{' ' * pad_n}{RESET}")
-
-    # Map now_height to a braille row for positioning
-    if value_range is not None:
-        h_min, h_max = value_range
-    else:
-        h_min, h_max = now_height - 1, now_height + 1
-    pad_v = max(0.3, (h_max - h_min) * 0.15)
-    h_min -= pad_v
-    h_max += pad_v
-    total_dots = n_braille_rows * 4
-    if h_max > h_min:
-        y = (total_dots - 1) * (1 - (now_height - h_min) / (h_max - h_min))
-        curve_row = max(0, min(n_braille_rows - 1, int(round(y)) // 4))
-    else:
-        curve_row = n_braille_rows // 2
-
-    # Terminal positioning (1-indexed for ANSI)
-    snap_col = now_col + 2  # graph col -> terminal col
-    tooltip_h = len(padded)
-
-    # Place tooltip at top or bottom of graph, opposite the curve
-    if curve_row < n_braille_rows // 2:
-        # Curve is in upper half -> place tooltip at bottom
-        tooltip_row = chart_start + n_braille_rows - tooltip_h + 1
-    else:
-        # Curve is in lower half -> place tooltip at top
-        tooltip_row = chart_start + 1
-
-    tooltip_col = snap_col + 1  # just right of the now line
-
-    # Flip to left side if near right edge
-    if tooltip_col + max_w > cols:
-        tooltip_col = max(1, snap_col - max_w)
-    if tooltip_row + tooltip_h > rows:
         tooltip_row = max(1, rows - tooltip_h + 1)
 
     result = ""
@@ -1123,8 +1077,9 @@ def render(station_id, station_name, station_meta=None, runtime=None,
 
     # --- build the window ---
     if predictions is not None:
-        # Live mode: sliding window from center_dt forward
-        center_dt = now_local + timedelta(minutes=offset_minutes)
+        # Live mode: sliding window from most recent midnight, scrollable
+        midnight = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        center_dt = midnight + timedelta(minutes=offset_minutes)
         window = _prepare_tide_window(
             predictions, hilo or [], center_dt, hours_shown=24,
         )
@@ -1206,12 +1161,21 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     # --- daylight dimming ---
     col_daylight = _compute_daylight_window(graph_w, w_start, w_total, station_meta)
 
+    # --- now info for header ---
+    now_info = None
+    if now_col is not None:
+        now_height = _interp_height(now_local, w_preds)
+        h_display = runtime.convert_height(now_height)
+        time_str = fmt_time_dt(now_local, use_24h=runtime.use_24h)
+        now_info = (time_str, h_display, runtime.height_unit)
+
     # --- assemble output ---
     lines = []
 
-    # Header with pill-styled station name and scroll hint
+    # Header with pill-styled station name and current tide info
     lines.append(_render_header_line(
         cols, station_name, runtime, offset_minutes=offset_minutes,
+        now_info=now_info,
     ))
 
     # Day labels on their own row
@@ -1233,15 +1197,6 @@ def render(station_id, station_name, station_meta=None, runtime=None,
 
     # --- cursor-positioned overlays ---
     overlay_parts = []
-
-    # "Now" label (suppressed when hovering)
-    if now_col is not None and hover_graph_col is None:
-        now_label = _build_now_label(
-            window, now_col, now_local, chart_start, n_braille_rows,
-            cols, rows, graph_w, runtime, value_range=y_range,
-        )
-        if now_label:
-            overlay_parts.append(now_label)
 
     # Hover tooltip
     if mouse_pos and hover_graph_col is not None:
@@ -1358,7 +1313,8 @@ def main():
         def _maybe_expand(offset_minutes):
             """Expand fetched range if user has scrolled near the edge."""
             nonlocal all_predictions, all_hilo
-            center = now_local + timedelta(minutes=offset_minutes)
+            midnight = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            center = midnight + timedelta(minutes=offset_minutes)
             center_date = center.date()
 
             need_expand = False
