@@ -109,11 +109,28 @@ def render_tide_ticks(window_start, total_hours, graph_w, runtime, now_col=None,
     else:
         interval = 2
 
+    window_secs = total_hours * 3600
     label_items = []
-    for h_off in range(0, int(total_hours) + 1, interval):
-        dt = window_start + timedelta(hours=h_off)
-        x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
-        label_items.append((x, fmt_hour(dt.hour, use_24h), dt.hour == 0))
+    if window_secs > 0:
+        interval_secs = interval * 3600
+        elapsed_secs = (
+            window_start.hour * 3600
+            + window_start.minute * 60
+            + window_start.second
+            + window_start.microsecond / 1_000_000
+        )
+        first_offset_secs = (interval_secs - (elapsed_secs % interval_secs)) % interval_secs
+        tick_dt = window_start + timedelta(seconds=first_offset_secs)
+        window_end = window_start + timedelta(hours=total_hours)
+
+        while tick_dt <= window_end:
+            offset_secs = (tick_dt - window_start).total_seconds()
+            x = int(offset_secs / window_secs * (graph_w - 1))
+            if 0 <= x < graph_w:
+                label_items.append(
+                    (x, fmt_hour(tick_dt.hour, use_24h), tick_dt.hour == 0 and tick_dt.minute == 0)
+                )
+            tick_dt += timedelta(seconds=interval_secs)
 
     canvas = [" "] * graph_w
     last_end = 0
