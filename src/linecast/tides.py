@@ -956,9 +956,17 @@ def _build_now_label(window, now_col, now_local, chart_start, n_braille_rows,
 
     # Terminal positioning (1-indexed for ANSI)
     snap_col = now_col + 2  # graph col -> terminal col
-    tooltip_row = chart_start + curve_row + 1
-    tooltip_col = snap_col + 1  # just right of the now line
     tooltip_h = len(padded)
+
+    # Place tooltip at top or bottom of graph, opposite the curve
+    if curve_row < n_braille_rows // 2:
+        # Curve is in upper half -> place tooltip at bottom
+        tooltip_row = chart_start + n_braille_rows - tooltip_h + 1
+    else:
+        # Curve is in lower half -> place tooltip at top
+        tooltip_row = chart_start + 1
+
+    tooltip_col = snap_col + 1  # just right of the now line
 
     # Flip to left side if near right edge
     if tooltip_col + max_w > cols:
