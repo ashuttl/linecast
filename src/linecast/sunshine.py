@@ -10,7 +10,7 @@ Uses half-block characters with ANSI color for smooth rendering at 2x
 vertical sub-pixel resolution (true color when available). Location is
 cached from IP geolocation (~1 network call per week).
 
-Usage: sunshine [--print] [--emoji]
+Usage: sunshine [--print] [--emoji] [--classic-colors]
 """
 
 import math
@@ -21,14 +21,55 @@ from linecast._graphics import (
     fg, RESET, BG_PRIMARY, lerp, interp_stops, visible_len, fmt_time,
     get_terminal_size, Framebuffer, live_loop,
 )
+from linecast._theme import (
+    best_contrast,
+    darken,
+    ensure_contrast,
+    lerp_rgb,
+    lighten,
+    neutral_tone,
+    surface_bg,
+    theme_ansi,
+    theme_bg,
+    theme_fg,
+    theme_legacy_mode,
+)
 from linecast._location import get_location
 from linecast._runtime import RuntimeConfig, has_flag
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-HORIZON_COLOR = (40, 46, 65)   # subtle divider
-CURVE_COLOR   = (160, 168, 195) # neutral silver — the arc itself
+if theme_legacy_mode:
+    # Original pre-theme palette (classic mode).
+    HORIZON_COLOR = (40, 46, 65)
+    CURVE_COLOR = (160, 168, 195)
+    SUN_GLOW_DAY_RGB = (255, 250, 220)
+    SUN_GLOW_TWILIGHT_RGB = (180, 195, 225)
+    SUN_CORE_RGB = (255, 255, 255)
+    INFO_AMBER_RGB = (251, 191, 36)
+    INFO_PURPLE_RGB = (167, 139, 250)
+    INFO_MUTED_RGB = (100, 110, 130)
+    INFO_DIM_RGB = (70, 80, 100)
+    INFO_TEXT_RGB = (200, 205, 215)
+else:
+    _SKY_BLUE = best_contrast((theme_ansi[4], theme_ansi[12], theme_ansi[6]), minimum=1.8)
+    _SKY_CYAN = best_contrast((theme_ansi[6], theme_ansi[14], theme_fg), minimum=1.8)
+    _SKY_MAGENTA = best_contrast((theme_ansi[5], theme_ansi[13]), minimum=1.8)
+    _SKY_RED = best_contrast((theme_ansi[1], theme_ansi[9]), minimum=1.8)
+    _SKY_YELLOW = best_contrast((theme_ansi[3], theme_ansi[11]), minimum=1.8)
+    _SKY_WHITE = best_contrast((theme_ansi[15], theme_fg), minimum=2.0)
+
+    HORIZON_COLOR = ensure_contrast(surface_bg(0.14), theme_bg, minimum=1.3)  # subtle divider
+    CURVE_COLOR = ensure_contrast(neutral_tone(0.74), theme_bg, minimum=2.4)  # neutral arc
+    SUN_GLOW_DAY_RGB = best_contrast((theme_ansi[15], lighten(theme_fg, 0.12)), minimum=1.8)
+    SUN_GLOW_TWILIGHT_RGB = ensure_contrast(lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.45), theme_bg, minimum=1.6)
+    SUN_CORE_RGB = best_contrast((theme_ansi[15], theme_fg), minimum=2.0)
+    INFO_AMBER_RGB = ensure_contrast(_SKY_YELLOW, theme_bg, minimum=2.3)
+    INFO_PURPLE_RGB = ensure_contrast(_SKY_MAGENTA, theme_bg, minimum=2.3)
+    INFO_MUTED_RGB = ensure_contrast(neutral_tone(0.48), theme_bg, minimum=2.4)
+    INFO_DIM_RGB = ensure_contrast(neutral_tone(0.32), theme_bg, minimum=2.0)
+    INFO_TEXT_RGB = ensure_contrast(theme_fg, theme_bg, minimum=4.5)
 
 _EMOJI_ICONS = {
     "sun_char": "\u25cf",         # ●
@@ -71,44 +112,84 @@ MOON_NAMES = [
 ]
 
 # Sky palette: sun elevation → colors at horizon (near/far from sun) and zenith
-SKY_NEAR_HORIZON = [   # warm side — sky color near the sun at the horizon
-    (-18, BG_PRIMARY),
-    (-12, (35, 18, 58)),            # faint warm purple
-    ( -6, (115, 55, 75)),           # dusky rose
-    ( -3, (185, 80, 60)),           # deep salmon
-    (  0, (245, 135, 40)),          # rich amber
-    (  3, (248, 175, 55)),          # golden
-    (  8, (230, 195, 85)),          # warm gold
-    ( 15, (195, 215, 242)),         # pale blue-white
-    ( 30, (208, 228, 255)),         # bright blue-white
-    ( 90, (218, 238, 255)),         # zenith blue-white
-]
+if theme_legacy_mode:
+    SKY_NEAR_HORIZON = [   # warm side — sky color near the sun at the horizon
+        (-18, BG_PRIMARY),
+        (-12, (35, 18, 58)),
+        ( -6, (115, 55, 75)),
+        ( -3, (185, 80, 60)),
+        (  0, (245, 135, 40)),
+        (  3, (248, 175, 55)),
+        (  8, (230, 195, 85)),
+        ( 15, (195, 215, 242)),
+        ( 30, (208, 228, 255)),
+        ( 90, (218, 238, 255)),
+    ]
 
-SKY_FAR_HORIZON = [    # cool side — sky color far from the sun at the horizon
-    (-18, BG_PRIMARY),
-    (-12, (28, 15, 52)),            # faint purple
-    ( -6, (90, 40, 98)),            # purple
-    ( -3, (160, 55, 108)),          # magenta-pink
-    (  0, (205, 85, 110)),          # salmon-pink
-    (  3, (190, 105, 125)),         # mauve-pink
-    (  8, (168, 135, 160)),         # fading mauve
-    ( 15, (182, 208, 238)),         # soft blue
-    ( 30, (202, 224, 252)),         # blue-white
-    ( 90, (214, 234, 254)),         # pale blue-white
-]
+    SKY_FAR_HORIZON = [    # cool side — sky color far from the sun at the horizon
+        (-18, BG_PRIMARY),
+        (-12, (28, 15, 52)),
+        ( -6, (90, 40, 98)),
+        ( -3, (160, 55, 108)),
+        (  0, (205, 85, 110)),
+        (  3, (190, 105, 125)),
+        (  8, (168, 135, 160)),
+        ( 15, (182, 208, 238)),
+        ( 30, (202, 224, 252)),
+        ( 90, (214, 234, 254)),
+    ]
 
-SKY_ZENITH = [         # sky color at the top of the display
-    (-18, BG_PRIMARY),
-    (-12, (18, 14, 38)),            # barely visible indigo
-    ( -6, (30, 20, 55)),            # dark purple
-    ( -3, (48, 28, 72)),            # medium purple
-    (  0, (70, 38, 95)),            # rich purple
-    (  3, (62, 55, 128)),           # blue-purple
-    (  8, (52, 82, 158)),           # blue
-    ( 15, (78, 132, 208)),          # medium blue
-    ( 30, (112, 170, 240)),         # bright blue
-    ( 90, (132, 188, 250)),         # pale blue
-]
+    SKY_ZENITH = [         # sky color at the top of the display
+        (-18, BG_PRIMARY),
+        (-12, (18, 14, 38)),
+        ( -6, (30, 20, 55)),
+        ( -3, (48, 28, 72)),
+        (  0, (70, 38, 95)),
+        (  3, (62, 55, 128)),
+        (  8, (52, 82, 158)),
+        ( 15, (78, 132, 208)),
+        ( 30, (112, 170, 240)),
+        ( 90, (132, 188, 250)),
+    ]
+else:
+    SKY_NEAR_HORIZON = [   # warm side — sky color near the sun at the horizon
+        (-18, BG_PRIMARY),
+        (-12, darken(lerp_rgb(theme_bg, _SKY_MAGENTA, 0.18), 0.10)),
+        ( -6, lerp_rgb(theme_bg, _SKY_RED, 0.35)),
+        ( -3, lerp_rgb(_SKY_RED, _SKY_MAGENTA, 0.20)),
+        (  0, lerp_rgb(_SKY_YELLOW, _SKY_RED, 0.28)),
+        (  3, lerp_rgb(_SKY_YELLOW, _SKY_WHITE, 0.20)),
+        (  8, lerp_rgb(_SKY_YELLOW, _SKY_CYAN, 0.35)),
+        ( 15, lerp_rgb(_SKY_CYAN, _SKY_WHITE, 0.55)),
+        ( 30, lerp_rgb(_SKY_CYAN, _SKY_WHITE, 0.72)),
+        ( 90, lerp_rgb(_SKY_CYAN, _SKY_WHITE, 0.82)),
+    ]
+
+    SKY_FAR_HORIZON = [    # cool side — sky color far from the sun at the horizon
+        (-18, BG_PRIMARY),
+        (-12, darken(lerp_rgb(theme_bg, _SKY_MAGENTA, 0.14), 0.12)),
+        ( -6, lerp_rgb(theme_bg, _SKY_MAGENTA, 0.30)),
+        ( -3, lerp_rgb(_SKY_MAGENTA, _SKY_RED, 0.30)),
+        (  0, lerp_rgb(_SKY_RED, _SKY_MAGENTA, 0.30)),
+        (  3, lerp_rgb(_SKY_RED, _SKY_CYAN, 0.25)),
+        (  8, lerp_rgb(_SKY_MAGENTA, _SKY_CYAN, 0.40)),
+        ( 15, lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.52)),
+        ( 30, lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.70)),
+        ( 90, lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.80)),
+    ]
+
+    SKY_ZENITH = [         # sky color at the top of the display
+        (-18, BG_PRIMARY),
+        (-12, darken(lerp_rgb(theme_bg, _SKY_BLUE, 0.10), 0.14)),
+        ( -6, darken(lerp_rgb(theme_bg, _SKY_BLUE, 0.18), 0.08)),
+        ( -3, lerp_rgb(theme_bg, _SKY_MAGENTA, 0.22)),
+        (  0, lerp_rgb(_SKY_MAGENTA, _SKY_BLUE, 0.32)),
+        (  3, lerp_rgb(_SKY_MAGENTA, _SKY_BLUE, 0.48)),
+        (  8, lerp_rgb(_SKY_BLUE, _SKY_CYAN, 0.22)),
+        ( 15, lerp_rgb(_SKY_BLUE, _SKY_CYAN, 0.45)),
+        ( 30, lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.48)),
+        ( 90, lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.62)),
+    ]
 
 # ---------------------------------------------------------------------------
 # Solar math (simplified NOAA algorithm)
@@ -326,7 +407,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     sun_spy_i = int(round(now_spy))
     sun_spy_i = max(0, min(total_spy - 1, sun_spy_i))
     sun_r = max(5, int(min(graph_w, total_spy) * 0.04))
-    sun_warm = (255, 250, 220) if now_elev > -2 else (180, 195, 225)
+    sun_warm = SUN_GLOW_DAY_RGB if now_elev > -2 else SUN_GLOW_TWILIGHT_RGB
 
     fb.draw_radial(now_x, now_spy, sun_warm, sun_r)
 
@@ -336,11 +417,11 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
             sx, sy = now_x + dx, sun_spy_i + dy
             if 0 <= sx < graph_w and 0 <= sy < total_spy:
                 d = math.sqrt(dx * dx + (dy * 1.5) ** 2)
-                fb.set_pixel(sx, sy, (255, 255, 255), max(0, 1 - d * 0.5))
+                fb.set_pixel(sx, sy, SUN_CORE_RGB, max(0, 1 - d * 0.5))
 
     # --- render framebuffer with sun dot overlay ---
     sun_cell_row = sun_spy_i // 2
-    overlays = {(now_x, sun_cell_row): (icons["sun_char"], (255, 255, 255))}
+    overlays = {(now_x, sun_cell_row): (icons["sun_char"], SUN_CORE_RGB)}
     lines = fb.render(overlays)
 
     # --- info line ---
@@ -376,11 +457,11 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
 
     _, phase_name, moon_icon = moon_phase(datetime.now(timezone.utc), runtime)
 
-    amber = fg(251, 191, 36)
-    purple = fg(167, 139, 250)
-    muted = fg(100, 110, 130)
-    dim = fg(70, 80, 100)
-    text = fg(200, 205, 215)
+    amber = fg(*INFO_AMBER_RGB)
+    purple = fg(*INFO_PURPLE_RGB)
+    muted = fg(*INFO_MUTED_RGB)
+    dim = fg(*INFO_DIM_RGB)
+    text = fg(*INFO_TEXT_RGB)
 
     delta_str = f"{d_sign}{d_m}m {d_s}s" if d_s > 0 else f"{d_sign}{d_m}m"
 

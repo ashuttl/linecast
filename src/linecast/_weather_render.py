@@ -58,6 +58,8 @@ from linecast._weather_style import (
     SPARKLINE,
     TEMP_COLORS,
     TEXT,
+    TOOLTIP_BG_RGB,
+    TOOLTIP_TEXT_RGB,
     WIND_ARROWS,
     WIND_COLOR,
     _colored_temp,

@@ -11,7 +11,7 @@ and MeteoAlarm (30 European countries).
 
 Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 
-Usage: weather [--print] [--location LAT,LNG] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--shading] [--lang fr]
+Usage: weather [--print] [--location LAT,LNG] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--shading] [--lang fr] [--classic-colors]
 """
 
 import os
@@ -48,6 +48,8 @@ from linecast._weather_render import (
     SPARKLINE,
     TEMP_COLORS,
     TEXT,
+    TOOLTIP_BG_RGB,
+    TOOLTIP_TEXT_RGB,
     WIND_ARROWS,
     WIND_COLOR,
     _PRECIP_CODES,
@@ -142,8 +144,8 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     wind = window["winds"][idx] if idx < len(window["winds"]) else 0
     wind_dir = window["wind_dirs"][idx] if idx < len(window["wind_dirs"]) else 0
 
-    TBG = bg(0, 0, 0)
-    TFG = fg(200, 205, 215)
+    TBG = bg(*TOOLTIP_BG_RGB)
+    TFG = fg(*TOOLTIP_TEXT_RGB)
 
     lines = []
 

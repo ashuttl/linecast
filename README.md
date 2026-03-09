@@ -50,9 +50,9 @@ weather --metric --fahrenheit    # °F with km/h and mm
 weather --lang fr                # UI in French (also covers alert text when available)
 # other language codes: es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 weather --print                  # single static snapshot (no live mode)
-
 sunshine                         # solar arc (live by default)
 sunshine --print                 # static snapshot
+sunshine --classic-colors        # use fixed-color (theme agnostic) sunshine gradient/palette
 
 tides                            # nearest NOAA station (live by default)
 tides --station 8413320          # specific station ID
@@ -93,16 +93,18 @@ Alert text comes from each national weather service in its native language. When
 
 ## Environment variables
 
-| Variable           | Description                                                                                                                                  |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `44.54,-68.42`)                                                                                           |
-| `TIDE_STATION`     | Default NOAA station ID for tides (e.g., `8413320`)                                                                                          |
-| `TIDES_UNITS`      | Set to `metric` for tide heights in meters (same as `--metric`)                                                                              |
-| `LINECAST_LANG`    | UI language, including alerts when available: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh` |
-| `WEATHER_UNITS`    | Set to `metric` for Celsius, km/h, and mm (same as `--metric`)                                                                               |
-| `LINECAST_ICONS`   | Set to `emoji` to use standard emoji instead of Nerd Font icons                                                                              |
-| `LINECAST_COLOR`   | Color mode: `auto` (default), `truecolor`, `256`, `16`, or `none`                                                                            |
-| `NO_COLOR`         | Any non-empty value disables ANSI colors (standard convention)                                                                               |
+| Variable                    | Description                                                                                                                                  |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WEATHER_LOCATION`          | Default lat,lng for weather (e.g., `44.54,-68.42`)                                                                                           |
+| `TIDE_STATION`              | Default NOAA station ID for tides (e.g., `8413320`)                                                                                          |
+| `TIDES_UNITS`               | Set to `metric` for tide heights in meters (same as `--metric`)                                                                              |
+| `LINECAST_LANG`             | UI language, including alerts when available: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh` |
+| `WEATHER_UNITS`             | Set to `metric` for Celsius, km/h, and mm (same as `--metric`)                                                                               |
+| `LINECAST_ICONS`            | Set to `emoji` to use standard emoji instead of Nerd Font icons                                                                              |
+| `LINECAST_COLOR`            | Color mode: `auto` (default), `truecolor`, `256`, `16`, or `none`                                                                            |
+| `LINECAST_THEME`            | Theme input mode: `auto` (default) to query terminal colors, or `classic` / `legacy` / `off` for pre-theme palette behavior                  |
+| `LINECAST_THEME_TIMEOUT_MS` | OSC theme query timeout in milliseconds (default `100`)                                                                                      |
+| `NO_COLOR`                  | Any non-empty value disables ANSI colors (standard convention)                                                                               |
 
 ## Requirements
 

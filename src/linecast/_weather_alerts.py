@@ -5,6 +5,7 @@ import unicodedata
 from datetime import datetime
 
 from linecast._graphics import bg, fg, visible_len, RESET, BOLD
+from linecast._theme import best_contrast
 
 
 def _char_width(ch):
@@ -68,8 +69,30 @@ def _truncate_display_width(text, width):
             return "\u2026"
         w += cw
     return text
+
+
 from linecast._weather_i18n import DAY_NAMES, _s
-from linecast._weather_style import ALERT_AMBER, ALERT_BLUE, ALERT_RED, ALERT_YELLOW, MUTED, WIND_COLOR
+from linecast._weather_style import (
+    ALERT_AMBER,
+    ALERT_AMBER_RGB,
+    ALERT_BLUE,
+    ALERT_BLUE_RGB,
+    ALERT_RED,
+    ALERT_RED_RGB,
+    ALERT_YELLOW,
+    ALERT_YELLOW_RGB,
+    DIM_RGB,
+    LINK_RGB,
+    MODAL_BG_RGB,
+    MODAL_BORDER_RGB,
+    MUTED,
+    TEXT_RGB,
+    WIND_COLOR,
+)
+
+
+def _pill_text_rgb(bg_rgb):
+    return best_contrast(((20, 20, 25), TEXT_RGB), background=bg_rgb, minimum=4.5)
 
 
 def _parse_alert_time(iso_str, runtime=None):
@@ -99,19 +122,19 @@ def _severity_color(severity):
 
 def _severity_rgb(severity):
     if severity in ("Extreme", "Severe"):
-        return (220, 60, 50)
+        return ALERT_RED_RGB
     if severity == "Moderate":
-        return (220, 170, 50)
+        return ALERT_AMBER_RGB
     if severity == "Minor":
-        return (80, 160, 220)
-    return (200, 200, 80)
+        return ALERT_BLUE_RGB
+    return ALERT_YELLOW_RGB
 
 
 def _render_single_alert(alert, width, max_lines=999, runtime=None):
     """Render one alert as a single compact line: pill + date range + truncated body."""
-    dark_fg = fg(20, 20, 25)
     severity = alert.get("severity", "")
     r, g, b = _severity_rgb(severity)
+    dark_fg = fg(*_pill_text_rgb((r, g, b)))
     bg_color = bg(r, g, b)
     event = alert.get("event", "Unknown")
     effective = _parse_alert_time(alert.get("effective", ""), runtime)
@@ -171,11 +194,11 @@ def render_alerts(alerts, width=80, remaining_rows=None, runtime=None):
         else:
             # Multiple alerts share a description — pills on one line,
             # shared description on the next
-            dark_fg = fg(20, 20, 25)
             pills = []
             for alert in group:
                 severity = alert.get("severity", "")
                 r, g, b = _severity_rgb(severity)
+                dark_fg = fg(*_pill_text_rgb((r, g, b)))
                 bg_color = bg(r, g, b)
                 event = alert.get("event", "Unknown")
                 pills.append(f"{bg_color}{dark_fg}{BOLD} \u26a0 {event} {RESET}")
@@ -198,7 +221,7 @@ def render_alerts(alerts, width=80, remaining_rows=None, runtime=None):
 # Alert modal (full detail overlay for live mode click)
 # ---------------------------------------------------------------------------
 
-_MODAL_BG = (10, 12, 18)
+_MODAL_BG = MODAL_BG_RGB
 
 
 def _build_modal_content(alert, inner_w, runtime=None):
@@ -208,10 +231,10 @@ def _build_modal_content(alert, inner_w, runtime=None):
     contains ANSI color codes and will be padded by the caller.
     """
     MBG = bg(*_MODAL_BG)
-    TFG = fg(200, 205, 215)
-    dark_fg = fg(20, 20, 25)
+    TFG = fg(*TEXT_RGB)
     severity = alert.get("severity", "")
     r, g, b = _severity_rgb(severity)
+    dark_fg = fg(*_pill_text_rgb((r, g, b)))
     bg_color = bg(r, g, b)
     event = alert.get("event", "Unknown")
 
@@ -256,7 +279,7 @@ def _build_modal_content(alert, inner_w, runtime=None):
     url = alert.get("url", "")
     if url:
         lines.append("")
-        link_color = fg(80, 140, 220)
+        link_color = fg(*LINK_RGB)
         display_url = url if visible_len(url) <= inner_w else _truncate_display_width(url, inner_w)
         osc_link = f"\033]8;;{url}\033\\{link_color}{MBG}{display_url}\033]8;;\033\\{RESET}"
         lines.append(osc_link)
@@ -271,8 +294,7 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0):
     scroll: number of content lines scrolled down (0 = top).
     """
     MBG = bg(*_MODAL_BG)
-    TFG = fg(200, 205, 215)
-    BORDER = fg(70, 80, 100)
+    BORDER = fg(*MODAL_BORDER_RGB)
 
     # Modal dimensions
     modal_w = min(cols - 4, 80)
@@ -308,7 +330,7 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0):
     # Top border (with scroll-up indicator)
     bar_ch = "\u2500"
     if can_scroll_up:
-        arrow = f" {MUTED}\u25b2 "
+        arrow = f" {fg(*DIM_RGB)}\u25b2 "
         arrow_len = 3
         left_bar = (modal_w - 2 - arrow_len) // 2
         right_bar = modal_w - 2 - arrow_len - left_bar

@@ -14,6 +14,7 @@ import re
 import sys
 import time as _time
 import unicodedata
+from linecast._theme import ensure_theme_loaded, theme_bg
 
 # ---------------------------------------------------------------------------
 # ANSI helpers
@@ -72,6 +73,10 @@ def _normalize_color_mode(value):
 
 def detect_color_mode(environ=None, stream=None):
     """Return one of: truecolor, 256, 16, none."""
+    # Theme probing is part of terminal capability setup and runs once.
+    if environ is None and stream is None:
+        ensure_theme_loaded()
+
     env = os.environ if environ is None else environ
     mode = _normalize_color_mode(env.get("LINECAST_COLOR", "auto"))
     if mode is None:
@@ -121,7 +126,7 @@ else:
 
 HALF_BLOCK = "\u2584"          # ▄ lower half block
 
-BG_PRIMARY = (15, 23, 42)     # #0f172a slate-900 — shared dark base
+BG_PRIMARY = theme_bg
 
 
 def color_mode():

@@ -4,10 +4,33 @@ import math
 from datetime import datetime, timedelta, timezone
 
 from linecast._graphics import RESET, bg, fg, fmt_hour, fmt_time_dt, visible_len
+from linecast._theme import (
+    best_contrast,
+    darken,
+    ensure_contrast,
+    is_light_theme,
+    lerp_rgb,
+    neutral_tone,
+    surface_bg,
+    theme_ansi,
+    theme_bg,
+    theme_fg,
+)
 from linecast._tides_i18n import FULL_DAY_NAMES
 from linecast.sunshine import daylight_factor as solar_daylight_factor, moon_phase
 
-DIM = fg(70, 80, 100)
+DIM_RGB = ensure_contrast(neutral_tone(0.32), theme_bg, minimum=2.0)
+MUTED_RGB = ensure_contrast(neutral_tone(0.48), theme_bg, minimum=2.5)
+MOON_RISE_RGB = ensure_contrast(best_contrast((theme_ansi[5], theme_ansi[13]), minimum=2.0), theme_bg, minimum=2.0)
+MOON_SET_RGB = ensure_contrast(
+    lerp_rgb(best_contrast((theme_ansi[4], theme_ansi[12]), minimum=2.0), theme_ansi[5], 0.35),
+    theme_bg,
+    minimum=2.0,
+)
+TIP_BG_RGB = darken(surface_bg(0.10), 0.45 if not is_light_theme() else 0.10)
+TIP_TEXT_RGB = ensure_contrast(theme_fg, TIP_BG_RGB, minimum=4.5)
+
+DIM = fg(*DIM_RGB)
 
 
 def interp_height(target_dt, predictions):
@@ -360,9 +383,9 @@ def render_day_label_line(midnight_day_names, graph_w, moon_labels=None):
     if moon_labels is None:
         moon_labels = {}
 
-    muted = fg(100, 110, 130)
-    rise_color = (170, 150, 210)
-    set_color = (130, 145, 185)
+    muted = fg(*MUTED_RGB)
+    rise_color = MOON_RISE_RGB
+    set_color = MOON_SET_RGB
     canvas = [" "] * graph_w
     canvas_colors = [None] * graph_w
 
@@ -486,8 +509,8 @@ def build_tide_hover_tooltip(window, graph_col, mouse_row, chart_start, chart_en
     target_dt = start_dt + timedelta(hours=t_frac * total_hours)
     height = interp_height(target_dt, predictions)
 
-    tip_bg = bg(0, 0, 0)
-    tip_fg = fg(200, 205, 215)
+    tip_bg = bg(*TIP_BG_RGB)
+    tip_fg = fg(*TIP_TEXT_RGB)
 
     time_str = fmt_time_dt(target_dt, use_24h=runtime.use_24h)
     h_display = runtime.convert_height(height)

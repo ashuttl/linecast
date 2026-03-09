@@ -12,7 +12,7 @@ or overridden with TIDE_STATION env var.
 Data sources: NOAA (US) and CHS/IWLS (Canada), selected automatically
 based on geolocation. Use --station with a station ID to override.
 
-Usage: tides [--print] [--station ID] [--search QUERY] [--metric] [--lang LANG]
+Usage: tides [--print] [--station ID] [--search QUERY] [--metric] [--lang LANG] [--classic-colors]
 """
 
 import math
@@ -26,6 +26,17 @@ from linecast._graphics import (
     bg, fg, RESET,
     visible_len, fmt_time_dt,
     get_terminal_size, live_loop,
+)
+from linecast._theme import (
+    best_contrast,
+    ensure_contrast,
+    is_light_theme,
+    lerp_rgb,
+    neutral_tone,
+    surface_bg,
+    theme_ansi,
+    theme_bg,
+    theme_fg,
 )
 from linecast._location import get_location
 from linecast._runtime import TidesRuntime, arg_value, has_flag
@@ -66,11 +77,22 @@ NEAREST_STATION_CACHE_MAX_AGE = _NOAA_NEAREST_STATION_CACHE_MAX_AGE
 # ---------------------------------------------------------------------------
 # Ocean palette
 # ---------------------------------------------------------------------------
-CURVE_COLOR = (120, 200, 220)       # teal curve line
-NOW_LINE_COLOR = (65, 95, 140)      # "now" indicator
-HOVER_COLOR = (80, 90, 120)         # hover indicator
-DIM = fg(70, 80, 100)
-NIGHT_DIM = 0.6                     # brightness floor for nighttime
+CURVE_COLOR = ensure_contrast(best_contrast((theme_ansi[6], theme_ansi[14], theme_fg), minimum=2.0), theme_bg, minimum=2.0)
+NOW_LINE_COLOR = ensure_contrast(
+    lerp_rgb(best_contrast((theme_ansi[4], theme_ansi[12]), minimum=2.0), theme_bg, 0.30),
+    theme_bg,
+    minimum=1.8,
+)
+HOVER_COLOR = ensure_contrast(surface_bg(0.40), theme_bg, minimum=1.5)
+DIM_RGB = ensure_contrast(neutral_tone(0.32), theme_bg, minimum=2.0)
+MUTED_RGB = ensure_contrast(neutral_tone(0.48), theme_bg, minimum=2.4)
+TEXT_RGB = ensure_contrast(theme_fg, theme_bg, minimum=4.5)
+PILL_BG_RGB = surface_bg(0.08)
+PILL_FG_RGB = ensure_contrast(neutral_tone(0.72), PILL_BG_RGB, minimum=3.0)
+NOW_PILL_RGB = ensure_contrast(best_contrast((theme_ansi[6], theme_ansi[14]), minimum=2.0), theme_bg, minimum=2.0)
+NOW_PILL_TEXT_RGB = best_contrast(((12, 20, 30), theme_bg, theme_fg), background=NOW_PILL_RGB, minimum=4.5)
+DIM = fg(*DIM_RGB)
+NIGHT_DIM = 0.6 if not is_light_theme() else 0.78
 
 # Nerd Font icons
 WAVE_ICON = "\U000F0F85"            # 󰾅
@@ -224,7 +246,7 @@ def _compute_tide_overlays(extrema, col_heights, n_rows, graph_w, runtime,
     total_dots = n_rows * 4
     overlays = {}
     occupied_by_row = {}
-    dim_color = (70, 80, 100)
+    dim_color = DIM_RGB
 
     def _row_clear(row, cols):
         """Check if all columns in a braille row are empty (no dots)."""
@@ -315,7 +337,7 @@ def _compute_y_axis_labels(n_rows, graph_w, value_range, pad_frac, runtime):
     disp_range = abs(runtime.convert_height(value_range[1]) - runtime.convert_height(value_range[0]))
 
     step = 1 if disp_range <= 4 else 2 if disp_range <= 10 else 5
-    dim_color = (70, 80, 100)  # match x-axis tick color (DIM)
+    dim_color = DIM_RGB  # match x-axis tick color (DIM)
     overlays = {}
 
     disp_min = runtime.convert_height(h_min)
@@ -406,9 +428,9 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0,
 
     # Station name pill (left)
     if name:
-        pbg = bg(28, 36, 52)
-        pfg = fg(160, 170, 190)
-        pedge = fg(28, 36, 52)
+        pbg = bg(*PILL_BG_RGB)
+        pfg = fg(*PILL_FG_RGB)
+        pedge = fg(*PILL_BG_RGB)
         pill = f"{pedge}\u2590{pbg}{pfg} {name} {RESET}{pedge}\u258c{RESET}"
         pill_w = len(name) + 4  # ▐ + space + name + space + ▌
     else:
@@ -425,7 +447,7 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0,
 
     # Moon phase (right-aligned)
     _, phase_name, moon_icon = moon_phase(datetime.now(timezone.utc), runtime)
-    moon_color = fg(100, 110, 130)
+    moon_color = fg(*MUTED_RGB)
     moon_str = f"{moon_color}{moon_icon} {DIM}{phase_name}{RESET}"
     moon_w = len(moon_icon) + 1 + len(phase_name)
 
@@ -446,13 +468,13 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0,
 # ---------------------------------------------------------------------------
 def _info_line(window, now_height, now_dt, width, offset_minutes, rising, runtime):
     """Iconic pill-shaped tide info bar."""
-    text = fg(200, 205, 215)
-    dim = fg(70, 80, 100)
+    text = fg(*TEXT_RGB)
+    dim = fg(*DIM_RGB)
     sep = "  "
 
-    pill_rgb = (22, 28, 42)
-    now_rgb = (100, 170, 190)
-    now_text = fg(12, 20, 30)
+    pill_rgb = PILL_BG_RGB
+    now_rgb = NOW_PILL_RGB
+    now_text = fg(*NOW_PILL_TEXT_RGB)
 
     arrow = "\u2197" if rising else "\u2198"
     icon_hi = "\U000F0799"   # 󰞙

@@ -8,9 +8,14 @@ from linecast._runtime import WeatherRuntime
 from linecast._weather_i18n import DAY_NAMES, FULL_DAY_NAMES, _s
 from linecast._weather_sources import _local_now_for_data
 from linecast._weather_style import (
+    CHART_BG_DAY_RGB,
+    CHART_BG_NIGHT_RGB,
+    CHART_HOVER_RGB,
     DIM,
     MUTED,
     SPARKLINE,
+    SUNRISE_LABEL_RGB,
+    SUNSET_LABEL_RGB,
     TEXT,
     WIND_ARROWS,
     WIND_COLOR,
@@ -425,7 +430,7 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
         if pos + lbl_w > mid_w:
             continue
         if all(mid_canvas[pos + j] == " " for j in range(lbl_w)):
-            color = (200, 160, 60) if is_rise else (200, 100, 50)
+            color = SUNRISE_LABEL_RGB if is_rise else SUNSET_LABEL_RGB
             cx = pos
             for c in lbl:
                 mid_canvas[cx] = c
@@ -532,9 +537,9 @@ def _render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime,
     shading = runtime.shading
     night_dim = 0.6
     midnight_fg = DIM
-    hover_fg = fg(80, 90, 120)
-    bg_night = (12, 12, 22)
-    bg_day = (18, 22, 32)
+    hover_fg = fg(*CHART_HOVER_RGB)
+    bg_night = CHART_BG_NIGHT_RGB
+    bg_day = CHART_BG_DAY_RGB
 
     lines = []
     for row_idx, row in enumerate(braille_rows):
