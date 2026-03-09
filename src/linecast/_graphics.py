@@ -562,10 +562,23 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
     scroll_step: minutes to advance/retreat per scroll or arrow key event.
     Re-renders immediately on terminal resize (SIGWINCH) or input.
     """
-    import select, signal, termios, threading, tty
+    import select, signal, termios, tty
 
-    wake = threading.Event()
-    signal.signal(signal.SIGWINCH, lambda *_: wake.set())
+    # Self-pipe for async-signal-safe SIGWINCH wakeup.
+    # threading.Event.set() is NOT safe in signal handlers (its internal
+    # lock can deadlock when SIGWINCH re-enters itself during rapid resize).
+    # os.write() to a pipe is async-signal-safe per POSIX.
+    wake_r, wake_w = os.pipe()
+    os.set_blocking(wake_r, False)
+    os.set_blocking(wake_w, False)
+
+    def _on_winch(*_):
+        try:
+            os.write(wake_w, b'\x00')
+        except OSError:
+            pass
+
+    signal.signal(signal.SIGWINCH, _on_winch)
 
     is_apple_terminal = os.environ.get('TERM_PROGRAM') == 'Apple_Terminal'
 
@@ -609,19 +622,29 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
             padded = main_out.replace('\n', '\033[K\n')
             sys.stdout.write(f"\033[H{padded}\033[K\033[J\033[0m{overlay}\033[0m")
             sys.stdout.flush()
-            wake.clear()
+            # Drain any pending SIGWINCH notifications.
+            try:
+                os.read(wake_r, 512)
+            except OSError:
+                pass
 
             # Wait for input, resize, or timeout
             deadline = _time.time() + interval
             while True:
                 remaining = deadline - _time.time()
-                if remaining <= 0 or wake.is_set():
+                if remaining <= 0:
                     break
                 try:
-                    ready, _, _ = select.select([fd], [], [], min(0.1, remaining))
+                    ready, _, _ = select.select([fd, wake_r], [], [], min(0.1, remaining))
                 except (InterruptedError, OSError):
                     continue
-                if ready:
+                if wake_r in ready:
+                    try:
+                        os.read(wake_r, 512)
+                    except OSError:
+                        pass
+                    break
+                if fd in ready:
                     action = _read_key(fd)
                     if action == 'quit':
                         if active_alert is not None:
@@ -687,6 +710,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
     except (KeyboardInterrupt, SystemExit):
         pass
     finally:
+        os.close(wake_r)
+        os.close(wake_w)
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         cleanup = ""
         if mouse:
