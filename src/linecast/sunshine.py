@@ -3,8 +3,8 @@
 
 Renders a multi-line graphical display inspired by the Apple Watch Solar
 face. Shows the sun's sinusoidal arc above and below the horizon with a
-warm glow centered on the sun's current position, seasonal scaling, day
-length with daily delta, and moon phase.
+warm glow centered on the sun's current position, seasonal scaling, and day
+length with daily delta.
 
 Uses half-block characters with ANSI color for smooth rendering at 2x
 vertical sub-pixel resolution (true color when available). Location is
@@ -442,7 +442,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     return "\n".join(lines)
 
 def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, offset_minutes=0):
-    """Sunrise — day length (delta) · moon phase — sunset."""
+    """Sunrise — day length (delta) — sunset."""
     icons = _icon_set(runtime)
     day_len = sunset - sunrise
     dl_h = int(day_len)
@@ -455,8 +455,6 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
     d_m = int(d_abs) // 60
     d_s = int(d_abs) % 60
 
-    _, phase_name, moon_icon = moon_phase(datetime.now(timezone.utc), runtime)
-
     amber = fg(*INFO_AMBER_RGB)
     purple = fg(*INFO_PURPLE_RGB)
     muted = fg(*INFO_MUTED_RGB)
@@ -467,9 +465,9 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
 
     left = f"{amber}{icons['sun_icon']} {text}{fmt_time(sunrise)}"
     if offset_minutes:
-        center = f"{text}{fmt_time(now_hour)}{muted}  \u00b7  {purple}{moon_icon} {dim}{phase_name}"
+        center = f"{text}{fmt_time(now_hour)}"
     else:
-        center = f"{text}{dl_h}h {dl_m:02d}m {dim}({delta_str}){muted}  \u00b7  {purple}{moon_icon} {dim}{phase_name}"
+        center = f"{text}{dl_h}h {dl_m:02d}m {dim}({delta_str})"
     right = f"{text}{fmt_time(sunset)} {purple}{icons['sunset_icon']}"
 
     lw = visible_len(left)
