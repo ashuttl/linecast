@@ -27,8 +27,6 @@ from linecast._graphics import (
     visible_len, fmt_hour, fmt_time_dt,
     get_terminal_size, live_loop,
 )
-from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, read_stale, write_cache
-from linecast._http import fetch_json, fetch_json_cached
 from linecast._location import get_location
 from linecast._runtime import TidesRuntime, arg_value, has_flag
 from linecast._tides_i18n import FULL_DAY_NAMES, _ts
@@ -37,11 +35,23 @@ from linecast._tides_chs import (
     fetch_tides_range_chs, fetch_hilo_range_chs, fetch_y_range_chs,
     _fetch_all_stations_chs,
 )
-from linecast import USER_AGENT
-from linecast.sunshine import moon_phase
+from linecast._tides_noaa import (
+    CACHE_DIR as _NOAA_CACHE_DIR,
+    NEAREST_STATION_CACHE_MAX_AGE as _NOAA_NEAREST_STATION_CACHE_MAX_AGE,
+    day_to_dt as _day_to_dt,
+    fetch_all_stations_noaa as _fetch_all_stations,
+    fetch_hilo,
+    fetch_hilo_range,
+    fetch_station_metadata_noaa as _fetch_station_metadata,
+    fetch_tides,
+    fetch_tides_range,
+    fetch_y_range,
+    find_nearest_station,
+)
+from linecast.sunshine import daylight_factor as solar_daylight_factor, moon_phase
 
-CACHE_DIR = CACHE_ROOT / "tides"
-NEAREST_STATION_CACHE_MAX_AGE = 3600
+CACHE_DIR = _NOAA_CACHE_DIR
+NEAREST_STATION_CACHE_MAX_AGE = _NOAA_NEAREST_STATION_CACHE_MAX_AGE
 
 # ---------------------------------------------------------------------------
 # Ocean palette
@@ -62,98 +72,6 @@ def _is_chs_station_id(station_id):
     """Check if a station ID is a CHS MongoDB ObjectId (24-char hex)."""
     return (len(station_id) == 24 and
             all(c in '0123456789abcdef' for c in station_id.lower()))
-
-
-def _haversine(lat1, lon1, lat2, lon2):
-    """Distance in nautical miles between two points."""
-    R_nm = 3440.065  # Earth radius in nautical miles
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = (math.sin(dlat / 2) ** 2 +
-         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
-         math.sin(dlon / 2) ** 2)
-    return R_nm * 2 * math.asin(math.sqrt(a))
-
-
-def find_nearest_station(lat, lng):
-    """Find closest NOAA tide station by haversine distance.
-
-    Returns (station_id, station_name) or (None, None).
-    Cached per location for 1 hour.
-    """
-    cache_file = CACHE_DIR / f"station_{location_cache_key(lat, lng)}.json"
-    cached = read_cache(cache_file, NEAREST_STATION_CACHE_MAX_AGE)
-    if cached:
-        return cached["id"], cached["name"]
-
-    try:
-        url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions"
-        data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=10)
-    except Exception:
-        # Try stale cache
-        stale = read_stale(cache_file)
-        if stale:
-            return stale["id"], stale["name"]
-        return None, None
-
-    best_id, best_name, best_dist = None, None, float("inf")
-    for s in data.get("stations", []):
-        try:
-            slat = float(s["lat"])
-            slng = float(s["lng"])
-        except (KeyError, ValueError):
-            continue
-        d = _haversine(lat, lng, slat, slng)
-        if d < best_dist:
-            best_dist = d
-            best_id = str(s.get("id", ""))
-            best_name = s.get("name", "")
-
-    if best_dist > 100:  # > 100 nautical miles
-        return None, None
-
-    result = {"id": best_id, "name": best_name, "lat": lat, "lng": lng}
-    write_cache(cache_file, result)
-    return best_id, best_name
-
-
-def _fetch_station_metadata(station_id):
-    """Fetch station metadata needed for timezone handling. Cached 30 days."""
-    cache_file = CACHE_DIR / f"station_meta_{station_id}.json"
-    url = (
-        "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/"
-        f"stations/{station_id}.json?expand=details"
-    )
-    data = fetch_json_cached(
-        cache_file,
-        30 * 86400,
-        url,
-        headers={"User-Agent": USER_AGENT},
-        timeout=10,
-        fallback=None,
-    )
-    if not data:
-        return None
-    if "timezone_abbr" in data:
-        return data
-
-    stations = data.get("stations", [])
-    if not stations:
-        return None
-    s = stations[0]
-    details = s.get("details", {})
-    meta = {
-        "id": str(s.get("id", station_id)),
-        "name": s.get("name", ""),
-        "state": s.get("state", ""),
-        "lat": s.get("lat"),
-        "lng": s.get("lng"),
-        "timezone_abbr": str(s.get("timezone", "")).upper(),
-        "timezonecorr": s.get("timezonecorr", details.get("timezone")),
-        "observedst": bool(s.get("observedst", False)),
-    }
-    write_cache(cache_file, meta)
-    return meta
 
 
 def _station_tzinfo(meta):
@@ -221,119 +139,6 @@ def _station_now(meta):
     return datetime.now()
 
 
-def _prediction_url(station_id, begin_date, end_date, interval):
-    return (
-        "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-        f"?begin_date={begin_date}&end_date={end_date}"
-        f"&station={station_id}&product=predictions&datum=MLLW"
-        f"&units=english&time_zone=lst_ldt&interval={interval}&format=json"
-    )
-
-
-def _fetch_payload(cache_file, max_age, url, fallback=None):
-    """Read fresh cache, otherwise fetch JSON with stale-cache fallback."""
-    cached = read_cache(cache_file, max_age)
-    if cached is not None:
-        return cached
-    return fetch_json_cached(
-        cache_file,
-        0,
-        url,
-        headers={"User-Agent": USER_AGENT},
-        timeout=10,
-        fallback=fallback,
-    )
-
-
-def _parse_prediction_hour(t_str):
-    try:
-        parts = t_str.split(" ")
-        time_parts = parts[1].split(":")
-        return int(time_parts[0]) + int(time_parts[1]) / 60
-    except (IndexError, ValueError):
-        return None
-
-
-def _build_tide_row(prediction):
-    hour = _parse_prediction_hour(prediction.get("t", ""))
-    if hour is None:
-        return None
-    return {"h": hour, "v": float(prediction.get("v", 0))}
-
-
-def _build_hilo_row(prediction):
-    row = _build_tide_row(prediction)
-    if row is None:
-        return None
-    row["t"] = prediction.get("type", "")
-    return row
-
-
-def _fetch_prediction_rows(cache_file, url, row_builder, tuple_builder):
-    """Fetch NOAA prediction payload and return parsed tuple rows."""
-    data = _fetch_payload(cache_file, 86400, url, fallback=None)
-    if not data:
-        return None
-    if isinstance(data, list):
-        return [tuple_builder(row) for row in data]
-
-    predictions = data.get("predictions", [])
-    if not predictions:
-        return None
-
-    rows = []
-    for prediction in predictions:
-        row = row_builder(prediction)
-        if row is not None:
-            rows.append(row)
-    write_cache(cache_file, rows)
-    return [tuple_builder(row) for row in rows]
-
-
-def fetch_tides(station_id, date):
-    """Fetch 6-minute interval tide predictions for a date.
-
-    Returns list of (hour_decimal, height_ft) tuples. Cached 24h.
-    """
-    date_str = date.strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"pred_{station_id}_{date_str}.json"
-    url = _prediction_url(station_id, date_str, date_str, "6")
-    return _fetch_prediction_rows(
-        cache_file,
-        url,
-        row_builder=_build_tide_row,
-        tuple_builder=lambda row: (row["h"], row["v"]),
-    )
-
-
-def fetch_hilo(station_id, date):
-    """Fetch high/low extremes for a date.
-
-    Returns list of (hour_decimal, height_ft, "H"/"L") tuples. Cached 24h.
-    """
-    date_str = date.strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"hilo_{station_id}_{date_str}.json"
-    url = _prediction_url(station_id, date_str, date_str, "hilo")
-    return _fetch_prediction_rows(
-        cache_file,
-        url,
-        row_builder=_build_hilo_row,
-        tuple_builder=lambda row: (row["h"], row["v"], row["t"]),
-    )
-
-
-def _fetch_all_stations():
-    """Fetch the full NOAA tide-prediction station list (cached 30 days)."""
-    cache_file = CACHE_DIR / "all_stations.json"
-    url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions"
-    data = _fetch_payload(cache_file, 30 * 86400, url, fallback=[])
-    if isinstance(data, list):
-        return data
-    stations = data.get("stations", [])
-    write_cache(cache_file, stations)
-    return stations
-
-
 def _search_stations(query):
     """Search NOAA and CHS stations by name substring. Prints matches and exits."""
     q = query.lower()
@@ -372,106 +177,6 @@ def _search_stations(query):
     shown = min(len(noaa_matches), 20) + min(len(chs_matches), 20)
     if total > shown:
         print(f"  ... and {total - shown} more")
-
-
-# ---------------------------------------------------------------------------
-# Multi-day fetch & stitch
-# ---------------------------------------------------------------------------
-def _day_to_dt(hour_decimal, date, station_tz):
-    """Convert a day-relative decimal hour to an aware datetime."""
-    h = int(hour_decimal)
-    m = int(round((hour_decimal - h) * 60))
-    if h >= 24:
-        date = date + timedelta(days=1)
-        h -= 24
-    try:
-        dt = datetime(date.year, date.month, date.day, h, m)
-    except ValueError:
-        return None
-    if station_tz is not None:
-        dt = dt.replace(tzinfo=station_tz)
-    return dt
-
-
-def fetch_tides_range(station_id, start_date, end_date, station_tz):
-    """Fetch and stitch tide predictions across a date range.
-
-    Returns sorted list of (datetime, height_ft) tuples.
-    """
-    points = []
-    d = start_date
-    while d <= end_date:
-        day_data = fetch_tides(station_id, d)
-        if day_data:
-            for hour, height in day_data:
-                dt = _day_to_dt(hour, d, station_tz)
-                if dt is not None:
-                    points.append((dt, height))
-        d += timedelta(days=1)
-    # De-duplicate by datetime (day boundaries may overlap at 00:00)
-    seen = set()
-    unique = []
-    for dt, h in points:
-        key = dt.replace(second=0, microsecond=0)
-        if key not in seen:
-            seen.add(key)
-            unique.append((dt, h))
-    unique.sort(key=lambda p: p[0])
-    return unique
-
-
-def fetch_hilo_range(station_id, start_date, end_date, station_tz):
-    """Fetch and stitch hi/lo extremes across a date range.
-
-    Returns sorted list of (datetime, height_ft, "H"/"L") tuples.
-    """
-    points = []
-    d = start_date
-    while d <= end_date:
-        day_data = fetch_hilo(station_id, d)
-        if day_data:
-            for hour, height, typ in day_data:
-                dt = _day_to_dt(hour, d, station_tz)
-                if dt is not None:
-                    points.append((dt, height, typ))
-        d += timedelta(days=1)
-    points.sort(key=lambda p: p[0])
-    return points
-
-
-def fetch_y_range(station_id, center_date):
-    """Compute y-axis range from ±30 days of hilo data. Single API call, cached 7 days."""
-    start = (center_date - timedelta(days=30)).strftime("%Y%m%d")
-    end = (center_date + timedelta(days=30)).strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"yrange_{station_id}_{start}_{end}.json"
-
-    cached = read_cache(cache_file, 7 * 86400)
-    if cached is not None:
-        return (cached["min"], cached["max"])
-
-    url = _prediction_url(station_id, start, end, "hilo")
-    try:
-        data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=15)
-    except Exception:
-        return None
-
-    predictions = data.get("predictions", []) if data else []
-    if not predictions:
-        return None
-
-    heights = []
-    for p in predictions:
-        try:
-            heights.append(float(p["v"]))
-        except (KeyError, ValueError):
-            pass
-
-    if not heights:
-        return None
-
-    result = {"min": min(heights), "max": max(heights)}
-    write_cache(cache_file, result)
-    return (result["min"], result["max"])
 
 
 # ---------------------------------------------------------------------------
@@ -521,34 +226,7 @@ def _prepare_tide_window(predictions, hilo, start_dt, hours_shown=24):
 # ---------------------------------------------------------------------------
 def _solar_daylight_at(hour, doy, lat, lng, tz_offset_h):
     """Compute daylight factor (0.0–1.0) at a local clock hour on a given day."""
-    decl = -23.44 * math.cos(math.radians(360 / 365 * (doy + 10)))
-    lat_rad = math.radians(lat)
-    decl_rad = math.radians(decl)
-
-    cos_ha = -math.tan(lat_rad) * math.tan(decl_rad)
-    if cos_ha <= -1:
-        return 1.0  # midnight sun
-    if cos_ha >= 1:
-        return 0.0  # polar night
-
-    ha = math.degrees(math.acos(cos_ha))
-
-    solar_noon = 12.0
-    if lng is not None:
-        tz_meridian = tz_offset_h * 15
-        solar_noon += (tz_meridian - lng) / 15
-
-    sunrise = solar_noon - ha / 15
-    sunset = solar_noon + ha / 15
-    transition = 40 / 60  # 40 minutes
-
-    if hour < sunrise - transition or hour > sunset + transition:
-        return 0.0
-    if sunrise + transition <= hour <= sunset - transition:
-        return 1.0
-    if hour < sunrise + transition:
-        return (hour - sunrise + transition) / (2 * transition)
-    return (sunset + transition - hour) / (2 * transition)
+    return solar_daylight_factor(hour, doy, lat, lng, tz_offset_h)
 
 
 def _compute_daylight_window(graph_w, window_start, total_hours, station_meta):
@@ -1085,7 +763,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         )
     else:
         # Static mode: show current calendar day
-        date = now_local.date()
+        date = (now_local + timedelta(minutes=offset_minutes)).date()
         day_preds = fetch_tides(station_id, date)
         if not day_preds:
             print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)

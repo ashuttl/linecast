@@ -153,6 +153,38 @@ def sun_elevation(lat, lng, local_hour, doy):
              math.cos(lat_r) * math.cos(dec_r) * math.cos(ha_r))
     return math.degrees(math.asin(max(-1.0, min(1.0, sin_e))))
 
+
+def daylight_factor(local_hour, doy, lat, lng, tz_offset_h):
+    """Compute a smooth day/night brightness factor for a local clock hour."""
+    decl = -23.44 * math.cos(math.radians(360 / 365 * (doy + 10)))
+    lat_rad = math.radians(lat)
+    decl_rad = math.radians(decl)
+
+    cos_ha = -math.tan(lat_rad) * math.tan(decl_rad)
+    if cos_ha <= -1:
+        return 1.0  # midnight sun
+    if cos_ha >= 1:
+        return 0.0  # polar night
+
+    ha = math.degrees(math.acos(cos_ha))
+
+    solar_noon = 12.0
+    if lng is not None:
+        tz_meridian = tz_offset_h * 15
+        solar_noon += (tz_meridian - lng) / 15
+
+    sunrise = solar_noon - ha / 15
+    sunset = solar_noon + ha / 15
+    transition = 40 / 60  # 40 minutes
+
+    if local_hour < sunrise - transition or local_hour > sunset + transition:
+        return 0.0
+    if sunrise + transition <= local_hour <= sunset - transition:
+        return 1.0
+    if local_hour < sunrise + transition:
+        return (local_hour - sunrise + transition) / (2 * transition)
+    return (sunset + transition - local_hour) / (2 * transition)
+
 # ---------------------------------------------------------------------------
 # Moon phase
 # ---------------------------------------------------------------------------

@@ -5,31 +5,17 @@ All CHS data is in UTC and metres; this module converts to local time and
 feet for compatibility with the NOAA-based rendering pipeline.
 """
 
-import math
 from datetime import datetime, timezone, timedelta
 
 from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, read_stale, write_cache
+from linecast._geo import haversine_nm
 from linecast._http import fetch_json, fetch_json_cached
 
 CACHE_DIR = CACHE_ROOT / "tides"
 CHS_BASE = "https://api-iwls.dfo-mpo.gc.ca/api/v1"
 M_TO_FT = 1 / 0.3048
 NEAREST_STATION_CACHE_MAX_AGE = 3600
-
-
-# ---------------------------------------------------------------------------
-# Geometry
-# ---------------------------------------------------------------------------
-def _haversine(lat1, lon1, lat2, lon2):
-    """Distance in nautical miles between two points."""
-    R_nm = 3440.065
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = (math.sin(dlat / 2) ** 2 +
-         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
-         math.sin(dlon / 2) ** 2)
-    return R_nm * 2 * math.asin(math.sqrt(a))
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +65,7 @@ def find_nearest_station_chs(lat, lng):
             continue
         if not s.get("operating", True):
             continue
-        d = _haversine(lat, lng, slat, slng)
+        d = haversine_nm(lat, lng, slat, slng)
         if d < best_dist:
             best_dist = d
             best_id = str(s.get("id", ""))
