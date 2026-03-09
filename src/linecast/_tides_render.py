@@ -1,10 +1,11 @@
 """Shared rendering helpers for tides chart layout."""
 
-from datetime import timedelta
+import math
+from datetime import datetime, timedelta, timezone
 
 from linecast._graphics import RESET, bg, fg, fmt_hour, fmt_time_dt, visible_len
 from linecast._tides_i18n import FULL_DAY_NAMES
-from linecast.sunshine import daylight_factor as solar_daylight_factor
+from linecast.sunshine import daylight_factor as solar_daylight_factor, moon_phase
 
 DIM = fg(70, 80, 100)
 
@@ -97,6 +98,208 @@ def compute_time_markers(window_start, total_hours, graph_w, runtime):
     return midnight_cols, midnight_day_names
 
 
+def _julian_day(dt_utc):
+    """Convert a UTC datetime into Julian Day."""
+    if dt_utc.tzinfo is None:
+        dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+    else:
+        dt_utc = dt_utc.astimezone(timezone.utc)
+    return dt_utc.timestamp() / 86400.0 + 2440587.5
+
+
+def _norm_deg(angle):
+    """Normalize an angle to [0, 360) degrees."""
+    return angle % 360.0
+
+
+def _moon_ra_dec(dt_utc):
+    """Approximate geocentric Moon right ascension/declination in degrees."""
+    jd = _julian_day(dt_utc)
+    d = jd - 2451543.5
+
+    n = math.radians(_norm_deg(125.1228 - 0.0529538083 * d))
+    inc = math.radians(5.1454)
+    w = math.radians(_norm_deg(318.0634 + 0.1643573223 * d))
+    a = 60.2666
+    e = 0.0549
+    m = math.radians(_norm_deg(115.3654 + 13.0649929509 * d))
+
+    e_anom = m + e * math.sin(m) * (1.0 + e * math.cos(m))
+    x_v = a * (math.cos(e_anom) - e)
+    y_v = a * (math.sqrt(1.0 - e * e) * math.sin(e_anom))
+    true_anom = math.atan2(y_v, x_v)
+    radius = math.hypot(x_v, y_v)
+
+    x_h = radius * (
+        math.cos(n) * math.cos(true_anom + w)
+        - math.sin(n) * math.sin(true_anom + w) * math.cos(inc)
+    )
+    y_h = radius * (
+        math.sin(n) * math.cos(true_anom + w)
+        + math.cos(n) * math.sin(true_anom + w) * math.cos(inc)
+    )
+    z_h = radius * (math.sin(true_anom + w) * math.sin(inc))
+
+    obliq = math.radians(23.4393 - 3.563e-7 * d)
+    x_eq = x_h
+    y_eq = y_h * math.cos(obliq) - z_h * math.sin(obliq)
+    z_eq = y_h * math.sin(obliq) + z_h * math.cos(obliq)
+
+    ra = _norm_deg(math.degrees(math.atan2(y_eq, x_eq)))
+    dec = math.degrees(math.atan2(z_eq, math.hypot(x_eq, y_eq)))
+    return ra, dec
+
+
+def _gmst_deg(dt_utc):
+    """Greenwich mean sidereal time in degrees."""
+    jd = _julian_day(dt_utc)
+    t = (jd - 2451545.0) / 36525.0
+    gmst = (
+        280.46061837
+        + 360.98564736629 * (jd - 2451545.0)
+        + 0.000387933 * t * t
+        - (t * t * t) / 38710000.0
+    )
+    return _norm_deg(gmst)
+
+
+def _moon_altitude_deg(dt_utc, lat_deg, lng_deg):
+    """Approximate Moon altitude for a UTC datetime and observer lat/lng."""
+    ra_deg, dec_deg = _moon_ra_dec(dt_utc)
+    lst_deg = _norm_deg(_gmst_deg(dt_utc) + lng_deg)
+    hour_angle = math.radians((lst_deg - ra_deg + 540.0) % 360.0 - 180.0)
+
+    lat = math.radians(lat_deg)
+    dec = math.radians(dec_deg)
+    sin_alt = (
+        math.sin(lat) * math.sin(dec)
+        + math.cos(lat) * math.cos(dec) * math.cos(hour_angle)
+    )
+    sin_alt = max(-1.0, min(1.0, sin_alt))
+    return math.degrees(math.asin(sin_alt))
+
+
+def _refine_moon_crossing_utc(t0_utc, t1_utc, lat_deg, lng_deg, threshold_deg):
+    """Refine a moonrise/moonset crossing between two UTC datetimes."""
+    f0 = _moon_altitude_deg(t0_utc, lat_deg, lng_deg) - threshold_deg
+    f1 = _moon_altitude_deg(t1_utc, lat_deg, lng_deg) - threshold_deg
+    if f0 == 0:
+        return t0_utc
+    if f1 == 0:
+        return t1_utc
+
+    lo, hi = t0_utc, t1_utc
+    vlo = f0
+    for _ in range(16):
+        mid = lo + timedelta(seconds=(hi - lo).total_seconds() / 2.0)
+        vmid = _moon_altitude_deg(mid, lat_deg, lng_deg) - threshold_deg
+        if vlo == 0:
+            return lo
+        if vlo * vmid <= 0:
+            hi = mid
+        else:
+            lo, vlo = mid, vmid
+        if abs((hi - lo).total_seconds()) < 30:
+            break
+    return lo + timedelta(seconds=(hi - lo).total_seconds() / 2.0)
+
+
+def _moon_events_for_local_date(local_date, lat_deg, lng_deg, tzinfo, threshold_deg=0.125):
+    """Return (moonrise_local, moonset_local) for one local calendar date."""
+    start_local = datetime(local_date.year, local_date.month, local_date.day, tzinfo=tzinfo)
+    end_local = start_local + timedelta(days=1)
+    start_utc = start_local.astimezone(timezone.utc)
+    end_utc = end_local.astimezone(timezone.utc)
+
+    rise = None
+    sset = None
+    step = timedelta(minutes=10)
+    t_prev = start_utc
+    v_prev = _moon_altitude_deg(t_prev, lat_deg, lng_deg) - threshold_deg
+    t_cur = t_prev + step
+
+    while t_cur <= end_utc and (rise is None or sset is None):
+        v_cur = _moon_altitude_deg(t_cur, lat_deg, lng_deg) - threshold_deg
+        crossing = (
+            v_prev == 0
+            or v_cur == 0
+            or (v_prev < 0 <= v_cur)
+            or (v_prev > 0 >= v_cur)
+        )
+        if crossing:
+            cross_utc = _refine_moon_crossing_utc(
+                t_prev, t_cur, lat_deg, lng_deg, threshold_deg
+            )
+            before = _moon_altitude_deg(
+                cross_utc - timedelta(minutes=1), lat_deg, lng_deg
+            ) - threshold_deg
+            after = _moon_altitude_deg(
+                cross_utc + timedelta(minutes=1), lat_deg, lng_deg
+            ) - threshold_deg
+            is_rise = after > before
+            cross_local = cross_utc.astimezone(tzinfo)
+            if start_local <= cross_local < end_local:
+                if is_rise and rise is None:
+                    rise = cross_local
+                elif not is_rise and sset is None:
+                    sset = cross_local
+
+        t_prev, v_prev = t_cur, v_cur
+        t_cur += step
+
+    return rise, sset
+
+
+def compute_moon_labels(window_start, total_hours, graph_w, station_meta, runtime):
+    """Compute moonrise/moonset labels mapped to graph columns."""
+    if total_hours <= 0 or graph_w < 3 or not station_meta:
+        return {}
+
+    try:
+        lat = float(station_meta["lat"])
+        lng = float(station_meta["lng"])
+    except (KeyError, TypeError, ValueError):
+        return {}
+
+    tzinfo = window_start.tzinfo
+    if tzinfo is None:
+        try:
+            tzinfo = timezone(timedelta(hours=float(station_meta.get("timezonecorr"))))
+        except (TypeError, ValueError):
+            return {}
+        local_start = window_start.replace(tzinfo=tzinfo)
+    else:
+        local_start = window_start.astimezone(tzinfo)
+
+    local_end = local_start + timedelta(hours=total_hours)
+    labels = {}
+    use_24h = bool(getattr(runtime, "use_24h", False))
+
+    day = local_start.date() - timedelta(days=1)
+    last_day = local_end.date() + timedelta(days=1)
+    while day <= last_day:
+        rise_dt, set_dt = _moon_events_for_local_date(day, lat, lng, tzinfo)
+        for event_dt, is_rise in ((rise_dt, True), (set_dt, False)):
+            if event_dt is None:
+                continue
+            off_h = (event_dt - local_start).total_seconds() / 3600.0
+            if 0 < off_h < total_hours:
+                col = int(off_h / total_hours * (graph_w - 1))
+                if 0 < col < graph_w - 1:
+                    _idx, _name, phase_icon = moon_phase(
+                        event_dt.astimezone(timezone.utc),
+                        runtime,
+                    )
+                    arrow = "\u2191" if is_rise else "\u2193"
+                    labels[col] = (
+                        f"{phase_icon}{arrow}{fmt_time_dt(event_dt, use_24h=use_24h)}",
+                        is_rise,
+                    )
+        day += timedelta(days=1)
+
+    return labels
+
+
 def render_tide_ticks(window_start, total_hours, graph_w, runtime, now_col=None, hover_col=None):
     """Render time axis labels under the chart."""
     use_24h = runtime.use_24h
@@ -152,16 +355,116 @@ def render_tide_ticks(window_start, total_hours, graph_w, runtime, now_col=None,
     return f" {DIM}{''.join(canvas)}{RESET}"
 
 
-def render_day_label_line(midnight_day_names, graph_w):
-    """Render day name labels on their own row, aligned with chart columns."""
+def render_day_label_line(midnight_day_names, graph_w, moon_labels=None):
+    """Render day and moon-event labels on their own row."""
+    if moon_labels is None:
+        moon_labels = {}
+
     muted = fg(100, 110, 130)
+    rise_color = (170, 150, 210)
+    set_color = (130, 145, 185)
     canvas = [" "] * graph_w
+    canvas_colors = [None] * graph_w
+
+    def _draw_label(start, text, color=None, allow_overlap=False):
+        width = visible_len(text)
+        if start < 0 or start + width > graph_w:
+            return False
+        if not allow_overlap and any(canvas[start + i] != " " for i in range(width)):
+            return False
+        x = start
+        for ch in text:
+            if x >= graph_w:
+                break
+            canvas[x] = ch
+            canvas_colors[x] = color
+            ch_w = visible_len(ch)
+            for k in range(1, ch_w):
+                if x + k < graph_w:
+                    canvas[x + k] = ""
+                    canvas_colors[x + k] = color
+            x += ch_w
+        return True
+
+    def _find_open_slot(
+        preferred_start,
+        text,
+        prefer_forward=True,
+        pad_mask=None,
+        min_pad=0,
+    ):
+        """Find an open slot for text, preferring movement to the right."""
+        width = visible_len(text)
+        if width <= 0 or width > graph_w:
+            return None
+
+        lo = 0
+        hi = graph_w - width
+        start = max(lo, min(hi, preferred_start))
+
+        def _open(slot):
+            if not all(canvas[slot + i] == " " for i in range(width)):
+                return False
+            if pad_mask is None or min_pad <= 0:
+                return True
+
+            left = max(0, slot - min_pad)
+            right = min(graph_w - 1, slot + width - 1 + min_pad)
+            for i in range(left, right + 1):
+                if slot <= i < slot + width:
+                    continue
+                if pad_mask[i]:
+                    return False
+            return True
+
+        if _open(start):
+            return start
+
+        if prefer_forward:
+            for slot in range(start + 1, hi + 1):
+                if _open(slot):
+                    return slot
+            for slot in range(start - 1, lo - 1, -1):
+                if _open(slot):
+                    return slot
+        else:
+            for slot in range(start - 1, lo - 1, -1):
+                if _open(slot):
+                    return slot
+            for slot in range(start + 1, hi + 1):
+                if _open(slot):
+                    return slot
+        return None
+
     for col, day_name in sorted(midnight_day_names.items()):
-        pos = col + 1
-        for j, c in enumerate(day_name):
-            if 0 <= pos + j < graph_w:
-                canvas[pos + j] = c
-    return f" {muted}{''.join(canvas)}{RESET}"
+        _draw_label(col + 1, day_name, color=None, allow_overlap=True)
+
+    day_mask = [cell != " " for cell in canvas]
+
+    for col, (label, is_rise) in sorted(moon_labels.items()):
+        color = rise_color if is_rise else set_color
+        preferred = max(0, col + 1)
+        slot = _find_open_slot(
+            preferred,
+            label,
+            prefer_forward=True,
+            pad_mask=day_mask,
+            min_pad=1,
+        )
+        if slot is not None:
+            _draw_label(slot, label, color=color, allow_overlap=False)
+
+    line = muted
+    current_color = None
+    for i in range(graph_w):
+        color = canvas_colors[i]
+        if color != current_color:
+            line += muted if color is None else fg(*color)
+            current_color = color
+        line += canvas[i]
+    if current_color is not None:
+        line += muted
+    return f" {line}{RESET}"
 
 
 def build_tide_hover_tooltip(window, graph_col, mouse_row, chart_start, chart_end, cols, rows, graph_w, runtime):

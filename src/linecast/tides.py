@@ -51,6 +51,7 @@ from linecast._tides_noaa import (
 from linecast._tides_render import (
     build_tide_hover_tooltip as _build_tide_hover_tooltip,
     compute_daylight_window as _compute_daylight_window,
+    compute_moon_labels as _compute_moon_labels,
     compute_time_markers as _compute_time_markers,
     interp_height as _interp_height,
     prepare_tide_window as _prepare_tide_window,
@@ -600,6 +601,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
 
     # --- day divisions ---
     midnight_cols, midnight_day_names = _compute_time_markers(w_start, w_total, graph_w, runtime)
+    moon_labels = _compute_moon_labels(w_start, w_total, graph_w, station_meta, runtime)
 
     # --- hover ---
     hover_graph_col = None
@@ -649,7 +651,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     ))
 
     # Day labels on their own row
-    lines.append(_render_day_label_line(midnight_day_names, graph_w))
+    lines.append(_render_day_label_line(midnight_day_names, graph_w, moon_labels=moon_labels))
 
     # Braille chart
     lines.extend(_render_tide_braille_rows(
