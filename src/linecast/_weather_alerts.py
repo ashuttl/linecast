@@ -95,10 +95,13 @@ def _pill_text_rgb(bg_rgb):
     return best_contrast(((20, 20, 25), TEXT_RGB), background=bg_rgb, minimum=4.5)
 
 
-def _parse_alert_time(iso_str, runtime=None):
-    """Parse ISO time string to a short display string."""
+def _parse_alert_time(iso_str, runtime=None, tz_name=""):
+    """Parse ISO time string to a short display string in local time."""
     try:
         dt = datetime.fromisoformat(iso_str)
+        if tz_name and dt.tzinfo is not None:
+            from zoneinfo import ZoneInfo
+            dt = dt.astimezone(ZoneInfo(tz_name))
         use_24h = runtime.use_24h if runtime else False
         lang = getattr(runtime, "lang", "en") if runtime else "en"
         day_names = DAY_NAMES.get(lang, DAY_NAMES["en"])
@@ -130,15 +133,15 @@ def _severity_rgb(severity):
     return ALERT_YELLOW_RGB
 
 
-def _render_single_alert(alert, width, max_lines=999, runtime=None):
+def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name=""):
     """Render one alert as a single compact line: pill + date range + truncated body."""
     severity = alert.get("severity", "")
     r, g, b = _severity_rgb(severity)
     dark_fg = fg(*_pill_text_rgb((r, g, b)))
     bg_color = bg(r, g, b)
     event = alert.get("event", "Unknown")
-    effective = _parse_alert_time(alert.get("effective", ""), runtime)
-    expires = _parse_alert_time(alert.get("expires", ""), runtime)
+    effective = _parse_alert_time(alert.get("effective", ""), runtime, tz_name)
+    expires = _parse_alert_time(alert.get("expires", ""), runtime, tz_name)
     timing = ""
     if effective and expires:
         timing = f"{effective} \u2013 {expires}"
@@ -169,7 +172,7 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None):
     return ["".join(parts)]
 
 
-def render_alerts(alerts, width=80, remaining_rows=None, runtime=None):
+def render_alerts(alerts, width=80, remaining_rows=None, runtime=None, tz_name=""):
     """NWS/ECCC/JMA alert banners — compact format.
 
     When multiple alerts share the same description, their pills are grouped
@@ -190,7 +193,7 @@ def render_alerts(alerts, width=80, remaining_rows=None, runtime=None):
     for key, group in groups.items():
         if len(group) == 1:
             # Single alert — render normally
-            lines.extend(_render_single_alert(group[0], width, runtime=runtime))
+            lines.extend(_render_single_alert(group[0], width, runtime=runtime, tz_name=tz_name))
         else:
             # Multiple alerts share a description — pills on one line,
             # shared description on the next
@@ -224,7 +227,7 @@ def render_alerts(alerts, width=80, remaining_rows=None, runtime=None):
 _MODAL_BG = MODAL_BG_RGB
 
 
-def _build_modal_content(alert, inner_w, runtime=None):
+def _build_modal_content(alert, inner_w, runtime=None, tz_name=""):
     """Build the full list of content lines for the alert modal.
 
     Returns a list of (text, is_blank) tuples. Each text string already
@@ -245,8 +248,8 @@ def _build_modal_content(alert, inner_w, runtime=None):
     lines.append(pill)
 
     # Timing
-    effective = _parse_alert_time(alert.get("effective", ""), runtime)
-    expires = _parse_alert_time(alert.get("expires", ""), runtime)
+    effective = _parse_alert_time(alert.get("effective", ""), runtime, tz_name)
+    expires = _parse_alert_time(alert.get("expires", ""), runtime, tz_name)
     if effective and expires:
         lines.append(f"{MBG}{WIND_COLOR}{effective} \u2013 {expires}{RESET}")
     elif expires:
@@ -287,7 +290,7 @@ def _build_modal_content(alert, inner_w, runtime=None):
     return lines
 
 
-def build_alert_modal(alert, cols, rows, runtime=None, scroll=0):
+def build_alert_modal(alert, cols, rows, runtime=None, scroll=0, tz_name=""):
     """Build a centered modal overlay showing the full alert detail.
 
     Returns cursor-positioned ANSI escape sequences to draw the modal.
@@ -301,7 +304,7 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0):
     inner_w = modal_w - 4  # 2 border + 2 padding
     modal_max_h = rows - 4
 
-    all_content = _build_modal_content(alert, inner_w, runtime=runtime)
+    all_content = _build_modal_content(alert, inner_w, runtime=runtime, tz_name=tz_name)
     total_content = len(all_content)
 
     # Visible content area height (excluding top/bottom border)

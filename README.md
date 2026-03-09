@@ -76,6 +76,23 @@ linecast sunshine --print
 linecast tides --station 8413320
 ```
 
+## Shell completion
+
+Generate shell completion from the CLI:
+
+```bash
+# Bash
+source <(linecast completion bash)
+
+# Zsh
+source <(linecast completion zsh)
+
+# Fish
+linecast completion fish | source
+```
+
+This installs completions for both `linecast <command>` and standalone `weather`, `tides`, and `sunshine`.
+
 ## Weather alerts
 
 Alerts are sourced automatically based on location from eight providers covering 36 countries:

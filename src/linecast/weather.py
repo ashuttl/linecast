@@ -211,9 +211,10 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
 
     cols, rows = get_terminal_size()
     now_local = _local_now_for_data(data)
+    tz_name = data.get("timezone", "")
 
     # Pre-render fixed-height sections to budget graph rows accurately
-    alert_lines = render_alerts(alerts, width=cols, runtime=runtime) if alerts else []
+    alert_lines = render_alerts(alerts, width=cols, runtime=runtime, tz_name=tz_name) if alerts else []
     comp = _comparative_line(data.get("daily", {}), now_local, runtime)
     precip = _precipitation_line(data.get("hourly", {}), now_local, runtime)
     past_precip = _past_precip_line(data.get("hourly", {}), now_local, runtime)
@@ -327,7 +328,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     overlay = ""
     if active_alert is not None and 0 <= active_alert < len(alerts):
         overlay, _max_scroll = build_alert_modal(
-            alerts[active_alert], cols, rows, runtime=runtime, scroll=modal_scroll,
+            alerts[active_alert], cols, rows, runtime=runtime, scroll=modal_scroll, tz_name=tz_name,
         )
     elif mouse_pos:
         mouse_col, mouse_row = mouse_pos

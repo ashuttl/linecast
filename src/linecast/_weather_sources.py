@@ -202,7 +202,7 @@ def _fetch_alerts_eccc(lat, lng, lang="en"):
         severity = _eccc_severity(props)
         desc = props.get(text_key) or props.get(text_fallback) or ""
         effective = props.get("validity_datetime") or props.get("publication_datetime") or ""
-        expires = props.get("expiration_datetime") or ""
+        expires = props.get("event_end_datetime") or props.get("expiration_datetime") or ""
 
         if not event:
             continue
