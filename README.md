@@ -19,11 +19,11 @@ All data comes from free public APIs with no keys required.
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-dusk.png" width="49%" alt="sunshine — dusk">
 </p>
 
-**`tides`** — NOAA tide predictions rendered as a sunlight-shaded braille chart with current water level and high/low extremes.
+**`tides`** — NOAA tide predictions rendered as a sunlight-shaded braille chart with scrollable multi-day window, current water level, high/low extremes with timestamps, and mouse hover tooltips.
 
 ![tides](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
 
-All three support `--live` for a full-screen auto-refreshing display. `sunshine` and `tides` also support arrow-key time scrubbing.
+All three support `--live` for a full-screen auto-refreshing display. `sunshine` and `tides` also support arrow-key time scrubbing. `tides` additionally supports mouse hover for inspecting any point on the curve.
 
 ## Install
 
@@ -57,7 +57,9 @@ sunshine --live                  # full-screen, scrubbable, auto-updating
 tides                            # nearest NOAA station
 tides --station 8413320          # specific station ID
 tides --search "Bar Harbor"      # find stations by name
-tides --live                     # full-screen, scrubbable, auto-updating
+tides --metric                   # heights in meters instead of feet
+tides --lang fr                  # UI in French
+tides --live                     # full-screen, scrubbable, mouse hover, auto-updating
 ```
 
 ### Language support
@@ -95,6 +97,7 @@ Alert text comes from each national weather service in its native language. When
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `WEATHER_LOCATION` | Default lat,lng for weather (e.g., `44.54,-68.42`)                                                                                           |
 | `TIDE_STATION`     | Default NOAA station ID for tides (e.g., `8413320`)                                                                                          |
+| `TIDES_UNITS`      | Set to `metric` for tide heights in meters (same as `--metric`)                                                                              |
 | `LINECAST_LANG`    | UI language, including alerts when available: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh` |
 | `WEATHER_UNITS`    | Set to `metric` for Celsius, km/h, and mm (same as `--metric`)                                                                               |
 | `LINECAST_ICONS`   | Set to `emoji` to use standard emoji instead of Nerd Font icons                                                                              |

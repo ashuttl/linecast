@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tides — terminal visualization of NOAA tide predictions.
+"""Tides — terminal visualization of tide predictions.
 
 Renders a multi-line graphical display of the tide curve with an
 ocean-themed color palette. Shows water level as a braille line graph
@@ -8,6 +8,9 @@ with height-colored curve, high/low labels, and current position indicator.
 Uses Unicode braille characters with ANSI color for smooth line rendering
 (true color when available). Station is auto-detected from IP geolocation
 or overridden with TIDE_STATION env var.
+
+Data sources: NOAA (US) and CHS/IWLS (Canada), selected automatically
+based on geolocation. Use --station with a station ID to override.
 
 Usage: tides [--live] [--station ID] [--search QUERY] [--metric] [--lang LANG]
 """
@@ -29,6 +32,11 @@ from linecast._http import fetch_json, fetch_json_cached
 from linecast._location import get_location
 from linecast._runtime import TidesRuntime, arg_value, has_flag
 from linecast._tides_i18n import FULL_DAY_NAMES, _ts
+from linecast._tides_chs import (
+    find_nearest_station_chs, fetch_station_metadata_chs,
+    fetch_tides_range_chs, fetch_hilo_range_chs, fetch_y_range_chs,
+    _fetch_all_stations_chs,
+)
 from linecast import USER_AGENT
 
 CACHE_DIR = CACHE_ROOT / "tides"
@@ -49,6 +57,12 @@ WAVE_ICON = "\U000F0F85"            # 󰾅
 # ---------------------------------------------------------------------------
 # Data layer
 # ---------------------------------------------------------------------------
+def _is_chs_station_id(station_id):
+    """Check if a station ID is a CHS MongoDB ObjectId (24-char hex)."""
+    return (len(station_id) == 24 and
+            all(c in '0123456789abcdef' for c in station_id.lower()))
+
+
 def _haversine(lat1, lon1, lat2, lon2):
     """Distance in nautical miles between two points."""
     R_nm = 3440.065  # Earth radius in nautical miles
@@ -145,6 +159,15 @@ def _station_tzinfo(meta):
     """Resolve a station timezone to tzinfo using metadata and safe fallbacks."""
     if not meta:
         return None
+
+    # CHS stations provide IANA timezone directly
+    tz_code = meta.get("timeZoneCode")
+    if tz_code:
+        try:
+            from zoneinfo import ZoneInfo
+            return ZoneInfo(tz_code)
+        except Exception:
+            pass
 
     tz_abbr = str(meta.get("timezone_abbr", "")).upper()
     state = str(meta.get("state", "")).upper()
@@ -311,30 +334,43 @@ def _fetch_all_stations():
 
 
 def _search_stations(query):
-    """Search NOAA stations by name substring. Prints matches and exits."""
-    stations = _fetch_all_stations()
-    if not stations:
-        print("Could not fetch station list.", file=sys.stderr)
-        sys.exit(1)
-
+    """Search NOAA and CHS stations by name substring. Prints matches and exits."""
     q = query.lower()
-    matches = [s for s in stations if q in s.get("name", "").lower()]
 
-    if not matches:
+    # NOAA
+    noaa_stations = _fetch_all_stations()
+    noaa_matches = [s for s in (noaa_stations or []) if q in s.get("name", "").lower()]
+    noaa_matches.sort(key=lambda s: s.get("name", ""))
+
+    # CHS (Canada)
+    chs_stations = _fetch_all_stations_chs()
+    chs_matches = [s for s in (chs_stations or [])
+                   if q in s.get("officialName", "").lower()]
+    chs_matches.sort(key=lambda s: s.get("officialName", ""))
+
+    if not noaa_matches and not chs_matches:
         print(f"No stations matching \"{query}\".")
         sys.exit(0)
 
-    # Sort alphabetically by name
-    matches.sort(key=lambda s: s.get("name", ""))
-    for s in matches[:20]:
+    for s in noaa_matches[:20]:
         sid = s.get("id", "")
         name = s.get("name", "")
         state = s.get("state", "")
         label = f"{name}, {state}" if state else name
         print(f"  {sid}  {label}")
 
-    if len(matches) > 20:
-        print(f"  ... and {len(matches) - 20} more")
+    if noaa_matches and chs_matches:
+        print()
+
+    for s in chs_matches[:20]:
+        sid = s.get("id", "")
+        name = s.get("officialName", "")
+        print(f"  {sid}  {name}")
+
+    total = len(noaa_matches) + len(chs_matches)
+    shown = min(len(noaa_matches), 20) + min(len(chs_matches), 20)
+    if total > shown:
+        print(f"  ... and {total - shown} more")
 
 
 # ---------------------------------------------------------------------------
@@ -1246,31 +1282,46 @@ def main():
     station_arg = arg_value("--station")
     override = station_arg or os.environ.get("TIDE_STATION", "").strip()
 
+    use_chs = False
     if override:
-        station_id = override
-        station_name = f"Station {override}"
-        for s in (_fetch_all_stations() or []):
-            if str(s.get("id", "")) == override:
-                name = s.get("name", "")
-                state = s.get("state", "")
-                station_name = f"{name}, {state}" if state else name
-                break
+        if _is_chs_station_id(override):
+            use_chs = True
+            station_id = override
+            station_name = f"Station {override[:8]}"
+        else:
+            station_id = override
+            station_name = f"Station {override}"
+            for s in (_fetch_all_stations() or []):
+                if str(s.get("id", "")) == override:
+                    name = s.get("name", "")
+                    state = s.get("state", "")
+                    station_name = f"{name}, {state}" if state else name
+                    break
     else:
-        lat, lng, _country = get_location()
+        lat, lng, country_code = get_location()
         if lat is None:
             print("Could not determine location for tide station lookup.", file=sys.stderr)
             sys.exit(1)
 
-        station_id, station_name = find_nearest_station(lat, lng)
+        if country_code == "CA":
+            use_chs = True
+            station_id, station_name = find_nearest_station_chs(lat, lng)
+        else:
+            station_id, station_name = find_nearest_station(lat, lng)
+
         if station_id is None:
+            source = "CHS" if use_chs else "NOAA"
             print(
-                "No NOAA tide station within 100nm. "
+                f"No {source} tide station within 100nm. "
                 "Set TIDE_STATION=<id> to specify one manually.",
                 file=sys.stderr,
             )
             sys.exit(1)
 
-    station_meta = _fetch_station_metadata(station_id)
+    if use_chs:
+        station_meta = fetch_station_metadata_chs(station_id)
+    else:
+        station_meta = _fetch_station_metadata(station_id)
     if station_meta:
         meta_name = station_meta.get("name", "")
         meta_state = station_meta.get("state", "")
@@ -1282,15 +1333,22 @@ def main():
     today = now_local.date()
 
     # Fixed y-axis range from ±30 days of hilo data
-    y_range = fetch_y_range(station_id, today)
+    if use_chs:
+        y_range = fetch_y_range_chs(station_id, today, station_tz)
+    else:
+        y_range = fetch_y_range(station_id, today)
+
+    # Provider-specific range fetch functions
+    _fetch_tides_range = fetch_tides_range_chs if use_chs else fetch_tides_range
+    _fetch_hilo_range = fetch_hilo_range_chs if use_chs else fetch_hilo_range
 
     if runtime.live:
         # Pre-fetch ~7 days in each direction
         fetch_start = today - timedelta(days=7)
         fetch_end = today + timedelta(days=7)
 
-        all_predictions = fetch_tides_range(station_id, fetch_start, fetch_end, station_tz)
-        all_hilo = fetch_hilo_range(station_id, fetch_start, fetch_end, station_tz)
+        all_predictions = _fetch_tides_range(station_id, fetch_start, fetch_end, station_tz)
+        all_hilo = _fetch_hilo_range(station_id, fetch_start, fetch_end, station_tz)
         fetched_range = [fetch_start, fetch_end]
 
         if not all_predictions:
@@ -1314,8 +1372,8 @@ def main():
                 need_expand = True
 
             if need_expand:
-                all_predictions = fetch_tides_range(station_id, new_start, new_end, station_tz)
-                all_hilo = fetch_hilo_range(station_id, new_start, new_end, station_tz)
+                all_predictions = _fetch_tides_range(station_id, new_start, new_end, station_tz)
+                all_hilo = _fetch_hilo_range(station_id, new_start, new_end, station_tz)
                 fetched_range[0] = new_start
                 fetched_range[1] = new_end
 
@@ -1336,13 +1394,34 @@ def main():
 
         live_loop(_render, interval=60, mouse=True, scroll_step=5)
     else:
-        print(render(
-            station_id,
-            station_name,
-            station_meta=station_meta,
-            runtime=runtime,
-            y_range=y_range,
-        ))
+        if use_chs:
+            preds = fetch_tides_range_chs(
+                station_id, today - timedelta(days=1),
+                today + timedelta(days=1), station_tz)
+            hilo_data = fetch_hilo_range_chs(
+                station_id, today - timedelta(days=1),
+                today + timedelta(days=1), station_tz)
+            if not preds:
+                print(f"Could not fetch tide data for station {station_id}.",
+                      file=sys.stderr)
+                sys.exit(1)
+            print(render(
+                station_id,
+                station_name,
+                station_meta=station_meta,
+                runtime=runtime,
+                predictions=preds,
+                hilo=hilo_data,
+                y_range=y_range,
+            ))
+        else:
+            print(render(
+                station_id,
+                station_name,
+                station_meta=station_meta,
+                runtime=runtime,
+                y_range=y_range,
+            ))
 
 
 if __name__ == "__main__":
