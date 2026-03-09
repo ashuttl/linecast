@@ -35,6 +35,22 @@ def env_truthy(value):
     return str(value).lower() in ("1", "true", "yes")
 
 
+def _resolve_live(args):
+    """Live mode is on by default when stdout is a TTY.
+
+    --print forces static single-shot output.
+    --live is accepted for backwards compatibility but is no longer needed.
+    """
+    if "--print" in args:
+        return False
+    if "--live" in args:
+        return True
+    try:
+        return sys.stdout.isatty()
+    except Exception:
+        return False
+
+
 @dataclass(frozen=True)
 class RuntimeConfig:
     live: bool
@@ -51,7 +67,7 @@ class RuntimeConfig:
             or "en"
         ).lower()[:2]
         return cls(
-            live="--live" in args,
+            live=_resolve_live(args),
             emoji="--emoji" in args or env.get("LINECAST_ICONS", "").lower() == "emoji",
             lang=lang if len(lang) == 2 and lang.isalpha() else "en",
         )

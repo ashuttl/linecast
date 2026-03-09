@@ -10,7 +10,7 @@ Uses half-block characters with ANSI color for smooth rendering at 2x
 vertical sub-pixel resolution (true color when available). Location is
 cached from IP geolocation (~1 network call per week).
 
-Usage: sunshine [--live] [--emoji]
+Usage: sunshine [--print] [--emoji]
 """
 
 import math

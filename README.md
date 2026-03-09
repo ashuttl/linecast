@@ -23,7 +23,7 @@ All data comes from free public APIs with no keys required.
 
 ![tides](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
 
-All three support `--live` for a full-screen auto-refreshing display. `sunshine` and `tides` also support arrow-key time scrubbing. `tides` additionally supports mouse hover for inspecting any point on the curve.
+All three launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.
 
 ## Install
 
@@ -49,17 +49,17 @@ weather --celsius                # celsius only (wind/precip stay imperial)
 weather --metric --fahrenheit    # °F with km/h and mm
 weather --lang fr                # UI in French (also covers alert text when available)
 # other language codes: es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
-weather --live                   # full-screen, auto-refresh
+weather --print                  # single static snapshot (no live mode)
 
-sunshine                         # solar arc for today
-sunshine --live                  # full-screen, scrubbable, auto-updating
+sunshine                         # solar arc (live by default)
+sunshine --print                 # static snapshot
 
-tides                            # nearest NOAA station
+tides                            # nearest NOAA station (live by default)
 tides --station 8413320          # specific station ID
 tides --search "Bar Harbor"      # find stations by name
 tides --metric                   # heights in meters instead of feet
 tides --lang fr                  # UI in French
-tides --live                     # full-screen, scrubbable, mouse hover, auto-updating
+tides --print                    # static snapshot
 ```
 
 ### Language support
@@ -71,8 +71,8 @@ Supported: **English**, **French**, **Spanish**, **German**, **Italian**, **Port
 All commands are also available under the `linecast` namespace if the short names conflict with other tools on your system:
 
 ```
-linecast weather --live
-linecast sunshine
+linecast weather
+linecast sunshine --print
 linecast tides --station 8413320
 ```
 

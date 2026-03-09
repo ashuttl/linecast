@@ -12,7 +12,7 @@ or overridden with TIDE_STATION env var.
 Data sources: NOAA (US) and CHS/IWLS (Canada), selected automatically
 based on geolocation. Use --station with a station ID to override.
 
-Usage: tides [--live] [--station ID] [--search QUERY] [--metric] [--lang LANG]
+Usage: tides [--print] [--station ID] [--search QUERY] [--metric] [--lang LANG]
 """
 
 import math

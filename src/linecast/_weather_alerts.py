@@ -195,7 +195,7 @@ def render_alerts(alerts, width=80, remaining_rows=None, runtime=None):
 
 
 # ---------------------------------------------------------------------------
-# Alert modal (full detail overlay for --live click)
+# Alert modal (full detail overlay for live mode click)
 # ---------------------------------------------------------------------------
 
 _MODAL_BG = (10, 12, 18)
