@@ -105,7 +105,7 @@ class WeatherRuntime(RuntimeConfig):
             lang=base.lang,
             celsius=celsius,
             metric="--metric" in args or all_metric,
-            shading="--shading" in args or env_truthy(env.get("WEATHER_SHADING", "")),
+            shading="--no-shading" not in args and not env_truthy(env.get("WEATHER_NO_SHADING", "")),
         )
 
     @property

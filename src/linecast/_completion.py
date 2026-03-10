@@ -39,7 +39,7 @@ WEATHER_FLAGS = (
     "--metric",
     "--celsius",
     "--fahrenheit",
-    "--shading",
+    "--no-shading",
     "--lang",
     "--classic-colors",
     "--legacy-colors",
