@@ -744,14 +744,14 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
         )
     ]
 
+    tick_line = _render_tick_labels(window_dts, total_hours, graph_w, runtime, hover_col=hover_col)
+    if tick_line:
+        lines.append(tick_line)
+
     braille_rows = _build_braille_curve(window_temps, graph_w, n_braille_rows)
     overlays = _compute_extrema_overlays(extrema, col_temps, n_braille_rows, graph_w, runtime)
     lines.extend(_render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime, overlays,
                                        hover_col=hover_col))
-
-    tick_line = _render_tick_labels(window_dts, total_hours, graph_w, runtime, hover_col=hover_col)
-    if tick_line:
-        lines.append(tick_line)
 
     wind_line = _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime)
     if wind_line:

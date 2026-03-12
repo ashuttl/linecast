@@ -60,6 +60,7 @@ from linecast._tides_noaa import (
     find_nearest_station,
 )
 from linecast._tides_render import (
+    build_now_tooltip as _build_now_tooltip,
     build_tide_hover_tooltip as _build_tide_hover_tooltip,
     compute_daylight_window as _compute_daylight_window,
     compute_moon_labels as _compute_moon_labels,
@@ -427,9 +428,8 @@ def _render_tide_braille_rows(braille_rows, col_daylight, midnight_cols,
 # ---------------------------------------------------------------------------
 # Header line (day names at midnight boundaries)
 # ---------------------------------------------------------------------------
-def _render_header_line(cols, station_name, runtime, offset_minutes=0,
-                        now_info=None):
-    """Render the top line with pill-styled station name and current tide info."""
+def _render_header_line(cols, station_name, runtime, offset_minutes=0):
+    """Render the top line with pill-styled station name."""
     # Title-case the city name but preserve short uppercase tokens (state/province codes)
     if station_name:
         parts = station_name.split(",")
@@ -450,14 +450,6 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0,
         pill = ""
         pill_w = 0
 
-    # Current tide info (inline after station name)
-    now_suffix = ""
-    now_suffix_w = 0
-    if now_info:
-        time_str, height_display, unit = now_info
-        now_suffix = f"  {DIM}{time_str}  {height_display:.1f}{unit}{RESET}"
-        now_suffix_w = 2 + len(time_str) + 2 + len(f"{height_display:.1f}{unit}")
-
     # Moon phase (right-aligned)
     _, phase_name, moon_icon = moon_phase(datetime.now(timezone.utc), runtime)
     moon_color = fg(*MUTED_RGB)
@@ -469,11 +461,11 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0,
         hint_text = _ts("space_to_now", runtime)
         hint = f"{DIM}{hint_text}{RESET}"
         right_w = len(hint_text)
-        padding = max(1, cols - 1 - pill_w - now_suffix_w - right_w)
-        return f"{pill}{now_suffix}{' ' * padding}{hint}"
+        padding = max(1, cols - 1 - pill_w - right_w)
+        return f"{pill}{' ' * padding}{hint}"
 
-    padding = max(1, cols - 1 - pill_w - now_suffix_w - moon_w)
-    return f"{pill}{now_suffix}{' ' * padding}{moon_str}"
+    padding = max(1, cols - 1 - pill_w - moon_w)
+    return f"{pill}{' ' * padding}{moon_str}"
 
 
 # ---------------------------------------------------------------------------
@@ -682,10 +674,9 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     # --- assemble output ---
     lines = []
 
-    # Header with pill-styled station name and current tide info
+    # Header with pill-styled station name
     lines.append(_render_header_line(
         cols, station_name, runtime, offset_minutes=offset_minutes,
-        now_info=now_info,
     ))
 
     # Day labels on their own row
@@ -708,7 +699,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     # --- cursor-positioned overlays ---
     overlay_parts = []
 
-    # Hover tooltip
+    # Hover tooltip (takes priority over now tooltip)
     if mouse_pos and hover_graph_col is not None:
         tooltip = _build_tide_hover_tooltip(
             window, hover_graph_col, mouse_pos[1],
@@ -716,6 +707,10 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         )
         if tooltip:
             overlay_parts.append(tooltip)
+    elif now_col is not None and now_info is not None:
+        now_tip = _build_now_tooltip(now_col, now_info, chart_start, cols, graph_w)
+        if now_tip:
+            overlay_parts.append(now_tip)
 
     if overlay_parts:
         output += "\x00" + "".join(overlay_parts)

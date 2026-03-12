@@ -490,6 +490,42 @@ def render_day_label_line(midnight_day_names, graph_w, moon_labels=None):
     return f" {line}{RESET}"
 
 
+def build_now_tooltip(now_col, now_info, chart_start, cols, graph_w):
+    """Build cursor-positioned tooltip at the top of the now indicator line."""
+    if now_col is None or now_info is None:
+        return ""
+
+    time_str, h_display, unit = now_info
+
+    tip_bg = bg(*TIP_BG_RGB)
+    tip_fg = fg(*TIP_TEXT_RGB)
+
+    tip_lines = [
+        f"{tip_bg}{tip_fg} {time_str} ",
+        f"{tip_bg}{tip_fg} {h_display:.1f}{unit} ",
+    ]
+
+    max_w = max(visible_len(line) for line in tip_lines)
+    padded = []
+    for line in tip_lines:
+        pad = max_w - visible_len(line)
+        padded.append(f"{line}{' ' * pad}{RESET}")
+
+    # Position: just to the right of the now column, at the top of the chart
+    # +2 for the 1-char left margin and 1-based terminal coords
+    snap_col = now_col + 2 + 1
+    tooltip_col = snap_col
+    tooltip_row = chart_start + 1  # 0-based line index -> 1-based terminal row
+    tooltip_w = max_w
+    if tooltip_col + tooltip_w - 1 > cols:
+        tooltip_col = max(1, cols - tooltip_w + 1)
+
+    result = ""
+    for i, line in enumerate(padded):
+        result += f"\033[{tooltip_row + i};{tooltip_col}H{line}"
+    return result
+
+
 def build_tide_hover_tooltip(window, graph_col, mouse_row, chart_start, chart_end, cols, rows, graph_w, runtime):
     """Build cursor-positioned tooltip overlay for mouse hover on the chart."""
     line_idx = mouse_row - 1
