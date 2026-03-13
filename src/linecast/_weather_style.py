@@ -110,6 +110,21 @@ def _precip_type(wmo_code):
     return "Rain"
 
 
+UV_COLORS = [
+    (0, GREEN_RGB),
+    (3, YELLOW_RGB),
+    (6, ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.45), theme_bg, minimum=2.1)),
+    (8, RED_RGB),
+    (11, MAGENTA_RGB),
+]
+UV_COLOR = fg(*ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.30), theme_bg, minimum=2.5))
+
+
+def _uv_color(uv):
+    """ANSI fg escape for a UV index value."""
+    return fg(*interp_stops(UV_COLORS, uv))
+
+
 def _precip_color(wmo_code):
     """ANSI color for precipitation type based on WMO code."""
     if wmo_code in (71, 73, 75, 77, 85, 86):

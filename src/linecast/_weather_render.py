@@ -14,16 +14,15 @@ from linecast._weather_alerts import (
     render_alerts,
 )
 from linecast._weather_daily import render_daily
+from linecast._braille import build_braille_curve as _build_braille_curve
+from linecast._graphics import fmt_hour as _fmt_hour, fmt_time_dt as _fmt_time
 from linecast._weather_hourly import (
-    _build_braille_curve,
     _build_precip_blocks,
     _compute_daylight_columns,
     _compute_sun_labels,
     _compute_time_markers,
     _daylight_factor,
     _find_temperature_extrema,
-    _fmt_hour,
-    _fmt_time,
     _interpolate_columns,
     _parse_sun_events,
     _prepare_hourly_window,
@@ -32,6 +31,7 @@ from linecast._weather_hourly import (
     _render_precip_rows,
     _render_tick_labels,
     _render_today_line,
+    _render_uv_row,
     _render_wind_row,
     render_hourly,
 )

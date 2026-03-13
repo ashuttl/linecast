@@ -2,8 +2,8 @@
 
 from datetime import datetime, timedelta
 
-from linecast._braille import build_braille_curve
-from linecast._graphics import bg, fg, RESET, visible_len
+from linecast._braille import build_braille_curve, interpolate
+from linecast._graphics import bg, fg, fmt_hour, fmt_time_dt, RESET, visible_len
 from linecast._runtime import WeatherRuntime
 from linecast._weather_i18n import DAY_NAMES, FULL_DAY_NAMES, _s
 from linecast._weather_sources import _local_now_for_data
@@ -17,26 +17,14 @@ from linecast._weather_style import (
     SUNRISE_LABEL_RGB,
     SUNSET_LABEL_RGB,
     TEXT,
+    UV_COLOR,
     WIND_ARROWS,
     WIND_COLOR,
     _colored_temp,
     _precip_color,
     _temp_color,
+    _uv_color,
 )
-
-
-def _fmt_hour(h, use_24h=False):
-    """Format hour as compact label: 6a, 12p (12h) or 06, 14 (24h)."""
-    h = h % 24
-    if use_24h:
-        return f"{h:02d}"
-    if h == 0:
-        return "12a"
-    if h == 12:
-        return "12p"
-    if h < 12:
-        return f"{h}a"
-    return f"{h - 12}p"
 
 
 def _daylight_factor(col_dt, sun_events):
@@ -94,9 +82,6 @@ def _parse_sun_events(daily):
 # ---------------------------------------------------------------------------
 # Braille temperature curve (multi-row, smooth line)
 # ---------------------------------------------------------------------------
-_build_braille_curve = build_braille_curve  # alias for existing callers
-
-
 def _build_precip_blocks(precip_probs, weather_codes, graph_w, n_rows=1, indicator_cols=None):
     """Build multi-row block bar graph for precipitation probability.
 
@@ -108,15 +93,10 @@ def _build_precip_blocks(precip_probs, weather_codes, graph_w, n_rows=1, indicat
     total_eighths = n_rows * 8  # total vertical resolution units
 
     # Interpolate precip probability to 1 sample per column
-    col_probs = []
+    col_probs = interpolate(precip_probs, graph_w)
+    # Nearest-neighbor for discrete weather codes
     col_codes = []
     for x in range(graph_w):
-        t = x / max(1, graph_w - 1) * max(0, len(precip_probs) - 1)
-        lo_i = int(t)
-        hi_i = min(lo_i + 1, len(precip_probs) - 1)
-        frac = t - lo_i
-        col_probs.append(precip_probs[lo_i] + (precip_probs[hi_i] - precip_probs[lo_i]) * frac)
-
         code_t = x / max(1, graph_w - 1) * max(0, len(weather_codes) - 1)
         code_i = max(0, min(len(weather_codes) - 1, int(round(code_t))))
         col_codes.append(weather_codes[code_i] if weather_codes else 0)
@@ -153,14 +133,7 @@ def _build_precip_blocks(precip_probs, weather_codes, graph_w, n_rows=1, indicat
 
 def _interpolate_columns(values, graph_w):
     """Linearly interpolate values to one sample per terminal column."""
-    cols = []
-    for x in range(graph_w):
-        t = x / max(1, graph_w - 1) * max(0, len(values) - 1)
-        lo_i = int(t)
-        hi_i = min(lo_i + 1, len(values) - 1)
-        frac = t - lo_i
-        cols.append(values[lo_i] + (values[hi_i] - values[lo_i]) * frac)
-    return cols
+    return interpolate(values, graph_w)
 
 
 def _prepare_hourly_window(hourly, now, graph_w):
@@ -172,6 +145,9 @@ def _prepare_hourly_window(hourly, now, graph_w):
     wind_speeds = hourly.get("wind_speed_10m", [])
     wind_directions = hourly.get("wind_direction_10m", [])
     apparent_temps = hourly.get("apparent_temperature", [])
+    humidity = hourly.get("relative_humidity_2m", [])
+    dew_points = hourly.get("dew_point_2m", [])
+    uv_indices = hourly.get("uv_index", [])
     if not times or not temps:
         return None
 
@@ -205,6 +181,9 @@ def _prepare_hourly_window(hourly, now, graph_w):
     window_winds = wind_speeds[start_idx:end_idx + 1] if wind_speeds else []
     window_wind_dirs = wind_directions[start_idx:end_idx + 1] if wind_directions else []
     window_apparent = apparent_temps[start_idx:end_idx + 1] if apparent_temps else []
+    window_humidity = humidity[start_idx:end_idx + 1] if humidity else []
+    window_dew = dew_points[start_idx:end_idx + 1] if dew_points else []
+    window_uv = uv_indices[start_idx:end_idx + 1] if uv_indices else []
     window_dts = [dt for i, dt in parsed if start_idx <= i <= end_idx]
 
     total_hours = 24
@@ -219,6 +198,9 @@ def _prepare_hourly_window(hourly, now, graph_w):
         "winds": window_winds,
         "wind_dirs": window_wind_dirs,
         "apparent_temps": window_apparent,
+        "humidity": window_humidity,
+        "dew_points": window_dew,
+        "uv": window_uv,
         "dts": window_dts,
         "total_hours": total_hours,
     }
@@ -244,13 +226,6 @@ def _compute_time_markers(window_dts, total_hours, graph_w, runtime=None):
     return midnight_cols, noon_cols, midnight_day_names
 
 
-def _fmt_time(dt, use_24h=False):
-    """Format a datetime as a compact time string."""
-    if use_24h:
-        return dt.strftime("%H:%M")
-    return dt.strftime("%-I:%M%p").lower().replace("am", "a").replace("pm", "p")
-
-
 def _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime):
     """Compute sunrise/sunset labels mapped to graph columns."""
     sun_labels = {}
@@ -265,14 +240,14 @@ def _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime):
                 if 0 < off_h < total_hours:
                     x = int(off_h / total_hours * (graph_w - 1))
                     if 0 < x < graph_w - 1:
-                        lbl = _fmt_time(rise, use_24h)
+                        lbl = fmt_time_dt(rise, use_24h)
                         sun_labels[x] = (f"{sunrise_icon}{lbl}", True)
             if sset:
                 off_h = (sset - t0).total_seconds() / 3600
                 if 0 < off_h < total_hours:
                     x = int(off_h / total_hours * (graph_w - 1))
                     if 0 < x < graph_w - 1:
-                        lbl = _fmt_time(sset, use_24h)
+                        lbl = fmt_time_dt(sset, use_24h)
                         sun_labels[x] = (f"{sunset_icon}{lbl}", False)
     return sun_labels
 
@@ -622,7 +597,7 @@ def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None, hover_co
     for h_off in range(0, int(total_hours) + 1, interval):
         x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
         dt = window_dts[0] + timedelta(hours=h_off)
-        label_items.append((x, _fmt_hour(dt.hour, use_24h), dt.hour == 0))
+        label_items.append((x, fmt_hour(dt.hour, use_24h), dt.hour == 0))
 
     canvas = [" "] * graph_w
     last_end = 0
@@ -704,6 +679,59 @@ def _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runti
     return "".join(parts)
 
 
+def _render_uv_row(window_uv, total_hours, graph_w, runtime,
+                    midnight_cols=None, hover_col=None):
+    """Render UV index labels at positions where UV is remarkable (>= 6)."""
+    if not window_uv or max(window_uv, default=0) < 6:
+        return None
+
+    uv_canvas = [" "] * graph_w
+    sample_interval = max(1, int(3 / total_hours * (graph_w - 1))) if total_hours > 0 else 6
+    col_uv = _interpolate_columns(window_uv, graph_w)
+    for x in range(0, graph_w, max(1, sample_interval)):
+        uv = col_uv[x]
+        if uv < 6:
+            continue
+        label = f"{_s('uv', runtime)}{uv:.0f}"
+        start = max(0, x - len(label) // 2)
+        if start + len(label) > graph_w:
+            start = graph_w - len(label)
+        if all(uv_canvas[start + j] == " " for j in range(len(label)) if start + j < graph_w):
+            for j, ch in enumerate(label):
+                if start + j < graph_w:
+                    uv_canvas[start + j] = ch
+    if not any(c != " " for c in uv_canvas):
+        return None
+
+    hover_fg = fg(*CHART_HOVER_RGB)
+    midnight_fg = DIM
+    parts = [" "]
+    in_uv = False
+    for x, ch in enumerate(uv_canvas):
+        if ch != " ":
+            if not in_uv:
+                parts.append(UV_COLOR)
+                in_uv = True
+            parts.append(ch)
+        else:
+            indicator = None
+            if hover_col is not None and x == hover_col:
+                indicator = hover_fg
+            elif midnight_cols and x in midnight_cols:
+                indicator = midnight_fg
+            if indicator:
+                if in_uv:
+                    in_uv = False
+                parts.append(f"{indicator}\u2502")
+            else:
+                if not in_uv:
+                    parts.append(UV_COLOR)
+                    in_uv = True
+                parts.append(" ")
+    parts.append(RESET)
+    return "".join(parts)
+
+
 def _render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows, indicator_cols=None):
     """Render precipitation probability graph rows."""
     if not window_precip or max(window_precip, default=0) <= 5:
@@ -777,15 +805,20 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     if tick_line:
         lines.append(tick_line)
 
-    braille_rows = _build_braille_curve(window_temps, graph_w, n_braille_rows)
+    braille_rows = build_braille_curve(window_temps, graph_w, n_braille_rows)
     overlays = _compute_extrema_overlays(extrema, col_temps, n_braille_rows, graph_w, runtime)
     lines.extend(_render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime, overlays,
                                        hover_col=hover_col))
 
+    window_uv = window.get("uv", [])
     wind_line = _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime,
                                  midnight_cols=midnight_cols, hover_col=hover_col)
+    uv_line = _render_uv_row(window_uv, total_hours, graph_w, runtime,
+                              midnight_cols=midnight_cols, hover_col=hover_col)
     if wind_line:
         lines.append(wind_line)
+    if uv_line:
+        lines.append(uv_line)
 
     # Indicator columns for precip: midnight dividers + hover
     indicator_cols = set(midnight_cols)

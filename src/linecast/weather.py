@@ -143,6 +143,8 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     code = window["codes"][idx] if idx < len(window["codes"]) else 0
     wind = window["winds"][idx] if idx < len(window["winds"]) else 0
     wind_dir = window["wind_dirs"][idx] if idx < len(window["wind_dirs"]) else 0
+    humidity = window["humidity"][idx] if idx < len(window.get("humidity", [])) else None
+    dew = window["dew_points"][idx] if idx < len(window.get("dew_points", [])) else None
 
     TBG = bg(*TOOLTIP_BG_RGB)
     TFG = fg(*TOOLTIP_TEXT_RGB)
@@ -166,6 +168,14 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     wmo_name = WMO_NAMES_I18N.get(runtime.lang, {}).get(code) or WMO_NAMES.get(code, "")
     if wmo_name:
         lines.append(f"{TBG}{TFG} {wmo_name} ")
+
+    # Humidity / dew point (when notable)
+    if humidity is not None and dew is not None:
+        dew_f = dew * 9 / 5 + 32 if runtime.celsius else dew
+        if dew_f >= 60:
+            lines.append(f"{TBG}{TFG} {_s('dew_pt', runtime)} {_colored_temp(dew, runtime, deg)} ")
+        elif humidity >= 70 or humidity <= 25:
+            lines.append(f"{TBG}{TFG} {_s('humidity', runtime)} {humidity:.0f}% ")
 
     # Wind (if notable)
     wind_threshold = 25 if runtime.metric else 15

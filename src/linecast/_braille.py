@@ -6,6 +6,18 @@ and the tides chart.
 """
 
 
+def interpolate(values, n):
+    """Linearly interpolate *values* to *n* evenly spaced samples."""
+    result = []
+    for i in range(n):
+        t = i / max(1, n - 1) * max(0, len(values) - 1)
+        lo_i = int(t)
+        hi_i = min(lo_i + 1, len(values) - 1)
+        frac = t - lo_i
+        result.append(values[lo_i] + (values[hi_i] - values[lo_i]) * frac)
+    return result
+
+
 def build_braille_curve(values, graph_w, n_rows=2, pad_frac=0.0, value_range=None):
     """Build an n_rows-high braille line graph from numeric data.
 
@@ -21,13 +33,7 @@ def build_braille_curve(values, graph_w, n_rows=2, pad_frac=0.0, value_range=Non
     total_dots = n_rows * 4
 
     # Interpolate values to n evenly spaced samples
-    samples = []
-    for i in range(n):
-        t = i / max(1, n - 1) * max(0, len(values) - 1)
-        lo_i = int(t)
-        hi_i = min(lo_i + 1, len(values) - 1)
-        frac = t - lo_i
-        samples.append(values[lo_i] + (values[hi_i] - values[lo_i]) * frac)
+    samples = interpolate(values, n)
 
     if value_range is not None:
         s_min, s_max = value_range

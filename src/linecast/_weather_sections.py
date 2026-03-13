@@ -18,6 +18,8 @@ def render_header(data, width, location_name="", runtime=None):
     wmo = current.get("weather_code", 0)
     wind = current.get("wind_speed_10m", 0)
     gusts = current.get("wind_gusts_10m", 0)
+    humidity = current.get("relative_humidity_2m")
+    dew_point = current.get("dew_point_2m")
 
     icons = _wmo_icons(runtime)
     icon = icons.get(wmo, icons[0])
@@ -26,6 +28,16 @@ def render_header(data, width, location_name="", runtime=None):
     deg = runtime.temp_unit
     left_core = f" {TEXT}{icon} {name}  {_colored_temp(temp, runtime, deg)}"
     left_feels = f"  {MUTED}{_s('feels', runtime)} {_colored_temp(feels, runtime, deg)}"
+
+    # Humidity/dew point — show when notable
+    left_humidity = ""
+    if humidity is not None and dew_point is not None:
+        # Show dew point when it's uncomfortably high (>= 60°F / 15°C)
+        dew_f = dew_point * 9 / 5 + 32 if runtime.celsius else dew_point
+        if dew_f >= 60:
+            left_humidity = f"  {MUTED}{_s('dew_pt', runtime)} {_colored_temp(dew_point, runtime, deg)}"
+        elif humidity >= 70 or humidity <= 25:
+            left_humidity = f"  {MUTED}{_s('humidity', runtime)} {humidity:.0f}%"
 
     # Right side: wind info + location (progressively droppable)
     wind_part = ""
@@ -38,19 +50,26 @@ def render_header(data, width, location_name="", runtime=None):
 
     def _join_right(*parts):
         filled = [p for p in parts if p]
-        return f"  {MUTED}\u00b7  ".join(filled) if filled else ""
+        return f"  ".join(filled) if filled else ""
 
     def _assemble(left, right):
         if not right:
             return f"{left}{RESET}"
-        pad = width - visible_len(left) - visible_len(right) - 2
+        pad = width - visible_len(left) - visible_len(right) - 1
         if pad >= 1:
-            return f"{left}{' ' * pad}{right} {RESET}"
+            return f"{left}{' ' * pad}{right}{RESET}"
         return None  # doesn't fit
 
-    left = left_core + left_feels
+    left = left_core + left_feels + left_humidity
 
     # Try full header
+    right = _join_right(wind_part, loc_part)
+    result = _assemble(left, right)
+    if result:
+        return result
+
+    # Drop humidity
+    left = left_core + left_feels
     right = _join_right(wind_part, loc_part)
     result = _assemble(left, right)
     if result:

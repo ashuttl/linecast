@@ -45,48 +45,64 @@ def render_daily(data, width, runtime=None):
     lang = runtime.lang
     day_name_list = DAY_NAMES.get(lang, DAY_NAMES["en"])
     day_col_w = max(visible_len(n) for n in day_name_list + [_s("today_short", runtime)])
-    left_prefix_w = 2 + day_col_w + 2 + 2 + 2  # "  day  ic  "
-    # Compute per-day detail fields and find max width of each column
-    day_details = []  # list of (precip_str, prob_str, wind_str) per day
-    max_precip_w = 0
-    max_prob_w = 0
-    max_wind_w = 0
+    left_prefix_w = 1 + day_col_w + 2 + 2 + 2  # " day  ic  "
+    # Compute per-day detail fields in full and compact (no type/wind label) forms.
+    # At narrow widths, drop "Snow"/"Rain" prefix and "Wind" label — the
+    # colored amount + unit are enough context.
+    day_raw = []  # (precip_amt, prob_s, wind_amt, ptype, wmo_i) per day
     for i in range(1, display_end):
         precip_i = precip_sum[i] if i < len(precip_sum) else 0
         prob_i = precip_prob[i] if i < len(precip_prob) else 0
         wind_i = wind_max[i] if i < len(wind_max) else 0
         wmo_i = wmo_codes[i] if i < len(wmo_codes) else 0
-        precip_s = ""
+        precip_amt = ""
+        ptype = ""
         if precip_i >= (1 if runtime.metric else 0.05):
             ptype = _s(_precip_type(wmo_i), runtime)
             if runtime.metric:
-                precip_s = f"{ptype} {precip_i:.0f}{runtime.precip_unit}"
+                precip_amt = f"{precip_i:.0f}{runtime.precip_unit}"
             else:
-                precip_s = f"{ptype} {precip_i:.1f}{runtime.precip_unit}"
+                precip_amt = f"{precip_i:.1f}{runtime.precip_unit}"
         prob_s = f"{prob_i:.0f}%" if prob_i > 25 else ""
-        wind_s = (
-            f"{_s('wind', runtime)} {wind_i:.0f}{runtime.wind_unit}"
+        wind_amt = (
+            f"{wind_i:.0f}{runtime.wind_unit}"
             if wind_i > (25 if runtime.metric else 15)
             else ""
         )
-        day_details.append((precip_s, prob_s, wind_s))
-        if precip_s:
-            max_precip_w = max(max_precip_w, len(precip_s))
-        if prob_s:
-            max_prob_w = max(max_prob_w, len(prob_s))
-        if wind_s:
-            max_wind_w = max(max_wind_w, len(wind_s))
+        day_raw.append((precip_amt, prob_s, wind_amt, ptype, wmo_i))
 
-    max_right_w = 0
-    if max_prob_w:
-        max_right_w += 2 + max_prob_w
-    if max_precip_w:
-        max_right_w += 2 + max_precip_w
-    if max_wind_w:
-        max_right_w += 2 + max_wind_w
+    def _measure_details(compact):
+        details = []
+        mp, mpr, mw = 0, 0, 0
+        for precip_amt, prob_s, wind_amt, ptype, wmo_i in day_raw:
+            if compact:
+                precip_s = precip_amt
+                wind_s = wind_amt
+            else:
+                precip_s = f"{ptype} {precip_amt}" if precip_amt else ""
+                wind_s = f"{_s('wind', runtime)} {wind_amt}" if wind_amt else ""
+            details.append((precip_s, prob_s, wind_s))
+            if precip_s:
+                mp = max(mp, len(precip_s))
+            if prob_s:
+                mpr = max(mpr, len(prob_s))
+            if wind_s:
+                mw = max(mw, len(wind_s))
+        right_w = 0
+        if mpr:
+            right_w += 2 + mpr
+        if mp:
+            right_w += 2 + mp
+        if mw:
+            right_w += 2 + mw
+        return details, mp, mpr, mw, right_w
 
-    # Bar gets all remaining width after left prefix, right details, and padding
-    bar_w = max(10, width - left_prefix_w - max_right_w - 2)
+    # Try full labels first; switch to compact if bar would be too narrow
+    day_details, max_precip_w, max_prob_w, max_wind_w, max_right_w = _measure_details(False)
+    bar_w = max(10, width - left_prefix_w - max_right_w)
+    if bar_w < 20:
+        day_details, max_precip_w, max_prob_w, max_wind_w, max_right_w = _measure_details(True)
+        bar_w = max(10, width - left_prefix_w - max_right_w)
 
     # Ensure outside labels always fit
     max_lo_label = max(
@@ -184,7 +200,7 @@ def render_daily(data, width, runtime=None):
         bar = "".join(f"{prefix}{ch}{RESET}" for ch, prefix in cells)
 
         # Build the line with aligned right-side columns
-        line = f"  {TEXT}{day_name}  {icon}  {bar}"
+        line = f" {TEXT}{day_name}  {icon}  {bar}"
 
         precip_s, prob_s, wind_s = day_details[i - 1]
         pcolor = _precip_color(wmo)

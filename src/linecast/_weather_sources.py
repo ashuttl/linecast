@@ -82,7 +82,8 @@ def fetch_forecast(lat, lng, runtime=None):
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lng}"
         "&hourly=temperature_2m,apparent_temperature,precipitation,precipitation_probability,"
-        "snowfall,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code"
+        "snowfall,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,"
+        "relative_humidity_2m,dew_point_2m,uv_index"
         "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,"
         "precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max,"
         "sunrise,sunset"
@@ -91,7 +92,7 @@ def fetch_forecast(lat, lng, runtime=None):
         f"&precipitation_unit={'mm' if runtime.metric else 'inch'}"
         "&timezone=auto&forecast_days=7&past_days=1"
         "&current=temperature_2m,apparent_temperature,weather_code,"
-        "wind_speed_10m,wind_gusts_10m"
+        "wind_speed_10m,wind_gusts_10m,relative_humidity_2m,dew_point_2m"
     )
     return fetch_json_cached(
         cache_file,
