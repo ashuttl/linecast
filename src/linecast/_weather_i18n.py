@@ -431,6 +431,7 @@ _STRINGS = {
         "humidity": "Humidity",
         "dew_pt": "Dew pt",
         "uv": "UV",
+        "aqi": "AQI",
         "until": "until",
         # Comparative line
         "same_temp": "about the same temperature as {ref_day}",
@@ -482,6 +483,7 @@ _STRINGS = {
         "humidity": "Humidit\u00e9",
         "dew_pt": "Pt ros\u00e9e",
         "uv": "UV",
+        "aqi": "IQA",
         "until": "jusqu'\u00e0",
         # Comparative line
         "same_temp": "\u00e0 peu pr\u00e8s la m\u00eame temp\u00e9rature {subject} qu'{ref_day}",
@@ -533,6 +535,7 @@ _STRINGS = {
         "humidity": "Humedad",
         "dew_pt": "Pto roc\u00edo",
         "uv": "UV",
+        "aqi": "ICA",
         "until": "hasta",
         # Comparative line
         "same_temp": "aproximadamente la misma temperatura que {ref_day}",
@@ -584,6 +587,7 @@ _STRINGS = {
         "humidity": "Feuchte",
         "dew_pt": "Taupkt",
         "uv": "UV",
+        "aqi": "LQI",
         "until": "bis",
         # Comparative line
         "same_temp": "etwa so warm wie {ref_day}",
@@ -635,6 +639,7 @@ _STRINGS = {
         "humidity": "Fuktighet",
         "dew_pt": "Duggpkt",
         "uv": "UV",
+        "aqi": "AQI",
         "until": "til",
         # Comparative line
         "same_temp": "omtrent like varmt som {ref_day}",
@@ -686,6 +691,7 @@ _STRINGS = {
         "humidity": "Raki",
         "dew_pt": "Daggarpt",
         "uv": "UV",
+        "aqi": "AQI",
         "until": "til",
         # Comparative line
         "same_temp": "svipa\u00f0 hitastig og {ref_day}",
@@ -737,6 +743,7 @@ _STRINGS = {
         "humidity": "Fugtighed",
         "dew_pt": "Dugpkt",
         "uv": "UV",
+        "aqi": "AQI",
         "until": "til",
         # Comparative line
         "same_temp": "omtrent samme temperatur som {ref_day}",
@@ -788,6 +795,7 @@ _STRINGS = {
         "humidity": "Umidit\u00e0",
         "dew_pt": "Pt rug.",
         "uv": "UV",
+        "aqi": "IQA",
         "until": "fino a",
         # Comparative line
         "same_temp": "circa la stessa temperatura di {ref_day}",
@@ -839,6 +847,7 @@ _STRINGS = {
         "humidity": "Wilgotno\u015b\u0107",
         "dew_pt": "Pkt rosy",
         "uv": "UV",
+        "aqi": "AQI",
         "until": "do",
         # Comparative line
         "same_temp": "mniej wi\u0119cej taka sama temperatura jak {ref_day}",
@@ -890,6 +899,7 @@ _STRINGS = {
         "humidity": "Vochtigheid",
         "dew_pt": "Dauwpt",
         "uv": "UV",
+        "aqi": "AQI",
         "until": "tot",
         # Comparative line
         "same_temp": "ongeveer dezelfde temperatuur als {ref_day}",
@@ -941,6 +951,7 @@ _STRINGS = {
         "humidity": "Umidade",
         "dew_pt": "Pto orv.",
         "uv": "UV",
+        "aqi": "IQA",
         "until": "at\u00e9",
         # Comparative line
         "same_temp": "aproximadamente a mesma temperatura que {ref_day}",
@@ -992,6 +1003,7 @@ _STRINGS = {
         "humidity": "Fuktighet",
         "dew_pt": "Daggpkt",
         "uv": "UV",
+        "aqi": "AQI",
         "until": "till",
         # Comparative line
         "same_temp": "ungef\u00e4r samma temperatur som {ref_day}",
@@ -1043,6 +1055,7 @@ _STRINGS = {
         "humidity": "Kosteus",
         "dew_pt": "Kastept",
         "uv": "UV",
+        "aqi": "AQI",
         "until": "asti",
         # Comparative line
         "same_temp": "suunnilleen sama l\u00e4mp\u00f6tila kuin {ref_day}",
@@ -1094,6 +1107,7 @@ _STRINGS = {
         "humidity": "\u6e7f\u5ea6",
         "dew_pt": "\u9732\u70b9",
         "uv": "UV",
+        "aqi": "AQI",
         "until": "\u307e\u3067",
         # Comparative line
         "same_temp": "{ref_day}\u3068\u307b\u307c\u540c\u3058\u6c17\u6e29",
@@ -1145,6 +1159,7 @@ _STRINGS = {
         "humidity": "\uc2b5\ub3c4",
         "dew_pt": "\uc774\uc2ac\uc810",
         "uv": "UV",
+        "aqi": "AQI",
         "until": "\uae4c\uc9c0",
         # Comparative line
         "same_temp": "{ref_day}\uacfc \ube44\uc2b7\ud55c \uae30\uc628",
@@ -1196,6 +1211,7 @@ _STRINGS = {
         "humidity": "\u6e7f\u5ea6",
         "dew_pt": "\u9732\u70b9",
         "uv": "UV",
+        "aqi": "AQI",
         "until": "\u5230",
         # Comparative line
         "same_temp": "\u4e0e{ref_day}\u6c14\u6e29\u76f8\u8fd1",

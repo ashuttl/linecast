@@ -117,12 +117,25 @@ UV_COLORS = [
     (8, RED_RGB),
     (11, MAGENTA_RGB),
 ]
+
+AQI_COLORS = [
+    (0, GREEN_RGB),
+    (51, YELLOW_RGB),
+    (101, ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.45), theme_bg, minimum=2.1)),
+    (151, RED_RGB),
+    (201, MAGENTA_RGB),
+]
 UV_COLOR = fg(*ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.30), theme_bg, minimum=2.5))
 
 
 def _uv_color(uv):
     """ANSI fg escape for a UV index value."""
     return fg(*interp_stops(UV_COLORS, uv))
+
+
+def _aqi_color(aqi):
+    """ANSI fg escape for a US AQI value."""
+    return fg(*interp_stops(AQI_COLORS, aqi))
 
 
 def _precip_color(wmo_code):

@@ -44,6 +44,7 @@ from linecast._weather_sections import (
     render_header,
 )
 from linecast._weather_style import (
+    AQI_COLORS,
     ALERT_AMBER,
     ALERT_RED,
     ALERT_YELLOW,
@@ -62,6 +63,7 @@ from linecast._weather_style import (
     TOOLTIP_TEXT_RGB,
     WIND_ARROWS,
     WIND_COLOR,
+    _aqi_color,
     _colored_temp,
     _precip_color,
     _precip_type,

@@ -5,10 +5,10 @@ from datetime import datetime, timedelta
 from linecast._graphics import RESET, visible_len
 from linecast._runtime import WeatherRuntime
 from linecast._weather_i18n import DAY_NAMES, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s, _wmo_icons
-from linecast._weather_style import MUTED, TEXT, WIND_COLOR, _colored_temp
+from linecast._weather_style import MUTED, TEXT, WIND_COLOR, _aqi_color, _colored_temp
 
 
-def render_header(data, width, location_name="", runtime=None):
+def render_header(data, width, location_name="", runtime=None, aqi_data=None):
     """Current conditions header line."""
     if runtime is None:
         runtime = WeatherRuntime.from_sources()
@@ -39,6 +39,16 @@ def render_header(data, width, location_name="", runtime=None):
         elif humidity >= 70 or humidity <= 25:
             left_humidity = f"  {MUTED}{_s('humidity', runtime)} {humidity:.0f}%"
 
+    # AQI — show when data available
+    aqi_value = None
+    if aqi_data and isinstance(aqi_data, dict):
+        aqi_current = aqi_data.get("current", {})
+        aqi_value = aqi_current.get("us_aqi")
+
+    left_aqi = ""
+    if aqi_value is not None:
+        left_aqi = f"  {MUTED}{_s('aqi', runtime)} {_aqi_color(aqi_value)}{aqi_value:.0f}"
+
     # Right side: wind info + location (progressively droppable)
     wind_part = ""
     if wind > (15 if runtime.metric else 10) or gusts > (30 if runtime.metric else 20):
@@ -60,7 +70,7 @@ def render_header(data, width, location_name="", runtime=None):
             return f"{left}{' ' * pad}{right}{RESET}"
         return None  # doesn't fit
 
-    left = left_core + left_feels + left_humidity
+    left = left_core + left_feels + left_humidity + left_aqi
 
     # Try full header
     right = _join_right(wind_part, loc_part)
@@ -69,6 +79,13 @@ def render_header(data, width, location_name="", runtime=None):
         return result
 
     # Drop humidity
+    left = left_core + left_feels + left_aqi
+    right = _join_right(wind_part, loc_part)
+    result = _assemble(left, right)
+    if result:
+        return result
+
+    # Drop AQI
     left = left_core + left_feels
     right = _join_right(wind_part, loc_part)
     result = _assemble(left, right)

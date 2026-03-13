@@ -104,6 +104,24 @@ def fetch_forecast(lat, lng, runtime=None):
     )
 
 
+def fetch_aqi(lat, lng):
+    """Fetch current AQI from Open-Meteo Air Quality API. Cached 1h."""
+    cache_file = CACHE_DIR / f"aqi_{location_cache_key(lat, lng)}.json"
+    url = (
+        "https://air-quality-api.open-meteo.com/v1/air-quality"
+        f"?latitude={lat}&longitude={lng}"
+        "&current=us_aqi,european_aqi,pm2_5,pm10"
+    )
+    return fetch_json_cached(
+        cache_file,
+        3600,
+        url,
+        headers={"User-Agent": USER_AGENT},
+        timeout=10,
+        fallback=None,
+    )
+
+
 def fetch_alerts(lat, lng, country_code="", lang="en", address=None):
     """Fetch active weather alerts from the appropriate provider.
 

@@ -104,6 +104,7 @@ from linecast._weather_sources import (
     _reverse_geocode,
     _search_locations,
     fetch_alerts,
+    fetch_aqi,
     fetch_forecast,
 )
 
@@ -214,7 +215,7 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     return result
 
 
-def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
+def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0, aqi_data=None):
     """Build the complete weather dashboard from preloaded data."""
     if not data:
         return f"{TEXT}Could not fetch weather data.{RESET}", {}
@@ -259,7 +260,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     lines = []
 
     # Header
-    lines.append(render_header(data, cols, location_name, runtime=runtime))
+    lines.append(render_header(data, cols, location_name, runtime=runtime, aqi_data=aqi_data))
     lines.append("")
 
     # Hourly — first pass without hover to establish line boundaries
@@ -353,7 +354,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     return output, alert_row_map
 
 
-def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtime=None, data=None, alerts=None, mouse_pos=None, active_alert=None, modal_scroll=0):
+def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtime=None, data=None, alerts=None, mouse_pos=None, active_alert=None, modal_scroll=0, aqi_data=None):
     """Build the complete weather dashboard."""
     if runtime is None:
         runtime = WeatherRuntime.from_sources()
@@ -361,7 +362,9 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtim
         data = fetch_forecast(lat, lng, runtime)
     if alerts is None:
         alerts = fetch_alerts(lat, lng, country_code, lang=runtime.lang)
-    return render_from_data(data, alerts, runtime, location_name=location_name, offset_minutes=offset_minutes, mouse_pos=mouse_pos, active_alert=active_alert, modal_scroll=modal_scroll)
+    if aqi_data is None:
+        aqi_data = fetch_aqi(lat, lng)
+    return render_from_data(data, alerts, runtime, location_name=location_name, offset_minutes=offset_minutes, mouse_pos=mouse_pos, active_alert=active_alert, modal_scroll=modal_scroll, aqi_data=aqi_data)
 
 
 # ---------------------------------------------------------------------------
@@ -414,6 +417,7 @@ def main():
         result["country_code"] = cc or country_code
         result["data"] = fetch_forecast(lat, lng, runtime)
         result["alerts"] = fetch_alerts(lat, lng, result["country_code"], lang=runtime.lang, address=addr)
+        result["aqi"] = fetch_aqi(lat, lng)
         if not result["name"] and result["data"]:
             result["name"] = _location_from_timezone(result["data"].get("timezone", ""))
         done.set()
@@ -439,6 +443,7 @@ def main():
     final_country = result.get("country_code", "")
     data = result.get("data")
     alerts = result.get("alerts", [])
+    aqi_data = result.get("aqi")
 
     if runtime.live:
         def _open_alert_url(idx):
@@ -459,6 +464,7 @@ def main():
                 mouse_pos=mouse_pos,
                 active_alert=active_alert,
                 modal_scroll=modal_scroll,
+                aqi_data=None,  # re-fetched via render() on each refresh
             ),
             interval=300,
             mouse=True,
@@ -473,6 +479,7 @@ def main():
             runtime=runtime,
             data=data,
             alerts=alerts,
+            aqi_data=aqi_data,
         )
         print(output)
 
