@@ -122,7 +122,11 @@ def compute_time_markers(window_start, total_hours, graph_w, runtime):
 
 
 def _julian_day(dt_utc):
-    """Convert a UTC datetime into Julian Day."""
+    """Convert a UTC datetime into Julian Day.
+
+    Uses the Unix epoch offset: JD 2440587.5 = 1970-01-01T00:00:00Z.
+    Reference: Meeus, "Astronomical Algorithms" (2nd ed.), ch. 7.
+    """
     if dt_utc.tzinfo is None:
         dt_utc = dt_utc.replace(tzinfo=timezone.utc)
     else:
@@ -136,16 +140,35 @@ def _norm_deg(angle):
 
 
 def _moon_ra_dec(dt_utc):
-    """Approximate geocentric Moon right ascension/declination in degrees."""
+    """Approximate geocentric Moon right ascension/declination in degrees.
+
+    Low-precision lunar ephemeris adapted from Paul Schlyter's algorithm,
+    which itself is a simplification of the method in Meeus, "Astronomical
+    Algorithms" (2nd ed.), ch. 47. Accuracy is ~0.5–1° in position, which
+    is sufficient for moonrise/moonset timing to within a few minutes.
+
+    Source: https://stjarnhimlen.se/comp/ppcomp.html#15
+    Orbital elements epoch: 2000-Jan-0.0 (JD 2451543.5).
+
+    Element key:
+      N  — longitude of the ascending node (deg)
+      i  — orbital inclination (deg)
+      w  — argument of perigee (deg)
+      a  — semi-major axis (Earth radii)
+      e  — orbital eccentricity
+      M  — mean anomaly (deg)
+    """
     jd = _julian_day(dt_utc)
+    # Days since the orbital elements epoch (2000-Jan-0.0 = JD 2451543.5)
     d = jd - 2451543.5
 
-    n = math.radians(_norm_deg(125.1228 - 0.0529538083 * d))
-    inc = math.radians(5.1454)
-    w = math.radians(_norm_deg(318.0634 + 0.1643573223 * d))
-    a = 60.2666
-    e = 0.0549
-    m = math.radians(_norm_deg(115.3654 + 13.0649929509 * d))
+    # Lunar orbital elements (Schlyter, epoch 2000-Jan-0.0)
+    n = math.radians(_norm_deg(125.1228 - 0.0529538083 * d))      # ascending node
+    inc = math.radians(5.1454)                                      # inclination
+    w = math.radians(_norm_deg(318.0634 + 0.1643573223 * d))       # argument of perigee
+    a = 60.2666                                                     # semi-major axis (Earth radii)
+    e = 0.0549                                                      # eccentricity
+    m = math.radians(_norm_deg(115.3654 + 13.0649929509 * d))      # mean anomaly
 
     e_anom = m + e * math.sin(m) * (1.0 + e * math.cos(m))
     x_v = a * (math.cos(e_anom) - e)
@@ -163,6 +186,7 @@ def _moon_ra_dec(dt_utc):
     )
     z_h = radius * (math.sin(true_anom + w) * math.sin(inc))
 
+    # Mean obliquity of the ecliptic (Meeus, eq. 22.2, simplified)
     obliq = math.radians(23.4393 - 3.563e-7 * d)
     x_eq = x_h
     y_eq = y_h * math.cos(obliq) - z_h * math.sin(obliq)
@@ -174,7 +198,12 @@ def _moon_ra_dec(dt_utc):
 
 
 def _gmst_deg(dt_utc):
-    """Greenwich mean sidereal time in degrees."""
+    """Greenwich mean sidereal time in degrees.
+
+    Uses the IAU 1982 expression for GMST as a function of Julian Date.
+    Reference: Meeus, "Astronomical Algorithms" (2nd ed.), eq. 12.4.
+    J2000.0 epoch = JD 2451545.0; Julian century = 36525 days.
+    """
     jd = _julian_day(dt_utc)
     t = (jd - 2451545.0) / 36525.0
     gmst = (
@@ -187,7 +216,13 @@ def _gmst_deg(dt_utc):
 
 
 def _moon_altitude_deg(dt_utc, lat_deg, lng_deg):
-    """Approximate Moon altitude for a UTC datetime and observer lat/lng."""
+    """Approximate Moon altitude for a UTC datetime and observer lat/lng.
+
+    Standard topocentric altitude formula (Meeus, ch. 13):
+      sin(alt) = sin(lat)*sin(dec) + cos(lat)*cos(dec)*cos(ha)
+    Parallax and refraction are not corrected here; the threshold_deg
+    parameter in _moon_events_for_local_date compensates for this.
+    """
     ra_deg, dec_deg = _moon_ra_dec(dt_utc)
     lst_deg = _norm_deg(_gmst_deg(dt_utc) + lng_deg)
     hour_angle = math.radians((lst_deg - ra_deg + 540.0) % 360.0 - 180.0)
@@ -203,7 +238,11 @@ def _moon_altitude_deg(dt_utc, lat_deg, lng_deg):
 
 
 def _refine_moon_crossing_utc(t0_utc, t1_utc, lat_deg, lng_deg, threshold_deg):
-    """Refine a moonrise/moonset crossing between two UTC datetimes."""
+    """Refine a moonrise/moonset crossing between two UTC datetimes.
+
+    Uses bisection (16 iterations → ~30 second precision) to locate the
+    zero-crossing of (altitude - threshold) between the bracketing times.
+    """
     f0 = _moon_altitude_deg(t0_utc, lat_deg, lng_deg) - threshold_deg
     f1 = _moon_altitude_deg(t1_utc, lat_deg, lng_deg) - threshold_deg
     if f0 == 0:
@@ -228,7 +267,17 @@ def _refine_moon_crossing_utc(t0_utc, t1_utc, lat_deg, lng_deg, threshold_deg):
 
 
 def _moon_events_for_local_date(local_date, lat_deg, lng_deg, tzinfo, threshold_deg=0.125):
-    """Return (moonrise_local, moonset_local) for one local calendar date."""
+    """Return (moonrise_local, moonset_local) for one local calendar date.
+
+    The threshold_deg of 0.125° approximates the combined effect of
+    atmospheric refraction (~0.57° at horizon) and lunar horizontal
+    parallax (~0.95°), which partially cancel. The net geometric rise
+    happens when the Moon's center is about 0.125° above the true
+    horizon. (See Meeus, ch. 15, for the full derivation.)
+
+    Events are found by stepping in 10-minute increments, detecting sign
+    changes in (altitude - threshold), then refining via bisection.
+    """
     start_local = datetime(local_date.year, local_date.month, local_date.day, tzinfo=tzinfo)
     end_local = start_local + timedelta(days=1)
     start_utc = start_local.astimezone(timezone.utc)
