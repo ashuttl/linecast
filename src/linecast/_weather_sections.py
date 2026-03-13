@@ -198,6 +198,10 @@ def _precipitation_line(hourly, now, runtime=None):
             suffix = "am" if dt.hour < 12 else "pm"
             return _s("around", runtime, time=f"{h12}{suffix}")
         if dt.date() == (now + timedelta(days=1)).date():
+            if dt.hour < 5:
+                return _s("overnight", runtime)
+            if dt.hour < 8:
+                return _s("early_tomorrow_morning", runtime)
             if dt.hour < 12:
                 return _s("tomorrow_morning", runtime)
             if dt.hour < 17:
