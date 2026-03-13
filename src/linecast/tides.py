@@ -40,7 +40,7 @@ from linecast._theme import (
 )
 from linecast._location import get_location
 from linecast._runtime import TidesRuntime, arg_value, has_flag
-from linecast._tides_i18n import _ts
+from linecast._tides_i18n import _moon_name, _ts
 from linecast._tides_chs import (
     find_nearest_station_chs, fetch_station_metadata_chs,
     fetch_tides_range_chs, fetch_hilo_range_chs, fetch_y_range_chs,
@@ -451,7 +451,8 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0):
         pill_w = 0
 
     # Moon phase (right-aligned)
-    _, phase_name, moon_icon = moon_phase(datetime.now(timezone.utc), runtime)
+    idx, _, moon_icon = moon_phase(datetime.now(timezone.utc), runtime)
+    phase_name = _moon_name(idx, runtime)
     moon_color = fg(*MUTED_RGB)
     moon_str = f"{moon_color}{moon_icon} {DIM}{phase_name}{RESET}"
     moon_w = len(moon_icon) + 1 + len(phase_name)

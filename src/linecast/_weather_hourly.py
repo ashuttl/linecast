@@ -640,7 +640,8 @@ def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None, hover_co
     return f" {DIM}{''.join(canvas)}{RESET}"
 
 
-def _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime):
+def _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime,
+                     midnight_cols=None, hover_col=None):
     """Render wind arrows/speed labels at high-wind positions."""
     wind_threshold = 25 if runtime.metric else 15
     if not window_winds or max(window_winds, default=0) <= wind_threshold:
@@ -670,9 +671,37 @@ def _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runti
             for j, ch in enumerate(label):
                 if start + j < graph_w:
                     wind_canvas[start + j] = ch
-    if any(c != " " for c in wind_canvas):
-        return f" {WIND_COLOR}{''.join(wind_canvas)}{RESET}"
-    return None
+    if not any(c != " " for c in wind_canvas):
+        return None
+
+    # Build output with indicator lines in empty cells
+    hover_fg = fg(*CHART_HOVER_RGB)
+    midnight_fg = DIM
+    parts = [" "]
+    in_wind = False
+    for x, ch in enumerate(wind_canvas):
+        if ch != " ":
+            if not in_wind:
+                parts.append(WIND_COLOR)
+                in_wind = True
+            parts.append(ch)
+        else:
+            indicator = None
+            if hover_col is not None and x == hover_col:
+                indicator = hover_fg
+            elif midnight_cols and x in midnight_cols:
+                indicator = midnight_fg
+            if indicator:
+                if in_wind:
+                    in_wind = False
+                parts.append(f"{indicator}\u2502")
+            else:
+                if not in_wind:
+                    parts.append(WIND_COLOR)
+                    in_wind = True
+                parts.append(" ")
+    parts.append(RESET)
+    return "".join(parts)
 
 
 def _render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows, indicator_cols=None):
@@ -753,7 +782,8 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     lines.extend(_render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime, overlays,
                                        hover_col=hover_col))
 
-    wind_line = _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime)
+    wind_line = _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime,
+                                 midnight_cols=midnight_cols, hover_col=hover_col)
     if wind_line:
         lines.append(wind_line)
 
