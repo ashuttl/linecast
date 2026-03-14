@@ -473,6 +473,7 @@ _STRINGS = {
         "q_to_close": "q to close",
         "o_to_open": "o to open in browser",
         "scroll": "scroll",
+        "space_to_now": "space to return to now",
     },
     "fr": {
         "today": "aujourd'hui",
@@ -525,6 +526,7 @@ _STRINGS = {
         "q_to_close": "q pour fermer",
         "o_to_open": "o pour ouvrir dans le navigateur",
         "scroll": "d\u00e9filer",
+        "space_to_now": "espace pour revenir",
     },
     "es": {
         "today": "hoy",
@@ -577,6 +579,7 @@ _STRINGS = {
         "q_to_close": "q para cerrar",
         "o_to_open": "o para abrir en el navegador",
         "scroll": "desplazar",
+        "space_to_now": "espacio para volver al presente",
     },
     "de": {
         "today": "Heute",
@@ -629,6 +632,7 @@ _STRINGS = {
         "q_to_close": "q zum Schlie\u00dfen",
         "o_to_open": "o zum \u00d6ffnen im Browser",
         "scroll": "scrollen",
+        "space_to_now": "Leertaste f\u00fcr jetzt",
     },
     "no": {
         "today": "i dag",
@@ -681,6 +685,7 @@ _STRINGS = {
         "q_to_close": "q for \u00e5 lukke",
         "o_to_open": "o for \u00e5 \u00e5pne i nettleser",
         "scroll": "rull",
+        "space_to_now": "mellomrom for \u00e5 g\u00e5 tilbake",
     },
     "is": {
         "today": "\u00ed dag",
@@ -733,6 +738,7 @@ _STRINGS = {
         "q_to_close": "q til a\u00f0 loka",
         "o_to_open": "o til a\u00f0 opna \u00ed vafra",
         "scroll": "skruna",
+        "space_to_now": "bil til a\u00f0 fara til baka",
     },
     "da": {
         "today": "i dag",
@@ -785,6 +791,7 @@ _STRINGS = {
         "q_to_close": "q for at lukke",
         "o_to_open": "o for at \u00e5bne i browser",
         "scroll": "rul",
+        "space_to_now": "mellemrum for at vende tilbage",
     },
     "it": {
         "today": "oggi",
@@ -837,6 +844,7 @@ _STRINGS = {
         "q_to_close": "q per chiudere",
         "o_to_open": "o per aprire nel browser",
         "scroll": "scorrere",
+        "space_to_now": "spazio per tornare a ora",
     },
     "pl": {
         "today": "dzi\u015b",
@@ -889,6 +897,7 @@ _STRINGS = {
         "q_to_close": "q aby zamkn\u0105\u0107",
         "o_to_open": "o aby otworzy\u0107 w przegl\u0105darce",
         "scroll": "przewi\u0144",
+        "space_to_now": "spacja, aby wr\u00f3ci\u0107",
     },
     "nl": {
         "today": "vandaag",
@@ -941,6 +950,7 @@ _STRINGS = {
         "q_to_close": "q om te sluiten",
         "o_to_open": "o om te openen in browser",
         "scroll": "scrollen",
+        "space_to_now": "spatie om terug te keren",
     },
     "pt": {
         "today": "hoje",
@@ -993,6 +1003,7 @@ _STRINGS = {
         "q_to_close": "q para fechar",
         "o_to_open": "o para abrir no navegador",
         "scroll": "rolar",
+        "space_to_now": "espa\u00e7o para voltar ao presente",
     },
     "sv": {
         "today": "i dag",
@@ -1045,6 +1056,7 @@ _STRINGS = {
         "q_to_close": "q f\u00f6r att st\u00e4nga",
         "o_to_open": "o f\u00f6r att \u00f6ppna i webbl\u00e4sare",
         "scroll": "rulla",
+        "space_to_now": "mellanslag f\u00f6r att \u00e5terg\u00e5",
     },
     "fi": {
         "today": "t\u00e4n\u00e4\u00e4n",
@@ -1097,6 +1109,7 @@ _STRINGS = {
         "q_to_close": "q sulkeaksesi",
         "o_to_open": "o avataksesi selaimessa",
         "scroll": "vierit\u00e4",
+        "space_to_now": "v\u00e4lily\u00f6nti palataksesi",
     },
     "ja": {
         "today": "\u4eca\u65e5",
@@ -1149,6 +1162,7 @@ _STRINGS = {
         "q_to_close": "q \u3067\u9589\u3058\u308b",
         "o_to_open": "o \u3067\u30d6\u30e9\u30a6\u30b6\u3092\u958b\u304f",
         "scroll": "\u30b9\u30af\u30ed\u30fc\u30eb",
+        "space_to_now": "\u30b9\u30da\u30fc\u30b9\u3067\u73fe\u5728\u306b\u623b\u308b",
     },
     "ko": {
         "today": "\uc624\ub298",
@@ -1201,6 +1215,7 @@ _STRINGS = {
         "q_to_close": "q \ub2eb\uae30",
         "o_to_open": "o \ube0c\ub77c\uc6b0\uc800\uc5d0\uc11c \uc5f4\uae30",
         "scroll": "\uc2a4\ud06c\ub864",
+        "space_to_now": "\uc2a4\ud398\uc774\uc2a4\ub85c \ud604\uc7ac\ub85c \ub3cc\uc544\uac00\uae30",
     },
     "zh": {
         "today": "\u4eca\u5929",
@@ -1253,6 +1268,7 @@ _STRINGS = {
         "q_to_close": "q \u5173\u95ed",
         "o_to_open": "o \u5728\u6d4f\u89c8\u5668\u4e2d\u6253\u5f00",
         "scroll": "\u6eda\u52a8",
+        "space_to_now": "\u6309\u7a7a\u683c\u8fd4\u56de\u5f53\u524d",
     },
 }
 

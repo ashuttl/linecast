@@ -136,8 +136,12 @@ def _interpolate_columns(values, graph_w):
     return interpolate(values, graph_w)
 
 
-def _prepare_hourly_window(hourly, now, graph_w):
-    """Slice hourly arrays to the upcoming visible window."""
+def _prepare_hourly_window(hourly, now, graph_w, offset_minutes=0):
+    """Slice hourly arrays to the visible window.
+
+    offset_minutes shifts the window start forward (positive) or backward
+    (negative) from the current hour, enabling keyboard/mouse scrolling.
+    """
     times = hourly.get("time", [])
     temps = hourly.get("temperature_2m", [])
     precip_prob = hourly.get("precipitation_probability", [])
@@ -159,14 +163,27 @@ def _prepare_hourly_window(hourly, now, graph_w):
             continue
 
     current_hour_dt = now.replace(minute=0, second=0, microsecond=0)
+    hours_shown = max(24, min(48, graph_w // 2))
+
+    window_start_dt = current_hour_dt + timedelta(minutes=offset_minutes)
+
+    # Clamp so the window fits within available data
+    if parsed:
+        first_dt = parsed[0][1]
+        last_dt = parsed[-1][1]
+        max_start = last_dt - timedelta(hours=hours_shown)
+        if window_start_dt > max_start:
+            window_start_dt = max_start
+        if window_start_dt < first_dt:
+            window_start_dt = first_dt
+
     start_idx = 0
     for i, dt in parsed:
-        if dt >= current_hour_dt:
+        if dt >= window_start_dt:
             start_idx = i
             break
 
-    hours_shown = max(24, min(48, graph_w // 2))
-    end_time = current_hour_dt + timedelta(hours=hours_shown)
+    end_time = window_start_dt + timedelta(hours=hours_shown)
     end_idx = start_idx
     for i, dt in parsed:
         if i >= start_idx and dt <= end_time:
@@ -191,6 +208,13 @@ def _prepare_hourly_window(hourly, now, graph_w):
         total_secs = (window_dts[-1] - window_dts[0]).total_seconds()
         total_hours = total_secs / 3600 if total_secs > 0 else 24
 
+    # Global stats across all available data for stable layout while scrolling
+    all_temp_lo = min(temps) if temps else 0
+    all_temp_hi = max(temps) if temps else 0
+    all_wind_max = max(wind_speeds) if wind_speeds else 0
+    all_uv_max = max(uv_indices) if uv_indices else 0
+    all_precip_max = max(precip_prob) if precip_prob else 0
+
     return {
         "temps": window_temps,
         "precip": window_precip,
@@ -203,6 +227,10 @@ def _prepare_hourly_window(hourly, now, graph_w):
         "uv": window_uv,
         "dts": window_dts,
         "total_hours": total_hours,
+        "all_temp_range": (all_temp_lo, all_temp_hi),
+        "all_wind_max": all_wind_max,
+        "all_uv_max": all_uv_max,
+        "all_precip_max": all_precip_max,
     }
 
 
@@ -367,13 +395,25 @@ def _find_temperature_extrema(col_temps, graph_w):
     return extrema
 
 
-def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels, runtime):
+def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels, runtime,
+                       window_dts=None, now=None, offset_minutes=0):
     """Render the hourly section header with day and sun-event labels."""
-    today_left = f" {TEXT}{_s('today', runtime)}"
-    today_right = (
-        f"{_colored_temp(chart_lo, runtime, '°')} "
-        f"{TEXT}\u2192 {_colored_temp(chart_hi, runtime, runtime.temp_unit)}"
-    )
+    # Show "Today" only when the window starts on today's date;
+    # otherwise show the actual day name so scrolled views make sense.
+    lang = getattr(runtime, "lang", "en") if runtime else "en"
+    if window_dts and now and window_dts[0].date() != now.date():
+        day_name = FULL_DAY_NAMES.get(lang, FULL_DAY_NAMES["en"])[window_dts[0].weekday()]
+        today_left = f" {TEXT}{day_name}"
+    else:
+        today_left = f" {TEXT}{_s('today', runtime)}"
+    if offset_minutes:
+        hint_text = _s("space_to_now", runtime)
+        today_right = f"{DIM}{hint_text}"
+    else:
+        today_right = (
+            f"{_colored_temp(chart_lo, runtime, '°')} "
+            f"{TEXT}\u2192 {_colored_temp(chart_hi, runtime, runtime.temp_unit)}"
+        )
     if not (midnight_day_names or sun_labels):
         pad = width - visible_len(today_left) - visible_len(today_right) - 2
         return f"{today_left}{' ' * max(1, pad)}{today_right} {RESET}"
@@ -471,12 +511,15 @@ def _render_extrema_line(extrema, graph_w, runtime, is_peak):
     return f"{line}{RESET}"
 
 
-def _compute_extrema_overlays(extrema, col_temps, n_rows, graph_w, runtime):
+def _compute_extrema_overlays(extrema, col_temps, n_rows, graph_w, runtime, value_range=None):
     """Map temperature extrema to overlay labels on specific braille rows."""
     if not extrema or n_rows < 1:
         return {}
 
-    t_min, t_max = min(col_temps), max(col_temps)
+    if value_range is not None:
+        t_min, t_max = value_range
+    else:
+        t_min, t_max = min(col_temps), max(col_temps)
     total_dots = n_rows * 4
     overlays = {}  # row_idx -> [(start_col, label_text, (r, g, b)), ...]
     occupied_by_row = {}
@@ -580,7 +623,11 @@ def _render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime,
 
 
 def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None, hover_col=None):
-    """Render compact timeline tick labels under the chart."""
+    """Render compact timeline tick labels under the chart.
+
+    Labels are anchored to clock-aligned hours so they scroll with the data
+    rather than staying at fixed screen positions.
+    """
     if not window_dts:
         return None
     use_24h = runtime.use_24h if runtime else False
@@ -593,11 +640,25 @@ def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None, hover_co
     else:
         interval = 2
 
+    t0 = window_dts[0]
+    # Find first clock-aligned hour that falls within the window
+    first_hour = t0.replace(minute=0, second=0, microsecond=0)
+    if first_hour < t0:
+        first_hour += timedelta(hours=1)
+    # Round up to next multiple of interval
+    remainder = first_hour.hour % interval
+    if remainder != 0:
+        first_hour += timedelta(hours=interval - remainder)
+
     label_items = []
-    for h_off in range(0, int(total_hours) + 1, interval):
+    dt = first_hour
+    end_dt = t0 + timedelta(hours=total_hours)
+    while dt <= end_dt:
+        h_off = (dt - t0).total_seconds() / 3600
         x = int(h_off / total_hours * (graph_w - 1)) if total_hours > 0 else 0
-        dt = window_dts[0] + timedelta(hours=h_off)
-        label_items.append((x, fmt_hour(dt.hour, use_24h), dt.hour == 0))
+        if 0 <= x < graph_w:
+            label_items.append((x, fmt_hour(dt.hour, use_24h), dt.hour == 0))
+        dt += timedelta(hours=interval)
 
     canvas = [" "] * graph_w
     last_end = 0
@@ -758,7 +819,7 @@ def _render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows, ind
     return [f" {''.join(precip_chars)}{RESET}"]
 
 
-def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runtime=None, hover_col=None):
+def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runtime=None, hover_col=None, offset_minutes=0):
     """Hourly forecast: braille temperature curve + precipitation graph."""
     if runtime is None:
         runtime = WeatherRuntime.from_sources()
@@ -768,7 +829,7 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
         now = _local_now_for_data(data)
 
     graph_w = max(10, width - 2)
-    window = _prepare_hourly_window(data.get("hourly", {}), now, graph_w)
+    window = _prepare_hourly_window(data.get("hourly", {}), now, graph_w, offset_minutes=offset_minutes)
     if window is None:
         return []
 
@@ -779,6 +840,7 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     window_wind_dirs = window["wind_dirs"]
     window_dts = window["dts"]
     total_hours = window["total_hours"]
+    all_temp_range = window.get("all_temp_range")
     chart_lo = min(window_temps)
     chart_hi = max(window_temps)
 
@@ -798,6 +860,9 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
             midnight_day_names,
             sun_labels,
             runtime,
+            window_dts=window_dts,
+            now=now,
+            offset_minutes=offset_minutes,
         )
     ]
 
@@ -805,25 +870,43 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     if tick_line:
         lines.append(tick_line)
 
-    braille_rows = build_braille_curve(window_temps, graph_w, n_braille_rows)
-    overlays = _compute_extrema_overlays(extrema, col_temps, n_braille_rows, graph_w, runtime)
+    braille_rows = build_braille_curve(window_temps, graph_w, n_braille_rows,
+                                       value_range=all_temp_range)
+    overlays = _compute_extrema_overlays(extrema, col_temps, n_braille_rows, graph_w, runtime,
+                                          value_range=all_temp_range)
     lines.extend(_render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime, overlays,
                                        hover_col=hover_col))
 
     window_uv = window.get("uv", [])
+    wind_threshold = 25 if runtime.metric else 15
+    has_global_wind = window.get("all_wind_max", 0) > wind_threshold
+    has_global_uv = window.get("all_uv_max", 0) >= 6
+    has_global_precip = window.get("all_precip_max", 0) > 5
+
     wind_line = _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime,
                                  midnight_cols=midnight_cols, hover_col=hover_col)
     uv_line = _render_uv_row(window_uv, total_hours, graph_w, runtime,
                               midnight_cols=midnight_cols, hover_col=hover_col)
+
+    # Always reserve rows for wind/UV/precip if they appear anywhere in the
+    # full dataset, so the chart height stays stable while scrolling.
     if wind_line:
         lines.append(wind_line)
+    elif has_global_wind:
+        lines.append("")
     if uv_line:
         lines.append(uv_line)
+    elif has_global_uv:
+        lines.append("")
 
     # Indicator columns for precip: midnight dividers + hover
     indicator_cols = set(midnight_cols)
     if hover_col is not None:
         indicator_cols.add(hover_col)
-    lines.extend(_render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows,
-                                     indicator_cols=indicator_cols if indicator_cols else None))
+    precip_lines = _render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows,
+                                       indicator_cols=indicator_cols if indicator_cols else None)
+    if precip_lines:
+        lines.extend(precip_lines)
+    elif has_global_precip and n_precip_rows >= 1:
+        lines.extend([""] * n_precip_rows)
     return lines

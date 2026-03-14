@@ -109,7 +109,7 @@ from linecast._weather_sources import (
 )
 
 
-def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, cols, rows, runtime):
+def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, cols, rows, runtime, offset_minutes=0):
     """Build a tooltip overlay for mouse hover on the hourly chart.
 
     Returns cursor-positioned escape sequences to draw the tooltip, or "".
@@ -128,7 +128,7 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
 
     hourly = data.get("hourly", {})
     now = _local_now_for_data(data)
-    window = _prepare_hourly_window(hourly, now, graph_w)
+    window = _prepare_hourly_window(hourly, now, graph_w, offset_minutes=offset_minutes)
     if window is None:
         return ""
 
@@ -242,11 +242,23 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
         non_hourly += 1 + len(alert_lines)  # blank + alerts
 
     # All remaining rows go to hourly section
-    # hourly contains: today_line(1) + braille(N) + tick(1) + wind(0-1) + precip(0-P)
+    # hourly contains: today_line(1) + tick(1) + braille(N) + wind(0-1) + uv(0-1) + precip(0-P)
     hourly_budget = max(4, rows - non_hourly)
     graph_budget = hourly_budget - 2  # today_line + tick_labels
 
     hourly = data.get("hourly", {})
+
+    # Check full dataset for optional rows so layout stays stable while scrolling
+    wind_threshold = 25 if runtime.metric else 15
+    all_winds = hourly.get("wind_speed_10m", [])
+    has_wind_row = bool(all_winds) and max(all_winds) > wind_threshold
+    all_uv = hourly.get("uv_index", [])
+    has_uv_row = bool(all_uv) and max(all_uv) >= 6
+    if has_wind_row:
+        graph_budget -= 1
+    if has_uv_row:
+        graph_budget -= 1
+
     has_precip_graph = bool(hourly.get("precipitation_probability")) and max(hourly.get("precipitation_probability", [0])) > 5
     if has_precip_graph:
         n_precip_braille = min(3, max(1, graph_budget // 6))
@@ -267,7 +279,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     hourly_start = len(lines)
     hourly_lines = render_hourly(
         data, cols, n_braille_rows=n_braille, n_precip_rows=n_precip_braille,
-        now=now_local, runtime=runtime,
+        now=now_local, runtime=runtime, offset_minutes=offset_minutes,
     )
 
     # Adjust if hourly used more/fewer lines than budgeted (wind appeared,
@@ -278,7 +290,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
             n_braille = adjusted
             hourly_lines = render_hourly(
                 data, cols, n_braille_rows=n_braille, n_precip_rows=n_precip_braille,
-                now=now_local, runtime=runtime,
+                now=now_local, runtime=runtime, offset_minutes=offset_minutes,
             )
 
     hourly_end = hourly_start + len(hourly_lines)
@@ -291,7 +303,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
             graph_w = max(10, cols - 2)
             mouse_col_raw = mouse_pos[0] - 2  # 1-based terminal col → 0-based graph col
             if 0 <= mouse_col_raw < graph_w:
-                window = _prepare_hourly_window(hourly, now_local, graph_w)
+                window = _prepare_hourly_window(hourly, now_local, graph_w, offset_minutes=offset_minutes)
                 if window:
                     n = len(window["temps"])
                     total_hours = window["total_hours"]
@@ -304,6 +316,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
         hourly_lines = render_hourly(
             data, cols, n_braille_rows=n_braille, n_precip_rows=n_precip_braille,
             now=now_local, runtime=runtime, hover_col=hover_graph_col,
+            offset_minutes=offset_minutes,
         )
 
     lines.extend(hourly_lines)
@@ -347,6 +360,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
             data, mouse_col, mouse_row,
             hourly_start, hourly_end,
             cols, rows, runtime,
+            offset_minutes=offset_minutes,
         )
     if overlay:
         output += "\x00" + overlay
@@ -469,6 +483,7 @@ def main():
             interval=300,
             mouse=True,
             on_open=_open_alert_url,
+            scroll_step=60,
         )
     else:
         output, _alert_map = render(
