@@ -227,6 +227,11 @@ def _prepare_hourly_window(hourly, now, graph_w, offset_minutes=0):
         "uv": window_uv,
         "dts": window_dts,
         "total_hours": total_hours,
+        "all_temps": temps,
+        "all_winds": wind_speeds,
+        "all_wind_dirs": wind_directions,
+        "start_idx": start_idx,
+        "end_idx": end_idx,
         "all_temp_range": (all_temp_lo, all_temp_hi),
         "all_wind_max": all_wind_max,
         "all_uv_max": all_uv_max,
@@ -676,26 +681,29 @@ def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None, hover_co
     return f" {DIM}{''.join(canvas)}{RESET}"
 
 
-def _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime,
-                     midnight_cols=None, hover_col=None):
-    """Render wind arrows/speed labels at high-wind positions."""
+def _place_wind_labels(winds, wind_dirs, total_hours, graph_w, runtime):
+    """Compute wind label positions on a canvas, returning the character array.
+
+    This is separated from rendering so it can be run on the full dataset
+    for stable label placement while scrolling.
+    """
     wind_threshold = 25 if runtime.metric else 15
-    if not window_winds or max(window_winds, default=0) <= wind_threshold:
+    if not winds or max(winds, default=0) <= wind_threshold:
         return None
 
-    wind_canvas = [" "] * graph_w
+    canvas = [" "] * graph_w
     sample_interval = max(1, int(3 / total_hours * (graph_w - 1))) if total_hours > 0 else 6
     for x in range(0, graph_w, max(1, sample_interval)):
-        t = x / max(1, graph_w - 1) * max(0, len(window_winds) - 1)
+        t = x / max(1, graph_w - 1) * max(0, len(winds) - 1)
         lo_i = int(t)
-        hi_i = min(lo_i + 1, len(window_winds) - 1)
+        hi_i = min(lo_i + 1, len(winds) - 1)
         frac = t - lo_i
-        speed = window_winds[lo_i] + (window_winds[hi_i] - window_winds[lo_i]) * frac
+        speed = winds[lo_i] + (winds[hi_i] - winds[lo_i]) * frac
         if speed <= wind_threshold:
             continue
 
-        dir_i = max(0, min(len(window_wind_dirs) - 1, int(round(t)))) if window_wind_dirs else 0
-        deg = window_wind_dirs[dir_i] if window_wind_dirs else 0
+        dir_i = max(0, min(len(wind_dirs) - 1, int(round(t)))) if wind_dirs else 0
+        deg = wind_dirs[dir_i] if wind_dirs else 0
         sector = int((deg + 22.5) / 45) % 8
         arrow = WIND_ARROWS[sector]
         label = f"{arrow}{speed:.0f}"
@@ -703,19 +711,26 @@ def _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runti
         start = max(0, x - len(label) // 2)
         if start + len(label) > graph_w:
             start = graph_w - len(label)
-        if all(wind_canvas[start + j] == " " for j in range(len(label)) if start + j < graph_w):
+        if all(canvas[start + j] == " " for j in range(len(label)) if start + j < graph_w):
             for j, ch in enumerate(label):
                 if start + j < graph_w:
-                    wind_canvas[start + j] = ch
-    if not any(c != " " for c in wind_canvas):
+                    canvas[start + j] = ch
+    if not any(c != " " for c in canvas):
+        return None
+    return canvas
+
+
+def _render_wind_canvas(wind_canvas, graph_w, midnight_cols=None, hover_col=None):
+    """Render a pre-computed wind canvas with styling and indicator lines."""
+    if wind_canvas is None or not any(c != " " for c in wind_canvas):
         return None
 
-    # Build output with indicator lines in empty cells
     hover_fg = fg(*CHART_HOVER_RGB)
     midnight_fg = DIM
     parts = [" "]
     in_wind = False
-    for x, ch in enumerate(wind_canvas):
+    for x in range(graph_w):
+        ch = wind_canvas[x] if x < len(wind_canvas) else " "
         if ch != " ":
             if not in_wind:
                 parts.append(WIND_COLOR)
@@ -738,6 +753,13 @@ def _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runti
                 parts.append(" ")
     parts.append(RESET)
     return "".join(parts)
+
+
+def _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime,
+                     midnight_cols=None, hover_col=None):
+    """Render wind arrows/speed labels at high-wind positions."""
+    canvas = _place_wind_labels(window_winds, window_wind_dirs, total_hours, graph_w, runtime)
+    return _render_wind_canvas(canvas, graph_w, midnight_cols=midnight_cols, hover_col=hover_col)
 
 
 def _render_uv_row(window_uv, total_hours, graph_w, runtime,
@@ -850,7 +872,35 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     sun_labels = _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime)
     col_daylight = _compute_daylight_columns(window_dts, sun_events, graph_w)
     col_temps = _interpolate_columns(window_temps, graph_w)
-    extrema = _find_temperature_extrema(col_temps, graph_w)
+
+    # Full-data virtual canvas for stable label placement while scrolling.
+    # Temperature extrema and wind labels are computed on this canvas, then
+    # remapped into the visible window so they don't jump around.
+    all_temps = window.get("all_temps", window_temps)
+    start_idx = window.get("start_idx", 0)
+    end_idx = window.get("end_idx", len(all_temps) - 1)
+    n_window = end_idx - start_idx + 1
+    n_all = len(all_temps)
+    use_full_canvas = n_all > n_window and n_window > 1
+    if use_full_canvas:
+        all_graph_w = max(graph_w, int(graph_w * n_all / n_window))
+        win_start_col = start_idx / max(1, n_all - 1) * (all_graph_w - 1)
+        win_end_col = end_idx / max(1, n_all - 1) * (all_graph_w - 1)
+        win_span = win_end_col - win_start_col
+
+        all_col_temps = _interpolate_columns(all_temps, all_graph_w)
+        all_extrema = _find_temperature_extrema(all_col_temps, all_graph_w)
+        extrema = []
+        for x, temp, is_peak in all_extrema:
+            vis_x = (x - win_start_col) / max(1, win_span) * (graph_w - 1)
+            ix = int(round(vis_x))
+            if 0 <= ix < graph_w:
+                extrema.append((ix, temp, is_peak))
+    else:
+        all_graph_w = graph_w
+        win_start_col = 0
+        win_span = graph_w - 1
+        extrema = _find_temperature_extrema(col_temps, graph_w)
 
     lines = [
         _render_today_line(
@@ -883,8 +933,30 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     has_global_uv = window.get("all_uv_max", 0) >= 6
     has_global_precip = window.get("all_precip_max", 0) > 5
 
-    wind_line = _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime,
-                                 midnight_cols=midnight_cols, hover_col=hover_col)
+    # Compute wind labels on the full dataset for stable placement while
+    # scrolling, then extract the visible window slice.
+    all_winds = window.get("all_winds", window_winds)
+    all_wind_dirs = window.get("all_wind_dirs", window_wind_dirs)
+    if use_full_canvas and all_winds:
+        all_total_hours = max(1, len(all_winds) - 1)
+        full_canvas = _place_wind_labels(all_winds, all_wind_dirs, all_total_hours, all_graph_w, runtime)
+        if full_canvas is not None:
+            # Extract visible window slice
+            win_start = int(round(win_start_col))
+            vis_canvas = []
+            for vx in range(graph_w):
+                fx = win_start + int(round(vx / max(1, graph_w - 1) * win_span))
+                if 0 <= fx < len(full_canvas):
+                    vis_canvas.append(full_canvas[fx])
+                else:
+                    vis_canvas.append(" ")
+            wind_line = _render_wind_canvas(vis_canvas, graph_w,
+                                            midnight_cols=midnight_cols, hover_col=hover_col)
+        else:
+            wind_line = None
+    else:
+        wind_line = _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime,
+                                     midnight_cols=midnight_cols, hover_col=hover_col)
     uv_line = _render_uv_row(window_uv, total_hours, graph_w, runtime,
                               midnight_cols=midnight_cols, hover_col=hover_col)
 
