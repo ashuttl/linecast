@@ -11,7 +11,7 @@ and MeteoAlarm (30 European countries).
 
 Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 
-Usage: weather [--print] [--location LAT,LNG] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--no-shading] [--lang fr] [--classic-colors]
+Usage: weather [--print] [--location LAT,LNG | PLACE] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--no-shading] [--lang fr] [--classic-colors]
 """
 
 import os
@@ -103,6 +103,7 @@ from linecast._weather_sources import (
     _location_from_timezone,
     _reverse_geocode,
     _search_locations,
+    geocode_first,
     fetch_alerts,
     fetch_aqi,
     fetch_forecast,
@@ -406,12 +407,16 @@ def main():
     override = loc_arg or os.environ.get("WEATHER_LOCATION", "").strip()
 
     if override:
+        # Try parsing as LAT,LNG first; otherwise geocode as a place name
         try:
             parts = override.split(",")
             lat, lng = float(parts[0]), float(parts[1])
         except (ValueError, IndexError):
-            print("Invalid location format. Use: --location LAT,LNG", file=sys.stderr)
-            sys.exit(1)
+            hit = geocode_first(override, lang=runtime.lang)
+            if hit is None:
+                print(f'No locations matching "{override}".', file=sys.stderr)
+                sys.exit(1)
+            lat, lng, _label = hit
         country_code = ""  # will be detected via reverse geocode
     else:
         lat, lng, country_code = get_location()

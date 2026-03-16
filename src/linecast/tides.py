@@ -10,9 +10,9 @@ Uses Unicode braille characters with ANSI color for smooth line rendering
 or overridden with TIDE_STATION env var.
 
 Data sources: NOAA (US) and CHS/IWLS (Canada), selected automatically
-based on geolocation. Use --station with a station ID to override.
+based on geolocation. Use --station with a station ID or name to override.
 
-Usage: tides [--print] [--station ID] [--search QUERY] [--metric] [--lang LANG] [--classic-colors]
+Usage: tides [--print] [--station ID | NAME] [--search QUERY] [--metric] [--lang LANG] [--classic-colors]
 """
 
 import math
@@ -749,7 +749,7 @@ def main():
             use_chs = True
             station_id = override
             station_name = f"Station {override[:8]}"
-        else:
+        elif override.isdigit():
             station_id = override
             station_name = f"Station {override}"
             for s in (_fetch_all_stations() or []):
@@ -758,6 +758,25 @@ def main():
                     state = s.get("state", "")
                     station_name = f"{name}, {state}" if state else name
                     break
+        else:
+            # Text query — find first matching station by name
+            q = override.lower()
+            noaa_stations = _fetch_all_stations() or []
+            chs_stations = _fetch_all_stations_chs() or []
+            noaa_hit = next((s for s in noaa_stations if q in s.get("name", "").lower()), None)
+            chs_hit = next((s for s in chs_stations if q in s.get("officialName", "").lower()), None)
+            if noaa_hit:
+                station_id = str(noaa_hit["id"])
+                name = noaa_hit.get("name", "")
+                state = noaa_hit.get("state", "")
+                station_name = f"{name}, {state}" if state else name
+            elif chs_hit:
+                use_chs = True
+                station_id = str(chs_hit["id"])
+                station_name = chs_hit.get("officialName", f"Station {station_id[:8]}")
+            else:
+                print(f'No stations matching "{override}".', file=sys.stderr)
+                sys.exit(1)
     else:
         lat, lng, country_code = get_location()
         if lat is None:

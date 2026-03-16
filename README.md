@@ -42,6 +42,7 @@ brew install linecast
 
 ```
 weather                          # current location via IP geolocation
+weather --location "new york"    # search by place name (uses top result)
 weather --location 44.54,-68.42  # specific coordinates
 weather --search québec          # find coordinates by city name
 weather --metric                 # metric units (°C, km/h, mm)
@@ -55,6 +56,7 @@ sunshine --print                 # static snapshot
 sunshine --classic-colors        # use fixed-color (theme agnostic) sunshine gradient/palette
 
 tides                            # nearest NOAA station (live by default)
+tides --station "Bar Harbor"     # search by station name (uses first match)
 tides --station 8413320          # specific station ID
 tides --search "Bar Harbor"      # find stations by name
 tides --metric                   # heights in meters instead of feet

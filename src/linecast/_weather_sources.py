@@ -917,8 +917,8 @@ def _parse_cma_issuetime(s):
     return ""
 
 
-def _search_locations(query, lang="en"):
-    """Search cities using Open-Meteo geocoding API and print results."""
+def _geocode_query(query, lang="en"):
+    """Geocode a place name via Open-Meteo. Returns list of result dicts."""
     import urllib.parse
 
     url = (
@@ -930,8 +930,31 @@ def _search_locations(query, lang="en"):
     except Exception as exc:
         print(f"Search failed: {exc}", file=sys.stderr)
         sys.exit(1)
+    return data.get("results", [])
 
-    results = data.get("results", [])
+
+def geocode_first(query, lang="en"):
+    """Geocode a place name and return the top result as (lat, lng, label).
+
+    Returns ``None`` if nothing matches.
+    """
+    results = _geocode_query(query, lang=lang)
+    if not results:
+        return None
+    r = results[0]
+    lat = r.get("latitude", 0)
+    lng = r.get("longitude", 0)
+    parts = [r.get("name", "")]
+    if r.get("admin1"):
+        parts.append(r["admin1"])
+    if r.get("country"):
+        parts.append(r["country"])
+    return lat, lng, ", ".join(parts)
+
+
+def _search_locations(query, lang="en"):
+    """Search cities using Open-Meteo geocoding API and print results."""
+    results = _geocode_query(query, lang=lang)
     if not results:
         print(f'No locations matching "{query}".')
         return
