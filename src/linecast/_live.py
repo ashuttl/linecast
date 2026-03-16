@@ -276,9 +276,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
                             break
                     elif action == 'fwd':
                         offset += scroll_step
+                        if select.select([fd], [], [], 0)[0]:
+                            continue  # coalesce rapid scrolling
                         break
                     elif action == 'back':
                         offset -= scroll_step
+                        if select.select([fd], [], [], 0)[0]:
+                            continue  # coalesce rapid scrolling
                         break
                     elif action == 'reset':
                         offset = 0
@@ -293,6 +297,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
                                 modal_scroll = max(0, modal_scroll)
                             else:
                                 offset += scroll_step if wheel_cb == 64 else -scroll_step
+                            if select.select([fd], [], [], 0)[0]:
+                                continue  # coalesce rapid scrolling
                             break
                         if is_rel:
                             # Button release — ignore
