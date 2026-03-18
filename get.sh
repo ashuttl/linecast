@@ -17,6 +17,11 @@ case "$cmd" in
     *) echo "Unknown command: $cmd (try weather, sunshine, or tides)"; exit 1 ;;
 esac
 
+# When stdin is a pipe (e.g. curl | sh), live mode can't read keyboard input
+if [ ! -t 0 ]; then
+    set -- "--print" "$@"
+fi
+
 # Already installed?
 if command -v linecast >/dev/null 2>&1; then
     if [ "$cmd" = linecast ]; then linecast "$@"; else linecast "$cmd" "$@"; fi

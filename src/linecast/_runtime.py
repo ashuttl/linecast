@@ -46,7 +46,7 @@ def _resolve_live(args):
     if "--live" in args:
         return True
     try:
-        return sys.stdout.isatty()
+        return sys.stdout.isatty() and sys.stdin.isatty()
     except Exception:
         return False
 
