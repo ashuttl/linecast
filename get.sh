@@ -17,26 +17,34 @@ case "$cmd" in
     *) echo "Unknown command: $cmd (try weather, sunshine, or tides)"; exit 1 ;;
 esac
 
-# When stdin is a pipe (e.g. curl | sh), live mode can't read keyboard input
-if [ ! -t 0 ]; then
-    set -- "--print" "$@"
-fi
+# Run a linecast command, reclaiming the terminal for interactive input
+# when stdin is a pipe (e.g. curl | sh). /dev/tty is the controlling
+# terminal regardless of shell redirections — this lets live mode work.
+run() {
+    if [ -t 0 ]; then
+        "$@"
+    elif [ -c /dev/tty ]; then
+        "$@" < /dev/tty
+    else
+        "$@" --print
+    fi
+}
 
 # Already installed?
 if command -v linecast >/dev/null 2>&1; then
-    if [ "$cmd" = linecast ]; then linecast "$@"; else linecast "$cmd" "$@"; fi
+    if [ "$cmd" = linecast ]; then run linecast "$@"; else run linecast "$cmd" "$@"; fi
     exit
 fi
 
 # uvx (from uv) — ephemeral run, no install needed
 if command -v uvx >/dev/null 2>&1; then
-    uvx --quiet linecast "$cmd" "$@"
+    run uvx --quiet linecast "$cmd" "$@"
     exit
 fi
 
 # pipx — ephemeral run, no install needed
 if command -v pipx >/dev/null 2>&1; then
-    pipx run linecast "$cmd" "$@"
+    run pipx run linecast "$cmd" "$@"
     exit
 fi
 
@@ -53,7 +61,7 @@ if [ ! -x "$ENV/bin/weather" ]; then
     "$ENV/bin/pip" install -q linecast
 fi
 
-"$ENV/bin/$cmd" "$@"
+run "$ENV/bin/$cmd" "$@"
 
 # After live mode exits (or after --print output), show next steps
 printf '\n'
