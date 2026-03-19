@@ -19,7 +19,7 @@ import sys
 
 from linecast._graphics import bg, fg, get_terminal_size, live_loop, visible_len
 from linecast._location import get_location
-from linecast._runtime import WeatherRuntime, arg_value, has_flag
+from linecast._runtime import WeatherRuntime, arg_value, has_flag, install_banner
 from linecast._weather_i18n import (
     _PRECIP_DESCS_I18N,
     _STRINGS,
@@ -347,6 +347,10 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
         lines.extend(alert_lines)
         for i in range(len(alert_lines)):
             alert_row_map[alert_start + i] = i
+
+    hint = install_banner()
+    if hint:
+        lines.append(hint)
 
     output = "\n".join(lines)
 

@@ -39,7 +39,7 @@ from linecast._theme import (
     theme_fg,
 )
 from linecast._location import get_location
-from linecast._runtime import TidesRuntime, arg_value, has_flag
+from linecast._runtime import TidesRuntime, arg_value, has_flag, install_banner
 from linecast._tides_i18n import _moon_name, _ts
 from linecast._tides_chs import (
     find_nearest_station_chs, fetch_station_metadata_chs,
@@ -694,6 +694,10 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         w_start, w_total, graph_w, runtime,
         now_col=now_col, hover_col=hover_graph_col,
     ))
+
+    hint = install_banner()
+    if hint:
+        lines.append(hint)
 
     output = "\n".join(lines)
 

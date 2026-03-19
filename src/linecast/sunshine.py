@@ -35,7 +35,7 @@ from linecast._theme import (
     theme_legacy_mode,
 )
 from linecast._location import get_location
-from linecast._runtime import RuntimeConfig, has_flag
+from linecast._runtime import RuntimeConfig, has_flag, install_banner
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -470,6 +470,10 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
             offset_minutes,
         )
     )
+
+    hint = install_banner()
+    if hint:
+        lines.append(hint)
 
     return "\n".join(lines)
 

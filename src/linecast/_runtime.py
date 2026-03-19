@@ -5,6 +5,18 @@ import os
 import sys
 
 
+def install_banner():
+    """A one-line install hint shown when running from a temporary venv (get.sh)."""
+    if not os.environ.get("LINECAST_TEMP"):
+        return ""
+    from linecast._color import fg, RESET
+    from linecast._theme import ensure_contrast, neutral_tone, theme_bg, theme_fg
+    text = fg(*ensure_contrast(theme_fg, theme_bg, minimum=4.5))
+    muted = fg(*ensure_contrast(neutral_tone(0.48), theme_bg, minimum=2.5))
+    sep = f"{muted} \u00b7 "
+    return f" {text}linecast{sep}{muted}pip install linecast{sep}github.com/ashuttl/linecast{RESET}"
+
+
 def _argv(argv=None):
     if argv is None:
         return tuple(sys.argv[1:])

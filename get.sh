@@ -61,12 +61,5 @@ if [ ! -x "$ENV/bin/weather" ]; then
     "$ENV/bin/pip" install -q linecast
 fi
 
+export LINECAST_TEMP=1
 run "$ENV/bin/$cmd" "$@"
-
-# After live mode exits (or after --print output), show next steps
-printf '\n'
-printf '  Also try: %s/bin/sunshine, %s/bin/tides\n' "$ENV" "$ENV"
-printf '\n'
-printf '  Install permanently:\n'
-printf '    pip install linecast\n'
-printf '    brew tap ashuttl/linecast && brew install linecast\n'
