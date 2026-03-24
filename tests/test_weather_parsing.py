@@ -116,6 +116,35 @@ class TestNWSAlerts:
                 assert key in props, f"Missing alert property: {key}"
 
 
+class TestNWSAlertsFilterTestMessages:
+    """Verify that NWS test/exercise alerts are filtered out."""
+
+    def setup_method(self):
+        self.data = _load("nws_alerts_with_test.json")
+
+    def test_fixture_has_both_test_and_actual(self):
+        statuses = [f["properties"]["status"] for f in self.data["features"]]
+        assert "Test" in statuses
+        assert "Actual" in statuses
+
+    def test_parser_drops_test_alerts(self):
+        from linecast._weather_sources import _fetch_alerts_nws
+        with patch("linecast._weather_sources.fetch_json_cached", return_value=self.data):
+            alerts = _fetch_alerts_nws(40.7, -74.0)
+        assert len(alerts) == 1
+        assert alerts[0]["event"] == "Heat Advisory"
+
+    def test_parser_drops_exercise_alerts(self):
+        """Exercise status should also be filtered."""
+        import copy
+        data = copy.deepcopy(self.data)
+        data["features"][1]["properties"]["status"] = "Exercise"
+        from linecast._weather_sources import _fetch_alerts_nws
+        with patch("linecast._weather_sources.fetch_json_cached", return_value=data):
+            alerts = _fetch_alerts_nws(40.7, -74.0)
+        assert len(alerts) == 0
+
+
 # ---------------------------------------------------------------------------
 # ECCC alerts parsing
 # ---------------------------------------------------------------------------

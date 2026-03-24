@@ -1,0 +1,38 @@
+{
+    "@context": {
+        "@version": "1.1"
+    },
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "event": "Tsunami Warning",
+                "headline": "Tsunami Warning issued March 24 at 10:00AM EDT",
+                "description": "...THIS_MESSAGE_IS_FOR_TEST_PURPOSES_ONLY... ...THIS IS A TEST TO DETERMINE TRANSMISSION TIMES INVOLVED IN THE DISSEMINATION OF TSUNAMI INFORMATION...",
+                "effective": "2026-03-24T10:00:00-04:00",
+                "expires": "2026-03-24T16:00:00-04:00",
+                "severity": "Extreme",
+                "web": "https://alerts.weather.gov/test123",
+                "status": "Test",
+                "messageType": "Alert"
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "event": "Heat Advisory",
+                "headline": "Heat Advisory issued March 24 at 8:00AM EDT",
+                "description": "Dangerously hot conditions with heat index values up to 110.",
+                "effective": "2026-03-24T08:00:00-04:00",
+                "expires": "2026-03-25T20:00:00-04:00",
+                "severity": "Moderate",
+                "web": "https://alerts.weather.gov/real456",
+                "status": "Actual",
+                "messageType": "Alert"
+            }
+        }
+    ],
+    "title": "Current watches, warnings, and advisories for 40.7128 N, 74.006 W",
+    "updated": "2026-03-24T14:00:00+00:00"
+}

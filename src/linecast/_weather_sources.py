@@ -166,6 +166,8 @@ def _fetch_alerts_nws(lat, lng):
     alerts = []
     for feature in features:
         props = feature.get("properties", {})
+        if props.get("status") != "Actual":
+            continue
         alerts.append({
             "event": props.get("event", ""),
             "headline": props.get("headline", ""),
