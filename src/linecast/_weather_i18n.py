@@ -63,6 +63,7 @@ DAY_NAMES = {
     "ja": ["\u6708", "\u706b", "\u6c34", "\u6728", "\u91d1", "\u571f", "\u65e5"],
     "ko": ["\uc6d4", "\ud654", "\uc218", "\ubaa9", "\uae08", "\ud1a0", "\uc77c"],
     "zh": ["\u5468\u4e00", "\u5468\u4e8c", "\u5468\u4e09", "\u5468\u56db", "\u5468\u4e94", "\u5468\u516d", "\u5468\u65e5"],
+    "id": ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"],
 }
 
 FULL_DAY_NAMES = {
@@ -82,6 +83,7 @@ FULL_DAY_NAMES = {
     "ja": ["\u6708\u66dc\u65e5", "\u706b\u66dc\u65e5", "\u6c34\u66dc\u65e5", "\u6728\u66dc\u65e5", "\u91d1\u66dc\u65e5", "\u571f\u66dc\u65e5", "\u65e5\u66dc\u65e5"],
     "ko": ["\uc6d4\uc694\uc77c", "\ud654\uc694\uc77c", "\uc218\uc694\uc77c", "\ubaa9\uc694\uc77c", "\uae08\uc694\uc77c", "\ud1a0\uc694\uc77c", "\uc77c\uc694\uc77c"],
     "zh": ["\u661f\u671f\u4e00", "\u661f\u671f\u4e8c", "\u661f\u671f\u4e09", "\u661f\u671f\u56db", "\u661f\u671f\u4e94", "\u661f\u671f\u516d", "\u661f\u671f\u65e5"],
+    "id": ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"],
 }
 
 WMO_NAMES_I18N = {
@@ -265,6 +267,18 @@ WMO_NAMES_I18N = {
         85: "\u9635\u96ea", 86: "\u5927\u9635\u96ea",
         95: "\u96f7\u66b4\u96e8", 96: "\u96f7\u66b4\u96e8", 99: "\u96f7\u66b4\u96e8",
     },
+    "id": {
+        0: "Cerah", 1: "Cerah Berawan", 2: "Berawan Sebagian", 3: "Mendung",
+        45: "Berkabut", 48: "Kabut Beku",
+        51: "Gerimis Ringan", 53: "Gerimis", 55: "Gerimis Lebat",
+        56: "Gerimis Beku", 57: "Gerimis Beku",
+        61: "Hujan Ringan", 63: "Hujan", 65: "Hujan Lebat",
+        66: "Hujan Beku", 67: "Hujan Beku",
+        71: "Salju Ringan", 73: "Salju", 75: "Salju Lebat", 77: "Butiran Salju",
+        80: "Hujan Rintik", 81: "Hujan Singkat", 82: "Hujan Deras Singkat",
+        85: "Hujan Salju Singkat", 86: "Hujan Salju Deras",
+        95: "Badai Petir", 96: "Badai Petir", 99: "Badai Petir",
+    },
 }
 
 _PRECIP_DESCS_I18N = {
@@ -417,6 +431,16 @@ _PRECIP_DESCS_I18N = {
         80: "\u5c0f\u9635\u96e8", 81: "\u9635\u96e8", 82: "\u5927\u9635\u96e8",
         85: "\u9635\u96ea", 86: "\u5927\u9635\u96ea",
         95: "\u96f7\u66b4\u96e8", 96: "\u96f7\u66b4\u96e8", 99: "\u96f7\u66b4\u96e8",
+    },
+    "id": {
+        51: "gerimis ringan", 53: "gerimis", 55: "gerimis lebat",
+        56: "gerimis beku", 57: "gerimis beku",
+        61: "hujan ringan", 63: "hujan", 65: "hujan lebat",
+        66: "hujan beku", 67: "hujan beku",
+        71: "salju ringan", 73: "salju", 75: "salju lebat", 77: "butiran salju",
+        80: "hujan rintik", 81: "hujan singkat", 82: "hujan deras singkat",
+        85: "hujan salju singkat", 86: "hujan salju deras",
+        95: "badai petir", 96: "badai petir", 99: "badai petir",
     },
 }
 
@@ -1269,6 +1293,59 @@ _STRINGS = {
         "o_to_open": "o \u5728\u6d4f\u89c8\u5668\u4e2d\u6253\u5f00",
         "scroll": "\u6eda\u52a8",
         "space_to_now": "\u6309\u7a7a\u683c\u8fd4\u56de\u5f53\u524d",
+    },
+    "id": {
+        "today": "hari ini",
+        "today_short": "Hri",
+        "feels": "terasa",
+        "wind": "Angin",
+        "gusts": "hemb.",
+        "humidity": "Kelembapan",
+        "dew_pt": "Tt embun",
+        "uv": "UV",
+        "aqi": "IKU",
+        "until": "hingga",
+        # Comparative line
+        "same_temp": "bersuhu hampir sama dengan {ref_day}",
+        "bit_warmer": "sedikit lebih hangat dari {ref_day}",
+        "bit_cooler": "sedikit lebih sejuk dari {ref_day}",
+        "warmer": "lebih hangat dari {ref_day}",
+        "cooler": "lebih sejuk dari {ref_day}",
+        "much_warmer": "jauh lebih panas dari {ref_day}",
+        "much_cooler": "jauh lebih dingin dari {ref_day}",
+        "today_subj": "Hari ini",
+        "tomorrow_subj": "Besok",
+        "yesterday": "kemarin",
+        "today_ref": "hari ini",
+        "will_be": "{subject} akan {comparison}",
+        # Precipitation line
+        "ending": "{desc} mereda {time}",
+        "continuing": "{desc} sepanjang hari",
+        "starting": "{desc} kemungkinan mulai {time}",
+        "shortly": "sebentar lagi",
+        "in_about_an_hour": "sekitar satu jam lagi",
+        "in_a_couple_hours": "dalam beberapa jam",
+        "around": "sekitar {time}",
+        "overnight": "malam ini",
+        "early_tomorrow_morning": "besok dini hari",
+        "tomorrow_morning": "besok pagi",
+        "tomorrow_afternoon": "besok siang",
+        "tomorrow_evening": "besok malam",
+        "on_day": "hari {day}",
+        # Past precip
+        "past_precip": "{amt} {ptype} dalam 24 jam terakhir",
+        "snow": "salju",
+        "rain": "hujan",
+        "mixed_precip": "hujan campuran",
+        # Daily precip types
+        "Snow": "Salju",
+        "Rain": "Hujan",
+        "Mix": "Camp.",
+        # Alert modal hints
+        "q_to_close": "q untuk menutup",
+        "o_to_open": "o untuk membuka di browser",
+        "scroll": "gulir",
+        "space_to_now": "spasi untuk kembali",
     },
 }
 

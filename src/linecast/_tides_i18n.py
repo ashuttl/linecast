@@ -51,6 +51,9 @@ _TIDES_STRINGS = {
     "zh": {
         "space_to_now": "\u6309\u7a7a\u683c\u8fd4\u56de\u5f53\u524d",
     },
+    "id": {
+        "space_to_now": "spasi untuk kembali ke sekarang",
+    },
 }
 
 
@@ -87,6 +90,8 @@ MOON_NAMES_I18N = {
             "\ubcf4\ub984", "\uae30\uc6b8\uc74c", "\ud558\ud604", "\uadf8\ubfc0"],
     "zh": ["\u65b0\u6708", "\u86fe\u7709\u6708", "\u4e0a\u5f26\u6708", "\u76c8\u51f8\u6708",
             "\u6ee1\u6708", "\u4e8f\u51f8\u6708", "\u4e0b\u5f26\u6708", "\u6b8b\u6708"],
+    "id": ["Bulan Baru", "Sabit Awal", "Kuarter Pertama", "Cembung Awal",
+            "Bulan Purnama", "Cembung Akhir", "Kuarter Akhir", "Sabit Akhir"],
 }
 
 
