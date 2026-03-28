@@ -45,6 +45,7 @@ WEATHER_FLAGS = (
     "--classic-colors",
     "--legacy-colors",
     "--theme",
+    "--debug",
 )
 
 TIDES_FLAGS = (
@@ -61,6 +62,7 @@ TIDES_FLAGS = (
     "--classic-colors",
     "--legacy-colors",
     "--theme",
+    "--debug",
 )
 
 SUNSHINE_FLAGS = (
@@ -74,6 +76,7 @@ SUNSHINE_FLAGS = (
     "--classic-colors",
     "--legacy-colors",
     "--theme",
+    "--debug",
 )
 
 COMPLETION_FLAGS = ("--help", "-h")

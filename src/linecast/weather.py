@@ -19,7 +19,7 @@ import sys
 
 from linecast._graphics import bg, fg, get_terminal_size, live_loop, visible_len
 from linecast._location import get_location
-from linecast._runtime import WeatherRuntime, arg_value, has_flag, install_banner
+from linecast._runtime import WeatherRuntime, install_banner, weather_parser
 from linecast._weather_i18n import (
     _PRECIP_DESCS_I18N,
     _STRINGS,
@@ -398,25 +398,16 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtim
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    runtime = WeatherRuntime.from_sources()
-
-    if has_flag("--help") or has_flag("-h"):
-        print(__doc__.strip())
-        return
-    if has_flag("--version"):
-        from linecast import __version__
-        print(f"weather (linecast {__version__})")
-        return
+    args = weather_parser().parse_args()
+    runtime = WeatherRuntime.from_sources(namespace=args)
 
     # --search: geocode cities and exit
-    search_q = arg_value("--search")
-    if search_q:
-        _search_locations(search_q, lang=runtime.lang)
+    if args.search:
+        _search_locations(args.search, lang=runtime.lang)
         return
 
     # Location: --location flag > WEATHER_LOCATION env > geolocation
-    loc_arg = arg_value("--location")
-    override = loc_arg or os.environ.get("WEATHER_LOCATION", "").strip()
+    override = args.location or os.environ.get("WEATHER_LOCATION", "").strip()
 
     if override:
         # Try parsing as LAT,LNG first; otherwise geocode as a place name
@@ -436,27 +427,44 @@ def main():
             print("Could not determine location.", file=sys.stderr)
             sys.exit(1)
 
-    # Fetch data with spinner for perceived responsiveness
+    # Fetch data in parallel for faster startup
+    from concurrent.futures import ThreadPoolExecutor
     import threading
 
     done = threading.Event()
     result = {}
 
     def _fetch():
-        name, cc, addr = _reverse_geocode(lat, lng)
-        result["name"] = name
-        result["country_code"] = cc or country_code
-        result["data"] = fetch_forecast(lat, lng, runtime)
-        result["alerts"] = fetch_alerts(lat, lng, result["country_code"], lang=runtime.lang, address=addr)
-        result["aqi"] = fetch_aqi(lat, lng)
-        try:
-            from datetime import date
-            result["historical"] = fetch_historical(
-                lat, lng, date.today(),
-                celsius=runtime.celsius, metric=runtime.metric,
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            fut_geocode = pool.submit(_reverse_geocode, lat, lng)
+            fut_forecast = pool.submit(fetch_forecast, lat, lng, runtime)
+            fut_aqi = pool.submit(fetch_aqi, lat, lng)
+
+            def _hist():
+                try:
+                    from datetime import date
+                    return fetch_historical(
+                        lat, lng, date.today(),
+                        celsius=runtime.celsius, metric=runtime.metric,
+                    )
+                except Exception:
+                    return None
+            fut_hist = pool.submit(_hist)
+
+            # Alerts depend on geocode for country_code
+            name, cc, addr = fut_geocode.result()
+            fut_alerts = pool.submit(
+                fetch_alerts, lat, lng, cc or country_code,
+                lang=runtime.lang, address=addr,
             )
-        except Exception:
-            result["historical"] = None
+
+            result["name"] = name
+            result["country_code"] = cc or country_code
+            result["data"] = fut_forecast.result()
+            result["alerts"] = fut_alerts.result()
+            result["aqi"] = fut_aqi.result()
+            result["historical"] = fut_hist.result()
+
         if not result["name"] and result["data"]:
             result["name"] = _location_from_timezone(result["data"].get("timezone", ""))
         done.set()

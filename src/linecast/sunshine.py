@@ -35,7 +35,7 @@ from linecast._theme import (
     theme_legacy_mode,
 )
 from linecast._location import get_location
-from linecast._runtime import RuntimeConfig, has_flag, install_banner
+from linecast._runtime import RuntimeConfig, install_banner, sunshine_parser
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -521,15 +521,8 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    runtime = RuntimeConfig.from_sources()
-
-    if has_flag("--help") or has_flag("-h"):
-        print(__doc__.strip())
-        return
-    if has_flag("--version"):
-        from linecast import __version__
-        print(f"sunshine (linecast {__version__})")
-        return
+    args = sunshine_parser().parse_args()
+    runtime = RuntimeConfig.from_sources(namespace=args)
 
     lat, lng, _country = get_location()
     if lat is None:

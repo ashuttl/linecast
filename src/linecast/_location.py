@@ -2,6 +2,7 @@
 
 from linecast._cache import CACHE_ROOT, read_cache, write_cache
 from linecast._http import fetch_json
+from linecast._runtime import debug_log
 from linecast import USER_AGENT
 
 _CACHE_FILE = CACHE_ROOT / "location.json"
@@ -33,7 +34,7 @@ def get_location():
             country = data.get("country", "")
             write_cache(_CACHE_FILE, {"lat": lat, "lng": lng, "country": country})
             return lat, lng, country
-    except Exception:
-        pass
+    except Exception as exc:
+        debug_log(f"geolocation failed: {exc}")
 
     return None, None, None
