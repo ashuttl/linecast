@@ -51,9 +51,10 @@ def _resolve_live(args):
     """Live mode is on by default when stdout is a TTY.
 
     --print forces static single-shot output.
+    --oneline forces static single-shot output.
     --live is accepted for backwards compatibility but is no longer needed.
     """
-    if "--print" in args:
+    if "--print" in args or "--oneline" in args:
         return False
     if "--live" in args:
         return True
@@ -68,6 +69,7 @@ class RuntimeConfig:
     live: bool
     emoji: bool
     lang: str
+    oneline: bool
 
     @classmethod
     def from_sources(cls, argv=None, environ=None):
@@ -82,6 +84,7 @@ class RuntimeConfig:
             live=_resolve_live(args),
             emoji="--emoji" in args or env.get("LINECAST_ICONS", "").lower() == "emoji",
             lang=lang if len(lang) == 2 and lang.isalpha() else "en",
+            oneline="--oneline" in args,
         )
 
     @property
@@ -115,6 +118,7 @@ class WeatherRuntime(RuntimeConfig):
             live=base.live,
             emoji=base.emoji,
             lang=base.lang,
+            oneline=base.oneline,
             celsius=celsius,
             metric="--metric" in args or all_metric,
             shading="--no-shading" not in args and not env_truthy(env.get("WEATHER_NO_SHADING", "")),
@@ -146,6 +150,7 @@ class TidesRuntime(RuntimeConfig):
             live=base.live,
             emoji=base.emoji,
             lang=base.lang,
+            oneline=base.oneline,
             metric=(
                 "--metric" in args
                 or env.get("TIDES_UNITS", "").lower() == "metric"
