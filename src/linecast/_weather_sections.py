@@ -8,7 +8,7 @@ from linecast._weather_i18n import DAY_NAMES, WMO_NAMES, WMO_NAMES_I18N, _PRECIP
 from linecast._weather_style import MUTED, TEXT, WIND_COLOR, _aqi_color, _colored_temp
 
 
-def render_header(data, width, location_name="", runtime=None, aqi_data=None):
+def render_header(data, width, location_name="", runtime=None, aqi_data=None, historical=None):
     """Current conditions header line."""
     if runtime is None:
         runtime = WeatherRuntime.from_sources()
@@ -28,6 +28,24 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None):
     deg = runtime.temp_unit
     left_core = f" {TEXT}{icon} {name}  {_colored_temp(temp, runtime, deg)}"
     left_feels = f"  {MUTED}{_s('feels', runtime)} {_colored_temp(feels, runtime, deg)}"
+
+    # Historical comparison — subtle annotation after feels-like
+    left_hist = ""
+    if historical is not None:
+        try:
+            from linecast._weather_historical import format_historical_comparison
+            daily = data.get("daily", {})
+            hi_temps = daily.get("temperature_2m_max", [])
+            lo_temps = daily.get("temperature_2m_min", [])
+            # Index 1 = today (with past_days=1)
+            if len(hi_temps) > 1 and len(lo_temps) > 1:
+                hist_text = format_historical_comparison(
+                    hi_temps[1], lo_temps[1], historical, runtime,
+                )
+                if hist_text:
+                    left_hist = f"  {MUTED}({hist_text})"
+        except Exception:
+            pass
 
     # Humidity/dew point — show when notable
     left_humidity = ""
@@ -70,7 +88,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None):
             return f"{left}{' ' * pad}{right}{RESET}"
         return None  # doesn't fit
 
-    left = left_core + left_feels + left_humidity + left_aqi
+    left = left_core + left_feels + left_hist + left_humidity + left_aqi
 
     # Try full header
     right = _join_right(wind_part, loc_part)
@@ -79,13 +97,20 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None):
         return result
 
     # Drop humidity
-    left = left_core + left_feels + left_aqi
+    left = left_core + left_feels + left_hist + left_aqi
     right = _join_right(wind_part, loc_part)
     result = _assemble(left, right)
     if result:
         return result
 
     # Drop AQI
+    left = left_core + left_feels + left_hist
+    right = _join_right(wind_part, loc_part)
+    result = _assemble(left, right)
+    if result:
+        return result
+
+    # Drop historical comparison
     left = left_core + left_feels
     right = _join_right(wind_part, loc_part)
     result = _assemble(left, right)
