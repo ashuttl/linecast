@@ -40,6 +40,7 @@ from linecast._theme import (
 )
 from linecast._location import get_location
 from linecast._runtime import TidesRuntime, arg_value, has_flag, install_banner
+from linecast._marine import fetch_marine, parse_marine_current, format_marine_line
 from linecast._tides_i18n import _moon_name, _ts
 from linecast._tides_chs import (
     find_nearest_station_chs, fetch_station_metadata_chs,
@@ -556,7 +557,7 @@ def _info_line(window, now_height, now_dt, width, offset_minutes, rising, runtim
 # ---------------------------------------------------------------------------
 def render(station_id, station_name, station_meta=None, runtime=None,
            fullscreen=False, offset_minutes=0, mouse_pos=None,
-           predictions=None, hilo=None, y_range=None):
+           predictions=None, hilo=None, y_range=None, marine_data=None):
     """Build the complete multi-line tide display.
 
     When predictions/hilo are provided (live mode), renders a sliding 24h
@@ -565,6 +566,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
 
     y_range: optional (min_ft, max_ft) to fix the y-axis scale (e.g. from
              30-day hilo data) so the curve doesn't rescale as you scroll.
+    marine_data: optional dict from fetch_marine() for wave/swell conditions.
     """
     if runtime is None:
         runtime = TidesRuntime.from_sources()
@@ -695,6 +697,19 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         now_col=now_col, hover_col=hover_graph_col,
     ))
 
+    # Marine conditions line (optional)
+    if marine_data is not None:
+        try:
+            marine = parse_marine_current(marine_data, now_local)
+            marine_str = format_marine_line(marine, runtime, width=cols)
+            if marine_str:
+                wave_icon = "\U0001F30A" if runtime.emoji else WAVE_ICON
+                muted = fg(*MUTED_RGB)
+                dim = fg(*DIM_RGB)
+                lines.append(f" {muted}{wave_icon} {dim}{marine_str}{RESET}")
+        except Exception:
+            pass  # Marine data is optional; never crash
+
     hint = install_banner()
     if hint:
         lines.append(hint)
@@ -822,6 +837,16 @@ def main():
     else:
         y_range = fetch_y_range(station_id, today)
 
+    # Fetch marine/wave conditions (optional, may return None)
+    marine_data = None
+    try:
+        _marine_lat = station_meta.get("lat") if station_meta else None
+        _marine_lng = station_meta.get("lng") if station_meta else None
+        if _marine_lat is not None and _marine_lng is not None:
+            marine_data = fetch_marine(float(_marine_lat), float(_marine_lng))
+    except Exception:
+        pass  # Marine data is optional; never crash the tides view
+
     # Provider-specific range fetch functions
     _fetch_tides_range = fetch_tides_range_chs if use_chs else fetch_tides_range
     _fetch_hilo_range = fetch_hilo_range_chs if use_chs else fetch_hilo_range
@@ -881,6 +906,7 @@ def main():
                 predictions=all_predictions,
                 hilo=all_hilo,
                 y_range=y_range,
+                marine_data=marine_data,
             ), {}
 
         # Larger step makes wheel/arrow scrubbing practical for multi-day browsing.
@@ -905,6 +931,7 @@ def main():
                 predictions=preds,
                 hilo=hilo_data,
                 y_range=y_range,
+                marine_data=marine_data,
             ))
         else:
             print(render(
@@ -913,6 +940,7 @@ def main():
                 station_meta=station_meta,
                 runtime=runtime,
                 y_range=y_range,
+                marine_data=marine_data,
             ))
 
 
