@@ -113,7 +113,7 @@ class ParseMarineCurrentTests(unittest.TestCase):
 
 class FormatMarineLineTests(unittest.TestCase):
     def _runtime(self, metric=False, lang="en"):
-        return TidesRuntime(live=False, emoji=False, lang=lang, metric=metric)
+        return TidesRuntime(live=False, emoji=False, lang=lang, metric=metric, oneline=False)
 
     def test_format_waves_and_swell_metric(self):
         marine_info = {
@@ -182,7 +182,7 @@ class FormatMarineLineTests(unittest.TestCase):
 
 class FormatHeightTests(unittest.TestCase):
     def _runtime(self, metric=False):
-        return TidesRuntime(live=False, emoji=False, lang="en", metric=metric)
+        return TidesRuntime(live=False, emoji=False, lang="en", metric=metric, oneline=False)
 
     def test_metric_height(self):
         self.assertEqual(marine._format_height(1.5, self._runtime(metric=True)), "1.5m")

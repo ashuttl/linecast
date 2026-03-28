@@ -108,7 +108,8 @@ class TestFormatComparison:
 
     def _runtime(self, celsius=False, lang="en"):
         return WeatherRuntime(live=False, emoji=False, lang=lang,
-                              celsius=celsius, metric=celsius, shading=True)
+                              celsius=celsius, metric=celsius, shading=True,
+                              oneline=False)
 
     def test_above_average_fahrenheit(self):
         hist = HistoricalAverages(avg_high=60.0, avg_low=40.0, avg_precip=0.1, years=10)
@@ -241,7 +242,8 @@ class TestHeaderIntegration:
         }
         hist = HistoricalAverages(avg_high=60.0, avg_low=40.0, avg_precip=0.1, years=10)
         runtime = WeatherRuntime(live=False, emoji=False, lang="en",
-                                 celsius=False, metric=False, shading=True)
+                                 celsius=False, metric=False, shading=True,
+                                 oneline=False)
         result = render_header(data, 120, "Test City", runtime=runtime, historical=hist)
         assert isinstance(result, str)
         assert len(result) > 0
@@ -268,7 +270,8 @@ class TestHeaderIntegration:
             },
         }
         runtime = WeatherRuntime(live=False, emoji=False, lang="en",
-                                 celsius=False, metric=False, shading=True)
+                                 celsius=False, metric=False, shading=True,
+                                 oneline=False)
         result = render_header(data, 120, "Test City", runtime=runtime, historical=None)
         assert isinstance(result, str)
         assert "avg" not in result.lower()
