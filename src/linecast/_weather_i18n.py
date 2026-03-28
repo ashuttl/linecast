@@ -498,6 +498,10 @@ _STRINGS = {
         "o_to_open": "o to open in browser",
         "scroll": "scroll",
         "space_to_now": "space to return to now",
+        # Historical comparison
+        "hist_near_avg": "near avg",
+        "hist_above_avg": "{diff} above avg",
+        "hist_below_avg": "{diff} below avg",
     },
     "fr": {
         "today": "aujourd'hui",
@@ -551,6 +555,10 @@ _STRINGS = {
         "o_to_open": "o pour ouvrir dans le navigateur",
         "scroll": "d\u00e9filer",
         "space_to_now": "espace pour revenir",
+        # Historical comparison
+        "hist_near_avg": "proche moy.",
+        "hist_above_avg": "{diff} au-dessus moy.",
+        "hist_below_avg": "{diff} en dessous moy.",
     },
     "es": {
         "today": "hoy",
@@ -604,6 +612,10 @@ _STRINGS = {
         "o_to_open": "o para abrir en el navegador",
         "scroll": "desplazar",
         "space_to_now": "espacio para volver al presente",
+        # Historical comparison
+        "hist_near_avg": "cerca del prom.",
+        "hist_above_avg": "{diff} sobre prom.",
+        "hist_below_avg": "{diff} bajo prom.",
     },
     "de": {
         "today": "Heute",
@@ -657,6 +669,10 @@ _STRINGS = {
         "o_to_open": "o zum \u00d6ffnen im Browser",
         "scroll": "scrollen",
         "space_to_now": "Leertaste f\u00fcr jetzt",
+        # Historical comparison
+        "hist_near_avg": "nahe Mittel",
+        "hist_above_avg": "{diff} \u00fcber Mittel",
+        "hist_below_avg": "{diff} unter Mittel",
     },
     "no": {
         "today": "i dag",
@@ -710,6 +726,10 @@ _STRINGS = {
         "o_to_open": "o for \u00e5 \u00e5pne i nettleser",
         "scroll": "rull",
         "space_to_now": "mellomrom for \u00e5 g\u00e5 tilbake",
+        # Historical comparison
+        "hist_near_avg": "n\u00e6r gj.snitt",
+        "hist_above_avg": "{diff} over gj.snitt",
+        "hist_below_avg": "{diff} under gj.snitt",
     },
     "is": {
         "today": "\u00ed dag",
@@ -763,6 +783,10 @@ _STRINGS = {
         "o_to_open": "o til a\u00f0 opna \u00ed vafra",
         "scroll": "skruna",
         "space_to_now": "bil til a\u00f0 fara til baka",
+        # Historical comparison
+        "hist_near_avg": "n\u00e1l\u00e6gt me\u00f0alt.",
+        "hist_above_avg": "{diff} yfir me\u00f0alt.",
+        "hist_below_avg": "{diff} undir me\u00f0alt.",
     },
     "da": {
         "today": "i dag",
@@ -816,6 +840,10 @@ _STRINGS = {
         "o_to_open": "o for at \u00e5bne i browser",
         "scroll": "rul",
         "space_to_now": "mellemrum for at vende tilbage",
+        # Historical comparison
+        "hist_near_avg": "n\u00e6r gns.",
+        "hist_above_avg": "{diff} over gns.",
+        "hist_below_avg": "{diff} under gns.",
     },
     "it": {
         "today": "oggi",
@@ -869,6 +897,10 @@ _STRINGS = {
         "o_to_open": "o per aprire nel browser",
         "scroll": "scorrere",
         "space_to_now": "spazio per tornare a ora",
+        # Historical comparison
+        "hist_near_avg": "vicino alla media",
+        "hist_above_avg": "{diff} sopra media",
+        "hist_below_avg": "{diff} sotto media",
     },
     "pl": {
         "today": "dzi\u015b",
@@ -922,6 +954,10 @@ _STRINGS = {
         "o_to_open": "o aby otworzy\u0107 w przegl\u0105darce",
         "scroll": "przewi\u0144",
         "space_to_now": "spacja, aby wr\u00f3ci\u0107",
+        # Historical comparison
+        "hist_near_avg": "blisko \u015br.",
+        "hist_above_avg": "{diff} powy\u017cej \u015br.",
+        "hist_below_avg": "{diff} poni\u017cej \u015br.",
     },
     "nl": {
         "today": "vandaag",
@@ -975,6 +1011,10 @@ _STRINGS = {
         "o_to_open": "o om te openen in browser",
         "scroll": "scrollen",
         "space_to_now": "spatie om terug te keren",
+        # Historical comparison
+        "hist_near_avg": "dicht bij gem.",
+        "hist_above_avg": "{diff} boven gem.",
+        "hist_below_avg": "{diff} onder gem.",
     },
     "pt": {
         "today": "hoje",
@@ -1028,6 +1068,10 @@ _STRINGS = {
         "o_to_open": "o para abrir no navegador",
         "scroll": "rolar",
         "space_to_now": "espa\u00e7o para voltar ao presente",
+        # Historical comparison
+        "hist_near_avg": "perto da m\u00e9d.",
+        "hist_above_avg": "{diff} acima da m\u00e9d.",
+        "hist_below_avg": "{diff} abaixo da m\u00e9d.",
     },
     "sv": {
         "today": "i dag",
@@ -1081,6 +1125,10 @@ _STRINGS = {
         "o_to_open": "o f\u00f6r att \u00f6ppna i webbl\u00e4sare",
         "scroll": "rulla",
         "space_to_now": "mellanslag f\u00f6r att \u00e5terg\u00e5",
+        # Historical comparison
+        "hist_near_avg": "n\u00e4ra medel",
+        "hist_above_avg": "{diff} \u00f6ver medel",
+        "hist_below_avg": "{diff} under medel",
     },
     "fi": {
         "today": "t\u00e4n\u00e4\u00e4n",
@@ -1134,6 +1182,10 @@ _STRINGS = {
         "o_to_open": "o avataksesi selaimessa",
         "scroll": "vierit\u00e4",
         "space_to_now": "v\u00e4lily\u00f6nti palataksesi",
+        # Historical comparison
+        "hist_near_avg": "keskim. l\u00e4hell\u00e4",
+        "hist_above_avg": "{diff} keskim. yli",
+        "hist_below_avg": "{diff} keskim. alle",
     },
     "ja": {
         "today": "\u4eca\u65e5",
@@ -1187,6 +1239,10 @@ _STRINGS = {
         "o_to_open": "o \u3067\u30d6\u30e9\u30a6\u30b6\u3092\u958b\u304f",
         "scroll": "\u30b9\u30af\u30ed\u30fc\u30eb",
         "space_to_now": "\u30b9\u30da\u30fc\u30b9\u3067\u73fe\u5728\u306b\u623b\u308b",
+        # Historical comparison
+        "hist_near_avg": "\u5e73\u5e74\u4e26\u307f",
+        "hist_above_avg": "\u5e73\u5e74\u3088\u308a{diff}\u9ad8\u3044",
+        "hist_below_avg": "\u5e73\u5e74\u3088\u308a{diff}\u4f4e\u3044",
     },
     "ko": {
         "today": "\uc624\ub298",
@@ -1240,6 +1296,10 @@ _STRINGS = {
         "o_to_open": "o \ube0c\ub77c\uc6b0\uc800\uc5d0\uc11c \uc5f4\uae30",
         "scroll": "\uc2a4\ud06c\ub864",
         "space_to_now": "\uc2a4\ud398\uc774\uc2a4\ub85c \ud604\uc7ac\ub85c \ub3cc\uc544\uac00\uae30",
+        # Historical comparison
+        "hist_near_avg": "\ud3c9\ub144 \ube44\uc2b7",
+        "hist_above_avg": "\ud3c9\ub144\ubcf4\ub2e4 {diff} \ub192\uc74c",
+        "hist_below_avg": "\ud3c9\ub144\ubcf4\ub2e4 {diff} \ub0ae\uc74c",
     },
     "zh": {
         "today": "\u4eca\u5929",
@@ -1293,6 +1353,10 @@ _STRINGS = {
         "o_to_open": "o \u5728\u6d4f\u89c8\u5668\u4e2d\u6253\u5f00",
         "scroll": "\u6eda\u52a8",
         "space_to_now": "\u6309\u7a7a\u683c\u8fd4\u56de\u5f53\u524d",
+        # Historical comparison
+        "hist_near_avg": "\u63a5\u8fd1\u5e73\u5747",
+        "hist_above_avg": "\u6bd4\u5e73\u5747\u9ad8{diff}",
+        "hist_below_avg": "\u6bd4\u5e73\u5747\u4f4e{diff}",
     },
     "id": {
         "today": "hari ini",

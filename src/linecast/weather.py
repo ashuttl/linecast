@@ -89,6 +89,7 @@ from linecast._weather_render import (
     render_header,
     render_hourly,
 )
+from linecast._weather_historical import fetch_historical
 from linecast._weather_sources import (
     CACHE_DIR,
     _eccc_severity,
@@ -216,7 +217,7 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     return result
 
 
-def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0, aqi_data=None):
+def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0, aqi_data=None, historical=None):
     """Build the complete weather dashboard from preloaded data."""
     if not data:
         return f"{TEXT}Could not fetch weather data.{RESET}", {}
@@ -273,7 +274,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     lines = []
 
     # Header
-    lines.append(render_header(data, cols, location_name, runtime=runtime, aqi_data=aqi_data))
+    lines.append(render_header(data, cols, location_name, runtime=runtime, aqi_data=aqi_data, historical=historical))
     lines.append("")
 
     # Hourly — first pass without hover to establish line boundaries
@@ -373,7 +374,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     return output, alert_row_map
 
 
-def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtime=None, data=None, alerts=None, mouse_pos=None, active_alert=None, modal_scroll=0, aqi_data=None):
+def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtime=None, data=None, alerts=None, mouse_pos=None, active_alert=None, modal_scroll=0, aqi_data=None, historical=None):
     """Build the complete weather dashboard."""
     if runtime is None:
         runtime = WeatherRuntime.from_sources()
@@ -383,7 +384,14 @@ def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtim
         alerts = fetch_alerts(lat, lng, country_code, lang=runtime.lang)
     if aqi_data is None:
         aqi_data = fetch_aqi(lat, lng)
-    return render_from_data(data, alerts, runtime, location_name=location_name, offset_minutes=offset_minutes, mouse_pos=mouse_pos, active_alert=active_alert, modal_scroll=modal_scroll, aqi_data=aqi_data)
+    if historical is None:
+        try:
+            from datetime import date
+            historical = fetch_historical(lat, lng, date.today(),
+                                          celsius=runtime.celsius, metric=runtime.metric)
+        except Exception:
+            historical = None
+    return render_from_data(data, alerts, runtime, location_name=location_name, offset_minutes=offset_minutes, mouse_pos=mouse_pos, active_alert=active_alert, modal_scroll=modal_scroll, aqi_data=aqi_data, historical=historical)
 
 
 # ---------------------------------------------------------------------------
@@ -441,6 +449,14 @@ def main():
         result["data"] = fetch_forecast(lat, lng, runtime)
         result["alerts"] = fetch_alerts(lat, lng, result["country_code"], lang=runtime.lang, address=addr)
         result["aqi"] = fetch_aqi(lat, lng)
+        try:
+            from datetime import date
+            result["historical"] = fetch_historical(
+                lat, lng, date.today(),
+                celsius=runtime.celsius, metric=runtime.metric,
+            )
+        except Exception:
+            result["historical"] = None
         if not result["name"] and result["data"]:
             result["name"] = _location_from_timezone(result["data"].get("timezone", ""))
         done.set()
@@ -467,6 +483,7 @@ def main():
     data = result.get("data")
     alerts = result.get("alerts", [])
     aqi_data = result.get("aqi")
+    historical = result.get("historical")
 
     if runtime.live:
         def _open_alert_url(idx):
@@ -488,6 +505,7 @@ def main():
                 active_alert=active_alert,
                 modal_scroll=modal_scroll,
                 aqi_data=None,  # re-fetched via render() on each refresh
+                historical=historical,  # cached — doesn't need re-fetch
             ),
             interval=300,
             mouse=True,
@@ -504,6 +522,7 @@ def main():
             data=data,
             alerts=alerts,
             aqi_data=aqi_data,
+            historical=historical,
         )
         print(output)
 
