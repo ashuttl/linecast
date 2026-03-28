@@ -9,8 +9,9 @@ Uses Unicode braille characters with ANSI color for smooth line rendering
 (true color when available). Station is auto-detected from IP geolocation
 or overridden with TIDE_STATION env var.
 
-Data sources: NOAA (US) and CHS/IWLS (Canada), selected automatically
-based on geolocation. Use --station with a station ID or name to override.
+Data sources: NOAA (US), CHS/IWLS (Canada), and QLD Open Data (Queensland,
+Australia), selected automatically based on geolocation.
+Use --station with a station ID or name to override.
 
 Usage: tides [--print] [--oneline] [--station ID | NAME] [--search QUERY] [--metric] [--lang LANG] [--classic-colors]
 """
@@ -46,6 +47,11 @@ from linecast._tides_chs import (
     find_nearest_station_chs, fetch_station_metadata_chs,
     fetch_tides_range_chs, fetch_hilo_range_chs, fetch_y_range_chs,
     _fetch_all_stations_chs,
+)
+from linecast._tides_qld import (
+    find_nearest_station_qld, fetch_station_metadata_qld,
+    fetch_tides_range_qld, fetch_hilo_range_qld, fetch_y_range_qld,
+    _fetch_all_stations_qld,
 )
 from linecast._tides_noaa import (
     CACHE_DIR as _NOAA_CACHE_DIR,
@@ -109,6 +115,16 @@ def _is_chs_station_id(station_id):
     """Check if a station ID is a CHS MongoDB ObjectId (24-char hex)."""
     return (len(station_id) == 24 and
             all(c in '0123456789abcdef' for c in station_id.lower()))
+
+
+def _is_qld_lat_lng(lat, lng):
+    """Check if coordinates are roughly within Queensland, Australia.
+
+    Queensland spans approximately:
+    - Latitude: -10 (Cape York) to -29 (southern border)
+    - Longitude: 138 (western border) to 154 (eastern coast)
+    """
+    return -30 <= lat <= -9 and 137 <= lng <= 155
 
 
 def _station_tzinfo(meta):
@@ -187,7 +203,7 @@ def _live_window_start(now_local, offset_minutes, hours_shown=LIVE_WINDOW_HOURS,
 
 
 def _search_stations(query):
-    """Search NOAA and CHS stations by name substring. Prints matches and exits."""
+    """Search NOAA, CHS, and QLD stations by name substring. Prints matches and exits."""
     q = query.lower()
 
     # NOAA
@@ -201,7 +217,13 @@ def _search_stations(query):
                    if q in s.get("officialName", "").lower()]
     chs_matches.sort(key=lambda s: s.get("officialName", ""))
 
-    if not noaa_matches and not chs_matches:
+    # QLD (Australia)
+    qld_stations = _fetch_all_stations_qld()
+    qld_matches = [s for s in (qld_stations or [])
+                   if q in s.get("name", "").lower()]
+    qld_matches.sort(key=lambda s: s.get("name", ""))
+
+    if not noaa_matches and not chs_matches and not qld_matches:
         print(f"No stations matching \"{query}\".")
         sys.exit(0)
 
@@ -220,8 +242,15 @@ def _search_stations(query):
         name = s.get("officialName", "")
         print(f"  {sid}  {name}")
 
-    total = len(noaa_matches) + len(chs_matches)
-    shown = min(len(noaa_matches), 20) + min(len(chs_matches), 20)
+    if (noaa_matches or chs_matches) and qld_matches:
+        print()
+
+    for s in qld_matches[:20]:
+        name = s.get("name", "")
+        print(f"  {name}  (QLD, Australia)")
+
+    total = len(noaa_matches) + len(chs_matches) + len(qld_matches)
+    shown = min(len(noaa_matches), 20) + min(len(chs_matches), 20) + min(len(qld_matches), 20)
     if total > shown:
         print(f"  ... and {total - shown} more")
 
@@ -762,10 +791,10 @@ def main():
     station_arg = arg_value("--station")
     override = station_arg or os.environ.get("TIDE_STATION", "").strip()
 
-    use_chs = False
+    source = "noaa"  # "noaa", "chs", or "qld"
     if override:
         if _is_chs_station_id(override):
-            use_chs = True
+            source = "chs"
             station_id = override
             station_name = f"Station {override[:8]}"
         elif override.isdigit():
@@ -782,17 +811,23 @@ def main():
             q = override.lower()
             noaa_stations = _fetch_all_stations() or []
             chs_stations = _fetch_all_stations_chs() or []
+            qld_stations = _fetch_all_stations_qld() or []
             noaa_hit = next((s for s in noaa_stations if q in s.get("name", "").lower()), None)
             chs_hit = next((s for s in chs_stations if q in s.get("officialName", "").lower()), None)
+            qld_hit = next((s for s in qld_stations if q in s.get("name", "").lower()), None)
             if noaa_hit:
                 station_id = str(noaa_hit["id"])
                 name = noaa_hit.get("name", "")
                 state = noaa_hit.get("state", "")
                 station_name = f"{name}, {state}" if state else name
             elif chs_hit:
-                use_chs = True
+                source = "chs"
                 station_id = str(chs_hit["id"])
                 station_name = chs_hit.get("officialName", f"Station {station_id[:8]}")
+            elif qld_hit:
+                source = "qld"
+                station_id = qld_hit["name"]
+                station_name = qld_hit["name"]
             else:
                 print(f'No stations matching "{override}".', file=sys.stderr)
                 sys.exit(1)
@@ -803,22 +838,27 @@ def main():
             sys.exit(1)
 
         if country_code == "CA":
-            use_chs = True
+            source = "chs"
             station_id, station_name = find_nearest_station_chs(lat, lng)
+        elif country_code == "AU" and _is_qld_lat_lng(lat, lng):
+            source = "qld"
+            station_id, station_name = find_nearest_station_qld(lat, lng)
         else:
             station_id, station_name = find_nearest_station(lat, lng)
 
         if station_id is None:
-            source = "CHS" if use_chs else "NOAA"
+            source_label = {"chs": "CHS", "qld": "QLD", "noaa": "NOAA"}[source]
             print(
-                f"No {source} tide station within 100nm. "
+                f"No {source_label} tide station within 100nm. "
                 "Set TIDE_STATION=<id> to specify one manually.",
                 file=sys.stderr,
             )
             sys.exit(1)
 
-    if use_chs:
+    if source == "chs":
         station_meta = fetch_station_metadata_chs(station_id)
+    elif source == "qld":
+        station_meta = fetch_station_metadata_qld(station_id)
     else:
         station_meta = _fetch_station_metadata(station_id)
     if station_meta:
@@ -833,8 +873,12 @@ def main():
 
     if runtime.oneline:
         from linecast._oneline import tides_oneline
-        if use_chs:
+        if source == "chs":
             hilo_data = fetch_hilo_range_chs(
+                station_id, today - timedelta(days=1),
+                today + timedelta(days=1), station_tz)
+        elif source == "qld":
+            hilo_data = fetch_hilo_range_qld(
                 station_id, today - timedelta(days=1),
                 today + timedelta(days=1), station_tz)
         else:
@@ -844,9 +888,11 @@ def main():
         print(tides_oneline(station_name, hilo_data or [], now_local, runtime))
         return
 
-    # Fixed y-axis range from ±30 days of hilo data
-    if use_chs:
+    # Fixed y-axis range from historical hilo data
+    if source == "chs":
         y_range = fetch_y_range_chs(station_id, today, station_tz)
+    elif source == "qld":
+        y_range = fetch_y_range_qld(station_id, today, station_tz)
     else:
         y_range = fetch_y_range(station_id, today)
 
@@ -861,8 +907,15 @@ def main():
         pass  # Marine data is optional; never crash the tides view
 
     # Provider-specific range fetch functions
-    _fetch_tides_range = fetch_tides_range_chs if use_chs else fetch_tides_range
-    _fetch_hilo_range = fetch_hilo_range_chs if use_chs else fetch_hilo_range
+    if source == "chs":
+        _fetch_tides_range = fetch_tides_range_chs
+        _fetch_hilo_range = fetch_hilo_range_chs
+    elif source == "qld":
+        _fetch_tides_range = fetch_tides_range_qld
+        _fetch_hilo_range = fetch_hilo_range_qld
+    else:
+        _fetch_tides_range = fetch_tides_range
+        _fetch_hilo_range = fetch_hilo_range
 
     if runtime.live:
         # Pre-fetch ~7 days in each direction
@@ -925,11 +978,11 @@ def main():
         # Larger step makes wheel/arrow scrubbing practical for multi-day browsing.
         live_loop(_render, interval=60, mouse=True, scroll_step=30)
     else:
-        if use_chs:
-            preds = fetch_tides_range_chs(
+        if source in ("chs", "qld"):
+            preds = _fetch_tides_range(
                 station_id, today - timedelta(days=1),
                 today + timedelta(days=1), station_tz)
-            hilo_data = fetch_hilo_range_chs(
+            hilo_data = _fetch_hilo_range(
                 station_id, today - timedelta(days=1),
                 today + timedelta(days=1), station_tz)
             if not preds:

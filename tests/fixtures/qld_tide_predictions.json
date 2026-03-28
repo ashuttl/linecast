@@ -1,0 +1,41 @@
+{
+  "help": "https://www.data.qld.gov.au/api/3/action/help_show?name=datastore_search",
+  "success": true,
+  "result": {
+    "include_total": true,
+    "resource_id": "1311fc19-1e60-444f-b5cf-24687f1c15a7",
+    "fields": [
+      {"type": "text", "id": "Site"},
+      {"type": "timestamp", "id": "DateTime"},
+      {"type": "numeric", "id": "Water Level"},
+      {"type": "numeric", "id": "Prediction"},
+      {"type": "numeric", "id": "Residual"},
+      {"type": "numeric", "id": "Latitude"},
+      {"type": "numeric", "id": "Longitude"}
+    ],
+    "records_format": "objects",
+    "records": [
+      {"Site": "Cairns", "DateTime": "2026-03-27T00:00:00", "Water Level": 1.45, "Prediction": 1.42, "Residual": 0.03, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T00:10:00", "Water Level": 1.38, "Prediction": 1.35, "Residual": 0.03, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T00:20:00", "Water Level": 1.30, "Prediction": 1.28, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T00:30:00", "Water Level": 1.22, "Prediction": 1.20, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T00:40:00", "Water Level": 1.14, "Prediction": 1.12, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T00:50:00", "Water Level": 1.06, "Prediction": 1.04, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T01:00:00", "Water Level": 0.98, "Prediction": 0.96, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T01:10:00", "Water Level": 0.91, "Prediction": 0.89, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T01:20:00", "Water Level": 0.84, "Prediction": 0.82, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T01:30:00", "Water Level": 0.78, "Prediction": 0.76, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T01:40:00", "Water Level": 0.73, "Prediction": 0.71, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T01:50:00", "Water Level": 0.69, "Prediction": 0.67, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T02:00:00", "Water Level": 0.66, "Prediction": 0.64, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T02:10:00", "Water Level": 0.64, "Prediction": 0.62, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T02:20:00", "Water Level": 0.63, "Prediction": 0.61, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T02:30:00", "Water Level": 0.64, "Prediction": 0.62, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T02:40:00", "Water Level": 0.66, "Prediction": 0.64, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T02:50:00", "Water Level": 0.70, "Prediction": 0.68, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T03:00:00", "Water Level": 0.75, "Prediction": 0.73, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
+      {"Site": "Cairns", "DateTime": "2026-03-27T03:10:00", "Water Level": 0.82, "Prediction": 0.80, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781}
+    ],
+    "total": 20
+  }
+}
