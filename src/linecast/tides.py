@@ -12,7 +12,7 @@ or overridden with TIDE_STATION env var.
 Data sources: NOAA (US) and CHS/IWLS (Canada), selected automatically
 based on geolocation. Use --station with a station ID or name to override.
 
-Usage: tides [--print] [--station ID | NAME] [--search QUERY] [--metric] [--lang LANG] [--classic-colors]
+Usage: tides [--print] [--oneline] [--station ID | NAME] [--search QUERY] [--metric] [--lang LANG] [--classic-colors]
 """
 
 import math
@@ -815,6 +815,19 @@ def main():
     station_tz = _station_tzinfo(station_meta)
     now_local = _station_now(station_meta)
     today = now_local.date()
+
+    if runtime.oneline:
+        from linecast._oneline import tides_oneline
+        if use_chs:
+            hilo_data = fetch_hilo_range_chs(
+                station_id, today - timedelta(days=1),
+                today + timedelta(days=1), station_tz)
+        else:
+            hilo_data = fetch_hilo_range(
+                station_id, today - timedelta(days=1),
+                today + timedelta(days=1), station_tz)
+        print(tides_oneline(station_name, hilo_data or [], now_local, runtime))
+        return
 
     # Fixed y-axis range from ±30 days of hilo data
     if use_chs:

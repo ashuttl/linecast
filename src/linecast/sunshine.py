@@ -10,7 +10,7 @@ Uses half-block characters with ANSI color for smooth rendering at 2x
 vertical sub-pixel resolution (true color when available). Location is
 cached from IP geolocation (~1 network call per week).
 
-Usage: sunshine [--print] [--emoji] [--classic-colors]
+Usage: sunshine [--print] [--oneline] [--emoji] [--classic-colors]
 """
 
 import math
@@ -535,6 +535,15 @@ def main():
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
+
+    if runtime.oneline:
+        from datetime import timedelta as _td
+        from linecast._oneline import sunshine_oneline
+        now = datetime.now()
+        doy = now.timetuple().tm_yday
+        now_hour = now.hour + now.minute / 60 + now.second / 3600
+        print(sunshine_oneline(lat, lng, doy, now_hour, runtime))
+        return
 
     live = runtime.live
 

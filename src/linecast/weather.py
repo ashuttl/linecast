@@ -11,7 +11,7 @@ and MeteoAlarm (30 European countries).
 
 Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 
-Usage: weather [--print] [--location LAT,LNG | PLACE] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--no-shading] [--lang fr] [--classic-colors]
+Usage: weather [--print] [--oneline] [--location LAT,LNG | PLACE] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--no-shading] [--lang fr] [--classic-colors]
 """
 
 import os
@@ -467,6 +467,11 @@ def main():
     data = result.get("data")
     alerts = result.get("alerts", [])
     aqi_data = result.get("aqi")
+
+    if runtime.oneline:
+        from linecast._oneline import weather_oneline
+        print(weather_oneline(data, location_name, runtime))
+        return
 
     if runtime.live:
         def _open_alert_url(idx):
