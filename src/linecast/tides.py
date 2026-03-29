@@ -665,8 +665,13 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     w_preds = window["predictions"]
     w_secs = w_total * 3600
 
-    # --- dimensions (header + day_labels + braille + ticks) ---
-    n_braille_rows = max(2, rows - (3 if fullscreen else 7))
+    # --- dimensions (header + day_labels + braille + ticks + extras) ---
+    extra = 0
+    if marine_data is not None:
+        extra += 1
+    if install_banner():
+        extra += 1
+    n_braille_rows = max(2, rows - ((3 + extra) if fullscreen else 7))
 
     # --- interpolate predictions to graph columns ---
     col_heights = []
