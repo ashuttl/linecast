@@ -119,7 +119,12 @@ class TestSunshineSnapshot:
         from linecast._runtime import RuntimeConfig
 
         runtime = RuntimeConfig(live=False, emoji=True, lang="en", oneline=False)
-        with patch("linecast.sunshine.get_terminal_size", return_value=(80, 24)):
+        # Pin the UTC offset so the snapshot is hermetic. solar_times() reads
+        # the host's live offset via _tz_offset_hours(), which otherwise makes
+        # this test depend on both the machine's timezone and the current DST
+        # state. doy=64 (March 5) is in standard time for US Eastern, so -5.
+        with patch("linecast.sunshine.get_terminal_size", return_value=(80, 24)), \
+             patch("linecast.sunshine._tz_offset_hours", return_value=-5):
             output = render(
                 lat=43.7, lng=-79.4, doy=64,
                 now_hour=14.5, fullscreen=False,
