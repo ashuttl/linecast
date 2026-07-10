@@ -312,23 +312,54 @@ def _find_temperature_extrema(col_temps, graph_w):
     adapts to terminal width — wider charts get more labels.
 
     Candidate types (unified scoring in comparable degree units):
-      - Global max/min: score 100 (always placed)
+      - Global max/min: score 1000 (always placed first)
       - Peaks/valleys:  score = topographic prominence (degrees)
       - Curvature bends: score = equivalent temperature displacement over the
         label-gap window, capturing elbows and plateaus
+
+    Real peaks/valleys always outrank curvature bends during placement, so a
+    decorative slope-bend can never elbow out the genuine extremum beside it.
     """
     extrema = []  # (x, temp, is_peak)
     if len(col_temps) < 5:
         return extrema
 
     min_gap = max(8, graph_w // 15)
-    prom_radius = max(15, graph_w // 10)
     n = len(col_temps)
 
-    # All candidates: (x, temp, is_peak, score)
+    def prominence(i, is_peak):
+        """Topographic prominence: scan outward until the curve rises above
+        (peak) or drops below (valley) this point, taking the min/max reached
+        along the way.  Unlike a fixed-radius window this adapts to the terrain,
+        so a broad flat top/bottom or an extremum near the chart edge still gets
+        the drop to its true surrounding saddle rather than a near-zero value.
+        Ties (plateaus of equal temperature) are scanned across, not stopped at.
+        """
+        v = col_temps[i]
+        if is_peak:
+            lo = v
+            j = i - 1
+            while j >= 0 and col_temps[j] <= v:
+                lo = min(lo, col_temps[j]); j -= 1
+            hi = v
+            j = i + 1
+            while j < n and col_temps[j] <= v:
+                hi = min(hi, col_temps[j]); j += 1
+            return v - max(lo, hi)
+        lo = v
+        j = i - 1
+        while j >= 0 and col_temps[j] >= v:
+            lo = max(lo, col_temps[j]); j -= 1
+        hi = v
+        j = i + 1
+        while j < n and col_temps[j] >= v:
+            hi = max(hi, col_temps[j]); j += 1
+        return min(lo, hi) - v
+
+    # All candidates: (x, temp, is_peak, score, is_curve)
     scored = []
 
-    # --- Peaks and valleys (scored by prominence in degrees) ---
+    # --- Peaks and valleys (scored by topographic prominence in degrees) ---
     for i in range(2, n - 2):
         local = col_temps[max(0, i - 3):i + 4]
         is_peak = col_temps[i] >= max(local) and (
@@ -339,22 +370,15 @@ def _find_temperature_extrema(col_temps, graph_w):
         )
         if not is_peak and not is_valley:
             continue
-        nl = col_temps[max(0, i - prom_radius):i]
-        nr = col_temps[i + 1:min(n, i + prom_radius + 1)]
-        if not nl or not nr:
-            continue
-        if is_peak:
-            prom = col_temps[i] - max(min(nl), min(nr))
-        else:
-            prom = min(max(nl), max(nr)) - col_temps[i]
+        prom = prominence(i, is_peak)
         if prom >= 1:
-            scored.append((i, col_temps[i], is_peak, prom))
+            scored.append((i, col_temps[i], is_peak, prom, False))
 
     # --- Global max/min (always placed first) ---
     global_max_x = max(range(n), key=lambda i: col_temps[i])
     global_min_x = min(range(n), key=lambda i: col_temps[i])
     for gx, is_peak in [(global_max_x, True), (global_min_x, False)]:
-        scored.append((gx, col_temps[gx], is_peak, 100))
+        scored.append((gx, col_temps[gx], is_peak, 1000, False))
 
     # --- Curvature points: elbows and plateaus ---
     # Sagitta = how far the curve deviates from a straight chord.
@@ -384,16 +408,24 @@ def _find_temperature_extrema(col_temps, graph_w):
             continue
         # Concave up (sag<0, elbow) → label above; concave down (sag>0) → below
         is_peak = sagittas[i] < 0
-        scored.append((i, col_temps[i], is_peak, abs_sag))
+        scored.append((i, col_temps[i], is_peak, abs_sag, True))
 
-    # --- Greedily place from highest to lowest score ---
-    for x, temp, is_peak, score in sorted(scored, key=lambda c: -c[3]):
-        if any(abs(x - ex) < min_gap for ex, _, _ in extrema):
+    # --- Greedily place: genuine peaks/valleys first (is_curve=False), then
+    # curvature bends; within each tier, highest score wins. ---
+    # Spacing is enforced only between labels of the SAME kind: peaks are drawn
+    # above the curve and valleys below it, so a peak and a valley never
+    # collide even when adjacent.  A day's morning valley and afternoon peak sit
+    # closer than min_gap, and gating across kinds would let one silently evict
+    # the other (topographic prominence makes the pair score almost equally).
+    for x, temp, is_peak, score, is_curve in sorted(
+        scored, key=lambda c: (c[4], -c[3])
+    ):
+        if any(abs(x - ex) < min_gap for ex, _, ep in extrema if ep == is_peak):
             continue
-        # Skip if a nearby label already shows the same rounded temperature
+        # Skip if a nearby same-kind label already shows the same rounded temp.
         label_int = int(round(temp))
         if any(abs(x - ex) < min_gap * 3 and int(round(t)) == label_int
-               for ex, t, _ in extrema):
+               for ex, t, ep in extrema if ep == is_peak):
             continue
         extrema.append((x, temp, is_peak))
 
