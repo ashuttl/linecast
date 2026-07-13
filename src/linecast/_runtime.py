@@ -134,6 +134,18 @@ def sunshine_parser():
                          "Solar arc inspired by the Apple Watch Solar face")
 
 
+def radar_parser():
+    p = _base_parser("radar",
+                      "Terminal NEXRAD weather radar over a braille basemap (US)")
+    p.add_argument("--location", default=None,
+                    help="location as 'lat,lng' or place name")
+    p.add_argument("--search", default=None,
+                    help="search for a location and exit")
+    p.add_argument("--zoom", type=float, default=6.0,
+                    help="degrees of latitude shown top-to-bottom (default 6)")
+    return p
+
+
 # ---------------------------------------------------------------------------
 # Live mode resolution
 # ---------------------------------------------------------------------------

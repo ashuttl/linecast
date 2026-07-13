@@ -23,6 +23,7 @@ linecast = "linecast.__main__:main"
 weather = "linecast.weather:main"
 sunshine = "linecast.sunshine:main"
 tides = "linecast.tides:main"
+radar = "linecast.radar:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -30,3 +31,4 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/linecast"]
+artifacts = ["src/linecast/data/*.json"]
