@@ -159,7 +159,8 @@ def _read_key(fd):
 # ---------------------------------------------------------------------------
 # Live loop
 # ---------------------------------------------------------------------------
-def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15):
+def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
+              auto_play=False, play_interval=0.6):
     """Run render_fn() in a loop on the alternate screen buffer.
 
     render_fn: callable(offset_minutes=0) returning (display_string, metadata)
@@ -171,6 +172,10 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
     mouse: if True, enable SGR mouse tracking and pass mouse_pos to render_fn.
     on_open: optional callback(alert_index) called when user presses 'o' on a modal.
     scroll_step: minutes to advance/retreat per scroll or arrow key event.
+    auto_play: if True, run an animation loop instead of time-scrubbing.
+               render_fn also receives play_frame (monotonic frame counter) and
+               playing (bool). Space toggles play/pause; scroll/arrows step one
+               frame and pause; play_interval sets the frame rate.
     Re-renders immediately on terminal resize (SIGWINCH) or input.
     """
     import select, signal, termios, tty
@@ -196,6 +201,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     offset = 0
+    playing = auto_play
+    play_frame = 0
     mouse_pos = None
     active_alert = None  # index of alert whose modal is open, or None
     modal_scroll = 0     # scroll offset within the modal
@@ -214,10 +221,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
         tty.setcbreak(fd)
 
         while True:
+            kwargs = {}
             if mouse:
-                result = render_fn(offset_minutes=offset, mouse_pos=mouse_pos, active_alert=active_alert, modal_scroll=modal_scroll)
-            else:
-                result = render_fn(offset_minutes=offset)
+                kwargs.update(mouse_pos=mouse_pos, active_alert=active_alert,
+                              modal_scroll=modal_scroll)
+            if auto_play:
+                kwargs.update(play_frame=play_frame, playing=playing)
+            result = render_fn(offset_minutes=offset, **kwargs)
             # render_fn may return (output, metadata) or just output
             if isinstance(result, tuple):
                 output, alert_row_map = result
@@ -240,10 +250,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
                 pass
 
             # Wait for input, resize, or timeout
-            deadline = _time.time() + interval
+            wait = play_interval if (auto_play and playing) else interval
+            deadline = _time.time() + wait
             while True:
                 remaining = deadline - _time.time()
                 if remaining <= 0:
+                    if auto_play and playing:
+                        play_frame += 1  # advance the animation
                     break
                 try:
                     ready, _, _ = select.select([fd, wake_r], [], [], min(0.1, remaining))
@@ -275,17 +288,28 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
                             on_open(active_alert)
                             break
                     elif action == 'fwd':
-                        offset += scroll_step
+                        if auto_play:
+                            playing = False
+                            play_frame += 1
+                        else:
+                            offset += scroll_step
                         if select.select([fd], [], [], 0)[0]:
                             continue  # coalesce rapid scrolling
                         break
                     elif action == 'back':
-                        offset -= scroll_step
+                        if auto_play:
+                            playing = False
+                            play_frame -= 1
+                        else:
+                            offset -= scroll_step
                         if select.select([fd], [], [], 0)[0]:
                             continue  # coalesce rapid scrolling
                         break
                     elif action == 'reset':
-                        offset = 0
+                        if auto_play:
+                            playing = not playing  # space = play/pause
+                        else:
+                            offset = 0
                         break
                     elif mouse and isinstance(action, tuple) and action[0] == 'mouse':
                         _, cb, cx, cy, is_rel = action
@@ -295,6 +319,9 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
                                 # Scroll the modal
                                 modal_scroll += 3 if wheel_cb == 65 else -3
                                 modal_scroll = max(0, modal_scroll)
+                            elif auto_play:
+                                playing = False
+                                play_frame += 1 if wheel_cb == 64 else -1
                             else:
                                 offset += scroll_step if wheel_cb == 64 else -scroll_step
                             if select.select([fd], [], [], 0)[0]:
