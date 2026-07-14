@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Radar — terminal NEXRAD weather radar (US).
+"""Radar — terminal weather radar over a braille basemap.
 
-Renders live NWS/NEXRAD base-reflectivity over a braille basemap: the sea is a
-braille stipple, coastlines and state/national borders are braille strokes, and
-the radar echoes are painted on top as a half-block colour fill.  In live mode,
+Renders live base-reflectivity over a braille basemap: the sea is a braille
+stipple, coastlines and state/national borders are braille strokes, and the
+radar echoes are painted on top as a half-block colour fill.  In live mode,
 scroll (or arrow keys) to rewind through the last few hours and watch a storm
 approach.
 
-Data: NEXRAD via Iowa Environmental Mesonet (IEM); basemap from Natural Earth.
+Data: NEXRAD via Iowa Environmental Mesonet (IEM) for the continental US;
+RainViewer (global, plus forecast frames) elsewhere. Basemap from Natural Earth.
 
 Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--print] [--search CITY]
 """
@@ -20,10 +21,10 @@ from concurrent.futures import ThreadPoolExecutor
 from linecast._color import fg, RESET, BOLD
 from linecast._framebuffer import get_terminal_size
 from linecast._location import get_location
-from linecast._png import decode_rgba
 from linecast._radar_basemap import Basemap
 from linecast._radar_render import bbox_for, build_radar_buffer, compose
-from linecast._radar_source import fetch_frame, frame_times, FRAME_STEP
+from linecast._radar_source import FRAME_STEP
+from linecast._radar_sources import get_source
 from linecast._runtime import RuntimeConfig, radar_parser
 from linecast._graphics import live_loop, visible_len
 
@@ -34,6 +35,7 @@ MAX_REWIND_MIN = 180  # how far back scrubbing can go
 N_FRAMES = MAX_REWIND_MIN // 5 + 1  # frames in the rewind window
 
 _basemap_cache = {}
+_source = None  # active RadarSource, chosen per location in main()
 
 # in-memory cache of decoded frames: key -> (radar_buffer, echo_pct)
 _frame_cache = {}
@@ -45,19 +47,18 @@ def _bbox_key(bbox):
     return tuple(round(v, 3) for v in bbox)
 
 
-def _frame_key(bbox, gw, hc, when):
-    return (_bbox_key(bbox), gw, hc, when.strftime("%Y%m%dT%H%M"))
+def _frame_key(bbox, gw, hc, frame):
+    return (_bbox_key(bbox), gw, hc, frame.time.strftime("%Y%m%dT%H%M"))
 
 
-def _load_frame(bbox, gw, hc, when):
+def _load_frame(bbox, gw, hc, frame):
     """Return (radar_buffer, echo). Memoised; fetches + decodes on miss."""
-    key = _frame_key(bbox, gw, hc, when)
+    key = _frame_key(bbox, gw, hc, frame)
     with _frame_lock:
         hit = _frame_cache.get(key)
     if hit is not None:
         return hit
-    png = fetch_frame(bbox, gw, hc * 2, when=when)
-    pw, ph, rgba = decode_rgba(png)
+    pw, ph, rgba = _source.frame_rgba(bbox, gw, hc, frame)
     result = build_radar_buffer(rgba, pw, ph, gw, hc)
     with _frame_lock:
         _frame_cache[key] = result
@@ -68,24 +69,24 @@ def _load_frame(bbox, gw, hc, when):
 
 
 def _ensure_prefetch(bbox, gw, hc):
-    """Warm the rewind window in the background (newest frames first)."""
+    """Warm the whole frame window in the background, in playback order."""
     global _prefetch_key
     key = (_bbox_key(bbox), gw, hc)
     if _prefetch_key == key:
         return
     _prefetch_key = key
-    times = frame_times(N_FRAMES)  # oldest → newest, matching playback order
+    frames = _source.current_frames()  # oldest → newest, matching playback
 
     def worker():
         with ThreadPoolExecutor(max_workers=4) as pool:
-            pool.map(lambda w: _safe_load(bbox, gw, hc, w), times)
+            pool.map(lambda f: _safe_load(bbox, gw, hc, f), frames)
 
     threading.Thread(target=worker, daemon=True).start()
 
 
-def _safe_load(bbox, gw, hc, when):
+def _safe_load(bbox, gw, hc, frame):
     try:
-        _load_frame(bbox, gw, hc, when)
+        _load_frame(bbox, gw, hc, frame)
     except Exception:
         pass
 
@@ -123,14 +124,21 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True, **_)
 
     bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
     basemap = _get_basemap(bbox, graph_w, height_cells)
+
+    frames = _source.current_frames()   # oldest → newest (UTC); may include future
+    if not frames:
+        msg = f"{fg(*DIM)}no radar frames available{RESET}"
+        return "\n".join([msg] + [""] * (height_cells + 1))
     _ensure_prefetch(bbox, graph_w, height_cells)  # warm window in background
 
-    frames = frame_times(N_FRAMES)     # oldest → latest (UTC)
-    idx = play_frame % N_FRAMES
-    when = frames[idx]
+    idx = play_frame % len(frames)
+    frame = frames[idx]
+    when = frame.time
+    present = max((f.time for f in frames if not f.future),
+                  default=frames[-1].time)
 
     try:
-        radar, echo = _load_frame(bbox, graph_w, height_cells, when)
+        radar, echo = _load_frame(bbox, graph_w, height_cells, frame)
         err = None
     except Exception as exc:
         radar = [[None] * graph_w for _ in range(height_cells * 2)]
@@ -141,13 +149,14 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True, **_)
 
     map_lines = compose(basemap, radar, overlays, graph_w, height_cells)
 
-    # header: play state, frame time, how old, echo coverage
+    # header: play state, frame time, how old/ahead, echo coverage
     place = location_name or f"{lat:.2f}, {lon:.2f}"
-    mins_ago = round((frames[-1] - when).total_seconds() / 60)
-    age = "now" if mins_ago == 0 else f"-{mins_ago}m"
+    delta = round((when - present).total_seconds() / 60)
+    age = "now" if delta == 0 else (f"{delta}m" if delta < 0 else f"+{delta}m")
+    tag = " forecast" if frame.future else ""
     icon = "▶" if playing else "⏸"
     header = (f"{fg(*MARKER)}{BOLD}⬤ radar{RESET}  {fg(*MUTED)}{place}"
-              f"{RESET}  {fg(*DIM)}{icon} {_fmt_local(when)} · {age} "
+              f"{RESET}  {fg(*DIM)}{icon} {_fmt_local(when)} · {age}{tag} "
               f"· {echo:.0f}% echo{RESET}")
     header += " " * max(0, cols - visible_len(header))
 
@@ -155,10 +164,10 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True, **_)
     if err:
         foot = f"{fg(*DIM)}radar unavailable ({err[:40]}){RESET}"
     else:
-        left = f"{fg(*DIM)}NEXRAD · IEM{RESET}"
+        left = f"{fg(*DIM)}{_source.attribution}{RESET}"
         hint = (f"{fg(*DIM)}space play/pause · scroll/←→ step · q quit{RESET}"
                 if sys.stdout.isatty() else "")
-        bar = _timeline_bar(idx, N_FRAMES, min(28, max(10, cols // 3)))
+        bar = _timeline_bar(idx, len(frames), min(28, max(10, cols // 3)))
         foot = f"{left}  {bar}  {hint}"
     foot += " " * max(0, cols - visible_len(foot))
 
@@ -200,9 +209,8 @@ def main():
         except Exception:
             location_name = ""
 
-    if not (-130 <= lon <= -60 and 20 <= lat <= 55):
-        print("Note: NEXRAD radar covers the continental US; "
-              f"{lat:.1f},{lon:.1f} is outside coverage.", file=sys.stderr)
+    global _source
+    _source = get_source(lat, lon, N_FRAMES)
 
     if runtime.live:
         live_loop(
@@ -215,9 +223,12 @@ def main():
             play_interval=0.2,     # animation frame rate (~5 fps)
         )
     else:
-        # static: newest frame
+        # static: the present (newest observed) frame
+        frames = _source.current_frames()
+        present_idx = max((i for i, f in enumerate(frames) if not f.future),
+                          default=len(frames) - 1) if frames else 0
         print(render_radar(lat, lon, location_name, args.zoom,
-                           play_frame=N_FRAMES - 1, playing=False))
+                           play_frame=present_idx, playing=False))
 
 
 if __name__ == "__main__":

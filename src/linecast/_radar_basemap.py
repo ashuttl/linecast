@@ -6,8 +6,9 @@ half-block colour fill by the renderer.  This module loads the vendored
 Natural Earth data, rasterises a land/sea mask, and produces per-cell braille
 dot masks + colours plus city label overlays for a given geographic window.
 
-Data: Natural Earth (public domain), simplified & clipped to CONUS by
-prototype/build_basemap_data.py → data/basemap_us.json.
+Data: Natural Earth (public domain, 1:50m), simplified globally by
+prototype/build_basemap_data.py → data/basemap.json.  Per view we clip to the
+visible bounding box so a whole-world dataset stays cheap to rasterise.
 """
 
 import json
@@ -29,7 +30,7 @@ _DATA = None
 def _load_data():
     global _DATA
     if _DATA is None:
-        path = os.path.join(os.path.dirname(__file__), "data", "basemap_us.json")
+        path = os.path.join(os.path.dirname(__file__), "data", "basemap.json")
         with open(path) as fh:
             _DATA = json.load(fh)
     return _DATA
@@ -82,8 +83,27 @@ class Basemap:
                 err += dx
                 y0 += sy
 
+    def _in_view(self, points):
+        """True if a feature's lon/lat bbox overlaps the view (cheap cull)."""
+        minlon, minlat, maxlon, maxlat = self.bbox
+        lo_lon = lo_lat = float("inf")
+        hi_lon = hi_lat = float("-inf")
+        for lon, lat in points:
+            if lon < lo_lon:
+                lo_lon = lon
+            if lon > hi_lon:
+                hi_lon = lon
+            if lat < lo_lat:
+                lo_lat = lat
+            if lat > hi_lat:
+                hi_lat = lat
+        return not (hi_lon < minlon or lo_lon > maxlon
+                    or hi_lat < minlat or lo_lat > maxlat)
+
     def _draw_lines(self, lines, color):
         for coords in lines:
+            if not self._in_view(coords):
+                continue
             prev = None
             for lon, lat in coords:
                 p = _project(lon, lat, self.bbox, self.dw, self.dh)
@@ -95,6 +115,8 @@ class Basemap:
         """Boolean land mask at dot resolution via scanline polygon fill."""
         land = [bytearray(self.dw) for _ in range(self.dh)]
         for rings in _load_data()["land"]:
+            if not self._in_view([p for ring in rings for p in ring]):
+                continue
             # project rings to dot space
             prings = [[_project(lon, lat, self.bbox, self.dw, self.dh)
                        for lon, lat in ring] for ring in rings]

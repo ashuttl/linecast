@@ -1,7 +1,7 @@
 """Render the production radar composite (braille geography + radar fill) to a
 PNG for visual QA, using the real linecast modules.
 
-    NE_DIR unused; needs data/basemap_us.json already built.
+    NE_DIR unused; needs data/basemap.json already built.
     python3 prototype/preview_radar.py [lat] [lon] [zoom] out.png
 """
 
@@ -11,10 +11,9 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from linecast._color import BG_PRIMARY  # noqa: E402
-from linecast._png import decode_rgba  # noqa: E402
 from linecast._radar_basemap import Basemap, _BITS, SEA  # noqa: E402
 from linecast._radar_render import bbox_for, build_radar_buffer  # noqa: E402
-from linecast._radar_source import fetch_frame, latest_frame_time  # noqa: E402
+from linecast._radar_sources import get_source  # noqa: E402
 from png_encode import encode_rgb  # noqa: E402
 
 MARKER = (255, 240, 120)
@@ -31,10 +30,12 @@ def main():
     bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
     bm = Basemap(bbox, graph_w, height_cells)
 
-    when = latest_frame_time()
-    png = fetch_frame(bbox, graph_w, height_cells * 2, when=when)
-    pw, ph, rgba = decode_rgba(png)
+    src = get_source(lat, lon, 37)
+    frame = src.current_frames()[-1]
+    when = frame.time
+    pw, ph, rgba = src.frame_rgba(bbox, graph_w, height_cells, frame)
     radar, echo = build_radar_buffer(rgba, pw, ph, graph_w, height_cells)
+    print(f"source: {type(src).__name__}")
 
     overlays = dict(bm.city_overlays())
     overlays[(graph_w // 2, height_cells // 2)] = ("+", MARKER)

@@ -136,7 +136,7 @@ def sunshine_parser():
 
 def radar_parser():
     p = _base_parser("radar",
-                      "Terminal NEXRAD weather radar over a braille basemap (US)")
+                      "Terminal weather radar over a braille basemap (US + global)")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
     p.add_argument("--search", default=None,

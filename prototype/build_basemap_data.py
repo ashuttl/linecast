@@ -1,12 +1,11 @@
-"""Build the vendored US basemap data file from Natural Earth GeoJSON.
+"""Build the vendored global basemap data file from Natural Earth GeoJSON.
 
-Clips to a generous CONUS region, simplifies with Douglas-Peucker, rounds
-coordinates, and writes a compact JSON consumed at runtime by
-linecast._radar_basemap.  Run once at authoring time:
+Simplifies with Douglas-Peucker, rounds coordinates, and writes a compact JSON
+consumed at runtime by linecast._radar_basemap.  Run once at authoring time:
 
     NE_DIR=/path/to/geojson python3 prototype/build_basemap_data.py
 
-Output: src/linecast/data/basemap_us.json
+Output: src/linecast/data/basemap.json
 """
 
 import json
@@ -15,10 +14,10 @@ import os
 
 NE_DIR = os.environ.get("NE_DIR", ".")
 OUT = os.path.join(os.path.dirname(__file__), "..", "src", "linecast",
-                   "data", "basemap_us.json")
+                   "data", "basemap.json")
 
-# generous continental-US region (lon_min, lat_min, lon_max, lat_max)
-REGION = (-130.0, 20.0, -60.0, 55.0)
+# whole world (lon_min, lat_min, lon_max, lat_max)
+REGION = (-180.0, -90.0, 180.0, 90.0)
 
 
 def _load(name):
