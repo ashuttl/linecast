@@ -21,14 +21,14 @@ class CompletionScriptTests(unittest.TestCase):
 
     def test_zsh_completion_includes_namespace_and_standalone_commands(self):
         script = render_completion("zsh")
-        self.assertIn("compdef _linecast linecast weather sunshine tides radar",
+        self.assertIn("compdef _linecast linecast weather sunshine tides radar maps",
                       script)
         self.assertIn("_linecast_complete_command", script)
 
     def test_fish_completion_includes_namespace_and_standalone_commands(self):
         script = render_completion("fish")
         self.assertIn(
-            "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine tides radar completion'",
+            "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine tides radar maps completion'",
             script,
         )
         self.assertIn("complete -c weather -f -l print", script)

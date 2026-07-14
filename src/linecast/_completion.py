@@ -30,7 +30,8 @@ LAYER_VALUES = ("temp", "wind", "temp,wind")
 SHELLS = ("bash", "zsh", "fish")
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
-TOP_LEVEL_COMMANDS = ("weather", "sunshine", "tides", "radar", "completion")
+TOP_LEVEL_COMMANDS = ("weather", "sunshine", "tides", "radar", "maps",
+                      "completion")
 
 WEATHER_FLAGS = (
     "--help",
@@ -100,6 +101,23 @@ RADAR_FLAGS = (
     "--debug",
 )
 
+MAPS_FLAGS = (
+    "--help",
+    "-h",
+    "--version",
+    "--print",
+    "--live",
+    "--oneline",
+    "--location",
+    "--search",
+    "--zoom",
+    "--emoji",
+    "--lang",
+    "--classic-colors",
+    "--legacy-colors",
+    "--debug",
+)
+
 COMPLETION_FLAGS = ("--help", "-h")
 
 _SPACE = " "
@@ -134,6 +152,7 @@ def _bash_script():
     tides = _SPACE.join(TIDES_FLAGS)
     sunshine = _SPACE.join(SUNSHINE_FLAGS)
     radar = _SPACE.join(RADAR_FLAGS)
+    maps = _SPACE.join(MAPS_FLAGS)
     completion = _SPACE.join(COMPLETION_FLAGS)
     shells = _SPACE.join(SHELLS)
 
@@ -231,6 +250,9 @@ _linecast_complete_command() {{
     radar)
       _linecast_complete_flags {radar}
       ;;
+    maps)
+      _linecast_complete_flags {maps}
+      ;;
     completion)
       _linecast_complete_flags {completion}
       COMPREPLY+=( $(compgen -W "{shells}" -- "$cur") )
@@ -254,7 +276,7 @@ _linecast_complete() {{
 
   cmd="${{COMP_WORDS[1]}}"
   case "$cmd" in
-    weather|tides|sunshine|radar|completion)
+    weather|tides|sunshine|radar|maps|completion)
       _linecast_complete_command "$cmd"
       ;;
   esac
@@ -304,11 +326,23 @@ _linecast_complete_radar() {{
   _linecast_complete_command radar
 }}
 
+_linecast_complete_maps() {{
+  local cur prev
+  COMPREPLY=()
+  cur="${{COMP_WORDS[COMP_CWORD]}}"
+  prev=""
+  if (( COMP_CWORD > 0 )); then
+    prev="${{COMP_WORDS[COMP_CWORD-1]}}"
+  fi
+  _linecast_complete_command maps
+}}
+
 complete -F _linecast_complete linecast
 complete -F _linecast_complete_weather weather
 complete -F _linecast_complete_tides tides
 complete -F _linecast_complete_sunshine sunshine
 complete -F _linecast_complete_radar radar
+complete -F _linecast_complete_maps maps
 """
 
 
@@ -321,10 +355,11 @@ def _zsh_script():
     tides = _SPACE.join(TIDES_FLAGS)
     sunshine = _SPACE.join(SUNSHINE_FLAGS)
     radar = _SPACE.join(RADAR_FLAGS)
+    maps = _SPACE.join(MAPS_FLAGS)
     completion = _SPACE.join(COMPLETION_FLAGS)
     shells = _SPACE.join(SHELLS)
 
-    return f"""#compdef linecast weather sunshine tides radar
+    return f"""#compdef linecast weather sunshine tides radar maps
 
 typeset -a _linecast_lang_values
 _linecast_lang_values=({langs})
@@ -433,6 +468,9 @@ _linecast_complete_command() {{
     radar)
       _linecast_add_flags {radar}
       ;;
+    maps)
+      _linecast_add_flags {maps}
+      ;;
     completion)
       _linecast_add_flags {completion}
       compadd -- {shells}
@@ -451,7 +489,7 @@ _linecast() {{
     fi
     cmd="${{words[2]}}"
     case "$cmd" in
-      weather|tides|sunshine|radar|completion)
+      weather|tides|sunshine|radar|maps|completion)
         _linecast_complete_command "$cmd"
         ;;
     esac
@@ -462,7 +500,7 @@ _linecast() {{
   return 0
 }}
 
-compdef _linecast linecast weather sunshine tides radar
+compdef _linecast linecast weather sunshine tides radar maps
 """
 
 
@@ -560,7 +598,7 @@ def _fish_standalone_flags(command, flags, lang=False, theme=False,
 def _fish_script():
     lines = [
         "# fish completion for linecast",
-        "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine tides radar completion'",
+        "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine tides radar maps completion'",
         "complete -c linecast -f -n '__fish_use_subcommand' -l help -s h",
         "complete -c linecast -f -n '__fish_use_subcommand' -l version -s v",
         "complete -c linecast -f -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'",
@@ -599,6 +637,14 @@ def _fish_script():
             value_flags=("--location", "--search", "--zoom"),
         )
     )
+    lines.extend(
+        _fish_command_flags(
+            "maps",
+            MAPS_FLAGS,
+            lang=True,
+            value_flags=("--location", "--search", "--zoom"),
+        )
+    )
 
     lines.extend(
         _fish_standalone_flags(
@@ -629,6 +675,14 @@ def _fish_script():
             lang=True,
             theme=True,
             layers=True,
+            value_flags=("--location", "--search", "--zoom"),
+        )
+    )
+    lines.extend(
+        _fish_standalone_flags(
+            "maps",
+            MAPS_FLAGS,
+            lang=True,
             value_flags=("--location", "--search", "--zoom"),
         )
     )

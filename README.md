@@ -25,7 +25,9 @@ All data comes from free public APIs with no keys required.
 
 **`radar`** — Animated weather radar over a braille basemap. Powered by [LibreWXR](https://librewxr.net) worldwide: real radar composites for North America (NOAA MRMS incl. Alaska/Hawaii, Environment Canada), Europe (OPERA, 24 countries), Japan, Taiwan and more, with model-derived precipitation filling the gaps everywhere else, 60 minutes of forecast frames, and 13 colour themes (Dark Sky by default; `--theme rainbow`, or press `t` in live mode to pick from a menu). Falls back automatically to NEXRAD via Iowa Environmental Mesonet (US) or RainViewer (global). Drag to pan anywhere in the world; the header names wherever you land ("23 mi NE of Boston" near shore, "Gulf of Maine" once offshore) from an offline Natural Earth index, and a crosshair marks the view centre. In the US, storm-based warning polygons (tornado red, severe thunderstorm yellow, flash flood green, marine orange, snow squall violet, emergencies magenta) are outlined over the echoes and rewind in sync with the radar timeline. Optional condition layers (`--layers temp,wind`, or press `c`/`w` in live mode) add a temperature tint beneath the geography and wind arrows colored by speed, sampled from Open-Meteo and time-synced to the displayed frame — rewinding the radar rewinds them too.
 
-All four launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.
+**`maps`** — Terrain and bathymetry, no weather at all. Hillshaded elevation from the AWS/Mapzen terrain tiles (SRTM, GMTED, ETOPO1) painted as a hypsometric ramp — lowland green through alpine white above sea level, deepening bathymetric blues below it — with the coastlines, borders, and city labels rendered in braille over the fill. Drag to pan, `+`/`-` to zoom, hover to read the elevation under the pointer.
+
+All five launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.
 
 ## Install
 
@@ -73,6 +75,11 @@ radar --zoom 12                  # zoom out (degrees of latitude shown, default 
 radar --theme rainbow            # colour theme (or press t in live mode)
 radar --layers temp,wind         # temperature tint + wind arrows (or press c/w)
 radar --print                    # static snapshot
+
+maps                             # terrain around the current location
+maps --location "Innsbruck"      # the Alps
+maps --location 60.4,5.3 --zoom 8  # Norwegian fjords and the North Sea trench
+maps --print                     # static snapshot
 ```
 
 ### Language support

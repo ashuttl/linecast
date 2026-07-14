@@ -155,6 +155,19 @@ def radar_parser():
     return p
 
 
+def maps_parser():
+    p = _base_parser("maps",
+                      "Terrain and bathymetry map: hillshaded elevation "
+                      "under braille coastlines")
+    p.add_argument("--location", default=None,
+                    help="location as 'lat,lng' or place name")
+    p.add_argument("--search", default=None,
+                    help="search for a location and exit")
+    p.add_argument("--zoom", type=float, default=4.0,
+                    help="degrees of latitude shown top-to-bottom (default 4)")
+    return p
+
+
 # ---------------------------------------------------------------------------
 # Live mode resolution
 # ---------------------------------------------------------------------------

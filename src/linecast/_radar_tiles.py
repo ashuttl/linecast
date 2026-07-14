@@ -144,8 +144,30 @@ def reproject(provider, host, path, bbox, w, h, timeout=15, mutable=False):
     Returns (w, h, bytearray) — same shape decode_rgba yields, so it drops
     straight into build_radar_buffer.
     """
-    minlon, minlat, maxlon, maxlat = bbox
     z = _pick_zoom(bbox, w, provider.max_zoom)
+
+    def fetch(z_, x, y):
+        data = _fetch_tile(provider, host, path, z_, x, y, timeout,
+                           mutable=mutable)
+        if data is None:
+            return None
+        try:
+            return decode_rgba(data)
+        except Exception:
+            return None
+
+    return reproject_xyz(fetch, bbox, w, h, z)
+
+
+def reproject_xyz(fetch_tile, bbox, w, h, z):
+    """Stitch the XYZ tiles covering `bbox` at zoom `z`; resample to EPSG:4326.
+
+    `fetch_tile(z, x, y)` returns a decoded `(tw, th, rgba)` tile or None
+    (x arrives already wrapped to [0, 2^z)).  The Web-Mercator stitch +
+    equirectangular resample is service-agnostic — radar tiles and terrain
+    tiles differ only in their fetcher.  Returns (w, h, bytearray RGBA).
+    """
+    minlon, minlat, maxlon, maxlat = bbox
     n = 1 << z
     world = _TILE_SIZE * n
 
@@ -165,14 +187,7 @@ def reproject(provider, host, path, bbox, w, h, timeout=15, mutable=False):
 
     def load(coord):
         tx, ty = coord
-        data = _fetch_tile(provider, host, path, z, tx % n, ty, timeout,
-                           mutable=mutable)
-        if data is None:
-            return coord, None
-        try:
-            return coord, decode_rgba(data)
-        except Exception:
-            return coord, None
+        return coord, fetch_tile(z, tx % n, ty)
 
     with ThreadPoolExecutor(max_workers=6) as pool:
         tiles = list(pool.map(load, coords))

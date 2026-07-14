@@ -24,6 +24,7 @@ weather = "linecast.weather:main"
 sunshine = "linecast.sunshine:main"
 tides = "linecast.tides:main"
 radar = "linecast.radar:main"
+maps = "linecast.maps:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -8,6 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from linecast import _color
 from linecast._color import BG_PRIMARY, lerp
 from linecast._radar_layers import (
     Field, TEMP_STOPS, WIND_STOPS, build_temp_buffer, field_key,
@@ -141,10 +142,11 @@ class TestParseLayers:
 
 class TestComposeUnder:
     # color mode resolves to "none" under pytest (no tty); force truecolor
-    # so the tint's escape codes are observable
+    # so the tint's escape codes are observable.  Patch the module imported
+    # at the top of this file — the same generation compose() reads even
+    # after test_oneline purges sys.modules
     @pytest.fixture(autouse=True)
     def _truecolor(self, monkeypatch):
-        from linecast import _color
         monkeypatch.setattr(_color, "_COLOR_MODE", "truecolor")
 
     def test_under_fills_empty_cells_and_backs_braille(self):
