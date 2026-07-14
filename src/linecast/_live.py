@@ -159,6 +159,10 @@ def _read_key(fd):
         return 'key:-'
     if b in (b't', b'T'):
         return 'key:t'
+    if b in (b'c', b'C'):
+        return 'key:c'
+    if b in (b'w', b'W'):
+        return 'key:w'
     if b in (b'\r', b'\n'):
         return 'key:enter'
     return None
@@ -188,7 +192,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                scroll/arrows step one frame and pause in place; play_interval
                sets the frame rate.
     on_action: optional callback(key) for miscellaneous single-character keys
-               not otherwise handled (currently '+' and '-'). Return a truthy
+               not otherwise handled ('+', '-', 'c', 'w', …). Return a truthy
                value to trigger an immediate re-render; return falsy to leave
                the loop waiting as before. Default None preserves existing
                behavior exactly.

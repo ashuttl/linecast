@@ -148,6 +148,10 @@ def radar_parser():
                          "twc, meteored, datameteo, viper, mrms, max-storm, "
                          "black-white; press t in live mode to pick "
                          "interactively")
+    p.add_argument("--layers", default=None,
+                    help="condition layers to show, comma-separated: "
+                         "temp (temperature tint), wind (speed/direction "
+                         "arrows); press c/w in live mode to toggle")
     return p
 
 

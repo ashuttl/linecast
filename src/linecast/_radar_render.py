@@ -58,19 +58,37 @@ def build_radar_buffer(rgba, pw, ph, graph_w, height_cells):
     return buf, 100 * opaque / total
 
 
-def compose(basemap, radar, overlays, graph_w, height_cells, warnings=None):
-    """Composite geography + radar + overlays into a list of ANSI line strings."""
+def compose(basemap, radar, overlays, graph_w, height_cells, warnings=None,
+            under=None):
+    """Composite geography + radar + overlays into a list of ANSI line strings.
+
+    `under` is an optional sub-pixel RGB buffer (same shape as `radar`)
+    painted *beneath* everything as a background tint — the temperature
+    layer. Geography braille, warning strokes, and radar echoes all stay
+    readable on top; the tint only owns cells nothing else claims.
+    """
     base_bg = bg(*BG_PRIMARY)
     lines = []
     for cy in range(height_cells):
         top_row = radar[cy * 2]
         bot_row = radar[cy * 2 + 1]
+        u_top = under[cy * 2] if under is not None else None
+        u_bot = under[cy * 2 + 1] if under is not None else None
         parts = []
         for cx in range(graph_w):
+            if under is not None:
+                # a drag preview backfills with None; fall back to plain bg
+                ut = u_top[cx] or BG_PRIMARY
+                ub = u_bot[cx] or BG_PRIMARY
+                cell_bg = bg((ut[0] + ub[0]) // 2, (ut[1] + ub[1]) // 2,
+                             (ut[2] + ub[2]) // 2)
+            else:
+                ut = ub = BG_PRIMARY
+                cell_bg = base_bg
             ov = overlays.get((cx, cy))
             if ov is not None:
                 ch, color = ov
-                parts.append(f"{base_bg}{fg(*color)}{ch}")
+                parts.append(f"{cell_bg}{fg(*color)}{ch}")
                 continue
             top, bot = top_row[cx], bot_row[cx]
             if warnings is not None:
@@ -82,12 +100,14 @@ def compose(basemap, radar, overlays, graph_w, height_cells, warnings=None):
                                  f"{chr(0x2800 + wmask)}")
                     continue
             if top is not None or bot is not None:
-                parts.append(halfblock(top or BG_PRIMARY, bot or BG_PRIMARY))
+                parts.append(halfblock(top or ut, bot or ub))
                 continue
             mask = basemap.dots[cy][cx]
             if mask:
                 color = basemap.color[cy][cx] or SEA
-                parts.append(f"{base_bg}{fg(*color)}{chr(0x2800 + mask)}")
+                parts.append(f"{cell_bg}{fg(*color)}{chr(0x2800 + mask)}")
+            elif under is not None:
+                parts.append(halfblock(ut, ub))
             else:
                 parts.append(f"{base_bg} ")
         parts.append(RESET)

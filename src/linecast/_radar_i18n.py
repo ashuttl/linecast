@@ -3,7 +3,7 @@
 _STRINGS = {
     "en": {
         "loading": "loading…",
-        "hint": "space play/pause · scroll/←→ step · +/- zoom · drag pan · t theme · q quit",
+        "hint": "space play/pause · scroll/←→ step · +/- zoom · drag pan · c temp · w wind · t theme · q quit",
         "theme": "theme",
         "now": "now",
         "near": "{dist} {unit} {dir} of {name}",
@@ -15,7 +15,7 @@ _STRINGS = {
     },
     "fr": {
         "loading": "chargement…",
-        "hint": "espace lecture/pause · défiler/←→ pas à pas · +/- zoom · glisser pour déplacer · t thème · q quitter",
+        "hint": "espace lecture/pause · défiler/←→ pas à pas · +/- zoom · glisser pour déplacer · c temp · w vent · t thème · q quitter",
         "theme": "thème",
         "now": "maintenant",
         "near": "à {dist} {unit} au {dir} de {name}",
@@ -27,7 +27,7 @@ _STRINGS = {
     },
     "es": {
         "loading": "cargando…",
-        "hint": "espacio reproducir/pausar · desplazar/←→ paso · +/- zoom · arrastrar para mover · t tema · q salir",
+        "hint": "espacio reproducir/pausar · desplazar/←→ paso · +/- zoom · arrastrar para mover · c temp · w viento · t tema · q salir",
         "theme": "tema",
         "now": "ahora",
         "near": "a {dist} {unit} al {dir} de {name}",
@@ -39,7 +39,7 @@ _STRINGS = {
     },
     "de": {
         "loading": "lädt…",
-        "hint": "Leertaste Play/Pause · scrollen/←→ Schritt · +/- Zoom · Ziehen verschiebt · t Thema · q beenden",
+        "hint": "Leertaste Play/Pause · scrollen/←→ Schritt · +/- Zoom · Ziehen verschiebt · c Temp · w Wind · t Thema · q beenden",
         "theme": "Thema",
         "now": "jetzt",
         "near": "{dist} {unit} {dir} von {name}",
@@ -51,7 +51,7 @@ _STRINGS = {
     },
     "it": {
         "loading": "caricamento…",
-        "hint": "spazio riproduci/pausa · scorrere/←→ passo · +/- zoom · trascina per spostare · t tema · q esci",
+        "hint": "spazio riproduci/pausa · scorrere/←→ passo · +/- zoom · trascina per spostare · c temp · w vento · t tema · q esci",
         "theme": "tema",
         "now": "ora",
         "near": "{dist} {unit} a {dir} di {name}",
@@ -63,7 +63,7 @@ _STRINGS = {
     },
     "pt": {
         "loading": "carregando…",
-        "hint": "espaço reproduzir/pausar · rolar/←→ passo · +/- zoom · arrastar para mover · t tema · q sair",
+        "hint": "espaço reproduzir/pausar · rolar/←→ passo · +/- zoom · arrastar para mover · c temp · w vento · t tema · q sair",
         "theme": "tema",
         "now": "agora",
         "near": "{dist} {unit} a {dir} de {name}",
@@ -75,7 +75,7 @@ _STRINGS = {
     },
     "nl": {
         "loading": "laden…",
-        "hint": "spatie afspelen/pauze · scrollen/←→ stap · +/- zoom · slepen om te verschuiven · t thema · q stoppen",
+        "hint": "spatie afspelen/pauze · scrollen/←→ stap · +/- zoom · slepen om te verschuiven · c temp · w wind · t thema · q stoppen",
         "theme": "thema",
         "now": "nu",
         "near": "{dist} {unit} ten {dir} van {name}",
@@ -87,7 +87,7 @@ _STRINGS = {
     },
     "pl": {
         "loading": "ładowanie…",
-        "hint": "spacja odtwarzaj/pauza · przewiń/←→ krok · +/- zoom · przeciągnij aby przesunąć · t motyw · q wyjście",
+        "hint": "spacja odtwarzaj/pauza · przewiń/←→ krok · +/- zoom · przeciągnij aby przesunąć · c temp · w wiatr · t motyw · q wyjście",
         "theme": "motyw",
         "now": "teraz",
         "near": "{dist} {unit} na {dir} od {name}",
@@ -99,7 +99,7 @@ _STRINGS = {
     },
     "no": {
         "loading": "laster…",
-        "hint": "mellomrom spill/pause · rull/←→ steg · +/- zoom · dra for å flytte · t tema · q avslutt",
+        "hint": "mellomrom spill/pause · rull/←→ steg · +/- zoom · dra for å flytte · c temp · w vind · t tema · q avslutt",
         "theme": "tema",
         "now": "nå",
         "near": "{dist} {unit} {dir} for {name}",
@@ -111,7 +111,7 @@ _STRINGS = {
     },
     "sv": {
         "loading": "laddar…",
-        "hint": "mellanslag spela/paus · rulla/←→ steg · +/- zoom · dra för att flytta · t tema · q avsluta",
+        "hint": "mellanslag spela/paus · rulla/←→ steg · +/- zoom · dra för att flytta · c temp · w vind · t tema · q avsluta",
         "theme": "tema",
         "now": "nu",
         "near": "{dist} {unit} {dir} om {name}",
@@ -123,7 +123,7 @@ _STRINGS = {
     },
     "da": {
         "loading": "indlæser…",
-        "hint": "mellemrum afspil/pause · rul/←→ trin · +/- zoom · træk for at flytte · t tema · q afslut",
+        "hint": "mellemrum afspil/pause · rul/←→ trin · +/- zoom · træk for at flytte · c temp · w vind · t tema · q afslut",
         "theme": "tema",
         "now": "nu",
         "near": "{dist} {unit} {dir} for {name}",
@@ -135,7 +135,7 @@ _STRINGS = {
     },
     "is": {
         "loading": "hleð…",
-        "hint": "bil spila/hlé · skruna/←→ skref · +/- aðdráttur · draga til að færa · t þema · q hætta",
+        "hint": "bil spila/hlé · skruna/←→ skref · +/- aðdráttur · draga til að færa · c hiti · w vindur · t þema · q hætta",
         "theme": "þema",
         "now": "núna",
         "near": "{dist} {unit} {dir} af {name}",
@@ -147,7 +147,7 @@ _STRINGS = {
     },
     "fi": {
         "loading": "ladataan…",
-        "hint": "välilyönti toista/tauko · vieritä/←→ askel · +/- zoomaus · vedä siirtääksesi · t teema · q lopeta",
+        "hint": "välilyönti toista/tauko · vieritä/←→ askel · +/- zoomaus · vedä siirtääksesi · c lämpö · w tuuli · t teema · q lopeta",
         "theme": "teema",
         "now": "nyt",
         "near": "{dist} {unit} {dir} kohteesta {name}",
@@ -159,7 +159,7 @@ _STRINGS = {
     },
     "ja": {
         "loading": "読み込み中…",
-        "hint": "スペース 再生/一時停止 · スクロール/←→ コマ送り · +/- ズーム · ドラッグで移動 · t テーマ · q 終了",
+        "hint": "スペース 再生/一時停止 · スクロール/←→ コマ送り · +/- ズーム · ドラッグで移動 · c 気温 · w 風 · t テーマ · q 終了",
         "theme": "テーマ",
         "now": "現在",
         "near": "{name}の{dir} {dist} {unit}",
@@ -171,7 +171,7 @@ _STRINGS = {
     },
     "ko": {
         "loading": "로딩 중…",
-        "hint": "스페이스 재생/일시정지 · 스크롤/←→ 프레임 · +/- 줌 · 드래그로 이동 · t 테마 · q 종료",
+        "hint": "스페이스 재생/일시정지 · 스크롤/←→ 프레임 · +/- 줌 · 드래그로 이동 · c 기온 · w 바람 · t 테마 · q 종료",
         "theme": "테마",
         "now": "현재",
         "near": "{name} {dir}쪽 {dist} {unit}",
@@ -183,7 +183,7 @@ _STRINGS = {
     },
     "zh": {
         "loading": "加载中…",
-        "hint": "空格 播放/暂停 · 滚动/←→ 单帧 · +/- 缩放 · 拖动平移 · t 主题 · q 退出",
+        "hint": "空格 播放/暂停 · 滚动/←→ 单帧 · +/- 缩放 · 拖动平移 · c 气温 · w 风 · t 主题 · q 退出",
         "theme": "主题",
         "now": "当前",
         "near": "{name}{dir} {dist} {unit}",
@@ -195,7 +195,7 @@ _STRINGS = {
     },
     "id": {
         "loading": "memuat…",
-        "hint": "spasi putar/jeda · gulir/←→ langkah · +/- zoom · seret untuk geser · t tema · q keluar",
+        "hint": "spasi putar/jeda · gulir/←→ langkah · +/- zoom · seret untuk geser · c suhu · w angin · t tema · q keluar",
         "theme": "tema",
         "now": "sekarang",
         "near": "{dist} {unit} di {dir} {name}",

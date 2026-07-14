@@ -7,13 +7,17 @@ radar echoes are painted on top as a half-block colour fill.  In live mode,
 scroll (or arrow keys) to rewind through the last few hours and watch a storm
 approach.
 
+Optional condition layers ride along: a temperature tint painted beneath the
+geography, and wind arrows colored by speed — both sampled from Open-Meteo
+and time-synced to the displayed frame, so rewinding rewinds them too.
+
 Data: LibreWXR everywhere (global radar composites + model precipitation,
 60-min forecast frames, selectable colour themes); falls back to NEXRAD via
 Iowa Environmental Mesonet (IEM) in the continental US and RainViewer
-elsewhere. Basemap from Natural Earth.
+elsewhere. Basemap from Natural Earth. Condition layers from Open-Meteo.
 
 Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--theme NAME]
-             [--print] [--search CITY]
+             [--layers temp,wind] [--print] [--search CITY]
 """
 
 import os
@@ -24,6 +28,7 @@ from concurrent.futures import ThreadPoolExecutor
 from linecast._color import fg, RESET, BOLD
 from linecast._framebuffer import get_terminal_size, fmt_time_dt
 from linecast._location import get_location
+from linecast import _radar_layers
 from linecast import _radar_warnings
 from linecast._radar_basemap import (
     Basemap, DotLayer, marine_region, nearest_city,
@@ -177,6 +182,92 @@ def _warm_warnings(frame):
         pass
 
 
+# condition-layer state: fetched fields and rendered temp tints, both small
+_field_cache = {}    # field_key -> (fetched_at, Field)
+_field_pending = set()
+_field_lock = threading.Lock()
+_temp_cache = {}     # (bbox, w, h, field id, hour) -> sub-pixel tint buffer
+
+LAYER_NAMES = {"temp": "temp", "temperature": "temp", "t": "temp",
+               "wind": "wind", "w": "wind"}
+
+
+def parse_layers(value):
+    """'temp,wind' (any aliases) -> frozenset, or None on an unknown name."""
+    layers = set()
+    for part in value.replace(";", ",").split(","):
+        part = part.strip().lower()
+        if not part:
+            continue
+        name = LAYER_NAMES.get(part)
+        if name is None:
+            return None
+        layers.add(name)
+    return frozenset(layers)
+
+
+def _get_field(bbox, block):
+    """The condition Field covering `bbox`; may spawn a background fetch.
+
+    Static mode (block=True) fetches synchronously; live mode returns None
+    on a miss and nudges a repaint when the background fetch lands, same as
+    radar frames.
+    """
+    import time
+    key = _radar_layers.field_key(bbox)
+    with _field_lock:
+        hit = _field_cache.get(key)
+        if hit is not None and time.time() - hit[0] < 1800:
+            return hit[1]
+        if not block:
+            if key in _field_pending:
+                return None
+            _field_pending.add(key)
+
+    def load():
+        return time.time(), _radar_layers.fetch_field(bbox)
+
+    if block:
+        try:
+            stamp, field = load()
+        except Exception:
+            return None
+        with _field_lock:
+            _field_cache[key] = (stamp, field)
+        return field
+
+    def worker():
+        try:
+            stamp, field = load()
+        except Exception:
+            stamp = field = None
+        with _field_lock:
+            _field_pending.discard(key)
+            if field is not None:
+                if len(_field_cache) > 4:
+                    _field_cache.clear()
+                _field_cache[key] = (stamp, field)
+        if field is not None and _live_refresh:
+            import signal
+            os.kill(os.getpid(), signal.SIGWINCH)
+
+    threading.Thread(target=worker, daemon=True).start()
+    return None
+
+
+def _temp_buffer(field, t_idx, bbox, graph_w, height_cells):
+    """Memoised temperature tint; rebuilt only when view or hour changes."""
+    key = (_bbox_key(bbox), graph_w, height_cells, id(field), t_idx)
+    buf = _temp_cache.get(key)
+    if buf is None:
+        buf = _radar_layers.build_temp_buffer(field, t_idx, bbox, graph_w,
+                                              height_cells)
+        if len(_temp_cache) > 6:
+            _temp_cache.clear()
+        _temp_cache[key] = buf
+    return buf
+
+
 def _get_basemap(bbox, graph_w, height_cells):
     key = (tuple(round(v, 3) for v in bbox), graph_w, height_cells)
     bm = _basemap_cache.get(key)
@@ -301,7 +392,7 @@ def _timeline_bar(idx, n, width, present=None):
 
 def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                  marker=None, runtime=None, block=True, pan_offset=(0, 0),
-                 theme_menu=None, **_):
+                 theme_menu=None, layers=frozenset(), **_):
     lang = runtime.lang if runtime else "en"
     use_24h = runtime.use_24h if runtime else False
     cols, rows = get_terminal_size()
@@ -347,6 +438,22 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         else:
             radar, echo = [[None] * graph_w for _ in range(height_cells * 2)], 0.0
 
+    # condition layers (temperature tint, wind arrows) follow the scrubbed
+    # frame's hour, so rewinding shows the field as it was
+    field = t_idx = under = wind_ov = None
+    if layers:
+        field = _get_field(bbox, block)
+        if field is None:
+            loading = loading or not block
+        else:
+            t_idx = field.nearest_time_idx(when)
+            if "temp" in layers:
+                under = _temp_buffer(field, t_idx, bbox, graph_w,
+                                     height_cells)
+            if "wind" in layers:
+                wind_ov = _radar_layers.wind_overlays(
+                    field, t_idx, bbox, graph_w, height_cells)
+
     # storm-based warning outlines valid at the displayed frame's time
     # (live mode: cache-only, the prefetcher warms them alongside frames)
     warn_layer = None
@@ -364,6 +471,9 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                 warn_layer._draw_lines(rings, color, width=2)
 
     overlays = dict(basemap.city_overlays())
+    if wind_ov:
+        for pos, glyph in wind_ov.items():  # city markers/labels win the cell
+            overlays.setdefault(pos, glyph)
     # "your location" marker, pinned geographically (panning can move it
     # off-centre or out of view entirely)
     m_lat, m_lon = marker if marker else (lat, lon)
@@ -380,6 +490,8 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         basemap = _ShiftedBasemap(_shift_grid(basemap.dots, dx, dy, 0),
                                   _shift_grid(basemap.color, dx, dy, None))
         radar = _shift_grid(radar, dx, dy * 2, None)  # sub-pixel rows: 2/cell
+        if under is not None:
+            under = _shift_grid(under, dx, dy * 2, None)
         if warn_layer is not None:
             warn_layer = _ShiftedBasemap(
                 _shift_grid(warn_layer.dots, dx, dy, 0),
@@ -394,7 +506,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         overlays[(ccol, crow)] = ("+", CROSSHAIR)
 
     map_lines = compose(basemap, radar, overlays, graph_w, height_cells,
-                        warnings=warn_layer)
+                        warnings=warn_layer, under=under)
 
     # header: play state, frame time, how old/ahead, echo coverage.
     # Both header and footer must never exceed the terminal width: a wrapped
@@ -407,6 +519,13 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
            else (f"{delta}m" if delta < 0 else f"+{delta}m"))
     tag = f" {rs('forecast', lang)}" if frame.future else ""
     tag += f" · {rs('loading', lang)}" if loading else ""
+    if field is not None and "temp" in layers:
+        # temperature at the view centre, in the units _panned_place uses
+        tc = field.sample_temp(t_idx, lon, lat)
+        metric = lang != "en" or os.environ.get(
+            "WEATHER_UNITS", "").lower() == "metric"
+        tag += (f" · {round(tc)}°C" if metric
+                else f" · {round(tc * 9 / 5 + 32)}°F")
     icon = "▶" if playing else "⏸"
 
     def _header(place_str):
@@ -489,6 +608,14 @@ def main():
               f'Themes: {", ".join(THEMES)}.', file=sys.stderr)
         sys.exit(2)
 
+    layer_arg = (args.layers
+                 or os.environ.get("LINECAST_RADAR_LAYERS", "")).strip()
+    layers = parse_layers(layer_arg)
+    if layers is None:
+        print(f'Unknown radar layer in "{layer_arg}". Layers: temp, wind.',
+              file=sys.stderr)
+        sys.exit(2)
+
     global _source
     _source = get_source(lat, lon, N_FRAMES, theme)
 
@@ -502,7 +629,13 @@ def main():
         center = [lat, lon]          # pans; marker stays at the true location
         region = [_in_conus(lat, lon)]
 
+        layer_state = set(layers)
+
         def on_action(key):
+            if key in ('c', 'w'):
+                layer_state.symmetric_difference_update(
+                    {'temp' if key == 'c' else 'wind'})
+                return True
             if key == '+':
                 new_zoom = max(1.0, zoom[0] / 1.5)
             elif key == '-':
@@ -585,6 +718,7 @@ def main():
                 play_frame=play_frame, playing=playing, marker=(lat, lon),
                 runtime=runtime, block=False,
                 pan_offset=(pan_preview[0], pan_preview[1]),
+                layers=frozenset(layer_state),
                 theme_menu=((list(_source.themes), menu_sel[0])
                             if menu_sel[0] is not None
                             and getattr(_source, "themes", None) else None)),
@@ -600,7 +734,7 @@ def main():
         # static: play_frame 0 is the present (newest observed) frame
         print(render_radar(lat, lon, location_name, args.zoom,
                            play_frame=0, playing=False,
-                           runtime=runtime))
+                           runtime=runtime, layers=layers))
 
 
 if __name__ == "__main__":
