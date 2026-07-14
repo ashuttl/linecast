@@ -1,12 +1,12 @@
 [project]
 name = "linecast"
 version = "1.2.7"
-description = "Terminal weather, solar arc, and tide visualizations"
+description = "Terminal weather, radar, solar arc, and tide visualizations"
 authors = [{name = "Andrew Shuttleworth Fowler"}]
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-keywords = ["weather", "terminal", "cli", "tides", "solar", "braille", "true-color"]
+keywords = ["weather", "radar", "terminal", "cli", "tides", "solar", "braille", "true-color"]
 classifiers = [
     "Environment :: Console",
     "Topic :: Utilities",

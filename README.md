@@ -1,6 +1,6 @@
 # linecast
 
-Terminal weather, solar arc, and tide visualizations. Pure Python, zero dependencies.
+Terminal weather, radar, solar arc, and tide visualizations. Pure Python, zero dependencies.
 
 All data comes from free public APIs with no keys required.
 
@@ -23,7 +23,7 @@ All data comes from free public APIs with no keys required.
 
 ![tides](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
 
-**`radar`** — Animated weather radar over a braille basemap. Powered by [LibreWXR](https://librewxr.net) worldwide: real radar composites for North America (NOAA MRMS incl. Alaska/Hawaii, Environment Canada), Europe (OPERA, 24 countries), Japan, Taiwan and more, with model-derived precipitation filling the gaps everywhere else, 60 minutes of forecast frames, and 13 colour themes (`--theme rainbow`, or press `t` in live mode to pick from a menu). Falls back automatically to NEXRAD via Iowa Environmental Mesonet (US) or RainViewer (global). Drag to pan anywhere in the world; the header names wherever you land ("23 mi NE of Boston" near shore, "Gulf of Maine" once offshore) from an offline Natural Earth index, and a crosshair marks the view centre. In the US, storm-based warning polygons (tornado red, severe thunderstorm yellow, flash flood green, marine orange, snow squall violet, emergencies magenta) are outlined over the echoes and rewind in sync with the radar timeline.
+**`radar`** — Animated weather radar over a braille basemap. Powered by [LibreWXR](https://librewxr.net) worldwide: real radar composites for North America (NOAA MRMS incl. Alaska/Hawaii, Environment Canada), Europe (OPERA, 24 countries), Japan, Taiwan and more, with model-derived precipitation filling the gaps everywhere else, 60 minutes of forecast frames, and 13 colour themes (Dark Sky by default; `--theme rainbow`, or press `t` in live mode to pick from a menu). Falls back automatically to NEXRAD via Iowa Environmental Mesonet (US) or RainViewer (global). Drag to pan anywhere in the world; the header names wherever you land ("23 mi NE of Boston" near shore, "Gulf of Maine" once offshore) from an offline Natural Earth index, and a crosshair marks the view centre. In the US, storm-based warning polygons (tornado red, severe thunderstorm yellow, flash flood green, marine orange, snow squall violet, emergencies magenta) are outlined over the echoes and rewind in sync with the radar timeline.
 
 All four launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.
 
@@ -86,6 +86,7 @@ All commands are also available under the `linecast` namespace if the short name
 linecast weather
 linecast sunshine --print
 linecast tides --station 8413320
+linecast radar --theme rainbow
 ```
 
 ## Shell completion
@@ -103,7 +104,7 @@ source <(linecast completion zsh)
 linecast completion fish | source
 ```
 
-This installs completions for both `linecast <command>` and standalone `weather`, `tides`, and `sunshine`.
+This installs completions for both `linecast <command>` and standalone `weather`, `tides`, `sunshine`, and `radar`.
 
 ## Weather alerts
 
@@ -124,8 +125,10 @@ Alert text comes from each national weather service in its native language. When
 
 | Variable                    | Description                                                                                                                                  |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WEATHER_LOCATION`          | Default lat,lng for weather (e.g., `44.54,-68.42`)                                                                                           |
+| `WEATHER_LOCATION`          | Default lat,lng for weather and radar (e.g., `44.54,-68.42`)                                                                                 |
 | `TIDE_STATION`              | Default NOAA station ID for tides (e.g., `8413320`)                                                                                          |
+| `LINECAST_RADAR_THEME`      | Default radar colour theme (same values as `radar --theme`; default `dark-sky`)                                                              |
+| `LINECAST_LIBREWXR_URL`     | Base URL of a self-hosted [LibreWXR](https://librewxr.net) instance for radar tiles (default `https://api.librewxr.net`)                     |
 | `TIDES_UNITS`               | Set to `metric` for tide heights in meters (same as `--metric`)                                                                              |
 | `LINECAST_LANG`             | UI language, including alerts when available: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh` |
 | `WEATHER_UNITS`             | Set to `metric` for Celsius, km/h, and mm (same as `--metric`)                                                                               |
