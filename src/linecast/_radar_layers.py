@@ -9,12 +9,17 @@ never take the long way around 0°/360°.
 
 Rendering follows the radar view's layering principle: the temperature field
 is a *background tint* (geography braille and radar echoes stay on top), and
-wind is a lattice of arrow glyphs colored by speed.
+wind is a lattice of arrow glyphs.  Wind speed is encoded as *contrast*, not
+hue: arrows sit on the theme's background→foreground axis, fading to
+invisible in near-calm and reaching full text contrast in storm-force wind —
+so "how visible is the arrow" simply is "how windy is it", and the neutrals
+never fight the radar echo colours for attention.
 """
 
 import datetime
 import math
 
+from linecast import _theme
 from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
 from linecast._color import lerp, interp_stops, BG_PRIMARY
 from linecast._http import fetch_json
@@ -40,21 +45,29 @@ TEMP_STOPS = [
     (42, (200, 50, 120)),
 ]
 
-# wind speed ramp (km/h), calm gray-blue through storm magenta
-WIND_STOPS = [
-    (0, (110, 130, 150)),
-    (10, (90, 150, 200)),
-    (20, (90, 200, 140)),
-    (30, (225, 205, 95)),
-    (45, (240, 160, 70)),
-    (60, (240, 95, 80)),
-    (80, (235, 80, 160)),
-    (105, (190, 70, 225)),
-]
+# wind speed → contrast: hidden below CALM_KMH (Beaufort 0–1), then a
+# faint-to-full ramp topping out at storm force
+CALM_KMH = 5.0
+_FULL_KMH = 80.0
+_MIN_LEVEL = 0.25  # faintest visible arrow's position on the bg→fg axis
 
 # arrow glyph per 45° sector of the direction the wind blows *toward*
 _ARROWS = "↑↗→↘↓↙←↖"
-CALM_KMH = 2.0
+
+
+def wind_color(speed_kmh):
+    """Neutral arrow colour for a wind speed, or None when too calm to draw.
+
+    Contrast carries the meaning: the colour walks the terminal theme's
+    background→foreground axis, so faster wind reads brighter on dark
+    themes and darker on light themes — always *more visible*.
+    """
+    if speed_kmh < CALM_KMH:
+        return None
+    t = min(1.0, (speed_kmh - CALM_KMH) / (_FULL_KMH - CALM_KMH)) ** 0.8
+    level = _MIN_LEVEL + (1.0 - _MIN_LEVEL) * t
+    # read the theme at call time: the palette probe may refine fg/bg
+    return _theme.lerp_rgb(_theme.theme_bg, _theme.theme_fg, level)
 
 
 def field_key(bbox):
@@ -194,8 +207,8 @@ def wind_overlays(field, t_idx, bbox, graph_w, height_cells,
                   col_step=6, row_step=3):
     """{(col,row): (arrow_char, color)} on a staggered lattice.
 
-    Arrows point where the wind is blowing toward; color encodes speed.
-    Calm cells (< CALM_KMH) show a dim dot instead of a direction.
+    Arrows point where the wind is blowing toward; contrast encodes speed
+    (see wind_color).  Near-calm cells draw nothing at all.
     """
     minlon, minlat, maxlon, maxlat = bbox
     overlays = {}
@@ -205,10 +218,9 @@ def wind_overlays(field, t_idx, bbox, graph_w, height_cells,
             lat = maxlat - (row + 0.5) / height_cells * (maxlat - minlat)
             lon = minlon + (col + 0.5) / graph_w * (maxlon - minlon)
             speed, bearing = field.sample_wind(t_idx, lon, lat)
-            color = interp_stops(WIND_STOPS, speed)
-            if speed < CALM_KMH:
-                overlays[(col, row)] = ("·", color)
-            else:
-                arrow = _ARROWS[round(bearing / 45.0) % 8]
-                overlays[(col, row)] = (arrow, color)
+            color = wind_color(speed)
+            if color is None:
+                continue
+            arrow = _ARROWS[round(bearing / 45.0) % 8]
+            overlays[(col, row)] = (arrow, color)
     return overlays

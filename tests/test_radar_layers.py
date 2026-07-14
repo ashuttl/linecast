@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from linecast import _color
 from linecast._color import BG_PRIMARY, lerp
 from linecast._radar_layers import (
-    Field, TEMP_STOPS, WIND_STOPS, build_temp_buffer, field_key,
+    Field, TEMP_STOPS, build_temp_buffer, field_key, wind_color,
     wind_overlays,
 )
 from linecast._radar_render import compose
@@ -116,18 +116,23 @@ class TestWindOverlays:
         chars = {ch for ch, _color in ov.values()}
         assert chars == {"↑"}
 
-    def test_calm_is_a_dot(self):
+    def test_calm_draws_nothing(self):
         f = _make_field()  # zero wind everywhere
         ov = wind_overlays(f, 0, (0, 0, 10, 10), 40, 12)
-        chars = {ch for ch, _color in ov.values()}
-        assert chars == {"·"}
+        assert ov == {}
 
-    def test_speed_sets_color(self):
-        from linecast._color import interp_stops
-        f = _make_field(u=[[60.0]] * 4, v=[[0.0]] * 4)
-        ov = wind_overlays(f, 0, (0, 0, 10, 10), 40, 12)
-        colors = {color for _ch, color in ov.values()}
-        assert colors == {interp_stops(WIND_STOPS, 60.0)}
+    def test_speed_sets_contrast_not_hue(self):
+        from linecast._theme import contrast_ratio, theme_bg
+        assert wind_color(0.0) is None
+        assert wind_color(4.0) is None  # lightest breeze stays invisible
+        breeze, gale = wind_color(12.0), wind_color(70.0)
+        # neutral: on the bg→fg axis, both are grays (channels near-equal
+        # when fg/bg are), and faster wind stands out more from the bg
+        assert contrast_ratio(gale, theme_bg) > contrast_ratio(breeze,
+                                                               theme_bg)
+        ov = wind_overlays(_make_field(u=[[60.0]] * 4, v=[[0.0]] * 4),
+                           0, (0, 0, 10, 10), 40, 12)
+        assert {color for _ch, color in ov.values()} == {wind_color(60.0)}
 
 
 class TestParseLayers:

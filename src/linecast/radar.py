@@ -8,8 +8,9 @@ scroll (or arrow keys) to rewind through the last few hours and watch a storm
 approach.
 
 Optional condition layers ride along: a temperature tint painted beneath the
-geography, and wind arrows colored by speed — both sampled from Open-Meteo
-and time-synced to the displayed frame, so rewinding rewinds them too.
+geography, and neutral wind arrows whose contrast rises with speed (calm air
+draws nothing) — both sampled from Open-Meteo and time-synced to the
+displayed frame, so rewinding rewinds them too.
 
 Data: LibreWXR everywhere (global radar composites + model precipitation,
 60-min forecast frames, selectable colour themes); falls back to NEXRAD via
