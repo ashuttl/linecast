@@ -115,6 +115,65 @@ class TestBasemapSyntheticData:
         assert basemap_mod._DATA["cities"][0][3] == "Testville"
 
 
+class TestCityLocalization:
+    """Localized placenames on the map, incl. CJK double-width alignment."""
+
+    BBOX = (-5.0, -5.0, 5.0, 5.0)
+    GRAPH_W = 10
+    HEIGHT_CELLS = 5
+
+    def setup_method(self):
+        self._original_data = basemap_mod._DATA
+        basemap_mod._DATA = {
+            "land": [], "borders": [],
+            # default Latin name + a translations dict (5th element)
+            "cities": [[0.0, 0.0, 1_000_000, "Beijing",
+                        {"zh": "北京", "fr": "Pékin"}]],
+        }
+
+    def teardown_method(self):
+        basemap_mod._DATA = self._original_data
+
+    def _build(self):
+        return Basemap(self.BBOX, self.GRAPH_W, self.HEIGHT_CELLS)
+
+    def test_translation_used_when_present(self):
+        ov = self._build().city_overlays(max_cities=1, lang="fr")
+        assert ov[(5, 2)] == ("•", CITY)
+        # "Pékin" — the 5th char runs off the 10-wide grid, leaving "Péki"
+        assert "".join(ov[(6 + i, 2)][0] for i in range(4)) == "Péki"
+        assert (10, 2) not in ov
+
+    def test_falls_back_to_default_name(self):
+        # no translation for German -> default Latin name
+        ov = self._build().city_overlays(max_cities=1, lang="de")
+        assert ov[(6, 2)] == ("B", CITY_LABEL)
+
+    def test_default_when_no_translations_dict(self):
+        basemap_mod._DATA["cities"] = [[0.0, 0.0, 1_000_000, "Plainville"]]
+        ov = self._build().city_overlays(max_cities=1, lang="zh")
+        assert ov[(6, 2)] == ("P", CITY_LABEL)
+
+    def test_cjk_reserves_trailing_column(self):
+        ov = self._build().city_overlays(max_cities=1, lang="zh")
+        # "北京" -> wide glyph then a consumed sentinel, twice
+        assert ov[(6, 2)] == ("北", CITY_LABEL)
+        assert ov[(7, 2)] == ("", None)   # sentinel: covered by 北
+        assert ov[(8, 2)] == ("京", CITY_LABEL)
+        assert ov[(9, 2)] == ("", None)   # sentinel: covered by 京
+
+    def test_cjk_rows_stay_column_aligned(self):
+        from linecast._radar_render import compose
+        from linecast._framebuffer import visible_len
+        bm = self._build()
+        ov = bm.city_overlays(max_cities=1, lang="zh")
+        radar = [[None] * self.GRAPH_W for _ in range(self.HEIGHT_CELLS * 2)]
+        lines = compose(bm, radar, ov, self.GRAPH_W, self.HEIGHT_CELLS)
+        # every line must occupy exactly graph_w display columns despite the
+        # double-width CJK glyphs on the labelled row
+        assert all(visible_len(ln) == self.GRAPH_W for ln in lines)
+
+
 class TestNearestCity:
     """nearest_city against a synthetic city list (same isolation pattern
     as TestBasemapSyntheticData)."""

@@ -15,6 +15,7 @@ import gzip
 import json
 import math
 import os
+import unicodedata
 
 # braille dot bit for (col, row) within a 2x4 cell — matches _braille.py
 _BITS = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
@@ -29,32 +30,49 @@ CITY_LABEL = (155, 160, 175)
 _DATA = None
 
 
+def _cell_width(ch):
+    """Terminal columns a single character occupies (2 for CJK/wide glyphs)."""
+    return 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+
+
+def _localized(entry, lang):
+    """Resolve a city entry's display name for ``lang``, falling back to the
+    default Latin name when no translation is stored."""
+    if len(entry) > 4 and entry[4]:
+        localized = entry[4].get(lang)
+        if localized:
+            return localized
+    return entry[3]
+
+
 def _load_data():
     global _DATA
     if _DATA is None:
         path = os.path.join(os.path.dirname(__file__), "data",
                             "basemap.json.gz")
-        with gzip.open(path, "rt") as fh:
+        with gzip.open(path, "rt", encoding="utf-8") as fh:
             _DATA = json.load(fh)
     return _DATA
 
 
-def nearest_city(lat, lon):
+def nearest_city(lat, lon, lang="en"):
     """(name, dist_km, bearing_deg) of the closest known city, or None.
 
     bearing_deg is the direction *from the city to the point*, so a result of
     ("Boston", 23, 45) reads "23 km NE of Boston".  Works off the vendored
-    Natural Earth populated-places list, so it needs no network.
+    Natural Earth populated-places list, so it needs no network.  ``lang``
+    localizes the returned name when a translation is available.
     """
     best = None
     coslat = math.cos(math.radians(lat))
-    for clon, clat, _pop, name in _load_data()["cities"]:
+    for entry in _load_data()["cities"]:
+        clon, clat = entry[0], entry[1]
         # equirectangular approximation is plenty for ranking candidates
         dx = ((lon - clon + 180.0) % 360.0 - 180.0) * coslat
         dy = lat - clat
         d2 = dx * dx + dy * dy
         if best is None or d2 < best[0]:
-            best = (d2, name, clat, clon)
+            best = (d2, _localized(entry, lang), clat, clon)
     if best is None:
         return None
     _, name, clat, clon = best
@@ -228,21 +246,29 @@ class Basemap(DotLayer):
         self._draw_lines(data["borders"], BORDER)
 
     # -- city labels ----------------------------------------------------------
-    def city_overlays(self, max_cities=None):
+    def city_overlays(self, max_cities=None, lang="en"):
         """{(col,row): (char, color)} for the biggest cities in view + labels.
 
         The label budget scales with the visible area, and biggest-first
         greedy placement skips cities too close to an already-placed one, so
         wide views show the majors and close views fill in the local towns.
+        ``lang`` selects localized placenames where the vendored data has
+        them, falling back to the default Latin name.
+
+        Labels are placed one terminal *column* at a time: CJK and other
+        double-width glyphs consume two columns, with the trailing column
+        marked by an ``("", None)`` sentinel so the renderer emits nothing
+        there (the wide glyph already covers it) and the row stays aligned.
         """
         if max_cities is None:
             max_cities = max(6, min(24, (self.graph_w * self.height_cells) // 400))
         minlon, minlat, maxlon, maxlat = self.bbox
         inview = []
-        for lon, lat, pop, name in _load_data()["cities"]:
+        for entry in _load_data()["cities"]:
+            lon, lat, pop = entry[0], entry[1], entry[2]
             if minlon <= lon <= maxlon and minlat <= lat <= maxlat:
-                inview.append((pop, name, lon, lat))
-        inview.sort(reverse=True)
+                inview.append((pop, _localized(entry, lang), lon, lat))
+        inview.sort(key=lambda c: c[0], reverse=True)
 
         overlays = {}
         placed = []
@@ -260,10 +286,16 @@ class Basemap(DotLayer):
                 continue
             placed.append((col, row))
             overlays[(col, row)] = ("•", CITY)  # •
-            # label to the right, unless it collides
-            for j, ch in enumerate(name):
-                c = col + 1 + j
-                if c >= self.graph_w or (c, row) in overlays:
+            # label to the right, unless it runs off the edge or collides
+            c = col + 1
+            for ch in name:
+                w = _cell_width(ch)
+                if c + w > self.graph_w:
+                    break
+                if (c, row) in overlays or (w == 2 and (c + 1, row) in overlays):
                     break
                 overlays[(c, row)] = (ch, CITY_LABEL)
+                if w == 2:
+                    overlays[(c + 1, row)] = ("", None)  # consumed by wide glyph
+                c += w
         return overlays

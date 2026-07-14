@@ -162,8 +162,43 @@ def _marine(features, eps):
     return out
 
 
-def main():
+def build_cities(features):
+    """Extract [lon, lat, pop, name, translations?] entries from NE places.
+
+    Uses the *full* ne_10m_populated_places set (not the _simple variant),
+    because only the full set carries the NAME_<LANG> translation fields.
+    Note the full set uses UPPERCASE property keys.  Each city gets an
+    optional 5th element: a {lang: name} dict holding only the translations
+    that actually differ from the default name, so Latin-script duplicates
+    cost nothing.  The traditional-Chinese ``zht`` value is dropped when it
+    equals the simplified ``zh`` value (they coincide for most places).
+    """
     minlon, minlat, maxlon, maxlat = REGION
+    cities = []
+    for ft in features:
+        lon, lat = ft["geometry"]["coordinates"]
+        if not (minlon <= lon <= maxlon and minlat <= lat <= maxlat):
+            continue
+        pr = ft["properties"]
+        pop = int(pr.get("POP_MAX") or 0)
+        capital = "capital" in (pr.get("FEATURECLA") or "").lower()
+        if pop < 40000 and not capital:
+            continue
+        name = pr.get("NAME") or "?"
+        # NAME_<LANG> keys → {lang: value}, keeping only real differences
+        tr = {k[5:].lower(): pr[k] for k in pr
+              if k.startswith("NAME_") and pr[k] and pr[k] != name}
+        if tr.get("zht") == tr.get("zh"):
+            tr.pop("zht", None)
+        entry = [round(lon, 3), round(lat, 3), pop, name]
+        if tr:
+            entry.append(tr)
+        cities.append(entry)
+    cities.sort(key=lambda c: -c[2])
+    return cities
+
+
+def main():
     # land polygons serve double duty at runtime: sea-mask fill AND coastline
     # strokes (ring outlines), so there is no separate coastline dataset to
     # drift out of alignment with the fill boundary
@@ -173,18 +208,7 @@ def main():
 
     # 1:10m places (the 1:50m set is mostly capitals — it misses mid-size
     # cities like Portland, ME), filtered to keep the file reasonable
-    cities = []
-    for ft in _load("ne_10m_populated_places_simple.geojson"):
-        lon, lat = ft["geometry"]["coordinates"]
-        if not (minlon <= lon <= maxlon and minlat <= lat <= maxlat):
-            continue
-        pr = ft["properties"]
-        pop = int(pr.get("pop_max") or 0)
-        capital = "capital" in (pr.get("featurecla") or "").lower()
-        if pop < 40000 and not capital:
-            continue
-        cities.append([round(lon, 3), round(lat, 3), pop, pr.get("name", "?")])
-    cities.sort(key=lambda c: -c[2])
+    cities = build_cities(_load("ne_10m_populated_places.geojson"))
 
     # named water bodies (gulfs, bays, seas, oceans) for the header's
     # "where am I" readout — naming only, never drawn
@@ -193,9 +217,12 @@ def main():
     data = {"region": list(REGION), "land": land,
             "borders": borders, "cities": cities, "marine": marine}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    # mtime=0 keeps the archive byte-identical across rebuilds of same input
+    # mtime=0 keeps the archive byte-identical across rebuilds of same input.
+    # ensure_ascii=False stores CJK/other translations as raw UTF-8 (smaller
+    # gzipped than \uXXXX escapes); the runtime reader decodes UTF-8 explicitly.
     with gzip.GzipFile(OUT, "wb", compresslevel=9, mtime=0) as fh:
-        fh.write(json.dumps(data, separators=(",", ":")).encode())
+        fh.write(json.dumps(data, separators=(",", ":"),
+                            ensure_ascii=False).encode("utf-8"))
     size = os.path.getsize(OUT)
     print(f"wrote {OUT} ({size // 1024} KB): "
           f"{len(land)} land polys, "

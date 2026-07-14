@@ -217,7 +217,7 @@ def _panned_place(lat, lon, lang):
                   unit="km" if metric else "mi",
                   dir=compass[round(bearing / 45) % 8], name=name)
 
-    city = nearest_city(lat, lon)
+    city = nearest_city(lat, lon, lang)
     if city and city[1] < 100:  # coastal waters still read by the city
         place = city_phrase(*city)
     else:
@@ -363,7 +363,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
             for _sev, color, rings in warns:  # least-severe-first: TO wins
                 warn_layer._draw_lines(rings, color, width=2)
 
-    overlays = dict(basemap.city_overlays())
+    overlays = dict(basemap.city_overlays(lang=lang))
     # "your location" marker, pinned geographically (panning can move it
     # off-centre or out of view entirely)
     m_lat, m_lon = marker if marker else (lat, lon)

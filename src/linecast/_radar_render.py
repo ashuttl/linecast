@@ -70,6 +70,10 @@ def compose(basemap, radar, overlays, graph_w, height_cells, warnings=None):
             ov = overlays.get((cx, cy))
             if ov is not None:
                 ch, color = ov
+                if ch == "":
+                    # trailing column of a preceding double-width glyph: the
+                    # glyph already covers it, so emit nothing to stay aligned
+                    continue
                 parts.append(f"{base_bg}{fg(*color)}{ch}")
                 continue
             top, bot = top_row[cx], bot_row[cx]
