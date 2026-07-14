@@ -23,7 +23,7 @@ All data comes from free public APIs with no keys required.
 
 ![tides](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
 
-**`radar`** — Animated weather radar over a braille basemap. NEXRAD (via Iowa Environmental Mesonet) in the continental US, RainViewer's global network (150+ countries) elsewhere, with forecast frames where available.
+**`radar`** — Animated weather radar over a braille basemap. NEXRAD (via Iowa Environmental Mesonet) in the continental US, RainViewer's global network (150+ countries) elsewhere, with forecast frames where available. Drag to pan anywhere in the world; the header names wherever you land ("23 mi NE of Boston") from an offline city index, and a crosshair marks the view centre.
 
 All four launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.
 

@@ -21,7 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 from linecast._color import fg, RESET, BOLD
 from linecast._framebuffer import get_terminal_size, fmt_time_dt
 from linecast._location import get_location
-from linecast._radar_basemap import Basemap
+from linecast._radar_basemap import Basemap, nearest_city
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for, build_radar_buffer, compose
 from linecast._radar_source import FRAME_STEP
@@ -32,6 +32,7 @@ from linecast._graphics import live_loop, visible_len
 MUTED = (150, 155, 170)
 DIM = (110, 114, 130)
 MARKER = (255, 240, 120)
+CROSSHAIR = (215, 220, 232)
 MAX_REWIND_MIN = 180  # how far back scrubbing can go
 N_FRAMES = MAX_REWIND_MIN // 5 + 1  # frames in the rewind window
 
@@ -153,6 +154,41 @@ def _fmt_local(dt_utc, use_24h=False):
     return fmt_time_dt(dt_utc.astimezone(), use_24h=use_24h)
 
 
+_place_cache = {}
+
+
+def _panned_place(lat, lon, lang):
+    """Friendly name for a panned view centre, from the offline city list.
+
+    Reads as "23 km NE of Boston" (localized); just the city name when the
+    centre is basically on it, and bare coordinates in the middle of nowhere.
+    """
+    key = (round(lat, 3), round(lon, 3), lang)
+    hit = _place_cache.get(key)
+    if hit is not None:
+        return hit
+    coords = f"{lat:.2f}, {lon:.2f}"
+    city = nearest_city(lat, lon)
+    if city is None or city[1] > 1000:  # nothing within 1000 km: open ocean
+        place = coords
+    else:
+        name, km, bearing = city
+        metric = lang != "en" or os.environ.get(
+            "WEATHER_UNITS", "").lower() == "metric"
+        dist = km if metric else km * 0.621371
+        if dist < 2:
+            place = name
+        else:
+            compass = rs("compass", lang).split()
+            place = rs("near", lang, dist=round(dist),
+                       unit="km" if metric else "mi",
+                       dir=compass[round(bearing / 45) % 8], name=name)
+    if len(_place_cache) > 64:
+        _place_cache.clear()
+    _place_cache[key] = place
+    return place
+
+
 class _ShiftedBasemap:
     """Duck-typed stand-in for Basemap during a drag preview."""
     __slots__ = ("dots", "color")
@@ -260,12 +296,20 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
                     if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
 
+    # centre crosshair: marks where a pan release will centre the view;
+    # omitted while the home marker itself sits on the centre cell
+    ccol, crow = graph_w // 2, height_cells // 2
+    if (mcol + dx, mrow + dy) != (ccol, crow):
+        overlays[(ccol, crow)] = ("+", CROSSHAIR)
+
     map_lines = compose(basemap, radar, overlays, graph_w, height_cells)
 
     # header: play state, frame time, how old/ahead, echo coverage.
     # Both header and footer must never exceed the terminal width: a wrapped
     # line adds a row, scrolling the whole frame up by one.
-    place = location_name or f"{lat:.2f}, {lon:.2f}"
+    panned = abs(lat - m_lat) > 1e-9 or abs(lon - m_lon) > 1e-9
+    place = (_panned_place(lat, lon, lang) if panned
+             else location_name or f"{lat:.2f}, {lon:.2f}")
     delta = round((when - present).total_seconds() / 60)
     age = (rs("now", lang) if delta == 0
            else (f"{delta}m" if delta < 0 else f"+{delta}m"))

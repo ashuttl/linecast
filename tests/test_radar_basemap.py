@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import linecast._radar_basemap as basemap_mod
 from linecast._radar_basemap import (
-    Basemap, _project, SEA, COAST, CITY, CITY_LABEL,
+    Basemap, _project, nearest_city, SEA, COAST, CITY, CITY_LABEL,
 )
 
 
@@ -112,3 +112,47 @@ class TestBasemapSyntheticData:
     def test_data_restored_after_teardown_is_isolated_per_test(self):
         # sanity: synthetic data is active only inside this class's tests
         assert basemap_mod._DATA["cities"][0][3] == "Testville"
+
+
+class TestNearestCity:
+    """nearest_city against a synthetic city list (same isolation pattern
+    as TestBasemapSyntheticData)."""
+
+    def setup_method(self):
+        self._original_data = basemap_mod._DATA
+        basemap_mod._DATA = {
+            "land": [],
+            "borders": [],
+            "cities": [
+                [0.0, 0.0, 1_000_000, "Origin"],
+                [10.0, 0.0, 5_000_000, "East City"],
+                [179.5, 0.0, 2_000_000, "Dateline West"],
+            ],
+        }
+
+    def teardown_method(self):
+        basemap_mod._DATA = self._original_data
+
+    def test_picks_closest_regardless_of_population(self):
+        name, dist_km, _ = nearest_city(0.5, 0.5)
+        assert name == "Origin"
+        assert 70 < dist_km < 90  # ~78.6 km for 0.5deg x 0.5deg at equator
+
+    def test_bearing_is_from_city_to_point(self):
+        # due north of Origin -> bearing ~0
+        _, _, bearing = nearest_city(1.0, 0.0)
+        assert bearing < 1 or bearing > 359
+        # due east of Origin -> bearing ~90
+        _, _, bearing = nearest_city(0.0, 1.0)
+        assert 89 < bearing < 91
+
+    def test_dateline_wraparound(self):
+        # -179.5 lon is 1 degree from Dateline West across the antimeridian,
+        # far from everything else
+        name, dist_km, _ = nearest_city(0.0, -179.5)
+        assert name == "Dateline West"
+        assert dist_km < 150
+
+    def test_empty_city_list_returns_none(self):
+        basemap_mod._DATA["cities"] = []
+        assert nearest_city(0.0, 0.0) is None

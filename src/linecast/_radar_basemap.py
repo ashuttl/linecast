@@ -12,6 +12,7 @@ visible bounding box so a whole-world dataset stays cheap to rasterise.
 """
 
 import json
+import math
 import os
 
 # braille dot bit for (col, row) within a 2x4 cell — matches _braille.py
@@ -34,6 +35,36 @@ def _load_data():
         with open(path) as fh:
             _DATA = json.load(fh)
     return _DATA
+
+
+def nearest_city(lat, lon):
+    """(name, dist_km, bearing_deg) of the closest known city, or None.
+
+    bearing_deg is the direction *from the city to the point*, so a result of
+    ("Boston", 23, 45) reads "23 km NE of Boston".  Works off the vendored
+    Natural Earth populated-places list, so it needs no network.
+    """
+    best = None
+    coslat = math.cos(math.radians(lat))
+    for clon, clat, _pop, name in _load_data()["cities"]:
+        # equirectangular approximation is plenty for ranking candidates
+        dx = ((lon - clon + 180.0) % 360.0 - 180.0) * coslat
+        dy = lat - clat
+        d2 = dx * dx + dy * dy
+        if best is None or d2 < best[0]:
+            best = (d2, name, clat, clon)
+    if best is None:
+        return None
+    _, name, clat, clon = best
+    from linecast._geo import haversine_nm
+    dist_km = haversine_nm(clat, clon, lat, lon) * 1.852
+    dlon = math.radians(lon - clon)
+    y = math.sin(dlon) * math.cos(math.radians(lat))
+    x = (math.cos(math.radians(clat)) * math.sin(math.radians(lat))
+         - math.sin(math.radians(clat)) * math.cos(math.radians(lat))
+         * math.cos(dlon))
+    bearing = math.degrees(math.atan2(y, x)) % 360.0
+    return name, dist_km, bearing
 
 
 def _project(lon, lat, bbox, w, h):
