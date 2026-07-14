@@ -21,7 +21,10 @@ from concurrent.futures import ThreadPoolExecutor
 from linecast._color import fg, RESET, BOLD
 from linecast._framebuffer import get_terminal_size, fmt_time_dt
 from linecast._location import get_location
-from linecast._radar_basemap import Basemap, marine_region, nearest_city
+from linecast import _radar_warnings
+from linecast._radar_basemap import (
+    Basemap, DotLayer, marine_region, nearest_city,
+)
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for, build_radar_buffer, compose
 from linecast._radar_source import FRAME_STEP
@@ -111,6 +114,7 @@ def _ensure_prefetch(bbox, gw, hc, start_idx=0):
     gen = _prefetch_gen
     frames = _source.current_frames()
     ordered = frames[start_idx:] + frames[:start_idx]  # current frame first
+    want_warnings = _radar_warnings.covers(bbox)
 
     def worker():
         loaded = 0
@@ -121,6 +125,8 @@ def _ensure_prefetch(bbox, gw, hc, start_idx=0):
                 return  # view moved on; don't fetch for a stale bbox
             if _safe_load(bbox, gw, hc, f):
                 loaded += 1
+            if want_warnings and not f.future:
+                _warm_warnings(f)
 
         with ThreadPoolExecutor(max_workers=4) as pool:
             list(pool.map(load, ordered))
@@ -138,6 +144,18 @@ def _safe_load(bbox, gw, hc, frame):
         return True
     except Exception:
         return False
+
+
+def _warm_warnings(frame):
+    """Prefetch the warning polygons valid at a frame's time (best-effort)."""
+    try:
+        if _radar_warnings.cached_at(frame.time) is None:
+            _radar_warnings.warnings_at(frame.time)
+            if _live_refresh:
+                import signal
+                os.kill(os.getpid(), signal.SIGWINCH)
+    except Exception:
+        pass
 
 
 def _get_basemap(bbox, graph_w, height_cells):
@@ -285,6 +303,22 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         else:
             radar, echo = [[None] * graph_w for _ in range(height_cells * 2)], 0.0
 
+    # storm-based warning outlines valid at the displayed frame's time
+    # (live mode: cache-only, the prefetcher warms them alongside frames)
+    warn_layer = None
+    if _radar_warnings.covers(bbox) and not frame.future:
+        if block:
+            try:
+                warns = _radar_warnings.warnings_at(when)
+            except Exception:
+                warns = None
+        else:
+            warns = _radar_warnings.cached_at(when)
+        if warns:
+            warn_layer = DotLayer(bbox, graph_w, height_cells)
+            for _sev, color, rings in warns:  # least-severe-first: TO wins
+                warn_layer._draw_lines(rings, color, width=2)
+
     overlays = dict(basemap.city_overlays())
     # "your location" marker, pinned geographically (panning can move it
     # off-centre or out of view entirely)
@@ -302,6 +336,10 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         basemap = _ShiftedBasemap(_shift_grid(basemap.dots, dx, dy, 0),
                                   _shift_grid(basemap.color, dx, dy, None))
         radar = _shift_grid(radar, dx, dy * 2, None)  # sub-pixel rows: 2/cell
+        if warn_layer is not None:
+            warn_layer = _ShiftedBasemap(
+                _shift_grid(warn_layer.dots, dx, dy, 0),
+                _shift_grid(warn_layer.color, dx, dy, None))
         overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
                     if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
 
@@ -311,7 +349,8 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     if (mcol + dx, mrow + dy) != (ccol, crow):
         overlays[(ccol, crow)] = ("+", CROSSHAIR)
 
-    map_lines = compose(basemap, radar, overlays, graph_w, height_cells)
+    map_lines = compose(basemap, radar, overlays, graph_w, height_cells,
+                        warnings=warn_layer)
 
     # header: play state, frame time, how old/ahead, echo coverage.
     # Both header and footer must never exceed the terminal width: a wrapped

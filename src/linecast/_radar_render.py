@@ -3,13 +3,16 @@
 Per terminal cell, the layers resolve in priority order:
 
   1. city marker / label   → text glyph
-  2. radar echo (half-block RGB fill)  → the weather, painted on top
-  3. braille geography (sea stipple / coast / border dots)
-  4. bare land             → background
+  2. warning outline (braille stroke over the echo colour)
+  3. radar echo (half-block RGB fill)  → the weather, painted on top
+  4. braille geography (sea stipple / coast / border dots)
+  5. bare land             → background
 
 Radar (weather) is a half-block colour fill; geography is braille. A cell is a
 single glyph, so where radar and geography overlap the radar wins that cell —
-which is exactly what you want: the storm sits on the map.
+which is exactly what you want: the storm sits on the map.  Warning outlines
+must beat the radar fill (they matter most inside the storm), so their braille
+strokes keep the echo colour as the cell background.
 """
 
 import math
@@ -55,7 +58,7 @@ def build_radar_buffer(rgba, pw, ph, graph_w, height_cells):
     return buf, 100 * opaque / total
 
 
-def compose(basemap, radar, overlays, graph_w, height_cells):
+def compose(basemap, radar, overlays, graph_w, height_cells, warnings=None):
     """Composite geography + radar + overlays into a list of ANSI line strings."""
     base_bg = bg(*BG_PRIMARY)
     lines = []
@@ -70,6 +73,14 @@ def compose(basemap, radar, overlays, graph_w, height_cells):
                 parts.append(f"{base_bg}{fg(*color)}{ch}")
                 continue
             top, bot = top_row[cx], bot_row[cx]
+            if warnings is not None:
+                wmask = warnings.dots[cy][cx]
+                if wmask:
+                    # dark bg cuts the stroke out of the echo fill, so the
+                    # outline stays readable over any echo colour
+                    parts.append(f"{base_bg}{fg(*warnings.color[cy][cx])}"
+                                 f"{chr(0x2800 + wmask)}")
+                    continue
             if top is not None or bot is not None:
                 parts.append(halfblock(top or BG_PRIMARY, bot or BG_PRIMARY))
                 continue

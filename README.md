@@ -23,7 +23,7 @@ All data comes from free public APIs with no keys required.
 
 ![tides](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
 
-**`radar`** — Animated weather radar over a braille basemap. NEXRAD (via Iowa Environmental Mesonet) in the continental US, RainViewer's global network (150+ countries) elsewhere, with forecast frames where available. Drag to pan anywhere in the world; the header names wherever you land ("23 mi NE of Boston" near shore, "Gulf of Maine" once offshore) from an offline Natural Earth index, and a crosshair marks the view centre.
+**`radar`** — Animated weather radar over a braille basemap. NEXRAD (via Iowa Environmental Mesonet) in the continental US, RainViewer's global network (150+ countries) elsewhere, with forecast frames where available. Drag to pan anywhere in the world; the header names wherever you land ("23 mi NE of Boston" near shore, "Gulf of Maine" once offshore) from an offline Natural Earth index, and a crosshair marks the view centre. In the US, storm-based warning polygons (tornado red, severe thunderstorm yellow, flash flood green, marine orange, snow squall violet, emergencies magenta) are outlined over the echoes and rewind in sync with the radar timeline.
 
 All four launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.
 
@@ -146,7 +146,7 @@ Alert text comes from each national weather service in its native language. When
 - **Weather** — [Open-Meteo](https://open-meteo.com/) (forecast, geocoding, air quality); alerts from the US NWS, Environment Canada, Bright Sky (DWD), MET Norway, and Met Éireann
 - **Tides** — NOAA CO-OPS (US), Canadian Hydrographic Service, Queensland Open Data (AU), and TideCheck
 - **Sunshine** — computed locally from NOAA's solar position equations (no API)
-- **Radar** — NEXRAD via Iowa State University's Iowa Environmental Mesonet (US); global radar by [RainViewer](https://www.rainviewer.com/); basemap geography from Natural Earth
+- **Radar** — NEXRAD and NWS storm-based warning polygons via Iowa State University's Iowa Environmental Mesonet (US); global radar by [RainViewer](https://www.rainviewer.com/); basemap geography from Natural Earth
 
 ## License
 

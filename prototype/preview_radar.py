@@ -10,8 +10,9 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from linecast import _radar_warnings  # noqa: E402
 from linecast._color import BG_PRIMARY  # noqa: E402
-from linecast._radar_basemap import Basemap, _BITS, SEA  # noqa: E402
+from linecast._radar_basemap import Basemap, DotLayer, _BITS, SEA  # noqa: E402
 from linecast._radar_render import bbox_for, build_radar_buffer  # noqa: E402
 from linecast._radar_sources import get_source  # noqa: E402
 from png_encode import encode_rgb  # noqa: E402
@@ -40,6 +41,18 @@ def main():
     overlays = dict(bm.city_overlays())
     overlays[(graph_w // 2, height_cells // 2)] = ("+", MARKER)
 
+    warn = None
+    if _radar_warnings.covers(bbox):
+        try:
+            warns = _radar_warnings.warnings_at(when)
+        except Exception:
+            warns = None
+        if warns:
+            warn = DotLayer(bbox, graph_w, height_cells)
+            for _sev, color, rings in warns:
+                warn._draw_lines(rings, color, width=2)
+            print(f"{len(warns)} active warnings")
+
     DW, DH = graph_w * 2, height_cells * 4
     grid = [[BG_PRIMARY] * DW for _ in range(DH)]
 
@@ -49,11 +62,19 @@ def main():
             ov = overlays.get((cx, cy))
             top, bot = radar[cy * 2][cx], radar[cy * 2 + 1][cx]
             # only point markers render in the PNG; labels are terminal-only glyphs
+            wmask = warn.dots[cy][cx] if warn is not None else 0
             if ov is not None and ov[0] in ("•", "+"):
                 col = ov[1]
                 for dr in (1, 2):
                     for dc in (0, 1):
                         grid[r0 + dr][c0 + dc] = col
+            elif wmask:
+                # warning stroke cut out of the echo on dark bg, like compose()
+                col = warn.color[cy][cx]
+                for dc in (0, 1):
+                    for dr in (0, 1, 2, 3):
+                        grid[r0 + dr][c0 + dc] = (
+                            col if wmask & _BITS[dc][dr] else BG_PRIMARY)
             elif top is not None or bot is not None:
                 for dc in (0, 1):
                     grid[r0][c0 + dc] = top or BG_PRIMARY

@@ -98,8 +98,12 @@ def _project(lon, lat, bbox, w, h):
     return x, y
 
 
-class Basemap:
-    """Pre-rasterised braille geography for one (bbox, size). Reused per frame."""
+class DotLayer:
+    """A braille dot grid (2x4 dots per cell) with per-cell colour.
+
+    The drawing primitives shared by the geography basemap and any other
+    braille-stroke layer (e.g. warning polygon outlines).
+    """
 
     def __init__(self, bbox, graph_w, height_cells):
         self.bbox = bbox
@@ -110,7 +114,6 @@ class Basemap:
         # per-cell braille state
         self.dots = [[0] * graph_w for _ in range(height_cells)]
         self.color = [[None] * graph_w for _ in range(height_cells)]
-        self._build()
 
     # -- rasterisation helpers ------------------------------------------------
     def _set_dot(self, dx, dy, color):
@@ -155,7 +158,8 @@ class Basemap:
         return not (hi_lon < minlon or lo_lon > maxlon
                     or hi_lat < minlat or lo_lat > maxlat)
 
-    def _draw_lines(self, lines, color):
+    def _draw_lines(self, lines, color, width=1):
+        offsets = ((0, 0),) if width <= 1 else ((0, 0), (1, 0), (0, 1))
         for coords in lines:
             if not self._in_view(coords):
                 continue
@@ -163,8 +167,18 @@ class Basemap:
             for lon, lat in coords:
                 p = _project(lon, lat, self.bbox, self.dw, self.dh)
                 if prev is not None:
-                    self._dot_line(prev[0], prev[1], p[0], p[1], color)
+                    for ox, oy in offsets:
+                        self._dot_line(prev[0] + ox, prev[1] + oy,
+                                       p[0] + ox, p[1] + oy, color)
                 prev = p
+
+
+class Basemap(DotLayer):
+    """Pre-rasterised braille geography for one (bbox, size). Reused per frame."""
+
+    def __init__(self, bbox, graph_w, height_cells):
+        super().__init__(bbox, graph_w, height_cells)
+        self._build()
 
     def _sea_mask(self):
         """Boolean land mask at dot resolution via scanline polygon fill."""
