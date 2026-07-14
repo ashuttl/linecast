@@ -262,7 +262,9 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
 
     map_lines = compose(basemap, radar, overlays, graph_w, height_cells)
 
-    # header: play state, frame time, how old/ahead, echo coverage
+    # header: play state, frame time, how old/ahead, echo coverage.
+    # Both header and footer must never exceed the terminal width: a wrapped
+    # line adds a row, scrolling the whole frame up by one.
     place = location_name or f"{lat:.2f}, {lon:.2f}"
     delta = round((when - present).total_seconds() / 60)
     age = (rs("now", lang) if delta == 0
@@ -270,12 +272,19 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     tag = f" {rs('forecast', lang)}" if frame.future else ""
     tag += f" · {rs('loading', lang)}" if loading else ""
     icon = "▶" if playing else "⏸"
-    header = (f"{fg(*MARKER)}{BOLD}⬤ radar{RESET}  {fg(*MUTED)}{place}"
-              f"{RESET}  {fg(*DIM)}{icon} {_fmt_local(when, use_24h)} · {age}{tag} "
-              f"· {rs('echo_pct', lang, pct=f'{echo:.0f}')}{RESET}")
+
+    def _header(place_str):
+        return (f"{fg(*MARKER)}{BOLD}⬤ radar{RESET}  {fg(*MUTED)}{place_str}"
+                f"{RESET}  {fg(*DIM)}{icon} {_fmt_local(when, use_24h)} · {age}{tag} "
+                f"· {rs('echo_pct', lang, pct=f'{echo:.0f}')}{RESET}")
+
+    header = _header(place)
+    over = visible_len(header) - cols
+    if over > 0 and len(place) > over + 1:  # squeeze the place name first
+        header = _header(place[:len(place) - over - 1] + "…")
     header += " " * max(0, cols - visible_len(header))
 
-    # footer: attribution + scrubber + controls
+    # footer: attribution + scrubber + controls, dropping pieces that don't fit
     if err:
         foot = f"{fg(*DIM)}{rs('radar_unavailable', lang, err=err[:40])}{RESET}"
     else:
@@ -283,7 +292,12 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         hint = (f"{fg(*DIM)}{rs('hint', lang)}{RESET}"
                 if sys.stdout.isatty() else "")
         bar = _timeline_bar(idx, len(frames), min(28, max(10, cols // 3)))
-        foot = f"{left}  {bar}  {hint}"
+        for foot in (f"{left}  {bar}  {hint}",
+                     f"{left}  {hint}",
+                     f"{left}  {bar}",
+                     left):
+            if visible_len(foot) <= cols:
+                break
     foot += " " * max(0, cols - visible_len(foot))
 
     return "\n".join([header, *map_lines, foot])
