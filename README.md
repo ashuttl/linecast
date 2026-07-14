@@ -23,7 +23,9 @@ All data comes from free public APIs with no keys required.
 
 ![tides](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
 
-All three launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.
+**`radar`** — Animated weather radar over a braille basemap. NEXRAD (via Iowa Environmental Mesonet) in the continental US, RainViewer's global network (150+ countries) elsewhere, with forecast frames where available.
+
+All four launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.
 
 ## Install
 
@@ -62,6 +64,13 @@ tides --search "Bar Harbor"      # find stations by name
 tides --metric                   # heights in meters instead of feet
 tides --lang fr                  # UI in French
 tides --print                    # static snapshot
+
+radar                            # current location via IP geolocation
+radar --location "chicago"       # search by place name
+radar --location 41.88,-87.63    # specific coordinates
+radar --search denver            # find coordinates by city name
+radar --zoom 12                  # zoom out (degrees of latitude shown, default 6)
+radar --print                    # static snapshot
 ```
 
 ### Language support
@@ -131,6 +140,13 @@ Alert text comes from each national weather service in its native language. When
 - A terminal with ANSI color support (`truecolor` looks best; weather remains usable in low/no color)
 - A [Nerd Font](https://www.nerdfonts.com/) for best icon rendering (optional — use `--emoji` for standard emoji fallback)
 - macOS or Linux (uses `termios` for live mode)
+
+## Data sources
+
+- **Weather** — [Open-Meteo](https://open-meteo.com/) (forecast, geocoding, air quality); alerts from the US NWS, Environment Canada, Bright Sky (DWD), MET Norway, and Met Éireann
+- **Tides** — NOAA CO-OPS (US), Canadian Hydrographic Service, Queensland Open Data (AU), and TideCheck
+- **Sunshine** — computed locally from NOAA's solar position equations (no API)
+- **Radar** — NEXRAD via Iowa State University's Iowa Environmental Mesonet (US); global radar by [RainViewer](https://www.rainviewer.com/); basemap geography from Natural Earth
 
 ## License
 
