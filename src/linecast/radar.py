@@ -114,20 +114,24 @@ def _nearest_cached(bbox, gw, hc, when):
         return _frame_cache.get(prefix + (best,))
 
 
-def _ensure_prefetch(bbox, gw, hc, start_idx=0):
+def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0):
     """Warm the frame window in the background, displayed frame first.
 
-    A view change (pan/zoom/resize) bumps the generation so a superseded
-    worker stops issuing fetches for a view nobody is looking at.
+    A view change (pan/zoom/resize/theme) bumps the generation so a
+    superseded worker stops issuing fetches for a view nobody is looking
+    at. The key also covers the frame window itself, so a long-running
+    session re-warms whenever the index publishes a new frame (or
+    re-predicts a nowcast) — cached frames hit instantly, only the new
+    images fetch.
     """
     global _prefetch_key, _prefetch_gen
-    key = _view_key(bbox, gw, hc)  # theme switch restarts the warm too
+    key = (_view_key(bbox, gw, hc),
+           tuple((f.time, str(f.token)) for f in frames))
     if _prefetch_key == key:
         return
     _prefetch_key = key
     _prefetch_gen += 1
     gen = _prefetch_gen
-    frames = _source.current_frames()
     ordered = frames[start_idx:] + frames[:start_idx]  # current frame first
     want_warnings = _radar_warnings.covers(bbox)
 
@@ -320,7 +324,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     frame = frames[idx]
     when = frame.time
     present = frames[present_idx].time
-    _ensure_prefetch(bbox, graph_w, height_cells, start_idx=idx)
+    _ensure_prefetch(bbox, graph_w, height_cells, frames, start_idx=idx)
 
     err = None
     loading = False
