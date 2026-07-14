@@ -1,6 +1,6 @@
 """Tests for radar source selection and frame bookkeeping.
 
-No network access: RainViewerSource is only exercised with fetch_index
+No network access: tile sources are only exercised with fetch_index
 monkeypatched to a stub, never the real HTTP call.
 """
 
@@ -10,13 +10,35 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _radar_rainviewer as rv
+from linecast import _radar_tiles as tiles
 from linecast._radar_source import _floor_step, frame_times
 from linecast._radar_sources import (
-    Frame, IEMSource, RainViewerSource, _in_conus, get_source,
+    DEFAULT_THEME, Frame, IEMSource, LibreWXRSource, RainViewerSource, THEMES,
+    _in_conus, get_source, theme_id,
 )
 
 UTC = datetime.timezone.utc
+
+_INDEX = {
+    "host": "https://h",
+    "radar": {
+        "past": [{"time": 1000, "path": "/p1"},
+                 {"time": 2000, "path": "/p2"}],
+        "nowcast": [{"time": 3000, "path": "/f1"}],
+    },
+}
+
+
+def _stub_index(by_provider):
+    """fetch_index stub: provider.name → index dict or Exception to raise."""
+    def stub(provider, *a, **k):
+        result = by_provider.get(provider.name)
+        if isinstance(result, Exception):
+            raise result
+        if result is None:
+            raise RuntimeError("network disabled in tests")
+        return result
+    return stub
 
 
 class TestFloorStep:
@@ -63,50 +85,89 @@ class TestInConus:
         assert _in_conus(21.3, -157.8) is False
 
 
+class TestThemeId:
+    def test_names_resolve(self):
+        assert theme_id("universal-blue") == 2
+        assert theme_id("rainbow") == 7
+        assert theme_id("Rainbow ") == 7  # case/space tolerant
+
+    def test_numeric_ids_accepted_when_known(self):
+        assert theme_id("7") == 7
+        assert theme_id(0) == 0
+
+    def test_unknown_rejected(self):
+        assert theme_id("plasma") is None
+        assert theme_id("255") is None  # raw scheme reserved for a future pass
+        assert theme_id(None) is None
+
+    def test_default_theme_is_universal_blue(self):
+        assert THEMES[DEFAULT_THEME] == 2
+
+
 class TestGetSource:
-    def test_conus_uses_iem(self):
-        src = get_source(38.5, -97.0, 5)
+    def _patch(self, by_provider):
+        original = tiles.fetch_index
+        tiles.fetch_index = _stub_index(by_provider)
+        return original
+
+    def test_librewxr_primary_in_conus(self):
+        original = self._patch({"lwxr": _INDEX})
+        try:
+            src = get_source(38.5, -97.0, 5)
+        finally:
+            tiles.fetch_index = original
+        assert isinstance(src, LibreWXRSource)
+        assert src.theme == THEMES[DEFAULT_THEME]
+
+    def test_theme_threads_through_to_provider(self):
+        original = self._patch({"lwxr": _INDEX})
+        try:
+            src = get_source(38.5, -97.0, 5, theme=7)
+        finally:
+            tiles.fetch_index = original
+        assert isinstance(src, LibreWXRSource)
+        assert src.theme == 7
+        assert src.provider.color == 7
+
+    def test_conus_falls_back_to_iem(self):
+        original = self._patch({})
+        try:
+            src = get_source(38.5, -97.0, 5)
+        finally:
+            tiles.fetch_index = original
         assert isinstance(src, IEMSource)
         assert src.n_frames == 5
 
-    def test_non_conus_falls_back_to_iem_on_rainviewer_failure(self):
-        original = rv.fetch_index
-
-        def boom(*a, **k):
-            raise RuntimeError("network disabled in tests")
-
-        rv.fetch_index = boom
+    def test_non_conus_falls_back_to_rainviewer(self):
+        original = self._patch({"rv": _INDEX})
         try:
             src = get_source(51.5, -0.12, 4)
         finally:
-            rv.fetch_index = original
-        assert isinstance(src, IEMSource)
-
-    def test_non_conus_uses_rainviewer_when_available(self):
-        original = rv.fetch_index
-
-        def stub(*a, **k):
-            return {
-                "host": "https://h",
-                "radar": {
-                    "past": [{"time": 1000, "path": "/p1"},
-                             {"time": 2000, "path": "/p2"}],
-                    "nowcast": [{"time": 3000, "path": "/f1"}],
-                },
-            }
-
-        rv.fetch_index = stub
-        try:
-            src = get_source(51.5, -0.12, 4)
-        finally:
-            rv.fetch_index = original
+            tiles.fetch_index = original
         assert isinstance(src, RainViewerSource)
 
+    def test_non_conus_last_resort_is_iem(self):
+        original = self._patch({})
+        try:
+            src = get_source(51.5, -0.12, 4)
+        finally:
+            tiles.fetch_index = original
+        assert isinstance(src, IEMSource)
 
-class TestRainViewerSource:
+    def test_conus_skips_rainviewer_leg(self):
+        # IEM covers CONUS with deeper history; RainViewer adds nothing there
+        original = self._patch({"rv": _INDEX})
+        try:
+            src = get_source(38.5, -97.0, 5)
+        finally:
+            tiles.fetch_index = original
+        assert isinstance(src, IEMSource)
+
+
+class TestTileSourceFrames:
     def _stub(self, index):
-        original = rv.fetch_index
-        rv.fetch_index = lambda *a, **k: index
+        original = tiles.fetch_index
+        tiles.fetch_index = lambda *a, **k: index
         return original
 
     def test_frames_sorted_and_flagged(self):
@@ -119,10 +180,10 @@ class TestRainViewerSource:
             },
         })
         try:
-            src = RainViewerSource()
+            src = LibreWXRSource()
             frames = src.current_frames()
         finally:
-            rv.fetch_index = original
+            tiles.fetch_index = original
 
         assert len(frames) == 3
         times = [f.time for f in frames]
@@ -133,6 +194,15 @@ class TestRainViewerSource:
         assert frames[1].future is False
         assert frames[2].token == "/f1"
         assert frames[2].future is True
+
+    def test_only_librewxr_advertises_themes(self):
+        original = self._stub(_INDEX)
+        try:
+            assert getattr(LibreWXRSource(), "themes", None) is THEMES
+            assert getattr(RainViewerSource(), "themes", None) is None
+        finally:
+            tiles.fetch_index = original
+        assert getattr(IEMSource(4), "themes", None) is None
 
 
 class TestIEMSource:

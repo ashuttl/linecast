@@ -21,7 +21,10 @@ LANG_CODES = (
     "zh",
 )
 
-THEME_VALUES = ("classic", "legacy", "old")
+# radar --theme palettes; keep in sync with _radar_sources.THEMES
+THEME_VALUES = ("universal-blue", "rainbow", "nexrad", "original", "titan",
+                "twc", "meteored", "dark-sky", "datameteo", "viper", "mrms",
+                "max-storm", "black-white")
 SHELLS = ("bash", "zsh", "fish")
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
@@ -44,7 +47,6 @@ WEATHER_FLAGS = (
     "--lang",
     "--classic-colors",
     "--legacy-colors",
-    "--theme",
     "--debug",
 )
 
@@ -61,7 +63,6 @@ TIDES_FLAGS = (
     "--lang",
     "--classic-colors",
     "--legacy-colors",
-    "--theme",
     "--debug",
 )
 
@@ -75,7 +76,6 @@ SUNSHINE_FLAGS = (
     "--emoji",
     "--classic-colors",
     "--legacy-colors",
-    "--theme",
     "--debug",
 )
 

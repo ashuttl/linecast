@@ -15,10 +15,11 @@ class ThemeModeTests(unittest.TestCase):
             with patch.dict("os.environ", {"LINECAST_THEME": "auto"}, clear=False):
                 self.assertTrue(_theme._legacy_mode_requested())
 
-    def test_legacy_mode_from_theme_option(self):
-        with patch.object(sys, "argv", ["weather", "--theme=legacy"]):
+    def test_theme_option_no_longer_selects_legacy_mode(self):
+        # --theme now picks the radar colour palette, not the terminal mode
+        with patch.object(sys, "argv", ["radar", "--theme=rainbow"]):
             with patch.dict("os.environ", {"LINECAST_THEME": "auto"}, clear=False):
-                self.assertTrue(_theme._legacy_mode_requested())
+                self.assertFalse(_theme._legacy_mode_requested())
 
 
 class ThemeParseTests(unittest.TestCase):

@@ -7,10 +7,13 @@ radar echoes are painted on top as a half-block colour fill.  In live mode,
 scroll (or arrow keys) to rewind through the last few hours and watch a storm
 approach.
 
-Data: NEXRAD via Iowa Environmental Mesonet (IEM) for the continental US;
-RainViewer (global, plus forecast frames) elsewhere. Basemap from Natural Earth.
+Data: LibreWXR everywhere (global radar composites + model precipitation,
+60-min forecast frames, selectable colour themes); falls back to NEXRAD via
+Iowa Environmental Mesonet (IEM) in the continental US and RainViewer
+elsewhere. Basemap from Natural Earth.
 
-Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--print] [--search CITY]
+Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--theme NAME]
+             [--print] [--search CITY]
 """
 
 import os
@@ -28,7 +31,7 @@ from linecast._radar_basemap import (
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for, build_radar_buffer, compose
 from linecast._radar_source import FRAME_STEP
-from linecast._radar_sources import get_source
+from linecast._radar_sources import DEFAULT_THEME, THEMES, get_source, theme_id
 from linecast._runtime import RuntimeConfig, radar_parser
 from linecast._graphics import live_loop, visible_len
 
@@ -36,7 +39,8 @@ MUTED = (150, 155, 170)
 DIM = (110, 114, 130)
 MARKER = (255, 240, 120)
 CROSSHAIR = (215, 220, 232)
-MAX_REWIND_MIN = 180  # how far back scrubbing can go
+MAX_REWIND_MIN = 180  # how far back scrubbing can go (IEM; tile sources
+                      # are limited to what their index publishes, ~2 h)
 N_FRAMES = MAX_REWIND_MIN // 5 + 1  # frames in the rewind window
 
 _basemap_cache = {}
@@ -54,8 +58,19 @@ def _bbox_key(bbox):
     return tuple(round(v, 3) for v in bbox)
 
 
+def _view_key(bbox, gw, hc):
+    # theme is part of the view: switching palettes must not serve old colours
+    return (_bbox_key(bbox), gw, hc, getattr(_source, "theme", None))
+
+
 def _frame_key(bbox, gw, hc, frame):
-    return (_bbox_key(bbox), gw, hc, frame.time.strftime("%Y%m%dT%H%M"))
+    stamp = frame.time.strftime("%Y%m%dT%H%M")
+    if frame.future:
+        # nowcast frames are re-predicted under the same timestamp; a token
+        # digest keeps a superseded prediction from being served forever
+        import hashlib
+        stamp += ":" + hashlib.sha1(str(frame.token).encode()).hexdigest()[:8]
+    return _view_key(bbox, gw, hc) + (stamp,)
 
 
 def _load_frame(bbox, gw, hc, frame):
@@ -88,14 +103,14 @@ def _cached_frame(bbox, gw, hc, frame):
 
 def _nearest_cached(bbox, gw, hc, when):
     """The cached frame for this view closest in time to `when`, or None."""
-    prefix = (_bbox_key(bbox), gw, hc)
-    want = when.strftime("%Y%m%dT%H%M")
+    prefix = _view_key(bbox, gw, hc)
+    want = int(when.strftime("%Y%m%d%H%M"))
     with _frame_lock:
-        stamps = [k[3] for k in _frame_cache if k[:3] == prefix]
+        stamps = [k[len(prefix)] for k in _frame_cache if k[:len(prefix)] == prefix]
         if not stamps:
             return None
-        best = min(stamps, key=lambda s: abs(int(s.replace("T", "")) -
-                                             int(want.replace("T", ""))))
+        best = min(stamps, key=lambda s: abs(
+            int(s.split(":")[0].replace("T", "")) - want))
         return _frame_cache.get(prefix + (best,))
 
 
@@ -106,7 +121,7 @@ def _ensure_prefetch(bbox, gw, hc, start_idx=0):
     worker stops issuing fetches for a view nobody is looking at.
     """
     global _prefetch_key, _prefetch_gen
-    key = (_bbox_key(bbox), gw, hc)
+    key = _view_key(bbox, gw, hc)  # theme switch restarts the warm too
     if _prefetch_key == key:
         return
     _prefetch_key = key
@@ -244,6 +259,26 @@ def _shift_grid(rows, dx, dy, fill):
     return out
 
 
+def _theme_menu_overlay(names, sel, current, lang, cols, rows):
+    """Cursor-addressed theme list, drawn over the map via live_loop's \\x00
+    overlay channel. `sel` is the highlighted row, `current` the active id."""
+    inner = min(cols - 4, max(len(n) for n in names) + 4)
+    top = max(1, (rows - (len(names) + 2)) // 2)
+    left = max(0, (cols - inner - 2) // 2)
+    title = f" {rs('theme', lang)} "
+    lines = [f"┌{title.center(inner, '─')}┐"]
+    for i, name in enumerate(names):
+        mark = "●" if THEMES.get(name) == current else " "
+        body = f" {mark} {name}"[:inner].ljust(inner)
+        if i == sel:
+            body = f"\033[7m{body}\033[27m"  # reverse-video highlight
+        lines.append(f"│{body}│")
+    lines.append(f"└{'─' * inner}┘")
+    return "".join(
+        f"\033[{top + 1 + i};{left + 1}H{fg(*MUTED)}{line}{RESET}"
+        for i, line in enumerate(lines))
+
+
 def _timeline_bar(idx, n, width):
     """A compact scrubber: ─ track with a ● playhead at frame idx."""
     if n <= 1 or width < 3:
@@ -257,7 +292,8 @@ def _timeline_bar(idx, n, width):
 
 
 def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
-                 marker=None, runtime=None, block=True, pan_offset=(0, 0), **_):
+                 marker=None, runtime=None, block=True, pan_offset=(0, 0),
+                 theme_menu=None, **_):
     lang = runtime.lang if runtime else "en"
     use_24h = runtime.use_24h if runtime else False
     cols, rows = get_terminal_size()
@@ -392,7 +428,12 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                 break
     foot += " " * max(0, cols - visible_len(foot))
 
-    return "\n".join([header, *map_lines, foot])
+    out = "\n".join([header, *map_lines, foot])
+    if theme_menu is not None:
+        names, sel = theme_menu
+        out += "\x00" + _theme_menu_overlay(
+            names, sel, getattr(_source, "theme", None), lang, cols, rows)
+    return out
 
 
 def main():
@@ -430,8 +471,17 @@ def main():
         except Exception:
             location_name = ""
 
+    theme_arg = (args.theme
+                 or os.environ.get("LINECAST_RADAR_THEME", "").strip()
+                 or DEFAULT_THEME)
+    theme = theme_id(theme_arg)
+    if theme is None:
+        print(f'Unknown radar theme "{theme_arg}". '
+              f'Themes: {", ".join(THEMES)}.', file=sys.stderr)
+        sys.exit(2)
+
     global _source
-    _source = get_source(lat, lon, N_FRAMES)
+    _source = get_source(lat, lon, N_FRAMES, theme)
 
     if runtime.live:
         import math
@@ -456,6 +506,38 @@ def main():
             return True
 
         pan_preview = [0, 0]  # live cell offset while a drag is in progress
+        theme_sel = [theme]   # active theme id (the picker updates it)
+        menu_sel = [None]     # picker: None = closed, else highlighted row
+
+        def intercept(action):
+            """Route keys to the theme picker; everything else passes through."""
+            global _source
+            themes = getattr(_source, "themes", None)
+            names = list(themes) if themes else []
+            if menu_sel[0] is None:
+                if action == 'key:t' and names:
+                    ids = list(themes.values())
+                    cur = getattr(_source, "theme", None)
+                    menu_sel[0] = ids.index(cur) if cur in ids else 0
+                    return True
+                return False
+            if not names:  # source lost its themes (fallback) — just close
+                menu_sel[0] = None
+                return True
+            if action == 'fwd':
+                menu_sel[0] = (menu_sel[0] - 1) % len(names)
+            elif action == 'back':
+                menu_sel[0] = (menu_sel[0] + 1) % len(names)
+            elif action == 'key:enter':
+                choice = themes[names[menu_sel[0]]]
+                menu_sel[0] = None
+                if choice != getattr(_source, "theme", None):
+                    theme_sel[0] = choice
+                    _source = get_source(center[0], center[1], N_FRAMES,
+                                         choice)
+            elif action in ('escape', 'key:t', 'quit'):
+                menu_sel[0] = None
+            return True  # while the menu is open, no key reaches the map
 
         def on_drag(dcol, drow, done):
             if not done:
@@ -478,12 +560,14 @@ def main():
                 center[1] -= 360.0
             elif center[1] < -180.0:
                 center[1] += 360.0
-            # crossing the CONUS boundary switches radar source (IEM ↔ RainViewer)
+            # crossing the CONUS boundary re-picks the source (and is the
+            # natural moment to retry LibreWXR after a fallback)
             r = _in_conus(center[0], center[1])
             if r != region[0]:
                 region[0] = r
                 global _source
-                _source = get_source(center[0], center[1], N_FRAMES)
+                _source = get_source(center[0], center[1], N_FRAMES,
+                                     theme_sel[0])
             return True
 
         live_loop(
@@ -491,13 +575,17 @@ def main():
                 center[0], center[1], location_name, zoom[0],
                 play_frame=play_frame, playing=playing, marker=(lat, lon),
                 runtime=runtime, block=False,
-                pan_offset=(pan_preview[0], pan_preview[1])),
+                pan_offset=(pan_preview[0], pan_preview[1]),
+                theme_menu=((list(_source.themes), menu_sel[0])
+                            if menu_sel[0] is not None
+                            and getattr(_source, "themes", None) else None)),
             interval=FRAME_STEP,   # pick up a new composite every 5 min
             mouse=True,
             auto_play=True,
             play_interval=0.2,     # animation frame rate (~5 fps)
             on_action=on_action,
             on_drag=on_drag,
+            intercept=intercept,
         )
     else:
         # static: play_frame 0 is the present (newest observed) frame

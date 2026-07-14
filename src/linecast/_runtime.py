@@ -91,8 +91,6 @@ def _base_parser(prog, description):
                     help="use pre-theme fixed color palette")
     p.add_argument("--legacy-colors", action="store_true",
                     help="alias for --classic-colors")
-    p.add_argument("--theme", default=None,
-                    help="theme mode: auto, classic, legacy")
     p.add_argument("--debug", action="store_true",
                     help="show diagnostic info on stderr")
     return p
@@ -143,6 +141,13 @@ def radar_parser():
                     help="search for a location and exit")
     p.add_argument("--zoom", type=float, default=6.0,
                     help="degrees of latitude shown top-to-bottom (default 6)")
+    p.add_argument("--theme", default=None,
+                    help="radar colour theme (LibreWXR server-rendered): "
+                         "universal-blue (default), rainbow (classic radar "
+                         "look), nexrad, original, titan, twc, meteored, "
+                         "dark-sky, datameteo, viper, mrms, max-storm, "
+                         "black-white; press t in live mode to pick "
+                         "interactively")
     return p
 
 

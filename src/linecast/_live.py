@@ -157,6 +157,10 @@ def _read_key(fd):
         return 'key:+'
     if b in (b'-', b'_'):
         return 'key:-'
+    if b in (b't', b'T'):
+        return 'key:t'
+    if b in (b'\r', b'\n'):
+        return 'key:enter'
     return None
 
 
@@ -164,7 +168,8 @@ def _read_key(fd):
 # Live loop
 # ---------------------------------------------------------------------------
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
-              auto_play=False, play_interval=0.6, on_action=None, on_drag=None):
+              auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
+              intercept=None):
     """Run render_fn() in a loop on the alternate screen buffer.
 
     render_fn: callable(offset_minutes=0) returning (display_string, metadata)
@@ -193,6 +198,12 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
              release with done=True (commit). Return a truthy value to
              trigger an immediate re-render. Requires mouse. Default None
              preserves existing behavior exactly.
+    intercept: optional callback(action) consulted for every decoded keyboard
+               action ('fwd', 'quit', 'key:t', …; mouse events excluded)
+               BEFORE the built-in handling. Return truthy to consume the
+               action and trigger a re-render — this is how a caller-drawn
+               menu takes over the arrow keys. Default None preserves
+               existing behavior exactly.
     Re-renders immediately on terminal resize (SIGWINCH) or input.
     """
     import select, signal, termios, tty
@@ -288,6 +299,10 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                     break
                 if fd in ready:
                     action = _read_key(fd)
+                    if (intercept is not None and action is not None
+                            and not isinstance(action, tuple)
+                            and intercept(action)):
+                        break
                     if action == 'quit':
                         if active_alert is not None:
                             active_alert = None

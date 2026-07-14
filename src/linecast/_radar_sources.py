@@ -6,19 +6,55 @@ A source exposes:
                             forecast frames flagged .future)
   .frame_rgba(bbox, gw, hc, frame) → (pw, ph, rgba)  at gw × hc*2, EPSG:4326
 
-Region routing: the continental US uses IEM/NEXRAD (deep 3h history, no zoom
-ceiling, native projection); everywhere else uses RainViewer (global, plus
-forecast/nowcast frames where available).
+Region routing: LibreWXR is primary everywhere — real radar composites for
+North America / Europe / East Asia, model precipitation elsewhere, nowcast
+frames, and selectable colour themes.  On failure, the continental US falls
+back to IEM/NEXRAD (deep 3h history, native projection) and the rest of the
+world to RainViewer, with IEM as the last resort.
 """
 
 import datetime
 
 from linecast._png import decode_rgba
 from linecast._radar_source import fetch_frame, frame_times
-from linecast import _radar_rainviewer as rv
+from linecast import _radar_tiles as tiles
 
 # rough lower-48 bounding box; IEM/NEXRAD coverage
 _CONUS = (-127.0, 23.0, -65.0, 50.0)
+
+# LibreWXR server-rendered colour schemes (name → tile-path colour id),
+# in picker display order.
+THEMES = {
+    "universal-blue": 2,
+    "rainbow": 7,
+    "nexrad": 6,
+    "original": 1,
+    "titan": 3,
+    "twc": 4,
+    "meteored": 5,
+    "dark-sky": 8,
+    "datameteo": 9,
+    "viper": 10,
+    "mrms": 11,
+    "max-storm": 12,
+    "black-white": 0,
+}
+# matches the palette we rendered before LibreWXR (RainViewer free tier)
+DEFAULT_THEME = "universal-blue"
+
+
+def theme_id(value):
+    """Resolve a theme name or bare numeric id to a colour id, or None."""
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if text in THEMES:
+        return THEMES[text]
+    try:
+        num = int(text)
+    except ValueError:
+        return None
+    return num if num in THEMES.values() else None
 
 
 def _in_conus(lat, lon):
@@ -52,11 +88,11 @@ class IEMSource:
         return decode_rgba(png)
 
 
-class RainViewerSource:
-    label = "RainViewer"
-    attribution = "Weather data by RainViewer"
+class _TileSource:
+    """Shared body for sources speaking the RainViewer v2 tile protocol."""
 
-    def __init__(self):
+    def __init__(self, provider):
+        self.provider = provider
         self.host = None
         self._frames = []
         self._built_at = 0.0
@@ -64,7 +100,7 @@ class RainViewerSource:
 
     def _refresh(self):
         import time
-        idx = rv.fetch_index()
+        idx = tiles.fetch_index(self.provider)
         self.host = idx["host"]
         radar = idx.get("radar", {})
         frames = []
@@ -86,21 +122,47 @@ class RainViewerSource:
         return self._frames
 
     def frame_rgba(self, bbox, gw, hc, frame):
-        return rv.reproject(self.host, frame.token, bbox, gw, hc * 2)
+        return tiles.reproject(self.provider, self.host, frame.token,
+                               bbox, gw, hc * 2, mutable=frame.future)
+
+
+class RainViewerSource(_TileSource):
+    label = "RainViewer"
+    attribution = "Weather data by RainViewer"
+
+    def __init__(self):
+        super().__init__(tiles.rainviewer_provider())
+
+
+class LibreWXRSource(_TileSource):
+    label = "LibreWXR"
+    attribution = "Weather data by LibreWXR · CC BY 4.0"
+    themes = THEMES  # advertises the in-radar theme picker
+
+    def __init__(self, theme=THEMES[DEFAULT_THEME]):
+        self.theme = theme
+        super().__init__(tiles.librewxr_provider(theme))
 
 
 def _utc(epoch):
     return datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc)
 
 
-def get_source(lat, lon, n_frames):
-    """Pick the best source for a location, falling back to IEM on failure."""
-    if _in_conus(lat, lon):
-        return IEMSource(n_frames)
+def get_source(lat, lon, n_frames, theme=None):
+    """Pick the best source for a location, falling back on failure."""
+    if theme is None:
+        theme = THEMES[DEFAULT_THEME]
     try:
-        src = RainViewerSource()
+        src = LibreWXRSource(theme)
         if src.current_frames():
             return src
     except Exception:
         pass
+    if not _in_conus(lat, lon):
+        try:
+            src = RainViewerSource()
+            if src.current_frames():
+                return src
+        except Exception:
+            pass
     return IEMSource(n_frames)
