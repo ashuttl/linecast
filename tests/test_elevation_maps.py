@@ -17,9 +17,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from linecast import _color, _elevation
 from linecast._color import BG_PRIMARY
 from linecast._elevation import decode_meters, elevation_grid
-from linecast._radar_basemap import SEA
+from linecast._radar_basemap import BORDER, SEA
 from linecast.maps import (
-    BATHY_STOPS, HYPSO_STOPS, build_terrain_buffer, compose_terrain,
+    BATHY_STOPS, HYPSO_STOPS, _coast_dots, build_terrain_buffer,
+    compose_terrain,
 )
 
 _SIG = b"\x89PNG\r\n\x1a\n"
@@ -104,6 +105,24 @@ class TestTerrainBuffer:
         assert buf[0][0] == BG_PRIMARY
 
 
+class TestCoastDots:
+    def test_vertical_shoreline(self):
+        # 1 cell: fine grid 2 wide x 4 tall, west column water, east land —
+        # every land dot touches water, so the east dot column is stroked
+        fine = [[-5.0, 10.0] for _ in range(4)]
+        dots = _coast_dots(fine, 1, 1)
+        assert dots == [[0x08 | 0x10 | 0x20 | 0x80]]  # right-column bits
+
+    def test_all_land_or_all_sea_draws_nothing(self):
+        assert _coast_dots([[100.0, 100.0]] * 4, 1, 1) == [[0]]
+        assert _coast_dots([[-100.0, -100.0]] * 4, 1, 1) == [[0]]
+
+    def test_missing_data_is_not_water(self):
+        # a None neighbor (missing tile) must not fake a coastline
+        fine = [[None, 10.0] for _ in range(4)]
+        assert _coast_dots(fine, 1, 1) == [[0]]
+
+
 class TestComposeTerrain:
     # patch the _color module *imported at the top of this file*: it is the
     # same module generation compose_terrain reads, even after test_oneline
@@ -117,16 +136,25 @@ class TestComposeTerrain:
             self.dots = dots
             self.color = color
 
-    def test_sea_stipple_skipped_coast_kept(self):
-        terrain = [[(100, 120, 90)] * 2, [(100, 120, 90)] * 2]
-        # cell 0: pure sea stipple (skip); cell 1: coast stroke (keep)
-        bm = self.FakeBasemap([[0x01, 0x02]], [[SEA, (120, 150, 178)]])
-        lines = compose_terrain(bm, terrain, {}, 2, 1)
+    def test_ne_coast_and_stipple_dropped_border_kept(self):
+        terrain = [[(100, 120, 90)] * 3, [(100, 120, 90)] * 3]
+        # cell 0: sea stipple; cell 1: Natural Earth coast (both become
+        # fill — the drawn coastline is derived from elevation instead);
+        # cell 2: border stroke (kept)
+        bm = self.FakeBasemap([[0x01, 0x02, 0x04]],
+                              [[SEA, (120, 150, 178), BORDER]])
+        lines = compose_terrain(bm, terrain, {}, 3, 1)
         plain = re.sub(r"\033\[[^m]*m", "", lines[0])
-        # stipple cell becomes plain terrain fill (halfblock renders equal
-        # sub-pixels as a bg-colored space); coast keeps its braille stroke
-        assert plain == " ⠂"
+        assert plain == "  ⠄"
         assert "48;2;100;120;90" in lines[0]
+
+    def test_derived_coast_stroked(self):
+        terrain = [[(100, 120, 90)] * 2, [(100, 120, 90)] * 2]
+        bm = self.FakeBasemap([[0, 0]], [[None, None]])
+        coast = [[0, 0x03]]
+        lines = compose_terrain(bm, terrain, {}, 2, 1, coast=coast)
+        plain = re.sub(r"\033\[[^m]*m", "", lines[0])
+        assert plain == " " + chr(0x2800 + 0x03)
 
     def test_overlay_ink_contrast(self):
         light = [[(230, 230, 235)], [(230, 230, 235)]]

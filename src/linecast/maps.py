@@ -4,9 +4,11 @@
 Elevation from the AWS/Mapzen terrain tiles is painted as a half-block
 colour fill: a hypsometric ramp (lowland green through alpine white) shaded
 by a north-west sun above sea level, a bathymetric blue ramp below it.
-Geography keeps the radar view's braille identity — coastlines and borders
-are dark braille strokes over the fill, cities are labelled dots.  Drag to
-pan, +/- to zoom, and hover to read the elevation under the pointer.
+Geography keeps the radar view's braille identity — the coastline is the
+sea-level contour of the elevation data itself (so it always matches the
+fill), borders are Natural Earth braille strokes, cities are labelled
+dots.  Drag to pan, +/- to zoom, and hover to read the elevation under
+the pointer.
 
 Usage: maps [--location LAT,LNG | PLACE] [--zoom DEG] [--print]
             [--search CITY]
@@ -23,7 +25,7 @@ from linecast._framebuffer import get_terminal_size, halfblock
 from linecast._graphics import live_loop, visible_len
 from linecast._location import get_location
 from linecast._maps_i18n import ms
-from linecast._radar_basemap import BORDER, SEA
+from linecast._radar_basemap import _BITS, BORDER
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, maps_parser
@@ -68,7 +70,7 @@ BATHY_STOPS = [
 _AZIMUTH = math.radians(315.0)
 _ZENITH = math.radians(45.0)
 
-_elev_cache = {}     # (bbox, w, h) -> elevation grid
+_elev_cache = {}     # (bbox, w, h) -> (elevation grid, coast dot masks)
 _elev_pending = set()
 _elev_lock = threading.Lock()
 _terrain_cache = {}  # (bbox, w, h) -> sub-pixel colour buffer
@@ -79,22 +81,52 @@ def _view_key(bbox, gw, hc):
     return (tuple(round(v, 4) for v in bbox), gw, hc)
 
 
+def _coast_dots(fine, gw, hc):
+    """Braille masks stroking the sea-level contour of the elevation data.
+
+    A dot is set on every land sample (> 0 m) that touches a water sample —
+    the coastline is *derived from the fill*, so the stroke and the colour
+    boundary can never disagree, at any zoom.  The 2x fine grid is exactly
+    braille dot resolution (2x4 per cell).
+    """
+    dh, dw = hc * 4, gw * 2
+    dots = [[0] * gw for _ in range(hc)]
+    for dy in range(dh):
+        row = fine[dy]
+        up = fine[dy - 1] if dy > 0 else None
+        down = fine[dy + 1] if dy < dh - 1 else None
+        for dx in range(dw):
+            e = row[dx]
+            if e is None or e <= 0:
+                continue
+            for n in ((row[dx - 1] if dx > 0 else None),
+                      (row[dx + 1] if dx < dw - 1 else None),
+                      (up[dx] if up else None),
+                      (down[dx] if down else None)):
+                if n is not None and n <= 0:
+                    dots[dy // 4][dx // 2] |= _BITS[dx % 2][dy % 4]
+                    break
+    return dots
+
+
 def _get_elevation(bbox, gw, hc, block):
-    """Elevation grid for the view; live mode fetches in the background."""
+    """(elevation grid, coast masks) for the view; live mode fetches in the
+    background."""
     key = _view_key(bbox, gw, hc)
     with _elev_lock:
-        grid = _elev_cache.get(key)
-        if grid is not None:
-            return grid
+        hit = _elev_cache.get(key)
+        if hit is not None:
+            return hit
         if not block:
             if key in _elev_pending:
-                return None
+                return None, None
             _elev_pending.add(key)
 
     def load():
         # fetch at 2x and box-average down: point-sampled elevation makes
         # the hillshade step visibly at cell edges; averaging anti-aliases
-        # tone transitions and blends shorelines
+        # tone transitions and blends shorelines. The fine grid also yields
+        # the braille coastline before it is averaged away.
         fine = elevation_grid(bbox, gw * 2, hc * 4)
         grid = []
         for y in range(hc * 2):
@@ -106,31 +138,31 @@ def _get_elevation(bbox, gw, hc, block):
                         if v is not None]
                 row.append(sum(vals) / len(vals) if vals else None)
             grid.append(row)
-        return grid
+        return grid, _coast_dots(fine, gw, hc)
 
     if block:
-        grid = load()
+        hit = load()
         with _elev_lock:
-            _elev_cache[key] = grid
-        return grid
+            _elev_cache[key] = hit
+        return hit
 
     def worker():
         try:
-            grid = load()
+            hit = load()
         except Exception:
-            grid = None
+            hit = None
         with _elev_lock:
             _elev_pending.discard(key)
-            if grid is not None:
+            if hit is not None:
                 if len(_elev_cache) > 3:
                     _elev_cache.clear()
-                _elev_cache[key] = grid
-        if grid is not None and _live_refresh:
+                _elev_cache[key] = hit
+        if hit is not None and _live_refresh:
             import signal
             os.kill(os.getpid(), signal.SIGWINCH)
 
     threading.Thread(target=worker, daemon=True).start()
-    return None
+    return None, None
 
 
 def build_terrain_buffer(elev, bbox, w, h):
@@ -198,12 +230,15 @@ def _terrain_buffer(elev, bbox, gw, hc):
     return buf
 
 
-def compose_terrain(basemap, terrain, overlays, graph_w, height_cells):
+def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
+                    coast=None):
     """Terrain fill with braille geography *on top* (inverse of radar).
 
-    The sea's braille stipple is skipped — bathymetry colour is the sea —
-    but coast and border strokes stay, cut dark into the fill.  Overlay
-    glyphs pick a light or dark ink per cell for contrast.
+    The coastline comes from `coast` — sea-level contour masks derived
+    from the elevation data itself, so stroke and fill always agree; the
+    basemap's own generalized coast (and its sea stipple) are ignored.
+    Natural Earth still supplies the border strokes.  Overlay glyphs pick
+    a light or dark ink per cell for contrast.
     """
     lines = []
     for cy in range(height_cells):
@@ -214,9 +249,10 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells):
             ut = top_row[cx] or BG_PRIMARY
             ub = bot_row[cx] or BG_PRIMARY
             ov = overlays.get((cx, cy))
-            mask = basemap.dots[cy][cx]
-            color = basemap.color[cy][cx]
-            if ov is not None or (mask and color != SEA):
+            bmask = (basemap.dots[cy][cx]
+                     if basemap.color[cy][cx] == BORDER else 0)
+            cmask = coast[cy][cx] if coast is not None else 0
+            if ov is not None or bmask or cmask:
                 avg = ((ut[0] + ub[0]) // 2, (ut[1] + ub[1]) // 2,
                        (ut[2] + ub[2]) // 2)
                 cell_bg = bg(*avg)
@@ -228,9 +264,9 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells):
                         ink = LABEL_DARK if lum > 120 else LABEL_LIGHT
                     parts.append(f"{cell_bg}{fg(*ink)}{ch}")
                 else:
-                    stroke = (BORDER_STROKE if color == BORDER
-                              else COAST_STROKE)
-                    parts.append(f"{cell_bg}{fg(*stroke)}{chr(0x2800 + mask)}")
+                    stroke = COAST_STROKE if cmask else BORDER_STROKE
+                    parts.append(f"{cell_bg}{fg(*stroke)}"
+                                 f"{chr(0x2800 + (bmask | cmask))}")
                 continue
             parts.append(halfblock(ut, ub))
         parts.append(RESET)
@@ -258,14 +294,14 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
 
     err = None
     loading = False
-    elev = None
+    elev = coast = None
     if block:
         try:
-            elev = _get_elevation(bbox, graph_w, height_cells, True)
+            elev, coast = _get_elevation(bbox, graph_w, height_cells, True)
         except Exception as exc:
             err = str(exc)
     else:
-        elev = _get_elevation(bbox, graph_w, height_cells, False)
+        elev, coast = _get_elevation(bbox, graph_w, height_cells, False)
         loading = elev is None
 
     if elev is not None:
@@ -289,6 +325,8 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         basemap = _ShiftedBasemap(_shift_grid(basemap.dots, dx, dy, 0),
                                   _shift_grid(basemap.color, dx, dy, None))
         terrain = _shift_grid(terrain, dx, dy * 2, None)
+        if coast is not None:
+            coast = _shift_grid(coast, dx, dy, 0)
         overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
                     if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
 
@@ -297,7 +335,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         overlays[(ccol, crow)] = ("+", CROSSHAIR)
 
     map_lines = compose_terrain(basemap, terrain, overlays, graph_w,
-                                height_cells)
+                                height_cells, coast=coast)
 
     # elevation readout: under the pointer when hovering, else view centre
     elev_note = ""
