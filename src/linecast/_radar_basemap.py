@@ -150,14 +150,24 @@ class Basemap:
             for dx in range(self.dw):
                 if not lrow[dx] and (dx + dy) % 2 == 0:
                     self._set_dot(dx, dy, SEA)
-        # 2) coastlines, then borders on top (priority order)
+        # 2) coastlines, then borders on top (priority order). Coast strokes
+        # are the land polygons' own outlines, so the emphasized coastline and
+        # the land/sea fill boundary can never disagree.
         data = _load_data()
-        self._draw_lines(data["coast"], COAST)
+        coast = [ring for rings in data["land"] for ring in rings]
+        self._draw_lines(coast, COAST)
         self._draw_lines(data["borders"], BORDER)
 
     # -- city labels ----------------------------------------------------------
-    def city_overlays(self, max_cities=8):
-        """{(col,row): (char, color)} for the biggest cities in view + labels."""
+    def city_overlays(self, max_cities=None):
+        """{(col,row): (char, color)} for the biggest cities in view + labels.
+
+        The label budget scales with the visible area, and biggest-first
+        greedy placement skips cities too close to an already-placed one, so
+        wide views show the majors and close views fill in the local towns.
+        """
+        if max_cities is None:
+            max_cities = max(6, min(24, (self.graph_w * self.height_cells) // 400))
         minlon, minlat, maxlon, maxlat = self.bbox
         inview = []
         for lon, lat, pop, name in _load_data()["cities"]:
@@ -166,13 +176,20 @@ class Basemap:
         inview.sort(reverse=True)
 
         overlays = {}
-        for _pop, name, lon, lat in inview[:max_cities]:
+        placed = []
+        for _pop, name, lon, lat in inview:
+            if len(placed) >= max_cities:
+                break
             x, y = _project(lon, lat, self.bbox, self.graph_w, self.height_cells)
             col, row = int(x), int(y)
             if not (0 <= col < self.graph_w and 0 <= row < self.height_cells):
                 continue
             if (col, row) in overlays:
                 continue
+            # keep labels breathable: skip anything crowding a placed marker
+            if any(abs(col - pc) < 16 and abs(row - pr) < 3 for pc, pr in placed):
+                continue
+            placed.append((col, row))
             overlays[(col, row)] = ("•", CITY)  # •
             # label to the right, unless it collides
             for j, ch in enumerate(name):

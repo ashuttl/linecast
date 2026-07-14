@@ -118,29 +118,36 @@ def _polys(features, eps, min_ring=6):
 
 def main():
     minlon, minlat, maxlon, maxlat = REGION
-    land = _polys(_load("ne_50m_land.geojson"), eps=0.02)
-    coast = _lines(_load("ne_50m_coastline.geojson"), eps=0.012)
+    # land polygons serve double duty at runtime: sea-mask fill AND coastline
+    # strokes (ring outlines), so there is no separate coastline dataset to
+    # drift out of alignment with the fill boundary
+    land = _polys(_load("ne_50m_land.geojson"), eps=0.012, min_ring=4)
     borders = (_lines(_load("ne_50m_admin_1_states_provinces_lines.geojson"), eps=0.012)
                + _lines(_load("ne_50m_admin_0_boundary_lines_land.geojson"), eps=0.012))
 
+    # 1:10m places (the 1:50m set is mostly capitals — it misses mid-size
+    # cities like Portland, ME), filtered to keep the file reasonable
     cities = []
-    for ft in _load("ne_50m_populated_places_simple.geojson"):
+    for ft in _load("ne_10m_populated_places_simple.geojson"):
         lon, lat = ft["geometry"]["coordinates"]
         if not (minlon <= lon <= maxlon and minlat <= lat <= maxlat):
             continue
         pr = ft["properties"]
-        cities.append([round(lon, 3), round(lat, 3),
-                       int(pr.get("pop_max", 0)), pr.get("name", "?")])
+        pop = int(pr.get("pop_max") or 0)
+        capital = "capital" in (pr.get("featurecla") or "").lower()
+        if pop < 40000 and not capital:
+            continue
+        cities.append([round(lon, 3), round(lat, 3), pop, pr.get("name", "?")])
     cities.sort(key=lambda c: -c[2])
 
-    data = {"region": list(REGION), "land": land, "coast": coast,
+    data = {"region": list(REGION), "land": land,
             "borders": borders, "cities": cities}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w") as fh:
         json.dump(data, fh, separators=(",", ":"))
     size = os.path.getsize(OUT)
     print(f"wrote {OUT} ({size // 1024} KB): "
-          f"{len(land)} land polys, {len(coast)} coast lines, "
+          f"{len(land)} land polys, "
           f"{len(borders)} border lines, {len(cities)} cities")
 
 

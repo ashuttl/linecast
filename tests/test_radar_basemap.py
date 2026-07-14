@@ -48,17 +48,15 @@ class TestBasemapSyntheticData:
 
     def setup_method(self):
         self._original_data = basemap_mod._DATA
-        # one square land polygon spanning lon/lat [-2,2]x[-2,2] (closed ring)
+        # one square land polygon spanning lon/lat [-2,2]x[-2,2] (closed ring);
+        # its outline doubles as the coastline stroke at build time
         land_ring = [(-2, -2), (2, -2), (2, 2), (-2, 2), (-2, -2)]
-        # a coastline north of the square, well clear of it
-        coast_line = [(-2, 3), (2, 3)]
         cities = [
             [0.0, 0.0, 1_000_000, "Testville"],   # inside bbox
             [100.0, 100.0, 5_000_000, "FarCity"],  # outside bbox
         ]
         basemap_mod._DATA = {
             "land": [[land_ring]],
-            "coast": [coast_line],
             "borders": [],
             "cities": cities,
         }
@@ -78,14 +76,15 @@ class TestBasemapSyntheticData:
 
     def test_sea_outside_land_has_stipple(self):
         bm = self._build()
-        # lon=4, lat=4 is inside the bbox but far from the land square and
-        # coastline -> dot (18, 2) -> cell (9, 0)
+        # lon=4, lat=4 is inside the bbox but far from the land square
+        # -> dot (18, 2) -> cell (9, 0)
         assert bm.dots[0][9] != 0
         assert bm.color[0][9] == SEA
 
-    def test_coastline_sets_coast_color(self):
+    def test_land_outline_sets_coast_color(self):
         bm = self._build()
-        # lon=0, lat=3 sits on the coastline -> dot (10, 4) -> cell (5, 1)
+        # lon=0, lat=2 sits on the land square's top edge, whose outline is
+        # the coastline stroke -> dot (10, 6) -> cell (5, 1)
         assert bm.dots[1][5] != 0
         assert bm.color[1][5] == COAST
 
