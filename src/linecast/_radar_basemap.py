@@ -7,10 +7,11 @@ Natural Earth data, rasterises a land/sea mask, and produces per-cell braille
 dot masks + colours plus city label overlays for a given geographic window.
 
 Data: Natural Earth (public domain, 1:50m), simplified globally by
-prototype/build_basemap_data.py → data/basemap.json.  Per view we clip to the
-visible bounding box so a whole-world dataset stays cheap to rasterise.
+prototype/build_basemap_data.py → data/basemap.json.gz.  Per view we clip to
+the visible bounding box so a whole-world dataset stays cheap to rasterise.
 """
 
+import gzip
 import json
 import math
 import os
@@ -31,8 +32,9 @@ _DATA = None
 def _load_data():
     global _DATA
     if _DATA is None:
-        path = os.path.join(os.path.dirname(__file__), "data", "basemap.json")
-        with open(path) as fh:
+        path = os.path.join(os.path.dirname(__file__), "data",
+                            "basemap.json.gz")
+        with gzip.open(path, "rt") as fh:
             _DATA = json.load(fh)
     return _DATA
 
@@ -65,6 +67,28 @@ def nearest_city(lat, lon):
          * math.cos(dlon))
     bearing = math.degrees(math.atan2(y, x)) % 360.0
     return name, dist_km, bearing
+
+
+def marine_region(lat, lon):
+    """Name of the most specific vendored water body containing the point.
+
+    The vendored list is sorted smallest-area-first at build time, so the
+    first containing feature is the most specific ("Gulf of Maine" wins over
+    "North Atlantic Ocean").  Even-odd ray casting across all of a feature's
+    rings (exteriors and holes alike) decides containment.  Returns None on
+    land or in unnamed water.
+    """
+    for name, _area, rings in _load_data().get("marine", ()):
+        inside = False
+        for ring in rings:
+            for i in range(len(ring) - 1):
+                (x0, y0), (x1, y1) = ring[i], ring[i + 1]
+                if (y0 <= lat < y1) or (y1 <= lat < y0):
+                    if lon < x0 + (lat - y0) / (y1 - y0) * (x1 - x0):
+                        inside = not inside
+        if inside:
+            return name
+    return None
 
 
 def _project(lon, lat, bbox, w, h):

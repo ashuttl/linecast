@@ -1,7 +1,7 @@
 """Render the production radar composite (braille geography + radar fill) to a
 PNG for visual QA, using the real linecast modules.
 
-    NE_DIR unused; needs data/basemap.json already built.
+    NE_DIR unused; needs data/basemap.json.gz already built.
     python3 prototype/preview_radar.py [lat] [lon] [zoom] out.png
 """
 

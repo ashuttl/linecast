@@ -21,7 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 from linecast._color import fg, RESET, BOLD
 from linecast._framebuffer import get_terminal_size, fmt_time_dt
 from linecast._location import get_location
-from linecast._radar_basemap import Basemap, nearest_city
+from linecast._radar_basemap import Basemap, marine_region, nearest_city
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for, build_radar_buffer, compose
 from linecast._radar_source import FRAME_STEP
@@ -158,31 +158,40 @@ _place_cache = {}
 
 
 def _panned_place(lat, lon, lang):
-    """Friendly name for a panned view centre, from the offline city list.
+    """Friendly name for a panned view centre, from the offline basemap data.
 
-    Reads as "23 km NE of Boston" (localized); just the city name when the
-    centre is basically on it, and bare coordinates in the middle of nowhere.
+    Layered: "23 km NE of Boston" while a city is close (localized); the
+    water body ("Gulf of Maine") once offshore; a distant city again where
+    the water is unnamed; bare coordinates in the middle of nowhere.
     """
     key = (round(lat, 3), round(lon, 3), lang)
     hit = _place_cache.get(key)
     if hit is not None:
         return hit
-    coords = f"{lat:.2f}, {lon:.2f}"
-    city = nearest_city(lat, lon)
-    if city is None or city[1] > 1000:  # nothing within 1000 km: open ocean
-        place = coords
-    else:
-        name, km, bearing = city
+
+    def city_phrase(name, km, bearing):
         metric = lang != "en" or os.environ.get(
             "WEATHER_UNITS", "").lower() == "metric"
         dist = km if metric else km * 0.621371
         if dist < 2:
-            place = name
+            return name
+        compass = rs("compass", lang).split()
+        return rs("near", lang, dist=round(dist),
+                  unit="km" if metric else "mi",
+                  dir=compass[round(bearing / 45) % 8], name=name)
+
+    city = nearest_city(lat, lon)
+    if city and city[1] < 100:  # coastal waters still read by the city
+        place = city_phrase(*city)
+    else:
+        water = marine_region(lat, lon)
+        if water:
+            place = water
+        elif city and city[1] <= 1000:
+            place = city_phrase(*city)
         else:
-            compass = rs("compass", lang).split()
-            place = rs("near", lang, dist=round(dist),
-                       unit="km" if metric else "mi",
-                       dir=compass[round(bearing / 45) % 8], name=name)
+            place = f"{lat:.2f}, {lon:.2f}"
+
     if len(_place_cache) > 64:
         _place_cache.clear()
     _place_cache[key] = place

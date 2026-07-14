@@ -13,7 +13,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import linecast._radar_basemap as basemap_mod
 from linecast._radar_basemap import (
-    Basemap, _project, nearest_city, SEA, COAST, CITY, CITY_LABEL,
+    Basemap, _project, marine_region, nearest_city,
+    SEA, COAST, CITY, CITY_LABEL,
 )
 
 
@@ -156,3 +157,64 @@ class TestNearestCity:
     def test_empty_city_list_returns_none(self):
         basemap_mod._DATA["cities"] = []
         assert nearest_city(0.0, 0.0) is None
+
+
+class TestMarineRegion:
+    """marine_region against synthetic water bodies."""
+
+    def setup_method(self):
+        self._original_data = basemap_mod._DATA
+        square = lambda x0, y0, x1, y1: [
+            [x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]
+        basemap_mod._DATA = {
+            "land": [], "borders": [], "cities": [],
+            # smallest-area-first, as the builder writes it; Big Sea has an
+            # island hole (second ring) in its north-east corner
+            "marine": [
+                ["Little Gulf", 4.0, [square(0, 0, 2, 2)]],
+                ["Big Sea", 100.0, [square(-5, -5, 5, 5),
+                                    square(3, 3, 4, 4)]],
+            ],
+        }
+
+    def teardown_method(self):
+        basemap_mod._DATA = self._original_data
+
+    def test_most_specific_name_wins(self):
+        # (1, 1) is inside both; Little Gulf is listed first (smaller)
+        assert marine_region(1.0, 1.0) == "Little Gulf"
+
+    def test_enclosing_feature_outside_the_small_one(self):
+        assert marine_region(-4.0, -4.0) == "Big Sea"
+
+    def test_hole_is_outside(self):
+        # (3.5, 3.5) sits in Big Sea's island hole (even-odd: 2 rings crossed)
+        assert marine_region(3.5, 3.5) is None
+
+    def test_outside_everything(self):
+        assert marine_region(20.0, 20.0) is None
+
+
+class TestVendoredDataLookups:
+    """Guard the real vendored basemap data end-to-end."""
+
+    def test_gulf_of_maine(self):
+        assert marine_region(43.3, -68.4) == "Gulf of Maine"
+
+    def test_open_atlantic(self):
+        assert marine_region(35.0, -40.0) == "North Atlantic Ocean"
+
+    def test_land_is_not_water(self):
+        assert marine_region(42.36, -71.06) is None  # Boston
+
+    def test_east_siberian_sea_survives_simplification(self):
+        # regression: the old Douglas-Peucker dropped each split vertex, which
+        # collapsed this sea's sparse 3-point northern boundary and left the
+        # middle of it "outside"
+        assert marine_region(75.0, 160.0) == "East Siberian Sea"
+
+    def test_nearest_city_real_data(self):
+        name, dist_km, bearing = nearest_city(42.6, -70.8)
+        assert name == "Salem"
+        assert 5 < dist_km < 20
+        assert 20 < bearing < 70  # NE of Salem

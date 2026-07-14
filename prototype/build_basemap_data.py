@@ -1,20 +1,22 @@
 """Build the vendored global basemap data file from Natural Earth GeoJSON.
 
-Simplifies with Douglas-Peucker, rounds coordinates, and writes a compact JSON
-consumed at runtime by linecast._radar_basemap.  Run once at authoring time:
+Simplifies with Douglas-Peucker, rounds coordinates, and writes a compact
+gzipped JSON consumed at runtime by linecast._radar_basemap.  Run once at
+authoring time:
 
     NE_DIR=/path/to/geojson python3 prototype/build_basemap_data.py
 
-Output: src/linecast/data/basemap.json
+Output: src/linecast/data/basemap.json.gz
 """
 
+import gzip
 import json
 import math
 import os
 
 NE_DIR = os.environ.get("NE_DIR", ".")
 OUT = os.path.join(os.path.dirname(__file__), "..", "src", "linecast",
-                   "data", "basemap.json")
+                   "data", "basemap.json.gz")
 
 # whole world (lon_min, lat_min, lon_max, lat_max)
 REGION = (-180.0, -90.0, 180.0, 90.0)
@@ -57,8 +59,11 @@ def _dp(points, eps):
         if d > dmax:
             dmax, idx = d, i
     if dmax > eps:
+        # split AT the farthest point so it survives in the output (it is
+        # the most significant vertex); it ends both halves' baselines and
+        # left[:-1] dedupes the shared copy
         left = _dp(points[:idx + 1], eps)
-        right = _dp(points[idx + 1:], eps)
+        right = _dp(points[idx:], eps)
         return left[:-1] + right
     return [points[0], points[-1]]
 
@@ -116,6 +121,47 @@ def _polys(features, eps, min_ring=6):
     return out
 
 
+def _marine(features, eps):
+    """[name, area_deg2, rings] per named water body, smallest-first.
+
+    Only used at runtime for point-in-polygon naming ("which water body is
+    the view centre in?"), so simplification can be much coarser than the
+    drawn layers.  All of a feature's rings (across MultiPolygon parts,
+    exteriors and holes alike) are flattened into one list: even-odd ray
+    casting over the lot gives correct containment.  Smallest-area-first
+    ordering makes the first hit the most specific name (Gulf of Maine
+    before North Atlantic Ocean).
+    """
+    out = []
+    for ft in features:
+        # keep the plain name ("North Pacific Ocean" — name_en drops the
+        # hemisphere), except a couple of all-caps entries ("INDIAN OCEAN")
+        # where name_en has the clean casing
+        name = (ft["properties"].get("name") or "").strip()
+        if name.isupper():
+            name = (ft["properties"].get("name_en") or name.title()).strip()
+        if not name:
+            continue
+        g = ft["geometry"]
+        polys = ([g["coordinates"]] if g["type"] == "Polygon"
+                 else g["coordinates"] if g["type"] == "MultiPolygon" else [])
+        rings, area = [], 0.0
+        for poly in polys:
+            for i, ring in enumerate(poly):
+                pts = [list(c) for c in ring]
+                shoelace = abs(sum(
+                    pts[j][0] * pts[j + 1][1] - pts[j + 1][0] * pts[j][1]
+                    for j in range(len(pts) - 1))) / 2
+                area += shoelace if i == 0 else -shoelace
+                simp = _round(_simplify(pts, eps), 2)
+                if len(simp) >= 4:
+                    rings.append(simp)
+        if rings:
+            out.append([name, round(max(area, 0.0), 2), rings])
+    out.sort(key=lambda m: m[1])
+    return out
+
+
 def main():
     minlon, minlat, maxlon, maxlat = REGION
     # land polygons serve double duty at runtime: sea-mask fill AND coastline
@@ -140,15 +186,21 @@ def main():
         cities.append([round(lon, 3), round(lat, 3), pop, pr.get("name", "?")])
     cities.sort(key=lambda c: -c[2])
 
+    # named water bodies (gulfs, bays, seas, oceans) for the header's
+    # "where am I" readout — naming only, never drawn
+    marine = _marine(_load("ne_10m_geography_marine_polys.geojson"), eps=0.05)
+
     data = {"region": list(REGION), "land": land,
-            "borders": borders, "cities": cities}
+            "borders": borders, "cities": cities, "marine": marine}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w") as fh:
-        json.dump(data, fh, separators=(",", ":"))
+    # mtime=0 keeps the archive byte-identical across rebuilds of same input
+    with gzip.GzipFile(OUT, "wb", compresslevel=9, mtime=0) as fh:
+        fh.write(json.dumps(data, separators=(",", ":")).encode())
     size = os.path.getsize(OUT)
     print(f"wrote {OUT} ({size // 1024} KB): "
           f"{len(land)} land polys, "
-          f"{len(borders)} border lines, {len(cities)} cities")
+          f"{len(borders)} border lines, {len(cities)} cities, "
+          f"{len(marine)} water bodies")
 
 
 if __name__ == "__main__":
