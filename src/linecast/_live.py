@@ -153,6 +153,10 @@ def _read_key(fd):
         return 'open'
     if b in (b'n', b'N', b' '):
         return 'reset'
+    if b in (b'+', b'='):
+        return 'key:+'
+    if b in (b'-', b'_'):
+        return 'key:-'
     return None
 
 
@@ -160,7 +164,7 @@ def _read_key(fd):
 # Live loop
 # ---------------------------------------------------------------------------
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
-              auto_play=False, play_interval=0.6):
+              auto_play=False, play_interval=0.6, on_action=None, on_drag=None):
     """Run render_fn() in a loop on the alternate screen buffer.
 
     render_fn: callable(offset_minutes=0) returning (display_string, metadata)
@@ -176,6 +180,15 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                render_fn also receives play_frame (monotonic frame counter) and
                playing (bool). Space toggles play/pause; scroll/arrows step one
                frame and pause; play_interval sets the frame rate.
+    on_action: optional callback(key) for miscellaneous single-character keys
+               not otherwise handled (currently '+' and '-'). Return a truthy
+               value to trigger an immediate re-render; return falsy to leave
+               the loop waiting as before. Default None preserves existing
+               behavior exactly.
+    on_drag: optional callback(dcol, drow) fired when a left-button drag ends
+             (press → move → release), with the total cell delta. Return a
+             truthy value to trigger an immediate re-render. Requires mouse.
+             Default None preserves existing behavior exactly.
     Re-renders immediately on terminal resize (SIGWINCH) or input.
     """
     import select, signal, termios, tty
@@ -204,6 +217,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     playing = auto_play
     play_frame = 0
     mouse_pos = None
+    drag_start = None    # (col, row) of left-button press while on_drag is set
     active_alert = None  # index of alert whose modal is open, or None
     modal_scroll = 0     # scroll offset within the modal
     alert_row_map = {}   # 0-based line index → alert index
@@ -311,6 +325,9 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                         else:
                             offset = 0
                         break
+                    elif on_action is not None and isinstance(action, str) and action.startswith('key:'):
+                        if on_action(action[4:]):
+                            break
                     elif mouse and isinstance(action, tuple) and action[0] == 'mouse':
                         _, cb, cx, cy, is_rel = action
                         wheel_cb = _normalize_wheel_cb(cb)
@@ -328,10 +345,18 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                                 continue  # coalesce rapid scrolling
                             break
                         if is_rel:
-                            # Button release — ignore
+                            # Button release — completes a drag gesture if one
+                            # started; otherwise ignore.
+                            if drag_start is not None:
+                                dcol, drow = cx - drag_start[0], cy - drag_start[1]
+                                drag_start = None
+                                if (dcol or drow) and on_drag(dcol, drow):
+                                    break
                             continue
                         if (cb & 0b11) == 0 and not (cb & 0x20):
                             # Left button press (not release, not motion)
+                            if on_drag is not None:
+                                drag_start = (cx, cy)
                             row_idx = cy - 1  # 1-based → 0-based
                             if active_alert is not None:
                                 # Click while modal open — dismiss
@@ -343,6 +368,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                                 modal_scroll = 0
                                 break
                         if cb & 32:
+                            if drag_start is not None:
+                                continue  # mid-drag: pan applies on release
                             # Hover-capable terminals.
                             mouse_pos = (cx, cy)
                             break

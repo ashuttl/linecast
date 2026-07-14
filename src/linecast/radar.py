@@ -19,9 +19,10 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from linecast._color import fg, RESET, BOLD
-from linecast._framebuffer import get_terminal_size
+from linecast._framebuffer import get_terminal_size, fmt_time_dt
 from linecast._location import get_location
 from linecast._radar_basemap import Basemap
+from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for, build_radar_buffer, compose
 from linecast._radar_source import FRAME_STEP
 from linecast._radar_sources import get_source
@@ -41,6 +42,8 @@ _source = None  # active RadarSource, chosen per location in main()
 _frame_cache = {}
 _frame_lock = threading.Lock()
 _prefetch_key = None  # (bbox, w, h) currently being prefetched
+_prefetch_gen = 0     # bumped when the view changes; stale workers stand down
+_live_refresh = False  # live mode: prefetch completions nudge a repaint
 
 
 def _bbox_key(bbox):
@@ -65,21 +68,65 @@ def _load_frame(bbox, gw, hc, frame):
         if len(_frame_cache) > N_FRAMES + 8:  # bound to the rewind window
             for old in list(_frame_cache)[:len(_frame_cache) - (N_FRAMES + 8)]:
                 _frame_cache.pop(old, None)
+    if _live_refresh:
+        # nudge the live loop to repaint now that a frame is ready (SIGWINCH
+        # rides the loop's existing self-pipe wakeup; harmless if coalesced)
+        import signal
+        os.kill(os.getpid(), signal.SIGWINCH)
     return result
 
 
-def _ensure_prefetch(bbox, gw, hc):
-    """Warm the whole frame window in the background, in playback order."""
-    global _prefetch_key
+def _cached_frame(bbox, gw, hc, frame):
+    """Cache-only lookup; never touches the network."""
+    with _frame_lock:
+        return _frame_cache.get(_frame_key(bbox, gw, hc, frame))
+
+
+def _nearest_cached(bbox, gw, hc, when):
+    """The cached frame for this view closest in time to `when`, or None."""
+    prefix = (_bbox_key(bbox), gw, hc)
+    want = when.strftime("%Y%m%dT%H%M")
+    with _frame_lock:
+        stamps = [k[3] for k in _frame_cache if k[:3] == prefix]
+        if not stamps:
+            return None
+        best = min(stamps, key=lambda s: abs(int(s.replace("T", "")) -
+                                             int(want.replace("T", ""))))
+        return _frame_cache.get(prefix + (best,))
+
+
+def _ensure_prefetch(bbox, gw, hc, start_idx=0):
+    """Warm the frame window in the background, displayed frame first.
+
+    A view change (pan/zoom/resize) bumps the generation so a superseded
+    worker stops issuing fetches for a view nobody is looking at.
+    """
+    global _prefetch_key, _prefetch_gen
     key = (_bbox_key(bbox), gw, hc)
     if _prefetch_key == key:
         return
     _prefetch_key = key
-    frames = _source.current_frames()  # oldest → newest, matching playback
+    _prefetch_gen += 1
+    gen = _prefetch_gen
+    frames = _source.current_frames()
+    ordered = frames[start_idx:] + frames[:start_idx]  # current frame first
 
     def worker():
+        loaded = 0
+
+        def load(f):
+            nonlocal loaded
+            if gen != _prefetch_gen:
+                return  # view moved on; don't fetch for a stale bbox
+            if _safe_load(bbox, gw, hc, f):
+                loaded += 1
+
         with ThreadPoolExecutor(max_workers=4) as pool:
-            pool.map(lambda f: _safe_load(bbox, gw, hc, f), frames)
+            list(pool.map(load, ordered))
+        if gen == _prefetch_gen and loaded == 0:
+            # nothing arrived (offline?) — allow a later render to retry
+            global _prefetch_key
+            _prefetch_key = None
 
     threading.Thread(target=worker, daemon=True).start()
 
@@ -87,8 +134,9 @@ def _ensure_prefetch(bbox, gw, hc):
 def _safe_load(bbox, gw, hc, frame):
     try:
         _load_frame(bbox, gw, hc, frame)
+        return True
     except Exception:
-        pass
+        return False
 
 
 def _get_basemap(bbox, graph_w, height_cells):
@@ -101,8 +149,8 @@ def _get_basemap(bbox, graph_w, height_cells):
     return bm
 
 
-def _fmt_local(dt_utc):
-    return dt_utc.astimezone().strftime("%-I:%M %p").lstrip("0")
+def _fmt_local(dt_utc, use_24h=False):
+    return fmt_time_dt(dt_utc.astimezone(), use_24h=use_24h)
 
 
 def _timeline_bar(idx, n, width):
@@ -117,7 +165,10 @@ def _timeline_bar(idx, n, width):
     return track + RESET
 
 
-def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True, **_):
+def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
+                 marker=None, runtime=None, block=True, **_):
+    lang = runtime.lang if runtime else "en"
+    use_24h = runtime.use_24h if runtime else False
     cols, rows = get_terminal_size()
     graph_w = max(20, cols)
     height_cells = max(8, rows - 2)
@@ -127,45 +178,68 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True, **_)
 
     frames = _source.current_frames()   # oldest → newest (UTC); may include future
     if not frames:
-        msg = f"{fg(*DIM)}no radar frames available{RESET}"
+        msg = f"{fg(*DIM)}{rs('no_frames', lang)}{RESET}"
         return "\n".join([msg] + [""] * (height_cells + 1))
-    _ensure_prefetch(bbox, graph_w, height_cells)  # warm window in background
 
     idx = play_frame % len(frames)
     frame = frames[idx]
     when = frame.time
     present = max((f.time for f in frames if not f.future),
                   default=frames[-1].time)
+    _ensure_prefetch(bbox, graph_w, height_cells, start_idx=idx)
 
-    try:
-        radar, echo = _load_frame(bbox, graph_w, height_cells, frame)
-        err = None
-    except Exception as exc:
-        radar = [[None] * graph_w for _ in range(height_cells * 2)]
-        echo, err = 0.0, str(exc)
+    err = None
+    loading = False
+    if block:
+        # static mode: fetch the displayed frame synchronously
+        try:
+            radar, echo = _load_frame(bbox, graph_w, height_cells, frame)
+        except Exception as exc:
+            radar = [[None] * graph_w for _ in range(height_cells * 2)]
+            echo, err = 0.0, str(exc)
+    else:
+        # live mode: never block a render on the network — show the nearest
+        # cached frame (radar pops in as the prefetcher lands frames)
+        hit = _cached_frame(bbox, graph_w, height_cells, frame)
+        if hit is None:
+            hit = _nearest_cached(bbox, graph_w, height_cells, when)
+            loading = True
+        if hit is not None:
+            radar, echo = hit
+        else:
+            radar, echo = [[None] * graph_w for _ in range(height_cells * 2)], 0.0
 
     overlays = dict(basemap.city_overlays())
-    overlays[(graph_w // 2, height_cells // 2)] = ("+", MARKER)  # your location
+    # "your location" marker, pinned geographically (panning can move it
+    # off-centre or out of view entirely)
+    m_lat, m_lon = marker if marker else (lat, lon)
+    minlon, minlat, maxlon, maxlat = bbox
+    mcol = int((m_lon - minlon) / (maxlon - minlon) * graph_w)
+    mrow = int((maxlat - m_lat) / (maxlat - minlat) * height_cells)
+    if 0 <= mcol < graph_w and 0 <= mrow < height_cells:
+        overlays[(mcol, mrow)] = ("+", MARKER)
 
     map_lines = compose(basemap, radar, overlays, graph_w, height_cells)
 
     # header: play state, frame time, how old/ahead, echo coverage
     place = location_name or f"{lat:.2f}, {lon:.2f}"
     delta = round((when - present).total_seconds() / 60)
-    age = "now" if delta == 0 else (f"{delta}m" if delta < 0 else f"+{delta}m")
-    tag = " forecast" if frame.future else ""
+    age = (rs("now", lang) if delta == 0
+           else (f"{delta}m" if delta < 0 else f"+{delta}m"))
+    tag = f" {rs('forecast', lang)}" if frame.future else ""
+    tag += f" · {rs('loading', lang)}" if loading else ""
     icon = "▶" if playing else "⏸"
     header = (f"{fg(*MARKER)}{BOLD}⬤ radar{RESET}  {fg(*MUTED)}{place}"
-              f"{RESET}  {fg(*DIM)}{icon} {_fmt_local(when)} · {age}{tag} "
-              f"· {echo:.0f}% echo{RESET}")
+              f"{RESET}  {fg(*DIM)}{icon} {_fmt_local(when, use_24h)} · {age}{tag} "
+              f"· {rs('echo_pct', lang, pct=f'{echo:.0f}')}{RESET}")
     header += " " * max(0, cols - visible_len(header))
 
     # footer: attribution + scrubber + controls
     if err:
-        foot = f"{fg(*DIM)}radar unavailable ({err[:40]}){RESET}"
+        foot = f"{fg(*DIM)}{rs('radar_unavailable', lang, err=err[:40])}{RESET}"
     else:
         left = f"{fg(*DIM)}{_source.attribution}{RESET}"
-        hint = (f"{fg(*DIM)}space play/pause · scroll/←→ step · q quit{RESET}"
+        hint = (f"{fg(*DIM)}{rs('hint', lang)}{RESET}"
                 if sys.stdout.isatty() else "")
         bar = _timeline_bar(idx, len(frames), min(28, max(10, cols // 3)))
         foot = f"{left}  {bar}  {hint}"
@@ -205,7 +279,7 @@ def main():
     if not location_name:
         try:
             from linecast._weather_sources import _reverse_geocode
-            location_name = _reverse_geocode(lat, lon)[0] or ""
+            location_name = _reverse_geocode(lat, lon, lang=runtime.lang)[0] or ""
         except Exception:
             location_name = ""
 
@@ -213,14 +287,58 @@ def main():
     _source = get_source(lat, lon, N_FRAMES)
 
     if runtime.live:
+        import math
+        from linecast._radar_sources import _in_conus
+
+        global _live_refresh
+        _live_refresh = True
+        zoom = [args.zoom]
+        center = [lat, lon]          # pans; marker stays at the true location
+        region = [_in_conus(lat, lon)]
+
+        def on_action(key):
+            if key == '+':
+                new_zoom = max(1.0, zoom[0] / 1.5)
+            elif key == '-':
+                new_zoom = min(60.0, zoom[0] * 1.5)
+            else:
+                return False
+            if new_zoom == zoom[0]:
+                return False
+            zoom[0] = new_zoom
+            return True
+
+        def on_drag(dcol, drow):
+            # Dragging pulls the map: content follows the pointer, so the
+            # view centre moves the opposite way.
+            cols, rows = get_terminal_size()
+            gw, hc = max(20, cols), max(8, rows - 2)
+            lon_span = zoom[0] * (gw / (hc * 2)) / math.cos(math.radians(center[0]))
+            center[0] = max(-80.0, min(80.0, center[0] + drow * zoom[0] / hc))
+            center[1] += -dcol * lon_span / gw
+            if center[1] > 180.0:
+                center[1] -= 360.0
+            elif center[1] < -180.0:
+                center[1] += 360.0
+            # crossing the CONUS boundary switches radar source (IEM ↔ RainViewer)
+            r = _in_conus(center[0], center[1])
+            if r != region[0]:
+                region[0] = r
+                global _source
+                _source = get_source(center[0], center[1], N_FRAMES)
+            return True
+
         live_loop(
             lambda play_frame=0, playing=True, **_: render_radar(
-                lat, lon, location_name, args.zoom,
-                play_frame=play_frame, playing=playing),
+                center[0], center[1], location_name, zoom[0],
+                play_frame=play_frame, playing=playing, marker=(lat, lon),
+                runtime=runtime, block=False),
             interval=FRAME_STEP,   # pick up a new composite every 5 min
             mouse=True,
             auto_play=True,
             play_interval=0.2,     # animation frame rate (~5 fps)
+            on_action=on_action,
+            on_drag=on_drag,
         )
     else:
         # static: the present (newest observed) frame
@@ -228,7 +346,8 @@ def main():
         present_idx = max((i for i, f in enumerate(frames) if not f.future),
                           default=len(frames) - 1) if frames else 0
         print(render_radar(lat, lon, location_name, args.zoom,
-                           play_frame=present_idx, playing=False))
+                           play_frame=present_idx, playing=False,
+                           runtime=runtime))
 
 
 if __name__ == "__main__":
