@@ -153,13 +153,23 @@ def _read_key(fd):
         return 'open'
     if b in (b'n', b'N', b' '):
         return 'reset'
+    if b in (b'+', b'='):
+        return 'key:+'
+    if b in (b'-', b'_'):
+        return 'key:-'
+    if b in (b't', b'T'):
+        return 'key:t'
+    if b in (b'\r', b'\n'):
+        return 'key:enter'
     return None
 
 
 # ---------------------------------------------------------------------------
 # Live loop
 # ---------------------------------------------------------------------------
-def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15):
+def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
+              auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
+              intercept=None):
     """Run render_fn() in a loop on the alternate screen buffer.
 
     render_fn: callable(offset_minutes=0) returning (display_string, metadata)
@@ -171,6 +181,29 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
     mouse: if True, enable SGR mouse tracking and pass mouse_pos to render_fn.
     on_open: optional callback(alert_index) called when user presses 'o' on a modal.
     scroll_step: minutes to advance/retreat per scroll or arrow key event.
+    auto_play: if True, run an animation loop instead of time-scrubbing.
+               render_fn also receives play_frame (monotonic frame counter) and
+               playing (bool). Space toggles play/pause — pausing homes
+               play_frame to 0 (the caller's "home" frame, e.g. the present);
+               scroll/arrows step one frame and pause in place; play_interval
+               sets the frame rate.
+    on_action: optional callback(key) for miscellaneous single-character keys
+               not otherwise handled (currently '+' and '-'). Return a truthy
+               value to trigger an immediate re-render; return falsy to leave
+               the loop waiting as before. Default None preserves existing
+               behavior exactly.
+    on_drag: optional callback(dcol, drow, done) for left-button drags.
+             Fired with the cumulative cell delta from the press position:
+             during the drag with done=False (live preview) and once on
+             release with done=True (commit). Return a truthy value to
+             trigger an immediate re-render. Requires mouse. Default None
+             preserves existing behavior exactly.
+    intercept: optional callback(action) consulted for every decoded keyboard
+               action ('fwd', 'quit', 'key:t', …; mouse events excluded)
+               BEFORE the built-in handling. Return truthy to consume the
+               action and trigger a re-render — this is how a caller-drawn
+               menu takes over the arrow keys. Default None preserves
+               existing behavior exactly.
     Re-renders immediately on terminal resize (SIGWINCH) or input.
     """
     import select, signal, termios, tty
@@ -196,7 +229,10 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
     offset = 0
+    playing = auto_play
+    play_frame = 0
     mouse_pos = None
+    drag_start = None    # (col, row) of left-button press while on_drag is set
     active_alert = None  # index of alert whose modal is open, or None
     modal_scroll = 0     # scroll offset within the modal
     alert_row_map = {}   # 0-based line index → alert index
@@ -214,10 +250,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
         tty.setcbreak(fd)
 
         while True:
+            kwargs = {}
             if mouse:
-                result = render_fn(offset_minutes=offset, mouse_pos=mouse_pos, active_alert=active_alert, modal_scroll=modal_scroll)
-            else:
-                result = render_fn(offset_minutes=offset)
+                kwargs.update(mouse_pos=mouse_pos, active_alert=active_alert,
+                              modal_scroll=modal_scroll)
+            if auto_play:
+                kwargs.update(play_frame=play_frame, playing=playing)
+            result = render_fn(offset_minutes=offset, **kwargs)
             # render_fn may return (output, metadata) or just output
             if isinstance(result, tuple):
                 output, alert_row_map = result
@@ -240,10 +279,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
                 pass
 
             # Wait for input, resize, or timeout
-            deadline = _time.time() + interval
+            wait = play_interval if (auto_play and playing) else interval
+            deadline = _time.time() + wait
             while True:
                 remaining = deadline - _time.time()
                 if remaining <= 0:
+                    if auto_play and playing:
+                        play_frame += 1  # advance the animation
                     break
                 try:
                     ready, _, _ = select.select([fd, wake_r], [], [], min(0.1, remaining))
@@ -257,6 +299,10 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
                     break
                 if fd in ready:
                     action = _read_key(fd)
+                    if (intercept is not None and action is not None
+                            and not isinstance(action, tuple)
+                            and intercept(action)):
+                        break
                     if action == 'quit':
                         if active_alert is not None:
                             active_alert = None
@@ -275,18 +321,34 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
                             on_open(active_alert)
                             break
                     elif action == 'fwd':
-                        offset += scroll_step
+                        if auto_play:
+                            playing = False
+                            play_frame += 1
+                        else:
+                            offset += scroll_step
                         if select.select([fd], [], [], 0)[0]:
                             continue  # coalesce rapid scrolling
                         break
                     elif action == 'back':
-                        offset -= scroll_step
+                        if auto_play:
+                            playing = False
+                            play_frame -= 1
+                        else:
+                            offset -= scroll_step
                         if select.select([fd], [], [], 0)[0]:
                             continue  # coalesce rapid scrolling
                         break
                     elif action == 'reset':
-                        offset = 0
+                        if auto_play:
+                            playing = not playing  # space = play/pause
+                            if not playing:
+                                play_frame = 0  # pause returns to the home frame
+                        else:
+                            offset = 0
                         break
+                    elif on_action is not None and isinstance(action, str) and action.startswith('key:'):
+                        if on_action(action[4:]):
+                            break
                     elif mouse and isinstance(action, tuple) and action[0] == 'mouse':
                         _, cb, cx, cy, is_rel = action
                         wheel_cb = _normalize_wheel_cb(cb)
@@ -295,16 +357,27 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
                                 # Scroll the modal
                                 modal_scroll += 3 if wheel_cb == 65 else -3
                                 modal_scroll = max(0, modal_scroll)
+                            elif auto_play:
+                                playing = False
+                                play_frame += 1 if wheel_cb == 64 else -1
                             else:
                                 offset += scroll_step if wheel_cb == 64 else -scroll_step
                             if select.select([fd], [], [], 0)[0]:
                                 continue  # coalesce rapid scrolling
                             break
                         if is_rel:
-                            # Button release — ignore
+                            # Button release — completes a drag gesture if one
+                            # started; otherwise ignore.
+                            if drag_start is not None:
+                                dcol, drow = cx - drag_start[0], cy - drag_start[1]
+                                drag_start = None
+                                if on_drag(dcol, drow, True):
+                                    break
                             continue
                         if (cb & 0b11) == 0 and not (cb & 0x20):
                             # Left button press (not release, not motion)
+                            if on_drag is not None:
+                                drag_start = (cx, cy)
                             row_idx = cy - 1  # 1-based → 0-based
                             if active_alert is not None:
                                 # Click while modal open — dismiss
@@ -316,6 +389,14 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15)
                                 modal_scroll = 0
                                 break
                         if cb & 32:
+                            if drag_start is not None:
+                                # mid-drag: live preview with cumulative delta
+                                dcol, drow = cx - drag_start[0], cy - drag_start[1]
+                                if on_drag(dcol, drow, False):
+                                    if select.select([fd], [], [], 0)[0]:
+                                        continue  # coalesce rapid drag motion
+                                    break
+                                continue
                             # Hover-capable terminals.
                             mouse_pos = (cx, cy)
                             break

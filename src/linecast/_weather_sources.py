@@ -35,14 +35,17 @@ def _local_now_for_data(data):
         return datetime.now()
 
 
-def _reverse_geocode(lat, lng):
+def _reverse_geocode(lat, lng, lang=None):
     """Reverse geocode coordinates to a display name via Nominatim. Cached.
 
-    Returns (display_name, country_code, address) tuple.
+    Returns (display_name, country_code, address) tuple. `lang` localizes
+    the returned names (Nominatim accept-language); cached per language.
     """
     cache_file = CACHE_DIR / "location.json"
     cached = read_cache(cache_file, 86400)  # 24h cache
-    if cached and cached.get("lat") == round(lat, 4) and cached.get("lng") == round(lng, 4):
+    if (cached and cached.get("lat") == round(lat, 4)
+            and cached.get("lng") == round(lng, 4)
+            and cached.get("lang", None) == lang):
         return cached.get("name", ""), cached.get("country_code", ""), cached.get("address", {})
 
     try:
@@ -50,6 +53,8 @@ def _reverse_geocode(lat, lng):
             f"https://nominatim.openstreetmap.org/reverse"
             f"?lat={lat}&lon={lng}&format=json&zoom=10"
         )
+        if lang:
+            url += f"&accept-language={lang}"
         data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=10)
         addr = data.get("address", {})
         name = addr.get("city") or addr.get("town") or addr.get("village") or ""
@@ -62,7 +67,7 @@ def _reverse_geocode(lat, lng):
         else:
             display = ""
         write_cache(cache_file, {
-            "lat": round(lat, 4), "lng": round(lng, 4),
+            "lat": round(lat, 4), "lng": round(lng, 4), "lang": lang,
             "name": display, "country_code": country_code,
             "address": addr,
         })

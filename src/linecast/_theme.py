@@ -200,19 +200,11 @@ def _theme_query_timeout():
 
 
 def _argv_requests_legacy_mode():
-    args = tuple(sys.argv[1:])
-    for i, token in enumerate(args):
-        low = token.strip().lower()
-        if low in ("--classic-colors", "--legacy-colors"):
+    # (--theme now selects the radar colour palette; legacy palette mode is
+    # reached via these flags or LINECAST_THEME)
+    for token in sys.argv[1:]:
+        if token.strip().lower() in ("--classic-colors", "--legacy-colors"):
             return True
-        if low.startswith("--theme="):
-            value = low.split("=", 1)[1]
-            if value in ("classic", "legacy", "old"):
-                return True
-        if low == "--theme" and i + 1 < len(args):
-            value = str(args[i + 1]).strip().lower()
-            if value in ("classic", "legacy", "old"):
-                return True
     return False
 
 

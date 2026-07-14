@@ -1,0 +1,269 @@
+"""Braille geography layer for the radar view.
+
+Everything that is *geography* (sea, coastlines, borders) is drawn in braille
+at 2x4-dot-per-cell resolution; the weather radar is painted over it as a
+half-block colour fill by the renderer.  This module loads the vendored
+Natural Earth data, rasterises a land/sea mask, and produces per-cell braille
+dot masks + colours plus city label overlays for a given geographic window.
+
+Data: Natural Earth (public domain, 1:50m), simplified globally by
+prototype/build_basemap_data.py → data/basemap.json.gz.  Per view we clip to
+the visible bounding box so a whole-world dataset stays cheap to rasterise.
+"""
+
+import gzip
+import json
+import math
+import os
+
+# braille dot bit for (col, row) within a 2x4 cell — matches _braille.py
+_BITS = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
+
+# geography palette (dim, so radar reads on top)
+SEA = (52, 72, 112)
+COAST = (120, 150, 178)
+BORDER = (108, 110, 130)
+CITY = (225, 225, 235)
+CITY_LABEL = (155, 160, 175)
+
+_DATA = None
+
+
+def _load_data():
+    global _DATA
+    if _DATA is None:
+        path = os.path.join(os.path.dirname(__file__), "data",
+                            "basemap.json.gz")
+        with gzip.open(path, "rt") as fh:
+            _DATA = json.load(fh)
+    return _DATA
+
+
+def nearest_city(lat, lon):
+    """(name, dist_km, bearing_deg) of the closest known city, or None.
+
+    bearing_deg is the direction *from the city to the point*, so a result of
+    ("Boston", 23, 45) reads "23 km NE of Boston".  Works off the vendored
+    Natural Earth populated-places list, so it needs no network.
+    """
+    best = None
+    coslat = math.cos(math.radians(lat))
+    for clon, clat, _pop, name in _load_data()["cities"]:
+        # equirectangular approximation is plenty for ranking candidates
+        dx = ((lon - clon + 180.0) % 360.0 - 180.0) * coslat
+        dy = lat - clat
+        d2 = dx * dx + dy * dy
+        if best is None or d2 < best[0]:
+            best = (d2, name, clat, clon)
+    if best is None:
+        return None
+    _, name, clat, clon = best
+    from linecast._geo import haversine_nm
+    dist_km = haversine_nm(clat, clon, lat, lon) * 1.852
+    dlon = math.radians(lon - clon)
+    y = math.sin(dlon) * math.cos(math.radians(lat))
+    x = (math.cos(math.radians(clat)) * math.sin(math.radians(lat))
+         - math.sin(math.radians(clat)) * math.cos(math.radians(lat))
+         * math.cos(dlon))
+    bearing = math.degrees(math.atan2(y, x)) % 360.0
+    return name, dist_km, bearing
+
+
+def marine_region(lat, lon):
+    """Name of the most specific vendored water body containing the point.
+
+    The vendored list is sorted smallest-area-first at build time, so the
+    first containing feature is the most specific ("Gulf of Maine" wins over
+    "North Atlantic Ocean").  Even-odd ray casting across all of a feature's
+    rings (exteriors and holes alike) decides containment.  Returns None on
+    land or in unnamed water.
+    """
+    for name, _area, rings in _load_data().get("marine", ()):
+        inside = False
+        for ring in rings:
+            for i in range(len(ring) - 1):
+                (x0, y0), (x1, y1) = ring[i], ring[i + 1]
+                if (y0 <= lat < y1) or (y1 <= lat < y0):
+                    if lon < x0 + (lat - y0) / (y1 - y0) * (x1 - x0):
+                        inside = not inside
+        if inside:
+            return name
+    return None
+
+
+def _project(lon, lat, bbox, w, h):
+    minlon, minlat, maxlon, maxlat = bbox
+    x = (lon - minlon) / (maxlon - minlon) * w
+    y = (maxlat - lat) / (maxlat - minlat) * h
+    return x, y
+
+
+class DotLayer:
+    """A braille dot grid (2x4 dots per cell) with per-cell colour.
+
+    The drawing primitives shared by the geography basemap and any other
+    braille-stroke layer (e.g. warning polygon outlines).
+    """
+
+    def __init__(self, bbox, graph_w, height_cells):
+        self.bbox = bbox
+        self.graph_w = graph_w
+        self.height_cells = height_cells
+        self.dw = graph_w * 2      # dot columns
+        self.dh = height_cells * 4  # dot rows
+        # per-cell braille state
+        self.dots = [[0] * graph_w for _ in range(height_cells)]
+        self.color = [[None] * graph_w for _ in range(height_cells)]
+
+    # -- rasterisation helpers ------------------------------------------------
+    def _set_dot(self, dx, dy, color):
+        if dx < 0 or dx >= self.dw or dy < 0 or dy >= self.dh:
+            return
+        cx, cy = dx // 2, dy // 4
+        self.dots[cy][cx] |= _BITS[dx % 2][dy % 4]
+        self.color[cy][cx] = color  # last writer wins (drawn in priority order)
+
+    def _dot_line(self, x0, y0, x1, y1, color):
+        x0, y0, x1, y1 = int(round(x0)), int(round(y0)), int(round(x1)), int(round(y1))
+        dx, dy = abs(x1 - x0), abs(y1 - y0)
+        sx = 1 if x0 < x1 else -1
+        sy = 1 if y0 < y1 else -1
+        err = dx - dy
+        while True:
+            self._set_dot(x0, y0, color)
+            if x0 == x1 and y0 == y1:
+                break
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x0 += sx
+            if e2 < dx:
+                err += dx
+                y0 += sy
+
+    def _in_view(self, points):
+        """True if a feature's lon/lat bbox overlaps the view (cheap cull)."""
+        minlon, minlat, maxlon, maxlat = self.bbox
+        lo_lon = lo_lat = float("inf")
+        hi_lon = hi_lat = float("-inf")
+        for lon, lat in points:
+            if lon < lo_lon:
+                lo_lon = lon
+            if lon > hi_lon:
+                hi_lon = lon
+            if lat < lo_lat:
+                lo_lat = lat
+            if lat > hi_lat:
+                hi_lat = lat
+        return not (hi_lon < minlon or lo_lon > maxlon
+                    or hi_lat < minlat or lo_lat > maxlat)
+
+    def _draw_lines(self, lines, color, width=1):
+        offsets = ((0, 0),) if width <= 1 else ((0, 0), (1, 0), (0, 1))
+        for coords in lines:
+            if not self._in_view(coords):
+                continue
+            prev = None
+            for lon, lat in coords:
+                p = _project(lon, lat, self.bbox, self.dw, self.dh)
+                if prev is not None:
+                    for ox, oy in offsets:
+                        self._dot_line(prev[0] + ox, prev[1] + oy,
+                                       p[0] + ox, p[1] + oy, color)
+                prev = p
+
+
+class Basemap(DotLayer):
+    """Pre-rasterised braille geography for one (bbox, size). Reused per frame."""
+
+    def __init__(self, bbox, graph_w, height_cells):
+        super().__init__(bbox, graph_w, height_cells)
+        self._build()
+
+    def _sea_mask(self):
+        """Boolean land mask at dot resolution via scanline polygon fill."""
+        land = [bytearray(self.dw) for _ in range(self.dh)]
+        for rings in _load_data()["land"]:
+            if not self._in_view([p for ring in rings for p in ring]):
+                continue
+            # project rings to dot space
+            prings = [[_project(lon, lat, self.bbox, self.dw, self.dh)
+                       for lon, lat in ring] for ring in rings]
+            ys = [p[1] for ring in prings for p in ring]
+            y0 = max(0, int(min(ys)))
+            y1 = min(self.dh - 1, int(max(ys)) + 1)
+            for y in range(y0, y1 + 1):
+                yc = y + 0.5
+                xs = []
+                for ring in prings:
+                    n = len(ring)
+                    for i in range(n - 1):
+                        ax, ay = ring[i]
+                        bx, by = ring[i + 1]
+                        if (ay <= yc < by) or (by <= yc < ay):
+                            xs.append(ax + (yc - ay) / (by - ay) * (bx - ax))
+                xs.sort()
+                row = land[y]
+                for i in range(0, len(xs) - 1, 2):
+                    xa = max(0, int(xs[i] + 0.5))
+                    xb = min(self.dw, int(xs[i + 1] + 0.5))
+                    for x in range(xa, xb):
+                        row[x] = 1
+        return land
+
+    def _build(self):
+        # 1) sea stipple everywhere that isn't land (checkerboard dither)
+        land = self._sea_mask()
+        for dy in range(self.dh):
+            lrow = land[dy]
+            for dx in range(self.dw):
+                if not lrow[dx] and (dx + dy) % 2 == 0:
+                    self._set_dot(dx, dy, SEA)
+        # 2) coastlines, then borders on top (priority order). Coast strokes
+        # are the land polygons' own outlines, so the emphasized coastline and
+        # the land/sea fill boundary can never disagree.
+        data = _load_data()
+        coast = [ring for rings in data["land"] for ring in rings]
+        self._draw_lines(coast, COAST)
+        self._draw_lines(data["borders"], BORDER)
+
+    # -- city labels ----------------------------------------------------------
+    def city_overlays(self, max_cities=None):
+        """{(col,row): (char, color)} for the biggest cities in view + labels.
+
+        The label budget scales with the visible area, and biggest-first
+        greedy placement skips cities too close to an already-placed one, so
+        wide views show the majors and close views fill in the local towns.
+        """
+        if max_cities is None:
+            max_cities = max(6, min(24, (self.graph_w * self.height_cells) // 400))
+        minlon, minlat, maxlon, maxlat = self.bbox
+        inview = []
+        for lon, lat, pop, name in _load_data()["cities"]:
+            if minlon <= lon <= maxlon and minlat <= lat <= maxlat:
+                inview.append((pop, name, lon, lat))
+        inview.sort(reverse=True)
+
+        overlays = {}
+        placed = []
+        for _pop, name, lon, lat in inview:
+            if len(placed) >= max_cities:
+                break
+            x, y = _project(lon, lat, self.bbox, self.graph_w, self.height_cells)
+            col, row = int(x), int(y)
+            if not (0 <= col < self.graph_w and 0 <= row < self.height_cells):
+                continue
+            if (col, row) in overlays:
+                continue
+            # keep labels breathable: skip anything crowding a placed marker
+            if any(abs(col - pc) < 16 and abs(row - pr) < 3 for pc, pr in placed):
+                continue
+            placed.append((col, row))
+            overlays[(col, row)] = ("•", CITY)  # •
+            # label to the right, unless it collides
+            for j, ch in enumerate(name):
+                c = col + 1 + j
+                if c >= self.graph_w or (c, row) in overlays:
+                    break
+                overlays[(c, row)] = (ch, CITY_LABEL)
+        return overlays

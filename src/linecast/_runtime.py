@@ -91,8 +91,6 @@ def _base_parser(prog, description):
                     help="use pre-theme fixed color palette")
     p.add_argument("--legacy-colors", action="store_true",
                     help="alias for --classic-colors")
-    p.add_argument("--theme", default=None,
-                    help="theme mode: auto, classic, legacy")
     p.add_argument("--debug", action="store_true",
                     help="show diagnostic info on stderr")
     return p
@@ -132,6 +130,25 @@ def tides_parser():
 def sunshine_parser():
     return _base_parser("sunshine",
                          "Solar arc inspired by the Apple Watch Solar face")
+
+
+def radar_parser():
+    p = _base_parser("radar",
+                      "Terminal weather radar over a braille basemap (US + global)")
+    p.add_argument("--location", default=None,
+                    help="location as 'lat,lng' or place name")
+    p.add_argument("--search", default=None,
+                    help="search for a location and exit")
+    p.add_argument("--zoom", type=float, default=6.0,
+                    help="degrees of latitude shown top-to-bottom (default 6)")
+    p.add_argument("--theme", default=None,
+                    help="radar colour theme (LibreWXR server-rendered): "
+                         "dark-sky (default), universal-blue, rainbow "
+                         "(classic radar look), nexrad, original, titan, "
+                         "twc, meteored, datameteo, viper, mrms, max-storm, "
+                         "black-white; press t in live mode to pick "
+                         "interactively")
+    return p
 
 
 # ---------------------------------------------------------------------------

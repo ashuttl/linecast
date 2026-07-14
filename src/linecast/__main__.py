@@ -11,6 +11,7 @@ Commands:
   linecast weather     Weather dashboard with braille temperature curve and alerts
   linecast sunshine    Solar arc inspired by the Apple Watch Solar face
   linecast tides       NOAA tide chart with half-block rendering
+  linecast radar       Weather radar over a braille basemap (US + global)
   linecast completion  Print shell completion script (bash, zsh, fish)
 
 Each command is also installed as a standalone binary (weather, sunshine, tides).
@@ -21,6 +22,7 @@ COMMANDS = {
     "weather": "linecast.weather",
     "sunshine": "linecast.sunshine",
     "tides": "linecast.tides",
+    "radar": "linecast.radar",
 }
 
 
