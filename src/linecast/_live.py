@@ -178,17 +178,21 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     scroll_step: minutes to advance/retreat per scroll or arrow key event.
     auto_play: if True, run an animation loop instead of time-scrubbing.
                render_fn also receives play_frame (monotonic frame counter) and
-               playing (bool). Space toggles play/pause; scroll/arrows step one
-               frame and pause; play_interval sets the frame rate.
+               playing (bool). Space toggles play/pause — pausing homes
+               play_frame to 0 (the caller's "home" frame, e.g. the present);
+               scroll/arrows step one frame and pause in place; play_interval
+               sets the frame rate.
     on_action: optional callback(key) for miscellaneous single-character keys
                not otherwise handled (currently '+' and '-'). Return a truthy
                value to trigger an immediate re-render; return falsy to leave
                the loop waiting as before. Default None preserves existing
                behavior exactly.
-    on_drag: optional callback(dcol, drow) fired when a left-button drag ends
-             (press → move → release), with the total cell delta. Return a
-             truthy value to trigger an immediate re-render. Requires mouse.
-             Default None preserves existing behavior exactly.
+    on_drag: optional callback(dcol, drow, done) for left-button drags.
+             Fired with the cumulative cell delta from the press position:
+             during the drag with done=False (live preview) and once on
+             release with done=True (commit). Return a truthy value to
+             trigger an immediate re-render. Requires mouse. Default None
+             preserves existing behavior exactly.
     Re-renders immediately on terminal resize (SIGWINCH) or input.
     """
     import select, signal, termios, tty
@@ -322,6 +326,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                     elif action == 'reset':
                         if auto_play:
                             playing = not playing  # space = play/pause
+                            if not playing:
+                                play_frame = 0  # pause returns to the home frame
                         else:
                             offset = 0
                         break
@@ -350,7 +356,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                             if drag_start is not None:
                                 dcol, drow = cx - drag_start[0], cy - drag_start[1]
                                 drag_start = None
-                                if (dcol or drow) and on_drag(dcol, drow):
+                                if on_drag(dcol, drow, True):
                                     break
                             continue
                         if (cb & 0b11) == 0 and not (cb & 0x20):
@@ -369,7 +375,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                                 break
                         if cb & 32:
                             if drag_start is not None:
-                                continue  # mid-drag: pan applies on release
+                                # mid-drag: live preview with cumulative delta
+                                dcol, drow = cx - drag_start[0], cy - drag_start[1]
+                                if on_drag(dcol, drow, False):
+                                    if select.select([fd], [], [], 0)[0]:
+                                        continue  # coalesce rapid drag motion
+                                    break
+                                continue
                             # Hover-capable terminals.
                             mouse_pos = (cx, cy)
                             break

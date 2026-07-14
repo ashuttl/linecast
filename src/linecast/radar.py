@@ -153,6 +153,34 @@ def _fmt_local(dt_utc, use_24h=False):
     return fmt_time_dt(dt_utc.astimezone(), use_24h=use_24h)
 
 
+class _ShiftedBasemap:
+    """Duck-typed stand-in for Basemap during a drag preview."""
+    __slots__ = ("dots", "color")
+
+    def __init__(self, dots, color):
+        self.dots = dots
+        self.color = color
+
+
+def _shift_grid(rows, dx, dy, fill):
+    """Shift a 2D grid's content by (dx right, dy down), backfilling `fill`."""
+    h = len(rows)
+    w = len(rows[0]) if h else 0
+    blank = [fill] * w
+    out = []
+    for y in range(h):
+        sy = y - dy
+        if 0 <= sy < h:
+            src = rows[sy]
+            if dx >= 0:
+                out.append(([fill] * min(dx, w) + src[:max(0, w - dx)]))
+            else:
+                out.append((src[-dx:] + [fill] * min(-dx, w))[:w])
+        else:
+            out.append(blank[:])
+    return out
+
+
 def _timeline_bar(idx, n, width):
     """A compact scrubber: ─ track with a ● playhead at frame idx."""
     if n <= 1 or width < 3:
@@ -166,7 +194,7 @@ def _timeline_bar(idx, n, width):
 
 
 def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
-                 marker=None, runtime=None, block=True, **_):
+                 marker=None, runtime=None, block=True, pan_offset=(0, 0), **_):
     lang = runtime.lang if runtime else "en"
     use_24h = runtime.use_24h if runtime else False
     cols, rows = get_terminal_size()
@@ -181,11 +209,14 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         msg = f"{fg(*DIM)}{rs('no_frames', lang)}{RESET}"
         return "\n".join([msg] + [""] * (height_cells + 1))
 
-    idx = play_frame % len(frames)
+    # play_frame counts from the "home" frame — the present (newest observed):
+    # 0 = now, so pausing (which homes the counter) always lands on now
+    present_idx = max((i for i, f in enumerate(frames) if not f.future),
+                      default=len(frames) - 1)
+    idx = (present_idx + play_frame) % len(frames)
     frame = frames[idx]
     when = frame.time
-    present = max((f.time for f in frames if not f.future),
-                  default=frames[-1].time)
+    present = frames[present_idx].time
     _ensure_prefetch(bbox, graph_w, height_cells, start_idx=idx)
 
     err = None
@@ -218,6 +249,16 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     mrow = int((maxlat - m_lat) / (maxlat - minlat) * height_cells)
     if 0 <= mcol < graph_w and 0 <= mrow < height_cells:
         overlays[(mcol, mrow)] = ("+", MARKER)
+
+    dx, dy = pan_offset
+    if dx or dy:
+        # mid-drag preview: slide the already-composed layers in screen space
+        # (no re-projection, no fetches); the real re-render lands on release
+        basemap = _ShiftedBasemap(_shift_grid(basemap.dots, dx, dy, 0),
+                                  _shift_grid(basemap.color, dx, dy, None))
+        radar = _shift_grid(radar, dx, dy * 2, None)  # sub-pixel rows: 2/cell
+        overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
+                    if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
 
     map_lines = compose(basemap, radar, overlays, graph_w, height_cells)
 
@@ -308,9 +349,20 @@ def main():
             zoom[0] = new_zoom
             return True
 
-        def on_drag(dcol, drow):
-            # Dragging pulls the map: content follows the pointer, so the
-            # view centre moves the opposite way.
+        pan_preview = [0, 0]  # live cell offset while a drag is in progress
+
+        def on_drag(dcol, drow, done):
+            if not done:
+                # mid-drag: update the screen-space preview offset only
+                changed = pan_preview != [dcol, drow]
+                pan_preview[0], pan_preview[1] = dcol, drow
+                return changed
+            had_preview = pan_preview[0] or pan_preview[1]
+            pan_preview[0] = pan_preview[1] = 0
+            if not (dcol or drow):
+                return bool(had_preview)  # zero-delta release = plain click
+            # commit: dragging pulls the map, so the view centre moves the
+            # opposite way; the release re-render re-projects for real
             cols, rows = get_terminal_size()
             gw, hc = max(20, cols), max(8, rows - 2)
             lon_span = zoom[0] * (gw / (hc * 2)) / math.cos(math.radians(center[0]))
@@ -332,7 +384,8 @@ def main():
             lambda play_frame=0, playing=True, **_: render_radar(
                 center[0], center[1], location_name, zoom[0],
                 play_frame=play_frame, playing=playing, marker=(lat, lon),
-                runtime=runtime, block=False),
+                runtime=runtime, block=False,
+                pan_offset=(pan_preview[0], pan_preview[1])),
             interval=FRAME_STEP,   # pick up a new composite every 5 min
             mouse=True,
             auto_play=True,
@@ -341,12 +394,9 @@ def main():
             on_drag=on_drag,
         )
     else:
-        # static: the present (newest observed) frame
-        frames = _source.current_frames()
-        present_idx = max((i for i, f in enumerate(frames) if not f.future),
-                          default=len(frames) - 1) if frames else 0
+        # static: play_frame 0 is the present (newest observed) frame
         print(render_radar(lat, lon, location_name, args.zoom,
-                           play_frame=present_idx, playing=False,
+                           play_frame=0, playing=False,
                            runtime=runtime))
 
 
