@@ -115,6 +115,62 @@ class TestBasemapSyntheticData:
         assert basemap_mod._DATA["cities"][0][3] == "Testville"
 
 
+class TestBasemapLakes:
+    """Lakes are carved out of the land fill (their islands staying land via
+    even-odd fill) and their shorelines stroked like coastline."""
+
+    BBOX = (-5.0, -5.0, 5.0, 5.0)
+    GRAPH_W = 10
+    HEIGHT_CELLS = 5
+
+    def setup_method(self):
+        self._original_data = basemap_mod._DATA
+        square = lambda x0, y0, x1, y1: [
+            [x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]
+        basemap_mod._DATA = {
+            # land spans [-4,4]^2; the lake [-2,2]^2 has an island [0.5,1.5]^2
+            "land": [[square(-4, -4, 4, 4)]],
+            "lakes": [[square(-2, -2, 2, 2), square(0.5, 1.5, 1.5, 0.5)]],
+            "borders": [],
+            "cities": [],
+        }
+
+    def teardown_method(self):
+        basemap_mod._DATA = self._original_data
+
+    def _build(self):
+        return Basemap(self.BBOX, self.GRAPH_W, self.HEIGHT_CELLS)
+
+    def test_lake_interior_gets_sea_stipple(self):
+        bm = self._build()
+        # lon=-1, lat=0.5 is open lake water (clear of shore and island)
+        # -> dot (8, 9) -> cell (4, 2)
+        assert bm.dots[2][4] != 0
+        assert bm.color[2][4] == SEA
+
+    def test_land_between_lake_and_coast_stays_empty(self):
+        bm = self._build()
+        # lon=-3, lat=3 is on land, between the lake and the outer coast
+        # -> dot (4, 4) -> cell (2, 1)
+        assert bm.dots[1][2] == 0
+        assert bm.color[1][2] is None
+
+    def test_lake_shoreline_stroked_as_coast(self):
+        bm = self._build()
+        # lon=0, lat=2 sits on the lake's northern shoreline
+        # -> dot (10, 6) -> cell (5, 1)
+        assert bm.dots[1][5] != 0
+        assert bm.color[1][5] == COAST
+
+    def test_island_in_lake_is_land_in_mask(self):
+        bm = self._build()
+        land = bm._sea_mask()
+        assert land[8][12] == 1   # island centre (lon=1, lat=0.75)
+        assert land[9][8] == 0    # open lake (lon=-1, lat=0.25)
+        assert land[4][4] == 1    # mainland (lon=-3, lat=2.75)
+        assert land[19][19] == 0  # open sea outside the land square
+
+
 class TestNearestCity:
     """nearest_city against a synthetic city list (same isolation pattern
     as TestBasemapSyntheticData)."""
@@ -206,6 +262,18 @@ class TestVendoredDataLookups:
 
     def test_land_is_not_water(self):
         assert marine_region(42.36, -71.06) is None  # Boston
+
+    def test_great_lakes_are_named(self):
+        assert marine_region(44.0, -87.0) == "Lake Michigan"
+        assert marine_region(47.5, -87.5) == "Lake Superior"
+
+    def test_caspian_sea_named_via_marine_layer(self):
+        # the Caspian is carved out of NE's *land* layer (not the lakes
+        # layer), so it must keep resolving through the marine polys
+        assert marine_region(42.0, 50.5) == "Caspian Sea"
+
+    def test_lakeside_city_is_not_water(self):
+        assert marine_region(41.88, -87.63) is None  # Chicago
 
     def test_east_siberian_sea_survives_simplification(self):
         # regression: the old Douglas-Peucker dropped each split vertex, which

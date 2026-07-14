@@ -1,6 +1,6 @@
 """Braille geography layer for the radar view.
 
-Everything that is *geography* (sea, coastlines, borders) is drawn in braille
+Everything that is *geography* (sea, lakes, coastlines, borders) is drawn in braille
 at 2x4-dot-per-cell resolution; the weather radar is painted over it as a
 half-block colour fill by the renderer.  This module loads the vendored
 Natural Earth data, rasterises a land/sea mask, and produces per-cell braille
@@ -180,10 +180,13 @@ class Basemap(DotLayer):
         super().__init__(bbox, graph_w, height_cells)
         self._build()
 
-    def _sea_mask(self):
-        """Boolean land mask at dot resolution via scanline polygon fill."""
-        land = [bytearray(self.dw) for _ in range(self.dh)]
-        for rings in _load_data()["land"]:
+    def _fill_polys(self, polys, grid, value):
+        """Scanline even-odd fill of polygons into a dot-resolution grid.
+
+        Even-odd pairing across all of a polygon's rings means holes (islands
+        in a lake, lakes passed as their own polygons) come out unfilled.
+        """
+        for rings in polys:
             if not self._in_view([p for ring in rings for p in ring]):
                 continue
             # project rings to dot space
@@ -203,12 +206,23 @@ class Basemap(DotLayer):
                         if (ay <= yc < by) or (by <= yc < ay):
                             xs.append(ax + (yc - ay) / (by - ay) * (bx - ax))
                 xs.sort()
-                row = land[y]
+                row = grid[y]
                 for i in range(0, len(xs) - 1, 2):
                     xa = max(0, int(xs[i] + 0.5))
                     xb = min(self.dw, int(xs[i + 1] + 0.5))
                     for x in range(xa, xb):
-                        row[x] = 1
+                        row[x] = value
+
+    def _sea_mask(self):
+        """Boolean land mask at dot resolution via scanline polygon fill.
+
+        NE land polygons don't carve out lakes, so lakes are filled back to
+        water afterwards (their island holes stay land via even-odd fill).
+        """
+        data = _load_data()
+        land = [bytearray(self.dw) for _ in range(self.dh)]
+        self._fill_polys(data["land"], land, 1)
+        self._fill_polys(data.get("lakes", ()), land, 0)
         return land
 
     def _build(self):
@@ -219,11 +233,12 @@ class Basemap(DotLayer):
             for dx in range(self.dw):
                 if not lrow[dx] and (dx + dy) % 2 == 0:
                     self._set_dot(dx, dy, SEA)
-        # 2) coastlines, then borders on top (priority order). Coast strokes
-        # are the land polygons' own outlines, so the emphasized coastline and
-        # the land/sea fill boundary can never disagree.
+        # 2) coastlines (sea + lake shorelines), then borders on top (priority
+        # order). Coast strokes are the land/lake polygons' own outlines, so
+        # the emphasized coastline and the fill boundary can never disagree.
         data = _load_data()
         coast = [ring for rings in data["land"] for ring in rings]
+        coast += [ring for rings in data.get("lakes", ()) for ring in rings]
         self._draw_lines(coast, COAST)
         self._draw_lines(data["borders"], BORDER)
 

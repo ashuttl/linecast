@@ -122,15 +122,15 @@ def _polys(features, eps, min_ring=6):
 
 
 def _marine(features, eps):
-    """[name, area_deg2, rings] per named water body, smallest-first.
+    """[name, area_deg2, rings] per named water body, unsorted.
 
     Only used at runtime for point-in-polygon naming ("which water body is
     the view centre in?"), so simplification can be much coarser than the
     drawn layers.  All of a feature's rings (across MultiPolygon parts,
     exteriors and holes alike) are flattened into one list: even-odd ray
-    casting over the lot gives correct containment.  Smallest-area-first
-    ordering makes the first hit the most specific name (Gulf of Maine
-    before North Atlantic Ocean).
+    casting over the lot gives correct containment.  The caller sorts the
+    combined list smallest-area-first so the first hit is the most specific
+    name (Gulf of Maine before North Atlantic Ocean).
     """
     out = []
     for ft in features:
@@ -158,7 +158,6 @@ def _marine(features, eps):
                     rings.append(simp)
         if rings:
             out.append([name, round(max(area, 0.0), 2), rings])
-    out.sort(key=lambda m: m[1])
     return out
 
 
@@ -168,6 +167,12 @@ def main():
     # strokes (ring outlines), so there is no separate coastline dataset to
     # drift out of alignment with the fill boundary
     land = _polys(_load("ne_50m_land.geojson"), eps=0.012, min_ring=4)
+    # NE land does NOT carve out lakes (except the Caspian, which it treats
+    # as coastline), so without this layer the Great Lakes render as solid
+    # land.  Drawn as water at runtime: carved from the sea mask, shorelines
+    # stroked like coast.
+    lake_feats = _load("ne_50m_lakes.geojson")
+    lakes = _polys(lake_feats, eps=0.012, min_ring=4)
     borders = (_lines(_load("ne_50m_admin_1_states_provinces_lines.geojson"), eps=0.012)
                + _lines(_load("ne_50m_admin_0_boundary_lines_land.geojson"), eps=0.012))
 
@@ -186,11 +191,14 @@ def main():
         cities.append([round(lon, 3), round(lat, 3), pop, pr.get("name", "?")])
     cities.sort(key=lambda c: -c[2])
 
-    # named water bodies (gulfs, bays, seas, oceans) for the header's
-    # "where am I" readout — naming only, never drawn
-    marine = _marine(_load("ne_10m_geography_marine_polys.geojson"), eps=0.05)
+    # named water bodies (gulfs, bays, seas, oceans, lakes) for the header's
+    # "where am I" readout — naming only, never drawn.  Lakes get a finer eps
+    # so small named ones (Dead Sea) survive the >=4-point ring cut.
+    marine = (_marine(_load("ne_10m_geography_marine_polys.geojson"), eps=0.05)
+              + _marine(lake_feats, eps=0.02))
+    marine.sort(key=lambda m: m[1])
 
-    data = {"region": list(REGION), "land": land,
+    data = {"region": list(REGION), "land": land, "lakes": lakes,
             "borders": borders, "cities": cities, "marine": marine}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     # mtime=0 keeps the archive byte-identical across rebuilds of same input
@@ -198,7 +206,7 @@ def main():
         fh.write(json.dumps(data, separators=(",", ":")).encode())
     size = os.path.getsize(OUT)
     print(f"wrote {OUT} ({size // 1024} KB): "
-          f"{len(land)} land polys, "
+          f"{len(land)} land polys, {len(lakes)} lakes, "
           f"{len(borders)} border lines, {len(cities)} cities, "
           f"{len(marine)} water bodies")
 
