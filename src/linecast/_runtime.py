@@ -143,9 +143,9 @@ def radar_parser():
                     help="degrees of latitude shown top-to-bottom (default 6)")
     p.add_argument("--theme", default=None,
                     help="radar colour theme (LibreWXR server-rendered): "
-                         "universal-blue (default), rainbow (classic radar "
-                         "look), nexrad, original, titan, twc, meteored, "
-                         "dark-sky, datameteo, viper, mrms, max-storm, "
+                         "dark-sky (default), universal-blue, rainbow "
+                         "(classic radar look), nexrad, original, titan, "
+                         "twc, meteored, datameteo, viper, mrms, max-storm, "
                          "black-white; press t in live mode to pick "
                          "interactively")
     return p

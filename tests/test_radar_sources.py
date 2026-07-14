@@ -100,8 +100,8 @@ class TestThemeId:
         assert theme_id("255") is None  # raw scheme reserved for a future pass
         assert theme_id(None) is None
 
-    def test_default_theme_is_universal_blue(self):
-        assert THEMES[DEFAULT_THEME] == 2
+    def test_default_theme_is_dark_sky(self):
+        assert THEMES[DEFAULT_THEME] == 8
 
 
 class TestGetSource:

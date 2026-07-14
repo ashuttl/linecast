@@ -279,13 +279,17 @@ def _theme_menu_overlay(names, sel, current, lang, cols, rows):
         for i, line in enumerate(lines))
 
 
-def _timeline_bar(idx, n, width):
-    """A compact scrubber: ─ track with a ● playhead at frame idx."""
+def _timeline_bar(idx, n, width, present=None):
+    """A compact scrubber: ─ track, ┼ notch at the present frame, ● playhead."""
     if n <= 1 or width < 3:
         return ""
     pos = round(idx / (n - 1) * (width - 1))
+    now = (round(present / (n - 1) * (width - 1))
+           if present is not None else None)
     track = "".join(
-        f"{fg(*MARKER)}●" if i == pos else f"{fg(*DIM)}─"
+        f"{fg(*MARKER)}●" if i == pos else
+        f"{fg(*MUTED)}┼" if i == now else
+        f"{fg(*DIM)}─"
         for i in range(width)
     )
     return track + RESET
@@ -419,7 +423,8 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         left = f"{fg(*DIM)}{_source.attribution}{RESET}"
         hint = (f"{fg(*DIM)}{rs('hint', lang)}{RESET}"
                 if sys.stdout.isatty() else "")
-        bar = _timeline_bar(idx, len(frames), min(28, max(10, cols // 3)))
+        bar = _timeline_bar(idx, len(frames), min(28, max(10, cols // 3)),
+                            present=present_idx)
         for foot in (f"{left}  {bar}  {hint}",
                      f"{left}  {hint}",
                      f"{left}  {bar}",

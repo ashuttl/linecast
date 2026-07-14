@@ -22,8 +22,8 @@ LANG_CODES = (
 )
 
 # radar --theme palettes; keep in sync with _radar_sources.THEMES
-THEME_VALUES = ("universal-blue", "rainbow", "nexrad", "original", "titan",
-                "twc", "meteored", "dark-sky", "datameteo", "viper", "mrms",
+THEME_VALUES = ("dark-sky", "universal-blue", "rainbow", "nexrad", "original",
+                "titan", "twc", "meteored", "datameteo", "viper", "mrms",
                 "max-storm", "black-white")
 SHELLS = ("bash", "zsh", "fish")
 

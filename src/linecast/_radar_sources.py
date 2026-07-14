@@ -25,6 +25,7 @@ _CONUS = (-127.0, 23.0, -65.0, 50.0)
 # LibreWXR server-rendered colour schemes (name → tile-path colour id),
 # in picker display order.
 THEMES = {
+    "dark-sky": 8,
     "universal-blue": 2,
     "rainbow": 7,
     "nexrad": 6,
@@ -32,15 +33,14 @@ THEMES = {
     "titan": 3,
     "twc": 4,
     "meteored": 5,
-    "dark-sky": 8,
     "datameteo": 9,
     "viper": 10,
     "mrms": 11,
     "max-storm": 12,
     "black-white": 0,
 }
-# matches the palette we rendered before LibreWXR (RainViewer free tier)
-DEFAULT_THEME = "universal-blue"
+DEFAULT_THEME = "dark-sky"
+# (universal-blue is the palette we rendered before LibreWXR)
 
 
 def theme_id(value):
