@@ -20,6 +20,10 @@ SHA256=$(echo "$JSON" | python3 -c "import sys,json; urls=json.load(sys.stdin)['
 echo "URL: $PYPI_URL"
 echo "SHA256: $SHA256"
 
+# releases can come from any machine: sync the tap before editing the
+# formula so the push below can't be rejected as non-fast-forward
+git -C "$HOMEBREW_DIR" pull --rebase origin main
+
 FORMULA="$HOMEBREW_DIR/Formula/linecast.rb"
 sed -i '' "s|url \".*\"|url \"$PYPI_URL\"|" "$FORMULA"
 sed -i '' "s|sha256 \".*\"|sha256 \"$SHA256\"|" "$FORMULA"
