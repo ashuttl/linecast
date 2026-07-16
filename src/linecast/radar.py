@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Radar — terminal weather radar over a braille basemap.
 
-Renders live base-reflectivity over a braille basemap: the sea is a braille
-stipple, coastlines and state/national borders are braille strokes, and the
-radar echoes are painted on top as a half-block colour fill.  In live mode,
+Renders live base-reflectivity over a braille basemap: the sea is a solid
+colour fill, coastlines and state/national borders are braille strokes, and
+the radar echoes blend over it all as a half-block colour fill (labels and
+braille keep the blended echo colour as their background).  In live mode,
 scroll (or arrow keys) to rewind through the last few hours and watch a storm
 approach.
 
@@ -81,7 +82,8 @@ def _load_frame(bbox, gw, hc, frame):
     if hit is not None:
         return hit
     pw, ph, rgba = _source.frame_rgba(bbox, gw, hc, frame)
-    result = build_radar_buffer(rgba, pw, ph, gw, hc)
+    result = build_radar_buffer(rgba, pw, ph, gw, hc,
+                                sea=_get_basemap(bbox, gw, hc).sea)
     with _frame_lock:
         _frame_cache[key] = result
         if len(_frame_cache) > N_FRAMES + 8:  # bound to the rewind window
@@ -237,11 +239,12 @@ def _panned_place(lat, lon, lang):
 
 class _ShiftedBasemap:
     """Duck-typed stand-in for Basemap during a drag preview."""
-    __slots__ = ("dots", "color")
+    __slots__ = ("dots", "color", "sea")
 
-    def __init__(self, dots, color):
+    def __init__(self, dots, color, sea=None):
         self.dots = dots
         self.color = color
+        self.sea = sea
 
 
 def _shift_grid(rows, dx, dy, fill):
@@ -378,7 +381,8 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         # mid-drag preview: slide the already-composed layers in screen space
         # (no re-projection, no fetches); the real re-render lands on release
         basemap = _ShiftedBasemap(_shift_grid(basemap.dots, dx, dy, 0),
-                                  _shift_grid(basemap.color, dx, dy, None))
+                                  _shift_grid(basemap.color, dx, dy, None),
+                                  _shift_grid(basemap.sea, dx, dy * 2, False))
         radar = _shift_grid(radar, dx, dy * 2, None)  # sub-pixel rows: 2/cell
         if warn_layer is not None:
             warn_layer = _ShiftedBasemap(

@@ -7,8 +7,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._color import BG_PRIMARY, lerp
+from linecast._color import BG_PRIMARY, bg, lerp
 from linecast._framebuffer import HALF_BLOCK
+from linecast._radar_basemap import SEA_FILL
 from linecast._radar_render import bbox_for, build_radar_buffer, compose
 
 _ANSI_RE = re.compile(r"\033\[[^m]*m")
@@ -19,9 +20,11 @@ def _strip_ansi(s):
 
 
 class FakeBasemap:
-    def __init__(self, dots, color):
+    def __init__(self, dots, color, sea=None):
         self.dots = dots
         self.color = color
+        if sea is not None:
+            self.sea = sea
 
 
 class TestBboxFor:
@@ -130,6 +133,46 @@ class TestCompose:
         lines = compose(basemap, radar, {}, graph_w=1, height_cells=1)
         stripped = _strip_ansi(lines[0])
         assert stripped == " "
+
+    def test_overlay_background_is_blended_echo(self):
+        # a label over the weather keeps the echo colour as its background
+        # instead of punching a dark hole in the storm
+        basemap = FakeBasemap(dots=[[0]], color=[[None]])
+        radar = [[(10, 20, 30)], [(40, 50, 60)]]
+        overlays = {(0, 0): ("X", (9, 9, 9))}
+        lines = compose(basemap, radar, overlays, graph_w=1, height_cells=1)
+        assert bg(*lerp((10, 20, 30), (40, 50, 60), 0.5)) in lines[0]
+
+    def test_braille_geography_draws_over_echo(self):
+        # coast/border braille stays visible on top of the weather, with the
+        # blended echo colour as its background
+        basemap = FakeBasemap(dots=[[5]], color=[[(1, 2, 3)]])
+        radar = [[(10, 20, 30)], [(40, 50, 60)]]
+        lines = compose(basemap, radar, {}, graph_w=1, height_cells=1)
+        assert chr(0x2800 + 5) in lines[0]
+        assert HALF_BLOCK not in lines[0]
+        assert bg(*lerp((10, 20, 30), (40, 50, 60), 0.5)) in lines[0]
+
+    def test_sea_mask_renders_solid_fill(self):
+        basemap = FakeBasemap(dots=[[0]], color=[[None]], sea=[[True], [True]])
+        radar = [[None], [None]]
+        lines = compose(basemap, radar, {}, graph_w=1, height_cells=1)
+        assert bg(*SEA_FILL) in lines[0]
+        assert _strip_ansi(lines[0]) == " "  # equal halves render as a space
+
+    def test_sea_half_cell_renders_half_block(self):
+        # top sub-pixel water, bottom land -> a half-block splits the cell
+        basemap = FakeBasemap(dots=[[0]], color=[[None]], sea=[[True], [False]])
+        radar = [[None], [None]]
+        lines = compose(basemap, radar, {}, graph_w=1, height_cells=1)
+        assert HALF_BLOCK in lines[0]
+
+    def test_partial_alpha_blends_toward_sea_fill_over_water(self):
+        pw, ph = 1, 1
+        rgba = bytearray([10, 20, 30, 128])
+        buf, echo = build_radar_buffer(rgba, pw, ph, graph_w=1, height_cells=1,
+                                       sea=[[True], [True]])
+        assert buf[0][0] == lerp(SEA_FILL, (10, 20, 30), 128 / 255)
 
     def test_priority_order_across_row(self):
         # col0: overlay+radar -> overlay wins; col1: radar only -> half-block;
