@@ -8,14 +8,16 @@ overlays on the weather rather than punching dark holes in it.
 Per terminal cell, the layers resolve in priority order:
 
   1. city marker / label   → text glyph over the cell's blended colour
-  2. warning outline (braille stroke, dark bg cut out of the echo)
+  2. warning outline (braille stroke over the cell's blended colour)
   3. coast / border braille → stroke over the cell's blended colour
   4. radar echo blended over sea fill / land at half-block resolution
 
 A glyph cell collapses its two sub-pixels into one background colour, so full
-half-block resolution is lost only where a glyph actually sits.  Warning
-outlines keep a dark background instead of the blend: they matter most inside
-the brightest echoes, where a same-colour background would swallow them.
+half-block resolution is lost only where a glyph actually sits.  Every glyph —
+label, warning outline, coastline — keeps the blended echo colour as its
+background so it reads as a transparent overlay on the weather; the warning
+stroke is contrast-corrected per cell so it stays legible over the brightest
+cores.
 """
 
 import math
@@ -71,7 +73,6 @@ def build_radar_buffer(rgba, pw, ph, graph_w, height_cells, sea=None):
 
 def compose(basemap, radar, overlays, graph_w, height_cells, warnings=None):
     """Composite geography + radar + overlays into a list of ANSI line strings."""
-    base_bg = bg(*BG_PRIMARY)
     sea = getattr(basemap, "sea", None)
     lines = []
     for cy in range(height_cells):
@@ -105,9 +106,12 @@ def compose(basemap, radar, overlays, graph_w, height_cells, warnings=None):
             if warnings is not None:
                 wmask = warnings.dots[cy][cx]
                 if wmask:
-                    # dark bg cuts the stroke out of the echo fill, so the
-                    # outline stays readable over any echo colour
-                    parts.append(f"{base_bg}{fg(*warnings.color[cy][cx])}"
+                    # transparent overlay: keep the blended echo colour as the
+                    # background and contrast-correct the stroke so the outline
+                    # stays readable over the brightest cores
+                    cell = lerp(top, bot, 0.5)
+                    color = ensure_contrast(warnings.color[cy][cx], cell, 3.0)
+                    parts.append(f"{bg(*cell)}{fg(*color)}"
                                  f"{chr(0x2800 + wmask)}")
                     continue
             mask = basemap.dots[cy][cx]

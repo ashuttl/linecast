@@ -32,12 +32,12 @@ class TestParse:
     def test_whitelisted_warnings_kept_with_colors(self):
         fc = {"features": [_feature("TO"), _feature("SV"), _feature("FF")]}
         parsed = _parse(fc)
-        assert [color for _s, color, _r in parsed] == [
+        assert [color for _s, color, _r, _i in parsed] == [
             WARNING_COLORS["FF"], WARNING_COLORS["SV"], WARNING_COLORS["TO"]]
 
     def test_sorted_least_severe_first(self):
         fc = {"features": [_feature("TO"), _feature("MA"), _feature("SV")]}
-        sevs = [s for s, _c, _r in _parse(fc)]
+        sevs = [s for s, _c, _r, _i in _parse(fc)]
         assert sevs == sorted(sevs)
 
     def test_non_warnings_and_unknown_phenomena_excluded(self):
@@ -62,6 +62,24 @@ class TestParse:
         ft = _feature("TO")
         ft["geometry"] = None
         assert _parse({"features": [ft]}) == []
+
+    def test_info_carries_name_and_expire(self):
+        ft = _feature("SV")
+        ft["properties"].update(ps="Severe Thunderstorm Warning",
+                                 expire="2026-07-16T20:00:00Z")
+        info = _parse({"features": [ft]})[0][3]
+        assert info["name"] == "Severe Thunderstorm Warning"
+        assert info["expire"] == "2026-07-16T20:00:00Z"
+        assert info["emergency"] is False
+
+    def test_info_name_falls_back_when_ps_missing(self):
+        # the _feature helper omits ps
+        info = _parse({"features": [_feature("TO")]})[0][3]
+        assert info["name"] == "Tornado Warning"
+
+    def test_info_flags_emergency(self):
+        info = _parse({"features": [_feature("FF", emergency=True)]})[0][3]
+        assert info["emergency"] is True
 
 
 class TestCache:

@@ -17,13 +17,16 @@ Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--theme NAME]
              [--print] [--search CITY]
 """
 
+import datetime as _dt
 import os
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from linecast._color import fg, RESET, BOLD
+from linecast._color import fg, bg, RESET, BOLD
 from linecast._framebuffer import get_terminal_size, fmt_time_dt
+from linecast._theme import ensure_contrast
+from linecast._weather_style import TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB
 from linecast._location import get_location
 from linecast import _radar_warnings
 from linecast._radar_basemap import (
@@ -286,6 +289,85 @@ def _theme_menu_overlay(names, sel, current, lang, cols, rows):
         for i, line in enumerate(lines))
 
 
+def _point_in_rings(lon, lat, rings):
+    """Even-odd ray cast across all of a warning's rings (same rule as the
+    basemap's marine containment). True if the point falls inside."""
+    inside = False
+    for ring in rings:
+        for i in range(len(ring) - 1):
+            (x0, y0), (x1, y1) = ring[i], ring[i + 1]
+            if (y0 <= lat < y1) or (y1 <= lat < y0):
+                if lon < x0 + (lat - y0) / (y1 - y0) * (x1 - x0):
+                    inside = not inside
+    return inside
+
+
+def _fmt_expire(iso, use_24h):
+    """"2026-07-17T05:00:00Z" → localised time-of-day, or None."""
+    if not iso:
+        return None
+    try:
+        exp = _dt.datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return None
+    return _fmt_local(exp, use_24h)
+
+
+def _build_warning_tooltip(warns, mouse_pos, bbox, graph_w, height_cells,
+                           cols, rows, use_24h):
+    """A floating chip naming the warning(s) under the cursor, drawn over the
+    map via live_loop's \\x00 overlay channel. Empty string when the pointer
+    isn't over a warned area.
+
+    The warned *area* is hoverable, not just its braille outline: we invert
+    the cell → lon/lat projection and point-in-polygon test the raw rings, so
+    the whole polygon interior surfaces its alert.
+    """
+    mcol, mrow = mouse_pos
+    cx, cy = mcol - 1, mrow - 2  # 1-based terminal → 0-based cell (row 1 = header)
+    if not (0 <= cx < graph_w and 0 <= cy < height_cells):
+        return ""
+    minlon, minlat, maxlon, maxlat = bbox
+    lon = minlon + (cx + 0.5) / graph_w * (maxlon - minlon)
+    lat = maxlat - (cy + 0.5) / height_cells * (maxlat - minlat)
+
+    # most-severe-first (warns is least-severe-first), so the deadliest
+    # overlapping warning heads the list
+    hits = [(color, info) for _sev, color, rings, info in warns
+            if _point_in_rings(lon, lat, rings)]
+    if not hits:
+        return ""
+    hits.reverse()
+
+    TBG = bg(*TOOLTIP_BG_RGB)
+    lines = []
+    for color, info in hits[:4]:
+        name = info.get("name", "")
+        if info.get("emergency"):
+            name += " ‼"
+        elif info.get("pds"):
+            name += " (PDS)"
+        until = _fmt_expire(info.get("expire"), use_24h)
+        tail = f"  {fg(*MUTED)}→ {until}" if until else ""
+        cfg = fg(*ensure_contrast(color, TOOLTIP_BG_RGB, 3.0))
+        lines.append(f"{TBG} {cfg}{name}{tail} ")
+    if len(hits) > 4:
+        lines.append(f"{TBG} {fg(*MUTED)}+{len(hits) - 4} ")
+
+    width = max(visible_len(ln) for ln in lines)
+    padded = [f"{ln}{TBG}{' ' * (width - visible_len(ln))}{RESET}"
+              for ln in lines]
+
+    # anchor below-right of the pointer, pulled inward at the screen edges
+    col = mcol + 1
+    row = mrow + 1
+    if col + width - 1 > cols:
+        col = max(1, mcol - width)
+    if row + len(padded) - 1 > rows:
+        row = max(1, mrow - len(padded))
+    return "".join(f"\033[{row + i};{col}H{ln}" for i, ln in enumerate(padded))
+
+
 def _timeline_bar(idx, n, width, present=None):
     """A compact scrubber: ─ track, ┼ notch at the present frame, ● playhead."""
     if n <= 1 or width < 3:
@@ -304,7 +386,7 @@ def _timeline_bar(idx, n, width, present=None):
 
 def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                  marker=None, runtime=None, block=True, pan_offset=(0, 0),
-                 theme_menu=None, **_):
+                 theme_menu=None, mouse_pos=None, **_):
     lang = runtime.lang if runtime else "en"
     use_24h = runtime.use_24h if runtime else False
     cols, rows = get_terminal_size()
@@ -353,6 +435,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     # storm-based warning outlines valid at the displayed frame's time
     # (live mode: cache-only, the prefetcher warms them alongside frames)
     warn_layer = None
+    warns = None
     if _radar_warnings.covers(bbox) and not frame.future:
         if block:
             try:
@@ -363,7 +446,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
             warns = _radar_warnings.cached_at(when)
         if warns:
             warn_layer = DotLayer(bbox, graph_w, height_cells)
-            for _sev, color, rings in warns:  # least-severe-first: TO wins
+            for _sev, color, rings, _info in warns:  # least-severe-first: TO wins
                 warn_layer._draw_lines(rings, color, width=2)
 
     overlays = dict(basemap.city_overlays(lang=lang))
@@ -442,10 +525,18 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     foot += " " * max(0, cols - visible_len(foot))
 
     out = "\n".join([header, *map_lines, foot])
+    # a single \x00 overlay channel: the theme picker (modal) wins it while
+    # open; otherwise a hover tooltip names any warning under the cursor
+    overlay = ""
     if theme_menu is not None:
         names, sel = theme_menu
-        out += "\x00" + _theme_menu_overlay(
+        overlay = _theme_menu_overlay(
             names, sel, getattr(_source, "theme", None), lang, cols, rows)
+    elif mouse_pos and warns and pan_offset == (0, 0):
+        overlay = _build_warning_tooltip(
+            warns, mouse_pos, bbox, graph_w, height_cells, cols, rows, use_24h)
+    if overlay:
+        out += "\x00" + overlay
     return out
 
 
@@ -584,10 +675,10 @@ def main():
             return True
 
         live_loop(
-            lambda play_frame=0, playing=True, **_: render_radar(
+            lambda play_frame=0, playing=True, mouse_pos=None, **_: render_radar(
                 center[0], center[1], location_name, zoom[0],
                 play_frame=play_frame, playing=playing, marker=(lat, lon),
-                runtime=runtime, block=False,
+                runtime=runtime, block=False, mouse_pos=mouse_pos,
                 pan_offset=(pan_preview[0], pan_preview[1]),
                 theme_menu=((list(_source.themes), menu_sel[0])
                             if menu_sel[0] is not None
