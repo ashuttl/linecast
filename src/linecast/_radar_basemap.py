@@ -1,10 +1,11 @@
 """Braille geography layer for the radar view.
 
-Everything that is *geography* (sea, coastlines, borders) is drawn in braille
-at 2x4-dot-per-cell resolution; the weather radar is painted over it as a
-half-block colour fill by the renderer.  This module loads the vendored
-Natural Earth data, rasterises a land/sea mask, and produces per-cell braille
-dot masks + colours plus city label overlays for a given geographic window.
+Coastlines and borders are drawn in braille at 2x4-dot-per-cell resolution;
+the sea is a solid block-colour fill at half-block (sub-pixel) resolution so
+the weather radar can blend over it at full resolution.  This module loads
+the vendored Natural Earth data, rasterises a land/sea mask, and produces
+per-cell braille dot masks + colours, a sub-pixel sea mask, and city label
+overlays for a given geographic window.
 
 Data: Natural Earth (public domain, 1:50m), simplified globally by
 prototype/build_basemap_data.py → data/basemap.json.gz.  Per view we clip to
@@ -17,15 +18,25 @@ import math
 import os
 import unicodedata
 
+from linecast._theme import is_light_theme, lerp_rgb, theme_bg
+
 # braille dot bit for (col, row) within a 2x4 cell — matches _braille.py
 _BITS = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
 
 # geography palette (dim, so radar reads on top)
-SEA = (52, 72, 112)
 COAST = (120, 150, 178)
 BORDER = (108, 110, 130)
 CITY = (225, 225, 235)
 CITY_LABEL = (155, 160, 175)
+
+# The sea is a solid block-colour fill (not a braille stipple), so the radar
+# echo keeps its full half-block resolution over water and glyphs drawn on
+# top don't have to knock a hole in a stipple to stay legible.  Derived from
+# the terminal theme so it reads as water on dark and light backgrounds.
+if is_light_theme(theme_bg):
+    SEA_FILL = lerp_rgb(theme_bg, (120, 155, 205), 0.35)
+else:
+    SEA_FILL = lerp_rgb(theme_bg, (70, 100, 150), 0.42)
 
 _DATA = None
 
@@ -230,13 +241,24 @@ class Basemap(DotLayer):
         return land
 
     def _build(self):
-        # 1) sea stipple everywhere that isn't land (checkerboard dither)
+        # 1) sea as a solid fill at half-block (sub-pixel) resolution: one
+        # sub-pixel spans a 2x2 block of braille dots, and is sea when at
+        # least half of them fall on water.  compose() paints these
+        # sub-pixels SEA_FILL and blends the radar echo over them, so the
+        # weather keeps its full resolution over the ocean (the block edge
+        # is coarse, but the coastline braille re-adds the crisp boundary).
         land = self._sea_mask()
-        for dy in range(self.dh):
-            lrow = land[dy]
-            for dx in range(self.dw):
-                if not lrow[dx] and (dx + dy) % 2 == 0:
-                    self._set_dot(dx, dy, SEA)
+        spy_h = self.height_cells * 2
+        self.sea = [[False] * self.graph_w for _ in range(spy_h)]
+        for spy in range(spy_h):
+            srow = self.sea[spy]
+            top, bot = land[spy * 2], land[spy * 2 + 1]
+            for x in range(self.graph_w):
+                dx = x * 2
+                water = ((not top[dx]) + (not top[dx + 1])
+                         + (not bot[dx]) + (not bot[dx + 1]))
+                if water >= 2:
+                    srow[x] = True
         # 2) coastlines, then borders on top (priority order). Coast strokes
         # are the land polygons' own outlines, so the emphasized coastline and
         # the land/sea fill boundary can never disagree.

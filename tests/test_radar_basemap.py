@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import linecast._radar_basemap as basemap_mod
 from linecast._radar_basemap import (
     Basemap, _project, marine_region, nearest_city,
-    SEA, COAST, CITY, CITY_LABEL,
+    COAST, CITY, CITY_LABEL,
 )
 
 
@@ -68,19 +68,26 @@ class TestBasemapSyntheticData:
     def _build(self):
         return Basemap(self.BBOX, self.GRAPH_W, self.HEIGHT_CELLS)
 
-    def test_land_interior_has_no_sea_stipple(self):
+    def test_land_interior_is_not_sea_and_has_no_braille(self):
         bm = self._build()
         # lon=0, lat=0 is deep inside the land square -> dot (10,10) ->
-        # cell (dot_x//2, dot_y//4) = (5, 2)
+        # cell (dot_x//2, dot_y//4) = (5, 2), sub-pixel (dot_x//2, dot_y//2)
         assert bm.dots[2][5] == 0
         assert bm.color[2][5] is None
+        assert bm.sea[5][5] is False
 
-    def test_sea_outside_land_has_stipple(self):
+    def test_sea_outside_land_sets_subpixel_mask(self):
         bm = self._build()
         # lon=4, lat=4 is inside the bbox but far from the land square
-        # -> dot (18, 2) -> cell (9, 0)
-        assert bm.dots[0][9] != 0
-        assert bm.color[0][9] == SEA
+        # -> dot (18, 2) -> cell (9, 0), sub-pixel (9, 1).  Sea is a solid
+        # fill via the mask; it leaves no braille dots behind.
+        assert bm.sea[1][9] is True
+        assert bm.dots[0][9] == 0
+
+    def test_sea_mask_covers_full_subpixel_grid(self):
+        bm = self._build()
+        assert len(bm.sea) == self.HEIGHT_CELLS * 2
+        assert all(len(row) == self.GRAPH_W for row in bm.sea)
 
     def test_land_outline_sets_coast_color(self):
         bm = self._build()
