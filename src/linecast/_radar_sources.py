@@ -93,8 +93,10 @@ class _TileSource:
 
     def __init__(self, provider):
         self.provider = provider
+        self._sat_provider = tiles.satellite_provider(provider)
         self.host = None
         self._frames = []
+        self._sat_frames = []
         self._built_at = 0.0
         self._refresh()
 
@@ -110,6 +112,11 @@ class _TileSource:
             frames.append(Frame(_utc(f["time"]), f["path"], True))
         frames.sort(key=lambda fr: fr.time)
         self._frames = frames
+        # hourly global cloud mosaic; absent from indexes without satellite
+        sat = (idx.get("satellite") or {}).get("infrared") or []
+        self._sat_frames = sorted(
+            (Frame(_utc(f["time"]), f["path"], False) for f in sat),
+            key=lambda fr: fr.time)
         self._built_at = time.time()
 
     def current_frames(self):
@@ -121,9 +128,17 @@ class _TileSource:
                 pass
         return self._frames
 
+    def satellite_frames(self):
+        self.current_frames()  # shares the index refresh
+        return self._sat_frames
+
     def frame_rgba(self, bbox, gw, hc, frame):
         return tiles.reproject(self.provider, self.host, frame.token,
                                bbox, gw, hc * 2, mutable=frame.future)
+
+    def satellite_rgba(self, bbox, gw, hc, frame):
+        return tiles.reproject(self._sat_provider, self.host, frame.token,
+                               bbox, gw, hc * 2)
 
 
 class RainViewerSource(_TileSource):

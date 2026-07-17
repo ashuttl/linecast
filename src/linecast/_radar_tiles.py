@@ -57,6 +57,14 @@ def librewxr_provider(color):
                     color=color, options="1_1", max_zoom=12)
 
 
+def satellite_provider(provider):
+    # Satellite tiles ride the same index and URL shape as radar but are
+    # only rendered in one scheme (grayscale VIS-over-LW, alpha = cloud
+    # opacity), and the source mosaic is ~8 km so deep zooms add nothing.
+    return Provider(provider.name + "-sat", provider.index_url,
+                    color=0, options="0_0", max_zoom=6)
+
+
 def _cache_dir(provider):
     return CACHE_ROOT / "radar" / provider.name
 

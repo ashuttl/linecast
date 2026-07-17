@@ -159,6 +159,8 @@ def _read_key(fd):
         return 'key:-'
     if b in (b't', b'T'):
         return 'key:t'
+    if b in (b's', b'S'):
+        return 'key:s'
     if b in (b'\r', b'\n'):
         return 'key:enter'
     return None
