@@ -25,6 +25,12 @@ All data comes from free public APIs with no keys required.
 
 **`radar`** — Animated weather radar over a braille basemap. Powered by [LibreWXR](https://librewxr.net) worldwide: real radar composites for North America (NOAA MRMS incl. Alaska/Hawaii, Environment Canada), Europe (OPERA, 24 countries), Japan, Taiwan and more, with model-derived precipitation filling the gaps everywhere else, 60 minutes of forecast frames, and 13 colour themes (Dark Sky by default; `--theme rainbow`, or press `t` in live mode to pick from a menu). Falls back automatically to NEXRAD via Iowa Environmental Mesonet (US) or RainViewer (global). Drag to pan anywhere in the world; the header names wherever you land ("23 mi NE of Boston" near shore, "Gulf of Maine" once offshore) from an offline Natural Earth index, and a crosshair marks the view centre. In the US, storm-based warning polygons (tornado red, severe thunderstorm yellow, flash flood green, marine orange, snow squall violet, emergencies magenta) are outlined over the echoes and rewind in sync with the radar timeline.
 
+![radar — Warri, Nigeria](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar-warri.png)
+
+Like the rest of linecast, radar speaks all 16 languages — here looping the forecast over Qingdao with `--lang zh`:
+
+![radar loop — Qingdao, Chinese UI](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar-qingdao.gif)
+
 All four launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.
 
 ## Install
