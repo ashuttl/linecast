@@ -21,6 +21,10 @@ OUT = os.path.join(os.path.dirname(__file__), "..", "src", "linecast",
 # whole world (lon_min, lat_min, lon_max, lat_max)
 REGION = (-180.0, -90.0, 180.0, 90.0)
 
+# keep only lakes at least this big (km^2) from the finer 1:10m set — a
+# worldwide gain (Sebago is ~117, Moosehead ~340) without a flood of ponds
+LAKE_MIN_KM2 = 40.0
+
 
 def _load(name):
     with open(os.path.join(NE_DIR, name)) as fh:
@@ -100,6 +104,22 @@ def _lines(features, eps):
                 continue
             out.append(_round(_simplify([list(c) for c in coords], eps)))
     return out
+
+
+def _feature_area_km2(ft):
+    """Area of a lake feature's largest polygon, latitude-corrected — used to
+    keep only real lakes out of the dense 1:10m set."""
+    g = ft["geometry"]
+    polys = ([g["coordinates"]] if g["type"] == "Polygon"
+             else g["coordinates"] if g["type"] == "MultiPolygon" else [])
+    best = 0.0
+    for poly in polys:
+        ring = poly[0]
+        lat = sum(p[1] for p in ring) / len(ring)
+        a = abs(sum(ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
+                    for i in range(len(ring) - 1))) / 2
+        best = max(best, a * (111.32 ** 2) * math.cos(math.radians(lat)))
+    return best
 
 
 def _polys(features, eps, min_ring=6):
@@ -203,6 +223,15 @@ def main():
     # strokes (ring outlines), so there is no separate coastline dataset to
     # drift out of alignment with the fill boundary
     land = _polys(_load("ne_50m_land.geojson"), eps=0.012, min_ring=4)
+    # lakes carve holes in the land mask at runtime (NE land has none) and add
+    # their own shoreline strokes, so they render as water like the sea. Same
+    # eps/min_ring as land so the lake shorelines match coastline fidelity.
+    # 1:10m (not 1:50m): the coarse set drops Sebago and Moosehead while
+    # keeping Lake Winnipesaukee next door — area-filtered so the finer set
+    # is a worldwide gain, not a flood of ponds.
+    lakes = _polys([f for f in _load("ne_10m_lakes.geojson")
+                    if _feature_area_km2(f) >= LAKE_MIN_KM2],
+                   eps=0.012, min_ring=4)
     borders = (_lines(_load("ne_50m_admin_1_states_provinces_lines.geojson"), eps=0.012)
                + _lines(_load("ne_50m_admin_0_boundary_lines_land.geojson"), eps=0.012))
 
@@ -211,10 +240,15 @@ def main():
     cities = build_cities(_load("ne_10m_populated_places.geojson"))
 
     # named water bodies (gulfs, bays, seas, oceans) for the header's
-    # "where am I" readout — naming only, never drawn
-    marine = _marine(_load("ne_10m_geography_marine_polys.geojson"), eps=0.05)
+    # "where am I" readout — naming only, never drawn.  Named inland lakes
+    # join the list so the readout treats them as seas too ("Lake Superior");
+    # unnamed lakes are dropped by _marine.  Re-sort so smallest-area-first
+    # (most specific name) holds across the merged set.
+    marine = (_marine(_load("ne_10m_geography_marine_polys.geojson"), eps=0.05)
+              + _marine(_load("ne_50m_lakes.geojson"), eps=0.05))
+    marine.sort(key=lambda m: m[1])
 
-    data = {"region": list(REGION), "land": land,
+    data = {"region": list(REGION), "land": land, "lakes": lakes,
             "borders": borders, "cities": cities, "marine": marine}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     # mtime=0 keeps the archive byte-identical across rebuilds of same input.
@@ -225,7 +259,7 @@ def main():
                             ensure_ascii=False).encode("utf-8"))
     size = os.path.getsize(OUT)
     print(f"wrote {OUT} ({size // 1024} KB): "
-          f"{len(land)} land polys, "
+          f"{len(land)} land polys, {len(lakes)} lake polys, "
           f"{len(borders)} border lines, {len(cities)} cities, "
           f"{len(marine)} water bodies")
 

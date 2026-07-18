@@ -209,10 +209,12 @@ class Basemap(DotLayer):
         super().__init__(bbox, graph_w, height_cells)
         self._build()
 
-    def _sea_mask(self):
-        """Boolean land mask at dot resolution via scanline polygon fill."""
-        land = [bytearray(self.dw) for _ in range(self.dh)]
-        for rings in _load_data()["land"]:
+    def _fill_polys(self, land, poly_groups, value):
+        """Scanline-fill each polygon (a list of rings) into ``land`` at dot
+        resolution, writing ``value`` inside.  Even-odd across a group's rings
+        means interior rings (island holes) keep the opposite value, so filling
+        land with 1 and then carving lakes with 0 both respect their holes."""
+        for rings in poly_groups:
             if not self._in_view([p for ring in rings for p in ring]):
                 continue
             # project rings to dot space
@@ -237,7 +239,18 @@ class Basemap(DotLayer):
                     xa = max(0, int(xs[i] + 0.5))
                     xb = min(self.dw, int(xs[i + 1] + 0.5))
                     for x in range(xa, xb):
-                        row[x] = 1
+                        row[x] = value
+
+    def _sea_mask(self):
+        """Boolean land mask at dot resolution via scanline polygon fill.
+
+        Lakes are carved back to water after the land fill: Natural Earth's
+        land polygons have no lake holes cut out, so the Great Lakes (and every
+        other inland water body) would otherwise fill solid as land."""
+        land = [bytearray(self.dw) for _ in range(self.dh)]
+        data = _load_data()
+        self._fill_polys(land, data["land"], 1)
+        self._fill_polys(land, data.get("lakes", ()), 0)
         return land
 
     def _build(self):
@@ -264,6 +277,10 @@ class Basemap(DotLayer):
         # the land/sea fill boundary can never disagree.
         data = _load_data()
         coast = [ring for rings in data["land"] for ring in rings]
+        # lake shorelines are coastlines too: draw them in COAST so the crisp
+        # boundary is re-added over the coarse sub-pixel water fill, exactly as
+        # for the ocean coast.
+        coast += [ring for rings in data.get("lakes", ()) for ring in rings]
         self._draw_lines(coast, COAST)
         self._draw_lines(data["borders"], BORDER)
 

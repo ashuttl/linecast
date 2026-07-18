@@ -58,6 +58,7 @@ class TestBasemapSyntheticData:
         ]
         basemap_mod._DATA = {
             "land": [[land_ring]],
+            "lakes": [],
             "borders": [],
             "cities": cities,
         }
@@ -116,6 +117,19 @@ class TestBasemapSyntheticData:
         assert ("F", CITY_LABEL) not in overlays.values()
         # only Testville's marker + up to 4 label letters ("Test") exist
         assert len(overlays) == 5
+
+    def test_lake_carves_water_into_the_land_mask(self):
+        # a lake ring wholly inside the land square: Natural Earth's land
+        # polygons have no lake holes, so without the carve pass the lake
+        # interior would read as land. lon=0,lat=0 is dead centre of both.
+        basemap_mod._DATA["lakes"] = [[[(-1, -1), (1, -1), (1, 1), (-1, 1),
+                                        (-1, -1)]]]
+        bm = self._build()
+        # centre of the lake -> sub-pixel (5, 5): now water, not land
+        assert bm.sea[5][5] is True
+        # the lake shoreline is stroked in COAST just like the ocean coast;
+        # lon=0,lat=1 sits on the lake's top edge -> dot (10, 8) -> cell (5, 2)
+        assert bm.color[2][5] == COAST
 
     def test_data_restored_after_teardown_is_isolated_per_test(self):
         # sanity: synthetic data is active only inside this class's tests
@@ -272,6 +286,11 @@ class TestVendoredDataLookups:
 
     def test_land_is_not_water(self):
         assert marine_region(42.36, -71.06) is None  # Boston
+
+    def test_great_lakes_are_named_water(self):
+        # inland lakes join the marine set so the readout treats them as seas
+        assert marine_region(47.6, -87.5) == "Lake Superior"
+        assert marine_region(44.0, -87.0) == "Lake Michigan"
 
     def test_east_siberian_sea_survives_simplification(self):
         # regression: the old Douglas-Peucker dropped each split vertex, which
