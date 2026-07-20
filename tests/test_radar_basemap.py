@@ -298,6 +298,19 @@ class TestVendoredDataLookups:
         # middle of it "outside"
         assert marine_region(75.0, 160.0) == "East Siberian Sea"
 
+    def test_coast_matches_lake_fidelity(self):
+        # regression: the coast was 1:50m while lakes were 1:10m, so lake
+        # shorelines read crisp next to a blocky sea coast.  Guard that the
+        # Gulf of Maine coastline now carries 1:10m detail (it collapsed to
+        # ~100 vertices at 1:50m; 1:10m gives several hundred).
+        import linecast._radar_basemap as bm
+        gom = (-71.5, 42.5, -66.5, 45.5)
+        minlon, minlat, maxlon, maxlat = gom
+        n = sum(1 for rings in bm._load_data()["land"]
+                for ring in rings for x, y in ring
+                if minlon <= x <= maxlon and minlat <= y <= maxlat)
+        assert n > 300
+
     def test_nearest_city_real_data(self):
         name, dist_km, bearing = nearest_city(42.6, -70.8)
         assert name == "Salem"

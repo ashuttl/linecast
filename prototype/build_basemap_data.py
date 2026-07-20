@@ -25,6 +25,12 @@ REGION = (-180.0, -90.0, 180.0, 90.0)
 # worldwide gain (Sebago is ~117, Moosehead ~340) without a flood of ponds
 LAKE_MIN_KM2 = 40.0
 
+# land is 1:10m too (see main); its floor sits near one scope dot (~1 km at
+# approach zoom) so sub-dot islets that could never draw are dropped while
+# every island you could actually see survives — the ones dotting a bay are
+# the whole point of the finer coast
+LAND_MIN_KM2 = 1.0
+
 
 def _load(name):
     with open(os.path.join(NE_DIR, name)) as fh:
@@ -107,8 +113,8 @@ def _lines(features, eps):
 
 
 def _feature_area_km2(ft):
-    """Area of a lake feature's largest polygon, latitude-corrected — used to
-    keep only real lakes out of the dense 1:10m set."""
+    """Area of a feature's largest polygon, latitude-corrected — used to keep
+    only real lakes/islands out of the dense 1:10m land and lake sets."""
     g = ft["geometry"]
     polys = ([g["coordinates"]] if g["type"] == "Polygon"
              else g["coordinates"] if g["type"] == "MultiPolygon" else [])
@@ -221,8 +227,15 @@ def build_cities(features):
 def main():
     # land polygons serve double duty at runtime: sea-mask fill AND coastline
     # strokes (ring outlines), so there is no separate coastline dataset to
-    # drift out of alignment with the fill boundary
-    land = _polys(_load("ne_50m_land.geojson"), eps=0.012, min_ring=4)
+    # drift out of alignment with the fill boundary.
+    # 1:10m (not 1:50m), same as the lakes below: the coarse set made the sea
+    # coast read blocky right next to the finer lakes — the whole world's
+    # coastline carried fewer vertices than the lakes alone.  Area-filtered so
+    # the finer set is a worldwide gain rather than a flood of islets; same
+    # eps/min_ring as the lakes so coast and lake shorelines match fidelity.
+    land = _polys([f for f in _load("ne_10m_land.geojson")
+                   if _feature_area_km2(f) >= LAND_MIN_KM2],
+                  eps=0.012, min_ring=4)
     # lakes carve holes in the land mask at runtime (NE land has none) and add
     # their own shoreline strokes, so they render as water like the sea. Same
     # eps/min_ring as land so the lake shorelines match coastline fidelity.
