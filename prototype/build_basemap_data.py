@@ -21,6 +21,14 @@ OUT = os.path.join(os.path.dirname(__file__), "..", "src", "linecast",
 # whole world (lon_min, lat_min, lon_max, lat_max)
 REGION = (-180.0, -90.0, 180.0, 90.0)
 
+# Simplification tolerance in degrees.  Coastlines and lake shorelines (the
+# drawn foreground) and borders share one density here; marine polygons are
+# naming-only and never drawn, so they can be far coarser.  (The sister
+# project blips keeps a finer EPS_COAST — the copies differ only here.)
+EPS_COAST = 0.012
+EPS_BORDER = 0.012
+EPS_MARINE = 0.05     # naming only, never drawn — can be much coarser
+
 # keep only lakes at least this big (km^2) from the finer 1:10m set — a
 # worldwide gain (Sebago is ~117, Moosehead ~340) without a flood of ponds
 LAKE_MIN_KM2 = 40.0
@@ -235,7 +243,7 @@ def main():
     # eps/min_ring as the lakes so coast and lake shorelines match fidelity.
     land = _polys([f for f in _load("ne_10m_land.geojson")
                    if _feature_area_km2(f) >= LAND_MIN_KM2],
-                  eps=0.012, min_ring=4)
+                  eps=EPS_COAST, min_ring=4)
     # lakes carve holes in the land mask at runtime (NE land has none) and add
     # their own shoreline strokes, so they render as water like the sea. Same
     # eps/min_ring as land so the lake shorelines match coastline fidelity.
@@ -244,9 +252,9 @@ def main():
     # is a worldwide gain, not a flood of ponds.
     lakes = _polys([f for f in _load("ne_10m_lakes.geojson")
                     if _feature_area_km2(f) >= LAKE_MIN_KM2],
-                   eps=0.012, min_ring=4)
-    borders = (_lines(_load("ne_50m_admin_1_states_provinces_lines.geojson"), eps=0.012)
-               + _lines(_load("ne_50m_admin_0_boundary_lines_land.geojson"), eps=0.012))
+                   eps=EPS_COAST, min_ring=4)
+    borders = (_lines(_load("ne_50m_admin_1_states_provinces_lines.geojson"), eps=EPS_BORDER)
+               + _lines(_load("ne_50m_admin_0_boundary_lines_land.geojson"), eps=EPS_BORDER))
 
     # 1:10m places (the 1:50m set is mostly capitals — it misses mid-size
     # cities like Portland, ME), filtered to keep the file reasonable
@@ -257,8 +265,8 @@ def main():
     # join the list so the readout treats them as seas too ("Lake Superior");
     # unnamed lakes are dropped by _marine.  Re-sort so smallest-area-first
     # (most specific name) holds across the merged set.
-    marine = (_marine(_load("ne_10m_geography_marine_polys.geojson"), eps=0.05)
-              + _marine(_load("ne_50m_lakes.geojson"), eps=0.05))
+    marine = (_marine(_load("ne_10m_geography_marine_polys.geojson"), eps=EPS_MARINE)
+              + _marine(_load("ne_50m_lakes.geojson"), eps=EPS_MARINE))
     marine.sort(key=lambda m: m[1])
 
     data = {"region": list(REGION), "land": land, "lakes": lakes,
