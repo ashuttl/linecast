@@ -506,20 +506,38 @@ def main():
                     import webbrowser
                     webbrowser.open(url)
 
-        live_loop(
-            lambda offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0: render(
+        # Keep data in memory between renders: render_fn fires on every input
+        # event (hover motion, scroll), and re-reading disk caches — or worse,
+        # blocking on a network fetch when a TTL expires — on each mouse move
+        # makes the tooltip lag. Refresh at most once per interval instead.
+        import time as _t
+        live = {"data": data, "alerts": alerts, "aqi": aqi_data,
+                "fetched": _t.monotonic()}
+
+        def _render_live(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
+            if _t.monotonic() - live["fetched"] >= 300:
+                live["data"] = fetch_forecast(lat, lng, runtime) or live["data"]
+                live["alerts"] = fetch_alerts(lat, lng, final_country, lang=runtime.lang)
+                live["aqi"] = fetch_aqi(lat, lng)
+                live["fetched"] = _t.monotonic()
+            return render(
                 lat,
                 lng,
                 location_name,
                 final_country,
                 offset_minutes=offset_minutes,
                 runtime=runtime,
+                data=live["data"],
+                alerts=live["alerts"],
                 mouse_pos=mouse_pos,
                 active_alert=active_alert,
                 modal_scroll=modal_scroll,
-                aqi_data=None,  # re-fetched via render() on each refresh
+                aqi_data=live["aqi"],
                 historical=historical,  # cached — doesn't need re-fetch
-            ),
+            )
+
+        live_loop(
+            _render_live,
             interval=300,
             mouse=True,
             on_open=_open_alert_url,

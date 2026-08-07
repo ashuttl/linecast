@@ -403,6 +403,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                                 continue
                             # Hover-capable terminals.
                             mouse_pos = (cx, cy)
+                            if select.select([fd], [], [], 0)[0]:
+                                continue  # coalesce rapid motion: render once at the final position
                             break
                         # Fallback for terminals without motion reporting:
                         # update pointer on press so tooltip can still appear.
