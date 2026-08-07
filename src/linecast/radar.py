@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Radar — terminal weather radar over a braille basemap.
 
-Renders live base-reflectivity over a braille basemap: the sea is a braille
-stipple, coastlines and state/national borders are braille strokes, and the
-radar echoes are painted on top as a half-block colour fill.  In live mode,
+Renders live base-reflectivity over a braille basemap: the sea is a solid
+colour fill, coastlines and state/national borders are braille strokes, and
+the radar echoes blend over it all as a half-block colour fill (labels and
+braille keep the blended echo colour as their background).  In live mode,
 scroll (or arrow keys) to rewind through the last few hours and watch a storm
 approach.
 
@@ -21,13 +22,16 @@ Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--theme NAME]
              [--layers temp,wind] [--print] [--search CITY]
 """
 
+import datetime as _dt
 import os
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from linecast._color import fg, RESET, BOLD
+from linecast._color import fg, bg, RESET, BOLD
 from linecast._framebuffer import get_terminal_size, fmt_time_dt
+from linecast._theme import ensure_contrast
+from linecast._weather_style import TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB
 from linecast._location import get_location
 from linecast import _radar_layers
 from linecast import _radar_warnings
@@ -35,7 +39,9 @@ from linecast._radar_basemap import (
     Basemap, DotLayer, marine_region, nearest_city,
 )
 from linecast._radar_i18n import rs
-from linecast._radar_render import bbox_for, build_radar_buffer, compose
+from linecast._radar_render import (
+    bbox_for, build_radar_buffer, compose, lerp_rgba, over_rgba,
+)
 from linecast._radar_source import FRAME_STEP
 from linecast._radar_sources import DEFAULT_THEME, THEMES, get_source, theme_id
 from linecast._runtime import RuntimeConfig, radar_parser
@@ -48,6 +54,10 @@ CROSSHAIR = (215, 220, 232)
 MAX_REWIND_MIN = 180  # how far back scrubbing can go (IEM; tile sources
                       # are limited to what their index publishes, ~2 h)
 N_FRAMES = MAX_REWIND_MIN // 5 + 1  # frames in the rewind window
+
+# display layers, in the order the s key cycles them: precipitation only,
+# echoes over the satellite cloud mosaic, clouds alone (hourly timeline)
+LAYERS = ("radar", "both", "sat")
 
 _basemap_cache = {}
 _source = None  # active RadarSource, chosen per location in main()
@@ -69,25 +79,94 @@ def _view_key(bbox, gw, hc):
     return (_bbox_key(bbox), gw, hc, getattr(_source, "theme", None))
 
 
-def _frame_key(bbox, gw, hc, frame):
+SAT_STEP_MIN = 10  # synthesized cloud in-betweens in satellite-only mode
+
+
+def _sat_bracket(when, layer):
+    """The cloud state at `when` as (before, after, t); None when unused.
+
+    The mosaic is hourly while the timeline steps in minutes, so the state
+    between two mosaics is a cross-fade (`t` in [0,1] toward `after`).
+    Before the first / past the newest mosaic there is nothing to fade to
+    (no future clouds — nowcast covers echoes only), so the edge holds:
+    (frame, None, 0).
+    """
+    if layer == "radar":
+        return None
+    sats = getattr(_source, "satellite_frames", lambda: [])()
+    if not sats:
+        return None
+    if when <= sats[0].time:
+        return (sats[0], None, 0.0)
+    if when >= sats[-1].time:
+        return (sats[-1], None, 0.0)
+    for a, b in zip(sats, sats[1:]):
+        if a.time <= when <= b.time:
+            span = (b.time - a.time).total_seconds()
+            return (a, b, (when - a.time).total_seconds() / span)
+    return (sats[-1], None, 0.0)
+
+
+def _sat_timeline():
+    """Satellite-only frame list: hourly mosaics plus cross-faded in-betweens,
+    so the cloud loop plays as smoothly as the radar loop."""
+    sats = getattr(_source, "satellite_frames", lambda: [])()
+    if len(sats) < 2:
+        return list(sats)
+    from linecast._radar_sources import Frame
+    step = _dt.timedelta(minutes=SAT_STEP_MIN)
+    out = []
+    when = sats[0].time
+    while when < sats[-1].time:
+        out.append(Frame(when, "sat-blend"))
+        when += step
+    out.append(sats[-1])
+    return out
+
+
+def _frame_key(bbox, gw, hc, frame, layer="radar", sat=None):
     stamp = frame.time.strftime("%Y%m%dT%H%M")
     if frame.future:
         # nowcast frames are re-predicted under the same timestamp; a token
         # digest keeps a superseded prediction from being served forever
         import hashlib
         stamp += ":" + hashlib.sha1(str(frame.token).encode()).hexdigest()[:8]
-    return _view_key(bbox, gw, hc) + (stamp,)
+    key = _view_key(bbox, gw, hc) + (layer, stamp)
+    if sat is not None:
+        # a fresh index can re-bracket a timestamp with a newer mosaic
+        a, b, _t = sat
+        key += (a.time.strftime("%Y%m%dT%H%M"),
+                b.time.strftime("%Y%m%dT%H%M") if b else "")
+    return key
 
 
-def _load_frame(bbox, gw, hc, frame):
+def _sat_rgba(bbox, gw, hc, bracket):
+    """The (possibly cross-faded) cloud RGBA for a bracket."""
+    a, b, t = bracket
+    pw, ph, ra = _source.satellite_rgba(bbox, gw, hc, a)
+    if b is None or t <= 0.0:
+        return pw, ph, ra
+    _, _, rb = _source.satellite_rgba(bbox, gw, hc, b)
+    return pw, ph, lerp_rgba(ra, rb, t, pw, ph)
+
+
+def _load_frame(bbox, gw, hc, frame, layer="radar"):
     """Return (radar_buffer, echo). Memoised; fetches + decodes on miss."""
-    key = _frame_key(bbox, gw, hc, frame)
+    sat = _sat_bracket(frame.time, layer)
+    key = _frame_key(bbox, gw, hc, frame, layer, sat)
     with _frame_lock:
         hit = _frame_cache.get(key)
     if hit is not None:
         return hit
-    pw, ph, rgba = _source.frame_rgba(bbox, gw, hc, frame)
-    result = build_radar_buffer(rgba, pw, ph, gw, hc)
+    if layer == "sat":
+        pw, ph, rgba = _sat_rgba(bbox, gw, hc, sat)
+    else:
+        pw, ph, rgba = _source.frame_rgba(bbox, gw, hc, frame)
+        if sat is not None:
+            sw, sh, srgba = _sat_rgba(bbox, gw, hc, sat)
+            rgba = over_rgba(srgba, rgba, pw, ph)  # echoes over the clouds
+    result = build_radar_buffer(rgba, pw, ph, gw, hc,
+                                sea=_get_basemap(bbox, gw, hc).sea)
     with _frame_lock:
         _frame_cache[key] = result
         if len(_frame_cache) > N_FRAMES + 8:  # bound to the rewind window
@@ -101,26 +180,28 @@ def _load_frame(bbox, gw, hc, frame):
     return result
 
 
-def _cached_frame(bbox, gw, hc, frame):
+def _cached_frame(bbox, gw, hc, frame, layer="radar"):
     """Cache-only lookup; never touches the network."""
+    key = _frame_key(bbox, gw, hc, frame, layer,
+                     _sat_bracket(frame.time, layer))
     with _frame_lock:
-        return _frame_cache.get(_frame_key(bbox, gw, hc, frame))
+        return _frame_cache.get(key)
 
 
-def _nearest_cached(bbox, gw, hc, when):
+def _nearest_cached(bbox, gw, hc, when, layer="radar"):
     """The cached frame for this view closest in time to `when`, or None."""
-    prefix = _view_key(bbox, gw, hc)
+    prefix = _view_key(bbox, gw, hc) + (layer,)
     want = int(when.strftime("%Y%m%d%H%M"))
     with _frame_lock:
-        stamps = [k[len(prefix)] for k in _frame_cache if k[:len(prefix)] == prefix]
-        if not stamps:
+        keys = [k for k in _frame_cache if k[:len(prefix)] == prefix]
+        if not keys:
             return None
-        best = min(stamps, key=lambda s: abs(
-            int(s.split(":")[0].replace("T", "")) - want))
-        return _frame_cache.get(prefix + (best,))
+        best = min(keys, key=lambda k: abs(
+            int(k[len(prefix)].split(":")[0].replace("T", "")) - want))
+        return _frame_cache.get(best)
 
 
-def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0):
+def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
     """Warm the frame window in the background, displayed frame first.
 
     A view change (pan/zoom/resize/theme) bumps the generation so a
@@ -131,7 +212,7 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0):
     images fetch.
     """
     global _prefetch_key, _prefetch_gen
-    key = (_view_key(bbox, gw, hc),
+    key = (_view_key(bbox, gw, hc), layer,
            tuple((f.time, str(f.token)) for f in frames))
     if _prefetch_key == key:
         return
@@ -148,7 +229,7 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0):
             nonlocal loaded
             if gen != _prefetch_gen:
                 return  # view moved on; don't fetch for a stale bbox
-            if _safe_load(bbox, gw, hc, f):
+            if _safe_load(bbox, gw, hc, f, layer):
                 loaded += 1
             if want_warnings and not f.future:
                 _warm_warnings(f)
@@ -163,9 +244,9 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0):
     threading.Thread(target=worker, daemon=True).start()
 
 
-def _safe_load(bbox, gw, hc, frame):
+def _safe_load(bbox, gw, hc, frame, layer="radar"):
     try:
-        _load_frame(bbox, gw, hc, frame)
+        _load_frame(bbox, gw, hc, frame, layer)
         return True
     except Exception:
         return False
@@ -309,7 +390,7 @@ def _panned_place(lat, lon, lang):
                   unit="km" if metric else "mi",
                   dir=compass[round(bearing / 45) % 8], name=name)
 
-    city = nearest_city(lat, lon)
+    city = nearest_city(lat, lon, lang)
     if city and city[1] < 100:  # coastal waters still read by the city
         place = city_phrase(*city)
     else:
@@ -329,11 +410,12 @@ def _panned_place(lat, lon, lang):
 
 class _ShiftedBasemap:
     """Duck-typed stand-in for Basemap during a drag preview."""
-    __slots__ = ("dots", "color")
+    __slots__ = ("dots", "color", "sea")
 
-    def __init__(self, dots, color):
+    def __init__(self, dots, color, sea=None):
         self.dots = dots
         self.color = color
+        self.sea = sea
 
 
 def _shift_grid(rows, dx, dy, fill):
@@ -375,6 +457,85 @@ def _theme_menu_overlay(names, sel, current, lang, cols, rows):
         for i, line in enumerate(lines))
 
 
+def _point_in_rings(lon, lat, rings):
+    """Even-odd ray cast across all of a warning's rings (same rule as the
+    basemap's marine containment). True if the point falls inside."""
+    inside = False
+    for ring in rings:
+        for i in range(len(ring) - 1):
+            (x0, y0), (x1, y1) = ring[i], ring[i + 1]
+            if (y0 <= lat < y1) or (y1 <= lat < y0):
+                if lon < x0 + (lat - y0) / (y1 - y0) * (x1 - x0):
+                    inside = not inside
+    return inside
+
+
+def _fmt_expire(iso, use_24h):
+    """"2026-07-17T05:00:00Z" → localised time-of-day, or None."""
+    if not iso:
+        return None
+    try:
+        exp = _dt.datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return None
+    return _fmt_local(exp, use_24h)
+
+
+def _build_warning_tooltip(warns, mouse_pos, bbox, graph_w, height_cells,
+                           cols, rows, use_24h):
+    """A floating chip naming the warning(s) under the cursor, drawn over the
+    map via live_loop's \\x00 overlay channel. Empty string when the pointer
+    isn't over a warned area.
+
+    The warned *area* is hoverable, not just its braille outline: we invert
+    the cell → lon/lat projection and point-in-polygon test the raw rings, so
+    the whole polygon interior surfaces its alert.
+    """
+    mcol, mrow = mouse_pos
+    cx, cy = mcol - 1, mrow - 2  # 1-based terminal → 0-based cell (row 1 = header)
+    if not (0 <= cx < graph_w and 0 <= cy < height_cells):
+        return ""
+    minlon, minlat, maxlon, maxlat = bbox
+    lon = minlon + (cx + 0.5) / graph_w * (maxlon - minlon)
+    lat = maxlat - (cy + 0.5) / height_cells * (maxlat - minlat)
+
+    # most-severe-first (warns is least-severe-first), so the deadliest
+    # overlapping warning heads the list
+    hits = [(color, info) for _sev, color, rings, info in warns
+            if _point_in_rings(lon, lat, rings)]
+    if not hits:
+        return ""
+    hits.reverse()
+
+    TBG = bg(*TOOLTIP_BG_RGB)
+    lines = []
+    for color, info in hits[:4]:
+        name = info.get("name", "")
+        if info.get("emergency"):
+            name += " ‼"
+        elif info.get("pds"):
+            name += " (PDS)"
+        until = _fmt_expire(info.get("expire"), use_24h)
+        tail = f"  {fg(*MUTED)}→ {until}" if until else ""
+        cfg = fg(*ensure_contrast(color, TOOLTIP_BG_RGB, 3.0))
+        lines.append(f"{TBG} {cfg}{name}{tail} ")
+    if len(hits) > 4:
+        lines.append(f"{TBG} {fg(*MUTED)}+{len(hits) - 4} ")
+
+    width = max(visible_len(ln) for ln in lines)
+    padded = [f"{ln}{TBG}{' ' * (width - visible_len(ln))}{RESET}"
+              for ln in lines]
+
+    # anchor below-right of the pointer, pulled inward at the screen edges
+    col = mcol + 1
+    row = mrow + 1
+    if col + width - 1 > cols:
+        col = max(1, mcol - width)
+    if row + len(padded) - 1 > rows:
+        row = max(1, mrow - len(padded))
+    return "".join(f"\033[{row + i};{col}H{ln}" for i, ln in enumerate(padded))
+
+
 def _timeline_bar(idx, n, width, present=None):
     """A compact scrubber: ─ track, ┼ notch at the present frame, ● playhead."""
     if n <= 1 or width < 3:
@@ -393,7 +554,8 @@ def _timeline_bar(idx, n, width, present=None):
 
 def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                  marker=None, runtime=None, block=True, pan_offset=(0, 0),
-                 theme_menu=None, layers=frozenset(), **_):
+                 theme_menu=None, mouse_pos=None, layer="radar",
+                 layers=frozenset(), **_):
     lang = runtime.lang if runtime else "en"
     use_24h = runtime.use_24h if runtime else False
     cols, rows = get_terminal_size()
@@ -403,7 +565,13 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
     basemap = _get_basemap(bbox, graph_w, height_cells)
 
-    frames = _source.current_frames()   # oldest → newest (UTC); may include future
+    if layer != "radar" and not getattr(_source, "satellite_frames",
+                                        lambda: [])():
+        layer = "radar"  # source has no cloud mosaic (IEM fallback)
+
+    # oldest → newest (UTC). The cloud mosaic is hourly, so satellite-only
+    # mode scrubs its own (deeper) timeline; radar frames may include future
+    frames = _sat_timeline() if layer == "sat" else _source.current_frames()
     if not frames:
         msg = f"{fg(*DIM)}{rs('no_frames', lang)}{RESET}"
         return "\n".join([msg] + [""] * (height_cells + 1))
@@ -416,23 +584,25 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     frame = frames[idx]
     when = frame.time
     present = frames[present_idx].time
-    _ensure_prefetch(bbox, graph_w, height_cells, frames, start_idx=idx)
+    _ensure_prefetch(bbox, graph_w, height_cells, frames, start_idx=idx,
+                     layer=layer)
 
     err = None
     loading = False
     if block:
         # static mode: fetch the displayed frame synchronously
         try:
-            radar, echo = _load_frame(bbox, graph_w, height_cells, frame)
+            radar, echo = _load_frame(bbox, graph_w, height_cells, frame,
+                                      layer)
         except Exception as exc:
             radar = [[None] * graph_w for _ in range(height_cells * 2)]
             echo, err = 0.0, str(exc)
     else:
         # live mode: never block a render on the network — show the nearest
         # cached frame (radar pops in as the prefetcher lands frames)
-        hit = _cached_frame(bbox, graph_w, height_cells, frame)
+        hit = _cached_frame(bbox, graph_w, height_cells, frame, layer)
         if hit is None:
-            hit = _nearest_cached(bbox, graph_w, height_cells, when)
+            hit = _nearest_cached(bbox, graph_w, height_cells, when, layer)
             loading = True
         if hit is not None:
             radar, echo = hit
@@ -458,6 +628,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     # storm-based warning outlines valid at the displayed frame's time
     # (live mode: cache-only, the prefetcher warms them alongside frames)
     warn_layer = None
+    warns = None
     if _radar_warnings.covers(bbox) and not frame.future:
         if block:
             try:
@@ -468,13 +639,15 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
             warns = _radar_warnings.cached_at(when)
         if warns:
             warn_layer = DotLayer(bbox, graph_w, height_cells)
-            for _sev, color, rings in warns:  # least-severe-first: TO wins
+            for _sev, color, rings, _info in warns:  # least-severe-first: TO wins
                 warn_layer._draw_lines(rings, color, width=2)
 
-    overlays = dict(basemap.city_overlays())
+    overlays = dict(basemap.city_overlays(lang=lang))
     if wind_ov:
-        for pos, glyph in wind_ov.items():  # city markers/labels win the cell
-            overlays.setdefault(pos, glyph)
+        for pos, (ch, color) in wind_ov.items():  # city labels win the cell
+            # third element marks the colour as fixed: arrow contrast IS the
+            # wind-speed encoding, so compose() must not adjust it
+            overlays.setdefault(pos, (ch, color, True))
     # "your location" marker, pinned geographically (panning can move it
     # off-centre or out of view entirely)
     m_lat, m_lon = marker if marker else (lat, lon)
@@ -489,7 +662,8 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         # mid-drag preview: slide the already-composed layers in screen space
         # (no re-projection, no fetches); the real re-render lands on release
         basemap = _ShiftedBasemap(_shift_grid(basemap.dots, dx, dy, 0),
-                                  _shift_grid(basemap.color, dx, dy, None))
+                                  _shift_grid(basemap.color, dx, dy, None),
+                                  _shift_grid(basemap.sea, dx, dy * 2, False))
         radar = _shift_grid(radar, dx, dy * 2, None)  # sub-pixel rows: 2/cell
         if under is not None:
             under = _shift_grid(under, dx, dy * 2, None)
@@ -528,11 +702,15 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         tag += (f" · {round(tc)}°C" if metric
                 else f" · {round(tc * 9 / 5 + 32)}°F")
     icon = "▶" if playing else "⏸"
+    # with the cloud layer in, the coverage figure is cloud, not echo
+    pct = rs("echo_pct" if layer == "radar" else "cloud_pct",
+             lang, pct=f"{echo:.0f}")
+    brand = "radar" if layer == "radar" else "radar ☁"
 
     def _header(place_str):
-        return (f"{fg(*MARKER)}{BOLD}⬤ radar{RESET}  {fg(*MUTED)}{place_str}"
+        return (f"{fg(*MARKER)}{BOLD}⬤ {brand}{RESET}  {fg(*MUTED)}{place_str}"
                 f"{RESET}  {fg(*DIM)}{icon} {_fmt_local(when, use_24h)} · {age}{tag} "
-                f"· {rs('echo_pct', lang, pct=f'{echo:.0f}')}{RESET}")
+                f"· {pct}{RESET}")
 
     header = _header(place)
     over = visible_len(header) - cols
@@ -558,10 +736,18 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     foot += " " * max(0, cols - visible_len(foot))
 
     out = "\n".join([header, *map_lines, foot])
+    # a single \x00 overlay channel: the theme picker (modal) wins it while
+    # open; otherwise a hover tooltip names any warning under the cursor
+    overlay = ""
     if theme_menu is not None:
         names, sel = theme_menu
-        out += "\x00" + _theme_menu_overlay(
+        overlay = _theme_menu_overlay(
             names, sel, getattr(_source, "theme", None), lang, cols, rows)
+    elif mouse_pos and warns and pan_offset == (0, 0):
+        overlay = _build_warning_tooltip(
+            warns, mouse_pos, bbox, graph_w, height_cells, cols, rows, use_24h)
+    if overlay:
+        out += "\x00" + overlay
     return out
 
 
@@ -617,6 +803,15 @@ def main():
               file=sys.stderr)
         sys.exit(2)
 
+    layer = {"radar": "radar", "satellite": "sat", "sat": "sat",
+             "both": "both"}.get(
+        (args.layer or os.environ.get("LINECAST_RADAR_LAYER", "").strip()
+         or "radar").lower())
+    if layer is None:
+        print('Unknown radar layer. Layers: radar, both, satellite.',
+              file=sys.stderr)
+        sys.exit(2)
+
     global _source
     _source = get_source(lat, lon, N_FRAMES, theme)
 
@@ -631,11 +826,19 @@ def main():
         region = [_in_conus(lat, lon)]
 
         layer_state = set(layers)
+        layer_sel = [layer]
 
         def on_action(key):
             if key in ('c', 'w'):
                 layer_state.symmetric_difference_update(
                     {'temp' if key == 'c' else 'wind'})
+                return True
+            if key == 's':
+                # cycle layers; a no-op on sources without a cloud mosaic
+                if not getattr(_source, "satellite_frames", lambda: [])():
+                    return False
+                i = LAYERS.index(layer_sel[0])
+                layer_sel[0] = LAYERS[(i + 1) % len(LAYERS)]
                 return True
             if key == '+':
                 new_zoom = max(1.0, zoom[0] / 1.5)
@@ -714,12 +917,13 @@ def main():
             return True
 
         live_loop(
-            lambda play_frame=0, playing=True, **_: render_radar(
+            lambda play_frame=0, playing=True, mouse_pos=None, **_: render_radar(
                 center[0], center[1], location_name, zoom[0],
                 play_frame=play_frame, playing=playing, marker=(lat, lon),
-                runtime=runtime, block=False,
+                runtime=runtime, block=False, mouse_pos=mouse_pos,
                 pan_offset=(pan_preview[0], pan_preview[1]),
                 layers=frozenset(layer_state),
+                layer=layer_sel[0],
                 theme_menu=((list(_source.themes), menu_sel[0])
                             if menu_sel[0] is not None
                             and getattr(_source, "themes", None) else None)),
@@ -735,7 +939,7 @@ def main():
         # static: play_frame 0 is the present (newest observed) frame
         print(render_radar(lat, lon, location_name, args.zoom,
                            play_frame=0, playing=False,
-                           runtime=runtime, layers=layers))
+                           runtime=runtime, layers=layers, layer=layer))
 
 
 if __name__ == "__main__":

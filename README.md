@@ -25,6 +25,12 @@ All data comes from free public APIs with no keys required.
 
 **`radar`** — Animated weather radar over a braille basemap. Powered by [LibreWXR](https://librewxr.net) worldwide: real radar composites for North America (NOAA MRMS incl. Alaska/Hawaii, Environment Canada), Europe (OPERA, 24 countries), Japan, Taiwan and more, with model-derived precipitation filling the gaps everywhere else, 60 minutes of forecast frames, and 13 colour themes (Dark Sky by default; `--theme rainbow`, or press `t` in live mode to pick from a menu). Falls back automatically to NEXRAD via Iowa Environmental Mesonet (US) or RainViewer (global). Drag to pan anywhere in the world; the header names wherever you land ("23 mi NE of Boston" near shore, "Gulf of Maine" once offshore) from an offline Natural Earth index, and a crosshair marks the view centre. In the US, storm-based warning polygons (tornado red, severe thunderstorm yellow, flash flood green, marine orange, snow squall violet, emergencies magenta) are outlined over the echoes and rewind in sync with the radar timeline. Optional condition layers (`--layers temp,wind`, or press `c`/`w` in live mode) add a temperature tint beneath the geography and neutral wind arrows whose contrast tracks the speed — invisible in calm air, full text contrast in storm-force wind — sampled from Open-Meteo and time-synced to the displayed frame; rewinding the radar rewinds them too.
 
+![radar — Warri, Nigeria](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar-warri.png)
+
+Like the rest of linecast, radar speaks all 16 languages — here looping the forecast over Qingdao with `--lang zh`:
+
+![radar loop — Qingdao, Chinese UI](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar-qingdao.gif)
+
 **`maps`** — Terrain and bathymetry, no weather at all. Hillshaded elevation from the AWS/Mapzen terrain tiles (SRTM, GMTED, ETOPO1) painted as a hypsometric ramp — lowland green through alpine white above sea level, deepening bathymetric blues below it — with the coastlines, borders, and city labels rendered in braille over the fill. Drag to pan, `+`/`-` to zoom, hover to read the elevation under the pointer.
 
 All five launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.

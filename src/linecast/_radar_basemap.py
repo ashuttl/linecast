@@ -1,10 +1,11 @@
 """Braille geography layer for the radar view.
 
-Everything that is *geography* (sea, lakes, coastlines, borders) is drawn in braille
-at 2x4-dot-per-cell resolution; the weather radar is painted over it as a
-half-block colour fill by the renderer.  This module loads the vendored
-Natural Earth data, rasterises a land/sea mask, and produces per-cell braille
-dot masks + colours plus city label overlays for a given geographic window.
+Coastlines and borders are drawn in braille at 2x4-dot-per-cell resolution;
+the sea is a solid block-colour fill at half-block (sub-pixel) resolution so
+the weather radar can blend over it at full resolution.  This module loads
+the vendored Natural Earth data, rasterises a land/sea mask, and produces
+per-cell braille dot masks + colours, a sub-pixel sea mask, and city label
+overlays for a given geographic window.
 
 Data: Natural Earth (public domain, 1:50m), simplified globally by
 prototype/build_basemap_data.py → data/basemap.json.gz.  Per view we clip to
@@ -15,18 +16,44 @@ import gzip
 import json
 import math
 import os
+import unicodedata
+
+from linecast._theme import is_light_theme, lerp_rgb, theme_bg
 
 # braille dot bit for (col, row) within a 2x4 cell — matches _braille.py
 _BITS = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
 
 # geography palette (dim, so radar reads on top)
-SEA = (52, 72, 112)
 COAST = (120, 150, 178)
 BORDER = (108, 110, 130)
 CITY = (225, 225, 235)
 CITY_LABEL = (155, 160, 175)
 
+# The sea is a solid block-colour fill (not a braille stipple), so the radar
+# echo keeps its full half-block resolution over water and glyphs drawn on
+# top don't have to knock a hole in a stipple to stay legible.  Derived from
+# the terminal theme so it reads as water on dark and light backgrounds.
+if is_light_theme(theme_bg):
+    SEA_FILL = lerp_rgb(theme_bg, (120, 155, 205), 0.35)
+else:
+    SEA_FILL = lerp_rgb(theme_bg, (70, 100, 150), 0.42)
+
 _DATA = None
+
+
+def _cell_width(ch):
+    """Terminal columns a single character occupies (2 for CJK/wide glyphs)."""
+    return 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+
+
+def _localized(entry, lang):
+    """Resolve a city entry's display name for ``lang``, falling back to the
+    default Latin name when no translation is stored."""
+    if len(entry) > 4 and entry[4]:
+        localized = entry[4].get(lang)
+        if localized:
+            return localized
+    return entry[3]
 
 
 def _load_data():
@@ -34,27 +61,29 @@ def _load_data():
     if _DATA is None:
         path = os.path.join(os.path.dirname(__file__), "data",
                             "basemap.json.gz")
-        with gzip.open(path, "rt") as fh:
+        with gzip.open(path, "rt", encoding="utf-8") as fh:
             _DATA = json.load(fh)
     return _DATA
 
 
-def nearest_city(lat, lon):
+def nearest_city(lat, lon, lang="en"):
     """(name, dist_km, bearing_deg) of the closest known city, or None.
 
     bearing_deg is the direction *from the city to the point*, so a result of
     ("Boston", 23, 45) reads "23 km NE of Boston".  Works off the vendored
-    Natural Earth populated-places list, so it needs no network.
+    Natural Earth populated-places list, so it needs no network.  ``lang``
+    localizes the returned name when a translation is available.
     """
     best = None
     coslat = math.cos(math.radians(lat))
-    for clon, clat, _pop, name in _load_data()["cities"]:
+    for entry in _load_data()["cities"]:
+        clon, clat = entry[0], entry[1]
         # equirectangular approximation is plenty for ranking candidates
         dx = ((lon - clon + 180.0) % 360.0 - 180.0) * coslat
         dy = lat - clat
         d2 = dx * dx + dy * dy
         if best is None or d2 < best[0]:
-            best = (d2, name, clat, clon)
+            best = (d2, _localized(entry, lang), clat, clon)
     if best is None:
         return None
     _, name, clat, clon = best
@@ -180,13 +209,12 @@ class Basemap(DotLayer):
         super().__init__(bbox, graph_w, height_cells)
         self._build()
 
-    def _fill_polys(self, polys, grid, value):
-        """Scanline even-odd fill of polygons into a dot-resolution grid.
-
-        Even-odd pairing across all of a polygon's rings means holes (islands
-        in a lake, lakes passed as their own polygons) come out unfilled.
-        """
-        for rings in polys:
+    def _fill_polys(self, land, poly_groups, value):
+        """Scanline-fill each polygon (a list of rings) into ``land`` at dot
+        resolution, writing ``value`` inside.  Even-odd across a group's rings
+        means interior rings (island holes) keep the opposite value, so filling
+        land with 1 and then carving lakes with 0 both respect their holes."""
+        for rings in poly_groups:
             if not self._in_view([p for ring in rings for p in ring]):
                 continue
             # project rings to dot space
@@ -206,7 +234,7 @@ class Basemap(DotLayer):
                         if (ay <= yc < by) or (by <= yc < ay):
                             xs.append(ax + (yc - ay) / (by - ay) * (bx - ax))
                 xs.sort()
-                row = grid[y]
+                row = land[y]
                 for i in range(0, len(xs) - 1, 2):
                     xa = max(0, int(xs[i] + 0.5))
                     xb = min(self.dw, int(xs[i + 1] + 0.5))
@@ -216,48 +244,70 @@ class Basemap(DotLayer):
     def _sea_mask(self):
         """Boolean land mask at dot resolution via scanline polygon fill.
 
-        NE land polygons don't carve out lakes, so lakes are filled back to
-        water afterwards (their island holes stay land via even-odd fill).
-        """
-        data = _load_data()
+        Lakes are carved back to water after the land fill: Natural Earth's
+        land polygons have no lake holes cut out, so the Great Lakes (and every
+        other inland water body) would otherwise fill solid as land."""
         land = [bytearray(self.dw) for _ in range(self.dh)]
-        self._fill_polys(data["land"], land, 1)
-        self._fill_polys(data.get("lakes", ()), land, 0)
+        data = _load_data()
+        self._fill_polys(land, data["land"], 1)
+        self._fill_polys(land, data.get("lakes", ()), 0)
         return land
 
     def _build(self):
-        # 1) sea stipple everywhere that isn't land (checkerboard dither)
+        # 1) sea as a solid fill at half-block (sub-pixel) resolution: one
+        # sub-pixel spans a 2x2 block of braille dots, and is sea when at
+        # least half of them fall on water.  compose() paints these
+        # sub-pixels SEA_FILL and blends the radar echo over them, so the
+        # weather keeps its full resolution over the ocean (the block edge
+        # is coarse, but the coastline braille re-adds the crisp boundary).
         land = self._sea_mask()
-        for dy in range(self.dh):
-            lrow = land[dy]
-            for dx in range(self.dw):
-                if not lrow[dx] and (dx + dy) % 2 == 0:
-                    self._set_dot(dx, dy, SEA)
-        # 2) coastlines (sea + lake shorelines), then borders on top (priority
-        # order). Coast strokes are the land/lake polygons' own outlines, so
-        # the emphasized coastline and the fill boundary can never disagree.
+        spy_h = self.height_cells * 2
+        self.sea = [[False] * self.graph_w for _ in range(spy_h)]
+        for spy in range(spy_h):
+            srow = self.sea[spy]
+            top, bot = land[spy * 2], land[spy * 2 + 1]
+            for x in range(self.graph_w):
+                dx = x * 2
+                water = ((not top[dx]) + (not top[dx + 1])
+                         + (not bot[dx]) + (not bot[dx + 1]))
+                if water >= 2:
+                    srow[x] = True
+        # 2) coastlines, then borders on top (priority order). Coast strokes
+        # are the land polygons' own outlines, so the emphasized coastline and
+        # the land/sea fill boundary can never disagree.
         data = _load_data()
         coast = [ring for rings in data["land"] for ring in rings]
+        # lake shorelines are coastlines too: draw them in COAST so the crisp
+        # boundary is re-added over the coarse sub-pixel water fill, exactly as
+        # for the ocean coast.
         coast += [ring for rings in data.get("lakes", ()) for ring in rings]
         self._draw_lines(coast, COAST)
         self._draw_lines(data["borders"], BORDER)
 
     # -- city labels ----------------------------------------------------------
-    def city_overlays(self, max_cities=None):
+    def city_overlays(self, max_cities=None, lang="en"):
         """{(col,row): (char, color)} for the biggest cities in view + labels.
 
         The label budget scales with the visible area, and biggest-first
         greedy placement skips cities too close to an already-placed one, so
         wide views show the majors and close views fill in the local towns.
+        ``lang`` selects localized placenames where the vendored data has
+        them, falling back to the default Latin name.
+
+        Labels are placed one terminal *column* at a time: CJK and other
+        double-width glyphs consume two columns, with the trailing column
+        marked by an ``("", None)`` sentinel so the renderer emits nothing
+        there (the wide glyph already covers it) and the row stays aligned.
         """
         if max_cities is None:
             max_cities = max(6, min(24, (self.graph_w * self.height_cells) // 400))
         minlon, minlat, maxlon, maxlat = self.bbox
         inview = []
-        for lon, lat, pop, name in _load_data()["cities"]:
+        for entry in _load_data()["cities"]:
+            lon, lat, pop = entry[0], entry[1], entry[2]
             if minlon <= lon <= maxlon and minlat <= lat <= maxlat:
-                inview.append((pop, name, lon, lat))
-        inview.sort(reverse=True)
+                inview.append((pop, _localized(entry, lang), lon, lat))
+        inview.sort(key=lambda c: c[0], reverse=True)
 
         overlays = {}
         placed = []
@@ -275,10 +325,16 @@ class Basemap(DotLayer):
                 continue
             placed.append((col, row))
             overlays[(col, row)] = ("•", CITY)  # •
-            # label to the right, unless it collides
-            for j, ch in enumerate(name):
-                c = col + 1 + j
-                if c >= self.graph_w or (c, row) in overlays:
+            # label to the right, unless it runs off the edge or collides
+            c = col + 1
+            for ch in name:
+                w = _cell_width(ch)
+                if c + w > self.graph_w:
+                    break
+                if (c, row) in overlays or (w == 2 and (c + 1, row) in overlays):
                     break
                 overlays[(c, row)] = (ch, CITY_LABEL)
+                if w == 2:
+                    overlays[(c + 1, row)] = ("", None)  # consumed by wide glyph
+                c += w
         return overlays

@@ -163,6 +163,8 @@ def _read_key(fd):
         return 'key:c'
     if b in (b'w', b'W'):
         return 'key:w'
+    if b in (b's', b'S'):
+        return 'key:s'
     if b in (b'\r', b'\n'):
         return 'key:enter'
     return None

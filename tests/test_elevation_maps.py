@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from linecast import _color, _elevation
 from linecast._color import BG_PRIMARY
 from linecast._elevation import decode_meters, elevation_grid
-from linecast._radar_basemap import BORDER, SEA
+from linecast._radar_basemap import BORDER, COAST
 from linecast.maps import (
     BATHY_STOPS, HYPSO_STOPS, _coast_dots, build_terrain_buffer,
     compose_terrain,
@@ -136,13 +136,13 @@ class TestComposeTerrain:
             self.dots = dots
             self.color = color
 
-    def test_ne_coast_and_stipple_dropped_border_kept(self):
+    def test_ne_coast_dropped_border_kept(self):
         terrain = [[(100, 120, 90)] * 3, [(100, 120, 90)] * 3]
-        # cell 0: sea stipple; cell 1: Natural Earth coast (both become
-        # fill — the drawn coastline is derived from elevation instead);
+        # cells 0-1: Natural Earth coast strokes (both become fill — the
+        # drawn coastline is derived from elevation instead);
         # cell 2: border stroke (kept)
         bm = self.FakeBasemap([[0x01, 0x02, 0x04]],
-                              [[SEA, (120, 150, 178), BORDER]])
+                              [[COAST, (120, 150, 178), BORDER]])
         lines = compose_terrain(bm, terrain, {}, 3, 1)
         plain = re.sub(r"\033\[[^m]*m", "", lines[0])
         assert plain == "  ⠄"

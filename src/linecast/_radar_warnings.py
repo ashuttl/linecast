@@ -28,6 +28,17 @@ WARNING_COLORS = {
 EMERGENCY = (255, 80, 220)  # tornado/flash-flood emergency — magenta
 _SEVERITY = {p: i for i, p in enumerate(WARNING_COLORS)}
 
+# fallback product names when the feed omits ``ps`` (it normally supplies it,
+# e.g. "Tornado Warning"); these are the official NWS product names and are
+# left untranslated, like the placename data
+_NAMES = {
+    "MA": "Special Marine Warning",
+    "SQ": "Snow Squall Warning",
+    "FF": "Flash Flood Warning",
+    "SV": "Severe Thunderstorm Warning",
+    "TO": "Tornado Warning",
+}
+
 # NWS coverage incl. Alaska/Hawaii/Puerto Rico/Guam-adjacent waters; views
 # entirely outside skip the fetch
 _US_BOX = (-180.0, 15.0, -60.0, 72.0)
@@ -49,15 +60,21 @@ def _key(when):
 
 
 def _parse(feature_collection):
-    """GeoJSON -> [(severity, color, rings)] sorted least-severe-first."""
+    """GeoJSON -> [(severity, color, rings, info)] sorted least-severe-first.
+
+    ``info`` is a dict of hover-tooltip fields: ``name`` (the NWS product
+    name), ``expire`` (ISO-8601 UTC string or None), ``emergency`` / ``pds``
+    flags, and the storm ``tags`` (wind mph, hail inches, damage descriptor)
+    when the product carries them.
+    """
     out = []
     for ft in feature_collection.get("features", ()):
         props = ft.get("properties", {})
         phen = props.get("phenomena")
         if props.get("significance") != "W" or phen not in WARNING_COLORS:
             continue
-        color = (EMERGENCY if props.get("is_emergency")
-                 else WARNING_COLORS[phen])
+        emergency = bool(props.get("is_emergency"))
+        color = EMERGENCY if emergency else WARNING_COLORS[phen]
         g = ft.get("geometry") or {}
         polys = ([g["coordinates"]] if g.get("type") == "Polygon"
                  else g["coordinates"] if g.get("type") == "MultiPolygon"
@@ -65,8 +82,18 @@ def _parse(feature_collection):
         rings = [ring for poly in polys for ring in poly if len(ring) >= 4]
         if rings:
             # emergencies above their base phenomena, severe above the rest
-            sev = _SEVERITY[phen] + (10 if props.get("is_emergency") else 0)
-            out.append((sev, color, rings))
+            sev = _SEVERITY[phen] + (10 if emergency else 0)
+            info = {
+                "name": props.get("ps") or _NAMES.get(phen, phen),
+                "expire": props.get("expire"),
+                "emergency": emergency,
+                "pds": bool(props.get("is_pds")),
+                "wind": props.get("windtag") or props.get("max_windtag"),
+                "hail": props.get("hailtag") or props.get("max_hailtag"),
+                "damage": (props.get("damagetag")
+                           or props.get("floodtag_damage")),
+            }
+            out.append((sev, color, rings, info))
     out.sort(key=lambda w: w[0])
     return out
 

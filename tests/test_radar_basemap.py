@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import linecast._radar_basemap as basemap_mod
 from linecast._radar_basemap import (
     Basemap, _project, marine_region, nearest_city,
-    SEA, COAST, CITY, CITY_LABEL,
+    COAST, CITY, CITY_LABEL,
 )
 
 
@@ -58,6 +58,7 @@ class TestBasemapSyntheticData:
         ]
         basemap_mod._DATA = {
             "land": [[land_ring]],
+            "lakes": [],
             "borders": [],
             "cities": cities,
         }
@@ -68,19 +69,26 @@ class TestBasemapSyntheticData:
     def _build(self):
         return Basemap(self.BBOX, self.GRAPH_W, self.HEIGHT_CELLS)
 
-    def test_land_interior_has_no_sea_stipple(self):
+    def test_land_interior_is_not_sea_and_has_no_braille(self):
         bm = self._build()
         # lon=0, lat=0 is deep inside the land square -> dot (10,10) ->
-        # cell (dot_x//2, dot_y//4) = (5, 2)
+        # cell (dot_x//2, dot_y//4) = (5, 2), sub-pixel (dot_x//2, dot_y//2)
         assert bm.dots[2][5] == 0
         assert bm.color[2][5] is None
+        assert bm.sea[5][5] is False
 
-    def test_sea_outside_land_has_stipple(self):
+    def test_sea_outside_land_sets_subpixel_mask(self):
         bm = self._build()
         # lon=4, lat=4 is inside the bbox but far from the land square
-        # -> dot (18, 2) -> cell (9, 0)
-        assert bm.dots[0][9] != 0
-        assert bm.color[0][9] == SEA
+        # -> dot (18, 2) -> cell (9, 0), sub-pixel (9, 1).  Sea is a solid
+        # fill via the mask; it leaves no braille dots behind.
+        assert bm.sea[1][9] is True
+        assert bm.dots[0][9] == 0
+
+    def test_sea_mask_covers_full_subpixel_grid(self):
+        bm = self._build()
+        assert len(bm.sea) == self.HEIGHT_CELLS * 2
+        assert all(len(row) == self.GRAPH_W for row in bm.sea)
 
     def test_land_outline_sets_coast_color(self):
         bm = self._build()
@@ -109,6 +117,19 @@ class TestBasemapSyntheticData:
         assert ("F", CITY_LABEL) not in overlays.values()
         # only Testville's marker + up to 4 label letters ("Test") exist
         assert len(overlays) == 5
+
+    def test_lake_carves_water_into_the_land_mask(self):
+        # a lake ring wholly inside the land square: Natural Earth's land
+        # polygons have no lake holes, so without the carve pass the lake
+        # interior would read as land. lon=0,lat=0 is dead centre of both.
+        basemap_mod._DATA["lakes"] = [[[(-1, -1), (1, -1), (1, 1), (-1, 1),
+                                        (-1, -1)]]]
+        bm = self._build()
+        # centre of the lake -> sub-pixel (5, 5): now water, not land
+        assert bm.sea[5][5] is True
+        # the lake shoreline is stroked in COAST just like the ocean coast;
+        # lon=0,lat=1 sits on the lake's top edge -> dot (10, 8) -> cell (5, 2)
+        assert bm.color[2][5] == COAST
 
     def test_data_restored_after_teardown_is_isolated_per_test(self):
         # sanity: synthetic data is active only inside this class's tests
@@ -141,19 +162,19 @@ class TestBasemapLakes:
     def _build(self):
         return Basemap(self.BBOX, self.GRAPH_W, self.HEIGHT_CELLS)
 
-    def test_lake_interior_gets_sea_stipple(self):
+    def test_lake_interior_is_water_in_sea_fill(self):
         bm = self._build()
         # lon=-1, lat=0.5 is open lake water (clear of shore and island)
-        # -> dot (8, 9) -> cell (4, 2)
-        assert bm.dots[2][4] != 0
-        assert bm.color[2][4] == SEA
+        # -> sub-pixel (4, 4)
+        assert bm.sea[4][4] is True
 
     def test_land_between_lake_and_coast_stays_empty(self):
         bm = self._build()
         # lon=-3, lat=3 is on land, between the lake and the outer coast
-        # -> dot (4, 4) -> cell (2, 1)
+        # -> dot (4, 4) -> cell (2, 1); land is neither stroked nor sea-filled
         assert bm.dots[1][2] == 0
         assert bm.color[1][2] is None
+        assert bm.sea[2][2] is False
 
     def test_lake_shoreline_stroked_as_coast(self):
         bm = self._build()
@@ -169,6 +190,65 @@ class TestBasemapLakes:
         assert land[9][8] == 0    # open lake (lon=-1, lat=0.25)
         assert land[4][4] == 1    # mainland (lon=-3, lat=2.75)
         assert land[19][19] == 0  # open sea outside the land square
+
+
+class TestCityLocalization:
+    """Localized placenames on the map, incl. CJK double-width alignment."""
+
+    BBOX = (-5.0, -5.0, 5.0, 5.0)
+    GRAPH_W = 10
+    HEIGHT_CELLS = 5
+
+    def setup_method(self):
+        self._original_data = basemap_mod._DATA
+        basemap_mod._DATA = {
+            "land": [], "borders": [],
+            # default Latin name + a translations dict (5th element)
+            "cities": [[0.0, 0.0, 1_000_000, "Beijing",
+                        {"zh": "北京", "fr": "Pékin"}]],
+        }
+
+    def teardown_method(self):
+        basemap_mod._DATA = self._original_data
+
+    def _build(self):
+        return Basemap(self.BBOX, self.GRAPH_W, self.HEIGHT_CELLS)
+
+    def test_translation_used_when_present(self):
+        ov = self._build().city_overlays(max_cities=1, lang="fr")
+        assert ov[(5, 2)] == ("•", CITY)
+        # "Pékin" — the 5th char runs off the 10-wide grid, leaving "Péki"
+        assert "".join(ov[(6 + i, 2)][0] for i in range(4)) == "Péki"
+        assert (10, 2) not in ov
+
+    def test_falls_back_to_default_name(self):
+        # no translation for German -> default Latin name
+        ov = self._build().city_overlays(max_cities=1, lang="de")
+        assert ov[(6, 2)] == ("B", CITY_LABEL)
+
+    def test_default_when_no_translations_dict(self):
+        basemap_mod._DATA["cities"] = [[0.0, 0.0, 1_000_000, "Plainville"]]
+        ov = self._build().city_overlays(max_cities=1, lang="zh")
+        assert ov[(6, 2)] == ("P", CITY_LABEL)
+
+    def test_cjk_reserves_trailing_column(self):
+        ov = self._build().city_overlays(max_cities=1, lang="zh")
+        # "北京" -> wide glyph then a consumed sentinel, twice
+        assert ov[(6, 2)] == ("北", CITY_LABEL)
+        assert ov[(7, 2)] == ("", None)   # sentinel: covered by 北
+        assert ov[(8, 2)] == ("京", CITY_LABEL)
+        assert ov[(9, 2)] == ("", None)   # sentinel: covered by 京
+
+    def test_cjk_rows_stay_column_aligned(self):
+        from linecast._radar_render import compose
+        from linecast._framebuffer import visible_len
+        bm = self._build()
+        ov = bm.city_overlays(max_cities=1, lang="zh")
+        radar = [[None] * self.GRAPH_W for _ in range(self.HEIGHT_CELLS * 2)]
+        lines = compose(bm, radar, ov, self.GRAPH_W, self.HEIGHT_CELLS)
+        # every line must occupy exactly graph_w display columns despite the
+        # double-width CJK glyphs on the labelled row
+        assert all(visible_len(ln) == self.GRAPH_W for ln in lines)
 
 
 class TestNearestCity:
@@ -263,9 +343,10 @@ class TestVendoredDataLookups:
     def test_land_is_not_water(self):
         assert marine_region(42.36, -71.06) is None  # Boston
 
-    def test_great_lakes_are_named(self):
+    def test_great_lakes_are_named_water(self):
+        # inland lakes join the marine set so the readout treats them as seas
+        assert marine_region(47.6, -87.5) == "Lake Superior"
         assert marine_region(44.0, -87.0) == "Lake Michigan"
-        assert marine_region(47.5, -87.5) == "Lake Superior"
 
     def test_caspian_sea_named_via_marine_layer(self):
         # the Caspian is carved out of NE's *land* layer (not the lakes
@@ -280,6 +361,19 @@ class TestVendoredDataLookups:
         # collapsed this sea's sparse 3-point northern boundary and left the
         # middle of it "outside"
         assert marine_region(75.0, 160.0) == "East Siberian Sea"
+
+    def test_coast_matches_lake_fidelity(self):
+        # regression: the coast was 1:50m while lakes were 1:10m, so lake
+        # shorelines read crisp next to a blocky sea coast.  Guard that the
+        # Gulf of Maine coastline now carries 1:10m detail (it collapsed to
+        # ~100 vertices at 1:50m; 1:10m gives several hundred).
+        import linecast._radar_basemap as bm
+        gom = (-71.5, 42.5, -66.5, 45.5)
+        minlon, minlat, maxlon, maxlat = gom
+        n = sum(1 for rings in bm._load_data()["land"]
+                for ring in rings for x, y in ring
+                if minlon <= x <= maxlon and minlat <= y <= maxlat)
+        assert n > 300
 
     def test_nearest_city_real_data(self):
         name, dist_km, bearing = nearest_city(42.6, -70.8)
