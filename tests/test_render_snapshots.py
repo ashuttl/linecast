@@ -132,3 +132,62 @@ class TestSunshineSnapshot:
             )
         stripped = _strip_ansi(output)
         _compare_or_create("sunshine_80x24.txt", stripped)
+
+
+# -----------------------------------------------------------------------
+# Moon rendering snapshot
+# -----------------------------------------------------------------------
+class TestMoonSnapshot:
+    # A fixed-offset zone keeps the rise/set times hermetic regardless of
+    # the host machine's timezone. 2026-03-05 is a waning full-ish moon.
+    def _now(self):
+        from datetime import timedelta, timezone
+        return datetime(2026, 3, 5, 14, 30,
+                        tzinfo=timezone(timedelta(hours=-5)))
+
+    def _render(self, lang):
+        from linecast.moon import render
+        from linecast._runtime import RuntimeConfig
+
+        runtime = RuntimeConfig(live=False, emoji=True, lang=lang, oneline=False)
+        with patch("linecast.moon.get_terminal_size", return_value=(80, 24)):
+            output = render(self._now(), 43.7, -79.4, runtime)
+        return _strip_ansi(output)
+
+    def test_moon_80x24(self):
+        _compare_or_create("moon_80x24.txt", self._render("en"))
+
+    def test_moon_80x24_french(self):
+        _compare_or_create("moon_fr_80x24.txt", self._render("fr"))
+
+    def test_moon_scrubbed_shows_simulated_time(self):
+        """Scrubbing must label the simulated moment and the way back."""
+        from linecast.moon import render
+        from linecast._runtime import RuntimeConfig
+
+        runtime = RuntimeConfig(live=False, emoji=True, lang="en", oneline=False)
+        with patch("linecast.moon.get_terminal_size", return_value=(80, 24)):
+            output = _strip_ansi(
+                render(self._now(), 43.7, -79.4, runtime, offset_minutes=2880)
+            )
+        assert "Thu Mar 5" in output
+        assert "space to return to now" in output
+        assert "Up now" not in output
+
+    def test_moon_southern_hemisphere_mirrors_disc(self):
+        """A waxing moon lights the east limb in the north, west in the south."""
+        from linecast._framebuffer import Framebuffer
+        from linecast.moon import _draw_moon_disc
+
+        def side_brightness(southern):
+            fb = Framebuffer(40, 20)
+            _draw_moon_disc(fb, 20, 20, 15, 0.25, southern)
+            left = sum(sum(fb.fb[20][x]) for x in range(6, 18))
+            right = sum(sum(fb.fb[20][x]) for x in range(23, 35))
+            return left, right
+
+        n_left, n_right = side_brightness(southern=False)
+        s_left, s_right = side_brightness(southern=True)
+        assert n_right > n_left
+        assert s_left > s_right
+        assert (n_left, n_right) == (s_right, s_left)

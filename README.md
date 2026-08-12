@@ -19,7 +19,7 @@ All data comes from free public APIs with no keys required.
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-dusk.png" width="49%" alt="sunshine — dusk">
 </p>
 
-**`moon`** — Current phase and illuminated fraction, whether the Moon is up right now (with altitude), the next moonrise and moonset, and the dates of the next full and new moons. `--oneline` lists the next rise/set chronologically — a leading ↓ means the Moon is up.
+**`moon`** — The Moon itself: a shaded disc with the correct phase terminator, mare shading, and a soft halo over a star field, mirrored for southern-hemisphere observers. Below it, the current phase and illuminated fraction, whether the Moon is up right now (with altitude), the next moonrise and moonset, and the dates of the next full and new moons — localized in the same languages as `weather`. `--oneline` lists the next rise/set chronologically — a leading ↓ means the Moon is up.
 
 **`tides`** — NOAA tide predictions rendered as a sunlight-shaded braille chart with scrollable multi-day window, current water level, high/low extremes with timestamps, and mouse hover tooltips.
 
