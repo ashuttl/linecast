@@ -40,6 +40,7 @@ from linecast._theme import (
     theme_bg,
     theme_fg,
 )
+from linecast._geo import haversine_nm
 from linecast._location import get_location
 from linecast._runtime import TidesRuntime, install_banner, tides_parser
 from linecast._marine import fetch_marine, parse_marine_current, format_marine_line
@@ -212,68 +213,122 @@ def _live_window_start(now_local, offset_minutes, hours_shown=LIVE_WINDOW_HOURS,
     return now_local - timedelta(hours=past_hours) + timedelta(minutes=offset_minutes)
 
 
-def _search_stations(query):
-    """Search NOAA, CHS, QLD, and TideCheck stations by name. Prints matches and exits."""
-    q = query.lower()
+# Full names for the state/territory abbreviations NOAA stations carry, so
+# queries like "portland maine" match "PORTLAND, ME".
+US_STATE_NAMES = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
+    "CA": "California", "CO": "Colorado", "CT": "Connecticut",
+    "DE": "Delaware", "FL": "Florida", "GA": "Georgia", "HI": "Hawaii",
+    "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
+    "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine",
+    "MD": "Maryland", "MA": "Massachusetts", "MI": "Michigan",
+    "MN": "Minnesota", "MS": "Mississippi", "MO": "Missouri",
+    "MT": "Montana", "NE": "Nebraska", "NV": "Nevada",
+    "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico",
+    "NY": "New York", "NC": "North Carolina", "ND": "North Dakota",
+    "OH": "Ohio", "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania",
+    "RI": "Rhode Island", "SC": "South Carolina", "SD": "South Dakota",
+    "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont",
+    "VA": "Virginia", "WA": "Washington", "WV": "West Virginia",
+    "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia",
+    "PR": "Puerto Rico", "VI": "Virgin Islands", "GU": "Guam",
+    "AS": "American Samoa", "MP": "Northern Mariana Islands",
+}
 
-    # NOAA
-    noaa_stations = _fetch_all_stations()
-    noaa_matches = [s for s in (noaa_stations or []) if q in s.get("name", "").lower()]
-    noaa_matches.sort(key=lambda s: s.get("name", ""))
 
-    # CHS (Canada)
-    chs_stations = _fetch_all_stations_chs()
-    chs_matches = [s for s in (chs_stations or [])
-                   if q in s.get("officialName", "").lower()]
-    chs_matches.sort(key=lambda s: s.get("officialName", ""))
+def _find_matching_stations(query):
+    """Match stations across all providers by tokenized name/state search.
 
-    # QLD (Australia)
-    qld_stations = _fetch_all_stations_qld()
-    qld_matches = [s for s in (qld_stations or [])
-                   if q in s.get("name", "").lower()]
-    qld_matches.sort(key=lambda s: s.get("name", ""))
+    Every whitespace-separated token of *query* must appear somewhere in a
+    station's searchable text — name, state abbreviation, full state name,
+    or country — so multi-word queries like "portland maine" work.
 
-    # TideCheck (global, optional)
-    tc_matches = search_stations_tidecheck(query) if _tidecheck_available() else []
+    Returns a list of dicts {source, id, name, dist_nm}, sorted by distance
+    from the current location when one is known (alphabetically otherwise).
+    TideCheck results come from a server-side search without coordinates and
+    are appended last.
+    """
+    tokens = [t for t in query.lower().split() if t]
 
-    if not noaa_matches and not chs_matches and not qld_matches and not tc_matches:
+    candidates = []
+
+    for s in (_fetch_all_stations() or []):
+        name = s.get("name", "")
+        state = s.get("state", "")
+        haystack = f"{name} {state} {US_STATE_NAMES.get(state.upper(), '')}".lower()
+        if all(t in haystack for t in tokens):
+            candidates.append({
+                "source": "noaa", "id": str(s.get("id", "")),
+                "name": f"{name}, {state}" if state else name,
+                "lat": s.get("lat"), "lng": s.get("lng"),
+            })
+
+    for s in (_fetch_all_stations_chs() or []):
+        name = s.get("officialName", "")
+        haystack = f"{name} canada".lower()
+        if all(t in haystack for t in tokens):
+            candidates.append({
+                "source": "chs", "id": str(s.get("id", "")), "name": name,
+                "lat": s.get("latitude"), "lng": s.get("longitude"),
+            })
+
+    for s in (_fetch_all_stations_qld() or []):
+        name = s.get("name", "")
+        haystack = f"{name} qld queensland australia".lower()
+        if all(t in haystack for t in tokens):
+            # QLD stations are identified by name, not numeric ID
+            candidates.append({
+                "source": "qld", "id": name, "name": name,
+                "lat": s.get("lat"), "lng": s.get("lng"),
+            })
+
+    here_lat, here_lng, _country = get_location()
+    for c in candidates:
+        try:
+            c["dist_nm"] = haversine_nm(
+                here_lat, here_lng, float(c.pop("lat")), float(c.pop("lng")))
+        except (TypeError, ValueError):
+            c.pop("lat", None)
+            c.pop("lng", None)
+            c["dist_nm"] = None
+    if here_lat is not None:
+        candidates.sort(
+            key=lambda c: (c["dist_nm"] is None, c["dist_nm"] or 0.0, c["name"]))
+    else:
+        candidates.sort(key=lambda c: c["name"])
+
+    if _tidecheck_available():
+        for s in search_stations_tidecheck(query):
+            candidates.append({
+                "source": "tidecheck", "id": str(s.get("id", "")),
+                "name": s.get("name", ""), "dist_nm": None,
+            })
+
+    return candidates
+
+
+def _search_stations(query, metric=False):
+    """Print stations matching *query*, nearest first, and exit."""
+    matches = _find_matching_stations(query)
+
+    if not matches:
         print(f"No stations matching \"{query}\".")
         sys.exit(0)
 
-    for s in noaa_matches[:20]:
-        sid = s.get("id", "")
-        name = s.get("name", "")
-        state = s.get("state", "")
-        label = f"{name}, {state}" if state else name
-        print(f"  {sid}  {label}")
+    source_tags = {"chs": " (Canada)", "qld": " (QLD, Australia)",
+                   "tidecheck": " (TideCheck)"}
+    for c in matches[:20]:
+        left = c["name"] if c["id"] == c["name"] else f"{c['id']}  {c['name']}"
+        dist = ""
+        if c["dist_nm"] is not None:
+            if metric:
+                dist = f" — {c['dist_nm'] * 1.852:.0f} km"
+            else:
+                dist = f" — {c['dist_nm'] * 1.15078:.0f} mi"
+        print(f"  {left}{dist}{source_tags.get(c['source'], '')}")
 
-    if noaa_matches and chs_matches:
-        print()
-
-    for s in chs_matches[:20]:
-        sid = s.get("id", "")
-        name = s.get("officialName", "")
-        print(f"  {sid}  {name}")
-
-    if (noaa_matches or chs_matches) and qld_matches:
-        print()
-
-    for s in qld_matches[:20]:
-        name = s.get("name", "")
-        print(f"  {name}  (QLD, Australia)")
-
-    if tc_matches and (noaa_matches or chs_matches or qld_matches):
-        print()
-
-    for s in tc_matches[:20]:
-        sid = s.get("id", "")
-        name = s.get("name", "")
-        print(f"  {sid}  {name}  (TideCheck)")
-
-    total = len(noaa_matches) + len(chs_matches) + len(qld_matches) + len(tc_matches)
-    shown = min(len(noaa_matches), 20) + min(len(chs_matches), 20) + min(len(qld_matches), 20) + min(len(tc_matches), 20)
-    if total > shown:
-        print(f"  ... and {total - shown} more")
+    if len(matches) > 20:
+        print(f"  ... and {len(matches) - 20} more")
 
 
 # ---------------------------------------------------------------------------
@@ -802,7 +857,7 @@ def main():
 
     # --search: find stations by name and exit
     if args.search:
-        _search_stations(args.search)
+        _search_stations(args.search, metric=args.metric)
         return
 
     # Station: --station flag > TIDE_STATION env var > geolocation
@@ -824,39 +879,16 @@ def main():
                     station_name = f"{name}, {state}" if state else name
                     break
         else:
-            # Text query — find first matching station by name
-            q = override.lower()
-            noaa_stations = _fetch_all_stations() or []
-            chs_stations = _fetch_all_stations_chs() or []
-            qld_stations = _fetch_all_stations_qld() or []
-            noaa_hit = next((s for s in noaa_stations if q in s.get("name", "").lower()), None)
-            chs_hit = next((s for s in chs_stations if q in s.get("officialName", "").lower()), None)
-            qld_hit = next((s for s in qld_stations if q in s.get("name", "").lower()), None)
-            # Also check TideCheck when available
-            tc_hit = None
-            if _tidecheck_available():
-                tc_results = search_stations_tidecheck(q)
-                tc_hit = tc_results[0] if tc_results else None
-            if noaa_hit:
-                station_id = str(noaa_hit["id"])
-                name = noaa_hit.get("name", "")
-                state = noaa_hit.get("state", "")
-                station_name = f"{name}, {state}" if state else name
-            elif chs_hit:
-                source = "chs"
-                station_id = str(chs_hit["id"])
-                station_name = chs_hit.get("officialName", f"Station {station_id[:8]}")
-            elif qld_hit:
-                source = "qld"
-                station_id = qld_hit["name"]
-                station_name = qld_hit["name"]
-            elif tc_hit:
-                source = "tidecheck"
-                station_id = str(tc_hit["id"])
-                station_name = tc_hit.get("name", f"Station {station_id}")
-            else:
+            # Text query — pick the closest matching station (first match
+            # when the current location is unknown)
+            matches = _find_matching_stations(override)
+            if not matches:
                 print(f'No stations matching "{override}".', file=sys.stderr)
                 sys.exit(1)
+            best = matches[0]
+            source = best["source"]
+            station_id = best["id"]
+            station_name = best["name"] or f"Station {station_id[:8]}"
     else:
         lat, lng, country_code = get_location()
         if lat is None:

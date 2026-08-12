@@ -98,3 +98,52 @@ class RenderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StationSearchTests(unittest.TestCase):
+    NOAA = [
+        {"id": "8418150", "name": "PORTLAND", "state": "ME",
+         "lat": 43.66, "lng": -70.25},
+        {"id": "9439221", "name": "Portland Morrison Street Bridge",
+         "state": "OR", "lat": 45.51, "lng": -122.67},
+        {"id": "8638671", "name": "Lafayette River", "state": "VA",
+         "lat": 36.89, "lng": -76.31},
+    ]
+    CHS = [
+        {"id": "5cebf1df3d0f4a073c4bbd1e", "officialName": "Saint John",
+         "latitude": 45.25, "longitude": -66.06},
+    ]
+    QLD = [
+        {"name": "Brisbane Bar", "lat": -27.37, "lng": 153.17},
+    ]
+
+    def _matches(self, query, location=(44.41, -70.03, "US")):
+        with patch.object(tides, "_fetch_all_stations", return_value=self.NOAA), \
+             patch.object(tides, "_fetch_all_stations_chs", return_value=self.CHS), \
+             patch.object(tides, "_fetch_all_stations_qld", return_value=self.QLD), \
+             patch.object(tides, "_tidecheck_available", return_value=False), \
+             patch.object(tides, "get_location", return_value=location):
+            return tides._find_matching_stations(query)
+
+    def test_multiword_query_matches_full_state_name(self):
+        matches = self._matches("portland maine")
+        self.assertEqual([m["id"] for m in matches], ["8418150"])
+
+    def test_results_sorted_by_distance_from_location(self):
+        matches = self._matches("portland")
+        self.assertEqual([m["id"] for m in matches], ["8418150", "9439221"])
+        self.assertLess(matches[0]["dist_nm"], matches[1]["dist_nm"])
+
+    def test_no_location_sorts_alphabetically(self):
+        matches = self._matches("portland", location=(None, None, None))
+        self.assertEqual([m["id"] for m in matches], ["8418150", "9439221"])
+        self.assertIsNone(matches[0]["dist_nm"])
+
+    def test_country_token_matches_chs_stations(self):
+        matches = self._matches("saint john canada")
+        self.assertEqual([m["source"] for m in matches], ["chs"])
+
+    def test_qld_station_matched_by_region_token(self):
+        matches = self._matches("brisbane queensland")
+        self.assertEqual([m["source"] for m in matches], ["qld"])
+        self.assertEqual(matches[0]["id"], matches[0]["name"])

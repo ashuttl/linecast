@@ -71,9 +71,9 @@ moon                             # phase, illumination, next rise/set (live by d
 moon --oneline                   # compact line for status bars
 
 tides                            # nearest NOAA station (live by default)
-tides --station "Bar Harbor"     # search by station name (uses first match)
+tides --station "Bar Harbor"     # search by station name (uses nearest match)
 tides --station 8413320          # specific station ID
-tides --search "Bar Harbor"      # find stations by name
+tides --search "portland maine"  # find stations by name/state, nearest first
 tides --metric                   # heights in meters instead of feet
 tides --lang fr                  # UI in French
 tides --print                    # static snapshot
