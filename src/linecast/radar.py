@@ -40,7 +40,7 @@ from linecast._radar_basemap import (
 )
 from linecast._radar_i18n import rs
 from linecast._radar_render import (
-    bbox_for, build_radar_buffer, compose, lerp_rgba, over_rgba,
+    bbox_for, build_radar_buffer, compose,
 )
 from linecast._radar_source import FRAME_STEP
 from linecast._radar_sources import DEFAULT_THEME, THEMES, get_source, theme_id
@@ -55,9 +55,9 @@ MAX_REWIND_MIN = 180  # how far back scrubbing can go (IEM; tile sources
                       # are limited to what their index publishes, ~2 h)
 N_FRAMES = MAX_REWIND_MIN // 5 + 1  # frames in the rewind window
 
-# display layers, in the order the s key cycles them: precipitation only,
-# echoes over the satellite cloud mosaic, clouds alone (hourly timeline)
-LAYERS = ("radar", "both", "sat")
+# display layers, toggled by the s key: precipitation (5-min frames) or
+# the satellite cloud mosaic alone (hourly, deeper timeline)
+LAYERS = ("radar", "sat")
 
 _basemap_cache = {}
 _source = None  # active RadarSource, chosen per location in main()
@@ -79,92 +79,33 @@ def _view_key(bbox, gw, hc):
     return (_bbox_key(bbox), gw, hc, getattr(_source, "theme", None))
 
 
-SAT_STEP_MIN = 10  # synthesized cloud in-betweens in satellite-only mode
-
-
-def _sat_bracket(when, layer):
-    """The cloud state at `when` as (before, after, t); None when unused.
-
-    The mosaic is hourly while the timeline steps in minutes, so the state
-    between two mosaics is a cross-fade (`t` in [0,1] toward `after`).
-    Before the first / past the newest mosaic there is nothing to fade to
-    (no future clouds — nowcast covers echoes only), so the edge holds:
-    (frame, None, 0).
-    """
-    if layer == "radar":
-        return None
-    sats = getattr(_source, "satellite_frames", lambda: [])()
-    if not sats:
-        return None
-    if when <= sats[0].time:
-        return (sats[0], None, 0.0)
-    if when >= sats[-1].time:
-        return (sats[-1], None, 0.0)
-    for a, b in zip(sats, sats[1:]):
-        if a.time <= when <= b.time:
-            span = (b.time - a.time).total_seconds()
-            return (a, b, (when - a.time).total_seconds() / span)
-    return (sats[-1], None, 0.0)
-
-
 def _sat_timeline():
-    """Satellite-only frame list: hourly mosaics plus cross-faded in-betweens,
-    so the cloud loop plays as smoothly as the radar loop."""
-    sats = getattr(_source, "satellite_frames", lambda: [])()
-    if len(sats) < 2:
-        return list(sats)
-    from linecast._radar_sources import Frame
-    step = _dt.timedelta(minutes=SAT_STEP_MIN)
-    out = []
-    when = sats[0].time
-    while when < sats[-1].time:
-        out.append(Frame(when, "sat-blend"))
-        when += step
-    out.append(sats[-1])
-    return out
+    """Satellite-only frame list: the hourly mosaics, played as discrete
+    steps so cloud features visibly move between frames."""
+    return list(getattr(_source, "satellite_frames", lambda: [])())
 
 
-def _frame_key(bbox, gw, hc, frame, layer="radar", sat=None):
+def _frame_key(bbox, gw, hc, frame, layer="radar"):
     stamp = frame.time.strftime("%Y%m%dT%H%M")
     if frame.future:
         # nowcast frames are re-predicted under the same timestamp; a token
         # digest keeps a superseded prediction from being served forever
         import hashlib
         stamp += ":" + hashlib.sha1(str(frame.token).encode()).hexdigest()[:8]
-    key = _view_key(bbox, gw, hc) + (layer, stamp)
-    if sat is not None:
-        # a fresh index can re-bracket a timestamp with a newer mosaic
-        a, b, _t = sat
-        key += (a.time.strftime("%Y%m%dT%H%M"),
-                b.time.strftime("%Y%m%dT%H%M") if b else "")
-    return key
-
-
-def _sat_rgba(bbox, gw, hc, bracket):
-    """The (possibly cross-faded) cloud RGBA for a bracket."""
-    a, b, t = bracket
-    pw, ph, ra = _source.satellite_rgba(bbox, gw, hc, a)
-    if b is None or t <= 0.0:
-        return pw, ph, ra
-    _, _, rb = _source.satellite_rgba(bbox, gw, hc, b)
-    return pw, ph, lerp_rgba(ra, rb, t, pw, ph)
+    return _view_key(bbox, gw, hc) + (layer, stamp)
 
 
 def _load_frame(bbox, gw, hc, frame, layer="radar"):
     """Return (radar_buffer, echo). Memoised; fetches + decodes on miss."""
-    sat = _sat_bracket(frame.time, layer)
-    key = _frame_key(bbox, gw, hc, frame, layer, sat)
+    key = _frame_key(bbox, gw, hc, frame, layer)
     with _frame_lock:
         hit = _frame_cache.get(key)
     if hit is not None:
         return hit
     if layer == "sat":
-        pw, ph, rgba = _sat_rgba(bbox, gw, hc, sat)
+        pw, ph, rgba = _source.satellite_rgba(bbox, gw, hc, frame)
     else:
         pw, ph, rgba = _source.frame_rgba(bbox, gw, hc, frame)
-        if sat is not None:
-            sw, sh, srgba = _sat_rgba(bbox, gw, hc, sat)
-            rgba = over_rgba(srgba, rgba, pw, ph)  # echoes over the clouds
     result = build_radar_buffer(rgba, pw, ph, gw, hc,
                                 sea=_get_basemap(bbox, gw, hc).sea)
     with _frame_lock:
@@ -182,8 +123,7 @@ def _load_frame(bbox, gw, hc, frame, layer="radar"):
 
 def _cached_frame(bbox, gw, hc, frame, layer="radar"):
     """Cache-only lookup; never touches the network."""
-    key = _frame_key(bbox, gw, hc, frame, layer,
-                     _sat_bracket(frame.time, layer))
+    key = _frame_key(bbox, gw, hc, frame, layer)
     with _frame_lock:
         return _frame_cache.get(key)
 
@@ -690,8 +630,11 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     place = (_panned_place(lat, lon, lang) if panned
              else location_name or f"{lat:.2f}, {lon:.2f}")
     delta = round((when - present).total_seconds() / 60)
-    age = (rs("now", lang) if delta == 0
-           else (f"{delta}m" if delta < 0 else f"+{delta}m"))
+    # sat-mode frames sit whole hours back; "-9h" reads, "-540m" doesn't
+    mag, sign = abs(delta), "-" if delta < 0 else "+"
+    span = (f"{sign}{mag // 60}h" if mag >= 60 and mag % 60 == 0
+            else f"{sign}{mag}m")
+    age = rs("now", lang) if delta == 0 else span
     tag = f" {rs('forecast', lang)}" if frame.future else ""
     tag += f" · {rs('loading', lang)}" if loading else ""
     if field is not None and "temp" in layers:
@@ -705,7 +648,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     # with the cloud layer in, the coverage figure is cloud, not echo
     pct = rs("echo_pct" if layer == "radar" else "cloud_pct",
              lang, pct=f"{echo:.0f}")
-    brand = "radar" if layer == "radar" else "radar ☁"
+    brand = "radar" if layer == "radar" else "satellite ☁"
 
     def _header(place_str):
         return (f"{fg(*MARKER)}{BOLD}⬤ {brand}{RESET}  {fg(*MUTED)}{place_str}"
@@ -803,12 +746,11 @@ def main():
               file=sys.stderr)
         sys.exit(2)
 
-    layer = {"radar": "radar", "satellite": "sat", "sat": "sat",
-             "both": "both"}.get(
+    layer = {"radar": "radar", "satellite": "sat", "sat": "sat"}.get(
         (args.layer or os.environ.get("LINECAST_RADAR_LAYER", "").strip()
          or "radar").lower())
     if layer is None:
-        print('Unknown radar layer. Layers: radar, both, satellite.',
+        print('Unknown radar layer. Layers: radar, satellite.',
               file=sys.stderr)
         sys.exit(2)
 

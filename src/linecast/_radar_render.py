@@ -40,61 +40,6 @@ def bbox_for(lat, lon, zoom, graph_w, height_cells):
     return (lon - lon_span / 2, minlat, lon + lon_span / 2, maxlat)
 
 
-def lerp_rgba(a, b, t, w, h):
-    """Cross-fade two straight-alpha RGBA buffers; returns a new bytearray.
-
-    The cloud mosaic is hourly while the radar timeline steps in minutes, so
-    in-between cloud states are synthesized by fading — the same trick every
-    broadcast satellite loop uses. Colour is lerped alpha-weighted so a pixel
-    fading in from transparent doesn't drag the colour toward black.
-    """
-    if t <= 0.0:
-        return bytearray(a)
-    if t >= 1.0:
-        return bytearray(b)
-    out = bytearray(w * h * 4)
-    ti = round(t * 255)
-    inv = 255 - ti
-    for i in range(0, w * h * 4, 4):
-        aa, ba = a[i + 3], b[i + 3]
-        oa = (aa * inv + ba * ti) // 255
-        if oa == 0:
-            continue
-        wa, wb = aa * inv, ba * ti  # alpha-weighted contributions
-        den = wa + wb
-        out[i] = (a[i] * wa + b[i] * wb) // den
-        out[i + 1] = (a[i + 1] * wa + b[i + 1] * wb) // den
-        out[i + 2] = (a[i + 2] * wa + b[i + 2] * wb) // den
-        out[i + 3] = oa
-    return out
-
-
-def over_rgba(base, over, w, h):
-    """Straight-alpha composite `over` onto `base` in place; returns `base`.
-
-    Used to lay radar echoes over the satellite cloud layer before the
-    combined image is blended into the sub-pixel buffer, so everything
-    downstream (build_radar_buffer / compose) sees a single RGBA frame.
-    """
-    for i in range(0, w * h * 4, 4):
-        oa = over[i + 3]
-        if oa == 0:
-            continue
-        ba = base[i + 3]
-        if oa >= 255 or ba == 0:
-            base[i:i + 4] = over[i:i + 4]
-            continue
-        inv = 255 - oa
-        outa = oa + ba * inv // 255
-        base[i] = (over[i] * oa * 255 + base[i] * ba * inv) // (outa * 255)
-        base[i + 1] = (over[i + 1] * oa * 255
-                       + base[i + 1] * ba * inv) // (outa * 255)
-        base[i + 2] = (over[i + 2] * oa * 255
-                       + base[i + 2] * ba * inv) // (outa * 255)
-        base[i + 3] = outa
-    return base
-
-
 def build_radar_buffer(rgba, pw, ph, graph_w, height_cells, sea=None):
     """Blend a decoded radar frame into a sub-pixel buffer over the background.
 

@@ -26,7 +26,7 @@ THEME_VALUES = ("dark-sky", "universal-blue", "rainbow", "nexrad", "original",
                 "titan", "twc", "meteored", "datameteo", "viper", "mrms",
                 "max-storm", "black-white")
 # radar --layer display layers; keep in sync with radar.LAYERS
-LAYER_VALUES = ("radar", "both", "satellite")
+LAYER_VALUES = ("radar", "satellite")
 # radar --layers condition layers; keep in sync with radar.LAYER_NAMES
 CONDITION_VALUES = ("temp", "wind", "temp,wind")
 SHELLS = ("bash", "zsh", "fish")
