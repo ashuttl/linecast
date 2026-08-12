@@ -7,6 +7,11 @@ set -euo pipefail
 BUMP="${1:-patch}"
 LINECAST_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# GNU sed wants -i, BSD/macOS sed wants -i '' — releases happen from both
+sed_i() {
+  if sed --version >/dev/null 2>&1; then sed -i "$@"; else sed -i '' "$@"; fi
+}
+
 # --- 1. Bump version in pyproject.toml ---
 CURRENT=$(grep '^version' "$LINECAST_DIR/pyproject.toml" | sed 's/version = "\(.*\)"/\1/')
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
@@ -23,7 +28,7 @@ TAG="v$NEW_VERSION"
 
 echo "Bumping $CURRENT -> $NEW_VERSION"
 
-sed -i '' "s/^version = \".*\"/version = \"$NEW_VERSION\"/" "$LINECAST_DIR/pyproject.toml"
+sed_i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" "$LINECAST_DIR/pyproject.toml"
 
 # --- 2. Commit, tag, and push ---
 cd "$LINECAST_DIR"

@@ -6,6 +6,11 @@ set -euo pipefail
 
 VERSION="${1:?Usage: $0 <version>}"
 TAG="v$VERSION"
+
+# GNU sed wants -i, BSD/macOS sed wants -i '' — releases happen from both
+sed_i() {
+  if sed --version >/dev/null 2>&1; then sed -i "$@"; else sed -i '' "$@"; fi
+}
 LINECAST_DIR="$(cd "$(dirname "$0")" && pwd)"
 HOMEBREW_DIR="$LINECAST_DIR/../homebrew-linecast"
 
@@ -25,8 +30,8 @@ echo "SHA256: $SHA256"
 git -C "$HOMEBREW_DIR" pull --rebase origin main
 
 FORMULA="$HOMEBREW_DIR/Formula/linecast.rb"
-sed -i '' "s|url \".*\"|url \"$PYPI_URL\"|" "$FORMULA"
-sed -i '' "s|sha256 \".*\"|sha256 \"$SHA256\"|" "$FORMULA"
+sed_i "s|url \".*\"|url \"$PYPI_URL\"|" "$FORMULA"
+sed_i "s|sha256 \".*\"|sha256 \"$SHA256\"|" "$FORMULA"
 
 cd "$HOMEBREW_DIR"
 git add Formula/linecast.rb
