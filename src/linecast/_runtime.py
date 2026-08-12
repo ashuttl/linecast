@@ -132,6 +132,11 @@ def sunshine_parser():
                          "Solar arc inspired by the Apple Watch Solar face")
 
 
+def moon_parser():
+    return _base_parser("moon",
+                         "Moon phase, illumination, and rise/set times")
+
+
 def radar_parser():
     p = _base_parser("radar",
                       "Terminal weather radar over a braille basemap (US + global)")

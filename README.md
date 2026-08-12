@@ -19,6 +19,8 @@ All data comes from free public APIs with no keys required.
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-dusk.png" width="49%" alt="sunshine — dusk">
 </p>
 
+**`moon`** — Current phase and illuminated fraction, whether the Moon is up right now (with altitude), the next moonrise and moonset, and the dates of the next full and new moons. `--oneline` lists the next rise/set chronologically — a leading ↓ means the Moon is up.
+
 **`tides`** — NOAA tide predictions rendered as a sunlight-shaded braille chart with scrollable multi-day window, current water level, high/low extremes with timestamps, and mouse hover tooltips.
 
 ![tides](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
@@ -33,7 +35,7 @@ Like the rest of linecast, radar speaks all 16 languages — here looping the fo
 
 **`maps`** — Terrain and bathymetry, no weather at all. Hillshaded elevation from the AWS/Mapzen terrain tiles (SRTM, GMTED, ETOPO1) painted as a hypsometric ramp — lowland green through alpine white above sea level, deepening bathymetric blues below it — with the coastlines, borders, and city labels rendered in braille over the fill. Drag to pan, `+`/`-` to zoom, hover to read the elevation under the pointer.
 
-All five launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.
+All six launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.
 
 ## Install
 
@@ -65,6 +67,9 @@ sunshine                         # solar arc (live by default)
 sunshine --print                 # static snapshot
 sunshine --classic-colors        # use fixed-color (theme agnostic) sunshine gradient/palette
 
+moon                             # phase, illumination, next rise/set (live by default)
+moon --oneline                   # compact line for status bars
+
 tides                            # nearest NOAA station (live by default)
 tides --station "Bar Harbor"     # search by station name (uses first match)
 tides --station 8413320          # specific station ID
@@ -87,6 +92,24 @@ maps --location "Innsbruck"      # the Alps
 maps --location 60.4,5.3 --zoom 8  # Norwegian fjords and the North Sea trench
 maps --print                     # static snapshot
 ```
+
+### Setting a location
+
+All commands detect your location from your IP address by default. To use a
+fixed location instead:
+
+```
+linecast location set "Portland, Maine"   # search by place name (uses top result)
+linecast location set 44.54,-68.42        # specific coordinates
+linecast location                         # show the current setting
+linecast location auto                    # go back to IP geolocation
+linecast location search fayette          # list matching places
+```
+
+The saved location applies to every command and is stored in
+`~/.config/linecast/config.json`. It is resolved to coordinates once, when you
+set it. A `--location` flag or the `WEATHER_LOCATION` environment variable
+takes precedence over it.
 
 ### Language support
 
@@ -139,7 +162,7 @@ Alert text comes from each national weather service in its native language. When
 
 | Variable                    | Description                                                                                                                                  |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WEATHER_LOCATION`          | Default lat,lng for weather and radar (e.g., `44.54,-68.42`)                                                                                 |
+| `WEATHER_LOCATION`          | Default lat,lng for weather and radar (e.g., `44.54,-68.42`); overrides a saved `linecast location`                                          |
 | `TIDE_STATION`              | Default NOAA station ID for tides (e.g., `8413320`)                                                                                          |
 | `LINECAST_RADAR_THEME`      | Default radar colour theme (same values as `radar --theme`; default `dark-sky`)                                                              |
 | `LINECAST_LIBREWXR_URL`     | Base URL of a self-hosted [LibreWXR](https://librewxr.net) instance for radar tiles (default `https://api.librewxr.net`)                     |

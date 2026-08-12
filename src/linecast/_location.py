@@ -1,6 +1,7 @@
 """IP geolocation with caching and country detection."""
 
 from linecast._cache import CACHE_ROOT, read_cache, write_cache
+from linecast._config import saved_location
 from linecast._http import fetch_json
 from linecast._runtime import debug_log
 from linecast import USER_AGENT
@@ -14,7 +15,16 @@ def get_location():
 
     Returns (lat, lng, country_code) on success, (None, None, None) on failure.
     country_code is ISO 3166-1 alpha-2 (e.g., "US", "CA", "GB").
+
+    A location saved via `linecast location set` takes precedence over IP
+    geolocation. (--location flags and WEATHER_LOCATION are handled by
+    callers before reaching here, so overall precedence is flag > env >
+    saved > IP.)
     """
+    saved = saved_location()
+    if saved is not None:
+        return saved["lat"], saved["lng"], saved.get("country", "")
+
     cached = read_cache(_CACHE_FILE, _MAX_AGE)
     if cached is not None:
         try:

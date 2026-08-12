@@ -122,6 +122,45 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime):
 
 
 # ---------------------------------------------------------------------------
+# Moon oneline
+# ---------------------------------------------------------------------------
+
+def moon_oneline(now_local, lat, lng, runtime):
+    """Return a compact moon summary line.
+
+    Example: ``waxing_gibbous_icon Waxing Gibbous 84% ↓4:12a ↑9:41p``
+
+    Rise/set are the *next* events from now — never today's already-passed
+    ones — listed chronologically, so a leading ↓ means the Moon is up.
+    """
+    from linecast.moon import moon_illumination, upcoming_moon_events
+    from linecast.sunshine import (
+        moon_phase, INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_TEXT_RGB,
+    )
+    from linecast._tides_i18n import _moon_name
+
+    idx, _name, icon = moon_phase(now_local, runtime)
+    name = _moon_name(idx, runtime)
+    illum = moon_illumination(now_local)
+
+    amber = fg(*INFO_AMBER_RGB)
+    purple = fg(*INFO_PURPLE_RGB)
+    text = fg(*INFO_TEXT_RGB)
+
+    parts = [f"{text}{icon} {name} {illum * 100:.0f}%"]
+
+    rise, sset = upcoming_moon_events(now_local, lat, lng)
+    events = sorted(
+        (dt, arrow) for dt, arrow in ((rise, "↑"), (sset, "↓")) if dt
+    )
+    for dt, arrow in events:
+        color = amber if arrow == "↑" else purple
+        parts.append(f"{color}{arrow}{text}{fmt_time_dt(dt, use_24h=runtime.use_24h)}")
+
+    return " ".join(parts) + RESET
+
+
+# ---------------------------------------------------------------------------
 # Tides oneline
 # ---------------------------------------------------------------------------
 

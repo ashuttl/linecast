@@ -10,21 +10,25 @@ linecast {__version__} — terminal weather, solar arc, and tide visualizations
 Commands:
   linecast weather     Weather dashboard with braille temperature curve and alerts
   linecast sunshine    Solar arc inspired by the Apple Watch Solar face
+  linecast moon        Moon phase, illumination, and rise/set times
   linecast tides       NOAA tide chart with half-block rendering
   linecast radar       Weather radar over a braille basemap (US + global)
   linecast maps        Terrain and bathymetry map (hillshaded elevation)
+  linecast location    Show or set a fixed location (overrides IP geolocation)
   linecast completion  Print shell completion script (bash, zsh, fish)
 
 Each command is also installed as a standalone binary (weather, sunshine,
-tides, radar, maps). Run any command with --help for options.
+moon, tides, radar, maps). Run any command with --help for options.
 """
 
 COMMANDS = {
     "weather": "linecast.weather",
     "sunshine": "linecast.sunshine",
+    "moon": "linecast.moon",
     "tides": "linecast.tides",
     "radar": "linecast.radar",
     "maps": "linecast.maps",
+    "location": "linecast.location",
 }
 
 

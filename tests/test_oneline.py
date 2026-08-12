@@ -16,7 +16,9 @@ for _key in sorted(sys.modules):
     if _key == "linecast" or _key.startswith("linecast."):
         del sys.modules[_key]
 
-from linecast._oneline import weather_oneline, sunshine_oneline, tides_oneline
+from linecast._oneline import (
+    weather_oneline, sunshine_oneline, moon_oneline, tides_oneline,
+)
 from linecast._runtime import WeatherRuntime, TidesRuntime, RuntimeConfig
 
 
@@ -142,6 +144,47 @@ class TestSunshineOneline:
         plain = _strip_ansi(line)
         # 24h format should have HH:MM without a/p
         assert "a" not in plain.split("h")[0] or ":" in plain
+
+
+# ---------------------------------------------------------------------------
+# Moon oneline
+# ---------------------------------------------------------------------------
+
+class TestMoonOneline:
+    def _runtime(self, **overrides):
+        defaults = dict(live=False, emoji=True, lang="en", oneline=True)
+        defaults.update(overrides)
+        return RuntimeConfig(**defaults)
+
+    def _now(self):
+        # 2000-01-21 05:00 UTC is within a day of a known full moon
+        # (new moon reference 2000-01-06 + half a synodic month).
+        est = timezone(timedelta(hours=-5))
+        return datetime(2000, 1, 21, 0, 0, tzinfo=est)
+
+    def test_full_moon_phase_and_illumination(self):
+        line = moon_oneline(self._now(), 43.66, -70.26, self._runtime())
+        plain = _strip_ansi(line)
+        assert "Full Moon" in plain
+        pct = int(re.search(r"(\d+)%", plain).group(1))
+        assert pct >= 98
+
+    def test_events_are_upcoming_and_chronological(self):
+        from linecast.moon import upcoming_moon_events
+        now = self._now()
+        rise, sset = upcoming_moon_events(now, 43.66, -70.26)
+        assert rise is not None and rise > now
+        assert sset is not None and sset > now
+        line = moon_oneline(now, 43.66, -70.26, self._runtime())
+        plain = _strip_ansi(line)
+        # Both arrows present, ordered by event time
+        first, second = ("↑", "↓") if rise < sset else ("↓", "↑")
+        assert plain.index(first) < plain.index(second)
+
+    def test_localized_phase_name(self):
+        line = moon_oneline(self._now(), 43.66, -70.26, self._runtime(lang="fr"))
+        plain = _strip_ansi(line)
+        assert "Pleine Lune" in plain
 
 
 # ---------------------------------------------------------------------------

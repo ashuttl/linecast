@@ -980,4 +980,5 @@ def _search_locations(query, lang="en"):
         print(f"  {lat:.4f},{lng:.4f}  {label}")
 
     print("\nUsage: weather --location LAT,LNG")
+    print("   or: linecast location set LAT,LNG")
     print("   or: export WEATHER_LOCATION=LAT,LNG")

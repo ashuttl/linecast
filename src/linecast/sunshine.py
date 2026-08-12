@@ -300,18 +300,22 @@ def daylight_factor(local_hour, doy, lat, lng, tz_offset_h):
 # Value from the Explanatory Supplement to the Astronomical Almanac (3rd ed.).
 SYNODIC_MONTH = 29.53058867
 
+def moon_cycle_frac(dt):
+    """Fraction of the synodic cycle elapsed since New Moon, in [0, 1)."""
+    # Known New Moon reference: 2000-Jan-06 18:14 UTC (Meeus, table 49.A).
+    ref = datetime(2000, 1, 6, 18, 14, tzinfo=timezone.utc)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    diff = (dt - ref).total_seconds() / 86400.0
+    return (diff % SYNODIC_MONTH) / SYNODIC_MONTH
+
 def moon_phase(dt, runtime=None):
     """Returns (index 0-7, name, nerd_font_icon).
 
     Uses narrow ~24h windows for principal phases (New, Full, Quarters)
     and wider bins for transitional phases, matching almanac conventions.
     """
-    # Known New Moon reference: 2000-Jan-06 18:14 UTC (Meeus, table 49.A).
-    ref = datetime(2000, 1, 6, 18, 14, tzinfo=timezone.utc)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    diff = (dt - ref).total_seconds() / 86400.0
-    frac = (diff % SYNODIC_MONTH) / SYNODIC_MONTH
+    frac = moon_cycle_frac(dt)
 
     # ±0.017 of the synodic cycle ≈ ±12 hours around each principal phase.
     # This window width was chosen to match the ~1-day labeling convention

@@ -17,23 +17,29 @@ class CompletionScriptTests(unittest.TestCase):
         self.assertIn("complete -F _linecast_complete_weather weather", script)
         self.assertIn("complete -F _linecast_complete_tides tides", script)
         self.assertIn("complete -F _linecast_complete_sunshine sunshine", script)
+        self.assertIn("complete -F _linecast_complete_moon moon", script)
         self.assertIn("complete -F _linecast_complete_radar radar", script)
 
     def test_zsh_completion_includes_namespace_and_standalone_commands(self):
         script = render_completion("zsh")
-        self.assertIn("compdef _linecast linecast weather sunshine tides radar maps",
+        self.assertIn("compdef _linecast linecast weather sunshine moon tides radar maps",
                       script)
         self.assertIn("_linecast_complete_command", script)
 
     def test_fish_completion_includes_namespace_and_standalone_commands(self):
         script = render_completion("fish")
         self.assertIn(
-            "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine tides radar maps completion'",
+            "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine moon tides radar maps location completion'",
+            script,
+        )
+        self.assertIn(
+            "complete -c linecast -f -n '__fish_seen_subcommand_from location' -a 'show set auto search'",
             script,
         )
         self.assertIn("complete -c weather -f -l print", script)
         self.assertIn("complete -c tides -f -l station -r", script)
         self.assertIn("complete -c sunshine -f -l print", script)
+        self.assertIn("complete -c moon -f -l print", script)
         self.assertIn("complete -c radar -f -l theme -r -a 'dark-sky", script)
 
     def test_radar_theme_values_track_source_themes(self):

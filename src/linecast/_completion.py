@@ -32,8 +32,10 @@ CONDITION_VALUES = ("temp", "wind", "temp,wind")
 SHELLS = ("bash", "zsh", "fish")
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
-TOP_LEVEL_COMMANDS = ("weather", "sunshine", "tides", "radar", "maps",
-                      "completion")
+TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps",
+                      "location", "completion")
+LOCATION_SUBCOMMANDS = ("show", "set", "auto", "search")
+LOCATION_FLAGS = ("--help", "-h", "--version")
 
 WEATHER_FLAGS = (
     "--help",
@@ -79,6 +81,20 @@ SUNSHINE_FLAGS = (
     "--live",
     "--oneline",
     "--emoji",
+    "--classic-colors",
+    "--legacy-colors",
+    "--debug",
+)
+
+MOON_FLAGS = (
+    "--help",
+    "-h",
+    "--version",
+    "--print",
+    "--live",
+    "--oneline",
+    "--emoji",
+    "--lang",
     "--classic-colors",
     "--legacy-colors",
     "--debug",
@@ -155,9 +171,12 @@ def _bash_script():
     weather = _SPACE.join(WEATHER_FLAGS)
     tides = _SPACE.join(TIDES_FLAGS)
     sunshine = _SPACE.join(SUNSHINE_FLAGS)
+    moon = _SPACE.join(MOON_FLAGS)
     radar = _SPACE.join(RADAR_FLAGS)
     maps = _SPACE.join(MAPS_FLAGS)
     completion = _SPACE.join(COMPLETION_FLAGS)
+    location = _SPACE.join(LOCATION_FLAGS)
+    location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
     shells = _SPACE.join(SHELLS)
 
     return f"""# bash completion for linecast
@@ -260,11 +279,18 @@ _linecast_complete_command() {{
     sunshine)
       _linecast_complete_flags {sunshine}
       ;;
+    moon)
+      _linecast_complete_flags {moon}
+      ;;
     radar)
       _linecast_complete_flags {radar}
       ;;
     maps)
       _linecast_complete_flags {maps}
+      ;;
+    location)
+      _linecast_complete_flags {location}
+      COMPREPLY+=( $(compgen -W "{location_sub}" -- "$cur") )
       ;;
     completion)
       _linecast_complete_flags {completion}
@@ -289,7 +315,7 @@ _linecast_complete() {{
 
   cmd="${{COMP_WORDS[1]}}"
   case "$cmd" in
-    weather|tides|sunshine|radar|maps|completion)
+    weather|tides|sunshine|moon|radar|maps|location|completion)
       _linecast_complete_command "$cmd"
       ;;
   esac
@@ -328,6 +354,17 @@ _linecast_complete_sunshine() {{
   _linecast_complete_command sunshine
 }}
 
+_linecast_complete_moon() {{
+  local cur prev
+  COMPREPLY=()
+  cur="${{COMP_WORDS[COMP_CWORD]}}"
+  prev=""
+  if (( COMP_CWORD > 0 )); then
+    prev="${{COMP_WORDS[COMP_CWORD-1]}}"
+  fi
+  _linecast_complete_command moon
+}}
+
 _linecast_complete_radar() {{
   local cur prev
   COMPREPLY=()
@@ -354,6 +391,7 @@ complete -F _linecast_complete linecast
 complete -F _linecast_complete_weather weather
 complete -F _linecast_complete_tides tides
 complete -F _linecast_complete_sunshine sunshine
+complete -F _linecast_complete_moon moon
 complete -F _linecast_complete_radar radar
 complete -F _linecast_complete_maps maps
 """
@@ -368,12 +406,15 @@ def _zsh_script():
     weather = _SPACE.join(WEATHER_FLAGS)
     tides = _SPACE.join(TIDES_FLAGS)
     sunshine = _SPACE.join(SUNSHINE_FLAGS)
+    moon = _SPACE.join(MOON_FLAGS)
     radar = _SPACE.join(RADAR_FLAGS)
     maps = _SPACE.join(MAPS_FLAGS)
     completion = _SPACE.join(COMPLETION_FLAGS)
+    location = _SPACE.join(LOCATION_FLAGS)
+    location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
     shells = _SPACE.join(SHELLS)
 
-    return f"""#compdef linecast weather sunshine tides radar maps
+    return f"""#compdef linecast weather sunshine moon tides radar maps
 
 typeset -a _linecast_lang_values
 _linecast_lang_values=({langs})
@@ -489,11 +530,18 @@ _linecast_complete_command() {{
     sunshine)
       _linecast_add_flags {sunshine}
       ;;
+    moon)
+      _linecast_add_flags {moon}
+      ;;
     radar)
       _linecast_add_flags {radar}
       ;;
     maps)
       _linecast_add_flags {maps}
+      ;;
+    location)
+      _linecast_add_flags {location}
+      compadd -- {location_sub}
       ;;
     completion)
       _linecast_add_flags {completion}
@@ -513,7 +561,7 @@ _linecast() {{
     fi
     cmd="${{words[2]}}"
     case "$cmd" in
-      weather|tides|sunshine|radar|maps|completion)
+      weather|tides|sunshine|moon|radar|maps|location|completion)
         _linecast_complete_command "$cmd"
         ;;
     esac
@@ -524,7 +572,7 @@ _linecast() {{
   return 0
 }}
 
-compdef _linecast linecast weather sunshine tides radar maps
+compdef _linecast linecast weather sunshine moon tides radar maps
 """
 
 
@@ -634,11 +682,13 @@ def _fish_standalone_flags(command, flags, lang=False, theme=False,
 def _fish_script():
     lines = [
         "# fish completion for linecast",
-        "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine tides radar maps completion'",
+        "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine moon tides radar maps location completion'",
         "complete -c linecast -f -n '__fish_use_subcommand' -l help -s h",
         "complete -c linecast -f -n '__fish_use_subcommand' -l version -s v",
         "complete -c linecast -f -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from completion' -l help -s h",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from location' -a 'show set auto search'",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from location' -l help -s h",
     ]
 
     lines.extend(
@@ -661,6 +711,13 @@ def _fish_script():
         _fish_command_flags(
             "sunshine",
             SUNSHINE_FLAGS,
+        )
+    )
+    lines.extend(
+        _fish_command_flags(
+            "moon",
+            MOON_FLAGS,
+            lang=True,
         )
     )
     lines.extend(
@@ -703,6 +760,13 @@ def _fish_script():
         _fish_standalone_flags(
             "sunshine",
             SUNSHINE_FLAGS,
+        )
+    )
+    lines.extend(
+        _fish_standalone_flags(
+            "moon",
+            MOON_FLAGS,
+            lang=True,
         )
     )
     lines.extend(
