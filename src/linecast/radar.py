@@ -23,9 +23,11 @@ Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--theme NAME]
 """
 
 import datetime as _dt
+import math
 import os
 import sys
 import threading
+import time as _time
 from concurrent.futures import ThreadPoolExecutor
 
 from linecast._color import fg, bg, RESET, BOLD
@@ -46,14 +48,20 @@ from linecast._radar_source import FRAME_STEP
 from linecast._radar_sources import DEFAULT_THEME, THEMES, get_source, theme_id
 from linecast._runtime import RuntimeConfig, radar_parser
 from linecast._graphics import live_loop, visible_len
+from linecast._spinner import SPINNER_FRAMES, Spinner
 
 MUTED = (150, 155, 170)
 DIM = (110, 114, 130)
+FAINT = (70, 74, 88)
 MARKER = (255, 240, 120)
 CROSSHAIR = (215, 220, 232)
 MAX_REWIND_MIN = 180  # how far back scrubbing can go (IEM; tile sources
                       # are limited to what their index publishes, ~2 h)
 N_FRAMES = MAX_REWIND_MIN // 5 + 1  # frames in the rewind window
+PLAY_READY = 0.8  # fraction of the frame window that must be buffered
+                  # before auto-play starts (a completed prefetch also opens
+                  # the gate, so a few permanently failing frames can't
+                  # stall playback forever)
 
 # display layers, toggled by the s key: precipitation (5-min frames) or
 # the satellite cloud mosaic alone (hourly, deeper timeline)
@@ -67,6 +75,8 @@ _frame_cache = {}
 _frame_lock = threading.Lock()
 _prefetch_key = None  # (bbox, w, h) currently being prefetched
 _prefetch_gen = 0     # bumped when the view changes; stale workers stand down
+_prefetch_done = False  # current window's prefetch worker has finished
+_buffering = False    # auto-play is held while the frame window buffers
 _live_refresh = False  # live mode: prefetch completions nudge a repaint
 
 
@@ -128,6 +138,13 @@ def _cached_frame(bbox, gw, hc, frame, layer="radar"):
         return _frame_cache.get(key)
 
 
+def _loaded_mask(bbox, gw, hc, frames, layer="radar"):
+    """Which frames of the window are already decoded and cached."""
+    keys = [_frame_key(bbox, gw, hc, f, layer) for f in frames]
+    with _frame_lock:
+        return [k in _frame_cache for k in keys]
+
+
 def _nearest_cached(bbox, gw, hc, when, layer="radar"):
     """The cached frame for this view closest in time to `when`, or None."""
     prefix = _view_key(bbox, gw, hc) + (layer,)
@@ -151,12 +168,13 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
     re-predicts a nowcast) — cached frames hit instantly, only the new
     images fetch.
     """
-    global _prefetch_key, _prefetch_gen
+    global _prefetch_key, _prefetch_gen, _prefetch_done
     key = (_view_key(bbox, gw, hc), layer,
            tuple((f.time, str(f.token)) for f in frames))
     if _prefetch_key == key:
         return
     _prefetch_key = key
+    _prefetch_done = False
     _prefetch_gen += 1
     gen = _prefetch_gen
     ordered = frames[start_idx:] + frames[:start_idx]  # current frame first
@@ -176,10 +194,15 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
 
         with ThreadPoolExecutor(max_workers=4) as pool:
             list(pool.map(load, ordered))
-        if gen == _prefetch_gen and loaded == 0:
-            # nothing arrived (offline?) — allow a later render to retry
-            global _prefetch_key
-            _prefetch_key = None
+        if gen == _prefetch_gen:
+            global _prefetch_key, _prefetch_done
+            _prefetch_done = True  # opens the auto-play gate
+            if loaded == 0:
+                # nothing arrived (offline?) — allow a later render to retry
+                _prefetch_key = None
+            if _live_refresh:
+                import signal
+                os.kill(os.getpid(), signal.SIGWINCH)
 
     threading.Thread(target=worker, daemon=True).start()
 
@@ -476,20 +499,27 @@ def _build_warning_tooltip(warns, mouse_pos, bbox, graph_w, height_cells,
     return "".join(f"\033[{row + i};{col}H{ln}" for i, ln in enumerate(padded))
 
 
-def _timeline_bar(idx, n, width, present=None):
-    """A compact scrubber: ─ track, ┼ notch at the present frame, ● playhead."""
+def _timeline_bar(idx, n, width, present=None, loaded=None):
+    """A compact scrubber: ─ track, ┼ notch at the present frame, ● playhead.
+
+    With `loaded` (per-frame booleans), track cells whose frames haven't
+    buffered yet draw faint, so the bar visibly fills in as fetches land.
+    """
     if n <= 1 or width < 3:
         return ""
     pos = round(idx / (n - 1) * (width - 1))
     now = (round(present / (n - 1) * (width - 1))
            if present is not None else None)
-    track = "".join(
-        f"{fg(*MARKER)}●" if i == pos else
-        f"{fg(*MUTED)}┼" if i == now else
-        f"{fg(*DIM)}─"
-        for i in range(width)
-    )
-    return track + RESET
+
+    def cell(i):
+        if i == pos:
+            return f"{fg(*MARKER)}●"
+        ch, color = ("┼", MUTED) if i == now else ("─", DIM)
+        if loaded is not None and not loaded[round(i / (width - 1) * (n - 1))]:
+            color = FAINT
+        return f"{fg(*color)}{ch}"
+
+    return "".join(cell(i) for i in range(width)) + RESET
 
 
 def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
@@ -529,6 +559,20 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
 
     err = None
     loading = False
+    buffering = False
+    mask = n_loaded = None
+    if not block:
+        # auto-play gate: hold the animation on this frame until enough of
+        # the window has buffered, so the loop plays smoothly instead of
+        # stuttering past frames that are still fetching (live_loop consults
+        # the gate via the _buffering global)
+        global _buffering
+        mask = _loaded_mask(bbox, graph_w, height_cells, frames, layer)
+        n_loaded = sum(mask)
+        _buffering = buffering = (
+            playing and not _prefetch_done
+            and n_loaded < len(frames)
+            and n_loaded < math.ceil(len(frames) * PLAY_READY))
     if block:
         # static mode: fetch the displayed frame synchronously
         try:
@@ -636,7 +680,14 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
             else f"{sign}{mag}m")
     age = rs("now", lang) if delta == 0 else span
     tag = f" {rs('forecast', lang)}" if frame.future else ""
-    tag += f" · {rs('loading', lang)}" if loading else ""
+    if buffering:
+        # spinner + frame-window progress while auto-play waits to start
+        # (the loop re-renders every play_interval, animating the spinner)
+        spin_ch = SPINNER_FRAMES[int(_time.monotonic() * 5)
+                                 % len(SPINNER_FRAMES)]
+        tag += f" · {spin_ch} {rs('loading', lang)} {n_loaded}/{len(frames)}"
+    elif loading:
+        tag += f" · {rs('loading', lang)}"
     if field is not None and "temp" in layers:
         # temperature at the view centre, in the units _panned_place uses
         tc = field.sample_temp(t_idx, lon, lat)
@@ -669,7 +720,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         hint = (f"{fg(*DIM)}{rs('hint', lang)}{RESET}"
                 if sys.stdout.isatty() else "")
         bar = _timeline_bar(idx, len(frames), min(28, max(10, cols // 3)),
-                            present=present_idx)
+                            present=present_idx, loaded=mask)
         for foot in (f"{left}  {bar}  {hint}",
                      f"{left}  {hint}",
                      f"{left}  {bar}",
@@ -703,32 +754,6 @@ def main():
         _search_locations(args.search, lang=runtime.lang)
         return
 
-    override = args.location or os.environ.get("WEATHER_LOCATION", "").strip()
-    location_name = ""
-    if override:
-        try:
-            parts = override.split(",")
-            lat, lon = float(parts[0]), float(parts[1])
-        except (ValueError, IndexError):
-            from linecast._weather_sources import geocode_first
-            hit = geocode_first(override, lang=runtime.lang)
-            if hit is None:
-                print(f'No locations matching "{override}".', file=sys.stderr)
-                sys.exit(1)
-            lat, lon, location_name = hit
-    else:
-        lat, lon, _cc = get_location()
-        if lat is None:
-            print("Could not determine location.", file=sys.stderr)
-            sys.exit(1)
-
-    if not location_name:
-        try:
-            from linecast._weather_sources import _reverse_geocode
-            location_name = _reverse_geocode(lat, lon, lang=runtime.lang)[0] or ""
-        except Exception:
-            location_name = ""
-
     theme_arg = (args.theme
                  or os.environ.get("LINECAST_RADAR_THEME", "").strip()
                  or DEFAULT_THEME)
@@ -754,134 +779,176 @@ def main():
               file=sys.stderr)
         sys.exit(2)
 
-    global _source
-    _source = get_source(lat, lon, N_FRAMES, theme)
+    # everything from here to the first paint may block on the network
+    # (geocoding, the frame index, static-mode frame fetches) — spin
+    override = args.location or os.environ.get("WEATHER_LOCATION", "").strip()
+    location_name = ""
+    spin = Spinner(rs("loading", runtime.lang))
+    spin.start()
+    try:
+        if override:
+            try:
+                parts = override.split(",")
+                lat, lon = float(parts[0]), float(parts[1])
+            except (ValueError, IndexError):
+                from linecast._weather_sources import geocode_first
+                hit = geocode_first(override, lang=runtime.lang)
+                if hit is None:
+                    spin.stop()
+                    print(f'No locations matching "{override}".',
+                          file=sys.stderr)
+                    sys.exit(1)
+                lat, lon, location_name = hit
+        else:
+            lat, lon, _cc = get_location()
+            if lat is None:
+                spin.stop()
+                print("Could not determine location.", file=sys.stderr)
+                sys.exit(1)
 
-    if runtime.live:
-        import math
-        from linecast._radar_sources import _in_conus
+        if not location_name:
+            try:
+                from linecast._weather_sources import _reverse_geocode
+                location_name = _reverse_geocode(
+                    lat, lon, lang=runtime.lang)[0] or ""
+            except Exception:
+                location_name = ""
 
-        global _live_refresh
-        _live_refresh = True
-        zoom = [args.zoom]
-        center = [lat, lon]          # pans; marker stays at the true location
-        region = [_in_conus(lat, lon)]
+        global _source
+        _source = get_source(lat, lon, N_FRAMES, theme)
 
-        layer_state = set(layers)
-        layer_sel = [layer]
+        if not runtime.live:
+            # static: play_frame 0 is the present (newest observed) frame
+            static_out = render_radar(lat, lon, location_name, args.zoom,
+                                      play_frame=0, playing=False,
+                                      runtime=runtime, layers=layers,
+                                      layer=layer)
+    finally:
+        spin.stop()
 
-        def on_action(key):
-            if key in ('c', 'w'):
-                layer_state.symmetric_difference_update(
-                    {'temp' if key == 'c' else 'wind'})
-                return True
-            if key == 's':
-                # cycle layers; a no-op on sources without a cloud mosaic
-                if not getattr(_source, "satellite_frames", lambda: [])():
-                    return False
-                i = LAYERS.index(layer_sel[0])
-                layer_sel[0] = LAYERS[(i + 1) % len(LAYERS)]
-                return True
-            if key == '+':
-                new_zoom = max(1.0, zoom[0] / 1.5)
-            elif key == '-':
-                new_zoom = min(60.0, zoom[0] * 1.5)
-            else:
-                return False
-            if new_zoom == zoom[0]:
-                return False
-            zoom[0] = new_zoom
+    if not runtime.live:
+        print(static_out)
+        return
+
+    from linecast._radar_sources import _in_conus
+
+    global _live_refresh
+    _live_refresh = True
+    zoom = [args.zoom]
+    center = [lat, lon]          # pans; marker stays at the true location
+    region = [_in_conus(lat, lon)]
+
+    layer_state = set(layers)
+    layer_sel = [layer]
+
+    def on_action(key):
+        if key in ('c', 'w'):
+            layer_state.symmetric_difference_update(
+                {'temp' if key == 'c' else 'wind'})
             return True
-
-        pan_preview = [0, 0]  # live cell offset while a drag is in progress
-        theme_sel = [theme]   # active theme id (the picker updates it)
-        menu_sel = [None]     # picker: None = closed, else highlighted row
-
-        def intercept(action):
-            """Route keys to the theme picker; everything else passes through."""
-            global _source
-            themes = getattr(_source, "themes", None)
-            names = list(themes) if themes else []
-            if menu_sel[0] is None:
-                if action == 'key:t' and names:
-                    ids = list(themes.values())
-                    cur = getattr(_source, "theme", None)
-                    menu_sel[0] = ids.index(cur) if cur in ids else 0
-                    return True
+        if key == 's':
+            # cycle layers; a no-op on sources without a cloud mosaic
+            if not getattr(_source, "satellite_frames", lambda: [])():
                 return False
-            if not names:  # source lost its themes (fallback) — just close
-                menu_sel[0] = None
-                return True
-            if action == 'fwd':
-                menu_sel[0] = (menu_sel[0] - 1) % len(names)
-            elif action == 'back':
-                menu_sel[0] = (menu_sel[0] + 1) % len(names)
-            elif action == 'key:enter':
-                choice = themes[names[menu_sel[0]]]
-                menu_sel[0] = None
-                if choice != getattr(_source, "theme", None):
-                    theme_sel[0] = choice
-                    _source = get_source(center[0], center[1], N_FRAMES,
-                                         choice)
-            elif action in ('escape', 'key:t', 'quit'):
-                menu_sel[0] = None
-            return True  # while the menu is open, no key reaches the map
+            i = LAYERS.index(layer_sel[0])
+            layer_sel[0] = LAYERS[(i + 1) % len(LAYERS)]
+            return True
+        if key == '+':
+            new_zoom = max(1.0, zoom[0] / 1.5)
+        elif key == '-':
+            new_zoom = min(60.0, zoom[0] * 1.5)
+        else:
+            return False
+        if new_zoom == zoom[0]:
+            return False
+        zoom[0] = new_zoom
+        return True
 
-        def on_drag(dcol, drow, done):
-            if not done:
-                # mid-drag: update the screen-space preview offset only
-                changed = pan_preview != [dcol, drow]
-                pan_preview[0], pan_preview[1] = dcol, drow
-                return changed
-            had_preview = pan_preview[0] or pan_preview[1]
-            pan_preview[0] = pan_preview[1] = 0
-            if not (dcol or drow):
-                return bool(had_preview)  # zero-delta release = plain click
-            # commit: dragging pulls the map, so the view centre moves the
-            # opposite way; the release re-render re-projects for real
-            cols, rows = get_terminal_size()
-            gw, hc = max(20, cols), max(8, rows - 2)
-            lon_span = zoom[0] * (gw / (hc * 2)) / math.cos(math.radians(center[0]))
-            center[0] = max(-80.0, min(80.0, center[0] + drow * zoom[0] / hc))
-            center[1] += -dcol * lon_span / gw
-            if center[1] > 180.0:
-                center[1] -= 360.0
-            elif center[1] < -180.0:
-                center[1] += 360.0
-            # crossing the CONUS boundary re-picks the source (and is the
-            # natural moment to retry LibreWXR after a fallback)
-            r = _in_conus(center[0], center[1])
-            if r != region[0]:
-                region[0] = r
-                global _source
+    pan_preview = [0, 0]  # live cell offset while a drag is in progress
+    theme_sel = [theme]   # active theme id (the picker updates it)
+    menu_sel = [None]     # picker: None = closed, else highlighted row
+
+    def intercept(action):
+        """Route keys to the theme picker; everything else passes through."""
+        global _source
+        themes = getattr(_source, "themes", None)
+        names = list(themes) if themes else []
+        if menu_sel[0] is None:
+            if action == 'key:t' and names:
+                ids = list(themes.values())
+                cur = getattr(_source, "theme", None)
+                menu_sel[0] = ids.index(cur) if cur in ids else 0
+                return True
+            return False
+        if not names:  # source lost its themes (fallback) — just close
+            menu_sel[0] = None
+            return True
+        if action == 'fwd':
+            menu_sel[0] = (menu_sel[0] - 1) % len(names)
+        elif action == 'back':
+            menu_sel[0] = (menu_sel[0] + 1) % len(names)
+        elif action == 'key:enter':
+            choice = themes[names[menu_sel[0]]]
+            menu_sel[0] = None
+            if choice != getattr(_source, "theme", None):
+                theme_sel[0] = choice
                 _source = get_source(center[0], center[1], N_FRAMES,
-                                     theme_sel[0])
-            return True
+                                     choice)
+        elif action in ('escape', 'key:t', 'quit'):
+            menu_sel[0] = None
+        return True  # while the menu is open, no key reaches the map
 
-        live_loop(
-            lambda play_frame=0, playing=True, mouse_pos=None, **_: render_radar(
-                center[0], center[1], location_name, zoom[0],
-                play_frame=play_frame, playing=playing, marker=(lat, lon),
-                runtime=runtime, block=False, mouse_pos=mouse_pos,
-                pan_offset=(pan_preview[0], pan_preview[1]),
-                layers=frozenset(layer_state),
-                layer=layer_sel[0],
-                theme_menu=((list(_source.themes), menu_sel[0])
-                            if menu_sel[0] is not None
-                            and getattr(_source, "themes", None) else None)),
-            interval=FRAME_STEP,   # pick up a new composite every 5 min
-            mouse=True,
-            auto_play=True,
-            play_interval=0.2,     # animation frame rate (~5 fps)
-            on_action=on_action,
-            on_drag=on_drag,
-            intercept=intercept,
-        )
-    else:
-        # static: play_frame 0 is the present (newest observed) frame
-        print(render_radar(lat, lon, location_name, args.zoom,
-                           play_frame=0, playing=False,
-                           runtime=runtime, layers=layers, layer=layer))
+    def on_drag(dcol, drow, done):
+        if not done:
+            # mid-drag: update the screen-space preview offset only
+            changed = pan_preview != [dcol, drow]
+            pan_preview[0], pan_preview[1] = dcol, drow
+            return changed
+        had_preview = pan_preview[0] or pan_preview[1]
+        pan_preview[0] = pan_preview[1] = 0
+        if not (dcol or drow):
+            return bool(had_preview)  # zero-delta release = plain click
+        # commit: dragging pulls the map, so the view centre moves the
+        # opposite way; the release re-render re-projects for real
+        cols, rows = get_terminal_size()
+        gw, hc = max(20, cols), max(8, rows - 2)
+        lon_span = zoom[0] * (gw / (hc * 2)) / math.cos(math.radians(center[0]))
+        center[0] = max(-80.0, min(80.0, center[0] + drow * zoom[0] / hc))
+        center[1] += -dcol * lon_span / gw
+        if center[1] > 180.0:
+            center[1] -= 360.0
+        elif center[1] < -180.0:
+            center[1] += 360.0
+        # crossing the CONUS boundary re-picks the source (and is the
+        # natural moment to retry LibreWXR after a fallback)
+        r = _in_conus(center[0], center[1])
+        if r != region[0]:
+            region[0] = r
+            global _source
+            _source = get_source(center[0], center[1], N_FRAMES,
+                                 theme_sel[0])
+        return True
+
+    live_loop(
+        lambda play_frame=0, playing=True, mouse_pos=None, **_: render_radar(
+            center[0], center[1], location_name, zoom[0],
+            play_frame=play_frame, playing=playing, marker=(lat, lon),
+            runtime=runtime, block=False, mouse_pos=mouse_pos,
+            pan_offset=(pan_preview[0], pan_preview[1]),
+            layers=frozenset(layer_state),
+            layer=layer_sel[0],
+            theme_menu=((list(_source.themes), menu_sel[0])
+                        if menu_sel[0] is not None
+                        and getattr(_source, "themes", None) else None)),
+        interval=FRAME_STEP,   # pick up a new composite every 5 min
+        mouse=True,
+        auto_play=True,
+        play_interval=0.2,     # animation frame rate (~5 fps)
+        on_action=on_action,
+        on_drag=on_drag,
+        intercept=intercept,
+        play_gate=lambda: not _buffering,
+    )
 
 
 if __name__ == "__main__":

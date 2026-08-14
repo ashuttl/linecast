@@ -473,16 +473,8 @@ def main():
     t.start()
 
     # Animated spinner while waiting
-    if sys.stdout.isatty():
-        frames = "\u280b\u2819\u2839\u2838\u283c\u2834\u2826\u2827"  # braille spinner
-        i = 0
-        while not done.wait(0.08):
-            sys.stdout.write(f"\r {MUTED}{frames[i % len(frames)]} Loading{RESET} ")
-            sys.stdout.flush()
-            i += 1
-        sys.stdout.write("\r\033[K")  # clear spinner line
-        sys.stdout.flush()
-    else:
+    from linecast._spinner import Spinner
+    with Spinner():
         done.wait()
 
     t.join()

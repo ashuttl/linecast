@@ -175,7 +175,7 @@ def _read_key(fd):
 # ---------------------------------------------------------------------------
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
-              intercept=None):
+              intercept=None, play_gate=None):
     """Run render_fn() in a loop on the alternate screen buffer.
 
     render_fn: callable(offset_minutes=0) returning (display_string, metadata)
@@ -204,6 +204,12 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
              release with done=True (commit). Return a truthy value to
              trigger an immediate re-render. Requires mouse. Default None
              preserves existing behavior exactly.
+    play_gate: optional callable() consulted before each auto-play frame
+               advance. Return falsy to hold the animation on the current
+               frame (the loop still re-renders every play_interval, so the
+               caller can animate a buffering indicator); return truthy to
+               let playback proceed. Only consulted while auto_play is on
+               and playing. Default None preserves existing behavior.
     intercept: optional callback(action) consulted for every decoded keyboard
                action ('fwd', 'quit', 'key:t', …; mouse events excluded)
                BEFORE the built-in handling. Return truthy to consume the
@@ -290,7 +296,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             while True:
                 remaining = deadline - _time.time()
                 if remaining <= 0:
-                    if auto_play and playing:
+                    if auto_play and playing and (play_gate is None
+                                                  or play_gate()):
                         play_frame += 1  # advance the animation
                     break
                 try:

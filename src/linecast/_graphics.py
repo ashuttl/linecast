@@ -5,6 +5,7 @@ split into focused modules for maintainability:
 
   _color.py        — ANSI color mode detection, escape code helpers, color math
   _framebuffer.py  — Framebuffer class, half-block rendering, text utilities
+  _spinner.py      — Braille loading spinner for network waits
   _live.py         — Live mode loop, mouse/keyboard input handling
 
 All public symbols are re-exported here so existing imports continue to work:
@@ -48,6 +49,12 @@ from linecast._framebuffer import (  # noqa: F401
     fmt_time_dt,
     get_terminal_size,
     Framebuffer,
+)
+
+# Loading spinner
+from linecast._spinner import (  # noqa: F401
+    SPINNER_FRAMES,
+    Spinner,
 )
 
 # Live mode and input handling
