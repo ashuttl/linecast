@@ -265,11 +265,14 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                action and trigger a re-render — this is how a caller-drawn
                menu takes over the arrow keys. Default None preserves
                existing behavior exactly.
-    on_wheel: optional callback(direction) for mouse wheel events, +1 up /
-              -1 down. When set it takes the wheel over entirely (no
-              time-scrub, no frame-step, no modal scroll — the caller
-              decides, e.g. zoom vs panel scroll). Return truthy to
-              re-render; falsy leaves the frame alone (a clamped zoom).
+    on_wheel: optional callback(direction, col, row) for mouse wheel
+              events: +1 up / -1 down, and the pointer's 1-based terminal
+              (col, row) — the same frame as mouse_pos — so the caller
+              can zoom about the pointer rather than the view centre.
+              When set it takes the wheel over entirely (no time-scrub,
+              no frame-step, no modal scroll — the caller decides, e.g.
+              zoom vs panel scroll). Return truthy to re-render; falsy
+              leaves the frame alone (a clamped zoom).
               Default None preserves existing behavior exactly.
     text_mode: optional callable() -> bool consulted before each key read.
                While truthy, printable input arrives at intercept as
@@ -431,7 +434,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                             if on_wheel is not None:
                                 # Caller owns the wheel outright (zoom,
                                 # panel scroll, …) — no scrub fallback.
-                                if on_wheel(1 if wheel_cb == 64 else -1):
+                                if on_wheel(1 if wheel_cb == 64 else -1,
+                                            cx, cy):
                                     if select.select([fd], [], [], 0)[0]:
                                         continue  # coalesce rapid wheel
                                     break

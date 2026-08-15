@@ -19,13 +19,17 @@ import os
 import sys
 import threading
 
-from linecast._color import bg, fg, RESET, BOLD, interp_stops, BG_PRIMARY
+from linecast import _maps_style
+from linecast._color import (
+    bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
+)
 from linecast._elevation import ATTRIBUTION, elevation_grid
 from linecast._framebuffer import get_terminal_size, halfblock
 from linecast._graphics import live_loop, visible_len
 from linecast._location import get_location
 from linecast._maps_i18n import ms
 from linecast._radar_basemap import _BITS, BORDER
+from linecast._theme import lerp_rgb
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, maps_parser
@@ -33,6 +37,13 @@ from linecast.radar import (
     CROSSHAIR, DIM, MARKER, MUTED,
     _ShiftedBasemap, _get_basemap, _panned_place, _shift_grid,
 )
+
+# Zoom is degrees of latitude top to bottom.  The floor used to be 0.1
+# (about band 3); street mode's deepest classes — buildings, POI text —
+# need 0.0012, which is roughly two metres per braille dot.
+MIN_ZOOM_DEG = 0.0012
+MAX_ZOOM_DEG = 60.0
+ZOOM_STEP = 1.5          # matches radar, so the two views feel the same
 
 # geography over terrain: dark strokes cut into the colour fill (the
 # radar palette's dim-on-dark strokes vanish against light terrain)
@@ -78,7 +89,19 @@ _live_refresh = False
 
 
 def _view_key(bbox, gw, hc):
-    return (tuple(round(v, 4) for v in bbox), gw, hc)
+    """Cache key for a view, at a precision that scales with the zoom.
+
+    A flat 4 dp is ~11 m: ample at a degree or more, but street mode
+    reaches 0.0012 deg, where a one-cell pan moves the bbox by less than
+    the rounding quantum — every pan would serve the previous grid, and
+    min/max latitude can even round to the same number.  Rounding three
+    places finer than the span keeps the quantum an order of magnitude
+    below a single cell at any zoom, and is exactly today's 4 dp from
+    1 deg up (so existing caches and their tests do not move).
+    """
+    span = bbox[3] - bbox[1]
+    nd = 4 if span <= 0 else max(4, 3 + math.ceil(-math.log10(span)))
+    return (tuple(round(v, nd) for v in bbox), gw, hc)
 
 
 def _edge_dots(is_land, is_water, gw, hc):
@@ -309,6 +332,81 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
     return lines
 
 
+def compose_map(fills, layer, overlays, graph_w, height_cells):
+    """Street-mode composer: area fills under one ranked braille layer.
+
+    fills:    (hc*2) x gw sub-pixel RGB grid.  An entry may be None,
+              meaning "unpainted — the terminal's own background"; the
+              16-colour and `none` palettes paint no ground at all.
+    layer:    a ranked DotLayer (.dots/.color/.ribbon), one per view.
+              Every stroke class has already settled its ink contest by
+              rank, so the composer just reads the winner.
+    overlays: {(col, row): (char, ink_or_None[, bold])}; ink None picks
+              for contrast, a truthy third element renders bold.
+
+    A sibling of compose_terrain, not a replacement: terrain resolves a
+    basemap, a coast mask and an ordered strokes list per cell, street
+    resolves one pre-ranked layer plus the motorway ribbon, and neither
+    shape fits the other without a pile of mode conditionals.
+
+    Two degradation rules live here so the rest of street mode never
+    thinks about colour depth.  A cell with an unpainted sub-pixel is
+    left unpainted entirely — that is the 16-colour "mixed land/water
+    cell" rule, where the coast stroke carries the boundary instead of
+    a half-and-half block.  And in `none` mode every cell without a
+    glyph or a braille dot is a literal space: halfblock() with empty
+    escapes returns a bare ▄ that would flood the screen, and the line
+    map that results is the mode's whole character.
+    """
+    plain = color_mode() == "none"
+    ribbon_ink = _maps_style.ink("motorway")
+    lines = []
+    for cy in range(height_cells):
+        top_row = fills[cy * 2]
+        bot_row = fills[cy * 2 + 1]
+        parts = []
+        for cx in range(graph_w):
+            ut, ub = top_row[cx], bot_row[cx]
+            if (cx, cy) in layer.ribbon:
+                # Blend toward the motorway ink itself, never the cell's
+                # winning stroke — a route crossing here must not tint
+                # the ribbon cyan.
+                if ut is not None:
+                    ut = lerp_rgb(ut, ribbon_ink, _maps_style.RIBBON_BLEND)
+                if ub is not None:
+                    ub = lerp_rgb(ub, ribbon_ink, _maps_style.RIBBON_BLEND)
+            ov = overlays.get((cx, cy))
+            mask = layer.dots[cy][cx]
+            painted = ut is not None and ub is not None
+            if ov is None and not mask:
+                parts.append(halfblock(ut, ub) if painted and not plain
+                             else " ")
+                continue
+            if painted:
+                avg = ((ut[0] + ub[0]) // 2, (ut[1] + ub[1]) // 2,
+                       (ut[2] + ub[2]) // 2)
+                cell_bg = bg(*avg)
+            else:
+                avg, cell_bg = BG_PRIMARY, ""
+            if ov is not None:                  # a glyph always beats braille
+                ch, ink = ov[0], ov[1]
+                if ink is None:                 # contrast-picked label ink
+                    lum = (0.2126 * avg[0] + 0.7152 * avg[1]
+                           + 0.0722 * avg[2])
+                    ink = LABEL_DARK if lum > 120 else LABEL_LIGHT
+                if len(ov) > 2 and ov[2]:
+                    parts.append(f"{cell_bg}{fg(*ink)}{BOLD}{ch}{RESET}")
+                else:
+                    parts.append(f"{cell_bg}{fg(*ink)}{ch}")
+                continue
+            stroke = layer.color[cy][cx]
+            stroke_fg = fg(*stroke) if stroke is not None else ""
+            parts.append(f"{cell_bg}{stroke_fg}{chr(0x2800 + mask)}")
+        parts.append(RESET)
+        lines.append("".join(parts))
+    return lines
+
+
 def _fmt_elev(meters, lang):
     metric = lang != "en" or os.environ.get(
         "WEATHER_UNITS", "").lower() == "metric"
@@ -456,17 +554,48 @@ def main():
         center = [lat, lon]
         pan_preview = [0, 0]
 
-        def on_action(key):
-            if key == '+':
-                new_zoom = max(0.1, zoom[0] / 1.5)
-            elif key == '-':
-                new_zoom = min(60.0, zoom[0] * 1.5)
-            else:
-                return False
+        def zoom_to(new_zoom, at=None):
+            """Apply a clamped zoom, keeping the point under `at` fixed.
+
+            `at` is a terminal (col, row) in the same 1-based frame as
+            mouse_pos; None zooms about the view centre.  Anchoring is
+            the difference between a wheel that explores and one that
+            makes you chase the thing you were looking at.
+            """
+            new_zoom = max(MIN_ZOOM_DEG, min(MAX_ZOOM_DEG, new_zoom))
             if new_zoom == zoom[0]:
                 return False
+            cols, rows = get_terminal_size()
+            gw, hc = max(20, cols), max(8, rows - 2)
+            pcol, prow = (at[0] - 1, at[1] - 2) if at else (-1, -1)
+            if 0 <= pcol < gw and 0 <= prow < hc:
+                fx, fy = (pcol + 0.5) / gw, (prow + 0.5) / hc
+                lon_span = (zoom[0] * (gw / (hc * 2))
+                            / math.cos(math.radians(center[0])))
+                plat = center[0] + zoom[0] * (0.5 - fy)
+                plon = center[1] + lon_span * (fx - 0.5)
+                lat_c = max(-80.0, min(80.0, plat - new_zoom * (0.5 - fy)))
+                new_span = (new_zoom * (gw / (hc * 2))
+                            / math.cos(math.radians(lat_c)))
+                center[0] = lat_c
+                center[1] = plon - new_span * (fx - 0.5)
+                if center[1] > 180.0:
+                    center[1] -= 360.0
+                elif center[1] < -180.0:
+                    center[1] += 360.0
             zoom[0] = new_zoom
             return True
+
+        def on_action(key):
+            if key == '+':
+                return zoom_to(zoom[0] / ZOOM_STEP)
+            if key == '-':
+                return zoom_to(zoom[0] * ZOOM_STEP)
+            return False
+
+        def on_wheel(direction, col, row):
+            return zoom_to(zoom[0] * (ZOOM_STEP if direction < 0
+                                      else 1.0 / ZOOM_STEP), at=(col, row))
 
         def on_drag(dcol, drow, done):
             if not done:
@@ -499,6 +628,7 @@ def main():
             mouse=True,
             on_action=on_action,
             on_drag=on_drag,
+            on_wheel=on_wheel,
         )
     else:
         print(render_map(lat, lon, location_name, args.zoom,
