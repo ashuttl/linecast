@@ -415,20 +415,29 @@ LABEL_STYLES = {
 # classes nobody chose is how noise gets in.
 CLASS_RANK = {"country": -2, "state": -1, "city": 0, "town": 1,
               "village": 2, "suburb": 3, "neighbourhood": 3, "hamlet": 4}
-WATER_RANK = {"ocean": 0, "sea": 1, "lake": 2}      # .get(cls, 3)
+WATER_RANK = {"ocean": 0, "sea": 1, "bay": 2, "lake": 3}    # .get(cls, 4)
+
+# OpenMapTiles' water_name generalisation is *inverted* for small
+# features, measured on the Maine coast: every gut, narrows and
+# thorofare is in the tile from z8, while Casco Bay and Sebago Lake do
+# not appear until z10.  Trusting the tile's own zoom filtering
+# therefore labels a three-county view "Jaquish Gut".  Water names are
+# gated by class instead: a strait is a navigation feature and waits
+# until you are close enough to navigate it.
+WATER_BANDS = {"ocean": 0, "sea": 0, "bay": 1, "lake": 3}
+WATER_BAND_DEFAULT = 6
 
 # Band windows for the area classes: deeper than this they are noise
 # and are not candidates at all.
 CLASS_BANDS = {"country": (0, 2), "state": (1, 3),
                "suburb": (5, 7), "neighbourhood": (5, 7)}
 
-# Below B3 settlements come from the bundled Natural Earth cities (5227
-# of them, with localised names in 17 languages) and the tile `place`
-# layer contributes country/state only; from B3 up the tile layer is
-# the sole source.  The class sets are disjoint below the switch, so no
-# de-duplication heuristic ever runs.
+# Below this band the bundled Natural Earth cities lead — they carry
+# localised names in 17 languages — and the tile's own places fill in
+# underneath them.  Natural Earth is a *world* list: over a
+# three-county view of Maine it holds exactly one city, so it cannot be
+# the only source at any band anyone actually looks at.
 PLACE_SOURCE_BAND = 3
-PLACE_TILE_CLASSES_LOW = ("country", "state")
 
 SHIELD_MAX_REF = 6           # ref_length above this is not a shield
 SHIELD_CLASSES = ("motorway", "trunk")

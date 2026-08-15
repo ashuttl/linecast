@@ -15,22 +15,34 @@ strictly in priority order.  A label that survives at one pan position
 survives at the next unless its cells genuinely collide — no flicker, no
 shuffling.
 
-Measured consequence of the horizontal-run rule, worth knowing before
-anyone calls it a bug: a cell is two dots wide and four tall, so a road
-only a few degrees off horizontal changes row every seven columns or
-so.  Over downtown Portland the longest in-view run is 7 cells, which
-carries a shield ("295") or a short name but not "Oxford Street".
-Shields and place names therefore do most of the labelling work, and
-street names appear only on genuinely long horizontal stretches.  That
-is the drop-not-shrink rule doing exactly what it says; relaxing it
-would mean either abbreviating names or letting a label wander off its
-own road.
+Two measurements shaped what is here, both worth knowing before anyone
+"fixes" it back:
+
+*Roads.* A cell is two dots wide and four tall, so a road a few degrees
+off horizontal changes row every seven columns or so; over downtown
+Portland the longest stretch of road holding a single row is 7 cells
+where the names want 15.  Requiring a label to sit along a flat run
+therefore labelled almost nothing.  Writing the name across the road
+instead — horizontally, centred on a cell the road passes through —
+labels 29 of 33 named roads in the same view, and reads the way a
+paper map does.  Following the line character by character was tried
+and rejected: on a cell grid it renders as falling confetti.
+
+*Water.* OpenMapTiles' `water_name` generalisation is inverted for
+small features.  Every gut, narrows and thorofare on the Maine coast is
+in the tile from z8, while Casco Bay and Sebago Lake do not appear
+until z10 — so a three-county view labelled itself "Jaquish Gut" and
+"The Gut" while the Gulf of Maine, whose own anchor point sits seventy
+cells off the right edge, went unnamed.  Hence the class gates, the
+Natural Earth switch below band 3 (that list is area-ranked and
+generalised for exactly this scale), and labelling the water you can
+see rather than the point the data hands you.
 """
 
 from linecast import _maps_style as style
 from linecast._framebuffer import visible_len
 from linecast._radar_basemap import (
-    _bresenham, _cell_width, _load_data, _localized,
+    _bresenham, _cell_width, _load_data, _localized, marine_region,
 )
 from linecast._vtiles import projector
 
@@ -102,29 +114,73 @@ def cell_path(pts, graph_w, height_cells):
     return cells
 
 
-def horizontal_runs(cells):
-    """Maximal runs that stay on one row stepping exactly one column.
+def water_regions(water):
+    """Connected components of the on-screen water: (area, anchor) each.
 
-    Returns [(row, col_lo, col_hi)]; run length = col_hi - col_lo + 1.
-    Direction is discarded — text is always drawn left to right inside
-    the run.  Vertical and steeply diagonal roads simply produce no
-    runs, and so go unlabelled; a rotated glyph is not available and a
-    letter-per-row column of text is unreadable.
+    A water body's own label point is often nowhere near the part of it
+    you can see — the Gulf of Maine's anchor sits seventy cells off the
+    right edge of a view it fills a third of.  So the label goes on the
+    water instead: each component gets the one of its own cells closest
+    to its centre of mass, which is inside the shape even when the
+    shape is a crescent.
+
+    Returns (index grid, [(area, (col, row)), ...]) with the index grid
+    holding -1 where there is no water.
     """
-    runs, i, n = [], 0, len(cells)
-    while i < n:
-        row, j, step = cells[i][1], i + 1, 0
-        while j < n and cells[j][1] == row:
-            d = cells[j][0] - cells[j - 1][0]
-            if d not in (-1, 1) or (step and d != step):
-                break
-            step = d
-            j += 1
-        if j - i >= 2:
-            a, b = cells[i][0], cells[j - 1][0]
-            runs.append((row, min(a, b), max(a, b)))
-        i = max(j, i + 1)
-    return runs
+    hc = len(water)
+    gw = len(water[0]) if hc else 0
+    index = [[-1] * gw for _ in range(hc)]
+    regions = []
+    for row in range(hc):
+        for col in range(gw):
+            if not water[row][col] or index[row][col] >= 0:
+                continue
+            idx = len(regions)
+            cells, stack = [], [(col, row)]
+            index[row][col] = idx
+            while stack:
+                c, r = stack.pop()
+                cells.append((c, r))
+                for nc, nr in ((c - 1, r), (c + 1, r), (c, r - 1),
+                               (c, r + 1)):
+                    if (0 <= nc < gw and 0 <= nr < hc
+                            and water[nr][nc] and index[nr][nc] < 0):
+                        index[nr][nc] = idx
+                        stack.append((nc, nr))
+            mid_c = sum(c for c, _r in cells) / len(cells)
+            mid_r = sum(r for _c, r in cells) / len(cells)
+            anchor = min(cells, key=lambda p: ((p[0] - mid_c) ** 2
+                                               + (p[1] - mid_r) ** 2 * 4))
+            span = max(c for c, _r in cells) - min(c for c, _r in cells) + 1
+            regions.append((len(cells), anchor, span))
+    return index, regions
+
+
+def _attach(cell, index, regions, graph_w, height_cells):
+    """(region area, where to put the label) for a water label point.
+
+    A point inside the view names the water under it; a point outside
+    is dragged to the edge it left through, which is how a bay whose
+    anchor is out at sea still names the bay you are looking at.
+    Returns None when the point does not reach water at all.
+    """
+    if cell is None:
+        return None
+    col = max(0, min(graph_w - 1, cell[0]))
+    row = max(0, min(height_cells - 1, cell[1]))
+    idx = index[row][col]
+    if idx < 0:                       # the nearest water on that row
+        best = None
+        for c in range(graph_w):
+            if index[row][c] >= 0 and (best is None
+                                       or abs(c - col) < abs(best - col)):
+                best = c
+        if best is None:
+            return None
+        idx = index[row][best]
+    area, anchor, span = regions[idx]
+    inside = (cell == (col, row)) and index[row][col] == idx
+    return area, (cell if inside else anchor), span
 
 
 def _centroid(parts):
@@ -136,13 +192,19 @@ def _centroid(parts):
     return (int(sum(xs) / len(xs)) // 2, int(sum(ys) / len(ys)) // 4)
 
 
-def _screen_area(parts):
-    """Bounding-box area in cells — stable under a pure pan."""
+def _screen_box(parts):
+    """(area, width) of a feature's bounding box, in cells.
+
+    Both are stable under a pure pan, which is what lets a park name
+    keep its place in the sort as the view slides.
+    """
     xs = [p[0] for part in parts for p in part]
     ys = [p[1] for part in parts for p in part]
     if not xs:
-        return 0.0
-    return (max(xs) - min(xs)) * (max(ys) - min(ys)) / 8.0
+        return 0.0, 0
+    width = (max(xs) - min(xs)) / 2.0
+    height = (max(ys) - min(ys)) / 4.0
+    return width * height, int(width)
 
 
 def _name(props, lang):
@@ -165,7 +227,7 @@ def _rank(props, default=99):
 # ---------------------------------------------------------------------------
 # Candidate collection
 # ---------------------------------------------------------------------------
-def _features(view, bbox, graph_w, height_cells, layer_name):
+def _features(view, bbox, graph_w, height_cells, layer_name, dedupe=True):
     """(props, projected parts) per feature, in tile-then-file order.
 
     Duplicates across a tile seam keep the first occurrence, which is
@@ -185,7 +247,7 @@ def _features(view, bbox, graph_w, height_cells, layer_name):
             props = feat["tags"]
             key = (layer_name, props.get("name"), props.get("ref"),
                    props.get("class"))
-            if key[1] is not None and key in seen:
+            if dedupe and key[1] is not None and key in seen:
                 continue
             seen.add(key)
             out.append((props, [[project(x, y) for x, y in part]
@@ -201,20 +263,19 @@ def _in_view(cell, graph_w, height_cells):
 def place_candidates(view, bbox, graph_w, height_cells, band, lang):
     """Settlements and admin names, already sorted into priority order.
 
-    Below band 3 the settlements come from the bundled Natural Earth
-    cities — 5227 of them, population-sorted, with localised names in
-    seventeen languages, which the tiles do not match — and the tile
-    `place` layer contributes country and state names only.  From band 3
-    up the tile layer is the sole source.  The class sets are disjoint
-    below the switch, so no de-duplication heuristic ever runs.
+    The bundled Natural Earth cities lead below band 3: 5227 of them,
+    population-sorted, with localised names in seventeen languages that
+    the tiles do not match.  But that is a *world* list — over a
+    three-county view of Maine it contains exactly one city — so the
+    tile's own `place` layer fills in underneath it, ranked by the rank
+    the tile carries for the purpose.  Names seen twice keep the first,
+    which is the Natural Earth one and therefore the localised one.
     """
     out = []
     low = band < style.PLACE_SOURCE_BAND
     for props, parts in _features(view, bbox, graph_w, height_cells,
                                   "place"):
         cls = props.get("class")
-        if low and cls not in style.PLACE_TILE_CLASSES_LOW:
-            continue
         rank = style.CLASS_RANK.get(cls)
         if rank is None:                  # an unlisted class is dropped
             continue
@@ -224,7 +285,10 @@ def place_candidates(view, bbox, graph_w, height_cells, band, lang):
         name = _name(props, lang)
         cell = _centroid(parts)
         if name and _in_view(cell, graph_w, height_cells):
-            out.append(((rank, _rank(props), name), cls, name, cell))
+            # Below the switch the tile's settlements sort after the
+            # vendored ones, which take ranks 1..n among themselves.
+            tile_rank = _rank(props) + (1000 if low else 0)
+            out.append(((rank, tile_rank, name), cls, name, cell))
 
     if low:
         minlon, minlat, maxlon, maxlat = bbox
@@ -240,61 +304,120 @@ def place_candidates(view, bbox, graph_w, height_cells, band, lang):
                 out.append(((style.CLASS_RANK["city"], i + 1, name),
                             "city", name, cell))
     out.sort(key=lambda c: c[0])
-    return out
+    seen, unique = set(), []
+    for cand in out:
+        if cand[2] in seen:
+            continue
+        seen.add(cand[2])
+        unique.append(cand)
+    return unique
 
 
-def water_park_candidates(view, bbox, graph_w, height_cells, lang):
-    """Water bodies and park names — they share one ceiling of three."""
+def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
+                          water_mask=None):
+    """Water bodies and park names — they share one ceiling of three.
+
+    Below band 3 the names come from the bundled Natural Earth marine
+    list, exactly as settlements do: it is area-ranked and generalised
+    for this scale, so a three-county view is told it is looking at the
+    Gulf of Maine rather than at three of its guts.  From band 3 up the
+    tile layer takes over, class-gated.
+    """
     water, parks = [], []
-    for props, parts in _features(view, bbox, graph_w, height_cells,
-                                  "water_name"):
-        name = _name(props, lang)
-        cell = _centroid(parts)
-        if name and _in_view(cell, graph_w, height_cells):
-            key = (style.WATER_RANK.get(props.get("class"), 3), name)
-            water.append((key, "water", name, cell))
+    index, regions = (water_regions(water_mask) if water_mask
+                      else (None, None))
+
+    if index is not None and band < style.PLACE_SOURCE_BAND:
+        minlon, minlat, maxlon, maxlat = bbox
+        for area, (col, row), span in sorted(regions, reverse=True)[:4]:
+            lon = minlon + (col + 0.5) / graph_w * (maxlon - minlon)
+            lat = maxlat - (row + 0.5) / height_cells * (maxlat - minlat)
+            name = marine_region(lat, lon)
+            if name:
+                water.append(((-area, name), "water", name, (col, row),
+                              span))
+    else:
+        for props, parts in _features(view, bbox, graph_w, height_cells,
+                                      "water_name"):
+            name = _name(props, lang)
+            if not name:
+                continue
+            cls = props.get("class")
+            if band < style.WATER_BANDS.get(cls, style.WATER_BAND_DEFAULT):
+                continue
+            cell = _centroid(parts)
+            hit = (_attach(cell, index, regions, graph_w, height_cells)
+                   if index is not None else None)
+            if hit is not None:
+                area, at, span = hit
+                key = (style.WATER_RANK.get(cls, 4), -area, name)
+                water.append((key, "water", name, at, span))
+            elif _in_view(cell, graph_w, height_cells):
+                key = (style.WATER_RANK.get(cls, 4), 0, name)
+                water.append((key, "water", name, cell, graph_w))
     for props, parts in _features(view, bbox, graph_w, height_cells, "park"):
         name = _name(props, lang)
         cell = _centroid(parts)
         if name and _in_view(cell, graph_w, height_cells):
-            parks.append(((-_screen_area(parts), name), "park", name, cell))
+            area, span = _screen_box(parts)
+            parks.append(((-area, 0, name), "park", name, cell, span))
     water.sort(key=lambda c: c[0])
     parks.sort(key=lambda c: c[0])
     return water + parks
 
 
-def road_candidates(view, bbox, graph_w, height_cells, lang):
+def road_candidates(view, bbox, graph_w, height_cells, band, lang):
     """(shields, street names), each sorted into placement order.
+
+    Every segment carrying the same name is merged into one candidate:
+    OpenStreetMap splits a street at each junction, so a single feature
+    is often ten cells of road, and labelling it means labelling the
+    street rather than whichever fragment came first in the tile.
 
     On a highway the ref is the single most valuable label on screen —
     you navigate by "I-95", not "Maine Turnpike" — so shields outrank
     street names and get their own budget.
     """
-    shields, streets = [], []
+    refs, names, numbered = {}, {}, set()
     for props, parts in _features(view, bbox, graph_w, height_cells,
-                                  "transportation_name"):
+                                  "transportation_name", dedupe=False):
         cells = [c for part in parts
                  for c in cell_path(part, graph_w, height_cells)]
-        runs = horizontal_runs(cells)
-        if not runs:
+        if not cells:
             continue
+        cls = props.get("class")
+        key = style.OMT_ROAD_CLASS.get(cls)
         ref = str(props.get("ref") or "").strip()
-        if (ref and props.get("class") in style.SHIELD_CLASSES
-                and len(ref) <= style.SHIELD_MAX_REF):
-            shields.append(((ref, runs[0][1]), "shield",
-                            ref.replace(" ", "-").upper(), runs))
         name = _name(props, lang)
-        if not name:
-            continue
-        key = style.OMT_ROAD_CLASS.get(props.get("class"))
-        if key is None:
-            continue
-        rank = style.LINE_STYLES[key][3]
-        kind = "road" if key in ("motorway", "trunk", "primary",
-                                 "secondary") else "road_minor"
-        streets.append(((-rank, name), kind, name, runs))
-    shields.sort(key=lambda c: c[0])
-    streets.sort(key=lambda c: c[0])
+        if (ref and cls in style.SHIELD_CLASSES
+                and len(ref) <= style.SHIELD_MAX_REF):
+            shield = refs.setdefault(ref.replace(" ", "-").upper(),
+                                     [style.LINE_STYLES[key or cls][3], []])
+            shield[0] = max(shield[0], style.LINE_STYLES[key or cls][3])
+            shield[1].extend(cells)
+            # You navigate a numbered road by its number. Spending a
+            # second label on "Lisbon Street" for ME-196 says less and
+            # costs the same.
+            numbered.add(name)
+        key = style.OMT_ROAD_CLASS.get(cls)
+        # A road's name has no business on screen at a zoom where the
+        # road itself is not drawn: the class's own band gate decides.
+        if key is not None and not style.LINE_STYLES[key][1][band]:
+            key = None
+        if name and key is not None and name not in numbered:
+            entry = names.setdefault(name, [style.LINE_STYLES[key][3], []])
+            entry[0] = max(entry[0], style.LINE_STYLES[key][3])
+            entry[1].extend(cells)
+
+    # The four shields a view can afford should be the four biggest
+    # roads, not the four lowest numbers: an interstate outranks a
+    # state route whatever they are called.
+    shields = sorted(((-rank, text), "shield", text, cells)
+                     for text, (rank, cells) in refs.items())
+    streets = sorted(((-rank, name), "road" if rank >= 38 else "road_minor",
+                      name, cells)
+                     for name, (rank, cells) in names.items()
+                     if name not in numbered)
     return shields, streets
 
 
@@ -406,23 +529,32 @@ def _place_point(overlays, occ, cell, text, ink, bold, anchor=None):
     return True
 
 
-def _place_along(overlays, occ, runs, text, ink, bold, repeat, limit):
-    """Slide a label along its own line to a run that fits.
+# Where along a road to try writing its name, as fractions of the path.
+# The middle first, because that is where a reader looks for it.
+_ANCHORS = (0.50, 0.25, 0.75, 0.12, 0.62, 0.38, 0.88)
 
-    The only movement any label is permitted, and even here the run is
-    chosen deterministically: longest first, then top-down, then
-    left-to-right.
+
+def _place_beside(overlays, occ, cells, text, ink, bold, repeat, limit):
+    """Write a road's name horizontally, centred on the road itself.
+
+    Text has to sit on one row, and a road almost never does: measured
+    over downtown Portland, the longest stretch of road holding a
+    single row is about seven cells, where the names want fifteen. So
+    the label is centred on a cell the road actually passes through and
+    written across it — the association is by contact, the way a paper
+    map does it, rather than by tracking the line character by
+    character (which a cell grid can only render as falling confetti).
+
+    Anchors are tried at fixed fractions of the path, so the choice
+    does not depend on where the view happens to sit.
     """
     n = visible_len(text)
     placed = []
-    for row, lo, hi in sorted(runs, key=lambda r: (-(r[2] - r[1]), r[0],
-                                                   r[1])):
+    for fraction in _ANCHORS:
         if len(placed) >= limit:
             break
-        length = hi - lo + 1
-        if length < n + 2:
-            continue
-        col = lo + (length - n) // 2
+        col, row = cells[min(len(cells) - 1, int(len(cells) * fraction))]
+        col -= n // 2
         # Distance in view cells, with rows weighted for the cell's 2:1
         # aspect — a repeat one row down is still a repeat.
         if any(abs(col - pc) + 2 * abs(row - pr) < repeat
@@ -449,7 +581,7 @@ def _cased(text, case):
 
 
 def label_overlays(view, bbox, graph_w, height_cells, band, palette,
-                   lang="en", reserved=()):
+                   lang="en", reserved=(), water_mask=None):
     """{(col, row): (char, ink, bold)} for one view.
 
     Walked in strict priority order — places, water and park names,
@@ -484,41 +616,48 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
 
     # 3 — water bodies and park names, sharing one ceiling
     budget = style.water_park_budget(total)
-    for _key, kind, name, cell in water_park_candidates(
-            view, bbox, graph_w, height_cells, lang):
+    for _key, kind, name, cell, span in water_park_candidates(
+            view, bbox, graph_w, height_cells, band, lang, water_mask):
         if budget <= 0 or placed >= total:
             break
         ink, case, bold = _style_for(kind, palette)
-        if _place_point(overlays, occ, cell, _cased(name, case), ink, bold):
+        text = _cased(name, case)
+        # An area label belongs inside the area it names. A forest
+        # parcel ten cells across does not get a forty-nine-cell name
+        # laid over the county it sits in — that reads as a label for
+        # the county.
+        if visible_len(text) > span:
+            continue
+        if _place_point(overlays, occ, cell, text, ink, bold):
             budget -= 1
             placed += 1
 
     shields, streets = road_candidates(view, bbox, graph_w, height_cells,
-                                       lang)
+                                       band, lang)
 
     # 4 — route shields: the amber and the bold *are* the shield
     budget = style.shield_budget(total)
-    for _key, kind, text, runs in shields:
+    for _key, kind, text, cells in shields:
         if budget <= 0 or placed >= total:
             break
         ink, case, bold = _style_for(kind, palette)
-        n = _place_along(overlays, occ, runs, _cased(text, case), ink, bold,
-                         style.SHIELD_REPEAT_CELLS,
-                         min(budget, style.max_instances(
-                             graph_w * height_cells)))
+        n = _place_beside(overlays, occ, cells, _cased(text, case), ink,
+                          bold, style.SHIELD_REPEAT_CELLS,
+                          min(budget, style.max_instances(
+                              graph_w * height_cells)))
         budget -= n
         placed += n
 
     # 5 — street names, major to minor
     budget = style.street_budget(total)
-    for _key, kind, name, runs in streets:
+    for _key, kind, name, cells in streets:
         if budget <= 0 or placed >= total:
             break
         ink, case, bold = _style_for(kind, palette)
-        n = _place_along(overlays, occ, runs, _cased(name, case), ink, bold,
-                         style.ROAD_REPEAT_CELLS,
-                         min(budget, style.max_instances(
-                             graph_w * height_cells)))
+        n = _place_beside(overlays, occ, cells, _cased(name, case), ink,
+                          bold, style.ROAD_REPEAT_CELLS,
+                          min(budget, style.max_instances(
+                              graph_w * height_cells)))
         budget -= n
         placed += n
 

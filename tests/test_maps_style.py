@@ -411,8 +411,19 @@ def test_class_rank_orders_places_and_omits_the_rest():
 
 def test_water_rank():
     assert ms.WATER_RANK["ocean"] < ms.WATER_RANK["sea"]
-    assert ms.WATER_RANK["sea"] < ms.WATER_RANK["lake"]
-    assert ms.WATER_RANK.get("pond", 3) == 3
+    assert ms.WATER_RANK["sea"] < ms.WATER_RANK["bay"]
+    assert ms.WATER_RANK["bay"] < ms.WATER_RANK["lake"]
+    assert ms.WATER_RANK.get("pond", 4) == 4
+
+
+def test_water_bands_gate_the_navigation_features_late():
+    # The tiles carry every gut from z8 and Casco Bay only from z10, so
+    # class decides when a water name may show, not the tile's zoom.
+    assert ms.WATER_BANDS["ocean"] == ms.WATER_BANDS["sea"] == 0
+    assert ms.WATER_BANDS["bay"] < ms.WATER_BANDS["lake"]
+    assert ms.WATER_BAND_DEFAULT > max(ms.WATER_BANDS.values())
+    for cls in ("strait", "dock", "swimming_pool"):
+        assert cls not in ms.WATER_BANDS
 
 
 # ---------------------------------------------------------------------------

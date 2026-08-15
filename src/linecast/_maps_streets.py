@@ -219,6 +219,21 @@ def class_grid(view, bbox, graph_w, height_cells, band):
     return grid, water
 
 
+def water_cells(water, graph_w, height_cells):
+    """The dot-resolution water mask, reduced to whole cells.
+
+    A cell counts as water when at least half its eight dots are, which
+    is the same >=2-of-4 rule the fills use, applied twice over.  Label
+    placement works in cells, so this is the grid it wants.
+    """
+    out = []
+    for row in range(height_cells):
+        rows = water[row * 4:row * 4 + 4]
+        out.append([sum(r[col * 2] + r[col * 2 + 1] for r in rows) >= 4
+                    for col in range(graph_w)])
+    return out
+
+
 def fill_colors(grid, graph_w, height_cells, palette):
     """Dot-resolution classes -> the sub-pixel RGB grid compose_map wants.
 
@@ -426,5 +441,6 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     layer.or_mask(coast, ink, style.LINE_STYLES["coast"][3])
     draw_lines(layer, view, bbox, graph_w, height_cells, band, palette)
     overlays = _maps_labels.label_overlays(
-        view, bbox, graph_w, height_cells, band, palette, lang, reserved)
+        view, bbox, graph_w, height_cells, band, palette, lang, reserved,
+        water_cells(water, graph_w, height_cells))
     return fills, layer, overlays

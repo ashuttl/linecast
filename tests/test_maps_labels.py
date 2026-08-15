@@ -26,8 +26,8 @@ from linecast import _maps_style
 from linecast._radar_basemap import _load_data
 
 from test_maps_streets import (
-    EXTENT, WORLD, field, layer, line_feature, polyline, rect, tile,
-    varint, vint, vstr, zigzag,
+    EXTENT, WORLD, feature, field, layer, line_feature, polyline, rect,
+    tile, varint, vint, vstr, zigzag,
 )
 
 GW, HC = 40, 8
@@ -161,46 +161,14 @@ class TestCellPath:
         path = lb.cell_path([(0, 0), (12, 0)], 10, 2)
         assert path == [(c, 0) for c in range(7)]
 
-    def test_off_view_cells_are_dropped_and_break_the_run(self):
+    def test_off_view_cells_are_dropped(self):
         path = lb.cell_path([(0, 0), (40, 0), (0, 0)], 10, 2)
-        assert all(0 <= c < 10 for c, _r in path)
-        # It leaves and comes back, so the columns are not one run.
-        assert lb.horizontal_runs(path) != [(0, 0, 9)]
+        assert path
+        assert all(0 <= c < 10 and 0 <= r < 2 for c, r in path)
 
     def test_a_far_vertex_costs_a_step_not_a_hundred_thousand(self):
         path = lb.cell_path([(0, 0), (2_000_000, 0)], 10, 2)
         assert len(path) <= 11
-
-
-class TestHorizontalRuns:
-    def test_a_straight_row_is_one_run(self):
-        cells = [(c, 3) for c in range(6)]
-        assert lb.horizontal_runs(cells) == [(3, 0, 5)]
-
-    def test_right_to_left_is_the_same_run(self):
-        cells = [(c, 3) for c in range(5, -1, -1)]
-        assert lb.horizontal_runs(cells) == [(3, 0, 5)]
-
-    def test_a_row_change_splits_the_run(self):
-        cells = [(0, 0), (1, 0), (2, 0), (3, 1), (4, 1), (5, 1)]
-        assert lb.horizontal_runs(cells) == [(0, 0, 2), (1, 3, 5)]
-
-    def test_a_direction_change_splits_the_run(self):
-        cells = [(0, 0), (1, 0), (2, 0), (1, 0), (0, 0)]
-        runs = lb.horizontal_runs(cells)
-        assert runs[0] == (0, 0, 2)
-
-    def test_a_single_cell_is_not_a_run(self):
-        assert lb.horizontal_runs([(4, 1)]) == []
-        assert lb.horizontal_runs([]) == []
-
-    def test_a_column_gap_is_not_a_run(self):
-        assert lb.horizontal_runs([(0, 0), (4, 0)]) == []
-
-    def test_a_vertical_road_produces_nothing(self):
-        # Accepted, not worked around: a rotated glyph is not available
-        # and a letter-per-row column of text is unreadable.
-        assert lb.horizontal_runs([(2, r) for r in range(8)]) == []
 
 
 # ---------------------------------------------------------------------------
@@ -249,14 +217,40 @@ class TestPlaceCandidates:
 
 
 class TestPlaceSourceSwitch:
-    """Below band 3 settlements come from Natural Earth and the tile
-    contributes country/state only; from band 3 up the tile is the sole
-    source.  The class sets are disjoint, so nothing is de-duplicated."""
+    """Natural Earth leads below band 3 and the tile's own places fill
+    in underneath; from band 3 up the tile is the sole source."""
 
-    def test_low_bands_ignore_tile_settlements(self):
+    def _cands(self, layers, band):
+        view = st.decode_view({(0, 0, 0): tile(*layers)})
+        return lb.place_candidates(view, WORLD, GW, HC, band, "en")
+
+    def test_low_bands_still_take_tile_settlements(self):
+        # Natural Earth is a world list — over three counties of Maine
+        # it holds one city — so it cannot be the only source.
         town = place_layer(2048, 2048, {"class": "town", "name": "Tileton"})
-        assert "Tileton" not in text_at(overlays(town, band=2), HC // 2)
+        assert "Tileton" in [c[2] for c in self._cands([town], 2)]
         assert "Tileton" in text_at(overlays(town, band=3), HC // 2)
+
+    def test_the_vendored_majors_still_lead_below_the_switch(self):
+        town = place_layer(2048, 2048, {"class": "town", "name": "Tileton"})
+        names = [c[2] for c in self._cands([town], 2)]
+        biggest = max(_load_data()["cities"], key=lambda e: e[2])[3]
+        assert names[0] == biggest
+        assert names.index("Tileton") > 100
+
+    def test_a_place_named_by_both_sources_appears_once(self):
+        biggest = max(_load_data()["cities"], key=lambda e: e[2])[3]
+        town = place_layer(2048, 2048, {"class": "city", "name": biggest})
+        names = [c[2] for c in self._cands([town], 2)]
+        assert names.count(biggest) == 1
+
+    def test_the_tile_rank_orders_the_towns(self):
+        many = points("place", *[
+            (1000 + i * 300, 2048,
+             {"class": "town", "name": f"T{i}", "rank": 20 - i})
+            for i in range(6)])
+        names = [c[2] for c in self._cands([many], 3)]
+        assert names == ["T5", "T4", "T3", "T2", "T1", "T0"]
 
     def test_low_bands_keep_tile_country_and_state_names(self):
         state = place_layer(2048, 2048,
@@ -288,24 +282,77 @@ class TestRoadLabels:
                       {"class": "motorway", "ref": "A-1234567"}))
         assert text_at(overlays(road), HC // 2) == ""
 
-    def test_a_street_name_rides_its_own_horizontal_run(self):
+    def test_a_street_name_is_centred_on_its_own_road(self):
         road = lines("transportation_name",
                      (polyline((0, 2048), (4096, 2048)),
                       {"class": "primary", "name": "Long Street"}))
         assert "Long Street" in text_at(overlays(road), HC // 2)
 
-    def test_a_road_with_no_horizontal_run_goes_unlabelled(self):
+    def test_a_vertical_road_is_labelled_too(self):
+        # The old rule wanted a horizontal run of road; measured over
+        # downtown Portland the longest one is about seven cells where
+        # the names want fifteen, so almost nothing was ever labelled.
+        # The name is written across the road instead.
         road = lines("transportation_name",
                      (polyline((2048, 0), (2048, 4096)),
                       {"class": "primary", "name": "Vertical Way"}))
-        assert overlays(road) == {}
+        placed = all_text(overlays(road))
+        assert "Vertical Way" in placed
 
-    def test_a_name_too_long_for_its_run_is_dropped_not_shrunk(self):
+    def test_a_name_wider_than_the_view_is_still_dropped(self):
         road = lines("transportation_name",
                      (polyline((2000, 2048), (2200, 2048)),
-                      {"class": "primary",
-                       "name": "Extraordinarily Long Boulevard"}))
+                      {"class": "primary", "name": "X" * (GW + 4)}))
         assert overlays(road) == {}
+
+    def test_every_segment_of_a_street_is_one_candidate(self):
+        # OpenStreetMap splits a street at each junction; labelling the
+        # first fragment in the tile is not labelling the street.
+        road = lines(
+            "transportation_name",
+            (polyline((0, 2048), (1024, 2048)),
+             {"class": "primary", "name": "Long Street"}),
+            (polyline((1024, 2048), (4096, 2048)),
+             {"class": "primary", "name": "Long Street"}))
+        ov = overlays(road)
+        assert all_text(ov).count("Long Street") == 1
+        view = st.decode_view({(0, 0, 0): tile(road)})
+        _shields, streets = lb.road_candidates(view, WORLD, GW, HC, 7, "en")
+        assert len(streets) == 1
+        assert len(streets[0][3]) > GW // 2      # both segments' cells
+
+    def test_a_road_below_its_own_debut_band_is_not_named(self):
+        # A name has no business on screen at a zoom where the road it
+        # names is not drawn.
+        road = lines("transportation_name",
+                     (polyline((0, 2048), (4096, 2048)),
+                      {"class": "secondary", "name": "Ridge Road"}))
+        assert "Ridge Road" not in all_text(overlays(road, band=3))
+        assert "Ridge Road" in all_text(overlays(road, band=4))
+
+    def test_a_numbered_road_is_labelled_by_its_number_alone(self):
+        # You navigate ME-196 by "196", not by "Lisbon Street"; a second
+        # label on the same road says less and costs the same.
+        road = lines("transportation_name",
+                     (polyline((0, 2048), (4096, 2048)),
+                      {"class": "trunk", "ref": "196",
+                       "name": "Lisbon Street"}))
+        placed = all_text(overlays(road, band=2))
+        assert "196" in placed
+        assert "Lisbon Street" not in placed
+
+    def test_shields_are_ordered_by_road_not_by_number(self):
+        # The four shields a view can afford should be the four biggest
+        # roads, not the four lowest numbers.
+        road = lines(
+            "transportation_name",
+            (polyline((0, 1024), (4096, 1024)),
+             {"class": "trunk", "ref": "11"}),
+            (polyline((0, 3072), (4096, 3072)),
+             {"class": "motorway", "ref": "95"}))
+        view = st.decode_view({(0, 0, 0): tile(road)})
+        shields, _streets = lb.road_candidates(view, WORLD, GW, HC, 2, "en")
+        assert [s[2] for s in shields] == ["95", "11"]
 
 
 class TestPoi:
@@ -419,3 +466,115 @@ class TestWideGlyphs:
         ov = overlays(place_layer(2048, 2048,
                                   {"class": "suburb", "name": "銀座"}))
         assert text_at(ov, HC // 2) == "銀座"
+
+
+# ---------------------------------------------------------------------------
+# Water
+# ---------------------------------------------------------------------------
+def water_grid(rows):
+    """A cell-resolution water mask from an ASCII picture ('~' = water)."""
+    return [[ch == "~" for ch in row] for row in rows]
+
+
+class TestWaterRegions:
+    def test_separate_bodies_are_separate_regions(self):
+        index, regions = lb.water_regions(water_grid([
+            "~~..~",
+            "~~...",
+            ".....",
+        ]))
+        assert len(regions) == 2
+        areas = sorted(a for a, _anchor, _span in regions)
+        assert areas == [1, 4]
+        assert index[2][0] == -1
+
+    def test_the_anchor_is_a_cell_of_its_own_region(self):
+        # A crescent's centre of mass is outside it, so the anchor is
+        # the nearest cell that is actually in the shape.
+        mask = water_grid([
+            "~~~~~",
+            "~...~",
+            "~~~~~",
+        ])
+        index, regions = lb.water_regions(mask)
+        assert len(regions) == 1
+        _area, (col, row), _span = regions[0]
+        assert mask[row][col]
+
+    def test_the_span_is_the_width_the_label_has_to_fit(self):
+        _index, regions = lb.water_regions(water_grid([".~~~.", ".~~~."]))
+        assert regions[0][2] == 3
+
+    def test_an_empty_view_has_no_regions(self):
+        index, regions = lb.water_regions(water_grid(["...", "..."]))
+        assert regions == []
+        assert index == [[-1] * 3, [-1] * 3]
+
+
+class TestWaterAttachment:
+    MASK = water_grid(["..~~~", "..~~~", "..~~~"])
+
+    def test_a_point_on_the_water_names_the_water_under_it(self):
+        index, regions = lb.water_regions(self.MASK)
+        area, at, _span = lb._attach((3, 1), index, regions, 5, 3)
+        assert at == (3, 1)
+        assert area == 9
+
+    def test_a_point_off_the_view_is_dragged_to_the_water(self):
+        # The Gulf of Maine's own anchor sits seventy cells off the
+        # right edge of a view it fills a third of; the label still
+        # belongs on the water you can see.
+        index, regions = lb.water_regions(self.MASK)
+        hit = lb._attach((60, 1), index, regions, 5, 3)
+        assert hit is not None
+        _area, at, _span = hit
+        assert self.MASK[at[1]][at[0]]
+
+    def test_a_point_that_reaches_no_water_is_dropped(self):
+        index, regions = lb.water_regions(water_grid(["....."] * 3))
+        assert lb._attach((2, 1), index, regions, 5, 3) is None
+        assert lb._attach(None, index, regions, 5, 3) is None
+
+
+class TestWaterNames:
+    """OpenMapTiles' water_name generalisation is inverted for small
+    features — every gut on the Maine coast is in the tile from z8,
+    while Casco Bay and Sebago Lake wait until z10 — so class decides
+    when a water name may appear, not the tile's own zoom filtering."""
+
+    def _water(self, cls, name):
+        return points("water_name", (2048, 2048, {"class": cls,
+                                                  "name": name}))
+
+    def _sea(self):
+        # A whole-view lake, so any name fits inside it.
+        from test_maps_streets import WHOLE, classed
+        return classed("water", WHOLE, "lake")
+
+    def test_a_strait_waits_for_the_navigation_bands(self):
+        gut = [self._sea(), self._water("strait", "The Gut")]
+        assert "T H E   G U T" not in all_text(overlays(*gut, band=3))
+        assert "T H E   G U T" in all_text(overlays(*gut, band=6))
+
+    def test_a_bay_shows_early(self):
+        bay = [self._sea(), self._water("bay", "Casco Bay")]
+        assert "C A S C O   B A Y" in all_text(overlays(*bay, band=3))
+
+    def test_a_lake_waits_for_band_three(self):
+        lake = [self._sea(), self._water("lake", "Sebago Lake")]
+        assert "S E B A G O" not in all_text(overlays(*lake, band=2))
+        assert "S E B A G O" in all_text(overlays(*lake, band=3))
+
+    def test_an_area_label_must_fit_inside_the_area_it_names(self):
+        # A forest parcel ten cells across does not get a forty-cell
+        # name laid over the county it sits in.
+        speck = layer("park", [feature(rect(2040, 2040, 2056, 2056),
+                                       tags=(0, 0))],
+                      keys=("name",), values=(vstr("Leavitt Plantation"),))
+        assert overlays(speck, band=7) == {}
+
+    def test_a_park_big_enough_to_hold_its_name_keeps_it(self):
+        from test_maps_streets import WHOLE
+        big = layer("park", [feature(WHOLE, tags=(0, 0))],
+                    keys=("name",), values=(vstr("City Park"),))
+        assert "C I T Y   P A R K" in all_text(overlays(big, band=7))
