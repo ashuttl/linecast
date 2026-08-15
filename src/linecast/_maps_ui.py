@@ -1,4 +1,10 @@
-"""The `/` search prompt — its state machine, its worker, its chrome.
+"""Live-mode state for maps: the `/` search prompt and directions.
+
+Both are the same shape — a bit of state, one background worker, and a
+generation counter that decides which reply is still wanted — so they
+live together, away from the renderer.
+
+The `/` prompt first.
 
 Chrome-light by design: no box rules, no spinner.  The panel is its own
 ground, the field replaces the header, and a pending request shows as a
@@ -20,9 +26,13 @@ import os
 import signal
 import threading
 
+from linecast import _maps_style as style
 from linecast._color import RESET, bg, fg
 from linecast._framebuffer import visible_len
 from linecast._maps_i18n import ms
+from linecast._maps_route import (
+    NoRoute, PROFILES, RouteUnavailable, route as route_client,
+)
 from linecast._maps_search import (
     SearchUnavailable, nominatim_search, photon_search,
 )
@@ -50,6 +60,7 @@ class SearchState:
 
     def __init__(self, refresh=None, fetch=None, one_shot=None):
         self.open = False
+        self.purpose = "go"     # "go" | "route" (opened by the d key)
         self.query = ""
         self.results = []
         self.sel = 0
@@ -64,8 +75,9 @@ class SearchState:
         self._one_shot = one_shot or nominatim_search
 
     # -- lifecycle ---------------------------------------------------------
-    def start(self):
+    def start(self, purpose="go"):
         self.open = True
+        self.purpose = purpose
         self.query = ""
         self.results = []
         self.sel = 0
@@ -232,8 +244,9 @@ def search_overlay(state, cols, rows, lang="en"):
     if state.query:
         field = f"{fg(*MUTED)}/ {fg(*ink)}{state.query}{caret}{tail}"
     else:
-        field = (f"{fg(*MUTED)}/ {caret}{fg(*DIM)}"
-                 f"{ms('search_prompt', lang)}")
+        prompt = ('search_dest_prompt' if state.purpose == "route"
+                  else 'search_prompt')
+        field = f"{fg(*MUTED)}/ {caret}{fg(*DIM)}{ms(prompt, lang)}"
     out = [_row(1, " " + field, cols, surface)]
 
     line = 2
@@ -256,3 +269,124 @@ def search_overlay(state, cols, rows, lang="en"):
     out.append(_row(line, f"{fg(*DIM)} {ms('search_hint', lang)}", width,
                     surface))
     return "".join(out)
+
+
+# ---------------------------------------------------------------------------
+# Directions
+# ---------------------------------------------------------------------------
+class RouteState:
+    """Directions: what is selected, how we are travelling, and the one
+    request allowed to be in flight.
+
+    One mental model for the `d` key: *directions to what's selected;
+    press again to change how you're travelling.*  The origin is always
+    the home marker, so there is no picking UI and panning cannot move
+    it out from under you.
+    """
+
+    def __init__(self, refresh=None, fetch=None, profile="car"):
+        self.profile = profile
+        self.dest = None        # (lat, lon, label)
+        self.route = None
+        self.status = ""        # "" | "pending" | "none" | "error"
+        self.gen = 0
+        self._lock = threading.Lock()
+        self._refresh = refresh or _sigwinch
+        self._fetch = fetch or route_client
+
+    def select(self, lat, lon, label=""):
+        self.dest = (lat, lon, label)
+
+    def clear(self):
+        """`n` clears the route and the selection; esc never does."""
+        self.dest = None
+        self.route = None
+        self.status = ""
+        self.gen += 1
+
+    def press(self, origin):
+        """The `d` key.  "search" when there is nothing to route to."""
+        if self.status == "pending":
+            return True                     # the key visibly did something
+        if self.dest is None:
+            return "search"
+        if (self.route is not None
+                and (self.route_dest() == self.dest[:2])):
+            # Same destination: cycle the profile and go again.
+            i = PROFILES.index(self.profile) + 1
+            self.profile = PROFILES[i % len(PROFILES)]
+        self.request(origin)
+        return True
+
+    def route_dest(self):
+        """Where the drawn route actually ends, to the routing key's
+        precision — a click re-aims the next `d`."""
+        if self.route is None or not self.route.coords:
+            return None
+        lon, lat = self.route.coords[-1]
+        return (round(lat, 5), round(lon, 5))
+
+    def request(self, origin):
+        """Fetch off the loop: the client's own throttle sleeps, and it
+        must never sleep in the keyboard thread."""
+        if self.dest is None:
+            return
+        self.status = "pending"
+        self.gen += 1
+        gen = self.gen
+        dest = self.dest[:2]
+        profile = self.profile
+
+        def body():
+            try:
+                found, status = self._fetch(profile, origin, dest), ""
+            except NoRoute:
+                found, status = None, "none"
+            except RouteUnavailable:
+                found, status = None, "error"
+            except Exception:
+                found, status = None, "error"
+            with self._lock:
+                if gen != self.gen:
+                    return                  # superseded, or cleared
+                self.route, self.status = found, status
+            self._refresh()
+
+        threading.Thread(target=body, daemon=True).start()
+
+
+def _fmt_distance(metres, lang):
+    """Distance in the reader's units, with one decimal where it helps."""
+    if style.use_metric(lang):
+        if metres < 1000:
+            return f"{round(metres):,} m"
+        return f"{metres / 1000:.1f} km"
+    feet = metres * 3.28084
+    if feet < 1000:
+        return f"{round(feet):,} ft"
+    return f"{feet / 5280:.1f} mi"
+
+
+def _fmt_duration(seconds):
+    """`13m`, `1h 22m`.  The unit letters stay untranslated, matching
+    the elevation readout."""
+    minutes = int(round(seconds / 60.0))
+    if minutes < 60:
+        return f"{minutes}m"
+    return f"{minutes // 60}h {minutes % 60:02d}m"
+
+
+def route_summary(route, lang="en"):
+    """`11.7 km · 13m · driving` for the header readout slot."""
+    if route is None:
+        return ""
+    return (f"{_fmt_distance(route.distance_m, lang)}"
+            f" · {_fmt_duration(route.duration_s)}"
+            f" · {ms('profile_' + route.profile, lang)}")
+
+
+def route_note(state, lang="en"):
+    """What the header says while a route is being fetched, or failed."""
+    return {"pending": ms('dir_wait', lang),
+            "none": ms('dir_none', lang),
+            "error": ms('dir_unavailable', lang)}.get(state.status, "")

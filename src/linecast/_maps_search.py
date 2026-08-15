@@ -232,6 +232,64 @@ def _nominatim_extent(box):
 
 
 # ---------------------------------------------------------------------------
+# One-shot resolution
+# ---------------------------------------------------------------------------
+
+def _parse_latlon(text):
+    """"43.62,-70.21" -> (lat, lon), or None. Nobody is asked."""
+    parts = text.replace(" ", "").split(",")
+    if len(parts) != 2:
+        return None
+    try:
+        lat, lon = float(parts[0]), float(parts[1])
+    except ValueError:
+        return None
+    if -90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0:
+        return lat, lon
+    return None
+
+
+def resolve_place(query, lang="en", near=None):
+    """Resolve one query to a single place, for --to and the `d` prompt.
+
+    Coordinates parse without asking anyone.  Otherwise Photon first
+    when there is a view to bias toward (it is the better matcher for
+    addresses and landmarks), then the single cached Nominatim query.
+
+    Returns a Result, or None when a geocoder answered and simply did
+    not know the place — the caller can say so.  SearchUnavailable is
+    raised only when none of them could be reached at all, which is a
+    different sentence for the user.
+    """
+    text = (query or "").strip()
+    if not text:
+        return None
+    coords = _parse_latlon(text)
+    if coords:
+        return Result(text, "", coords[0], coords[1], "point")
+
+    answered = False
+    if near:
+        try:
+            hits = photon_search(text, near[0], near[1], 12, lang)
+            answered = True
+            if hits:
+                return hits[0]
+        except SearchUnavailable:
+            pass
+    try:
+        hits = nominatim_search(text, lang)
+        answered = True
+    except SearchUnavailable:
+        hits = []
+    if hits:
+        return hits[0]
+    if answered:
+        return None
+    raise SearchUnavailable("no geocoder could be reached")
+
+
+# ---------------------------------------------------------------------------
 # Framing
 # ---------------------------------------------------------------------------
 

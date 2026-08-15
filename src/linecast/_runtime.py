@@ -187,6 +187,10 @@ def maps_parser():
     p.add_argument("--view", choices=("terrain", "street"), default="terrain",
                     help="terrain relief or vector street map "
                          "(default terrain)")
+    p.add_argument("--to", default=None,
+                    help="route to a place or 'lat,lng' from the origin")
+    p.add_argument("--profile", default="car",
+                    help="how to travel: car, bike or foot (default car)")
     return p
 
 

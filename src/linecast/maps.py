@@ -19,7 +19,7 @@ import os
 import sys
 import threading
 
-from linecast import _maps_streets, _maps_style, _maps_ui
+from linecast import _maps_route, _maps_streets, _maps_style, _maps_ui
 from linecast._color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
 )
@@ -28,8 +28,12 @@ from linecast._framebuffer import get_terminal_size, halfblock
 from linecast._graphics import live_loop, visible_len
 from linecast._location import get_location
 from linecast._maps_i18n import ms
-from linecast._maps_search import fly_to_zoom
-from linecast._radar_basemap import _BITS, BORDER, _edge_dots
+from linecast._maps_search import (
+    SearchUnavailable, fly_to_zoom, resolve_place,
+)
+from linecast._radar_basemap import (
+    _BITS, BORDER, DotLayer, _edge_dots,
+)
 from linecast._theme import lerp_rgb
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for
@@ -353,7 +357,8 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
     return lines
 
 
-def compose_map(fills, layer, overlays, graph_w, height_cells):
+def compose_map(fills, layer, overlays, graph_w, height_cells,
+                strokes=None):
     """Street-mode composer: area fills under one ranked braille layer.
 
     fills:    (hc*2) x gw sub-pixel RGB grid.  An entry may be None,
@@ -364,6 +369,10 @@ def compose_map(fills, layer, overlays, graph_w, height_cells):
               rank, so the composer just reads the winner.
     overlays: {(col, row): (char, ink_or_None[, bold])}; ink None picks
               for contrast, a truthy third element renders bold.
+    strokes:  extra braille layers over the top (the route), lowest
+              priority first — the same ordered-list rule
+              compose_terrain uses, because these arrive from outside
+              the view's own rank contest.
 
     A sibling of compose_terrain, not a replacement: terrain resolves a
     basemap, a coast mask and an ordered strokes list per cell, street
@@ -398,6 +407,13 @@ def compose_map(fills, layer, overlays, graph_w, height_cells):
                     ub = lerp_rgb(ub, ribbon_ink, _maps_style.RIBBON_BLEND)
             ov = overlays.get((cx, cy))
             mask = layer.dots[cy][cx]
+            stroke = layer.color[cy][cx]
+            for extra in (strokes or ()):
+                m = extra.dots[cy][cx]
+                if m:
+                    mask |= m
+                    if extra.color[cy][cx] is not None:
+                        stroke = extra.color[cy][cx]
             painted = ut is not None and ub is not None
             if ov is None and not mask:
                 parts.append(halfblock(ut, ub) if painted and not plain
@@ -420,7 +436,6 @@ def compose_map(fills, layer, overlays, graph_w, height_cells):
                 else:
                     parts.append(f"{cell_bg}{fg(*ink)}{ch}")
                 continue
-            stroke = layer.color[cy][cx]
             stroke_fg = fg(*stroke) if stroke is not None else ""
             parts.append(f"{cell_bg}{stroke_fg}{chr(0x2800 + mask)}")
         parts.append(RESET)
@@ -431,6 +446,31 @@ def compose_map(fills, layer, overlays, graph_w, height_cells):
 def _fmt_elev(meters, lang):
     """The elevation readout — one units heuristic, in _maps_style."""
     return _maps_style.fmt_elev(meters, lang)
+
+
+_route_layer_cache = {}   # one slot: (route id, view key) -> DotLayer
+
+
+def _get_route_layer(route, bbox, gw, hc):
+    """The route as its own ranked braille layer, memoized per view.
+
+    Cool cyan, deliberately not the marker's yellow and never the
+    motorway's amber: two UI accents in total, yellow for your points
+    and cyan for your route, so a route can never read as a road.
+    """
+    if route is None:
+        return None
+    key = (id(route), _view_key(bbox, gw, hc))
+    hit = _route_layer_cache.get(key)
+    if hit is not None:
+        return hit
+    layer = DotLayer(bbox, gw, hc)
+    ink = _maps_style.palette().get("route", _maps_style.PALETTE_DARK["route"])
+    rank = _maps_style.LINE_STYLES["route"][3]
+    layer._draw_lines([route.coords], ink, width=2, rank=rank)
+    _route_layer_cache.clear()
+    _route_layer_cache[key] = layer
+    return layer
 
 
 def _scale_bar(bbox, graph_w, lang):
@@ -460,7 +500,7 @@ class _ShiftedLayer:
 
 
 def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
-                    mouse_pos, marker_cell, lang):
+                    mouse_pos, marker_cell, dest_cell, lang, route_layer):
     """(map lines, readout, loading, err) for the hillshaded view."""
     basemap = _get_basemap(bbox, graph_w, height_cells)
     err = None
@@ -484,7 +524,9 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     for pos, (ch, _color) in basemap.city_overlays().items():
         overlays[pos] = (ch, None)  # None ink = per-cell contrast pick
     if marker_cell is not None:
-        overlays[marker_cell] = _mark(MARKER, False)
+        overlays[marker_cell] = _mark("+", MARKER, False)
+    if dest_cell is not None:
+        overlays[dest_cell] = _mark("●", MARKER, False)
 
     dx, dy = pan_offset
     if dx or dy:
@@ -493,6 +535,7 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
         terrain = _shift_grid(terrain, dx, dy * 2, None)
         if coast is not None:
             coast = _shift_grid(coast, dx, dy, 0)
+        route_layer = _shift_layer(route_layer, dx, dy)
         overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
                     if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
     overlays = _crosshair(overlays, marker_cell, dx, dy, graph_w,
@@ -511,13 +554,14 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
         if probe is not None:
             readout = f" · {_fmt_elev(probe, lang)}"
 
+    strokes = [route_layer] if route_layer is not None else None
     lines = compose_terrain(basemap, terrain, overlays, graph_w,
-                            height_cells, coast=coast)
+                            height_cells, coast=coast, strokes=strokes)
     return lines, readout, loading, err
 
 
 def _render_street(bbox, graph_w, height_cells, block, pan_offset,
-                   mouse_pos, marker_cell, lang):
+                   mouse_pos, marker_cell, dest_cell, lang, route_layer):
     """(map lines, readout, loading, err) for the vector-tile view."""
     err = None
     loading = False
@@ -545,7 +589,9 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
 
     overlays = dict(labels)
     if marker_cell is not None:
-        overlays[marker_cell] = _mark(MARKER, True)
+        overlays[marker_cell] = _mark("+", MARKER, True)
+    if dest_cell is not None:
+        overlays[dest_cell] = _mark("●", MARKER, True)
     dx, dy = pan_offset
     if dx or dy:
         layer = _ShiftedLayer(
@@ -553,13 +599,25 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
             _shift_grid(layer.color, dx, dy, None),
             {(c + dx, r + dy) for c, r in layer.ribbon})
         fills = _shift_grid(fills, dx, dy * 2, None)
+        route_layer = _shift_layer(route_layer, dx, dy)
         overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
                     if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
     overlays = _crosshair(overlays, marker_cell, dx, dy, graph_w,
                           height_cells, True)
 
-    lines = compose_map(fills, layer, overlays, graph_w, height_cells)
+    strokes = [route_layer] if route_layer is not None else None
+    lines = compose_map(fills, layer, overlays, graph_w, height_cells,
+                        strokes=strokes)
     return lines, "", loading, err
+
+
+def _shift_layer(layer, dx, dy):
+    """A braille layer moved with the drag preview, or None."""
+    if layer is None:
+        return None
+    return _ShiftedLayer(_shift_grid(layer.dots, dx, dy, 0),
+                         _shift_grid(layer.color, dx, dy, None),
+                         {(c + dx, r + dy) for c, r in layer.ribbon})
 
 
 def _marker_cell(bbox, graph_w, height_cells, m_lat, m_lon):
@@ -580,13 +638,14 @@ def _marker_ink(ink, street):
     return ink
 
 
-def _mark(ink, street):
-    """The marker/crosshair overlay tuple.  Street mode draws them bold:
-    bold silver reads as bright white almost everywhere, so the user
-    stays the brightest mark on screen even in a degraded palette."""
+def _mark(glyph, ink, street):
+    """A marker/crosshair/destination overlay tuple.  Street mode draws
+    them bold: bold silver reads as bright white almost everywhere, so
+    the user stays the brightest mark on screen even in a degraded
+    palette."""
     if street:
-        return ("+", _marker_ink(ink, True), True)
-    return ("+", ink)
+        return (glyph, _marker_ink(ink, True), True)
+    return (glyph, ink)
 
 
 def _crosshair(overlays, cell, dx, dy, graph_w, height_cells, street):
@@ -594,13 +653,14 @@ def _crosshair(overlays, cell, dx, dy, graph_w, height_cells, street):
     centre = (graph_w // 2, height_cells // 2)
     at = (cell[0] + dx, cell[1] + dy) if cell else None
     if at != centre:
-        overlays[centre] = _mark(CROSSHAIR, street)
+        overlays[centre] = _mark("+", CROSSHAIR, street)
     return overlays
 
 
 def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                block=True, pan_offset=(0, 0), mouse_pos=None,
-               view="terrain", search=None, **_):
+               view="terrain", search=None, route=None, dest=None,
+               note="", **_):
     lang = runtime.lang if runtime else "en"
     cols, rows = get_terminal_size()
     graph_w = max(20, cols)
@@ -610,10 +670,18 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     m_lat, m_lon = marker if marker else (lat, lon)
     cell = _marker_cell(bbox, graph_w, height_cells, m_lat, m_lon)
 
+    dest_cell = (_marker_cell(bbox, graph_w, height_cells, dest[0], dest[1])
+                 if dest is not None else None)
+    route_layer = _get_route_layer(route, bbox, graph_w, height_cells)
     draw = _render_street if view == "street" else _render_terrain
     map_lines, readout, loading, err = draw(
         bbox, graph_w, height_cells, block, pan_offset, mouse_pos,
-        cell, lang)
+        cell, dest_cell, lang, route_layer)
+
+    if note:
+        readout = f" · {note}"
+    elif route is not None:
+        readout = f" · {_maps_ui.route_summary(route, lang)}"
 
     panned = abs(lat - m_lat) > 1e-9 or abs(lon - m_lon) > 1e-9
     place = (_panned_place(lat, lon, lang) if panned
@@ -671,6 +739,11 @@ def main():
     args = maps_parser().parse_args()
     runtime = RuntimeConfig.from_sources(namespace=args)
 
+    if args.profile not in _maps_route.PROFILES:
+        print(f"maps: invalid profile '{args.profile}' — choose "
+              f"{', '.join(_maps_route.PROFILES)}", file=sys.stderr)
+        sys.exit(2)
+
     if args.search:
         from linecast._weather_sources import _search_locations
         _search_locations(args.search, lang=runtime.lang)
@@ -702,6 +775,22 @@ def main():
         except Exception:
             location_name = ""
 
+    # --to resolves through the map's own geocoders, never the weather
+    # one: that is settlement-level only and exits the process when the
+    # network is down, which is no way to fail a lighthouse.
+    dest = None
+    if args.to:
+        try:
+            hit = resolve_place(args.to, runtime.lang, near=(lat, lon))
+        except SearchUnavailable:
+            print("maps: could not reach a geocoder for --to",
+                  file=sys.stderr)
+            sys.exit(1)
+        if hit is None:
+            print(f'No locations matching "{args.to}".', file=sys.stderr)
+            sys.exit(1)
+        dest = hit
+
     if runtime.live:
         global _live_refresh
         _live_refresh = True
@@ -710,6 +799,10 @@ def main():
         pan_preview = [0, 0]
         view = [args.view]
         search = _maps_ui.SearchState()
+        routes = _maps_ui.RouteState(profile=args.profile)
+        if dest is not None:
+            routes.select(dest.lat, dest.lon, dest.name)
+            routes.request((lat, lon))
 
         def zoom_to(new_zoom, at=None):
             """Apply a clamped zoom, keeping the point under `at` fixed.
@@ -784,6 +877,14 @@ def main():
             if action == 'key:/':
                 search.start()
                 return True
+            if action == 'key:d':
+                if routes.press((lat, lon)) == "search":
+                    search.start("route")
+                return True
+            if action == 'reset':
+                # n / space: the one deliberately destructive key.
+                routes.clear()
+                return False        # and the loop still recentres
             return False
 
         def on_drag(dcol, drow, done):
@@ -814,11 +915,16 @@ def main():
             hit = search.take_chosen()
             if hit is not None:
                 fly_to(hit)
+                if search.purpose == "route":
+                    routes.select(hit.lat, hit.lon, hit.name)
+                    routes.request((lat, lon))
             return render_map(
                 center[0], center[1], location_name, zoom[0],
                 marker=(lat, lon), runtime=runtime, block=False,
                 pan_offset=(pan_preview[0], pan_preview[1]),
-                mouse_pos=mouse_pos, view=view[0], search=search)
+                mouse_pos=mouse_pos, view=view[0], search=search,
+                route=routes.route, dest=routes.dest,
+                note=_maps_ui.route_note(routes, runtime.lang))
 
         live_loop(
             render,
@@ -831,8 +937,19 @@ def main():
             text_mode=lambda: search.open,
         )
     else:
+        found = note = None
+        if dest is not None:
+            try:
+                found = _maps_route.route(args.profile, (lat, lon),
+                                          (dest.lat, dest.lon))
+            except _maps_route.NoRoute:
+                note = ms('dir_none', runtime.lang)
+            except _maps_route.RouteUnavailable:
+                note = ms('dir_unavailable', runtime.lang)
         print(render_map(lat, lon, location_name, args.zoom,
-                         runtime=runtime, view=args.view))
+                         runtime=runtime, view=args.view, route=found,
+                         dest=(dest.lat, dest.lon) if dest else None,
+                         note=note or ""))
 
 
 if __name__ == "__main__":

@@ -406,3 +406,75 @@ class TestFlyToZoom:
         assert ms.fly_to_zoom(results[0]) == 0.004
         # the node with no extent falls back to its "house" kind
         assert ms.fly_to_zoom(_named(results, "The Holy Donut")) == 0.006
+
+
+class TestResolvePlace:
+    """One-shot resolution for --to and the destination prompt.
+
+    Never the weather geocoder: that one is settlement-level only and
+    exits the process on a network failure — no way to fail a lighthouse.
+    """
+
+    def test_coordinates_ask_nobody(self, monkeypatch):
+        fetch = _stub(monkeypatch, PHOTON)
+        hit = ms.resolve_place("43.6231,-70.2079")
+        assert (hit.lat, hit.lon) == (43.6231, -70.2079)
+        assert fetch.calls == 0
+
+    def test_coordinates_tolerate_a_space_and_reject_nonsense(self,
+                                                              monkeypatch):
+        _stub(monkeypatch, [])
+        assert ms.resolve_place("43.6, -70.2").lat == 43.6
+        assert ms._parse_latlon("91.0,0.0") is None
+        assert ms._parse_latlon("0.0,181.0") is None
+        assert ms._parse_latlon("Portland") is None
+        assert ms._parse_latlon("1,2,3") is None
+
+    def test_photon_answers_first_when_there_is_a_view_to_bias_toward(
+            self, monkeypatch, cache, no_throttle):
+        fetch = _stub(monkeypatch, PHOTON)
+        hit = ms.resolve_place("holy don", near=(43.659, -70.257))
+        assert hit.name == "Holy Donut"
+        assert fetch.calls == 1
+        assert "photon" in fetch.urls[0]
+
+    def test_without_a_view_it_goes_straight_to_nominatim(
+            self, monkeypatch, cache, no_throttle):
+        fetch = _stub(monkeypatch, NOMINATIM)
+        hit = ms.resolve_place("Portland Head Light")
+        assert hit is not None
+        assert fetch.calls == 1
+        assert "nominatim" in fetch.urls[0]
+
+    def test_an_empty_photon_falls_through_to_nominatim(
+            self, monkeypatch, cache, no_throttle):
+        calls = []
+
+        def photon(query, lat, lon, zoom, lang="en", **kw):
+            calls.append("photon")
+            return []
+
+        monkeypatch.setattr(ms, "photon_search", photon)
+        fetch = _stub(monkeypatch, NOMINATIM)
+        hit = ms.resolve_place("Portland Head Light", near=(43.6, -70.2))
+        assert calls == ["photon"]
+        assert hit is not None
+        assert fetch.calls == 1
+
+    def test_answered_but_unknown_is_None_not_an_error(
+            self, monkeypatch, cache, no_throttle):
+        # The caller says 'No locations matching "…"'; that is a
+        # different sentence from "the geocoders are down".
+        _stub(monkeypatch, [])
+        assert ms.resolve_place("zzzzz nowhere") is None
+
+    def test_unreachable_raises_so_the_caller_can_say_so(
+            self, monkeypatch, cache, no_throttle):
+        _stub(monkeypatch, error=OSError("down"))
+        with pytest.raises(ms.SearchUnavailable):
+            ms.resolve_place("Portland Head Light", near=(43.6, -70.2))
+
+    def test_an_empty_query_resolves_to_nothing(self, monkeypatch):
+        fetch = _stub(monkeypatch, PHOTON)
+        assert ms.resolve_place("   ") is None
+        assert fetch.calls == 0

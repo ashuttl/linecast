@@ -29,6 +29,8 @@ THEME_VALUES = ("dark-sky", "universal-blue", "rainbow", "nexrad", "original",
 LAYER_VALUES = ("radar", "satellite")
 # maps --view modes; keep in sync with _maps_style.MODES
 MAPS_VIEW_VALUES = ("terrain", "street")
+# maps --profile values; keep in sync with _maps_route.PROFILES
+MAPS_PROFILE_VALUES = ("car", "bike", "foot")
 # radar --layers condition layers; keep in sync with radar.LAYER_NAMES
 CONDITION_VALUES = ("temp", "wind", "temp,wind")
 SHELLS = ("bash", "zsh", "fish")
@@ -137,6 +139,8 @@ MAPS_FLAGS = (
     "--search",
     "--zoom",
     "--view",
+    "--to",
+    "--profile",
     "--emoji",
     "--lang",
     "--classic-colors",
@@ -174,6 +178,7 @@ def _bash_script():
     themes = _SPACE.join(THEME_VALUES)
     layers = _SPACE.join(LAYER_VALUES)
     views = _SPACE.join(MAPS_VIEW_VALUES)
+    profiles = _SPACE.join(MAPS_PROFILE_VALUES)
     conditions = _SPACE.join(CONDITION_VALUES)
     top = _SPACE.join((*TOP_LEVEL_COMMANDS, *GLOBAL_FLAGS))
     weather = _SPACE.join(WEATHER_FLAGS)
@@ -192,6 +197,7 @@ _linecast_lang_values="{langs}"
 _linecast_theme_values="{themes}"
 _linecast_layer_values="{layers}"
 _linecast_view_values="{views}"
+_linecast_profile_values="{profiles}"
 _linecast_condition_values="{conditions}"
 
 _linecast_seen_flag() {{
@@ -247,7 +253,11 @@ _linecast_complete_common_values() {{
       COMPREPLY=( $(compgen -W "$_linecast_view_values" -- "$cur") )
       return 0
       ;;
-    --location|--search|--station|--zoom)
+    --profile)
+      COMPREPLY=( $(compgen -W "$_linecast_profile_values" -- "$cur") )
+      return 0
+      ;;
+    --location|--search|--station|--zoom|--to)
       return 0
       ;;
   esac
@@ -270,6 +280,10 @@ _linecast_complete_common_values() {{
   fi
   if [[ "$cur" == --view=* ]]; then
     _linecast_complete_value_list "--view=" "$_linecast_view_values"
+    return 0
+  fi
+  if [[ "$cur" == --profile=* ]]; then
+    _linecast_complete_value_list "--profile=" "$_linecast_profile_values"
     return 0
   fi
   return 1
@@ -419,6 +433,7 @@ def _zsh_script():
     themes = _SPACE.join(THEME_VALUES)
     layers = _SPACE.join(LAYER_VALUES)
     views = _SPACE.join(MAPS_VIEW_VALUES)
+    profiles = _SPACE.join(MAPS_PROFILE_VALUES)
     conditions = _SPACE.join(CONDITION_VALUES)
     top = _SPACE.join((*TOP_LEVEL_COMMANDS, *GLOBAL_FLAGS))
     weather = _SPACE.join(WEATHER_FLAGS)
@@ -442,6 +457,8 @@ typeset -a _linecast_layer_values
 _linecast_layer_values=({layers})
 typeset -a _linecast_view_values
 _linecast_view_values=({views})
+typeset -a _linecast_profile_values
+_linecast_profile_values=({profiles})
 typeset -a _linecast_condition_values
 _linecast_condition_values=({conditions})
 
@@ -514,7 +531,11 @@ _linecast_complete_common_values() {{
       compadd -- "${{_linecast_view_values[@]}}"
       return 0
       ;;
-    --location|--search|--station|--zoom)
+    --profile)
+      compadd -- "${{_linecast_profile_values[@]}}"
+      return 0
+      ;;
+    --location|--search|--station|--zoom|--to)
       return 0
       ;;
   esac
@@ -537,6 +558,10 @@ _linecast_complete_common_values() {{
   fi
   if [[ "$cur" == --view=* ]]; then
     _linecast_complete_value_eq "--view=" "${{_linecast_view_values[@]}}"
+    return 0
+  fi
+  if [[ "$cur" == --profile=* ]]; then
+    _linecast_complete_value_eq "--profile=" "${{_linecast_profile_values[@]}}"
     return 0
   fi
   return 1
@@ -605,7 +630,8 @@ compdef _linecast linecast weather sunshine moon tides radar maps
 
 
 def _fish_command_flags(command, flags, lang=False, theme=False, layer=False,
-                        layers=False, view=False, value_flags=()):
+                        layers=False, view=False, profile=False,
+                        value_flags=()):
     lines = []
     cond = f"__fish_seen_subcommand_from {command}"
 
@@ -655,6 +681,13 @@ def _fish_command_flags(command, flags, lang=False, theme=False, layer=False,
                 f"complete -c linecast -f -n '{cond}' -l view -r -a '{values}'"
             )
             continue
+        if flag == "--profile" and profile:
+            values = _SPACE.join(MAPS_PROFILE_VALUES)
+            lines.append(
+                f"complete -c linecast -f -n '{cond}' -l profile -r "
+                f"-a '{values}'"
+            )
+            continue
         if flag in value_flags:
             lines.append(
                 f"complete -c linecast -f -n '{cond}' -l {flag[2:]} -r"
@@ -670,7 +703,7 @@ def _fish_command_flags(command, flags, lang=False, theme=False, layer=False,
 
 def _fish_standalone_flags(command, flags, lang=False, theme=False,
                            layer=False, layers=False, view=False,
-                           value_flags=()):
+                           profile=False, value_flags=()):
     lines = []
     for flag in flags:
         if flag == "-h":
@@ -710,6 +743,12 @@ def _fish_standalone_flags(command, flags, lang=False, theme=False,
             values = _SPACE.join(MAPS_VIEW_VALUES)
             lines.append(
                 f"complete -c {command} -f -l view -r -a '{values}'"
+            )
+            continue
+        if flag == "--profile" and profile:
+            values = _SPACE.join(MAPS_PROFILE_VALUES)
+            lines.append(
+                f"complete -c {command} -f -l profile -r -a '{values}'"
             )
             continue
         if flag in value_flags:
@@ -778,7 +817,8 @@ def _fish_script():
             MAPS_FLAGS,
             lang=True,
             view=True,
-            value_flags=("--location", "--search", "--zoom"),
+            profile=True,
+            value_flags=("--location", "--search", "--zoom", "--to"),
         )
     )
 
@@ -828,7 +868,8 @@ def _fish_script():
             MAPS_FLAGS,
             lang=True,
             view=True,
-            value_flags=("--location", "--search", "--zoom"),
+            profile=True,
+            value_flags=("--location", "--search", "--zoom", "--to"),
         )
     )
 

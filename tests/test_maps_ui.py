@@ -20,6 +20,7 @@ if _src not in sys.path:
 
 from linecast import _color
 from linecast import _maps_ui as mu
+from linecast._maps_route import NoRoute, Route, RouteUnavailable
 from linecast._maps_search import Result, SearchUnavailable
 
 
@@ -402,3 +403,149 @@ class TestOverlay:
             for chunk in strip(panel).split("\033")[1:]:
                 body = chunk.split("H", 1)[-1]
                 assert len(body) <= cols, (cols, body)
+
+
+# ---------------------------------------------------------------------------
+# Directions
+# ---------------------------------------------------------------------------
+HOME = (43.677, -70.371)
+LIGHT = (43.6231, -70.2079)
+
+
+def fake_route(profile="car", distance=18800.0, duration=1420.0,
+               end=LIGHT):
+    return Route([(-70.371, 43.677), (end[1], end[0])],
+                 distance, duration, [], profile)
+
+
+def routes(answer=None, error=None):
+    """A RouteState whose client answers from a canned result."""
+    calls = []
+
+    def fetch(profile, origin, dest):
+        calls.append((profile, origin, dest))
+        if error is not None:
+            raise error
+        return answer if answer is not None else fake_route(profile)
+
+    st = mu.RouteState(refresh=lambda: None, fetch=fetch)
+    st.calls = calls
+    return st
+
+
+class TestDirections:
+    def test_pressing_d_with_nothing_selected_asks_for_a_destination(self):
+        st = routes()
+        assert st.press(HOME) == "search"
+        assert st.calls == []
+
+    def test_pressing_d_with_a_selection_routes_to_it(self):
+        st = routes()
+        st.select(*LIGHT, "Portland Head Light")
+        assert st.press(HOME) is True
+        FakeThread.started[-1].run_now()
+        assert st.calls == [("car", HOME, LIGHT)]
+        assert st.route.distance_m == 18800.0
+        assert st.status == ""
+
+    def test_pressing_d_again_cycles_the_profile(self):
+        # One mental model: d = directions to what's selected; press
+        # again to change how you're travelling.
+        st = routes()
+        st.select(*LIGHT)
+        st.press(HOME)
+        FakeThread.started[-1].run_now()
+        for expected in ("bike", "foot", "car"):
+            st.press(HOME)
+            FakeThread.started[-1].run_now()
+            assert st.profile == expected
+            assert st.calls[-1][0] == expected
+
+    def test_a_new_selection_re_aims_rather_than_cycling(self):
+        st = routes()
+        st.select(*LIGHT)
+        st.press(HOME)
+        FakeThread.started[-1].run_now()
+        st.select(44.0, -69.0, "Somewhere else")
+        st.press(HOME)
+        FakeThread.started[-1].run_now()
+        assert st.profile == "car"
+        assert st.calls[-1][2] == (44.0, -69.0)
+
+    def test_a_press_while_a_request_is_in_flight_does_not_double_fetch(self):
+        st = routes()
+        st.select(*LIGHT)
+        st.press(HOME)
+        assert st.press(HOME) is True       # the key visibly did something
+        assert len(FakeThread.started) == 1
+        assert st.status == "pending"
+
+    def test_the_throttle_never_runs_in_the_keyboard_thread(self):
+        # The client's own throttle sleeps; the press must return before
+        # anything is fetched.
+        st = routes()
+        st.select(*LIGHT)
+        st.press(HOME)
+        assert st.calls == []
+        FakeThread.started[-1].run_now()
+        assert st.calls
+
+    def test_no_route_and_unreachable_read_differently(self):
+        for error, status in ((NoRoute("nope"), "none"),
+                              (RouteUnavailable("down"), "error")):
+            st = routes(error=error)
+            st.select(*LIGHT)
+            st.press(HOME)
+            FakeThread.started[-1].run_now()
+            assert st.status == status
+            assert st.route is None
+
+    def test_clearing_drops_the_route_and_any_late_reply(self):
+        st = routes()
+        st.select(*LIGHT)
+        st.press(HOME)
+        st.clear()
+        FakeThread.started[-1].run_now()
+        assert st.route is None
+        assert st.dest is None
+        assert st.status == ""
+
+
+class TestRouteSummary:
+    def test_the_header_summary(self):
+        route = fake_route("car", distance=11700.0, duration=800.0)
+        assert mu.route_summary(route, "en") == "7.3 mi · 13m · driving"
+        # French takes metric from the language alone; the profile word
+        # still falls back to English until the translations land.
+        assert mu.route_summary(route, "fr") == "11.7 km · 13m · driving"
+
+    def test_hours_are_split_out(self):
+        assert mu._fmt_duration(60) == "1m"
+        assert mu._fmt_duration(3600) == "1h 00m"
+        assert mu._fmt_duration(4920) == "1h 22m"
+
+    def test_short_distances_do_not_pretend_to_precision(self):
+        assert mu._fmt_distance(240, "fr") == "240 m"
+        assert mu._fmt_distance(2400, "fr") == "2.4 km"
+        assert mu._fmt_distance(240, "en") == "787 ft"
+        assert mu._fmt_distance(24000, "en") == "14.9 mi"
+
+    def test_the_profile_word_is_localized_but_the_units_are_not(self):
+        for profile, word in (("car", "driving"), ("bike", "cycling"),
+                              ("foot", "walking")):
+            summary = mu.route_summary(fake_route(profile), "en")
+            assert summary.endswith(word)
+            assert " mi · " in summary
+
+    def test_no_route_is_no_summary(self):
+        assert mu.route_summary(None, "en") == ""
+
+    def test_the_note_says_what_the_router_is_doing(self):
+        st = routes()
+        assert mu.route_note(st) == ""
+        st.status = "pending"
+        assert mu.route_note(st) == "routing…"
+        st.status = "none"
+        assert mu.route_note(st) == "no route"
+        st.status = "error"
+        assert mu.route_note(st) == "directions unavailable"
