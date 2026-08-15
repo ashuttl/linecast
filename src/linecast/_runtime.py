@@ -112,6 +112,8 @@ def weather_parser():
                     help="fahrenheit temperatures")
     p.add_argument("--no-shading", action="store_true",
                     help="disable daylight shading on hourly chart")
+    p.add_argument("--json", dest="json_mode", action="store_true",
+                    help="machine-readable JSON output (implies --print)")
     return p
 
 
@@ -124,17 +126,25 @@ def tides_parser():
                     help="search for a station and exit")
     p.add_argument("--metric", action="store_true",
                     help="heights in meters instead of feet")
+    p.add_argument("--json", dest="json_mode", action="store_true",
+                    help="machine-readable JSON output (implies --print)")
     return p
 
 
 def sunshine_parser():
-    return _base_parser("sunshine",
-                         "Solar arc inspired by the Apple Watch Solar face")
+    p = _base_parser("sunshine",
+                      "Solar arc inspired by the Apple Watch Solar face")
+    p.add_argument("--json", dest="json_mode", action="store_true",
+                    help="machine-readable JSON output (implies --print)")
+    return p
 
 
 def moon_parser():
-    return _base_parser("moon",
-                         "Moon phase, illumination, and rise/set times")
+    p = _base_parser("moon",
+                      "Moon phase, illumination, and rise/set times")
+    p.add_argument("--json", dest="json_mode", action="store_true",
+                    help="machine-readable JSON output (implies --print)")
+    return p
 
 
 def radar_parser():
@@ -185,9 +195,10 @@ def _resolve_live(args):
 
     --print forces static single-shot output.
     --oneline forces static single-shot output.
+    --json forces static single-shot output.
     --live is accepted for backwards compatibility but is no longer needed.
     """
-    if "--print" in args or "--oneline" in args:
+    if "--print" in args or "--oneline" in args or "--json" in args:
         return False
     if "--live" in args:
         return True
@@ -199,7 +210,8 @@ def _resolve_live(args):
 
 def _resolve_live_ns(ns):
     """Resolve live mode from an argparse namespace."""
-    if ns.print_mode or ns.oneline:
+    # Not every command's parser defines --json (radar/maps), so getattr.
+    if ns.print_mode or ns.oneline or getattr(ns, "json_mode", False):
         return False
     if ns.live:
         return True
@@ -218,6 +230,7 @@ class RuntimeConfig:
     emoji: bool
     lang: str
     oneline: bool
+    json_mode: bool = False  # machine-readable JSON output
 
     @classmethod
     def from_sources(cls, argv=None, environ=None, namespace=None):
@@ -236,6 +249,7 @@ class RuntimeConfig:
                        or env.get("LINECAST_ICONS", "").lower() == "emoji"),
                 lang=lang if len(lang) == 2 and lang.isalpha() else "en",
                 oneline=namespace.oneline,
+                json_mode=getattr(namespace, "json_mode", False),
             )
         args = _argv(argv)
         if "--debug" in args:
@@ -250,6 +264,7 @@ class RuntimeConfig:
             emoji="--emoji" in args or env.get("LINECAST_ICONS", "").lower() == "emoji",
             lang=lang if len(lang) == 2 and lang.isalpha() else "en",
             oneline="--oneline" in args,
+            json_mode="--json" in args,
         )
 
     @property
@@ -259,9 +274,10 @@ class RuntimeConfig:
 
 @dataclass(frozen=True)
 class WeatherRuntime(RuntimeConfig):
-    celsius: bool
-    metric: bool  # wind (km/h) and precipitation (mm)
-    shading: bool
+    # Defaults required: the base class ends in a defaulted field (json_mode).
+    celsius: bool = False
+    metric: bool = False  # wind (km/h) and precipitation (mm)
+    shading: bool = True
 
     @classmethod
     def from_sources(cls, argv=None, environ=None, namespace=None):
@@ -287,6 +303,7 @@ class WeatherRuntime(RuntimeConfig):
                 metric=namespace.metric or all_metric,
                 shading=(not namespace.no_shading
                          and not env_truthy(env.get("WEATHER_NO_SHADING", ""))),
+                json_mode=base.json_mode,
             )
         args = _argv(argv)
         base = RuntimeConfig.from_sources(args, env)
@@ -309,6 +326,7 @@ class WeatherRuntime(RuntimeConfig):
             celsius=celsius,
             metric="--metric" in args or all_metric,
             shading="--no-shading" not in args and not env_truthy(env.get("WEATHER_NO_SHADING", "")),
+            json_mode=base.json_mode,
         )
 
     @property
@@ -326,7 +344,8 @@ class WeatherRuntime(RuntimeConfig):
 
 @dataclass(frozen=True)
 class TidesRuntime(RuntimeConfig):
-    metric: bool  # heights in meters instead of feet
+    # Default required: the base class ends in a defaulted field (json_mode).
+    metric: bool = False  # heights in meters instead of feet
 
     @classmethod
     def from_sources(cls, argv=None, environ=None, namespace=None):
@@ -338,6 +357,7 @@ class TidesRuntime(RuntimeConfig):
                 emoji=base.emoji,
                 lang=base.lang,
                 oneline=base.oneline,
+                json_mode=base.json_mode,
                 metric=(
                     namespace.metric
                     or env.get("TIDES_UNITS", "").lower() == "metric"
@@ -350,6 +370,7 @@ class TidesRuntime(RuntimeConfig):
             emoji=base.emoji,
             lang=base.lang,
             oneline=base.oneline,
+            json_mode=base.json_mode,
             metric=(
                 "--metric" in args
                 or env.get("TIDES_UNITS", "").lower() == "metric"

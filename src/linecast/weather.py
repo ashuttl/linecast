@@ -11,7 +11,7 @@ and MeteoAlarm (30 European countries).
 
 Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 
-Usage: weather [--print] [--oneline] [--location LAT,LNG | PLACE] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--no-shading] [--lang fr] [--classic-colors]
+Usage: weather [--print] [--oneline] [--json] [--location LAT,LNG | PLACE] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--no-shading] [--lang fr] [--classic-colors]
 """
 
 import os
@@ -472,10 +472,14 @@ def main():
     t = threading.Thread(target=_fetch, daemon=True)
     t.start()
 
-    # Animated spinner while waiting
-    from linecast._spinner import Spinner
-    with Spinner():
+    # Animated spinner while waiting (suppressed for --json: stdout must
+    # carry nothing but the payload)
+    if runtime.json_mode:
         done.wait()
+    else:
+        from linecast._spinner import Spinner
+        with Spinner():
+            done.wait()
 
     t.join()
     location_name = result.get("name", "")
@@ -484,6 +488,16 @@ def main():
     alerts = result.get("alerts", [])
     aqi_data = result.get("aqi")
     historical = result.get("historical")
+
+    if runtime.json_mode:
+        import json
+        from linecast._weather_json import build_payload
+        payload = build_payload(
+            data, location_name, final_country, runtime,
+            alerts=alerts, aqi_data=aqi_data, historical=historical,
+        )
+        print(json.dumps(payload, ensure_ascii=False))
+        return
 
     if runtime.oneline:
         from linecast._oneline import weather_oneline

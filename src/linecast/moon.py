@@ -1,6 +1,6 @@
 """Moon phase, illumination, and rise/set times.
 
-Usage: moon [--print] [--oneline] [--emoji] [--lang CODE]
+Usage: moon [--print] [--oneline] [--json] [--emoji] [--lang CODE]
 
 Renders the Moon itself — a shaded disc with the correct phase terminator,
 mare shading, and a soft halo over a star field — plus the current phase and
@@ -301,6 +301,13 @@ def main():
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
+
+    if runtime.json_mode:
+        import json
+        from linecast._moon_json import build_payload
+        payload = build_payload(datetime.now().astimezone(), lat, lng, runtime)
+        print(json.dumps(payload, ensure_ascii=False))
+        return
 
     if runtime.oneline:
         from linecast._oneline import moon_oneline

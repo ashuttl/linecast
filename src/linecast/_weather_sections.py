@@ -149,8 +149,8 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
 # ---------------------------------------------------------------------------
 # Comparative weather line
 # ---------------------------------------------------------------------------
-def _comparative_line(daily, now, runtime=None):
-    """Natural language comparing today vs yesterday/tomorrow."""
+def comparative_sentence(daily, now, runtime=None):
+    """Plain-text natural language comparing today vs yesterday/tomorrow."""
     if runtime is None:
         runtime = WeatherRuntime.from_sources()
     hi_temps = daily.get("temperature_2m_max", [])
@@ -181,7 +181,14 @@ def _comparative_line(daily, now, runtime=None):
         key = "much_warmer" if diff > 0 else "much_cooler"
 
     comparison = _s(key, runtime, ref_day=ref_day, subject=subject.lower())
-    sentence = _s("will_be", runtime, subject=subject, comparison=comparison)
+    return _s("will_be", runtime, subject=subject, comparison=comparison)
+
+
+def _comparative_line(daily, now, runtime=None):
+    """ANSI-muted comparative sentence for the dashboard."""
+    sentence = comparative_sentence(daily, now, runtime)
+    if not sentence:
+        return ""
     return f" {MUTED}{sentence}{RESET}"
 
 

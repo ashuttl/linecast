@@ -4,5 +4,6 @@ __pycache__/
 dist/
 build/
 .venv/
+.coverage
 .claude/worktrees/
 .DS_Store

@@ -14,7 +14,7 @@ Australia), and TideCheck (global, optional), selected automatically based on
 geolocation. Use --station with a station ID or name to override.
 For global tide coverage set LINECAST_TIDECHECK_KEY (free at tidecheck.com).
 
-Usage: tides [--print] [--oneline] [--station ID | NAME] [--search QUERY] [--metric] [--lang LANG] [--classic-colors]
+Usage: tides [--print] [--oneline] [--json] [--station ID | NAME] [--search QUERY] [--metric] [--lang LANG] [--classic-colors]
 """
 
 import math
@@ -863,8 +863,10 @@ def main():
 
     # everything from here to the first paint may block on the network
     # (station lookup, metadata, two weeks of predictions) — spin
+    # (suppressed for --json: stdout must carry nothing but the payload)
     spin = Spinner()
-    spin.start()
+    if not runtime.json_mode:
+        spin.start()
     try:
         # Station: --station flag > TIDE_STATION env var > geolocation
         override = args.station or os.environ.get("TIDE_STATION", "").strip()
@@ -915,6 +917,19 @@ def main():
                 source = "tidecheck"
                 station_id, station_name = find_nearest_station_tidecheck(lat, lng)
 
+            if station_id is None and runtime.json_mode:
+                # No station in range: emit the payload shape anyway, with
+                # station/events/series empty-or-null, and exit cleanly.
+                import json as _json
+                from linecast._sunshine_json import _location_label
+                from linecast._tides_json import build_payload
+                payload = build_payload(
+                    None, runtime, datetime.now().astimezone(), [], [],
+                    location=_location_label(lat, lng),
+                )
+                print(_json.dumps(payload, ensure_ascii=False))
+                return
+
             if station_id is None:
                 source_label = {"chs": "CHS", "qld": "QLD", "noaa": "NOAA", "tidecheck": "TideCheck"}.get(source, source.upper())
                 hint = "Set TIDE_STATION=<id> to specify one manually."
@@ -944,6 +959,32 @@ def main():
         station_tz = _station_tzinfo(station_meta)
         now_local = _station_now(station_meta)
         today = now_local.date()
+
+        if runtime.json_mode:
+            import json as _json
+            from linecast._tides_json import build_payload
+            _range_fetchers = {
+                "chs": (fetch_tides_range_chs, fetch_hilo_range_chs),
+                "qld": (fetch_tides_range_qld, fetch_hilo_range_qld),
+                "tidecheck": (fetch_tides_range_tidecheck,
+                              fetch_hilo_range_tidecheck),
+            }
+            _json_tides_range, _json_hilo_range = _range_fetchers.get(
+                source, (fetch_tides_range, fetch_hilo_range))
+            preds = _json_tides_range(
+                station_id, today - timedelta(days=1),
+                today + timedelta(days=2), station_tz)
+            hilo_data = _json_hilo_range(
+                station_id, today - timedelta(days=1),
+                today + timedelta(days=2), station_tz)
+            tz_name = (getattr(station_tz, "key", None)
+                       or (now_local.tzname() if now_local.tzinfo else None))
+            payload = build_payload(
+                station_name, runtime, now_local, preds, hilo_data,
+                station_id=station_id, source=source, tz_name=tz_name,
+            )
+            print(_json.dumps(payload, ensure_ascii=False))
+            return
 
         if runtime.oneline:
             from linecast._oneline import tides_oneline

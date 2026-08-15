@@ -63,12 +63,15 @@ weather --metric --fahrenheit    # °F with km/h and mm
 weather --lang fr                # UI in French (also covers alert text when available)
 # other language codes: es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 weather --print                  # single static snapshot (no live mode)
+weather --json                   # machine-readable JSON output (implies --print)
 sunshine                         # solar arc (live by default)
 sunshine --print                 # static snapshot
+sunshine --json                  # machine-readable JSON output (implies --print)
 sunshine --classic-colors        # use fixed-color (theme agnostic) sunshine gradient/palette
 
 moon                             # phase, illumination, next rise/set (live by default)
 moon --oneline                   # compact line for status bars
+moon --json                      # machine-readable JSON output (implies --print)
 
 tides                            # nearest NOAA station (live by default)
 tides --station "Bar Harbor"     # search by station name (uses nearest match)
@@ -77,6 +80,7 @@ tides --search "portland maine"  # find stations by name/state, nearest first
 tides --metric                   # heights in meters instead of feet
 tides --lang fr                  # UI in French
 tides --print                    # static snapshot
+tides --json                     # machine-readable JSON output (implies --print)
 
 radar                            # current location via IP geolocation
 radar --location "chicago"       # search by place name

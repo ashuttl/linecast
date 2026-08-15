@@ -10,7 +10,7 @@ Uses half-block characters with ANSI color for smooth rendering at 2x
 vertical sub-pixel resolution (true color when available). Location is
 cached from IP geolocation (~1 network call per week).
 
-Usage: sunshine [--print] [--oneline] [--emoji] [--classic-colors]
+Usage: sunshine [--print] [--oneline] [--json] [--emoji] [--classic-colors]
 """
 
 import math
@@ -532,6 +532,12 @@ def main():
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
+
+    if runtime.json_mode:
+        import json
+        from linecast._sunshine_json import build_payload
+        print(json.dumps(build_payload(lat, lng), ensure_ascii=False))
+        return
 
     if runtime.oneline:
         from datetime import timedelta as _td
