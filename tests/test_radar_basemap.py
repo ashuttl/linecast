@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import linecast._radar_basemap as basemap_mod
 from linecast._radar_basemap import (
-    Basemap, _project, marine_region, nearest_city,
+    Basemap, DotLayer, _project, marine_region, nearest_city,
     COAST, CITY, CITY_LABEL,
 )
 
@@ -380,3 +380,106 @@ class TestVendoredDataLookups:
         assert name == "Salem"
         assert 5 < dist_km < 20
         assert 20 < bearing < 70  # NE of Salem
+
+
+class TestDotLayerRank:
+    """The rank contest that lets one layer take strokes in any order.
+
+    Radar passes no rank at all, so its cells must keep resolving
+    last-writer-wins; street mode passes LINE_STYLES ranks and must be
+    immune to the order features arrive from tiles.
+    """
+
+    BBOX = (-5.0, -5.0, 5.0, 5.0)
+    RED, BLUE, GREEN = (255, 0, 0), (0, 0, 255), (0, 255, 0)
+
+    def _layer(self):
+        return DotLayer(self.BBOX, 2, 1)
+
+    def test_unranked_writes_keep_last_writer_wins(self):
+        # The radar semantics, pinned: coast then borders then warnings
+        # are drawn in priority order and the later ink owns the cell.
+        layer = self._layer()
+        layer._set_dot(0, 0, self.RED)
+        layer._set_dot(1, 1, self.BLUE)
+        assert layer.color[0][0] == self.BLUE
+        assert layer.dots[0][0] == 0x01 | 0x10   # both dots survive
+
+    def test_higher_rank_takes_the_cell_when_drawn_second(self):
+        layer = self._layer()
+        layer._set_dot(0, 0, self.RED, 10)
+        layer._set_dot(1, 1, self.BLUE, 50)
+        assert layer.color[0][0] == self.BLUE
+
+    def test_higher_rank_keeps_the_cell_when_drawn_first(self):
+        # The point of the whole exercise: arrival order stops mattering.
+        layer = self._layer()
+        layer._set_dot(0, 0, self.BLUE, 50)
+        layer._set_dot(1, 1, self.RED, 10)
+        assert layer.color[0][0] == self.BLUE
+        assert layer.dots[0][0] == 0x01 | 0x10   # the low-rank dot still ORs
+
+    def test_equal_ranks_still_fall_back_to_last_writer(self):
+        layer = self._layer()
+        layer._set_dot(0, 0, self.RED, 34)
+        layer._set_dot(1, 1, self.BLUE, 34)
+        assert layer.color[0][0] == self.BLUE
+
+    def test_rank_grid_starts_below_every_real_rank(self):
+        layer = self._layer()
+        assert layer.rank[0][0] == -1
+        assert layer.ribbon == set()
+        layer._set_dot(0, 0, self.RED, 0)
+        assert layer.rank[0][0] == 0
+
+    def test_out_of_bounds_dots_are_dropped_silently(self):
+        layer = self._layer()
+        for dx, dy in ((-1, 0), (0, -1), (4, 0), (0, 4)):
+            layer._set_dot(dx, dy, self.RED, 99)
+        assert layer.dots == [[0, 0]]
+        assert layer.rank == [[-1, -1]]
+
+    def test_dot_line_threads_its_rank(self):
+        layer = self._layer()
+        layer._dot_line(0, 0, 3, 0, self.RED, 40)      # top dot row
+        layer._dot_line(0, 1, 3, 1, self.BLUE, 20)     # second dot row
+        assert layer.color[0][0] == self.RED
+        assert layer.color[0][1] == self.RED
+        assert layer.rank[0][0] == 40
+
+    def test_draw_lines_threads_its_rank(self):
+        layer = self._layer()
+        west_east = [[(-5.0, 0.0), (5.0, 0.0)]]
+        layer._draw_lines(west_east, self.BLUE, rank=50)
+        layer._draw_lines(west_east, self.RED, rank=10)
+        assert any(c == self.BLUE for row in layer.color for c in row)
+        assert not any(c == self.RED for row in layer.color for c in row)
+
+    def test_or_mask_admits_an_edge_mask(self):
+        layer = self._layer()
+        layer.or_mask([[0x03, 0]], self.GREEN, 14)
+        assert layer.dots[0][0] == 0x03
+        assert layer.color[0][0] == self.GREEN
+        assert layer.rank[0][0] == 14
+        assert layer.color[0][1] is None
+
+    def test_or_mask_respects_rank_in_both_directions(self):
+        # A road (rank 34) beats the coast (14) whichever lands first.
+        first = self._layer()
+        first.or_mask([[0x01, 0]], self.GREEN, 14)
+        first._set_dot(1, 1, self.RED, 34)
+        assert first.color[0][0] == self.RED
+        assert first.dots[0][0] == 0x01 | 0x10
+
+        second = self._layer()
+        second._set_dot(1, 1, self.RED, 34)
+        second.or_mask([[0x01, 0]], self.GREEN, 14)
+        assert second.color[0][0] == self.RED
+        assert second.dots[0][0] == 0x01 | 0x10
+
+    def test_or_mask_leaves_untouched_cells_alone(self):
+        layer = self._layer()
+        layer._set_dot(2, 0, self.RED, 5)
+        layer.or_mask([[0x80, 0]], self.GREEN, 90)
+        assert layer.color[0][1] == self.RED     # no mask bit in this cell
+        assert layer.rank[0][1] == 5

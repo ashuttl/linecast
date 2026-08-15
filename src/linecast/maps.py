@@ -81,32 +81,45 @@ def _view_key(bbox, gw, hc):
     return (tuple(round(v, 4) for v in bbox), gw, hc)
 
 
-def _coast_dots(fine, gw, hc):
-    """Braille masks stroking the sea-level contour of the elevation data.
+def _edge_dots(is_land, is_water, gw, hc):
+    """Braille masks stroking the land/water boundary of dot masks.
 
-    A dot is set on every land sample (> 0 m) that touches a water sample —
-    the coastline is *derived from the fill*, so the stroke and the colour
-    boundary can never disagree, at any zoom.  The 2x fine grid is exactly
-    braille dot resolution (2x4 per cell).
+    Both masks are (hc*4) x (gw*2) truthy/falsy grids at exactly braille
+    dot resolution (2x4 per cell).  A dot is set only where
+    ``is_land[dy][dx]`` and a 4-neighbour has ``is_water`` — so the
+    stroke and the colour boundary can never disagree, at any zoom, from
+    any data source, and *unknown* samples (in neither mask) are never
+    stroked from either side.
     """
     dh, dw = hc * 4, gw * 2
     dots = [[0] * gw for _ in range(hc)]
     for dy in range(dh):
-        row = fine[dy]
-        up = fine[dy - 1] if dy > 0 else None
-        down = fine[dy + 1] if dy < dh - 1 else None
+        land = is_land[dy]
+        here = is_water[dy]
+        up = is_water[dy - 1] if dy > 0 else None
+        down = is_water[dy + 1] if dy < dh - 1 else None
         for dx in range(dw):
-            e = row[dx]
-            if e is None or e <= 0:
+            if not land[dx]:
                 continue
-            for n in ((row[dx - 1] if dx > 0 else None),
-                      (row[dx + 1] if dx < dw - 1 else None),
-                      (up[dx] if up else None),
-                      (down[dx] if down else None)):
-                if n is not None and n <= 0:
-                    dots[dy // 4][dx // 2] |= _BITS[dx % 2][dy % 4]
-                    break
+            if ((dx > 0 and here[dx - 1])
+                    or (dx < dw - 1 and here[dx + 1])
+                    or (up is not None and up[dx])
+                    or (down is not None and down[dx])):
+                dots[dy // 4][dx // 2] |= _BITS[dx % 2][dy % 4]
     return dots
+
+
+def _coast_dots(fine, gw, hc):
+    """Braille masks stroking the sea-level contour of the elevation data.
+
+    The coastline is *derived from the fill*: land is a sample above sea
+    level, water is a sample at or below it, and a missing sample (None)
+    is neither, so a hole in the elevation data never fakes a shoreline
+    from either side.
+    """
+    is_land = [[v is not None and v > 0 for v in row] for row in fine]
+    is_water = [[v is not None and v <= 0 for v in row] for row in fine]
+    return _edge_dots(is_land, is_water, gw, hc)
 
 
 def _get_elevation(bbox, gw, hc, block):

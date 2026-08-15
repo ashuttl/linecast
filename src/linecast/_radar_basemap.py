@@ -132,6 +132,13 @@ class DotLayer:
 
     The drawing primitives shared by the geography basemap and any other
     braille-stroke layer (e.g. warning polygon outlines).
+
+    A cell holds exactly one ink, so who owns it is decided by `rank`:
+    the highest rank drawn into a cell keeps its colour, and equal ranks
+    fall back to last-writer-wins.  Radar draws in priority order and
+    passes no rank at all, which is exactly the old behaviour; street
+    mode walks features in arbitrary per-tile order and leans on the
+    rank instead, so tile arrival order can never change the picture.
     """
 
     def __init__(self, bbox, graph_w, height_cells):
@@ -143,23 +150,43 @@ class DotLayer:
         # per-cell braille state
         self.dots = [[0] * graph_w for _ in range(height_cells)]
         self.color = [[None] * graph_w for _ in range(height_cells)]
+        self.rank = [[-1] * graph_w for _ in range(height_cells)]
+        self.ribbon = set()        # (cx, cy) cells claimed by w3 strokes
 
     # -- rasterisation helpers ------------------------------------------------
-    def _set_dot(self, dx, dy, color):
+    def _set_dot(self, dx, dy, color, rank=0):
         if dx < 0 or dx >= self.dw or dy < 0 or dy >= self.dh:
             return
         cx, cy = dx // 2, dy // 4
         self.dots[cy][cx] |= _BITS[dx % 2][dy % 4]
-        self.color[cy][cx] = color  # last writer wins (drawn in priority order)
+        if rank >= self.rank[cy][cx]:   # ties: last writer wins, as before
+            self.rank[cy][cx] = rank
+            self.color[cy][cx] = color
 
-    def _dot_line(self, x0, y0, x1, y1, color):
+    def or_mask(self, mask, color, rank=0):
+        """Admit a cell-indexed dot bitmask (e.g. _edge_dots output).
+
+        The mask's dots OR into the grid; the cells it touches follow the
+        same rank contest as a stroke, so an edge mask and a line layer
+        can share one DotLayer without either having to be drawn last.
+        """
+        for cy, mrow in enumerate(mask):
+            row = self.dots[cy]
+            for cx, m in enumerate(mrow):
+                if m:
+                    row[cx] |= m
+                    if rank >= self.rank[cy][cx]:
+                        self.rank[cy][cx] = rank
+                        self.color[cy][cx] = color
+
+    def _dot_line(self, x0, y0, x1, y1, color, rank=0):
         x0, y0, x1, y1 = int(round(x0)), int(round(y0)), int(round(x1)), int(round(y1))
         dx, dy = abs(x1 - x0), abs(y1 - y0)
         sx = 1 if x0 < x1 else -1
         sy = 1 if y0 < y1 else -1
         err = dx - dy
         while True:
-            self._set_dot(x0, y0, color)
+            self._set_dot(x0, y0, color, rank)
             if x0 == x1 and y0 == y1:
                 break
             e2 = 2 * err
@@ -187,7 +214,7 @@ class DotLayer:
         return not (hi_lon < minlon or lo_lon > maxlon
                     or hi_lat < minlat or lo_lat > maxlat)
 
-    def _draw_lines(self, lines, color, width=1):
+    def _draw_lines(self, lines, color, width=1, rank=0):
         offsets = ((0, 0),) if width <= 1 else ((0, 0), (1, 0), (0, 1))
         for coords in lines:
             if not self._in_view(coords):
@@ -198,7 +225,7 @@ class DotLayer:
                 if prev is not None:
                     for ox, oy in offsets:
                         self._dot_line(prev[0] + ox, prev[1] + oy,
-                                       p[0] + ox, p[1] + oy, color)
+                                       p[0] + ox, p[1] + oy, color, rank)
                 prev = p
 
 

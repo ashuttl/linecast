@@ -19,8 +19,8 @@ from linecast._color import BG_PRIMARY
 from linecast._elevation import decode_meters, elevation_grid
 from linecast._radar_basemap import BORDER, COAST
 from linecast.maps import (
-    BATHY_STOPS, HYPSO_STOPS, _coast_dots, build_terrain_buffer,
-    compose_terrain,
+    BATHY_STOPS, COAST_STROKE, HYPSO_STOPS, BORDER_STROKE, _coast_dots,
+    _edge_dots, build_terrain_buffer, compose_terrain,
 )
 
 _SIG = b"\x89PNG\r\n\x1a\n"
@@ -123,6 +123,63 @@ class TestCoastDots:
         assert _coast_dots(fine, 1, 1) == [[0]]
 
 
+class TestEdgeDots:
+    """The generalized stroke: two masks in, braille out.
+
+    _coast_dots is now a thin wrapper over this, and the tile-water
+    mask (S4) will be the second caller — same function, so the coast
+    can never disagree with the fill in either mode.
+    """
+
+    def test_matches_coast_dots_on_the_same_grid(self):
+        # 2 cells x 1: dot grid 4 wide x 4 tall.  Columns 0-1 are sea,
+        # 2-3 are land, with two holes punched in the data.
+        fine = [
+            [-5.0, -5.0, 10.0, 10.0],
+            [-5.0, -5.0, 10.0, 10.0],
+            [None, -5.0, 10.0, 10.0],
+            [-5.0, -5.0, 10.0, None],
+        ]
+        # the same grid, split into the two masks by hand
+        is_land = [[False, False, True, True],
+                   [False, False, True, True],
+                   [False, False, True, True],
+                   [False, False, True, False]]
+        is_water = [[True, True, False, False],
+                    [True, True, False, False],
+                    [False, True, False, False],
+                    [True, True, False, False]]
+        # only dot column 2 is land touching water; it is the left
+        # sub-column of cell 1, all four rows -> 0x01|0x02|0x04|0x40
+        expected = [[0, 0x47]]
+        assert _coast_dots(fine, 2, 1) == expected
+        assert _edge_dots(is_land, is_water, 2, 1) == expected
+
+    def test_unknown_next_to_water_is_never_stroked(self):
+        # The case the old suite missed: a missing sample beside water.
+        # It is in neither mask, so neither side of the boundary gets a
+        # dot — a hole in the data must not invent a shoreline.
+        fine = [[None, -5.0] for _ in range(4)]
+        assert _coast_dots(fine, 1, 1) == [[0]]
+        is_land = [[False, False] for _ in range(4)]
+        is_water = [[False, True] for _ in range(4)]
+        assert _edge_dots(is_land, is_water, 1, 1) == [[0]]
+
+    def test_tile_masks_have_no_unknown_state(self):
+        # How street mode calls it: is_land is simply "not water", so
+        # every land dot on the boundary strokes.  West column water,
+        # east column land -> the east sub-column of the cell.
+        is_water = [[True, False] for _ in range(4)]
+        is_land = [[not w for w in row] for row in is_water]
+        assert _edge_dots(is_land, is_water, 1, 1) == [[0xB8]]
+
+    def test_a_dot_in_both_masks_still_strokes_once(self):
+        # Defensive: overlapping masks must not double-set or crash.
+        is_land = [[True, True] for _ in range(4)]
+        is_water = [[True, True] for _ in range(4)]
+        assert _edge_dots(is_land, is_water, 1, 1) == [[0xFF]]
+
+
 class TestComposeTerrain:
     # patch the _color module *imported at the top of this file*: it is the
     # same module generation compose_terrain reads, even after test_oneline
@@ -147,6 +204,20 @@ class TestComposeTerrain:
         plain = re.sub(r"\033\[[^m]*m", "", lines[0])
         assert plain == "  ⠄"
         assert "48;2;100;120;90" in lines[0]
+
+    def test_coast_beats_border_for_the_cell_ink(self):
+        # Pinned because the street-mode rank table (coast 14 > border
+        # 11) is written to agree with what terrain mode already does.
+        terrain = [[(100, 120, 90)], [(100, 120, 90)]]
+        bm = self.FakeBasemap([[0x01]], [[BORDER]])
+        coast = [[0x02]]
+        line = compose_terrain(bm, terrain, {}, 1, 1, coast=coast)[0]
+        plain = re.sub(r"\033\[[^m]*m", "", line)
+        assert plain[0] == chr(0x2800 + 0x03)     # both masks OR together
+        assert f"38;2;{COAST_STROKE[0]};{COAST_STROKE[1]};{COAST_STROKE[2]}" \
+            in line
+        assert f"38;2;{BORDER_STROKE[0]};{BORDER_STROKE[1]};" \
+            f"{BORDER_STROKE[2]}" not in line
 
     def test_derived_coast_stroked(self):
         terrain = [[(100, 120, 90)] * 2, [(100, 120, 90)] * 2]
