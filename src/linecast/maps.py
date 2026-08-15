@@ -660,7 +660,7 @@ def _crosshair(overlays, cell, dx, dy, graph_w, height_cells, street):
 def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                block=True, pan_offset=(0, 0), mouse_pos=None,
                view="terrain", search=None, route=None, dest=None,
-               note="", **_):
+               note="", helping=False, **_):
     lang = runtime.lang if runtime else "en"
     cols, rows = get_terminal_size()
     graph_w = max(20, cols)
@@ -723,6 +723,12 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     foot += " " * max(0, cols - visible_len(foot))
 
     out = "\n".join([header, *map_lines, foot])
+    # Exactly two floating things, one at a time, through the one
+    # overlay channel; search wins when both could show.
+    if helping and not (search is not None and search.open):
+        panel = _maps_ui.help_overlay(cols, rows, lang, route is not None)
+        if panel:
+            return out + "\x00\033[?1003h" + panel
     if search is not None and search.open:
         # Any-motion mouse reporting is what makes a torn escape
         # sequence likely, and a torn sequence looks like ESC — which is
@@ -799,6 +805,7 @@ def main():
         pan_preview = [0, 0]
         view = [args.view]
         search = _maps_ui.SearchState()
+        helping = [False]
         routes = _maps_ui.RouteState(profile=args.profile)
         if dest is not None:
             routes.select(dest.lat, dest.lon, dest.name)
@@ -874,6 +881,16 @@ def main():
                 z = int(_maps_style.z_eff(bbox, max(8, rows - 2)))
                 return search.handle(action, center[0], center[1], z,
                                      runtime.lang)
+            if helping[0]:
+                # Any key closes the panel; anything but the three
+                # dismiss keys is then handled as usual, so `/` from
+                # help opens search in one press.
+                helping[0] = False
+                if action in ('key:?', 'escape', 'quit'):
+                    return True
+            if action == 'key:?':
+                helping[0] = True
+                return True
             if action == 'key:/':
                 search.start()
                 return True
@@ -924,7 +941,8 @@ def main():
                 pan_offset=(pan_preview[0], pan_preview[1]),
                 mouse_pos=mouse_pos, view=view[0], search=search,
                 route=routes.route, dest=routes.dest,
-                note=_maps_ui.route_note(routes, runtime.lang))
+                note=_maps_ui.route_note(routes, runtime.lang),
+                helping=helping[0])
 
         live_loop(
             render,

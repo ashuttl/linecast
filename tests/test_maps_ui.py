@@ -18,8 +18,9 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _color
+from linecast import _color, _maps_i18n
 from linecast import _maps_ui as mu
+from linecast._framebuffer import visible_len
 from linecast._maps_route import NoRoute, Route, RouteUnavailable
 from linecast._maps_search import Result, SearchUnavailable
 
@@ -515,9 +516,9 @@ class TestRouteSummary:
     def test_the_header_summary(self):
         route = fake_route("car", distance=11700.0, duration=800.0)
         assert mu.route_summary(route, "en") == "7.3 mi · 13m · driving"
-        # French takes metric from the language alone; the profile word
-        # still falls back to English until the translations land.
-        assert mu.route_summary(route, "fr") == "11.7 km · 13m · driving"
+        # French takes metric from the language alone; the duration's
+        # unit letters stay untranslated, the profile word does not.
+        assert mu.route_summary(route, "fr") == "11.7 km · 13m · en voiture"
 
     def test_hours_are_split_out(self):
         assert mu._fmt_duration(60) == "1m"
@@ -549,3 +550,67 @@ class TestRouteSummary:
         assert mu.route_note(st) == "no route"
         st.status = "error"
         assert mu.route_note(st) == "directions unavailable"
+
+
+# ---------------------------------------------------------------------------
+# The `?` panel
+# ---------------------------------------------------------------------------
+LANGS = sorted(_maps_i18n._STRINGS)
+
+
+def panel_lines(panel):
+    """The panel's rows, without their cursor addressing or colour."""
+    return [strip(row) for row in re.split(r"\033\[\d+;\d+H", panel)[1:]]
+
+
+class TestHelpPanel:
+    def test_it_lists_every_key_that_does_something(self):
+        text = "".join(panel_lines(mu.help_overlay(80, 40, "en")))
+        for mark, key in [e for e in mu.HELP_KEYS if e]:
+            assert mark in text
+            assert _maps_i18n._STRINGS["en"][key] in text
+
+    def test_the_frame_carries_the_way_out(self):
+        lines = panel_lines(mu.help_overlay(80, 40, "en"))
+        assert "keys" in lines[0]
+        assert "esc close" in lines[-1]
+
+    def test_the_glyph_legend_appears_when_there_is_room(self):
+        tall = "".join(panel_lines(mu.help_overlay(80, 40, "en")))
+        short = "".join(panel_lines(mu.help_overlay(80, 24, "en")))
+        for glyph, _key in mu.HELP_GLYPHS:
+            assert glyph in tall
+        assert "airport" not in short          # dropped first, not squeezed
+
+    def test_attribution_is_imported_never_retyped(self):
+        text = "".join(panel_lines(mu.help_overlay(80, 40, "en")))
+        assert mu.TILE_ATTRIBUTION in text
+        assert mu.ELEV_ATTRIBUTION in text
+        assert mu.ROUTE_ATTRIBUTION not in text
+        with_route = "".join(panel_lines(mu.help_overlay(80, 40, "en", True)))
+        assert mu.ROUTE_ATTRIBUTION in with_route
+
+    @pytest.mark.parametrize("rows", [12, 14, 20, 24, 40])
+    @pytest.mark.parametrize("lang", LANGS)
+    def test_it_never_overflows_the_terminal(self, rows, lang):
+        # Degradation is deterministic and never scrolls: a panel that
+        # scrolls is a panel you have to operate.
+        panel = mu.help_overlay(80, rows, lang, route=True)
+        if not panel:
+            # Giving up entirely is a legal rung, but only when the
+            # terminal really is too short for the smallest form.
+            assert rows <= 14, (lang, rows)
+            return
+        lines = panel_lines(panel)
+        assert len(lines) <= rows - 2, (lang, rows, len(lines))
+        for line in lines:
+            assert visible_len(line) <= 80, (lang, rows, line)
+
+    def test_a_narrow_terminal_narrows_the_panel(self):
+        for cols in (30, 40, 80, 200):
+            lines = panel_lines(mu.help_overlay(cols, 40, "en"))
+            for line in lines:
+                assert visible_len(line) <= cols
+
+    def test_a_terminal_too_short_for_the_panel_gets_none(self):
+        assert mu.help_overlay(80, 8, "en") == ""

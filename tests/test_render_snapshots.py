@@ -9,6 +9,7 @@ To regenerate snapshots after an intentional rendering change:
 """
 
 import json
+import math
 import os
 import re
 import sys
@@ -191,3 +192,117 @@ class TestMoonSnapshot:
         assert n_right > n_left
         assert s_left > s_right
         assert (n_left, n_right) == (s_right, s_left)
+
+
+# -----------------------------------------------------------------------
+# Maps rendering snapshots
+# -----------------------------------------------------------------------
+class TestMapsSnapshot:
+    """Both map modes over synthetic data.
+
+    No network: the elevation and street-tile fetchers are replaced by
+    hand-built data, so what is pinned is everything downstream of the
+    fetch — the composer, the marks, the labels, the header and the
+    footer.
+
+    These snapshots keep their escape sequences (written `\\e`) rather
+    than stripping them. On a map the colour *is* the output: strip it
+    and a water fill and a park fill are both a space.
+    """
+
+    LAT, LON = 43.66, -70.26
+    COLS, ROWS = 80, 24
+
+    def _runtime(self):
+        from linecast._runtime import RuntimeConfig
+        return RuntimeConfig(live=False, emoji=True, lang="en",
+                             oneline=False)
+
+    def _render(self, view, fetch_patch):
+        from linecast import _color, _maps_style, maps
+        stack = [
+            patch("linecast.maps.get_terminal_size",
+                  return_value=(self.COLS, self.ROWS)),
+            patch.object(_color, "_COLOR_MODE", "truecolor"),
+            patch.object(_maps_style, "color_mode", lambda: "truecolor"),
+            patch.object(_maps_style, "theme_bg", (14, 15, 18)),
+            patch.dict(maps.compose_map.__globals__,
+                       {"color_mode": lambda: "truecolor"}),
+            fetch_patch,
+        ]
+        for ctx in stack:
+            ctx.__enter__()
+        try:
+            out = maps.render_map(
+                self.LAT, self.LON, "Portland, Maine", 0.02,
+                runtime=self._runtime(), view=view)
+        finally:
+            for ctx in reversed(stack):
+                ctx.__exit__(None, None, None)
+        return out.replace("\033", "\\e")
+
+    def test_maps_terrain_80x24(self):
+        # A synthetic shoreline: elevation rises west to east and the
+        # western third is below sea level, so the snapshot carries the
+        # bathy ramp, the hypso ramp and a derived coastline.
+        from linecast import maps
+
+        def elevation(bbox, gw, hc, block):
+            fine = [[(x - gw * 1.4) * 2.0 for x in range(gw * 2)]
+                    for _ in range(hc * 4)]
+            grid = [[(x - gw * 0.7) * 4.0 for x in range(gw)]
+                    for _ in range(hc * 2)]
+            return grid, maps._coast_dots(fine, gw, hc)
+
+        output = self._render(
+            "terrain", patch.object(maps, "_get_elevation", elevation))
+        _compare_or_create("maps_terrain_80x24.txt", output)
+
+    @staticmethod
+    def _tile_xy(lon, lat, z, tx, ty, extent=4096):
+        """(lon, lat) -> tile-local coordinates: the projector, inverted,
+        so the synthetic geometry actually lands in the view."""
+        n = 1 << z
+        wx = (lon + 180.0) / 360.0
+        sin_lat = math.sin(math.radians(lat))
+        wy = 0.5 - math.log((1 + sin_lat) / (1 - sin_lat)) / (4 * math.pi)
+        return (round((wx * n - tx) * extent), round((wy * n - ty) * extent))
+
+    def test_maps_street_80x24(self):
+        # Hand-encoded tiles placed against the actual view: water over
+        # its western half (so the coastline runs down the middle) and a
+        # primary road straight across it.
+        from linecast import maps
+        from test_maps_streets import (
+            classed, polyline, rect, tagged_line, tile,
+        )
+
+        def street(bbox, gw, hc, block, lang="en", reserved=()):
+            from linecast import _maps_streets as st
+            band = st.style.band_for(st.style.z_eff(bbox, hc))
+            minlon, minlat, maxlon, maxlat = bbox
+            midlon = (minlon + maxlon) / 2
+            midlat = (minlat + maxlat) / 2
+            pad = (maxlon - minlon)
+            tiles = {}
+            for key in st.tiles_for_bbox(bbox, 12):
+                z, tx, ty = key
+                def xy(lon, lat):
+                    return self._tile_xy(lon, lat, z, tx, ty)
+                west = xy(minlon - pad, maxlat + pad)
+                east = xy(midlon, minlat - pad)
+                road_w = xy(minlon - pad, midlat)
+                road_e = xy(maxlon + pad, midlat)
+                tiles[key] = tile(
+                    classed("water", rect(west[0], west[1], east[0], east[1]),
+                            "lake"),
+                    tagged_line("transportation",
+                                polyline(road_w, road_e),
+                                {"class": "primary"}),
+                )
+            return st.build_street_view(bbox, gw, hc, tiles, band, lang,
+                                        reserved)
+
+        output = self._render(
+            "street", patch.object(maps, "_get_street", street))
+        _compare_or_create("maps_street_80x24.txt", output)

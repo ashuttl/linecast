@@ -19,6 +19,7 @@ LANG_CODES = (
     "ja",
     "ko",
     "zh",
+    "id",
 )
 
 # radar --theme palettes; keep in sync with _radar_sources.THEMES

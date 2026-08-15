@@ -8,7 +8,7 @@ All data comes from free public APIs with no keys required.
 
 ## Commands
 
-**`weather`** — Current conditions, hourly braille temperature curve, 7-day forecast with color range bars, precipitation sparkline, natural language comparisons, and weather alerts for 36 countries. Available in 16 languages.
+**`weather`** — Current conditions, hourly braille temperature curve, 7-day forecast with color range bars, precipitation sparkline, natural language comparisons, and weather alerts for 36 countries. Available in 17 languages.
 
 ![weather](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
 
@@ -29,11 +29,22 @@ All data comes from free public APIs with no keys required.
 
 ![radar — Warri, Nigeria](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar-warri.png)
 
-Like the rest of linecast, radar speaks all 16 languages — here looping the forecast over Qingdao with `--lang zh`:
+Like the rest of linecast, radar speaks all 17 languages — here looping the forecast over Qingdao with `--lang zh`:
 
 ![radar loop — Qingdao, Chinese UI](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar-qingdao.gif)
 
-**`maps`** — Terrain and bathymetry, no weather at all. Hillshaded elevation from the AWS/Mapzen terrain tiles (SRTM, GMTED, ETOPO1) painted as a hypsometric ramp — lowland green through alpine white above sea level, deepening bathymetric blues below it — with the coastlines, borders, and city labels rendered in braille over the fill. Drag to pan, `+`/`-` to zoom, hover to read the elevation under the pointer.
+**`maps`** — Two maps, no weather at all.
+
+`--view terrain` (the default) is hillshaded elevation from the AWS/Mapzen terrain tiles (SRTM, GMTED, ETOPO1) painted as a hypsometric ramp — lowland green through alpine white above sea level, deepening bathymetric blues below it — with the coastlines, borders, and city labels rendered in braille over the fill.
+
+`--view street` is a real street map from OpenFreeMap's vector tiles: water, parks, the urban tint and building footprints as solid fills, the whole road ladder from motorway down to footpath as braille strokes, plus place names, route shields, and ten POI marks. It goes down to about two metres per braille dot. Hierarchy is carried by a luminance ladder and stroke weight alone — no casings, no shadows, one warm accent for the motorway — and a label that will not fit cleanly is dropped rather than shrunk.
+
+Drag to pan, the wheel zooms at the pointer, `v` switches view, `/` searches, `d` gives directions, `?` lists the keys. Terrain reads the elevation under the pointer.
+
+```
+maps --view street --location "Portland, Maine" --zoom 0.01
+maps --to "Portland Head Light" --profile bike
+```
 
 All six launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.
 
@@ -61,7 +72,7 @@ weather --metric                 # metric units (°C, km/h, mm)
 weather --celsius                # celsius only (wind/precip stay imperial)
 weather --metric --fahrenheit    # °F with km/h and mm
 weather --lang fr                # UI in French (also covers alert text when available)
-# other language codes: es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
+# other language codes: es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh, id
 weather --print                  # single static snapshot (no live mode)
 weather --json                   # machine-readable JSON output (implies --print)
 sunshine                         # solar arc (live by default)
@@ -94,6 +105,9 @@ radar --print                    # static snapshot
 maps                             # terrain around the current location
 maps --location "Innsbruck"      # the Alps
 maps --location 60.4,5.3 --zoom 8  # Norwegian fjords and the North Sea trench
+maps --view street --zoom 0.01   # streets, buildings and POIs
+maps --to "Portland Head Light"  # route there from your location
+maps --to 43.62,-70.20 --profile foot   # ...on foot
 maps --print                     # static snapshot
 ```
 
@@ -119,7 +133,7 @@ takes precedence over it.
 
 Use `--lang` or set `LINECAST_LANG` to switch the full UI into another language. This covers weather descriptions, day names, natural language comparisons, precipitation forecasts, and alert timing. Non-English languages also use 24-hour time.
 
-Supported: **English**, **French**, **Spanish**, **German**, **Italian**, **Portuguese**, **Dutch**, **Polish**, **Norwegian**, **Swedish**, **Icelandic**, **Danish**, **Finnish**, **Japanese**, **Korean**, **Chinese**
+Supported: **English**, **French**, **Spanish**, **German**, **Italian**, **Portuguese**, **Dutch**, **Polish**, **Norwegian**, **Swedish**, **Icelandic**, **Danish**, **Finnish**, **Japanese**, **Korean**, **Chinese**, **Indonesian**
 
 All commands are also available under the `linecast` namespace if the short names conflict with other tools on your system:
 
@@ -192,6 +206,7 @@ Alert text comes from each national weather service in its native language. When
 - **Tides** — NOAA CO-OPS (US), Canadian Hydrographic Service, Queensland Open Data (AU), and TideCheck
 - **Sunshine** — computed locally from NOAA's solar position equations (no API)
 - **Radar** — global radar, forecast frames and colour themes by [LibreWXR](https://librewxr.net) (data CC BY 4.0; aggregates NOAA MRMS, Environment Canada, EUMETNET OPERA, JMA, CWA, MET Malaysia and ECMWF-based model precipitation; set `LINECAST_LIBREWXR_URL` to use a self-hosted instance); fallbacks: NEXRAD via Iowa State University's Iowa Environmental Mesonet (US) and [RainViewer](https://www.rainviewer.com/); NWS storm-based warning polygons via IEM; basemap geography from Natural Earth
+- **Maps** — terrain from the AWS/Mapzen terrain tiles (SRTM, GMTED, ETOPO1); street tiles from [OpenFreeMap](https://openfreemap.org/) (© OpenMapTiles © OpenStreetMap contributors); place search from Photon and Nominatim; directions from the FOSSGIS OSRM instances (© OpenStreetMap contributors)
 
 ## License
 

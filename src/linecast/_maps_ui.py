@@ -36,8 +36,11 @@ from linecast._maps_route import (
 from linecast._maps_search import (
     SearchUnavailable, nominatim_search, photon_search,
 )
+from linecast._elevation import ATTRIBUTION as ELEV_ATTRIBUTION
+from linecast._maps_route import ATTRIBUTION as ROUTE_ATTRIBUTION
 from linecast._theme import ensure_contrast, surface_bg, theme_fg
-from linecast.radar import DIM, MUTED
+from linecast._vtiles import ATTRIBUTION as TILE_ATTRIBUTION
+from linecast.radar import CROSSHAIR, DIM, MUTED
 
 MIN_CHARS = 2          # below this, asking is noise for both of us
 DEBOUNCE = 0.28        # seconds of quiet before a keystroke becomes a query
@@ -390,3 +393,106 @@ def route_note(state, lang="en"):
     return {"pending": ms('dir_wait', lang),
             "none": ms('dir_none', lang),
             "error": ms('dir_unavailable', lang)}.get(state.status, "")
+
+
+# ---------------------------------------------------------------------------
+# The `?` panel
+# ---------------------------------------------------------------------------
+# Every key that does something, in the order you learn them. `esc` and
+# `q` are in the frame rather than the list — the frame is where a
+# reader looks for the way out.
+HELP_KEYS = (
+    ("drag", 'help_pan'),
+    ("wheel", 'help_zoom_pointer'),
+    ("+ -", 'help_zoom'),
+    ("n", 'help_reset'),
+    None,
+    ("v", 'help_view'),
+    ("/", 'help_search'),
+    ("d", 'help_directions'),
+    None,
+    ("?", 'help_keys'),
+    ("q", 'help_quit'),
+)
+
+HELP_GLYPHS = (
+    (style.GLYPH_AIRPORT, 'poi_airport'),
+    (style.GLYPH_PEAK, 'poi_peak'),
+    (style.GLYPH_STATION, 'poi_station'),
+    (style.GLYPH_MEDICAL, 'poi_hospital'),
+    (style.GLYPH_CIVIC, 'poi_civic'),
+    (style.GLYPH_LODGING, 'poi_lodging'),
+    (style.GLYPH_NOTABLE, 'poi_notable'),
+    (style.GLYPH_WORSHIP, 'poi_worship'),
+    (style.GLYPH_FERRY, 'poi_ferry'),
+    (style.GLYPH_GENERIC, 'poi_other'),
+)
+
+HELP_WIDTH = 47
+_KEY_COL = 9
+
+
+def _help_rows(lang, route, glyphs):
+    """(mark, text) content rows; None is a blank spacer."""
+    rows = []
+    for entry in HELP_KEYS:
+        rows.append(None if entry is None
+                    else (entry[0], ms(entry[1], lang)))
+    if glyphs:
+        rows.append(None)
+        rows += [(g, ms(key, lang)) for g, key in HELP_GLYPHS]
+    rows.append(None)
+    # Attribution is a proper name and a data credit: imported from the
+    # module that owns it, never retyped and never translated.
+    rows.append(("", TILE_ATTRIBUTION))
+    rows.append(("", ELEV_ATTRIBUTION))
+    if route:
+        rows.append(("", ROUTE_ATTRIBUTION))
+    return rows
+
+
+def help_overlay(cols, rows, lang="en", route=False):
+    """The `?` panel, or "" when the terminal cannot hold it.
+
+    Degradation is deterministic and never scrolls: drop the glyph
+    legend, then the blank spacers, then give up entirely — a panel that
+    scrolls is a panel you have to operate.
+    """
+    surface = surface_bg(0.10)
+    ink = ensure_contrast(theme_fg, surface, 4.0)
+    width = max(24, min(cols - 4, HELP_WIDTH))
+    budget = rows - 2
+
+    for glyphs, blanks in ((True, True), (False, True), (False, False)):
+        content = _help_rows(lang, route, glyphs)
+        if not blanks:
+            content = [r for r in content if r is not None]
+        if len(content) + 2 <= budget:
+            break
+    else:
+        return ""
+
+    title = f" {ms('help_title', lang)} "
+    close = f" {ms('help_close', lang)} "
+    top = max(1, (rows - (len(content) + 2)) // 2)
+    left = max(0, (cols - width - 2) // 2)
+
+    lines = [f"{fg(*MUTED)}╭{title.center(width, '─')}╮{RESET}"]
+    for row in content:
+        if row is None:
+            body = " " * width
+        else:
+            mark, text = row
+            if mark:
+                pad = " " * max(1, _KEY_COL - visible_len(mark))
+                body = (f"  {fg(*CROSSHAIR)}{mark}{pad}"
+                        f"{fg(*MUTED)}{_fit(text, width - _KEY_COL - 3)}")
+            else:
+                body = f"  {fg(*DIM)}{_fit(text, width - 3)}"
+            body += " " * max(0, width - visible_len(body))
+        lines.append(f"{fg(*MUTED)}│{bg(*surface)}{fg(*ink)}{body}"
+                     f"{RESET}{fg(*MUTED)}│{RESET}")
+    lines.append(f"{fg(*MUTED)}╰{close.center(width, '─')}╯{RESET}")
+
+    return "".join(f"\033[{top + i};{left + 1}H{line}"
+                   for i, line in enumerate(lines))
