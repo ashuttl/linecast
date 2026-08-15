@@ -19,7 +19,7 @@ import os
 import sys
 import threading
 
-from linecast import _maps_streets, _maps_style
+from linecast import _maps_streets, _maps_style, _maps_ui
 from linecast._color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
 )
@@ -28,6 +28,7 @@ from linecast._framebuffer import get_terminal_size, halfblock
 from linecast._graphics import live_loop, visible_len
 from linecast._location import get_location
 from linecast._maps_i18n import ms
+from linecast._maps_search import fly_to_zoom
 from linecast._radar_basemap import _BITS, BORDER, _edge_dots
 from linecast._theme import lerp_rgb
 from linecast._radar_i18n import rs
@@ -599,7 +600,7 @@ def _crosshair(overlays, cell, dx, dy, graph_w, height_cells, street):
 
 def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                block=True, pan_offset=(0, 0), mouse_pos=None,
-               view="terrain", **_):
+               view="terrain", search=None, **_):
     lang = runtime.lang if runtime else "en"
     cols, rows = get_terminal_size()
     graph_w = max(20, cols)
@@ -653,7 +654,17 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                 break
     foot += " " * max(0, cols - visible_len(foot))
 
-    return "\n".join([header, *map_lines, foot])
+    out = "\n".join([header, *map_lines, foot])
+    if search is not None and search.open:
+        # Any-motion mouse reporting is what makes a torn escape
+        # sequence likely, and a torn sequence looks like ESC — which is
+        # exactly the key guarding a text buffer.  Turn 1003 off for as
+        # long as the field is open, and back on when it closes.
+        out += ("\x00\033[?1003l"
+                + _maps_ui.search_overlay(search, cols, rows, lang))
+    elif not block:
+        out += "\x00\033[?1003h"
+    return out
 
 
 def main():
@@ -698,6 +709,7 @@ def main():
         center = [lat, lon]
         pan_preview = [0, 0]
         view = [args.view]
+        search = _maps_ui.SearchState()
 
         def zoom_to(new_zoom, at=None):
             """Apply a clamped zoom, keeping the point under `at` fixed.
@@ -746,6 +758,34 @@ def main():
             return zoom_to(zoom[0] * (ZOOM_STEP if direction < 0
                                       else 1.0 / ZOOM_STEP), at=(col, row))
 
+        def fly_to(result):
+            """Jump to a search result and frame it, instantly.
+
+            No animation and no mode change: searching an address in
+            terrain mode gives terrain at that address.  Predictability
+            beats cleverness, and there is nothing to restore.
+            """
+            cols, rows = get_terminal_size()
+            gw, hc = max(20, cols), max(8, rows - 2)
+            center[0], center[1] = result.lat, result.lon
+            zoom[0] = max(MIN_ZOOM_DEG, min(
+                MAX_ZOOM_DEG, fly_to_zoom(result, (hc * 2) / gw)))
+
+        def intercept(action):
+            """Maps owns dispatch: the search panel eats every key while
+            it is open, and nothing else here consumes one."""
+            if search.open:
+                cols, rows = get_terminal_size()
+                bbox = bbox_for(center[0], center[1], zoom[0],
+                                max(20, cols), max(8, rows - 2))
+                z = int(_maps_style.z_eff(bbox, max(8, rows - 2)))
+                return search.handle(action, center[0], center[1], z,
+                                     runtime.lang)
+            if action == 'key:/':
+                search.start()
+                return True
+            return False
+
         def on_drag(dcol, drow, done):
             if not done:
                 changed = pan_preview != [dcol, drow]
@@ -767,17 +807,28 @@ def main():
                 center[1] += 360.0
             return True
 
-        live_loop(
-            lambda mouse_pos=None, **_: render_map(
+        def render(mouse_pos=None, **_):
+            # A search committed from a background reply lands here: the
+            # worker cannot move the view itself, so it parks the result
+            # and the next repaint applies it.
+            hit = search.take_chosen()
+            if hit is not None:
+                fly_to(hit)
+            return render_map(
                 center[0], center[1], location_name, zoom[0],
                 marker=(lat, lon), runtime=runtime, block=False,
                 pan_offset=(pan_preview[0], pan_preview[1]),
-                mouse_pos=mouse_pos, view=view[0]),
+                mouse_pos=mouse_pos, view=view[0], search=search)
+
+        live_loop(
+            render,
             interval=3600,  # elevation doesn't change; repaint on input only
             mouse=True,
             on_action=on_action,
             on_drag=on_drag,
             on_wheel=on_wheel,
+            intercept=intercept,
+            text_mode=lambda: search.open,
         )
     else:
         print(render_map(lat, lon, location_name, args.zoom,

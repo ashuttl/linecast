@@ -1,7 +1,11 @@
 """Localized UI strings for the maps view."""
 
 _STRINGS = {
-    "en": {"hint": "+/- zoom · drag pan · v view · q quit",
+    "en": {"hint": "+/- zoom · drag pan · v view · / search · q quit",
+           "search_prompt": "search places",
+           "search_hint": "↑↓ select · enter go · esc close",
+           "search_none": "no matches",
+           "search_error": "search unavailable",
            "unavailable": "terrain unavailable ({err})",
            "streets_unavailable": "street tiles unavailable ({err})",
            "offline": "no tiles",

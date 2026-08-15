@@ -356,6 +356,25 @@ class TestFlyToZoom:
             self._result(extent=(-70.2079, 43.62308, -70.2078, 43.62328)))
         assert z == 0.004
 
+    def test_an_east_west_feature_is_framed_by_its_width(self):
+        # A boulevard is wide and flat: framing on latitude alone would
+        # cut both ends off the screen.  0.4 deg of longitude at 43 N is
+        # 0.4 * cos(43) = 0.293 deg of ground width, which the 0.55
+        # viewport aspect turns into 0.161 deg of latitude, padded by a
+        # quarter to 0.2011.
+        z = ms.fly_to_zoom(
+            self._result(extent=(-70.4, 43.60, -70.0, 43.61)), aspect=0.55)
+        assert abs(z - 0.20112) < 1e-5
+        # ...and the tall case is unaffected: height still wins.
+        tall = ms.fly_to_zoom(
+            self._result(extent=(-70.3, 43.6, -70.2, 43.7)), aspect=0.55)
+        assert abs(tall - 0.125) < 1e-9
+
+    def test_the_default_aspect_is_a_normal_terminal(self):
+        # 80x24 -> gw 80, hc 22 -> (22 * 2) / 80 = 0.55
+        wide = self._result(extent=(-70.4, 43.60, -70.0, 43.61))
+        assert ms.fly_to_zoom(wide) == ms.fly_to_zoom(wide, 0.55)
+
     def test_huge_extent_clamps_down(self):
         z = ms.fly_to_zoom(self._result(extent=(-180.0, -85.0, 180.0, 85.0)))
         assert z == 60.0

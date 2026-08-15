@@ -18,6 +18,7 @@ Both are OpenStreetMap: attribute "© OpenStreetMap contributors".
 
 import hashlib
 import json
+import math
 import time
 import urllib.parse
 import urllib.request
@@ -234,11 +235,21 @@ def _nominatim_extent(box):
 # Framing
 # ---------------------------------------------------------------------------
 
-def fly_to_zoom(result):
+def fly_to_zoom(result, aspect=0.55):
     """Degrees of latitude to show after jumping to a result: the
-    feature's own height with a little air around it, or a guess from
-    what kind of thing it is."""
+    feature's own size with a little air around it, or a guess from what
+    kind of thing it is.
+
+    `aspect` is the viewport's lat-span per lon-span — `(hc * 2) / gw`
+    for the caller's terminal.  Framing on latitude alone would cut off
+    an east-west feature (a boulevard, a county) at both ends, so the
+    width is converted to the latitude span that would show it and the
+    larger of the two wins.
+    """
     if result.extent:
-        span = abs(result.extent[3] - result.extent[1]) * 1.25
+        dlat = abs(result.extent[3] - result.extent[1])
+        dlon = abs(result.extent[2] - result.extent[0])
+        span = max(dlat,
+                   dlon * math.cos(math.radians(result.lat)) * aspect) * 1.25
         return max(0.004, min(60.0, span))
     return _KIND_ZOOM.get(result.kind, _DEFAULT_ZOOM)
