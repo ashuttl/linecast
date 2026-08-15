@@ -24,6 +24,7 @@ if _src not in sys.path:
 
 from linecast import _maps_streets as st
 from linecast import _maps_style
+from linecast._radar_basemap import DotLayer
 
 WORLD = (-180.0, -85.0511287798066, 180.0, 85.0511287798066)
 EXTENT = 4096
@@ -79,13 +80,51 @@ def feature(geometry, tags=()):
     return out + field(4, 2, geometry)
 
 
+def vstr(s):
+    return field(1, 2, s.encode())
+
+
+def vint(n):
+    return field(4, 0, n)
+
+
 def layer(name, features, keys=(), values=(), extent=EXTENT):
+    """`values` are pre-encoded Value payloads (vstr/vint)."""
     parts = [field(15, 0, 2), field(1, 2, name.encode())]
     parts += [field(2, 2, f) for f in features]
     parts += [field(3, 2, k.encode()) for k in keys]
-    parts += [field(4, 2, field(1, 2, v.encode())) for v in values]
+    parts += [field(4, 2, v) for v in values]
     parts.append(field(5, 0, extent))
     return b"".join(parts)
+
+
+def polyline(*pts):
+    """A linestring: MoveTo the first point, LineTo the rest."""
+    nums = [cmd(1, 1), zigzag(pts[0][0]), zigzag(pts[0][1]),
+            cmd(2, len(pts) - 1)]
+    prev = pts[0]
+    for p in pts[1:]:
+        nums += [zigzag(p[0] - prev[0]), zigzag(p[1] - prev[1])]
+        prev = p
+    return b"".join(varint(n) for n in nums)
+
+
+def line_feature(geometry, tags=()):
+    out = field(3, 0, 2)                      # type: linestring
+    if tags:
+        out += field(2, 2, b"".join(varint(t) for t in tags))
+    return out + field(4, 2, geometry)
+
+
+def tagged_line(name, geometry, props):
+    """One linestring feature carrying `props` (str or int values)."""
+    keys, values, tags = [], [], []
+    for i, (k, v) in enumerate(props.items()):
+        keys.append(k)
+        values.append(vint(v) if isinstance(v, int) else vstr(v))
+        tags += [i, i]
+    return layer(name, [line_feature(geometry, tags=tags)],
+                 keys=keys, values=values)
 
 
 def tile(*layers):
@@ -95,7 +134,7 @@ def tile(*layers):
 def classed(name, geometry, cls, key="class"):
     """One polygon feature carrying a single string property."""
     return layer(name, [feature(geometry, tags=(0, 0))],
-                 keys=(key,), values=(cls,))
+                 keys=(key,), values=(vstr(cls),))
 
 
 # Left half of the world, full height (and past it, into the tile's own
@@ -156,9 +195,9 @@ class TestFills:
         # No grass, wood, farmland, wetland or sand — the single largest
         # declutter decision in the style spec.
         park = layer("landcover", [feature(LEFT_HALF, tags=(0, 0))],
-                     keys=("subclass",), values=("park",))
+                     keys=("subclass",), values=(vstr("park"),))
         wood = layer("landcover", [feature(LEFT_HALF, tags=(0, 0))],
-                     keys=("subclass",), values=("wood",))
+                     keys=("subclass",), values=(vstr("wood"),))
         assert build(park)[0][0][0] == ink("park")
         assert build(wood)[0][0][0] == ink("ground")
 
@@ -202,7 +241,7 @@ class TestBandGates:
 
     def test_landcover_and_landuse_wait_for_band_five(self):
         cover = layer("landcover", [feature(LEFT_HALF, tags=(0, 0))],
-                      keys=("subclass",), values=("park",))
+                      keys=("subclass",), values=(vstr("park"),))
         use = classed("landuse", LEFT_HALF, "residential")
         assert build(cover, band=4)[0][0][0] == ink("ground")
         assert build(cover, band=5)[0][0][0] == ink("park")
@@ -356,3 +395,272 @@ class TestViewTiles:
         assert band == 3
         assert z_src <= 14
         assert keys
+
+
+# ---------------------------------------------------------------------------
+# The polyline walker
+# ---------------------------------------------------------------------------
+RED, BLUE = (255, 0, 0), (0, 0, 255)
+
+
+def _layer():
+    """A 4x1 cell layer: 8 dot columns, 4 dot rows."""
+    return DotLayer(WORLD, GW, HC)
+
+
+class TestStrokePolyline:
+    def test_a_horizontal_w1_line(self):
+        # Dot row 0 across all 8 columns. Each cell holds two dot
+        # columns, so it takes the row-0 bit of each: 0x01 | 0x08.
+        layer = _layer()
+        st.stroke_polyline(layer, [(0, 0), (7, 0)], RED, 34)
+        assert layer.dots[0] == [0x09] * 4
+        assert layer.color[0][0] == RED
+
+    def test_weight_two_thickens_across_the_dominant_axis(self):
+        # Horizontal: the second pass is offset down, never diagonally —
+        # the basemap's (1,0),(0,1) pair thickens diagonals into fuzz.
+        flat = _layer()
+        st.stroke_polyline(flat, [(0, 0), (7, 0)], RED, 34, weight=2)
+        assert flat.dots[0] == [0x1B] * 4          # rows 0 and 1
+        # Vertical: offset sideways instead, filling the whole cell.
+        tall = _layer()
+        st.stroke_polyline(tall, [(0, 0), (0, 3)], RED, 34, weight=2)
+        assert tall.dots[0] == [0xFF, 0, 0, 0]
+
+    def test_weight_three_claims_its_cells_for_the_ribbon(self):
+        layer = _layer()
+        st.stroke_polyline(layer, [(0, 0), (7, 0)], RED, 50, weight=3)
+        assert layer.ribbon == {(0, 0), (1, 0), (2, 0), (3, 0)}
+        assert layer.dots[0] == [0x1B] * 4         # still a w2 stroke
+
+    def test_weight_one_claims_no_ribbon(self):
+        layer = _layer()
+        st.stroke_polyline(layer, [(0, 0), (7, 0)], RED, 50)
+        assert layer.ribbon == set()
+
+    def test_a_dash_runs_on_the_dot_index(self):
+        # DASH24: two dots on, four off, so dots 0,1 and 6,7 survive.
+        layer = _layer()
+        st.stroke_polyline(layer, [(0, 0), (7, 0)], RED, 10, dash=(2, 4))
+        assert layer.dots[0] == [0x09, 0, 0, 0x09]
+
+    def test_dash_phase_is_continuous_through_a_vertex(self):
+        # A vertex mid-line must not restart the pattern; the walker
+        # counts dots along the whole polyline, not per segment.
+        split = _layer()
+        st.stroke_polyline(split, [(0, 0), (3, 0), (7, 0)], RED, 10,
+                           dash=(2, 4))
+        whole = _layer()
+        st.stroke_polyline(whole, [(0, 0), (7, 0)], RED, 10, dash=(2, 4))
+        assert split.dots == whole.dots
+
+    def test_a_repeated_vertex_is_dropped(self):
+        # A generalised line often repeats a vertex; rounding onto the
+        # dot the walker is already standing on must not cost a dot of
+        # dash phase.
+        stutter = _layer()
+        st.stroke_polyline(stutter, [(0, 0), (0.2, 0.1), (7, 0)], RED, 10,
+                           dash=(2, 4))
+        clean = _layer()
+        st.stroke_polyline(clean, [(0, 0), (7, 0)], RED, 10, dash=(2, 4))
+        assert stutter.dots == clean.dots
+
+    def test_a_single_vertex_draws_nothing(self):
+        layer = _layer()
+        st.stroke_polyline(layer, [(2, 2)], RED, 10)
+        st.stroke_polyline(layer, [(2, 2), (2.4, 2.1)], RED, 10)
+        assert layer.dots == [[0] * 4]
+
+    def test_crossties_straddle_the_line(self):
+        # tick_every=4 on dot row 1: ties at dots 0 and 4, each setting
+        # the dot above and below.
+        layer = _layer()
+        st.stroke_polyline(layer, [(0, 1), (7, 1)], RED, 22, tick_every=4)
+        assert layer.dots[0] == [0x17, 0x12, 0x17, 0x12]
+
+    def test_rank_decides_the_ink_whichever_arrives_first(self):
+        low_first = _layer()
+        st.stroke_polyline(low_first, [(0, 0), (7, 0)], RED, 16)
+        st.stroke_polyline(low_first, [(0, 0), (7, 0)], BLUE, 50)
+        high_first = _layer()
+        st.stroke_polyline(high_first, [(0, 0), (7, 0)], BLUE, 50)
+        st.stroke_polyline(high_first, [(0, 0), (7, 0)], RED, 16)
+        assert low_first.color[0][0] == BLUE
+        assert high_first.color[0][0] == BLUE
+
+
+class TestClipping:
+    def test_an_off_screen_excursion_leaves_the_on_screen_dots_alone(self):
+        # The clip window starts 8 dots outside the grid, so a line
+        # entering from x=-1004 is clipped at x=-8 — 996 skipped dots,
+        # exactly 166 periods of DASH24, so the phase on screen is
+        # identical to the pre-clipped line's.
+        far = _layer()
+        st.stroke_polyline(far, [(-1004, 0), (7, 0)], RED, 10, dash=(2, 4))
+        near = _layer()
+        st.stroke_polyline(near, [(-8, 0), (7, 0)], RED, 10, dash=(2, 4))
+        assert far.dots == near.dots
+        assert far.dots[0] != [0] * 4
+
+    def test_a_skipped_span_still_advances_the_dash(self):
+        # Same geometry, one period shorter: the phase must move.
+        shifted = _layer()
+        st.stroke_polyline(shifted, [(-1005, 0), (7, 0)], RED, 10,
+                           dash=(2, 4))
+        aligned = _layer()
+        st.stroke_polyline(aligned, [(-1004, 0), (7, 0)], RED, 10,
+                           dash=(2, 4))
+        assert shifted.dots != aligned.dots
+
+    def test_a_wholly_off_screen_segment_draws_nothing(self):
+        layer = _layer()
+        st.stroke_polyline(layer, [(-500, -500), (-400, -400)], RED, 34)
+        assert layer.dots == [[0] * 4]
+
+    def test_an_excursion_between_two_visible_points(self):
+        # Out of the window and back: the on-screen ends still draw.
+        layer = _layer()
+        st.stroke_polyline(layer, [(0, 0), (0, -900), (7, 0)], RED, 34)
+        assert layer.dots[0][0]
+        assert layer.dots[0][3]
+
+    def test_clip_segment_rejects_and_trims(self):
+        assert st.clip_segment(-50, -50, -40, -40, -8, -8, 16, 12) is None
+        assert st.clip_segment(0, 0, 4, 4, -8, -8, 16, 12) == (0, 0, 4, 4)
+        trimmed = st.clip_segment(-100, 5, 4, 5, -8, -8, 16, 12)
+        assert trimmed == (-8, 5, 4, 5)
+
+    def test_clip_segment_handles_a_line_parallel_to_an_edge(self):
+        # Horizontal, but above the window: parallel and outside.
+        assert st.clip_segment(0, -50, 10, -50, -8, -8, 16, 12) is None
+
+
+class TestStrokeInk:
+    def test_a_tunnel_fades_toward_the_ground_and_dashes(self):
+        palette = _maps_style.palette()
+        plain, plain_dash = st.stroke_ink("minor", {}, palette)
+        tunnel, tunnel_dash = st.stroke_ink(
+            "minor", {"brunnel": "tunnel"}, palette)
+        assert plain == palette["minor"]
+        assert plain_dash is None
+        assert tunnel_dash == _maps_style.DASH11
+        expected = tuple(round(g + (m - g) * _maps_style.TUNNEL_BLEND)
+                         for g, m in zip(palette["ground"],
+                                         palette["minor"]))
+        assert tunnel == expected
+
+    def test_a_bridge_gets_no_special_treatment(self):
+        # A casing would have to knock a hole in the layers underneath,
+        # which an OR-only dot mask cannot do; the bridge simply wins
+        # its cells by rank, which is the correct read anyway.
+        palette = _maps_style.palette()
+        assert st.stroke_ink("minor", {"brunnel": "bridge"}, palette) \
+            == st.stroke_ink("minor", {}, palette)
+
+    def test_a_tunnel_in_a_coarse_palette_keeps_its_ink(self, monkeypatch):
+        monkeypatch.setattr(_maps_style, "color_mode", lambda: "16")
+        palette = _maps_style.palette()
+        color, dash = st.stroke_ink("minor", {"brunnel": "tunnel"}, palette)
+        assert color == palette["minor"]      # nothing to fade toward
+        assert dash == _maps_style.DASH11
+
+
+# ---------------------------------------------------------------------------
+# Line classes, end to end
+# ---------------------------------------------------------------------------
+# The equator crosses the world tile at py 2048 and the view's vertical
+# middle at dot row 2, so a full-width line lands on 0x04 | 0x20 per cell.
+EQUATOR = polyline((0, 2048), (4096, 2048))
+FLAT_W1 = [0x24] * 4
+
+
+class TestLineClasses:
+    def test_a_motorway_draws_in_the_accent_ink(self):
+        _fills, layer = build(
+            tagged_line("transportation", EQUATOR, {"class": "motorway"}),
+            band=1)
+        assert layer.dots[0] == FLAT_W1
+        assert layer.color[0][0] == ink("motorway")
+        assert layer.rank[0][0] == 50
+
+    def test_a_ramp_off_a_motorway_takes_the_ramp_ink(self):
+        _fills, layer = build(
+            tagged_line("transportation", EQUATOR,
+                        {"class": "motorway", "ramp": 1}),
+            band=5)
+        assert layer.color[0][0] == ink("ramp")
+
+    def test_tertiary_arrives_as_minor(self):
+        _fills, layer = build(
+            tagged_line("transportation", EQUATOR, {"class": "tertiary"}),
+            band=5)
+        assert layer.color[0][0] == ink("minor")
+
+    def test_a_class_below_its_band_is_not_drawn(self):
+        # Secondary's OMT floor is z11, which is why it debuts at B4.
+        args = ("transportation", EQUATOR, {"class": "secondary"})
+        assert build(tagged_line(*args), band=3)[1].dots[0] == [0] * 4
+        assert build(tagged_line(*args), band=4)[1].dots[0] == FLAT_W1
+
+    def test_a_ferry_dashes_in_the_waterway_ink(self):
+        _fills, layer = build(
+            tagged_line("transportation", EQUATOR, {"class": "ferry"}),
+            band=5)
+        assert layer.color[0][0] == ink("waterway")
+        assert layer.dots[0] != FLAT_W1          # DASH24, not solid
+
+    def test_a_dropped_class_leaves_no_mark(self):
+        for cls in ("pier", "raceway", "aerialway"):
+            _fills, layer = build(
+                tagged_line("transportation", EQUATOR, {"class": cls}),
+                band=7)
+            assert layer.dots[0] == [0] * 4, cls
+
+    def test_a_river_and_a_stream_split_by_weight_of_class(self):
+        river = build(tagged_line("waterway", EQUATOR, {"class": "river"}),
+                      band=3)[1]
+        stream = build(tagged_line("waterway", EQUATOR, {"class": "stream"}),
+                       band=3)[1]
+        assert river.dots[0] == FLAT_W1          # waterway_major from B3
+        assert stream.dots[0] == [0] * 4         # waterway_minor waits
+
+    def test_a_runway_is_a_stroke_not_a_fill(self):
+        _fills, layer = build(
+            tagged_line("aeroway", EQUATOR, {"class": "runway"}), band=4)
+        assert layer.color[0][0] == ink("aeroway")
+        assert layer.dots[0] != [0] * 4
+
+    def test_admin_lines_come_from_the_boundary_layer(self):
+        country = build(tagged_line("boundary", EQUATOR,
+                                    {"admin_level": 2}), band=1)[1]
+        state = build(tagged_line("boundary", EQUATOR,
+                                  {"admin_level": 4}), band=1)[1]
+        county = build(tagged_line("boundary", EQUATOR,
+                                   {"admin_level": 6}), band=1)[1]
+        assert country.color[0][0] == ink("border0")
+        assert state.color[0][0] == ink("border1")
+        assert county.dots[0] == [0] * 4
+
+    def test_a_maritime_boundary_is_dropped(self):
+        _fills, layer = build(
+            tagged_line("boundary", EQUATOR,
+                        {"admin_level": 2, "maritime": 1}), band=1)
+        assert layer.dots[0] == [0] * 4
+
+    def test_a_polygon_in_a_line_layer_is_ignored(self):
+        # OMT does carry polygonal transportation (pedestrian squares);
+        # the stroke walker must not try to trace them.
+        square = classed("transportation", WHOLE, "motorway")
+        _fills, layer = build(square, band=7)
+        assert layer.dots[0] == [0] * 4
+
+    def test_a_road_beats_the_coastline_it_crosses(self):
+        # A bridge is a real thing and it wins its cells; the coast
+        # beats admin borders in turn.
+        _fills, layer = build(
+            classed("water", LEFT_HALF, "lake"),
+            tagged_line("transportation", EQUATOR, {"class": "motorway"}),
+            band=1)
+        assert layer.color[0][2] == ink("motorway")
+        assert layer.dots[0][2] & 0x47           # the coast dots survive

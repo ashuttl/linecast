@@ -24,6 +24,7 @@ from linecast import _maps_style as style
 from linecast._mvt import assemble_polygons, decode_tile
 from linecast._radar_basemap import DotLayer, _edge_dots
 from linecast._runtime import debug_log
+from linecast._theme import lerp_rgb
 from linecast._vtiles import fetch_tiles, tile_info, tiles_for_bbox
 
 # Fill ids double as indices into style.FILL_ORDER, so the id order *is*
@@ -35,6 +36,15 @@ GROUND, URBAN, PARK, WATER, BUILDING = 0, 1, 2, 3, 4
 # for parks alone — no grass, wood, farmland, wetland or sand, because
 # green-washing a rural view buys the reader nothing.
 FILL_LAYERS = ("water", "park", "landcover", "landuse", "building")
+
+# Every layer with strokes worth walking. Terrain mode keeps the
+# Natural Earth borders; street mode takes admin lines from the tile so
+# they are generalised to the same zoom as everything around them.
+LINE_LAYERS = ("transportation", "waterway", "aeroway", "boundary")
+
+# Dot-space margin for the stroke clip. Wide enough that a w2 offset or
+# a rail crosstie just off the edge still lands on screen.
+CLIP_MARGIN = 8
 
 _MAX_TILES = 16          # a view needs ~4; more means a pathological window
 _DEFAULT_EXTENT = 4096
@@ -253,6 +263,191 @@ def fill_colors(grid, graph_w, height_cells, palette):
     return out
 
 
+# ---------------------------------------------------------------------------
+# Strokes
+# ---------------------------------------------------------------------------
+def _bresenham(x0, y0, x1, y1):
+    """Integer dots from (x0, y0) to (x1, y1), both ends included."""
+    dx, dy = abs(x1 - x0), abs(y1 - y0)
+    sx = 1 if x0 < x1 else -1
+    sy = 1 if y0 < y1 else -1
+    err = dx - dy
+    while True:
+        yield x0, y0
+        if x0 == x1 and y0 == y1:
+            return
+        e2 = 2 * err
+        if e2 > -dy:
+            err -= dy
+            x0 += sx
+        if e2 < dx:
+            err += dx
+            y0 += sy
+
+
+def clip_segment(x0, y0, x1, y1, lo_x, lo_y, hi_x, hi_y):
+    """Liang-Barsky clip to a window; integer endpoints, or None.
+
+    Unclipped Bresenham is not merely slow on a dense road net, it is
+    fatal: a single road vertex a few tiles off screen walks millions of
+    dots that are all thrown away.  The cheap bbox reject in front
+    handles the common case (most features in a tile are off view).
+    """
+    if (max(x0, x1) < lo_x or min(x0, x1) > hi_x
+            or max(y0, y1) < lo_y or min(y0, y1) > hi_y):
+        return None
+    dx, dy = x1 - x0, y1 - y0
+    t0, t1 = 0.0, 1.0
+    for p, q in ((-dx, x0 - lo_x), (dx, hi_x - x0),
+                 (-dy, y0 - lo_y), (dy, hi_y - y0)):
+        if p == 0:
+            if q < 0:
+                return None            # parallel to, and outside, an edge
+            continue
+        r = q / p
+        if p < 0:
+            if r > t1:
+                return None
+            t0 = max(t0, r)
+        else:
+            if r < t0:
+                return None
+            t1 = min(t1, r)
+    return (int(round(x0 + t0 * dx)), int(round(y0 + t0 * dy)),
+            int(round(x0 + t1 * dx)), int(round(y0 + t1 * dy)))
+
+
+def stroke_polyline(layer, pts, color, rank, weight=1, dash=None,
+                    tick_every=0):
+    """Walk one projected polyline into a ranked DotLayer.
+
+    `pts` are dot-space floats.  Vertices that round onto the dot the
+    walker is already standing on are dropped, so a heavily generalised
+    line does not stutter.
+
+    The dash counter runs on the dot index accumulated along the *whole*
+    polyline, including spans clipped or rejected off screen, so dashes
+    stay in phase through vertices and across the edge of the view — pan
+    a dashed border and it slides rather than reshuffling.
+
+    Weight 2 draws the line twice with a perpendicular offset chosen per
+    segment from its dominant axis; the basemap's (0,0),(1,0),(0,1)
+    triple is deliberately not reused, because it thickens diagonals and
+    reads as fuzz.  Weight 3 adds every touched cell to `layer.ribbon`
+    for the composer to tint — motorway only, deepest band only.
+    """
+    dots = []
+    for x, y in pts:
+        p = (int(round(x)), int(round(y)))
+        if not dots or p != dots[-1]:
+            dots.append(p)
+    if len(dots) < 2:
+        return
+
+    lo_x, hi_x = -CLIP_MARGIN, layer.dw + CLIP_MARGIN
+    lo_y, hi_y = -CLIP_MARGIN, layer.dh + CLIP_MARGIN
+    period = (dash[0] + dash[1]) if dash else 0
+    i = 0                                   # dot index along the polyline
+    for k in range(len(dots) - 1):
+        (x0, y0), (x1, y1) = dots[k], dots[k + 1]
+        span = max(abs(x1 - x0), abs(y1 - y0))
+        clip = clip_segment(x0, y0, x1, y1, lo_x, lo_y, hi_x, hi_y)
+        if clip is None:
+            i += span                       # off screen, but still counted
+            continue
+        cx0, cy0, cx1, cy1 = clip
+        i += max(abs(cx0 - x0), abs(cy0 - y0))
+        # the perpendicular for this segment: across the dominant axis
+        ox, oy = (0, 1) if abs(x1 - x0) >= abs(y1 - y0) else (1, 0)
+        walk = _bresenham(cx0, cy0, cx1, cy1)
+        if k and (cx0, cy0) == (x0, y0):
+            next(walk)                      # the previous segment's end
+        for px, py in walk:
+            if not period or (i % period) < dash[0]:
+                layer._set_dot(px, py, color, rank)
+                if weight >= 2:
+                    layer._set_dot(px + ox, py + oy, color, rank)
+                if weight >= 3:
+                    layer.ribbon.add((px // 2, py // 4))
+                if tick_every and i % tick_every == 0:
+                    layer._set_dot(px + ox, py + oy, color, rank)
+                    layer._set_dot(px - ox, py - oy, color, rank)
+            i += 1
+        i += max(abs(x1 - cx1), abs(y1 - cy1))
+
+
+def line_style(layer_name, props):
+    """LINE_STYLES key for a line feature, or None if it is dropped."""
+    if layer_name == "transportation":
+        return style.road_style(props)
+    if layer_name == "waterway":
+        return style.waterway_style(props)
+    if layer_name == "aeroway":
+        return style.aeroway_style(props)
+    if layer_name == "boundary":
+        return style.boundary_style(props)
+    return None
+
+
+def stroke_ink(key, props, palette):
+    """(colour, dash) for one feature of a style class.
+
+    A tunnel takes 45% of the ground and a one-on-one-off dash at its
+    parent's rank.  It is the one brunnel rule worth having: a bridge
+    casing needs to knock a hole in the layers underneath, which an
+    OR-only dot mask cannot do, but a faded dashed line preserves
+    network continuity and lets the eye complete it.
+    """
+    ink_key, _weights, dash, _rank = style.LINE_STYLES[key]
+    color = palette.get(ink_key, style._PALETTE_16_DEFAULT)
+    if props.get("brunnel") == "tunnel":
+        ground = palette.get("ground")
+        if ground is not None:
+            color = lerp_rgb(ground, color, style.TUNNEL_BLEND)
+        dash = style.DASH11
+    return color, dash
+
+
+def draw_lines(layer, tiles, bbox, graph_w, height_cells, band, palette):
+    """Walk every admitted line feature into the view's one DotLayer.
+
+    Feature order is irrelevant here — each stroke carries its class
+    rank, so a motorway that arrives in the last tile still owns the
+    cells it crosses.
+    """
+    dw, dh = graph_w * 2, height_cells * 4
+    for (z, tx, ty), data in sorted(tiles.items()):
+        if not data:
+            continue
+        try:
+            decoded = decode_tile(data)
+        except ValueError:
+            continue                        # already logged by class_grid
+        for name in LINE_LAYERS:
+            src = decoded.get(name)
+            if src is None:
+                continue
+            extent = src.get("extent") or _DEFAULT_EXTENT
+            project = _projector(z, tx, ty, extent, bbox, dw, dh)
+            for feat in src["features"]:
+                if feat["type"] != 2:       # linestrings only
+                    continue
+                props = feat["tags"]
+                key = line_style(name, props)
+                if key is None:
+                    continue
+                weight = style.LINE_STYLES[key][1][band]
+                if not weight:
+                    continue
+                color, dash = stroke_ink(key, props, palette)
+                rank = style.LINE_STYLES[key][3]
+                ticks = style.RAIL_TICK_EVERY if key == "rail" else 0
+                for part in feat["geometry"]:
+                    stroke_polyline(
+                        layer, [project(x, y) for x, y in part],
+                        color, rank, weight, dash, ticks)
+
+
 def build_street_view(bbox, graph_w, height_cells, tiles, band):
     """(fills, layer) for one view — the pure half, no network.
 
@@ -268,4 +463,5 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band):
     coast = _edge_dots(land, water, graph_w, height_cells)
     ink = palette.get("coast", style._PALETTE_16_DEFAULT)
     layer.or_mask(coast, ink, style.LINE_STYLES["coast"][3])
+    draw_lines(layer, tiles, bbox, graph_w, height_cells, band, palette)
     return fills, layer
