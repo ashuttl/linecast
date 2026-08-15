@@ -1,8 +1,12 @@
 """Localized UI strings for the maps view."""
 
 _STRINGS = {
-    "en": {"hint": "+/- zoom · drag pan · q quit",
-           "unavailable": "terrain unavailable ({err})"},
+    "en": {"hint": "+/- zoom · drag pan · v view · q quit",
+           "unavailable": "terrain unavailable ({err})",
+           "streets_unavailable": "street tiles unavailable ({err})",
+           "offline": "no tiles",
+           "mode_terrain": "terrain",
+           "mode_street": "street"},
     "fr": {"hint": "+/- zoom · glisser pour déplacer · q quitter",
            "unavailable": "relief indisponible ({err})"},
     "es": {"hint": "+/- zoom · arrastrar para mover · q salir",

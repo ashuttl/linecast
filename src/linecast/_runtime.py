@@ -184,6 +184,9 @@ def maps_parser():
                     help="search for a location and exit")
     p.add_argument("--zoom", type=float, default=4.0,
                     help="degrees of latitude shown top-to-bottom (default 4)")
+    p.add_argument("--view", choices=("terrain", "street"), default="terrain",
+                    help="terrain relief or vector street map "
+                         "(default terrain)")
     return p
 
 

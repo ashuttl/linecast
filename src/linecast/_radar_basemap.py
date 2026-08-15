@@ -127,6 +127,34 @@ def _project(lon, lat, bbox, w, h):
     return x, y
 
 
+def _edge_dots(is_land, is_water, gw, hc):
+    """Braille masks stroking the land/water boundary of dot masks.
+
+    Both masks are (hc*4) x (gw*2) truthy/falsy grids at exactly braille
+    dot resolution (2x4 per cell).  A dot is set only where
+    ``is_land[dy][dx]`` and a 4-neighbour has ``is_water`` — so the
+    stroke and the colour boundary can never disagree, at any zoom, from
+    any data source, and *unknown* samples (in neither mask) are never
+    stroked from either side.
+    """
+    dh, dw = hc * 4, gw * 2
+    dots = [[0] * gw for _ in range(hc)]
+    for dy in range(dh):
+        land = is_land[dy]
+        here = is_water[dy]
+        up = is_water[dy - 1] if dy > 0 else None
+        down = is_water[dy + 1] if dy < dh - 1 else None
+        for dx in range(dw):
+            if not land[dx]:
+                continue
+            if ((dx > 0 and here[dx - 1])
+                    or (dx < dw - 1 and here[dx + 1])
+                    or (up is not None and up[dx])
+                    or (down is not None and down[dx])):
+                dots[dy // 4][dx // 2] |= _BITS[dx % 2][dy % 4]
+    return dots
+
+
 class DotLayer:
     """A braille dot grid (2x4 dots per cell) with per-cell colour.
 

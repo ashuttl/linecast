@@ -19,7 +19,7 @@ import os
 import sys
 import threading
 
-from linecast import _maps_style
+from linecast import _maps_streets, _maps_style
 from linecast._color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
 )
@@ -28,7 +28,7 @@ from linecast._framebuffer import get_terminal_size, halfblock
 from linecast._graphics import live_loop, visible_len
 from linecast._location import get_location
 from linecast._maps_i18n import ms
-from linecast._radar_basemap import _BITS, BORDER
+from linecast._radar_basemap import _BITS, BORDER, _edge_dots
 from linecast._theme import lerp_rgb
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for
@@ -85,6 +85,9 @@ _elev_cache = {}     # (bbox, w, h) -> (elevation grid, coast dot masks)
 _elev_pending = set()
 _elev_lock = threading.Lock()
 _terrain_cache = {}  # (bbox, w, h) -> sub-pixel colour buffer
+_street_cache = {}   # (bbox, w, h) -> (fills, ranked DotLayer)
+_street_pending = set()
+_street_lock = threading.Lock()
 _live_refresh = False
 
 
@@ -102,34 +105,6 @@ def _view_key(bbox, gw, hc):
     span = bbox[3] - bbox[1]
     nd = 4 if span <= 0 else max(4, 3 + math.ceil(-math.log10(span)))
     return (tuple(round(v, nd) for v in bbox), gw, hc)
-
-
-def _edge_dots(is_land, is_water, gw, hc):
-    """Braille masks stroking the land/water boundary of dot masks.
-
-    Both masks are (hc*4) x (gw*2) truthy/falsy grids at exactly braille
-    dot resolution (2x4 per cell).  A dot is set only where
-    ``is_land[dy][dx]`` and a 4-neighbour has ``is_water`` — so the
-    stroke and the colour boundary can never disagree, at any zoom, from
-    any data source, and *unknown* samples (in neither mask) are never
-    stroked from either side.
-    """
-    dh, dw = hc * 4, gw * 2
-    dots = [[0] * gw for _ in range(hc)]
-    for dy in range(dh):
-        land = is_land[dy]
-        here = is_water[dy]
-        up = is_water[dy - 1] if dy > 0 else None
-        down = is_water[dy + 1] if dy < dh - 1 else None
-        for dx in range(dw):
-            if not land[dx]:
-                continue
-            if ((dx > 0 and here[dx - 1])
-                    or (dx < dw - 1 and here[dx + 1])
-                    or (up is not None and up[dx])
-                    or (down is not None and down[dx])):
-                dots[dy // 4][dx // 2] |= _BITS[dx % 2][dy % 4]
-    return dots
 
 
 def _coast_dots(fine, gw, hc):
@@ -193,6 +168,50 @@ def _get_elevation(bbox, gw, hc, block):
                 if len(_elev_cache) > 3:
                     _elev_cache.clear()
                 _elev_cache[key] = hit
+        if hit is not None and _live_refresh:
+            import signal
+            os.kill(os.getpid(), signal.SIGWINCH)
+
+    threading.Thread(target=worker, daemon=True).start()
+    return None, None
+
+
+def _get_street(bbox, gw, hc, block):
+    """(fills, ranked layer) for the view; live mode fetches in the
+    background, exactly as the elevation path does."""
+    key = _view_key(bbox, gw, hc)
+    with _street_lock:
+        hit = _street_cache.get(key)
+        if hit is not None:
+            return hit
+        if not block:
+            if key in _street_pending:
+                return None, None
+            _street_pending.add(key)
+
+    def load():
+        band, tiles = _maps_streets.fetch_view(bbox, hc)
+        if not any(tiles.values()):
+            raise RuntimeError(ms('offline', 'en'))
+        return _maps_streets.build_street_view(bbox, gw, hc, tiles, band)
+
+    if block:
+        hit = load()
+        with _street_lock:
+            _street_cache[key] = hit
+        return hit
+
+    def worker():
+        try:
+            hit = load()
+        except Exception:
+            hit = None
+        with _street_lock:
+            _street_pending.discard(key)
+            if hit is not None:
+                if len(_street_cache) > 3:
+                    _street_cache.clear()
+                _street_cache[key] = hit
         if hit is not None and _live_refresh:
             import signal
             os.kill(os.getpid(), signal.SIGWINCH)
@@ -415,16 +434,20 @@ def _fmt_elev(meters, lang):
     return f"{round(meters * 3.28084):,} ft"
 
 
-def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
-               block=True, pan_offset=(0, 0), mouse_pos=None, **_):
-    lang = runtime.lang if runtime else "en"
-    cols, rows = get_terminal_size()
-    graph_w = max(20, cols)
-    height_cells = max(8, rows - 2)
+class _ShiftedLayer:
+    """Duck-typed stand-in for a ranked DotLayer during a drag preview."""
+    __slots__ = ("dots", "color", "ribbon")
 
-    bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
+    def __init__(self, dots, color, ribbon=()):
+        self.dots = dots
+        self.color = color
+        self.ribbon = set(ribbon)
+
+
+def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
+                    mouse_pos, marker_cell, lang):
+    """(map lines, readout, loading, err) for the hillshaded view."""
     basemap = _get_basemap(bbox, graph_w, height_cells)
-
     err = None
     loading = False
     elev = coast = None
@@ -445,13 +468,8 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     overlays = {}
     for pos, (ch, _color) in basemap.city_overlays().items():
         overlays[pos] = (ch, None)  # None ink = per-cell contrast pick
-
-    m_lat, m_lon = marker if marker else (lat, lon)
-    minlon, minlat, maxlon, maxlat = bbox
-    mcol = int((m_lon - minlon) / (maxlon - minlon) * graph_w)
-    mrow = int((maxlat - m_lat) / (maxlat - minlat) * height_cells)
-    if 0 <= mcol < graph_w and 0 <= mrow < height_cells:
-        overlays[(mcol, mrow)] = ("+", MARKER)
+    if marker_cell is not None:
+        overlays[marker_cell] = _mark(MARKER, False)
 
     dx, dy = pan_offset
     if dx or dy:
@@ -462,16 +480,11 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
             coast = _shift_grid(coast, dx, dy, 0)
         overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
                     if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
-
-    ccol, crow = graph_w // 2, height_cells // 2
-    if (mcol + dx, mrow + dy) != (ccol, crow):
-        overlays[(ccol, crow)] = ("+", CROSSHAIR)
-
-    map_lines = compose_terrain(basemap, terrain, overlays, graph_w,
-                                height_cells, coast=coast)
+    overlays = _crosshair(overlays, marker_cell, dx, dy, graph_w,
+                          height_cells, False)
 
     # elevation readout: under the pointer when hovering, else view centre
-    elev_note = ""
+    readout = ""
     if elev is not None:
         probe = None
         if mouse_pos is not None:
@@ -481,16 +494,118 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         if probe is None:
             probe = elev[height_cells][graph_w // 2]  # centre sub-pixel row
         if probe is not None:
-            elev_note = f" · {_fmt_elev(probe, lang)}"
+            readout = f" · {_fmt_elev(probe, lang)}"
+
+    lines = compose_terrain(basemap, terrain, overlays, graph_w,
+                            height_cells, coast=coast)
+    return lines, readout, loading, err
+
+
+def _render_street(bbox, graph_w, height_cells, block, pan_offset,
+                   mouse_pos, marker_cell, lang):
+    """(map lines, readout, loading, err) for the vector-tile view."""
+    err = None
+    loading = False
+    fills = layer = None
+    if block:
+        try:
+            fills, layer = _get_street(bbox, graph_w, height_cells, True)
+        except Exception as exc:
+            err = str(exc)
+    else:
+        fills, layer = _get_street(bbox, graph_w, height_cells, False)
+        loading = fills is None
+
+    palette = _maps_style.palette()
+    if fills is None:
+        ground = palette.get("ground")
+        fills = [[ground] * graph_w for _ in range(height_cells * 2)]
+        layer = _ShiftedLayer([[0] * graph_w for _ in range(height_cells)],
+                              [[None] * graph_w for _ in range(height_cells)])
+
+    overlays = {}
+    if marker_cell is not None:
+        overlays[marker_cell] = _mark(MARKER, True)
+    dx, dy = pan_offset
+    if dx or dy:
+        layer = _ShiftedLayer(
+            _shift_grid(layer.dots, dx, dy, 0),
+            _shift_grid(layer.color, dx, dy, None),
+            {(c + dx, r + dy) for c, r in layer.ribbon})
+        fills = _shift_grid(fills, dx, dy * 2, None)
+        overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
+                    if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
+    overlays = _crosshair(overlays, marker_cell, dx, dy, graph_w,
+                          height_cells, True)
+
+    lines = compose_map(fills, layer, overlays, graph_w, height_cells)
+    return lines, "", loading, err
+
+
+def _marker_cell(bbox, graph_w, height_cells, m_lat, m_lon):
+    """The home marker's cell, or None when it is off view."""
+    minlon, minlat, maxlon, maxlat = bbox
+    mcol = int((m_lon - minlon) / (maxlon - minlon) * graph_w)
+    mrow = int((maxlat - m_lat) / (maxlat - minlat) * height_cells)
+    if 0 <= mcol < graph_w and 0 <= mrow < height_cells:
+        return mcol, mrow
+    return None
+
+
+def _marker_ink(ink, street):
+    """Street mode's motorway takes ANSI 3, leaving bright yellow as the
+    only yellow for the marker; terrain mode's inks are unchanged."""
+    if street and color_mode() in ("16", "none"):
+        return _maps_style.MARKER_16
+    return ink
+
+
+def _mark(ink, street):
+    """The marker/crosshair overlay tuple.  Street mode draws them bold:
+    bold silver reads as bright white almost everywhere, so the user
+    stays the brightest mark on screen even in a degraded palette."""
+    if street:
+        return ("+", _marker_ink(ink, True), True)
+    return ("+", ink)
+
+
+def _crosshair(overlays, cell, dx, dy, graph_w, height_cells, street):
+    """Add the centre crosshair unless the marker already sits there."""
+    centre = (graph_w // 2, height_cells // 2)
+    at = (cell[0] + dx, cell[1] + dy) if cell else None
+    if at != centre:
+        overlays[centre] = _mark(CROSSHAIR, street)
+    return overlays
+
+
+def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
+               block=True, pan_offset=(0, 0), mouse_pos=None,
+               view="terrain", **_):
+    lang = runtime.lang if runtime else "en"
+    cols, rows = get_terminal_size()
+    graph_w = max(20, cols)
+    height_cells = max(8, rows - 2)
+
+    bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
+    m_lat, m_lon = marker if marker else (lat, lon)
+    cell = _marker_cell(bbox, graph_w, height_cells, m_lat, m_lon)
+
+    draw = _render_street if view == "street" else _render_terrain
+    map_lines, readout, loading, err = draw(
+        bbox, graph_w, height_cells, block, pan_offset, mouse_pos,
+        cell, lang)
 
     panned = abs(lat - m_lat) > 1e-9 or abs(lon - m_lon) > 1e-9
     place = (_panned_place(lat, lon, lang) if panned
              else location_name or f"{lat:.2f}, {lon:.2f}")
     tag = f" · {rs('loading', lang)}" if loading else ""
+    # The mode word is the affordance that tells the reader modes exist;
+    # the footer hint supplies the key.
+    mode = f" · {ms('mode_' + view, lang)}"
 
     def _header(place_str):
         return (f"{fg(110, 168, 96)}{BOLD}⬤ maps{RESET}  {fg(*MUTED)}"
-                f"{place_str}{RESET}{fg(*DIM)}{elev_note}{tag}{RESET}")
+                f"{place_str}{RESET}{fg(*DIM)}{mode}{readout}{tag}{RESET}")
 
     header = _header(place)
     over = visible_len(header) - cols
@@ -499,12 +614,20 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     header += " " * max(0, cols - visible_len(header))
 
     if err:
-        foot = f"{fg(*DIM)}{ms('unavailable', lang, err=err[:40])}{RESET}"
+        key = 'streets_unavailable' if view == "street" else 'unavailable'
+        foot = f"{fg(*DIM)}{ms(key, lang, err=err[:40])}{RESET}"
     else:
-        left = f"{fg(*DIM)}{ATTRIBUTION}{RESET}"
         hint = (f"{fg(*DIM)}{ms('hint', lang)}{RESET}"
                 if sys.stdout.isatty() else "")
-        for foot in (f"{left}  {hint}", left):
+        if view == "street":
+            attribs = (_maps_style.ATTRIB_TILES_LONG,
+                       _maps_style.ATTRIB_TILES_SHORT)
+        else:
+            attribs = (ATTRIBUTION,)
+        # first rung that fits wins: long+hint, short+hint, short, bare
+        ladder = [f"{fg(*DIM)}{a}{RESET}  {hint}" for a in attribs]
+        ladder += [f"{fg(*DIM)}{attribs[-1]}{RESET}", ""]
+        for foot in ladder:
             if visible_len(foot) <= cols:
                 break
     foot += " " * max(0, cols - visible_len(foot))
@@ -553,6 +676,7 @@ def main():
         zoom = [args.zoom]
         center = [lat, lon]
         pan_preview = [0, 0]
+        view = [args.view]
 
         def zoom_to(new_zoom, at=None):
             """Apply a clamped zoom, keeping the point under `at` fixed.
@@ -591,6 +715,10 @@ def main():
                 return zoom_to(zoom[0] / ZOOM_STEP)
             if key == '-':
                 return zoom_to(zoom[0] * ZOOM_STEP)
+            if key == 'v':
+                nxt = _maps_style.MODES.index(view[0]) + 1
+                view[0] = _maps_style.MODES[nxt % len(_maps_style.MODES)]
+                return True
             return False
 
         def on_wheel(direction, col, row):
@@ -623,7 +751,7 @@ def main():
                 center[0], center[1], location_name, zoom[0],
                 marker=(lat, lon), runtime=runtime, block=False,
                 pan_offset=(pan_preview[0], pan_preview[1]),
-                mouse_pos=mouse_pos),
+                mouse_pos=mouse_pos, view=view[0]),
             interval=3600,  # elevation doesn't change; repaint on input only
             mouse=True,
             on_action=on_action,
@@ -632,7 +760,7 @@ def main():
         )
     else:
         print(render_map(lat, lon, location_name, args.zoom,
-                         runtime=runtime))
+                         runtime=runtime, view=args.view))
 
 
 if __name__ == "__main__":
