@@ -127,6 +127,25 @@ def _project(lon, lat, bbox, w, h):
     return x, y
 
 
+def _bresenham(x0, y0, x1, y1):
+    """Integer dots from (x0, y0) to (x1, y1), both ends included."""
+    dx, dy = abs(x1 - x0), abs(y1 - y0)
+    sx = 1 if x0 < x1 else -1
+    sy = 1 if y0 < y1 else -1
+    err = dx - dy
+    while True:
+        yield x0, y0
+        if x0 == x1 and y0 == y1:
+            return
+        e2 = 2 * err
+        if e2 > -dy:
+            err -= dy
+            x0 += sx
+        if e2 < dx:
+            err += dx
+            y0 += sy
+
+
 def _edge_dots(is_land, is_water, gw, hc):
     """Braille masks stroking the land/water boundary of dot masks.
 

@@ -20,12 +20,14 @@ _maps_style; this module only asks it questions.
 
 import math
 
-from linecast import _maps_style as style
+from linecast import _maps_labels, _maps_style as style
 from linecast._mvt import assemble_polygons, decode_tile
-from linecast._radar_basemap import DotLayer, _edge_dots
+from linecast._radar_basemap import DotLayer, _bresenham, _edge_dots
 from linecast._runtime import debug_log
 from linecast._theme import lerp_rgb
-from linecast._vtiles import fetch_tiles, tile_info, tiles_for_bbox
+from linecast._vtiles import (
+    fetch_tiles, projector as _projector, tile_info, tiles_for_bbox,
+)
 
 # Fill ids double as indices into style.FILL_ORDER, so the id order *is*
 # the stacking order: water over park (a pond in a park), park over
@@ -86,36 +88,6 @@ def fetch_view(bbox, height_cells):
 # ---------------------------------------------------------------------------
 # Projection and rasterisation
 # ---------------------------------------------------------------------------
-def _projector(z, tx, ty, extent, bbox, dw, dh):
-    """Tile-local (x, y) -> dot-space (x, y) for one tile in one view.
-
-    Tile coordinates are web mercator; the view is linear in lon/lat
-    (bbox_for already put the aspect correction in the bbox, which is
-    what makes a braille dot ground-square).  Going through lon/lat
-    rather than staying in mercator keeps street mode registered with
-    the elevation grid and the Natural Earth basemap to the dot.
-    """
-    n = float(1 << z)
-    minlon, minlat, maxlon, maxlat = bbox
-    lon_span = (maxlon - minlon) or 1e-12
-    lat_span = (maxlat - minlat) or 1e-12
-
-    def project(px, py):
-        lon = (tx + px / extent) / n * 360.0 - 180.0
-        wy = (ty + py / extent) / n
-        lat = math.degrees(math.atan(math.sinh(math.pi * (1.0 - 2.0 * wy))))
-        # a view spanning the antimeridian holds wrapped tiles, whose
-        # longitudes come back on the far side of the world
-        if lon < minlon - 180.0:
-            lon += 360.0
-        elif lon > maxlon + 180.0:
-            lon -= 360.0
-        return ((lon - minlon) / lon_span * dw,
-                (maxlat - lat) / lat_span * dh)
-
-    return project
-
-
 def _fill_rings(grid, rings, value, dw, dh):
     """Even-odd scanline fill of projected, closed rings into a grid.
 
@@ -189,7 +161,26 @@ def fill_class(layer_name, props, band):
     return None
 
 
-def class_grid(tiles, bbox, graph_w, height_cells, band):
+def decode_view(tiles):
+    """[((z, x, y), layers), ...] in tile-key order.
+
+    Decoded once and shared by the fills, the strokes and the labels;
+    walking in key order rather than arrival order is what keeps a slow
+    tile from changing the picture.
+    """
+    view = []
+    for key, data in sorted(tiles.items()):
+        if not data:
+            continue
+        try:
+            view.append((key, decode_tile(data)))
+        except ValueError as exc:
+            debug_log(f"street tile {key[0]}/{key[1]}/{key[2]} "
+                      f"undecodable: {exc}")
+    return view
+
+
+def class_grid(view, bbox, graph_w, height_cells, band):
     """(fill class grid, water mask) at dot resolution.
 
     Both are (hc*4) x (gw*2).  The water mask is snapshotted before
@@ -199,16 +190,7 @@ def class_grid(tiles, bbox, graph_w, height_cells, band):
     dw, dh = graph_w * 2, height_cells * 4
     grid = [bytearray(dw) for _ in range(dh)]
     groups = {URBAN: [], PARK: [], WATER: [], BUILDING: []}
-    # Tiles are walked in key order, never arrival order, so a slow tile
-    # can never change the picture.
-    for (z, tx, ty), data in sorted(tiles.items()):
-        if not data:
-            continue
-        try:
-            decoded = decode_tile(data)
-        except ValueError as exc:
-            debug_log(f"street tile {z}/{tx}/{ty} undecodable: {exc}")
-            continue
+    for (z, tx, ty), decoded in view:
         for name in FILL_LAYERS:
             layer = decoded.get(name)
             if layer is None:
@@ -266,25 +248,6 @@ def fill_colors(grid, graph_w, height_cells, palette):
 # ---------------------------------------------------------------------------
 # Strokes
 # ---------------------------------------------------------------------------
-def _bresenham(x0, y0, x1, y1):
-    """Integer dots from (x0, y0) to (x1, y1), both ends included."""
-    dx, dy = abs(x1 - x0), abs(y1 - y0)
-    sx = 1 if x0 < x1 else -1
-    sy = 1 if y0 < y1 else -1
-    err = dx - dy
-    while True:
-        yield x0, y0
-        if x0 == x1 and y0 == y1:
-            return
-        e2 = 2 * err
-        if e2 > -dy:
-            err -= dy
-            x0 += sx
-        if e2 < dx:
-            err += dx
-            y0 += sy
-
-
 def clip_segment(x0, y0, x1, y1, lo_x, lo_y, hi_x, hi_y):
     """Liang-Barsky clip to a window; integer endpoints, or None.
 
@@ -408,7 +371,7 @@ def stroke_ink(key, props, palette):
     return color, dash
 
 
-def draw_lines(layer, tiles, bbox, graph_w, height_cells, band, palette):
+def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette):
     """Walk every admitted line feature into the view's one DotLayer.
 
     Feature order is irrelevant here — each stroke carries its class
@@ -416,13 +379,7 @@ def draw_lines(layer, tiles, bbox, graph_w, height_cells, band, palette):
     cells it crosses.
     """
     dw, dh = graph_w * 2, height_cells * 4
-    for (z, tx, ty), data in sorted(tiles.items()):
-        if not data:
-            continue
-        try:
-            decoded = decode_tile(data)
-        except ValueError:
-            continue                        # already logged by class_grid
+    for (z, tx, ty), decoded in view:
         for name in LINE_LAYERS:
             src = decoded.get(name)
             if src is None:
@@ -448,14 +405,18 @@ def draw_lines(layer, tiles, bbox, graph_w, height_cells, band, palette):
                         color, rank, weight, dash, ticks)
 
 
-def build_street_view(bbox, graph_w, height_cells, tiles, band):
-    """(fills, layer) for one view — the pure half, no network.
+def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
+                      reserved=()):
+    """(fills, layer, overlays) for one view — the pure half, no network.
 
     `tiles` maps (z, x, y) to raw MVT bytes, or to None for a tile that
     could not be read; a missing tile simply contributes nothing.
+    `reserved` are cells the caller has already spoken for (the marker
+    and the crosshair), which labels must route around.
     """
     palette = style.palette()
-    grid, water = class_grid(tiles, bbox, graph_w, height_cells, band)
+    view = decode_view(tiles)
+    grid, water = class_grid(view, bbox, graph_w, height_cells, band)
     fills = fill_colors(grid, graph_w, height_cells, palette)
 
     layer = DotLayer(bbox, graph_w, height_cells)
@@ -463,5 +424,7 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band):
     coast = _edge_dots(land, water, graph_w, height_cells)
     ink = palette.get("coast", style._PALETTE_16_DEFAULT)
     layer.or_mask(coast, ink, style.LINE_STYLES["coast"][3])
-    draw_lines(layer, tiles, bbox, graph_w, height_cells, band, palette)
-    return fills, layer
+    draw_lines(layer, view, bbox, graph_w, height_cells, band, palette)
+    overlays = _maps_labels.label_overlays(
+        view, bbox, graph_w, height_cells, band, palette, lang, reserved)
+    return fills, layer, overlays

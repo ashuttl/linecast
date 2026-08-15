@@ -113,6 +113,36 @@ def tiles_for_bbox(bbox, z):
             for tx in range(tx0, tx1 + 1)]
 
 
+def projector(z, tx, ty, extent, bbox, dw, dh):
+    """Tile-local (x, y) -> dot-space (x, y) for one tile in one view.
+
+    Tile coordinates are web mercator; the view is linear in lon/lat
+    (bbox_for already put the aspect correction in the bbox, which is
+    what makes a braille dot ground-square).  Going through lon/lat
+    rather than staying in mercator keeps street mode registered with
+    the elevation grid and the Natural Earth basemap to the dot.
+    """
+    n = float(1 << z)
+    minlon, minlat, maxlon, maxlat = bbox
+    lon_span = (maxlon - minlon) or 1e-12
+    lat_span = (maxlat - minlat) or 1e-12
+
+    def project(px, py):
+        lon = (tx + px / extent) / n * 360.0 - 180.0
+        wy = (ty + py / extent) / n
+        lat = math.degrees(math.atan(math.sinh(math.pi * (1.0 - 2.0 * wy))))
+        # a view spanning the antimeridian holds wrapped tiles, whose
+        # longitudes come back on the far side of the world
+        if lon < minlon - 180.0:
+            lon += 360.0
+        elif lon > maxlon + 180.0:
+            lon -= 360.0
+        return ((lon - minlon) / lon_span * dw,
+                (maxlat - lat) / lat_span * dh)
+
+    return project
+
+
 def _cache_path(version, z, x, y):
     return CACHE_ROOT / "maps" / "vt" / version / f"{z}_{x}_{y}.pbf"
 

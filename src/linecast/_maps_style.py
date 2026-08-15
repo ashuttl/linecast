@@ -621,6 +621,14 @@ def use_metric(lang):
         "WEATHER_UNITS", "").lower() == "metric"
 
 
+def fmt_elev(meters, lang):
+    """An elevation, in the reader's units.  Unit symbols are not
+    translated — matching the rest of the house."""
+    if use_metric(lang):
+        return f"{round(meters):,} m"
+    return f"{round(meters * 3.28084):,} ft"
+
+
 def scale_bar(bbox, gw, metric):
     """(cells, label) for the largest nice distance that fits, or None.
 

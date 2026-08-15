@@ -176,24 +176,25 @@ def _get_elevation(bbox, gw, hc, block):
     return None, None
 
 
-def _get_street(bbox, gw, hc, block):
-    """(fills, ranked layer) for the view; live mode fetches in the
-    background, exactly as the elevation path does."""
-    key = _view_key(bbox, gw, hc)
+def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
+    """(fills, ranked layer, label overlays) for the view; live mode
+    fetches in the background, exactly as the elevation path does."""
+    key = _view_key(bbox, gw, hc) + (lang, tuple(sorted(reserved)))
     with _street_lock:
         hit = _street_cache.get(key)
         if hit is not None:
             return hit
         if not block:
             if key in _street_pending:
-                return None, None
+                return None, None, None
             _street_pending.add(key)
 
     def load():
         band, tiles = _maps_streets.fetch_view(bbox, hc)
         if not any(tiles.values()):
             raise RuntimeError(ms('offline', 'en'))
-        return _maps_streets.build_street_view(bbox, gw, hc, tiles, band)
+        return _maps_streets.build_street_view(bbox, gw, hc, tiles, band,
+                                               lang, reserved)
 
     if block:
         hit = load()
@@ -217,7 +218,7 @@ def _get_street(bbox, gw, hc, block):
             os.kill(os.getpid(), signal.SIGWINCH)
 
     threading.Thread(target=worker, daemon=True).start()
-    return None, None
+    return None, None, None
 
 
 def build_terrain_buffer(elev, bbox, w, h):
@@ -427,11 +428,24 @@ def compose_map(fills, layer, overlays, graph_w, height_cells):
 
 
 def _fmt_elev(meters, lang):
-    metric = lang != "en" or os.environ.get(
-        "WEATHER_UNITS", "").lower() == "metric"
-    if metric:
-        return f"{round(meters):,} m"
-    return f"{round(meters * 3.28084):,} ft"
+    """The elevation readout — one units heuristic, in _maps_style."""
+    return _maps_style.fmt_elev(meters, lang)
+
+
+def _scale_bar(bbox, graph_w, lang):
+    """`├────────┤ 500 m`, or "" when no nice distance fits the view.
+
+    Lives at the left of the footer, ahead of the attribution: it is the
+    one piece of furniture that tells you what the map *means*, and it
+    is cheaper than a grid.
+    """
+    best = _maps_style.scale_bar(bbox, graph_w,
+                                 _maps_style.use_metric(lang))
+    if best is None:
+        return ""
+    cells, label = best
+    return (f"{fg(*DIM)}├{'─' * cells}┤{RESET} "
+            f"{fg(*MUTED)}{label}{RESET}  ")
 
 
 class _ShiftedLayer:
@@ -506,14 +520,18 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
     """(map lines, readout, loading, err) for the vector-tile view."""
     err = None
     loading = False
-    fills = layer = None
+    fills = layer = labels = None
+    centre = (graph_w // 2, height_cells // 2)
+    reserved = (marker_cell, centre) if marker_cell else (centre,)
     if block:
         try:
-            fills, layer = _get_street(bbox, graph_w, height_cells, True)
+            fills, layer, labels = _get_street(bbox, graph_w, height_cells,
+                                               True, lang, reserved)
         except Exception as exc:
             err = str(exc)
     else:
-        fills, layer = _get_street(bbox, graph_w, height_cells, False)
+        fills, layer, labels = _get_street(bbox, graph_w, height_cells,
+                                           False, lang, reserved)
         loading = fills is None
 
     palette = _maps_style.palette()
@@ -522,8 +540,9 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
         fills = [[ground] * graph_w for _ in range(height_cells * 2)]
         layer = _ShiftedLayer([[0] * graph_w for _ in range(height_cells)],
                               [[None] * graph_w for _ in range(height_cells)])
+        labels = {}
 
-    overlays = {}
+    overlays = dict(labels)
     if marker_cell is not None:
         overlays[marker_cell] = _mark(MARKER, True)
     dx, dy = pan_offset
@@ -624,9 +643,11 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                        _maps_style.ATTRIB_TILES_SHORT)
         else:
             attribs = (ATTRIBUTION,)
+        scale = _scale_bar(bbox, graph_w, lang) if view == "street" else ""
         # first rung that fits wins: long+hint, short+hint, short, bare
-        ladder = [f"{fg(*DIM)}{a}{RESET}  {hint}" for a in attribs]
-        ladder += [f"{fg(*DIM)}{attribs[-1]}{RESET}", ""]
+        ladder = [f"{scale}{fg(*DIM)}{a}{RESET}  {hint}" for a in attribs]
+        ladder += [f"{scale}{fg(*DIM)}{attribs[-1]}{RESET}",
+                   f"{fg(*DIM)}{attribs[-1]}{RESET}", ""]
         for foot in ladder:
             if visible_len(foot) <= cols:
                 break

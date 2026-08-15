@@ -168,7 +168,7 @@ def ink(key):
 # ---------------------------------------------------------------------------
 class TestFills:
     def test_water_fills_the_left_half_and_ground_the_rest(self):
-        fills, _layer = build(classed("water", LEFT_HALF, "lake"))
+        fills, _layer, _labels = build(classed("water", LEFT_HALF, "lake"))
         assert len(fills) == HC * 2
         for row in fills:
             assert row == [ink("water"), ink("water"),
@@ -176,19 +176,22 @@ class TestFills:
 
     def test_water_stacks_over_park(self):
         # A pond in a park: water is above park in the stacking order.
-        fills, _layer = build(classed("park", WHOLE, "public_park"),
-                              classed("water", LEFT_HALF, "lake"))
+        fills, _layer, _labels = build(
+            classed("park", WHOLE, "public_park"),
+            classed("water", LEFT_HALF, "lake"))
         assert fills[0] == [ink("water"), ink("water"),
                             ink("park"), ink("park")]
 
     def test_buildings_sit_on_everything(self):
-        fills, _layer = build(classed("water", WHOLE, "lake"),
-                              layer("building", [feature(LEFT_HALF)]))
+        fills, _layer, _labels = build(
+            classed("water", WHOLE, "lake"),
+            layer("building", [feature(LEFT_HALF)]))
         assert fills[0] == [ink("building"), ink("building"),
                             ink("water"), ink("water")]
 
     def test_swimming_pools_are_not_water(self):
-        fills, _layer = build(classed("water", LEFT_HALF, "swimming_pool"))
+        fills, _layer, _labels = build(
+            classed("water", LEFT_HALF, "swimming_pool"))
         assert fills[0] == [ink("ground")] * GW
 
     def test_landcover_paints_parks_and_nothing_else(self):
@@ -218,12 +221,13 @@ class TestFills:
             == ink("ground")
 
     def test_an_undecodable_tile_is_skipped_not_fatal(self):
-        fills, _layer = st.build_street_view(
+        fills, _layer, _labels = st.build_street_view(
             WORLD, GW, HC, {Z0: b"\xff\xff\xff\xff"}, 7)
         assert fills[0] == [ink("ground")] * GW
 
     def test_a_missing_tile_contributes_nothing(self):
-        fills, _layer = st.build_street_view(WORLD, GW, HC, {Z0: None}, 7)
+        fills, _layer, _labels = st.build_street_view(
+            WORLD, GW, HC, {Z0: None}, 7)
         assert fills[0] == [ink("ground")] * GW
 
 
@@ -262,19 +266,19 @@ class TestCoast:
         # Water covers dot columns 0-3 of 8, so the stroked dots are the
         # land column that touches it — dot column 4, which is the left
         # sub-column of cell 2: bits 0x01|0x02|0x04|0x40.
-        _fills, layer_ = build(classed("water", LEFT_HALF, "lake"))
+        _fills, layer_, _labels = build(classed("water", LEFT_HALF, "lake"))
         assert layer_.dots[0] == [0, 0, 0x47, 0]
         assert layer_.color[0][2] == ink("coast")
         assert layer_.rank[0][2] == _maps_style.LINE_STYLES["coast"][3]
 
     def test_no_water_means_no_coast(self):
-        _fills, layer_ = build(classed("park", WHOLE, "public_park"))
+        _fills, layer_, _labels = build(classed("park", WHOLE, "public_park"))
         assert layer_.dots[0] == [0, 0, 0, 0]
 
     def test_a_building_over_water_does_not_erase_the_coast(self):
         # The water mask is snapshotted before buildings are painted, so
         # a pier or a boathouse cannot punch a hole in the shoreline.
-        fills, layer_ = build(classed("water", LEFT_HALF, "lake"),
+        fills, layer_, _labels = build(classed("water", LEFT_HALF, "lake"),
                               layer("building", [feature(LEFT_HALF)]))
         assert fills[0][0] == ink("building")
         assert layer_.dots[0] == [0, 0, 0x47, 0]
@@ -282,7 +286,7 @@ class TestCoast:
     def test_the_stroke_and_the_fill_agree_cell_for_cell(self):
         # Every stroked cell must border the painted water; this is the
         # invariant the whole _edge_dots exercise exists to guarantee.
-        fills, layer_ = build(classed("water", LEFT_HALF, "lake"))
+        fills, layer_, _labels = build(classed("water", LEFT_HALF, "lake"))
         for cx, mask in enumerate(layer_.dots[0]):
             if mask:
                 neighbours = {fills[0][max(0, cx - 1)],
@@ -577,7 +581,7 @@ FLAT_W1 = [0x24] * 4
 
 class TestLineClasses:
     def test_a_motorway_draws_in_the_accent_ink(self):
-        _fills, layer = build(
+        _fills, layer, _labels = build(
             tagged_line("transportation", EQUATOR, {"class": "motorway"}),
             band=1)
         assert layer.dots[0] == FLAT_W1
@@ -585,14 +589,14 @@ class TestLineClasses:
         assert layer.rank[0][0] == 50
 
     def test_a_ramp_off_a_motorway_takes_the_ramp_ink(self):
-        _fills, layer = build(
+        _fills, layer, _labels = build(
             tagged_line("transportation", EQUATOR,
                         {"class": "motorway", "ramp": 1}),
             band=5)
         assert layer.color[0][0] == ink("ramp")
 
     def test_tertiary_arrives_as_minor(self):
-        _fills, layer = build(
+        _fills, layer, _labels = build(
             tagged_line("transportation", EQUATOR, {"class": "tertiary"}),
             band=5)
         assert layer.color[0][0] == ink("minor")
@@ -604,7 +608,7 @@ class TestLineClasses:
         assert build(tagged_line(*args), band=4)[1].dots[0] == FLAT_W1
 
     def test_a_ferry_dashes_in_the_waterway_ink(self):
-        _fills, layer = build(
+        _fills, layer, _labels = build(
             tagged_line("transportation", EQUATOR, {"class": "ferry"}),
             band=5)
         assert layer.color[0][0] == ink("waterway")
@@ -612,7 +616,7 @@ class TestLineClasses:
 
     def test_a_dropped_class_leaves_no_mark(self):
         for cls in ("pier", "raceway", "aerialway"):
-            _fills, layer = build(
+            _fills, layer, _labels = build(
                 tagged_line("transportation", EQUATOR, {"class": cls}),
                 band=7)
             assert layer.dots[0] == [0] * 4, cls
@@ -626,7 +630,7 @@ class TestLineClasses:
         assert stream.dots[0] == [0] * 4         # waterway_minor waits
 
     def test_a_runway_is_a_stroke_not_a_fill(self):
-        _fills, layer = build(
+        _fills, layer, _labels = build(
             tagged_line("aeroway", EQUATOR, {"class": "runway"}), band=4)
         assert layer.color[0][0] == ink("aeroway")
         assert layer.dots[0] != [0] * 4
@@ -643,7 +647,7 @@ class TestLineClasses:
         assert county.dots[0] == [0] * 4
 
     def test_a_maritime_boundary_is_dropped(self):
-        _fills, layer = build(
+        _fills, layer, _labels = build(
             tagged_line("boundary", EQUATOR,
                         {"admin_level": 2, "maritime": 1}), band=1)
         assert layer.dots[0] == [0] * 4
@@ -652,13 +656,13 @@ class TestLineClasses:
         # OMT does carry polygonal transportation (pedestrian squares);
         # the stroke walker must not try to trace them.
         square = classed("transportation", WHOLE, "motorway")
-        _fills, layer = build(square, band=7)
+        _fills, layer, _labels = build(square, band=7)
         assert layer.dots[0] == [0] * 4
 
     def test_a_road_beats_the_coastline_it_crosses(self):
         # A bridge is a real thing and it wins its cells; the coast
         # beats admin borders in turn.
-        _fills, layer = build(
+        _fills, layer, _labels = build(
             classed("water", LEFT_HALF, "lake"),
             tagged_line("transportation", EQUATOR, {"class": "motorway"}),
             band=1)
