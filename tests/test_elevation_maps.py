@@ -225,10 +225,12 @@ class TestComposeTerrain:
 
     def test_bold_overlay_third_element(self, monkeypatch):
         # BOLD/RESET are frozen to "" at import under pytest's no-tty
-        # color mode; patch the copies maps.py holds to see the wiring
-        import linecast.maps as maps_mod
-        monkeypatch.setattr(maps_mod, "BOLD", "\033[1m")
-        monkeypatch.setattr(maps_mod, "RESET", "\033[0m")
+        # color mode; patch the exact globals compose_terrain reads —
+        # after the test_oneline sys.modules purge, sys.modules holds a
+        # *newer* module generation than the function bound at the top
+        # of this file, so go through __globals__ rather than the module
+        monkeypatch.setitem(compose_terrain.__globals__, "BOLD", "\033[1m")
+        monkeypatch.setitem(compose_terrain.__globals__, "RESET", "\033[0m")
         terrain = [[(100, 120, 90)], [(100, 120, 90)]]
         bm = self.FakeBasemap([[0]], [[None]])
         plain_ov = compose_terrain(bm, terrain,
