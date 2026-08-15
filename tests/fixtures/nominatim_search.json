@@ -1,0 +1,34 @@
+[
+  {
+    "place_id": 363837208,
+    "licence": "Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+    "osm_type": "way",
+    "osm_id": 329793373,
+    "lat": "43.6231093",
+    "lon": "-70.2078663",
+    "category": "man_made",
+    "type": "lighthouse",
+    "place_rank": 30,
+    "importance": 0.33749181912886295,
+    "addresstype": "man_made",
+    "name": "Portland Head Light",
+    "display_name": "Portland Head Light, Captain Strout Circle, Cape Elizabeth, Cumberland County, Maine, 04107, United States",
+    "address": {
+      "man_made": "Portland Head Light",
+      "road": "Captain Strout Circle",
+      "village": "Cape Elizabeth",
+      "county": "Cumberland County",
+      "state": "Maine",
+      "ISO3166-2-lvl4": "US-ME",
+      "postcode": "04107",
+      "country": "United States",
+      "country_code": "us"
+    },
+    "boundingbox": [
+      "43.6230777",
+      "43.6231433",
+      "-70.2079123",
+      "-70.2078207"
+    ]
+  }
+]
