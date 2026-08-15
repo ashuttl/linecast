@@ -70,12 +70,18 @@ def _normalize_wheel_cb(cb):
     return None
 
 
-def _read_key(fd):
+def _read_key(fd, text=False):
     """Read a keypress from stdin in cbreak mode. Returns action string or None.
 
     Fully consumes CSI/SS3 escape sequences so leftover bytes don't leak.
     Uses a longer timeout (150ms) to avoid splitting mouse escape sequences
     when the system is busy (e.g. after a re-render).
+
+    With text=True (a caller-drawn input field is open), printable input
+    comes back as 'char:<c>' — including multi-byte UTF-8, assembled from
+    continuation bytes — plus 'key:backspace' / 'key:kill' (ctrl-U) /
+    'key:enter' for editing. Escape sequences (arrows, mouse) decode
+    exactly as before, so list navigation keeps working while typing.
     """
     import select as _sel
 
@@ -147,6 +153,39 @@ def _read_key(fd):
                 }.get(b3)
         return 'escape'
 
+    if text:
+        # Free-text capture: editing keys first, then any printable
+        # character (assembling UTF-8 continuations), control bytes dropped.
+        if b in (b'\x7f', b'\x08'):
+            return 'key:backspace'
+        if b in (b'\r', b'\n'):
+            return 'key:enter'
+        if b == b'\x15':  # ctrl-U
+            return 'key:kill'
+        o = b[0]
+        if o < 0x20:
+            return None
+        if o < 0x80:
+            return 'char:' + chr(o)
+        if 0xC0 <= o < 0xE0:
+            extra = 1
+        elif 0xE0 <= o < 0xF0:
+            extra = 2
+        elif 0xF0 <= o < 0xF8:
+            extra = 3
+        else:
+            return None  # stray continuation byte or invalid lead
+        buf = bytearray(b)
+        for _ in range(extra):
+            c = _read_byte_timeout(0.05)
+            if c is None:
+                return None
+            buf.extend(c)
+        try:
+            return 'char:' + buf.decode('utf-8')
+        except UnicodeDecodeError:
+            return None
+
     if b in (b'q', b'Q'):
         return 'quit'
     if b in (b'o', b'O'):
@@ -165,6 +204,16 @@ def _read_key(fd):
         return 'key:w'
     if b in (b's', b'S'):
         return 'key:s'
+    if b in (b'v', b'V'):
+        return 'key:v'
+    if b in (b'p', b'P'):
+        return 'key:p'
+    if b in (b'd', b'D'):
+        return 'key:d'
+    if b == b'/':
+        return 'key:/'
+    if b == b'?':
+        return 'key:?'
     if b in (b'\r', b'\n'):
         return 'key:enter'
     return None
@@ -175,7 +224,7 @@ def _read_key(fd):
 # ---------------------------------------------------------------------------
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
-              intercept=None, play_gate=None):
+              intercept=None, play_gate=None, on_wheel=None, text_mode=None):
     """Run render_fn() in a loop on the alternate screen buffer.
 
     render_fn: callable(offset_minutes=0) returning (display_string, metadata)
@@ -216,6 +265,18 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                action and trigger a re-render — this is how a caller-drawn
                menu takes over the arrow keys. Default None preserves
                existing behavior exactly.
+    on_wheel: optional callback(direction) for mouse wheel events, +1 up /
+              -1 down. When set it takes the wheel over entirely (no
+              time-scrub, no frame-step, no modal scroll — the caller
+              decides, e.g. zoom vs panel scroll). Return truthy to
+              re-render; falsy leaves the frame alone (a clamped zoom).
+              Default None preserves existing behavior exactly.
+    text_mode: optional callable() -> bool consulted before each key read.
+               While truthy, printable input arrives at intercept as
+               'char:<c>' plus 'key:backspace'/'key:kill'/'key:enter' —
+               the plumbing for a caller-drawn text field. Escape
+               sequences (arrows, mouse) decode as usual. Default None
+               preserves existing behavior exactly.
     Re-renders immediately on terminal resize (SIGWINCH) or input.
     """
     import select, signal, termios, tty
@@ -311,7 +372,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                         pass
                     break
                 if fd in ready:
-                    action = _read_key(fd)
+                    action = _read_key(
+                        fd, text=bool(text_mode is not None and text_mode()))
                     if (intercept is not None and action is not None
                             and not isinstance(action, tuple)
                             and intercept(action)):
@@ -366,6 +428,14 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                         _, cb, cx, cy, is_rel = action
                         wheel_cb = _normalize_wheel_cb(cb)
                         if wheel_cb in (64, 65):
+                            if on_wheel is not None:
+                                # Caller owns the wheel outright (zoom,
+                                # panel scroll, …) — no scrub fallback.
+                                if on_wheel(1 if wheel_cb == 64 else -1):
+                                    if select.select([fd], [], [], 0)[0]:
+                                        continue  # coalesce rapid wheel
+                                    break
+                                continue
                             if active_alert is not None:
                                 # Scroll the modal
                                 modal_scroll += 3 if wheel_cb == 65 else -3
