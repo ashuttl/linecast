@@ -172,3 +172,70 @@ class TestComposeTerrain:
         line = compose_terrain(bm, terrain, {(0, 0): ("+", (255, 240, 120))},
                                1, 1)[0]
         assert "38;2;255;240;120" in line
+
+    class FakeStrokeLayer:
+        """Duck-type for the strokes= parameter: .dots + .color grids."""
+
+        def __init__(self, dots, color):
+            self.dots = dots
+            self.color = color
+
+    def test_stroke_layer_dots_and_ink(self):
+        terrain = [[(100, 120, 90)] * 2, [(100, 120, 90)] * 2]
+        bm = self.FakeBasemap([[0, 0]], [[None, None]])
+        streets = self.FakeStrokeLayer([[0x07, 0]], [[(235, 197, 120), None]])
+        lines = compose_terrain(bm, terrain, {}, 2, 1, strokes=[streets])
+        plain = re.sub(r"\033\[[^m]*m", "", lines[0])
+        # cell 0 strokes dots 0x07 in the layer's own ink; cell 1 is fill
+        assert plain[0] == chr(0x2800 + 0x07)
+        assert "38;2;235;197;120" in lines[0]
+
+    def test_stroke_masks_or_with_coast_higher_layer_owns_ink(self):
+        terrain = [[(100, 120, 90)], [(100, 120, 90)]]
+        bm = self.FakeBasemap([[0]], [[None]])
+        coast = [[0x01]]
+        route = self.FakeStrokeLayer([[0x40]], [[(120, 220, 255)]])
+        lines = compose_terrain(bm, terrain, {}, 1, 1, coast=coast,
+                                strokes=[route])
+        plain = re.sub(r"\033\[[^m]*m", "", lines[0])
+        # coast dot 0x01 | route dot 0x40 merge into one glyph...
+        assert plain[0] == chr(0x2800 + 0x41)
+        # ...and the stroke layer's ink beats the coast's
+        assert "38;2;120;220;255" in lines[0]
+
+    def test_later_stroke_layer_wins_the_cell(self):
+        terrain = [[(100, 120, 90)], [(100, 120, 90)]]
+        bm = self.FakeBasemap([[0]], [[None]])
+        streets = self.FakeStrokeLayer([[0x01]], [[(116, 120, 132)]])
+        route = self.FakeStrokeLayer([[0x02]], [[(120, 220, 255)]])
+        # strokes are ordered lowest priority first: route drawn last, wins
+        line = compose_terrain(bm, terrain, {}, 1, 1,
+                               strokes=[streets, route])[0]
+        assert "38;2;120;220;255" in line
+        assert "38;2;116;120;132" not in line
+
+    def test_overlay_still_beats_strokes(self):
+        terrain = [[(100, 120, 90)], [(100, 120, 90)]]
+        bm = self.FakeBasemap([[0]], [[None]])
+        streets = self.FakeStrokeLayer([[0xFF]], [[(116, 120, 132)]])
+        line = compose_terrain(bm, terrain, {(0, 0): ("X", (1, 2, 3))}, 1, 1,
+                               strokes=[streets])[0]
+        plain = re.sub(r"\033\[[^m]*m", "", line)
+        assert plain[0] == "X"
+
+    def test_bold_overlay_third_element(self, monkeypatch):
+        # BOLD/RESET are frozen to "" at import under pytest's no-tty
+        # color mode; patch the copies maps.py holds to see the wiring
+        import linecast.maps as maps_mod
+        monkeypatch.setattr(maps_mod, "BOLD", "\033[1m")
+        monkeypatch.setattr(maps_mod, "RESET", "\033[0m")
+        terrain = [[(100, 120, 90)], [(100, 120, 90)]]
+        bm = self.FakeBasemap([[0]], [[None]])
+        plain_ov = compose_terrain(bm, terrain,
+                                   {(0, 0): ("X", (1, 2, 3))}, 1, 1)[0]
+        bold_ov = compose_terrain(bm, terrain,
+                                  {(0, 0): ("X", (1, 2, 3), True)}, 1, 1)[0]
+        assert "\033[1mX" not in plain_ov
+        # bold glyph is followed by a full reset so the weight can't
+        # leak into the next cell (the Framebuffer.render idiom)
+        assert "\033[1mX\033[0m" in bold_ov

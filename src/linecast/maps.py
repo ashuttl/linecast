@@ -231,14 +231,21 @@ def _terrain_buffer(elev, bbox, gw, hc):
 
 
 def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
-                    coast=None):
+                    coast=None, strokes=None):
     """Terrain fill with braille geography *on top* (inverse of radar).
 
     The coastline comes from `coast` — sea-level contour masks derived
     from the elevation data itself, so stroke and fill always agree; the
     basemap's own generalized coast (and its sea stipple) are ignored.
     Natural Earth still supplies the border strokes.  Overlay glyphs pick
-    a light or dark ink per cell for contrast.
+    a light or dark ink per cell for contrast; a truthy third tuple
+    element renders the glyph bold.
+
+    `strokes` is an ordered list of extra braille layers (anything with
+    .dots and .color cell grids, e.g. streets, a route), lowest priority
+    first: dot masks OR together, and the last layer with dots in a cell
+    owns its ink — the same one-ink-per-cell rule the layers themselves
+    resolve by draw order.
     """
     lines = []
     for cy in range(height_cells):
@@ -252,21 +259,36 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
             bmask = (basemap.dots[cy][cx]
                      if basemap.color[cy][cx] == BORDER else 0)
             cmask = coast[cy][cx] if coast is not None else 0
-            if ov is not None or bmask or cmask:
+            smask, sink = 0, None
+            if strokes is not None:
+                for layer in strokes:
+                    m = layer.dots[cy][cx]
+                    if m:
+                        smask |= m
+                        c = layer.color[cy][cx]
+                        if c is not None:
+                            sink = c
+            if ov is not None or bmask or cmask or smask:
                 avg = ((ut[0] + ub[0]) // 2, (ut[1] + ub[1]) // 2,
                        (ut[2] + ub[2]) // 2)
                 cell_bg = bg(*avg)
                 if ov is not None:
-                    ch, ink = ov
+                    ch, ink = ov[0], ov[1]
                     if ink is None:  # contrast-picked label ink
                         lum = (0.2126 * avg[0] + 0.7152 * avg[1]
                                + 0.0722 * avg[2])
                         ink = LABEL_DARK if lum > 120 else LABEL_LIGHT
-                    parts.append(f"{cell_bg}{fg(*ink)}{ch}")
+                    if len(ov) > 2 and ov[2]:
+                        parts.append(f"{cell_bg}{fg(*ink)}{BOLD}{ch}{RESET}")
+                    else:
+                        parts.append(f"{cell_bg}{fg(*ink)}{ch}")
                 else:
-                    stroke = COAST_STROKE if cmask else BORDER_STROKE
+                    if sink is not None:
+                        stroke = sink
+                    else:
+                        stroke = COAST_STROKE if cmask else BORDER_STROKE
                     parts.append(f"{cell_bg}{fg(*stroke)}"
-                                 f"{chr(0x2800 + (bmask | cmask))}")
+                                 f"{chr(0x2800 + (bmask | cmask | smask))}")
                 continue
             parts.append(halfblock(ut, ub))
         parts.append(RESET)
