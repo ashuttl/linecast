@@ -25,7 +25,7 @@ import unicodedata
 from linecast._color import color_mode
 from linecast._theme import is_light_theme, lerp_rgb, theme_bg
 
-MODES = ("terrain", "street")
+MODES = ("street", "terrain")
 
 # ---------------------------------------------------------------------------
 # Palette
@@ -235,6 +235,12 @@ def z_src(z, band):
 
 
 BAND_EDGES = (4.0, 6.0, 8.0, 10.5, 11.5, 13.0, 14.5)   # 7 cuts -> B0..B7
+
+# Opening zoom per view, in degrees of latitude.  A street map four
+# degrees tall is a road atlas — B1, motorways and nothing else — so
+# street opens on a neighbourhood instead, around B5, where the streets
+# have names.  Terrain opens wide, which is where relief reads.
+DEFAULT_ZOOM = {"street": 0.05, "terrain": 4.0}
 
 
 def band_for(z):

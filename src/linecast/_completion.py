@@ -29,7 +29,7 @@ THEME_VALUES = ("dark-sky", "universal-blue", "rainbow", "nexrad", "original",
 # radar --layer display layers; keep in sync with radar.LAYERS
 LAYER_VALUES = ("radar", "satellite")
 # maps --view modes; keep in sync with _maps_style.MODES
-MAPS_VIEW_VALUES = ("terrain", "street")
+MAPS_VIEW_VALUES = ("street", "terrain")
 # maps --profile values; keep in sync with _maps_route.PROFILES
 MAPS_PROFILE_VALUES = ("car", "bike", "foot")
 # radar --layers condition layers; keep in sync with radar.LAYER_NAMES

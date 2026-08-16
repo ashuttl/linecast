@@ -603,8 +603,20 @@ def test_attribution_short_form_is_actually_shorter():
 
 
 def test_modes():
-    assert ms.MODES == ("terrain", "street")
-    assert ms.MODES[0] == "terrain", "default must not change behaviour"
+    # Street leads: it is the default view, and `v` cycles from it.
+    assert ms.MODES == ("street", "terrain")
+    assert ms.MODES[0] == "street", "the cycle must start at the default"
+
+
+def test_default_zoom_covers_every_mode():
+    assert set(ms.DEFAULT_ZOOM) == set(ms.MODES)
+    # street opens on a neighbourhood, terrain on a region
+    assert ms.DEFAULT_ZOOM["street"] < ms.DEFAULT_ZOOM["terrain"]
+    # and that neighbourhood is deep enough to have named streets (B5+)
+    # in a typical window
+    deg = ms.DEFAULT_ZOOM["street"]
+    bbox = (-70.3, 43.6, -70.3 + deg * 2, 43.6 + deg)
+    assert ms.band_for(ms.z_eff(bbox, 48)) >= 5
 
 
 def test_fill_order_is_bottom_to_top():

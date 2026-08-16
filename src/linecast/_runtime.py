@@ -176,17 +176,20 @@ def radar_parser():
 
 def maps_parser():
     p = _base_parser("maps",
-                      "Terrain and bathymetry map: hillshaded elevation "
-                      "under braille coastlines")
+                      "Street map and terrain map: vector streets, or "
+                      "hillshaded elevation under braille coastlines")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
     p.add_argument("--search", default=None,
                     help="search for a location and exit")
-    p.add_argument("--zoom", type=float, default=4.0,
-                    help="degrees of latitude shown top-to-bottom (default 4)")
-    p.add_argument("--view", choices=("terrain", "street"), default="terrain",
-                    help="terrain relief or vector street map "
-                         "(default terrain)")
+    # the default is per view and resolved in maps.main(): a street map
+    # opens on a neighbourhood, terrain on a region
+    p.add_argument("--zoom", type=float, default=None,
+                    help="degrees of latitude shown top-to-bottom "
+                         "(default 0.05 in street view, 4 in terrain)")
+    p.add_argument("--view", choices=("street", "terrain"), default="street",
+                    help="vector street map or terrain relief "
+                         "(default street)")
     p.add_argument("--to", default=None,
                     help="route to a place or 'lat,lng' from the origin")
     p.add_argument("--profile", default="car",

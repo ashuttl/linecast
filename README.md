@@ -35,14 +35,15 @@ Like the rest of linecast, radar speaks all 17 languages — here looping the fo
 
 **`maps`** — Two maps, no weather at all.
 
-`--view terrain` (the default) is hillshaded elevation from the AWS/Mapzen terrain tiles (SRTM, GMTED, ETOPO1) painted as a hypsometric ramp — lowland green through alpine white above sea level, deepening bathymetric blues below it — with the coastlines, borders, and city labels rendered in braille over the fill.
+`--view street` (the default) is a real street map from OpenFreeMap's vector tiles: water, parks, the urban tint and building footprints as solid fills, the whole road ladder from motorway down to footpath as braille strokes, plus place names, route shields, and ten POI marks. It opens on your neighbourhood and goes down to about two metres per braille dot. Hierarchy is carried by a luminance ladder and stroke weight alone — no casings, no shadows, one warm accent for the motorway — and a label that will not fit cleanly is dropped rather than shrunk.
 
 `--view street` is a real street map from OpenFreeMap's vector tiles: water, parks, the urban tint and building footprints as solid fills, the whole road ladder from motorway down to footpath as braille strokes, plus place names, route shields, and ten POI marks. It goes down to about two metres per braille dot. Hierarchy is carried by a luminance ladder and stroke weight alone — no casings, no shadows, one warm accent for the motorway — and a label that will not fit cleanly is dropped rather than shrunk.
 
 Drag to pan, the wheel zooms at the pointer, `v` switches view, `/` searches, `d` gives directions, `?` lists the keys. Terrain reads the elevation under the pointer.
 
 ```
-maps --view street --location "Portland, Maine" --zoom 0.01
+maps --location "Portland, Maine" --zoom 0.01
+maps --view terrain --location "Innsbruck"
 maps --to "Portland Head Light" --profile bike
 ```
 
@@ -102,10 +103,10 @@ radar --theme rainbow            # colour theme (or press t in live mode)
 radar --layers temp,wind         # temperature tint + wind arrows (or press c/w)
 radar --print                    # static snapshot
 
-maps                             # terrain around the current location
-maps --location "Innsbruck"      # the Alps
-maps --location 60.4,5.3 --zoom 8  # Norwegian fjords and the North Sea trench
-maps --view street --zoom 0.01   # streets, buildings and POIs
+maps                             # streets around the current location
+maps --zoom 0.01                 # closer in: buildings and POIs
+maps --view terrain --location "Innsbruck"   # the Alps, hillshaded
+maps --view terrain --location 60.4,5.3 --zoom 8  # Norwegian fjords and the North Sea trench
 maps --to "Portland Head Light"  # route there from your location
 maps --to 43.62,-70.20 --profile foot   # ...on foot
 maps --print                     # static snapshot

@@ -744,6 +744,8 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
 def main():
     args = maps_parser().parse_args()
     runtime = RuntimeConfig.from_sources(namespace=args)
+    if args.zoom is None:
+        args.zoom = _maps_style.DEFAULT_ZOOM[args.view]
 
     if args.profile not in _maps_route.PROFILES:
         print(f"maps: invalid profile '{args.profile}' — choose "
