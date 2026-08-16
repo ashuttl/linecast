@@ -350,6 +350,24 @@ def boundary_style(props):
     return None
 
 
+# The two keys waterway_style can return.  A waterway is the one line
+# class that is also an *area* class: any water wide enough to matter
+# carries a polygon in the `water` layer as well as a centreline in
+# `waterway`, and OpenStreetMap keeps the centreline all the way down a
+# tidal estuary.  Where both exist the polygon is the truer picture and
+# the centreline is a seam drawn up the middle of the sea.
+WATERWAY_KEYS = ("waterway_major", "waterway_minor")
+
+# How far the water has to run, in dots, on each side of a centreline
+# dot before the polygon is judged able to speak for itself.  Three is
+# a channel seven dots across — about three cells wide, the point at
+# which the fill and its coastline read as a shape rather than as a
+# line.  Narrower than that and the polygon is a hairline the centreline
+# is still carrying, so the centreline stays: a stream is a linestring
+# or it is nothing.
+WATERWAY_HIDE_DOTS = 3
+
+
 def waterway_style(props):
     """`waterway` feature -> LINE_STYLES key, or None if dropped."""
     cls = props.get("class")

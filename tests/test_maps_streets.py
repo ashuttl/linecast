@@ -348,6 +348,119 @@ class TestWaterLines:
     def test_a_ferry_is_not_a_river(self):
         assert self._lit("ferry", 7)[0] == 0
 
+    def test_a_centreline_yields_to_the_water_it_runs_through(self):
+        # Terrain draws its inland mask and the river over it; where the
+        # mask is wide enough to draw itself, the centreline is a seam.
+        line = polyline((0, EXTENT // 2), (EXTENT, EXTENT // 2))
+        view = st.decode_view({Z0: tile(
+            tagged_line("waterway", line, {"class": "river"}),
+            classed("water", WHOLE, "lake"))})
+        gw, hc = 16, 4
+        water = st.inland_water_mask(view, WORLD, gw, hc)
+        assert any(any(row) for row in water)
+        bare = st.water_lines(view, WORLD, gw, hc, 4, (1, 2, 3))
+        hidden = st.water_lines(view, WORLD, gw, hc, 4, (1, 2, 3), water)
+        assert any(any(row) for row in bare.dots)
+        assert not any(any(row) for row in hidden.dots)
+
+
+# ---------------------------------------------------------------------------
+# Water wide enough to speak for itself
+# ---------------------------------------------------------------------------
+def dot_mask(rows):
+    """A dot-resolution water mask from an ASCII picture ('~' = water)."""
+    return [bytearray(1 if ch == "~" else 0 for ch in row) for row in rows]
+
+
+def as_text(mask):
+    return ["".join("~" if v else "." for v in row) for row in mask]
+
+
+class TestOpenWater:
+    """The erosion behind the centreline rule: which water is wide
+    enough that its own fill and coastline already say so."""
+
+    def test_a_wide_body_keeps_its_core(self):
+        # Eight dots across, ten down, in open land.
+        mask = dot_mask(["." * 12] * 2 + ["..~~~~~~~~.."] * 10
+                        + ["." * 12] * 2)
+        out = as_text(st.open_water(mask, 3))
+        # A surviving dot needs four dots of water each way, itself
+        # included, so an eight-wide body keeps two columns and a
+        # ten-deep one keeps four rows.
+        assert out[5] == out[8] == ".....~~....."
+        assert out[4] == out[9] == "." * 12
+        assert set("".join(out)) == {".", "~"}
+
+    def test_a_hairline_channel_keeps_its_centreline(self):
+        # One dot of river is a polygon the centreline is still carrying,
+        # however far it runs.
+        mask = dot_mask(["." * 12] * 5 + ["~" * 12] + ["." * 12] * 6)
+        assert not any(any(row) for row in st.open_water(mask, 3))
+
+    def test_dry_land_hides_nothing(self):
+        mask = dot_mask(["." * 12] * 12)
+        assert not any(any(row) for row in st.open_water(mask, 3))
+
+    def test_water_running_off_the_view_is_assumed_to_continue(self):
+        # The mask holds only what is on screen.  Truncating the run at
+        # the edge would leave a stub of centreline in the last few dots
+        # of an estuary, appearing and disappearing as you pan.
+        mask = dot_mask(["~" * 12] * 12)
+        out = st.open_water(mask, 3)
+        assert all(all(row) for row in out)
+
+    def test_the_radius_defaults_to_the_style_table(self):
+        mask = dot_mask(["." * 12] * 5 + ["~" * 12] + ["." * 12] * 6)
+        radius = _maps_style.WATERWAY_HIDE_DOTS
+        assert (as_text(st.open_water(mask))
+                == as_text(st.open_water(mask, radius)))
+
+
+class TestCentrelineSuppression:
+    """A river arrives twice — a polygon in `water` and a centreline in
+    `waterway` — and OpenStreetMap carries the centreline the length of
+    a tidal estuary.  Where the polygon can draw itself, it does."""
+
+    GW, HC = 16, 4
+
+    def _cells(self, water):
+        line = polyline((0, EXTENT // 2), (EXTENT, EXTENT // 2))
+        view = st.decode_view({Z0: tile(
+            tagged_line("waterway", line, {"class": "river"}),
+            classed("water", LEFT_HALF, "river"))})
+        layer = DotLayer(WORLD, self.GW, self.HC)
+        st.draw_lines(layer, view, WORLD, self.GW, self.HC, 7,
+                      _maps_style.palette(), water)
+        # `waterway` is the only line layer in the tile, so every dot
+        # the pass drew is centreline.
+        return {(col, row) for row, line_ in enumerate(layer.dots)
+                for col, mask in enumerate(line_) if mask}
+
+    def _mask(self):
+        view = st.decode_view({Z0: tile(classed("water", LEFT_HALF,
+                                                "river"))})
+        return st.class_grid(view, WORLD, self.GW, self.HC, 7)[1]
+
+    def test_the_seam_over_open_water_goes(self):
+        # The left half is the water; its middle is where the polygon is
+        # widest and the centreline least needed.
+        wet = {c for c, _r in self._cells(self._mask())}
+        assert self.GW // 4 not in wet
+
+    def test_the_same_river_on_dry_land_is_untouched(self):
+        # Only the reach inside the polygon is dropped; the rest of the
+        # line is drawn exactly as it was.
+        bare = self._cells(None)
+        kept = self._cells(self._mask())
+        assert kept < bare
+        assert {c for c, _r in kept} & {c for c, _r in bare
+                                        if c >= self.GW * 3 // 4}
+
+    def test_no_mask_means_no_suppression(self):
+        bare = {c for c, _r in self._cells(None)}
+        assert self.GW // 4 in bare
+
 
 # ---------------------------------------------------------------------------
 # Pure helpers

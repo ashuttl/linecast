@@ -328,8 +328,60 @@ def clip_segment(x0, y0, x1, y1, lo_x, lo_y, hi_x, hi_y):
             int(round(x0 + t1 * dx)), int(round(y0 + t1 * dy)))
 
 
+def open_water(water, radius=None):
+    """Dots where the water runs `radius` clear on all four sides.
+
+    The water a centreline does not need to be drawn through.  Every
+    river wide enough to matter arrives twice — a polygon in the `water`
+    layer and a centreline in `waterway` — and OpenStreetMap carries the
+    centreline the full length of a tidal estuary, so a Portland view
+    draws a seam up the middle of the Fore River and another out of Back
+    Cove.  The polygon and its coastline already say all of that, and say
+    it in the right shape.
+
+    The test is width rather than mere overlap, because a river narrower
+    than a dot has no polygon at any zoom and one only a dot or two wide
+    has a hairline the centreline is still doing the work of.  Erode the
+    mask by `radius` in each direction and what is left is the water that
+    can speak for itself.
+
+    Beyond the view the run is assumed to continue: the mask holds only
+    what is on screen, and truncating at the edge would leave a stub of
+    centreline in the last few dots of the estuary that appears and
+    disappears as you pan.
+    """
+    if radius is None:
+        radius = style.WATERWAY_HIDE_DOTS
+    dh = len(water)
+    dw = len(water[0]) if dh else 0
+    out = [bytearray(dw) for _ in range(dh)]
+    for y in range(dh):
+        src, dst = water[y], out[y]
+        run = radius                    # off-screen counts as water
+        for x in range(dw):
+            run = run + 1 if src[x] else 0
+            dst[x] = run > radius
+        run = radius
+        for x in range(dw - 1, -1, -1):
+            run = run + 1 if src[x] else 0
+            if run <= radius:
+                dst[x] = 0
+    for x in range(dw):
+        run = radius
+        for y in range(dh):
+            run = run + 1 if water[y][x] else 0
+            if run <= radius:
+                out[y][x] = 0
+        run = radius
+        for y in range(dh - 1, -1, -1):
+            run = run + 1 if water[y][x] else 0
+            if run <= radius:
+                out[y][x] = 0
+    return out
+
+
 def stroke_polyline(layer, pts, color, rank, weight=1, dash=None,
-                    tick_every=0):
+                    tick_every=0, hide=None):
     """Walk one projected polyline into a ranked DotLayer.
 
     `pts` are dot-space floats.  Vertices that round onto the dot the
@@ -346,6 +398,12 @@ def stroke_polyline(layer, pts, color, rank, weight=1, dash=None,
     triple is deliberately not reused, because it thickens diagonals and
     reads as fuzz.  Weight 3 adds every touched cell to `layer.ribbon`
     for the composer to tint — motorway only, deepest band only.
+
+    `hide` is a dot mask the stroke may not draw into — the one way a
+    line yields to an area, and used for exactly that: a river centreline
+    inside water already wide enough to draw itself.  The dash counter
+    runs on through hidden dots, so a suppressed reach costs the pattern
+    its phase no more than an off-screen one does.
     """
     dots = []
     for x, y in pts:
@@ -374,6 +432,10 @@ def stroke_polyline(layer, pts, color, rank, weight=1, dash=None,
         if k and (cx0, cy0) == (x0, y0):
             next(walk)                      # the previous segment's end
         for px, py in walk:
+            if (hide is not None and 0 <= py < layer.dh and 0 <= px < layer.dw
+                    and hide[py][px]):
+                i += 1
+                continue
             if not period or (i % period) < dash[0]:
                 layer._set_dot(px, py, color, rank)
                 if weight >= 2:
@@ -419,14 +481,21 @@ def stroke_ink(key, props, palette):
     return color, dash
 
 
-def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette):
+def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
+               water=None):
     """Walk every admitted line feature into the view's one DotLayer.
 
     Feature order is irrelevant here — each stroke carries its class
     rank, so a motorway that arrives in the last tile still owns the
     cells it crosses.
+
+    `water` is the view's dot mask of the water fills.  Given it, a river
+    centreline is suppressed wherever the polygon around it is wide
+    enough to draw itself — see `open_water`.  The eroded mask is derived
+    on the first waterway feature, because most views have none.
     """
     dw, dh = graph_w * 2, height_cells * 4
+    hide = None
     for (z, tx, ty), decoded in view:
         for name in LINE_LAYERS:
             src = decoded.get(name)
@@ -447,13 +516,20 @@ def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette):
                 color, dash = stroke_ink(key, props, palette)
                 rank = style.LINE_STYLES[key][3]
                 ticks = style.RAIL_TICK_EVERY if key == "rail" else 0
+                if water is not None and key in style.WATERWAY_KEYS:
+                    if hide is None:
+                        hide = open_water(water)
+                    masked = hide
+                else:
+                    masked = None
                 for part in feat["geometry"]:
                     stroke_polyline(
                         layer, [project(x, y) for x, y in part],
-                        color, rank, weight, dash, ticks)
+                        color, rank, weight, dash, ticks, masked)
 
 
-def water_lines(view, bbox, graph_w, height_cells, band, color):
+def water_lines(view, bbox, graph_w, height_cells, band, color,
+                water=None):
     """The tiles' waterways as their own braille layer.
 
     A river narrower than a dot has no polygon at any zoom — it is a
@@ -461,8 +537,15 @@ def water_lines(view, bbox, graph_w, height_cells, band, color):
     still leaves a valley looking dry.  The band gates are terrain's own
     (style.TERRAIN_WATERWAY_WEIGHTS), not street's; ferries are not
     water and stay behind either way.
+
+    The converse holds too, which is what `water` is for: where the mask
+    beside this layer already paints water wide enough to read, the
+    centreline through it is a seam and is suppressed.  Terrain passes
+    its own inland mask, so the rule always answers for the water this
+    mode actually draws.
     """
     layer = DotLayer(bbox, graph_w, height_cells)
+    hide = open_water(water) if water is not None else None
     dw, dh = graph_w * 2, height_cells * 4
     for (z, tx, ty), decoded in view:
         src = decoded.get("waterway")
@@ -483,7 +566,7 @@ def water_lines(view, bbox, graph_w, height_cells, band, color):
             rank = style.LINE_STYLES[key][3]
             for part in feat["geometry"]:
                 stroke_polyline(layer, [project(x, y) for x, y in part],
-                                color, rank, weight)
+                                color, rank, weight, hide=hide)
     return layer
 
 
@@ -495,8 +578,10 @@ def build_water_view(bbox, graph_w, height_cells, tiles, band, color):
     already paid for the tiles should get the rivers with the lakes.
     """
     view = decode_view(tiles)
-    return (inland_water_mask(view, bbox, graph_w, height_cells),
-            water_lines(view, bbox, graph_w, height_cells, band, color))
+    water = inland_water_mask(view, bbox, graph_w, height_cells)
+    return (water,
+            water_lines(view, bbox, graph_w, height_cells, band, color,
+                        water))
 
 
 def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
@@ -518,7 +603,8 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     coast = _edge_dots(land, water, graph_w, height_cells)
     ink = palette.get("coast", style._PALETTE_16_DEFAULT)
     layer.or_mask(coast, ink, style.LINE_STYLES["coast"][3])
-    draw_lines(layer, view, bbox, graph_w, height_cells, band, palette)
+    draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
+               water)
     overlays = _maps_labels.label_overlays(
         view, bbox, graph_w, height_cells, band, palette, lang, reserved,
         water_cells(water, graph_w, height_cells))
