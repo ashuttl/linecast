@@ -39,6 +39,8 @@ generalised for exactly this scale), and labelling the water you can
 see rather than the point the data hands you.
 """
 
+import heapq
+
 from linecast import _maps_style as style
 from linecast._framebuffer import visible_len
 from linecast._radar_basemap import (
@@ -154,6 +156,150 @@ def water_regions(water):
             span = max(c for c, _r in cells) - min(c for c, _r in cells) + 1
             regions.append((len(cells), anchor, span))
     return index, regions
+
+
+# A row of cells is worth two columns: a character cell is about twice
+# as tall as it is wide, and both the width transform and the flood
+# below measure distance over water as a reader's eye would.
+_ROW_COST, _COL_COST = 2, 1
+
+
+def water_half_width(index, graph_w, height_cells):
+    """Distance from each water cell to the nearest land, in columns.
+
+    How wide the water is where you are standing, near enough: the
+    chamfer runs in two sweeps rather than four, which understates a
+    diagonal slightly and costs nothing that matters here.
+
+    Beyond the view the water is assumed to continue, as it is for the
+    centreline erosion: a bay that runs off the right edge is not a bay
+    that ends there, and pretending otherwise would shrink its name's
+    reach as the reader pans towards it.
+    """
+    far = graph_w + height_cells * _ROW_COST
+    depth = [[far if index[r][c] >= 0 else 0 for c in range(graph_w)]
+             for r in range(height_cells)]
+    rows = list(range(height_cells))
+    cols = list(range(graph_w))
+    for pas in (0, 1):
+        for r in (rows if pas == 0 else rows[::-1]):
+            line = depth[r]
+            for c in (cols if pas == 0 else cols[::-1]):
+                if not line[c]:
+                    continue
+                best = line[c]
+                if c > 0:
+                    best = min(best, line[c - 1] + _COL_COST)
+                if c + 1 < graph_w:
+                    best = min(best, line[c + 1] + _COL_COST)
+                if r > 0:
+                    best = min(best, depth[r - 1][c] + _ROW_COST)
+                if r + 1 < height_cells:
+                    best = min(best, depth[r + 1][c] + _ROW_COST)
+                line[c] = best
+    return depth
+
+
+def water_claims(index, regions, seeds, graph_w, height_cells):
+    """{cell: name} — which named water each water cell belongs to.
+
+    A tile's `water_name` is a bare point.  It carries no extent, and on
+    a coast it carries no identity either: measured over Casco Bay, Back
+    Cove, Lamson Cove, Hussey Sound and eleven more all land inside the
+    one `ocean` polygon, so there is nothing in the data to ask how far
+    any of them reaches.  Naming the whole connected component after one
+    of them is what an alphabetical tie-break was doing — Back Cove
+    beats Diamond Cove by a letter and inherits the Atlantic.
+
+    So a name claims the water *nearest to it*, walked over the water
+    rather than measured across the land between: the flood out of Back
+    Cove has to go under Tukey's Bridge to reach the harbour, which is
+    exactly the distance a reader tracing it with a finger would feel.
+    Where two names meet, the boundary lands in the narrows between
+    them, which is where anyone would draw it.
+
+    And a name reaches only so far — `style.WATER_CLAIM_REACH` times the
+    half-width of the water it stands in — because a point on the shore
+    of Lake Michigan naming a boat anchorage should not thereby name the
+    lake.  Past every claim the water is left to the caller, which has a
+    better answer than a wrong name.
+
+    The exception is the sole name on a body, reaching the middle of it.
+    The anchor `water_regions` found is the cell most central to the
+    shape, so a name whose claim covers it is not naming a gut off the
+    side of something bigger — and with nothing else on the water there
+    is nothing it could be taking.  That is Sebago Lake, whose point
+    sits mid-lake and whose reach would otherwise stop two thirds of the
+    way to either end.
+
+    Both halves of that are load-bearing.  Without the anchor test, the
+    Playpen — an anchorage on the Chicago shore, and the only name the
+    tile offers there — inherits Lake Michigan.  Without the sole-name
+    test, the largest cove on a bay full of them takes every stretch the
+    others could not reach, which is the bug this whole function exists
+    to fix, arriving by the back door.
+    """
+    if not seeds:
+        return {}
+    depth = water_half_width(index, graph_w, height_cells)
+    claims, queue = {}, []
+    for cell, name, rank in seeds:
+        col, row = cell
+        reach = style.WATER_CLAIM_REACH * depth[row][col]
+        heapq.heappush(queue, (0, rank, name, cell, reach))
+    while queue:
+        dist, rank, name, (col, row), reach = heapq.heappop(queue)
+        if (col, row) in claims or dist > reach:
+            continue
+        claims[(col, row)] = name
+        for c, r, step in ((col - 1, row, _COL_COST), (col + 1, row, _COL_COST),
+                           (col, row - 1, _ROW_COST), (col, row + 1, _ROW_COST)):
+            if (0 <= c < graph_w and 0 <= r < height_cells
+                    and index[r][c] >= 0 and (c, r) not in claims):
+                heapq.heappush(queue, (dist + step, rank, name, (c, r), reach))
+    sole = {}          # region -> its one claimant, or None if it has several
+    for (col, row), name in claims.items():
+        region = index[row][col]
+        if region not in sole:
+            sole[region] = name
+        elif sole[region] != name:
+            sole[region] = None
+    holds = {}
+    for region, (_area, anchor, _span) in enumerate(regions):
+        name = claims.get(anchor)
+        if name and sole.get(region) == name:
+            holds[region] = name
+    if holds:
+        for row, line in enumerate(index):
+            for col, region in enumerate(line):
+                if region >= 0 and (col, row) not in claims \
+                        and region in holds:
+                    claims[(col, row)] = holds[region]
+    return claims
+
+
+def marine_backdrop(regions, bbox, graph_w, height_cells):
+    """{region: vendored marine name} for the largest bodies on screen.
+
+    The sea a view opens into, asked once per body at the cell
+    `water_regions` found most central to it.  It is the same list, read
+    the same way, that names the water outright below band 3; here it
+    stands behind the tile's own names rather than instead of them, so
+    the harbour Back Cove drains into can say "Gulf of Maine" without
+    any cove having to claim it.
+    """
+    minlon, minlat, maxlon, maxlat = bbox
+    biggest = sorted(range(len(regions)), key=lambda i: regions[i],
+                     reverse=True)[:style.MARINE_BACKDROP_REGIONS]
+    out = {}
+    for region in biggest:
+        _area, (col, row), _span = regions[region]
+        lon = minlon + (col + 0.5) / graph_w * (maxlon - minlon)
+        lat = maxlat - (row + 0.5) / height_cells * (maxlat - minlat)
+        name = marine_region(lat, lon)
+        if name:
+            out[region] = name
+    return out
 
 
 # How far outside the view a water label point may sit and still be
@@ -411,18 +557,29 @@ def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
     mask, so a name reaches exactly as far as the water a reader would
     trace with a finger — across a narrows, never across the isthmus.
 
-    A body of water gets exactly one name.  Several always reach for the
-    same one — Back Cove is one region with the bay it drains into, and
-    the tile offers "Back Cove", "Lamson Cove" from out past Munjoy
+    A body of water gets exactly one *label*.  Several always reach for
+    the same one — Back Cove is one region with the bay it drains into,
+    and the tile offers "Back Cove", "Lamson Cove" from out past Munjoy
     Hill, and the sewage plant's "Chlorine Contact Tanks" — and writing
     all three across the same water is not three facts, it is two
-    mistakes.  The contest is settled once, here, so the label and the
-    pointer can never disagree about what the water is called.
+    mistakes.
+
+    What a body is *called*, cell by cell, is a different question with
+    a different answer, and conflating the two is what put "Back Cove"
+    on every square inch of Casco Bay: one label is right, one name for
+    four thousand cells of bay, harbour and tidal river is not.  So the
+    label contest picks one name per region and `water_claims` decides
+    how far each name actually reaches.  The two cannot disagree where
+    it matters: the contest already prefers a name standing on its own
+    point over one dragged in from off the edge, and such a name is a
+    seed at distance zero from itself, so the water under a label always
+    answers with that label.
     """
     water, parks = [], []
     index, regions = (water_regions(water_mask) if water_mask
                       else (None, None))
     best = {}      # region -> (choice key, candidate)
+    seeds = []     # names standing on their own water, for water_claims
 
     def claim(region, choice, candidate):
         """Offer a name for a body; the best offer wins the body."""
@@ -431,18 +588,13 @@ def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
         elif region not in best or choice < best[region][0]:
             best[region] = (choice, candidate)
 
+    backdrop = {}
     if index is not None and band < style.PLACE_SOURCE_BAND:
-        minlon, minlat, maxlon, maxlat = bbox
-        big = sorted(range(len(regions)), key=lambda i: regions[i],
-                     reverse=True)[:4]
-        for region in big:
-            area, (col, row), span = regions[region]
-            lon = minlon + (col + 0.5) / graph_w * (maxlon - minlon)
-            lat = maxlat - (row + 0.5) / height_cells * (maxlat - minlat)
-            name = marine_region(lat, lon)
-            if name:
-                claim(region, (0, 0, name),
-                      ((-area, name), "water", name, (col, row), span))
+        backdrop = marine_backdrop(regions, bbox, graph_w, height_cells)
+        for region, name in backdrop.items():
+            area, cell, span = regions[region]
+            claim(region, (0, 0, name),
+                  ((-area, name), "water", name, cell, span))
     else:
         for props, parts in _features(view, bbox, graph_w, height_cells,
                                       "water_name"):
@@ -469,6 +621,16 @@ def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
                 choice = (at != cell, rank, name)
                 key = (rank, -area, name)
                 claim(region, choice, (key, "water", name, at, span))
+                if at == cell:
+                    # Only a point that landed on its own water may say
+                    # where that water is.  A dragged one has been
+                    # clamped to an edge or to the whole blob's centre
+                    # of mass — nine of Casco Bay's coves arrive at the
+                    # same cell that way — and a seed there would claim
+                    # the middle of the harbour for whichever of them
+                    # sorted first.  It can still win the label, where
+                    # being approximately right is the whole job.
+                    seeds.append((cell, name, rank))
             elif index is None and _in_view(cell, graph_w, height_cells):
                 # No mask to check against, so the point is all there
                 # is.  With a mask, a name that reaches no water is a
@@ -480,14 +642,22 @@ def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
                 # one that ends up written across a whole cove.
                 water.append(((rank, 0, name), "water", name, cell,
                               graph_w))
-    named = {}
-    for region, (_choice, candidate) in best.items():
-        named[region] = candidate[2]
+    for _region, (_choice, candidate) in best.items():
         water.append(candidate)
     if waters is not None and index is not None:
+        claims = water_claims(index, regions, seeds, graph_w, height_cells)
         for row, line in enumerate(index):
             for col, region in enumerate(line):
-                name = named.get(region) if region >= 0 else None
+                if region < 0:
+                    continue
+                # `backdrop` is the wide bands' own naming, where one
+                # vendored polygon really does cover the whole region;
+                # it is not extended to the deep bands as a catch-all,
+                # because "Gulf of Maine" under every unclaimed cell
+                # would turn the coastline of a harbour view into one
+                # feature and put the same broad name in the readout
+                # everywhere the tile happened to be quiet.
+                name = claims.get((col, row)) or backdrop.get(region)
                 if name:
                     waters[(col, row)] = name
     for props, parts in _features(view, bbox, graph_w, height_cells, "park"):

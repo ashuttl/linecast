@@ -576,6 +576,124 @@ class TestWaterRegions:
         assert index == [[-1] * 3, [-1] * 3]
 
 
+def claims_for(rows, seeds):
+    """{cell: name} for an ASCII water picture and (cell, name) seeds."""
+    mask = water_grid(rows)
+    height_cells, graph_w = len(mask), len(mask[0])
+    index, regions = lb.water_regions(mask)
+    return lb.water_claims(index, regions,
+                           [(cell, name, 2) for cell, name in seeds],
+                           graph_w, height_cells)
+
+
+class TestWaterHalfWidth:
+    """How wide the water is where you stand — what sets how far the
+    name standing there is allowed to reach."""
+
+    def test_a_row_costs_two_columns(self):
+        # A character cell is about twice as tall as it is wide, so the
+        # land above is twice as far as the land to the left.
+        index, _regions = lb.water_regions(water_grid([
+            ".....",
+            ".~~~.",
+            ".....",
+        ]))
+        depth = lb.water_half_width(index, 5, 3)
+        assert depth[1][2] == 2          # land is one row up, worth two
+        assert depth[1][1] == 1          # and one column left, worth one
+        assert depth[0][0] == 0          # dry cells are the zero
+
+    def test_the_middle_of_a_wide_body_is_the_widest_point(self):
+        index, _regions = lb.water_regions(water_grid([
+            ".........",
+            ".~~~~~~~.",
+            ".~~~~~~~.",
+            ".~~~~~~~.",
+            ".........",
+        ]))
+        depth = lb.water_half_width(index, 9, 5)
+        assert depth[2][4] == max(max(row) for row in depth)
+
+    def test_water_running_off_the_view_is_assumed_to_continue(self):
+        # Truncating at the edge would shrink a bay's reach as the
+        # reader pans towards it, which is the one thing a name's extent
+        # must not do.
+        index, _regions = lb.water_regions(water_grid(["~~~~~"] * 3))
+        depth = lb.water_half_width(index, 5, 3)
+        assert all(v == depth[0][0] for row in depth for v in row)
+
+
+class TestWaterClaims:
+    """Which named water each cell belongs to, when the tile hands over
+    bare points and one connected sheet of salt water."""
+
+    # Two coves joined by a narrows — Back Cove and the bay it drains
+    # into, at the smallest scale that shape exists.
+    TWO_COVES = [
+        "~~~~..~~~~",
+        "~~~~~~~~~~",
+        "~~~~..~~~~",
+    ]
+
+    def test_the_boundary_lands_in_the_narrows(self):
+        claims = claims_for(self.TWO_COVES,
+                            [((1, 1), "West Cove"), ((8, 1), "East Cove")])
+        assert claims[(0, 1)] == "West Cove"
+        assert claims[(9, 1)] == "East Cove"
+        assert claims[(4, 1)] == "West Cove"
+        assert claims[(5, 1)] == "East Cove"
+
+    def test_a_name_walks_over_the_water_and_not_across_the_land(self):
+        # (3, 0) is four columns from the western name and six from the
+        # eastern one *as the crow flies* — but the crow is not swimming
+        # round the headland.
+        claims = claims_for(self.TWO_COVES,
+                            [((1, 1), "West Cove"), ((6, 0), "East Cove")])
+        assert claims[(3, 0)] == "West Cove"
+
+    def test_the_only_name_on_a_body_it_reaches_across_takes_it(self):
+        # Nothing to compete with and nothing out of reach: the sheet is
+        # small enough that West Cove really is all of it.
+        claims = claims_for(self.TWO_COVES, [((1, 1), "West Cove")])
+        assert claims[(9, 1)] == "West Cove"
+
+    def test_a_name_in_the_middle_of_its_own_body_takes_all_of_it(self):
+        # Sebago Lake: the point sits mid-lake, and a reach measured
+        # from the widest part of a long lake would otherwise stop short
+        # of both ends.
+        rows = ["." * 24] + [".~~~~~~~~~~~~~~~~~~~~~~."] * 3 + ["." * 24]
+        claims = claims_for(rows, [((11, 2), "Long Lake")])
+        assert all(claims[(col, row)] == "Long Lake"
+                   for row in range(1, 4) for col in range(1, 23))
+
+    def test_a_name_off_to_one_side_does_not(self):
+        # The Playpen is an anchorage on the edge of Lake Michigan, and
+        # the lake's own name is a hundred cells offshore.
+        rows = ["." * 24] + [".~~~~~~~~~~~~~~~~~~~~~~."] * 3 + ["." * 24]
+        claims = claims_for(rows, [((1, 1), "The Anchorage")])
+        assert claims[(1, 1)] == "The Anchorage"
+        assert claims.get((22, 3)) is None
+
+    LONG_BODY = ["." * 24] + [".~~~~~~~~~~~~~~~~~~~~~~."] * 3 + ["." * 24]
+
+    def test_a_body_with_several_names_promotes_none_of_them(self):
+        # The bug this whole rule exists to fix, arriving by the back
+        # door: one cove sits on the middle of the bay, and without the
+        # sole-name test it inherits every reach the others fell short
+        # of — which is Back Cove and Casco Bay all over again.
+        claims = claims_for(self.LONG_BODY,
+                            [((1, 2), "Head Cove"), ((11, 2), "Mid Cove")])
+        assert claims[(11, 2)] == "Mid Cove"
+        assert claims.get((22, 2)) is None
+
+    def test_no_names_means_no_claims(self):
+        assert claims_for(self.TWO_COVES, []) == {}
+
+    def test_a_claim_never_leaves_the_water(self):
+        claims = claims_for(self.TWO_COVES, [((1, 1), "West Cove")])
+        assert all(cell != (4, 0) and cell != (5, 2) for cell in claims)
+
+
 class TestWaterAttachment:
     MASK = water_grid(["..~~~", "..~~~", "..~~~"])
 

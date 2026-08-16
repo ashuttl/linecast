@@ -748,22 +748,31 @@ def water_owners(coast, wet, waters, feats, graph_w, height_cells):
     of a lake and its rim answer identically: the fill has no ink of its
     own, so a water cell is filed against the shore that encloses it.
 
-    A body the tile never named still gets its own feature.  "Water" is
+    A component is not always one body, though, and on a coast it
+    almost never is: Casco Bay, Back Cove, the harbour and the Fore
+    River are one connected sheet of salt water, and filing all of it
+    under one name told a reader pointing at the harbour that they were
+    looking at Back Cove.  So the unit is the *named claim* — what
+    `water_claims` decided each cell is called — and a region is split
+    into as many features as it has names on it.  A body the tile never
+    named still gets its own feature, one region at a time: "water" is
     all it can say, but it can at least say it about one pond instead of
     about every pond on screen.
     """
     index, regions = _maps_labels.water_regions(wet)
     if not regions:
         return None, None
-    named = {}
-    for (col, row), name in waters.items():
-        region = index[row][col]
-        if region >= 0:
-            named.setdefault(region, name)
-    owner_of = []
-    for region in range(len(regions)):
-        owner_of.append(len(feats))
-        feats.append(("coast", named.get(region, "")))
+    owner_of, shore = {}, [[None] * graph_w for _ in range(height_cells)]
+    for row, line in enumerate(index):
+        for col, region in enumerate(line):
+            if region < 0:
+                continue
+            body = (region, waters.get((col, row), ""))
+            idx = owner_of.get(body)
+            if idx is None:
+                idx = owner_of[body] = len(feats)
+                feats.append(("coast", body[1]))
+            shore[row][col] = idx
 
     coast_owners = [[0] * graph_w for _ in range(height_cells)]
     for cy, mrow in enumerate(coast):
@@ -773,11 +782,9 @@ def water_owners(coast, wet, waters, feats, graph_w, height_cells):
             for dx, dy in _SHORE_LOOK:
                 c, r = cx + dx, cy + dy
                 if 0 <= c < graph_w and 0 <= r < height_cells \
-                        and index[r][c] >= 0:
-                    coast_owners[cy][cx] = owner_of[index[r][c]]
+                        and shore[r][c] is not None:
+                    coast_owners[cy][cx] = shore[r][c]
                     break
-    shore = [[owner_of[v] if v >= 0 else None for v in line]
-             for line in index]
     return coast_owners, shore
 
 

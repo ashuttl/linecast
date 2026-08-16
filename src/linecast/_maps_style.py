@@ -547,6 +547,30 @@ WATER_RANK = {"ocean": 0, "sea": 1, "bay": 2, "lake": 3}    # .get(cls, 4)
 WATER_BANDS = {"ocean": 0, "sea": 0, "bay": 1, "lake": 3}
 WATER_BAND_DEFAULT = 6
 
+# How far a water name reaches from its own point, as a multiple of the
+# half-width of the water it stands in.  The tile hands over one *point*
+# per body and no extent at all — measured over Casco Bay, every name
+# from Back Cove to Hussey Sound lands inside the single `ocean`
+# polygon, so the water itself cannot be asked which cove it is.  All
+# that is left is the shape on screen, and the one honest thing it says
+# is that a name describes water about as big as the water it was put
+# on: a name in a gut two cells wide is a gut, a name in the middle of
+# Sebago is a lake.
+#
+# Two, measured over Portland, Venice, Stockholm and San Francisco Bay.
+# At one the reach stops short of the far end of Back Cove; at four
+# Back Cove is back out under Tukey's Bridge and into the harbour it
+# drains into.  Two lands on the cove.
+WATER_CLAIM_REACH = 2
+
+# The most regions worth asking the vendored marine list about, biggest
+# first.  The list is 601 polygons and a point-in-polygon apiece, and a
+# view of a lake district can hold three hundred ponds — none of which
+# the list has ever heard of, all of which would pay the full scan.  The
+# sea a view opens into is one of its largest bodies or it is not on
+# screen.
+MARINE_BACKDROP_REGIONS = 4
+
 # Band windows for the area classes: deeper than this they are noise
 # and are not candidates at all.
 #
