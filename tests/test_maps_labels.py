@@ -90,10 +90,11 @@ def place_layer(x, y, props):
     return points("place", (x, y, props))
 
 
-def overlays(*layers, band=7, lang="en", reserved=(), tiles=None):
+def overlays(*layers, band=7, lang="en", reserved=(), tiles=None,
+             water=None):
     view = st.decode_view(tiles or {(0, 0, 0): tile(*layers)})
     return lb.label_overlays(view, WORLD, GW, HC, band,
-                             _maps_style.palette(), lang, reserved)
+                             _maps_style.palette(), lang, reserved, water)
 
 
 def text_at(ov, row):
@@ -181,8 +182,8 @@ class TestPlaceCandidates:
         assert "•Metropolis" in text_at(ov, HC // 2)
 
     def test_an_unlisted_class_is_dropped_never_guessed_at(self):
-        ov = overlays(place_layer(2048, 2048,
-                                  {"class": "island", "name": "Nowhere"}))
+        ov = overlays(place_layer(
+            2048, 2048, {"class": "isolated_dwelling", "name": "Nowhere"}))
         assert ov == {}
 
     def test_an_area_class_is_spaced_caps_with_no_anchor(self):
@@ -214,6 +215,70 @@ class TestPlaceCandidates:
                                   {"class": "city", "name": "Cologne",
                                    "name:de": "Köln"}), lang="de")
         assert "Köln" in text_at(ov, HC // 2)
+
+
+class TestIslandNames:
+    """The place layer carries islands as bare points, so an island name
+    is a place label with no settlement dot and no polygon to sit in —
+    the water mask stands in for the shape."""
+
+    def _island(self, name):
+        return place_layer(2048, 2048, {"class": "island", "name": name})
+
+    def test_an_island_is_titled_and_takes_no_settlement_dot(self):
+        # Spacing an area name doubles it, and an island name has to fit
+        # on the island: "GREAT DIAMOND ISLAND" wants 39 cells where the
+        # island is 24 wide.  Islands are the one area class in title
+        # case; the missing dot is what separates it from the village.
+        row = text_at(overlays(self._island("Peaks Island")), HC // 2)
+        assert row == "Peaks Island"
+        assert "•" not in row
+
+    def test_an_island_outranks_a_hamlet_for_a_shared_cell(self):
+        # Casco Bay offers "Great Diamond Island Landing" (a ferry wharf
+        # tagged place=hamlet) and "Great Diamond Island"; a reader
+        # working out where they are wants the island.
+        ov = overlays(points(
+            "place",
+            (2048, 2048, {"class": "hamlet", "name": "Landing"}),
+            (2100, 2048, {"class": "island", "name": "Great Diamond"})))
+        row = text_at(ov, HC // 2)
+        assert "Great Diamond" in row
+        assert "Landing" not in row
+
+    def test_a_village_still_outranks_the_island_it_sits_on(self):
+        ov = overlays(points(
+            "place",
+            (2048, 2048, {"class": "island", "name": "Great Diamond"}),
+            (2100, 2048, {"class": "village", "name": "Islesboro"})))
+        row = text_at(ov, HC // 2)
+        assert "Islesboro" in row
+        assert "Great Diamond" not in row
+
+    def test_a_name_wider_than_its_island_is_dropped(self):
+        # The park rule by another route: a name that overruns the land
+        # is a label for the sea.  Three cells of land at the label
+        # point cannot hold a nine-character name.
+        rows = [[True] * GW for _ in range(HC)]
+        for col in range(19, 22):
+            rows[HC // 2][col] = False
+        assert overlays(self._island("Monhegan"), water=rows) == {}
+
+    def test_an_island_that_fits_its_land_is_kept(self):
+        rows = [[True] * GW for _ in range(HC)]
+        for col in range(10, 30):
+            rows[HC // 2][col] = False
+        ov = overlays(self._island("Monhegan"), water=rows)
+        assert text_at(ov, HC // 2) == "Monhegan"
+
+    def test_an_island_too_small_to_hold_a_cell_of_land_is_dropped(self):
+        # Catnip Island is a rock in Casco Bay: named in the tile, and
+        # not one whole cell of land at this scale.
+        rows = [[True] * GW for _ in range(HC)]
+        assert overlays(self._island("Catnip"), water=rows) == {}
+
+    def test_without_a_water_mask_the_island_is_placed_unguarded(self):
+        assert overlays(self._island("Monhegan")) != {}
 
 
 class TestPlaceSourceSwitch:

@@ -403,10 +403,13 @@ def test_class_rank_orders_places_and_omits_the_rest():
     assert ranks["country"] < ranks["state"] < ranks["city"]
     assert ranks["city"] < ranks["town"] < ranks["village"] < ranks["hamlet"]
     assert ranks["suburb"] == ranks["neighbourhood"]
+    # A landform orients you and fifty houses do not, so an island beats
+    # a hamlet — but a village still beats the island.
+    assert ranks["village"] < ranks["island"] < ranks["hamlet"]
     # An unlisted class has no rank at all — the caller drops it rather
     # than guessing a default.
     assert ranks.get("isolated_dwelling") is None
-    assert ranks.get("island") is None
+    assert ranks.get("islet") is None
 
 
 def test_water_rank():

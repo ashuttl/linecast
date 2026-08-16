@@ -426,6 +426,13 @@ LABEL_STYLES = {
     "state":        ("lbl_area", "spaced", True),
     "country":      ("lbl_area", "spaced", True),
     "park":         ("lbl_area", "spaced", False),
+    # The one area name that is not spaced.  Spacing doubles a name, and
+    # an island label has to fit *on the island*: over Casco Bay,
+    # "GREAT DIAMOND ISLAND" wants 39 cells across an island 24 cells
+    # wide, so spacing it is the same as deleting it.  Title case in the
+    # area ink, and no settlement dot, is what separates it from the
+    # village of the same name sitting on it.
+    "island":       ("lbl_area", "title", False),
     "water":        ("lbl_water", "spaced", False),
     "road":         ("lbl_road", "title", False),
     "road_minor":   ("lbl_road_minor", "title", False),
@@ -435,8 +442,16 @@ LABEL_STYLES = {
 
 # An unlisted place class is dropped, never guessed at — rendering
 # classes nobody chose is how noise gets in.
+#
+# An island slots in above the hamlet, and that is the one judgement
+# call in the table.  Over Casco Bay the tile offers "Great Diamond
+# Island Landing" (a ferry wharf tagged place=hamlet) and "Great Diamond
+# Island"; a reader working out where they are wants the island.  A
+# landform orients you, fifty houses do not — but a village still beats
+# both, because a village is where the people are.
 CLASS_RANK = {"country": -2, "state": -1, "city": 0, "town": 1,
-              "village": 2, "suburb": 3, "neighbourhood": 3, "hamlet": 4}
+              "village": 2, "island": 3, "suburb": 3, "neighbourhood": 3,
+              "hamlet": 4}
 WATER_RANK = {"ocean": 0, "sea": 1, "bay": 2, "lake": 3}    # .get(cls, 4)
 
 # OpenMapTiles' water_name generalisation is *inverted* for small
@@ -451,6 +466,13 @@ WATER_BAND_DEFAULT = 6
 
 # Band windows for the area classes: deeper than this they are noise
 # and are not candidates at all.
+#
+# Islands get no window, and that is measured rather than lazy: unlike
+# water_name, the place layer's island generalisation runs the right way
+# round.  Sampled over the Aegean, the Stockholm archipelago, Casco Bay
+# and open ocean, nothing at all arrives above band 1, band 2 brings the
+# named big ones (Vinalhaven, Νάξος) and the small stuff waits for band
+# 3.  A hand-written gate here would only be a worse copy of that.
 CLASS_BANDS = {"country": (0, 2), "state": (1, 3),
                "suburb": (5, 7), "neighbourhood": (5, 7)}
 

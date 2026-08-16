@@ -196,6 +196,40 @@ def _attach(cell, index, regions, graph_w, height_cells):
     return area, (cell if inside else anchor), span
 
 
+def _land_run(water, cell):
+    """Cells of unbroken land across `cell`'s row, through `cell`.
+
+    An island's label point is the only geometry the tile gives it — the
+    place layer carries islands as bare points, never polygons — so the
+    shape has to be read back off the water mask.  This is the park
+    rule's `span` by another route, and it is what stops "Great
+    Chebeague Island" being written across four miles of open water at a
+    band where the island itself is three cells across.
+
+    A point that lands on water scores 0 and the name is dropped: an
+    island too small to hold a whole cell of land is too small to hold
+    its own name.
+
+    This is the one label measurement taken off the screen rather than
+    off the feature, so it is the one that can change under a pan: an
+    island half out of the frame measures short.  It is not a hole in
+    the determinism rule so much as the same answer twice — a name
+    centred on a half-visible island runs off the edge, and occupancy
+    would have dropped it anyway.
+    """
+    col, row = cell
+    if not (0 <= row < len(water) and 0 <= col < len(water[row])):
+        return 0
+    if water[row][col]:
+        return 0
+    lo = hi = col
+    while lo > 0 and not water[row][lo - 1]:
+        lo -= 1
+    while hi < len(water[row]) - 1 and not water[row][hi + 1]:
+        hi += 1
+    return hi - lo + 1
+
+
 def _centroid(parts):
     """Mean of a feature's dot-space vertices, as a cell coordinate."""
     xs = [p[0] for part in parts for p in part]
@@ -622,7 +656,14 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
         ink, case, bold = _style_for(kind, palette)
         settlement = cls in ("city", "town", "village", "hamlet")
         anchor = (style.GLYPH_GENERIC, ink, bold) if settlement else None
-        if _place_point(overlays, occ, cell, _cased(name, case), ink, bold,
+        text = _cased(name, case)
+        # An island name belongs on the island, the same way a park name
+        # belongs inside the park — but the tile hands islands over as
+        # bare points, so the width has to come off the water mask.
+        if (cls == "island" and water_mask is not None
+                and _land_run(water_mask, cell) < visible_len(text)):
+            continue
+        if _place_point(overlays, occ, cell, text, ink, bold,
                         anchor):
             budget -= 1
             placed += 1
