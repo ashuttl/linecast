@@ -350,6 +350,50 @@ def road_style(props):
     return key
 
 
+# Which classes cast the shadow a path is suppressed inside, and how
+# wide that shadow is.  A sidewalk is not a route the reader chooses —
+# it is a property of the road beside it, and the road is already drawn.
+# OpenMapTiles has no tag for it (measured over midtown Manhattan: the
+# `transportation` layer carries class=path with subclass footway,
+# pedestrian, steps and the rest, and nothing anywhere says "sidewalk"),
+# so the only thing that separates a sidewalk from a park trail is where
+# it runs — and that is the honest test anyway.  A path is dropped where
+# it runs inside a road's shadow and drawn where it does not, which is
+# the rule stated plainly: draw a path where it goes somewhere the road
+# net does not.
+#
+# The width is the larger of two floors.  Twelve metres is a sidewalk's
+# own offset — half a residential street plus the verge, and about where
+# a Manhattan avenue's kerb line sits — so at deep zoom, where two
+# metres to the dot makes a sidewalk a genuinely separate line, it is
+# still recognised as belonging to its road.  Two dots is what the
+# *screen* can separate: at any wider view a sidewalk lands on its road
+# or a dot off it, twelve metres is less than a dot, and a metric floor
+# alone would hide nothing.  Whichever is bigger wins, so the rule holds
+# from a neighbourhood down to a single block.
+#
+# The cap is a guard, not a working value: at the deepest zoom the map
+# offers, the metric arm lands just under it.
+SHADOW_CASTING = frozenset({
+    "motorway", "trunk", "primary", "secondary", "ramp", "minor", "service",
+})
+SHADOWED = frozenset({"path"})
+PATH_SHADOW_METRES = 12.0
+PATH_SHADOW_MIN_DOTS = 2
+PATH_SHADOW_MAX_DOTS = 16
+_METRES_PER_DEGREE = 111_320.0
+
+
+def path_shadow_dots(bbox, dh):
+    """Radius, in dots, of the road shadow a path is suppressed inside."""
+    if dh <= 0:
+        return PATH_SHADOW_MIN_DOTS
+    per_dot = (bbox[3] - bbox[1]) * _METRES_PER_DEGREE / dh
+    metric = PATH_SHADOW_METRES / per_dot if per_dot > 0 else 0
+    return max(PATH_SHADOW_MIN_DOTS,
+               min(PATH_SHADOW_MAX_DOTS, int(round(metric))))
+
+
 def boundary_style(props):
     """`boundary` feature -> LINE_STYLES key, or None if dropped.
 

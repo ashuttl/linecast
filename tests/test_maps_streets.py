@@ -463,6 +463,87 @@ class TestCentrelineSuppression:
         assert self.GW // 4 in bare
 
 
+class TestRoadShadow:
+    """The dilation behind the sidewalk rule: the ground close enough to
+    a road that a path running on it is that road drawn twice."""
+
+    def test_a_lone_dot_shadows_a_square_around_it(self):
+        mask = dot_mask(["." * 9] * 4 + ["....~...."] + ["." * 9] * 4)
+        out = as_text(st.road_shadow(mask, 2))
+        assert out[2] == out[6] == "..~~~~~.."
+        assert out[1] == out[7] == "." * 9
+        assert set("".join(out)) == {".", "~"}
+
+    def test_bare_ground_shadows_nothing(self):
+        mask = dot_mask(["." * 9] * 9)
+        assert not any(any(row) for row in st.road_shadow(mask, 2))
+
+    def test_a_zero_radius_shadows_only_the_road_itself(self):
+        mask = dot_mask(["." * 9] * 4 + ["....~...."] + ["." * 9] * 4)
+        assert as_text(st.road_shadow(mask, 0)) == as_text(mask)
+
+    def test_a_road_off_the_view_casts_no_shadow_on_it(self):
+        # Unlike the water erosion, nothing is assumed past the edge: an
+        # off-screen road's own ink is clipped there too, and honouring
+        # it would drop a path in favour of a road nobody can see.
+        mask = dot_mask(["." * 9] * 9)
+        assert not any(any(row) for row in st.road_shadow(mask, 4))
+
+
+class TestSidewalkSuppression:
+    """A sidewalk is a property of the road beside it, and no tag in the
+    tile says so — where it runs is the only evidence there is."""
+
+    GW, HC = 16, 4
+    COL = EXTENT // 32                  # tile units per dot column
+
+    def _paths(self, *offsets):
+        """Cell columns keeping path ink, for paths `offsets` dots east
+        of a road up the middle of the view."""
+        def down(x):
+            return polyline((x, -EXTENT), (x, 2 * EXTENT))
+
+        mid = EXTENT // 2
+        feats_in = [line_feature(down(mid), tags=(0, 0))]
+        feats_in += [line_feature(down(mid + d * self.COL), tags=(0, 1))
+                     for d in offsets]
+        view = st.decode_view({Z0: tile(layer(
+            "transportation", feats_in, keys=("class",),
+            values=(vstr("minor"), vstr("path"))))})
+        layer_ = DotLayer(WORLD, self.GW, self.HC)
+        feats = st.draw_lines(layer_, view, WORLD, self.GW, self.HC, 7,
+                              _maps_style.palette(), "en", [], None)
+        return {col
+                for row in layer_.owner
+                for col, idx in enumerate(row)
+                if idx is not None and feats[idx][0] == "path"}
+
+    def test_a_sidewalk_beside_its_road_is_not_drawn_twice(self):
+        assert self._paths(1) == set()
+
+    def test_a_crossing_over_the_road_goes_with_it(self):
+        assert self._paths(0) == set()
+
+    def test_a_path_clear_of_the_road_net_is_kept(self):
+        # Six dots east is three cells: a trail through a park, not a
+        # kerb line, at any radius the view can ask for.
+        assert self._paths(6) == {(self.GW // 2) + 3}
+
+    def test_one_view_can_hold_both(self):
+        assert self._paths(1, 6) == {(self.GW // 2) + 3}
+
+    def test_a_path_alone_needs_no_road_to_earn_its_ink(self):
+        mid = EXTENT // 2
+        view = st.decode_view({Z0: tile(tagged_line(
+            "transportation", polyline((mid, -EXTENT), (mid, 2 * EXTENT)),
+            {"class": "path"}))})
+        layer_ = DotLayer(WORLD, self.GW, self.HC)
+        feats = st.draw_lines(layer_, view, WORLD, self.GW, self.HC, 7,
+                              _maps_style.palette(), "en", [], None)
+        assert any(idx is not None and feats[idx][0] == "path"
+                   for row in layer_.owner for idx in row)
+
+
 # ---------------------------------------------------------------------------
 # Pure helpers
 # ---------------------------------------------------------------------------

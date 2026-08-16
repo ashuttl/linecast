@@ -409,8 +409,55 @@ def open_water(water, radius=None):
     return out
 
 
+def road_shadow(roads, radius):
+    """Dots within `radius` of a road dot, Chebyshev.
+
+    The ground a path is not drawn on.  `open_water` erodes a mask to
+    find the water that can speak for itself; this dilates one to find
+    the road that has already spoken for what lies beside it.
+
+    Separable, like the erosion: a horizontal sweep then a vertical one
+    over its result gives the square neighbourhood in two linear passes,
+    which matters because the radius grows with the zoom and a naive
+    box would be counting the same dots fifteen deep at street level.
+
+    Unlike the erosion, nothing is assumed beyond the view: a road just
+    off screen casts no shadow on screen.  It cannot — its own ink is
+    clipped at the same edge, so honouring it would suppress a path in
+    favour of a road the reader cannot see.
+    """
+    dh = len(roads)
+    dw = len(roads[0]) if dh else 0
+    wide = [bytearray(dw) for _ in range(dh)]
+    for y in range(dh):
+        src, dst = roads[y], wide[y]
+        run = radius + 1                    # distance since the last road dot
+        for x in range(dw):
+            run = 0 if src[x] else run + 1
+            if run <= radius:
+                dst[x] = 1
+        run = radius + 1
+        for x in range(dw - 1, -1, -1):
+            run = 0 if src[x] else run + 1
+            if run <= radius:
+                dst[x] = 1
+    out = [bytearray(row) for row in wide]
+    for x in range(dw):
+        run = radius + 1
+        for y in range(dh):
+            run = 0 if wide[y][x] else run + 1
+            if run <= radius:
+                out[y][x] = 1
+        run = radius + 1
+        for y in range(dh - 1, -1, -1):
+            run = 0 if wide[y][x] else run + 1
+            if run <= radius:
+                out[y][x] = 1
+    return out
+
+
 def stroke_polyline(layer, pts, color, rank, weight=1, dash=None,
-                    tick_every=0, owner=None, hide=None):
+                    tick_every=0, owner=None, hide=None, mark=None):
     """Walk one projected polyline into a ranked DotLayer.
 
     `pts` are dot-space floats.  Vertices that round onto the dot the
@@ -436,6 +483,13 @@ def stroke_polyline(layer, pts, color, rank, weight=1, dash=None,
     inside water already wide enough to draw itself.  The dash counter
     runs on through hidden dots, so a suppressed reach costs the pattern
     its phase no more than an off-screen one does.
+
+    `mark` is the mirror: a dot mask the stroke records itself into, for
+    a later stroke to be hidden by.  It is written for every dot the
+    walker stands on, dashes and hidden reaches included, because it
+    records where the *line* runs and not which of its dots got ink — a
+    tunnelled road under a park is still a road the path beside it
+    belongs to.
     """
     dots = []
     for x, y in pts:
@@ -464,8 +518,13 @@ def stroke_polyline(layer, pts, color, rank, weight=1, dash=None,
         if k and (cx0, cy0) == (x0, y0):
             next(walk)                      # the previous segment's end
         for px, py in walk:
-            if (hide is not None and 0 <= py < layer.dh and 0 <= px < layer.dw
-                    and hide[py][px]):
+            on_grid = 0 <= py < layer.dh and 0 <= px < layer.dw
+            if mark is not None and on_grid:
+                mark[py][px] = 1
+                if weight >= 2 and 0 <= py + oy < layer.dh \
+                        and 0 <= px + ox < layer.dw:
+                    mark[py + oy][px + ox] = 1
+            if hide is not None and on_grid and hide[py][px]:
                 i += 1
                 continue
             if not period or (i % period) < dash[0]:
@@ -541,11 +600,20 @@ def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
     centreline is suppressed wherever the polygon around it is wide
     enough to draw itself — see `open_water`.  The eroded mask is derived
     on the first waterway feature, because most views have none.
+
+    Paths are the one class that cannot be walked in stride, because
+    whether a path is drawn depends on where the roads went.  They are
+    collected on the way past — owning their feats entries in the order
+    they arrive, so nothing downstream can tell — and walked at the end
+    against the finished road shadow.  The rank contest makes the delay
+    free: a stroke's class decides the cells it keeps, never its turn.
     """
     feats = [] if feats is None else feats
     by_name = {(k, n): i for i, (k, n) in enumerate(feats) if n}
     dw, dh = graph_w * 2, height_cells * 4
     hide = None
+    roads = [bytearray(dw) for _ in range(dh)]
+    deferred = []
     for (z, tx, ty), decoded in view:
         for name in LINE_LAYERS:
             src = decoded.get(name)
@@ -579,16 +647,26 @@ def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
                     if owner is None:
                         owner = by_name[(key, label)] = len(feats)
                         feats.append((key, label))
+                casts = roads if key in style.SHADOW_CASTING else None
                 for part in feat["geometry"]:
                     if label:
                         part_owner = owner
                     else:
                         part_owner = len(feats)
                         feats.append((key, ""))
+                    pts = [project(x, y) for x, y in part]
+                    if key in style.SHADOWED:
+                        deferred.append(
+                            (pts, color, rank, weight, dash, part_owner))
+                        continue
                     stroke_polyline(
-                        layer, [project(x, y) for x, y in part],
-                        color, rank, weight, dash, ticks, part_owner,
-                        masked)
+                        layer, pts, color, rank, weight, dash, ticks,
+                        part_owner, masked, casts)
+    if deferred:
+        shadow = road_shadow(roads, style.path_shadow_dots(bbox, dh))
+        for pts, color, rank, weight, dash, part_owner in deferred:
+            stroke_polyline(layer, pts, color, rank, weight, dash, 0,
+                            part_owner, shadow)
     return feats
 
 

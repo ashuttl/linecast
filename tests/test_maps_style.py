@@ -351,6 +351,46 @@ def test_road_adapter_drops_what_the_spec_drops():
     assert ms.road_style({}) is None
 
 
+def _bbox(span_deg):
+    return (-0.1, 0.0, 0.1, span_deg)
+
+
+def test_path_shadow_is_a_sidewalk_wide_where_the_screen_can_tell():
+    # 0.0015 degrees over 168 dot rows is about a metre to the dot, so
+    # the metric arm rules and a sidewalk's own offset is what it takes.
+    assert ms.path_shadow_dots(_bbox(0.0015), 168) == 12
+
+
+def test_path_shadow_falls_back_on_what_the_screen_can_separate():
+    # A neighbourhood view puts twelve metres inside a single dot; a
+    # purely metric radius would round to nothing and hide no sidewalk
+    # at the zooms where the doubled line is worst.
+    assert ms.path_shadow_dots(_bbox(0.05), 168) == ms.PATH_SHADOW_MIN_DOTS
+    assert ms.path_shadow_dots(_bbox(4.0), 168) == ms.PATH_SHADOW_MIN_DOTS
+
+
+def test_path_shadow_is_capped_and_never_degenerate():
+    assert ms.path_shadow_dots(_bbox(1e-9), 168) == ms.PATH_SHADOW_MAX_DOTS
+    assert ms.path_shadow_dots(_bbox(0.05), 0) == ms.PATH_SHADOW_MIN_DOTS
+    assert ms.path_shadow_dots(_bbox(0.0), 168) == ms.PATH_SHADOW_MIN_DOTS
+
+
+def test_path_shadow_grows_as_the_view_deepens():
+    radii = [ms.path_shadow_dots(_bbox(s), 168)
+             for s in (0.05, 0.02, 0.006, 0.0015)]
+    assert radii == sorted(radii)
+
+
+def test_only_roads_cast_a_shadow():
+    # A path beside a railway or a river is not a sidewalk.
+    assert ms.SHADOW_CASTING <= set(ms.LINE_STYLES)
+    assert ms.SHADOWED <= set(ms.LINE_STYLES)
+    assert not ms.SHADOW_CASTING & ms.SHADOWED
+    for key in ("rail", "transit", "ferry", "coast", "route",
+                "waterway_major", "aeroway_runway", "border_country"):
+        assert key not in ms.SHADOW_CASTING
+
+
 def test_boundary_adapter():
     assert ms.boundary_style({"admin_level": 2}) == "border_country"
     assert ms.boundary_style({"admin_level": 1}) == "border_country"
