@@ -295,6 +295,61 @@ class TestCoast:
 
 
 # ---------------------------------------------------------------------------
+# Terrain mode's half: inland water only
+# ---------------------------------------------------------------------------
+class TestInlandWater:
+    """What terrain mode takes from the tiles.  Not the ocean: below sea
+    level is bathymetry's job there, and the low-zoom ocean polygon is
+    generalised past the coastline the elevation data draws."""
+
+    def _mask(self, cls):
+        view = st.decode_view({Z0: tile(classed("water", LEFT_HALF, cls))})
+        return st.inland_water_mask(view, WORLD, GW, HC)
+
+    def test_a_lake_fills_the_left_half(self):
+        assert all(list(row) == [1, 1, 1, 1, 0, 0, 0, 0]
+                   for row in self._mask("lake"))
+
+    def test_the_ocean_is_not_inland_water(self):
+        assert not any(any(row) for row in self._mask("ocean"))
+
+    def test_a_swimming_pool_is_not_a_lake_either(self):
+        assert not any(any(row) for row in self._mask("swimming_pool"))
+
+    def test_a_river_polygon_counts(self):
+        # a riverbank wide enough to be a polygon is water like any other
+        assert any(any(row) for row in self._mask("river"))
+
+
+class TestWaterLines:
+    """Rivers, which have no polygon until they are wide enough to have
+    one — terrain's band gates, not street's."""
+
+    def _lit(self, cls, band, color=(1, 2, 3)):
+        line = polyline((0, EXTENT // 2), (EXTENT, EXTENT // 2))
+        view = st.decode_view({Z0: tile(tagged_line("waterway", line,
+                                                    {"class": cls}))})
+        layer_ = st.water_lines(view, WORLD, GW, HC, band, color)
+        lit = sum(bin(m).count("1") for row in layer_.dots for m in row)
+        return lit, layer_
+
+    def test_a_river_is_drawn_from_band_one(self):
+        assert self._lit("river", 0)[0] == 0    # B0: a river is a scratch
+        assert self._lit("river", 1)[0] > 0
+
+    def test_a_stream_waits_for_the_deep_bands(self):
+        assert self._lit("stream", 5)[0] == 0
+        assert self._lit("stream", 6)[0] > 0
+
+    def test_the_stroke_carries_the_ink_it_was_given(self):
+        _lit, layer_ = self._lit("river", 4, color=(9, 8, 7))
+        assert (9, 8, 7) in [c for row in layer_.color for c in row if c]
+
+    def test_a_ferry_is_not_a_river(self):
+        assert self._lit("ferry", 7)[0] == 0
+
+
+# ---------------------------------------------------------------------------
 # Pure helpers
 # ---------------------------------------------------------------------------
 class TestFillColors:

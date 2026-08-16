@@ -37,7 +37,7 @@ Like the rest of linecast, radar speaks all 17 languages — here looping the fo
 
 `--view street` (the default) is a real street map from OpenFreeMap's vector tiles: water, parks, the urban tint and building footprints as solid fills, the whole road ladder from motorway down to footpath as braille strokes, plus place names, route shields, and ten POI marks. It opens on your neighbourhood and goes down to about two metres per braille dot. Hierarchy is carried by a luminance ladder and stroke weight alone — no casings, no shadows, one warm accent for the motorway — and a label that will not fit cleanly is dropped rather than shrunk.
 
-`--view street` is a real street map from OpenFreeMap's vector tiles: water, parks, the urban tint and building footprints as solid fills, the whole road ladder from motorway down to footpath as braille strokes, plus place names, route shields, and ten POI marks. It goes down to about two metres per braille dot. Hierarchy is carried by a luminance ladder and stroke weight alone — no casings, no shadows, one warm accent for the motorway — and a label that will not fit cleanly is dropped rather than shrunk.
+`--view terrain` is hillshaded elevation from the AWS/Mapzen terrain tiles (SRTM, GMTED, ETOPO1) painted as a hypsometric ramp — lowland green through alpine white above sea level, deepening bathymetric blues below it — with the coastlines, borders, and city labels rendered in braille over the fill. Lakes and rivers are the one thing elevation cannot tell you (a terrain sample over a lake is just the height of its surface), so the inland water comes from the same vector tiles and joins the shoreline the elevation already draws. It opens on a region, where relief reads.
 
 Drag to pan, the wheel zooms at the pointer, `v` switches view, `/` searches, `d` gives directions, `?` lists the keys. Terrain reads the elevation under the pointer.
 
@@ -207,7 +207,7 @@ Alert text comes from each national weather service in its native language. When
 - **Tides** — NOAA CO-OPS (US), Canadian Hydrographic Service, Queensland Open Data (AU), and TideCheck
 - **Sunshine** — computed locally from NOAA's solar position equations (no API)
 - **Radar** — global radar, forecast frames and colour themes by [LibreWXR](https://librewxr.net) (data CC BY 4.0; aggregates NOAA MRMS, Environment Canada, EUMETNET OPERA, JMA, CWA, MET Malaysia and ECMWF-based model precipitation; set `LINECAST_LIBREWXR_URL` to use a self-hosted instance); fallbacks: NEXRAD via Iowa State University's Iowa Environmental Mesonet (US) and [RainViewer](https://www.rainviewer.com/); NWS storm-based warning polygons via IEM; basemap geography from Natural Earth
-- **Maps** — terrain from the AWS/Mapzen terrain tiles (SRTM, GMTED, ETOPO1); street tiles from [OpenFreeMap](https://openfreemap.org/) (© OpenMapTiles © OpenStreetMap contributors); place search from Photon and Nominatim; directions from the FOSSGIS OSRM instances (© OpenStreetMap contributors)
+- **Maps** — terrain from the AWS/Mapzen terrain tiles (SRTM, GMTED, ETOPO1); street tiles — and terrain's lakes and rivers — from [OpenFreeMap](https://openfreemap.org/) (© OpenMapTiles © OpenStreetMap contributors); place search from Photon and Nominatim; directions from the FOSSGIS OSRM instances (© OpenStreetMap contributors)
 
 ## License
 

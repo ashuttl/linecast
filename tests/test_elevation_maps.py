@@ -19,8 +19,9 @@ from linecast._color import BG_PRIMARY
 from linecast._elevation import decode_meters, elevation_grid
 from linecast._radar_basemap import BORDER, COAST
 from linecast.maps import (
-    BATHY_STOPS, COAST_STROKE, HYPSO_STOPS, BORDER_STROKE, _coast_dots,
-    _edge_dots, build_terrain_buffer, compose_terrain,
+    BATHY_STOPS, COAST_STROKE, HYPSO_STOPS, BORDER_STROKE, LAKE_FILL,
+    _coast_dots, _edge_dots, _water_subpixels, build_terrain_buffer,
+    compose_terrain,
 )
 
 _SIG = b"\x89PNG\r\n\x1a\n"
@@ -105,6 +106,54 @@ class TestTerrainBuffer:
         assert buf[0][0] == BG_PRIMARY
 
 
+class TestInlandWater:
+    """Lakes and rivers, which elevation alone cannot see: a terrarium
+    sample over a lake is the height of the lake's surface, so the
+    hypsometric ramp paints it as the meadow next door."""
+
+    BBOX = (-71.5, 42.0, -70.5, 42.6)
+
+    def _lake_on_the_right(self, meters):
+        elev = [[meters] * 2 for _ in range(2)]
+        water = [[False, True] for _ in range(2)]
+        return (build_terrain_buffer(elev, self.BBOX, 2, 2),
+                build_terrain_buffer(elev, self.BBOX, 2, 2, water))
+
+    @staticmethod
+    def _is_lake_tint(rgb):
+        # the shade multiplier only ever dims the tint, and barely
+        return all(int(c * 0.92) <= v <= c for c, v in zip(LAKE_FILL, rgb))
+
+    def test_a_lake_on_a_hillside_takes_the_lake_tint(self):
+        dry, wet = self._lake_on_the_right(500.0)
+        assert wet[0][0] == dry[0][0]          # the land is untouched
+        assert self._is_lake_tint(wet[0][1])
+        assert not self._is_lake_tint(dry[0][1])
+
+    def test_a_lake_below_sea_level_is_a_lake_and_not_the_sea(self):
+        # the Dead Sea is not four hundred metres of open ocean
+        dry, wet = self._lake_on_the_right(-400.0)
+        assert self._is_lake_tint(wet[0][1])
+        assert dry[0][1][2] > dry[0][1][0]     # the bathy ramp is blue
+        assert not self._is_lake_tint(dry[0][1])
+
+    def test_known_water_over_unknown_ground_still_reads_as_water(self):
+        elev = [[None] * 2 for _ in range(2)]
+        water = [[False, True] for _ in range(2)]
+        buf = build_terrain_buffer(elev, self.BBOX, 2, 2, water)
+        assert buf[0][0] == BG_PRIMARY
+        assert buf[0][1] == LAKE_FILL
+
+    def test_a_sub_pixel_needs_half_its_dots(self):
+        # one cell: 2x4 dots -> 1x2 sub-pixels, each spanning 2x2 dots
+        one = [bytearray((1, 0)), bytearray((0, 0)),
+               bytearray((0, 0)), bytearray((0, 0))]
+        two = [bytearray((1, 1)), bytearray((0, 0)),
+               bytearray((0, 0)), bytearray((0, 0))]
+        assert _water_subpixels(one, 1, 1) == [[False], [False]]
+        assert _water_subpixels(two, 1, 1) == [[True], [False]]
+
+
 class TestCoastDots:
     def test_vertical_shoreline(self):
         # 1 cell: fine grid 2 wide x 4 tall, west column water, east land —
@@ -121,6 +170,21 @@ class TestCoastDots:
         # a None neighbor (missing tile) must not fake a coastline
         fine = [[None, 10.0] for _ in range(4)]
         assert _coast_dots(fine, 1, 1) == [[0]]
+
+    def test_a_lake_shore_is_stroked_exactly_like_a_sea_shore(self):
+        # the same cell, once as sea and once as a lake the elevation
+        # data cannot see: one union, one boundary, one rule
+        sea = _coast_dots([[-5.0, 10.0] for _ in range(4)], 1, 1)
+        lake = _coast_dots([[80.0, 80.0] for _ in range(4)], 1, 1,
+                           water=[bytearray((1, 0)) for _ in range(4)])
+        assert lake == sea
+
+    def test_tile_water_over_land_is_water_and_not_both(self):
+        # a dot in both masks would be stroked from its own side; the
+        # union rule means the tile wins and nothing self-strokes
+        water = [bytearray((1, 1)) for _ in range(4)]
+        assert _coast_dots([[80.0, 80.0] for _ in range(4)], 1, 1,
+                           water=water) == [[0]]
 
 
 class TestEdgeDots:

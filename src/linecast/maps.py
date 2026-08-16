@@ -1,23 +1,31 @@
 #!/usr/bin/env python3
-"""Maps — terrain and bathymetry rendered in the terminal.
+"""Maps — a street map and a terrain map in the terminal.
 
-Elevation from the AWS/Mapzen terrain tiles is painted as a half-block
-colour fill: a hypsometric ramp (lowland green through alpine white) shaded
-by a north-west sun above sea level, a bathymetric blue ramp below it.
-Geography keeps the radar view's braille identity — the coastline is the
-sea-level contour of the elevation data itself (so it always matches the
-fill), borders are Natural Earth braille strokes, cities are labelled
-dots.  Drag to pan, +/- to zoom, and hover to read the elevation under
-the pointer.
+`--view street` (the default) is in _maps_streets and friends: vector
+tiles rasterised into fills, braille strokes and labels.
 
-Usage: maps [--location LAT,LNG | PLACE] [--zoom DEG] [--print]
-            [--search CITY]
+`--view terrain` lives here.  Elevation from the AWS/Mapzen terrain
+tiles is painted as a half-block colour fill: a hypsometric ramp
+(lowland green through alpine white) shaded by a north-west sun above
+sea level, a bathymetric blue ramp below it.  Lakes and rivers are the
+one thing elevation cannot tell you — a terrarium sample over a lake is
+just the height of its surface — so the inland water comes from the
+street tiles and joins the shoreline the elevation already draws.
+Geography keeps the radar view's braille identity: the coastline is the
+sea-level contour of the elevation data itself (so it always matches
+the fill), borders are Natural Earth braille strokes, cities are
+labelled dots.  Drag to pan, +/- to zoom, and hover to read the
+elevation under the pointer.
+
+Usage: maps [--location LAT,LNG | PLACE] [--zoom DEG] [--view MODE]
+            [--print] [--search CITY]
 """
 
 import math
 import os
 import sys
 import threading
+from collections import namedtuple
 
 from linecast import _maps_route, _maps_streets, _maps_style, _maps_ui
 from linecast._color import (
@@ -37,7 +45,7 @@ from linecast._radar_basemap import (
 from linecast._theme import lerp_rgb
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for
-from linecast._runtime import RuntimeConfig, maps_parser
+from linecast._runtime import RuntimeConfig, debug_log, maps_parser
 from linecast.radar import (
     CROSSHAIR, DIM, MARKER, MUTED,
     _ShiftedBasemap, _get_basemap, _panned_place, _shift_grid,
@@ -56,6 +64,14 @@ COAST_STROKE = (22, 32, 52)
 BORDER_STROKE = (52, 48, 66)
 LABEL_DARK = (28, 32, 44)
 LABEL_LIGHT = (232, 232, 240)
+
+# Inland water: lakes and rivers are *not* on the bathymetric ramp.  A
+# terrarium sample reports the elevation of the water's surface, so a
+# lake is indistinguishable from the meadow beside it — the polygons
+# come from the same vector tiles street mode uses, and the ramps never
+# have to guess.  One flat tint, because a lake surface is flat.
+LAKE_FILL = (74, 118, 156)
+RIVER_STROKE = (108, 152, 190)
 
 # hypsometric tint above sea level (meters)
 HYPSO_STOPS = [
@@ -112,22 +128,78 @@ def _view_key(bbox, gw, hc):
     return (tuple(round(v, nd) for v in bbox), gw, hc)
 
 
-def _coast_dots(fine, gw, hc):
-    """Braille masks stroking the sea-level contour of the elevation data.
+def _coast_dots(fine, gw, hc, water=None):
+    """Braille masks stroking the shoreline of the elevation data.
 
     The coastline is *derived from the fill*: land is a sample above sea
     level, water is a sample at or below it, and a missing sample (None)
     is neither, so a hole in the elevation data never fakes a shoreline
     from either side.
+
+    `water` is the tiles' inland mask at the same dot resolution, and it
+    joins the same two masks rather than getting a stroke pass of its
+    own — one union, one boundary, so a lake shore is drawn by exactly
+    the rule that draws a sea shore and the two can never disagree where
+    a river meets the sea.
     """
-    is_land = [[v is not None and v > 0 for v in row] for row in fine]
-    is_water = [[v is not None and v <= 0 for v in row] for row in fine]
+    is_land, is_water = [], []
+    for dy, row in enumerate(fine):
+        wet = water[dy] if water is not None else None
+        is_land.append([v is not None and v > 0 and not (wet and wet[dx])
+                        for dx, v in enumerate(row)])
+        is_water.append([(v is not None and v <= 0) or bool(wet and wet[dx])
+                         for dx, v in enumerate(row)])
     return _edge_dots(is_land, is_water, gw, hc)
 
 
+def _water_subpixels(water, gw, hc):
+    """The dot-resolution inland mask reduced to the fill's sub-pixels.
+
+    A sub-pixel spans 2x2 dots and counts as water on the same >=2-of-4
+    rule street mode's fills use, so a pond too small to hold a
+    half-block does not tint one.
+    """
+    out = []
+    for spy in range(hc * 2):
+        top, bot = water[spy * 2], water[spy * 2 + 1]
+        out.append([top[x * 2] + top[x * 2 + 1]
+                    + bot[x * 2] + bot[x * 2 + 1] >= 2 for x in range(gw)])
+    return out
+
+
+def _tile_water(bbox, gw, hc):
+    """(inland water dot mask, river layer) for the view, or (None, None).
+
+    Terrain mode's one network dependency beyond the elevation tiles,
+    and an optional one: every failure degrades to the sea-level-only
+    map this used to be, never to an error.
+    """
+    try:
+        band, tiles = _maps_streets.fetch_view(bbox, hc)
+        if not any(tiles.values()):
+            return None, None
+        return _maps_streets.build_water_view(bbox, gw, hc, tiles, band,
+                                              RIVER_STROKE)
+    except Exception as exc:
+        debug_log(f"terrain inland water unavailable: {exc}")
+        return None, None
+
+
+class TerrainView(namedtuple("TerrainView", "elev coast water rivers")):
+    """One view's ground truth: the averaged elevation grid, the braille
+    shoreline, the sub-pixel inland water mask and the river layer.
+
+    The last two are None whenever the vector tiles could not be read;
+    every consumer treats that as "no inland water known", which is
+    exactly what terrain mode drew before them."""
+    __slots__ = ()
+
+
+_EMPTY_TERRAIN = TerrainView(None, None, None, None)
+
+
 def _get_elevation(bbox, gw, hc, block):
-    """(elevation grid, coast masks) for the view; live mode fetches in the
-    background."""
+    """A TerrainView for the view; live mode fetches in the background."""
     key = _view_key(bbox, gw, hc)
     with _elev_lock:
         hit = _elev_cache.get(key)
@@ -135,7 +207,7 @@ def _get_elevation(bbox, gw, hc, block):
             return hit
         if not block:
             if key in _elev_pending:
-                return None, None
+                return _EMPTY_TERRAIN
             _elev_pending.add(key)
 
     def load():
@@ -144,6 +216,7 @@ def _get_elevation(bbox, gw, hc, block):
         # tone transitions and blends shorelines. The fine grid also yields
         # the braille coastline before it is averaged away.
         fine = elevation_grid(bbox, gw * 2, hc * 4)
+        water, rivers = _tile_water(bbox, gw, hc)
         grid = []
         for y in range(hc * 2):
             r0, r1 = fine[y * 2], fine[y * 2 + 1]
@@ -154,7 +227,10 @@ def _get_elevation(bbox, gw, hc, block):
                         if v is not None]
                 row.append(sum(vals) / len(vals) if vals else None)
             grid.append(row)
-        return grid, _coast_dots(fine, gw, hc)
+        return TerrainView(
+            grid, _coast_dots(fine, gw, hc, water),
+            _water_subpixels(water, gw, hc) if water is not None else None,
+            rivers)
 
     if block:
         hit = load()
@@ -178,7 +254,7 @@ def _get_elevation(bbox, gw, hc, block):
             os.kill(os.getpid(), signal.SIGWINCH)
 
     threading.Thread(target=worker, daemon=True).start()
-    return None, None
+    return _EMPTY_TERRAIN
 
 
 def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
@@ -226,12 +302,19 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
     return None, None, None
 
 
-def build_terrain_buffer(elev, bbox, w, h):
+def build_terrain_buffer(elev, bbox, w, h, water=None):
     """Hillshaded hypsometric/bathymetric colours per sub-pixel.
 
     `elev` is meters at w×h (h = 2 rows per cell); None renders as plain
     background.  Lambertian shading against a NW sun, with slopes
     exaggerated relative to the pixel size so relief reads at any zoom.
+
+    `water` is the optional sub-pixel inland mask.  It wins over both
+    ramps, at either sign: a lake takes the lake tint whether it sits on
+    a mountainside or four hundred metres below the sea, because it is
+    inland water in both cases and the bathymetric ramp would read as
+    open ocean.  Its shading is nearly flat — a lake surface is flat,
+    and the land slope underneath it is not its slope.
     """
     minlon, minlat, maxlon, maxlat = bbox
     lat_c = (minlat + maxlat) / 2
@@ -248,11 +331,14 @@ def build_terrain_buffer(elev, bbox, w, h):
         row = elev[y]
         up = elev[y - 1] if y > 0 else row
         down = elev[y + 1] if y < h - 1 else row
+        wet_row = water[y] if water is not None else None
         out = []
         for x in range(w):
             e = row[x]
+            wet = wet_row is not None and wet_row[x]
             if e is None:
-                out.append(BG_PRIMARY)
+                # known water over unknown ground still reads as water
+                out.append(LAKE_FILL if wet else BG_PRIMARY)
                 continue
             left = row[x - 1] if x > 0 else e
             right = row[x + 1] if x < w - 1 else e
@@ -267,7 +353,10 @@ def build_terrain_buffer(elev, bbox, w, h):
             shade = (cos_zen * math.cos(slope)
                      + sin_zen * math.sin(slope) * math.cos(_AZIMUTH - aspect))
             shade = max(0.0, min(1.0, shade))
-            if e <= 0:
+            if wet:
+                base = LAKE_FILL
+                m = 0.92 + 0.08 * shade
+            elif e <= 0:
                 base = interp_stops(BATHY_STOPS, e)
                 m = 0.82 + 0.18 * shade  # water: keep the ramp readable
             else:
@@ -280,11 +369,13 @@ def build_terrain_buffer(elev, bbox, w, h):
     return buf
 
 
-def _terrain_buffer(elev, bbox, gw, hc):
-    key = _view_key(bbox, gw, hc)
+def _terrain_buffer(elev, bbox, gw, hc, water=None):
+    # the water flag is part of the key: the same view rendered once
+    # offline and once with tiles is two different pictures
+    key = _view_key(bbox, gw, hc) + (water is not None,)
     buf = _terrain_cache.get(key)
     if buf is None:
-        buf = build_terrain_buffer(elev, bbox, gw, hc * 2)
+        buf = build_terrain_buffer(elev, bbox, gw, hc * 2, water)
         if len(_terrain_cache) > 3:
             _terrain_cache.clear()
         _terrain_cache[key] = buf
@@ -505,18 +596,20 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     basemap = _get_basemap(bbox, graph_w, height_cells)
     err = None
     loading = False
-    elev = coast = None
+    view = _EMPTY_TERRAIN
     if block:
         try:
-            elev, coast = _get_elevation(bbox, graph_w, height_cells, True)
+            view = _get_elevation(bbox, graph_w, height_cells, True)
         except Exception as exc:
             err = str(exc)
     else:
-        elev, coast = _get_elevation(bbox, graph_w, height_cells, False)
-        loading = elev is None
+        view = _get_elevation(bbox, graph_w, height_cells, False)
+        loading = view.elev is None
 
+    elev, coast, rivers = view.elev, view.coast, view.rivers
     if elev is not None:
-        terrain = _terrain_buffer(elev, bbox, graph_w, height_cells)
+        terrain = _terrain_buffer(elev, bbox, graph_w, height_cells,
+                                  view.water)
     else:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
 
@@ -535,6 +628,7 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
         terrain = _shift_grid(terrain, dx, dy * 2, None)
         if coast is not None:
             coast = _shift_grid(coast, dx, dy, 0)
+        rivers = _shift_layer(rivers, dx, dy)
         route_layer = _shift_layer(route_layer, dx, dy)
         overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
                     if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
@@ -554,7 +648,9 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
         if probe is not None:
             readout = f" · {_fmt_elev(probe, lang)}"
 
-    strokes = [route_layer] if route_layer is not None else None
+    # rivers under the route, which is the order the strokes list means:
+    # a route along a river valley owns the cells it shares.
+    strokes = [s for s in (rivers, route_layer) if s is not None] or None
     lines = compose_terrain(basemap, terrain, overlays, graph_w,
                             height_cells, coast=coast, strokes=strokes)
     return lines, readout, loading, err
@@ -711,7 +807,10 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
             attribs = (_maps_style.ATTRIB_TILES_LONG,
                        _maps_style.ATTRIB_TILES_SHORT)
         else:
-            attribs = (ATTRIBUTION,)
+            # terrain's lakes and rivers come from the tiles too, so the
+            # first rung credits both sources and the fallbacks shorten
+            attribs = (f"{ATTRIBUTION} · {_maps_style.ATTRIB_TILES_SHORT}",
+                       ATTRIBUTION)
         scale = _scale_bar(bbox, graph_w, lang) if view == "street" else ""
         # first rung that fits wins: long+hint, short+hint, short, bare
         ladder = [f"{scale}{fg(*DIM)}{a}{RESET}  {hint}" for a in attribs]

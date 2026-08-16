@@ -219,6 +219,39 @@ def class_grid(view, bbox, graph_w, height_cells, band):
     return grid, water
 
 
+# Terrain mode's water, and deliberately not `ocean`: below sea level is
+# bathymetry's job there, and OpenMapTiles' low-zoom ocean polygon is
+# generalised well past the coastline the elevation data draws — OR-ing
+# it in would swallow whole coastal lowlands at continental zoom.
+INLAND_WATER_CLASS = ("lake", "river", "pond", "dock", "reservoir")
+
+
+def inland_water_mask(view, bbox, graph_w, height_cells):
+    """(hc*4) x (gw*2) 1/0 mask of the tiles' inland water polygons.
+
+    The same polygons, the same scanline fill and the same dot grid
+    street mode uses — terrain mode just wants them without the four
+    other fill classes, and without the ocean.
+    """
+    dw, dh = graph_w * 2, height_cells * 4
+    grid = [bytearray(dw) for _ in range(dh)]
+    for (z, tx, ty), decoded in view:
+        src = decoded.get("water")
+        if src is None:
+            continue
+        extent = src.get("extent") or _DEFAULT_EXTENT
+        project = _projector(z, tx, ty, extent, bbox, dw, dh)
+        for feat in src["features"]:
+            if feat["type"] != 3:      # polygons only
+                continue
+            if feat["tags"].get("class") not in INLAND_WATER_CLASS:
+                continue
+            for rings in assemble_polygons(feat["geometry"]):
+                _fill_rings(grid, [_closed([project(x, y) for x, y in ring])
+                                   for ring in rings], 1, dw, dh)
+    return grid
+
+
 def water_cells(water, graph_w, height_cells):
     """The dot-resolution water mask, reduced to whole cells.
 
@@ -418,6 +451,52 @@ def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette):
                     stroke_polyline(
                         layer, [project(x, y) for x, y in part],
                         color, rank, weight, dash, ticks)
+
+
+def water_lines(view, bbox, graph_w, height_cells, band, color):
+    """The tiles' waterways as their own braille layer.
+
+    A river narrower than a dot has no polygon at any zoom — it is a
+    linestring or it is nothing, which is why a lake mask on its own
+    still leaves a valley looking dry.  The band gates are terrain's own
+    (style.TERRAIN_WATERWAY_WEIGHTS), not street's; ferries are not
+    water and stay behind either way.
+    """
+    layer = DotLayer(bbox, graph_w, height_cells)
+    dw, dh = graph_w * 2, height_cells * 4
+    for (z, tx, ty), decoded in view:
+        src = decoded.get("waterway")
+        if src is None:
+            continue
+        extent = src.get("extent") or _DEFAULT_EXTENT
+        project = _projector(z, tx, ty, extent, bbox, dw, dh)
+        for feat in src["features"]:
+            if feat["type"] != 2:      # linestrings only
+                continue
+            key = style.waterway_style(feat["tags"])
+            if key is None:
+                continue
+            weights = style.TERRAIN_WATERWAY_WEIGHTS.get(key)
+            if weights is None or not weights[band]:
+                continue      # a class terrain does not draw (e.g. ferry)
+            weight = weights[band]
+            rank = style.LINE_STYLES[key][3]
+            for part in feat["geometry"]:
+                stroke_polyline(layer, [project(x, y) for x, y in part],
+                                color, rank, weight)
+    return layer
+
+
+def build_water_view(bbox, graph_w, height_cells, tiles, band, color):
+    """(inland water dot mask, waterway layer) — terrain mode's half.
+
+    The pure half, exactly as build_street_view is: tiles in, geometry
+    out, no network.  One decode feeds both, because a view that has
+    already paid for the tiles should get the rivers with the lakes.
+    """
+    view = decode_view(tiles)
+    return (inland_water_mask(view, bbox, graph_w, height_cells),
+            water_lines(view, bbox, graph_w, height_cells, band, color))
 
 
 def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",

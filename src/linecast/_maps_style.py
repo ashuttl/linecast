@@ -14,8 +14,11 @@ is the motorway; the single bright mark on the screen is the user.
 Type is the scarcest resource on the page, so a label that cannot be
 placed cleanly is dropped, never nudged and never shrunk.
 
-Nothing here is mode-conditional beyond the two entries in ``MODES``:
-terrain mode is untouched by this module.
+Nothing here is mode-conditional beyond the two entries in ``MODES``
+and the opening zooms beside them.  Terrain mode keeps its own palette
+and borrows exactly two things from this module: those zooms, and the
+waterway band gates it needs to draw a river at the same size street
+mode would.
 """
 
 import math
@@ -355,6 +358,19 @@ def waterway_style(props):
     if cls in ("stream", "canal", "ditch", "drain"):
         return "waterway_minor"
     return None
+
+
+# Terrain mode's waterway gates, replacing the LINE_STYLES weights.  A
+# river appears two bands earlier there than in street mode, because
+# the reason street holds it back — a dense road net it would compete
+# with for ink — does not exist over a hillshade, and a continental
+# terrain view that can carry the Rhine should.  Streams keep street's
+# deep gate: at any wider zoom they are drainage noise.  B0 draws
+# nothing; at half a hemisphere a river is a scratch.
+TERRAIN_WATERWAY_WEIGHTS = {
+    "waterway_major": (0, 1, 1, 1, 1, 1, 1, 1),
+    "waterway_minor": (0, 0, 0, 0, 0, 0, 1, 1),
+}
 
 
 def aeroway_style(props):
