@@ -282,11 +282,18 @@ def marine_backdrop(regions, bbox, graph_w, height_cells):
     """{region: vendored marine name} for the largest bodies on screen.
 
     The sea a view opens into, asked once per body at the cell
-    `water_regions` found most central to it.  It is the same list, read
-    the same way, that names the water outright below band 3; here it
-    stands behind the tile's own names rather than instead of them, so
-    the harbour Back Cove drains into can say "Gulf of Maine" without
-    any cove having to claim it.
+    `water_regions` found most central to it.
+
+    Below band 3 this list names the water outright — it is area-ranked
+    and generalised for that scale, and a three-county view wants to be
+    told it is looking at the Gulf of Maine.  Deeper than that it stands
+    *behind* the tile's own names instead: the harbour Back Cove drains
+    into says "Gulf of Maine" without any cove having to claim it, and
+    the shoreline round it says so too, which is the rule a named lake
+    already follows — the edge of a body is that body.
+
+    It names nothing inland.  The list is marine, so a pond it has never
+    heard of stays what it was, an unnamed body of water on its own.
     """
     minlon, minlat, maxlon, maxlat = bbox
     biggest = sorted(range(len(regions)), key=lambda i: regions[i],
@@ -588,9 +595,9 @@ def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
         elif region not in best or choice < best[region][0]:
             best[region] = (choice, candidate)
 
-    backdrop = {}
+    backdrop = (marine_backdrop(regions, bbox, graph_w, height_cells)
+                if index is not None else {})
     if index is not None and band < style.PLACE_SOURCE_BAND:
-        backdrop = marine_backdrop(regions, bbox, graph_w, height_cells)
         for region, name in backdrop.items():
             area, cell, span = regions[region]
             claim(region, (0, 0, name),
@@ -650,13 +657,13 @@ def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
             for col, region in enumerate(line):
                 if region < 0:
                     continue
-                # `backdrop` is the wide bands' own naming, where one
-                # vendored polygon really does cover the whole region;
-                # it is not extended to the deep bands as a catch-all,
-                # because "Gulf of Maine" under every unclaimed cell
-                # would turn the coastline of a harbour view into one
-                # feature and put the same broad name in the readout
-                # everywhere the tile happened to be quiet.
+                # The tile names the guts, the vendored list names the
+                # sea they open into, and the sea is the better answer
+                # for water no gut has claimed: Portland harbour is not
+                # Back Cove, but neither is it nothing.  The backdrop
+                # goes *under* the claims, never over them, so a name
+                # standing on its own water always wins the water it
+                # stands on.
                 name = claims.get((col, row)) or backdrop.get(region)
                 if name:
                     waters[(col, row)] = name

@@ -399,12 +399,31 @@ class TestEndToEnd:
         assert idx.at(GW - 1, 0) is None
 
     def test_a_body_of_water_is_one_feature(self):
+        # Every stretch of this body's rim answers with the same thing,
+        # whatever that thing turns out to be called.  (This one is out
+        # in the South Pacific, so the vendored marine list has a name
+        # for it — see test_the_open_sea_takes_the_name_of_its_sea.)
         idx = _hover_at(tile(classed("water", LEFT_HALF, "lake")))
-        coast = [h for h in (idx.at(c, r) for r in range(HC)
-                             for c in range(GW))
-                 if h and h.kind == "hov_coast"]
-        assert coast, "the lake drew no shore"
-        assert len({h.cells for h in coast}) == 1
+        rim = [h for h in (idx.at(c, r) for r in range(HC)
+                           for c in range(GW))
+               if h and h.kind in ("hov_coast", "hov_water")]
+        assert rim, "the lake drew no shore"
+        assert len({h.cells for h in rim}) == 1
+
+    def test_the_open_sea_takes_the_name_of_its_sea(self):
+        # `water_name` had nothing to say here, but the vendored marine
+        # list does, and a reader pointing at open water would rather be
+        # told which sea than told "water".  It is the answer the wide
+        # bands already give; it just no longer stops at band 3.
+        idx = _hover_at(tile(classed("water", LEFT_HALF, "ocean")))
+        hit = idx.at(0, 0)
+        assert hit.name == "South Pacific Ocean"
+        assert hv.readout(hit, "en") == "South Pacific Ocean · water"
+
+    def test_a_named_body_still_outranks_the_sea_it_sits_in(self):
+        # The backdrop goes under the tile's own names, never over them.
+        idx = _hover_at(_lake_tile("Graham Lake"))
+        assert idx.at(0, 0).name == "Graham Lake"
 
     def test_one_part_of_a_merged_feature_lights_alone(self):
         # The tile's feature is not the reader's street.  Owning it per
