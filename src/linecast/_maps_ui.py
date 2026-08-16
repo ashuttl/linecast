@@ -404,6 +404,7 @@ def route_note(state, lang="en"):
 HELP_KEYS = (
     ("drag", 'help_pan'),
     ("wheel", 'help_zoom_pointer'),
+    ("hover", 'help_hover'),
     ("+ -", 'help_zoom'),
     ("n", 'help_reset'),
     None,
@@ -415,18 +416,8 @@ HELP_KEYS = (
     ("q", 'help_quit'),
 )
 
-HELP_GLYPHS = (
-    (style.GLYPH_AIRPORT, 'poi_airport'),
-    (style.GLYPH_PEAK, 'poi_peak'),
-    (style.GLYPH_STATION, 'poi_station'),
-    (style.GLYPH_MEDICAL, 'poi_hospital'),
-    (style.GLYPH_CIVIC, 'poi_civic'),
-    (style.GLYPH_LODGING, 'poi_lodging'),
-    (style.GLYPH_NOTABLE, 'poi_notable'),
-    (style.GLYPH_WORSHIP, 'poi_worship'),
-    (style.GLYPH_FERRY, 'poi_ferry'),
-    (style.GLYPH_GENERIC, 'poi_other'),
-)
+# The legend is the glyph table read in order; hover reads the same one.
+HELP_GLYPHS = tuple(style.GLYPH_LEGEND.items())
 
 HELP_WIDTH = 47
 _KEY_COL = 9

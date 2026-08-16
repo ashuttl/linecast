@@ -581,33 +581,77 @@ class TestWaterAttachment:
 
     def test_a_point_on_the_water_names_the_water_under_it(self):
         index, regions = lb.water_regions(self.MASK)
-        area, at, _span = lb._attach((3, 1), index, regions, 5, 3)
+        area, at, _span, region = lb._attach((3, 1), index, regions,
+                                             5, 3)
         assert at == (3, 1)
         assert area == 9
+        assert index[1][3] == region     # and it says which body
 
-    def test_a_point_off_the_view_is_dragged_to_the_water(self):
-        # The Gulf of Maine's own anchor sits seventy cells off the
-        # right edge of a view it fills a third of; the label still
-        # belongs on the water you can see.
+    def test_a_point_just_off_the_view_is_dragged_to_the_water(self):
+        # A bay whose anchor sits a little past the edge of the water
+        # filling the screen still names the water you can see.
         index, regions = lb.water_regions(self.MASK)
-        hit = lb._attach((9, 1), index, regions, 5, 3)
+        hit = lb._attach((5, 1), index, regions, 5, 3)
         assert hit is not None
-        _area, at, _span = hit
+        _area, at, _span, _region = hit
         assert self.MASK[at[1]][at[0]]
 
-    def test_a_point_further_than_a_view_away_is_dropped(self):
-        # Sebago Lake's anchor is two screens west of a Portland
-        # harbour view.  Dragging it to the edge names Casco Bay after
-        # a lake you cannot see, so it is not dragged at all.
+    def test_a_point_a_long_way_out_is_dropped(self):
+        # Lamson Cove is out past Munjoy Hill, seventy-two cells east of
+        # a Back Cove view.  Clamping it to the edge finds the bay —
+        # which is the same region as Back Cove, because the two run
+        # together under Tukey's Bridge — and writes "Lamson Cove"
+        # across Back Cove.  A quarter of a view is as far as a name may
+        # come from.
         index, regions = lb.water_regions(self.MASK)
+        assert lb._attach((9, 1), index, regions, 5, 3) is None
         assert lb._attach((-6, 1), index, regions, 5, 3) is None
         assert lb._attach((10, 1), index, regions, 5, 3) is None
         assert lb._attach((3, -4), index, regions, 5, 3) is None
+
+    def test_a_point_a_cell_off_its_own_water_still_finds_it(self):
+        # Graham Lake's own point misses the lake by one cell.
+        index, regions = lb.water_regions(self.MASK)
+        hit = lb._attach((1, 1), index, regions, 5, 3)
+        assert hit is not None
+        assert hit[3] == index[1][2]
+
+    def test_a_point_well_inland_reaches_nothing(self):
+        # The Portland sewage plant's "Aeration Tanks" sits five cells
+        # from the cove and was naming it.  The reach is not a search.
+        mask = water_grid(["......~", "......~", "......~"])
+        index, regions = lb.water_regions(mask)
+        assert lb._attach((0, 1), index, regions, 7, 3) is None
+        assert lb._attach((4, 1), index, regions, 7, 3) is not None
 
     def test_a_point_that_reaches_no_water_is_dropped(self):
         index, regions = lb.water_regions(water_grid(["....."] * 3))
         assert lb._attach((2, 1), index, regions, 5, 3) is None
         assert lb._attach(None, index, regions, 5, 3) is None
+
+
+class TestLandRun:
+    """The island name's `span`: the tile hands islands over as points,
+    so the width the label has to fit comes off the water mask."""
+
+    MASK = water_grid(["~~~~~~~", "~..~...", "~~~~~~~"])
+
+    def test_the_run_stops_at_the_water_on_either_side(self):
+        assert lb._land_run(self.MASK, (2, 1)) == 2
+
+    def test_a_run_reaching_the_edge_is_measured_to_the_edge(self):
+        assert lb._land_run(self.MASK, (5, 1)) == 3
+
+    def test_a_point_on_the_water_scores_nothing(self):
+        # An island too small to hold a whole cell of land is too small
+        # to hold its own name.
+        assert lb._land_run(self.MASK, (0, 1)) == 0
+        assert lb._land_run(self.MASK, (3, 0)) == 0
+
+    def test_a_point_outside_the_mask_scores_nothing(self):
+        assert lb._land_run(self.MASK, (-1, 1)) == 0
+        assert lb._land_run(self.MASK, (7, 1)) == 0
+        assert lb._land_run(self.MASK, (2, 3)) == 0
 
 
 class TestWaterNames:
@@ -638,6 +682,57 @@ class TestWaterNames:
         lake = [self._sea(), self._water("lake", "Sebago Lake")]
         assert "S E B A G O" not in all_text(overlays(*lake, band=2))
         assert "S E B A G O" in all_text(overlays(*lake, band=3))
+
+    def test_a_body_of_water_keeps_only_its_best_name(self):
+        # Back Cove runs into Casco Bay under Tukey's Bridge, so the two
+        # are one region — and the tile offers it "Back Cove", the
+        # sewage plant's "Chlorine Contact Tanks" beside it, and
+        # "Lamson Cove" from out past Munjoy Hill.  All three were being
+        # written across the same water.  A body has one name.
+        sea = water_grid(["~" * GW] * HC)
+        names = points(
+            "water_name",
+            (2048, 2048, {"class": "bay", "name": "Cove"}),
+            (2148, 2048, {"class": "lake", "name": "Tanks"}))
+        ov = overlays(self._sea(), names, band=7, water=sea)
+        assert "C O V E" in all_text(ov)         # the bay outranks
+        assert "T A N K S" not in all_text(ov)
+
+    def test_a_resident_name_outranks_one_dragged_from_off_screen(self):
+        # Whatever their classes: the tile put the resident point on
+        # that water on purpose.
+        sea = water_grid(["~" * GW] * HC)
+        names = points(
+            "water_name",
+            (2048, 2048, {"class": "lake", "name": "Here"}),
+            (int(EXTENT * 1.02), 2048, {"class": "bay", "name": "Yonder"}))
+        assert "H E R E" in all_text(overlays(self._sea(), names, band=7,
+                                              water=sea))
+
+    def test_a_lake_is_never_dragged_in_from_off_screen(self):
+        # A tile hands over one point per body, at its middle.  A lake
+        # whose middle is off screen is a lake that is off screen —
+        # Bar Harbor was naming a pond at its west edge "Seal Cove
+        # Pond", from the far side of Mount Desert Island.
+        sea = water_grid(["~" * GW] * HC)
+
+        def off_screen(cls):
+            names = points("water_name", (int(EXTENT * 1.02), 2048,
+                                          {"class": cls, "name": "Yonder"}))
+            return all_text(overlays(self._sea(), names, band=7, water=sea))
+
+        # Same point, same distance out: only the class differs.
+        assert off_screen("bay") == "Y O N D E R"
+        assert off_screen("lake") == ""
+
+    def test_a_name_that_reaches_no_water_is_dropped(self):
+        # The right half is dry, and a name landing there has no water
+        # to be measured against — which is how it ends up written
+        # across the whole view.
+        half = water_grid(["~" * (GW // 2) + "." * (GW // 2)] * HC)
+        inland = points("water_name", (int(EXTENT * 0.9), 2048,
+                                       {"class": "bay", "name": "Nowhere"}))
+        assert overlays(self._sea(), inland, band=7, water=half) == {}
 
     def test_an_area_label_must_fit_inside_the_area_it_names(self):
         # A forest parcel ten cells across does not get a forty-cell

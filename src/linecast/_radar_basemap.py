@@ -186,6 +186,12 @@ class DotLayer:
     passes no rank at all, which is exactly the old behaviour; street
     mode walks features in arbitrary per-tile order and leans on the
     rank instead, so tile arrival order can never change the picture.
+
+    `owner` rides along beside the colour: whoever wins a cell's ink also
+    wins the cell's identity, which is what lets a pointer ask "what am I
+    looking at here?" and get an answer that cannot disagree with what is
+    drawn.  Callers that do not care (radar) pass nothing and the grid
+    stays full of None.
     """
 
     def __init__(self, bbox, graph_w, height_cells):
@@ -198,10 +204,11 @@ class DotLayer:
         self.dots = [[0] * graph_w for _ in range(height_cells)]
         self.color = [[None] * graph_w for _ in range(height_cells)]
         self.rank = [[-1] * graph_w for _ in range(height_cells)]
+        self.owner = [[None] * graph_w for _ in range(height_cells)]
         self.ribbon = set()        # (cx, cy) cells claimed by w3 strokes
 
     # -- rasterisation helpers ------------------------------------------------
-    def _set_dot(self, dx, dy, color, rank=0):
+    def _set_dot(self, dx, dy, color, rank=0, owner=None):
         if dx < 0 or dx >= self.dw or dy < 0 or dy >= self.dh:
             return
         cx, cy = dx // 2, dy // 4
@@ -209,13 +216,20 @@ class DotLayer:
         if rank >= self.rank[cy][cx]:   # ties: last writer wins, as before
             self.rank[cy][cx] = rank
             self.color[cy][cx] = color
+            self.owner[cy][cx] = owner
 
-    def or_mask(self, mask, color, rank=0):
+    def or_mask(self, mask, color, rank=0, owner=None, owners=None):
         """Admit a cell-indexed dot bitmask (e.g. _edge_dots output).
 
         The mask's dots OR into the grid; the cells it touches follow the
         same rank contest as a stroke, so an edge mask and a line layer
         can share one DotLayer without either having to be drawn last.
+
+        `owners` is a per-cell grid of owner ids, for a mask that is one
+        shape to the rasteriser and several things to the reader: the
+        coastline arrives as a single boundary of the whole water mask,
+        but each stretch of it belongs to the lake or the bay it goes
+        round.  It overrides `owner` cell by cell where given.
         """
         for cy, mrow in enumerate(mask):
             row = self.dots[cy]
@@ -225,6 +239,8 @@ class DotLayer:
                     if rank >= self.rank[cy][cx]:
                         self.rank[cy][cx] = rank
                         self.color[cy][cx] = color
+                        self.owner[cy][cx] = (owner if owners is None
+                                              else owners[cy][cx])
 
     def _dot_line(self, x0, y0, x1, y1, color, rank=0):
         x0, y0, x1, y1 = int(round(x0)), int(round(y0)), int(round(x1)), int(round(y1))

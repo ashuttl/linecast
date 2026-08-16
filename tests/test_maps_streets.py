@@ -430,12 +430,13 @@ class TestCentrelineSuppression:
             tagged_line("waterway", line, {"class": "river"}),
             classed("water", LEFT_HALF, "river"))})
         layer = DotLayer(WORLD, self.GW, self.HC)
-        st.draw_lines(layer, view, WORLD, self.GW, self.HC, 7,
-                      _maps_style.palette(), water)
-        # `waterway` is the only line layer in the tile, so every dot
-        # the pass drew is centreline.
-        return {(col, row) for row, line_ in enumerate(layer.dots)
-                for col, mask in enumerate(line_) if mask}
+        feats = st.draw_lines(layer, view, WORLD, self.GW, self.HC, 7,
+                              _maps_style.palette(), "en", [], water)
+        return {(col, row)
+                for row, line_ in enumerate(layer.owner)
+                for col, idx in enumerate(line_)
+                if idx is not None
+                and feats[idx][0] in _maps_style.WATERWAY_KEYS}
 
     def _mask(self):
         view = st.decode_view({Z0: tile(classed("water", LEFT_HALF,

@@ -39,7 +39,7 @@ Like the rest of linecast, radar speaks all 17 languages — here looping the fo
 
 `--view terrain` is hillshaded elevation from the AWS/Mapzen terrain tiles (SRTM, GMTED, ETOPO1) painted as a hypsometric ramp — lowland green through alpine white above sea level, deepening bathymetric blues below it — with the coastlines, borders, and city labels rendered in braille over the fill. Lakes and rivers are the one thing elevation cannot tell you (a terrain sample over a lake is just the height of its surface), so the inland water comes from the same vector tiles and joins the shoreline the elevation already draws. It opens on a region, where relief reads.
 
-Drag to pan, the wheel zooms at the pointer, `v` switches view, `/` searches, `d` gives directions, `?` lists the keys. Terrain reads the elevation under the pointer.
+Drag to pan, the wheel zooms at the pointer, `v` switches view, `/` searches, `d` gives directions, `?` lists the keys. Terrain reads the elevation under the pointer. Street names whatever the pointer is over — an unlabelled road, a river, a POI mark — in the header, and lights that whole feature up in its own ink, end to end across every junction the data split it at.
 
 ```
 maps --location "Portland, Maine" --zoom 0.01

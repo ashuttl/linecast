@@ -592,6 +592,23 @@ GLYPH_WORSHIP = "†"
 GLYPH_FERRY = "◆"
 GLYPH_GENERIC = "•"     # also the sole place anchor
 
+# The one place a glyph is given a name.  The `?` panel reads it as its
+# legend and hover reads it as its readout word, in this order — so a
+# mark can never be called one thing in the legend and another under the
+# pointer, and a new glyph is a single line here.
+GLYPH_LEGEND = {
+    GLYPH_AIRPORT: "poi_airport",
+    GLYPH_PEAK: "poi_peak",
+    GLYPH_STATION: "poi_station",
+    GLYPH_MEDICAL: "poi_hospital",
+    GLYPH_CIVIC: "poi_civic",
+    GLYPH_LODGING: "poi_lodging",
+    GLYPH_NOTABLE: "poi_notable",
+    GLYPH_WORSHIP: "poi_worship",
+    GLYPH_FERRY: "poi_ferry",
+    GLYPH_GENERIC: "poi_other",
+}
+
 GLYPH_INK = {
     GLYPH_AIRPORT: "poi_ink",
     GLYPH_PEAK: "poi_ink",

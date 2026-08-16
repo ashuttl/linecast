@@ -2,7 +2,10 @@
 """Maps — a street map and a terrain map in the terminal.
 
 `--view street` (the default) is in _maps_streets and friends: vector
-tiles rasterised into fills, braille strokes and labels.
+tiles rasterised into fills, braille strokes and labels.  Only a handful
+of things on it can afford a label, so the pointer is the other half of
+reading it: hover names whatever owns the ink under it and lights that
+whole feature up (_maps_hover).
 
 `--view terrain` lives here.  Elevation from the AWS/Mapzen terrain
 tiles is painted as a half-block colour fill: a hypsometric ramp
@@ -27,7 +30,9 @@ import sys
 import threading
 from collections import namedtuple
 
-from linecast import _maps_route, _maps_streets, _maps_style, _maps_ui
+from linecast import (
+    _maps_hover, _maps_route, _maps_streets, _maps_style, _maps_ui,
+)
 from linecast._color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
 )
@@ -449,7 +454,7 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
 
 
 def compose_map(fills, layer, overlays, graph_w, height_cells,
-                strokes=None):
+                strokes=None, hot=None, hot_glyphs=None):
     """Street-mode composer: area fills under one ranked braille layer.
 
     fills:    (hc*2) x gw sub-pixel RGB grid.  An entry may be None,
@@ -464,6 +469,15 @@ def compose_map(fills, layer, overlays, graph_w, height_cells,
               priority first — the same ordered-list rule
               compose_terrain uses, because these arrive from outside
               the view's own rank contest.
+    hot:      cells whose *braille* draws the feature under the pointer.
+              They keep their own ink, lifted toward the top of its
+              ladder and set bold — no fourth accent, and bold is the
+              same lift one rung coarser once the palette is 16 colours.
+    hot_glyphs: cells whose *character* names that same feature — its
+              own label, or the glyph if the pointer is on one.  Kept
+              apart from `hot` because a label crossing a hovered road
+              shares cells with it while belonging to something else
+              entirely: lighting a cell asks what is printed in it.
 
     A sibling of compose_terrain, not a replacement: terrain resolves a
     basemap, a coast mask and an ordered strokes list per cell, street
@@ -516,16 +530,29 @@ def compose_map(fills, layer, overlays, graph_w, height_cells,
                 cell_bg = bg(*avg)
             else:
                 avg, cell_bg = BG_PRIMARY, ""
+            lit = hot is not None and (cx, cy) in hot
             if ov is not None:                  # a glyph always beats braille
+                # The cell is a character, so it answers to the glyph
+                # half of the highlight and not to the ink half: a road
+                # passing behind someone else's label lights the road,
+                # never the letter it happens to run under.
+                lit = hot_glyphs is not None and (cx, cy) in hot_glyphs
                 ch, ink = ov[0], ov[1]
                 if ink is None:                 # contrast-picked label ink
                     lum = (0.2126 * avg[0] + 0.7152 * avg[1]
                            + 0.0722 * avg[2])
                     ink = LABEL_DARK if lum > 120 else LABEL_LIGHT
-                if len(ov) > 2 and ov[2]:
+                if lit:
+                    ink = _maps_hover.highlight(ink)
+                if lit or (len(ov) > 2 and ov[2]):
                     parts.append(f"{cell_bg}{fg(*ink)}{BOLD}{ch}{RESET}")
                 else:
                     parts.append(f"{cell_bg}{fg(*ink)}{ch}")
+                continue
+            if lit:
+                lift = _maps_hover.highlight(stroke)
+                parts.append(f"{cell_bg}{fg(*lift) if lift else ''}{BOLD}"
+                             f"{chr(0x2800 + mask)}{RESET}")
                 continue
             stroke_fg = fg(*stroke) if stroke is not None else ""
             parts.append(f"{cell_bg}{stroke_fg}{chr(0x2800 + mask)}")
@@ -592,7 +619,13 @@ class _ShiftedLayer:
 
 def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
                     mouse_pos, marker_cell, dest_cell, lang, route_layer):
-    """(map lines, readout, loading, err) for the hillshaded view."""
+    """(map lines, readout, hover, loading, err) for the hillshaded view.
+
+    Terrain's readout is its own probe — the elevation under the pointer
+    — and it carries no hover slot: the braille here is geography rather
+    than a network of named things, and "coastline" under the cursor
+    would tell a reader less than the metres already there.
+    """
     basemap = _get_basemap(bbox, graph_w, height_cells)
     err = None
     loading = False
@@ -653,12 +686,33 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     strokes = [s for s in (rivers, route_layer) if s is not None] or None
     lines = compose_terrain(basemap, terrain, overlays, graph_w,
                             height_cells, coast=coast, strokes=strokes)
-    return lines, readout, loading, err
+    return lines, readout, "", loading, err
+
+
+def _hover(layer, mouse_pos, pan_offset, lang):
+    """(readout, lit ink cells, lit glyph cells), or ("", None, None).
+
+    Nothing is resolved mid-drag: the index is built for the view as it
+    was fetched, and during a pan preview what is on screen is that view
+    shifted.  A pointer over a shifted map would be answered about the
+    cell it used to be over, which is worse than not answering.
+    """
+    index = getattr(layer, "hover", None)
+    if index is None or mouse_pos is None or pan_offset[0] or pan_offset[1]:
+        return "", None, None
+    # the same 1-based frame the elevation probe reads: one column of
+    # left margin, one header row above the map
+    hit = index.at(mouse_pos[0] - 1, mouse_pos[1] - 2)
+    if hit is None:
+        return "", None, None
+    text = _maps_hover.readout(hit, lang)
+    return ((f" · {text}" if text else ""),
+            set(hit.cells) or None, set(hit.glyphs) or None)
 
 
 def _render_street(bbox, graph_w, height_cells, block, pan_offset,
                    mouse_pos, marker_cell, dest_cell, lang, route_layer):
-    """(map lines, readout, loading, err) for the vector-tile view."""
+    """(map lines, readout, hover, loading, err) for the vector view."""
     err = None
     loading = False
     fills = layer = labels = None
@@ -683,6 +737,8 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
                               [[None] * graph_w for _ in range(height_cells)])
         labels = {}
 
+    hover, hot, hot_glyphs = _hover(layer, mouse_pos, pan_offset, lang)
+
     overlays = dict(labels)
     if marker_cell is not None:
         overlays[marker_cell] = _mark("+", MARKER, True)
@@ -703,8 +759,8 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
 
     strokes = [route_layer] if route_layer is not None else None
     lines = compose_map(fills, layer, overlays, graph_w, height_cells,
-                        strokes=strokes)
-    return lines, "", loading, err
+                        strokes=strokes, hot=hot, hot_glyphs=hot_glyphs)
+    return lines, "", hover, loading, err
 
 
 def _shift_layer(layer, dx, dy):
@@ -770,12 +826,17 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                  if dest is not None else None)
     route_layer = _get_route_layer(route, bbox, graph_w, height_cells)
     draw = _render_street if view == "street" else _render_terrain
-    map_lines, readout, loading, err = draw(
+    map_lines, readout, hover, loading, err = draw(
         bbox, graph_w, height_cells, block, pan_offset, mouse_pos,
         cell, dest_cell, lang, route_layer)
 
+    # A note is a reply to something you asked for and outranks
+    # everything; hover is what you are pointing at *now*, so it beats
+    # the standing route summary, which beats the view's own probe.
     if note:
         readout = f" · {note}"
+    elif hover:
+        readout = hover
     elif route is not None:
         readout = f" · {_maps_ui.route_summary(route, lang)}"
 

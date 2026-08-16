@@ -20,7 +20,7 @@ _maps_style; this module only asks it questions.
 
 import math
 
-from linecast import _maps_labels, _maps_style as style
+from linecast import _maps_hover, _maps_labels, _maps_style as style
 from linecast._mvt import assemble_polygons, decode_tile
 from linecast._radar_basemap import DotLayer, _bresenham, _edge_dots
 from linecast._runtime import debug_log
@@ -273,6 +273,29 @@ def water_cells(water, graph_w, height_cells):
     return out
 
 
+def fill_cells(grid, graph_w, height_cells):
+    """The dot-resolution class grid reduced to one class per cell.
+
+    Hover's last resort, and `water_cells`' >=4-of-8 rule generalised
+    past water: the topmost class holding at least half a cell.  A cell
+    that is mostly ground reports GROUND, and hover says nothing there
+    rather than naming the paper.
+    """
+    out = []
+    for row in range(height_cells):
+        rows = grid[row * 4:row * 4 + 4]
+        line = bytearray(graph_w)
+        for col in range(graph_w):
+            dx = col * 2
+            for cls in (BUILDING, WATER, PARK, URBAN):
+                if sum((r[dx] == cls) + (r[dx + 1] == cls)
+                       for r in rows) >= 4:
+                    line[col] = cls
+                    break
+        out.append(line)
+    return out
+
+
 def fill_colors(grid, graph_w, height_cells, palette):
     """Dot-resolution classes -> the sub-pixel RGB grid compose_map wants.
 
@@ -387,7 +410,7 @@ def open_water(water, radius=None):
 
 
 def stroke_polyline(layer, pts, color, rank, weight=1, dash=None,
-                    tick_every=0, hide=None):
+                    tick_every=0, owner=None, hide=None):
     """Walk one projected polyline into a ranked DotLayer.
 
     `pts` are dot-space floats.  Vertices that round onto the dot the
@@ -404,6 +427,9 @@ def stroke_polyline(layer, pts, color, rank, weight=1, dash=None,
     triple is deliberately not reused, because it thickens diagonals and
     reads as fuzz.  Weight 3 adds every touched cell to `layer.ribbon`
     for the composer to tint — motorway only, deepest band only.
+
+    `owner` rides along with the ink through the same rank contest, so
+    whichever stroke a cell ends up showing is the one hover names.
 
     `hide` is a dot mask the stroke may not draw into — the one way a
     line yields to an area, and used for exactly that: a river centreline
@@ -443,14 +469,14 @@ def stroke_polyline(layer, pts, color, rank, weight=1, dash=None,
                 i += 1
                 continue
             if not period or (i % period) < dash[0]:
-                layer._set_dot(px, py, color, rank)
+                layer._set_dot(px, py, color, rank, owner)
                 if weight >= 2:
-                    layer._set_dot(px + ox, py + oy, color, rank)
+                    layer._set_dot(px + ox, py + oy, color, rank, owner)
                 if weight >= 3:
                     layer.ribbon.add((px // 2, py // 4))
                 if tick_every and i % tick_every == 0:
-                    layer._set_dot(px + ox, py + oy, color, rank)
-                    layer._set_dot(px - ox, py - oy, color, rank)
+                    layer._set_dot(px + ox, py + oy, color, rank, owner)
+                    layer._set_dot(px - ox, py - oy, color, rank, owner)
             i += 1
         i += max(abs(x1 - cx1), abs(y1 - cy1))
 
@@ -488,18 +514,36 @@ def stroke_ink(key, props, palette):
 
 
 def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
-               water=None):
+               lang="en", feats=None, water=None):
     """Walk every admitted line feature into the view's one DotLayer.
 
     Feature order is irrelevant here — each stroke carries its class
     rank, so a motorway that arrives in the last tile still owns the
     cells it crosses.
 
+    Returns the feature table hover reads: index -> (style key, name).
+    Strokes sharing a class *and* a name merge into one entry, so
+    hovering any reach of a river lights the river rather than the
+    segment the tile happened to cut.  Only `waterway` carries names at
+    all in these layers — the road net's are in a different layer
+    entirely, and _maps_hover joins them back by cell.
+
+    Nameless geometry is owned one *part* at a time, and that is not a
+    detail.  A vector tile is not a list of roads: the encoder merges
+    every line sharing a class and its attributes into a single
+    multi-part feature, so all of a town's unnamed residential streets
+    can arrive as one `feature` with four hundred linestrings in it.
+    Owning that per feature makes hovering any back street light the
+    whole town.  A part is the honest unit — one continuous run of the
+    line, which is as much of a street as the tile is willing to say.
+
     `water` is the view's dot mask of the water fills.  Given it, a river
     centreline is suppressed wherever the polygon around it is wide
     enough to draw itself — see `open_water`.  The eroded mask is derived
     on the first waterway feature, because most views have none.
     """
+    feats = [] if feats is None else feats
+    by_name = {(k, n): i for i, (k, n) in enumerate(feats) if n}
     dw, dh = graph_w * 2, height_cells * 4
     hide = None
     for (z, tx, ty), decoded in view:
@@ -528,14 +572,27 @@ def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
                     masked = hide
                 else:
                     masked = None
+                label = _maps_labels._name(props, lang)
+                owner = None
+                if label:
+                    owner = by_name.get((key, label))
+                    if owner is None:
+                        owner = by_name[(key, label)] = len(feats)
+                        feats.append((key, label))
                 for part in feat["geometry"]:
+                    if label:
+                        part_owner = owner
+                    else:
+                        part_owner = len(feats)
+                        feats.append((key, ""))
                     stroke_polyline(
                         layer, [project(x, y) for x, y in part],
-                        color, rank, weight, dash, ticks, masked)
+                        color, rank, weight, dash, ticks, part_owner,
+                        masked)
+    return feats
 
 
-def water_lines(view, bbox, graph_w, height_cells, band, color,
-                water=None):
+def water_lines(view, bbox, graph_w, height_cells, band, color, water=None):
     """The tiles' waterways as their own braille layer.
 
     A river narrower than a dot has no polygon at any zoom — it is a
@@ -590,6 +647,62 @@ def build_water_view(bbox, graph_w, height_cells, tiles, band, color):
                         water))
 
 
+# A coast dot sits on the *land* side of the boundary (_edge_dots only
+# ever strokes land), so the water it goes round is a neighbour, never
+# the cell itself.  Ties are broken by this order, which is the reading
+# order of the neighbourhood — deterministic, and the same answer at
+# every pan position.
+_SHORE_LOOK = ((0, 0), (-1, 0), (1, 0), (0, -1), (0, 1),
+               (-1, -1), (1, -1), (-1, 1), (1, 1))
+
+
+def water_owners(coast, wet, waters, feats, graph_w, height_cells):
+    """(coast owner grid, per-cell shore owner for water cells).
+
+    The coastline is one mask and many things.  Drawn, it is the
+    boundary of the whole water mask; read, each stretch of it is the
+    rim of *this* lake, and a reader pointing at the edge of Graham Lake
+    means Graham Lake and not every shore in the county.  So the mask is
+    split by the connected components of the water it goes round — the
+    same components the labels named — and each becomes its own feature.
+
+    Both grids point at the same features, which is what lets the middle
+    of a lake and its rim answer identically: the fill has no ink of its
+    own, so a water cell is filed against the shore that encloses it.
+
+    A body the tile never named still gets its own feature.  "Water" is
+    all it can say, but it can at least say it about one pond instead of
+    about every pond on screen.
+    """
+    index, regions = _maps_labels.water_regions(wet)
+    if not regions:
+        return None, None
+    named = {}
+    for (col, row), name in waters.items():
+        region = index[row][col]
+        if region >= 0:
+            named.setdefault(region, name)
+    owner_of = []
+    for region in range(len(regions)):
+        owner_of.append(len(feats))
+        feats.append(("coast", named.get(region, "")))
+
+    coast_owners = [[0] * graph_w for _ in range(height_cells)]
+    for cy, mrow in enumerate(coast):
+        for cx, m in enumerate(mrow):
+            if not m:
+                continue
+            for dx, dy in _SHORE_LOOK:
+                c, r = cx + dx, cy + dy
+                if 0 <= c < graph_w and 0 <= r < height_cells \
+                        and index[r][c] >= 0:
+                    coast_owners[cy][cx] = owner_of[index[r][c]]
+                    break
+    shore = [[owner_of[v] if v >= 0 else None for v in line]
+             for line in index]
+    return coast_owners, shore
+
+
 def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
                       reserved=()):
     """(fills, layer, overlays) for one view — the pure half, no network.
@@ -598,20 +711,39 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     could not be read; a missing tile simply contributes nothing.
     `reserved` are cells the caller has already spoken for (the marker
     and the crosshair), which labels must route around.
+
+    The layer comes back carrying `.hover`, the index that answers what
+    is under a pointer.  It is built here rather than on demand because
+    it is a property of the view, and the view is what gets cached: a
+    pointer crossing a static map must cost a lookup, not a rebuild.
     """
     palette = style.palette()
     view = decode_view(tiles)
     grid, water = class_grid(view, bbox, graph_w, height_cells, band)
     fills = fill_colors(grid, graph_w, height_cells, palette)
 
+    # Labels run before the raster, against the same water mask, because
+    # naming the water is what tells the shore which shore it is.
+    wet = water_cells(water, graph_w, height_cells)
+    marks, texts, waters = {}, {}, {}
+    overlays = _maps_labels.label_overlays(
+        view, bbox, graph_w, height_cells, band, palette, lang, reserved,
+        wet, marks, texts, waters)
+
     layer = DotLayer(bbox, graph_w, height_cells)
     land = [bytearray(1 - v for v in row) for row in water]
     coast = _edge_dots(land, water, graph_w, height_cells)
     ink = palette.get("coast", style._PALETTE_16_DEFAULT)
-    layer.or_mask(coast, ink, style.LINE_STYLES["coast"][3])
+    feats = [("coast", "")]
+    coast_owners, shore = water_owners(coast, wet, waters, feats,
+                                       graph_w, height_cells)
+    layer.or_mask(coast, ink, style.LINE_STYLES["coast"][3], owner=0,
+                  owners=coast_owners)
     draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
-               water)
-    overlays = _maps_labels.label_overlays(
-        view, bbox, graph_w, height_cells, band, palette, lang, reserved,
-        water_cells(water, graph_w, height_cells))
+               lang, feats, water)
+    layer.hover = _maps_hover.HoverIndex(
+        layer.owner, feats,
+        _maps_hover.road_names(view, bbox, graph_w, height_cells, band,
+                               lang),
+        marks, fill_cells(grid, graph_w, height_cells), texts, shore)
     return fills, layer, overlays
