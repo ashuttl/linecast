@@ -525,10 +525,19 @@ class TestWaterAttachment:
         # right edge of a view it fills a third of; the label still
         # belongs on the water you can see.
         index, regions = lb.water_regions(self.MASK)
-        hit = lb._attach((60, 1), index, regions, 5, 3)
+        hit = lb._attach((9, 1), index, regions, 5, 3)
         assert hit is not None
         _area, at, _span = hit
         assert self.MASK[at[1]][at[0]]
+
+    def test_a_point_further_than_a_view_away_is_dropped(self):
+        # Sebago Lake's anchor is two screens west of a Portland
+        # harbour view.  Dragging it to the edge names Casco Bay after
+        # a lake you cannot see, so it is not dragged at all.
+        index, regions = lb.water_regions(self.MASK)
+        assert lb._attach((-6, 1), index, regions, 5, 3) is None
+        assert lb._attach((10, 1), index, regions, 5, 3) is None
+        assert lb._attach((3, -4), index, regions, 5, 3) is None
 
     def test_a_point_that_reaches_no_water_is_dropped(self):
         index, regions = lb.water_regions(water_grid(["....."] * 3))

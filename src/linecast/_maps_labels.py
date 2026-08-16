@@ -159,12 +159,25 @@ def water_regions(water):
 def _attach(cell, index, regions, graph_w, height_cells):
     """(region area, where to put the label) for a water label point.
 
-    A point inside the view names the water under it; a point outside
-    is dragged to the edge it left through, which is how a bay whose
-    anchor is out at sea still names the bay you are looking at.
+    A point inside the view names the water under it; a point just
+    outside is dragged to the edge it left through, which is how a bay
+    whose anchor is out at sea still names the bay you are looking at.
     Returns None when the point does not reach water at all.
+
+    "Just outside" is the whole of the rule: the drag means *this water
+    left the frame through that edge*, so an anchor further than one
+    view away is not dragged at all.  Unbounded, the clamp will pull
+    any anchor on the planet onto the nearest visible water — a
+    Portland harbour view labelled itself "Sebago Lake", twenty-five
+    kilometres inland, because that lake's anchor clamps to the west
+    edge and the first water on that row is the bay.  One view of
+    margin keeps the Gulf of Maine case (seventy cells off an
+    eighty-cell view) and drops that one.
     """
     if cell is None:
+        return None
+    if not (-graph_w <= cell[0] < graph_w * 2
+            and -height_cells <= cell[1] < height_cells * 2):
         return None
     col = max(0, min(graph_w - 1, cell[0]))
     row = max(0, min(height_cells - 1, cell[1]))
