@@ -533,8 +533,23 @@ class TestViewTiles:
         bbox = (-70.4, 43.6, -70.3, 43.7)      # 0.1 deg -> band 3
         band, z_src, keys = st.view_tiles(bbox, 22)
         assert band == 3
-        assert z_src == 10
+        # The style zoom is ~10; the source runs a lookahead ahead of it,
+        # because a z10 tile is generalised past the point of carrying
+        # names and nothing drawn is gated on the tile anyway.
+        assert z_src == 10 + _maps_style.Z_SRC_LOOKAHEAD
         assert keys and all(k[0] == z_src for k in keys)
+
+    def test_the_lookahead_stays_inside_the_tile_budget(self, monkeypatch):
+        # The guard below is for pathological windows, not for the
+        # ordinary case: an ordinary street view must never wake it.
+        monkeypatch.setattr(st, "tile_info",
+                            lambda: ("http://x/{z}/{x}/{y}", "v", 14))
+        for deg in (4.0, 1.0, 0.4, 0.12, 0.05, 0.025, 0.012):
+            half = deg / 2
+            bbox = (-70.371 - deg, 43.677 - half, -70.371 + deg,
+                    43.677 + half)
+            _band, z_src, keys = st.view_tiles(bbox, 34)
+            assert len(keys) <= st._MAX_TILES, (deg, z_src, len(keys))
 
     def test_deep_bands_pin_the_source_to_z14(self, monkeypatch):
         monkeypatch.setattr(st, "tile_info",

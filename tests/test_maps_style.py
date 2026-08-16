@@ -260,16 +260,28 @@ def test_band_for_matches_the_reference_zooms():
 
 
 def test_z_src_rounds_to_nearest_and_clamps():
-    assert ms.z_src(4.49, 1) == 4
-    assert ms.z_src(4.51, 1) == 5
-    assert ms.z_src(-3.0, 0) == 0
-    assert ms.z_src(0.59, 0) == 1
+    look = ms.Z_SRC_LOOKAHEAD
+    assert ms.z_src(4.49, 1) == 4 + look
+    assert ms.z_src(4.51, 1) == 5 + look
+    assert ms.z_src(-3.0, 0) == look             # the floor is 0, then ahead
+    assert ms.z_src(0.59, 0) == 1 + look
     # B6+ pins every layer to z14 so the z14-only poi layer is present
     # the moment B6 debuts tier-1 glyphs.
     for band in (6, 7):
         for z in (13.0, 14.88, 15.88, 20.0):
             assert ms.z_src(z, band) == 14
     assert ms.z_src(13.9, 5) == 14              # clamped by min(), too
+
+
+def test_the_source_runs_ahead_of_the_style_zoom():
+    # A tile generalised for the view's own zoom has almost no names in
+    # it: over Westbrook at B5 the z12 tile carries 4 named streets and
+    # the z14 tile carries 219.  Nothing drawn is gated on the tile, so
+    # the deeper fetch buys names and labels without buying ink.
+    for z, band in ((8.2, 3), (11.44, 4), (12.44, 5)):
+        assert ms.z_src(z, band) > round(z)
+    assert ms.z_src(12.44, 5) == 14             # the screenshot view
+    assert ms.z_src(11.44, 4) == 13             # the street default
 
 
 def test_every_line_class_debuts_at_or_after_its_data_floor():

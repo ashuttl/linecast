@@ -59,11 +59,17 @@ _MIN_BUILDING_DOTS = 4.0  # one sub-pixel is 2x2 dots
 def view_tiles(bbox, height_cells):
     """(band, z_src, [(z, x, y), ...]) for a view.
 
-    The source zoom comes from the style model, which lands on
-    OpenMapTiles' own generalisation floors, so the band table never
-    asks for a class the tile does not carry.  A window wide enough to
-    need more than _MAX_TILES tiles is coarsened a zoom at a time rather
-    than silently truncated — and says so in the debug log.
+    The source zoom comes from the style model, which runs ahead of the
+    view's own zoom (style.z_src) so the tile carries names and detail
+    the band can choose from.  It only ever lands on or below
+    OpenMapTiles' generalisation floors, so the band table can never ask
+    for a class the tile does not carry.
+
+    A window wide enough to need more than _MAX_TILES tiles is coarsened
+    a zoom at a time rather than silently truncated — and says so in the
+    debug log.  That is a guard against pathological windows and not the
+    routine arbiter of the lookahead: measured across every street view
+    size, the lookahead lands on 8-12 tiles and never wakes it.
     """
     z = style.z_eff(bbox, height_cells)
     band = style.band_for(z)

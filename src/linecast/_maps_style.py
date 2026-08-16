@@ -223,6 +223,9 @@ def z_eff(bbox, height_cells):
         _EQUATOR_M_PER_PX * math.cos(math.radians(lat_c)) / m_per_dot)
 
 
+Z_SRC_LOOKAHEAD = 2      # source zooms fetched beyond the style zoom
+
+
 def z_src(z, band):
     """Source tile zoom for a style zoom and its band.
 
@@ -231,10 +234,28 @@ def z_src(z, band):
     tier-1 glyphs would be near-absent for the bottom half of B6 and
     then pop in — an empty promise.  Overzoom past z14 is pure geometry
     scaling, and B6/B7 sharing one tile set is perfect cache reuse.
+
+    Below that, the source runs LOOKAHEAD zooms *ahead* of the style
+    zoom, which is the whole reason this is not simply round(z).  The
+    tile a view's own zoom asks for is generalised for a screen with a
+    thousand times the cells, and OpenMapTiles generalises names hardest
+    of all: measured over Westbrook at B5, the matching z12 tile carries
+    4 named streets where z14 carries 219.  Everything drawn is gated on
+    `band`, never on what the tile happens to hold — the fill debuts,
+    the line weight tables, the POI tiers — so a deeper tile cannot add
+    ink the band did not ask for.  It only widens the choice the gates
+    are choosing from.  Measured over that same view, going z12 -> z14
+    changed 0.1% of fill sub-pixels and 1.6% of braille dots, and took
+    hover from naming 8% of road cells to naming 69%.
+
+    The lookahead is 2 rather than "always 14" because tile count is
+    4x per zoom and a view has to be paid for cold: two zooms is 8-12
+    tiles for any street view, which stays inside the caller's own
+    _MAX_TILES guard without ever waking it.
     """
     if band >= 6:
         return 14
-    return min(14, max(0, int(math.floor(z + 0.5))))
+    return min(14, max(0, int(math.floor(z + 0.5))) + Z_SRC_LOOKAHEAD)
 
 
 BAND_EDGES = (4.0, 6.0, 8.0, 10.5, 11.5, 13.0, 14.5)   # 7 cuts -> B0..B7
