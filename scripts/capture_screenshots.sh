@@ -6,10 +6,12 @@
 #   scripts/capture_screenshots.sh weather moon maps hero
 #
 # The individual targets are weather, sunshine, moon, tides, radar, maps, and
-# hero. "all" captures every app and the hero; the hero is its own live
-# capture — four apps tiled on one offscreen desktop — so it depends on no
-# other target. The app captures use live terminal mode so the header, footer,
-# hidden cursor, and full-screen layout match what users actually see.
+# hero. "all" captures every app but NOT the hero: the shipped hero is a
+# hand-composed whole-screen screenshot, and the hero target — a live
+# auto-capture of four apps tiled on one offscreen desktop — would overwrite
+# it, so it only runs when named explicitly. The app captures use live
+# terminal mode so the header, footer, hidden cursor, and full-screen layout
+# match what users actually see.
 
 set -euo pipefail
 
@@ -30,7 +32,7 @@ usage() {
 Usage: scripts/capture_screenshots.sh [TARGET...]
 
 Targets:
-  all        capture every app, then compose the hero (default)
+  all        capture every app (default; leaves the hand-made hero alone)
   weather    weather.png
   sunshine   sunshine-day.png and sunshine-dusk.png
   moon       moon.png
@@ -195,7 +197,6 @@ run_target() {
             tides
             radar
             maps
-            hero
             ;;
         *)
             printf 'capture_screenshots: unknown target: %s\n' "$1" >&2

@@ -20,12 +20,17 @@ scripts/capture_screenshots.sh weather sunshine moon tides radar maps hero
 
 Weather, tides, radar, and maps use current public data. Sunshine and Moon use
 fixed local moments through `scripts/capture_moment.py`, keeping those frames
-repeatable at any time of day. The hero is a single real screenshot: weather,
-radar, the street map, and midday sunshine run live in four terminals tiled by
-Hyprland on the offscreen monitor (termshot's `--pane` mode), so the
-compositor's own gaps and borders do the alignment. Its long settle gives the
-full-height radar pane time to load all 18 animation frames — the pane is
-large enough that "loading… n/18" lingers in its header well past a minute.
+repeatable at any time of day.
+
+The current hero is not from the script at all: it is a hand-composed
+whole-laptop-screen screenshot — weather, dusk sunshine, tides, and radar
+tiled on the real desktop, bar and all — taken live and kept deliberately
+uncropped. For that reason `all` skips the hero. Running the `hero` target
+explicitly *overwrites* it with an auto-capture: four apps tiled by Hyprland
+on the offscreen monitor (termshot's `--pane` mode), where the compositor's
+own gaps and borders do the alignment. Its long settle gives the full-height
+radar pane time to load all 18 animation frames — at that size
+"loading… n/18" lingers in its header well past a minute.
 
 The default places can be overridden without editing the script:
 

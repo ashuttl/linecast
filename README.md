@@ -10,7 +10,7 @@
 
 </div>
 
-![linecast weather, sunshine, radar, and maps](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
+![linecast weather, sunshine, tides, and radar tiled on an Omarchy desktop](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
 
 linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies, adapts to your terminal theme, and needs no account or API key for its core experience.
 
