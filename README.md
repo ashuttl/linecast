@@ -10,7 +10,7 @@
 
 </div>
 
-![linecast weather, tides, and sunshine](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/triptych.png)
+![linecast weather, sunshine, radar, and maps](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
 
 linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies, adapts to your terminal theme, and needs no account or API key for its core experience.
 
@@ -91,6 +91,8 @@ The weather dashboard combines current conditions, daylight-shaded hourly temper
 
 `moon` draws the current phase with its real terminator, mare shading, halo, and orientation for your hemisphere, then tells you what the Moon is doing next. Try `moon --oneline` for a status bar.
 
+![waxing gibbous Moon](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon.png)
+
 ### Tides
 
 The tide chart scrolls across several days and annotates exact highs, lows, and the current predicted water level. Coverage comes from NOAA in the US, the Canadian Hydrographic Service, and Queensland Open Data. An optional [TideCheck](https://tidecheck.com/) key adds global coverage.
@@ -107,13 +109,18 @@ radar --layers temp,wind
 radar --layer satellite
 ```
 
-![radar forecast over Qingdao with Chinese UI](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar-qingdao.gif)
+![radar forecast over Manila](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar.gif)
 
 ### Maps
 
 Street view renders OpenFreeMap vector tiles as solid water, land, parks, and buildings under a braille road network. Hover a feature to name and highlight it; search with `/`, ask for directions with `d`, or switch views with `v`.
 
 Terrain view turns global elevation into hillshade and a hypsometric ramp, from deep ocean trenches through lowland green to alpine white. Coastlines, borders, water, and cities are drawn over it in braille.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-street.png" width="49%" alt="street map of Portland, Maine">
+  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-terrain.png" width="49%" alt="terrain map of the Alps around Innsbruck">
+</p>
 
 ```sh
 maps --location "Portland, Maine" --zoom 0.01
