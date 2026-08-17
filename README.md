@@ -1,155 +1,160 @@
+<div align="center">
+
 # linecast
 
-Terminal weather, radar, solar arc, and tide visualizations. Pure Python, zero dependencies.
+**Weather, sunlight, tides, radar, the Moon, and maps — drawn for the terminal.**
 
-All data comes from free public APIs with no keys required.
+[![PyPI](https://img.shields.io/pypi/v/linecast)](https://pypi.org/project/linecast/)
+[![Python](https://img.shields.io/pypi/pyversions/linecast)](https://pypi.org/project/linecast/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-![linecast](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/triptych.png)
+</div>
 
-## Commands
+![linecast weather, tides, and sunshine](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/triptych.png)
 
-**`weather`** — Current conditions, hourly braille temperature curve, 7-day forecast with color range bars, precipitation sparkline, natural language comparisons, and weather alerts for 36 countries. Available in 17 languages.
+linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies, adapts to your terminal theme, and needs no account or API key for its core experience.
 
-![weather](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
-
-**`sunshine`** — Solar arc inspired by the Apple Watch Solar Graph face. Shows the sun's position on its daily arc with sky color gradients, day length with daily delta, and moon phase.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-day.png" width="49%" alt="sunshine — midday">
-  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-dusk.png" width="49%" alt="sunshine — dusk">
-</p>
-
-**`moon`** — The Moon itself: a shaded disc with the correct phase terminator, mare shading, and a soft halo over a star field, mirrored for southern-hemisphere observers. Below it, the current phase and illuminated fraction, whether the Moon is up right now (with altitude), the next moonrise and moonset, and the dates of the next full and new moons — localized in the same languages as `weather`. `--oneline` lists the next rise/set chronologically — a leading ↓ means the Moon is up.
-
-**`tides`** — NOAA tide predictions rendered as a sunlight-shaded braille chart with scrollable multi-day window, current water level, high/low extremes with timestamps, and mouse hover tooltips.
-
-![tides](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
-
-**`radar`** — Animated weather radar over a braille basemap. Powered by [LibreWXR](https://librewxr.net) worldwide: real radar composites for North America (NOAA MRMS incl. Alaska/Hawaii, Environment Canada), Europe (OPERA, 24 countries), Japan, Taiwan and more, with model-derived precipitation filling the gaps everywhere else, 60 minutes of forecast frames, and 13 colour themes (Dark Sky by default; `--theme rainbow`, or press `t` in live mode to pick from a menu). Falls back automatically to NEXRAD via Iowa Environmental Mesonet (US) or RainViewer (global). Drag to pan anywhere in the world; the header names wherever you land ("23 mi NE of Boston" near shore, "Gulf of Maine" once offshore) from an offline Natural Earth index, and a crosshair marks the view centre. In the US, storm-based warning polygons (tornado red, severe thunderstorm yellow, flash flood green, marine orange, snow squall violet, emergencies magenta) are outlined over the echoes and rewind in sync with the radar timeline. Optional condition layers (`--layers temp,wind`, or press `c`/`w` in live mode) add a temperature tint beneath the geography and neutral wind arrows whose contrast tracks the speed — invisible in calm air, full text contrast in storm-force wind — sampled from Open-Meteo and time-synced to the displayed frame; rewinding the radar rewinds them too.
-
-![radar — Warri, Nigeria](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar-warri.png)
-
-Like the rest of linecast, radar speaks all 17 languages — here looping the forecast over Qingdao with `--lang zh`:
-
-![radar loop — Qingdao, Chinese UI](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar-qingdao.gif)
-
-**`maps`** — Two maps, no weather at all.
-
-`--view street` (the default) is a real street map from OpenFreeMap's vector tiles: water, parks, the urban tint and building footprints as solid fills, the whole road ladder from motorway down to footpath as braille strokes, plus place names, route shields, and ten POI marks. It opens on your neighbourhood and goes down to about two metres per braille dot. Hierarchy is carried by a luminance ladder and stroke weight alone — no casings, no shadows, one warm accent for the motorway — and a label that will not fit cleanly is dropped rather than shrunk.
-
-`--view terrain` is hillshaded elevation from the AWS/Mapzen terrain tiles (SRTM, GMTED, ETOPO1) painted as a hypsometric ramp — lowland green through alpine white above sea level, deepening bathymetric blues below it — with the coastlines, borders, and city labels rendered in braille over the fill. Lakes and rivers are the one thing elevation cannot tell you (a terrain sample over a lake is just the height of its surface), so the inland water comes from the same vector tiles and joins the shoreline the elevation already draws. It opens on a region, where relief reads.
-
-Drag to pan, the wheel zooms at the pointer, `v` switches view, `/` searches, `d` gives directions, `?` lists the keys. Terrain reads the elevation under the pointer. Street names whatever the pointer is over — an unlabelled road, a river, a POI mark — in the header, and lights that whole feature up in its own ink, end to end across every junction the data split it at.
-
-```
-maps --location "Portland, Maine" --zoom 0.01
-maps --view terrain --location "Innsbruck"
-maps --to "Portland Head Light" --profile bike
-```
-
-All six launch in full-screen live mode by default when run in a terminal (auto-refreshing, with keyboard navigation). Use `--print` for a single static snapshot printed to stdout. When piped, `--print` behavior is automatic.
+| Command | What it shows |
+| --- | --- |
+| `weather` | Current conditions, an hourly braille temperature curve, seven-day forecast, air quality, comparisons, and official alerts |
+| `sunshine` | The Sun moving across its daily arc, with sky gradients, day length, and moon phase |
+| `moon` | A shaded lunar disc, illumination, altitude, rise and set times, and the next full and new moons |
+| `tides` | A sunlight-shaded tide curve, current water level, and high and low times |
+| `radar` | Animated worldwide radar or satellite imagery, warning polygons, temperature, and wind |
+| `maps` | Detailed vector streets, terrain and bathymetry, place search, and directions |
 
 ## Install
 
-```
-pip install linecast
+With [uv](https://docs.astral.sh/uv/):
+
+```sh
+uv tool install linecast
 ```
 
-Or with a Homebrew tap:
+Or use Homebrew:
 
-```
+```sh
 brew tap ashuttl/linecast
 brew install linecast
 ```
 
-## Usage
+`pipx install linecast` and `pip install linecast` work too. linecast requires Python 3.10+ on macOS or Linux.
 
-```
-weather                          # current location via IP geolocation
-weather --location "new york"    # search by place name (uses top result)
-weather --location 44.54,-68.42  # specific coordinates
-weather --search québec          # find coordinates by city name
-weather --metric                 # metric units (°C, km/h, mm)
-weather --celsius                # celsius only (wind/precip stay imperial)
-weather --metric --fahrenheit    # °F with km/h and mm
-weather --lang fr                # UI in French (also covers alert text when available)
-# other language codes: es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh, id
-weather --print                  # single static snapshot (no live mode)
-weather --json                   # machine-readable JSON output (implies --print)
-sunshine                         # solar arc (live by default)
-sunshine --print                 # static snapshot
-sunshine --json                  # machine-readable JSON output (implies --print)
-sunshine --classic-colors        # use fixed-color (theme agnostic) sunshine gradient/palette
+## Take it outside
 
-moon                             # phase, illumination, next rise/set (live by default)
-moon --oneline                   # compact line for status bars
-moon --json                      # machine-readable JSON output (implies --print)
-
-tides                            # nearest NOAA station (live by default)
-tides --station "Bar Harbor"     # search by station name (uses nearest match)
-tides --station 8413320          # specific station ID
-tides --search "portland maine"  # find stations by name/state, nearest first
-tides --metric                   # heights in meters instead of feet
-tides --lang fr                  # UI in French
-tides --print                    # static snapshot
-tides --json                     # machine-readable JSON output (implies --print)
-
-radar                            # current location via IP geolocation
-radar --location "chicago"       # search by place name
-radar --location 41.88,-87.63    # specific coordinates
-radar --search denver            # find coordinates by city name
-radar --zoom 12                  # zoom out (degrees of latitude shown, default 6)
-radar --theme rainbow            # colour theme (or press t in live mode)
-radar --layers temp,wind         # temperature tint + wind arrows (or press c/w)
-radar --print                    # static snapshot
-
-maps                             # streets around the current location
-maps --zoom 0.01                 # closer in: buildings and POIs
-maps --view terrain --location "Innsbruck"   # the Alps, hillshaded
-maps --view terrain --location 60.4,5.3 --zoom 8  # Norwegian fjords and the North Sea trench
-maps --to "Portland Head Light"  # route there from your location
-maps --to 43.62,-70.20 --profile foot   # ...on foot
-maps --print                     # static snapshot
+```sh
+weather
+sunshine
+moon
+tides
+radar
+maps
 ```
 
-### Setting a location
+Every command finds your approximate location from your IP address and opens in live mode when run in a terminal. Drag or scroll where it makes sense; each app shows its keyboard controls along the bottom.
 
-All commands detect your location from your IP address by default. To use a
-fixed location instead:
+Pass a place name or coordinates to go somewhere else:
 
-```
-linecast location set "Portland, Maine"   # search by place name (uses top result)
-linecast location set 44.54,-68.42        # specific coordinates
-linecast location                         # show the current setting
-linecast location auto                    # go back to IP geolocation
-linecast location search fayette          # list matching places
+```sh
+weather --location "Québec"
+radar --location 41.88,-87.63
+maps --view terrain --location "Innsbruck"
+maps --to "Portland Head Light" --profile bike
 ```
 
-The saved location applies to every command and is stored in
-`~/.config/linecast/config.json`. It is resolved to coordinates once, when you
-set it. A `--location` flag or the `WEATHER_LOCATION` environment variable
-takes precedence over it.
+Use `--print` for one static frame. When output is piped, linecast does this automatically. Weather, sunshine, moon, and tides also offer `--json` and compact `--oneline` output for status bars.
 
-### Language support
+If a short command name conflicts with something already on your system, everything also lives under the `linecast` namespace:
 
-Use `--lang` or set `LINECAST_LANG` to switch the full UI into another language. This covers weather descriptions, day names, natural language comparisons, precipitation forecasts, and alert timing. Non-English languages also use 24-hour time.
-
-Supported: **English**, **French**, **Spanish**, **German**, **Italian**, **Portuguese**, **Dutch**, **Polish**, **Norwegian**, **Swedish**, **Icelandic**, **Danish**, **Finnish**, **Japanese**, **Korean**, **Chinese**, **Indonesian**
-
-All commands are also available under the `linecast` namespace if the short names conflict with other tools on your system:
-
-```
-linecast weather
-linecast sunshine --print
-linecast tides --station 8413320
+```sh
+linecast weather --metric
 linecast radar --theme rainbow
+linecast maps --view terrain
 ```
 
-## Shell completion
+## A closer look
 
-Generate shell completion from the CLI:
+### Weather
 
-```bash
+The weather dashboard combines current conditions, daylight-shaded hourly temperatures, precipitation, daily ranges, air quality, and natural-language comparisons. Official alerts are available across 36 countries and open to their full detail in live mode.
+
+![weather dashboard](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
+
+### Sunshine and Moon
+
+`sunshine` is inspired by the Apple Watch Solar face. The arc and sky move through dawn, day, dusk, and night; day length includes its change from yesterday.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-day.png" width="49%" alt="sunshine at midday">
+  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-dusk.png" width="49%" alt="sunshine at dusk">
+</p>
+
+`moon` draws the current phase with its real terminator, mare shading, halo, and orientation for your hemisphere, then tells you what the Moon is doing next. Try `moon --oneline` for a status bar.
+
+### Tides
+
+The tide chart scrolls across several days and annotates exact highs, lows, and the current predicted water level. Coverage comes from NOAA in the US, the Canadian Hydrographic Service, and Queensland Open Data. An optional [TideCheck](https://tidecheck.com/) key adds global coverage.
+
+![tide chart](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
+
+### Radar
+
+Radar animates recent observations and an hour of forecast over a braille basemap. LibreWXR supplies worldwide composites and fills gaps with model-derived precipitation; linecast adds time-synced US warning polygons, optional temperature and wind layers, 13 colour themes, and hourly infrared satellite imagery.
+
+```sh
+radar --theme rainbow
+radar --layers temp,wind
+radar --layer satellite
+```
+
+![radar forecast over Qingdao with Chinese UI](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar-qingdao.gif)
+
+### Maps
+
+Street view renders OpenFreeMap vector tiles as solid water, land, parks, and buildings under a braille road network. Hover a feature to name and highlight it; search with `/`, ask for directions with `d`, or switch views with `v`.
+
+Terrain view turns global elevation into hillshade and a hypsometric ramp, from deep ocean trenches through lowland green to alpine white. Coastlines, borders, water, and cities are drawn over it in braille.
+
+```sh
+maps --location "Portland, Maine" --zoom 0.01
+maps --view terrain --location 60.4,5.3 --zoom 8
+maps --to "Portland Head Light" --profile foot
+```
+
+## Make it yours
+
+### Location
+
+Save one location for every command:
+
+```sh
+linecast location set "Portland, Maine"
+linecast location set 44.54,-68.42
+linecast location
+linecast location auto
+linecast location search fayette
+```
+
+The setting lives in `~/.config/linecast/config.json`. A command's `--location` flag or `WEATHER_LOCATION` takes precedence.
+
+### Language
+
+Use `--lang` or `LINECAST_LANG` to localize the interface. Seventeen languages are supported:
+
+> English, French, Spanish, German, Italian, Portuguese, Dutch, Polish, Norwegian, Swedish, Icelandic, Danish, Finnish, Japanese, Korean, Chinese, and Indonesian
+
+```sh
+weather --lang fr
+radar --lang zh
+```
+
+### Colour and icons
+
+linecast queries the terminal palette so its colours belong in your theme. Set `LINECAST_COLOR` to `truecolor`, `256`, `16`, or `none` to override colour detection, or use the standard `NO_COLOR` variable. A [Nerd Font](https://www.nerdfonts.com/) gives the best icon rendering; `--emoji` or `LINECAST_ICONS=emoji` uses standard emoji instead.
+
+### Shell completion
+
+```sh
 # Bash
 source <(linecast completion bash)
 
@@ -160,55 +165,40 @@ source <(linecast completion zsh)
 linecast completion fish | source
 ```
 
-This installs completions for both `linecast <command>` and standalone `weather`, `tides`, `sunshine`, and `radar`.
+Completion covers both `linecast <command>` and the standalone commands.
 
-## Weather alerts
+<details>
+<summary><strong>Environment variables</strong></summary>
 
-Alerts are sourced automatically based on location from eight providers covering 36 countries:
+| Variable | Description |
+| --- | --- |
+| `WEATHER_LOCATION` | Default `lat,lng` for location-aware commands; overrides the saved location |
+| `WEATHER_UNITS` | `metric` for Celsius, km/h, and mm |
+| `TIDE_STATION` | Default tide station ID |
+| `TIDES_UNITS` | `metric` for tide heights in metres |
+| `LINECAST_TIDECHECK_KEY` | Optional TideCheck API key for global tide coverage |
+| `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, or `id` |
+| `LINECAST_RADAR_THEME` | Default radar colour theme |
+| `LINECAST_LIBREWXR_URL` | Base URL of a self-hosted LibreWXR instance |
+| `LINECAST_ICONS` | `emoji` to use standard emoji instead of Nerd Font icons |
+| `LINECAST_COLOR` | `auto`, `truecolor`, `256`, `16`, or `none` |
+| `LINECAST_THEME` | `auto` (default), or `classic` / `legacy` / `off` for the fixed palette |
+| `LINECAST_THEME_TIMEOUT_MS` | Terminal palette query timeout in milliseconds (default `100`) |
+| `NO_COLOR` | Any non-empty value disables ANSI colours |
 
-- **US** — National Weather Service
-- **Canada** — Environment and Climate Change Canada
-- **China** — China Meteorological Administration
-- **Germany** — Deutscher Wetterdienst (via BrightSky)
-- **Ireland** — Met Éireann
-- **Japan** — Japan Meteorological Agency
-- **Norway** — MET Norway
-- **29 European countries** — MeteoAlarm (Austria, Belgium, Bulgaria, Croatia, Cyprus, Czechia, Denmark, Estonia, Finland, France, Greece, Hungary, Iceland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Poland, Portugal, Romania, Serbia, Slovakia, Slovenia, Spain, Sweden, Switzerland, UK)
+</details>
 
-Alert text comes from each national weather service in its native language. When available, alerts are served in your `--lang` preference.
+<details>
+<summary><strong>Data sources and coverage</strong></summary>
 
-## Environment variables
+- **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Met Éireann, Japan Meteorological Agency, MET Norway, and MeteoAlarm.
+- **Sunshine and Moon** — computed locally from astronomical equations.
+- **Tides** — NOAA CO-OPS, Canadian Hydrographic Service, Queensland Open Data, and optionally TideCheck.
+- **Radar** — [LibreWXR](https://librewxr.net/), with NEXRAD via Iowa Environmental Mesonet and RainViewer as fallbacks; warning polygons come from the US National Weather Service via IEM. The basemap is derived from Natural Earth.
+- **Maps** — terrain from AWS/Mapzen elevation tiles; streets and inland water from [OpenFreeMap](https://openfreemap.org/) (© OpenMapTiles © OpenStreetMap contributors); search from Photon and Nominatim; directions from FOSSGIS OSRM (© OpenStreetMap contributors).
 
-| Variable                    | Description                                                                                                                                  |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WEATHER_LOCATION`          | Default lat,lng for weather and radar (e.g., `44.54,-68.42`); overrides a saved `linecast location`                                          |
-| `TIDE_STATION`              | Default NOAA station ID for tides (e.g., `8413320`)                                                                                          |
-| `LINECAST_RADAR_THEME`      | Default radar colour theme (same values as `radar --theme`; default `dark-sky`)                                                              |
-| `LINECAST_LIBREWXR_URL`     | Base URL of a self-hosted [LibreWXR](https://librewxr.net) instance for radar tiles (default `https://api.librewxr.net`)                     |
-| `TIDES_UNITS`               | Set to `metric` for tide heights in meters (same as `--metric`)                                                                              |
-| `LINECAST_LANG`             | UI language, including alerts when available: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh` |
-| `WEATHER_UNITS`             | Set to `metric` for Celsius, km/h, and mm (same as `--metric`)                                                                               |
-| `LINECAST_ICONS`            | Set to `emoji` to use standard emoji instead of Nerd Font icons                                                                              |
-| `LINECAST_COLOR`            | Color mode: `auto` (default), `truecolor`, `256`, `16`, or `none`                                                                            |
-| `LINECAST_THEME`            | Theme input mode: `auto` (default) to query terminal colors, or `classic` / `legacy` / `off` for pre-theme palette behavior                  |
-| `LINECAST_THEME_TIMEOUT_MS` | OSC theme query timeout in milliseconds (default `100`)                                                                                      |
-| `NO_COLOR`                  | Any non-empty value disables ANSI colors (standard convention)                                                                               |
-
-## Requirements
-
-- Python 3.10+
-- A terminal with ANSI color support (`truecolor` looks best; weather remains usable in low/no color)
-- A [Nerd Font](https://www.nerdfonts.com/) for best icon rendering (optional — use `--emoji` for standard emoji fallback)
-- macOS or Linux (uses `termios` for live mode)
-
-## Data sources
-
-- **Weather** — [Open-Meteo](https://open-meteo.com/) (forecast, geocoding, air quality); alerts from the US NWS, Environment Canada, Bright Sky (DWD), MET Norway, and Met Éireann
-- **Tides** — NOAA CO-OPS (US), Canadian Hydrographic Service, Queensland Open Data (AU), and TideCheck
-- **Sunshine** — computed locally from NOAA's solar position equations (no API)
-- **Radar** — global radar, forecast frames and colour themes by [LibreWXR](https://librewxr.net) (data CC BY 4.0; aggregates NOAA MRMS, Environment Canada, EUMETNET OPERA, JMA, CWA, MET Malaysia and ECMWF-based model precipitation; set `LINECAST_LIBREWXR_URL` to use a self-hosted instance); fallbacks: NEXRAD via Iowa State University's Iowa Environmental Mesonet (US) and [RainViewer](https://www.rainviewer.com/); NWS storm-based warning polygons via IEM; basemap geography from Natural Earth
-- **Maps** — terrain from the AWS/Mapzen terrain tiles (SRTM, GMTED, ETOPO1); street tiles — and terrain's lakes and rivers — from [OpenFreeMap](https://openfreemap.org/) (© OpenMapTiles © OpenStreetMap contributors); place search from Photon and Nominatim; directions from the FOSSGIS OSRM instances (© OpenStreetMap contributors)
+</details>
 
 ## License
 
-MIT
+[MIT](LICENSE)
