@@ -109,7 +109,7 @@ radar --layers temp,wind
 radar --layer satellite
 ```
 
-![radar forecast over Manila](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar.gif)
+![animated radar forecast over Glasgow](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar.gif)
 
 ### Maps
 
