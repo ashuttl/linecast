@@ -451,8 +451,11 @@ def routes(answer=None, error=None):
 
 class TestDirections:
     def test_pressing_d_with_nothing_selected_asks_for_a_destination(self):
+        # ...and opens the panel behind the search, so the field rows
+        # are on screen the first time a route ever appears.
         st = routes()
         assert st.press() == "search"
+        assert st.panel
         assert st.calls == []
 
     def test_pressing_d_with_a_selection_routes_to_it(self):
@@ -464,29 +467,33 @@ class TestDirections:
         assert st.route.distance_m == 18800.0
         assert st.status == ""
 
-    def test_pressing_d_again_cycles_the_profile(self):
-        # One mental model: d = directions to what's selected; press
-        # again to change how you're travelling.
+    def test_p_cycles_the_profile_and_goes_again(self):
         st = routes()
         st.select(*LIGHT)
         st.press()
         FakeThread.started[-1].run_now()
         for expected in ("bike", "foot", "car"):
-            st.press()
+            st.cycle_profile()
             FakeThread.started[-1].run_now()
             assert st.profile == expected
             assert st.calls[-1][0] == expected
 
-    def test_a_new_selection_re_aims_rather_than_cycling(self):
+    def test_p_with_no_destination_only_changes_the_mode(self):
+        st = routes()
+        st.cycle_profile()
+        assert st.profile == "bike"
+        assert FakeThread.started == []
+
+    def test_a_press_with_a_standing_route_only_shows_the_panel(self):
+        # Opening the panel must never cost a request the cache would
+        # have answered anyway — re-aiming happens where a new point
+        # is committed, not on the key that shows the panel.
         st = routes()
         st.select(*LIGHT)
         st.press()
         FakeThread.started[-1].run_now()
-        st.select(44.0, -69.0, "Somewhere else")
-        st.press()
-        FakeThread.started[-1].run_now()
-        assert st.profile == "car"
-        assert st.calls[-1][2] == (44.0, -69.0)
+        assert st.press() is True
+        assert len(st.calls) == 1
 
     def test_a_press_while_a_request_is_in_flight_does_not_double_fetch(self):
         st = routes()
@@ -548,7 +555,7 @@ class TestOrigin:
         assert st.origin_point() == HOME
 
 
-class TestStepsPanel:
+class TestDirectionsPanel:
     def _routed(self):
         st = routes()
         st.select(*LIGHT, "Portland Head Light")
@@ -556,22 +563,19 @@ class TestStepsPanel:
         FakeThread.started[-1].run_now()
         return st
 
-    def test_t_needs_a_route_to_open(self):
-        st = routes()
-        assert st.toggle_panel() is False
-        assert not st.panel
-
-    def test_t_toggles_and_opening_focuses_nothing(self):
+    def test_opening_focuses_nothing(self):
         # The map must never move on a key that only shows a panel.
         st = self._routed()
-        assert st.toggle_panel() is True
         assert st.panel and st.step is None
-        assert st.toggle_panel() is True
+
+    def test_escape_closes_and_drops_the_focus(self):
+        st = self._routed()
+        st.step_move(1)
+        assert st.close_panel() is True
         assert not st.panel and st.step is None
 
     def test_arrows_enter_the_list_from_either_end(self):
         st = self._routed()
-        st.toggle_panel()
         assert st.step_move(1) is st.route.steps[0]
         st.step = None
         assert st.step_move(-1) is st.route.steps[-1]
@@ -579,7 +583,6 @@ class TestStepsPanel:
     def test_stepping_clamps_rather_than_wrapping(self):
         # Arriving must not wrap around to departing.
         st = self._routed()
-        st.toggle_panel()
         for _ in range(10):
             st.step_move(1)
         assert st.step == len(st.route.steps) - 1
@@ -589,41 +592,61 @@ class TestStepsPanel:
 
     def test_a_new_route_re_numbers_its_steps(self):
         st = self._routed()
-        st.toggle_panel()
         st.step_move(1)
         st.select(44.0, -69.0, "Somewhere else")
-        st.press()
+        st.request()
         FakeThread.started[-1].run_now()
         assert st.step is None
 
     def test_clearing_closes_the_panel(self):
         st = self._routed()
-        st.toggle_panel()
         st.clear()
         assert not st.panel and st.step is None
 
 
-class TestStepsOverlay:
-    def _overlay(self, step=None, origin=None, dest=(43.6231, -70.2079,
-                                                     "Portland Head Light"),
-                 cols=80, rows=24, home_label="Westbrook"):
-        return mu.steps_overlay(fake_route(), origin, dest, step, cols,
-                                rows, "en", home_label=home_label)
+class TestDirectionsOverlay:
+    def _state(self, route="yes", step=None, origin=None, status="",
+               dest=(43.6231, -70.2079, "Portland Head Light"),
+               profile="car"):
+        st = routes()
+        st.origin = origin
+        st.dest = dest
+        st.route = fake_route(profile) if route == "yes" else route
+        st.step = step
+        st.status = status
+        st.profile = profile
+        st.panel = True
+        return st
 
-    def test_the_title_is_the_route_summary(self):
-        assert "11.7 mi · 24m · driving" in strip(self._overlay())
+    def _overlay(self, st=None, cols=80, rows=24, home_label="Westbrook",
+                 **kwargs):
+        st = st if st is not None else self._state(**kwargs)
+        return mu.directions_overlay(st, cols, rows, "en",
+                                     home_label=home_label)
 
-    def test_every_maneuver_gets_a_row(self):
+    def test_the_field_rows_wear_their_labels_and_keys(self):
         plain = strip(self._overlay())
+        assert re.search(r"o from +Westbrook", plain)
+        assert re.search(r"d to +Portland Head Light", plain)
+        assert re.search(r"p mode +driving · 11.7 mi · 24m", plain)
+
+    def test_no_destination_is_a_placeholder_not_a_missing_row(self):
+        plain = strip(self._overlay(route=None, dest=None))
+        assert re.search(r"d to +…", plain)
+
+    def test_the_routers_status_stands_in_for_absent_steps(self):
+        plain = strip(self._overlay(route=None, status="pending"))
+        assert "routing…" in plain
+        plain = strip(self._overlay(route=None, status="none"))
+        assert "no route" in plain
+
+    def test_steps_keep_their_road_names(self):
+        # The endpoints' labels live in the field rows now; the depart
+        # and arrive rows go back to being roads.
+        plain = strip(self._overlay())
+        assert "Main Street" in plain
         assert "Spring Street" in plain
         assert "2.0 mi" in plain            # distances in the reader's units
-
-    def test_endpoints_wear_their_labels_and_editing_keys(self):
-        plain = strip(self._overlay())
-        assert re.search(r"o ● +351 ft +Westbrook", plain)
-        assert re.search(r"d ◆ +Portland Head Light", plain)
-        assert "Main Street" not in plain   # the depart road name loses
-        assert "Shore Road" not in plain    # so does the arrive one
 
     def test_an_edited_origin_names_itself_not_home(self):
         plain = strip(self._overlay(origin=(44.1, -70.5, "Poland Spring")))
@@ -640,27 +663,27 @@ class TestStepsOverlay:
 
     def test_a_ramp_with_no_ref_borrows_the_hover_word(self):
         bare = dict(STEPS[2], ref=None)
-        route = fake_route(steps=[STEPS[0], bare, STEPS[3]])
-        panel = mu.steps_overlay(route, None, (43.6, -70.2, "X"), None,
-                                 80, 24, "en")
-        assert "ramp" in strip(panel)
+        st = self._state()
+        st.route = fake_route(steps=[STEPS[0], bare, STEPS[3]])
+        assert "ramp" in strip(self._overlay(st=st))
 
     def test_the_focused_step_is_reverse_video_and_counted(self):
         panel = self._overlay(step=1)
         assert "\033[7m" in panel
-        assert "· 2/4" in strip(panel)
+        assert "2/4 · " in strip(panel)
 
     def test_unfocused_panels_count_nothing(self):
         assert "/4" not in strip(self._overlay())
 
     def test_a_short_terminal_windows_around_the_focus(self):
-        # rows=6 leaves title + two steps + hint; the focus stays visible.
-        panel = self._overlay(step=3, rows=6)
+        # rows=8 leaves the fields + two steps + hint; focus stays
+        # visible while the far end of the route drops.
+        panel = self._overlay(step=3, rows=8)
         plain = strip(panel)
-        assert "Portland Head Light" in plain
+        assert "Shore Road" in plain
         assert "Main Street" not in plain
         placed = [int(m) for m in re.findall(r"\033\[(\d+);1H", panel)]
-        assert max(placed) <= 6
+        assert max(placed) <= 7             # and the footer row stays free
 
     def test_the_hint_is_the_last_row(self):
         panel = self._overlay()
@@ -668,10 +691,41 @@ class TestStepsOverlay:
         placed = [int(m) for m in re.findall(r"\033\[(\d+);1H", panel)]
         assert placed == sorted(placed)
 
-    def test_no_route_is_no_panel(self):
-        assert mu.steps_overlay(None, None, None, None, 80, 24) == ""
-        empty = fake_route(steps=[])
-        assert mu.steps_overlay(empty, None, None, None, 80, 24) == ""
+    def test_the_panel_starts_under_the_header(self):
+        # The map's own top row — place, mode, readout — stays legible.
+        panel = self._overlay()
+        placed = [int(m) for m in re.findall(r"\033\[(\d+);1H", panel)]
+        assert min(placed) == 2
+
+    def test_only_the_field_rows_take_a_ground(self):
+        # The steps are bare ink over the map, the see-through readout
+        # treatment: each row claims no more ground than its own text.
+        panel = self._overlay()
+        rows_ = re.split(r"\033\[\d+;1H", panel)[1:]
+        grounded = [r for r in rows_ if "\033[48;" in r]
+        assert len(grounded) == 3
+
+    def test_a_terminal_too_short_for_the_fields_gets_none(self):
+        st = self._state()
+        assert self._overlay(st=st, rows=5) == ""
+        assert st.panel_rows is None
+
+    def test_the_row_map_names_what_each_row_holds(self):
+        # The map is what lets a mouse click land on a field or a step.
+        st = self._state()
+        self._overlay(st=st)
+        width, acts = st.panel_rows
+        assert acts[2] == 'from' and acts[3] == 'to' and acts[4] == 'mode'
+        assert acts[5] == ('step', 0) and acts[8] == ('step', 3)
+        assert 9 not in acts                # the hint row is not a control
+        assert mu.PANEL_MIN <= width <= mu.PANEL_MAX
+
+    def test_the_row_map_follows_the_window(self):
+        st = self._state(step=3)
+        self._overlay(st=st, rows=8)
+        _width, acts = st.panel_rows
+        assert set(acts) == {2, 3, 4, 5, 6}
+        assert acts[6] == ('step', 3)
 
     def test_the_panel_stays_inside_a_narrow_terminal(self):
         for cols in (34, 60, 200):

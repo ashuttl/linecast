@@ -224,7 +224,8 @@ def _read_key(fd, text=False):
 # ---------------------------------------------------------------------------
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
-              intercept=None, play_gate=None, on_wheel=None, text_mode=None):
+              intercept=None, play_gate=None, on_wheel=None, text_mode=None,
+              on_click=None):
     """Run render_fn() in a loop on the alternate screen buffer.
 
     render_fn: callable(offset_minutes=0) returning (display_string, metadata)
@@ -280,6 +281,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                the plumbing for a caller-drawn text field. Escape
                sequences (arrows, mouse) decode as usual. Default None
                preserves existing behavior exactly.
+    on_click: optional callback(col, row) for a left click — a press
+              and release on the same cell, in the same 1-based frame
+              as mouse_pos. Fired on the release, before the zero-delta
+              on_drag commit, so a drag is never also a click. Return
+              truthy to re-render. Requires mouse and on_drag (the
+              press is only tracked while a drag callback is set).
+              Default None preserves existing behavior exactly.
     Re-renders immediately on terminal resize (SIGWINCH) or input.
     """
     import select, signal, termios, tty
@@ -458,7 +466,10 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                             if drag_start is not None:
                                 dcol, drow = cx - drag_start[0], cy - drag_start[1]
                                 drag_start = None
-                                if on_drag(dcol, drow, True):
+                                clicked = (dcol == 0 and drow == 0
+                                           and on_click is not None
+                                           and on_click(cx, cy))
+                                if on_drag(dcol, drow, True) or clicked:
                                     break
                             continue
                         if (cb & 0b11) == 0 and not (cb & 0x20):

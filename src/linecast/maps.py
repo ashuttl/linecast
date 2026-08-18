@@ -818,7 +818,7 @@ def _crosshair(overlays, cell, dx, dy, graph_w, height_cells, street):
 def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                block=True, pan_offset=(0, 0), mouse_pos=None,
                view="terrain", search=None, route=None, dest=None,
-               origin=None, step=None, panel=False,
+               origin=None, directions=None,
                note="", helping=False, **_):
     lang = runtime.lang if runtime else "en"
     cols, rows = get_terminal_size()
@@ -908,10 +908,9 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         overlay = _maps_ui.help_overlay(cols, rows, lang, route is not None)
         if overlay:
             return out + "\x00\033[?1003h" + overlay
-    if panel:
-        overlay = _maps_ui.steps_overlay(route, origin, dest, step, cols,
-                                         rows, lang,
-                                         home_label=location_name)
+    if directions is not None and directions.panel:
+        overlay = _maps_ui.directions_overlay(directions, cols, rows, lang,
+                                              home_label=location_name)
         if overlay:
             return out + "\x00\033[?1003h" + overlay
     if not block:
@@ -1070,8 +1069,8 @@ def main():
 
         def intercept(action):
             """Maps owns dispatch: the search panel eats every key while
-            it is open, the steps panel takes the arrows, and nothing
-            else here consumes one."""
+            it is open, the directions panel takes the arrows, and
+            nothing else here consumes one."""
             if search.open:
                 cols, rows = get_terminal_size()
                 bbox = bbox_for(center[0], center[1], zoom[0],
@@ -1090,13 +1089,13 @@ def main():
                 helping[0] = True
                 return True
             if routes.panel:
-                # The steps panel: arrows walk the maneuvers and the
-                # map flies along; its endpoint rows name their own
-                # editing keys.  Everything else (zoom, v, n) still
-                # reaches the map underneath.
-                if action in ('escape', 'quit', 'key:t'):
-                    routes.toggle_panel()
-                    return True
+                # The directions panel: arrows walk the maneuvers and
+                # the map flies along; the field rows name their own
+                # keys, and `d` — its opening job done — edits the
+                # destination its row promises.  Everything else
+                # (zoom, v, n) still reaches the map underneath.
+                if action in ('escape', 'quit'):
+                    return routes.close_panel()
                 if action in ('fwd', 'back', 'key:enter'):
                     # live_loop's time-scrub names: 'back' is the down
                     # arrow, which walks down the list — onward through
@@ -1120,13 +1119,35 @@ def main():
                 # o: re-point the origin, panel open or not.
                 search.start("origin")
                 return True
-            if action == 'key:t':
-                return routes.toggle_panel()
+            if action == 'key:p':
+                return routes.cycle_profile()
             if action == 'reset':
                 # n / space: the one deliberately destructive key.
                 routes.clear()
                 return False        # and the loop still recentres
             return False
+
+        def on_click(col, row):
+            """A click on the directions panel acts on the row it hit —
+            fields open their search or cycle the mode, a step takes
+            the focus and the map flies to it.  Anywhere else, a click
+            stays what it always was: nothing."""
+            if search.open or not routes.panel or routes.panel_rows is None:
+                return False
+            width, acts = routes.panel_rows
+            act = acts.get(row) if col <= width else None
+            if act == 'from':
+                search.start("origin")
+            elif act == 'to':
+                search.start("route")
+            elif act == 'mode':
+                routes.cycle_profile()
+            elif isinstance(act, tuple):
+                routes.step = act[1]
+                fly_to_step(routes.route.steps[act[1]])
+            else:
+                return False
+            return True
 
         def on_drag(dcol, drow, done):
             if not done:
@@ -1169,8 +1190,7 @@ def main():
                 pan_offset=(pan_preview[0], pan_preview[1]),
                 mouse_pos=mouse_pos, view=view[0], search=search,
                 route=routes.route, dest=routes.dest,
-                origin=routes.origin, step=routes.step,
-                panel=routes.panel,
+                origin=routes.origin, directions=routes,
                 note=_maps_ui.route_note(routes, runtime.lang),
                 helping=helping[0])
 
@@ -1183,6 +1203,7 @@ def main():
             on_wheel=on_wheel,
             intercept=intercept,
             text_mode=lambda: search.open,
+            on_click=on_click,
         )
     else:
         found = note = None

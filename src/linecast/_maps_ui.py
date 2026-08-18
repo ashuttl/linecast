@@ -283,13 +283,14 @@ def search_overlay(state, cols, rows, lang="en"):
 # ---------------------------------------------------------------------------
 class RouteState:
     """Directions: the two endpoints, how we are travelling, the one
-    request allowed to be in flight, and the steps panel.
+    request allowed to be in flight, and the directions panel.
 
-    One mental model for the `d` key: *directions to what's selected;
-    press again to change how you're travelling.*  The origin defaults
-    to the home marker, so there is nothing to pick before the first
-    route — but `o` can re-point it, the same way `d` picks the
-    destination.
+    One mental model for the `d` key: *directions.*  It opens the
+    panel, and the panel's own rows say the rest — `o` edits the
+    origin, `d` the destination, `p` the way of travelling — so the
+    keys are discovered by reading the thing they act on.  The origin
+    defaults to the home marker; nothing has to be picked before the
+    first route.
     """
 
     def __init__(self, refresh=None, fetch=None, profile="car", home=None):
@@ -299,8 +300,9 @@ class RouteState:
         self.dest = None        # (lat, lon, label)
         self.route = None
         self.status = ""        # "" | "pending" | "none" | "error"
-        self.panel = False      # the turn-by-turn panel (the t key)
+        self.panel = False      # the directions panel (the d key)
         self.step = None        # focused step index, or None
+        self.panel_rows = None  # (width, {row: action}) of the last draw
         self.gen = 0
         self._lock = threading.Lock()
         self._refresh = refresh or _sigwinch
@@ -328,38 +330,28 @@ class RouteState:
         self.gen += 1
 
     def press(self):
-        """The `d` key.  "search" when there is nothing to route to."""
-        if self.status == "pending":
-            return True                     # the key visibly did something
+        """The `d` key, panel closed: open it, and supply whatever it
+        is missing — a destination ("search"), or a route (request).
+        Opening focuses nothing — the first arrow press does, so the
+        map never moves on a key that only shows a panel."""
+        self.panel = True
+        self.step = None
         if self.dest is None:
             return "search"
-        if (self.route is not None
-                and (self.route_dest() == self.dest[:2])):
-            # Same destination: cycle the profile and go again.
-            i = PROFILES.index(self.profile) + 1
-            self.profile = PROFILES[i % len(PROFILES)]
-        self.request()
+        if self.route is None and self.status != "pending":
+            self.request()
         return True
 
-    def route_dest(self):
-        """Where the drawn route actually ends, to the routing key's
-        precision — a new selection re-aims the next `d`."""
-        if self.route is None or not self.route.coords:
-            return None
-        lon, lat = self.route.coords[-1]
-        return (round(lat, 5), round(lon, 5))
+    def cycle_profile(self):
+        """The `p` key: the next way of travelling, and go again."""
+        i = PROFILES.index(self.profile) + 1
+        self.profile = PROFILES[i % len(PROFILES)]
+        if self.dest is not None:
+            self.request()
+        return True
 
-    def toggle_panel(self):
-        """The `t` key: the steps panel, when there is a route to
-        list.  Opening focuses nothing — the first arrow press does,
-        so the map never moves on a key that only shows a panel."""
-        if self.panel:
-            self.panel = False
-            self.step = None
-            return True
-        if self.route is None or not self.route.steps:
-            return False
-        self.panel = True
+    def close_panel(self):
+        self.panel = False
         self.step = None
         return True
 
@@ -486,59 +478,90 @@ def steps_text(route, lang="en", origin_label="", dest_label=""):
     return lines
 
 
-def steps_overlay(route, origin, dest, step, cols, rows, lang="en",
-                  home_label=""):
-    """The turn-by-turn panel, on the same channel and ground as search.
+def directions_overlay(state, cols, rows, lang="en", home_label=""):
+    """The directions panel, on the same channel and ground as search.
 
-    Row one is the route summary (with a step counter once a step has
-    focus), then one maneuver per row, the hint last.  The depart and
-    arrive rows carry the endpoints' own labels, each prefixed by the
-    key that edits it (`o`, `d`) — the panel is where your endpoints
-    are seen, so it is also where they say how to change them.  The
-    focused row is reverse video, and a long list is a window that
-    keeps the focus in view rather than a region to operate.
+    Three labelled field rows first — from, to, mode — each prefixed
+    by the key that edits it, the way the help panel writes its keys:
+    the panel is where your endpoints are seen, so it is also where
+    the keys that change them are written.  Then one maneuver per row
+    (or the router's status while there are none), the hint last.
+    The focused step is reverse video with a counter in the hint, and
+    a long list is a window that keeps the focus in view rather than
+    a region to operate.
+
+    Only the field rows sit on a surface, and they start under the
+    header rather than over it; the steps are bare ink drawn straight
+    onto the map — each row claims no more ground than its own text,
+    so the route the steps describe stays visible beside them.
+
+    As a side effect the panel records what each terminal row holds in
+    state.panel_rows — that map is what lets a mouse click land on a
+    field or a step.
     """
-    if route is None or not route.steps:
+    state.panel_rows = None
+    if rows < 6:
         return ""
     surface = surface_bg(0.10)
     ink = ensure_contrast(theme_fg, surface, 4.0)
     width = max(PANEL_MIN, min(PANEL_MAX, cols - 2))
-    steps = route.steps
+    route, step = state.route, state.step
 
-    limit = max(1, min(len(steps), rows - 3))
-    start = 0
-    if step is not None:
-        start = max(0, min(step - limit // 2, len(steps) - limit))
+    labels = [ms(k, lang) for k in ('dir_from', 'dir_to', 'dir_mode')]
+    lw = max(visible_len(label) for label in labels)
 
-    title = route_summary(route, lang)
-    if step is not None:
-        title += f" · {step + 1}/{len(steps)}"
-    out = [_row(1, f"{fg(*ink)} {_fit(title, width - 2)}", width, surface)]
+    def field(line, key, label, value, placeholder=False):
+        pad = " " * (lw - visible_len(label))
+        body = (f" {fg(*CROSSHAIR)}{key} {fg(*DIM)}{label}{pad}  "
+                f"{fg(*DIM) if placeholder else fg(*ink)}"
+                f"{_fit(value, width - lw - 6)}")
+        return _row(line, body, width, surface)
 
-    origin_label = _point_label(origin, home_label)
-    dest_label = _point_label(dest)
-    line = 2
-    for i in range(start, start + limit):
-        s = steps[i]
-        key = {"depart": "o", "arrive": "d"}.get(s.get("type"), " ")
-        plain = " " + _fit(f"{key} {maneuver_glyph(s)} "
-                           f"{_step_dist(s, lang):>8}  "
-                           f"{_step_text(s, lang, origin_label,
-                                         dest_label)}",
-                           width - 2)
-        plain += " " * max(0, width - visible_len(plain))
-        if i == step:
-            body = f"\033[7m{plain}\033[27m"
-        elif key != " ":
-            # the editing key pops, like the help panel's key column
-            body = f"{fg(*CROSSHAIR)}{plain[:2]}{fg(*ink)}{plain[2:]}"
-        else:
-            body = plain
-        out.append(_row(line, f"{fg(*ink)}{body}", width, surface))
-        line += 1
+    def loose(line, body):
+        """A row with no ground of its own: the map stays visible
+        wherever the text is not."""
+        return f"\033[{line};1H{body}{RESET}"
 
-    out.append(_row(line, f"{fg(*DIM)} {ms('steps_hint', lang)}", width,
-                    surface))
+    mode = ms('profile_' + state.profile, lang)
+    if route is not None:
+        mode += (f" · {_fmt_distance(route.distance_m, lang)}"
+                 f" · {_fmt_duration(route.duration_s)}")
+    out = [
+        field(2, "o", labels[0], _point_label(state.origin, home_label)),
+        field(3, "d", labels[1], _point_label(state.dest) or "…",
+              placeholder=state.dest is None),
+        field(4, "p", labels[2], mode),
+    ]
+    acts = {2: 'from', 3: 'to', 4: 'mode'}
+
+    line = 5
+    steps = route.steps if route is not None else []
+    limit = min(len(steps), max(0, rows - 6))
+    if steps and limit:
+        start = 0
+        if step is not None:
+            start = max(0, min(step - limit // 2, len(steps) - limit))
+        for i in range(start, start + limit):
+            s = steps[i]
+            plain = " " + _fit(f"  {maneuver_glyph(s)} "
+                               f"{_step_dist(s, lang):>8}  "
+                               f"{_step_text(s, lang)}", width - 2)
+            body = (f"\033[7m{plain} \033[27m" if i == step
+                    else plain)
+            out.append(loose(line, f"{fg(*ink)}{body}"))
+            acts[line] = ('step', i)
+            line += 1
+    else:
+        note = route_note(state, lang)
+        if note:
+            out.append(loose(line, f"{fg(*DIM)}   {note}"))
+            line += 1
+
+    hint = ms('steps_hint', lang)
+    if step is not None and steps:
+        hint = f"{step + 1}/{len(steps)} · {hint}"
+    out.append(loose(line, f"{fg(*DIM)} {_fit(hint, width - 2)}"))
+    state.panel_rows = (width, acts)
     return "".join(out)
 
 
@@ -559,7 +582,7 @@ HELP_KEYS = (
     ("/", 'help_search'),
     ("d", 'help_directions'),
     ("o", 'help_origin'),
-    ("t", 'help_steps'),
+    ("p", 'help_profile'),
     None,
     ("?", 'help_keys'),
     ("q", 'help_quit'),

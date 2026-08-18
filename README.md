@@ -113,7 +113,7 @@ radar --layer satellite
 
 ### Maps
 
-Street view renders OpenFreeMap vector tiles as solid water, land, parks, and buildings under a braille road network. Hover a feature to name and highlight it; search with `/`, ask for directions with `d`, or switch views with `v`. Once a route is drawn, `t` opens a turn-by-turn panel — arrow through the maneuvers and the map flies along the route — and `o` re-points the origin.
+Street view renders OpenFreeMap vector tiles as solid water, land, parks, and buildings under a braille road network. Hover a feature to name and highlight it; search with `/`, ask for directions with `d`, or switch views with `v`. Directions open as a small panel: labelled from, to, and mode fields — each showing the key that edits it, and all clickable — above the turn-by-turn steps. Arrow (or click) through the maneuvers and the map flies along the route.
 
 Terrain view turns global elevation into hillshade and a hypsometric ramp, from deep ocean trenches through lowland green to alpine white. Coastlines, borders, water, and cities are drawn over it in braille.
 
