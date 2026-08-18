@@ -56,7 +56,7 @@ def test_placeholders_survive_translation(lang):
 def test_the_hints_fit_a_narrow_terminal(lang):
     # The footer hint shares 80 columns with a scale bar and an
     # attribution line; a hint that overflows costs the bar.
-    for key in ("hint", "hint_route", "search_hint"):
+    for key in ("hint", "hint_route", "search_hint", "steps_hint"):
         assert visible_len(TABLE[lang][key]) <= 44, (lang, key)
 
 

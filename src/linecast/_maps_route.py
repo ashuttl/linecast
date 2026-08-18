@@ -106,12 +106,16 @@ def _parse(body, profile):
     for leg in first.get("legs") or []:
         for step in leg.get("steps") or []:
             man = step.get("maneuver") or {}
+            loc = man.get("location")
             steps.append({
                 "distance_m": float(step.get("distance") or 0.0),
                 "name": step.get("name") or "",  # often "" on ramps
                 "ref": step.get("ref"),
                 "type": man.get("type") or "",
                 "modifier": man.get("modifier"),
+                # (lon, lat) like coords, so a step can be flown to
+                "location": ((float(loc[0]), float(loc[1]))
+                             if loc else None),
             })
     return Route(coords, float(first["distance"]), float(first["duration"]),
                  steps, profile)

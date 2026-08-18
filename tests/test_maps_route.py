@@ -101,13 +101,35 @@ class TestParseFixture:
         assert len(legs) == 1 and len(r.steps) == 10 == len(legs[0]["steps"])
         assert r.steps[0] == {"distance_m": 106.9, "name": "Main Street",
                               "ref": "ME 25 Business", "type": "depart",
-                              "modifier": "left"}
+                              "modifier": "left",
+                              "location": (-70.370996, 43.677099)}
         # a ramp has no name upstream; it stays "" rather than None
         assert r.steps[5]["name"] == "" and r.steps[5]["ref"] is None
         assert r.steps[5]["type"] == "on ramp"
         assert r.steps[6]["ref"] == "I 295; US 1"
         assert r.steps[-1]["type"] == "arrive"
         assert all(isinstance(s["distance_m"], float) for s in r.steps)
+
+    def test_every_step_carries_its_maneuver_location(self, monkeypatch):
+        # (lon, lat) like coords, so the panel can fly the map to a step
+        _stub(monkeypatch, BODY)
+        r = mr.route("car", WESTBROOK, PORTLAND)
+        for step in r.steps:
+            lon, lat = step["location"]
+            assert -71 < lon < -70 and 43 < lat < 44
+        # the depart maneuver is the first point of the line itself
+        assert r.steps[0]["location"] == r.coords[0]
+
+    def test_a_missing_maneuver_location_stays_none(self, monkeypatch):
+        body = {"code": "Ok", "routes": [{
+            "distance": 1.0, "duration": 1.0,
+            "geometry": {"coordinates": [[0.0, 0.0], [1.0, 1.0]]},
+            "legs": [{"steps": [{"distance": 1.0,
+                                 "maneuver": {"type": "depart"}}]}],
+        }]}
+        _stub(monkeypatch, body)
+        r = mr.route("car", WESTBROOK, PORTLAND)
+        assert r.steps[0]["location"] is None
 
 
 class TestFailureModes:

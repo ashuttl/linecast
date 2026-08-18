@@ -113,7 +113,7 @@ radar --layer satellite
 
 ### Maps
 
-Street view renders OpenFreeMap vector tiles as solid water, land, parks, and buildings under a braille road network. Hover a feature to name and highlight it; search with `/`, ask for directions with `d`, or switch views with `v`.
+Street view renders OpenFreeMap vector tiles as solid water, land, parks, and buildings under a braille road network. Hover a feature to name and highlight it; search with `/`, ask for directions with `d`, or switch views with `v`. Once a route is drawn, `t` opens a turn-by-turn panel — arrow through the maneuvers and the map flies along the route — and `o` re-points the origin.
 
 Terrain view turns global elevation into hillshade and a hypsometric ramp, from deep ocean trenches through lowland green to alpine white. Coastlines, borders, water, and cities are drawn over it in braille.
 
@@ -125,7 +125,7 @@ Terrain view turns global elevation into hillshade and a hypsometric ramp, from 
 ```sh
 maps --location "Portland, Maine" --zoom 0.01
 maps --view terrain --location 60.4,5.3 --zoom 8
-maps --to "Portland Head Light" --profile foot
+maps --from "Gorham, Maine" --to "Portland Head Light" --profile foot
 ```
 
 ## Make it yours

@@ -142,6 +142,7 @@ MAPS_FLAGS = (
     "--zoom",
     "--view",
     "--to",
+    "--from",
     "--profile",
     "--emoji",
     "--lang",
@@ -259,7 +260,7 @@ _linecast_complete_common_values() {{
       COMPREPLY=( $(compgen -W "$_linecast_profile_values" -- "$cur") )
       return 0
       ;;
-    --location|--search|--station|--zoom|--to)
+    --location|--search|--station|--zoom|--to|--from)
       return 0
       ;;
   esac
@@ -537,7 +538,7 @@ _linecast_complete_common_values() {{
       compadd -- "${{_linecast_profile_values[@]}}"
       return 0
       ;;
-    --location|--search|--station|--zoom|--to)
+    --location|--search|--station|--zoom|--to|--from)
       return 0
       ;;
   esac
@@ -820,7 +821,8 @@ def _fish_script():
             lang=True,
             view=True,
             profile=True,
-            value_flags=("--location", "--search", "--zoom", "--to"),
+            value_flags=("--location", "--search", "--zoom", "--to",
+                         "--from"),
         )
     )
 
@@ -871,7 +873,8 @@ def _fish_script():
             lang=True,
             view=True,
             profile=True,
-            value_flags=("--location", "--search", "--zoom", "--to"),
+            value_flags=("--location", "--search", "--zoom", "--to",
+                         "--from"),
         )
     )
 

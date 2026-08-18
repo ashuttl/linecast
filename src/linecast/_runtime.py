@@ -195,6 +195,9 @@ def maps_parser():
                          "(default street)")
     p.add_argument("--to", default=None,
                     help="route to a place or 'lat,lng' from the origin")
+    p.add_argument("--from", dest="from_", metavar="FROM", default=None,
+                    help="route from a place or 'lat,lng' "
+                         "(default: your location)")
     p.add_argument("--profile", default="car",
                     help="how to travel: car, bike or foot (default car)")
     return p

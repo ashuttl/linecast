@@ -235,22 +235,23 @@ class TestCommit:
         return st
 
     def test_arrows_move_the_highlight_with_wraparound(self):
+        # live_loop's 'back' is the down arrow: down moves down.
         st = self._listed()
         assert st.sel == 0
-        st.handle('fwd', 43.6, -70.2, 12)
+        st.handle('back', 43.6, -70.2, 12)
         assert st.sel == 1
-        st.handle('back', 43.6, -70.2, 12)
-        st.handle('back', 43.6, -70.2, 12)
+        st.handle('fwd', 43.6, -70.2, 12)
+        st.handle('fwd', 43.6, -70.2, 12)
         assert st.sel == 2
 
     def test_the_map_does_not_move_until_enter(self):
         st = self._listed()
-        st.handle('fwd', 43.6, -70.2, 12)
+        st.handle('back', 43.6, -70.2, 12)
         assert st.chosen is None
 
     def test_enter_commits_the_highlighted_result_and_closes(self):
         st = self._listed()
-        st.handle('fwd', 43.6, -70.2, 12)
+        st.handle('back', 43.6, -70.2, 12)
         st.handle('key:enter', 43.6, -70.2, 12)
         assert not st.open
         assert st.chosen.name == "B"
@@ -413,10 +414,24 @@ HOME = (43.677, -70.371)
 LIGHT = (43.6231, -70.2079)
 
 
+STEPS = [
+    {"distance_m": 106.9, "name": "Main Street", "ref": "ME 25 Business",
+     "type": "depart", "modifier": "left", "location": (-70.371, 43.677)},
+    {"distance_m": 3200.0, "name": "Spring Street", "ref": None,
+     "type": "turn", "modifier": "right", "location": (-70.34, 43.66)},
+    {"distance_m": 800.0, "name": "", "ref": "I 295",
+     "type": "on ramp", "modifier": "slight left",
+     "location": (-70.30, 43.65)},
+    {"distance_m": 0.0, "name": "Shore Road", "ref": None,
+     "type": "arrive", "modifier": None, "location": (-70.2079, 43.6231)},
+]
+
+
 def fake_route(profile="car", distance=18800.0, duration=1420.0,
-               end=LIGHT):
+               end=LIGHT, steps=None):
     return Route([(-70.371, 43.677), (end[1], end[0])],
-                 distance, duration, [], profile)
+                 distance, duration,
+                 list(STEPS) if steps is None else steps, profile)
 
 
 def routes(answer=None, error=None):
@@ -429,7 +444,7 @@ def routes(answer=None, error=None):
             raise error
         return answer if answer is not None else fake_route(profile)
 
-    st = mu.RouteState(refresh=lambda: None, fetch=fetch)
+    st = mu.RouteState(refresh=lambda: None, fetch=fetch, home=HOME)
     st.calls = calls
     return st
 
@@ -437,13 +452,13 @@ def routes(answer=None, error=None):
 class TestDirections:
     def test_pressing_d_with_nothing_selected_asks_for_a_destination(self):
         st = routes()
-        assert st.press(HOME) == "search"
+        assert st.press() == "search"
         assert st.calls == []
 
     def test_pressing_d_with_a_selection_routes_to_it(self):
         st = routes()
         st.select(*LIGHT, "Portland Head Light")
-        assert st.press(HOME) is True
+        assert st.press() is True
         FakeThread.started[-1].run_now()
         assert st.calls == [("car", HOME, LIGHT)]
         assert st.route.distance_m == 18800.0
@@ -454,10 +469,10 @@ class TestDirections:
         # again to change how you're travelling.
         st = routes()
         st.select(*LIGHT)
-        st.press(HOME)
+        st.press()
         FakeThread.started[-1].run_now()
         for expected in ("bike", "foot", "car"):
-            st.press(HOME)
+            st.press()
             FakeThread.started[-1].run_now()
             assert st.profile == expected
             assert st.calls[-1][0] == expected
@@ -465,10 +480,10 @@ class TestDirections:
     def test_a_new_selection_re_aims_rather_than_cycling(self):
         st = routes()
         st.select(*LIGHT)
-        st.press(HOME)
+        st.press()
         FakeThread.started[-1].run_now()
         st.select(44.0, -69.0, "Somewhere else")
-        st.press(HOME)
+        st.press()
         FakeThread.started[-1].run_now()
         assert st.profile == "car"
         assert st.calls[-1][2] == (44.0, -69.0)
@@ -476,8 +491,8 @@ class TestDirections:
     def test_a_press_while_a_request_is_in_flight_does_not_double_fetch(self):
         st = routes()
         st.select(*LIGHT)
-        st.press(HOME)
-        assert st.press(HOME) is True       # the key visibly did something
+        st.press()
+        assert st.press() is True           # the key visibly did something
         assert len(FakeThread.started) == 1
         assert st.status == "pending"
 
@@ -486,7 +501,7 @@ class TestDirections:
         # anything is fetched.
         st = routes()
         st.select(*LIGHT)
-        st.press(HOME)
+        st.press()
         assert st.calls == []
         FakeThread.started[-1].run_now()
         assert st.calls
@@ -496,7 +511,7 @@ class TestDirections:
                               (RouteUnavailable("down"), "error")):
             st = routes(error=error)
             st.select(*LIGHT)
-            st.press(HOME)
+            st.press()
             FakeThread.started[-1].run_now()
             assert st.status == status
             assert st.route is None
@@ -504,12 +519,178 @@ class TestDirections:
     def test_clearing_drops_the_route_and_any_late_reply(self):
         st = routes()
         st.select(*LIGHT)
-        st.press(HOME)
+        st.press()
         st.clear()
         FakeThread.started[-1].run_now()
         assert st.route is None
         assert st.dest is None
         assert st.status == ""
+
+
+class TestOrigin:
+    def test_the_origin_defaults_to_home(self):
+        st = routes()
+        assert st.origin_point() == HOME
+
+    def test_an_edited_origin_re_points_the_next_request(self):
+        st = routes()
+        st.set_origin(44.1, -70.5, "Poland Spring")
+        st.select(*LIGHT)
+        st.press()
+        FakeThread.started[-1].run_now()
+        assert st.calls == [("car", (44.1, -70.5), LIGHT)]
+
+    def test_clearing_reverts_the_origin_to_home(self):
+        st = routes()
+        st.set_origin(44.1, -70.5, "Poland Spring")
+        st.clear()
+        assert st.origin is None
+        assert st.origin_point() == HOME
+
+
+class TestStepsPanel:
+    def _routed(self):
+        st = routes()
+        st.select(*LIGHT, "Portland Head Light")
+        st.press()
+        FakeThread.started[-1].run_now()
+        return st
+
+    def test_t_needs_a_route_to_open(self):
+        st = routes()
+        assert st.toggle_panel() is False
+        assert not st.panel
+
+    def test_t_toggles_and_opening_focuses_nothing(self):
+        # The map must never move on a key that only shows a panel.
+        st = self._routed()
+        assert st.toggle_panel() is True
+        assert st.panel and st.step is None
+        assert st.toggle_panel() is True
+        assert not st.panel and st.step is None
+
+    def test_arrows_enter_the_list_from_either_end(self):
+        st = self._routed()
+        st.toggle_panel()
+        assert st.step_move(1) is st.route.steps[0]
+        st.step = None
+        assert st.step_move(-1) is st.route.steps[-1]
+
+    def test_stepping_clamps_rather_than_wrapping(self):
+        # Arriving must not wrap around to departing.
+        st = self._routed()
+        st.toggle_panel()
+        for _ in range(10):
+            st.step_move(1)
+        assert st.step == len(st.route.steps) - 1
+        for _ in range(10):
+            st.step_move(-1)
+        assert st.step == 0
+
+    def test_a_new_route_re_numbers_its_steps(self):
+        st = self._routed()
+        st.toggle_panel()
+        st.step_move(1)
+        st.select(44.0, -69.0, "Somewhere else")
+        st.press()
+        FakeThread.started[-1].run_now()
+        assert st.step is None
+
+    def test_clearing_closes_the_panel(self):
+        st = self._routed()
+        st.toggle_panel()
+        st.clear()
+        assert not st.panel and st.step is None
+
+
+class TestStepsOverlay:
+    def _overlay(self, step=None, origin=None, dest=(43.6231, -70.2079,
+                                                     "Portland Head Light"),
+                 cols=80, rows=24, home_label="Westbrook"):
+        return mu.steps_overlay(fake_route(), origin, dest, step, cols,
+                                rows, "en", home_label=home_label)
+
+    def test_the_title_is_the_route_summary(self):
+        assert "11.7 mi · 24m · driving" in strip(self._overlay())
+
+    def test_every_maneuver_gets_a_row(self):
+        plain = strip(self._overlay())
+        assert "Spring Street" in plain
+        assert "2.0 mi" in plain            # distances in the reader's units
+
+    def test_endpoints_wear_their_labels_and_editing_keys(self):
+        plain = strip(self._overlay())
+        assert re.search(r"o ● +351 ft +Westbrook", plain)
+        assert re.search(r"d ◆ +Portland Head Light", plain)
+        assert "Main Street" not in plain   # the depart road name loses
+        assert "Shore Road" not in plain    # so does the arrive one
+
+    def test_an_edited_origin_names_itself_not_home(self):
+        plain = strip(self._overlay(origin=(44.1, -70.5, "Poland Spring")))
+        assert "Poland Spring" in plain
+        assert "Westbrook" not in plain
+
+    def test_an_unlabelled_point_falls_back_to_coordinates(self):
+        plain = strip(self._overlay(origin=(44.1, -70.5, ""),
+                                    home_label=""))
+        assert "44.100, -70.500" in plain
+
+    def test_a_ramp_shows_its_ref_when_the_name_is_blank(self):
+        assert "I 295" in strip(self._overlay())
+
+    def test_a_ramp_with_no_ref_borrows_the_hover_word(self):
+        bare = dict(STEPS[2], ref=None)
+        route = fake_route(steps=[STEPS[0], bare, STEPS[3]])
+        panel = mu.steps_overlay(route, None, (43.6, -70.2, "X"), None,
+                                 80, 24, "en")
+        assert "ramp" in strip(panel)
+
+    def test_the_focused_step_is_reverse_video_and_counted(self):
+        panel = self._overlay(step=1)
+        assert "\033[7m" in panel
+        assert "· 2/4" in strip(panel)
+
+    def test_unfocused_panels_count_nothing(self):
+        assert "/4" not in strip(self._overlay())
+
+    def test_a_short_terminal_windows_around_the_focus(self):
+        # rows=6 leaves title + two steps + hint; the focus stays visible.
+        panel = self._overlay(step=3, rows=6)
+        plain = strip(panel)
+        assert "Portland Head Light" in plain
+        assert "Main Street" not in plain
+        placed = [int(m) for m in re.findall(r"\033\[(\d+);1H", panel)]
+        assert max(placed) <= 6
+
+    def test_the_hint_is_the_last_row(self):
+        panel = self._overlay()
+        assert "↑↓ step · esc close" in strip(panel)
+        placed = [int(m) for m in re.findall(r"\033\[(\d+);1H", panel)]
+        assert placed == sorted(placed)
+
+    def test_no_route_is_no_panel(self):
+        assert mu.steps_overlay(None, None, None, None, 80, 24) == ""
+        empty = fake_route(steps=[])
+        assert mu.steps_overlay(empty, None, None, None, 80, 24) == ""
+
+    def test_the_panel_stays_inside_a_narrow_terminal(self):
+        for cols in (34, 60, 200):
+            panel = self._overlay(cols=cols)
+            for chunk in strip(panel).split("\033")[1:]:
+                body = chunk.split("H", 1)[-1]
+                assert len(body) <= cols, (cols, body)
+
+
+class TestStepsText:
+    def test_plain_lines_for_print_mode(self):
+        lines = mu.steps_text(fake_route(), "en",
+                              origin_label="Westbrook",
+                              dest_label="Portland Head Light")
+        assert lines[0].startswith(" ●")
+        assert "Westbrook" in lines[0]
+        assert "Portland Head Light" in lines[-1]
+        assert any("Spring Street" in line for line in lines)
+        assert "\033[" not in "".join(lines)  # plain: it pipes
 
 
 class TestRouteSummary:

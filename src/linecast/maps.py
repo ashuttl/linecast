@@ -618,7 +618,8 @@ class _ShiftedLayer:
 
 
 def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
-                    mouse_pos, marker_cell, dest_cell, lang, route_layer):
+                    mouse_pos, marker_cell, dest_cell, origin_cell, lang,
+                    route_layer):
     """(map lines, readout, hover, loading, err) for the hillshaded view.
 
     Terrain's readout is its own probe — the elevation under the pointer
@@ -651,6 +652,8 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
         overlays[pos] = (ch, None)  # None ink = per-cell contrast pick
     if marker_cell is not None:
         overlays[marker_cell] = _mark("+", MARKER, False)
+    if origin_cell is not None:
+        overlays[origin_cell] = _mark("○", MARKER, False)
     if dest_cell is not None:
         overlays[dest_cell] = _mark("●", MARKER, False)
 
@@ -711,7 +714,8 @@ def _hover(layer, mouse_pos, pan_offset, lang):
 
 
 def _render_street(bbox, graph_w, height_cells, block, pan_offset,
-                   mouse_pos, marker_cell, dest_cell, lang, route_layer):
+                   mouse_pos, marker_cell, dest_cell, origin_cell, lang,
+                   route_layer):
     """(map lines, readout, hover, loading, err) for the vector view."""
     err = None
     loading = False
@@ -742,6 +746,8 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
     overlays = dict(labels)
     if marker_cell is not None:
         overlays[marker_cell] = _mark("+", MARKER, True)
+    if origin_cell is not None:
+        overlays[origin_cell] = _mark("○", MARKER, True)
     if dest_cell is not None:
         overlays[dest_cell] = _mark("●", MARKER, True)
     dx, dy = pan_offset
@@ -812,6 +818,7 @@ def _crosshair(overlays, cell, dx, dy, graph_w, height_cells, street):
 def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                block=True, pan_offset=(0, 0), mouse_pos=None,
                view="terrain", search=None, route=None, dest=None,
+               origin=None, step=None, panel=False,
                note="", helping=False, **_):
     lang = runtime.lang if runtime else "en"
     cols, rows = get_terminal_size()
@@ -824,11 +831,14 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
 
     dest_cell = (_marker_cell(bbox, graph_w, height_cells, dest[0], dest[1])
                  if dest is not None else None)
+    origin_cell = (_marker_cell(bbox, graph_w, height_cells,
+                                origin[0], origin[1])
+                   if origin is not None else None)
     route_layer = _get_route_layer(route, bbox, graph_w, height_cells)
     draw = _render_street if view == "street" else _render_terrain
     map_lines, readout, hover, loading, err = draw(
         bbox, graph_w, height_cells, block, pan_offset, mouse_pos,
-        cell, dest_cell, lang, route_layer)
+        cell, dest_cell, origin_cell, lang, route_layer)
 
     # A note is a reply to something you asked for and outranks
     # everything; hover is what you are pointing at *now*, so it beats
@@ -862,7 +872,9 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         key = 'streets_unavailable' if view == "street" else 'unavailable'
         foot = f"{fg(*DIM)}{ms(key, lang, err=err[:40])}{RESET}"
     else:
-        hint = (f"{fg(*DIM)}{ms('hint', lang)}{RESET}"
+        # once a route stands, the footer teaches the route keys instead
+        hint_key = 'hint_route' if route is not None else 'hint'
+        hint = (f"{fg(*DIM)}{ms(hint_key, lang)}{RESET}"
                 if sys.stdout.isatty() else "")
         if view == "street":
             attribs = (_maps_style.ATTRIB_TILES_LONG,
@@ -883,20 +895,26 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     foot += " " * max(0, cols - visible_len(foot))
 
     out = "\n".join([header, *map_lines, foot])
-    # Exactly two floating things, one at a time, through the one
-    # overlay channel; search wins when both could show.
-    if helping and not (search is not None and search.open):
-        panel = _maps_ui.help_overlay(cols, rows, lang, route is not None)
-        if panel:
-            return out + "\x00\033[?1003h" + panel
+    # One floating thing at a time, through the one overlay channel;
+    # search beats help beats the steps panel.
     if search is not None and search.open:
         # Any-motion mouse reporting is what makes a torn escape
         # sequence likely, and a torn sequence looks like ESC — which is
         # exactly the key guarding a text buffer.  Turn 1003 off for as
         # long as the field is open, and back on when it closes.
-        out += ("\x00\033[?1003l"
-                + _maps_ui.search_overlay(search, cols, rows, lang))
-    elif not block:
+        return out + ("\x00\033[?1003l"
+                      + _maps_ui.search_overlay(search, cols, rows, lang))
+    if helping:
+        overlay = _maps_ui.help_overlay(cols, rows, lang, route is not None)
+        if overlay:
+            return out + "\x00\033[?1003h" + overlay
+    if panel:
+        overlay = _maps_ui.steps_overlay(route, origin, dest, step, cols,
+                                         rows, lang,
+                                         home_label=location_name)
+        if overlay:
+            return out + "\x00\033[?1003h" + overlay
+    if not block:
         out += "\x00\033[?1003h"
     return out
 
@@ -943,21 +961,24 @@ def main():
         except Exception:
             location_name = ""
 
-    # --to resolves through the map's own geocoders, never the weather
-    # one: that is settlement-level only and exits the process when the
-    # network is down, which is no way to fail a lighthouse.
-    dest = None
-    if args.to:
+    # --to and --from resolve through the map's own geocoders, never
+    # the weather one: that is settlement-level only and exits the
+    # process when the network is down, which is no way to fail a
+    # lighthouse.
+    def _endpoint(query, flag):
         try:
-            hit = resolve_place(args.to, runtime.lang, near=(lat, lon))
+            hit = resolve_place(query, runtime.lang, near=(lat, lon))
         except SearchUnavailable:
-            print("maps: could not reach a geocoder for --to",
+            print(f"maps: could not reach a geocoder for {flag}",
                   file=sys.stderr)
             sys.exit(1)
         if hit is None:
-            print(f'No locations matching "{args.to}".', file=sys.stderr)
+            print(f'No locations matching "{query}".', file=sys.stderr)
             sys.exit(1)
-        dest = hit
+        return hit
+
+    dest = _endpoint(args.to, "--to") if args.to else None
+    origin = _endpoint(args.from_, "--from") if args.from_ else None
 
     if runtime.live:
         global _live_refresh
@@ -968,10 +989,12 @@ def main():
         view = [args.view]
         search = _maps_ui.SearchState()
         helping = [False]
-        routes = _maps_ui.RouteState(profile=args.profile)
+        routes = _maps_ui.RouteState(profile=args.profile, home=(lat, lon))
+        if origin is not None:
+            routes.set_origin(origin.lat, origin.lon, origin.name)
         if dest is not None:
             routes.select(dest.lat, dest.lon, dest.name)
-            routes.request((lat, lon))
+            routes.request()
 
         def zoom_to(new_zoom, at=None):
             """Apply a clamped zoom, keeping the point under `at` fixed.
@@ -1033,9 +1056,22 @@ def main():
             zoom[0] = max(MIN_ZOOM_DEG, min(
                 MAX_ZOOM_DEG, fly_to_zoom(result, (hc * 2) / gw)))
 
+        def fly_to_step(step):
+            """Frame one maneuver: centre on it, zoomed to roughly the
+            distance the step covers, so a highway leg shows its whole
+            run and a city turn shows its corner."""
+            loc = step.get("location")
+            if loc is None:
+                return
+            span = max(0.004, step["distance_m"] * 2.4 / 110540.0)
+            zoom[0] = max(MIN_ZOOM_DEG, min(MAX_ZOOM_DEG, span))
+            center[0] = max(-80.0, min(80.0, loc[1]))
+            center[1] = loc[0]
+
         def intercept(action):
             """Maps owns dispatch: the search panel eats every key while
-            it is open, and nothing else here consumes one."""
+            it is open, the steps panel takes the arrows, and nothing
+            else here consumes one."""
             if search.open:
                 cols, rows = get_terminal_size()
                 bbox = bbox_for(center[0], center[1], zoom[0],
@@ -1053,13 +1089,39 @@ def main():
             if action == 'key:?':
                 helping[0] = True
                 return True
+            if routes.panel:
+                # The steps panel: arrows walk the maneuvers and the
+                # map flies along; its endpoint rows name their own
+                # editing keys.  Everything else (zoom, v, n) still
+                # reaches the map underneath.
+                if action in ('escape', 'quit', 'key:t'):
+                    routes.toggle_panel()
+                    return True
+                if action in ('fwd', 'back', 'key:enter'):
+                    # live_loop's time-scrub names: 'back' is the down
+                    # arrow, which walks down the list — onward through
+                    # the maneuvers.  Enter steps onward too.
+                    step = routes.step_move(
+                        -1 if action == 'fwd' else 1)
+                    if step is not None:
+                        fly_to_step(step)
+                    return True
+                if action == 'key:d':
+                    search.start("route")
+                    return True
             if action == 'key:/':
                 search.start()
                 return True
             if action == 'key:d':
-                if routes.press((lat, lon)) == "search":
+                if routes.press() == "search":
                     search.start("route")
                 return True
+            if action == 'open':
+                # o: re-point the origin, panel open or not.
+                search.start("origin")
+                return True
+            if action == 'key:t':
+                return routes.toggle_panel()
             if action == 'reset':
                 # n / space: the one deliberately destructive key.
                 routes.clear()
@@ -1096,13 +1158,19 @@ def main():
                 fly_to(hit)
                 if search.purpose == "route":
                     routes.select(hit.lat, hit.lon, hit.name)
-                    routes.request((lat, lon))
+                    routes.request()
+                elif search.purpose == "origin":
+                    routes.set_origin(hit.lat, hit.lon, hit.name)
+                    if routes.dest is not None:
+                        routes.request()
             return render_map(
                 center[0], center[1], location_name, zoom[0],
                 marker=(lat, lon), runtime=runtime, block=False,
                 pan_offset=(pan_preview[0], pan_preview[1]),
                 mouse_pos=mouse_pos, view=view[0], search=search,
                 route=routes.route, dest=routes.dest,
+                origin=routes.origin, step=routes.step,
+                panel=routes.panel,
                 note=_maps_ui.route_note(routes, runtime.lang),
                 helping=helping[0])
 
@@ -1118,9 +1186,10 @@ def main():
         )
     else:
         found = note = None
+        start = (origin.lat, origin.lon) if origin else (lat, lon)
         if dest is not None:
             try:
-                found = _maps_route.route(args.profile, (lat, lon),
+                found = _maps_route.route(args.profile, start,
                                           (dest.lat, dest.lon))
             except _maps_route.NoRoute:
                 note = ms('dir_none', runtime.lang)
@@ -1129,7 +1198,18 @@ def main():
         print(render_map(lat, lon, location_name, args.zoom,
                          runtime=runtime, view=args.view, route=found,
                          dest=(dest.lat, dest.lon) if dest else None,
+                         origin=((origin.lat, origin.lon, origin.name)
+                                 if origin else None),
                          note=note or ""))
+        if found is not None:
+            # the turn-by-turn list rides below the map: --print asked
+            # for directions, so it gets the directions
+            print()
+            for line in _maps_ui.steps_text(
+                    found, runtime.lang,
+                    origin_label=origin.name if origin else location_name,
+                    dest_label=dest.name):
+                print(line)
 
 
 if __name__ == "__main__":
