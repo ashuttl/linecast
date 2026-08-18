@@ -103,6 +103,10 @@ BATHY_STOPS = [
     (0, (96, 150, 180)),
 ]
 
+# land-cover tints by grid index (0 = no cover, stays on the ramp)
+_COVER_RGB = [None] + [_maps_style.COVER_COLOR[k]
+                       for k in _maps_style.COVER_ORDER]
+
 # north-west sun, 45° up
 _AZIMUTH = math.radians(315.0)
 _ZENITH = math.radians(45.0)
@@ -182,25 +186,26 @@ def _tile_water(bbox, gw, hc):
     try:
         band, tiles = _maps_streets.fetch_view(bbox, hc)
         if not any(tiles.values()):
-            return None, None
+            return None, None, None
         return _maps_streets.build_water_view(bbox, gw, hc, tiles, band,
                                               RIVER_STROKE)
     except Exception as exc:
         debug_log(f"terrain inland water unavailable: {exc}")
-        return None, None
+        return None, None, None
 
 
-class TerrainView(namedtuple("TerrainView", "elev coast water rivers")):
+class TerrainView(namedtuple("TerrainView", "elev coast water rivers cover")):
     """One view's ground truth: the averaged elevation grid, the braille
-    shoreline, the sub-pixel inland water mask and the river layer.
+    shoreline, the sub-pixel inland water mask, the river layer and the
+    sub-pixel land-cover grid.
 
-    The last two are None whenever the vector tiles could not be read;
-    every consumer treats that as "no inland water known", which is
-    exactly what terrain mode drew before them."""
+    The last three are None whenever the vector tiles could not be read;
+    every consumer treats that as "no inland water or cover known", which
+    is exactly what terrain mode drew before them."""
     __slots__ = ()
 
 
-_EMPTY_TERRAIN = TerrainView(None, None, None, None)
+_EMPTY_TERRAIN = TerrainView(None, None, None, None, None)
 
 
 def _get_elevation(bbox, gw, hc, block):
@@ -221,7 +226,7 @@ def _get_elevation(bbox, gw, hc, block):
         # tone transitions and blends shorelines. The fine grid also yields
         # the braille coastline before it is averaged away.
         fine = elevation_grid(bbox, gw * 2, hc * 4)
-        water, rivers = _tile_water(bbox, gw, hc)
+        water, rivers, cover = _tile_water(bbox, gw, hc)
         grid = []
         for y in range(hc * 2):
             r0, r1 = fine[y * 2], fine[y * 2 + 1]
@@ -235,7 +240,7 @@ def _get_elevation(bbox, gw, hc, block):
         return TerrainView(
             grid, _coast_dots(fine, gw, hc, water),
             _water_subpixels(water, gw, hc) if water is not None else None,
-            rivers)
+            rivers, cover)
 
     if block:
         hit = load()
@@ -307,7 +312,7 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
     return None, None, None
 
 
-def build_terrain_buffer(elev, bbox, w, h, water=None):
+def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None):
     """Hillshaded hypsometric/bathymetric colours per sub-pixel.
 
     `elev` is meters at w×h (h = 2 rows per cell); None renders as plain
@@ -320,6 +325,12 @@ def build_terrain_buffer(elev, bbox, w, h, water=None):
     inland water in both cases and the bathymetric ramp would read as
     open ocean.  Its shading is nearly flat — a lake surface is flat,
     and the land slope underneath it is not its slope.
+
+    `cover` is the optional sub-pixel land-cover grid (indices into
+    style.COVER_ORDER, 0 = none).  A covered land sub-pixel blends the
+    class tint over its hypsometric base — hillshade carries the relief,
+    colour carries the ground.  Cover never touches water at either
+    sign: a forest polygon generalised over a fjord stays the fjord's.
     """
     minlon, minlat, maxlon, maxlat = bbox
     lat_c = (minlat + maxlat) / 2
@@ -331,12 +342,14 @@ def build_terrain_buffer(elev, bbox, w, h, water=None):
     zf = min(24.0, max(2.5, px_m / 150.0))
 
     cos_zen, sin_zen = math.cos(_ZENITH), math.sin(_ZENITH)
+    blend = _maps_style.COVER_BLEND
     buf = []
     for y in range(h):
         row = elev[y]
         up = elev[y - 1] if y > 0 else row
         down = elev[y + 1] if y < h - 1 else row
         wet_row = water[y] if water is not None else None
+        cov_row = cover[y] if cover is not None else None
         out = []
         for x in range(w):
             e = row[x]
@@ -366,6 +379,11 @@ def build_terrain_buffer(elev, bbox, w, h, water=None):
                 m = 0.82 + 0.18 * shade  # water: keep the ramp readable
             else:
                 base = interp_stops(HYPSO_STOPS, e)
+                if cov_row is not None and cov_row[x]:
+                    cc = _COVER_RGB[cov_row[x]]
+                    base = (base[0] + (cc[0] - base[0]) * blend,
+                            base[1] + (cc[1] - base[1]) * blend,
+                            base[2] + (cc[2] - base[2]) * blend)
                 m = 0.52 + 0.55 * shade
             out.append((min(255, int(base[0] * m)),
                         min(255, int(base[1] * m)),
@@ -374,13 +392,13 @@ def build_terrain_buffer(elev, bbox, w, h, water=None):
     return buf
 
 
-def _terrain_buffer(elev, bbox, gw, hc, water=None):
-    # the water flag is part of the key: the same view rendered once
+def _terrain_buffer(elev, bbox, gw, hc, water=None, cover=None):
+    # the tile flags are part of the key: the same view rendered once
     # offline and once with tiles is two different pictures
-    key = _view_key(bbox, gw, hc) + (water is not None,)
+    key = _view_key(bbox, gw, hc) + (water is not None, cover is not None)
     buf = _terrain_cache.get(key)
     if buf is None:
-        buf = build_terrain_buffer(elev, bbox, gw, hc * 2, water)
+        buf = build_terrain_buffer(elev, bbox, gw, hc * 2, water, cover)
         if len(_terrain_cache) > 3:
             _terrain_cache.clear()
         _terrain_cache[key] = buf
@@ -643,7 +661,7 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     elev, coast, rivers = view.elev, view.coast, view.rivers
     if elev is not None:
         terrain = _terrain_buffer(elev, bbox, graph_w, height_cells,
-                                  view.water)
+                                  view.water, view.cover)
     else:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
 

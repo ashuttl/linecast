@@ -711,18 +711,85 @@ def water_lines(view, bbox, graph_w, height_cells, band, color, water=None):
     return layer
 
 
+def _despeckle_cover(grid, dw, dh):
+    """3x3 majority vote where a sub-pixel's class stands nearly alone.
+
+    Real landcover is patchy at braille scale — one lone wood sub-pixel
+    in a rock face is faithful to the polygon and still reads as static
+    over the hillshade once a screenful of them accumulates.  A class
+    backed by at least two neighbours survives; a speck does not, and
+    takes the neighbourhood's majority instead.
+    """
+    out = [bytearray(row) for row in grid]
+    for y in range(dh):
+        y0, y1 = max(0, y - 1), min(dh - 1, y + 1)
+        row = grid[y]
+        for x in range(dw):
+            x0, x1 = max(0, x - 1), min(dw - 1, x + 1)
+            counts = {}
+            for yy in range(y0, y1 + 1):
+                r = grid[yy]
+                for xx in range(x0, x1 + 1):
+                    counts[r[xx]] = counts.get(r[xx], 0) + 1
+            if counts.get(row[x], 0) < 3:
+                out[y][x] = max(counts.items(), key=lambda kv: kv[1])[0]
+    return out
+
+
+def land_cover_grid(view, bbox, graph_w, height_cells):
+    """Sub-pixel land-cover classes — terrain mode's colour story.
+
+    (hc*2) x gw of indices into style.COVER_ORDER (0 = no cover),
+    painted in that order so the rarer, more specific classes win the
+    sub-pixel.  The resolution matches the terrain colour buffer rather
+    than the dot grid: cover is a fill, never a stroke, so it earns no
+    more.
+    """
+    dw, dh = graph_w, height_cells * 2
+    grid = [bytearray(dw) for _ in range(dh)]
+    groups = {}
+    for (z, tx, ty), decoded in view:
+        for name in ("landcover", "landuse"):
+            layer = decoded.get(name)
+            if layer is None:
+                continue
+            extent = layer.get("extent") or _DEFAULT_EXTENT
+            project = _projector(z, tx, ty, extent, bbox, dw, dh)
+            for feat in layer["features"]:
+                if feat["type"] != 3:      # polygons only
+                    continue
+                cls = feat["tags"].get("class")
+                if name == "landcover":
+                    key = style.COVER_LANDCOVER.get(cls)
+                else:
+                    key = "urban" if cls in style.URBAN_LANDUSE else None
+                if key is None:
+                    continue
+                for rings in assemble_polygons(feat["geometry"]):
+                    groups.setdefault(key, []).append(
+                        [_closed([project(x, y) for x, y in ring])
+                         for ring in rings])
+    for i, key in enumerate(style.COVER_ORDER):
+        for rings in groups.get(key, ()):
+            _fill_rings(grid, rings, i + 1, dw, dh)
+    return _despeckle_cover(grid, dw, dh)
+
+
 def build_water_view(bbox, graph_w, height_cells, tiles, band, color):
-    """(inland water dot mask, waterway layer) — terrain mode's half.
+    """(inland water dot mask, waterway layer, land cover grid) —
+    terrain mode's half.
 
     The pure half, exactly as build_street_view is: tiles in, geometry
-    out, no network.  One decode feeds both, because a view that has
-    already paid for the tiles should get the rivers with the lakes.
+    out, no network.  One decode feeds all three, because a view that
+    has already paid for the tiles should get the rivers and the ground
+    with the lakes.
     """
     view = decode_view(tiles)
     water = inland_water_mask(view, bbox, graph_w, height_cells)
     return (water,
             water_lines(view, bbox, graph_w, height_cells, band, color,
-                        water))
+                        water),
+            land_cover_grid(view, bbox, graph_w, height_cells))
 
 
 # A coast dot sits on the *land* side of the boundary (_edge_dots only

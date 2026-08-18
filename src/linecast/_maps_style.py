@@ -494,6 +494,40 @@ PARK_LANDUSE_CLASS = ("cemetery",)
 
 
 # ---------------------------------------------------------------------------
+# Terrain land cover
+# ---------------------------------------------------------------------------
+# Terrain mode's colour story: hillshade carries the relief and colour
+# carries the ground.  OpenMapTiles landcover classes map onto cover
+# keys; landuse's urban classes gather into one settlement tint.  A
+# sub-pixel with no cover stays on the hypsometric ramp, which is also
+# what an entire view without vector tiles falls back to — and since
+# the tiles only carry wood and ice at the low source zooms, cover
+# fades in naturally as a view tightens.
+COVER_ORDER = ("wood", "grass", "farm", "wetland", "sand", "rock",
+               "ice", "urban")
+
+COVER_LANDCOVER = {"wood": "wood", "grass": "grass", "farmland": "farm",
+                   "wetland": "wetland", "sand": "sand", "rock": "rock",
+                   "ice": "ice"}
+
+# muted mid-tones from the hypso ramp's own family, so covered and bare
+# ground meet without a seam and the hillshade stays legible over both
+COVER_COLOR = {
+    "wood":    (56, 94, 58),
+    "grass":   (118, 138, 80),
+    "farm":    (152, 140, 88),
+    "wetland": (82, 116, 100),
+    "sand":    (196, 180, 134),
+    "rock":    (138, 128, 118),
+    "ice":     (226, 232, 240),
+    "urban":   (136, 126, 124),
+}
+
+# cover over hypso, not instead of it: altitude still whispers through
+COVER_BLEND = 0.72
+
+
+# ---------------------------------------------------------------------------
 # Labels
 # ---------------------------------------------------------------------------
 # Four emphasis states, two cases.  No italics (unreliable), no

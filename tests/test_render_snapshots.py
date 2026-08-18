@@ -254,7 +254,7 @@ class TestMapsSnapshot:
                     for _ in range(hc * 2)]
             # no tile water: the snapshot is the elevation-only map
             return maps.TerrainView(grid, maps._coast_dots(fine, gw, hc),
-                                    None, None)
+                                    None, None, None)
 
         output = self._render(
             "terrain", patch.object(maps, "_get_elevation", elevation))
