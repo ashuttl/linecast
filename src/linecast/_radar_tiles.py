@@ -167,13 +167,14 @@ def reproject(provider, host, path, bbox, w, h, timeout=15, mutable=False):
     return reproject_xyz(fetch, bbox, w, h, z)
 
 
-def reproject_xyz(fetch_tile, bbox, w, h, z):
-    """Stitch the XYZ tiles covering `bbox` at zoom `z`; resample to EPSG:4326.
+def stitch_xyz(fetch_tile, bbox, z):
+    """Stitch the XYZ tiles covering `bbox` at zoom `z` into one canvas.
 
     `fetch_tile(z, x, y)` returns a decoded `(tw, th, rgba)` tile or None
-    (x arrives already wrapped to [0, 2^z)).  The Web-Mercator stitch +
-    equirectangular resample is service-agnostic — radar tiles and terrain
-    tiles differ only in their fetcher.  Returns (w, h, bytearray RGBA).
+    (x arrives already wrapped to [0, 2^z)).  Returns (canvas RGBA,
+    canvas_w, canvas_h, org_x, org_y, world): the canvas stays transparent
+    where tiles are missing, `org_*` is its world-pixel origin and `world`
+    the world size in pixels at this zoom.
     """
     minlon, minlat, maxlon, maxlat = bbox
     n = 1 << z
@@ -211,7 +212,21 @@ def reproject_xyz(fetch_tile, bbox, w, h, z):
             dst = ((oy + row) * canvas_w + ox) * 4
             canvas[dst:dst + stride] = trgba[src:src + stride]
 
-    org_x, org_y = tx0 * _TILE_SIZE, ty0 * _TILE_SIZE
+    return canvas, canvas_w, canvas_h, tx0 * _TILE_SIZE, ty0 * _TILE_SIZE, world
+
+
+def reproject_xyz(fetch_tile, bbox, w, h, z):
+    """Stitch the XYZ tiles covering `bbox` at zoom `z`; resample to EPSG:4326.
+
+    The Web-Mercator stitch + equirectangular resample is service-agnostic —
+    radar and satellite tiles differ only in their fetcher.  Nearest-neighbor
+    resampling, which is right for radar echoes (palette-coded classes that
+    must not blend); terrain does its own bilinear pass over the stitched
+    canvas instead.  Returns (w, h, bytearray RGBA).
+    """
+    minlon, minlat, maxlon, maxlat = bbox
+    canvas, canvas_w, canvas_h, org_x, org_y, world = \
+        stitch_xyz(fetch_tile, bbox, z)
 
     # x depends only on lon, y only on lat — precompute the column mapping
     col_cx = []
