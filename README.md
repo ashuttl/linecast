@@ -23,6 +23,14 @@ linecast turns free public data into six live, mouse-friendly terminal apps. It 
 | `radar` | Animated worldwide radar or satellite imagery, warning polygons, temperature, and wind |
 | `maps` | Detailed vector streets, terrain and bathymetry, place search, and directions |
 
+## Quick try
+
+Run linecast immediately with [uv](https://docs.astral.sh/uv/), without installing it:
+
+```sh
+uvx linecast weather
+```
+
 ## Install
 
 With [uv](https://docs.astral.sh/uv/):
