@@ -21,11 +21,11 @@ from linecast._runtime import debug_log
 
 DEFAULT_URL = "https://s3.amazonaws.com/elevation-tiles-prod"
 # SRTM's ~30 m native grid runs out around z13; beyond it the tiles are
-# upsampled and add nothing.  ETOPO1 bathymetry drops out of the composite
-# above z10, so open sea reads 0 m in views tight enough to pick z11+ —
-# it renders as the shallowest bathy stop, which at a few miles across is
-# truer than ETOPO1's 1-arc-minute mush ever was there.
+# upsampled and add nothing.
 MAX_ZOOM = 13
+# ETOPO1 bathymetry drops out of the composite above this zoom; views
+# tight enough to pick z11+ merge their sea back in from here.
+BATHY_ZOOM = 10
 
 ATTRIBUTION = "Terrain: Mapzen/AWS (SRTM, GMTED, ETOPO1)"
 
@@ -71,6 +71,31 @@ def elevation_grid(bbox, w, h, timeout=15):
     # one step past the width-matched zoom: the caller's 2x supersample
     # then box-averages real detail down instead of interpolated guesses
     z = min(MAX_ZOOM, _pick_zoom(bbox, w, MAX_ZOOM) + 1)
+    grid = _resample(bbox, w, h, z, timeout)
+    if z <= BATHY_ZOOM:
+        return grid
+
+    # Above z10 the composite carries no ETOPO1, and what it reports near
+    # the sea is not trustworthy below the waterline: open water decodes
+    # as metre-scale noise around 0 that flickers across the sea-level
+    # test and chews the coast.  So above z10 the fine grid is treated as
+    # authoritative *above* sea level only — wherever the z10 grid
+    # confidently says sea (< -1 m) and the fine grid does not clearly
+    # say dry land (>= 1 m), the z10 value wins.  Land keeps its ~30 m
+    # SRTM; the sea keeps its bathymetry; below-sea-level land (a polder,
+    # Death Valley) falls back to the z10 data it always rendered from.
+    if not any(v is None or v < 1.0 for row in grid for v in row):
+        return grid  # nothing near or below sea level: skip the fetch
+    coarse = _resample(bbox, w, h, BATHY_ZOOM, timeout)
+    for row, crow in zip(grid, coarse):
+        for x, (v, c) in enumerate(zip(row, crow)):
+            if c is not None and (v is None or (c < -1.0 and v < 1.0)):
+                row[x] = c
+    return grid
+
+
+def _resample(bbox, w, h, z, timeout):
+    """One zoom level's tiles, bilinearly sampled to a w×h meters grid."""
 
     def fetch(z_, x, y):
         data = _fetch_tile(z_, x, y, timeout)
