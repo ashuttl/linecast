@@ -37,7 +37,7 @@ class StationLookupTests(unittest.TestCase):
             return stale
 
         with patch.object(noaa, "read_cache", return_value=None), \
-             patch.object(noaa, "fetch_json", side_effect=RuntimeError("boom")), \
+             patch.object(noaa, "fetch_all_stations_noaa", return_value=[]), \
              patch.object(noaa, "read_stale", side_effect=fake_read_stale), \
              patch.object(noaa, "write_cache") as write_cache:
             station_id, station_name = noaa.find_nearest_station(lat, lng)

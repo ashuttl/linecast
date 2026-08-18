@@ -10,11 +10,13 @@ Uses Unicode braille characters with ANSI color for smooth line rendering
 or overridden with TIDE_STATION env var.
 
 Data sources: NOAA (US), CHS/IWLS (Canada), QLD Open Data (Queensland,
-Australia), and TideCheck (global, optional), selected automatically based on
-geolocation. Use --station with a station ID or name to override.
-For global tide coverage set LINECAST_TIDECHECK_KEY (free at tidecheck.com).
+Australia), TideCheck (global, optional), and Open-Meteo's global tide
+model (keyless fallback for any coastline), selected automatically based
+on geolocation. Use --station with a station ID or name to override, and
+--nearby to list the closest stations.
+For extra station coverage set LINECAST_TIDECHECK_KEY (free at tidecheck.com).
 
-Usage: tides [--print] [--oneline] [--json] [--station ID | NAME] [--search QUERY] [--metric] [--lang LANG] [--classic-colors]
+Usage: tides [--print] [--oneline] [--json] [--station ID | NAME] [--search QUERY] [--nearby] [--metric] [--lang LANG] [--classic-colors]
 """
 
 import math
@@ -64,6 +66,14 @@ from linecast._tides_tidecheck import (
     fetch_hilo_range_tidecheck,
     fetch_y_range_tidecheck,
     search_stations_tidecheck,
+)
+from linecast._tides_openmeteo import (
+    find_nearest_openmeteo,
+    is_openmeteo_station_id as _is_openmeteo_station_id,
+    fetch_station_metadata_openmeteo,
+    fetch_tides_range_openmeteo,
+    fetch_hilo_range_openmeteo,
+    fetch_y_range_openmeteo,
 )
 from linecast._tides_noaa import (
     CACHE_DIR as _NOAA_CACHE_DIR,
@@ -248,6 +258,9 @@ def _find_matching_stations(query):
     from the current location when one is known (alphabetically otherwise).
     TideCheck results come from a server-side search without coordinates and
     are appended last.
+
+    An empty query matches every station, so callers can list the nearest
+    stations by passing "".
     """
     tokens = [t for t in query.lower().split() if t]
 
@@ -298,7 +311,7 @@ def _find_matching_stations(query):
     else:
         candidates.sort(key=lambda c: c["name"])
 
-    if _tidecheck_available():
+    if _tidecheck_available() and tokens:
         for s in search_stations_tidecheck(query):
             candidates.append({
                 "source": "tidecheck", "id": str(s.get("id", "")),
@@ -308,17 +321,27 @@ def _find_matching_stations(query):
     return candidates
 
 
-def _search_stations(query, metric=False):
-    """Print stations matching *query*, nearest first, and exit."""
+def _search_stations(query, metric=False, limit=20):
+    """Print stations matching *query* (all stations when empty), nearest
+    first, and exit."""
+    nearby = not query.strip()
     matches = _find_matching_stations(query)
 
     if not matches:
-        print(f"No stations matching \"{query}\".")
+        if nearby:
+            print("Could not fetch any station lists (offline?).")
+        else:
+            print(f"No stations matching \"{query}\". "
+                  "Try `tides --nearby` to list the nearest stations.")
         sys.exit(0)
+
+    if nearby:
+        matches = [c for c in matches if c["dist_nm"] is not None] or matches
+        print("Nearest tide stations:")
 
     source_tags = {"chs": " (Canada)", "qld": " (QLD, Australia)",
                    "tidecheck": " (TideCheck)"}
-    for c in matches[:20]:
+    for c in matches[:limit]:
         left = c["name"] if c["id"] == c["name"] else f"{c['id']}  {c['name']}"
         dist = ""
         if c["dist_nm"] is not None:
@@ -328,8 +351,9 @@ def _search_stations(query, metric=False):
                 dist = f" — {c['dist_nm'] * 1.15078:.0f} mi"
         print(f"  {left}{dist}{source_tags.get(c['source'], '')}")
 
-    if len(matches) > 20:
-        print(f"  ... and {len(matches) - 20} more")
+    if len(matches) > limit:
+        print(f"  ... and {len(matches) - limit} more")
+    print("\nUse `tides --station <id or name>` to view one.")
 
 
 # ---------------------------------------------------------------------------
@@ -856,9 +880,12 @@ def main():
     args = tides_parser().parse_args()
     runtime = TidesRuntime.from_sources(namespace=args)
 
-    # --search: find stations by name and exit
-    if args.search:
-        _search_stations(args.search, metric=args.metric)
+    # --search / --nearby: list stations and exit.  A bare `--search`
+    # behaves like --nearby (empty query = nearest stations).
+    if args.nearby or args.search is not None:
+        query = args.search or ""
+        _search_stations(query, metric=args.metric,
+                         limit=15 if not query.strip() else 20)
         return
 
     # everything from here to the first paint may block on the network
@@ -871,9 +898,13 @@ def main():
         # Station: --station flag > TIDE_STATION env var > geolocation
         override = args.station or os.environ.get("TIDE_STATION", "").strip()
 
-        source = "noaa"  # "noaa", "chs", "qld", or "tidecheck"
+        source = "noaa"  # "noaa", "chs", "qld", "tidecheck", or "openmeteo"
         if override:
-            if _is_chs_station_id(override):
+            if _is_openmeteo_station_id(override):
+                source = "openmeteo"
+                station_id = override
+                station_name = "Tide model"
+            elif _is_chs_station_id(override):
                 source = "chs"
                 station_id = override
                 station_name = f"Station {override[:8]}"
@@ -891,7 +922,9 @@ def main():
                 # when the current location is unknown)
                 matches = _find_matching_stations(override)
                 if not matches:
-                    print(f'No stations matching "{override}".', file=sys.stderr)
+                    print(f'No stations matching "{override}". '
+                          "Try `tides --nearby` to list the nearest stations.",
+                          file=sys.stderr)
                     sys.exit(1)
                 best = matches[0]
                 source = best["source"]
@@ -912,10 +945,30 @@ def main():
             else:
                 station_id, station_name = find_nearest_station(lat, lng)
 
+            # Border/outage fallback: a NOAA station may be in range even
+            # when the regional provider found nothing (e.g. Victoria BC).
+            if station_id is None and source != "noaa":
+                station_id, station_name = find_nearest_station(lat, lng)
+                if station_id is not None:
+                    source = "noaa"
+
             # Fallback to TideCheck for locations outside US/Canada coverage
             if station_id is None and _tidecheck_available():
                 source = "tidecheck"
                 station_id, station_name = find_nearest_station_tidecheck(lat, lng)
+
+            # Last resort: Open-Meteo's global tide model — keyless, works
+            # on nearly any coastline.  Labeled with the location name since
+            # there is no station.
+            if station_id is None:
+                station_id, _ = find_nearest_openmeteo(lat, lng)
+                if station_id is not None:
+                    source = "openmeteo"
+                    try:
+                        from linecast._sunshine_json import _location_label
+                        station_name = f"{_location_label(lat, lng)} (model)"
+                    except Exception:
+                        station_name = "Tide model"
 
             if station_id is None and runtime.json_mode:
                 # No station in range: emit the payload shape anyway, with
@@ -931,25 +984,23 @@ def main():
                 return
 
             if station_id is None:
-                source_label = {"chs": "CHS", "qld": "QLD", "noaa": "NOAA", "tidecheck": "TideCheck"}.get(source, source.upper())
-                hint = "Set TIDE_STATION=<id> to specify one manually."
+                hint = ("No tide station within 100nm, and the global tide "
+                        "model has no coverage here (inland?).\n"
+                        "  Try `tides --nearby` to list the nearest stations, "
+                        "or `tides --station <id or name>`.")
                 if not _tidecheck_available():
-                    hint += ("\n  For global tide coverage, set LINECAST_TIDECHECK_KEY "
-                             "(free at tidecheck.com).")
-                print(
-                    f"No {source_label} tide station within 100nm. {hint}",
-                    file=sys.stderr,
-                )
+                    hint += ("\n  For more station coverage, set "
+                             "LINECAST_TIDECHECK_KEY (free at tidecheck.com).")
+                print(hint, file=sys.stderr)
                 sys.exit(1)
 
-        if source == "chs":
-            station_meta = fetch_station_metadata_chs(station_id)
-        elif source == "qld":
-            station_meta = fetch_station_metadata_qld(station_id)
-        elif source == "tidecheck":
-            station_meta = fetch_station_metadata_tidecheck(station_id)
-        else:
-            station_meta = _fetch_station_metadata(station_id)
+        _metadata_fetchers = {
+            "chs": fetch_station_metadata_chs,
+            "qld": fetch_station_metadata_qld,
+            "tidecheck": fetch_station_metadata_tidecheck,
+            "openmeteo": fetch_station_metadata_openmeteo,
+        }
+        station_meta = _metadata_fetchers.get(source, _fetch_station_metadata)(station_id)
         if station_meta:
             meta_name = station_meta.get("name", "")
             meta_state = station_meta.get("state", "")
@@ -960,21 +1011,25 @@ def main():
         now_local = _station_now(station_meta)
         today = now_local.date()
 
+        # Provider-specific range fetchers, shared by every mode below
+        _range_fetchers = {
+            "chs": (fetch_tides_range_chs, fetch_hilo_range_chs),
+            "qld": (fetch_tides_range_qld, fetch_hilo_range_qld),
+            "tidecheck": (fetch_tides_range_tidecheck,
+                          fetch_hilo_range_tidecheck),
+            "openmeteo": (fetch_tides_range_openmeteo,
+                          fetch_hilo_range_openmeteo),
+        }
+        _fetch_tides_range, _fetch_hilo_range = _range_fetchers.get(
+            source, (fetch_tides_range, fetch_hilo_range))
+
         if runtime.json_mode:
             import json as _json
             from linecast._tides_json import build_payload
-            _range_fetchers = {
-                "chs": (fetch_tides_range_chs, fetch_hilo_range_chs),
-                "qld": (fetch_tides_range_qld, fetch_hilo_range_qld),
-                "tidecheck": (fetch_tides_range_tidecheck,
-                              fetch_hilo_range_tidecheck),
-            }
-            _json_tides_range, _json_hilo_range = _range_fetchers.get(
-                source, (fetch_tides_range, fetch_hilo_range))
-            preds = _json_tides_range(
+            preds = _fetch_tides_range(
                 station_id, today - timedelta(days=1),
                 today + timedelta(days=2), station_tz)
-            hilo_data = _json_hilo_range(
+            hilo_data = _fetch_hilo_range(
                 station_id, today - timedelta(days=1),
                 today + timedelta(days=2), station_tz)
             tz_name = (getattr(station_tz, "key", None)
@@ -988,22 +1043,9 @@ def main():
 
         if runtime.oneline:
             from linecast._oneline import tides_oneline
-            if source == "chs":
-                hilo_data = fetch_hilo_range_chs(
-                    station_id, today - timedelta(days=1),
-                    today + timedelta(days=1), station_tz)
-            elif source == "qld":
-                hilo_data = fetch_hilo_range_qld(
-                    station_id, today - timedelta(days=1),
-                    today + timedelta(days=1), station_tz)
-            elif source == "tidecheck":
-                hilo_data = fetch_hilo_range_tidecheck(
-                    station_id, today - timedelta(days=1),
-                    today + timedelta(days=1), station_tz)
-            else:
-                hilo_data = fetch_hilo_range(
-                    station_id, today - timedelta(days=1),
-                    today + timedelta(days=1), station_tz)
+            hilo_data = _fetch_hilo_range(
+                station_id, today - timedelta(days=1),
+                today + timedelta(days=1), station_tz)
             line = tides_oneline(station_name, hilo_data or [], now_local,
                                  runtime)
             spin.stop()
@@ -1011,12 +1053,14 @@ def main():
             return
 
         # Fixed y-axis range from historical hilo data
-        if source == "chs":
-            y_range = fetch_y_range_chs(station_id, today, station_tz)
-        elif source == "qld":
-            y_range = fetch_y_range_qld(station_id, today, station_tz)
-        elif source == "tidecheck":
-            y_range = fetch_y_range_tidecheck(station_id, today, station_tz)
+        _y_range_fetchers = {
+            "chs": fetch_y_range_chs,
+            "qld": fetch_y_range_qld,
+            "tidecheck": fetch_y_range_tidecheck,
+            "openmeteo": fetch_y_range_openmeteo,
+        }
+        if source in _y_range_fetchers:
+            y_range = _y_range_fetchers[source](station_id, today, station_tz)
         else:
             y_range = fetch_y_range(station_id, today)
 
@@ -1029,20 +1073,6 @@ def main():
                 marine_data = fetch_marine(float(_marine_lat), float(_marine_lng))
         except Exception:
             pass  # Marine data is optional; never crash the tides view
-
-        # Provider-specific range fetch functions
-        if source == "chs":
-            _fetch_tides_range = fetch_tides_range_chs
-            _fetch_hilo_range = fetch_hilo_range_chs
-        elif source == "qld":
-            _fetch_tides_range = fetch_tides_range_qld
-            _fetch_hilo_range = fetch_hilo_range_qld
-        elif source == "tidecheck":
-            _fetch_tides_range = fetch_tides_range_tidecheck
-            _fetch_hilo_range = fetch_hilo_range_tidecheck
-        else:
-            _fetch_tides_range = fetch_tides_range
-            _fetch_hilo_range = fetch_hilo_range
 
         if runtime.live:
             # Pre-fetch ~7 days in each direction
@@ -1106,7 +1136,7 @@ def main():
             # Larger step makes wheel/arrow scrubbing practical for multi-day browsing.
             live_loop(_render, interval=60, mouse=True, scroll_step=30)
         else:
-            if source in ("chs", "qld", "tidecheck"):
+            if source != "noaa":
                 preds = _fetch_tides_range(
                     station_id, today - timedelta(days=1),
                     today + timedelta(days=1), station_tz)

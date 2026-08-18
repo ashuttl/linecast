@@ -121,9 +121,12 @@ def tides_parser():
     p = _base_parser("tides",
                       "Terminal tide chart with braille rendering")
     p.add_argument("--station", default=None,
-                    help="NOAA/CHS station ID or name")
-    p.add_argument("--search", default=None,
-                    help="search for a station and exit")
+                    help="station ID or name (any provider)")
+    p.add_argument("--search", nargs="?", const="", default=None,
+                    help="search for a station and exit "
+                         "(no query: list nearest stations)")
+    p.add_argument("--nearby", action="store_true",
+                    help="list the nearest tide stations and exit")
     p.add_argument("--metric", action="store_true",
                     help="heights in meters instead of feet")
     p.add_argument("--json", dest="json_mode", action="store_true",

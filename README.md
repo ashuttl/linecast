@@ -95,7 +95,7 @@ The weather dashboard combines current conditions, daylight-shaded hourly temper
 
 ### Tides
 
-The tide chart scrolls across several days and annotates exact highs, lows, and the current predicted water level. Coverage comes from NOAA in the US, the Canadian Hydrographic Service, and Queensland Open Data. An optional [TideCheck](https://tidecheck.com/) key adds global coverage.
+The tide chart scrolls across several days and annotates exact highs, lows, and the current predicted water level. Coverage comes from NOAA in the US, the Canadian Hydrographic Service, and Queensland Open Data; anywhere else, the chart falls back to Open-Meteo's global tide model, so nearly any coastline works out of the box. An optional [TideCheck](https://tidecheck.com/) key adds more named stations. Run `tides --nearby` to list the closest stations, or `tides --station <id or name>` to pin one.
 
 ![tide chart](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
 
@@ -200,7 +200,7 @@ Completion covers both `linecast <command>` and the standalone commands.
 
 - **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Met Éireann, Japan Meteorological Agency, MET Norway, and MeteoAlarm.
 - **Sunshine and Moon** — computed locally from astronomical equations.
-- **Tides** — NOAA CO-OPS, Canadian Hydrographic Service, Queensland Open Data, and optionally TideCheck.
+- **Tides** — NOAA CO-OPS, Canadian Hydrographic Service, Queensland Open Data, Open-Meteo's tide model as a global fallback, and optionally TideCheck.
 - **Radar** — [LibreWXR](https://librewxr.net/), with NEXRAD via Iowa Environmental Mesonet and RainViewer as fallbacks; warning polygons come from the US National Weather Service via IEM. The basemap is derived from Natural Earth.
 - **Maps** — terrain from AWS/Mapzen elevation tiles; streets and inland water from [OpenFreeMap](https://openfreemap.org/) (© OpenMapTiles © OpenStreetMap contributors); search from Photon and Nominatim; directions from FOSSGIS OSRM (© OpenStreetMap contributors).
 

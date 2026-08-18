@@ -73,6 +73,7 @@ TIDES_FLAGS = (
     "--json",
     "--station",
     "--search",
+    "--nearby",
     "--metric",
     "--lang",
     "--classic-colors",

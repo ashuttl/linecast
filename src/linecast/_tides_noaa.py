@@ -25,17 +25,17 @@ def find_nearest_station(lat, lng):
     if cached:
         return cached["id"], cached["name"]
 
-    try:
-        url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions"
-        data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=10)
-    except Exception:
+    # The full station list is cached for 30 days (with stale fallback),
+    # so this works offline and never re-downloads per location.
+    stations = fetch_all_stations_noaa()
+    if not stations:
         stale = read_stale(cache_file)
         if stale:
             return stale["id"], stale["name"]
         return None, None
 
     best_id, best_name, best_dist = None, None, float("inf")
-    for station in data.get("stations", []):
+    for station in stations:
         try:
             station_lat = float(station["lat"])
             station_lng = float(station["lng"])

@@ -26,7 +26,8 @@ class FindNearestStationTests(unittest.TestCase):
 
         with patch.object(_tides_noaa, "read_cache", side_effect=fake_read_cache), \
              patch.object(_tides_noaa, "read_stale", return_value=None), \
-             patch.object(_tides_noaa, "fetch_json", return_value=payload), \
+             patch.object(_tides_noaa, "fetch_all_stations_noaa",
+                          return_value=payload["stations"]), \
              patch.object(_tides_noaa, "write_cache") as write_cache:
             station_id, station_name = tides.find_nearest_station(47.61, -122.33)
 
