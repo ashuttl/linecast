@@ -107,9 +107,20 @@ BATHY_STOPS = [
 _COVER_RGB = [None] + [_maps_style.COVER_COLOR[k]
                        for k in _maps_style.COVER_ORDER]
 
-# north-west sun, 45° up
-_AZIMUTH = math.radians(315.0)
+# A north-west sun 45° up, with two flanking lights a quarter turn to
+# either side: one azimuth lights every NW-SE ridge identically and
+# drops every SE face into the same flat dark — the flanks are what let
+# a spur read differently from the ridge it leaves.  Weights sum to 1,
+# so the tonal range is the single sun's.
 _ZENITH = math.radians(45.0)
+_SUNS = tuple((wgt, math.cos(math.radians(az)), math.sin(math.radians(az)))
+              for wgt, az in ((0.55, 315.0), (0.225, 270.0), (0.225, 360.0)))
+
+# aerial perspective on land: shadow does not just darken, it cools
+# toward slate; full light warms faintly toward sun-colour.  Both are
+# small nudges after the multiply — the ramp still owns the hue.
+_SHADOW_TINT = (40, 48, 72)
+_LIGHT_TINT = (255, 248, 228)
 
 _elev_cache = {}     # (bbox, w, h) -> (elevation grid, coast dot masks)
 _elev_pending = set()
@@ -368,9 +379,15 @@ def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None):
                     - (above if above is not None else e)) / (2 * py_m)
             slope = math.atan(zf * math.hypot(dzdx, dzdy))
             aspect = math.atan2(dzdy, -dzdx)
-            shade = (cos_zen * math.cos(slope)
-                     + sin_zen * math.sin(slope) * math.cos(_AZIMUTH - aspect))
-            shade = max(0.0, min(1.0, shade))
+            cos_sl, sin_sl = math.cos(slope), math.sin(slope)
+            ca, sa = math.cos(aspect), math.sin(aspect)
+            shade = 0.0
+            for wgt, c_az, s_az in _SUNS:
+                s_ = cos_zen * cos_sl + sin_zen * sin_sl * (c_az * ca
+                                                            + s_az * sa)
+                if s_ > 0.0:
+                    shade += wgt * s_
+            shade = min(1.0, shade)
             if wet:
                 base = LAKE_FILL
                 m = 0.92 + 0.08 * shade
@@ -384,7 +401,20 @@ def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None):
                     base = (base[0] + (cc[0] - base[0]) * blend,
                             base[1] + (cc[1] - base[1]) * blend,
                             base[2] + (cc[2] - base[2]) * blend)
-                m = 0.52 + 0.55 * shade
+                m = 0.58 + 0.50 * shade
+                r, g, b = base[0] * m, base[1] * m, base[2] * m
+                t = (1.0 - shade) * 0.22
+                r += (_SHADOW_TINT[0] - r) * t
+                g += (_SHADOW_TINT[1] - g) * t
+                b += (_SHADOW_TINT[2] - b) * t
+                t = (shade - 0.72) * 0.45
+                if t > 0.0:
+                    r += (_LIGHT_TINT[0] - r) * t
+                    g += (_LIGHT_TINT[1] - g) * t
+                    b += (_LIGHT_TINT[2] - b) * t
+                out.append((min(255, int(r)), min(255, int(g)),
+                            min(255, int(b))))
+                continue
             out.append((min(255, int(base[0] * m)),
                         min(255, int(base[1] * m)),
                         min(255, int(base[2] * m))))
