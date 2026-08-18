@@ -229,12 +229,16 @@ def class_grid(view, bbox, graph_w, height_cells, band):
 # bathymetry's job there, and OpenMapTiles' low-zoom ocean polygon is
 # generalised well past the coastline the elevation data draws — OR-ing
 # it in would swallow whole coastal lowlands at continental zoom.
-INLAND_WATER_CLASS = ("lake", "river", "pond", "dock", "reservoir")
+# `dock` is not here either: a marina basin is the harbour's water, and
+# the flat lake tint would sit on the bathymetric ramp as a dark patch.
+INLAND_WATER_CLASS = ("lake", "river", "pond", "reservoir")
 
 # The source zoom from which the ocean polygon is the OSM coastline
 # rather than a generalisation of it, and so outranks what the
-# elevation data thinks the shore is.
+# elevation data thinks the shore is.  Docks ride along: their basins
+# open into the sea and belong on its ramp.
 OCEAN_TRUST_ZOOM = 11
+OCEAN_CLASS = ("ocean", "dock")
 
 
 def _water_class_mask(view, bbox, graph_w, height_cells, classes):
@@ -804,7 +808,7 @@ def build_water_view(bbox, graph_w, height_cells, tiles, band, color):
     view = decode_view(tiles)
     water = inland_water_mask(view, bbox, graph_w, height_cells)
     z_src = next(iter(tiles))[0] if tiles else 0
-    ocean = (_water_class_mask(view, bbox, graph_w, height_cells, ("ocean",))
+    ocean = (_water_class_mask(view, bbox, graph_w, height_cells, OCEAN_CLASS)
              if z_src >= OCEAN_TRUST_ZOOM else None)
     return (water,
             water_lines(view, bbox, graph_w, height_cells, band, color,

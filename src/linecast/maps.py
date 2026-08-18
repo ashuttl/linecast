@@ -239,19 +239,19 @@ def _get_elevation(bbox, gw, hc, block):
         fine = elevation_grid(bbox, gw * 2, hc * 4)
         water, rivers, cover, ocean = _tile_water(bbox, gw, hc)
         if ocean is not None:
-            # The OSM coastline outranks the elevation data's noisy idea
-            # of the shore: coastal DEM samples over tidal water read as
-            # low *land* (a mudflat's metre, a harbor's centimetres), and
-            # ETOPO1 is too coarse to rescue a convoluted estuary.  Where
-            # the tiles say open sea and the grid does not clearly
-            # disagree, push the sample just under the waterline — the
-            # fill, the derived coastline and the readout all follow.
+            # The OSM coastline outranks the elevation data over the
+            # sea, without appeal: coastal DEMs report tidal water as a
+            # mudflat's metre, a pier's five, a bridge deck's forty —
+            # thresholding on "clearly dry land" leaves every harbor
+            # green-flecked.  Where the tiles say sea, the sample is
+            # sea; real bathymetry (already merged in) stays, anything
+            # else drops just under the waterline — and the fill, the
+            # derived coastline and the readout all follow.
             for frow, orow in zip(fine, ocean):
                 for dx, o in enumerate(orow):
                     if o:
                         e = frow[dx]
-                        if e is None or 0.0 <= e < 2.0:
-                            frow[dx] = -0.5
+                        frow[dx] = -0.5 if e is None else min(e, -0.5)
         grid = []
         for y in range(hc * 2):
             r0, r1 = fine[y * 2], fine[y * 2 + 1]
@@ -260,7 +260,21 @@ def _get_elevation(bbox, gw, hc, block):
                 vals = [v for v in (r0[x * 2], r0[x * 2 + 1],
                                     r1[x * 2], r1[x * 2 + 1])
                         if v is not None]
-                row.append(sum(vals) / len(vals) if vals else None)
+                if not vals:
+                    row.append(None)
+                    continue
+                # a shoreline sub-pixel averages land and sea dots, and
+                # the plain mean lands above zero — every coast bulges a
+                # sub-pixel of low green into the water.  The same
+                # >=2-of-4 rule as _water_subpixels: enough wet dots
+                # make a wet sub-pixel, averaged over the wet dots only,
+                # so the fill agrees with the coastline drawn at dot
+                # resolution.
+                wet = [v for v in vals if v <= 0]
+                if len(wet) >= 2:
+                    row.append(sum(wet) / len(wet))
+                else:
+                    row.append(sum(vals) / len(vals))
             grid.append(row)
         return TerrainView(
             grid, _coast_dots(fine, gw, hc, water),
