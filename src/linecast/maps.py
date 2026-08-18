@@ -197,12 +197,12 @@ def _tile_water(bbox, gw, hc):
     try:
         band, tiles = _maps_streets.fetch_view(bbox, hc)
         if not any(tiles.values()):
-            return None, None, None
+            return None, None, None, None
         return _maps_streets.build_water_view(bbox, gw, hc, tiles, band,
                                               RIVER_STROKE)
     except Exception as exc:
         debug_log(f"terrain inland water unavailable: {exc}")
-        return None, None, None
+        return None, None, None, None
 
 
 class TerrainView(namedtuple("TerrainView", "elev coast water rivers cover")):
@@ -237,7 +237,21 @@ def _get_elevation(bbox, gw, hc, block):
         # tone transitions and blends shorelines. The fine grid also yields
         # the braille coastline before it is averaged away.
         fine = elevation_grid(bbox, gw * 2, hc * 4)
-        water, rivers, cover = _tile_water(bbox, gw, hc)
+        water, rivers, cover, ocean = _tile_water(bbox, gw, hc)
+        if ocean is not None:
+            # The OSM coastline outranks the elevation data's noisy idea
+            # of the shore: coastal DEM samples over tidal water read as
+            # low *land* (a mudflat's metre, a harbor's centimetres), and
+            # ETOPO1 is too coarse to rescue a convoluted estuary.  Where
+            # the tiles say open sea and the grid does not clearly
+            # disagree, push the sample just under the waterline — the
+            # fill, the derived coastline and the readout all follow.
+            for frow, orow in zip(fine, ocean):
+                for dx, o in enumerate(orow):
+                    if o:
+                        e = frow[dx]
+                        if e is None or 0.0 <= e < 2.0:
+                            frow[dx] = -0.5
         grid = []
         for y in range(hc * 2):
             r0, r1 = fine[y * 2], fine[y * 2 + 1]

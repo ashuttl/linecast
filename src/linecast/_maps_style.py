@@ -510,6 +510,14 @@ COVER_LANDCOVER = {"wood": "wood", "grass": "grass", "farmland": "farm",
                    "wetland": "wetland", "sand": "sand", "rock": "rock",
                    "ice": "ice"}
 
+# Wider than street mode's URBAN_LANDUSE on purpose: places that map
+# their institutions but not blanket residential polygons (much of New
+# England) still deserve to read as settlement, and at terrain's scale
+# a campus or a hospital is simply more city.
+COVER_URBAN_LANDUSE = URBAN_LANDUSE + (
+    "garages", "railway", "school", "university", "college", "hospital",
+    "stadium", "suburb", "quarter", "neighbourhood")
+
 # muted mid-tones from the hypso ramp's own family, so covered and bare
 # ground meet without a seam and the hillshade stays legible over both
 COVER_COLOR = {

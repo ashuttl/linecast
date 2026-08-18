@@ -231,14 +231,14 @@ def class_grid(view, bbox, graph_w, height_cells, band):
 # it in would swallow whole coastal lowlands at continental zoom.
 INLAND_WATER_CLASS = ("lake", "river", "pond", "dock", "reservoir")
 
+# The source zoom from which the ocean polygon is the OSM coastline
+# rather than a generalisation of it, and so outranks what the
+# elevation data thinks the shore is.
+OCEAN_TRUST_ZOOM = 11
 
-def inland_water_mask(view, bbox, graph_w, height_cells):
-    """(hc*4) x (gw*2) 1/0 mask of the tiles' inland water polygons.
 
-    The same polygons, the same scanline fill and the same dot grid
-    street mode uses — terrain mode just wants them without the four
-    other fill classes, and without the ocean.
-    """
+def _water_class_mask(view, bbox, graph_w, height_cells, classes):
+    """(hc*4) x (gw*2) 1/0 mask of the tiles' water polygons in `classes`."""
     dw, dh = graph_w * 2, height_cells * 4
     grid = [bytearray(dw) for _ in range(dh)]
     for (z, tx, ty), decoded in view:
@@ -250,12 +250,23 @@ def inland_water_mask(view, bbox, graph_w, height_cells):
         for feat in src["features"]:
             if feat["type"] != 3:      # polygons only
                 continue
-            if feat["tags"].get("class") not in INLAND_WATER_CLASS:
+            if feat["tags"].get("class") not in classes:
                 continue
             for rings in assemble_polygons(feat["geometry"]):
                 _fill_rings(grid, [_closed([project(x, y) for x, y in ring])
                                    for ring in rings], 1, dw, dh)
     return grid
+
+
+def inland_water_mask(view, bbox, graph_w, height_cells):
+    """(hc*4) x (gw*2) 1/0 mask of the tiles' inland water polygons.
+
+    The same polygons, the same scanline fill and the same dot grid
+    street mode uses — terrain mode just wants them without the four
+    other fill classes, and without the ocean.
+    """
+    return _water_class_mask(view, bbox, graph_w, height_cells,
+                             INLAND_WATER_CLASS)
 
 
 def water_cells(water, graph_w, height_cells):
@@ -762,7 +773,8 @@ def land_cover_grid(view, bbox, graph_w, height_cells):
                 if name == "landcover":
                     key = style.COVER_LANDCOVER.get(cls)
                 else:
-                    key = "urban" if cls in style.URBAN_LANDUSE else None
+                    key = ("urban" if cls in style.COVER_URBAN_LANDUSE
+                           else None)
                 if key is None:
                     continue
                 for rings in assemble_polygons(feat["geometry"]):
@@ -776,20 +788,29 @@ def land_cover_grid(view, bbox, graph_w, height_cells):
 
 
 def build_water_view(bbox, graph_w, height_cells, tiles, band, color):
-    """(inland water dot mask, waterway layer, land cover grid) —
-    terrain mode's half.
+    """(inland water dot mask, waterway layer, land cover grid, ocean
+    dot mask) — terrain mode's half.
 
     The pure half, exactly as build_street_view is: tiles in, geometry
-    out, no network.  One decode feeds all three, because a view that
+    out, no network.  One decode feeds all four, because a view that
     has already paid for the tiles should get the rivers and the ground
     with the lakes.
+
+    The ocean mask is None below OCEAN_TRUST_ZOOM, where the polygon is
+    a generalisation that would swallow coastal lowlands; from there up
+    it is the OSM coastline itself, and terrain uses it to overrule the
+    elevation data's noisy idea of the shore.
     """
     view = decode_view(tiles)
     water = inland_water_mask(view, bbox, graph_w, height_cells)
+    z_src = next(iter(tiles))[0] if tiles else 0
+    ocean = (_water_class_mask(view, bbox, graph_w, height_cells, ("ocean",))
+             if z_src >= OCEAN_TRUST_ZOOM else None)
     return (water,
             water_lines(view, bbox, graph_w, height_cells, band, color,
                         water),
-            land_cover_grid(view, bbox, graph_w, height_cells))
+            land_cover_grid(view, bbox, graph_w, height_cells),
+            ocean)
 
 
 # A coast dot sits on the *land* side of the boundary (_edge_dots only
