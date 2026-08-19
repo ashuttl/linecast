@@ -559,6 +559,11 @@ def urban_street_min(z_src):
 # the one thing on an airfield that is definitely not grass.
 AEROWAY_COVER = ("runway", "taxiway", "apron")
 
+# A GHSL cell at least this built (fraction of 255) takes the urban
+# tint when the built-up raster layer is enabled.  10% built reads as
+# settlement at terrain's scale.
+COVER_BUILTUP_MIN = 26
+
 
 # ---------------------------------------------------------------------------
 # Labels

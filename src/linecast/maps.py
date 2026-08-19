@@ -31,7 +31,7 @@ import threading
 from collections import namedtuple
 
 from linecast import (
-    _maps_hover, _maps_route, _maps_streets, _maps_style, _maps_ui,
+    _builtup, _maps_hover, _maps_route, _maps_streets, _maps_style, _maps_ui,
 )
 from linecast._color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
@@ -238,6 +238,24 @@ def _get_elevation(bbox, gw, hc, block):
         # the braille coastline before it is averaged away.
         fine = elevation_grid(bbox, gw * 2, hc * 4)
         water, rivers, cover, ocean = _tile_water(bbox, gw, hc)
+        if _builtup.enabled():
+            # measured settlement fills wherever the vector story left
+            # bare ground; the street-density proxy still runs, so the
+            # two agree where both know and cover for each other's gaps
+            try:
+                bu = _builtup.builtup_grid(bbox, gw, hc * 2)
+            except Exception as exc:
+                debug_log(f"builtup layer unavailable: {exc}")
+                bu = None
+            if bu is not None:
+                if cover is None:
+                    cover = [bytearray(gw) for _ in range(hc * 2)]
+                urban = _maps_style.COVER_ORDER.index("urban") + 1
+                lo = _maps_style.COVER_BUILTUP_MIN
+                for crow, brow in zip(cover, bu):
+                    for x, f in enumerate(brow):
+                        if f >= lo and not crow[x]:
+                            crow[x] = urban
         if ocean is not None:
             # The OSM coastline outranks the elevation data over the
             # sea, without appeal: coastal DEMs report tidal water as a
