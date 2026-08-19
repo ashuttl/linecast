@@ -829,9 +829,9 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block):
         # the fine grid feeds the coastline and box-averages into the
         # fill, exactly as the flat view does; the sub-pixel geometry
         # adds what only a sphere has — a viewing angle and a limb
-        lls, _zs, _rhos = _globe.geometry(lat0, lon0, zoom, gw * 2, hc * 4)
-        fine = _globe.elevation(lls, zoom, hc * 4)
-        _lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, gw, hc * 2)
+        flls, _zs, _rhos = _globe.geometry(lat0, lon0, zoom, gw * 2, hc * 4)
+        fine = _globe.elevation(flls, zoom, hc * 4)
+        lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, gw, hc * 2)
         grid = []
         for y in range(hc * 2):
             r0, r1 = fine[y * 2], fine[y * 2 + 1]
@@ -852,8 +852,11 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block):
                 else:
                     row.append(sum(vals) / len(vals))
             grid.append(row)
-        return _globe.GlobeView(grid, _coast_dots(fine, gw, hc), zs,
-                                _globe.atmosphere(rhos, zoom, hc * 2))
+        return _globe.GlobeView(
+            grid, _coast_dots(fine, gw, hc), zs,
+            _globe.atmosphere(rhos, zoom, hc * 2),
+            _globe.ice_cover(lls, grid,
+                             _maps_style.COVER_ORDER.index("ice") + 1))
 
     if block:
         hit = load()
@@ -919,7 +922,8 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
             # (the limb compresses beyond it, and the falloff owns that)
             spy_h = height_cells * 2
             sbbox = (0.0, -zoom / 2, zoom * graph_w / spy_h, zoom / 2)
-            terrain = build_terrain_buffer(elev, sbbox, graph_w, spy_h)
+            terrain = build_terrain_buffer(elev, sbbox, graph_w, spy_h,
+                                           cover=view.cover)
             _globe.shade_buffer(terrain, view.shade, view.atmo, BG_PRIMARY)
             if len(_terrain_cache) > 2:
                 _terrain_cache.clear()

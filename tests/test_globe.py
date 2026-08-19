@@ -106,6 +106,21 @@ class TestAtmosphere:
         assert buf[0][1][2] > buf[0][1][0]  # and it leans blue
 
 
+class TestIce:
+    def test_antarctica_and_greenland_dome_are_ice(self):
+        lls = [[(-75.0, 0.0), (72.0, -40.0), (72.0, -40.0), (45.0, 7.0)]]
+        elev = [[300.0, 2500.0, 900.0, 2500.0]]
+        cover = _globe.ice_cover(lls, elev, 7)
+        # Antarctic coast, Greenland dome: ice; Greenland's low coast
+        # and an Alpine summit at 45N: not
+        assert list(cover[0]) == [7, 7, 0, 0]
+
+    def test_no_ice_in_view_means_no_grid(self):
+        lls = [[(10.0, 0.0), None]]
+        elev = [[500.0, None]]
+        assert _globe.ice_cover(lls, elev, 7) is None
+
+
 class TestCities:
     def test_labels_stay_on_screen_and_visible_side(self):
         overlays = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22)

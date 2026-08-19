@@ -279,7 +279,7 @@ class TestMapsSnapshot:
                                              gw * 2, hc * 4)
             return _globe.GlobeView(
                 synth(lls), maps._coast_dots(synth(flls), gw, hc), zs,
-                _globe.atmosphere(rhos, zoom, hc * 2))
+                _globe.atmosphere(rhos, zoom, hc * 2), None)
 
         output = self._render(
             "terrain", patch.object(maps, "_get_globe", get_globe),

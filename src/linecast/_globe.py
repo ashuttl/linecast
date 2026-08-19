@@ -36,7 +36,33 @@ _MERCATOR_LAT = 85.05
 
 _ATMOSPHERE = (104, 148, 198)
 
-GlobeView = namedtuple("GlobeView", "elev coast shade atmo")
+GlobeView = namedtuple("GlobeView", "elev coast shade atmo cover")
+
+
+def ice_cover(lls, elev, ice_id):
+    """Sub-pixel cover grid painting the planet's ice sheets, or None.
+
+    The vector landcover tiles never make it to planet scale, but the
+    two great ice sheets are a fact of latitude and altitude: everything
+    south of the Antarctic Circle's approach is ice, and high ground in
+    the far north is the Greenland dome (with the St Elias icefields
+    riding the same rule).  A heuristic, but one that is wrong about
+    almost no terminal cell at these zooms.
+    """
+    rows = []
+    any_ice = False
+    for ll_row, e_row in zip(lls, elev):
+        row = bytearray(len(e_row))
+        for x, (ll, e) in enumerate(zip(ll_row, e_row)):
+            if ll is None or e is None or e <= 0:
+                continue
+            lat = ll[0]
+            if (lat <= -60.0 or (lat >= 66.5 and e > 1800.0)
+                    or (lat > 59.0 and e > 2200.0)):
+                row[x] = ice_id
+                any_ice = True
+        rows.append(row)
+    return rows if any_ice else None
 
 
 def _radius(zoom, h):
