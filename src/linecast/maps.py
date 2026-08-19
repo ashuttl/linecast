@@ -1301,7 +1301,10 @@ def main():
             the difference between a wheel that explores and one that
             makes you chase the thing you were looking at.
             """
-            new_zoom = max(MIN_ZOOM_DEG, min(MAX_ZOOM_DEG, new_zoom))
+            # only terrain continues onto the globe; street mode keeps
+            # its pre-globe ceiling
+            top = 60.0 if view[0] == "street" else MAX_ZOOM_DEG
+            new_zoom = max(MIN_ZOOM_DEG, min(top, new_zoom))
             if new_zoom == zoom[0]:
                 return False
             cols, rows = get_terminal_size()
@@ -1337,6 +1340,11 @@ def main():
             if key == 'v':
                 nxt = _maps_style.MODES.index(view[0]) + 1
                 view[0] = _maps_style.MODES[nxt % len(_maps_style.MODES)]
+                if view[0] == "street" and zoom[0] > 60.0:
+                    # street mode has no globe: stepping off the planet
+                    # lands at its widest flat view, not on 100 degrees
+                    # of Mercator taffy
+                    zoom[0] = 60.0
                 return True
             return False
 
