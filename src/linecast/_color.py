@@ -158,7 +158,14 @@ def _rgb_to_xterm256(r, g, b):
 
     cube_dist = sum((a - b_) ** 2 for a, b_ in zip((r, g, b), cube_rgb))
     gray_dist = sum((a - b_) ** 2 for a, b_ in zip((r, g, b), gray_rgb))
-    if gray_dist < cube_dist:
+    # The gray ramp only competes for near-neutral colors: by raw
+    # distance it wins whole families the 6-level cube serves badly
+    # (desaturated forest greens, violet settlement), and turning a hue
+    # into gray is a worse lie than snapping it to the nearest cube
+    # hue.  The threshold sits between street mode's dark water fill
+    # (spread 32, which *wants* the ramp so the dark fills keep their
+    # value ladder) and terrain's urban violet (spread 36).
+    if gray_dist < cube_dist and max(r, g, b) - min(r, g, b) < 34:
         return 232 + gray_i
     return cube_idx
 

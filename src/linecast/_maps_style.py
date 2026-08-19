@@ -18,7 +18,8 @@ Nothing here is mode-conditional beyond the two entries in ``MODES``
 and the opening zooms beside them.  Terrain mode keeps its own palette
 and borrows exactly two things from this module: those zooms, and the
 waterway band gates it needs to draw a river at the same size street
-mode would.
+mode would.  The sky overlays (daylight, clouds) are toggles over
+either mode, not a mode — they live in _globe_now.
 """
 
 import math
@@ -491,6 +492,90 @@ URBAN_LANDUSE = ("residential", "commercial", "industrial", "retail")
 # reader nothing.  This is the single largest declutter decision here.
 PARK_LANDCOVER_SUBCLASS = ("park",)
 PARK_LANDUSE_CLASS = ("cemetery",)
+
+
+# ---------------------------------------------------------------------------
+# Terrain land cover
+# ---------------------------------------------------------------------------
+# Terrain mode's colour story: hillshade carries the relief and colour
+# carries the ground.  OpenMapTiles landcover classes map onto cover
+# keys; landuse's urban classes gather into one settlement tint.  A
+# sub-pixel with no cover stays on the hypsometric ramp, which is also
+# what an entire view without vector tiles falls back to — and since
+# the tiles only carry wood and ice at the low source zooms, cover
+# fades in naturally as a view tightens.
+COVER_ORDER = ("wood", "grass", "farm", "wetland", "sand", "rock",
+               "ice", "urban", "suburb", "core")
+
+COVER_LANDCOVER = {"wood": "wood", "grass": "grass", "farmland": "farm",
+                   "wetland": "wetland", "sand": "sand", "rock": "rock",
+                   "ice": "ice"}
+
+# Wider than street mode's URBAN_LANDUSE on purpose: places that map
+# their institutions but not blanket residential polygons (much of New
+# England) still deserve to read as settlement, and at terrain's scale
+# a campus or a hospital is simply more city.
+COVER_URBAN_LANDUSE = URBAN_LANDUSE + (
+    "garages", "railway", "school", "university", "college", "hospital",
+    "stadium", "suburb", "quarter", "neighbourhood")
+
+# Flat categorical fields in the schematic register: colour states what
+# the ground *is* and the hillshade underneath does all the physical
+# work.  Settlement is the palette's violet family, graded like a
+# geologic map grades its reds — pale grey-lavender sprawl, violet
+# urban fabric, deep violet cores — so a metro that fills the frame
+# still has anatomy instead of a wash.  The hypso bands keep a greyer
+# mauve for high country; the two purple registers never argue.
+COVER_COLOR = {
+    "wood":    (44, 108, 66),
+    "grass":   (150, 172, 84),
+    "farm":    (216, 196, 108),
+    "wetland": (72, 142, 128),
+    "sand":    (236, 214, 152),
+    "rock":    (150, 134, 148),
+    "ice":     (240, 242, 250),
+    "urban":   (140, 124, 160),
+    "suburb":  (168, 156, 178),
+    "core":    (108, 90, 140),
+}
+
+# a covered sub-pixel takes its class colour outright: flat fields,
+# bounded edges, no naturalistic mixing
+COVER_BLEND = 1.0
+
+# Urbanness inferred from street fabric.  Much of the world maps its
+# streets long before it maps a single landuse polygon (downtown
+# Portland, Maine has none), and a dense weave of minor and service
+# roads is settlement whether or not anyone drew the boundary.  A
+# sub-pixel with enough street dots in its (2R+1)^2 window takes the
+# urban tint; a lone country road threads a window as a single line
+# and stays rural.
+#
+# The threshold must know the source zoom: the tile carries the street
+# subset OpenMapTiles chose to *display* at that zoom, not the street
+# network — Manhattan's grid at z12 is thinned to arterials that would
+# not tint a village.  Each zoom below 13 roughly halves what
+# survives, so the bar drops with it (and below z11 the minor class is
+# gone entirely, which switches the signal off by itself).
+URBAN_STREET_CLASS = ("minor", "service")
+URBAN_STREET_RADIUS = 3
+
+
+def urban_street_min(z_src):
+    return max(4, round(14 * 0.55 ** max(0, 13 - z_src)))
+
+# Aeroway geometry the terrain paints as paved ground — a runway is
+# the one thing on an airfield that is definitely not grass.
+AEROWAY_COVER = ("runway", "taxiway", "apron")
+
+# GHSL built fraction (of 255) to settlement grade, densest first.
+# The fraction counts *building* surface, and even Midtown's cells sit
+# near 35% once streets and parks take their share (measured median
+# 88), so the grades are calibrated to that reality: ~33% built is a
+# core, ~19% is urban fabric, ~7% is sprawl.  The measured fraction
+# also re-grades urban ground the vector story already claimed, so one
+# city never mixes graded and flat violet.
+COVER_BUILTUP_GRADES = ((84, "core"), (48, "urban"), (18, "suburb"))
 
 
 # ---------------------------------------------------------------------------

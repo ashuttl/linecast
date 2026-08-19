@@ -231,7 +231,9 @@ class TestZoomRange:
         # The old floor of 0.1 topped out at band 3; buildings and POI
         # text live at band 7.
         assert MIN_ZOOM_DEG == 0.0012
-        assert MAX_ZOOM_DEG == 60.0
+        # the ceiling admits the whole planet: past _globe.ZOOM_DEG the
+        # terrain view is orthographic, and 130 fits the disk with margin
+        assert MAX_ZOOM_DEG == 130.0
         hc = 22
         deepest = (-70.0, 43.0, -69.0, 43.0 + MIN_ZOOM_DEG)
         assert _maps_style.band_for(_maps_style.z_eff(deepest, hc)) == 7

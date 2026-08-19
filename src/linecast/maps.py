@@ -7,13 +7,16 @@ of things on it can afford a label, so the pointer is the other half of
 reading it: hover names whatever owns the ink under it and lights that
 whole feature up (_maps_hover).
 
-`--view terrain` lives here.  Elevation from the AWS/Mapzen terrain
-tiles is painted as a half-block colour fill: a hypsometric ramp
-(lowland green through alpine white) shaded by a north-west sun above
-sea level, a bathymetric blue ramp below it.  Lakes and rivers are the
-one thing elevation cannot tell you — a terrarium sample over a lake is
-just the height of its surface — so the inland water comes from the
-street tiles and joins the shoreline the elevation already draws.
+`--view terrain` lives here, drawn in a schematic register: colour is
+categorical (flat land-cover fields, flat hypsometric bands climbing
+green through straw and ochre into mauve, lavender and summit white)
+while a multidirectional hillshade underneath carries everything
+physical — the grammar of a geologic map rather than a photograph.
+The sea is the one smooth gradient, falling to a near-black navy
+abyss.  Lakes and rivers are the one thing elevation cannot tell you —
+a terrarium sample over a lake is just the height of its surface — so
+the inland water comes from the street tiles and joins the shoreline
+the elevation already draws.
 Geography keeps the radar view's braille identity: the coastline is the
 sea-level contour of the elevation data itself (so it always matches
 the fill), borders are Natural Earth braille strokes, cities are
@@ -24,6 +27,7 @@ Usage: maps [--location LAT,LNG | PLACE] [--zoom DEG] [--view MODE]
             [--print] [--search CITY]
 """
 
+import functools
 import math
 import os
 import sys
@@ -31,7 +35,8 @@ import threading
 from collections import namedtuple
 
 from linecast import (
-    _maps_hover, _maps_route, _maps_streets, _maps_style, _maps_ui,
+    _builtup, _globe, _globe_now, _maps_hover, _maps_route, _maps_streets,
+    _maps_style, _maps_ui,
 )
 from linecast._color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
@@ -60,7 +65,10 @@ from linecast.radar import (
 # (about band 3); street mode's deepest classes — buildings, POI text —
 # need 0.0012, which is roughly two metres per braille dot.
 MIN_ZOOM_DEG = 0.0012
-MAX_ZOOM_DEG = 60.0
+# past _globe.ZOOM_DEG the terrain view is an orthographic globe; at
+# the ceiling the whole planet fits the screen's height with a margin
+# (the disk's diameter is 2·(180/π) ≈ 114.6 zoom-degrees)
+MAX_ZOOM_DEG = 130.0
 ZOOM_STEP = 1.5          # matches radar, so the two views feel the same
 
 # geography over terrain: dark strokes cut into the colour fill (the
@@ -78,38 +86,69 @@ LABEL_LIGHT = (232, 232, 240)
 LAKE_FILL = (74, 118, 156)
 RIVER_STROKE = (108, 152, 190)
 
-# hypsometric tint above sea level (meters)
+# Hypsometric bands above sea level (meters) — *bands*, not a gradient:
+# land takes the flat colour of its band and the boundaries read as
+# contours, the way a geologic map draws provinces.  The run climbs out
+# of the greens through straw and ochre into mauve and pale lavender
+# before summit white — high country earns the purples.
 HYPSO_STOPS = [
-    (0, (58, 102, 66)),
-    (150, (78, 120, 70)),
-    (400, (120, 142, 78)),
-    (800, (168, 158, 96)),
-    (1300, (178, 142, 94)),
-    (2000, (160, 116, 86)),
-    (2800, (150, 126, 118)),
-    (3600, (190, 180, 175)),
-    (4600, (240, 240, 245)),
+    (0, (96, 138, 92)),
+    (150, (124, 152, 88)),
+    (400, (156, 168, 92)),
+    (800, (190, 178, 104)),
+    (1300, (198, 162, 106)),
+    (2000, (176, 140, 118)),
+    (2800, (160, 140, 158)),
+    (3600, (196, 182, 208)),
+    (4600, (240, 240, 248)),
 ]
 
-# bathymetric tint below sea level
+# Bathymetric tint below sea level — deliberately a smooth gradient
+# where the land is banded: the sea is the one continuous field on the
+# map, falling away to a near-black navy abyss.
 BATHY_STOPS = [
-    (-8000, (12, 20, 48)),
-    (-5000, (18, 32, 70)),
-    (-3000, (26, 46, 92)),
-    (-1500, (36, 62, 112)),
-    (-500, (48, 82, 132)),
-    (-120, (62, 104, 150)),
-    (-20, (80, 130, 168)),
-    (0, (96, 150, 180)),
+    (-8000, (6, 12, 30)),
+    (-5000, (12, 22, 48)),
+    (-3500, (18, 34, 68)),
+    (-2000, (30, 56, 98)),
+    (-1000, (44, 80, 124)),
+    (-200, (66, 112, 152)),
+    (-50, (96, 148, 178)),
+    (0, (120, 170, 194)),
 ]
 
-# north-west sun, 45° up
-_AZIMUTH = math.radians(315.0)
+
+def _hypso_band(e):
+    """The flat colour of the band `e` falls in."""
+    for lim, c in reversed(HYPSO_STOPS):
+        if e >= lim:
+            return c
+    return HYPSO_STOPS[0][1]
+
+# land-cover tints by grid index (0 = no cover, stays on the ramp)
+_COVER_RGB = [None] + [_maps_style.COVER_COLOR[k]
+                       for k in _maps_style.COVER_ORDER]
+
+# A north-west sun 45° up, with two flanking lights a quarter turn to
+# either side: one azimuth lights every NW-SE ridge identically and
+# drops every SE face into the same flat dark — the flanks are what let
+# a spur read differently from the ridge it leaves.  Weights sum to 1,
+# so the tonal range is the single sun's.
 _ZENITH = math.radians(45.0)
+_SUNS = tuple((wgt, math.cos(math.radians(az)), math.sin(math.radians(az)))
+              for wgt, az in ((0.55, 315.0), (0.225, 270.0), (0.225, 360.0)))
+
+# aerial perspective on land: shadow does not just darken, it cools
+# toward slate; full light warms faintly toward sun-colour.  Both are
+# small nudges after the multiply — the ramp still owns the hue.
+_SHADOW_TINT = (40, 48, 72)
+_LIGHT_TINT = (255, 248, 228)
 
 _elev_cache = {}     # (bbox, w, h) -> (elevation grid, coast dot masks)
 _elev_pending = set()
 _elev_lock = threading.Lock()
+_globe_cache = {}    # (lat, lon, zoom, w, h) -> GlobeView
+_globe_pending = set()
 _terrain_cache = {}  # (bbox, w, h) -> sub-pixel colour buffer
 _street_cache = {}   # (bbox, w, h) -> (fills, ranked DotLayer)
 _street_pending = set()
@@ -182,25 +221,26 @@ def _tile_water(bbox, gw, hc):
     try:
         band, tiles = _maps_streets.fetch_view(bbox, hc)
         if not any(tiles.values()):
-            return None, None
+            return None, None, None, None
         return _maps_streets.build_water_view(bbox, gw, hc, tiles, band,
                                               RIVER_STROKE)
     except Exception as exc:
         debug_log(f"terrain inland water unavailable: {exc}")
-        return None, None
+        return None, None, None, None
 
 
-class TerrainView(namedtuple("TerrainView", "elev coast water rivers")):
+class TerrainView(namedtuple("TerrainView", "elev coast water rivers cover")):
     """One view's ground truth: the averaged elevation grid, the braille
-    shoreline, the sub-pixel inland water mask and the river layer.
+    shoreline, the sub-pixel inland water mask, the river layer and the
+    sub-pixel land-cover grid.
 
-    The last two are None whenever the vector tiles could not be read;
-    every consumer treats that as "no inland water known", which is
-    exactly what terrain mode drew before them."""
+    The last three are None whenever the vector tiles could not be read;
+    every consumer treats that as "no inland water or cover known", which
+    is exactly what terrain mode drew before them."""
     __slots__ = ()
 
 
-_EMPTY_TERRAIN = TerrainView(None, None, None, None)
+_EMPTY_TERRAIN = TerrainView(None, None, None, None, None)
 
 
 def _get_elevation(bbox, gw, hc, block):
@@ -221,7 +261,43 @@ def _get_elevation(bbox, gw, hc, block):
         # tone transitions and blends shorelines. The fine grid also yields
         # the braille coastline before it is averaged away.
         fine = elevation_grid(bbox, gw * 2, hc * 4)
-        water, rivers = _tile_water(bbox, gw, hc)
+        water, rivers, cover, ocean = _tile_water(bbox, gw, hc)
+        if _builtup.enabled():
+            # measured settlement fills wherever the vector story left
+            # bare ground; the street-density proxy still runs, so the
+            # two agree where both know and cover for each other's gaps
+            try:
+                bu = _builtup.builtup_grid(bbox, gw, hc * 2)
+            except Exception as exc:
+                debug_log(f"builtup layer unavailable: {exc}")
+                bu = None
+            if bu is not None:
+                if cover is None:
+                    cover = [bytearray(gw) for _ in range(hc * 2)]
+                grades = [(lo, _maps_style.COVER_ORDER.index(k) + 1)
+                          for lo, k in _maps_style.COVER_BUILTUP_GRADES]
+                settlement = {gid for _, gid in grades}
+                floor = grades[-1][0]
+                for crow, brow in zip(cover, bu):
+                    for x, f in enumerate(brow):
+                        if f >= floor and (not crow[x]
+                                           or crow[x] in settlement):
+                            crow[x] = next(gid for lo, gid in grades
+                                           if f >= lo)
+        if ocean is not None:
+            # The OSM coastline outranks the elevation data over the
+            # sea, without appeal: coastal DEMs report tidal water as a
+            # mudflat's metre, a pier's five, a bridge deck's forty —
+            # thresholding on "clearly dry land" leaves every harbor
+            # green-flecked.  Where the tiles say sea, the sample is
+            # sea; real bathymetry (already merged in) stays, anything
+            # else drops just under the waterline — and the fill, the
+            # derived coastline and the readout all follow.
+            for frow, orow in zip(fine, ocean):
+                for dx, o in enumerate(orow):
+                    if o:
+                        e = frow[dx]
+                        frow[dx] = -0.5 if e is None else min(e, -0.5)
         grid = []
         for y in range(hc * 2):
             r0, r1 = fine[y * 2], fine[y * 2 + 1]
@@ -230,12 +306,26 @@ def _get_elevation(bbox, gw, hc, block):
                 vals = [v for v in (r0[x * 2], r0[x * 2 + 1],
                                     r1[x * 2], r1[x * 2 + 1])
                         if v is not None]
-                row.append(sum(vals) / len(vals) if vals else None)
+                if not vals:
+                    row.append(None)
+                    continue
+                # a shoreline sub-pixel averages land and sea dots, and
+                # the plain mean lands above zero — every coast bulges a
+                # sub-pixel of low green into the water.  The same
+                # >=2-of-4 rule as _water_subpixels: enough wet dots
+                # make a wet sub-pixel, averaged over the wet dots only,
+                # so the fill agrees with the coastline drawn at dot
+                # resolution.
+                wet = [v for v in vals if v <= 0]
+                if len(wet) >= 2:
+                    row.append(sum(wet) / len(wet))
+                else:
+                    row.append(sum(vals) / len(vals))
             grid.append(row)
         return TerrainView(
             grid, _coast_dots(fine, gw, hc, water),
             _water_subpixels(water, gw, hc) if water is not None else None,
-            rivers)
+            rivers, cover)
 
     if block:
         hit = load()
@@ -307,7 +397,7 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
     return None, None, None
 
 
-def build_terrain_buffer(elev, bbox, w, h, water=None):
+def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None):
     """Hillshaded hypsometric/bathymetric colours per sub-pixel.
 
     `elev` is meters at w×h (h = 2 rows per cell); None renders as plain
@@ -320,6 +410,12 @@ def build_terrain_buffer(elev, bbox, w, h, water=None):
     inland water in both cases and the bathymetric ramp would read as
     open ocean.  Its shading is nearly flat — a lake surface is flat,
     and the land slope underneath it is not its slope.
+
+    `cover` is the optional sub-pixel land-cover grid (indices into
+    style.COVER_ORDER, 0 = none).  A covered land sub-pixel blends the
+    class tint over its hypsometric base — hillshade carries the relief,
+    colour carries the ground.  Cover never touches water at either
+    sign: a forest polygon generalised over a fjord stays the fjord's.
     """
     minlon, minlat, maxlon, maxlat = bbox
     lat_c = (minlat + maxlat) / 2
@@ -331,12 +427,14 @@ def build_terrain_buffer(elev, bbox, w, h, water=None):
     zf = min(24.0, max(2.5, px_m / 150.0))
 
     cos_zen, sin_zen = math.cos(_ZENITH), math.sin(_ZENITH)
+    blend = _maps_style.COVER_BLEND
     buf = []
     for y in range(h):
         row = elev[y]
         up = elev[y - 1] if y > 0 else row
         down = elev[y + 1] if y < h - 1 else row
         wet_row = water[y] if water is not None else None
+        cov_row = cover[y] if cover is not None else None
         out = []
         for x in range(w):
             e = row[x]
@@ -355,9 +453,15 @@ def build_terrain_buffer(elev, bbox, w, h, water=None):
                     - (above if above is not None else e)) / (2 * py_m)
             slope = math.atan(zf * math.hypot(dzdx, dzdy))
             aspect = math.atan2(dzdy, -dzdx)
-            shade = (cos_zen * math.cos(slope)
-                     + sin_zen * math.sin(slope) * math.cos(_AZIMUTH - aspect))
-            shade = max(0.0, min(1.0, shade))
+            cos_sl, sin_sl = math.cos(slope), math.sin(slope)
+            ca, sa = math.cos(aspect), math.sin(aspect)
+            shade = 0.0
+            for wgt, c_az, s_az in _SUNS:
+                s_ = cos_zen * cos_sl + sin_zen * sin_sl * (c_az * ca
+                                                            + s_az * sa)
+                if s_ > 0.0:
+                    shade += wgt * s_
+            shade = min(1.0, shade)
             if wet:
                 base = LAKE_FILL
                 m = 0.92 + 0.08 * shade
@@ -365,8 +469,26 @@ def build_terrain_buffer(elev, bbox, w, h, water=None):
                 base = interp_stops(BATHY_STOPS, e)
                 m = 0.82 + 0.18 * shade  # water: keep the ramp readable
             else:
-                base = interp_stops(HYPSO_STOPS, e)
-                m = 0.52 + 0.55 * shade
+                base = _hypso_band(e)
+                if cov_row is not None and cov_row[x]:
+                    cc = _COVER_RGB[cov_row[x]]
+                    base = (base[0] + (cc[0] - base[0]) * blend,
+                            base[1] + (cc[1] - base[1]) * blend,
+                            base[2] + (cc[2] - base[2]) * blend)
+                m = 0.58 + 0.50 * shade
+                r, g, b = base[0] * m, base[1] * m, base[2] * m
+                t = (1.0 - shade) * 0.22
+                r += (_SHADOW_TINT[0] - r) * t
+                g += (_SHADOW_TINT[1] - g) * t
+                b += (_SHADOW_TINT[2] - b) * t
+                t = (shade - 0.72) * 0.45
+                if t > 0.0:
+                    r += (_LIGHT_TINT[0] - r) * t
+                    g += (_LIGHT_TINT[1] - g) * t
+                    b += (_LIGHT_TINT[2] - b) * t
+                out.append((min(255, int(r)), min(255, int(g)),
+                            min(255, int(b))))
+                continue
             out.append((min(255, int(base[0] * m)),
                         min(255, int(base[1] * m)),
                         min(255, int(base[2] * m))))
@@ -374,13 +496,13 @@ def build_terrain_buffer(elev, bbox, w, h, water=None):
     return buf
 
 
-def _terrain_buffer(elev, bbox, gw, hc, water=None):
-    # the water flag is part of the key: the same view rendered once
+def _terrain_buffer(elev, bbox, gw, hc, water=None, cover=None):
+    # the tile flags are part of the key: the same view rendered once
     # offline and once with tiles is two different pictures
-    key = _view_key(bbox, gw, hc) + (water is not None,)
+    key = _view_key(bbox, gw, hc) + (water is not None, cover is not None)
     buf = _terrain_cache.get(key)
     if buf is None:
-        buf = build_terrain_buffer(elev, bbox, gw, hc * 2, water)
+        buf = build_terrain_buffer(elev, bbox, gw, hc * 2, water, cover)
         if len(_terrain_cache) > 3:
             _terrain_cache.clear()
         _terrain_cache[key] = buf
@@ -413,8 +535,8 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
             ut = top_row[cx] or BG_PRIMARY
             ub = bot_row[cx] or BG_PRIMARY
             ov = overlays.get((cx, cy))
-            bmask = (basemap.dots[cy][cx]
-                     if basemap.color[cy][cx] == BORDER else 0)
+            bmask = (basemap.dots[cy][cx] if basemap is not None
+                     and basemap.color[cy][cx] == BORDER else 0)
             cmask = coast[cy][cx] if coast is not None else 0
             smask, sink = 0, None
             if strokes is not None:
@@ -619,7 +741,7 @@ class _ShiftedLayer:
 
 def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
                     mouse_pos, marker_cell, dest_cell, origin_cell, lang,
-                    route_layer):
+                    route_layer, show_labels=True, sun=False, clouds=False):
     """(map lines, readout, hover, loading, err) for the hillshaded view.
 
     Terrain's readout is its own probe — the elevation under the pointer
@@ -643,13 +765,26 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     elev, coast, rivers = view.elev, view.coast, view.rivers
     if elev is not None:
         terrain = _terrain_buffer(elev, bbox, graph_w, height_cells,
-                                  view.water)
+                                  view.water, view.cover)
+        if sun or clouds:
+            # the flat earth as it is: same sun, same clouds, same
+            # city lights, shaded through the same functions the
+            # globe uses — only the projection differs
+            terrain = _shade_now(
+                terrain,
+                _globe_now.flat_lls(bbox, graph_w, height_cells * 2), sun,
+                (_get_clouds(bbox[3] - bbox[1], height_cells, block)
+                 if clouds else None),
+                _globe_now.city_lights_flat(bbox, graph_w,
+                                            height_cells * 2)
+                if sun else {})
     else:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
 
     overlays = {}
-    for pos, (ch, _color) in basemap.city_overlays().items():
-        overlays[pos] = (ch, None)  # None ink = per-cell contrast pick
+    if show_labels:
+        for pos, (ch, _color) in basemap.city_overlays().items():
+            overlays[pos] = (ch, None)  # None ink = per-cell contrast pick
     if marker_cell is not None:
         overlays[marker_cell] = _mark("+", MARKER, False)
     if origin_cell is not None:
@@ -692,6 +827,238 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     return lines, readout, "", loading, err
 
 
+def _get_globe(lat0, lon0, zoom, gw, hc, block):
+    """A GlobeView for the view; live mode fetches in the background."""
+    key = (round(lat0, 2), round(lon0, 2), round(zoom, 1), gw, hc)
+    with _elev_lock:
+        hit = _globe_cache.get(key)
+        if hit is not None:
+            return hit
+        if not block:
+            if key in _globe_pending:
+                return None
+            _globe_pending.add(key)
+
+    def load():
+        # the fine grid feeds the coastline and box-averages into the
+        # fill, exactly as the flat view does; the sub-pixel geometry
+        # adds what only a sphere has — a viewing angle and a limb
+        flls, _zs, _rhos = _globe.geometry(lat0, lon0, zoom, gw * 2, hc * 4)
+        fine = _globe.elevation(flls, zoom, hc * 4)
+        lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, gw, hc * 2)
+        grid = []
+        for y in range(hc * 2):
+            r0, r1 = fine[y * 2], fine[y * 2 + 1]
+            row = []
+            for x in range(gw):
+                vals = [v for v in (r0[x * 2], r0[x * 2 + 1],
+                                    r1[x * 2], r1[x * 2 + 1])
+                        if v is not None]
+                if not vals:
+                    row.append(None)
+                    continue
+                # the same >=2-of-4 wet rule as the flat view, for the
+                # same reason: a shoreline sub-pixel averaged across the
+                # waterline bulges low green into every sea
+                wet = [v for v in vals if v <= 0]
+                if len(wet) >= 2:
+                    row.append(sum(wet) / len(wet))
+                else:
+                    row.append(sum(vals) / len(vals))
+            grid.append(row)
+        return _globe.GlobeView(
+            grid, _coast_dots(fine, gw, hc), zs,
+            _globe.atmosphere(rhos, zoom, hc * 2),
+            _globe.ice_cover(lls, grid,
+                             _maps_style.COVER_ORDER.index("ice") + 1),
+            _globe.border_layer(lat0, lon0, zoom, gw, hc, BORDER_STROKE),
+            lls)
+
+    if block:
+        hit = load()
+        with _elev_lock:
+            if len(_globe_cache) > 3:
+                _globe_cache.clear()
+            _globe_cache[key] = hit
+        return hit
+
+    def worker():
+        try:
+            hit = load()
+        except Exception:
+            hit = None
+        with _elev_lock:
+            _globe_pending.discard(key)
+            if hit is not None:
+                if len(_globe_cache) > 3:
+                    _globe_cache.clear()
+                _globe_cache[key] = hit
+        if hit is not None and _live_refresh:
+            import signal
+            os.kill(os.getpid(), signal.SIGWINCH)
+
+    threading.Thread(target=worker, daemon=True).start()
+    return None
+
+
+_clouds_pending = [False]
+
+
+def _get_clouds(zoom, hc, block):
+    """The stitched cloud canvas for the now register, or None.
+
+    Blocking mode fetches only when no canvas exists at all — a
+    drag-synchronous repaint must never wait on the network, and a
+    stale canvas is still this hour's weather.  Freshening always
+    happens in the background, nudging a repaint when it lands.
+    """
+    canvas = _globe_now.peek()
+    if block and canvas is None:
+        try:
+            _globe_now.refresh(zoom, hc * 4)
+        except Exception:
+            pass
+        return _globe_now.peek()
+    if canvas is not None and not _globe_now.stale():
+        return canvas
+    with _elev_lock:
+        if _clouds_pending[0]:
+            return canvas
+        _clouds_pending[0] = True
+
+    def worker():
+        try:
+            changed = _globe_now.refresh(zoom, hc * 4)
+        except Exception:
+            changed = False
+        with _elev_lock:
+            _clouds_pending[0] = False
+        if changed and _live_refresh:
+            import signal
+            os.kill(os.getpid(), signal.SIGWINCH)
+
+    threading.Thread(target=worker, daemon=True).start()
+    return canvas
+
+
+def _shade_now(buf, lls, sun, canvas, lights):
+    """A copy of `buf` shaded into the present moment.
+
+    The cached buffer stays pristine — daylight moves with the clock,
+    so the moment is applied per repaint, never memoised.
+    """
+    buf = [row[:] for row in buf]
+    day = (_globe_now.daylight(lls, _globe_now.subsolar())
+           if sun else None)
+    cloud = _globe_now.clouds(lls, canvas) if canvas is not None else None
+    _globe_now.apply(buf, day, cloud, lights if sun else {})
+    return buf
+
+
+def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
+                  mouse_pos, marker_cell, dest_cell, origin_cell, lang,
+                  route_layer, show_labels=True, street=False, sun=False,
+                  clouds=False):
+    """Either view past the hand-off: the planet, orthographic.
+
+    Everything downstream of the geometry belongs to the flat views —
+    terrain keeps its shader, street keeps its two quiet fills, both
+    keep the coastline rule, the Natural Earth borders and the city
+    labels with their contrast-picked ink — so crossing the projection
+    boundary changes the shape of the world, not the look of it.
+    """
+    lat0 = (bbox[1] + bbox[3]) / 2
+    lon0 = (bbox[0] + bbox[2]) / 2
+    zoom = bbox[3] - bbox[1]
+    err = None
+    loading = False
+    view = None
+    if block:
+        try:
+            view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, True)
+        except Exception as exc:
+            err = str(exc)
+    else:
+        view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, False)
+        loading = view is None
+
+    elev = view.elev if view is not None else None
+    coast = view.coast if view is not None else None
+    borders = view.borders if view is not None else None
+    if elev is not None:
+        key = (round(lat0, 2), round(lon0, 2), round(zoom, 1),
+               graph_w, height_cells, street)
+        terrain = _terrain_cache.get(key)
+        if terrain is None:
+            if street:
+                p = _maps_style.palette()
+                terrain = _globe.fill_buffer(elev, p.get("water"),
+                                             p.get("ground"), BG_PRIMARY)
+            else:
+                # a scale-only bbox: the shader needs metres per
+                # sub-pixel, which on the disk is the hand-off zoom's
+                # scale everywhere (the limb compresses beyond it, and
+                # the falloff owns that)
+                spy_h = height_cells * 2
+                sbbox = (0.0, -zoom / 2, zoom * graph_w / spy_h, zoom / 2)
+                terrain = build_terrain_buffer(elev, sbbox, graph_w, spy_h,
+                                               cover=view.cover)
+            _globe.shade_buffer(terrain, view.shade, view.atmo, BG_PRIMARY)
+            if len(_terrain_cache) > 2:
+                _terrain_cache.clear()
+            _terrain_cache[key] = terrain
+        if (sun or clouds) and view.lls is not None:
+            terrain = _shade_now(
+                terrain, view.lls, sun,
+                _get_clouds(zoom, height_cells, block) if clouds else None,
+                _globe_now.city_lights_globe(lat0, lon0, zoom, graph_w,
+                                             height_cells * 2) if sun else {})
+    else:
+        terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
+
+    overlays = {}
+    if show_labels:
+        for pos, (ch, _color) in _globe.city_overlays(
+                lat0, lon0, zoom, graph_w, height_cells, lang).items():
+            overlays[pos] = (ch, None)  # None ink = per-cell contrast pick
+    if marker_cell is not None:
+        overlays[marker_cell] = _mark("+", MARKER, False)
+    if origin_cell is not None:
+        overlays[origin_cell] = _mark("○", MARKER, False)
+    if dest_cell is not None:
+        overlays[dest_cell] = _mark("●", MARKER, False)
+
+    dx, dy = pan_offset
+    if dx or dy:
+        terrain = _shift_grid(terrain, dx, dy * 2, None)
+        if coast is not None:
+            coast = _shift_grid(coast, dx, dy, 0)
+        borders = _shift_layer(borders, dx, dy)
+        overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
+                    if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
+    overlays = _crosshair(overlays, marker_cell, dx, dy, graph_w,
+                          height_cells, False)
+
+    # the elevation probe is terrain's idiom; the street planet, like
+    # the street map, answers with places rather than metres
+    readout = ""
+    if elev is not None and not street:
+        probe = None
+        if mouse_pos is not None:
+            pcol, prow = mouse_pos[0] - 1 - dx, mouse_pos[1] - 2 - dy
+            if 0 <= pcol < graph_w and 0 <= prow < height_cells:
+                probe = elev[prow * 2][pcol]
+        if probe is None:
+            probe = elev[height_cells][graph_w // 2]
+        if probe is not None:
+            readout = f" · {_fmt_elev(probe, lang)}"
+
+    strokes = [borders] if borders is not None else None
+    lines = compose_terrain(None, terrain, overlays, graph_w,
+                            height_cells, coast=coast, strokes=strokes)
+    return lines, readout, "", loading, err
+
+
 def _hover(layer, mouse_pos, pan_offset, lang):
     """(readout, lit ink cells, lit glyph cells), or ("", None, None).
 
@@ -715,7 +1082,7 @@ def _hover(layer, mouse_pos, pan_offset, lang):
 
 def _render_street(bbox, graph_w, height_cells, block, pan_offset,
                    mouse_pos, marker_cell, dest_cell, origin_cell, lang,
-                   route_layer):
+                   route_layer, show_labels=True, sun=False, clouds=False):
     """(map lines, readout, hover, loading, err) for the vector view."""
     err = None
     loading = False
@@ -740,10 +1107,20 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
         layer = _ShiftedLayer([[0] * graph_w for _ in range(height_cells)],
                               [[None] * graph_w for _ in range(height_cells)])
         labels = {}
+    if sun or clouds:
+        # the sky over the streets: the fills darken and cloud over,
+        # the strokes and glyphs stay ink — a lit window is ink too
+        fills = _shade_now(
+            fills, _globe_now.flat_lls(bbox, graph_w, height_cells * 2),
+            sun,
+            (_get_clouds(bbox[3] - bbox[1], height_cells, block)
+             if clouds else None),
+            _globe_now.city_lights_flat(bbox, graph_w, height_cells * 2)
+            if sun else {})
 
     hover, hot, hot_glyphs = _hover(layer, mouse_pos, pan_offset, lang)
 
-    overlays = dict(labels)
+    overlays = dict(labels) if show_labels else {}
     if marker_cell is not None:
         overlays[marker_cell] = _mark("+", MARKER, True)
     if origin_cell is not None:
@@ -819,7 +1196,8 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                block=True, pan_offset=(0, 0), mouse_pos=None,
                view="terrain", search=None, route=None, dest=None,
                origin=None, directions=None,
-               note="", helping=False, **_):
+               note="", helping=False, show_labels=True, sun=False,
+               clouds=False, **_):
     lang = runtime.lang if runtime else "en"
     cols, rows = get_terminal_size()
     graph_w = max(20, cols)
@@ -827,18 +1205,37 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
 
     bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
     m_lat, m_lon = marker if marker else (lat, lon)
-    cell = _marker_cell(bbox, graph_w, height_cells, m_lat, m_lon)
-
-    dest_cell = (_marker_cell(bbox, graph_w, height_cells, dest[0], dest[1])
-                 if dest is not None else None)
-    origin_cell = (_marker_cell(bbox, graph_w, height_cells,
-                                origin[0], origin[1])
-                   if origin is not None else None)
-    route_layer = _get_route_layer(route, bbox, graph_w, height_cells)
-    draw = _render_street if view == "street" else _render_terrain
+    globe = zoom >= _globe.ZOOM_DEG
+    if globe:
+        # markers live on a sphere now: project them orthographically,
+        # and let the far hemisphere hide what it hides
+        cell = _globe.marker_cell(lat, lon, zoom, graph_w, height_cells,
+                                  m_lat, m_lon)
+        dest_cell = (_globe.marker_cell(lat, lon, zoom, graph_w,
+                                        height_cells, dest[0], dest[1])
+                     if dest is not None else None)
+        origin_cell = (_globe.marker_cell(lat, lon, zoom, graph_w,
+                                          height_cells, origin[0], origin[1])
+                       if origin is not None else None)
+        route_layer = None
+        draw = functools.partial(_render_globe, street=(view == "street"),
+                                 sun=sun, clouds=clouds)
+    else:
+        cell = _marker_cell(bbox, graph_w, height_cells, m_lat, m_lon)
+        dest_cell = (_marker_cell(bbox, graph_w, height_cells,
+                                  dest[0], dest[1])
+                     if dest is not None else None)
+        origin_cell = (_marker_cell(bbox, graph_w, height_cells,
+                                    origin[0], origin[1])
+                       if origin is not None else None)
+        route_layer = _get_route_layer(route, bbox, graph_w, height_cells)
+        draw = functools.partial(
+            _render_street if view == "street" else _render_terrain,
+            sun=sun, clouds=clouds)
     map_lines, readout, hover, loading, err = draw(
         bbox, graph_w, height_cells, block, pan_offset, mouse_pos,
-        cell, dest_cell, origin_cell, lang, route_layer)
+        cell, dest_cell, origin_cell, lang, route_layer,
+        show_labels=show_labels)
 
     # A note is a reply to something you asked for and outranks
     # everything; hover is what you are pointing at *now*, so it beats
@@ -876,15 +1273,35 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         hint_key = 'hint_route' if route is not None else 'hint'
         hint = (f"{fg(*DIM)}{ms(hint_key, lang)}{RESET}"
                 if sys.stdout.isatty() else "")
-        if view == "street":
-            attribs = (_maps_style.ATTRIB_TILES_LONG,
-                       _maps_style.ATTRIB_TILES_SHORT)
+        if globe:
+            # either register's globe draws from the elevation tiles
+            # alone (borders and cities are vendored Natural Earth);
+            # showing this hour's clouds adds their credit
+            attribs = ((f"{ATTRIBUTION} · {_globe_now.ATTRIBUTION}",
+                        ATTRIBUTION) if clouds
+                       else (ATTRIBUTION,))
+        elif view == "street":
+            attribs = ((f"{_maps_style.ATTRIB_TILES_LONG} · "
+                        f"{_globe_now.ATTRIBUTION}",
+                        _maps_style.ATTRIB_TILES_LONG,
+                        _maps_style.ATTRIB_TILES_SHORT) if clouds
+                       else (_maps_style.ATTRIB_TILES_LONG,
+                             _maps_style.ATTRIB_TILES_SHORT))
         else:
             # terrain's lakes and rivers come from the tiles too, so the
-            # first rung credits both sources and the fallbacks shorten
-            attribs = (f"{ATTRIBUTION} · {_maps_style.ATTRIB_TILES_SHORT}",
-                       ATTRIBUTION)
-        scale = _scale_bar(bbox, graph_w, lang) if view == "street" else ""
+            # first rung credits both sources and the fallbacks shorten;
+            # the settlement raster earns its CC-BY credit when in use
+            both = f"{ATTRIBUTION} · {_maps_style.ATTRIB_TILES_SHORT}"
+            if clouds:
+                attribs = (f"{both} · {_globe_now.ATTRIBUTION}", both,
+                           ATTRIBUTION)
+            elif _builtup.enabled():
+                attribs = (f"{both} · {_builtup.ATTRIBUTION}", both,
+                           ATTRIBUTION)
+            else:
+                attribs = (both, ATTRIBUTION)
+        scale = (_scale_bar(bbox, graph_w, lang)
+                 if view == "street" and not globe else "")
         # first rung that fits wins: long+hint, short+hint, short, bare
         ladder = [f"{scale}{fg(*DIM)}{a}{RESET}  {hint}" for a in attribs]
         ladder += [f"{scale}{fg(*DIM)}{attribs[-1]}{RESET}",
@@ -921,6 +1338,14 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
 def main():
     args = maps_parser().parse_args()
     runtime = RuntimeConfig.from_sources(namespace=args)
+    # --view now is launch sugar, not a register: the terrain planet
+    # with the sky switched on — daylight (s) and clouds (c), both
+    # toggleable once inside
+    sky = args.view == "now"
+    if sky:
+        args.view = "terrain"
+        if args.zoom is None:
+            args.zoom = MAX_ZOOM_DEG
     if args.zoom is None:
         args.zoom = _maps_style.DEFAULT_ZOOM[args.view]
 
@@ -985,7 +1410,14 @@ def main():
         zoom = [args.zoom]
         center = [lat, lon]
         pan_preview = [0, 0]
+        drag_base = [None]   # centre at globe-drag start, or None
+        drag_sync = [False]  # next repaint renders the globe blocking
+        spinning = [0]       # active spin generation; 0 = parked
+        spin_seq = [0]       # last generation ever started
         view = [args.view]
+        show_labels = [True]
+        sun = [sky]          # s: daylight shading + night city lights
+        clouds = [sky]       # c: this hour's cloud cover
         search = _maps_ui.SearchState()
         helping = [False]
         routes = _maps_ui.RouteState(profile=args.profile, home=(lat, lon))
@@ -1009,6 +1441,10 @@ def main():
             cols, rows = get_terminal_size()
             gw, hc = max(20, cols), max(8, rows - 2)
             pcol, prow = (at[0] - 1, at[1] - 2) if at else (-1, -1)
+            # anchored zoom is a flat-map identity — on either side of
+            # the globe hand-off, zoom about the centre instead
+            if (zoom[0] >= _globe.ZOOM_DEG or new_zoom >= _globe.ZOOM_DEG):
+                pcol = -1
             if 0 <= pcol < gw and 0 <= prow < hc:
                 fx, fy = (pcol + 0.5) / gw, (prow + 0.5) / hc
                 lon_span = (zoom[0] * (gw / (hc * 2))
@@ -1027,6 +1463,55 @@ def main():
             zoom[0] = new_zoom
             return True
 
+        def spin(gen):
+            """The r screensaver: the planet turns while you watch.
+
+            Each tick walks the centre meridian westward and repaints
+            through the same warm-canvas blocking path a drag uses, so
+            the geography drifts eastward the way it actually does —
+            about a degree a second, six minutes to the revolution.
+            The spin yields to a drag in progress and parks itself the
+            moment a zoom crosses back inside the hand-off.
+            """
+            import signal
+            import time
+            while spinning[0] == gen:
+                time.sleep(0.4)
+                if spinning[0] != gen:
+                    break
+                if zoom[0] < _globe.ZOOM_DEG:
+                    spinning[0] = 0
+                    break
+                if drag_base[0] is not None:
+                    continue  # a drag steers; the spin waits its turn
+                center[1] = (center[1] - 0.4 + 180.0) % 360.0 - 180.0
+                drag_sync[0] = True
+                os.kill(os.getpid(), signal.SIGWINCH)
+
+        def cloud_tick():
+            """The sky's slow heartbeat.
+
+            Every half hour while the sky is switched on: the newest
+            mosaic frame if clouds are showing, the sun where it now
+            is, one repaint.  Never an animation — a view left running
+            all evening simply stays true.
+            """
+            import signal
+            import time
+            while True:
+                time.sleep(1800)
+                if not (sun[0] or clouds[0]):
+                    continue
+                if clouds[0]:
+                    cols, rows = get_terminal_size()
+                    try:
+                        _globe_now.refresh(zoom[0], max(8, rows - 2) * 4)
+                    except Exception:
+                        pass
+                os.kill(os.getpid(), signal.SIGWINCH)
+
+        threading.Thread(target=cloud_tick, daemon=True).start()
+
         def on_action(key):
             if key == '+':
                 return zoom_to(zoom[0] / ZOOM_STEP)
@@ -1036,6 +1521,29 @@ def main():
                 nxt = _maps_style.MODES.index(view[0]) + 1
                 view[0] = _maps_style.MODES[nxt % len(_maps_style.MODES)]
                 return True
+            if key == 'l':
+                show_labels[0] = not show_labels[0]
+                return True
+            if key == 's':
+                sun[0] = not sun[0]
+                return True
+            if key == 'c':
+                clouds[0] = not clouds[0]
+                return True
+            if key == 'r':
+                if spinning[0]:
+                    spinning[0] = 0
+                    return False
+                cols, rows = get_terminal_size()
+                hc = max(8, rows - 2)
+                if (zoom[0] < _globe.ZOOM_DEG
+                        or not _globe.warm(zoom[0], hc * 4)):
+                    return False  # only a warm globe spins
+                spin_seq[0] += 1
+                spinning[0] = spin_seq[0]
+                threading.Thread(target=spin, args=(spinning[0],),
+                                 daemon=True).start()
+                return False  # the first tick is the repaint
             return False
 
         def on_wheel(direction, col, row):
@@ -1150,6 +1658,37 @@ def main():
             return True
 
         def on_drag(dcol, drow, done):
+            cols, rows = get_terminal_size()
+            gw, hc = max(20, cols), max(8, rows - 2)
+            # On the globe the disk stays put and the geography turns
+            # under the cursor: every motion event recentres the view
+            # from the drag-start centre and the repaint re-projects the
+            # sphere, so the drag *is* the rotation rather than a
+            # shifted snapshot of it.  Only a warm view rotates live —
+            # until the world canvas is stitched there is nothing to
+            # re-project without blocking on the network — and a drag
+            # keeps whichever idiom it started with.
+            globing = drag_base[0] is not None or (
+                not (pan_preview[0] or pan_preview[1])
+                and zoom[0] >= _globe.ZOOM_DEG
+                and _globe.warm(zoom[0], hc * 4))
+            if globing:
+                if drag_base[0] is None:
+                    if done:
+                        return False  # a click, not a drag
+                    drag_base[0] = (center[0], center[1])
+                base_lat, base_lon = drag_base[0]
+                lat = max(-80.0, min(80.0,
+                                     base_lat + drow * zoom[0] / hc))
+                lon = base_lon - (dcol * (zoom[0] / (hc * 2))
+                                  / math.cos(math.radians(base_lat)))
+                lon = (lon + 180.0) % 360.0 - 180.0
+                changed = center != [lat, lon]
+                center[0], center[1] = lat, lon
+                drag_sync[0] = drag_sync[0] or changed
+                if done:
+                    drag_base[0] = None
+                return changed or done
             if not done:
                 changed = pan_preview != [dcol, drow]
                 pan_preview[0], pan_preview[1] = dcol, drow
@@ -1158,8 +1697,6 @@ def main():
             pan_preview[0] = pan_preview[1] = 0
             if not (dcol or drow):
                 return bool(had_preview)
-            cols, rows = get_terminal_size()
-            gw, hc = max(20, cols), max(8, rows - 2)
             lon_span = (zoom[0] * (gw / (hc * 2))
                         / math.cos(math.radians(center[0])))
             center[0] = max(-80.0, min(80.0, center[0] + drow * zoom[0] / hc))
@@ -1184,15 +1721,21 @@ def main():
                     routes.set_origin(hit.lat, hit.lon, hit.name)
                     if routes.dest is not None:
                         routes.request()
+            # A rotating globe repaints synchronously: its canvas is
+            # warm, so "blocking" is ~a tenth of a second of arithmetic,
+            # and the alternative is a blank disk between frames.
+            sync = drag_sync[0] and zoom[0] >= _globe.ZOOM_DEG
+            drag_sync[0] = False
             return render_map(
                 center[0], center[1], location_name, zoom[0],
-                marker=(lat, lon), runtime=runtime, block=False,
+                marker=(lat, lon), runtime=runtime, block=sync,
                 pan_offset=(pan_preview[0], pan_preview[1]),
                 mouse_pos=mouse_pos, view=view[0], search=search,
                 route=routes.route, dest=routes.dest,
                 origin=routes.origin, directions=routes,
                 note=_maps_ui.route_note(routes, runtime.lang),
-                helping=helping[0])
+                helping=helping[0], show_labels=show_labels[0],
+                sun=sun[0], clouds=clouds[0])
 
         live_loop(
             render,
@@ -1205,6 +1748,7 @@ def main():
             text_mode=lambda: search.open,
             on_click=on_click,
         )
+        spinning[0] = 0  # the loop is over; let the spin thread park
     else:
         found = note = None
         start = (origin.lat, origin.lon) if origin else (lat, lon)
@@ -1221,7 +1765,7 @@ def main():
                          dest=(dest.lat, dest.lon) if dest else None,
                          origin=((origin.lat, origin.lon, origin.name)
                                  if origin else None),
-                         note=note or ""))
+                         note=note or "", sun=sky, clouds=sky))
         if found is not None:
             # the turn-by-turn list rides below the map: --print asked
             # for directions, so it gets the directions

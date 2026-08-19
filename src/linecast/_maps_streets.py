@@ -229,16 +229,20 @@ def class_grid(view, bbox, graph_w, height_cells, band):
 # bathymetry's job there, and OpenMapTiles' low-zoom ocean polygon is
 # generalised well past the coastline the elevation data draws — OR-ing
 # it in would swallow whole coastal lowlands at continental zoom.
-INLAND_WATER_CLASS = ("lake", "river", "pond", "dock", "reservoir")
+# `dock` is not here either: a marina basin is the harbour's water, and
+# the flat lake tint would sit on the bathymetric ramp as a dark patch.
+INLAND_WATER_CLASS = ("lake", "river", "pond", "reservoir")
+
+# The source zoom from which the ocean polygon is the OSM coastline
+# rather than a generalisation of it, and so outranks what the
+# elevation data thinks the shore is.  Docks ride along: their basins
+# open into the sea and belong on its ramp.
+OCEAN_TRUST_ZOOM = 11
+OCEAN_CLASS = ("ocean", "dock")
 
 
-def inland_water_mask(view, bbox, graph_w, height_cells):
-    """(hc*4) x (gw*2) 1/0 mask of the tiles' inland water polygons.
-
-    The same polygons, the same scanline fill and the same dot grid
-    street mode uses — terrain mode just wants them without the four
-    other fill classes, and without the ocean.
-    """
+def _water_class_mask(view, bbox, graph_w, height_cells, classes):
+    """(hc*4) x (gw*2) 1/0 mask of the tiles' water polygons in `classes`."""
     dw, dh = graph_w * 2, height_cells * 4
     grid = [bytearray(dw) for _ in range(dh)]
     for (z, tx, ty), decoded in view:
@@ -250,12 +254,23 @@ def inland_water_mask(view, bbox, graph_w, height_cells):
         for feat in src["features"]:
             if feat["type"] != 3:      # polygons only
                 continue
-            if feat["tags"].get("class") not in INLAND_WATER_CLASS:
+            if feat["tags"].get("class") not in classes:
                 continue
             for rings in assemble_polygons(feat["geometry"]):
                 _fill_rings(grid, [_closed([project(x, y) for x, y in ring])
                                    for ring in rings], 1, dw, dh)
     return grid
+
+
+def inland_water_mask(view, bbox, graph_w, height_cells):
+    """(hc*4) x (gw*2) 1/0 mask of the tiles' inland water polygons.
+
+    The same polygons, the same scanline fill and the same dot grid
+    street mode uses — terrain mode just wants them without the four
+    other fill classes, and without the ocean.
+    """
+    return _water_class_mask(view, bbox, graph_w, height_cells,
+                             INLAND_WATER_CLASS)
 
 
 def water_cells(water, graph_w, height_cells):
@@ -711,18 +726,194 @@ def water_lines(view, bbox, graph_w, height_cells, band, color, water=None):
     return layer
 
 
+def _stamp_line(grid, pts, value, dw, dh, thick=1):
+    """Stamp a projected polyline into the sub-pixel grid, `thick` wide."""
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        for x, y in _bresenham(int(x0), int(y0), int(x1), int(y1)):
+            for oy in range(thick):
+                yy = y + oy
+                if not 0 <= yy < dh:
+                    continue
+                row = grid[yy]
+                for ox in range(thick):
+                    xx = x + ox
+                    if 0 <= xx < dw:
+                        row[xx] = value
+
+
+def _stamp_aeroways(grid, view, bbox, dw, dh, value):
+    """Runways, taxiways and aprons take the urban tint, over anything.
+
+    OSM maps an airfield as a grass polygon with paved geometry on top;
+    without this pass the whole airport reads as meadow.  Runway lines
+    stamp two sub-pixels wide — a runway's width is its identity.
+    """
+    for (z, tx, ty), decoded in view:
+        src = decoded.get("aeroway")
+        if src is None:
+            continue
+        extent = src.get("extent") or _DEFAULT_EXTENT
+        project = _projector(z, tx, ty, extent, bbox, dw, dh)
+        for feat in src["features"]:
+            cls = feat["tags"].get("class")
+            if cls not in style.AEROWAY_COVER:
+                continue
+            if feat["type"] == 3:
+                for rings in assemble_polygons(feat["geometry"]):
+                    _fill_rings(grid, [_closed([project(x, y)
+                                                for x, y in ring])
+                                       for ring in rings], value, dw, dh)
+            elif feat["type"] == 2:
+                for part in feat["geometry"]:
+                    _stamp_line(grid, [project(x, y) for x, y in part],
+                                value, dw, dh,
+                                thick=2 if cls == "runway" else 1)
+
+
+def _street_density_urban(grid, view, bbox, dw, dh, value):
+    """Dense minor-street fabric takes the urban tint where nothing
+    else claimed the ground.
+
+    Streets get mapped long before landuse polygons do, so this is the
+    urbanness signal that exists everywhere.  Presence dots (not
+    counts) go into a box window via a summed-area table: a window
+    threaded by one country road holds a handful of dots and stays
+    rural, a street grid trips the threshold.  Only bare sub-pixels
+    change — a park inside the grid stays a park.
+    """
+    dots = [bytearray(dw) for _ in range(dh)]
+    for (z, tx, ty), decoded in view:
+        src = decoded.get("transportation")
+        if src is None:
+            continue
+        extent = src.get("extent") or _DEFAULT_EXTENT
+        project = _projector(z, tx, ty, extent, bbox, dw, dh)
+        for feat in src["features"]:
+            if feat["type"] != 2:
+                continue
+            if feat["tags"].get("class") not in style.URBAN_STREET_CLASS:
+                continue
+            for part in feat["geometry"]:
+                _stamp_line(dots, [project(x, y) for x, y in part], 1,
+                            dw, dh)
+
+    integ = [[0] * (dw + 1)]
+    for y in range(dh):
+        row, prev, acc = dots[y], integ[y], 0
+        out = [0]
+        for x in range(dw):
+            acc += row[x]
+            out.append(acc + prev[x + 1])
+        integ.append(out)
+
+    z_src = view[0][0][0] if view else 0
+    need = style.urban_street_min(z_src)
+    r = style.URBAN_STREET_RADIUS
+    for y in range(dh):
+        y0, y1 = max(0, y - r), min(dh - 1, y + r) + 1
+        grow = grid[y]
+        for x in range(dw):
+            if grow[x]:
+                continue
+            x0, x1 = max(0, x - r), min(dw - 1, x + r) + 1
+            n = (integ[y1][x1] - integ[y0][x1]
+                 - integ[y1][x0] + integ[y0][x0])
+            if n >= need:
+                grow[x] = value
+
+
+def _despeckle_cover(grid, dw, dh):
+    """3x3 majority vote where a sub-pixel's class stands nearly alone.
+
+    Real landcover is patchy at braille scale — one lone wood sub-pixel
+    in a rock face is faithful to the polygon and still reads as static
+    over the hillshade once a screenful of them accumulates.  A class
+    backed by at least two neighbours survives; a speck does not, and
+    takes the neighbourhood's majority instead.
+    """
+    out = [bytearray(row) for row in grid]
+    for y in range(dh):
+        y0, y1 = max(0, y - 1), min(dh - 1, y + 1)
+        row = grid[y]
+        for x in range(dw):
+            x0, x1 = max(0, x - 1), min(dw - 1, x + 1)
+            counts = {}
+            for yy in range(y0, y1 + 1):
+                r = grid[yy]
+                for xx in range(x0, x1 + 1):
+                    counts[r[xx]] = counts.get(r[xx], 0) + 1
+            if counts.get(row[x], 0) < 3:
+                out[y][x] = max(counts.items(), key=lambda kv: kv[1])[0]
+    return out
+
+
+def land_cover_grid(view, bbox, graph_w, height_cells):
+    """Sub-pixel land-cover classes — terrain mode's colour story.
+
+    (hc*2) x gw of indices into style.COVER_ORDER (0 = no cover),
+    painted in that order so the rarer, more specific classes win the
+    sub-pixel.  The resolution matches the terrain colour buffer rather
+    than the dot grid: cover is a fill, never a stroke, so it earns no
+    more.
+    """
+    dw, dh = graph_w, height_cells * 2
+    grid = [bytearray(dw) for _ in range(dh)]
+    groups = {}
+    for (z, tx, ty), decoded in view:
+        for name in ("landcover", "landuse"):
+            layer = decoded.get(name)
+            if layer is None:
+                continue
+            extent = layer.get("extent") or _DEFAULT_EXTENT
+            project = _projector(z, tx, ty, extent, bbox, dw, dh)
+            for feat in layer["features"]:
+                if feat["type"] != 3:      # polygons only
+                    continue
+                cls = feat["tags"].get("class")
+                if name == "landcover":
+                    key = style.COVER_LANDCOVER.get(cls)
+                else:
+                    key = ("urban" if cls in style.COVER_URBAN_LANDUSE
+                           else None)
+                if key is None:
+                    continue
+                for rings in assemble_polygons(feat["geometry"]):
+                    groups.setdefault(key, []).append(
+                        [_closed([project(x, y) for x, y in ring])
+                         for ring in rings])
+    for i, key in enumerate(style.COVER_ORDER):
+        for rings in groups.get(key, ()):
+            _fill_rings(grid, rings, i + 1, dw, dh)
+    urban = style.COVER_ORDER.index("urban") + 1
+    _street_density_urban(grid, view, bbox, dw, dh, urban)
+    _stamp_aeroways(grid, view, bbox, dw, dh, urban)
+    return _despeckle_cover(grid, dw, dh)
+
+
 def build_water_view(bbox, graph_w, height_cells, tiles, band, color):
-    """(inland water dot mask, waterway layer) — terrain mode's half.
+    """(inland water dot mask, waterway layer, land cover grid, ocean
+    dot mask) — terrain mode's half.
 
     The pure half, exactly as build_street_view is: tiles in, geometry
-    out, no network.  One decode feeds both, because a view that has
-    already paid for the tiles should get the rivers with the lakes.
+    out, no network.  One decode feeds all four, because a view that
+    has already paid for the tiles should get the rivers and the ground
+    with the lakes.
+
+    The ocean mask is None below OCEAN_TRUST_ZOOM, where the polygon is
+    a generalisation that would swallow coastal lowlands; from there up
+    it is the OSM coastline itself, and terrain uses it to overrule the
+    elevation data's noisy idea of the shore.
     """
     view = decode_view(tiles)
     water = inland_water_mask(view, bbox, graph_w, height_cells)
+    z_src = next(iter(tiles))[0] if tiles else 0
+    ocean = (_water_class_mask(view, bbox, graph_w, height_cells, OCEAN_CLASS)
+             if z_src >= OCEAN_TRUST_ZOOM else None)
     return (water,
             water_lines(view, bbox, graph_w, height_cells, band, color,
-                        water))
+                        water),
+            land_cover_grid(view, bbox, graph_w, height_cells),
+            ocean)
 
 
 # A coast dot sits on the *land* side of the boundary (_edge_dots only
