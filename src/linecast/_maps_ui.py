@@ -580,6 +580,7 @@ HELP_KEYS = (
     None,
     ("v", 'help_view'),
     ("l", 'help_labels'),
+    ("s c", 'help_sky'),
     ("r", 'help_spin'),
     ("/", 'help_search'),
     ("d", 'help_directions'),
@@ -601,8 +602,11 @@ def _help_rows(lang, route, glyphs, terse=False):
     """(mark, text) content rows; None is a blank spacer."""
     rows = []
     for entry in HELP_KEYS:
-        if terse and entry is not None and entry[0] == "?":
-            continue  # tightest rung: it names the panel being read
+        if terse and entry is not None and entry[0] in ("?", "hover"):
+            # tightest rung: `?` names the panel being read, and hover
+            # is the one key that teaches itself the moment the
+            # pointer moves
+            continue
         rows.append(None if entry is None
                     else (entry[0], ms(entry[1], lang)))
     if glyphs:

@@ -18,7 +18,8 @@ Nothing here is mode-conditional beyond the two entries in ``MODES``
 and the opening zooms beside them.  Terrain mode keeps its own palette
 and borrows exactly two things from this module: those zooms, and the
 waterway band gates it needs to draw a river at the same size street
-mode would.
+mode would.  The sky overlays (daylight, clouds) are toggles over
+either mode, not a mode — they live in _globe_now.
 """
 
 import math

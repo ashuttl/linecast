@@ -190,9 +190,11 @@ def maps_parser():
     p.add_argument("--zoom", type=float, default=None,
                     help="degrees of latitude shown top-to-bottom "
                          "(default 0.05 in street view, 4 in terrain)")
-    p.add_argument("--view", choices=("street", "terrain"), default="street",
-                    help="vector street map or terrain relief "
-                         "(default street)")
+    p.add_argument("--view", choices=("street", "terrain", "now"),
+                    default="street",
+                    help="vector street map or terrain relief (default "
+                         "street); now opens the terrain planet with "
+                         "daylight and clouds switched on")
     p.add_argument("--to", default=None,
                     help="route to a place or 'lat,lng' from the origin")
     p.add_argument("--from", dest="from_", metavar="FROM", default=None,

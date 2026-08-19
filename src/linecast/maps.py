@@ -35,8 +35,8 @@ import threading
 from collections import namedtuple
 
 from linecast import (
-    _builtup, _globe, _maps_hover, _maps_route, _maps_streets, _maps_style,
-    _maps_ui,
+    _builtup, _globe, _globe_now, _maps_hover, _maps_route, _maps_streets,
+    _maps_style, _maps_ui,
 )
 from linecast._color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
@@ -741,7 +741,7 @@ class _ShiftedLayer:
 
 def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
                     mouse_pos, marker_cell, dest_cell, origin_cell, lang,
-                    route_layer, show_labels=True):
+                    route_layer, show_labels=True, sun=False, clouds=False):
     """(map lines, readout, hover, loading, err) for the hillshaded view.
 
     Terrain's readout is its own probe — the elevation under the pointer
@@ -766,6 +766,18 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     if elev is not None:
         terrain = _terrain_buffer(elev, bbox, graph_w, height_cells,
                                   view.water, view.cover)
+        if sun or clouds:
+            # the flat earth as it is: same sun, same clouds, same
+            # city lights, shaded through the same functions the
+            # globe uses — only the projection differs
+            terrain = _shade_now(
+                terrain,
+                _globe_now.flat_lls(bbox, graph_w, height_cells * 2), sun,
+                (_get_clouds(bbox[3] - bbox[1], height_cells, block)
+                 if clouds else None),
+                _globe_now.city_lights_flat(bbox, graph_w,
+                                            height_cells * 2)
+                if sun else {})
     else:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
 
@@ -859,7 +871,8 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block):
             _globe.atmosphere(rhos, zoom, hc * 2),
             _globe.ice_cover(lls, grid,
                              _maps_style.COVER_ORDER.index("ice") + 1),
-            _globe.border_layer(lat0, lon0, zoom, gw, hc, BORDER_STROKE))
+            _globe.border_layer(lat0, lon0, zoom, gw, hc, BORDER_STROKE),
+            lls)
 
     if block:
         hit = load()
@@ -888,9 +901,64 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block):
     return None
 
 
+_clouds_pending = [False]
+
+
+def _get_clouds(zoom, hc, block):
+    """The stitched cloud canvas for the now register, or None.
+
+    Blocking mode fetches only when no canvas exists at all — a
+    drag-synchronous repaint must never wait on the network, and a
+    stale canvas is still this hour's weather.  Freshening always
+    happens in the background, nudging a repaint when it lands.
+    """
+    canvas = _globe_now.peek()
+    if block and canvas is None:
+        try:
+            _globe_now.refresh(zoom, hc * 4)
+        except Exception:
+            pass
+        return _globe_now.peek()
+    if canvas is not None and not _globe_now.stale():
+        return canvas
+    with _elev_lock:
+        if _clouds_pending[0]:
+            return canvas
+        _clouds_pending[0] = True
+
+    def worker():
+        try:
+            changed = _globe_now.refresh(zoom, hc * 4)
+        except Exception:
+            changed = False
+        with _elev_lock:
+            _clouds_pending[0] = False
+        if changed and _live_refresh:
+            import signal
+            os.kill(os.getpid(), signal.SIGWINCH)
+
+    threading.Thread(target=worker, daemon=True).start()
+    return canvas
+
+
+def _shade_now(buf, lls, sun, canvas, lights):
+    """A copy of `buf` shaded into the present moment.
+
+    The cached buffer stays pristine — daylight moves with the clock,
+    so the moment is applied per repaint, never memoised.
+    """
+    buf = [row[:] for row in buf]
+    day = (_globe_now.daylight(lls, _globe_now.subsolar())
+           if sun else None)
+    cloud = _globe_now.clouds(lls, canvas) if canvas is not None else None
+    _globe_now.apply(buf, day, cloud, lights if sun else {})
+    return buf
+
+
 def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
                   mouse_pos, marker_cell, dest_cell, origin_cell, lang,
-                  route_layer, show_labels=True, street=False):
+                  route_layer, show_labels=True, street=False, sun=False,
+                  clouds=False):
     """Either view past the hand-off: the planet, orthographic.
 
     Everything downstream of the geometry belongs to the flat views —
@@ -939,6 +1007,12 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
             if len(_terrain_cache) > 2:
                 _terrain_cache.clear()
             _terrain_cache[key] = terrain
+        if (sun or clouds) and view.lls is not None:
+            terrain = _shade_now(
+                terrain, view.lls, sun,
+                _get_clouds(zoom, height_cells, block) if clouds else None,
+                _globe_now.city_lights_globe(lat0, lon0, zoom, graph_w,
+                                             height_cells * 2) if sun else {})
     else:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
 
@@ -1008,7 +1082,7 @@ def _hover(layer, mouse_pos, pan_offset, lang):
 
 def _render_street(bbox, graph_w, height_cells, block, pan_offset,
                    mouse_pos, marker_cell, dest_cell, origin_cell, lang,
-                   route_layer, show_labels=True):
+                   route_layer, show_labels=True, sun=False, clouds=False):
     """(map lines, readout, hover, loading, err) for the vector view."""
     err = None
     loading = False
@@ -1033,6 +1107,16 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
         layer = _ShiftedLayer([[0] * graph_w for _ in range(height_cells)],
                               [[None] * graph_w for _ in range(height_cells)])
         labels = {}
+    if sun or clouds:
+        # the sky over the streets: the fills darken and cloud over,
+        # the strokes and glyphs stay ink — a lit window is ink too
+        fills = _shade_now(
+            fills, _globe_now.flat_lls(bbox, graph_w, height_cells * 2),
+            sun,
+            (_get_clouds(bbox[3] - bbox[1], height_cells, block)
+             if clouds else None),
+            _globe_now.city_lights_flat(bbox, graph_w, height_cells * 2)
+            if sun else {})
 
     hover, hot, hot_glyphs = _hover(layer, mouse_pos, pan_offset, lang)
 
@@ -1112,7 +1196,8 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                block=True, pan_offset=(0, 0), mouse_pos=None,
                view="terrain", search=None, route=None, dest=None,
                origin=None, directions=None,
-               note="", helping=False, show_labels=True, **_):
+               note="", helping=False, show_labels=True, sun=False,
+               clouds=False, **_):
     lang = runtime.lang if runtime else "en"
     cols, rows = get_terminal_size()
     graph_w = max(20, cols)
@@ -1133,7 +1218,8 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                                           height_cells, origin[0], origin[1])
                        if origin is not None else None)
         route_layer = None
-        draw = functools.partial(_render_globe, street=(view == "street"))
+        draw = functools.partial(_render_globe, street=(view == "street"),
+                                 sun=sun, clouds=clouds)
     else:
         cell = _marker_cell(bbox, graph_w, height_cells, m_lat, m_lon)
         dest_cell = (_marker_cell(bbox, graph_w, height_cells,
@@ -1143,7 +1229,9 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                                     origin[0], origin[1])
                        if origin is not None else None)
         route_layer = _get_route_layer(route, bbox, graph_w, height_cells)
-        draw = _render_street if view == "street" else _render_terrain
+        draw = functools.partial(
+            _render_street if view == "street" else _render_terrain,
+            sun=sun, clouds=clouds)
     map_lines, readout, hover, loading, err = draw(
         bbox, graph_w, height_cells, block, pan_offset, mouse_pos,
         cell, dest_cell, origin_cell, lang, route_layer,
@@ -1187,19 +1275,31 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                 if sys.stdout.isatty() else "")
         if globe:
             # either register's globe draws from the elevation tiles
-            # alone (borders and cities are vendored Natural Earth)
-            attribs = (ATTRIBUTION,)
+            # alone (borders and cities are vendored Natural Earth);
+            # showing this hour's clouds adds their credit
+            attribs = ((f"{ATTRIBUTION} · {_globe_now.ATTRIBUTION}",
+                        ATTRIBUTION) if clouds
+                       else (ATTRIBUTION,))
         elif view == "street":
-            attribs = (_maps_style.ATTRIB_TILES_LONG,
-                       _maps_style.ATTRIB_TILES_SHORT)
+            attribs = ((f"{_maps_style.ATTRIB_TILES_LONG} · "
+                        f"{_globe_now.ATTRIBUTION}",
+                        _maps_style.ATTRIB_TILES_LONG,
+                        _maps_style.ATTRIB_TILES_SHORT) if clouds
+                       else (_maps_style.ATTRIB_TILES_LONG,
+                             _maps_style.ATTRIB_TILES_SHORT))
         else:
             # terrain's lakes and rivers come from the tiles too, so the
             # first rung credits both sources and the fallbacks shorten;
             # the settlement raster earns its CC-BY credit when in use
             both = f"{ATTRIBUTION} · {_maps_style.ATTRIB_TILES_SHORT}"
-            attribs = ((f"{both} · {_builtup.ATTRIBUTION}", both,
-                        ATTRIBUTION) if _builtup.enabled()
-                       else (both, ATTRIBUTION))
+            if clouds:
+                attribs = (f"{both} · {_globe_now.ATTRIBUTION}", both,
+                           ATTRIBUTION)
+            elif _builtup.enabled():
+                attribs = (f"{both} · {_builtup.ATTRIBUTION}", both,
+                           ATTRIBUTION)
+            else:
+                attribs = (both, ATTRIBUTION)
         scale = (_scale_bar(bbox, graph_w, lang)
                  if view == "street" and not globe else "")
         # first rung that fits wins: long+hint, short+hint, short, bare
@@ -1238,6 +1338,14 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
 def main():
     args = maps_parser().parse_args()
     runtime = RuntimeConfig.from_sources(namespace=args)
+    # --view now is launch sugar, not a register: the terrain planet
+    # with the sky switched on — daylight (s) and clouds (c), both
+    # toggleable once inside
+    sky = args.view == "now"
+    if sky:
+        args.view = "terrain"
+        if args.zoom is None:
+            args.zoom = MAX_ZOOM_DEG
     if args.zoom is None:
         args.zoom = _maps_style.DEFAULT_ZOOM[args.view]
 
@@ -1308,6 +1416,8 @@ def main():
         spin_seq = [0]       # last generation ever started
         view = [args.view]
         show_labels = [True]
+        sun = [sky]          # s: daylight shading + night city lights
+        clouds = [sky]       # c: this hour's cloud cover
         search = _maps_ui.SearchState()
         helping = [False]
         routes = _maps_ui.RouteState(profile=args.profile, home=(lat, lon))
@@ -1378,6 +1488,30 @@ def main():
                 drag_sync[0] = True
                 os.kill(os.getpid(), signal.SIGWINCH)
 
+        def cloud_tick():
+            """The sky's slow heartbeat.
+
+            Every half hour while the sky is switched on: the newest
+            mosaic frame if clouds are showing, the sun where it now
+            is, one repaint.  Never an animation — a view left running
+            all evening simply stays true.
+            """
+            import signal
+            import time
+            while True:
+                time.sleep(1800)
+                if not (sun[0] or clouds[0]):
+                    continue
+                if clouds[0]:
+                    cols, rows = get_terminal_size()
+                    try:
+                        _globe_now.refresh(zoom[0], max(8, rows - 2) * 4)
+                    except Exception:
+                        pass
+                os.kill(os.getpid(), signal.SIGWINCH)
+
+        threading.Thread(target=cloud_tick, daemon=True).start()
+
         def on_action(key):
             if key == '+':
                 return zoom_to(zoom[0] / ZOOM_STEP)
@@ -1389,6 +1523,12 @@ def main():
                 return True
             if key == 'l':
                 show_labels[0] = not show_labels[0]
+                return True
+            if key == 's':
+                sun[0] = not sun[0]
+                return True
+            if key == 'c':
+                clouds[0] = not clouds[0]
                 return True
             if key == 'r':
                 if spinning[0]:
@@ -1594,7 +1734,8 @@ def main():
                 route=routes.route, dest=routes.dest,
                 origin=routes.origin, directions=routes,
                 note=_maps_ui.route_note(routes, runtime.lang),
-                helping=helping[0], show_labels=show_labels[0])
+                helping=helping[0], show_labels=show_labels[0],
+                sun=sun[0], clouds=clouds[0])
 
         live_loop(
             render,
@@ -1624,7 +1765,7 @@ def main():
                          dest=(dest.lat, dest.lon) if dest else None,
                          origin=((origin.lat, origin.lon, origin.name)
                                  if origin else None),
-                         note=note or ""))
+                         note=note or "", sun=sky, clouds=sky))
         if found is not None:
             # the turn-by-turn list rides below the map: --print asked
             # for directions, so it gets the directions

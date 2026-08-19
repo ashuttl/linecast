@@ -36,7 +36,10 @@ _MERCATOR_LAT = 85.05
 
 _ATMOSPHERE = (104, 148, 198)
 
-GlobeView = namedtuple("GlobeView", "elev coast shade atmo cover borders")
+# lls (the coarse per-sample lat/lon grid) rides along for the now
+# register, which re-shades a cached view into the current moment
+GlobeView = namedtuple("GlobeView", "elev coast shade atmo cover borders lls",
+                       defaults=(None,))
 
 
 def ice_cover(lls, elev, ice_id):
