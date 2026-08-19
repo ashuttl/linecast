@@ -22,11 +22,12 @@ Weather, tides, radar, and maps use current public data. Sunshine and Moon use
 fixed local moments through `scripts/capture_moment.py`, keeping those frames
 repeatable at any time of day.
 
-The globe target is honestly unrepeatable by design: `maps --view now` renders
-the terminator, night city lights, and cloud cover as they are at capture time,
-so pick an hour when the terminator crosses the visible disk (mid-afternoon or
-late evening US Eastern works for the default mid-Atlantic centre) and read the
-frame back before committing.
+The globe target is honestly unrepeatable by design: it opens the terrain
+planet and presses `s`, so the frame carries the terminator and night city
+lights as they are at capture time — but not the clouds, which read as noise
+at gallery size. Pick an hour when the terminator crosses the visible disk
+(mid-afternoon or late evening US Eastern works for the default mid-Atlantic
+centre) and read the frame back before committing.
 
 The current hero is not from the script at all: it is a hand-composed
 whole-laptop-screen screenshot — weather, dusk sunshine, tides, and radar

@@ -178,12 +178,16 @@ maps() {
 
 globe() {
     printf 'Capturing globe…\n'
-    # --view now is the whole point of the frame: the planet with this
-    # hour's terminator, city lights, and cloud cover, so the capture is
-    # honestly different every time it runs.  The default centre sits on
-    # the mid-Atlantic where the terminator usually crosses the disk.
-    "$CAPTURE_TOOL" -s 120x38 -w 25 -o "$SHOT_DIR/maps-globe.png" \
-        uv --directory "$REPO_DIR" run maps --view now \
+    # The frame is this hour's terminator and city lights — honestly
+    # different every run — but *not* this hour's clouds: daylight alone
+    # reads instantly, where the cloud layer makes a first-glance reader
+    # work out what they are looking at.  So the capture opens the plain
+    # terrain planet and presses s once the canvas is warm.  The default
+    # centre sits on the mid-Atlantic where the terminator usually
+    # crosses the disk.
+    "$CAPTURE_TOOL" -s 120x38 -w 25 --press s --sleep 2 \
+        -o "$SHOT_DIR/maps-globe.png" \
+        uv --directory "$REPO_DIR" run maps --view terrain --zoom 130 \
         --location "$GLOBE_PLACE"
 }
 

@@ -134,7 +134,7 @@ Terrain view turns global elevation into hillshade and a hypsometric ramp, from 
 
 Zoom all the way out and either view becomes an orthographic globe you can rotate by dragging — or set spinning with `r`. Two keys switch on the sky as it is right now: `s` shades the planet into actual daylight, with a creeping terminator and cities glowing on the night side, and `c` lays the current global cloud cover over it from live satellite imagery. `maps --view now` opens straight to the full picture.
 
-![the globe as it is right now: live daylight, the terminator, and this hour's clouds](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-globe.png)
+![the globe as it is right now: live daylight and the terminator](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-globe.png)
 
 Everything is a single key — `?` shows this list in the app:
 
