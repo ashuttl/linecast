@@ -26,6 +26,7 @@ from linecast import _radar_tiles as tiles
 from linecast._globe import _radius, _source_zoom, forward
 from linecast._png import decode_rgba
 from linecast._radar_basemap import _load_data
+from linecast._theme import themed
 from linecast.sunshine import _declination
 
 ATTRIBUTION = "Clouds: LibreWXR · CC BY 4.0"
@@ -35,11 +36,14 @@ _CLOUD_BBOX = (-180.0, -85.05, 180.0, 85.05)
 _REFRESH_S = 300     # trust a fetched index this long before re-asking
 
 # night floor per channel: dark enough to read as night, blue enough to
-# read as moonlight, bright enough to leave the geography legible
-_NIGHT = (0.16, 0.20, 0.30)
-_CLOUD_DAY = (236, 240, 244)
-_CLOUD_NIGHT = (96, 106, 126)
-_CITY_LIGHT = (255, 186, 110)
+# read as moonlight, bright enough to leave the geography legible.
+# The sky's inks pass through the theme's hue transfer like the ground's
+# (_theme.themed), so night on a green-monochrome terminal is green
+# moonlight and its cities burn in the theme's own warm.
+_NIGHT = tuple(c / 255.0 for c in themed((41, 51, 77)))
+_CLOUD_DAY = themed((236, 240, 244))
+_CLOUD_NIGHT = themed((96, 106, 126))
+_CITY_LIGHT = themed((255, 186, 110))
 
 
 def subsolar(t=None):

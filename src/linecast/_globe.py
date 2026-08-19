@@ -23,6 +23,7 @@ from linecast._png import decode_rgba
 from linecast._radar_basemap import (
     CITY, CITY_LABEL, DotLayer, _cell_width, _load_data, _localized)
 from linecast._radar_tiles import _TILE_SIZE, _lonlat_to_world, stitch_xyz
+from linecast._theme import themed
 
 # `zoom` (degrees of latitude the screen spans) at which the flat map
 # hands the view to the globe
@@ -34,7 +35,7 @@ ZOOM_DEG = 45.0
 # terminal cell resolves at planet scale.
 _MERCATOR_LAT = 85.05
 
-_ATMOSPHERE = (104, 148, 198)
+_ATMOSPHERE = themed((104, 148, 198))
 
 # lls (the coarse per-sample lat/lon grid) rides along for the now
 # register, which re-shades a cached view into the current moment

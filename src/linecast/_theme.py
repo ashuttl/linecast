@@ -6,6 +6,7 @@ If the terminal does not answer quickly, a fallback dark palette is used.
 
 from __future__ import annotations
 
+import colorsys
 import os
 import re
 import select
@@ -162,6 +163,83 @@ def best_contrast(candidates: Iterable[RGB], background: RGB | None = None, mini
 def surface_bg(level: float) -> RGB:
     """Theme-aware surface color that separates from the main background."""
     return lerp_rgb(theme_bg, theme_fg, max(0.0, min(1.0, level)))
+
+
+# ---------------------------------------------------------------------------
+# Hue transfer: re-inking a calibrated palette in the theme's own hues
+# ---------------------------------------------------------------------------
+# The ANSI slots standing at each canonical sixth of the hue wheel:
+# red 0°, yellow 60°, green 120°, cyan 180°, blue 240°, magenta 300°.
+_HUE_SLOTS = (1, 3, 2, 6, 4, 5)
+
+
+def _with_luminance(color: RGB, target: float) -> RGB:
+    """Nudge color toward black/white until its luminance matches target."""
+    y = luminance(color)
+    if abs(y - target) < 0.001:
+        return color
+    lighter = y < target
+    pole = (255, 255, 255) if lighter else (0, 0, 0)
+    lo, hi = 0.0, 1.0
+    for _ in range(14):
+        mid = (lo + hi) / 2.0
+        if (luminance(lerp_rgb(color, pole, mid)) < target) == lighter:
+            lo = mid
+        else:
+            hi = mid
+    return lerp_rgb(color, pole, (lo + hi) / 2.0)
+
+
+def themed(color: RGB) -> RGB:
+    """Re-ink a calibrated color in the terminal theme's own hues.
+
+    The maps palettes are luminance ladders first and hues second — the
+    hillshade multiplies them, the coastline is derived from them — so
+    adapting them to a theme cannot mean picking ANSI slots the way the
+    weather palette does.  Instead the color keeps its luminance and
+    its own saturation, and takes its hue from where the theme's ANSI
+    colors sit at that point on the wheel: on a near-canonical theme
+    that is close to the identity, and on a green-monochrome theme every
+    hue collapses to the theme's green while the ladder stays readable.
+
+    Saturation is scaled by the square root of the theme anchor's own
+    saturation: the reference ANSI hues real themes are judged against
+    are themselves only about half saturated, so a full ratio would
+    double-count and wash a normal pastel theme out, while a truly grey
+    theme still greys the map all the way.
+
+    Identity when no theme answered, in legacy mode, or below 256
+    colors (the 16-color tables are quantized against the terminal's
+    real palette already).
+    """
+    color = clamp_rgb(color)
+    if not theme_available or theme_legacy_mode:
+        return color
+    from linecast._color import color_mode
+    if color_mode() not in ("truecolor", "256"):
+        return color
+    r, g, b = color
+    h, l, s = colorsys.rgb_to_hls(r / 255.0, g / 255.0, b / 255.0)
+    if s <= 0.001 or l <= 0.0 or l >= 1.0:
+        return color
+    x = (h * 6.0) % 6.0
+    i = int(x)
+    t = x - i
+    h0, s0 = _theme_hue_anchor(i)
+    h1, s1 = _theme_hue_anchor((i + 1) % 6)
+    d = ((h1 - h0 + 0.5) % 1.0) - 0.5          # shortest arc h0 -> h1
+    nh = (h0 + d * t) % 1.0
+    ns = min(1.0, s * ((s0 + (s1 - s0) * t) ** 0.5))
+    nr, ng, nb = colorsys.hls_to_rgb(nh, l, ns)
+    cand = clamp_rgb((nr * 255.0, ng * 255.0, nb * 255.0))
+    return _with_luminance(cand, luminance(color))
+
+
+def _theme_hue_anchor(sextant: int) -> tuple[float, float]:
+    """(hue, saturation) of the theme color at canonical hue sextant/6."""
+    r, g, b = theme_ansi[_HUE_SLOTS[sextant]]
+    h, _l, s = colorsys.rgb_to_hls(r / 255.0, g / 255.0, b / 255.0)
+    return h, s
 
 
 def _hex_channel_to_8bit(text: str):

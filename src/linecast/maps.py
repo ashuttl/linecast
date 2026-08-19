@@ -52,7 +52,7 @@ from linecast._maps_search import (
 from linecast._radar_basemap import (
     _BITS, BORDER, DotLayer, _edge_dots,
 )
-from linecast._theme import lerp_rgb
+from linecast._theme import lerp_rgb, themed
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, debug_log, maps_parser
@@ -72,19 +72,27 @@ MAX_ZOOM_DEG = 130.0
 ZOOM_STEP = 1.5          # matches radar, so the two views feel the same
 
 # geography over terrain: dark strokes cut into the colour fill (the
-# radar palette's dim-on-dark strokes vanish against light terrain)
-COAST_STROKE = (22, 32, 52)
-BORDER_STROKE = (52, 48, 66)
-LABEL_DARK = (28, 32, 44)
-LABEL_LIGHT = (232, 232, 240)
+# radar palette's dim-on-dark strokes vanish against light terrain).
+# Every terrain ink below passes through _theme.themed once, at import:
+# the calibrated luminance ladder stays, the hue family follows the
+# terminal's own theme.
+COAST_STROKE = themed((22, 32, 52))
+BORDER_STROKE = themed((52, 48, 66))
+LABEL_DARK = themed((28, 32, 44))
+LABEL_LIGHT = themed((232, 232, 240))
+
+# the marker is radar's, re-inked: on any theme it should be the
+# theme's own bright accent, not an absolute yellow
+MARKER = themed(MARKER)
+_BADGE = themed((110, 168, 96))     # the header's "⬤ maps" green
 
 # Inland water: lakes and rivers are *not* on the bathymetric ramp.  A
 # terrarium sample reports the elevation of the water's surface, so a
 # lake is indistinguishable from the meadow beside it — the polygons
 # come from the same vector tiles street mode uses, and the ramps never
 # have to guess.  One flat tint, because a lake surface is flat.
-LAKE_FILL = (74, 118, 156)
-RIVER_STROKE = (108, 152, 190)
+LAKE_FILL = themed((74, 118, 156))
+RIVER_STROKE = themed((108, 152, 190))
 
 # Hypsometric bands above sea level (meters) — *bands*, not a gradient:
 # land takes the flat colour of its band and the boundaries read as
@@ -102,6 +110,7 @@ HYPSO_STOPS = [
     (3600, (196, 182, 208)),
     (4600, (240, 240, 248)),
 ]
+HYPSO_STOPS = [(m, themed(c)) for m, c in HYPSO_STOPS]
 
 # Bathymetric tint below sea level — deliberately a smooth gradient
 # where the land is banded: the sea is the one continuous field on the
@@ -116,6 +125,7 @@ BATHY_STOPS = [
     (-50, (96, 148, 178)),
     (0, (120, 170, 194)),
 ]
+BATHY_STOPS = [(m, themed(c)) for m, c in BATHY_STOPS]
 
 
 def _hypso_band(e):
@@ -141,8 +151,8 @@ _SUNS = tuple((wgt, math.cos(math.radians(az)), math.sin(math.radians(az)))
 # aerial perspective on land: shadow does not just darken, it cools
 # toward slate; full light warms faintly toward sun-colour.  Both are
 # small nudges after the multiply — the ramp still owns the hue.
-_SHADOW_TINT = (40, 48, 72)
-_LIGHT_TINT = (255, 248, 228)
+_SHADOW_TINT = themed((40, 48, 72))
+_LIGHT_TINT = themed((255, 248, 228))
 
 _elev_cache = {}     # (bbox, w, h) -> (elevation grid, coast dot masks)
 _elev_pending = set()
@@ -1256,7 +1266,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     mode = f" · {ms('mode_' + view, lang)}"
 
     def _header(place_str):
-        return (f"{fg(110, 168, 96)}{BOLD}⬤ maps{RESET}  {fg(*MUTED)}"
+        return (f"{fg(*_BADGE)}{BOLD}⬤ maps{RESET}  {fg(*MUTED)}"
                 f"{place_str}{RESET}{fg(*DIM)}{mode}{readout}{tag}{RESET}")
 
     header = _header(place)

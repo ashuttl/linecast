@@ -27,17 +27,19 @@ import os
 import unicodedata
 
 from linecast._color import color_mode
-from linecast._theme import is_light_theme, lerp_rgb, theme_bg
+from linecast._theme import is_light_theme, lerp_rgb, theme_bg, themed
 
 MODES = ("street", "terrain")
 
 # ---------------------------------------------------------------------------
 # Palette
 # ---------------------------------------------------------------------------
-# Only the ground blends toward the user's terminal background; every
-# other value is an absolute anchor calibrated against the anchor
-# ground.  14% of theme tint moves the ground by at most ~4 units of
-# luminance, which never breaks the ladder.
+# The ground blends toward the user's terminal background; every other
+# value is an anchor calibrated against the anchor ground, then re-inked
+# in the theme's own hues by _theme.themed below — luminance ladder
+# intact, hue family the terminal's, so a green-monochrome theme gets a
+# green-monochrome map.  14% of theme tint moves the ground by at most
+# ~4 units of luminance, which never breaks the ladder.
 GROUND_BLEND = 0.86
 
 _GROUND_ANCHOR_DARK = (14, 15, 18)      # anchors, NOT inks — never read
@@ -131,6 +133,12 @@ PALETTE_LIGHT = {
     "poi_med":        (172, 66, 66),
     "poi_lbl":        (130, 136, 148),
 }
+
+# Both tables pass through the theme's hue transfer once, at import.
+# PALETTE_16 deliberately does not: its anchors exist to hit exact ANSI
+# indices, and the terminal paints those indices in its own theme anyway.
+PALETTE_DARK = {k: themed(v) for k, v in PALETTE_DARK.items()}
+PALETTE_LIGHT = {k: themed(v) for k, v in PALETTE_LIGHT.items()}
 
 # In 16-colour every dark fill collapses to index 0, so the auto
 # nearest-RGB path is unusable and the composer selects this coarse
@@ -538,6 +546,7 @@ COVER_COLOR = {
     "suburb":  (168, 156, 178),
     "core":    (108, 90, 140),
 }
+COVER_COLOR = {k: themed(v) for k, v in COVER_COLOR.items()}
 
 # a covered sub-pixel takes its class colour outright: flat fields,
 # bounded edges, no naturalistic mixing
