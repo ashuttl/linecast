@@ -534,6 +534,21 @@ COVER_COLOR = {
 # cover over hypso, not instead of it: altitude still whispers through
 COVER_BLEND = 0.72
 
+# Urbanness inferred from street fabric.  Much of the world maps its
+# streets long before it maps a single landuse polygon (downtown
+# Portland, Maine has none), and a dense weave of minor and service
+# roads is settlement whether or not anyone drew the boundary.  A
+# sub-pixel with URBAN_STREET_MIN street dots in its (2R+1)^2 window
+# takes the urban tint; a lone country road threads a window with ~5
+# dots and stays rural.
+URBAN_STREET_CLASS = ("minor", "service")
+URBAN_STREET_RADIUS = 2
+URBAN_STREET_MIN = 10
+
+# Aeroway geometry the terrain paints as paved ground — a runway is
+# the one thing on an airfield that is definitely not grass.
+AEROWAY_COVER = ("runway", "taxiway", "apron")
+
 
 # ---------------------------------------------------------------------------
 # Labels

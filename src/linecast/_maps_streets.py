@@ -726,6 +726,100 @@ def water_lines(view, bbox, graph_w, height_cells, band, color, water=None):
     return layer
 
 
+def _stamp_line(grid, pts, value, dw, dh, thick=1):
+    """Stamp a projected polyline into the sub-pixel grid, `thick` wide."""
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        for x, y in _bresenham(int(x0), int(y0), int(x1), int(y1)):
+            for oy in range(thick):
+                yy = y + oy
+                if not 0 <= yy < dh:
+                    continue
+                row = grid[yy]
+                for ox in range(thick):
+                    xx = x + ox
+                    if 0 <= xx < dw:
+                        row[xx] = value
+
+
+def _stamp_aeroways(grid, view, bbox, dw, dh, value):
+    """Runways, taxiways and aprons take the urban tint, over anything.
+
+    OSM maps an airfield as a grass polygon with paved geometry on top;
+    without this pass the whole airport reads as meadow.  Runway lines
+    stamp two sub-pixels wide — a runway's width is its identity.
+    """
+    for (z, tx, ty), decoded in view:
+        src = decoded.get("aeroway")
+        if src is None:
+            continue
+        extent = src.get("extent") or _DEFAULT_EXTENT
+        project = _projector(z, tx, ty, extent, bbox, dw, dh)
+        for feat in src["features"]:
+            cls = feat["tags"].get("class")
+            if cls not in style.AEROWAY_COVER:
+                continue
+            if feat["type"] == 3:
+                for rings in assemble_polygons(feat["geometry"]):
+                    _fill_rings(grid, [_closed([project(x, y)
+                                                for x, y in ring])
+                                       for ring in rings], value, dw, dh)
+            elif feat["type"] == 2:
+                for part in feat["geometry"]:
+                    _stamp_line(grid, [project(x, y) for x, y in part],
+                                value, dw, dh,
+                                thick=2 if cls == "runway" else 1)
+
+
+def _street_density_urban(grid, view, bbox, dw, dh, value):
+    """Dense minor-street fabric takes the urban tint where nothing
+    else claimed the ground.
+
+    Streets get mapped long before landuse polygons do, so this is the
+    urbanness signal that exists everywhere.  Presence dots (not
+    counts) go into a box window via a summed-area table: a window
+    threaded by one country road holds a handful of dots and stays
+    rural, a street grid trips the threshold.  Only bare sub-pixels
+    change — a park inside the grid stays a park.
+    """
+    dots = [bytearray(dw) for _ in range(dh)]
+    for (z, tx, ty), decoded in view:
+        src = decoded.get("transportation")
+        if src is None:
+            continue
+        extent = src.get("extent") or _DEFAULT_EXTENT
+        project = _projector(z, tx, ty, extent, bbox, dw, dh)
+        for feat in src["features"]:
+            if feat["type"] != 2:
+                continue
+            if feat["tags"].get("class") not in style.URBAN_STREET_CLASS:
+                continue
+            for part in feat["geometry"]:
+                _stamp_line(dots, [project(x, y) for x, y in part], 1,
+                            dw, dh)
+
+    integ = [[0] * (dw + 1)]
+    for y in range(dh):
+        row, prev, acc = dots[y], integ[y], 0
+        out = [0]
+        for x in range(dw):
+            acc += row[x]
+            out.append(acc + prev[x + 1])
+        integ.append(out)
+
+    r = style.URBAN_STREET_RADIUS
+    for y in range(dh):
+        y0, y1 = max(0, y - r), min(dh - 1, y + r) + 1
+        grow = grid[y]
+        for x in range(dw):
+            if grow[x]:
+                continue
+            x0, x1 = max(0, x - r), min(dw - 1, x + r) + 1
+            n = (integ[y1][x1] - integ[y0][x1]
+                 - integ[y1][x0] + integ[y0][x0])
+            if n >= style.URBAN_STREET_MIN:
+                grow[x] = value
+
+
 def _despeckle_cover(grid, dw, dh):
     """3x3 majority vote where a sub-pixel's class stands nearly alone.
 
@@ -788,6 +882,9 @@ def land_cover_grid(view, bbox, graph_w, height_cells):
     for i, key in enumerate(style.COVER_ORDER):
         for rings in groups.get(key, ()):
             _fill_rings(grid, rings, i + 1, dw, dh)
+    urban = style.COVER_ORDER.index("urban") + 1
+    _street_density_urban(grid, view, bbox, dw, dh, urban)
+    _stamp_aeroways(grid, view, bbox, dw, dh, urban)
     return _despeckle_cover(grid, dw, dh)
 
 
