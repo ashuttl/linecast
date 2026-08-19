@@ -23,7 +23,7 @@ linecast turns free public data into six live, mouse-friendly terminal apps. It 
 | `moon` | A shaded lunar disc, illumination, altitude, rise and set times, and the next full and new moons |
 | `tides` | A sunlight-shaded tide curve, current water level, and high and low times |
 | `radar` | Animated worldwide radar or satellite imagery, warning polygons, temperature, and wind |
-| `maps` | Detailed vector streets, terrain and bathymetry, place search, and directions |
+| `maps` | Detailed vector streets, terrain and bathymetry, a spinnable globe with live daylight and clouds, place search, and directions |
 
 ## Quick try
 
@@ -127,6 +127,8 @@ Street view renders OpenFreeMap vector tiles as solid water, land, parks, and bu
 
 Terrain view turns global elevation into hillshade and a hypsometric ramp, from deep ocean trenches through lowland green to alpine white. Coastlines, borders, water, and cities are drawn over it in braille.
 
+Zoom all the way out and either view becomes an orthographic globe you can rotate by dragging — or set spinning with `r`. Two keys switch on the sky as it is right now: `s` shades the planet into actual daylight, with a creeping terminator and cities glowing on the night side, and `c` lays the current global cloud cover over it from live satellite imagery. `maps --view now` opens straight to the full picture.
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-street.png" width="49%" alt="street map of Portland, Maine">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-terrain.png" width="49%" alt="terrain map of the Alps around Innsbruck">
@@ -135,6 +137,7 @@ Terrain view turns global elevation into hillshade and a hypsometric ramp, from 
 ```sh
 maps --location "Portland, Maine" --zoom 0.01
 maps --view terrain --location 60.4,5.3 --zoom 8
+maps --view now
 maps --from "Gorham, Maine" --to "Portland Head Light" --profile foot
 ```
 
@@ -212,7 +215,7 @@ Completion covers both `linecast <command>` and the standalone commands.
 - **Sunshine and Moon** — computed locally from astronomical equations.
 - **Tides** — NOAA CO-OPS, Canadian Hydrographic Service, Queensland Open Data, Open-Meteo's tide model as a global fallback, and optionally TideCheck.
 - **Radar** — [LibreWXR](https://librewxr.net/), with NEXRAD via Iowa Environmental Mesonet and RainViewer as fallbacks; warning polygons come from the US National Weather Service via IEM. The basemap is derived from Natural Earth.
-- **Maps** — terrain from AWS/Mapzen elevation tiles; streets and inland water from [OpenFreeMap](https://openfreemap.org/) (© OpenMapTiles © OpenStreetMap contributors); search from Photon and Nominatim; directions from FOSSGIS OSRM (© OpenStreetMap contributors).
+- **Maps** — terrain from AWS/Mapzen elevation tiles; streets and inland water from [OpenFreeMap](https://openfreemap.org/) (© OpenMapTiles © OpenStreetMap contributors); search from Photon and Nominatim; directions from FOSSGIS OSRM (© OpenStreetMap contributors); globe cloud cover from [LibreWXR](https://librewxr.net/) (CC BY 4.0) satellite imagery.
 
 </details>
 
