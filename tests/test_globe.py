@@ -1,0 +1,121 @@
+"""The orthographic globe: projection math, sampling, and hand-off."""
+
+import math
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from linecast import _globe
+
+
+class TestProjection:
+    def test_forward_center_is_origin(self):
+        ux, uy, cos_c = _globe.forward(37.0, -100.0, 37.0, -100.0)
+        assert abs(ux) < 1e-12 and abs(uy) < 1e-12
+        assert abs(cos_c - 1.0) < 1e-12
+
+    def test_antipode_is_hidden(self):
+        _ux, _uy, cos_c = _globe.forward(-37.0, 80.0, 37.0, -100.0)
+        assert cos_c < 0
+
+    def test_geometry_roundtrips_through_forward(self):
+        lat0, lon0, zoom, w, h = 37.0, -100.0, 90.0, 40, 40
+        lls, zs, _rhos = _globe.geometry(lat0, lon0, zoom, w, h)
+        r = _globe._radius(zoom, h)
+        for y in (5, 20, 34):
+            for x in (5, 20, 34):
+                ll = lls[y][x]
+                if ll is None:
+                    continue
+                ux, uy, cos_c = _globe.forward(ll[0], ll[1], lat0, lon0)
+                assert cos_c > 0
+                assert abs((w / 2.0 + ux * r) - (x + 0.5)) < 1e-6
+                assert abs((h / 2.0 - uy * r) - (y + 0.5)) < 1e-6
+                assert abs(zs[y][x] - cos_c) < 1e-9
+
+    def test_space_is_none_and_rho_exceeds_one(self):
+        # a full-planet view leaves the corners in space
+        lls, zs, rhos = _globe.geometry(0.0, 0.0, 130.0, 40, 40)
+        assert lls[0][0] is None and zs[0][0] is None
+        assert rhos[0][0] > 1.0
+        assert lls[20][20] is not None
+
+    def test_limb_scale_matches_flat_map_at_center(self):
+        # one grid row at the disk centre spans zoom/h degrees of arc —
+        # the hand-off does not change the size of anything on screen
+        lls, _zs, _rhos = _globe.geometry(0.0, 0.0, 90.0, 400, 400)
+        a, b = lls[199][200], lls[200][200]
+        assert abs((a[0] - b[0]) - 90.0 / 400) < 0.01
+
+
+class TestMarkers:
+    def test_center_marker_lands_center_cell(self):
+        cell = _globe.marker_cell(20.0, -30.0, 125.0, 80, 22, 20.0, -30.0)
+        assert cell == (40, 11)
+
+    def test_far_hemisphere_marker_hides(self):
+        assert _globe.marker_cell(20.0, -30.0, 125.0, 80, 22,
+                                  -20.0, 150.0) is None
+
+
+class TestElevation:
+    def _flat_canvas(self, meters):
+        # a one-tile world where every pixel decodes to `meters`
+        v = int(meters + 32768)
+        r, g = v >> 8, v & 0xFF
+        canvas = bytearray()
+        for _ in range(256 * 256):
+            canvas += bytes((r, g, 0, 255))
+        return (canvas, 256, 256, 0, 0, 256)
+
+    def test_samples_visible_disk_only(self, monkeypatch):
+        monkeypatch.setattr(_globe, "_world_canvas",
+                            lambda z, timeout: self._flat_canvas(100))
+        lls, _zs, _rhos = _globe.geometry(0.0, 0.0, 180.0, 20, 20)
+        grid = _globe.elevation(lls, 180.0, 20)
+        assert grid[0][0] is None  # space
+        center = grid[10][10]
+        assert center is not None and abs(center - 100.0) < 1.0
+
+    def test_pole_clamps_to_mercator_edge(self, monkeypatch):
+        monkeypatch.setattr(_globe, "_world_canvas",
+                            lambda z, timeout: self._flat_canvas(-4000))
+        # centred on the pole itself: every visible sample clamps
+        lls, _zs, _rhos = _globe.geometry(89.0, 0.0, 125.0, 12, 12)
+        grid = _globe.elevation(lls, 125.0, 12)
+        assert grid[6][6] is not None
+
+
+class TestAtmosphere:
+    def test_rim_hugs_the_limb(self):
+        _lls, _zs, rhos = _globe.geometry(0.0, 0.0, 125.0, 80, 44)
+        atmo = _globe.atmosphere(rhos, 125.0, 44)
+        on_disk = sum(1 for row in atmo for a in row if a > 0)
+        assert on_disk > 0  # some rim exists
+        # nothing deep in space glows
+        assert atmo[0][0] == 0.0
+
+    def test_shade_buffer_darkens_limb_and_paints_rim(self):
+        buf = [[(200, 100, 50), (200, 100, 50)]]
+        shade = [[1.0, None]]
+        atmo = [[0.0, 1.0]]
+        _globe.shade_buffer(buf, shade, atmo, (10, 10, 10))
+        assert buf[0][0] == (200, 100, 50)  # full-face: untouched
+        assert buf[0][1] != (200, 100, 50)  # space rim: atmosphere tint
+        assert buf[0][1][2] > buf[0][1][0]  # and it leans blue
+
+
+class TestCities:
+    def test_labels_stay_on_screen_and_visible_side(self):
+        overlays = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22)
+        assert overlays  # the Atlantic hemisphere has cities
+        for (col, row) in overlays:
+            assert 0 <= col < 80 and 0 <= row < 22
+
+    def test_hidden_hemisphere_has_different_cities(self):
+        near = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22)
+        far = _globe.city_overlays(-20.0, 150.0, 125.0, 80, 22)
+        near_dots = {p for p, (ch, _c) in near.items() if ch == "•"}
+        far_dots = {p for p, (ch, _c) in far.items() if ch == "•"}
+        assert near_dots != far_dots

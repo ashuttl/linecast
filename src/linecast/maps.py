@@ -34,7 +34,8 @@ import threading
 from collections import namedtuple
 
 from linecast import (
-    _builtup, _maps_hover, _maps_route, _maps_streets, _maps_style, _maps_ui,
+    _builtup, _globe, _maps_hover, _maps_route, _maps_streets, _maps_style,
+    _maps_ui,
 )
 from linecast._color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
@@ -63,7 +64,10 @@ from linecast.radar import (
 # (about band 3); street mode's deepest classes — buildings, POI text —
 # need 0.0012, which is roughly two metres per braille dot.
 MIN_ZOOM_DEG = 0.0012
-MAX_ZOOM_DEG = 60.0
+# past _globe.ZOOM_DEG the terrain view is an orthographic globe; at
+# the ceiling the whole planet fits the screen's height with a margin
+# (the disk's diameter is 2·(180/π) ≈ 114.6 zoom-degrees)
+MAX_ZOOM_DEG = 130.0
 ZOOM_STEP = 1.5          # matches radar, so the two views feel the same
 
 # geography over terrain: dark strokes cut into the colour fill (the
@@ -142,6 +146,8 @@ _LIGHT_TINT = (255, 248, 228)
 _elev_cache = {}     # (bbox, w, h) -> (elevation grid, coast dot masks)
 _elev_pending = set()
 _elev_lock = threading.Lock()
+_globe_cache = {}    # (lat, lon, zoom, w, h) -> GlobeView
+_globe_pending = set()
 _terrain_cache = {}  # (bbox, w, h) -> sub-pixel colour buffer
 _street_cache = {}   # (bbox, w, h) -> (fills, ranked DotLayer)
 _street_pending = set()
@@ -528,8 +534,8 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
             ut = top_row[cx] or BG_PRIMARY
             ub = bot_row[cx] or BG_PRIMARY
             ov = overlays.get((cx, cy))
-            bmask = (basemap.dots[cy][cx]
-                     if basemap.color[cy][cx] == BORDER else 0)
+            bmask = (basemap.dots[cy][cx] if basemap is not None
+                     and basemap.color[cy][cx] == BORDER else 0)
             cmask = coast[cy][cx] if coast is not None else 0
             smask, sink = 0, None
             if strokes is not None:
@@ -807,6 +813,158 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     return lines, readout, "", loading, err
 
 
+def _get_globe(lat0, lon0, zoom, gw, hc, block):
+    """A GlobeView for the view; live mode fetches in the background."""
+    key = (round(lat0, 2), round(lon0, 2), round(zoom, 1), gw, hc)
+    with _elev_lock:
+        hit = _globe_cache.get(key)
+        if hit is not None:
+            return hit
+        if not block:
+            if key in _globe_pending:
+                return None
+            _globe_pending.add(key)
+
+    def load():
+        # the fine grid feeds the coastline and box-averages into the
+        # fill, exactly as the flat view does; the sub-pixel geometry
+        # adds what only a sphere has — a viewing angle and a limb
+        lls, _zs, _rhos = _globe.geometry(lat0, lon0, zoom, gw * 2, hc * 4)
+        fine = _globe.elevation(lls, zoom, hc * 4)
+        _lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, gw, hc * 2)
+        grid = []
+        for y in range(hc * 2):
+            r0, r1 = fine[y * 2], fine[y * 2 + 1]
+            row = []
+            for x in range(gw):
+                vals = [v for v in (r0[x * 2], r0[x * 2 + 1],
+                                    r1[x * 2], r1[x * 2 + 1])
+                        if v is not None]
+                if not vals:
+                    row.append(None)
+                    continue
+                # the same >=2-of-4 wet rule as the flat view, for the
+                # same reason: a shoreline sub-pixel averaged across the
+                # waterline bulges low green into every sea
+                wet = [v for v in vals if v <= 0]
+                if len(wet) >= 2:
+                    row.append(sum(wet) / len(wet))
+                else:
+                    row.append(sum(vals) / len(vals))
+            grid.append(row)
+        return _globe.GlobeView(grid, _coast_dots(fine, gw, hc), zs,
+                                _globe.atmosphere(rhos, zoom, hc * 2))
+
+    if block:
+        hit = load()
+        with _elev_lock:
+            if len(_globe_cache) > 3:
+                _globe_cache.clear()
+            _globe_cache[key] = hit
+        return hit
+
+    def worker():
+        try:
+            hit = load()
+        except Exception:
+            hit = None
+        with _elev_lock:
+            _globe_pending.discard(key)
+            if hit is not None:
+                if len(_globe_cache) > 3:
+                    _globe_cache.clear()
+                _globe_cache[key] = hit
+        if hit is not None and _live_refresh:
+            import signal
+            os.kill(os.getpid(), signal.SIGWINCH)
+
+    threading.Thread(target=worker, daemon=True).start()
+    return None
+
+
+def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
+                  mouse_pos, marker_cell, dest_cell, origin_cell, lang,
+                  route_layer):
+    """The terrain view past the hand-off: the planet, orthographic.
+
+    Everything downstream of the geometry is the flat terrain view's —
+    the same shader, the same coastline rule, the same city labels with
+    their contrast-picked ink — so crossing the projection boundary
+    changes the shape of the world, not the look of it.
+    """
+    lat0 = (bbox[1] + bbox[3]) / 2
+    lon0 = (bbox[0] + bbox[2]) / 2
+    zoom = bbox[3] - bbox[1]
+    err = None
+    loading = False
+    view = None
+    if block:
+        try:
+            view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, True)
+        except Exception as exc:
+            err = str(exc)
+    else:
+        view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, False)
+        loading = view is None
+
+    elev = view.elev if view is not None else None
+    coast = view.coast if view is not None else None
+    if elev is not None:
+        key = (round(lat0, 2), round(lon0, 2), round(zoom, 1),
+               graph_w, height_cells)
+        terrain = _terrain_cache.get(key)
+        if terrain is None:
+            # a scale-only bbox: the shader needs metres per sub-pixel,
+            # which on the disk is the hand-off zoom's scale everywhere
+            # (the limb compresses beyond it, and the falloff owns that)
+            spy_h = height_cells * 2
+            sbbox = (0.0, -zoom / 2, zoom * graph_w / spy_h, zoom / 2)
+            terrain = build_terrain_buffer(elev, sbbox, graph_w, spy_h)
+            _globe.shade_buffer(terrain, view.shade, view.atmo, BG_PRIMARY)
+            if len(_terrain_cache) > 2:
+                _terrain_cache.clear()
+            _terrain_cache[key] = terrain
+    else:
+        terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
+
+    overlays = {}
+    for pos, (ch, _color) in _globe.city_overlays(
+            lat0, lon0, zoom, graph_w, height_cells, lang).items():
+        overlays[pos] = (ch, None)  # None ink = per-cell contrast pick
+    if marker_cell is not None:
+        overlays[marker_cell] = _mark("+", MARKER, False)
+    if origin_cell is not None:
+        overlays[origin_cell] = _mark("○", MARKER, False)
+    if dest_cell is not None:
+        overlays[dest_cell] = _mark("●", MARKER, False)
+
+    dx, dy = pan_offset
+    if dx or dy:
+        terrain = _shift_grid(terrain, dx, dy * 2, None)
+        if coast is not None:
+            coast = _shift_grid(coast, dx, dy, 0)
+        overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
+                    if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
+    overlays = _crosshair(overlays, marker_cell, dx, dy, graph_w,
+                          height_cells, False)
+
+    readout = ""
+    if elev is not None:
+        probe = None
+        if mouse_pos is not None:
+            pcol, prow = mouse_pos[0] - 1 - dx, mouse_pos[1] - 2 - dy
+            if 0 <= pcol < graph_w and 0 <= prow < height_cells:
+                probe = elev[prow * 2][pcol]
+        if probe is None:
+            probe = elev[height_cells][graph_w // 2]
+        if probe is not None:
+            readout = f" · {_fmt_elev(probe, lang)}"
+
+    lines = compose_terrain(None, terrain, overlays, graph_w,
+                            height_cells, coast=coast)
+    return lines, readout, "", loading, err
+
+
 def _hover(layer, mouse_pos, pan_offset, lang):
     """(readout, lit ink cells, lit glyph cells), or ("", None, None).
 
@@ -942,15 +1100,30 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
 
     bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
     m_lat, m_lon = marker if marker else (lat, lon)
-    cell = _marker_cell(bbox, graph_w, height_cells, m_lat, m_lon)
-
-    dest_cell = (_marker_cell(bbox, graph_w, height_cells, dest[0], dest[1])
-                 if dest is not None else None)
-    origin_cell = (_marker_cell(bbox, graph_w, height_cells,
-                                origin[0], origin[1])
-                   if origin is not None else None)
-    route_layer = _get_route_layer(route, bbox, graph_w, height_cells)
-    draw = _render_street if view == "street" else _render_terrain
+    globe = view != "street" and zoom >= _globe.ZOOM_DEG
+    if globe:
+        # markers live on a sphere now: project them orthographically,
+        # and let the far hemisphere hide what it hides
+        cell = _globe.marker_cell(lat, lon, zoom, graph_w, height_cells,
+                                  m_lat, m_lon)
+        dest_cell = (_globe.marker_cell(lat, lon, zoom, graph_w,
+                                        height_cells, dest[0], dest[1])
+                     if dest is not None else None)
+        origin_cell = (_globe.marker_cell(lat, lon, zoom, graph_w,
+                                          height_cells, origin[0], origin[1])
+                       if origin is not None else None)
+        route_layer = None
+        draw = _render_globe
+    else:
+        cell = _marker_cell(bbox, graph_w, height_cells, m_lat, m_lon)
+        dest_cell = (_marker_cell(bbox, graph_w, height_cells,
+                                  dest[0], dest[1])
+                     if dest is not None else None)
+        origin_cell = (_marker_cell(bbox, graph_w, height_cells,
+                                    origin[0], origin[1])
+                       if origin is not None else None)
+        route_layer = _get_route_layer(route, bbox, graph_w, height_cells)
+        draw = _render_street if view == "street" else _render_terrain
     map_lines, readout, hover, loading, err = draw(
         bbox, graph_w, height_cells, block, pan_offset, mouse_pos,
         cell, dest_cell, origin_cell, lang, route_layer)
@@ -994,6 +1167,9 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         if view == "street":
             attribs = (_maps_style.ATTRIB_TILES_LONG,
                        _maps_style.ATTRIB_TILES_SHORT)
+        elif globe:
+            # the globe draws from the elevation tiles alone
+            attribs = (ATTRIBUTION,)
         else:
             # terrain's lakes and rivers come from the tiles too, so the
             # first rung credits both sources and the fallbacks shorten;
@@ -1127,6 +1303,10 @@ def main():
             cols, rows = get_terminal_size()
             gw, hc = max(20, cols), max(8, rows - 2)
             pcol, prow = (at[0] - 1, at[1] - 2) if at else (-1, -1)
+            # anchored zoom is a flat-map identity — on either side of
+            # the globe hand-off, zoom about the centre instead
+            if (zoom[0] >= _globe.ZOOM_DEG or new_zoom >= _globe.ZOOM_DEG):
+                pcol = -1
             if 0 <= pcol < gw and 0 <= prow < hc:
                 fx, fy = (pcol + 0.5) / gw, (prow + 0.5) / hc
                 lon_span = (zoom[0] * (gw / (hc * 2))
