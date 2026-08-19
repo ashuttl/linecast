@@ -22,7 +22,7 @@ from linecast._png import decode_rgba
 from linecast._radar_tiles import _pick_zoom, reproject_xyz
 from linecast._runtime import debug_log
 
-MAX_ZOOM = 10  # the pyramid's floor: ~150 m per pixel, plenty for a tint
+MAX_ZOOM = 9  # the published pyramid's floor: ~300 m per pixel, plenty for a tint
 
 # CC-BY credit for the built-up layer, kept terse so the footer's
 # widest rung still fits an 80-column terminal
