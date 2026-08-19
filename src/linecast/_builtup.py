@@ -79,5 +79,22 @@ def builtup_grid(bbox, w, h, timeout=15):
             return None
 
     _, _, rgba = reproject_xyz(fetch, bbox, w, h, z)
-    return [[rgba[(row * w + col) * 4] if rgba[(row * w + col) * 4 + 3]
+    grid = [[rgba[(row * w + col) * 4] if rgba[(row * w + col) * 4 + 3]
              else 0 for col in range(w)] for row in range(h)]
+    # a light 3x3 mean before anyone thresholds it: the raw cells grade-
+    # dither at settlement edges, and the smoothed field breaks into the
+    # chunkier bounded regions a schematic map wants
+    out = []
+    for y in range(h):
+        y0, y1 = max(0, y - 1), min(h - 1, y + 1) + 1
+        row = []
+        for x in range(w):
+            x0, x1 = max(0, x - 1), min(w - 1, x + 1) + 1
+            n = s = 0
+            for yy in range(y0, y1):
+                for xx in range(x0, x1):
+                    s += grid[yy][xx]
+                    n += 1
+            row.append(s // n)
+        out.append(row)
+    return out

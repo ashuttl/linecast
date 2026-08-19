@@ -7,13 +7,16 @@ of things on it can afford a label, so the pointer is the other half of
 reading it: hover names whatever owns the ink under it and lights that
 whole feature up (_maps_hover).
 
-`--view terrain` lives here.  Elevation from the AWS/Mapzen terrain
-tiles is painted as a half-block colour fill: a hypsometric ramp
-(lowland green through alpine white) shaded by a north-west sun above
-sea level, a bathymetric blue ramp below it.  Lakes and rivers are the
-one thing elevation cannot tell you — a terrarium sample over a lake is
-just the height of its surface — so the inland water comes from the
-street tiles and joins the shoreline the elevation already draws.
+`--view terrain` lives here, drawn in a schematic register: colour is
+categorical (flat land-cover fields, flat hypsometric bands climbing
+green through straw and ochre into mauve, lavender and summit white)
+while a multidirectional hillshade underneath carries everything
+physical — the grammar of a geologic map rather than a photograph.
+The sea is the one smooth gradient, falling to a near-black navy
+abyss.  Lakes and rivers are the one thing elevation cannot tell you —
+a terrarium sample over a lake is just the height of its surface — so
+the inland water comes from the street tiles and joins the shoreline
+the elevation already draws.
 Geography keeps the radar view's braille identity: the coastline is the
 sea-level contour of the elevation data itself (so it always matches
 the fill), borders are Natural Earth braille strokes, cities are
@@ -78,30 +81,44 @@ LABEL_LIGHT = (232, 232, 240)
 LAKE_FILL = (74, 118, 156)
 RIVER_STROKE = (108, 152, 190)
 
-# hypsometric tint above sea level (meters)
+# Hypsometric bands above sea level (meters) — *bands*, not a gradient:
+# land takes the flat colour of its band and the boundaries read as
+# contours, the way a geologic map draws provinces.  The run climbs out
+# of the greens through straw and ochre into mauve and pale lavender
+# before summit white — high country earns the purples.
 HYPSO_STOPS = [
-    (0, (58, 102, 66)),
-    (150, (78, 120, 70)),
-    (400, (120, 142, 78)),
-    (800, (168, 158, 96)),
-    (1300, (178, 142, 94)),
-    (2000, (160, 116, 86)),
-    (2800, (150, 126, 118)),
-    (3600, (190, 180, 175)),
-    (4600, (240, 240, 245)),
+    (0, (96, 138, 92)),
+    (150, (124, 152, 88)),
+    (400, (156, 168, 92)),
+    (800, (190, 178, 104)),
+    (1300, (198, 162, 106)),
+    (2000, (176, 140, 118)),
+    (2800, (160, 140, 158)),
+    (3600, (196, 182, 208)),
+    (4600, (240, 240, 248)),
 ]
 
-# bathymetric tint below sea level
+# Bathymetric tint below sea level — deliberately a smooth gradient
+# where the land is banded: the sea is the one continuous field on the
+# map, falling away to a near-black navy abyss.
 BATHY_STOPS = [
-    (-8000, (12, 20, 48)),
-    (-5000, (18, 32, 70)),
-    (-3000, (26, 46, 92)),
-    (-1500, (36, 62, 112)),
-    (-500, (48, 82, 132)),
-    (-120, (62, 104, 150)),
-    (-20, (80, 130, 168)),
-    (0, (96, 150, 180)),
+    (-8000, (6, 12, 30)),
+    (-5000, (12, 22, 48)),
+    (-3500, (18, 34, 68)),
+    (-2000, (30, 56, 98)),
+    (-1000, (44, 80, 124)),
+    (-200, (66, 112, 152)),
+    (-50, (96, 148, 178)),
+    (0, (120, 170, 194)),
 ]
+
+
+def _hypso_band(e):
+    """The flat colour of the band `e` falls in."""
+    for lim, c in reversed(HYPSO_STOPS):
+        if e >= lim:
+            return c
+    return HYPSO_STOPS[0][1]
 
 # land-cover tints by grid index (0 = no cover, stays on the ramp)
 _COVER_RGB = [None] + [_maps_style.COVER_COLOR[k]
@@ -250,12 +267,16 @@ def _get_elevation(bbox, gw, hc, block):
             if bu is not None:
                 if cover is None:
                     cover = [bytearray(gw) for _ in range(hc * 2)]
-                urban = _maps_style.COVER_ORDER.index("urban") + 1
-                lo = _maps_style.COVER_BUILTUP_MIN
+                grades = [(lo, _maps_style.COVER_ORDER.index(k) + 1)
+                          for lo, k in _maps_style.COVER_BUILTUP_GRADES]
+                settlement = {gid for _, gid in grades}
+                floor = grades[-1][0]
                 for crow, brow in zip(cover, bu):
                     for x, f in enumerate(brow):
-                        if f >= lo and not crow[x]:
-                            crow[x] = urban
+                        if f >= floor and (not crow[x]
+                                           or crow[x] in settlement):
+                            crow[x] = next(gid for lo, gid in grades
+                                           if f >= lo)
         if ocean is not None:
             # The OSM coastline outranks the elevation data over the
             # sea, without appeal: coastal DEMs report tidal water as a
@@ -441,7 +462,7 @@ def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None):
                 base = interp_stops(BATHY_STOPS, e)
                 m = 0.82 + 0.18 * shade  # water: keep the ramp readable
             else:
-                base = interp_stops(HYPSO_STOPS, e)
+                base = _hypso_band(e)
                 if cov_row is not None and cov_row[x]:
                     cc = _COVER_RGB[cov_row[x]]
                     base = (base[0] + (cc[0] - base[0]) * blend,

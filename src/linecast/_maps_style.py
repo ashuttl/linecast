@@ -504,7 +504,7 @@ PARK_LANDUSE_CLASS = ("cemetery",)
 # the tiles only carry wood and ice at the low source zooms, cover
 # fades in naturally as a view tightens.
 COVER_ORDER = ("wood", "grass", "farm", "wetland", "sand", "rock",
-               "ice", "urban")
+               "ice", "urban", "suburb", "core")
 
 COVER_LANDCOVER = {"wood": "wood", "grass": "grass", "farmland": "farm",
                    "wetland": "wetland", "sand": "sand", "rock": "rock",
@@ -518,21 +518,29 @@ COVER_URBAN_LANDUSE = URBAN_LANDUSE + (
     "garages", "railway", "school", "university", "college", "hospital",
     "stadium", "suburb", "quarter", "neighbourhood")
 
-# muted mid-tones from the hypso ramp's own family, so covered and bare
-# ground meet without a seam and the hillshade stays legible over both
+# Flat categorical fields in the schematic register: colour states what
+# the ground *is* and the hillshade underneath does all the physical
+# work.  Settlement is the palette's violet family, graded like a
+# geologic map grades its reds — pale grey-lavender sprawl, violet
+# urban fabric, deep violet cores — so a metro that fills the frame
+# still has anatomy instead of a wash.  The hypso bands keep a greyer
+# mauve for high country; the two purple registers never argue.
 COVER_COLOR = {
-    "wood":    (56, 94, 58),
-    "grass":   (118, 138, 80),
-    "farm":    (152, 140, 88),
-    "wetland": (82, 116, 100),
-    "sand":    (196, 180, 134),
-    "rock":    (138, 128, 118),
-    "ice":     (226, 232, 240),
-    "urban":   (136, 126, 124),
+    "wood":    (44, 108, 66),
+    "grass":   (150, 172, 84),
+    "farm":    (216, 196, 108),
+    "wetland": (72, 142, 128),
+    "sand":    (236, 214, 152),
+    "rock":    (150, 134, 148),
+    "ice":     (240, 242, 250),
+    "urban":   (140, 124, 160),
+    "suburb":  (168, 156, 178),
+    "core":    (108, 90, 140),
 }
 
-# cover over hypso, not instead of it: altitude still whispers through
-COVER_BLEND = 0.72
+# a covered sub-pixel takes its class colour outright: flat fields,
+# bounded edges, no naturalistic mixing
+COVER_BLEND = 1.0
 
 # Urbanness inferred from street fabric.  Much of the world maps its
 # streets long before it maps a single landuse polygon (downtown
@@ -559,10 +567,14 @@ def urban_street_min(z_src):
 # the one thing on an airfield that is definitely not grass.
 AEROWAY_COVER = ("runway", "taxiway", "apron")
 
-# A GHSL cell at least this built (fraction of 255) takes the urban
-# tint when the built-up raster layer is enabled.  10% built reads as
-# settlement at terrain's scale.
-COVER_BUILTUP_MIN = 26
+# GHSL built fraction (of 255) to settlement grade, densest first.
+# The fraction counts *building* surface, and even Midtown's cells sit
+# near 35% once streets and parks take their share (measured median
+# 88), so the grades are calibrated to that reality: ~33% built is a
+# core, ~19% is urban fabric, ~7% is sprawl.  The measured fraction
+# also re-grades urban ground the vector story already claimed, so one
+# city never mixes graded and flat violet.
+COVER_BUILTUP_GRADES = ((84, "core"), (48, "urban"), (18, "suburb"))
 
 
 # ---------------------------------------------------------------------------
