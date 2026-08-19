@@ -219,10 +219,10 @@ source <(linecast completion zsh)
 # Fish
 linecast completion fish | source
 
-# Nushell (save and source in config.nu)
-linecast completion nu | save -f ~/.config/nushell/completions/linecast.nu
+# Nushell
+linecast completion nu | save -f ~/.config/nushell/completions/linecast_completions.nu
 # in config.nu:
-use ~/.config/nushell/completions/linecast.nu *
+use ~/.config/nushell/completions/linecast_completions.nu *
 ```
 
 Completion covers both `linecast <command>` and the standalone commands.
