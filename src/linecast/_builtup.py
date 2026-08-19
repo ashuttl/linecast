@@ -31,7 +31,7 @@ ATTRIBUTION = "GHSL © EC JRC"
 # The published tileset (the linecast-tiles R2 bucket); the
 # environment variable always wins — point it elsewhere or set it
 # empty to turn the layer off.
-DEFAULT_URL = "https://pub-7cd451cba001436682e8f909f357db35.r2.dev"
+DEFAULT_URL = "https://pub-18689fea99e6428ebbc5e51b36dc6d91.r2.dev"
 
 
 def enabled():
