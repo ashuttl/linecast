@@ -996,8 +996,12 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                        _maps_style.ATTRIB_TILES_SHORT)
         else:
             # terrain's lakes and rivers come from the tiles too, so the
-            # first rung credits both sources and the fallbacks shorten
-            attribs = (f"{ATTRIBUTION} · {_maps_style.ATTRIB_TILES_SHORT}",
+            # first rung credits both sources and the fallbacks shorten;
+            # the settlement raster earns its CC-BY credit when in use
+            ghsl = (f" · {_builtup.ATTRIBUTION}"
+                    if _builtup.enabled() else "")
+            attribs = (f"{ATTRIBUTION} · "
+                       f"{_maps_style.ATTRIB_TILES_SHORT}{ghsl}",
                        ATTRIBUTION)
         scale = _scale_bar(bbox, graph_w, lang) if view == "street" else ""
         # first rung that fits wins: long+hint, short+hint, short, bare

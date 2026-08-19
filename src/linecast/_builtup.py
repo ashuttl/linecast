@@ -26,13 +26,18 @@ MAX_ZOOM = 10  # the pyramid's floor: ~150 m per pixel, plenty for a tint
 
 ATTRIBUTION = "Built-up: GHSL © EC JRC"
 
+# The published tileset (fill in when the public bucket lands); the
+# environment variable always wins, and an empty default leaves the
+# layer off exactly as before it existed.
+DEFAULT_URL = ""
+
 
 def enabled():
-    return bool(os.environ.get("LINECAST_BUILTUP_URL"))
+    return bool(os.environ.get("LINECAST_BUILTUP_URL", DEFAULT_URL))
 
 
 def _tile_url(z, x, y):
-    base = os.environ["LINECAST_BUILTUP_URL"].rstrip("/")
+    base = os.environ.get("LINECAST_BUILTUP_URL", DEFAULT_URL).rstrip("/")
     return f"{base}/{z}/{x}/{y}.png"
 
 

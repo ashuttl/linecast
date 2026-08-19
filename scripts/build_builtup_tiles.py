@@ -9,13 +9,22 @@ written — absence means zero, which keeps a global set to a few hundred
 megabytes.
 
 Source data: https://ghsl.jrc.ec.europa.eu/download.php (CC-BY 4.0,
-cite "GHSL © European Commission JRC").  Download the 4326_3ss zips for
-the regions you want (about 50 MB per 10°x10° tile), unzip, and run:
+cite "GHSL © European Commission JRC").  Either hand it GeoTIFFs you
+downloaded yourself:
 
     uv run --with rasterio scripts/build_builtup_tiles.py \
         out_tiles/ GHS_BUILT_S_*_R5_C11.tif --zooms 5-10
 
-Then point linecast at the result:
+or let it walk the whole JRC tile grid itself — the global bake:
+
+    uv run --with rasterio scripts/build_builtup_tiles.py \
+        out_tiles/ --fetch --zooms 5-9
+
+The global run downloads each 10°x10° source (~50 MB), tiles it, and
+deletes it before moving on, so disk stays bounded; a `.done` file in
+the output directory makes it resumable, and tiles at region seams
+max-merge with whatever an earlier source wrote.  Then point linecast
+at the result:
 
     LINECAST_BUILTUP_URL=file:///path/to/out_tiles linecast maps ...
 
@@ -29,6 +38,10 @@ import argparse
 import math
 import struct
 import sys
+import tempfile
+import urllib.error
+import urllib.request
+import zipfile
 import zlib
 from pathlib import Path
 
@@ -36,6 +49,11 @@ import numpy as np
 import rasterio
 
 TILE = 256
+
+FETCH_URL = ("https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/"
+             "GHS_BUILT_S_GLOBE_R2023A/GHS_BUILT_S_E2020_GLOBE_R2023A"
+             "_4326_3ss/V1-0/tiles/GHS_BUILT_S_E2020_GLOBE_R2023A"
+             "_4326_3ss_V1_0_R{r}_C{c}.zip")
 
 
 def encode_png_gray(w, h, data):
@@ -122,23 +140,82 @@ def build(sources, out, zooms):
                     continue
                 d = out / str(z) / str(tx)
                 d.mkdir(parents=True, exist_ok=True)
-                (d / f"{ty}.png").write_bytes(
-                    encode_png_gray(TILE, TILE, acc.tobytes()))
+                path = d / f"{ty}.png"
+                if path.exists():  # a neighbouring source wrote the seam
+                    with rasterio.open(path) as old:
+                        acc = np.maximum(acc, old.read(1))
+                path.write_bytes(encode_png_gray(TILE, TILE, acc.tobytes()))
                 written += 1
-        print(f"z{z}: done ({written} tiles so far)")
     return written
+
+
+def fetch_all(out, zooms):
+    """Walk the JRC 10°x10° grid: download, tile, delete, repeat.
+
+    Sources already in `.done` are skipped, a 404 is remembered as
+    "ocean, nothing there", and a transient failure is left un-marked
+    so the next run retries it.  Crash-safe: a half-processed source
+    reruns idempotently because seam tiles merge by max.
+    """
+    out.mkdir(parents=True, exist_ok=True)
+    done_path = out / ".done"
+    done = set(done_path.read_text().split()) if done_path.exists() else set()
+    total = 0
+    for r in range(1, 19):
+        for c in range(1, 37):
+            key = f"R{r}_C{c}"
+            if key in done:
+                continue
+            try:
+                with urllib.request.urlopen(FETCH_URL.format(r=r, c=c),
+                                            timeout=300) as resp:
+                    data = resp.read()
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
+                    done.add(key)
+                    done_path.write_text("\n".join(sorted(done)))
+                    print(f"{key}: no source (ocean)", flush=True)
+                    continue
+                print(f"{key}: HTTP {exc.code}, will retry next run",
+                      flush=True)
+                continue
+            except Exception as exc:
+                print(f"{key}: {exc}, will retry next run", flush=True)
+                continue
+            with tempfile.TemporaryDirectory() as td:
+                zp = Path(td) / "src.zip"
+                zp.write_bytes(data)
+                del data
+                with zipfile.ZipFile(zp) as z:
+                    tifs = [n for n in z.namelist() if n.endswith(".tif")]
+                    z.extractall(td, members=tifs)
+                n = 0
+                for t in tifs:
+                    n += build([Source(Path(td) / t)], out, zooms)
+            total += n
+            done.add(key)
+            done_path.write_text("\n".join(sorted(done)))
+            print(f"{key}: {n} tiles ({total} this run)", flush=True)
+    return total
 
 
 def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("out", type=Path)
-    p.add_argument("tifs", nargs="+", type=Path)
+    p.add_argument("tifs", nargs="*", type=Path)
+    p.add_argument("--fetch", action="store_true",
+                   help="download and process the whole JRC grid")
     p.add_argument("--zooms", default="5-10",
                    help="zoom range to build, e.g. 5-10 (default)")
     args = p.parse_args()
     lo, hi = (int(v) for v in args.zooms.split("-"))
-    sources = [Source(t) for t in args.tifs]
-    n = build(sources, args.out, range(lo, hi + 1))
+    zooms = range(lo, hi + 1)
+    if args.fetch:
+        n = fetch_all(args.out, zooms)
+    elif args.tifs:
+        n = build([Source(t) for t in args.tifs], args.out, zooms)
+    else:
+        p.error("give source GeoTIFFs or --fetch")
     print(f"{n} tiles -> {args.out}")
     return 0
 
