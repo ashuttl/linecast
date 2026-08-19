@@ -97,6 +97,8 @@ class TestNewBindings:
         for data, action in ((b"v", "key:v"), (b"V", "key:v"),
                              (b"p", "key:p"), (b"P", "key:p"),
                              (b"d", "key:d"), (b"D", "key:d"),
+                             (b"l", "key:l"), (b"L", "key:l"),
+                             (b"r", "key:r"), (b"R", "key:r"),
                              (b"/", "key:/"), (b"?", "key:?")):
             os.write(pipe[1], data)
             assert _read_key(pipe[0]) == action

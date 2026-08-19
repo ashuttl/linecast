@@ -580,6 +580,7 @@ HELP_KEYS = (
     None,
     ("v", 'help_view'),
     ("l", 'help_labels'),
+    ("r", 'help_spin'),
     ("/", 'help_search'),
     ("d", 'help_directions'),
     ("o", 'help_origin'),
@@ -596,10 +597,12 @@ HELP_WIDTH = 47
 _KEY_COL = 9
 
 
-def _help_rows(lang, route, glyphs):
+def _help_rows(lang, route, glyphs, terse=False):
     """(mark, text) content rows; None is a blank spacer."""
     rows = []
     for entry in HELP_KEYS:
+        if terse and entry is not None and entry[0] == "?":
+            continue  # tightest rung: it names the panel being read
         rows.append(None if entry is None
                     else (entry[0], ms(entry[1], lang)))
     if glyphs:
@@ -619,16 +622,18 @@ def help_overlay(cols, rows, lang="en", route=False):
     """The `?` panel, or "" when the terminal cannot hold it.
 
     Degradation is deterministic and never scrolls: drop the glyph
-    legend, then the blank spacers, then give up entirely — a panel that
-    scrolls is a panel you have to operate.
+    legend, then the blank spacers, then the `?` row naming the panel
+    itself, then give up entirely — a panel that scrolls is a panel you
+    have to operate.
     """
     surface = surface_bg(0.10)
     ink = ensure_contrast(theme_fg, surface, 4.0)
     width = max(24, min(cols - 4, HELP_WIDTH))
     budget = rows - 2
 
-    for glyphs, blanks in ((True, True), (False, True), (False, False)):
-        content = _help_rows(lang, route, glyphs)
+    for glyphs, blanks, terse in ((True, True, False), (False, True, False),
+                                  (False, False, False), (False, False, True)):
+        content = _help_rows(lang, route, glyphs, terse)
         if not blanks:
             content = [r for r in content if r is not None]
         if len(content) + 2 <= budget:

@@ -1304,6 +1304,8 @@ def main():
         pan_preview = [0, 0]
         drag_base = [None]   # centre at globe-drag start, or None
         drag_sync = [False]  # next repaint renders the globe blocking
+        spinning = [0]       # active spin generation; 0 = parked
+        spin_seq = [0]       # last generation ever started
         view = [args.view]
         show_labels = [True]
         search = _maps_ui.SearchState()
@@ -1351,6 +1353,31 @@ def main():
             zoom[0] = new_zoom
             return True
 
+        def spin(gen):
+            """The r screensaver: the planet turns while you watch.
+
+            Each tick walks the centre meridian westward and repaints
+            through the same warm-canvas blocking path a drag uses, so
+            the geography drifts eastward the way it actually does —
+            about a degree a second, six minutes to the revolution.
+            The spin yields to a drag in progress and parks itself the
+            moment a zoom crosses back inside the hand-off.
+            """
+            import signal
+            import time
+            while spinning[0] == gen:
+                time.sleep(0.4)
+                if spinning[0] != gen:
+                    break
+                if zoom[0] < _globe.ZOOM_DEG:
+                    spinning[0] = 0
+                    break
+                if drag_base[0] is not None:
+                    continue  # a drag steers; the spin waits its turn
+                center[1] = (center[1] - 0.4 + 180.0) % 360.0 - 180.0
+                drag_sync[0] = True
+                os.kill(os.getpid(), signal.SIGWINCH)
+
         def on_action(key):
             if key == '+':
                 return zoom_to(zoom[0] / ZOOM_STEP)
@@ -1363,6 +1390,20 @@ def main():
             if key == 'l':
                 show_labels[0] = not show_labels[0]
                 return True
+            if key == 'r':
+                if spinning[0]:
+                    spinning[0] = 0
+                    return False
+                cols, rows = get_terminal_size()
+                hc = max(8, rows - 2)
+                if (zoom[0] < _globe.ZOOM_DEG
+                        or not _globe.warm(zoom[0], hc * 4)):
+                    return False  # only a warm globe spins
+                spin_seq[0] += 1
+                spinning[0] = spin_seq[0]
+                threading.Thread(target=spin, args=(spinning[0],),
+                                 daemon=True).start()
+                return False  # the first tick is the repaint
             return False
 
         def on_wheel(direction, col, row):
@@ -1566,6 +1607,7 @@ def main():
             text_mode=lambda: search.open,
             on_click=on_click,
         )
+        spinning[0] = 0  # the loop is over; let the spin thread park
     else:
         found = note = None
         start = (origin.lat, origin.lon) if origin else (lat, lon)

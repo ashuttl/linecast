@@ -210,6 +210,10 @@ def _read_key(fd, text=False):
         return 'key:p'
     if b in (b'd', b'D'):
         return 'key:d'
+    if b in (b'l', b'L'):
+        return 'key:l'
+    if b in (b'r', b'R'):
+        return 'key:r'
     if b == b'/':
         return 'key:/'
     if b == b'?':
