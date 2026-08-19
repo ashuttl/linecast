@@ -86,6 +86,16 @@ class TestElevation:
         grid = _globe.elevation(lls, 125.0, 12)
         assert grid[6][6] is not None
 
+    def test_warm_tracks_the_stitched_canvas(self, monkeypatch):
+        # warm() gates live drag rotation: it must agree with the
+        # source zoom elevation() actually samples, and never fetch
+        monkeypatch.setattr(_globe, "_canvas_cache", {})
+        zoom, h = 125.0, 44 * 4
+        assert not _globe.warm(zoom, h)
+        _globe._canvas_cache[_globe._source_zoom(zoom, h)] = object()
+        assert _globe.warm(zoom, h)
+        assert not _globe.warm(zoom, h * 8)  # finer grid, colder zoom
+
 
 class TestAtmosphere:
     def test_rim_hugs_the_limb(self):

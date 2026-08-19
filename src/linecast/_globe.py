@@ -134,6 +134,22 @@ def geometry(lat0, lon0, zoom, w, h):
 _canvas_cache = {}
 
 
+def _source_zoom(zoom, h):
+    """Terrarium zoom level whose detail matches zoom/h degrees per sample."""
+    return min(3, max(1, round(math.log2(
+        max(1e-9, 360.0 / (zoom / h) / _TILE_SIZE)))))
+
+
+def warm(zoom, h):
+    """True once the world canvas this view samples is already stitched.
+
+    A warm canvas is what makes live rotation possible: re-rendering
+    the globe at a new centre is then pure arithmetic, never a network
+    wait, so a drag can afford to re-project every frame.
+    """
+    return _source_zoom(zoom, h) in _canvas_cache
+
+
 def _world_canvas(z, timeout):
     """The whole world's terrarium tiles stitched at zoom `z`, memoised."""
     hit = _canvas_cache.get(z)
@@ -165,8 +181,7 @@ def elevation(lls, zoom, h, timeout=15):
     few dozen immutable, disk-cached tiles, so the globe costs the
     network almost nothing after its first spin.
     """
-    z = min(3, max(1, round(math.log2(
-        max(1e-9, 360.0 / (zoom / h) / _TILE_SIZE)))))
+    z = _source_zoom(zoom, h)
     canvas, cw, ch, org_x, org_y, world = _world_canvas(z, timeout)
     grid = []
     for ll_row in lls:

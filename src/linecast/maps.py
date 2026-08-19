@@ -1302,6 +1302,8 @@ def main():
         zoom = [args.zoom]
         center = [lat, lon]
         pan_preview = [0, 0]
+        drag_base = [None]   # centre at globe-drag start, or None
+        drag_sync = [False]  # next repaint renders the globe blocking
         view = [args.view]
         show_labels = [True]
         search = _maps_ui.SearchState()
@@ -1475,6 +1477,37 @@ def main():
             return True
 
         def on_drag(dcol, drow, done):
+            cols, rows = get_terminal_size()
+            gw, hc = max(20, cols), max(8, rows - 2)
+            # On the globe the disk stays put and the geography turns
+            # under the cursor: every motion event recentres the view
+            # from the drag-start centre and the repaint re-projects the
+            # sphere, so the drag *is* the rotation rather than a
+            # shifted snapshot of it.  Only a warm view rotates live —
+            # until the world canvas is stitched there is nothing to
+            # re-project without blocking on the network — and a drag
+            # keeps whichever idiom it started with.
+            globing = drag_base[0] is not None or (
+                not (pan_preview[0] or pan_preview[1])
+                and zoom[0] >= _globe.ZOOM_DEG
+                and _globe.warm(zoom[0], hc * 4))
+            if globing:
+                if drag_base[0] is None:
+                    if done:
+                        return False  # a click, not a drag
+                    drag_base[0] = (center[0], center[1])
+                base_lat, base_lon = drag_base[0]
+                lat = max(-80.0, min(80.0,
+                                     base_lat + drow * zoom[0] / hc))
+                lon = base_lon - (dcol * (zoom[0] / (hc * 2))
+                                  / math.cos(math.radians(base_lat)))
+                lon = (lon + 180.0) % 360.0 - 180.0
+                changed = center != [lat, lon]
+                center[0], center[1] = lat, lon
+                drag_sync[0] = drag_sync[0] or changed
+                if done:
+                    drag_base[0] = None
+                return changed or done
             if not done:
                 changed = pan_preview != [dcol, drow]
                 pan_preview[0], pan_preview[1] = dcol, drow
@@ -1483,8 +1516,6 @@ def main():
             pan_preview[0] = pan_preview[1] = 0
             if not (dcol or drow):
                 return bool(had_preview)
-            cols, rows = get_terminal_size()
-            gw, hc = max(20, cols), max(8, rows - 2)
             lon_span = (zoom[0] * (gw / (hc * 2))
                         / math.cos(math.radians(center[0])))
             center[0] = max(-80.0, min(80.0, center[0] + drow * zoom[0] / hc))
@@ -1509,9 +1540,14 @@ def main():
                     routes.set_origin(hit.lat, hit.lon, hit.name)
                     if routes.dest is not None:
                         routes.request()
+            # A rotating globe repaints synchronously: its canvas is
+            # warm, so "blocking" is ~a tenth of a second of arithmetic,
+            # and the alternative is a blank disk between frames.
+            sync = drag_sync[0] and zoom[0] >= _globe.ZOOM_DEG
+            drag_sync[0] = False
             return render_map(
                 center[0], center[1], location_name, zoom[0],
-                marker=(lat, lon), runtime=runtime, block=False,
+                marker=(lat, lon), runtime=runtime, block=sync,
                 pan_offset=(pan_preview[0], pan_preview[1]),
                 mouse_pos=mouse_pos, view=view[0], search=search,
                 route=routes.route, dest=routes.dest,
