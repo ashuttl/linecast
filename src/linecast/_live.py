@@ -438,6 +438,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                         break
                     elif on_action is not None and isinstance(action, str) and action.startswith('key:'):
                         if on_action(action[4:]):
+                            if select.select([fd], [], [], 0)[0]:
+                                continue  # coalesce held-down keys (zoom taps)
                             break
                     elif mouse and isinstance(action, tuple) and action[0] == 'mouse':
                         _, cb, cx, cy, is_rel = action

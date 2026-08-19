@@ -70,6 +70,7 @@ MIN_ZOOM_DEG = 0.0012
 # (the disk's diameter is 2·(180/π) ≈ 114.6 zoom-degrees)
 MAX_ZOOM_DEG = 130.0
 ZOOM_STEP = 1.5          # matches radar, so the two views feel the same
+ZOOM_SETTLE = 0.3        # seconds of zoom quiet before a fetch may start
 
 # geography over terrain: dark strokes cut into the colour fill (the
 # radar palette's dim-on-dark strokes vanish against light terrain).
@@ -164,6 +165,36 @@ _street_cache = {}   # (bbox, w, h) -> (fills, ranked DotLayer)
 _street_pending = set()
 _street_lock = threading.Lock()
 _live_refresh = False
+_fetch_hold = [0.0]  # monotonic deadline; live zoom taps push it forward
+
+
+def _fetch_held():
+    """True while a live zoom gesture is still in flight."""
+    import time
+    return time.monotonic() < _fetch_hold[0]
+
+
+def _hold_fetches():
+    """Zoom taps repaint instantly, but only the view you stop on fetches.
+
+    Each intermediate zoom is its own cache key, so without a hold a
+    run of `-` presses from the default view out to the planet spawns a
+    full tile fetch per step — and they all fight the one view actually
+    asked for.  Each tap pushes the deadline instead; a timer nudges a
+    repaint once the last deadline passes, and that repaint is the one
+    that reaches the network.
+    """
+    import time
+    deadline = time.monotonic() + ZOOM_SETTLE
+    _fetch_hold[0] = deadline
+
+    def settle():
+        import signal
+        time.sleep(ZOOM_SETTLE + 0.02)
+        if _fetch_hold[0] == deadline:
+            os.kill(os.getpid(), signal.SIGWINCH)
+
+    threading.Thread(target=settle, daemon=True).start()
 
 
 def _view_key(bbox, gw, hc):
@@ -261,7 +292,7 @@ def _get_elevation(bbox, gw, hc, block):
         if hit is not None:
             return hit
         if not block:
-            if key in _elev_pending:
+            if key in _elev_pending or _fetch_held():
                 return _EMPTY_TERRAIN
             _elev_pending.add(key)
 
@@ -371,7 +402,7 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
         if hit is not None:
             return hit
         if not block:
-            if key in _street_pending:
+            if key in _street_pending or _fetch_held():
                 return None, None, None
             _street_pending.add(key)
 
@@ -845,7 +876,7 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block):
         if hit is not None:
             return hit
         if not block:
-            if key in _globe_pending:
+            if key in _globe_pending or _fetch_held():
                 return None
             _globe_pending.add(key)
 
@@ -1471,6 +1502,7 @@ def main():
                 elif center[1] < -180.0:
                     center[1] += 360.0
             zoom[0] = new_zoom
+            _hold_fetches()
             return True
 
         def spin(gen):
