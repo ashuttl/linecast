@@ -24,12 +24,14 @@ from linecast._runtime import debug_log
 
 MAX_ZOOM = 10  # the pyramid's floor: ~150 m per pixel, plenty for a tint
 
-ATTRIBUTION = "Built-up: GHSL © EC JRC"
+# CC-BY credit for the built-up layer, kept terse so the footer's
+# widest rung still fits an 80-column terminal
+ATTRIBUTION = "GHSL © EC JRC"
 
-# The published tileset (fill in when the public bucket lands); the
-# environment variable always wins, and an empty default leaves the
-# layer off exactly as before it existed.
-DEFAULT_URL = ""
+# The published tileset (the linecast-tiles R2 bucket); the
+# environment variable always wins — point it elsewhere or set it
+# empty to turn the layer off.
+DEFAULT_URL = "https://pub-7cd451cba001436682e8f909f357db35.r2.dev"
 
 
 def enabled():
@@ -42,13 +44,23 @@ def _tile_url(z, x, y):
 
 
 def _fetch_tile(z, x, y, timeout=15):
-    """Tile PNG bytes, disk-cached forever; a cached miss reads as None."""
+    """Tile PNG bytes, disk-cached; a cached miss reads as None.
+
+    Real tiles cache forever (the pyramid is content-stable), but empty
+    misses expire after a month: a 404 usually means "nothing built
+    here", yet it is also what a still-uploading or updated tileset
+    says, and that kind of wrong answer shouldn't be permanent.
+    """
+    import time
     import urllib.request
     cdir = CACHE_ROOT / "maps"
     cpath = cdir / f"builtup_{z}_{x}_{y}.png"
     if cpath.exists():
         data = cpath.read_bytes()
-        return data or None  # zero bytes = cached "nothing built here"
+        if data:
+            return data
+        if time.time() - cpath.stat().st_mtime < 30 * 86400:
+            return None  # zero bytes = cached "nothing built here"
     try:
         req = urllib.request.Request(_tile_url(z, x, y),
                                      headers={"User-Agent": USER_AGENT})
