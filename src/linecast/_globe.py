@@ -21,7 +21,7 @@ from collections import namedtuple
 from linecast._elevation import _fetch_tile, decode_meters
 from linecast._png import decode_rgba
 from linecast._radar_basemap import (
-    CITY, CITY_LABEL, _cell_width, _load_data, _localized)
+    CITY, CITY_LABEL, DotLayer, _cell_width, _load_data, _localized)
 from linecast._radar_tiles import _TILE_SIZE, _lonlat_to_world, stitch_xyz
 
 # `zoom` (degrees of latitude the screen spans) at which the flat map
@@ -36,7 +36,7 @@ _MERCATOR_LAT = 85.05
 
 _ATMOSPHERE = (104, 148, 198)
 
-GlobeView = namedtuple("GlobeView", "elev coast shade atmo cover")
+GlobeView = namedtuple("GlobeView", "elev coast shade atmo cover borders")
 
 
 def ice_cover(lls, elev, ice_id):
@@ -233,6 +233,56 @@ def atmosphere(rhos, zoom, h):
         out.append([max(0.0, 1.0 - (rho - 1.0) / width)
                     if rho > 1.0 else 0.0 for rho in rho_row])
     return out
+
+
+def fill_buffer(elev, water, ground, bg):
+    """Street-register fills for the globe: flat sea, flat ground.
+
+    The street map's planet is the street map's idiom — two quiet
+    fills and a braille coastline — bent onto the sphere.  A palette
+    that paints no fills (the 16-colour line map) gets background, and
+    the coastline carries the geography alone, exactly as it does on
+    the flat map.
+    """
+    buf = []
+    for row in elev:
+        out = []
+        for e in row:
+            if e is None:
+                out.append(bg)
+            elif e <= 0:
+                out.append(water if water is not None else bg)
+            else:
+                out.append(ground if ground is not None else bg)
+        buf.append(out)
+    return buf
+
+
+def border_layer(lat0, lon0, zoom, gw, hc, color):
+    """Natural Earth borders stroked onto the globe as a braille layer.
+
+    Both endpoints of a segment must face the viewer, and a segment
+    whose endpoints are more than ~70 degrees of arc apart is skipped —
+    two points that far apart in the vendored polylines are an artifact
+    of simplification, and their chord would slice across the disk.
+    """
+    layer = DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
+    r = _radius(zoom, hc * 4)
+    cx, cy = gw * 2 / 2.0, hc * 4 / 2.0
+    for coords in _load_data()["borders"]:
+        prev = None
+        for lon, lat in coords:
+            ux, uy, cos_c = forward(lat, lon, lat0, lon0)
+            if cos_c <= 0.02:
+                prev = None
+                continue
+            p = (cx + ux * r, cy - uy * r, ux, uy, cos_c)
+            if prev is not None:
+                arc = prev[2] * ux + prev[3] * uy + prev[4] * cos_c
+                if arc > 0.34:
+                    layer._dot_line(prev[0], prev[1], p[0], p[1], color)
+            prev = p
+    return layer
 
 
 def marker_cell(lat0, lon0, zoom, gw, hc, m_lat, m_lon):

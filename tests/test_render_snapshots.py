@@ -279,12 +279,21 @@ class TestMapsSnapshot:
                                              gw * 2, hc * 4)
             return _globe.GlobeView(
                 synth(lls), maps._coast_dots(synth(flls), gw, hc), zs,
-                _globe.atmosphere(rhos, zoom, hc * 2), None)
+                _globe.atmosphere(rhos, zoom, hc * 2), None,
+                _globe.border_layer(lat0, lon0, zoom, gw, hc,
+                                    maps.BORDER_STROKE))
 
         output = self._render(
             "terrain", patch.object(maps, "_get_globe", get_globe),
             zoom=125.0)
         _compare_or_create("maps_globe_80x24.txt", output)
+
+        # the street register rides the same sphere: flat fills, the
+        # same coastline, borders and labels — pinned separately
+        output = self._render(
+            "street", patch.object(maps, "_get_globe", get_globe),
+            zoom=125.0)
+        _compare_or_create("maps_globe_street_80x24.txt", output)
 
     @staticmethod
     def _tile_xy(lon, lat, z, tx, ty, extent=4096):

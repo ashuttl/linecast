@@ -121,6 +121,27 @@ class TestIce:
         assert _globe.ice_cover(lls, elev, 7) is None
 
 
+class TestLabelToggle:
+    def test_globe_render_hides_city_text_when_toggled(self, monkeypatch):
+        from linecast import maps
+        gw, hc = 40, 12
+        lls, zs, rhos = _globe.geometry(20.0, -30.0, 125.0, gw, hc * 2)
+        elev = [[None if ll is None else 500.0 for ll in row]
+                for row in lls]
+        view = _globe.GlobeView(elev, [[0] * gw for _ in range(hc)], zs,
+                                _globe.atmosphere(rhos, 125.0, hc * 2),
+                                None, None)
+        monkeypatch.setattr(maps, "_get_globe", lambda *a: view)
+        monkeypatch.setattr(maps, "get_terminal_size", lambda: (gw, hc + 2))
+        bbox = (-31.0, -42.5, -29.0, 82.5)  # centre (20, -30), zoom 125
+        args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
+                "en", None)
+        on, *_rest = maps._render_globe(*args, show_labels=True)
+        off, *_rest = maps._render_globe(*args, show_labels=False)
+        assert any("•" in line for line in on)
+        assert not any("•" in line for line in off)
+
+
 class TestCities:
     def test_labels_stay_on_screen_and_visible_side(self):
         overlays = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22)

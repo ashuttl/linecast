@@ -579,6 +579,7 @@ HELP_KEYS = (
     ("n", 'help_reset'),
     None,
     ("v", 'help_view'),
+    ("l", 'help_labels'),
     ("/", 'help_search'),
     ("d", 'help_directions'),
     ("o", 'help_origin'),
