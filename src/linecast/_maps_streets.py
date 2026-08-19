@@ -806,6 +806,8 @@ def _street_density_urban(grid, view, bbox, dw, dh, value):
             out.append(acc + prev[x + 1])
         integ.append(out)
 
+    z_src = view[0][0][0] if view else 0
+    need = style.urban_street_min(z_src)
     r = style.URBAN_STREET_RADIUS
     for y in range(dh):
         y0, y1 = max(0, y - r), min(dh - 1, y + r) + 1
@@ -816,7 +818,7 @@ def _street_density_urban(grid, view, bbox, dw, dh, value):
             x0, x1 = max(0, x - r), min(dw - 1, x + r) + 1
             n = (integ[y1][x1] - integ[y0][x1]
                  - integ[y1][x0] + integ[y0][x0])
-            if n >= style.URBAN_STREET_MIN:
+            if n >= need:
                 grow[x] = value
 
 

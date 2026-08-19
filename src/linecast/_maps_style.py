@@ -538,12 +538,22 @@ COVER_BLEND = 0.72
 # streets long before it maps a single landuse polygon (downtown
 # Portland, Maine has none), and a dense weave of minor and service
 # roads is settlement whether or not anyone drew the boundary.  A
-# sub-pixel with URBAN_STREET_MIN street dots in its (2R+1)^2 window
-# takes the urban tint; a lone country road threads a window with ~5
-# dots and stays rural.
+# sub-pixel with enough street dots in its (2R+1)^2 window takes the
+# urban tint; a lone country road threads a window as a single line
+# and stays rural.
+#
+# The threshold must know the source zoom: the tile carries the street
+# subset OpenMapTiles chose to *display* at that zoom, not the street
+# network — Manhattan's grid at z12 is thinned to arterials that would
+# not tint a village.  Each zoom below 13 roughly halves what
+# survives, so the bar drops with it (and below z11 the minor class is
+# gone entirely, which switches the signal off by itself).
 URBAN_STREET_CLASS = ("minor", "service")
-URBAN_STREET_RADIUS = 2
-URBAN_STREET_MIN = 10
+URBAN_STREET_RADIUS = 3
+
+
+def urban_street_min(z_src):
+    return max(4, round(14 * 0.55 ** max(0, 13 - z_src)))
 
 # Aeroway geometry the terrain paints as paved ground — a runway is
 # the one thing on an airfield that is definitely not grass.
