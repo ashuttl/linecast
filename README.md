@@ -127,12 +127,28 @@ Street view renders OpenFreeMap vector tiles as solid water, land, parks, and bu
 
 Terrain view turns global elevation into hillshade and a hypsometric ramp, from deep ocean trenches through lowland green to alpine white. Coastlines, borders, water, and cities are drawn over it in braille.
 
-Zoom all the way out and either view becomes an orthographic globe you can rotate by dragging — or set spinning with `r`. Two keys switch on the sky as it is right now: `s` shades the planet into actual daylight, with a creeping terminator and cities glowing on the night side, and `c` lays the current global cloud cover over it from live satellite imagery. `maps --view now` opens straight to the full picture.
-
 <p align="center">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-street.png" width="49%" alt="street map of Portland, Maine">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-terrain.png" width="49%" alt="terrain map of the Alps around Innsbruck">
 </p>
+
+Zoom all the way out and either view becomes an orthographic globe you can rotate by dragging — or set spinning with `r`. Two keys switch on the sky as it is right now: `s` shades the planet into actual daylight, with a creeping terminator and cities glowing on the night side, and `c` lays the current global cloud cover over it from live satellite imagery. `maps --view now` opens straight to the full picture.
+
+![the globe as it is right now: live daylight, the terminator, and this hour's clouds](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-globe.png)
+
+Everything is a single key — `?` shows this list in the app:
+
+| Keys | |
+|------|---|
+| drag · wheel · hover | pan, zoom at the pointer, identify what's under the cursor |
+| `+` `-` | zoom (a held key coasts; only the view you stop on fetches) |
+| `n` | back to the start view |
+| `v` `l` | street ↔ terrain · toggle labels |
+| `s` `c` | daylight and night city lights · live cloud cover |
+| `r` | spin the globe |
+| `/` | search places and addresses |
+| `d` `o` `p` | directions · set the origin · cycle travel mode |
+| `q` | quit |
 
 ```sh
 maps --location "Portland, Maine" --zoom 0.01

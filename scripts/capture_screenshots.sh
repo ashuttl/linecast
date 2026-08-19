@@ -24,6 +24,7 @@ WEATHER_PLACE=${LINECAST_CAPTURE_WEATHER_PLACE:-Dublin, Ireland}
 RADAR_PLACE=${LINECAST_CAPTURE_RADAR_PLACE:-Glasgow, Scotland}
 STREET_PLACE=${LINECAST_CAPTURE_STREET_PLACE:-Portland, Maine}
 TERRAIN_PLACE=${LINECAST_CAPTURE_TERRAIN_PLACE:-Innsbruck}
+GLOBE_PLACE=${LINECAST_CAPTURE_GLOBE_PLACE:-20,-30}
 TIDE_STATION=${LINECAST_CAPTURE_TIDE_STATION:-8418150}
 ASTRO_LOCATION=${LINECAST_CAPTURE_ASTRO_LOCATION:-43.676,-70.371}
 
@@ -39,6 +40,7 @@ Targets:
   tides      tides.png
   radar      radar.png and radar.gif
   maps       maps-street.png and maps-terrain.png
+  globe      maps-globe.png — the planet with the live sky (differs every run)
   hero       hero.png — the four apps tiled live on one offscreen desktop
 
 Environment overrides:
@@ -47,6 +49,7 @@ Environment overrides:
   LINECAST_CAPTURE_RADAR_PLACE
   LINECAST_CAPTURE_STREET_PLACE
   LINECAST_CAPTURE_TERRAIN_PLACE
+  LINECAST_CAPTURE_GLOBE_PLACE
   LINECAST_CAPTURE_TIDE_STATION
   LINECAST_CAPTURE_ASTRO_LOCATION
 EOF
@@ -173,6 +176,17 @@ maps() {
         --location "$TERRAIN_PLACE" --zoom 1.5
 }
 
+globe() {
+    printf 'Capturing globe…\n'
+    # --view now is the whole point of the frame: the planet with this
+    # hour's terminator, city lights, and cloud cover, so the capture is
+    # honestly different every time it runs.  The default centre sits on
+    # the mid-Atlantic where the terminator usually crosses the disk.
+    "$CAPTURE_TOOL" -s 120x38 -w 25 -o "$SHOT_DIR/maps-globe.png" \
+        uv --directory "$REPO_DIR" run maps --view now \
+        --location "$GLOBE_PLACE"
+}
+
 hero() {
     printf 'Capturing hero…\n'
     # One real screenshot: four linecast apps tiled by Hyprland on the
@@ -189,7 +203,7 @@ hero() {
 
 run_target() {
     case "$1" in
-        weather|sunshine|moon|tides|radar|maps|hero) "$1" ;;
+        weather|sunshine|moon|tides|radar|maps|globe|hero) "$1" ;;
         all)
             weather
             sunshine
@@ -197,6 +211,7 @@ run_target() {
             tides
             radar
             maps
+            globe
             ;;
         *)
             printf 'capture_screenshots: unknown target: %s\n' "$1" >&2
