@@ -747,6 +747,11 @@ def main():
     args = radar_parser().parse_args()
     runtime = RuntimeConfig.from_sources(namespace=args)
 
+    # Sweep day-old frame tiles before fetching new ones — they're keyed by
+    # frame timestamp and will never be asked for again.
+    from linecast._radar_tiles import prune_tile_cache
+    prune_tile_cache()
+
     if args.search:
         from linecast._weather_sources import _search_locations
         _search_locations(args.search, lang=runtime.lang)

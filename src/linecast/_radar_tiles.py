@@ -69,6 +69,33 @@ def _cache_dir(provider):
     return CACHE_ROOT / "radar" / provider.name
 
 
+# Frame tiles are keyed by their timestamped frame path and never requested
+# again once the animation window moves past them, so without a sweep the
+# cache only grows (a long-running radar adds megabytes per day).
+_PRUNE_MAX_AGE = 86400
+
+
+def prune_tile_cache(max_age=_PRUNE_MAX_AGE):
+    """Delete cached radar/satellite tiles older than *max_age* seconds.
+
+    Runs at radar startup. Only sweeps the timestamp-keyed radar tree;
+    immutable caches (terrain, vector tiles) are someone else's and eternal.
+    """
+    root = CACHE_ROOT / "radar"
+    if not root.is_dir():
+        return
+    cutoff = time.time() - max_age
+    for provider_dir in root.iterdir():
+        if not provider_dir.is_dir():
+            continue
+        for tile in provider_dir.glob("*.png"):
+            try:
+                if tile.stat().st_mtime < cutoff:
+                    tile.unlink()
+            except OSError:
+                pass  # a concurrent radar may have pruned it first
+
+
 def fetch_index(provider, timeout=15):
     """Return the parsed weather-maps.json (host + past/nowcast frame lists).
 
