@@ -1,10 +1,37 @@
 """Plumbing regression tests: terminal-size env overrides, atomic writes."""
 
+import json
 import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
+from linecast._cache import write_bytes_atomic, write_cache
 from linecast._framebuffer import get_terminal_size
+
+
+class AtomicWriteTests(unittest.TestCase):
+    def test_write_bytes_atomic_publishes_and_cleans_up(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "tile.png"
+            write_bytes_atomic(path, b"pixels")
+            self.assertEqual(path.read_bytes(), b"pixels")
+            self.assertEqual(os.listdir(tmpdir), ["tile.png"])  # no .tmp litter
+
+    def test_write_bytes_atomic_replaces_existing(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "tile.png"
+            path.write_bytes(b"old")
+            write_bytes_atomic(path, b"new")
+            self.assertEqual(path.read_bytes(), b"new")
+
+    def test_write_cache_round_trips_json(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sub" / "cache.json"
+            write_cache(path, {"a": 1})
+            self.assertEqual(json.loads(path.read_text()), {"a": 1})
+            self.assertEqual(os.listdir(path.parent), ["cache.json"])
 
 
 class TerminalSizeTests(unittest.TestCase):

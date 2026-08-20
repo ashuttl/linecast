@@ -14,7 +14,7 @@ https://registry.opendata.aws/terrain-tiles/
 import os
 
 from linecast import USER_AGENT
-from linecast._cache import CACHE_ROOT
+from linecast._cache import CACHE_ROOT, write_bytes_atomic
 from linecast._png import decode_rgba
 from linecast._radar_tiles import _lonlat_to_world, _pick_zoom, stitch_xyz
 from linecast._runtime import debug_log
@@ -50,7 +50,7 @@ def _fetch_tile(z, x, y, timeout=15):
         debug_log(f"terrarium tile {z}/{x}/{y} failed: {exc}")
         return None
     cdir.mkdir(parents=True, exist_ok=True)
-    cpath.write_bytes(data)
+    write_bytes_atomic(cpath, data)
     return data
 
 

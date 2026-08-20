@@ -24,12 +24,11 @@ import gzip
 import math
 import os
 import shutil
-import threading
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 from linecast import USER_AGENT
-from linecast._cache import CACHE_ROOT
+from linecast._cache import CACHE_ROOT, write_bytes_atomic
 from linecast._http import fetch_json_cached
 from linecast._radar_tiles import _lonlat_to_world
 from linecast._runtime import debug_log
@@ -179,10 +178,7 @@ def fetch_tile(z, x, y, timeout=15):
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         # atomic publish so a concurrent reader never sees a torn file
-        tmp = path.with_name(f"{path.name}.{os.getpid()}."
-                             f"{threading.get_ident()}.tmp")
-        tmp.write_bytes(data)
-        os.replace(tmp, path)
+        write_bytes_atomic(path, data)
     except OSError as exc:
         debug_log(f"vector tile cache write failed: {exc}")
     return data

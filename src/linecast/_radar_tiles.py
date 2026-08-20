@@ -20,7 +20,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 from linecast import USER_AGENT
-from linecast._cache import CACHE_ROOT
+from linecast._cache import CACHE_ROOT, write_bytes_atomic
 from linecast._png import decode_rgba
 from linecast._runtime import debug_log
 
@@ -86,7 +86,7 @@ def fetch_index(provider, timeout=15):
         req = urllib.request.Request(provider.index_url,
                                      headers={"User-Agent": USER_AGENT})
         data = urllib.request.urlopen(req, timeout=timeout).read()
-        path.write_bytes(data)
+        write_bytes_atomic(path, data)
         return json.loads(data)
     except Exception as exc:
         debug_log(f"{provider.name} index failed: {exc}")
@@ -142,7 +142,7 @@ def _fetch_tile(provider, host, path, z, x, y, timeout=15, mutable=False):
         debug_log(f"{provider.name} tile {z}/{x}/{y} failed: {exc}")
         return cpath.read_bytes() if cpath.exists() else None
     cdir.mkdir(parents=True, exist_ok=True)
-    cpath.write_bytes(data)
+    write_bytes_atomic(cpath, data)
     return data
 
 

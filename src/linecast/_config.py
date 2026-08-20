@@ -22,7 +22,8 @@ def read_config():
 def write_config(data):
     path = config_file()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n")
+    from linecast._cache import write_bytes_atomic
+    write_bytes_atomic(path, (json.dumps(data, indent=2) + "\n").encode())
 
 
 def saved_units():

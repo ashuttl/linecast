@@ -17,7 +17,7 @@ the sparse tileset is the compression.
 import os
 
 from linecast import USER_AGENT
-from linecast._cache import CACHE_ROOT
+from linecast._cache import CACHE_ROOT, write_bytes_atomic
 from linecast._png import decode_rgba
 from linecast._radar_tiles import _pick_zoom, reproject_xyz
 from linecast._runtime import debug_log
@@ -73,7 +73,7 @@ def _fetch_tile(z, x, y, timeout=15):
             return None
         data = b""  # absence means zero; remember it
     cdir.mkdir(parents=True, exist_ok=True)
-    cpath.write_bytes(data)
+    write_bytes_atomic(cpath, data)
     return data or None
 
 

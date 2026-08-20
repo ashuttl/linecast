@@ -1,9 +1,21 @@
 """Shared cache helpers for linecast."""
 
-import hashlib, json, time
+import hashlib, json, os, threading, time
 from pathlib import Path
 
 CACHE_ROOT = Path.home() / ".cache" / "linecast"
+
+
+def write_bytes_atomic(path, data):
+    """Write to a sibling temp file, then publish with os.replace.
+
+    Readers (and the four commands running side by side in the hero shot)
+    never observe a torn file, and a prefetch thread dying at interpreter
+    exit can't leave a truncated payload behind to be served forever.
+    """
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    tmp.write_bytes(data)
+    os.replace(tmp, path)
 
 
 def read_cache(path, max_age):
@@ -29,9 +41,9 @@ def read_stale(path):
 
 
 def write_cache(path, data):
-    """Write JSON cache file."""
+    """Write JSON cache file (atomically: concurrent commands share these)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data))
+    write_bytes_atomic(path, json.dumps(data).encode())
 
 
 def location_cache_key(lat, lng):
