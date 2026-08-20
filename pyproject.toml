@@ -34,3 +34,19 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/linecast"]
 artifacts = ["src/linecast/data/*.json.gz"]
+
+[tool.hatch.build.targets.sdist]
+# Keep the sdist lean: screenshots alone are ~12 MB, and the Homebrew
+# formula (and anyone building from source) downloads the sdist.
+exclude = [
+  "screenshots/",
+  "prototype/",
+  "scripts/",
+  ".github/",
+  ".claude/",
+  "get.sh",
+  "release.sh",
+  "release-homebrew.sh",
+  "TODO.md",
+  "uv.lock",
+]

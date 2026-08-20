@@ -30,9 +30,14 @@ echo "Bumping $CURRENT -> $NEW_VERSION"
 
 sed_i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" "$LINECAST_DIR/pyproject.toml"
 
-# --- 2. Commit, tag, and push ---
+# --- 2. Sync the lockfile so it never trails the tag ---
 cd "$LINECAST_DIR"
-git add pyproject.toml
+if command -v uv >/dev/null 2>&1; then
+  uv lock --quiet
+fi
+
+# --- 3. Commit, tag, and push ---
+git add pyproject.toml uv.lock
 git commit -m "$TAG"
 git tag "$TAG"
 git push origin main "$TAG"

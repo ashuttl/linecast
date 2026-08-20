@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-# linecast — terminal weather, solar arc, and tide visualizations
+# linecast — weather, sunlight, tides, radar, the Moon, and maps for the terminal
 # https://github.com/ashuttl/linecast
 #
 # Quick start:  curl -sL URL | sh
@@ -12,9 +12,9 @@ cmd="${1:-weather}"
 shift 2>/dev/null || true
 
 case "$cmd" in
-    weather|sunshine|tides|linecast) ;;
+    weather|sunshine|moon|tides|radar|maps|linecast) ;;
     -*) set -- "$cmd" "$@"; cmd=weather ;;  # bare flags like --metric
-    *) echo "Unknown command: $cmd (try weather, sunshine, or tides)"; exit 1 ;;
+    *) echo "Unknown command: $cmd (try weather, sunshine, moon, tides, radar, or maps)"; exit 1 ;;
 esac
 
 # Run a linecast command, reclaiming the terminal for interactive input
