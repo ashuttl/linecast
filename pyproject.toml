@@ -47,6 +47,5 @@ exclude = [
   "get.sh",
   "release.sh",
   "release-homebrew.sh",
-  "TODO.md",
   "uv.lock",
 ]
