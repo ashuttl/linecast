@@ -325,6 +325,16 @@ def _find_matching_stations(query, cli_location=None):
                 "lat": s.get("lat"), "lng": s.get("lng"),
             })
 
+    # TideCheck's server-side search returns coordinates too, so its hits
+    # join the pool before the distance sort like any other provider's.
+    if _tidecheck_available() and tokens:
+        for s in search_stations_tidecheck(query):
+            candidates.append({
+                "source": "tidecheck", "id": str(s.get("id", "")),
+                "name": s.get("name", ""),
+                "lat": s.get("lat"), "lng": s.get("lng"),
+            })
+
     here_lat, here_lng, _country = resolve_location(cli_location)
     for c in candidates:
         try:
@@ -339,13 +349,6 @@ def _find_matching_stations(query, cli_location=None):
             key=lambda c: (c["dist_nm"] is None, c["dist_nm"] or 0.0, c["name"]))
     else:
         candidates.sort(key=lambda c: c["name"])
-
-    if _tidecheck_available() and tokens:
-        for s in search_stations_tidecheck(query):
-            candidates.append({
-                "source": "tidecheck", "id": str(s.get("id", "")),
-                "name": s.get("name", ""), "dist_nm": None,
-            })
 
     return candidates
 

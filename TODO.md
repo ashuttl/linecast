@@ -1,23 +1,21 @@
 # TideCheck Integration — TODO
 
-## API Endpoint Verification
+## API Endpoint Verification — DONE (2026-08-20, live key)
 
-The TideCheck API endpoints were inferred from web search results and common
-tide API patterns.  The following need verification against the live API once
-a key is obtained:
+The endpoints were originally inferred; all of them have now been verified
+against the live API and the code corrected to match:
 
-- [ ] `GET /api/stations/nearest?lat=&lng=` — confirm response shape
-      (`{"station": {"id", "name", ...}}` vs flat object)
-- [ ] `GET /api/stations/search?q=` — confirm response shape
-      (`{"stations": [...]}` vs bare list)
-- [ ] `GET /api/station/:id/tides?days=N&datum=MLLW` — confirm:
-  - `extremes` array field name and entry fields (`time`, `height`, `type`)
-  - Whether a `heights` / `timeSeries` / `waterLevels` array is returned
-    for minute-by-minute data, or only extremes
-  - `station` metadata sub-object field names (`id`, `name`, `timezone`,
-    `latitude`/`lat`, `longitude`/`lng`)
-  - Unit of `height` values when `datum=MLLW` is requested (feet vs metres)
-  - Whether the `unit` / `units` field is present in the response
+- [x] `GET /api/stations/nearest?lat=&lng=` — returns a **bare JSON array**
+      sorted by distance, entries carry `id`, `name`, `label`, `lat`, `lng`,
+      `region`, `country`, `distanceKm`.
+- [x] `GET /api/stations/search?q=` — bare JSON array, same entry shape
+      (minus `distanceKm`).
+- [x] `GET /api/station/:id/tides?days=N&datum=MLLW` — returns `extremes`
+      **only** (no minute series; `time` UTC with fractional seconds,
+      `localTime` with offset, `localDate`, `height`, `type` "high"/"low"),
+      plus a rich `station` object (`id`, `name`, `region`, `country`,
+      `lat`, `lng`, `type`, `timezone` as IANA). Heights are **meters**;
+      there is no `unit` field. Free tier serves from yesterday forward.
 
 ## Rate Limiting Strategy (50 req/day)
 
@@ -25,10 +23,11 @@ The free tier is very tight.  Current mitigation:
 
 - **Aggressive caching**: raw API responses cached 24 hours; station lookups
   cached 1 hour; metadata cached 30 days; y-range cached 7 days.
-- **Single-request design**: one `/tides?days=N` call returns extremes AND
-  time series for up to 30 days, so a single request can power the full UI.
-- **Synthesized curves**: when the API returns only extremes (no time series),
-  a cosine-interpolated curve is generated client-side, avoiding extra requests.
+- **Shared fetches**: metadata is extracted from the same 30-day `/tides`
+  response the y-range uses, so it never costs a request of its own.
+- **Synthesized curves**: the API publishes extremes only, so the smooth
+  curve is generated client-side (shared cosine model with subordinate
+  NOAA stations) — no extra requests.
 
 ### Future improvements
 
@@ -50,13 +49,14 @@ The free tier is very tight.  Current mitigation:
 
 - [ ] The `_iana_to_abbr` mapping in `_tides_tidecheck.py` covers ~40 common
       timezones but will show "UTC" for unmapped ones.  Consider falling back
-      to the abbreviated offset (e.g. "UTC+9") instead.
-- [ ] TideCheck station IDs may be string slugs (e.g. "london-tower-bridge")
+      to the abbreviated offset (e.g. "UTC+9") instead.  (Display-only: the
+      chart's math uses the IANA `timeZoneCode` directly.)
+- [ ] TideCheck station IDs may be string slugs (e.g. "fes2022-lisbon")
       rather than numeric.  The `_is_chs_station_id` check in `tides.py` won't
       match these, but the text-query path handles them.  A dedicated
       `_is_tidecheck_station_id` helper could improve direct-ID overrides.
-- [ ] The cosine interpolation fallback produces a reasonable visual curve but
-      is not hydrodynamically accurate.  If TideCheck provides minute-by-minute
-      data, prefer that.
-- [ ] Integration testing with a real TideCheck API key is needed to validate
-      the full flow end-to-end.
+- [ ] The cosine interpolation is a visual approximation, not hydrodynamics —
+      fine for the chart; the labeled extremes are the API's own numbers.
+- [x] Integration testing with a real TideCheck API key — done 2026-08-20
+      (Cascais via `--station`, Lisbon via nearest-station fallback; both
+      render with correct meters→feet conversion and local times).

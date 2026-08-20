@@ -5,6 +5,12 @@ global API (6,470+ stations, 176 countries).  Activated only when the user
 sets the LINECAST_TIDECHECK_KEY environment variable.  Without the key this
 module is completely inert — no network calls, no errors, no noise.
 
+The API publishes high/low extremes only (heights in meters, times in
+UTC alongside a localTime with offset); the smooth curve is synthesized
+with the same cosine model subordinate NOAA stations use.  Discovery
+endpoints (/stations/nearest, /stations/search) return bare JSON arrays
+sorted by relevance/distance.
+
 API docs: https://tidecheck.com/developers
 Auth:     X-API-Key header
 Free tier: 50 requests/day (no credit card required)
@@ -75,14 +81,27 @@ def find_nearest_station_tidecheck(lat, lng):
     if not data:
         return None, None
 
-    # The /stations/nearest endpoint returns a station object (or a wrapper
-    # containing one).  Handle both shapes defensively.
-    station = data.get("station", data) if isinstance(data, dict) else None
+    # /stations/nearest returns a JSON array sorted by distance; keep the
+    # dict shapes as fallbacks in case the API grows a wrapper.
+    if isinstance(data, list):
+        station = data[0] if data else None
+    elif isinstance(data, dict):
+        station = data.get("station", data)
+    else:
+        station = None
     if not station:
         return None, None
 
+    # Parity with the NOAA picker's 100 nm cutoff, using the distanceKm
+    # the endpoint reports — an inland user shouldn't get a random coast.
+    try:
+        if float(station.get("distanceKm", 0)) > 185:
+            return None, None
+    except (TypeError, ValueError):
+        pass
+
     station_id = str(station.get("id", ""))
-    station_name = station.get("name", "")
+    station_name = station.get("label") or station.get("name", "")
     if not station_id:
         return None, None
 
@@ -94,7 +113,10 @@ def find_nearest_station_tidecheck(lat, lng):
 def search_stations_tidecheck(query):
     """Search TideCheck stations by name substring.
 
-    Returns a list of dicts with 'id' and 'name' keys, or [].
+    Returns a list of dicts with 'id', 'name', 'lat', and 'lng' keys, or [].
+    The name is the API's label ("Cascais, Lisbon, Portugal") when present,
+    and the coordinates let the caller sort by distance like any other
+    provider's stations.
     """
     if not is_available():
         return []
@@ -112,14 +134,17 @@ def search_stations_tidecheck(query):
     if not data:
         return []
 
-    # Normalize: API may return a list directly or wrap in {"stations": [...]}
+    # The API returns a bare list; keep the wrapped shape as a fallback
     stations = data if isinstance(data, list) else data.get("stations", [])
     results = []
     for s in stations:
         sid = str(s.get("id", ""))
-        name = s.get("name", "")
         if sid:
-            results.append({"id": sid, "name": name})
+            results.append({
+                "id": sid,
+                "name": s.get("label") or s.get("name", ""),
+                "lat": s.get("lat"), "lng": s.get("lng"),
+            })
     return results
 
 
@@ -140,19 +165,12 @@ def fetch_station_metadata_tidecheck(station_id):
     if cached and cached.get("source") == "tidecheck":
         return cached
 
-    # TideCheck embeds station info in the tides response; fetch a 1-day
-    # prediction to extract metadata while also priming the prediction cache.
-    url = f"{TIDECHECK_BASE}/station/{station_id}/tides?days=1&datum=MLLW"
-    data = fetch_json_cached(
-        cache_file, 0, url,
-        headers=_headers(),
-        timeout=10, fallback=None,
-    )
+    # TideCheck embeds station info (lat/lng/timezone/country) in the tides
+    # response; reuse the 30-day fetch the y-range needs so metadata never
+    # costs a request of its own (the free tier allows 50/day).
+    data = _fetch_tides_raw(station_id, days=30)
     if not data:
         return None
-
-    if data.get("source") == "tidecheck":
-        return data
 
     station = data.get("station", {})
     tz_code = station.get("timezone", "")
@@ -161,7 +179,8 @@ def fetch_station_metadata_tidecheck(station_id):
     meta = {
         "id": str(station.get("id", station_id)),
         "name": station.get("name", ""),
-        "state": "",
+        # The header pill renders "name, state" — the country reads best
+        "state": station.get("country", ""),
         "lat": station.get("lat") or station.get("latitude"),
         "lng": station.get("lng") or station.get("longitude"),
         "timezone_abbr": _iana_to_abbr(tz_code),
@@ -265,161 +284,32 @@ def _fetch_tides_raw(station_id, days=7):
 
 
 def fetch_tides_range_tidecheck(station_id, start_date, end_date, station_tz):
-    """Fetch TideCheck interval predictions across a date range.
+    """Fetch TideCheck predictions across a date range as a smooth curve.
 
-    Returns sorted list of (datetime, height_ft) tuples, matching the format
-    expected by the rendering pipeline.
+    The API publishes high/low extremes only — no minute series — so the
+    curve is synthesized with the same cosine half-cycle model subordinate
+    NOAA stations use.  Synthesis is cheap; only the raw response is
+    cached (24h, inside fetch_hilo_range_tidecheck's fetch).  Returns
+    sorted (datetime, height_ft) tuples.
     """
-    if not is_available():
-        return []
-
-    # Calculate how many days we need
-    days_needed = max(1, (end_date - start_date).days + 1)
-    # TideCheck supports up to 30 days; clamp to that
-    fetch_days = min(30, days_needed + 2)  # +2 for timezone overlap
-
-    start_str = start_date.strftime("%Y%m%d")
-    end_str = end_date.strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"tc_pred_{station_id}_{start_str}_{end_str}.json"
-
-    cached = read_cache(cache_file, 86400)
-    if cached is not None:
-        return [(_parse_cached_dt(r["dt"], station_tz), r["v"]) for r in cached]
-
-    data = _fetch_tides_raw(station_id, days=fetch_days)
-    if not data:
-        return []
-
-    # Extract the time series (minute-by-minute water levels)
-    # TideCheck returns this in a "heights" or "timeSeries" array
-    time_series = (
-        data.get("heights")
-        or data.get("timeSeries")
-        or data.get("waterLevels")
-        or []
-    )
-
-    if not time_series:
-        # Fall back to synthesizing a curve from extremes if no time series
-        return _synthesize_from_extremes(data, start_date, end_date, station_tz)
-
-    # Filter to requested date range and convert
-    range_start = datetime(start_date.year, start_date.month, start_date.day,
-                           tzinfo=timezone.utc) - timedelta(hours=14)
-    range_end = datetime(end_date.year, end_date.month, end_date.day,
-                         tzinfo=timezone.utc) + timedelta(hours=38)
-
-    rows = []
-    points = []
-    for entry in time_series:
-        try:
-            dt_utc = _parse_iso_utc(entry.get("time", entry.get("t", "")))
-            # Height may be in metres; TideCheck with datum=MLLW returns feet
-            # for US stations but metres for international.  Detect and convert.
-            height = float(entry.get("height", entry.get("v", entry.get("value", 0))))
-            # If heights look metric (TideCheck int'l stations report in metres)
-            # the datum=MLLW parameter should return feet for NOAA-sourced
-            # stations, but international ones may still be in metres.
-            # We'll handle this via a heuristic in _maybe_convert_height.
-        except (KeyError, ValueError, TypeError):
-            continue
-
-        if not (range_start <= dt_utc <= range_end):
-            continue
-
-        dt_local = _to_local(dt_utc, station_tz)
-        height_ft = _maybe_convert_height(height, data)
-        rows.append({"dt": dt_local.isoformat(), "v": height_ft})
-        points.append((dt_local, height_ft))
-
-    if rows:
-        write_cache(cache_file, rows)
-    return points
+    from linecast._tides_noaa import synthesize_tides_from_hilo
+    labeled = fetch_hilo_range_tidecheck(station_id, start_date, end_date,
+                                         station_tz)
+    return synthesize_tides_from_hilo(labeled)
 
 
 def _maybe_convert_height(height, api_response):
-    """Convert height to feet if the API returned metres.
+    """Convert a TideCheck height to feet (the pipeline's working unit).
 
-    TideCheck with datum=MLLW returns heights in the station's native unit.
-    We detect the unit from the response metadata and convert if needed.
+    The API reports heights in meters for every station (confirmed live
+    and in the docs); an explicit unit field wins if one ever appears.
     """
-    # Check if the API tells us the unit
     unit = ""
     if isinstance(api_response, dict):
         unit = str(api_response.get("unit", api_response.get("units", ""))).lower()
-    if "meter" in unit or unit in ("m", "metres", "metric"):
-        return height * M_TO_FT
     if "feet" in unit or unit in ("ft", "imperial"):
         return height
-    # Default: assume MLLW in feet (US convention, which we requested)
-    return height
-
-
-def _synthesize_from_extremes(data, start_date, end_date, station_tz):
-    """Build a smooth tide curve from high/low extremes using cosine interpolation.
-
-    This fallback is used when the API doesn't return a minute-by-minute
-    time series.  It creates a visually smooth approximation.
-    """
-    extremes = data.get("extremes", [])
-    if not extremes:
-        return []
-
-    # Parse extremes
-    parsed = []
-    for ex in extremes:
-        try:
-            dt_utc = _parse_iso_utc(ex.get("time", ""))
-            height = float(ex.get("height", 0))
-            height_ft = _maybe_convert_height(height, data)
-            dt_local = _to_local(dt_utc, station_tz)
-            parsed.append((dt_local, height_ft))
-        except (KeyError, ValueError, TypeError):
-            continue
-
-    if len(parsed) < 2:
-        return list(parsed) if parsed else []
-
-    parsed.sort(key=lambda p: p[0])
-
-    # Generate interpolated points every 6 minutes between extremes
-    import math
-    points = []
-    for i in range(len(parsed) - 1):
-        dt1, h1 = parsed[i]
-        dt2, h2 = parsed[i + 1]
-        span = (dt2 - dt1).total_seconds()
-        if span <= 0:
-            continue
-
-        step = 360  # 6 minutes in seconds
-        t = 0
-        while t <= span:
-            frac = t / span
-            # Cosine interpolation for natural tide shape
-            weight = (1 - math.cos(frac * math.pi)) / 2
-            height = h1 + (h2 - h1) * weight
-            dt = dt1 + timedelta(seconds=t)
-            points.append((dt, height))
-            t += step
-
-    # Deduplicate
-    seen = set()
-    unique = []
-    for dt, h in points:
-        key = dt.replace(second=0, microsecond=0)
-        if key not in seen:
-            seen.add(key)
-            unique.append((dt, h))
-    unique.sort(key=lambda p: p[0])
-
-    # Cache the synthesized points
-    start_str = start_date.strftime("%Y%m%d")
-    end_str = end_date.strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"tc_pred_{parsed[0][0].strftime('%s')}_{start_str}_{end_str}.json"
-    rows = [{"dt": dt.isoformat(), "v": v} for dt, v in unique]
-    write_cache(cache_file, rows)
-    return unique
+    return height * M_TO_FT
 
 
 def fetch_hilo_range_tidecheck(station_id, start_date, end_date, station_tz):

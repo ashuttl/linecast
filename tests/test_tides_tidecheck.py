@@ -51,24 +51,37 @@ class NearestStationTests(unittest.TestCase):
             self.assertIsNone(sid)
             self.assertIsNone(name)
 
-    def test_returns_station_from_api(self):
-        api_response = {
-            "station": {
-                "id": "london-tower-bridge",
-                "name": "London Tower Bridge",
-                "latitude": 51.5055,
-                "longitude": -0.0754,
-            }
-        }
+    def test_returns_first_station_from_list_response(self):
+        # Live shape: a bare array sorted by distance, with label and
+        # distanceKm (confirmed against the real API, 2026-08).
+        api_response = [
+            {"id": "fes2022-lisbon", "slug": "lisbon", "name": "Lisbon",
+             "region": "Lisbon", "country": "Portugal", "lat": 38.71,
+             "lng": -9.14, "label": "Lisbon, Lisbon, Portugal",
+             "distanceKm": 1},
+            {"id": "fes2022-almada", "name": "Almada", "distanceKm": 6},
+        ]
         with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
              patch.object(tc, "read_cache", return_value=None), \
              patch.object(tc, "fetch_json", return_value=api_response), \
              patch.object(tc, "write_cache") as mock_write:
-            sid, name = tc.find_nearest_station_tidecheck(51.5, -0.1)
+            sid, name = tc.find_nearest_station_tidecheck(38.72, -9.14)
 
-        self.assertEqual(sid, "london-tower-bridge")
-        self.assertEqual(name, "London Tower Bridge")
+        self.assertEqual(sid, "fes2022-lisbon")
+        self.assertEqual(name, "Lisbon, Lisbon, Portugal")
         mock_write.assert_called_once()
+
+    def test_far_station_rejected_like_noaa_cutoff(self):
+        api_response = [{"id": "somewhere", "name": "Somewhere",
+                         "distanceKm": 400}]
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
+             patch.object(tc, "read_cache", return_value=None), \
+             patch.object(tc, "fetch_json", return_value=api_response), \
+             patch.object(tc, "write_cache"):
+            sid, name = tc.find_nearest_station_tidecheck(46.8, 8.2)
+
+        self.assertIsNone(sid)
+        self.assertIsNone(name)
 
     def test_returns_cached_station(self):
         cached = {"id": "cached-id", "name": "Cached Station"}
@@ -167,27 +180,34 @@ class MetadataTests(unittest.TestCase):
         self.assertEqual(meta["source"], "tidecheck")
 
     def test_normalizes_api_response(self):
+        # Live shape: station carries lat/lng/timezone/country in the
+        # tides response (richer than the docs promise).
         api_response = {
             "station": {
-                "id": "tokyo-bay",
-                "name": "Tokyo Bay",
-                "latitude": 35.65,
-                "longitude": 139.77,
-                "timezone": "Asia/Tokyo",
+                "id": "cascais-209a-prt-uhslc_rq",
+                "name": "Cascais",
+                "region": "Lisbon",
+                "country": "Portugal",
+                "lat": 38.692,
+                "lng": -9.417,
+                "type": "reference",
+                "timezone": "Europe/Lisbon",
             },
+            "datum": "MLLW",
             "extremes": [],
         }
         with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
              patch.object(tc, "read_cache", return_value=None), \
-             patch.object(tc, "fetch_json_cached", return_value=api_response), \
+             patch.object(tc, "_fetch_tides_raw", return_value=api_response), \
              patch.object(tc, "write_cache") as mock_write:
-            meta = tc.fetch_station_metadata_tidecheck("tokyo-bay")
+            meta = tc.fetch_station_metadata_tidecheck("cascais-209a-prt-uhslc_rq")
 
-        self.assertEqual(meta["id"], "tokyo-bay")
-        self.assertEqual(meta["name"], "Tokyo Bay")
+        self.assertEqual(meta["id"], "cascais-209a-prt-uhslc_rq")
+        self.assertEqual(meta["name"], "Cascais")
+        self.assertEqual(meta["state"], "Portugal")
+        self.assertEqual(meta["lat"], 38.692)
         self.assertEqual(meta["source"], "tidecheck")
-        self.assertEqual(meta["timeZoneCode"], "Asia/Tokyo")
-        self.assertEqual(meta["timezone_abbr"], "JST")
+        self.assertEqual(meta["timeZoneCode"], "Europe/Lisbon")
         mock_write.assert_called_once()
 
 
@@ -199,7 +219,7 @@ class HiloRangeTests(unittest.TestCase):
             result = tc.fetch_hilo_range_tidecheck("id", date(2026, 3, 1), date(2026, 3, 2), None)
             self.assertEqual(result, [])
 
-    def test_parses_extremes_correctly(self):
+    def test_parses_extremes_and_converts_meters_to_feet(self):
         raw_data = {
             "extremes": [
                 {"time": "2026-03-27T06:30:00Z", "height": 1.8, "type": "high"},
@@ -217,7 +237,8 @@ class HiloRangeTests(unittest.TestCase):
         self.assertEqual(len(result), 3)
         dt0, h0, t0 = result[0]
         self.assertEqual(t0, "H")
-        self.assertAlmostEqual(h0, 1.8, places=1)
+        # TideCheck heights are meters; the pipeline works in feet
+        self.assertAlmostEqual(h0, 1.8 / 0.3048, places=2)
         self.assertEqual(result[1][2], "L")
         self.assertEqual(result[2][2], "H")
 
@@ -243,8 +264,8 @@ class TidesRangeTests(unittest.TestCase):
             result = tc.fetch_tides_range_tidecheck("id", date(2026, 3, 1), date(2026, 3, 2), None)
             self.assertEqual(result, [])
 
-    def test_synthesizes_from_extremes_when_no_time_series(self):
-        """When the API returns only extremes, a cosine-interpolated curve is built."""
+    def test_synthesizes_curve_from_extremes(self):
+        """The API publishes extremes only; a cosine curve is built from them."""
         raw_data = {
             "extremes": [
                 {"time": "2026-03-27T00:00:00Z", "height": 1.0, "type": "high"},
@@ -260,21 +281,11 @@ class TidesRangeTests(unittest.TestCase):
                 "test-id", date(2026, 3, 27), date(2026, 3, 27), timezone.utc)
 
         self.assertTrue(len(result) > 10)  # many interpolated points
-        # First point should match the first extreme
-        self.assertAlmostEqual(result[0][1], 1.0, places=1)
-
-    def test_returns_cached_predictions(self):
-        cached = [
-            {"dt": "2026-03-27T00:00:00+00:00", "v": 1.0},
-            {"dt": "2026-03-27T00:06:00+00:00", "v": 0.98},
-        ]
-        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
-             patch.object(tc, "read_cache", return_value=cached):
-            result = tc.fetch_tides_range_tidecheck(
-                "test-id", date(2026, 3, 27), date(2026, 3, 27), timezone.utc)
-
-        self.assertEqual(len(result), 2)
-        self.assertAlmostEqual(result[0][1], 1.0, places=1)
+        # First point matches the first extreme, converted meters -> feet
+        self.assertAlmostEqual(result[0][1], 1.0 / 0.3048, places=2)
+        # Monotonic descent from the opening high to the low
+        first_hour = [h for _, h in result[:10]]
+        self.assertEqual(first_hour, sorted(first_hour, reverse=True))
 
 
 class YRangeTests(unittest.TestCase):
@@ -300,8 +311,8 @@ class YRangeTests(unittest.TestCase):
             result = tc.fetch_y_range_tidecheck("test-id", date(2026, 3, 27), None)
 
         self.assertIsNotNone(result)
-        self.assertAlmostEqual(result[0], -0.1, places=1)
-        self.assertAlmostEqual(result[1], 2.1, places=1)
+        self.assertAlmostEqual(result[0], -0.1 / 0.3048, places=2)
+        self.assertAlmostEqual(result[1], 2.1 / 0.3048, places=2)
 
     def test_returns_cached_y_range(self):
         cached = {"min": -0.5, "max": 3.0}
@@ -325,10 +336,11 @@ class HeightConversionTests(unittest.TestCase):
         result = tc._maybe_convert_height(5.0, response)
         self.assertEqual(result, 5.0)
 
-    def test_default_assumes_feet(self):
+    def test_default_assumes_meters(self):
+        # The live API reports meters and carries no unit field
         response = {}
-        result = tc._maybe_convert_height(5.0, response)
-        self.assertEqual(result, 5.0)
+        result = tc._maybe_convert_height(1.0, response)
+        self.assertAlmostEqual(result, 1.0 / 0.3048, places=2)
 
 
 class IsoParsingTests(unittest.TestCase):
@@ -349,37 +361,6 @@ class IsoParsingTests(unittest.TestCase):
     def test_parses_without_z(self):
         dt = tc._parse_iso_utc("2026-03-27T14:30:00")
         self.assertEqual(dt.tzinfo, timezone.utc)
-
-
-class SynthesizeFromExtremesTests(unittest.TestCase):
-    """Tests for _synthesize_from_extremes fallback."""
-
-    def test_returns_empty_for_no_extremes(self):
-        with patch.object(tc, "write_cache"):
-            result = tc._synthesize_from_extremes(
-                {}, date(2026, 3, 27), date(2026, 3, 27), timezone.utc)
-        self.assertEqual(result, [])
-
-    def test_cosine_interpolation_is_smooth(self):
-        """The interpolated curve should smoothly transition between extremes."""
-        data = {
-            "extremes": [
-                {"time": "2026-03-27T00:00:00Z", "height": 2.0, "type": "high"},
-                {"time": "2026-03-27T06:00:00Z", "height": 0.0, "type": "low"},
-            ],
-        }
-        with patch.object(tc, "write_cache"):
-            result = tc._synthesize_from_extremes(
-                data, date(2026, 3, 27), date(2026, 3, 27), timezone.utc)
-
-        self.assertTrue(len(result) > 5)
-        # First point should be near the high
-        self.assertAlmostEqual(result[0][1], 2.0, places=1)
-        # Last point should be near the low
-        self.assertAlmostEqual(result[-1][1], 0.0, places=1)
-        # Midpoint should be roughly halfway (cosine crosses 0.5 at pi/2)
-        mid_idx = len(result) // 2
-        self.assertTrue(0.5 < result[mid_idx][1] < 1.5)
 
 
 if __name__ == "__main__":
