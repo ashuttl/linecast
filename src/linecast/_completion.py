@@ -38,9 +38,11 @@ SHELLS = ("bash", "zsh", "fish")
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
 TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps",
-                      "location", "completion")
+                      "location", "units", "completion")
 LOCATION_SUBCOMMANDS = ("show", "set", "auto", "search")
 LOCATION_FLAGS = ("--help", "-h", "--version")
+UNITS_SUBCOMMANDS = ("show", "metric", "imperial", "auto")
+UNITS_FLAGS = ("--help", "-h", "--version")
 
 WEATHER_FLAGS = (
     "--help",
@@ -193,6 +195,8 @@ def _bash_script():
     completion = _SPACE.join(COMPLETION_FLAGS)
     location = _SPACE.join(LOCATION_FLAGS)
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
+    units = _SPACE.join(UNITS_FLAGS)
+    units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
     shells = _SPACE.join(SHELLS)
 
     return f"""# bash completion for linecast
@@ -326,6 +330,10 @@ _linecast_complete_command() {{
       _linecast_complete_flags {location}
       COMPREPLY+=( $(compgen -W "{location_sub}" -- "$cur") )
       ;;
+    units)
+      _linecast_complete_flags {units}
+      COMPREPLY+=( $(compgen -W "{units_sub}" -- "$cur") )
+      ;;
     completion)
       _linecast_complete_flags {completion}
       COMPREPLY+=( $(compgen -W "{shells}" -- "$cur") )
@@ -349,7 +357,7 @@ _linecast_complete() {{
 
   cmd="${{COMP_WORDS[1]}}"
   case "$cmd" in
-    weather|tides|sunshine|moon|radar|maps|location|completion)
+    weather|tides|sunshine|moon|radar|maps|location|units|completion)
       _linecast_complete_command "$cmd"
       ;;
   esac
@@ -448,6 +456,8 @@ def _zsh_script():
     completion = _SPACE.join(COMPLETION_FLAGS)
     location = _SPACE.join(LOCATION_FLAGS)
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
+    units = _SPACE.join(UNITS_FLAGS)
+    units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
     shells = _SPACE.join(SHELLS)
 
     return f"""#compdef linecast weather sunshine moon tides radar maps
@@ -599,6 +609,10 @@ _linecast_complete_command() {{
       _linecast_add_flags {location}
       compadd -- {location_sub}
       ;;
+    units)
+      _linecast_add_flags {units}
+      compadd -- {units_sub}
+      ;;
     completion)
       _linecast_add_flags {completion}
       compadd -- {shells}
@@ -617,7 +631,7 @@ _linecast() {{
     fi
     cmd="${{words[2]}}"
     case "$cmd" in
-      weather|tides|sunshine|moon|radar|maps|location|completion)
+      weather|tides|sunshine|moon|radar|maps|location|units|completion)
         _linecast_complete_command "$cmd"
         ;;
     esac
@@ -765,13 +779,15 @@ def _fish_standalone_flags(command, flags, lang=False, theme=False,
 def _fish_script():
     lines = [
         "# fish completion for linecast",
-        "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine moon tides radar maps location completion'",
+        "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine moon tides radar maps location units completion'",
         "complete -c linecast -f -n '__fish_use_subcommand' -l help -s h",
         "complete -c linecast -f -n '__fish_use_subcommand' -l version -s v",
         "complete -c linecast -f -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from completion' -l help -s h",
         "complete -c linecast -f -n '__fish_seen_subcommand_from location' -a 'show set auto search'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from location' -l help -s h",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from units' -a 'show metric imperial auto'",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from units' -l help -s h",
     ]
 
     lines.extend(

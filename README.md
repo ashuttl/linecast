@@ -48,6 +48,12 @@ brew tap ashuttl/linecast
 brew install linecast
 ```
 
+On Arch, there is a community-maintained [AUR package](https://aur.archlinux.org/packages/linecast):
+
+```sh
+yay -S linecast
+```
+
 `pipx install linecast` and `pip install linecast` work too. linecast requires Python 3.10+ on macOS or Linux.
 
 ## Take it outside
@@ -173,6 +179,19 @@ linecast location search fayette
 
 The setting lives in `~/.config/linecast/config.json`. A command's `--location` flag or `WEATHER_LOCATION` takes precedence.
 
+### Units
+
+Imperial is the default; save metric (or pin imperial) for every command:
+
+```sh
+linecast units metric
+linecast units imperial
+linecast units
+linecast units auto
+```
+
+This also lives in `config.json`. A command's `--metric`, `--celsius`, or `--fahrenheit` flag, or the `WEATHER_UNITS` / `TIDES_UNITS` variables, take precedence.
+
 ### Language
 
 Use `--lang` or `LINECAST_LANG` to localize the interface. Seventeen languages are supported:
@@ -209,9 +228,9 @@ Completion covers both `linecast <command>` and the standalone commands.
 | Variable | Description |
 | --- | --- |
 | `WEATHER_LOCATION` | Default `lat,lng` for location-aware commands; overrides the saved location |
-| `WEATHER_UNITS` | `metric` for Celsius, km/h, and mm |
+| `WEATHER_UNITS` | `metric` or `imperial`; overrides the saved units |
 | `TIDE_STATION` | Default tide station ID |
-| `TIDES_UNITS` | `metric` for tide heights in metres |
+| `TIDES_UNITS` | `metric` or `imperial` for tide heights; overrides the saved units |
 | `LINECAST_TIDECHECK_KEY` | Optional TideCheck API key for global tide coverage |
 | `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, or `id` |
 | `LINECAST_RADAR_THEME` | Default radar colour theme |

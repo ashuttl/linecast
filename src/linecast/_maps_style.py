@@ -889,9 +889,9 @@ NICE_IMP = (
 
 
 def use_metric(lang):
-    """The house units heuristic, in one place."""
-    return lang != "en" or os.environ.get(
-        "WEATHER_UNITS", "").lower() == "metric"
+    """The house units heuristic (see _runtime.use_metric)."""
+    from linecast._runtime import use_metric as _use_metric
+    return _use_metric(lang)
 
 
 def fmt_elev(meters, lang):

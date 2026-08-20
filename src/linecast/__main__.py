@@ -15,6 +15,7 @@ Commands:
   linecast radar       Weather radar over a braille basemap (US + global)
   linecast maps        Terrain and bathymetry map (hillshaded elevation)
   linecast location    Show or set a fixed location (overrides IP geolocation)
+  linecast units       Show or set preferred units (metric or imperial)
   linecast completion  Print shell completion script (bash, zsh, fish)
 
 Each command is also installed as a standalone binary (weather, sunshine,
@@ -29,6 +30,7 @@ COMMANDS = {
     "radar": "linecast.radar",
     "maps": "linecast.maps",
     "location": "linecast.location",
+    "units": "linecast.units",
 }
 
 

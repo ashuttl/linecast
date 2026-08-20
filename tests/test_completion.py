@@ -29,11 +29,15 @@ class CompletionScriptTests(unittest.TestCase):
     def test_fish_completion_includes_namespace_and_standalone_commands(self):
         script = render_completion("fish")
         self.assertIn(
-            "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine moon tides radar maps location completion'",
+            "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine moon tides radar maps location units completion'",
             script,
         )
         self.assertIn(
             "complete -c linecast -f -n '__fish_seen_subcommand_from location' -a 'show set auto search'",
+            script,
+        )
+        self.assertIn(
+            "complete -c linecast -f -n '__fish_seen_subcommand_from units' -a 'show metric imperial auto'",
             script,
         )
         self.assertIn("complete -c weather -f -l print", script)

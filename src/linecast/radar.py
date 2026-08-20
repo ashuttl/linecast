@@ -46,7 +46,7 @@ from linecast._radar_render import (
 )
 from linecast._radar_source import FRAME_STEP
 from linecast._radar_sources import DEFAULT_THEME, THEMES, get_source, theme_id
-from linecast._runtime import RuntimeConfig, radar_parser
+from linecast._runtime import RuntimeConfig, radar_parser, use_metric
 from linecast._graphics import live_loop, visible_len
 from linecast._spinner import SPINNER_FRAMES, Spinner
 
@@ -343,8 +343,7 @@ def _panned_place(lat, lon, lang):
         return hit
 
     def city_phrase(name, km, bearing):
-        metric = lang != "en" or os.environ.get(
-            "WEATHER_UNITS", "").lower() == "metric"
+        metric = use_metric(lang)
         dist = km if metric else km * 0.621371
         if dist < 2:
             return name
@@ -691,8 +690,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     if field is not None and "temp" in layers:
         # temperature at the view centre, in the units _panned_place uses
         tc = field.sample_temp(t_idx, lon, lat)
-        metric = lang != "en" or os.environ.get(
-            "WEATHER_UNITS", "").lower() == "metric"
+        metric = use_metric(lang)
         tag += (f" · {round(tc)}°C" if metric
                 else f" · {round(tc * 9 / 5 + 32)}°F")
     icon = "▶" if playing else "⏸"

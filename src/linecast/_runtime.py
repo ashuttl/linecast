@@ -69,6 +69,32 @@ def env_truthy(value):
 
 
 # ---------------------------------------------------------------------------
+# Units preference
+# ---------------------------------------------------------------------------
+def units_pref(env_var="WEATHER_UNITS", environ=None):
+    """The user's explicit units preference, or None if they have none.
+
+    Precedence: the command's env var (WEATHER_UNITS / TIDES_UNITS), then
+    the `units` key in config.json (`linecast units metric|imperial`).
+    """
+    env = _environ(environ)
+    value = env.get(env_var, "").strip().lower()
+    if value in ("metric", "imperial"):
+        return value
+    from linecast._config import saved_units
+    return saved_units()
+
+
+def use_metric(lang, environ=None):
+    """The house units heuristic, in one place: an explicit preference
+    wins; otherwise any non-English UI is metric."""
+    pref = units_pref("WEATHER_UNITS", environ)
+    if pref is not None:
+        return pref == "metric"
+    return lang != "en"
+
+
+# ---------------------------------------------------------------------------
 # Argparse parser factories
 # ---------------------------------------------------------------------------
 def _base_parser(prog, description):
@@ -304,7 +330,7 @@ class WeatherRuntime(RuntimeConfig):
             base = RuntimeConfig.from_sources(environ=env, namespace=namespace)
             all_metric = (
                 namespace.metric
-                or env.get("WEATHER_UNITS", "").lower() == "metric"
+                or units_pref("WEATHER_UNITS", env) == "metric"
             )
             if namespace.fahrenheit:
                 celsius = False
@@ -327,7 +353,7 @@ class WeatherRuntime(RuntimeConfig):
         base = RuntimeConfig.from_sources(args, env)
         all_metric = (
             "--metric" in args
-            or env.get("WEATHER_UNITS", "").lower() == "metric"
+            or units_pref("WEATHER_UNITS", env) == "metric"
         )
         # --celsius / --fahrenheit override temperature independently
         if "--fahrenheit" in args:
@@ -378,7 +404,7 @@ class TidesRuntime(RuntimeConfig):
                 json_mode=base.json_mode,
                 metric=(
                     namespace.metric
-                    or env.get("TIDES_UNITS", "").lower() == "metric"
+                    or units_pref("TIDES_UNITS", env) == "metric"
                 ),
             )
         args = _argv(argv)
@@ -391,7 +417,7 @@ class TidesRuntime(RuntimeConfig):
             json_mode=base.json_mode,
             metric=(
                 "--metric" in args
-                or env.get("TIDES_UNITS", "").lower() == "metric"
+                or units_pref("TIDES_UNITS", env) == "metric"
             ),
         )
 

@@ -25,6 +25,14 @@ def write_config(data):
     path.write_text(json.dumps(data, indent=2) + "\n")
 
 
+def saved_units():
+    """Return 'metric' or 'imperial' saved via `linecast units`, or None."""
+    units = read_config().get("units")
+    if isinstance(units, str) and units.strip().lower() in ("metric", "imperial"):
+        return units.strip().lower()
+    return None
+
+
 def saved_location():
     """Return the location saved via `linecast location set`, or None.
 
