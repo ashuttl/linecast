@@ -5,6 +5,11 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Quick try with nothing but curl: `curl -sL .../get.sh | sh` is in
+  the README.
+- get.sh: without a terminal to reclaim, fall back to `--print`
+  instead of failing.
+
 ## 1.13.0 — 2026-08-20
 
 - Nushell completions: `linecast completion nu`. The project's first

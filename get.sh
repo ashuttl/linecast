@@ -20,10 +20,12 @@ esac
 # Run a linecast command, reclaiming the terminal for interactive input
 # when stdin is a pipe (e.g. curl | sh). /dev/tty is the controlling
 # terminal regardless of shell redirections — this lets live mode work.
+# The node can exist without being openable (no controlling terminal),
+# so test by opening it, not with -c.
 run() {
     if [ -t 0 ]; then
         "$@"
-    elif [ -c /dev/tty ]; then
+    elif ( : < /dev/tty ) 2>/dev/null; then
         "$@" < /dev/tty
     else
         "$@" --print

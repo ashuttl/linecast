@@ -33,6 +33,14 @@ Run linecast immediately with [uv](https://docs.astral.sh/uv/), without installi
 uvx linecast weather
 ```
 
+Or with nothing but curl — [`get.sh`](get.sh) uses whatever the machine has, down to plain `python3`:
+
+```sh
+curl -sL https://raw.githubusercontent.com/ashuttl/linecast/main/get.sh | sh
+```
+
+It opens `weather` in live mode; name another tool with `sh -s sunshine`, or pass flags with `sh -s -- --metric`.
+
 ## Install
 
 With [uv](https://docs.astral.sh/uv/):
