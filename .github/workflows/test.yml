@@ -8,10 +8,16 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ["3.10", "3.12", "3.13"]
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          # One macOS leg: the code carries BSD/%-I workarounds that only
+          # a Darwin runner actually exercises.
+          - os: macos-latest
+            python-version: "3.13"
 
     steps:
       - uses: actions/checkout@v4
