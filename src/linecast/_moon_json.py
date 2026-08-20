@@ -53,7 +53,8 @@ def build_payload(now_local, lat, lng, runtime, location=None):
     return {
         "schema": SCHEMA_VERSION,
         "location": location if location is not None else _location_label(lat, lng),
-        "timezone": _local_timezone_name(),
+        "timezone": (getattr(now_local.tzinfo, "key", None)
+                     or _local_timezone_name()),
         "fetched_at": _iso(now_local),
         "phase": _moon_name(idx, runtime),
         "icon": icon,

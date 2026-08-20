@@ -16,7 +16,7 @@ on geolocation. Use --station with a station ID or name to override, and
 --nearby to list the closest stations.
 For extra station coverage set LINECAST_TIDECHECK_KEY (free at tidecheck.com).
 
-Usage: tides [--print] [--oneline] [--json] [--station ID | NAME] [--search QUERY] [--nearby] [--metric] [--lang LANG] [--classic-colors]
+Usage: tides [--print] [--oneline] [--json] [--location PLACE] [--station ID | NAME] [--search QUERY] [--nearby] [--metric] [--lang LANG] [--classic-colors]
 """
 
 import math
@@ -43,7 +43,7 @@ from linecast._theme import (
     theme_fg,
 )
 from linecast._geo import haversine_nm
-from linecast._location import get_location
+from linecast._location import resolve_location
 from linecast._runtime import TidesRuntime, install_banner, tides_parser
 from linecast._spinner import Spinner
 from linecast._marine import fetch_marine, parse_marine_current, format_marine_line
@@ -247,7 +247,7 @@ US_STATE_NAMES = {
 }
 
 
-def _find_matching_stations(query):
+def _find_matching_stations(query, cli_location=None):
     """Match stations across all providers by tokenized name/state search.
 
     Every whitespace-separated token of *query* must appear somewhere in a
@@ -296,7 +296,7 @@ def _find_matching_stations(query):
                 "lat": s.get("lat"), "lng": s.get("lng"),
             })
 
-    here_lat, here_lng, _country = get_location()
+    here_lat, here_lng, _country = resolve_location(cli_location)
     for c in candidates:
         try:
             c["dist_nm"] = haversine_nm(
@@ -321,11 +321,11 @@ def _find_matching_stations(query):
     return candidates
 
 
-def _search_stations(query, metric=False, limit=20):
+def _search_stations(query, metric=False, limit=20, cli_location=None):
     """Print stations matching *query* (all stations when empty), nearest
     first, and exit."""
     nearby = not query.strip()
-    matches = _find_matching_stations(query)
+    matches = _find_matching_stations(query, cli_location=cli_location)
 
     if not matches:
         if nearby:
@@ -885,7 +885,8 @@ def main():
     if args.nearby or args.search is not None:
         query = args.search or ""
         _search_stations(query, metric=args.metric,
-                         limit=15 if not query.strip() else 20)
+                         limit=15 if not query.strip() else 20,
+                         cli_location=args.location)
         return
 
     # everything from here to the first paint may block on the network
@@ -920,7 +921,8 @@ def main():
             else:
                 # Text query — pick the closest matching station (first match
                 # when the current location is unknown)
-                matches = _find_matching_stations(override)
+                matches = _find_matching_stations(override,
+                                                  cli_location=args.location)
                 if not matches:
                     print(f'No stations matching "{override}". '
                           "Try `tides --nearby` to list the nearest stations.",
@@ -931,7 +933,10 @@ def main():
                 station_id = best["id"]
                 station_name = best["name"] or f"Station {station_id[:8]}"
         else:
-            lat, lng, country_code = get_location()
+            # need_country: provider routing below (CHS for Canada, QLD for
+            # Queensland) hinges on the country of the target location.
+            lat, lng, country_code = resolve_location(
+                args.location, lang=runtime.lang, need_country=True)
             if lat is None:
                 print("Could not determine location for tide station lookup.", file=sys.stderr)
                 sys.exit(1)

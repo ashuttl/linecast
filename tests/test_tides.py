@@ -123,7 +123,7 @@ class StationSearchTests(unittest.TestCase):
              patch.object(tides, "_fetch_all_stations_chs", return_value=self.CHS), \
              patch.object(tides, "_fetch_all_stations_qld", return_value=self.QLD), \
              patch.object(tides, "_tidecheck_available", return_value=False), \
-             patch.object(tides, "get_location", return_value=location):
+             patch.object(tides, "resolve_location", return_value=location):
             return tides._find_matching_stations(query)
 
     def test_multiword_query_matches_full_state_name(self):

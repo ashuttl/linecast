@@ -47,7 +47,11 @@ def _location_label(lat, lng):
     try:
         from linecast._config import saved_location
         saved = saved_location()
-        if saved and saved.get("label"):
+        # Only trust the saved label when it describes these coordinates —
+        # a --location/WEATHER_LOCATION override points somewhere else.
+        if (saved and saved.get("label") and lat is not None
+                and abs(saved["lat"] - lat) < 1e-4
+                and abs(saved["lng"] - lng) < 1e-4):
             return saved["label"]
     except Exception:
         pass
@@ -81,21 +85,29 @@ def _local_timezone_name():
 def build_payload(lat, lng, now=None, location=None):
     """Build the `sunshine --json` payload dict for a location.
 
-    *now* is a naive local datetime (defaults to the current moment),
-    matching what sunshine's render path feeds the solar math. *location*
-    overrides the display name (skips the geocode lookup).
+    *now* is a local datetime (defaults to the current machine-local
+    moment). A timezone-aware *now* pins the solar math and the payload's
+    timezone to its zone — that's how a pinned location in another time
+    zone gets that location's local times. *location* overrides the
+    display name (skips the geocode lookup).
     """
     from linecast.sunshine import solar_times, sun_elevation
 
     if now is None:
         now = datetime.now()
+    tz_name = None
+    tz_offset_h = None
+    if now.tzinfo is not None:
+        tz_name = getattr(now.tzinfo, "key", None) or now.tzname()
+        tz_offset_h = now.utcoffset().total_seconds() / 3600
+        now = now.replace(tzinfo=None)
     today = now.date()
     doy = now.timetuple().tm_yday
     now_hour = now.hour + now.minute / 60 + now.second / 3600
 
-    rise_h, set_h = solar_times(lat, lng, doy)
-    y_rise_h, y_set_h = solar_times(lat, lng, doy - 1)
-    t_rise_h, t_set_h = solar_times(lat, lng, doy + 1)
+    rise_h, set_h = solar_times(lat, lng, doy, tz_offset_h)
+    y_rise_h, y_set_h = solar_times(lat, lng, doy - 1, tz_offset_h)
+    t_rise_h, t_set_h = solar_times(lat, lng, doy + 1, tz_offset_h)
 
     day_len_h = set_h - rise_h
     day_length_seconds = int(round(day_len_h * 3600))
@@ -129,7 +141,7 @@ def build_payload(lat, lng, now=None, location=None):
     return {
         "schema": SCHEMA_VERSION,
         "location": location if location is not None else _location_label(lat, lng),
-        "timezone": _local_timezone_name(),
+        "timezone": tz_name or _local_timezone_name(),
         "fetched_at": _iso(now),
         "sunrise": _iso(sunrise),
         "sunset": _iso(sunset),
@@ -139,6 +151,6 @@ def build_payload(lat, lng, now=None, location=None):
         "day_length_seconds": day_length_seconds,
         "day_length_delta_seconds": day_length_delta_seconds,
         "next_event": next_event,
-        "elevation_deg": round(sun_elevation(lat, lng, now_hour, doy), 2),
+        "elevation_deg": round(sun_elevation(lat, lng, now_hour, doy, tz_offset_h), 2),
         "polar": polar,
     }

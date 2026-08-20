@@ -177,7 +177,7 @@ linecast location auto
 linecast location search fayette
 ```
 
-The setting lives in `~/.config/linecast/config.json`. A command's `--location` flag or `WEATHER_LOCATION` takes precedence.
+The setting lives in `~/.config/linecast/config.json`. A command's `--location` flag or `WEATHER_LOCATION` takes precedence. Times follow the location: point `sunshine` or `moon` somewhere across an ocean and sunrise, sunset, moonrise, and moonset come back in that place's local clock.
 
 ### Units
 

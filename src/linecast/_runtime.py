@@ -146,6 +146,9 @@ def weather_parser():
 def tides_parser():
     p = _base_parser("tides",
                       "Terminal tide chart with braille rendering")
+    p.add_argument("--location", default=None,
+                    help="find the nearest station to 'lat,lng' or a "
+                         "place name instead of your location")
     p.add_argument("--station", default=None,
                     help="station ID or name (any provider)")
     p.add_argument("--search", nargs="?", const="", default=None,
@@ -163,6 +166,8 @@ def tides_parser():
 def sunshine_parser():
     p = _base_parser("sunshine",
                       "Solar arc inspired by the Apple Watch Solar face")
+    p.add_argument("--location", default=None,
+                    help="location as 'lat,lng' or place name")
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")
     return p
@@ -171,6 +176,8 @@ def sunshine_parser():
 def moon_parser():
     p = _base_parser("moon",
                       "Moon phase, illumination, and rise/set times")
+    p.add_argument("--location", default=None,
+                    help="location as 'lat,lng' or place name")
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")
     return p

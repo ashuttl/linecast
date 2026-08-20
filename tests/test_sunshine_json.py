@@ -16,6 +16,24 @@ from linecast._runtime import RuntimeConfig, sunshine_parser
 from linecast._sunshine_json import build_payload, _polar_state
 from linecast.sunshine import _tz_offset_hours, solar_times
 
+
+class TestTzOffsetThreading:
+    def test_explicit_offset_shifts_local_times_by_offset_delta(self):
+        r1, s1 = solar_times(43.68, -70.35, 200, tz_offset_h=-4)
+        r2, s2 = solar_times(43.68, -70.35, 200, tz_offset_h=-5)
+        assert abs((r1 - r2) - 1.0) < 1e-9
+        assert abs((s1 - s2) - 1.0) < 1e-9
+
+    def test_aware_now_pins_payload_to_its_zone(self):
+        from zoneinfo import ZoneInfo
+        now = datetime(2026, 8, 20, 12, 0, tzinfo=ZoneInfo("Europe/Lisbon"))
+        payload = build_payload(38.72, -9.14, now=now, location="Lisbon")
+        assert payload["timezone"] == "Europe/Lisbon"
+        # Lisbon sunrise in late August is ~06:50 local (WEST). With the
+        # machine-timezone bug this would be hours off on a US machine.
+        rise_hour = int(payload["sunrise"].split("T")[1].split(":")[0])
+        assert rise_hour in (6, 7)
+
 # Solar math resolves local clock time through the machine's UTC offset, so
 # pin a longitude whose mean solar noon lands at 12:00 on any machine.
 LAT = 45.0

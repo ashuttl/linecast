@@ -33,6 +33,75 @@ class GetLocationTests(unittest.TestCase):
         self.assertEqual(location, (3.0, 4.0, "CA"))
 
 
+class ResolveLocationTests(unittest.TestCase):
+    def test_flag_coords_beat_env_and_saved(self):
+        with patch.dict(os.environ, {"WEATHER_LOCATION": "1.0,2.0"}), \
+             patch.object(_location, "get_location",
+                          side_effect=AssertionError("override should win")):
+            self.assertEqual(
+                _location.resolve_location("43.68,-70.35"),
+                (43.68, -70.35, ""))
+
+    def test_env_var_used_when_no_flag(self):
+        with patch.dict(os.environ, {"WEATHER_LOCATION": "1.5,-2.5"}), \
+             patch.object(_location, "get_location",
+                          side_effect=AssertionError("override should win")):
+            self.assertEqual(_location.resolve_location(None), (1.5, -2.5, ""))
+
+    def test_falls_through_to_get_location(self):
+        with patch.dict(os.environ, {"WEATHER_LOCATION": ""}), \
+             patch.object(_location, "get_location",
+                          return_value=(3.0, 4.0, "US")):
+            self.assertEqual(_location.resolve_location(None), (3.0, 4.0, "US"))
+
+    def test_place_name_geocodes(self):
+        with patch("linecast._weather_sources.geocode_first",
+                   return_value=(43.68, -70.35, "Westbrook, Maine")):
+            self.assertEqual(
+                _location.resolve_location("Westbrook"), (43.68, -70.35, ""))
+
+    def test_unmatched_place_name_exits(self):
+        with patch("linecast._weather_sources.geocode_first", return_value=None):
+            with self.assertRaises(SystemExit):
+                _location.resolve_location("Nowhereville Q")
+
+    def test_need_country_reverse_geocodes_override(self):
+        with patch("linecast._weather_sources._reverse_geocode",
+                   return_value=("Saint John", "CA", {})):
+            self.assertEqual(
+                _location.resolve_location("45.25,-66.06", need_country=True),
+                (45.25, -66.06, "CA"))
+
+
+class LocationPinnedTests(unittest.TestCase):
+    def test_pinned_by_flag_env_or_saved(self):
+        with patch.dict(os.environ, {"WEATHER_LOCATION": ""}), \
+             patch.object(_location, "saved_location", return_value=None):
+            self.assertTrue(_location.location_is_pinned("Lisbon"))
+            self.assertFalse(_location.location_is_pinned(None))
+        with patch.dict(os.environ, {"WEATHER_LOCATION": "1,2"}):
+            self.assertTrue(_location.location_is_pinned(None))
+        with patch.dict(os.environ, {"WEATHER_LOCATION": ""}), \
+             patch.object(_location, "saved_location",
+                          return_value={"lat": 1.0, "lng": 2.0}):
+            self.assertTrue(_location.location_is_pinned(None))
+
+
+class LocationTzinfoTests(unittest.TestCase):
+    def test_resolves_zone_from_lookup(self):
+        from zoneinfo import ZoneInfo
+        with patch.object(_location, "fetch_json_cached",
+                          return_value={"timezone": "Europe/Lisbon"}):
+            self.assertEqual(_location.location_tzinfo(38.72, -9.14),
+                             ZoneInfo("Europe/Lisbon"))
+
+    def test_falls_back_to_machine_tz_when_offline(self):
+        from datetime import datetime
+        machine = datetime.now().astimezone().tzinfo
+        with patch.object(_location, "fetch_json_cached", return_value=None):
+            self.assertEqual(_location.location_tzinfo(38.72, -9.14), machine)
+
+
 class LocationCommandTests(unittest.TestCase):
     def setUp(self):
         self._tmpdir = tempfile.TemporaryDirectory()

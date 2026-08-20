@@ -59,7 +59,7 @@ def weather_oneline(data, location_name, runtime):
 # Sunshine oneline
 # ---------------------------------------------------------------------------
 
-def sunshine_oneline(lat, lng, doy, now_hour, runtime):
+def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None):
     """Return a compact solar summary line.
 
     Example: ``sunrise 5:42a sunset 7:38p 12h34m +2m waning_crescent_icon``
@@ -67,13 +67,13 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime):
     from linecast.sunshine import solar_times, moon_phase
     from datetime import datetime
 
-    sunrise, sunset = solar_times(lat, lng, doy)
+    sunrise, sunset = solar_times(lat, lng, doy, tz_offset_h)
     day_len = sunset - sunrise
     dl_h = int(day_len)
     dl_m = int((day_len - dl_h) * 60)
 
     # Yesterday's day length for delta
-    y_rise, y_set = solar_times(lat, lng, doy - 1)
+    y_rise, y_set = solar_times(lat, lng, doy - 1, tz_offset_h)
     delta_sec = (day_len - (y_set - y_rise)) * 3600
     d_sign = "+" if delta_sec >= 0 else "\u2212"
     d_abs = abs(delta_sec)

@@ -10,7 +10,7 @@ Uses half-block characters with ANSI color for smooth rendering at 2x
 vertical sub-pixel resolution (true color when available). Location is
 cached from IP geolocation (~1 network call per week).
 
-Usage: sunshine [--print] [--oneline] [--json] [--emoji] [--classic-colors]
+Usage: sunshine [--print] [--oneline] [--json] [--location PLACE] [--emoji] [--classic-colors]
 """
 
 import math
@@ -34,7 +34,7 @@ from linecast._theme import (
     theme_fg,
     theme_legacy_mode,
 )
-from linecast._location import get_location
+from linecast._location import location_is_pinned, location_tzinfo, resolve_location
 from linecast._runtime import RuntimeConfig, install_banner, sunshine_parser
 
 # ---------------------------------------------------------------------------
@@ -220,12 +220,16 @@ def _declination(doy):
     """
     return 23.45 * math.sin(math.radians(360 / 365 * (doy - 81)))
 
-def solar_times(lat, lng, doy):
+def solar_times(lat, lng, doy, tz_offset_h=None):
     """Sunrise/sunset as local decimal hours.
 
     Uses the standard hour angle formula with a zenith of 90.833° to
     account for atmospheric refraction (~0.833° at the horizon).
     Reference: NOAA Solar Calculator, https://gml.noaa.gov/grad/solcalc/
+
+    tz_offset_h is the UTC offset the "local" hours are expressed in;
+    it defaults to the machine's, which is only right when the machine
+    is at the location.
     """
     decl = _declination(doy)
     lat_r, dec_r = math.radians(lat), math.radians(decl)
@@ -236,15 +240,15 @@ def solar_times(lat, lng, doy):
     ha = math.degrees(math.acos(cos_ha))
     eot = _equation_of_time(doy)
     noon_utc = 12 - lng / 15 - eot / 60
-    tz = _tz_offset_hours()
+    tz = _tz_offset_hours() if tz_offset_h is None else tz_offset_h
     return noon_utc - ha/15 + tz, noon_utc + ha/15 + tz
 
-def sun_elevation(lat, lng, local_hour, doy):
+def sun_elevation(lat, lng, local_hour, doy, tz_offset_h=None):
     """Sun elevation angle in degrees at a given local hour."""
     decl = _declination(doy)
     eot = _equation_of_time(doy)
     noon_utc = 12 - lng / 15 - eot / 60
-    tz = _tz_offset_hours()
+    tz = _tz_offset_hours() if tz_offset_h is None else tz_offset_h
     ha = 15 * (local_hour - tz - noon_utc)
     lat_r = math.radians(lat)
     dec_r = math.radians(decl)
@@ -344,7 +348,8 @@ def moon_phase(dt, runtime=None):
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
-def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=None):
+def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=None,
+           tz_offset_h=None):
     """Build the complete multi-line solar arc display."""
     if runtime is None:
         runtime = RuntimeConfig.from_sources()
@@ -360,11 +365,11 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     elevations = []
     for x in range(graph_w):
         h = (x + 0.5) / graph_w * 24
-        elevations.append(sun_elevation(lat, lng, h, doy))
+        elevations.append(sun_elevation(lat, lng, h, doy, tz_offset_h))
 
     # --- seasonal vertical scale ---
-    summer_peak = sun_elevation(lat, lng, 12, 172)
-    winter_trough = sun_elevation(lat, lng, 0, 355)
+    summer_peak = sun_elevation(lat, lng, 12, 172, tz_offset_h)
+    winter_trough = sun_elevation(lat, lng, 0, 355, tz_offset_h)
     annual_max = max(summer_peak, max(elevations), 5)
     annual_min = min(winter_trough, min(elevations), -5)
 
@@ -385,10 +390,10 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
 
     # Current sun position
     now_x = max(0, min(graph_w - 1, int(now_hour / 24 * graph_w)))
-    now_elev = sun_elevation(lat, lng, now_hour, doy)
+    now_elev = sun_elevation(lat, lng, now_hour, doy, tz_offset_h)
     now_spy = max(0.0, min(total_spy - 1.0, elev_to_spy(now_elev)))
 
-    sunrise, sunset = solar_times(lat, lng, doy)
+    sunrise, sunset = solar_times(lat, lng, doy, tz_offset_h)
 
     # --- build framebuffer ---
     fb = Framebuffer(graph_w, graph_h)
@@ -472,6 +477,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
             runtime,
             now_hour,
             offset_minutes,
+            tz_offset_h,
         )
     )
 
@@ -481,14 +487,15 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
 
     return "\n".join(lines)
 
-def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, offset_minutes=0):
+def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, offset_minutes=0,
+               tz_offset_h=None):
     """Sunrise — day length (delta) — sunset."""
     icons = _icon_set(runtime)
     day_len = sunset - sunrise
     dl_h = int(day_len)
     dl_m = int((day_len - dl_h) * 60)
 
-    y_rise, y_set = solar_times(lat, lng, doy - 1)
+    y_rise, y_set = solar_times(lat, lng, doy - 1, tz_offset_h)
     delta_sec = (day_len - (y_set - y_rise)) * 3600
     d_sign = "+" if delta_sec >= 0 else "\u2212"
     d_abs = abs(delta_sec)
@@ -528,24 +535,37 @@ def main():
     args = sunshine_parser().parse_args()
     runtime = RuntimeConfig.from_sources(namespace=args)
 
-    lat, lng, _country = get_location()
+    lat, lng, _country = resolve_location(args.location, lang=runtime.lang)
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
 
+    # A pinned location may sit in another time zone; resolve it so times
+    # match the location. None (IP-derived location) means machine-local
+    # time already is the location's local time.
+    tz = location_tzinfo(lat, lng) if location_is_pinned(args.location) else None
+
+    def _now():
+        # datetime.now(None) is naive machine-local, matching old behavior.
+        return datetime.now(tz)
+
+    def _offset_hours(dt):
+        off = dt.utcoffset()
+        return None if off is None else off.total_seconds() / 3600
+
     if runtime.json_mode:
         import json
         from linecast._sunshine_json import build_payload
-        print(json.dumps(build_payload(lat, lng), ensure_ascii=False))
+        print(json.dumps(build_payload(lat, lng, now=_now()), ensure_ascii=False))
         return
 
     if runtime.oneline:
-        from datetime import timedelta as _td
         from linecast._oneline import sunshine_oneline
-        now = datetime.now()
+        now = _now()
         doy = now.timetuple().tm_yday
         now_hour = now.hour + now.minute / 60 + now.second / 3600
-        print(sunshine_oneline(lat, lng, doy, now_hour, runtime))
+        print(sunshine_oneline(lat, lng, doy, now_hour, runtime,
+                               tz_offset_h=_offset_hours(now)))
         return
 
     live = runtime.live
@@ -553,7 +573,7 @@ def main():
     def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
         # mouse_pos/active_alert/modal_scroll are ignored; accepted so sunshine
         # can use shared live_loop mouse-wheel scrubbing support.
-        now = datetime.now()
+        now = _now()
         if offset_minutes:
             from datetime import timedelta
             now = now + timedelta(minutes=offset_minutes)
@@ -567,6 +587,7 @@ def main():
             fullscreen=live,
             offset_minutes=offset_minutes,
             runtime=runtime,
+            tz_offset_h=_offset_hours(now),
         )
 
     if live:

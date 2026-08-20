@@ -1,6 +1,6 @@
 """Moon phase, illumination, and rise/set times.
 
-Usage: moon [--print] [--oneline] [--json] [--emoji] [--lang CODE]
+Usage: moon [--print] [--oneline] [--json] [--location PLACE] [--emoji] [--lang CODE]
 
 Renders the Moon itself — a shaded disc with the correct phase terminator,
 mare shading, and a soft halo over a star field — plus the current phase and
@@ -22,7 +22,7 @@ from linecast._framebuffer import fmt_time_dt
 from linecast._graphics import (
     fg, RESET, lerp, visible_len, get_terminal_size, Framebuffer, live_loop,
 )
-from linecast._location import get_location
+from linecast._location import location_is_pinned, location_tzinfo, resolve_location
 from linecast._moon_i18n import _day_abbrev, _fmt_month_day, _moon_name, _ms
 from linecast._tides_i18n import _ts  # shared "space to return to now" hint
 from linecast._runtime import RuntimeConfig, install_banner, moon_parser
@@ -297,21 +297,28 @@ def main():
     args = moon_parser().parse_args()
     runtime = RuntimeConfig.from_sources(namespace=args)
 
-    lat, lng, _country = get_location()
+    lat, lng, _country = resolve_location(args.location, lang=runtime.lang)
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
 
+    # A pinned location may sit in another time zone; resolve it so times
+    # match the location instead of the machine.
+    tz = location_tzinfo(lat, lng) if location_is_pinned(args.location) else None
+
+    def _now():
+        return datetime.now(tz) if tz is not None else datetime.now().astimezone()
+
     if runtime.json_mode:
         import json
         from linecast._moon_json import build_payload
-        payload = build_payload(datetime.now().astimezone(), lat, lng, runtime)
+        payload = build_payload(_now(), lat, lng, runtime)
         print(json.dumps(payload, ensure_ascii=False))
         return
 
     if runtime.oneline:
         from linecast._oneline import moon_oneline
-        print(moon_oneline(datetime.now().astimezone(), lat, lng, runtime))
+        print(moon_oneline(_now(), lat, lng, runtime))
         return
 
     live = runtime.live
@@ -319,7 +326,7 @@ def main():
     def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
         # Extra args are ignored; accepted so moon can use shared live_loop
         # mouse-wheel scrubbing support.
-        moment = datetime.now().astimezone()
+        moment = _now()
         if offset_minutes:
             moment += timedelta(minutes=offset_minutes)
         return render(moment, lat, lng, runtime, fullscreen=live,
