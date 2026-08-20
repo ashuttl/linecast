@@ -34,7 +34,7 @@ MAPS_VIEW_VALUES = ("street", "terrain", "now")
 MAPS_PROFILE_VALUES = ("car", "bike", "foot")
 # radar --layers condition layers; keep in sync with radar.LAYER_NAMES
 CONDITION_VALUES = ("temp", "wind", "temp,wind")
-SHELLS = ("bash", "zsh", "fish")
+SHELLS = ("bash", "zsh", "fish", "nu", "nushell")
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
 TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps",
@@ -175,6 +175,8 @@ def render_completion(shell: str):
         return _zsh_script()
     if key == "fish":
         return _fish_script()
+    if key in ("nu", "nushell"):
+        return _nu_script()
     raise ValueError(f"unknown shell '{shell}'")
 
 
@@ -895,3 +897,253 @@ def _fish_script():
     )
 
     return "\n".join(lines) + "\n"
+
+
+def _nu_flags(flags, lang=False, theme=False, layer=False,
+              layers=False, view=False, profile=False,
+              value_flags=()):
+    lines = []
+    for flag in flags:
+        if flag in ("-h", "-v", "--help"):
+            continue
+        if flag == "--version":
+            if "-v" in flags:
+                lines.append("    --version(-v) # Show version")
+            else:
+                lines.append("    --version # Show version")
+            continue
+        if flag == "--lang" and lang:
+            lines.append('    --lang: string@"nu-complete linecast-lang"')
+            continue
+        if flag == "--theme" and theme:
+            lines.append('    --theme: string@"nu-complete linecast-theme"')
+            continue
+        if flag == "--layer" and layer:
+            lines.append('    --layer: string@"nu-complete linecast-layer"')
+            continue
+        if flag == "--layers" and layers:
+            lines.append('    --layers: string@"nu-complete linecast-layers"')
+            continue
+        if flag == "--view" and view:
+            lines.append('    --view: string@"nu-complete linecast-view"')
+            continue
+        if flag == "--profile" and profile:
+            lines.append('    --profile: string@"nu-complete linecast-profile"')
+            continue
+        if flag in value_flags:
+            lines.append(f"    {flag}: string")
+            continue
+        if flag.startswith("--"):
+            lines.append(f"    {flag}")
+    return lines
+
+
+def _nu_extern(cmd_name, flags_lines, positional_args=()):
+    lines = [f'export extern "{cmd_name}" [']
+    for pos in positional_args:
+        lines.append(f"    {pos}")
+    lines.extend(flags_lines)
+    lines.append("]")
+    lines.append("")
+    return lines
+
+
+def _nu_script():
+    lines = [
+        "# nushell completion for linecast",
+        "",
+        'def "nu-complete linecast-lang" [] {',
+        "    [ " + " ".join(f'"{code}"' for code in LANG_CODES) + " ]",
+        "}",
+        "",
+        'def "nu-complete linecast-theme" [] {',
+        "    [ " + " ".join(f'"{theme}"' for theme in THEME_VALUES) + " ]",
+        "}",
+        "",
+        'def "nu-complete linecast-layer" [] {',
+        "    [ " + " ".join(f'"{layer}"' for layer in LAYER_VALUES) + " ]",
+        "}",
+        "",
+        'def "nu-complete linecast-layers" [] {',
+        "    [ " + " ".join(f'"{c}"' for c in CONDITION_VALUES) + " ]",
+        "}",
+        "",
+        'def "nu-complete linecast-view" [] {',
+        "    [ " + " ".join(f'"{v}"' for v in MAPS_VIEW_VALUES) + " ]",
+        "}",
+        "",
+        'def "nu-complete linecast-profile" [] {',
+        "    [ " + " ".join(f'"{p}"' for p in MAPS_PROFILE_VALUES) + " ]",
+        "}",
+        "",
+        'def "nu-complete linecast-shells" [] {',
+        "    [ " + " ".join(f'"{s}"' for s in SHELLS) + " ]",
+        "}",
+        "",
+        'def "nu-complete linecast-location-subcommands" [] {',
+        "    [ " + " ".join(f'"{sub}"' for sub in LOCATION_SUBCOMMANDS) + " ]",
+        "}",
+        "",
+        'def "nu-complete linecast-units-subcommands" [] {',
+        "    [ " + " ".join(f'"{sub}"' for sub in UNITS_SUBCOMMANDS) + " ]",
+        "}",
+        "",
+        'export extern "linecast" [',
+        "    --version(-v) # Show version",
+        "]",
+        "",
+    ]
+
+    weather_flags = _nu_flags(
+        WEATHER_FLAGS,
+        lang=True,
+        value_flags=("--location", "--search"),
+    )
+    tides_flags = _nu_flags(
+        TIDES_FLAGS,
+        lang=True,
+        value_flags=("--station", "--search"),
+    )
+    sunshine_flags = _nu_flags(SUNSHINE_FLAGS)
+    moon_flags = _nu_flags(MOON_FLAGS, lang=True)
+    radar_flags = _nu_flags(
+        RADAR_FLAGS,
+        lang=True,
+        theme=True,
+        layer=True,
+        layers=True,
+        value_flags=("--location", "--search", "--zoom"),
+    )
+    maps_flags = _nu_flags(
+        MAPS_FLAGS,
+        lang=True,
+        view=True,
+        profile=True,
+        value_flags=(
+            "--location",
+            "--search",
+            "--zoom",
+            "--to",
+            "--from",
+        ),
+    )
+
+    # linecast subcommands
+    lines.extend(_nu_extern("linecast weather", weather_flags))
+    lines.extend(_nu_extern("linecast sunshine", sunshine_flags))
+    lines.extend(_nu_extern("linecast moon", moon_flags))
+    lines.extend(_nu_extern("linecast tides", tides_flags))
+    lines.extend(_nu_extern("linecast radar", radar_flags))
+    lines.extend(_nu_extern("linecast maps", maps_flags))
+
+    # linecast location
+    lines.extend(_nu_extern(
+        "linecast location",
+        ["    --version # Show version"],
+        ['subcommand?: string@"nu-complete linecast-location-subcommands"'],
+    ))
+    lines.extend(_nu_extern(
+        "linecast location show",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "linecast location set",
+        ["    --version # Show version"],
+        ["query?: string"],
+    ))
+    lines.extend(_nu_extern(
+        "linecast location auto",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "linecast location search",
+        ["    --version # Show version"],
+        ["query?: string"],
+    ))
+
+    # linecast units
+    lines.extend(_nu_extern(
+        "linecast units",
+        ["    --version # Show version"],
+        ['subcommand?: string@"nu-complete linecast-units-subcommands"'],
+    ))
+    lines.extend(_nu_extern(
+        "linecast units show",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "linecast units metric",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "linecast units imperial",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "linecast units auto",
+        ["    --version # Show version"],
+    ))
+
+    # linecast completion
+    lines.extend(_nu_extern(
+        "linecast completion",
+        [],
+        ['shell?: string@"nu-complete linecast-shells"'],
+    ))
+
+    # standalone commands
+    lines.extend(_nu_extern("weather", weather_flags))
+    lines.extend(_nu_extern("sunshine", sunshine_flags))
+    lines.extend(_nu_extern("moon", moon_flags))
+    lines.extend(_nu_extern("tides", tides_flags))
+    lines.extend(_nu_extern("radar", radar_flags))
+    lines.extend(_nu_extern("maps", maps_flags))
+    lines.extend(_nu_extern(
+        "location",
+        ["    --version # Show version"],
+        ['subcommand?: string@"nu-complete linecast-location-subcommands"'],
+    ))
+    lines.extend(_nu_extern(
+        "location show",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "location set",
+        ["    --version # Show version"],
+        ["query?: string"],
+    ))
+    lines.extend(_nu_extern(
+        "location auto",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "location search",
+        ["    --version # Show version"],
+        ["query?: string"],
+    ))
+
+    # standalone units
+    lines.extend(_nu_extern(
+        "units",
+        ["    --version # Show version"],
+        ['subcommand?: string@"nu-complete linecast-units-subcommands"'],
+    ))
+    lines.extend(_nu_extern(
+        "units show",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "units metric",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "units imperial",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "units auto",
+        ["    --version # Show version"],
+    ))
+
+    return "\n".join(lines) + "\n"
+

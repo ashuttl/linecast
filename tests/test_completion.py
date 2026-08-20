@@ -9,7 +9,36 @@ from linecast._completion import available_shells, render_completion
 
 class CompletionScriptTests(unittest.TestCase):
     def test_available_shells(self):
-        self.assertEqual(available_shells(), ("bash", "zsh", "fish"))
+        self.assertEqual(available_shells(), ("bash", "zsh", "fish", "nu", "nushell"))
+
+    def test_nu_completion_includes_namespace_and_standalone_commands(self):
+        script = render_completion("nu")
+        self.assertEqual(script, render_completion("nushell"))
+        self.assertIn('export extern "linecast"', script)
+        self.assertIn('export extern "linecast weather"', script)
+        self.assertIn('export extern "linecast tides"', script)
+        self.assertIn('export extern "linecast sunshine"', script)
+        self.assertIn('export extern "linecast moon"', script)
+        self.assertIn('export extern "linecast radar"', script)
+        self.assertIn('export extern "linecast maps"', script)
+        self.assertIn('export extern "linecast location"', script)
+        self.assertIn('export extern "linecast units"', script)
+        self.assertIn('export extern "linecast completion"', script)
+        self.assertIn('export extern "weather"', script)
+        self.assertIn('export extern "tides"', script)
+        self.assertIn('export extern "sunshine"', script)
+        self.assertIn('export extern "moon"', script)
+        self.assertIn('export extern "radar"', script)
+        self.assertIn('export extern "maps"', script)
+        self.assertIn('export extern "location"', script)
+        self.assertIn('export extern "units"', script)
+        self.assertIn('nu-complete linecast-units-subcommands', script)
+        self.assertIn('--metric', script)
+        self.assertIn('--theme', script)
+        self.assertIn('--lang', script)
+        # --help and -h must be omitted so Nushell does not hijack help display
+        self.assertNotIn('--help', script)
+        self.assertNotIn('-h', script)
 
     def test_bash_completion_includes_namespace_and_standalone_commands(self):
         script = render_completion("bash")
@@ -75,6 +104,13 @@ class CompletionCommandTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("complete -F _linecast_complete linecast", out)
         self.assertEqual(err, "")
+
+    def test_completion_subcommand_prints_script_nu(self):
+        for shell in ("nu", "nushell"):
+            code, out, err = self._run_main("completion", shell)
+            self.assertEqual(code, 0)
+            self.assertIn('export extern "linecast"', out)
+            self.assertEqual(err, "")
 
     def test_completion_subcommand_help(self):
         code, out, err = self._run_main("completion", "--help")
