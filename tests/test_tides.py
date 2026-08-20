@@ -79,6 +79,7 @@ class RenderTests(unittest.TestCase):
         scrubbed_date = date(2026, 3, 6)
 
         with patch.object(tides, "_station_now", return_value=now_local), \
+             patch.object(tides, "_fetch_all_stations", return_value=[]), \
              patch.object(
                  tides,
                  "fetch_tides",
@@ -99,6 +100,41 @@ class RenderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SubordinateStationTests(unittest.TestCase):
+    STATIONS = [
+        {"id": "8418268", "name": "Fore River", "type": "S"},
+        {"id": "8418150", "name": "PORTLAND", "type": "R"},
+    ]
+
+    def test_subordinate_range_skips_six_minute_fetch(self):
+        hilo = [
+            (datetime(2026, 8, 20, 5, 38), 8.0, "H"),
+            (datetime(2026, 8, 20, 11, 32), 1.8, "L"),
+        ]
+        with patch.object(tides, "_fetch_all_stations",
+                          return_value=self.STATIONS), \
+             patch.object(tides, "fetch_tides_range",
+                          side_effect=AssertionError("must not ask for 6-min")), \
+             patch.object(tides, "fetch_hilo_range", return_value=hilo):
+            preds = tides._noaa_tides_range_with_fallback(
+                "8418268", date(2026, 8, 20), date(2026, 8, 20), None)
+
+        self.assertTrue(preds)
+        self.assertEqual(preds[0], (datetime(2026, 8, 20, 5, 38), 8.0))
+        self.assertEqual(preds[-1], (datetime(2026, 8, 20, 11, 32), 1.8))
+
+    def test_reference_station_uses_real_series(self):
+        real = [(datetime(2026, 8, 20, 0, 0), 4.2)]
+        with patch.object(tides, "_fetch_all_stations",
+                          return_value=self.STATIONS), \
+             patch.object(tides, "fetch_tides_range", return_value=real), \
+             patch.object(tides, "fetch_hilo_range",
+                          side_effect=AssertionError("no fallback needed")):
+            preds = tides._noaa_tides_range_with_fallback(
+                "8418150", date(2026, 8, 20), date(2026, 8, 20), None)
+        self.assertEqual(preds, real)
 
 
 class StaticRenderTests(unittest.TestCase):

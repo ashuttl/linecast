@@ -74,6 +74,39 @@ class StationLookupTests(unittest.TestCase):
         write_cache.assert_not_called()
 
 
+class SynthesisTests(unittest.TestCase):
+    def test_cosine_between_two_extremes(self):
+        high = (datetime(2026, 8, 20, 6, 0), 10.0, "H")
+        low = (datetime(2026, 8, 20, 12, 0), 2.0, "L")
+        curve = noaa.synthesize_tides_from_hilo([high, low])
+
+        self.assertEqual(curve[0], (datetime(2026, 8, 20, 6, 0), 10.0))
+        self.assertEqual(curve[-1], (datetime(2026, 8, 20, 12, 0), 2.0))
+        # Midpoint of a cosine half-cycle is the mean of the extremes
+        mid = dict(curve)[datetime(2026, 8, 20, 9, 0)]
+        self.assertAlmostEqual(mid, 6.0)
+        # Monotonic on a falling limb
+        heights = [h for _, h in curve]
+        self.assertEqual(heights, sorted(heights, reverse=True))
+        # 6-minute sampling over 6 hours: 60 steps + the final extreme
+        self.assertEqual(len(curve), 61)
+
+    def test_gaps_and_degenerate_inputs(self):
+        lone = [(datetime(2026, 8, 20, 6, 0), 10.0, "H")]
+        self.assertEqual(noaa.synthesize_tides_from_hilo(lone), [])
+        self.assertEqual(noaa.synthesize_tides_from_hilo([]), [])
+        # A 20-hour gap is not a tide cycle; nothing is invented across it
+        far = [(datetime(2026, 8, 20, 0, 0), 10.0, "H"),
+               (datetime(2026, 8, 20, 20, 0), 2.0, "L")]
+        self.assertEqual(noaa.synthesize_tides_from_hilo(far), [])
+
+    def test_unsorted_input_is_sorted_first(self):
+        low = (datetime(2026, 8, 20, 12, 0), 2.0, "L")
+        high = (datetime(2026, 8, 20, 6, 0), 10.0, "H")
+        curve = noaa.synthesize_tides_from_hilo([low, high])
+        self.assertEqual(curve[0][0], datetime(2026, 8, 20, 6, 0))
+
+
 class PredictionErrorTests(unittest.TestCase):
     def test_error_payload_is_dropped_from_cache(self):
         # NOAA reports "no data" as a 200 JSON error body; it must not be

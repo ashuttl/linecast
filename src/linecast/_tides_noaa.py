@@ -4,6 +4,7 @@ Provides station discovery, station metadata, and tide prediction fetchers
 for NOAA's CO-OPS APIs.
 """
 
+import math
 from datetime import datetime, timedelta
 
 from linecast import USER_AGENT
@@ -227,6 +228,37 @@ def day_to_dt(hour_decimal, date, station_tz):
     if station_tz is not None:
         dt = dt.replace(tzinfo=station_tz)
     return dt
+
+
+def synthesize_tides_from_hilo(hilo_points, step_minutes=6):
+    """Approximate a tide curve from hi/lo extremes by cosine interpolation.
+
+    Subordinate NOAA stations only publish high/low predictions. Between two
+    extremes the water level closely follows half a cosine cycle (the model
+    behind the sailor's rule of twelfths), which is also how those stations'
+    published offsets are meant to be used. Takes [(datetime, height, type)]
+    and returns [(datetime, height)] sampled every *step_minutes*.
+    """
+    pts = sorted(hilo_points, key=lambda p: p[0])
+    if len(pts) < 2:
+        return []
+    out = []
+    step = timedelta(minutes=step_minutes)
+    for (t1, h1, _), (t2, h2, _) in zip(pts, pts[1:]):
+        span = (t2 - t1).total_seconds()
+        # Skip duplicates and gaps too wide to be adjacent extremes
+        # (a semidiurnal half-cycle is ~6h12m; diurnal ~12h25m).
+        if span <= 0 or span > 16 * 3600:
+            continue
+        t = t1
+        while t < t2:
+            frac = (t - t1).total_seconds() / span
+            height = h1 + (h2 - h1) * (1 - math.cos(math.pi * frac)) / 2
+            out.append((t, height))
+            t += step
+    if out:
+        out.append(pts[-1][:2])
+    return out
 
 
 def fetch_tides_range(station_id, start_date, end_date, station_tz):
