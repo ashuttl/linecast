@@ -435,59 +435,70 @@ def main():
     result = {}
 
     def _fetch():
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            fut_geocode = pool.submit(_reverse_geocode, lat, lng)
-            fut_forecast = pool.submit(fetch_forecast, lat, lng, runtime)
-            fut_aqi = pool.submit(fetch_aqi, lat, lng)
+        try:
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                fut_geocode = pool.submit(_reverse_geocode, lat, lng)
+                fut_forecast = pool.submit(fetch_forecast, lat, lng, runtime)
+                fut_aqi = pool.submit(fetch_aqi, lat, lng)
 
-            def _hist():
-                try:
-                    from datetime import date
-                    return fetch_historical(
-                        lat, lng, date.today(),
-                        celsius=runtime.celsius, metric=runtime.metric,
-                    )
-                except Exception:
-                    return None
-            fut_hist = pool.submit(_hist)
+                def _hist():
+                    try:
+                        from datetime import date
+                        return fetch_historical(
+                            lat, lng, date.today(),
+                            celsius=runtime.celsius, metric=runtime.metric,
+                        )
+                    except Exception:
+                        return None
+                fut_hist = pool.submit(_hist)
 
-            # Alerts depend on geocode for country_code
-            name, cc, addr = fut_geocode.result()
-            fut_alerts = pool.submit(
-                fetch_alerts, lat, lng, cc or country_code,
-                lang=runtime.lang, address=addr,
-            )
+                # Alerts depend on geocode for country_code
+                name, cc, addr = fut_geocode.result()
+                fut_alerts = pool.submit(
+                    fetch_alerts, lat, lng, cc or country_code,
+                    lang=runtime.lang, address=addr,
+                )
 
-            result["name"] = name
-            result["country_code"] = cc or country_code
-            result["data"] = fut_forecast.result()
-            result["alerts"] = fut_alerts.result()
-            result["aqi"] = fut_aqi.result()
-            result["historical"] = fut_hist.result()
+                result["name"] = name
+                result["country_code"] = cc or country_code
+                result["data"] = fut_forecast.result()
+                result["alerts"] = fut_alerts.result()
+                result["aqi"] = fut_aqi.result()
+                result["historical"] = fut_hist.result()
 
-        if not result["name"] and result["data"]:
-            result["name"] = _location_from_timezone(result["data"].get("timezone", ""))
-        done.set()
+            if not result["name"] and result["data"]:
+                result["name"] = _location_from_timezone(result["data"].get("timezone", ""))
+        finally:
+            # Release the spinner no matter what escapes above — the main
+            # thread must never wait forever on a fetch that died.
+            done.set()
 
     t = threading.Thread(target=_fetch, daemon=True)
     t.start()
 
     # Animated spinner while waiting (suppressed for --json: stdout must
-    # carry nothing but the payload)
+    # carry nothing but the payload). The ceiling is a backstop well above
+    # the individual fetch timeouts: if the thread somehow wedges, give up
+    # and fall through to the no-data exit rather than spin forever.
+    _FETCH_CEILING = 60
     if runtime.json_mode:
-        done.wait()
+        done.wait(_FETCH_CEILING)
     else:
         from linecast._spinner import Spinner
         with Spinner():
-            done.wait()
+            done.wait(_FETCH_CEILING)
 
-    t.join()
+    t.join(1)
     location_name = result.get("name", "")
     final_country = result.get("country_code", "")
     data = result.get("data")
     alerts = result.get("alerts", [])
     aqi_data = result.get("aqi")
     historical = result.get("historical")
+
+    if data is None:
+        print("Could not fetch weather data.", file=sys.stderr)
+        sys.exit(1)
 
     if runtime.json_mode:
         import json
