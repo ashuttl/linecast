@@ -312,6 +312,20 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
 
     signal.signal(signal.SIGWINCH, _on_winch)
 
+    # Route SIGTERM/SIGHUP through SystemExit so `pkill radar` or a closed
+    # terminal still runs the finally block below — otherwise the alternate
+    # screen and mouse reporting are left switched on. 128+signum matches
+    # shell convention for signal deaths.
+    def _exit_on_signal(signum, _frame):
+        sys.exit(128 + signum)
+
+    prev_handlers = {}
+    for _sig in (signal.SIGTERM, signal.SIGHUP):
+        try:
+            prev_handlers[_sig] = signal.signal(_sig, _exit_on_signal)
+        except (ValueError, OSError):
+            pass
+
     is_apple_terminal = os.environ.get('TERM_PROGRAM') == 'Apple_Terminal'
 
     fd = sys.stdin.fileno()
@@ -511,17 +525,28 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                         if (cb & 0b11) in (0, 1, 2):
                             mouse_pos = (cx, cy)
                             break
-    except (KeyboardInterrupt, SystemExit):
+    except KeyboardInterrupt:
         pass
+    # SystemExit is NOT swallowed: a sys.exit(1) from a render callback (or
+    # the signal handler above) must reach the shell as a nonzero status.
+    # The finally block still restores the terminal on its way out.
     finally:
+        for _sig, _handler in prev_handlers.items():
+            try:
+                signal.signal(_sig, _handler)
+            except (ValueError, OSError):
+                pass
         os.close(wake_r)
         os.close(wake_w)
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        cleanup = ""
-        if mouse:
-            cleanup += "\033[?1006l\033[?1003l\033[?1002l\033[?1000l"
-            if is_apple_terminal:
-                cleanup += "\033[?1007l"
-        cleanup += "\033[?25h\033[?1049l"
-        sys.stdout.write(cleanup)
-        sys.stdout.flush()
+        try:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            cleanup = ""
+            if mouse:
+                cleanup += "\033[?1006l\033[?1003l\033[?1002l\033[?1000l"
+                if is_apple_terminal:
+                    cleanup += "\033[?1007l"
+            cleanup += "\033[?25h\033[?1049l"
+            sys.stdout.write(cleanup)
+            sys.stdout.flush()
+        except Exception:
+            pass  # tty may already be gone (SIGHUP); nothing left to restore
