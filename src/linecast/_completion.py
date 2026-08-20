@@ -904,10 +904,7 @@ def _nu_flags(flags, lang=False, theme=False, layer=False,
               value_flags=()):
     lines = []
     for flag in flags:
-        if flag in ("-h", "-v"):
-            continue
-        if flag == "--help":
-            lines.append("    --help(-h) # Show help")
+        if flag in ("-h", "-v", "--help"):
             continue
         if flag == "--version":
             if "-v" in flags:
@@ -987,8 +984,11 @@ def _nu_script():
         "    [ " + " ".join(f'"{sub}"' for sub in LOCATION_SUBCOMMANDS) + " ]",
         "}",
         "",
+        'def "nu-complete linecast-units-subcommands" [] {',
+        "    [ " + " ".join(f'"{sub}"' for sub in UNITS_SUBCOMMANDS) + " ]",
+        "}",
+        "",
         'export extern "linecast" [',
-        "    --help(-h) # Show help",
         "    --version(-v) # Show version",
         "]",
         "",
@@ -1039,32 +1039,55 @@ def _nu_script():
     # linecast location
     lines.extend(_nu_extern(
         "linecast location",
-        ["    --help(-h) # Show help", "    --version # Show version"],
+        ["    --version # Show version"],
         ['subcommand?: string@"nu-complete linecast-location-subcommands"'],
     ))
     lines.extend(_nu_extern(
         "linecast location show",
-        ["    --help(-h) # Show help", "    --version # Show version"],
+        ["    --version # Show version"],
     ))
     lines.extend(_nu_extern(
         "linecast location set",
-        ["    --help(-h) # Show help", "    --version # Show version"],
+        ["    --version # Show version"],
         ["query?: string"],
     ))
     lines.extend(_nu_extern(
         "linecast location auto",
-        ["    --help(-h) # Show help", "    --version # Show version"],
+        ["    --version # Show version"],
     ))
     lines.extend(_nu_extern(
         "linecast location search",
-        ["    --help(-h) # Show help", "    --version # Show version"],
+        ["    --version # Show version"],
         ["query?: string"],
+    ))
+
+    # linecast units
+    lines.extend(_nu_extern(
+        "linecast units",
+        ["    --version # Show version"],
+        ['subcommand?: string@"nu-complete linecast-units-subcommands"'],
+    ))
+    lines.extend(_nu_extern(
+        "linecast units show",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "linecast units metric",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "linecast units imperial",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "linecast units auto",
+        ["    --version # Show version"],
     ))
 
     # linecast completion
     lines.extend(_nu_extern(
         "linecast completion",
-        ["    --help(-h) # Show help"],
+        [],
         ['shell?: string@"nu-complete linecast-shells"'],
     ))
 
@@ -1077,26 +1100,50 @@ def _nu_script():
     lines.extend(_nu_extern("maps", maps_flags))
     lines.extend(_nu_extern(
         "location",
-        ["    --help(-h) # Show help", "    --version # Show version"],
+        ["    --version # Show version"],
         ['subcommand?: string@"nu-complete linecast-location-subcommands"'],
     ))
     lines.extend(_nu_extern(
         "location show",
-        ["    --help(-h) # Show help", "    --version # Show version"],
+        ["    --version # Show version"],
     ))
     lines.extend(_nu_extern(
         "location set",
-        ["    --help(-h) # Show help", "    --version # Show version"],
+        ["    --version # Show version"],
         ["query?: string"],
     ))
     lines.extend(_nu_extern(
         "location auto",
-        ["    --help(-h) # Show help", "    --version # Show version"],
+        ["    --version # Show version"],
     ))
     lines.extend(_nu_extern(
         "location search",
-        ["    --help(-h) # Show help", "    --version # Show version"],
+        ["    --version # Show version"],
         ["query?: string"],
     ))
 
+    # standalone units
+    lines.extend(_nu_extern(
+        "units",
+        ["    --version # Show version"],
+        ['subcommand?: string@"nu-complete linecast-units-subcommands"'],
+    ))
+    lines.extend(_nu_extern(
+        "units show",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "units metric",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "units imperial",
+        ["    --version # Show version"],
+    ))
+    lines.extend(_nu_extern(
+        "units auto",
+        ["    --version # Show version"],
+    ))
+
     return "\n".join(lines) + "\n"
+

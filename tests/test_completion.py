@@ -22,6 +22,7 @@ class CompletionScriptTests(unittest.TestCase):
         self.assertIn('export extern "linecast radar"', script)
         self.assertIn('export extern "linecast maps"', script)
         self.assertIn('export extern "linecast location"', script)
+        self.assertIn('export extern "linecast units"', script)
         self.assertIn('export extern "linecast completion"', script)
         self.assertIn('export extern "weather"', script)
         self.assertIn('export extern "tides"', script)
@@ -30,9 +31,14 @@ class CompletionScriptTests(unittest.TestCase):
         self.assertIn('export extern "radar"', script)
         self.assertIn('export extern "maps"', script)
         self.assertIn('export extern "location"', script)
+        self.assertIn('export extern "units"', script)
+        self.assertIn('nu-complete linecast-units-subcommands', script)
         self.assertIn('--metric', script)
         self.assertIn('--theme', script)
         self.assertIn('--lang', script)
+        # --help and -h must be omitted so Nushell does not hijack help display
+        self.assertNotIn('--help', script)
+        self.assertNotIn('-h', script)
 
     def test_bash_completion_includes_namespace_and_standalone_commands(self):
         script = render_completion("bash")
