@@ -27,6 +27,34 @@ class TidesRangeTests(unittest.TestCase):
 
 
 class StationLookupTests(unittest.TestCase):
+    def test_find_nearest_station_skips_subordinate_stations(self):
+        # Westbrook, ME: Fore River (subordinate) is nearer than Portland
+        # (reference), but subordinate stations can't serve the 6-minute
+        # series, so the reference station must win.
+        stations = [
+            {"id": "8418268", "name": "Fore River", "type": "S",
+             "lat": "43.64", "lng": "-70.30"},
+            {"id": "8418150", "name": "PORTLAND", "type": "R",
+             "lat": "43.6567", "lng": "-70.2467"},
+        ]
+        with patch.object(noaa, "read_cache", return_value=None), \
+             patch.object(noaa, "fetch_all_stations_noaa", return_value=stations), \
+             patch.object(noaa, "write_cache"):
+            station_id, station_name = noaa.find_nearest_station(43.68, -70.36)
+
+        self.assertEqual((station_id, station_name), ("8418150", "PORTLAND"))
+
+    def test_find_nearest_station_tolerates_missing_type(self):
+        stations = [
+            {"id": "1", "name": "Typeless", "lat": "43.68", "lng": "-70.36"},
+        ]
+        with patch.object(noaa, "read_cache", return_value=None), \
+             patch.object(noaa, "fetch_all_stations_noaa", return_value=stations), \
+             patch.object(noaa, "write_cache"):
+            station_id, _ = noaa.find_nearest_station(43.68, -70.36)
+
+        self.assertEqual(station_id, "1")
+
     def test_find_nearest_station_uses_stale_cache_on_fetch_error(self):
         lat, lng = 47.61, -122.33
         cache_file = noaa.CACHE_DIR / f"station_{location_cache_key(lat, lng)}.json"
@@ -44,6 +72,22 @@ class StationLookupTests(unittest.TestCase):
 
         self.assertEqual((station_id, station_name), ("222", "Second Harbor"))
         write_cache.assert_not_called()
+
+
+class PredictionErrorTests(unittest.TestCase):
+    def test_error_payload_is_dropped_from_cache(self):
+        # NOAA reports "no data" as a 200 JSON error body; it must not be
+        # served as fresh cache for the next 24 hours.
+        from unittest.mock import MagicMock
+        cache_file = MagicMock()
+        error_payload = {"error": {"message": "No Predictions data was found."}}
+        with patch.object(noaa, "_fetch_payload", return_value=error_payload):
+            rows = noaa._fetch_prediction_rows(
+                cache_file, "http://x", row_builder=noaa._build_tide_row,
+                tuple_builder=lambda row: (row["h"], row["v"]))
+
+        self.assertIsNone(rows)
+        cache_file.unlink.assert_called_once()
 
 
 class MetadataTests(unittest.TestCase):

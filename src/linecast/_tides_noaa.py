@@ -36,6 +36,11 @@ def find_nearest_station(lat, lng):
 
     best_id, best_name, best_dist = None, None, float("inf")
     for station in stations:
+        # Subordinate stations (type "S") only publish high/low predictions;
+        # the 6-minute series this chart needs comes back as an error. Only
+        # reference stations (type "R") are eligible for auto-pick.
+        if station.get("type", "R") != "R":
+            continue
         try:
             station_lat = float(station["lat"])
             station_lng = float(station["lng"])
@@ -152,6 +157,13 @@ def _fetch_prediction_rows(cache_file, url, row_builder, tuple_builder):
 
     predictions = data.get("predictions", [])
     if not predictions:
+        # NOAA reports "no data" as an HTTP 200 JSON error payload, which
+        # fetch_json_cached has just written to disk; drop it so the miss
+        # isn't served as fresh cache for the next 24 hours.
+        try:
+            cache_file.unlink(missing_ok=True)
+        except OSError:
+            pass
         return None
 
     rows = []
