@@ -8,6 +8,7 @@ formatting helpers used across the UI.
 import math
 import os
 import re
+import shutil
 import unicodedata
 
 from linecast._color import RESET, BOLD, BG_PRIMARY, fg, bg, lerp
@@ -89,11 +90,16 @@ def fmt_time_dt(dt, use_24h=False):
 
 
 def get_terminal_size(fallback=(80, 24)):
-    """Safe wrapper around os.get_terminal_size."""
+    """Terminal size, honouring $COLUMNS/$LINES overrides.
+
+    shutil.get_terminal_size consults the env vars before the tty ioctl,
+    which is what status-bar and tmux-pane captures expect; bare
+    os.get_terminal_size ignores them.
+    """
     try:
-        return os.get_terminal_size()
-    except OSError:
-        return fallback
+        return shutil.get_terminal_size(fallback)
+    except (OSError, ValueError):
+        return os.terminal_size(fallback)
 
 
 # ---------------------------------------------------------------------------
