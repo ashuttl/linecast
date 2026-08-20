@@ -5,6 +5,11 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Nushell completions: `linecast completion nu`. The project's first
+  outside contribution — thank you, @kurokirasama.
+- A changelog. Release notes now ship with each tag and GitHub
+  Release.
+
 ## 1.12.0 — 2026-08-20
 
 - Tides: subordinate stations work, drawn from NOAA's high/low
