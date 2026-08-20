@@ -112,7 +112,7 @@ def _base_parser(prog, description):
                     help="use standard emoji instead of Nerd Font icons")
     p.add_argument("--lang", default=None,
                     help="UI language code (en, fr, es, de, it, pt, nl, pl, "
-                         "no, sv, is, da, fi, ja, ko, zh)")
+                         "no, sv, is, da, fi, id, ja, ko, zh)")
     p.add_argument("--classic-colors", action="store_true",
                     help="use pre-theme fixed color palette")
     p.add_argument("--legacy-colors", action="store_true",

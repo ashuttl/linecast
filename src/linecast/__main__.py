@@ -5,15 +5,15 @@ from linecast import __version__
 from linecast._completion import completion_help, render_completion
 
 HELP = f"""\
-linecast {__version__} — terminal weather, solar arc, and tide visualizations
+linecast {__version__} — weather, sunlight, tides, radar, the Moon, and maps for the terminal
 
 Commands:
   linecast weather     Weather dashboard with braille temperature curve and alerts
   linecast sunshine    Solar arc inspired by the Apple Watch Solar face
   linecast moon        Moon phase, illumination, and rise/set times
-  linecast tides       NOAA tide chart with half-block rendering
+  linecast tides       Tide chart with braille rendering (NOAA, CHS, QLD + global model)
   linecast radar       Weather radar over a braille basemap (US + global)
-  linecast maps        Terrain and bathymetry map (hillshaded elevation)
+  linecast maps        Street and terrain maps: vector streets or hillshaded relief
   linecast location    Show or set a fixed location (overrides IP geolocation)
   linecast units       Show or set preferred units (metric or imperial)
   linecast completion  Print shell completion script (bash, zsh, fish)
