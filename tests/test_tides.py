@@ -101,6 +101,28 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class StaticRenderTests(unittest.TestCase):
+    """--print output must be plain lines: no \\x00 overlay channel and no
+    cursor-positioned tooltips (they only mean something under live_loop)."""
+
+    def _render(self, fullscreen):
+        from linecast._runtime import TidesRuntime
+        now = datetime.now()
+        start = now - timedelta(hours=12)
+        preds = [(start + timedelta(minutes=30 * i), float(i % 12)) for i in range(96)]
+        runtime = TidesRuntime.from_sources(argv=("--print",), environ={})
+        return tides.render(
+            "123", "Test Harbor", station_meta=None, runtime=runtime,
+            fullscreen=fullscreen, predictions=preds, hilo=[], y_range=(0.0, 12.0),
+        )
+
+    def test_static_render_has_no_overlay_channel(self):
+        self.assertNotIn("\x00", self._render(fullscreen=False))
+
+    def test_live_render_keeps_now_tooltip_overlay(self):
+        self.assertIn("\x00", self._render(fullscreen=True))
+
+
 class StationSearchTests(unittest.TestCase):
     NOAA = [
         {"id": "8418150", "name": "PORTLAND", "state": "ME",

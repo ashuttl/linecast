@@ -851,24 +851,27 @@ def render(station_id, station_name, station_meta=None, runtime=None,
 
     output = "\n".join(lines)
 
-    # --- cursor-positioned overlays ---
-    overlay_parts = []
+    # --- cursor-positioned overlays (live mode only: they ride live_loop's
+    # \x00 channel and use absolute cursor addressing, neither of which
+    # belongs in static/piped output) ---
+    if fullscreen:
+        overlay_parts = []
 
-    # Hover tooltip (takes priority over now tooltip)
-    if mouse_pos and hover_graph_col is not None:
-        tooltip = _build_tide_hover_tooltip(
-            window, hover_graph_col, mouse_pos[1],
-            chart_start, chart_end, cols, rows, graph_w, runtime,
-        )
-        if tooltip:
-            overlay_parts.append(tooltip)
-    elif now_col is not None and now_info is not None:
-        now_tip = _build_now_tooltip(now_col, now_info, chart_start, cols, graph_w)
-        if now_tip:
-            overlay_parts.append(now_tip)
+        # Hover tooltip (takes priority over now tooltip)
+        if mouse_pos and hover_graph_col is not None:
+            tooltip = _build_tide_hover_tooltip(
+                window, hover_graph_col, mouse_pos[1],
+                chart_start, chart_end, cols, rows, graph_w, runtime,
+            )
+            if tooltip:
+                overlay_parts.append(tooltip)
+        elif now_col is not None and now_info is not None:
+            now_tip = _build_now_tooltip(now_col, now_info, chart_start, cols, graph_w)
+            if now_tip:
+                overlay_parts.append(now_tip)
 
-    if overlay_parts:
-        output += "\x00" + "".join(overlay_parts)
+        if overlay_parts:
+            output += "\x00" + "".join(overlay_parts)
 
     return output
 
