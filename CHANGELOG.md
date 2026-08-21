@@ -13,6 +13,8 @@ Notable changes, by release. Notes for the next release collect under
 
 - README: a Lineage section. A videotex terminal draws the weather,
   sometime in the 1980s.
+- Screenshots: the sunshine pair and the hero desktop, reshot with
+  the braille arc.
 
 - Quick try with nothing but curl: `curl -sL .../get.sh | sh` is in
   the README.
