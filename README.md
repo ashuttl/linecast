@@ -267,6 +267,18 @@ Completion covers both `linecast <command>` and the standalone commands.
 
 </details>
 
+## Lineage
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/minitel-terminatel-258.jpg" width="380" alt="3615 LINECAST">
+</p>
+
+<p align="center"><em>Prior art.</em></p>
+
+A Telic-Alcatel videotex terminal draws the weather, sometime in the
+1980s. Photograph from the collection at
+[minitel-alcatel.fr](https://www.minitel-alcatel.fr/).
+
 ## License
 
 [MIT](LICENSE)

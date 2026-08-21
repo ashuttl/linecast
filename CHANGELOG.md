@@ -5,6 +5,9 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- README: a Lineage section. A videotex terminal draws the weather,
+  sometime in the 1980s.
+
 - Quick try with nothing but curl: `curl -sL .../get.sh | sh` is in
   the README.
 - get.sh: without a terminal to reclaim, fall back to `--print`

@@ -1,5 +1,9 @@
 # Refreshing the gallery
 
+One file here is not a capture: `minitel-terminatel-258.jpg` is a period
+photograph from [minitel-alcatel.fr](https://www.minitel-alcatel.fr/),
+credited in the main README's Lineage section. Leave it be.
+
 The README gallery is captured from linecast's live terminal UI with
 [`termshot`](https://github.com/ashuttl/dotfiles-omarchy/tree/main/termshot).
 It renders each app on a temporary offscreen Hyprland monitor at 2× density,
