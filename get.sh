@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-# linecast — weather, sunlight, tides, radar, the Moon, and maps for the terminal
+# linecast — weather, tides, the sun, the moon, and maps for the terminal
 # https://github.com/ashuttl/linecast
 #
 # Quick start:  curl -sL URL | sh
