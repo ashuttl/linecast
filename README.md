@@ -2,7 +2,7 @@
 
 # linecast
 
-**Weather, sunlight, tides, radar, the Moon, and maps — drawn for the terminal.**
+**Weather, tides, the sun, the moon, and maps, drawn for the terminal. The Old Farmer's Alamanac meets Minitel.**
 
 [![PyPI](https://img.shields.io/pypi/v/linecast)](https://pypi.org/project/linecast/)
 [![Python](https://img.shields.io/pypi/pyversions/linecast)](https://pypi.org/project/linecast/)
