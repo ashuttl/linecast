@@ -6,9 +6,10 @@ face. Shows the sun's sinusoidal arc above and below the horizon with a
 warm glow centered on the sun's current position, seasonal scaling, and day
 length with daily delta.
 
-Uses half-block characters with ANSI color for smooth rendering at 2x
-vertical sub-pixel resolution (true color when available). Location is
-cached from IP geolocation (~1 network call per week).
+The arc itself is drawn in braille — it is the data. The sky glow renders
+in half-block characters with ANSI color at 2x vertical sub-pixel
+resolution (true color when available). Location is cached from IP
+geolocation (~1 network call per week).
 
 Usage: sunshine [--print] [--oneline] [--json] [--location PLACE] [--emoji] [--classic-colors]
 """
@@ -17,6 +18,7 @@ import math
 import sys
 from datetime import datetime, timezone
 
+from linecast._braille import braille_rows_from_ys
 from linecast._graphics import (
     fg, RESET, BG_PRIMARY, lerp, interp_stops, visible_len, fmt_time,
     get_terminal_size, Framebuffer, live_loop,
@@ -28,7 +30,6 @@ from linecast._theme import (
     lerp_rgb,
     lighten,
     neutral_tone,
-    surface_bg,
     theme_ansi,
     theme_bg,
     theme_fg,
@@ -42,7 +43,7 @@ from linecast._runtime import RuntimeConfig, install_banner, sunshine_parser
 # ---------------------------------------------------------------------------
 if theme_legacy_mode:
     # Original pre-theme palette (classic mode).
-    HORIZON_COLOR = (40, 46, 65)
+    HORIZON_COLOR = (90, 98, 125)
     CURVE_COLOR = (160, 168, 195)
     SUN_GLOW_DAY_RGB = (255, 250, 220)
     SUN_GLOW_TWILIGHT_RGB = (180, 195, 225)
@@ -60,7 +61,7 @@ else:
     _SKY_YELLOW = best_contrast((theme_ansi[3], theme_ansi[11]), minimum=1.8)
     _SKY_WHITE = best_contrast((theme_ansi[15], theme_fg), minimum=2.0)
 
-    HORIZON_COLOR = ensure_contrast(surface_bg(0.14), theme_bg, minimum=1.3)  # subtle divider
+    HORIZON_COLOR = ensure_contrast(neutral_tone(0.45), theme_bg, minimum=1.7)  # hairline divider
     CURVE_COLOR = ensure_contrast(neutral_tone(0.74), theme_bg, minimum=2.4)  # neutral arc
     SUN_GLOW_DAY_RGB = best_contrast((theme_ansi[15], lighten(theme_fg, 0.12)), minimum=1.8)
     SUN_GLOW_TWILIGHT_RGB = ensure_contrast(lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.45), theme_bg, minimum=1.6)
@@ -377,6 +378,9 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     horizon_frac = annual_max / (annual_max - annual_min)
     horizon_spy = int(total_spy * horizon_frac)
     horizon_spy = max(2, min(total_spy - 2, horizon_spy))
+    # Even, so the horizon hairline's braille cell is entirely sky — its
+    # overlay background blends to pure sky and the edge stays crisp.
+    horizon_spy -= horizon_spy % 2
 
     def elev_to_spy(elev):
         """Elevation → sub-pixel row (float). 0=top, total_spy-1=bottom."""
@@ -385,8 +389,6 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
         else:
             below = total_spy - horizon_spy
             return horizon_spy + abs(elev) / abs(annual_min) * below
-
-    curve_f = [max(0.0, min(total_spy - 1.0, elev_to_spy(e))) for e in elevations]
 
     # Current sun position
     now_x = max(0, min(graph_w - 1, int(now_hour / 24 * graph_w)))
@@ -398,10 +400,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     # --- build framebuffer ---
     fb = Framebuffer(graph_w, graph_h)
 
-    # 1. Horizon line
-    fb.fill_hline(horizon_spy, HORIZON_COLOR)
-
-    # 2. Sky glow — above horizon, centered on sun, irrespective of arc
+    # 1. Sky glow — above horizon, centered on sun, irrespective of arc
     if now_elev > -18:
         sky_near_h = interp_stops(SKY_NEAR_HORIZON, now_elev)
         sky_far_h  = interp_stops(SKY_FAR_HORIZON, now_elev)
@@ -417,8 +416,14 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
         # Ambient sky floor: even far from sun, some blue during day
         ambient = 0.15 * max(0, min(1, now_elev / 25))
 
-        # Vertical extent: concentrated at horizon in twilight, fills sky midday
-        height_power = 1.5 - 1.0 * max(0, min(1, (now_elev + 6) / 36))
+        # Vertical focus: once the sun is up, the glow centers on its plotted
+        # height; below the horizon it stays at the horizon, where the light
+        # is. Continuous through sunrise since now_spy == horizon_spy there.
+        focal_spy = min(now_spy, float(horizon_spy))
+
+        # Vertical spread: concentrated in twilight, fills the sky midday
+        t_height = max(0, min(1, (now_elev + 6) / 36))
+        v_sigma = max(1.0, horizon_spy * (0.25 + 0.95 * t_height))
 
         for x in range(graph_w):
             dx = x - now_x
@@ -434,17 +439,25 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
                 # Vertical blend: horizon → zenith color
                 sky_color = lerp(horizon_color, sky_z, vert_frac ** 0.65)
 
-                # Vertical intensity falloff
-                v_factor = max(0, (1 - vert_frac) ** height_power)
+                # Vertical intensity falloff around the focal point
+                v_factor = math.exp(-0.5 * ((spy - focal_spy) / v_sigma) ** 2)
 
                 intensity = brightness * h_intensity * v_factor
                 if intensity > 0.01:
                     fb.set_pixel(x, spy, sky_color, intensity)
 
-    # 3. Curve line
-    fb.draw_curve(curve_f, CURVE_COLOR, sigma=0.8)
+    # 2. Curve line — braille, at 2x horizontal / 4x vertical dot resolution.
+    # The arc is the data here; it gets the fine-grained rendering, while the
+    # glow stays in half-block sub-pixels (like terrain shading on maps).
+    total_dots = graph_h * 4
+    dot_ys = []
+    for i in range(graph_w * 2):
+        h = (i + 0.5) / (graph_w * 2) * 24
+        e = sun_elevation(lat, lng, h, doy, tz_offset_h)
+        dot_ys.append(max(0, min(total_dots - 1, int(round(elev_to_spy(e) * 2)))))
+    curve_bits = braille_rows_from_ys(dot_ys, graph_w, graph_h)
 
-    # 4. Sun — radial glow
+    # 3. Sun — radial glow
     sun_spy_i = int(round(now_spy))
     sun_spy_i = max(0, min(total_spy - 1, sun_spy_i))
     sun_r = max(5, int(min(graph_w, total_spy) * 0.04))
@@ -460,9 +473,29 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
                 d = math.sqrt(dx * dx + (dy * 1.5) ** 2)
                 fb.set_pixel(sx, sy, SUN_CORE_RGB, max(0, 1 - d * 0.5))
 
-    # --- render framebuffer with sun dot overlay ---
+    # --- render framebuffer with braille horizon, curve, and sun overlays ---
+    overlays = {}
+    # Horizon — a dotted hairline (every third braille dot) on the sky side
+    # of the boundary. Each dot fades toward the lit sky behind it, so the
+    # line dissolves into daylight and only reads where the sky is dark.
+    # Yields where the arc passes.
+    hz_row = horizon_spy // 2 - 1
+    for dot_x in range(0, graph_w * 2, 3):
+        ci = dot_x // 2
+        if curve_bits[hz_row][ci]:
+            continue
+        cell = fb.cell_bg(ci, hz_row)
+        lit = min(1.0, max(abs(a - b) for a, b in zip(cell, fb.bg)) / 40)
+        if lit >= 1.0:
+            continue
+        dot = 0x40 if dot_x % 2 == 0 else 0x80
+        overlays[(ci, hz_row)] = (chr(0x2800 + dot), lerp(HORIZON_COLOR, cell, lit))
+    for row in range(graph_h):
+        for ci in range(graph_w):
+            if curve_bits[row][ci]:
+                overlays[(ci, row)] = (chr(0x2800 + curve_bits[row][ci]), CURVE_COLOR)
     sun_cell_row = sun_spy_i // 2
-    overlays = {(now_x, sun_cell_row): (icons["sun_char"], SUN_CORE_RGB)}
+    overlays[(now_x, sun_cell_row)] = (icons["sun_char"], SUN_CORE_RGB)
     lines = fb.render(overlays)
 
     # --- info line ---

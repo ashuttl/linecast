@@ -5,6 +5,12 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Sunshine: the solar arc is drawn in braille, and the horizon is a
+  dotted braille hairline that dissolves into daylight — it shows only
+  where the sky is dark. The half-blocks now render only the sky.
+- Sunshine: once the sun is up, the glow centers on its height in the
+  plot rather than staying at the horizon.
+
 - README: a Lineage section. A videotex terminal draws the weather,
   sometime in the 1980s.
 

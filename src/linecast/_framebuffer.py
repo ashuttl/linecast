@@ -171,6 +171,10 @@ class Framebuffer:
                     color = color_func(t)
                     self.fb[spy][x] = lerp(self.fb[spy][x], color, 0.85)
 
+    def cell_bg(self, x, cell_row):
+        """Blended color of a cell — its two sub-pixels averaged."""
+        return lerp(self.fb[cell_row * 2][x], self.fb[cell_row * 2 + 1][x], 0.5)
+
     def draw_radial(self, cx, cy_spy, color, radius, aspect=1.8, peak_alpha=0.75):
         """Draw a radial glow blob centered at (cx, cy_spy).
 
@@ -210,7 +214,9 @@ class Framebuffer:
                 key = (x, row)
                 if key in overlays:
                     char, fg_color = overlays[key]
-                    parts.append(f"{bg(*top)}{fg(*fg_color)}{BOLD}{char}{RESET}")
+                    # An overlay char covers the whole cell; blend the two
+                    # sub-pixels so its background matches the cell center.
+                    parts.append(f"{bg(*self.cell_bg(x, row))}{fg(*fg_color)}{BOLD}{char}{RESET}")
                 else:
                     parts.append(halfblock(top, bot))
             parts.append(RESET)
