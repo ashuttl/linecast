@@ -96,6 +96,8 @@ linecast radar --theme rainbow
 linecast maps --view terrain
 ```
 
+![the same desk in motion: the radar loop plays while weather, tides, and the solar arc keep watch](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.gif)
+
 ## A closer look
 
 ### Weather
