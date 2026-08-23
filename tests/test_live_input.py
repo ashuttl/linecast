@@ -117,3 +117,23 @@ class TestNewBindings:
         for data in (b"a", b"z", b"1", b"."):
             os.write(pipe[1], data)
             assert _read_key(pipe[0]) is None
+
+
+class TestNudge:
+    """_live.nudge repaints a running live loop and is a no-op otherwise."""
+
+    def test_sends_sigwinch_only_while_a_loop_runs(self, monkeypatch):
+        import signal
+        from linecast import _live
+        sent = []
+        monkeypatch.setattr(_live.os, "kill", lambda pid, sig: sent.append((pid, sig)))
+        monkeypatch.setattr(_live, "_running", False)
+        _live.nudge()
+        assert sent == []
+        monkeypatch.setattr(_live, "_running", True)
+        _live.nudge()
+        assert sent == [(os.getpid(), signal.SIGWINCH)]
+
+    def test_radar_frames_nudge_is_the_live_one(self):
+        from linecast import _live, _radar_frames
+        assert _radar_frames._nudge is _live.nudge

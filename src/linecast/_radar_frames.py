@@ -9,12 +9,12 @@ too, since every fetch goes through it; radar.main() installs it.
 """
 
 import math
-import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from linecast import _theme
 from linecast import _radar_warnings
+from linecast._live import nudge as _nudge  # a landed frame repaints the live view
 from linecast._radar_render import _bbox_key, build_radar_buffer
 from linecast._radar_ui import _get_basemap
 
@@ -35,16 +35,6 @@ _prefetch_key = None  # (bbox, w, h) currently being prefetched
 _prefetch_gen = 0     # bumped when the view changes; stale workers stand down
 _prefetch_done = False  # current window's prefetch worker has finished
 _buffering = False    # auto-play is held while the frame window buffers
-_live_refresh = False  # live mode: prefetch completions nudge a repaint
-
-
-def _nudge():
-    """Ask the live loop to repaint now that something landed in the
-    background. SIGWINCH rides the loop's existing self-pipe wakeup and is
-    harmless if coalesced; outside live mode this is a no-op."""
-    if _live_refresh:
-        import signal
-        os.kill(os.getpid(), signal.SIGWINCH)
 
 
 def _view_key(bbox, gw, hc):

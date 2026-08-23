@@ -247,6 +247,20 @@ def _read_key(fd, text=False):
 # ---------------------------------------------------------------------------
 # Live loop
 # ---------------------------------------------------------------------------
+_running = False  # a live loop is on screen with its SIGWINCH handler installed
+
+
+def nudge():
+    """Ask the live loop to repaint now, from any thread.
+
+    SIGWINCH rides the loop's self-pipe wakeup and coalesces harmlessly
+    when several arrive at once; with no live loop running it does
+    nothing, so background work can call it unconditionally."""
+    if _running:
+        import signal
+        os.kill(os.getpid(), signal.SIGWINCH)
+
+
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
               intercept=None, play_gate=None, on_wheel=None, text_mode=None,
@@ -319,6 +333,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     _theme.poll_interval / watch_path) and repaints when they change,
     so switching the terminal theme re-inks the view in place.
     """
+    global _running
     import select, signal, termios, tty
     from linecast import _theme
 
@@ -408,6 +423,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     sys.stdout.write(init)
     sys.stdout.flush()
     try:
+        _running = True
         tty.setcbreak(fd)
 
         while True:
@@ -600,6 +616,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     # the signal handler above) must reach the shell as a nonzero status.
     # The finally block still restores the terminal on its way out.
     finally:
+        _running = False
         for _sig, _handler in prev_handlers.items():
             try:
                 signal.signal(_sig, _handler)

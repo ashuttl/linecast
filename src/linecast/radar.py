@@ -457,7 +457,6 @@ def main():
 
     from linecast._radar_sources import _in_conus
 
-    _radar_frames._live_refresh = True
     # a background index refresh that adds a frame repaints the timeline
     _radar_sources.on_index_refresh = _nudge
     zoom = [args.zoom]
