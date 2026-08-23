@@ -46,17 +46,6 @@ def available():
     return _load() is not None
 
 
-def family(lat, lon):
-    """The ramp family of the ground at lat/lon (HUMID when unknown)."""
-    g = _load()
-    if g is None:
-        return HUMID
-    w, h, cells = g
-    ix = int((lon + 180.0) / 360.0 * w) % w
-    iy = min(h - 1, max(0, int((90.0 - lat) / 180.0 * h)))
-    return cells[iy * w + ix]
-
-
 def grid_for_bbox(bbox, w, h):
     """Per-sub-pixel family rows for a flat equirectangular view.
 

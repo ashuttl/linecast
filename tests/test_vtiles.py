@@ -81,27 +81,6 @@ class TestTileInfo:
         assert seen["max_age"] == 86400
         assert "linecast/" in seen["headers"]["User-Agent"]
 
-    def test_refresh_drops_the_cache_file(self, cache):
-        path = cache / "maps" / "tilejson.json"
-        path.parent.mkdir(parents=True)
-        path.write_text("{}")
-        vt.refresh_tilejson()
-        assert not path.exists()
-        vt.refresh_tilejson()  # idempotent when already gone
-
-
-class TestSourceZoom:
-    def test_matches_view_width(self):
-        # lon span 0.0879° -> z_eff = log2(360/0.0879) ≈ 12.0 -> ceil 12
-        assert vt.source_zoom((-70.3, 43.6, -70.2121, 43.7)) == 12
-
-    def test_clamps_to_maxzoom(self):
-        # a street-level span (0.005°) wants z ≈ 16.1 -> clamped
-        assert vt.source_zoom((-70.255, 43.65, -70.250, 43.66)) == 14
-
-    def test_world_view_clamps_to_zero(self):
-        assert vt.source_zoom((-180.0, -60.0, 180.0, 60.0)) == 0
-
 
 class TestTilesForBbox:
     def test_covers_portland_view(self):
@@ -180,17 +159,3 @@ class TestFetchTile:
         keys = [(14, 1, 1), (14, 2, 1)]
         assert vt.fetch_tiles(keys) == {k: b"x" for k in keys}
         assert vt.fetch_tiles([]) == {}
-
-
-class TestPruneVersions:
-    def test_removes_only_superseded_dirs(self, cache):
-        root = cache / "maps" / "vt"
-        for name in ("old_version", "20260802_080001_pt"):
-            (root / name).mkdir(parents=True)
-            (root / name / "1_2_3.pbf").write_bytes(b"d")
-        vt.prune_versions("20260802_080001_pt")
-        assert not (root / "old_version").exists()
-        assert (root / "20260802_080001_pt" / "1_2_3.pbf").exists()
-
-    def test_missing_root_is_fine(self, cache):
-        vt.prune_versions("anything")  # must not raise

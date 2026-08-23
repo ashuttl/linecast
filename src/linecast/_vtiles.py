@@ -10,12 +10,11 @@ rather than hardcoded: the planet is rebuilt weekly under a new dated
 path segment, and requests to a stale or mistyped path return HTTP 200
 with zero bytes — indistinguishable from genuinely empty ocean tiles.
 A zero-byte body IS the documented "empty tile" response, so it is
-cached and rendered as nothing; only a whole viewport of empty tiles
-over known land suggests a stale template (callers may then call
-refresh_tilejson()).
+cached and rendered as nothing; the TileJSON itself is re-read after a
+day, which is how a stale template heals.
 
 Versioned tile URLs are immutable (10-year max-age upstream), so cached
-tiles never expire; superseded version directories are pruned lazily.
+tiles never expire.
 
 Set LINECAST_VECTOR_TILES_URL to point at a self-hosted TileJSON.
 """
@@ -23,7 +22,6 @@ Set LINECAST_VECTOR_TILES_URL to point at a self-hosted TileJSON.
 import gzip
 import math
 import os
-import shutil
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
@@ -47,16 +45,6 @@ def tilejson():
     return fetch_json_cached(
         CACHE_ROOT / "maps" / "tilejson.json", _TILEJSON_TTL, TILEJSON_URL,
         headers={"User-Agent": USER_AGENT})
-
-
-def refresh_tilejson():
-    """Drop the cached TileJSON so the next fetch rediscovers the
-    template — the recovery move when a stale version segment starts
-    returning empty tiles over land."""
-    try:
-        (CACHE_ROOT / "maps" / "tilejson.json").unlink()
-    except OSError:
-        pass
 
 
 def tile_info():
@@ -83,15 +71,6 @@ def tile_info():
     except (TypeError, ValueError):
         maxzoom = _MAX_ZOOM_FALLBACK
     return template, version, maxzoom
-
-
-def source_zoom(bbox, maxzoom=_MAX_ZOOM_FALLBACK):
-    """The tile zoom to fetch for a view: ceil of the effective zoom
-    (log2 of world width over view width), so source generalization is
-    at least as detailed as the display scale."""
-    lon_span = max(1e-9, bbox[2] - bbox[0])
-    z_eff = math.log2(360.0 / lon_span)
-    return max(0, min(maxzoom, math.ceil(z_eff)))
 
 
 def tiles_for_bbox(bbox, z):
@@ -231,15 +210,3 @@ def fetch_tiles(keys, timeout=15):
     with ThreadPoolExecutor(max_workers=6) as pool:
         results = pool.map(lambda k: fetch_tile(*k, timeout=timeout), keys)
     return dict(zip(keys, results))
-
-
-def prune_versions(keep):
-    """Remove cached tile directories for superseded planet versions.
-    Fire-and-forget: any failure is somebody else's disk problem."""
-    root = CACHE_ROOT / "maps" / "vt"
-    try:
-        for entry in root.iterdir():
-            if entry.name != keep and entry.is_dir():
-                shutil.rmtree(entry, ignore_errors=True)
-    except OSError:
-        pass
