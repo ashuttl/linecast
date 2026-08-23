@@ -37,6 +37,15 @@ _MERCATOR_LAT = 85.05
 
 _ATMOSPHERE = themed((104, 148, 198))
 
+
+def _rebuild():
+    global _ATMOSPHERE
+    _ATMOSPHERE = themed((104, 148, 198))
+
+
+from linecast import _theme as _theme_mod
+_theme_mod.on_reload(_rebuild)
+
 # lls (the coarse per-sample lat/lon grid) rides along for the now
 # register, which re-shades a cached view into the current moment
 GlobeView = namedtuple("GlobeView", "elev coast shade atmo cover borders lls",

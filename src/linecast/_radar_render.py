@@ -145,3 +145,11 @@ def compose(basemap, radar, overlays, graph_w, height_cells, warnings=None,
         parts.append(RESET)
         lines.append("".join(parts))
     return lines
+
+from linecast import _theme as _theme_mod
+_theme_mod.reimport_on_reload(globals(), "linecast._radar_basemap",
+"SEA_FILL")
+
+from linecast import _theme as _theme_mod
+_theme_mod.reimport_on_reload(globals(), "linecast._color",
+"BG_PRIMARY")

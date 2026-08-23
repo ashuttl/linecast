@@ -112,7 +112,9 @@ class Framebuffer:
     Each cell row spans two sub-pixel rows (top, bottom half-block).
     """
 
-    def __init__(self, width, height_cells, bg_color=BG_PRIMARY):
+    def __init__(self, width, height_cells, bg_color=None):
+        if bg_color is None:
+            bg_color = BG_PRIMARY
         self.graph_w = width
         self.graph_h = height_cells
         self.total_spy = height_cells * 2
@@ -222,3 +224,6 @@ class Framebuffer:
             parts.append(RESET)
             lines.append("".join(parts))
         return lines
+
+from linecast import _theme as _theme_mod
+_theme_mod.reimport_on_reload(globals(), "linecast._color", "BG_PRIMARY")

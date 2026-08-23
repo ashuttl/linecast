@@ -256,6 +256,8 @@ Completion covers both `linecast <command>` and the standalone commands.
 | `LINECAST_COLOR` | `auto`, `truecolor`, `256`, `16`, or `none` |
 | `LINECAST_THEME` | `auto` (default), or `classic` / `legacy` / `off` for the fixed palette |
 | `LINECAST_THEME_TIMEOUT_MS` | Terminal palette query timeout in milliseconds (default `100`) |
+| `LINECAST_THEME_POLL` | Seconds between re-reading the terminal palette in live views, so a theme switch re-inks the view in place (default `2`; `0` disables) |
+| `LINECAST_THEME_WATCH` | A file whose modification marks a desktop theme change, prompting an immediate re-read (default: Omarchy's current-theme marker; empty disables) |
 | `NO_COLOR` | Any non-empty value disables ANSI colours |
 
 </details>

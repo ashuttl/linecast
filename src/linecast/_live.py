@@ -5,6 +5,7 @@ terminal's alternate screen buffer, with support for:
 
 - Auto-refresh on a configurable interval
 - Immediate re-render on terminal resize (SIGWINCH)
+- Re-inking in place when the terminal's colour theme changes
 - Keyboard navigation (arrows, q to quit, n to reset)
 - Mouse wheel scrubbing (SGR and legacy X10/VT200 encoding)
 - Alert modal interaction (click to open, scroll to read, q/click to dismiss)
@@ -108,6 +109,26 @@ def _read_key(fd, text=False):
         b2 = _read_byte_timeout(0.15)
         if b2 is None:
             return 'escape'
+
+        if b2 == b']':
+            # An OSC reply to the live loop's theme probe, e.g.
+            # \033]11;rgb:1e/1e/2e\007 (or ST-terminated).  Consume it
+            # whole and hand the body to the theme; it is never a key.
+            body = bytearray()
+            while True:
+                c = _read_byte_timeout(0.15)
+                if c is None:
+                    return None
+                if c == b'\x07':
+                    break
+                if c == b'\033':
+                    _read_byte_timeout(0.05)  # the backslash of ST
+                    break
+                body.extend(c)
+                if len(body) > 256:
+                    return None
+            from linecast import _theme
+            return 'theme' if _theme.ingest_osc(bytes(body)) else None
 
         if b2 == b'[':
             seq = bytearray()
@@ -293,8 +314,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               press is only tracked while a drag callback is set).
               Default None preserves existing behavior exactly.
     Re-renders immediately on terminal resize (SIGWINCH) or input.
+
+    While idle, re-probes the terminal's colours now and then (see
+    _theme.poll_interval / watch_path) and repaints when they change,
+    so switching the terminal theme re-inks the view in place.
     """
     import select, signal, termios, tty
+    from linecast import _theme
 
     # Self-pipe for async-signal-safe SIGWINCH wakeup.
     # threading.Event.set() is NOT safe in signal handlers (its internal
@@ -330,6 +356,39 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
 
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
+
+    def _mtime(path):
+        try:
+            return os.stat(path).st_mtime_ns
+        except OSError:
+            return None
+
+    theme_poll = _theme.poll_interval()
+    theme_watch = _theme.watch_path()
+    theme_watch_mtime = _mtime(theme_watch) if theme_watch else None
+    next_probe = _time.monotonic() + theme_poll
+    burst_until = 0.0   # after the watch file changes, probe briskly for a
+                        # few seconds: the terminal may get its colours a
+                        # beat after the marker file is written
+
+    def _maybe_probe():
+        nonlocal theme_watch_mtime, next_probe, burst_until
+        if not _theme.can_reprobe() or _theme.probe_pending():
+            return
+        now = _time.monotonic()
+        if theme_watch:
+            m = _mtime(theme_watch)
+            if m != theme_watch_mtime:
+                theme_watch_mtime = m
+                burst_until = now + 4.0
+                next_probe = now
+        interval = 0.5 if now < burst_until else theme_poll
+        if interval <= 0 and now >= burst_until:
+            return
+        if now >= next_probe:
+            next_probe = now + interval
+            _theme.request_probe(sys.stdout.fileno())
+
     offset = 0
     playing = auto_play
     play_frame = 0
@@ -400,9 +459,14 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                     except OSError:
                         pass
                     break
+                if not ready:
+                    _maybe_probe()
+                    continue
                 if fd in ready:
                     action = _read_key(
                         fd, text=bool(text_mode is not None and text_mode()))
+                    if action == 'theme':
+                        break  # the terminal's colours changed: repaint
                     if (intercept is not None and action is not None
                             and not isinstance(action, tuple)
                             and intercept(action)):

@@ -39,7 +39,8 @@ from linecast._maps_search import (
 )
 from linecast._elevation import ATTRIBUTION as ELEV_ATTRIBUTION
 from linecast._maps_route import ATTRIBUTION as ROUTE_ATTRIBUTION
-from linecast._theme import ensure_contrast, surface_bg, theme_fg
+from linecast import _theme
+from linecast._theme import ensure_contrast, surface_bg
 from linecast._vtiles import ATTRIBUTION as TILE_ATTRIBUTION
 from linecast.radar import CROSSHAIR, DIM, MUTED
 
@@ -242,7 +243,7 @@ def _row(n, body, width, surface):
 def search_overlay(state, cols, rows, lang="en"):
     """The panel, as cursor-addressed escapes for the \\x00 channel."""
     surface = surface_bg(0.10)
-    ink = ensure_contrast(theme_fg, surface, 4.0)
+    ink = ensure_contrast(_theme.theme_fg, surface, 4.0)
     width = max(PANEL_MIN, min(PANEL_MAX, cols - 2))
     caret = "\033[7m \033[27m"
     tail = "…" if state.status == "pending" else ""
@@ -503,7 +504,7 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
     if rows < 6:
         return ""
     surface = surface_bg(0.10)
-    ink = ensure_contrast(theme_fg, surface, 4.0)
+    ink = ensure_contrast(_theme.theme_fg, surface, 4.0)
     width = max(PANEL_MIN, min(PANEL_MAX, cols - 2))
     route, step = state.route, state.step
 
@@ -631,7 +632,7 @@ def help_overlay(cols, rows, lang="en", route=False):
     have to operate.
     """
     surface = surface_bg(0.10)
-    ink = ensure_contrast(theme_fg, surface, 4.0)
+    ink = ensure_contrast(_theme.theme_fg, surface, 4.0)
     width = max(24, min(cols - 4, HELP_WIDTH))
     budget = rows - 2
 

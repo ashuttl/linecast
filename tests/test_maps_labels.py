@@ -23,6 +23,7 @@ if _src not in sys.path:
 from linecast import _maps_labels as lb
 from linecast import _maps_streets as st
 from linecast import _maps_style
+from linecast import _theme
 from linecast._radar_basemap import _load_data
 
 from test_maps_streets import (
@@ -37,7 +38,7 @@ DARK_BG = (14, 15, 18)
 @pytest.fixture(autouse=True)
 def _truecolor(monkeypatch):
     monkeypatch.setattr(_maps_style, "color_mode", lambda: "truecolor")
-    monkeypatch.setattr(_maps_style, "theme_bg", DARK_BG)
+    monkeypatch.setattr(_theme, "theme_bg", DARK_BG)
 
 
 def point(x, y):

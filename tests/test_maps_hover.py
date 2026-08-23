@@ -21,6 +21,7 @@ if _src not in sys.path:
 
 from linecast import _color, _maps_hover as hv, _maps_i18n, _maps_style as style
 from linecast import _maps_streets as st
+from linecast import _theme
 from linecast.maps import compose_map
 
 from test_maps_streets import (  # the tile-fixture writer, reused wholesale
@@ -38,7 +39,7 @@ GREY = (132, 136, 150)
 @pytest.fixture(autouse=True)
 def _truecolor(monkeypatch):
     monkeypatch.setattr(style, "color_mode", lambda: "truecolor")
-    monkeypatch.setattr(style, "theme_bg", DARK_BG)
+    monkeypatch.setattr(_theme, "theme_bg", DARK_BG)
 
 
 def _strip(s):
@@ -224,17 +225,17 @@ class TestReadout:
 
 class TestHighlight:
     def test_a_dark_theme_lifts_an_ink_toward_white(self, monkeypatch):
-        monkeypatch.setattr(style, "theme_bg", (14, 15, 18))
+        monkeypatch.setattr(_theme, "theme_bg", (14, 15, 18))
         assert all(a > b for a, b in zip(hv.highlight(GREY), GREY))
 
     def test_a_light_theme_lifts_an_ink_toward_black(self, monkeypatch):
-        monkeypatch.setattr(style, "theme_bg", (250, 250, 248))
+        monkeypatch.setattr(_theme, "theme_bg", (250, 250, 248))
         assert all(a < b for a, b in zip(hv.highlight(GREY), GREY))
 
     def test_it_never_becomes_a_new_hue(self, monkeypatch):
         # The style spec spends exactly three accents; a hovered feature
         # keeps its own ink and only moves along its ladder.
-        monkeypatch.setattr(style, "theme_bg", (14, 15, 18))
+        monkeypatch.setattr(_theme, "theme_bg", (14, 15, 18))
         amber = style.PALETTE_DARK["motorway"]
         lift = hv.highlight(amber)
         assert lift[0] > lift[1] > lift[2]      # still warm
@@ -276,7 +277,7 @@ class TestComposeHighlight:
         assert _strip(self._compose({(0, 0)}, monkeypatch)) == "⠁⠁"
 
     def test_the_lift_is_the_cell_s_own_ink(self, monkeypatch):
-        monkeypatch.setattr(style, "theme_bg", DARK_BG)
+        monkeypatch.setattr(_theme, "theme_bg", DARK_BG)
         want = hv.highlight(GREY)
         assert f"38;2;{want[0]};{want[1]};{want[2]}" \
             in self._compose({(0, 0)}, monkeypatch)

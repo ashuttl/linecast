@@ -219,13 +219,13 @@ class TestMapsSnapshot:
                              oneline=False)
 
     def _render(self, view, fetch_patch, zoom=0.02):
-        from linecast import _color, _maps_style, maps
+        from linecast import _color, _maps_style, _theme, maps
         stack = [
             patch("linecast.maps.get_terminal_size",
                   return_value=(self.COLS, self.ROWS)),
             patch.object(_color, "_COLOR_MODE", "truecolor"),
             patch.object(_maps_style, "color_mode", lambda: "truecolor"),
-            patch.object(_maps_style, "theme_bg", (14, 15, 18)),
+            patch.object(_theme, "theme_bg", (14, 15, 18)),
             patch.dict(maps.compose_map.__globals__,
                        {"color_mode": lambda: "truecolor"}),
             fetch_patch,

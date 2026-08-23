@@ -5,6 +5,11 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Live views follow the terminal theme: switch your terminal's colours
+  while weather, radar, maps, sunshine, moon or tides is open and the
+  view re-inks itself in the new palette, no restart. On Omarchy the
+  switch is picked up at once; elsewhere within a couple of seconds.
+
 ## 1.14.0 — 2026-08-22
 
 - Radar: five colour themes drawn in linecast itself rather than on

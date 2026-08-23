@@ -27,7 +27,8 @@ import os
 import unicodedata
 
 from linecast._color import color_mode
-from linecast._theme import is_light_theme, lerp_rgb, theme_bg, themed
+from linecast import _theme
+from linecast._theme import is_light_theme, lerp_rgb, themed
 
 MODES = ("street", "terrain")
 
@@ -48,12 +49,12 @@ _GROUND_ANCHOR_LIGHT = (250, 250, 248)  # directly; palette() swaps them
 
 def _light():
     """Light theme, judged on the same bg this module blends against."""
-    return is_light_theme(theme_bg)
+    return is_light_theme(_theme.theme_bg)
 
 
 def ground_color():
     anchor = _GROUND_ANCHOR_LIGHT if _light() else _GROUND_ANCHOR_DARK
-    return lerp_rgb(theme_bg, anchor, GROUND_BLEND)
+    return lerp_rgb(_theme.theme_bg, anchor, GROUND_BLEND)
 
 
 PALETTE_DARK = {
@@ -137,8 +138,17 @@ PALETTE_LIGHT = {
 # Both tables pass through the theme's hue transfer once, at import.
 # PALETTE_16 deliberately does not: its anchors exist to hit exact ANSI
 # indices, and the terminal paints those indices in its own theme anyway.
-PALETTE_DARK = {k: themed(v) for k, v in PALETTE_DARK.items()}
-PALETTE_LIGHT = {k: themed(v) for k, v in PALETTE_LIGHT.items()}
+_PALETTE_DARK_RAW, _PALETTE_LIGHT_RAW = PALETTE_DARK, PALETTE_LIGHT
+
+
+def _rebuild():
+    global PALETTE_DARK, PALETTE_LIGHT
+    PALETTE_DARK = {k: themed(v) for k, v in _PALETTE_DARK_RAW.items()}
+    PALETTE_LIGHT = {k: themed(v) for k, v in _PALETTE_LIGHT_RAW.items()}
+
+
+_rebuild()
+_theme.on_reload(_rebuild)
 
 # In 16-colour every dark fill collapses to index 0, so the auto
 # nearest-RGB path is unusable and the composer selects this coarse

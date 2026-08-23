@@ -2,6 +2,15 @@
 
 Theme colors are queried once via OSC and cached at import time.
 If the terminal does not answer quickly, a fallback dark palette is used.
+
+The theme can change while a live view is open (the user switches their
+terminal's colour scheme; on Omarchy, `omarchy-theme-set` pushes new
+colours into every running terminal).  Modules that derive colours from
+the theme at import time register a rebuild with `on_reload`, and the
+live loop re-probes the terminal now and then; when the answer differs,
+`_apply` swaps the theme, bumps `generation`, and runs every rebuild in
+registration order — which is import order, so a module's own palette is
+rebuilt before the modules that copied names out of it re-import them.
 """
 
 from __future__ import annotations
@@ -53,6 +62,13 @@ theme_available = False
 theme_legacy_mode = False
 
 _theme_loaded = False
+
+# Bumped on every applied theme change.  Render caches that bake theme
+# colours into their buffers fold this into their keys, so a change
+# simply misses instead of needing to be cleared under each cache's lock.
+generation = 0
+
+_reload_hooks = []
 
 
 def _clamp_channel(v):
@@ -406,12 +422,163 @@ def _load_theme():
 
 def ensure_theme_loaded():
     """Load theme once and cache module-level values."""
-    global _theme_loaded, theme_fg, theme_bg, theme_ansi, theme_available, theme_legacy_mode
+    global _theme_loaded, theme_fg, theme_bg, theme_ansi, theme_available
+    global theme_legacy_mode
     if _theme_loaded:
         return theme_available
     _theme_loaded = True
     theme_fg, theme_bg, theme_ansi, theme_available, theme_legacy_mode = _load_theme()
     return theme_available
+
+
+
+# ---------------------------------------------------------------------------
+# Reloading: the theme can change under a live view
+# ---------------------------------------------------------------------------
+def on_reload(fn):
+    """Register fn() to run after the theme changes.  Returns fn."""
+    _reload_hooks.append(fn)
+    return fn
+
+
+def reimport_on_reload(namespace, module_name, *names):
+    """After each theme change, re-bind `from module_name import names`
+    into `namespace` (a module's globals()).  For modules that copied
+    theme-derived constants out of another module at import time."""
+    import importlib
+
+    def _refresh():
+        mod = importlib.import_module(module_name)
+        for name in names:
+            namespace[name] = getattr(mod, name)
+    on_reload(_refresh)
+
+
+def _apply(fg_value, bg_value, ansi_value):
+    """Install a new theme and run the rebuild hooks."""
+    global theme_fg, theme_bg, theme_ansi, theme_available, generation
+    theme_fg = clamp_rgb(fg_value)
+    theme_bg = clamp_rgb(bg_value)
+    theme_ansi = tuple(clamp_rgb(c) for c in ansi_value)
+    theme_available = True
+    generation += 1
+    for hook in list(_reload_hooks):
+        hook()
+
+
+def _is_current(fg_value, bg_value, ansi_value):
+    return (clamp_rgb(fg_value) == theme_fg and clamp_rgb(bg_value) == theme_bg
+            and tuple(clamp_rgb(c) for c in ansi_value) == theme_ansi)
+
+
+def reload(timeout_s=None):
+    """Re-probe the terminal synchronously.  True if the theme changed.
+
+    Only meaningful once a probe has succeeded: a terminal that never
+    answered is not asked again, and legacy mode is never re-themed.
+    """
+    if theme_legacy_mode or not theme_available:
+        return False
+    queried = _query_theme_via_osc(_theme_query_timeout() if timeout_s is None else timeout_s)
+    if queried is None or _is_current(*queried):
+        return False
+    _apply(*queried)
+    return True
+
+
+# The live loop's probe is asynchronous: the query goes out on stdout and
+# the terminal's replies come back interleaved with keystrokes, where the
+# key reader hands each OSC body to ingest_osc.  A probe is complete when
+# fg, bg and all sixteen ANSI slots have answered.
+_PROBE_QUERY = ("\033]10;?\007\033]11;?\007"
+                + "".join(f"\033]4;{idx};?\007" for idx in range(16))).encode("ascii")
+_probe = None        # {"fg": rgb, "bg": rgb, "ansi": {idx: rgb}, "started": monotonic}
+_PROBE_STALE_S = 2.0
+
+
+def can_reprobe():
+    return theme_available and not theme_legacy_mode
+
+
+def request_probe(fd_out):
+    """Ask the terminal for its colours; replies arrive via ingest_osc."""
+    global _probe
+    if not can_reprobe():
+        return False
+    try:
+        os.write(fd_out, _PROBE_QUERY)
+    except OSError:
+        return False
+    _probe = {"fg": None, "bg": None, "ansi": {}, "started": time.monotonic()}
+    return True
+
+
+def probe_pending():
+    global _probe
+    if _probe is None:
+        return False
+    if time.monotonic() - _probe["started"] > _PROBE_STALE_S:
+        _probe = None   # the terminal stopped answering; try again later
+        return False
+    return True
+
+
+def ingest_osc(body):
+    """Take one OSC reply body (bytes between ESC ] and its terminator).
+
+    Returns True when this reply completed a probe whose answer differs
+    from the current theme — the theme has just been swapped and the
+    caller should re-render.
+    """
+    global _probe
+    if _probe is None:
+        return False
+    text = body.decode("utf-8", errors="ignore") if isinstance(body, bytes) else body
+    match = _OSC_RESPONSE_RE.match("\x1b]" + text + "\x07")
+    if match is None:
+        return False
+    rgb = _parse_rgb_value(match.group("rgb"))
+    if rgb is None:
+        return False
+    op = match.group("op")
+    if op == "10":
+        _probe["fg"] = rgb
+    elif op == "11":
+        _probe["bg"] = rgb
+    else:
+        idx = int(match.group("idx"))
+        if 0 <= idx <= 15:
+            _probe["ansi"][idx] = rgb
+    if _probe["fg"] is None or _probe["bg"] is None or len(_probe["ansi"]) < 16:
+        return False
+    answer = (_probe["fg"], _probe["bg"], tuple(_probe["ansi"][i] for i in range(16)))
+    _probe = None
+    if _is_current(*answer):
+        return False
+    _apply(*answer)
+    return True
+
+
+def poll_interval():
+    """Seconds between live re-probes; 0 disables.  LINECAST_THEME_POLL."""
+    raw = str(os.environ.get("LINECAST_THEME_POLL", "2")).strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        value = 2.0
+    return max(0.0, value)
+
+
+def watch_path():
+    """A file whose mtime changes when the desktop theme does, so the live
+    loop can re-probe at once instead of waiting for the next poll.
+    Defaults to Omarchy's current-theme marker; LINECAST_THEME_WATCH
+    overrides (empty disables)."""
+    raw = os.environ.get("LINECAST_THEME_WATCH")
+    if raw is None:
+        raw = os.path.expanduser("~/.local/state/omarchy/current/theme.name")
+    raw = raw.strip()
+    return raw or None
 
 
 ensure_theme_loaded()

@@ -22,6 +22,7 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast import _maps_style as ms
+from linecast import _theme
 from linecast._color import _CUBE_LEVELS, _rgb_to_ansi16, _rgb_to_xterm256
 from linecast._framebuffer import visible_len
 from linecast._theme import luminance
@@ -38,7 +39,7 @@ LADDER = ("path", "service", "minor", "secondary", "primary", "trunk")
 def _mode(monkeypatch, mode, bg=DARK_BG):
     """Pin the colour mode and terminal background for one test."""
     monkeypatch.setattr(ms, "color_mode", lambda: mode)
-    monkeypatch.setattr(ms, "theme_bg", bg)
+    monkeypatch.setattr(_theme, "theme_bg", bg)
 
 
 def _xterm_rgb(idx):

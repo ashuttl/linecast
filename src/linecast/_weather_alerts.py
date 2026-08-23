@@ -369,3 +369,11 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0, tz_name=""):
     result += f"\033[{bot_row};{left_col}H{MBG}{bot_line}{RESET}"
 
     return result, max_scroll
+
+from linecast import _theme as _theme_mod
+_theme_mod.reimport_on_reload(
+    globals(), "linecast._weather_style",
+    "ALERT_AMBER", "ALERT_AMBER_RGB", "ALERT_BLUE", "ALERT_BLUE_RGB",
+    "ALERT_RED", "ALERT_RED_RGB", "ALERT_YELLOW", "ALERT_YELLOW_RGB",
+    "DIM_RGB", "LINK_RGB", "MODAL_BG_RGB", "MODAL_BORDER_RGB", "MUTED",
+    "TEXT_RGB", "WIND_COLOR")

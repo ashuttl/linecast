@@ -32,6 +32,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from linecast._color import fg, bg, RESET, BOLD
 from linecast._framebuffer import get_terminal_size, fmt_time_dt
+from linecast import _theme
 from linecast._theme import ensure_contrast
 from linecast._weather_style import TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB
 from linecast._location import get_location
@@ -86,8 +87,10 @@ def _bbox_key(bbox):
 
 
 def _view_key(bbox, gw, hc):
-    # theme is part of the view: switching palettes must not serve old colours
-    return (_bbox_key(bbox), gw, hc, getattr(_source, "theme", None))
+    # theme is part of the view: switching palettes must not serve old
+    # colours, and neither must a terminal theme change (_theme.generation)
+    return (_bbox_key(bbox), gw, hc, getattr(_source, "theme", None),
+            _theme.generation)
 
 
 def _sat_timeline():
@@ -303,7 +306,8 @@ def _get_field(bbox, block):
 
 def _temp_buffer(field, t_idx, bbox, graph_w, height_cells):
     """Memoised temperature tint; rebuilt only when view or hour changes."""
-    key = (_bbox_key(bbox), graph_w, height_cells, id(field), t_idx)
+    key = (_bbox_key(bbox), graph_w, height_cells, id(field), t_idx,
+           _theme.generation)
     buf = _temp_cache.get(key)
     if buf is None:
         buf = _radar_layers.build_temp_buffer(field, t_idx, bbox, graph_w,
@@ -965,3 +969,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+from linecast import _theme as _theme_mod
+_theme_mod.reimport_on_reload(globals(), "linecast._weather_style",
+"TOOLTIP_BG_RGB", "TOOLTIP_TEXT_RGB")

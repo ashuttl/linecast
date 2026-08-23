@@ -361,3 +361,7 @@ def _past_precip_line(hourly, now, runtime):
         ptype = _s("rain", runtime)
 
     return f" {MUTED}{_s('past_precip', runtime, amt=amt, ptype=ptype)}{RESET}"
+
+from linecast import _theme as _theme_mod
+_theme_mod.reimport_on_reload(globals(), "linecast._weather_style",
+"MUTED", "TEXT", "WIND_COLOR", "_aqi_color", "_colored_temp")

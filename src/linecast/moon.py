@@ -26,15 +26,13 @@ from linecast._location import location_is_pinned, location_tzinfo, resolve_loca
 from linecast._moon_i18n import _day_abbrev, _fmt_month_day, _moon_name, _ms
 from linecast._tides_i18n import _ts  # shared "space to return to now" hint
 from linecast._runtime import RuntimeConfig, install_banner, moon_parser
+from linecast import _theme
 from linecast._theme import (
     best_contrast,
     darken,
     ensure_contrast,
     neutral_tone,
     surface_bg,
-    theme_ansi,
-    theme_bg,
-    theme_fg,
     theme_legacy_mode,
 )
 from linecast._tides_render import _moon_altitude_deg, _moon_events_for_local_date
@@ -52,21 +50,30 @@ from linecast.sunshine import (
 # of refraction and lunar parallax puts the geometric event at +0.125°.
 HORIZON_THRESHOLD_DEG = 0.125
 
+_theme.reimport_on_reload(globals(), "linecast.sunshine",
+    "INFO_AMBER_RGB", "INFO_DIM_RGB", "INFO_PURPLE_RGB", "INFO_TEXT_RGB")
+
 # ---------------------------------------------------------------------------
 # Palette
 # ---------------------------------------------------------------------------
-if theme_legacy_mode:
-    MOON_LIT_RGB = (228, 230, 238)
-    MOON_SHADOW_RGB = (36, 40, 56)
-    MOON_GLOW_RGB = (150, 160, 190)
-    STAR_RGB = (150, 158, 180)
-    STAR_DIM_RGB = (84, 92, 115)
-else:
-    MOON_LIT_RGB = best_contrast((theme_ansi[15], theme_fg), minimum=2.5)
-    MOON_SHADOW_RGB = ensure_contrast(surface_bg(0.30), theme_bg, minimum=1.2)
-    MOON_GLOW_RGB = ensure_contrast(neutral_tone(0.60), theme_bg, minimum=1.8)
-    STAR_RGB = ensure_contrast(neutral_tone(0.58), theme_bg, minimum=2.2)
-    STAR_DIM_RGB = ensure_contrast(neutral_tone(0.40), theme_bg, minimum=1.5)
+def _rebuild():
+    global MOON_LIT_RGB, MOON_SHADOW_RGB, MOON_GLOW_RGB, STAR_RGB, STAR_DIM_RGB
+    if theme_legacy_mode:
+        MOON_LIT_RGB = (228, 230, 238)
+        MOON_SHADOW_RGB = (36, 40, 56)
+        MOON_GLOW_RGB = (150, 160, 190)
+        STAR_RGB = (150, 158, 180)
+        STAR_DIM_RGB = (84, 92, 115)
+    else:
+        MOON_LIT_RGB = best_contrast((_theme.theme_ansi[15], _theme.theme_fg), minimum=2.5)
+        MOON_SHADOW_RGB = ensure_contrast(surface_bg(0.30), _theme.theme_bg, minimum=1.2)
+        MOON_GLOW_RGB = ensure_contrast(neutral_tone(0.60), _theme.theme_bg, minimum=1.8)
+        STAR_RGB = ensure_contrast(neutral_tone(0.58), _theme.theme_bg, minimum=2.2)
+        STAR_DIM_RGB = ensure_contrast(neutral_tone(0.40), _theme.theme_bg, minimum=1.5)
+
+
+_rebuild()
+_theme.on_reload(_rebuild)
 
 # Near-side maria, in unit-disc coordinates as seen from the northern
 # hemisphere (x right/east, y down): (x, y, radius, darkening strength).

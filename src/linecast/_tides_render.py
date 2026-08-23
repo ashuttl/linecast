@@ -4,6 +4,7 @@ import math
 from datetime import datetime, timedelta, timezone
 
 from linecast._graphics import RESET, bg, fg, fmt_hour, fmt_time_dt, visible_len
+from linecast import _theme
 from linecast._theme import (
     best_contrast,
     darken,
@@ -12,25 +13,28 @@ from linecast._theme import (
     lerp_rgb,
     neutral_tone,
     surface_bg,
-    theme_ansi,
-    theme_bg,
-    theme_fg,
 )
 from linecast._tides_i18n import FULL_DAY_NAMES
 from linecast.sunshine import daylight_factor as solar_daylight_factor, moon_phase
 
-DIM_RGB = ensure_contrast(neutral_tone(0.32), theme_bg, minimum=2.0)
-MUTED_RGB = ensure_contrast(neutral_tone(0.48), theme_bg, minimum=2.5)
-MOON_RISE_RGB = ensure_contrast(best_contrast((theme_ansi[5], theme_ansi[13]), minimum=2.0), theme_bg, minimum=2.0)
-MOON_SET_RGB = ensure_contrast(
-    lerp_rgb(best_contrast((theme_ansi[4], theme_ansi[12]), minimum=2.0), theme_ansi[5], 0.35),
-    theme_bg,
-    minimum=2.0,
-)
-TIP_BG_RGB = darken(surface_bg(0.10), 0.45 if not is_light_theme() else 0.10)
-TIP_TEXT_RGB = ensure_contrast(theme_fg, TIP_BG_RGB, minimum=4.5)
+def _rebuild():
+    global DIM_RGB, MUTED_RGB, MOON_RISE_RGB, MOON_SET_RGB, TIP_BG_RGB
+    global TIP_TEXT_RGB, DIM
+    DIM_RGB = ensure_contrast(neutral_tone(0.32), _theme.theme_bg, minimum=2.0)
+    MUTED_RGB = ensure_contrast(neutral_tone(0.48), _theme.theme_bg, minimum=2.5)
+    MOON_RISE_RGB = ensure_contrast(best_contrast((_theme.theme_ansi[5], _theme.theme_ansi[13]), minimum=2.0), _theme.theme_bg, minimum=2.0)
+    MOON_SET_RGB = ensure_contrast(
+        lerp_rgb(best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12]), minimum=2.0), _theme.theme_ansi[5], 0.35),
+        minimum=2.0,
+    )
+    TIP_BG_RGB = darken(surface_bg(0.10), 0.45 if not is_light_theme() else 0.10)
+    TIP_TEXT_RGB = ensure_contrast(_theme.theme_fg, TIP_BG_RGB, minimum=4.5)
 
-DIM = fg(*DIM_RGB)
+    DIM = fg(*DIM_RGB)
+
+
+_rebuild()
+_theme.on_reload(_rebuild)
 
 
 def interp_height(target_dt, predictions):

@@ -40,10 +40,17 @@ _REFRESH_S = 300     # trust a fetched index this long before re-asking
 # The sky's inks pass through the theme's hue transfer like the ground's
 # (_theme.themed), so night on a green-monochrome terminal is green
 # moonlight and its cities burn in the theme's own warm.
-_NIGHT = tuple(c / 255.0 for c in themed((41, 51, 77)))
-_CLOUD_DAY = themed((236, 240, 244))
-_CLOUD_NIGHT = themed((96, 106, 126))
-_CITY_LIGHT = themed((255, 186, 110))
+def _rebuild():
+    global _NIGHT, _CLOUD_DAY, _CLOUD_NIGHT, _CITY_LIGHT
+    _NIGHT = tuple(c / 255.0 for c in themed((41, 51, 77)))
+    _CLOUD_DAY = themed((236, 240, 244))
+    _CLOUD_NIGHT = themed((96, 106, 126))
+    _CITY_LIGHT = themed((255, 186, 110))
+
+
+_rebuild()
+from linecast import _theme as _theme_mod
+_theme_mod.on_reload(_rebuild)
 
 
 def subsolar(t=None):

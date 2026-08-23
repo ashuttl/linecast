@@ -69,3 +69,12 @@ from linecast._weather_style import (
     _precip_type,
     _temp_color,
 )
+
+from linecast import _theme as _theme_mod
+_theme_mod.reimport_on_reload(
+    globals(), "linecast._weather_style",
+    "AQI_COLORS", "ALERT_AMBER", "ALERT_RED", "ALERT_YELLOW", "DIM", "MUTED",
+    "PRECIP", "PRECIP_MIX", "PRECIP_RAIN", "PRECIP_SNOW", "PRECIP_STORM",
+    "SEP", "SPARKLINE", "TEMP_COLORS", "TEXT", "TOOLTIP_BG_RGB",
+    "TOOLTIP_TEXT_RGB", "WIND_ARROWS", "WIND_COLOR", "_aqi_color",
+    "_colored_temp", "_precip_color", "_precip_type", "_temp_color")

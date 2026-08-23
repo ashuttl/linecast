@@ -199,7 +199,7 @@ class TestViewKeyPrecision:
         # Unchanged behaviour for every existing caller: at a degree or
         # more the key is exactly what it always was.
         bbox = (-71.123456, 43.123456, -69.123456, 45.123456)
-        assert _view_key(bbox, 80, 22) == (
+        assert _view_key(bbox, 80, 22)[:3] == (
             (-71.1235, 43.1235, -69.1235, 45.1235), 80, 22)
 
     def test_a_one_cell_pan_at_the_deepest_zoom_is_a_distinct_key(self):

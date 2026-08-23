@@ -31,6 +31,7 @@ from linecast._graphics import (
     visible_len, fmt_time_dt,
     get_terminal_size, live_loop,
 )
+from linecast import _theme
 from linecast._theme import (
     best_contrast,
     ensure_contrast,
@@ -38,9 +39,6 @@ from linecast._theme import (
     lerp_rgb,
     neutral_tone,
     surface_bg,
-    theme_ansi,
-    theme_bg,
-    theme_fg,
 )
 from linecast._geo import haversine_nm
 from linecast._location import resolve_location
@@ -108,22 +106,29 @@ NEAREST_STATION_CACHE_MAX_AGE = _NOAA_NEAREST_STATION_CACHE_MAX_AGE
 # ---------------------------------------------------------------------------
 # Ocean palette
 # ---------------------------------------------------------------------------
-CURVE_COLOR = ensure_contrast(best_contrast((theme_ansi[6], theme_ansi[14], theme_fg), minimum=2.0), theme_bg, minimum=2.0)
-NOW_LINE_COLOR = ensure_contrast(
-    lerp_rgb(best_contrast((theme_ansi[4], theme_ansi[12]), minimum=2.0), theme_bg, 0.30),
-    theme_bg,
-    minimum=1.8,
-)
-HOVER_COLOR = ensure_contrast(surface_bg(0.40), theme_bg, minimum=1.5)
-DIM_RGB = ensure_contrast(neutral_tone(0.32), theme_bg, minimum=2.0)
-MUTED_RGB = ensure_contrast(neutral_tone(0.48), theme_bg, minimum=2.4)
-TEXT_RGB = ensure_contrast(theme_fg, theme_bg, minimum=4.5)
-PILL_BG_RGB = surface_bg(0.08)
-PILL_FG_RGB = ensure_contrast(neutral_tone(0.72), PILL_BG_RGB, minimum=3.0)
-NOW_PILL_RGB = ensure_contrast(best_contrast((theme_ansi[6], theme_ansi[14]), minimum=2.0), theme_bg, minimum=2.0)
-NOW_PILL_TEXT_RGB = best_contrast(((12, 20, 30), theme_bg, theme_fg), background=NOW_PILL_RGB, minimum=4.5)
-DIM = fg(*DIM_RGB)
-NIGHT_DIM = 0.6 if not is_light_theme() else 0.78
+def _rebuild():
+    global CURVE_COLOR, NOW_LINE_COLOR, HOVER_COLOR, DIM_RGB, MUTED_RGB
+    global TEXT_RGB, PILL_BG_RGB, PILL_FG_RGB, NOW_PILL_RGB, NOW_PILL_TEXT_RGB
+    global DIM, NIGHT_DIM
+    CURVE_COLOR = ensure_contrast(best_contrast((_theme.theme_ansi[6], _theme.theme_ansi[14], _theme.theme_fg), minimum=2.0), _theme.theme_bg, minimum=2.0)
+    NOW_LINE_COLOR = ensure_contrast(
+        lerp_rgb(best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12]), minimum=2.0), _theme.theme_bg, 0.30),
+        minimum=1.8,
+    )
+    HOVER_COLOR = ensure_contrast(surface_bg(0.40), _theme.theme_bg, minimum=1.5)
+    DIM_RGB = ensure_contrast(neutral_tone(0.32), _theme.theme_bg, minimum=2.0)
+    MUTED_RGB = ensure_contrast(neutral_tone(0.48), _theme.theme_bg, minimum=2.4)
+    TEXT_RGB = ensure_contrast(_theme.theme_fg, _theme.theme_bg, minimum=4.5)
+    PILL_BG_RGB = surface_bg(0.08)
+    PILL_FG_RGB = ensure_contrast(neutral_tone(0.72), PILL_BG_RGB, minimum=3.0)
+    NOW_PILL_RGB = ensure_contrast(best_contrast((_theme.theme_ansi[6], _theme.theme_ansi[14]), minimum=2.0), _theme.theme_bg, minimum=2.0)
+    NOW_PILL_TEXT_RGB = best_contrast(((12, 20, 30), _theme.theme_bg, _theme.theme_fg), background=NOW_PILL_RGB, minimum=4.5)
+    DIM = fg(*DIM_RGB)
+    NIGHT_DIM = 0.6 if not is_light_theme() else 0.78
+
+
+_rebuild()
+_theme.on_reload(_rebuild)
 
 # Nerd Font icons
 WAVE_ICON = "\U000F0F85"            # 󰾅

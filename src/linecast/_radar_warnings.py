@@ -44,6 +44,16 @@ _NAMES = {
 _US_BOX = (-180.0, 15.0, -60.0, 72.0)
 
 _cache = {}   # ts key -> [(severity, color, rings), ...]
+
+
+def _forget_colours():
+    # the colours are theme-derived; a theme change invalidates the lot
+    with _lock:
+        _cache.clear()
+
+
+from linecast import _theme as _theme_mod
+_theme_mod.on_reload(_forget_colours)
 _lock = threading.Lock()
 _MAX_CACHED = 48  # a little over the radar rewind window
 

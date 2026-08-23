@@ -1014,3 +1014,11 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     elif has_global_precip and n_precip_rows >= 1:
         lines.extend([""] * n_precip_rows)
     return lines
+
+from linecast import _theme as _theme_mod
+_theme_mod.reimport_on_reload(
+    globals(), "linecast._weather_style",
+    "CHART_BG_DAY_RGB", "CHART_BG_NIGHT_RGB", "CHART_HOVER_RGB", "DIM",
+    "MUTED", "SPARKLINE", "SUNRISE_LABEL_RGB", "SUNSET_LABEL_RGB", "TEXT",
+    "UV_COLOR", "WIND_ARROWS", "WIND_COLOR", "_colored_temp", "_precip_color",
+    "_temp_color", "_uv_color")

@@ -214,3 +214,7 @@ def render_daily(data, width, runtime=None):
         lines.append(f"{line}{RESET}")
 
     return lines
+
+from linecast import _theme as _theme_mod
+_theme_mod.reimport_on_reload(globals(), "linecast._weather_style",
+"DIM", "TEXT", "WIND_COLOR", "_precip_color", "_precip_type", "_temp_color")

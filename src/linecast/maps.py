@@ -52,7 +52,10 @@ from linecast._maps_search import (
 from linecast._radar_basemap import (
     _BITS, BORDER, DotLayer, _edge_dots,
 )
+from linecast import _theme
 from linecast._theme import lerp_rgb, themed
+
+_theme.reimport_on_reload(globals(), "linecast._color", "BG_PRIMARY")
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, debug_log, maps_parser
@@ -84,7 +87,8 @@ LABEL_LIGHT = themed((232, 232, 240))
 
 # the marker is radar's, re-inked: on any theme it should be the
 # theme's own bright accent, not an absolute yellow
-MARKER = themed(MARKER)
+_MARKER_RAW = MARKER
+MARKER = themed(_MARKER_RAW)
 _BADGE = themed((110, 168, 96))     # the header's "⬤ maps" green
 
 # Inland water: lakes and rivers are *not* on the bathymetric ramp.  A
@@ -100,7 +104,7 @@ RIVER_STROKE = themed((108, 152, 190))
 # contours, the way a geologic map draws provinces.  The run climbs out
 # of the greens through straw and ochre into mauve and pale lavender
 # before summit white — high country earns the purples.
-HYPSO_STOPS = [
+_HYPSO_RAW = [
     (0, (96, 138, 92)),
     (150, (124, 152, 88)),
     (400, (156, 168, 92)),
@@ -111,12 +115,12 @@ HYPSO_STOPS = [
     (3600, (196, 182, 208)),
     (4600, (240, 240, 248)),
 ]
-HYPSO_STOPS = [(m, themed(c)) for m, c in HYPSO_STOPS]
+HYPSO_STOPS = [(m, themed(c)) for m, c in _HYPSO_RAW]
 
 # Bathymetric tint below sea level — deliberately a smooth gradient
 # where the land is banded: the sea is the one continuous field on the
 # map, falling away to a near-black navy abyss.
-BATHY_STOPS = [
+_BATHY_RAW = [
     (-8000, (6, 12, 30)),
     (-5000, (12, 22, 48)),
     (-3500, (18, 34, 68)),
@@ -126,7 +130,7 @@ BATHY_STOPS = [
     (-50, (96, 148, 178)),
     (0, (120, 170, 194)),
 ]
-BATHY_STOPS = [(m, themed(c)) for m, c in BATHY_STOPS]
+BATHY_STOPS = [(m, themed(c)) for m, c in _BATHY_RAW]
 
 
 def _hypso_band(e):
@@ -154,6 +158,26 @@ _SUNS = tuple((wgt, math.cos(math.radians(az)), math.sin(math.radians(az)))
 # small nudges after the multiply — the ramp still owns the hue.
 _SHADOW_TINT = themed((40, 48, 72))
 _LIGHT_TINT = themed((255, 248, 228))
+
+
+@_theme.on_reload
+def _rebuild_inks():
+    # every themed() ink above, re-inked for the new theme
+    global COAST_STROKE, BORDER_STROKE, LABEL_DARK, LABEL_LIGHT, MARKER, _BADGE
+    global LAKE_FILL, RIVER_STROKE, HYPSO_STOPS, BATHY_STOPS, _SHADOW_TINT
+    global _LIGHT_TINT
+    COAST_STROKE = themed((22, 32, 52))
+    BORDER_STROKE = themed((52, 48, 66))
+    LABEL_DARK = themed((28, 32, 44))
+    LABEL_LIGHT = themed((232, 232, 240))
+    MARKER = themed(_MARKER_RAW)
+    _BADGE = themed((110, 168, 96))
+    LAKE_FILL = themed((74, 118, 156))
+    RIVER_STROKE = themed((108, 152, 190))
+    HYPSO_STOPS = [(m, themed(c)) for m, c in _HYPSO_RAW]
+    BATHY_STOPS = [(m, themed(c)) for m, c in _BATHY_RAW]
+    _SHADOW_TINT = themed((40, 48, 72))
+    _LIGHT_TINT = themed((255, 248, 228))
 
 _elev_cache = {}     # (bbox, w, h) -> (elevation grid, coast dot masks)
 _elev_pending = set()
@@ -210,7 +234,9 @@ def _view_key(bbox, gw, hc):
     """
     span = bbox[3] - bbox[1]
     nd = 4 if span <= 0 else max(4, 3 + math.ceil(-math.log10(span)))
-    return (tuple(round(v, nd) for v in bbox), gw, hc)
+    # the theme generation rides along: a terminal theme change must
+    # miss every buffer that baked the old colours in
+    return (tuple(round(v, nd) for v in bbox), gw, hc, _theme.generation)
 
 
 def _coast_dots(fine, gw, hc, water=None):

@@ -12,7 +12,8 @@ import functools
 import math
 import os
 import sys
-from linecast._theme import ensure_theme_loaded, theme_bg
+from linecast import _theme
+from linecast._theme import ensure_theme_loaded
 
 # ---------------------------------------------------------------------------
 # Color mode constants
@@ -125,7 +126,13 @@ else:
     RESET = "\033[0m"
     BOLD = "\033[1m"
 
-BG_PRIMARY = theme_bg
+BG_PRIMARY = _theme.theme_bg
+
+
+@_theme.on_reload
+def _rebuild():
+    global BG_PRIMARY
+    BG_PRIMARY = _theme.theme_bg
 
 
 def color_mode():

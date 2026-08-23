@@ -18,7 +18,8 @@ import math
 import os
 import unicodedata
 
-from linecast._theme import is_light_theme, lerp_rgb, theme_bg
+from linecast import _theme
+from linecast._theme import is_light_theme, lerp_rgb
 
 # braille dot bit for (col, row) within a 2x4 cell — matches _braille.py
 _BITS = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
@@ -33,10 +34,16 @@ CITY_LABEL = (155, 160, 175)
 # echo keeps its full half-block resolution over water and glyphs drawn on
 # top don't have to knock a hole in a stipple to stay legible.  Derived from
 # the terminal theme so it reads as water on dark and light backgrounds.
-if is_light_theme(theme_bg):
-    SEA_FILL = lerp_rgb(theme_bg, (120, 155, 205), 0.35)
-else:
-    SEA_FILL = lerp_rgb(theme_bg, (70, 100, 150), 0.42)
+def _rebuild():
+    global SEA_FILL
+    if is_light_theme(_theme.theme_bg):
+        SEA_FILL = lerp_rgb(_theme.theme_bg, (120, 155, 205), 0.35)
+    else:
+        SEA_FILL = lerp_rgb(_theme.theme_bg, (70, 100, 150), 0.42)
+
+
+_rebuild()
+_theme.on_reload(_rebuild)
 
 _DATA = None
 

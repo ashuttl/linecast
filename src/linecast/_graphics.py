@@ -65,3 +65,6 @@ from linecast._live import (  # noqa: F401
     _read_key,
     live_loop,
 )
+
+from linecast import _theme as _theme_mod
+_theme_mod.reimport_on_reload(globals(), "linecast._color", "BG_PRIMARY")
