@@ -5,6 +5,8 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+## 1.14.0 — 2026-08-22
+
 - Radar: five colour themes drawn in linecast itself rather than on
   the tile server — `terminal`, now the default, draws rain in your
   terminal's own palette; `dusk`, `ember` and `ink` are ramps that
