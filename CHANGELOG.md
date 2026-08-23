@@ -52,6 +52,8 @@ Notable changes, by release. Notes for the next release collect under
   forecast's several calls arrive sooner.
 - Commands start a little faster: the package version is looked up
   only when something prints it.
+- Tides: Old per-day cache files left behind by earlier versions are
+  cleaned up on the next run.
 
 ## 1.15.1 — 2026-08-23
 

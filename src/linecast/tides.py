@@ -45,6 +45,7 @@ from linecast._location import resolve_location
 from linecast._runtime import TidesRuntime, install_banner, tides_parser
 from linecast._spinner import Spinner
 from linecast._marine import fetch_marine, parse_marine_current, format_marine_line
+from linecast._tides_common import sweep_legacy_cache
 from linecast._tides_i18n import _moon_name, _ts
 from linecast._tides_providers import (
     CHS, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK, provider_for_id,
@@ -798,6 +799,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
 def main():
     args = tides_parser().parse_args()
     runtime = TidesRuntime.from_sources(namespace=args)
+    sweep_legacy_cache()
 
     # --search / --nearby: list stations and exit.  A bare `--search`
     # behaves like --nearby (empty query = nearest stations).

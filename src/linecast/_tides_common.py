@@ -6,6 +6,7 @@ this module holds those pieces once. The provider modules keep what is
 genuinely theirs: URLs, payload shapes, and unit or timezone quirks.
 """
 
+import re
 from datetime import datetime, timedelta, timezone
 
 from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
@@ -16,6 +17,42 @@ M_TO_FT = 1 / 0.3048
 NEAREST_STATION_CACHE_MAX_AGE = 3600
 NEAREST_STATION_MAX_NM = 100
 Y_RANGE_CACHE_MAX_AGE = 7 * 86400
+
+
+# ---------------------------------------------------------------------------
+# Legacy cache files
+# ---------------------------------------------------------------------------
+# Names from before predictions and y-ranges were keyed by month: one NOAA
+# file per day of predictions or extremes, and one y-range file per date
+# window. Nothing reads them any more; the month-keyed files have six
+# digits where these have eight.
+_LEGACY_CACHE_NAME = re.compile(
+    r"^(?:(?:pred|hilo)_\d+_\d{8}"
+    r"|(?:chs_|tc_|qld_)?yrange_.+_\d{8}_\d{8})\.json$"
+)
+_swept = False
+
+
+def sweep_legacy_cache(cache_dir=CACHE_DIR):
+    """Delete the cache files the per-day layout left behind. Once per process.
+
+    One directory listing, best effort: a file that will not go is left
+    for next time, and a directory that is not there yet is fine.
+    """
+    global _swept
+    if _swept:
+        return
+    _swept = True
+    try:
+        entries = list(cache_dir.iterdir())
+    except OSError:
+        return
+    for path in entries:
+        if _LEGACY_CACHE_NAME.match(path.name):
+            try:
+                path.unlink()
+            except OSError:
+                pass
 
 
 # ---------------------------------------------------------------------------

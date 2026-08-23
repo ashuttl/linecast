@@ -1,5 +1,6 @@
 """Tests for the helpers the tide providers share."""
 
+import tempfile
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -9,6 +10,59 @@ from zoneinfo import ZoneInfo
 from linecast import _tides_common as common
 
 AEST = timezone(timedelta(hours=10))
+
+
+class LegacyCacheSweepTests(unittest.TestCase):
+    LEGACY = [
+        "pred_8418150_20260823.json",
+        "hilo_8418150_20260823.json",
+        "yrange_8418150_20260724_20260922.json",
+        "chs_yrange_05320_20260724_20260922.json",
+        "tc_yrange_fes2022-lisbon_20260724_20260922.json",
+        "qld_yrange_Gold_Coast_20260820_20260826.json",
+    ]
+    CURRENT = [
+        "pred_8418150_202608.json",
+        "hilo_8418150_202608.json",
+        "yrange_8418150_202608.json",
+        "chs_yrange_05320_202608.json",
+        "tc_yrange_fes2022-lisbon_202608.json",
+        "qld_yrange_Gold_Coast_202608.json",
+        "chs_pred_05320_20260816_20260830.json",
+        "chs_hilo_05320_20260816_20260830.json",
+        "tc_hilo_fes2022-lisbon_20260822_20260824.json",
+        "qld_pred_Gold_Coast_20260823_20260824.json",
+        "all_stations.json",
+        "station_meta_8418150.json",
+        "station_abcd1234.json",
+        "om_yrange_abcd1234.json",
+    ]
+
+    def _sweep(self, cache_dir):
+        with patch.object(common, "_swept", False):
+            common.sweep_legacy_cache(cache_dir)
+
+    def test_removes_per_day_files_and_keeps_the_month_keyed_ones(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_dir = Path(tmp)
+            for name in self.LEGACY + self.CURRENT:
+                (cache_dir / name).write_text("{}")
+            self._sweep(cache_dir)
+            self.assertEqual(sorted(p.name for p in cache_dir.iterdir()),
+                             sorted(self.CURRENT))
+
+    def test_runs_once_per_process(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_dir = Path(tmp)
+            with patch.object(common, "_swept", False):
+                common.sweep_legacy_cache(cache_dir)
+                (cache_dir / self.LEGACY[0]).write_text("{}")
+                common.sweep_legacy_cache(cache_dir)
+                self.assertTrue((cache_dir / self.LEGACY[0]).exists())
+
+    def test_missing_directory_is_fine(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._sweep(Path(tmp) / "not-there")
 
 
 class YRangeWindowTests(unittest.TestCase):
