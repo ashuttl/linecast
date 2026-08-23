@@ -373,6 +373,36 @@ def _coast_dots(fine, gw, hc, water=None):
     return _edge_dots(is_land, is_water, gw, hc)
 
 
+def _box_average(fine, gw, hc):
+    """The 2x fine elevation grid averaged down to the fill's sub-pixels.
+
+    A shoreline sub-pixel averages land and sea dots, and the plain
+    mean lands above zero — every coast would bulge a sub-pixel of low
+    green into the water.  So the same >=2-of-4 rule as
+    _water_subpixels: enough wet dots make a wet sub-pixel, averaged
+    over the wet dots only, and the fill agrees with the coastline
+    drawn at dot resolution.  A sub-pixel with no samples is None.
+    """
+    grid = []
+    for y in range(hc * 2):
+        r0, r1 = fine[y * 2], fine[y * 2 + 1]
+        row = []
+        for x in range(gw):
+            vals = [v for v in (r0[x * 2], r0[x * 2 + 1],
+                                r1[x * 2], r1[x * 2 + 1])
+                    if v is not None]
+            if not vals:
+                row.append(None)
+                continue
+            wet = [v for v in vals if v <= 0]
+            if len(wet) >= 2:
+                row.append(sum(wet) / len(wet))
+            else:
+                row.append(sum(vals) / len(vals))
+        grid.append(row)
+    return grid
+
+
 def _water_subpixels(water, gw, hc):
     """The dot-resolution inland mask reduced to the fill's sub-pixels.
 
@@ -483,32 +513,8 @@ def _get_elevation(bbox, gw, hc, block):
                     if o:
                         e = frow[dx]
                         frow[dx] = -0.5 if e is None else min(e, -0.5)
-        grid = []
-        for y in range(hc * 2):
-            r0, r1 = fine[y * 2], fine[y * 2 + 1]
-            row = []
-            for x in range(gw):
-                vals = [v for v in (r0[x * 2], r0[x * 2 + 1],
-                                    r1[x * 2], r1[x * 2 + 1])
-                        if v is not None]
-                if not vals:
-                    row.append(None)
-                    continue
-                # a shoreline sub-pixel averages land and sea dots, and
-                # the plain mean lands above zero — every coast bulges a
-                # sub-pixel of low green into the water.  The same
-                # >=2-of-4 rule as _water_subpixels: enough wet dots
-                # make a wet sub-pixel, averaged over the wet dots only,
-                # so the fill agrees with the coastline drawn at dot
-                # resolution.
-                wet = [v for v in vals if v <= 0]
-                if len(wet) >= 2:
-                    row.append(sum(wet) / len(wet))
-                else:
-                    row.append(sum(vals) / len(vals))
-            grid.append(row)
         return TerrainView(
-            grid, _coast_dots(fine, gw, hc, water),
+            _box_average(fine, gw, hc), _coast_dots(fine, gw, hc, water),
             _water_subpixels(water, gw, hc) if water is not None else None,
             rivers, cover)
 
@@ -652,6 +658,18 @@ def _terrain_buffer(elev, bbox, gw, hc, water=None, cover=None):
     return buf
 
 
+def _cell_avg(top, bot):
+    """A cell's one background colour: its two sub-pixels averaged."""
+    return ((top[0] + bot[0]) // 2, (top[1] + bot[1]) // 2,
+            (top[2] + bot[2]) // 2)
+
+
+def _contrast_ink(cell_bg):
+    """Dark ink on a light ground, light ink on a dark one."""
+    lum = 0.2126 * cell_bg[0] + 0.7152 * cell_bg[1] + 0.0722 * cell_bg[2]
+    return LABEL_DARK if lum > 120 else LABEL_LIGHT
+
+
 def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
                     coast=None, strokes=None):
     """Terrain fill with braille geography *on top* (inverse of radar).
@@ -691,15 +709,12 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
                         if c is not None:
                             sink = c
             if ov is not None or bmask or cmask or smask:
-                avg = ((ut[0] + ub[0]) // 2, (ut[1] + ub[1]) // 2,
-                       (ut[2] + ub[2]) // 2)
+                avg = _cell_avg(ut, ub)
                 cell_bg = bg(*avg)
                 if ov is not None:
                     ch, ink = ov[0], ov[1]
                     if ink is None:  # contrast-picked label ink
-                        lum = (0.2126 * avg[0] + 0.7152 * avg[1]
-                               + 0.0722 * avg[2])
-                        ink = LABEL_DARK if lum > 120 else LABEL_LIGHT
+                        ink = _contrast_ink(avg)
                     if len(ov) > 2 and ov[2]:
                         parts.append(f"{cell_bg}{fg(*ink)}{BOLD}{ch}{RESET}")
                     else:
@@ -790,8 +805,7 @@ def compose_map(fills, layer, overlays, graph_w, height_cells,
                              else " ")
                 continue
             if painted:
-                avg = ((ut[0] + ub[0]) // 2, (ut[1] + ub[1]) // 2,
-                       (ut[2] + ub[2]) // 2)
+                avg = _cell_avg(ut, ub)
                 cell_bg = bg(*avg)
             else:
                 avg, cell_bg = BG_PRIMARY, ""
@@ -804,9 +818,7 @@ def compose_map(fills, layer, overlays, graph_w, height_cells,
                 lit = hot_glyphs is not None and (cx, cy) in hot_glyphs
                 ch, ink = ov[0], ov[1]
                 if ink is None:                 # contrast-picked label ink
-                    lum = (0.2126 * avg[0] + 0.7152 * avg[1]
-                           + 0.0722 * avg[2])
-                    ink = LABEL_DARK if lum > 120 else LABEL_LIGHT
+                    ink = _contrast_ink(avg)
                 if lit:
                     ink = _maps_hover.highlight(ink)
                 if lit or (len(ov) > 2 and ov[2]):
@@ -824,11 +836,6 @@ def compose_map(fills, layer, overlays, graph_w, height_cells,
         parts.append(RESET)
         lines.append("".join(parts))
     return lines
-
-
-def _fmt_elev(meters, lang):
-    """The elevation readout — one units heuristic, in _maps_style."""
-    return _maps_style.fmt_elev(meters, lang)
 
 
 _route_layer_cache = {}   # one slot: (route id, view key) -> DotLayer
@@ -935,12 +942,6 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     if show_labels:
         for pos, (ch, _color) in basemap.city_overlays().items():
             overlays[pos] = (ch, None)  # None ink = per-cell contrast pick
-    if marker_cell is not None:
-        overlays[marker_cell] = _mark("+", MARKER, False)
-    if origin_cell is not None:
-        overlays[origin_cell] = _mark("○", MARKER, False)
-    if dest_cell is not None:
-        overlays[dest_cell] = _mark("●", MARKER, False)
 
     dx, dy = pan_offset
     if dx or dy:
@@ -952,23 +953,10 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
             coast = _shift_grid(coast, dx, dy, 0)
         rivers = _shift_layer(rivers, dx, dy)
         route_layer = _shift_layer(route_layer, dx, dy)
-        overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
-                    if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
-    overlays = _crosshair(overlays, marker_cell, dx, dy, graph_w,
-                          height_cells, False)
-
-    # elevation readout: under the pointer when hovering, else view centre
-    readout = ""
-    if elev is not None:
-        probe = None
-        if mouse_pos is not None:
-            pcol, prow = mouse_pos[0] - 1 - dx, mouse_pos[1] - 2 - dy
-            if 0 <= pcol < graph_w and 0 <= prow < height_cells:
-                probe = elev[prow * 2][pcol]
-        if probe is None:
-            probe = elev[height_cells][graph_w // 2]  # centre sub-pixel row
-        if probe is not None:
-            readout = f" · {_fmt_elev(probe, lang)}"
+    overlays = _place_marks(overlays, marker_cell, origin_cell, dest_cell,
+                            dx, dy, graph_w, height_cells, False)
+    readout = _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells,
+                            lang)
 
     # rivers under the route, which is the order the strokes list means:
     # a route along a river valley owns the cells it shares.
@@ -988,26 +976,7 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block):
         flls, _zs, _rhos = _globe.geometry(lat0, lon0, zoom, gw * 2, hc * 4)
         fine = _globe.elevation(flls, zoom, hc * 4)
         lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, gw, hc * 2)
-        grid = []
-        for y in range(hc * 2):
-            r0, r1 = fine[y * 2], fine[y * 2 + 1]
-            row = []
-            for x in range(gw):
-                vals = [v for v in (r0[x * 2], r0[x * 2 + 1],
-                                    r1[x * 2], r1[x * 2 + 1])
-                        if v is not None]
-                if not vals:
-                    row.append(None)
-                    continue
-                # the same >=2-of-4 wet rule as the flat view, for the
-                # same reason: a shoreline sub-pixel averaged across the
-                # waterline bulges low green into every sea
-                wet = [v for v in vals if v <= 0]
-                if len(wet) >= 2:
-                    row.append(sum(wet) / len(wet))
-                else:
-                    row.append(sum(vals) / len(vals))
-            grid.append(row)
+        grid = _box_average(fine, gw, hc)
         atmo = _globe.atmosphere(rhos, zoom, hc * 2)
         return _globe.GlobeView(
             grid, _coast_dots(fine, gw, hc), zs, atmo,
@@ -1153,12 +1122,6 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
         for pos, (ch, _color) in _globe.city_overlays(
                 lat0, lon0, zoom, graph_w, height_cells, lang).items():
             overlays[pos] = (ch, None)  # None ink = per-cell contrast pick
-    if marker_cell is not None:
-        overlays[marker_cell] = _mark("+", MARKER, False)
-    if origin_cell is not None:
-        overlays[origin_cell] = _mark("○", MARKER, False)
-    if dest_cell is not None:
-        overlays[dest_cell] = _mark("●", MARKER, False)
 
     dx, dy = pan_offset
     if dx or dy:
@@ -1166,24 +1129,14 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
         if coast is not None:
             coast = _shift_grid(coast, dx, dy, 0)
         borders = _shift_layer(borders, dx, dy)
-        overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
-                    if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
-    overlays = _crosshair(overlays, marker_cell, dx, dy, graph_w,
-                          height_cells, False)
+    overlays = _place_marks(overlays, marker_cell, origin_cell, dest_cell,
+                            dx, dy, graph_w, height_cells, False)
 
     # the elevation probe is terrain's idiom; the street planet, like
     # the street map, answers with places rather than metres
-    readout = ""
-    if elev is not None and not street:
-        probe = None
-        if mouse_pos is not None:
-            pcol, prow = mouse_pos[0] - 1 - dx, mouse_pos[1] - 2 - dy
-            if 0 <= pcol < graph_w and 0 <= prow < height_cells:
-                probe = elev[prow * 2][pcol]
-        if probe is None:
-            probe = elev[height_cells][graph_w // 2]
-        if probe is not None:
-            readout = f" · {_fmt_elev(probe, lang)}"
+    readout = ("" if street else
+               _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells,
+                             lang))
 
     strokes = [borders] if borders is not None else None
     lines = compose_terrain(None, terrain, overlays, graph_w,
@@ -1253,12 +1206,6 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
     hover, hot, hot_glyphs = _hover(layer, mouse_pos, pan_offset, lang)
 
     overlays = dict(labels) if show_labels else {}
-    if marker_cell is not None:
-        overlays[marker_cell] = _mark("+", MARKER, True)
-    if origin_cell is not None:
-        overlays[origin_cell] = _mark("○", MARKER, True)
-    if dest_cell is not None:
-        overlays[dest_cell] = _mark("●", MARKER, True)
     dx, dy = pan_offset
     if dx or dy:
         layer = _ShiftedLayer(
@@ -1267,10 +1214,8 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
             {(c + dx, r + dy) for c, r in layer.ribbon})
         fills = _shift_grid(fills, dx, dy * 2, None)
         route_layer = _shift_layer(route_layer, dx, dy)
-        overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
-                    if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
-    overlays = _crosshair(overlays, marker_cell, dx, dy, graph_w,
-                          height_cells, True)
+    overlays = _place_marks(overlays, marker_cell, origin_cell, dest_cell,
+                            dx, dy, graph_w, height_cells, True)
 
     strokes = [route_layer] if route_layer is not None else None
     lines = compose_map(fills, layer, overlays, graph_w, height_cells,
@@ -1322,6 +1267,43 @@ def _crosshair(overlays, cell, dx, dy, graph_w, height_cells, street):
     if at != centre:
         overlays[centre] = _mark("+", CROSSHAIR, street)
     return overlays
+
+
+def _place_marks(overlays, marker_cell, origin_cell, dest_cell, dx, dy,
+                 graph_w, height_cells, street):
+    """The user's marks over a view's own overlays: home, the route's
+    origin and destination, all carried along with the drag preview,
+    and the centre crosshair on top of everything."""
+    if marker_cell is not None:
+        overlays[marker_cell] = _mark("+", MARKER, street)
+    if origin_cell is not None:
+        overlays[origin_cell] = _mark("○", MARKER, street)
+    if dest_cell is not None:
+        overlays[dest_cell] = _mark("●", MARKER, street)
+    if dx or dy:
+        overlays = {(c + dx, r + dy): v for (c, r), v in overlays.items()
+                    if 0 <= c + dx < graph_w and 0 <= r + dy < height_cells}
+    return _crosshair(overlays, marker_cell, dx, dy, graph_w, height_cells,
+                      street)
+
+
+def _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells, lang):
+    """The elevation under the pointer, or at the view centre — or ""
+    when the view has no elevation yet."""
+    if elev is None:
+        return ""
+    probe = None
+    if mouse_pos is not None:
+        # the same 1-based frame the hover index reads: one column of
+        # left margin, one header row above the map
+        pcol, prow = mouse_pos[0] - 1 - dx, mouse_pos[1] - 2 - dy
+        if 0 <= pcol < graph_w and 0 <= prow < height_cells:
+            probe = elev[prow * 2][pcol]
+    if probe is None:
+        probe = elev[height_cells][graph_w // 2]  # centre sub-pixel row
+    if probe is None:
+        return ""
+    return f" · {_maps_style.fmt_elev(probe, lang)}"
 
 
 def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
