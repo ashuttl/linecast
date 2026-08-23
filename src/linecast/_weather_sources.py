@@ -4,7 +4,6 @@ import re
 import sys
 from datetime import datetime, timezone, timedelta
 
-from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache, location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._runtime import WeatherRuntime
@@ -55,7 +54,7 @@ def _reverse_geocode(lat, lng, lang=None):
         )
         if lang:
             url += f"&accept-language={lang}"
-        data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=10)
+        data = fetch_json(url, timeout=10)
         addr = data.get("address", {})
         name = addr.get("city") or addr.get("town") or addr.get("village") or ""
         state = addr.get("state", "")
@@ -103,7 +102,6 @@ def fetch_forecast(lat, lng, runtime=None):
         cache_file,
         3600,
         url,
-        headers={"User-Agent": USER_AGENT},
         timeout=10,
         fallback=None,
     )
@@ -121,7 +119,6 @@ def fetch_aqi(lat, lng):
         cache_file,
         3600,
         url,
-        headers={"User-Agent": USER_AGENT},
         timeout=10,
         fallback=None,
     )
@@ -160,7 +157,7 @@ def _fetch_alerts_nws(lat, lng):
         cache_file,
         900,
         url,
-        headers={"User-Agent": USER_AGENT, "Accept": "application/geo+json"},
+        headers={"Accept": "application/geo+json"},
         timeout=10,
         fallback=[],
     )
@@ -202,7 +199,7 @@ def _fetch_alerts_eccc(lat, lng, lang="en"):
         cache_file,
         900,
         url,
-        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+        headers={"Accept": "application/json"},
         timeout=10,
         fallback=[],
     )
@@ -272,7 +269,6 @@ def _fetch_alerts_brightsky(lat, lng, lang="en"):
     url = f"https://api.brightsky.dev/alerts?lat={lat}&lon={lng}"
     data = fetch_json_cached(
         cache_file, 900, url,
-        headers={"User-Agent": USER_AGENT},
         timeout=10, fallback=[],
     )
     if isinstance(data, list):
@@ -316,7 +312,6 @@ def _fetch_alerts_metno(lat, lng):
     )
     data = fetch_json_cached(
         cache_file, 900, url,
-        headers={"User-Agent": USER_AGENT},
         timeout=10, fallback=[],
     )
     if isinstance(data, list):
@@ -359,7 +354,7 @@ def _fetch_alerts_meteireann(lat, lng):
     url = "https://prodapi.metweb.ie/warnings/active"
     data = fetch_json_cached(
         cache_file, 900, url,
-        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+        headers={"Accept": "application/json"},
         timeout=10, fallback=[],
     )
     if isinstance(data, list):
@@ -453,7 +448,7 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
     url = f"https://feeds.meteoalarm.org/api/v1/warnings/feeds-{slug}"
     data = fetch_json_cached(
         cache_file, 900, url,
-        headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+        headers={"Accept": "application/json"},
         timeout=15, fallback=[],
     )
     if isinstance(data, list):
@@ -654,7 +649,6 @@ def _fetch_alerts_jma(lat, lng, lang="en"):
     url = f"https://www.jma.go.jp/bosai/warning/data/warning/{office_code}.json"
     data = fetch_json_cached(
         cache_file, 900, url,
-        headers={"User-Agent": USER_AGENT},
         timeout=10, fallback=[],
     )
     if isinstance(data, list):
@@ -816,7 +810,6 @@ def _fetch_alerts_cma(lat, lng, lang="en"):
     data = fetch_json_cached(
         cache_file, 900,
         "http://www.nmc.cn/rest/findAlarm?pageNo=1&pageSize=500",
-        headers={"User-Agent": USER_AGENT},
         timeout=10, fallback=[],
     )
     if isinstance(data, list):
@@ -933,7 +926,7 @@ def _geocode_query(query, lang="en"):
         f"?name={urllib.parse.quote(query)}&count=10&language={lang}"
     )
     try:
-        data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=10)
+        data = fetch_json(url, timeout=10)
     except Exception as exc:
         print(f"Search failed: {exc}", file=sys.stderr)
         sys.exit(1)

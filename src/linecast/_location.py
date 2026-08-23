@@ -7,7 +7,6 @@ from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, write_ca
 from linecast._config import saved_location
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._runtime import debug_log
-from linecast import USER_AGENT
 
 _CACHE_FILE = CACHE_ROOT / "location.json"
 _MAX_AGE = 3600  # 1 hour; implicit IP geolocation should refresh as users move.
@@ -38,7 +37,7 @@ def get_location():
     try:
         data = fetch_json(
             "https://ipinfo.io/json",
-            headers={"Accept": "application/json", "User-Agent": USER_AGENT},
+            headers={"Accept": "application/json"},
             timeout=3,
         )
         parts = data.get("loc", "").split(",")
@@ -117,7 +116,6 @@ def location_tzinfo(lat, lng):
         cache_file,
         30 * 86400,
         url,
-        headers={"User-Agent": USER_AGENT},
         timeout=5,
         fallback=None,
     )

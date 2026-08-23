@@ -50,6 +50,8 @@ Notable changes, by release. Notes for the next release collect under
 - Maps and weather: Requests to the same server reuse one connection
   instead of opening a fresh one each time, so tile pyramids and the
   forecast's several calls arrive sooner.
+- Commands start a little faster: the package version is looked up
+  only when something prints it.
 
 ## 1.15.1 — 2026-08-23
 

@@ -27,7 +27,6 @@ import threading
 import time
 
 from linecast import _radar_tiles as tiles
-from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
 from linecast._geo import wrap_lon
 from linecast._globe import _radius, _source_zoom, bilinear_taps, forward
@@ -145,8 +144,7 @@ def _fetch_cap(timeout):
     url = ("https://api.open-meteo.com/v1/forecast"
            f"?latitude={lat_q}&longitude={lon_q}"
            "&hourly=cloud_cover&forecast_days=2&timezone=UTC")
-    results = fetch_json(url, headers={"User-Agent": USER_AGENT},
-                         timeout=timeout)
+    results = fetch_json(url, timeout=timeout)
     if isinstance(results, dict):
         results = [results]
     cover = [[x if x is not None else 0.0

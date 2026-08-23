@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Optional
 
-from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, location_cache_key
 from linecast._http import fetch_json_cached
 
@@ -75,7 +74,6 @@ def fetch_historical(lat: float, lng: float, target_date: date,
         cache_file,
         _CACHE_MAX_AGE,
         url,
-        headers={"User-Agent": USER_AGENT},
         timeout=15,
         fallback=None,
     )

@@ -97,11 +97,27 @@ def use_metric(lang, environ=None):
 # ---------------------------------------------------------------------------
 # Argparse parser factories
 # ---------------------------------------------------------------------------
+class VersionAction(argparse.Action):
+    """`--version` that looks the package version up only when asked.
+
+    argparse's stock action wants the string at parser-build time, which
+    would resolve importlib.metadata on every run of every command.
+    """
+
+    def __init__(self, option_strings, dest, **kwargs):
+        super().__init__(option_strings, dest=argparse.SUPPRESS,
+                         default=argparse.SUPPRESS, nargs=0,
+                         help="show program's version number and exit")
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        from linecast import __version__
+        sys.stdout.write(f"{parser.prog} (linecast {__version__})\n")
+        parser.exit()
+
+
 def _base_parser(prog, description):
-    from linecast import __version__
     p = argparse.ArgumentParser(prog=prog, description=description)
-    p.add_argument("--version", action="version",
-                    version=f"{prog} (linecast {__version__})")
+    p.add_argument("--version", action=VersionAction)
     p.add_argument("--print", dest="print_mode", action="store_true",
                     help="single static snapshot (no live mode)")
     p.add_argument("--live", action="store_true",

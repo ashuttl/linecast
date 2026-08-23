@@ -7,7 +7,6 @@ to coastal areas.
 
 from datetime import datetime, timedelta
 
-from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, location_cache_key, read_cache
 from linecast._http import fetch_json_cached
 
@@ -43,7 +42,6 @@ def fetch_marine(lat, lng):
         cache_file,
         MARINE_CACHE_MAX_AGE,
         url,
-        headers={"User-Agent": USER_AGENT},
         timeout=10,
         fallback=None,
     )
