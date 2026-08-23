@@ -453,6 +453,16 @@ class TestCities:
         for (col, row) in overlays:
             assert 0 <= col < 80 and 0 <= row < 22
 
+    def test_same_view_is_served_from_the_memo(self, monkeypatch):
+        monkeypatch.setattr(_globe, "_overlay_cache", {})
+        first = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22)
+        assert _globe.city_overlays(20.0, -30.0, 125.0, 80, 22) is first
+        other = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22, lang="fr")
+        assert other is not first
+        for lon0 in (-31.0, -32.0, -33.0, -34.0):
+            _globe.city_overlays(20.0, lon0, 125.0, 80, 22)
+        assert len(_globe._overlay_cache) == _globe._OVERLAY_KEEP
+
     def test_hidden_hemisphere_has_different_cities(self):
         near = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22)
         far = _globe.city_overlays(-20.0, 150.0, 125.0, 80, 22)

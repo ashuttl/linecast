@@ -317,11 +317,34 @@ def _light_weight(pop):
     return max(0.0, min(1.0, (math.log10(max(pop, 1.0)) - 4.0) / 3.5))
 
 
+# city_lights_globe() memo: the lights depend only on the view, but the
+# sun toggle asks for them on every repaint.  Keyed with the cities
+# list's identity so swapped-in test data misses.
+_lights_cache = {}
+_LIGHTS_KEEP = 4
+
+
 def city_lights_globe(lat0, lon0, zoom, gw, h):
-    """{(x, y): glow} on the gw×h sub-pixel grid, orthographic."""
+    """{(x, y): glow} on the gw×h sub-pixel grid, orthographic.
+
+    Memoised per view: the dict is shared between calls, so read it.
+    """
+    cities = _load_data()["cities"]
+    key = (lat0, lon0, zoom, gw, h, id(cities))
+    hit = _lights_cache.get(key)
+    if hit is not None:
+        return hit
+    hit = _light_cities(cities, lat0, lon0, zoom, gw, h)
+    while len(_lights_cache) >= _LIGHTS_KEEP:
+        del _lights_cache[next(iter(_lights_cache))]
+    _lights_cache[key] = hit
+    return hit
+
+
+def _light_cities(cities, lat0, lon0, zoom, gw, h):
     r = _radius(zoom, h)
     out = {}
-    for entry in _load_data()["cities"]:
+    for entry in cities:
         w = _light_weight(entry[2])
         if w <= 0.0:
             continue

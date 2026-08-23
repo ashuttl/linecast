@@ -573,6 +573,13 @@ def marker_cell(lat0, lon0, zoom, gw, hc, m_lat, m_lon):
     return None
 
 
+# city_overlays() memo: the placement depends only on the view and the
+# language, but every repaint asks for it — hover included.  Keyed
+# with the cities list's identity so swapped-in test data misses.
+_overlay_cache = {}
+_OVERLAY_KEEP = 4
+
+
 def city_overlays(lat0, lon0, zoom, gw, hc, lang="en"):
     """{(col,row): (char, color)} for the biggest visible cities + labels.
 
@@ -580,11 +587,26 @@ def city_overlays(lat0, lon0, zoom, gw, hc, lang="en"):
     one extra gate: nothing lands within the outer tenth of the disk,
     where orthographic compression stacks a continent into a cell and a
     label would point at geography it half covers.
+
+    Memoised per view: the dict is shared between calls, so read it.
     """
+    cities = _load_data()["cities"]
+    key = (lat0, lon0, zoom, gw, hc, lang, id(cities))
+    hit = _overlay_cache.get(key)
+    if hit is not None:
+        return hit
+    hit = _place_cities(cities, lat0, lon0, zoom, gw, hc, lang)
+    while len(_overlay_cache) >= _OVERLAY_KEEP:
+        del _overlay_cache[next(iter(_overlay_cache))]
+    _overlay_cache[key] = hit
+    return hit
+
+
+def _place_cities(cities, lat0, lon0, zoom, gw, hc, lang):
     max_cities = max(6, min(24, (gw * hc) // 400))
     r = _radius(zoom, hc * 2)
     ranked = []
-    for entry in _load_data()["cities"]:
+    for entry in cities:
         lon, lat, pop = entry[0], entry[1], entry[2]
         ux, uy, cos_c = forward(lat, lon, lat0, lon0)
         if cos_c < 0.2:

@@ -67,6 +67,24 @@ class TestClouds:
         assert row[1] == 0.0  # space is not weather
 
 
+class TestCityLights:
+    def test_globe_lights_land_on_the_near_side(self):
+        lights = _globe_now.city_lights_globe(20.0, -30.0, 125.0, 80, 44)
+        assert lights
+        for (x, y), w in lights.items():
+            assert 0 <= x < 80 and 0 <= y < 44
+            assert 0.0 < w <= 1.0
+
+    def test_same_view_is_served_from_the_memo(self, monkeypatch):
+        monkeypatch.setattr(_globe_now, "_lights_cache", {})
+        first = _globe_now.city_lights_globe(20.0, -30.0, 125.0, 80, 44)
+        assert _globe_now.city_lights_globe(20.0, -30.0, 125.0, 80, 44) \
+            is first
+        for lon0 in (-31.0, -32.0, -33.0, -34.0):
+            _globe_now.city_lights_globe(20.0, lon0, 125.0, 80, 44)
+        assert len(_globe_now._lights_cache) == _globe_now._LIGHTS_KEEP
+
+
 class TestApply:
     def test_day_leaves_the_ground_alone(self):
         buf = [[(90, 110, 60)]]
