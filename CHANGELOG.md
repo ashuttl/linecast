@@ -5,6 +5,11 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Maps: the cloud layer now covers the poles. The satellite mosaic
+  ends near the 72nd parallels; poleward, Open-Meteo model cloud
+  cover fills in, fading in where the mosaic fades out, so a
+  pole-centred globe no longer shows a ring of falsely clear sky.
+
 ## 1.15.0 — 2026-08-22
 
 - Live views follow the terminal theme: switch your terminal's colours

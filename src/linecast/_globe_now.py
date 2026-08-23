@@ -9,31 +9,50 @@ hour) keeps a long-running view honest without ever playing frames.
 
 Clouds ride the LibreWXR global infrared mosaic that already feeds the
 radar view's satellite layer: alpha is cloud opacity, coverage runs to
-about the 74th parallels, and the newest frame trails real time by an
-hour or two.  Poleward of the data the sky simply stays clear, which at
-planet scale is the ice caps.  Daylight is astronomy — the subsolar
+about the 72nd parallels, and the newest frame trails real time by an
+hour or two.  Poleward of the geostationary ring a coarse Open-Meteo
+cloud-cover lattice stands in — model, not satellite, the same trade
+the radar view makes where no radar reaches — fading in exactly where
+the mosaic's own feathered edge fades out, so a pole-centred globe
+doesn't wear a moat of suspiciously clear sky.  Daylight is astronomy — the subsolar
 point from the clock and a civil-twilight ramp — and night dims to a
 readable blue rather than black, because a map you cannot read is not
 a map.  Cities burn through the dark side, graded by population: the
 basemap's own registry doing its best Black Marble.
 """
 
+import datetime
 import math
 import threading
 import time
 
 from linecast import _radar_tiles as tiles
+from linecast import USER_AGENT
+from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
 from linecast._globe import _radius, _source_zoom, forward
+from linecast._http import fetch_json
 from linecast._png import decode_rgba
 from linecast._radar_basemap import _load_data
 from linecast._theme import themed
 from linecast.sunshine import _declination
 
-ATTRIBUTION = "Clouds: LibreWXR · CC BY 4.0"
+ATTRIBUTION = "Clouds: LibreWXR + Open-Meteo · CC BY 4.0"
 
 # the mosaic ends at the mercator tile edge, like the elevation canvas
 _CLOUD_BBOX = (-180.0, -85.05, 180.0, 85.05)
 _REFRESH_S = 300     # trust a fetched index this long before re-asking
+
+# polar cap lattice: rings of Open-Meteo cloud cover poleward of the
+# mosaic, one point at each pole.  Coarse on purpose — at planet scale
+# a whole cap is a hundred pixels — and hourly, so one fetch a quarter
+# of a day keeps a long-running view honest.
+_CAP_LATS = [72.0, 76.0, 80.0, 84.0, 88.0]
+_CAP_NLON = 12
+_CAP_TTL = 6 * 3600
+# the mosaic's own alpha feathers to nothing between these parallels
+# (measured; the ring's horizon, softened upstream) — the model fades
+# in over the same band, so neither source ever shows an edge
+_CAP_FADE0, _CAP_FADE1 = 70.0, 72.6
 
 # night floor per channel: dark enough to read as night, blue enough to
 # read as moonlight, bright enough to leave the geography legible.
@@ -109,7 +128,99 @@ def flat_lls(bbox, w, h):
 
 
 _cloud_lock = threading.Lock()
-_cloud = {"stamp": None, "canvas": None, "checked": 0.0}
+_cloud = {"stamp": None, "canvas": None, "checked": 0.0, "cap": None}
+
+
+def _fetch_cap(timeout):
+    """One request for both caps: hourly cover at every lattice point."""
+    pts = []
+    for sign in (1.0, -1.0):
+        for alat in _CAP_LATS:
+            for k in range(_CAP_NLON):
+                pts.append((sign * alat, -180.0 + k * 360.0 / _CAP_NLON))
+        pts.append((sign * 90.0, 0.0))
+    lat_q = ",".join(f"{lat:.1f}" for lat, _ in pts)
+    lon_q = ",".join(f"{lon:.1f}" for _, lon in pts)
+    url = ("https://api.open-meteo.com/v1/forecast"
+           f"?latitude={lat_q}&longitude={lon_q}"
+           "&hourly=cloud_cover&forecast_days=2&timezone=UTC")
+    results = fetch_json(url, headers={"User-Agent": USER_AGENT},
+                         timeout=timeout)
+    if isinstance(results, dict):
+        results = [results]
+    cover = [[x if x is not None else 0.0
+              for x in p["hourly"]["cloud_cover"]] for p in results]
+    return {"times": results[0]["hourly"]["time"], "cover": cover}
+
+
+def _refresh_cap(timeout):
+    """Bring the polar lattice up to date.  Returns True when it changed.
+
+    Same fallback posture as the mosaic: a stale lattice on a network
+    failure beats a clear pole that isn't.
+    """
+    cdir = CACHE_ROOT / "maps"
+    cdir.mkdir(parents=True, exist_ok=True)
+    cpath = cdir / "polar_clouds.json"
+    payload = read_cache(cpath, _CAP_TTL)
+    if payload is None:
+        try:
+            payload = _fetch_cap(timeout)
+            write_cache(cpath, payload)
+        except Exception:
+            payload = read_stale(cpath)
+    if payload is None or payload == _cloud.get("cap"):
+        return False
+    with _cloud_lock:
+        _cloud["cap"] = payload
+    return True
+
+
+def _cap_grids():
+    """Per-hemisphere cover rings for this hour, or None.
+
+    {northern: [ring][lon_idx]} in cover fraction 0..1, the pole's
+    single point widened into a ring of its own so bilinear sampling
+    needs no special case at 90°.
+    """
+    cap = _cloud.get("cap")
+    if cap is None:
+        return None
+    now = datetime.datetime.now(datetime.timezone.utc)
+    times = [datetime.datetime.fromisoformat(t).replace(
+        tzinfo=datetime.timezone.utc) for t in cap["times"]]
+    t = min(range(len(times)),
+            key=lambda i: abs((times[i] - now).total_seconds()))
+    per, block = _CAP_NLON, len(_CAP_LATS) * _CAP_NLON + 1
+    grids = {}
+    for northern, base in ((True, 0), (False, block)):
+        rings = [[cap["cover"][base + r * per + k][t] / 100.0
+                  for k in range(per)] for r in range(len(_CAP_LATS))]
+        rings.append([cap["cover"][base + block - 1][t] / 100.0] * per)
+        grids[northern] = rings
+    return grids
+
+
+def _cap_cover(grids, lat, lon):
+    """Bilinear cover fraction at a point, lon wrapping, lat clamped."""
+    rings = grids[lat > 0]
+    ring_lats = _CAP_LATS
+    alat = min(abs(lat), 90.0)
+    r = len(ring_lats) - 1
+    for i in range(len(ring_lats) - 1):
+        if alat <= ring_lats[i + 1]:
+            r = i
+            break
+    span = (90.0 if r == len(ring_lats) - 1 else ring_lats[r + 1]) \
+        - ring_lats[r]
+    ty = max(0.0, min(1.0, (alat - ring_lats[r]) / span))
+    fx = (lon + 180.0) % 360.0 / (360.0 / _CAP_NLON)
+    k0 = int(fx) % _CAP_NLON
+    k1 = (k0 + 1) % _CAP_NLON
+    tx = fx - int(fx)
+    top = rings[r][k0] + (rings[r][k1] - rings[r][k0]) * tx
+    bot = rings[r + 1][k0] + (rings[r + 1][k1] - rings[r + 1][k0]) * tx
+    return top + (bot - top) * ty
 
 
 def _provider():
@@ -135,19 +246,20 @@ def refresh(zoom, h, timeout=15):
     never dropped on failure — stale clouds over a live terminator beat
     no clouds at all.
     """
+    cap_changed = _refresh_cap(timeout)
     prov = _provider()
     idx = tiles.fetch_index(prov, timeout)
     frames = (idx.get("satellite") or {}).get("infrared") or []
     with _cloud_lock:
         _cloud["checked"] = time.time()
     if not frames:
-        return False
+        return cap_changed
     z = _source_zoom(zoom, h)
     path = frames[-1]["path"]
     host = idx["host"]
     with _cloud_lock:
         if _cloud["stamp"] == (path, z) and _cloud["canvas"] is not None:
-            return False
+            return cap_changed
 
     def fetch(z_, x, y):
         data = tiles._fetch_tile(prov, host, path, z_, x, y, timeout)
@@ -168,10 +280,14 @@ def refresh(zoom, h, timeout=15):
 def clouds(lls, canvas):
     """Per-sample cloud opacity 0..1, bilinear over the mosaic's alpha.
 
-    Alpha 0 is clear sky and no-data alike, which is the honest merge:
-    where the geostationary ring cannot see, nothing is drawn.
+    Alpha 0 is clear sky and no-data alike, which is the honest merge
+    equatorward: where the mosaic is dark, the sky is clear.  Poleward
+    the model lattice takes over, smoothstepped in across the band
+    where the mosaic's own edge feathers away, and the two are merged
+    with max() — whichever source sees cloud there, cloud is drawn.
     """
     buf, cw, ch, org_x, org_y, world = canvas
+    grids = _cap_grids()
     out = []
     for row in lls:
         o = []
@@ -191,8 +307,16 @@ def clouds(lls, canvas):
             a = ((buf[(y0 * cw + x0) * 4 + 3] * (1 - tx)
                   + buf[(y0 * cw + x1) * 4 + 3] * tx) * (1 - ty)
                  + (buf[(y1 * cw + x0) * 4 + 3] * (1 - tx)
-                    + buf[(y1 * cw + x1) * 4 + 3] * tx) * ty)
-            o.append(a / 255.0)
+                    + buf[(y1 * cw + x1) * 4 + 3] * tx) * ty) / 255.0
+            if grids is not None and abs(ll[0]) > _CAP_FADE0:
+                t = min(1.0, (abs(ll[0]) - _CAP_FADE0)
+                        / (_CAP_FADE1 - _CAP_FADE0))
+                t = t * t * (3.0 - 2.0 * t)
+                c = _cap_cover(grids, ll[0], ll[1])
+                # cover fraction → opacity, graded so scattered cloud
+                # stays a veil and full deck matches the mosaic's white
+                a = max(a, t * c * c * 0.85)
+            o.append(a)
         out.append(o)
     return out
 

@@ -123,6 +123,7 @@ class TestRefresh:
         tiles = _globe_now.tiles
         monkeypatch.setattr(_globe_now, "_cloud",
                             {"stamp": None, "canvas": None, "checked": 0.0})
+        monkeypatch.setattr(_globe_now, "_refresh_cap", lambda t: False)
         monkeypatch.setattr(tiles, "fetch_index",
                             lambda prov, timeout=15: self._index(["/v2/s/1"]))
         monkeypatch.setattr(tiles, "_fetch_tile", lambda *a, **k: None)
@@ -135,7 +136,50 @@ class TestRefresh:
         tiles = _globe_now.tiles
         monkeypatch.setattr(_globe_now, "_cloud",
                             {"stamp": None, "canvas": None, "checked": 0.0})
+        monkeypatch.setattr(_globe_now, "_refresh_cap", lambda t: False)
         monkeypatch.setattr(tiles, "fetch_index",
                             lambda prov, timeout=15: {"host": "h"})
         assert _globe_now.refresh(130.0, 208) is False
         assert _globe_now.peek() is None
+
+    def test_fresh_polar_lattice_alone_repaints(self, monkeypatch):
+        # no new mosaic frame, but the cap changed: worth a repaint
+        tiles = _globe_now.tiles
+        monkeypatch.setattr(_globe_now, "_cloud",
+                            {"stamp": None, "canvas": None, "checked": 0.0})
+        monkeypatch.setattr(_globe_now, "_refresh_cap", lambda t: True)
+        monkeypatch.setattr(tiles, "fetch_index",
+                            lambda prov, timeout=15: {"host": "h"})
+        assert _globe_now.refresh(130.0, 208) is True
+
+
+class TestPolarCap:
+    def _cap(self, north=100.0, south=0.0):
+        """A one-hour lattice: solid deck up north, clear down south."""
+        n_ring = len(_globe_now._CAP_LATS)
+        block = n_ring * _globe_now._CAP_NLON + 1
+        return {"times": ["2026-08-23T00:00"],
+                "cover": [[north]] * block + [[south]] * block}
+
+    def test_cover_interpolates_and_clamps(self, monkeypatch):
+        monkeypatch.setitem(_globe_now._cloud, "cap", self._cap())
+        grids = _globe_now._cap_grids()
+        assert _globe_now._cap_cover(grids, 90.0, 0.0) == 1.0
+        assert _globe_now._cap_cover(grids, 71.0, 123.0) == 1.0  # clamped
+        assert _globe_now._cap_cover(grids, -80.0, 45.0) == 0.0
+
+    def test_clouds_fill_the_cap_and_fade_at_the_edge(self, monkeypatch):
+        monkeypatch.setitem(_globe_now._cloud, "cap", self._cap())
+        canvas = (bytes(4 * 4 * 4), 4, 4, 0, 0, 4)  # empty mosaic
+        lls = [[(85.0, 0.0), (69.0, 0.0), (-85.0, 0.0), None]]
+        out = _globe_now.clouds(lls, canvas)
+        assert out[0][0] > 0.8      # deep in the northern cap: full deck
+        assert out[0][1] == 0.0     # equatorward of the fade: untouched
+        assert out[0][2] == 0.0     # southern cap is genuinely clear
+        assert out[0][3] == 0.0     # off the disk
+
+    def test_no_lattice_leaves_the_mosaic_alone(self, monkeypatch):
+        monkeypatch.setitem(_globe_now._cloud, "cap", None)
+        canvas = (bytes(4 * 4 * 4), 4, 4, 0, 0, 4)
+        out = _globe_now.clouds([[(85.0, 0.0)]], canvas)
+        assert out[0][0] == 0.0
