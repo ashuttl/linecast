@@ -23,6 +23,7 @@ from pathlib import Path
 
 from linecast import _cache
 from linecast._elevation import _fetch_tile, decode_meters
+from linecast._geo import wrap_lon
 from linecast._png import decode_rgba
 from linecast._radar_basemap import (
     CITY, CITY_LABEL, DotLayer, _cell_width, _load_data, _localized)
@@ -140,11 +141,7 @@ def geometry(lat0, lon0, zoom, w, h):
             lat = math.degrees(math.asin(
                 min(1.0, max(-1.0, uy * cos0 + z * sin0))))
             lon = lon0 + math.degrees(math.atan2(ux, z * cos0 - uy * sin0))
-            if lon > 180.0:
-                lon -= 360.0
-            elif lon < -180.0:
-                lon += 360.0
-            ll_row.append((lat, lon))
+            ll_row.append((lat, wrap_lon(lon)))
             z_row.append(z)
         lls.append(ll_row)
         zs.append(z_row)
@@ -419,11 +416,7 @@ def limb_lls(lat0, lon0, zoom, w, h, atmo):
             nx, ny = ux / rho, uy / rho
             lat = math.degrees(math.asin(max(-1.0, min(1.0, ny * cos0))))
             lon = lon0 + math.degrees(math.atan2(nx, -ny * sin0))
-            if lon > 180.0:
-                lon -= 360.0
-            elif lon < -180.0:
-                lon += 360.0
-            row.append((lat, lon))
+            row.append((lat, wrap_lon(lon)))
         out.append(row)
     return out
 

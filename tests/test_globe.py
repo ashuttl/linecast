@@ -49,6 +49,22 @@ class TestProjection:
         assert abs((a[0] - b[0]) - 90.0 / 400) < 0.01
 
 
+class TestWrapLon:
+    def test_one_turn_either_way(self):
+        from linecast._geo import wrap_lon
+        assert wrap_lon(190.0) == -170.0
+        assert wrap_lon(-190.0) == 170.0
+        assert wrap_lon(180.0) == 180.0
+        assert wrap_lon(-180.0) == -180.0
+        assert wrap_lon(12.5) == 12.5
+
+    def test_geometry_lon_stays_in_range_across_the_antimeridian(self):
+        lls, _zs, _rhos = _globe.geometry(0.0, 179.0, 125.0, 40, 40)
+        lons = [ll[1] for row in lls for ll in row if ll is not None]
+        assert lons and all(-180.0 <= lon <= 180.0 for lon in lons)
+        assert min(lons) < -170.0 and max(lons) > 170.0
+
+
 class TestMarkers:
     def test_center_marker_lands_center_cell(self):
         cell = _globe.marker_cell(20.0, -30.0, 125.0, 80, 22, 20.0, -30.0)

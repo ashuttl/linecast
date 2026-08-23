@@ -29,6 +29,7 @@ import time
 from linecast import _radar_tiles as tiles
 from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
+from linecast._geo import wrap_lon
 from linecast._globe import _radius, _source_zoom, bilinear_taps, forward
 from linecast._http import fetch_json
 from linecast._png import decode_rgba
@@ -85,7 +86,7 @@ def subsolar(t=None):
     eot_min = (9.87 * math.sin(2 * b) - 7.53 * math.cos(b)
                - 1.5 * math.sin(b))
     lon = 15.0 * (12.0 - utc_h - eot_min / 60.0)
-    return _declination(tm.tm_yday), (lon + 180.0) % 360.0 - 180.0
+    return _declination(tm.tm_yday), wrap_lon(lon)
 
 
 def daylight(lls, sun):

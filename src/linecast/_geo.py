@@ -3,6 +3,19 @@
 import math
 
 
+def wrap_lon(lon):
+    """`lon` folded into [-180, 180] by one turn of the planet.
+
+    One step either way, not a modulo: the callers hand over a
+    longitude at most a turn out of range, and 180.0 stays 180.0.
+    """
+    if lon > 180.0:
+        return lon - 360.0
+    if lon < -180.0:
+        return lon + 360.0
+    return lon
+
+
 def haversine_nm(lat1, lon1, lat2, lon2):
     """Distance in nautical miles between two points."""
     earth_radius_nm = 3440.065
