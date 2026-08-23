@@ -151,6 +151,57 @@ class TestLabelToggle:
         assert any("•" in line for line in on)
         assert not any("•" in line for line in off)
 
+    def test_globe_render_hides_borders_when_toggled(self, monkeypatch):
+        from linecast import maps
+        gw, hc = 40, 12
+        lls, zs, rhos = _globe.geometry(20.0, -30.0, 125.0, gw, hc * 2)
+        elev = [[None if ll is None else 500.0 for ll in row]
+                for row in lls]
+        borders = maps.DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
+        # near the disk centre, but clear of the centre crosshair's cell
+        borders._set_dot(gw + 4, hc * 2, maps.BORDER_STROKE)
+        view = _globe.GlobeView(elev, [[0] * gw for _ in range(hc)], zs,
+                                _globe.atmosphere(rhos, 125.0, hc * 2),
+                                None, borders)
+        monkeypatch.setattr(maps, "_get_globe", lambda *a: view)
+        monkeypatch.setattr(maps, "get_terminal_size", lambda: (gw, hc + 2))
+        monkeypatch.setattr(_globe, "city_overlays", lambda *a, **k: {})
+        bbox = (-31.0, -42.5, -29.0, 82.5)
+        args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
+                "en", None)
+        on, *_rest = maps._render_globe(*args, show_labels=True)
+        off, *_rest = maps._render_globe(*args, show_labels=False)
+        stroke = chr(0x2800 + borders.dots[hc // 2][gw // 2 + 2])
+        assert any(stroke in line for line in on)
+        assert not any(stroke in line for line in off)
+
+    def test_terrain_render_hides_borders_when_toggled(self, monkeypatch):
+        from linecast import maps
+        gw, hc = 40, 12
+        elev = [[500.0] * gw for _ in range(hc * 2)]
+        terrain = maps.TerrainView(elev, None, None, None, None)
+        monkeypatch.setattr(maps, "_get_elevation", lambda *a: terrain)
+
+        class FakeBasemap:
+            dots = [[0] * gw for _ in range(hc)]
+            color = [[None] * gw for _ in range(hc)]
+            # clear of the centre crosshair's cell
+            dots[hc // 2][gw // 2 + 5] = 0x07
+            color[hc // 2][gw // 2 + 5] = maps.BORDER
+
+            def city_overlays(self, lang="en"):
+                return {}
+
+        monkeypatch.setattr(maps, "_get_basemap",
+                            lambda *a: FakeBasemap())
+        bbox = (-70.5, 43.5, -69.5, 44.5)
+        args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
+                "en", None)
+        on, *_rest = maps._render_terrain(*args, show_labels=True)
+        off, *_rest = maps._render_terrain(*args, show_labels=False)
+        assert any(chr(0x2800 + 0x07) in line for line in on)
+        assert not any(chr(0x2800 + 0x07) in line for line in off)
+
 
 class TestCities:
     def test_labels_stay_on_screen_and_visible_side(self):

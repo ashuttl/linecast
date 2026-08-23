@@ -816,7 +816,11 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     than a network of named things, and "coastline" under the cursor
     would tell a reader less than the metres already there.
     """
-    basemap = _get_basemap(bbox, graph_w, height_cells)
+    # the basemap's braille here is border strokes only (the coastline
+    # comes from the elevation contour), and borders are annotation the
+    # same way names are — so `l` takes both, leaving the bare planet
+    basemap = (_get_basemap(bbox, graph_w, height_cells)
+               if show_labels else None)
     err = None
     loading = False
     view = _EMPTY_TERRAIN
@@ -861,8 +865,9 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
 
     dx, dy = pan_offset
     if dx or dy:
-        basemap = _ShiftedBasemap(_shift_grid(basemap.dots, dx, dy, 0),
-                                  _shift_grid(basemap.color, dx, dy, None))
+        if basemap is not None:
+            basemap = _ShiftedBasemap(_shift_grid(basemap.dots, dx, dy, 0),
+                                      _shift_grid(basemap.color, dx, dy, None))
         terrain = _shift_grid(terrain, dx, dy * 2, None)
         if coast is not None:
             coast = _shift_grid(coast, dx, dy, 0)
@@ -1051,7 +1056,8 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
 
     elev = view.elev if view is not None else None
     coast = view.coast if view is not None else None
-    borders = view.borders if view is not None else None
+    borders = (view.borders if view is not None and show_labels
+               else None)
     if elev is not None:
         key = (round(lat0, 2), round(lon0, 2), round(zoom, 1),
                graph_w, height_cells, street)

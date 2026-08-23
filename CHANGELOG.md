@@ -5,6 +5,11 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Maps: `l` now hides national borders along with labels, in the
+  terrain view and on the globe. Borders are annotation the way place
+  names are; turning both off leaves the bare planet. Coastlines and
+  rivers stay.
+
 ## 1.15.1 — 2026-08-23
 
 - Maps: the cloud layer now covers the poles. The satellite mosaic

@@ -161,7 +161,7 @@ Everything is a single key — `?` shows this list in the app:
 | drag · wheel · hover | pan, zoom at the pointer, identify what's under the cursor |
 | `+` `-` | zoom (a held key coasts; only the view you stop on fetches) |
 | `n` | back to the start view |
-| `v` `l` | street ↔ terrain · toggle labels |
+| `v` `l` | street ↔ terrain · toggle labels and borders |
 | `s` `c` | daylight and night city lights · live cloud cover |
 | `r` | spin the globe |
 | `/` | search places and addresses |
