@@ -41,6 +41,8 @@ Notable changes, by release. Notes for the next release collect under
   faster. Tiles are decoded once and reused across pans, zoom steps
   and the v toggle, and a view on a cold cache no longer waits for
   each tile source in turn.
+- Radar: Local colour themes draw faster, and switching between them
+  no longer waits on the network.
 
 ## 1.15.1 — 2026-08-23
 

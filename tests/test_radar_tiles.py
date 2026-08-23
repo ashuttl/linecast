@@ -236,3 +236,77 @@ class TestSmoothGray:
         _w, _h, out = self._run(canvas, 2, 1, 4, 1)
         assert out[0] >= 128 and out[12] < 128
         assert all((out[i * 4] & 127) == 50 for i in range(4))
+
+    def test_sparse_canvas_matches_reference(self):
+        # the fast path probes the four neighbours' alphas and skips empty
+        # neighbourhoods; it must stay byte-identical to the plain
+        # weighted sum, edge clamping and snow majority included
+        import random
+        from linecast._radar_tiles import _smooth_gray
+        rng = random.Random(7)
+        cw, ch = 16, 8
+        pixels = {}
+        for _ in range(20):
+            x, y = rng.randrange(cw), rng.randrange(ch)
+            gray = rng.randrange(20, 100) + (128 if rng.random() < 0.3 else 0)
+            pixels[(x, y)] = (gray, rng.choice((40, 128, 200, 255)))
+        canvas = self._canvas(pixels, cw, ch)
+        # world = 16 px; the view's rows run past both canvas edges so the
+        # clamp is exercised, and its columns straddle every canvas column
+        args = (canvas, cw, ch, 0, 3, cw, (-180, -60, 180, 60), 40, 20)
+        _w, _h, fast = _smooth_gray(*args)
+        _w, _h, ref = _reference_smooth_gray(*args)
+        assert bytes(fast) == bytes(ref)
+        assert any(fast[i + 3] for i in range(0, len(fast), 4))
+        assert not all(fast[i + 3] for i in range(0, len(fast), 4))
+
+
+def _reference_smooth_gray(canvas, canvas_w, canvas_h, org_x, org_y, world,
+                           bbox, w, h):
+    """The bilinear resample written the obvious way: every output pixel
+    weighs its four neighbours, no shortcuts."""
+    minlon, minlat, maxlon, maxlat = bbox
+    col = []
+    for ox in range(w):
+        lon = minlon + (ox + 0.5) / w * (maxlon - minlon)
+        wx, _ = _lonlat_to_world(lon, minlat)
+        fx = wx * world - org_x - 0.5
+        x0 = int(fx // 1)
+        col.append((x0, fx - x0))
+    out = bytearray(w * h * 4)
+    for oy in range(h):
+        lat = maxlat - (oy + 0.5) / h * (maxlat - minlat)
+        _, wy = _lonlat_to_world(minlon, lat)
+        fy = wy * world - org_y - 0.5
+        y0 = int(fy // 1)
+        ty = fy - y0
+        for ox in range(w):
+            x0, tx = col[ox]
+            a_sum = g_sum = s_sum = 0.0
+            for cy, wy_ in ((y0, 1 - ty), (y0 + 1, ty)):
+                if wy_ == 0:
+                    continue
+                base = min(max(cy, 0), canvas_h - 1) * canvas_w
+                for cx, wx_ in ((x0, 1 - tx), (x0 + 1, tx)):
+                    if wx_ == 0:
+                        continue
+                    si = (base + min(max(cx, 0), canvas_w - 1)) * 4
+                    a = canvas[si + 3]
+                    if not a:
+                        continue
+                    wgt = wy_ * wx_ * a
+                    a_sum += wgt
+                    gray = canvas[si]
+                    if gray >= 128:
+                        s_sum += wgt
+                        gray -= 128
+                    g_sum += wgt * gray
+            if a_sum <= 0:
+                continue
+            gray = int(g_sum / a_sum + 0.5)
+            if s_sum * 2 >= a_sum:
+                gray += 128
+            di = (oy * w + ox) * 4
+            out[di] = out[di + 1] = out[di + 2] = gray
+            out[di + 3] = int(a_sum + 0.5)
+    return w, h, out

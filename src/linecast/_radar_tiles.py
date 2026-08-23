@@ -302,17 +302,25 @@ def _smooth_gray(canvas, canvas_w, canvas_h, org_x, org_y, world, bbox, w, h):
     toward the transparent side.  The snow bit is carried as a fraction and
     re-flagged by majority.  Output is the same encoding, so the palette
     step doesn't know the difference.
+
+    Most of a frame is clear sky, so each output pixel first probes its four
+    neighbours' alphas from one contiguous plane and skips the weighted sum
+    where all four are zero.
     """
     minlon, minlat, maxlon, maxlat = bbox
 
+    # per output column: the two canvas columns it straddles (edge-clamped)
+    # and its fractional position between them
     col = []
     for ox in range(w):
         lon = minlon + (ox + 0.5) / w * (maxlon - minlon)
         wx, _ = _lonlat_to_world(lon, minlat)
         fx = wx * world - org_x - 0.5
         x0 = int(fx // 1)
-        col.append((x0, fx - x0))
+        col.append((min(max(x0, 0), canvas_w - 1),
+                    min(max(x0 + 1, 0), canvas_w - 1), fx - x0))
 
+    alpha = canvas[3::4]
     out = bytearray(w * h * 4)
     for oy in range(h):
         lat = maxlat - (oy + 0.5) / h * (maxlat - minlat)
@@ -320,30 +328,31 @@ def _smooth_gray(canvas, canvas_w, canvas_h, org_x, org_y, world, bbox, w, h):
         fy = wy * world - org_y - 0.5
         y0 = int(fy // 1)
         ty = fy - y0
-        rows = ((y0, 1 - ty), (y0 + 1, ty))
+        r0 = min(max(y0, 0), canvas_h - 1) * canvas_w
+        r1 = min(max(y0 + 1, 0), canvas_h - 1) * canvas_w
         di_row = oy * w * 4
         for ox in range(w):
-            x0, tx = col[ox]
-            cols = ((x0, 1 - tx), (x0 + 1, tx))
+            xa, xb, tx = col[ox]
+            a00 = alpha[r0 + xa]
+            a10 = alpha[r0 + xb]
+            a01 = alpha[r1 + xa]
+            a11 = alpha[r1 + xb]
+            if not (a00 or a10 or a01 or a11):
+                continue
             a_sum = g_sum = s_sum = 0.0
-            for cy, wy_ in rows:
-                if wy_ == 0:
+            for idx, a, wgt in ((r0 + xa, a00, (1 - ty) * (1 - tx)),
+                                (r0 + xb, a10, (1 - ty) * tx),
+                                (r1 + xa, a01, ty * (1 - tx)),
+                                (r1 + xb, a11, ty * tx)):
+                if not a or not wgt:
                     continue
-                base = min(max(cy, 0), canvas_h - 1) * canvas_w  # edge clamp
-                for cx, wx_ in cols:
-                    if wx_ == 0:
-                        continue
-                    si = (base + min(max(cx, 0), canvas_w - 1)) * 4
-                    a = canvas[si + 3]
-                    if not a:
-                        continue
-                    wgt = wy_ * wx_ * a
-                    a_sum += wgt
-                    gray = canvas[si]
-                    if gray >= 128:
-                        s_sum += wgt
-                        gray -= 128
-                    g_sum += wgt * gray
+                wgt *= a
+                a_sum += wgt
+                gray = canvas[idx * 4]
+                if gray >= 128:
+                    s_sum += wgt
+                    gray -= 128
+                g_sum += wgt * gray
             if a_sum <= 0:
                 continue
             gray = int(g_sum / a_sum + 0.5)
