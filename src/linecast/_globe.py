@@ -40,20 +40,24 @@ ZOOM_DEG = 45.0
 _MERCATOR_LAT = 85.05
 
 _ATMOSPHERE = themed((104, 148, 198))
+_AIRGLOW = themed((96, 150, 116))
 
 
 def _rebuild():
-    global _ATMOSPHERE
+    global _ATMOSPHERE, _AIRGLOW
     _ATMOSPHERE = themed((104, 148, 198))
+    _AIRGLOW = themed((96, 150, 116))
 
 
 from linecast import _theme as _theme_mod
 _theme_mod.on_reload(_rebuild)
 
-# lls (the coarse per-sample lat/lon grid) rides along for the now
-# register, which re-shades a cached view into the current moment
-GlobeView = namedtuple("GlobeView", "elev coast shade atmo cover borders lls",
-                       defaults=(None,))
+# lls (the coarse per-sample lat/lon grid) and glow_lls (the limb
+# point each rim-glow sample grazes) ride along for the now register,
+# which re-shades a cached view into the current moment
+GlobeView = namedtuple("GlobeView",
+                       "elev coast shade atmo cover borders lls glow_lls",
+                       defaults=(None, None))
 
 
 def ice_cover(lls, elev, ice_id):
@@ -317,6 +321,65 @@ def atmosphere(rhos, zoom, h):
         out.append([max(0.0, 1.0 - (rho - 1.0) / width)
                     if rho > 1.0 else 0.0 for rho in rho_row])
     return out
+
+
+def limb_lls(lat0, lon0, zoom, w, h, atmo):
+    """(lat, lon) of the limb point under each rim-glow sample, or None.
+
+    A glow sample lies off the disk, so no geography sits under it;
+    what it has is the point on the limb its sightline grazes, and
+    whether the sun is up *there* decides whether scattered sunlight
+    can reach the sample at all.
+    """
+    r = _radius(zoom, h)
+    sin0 = math.sin(math.radians(lat0))
+    cos0 = math.cos(math.radians(lat0))
+    out = []
+    for y, a_row in enumerate(atmo):
+        uy = (h / 2.0 - y - 0.5) / r
+        row = []
+        for x, a in enumerate(a_row):
+            if a <= 0.0:
+                row.append(None)
+                continue
+            ux = (x + 0.5 - w / 2.0) / r
+            rho = math.hypot(ux, uy)
+            nx, ny = ux / rho, uy / rho
+            lat = math.degrees(math.asin(max(-1.0, min(1.0, ny * cos0))))
+            lon = lon0 + math.degrees(math.atan2(nx, -ny * sin0))
+            if lon > 180.0:
+                lon -= 360.0
+            elif lon < -180.0:
+                lon += 360.0
+            row.append((lat, lon))
+        out.append(row)
+    return out
+
+
+def gate_glow(buf, atmo, day, bg):
+    """Gate the rim glow by the sun at the limb, in place.
+
+    Scattered sunlight needs sunlight: the glow keeps its blue only
+    where its limb point still sees the sun, fading through the same
+    twilight band as the ground beside it — the scattering layer
+    rides high enough to stay lit across the band.  Past it the
+    night limb keeps only airglow: oxygen's faint green, far dimmer,
+    alpha squared so it thins to a line hugging the disk.
+    """
+    for y, a_row in enumerate(atmo):
+        d_row = day[y]
+        for x, a in enumerate(a_row):
+            if a <= 0.0:
+                continue
+            d = d_row[x]
+            if d is None or d >= 1.0:
+                continue
+            aa = 0.6 * (a * d + a * a * 0.08 * (1.0 - d))
+            buf[y][x] = tuple(
+                int(bg[i] + (_AIRGLOW[i]
+                             + (_ATMOSPHERE[i] - _AIRGLOW[i]) * d
+                             - bg[i]) * aa)
+                for i in range(3))
 
 
 def fill_buffer(elev, water, ground, bg):

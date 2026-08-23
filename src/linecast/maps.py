@@ -1001,13 +1001,13 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block):
                 else:
                     row.append(sum(vals) / len(vals))
             grid.append(row)
+        atmo = _globe.atmosphere(rhos, zoom, hc * 2)
         return _globe.GlobeView(
-            grid, _coast_dots(fine, gw, hc), zs,
-            _globe.atmosphere(rhos, zoom, hc * 2),
+            grid, _coast_dots(fine, gw, hc), zs, atmo,
             _globe.ice_cover(lls, grid,
                              _maps_style.COVER_ORDER.index("ice") + 1),
             _globe.border_layer(lat0, lon0, zoom, gw, hc, BORDER_STROKE),
-            lls)
+            lls, _globe.limb_lls(lat0, lon0, zoom, gw, hc * 2, atmo))
 
     if block:
         hit = load()
@@ -1076,17 +1076,23 @@ def _get_clouds(zoom, hc, block):
     return canvas
 
 
-def _shade_now(buf, lls, sun, canvas, lights):
+def _shade_now(buf, lls, sun, canvas, lights, glow=None):
     """A copy of `buf` shaded into the present moment.
 
     The cached buffer stays pristine — daylight moves with the clock,
-    so the moment is applied per repaint, never memoised.
+    so the moment is applied per repaint, never memoised.  `glow` is
+    the globe's (atmo, limb lls) pair: the rim glow is scattered
+    sunlight, so the terminator gates it too.
     """
     buf = [row[:] for row in buf]
-    day = (_globe_now.daylight(lls, _globe_now.subsolar())
-           if sun else None)
+    sub = _globe_now.subsolar() if sun else None
+    day = _globe_now.daylight(lls, sub) if sun else None
     cloud = _globe_now.clouds(lls, canvas) if canvas is not None else None
     _globe_now.apply(buf, day, cloud, lights if sun else {})
+    if sun and glow is not None:
+        atmo, glow_lls = glow
+        _globe.gate_glow(buf, atmo, _globe_now.daylight(glow_lls, sub),
+                         BG_PRIMARY)
     return buf
 
 
@@ -1152,7 +1158,9 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
                 terrain, view.lls, sun,
                 _get_clouds(zoom, height_cells, block) if clouds else None,
                 _globe_now.city_lights_globe(lat0, lon0, zoom, graph_w,
-                                             height_cells * 2) if sun else {})
+                                             height_cells * 2) if sun else {},
+                glow=(view.atmo, view.glow_lls)
+                if view.glow_lls is not None else None)
     else:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
 

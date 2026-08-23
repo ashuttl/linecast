@@ -115,6 +115,46 @@ class TestAtmosphere:
         assert buf[0][1] != (200, 100, 50)  # space rim: atmosphere tint
         assert buf[0][1][2] > buf[0][1][0]  # and it leans blue
 
+    def test_limb_lls_lie_on_the_visible_limb(self):
+        lat0, lon0, zoom, w, h = 37.0, -100.0, 125.0, 80, 44
+        _lls, _zs, rhos = _globe.geometry(lat0, lon0, zoom, w, h)
+        atmo = _globe.atmosphere(rhos, zoom, h)
+        glow = _globe.limb_lls(lat0, lon0, zoom, w, h, atmo)
+        seen = 0
+        for a_row, g_row in zip(atmo, glow):
+            for a, ll in zip(a_row, g_row):
+                if a <= 0.0:
+                    assert ll is None
+                    continue
+                seen += 1
+                ux, uy, cos_c = _globe.forward(ll[0], ll[1], lat0, lon0)
+                assert abs(math.hypot(ux, uy) - 1.0) < 1e-9
+                assert abs(cos_c) < 1e-9
+        assert seen > 0
+
+    def test_gate_glow_keeps_day_dims_night(self):
+        from linecast import _globe_now
+        # sun over 90E, view centred on 0: east limb noon, west midnight
+        lat0, lon0, zoom, w, h = 0.0, 0.0, 125.0, 80, 48
+        _lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, w, h)
+        atmo = _globe.atmosphere(rhos, zoom, h)
+        glow = _globe.limb_lls(lat0, lon0, zoom, w, h, atmo)
+        bg = (30, 32, 48)
+        buf = [[bg] * w for _ in range(h)]
+        _globe.shade_buffer(buf, zs, atmo, bg)
+        before = [row[:] for row in buf]
+        day = _globe_now.daylight(glow, (0.0, 90.0))
+        _globe.gate_glow(buf, atmo, day, bg)
+        y = h // 2
+        east = max(x for x in range(w) if atmo[y][x] > 0.5)
+        west = min(x for x in range(w) if atmo[y][x] > 0.5)
+        assert buf[y][east] == before[y][east]  # noon limb: untouched
+        night = buf[y][west]
+        assert night != before[y][west]  # midnight limb: gated
+        # ...down to a whisper above background, leaning airglow green
+        assert all(abs(c - b) <= 6 for c, b in zip(night, bg))
+        assert night[1] - bg[1] >= night[2] - bg[2]
+
 
 class TestIce:
     def test_antarctica_and_greenland_dome_are_ice(self):

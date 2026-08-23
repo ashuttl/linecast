@@ -35,6 +35,10 @@ Notable changes, by release. Notes for the next release collect under
   borders, coastlines, and rivers — in the terrain view and on the
   globe, leaving the bare planet. Street mode's lines are part of the
   map itself and stay.
+- Maps: with the sun on, the globe's atmosphere glow now follows it.
+  The blue rim is scattered sunlight, so it fades through the same
+  twilight band as the ground beside it; the night limb keeps only a
+  thin trace of airglow green.
 
 ## 1.15.1 — 2026-08-23
 
