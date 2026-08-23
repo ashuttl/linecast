@@ -4,7 +4,7 @@ from datetime import datetime
 
 from linecast import _theme
 from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
-from linecast._runtime import WeatherRuntime
+from linecast._runtime import WeatherRuntime, current_runtime
 from linecast._weather_i18n import DAY_NAMES, _s, _wmo_icons
 from linecast._weather_style import DIM, TEXT, WIND_COLOR, _precip_color, _precip_type, _temp_color
 
@@ -15,7 +15,7 @@ _USE_BG_FILL = color_mode() != "none"
 def render_daily(data, width, runtime=None):
     """Daily forecast with temperature range bars."""
     if runtime is None:
-        runtime = WeatherRuntime.from_sources()
+        runtime = current_runtime(WeatherRuntime)
     daily = data.get("daily", {})
     times = daily.get("time", [])
     hi_temps = daily.get("temperature_2m_max", [])

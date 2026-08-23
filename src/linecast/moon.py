@@ -25,7 +25,7 @@ from linecast._graphics import (
 from linecast._location import location_is_pinned, location_tzinfo, resolve_location
 from linecast._moon_i18n import _day_abbrev, _fmt_month_day, _moon_name, _ms
 from linecast._tides_i18n import _ts  # shared "space to return to now" hint
-from linecast._runtime import RuntimeConfig, install_banner, moon_parser
+from linecast._runtime import RuntimeConfig, install_banner, moon_parser, set_current
 from linecast import _theme
 from linecast._theme import (
     best_contrast,
@@ -301,7 +301,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
 
 def main():
     args = moon_parser().parse_args()
-    runtime = RuntimeConfig.from_sources(namespace=args)
+    runtime = RuntimeConfig.from_sources(args)
+    set_current(runtime)
 
     lat, lng, _country = resolve_location(args.location, lang=runtime.lang)
     if lat is None:

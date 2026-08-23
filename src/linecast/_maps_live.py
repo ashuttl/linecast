@@ -25,7 +25,7 @@ from linecast._maps_search import (
 )
 from linecast._maps_views import _hold_fetches
 from linecast._radar_render import bbox_for
-from linecast._runtime import RuntimeConfig, maps_parser
+from linecast._runtime import RuntimeConfig, maps_parser, set_current
 from linecast.maps import (
     MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP, render_map,
 )
@@ -33,7 +33,8 @@ from linecast.maps import (
 
 def main():
     args = maps_parser().parse_args()
-    runtime = RuntimeConfig.from_sources(namespace=args)
+    runtime = RuntimeConfig.from_sources(args)
+    set_current(runtime)
     # --view now is launch sugar, not a register: the terrain planet
     # with the sky switched on — daylight (s) and clouds (c), both
     # toggleable once inside

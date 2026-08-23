@@ -6,11 +6,10 @@ from contextlib import redirect_stdout
 from unittest.mock import patch
 
 from linecast import _config, units
+from linecast import _runtime
 from linecast._runtime import (
-    TidesRuntime,
-    WeatherRuntime,
-    units_pref,
-    use_metric,
+    RuntimeConfig, TidesRuntime, WeatherRuntime, current_runtime, set_current,
+    tides_parser, units_pref, use_metric, weather_parser,
 )
 
 
@@ -62,32 +61,69 @@ class UnitsPrefTests(ConfigDirMixin):
         self.assertIsNone(units_pref("WEATHER_UNITS", {}))
 
 
+def _weather_args(*argv):
+    return weather_parser().parse_args(list(argv))
+
+
 class RuntimeUnitsTests(ConfigDirMixin):
     def test_weather_runtime_reads_config_metric(self):
         _config.write_config({"units": "metric"})
-        rt = WeatherRuntime.from_sources(argv=["--print"], environ={})
+        rt = WeatherRuntime.from_sources(_weather_args("--print"), environ={})
         self.assertTrue(rt.metric)
         self.assertTrue(rt.celsius)
 
     def test_fahrenheit_flag_overrides_config_metric(self):
         _config.write_config({"units": "metric"})
         rt = WeatherRuntime.from_sources(
-            argv=["--print", "--fahrenheit"], environ={})
+            _weather_args("--print", "--fahrenheit"), environ={})
         self.assertTrue(rt.metric)
         self.assertFalse(rt.celsius)
 
     def test_env_imperial_overrides_config_metric(self):
         _config.write_config({"units": "metric"})
         rt = WeatherRuntime.from_sources(
-            argv=["--print"], environ={"WEATHER_UNITS": "imperial"})
+            _weather_args("--print"), environ={"WEATHER_UNITS": "imperial"})
         self.assertFalse(rt.metric)
         self.assertFalse(rt.celsius)
 
     def test_tides_runtime_reads_config_metric(self):
         _config.write_config({"units": "metric"})
-        rt = TidesRuntime.from_sources(argv=["--print"], environ={})
+        rt = TidesRuntime.from_sources(tides_parser().parse_args(["--print"]), environ={})
         self.assertTrue(rt.metric)
         self.assertEqual(rt.height_unit, "m")
+
+
+class CurrentRuntimeTests(ConfigDirMixin):
+    """Render helpers called without a runtime fall back to the one
+    main() resolved, or to the command's defaults before that."""
+
+    def setUp(self):
+        super().setUp()
+        self.addCleanup(set_current, None)
+        set_current(None)
+
+    def test_defaults_before_main_has_run(self):
+        with patch.dict(os.environ, {"LINECAST_LANG": "", "LINECAST_ICONS": ""}):
+            rt = current_runtime(WeatherRuntime)
+        self.assertIsInstance(rt, WeatherRuntime)
+        self.assertFalse(rt.celsius)
+        self.assertEqual(rt.lang, "en")
+        self.assertFalse(_runtime._DEBUG)
+
+    def test_returns_the_runtime_main_stashed(self):
+        rt = WeatherRuntime.from_sources(_weather_args("--print", "--celsius"),
+                                         environ={})
+        set_current(rt)
+        self.assertIs(current_runtime(WeatherRuntime), rt)
+        # a subclass instance serves a base-class request too
+        self.assertIs(current_runtime(RuntimeConfig), rt)
+
+    def test_another_commands_runtime_is_not_borrowed(self):
+        set_current(RuntimeConfig.from_sources(
+            tides_parser().parse_args(["--print"]), environ={}))
+        rt = current_runtime(WeatherRuntime)
+        self.assertIsInstance(rt, WeatherRuntime)
+        self.assertNotEqual(rt, _runtime._current)
 
 
 class UseMetricTests(ConfigDirMixin):

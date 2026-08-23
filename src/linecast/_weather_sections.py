@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from linecast import _theme
 from linecast._graphics import RESET, visible_len
-from linecast._runtime import WeatherRuntime
+from linecast._runtime import WeatherRuntime, current_runtime
 from linecast._weather_i18n import DAY_NAMES, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s, _wmo_icons
 from linecast._weather_style import MUTED, TEXT, WIND_COLOR, _aqi_color, _colored_temp
 
@@ -12,7 +12,7 @@ from linecast._weather_style import MUTED, TEXT, WIND_COLOR, _aqi_color, _colore
 def render_header(data, width, location_name="", runtime=None, aqi_data=None, historical=None):
     """Current conditions header line."""
     if runtime is None:
-        runtime = WeatherRuntime.from_sources()
+        runtime = current_runtime(WeatherRuntime)
     current = data.get("current", {})
     temp = current.get("temperature_2m", 0)
     feels = current.get("apparent_temperature", 0)
@@ -153,7 +153,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
 def comparative_sentence(daily, now, runtime=None):
     """Plain-text natural language comparing today vs yesterday/tomorrow."""
     if runtime is None:
-        runtime = WeatherRuntime.from_sources()
+        runtime = current_runtime(WeatherRuntime)
     hi_temps = daily.get("temperature_2m_max", [])
 
     # With past_days=1: index 0=yesterday, 1=today, 2=tomorrow
@@ -218,7 +218,7 @@ _PRECIP_DESCS = {
 def _precipitation_line(hourly, now, runtime=None):
     """Natural language description of upcoming precipitation."""
     if runtime is None:
-        runtime = WeatherRuntime.from_sources()
+        runtime = current_runtime(WeatherRuntime)
     lang = runtime.lang
     times = hourly.get("time", [])
     precip_prob = hourly.get("precipitation_probability", [])

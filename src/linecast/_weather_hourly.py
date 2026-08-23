@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from linecast import _theme
 from linecast._braille import build_braille_curve, interpolate
 from linecast._graphics import bg, fg, fmt_hour, fmt_time_dt, RESET, visible_len
-from linecast._runtime import WeatherRuntime
+from linecast._runtime import WeatherRuntime, current_runtime
 from linecast._i18n import lang_of
 from linecast._weather_i18n import DAY_NAMES, FULL_DAY_NAMES, _s
 from linecast._weather_sources import _local_now_for_data
@@ -878,7 +878,7 @@ def _render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows, ind
 def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runtime=None, hover_col=None, offset_minutes=0):
     """Hourly forecast: braille temperature curve + precipitation graph."""
     if runtime is None:
-        runtime = WeatherRuntime.from_sources()
+        runtime = current_runtime(WeatherRuntime)
     daily = data.get("daily", {})
     sun_events = _parse_sun_events(daily)
     if now is None:

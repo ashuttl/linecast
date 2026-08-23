@@ -35,33 +35,8 @@ def install_banner():
     return f" {text}linecast{sep}{muted}pip install linecast{sep}github.com/ashuttl/linecast{RESET}"
 
 
-# ---------------------------------------------------------------------------
-# Legacy argv helpers (still used by _theme.py at import time)
-# ---------------------------------------------------------------------------
-def _argv(argv=None):
-    if argv is None:
-        return tuple(sys.argv[1:])
-    return tuple(argv)
-
-
 def _environ(environ=None):
     return os.environ if environ is None else environ
-
-
-def has_flag(flag, argv=None):
-    """Return True if flag appears in argv."""
-    return flag in _argv(argv)
-
-
-def arg_value(flag, argv=None):
-    """Return the value after --flag or from --flag=value."""
-    args = _argv(argv)
-    for i, token in enumerate(args):
-        if token == flag and i + 1 < len(args):
-            return args[i + 1]
-        if token.startswith(f"{flag}="):
-            return token.split("=", 1)[1]
-    return None
 
 
 def env_truthy(value):
@@ -258,26 +233,12 @@ def maps_parser():
 # ---------------------------------------------------------------------------
 # Live mode resolution
 # ---------------------------------------------------------------------------
-def _resolve_live(args):
+def _resolve_live(ns):
     """Live mode is on by default when stdout is a TTY.
 
-    --print forces static single-shot output.
-    --oneline forces static single-shot output.
-    --json forces static single-shot output.
+    --print, --oneline and --json force static single-shot output.
     --live is accepted for backwards compatibility but is no longer needed.
     """
-    if "--print" in args or "--oneline" in args or "--json" in args:
-        return False
-    if "--live" in args:
-        return True
-    try:
-        return sys.stdout.isatty() and sys.stdin.isatty()
-    except Exception:
-        return False
-
-
-def _resolve_live_ns(ns):
-    """Resolve live mode from an argparse namespace."""
     # Not every command's parser defines --json (radar/maps), so getattr.
     if ns.print_mode or ns.oneline or getattr(ns, "json_mode", False):
         return False
@@ -300,40 +261,34 @@ class RuntimeConfig:
     oneline: bool
     json_mode: bool = False  # machine-readable JSON output
 
+    # the parser whose defaults stand in before a main() has run
+    _parser = staticmethod(lambda: _base_parser("linecast", ""))
+
     @classmethod
-    def from_sources(cls, argv=None, environ=None, namespace=None):
+    def from_sources(cls, namespace, environ=None):
+        """Build the runtime from a parsed argparse namespace and the
+        environment (os.environ unless *environ* is given)."""
         env = _environ(environ)
-        if namespace is not None:
-            if namespace.debug:
-                set_debug(True)
-            lang = (
-                namespace.lang
-                or env.get("LINECAST_LANG", "").strip()
-                or "en"
-            ).lower()[:2]
-            return cls(
-                live=_resolve_live_ns(namespace),
-                emoji=(getattr(namespace, "emoji", False)
-                       or env.get("LINECAST_ICONS", "").lower() == "emoji"),
-                lang=lang if len(lang) == 2 and lang.isalpha() else "en",
-                oneline=namespace.oneline,
-                json_mode=getattr(namespace, "json_mode", False),
-            )
-        args = _argv(argv)
-        if "--debug" in args:
+        if namespace.debug:
             set_debug(True)
         lang = (
-            arg_value("--lang", args)
+            namespace.lang
             or env.get("LINECAST_LANG", "").strip()
             or "en"
         ).lower()[:2]
         return cls(
-            live=_resolve_live(args),
-            emoji="--emoji" in args or env.get("LINECAST_ICONS", "").lower() == "emoji",
+            live=_resolve_live(namespace),
+            emoji=(getattr(namespace, "emoji", False)
+                   or env.get("LINECAST_ICONS", "").lower() == "emoji"),
             lang=lang if len(lang) == 2 and lang.isalpha() else "en",
-            oneline="--oneline" in args,
-            json_mode="--json" in args,
+            oneline=namespace.oneline,
+            json_mode=getattr(namespace, "json_mode", False),
         )
+
+    @classmethod
+    def defaults(cls, environ=None):
+        """The runtime with no flags given."""
+        return cls.from_sources(cls._parser().parse_args([]), environ)
 
     @property
     def use_24h(self):
@@ -347,42 +302,20 @@ class WeatherRuntime(RuntimeConfig):
     metric: bool = False  # wind (km/h) and precipitation (mm)
     shading: bool = True
 
+    _parser = staticmethod(weather_parser)
+
     @classmethod
-    def from_sources(cls, argv=None, environ=None, namespace=None):
+    def from_sources(cls, namespace, environ=None):
         env = _environ(environ)
-        if namespace is not None:
-            base = RuntimeConfig.from_sources(environ=env, namespace=namespace)
-            all_metric = (
-                namespace.metric
-                or units_pref("WEATHER_UNITS", env) == "metric"
-            )
-            if namespace.fahrenheit:
-                celsius = False
-            elif namespace.celsius or all_metric:
-                celsius = True
-            else:
-                celsius = False
-            return cls(
-                live=base.live,
-                emoji=base.emoji,
-                lang=base.lang,
-                oneline=base.oneline,
-                celsius=celsius,
-                metric=namespace.metric or all_metric,
-                shading=(not namespace.no_shading
-                         and not env_truthy(env.get("WEATHER_NO_SHADING", ""))),
-                json_mode=base.json_mode,
-            )
-        args = _argv(argv)
-        base = RuntimeConfig.from_sources(args, env)
+        base = RuntimeConfig.from_sources(namespace, env)
         all_metric = (
-            "--metric" in args
+            namespace.metric
             or units_pref("WEATHER_UNITS", env) == "metric"
         )
         # --celsius / --fahrenheit override temperature independently
-        if "--fahrenheit" in args:
+        if namespace.fahrenheit:
             celsius = False
-        elif "--celsius" in args or all_metric:
+        elif namespace.celsius or all_metric:
             celsius = True
         else:
             celsius = False
@@ -392,8 +325,9 @@ class WeatherRuntime(RuntimeConfig):
             lang=base.lang,
             oneline=base.oneline,
             celsius=celsius,
-            metric="--metric" in args or all_metric,
-            shading="--no-shading" not in args and not env_truthy(env.get("WEATHER_NO_SHADING", "")),
+            metric=namespace.metric or all_metric,
+            shading=(not namespace.no_shading
+                     and not env_truthy(env.get("WEATHER_NO_SHADING", ""))),
             json_mode=base.json_mode,
         )
 
@@ -415,24 +349,12 @@ class TidesRuntime(RuntimeConfig):
     # Default required: the base class ends in a defaulted field (json_mode).
     metric: bool = False  # heights in meters instead of feet
 
+    _parser = staticmethod(tides_parser)
+
     @classmethod
-    def from_sources(cls, argv=None, environ=None, namespace=None):
+    def from_sources(cls, namespace, environ=None):
         env = _environ(environ)
-        if namespace is not None:
-            base = RuntimeConfig.from_sources(environ=env, namespace=namespace)
-            return cls(
-                live=base.live,
-                emoji=base.emoji,
-                lang=base.lang,
-                oneline=base.oneline,
-                json_mode=base.json_mode,
-                metric=(
-                    namespace.metric
-                    or units_pref("TIDES_UNITS", env) == "metric"
-                ),
-            )
-        args = _argv(argv)
-        base = RuntimeConfig.from_sources(args, env)
+        base = RuntimeConfig.from_sources(namespace, env)
         return cls(
             live=base.live,
             emoji=base.emoji,
@@ -440,7 +362,7 @@ class TidesRuntime(RuntimeConfig):
             oneline=base.oneline,
             json_mode=base.json_mode,
             metric=(
-                "--metric" in args
+                namespace.metric
                 or units_pref("TIDES_UNITS", env) == "metric"
             ),
         )
@@ -451,3 +373,24 @@ class TidesRuntime(RuntimeConfig):
 
     def convert_height(self, ft):
         return ft * 0.3048 if self.metric else ft
+
+
+# ---------------------------------------------------------------------------
+# The running command's runtime
+# ---------------------------------------------------------------------------
+_current = None
+
+
+def set_current(runtime):
+    """Record the runtime main() resolved, for current_runtime()."""
+    global _current
+    _current = runtime
+
+
+def current_runtime(cls=RuntimeConfig):
+    """The runtime the running command resolved in main(), for render
+    helpers called without one.  Before a main() has run -- the tests, or
+    a helper imported on its own -- it is *cls* with no flags given."""
+    if isinstance(_current, cls):
+        return _current
+    return cls.defaults()

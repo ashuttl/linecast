@@ -42,7 +42,9 @@ from linecast._theme import (
 )
 from linecast._geo import haversine_nm
 from linecast._location import resolve_location
-from linecast._runtime import TidesRuntime, install_banner, tides_parser
+from linecast._runtime import (
+    TidesRuntime, current_runtime, install_banner, set_current, tides_parser,
+)
 from linecast._spinner import Spinner
 from linecast._marine import fetch_marine, parse_marine_current, format_marine_line
 from linecast._tides_common import sweep_legacy_cache
@@ -624,7 +626,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     marine_data: optional dict from fetch_marine() for wave/swell conditions.
     """
     if runtime is None:
-        runtime = TidesRuntime.from_sources()
+        runtime = current_runtime(TidesRuntime)
     if provider is None:
         provider = NOAA
 
@@ -798,7 +800,8 @@ def render(station_id, station_name, station_meta=None, runtime=None,
 # ---------------------------------------------------------------------------
 def main():
     args = tides_parser().parse_args()
-    runtime = TidesRuntime.from_sources(namespace=args)
+    runtime = TidesRuntime.from_sources(args)
+    set_current(runtime)
     sweep_legacy_cache()
 
     # --search / --nearby: list stations and exit.  A bare `--search`

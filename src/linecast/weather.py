@@ -18,7 +18,7 @@ import sys
 
 from linecast._graphics import bg, fg, get_terminal_size, live_loop, visible_len
 from linecast._location import resolve_location
-from linecast._runtime import WeatherRuntime, install_banner, weather_parser
+from linecast._runtime import WeatherRuntime, install_banner, set_current, weather_parser
 from linecast._weather_i18n import (
     WMO_NAMES,
     WMO_NAMES_I18N,
@@ -322,7 +322,8 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
 # ---------------------------------------------------------------------------
 def main():
     args = weather_parser().parse_args()
-    runtime = WeatherRuntime.from_sources(namespace=args)
+    runtime = WeatherRuntime.from_sources(args)
+    set_current(runtime)
 
     # --search: geocode cities and exit
     if args.search:

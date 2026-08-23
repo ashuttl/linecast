@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 
 from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache, location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
-from linecast._runtime import WeatherRuntime
+from linecast._runtime import WeatherRuntime, current_runtime
 
 CACHE_DIR = CACHE_ROOT / "weather"
 
@@ -78,7 +78,7 @@ def _reverse_geocode(lat, lng, lang=None):
 def fetch_forecast(lat, lng, runtime=None):
     """Fetch hourly + daily forecast from Open-Meteo. Cached 1h."""
     if runtime is None:
-        runtime = WeatherRuntime.from_sources()
+        runtime = current_runtime(WeatherRuntime)
     temp_tag = "C" if runtime.celsius else "F"
     wind_tag = "m" if runtime.metric else "i"
     cache_file = CACHE_DIR / f"forecast_{location_cache_key(lat, lng)}_{temp_tag}{wind_tag}.json"

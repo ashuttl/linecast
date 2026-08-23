@@ -53,7 +53,7 @@ from linecast._radar_ui import (
     _fmt_expire, _fmt_local, _get_basemap, _panned_place, _shift_grid,
     _theme_menu_overlay, _timeline_bar,
 )
-from linecast._runtime import RuntimeConfig, radar_parser, use_metric
+from linecast._runtime import RuntimeConfig, radar_parser, set_current, use_metric
 from linecast._graphics import live_loop, visible_len
 from linecast._spinner import SPINNER_FRAMES, Spinner
 
@@ -368,7 +368,8 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
 
 def main():
     args = radar_parser().parse_args()
-    runtime = RuntimeConfig.from_sources(namespace=args)
+    runtime = RuntimeConfig.from_sources(args)
+    set_current(runtime)
 
     # Sweep day-old frame tiles before fetching new ones — they're keyed by
     # frame timestamp and will never be asked for again.

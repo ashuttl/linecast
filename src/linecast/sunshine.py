@@ -34,7 +34,9 @@ from linecast._theme import (
     theme_legacy_mode,
 )
 from linecast._location import location_is_pinned, location_tzinfo, resolve_location
-from linecast._runtime import RuntimeConfig, install_banner, sunshine_parser
+from linecast._runtime import (
+    RuntimeConfig, current_runtime, install_banner, set_current, sunshine_parser,
+)
 
 _theme.track_imports(globals(), "linecast._color")
 
@@ -358,7 +360,7 @@ def moon_phase(dt, runtime=None):
     else:
         idx = 7   # Waning Crescent
     if runtime is None:
-        runtime = RuntimeConfig.from_sources()
+        runtime = current_runtime(RuntimeConfig)
     return idx, MOON_NAMES[idx], _icon_set(runtime)["moon_icons"][idx]
 
 # ---------------------------------------------------------------------------
@@ -368,7 +370,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
            tz_offset_h=None):
     """Build the complete multi-line solar arc display."""
     if runtime is None:
-        runtime = RuntimeConfig.from_sources()
+        runtime = current_runtime(RuntimeConfig)
     icons = _icon_set(runtime)
     cols, rows = get_terminal_size()
 
@@ -581,7 +583,8 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
 # ---------------------------------------------------------------------------
 def main():
     args = sunshine_parser().parse_args()
-    runtime = RuntimeConfig.from_sources(namespace=args)
+    runtime = RuntimeConfig.from_sources(args)
+    set_current(runtime)
 
     lat, lng, _country = resolve_location(args.location, lang=runtime.lang)
     if lat is None:
