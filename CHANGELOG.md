@@ -5,6 +5,8 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+## 1.15.0 — 2026-08-22
+
 - Live views follow the terminal theme: switch your terminal's colours
   while weather, radar, maps, sunshine, moon or tides is open and the
   view re-inks itself in the new palette, no restart. On Omarchy the
