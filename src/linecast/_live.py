@@ -411,6 +411,16 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         tty.setcbreak(fd)
 
         while True:
+            # Drain wakeups from before this render: whatever they announced,
+            # the frame about to be drawn reflects it.  The drain must come
+            # BEFORE render_fn, never after — a background fetch can finish
+            # (and nudge the pipe) while the render is still composing its
+            # "loading" frame, and a drain after the paint would swallow that
+            # completion, leaving the loading frame up until the next input.
+            try:
+                os.read(wake_r, 512)
+            except OSError:
+                pass
             kwargs = {}
             if mouse:
                 kwargs.update(mouse_pos=mouse_pos, active_alert=active_alert,
@@ -433,11 +443,6 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             padded = main_out.replace('\n', '\033[K\n')
             sys.stdout.write(f"\033[H{padded}\033[K\033[J\033[0m{overlay}\033[0m")
             sys.stdout.flush()
-            # Drain any pending SIGWINCH notifications.
-            try:
-                os.read(wake_r, 512)
-            except OSError:
-                pass
 
             # Wait for input, resize, or timeout
             wait = play_interval if (auto_play and playing) else interval
