@@ -3,45 +3,14 @@ from datetime import date, datetime, timedelta
 from unittest.mock import patch
 
 from linecast import tides
-from linecast import _tides_common
+from linecast import _tides_chs
 from linecast import _tides_noaa
-from linecast._cache import location_cache_key
-
-
-class FindNearestStationTests(unittest.TestCase):
-    def test_find_nearest_station_uses_location_scoped_cache(self):
-        legacy_cache_file = _tides_noaa.CACHE_DIR / "station.json"
-        payload = {
-            "stations": [
-                {"id": "111", "name": "First Harbor", "lat": 40.0, "lng": -70.0},
-                {"id": "222", "name": "Second Harbor", "lat": 47.61, "lng": -122.33},
-            ]
-        }
-        calls = []
-
-        def fake_read_cache(path, max_age):
-            calls.append((path, max_age))
-            if path == legacy_cache_file:
-                return {"id": "111", "name": "First Harbor"}
-            return None
-
-        with patch.object(_tides_common, "read_cache", side_effect=fake_read_cache), \
-             patch.object(_tides_common, "read_stale", return_value=None), \
-             patch.object(_tides_noaa, "fetch_all_stations_noaa",
-                          return_value=payload["stations"]), \
-             patch.object(_tides_common, "write_cache") as write_cache:
-            station_id, station_name = tides.find_nearest_station(47.61, -122.33)
-
-        self.assertEqual((station_id, station_name), ("222", "Second Harbor"))
-        self.assertEqual(calls[0][1], _tides_common.NEAREST_STATION_CACHE_MAX_AGE)
-        self.assertEqual(
-            calls[0][0].name,
-            f"station_{location_cache_key(47.61, -122.33)}.json",
-        )
-        self.assertEqual(
-            write_cache.call_args.args[0].name,
-            f"station_{location_cache_key(47.61, -122.33)}.json",
-        )
+from linecast import _tides_openmeteo
+from linecast import _tides_qld
+from linecast import _tides_tidecheck
+from linecast._tides_providers import (
+    CHS, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK, provider_for_id,
+)
 
 
 class RenderTests(unittest.TestCase):
@@ -139,10 +108,10 @@ class StationSearchTests(unittest.TestCase):
     ]
 
     def _matches(self, query, location=(44.41, -70.03, "US")):
-        with patch.object(tides, "_fetch_all_stations", return_value=self.NOAA), \
-             patch.object(tides, "_fetch_all_stations_chs", return_value=self.CHS), \
-             patch.object(tides, "_fetch_all_stations_qld", return_value=self.QLD), \
-             patch.object(tides, "_tidecheck_available", return_value=False), \
+        with patch.object(_tides_noaa, "fetch_all_stations_noaa", return_value=self.NOAA), \
+             patch.object(_tides_chs, "fetch_all_stations_chs", return_value=self.CHS), \
+             patch.object(_tides_qld, "fetch_all_stations_qld", return_value=self.QLD), \
+             patch.object(_tides_tidecheck, "is_available", return_value=False), \
              patch.object(tides, "resolve_location", return_value=location):
             return tides._find_matching_stations(query)
 
@@ -168,3 +137,172 @@ class StationSearchTests(unittest.TestCase):
         matches = self._matches("brisbane queensland")
         self.assertEqual([m["source"] for m in matches], ["qld"])
         self.assertEqual(matches[0]["id"], matches[0]["name"])
+
+    def test_tidecheck_joins_the_pool_when_a_key_is_set(self):
+        hit = [{"id": "fes2022-lisbon", "name": "Lisbon, Portugal",
+                "lat": 38.71, "lng": -9.14}]
+        with patch.object(_tides_noaa, "fetch_all_stations_noaa", return_value=[]), \
+             patch.object(_tides_chs, "fetch_all_stations_chs", return_value=[]), \
+             patch.object(_tides_qld, "fetch_all_stations_qld", return_value=[]), \
+             patch.object(_tides_tidecheck, "is_available", return_value=True), \
+             patch.object(_tides_tidecheck, "search_stations_tidecheck",
+                          return_value=hit) as search, \
+             patch.object(tides, "resolve_location", return_value=(44.41, -70.03, "US")):
+            matches = tides._find_matching_stations("lisbon")
+            # --nearby sends an empty query, which has nothing to search for
+            self.assertEqual(tides._find_matching_stations(""), [])
+
+        self.assertEqual([m["source"] for m in matches], ["tidecheck"])
+        self.assertIsNotNone(matches[0]["dist_nm"])
+        search.assert_called_once_with("lisbon")
+
+
+class ProviderRegistryTests(unittest.TestCase):
+    """The provider records stand in for the modules and never capture
+    their functions at import, so a patched module function is seen."""
+
+    def test_registry_is_keyed_by_source_name(self):
+        self.assertEqual(list(PROVIDERS), ["noaa", "chs", "qld", "tidecheck", "openmeteo"])
+        for name, provider in PROVIDERS.items():
+            self.assertEqual(provider.name, name)
+
+    def test_station_ids_route_to_their_provider(self):
+        self.assertIs(provider_for_id("8418150"), NOAA)
+        self.assertIs(provider_for_id("5cebf1df3d0f4a073c4bbd1e"), CHS)
+        self.assertIs(provider_for_id("123456789012345678901234"), CHS)
+        self.assertIs(provider_for_id("om:43.6770,-70.3710"), OPENMETEO)
+        self.assertIsNone(provider_for_id("portland maine"))
+        self.assertIsNone(provider_for_id("Brisbane Bar"))
+
+    def test_names_for_ids(self):
+        stations = [{"id": "8418150", "name": "PORTLAND", "state": "ME"}]
+        with patch.object(_tides_noaa, "fetch_all_stations_noaa", return_value=stations):
+            self.assertEqual(NOAA.name_for_id("8418150"), "PORTLAND, ME")
+            self.assertEqual(NOAA.name_for_id("9999999"), "Station 9999999")
+        self.assertEqual(CHS.name_for_id("5cebf1df3d0f4a073c4bbd1e"), "Station 5cebf1df")
+        self.assertEqual(OPENMETEO.name_for_id("om:1,2"), "Tide model")
+
+    def test_records_call_through_the_modules(self):
+        args = ("id", date(2026, 8, 20), date(2026, 8, 21), None)
+        calls = [
+            (NOAA, _tides_noaa, {
+                "nearest": ("find_nearest_station", (1.0, 2.0)),
+                "station_metadata": ("fetch_station_metadata_noaa", ("id",)),
+                "tides_range": ("fetch_tides_range_with_fallback", args),
+                "hilo_range": ("fetch_hilo_range", args),
+            }),
+            (CHS, _tides_chs, {
+                "nearest": ("find_nearest_station_chs", (1.0, 2.0)),
+                "station_metadata": ("fetch_station_metadata_chs", ("id",)),
+                "tides_range": ("fetch_tides_range_chs", args),
+                "hilo_range": ("fetch_hilo_range_chs", args),
+                "y_range": ("fetch_y_range_chs", ("id", date(2026, 8, 20), None)),
+            }),
+            (QLD, _tides_qld, {
+                "nearest": ("find_nearest_station_qld", (1.0, 2.0)),
+                "station_metadata": ("fetch_station_metadata_qld", ("id",)),
+                "tides_range": ("fetch_tides_range_qld", args),
+                "hilo_range": ("fetch_hilo_range_qld", args),
+                "y_range": ("fetch_y_range_qld", ("id", date(2026, 8, 20), None)),
+            }),
+            (TIDECHECK, _tides_tidecheck, {
+                "nearest": ("find_nearest_station_tidecheck", (1.0, 2.0)),
+                "station_metadata": ("fetch_station_metadata_tidecheck", ("id",)),
+                "tides_range": ("fetch_tides_range_tidecheck", args),
+                "hilo_range": ("fetch_hilo_range_tidecheck", args),
+                "y_range": ("fetch_y_range_tidecheck", ("id", date(2026, 8, 20), None)),
+            }),
+            (OPENMETEO, _tides_openmeteo, {
+                "station_metadata": ("fetch_station_metadata_openmeteo", ("id",)),
+                "tides_range": ("fetch_tides_range_openmeteo", args),
+                "hilo_range": ("fetch_hilo_range_openmeteo", args),
+                "y_range": ("fetch_y_range_openmeteo", ("id", date(2026, 8, 20), None)),
+            }),
+        ]
+        for provider, module, methods in calls:
+            for method, (func, call_args) in methods.items():
+                with self.subTest(provider=provider.name, method=method), \
+                     patch.object(module, func, return_value="patched") as fn:
+                    self.assertEqual(getattr(provider, method)(*call_args), "patched")
+                    fn.assert_called_once_with(*call_args)
+
+    def test_noaa_y_range_drops_the_timezone(self):
+        with patch.object(_tides_noaa, "fetch_y_range", return_value=(0.0, 9.0)) as fy:
+            self.assertEqual(NOAA.y_range("8418150", date(2026, 8, 20), "tz"), (0.0, 9.0))
+        fy.assert_called_once_with("8418150", date(2026, 8, 20))
+
+    def test_tidecheck_availability_follows_the_key(self):
+        with patch.object(_tides_tidecheck, "is_available", return_value=False):
+            self.assertFalse(TIDECHECK.available())
+        with patch.object(_tides_tidecheck, "is_available", return_value=True):
+            self.assertTrue(TIDECHECK.available())
+        self.assertTrue(NOAA.available())
+
+    def test_openmeteo_nearest_is_labelled_with_the_place(self):
+        with patch.object(_tides_openmeteo, "find_nearest_openmeteo",
+                          return_value=("om:43.6770,-70.3710", None)), \
+             patch("linecast._sunshine_json._location_label", return_value="Portland, ME"):
+            self.assertEqual(OPENMETEO.nearest(43.677, -70.371),
+                             ("om:43.6770,-70.3710", "Portland, ME (model)"))
+        with patch.object(_tides_openmeteo, "find_nearest_openmeteo",
+                          return_value=(None, None)):
+            self.assertEqual(OPENMETEO.nearest(39.0, -98.0), (None, None))
+
+
+class LocationRoutingTests(unittest.TestCase):
+    def _route(self, lat, lng, country, chs=(None, None), qld=(None, None),
+               noaa=(None, None), tidecheck=(None, None), key=False,
+               openmeteo=(None, None)):
+        with patch.object(_tides_chs, "find_nearest_station_chs", return_value=chs) as f_chs, \
+             patch.object(_tides_qld, "find_nearest_station_qld", return_value=qld) as f_qld, \
+             patch.object(_tides_noaa, "find_nearest_station", return_value=noaa) as f_noaa, \
+             patch.object(_tides_tidecheck, "is_available", return_value=key), \
+             patch.object(_tides_tidecheck, "find_nearest_station_tidecheck",
+                          return_value=tidecheck) as f_tc, \
+             patch.object(_tides_openmeteo, "find_nearest_openmeteo",
+                          return_value=openmeteo), \
+             patch("linecast._sunshine_json._location_label", return_value="Somewhere"):
+            picked = tides._station_for_location(lat, lng, country)
+        asked = [name for name, f in (("chs", f_chs), ("qld", f_qld),
+                                      ("noaa", f_noaa), ("tidecheck", f_tc))
+                 if f.called]
+        return picked, asked
+
+    def test_us_goes_straight_to_noaa(self):
+        picked, asked = self._route(43.68, -70.36, "US", noaa=("8418150", "PORTLAND"))
+        self.assertEqual(picked, (NOAA, "8418150", "PORTLAND"))
+        self.assertEqual(asked, ["noaa"])
+
+    def test_canada_tries_chs_first(self):
+        picked, asked = self._route(45.25, -66.06, "CA", chs=("5ceb", "Saint John"),
+                                    noaa=("8410140", "EASTPORT"))
+        self.assertEqual(picked, (CHS, "5ceb", "Saint John"))
+        self.assertEqual(asked, ["chs"])
+
+    def test_canada_falls_back_to_noaa_across_the_border(self):
+        picked, asked = self._route(48.42, -123.37, "CA", noaa=("9449880", "FRIDAY HARBOR"))
+        self.assertEqual(picked, (NOAA, "9449880", "FRIDAY HARBOR"))
+        self.assertEqual(asked, ["chs", "noaa"])
+
+    def test_queensland_tries_qld_but_the_rest_of_australia_does_not(self):
+        picked, asked = self._route(-16.92, 145.78, "AU", qld=("Cairns", "Cairns"))
+        self.assertEqual(picked, (QLD, "Cairns", "Cairns"))
+        self.assertEqual(asked, ["qld"])
+        _picked, asked = self._route(-33.87, 151.21, "AU")
+        self.assertNotIn("qld", asked)
+
+    def test_tidecheck_only_when_a_key_is_set(self):
+        _picked, asked = self._route(38.72, -9.14, "PT")
+        self.assertEqual(asked, ["noaa"])
+        picked, asked = self._route(38.72, -9.14, "PT", key=True,
+                                    tidecheck=("fes2022-lisbon", "Lisbon"))
+        self.assertEqual(picked, (TIDECHECK, "fes2022-lisbon", "Lisbon"))
+        self.assertEqual(asked, ["noaa", "tidecheck"])
+
+    def test_openmeteo_is_the_last_resort(self):
+        picked, _asked = self._route(38.72, -9.14, "PT", openmeteo=("om:38.7200,-9.1400", None))
+        self.assertEqual(picked, (OPENMETEO, "om:38.7200,-9.1400", "Somewhere (model)"))
+
+    def test_nothing_in_range(self):
+        picked, _asked = self._route(39.0, -98.0, "US", key=True)
+        self.assertEqual(picked, (None, None, None))

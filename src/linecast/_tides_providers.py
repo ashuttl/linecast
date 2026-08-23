@@ -1,0 +1,304 @@
+"""The tide providers, one record each, and the registry tides.py uses.
+
+Each provider is a small class whose methods call its module's functions
+at call time rather than capturing them at import, so patching a module
+function (as the tests do) reaches the provider. Where a provider cannot
+do something, its record says so in the method rather than by a flag.
+"""
+
+from linecast import _tides_chs as chs
+from linecast import _tides_noaa as noaa
+from linecast import _tides_openmeteo as openmeteo
+from linecast import _tides_qld as qld
+from linecast import _tides_tidecheck as tidecheck
+
+# Full names for the state/territory abbreviations NOAA stations carry, so
+# queries like "portland maine" match "PORTLAND, ME".
+US_STATE_NAMES = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
+    "CA": "California", "CO": "Colorado", "CT": "Connecticut",
+    "DE": "Delaware", "FL": "Florida", "GA": "Georgia", "HI": "Hawaii",
+    "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
+    "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine",
+    "MD": "Maryland", "MA": "Massachusetts", "MI": "Michigan",
+    "MN": "Minnesota", "MS": "Mississippi", "MO": "Missouri",
+    "MT": "Montana", "NE": "Nebraska", "NV": "Nevada",
+    "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico",
+    "NY": "New York", "NC": "North Carolina", "ND": "North Dakota",
+    "OH": "Ohio", "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania",
+    "RI": "Rhode Island", "SC": "South Carolina", "SD": "South Dakota",
+    "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont",
+    "VA": "Virginia", "WA": "Washington", "WV": "West Virginia",
+    "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia",
+    "PR": "Puerto Rico", "VI": "Virgin Islands", "GU": "Guam",
+    "AS": "American Samoa", "MP": "Northern Mariana Islands",
+}
+
+
+def _matches(haystack, tokens):
+    """True when every query token appears in a station's searchable text."""
+    return all(t in haystack for t in tokens)
+
+
+class TideProvider:
+    """What tides.py asks of a source.
+
+    Station IDs are strings the provider recognises: NOAA's digits, CHS's
+    24-hex ObjectIds, QLD's station names, TideCheck's slugs, Open-Meteo's
+    "om:lat,lng". Every method takes and returns the shapes the NOAA
+    pipeline was built on: (datetime, height_ft) points, (datetime,
+    height_ft, "H"/"L") extremes, and NOAA-shaped metadata dicts.
+    """
+
+    name = ""   # the source key: cache names and the --json payload
+    tag = ""    # suffix on --search and --nearby listing lines
+
+    def available(self):
+        """False when the provider needs something the user has not set up."""
+        return True
+
+    def id_matches(self, text):
+        """True when a --station value looks like one of this provider's IDs."""
+        return False
+
+    def name_for_id(self, station_id):
+        """Display name for a station given by ID, before metadata arrives."""
+        return f"Station {station_id}"
+
+    def nearest(self, lat, lng):
+        """(station_id, station_name) within range of a point, or (None, None)."""
+        raise NotImplementedError
+
+    def search(self, query, tokens):
+        """Stations matching a text query as {source, id, name, lat, lng} dicts."""
+        return []
+
+    def station_metadata(self, station_id):
+        raise NotImplementedError
+
+    def tides_range(self, station_id, start_date, end_date, station_tz):
+        raise NotImplementedError
+
+    def hilo_range(self, station_id, start_date, end_date, station_tz):
+        raise NotImplementedError
+
+    def y_range(self, station_id, center_date, station_tz):
+        raise NotImplementedError
+
+
+def _noaa_label(station):
+    name = station.get("name", "")
+    state = station.get("state", "")
+    return f"{name}, {state}" if state else name
+
+
+class _NOAA(TideProvider):
+    name = "noaa"
+
+    def id_matches(self, text):
+        return text.isdigit()
+
+    def name_for_id(self, station_id):
+        for s in (noaa.fetch_all_stations_noaa() or []):
+            if str(s.get("id", "")) == station_id:
+                return _noaa_label(s)
+        return f"Station {station_id}"
+
+    def nearest(self, lat, lng):
+        return noaa.find_nearest_station(lat, lng)
+
+    def search(self, query, tokens):
+        found = []
+        for s in (noaa.fetch_all_stations_noaa() or []):
+            state = s.get("state", "")
+            haystack = f"{s.get('name', '')} {state} {US_STATE_NAMES.get(state.upper(), '')}".lower()
+            if _matches(haystack, tokens):
+                found.append({
+                    "source": self.name, "id": str(s.get("id", "")),
+                    "name": _noaa_label(s),
+                    "lat": s.get("lat"), "lng": s.get("lng"),
+                })
+        return found
+
+    def station_metadata(self, station_id):
+        return noaa.fetch_station_metadata_noaa(station_id)
+
+    def tides_range(self, station_id, start_date, end_date, station_tz):
+        return noaa.fetch_tides_range_with_fallback(
+            station_id, start_date, end_date, station_tz)
+
+    def hilo_range(self, station_id, start_date, end_date, station_tz):
+        return noaa.fetch_hilo_range(station_id, start_date, end_date, station_tz)
+
+    def y_range(self, station_id, center_date, station_tz):
+        # NOAA serves its predictions in station local time already.
+        return noaa.fetch_y_range(station_id, center_date)
+
+
+class _CHS(TideProvider):
+    name = "chs"
+    tag = " (Canada)"
+
+    def id_matches(self, text):
+        return chs.is_chs_station_id(text)
+
+    def name_for_id(self, station_id):
+        return f"Station {station_id[:8]}"
+
+    def nearest(self, lat, lng):
+        return chs.find_nearest_station_chs(lat, lng)
+
+    def search(self, query, tokens):
+        found = []
+        for s in (chs.fetch_all_stations_chs() or []):
+            name = s.get("officialName", "")
+            if _matches(f"{name} canada".lower(), tokens):
+                found.append({
+                    "source": self.name, "id": str(s.get("id", "")), "name": name,
+                    "lat": s.get("latitude"), "lng": s.get("longitude"),
+                })
+        return found
+
+    def station_metadata(self, station_id):
+        return chs.fetch_station_metadata_chs(station_id)
+
+    def tides_range(self, station_id, start_date, end_date, station_tz):
+        return chs.fetch_tides_range_chs(station_id, start_date, end_date, station_tz)
+
+    def hilo_range(self, station_id, start_date, end_date, station_tz):
+        return chs.fetch_hilo_range_chs(station_id, start_date, end_date, station_tz)
+
+    def y_range(self, station_id, center_date, station_tz):
+        return chs.fetch_y_range_chs(station_id, center_date, station_tz)
+
+
+class _QLD(TideProvider):
+    """Queensland stations are identified by name, so there is no ID form
+    to recognise; a name reaches the provider through search."""
+
+    name = "qld"
+    tag = " (QLD, Australia)"
+
+    def nearest(self, lat, lng):
+        return qld.find_nearest_station_qld(lat, lng)
+
+    def search(self, query, tokens):
+        found = []
+        for s in (qld.fetch_all_stations_qld() or []):
+            name = s.get("name", "")
+            if _matches(f"{name} qld queensland australia".lower(), tokens):
+                found.append({
+                    "source": self.name, "id": name, "name": name,
+                    "lat": s.get("lat"), "lng": s.get("lng"),
+                })
+        return found
+
+    def station_metadata(self, station_id):
+        return qld.fetch_station_metadata_qld(station_id)
+
+    def tides_range(self, station_id, start_date, end_date, station_tz):
+        return qld.fetch_tides_range_qld(station_id, start_date, end_date, station_tz)
+
+    def hilo_range(self, station_id, start_date, end_date, station_tz):
+        return qld.fetch_hilo_range_qld(station_id, start_date, end_date, station_tz)
+
+    def y_range(self, station_id, center_date, station_tz):
+        return qld.fetch_y_range_qld(station_id, center_date, station_tz)
+
+
+class _TideCheck(TideProvider):
+    """Optional: inert without LINECAST_TIDECHECK_KEY."""
+
+    name = "tidecheck"
+    tag = " (TideCheck)"
+
+    def available(self):
+        return tidecheck.is_available()
+
+    def nearest(self, lat, lng):
+        return tidecheck.find_nearest_station_tidecheck(lat, lng)
+
+    def search(self, query, tokens):
+        # The search runs server-side, so an empty query (--nearby) has
+        # nothing to send; results carry coordinates like any other
+        # provider's stations.
+        if not tokens or not tidecheck.is_available():
+            return []
+        return [{
+            "source": self.name, "id": str(s.get("id", "")),
+            "name": s.get("name", ""),
+            "lat": s.get("lat"), "lng": s.get("lng"),
+        } for s in tidecheck.search_stations_tidecheck(query)]
+
+    def station_metadata(self, station_id):
+        return tidecheck.fetch_station_metadata_tidecheck(station_id)
+
+    def tides_range(self, station_id, start_date, end_date, station_tz):
+        return tidecheck.fetch_tides_range_tidecheck(
+            station_id, start_date, end_date, station_tz)
+
+    def hilo_range(self, station_id, start_date, end_date, station_tz):
+        return tidecheck.fetch_hilo_range_tidecheck(
+            station_id, start_date, end_date, station_tz)
+
+    def y_range(self, station_id, center_date, station_tz):
+        return tidecheck.fetch_y_range_tidecheck(station_id, center_date, station_tz)
+
+
+class _OpenMeteo(TideProvider):
+    """The global tide model: no stations, so nothing to search, and the
+    "station" is the location itself, labelled with the place's name."""
+
+    name = "openmeteo"
+
+    def id_matches(self, text):
+        return openmeteo.is_openmeteo_station_id(text)
+
+    def name_for_id(self, station_id):
+        return "Tide model"
+
+    def nearest(self, lat, lng):
+        station_id, _ = openmeteo.find_nearest_openmeteo(lat, lng)
+        if station_id is None:
+            return None, None
+        try:
+            from linecast._sunshine_json import _location_label
+            return station_id, f"{_location_label(lat, lng)} (model)"
+        except Exception:
+            return station_id, "Tide model"
+
+    def station_metadata(self, station_id):
+        return openmeteo.fetch_station_metadata_openmeteo(station_id)
+
+    def tides_range(self, station_id, start_date, end_date, station_tz):
+        return openmeteo.fetch_tides_range_openmeteo(
+            station_id, start_date, end_date, station_tz)
+
+    def hilo_range(self, station_id, start_date, end_date, station_tz):
+        return openmeteo.fetch_hilo_range_openmeteo(
+            station_id, start_date, end_date, station_tz)
+
+    def y_range(self, station_id, center_date, station_tz):
+        return openmeteo.fetch_y_range_openmeteo(station_id, center_date, station_tz)
+
+
+NOAA = _NOAA()
+CHS = _CHS()
+QLD = _QLD()
+TIDECHECK = _TideCheck()
+OPENMETEO = _OpenMeteo()
+
+# In search order: among stations at equal distance the listing keeps it.
+PROVIDERS = {p.name: p for p in (NOAA, CHS, QLD, TIDECHECK, OPENMETEO)}
+
+
+def provider_for_id(text):
+    """The provider whose station IDs look like *text*, or None.
+
+    Most specific first: the "om:" prefix, then CHS's 24-character hex
+    ObjectId (which can happen to be all digits), then NOAA's digits.
+    """
+    for provider in (OPENMETEO, CHS, NOAA):
+        if provider.id_matches(text):
+            return provider
+    return None

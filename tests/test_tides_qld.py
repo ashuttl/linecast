@@ -116,7 +116,7 @@ class TestStationDiscovery(unittest.TestCase):
             {"name": "Gold Coast", "lat": -27.9422, "lng": 153.4286},
         ]
         with patch.object(common, "read_cache", return_value=None), \
-             patch.object(qld, "_fetch_all_stations_qld", return_value=stations), \
+             patch.object(qld, "fetch_all_stations_qld", return_value=stations), \
              patch.object(common, "write_cache"):
             station_id, station_name = qld.find_nearest_station_qld(-16.92, 145.78)
 
@@ -130,7 +130,7 @@ class TestStationDiscovery(unittest.TestCase):
         ]
         # Sydney is far from Cairns
         with patch.object(common, "read_cache", return_value=None), \
-             patch.object(qld, "_fetch_all_stations_qld", return_value=stations), \
+             patch.object(qld, "fetch_all_stations_qld", return_value=stations), \
              patch.object(common, "write_cache"):
             station_id, station_name = qld.find_nearest_station_qld(-33.87, 151.21)
 
@@ -150,7 +150,7 @@ class TestStationDiscovery(unittest.TestCase):
         """Stale cache should be used when the API fails."""
         stale = {"id": "Cairns", "name": "Cairns"}
         with patch.object(common, "read_cache", return_value=None), \
-             patch.object(qld, "_fetch_all_stations_qld", side_effect=RuntimeError("boom")), \
+             patch.object(qld, "fetch_all_stations_qld", side_effect=RuntimeError("boom")), \
              patch.object(common, "read_stale", return_value=stale):
             station_id, station_name = qld.find_nearest_station_qld(-16.92, 145.78)
 
@@ -166,7 +166,7 @@ class TestStationMetadata(unittest.TestCase):
     def test_metadata_shape(self):
         """Metadata should match the normalized shape expected by tides.py."""
         with patch.object(qld, "read_cache", return_value=None), \
-             patch.object(qld, "_fetch_all_stations_qld", return_value=[
+             patch.object(qld, "fetch_all_stations_qld", return_value=[
                  {"name": "Cairns", "lat": -16.9186, "lng": 145.7781},
              ]), \
              patch.object(qld, "write_cache"):

@@ -33,7 +33,7 @@ def _safe_name(station_name):
 # ---------------------------------------------------------------------------
 # Station discovery
 # ---------------------------------------------------------------------------
-def _fetch_all_stations_qld():
+def fetch_all_stations_qld():
     """Fetch the distinct QLD tidal station list (cached 30 days).
 
     The CKAN datastore_search SQL endpoint lets us pull distinct Site +
@@ -93,7 +93,7 @@ def find_nearest_station_qld(lat, lng):
     """
     return nearest_station(
         CACHE_DIR / f"qld_station_{location_cache_key(lat, lng)}.json", lat, lng,
-        _fetch_all_stations_qld, station_coords,
+        fetch_all_stations_qld, station_coords,
         lambda s: (s["name"], s["name"]),
     )
 
@@ -113,7 +113,7 @@ def fetch_station_metadata_qld(station_name):
         return cached
 
     # Look up coordinates from the station list.
-    stations = _fetch_all_stations_qld()
+    stations = fetch_all_stations_qld()
     lat, lng = None, None
     for s in stations:
         if s.get("name") == station_name:

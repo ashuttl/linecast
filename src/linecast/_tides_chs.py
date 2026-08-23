@@ -22,7 +22,13 @@ CHS_BASE = "https://api-iwls.dfo-mpo.gc.ca/api/v1"
 # ---------------------------------------------------------------------------
 # Station discovery
 # ---------------------------------------------------------------------------
-def _fetch_all_stations_chs():
+def is_chs_station_id(station_id):
+    """True when a station ID is a CHS MongoDB ObjectId (24-char hex)."""
+    return (len(station_id) == 24 and
+            all(c in '0123456789abcdef' for c in station_id.lower()))
+
+
+def fetch_all_stations_chs():
     """Fetch the full CHS tidal station list (cached 30 days)."""
     cache_file = CACHE_DIR / "chs_all_stations.json"
     url = f"{CHS_BASE}/stations?time-series-code=wlp-hilo"
@@ -50,7 +56,7 @@ def find_nearest_station_chs(lat, lng):
     """
     return nearest_station(
         CACHE_DIR / f"chs_station_{location_cache_key(lat, lng)}.json", lat, lng,
-        _fetch_all_stations_chs, _operating_station_coords,
+        fetch_all_stations_chs, _operating_station_coords,
         lambda s: (str(s.get("id", "")), s.get("officialName", "")),
     )
 

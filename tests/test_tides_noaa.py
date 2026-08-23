@@ -121,6 +121,32 @@ class MonthChunkTests(unittest.TestCase):
 
 
 class StationLookupTests(unittest.TestCase):
+    def test_find_nearest_station_uses_location_scoped_cache(self):
+        legacy_cache_file = noaa.CACHE_DIR / "station.json"
+        stations = [
+            {"id": "111", "name": "First Harbor", "lat": 40.0, "lng": -70.0},
+            {"id": "222", "name": "Second Harbor", "lat": 47.61, "lng": -122.33},
+        ]
+        calls = []
+
+        def fake_read_cache(path, max_age):
+            calls.append((path, max_age))
+            if path == legacy_cache_file:
+                return {"id": "111", "name": "First Harbor"}
+            return None
+
+        with patch.object(common, "read_cache", side_effect=fake_read_cache), \
+             patch.object(common, "read_stale", return_value=None), \
+             patch.object(noaa, "fetch_all_stations_noaa", return_value=stations), \
+             patch.object(common, "write_cache") as write_cache:
+            station_id, station_name = noaa.find_nearest_station(47.61, -122.33)
+
+        self.assertEqual((station_id, station_name), ("222", "Second Harbor"))
+        self.assertEqual(calls[0][1], common.NEAREST_STATION_CACHE_MAX_AGE)
+        expected = f"station_{location_cache_key(47.61, -122.33)}.json"
+        self.assertEqual(calls[0][0].name, expected)
+        self.assertEqual(write_cache.call_args.args[0].name, expected)
+
     def test_find_nearest_station_skips_subordinate_stations(self):
         # Westbrook, ME: Fore River (subordinate) is nearer than Portland
         # (reference), but subordinate stations can't serve the 6-minute
