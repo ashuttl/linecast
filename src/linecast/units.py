@@ -12,7 +12,7 @@ WEATHER_UNITS / TIDES_UNITS env > saved units (this command) > default
 
 import argparse
 
-from linecast import __version__
+from linecast._runtime import VersionAction
 from linecast._config import read_config, write_config, saved_units
 
 
@@ -47,7 +47,7 @@ def main():
         prog="linecast units",
         description="Show or set the preferred measurement units",
     )
-    parser.add_argument("--version", action="version", version=f"linecast {__version__}")
+    parser.add_argument("--version", action=VersionAction)
     sub = parser.add_subparsers(dest="action")
     sub.add_parser("show", help="show the current units setting (default)")
     sub.add_parser("metric", help="celsius, km/h, mm, and metres everywhere")

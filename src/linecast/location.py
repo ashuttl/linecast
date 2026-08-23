@@ -12,7 +12,7 @@ saved location (this command) > IP geolocation.
 import argparse
 import sys
 
-from linecast import __version__
+from linecast._runtime import VersionAction
 from linecast._config import read_config, write_config, saved_location
 
 
@@ -84,7 +84,7 @@ def main():
         prog="linecast location",
         description="Show or set a fixed location that overrides IP geolocation",
     )
-    parser.add_argument("--version", action="version", version=f"linecast {__version__}")
+    parser.add_argument("--version", action=VersionAction)
     sub = parser.add_subparsers(dest="action")
     sub.add_parser("show", help="show the current location setting (default)")
     p_set = sub.add_parser("set", help="save a fixed location")
