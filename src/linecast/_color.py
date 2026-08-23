@@ -13,7 +13,7 @@ import math
 import os
 import sys
 from linecast import _theme
-from linecast._theme import ensure_theme_loaded
+from linecast._theme import _clamp_channel as _channel, ensure_theme_loaded
 
 # ---------------------------------------------------------------------------
 # Color mode constants
@@ -143,14 +143,6 @@ def color_mode():
 # ---------------------------------------------------------------------------
 # RGB → escape code conversion (cached for performance)
 # ---------------------------------------------------------------------------
-def _channel(v):
-    try:
-        n = int(round(v))
-    except Exception:
-        n = 0
-    return max(0, min(255, n))
-
-
 @functools.lru_cache(maxsize=4096)
 def _rgb_to_xterm256(r, g, b):
     ri = min(range(6), key=lambda i: abs(_CUBE_LEVELS[i] - r))
