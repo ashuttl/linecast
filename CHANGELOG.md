@@ -5,6 +5,15 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Maps: the globe no longer sticks on its loading frame. A background
+  fetch that finished while the first frame was still being composed
+  had its repaint nudge thrown away, so the finished globe sat in the
+  cache until the next keypress. The nudge now survives.
+- Maps: the first frame arrives in about a second and a half instead
+  of five or more. The pure-Python PNG decoder gained C-speed paths
+  for its hot loops, and the globe's stitched world canvas is baked to
+  the cache directory after its first assembly, so later launches skip
+  the tile decoding entirely.
 - Maps: terrain colour now knows the climate, not just the elevation.
   A vendored Köppen-Geiger grid (Beck et al. 2023, 67 KB in the
   package) picks between four hypsometric ramps — humid, steppe,

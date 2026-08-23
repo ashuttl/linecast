@@ -18,14 +18,6 @@ class PNGError(Exception):
     pass
 
 
-def _paeth(a, b, c):
-    p = a + b - c
-    pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
-    if pa <= pb and pa <= pc:
-        return a
-    return b if pb <= pc else c
-
-
 def _unpack_bits(recon, width, height, stride, depth, color_type):
     """Spread packed sub-byte samples to one byte each, MSB first.
 
@@ -85,56 +77,90 @@ def decode_rgba(data):
     stride = (width * channels * depth + 7) // 8
     raw = zlib.decompress(bytes(idat))
 
-    # unfilter scanlines
+    # unfilter scanlines — the hot loop of every map the terminal draws,
+    # so the two filters with no left-neighbour dependency (None, Up)
+    # take slice/zip paths and only Sub/Average/Paeth walk byte by byte
     recon = bytearray(stride * height)
     bpp = max(1, channels * depth // 8)
+    prev = bytes(stride)  # the row above the first is all zeros
     for y in range(height):
         fi = y * (stride + 1)
         ftype = raw[fi]
-        line = raw[fi + 1:fi + 1 + stride]
+        row = bytearray(raw[fi + 1:fi + 1 + stride])
+        if ftype == 0:
+            pass
+        elif ftype == 2:
+            row = bytearray((v + p) & 0xFF for v, p in zip(row, prev))
+        elif ftype == 1:
+            for x in range(bpp, stride):
+                row[x] = (row[x] + row[x - bpp]) & 0xFF
+        elif ftype == 3:
+            for x in range(stride):
+                a = row[x - bpp] if x >= bpp else 0
+                row[x] = (row[x] + ((a + prev[x]) >> 1)) & 0xFF
+        elif ftype == 4:
+            for x in range(stride):
+                if x >= bpp:
+                    a, c = row[x - bpp], prev[x - bpp]
+                else:
+                    a = c = 0
+                b = prev[x]
+                p = a + b - c
+                pa = p - a if p >= a else a - p
+                pb = p - b if p >= b else b - p
+                pc = p - c if p >= c else c - p
+                if pa <= pb and pa <= pc:
+                    val = a
+                elif pb <= pc:
+                    val = b
+                else:
+                    val = c
+                row[x] = (row[x] + val) & 0xFF
+        else:
+            raise PNGError(f"bad filter type {ftype}")
         ro = y * stride
-        for x in range(stride):
-            val = line[x]
-            a = recon[ro + x - bpp] if x >= bpp else 0
-            b = recon[ro - stride + x] if y > 0 else 0
-            c = recon[ro - stride + x - bpp] if (y > 0 and x >= bpp) else 0
-            if ftype == 1:
-                val = (val + a) & 0xFF
-            elif ftype == 2:
-                val = (val + b) & 0xFF
-            elif ftype == 3:
-                val = (val + ((a + b) >> 1)) & 0xFF
-            elif ftype == 4:
-                val = (val + _paeth(a, b, c)) & 0xFF
-            elif ftype != 0:
-                raise PNGError(f"bad filter type {ftype}")
-            recon[ro + x] = val
+        recon[ro:ro + stride] = row
+        prev = row
 
     if depth < 8:
         recon = _unpack_bits(recon, width, height, stride, depth, color_type)
 
-    # expand to RGBA
-    out = bytearray(width * height * 4)
-    for i in range(width * height):
-        si, di = i * channels, i * 4
-        if color_type == 6:
-            out[di:di + 4] = recon[si:si + 4]
-        elif color_type == 2:
-            out[di:di + 3] = recon[si:si + 3]
-            out[di + 3] = 255
-        elif color_type == 0:
-            g = recon[si]
-            out[di] = out[di + 1] = out[di + 2] = g
-            out[di + 3] = 255
-        elif color_type == 4:
-            g = recon[si]
-            out[di] = out[di + 1] = out[di + 2] = g
-            out[di + 3] = recon[si + 1]
-        elif color_type == 3:
-            idx = recon[si]
-            out[di] = palette[idx * 3]
-            out[di + 1] = palette[idx * 3 + 1]
-            out[di + 2] = palette[idx * 3 + 2]
-            out[di + 3] = trns[idx] if (trns and idx < len(trns)) else 255
+    # expand to RGBA — strided slice assignment and bytes.translate keep
+    # this at C speed; at 8-bit depth the rows are contiguous (stride is
+    # exactly width * channels), which is what makes the striding valid
+    if color_type == 6:
+        return width, height, recon
+    n = width * height
+    out = bytearray(n * 4)
+    if color_type == 2:
+        out[0::4] = recon[0::3]
+        out[1::4] = recon[1::3]
+        out[2::4] = recon[2::3]
+        out[3::4] = b"\xff" * n
+    elif color_type == 0:
+        g = recon[:n]
+        out[0::4] = g
+        out[1::4] = g
+        out[2::4] = g
+        out[3::4] = b"\xff" * n
+    elif color_type == 4:
+        g = recon[0::2]
+        out[0::4] = g
+        out[1::4] = g
+        out[2::4] = g
+        out[3::4] = recon[1::2]
+    elif color_type == 3:
+        idx = bytes(recon[:n])
+        plen = len(palette) // 3
+        for chan in range(3):
+            table = bytes(palette[i * 3 + chan] if i < plen else 0
+                          for i in range(256))
+            out[chan::4] = idx.translate(table)
+        if trns:
+            alpha = bytes(trns[i] if i < len(trns) else 255
+                          for i in range(256))
+            out[3::4] = idx.translate(alpha)
+        else:
+            out[3::4] = b"\xff" * n
 
     return width, height, out

@@ -16,8 +16,11 @@ map into a sphere.  Space gets a one-sub-pixel breath of atmosphere.
 """
 
 import math
+import struct
+import zlib
 from collections import namedtuple
 
+from linecast import _cache
 from linecast._elevation import _fetch_tile, decode_meters
 from linecast._png import decode_rgba
 from linecast._radar_basemap import (
@@ -163,23 +166,67 @@ def warm(zoom, h):
     return _source_zoom(zoom, h) in _canvas_cache
 
 
+def _canvas_path(z):
+    return _cache.CACHE_ROOT / "maps" / f"globe_canvas_v1_{z}.bin"
+
+
+def _canvas_load(z):
+    """The stitched canvas persisted by an earlier run, or None.
+
+    Terrarium tiles are immutable, so the derived canvas is too: a disk
+    hit replaces sixty-four PNG unfilterings with one C-speed inflate,
+    which is the difference between a first frame and a loading frame.
+    """
+    try:
+        blob = zlib.decompress(_canvas_path(z).read_bytes())
+        cw, ch, org_x, org_y, world = struct.unpack(">5I", blob[:20])
+        canvas = bytearray(blob[20:])
+        if len(canvas) != cw * ch * 4:
+            return None
+        return canvas, cw, ch, org_x, org_y, world
+    except Exception:
+        return None
+
+
+def _canvas_store(z, hit):
+    canvas, cw, ch, org_x, org_y, world = hit
+    try:
+        path = _canvas_path(z)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _cache.write_bytes_atomic(
+            path, zlib.compress(struct.pack(">5I", cw, ch, org_x, org_y,
+                                            world) + bytes(canvas), 6))
+    except Exception:
+        pass
+
+
 def _world_canvas(z, timeout):
     """The whole world's terrarium tiles stitched at zoom `z`, memoised."""
     hit = _canvas_cache.get(z)
     if hit is not None:
         return hit
 
-    def fetch(z_, x, y):
-        data = _fetch_tile(z_, x, y, timeout)
-        if data is None:
-            return None
-        try:
-            return decode_rgba(data)
-        except Exception:
-            return None
+    hit = _canvas_load(z)
+    if hit is None:
+        missed = [False]
 
-    bbox = (-180.0, -_MERCATOR_LAT, 180.0, _MERCATOR_LAT)
-    hit = stitch_xyz(fetch, bbox, z)
+        def fetch(z_, x, y):
+            data = _fetch_tile(z_, x, y, timeout)
+            if data is None:
+                missed[0] = True
+                return None
+            try:
+                return decode_rgba(data)
+            except Exception:
+                missed[0] = True
+                return None
+
+        bbox = (-180.0, -_MERCATOR_LAT, 180.0, _MERCATOR_LAT)
+        hit = stitch_xyz(fetch, bbox, z)
+        # a canvas with holes (a tile the network dropped) must not be
+        # frozen to disk: the holes would outlive the outage
+        if not missed[0]:
+            _canvas_store(z, hit)
     if len(_canvas_cache) > 1:
         _canvas_cache.clear()
     _canvas_cache[z] = hit
