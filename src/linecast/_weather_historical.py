@@ -9,7 +9,7 @@ for past dates — so we cache aggressively (7 days).
 """
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from typing import Optional
 
 from linecast import USER_AGENT
@@ -39,29 +39,21 @@ def fetch_historical(lat: float, lng: float, target_date: date,
     Uses Open-Meteo's Archive API with the same temperature/precipitation
     units as the forecast so values are directly comparable.
     """
+    # The archive request covers the last N complete years and depends only
+    # on that year span, the units, and the location -- not on the calendar
+    # day. Key the cache the same way so one download serves every day of
+    # the year; the target day is picked out client-side in _compute_averages.
+    # The span (and so the key) rolls over on 1 January, exactly when a new
+    # complete year becomes available and the request itself changes.
+    end_year = target_date.year - 1  # most recent complete year
+    start_year = end_year - _HISTORY_YEARS + 1
+
     temp_tag = "C" if celsius else "F"
     precip_tag = "mm" if metric else "in"
     cache_file = (
         CACHE_DIR
-        / f"hist_{location_cache_key(lat, lng)}_{target_date.month:02d}{target_date.day:02d}_{temp_tag}{precip_tag}.json"
+        / f"hist_{location_cache_key(lat, lng)}_{start_year}-{end_year}_{temp_tag}{precip_tag}.json"
     )
-
-    # Build date ranges: same month-day for each of the past N years
-    # We request one consolidated call with comma-separated date ranges
-    # to minimise HTTP round-trips.  Open-Meteo Archive accepts a single
-    # start_date/end_date span, so we request the full 10-year window
-    # and filter server-side by requesting just the target day each year
-    # via individual calls... Actually, the Archive API accepts a single
-    # contiguous date range.  To get just the target day across 10 years,
-    # we make one call per year — but that's 10 HTTP calls.  Instead, we
-    # make a single call spanning all 10 years and filter client-side.
-    #
-    # Even better: we can request the full range and the API returns daily
-    # data for every day.  We then pick only the matching month-day rows.
-
-    today = target_date
-    end_year = today.year - 1  # most recent full year
-    start_year = end_year - _HISTORY_YEARS + 1
 
     start_date = f"{start_year}-01-01"
     end_date = f"{end_year}-12-31"
@@ -90,7 +82,7 @@ def fetch_historical(lat: float, lng: float, target_date: date,
     if not data:
         return None
 
-    return _compute_averages(data, today.month, today.day)
+    return _compute_averages(data, target_date.month, target_date.day)
 
 
 def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages]:

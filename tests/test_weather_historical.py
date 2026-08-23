@@ -200,12 +200,53 @@ class TestFetchHistorical:
         url = mock.call_args[0][2]
         assert "temperature_unit=fahrenheit" in url
 
-    def test_cache_file_includes_date(self):
-        """Cache file should be date-specific."""
+    def _call_args(self, target_date, **kw):
         with patch("linecast._weather_historical.fetch_json_cached", return_value=None) as mock:
-            fetch_historical(40.7, -74.0, date(2026, 3, 27))
-        cache_file = mock.call_args[0][0]
-        assert "0327" in str(cache_file)
+            fetch_historical(40.7, -74.0, target_date, **kw)
+        cache_file, _max_age, url = mock.call_args[0][:3]
+        return str(cache_file), url
+
+    def test_cache_key_independent_of_calendar_day(self):
+        """Every day of a year hits one URL, so it must share one cache file."""
+        march, march_url = self._call_args(date(2026, 3, 27))
+        next_day, next_day_url = self._call_args(date(2026, 3, 28))
+        november, november_url = self._call_args(date(2026, 11, 3))
+        assert march_url == next_day_url == november_url
+        assert march == next_day == november
+        assert "0327" not in march
+
+    def test_cache_key_rolls_over_with_year_span(self):
+        """A new complete year changes the request, so it must change the key."""
+        dec, dec_url = self._call_args(date(2026, 12, 31))
+        jan, jan_url = self._call_args(date(2027, 1, 1))
+        assert "start_date=2016-01-01&end_date=2025-12-31" in dec_url
+        assert "start_date=2017-01-01&end_date=2026-12-31" in jan_url
+        assert dec != jan
+        assert "2016-2025" in dec
+        assert "2017-2026" in jan
+
+    def test_cache_key_varies_with_units(self):
+        """Different units are different payloads and must not share a file."""
+        f_in, _ = self._call_args(date(2026, 3, 27))
+        c_mm, _ = self._call_args(date(2026, 3, 27), celsius=True, metric=True)
+        c_in, _ = self._call_args(date(2026, 3, 27), celsius=True, metric=False)
+        assert len({f_in, c_mm, c_in}) == 3
+
+    def test_target_day_selected_from_shared_payload(self):
+        """The shared year-span payload is filtered to the target day client-side."""
+        mock_data = {
+            "daily": {
+                "time": ["2024-03-27", "2024-03-28", "2025-03-27", "2025-03-28"],
+                "temperature_2m_max": [60.0, 90.0, 62.0, 92.0],
+                "temperature_2m_min": [40.0, 70.0, 42.0, 72.0],
+                "precipitation_sum": [0.0, 1.0, 0.0, 1.0],
+            }
+        }
+        with patch("linecast._weather_historical.fetch_json_cached", return_value=mock_data):
+            march_27 = fetch_historical(40.7, -74.0, date(2026, 3, 27))
+            march_28 = fetch_historical(40.7, -74.0, date(2026, 3, 28))
+        assert march_27.years == 2 and march_27.avg_high == 61.0
+        assert march_28.years == 2 and march_28.avg_high == 91.0
 
     def test_cache_max_age_is_long(self):
         """Historical data doesn't change — cache should be at least 24h."""

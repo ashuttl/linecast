@@ -19,6 +19,8 @@ Notable changes, by release. Notes for the next release collect under
   labels, in the terrain view and on the globe.
 - Maps: With the sun on, the globe's atmosphere glow fades into night
   along with the ground beside it.
+- Weather: The ten-year climate archive behind the above-or-below-
+  average note is downloaded once a week instead of once a day.
 
 ## 1.15.1 — 2026-08-23
 
