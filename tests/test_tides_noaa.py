@@ -62,26 +62,6 @@ class TidesRangeTests(unittest.TestCase):
                 "123", date(2026, 3, 5), date(2026, 3, 6), station_tz=None), [])
 
 
-class DayFetchTests(unittest.TestCase):
-    def test_day_is_sliced_from_month_as_hours(self):
-        rows = [["2026-03-04 23:54", 0.5], ["2026-03-05 00:00", 1.2],
-                ["2026-03-05 12:30", 8.4], ["2026-03-06 00:00", 1.0]]
-        with patch.object(noaa, "fetch_month", return_value=rows) as fm:
-            day = noaa.fetch_tides("123", date(2026, 3, 5))
-        self.assertEqual(fm.call_args.args, ("123", date(2026, 3, 1), "6"))
-        self.assertEqual(day, [(0.0, 1.2), (12.5, 8.4)])
-
-    def test_day_hilo_keeps_type(self):
-        rows = [["2026-03-05 05:38", 8.0, "H"], ["2026-03-06 06:10", 8.2, "H"]]
-        with patch.object(noaa, "fetch_month", return_value=rows):
-            self.assertEqual(noaa.fetch_hilo("123", date(2026, 3, 5)),
-                             [(5.0 + 38 / 60, 8.0, "H")])
-
-    def test_failed_month_is_none(self):
-        with patch.object(noaa, "fetch_month", return_value=None):
-            self.assertIsNone(noaa.fetch_tides("123", date(2026, 3, 5)))
-
-
 class MonthChunkTests(unittest.TestCase):
     def test_month_is_requested_whole_and_cached_by_month(self):
         payload = {"predictions": [

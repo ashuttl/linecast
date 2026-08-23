@@ -119,11 +119,6 @@ def _row_dt(time_str, station_tz):
     return dt
 
 
-def _row_hour(time_str):
-    """Decimal hour of day from a NOAA "YYYY-MM-DD HH:MM" timestamp."""
-    return int(time_str[11:13]) + int(time_str[14:16]) / 60
-
-
 def _build_tide_row(prediction):
     """Cache row for one sample: ["YYYY-MM-DD HH:MM", height_ft]."""
     time_str = prediction.get("t", "")
@@ -212,24 +207,6 @@ def _rows_in_range(station_id, start_date, end_date, interval):
     return rows
 
 
-def fetch_tides(station_id, date):
-    """6-minute predictions for one date as [(hour_of_day, height_ft)]."""
-    rows = fetch_month(station_id, month_start(date), "6")
-    if rows is None:
-        return None
-    day = date.isoformat()
-    return [(_row_hour(t), v) for t, v in rows if t[:10] == day]
-
-
-def fetch_hilo(station_id, date):
-    """High/low extremes for one date as [(hour_of_day, height_ft, "H"/"L")]."""
-    rows = fetch_month(station_id, month_start(date), "hilo")
-    if rows is None:
-        return None
-    day = date.isoformat()
-    return [(_row_hour(t), v, typ) for t, v, typ in rows if t[:10] == day]
-
-
 _stations_memo = None
 
 
@@ -237,9 +214,9 @@ def fetch_all_stations_noaa():
     """Fetch the full NOAA tide-prediction station list (cached 30 days).
 
     Parsing the 1.5 MB list costs about 10 ms and one run consults it
-    several times (picking the station, the subordinate check before each
-    fetch, the same check in render), so the parsed list is kept for the
-    life of the process.
+    several times (picking the station, naming a --station ID, the
+    subordinate check before each fetch), so the parsed list is kept for
+    the life of the process.
     """
     global _stations_memo
     if _stations_memo is not None:
@@ -255,22 +232,6 @@ def fetch_all_stations_noaa():
     if stations:
         _stations_memo = stations
     return stations
-
-
-def day_to_dt(hour_decimal, date, station_tz):
-    """Convert a day-relative decimal hour to an aware datetime."""
-    hour = int(hour_decimal)
-    minute = int(round((hour_decimal - hour) * 60))
-    if hour >= 24:
-        date = date + timedelta(days=1)
-        hour -= 24
-    try:
-        dt = datetime(date.year, date.month, date.day, hour, minute)
-    except ValueError:
-        return None
-    if station_tz is not None:
-        dt = dt.replace(tzinfo=station_tz)
-    return dt
 
 
 def synthesize_tides_from_hilo(hilo_points, step_minutes=6):

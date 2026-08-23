@@ -176,8 +176,12 @@ def _find_extrema(points):
 # ---------------------------------------------------------------------------
 # Prediction fetching
 # ---------------------------------------------------------------------------
-def _build_ckan_url(station_name, start_str, end_str, limit=5000):
-    """Build a CKAN datastore_search URL with filters."""
+def _build_ckan_url(station_name, limit=5000):
+    """Build a CKAN datastore_search URL for one station's records.
+
+    datastore_search cannot filter on a date range, so the caller trims
+    the records to its dates after fetching.
+    """
     filters = json.dumps({"Site": station_name})
     params = urllib.parse.urlencode({
         "resource_id": QLD_RESOURCE_ID,
@@ -186,9 +190,6 @@ def _build_ckan_url(station_name, start_str, end_str, limit=5000):
         "limit": str(limit),
         "fields": "DateTime,Prediction,Water Level",
     })
-    # Add date range filter via q parameter if available,
-    # but CKAN datastore_search doesn't support range queries in filters.
-    # We'll filter client-side after fetching.
     return f"{QLD_BASE}?{params}"
 
 
@@ -205,7 +206,7 @@ def _fetch_pred_chunk(station_name, start_date, end_date):
     if cached is not None:
         return [(parse_cached_dt(r["dt"], AEST), r["v"]) for r in cached]
 
-    url = _build_ckan_url(station_name, start_str, end_str)
+    url = _build_ckan_url(station_name)
     data = fetch_json_cached(
         cache_file, 0, url,
         headers={"User-Agent": USER_AGENT},
