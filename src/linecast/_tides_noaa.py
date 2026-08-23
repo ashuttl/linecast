@@ -14,6 +14,7 @@ from linecast._http import fetch_json, fetch_json_cached
 
 CACHE_DIR = CACHE_ROOT / "tides"
 NEAREST_STATION_CACHE_MAX_AGE = 3600
+PREDICTION_CACHE_MAX_AGE = 86400
 
 
 def find_nearest_station(lat, lng):
@@ -124,37 +125,50 @@ def _fetch_payload(cache_file, max_age, url, fallback=None):
     )
 
 
-def _parse_prediction_hour(time_str):
+def _row_dt(time_str, station_tz):
+    """Turn NOAA's "YYYY-MM-DD HH:MM" into a datetime, aware if a tz is given."""
     try:
-        parts = time_str.split(" ")
-        time_parts = parts[1].split(":")
-        return int(time_parts[0]) + int(time_parts[1]) / 60
-    except (IndexError, ValueError):
+        dt = datetime(int(time_str[0:4]), int(time_str[5:7]), int(time_str[8:10]),
+                      int(time_str[11:13]), int(time_str[14:16]))
+    except (TypeError, ValueError):
         return None
+    if station_tz is not None:
+        dt = dt.replace(tzinfo=station_tz)
+    return dt
+
+
+def _row_hour(time_str):
+    """Decimal hour of day from a NOAA "YYYY-MM-DD HH:MM" timestamp."""
+    return int(time_str[11:13]) + int(time_str[14:16]) / 60
 
 
 def _build_tide_row(prediction):
-    hour = _parse_prediction_hour(prediction.get("t", ""))
-    if hour is None:
+    """Cache row for one sample: ["YYYY-MM-DD HH:MM", height_ft]."""
+    time_str = prediction.get("t", "")
+    if _row_dt(time_str, None) is None:
         return None
-    return {"h": hour, "v": float(prediction.get("v", 0))}
+    try:
+        return [time_str, float(prediction.get("v", 0))]
+    except (TypeError, ValueError):
+        return None
 
 
 def _build_hilo_row(prediction):
+    """Cache row for one extreme: ["YYYY-MM-DD HH:MM", height_ft, "H"/"L"]."""
     row = _build_tide_row(prediction)
     if row is None:
         return None
-    row["t"] = prediction.get("type", "")
+    row.append(prediction.get("type", ""))
     return row
 
 
-def _fetch_prediction_rows(cache_file, url, row_builder, tuple_builder):
-    """Fetch NOAA prediction payload and return parsed tuple rows."""
-    data = _fetch_payload(cache_file, 86400, url, fallback=None)
+def _fetch_prediction_rows(cache_file, url, row_builder):
+    """Fetch a NOAA prediction payload and return its cache rows."""
+    data = _fetch_payload(cache_file, PREDICTION_CACHE_MAX_AGE, url, fallback=None)
     if not data:
         return None
     if isinstance(data, list):
-        return [tuple_builder(row) for row in data]
+        return data
 
     predictions = data.get("predictions", [])
     if not predictions:
@@ -173,33 +187,75 @@ def _fetch_prediction_rows(cache_file, url, row_builder, tuple_builder):
         if row is not None:
             rows.append(row)
     write_cache(cache_file, rows)
-    return [tuple_builder(row) for row in rows]
+    return rows
+
+
+def month_start(day):
+    """First day of the calendar month containing *day*."""
+    return day.replace(day=1)
+
+
+def month_after(first):
+    """First day of the month following *first* (itself a first-of-month)."""
+    return (first + timedelta(days=32)).replace(day=1)
+
+
+def _months_covering(start_date, end_date):
+    """First-of-month dates for every calendar month the range touches."""
+    first = month_start(start_date)
+    months = []
+    while first <= end_date:
+        months.append(first)
+        first = month_after(first)
+    return months
+
+
+def fetch_month(station_id, first, interval):
+    """Fetch one calendar month of predictions, cached per station and month.
+
+    NOAA serves at most 31 days of 6-minute predictions per request, so a
+    calendar month is the largest chunk that always fits. Chunking on the
+    calendar rather than on the caller's window means every window in the
+    same month reads the same file: a day's view, the live view's two
+    weeks, and the expansion when the user scrolls all share it, and the
+    file stays valid from one day to the next.
+    """
+    kind = "hilo" if interval == "hilo" else "pred"
+    cache_file = CACHE_DIR / f"{kind}_{station_id}_{first:%Y%m}.json"
+    last = month_after(first) - timedelta(days=1)
+    url = _prediction_url(station_id, first.strftime("%Y%m%d"),
+                          last.strftime("%Y%m%d"), interval)
+    builder = _build_hilo_row if kind == "hilo" else _build_tide_row
+    return _fetch_prediction_rows(cache_file, url, builder)
+
+
+def _rows_in_range(station_id, start_date, end_date, interval):
+    """Cache rows for every month the range touches, trimmed to the range."""
+    lo, hi = start_date.isoformat(), end_date.isoformat()
+    rows = []
+    for first in _months_covering(start_date, end_date):
+        for row in fetch_month(station_id, first, interval) or []:
+            if lo <= row[0][:10] <= hi:
+                rows.append(row)
+    return rows
 
 
 def fetch_tides(station_id, date):
-    """Fetch 6-minute interval tide predictions for a date."""
-    date_str = date.strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"pred_{station_id}_{date_str}.json"
-    url = _prediction_url(station_id, date_str, date_str, "6")
-    return _fetch_prediction_rows(
-        cache_file,
-        url,
-        row_builder=_build_tide_row,
-        tuple_builder=lambda row: (row["h"], row["v"]),
-    )
+    """6-minute predictions for one date as [(hour_of_day, height_ft)]."""
+    rows = fetch_month(station_id, month_start(date), "6")
+    if rows is None:
+        return None
+    day = date.isoformat()
+    return [(_row_hour(t), v) for t, v in rows if t[:10] == day]
 
 
 def fetch_hilo(station_id, date):
-    """Fetch high/low extremes for a date."""
-    date_str = date.strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"hilo_{station_id}_{date_str}.json"
-    url = _prediction_url(station_id, date_str, date_str, "hilo")
-    return _fetch_prediction_rows(
-        cache_file,
-        url,
-        row_builder=_build_hilo_row,
-        tuple_builder=lambda row: (row["h"], row["v"], row["t"]),
-    )
+    """High/low extremes for one date as [(hour_of_day, height_ft, "H"/"L")]."""
+    rows = fetch_month(station_id, month_start(date), "hilo")
+    if rows is None:
+        return None
+    day = date.isoformat()
+    return [(_row_hour(t), v, typ) for t, v, typ in rows if t[:10] == day]
 
 
 def fetch_all_stations_noaa():
@@ -262,41 +318,23 @@ def synthesize_tides_from_hilo(hilo_points, step_minutes=6):
 
 
 def fetch_tides_range(station_id, start_date, end_date, station_tz):
-    """Fetch and stitch tide predictions across a date range."""
+    """6-minute predictions across a date range as sorted [(datetime, height_ft)]."""
     points = []
-    day = start_date
-    while day <= end_date:
-        day_data = fetch_tides(station_id, day)
-        if day_data:
-            for hour, height in day_data:
-                dt = day_to_dt(hour, day, station_tz)
-                if dt is not None:
-                    points.append((dt, height))
-        day += timedelta(days=1)
-
-    seen = set()
-    unique = []
-    for dt, height in points:
-        key = dt.replace(second=0, microsecond=0)
-        if key not in seen:
-            seen.add(key)
-            unique.append((dt, height))
-    unique.sort(key=lambda point: point[0])
-    return unique
+    for time_str, height in _rows_in_range(station_id, start_date, end_date, "6"):
+        dt = _row_dt(time_str, station_tz)
+        if dt is not None:
+            points.append((dt, height))
+    points.sort(key=lambda point: point[0])
+    return points
 
 
 def fetch_hilo_range(station_id, start_date, end_date, station_tz):
-    """Fetch and stitch hi/lo extremes across a date range."""
+    """High/low extremes across a date range as sorted [(datetime, height_ft, type)]."""
     points = []
-    day = start_date
-    while day <= end_date:
-        day_data = fetch_hilo(station_id, day)
-        if day_data:
-            for hour, height, typ in day_data:
-                dt = day_to_dt(hour, day, station_tz)
-                if dt is not None:
-                    points.append((dt, height, typ))
-        day += timedelta(days=1)
+    for time_str, height, typ in _rows_in_range(station_id, start_date, end_date, "hilo"):
+        dt = _row_dt(time_str, station_tz)
+        if dt is not None:
+            points.append((dt, height, typ))
     points.sort(key=lambda point: point[0])
     return points
 

@@ -32,6 +32,9 @@ Notable changes, by release. Notes for the next release collect under
 - Maps: Dragging and spinning the globe is more than twice as fast,
   and hovering over it no longer re-places its city labels on every
   repaint.
+- Tides: Opening the tide chart is much faster the first time each
+  day. Predictions are fetched a month at a time instead of a day at a
+  time, and the pieces of the view load together.
 
 ## 1.15.1 — 2026-08-23
 

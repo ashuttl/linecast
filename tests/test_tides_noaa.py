@@ -7,23 +7,116 @@ from linecast._cache import location_cache_key
 
 
 class TidesRangeTests(unittest.TestCase):
-    def test_fetch_tides_range_dedupes_midnight_boundary_points(self):
-        start = date(2026, 3, 5)
-        end = date(2026, 3, 6)
+    MARCH = [["2026-03-30 23:54", 1.2], ["2026-03-31 00:00", 0.8],
+             ["2026-03-31 23:54", 1.0]]
+    APRIL = [["2026-04-01 00:00", 0.9], ["2026-04-02 00:00", 1.1]]
 
-        def fake_fetch_tides(station_id, day):
-            self.assertEqual(station_id, "123")
-            if day == start:
-                return [(23.5, 1.2), (24.0, 0.8)]
-            return [(0.0, 0.8), (1.0, 1.0)]
+    def _fake_month(self, station_id, first, interval):
+        self.assertEqual(station_id, "123")
+        self.assertEqual(interval, "6")
+        return {date(2026, 3, 1): self.MARCH, date(2026, 4, 1): self.APRIL}[first]
 
-        with patch.object(noaa, "fetch_tides", side_effect=fake_fetch_tides):
-            points = noaa.fetch_tides_range("123", start, end, station_tz=None)
+    def test_range_spanning_months_asks_once_per_month(self):
+        with patch.object(noaa, "fetch_month", side_effect=self._fake_month) as fm:
+            points = noaa.fetch_tides_range(
+                "123", date(2026, 3, 31), date(2026, 4, 1), station_tz=None)
 
-        self.assertEqual(len(points), 3)
-        self.assertEqual(points[0], (datetime(2026, 3, 5, 23, 30), 1.2))
-        self.assertEqual(points[1], (datetime(2026, 3, 6, 0, 0), 0.8))
-        self.assertEqual(points[2], (datetime(2026, 3, 6, 1, 0), 1.0))
+        self.assertEqual([c.args[1] for c in fm.call_args_list],
+                         [date(2026, 3, 1), date(2026, 4, 1)])
+        # Trimmed to the requested dates, in order, as datetimes
+        self.assertEqual(points, [
+            (datetime(2026, 3, 31, 0, 0), 0.8),
+            (datetime(2026, 3, 31, 23, 54), 1.0),
+            (datetime(2026, 4, 1, 0, 0), 0.9),
+        ])
+
+    def test_range_within_one_month_is_one_chunk(self):
+        with patch.object(noaa, "fetch_month", side_effect=self._fake_month) as fm:
+            points = noaa.fetch_tides_range(
+                "123", date(2026, 3, 5), date(2026, 3, 20), station_tz=None)
+        self.assertEqual(fm.call_count, 1)
+        self.assertEqual(points, [])
+
+    def test_range_applies_station_timezone(self):
+        from datetime import timezone, timedelta
+        tz = timezone(timedelta(hours=-4))
+        with patch.object(noaa, "fetch_month", side_effect=self._fake_month):
+            points = noaa.fetch_tides_range(
+                "123", date(2026, 4, 1), date(2026, 4, 1), station_tz=tz)
+        self.assertEqual(points, [(datetime(2026, 4, 1, 0, 0, tzinfo=tz), 0.9)])
+
+    def test_hilo_range_keeps_type(self):
+        rows = [["2026-03-05 05:38", 8.0, "H"], ["2026-03-05 11:32", 1.8, "L"],
+                ["2026-03-06 06:10", 8.2, "H"]]
+        with patch.object(noaa, "fetch_month", return_value=rows) as fm:
+            points = noaa.fetch_hilo_range(
+                "123", date(2026, 3, 5), date(2026, 3, 5), station_tz=None)
+        self.assertEqual(fm.call_args.args[2], "hilo")
+        self.assertEqual(points, [(datetime(2026, 3, 5, 5, 38), 8.0, "H"),
+                                  (datetime(2026, 3, 5, 11, 32), 1.8, "L")])
+
+    def test_failed_month_yields_no_points(self):
+        with patch.object(noaa, "fetch_month", return_value=None):
+            self.assertEqual(noaa.fetch_tides_range(
+                "123", date(2026, 3, 5), date(2026, 3, 6), station_tz=None), [])
+
+
+class DayFetchTests(unittest.TestCase):
+    def test_day_is_sliced_from_month_as_hours(self):
+        rows = [["2026-03-04 23:54", 0.5], ["2026-03-05 00:00", 1.2],
+                ["2026-03-05 12:30", 8.4], ["2026-03-06 00:00", 1.0]]
+        with patch.object(noaa, "fetch_month", return_value=rows) as fm:
+            day = noaa.fetch_tides("123", date(2026, 3, 5))
+        self.assertEqual(fm.call_args.args, ("123", date(2026, 3, 1), "6"))
+        self.assertEqual(day, [(0.0, 1.2), (12.5, 8.4)])
+
+    def test_day_hilo_keeps_type(self):
+        rows = [["2026-03-05 05:38", 8.0, "H"], ["2026-03-06 06:10", 8.2, "H"]]
+        with patch.object(noaa, "fetch_month", return_value=rows):
+            self.assertEqual(noaa.fetch_hilo("123", date(2026, 3, 5)),
+                             [(5.0 + 38 / 60, 8.0, "H")])
+
+    def test_failed_month_is_none(self):
+        with patch.object(noaa, "fetch_month", return_value=None):
+            self.assertIsNone(noaa.fetch_tides("123", date(2026, 3, 5)))
+
+
+class MonthChunkTests(unittest.TestCase):
+    def test_month_is_requested_whole_and_cached_by_month(self):
+        payload = {"predictions": [
+            {"t": "2026-02-01 00:00", "v": "1.5"},
+            {"t": "2026-02-28 23:54", "v": "2.5"},
+            {"t": "bad", "v": "9"},
+        ]}
+        with patch.object(noaa, "_fetch_payload", return_value=payload) as fp, \
+             patch.object(noaa, "write_cache") as wc:
+            rows = noaa.fetch_month("8418150", date(2026, 2, 1), "6")
+
+        cache_file, _, url = fp.call_args.args[:3]
+        self.assertEqual(cache_file.name, "pred_8418150_202602.json")
+        self.assertIn("begin_date=20260201&end_date=20260228", url)
+        self.assertIn("interval=6", url)
+        self.assertEqual(rows, [["2026-02-01 00:00", 1.5], ["2026-02-28 23:54", 2.5]])
+        self.assertEqual(wc.call_args.args, (cache_file, rows))
+
+    def test_hilo_month_cache_name_and_rows(self):
+        payload = {"predictions": [
+            {"t": "2026-12-31 20:28", "v": "10.1", "type": "H"},
+        ]}
+        with patch.object(noaa, "_fetch_payload", return_value=payload) as fp, \
+             patch.object(noaa, "write_cache"):
+            rows = noaa.fetch_month("8418150", date(2026, 12, 1), "hilo")
+        cache_file, _, url = fp.call_args.args[:3]
+        self.assertEqual(cache_file.name, "hilo_8418150_202612.json")
+        self.assertIn("begin_date=20261201&end_date=20261231", url)
+        self.assertEqual(rows, [["2026-12-31 20:28", 10.1, "H"]])
+
+    def test_cached_rows_are_returned_as_is(self):
+        cached = [["2026-02-01 00:00", 1.5]]
+        with patch.object(noaa, "_fetch_payload", return_value=cached), \
+             patch.object(noaa, "write_cache") as wc:
+            self.assertEqual(noaa.fetch_month("8418150", date(2026, 2, 1), "6"), cached)
+        wc.assert_not_called()
 
 
 class StationLookupTests(unittest.TestCase):
@@ -116,8 +209,7 @@ class PredictionErrorTests(unittest.TestCase):
         error_payload = {"error": {"message": "No Predictions data was found."}}
         with patch.object(noaa, "_fetch_payload", return_value=error_payload):
             rows = noaa._fetch_prediction_rows(
-                cache_file, "http://x", row_builder=noaa._build_tide_row,
-                tuple_builder=lambda row: (row["h"], row["v"]))
+                cache_file, "http://x", row_builder=noaa._build_tide_row)
 
         self.assertIsNone(rows)
         cache_file.unlink.assert_called_once()
