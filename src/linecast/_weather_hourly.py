@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 
+from linecast import _theme
 from linecast._braille import build_braille_curve, interpolate
 from linecast._graphics import bg, fg, fmt_hour, fmt_time_dt, RESET, visible_len
 from linecast._runtime import WeatherRuntime
@@ -1015,10 +1016,4 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
         lines.extend([""] * n_precip_rows)
     return lines
 
-from linecast import _theme as _theme_mod
-_theme_mod.reimport_on_reload(
-    globals(), "linecast._weather_style",
-    "CHART_BG_DAY_RGB", "CHART_BG_NIGHT_RGB", "CHART_HOVER_RGB", "DIM",
-    "MUTED", "SPARKLINE", "SUNRISE_LABEL_RGB", "SUNSET_LABEL_RGB", "TEXT",
-    "UV_COLOR", "WIND_ARROWS", "WIND_COLOR", "_colored_temp", "_precip_color",
-    "_temp_color", "_uv_color")
+_theme.track_imports(globals(), "linecast._weather_style")

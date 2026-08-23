@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 
+from linecast import _theme
 from linecast._graphics import RESET, visible_len
 from linecast._runtime import WeatherRuntime
 from linecast._weather_i18n import DAY_NAMES, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s, _wmo_icons
@@ -362,6 +363,4 @@ def _past_precip_line(hourly, now, runtime):
 
     return f" {MUTED}{_s('past_precip', runtime, amt=amt, ptype=ptype)}{RESET}"
 
-from linecast import _theme as _theme_mod
-_theme_mod.reimport_on_reload(globals(), "linecast._weather_style",
-"MUTED", "TEXT", "WIND_COLOR", "_aqi_color", "_colored_temp")
+_theme.track_imports(globals(), "linecast._weather_style")

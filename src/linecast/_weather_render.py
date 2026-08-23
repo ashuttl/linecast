@@ -4,6 +4,7 @@ This module keeps historical imports stable while implementation lives in
 smaller focused modules.
 """
 
+from linecast import _theme
 from linecast._graphics import RESET
 from linecast._weather_alerts import (
     _parse_alert_time,
@@ -70,11 +71,4 @@ from linecast._weather_style import (
     _temp_color,
 )
 
-from linecast import _theme as _theme_mod
-_theme_mod.reimport_on_reload(
-    globals(), "linecast._weather_style",
-    "AQI_COLORS", "ALERT_AMBER", "ALERT_RED", "ALERT_YELLOW", "DIM", "MUTED",
-    "PRECIP", "PRECIP_MIX", "PRECIP_RAIN", "PRECIP_SNOW", "PRECIP_STORM",
-    "SEP", "SPARKLINE", "TEMP_COLORS", "TEXT", "TOOLTIP_BG_RGB",
-    "TOOLTIP_TEXT_RGB", "WIND_ARROWS", "WIND_COLOR", "_aqi_color",
-    "_colored_temp", "_precip_color", "_precip_type", "_temp_color")
+_theme.track_imports(globals(), "linecast._weather_style")

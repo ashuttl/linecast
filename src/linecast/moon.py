@@ -50,8 +50,7 @@ from linecast.sunshine import (
 # of refraction and lunar parallax puts the geometric event at +0.125°.
 HORIZON_THRESHOLD_DEG = 0.125
 
-_theme.reimport_on_reload(globals(), "linecast.sunshine",
-    "INFO_AMBER_RGB", "INFO_DIM_RGB", "INFO_PURPLE_RGB", "INFO_TEXT_RGB")
+_theme.track_imports(globals(), "linecast.sunshine")
 
 # ---------------------------------------------------------------------------
 # Palette

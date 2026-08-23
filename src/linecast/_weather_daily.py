@@ -2,6 +2,7 @@
 
 from datetime import datetime
 
+from linecast import _theme
 from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime
 from linecast._weather_i18n import DAY_NAMES, _s, _wmo_icons
@@ -215,6 +216,4 @@ def render_daily(data, width, runtime=None):
 
     return lines
 
-from linecast import _theme as _theme_mod
-_theme_mod.reimport_on_reload(globals(), "linecast._weather_style",
-"DIM", "TEXT", "WIND_COLOR", "_precip_color", "_precip_type", "_temp_color")
+_theme.track_imports(globals(), "linecast._weather_style")

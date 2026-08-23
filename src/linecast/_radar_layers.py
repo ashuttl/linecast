@@ -223,6 +223,4 @@ def wind_overlays(field, t_idx, bbox, graph_w, height_cells,
             overlays[(col, row)] = (arrow, color)
     return overlays
 
-from linecast import _theme as _theme_mod
-_theme_mod.reimport_on_reload(globals(), "linecast._color",
-"BG_PRIMARY")
+_theme.track_imports(globals(), "linecast._color")

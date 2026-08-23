@@ -10,6 +10,7 @@ scrubber are the chrome the live loop draws around the map.
 
 import datetime as _dt
 
+from linecast import _theme
 from linecast._color import fg, bg, RESET
 from linecast._framebuffer import fmt_time_dt
 from linecast._theme import ensure_contrast
@@ -232,6 +233,4 @@ def _timeline_bar(idx, n, width, present=None, loaded=None):
     return "".join(cell(i) for i in range(width)) + RESET
 
 
-from linecast import _theme as _theme_mod
-_theme_mod.reimport_on_reload(globals(), "linecast._weather_style",
-                              "TOOLTIP_BG_RGB")
+_theme.track_imports(globals(), "linecast._weather_style")

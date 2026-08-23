@@ -36,7 +36,7 @@ from linecast._theme import (
 from linecast._location import location_is_pinned, location_tzinfo, resolve_location
 from linecast._runtime import RuntimeConfig, install_banner, sunshine_parser
 
-_theme.reimport_on_reload(globals(), "linecast._color", "BG_PRIMARY")
+_theme.track_imports(globals(), "linecast._color")
 
 # ---------------------------------------------------------------------------
 # Constants
