@@ -15,6 +15,7 @@ index URL, colour scheme, zoom ceiling, and cache directory.
 import json
 import math
 import os
+import threading
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -25,6 +26,7 @@ from linecast._png import decode_rgba
 from linecast._runtime import debug_log
 
 _TILE_SIZE = 256
+_TILE_WORKERS = 12   # tile fetches in flight across the whole process
 _INDEX_TTL = 120     # seconds to trust a cached index before refetching
 _NOWCAST_TTL = 600   # forecast tiles are re-predicted; treat older as stale
 
@@ -200,6 +202,25 @@ def reproject(provider, host, path, bbox, w, h, timeout=15, mutable=False,
     return reproject_xyz(fetch, bbox, w, h, z, smooth=smooth)
 
 
+_tile_pool = None
+_tile_pool_lock = threading.Lock()
+
+
+def _shared_pool():
+    """One pool for every tile fetch in the process.
+
+    Several frames can be stitched at once (the radar prefetch runs a few
+    in parallel); giving each its own pool meant two dozen connections
+    racing for the same bandwidth, so the frame on screen arrived late.
+    """
+    global _tile_pool
+    with _tile_pool_lock:
+        if _tile_pool is None:
+            _tile_pool = ThreadPoolExecutor(max_workers=_TILE_WORKERS,
+                                            thread_name_prefix="tiles")
+        return _tile_pool
+
+
 def stitch_xyz(fetch_tile, bbox, z):
     """Stitch the XYZ tiles covering `bbox` at zoom `z` into one canvas.
 
@@ -231,8 +252,7 @@ def stitch_xyz(fetch_tile, bbox, z):
         tx, ty = coord
         return coord, fetch_tile(z, tx % n, ty)
 
-    with ThreadPoolExecutor(max_workers=6) as pool:
-        tiles = list(pool.map(load, coords))
+    tiles = list(_shared_pool().map(load, coords))
 
     for (tx, ty), dec in tiles:
         if dec is None:

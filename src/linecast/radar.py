@@ -196,8 +196,12 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
             if want_warnings and not f.future:
                 _warm_warnings(f)
 
+        # the displayed frame first and alone, so it has every tile
+        # connection to itself; the rest of the window then fills in
+        # behind it (tile fetches share one process-wide pool)
+        load(ordered[0])
         with ThreadPoolExecutor(max_workers=4) as pool:
-            list(pool.map(load, ordered))
+            list(pool.map(load, ordered[1:]))
         if gen == _prefetch_gen:
             global _prefetch_key, _prefetch_done
             _prefetch_done = True  # opens the auto-play gate

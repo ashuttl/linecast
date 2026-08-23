@@ -43,6 +43,8 @@ Notable changes, by release. Notes for the next release collect under
   each tile source in turn.
 - Radar: Local colour themes draw faster, and switching between them
   no longer waits on the network.
+- Radar: The frame on screen is fetched before the rest of the
+  animation window, so a fresh view fills in sooner.
 
 ## 1.15.1 — 2026-08-23
 
