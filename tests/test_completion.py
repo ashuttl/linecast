@@ -216,6 +216,22 @@ class CompletionCommandTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(out, "")
         self.assertIn("unknown shell", err)
+        self.assertIn("Expected one of: " + ", ".join(available_shells()), err)
+
+    def test_version_flag_prints_version(self):
+        from linecast import __version__
+        code, out, err = self._run_main("--version")
+        self.assertEqual(code, 0)
+        self.assertEqual(out, f"linecast {__version__}\n")
+        self.assertEqual(err, "")
+
+    def test_help_mentions_version_and_commands(self):
+        from linecast import __version__
+        code, out, err = self._run_main("--help")
+        self.assertEqual(code, 0)
+        self.assertIn(f"linecast {__version__} ", out)
+        self.assertIn("linecast completion", out)
+        self.assertEqual(err, "")
 
 
 if __name__ == "__main__":

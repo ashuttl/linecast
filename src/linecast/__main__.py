@@ -1,11 +1,10 @@
 """python -m linecast / linecast CLI entry point."""
 
 import sys
-from linecast import __version__
-from linecast._completion import completion_help, render_completion
+from linecast._completion import available_shells, completion_help, render_completion
 
-HELP = f"""\
-linecast {__version__} — weather, sunlight, tides, radar, the Moon, and maps for the terminal
+HELP = """\
+linecast {version} — weather, sunlight, tides, radar, the Moon, and maps for the terminal
 
 Commands:
   linecast weather     Weather dashboard with braille temperature curve and alerts
@@ -37,11 +36,16 @@ COMMANDS = {
 def main():
     args = sys.argv[1:]
 
+    # The version comes from importlib.metadata, which costs more than
+    # the rest of this dispatch put together, so only the branches that
+    # print it look it up.
     if not args or args[0] in ("-h", "--help"):
-        print(HELP.rstrip())
+        from linecast import __version__
+        print(HELP.format(version=__version__).rstrip())
         sys.exit(0)
 
     if args[0] in ("-v", "--version"):
+        from linecast import __version__
         print(f"linecast {__version__}")
         sys.exit(0)
 
@@ -54,7 +58,7 @@ def main():
             print(render_completion(completion_args[0]), end="")
         except ValueError:
             print(f"linecast completion: unknown shell '{completion_args[0]}'", file=sys.stderr)
-            print("Expected one of: bash, zsh, fish", file=sys.stderr)
+            print(f"Expected one of: {', '.join(available_shells())}", file=sys.stderr)
             sys.exit(2)
         sys.exit(0)
 
