@@ -114,6 +114,43 @@ def forward(lat, lon, lat0, lon0):
     return ux, uy, cos_c
 
 
+# geometry() memo: (lat0, zoom, w, h) -> (base, zs, rhos), where base
+# holds each sample's (lat, longitude east of the view centre).  A
+# spin or a sideways drag changes only lon0, and lon0 is a constant
+# offset on the grid — so those frames skip the projection entirely.
+_geometry_cache = {}
+_GEOMETRY_KEEP = 4
+
+
+def _project(lat0, zoom, w, h):
+    """The w×h grid inverted about longitude 0: (base, zs, rhos)."""
+    r = _radius(zoom, h)
+    sin0, cos0 = (math.sin(math.radians(lat0)),
+                  math.cos(math.radians(lat0)))
+    base, zs, rhos = [], [], []
+    for y in range(h):
+        uy = (h / 2.0 - y - 0.5) / r
+        b_row, z_row, rho_row = [], [], []
+        for x in range(w):
+            ux = (x + 0.5 - w / 2.0) / r
+            rho2 = ux * ux + uy * uy
+            rho_row.append(math.sqrt(rho2))
+            if rho2 > 1.0:
+                b_row.append(None)
+                z_row.append(None)
+                continue
+            z = math.sqrt(1.0 - rho2)
+            lat = math.degrees(math.asin(
+                min(1.0, max(-1.0, uy * cos0 + z * sin0))))
+            b_row.append((lat, math.degrees(
+                math.atan2(ux, z * cos0 - uy * sin0))))
+            z_row.append(z)
+        base.append(b_row)
+        zs.append(z_row)
+        rhos.append(rho_row)
+    return base, zs, rhos
+
+
 def geometry(lat0, lon0, zoom, w, h):
     """Inverse projection for every sample of a w×h grid over the screen.
 
@@ -121,31 +158,21 @@ def geometry(lat0, lon0, zoom, w, h):
     space), the viewing cosine (None in space; 1 at the centre of the
     disk, 0 at the limb), and the distance from the disk centre in disk
     radii (space included — the atmosphere needs the near-misses).
+
+    lls is fresh per call; zs and rhos do not depend on lon0 and are
+    shared with other calls for the same view — read them, don't
+    write them.
     """
-    r = _radius(zoom, h)
-    sin0, cos0 = (math.sin(math.radians(lat0)),
-                  math.cos(math.radians(lat0)))
-    lls, zs, rhos = [], [], []
-    for y in range(h):
-        uy = (h / 2.0 - y - 0.5) / r
-        ll_row, z_row, rho_row = [], [], []
-        for x in range(w):
-            ux = (x + 0.5 - w / 2.0) / r
-            rho2 = ux * ux + uy * uy
-            rho_row.append(math.sqrt(rho2))
-            if rho2 > 1.0:
-                ll_row.append(None)
-                z_row.append(None)
-                continue
-            z = math.sqrt(1.0 - rho2)
-            lat = math.degrees(math.asin(
-                min(1.0, max(-1.0, uy * cos0 + z * sin0))))
-            lon = lon0 + math.degrees(math.atan2(ux, z * cos0 - uy * sin0))
-            ll_row.append((lat, wrap_lon(lon)))
-            z_row.append(z)
-        lls.append(ll_row)
-        zs.append(z_row)
-        rhos.append(rho_row)
+    key = (lat0, zoom, w, h)
+    hit = _geometry_cache.get(key)
+    if hit is None:
+        hit = _project(lat0, zoom, w, h)
+        while len(_geometry_cache) >= _GEOMETRY_KEEP:
+            del _geometry_cache[next(iter(_geometry_cache))]
+        _geometry_cache[key] = hit
+    base, zs, rhos = hit
+    lls = [[None if b is None else (b[0], wrap_lon(lon0 + b[1]))
+            for b in b_row] for b_row in base]
     return lls, zs, rhos
 
 

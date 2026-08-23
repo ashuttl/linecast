@@ -49,6 +49,36 @@ class TestProjection:
         assert abs((a[0] - b[0]) - 90.0 / 400) < 0.01
 
 
+class TestGeometryCache:
+    def test_cached_view_matches_a_fresh_projection(self, monkeypatch):
+        monkeypatch.setattr(_globe, "_geometry_cache", {})
+        lat0, zoom, w, h = 37.0, 90.0, 40, 40
+        want = _globe.geometry(lat0, -100.0, zoom, w, h)
+        # a second longitude over the same grid comes from the cache;
+        # a fresh projection of it must agree exactly
+        cached = _globe.geometry(lat0, 55.0, zoom, w, h)
+        assert len(_globe._geometry_cache) == 1
+        monkeypatch.setattr(_globe, "_geometry_cache", {})
+        fresh = _globe.geometry(lat0, 55.0, zoom, w, h)
+        assert cached[0] == fresh[0]
+        assert cached[1] == fresh[1] and cached[2] == fresh[2]
+        assert want[1] == fresh[1]  # zs never depended on lon0
+
+    def test_offset_wraps_across_the_antimeridian(self, monkeypatch):
+        monkeypatch.setattr(_globe, "_geometry_cache", {})
+        _globe.geometry(0.0, 0.0, 125.0, 40, 40)
+        lls, _zs, _rhos = _globe.geometry(0.0, 175.0, 125.0, 40, 40)
+        lons = [ll[1] for row in lls for ll in row if ll is not None]
+        assert all(-180.0 <= lon <= 180.0 for lon in lons)
+        assert min(lons) < -170.0 and max(lons) > 170.0
+
+    def test_cache_stays_small(self, monkeypatch):
+        monkeypatch.setattr(_globe, "_geometry_cache", {})
+        for lat0 in range(-40, 50, 10):
+            _globe.geometry(float(lat0), 0.0, 125.0, 8, 8)
+        assert len(_globe._geometry_cache) == _globe._GEOMETRY_KEEP
+
+
 class TestWrapLon:
     def test_one_turn_either_way(self):
         from linecast._geo import wrap_lon
