@@ -8,6 +8,7 @@ finishing) before the animation starts. The active RadarSource lives here
 too, since every fetch goes through it; radar.main() installs it.
 """
 
+import math
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -33,6 +34,7 @@ _frame_lock = threading.Lock()
 _prefetch_key = None  # (bbox, w, h) currently being prefetched
 _prefetch_gen = 0     # bumped when the view changes; stale workers stand down
 _prefetch_done = False  # current window's prefetch worker has finished
+_buffering = False    # auto-play is held while the frame window buffers
 _live_refresh = False  # live mode: prefetch completions nudge a repaint
 
 
@@ -115,6 +117,21 @@ def _nearest_cached(bbox, gw, hc, when, layer="radar"):
         best = min(keys, key=lambda k: abs(
             int(k[len(prefix)].split(":")[0].replace("T", "")) - want))
         return _frame_cache.get(best)
+
+
+def _play_gate(bbox, gw, hc, frames, layer, playing):
+    """Auto-play gate: hold the animation on the displayed frame until
+    enough of the window has buffered, so the loop plays smoothly instead
+    of stuttering past frames that are still fetching. Returns the loaded
+    mask and whether playback is held; live_loop consults the gate through
+    the _buffering global."""
+    global _buffering
+    mask = _loaded_mask(bbox, gw, hc, frames, layer)
+    n_loaded = sum(mask)
+    _buffering = (playing and not _prefetch_done
+                  and n_loaded < len(frames)
+                  and n_loaded < math.ceil(len(frames) * PLAY_READY))
+    return mask, _buffering
 
 
 def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):

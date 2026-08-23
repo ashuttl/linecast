@@ -42,7 +42,7 @@ from linecast._radar_render import bbox_for, _bbox_key, compose
 from linecast._radar_frames import (
     MAX_REWIND_MIN, N_FRAMES, PLAY_READY, _cached_frame, _ensure_prefetch,
     _frame_cache, _frame_key, _load_frame, _loaded_mask, _nearest_cached,
-    _nudge, _safe_load, _sat_timeline, _view_key,
+    _nudge, _play_gate, _safe_load, _sat_timeline, _view_key,
 )
 from linecast._radar_source import FRAME_STEP
 from linecast import _radar_sources
@@ -61,8 +61,6 @@ from linecast._spinner import SPINNER_FRAMES, Spinner
 # display layers, toggled by the s key: precipitation (5-min frames) or
 # the satellite cloud mosaic alone (hourly, deeper timeline)
 LAYERS = ("radar", "sat")
-
-_buffering = False    # auto-play is held while the frame window buffers
 
 # condition-layer state: fetched fields and rendered temp tints, both small
 _field_cache = {}    # field_key -> (fetched_at, Field)
@@ -192,17 +190,9 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     buffering = False
     mask = n_loaded = None
     if not block:
-        # auto-play gate: hold the animation on this frame until enough of
-        # the window has buffered, so the loop plays smoothly instead of
-        # stuttering past frames that are still fetching (live_loop consults
-        # the gate via the _buffering global)
-        global _buffering
-        mask = _loaded_mask(bbox, graph_w, height_cells, frames, layer)
+        mask, buffering = _play_gate(bbox, graph_w, height_cells, frames,
+                                     layer, playing)
         n_loaded = sum(mask)
-        _buffering = buffering = (
-            playing and not _radar_frames._prefetch_done
-            and n_loaded < len(frames)
-            and n_loaded < math.ceil(len(frames) * PLAY_READY))
     if block:
         # static mode: fetch the displayed frame synchronously
         try:
@@ -588,7 +578,7 @@ def main():
         on_action=on_action,
         on_drag=on_drag,
         intercept=intercept,
-        play_gate=lambda: not _buffering,
+        play_gate=lambda: not _radar_frames._buffering,
     )
 
 
