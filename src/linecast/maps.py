@@ -35,8 +35,8 @@ import threading
 from collections import namedtuple
 
 from linecast import (
-    _builtup, _globe, _globe_now, _maps_hover, _maps_route, _maps_streets,
-    _maps_style, _maps_ui,
+    _builtup, _climate, _globe, _globe_now, _maps_hover, _maps_route,
+    _maps_streets, _maps_style, _maps_ui,
 )
 from linecast._color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
@@ -101,10 +101,18 @@ RIVER_STROKE = themed((108, 152, 190))
 
 # Hypsometric bands above sea level (meters) — *bands*, not a gradient:
 # land takes the flat colour of its band and the boundaries read as
-# contours, the way a geologic map draws provinces.  The run climbs out
-# of the greens through straw and ochre into mauve and pale lavender
-# before summit white — high country earns the purples.
+# contours, the way a geologic map draws provinces.
+#
+# Four ramps, one per climate family, cross-blended-hypso fashion
+# (Patterson): elevation picks the band, the vendored Köppen grid
+# picks which ramp is climbing.  One ramp alone painted the low
+# Sahara meadow-green and the dry Tibetan Plateau snow-white; climate
+# is what tells a desert from a delta at the same three hundred
+# metres.  All four converge in the high mauves and lavenders — high
+# country earns the purples whatever the weather — and summit white
+# belongs to the ramps whose summits are actually white.
 _HYPSO_RAW = [
+    # humid: out of the greens through straw and ochre
     (0, (96, 138, 92)),
     (150, (124, 152, 88)),
     (400, (156, 168, 92)),
@@ -115,7 +123,47 @@ _HYPSO_RAW = [
     (3600, (196, 182, 208)),
     (4600, (240, 240, 248)),
 ]
-HYPSO_STOPS = [(m, themed(c)) for m, c in _HYPSO_RAW]
+_HYPSO_SEMIARID_RAW = [
+    # steppe: dry grass at the shore, straw all the way up
+    (0, (140, 142, 84)),
+    (150, (158, 152, 86)),
+    (400, (176, 160, 92)),
+    (800, (192, 168, 100)),
+    (1300, (198, 162, 104)),
+    (2000, (178, 142, 114)),
+    (2800, (160, 140, 156)),
+    (3600, (196, 182, 208)),
+    (4600, (236, 234, 242)),
+]
+_HYPSO_ARID_RAW = [
+    # desert: sand from the waterline, rock-red high desert
+    (0, (186, 160, 104)),
+    (150, (194, 168, 108)),
+    (400, (202, 176, 112)),
+    (800, (206, 178, 114)),
+    (1300, (200, 164, 110)),
+    (2000, (182, 144, 110)),
+    (2800, (164, 140, 150)),
+    (3600, (198, 184, 206)),
+    (4600, (240, 240, 248)),
+]
+_HYPSO_POLAR_RAW = [
+    # tundra: grey-green barrens paling toward ice, never lush —
+    # this is what keeps the Tibetan interior stone instead of snow
+    (0, (128, 132, 116)),
+    (150, (140, 140, 122)),
+    (400, (152, 148, 130)),
+    (800, (166, 158, 140)),
+    (1300, (178, 168, 152)),
+    (2000, (188, 178, 166)),
+    (2800, (200, 192, 186)),
+    (3600, (216, 212, 212)),
+    (4600, (238, 240, 246)),
+]
+_HYPSO_FAMILIES_RAW = (_HYPSO_RAW, _HYPSO_SEMIARID_RAW,
+                       _HYPSO_ARID_RAW, _HYPSO_POLAR_RAW)
+HYPSO_FAMILIES = [[(m, themed(c)) for m, c in fam]
+                  for fam in _HYPSO_FAMILIES_RAW]
 
 # Bathymetric tint below sea level — deliberately a smooth gradient
 # where the land is banded: the sea is the one continuous field on the
@@ -133,12 +181,13 @@ _BATHY_RAW = [
 BATHY_STOPS = [(m, themed(c)) for m, c in _BATHY_RAW]
 
 
-def _hypso_band(e):
-    """The flat colour of the band `e` falls in."""
-    for lim, c in reversed(HYPSO_STOPS):
+def _hypso_band(e, fam=0):
+    """The flat colour of the band `e` falls in, on family `fam`'s ramp."""
+    stops = HYPSO_FAMILIES[fam]
+    for lim, c in reversed(stops):
         if e >= lim:
             return c
-    return HYPSO_STOPS[0][1]
+    return stops[0][1]
 
 # land-cover tints by grid index (0 = no cover, stays on the ramp)
 _COVER_RGB = [None] + [_maps_style.COVER_COLOR[k]
@@ -164,7 +213,7 @@ _LIGHT_TINT = themed((255, 248, 228))
 def _rebuild_inks():
     # every themed() ink above, re-inked for the new theme
     global COAST_STROKE, BORDER_STROKE, LABEL_DARK, LABEL_LIGHT, MARKER, _BADGE
-    global LAKE_FILL, RIVER_STROKE, HYPSO_STOPS, BATHY_STOPS, _SHADOW_TINT
+    global LAKE_FILL, RIVER_STROKE, HYPSO_FAMILIES, BATHY_STOPS, _SHADOW_TINT
     global _LIGHT_TINT
     COAST_STROKE = themed((22, 32, 52))
     BORDER_STROKE = themed((52, 48, 66))
@@ -174,7 +223,8 @@ def _rebuild_inks():
     _BADGE = themed((110, 168, 96))
     LAKE_FILL = themed((74, 118, 156))
     RIVER_STROKE = themed((108, 152, 190))
-    HYPSO_STOPS = [(m, themed(c)) for m, c in _HYPSO_RAW]
+    HYPSO_FAMILIES = [[(m, themed(c)) for m, c in fam]
+                      for fam in _HYPSO_FAMILIES_RAW]
     BATHY_STOPS = [(m, themed(c)) for m, c in _BATHY_RAW]
     _SHADOW_TINT = themed((40, 48, 72))
     _LIGHT_TINT = themed((255, 248, 228))
@@ -464,7 +514,8 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
     return None, None, None
 
 
-def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None):
+def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None,
+                         climate=None):
     """Hillshaded hypsometric/bathymetric colours per sub-pixel.
 
     `elev` is meters at w×h (h = 2 rows per cell); None renders as plain
@@ -483,8 +534,15 @@ def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None):
     class tint over its hypsometric base — hillshade carries the relief,
     colour carries the ground.  Cover never touches water at either
     sign: a forest polygon generalised over a fjord stays the fjord's.
+
+    `climate` is the optional sub-pixel ramp-family grid (indices into
+    HYPSO_FAMILIES).  None means "derive it from the bbox", which is
+    right for the flat view; the globe's bbox is scale-only, so its
+    caller passes a grid sampled from the disk's own lat/lons.
     """
     minlon, minlat, maxlon, maxlat = bbox
+    if climate is None:
+        climate = _climate.grid_for_bbox(bbox, w, h)
     lat_c = (minlat + maxlat) / 2
     px_m = max(1.0, (maxlon - minlon) * 111320.0
                * math.cos(math.radians(lat_c)) / w)
@@ -502,6 +560,7 @@ def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None):
         down = elev[y + 1] if y < h - 1 else row
         wet_row = water[y] if water is not None else None
         cov_row = cover[y] if cover is not None else None
+        cli_row = climate[y] if climate else None
         out = []
         for x in range(w):
             e = row[x]
@@ -536,7 +595,8 @@ def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None):
                 base = interp_stops(BATHY_STOPS, e)
                 m = 0.82 + 0.18 * shade  # water: keep the ramp readable
             else:
-                base = _hypso_band(e)
+                base = _hypso_band(e, cli_row[x] if cli_row is not None
+                                   else 0)
                 if cov_row is not None and cov_row[x]:
                     cc = _COVER_RGB[cov_row[x]]
                     base = (base[0] + (cc[0] - base[0]) * blend,
@@ -1074,8 +1134,11 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
                 # the falloff owns that)
                 spy_h = height_cells * 2
                 sbbox = (0.0, -zoom / 2, zoom * graph_w / spy_h, zoom / 2)
-                terrain = build_terrain_buffer(elev, sbbox, graph_w, spy_h,
-                                               cover=view.cover)
+                # the empty-tuple fallback means "no climate known" —
+                # never "derive from bbox", because sbbox is scale-only
+                terrain = build_terrain_buffer(
+                    elev, sbbox, graph_w, spy_h, cover=view.cover,
+                    climate=_climate.grid_for_lls(view.lls) or ())
             _globe.shade_buffer(terrain, view.shade, view.atmo, BG_PRIMARY)
             if len(_terrain_cache) > 2:
                 _terrain_cache.clear()
@@ -1346,13 +1409,18 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         hint_key = 'hint_route' if route is not None else 'hint'
         hint = (f"{fg(*DIM)}{ms(hint_key, lang)}{RESET}"
                 if sys.stdout.isatty() else "")
+        # the Köppen credit is owed only where the climate grid is
+        # colouring the ground: the terrain register, flat or globe
+        kg = (_climate.ATTRIBUTION
+              if view != "street" and _climate.available() else None)
         if globe:
             # either register's globe draws from the elevation tiles
-            # alone (borders and cities are vendored Natural Earth);
-            # showing this hour's clouds adds their credit
-            attribs = ((f"{ATTRIBUTION} · {_globe_now.ATTRIBUTION}",
-                        ATTRIBUTION) if clouds
-                       else (ATTRIBUTION,))
+            # (borders and cities are vendored Natural Earth); terrain's
+            # adds the climate grid, this hour's clouds add theirs
+            base = f"{ATTRIBUTION} · {kg}" if kg else ATTRIBUTION
+            attribs = ((f"{base} · {_globe_now.ATTRIBUTION}",
+                        base, ATTRIBUTION) if clouds
+                       else (base, ATTRIBUTION))
         elif view == "street":
             attribs = ((f"{_maps_style.ATTRIB_TILES_LONG} · "
                         f"{_globe_now.ATTRIBUTION}",
@@ -1365,14 +1433,15 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
             # first rung credits both sources and the fallbacks shorten;
             # the settlement raster earns its CC-BY credit when in use
             both = f"{ATTRIBUTION} · {_maps_style.ATTRIB_TILES_SHORT}"
+            long = f"{both} · {kg}" if kg else both
             if clouds:
-                attribs = (f"{both} · {_globe_now.ATTRIBUTION}", both,
+                attribs = (f"{long} · {_globe_now.ATTRIBUTION}", both,
                            ATTRIBUTION)
             elif _builtup.enabled():
-                attribs = (f"{both} · {_builtup.ATTRIBUTION}", both,
+                attribs = (f"{long} · {_builtup.ATTRIBUTION}", both,
                            ATTRIBUTION)
             else:
-                attribs = (both, ATTRIBUTION)
+                attribs = (long, both, ATTRIBUTION)
         scale = (_scale_bar(bbox, graph_w, lang)
                  if view == "street" and not globe else "")
         # first rung that fits wins: long+hint, short+hint, short, bare

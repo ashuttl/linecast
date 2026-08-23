@@ -5,6 +5,12 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Maps: terrain colour now knows the climate, not just the elevation.
+  A vendored Köppen-Geiger grid (Beck et al. 2023, 67 KB in the
+  package) picks between four hypsometric ramps — humid, steppe,
+  desert, tundra — so the low Sahara reads as sand instead of meadow
+  and the dry Tibetan Plateau as stone instead of snow. Works
+  offline; applies to the terrain view and the globe.
 - Maps: `l` now hides national borders along with labels, in the
   terrain view and on the globe. Borders are annotation the way place
   names are; turning both off leaves the bare planet. Coastlines and
