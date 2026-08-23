@@ -53,7 +53,7 @@ from linecast._maps_views import (  # noqa: F401 — the loaders and caches
     _water_subpixels,
 )
 from linecast._radar_basemap import (  # noqa: F401 — _edge_dots is re-exported
-    _BITS, BORDER, DotLayer, _edge_dots,
+    BORDER, DotLayer, _edge_dots,
 )
 from linecast import _theme
 from linecast._radar_i18n import rs

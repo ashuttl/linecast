@@ -14,7 +14,7 @@ from linecast._theme import (
     neutral_tone,
     surface_bg,
 )
-from linecast._tides_i18n import FULL_DAY_NAMES
+from linecast._weather_i18n import FULL_DAY_NAMES
 from linecast.sunshine import daylight_factor as solar_daylight_factor, moon_phase
 
 def _rebuild():

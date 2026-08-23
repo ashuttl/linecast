@@ -18,7 +18,6 @@ Style decisions (which classes, which colours, which bands) all live in
 _maps_style; this module only asks it questions.
 """
 
-import math
 
 from linecast import _maps_hover, _maps_labels, _maps_style as style
 from linecast._mvt import (

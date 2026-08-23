@@ -68,8 +68,8 @@ def _rebuild():
 
 
 _rebuild()
-from linecast import _theme as _theme_mod
-_theme_mod.on_reload(_rebuild)
+from linecast import _theme
+_theme.on_reload(_rebuild)
 
 
 def subsolar(t=None):

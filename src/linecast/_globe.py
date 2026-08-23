@@ -50,8 +50,8 @@ def _rebuild():
     _AIRGLOW = themed((96, 150, 116))
 
 
-from linecast import _theme as _theme_mod
-_theme_mod.on_reload(_rebuild)
+from linecast import _theme
+_theme.on_reload(_rebuild)
 
 # lls (the coarse per-sample lat/lon grid) and glow_lls (the limb
 # point each rim-glow sample grazes) ride along for the now register,

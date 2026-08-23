@@ -1,7 +1,6 @@
 """Tides localization strings."""
 
 from linecast._i18n import lang_of, lookup
-from linecast._weather_i18n import FULL_DAY_NAMES  # re-export for convenience
 
 _TIDES_STRINGS = {
     "en": {

@@ -22,7 +22,6 @@ Usage: tides [--print] [--oneline] [--json] [--location PLACE] [--station ID | N
 import math
 import os
 import sys
-import time as _time
 from datetime import datetime, timezone, timedelta
 
 from linecast._braille import build_braille_curve
