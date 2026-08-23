@@ -8,58 +8,40 @@ import math
 from datetime import datetime, timedelta
 
 from linecast import USER_AGENT
-from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, read_stale, write_cache
-from linecast._geo import haversine_nm
+from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
+from linecast._tides_common import (
+    CACHE_DIR, cached_y_range, month_after, month_start, nearest_station,
+    station_coords, y_range_window,
+)
 
-CACHE_DIR = CACHE_ROOT / "tides"
-NEAREST_STATION_CACHE_MAX_AGE = 3600
 PREDICTION_CACHE_MAX_AGE = 86400
 
 
+def _reference_station_coords(station):
+    """Coordinates of a reference station; None for a subordinate one.
+
+    Subordinate stations (type "S") only publish high/low predictions;
+    the 6-minute series this chart needs comes back as an error. Only
+    reference stations (type "R") are eligible for auto-pick.
+    """
+    if station.get("type", "R") != "R":
+        return None
+    return station_coords(station)
+
+
 def find_nearest_station(lat, lng):
-    """Find closest NOAA tide station by distance.
+    """Find the closest NOAA reference station by distance.
 
     Returns (station_id, station_name) or (None, None). Cached for 1 hour.
+    The full station list is cached for 30 days (with stale fallback), so
+    this works offline and never re-downloads per location.
     """
-    cache_file = CACHE_DIR / f"station_{location_cache_key(lat, lng)}.json"
-    cached = read_cache(cache_file, NEAREST_STATION_CACHE_MAX_AGE)
-    if cached:
-        return cached["id"], cached["name"]
-
-    # The full station list is cached for 30 days (with stale fallback),
-    # so this works offline and never re-downloads per location.
-    stations = fetch_all_stations_noaa()
-    if not stations:
-        stale = read_stale(cache_file)
-        if stale:
-            return stale["id"], stale["name"]
-        return None, None
-
-    best_id, best_name, best_dist = None, None, float("inf")
-    for station in stations:
-        # Subordinate stations (type "S") only publish high/low predictions;
-        # the 6-minute series this chart needs comes back as an error. Only
-        # reference stations (type "R") are eligible for auto-pick.
-        if station.get("type", "R") != "R":
-            continue
-        try:
-            station_lat = float(station["lat"])
-            station_lng = float(station["lng"])
-        except (KeyError, ValueError):
-            continue
-        distance = haversine_nm(lat, lng, station_lat, station_lng)
-        if distance < best_dist:
-            best_dist = distance
-            best_id = str(station.get("id", ""))
-            best_name = station.get("name", "")
-
-    if best_dist > 100:
-        return None, None
-
-    result = {"id": best_id, "name": best_name, "lat": lat, "lng": lng}
-    write_cache(cache_file, result)
-    return best_id, best_name
+    return nearest_station(
+        CACHE_DIR / f"station_{location_cache_key(lat, lng)}.json", lat, lng,
+        fetch_all_stations_noaa, _reference_station_coords,
+        lambda s: (str(s.get("id", "")), s.get("name", "")),
+    )
 
 
 def fetch_station_metadata_noaa(station_id):
@@ -188,16 +170,6 @@ def _fetch_prediction_rows(cache_file, url, row_builder):
             rows.append(row)
     write_cache(cache_file, rows)
     return rows
-
-
-def month_start(day):
-    """First day of the calendar month containing *day*."""
-    return day.replace(day=1)
-
-
-def month_after(first):
-    """First day of the month following *first* (itself a first-of-month)."""
-    return (first + timedelta(days=32)).replace(day=1)
 
 
 def _months_covering(start_date, end_date):
@@ -354,52 +326,27 @@ def fetch_hilo_range(station_id, start_date, end_date, station_tz):
     return points
 
 
-def y_range_window(center_date):
-    """The span the y-axis range is measured over, as (start, end, key).
-
-    The calendar month before *center_date*'s through the month after:
-    at least 30 days either side, which covers two spring/neap cycles.
-    Anchoring to the calendar instead of the date keeps the cache key
-    (like "202608") the same all month, so one request serves every day
-    of the month rather than a fresh 61-day request and a new file each
-    day.
-    """
-    first = month_start(center_date)
-    start = month_start(first - timedelta(days=1))
-    end = month_after(month_after(first)) - timedelta(days=1)
-    return start, end, f"{first:%Y%m}"
-
-
 def fetch_y_range(station_id, center_date):
-    """Compute the y-axis range from hilo data around the date. Cached 7 days."""
+    """Compute the y-axis range from hilo data around the date. Cached 7 days.
+
+    The window and cache key are month-anchored (see y_range_window) so
+    consecutive days share one request and one file.
+    """
     start, end, key = y_range_window(center_date)
-    cache_file = CACHE_DIR / f"yrange_{station_id}_{key}.json"
 
-    cached = read_cache(cache_file, 7 * 86400)
-    if cached is not None:
-        return (cached["min"], cached["max"])
-
-    url = _prediction_url(station_id, start.strftime("%Y%m%d"),
-                          end.strftime("%Y%m%d"), "hilo")
-    try:
-        data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=15)
-    except Exception:
-        return None
-
-    predictions = data.get("predictions", []) if data else []
-    if not predictions:
-        return None
-
-    heights = []
-    for prediction in predictions:
+    def heights():
+        url = _prediction_url(station_id, start.strftime("%Y%m%d"),
+                              end.strftime("%Y%m%d"), "hilo")
         try:
-            heights.append(float(prediction["v"]))
-        except (KeyError, ValueError):
-            pass
+            data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=15)
+        except Exception:
+            return None
+        found = []
+        for prediction in (data.get("predictions", []) if data else []):
+            try:
+                found.append(float(prediction["v"]))
+            except (KeyError, ValueError):
+                pass
+        return found
 
-    if not heights:
-        return None
-
-    result = {"min": min(heights), "max": max(heights)}
-    write_cache(cache_file, result)
-    return (result["min"], result["max"])
+    return cached_y_range(CACHE_DIR / f"yrange_{station_id}_{key}.json", heights)

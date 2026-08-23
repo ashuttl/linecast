@@ -3,6 +3,7 @@ from datetime import date
 from unittest.mock import patch
 
 from linecast import _tides_chs as chs
+from linecast import _tides_common as common
 
 
 class YRangeTests(unittest.TestCase):
@@ -15,9 +16,9 @@ class YRangeTests(unittest.TestCase):
 
         data = [{"eventDate": "2026-08-01T05:00:00Z", "value": "3.0"},
                 {"eventDate": "2026-08-01T11:00:00Z", "value": "0.5"}]
-        with patch.object(chs, "read_cache", side_effect=fake_read_cache), \
+        with patch.object(common, "read_cache", side_effect=fake_read_cache), \
              patch.object(chs, "fetch_json", return_value=data) as fj, \
-             patch.object(chs, "write_cache"):
+             patch.object(common, "write_cache"):
             for day in (date(2026, 8, 23), date(2026, 8, 24)):
                 lo, hi = chs.fetch_y_range_chs("05320", day, None)
 
@@ -29,7 +30,7 @@ class YRangeTests(unittest.TestCase):
                       fj.call_args.args[0])
 
     def test_returns_cached_y_range(self):
-        with patch.object(chs, "read_cache", return_value={"min": -0.5, "max": 3.0}):
+        with patch.object(common, "read_cache", return_value={"min": -0.5, "max": 3.0}):
             self.assertEqual(chs.fetch_y_range_chs("05320", date(2026, 3, 27), None),
                              (-0.5, 3.0))
 

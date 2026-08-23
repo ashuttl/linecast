@@ -17,17 +17,18 @@ Free tier: 50 requests/day (no credit card required)
 """
 
 import os
-from datetime import datetime, timezone, timedelta
 
 from linecast import USER_AGENT
-from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, read_stale, write_cache
-from linecast._geo import haversine_nm
+from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
+from linecast._tides_common import (
+    CACHE_DIR, M_TO_FT, NEAREST_STATION_CACHE_MAX_AGE, cached_y_range,
+    iana_to_abbr, parse_cached_dt, parse_utc_iso, tz_offset_hours,
+    y_range_window,
+)
 
-CACHE_DIR = CACHE_ROOT / "tides"
 TIDECHECK_BASE = "https://tidecheck.com/api"
-M_TO_FT = 1 / 0.3048
-NEAREST_STATION_CACHE_MAX_AGE = 3600
+
 
 # ---------------------------------------------------------------------------
 # Key management
@@ -60,6 +61,8 @@ def find_nearest_station_tidecheck(lat, lng):
     """Find closest TideCheck tide station by lat/lng.
 
     Returns (station_id, station_name) or (None, None).  Cached for 1 hour.
+    The API does the distance search server-side, so this does not share
+    the station-list picker the other providers use.
     """
     if not is_available():
         return None, None
@@ -174,7 +177,6 @@ def fetch_station_metadata_tidecheck(station_id):
 
     station = data.get("station", {})
     tz_code = station.get("timezone", "")
-    tz_offset = _tz_offset_hours(tz_code)
 
     meta = {
         "id": str(station.get("id", station_id)),
@@ -183,83 +185,14 @@ def fetch_station_metadata_tidecheck(station_id):
         "state": station.get("country", ""),
         "lat": station.get("lat") or station.get("latitude"),
         "lng": station.get("lng") or station.get("longitude"),
-        "timezone_abbr": _iana_to_abbr(tz_code),
-        "timezonecorr": tz_offset,
+        "timezone_abbr": iana_to_abbr(tz_code),
+        "timezonecorr": tz_offset_hours(tz_code),
         "timeZoneCode": tz_code,
         "observedst": tz_code not in ("UTC", "GMT", ""),
         "source": "tidecheck",
     }
     write_cache(cache_file, meta)
     return meta
-
-
-def _tz_offset_hours(tz_code):
-    """Get current UTC offset in hours for an IANA timezone."""
-    if not tz_code:
-        return 0
-    try:
-        from zoneinfo import ZoneInfo
-        now = datetime.now(ZoneInfo(tz_code))
-        return now.utcoffset().total_seconds() / 3600
-    except Exception:
-        return 0
-
-
-_IANA_ABBR = {
-    "Europe/London": "GMT", "Europe/Paris": "CET", "Europe/Berlin": "CET",
-    "Europe/Rome": "CET", "Europe/Madrid": "CET", "Europe/Amsterdam": "CET",
-    "Europe/Brussels": "CET", "Europe/Vienna": "CET",
-    "Europe/Athens": "EET", "Europe/Helsinki": "EET",
-    "Europe/Istanbul": "TRT", "Europe/Moscow": "MSK",
-    "Asia/Tokyo": "JST", "Asia/Shanghai": "CST", "Asia/Hong_Kong": "HKT",
-    "Asia/Seoul": "KST", "Asia/Kolkata": "IST", "Asia/Bangkok": "ICT",
-    "Asia/Singapore": "SGT", "Asia/Dubai": "GST",
-    "Australia/Sydney": "AEST", "Australia/Perth": "AWST",
-    "Australia/Adelaide": "ACST", "Australia/Brisbane": "AEST",
-    "Pacific/Auckland": "NZST", "Pacific/Fiji": "FJT",
-    "Pacific/Honolulu": "HST", "Pacific/Guam": "ChST",
-    "America/New_York": "EST", "America/Chicago": "CST",
-    "America/Denver": "MST", "America/Los_Angeles": "PST",
-    "America/Anchorage": "AKST", "America/Phoenix": "MST",
-    "America/Toronto": "EST", "America/Vancouver": "PST",
-    "America/Halifax": "AST", "America/St_Johns": "NST",
-    "America/Sao_Paulo": "BRT", "America/Argentina/Buenos_Aires": "ART",
-    "America/Mexico_City": "CST", "America/Lima": "PET",
-    "America/Bogota": "COT", "America/Santiago": "CLT",
-    "Africa/Cairo": "EET", "Africa/Lagos": "WAT",
-    "Africa/Johannesburg": "SAST", "Africa/Nairobi": "EAT",
-}
-
-
-def _iana_to_abbr(tz_code):
-    """Map IANA timezone to common abbreviation for display."""
-    return _IANA_ABBR.get(tz_code, "UTC")
-
-
-# ---------------------------------------------------------------------------
-# UTC <-> local helpers
-# ---------------------------------------------------------------------------
-def _parse_iso_utc(s):
-    """Parse an ISO 8601 UTC timestamp to a timezone-aware UTC datetime."""
-    s = s.rstrip("Z")
-    if "." in s:
-        s = s[:s.index(".")]
-    return datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
-
-
-def _to_local(dt_utc, station_tz):
-    """Convert a UTC datetime to station local time."""
-    if station_tz is not None:
-        return dt_utc.astimezone(station_tz)
-    return dt_utc
-
-
-def _parse_cached_dt(iso_str, station_tz):
-    """Parse an ISO datetime string from cache back to aware datetime."""
-    dt = datetime.fromisoformat(iso_str)
-    if dt.tzinfo is None and station_tz is not None:
-        dt = dt.replace(tzinfo=station_tz)
-    return dt
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +259,7 @@ def fetch_hilo_range_tidecheck(station_id, start_date, end_date, station_tz):
 
     cached = read_cache(cache_file, 86400)
     if cached is not None:
-        return [(_parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in cached]
+        return [(parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in cached]
 
     days_needed = max(1, (end_date - start_date).days + 1)
     fetch_days = min(30, days_needed + 2)
@@ -341,10 +274,9 @@ def fetch_hilo_range_tidecheck(station_id, start_date, end_date, station_tz):
     labeled = []
     for ex in extremes:
         try:
-            dt_utc = _parse_iso_utc(ex.get("time", ""))
+            dt_local = parse_utc_iso(ex.get("time", ""), station_tz)
             height = float(ex.get("height", 0))
             height_ft = _maybe_convert_height(height, data)
-            dt_local = _to_local(dt_utc, station_tz)
             # TideCheck labels extremes as "high"/"low" (or "H"/"L")
             raw_type = str(ex.get("type", "")).upper()
             if raw_type.startswith("H"):
@@ -371,34 +303,20 @@ def fetch_y_range_tidecheck(station_id, center_date, station_tz):
     ours to choose; the cache key is month-anchored (see y_range_window)
     so consecutive days share one request and one file.
     """
-    from linecast._tides_noaa import y_range_window
     _, _, key = y_range_window(center_date)
-    cache_file = CACHE_DIR / f"tc_yrange_{station_id}_{key}.json"
 
-    cached = read_cache(cache_file, 7 * 86400)
-    if cached is not None:
-        return (cached["min"], cached["max"])
+    def heights():
+        # Fetch a 30-day window (the maximum TideCheck supports)
+        data = _fetch_tides_raw(station_id, days=30)
+        if not data:
+            return None
+        found = []
+        for ex in data.get("extremes", []):
+            try:
+                height = float(ex.get("height", 0))
+                found.append(_maybe_convert_height(height, data))
+            except (KeyError, ValueError, TypeError):
+                pass
+        return found
 
-    # Fetch a 30-day window (the maximum TideCheck supports)
-    data = _fetch_tides_raw(station_id, days=30)
-    if not data:
-        return None
-
-    extremes = data.get("extremes", [])
-    if not extremes:
-        return None
-
-    heights = []
-    for ex in extremes:
-        try:
-            height = float(ex.get("height", 0))
-            heights.append(_maybe_convert_height(height, data))
-        except (KeyError, ValueError, TypeError):
-            pass
-
-    if not heights:
-        return None
-
-    result = {"min": min(heights), "max": max(heights)}
-    write_cache(cache_file, result)
-    return (result["min"], result["max"])
+    return cached_y_range(CACHE_DIR / f"tc_yrange_{station_id}_{key}.json", heights)

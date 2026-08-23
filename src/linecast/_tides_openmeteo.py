@@ -16,14 +16,12 @@ rendering pipeline.  High/low events are derived locally from the hourly
 series with parabolic refinement for sub-hour timing.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from linecast import USER_AGENT
-from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, write_cache
+from linecast._cache import location_cache_key
 from linecast._http import fetch_json_cached
-
-CACHE_DIR = CACHE_ROOT / "tides"
-M_TO_FT = 1 / 0.3048
+from linecast._tides_common import CACHE_DIR, M_TO_FT, cached_y_range, local_day_bounds
 
 # One standard fetch window serves every caller (range, hilo, y-range,
 # metadata) from a single cached payload.  The marine API caps forecasts
@@ -154,11 +152,7 @@ def fetch_tides_range_openmeteo(station_id, start_date, end_date, station_tz):
     if coords is None:
         return []
     points = _series(_fetch_raw(*coords), station_tz)
-    lo = datetime(start_date.year, start_date.month, start_date.day)
-    hi = datetime(end_date.year, end_date.month, end_date.day) + timedelta(days=1)
-    if station_tz is not None:
-        lo = lo.replace(tzinfo=station_tz)
-        hi = hi.replace(tzinfo=station_tz)
+    lo, hi = local_day_bounds(start_date, end_date, station_tz)
     return [(dt, h) for dt, h in points if lo <= dt <= hi]
 
 
@@ -193,11 +187,7 @@ def fetch_hilo_range_openmeteo(station_id, start_date, end_date, station_tz):
     if coords is None:
         return []
     points = _series(_fetch_raw(*coords), station_tz)
-    lo = datetime(start_date.year, start_date.month, start_date.day)
-    hi = datetime(end_date.year, end_date.month, end_date.day) + timedelta(days=1)
-    if station_tz is not None:
-        lo = lo.replace(tzinfo=station_tz)
-        hi = hi.replace(tzinfo=station_tz)
+    lo, hi = local_day_bounds(start_date, end_date, station_tz)
     return [(dt, h, t) for dt, h, t in _extrema(points) if lo <= dt <= hi]
 
 
@@ -206,14 +196,7 @@ def fetch_y_range_openmeteo(station_id, center_date, station_tz):
     coords = parse_station_id(station_id)
     if coords is None:
         return None
-    cache_file = CACHE_DIR / f"om_yrange_{location_cache_key(*coords)}.json"
-    cached = read_cache(cache_file, 7 * 86400)
-    if cached is not None:
-        return (cached["min"], cached["max"])
-    points = _series(_fetch_raw(*coords), station_tz)
-    if not points:
-        return None
-    heights = [h for _, h in points]
-    result = {"min": min(heights), "max": max(heights)}
-    write_cache(cache_file, result)
-    return (result["min"], result["max"])
+    return cached_y_range(
+        CACHE_DIR / f"om_yrange_{location_cache_key(*coords)}.json",
+        lambda: [h for _, h in _series(_fetch_raw(*coords), station_tz)],
+    )

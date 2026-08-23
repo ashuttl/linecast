@@ -7,15 +7,15 @@ CKAN API responses.  If the API changes format, these tests will catch it.
 import json
 import sys
 import unittest
-from datetime import date, datetime, timezone, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
 FIXTURES = Path(__file__).parent / "fixtures"
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from linecast import _tides_common as common
 from linecast import _tides_qld as qld
-from linecast._cache import location_cache_key
 
 
 def _load(name):
@@ -115,9 +115,9 @@ class TestStationDiscovery(unittest.TestCase):
             {"name": "Townsville", "lat": -19.2553, "lng": 146.8283},
             {"name": "Gold Coast", "lat": -27.9422, "lng": 153.4286},
         ]
-        with patch.object(qld, "read_cache", return_value=None), \
+        with patch.object(common, "read_cache", return_value=None), \
              patch.object(qld, "_fetch_all_stations_qld", return_value=stations), \
-             patch.object(qld, "write_cache"):
+             patch.object(common, "write_cache"):
             station_id, station_name = qld.find_nearest_station_qld(-16.92, 145.78)
 
         self.assertEqual(station_id, "Cairns")
@@ -129,9 +129,9 @@ class TestStationDiscovery(unittest.TestCase):
             {"name": "Cairns", "lat": -16.9186, "lng": 145.7781},
         ]
         # Sydney is far from Cairns
-        with patch.object(qld, "read_cache", return_value=None), \
+        with patch.object(common, "read_cache", return_value=None), \
              patch.object(qld, "_fetch_all_stations_qld", return_value=stations), \
-             patch.object(qld, "write_cache"):
+             patch.object(common, "write_cache"):
             station_id, station_name = qld.find_nearest_station_qld(-33.87, 151.21)
 
         self.assertIsNone(station_id)
@@ -140,7 +140,7 @@ class TestStationDiscovery(unittest.TestCase):
     def test_find_nearest_uses_cache(self):
         """Cached result should be returned without fetching."""
         cached = {"id": "Cairns", "name": "Cairns"}
-        with patch.object(qld, "read_cache", return_value=cached):
+        with patch.object(common, "read_cache", return_value=cached):
             station_id, station_name = qld.find_nearest_station_qld(-16.92, 145.78)
 
         self.assertEqual(station_id, "Cairns")
@@ -149,9 +149,9 @@ class TestStationDiscovery(unittest.TestCase):
     def test_find_nearest_uses_stale_on_error(self):
         """Stale cache should be used when the API fails."""
         stale = {"id": "Cairns", "name": "Cairns"}
-        with patch.object(qld, "read_cache", return_value=None), \
+        with patch.object(common, "read_cache", return_value=None), \
              patch.object(qld, "_fetch_all_stations_qld", side_effect=RuntimeError("boom")), \
-             patch.object(qld, "read_stale", return_value=stale):
+             patch.object(common, "read_stale", return_value=stale):
             station_id, station_name = qld.find_nearest_station_qld(-16.92, 145.78)
 
         self.assertEqual(station_id, "Cairns")
@@ -210,39 +210,32 @@ class TestDatetimeParsing(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# High/low labeling
+# Y-axis range
 # ---------------------------------------------------------------------------
 
-class TestHiLoLabeling(unittest.TestCase):
-    def test_label_hilo_basic(self):
-        """Alternating peaks and troughs should be labeled correctly."""
-        AEST = timezone(timedelta(hours=10))
-        values = [
-            (datetime(2026, 3, 27, 2, 0, tzinfo=AEST), 0.5),
-            (datetime(2026, 3, 27, 8, 0, tzinfo=AEST), 2.5),
-            (datetime(2026, 3, 27, 14, 0, tzinfo=AEST), 0.3),
-            (datetime(2026, 3, 27, 20, 0, tzinfo=AEST), 2.8),
-        ]
-        labeled = qld._label_hilo(values)
-        self.assertEqual(len(labeled), 4)
-        # First value (0.5) < next (2.5) -> L
-        self.assertEqual(labeled[0][2], "L")
-        # Second value (2.5) > both neighbors -> H
-        self.assertEqual(labeled[1][2], "H")
-        # Third value (0.3) < both neighbors -> L
-        self.assertEqual(labeled[2][2], "L")
-        # Last value (2.8) > prev (0.3) -> H
-        self.assertEqual(labeled[3][2], "H")
+class TestYRange(unittest.TestCase):
+    def test_cache_key_is_month_anchored(self):
+        seen = []
 
-    def test_label_hilo_single(self):
-        AEST = timezone(timedelta(hours=10))
-        values = [(datetime(2026, 3, 27, 8, 0, tzinfo=AEST), 2.5)]
-        labeled = qld._label_hilo(values)
-        self.assertEqual(len(labeled), 1)
-        self.assertEqual(labeled[0][2], "H")
+        def fake_read_cache(path, max_age):
+            seen.append(path.name)
+            return {"min": 0.0, "max": 1.0}
 
-    def test_label_hilo_empty(self):
-        self.assertEqual(qld._label_hilo([]), [])
+        with patch.object(common, "read_cache", side_effect=fake_read_cache):
+            qld.fetch_y_range_qld("Gold Coast", date(2026, 3, 27))
+            qld.fetch_y_range_qld("Gold Coast", date(2026, 3, 28))
+
+        self.assertEqual(seen, ["qld_yrange_Gold_Coast_202603.json"] * 2)
+
+    def test_range_comes_from_three_days_either_side(self):
+        hilo = [(datetime(2026, 3, 25, 2, 0, tzinfo=qld.AEST), 0.5, "L"),
+                (datetime(2026, 3, 25, 8, 0, tzinfo=qld.AEST), 3.0, "H")]
+        with patch.object(common, "read_cache", return_value=None), \
+             patch.object(common, "write_cache"), \
+             patch.object(qld, "fetch_hilo_range_qld", return_value=hilo) as fh:
+            self.assertEqual(qld.fetch_y_range_qld("Cairns", date(2026, 3, 27)),
+                             (0.5, 3.0))
+        self.assertEqual(fh.call_args.args[1:3], (date(2026, 3, 24), date(2026, 3, 30)))
 
 
 # ---------------------------------------------------------------------------

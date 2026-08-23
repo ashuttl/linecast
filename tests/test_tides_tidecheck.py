@@ -5,8 +5,8 @@ import unittest
 from datetime import date, datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
 
+from linecast import _tides_common as common
 from linecast import _tides_tidecheck as tc
-from linecast._cache import location_cache_key
 
 
 class AvailabilityTests(unittest.TestCase):
@@ -305,9 +305,9 @@ class YRangeTests(unittest.TestCase):
             ],
         }
         with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
-             patch.object(tc, "read_cache", return_value=None), \
+             patch.object(common, "read_cache", return_value=None), \
              patch.object(tc, "_fetch_tides_raw", return_value=raw_data), \
-             patch.object(tc, "write_cache"):
+             patch.object(common, "write_cache"):
             result = tc.fetch_y_range_tidecheck("test-id", date(2026, 3, 27), None)
 
         self.assertIsNotNone(result)
@@ -317,7 +317,7 @@ class YRangeTests(unittest.TestCase):
     def test_returns_cached_y_range(self):
         cached = {"min": -0.5, "max": 3.0}
         with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
-             patch.object(tc, "read_cache", return_value=cached):
+             patch.object(common, "read_cache", return_value=cached):
             result = tc.fetch_y_range_tidecheck("test-id", date(2026, 3, 27), None)
 
         self.assertEqual(result, (-0.5, 3.0))
@@ -330,7 +330,7 @@ class YRangeTests(unittest.TestCase):
             return {"min": 0.0, "max": 1.0}
 
         with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
-             patch.object(tc, "read_cache", side_effect=fake_read_cache):
+             patch.object(common, "read_cache", side_effect=fake_read_cache):
             tc.fetch_y_range_tidecheck("test-id", date(2026, 3, 27), None)
             tc.fetch_y_range_tidecheck("test-id", date(2026, 3, 28), None)
 
@@ -355,26 +355,6 @@ class HeightConversionTests(unittest.TestCase):
         response = {}
         result = tc._maybe_convert_height(1.0, response)
         self.assertAlmostEqual(result, 1.0 / 0.3048, places=2)
-
-
-class IsoParsingTests(unittest.TestCase):
-    """Tests for _parse_iso_utc."""
-
-    def test_parses_standard_utc(self):
-        dt = tc._parse_iso_utc("2026-03-27T14:30:00Z")
-        self.assertEqual(dt.year, 2026)
-        self.assertEqual(dt.month, 3)
-        self.assertEqual(dt.hour, 14)
-        self.assertEqual(dt.tzinfo, timezone.utc)
-
-    def test_parses_with_fractional_seconds(self):
-        dt = tc._parse_iso_utc("2026-03-27T14:30:00.123Z")
-        self.assertEqual(dt.minute, 30)
-        self.assertEqual(dt.tzinfo, timezone.utc)
-
-    def test_parses_without_z(self):
-        dt = tc._parse_iso_utc("2026-03-27T14:30:00")
-        self.assertEqual(dt.tzinfo, timezone.utc)
 
 
 if __name__ == "__main__":

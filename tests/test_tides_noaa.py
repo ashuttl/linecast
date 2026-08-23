@@ -2,6 +2,7 @@ import unittest
 from datetime import date, datetime
 from unittest.mock import patch
 
+from linecast import _tides_common as common
 from linecast import _tides_noaa as noaa
 from linecast._cache import location_cache_key
 
@@ -130,9 +131,9 @@ class StationLookupTests(unittest.TestCase):
             {"id": "8418150", "name": "PORTLAND", "type": "R",
              "lat": "43.6567", "lng": "-70.2467"},
         ]
-        with patch.object(noaa, "read_cache", return_value=None), \
+        with patch.object(common, "read_cache", return_value=None), \
              patch.object(noaa, "fetch_all_stations_noaa", return_value=stations), \
-             patch.object(noaa, "write_cache"):
+             patch.object(common, "write_cache"):
             station_id, station_name = noaa.find_nearest_station(43.68, -70.36)
 
         self.assertEqual((station_id, station_name), ("8418150", "PORTLAND"))
@@ -141,9 +142,9 @@ class StationLookupTests(unittest.TestCase):
         stations = [
             {"id": "1", "name": "Typeless", "lat": "43.68", "lng": "-70.36"},
         ]
-        with patch.object(noaa, "read_cache", return_value=None), \
+        with patch.object(common, "read_cache", return_value=None), \
              patch.object(noaa, "fetch_all_stations_noaa", return_value=stations), \
-             patch.object(noaa, "write_cache"):
+             patch.object(common, "write_cache"):
             station_id, _ = noaa.find_nearest_station(43.68, -70.36)
 
         self.assertEqual(station_id, "1")
@@ -157,10 +158,10 @@ class StationLookupTests(unittest.TestCase):
             self.assertEqual(path, cache_file)
             return stale
 
-        with patch.object(noaa, "read_cache", return_value=None), \
+        with patch.object(common, "read_cache", return_value=None), \
              patch.object(noaa, "fetch_all_stations_noaa", return_value=[]), \
-             patch.object(noaa, "read_stale", side_effect=fake_read_stale), \
-             patch.object(noaa, "write_cache") as write_cache:
+             patch.object(common, "read_stale", side_effect=fake_read_stale), \
+             patch.object(common, "write_cache") as write_cache:
             station_id, station_name = noaa.find_nearest_station(lat, lng)
 
         self.assertEqual((station_id, station_name), ("222", "Second Harbor"))
@@ -216,23 +217,6 @@ class PredictionErrorTests(unittest.TestCase):
 
 
 class YRangeTests(unittest.TestCase):
-    def test_window_is_month_anchored_and_covers_30_days_each_side(self):
-        from datetime import timedelta
-        for center in (date(2026, 8, 1), date(2026, 8, 23), date(2026, 8, 31),
-                       date(2026, 1, 1), date(2026, 12, 31), date(2028, 2, 29)):
-            start, end, key = noaa.y_range_window(center)
-            self.assertEqual(key, center.strftime("%Y%m"))
-            self.assertEqual(start.day, 1)
-            self.assertEqual((end + timedelta(days=1)).day, 1)
-            self.assertLessEqual(start, center - timedelta(days=30))
-            self.assertGreaterEqual(end, center + timedelta(days=30))
-
-    def test_window_edges(self):
-        self.assertEqual(noaa.y_range_window(date(2026, 8, 23)),
-                         (date(2026, 7, 1), date(2026, 9, 30), "202608"))
-        self.assertEqual(noaa.y_range_window(date(2026, 1, 15)),
-                         (date(2025, 12, 1), date(2026, 2, 28), "202601"))
-
     def test_consecutive_days_share_one_cache_file(self):
         payload = {"predictions": [{"t": "2026-07-01 00:30", "v": "9.7", "type": "H"},
                                    {"t": "2026-07-01 06:40", "v": "-0.4", "type": "L"}]}
@@ -242,9 +226,9 @@ class YRangeTests(unittest.TestCase):
             seen.append(path.name)
             return None
 
-        with patch.object(noaa, "read_cache", side_effect=fake_read_cache), \
+        with patch.object(common, "read_cache", side_effect=fake_read_cache), \
              patch.object(noaa, "fetch_json", return_value=payload) as fj, \
-             patch.object(noaa, "write_cache"):
+             patch.object(common, "write_cache"):
             for day in (date(2026, 8, 23), date(2026, 8, 24)):
                 self.assertEqual(noaa.fetch_y_range("8418150", day), (-0.4, 9.7))
 

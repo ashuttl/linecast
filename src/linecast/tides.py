@@ -74,8 +74,6 @@ from linecast._tides_openmeteo import (
     fetch_y_range_openmeteo,
 )
 from linecast._tides_noaa import (
-    CACHE_DIR as _NOAA_CACHE_DIR,
-    NEAREST_STATION_CACHE_MAX_AGE as _NOAA_NEAREST_STATION_CACHE_MAX_AGE,
     day_to_dt as _day_to_dt,
     fetch_all_stations_noaa as _fetch_all_stations,
     fetch_hilo,
@@ -99,9 +97,6 @@ from linecast._tides_render import (
     render_tide_ticks as _render_tide_ticks,
 )
 from linecast.sunshine import moon_phase
-
-CACHE_DIR = _NOAA_CACHE_DIR
-NEAREST_STATION_CACHE_MAX_AGE = _NOAA_NEAREST_STATION_CACHE_MAX_AGE
 
 # ---------------------------------------------------------------------------
 # Ocean palette

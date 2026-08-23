@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
+from linecast import _tides_common as common
 from linecast import _tides_openmeteo as om
 
 
@@ -119,8 +120,8 @@ class RangeTests(unittest.TestCase):
 
     def test_y_range_spans_series(self):
         with patch.object(om, "_fetch_raw", return_value=_tide_payload()), \
-             patch.object(om, "read_cache", return_value=None), \
-             patch.object(om, "write_cache"):
+             patch.object(common, "read_cache", return_value=None), \
+             patch.object(common, "write_cache"):
             y = om.fetch_y_range_openmeteo("om:43.6770,-70.3710",
                                            date(2026, 8, 17), None)
         self.assertIsNotNone(y)

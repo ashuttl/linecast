@@ -5,17 +5,18 @@ All CHS data is in UTC and metres; this module converts to local time and
 feet for compatibility with the NOAA-based rendering pipeline.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import timezone, timedelta
 
 from linecast import USER_AGENT
-from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, read_stale, write_cache
-from linecast._geo import haversine_nm
+from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
+from linecast._tides_common import (
+    CACHE_DIR, M_TO_FT, cached_y_range, dedup_sorted, iana_to_abbr,
+    label_hilo, local_day_bounds, nearest_station, parse_cached_dt,
+    parse_utc_iso, station_coords, tz_offset_hours, y_range_window,
+)
 
-CACHE_DIR = CACHE_ROOT / "tides"
 CHS_BASE = "https://api-iwls.dfo-mpo.gc.ca/api/v1"
-M_TO_FT = 1 / 0.3048
-NEAREST_STATION_CACHE_MAX_AGE = 3600
 
 
 # ---------------------------------------------------------------------------
@@ -35,48 +36,23 @@ def _fetch_all_stations_chs():
     return data
 
 
+def _operating_station_coords(station):
+    """Coordinates of an operating station; None for a closed one."""
+    if not station.get("operating", True):
+        return None
+    return station_coords(station, "latitude", "longitude")
+
+
 def find_nearest_station_chs(lat, lng):
     """Find closest CHS tide station by haversine distance.
 
     Returns (station_id, station_name) or (None, None). Cached 1 hour.
     """
-    cache_file = CACHE_DIR / f"chs_station_{location_cache_key(lat, lng)}.json"
-    cached = read_cache(cache_file, NEAREST_STATION_CACHE_MAX_AGE)
-    if cached:
-        return cached["id"], cached["name"]
-
-    try:
-        stations = _fetch_all_stations_chs()
-    except Exception:
-        stale = read_stale(cache_file)
-        if stale:
-            return stale["id"], stale["name"]
-        return None, None
-
-    if not stations:
-        return None, None
-
-    best_id, best_name, best_dist = None, None, float("inf")
-    for s in stations:
-        try:
-            slat = float(s["latitude"])
-            slng = float(s["longitude"])
-        except (KeyError, ValueError, TypeError):
-            continue
-        if not s.get("operating", True):
-            continue
-        d = haversine_nm(lat, lng, slat, slng)
-        if d < best_dist:
-            best_dist = d
-            best_id = str(s.get("id", ""))
-            best_name = s.get("officialName", "")
-
-    if best_dist > 100:  # > 100 nautical miles
-        return None, None
-
-    result = {"id": best_id, "name": best_name, "lat": lat, "lng": lng}
-    write_cache(cache_file, result)
-    return best_id, best_name
+    return nearest_station(
+        CACHE_DIR / f"chs_station_{location_cache_key(lat, lng)}.json", lat, lng,
+        _fetch_all_stations_chs, _operating_station_coords,
+        lambda s: (str(s.get("id", "")), s.get("officialName", "")),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +82,6 @@ def fetch_station_metadata_chs(station_id):
         return data
 
     tz_code = data.get("timeZoneCode", "")
-    tz_offset = _tz_offset_hours(tz_code)
 
     meta = {
         "id": str(data.get("id", station_id)),
@@ -114,8 +89,8 @@ def fetch_station_metadata_chs(station_id):
         "state": data.get("provinceCode", ""),
         "lat": data.get("latitude"),
         "lng": data.get("longitude"),
-        "timezone_abbr": _iana_to_abbr(tz_code),
-        "timezonecorr": tz_offset,
+        "timezone_abbr": iana_to_abbr(tz_code),
+        "timezonecorr": tz_offset_hours(tz_code),
         "timeZoneCode": tz_code,
         "observedst": tz_code not in ("UTC", "GMT", ""),
         "source": "chs",
@@ -124,95 +99,14 @@ def fetch_station_metadata_chs(station_id):
     return meta
 
 
-def _tz_offset_hours(tz_code):
-    """Get current UTC offset in hours for an IANA timezone."""
-    if not tz_code:
-        return 0
-    try:
-        from zoneinfo import ZoneInfo
-        now = datetime.now(ZoneInfo(tz_code))
-        return now.utcoffset().total_seconds() / 3600
-    except Exception:
-        return 0
-
-
-_IANA_ABBR = {
-    "Canada/Pacific": "PST", "America/Vancouver": "PST",
-    "Canada/Mountain": "MST", "America/Edmonton": "MST",
-    "Canada/Central": "CST", "America/Winnipeg": "CST",
-    "Canada/Eastern": "EST", "America/Toronto": "EST",
-    "Canada/Atlantic": "AST", "America/Halifax": "AST",
-    "Canada/Newfoundland": "NST", "America/St_Johns": "NST",
-}
-
-
-def _iana_to_abbr(tz_code):
-    """Map IANA timezone to common abbreviation for display."""
-    return _IANA_ABBR.get(tz_code, "UTC")
-
-
 # ---------------------------------------------------------------------------
 # UTC <-> local helpers
 # ---------------------------------------------------------------------------
 def _utc_range_for_dates(start_date, end_date, station_tz):
     """Convert local date range to UTC ISO strings for the CHS API."""
-    local_start = datetime(start_date.year, start_date.month, start_date.day)
-    local_end = datetime(end_date.year, end_date.month, end_date.day) + timedelta(days=1)
-    if station_tz is not None:
-        local_start = local_start.replace(tzinfo=station_tz)
-        local_end = local_end.replace(tzinfo=station_tz)
-        utc_start = local_start.astimezone(timezone.utc)
-        utc_end = local_end.astimezone(timezone.utc)
-    else:
-        utc_start = local_start.replace(tzinfo=timezone.utc)
-        utc_end = local_end.replace(tzinfo=timezone.utc)
-    return (utc_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            utc_end.strftime("%Y-%m-%dT%H:%M:%SZ"))
-
-
-def _parse_chs_dt(s, station_tz):
-    """Parse CHS UTC datetime string to timezone-aware local datetime."""
-    s = s.rstrip("Z")
-    if "." in s:
-        s = s[:s.index(".")]
-    dt_utc = datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
-    if station_tz is not None:
-        return dt_utc.astimezone(station_tz)
-    return dt_utc
-
-
-def _parse_cached_dt(iso_str, station_tz):
-    """Parse an ISO datetime string from cache back to aware datetime."""
-    dt = datetime.fromisoformat(iso_str)
-    if dt.tzinfo is None and station_tz is not None:
-        dt = dt.replace(tzinfo=station_tz)
-    return dt
-
-
-# ---------------------------------------------------------------------------
-# High/low labeling
-# ---------------------------------------------------------------------------
-def _label_hilo(values):
-    """Infer H/L labels from a sequence of extrema (dt, height_ft) tuples.
-
-    CHS wlp-hilo does not label highs vs lows; this compares adjacent
-    values to determine which are peaks and which are troughs.
-    """
-    if not values:
-        return []
-    if len(values) == 1:
-        return [(*values[0], "H")]
-
-    labeled = []
-    for i, (dt, height) in enumerate(values):
-        if i == 0:
-            is_high = height > values[1][1]
-        elif i == len(values) - 1:
-            is_high = height > values[-2][1]
-        else:
-            is_high = height > values[i - 1][1] and height > values[i + 1][1]
-        labeled.append((dt, height, "H" if is_high else "L"))
-    return labeled
+    lo, hi = local_day_bounds(start_date, end_date, station_tz or timezone.utc)
+    return (lo.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            hi.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
 
 
 # ---------------------------------------------------------------------------
@@ -232,16 +126,7 @@ def fetch_tides_range_chs(station_id, start_date, end_date, station_tz):
         if chunk:
             points.extend(chunk)
         d = chunk_end + timedelta(days=1)
-
-    seen = set()
-    unique = []
-    for dt, h in points:
-        key = dt.replace(second=0, microsecond=0)
-        if key not in seen:
-            seen.add(key)
-            unique.append((dt, h))
-    unique.sort(key=lambda p: p[0])
-    return unique
+    return dedup_sorted(points)
 
 
 def _fetch_pred_chunk(station_id, start_date, end_date, station_tz):
@@ -252,7 +137,7 @@ def _fetch_pred_chunk(station_id, start_date, end_date, station_tz):
 
     cached = read_cache(cache_file, 86400)
     if cached is not None:
-        return [(_parse_cached_dt(r["dt"], station_tz), r["v"]) for r in cached]
+        return [(parse_cached_dt(r["dt"], station_tz), r["v"]) for r in cached]
 
     utc_from, utc_to = _utc_range_for_dates(start_date, end_date, station_tz)
     url = (
@@ -272,7 +157,7 @@ def _fetch_pred_chunk(station_id, start_date, end_date, station_tz):
     points = []
     for entry in data:
         try:
-            dt_local = _parse_chs_dt(entry["eventDate"], station_tz)
+            dt_local = parse_utc_iso(entry["eventDate"], station_tz)
             height_ft = float(entry["value"]) * M_TO_FT
             rows.append({"dt": dt_local.isoformat(), "v": height_ft})
             points.append((dt_local, height_ft))
@@ -295,7 +180,7 @@ def fetch_hilo_range_chs(station_id, start_date, end_date, station_tz):
 
     cached = read_cache(cache_file, 86400)
     if cached is not None:
-        return [(_parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in cached]
+        return [(parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in cached]
 
     utc_from, utc_to = _utc_range_for_dates(start_date, end_date, station_tz)
     url = (
@@ -313,13 +198,14 @@ def fetch_hilo_range_chs(station_id, start_date, end_date, station_tz):
     raw = []
     for entry in data:
         try:
-            dt_local = _parse_chs_dt(entry["eventDate"], station_tz)
+            dt_local = parse_utc_iso(entry["eventDate"], station_tz)
             height_ft = float(entry["value"]) * M_TO_FT
             raw.append((dt_local, height_ft))
         except (KeyError, ValueError, TypeError):
             continue
 
-    labeled = _label_hilo(raw)
+    # CHS wlp-hilo does not label highs vs lows.
+    labeled = label_hilo(raw)
 
     cache_rows = [{"dt": dt.isoformat(), "v": v, "t": t} for dt, v, t in labeled]
     write_cache(cache_file, cache_rows)
@@ -332,37 +218,26 @@ def fetch_y_range_chs(station_id, center_date, station_tz):
     The window and cache key are month-anchored (see y_range_window) so
     consecutive days share one request and one file.
     """
-    from linecast._tides_noaa import y_range_window
     start, end, key = y_range_window(center_date)
-    cache_file = CACHE_DIR / f"chs_yrange_{station_id}_{key}.json"
 
-    cached = read_cache(cache_file, 7 * 86400)
-    if cached is not None:
-        return (cached["min"], cached["max"])
-
-    utc_from, utc_to = _utc_range_for_dates(start, end, station_tz)
-    url = (
-        f"{CHS_BASE}/stations/{station_id}/data"
-        f"?time-series-code=wlp-hilo&from={utc_from}&to={utc_to}"
-    )
-    try:
-        data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=15)
-    except Exception:
-        return None
-
-    if not data or not isinstance(data, list):
-        return None
-
-    heights = []
-    for entry in data:
+    def heights():
+        utc_from, utc_to = _utc_range_for_dates(start, end, station_tz)
+        url = (
+            f"{CHS_BASE}/stations/{station_id}/data"
+            f"?time-series-code=wlp-hilo&from={utc_from}&to={utc_to}"
+        )
         try:
-            heights.append(float(entry["value"]) * M_TO_FT)
-        except (KeyError, ValueError, TypeError):
-            pass
+            data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=15)
+        except Exception:
+            return None
+        if not data or not isinstance(data, list):
+            return None
+        found = []
+        for entry in data:
+            try:
+                found.append(float(entry["value"]) * M_TO_FT)
+            except (KeyError, ValueError, TypeError):
+                pass
+        return found
 
-    if not heights:
-        return None
-
-    result = {"min": min(heights), "max": max(heights)}
-    write_cache(cache_file, result)
-    return (result["min"], result["max"])
+    return cached_y_range(CACHE_DIR / f"chs_yrange_{station_id}_{key}.json", heights)
