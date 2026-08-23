@@ -230,17 +230,16 @@ def _rebuild_inks():
     _SHADOW_TINT = themed((40, 48, 72))
     _LIGHT_TINT = themed((255, 248, 228))
 
-_elev_cache = {}     # (bbox, w, h) -> (elevation grid, coast dot masks)
-_elev_pending = set()
-_elev_lock = threading.Lock()
-_globe_cache = {}    # (lat, lon, zoom, w, h) -> GlobeView
-_globe_pending = set()
 _terrain_cache = {}  # (bbox, w, h) -> sub-pixel colour buffer
-_street_cache = {}   # (bbox, w, h) -> (fills, ranked DotLayer)
-_street_pending = set()
-_street_lock = threading.Lock()
 _live_refresh = False
 _fetch_hold = [0.0]  # monotonic deadline; live zoom taps push it forward
+
+
+def _nudge_repaint():
+    """Ask the live loop for a repaint, from any thread."""
+    if _live_refresh:
+        import signal
+        os.kill(os.getpid(), signal.SIGWINCH)
 
 
 def _fetch_held():
@@ -264,12 +263,72 @@ def _hold_fetches():
     _fetch_hold[0] = deadline
 
     def settle():
-        import signal
         time.sleep(ZOOM_SETTLE + 0.02)
         if _fetch_hold[0] == deadline:
-            os.kill(os.getpid(), signal.SIGWINCH)
+            _nudge_repaint()
 
     threading.Thread(target=settle, daemon=True).start()
+
+
+class _ViewCache:
+    """A few built views, loaded in the background when live.
+
+    `get` answers from the cache.  Blocking, a miss runs `load` on the
+    calling thread and raises what it raises.  Live, a miss starts one
+    daemon worker per key — none while a zoom gesture is still in
+    flight — and answers `empty` until the worker's view lands and
+    nudges a repaint; a worker that fails leaves nothing behind, so the
+    next repaint asks again.  The cache holds a handful of views and is
+    cleared, not pruned, when it grows past that: a pan is a few
+    neighbours, and a view older than the last four is not coming back.
+    """
+
+    def __init__(self, empty=None, keep=3):
+        self.empty = empty
+        self.keep = keep
+        self._views = {}
+        self._pending = set()
+        self._lock = threading.Lock()
+
+    def clear(self):
+        with self._lock:
+            self._views.clear()
+
+    def _put(self, key, view):
+        if len(self._views) > self.keep:
+            self._views.clear()
+        self._views[key] = view
+
+    def get(self, key, block, load):
+        with self._lock:
+            hit = self._views.get(key)
+            if hit is not None:
+                return hit
+            if not block:
+                if key in self._pending or _fetch_held():
+                    return self.empty
+                self._pending.add(key)
+
+        if block:
+            hit = load()
+            with self._lock:
+                self._put(key, hit)
+            return hit
+
+        def worker():
+            try:
+                hit = load()
+            except Exception:
+                hit = None
+            with self._lock:
+                self._pending.discard(key)
+                if hit is not None:
+                    self._put(key, hit)
+            if hit is not None:
+                _nudge_repaint()
+
+        threading.Thread(target=worker, daemon=True).start()
+        return self.empty
 
 
 def _view_key(bbox, gw, hc):
@@ -372,19 +431,13 @@ class TerrainView(namedtuple("TerrainView", "elev coast water rivers cover")):
 
 
 _EMPTY_TERRAIN = TerrainView(None, None, None, None, None)
+_elev_cache = _ViewCache(_EMPTY_TERRAIN)   # view key -> TerrainView
+_street_cache = _ViewCache((None, None, None))  # -> (fills, layer, labels)
+_globe_cache = _ViewCache()   # (lat, lon, zoom, w, h) -> GlobeView
 
 
 def _get_elevation(bbox, gw, hc, block):
     """A TerrainView for the view; live mode fetches in the background."""
-    key = _view_key(bbox, gw, hc)
-    with _elev_lock:
-        hit = _elev_cache.get(key)
-        if hit is not None:
-            return hit
-        if not block:
-            if key in _elev_pending or _fetch_held():
-                return _EMPTY_TERRAIN
-            _elev_pending.add(key)
 
     def load():
         # fetch at 2x and box-average down: point-sampled elevation makes
@@ -459,43 +512,12 @@ def _get_elevation(bbox, gw, hc, block):
             _water_subpixels(water, gw, hc) if water is not None else None,
             rivers, cover)
 
-    if block:
-        hit = load()
-        with _elev_lock:
-            _elev_cache[key] = hit
-        return hit
-
-    def worker():
-        try:
-            hit = load()
-        except Exception:
-            hit = None
-        with _elev_lock:
-            _elev_pending.discard(key)
-            if hit is not None:
-                if len(_elev_cache) > 3:
-                    _elev_cache.clear()
-                _elev_cache[key] = hit
-        if hit is not None and _live_refresh:
-            import signal
-            os.kill(os.getpid(), signal.SIGWINCH)
-
-    threading.Thread(target=worker, daemon=True).start()
-    return _EMPTY_TERRAIN
+    return _elev_cache.get(_view_key(bbox, gw, hc), block, load)
 
 
 def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
     """(fills, ranked layer, label overlays) for the view; live mode
     fetches in the background, exactly as the elevation path does."""
-    key = _view_key(bbox, gw, hc) + (lang, tuple(sorted(reserved)))
-    with _street_lock:
-        hit = _street_cache.get(key)
-        if hit is not None:
-            return hit
-        if not block:
-            if key in _street_pending or _fetch_held():
-                return None, None, None
-            _street_pending.add(key)
 
     def load():
         band, tiles = _maps_streets.fetch_view(bbox, hc)
@@ -504,29 +526,8 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
         return _maps_streets.build_street_view(bbox, gw, hc, tiles, band,
                                                lang, reserved)
 
-    if block:
-        hit = load()
-        with _street_lock:
-            _street_cache[key] = hit
-        return hit
-
-    def worker():
-        try:
-            hit = load()
-        except Exception:
-            hit = None
-        with _street_lock:
-            _street_pending.discard(key)
-            if hit is not None:
-                if len(_street_cache) > 3:
-                    _street_cache.clear()
-                _street_cache[key] = hit
-        if hit is not None and _live_refresh:
-            import signal
-            os.kill(os.getpid(), signal.SIGWINCH)
-
-    threading.Thread(target=worker, daemon=True).start()
-    return None, None, None
+    key = _view_key(bbox, gw, hc) + (lang, tuple(sorted(reserved)))
+    return _street_cache.get(key, block, load)
 
 
 def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None,
@@ -979,15 +980,6 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
 
 def _get_globe(lat0, lon0, zoom, gw, hc, block):
     """A GlobeView for the view; live mode fetches in the background."""
-    key = (round(lat0, 2), round(lon0, 2), round(zoom, 1), gw, hc)
-    with _elev_lock:
-        hit = _globe_cache.get(key)
-        if hit is not None:
-            return hit
-        if not block:
-            if key in _globe_pending or _fetch_held():
-                return None
-            _globe_pending.add(key)
 
     def load():
         # the fine grid feeds the coastline and box-averages into the
@@ -1024,34 +1016,12 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block):
             _globe.border_layer(lat0, lon0, zoom, gw, hc, BORDER_STROKE),
             lls, _globe.limb_lls(lat0, lon0, zoom, gw, hc * 2, atmo))
 
-    if block:
-        hit = load()
-        with _elev_lock:
-            if len(_globe_cache) > 3:
-                _globe_cache.clear()
-            _globe_cache[key] = hit
-        return hit
-
-    def worker():
-        try:
-            hit = load()
-        except Exception:
-            hit = None
-        with _elev_lock:
-            _globe_pending.discard(key)
-            if hit is not None:
-                if len(_globe_cache) > 3:
-                    _globe_cache.clear()
-                _globe_cache[key] = hit
-        if hit is not None and _live_refresh:
-            import signal
-            os.kill(os.getpid(), signal.SIGWINCH)
-
-    threading.Thread(target=worker, daemon=True).start()
-    return None
+    key = (round(lat0, 2), round(lon0, 2), round(zoom, 1), gw, hc)
+    return _globe_cache.get(key, block, load)
 
 
 _clouds_pending = [False]
+_clouds_lock = threading.Lock()
 
 
 def _get_clouds(zoom, hc, block):
@@ -1071,7 +1041,7 @@ def _get_clouds(zoom, hc, block):
         return _globe_now.peek()
     if canvas is not None and not _globe_now.stale():
         return canvas
-    with _elev_lock:
+    with _clouds_lock:
         if _clouds_pending[0]:
             return canvas
         _clouds_pending[0] = True
@@ -1081,11 +1051,10 @@ def _get_clouds(zoom, hc, block):
             changed = _globe_now.refresh(zoom, hc * 4)
         except Exception:
             changed = False
-        with _elev_lock:
+        with _clouds_lock:
             _clouds_pending[0] = False
-        if changed and _live_refresh:
-            import signal
-            os.kill(os.getpid(), signal.SIGWINCH)
+        if changed:
+            _nudge_repaint()
 
     threading.Thread(target=worker, daemon=True).start()
     return canvas
@@ -1643,7 +1612,6 @@ def main():
             The spin yields to a drag in progress and parks itself the
             moment a zoom crosses back inside the hand-off.
             """
-            import signal
             import time
             while spinning[0] == gen:
                 time.sleep(0.4)
@@ -1656,7 +1624,7 @@ def main():
                     continue  # a drag steers; the spin waits its turn
                 center[1] = (center[1] - 0.4 + 180.0) % 360.0 - 180.0
                 drag_sync[0] = True
-                os.kill(os.getpid(), signal.SIGWINCH)
+                _nudge_repaint()
 
         def cloud_tick():
             """The sky's slow heartbeat.
@@ -1666,7 +1634,6 @@ def main():
             is, one repaint.  Never an animation — a view left running
             all evening simply stays true.
             """
-            import signal
             import time
             while True:
                 time.sleep(1800)
@@ -1678,7 +1645,7 @@ def main():
                         _globe_now.refresh(zoom[0], max(8, rows - 2) * 4)
                     except Exception:
                         pass
-                os.kill(os.getpid(), signal.SIGWINCH)
+                _nudge_repaint()
 
         threading.Thread(target=cloud_tick, daemon=True).start()
 
