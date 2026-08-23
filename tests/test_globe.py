@@ -151,7 +151,7 @@ class TestLabelToggle:
         assert any("•" in line for line in on)
         assert not any("•" in line for line in off)
 
-    def test_globe_render_hides_borders_when_toggled(self, monkeypatch):
+    def test_globe_render_hides_linework_when_toggled(self, monkeypatch):
         from linecast import maps
         gw, hc = 40, 12
         lls, zs, rhos = _globe.geometry(20.0, -30.0, 125.0, gw, hc * 2)
@@ -160,7 +160,9 @@ class TestLabelToggle:
         borders = maps.DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
         # near the disk centre, but clear of the centre crosshair's cell
         borders._set_dot(gw + 4, hc * 2, maps.BORDER_STROKE)
-        view = _globe.GlobeView(elev, [[0] * gw for _ in range(hc)], zs,
+        coast = [[0] * gw for _ in range(hc)]
+        coast[hc // 2][gw // 2 - 3] = 0x10
+        view = _globe.GlobeView(elev, coast, zs,
                                 _globe.atmosphere(rhos, 125.0, hc * 2),
                                 None, borders)
         monkeypatch.setattr(maps, "_get_globe", lambda *a: view)
@@ -171,15 +173,20 @@ class TestLabelToggle:
                 "en", None)
         on, *_rest = maps._render_globe(*args, show_labels=True)
         off, *_rest = maps._render_globe(*args, show_labels=False)
-        stroke = chr(0x2800 + borders.dots[hc // 2][gw // 2 + 2])
-        assert any(stroke in line for line in on)
-        assert not any(stroke in line for line in off)
+        border = chr(0x2800 + borders.dots[hc // 2][gw // 2 + 2])
+        for stroke in (border, chr(0x2810)):
+            assert any(stroke in line for line in on)
+            assert not any(stroke in line for line in off)
 
-    def test_terrain_render_hides_borders_when_toggled(self, monkeypatch):
+    def test_terrain_render_hides_linework_when_toggled(self, monkeypatch):
         from linecast import maps
         gw, hc = 40, 12
         elev = [[500.0] * gw for _ in range(hc * 2)]
-        terrain = maps.TerrainView(elev, None, None, None, None)
+        coast = [[0] * gw for _ in range(hc)]
+        coast[hc // 2][gw // 2 - 5] = 0x10
+        rivers = maps.DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
+        rivers._set_dot((gw // 2 - 8) * 2, hc // 2 * 4 + 1, (0, 0, 255))
+        terrain = maps.TerrainView(elev, coast, None, rivers, None)
         monkeypatch.setattr(maps, "_get_elevation", lambda *a: terrain)
 
         class FakeBasemap:
@@ -199,8 +206,9 @@ class TestLabelToggle:
                 "en", None)
         on, *_rest = maps._render_terrain(*args, show_labels=True)
         off, *_rest = maps._render_terrain(*args, show_labels=False)
-        assert any(chr(0x2800 + 0x07) in line for line in on)
-        assert not any(chr(0x2800 + 0x07) in line for line in off)
+        for stroke in (chr(0x2807), chr(0x2810), chr(0x2802)):
+            assert any(stroke in line for line in on)
+            assert not any(stroke in line for line in off)
 
 
 class TestCities:

@@ -11,10 +11,10 @@ Notable changes, by release. Notes for the next release collect under
   desert, tundra — so the low Sahara reads as sand instead of meadow
   and the dry Tibetan Plateau as stone instead of snow. Works
   offline; applies to the terrain view and the globe.
-- Maps: `l` now hides national borders along with labels, in the
-  terrain view and on the globe. Borders are annotation the way place
-  names are; turning both off leaves the bare planet. Coastlines and
-  rivers stay.
+- Maps: `l` now hides the linework along with the labels — national
+  borders, coastlines, and rivers — in the terrain view and on the
+  globe, leaving the bare planet. Street mode's lines are part of the
+  map itself and stay.
 
 ## 1.15.1 — 2026-08-23
 

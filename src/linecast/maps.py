@@ -876,9 +876,10 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     than a network of named things, and "coastline" under the cursor
     would tell a reader less than the metres already there.
     """
-    # the basemap's braille here is border strokes only (the coastline
-    # comes from the elevation contour), and borders are annotation the
-    # same way names are — so `l` takes both, leaving the bare planet
+    # `l` off means no ink on the planet at all: labels, borders,
+    # coastlines and rivers alike, leaving the bare fields.  The
+    # basemap's braille here is border strokes only (the coastline
+    # comes from the elevation contour), so it isn't fetched.
     basemap = (_get_basemap(bbox, graph_w, height_cells)
                if show_labels else None)
     err = None
@@ -894,6 +895,8 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
         loading = view.elev is None
 
     elev, coast, rivers = view.elev, view.coast, view.rivers
+    if not show_labels:
+        coast = rivers = None
     if elev is not None:
         terrain = _terrain_buffer(elev, bbox, graph_w, height_cells,
                                   view.water, view.cover)
@@ -1115,7 +1118,8 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
         loading = view is None
 
     elev = view.elev if view is not None else None
-    coast = view.coast if view is not None else None
+    coast = (view.coast if view is not None and show_labels
+             else None)
     borders = (view.borders if view is not None and show_labels
                else None)
     if elev is not None:
