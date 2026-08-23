@@ -14,11 +14,10 @@ Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 Usage: weather [--print] [--oneline] [--json] [--location LAT,LNG | PLACE] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--no-shading] [--lang fr] [--classic-colors]
 """
 
-import os
 import sys
 
 from linecast._graphics import bg, fg, get_terminal_size, live_loop, visible_len
-from linecast._location import get_location
+from linecast._location import resolve_location
 from linecast._runtime import WeatherRuntime, install_banner, weather_parser
 from linecast._weather_i18n import (
     WMO_NAMES,
@@ -52,7 +51,6 @@ from linecast._weather_sources import (
     fetch_aqi,
     fetch_alerts,
     fetch_forecast,
-    geocode_first,
 )
 
 
@@ -331,26 +329,11 @@ def main():
         _search_locations(args.search, lang=runtime.lang)
         return
 
-    # Location: --location flag > WEATHER_LOCATION env > geolocation
-    override = args.location or os.environ.get("WEATHER_LOCATION", "").strip()
-
-    if override:
-        # Try parsing as LAT,LNG first; otherwise geocode as a place name
-        try:
-            parts = override.split(",")
-            lat, lng = float(parts[0]), float(parts[1])
-        except (ValueError, IndexError):
-            hit = geocode_first(override, lang=runtime.lang)
-            if hit is None:
-                print(f'No locations matching "{override}".', file=sys.stderr)
-                sys.exit(1)
-            lat, lng, _label = hit
-        country_code = ""  # will be detected via reverse geocode
-    else:
-        lat, lng, country_code = get_location()
-        if lat is None:
-            print("Could not determine location.", file=sys.stderr)
-            sys.exit(1)
+    # country_code is "" for an override; the reverse geocode fills it in
+    lat, lng, country_code = resolve_location(args.location, lang=runtime.lang)
+    if lat is None:
+        print("Could not determine location.", file=sys.stderr)
+        sys.exit(1)
 
     # Fetch data in parallel for faster startup
     from concurrent.futures import ThreadPoolExecutor

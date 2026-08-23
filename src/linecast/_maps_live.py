@@ -9,7 +9,6 @@ _maps_views.
 """
 
 import math
-import os
 import sys
 import threading
 
@@ -19,7 +18,7 @@ from linecast import (
 from linecast._framebuffer import get_terminal_size
 from linecast._graphics import live_loop
 from linecast._live import nudge as _nudge_repaint
-from linecast._location import get_location
+from linecast._location import resolve_location
 from linecast._maps_i18n import ms
 from linecast._maps_search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
@@ -56,24 +55,11 @@ def main():
         _search_locations(args.search, lang=runtime.lang)
         return
 
-    override = args.location or os.environ.get("WEATHER_LOCATION", "").strip()
-    location_name = ""
-    if override:
-        try:
-            parts = override.split(",")
-            lat, lon = float(parts[0]), float(parts[1])
-        except (ValueError, IndexError):
-            from linecast._weather_sources import geocode_first
-            hit = geocode_first(override, lang=runtime.lang)
-            if hit is None:
-                print(f'No locations matching "{override}".', file=sys.stderr)
-                sys.exit(1)
-            lat, lon, location_name = hit
-    else:
-        lat, lon, _cc = get_location()
-        if lat is None:
-            print("Could not determine location.", file=sys.stderr)
-            sys.exit(1)
+    lat, lon, _cc, location_name = resolve_location(
+        args.location, lang=runtime.lang, return_label=True)
+    if lat is None:
+        print("Could not determine location.", file=sys.stderr)
+        sys.exit(1)
 
     if not location_name:
         try:

@@ -62,8 +62,29 @@ class ResolveLocationTests(unittest.TestCase):
 
     def test_unmatched_place_name_exits(self):
         with patch("linecast._weather_sources.geocode_first", return_value=None):
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(SystemExit) as cm:
                 _location.resolve_location("Nowhereville Q")
+        # a string code prints to stderr and exits 1, once the caller's
+        # finally blocks (radar's spinner) have run
+        self.assertEqual(cm.exception.code, 'No locations matching "Nowhereville Q".')
+
+    def test_return_label_carries_the_geocoder_hit(self):
+        with patch("linecast._weather_sources.geocode_first",
+                   return_value=(43.68, -70.35, "Westbrook, Maine")):
+            self.assertEqual(
+                _location.resolve_location("Westbrook", return_label=True),
+                (43.68, -70.35, "", "Westbrook, Maine"))
+
+    def test_return_label_is_empty_for_coordinates_and_fallback(self):
+        with patch.dict(os.environ, {"WEATHER_LOCATION": ""}), \
+             patch.object(_location, "get_location",
+                          return_value=(3.0, 4.0, "US")):
+            self.assertEqual(
+                _location.resolve_location(None, return_label=True),
+                (3.0, 4.0, "US", ""))
+        self.assertEqual(
+            _location.resolve_location("43.68,-70.35", return_label=True),
+            (43.68, -70.35, "", ""))
 
     def test_need_country_reverse_geocodes_override(self):
         with patch("linecast._weather_sources._reverse_geocode",

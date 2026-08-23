@@ -52,7 +52,8 @@ def get_location():
     return None, None, None
 
 
-def resolve_location(cli_location=None, lang="en", need_country=False):
+def resolve_location(cli_location=None, lang="en", need_country=False,
+                     return_label=False):
     """Resolve the working location for a command.
 
     Precedence: --location flag (*cli_location*) > WEATHER_LOCATION env >
@@ -62,12 +63,18 @@ def resolve_location(cli_location=None, lang="en", need_country=False):
 
     country_code is "" for overrides unless *need_country* is set, in which
     case it is filled in via the (cached) reverse geocoder.
+
+    With *return_label*, a fourth element carries the geocoder's label for
+    a place-name override ("" otherwise); radar and maps show it as the
+    place name instead of reverse-geocoding the coordinates again.
     """
     override = (cli_location or os.environ.get("WEATHER_LOCATION", "")).strip()
     if not override:
-        return get_location()
+        lat, lng, country = get_location()
+        return (lat, lng, country, "") if return_label else (lat, lng, country)
 
     country = ""
+    label = ""
     try:
         parts = override.split(",")
         lat, lng = float(parts[0]), float(parts[1])
@@ -75,13 +82,15 @@ def resolve_location(cli_location=None, lang="en", need_country=False):
         from linecast._weather_sources import geocode_first
         hit = geocode_first(override, lang=lang)
         if hit is None:
-            print(f'No locations matching "{override}".', file=sys.stderr)
-            sys.exit(1)
-        lat, lng, _label = hit
+            # sys.exit with a message prints it to stderr with status 1,
+            # after the caller's finally blocks have run -- so a spinner
+            # on the same line is cleared before the message lands.
+            sys.exit(f'No locations matching "{override}".')
+        lat, lng, label = hit
     if need_country:
         from linecast._weather_sources import _reverse_geocode
         _name, country, _addr = _reverse_geocode(lat, lng)
-    return lat, lng, country
+    return (lat, lng, country, label) if return_label else (lat, lng, country)
 
 
 def location_is_pinned(cli_location=None):

@@ -30,7 +30,7 @@ import time as _time
 from linecast._color import fg, RESET, BOLD
 from linecast._framebuffer import get_terminal_size
 from linecast import _theme
-from linecast._location import get_location
+from linecast._location import resolve_location
 from linecast import _radar_frames
 from linecast import _radar_layers
 from linecast import _radar_warnings
@@ -407,30 +407,15 @@ def main():
 
     # everything from here to the first paint may block on the network
     # (geocoding, the frame index, static-mode frame fetches) — spin
-    override = args.location or os.environ.get("WEATHER_LOCATION", "").strip()
-    location_name = ""
     spin = Spinner(rs("loading", runtime.lang))
     spin.start()
     try:
-        if override:
-            try:
-                parts = override.split(",")
-                lat, lon = float(parts[0]), float(parts[1])
-            except (ValueError, IndexError):
-                from linecast._weather_sources import geocode_first
-                hit = geocode_first(override, lang=runtime.lang)
-                if hit is None:
-                    spin.stop()
-                    print(f'No locations matching "{override}".',
-                          file=sys.stderr)
-                    sys.exit(1)
-                lat, lon, location_name = hit
-        else:
-            lat, lon, _cc = get_location()
-            if lat is None:
-                spin.stop()
-                print("Could not determine location.", file=sys.stderr)
-                sys.exit(1)
+        lat, lon, _cc, location_name = resolve_location(
+            args.location, lang=runtime.lang, return_label=True)
+        if lat is None:
+            spin.stop()
+            print("Could not determine location.", file=sys.stderr)
+            sys.exit(1)
 
         if not location_name:
             try:
