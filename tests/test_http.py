@@ -282,10 +282,12 @@ class TestVersion:
     def test_help_does_not_import_metadata_or_urllib(self):
         # every command builds a parser; none of them should pay for the
         # version lookup or urllib.request unless a request is made
-        out = subprocess.run(
-            [sys.executable, "-X", "importtime", "-c",
-             "import linecast.weather, linecast._runtime; "
-             "linecast._runtime.weather_parser()"],
-            capture_output=True, text=True, cwd=_src).stderr
-        assert "importlib.metadata" not in out
-        assert "urllib.request" not in out
+        for code in ("import linecast.weather, linecast._runtime; "
+                     "linecast._runtime.weather_parser()",
+                     "import linecast.radar",
+                     "import linecast.maps"):
+            out = subprocess.run(
+                [sys.executable, "-X", "importtime", "-c", code],
+                capture_output=True, text=True, cwd=_src).stderr
+            assert "importlib.metadata" not in out, code
+            assert "urllib.request" not in out, code

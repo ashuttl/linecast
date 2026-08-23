@@ -23,7 +23,6 @@ from linecast import _theme
 from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
 from linecast._color import lerp, interp_stops, BG_PRIMARY
 from linecast._http import fetch_json
-from linecast import USER_AGENT
 
 # lattice resolution: 10x6 keeps one fetch cheap while resolving synoptic
 # gradients (~0.6° spacing at the default 6° zoom)
@@ -147,8 +146,7 @@ def fetch_field(bbox, timeout=10):
            "&hourly=temperature_2m,wind_speed_10m,wind_direction_10m"
            "&past_days=1&forecast_days=2&timezone=UTC&wind_speed_unit=kmh")
     try:
-        results = fetch_json(url, headers={"User-Agent": USER_AGENT},
-                             timeout=timeout)
+        results = fetch_json(url, timeout=timeout)
     except Exception:
         stale = read_stale(cpath)  # network down: an old field beats none
         if stale is not None:

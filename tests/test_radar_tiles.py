@@ -2,7 +2,8 @@
 
 No network access: _fetch_tile is monkeypatched to return synthetic,
 programmatically-built PNG bytes rather than hitting the real API, and the
-cache-policy tests run against a temp directory with urlopen stubbed.
+cache-policy tests run against a temp directory with _http.fetch_bytes
+stubbed.
 """
 
 import os
@@ -116,9 +117,10 @@ class TestTileUrl:
 class TestTileCachePolicy:
     """Disk-cache behaviour: per-colour keys, nowcast TTL, stale fallback."""
 
-    def _run(self, mutable, age, urlopen):
+    def _run(self, mutable, age, fetch):
+        from linecast import _http
         provider = librewxr_provider(2)
-        original_root, original_open = tiles.CACHE_ROOT, tiles.urllib.request.urlopen
+        original_root, original_fetch = tiles.CACHE_ROOT, _http.fetch_bytes
         with tempfile.TemporaryDirectory() as tmp:
             tiles.CACHE_ROOT = Path(tmp)
             cdir = tiles._cache_dir(provider)
@@ -127,36 +129,32 @@ class TestTileCachePolicy:
             cpath.write_bytes(b"CACHED")
             stamp = os.stat(cpath).st_mtime - age
             os.utime(cpath, (stamp, stamp))
-            tiles.urllib.request.urlopen = urlopen
+            _http.fetch_bytes = fetch
             try:
                 return tiles._fetch_tile(provider, "https://h", "/v2/radar/123",
                                          3, 1, 1, mutable=mutable)
             finally:
                 tiles.CACHE_ROOT = original_root
-                tiles.urllib.request.urlopen = original_open
-
-    class _Fresh:
-        def read(self):
-            return b"FRESH"
+                _http.fetch_bytes = original_fetch
 
     def test_immutable_tile_served_from_cache_forever(self):
         def no_network(*a, **k):
             raise AssertionError("immutable cached tile must not refetch")
-        assert self._run(False, age=100000, urlopen=no_network) == b"CACHED"
+        assert self._run(False, age=100000, fetch=no_network) == b"CACHED"
 
     def test_fresh_nowcast_tile_served_from_cache(self):
         def no_network(*a, **k):
             raise AssertionError("fresh nowcast tile must not refetch")
-        assert self._run(True, age=60, urlopen=no_network) == b"CACHED"
+        assert self._run(True, age=60, fetch=no_network) == b"CACHED"
 
     def test_stale_nowcast_tile_refetched(self):
         assert self._run(True, age=700,
-                         urlopen=lambda *a, **k: self._Fresh()) == b"FRESH"
+                         fetch=lambda *a, **k: b"FRESH") == b"FRESH"
 
     def test_stale_nowcast_falls_back_to_cache_when_offline(self):
         def offline(*a, **k):
             raise OSError("no network")
-        assert self._run(True, age=700, urlopen=offline) == b"CACHED"
+        assert self._run(True, age=700, fetch=offline) == b"CACHED"
 
 
 class TestReproject:

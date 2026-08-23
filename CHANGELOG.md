@@ -54,6 +54,9 @@ Notable changes, by release. Notes for the next release collect under
   only when something prints it.
 - Tides: Old per-day cache files left behind by earlier versions are
   cleaned up on the next run.
+- Radar: Tile, frame and index downloads reuse one connection per
+  server instead of opening a fresh one each time, and radar and maps
+  start a little faster.
 
 ## 1.15.1 — 2026-08-23
 

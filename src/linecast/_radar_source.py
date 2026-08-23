@@ -11,10 +11,9 @@ Attribution: Iowa Environmental Mesonet, Iowa State University.
 """
 
 import datetime
-import urllib.request
 
-from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT
+from linecast._http import fetch_bytes
 from linecast._runtime import debug_log
 
 _WMS = "https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q-t.cgi"
@@ -78,9 +77,7 @@ def fetch_frame(bbox, w, h, when=None, timeout=15):
 
     url = _url(bbox, w, h, when)
     try:
-        debug_log(f"radar fetch {url}")
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        data = urllib.request.urlopen(req, timeout=timeout).read()
+        data = fetch_bytes(url, timeout=timeout)
     except Exception as exc:
         debug_log(f"radar fetch failed: {exc}")
         if path.exists():

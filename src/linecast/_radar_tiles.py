@@ -17,11 +17,10 @@ import math
 import os
 import threading
 import time
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, write_bytes_atomic
+from linecast._http import fetch_bytes, fetch_bytes_cached
 from linecast._png import decode_rgba
 from linecast._runtime import debug_log
 
@@ -115,9 +114,7 @@ def fetch_index(provider, timeout=15):
         except Exception:
             pass
     try:
-        req = urllib.request.Request(provider.index_url,
-                                     headers={"User-Agent": USER_AGENT})
-        data = urllib.request.urlopen(req, timeout=timeout).read()
+        data = fetch_bytes(provider.index_url, timeout=timeout)
         write_bytes_atomic(path, data)
         return json.loads(data)
     except Exception as exc:
@@ -159,24 +156,11 @@ def _fetch_tile(provider, host, path, z, x, y, timeout=15, mutable=False):
     _NOWCAST_TTL is refetched (stale bytes still serve as a network fallback).
     """
     frame_id = path.strip("/").replace("/", "_")
-    cdir = _cache_dir(provider)
-    cpath = (cdir / f"{frame_id}_{z}_{x}_{y}_c{provider.color}"
+    cpath = (_cache_dir(provider) / f"{frame_id}_{z}_{x}_{y}_c{provider.color}"
              f"_{provider.options}.png")
-    if cpath.exists():
-        fresh = (not mutable or
-                 (time.time() - cpath.stat().st_mtime) < _NOWCAST_TTL)
-        if fresh:
-            return cpath.read_bytes()
     url = _tile_url(provider, host, path, z, x, y)
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        data = urllib.request.urlopen(req, timeout=timeout).read()
-    except Exception as exc:
-        debug_log(f"{provider.name} tile {z}/{x}/{y} failed: {exc}")
-        return cpath.read_bytes() if cpath.exists() else None
-    cdir.mkdir(parents=True, exist_ok=True)
-    write_bytes_atomic(cpath, data)
-    return data
+    return fetch_bytes_cached(cpath, _NOWCAST_TTL if mutable else None, url,
+                              timeout=timeout)
 
 
 def reproject(provider, host, path, bbox, w, h, timeout=15, mutable=False,
