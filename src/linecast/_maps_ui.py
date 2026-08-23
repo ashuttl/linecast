@@ -42,7 +42,7 @@ from linecast._maps_route import ATTRIBUTION as ROUTE_ATTRIBUTION
 from linecast import _theme
 from linecast._theme import ensure_contrast, surface_bg
 from linecast._vtiles import ATTRIBUTION as TILE_ATTRIBUTION
-from linecast.radar import CROSSHAIR, DIM, MUTED
+from linecast._radar_ui import CROSSHAIR, DIM, MUTED
 
 MIN_CHARS = 2          # below this, asking is noise for both of us
 DEBOUNCE = 0.28        # seconds of quiet before a keystroke becomes a query

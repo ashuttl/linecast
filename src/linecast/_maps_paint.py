@@ -16,7 +16,7 @@ from linecast._color import (
 from linecast._framebuffer import halfblock
 from linecast._radar_basemap import BORDER
 from linecast._theme import lerp_rgb, themed
-from linecast.radar import MARKER
+from linecast._radar_ui import MARKER
 
 # geography over terrain: dark strokes cut into the colour fill (the
 # radar palette's dim-on-dark strokes vanish against light terrain).

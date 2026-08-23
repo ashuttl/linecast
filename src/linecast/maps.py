@@ -58,7 +58,7 @@ from linecast._radar_basemap import (  # noqa: F401 — _edge_dots is re-exporte
 from linecast import _theme
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for
-from linecast.radar import (
+from linecast._radar_ui import (
     CROSSHAIR, DIM, MUTED,
     _ShiftedBasemap, _get_basemap, _panned_place, _shift_grid,
 )

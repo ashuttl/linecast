@@ -47,7 +47,7 @@ from linecast._radar_source import FRAME_STEP
 from linecast import _radar_sources
 from linecast._radar_sources import (DEFAULT_THEME, THEMES, get_source,
                                      has_radar, theme_id)
-# maps and the tests reach the view helpers through this module
+# the tests reach the view helpers through this module
 from linecast._radar_ui import (
     CROSSHAIR, DIM, MARKER, MUTED, _ShiftedBasemap, _build_warning_tooltip,
     _fmt_expire, _fmt_local, _get_basemap, _panned_place, _shift_grid,
