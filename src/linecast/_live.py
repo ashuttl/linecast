@@ -255,7 +255,10 @@ def nudge():
 
     SIGWINCH rides the loop's self-pipe wakeup and coalesces harmlessly
     when several arrive at once; with no live loop running it does
-    nothing, so background work can call it unconditionally."""
+    nothing, so background work can call it unconditionally.  A loop
+    that ends between the check and the kill has already put the
+    previous SIGWINCH handler back, so the signal lands there (ignored,
+    by default) rather than in a pipe that is being closed."""
     if _running:
         import signal
         os.kill(os.getpid(), signal.SIGWINCH)
@@ -346,12 +349,14 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     os.set_blocking(wake_w, False)
 
     def _on_winch(*_):
+        if wake_w is None:
+            return  # the loop has ended and its pipe is closed
         try:
             os.write(wake_w, b'\x00')
         except OSError:
             pass
 
-    signal.signal(signal.SIGWINCH, _on_winch)
+    prev_winch = signal.signal(signal.SIGWINCH, _on_winch)
 
     # Route SIGTERM/SIGHUP through SystemExit so `pkill radar` or a closed
     # terminal still runs the finally block below — otherwise the alternate
@@ -617,6 +622,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     # The finally block still restores the terminal on its way out.
     finally:
         _running = False
+        # The SIGWINCH handler goes back before the pipe closes.  A
+        # background fetch that lands after the loop still calls nudge();
+        # with the handler left installed, its write would go to whatever
+        # file reused the pipe's descriptor number (a cache file being
+        # written, for one), and the byte would be served from that file
+        # from then on.
+        prev_handlers[signal.SIGWINCH] = prev_winch
         for _sig, _handler in prev_handlers.items():
             try:
                 signal.signal(_sig, _handler)
@@ -624,6 +636,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                 pass
         os.close(wake_r)
         os.close(wake_w)
+        wake_r = wake_w = None
         try:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
             cleanup = ""

@@ -137,3 +137,65 @@ class TestNudge:
     def test_radar_frames_nudge_is_the_live_one(self):
         from linecast import _live, _radar_frames
         assert _radar_frames._nudge is _live.nudge
+
+
+_LOOP_EXIT_CHILD = """
+import json, os, signal, sys, tempfile
+from linecast import _live
+hits = []
+def mine(*_):
+    hits.append(1)
+signal.signal(signal.SIGWINCH, mine)
+_live.live_loop(lambda offset_minutes=0, **kw: ".", interval=5)
+# the pipe's descriptor numbers are free again: the next two opens take
+# them, as a cache file written by a late worker would
+files = [open(os.path.join(os.environ["T"], name), "wb") for name in ("a", "b")]
+_live.nudge()                             # a worker landing after the loop
+os.kill(os.getpid(), signal.SIGWINCH)     # and a resize, for good measure
+restored = signal.getsignal(signal.SIGWINCH) is mine
+for f in files:
+    f.close()
+sizes = [os.path.getsize(f.name) for f in files]
+print(json.dumps({"restored": restored, "hits": len(hits),
+                  "running": _live._running, "sizes": sizes}),
+      file=sys.stderr)
+"""
+
+
+@pytest.mark.skipif(not hasattr(os, "openpty"), reason="needs a pty")
+def test_loop_exit_puts_the_sigwinch_handler_back(tmp_path):
+    """After live_loop returns, nudge() is a no-op, the handler installed
+    before the loop is back, and nothing is written into whatever file
+    now holds the wake pipe's descriptor numbers."""
+    import json
+    import select
+    import subprocess
+    import time
+    master, slave = os.openpty()
+    env = dict(os.environ, LINECAST_THEME="off", LINECAST_THEME_POLL="0",
+               LINECAST_THEME_WATCH="", PYTHONPATH=_src, T=str(tmp_path))
+    proc = subprocess.Popen([sys.executable, "-c", _LOOP_EXIT_CHILD],
+                            stdin=slave, stdout=slave, stderr=subprocess.PIPE,
+                            env=env, close_fds=True)
+    os.close(slave)
+    seen = b""
+    deadline = time.monotonic() + 15
+    try:
+        while time.monotonic() < deadline and proc.poll() is None:
+            ready, _, _ = select.select([master], [], [], 0.1)
+            if master in ready:
+                try:
+                    seen += os.read(master, 65536)
+                except OSError:
+                    break
+            if b"\x1b[?1049h" in seen and b"." in seen:
+                os.write(master, b"q")   # the loop is up: quit it
+                seen = b""
+        err = proc.communicate(timeout=5)[1]
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        os.close(master)
+    result = json.loads(err.decode().strip().splitlines()[-1])
+    assert result == {"restored": True, "hits": 1, "running": False,
+                      "sizes": [0, 0]}, err
