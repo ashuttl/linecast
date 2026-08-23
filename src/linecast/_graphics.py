@@ -13,6 +13,8 @@ All public symbols are re-exported here so existing imports continue to work:
     from linecast._graphics import fg, bg, Framebuffer, live_loop  # still works
 """
 
+from linecast import _theme
+
 # Color system
 from linecast._color import (  # noqa: F401
     _COLOR_TRUECOLOR,
@@ -66,5 +68,4 @@ from linecast._live import (  # noqa: F401
     live_loop,
 )
 
-from linecast import _theme as _theme_mod
-_theme_mod.reimport_on_reload(globals(), "linecast._color", "BG_PRIMARY")
+_theme.track_imports(globals(), "linecast._color")

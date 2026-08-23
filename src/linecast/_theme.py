@@ -457,6 +457,23 @@ def reimport_on_reload(namespace, module_name, *names):
     on_reload(_refresh)
 
 
+def track_imports(namespace, module_name):
+    """After each theme change, re-import into `namespace` (a module's
+    globals()) every name it took from module_name.  The names are found
+    once, now: those bound to the same object module_name binds them to,
+    which is what `from module_name import ...` leaves behind.  One line
+    at a module's tail, with no list to keep in step with its imports."""
+    import importlib
+    import types
+
+    source = vars(importlib.import_module(module_name))
+    names = [name for name, value in namespace.items()
+             if not name.startswith("__")
+             and not isinstance(value, types.ModuleType)
+             and name in source and source[name] is value]
+    reimport_on_reload(namespace, module_name, *names)
+
+
 def _apply(fg_value, bg_value, ansi_value):
     """Install a new theme and run the rebuild hooks."""
     global theme_fg, theme_bg, theme_ansi, theme_available, generation

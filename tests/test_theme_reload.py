@@ -79,6 +79,33 @@ class TestApply:
         _theme._apply(DARK[0], DARK[1], green)
         assert _maps_style.PALETTE_DARK["water"] != canonical
 
+    def test_track_imports_finds_the_copied_names(self):
+        import types
+        src = types.ModuleType("linecast._track_imports_probe")
+        src.INK = (1, 2, 3)
+        src.PAPER = (4, 5, 6)
+        src.paint = lambda: None
+        src.os = os
+        sys.modules[src.__name__] = src
+        ns = {"__name__": "probe", "INK": src.INK, "paint": src.paint, "os": os,
+              "PAPER": (9, 9, 9), "LOCAL": (7, 7, 7)}
+        try:
+            n = len(_theme._reload_hooks)
+            _theme.track_imports(ns, src.__name__)
+            hook = _theme._reload_hooks.pop()
+            assert len(_theme._reload_hooks) == n
+            src.INK = (10, 20, 30)
+            src.PAPER = (40, 50, 60)
+            src.paint = lambda: 1
+            hook()
+        finally:
+            del sys.modules[src.__name__]
+        assert ns["INK"] == (10, 20, 30)         # copied at import: follows
+        assert ns["paint"] is src.paint
+        assert ns["PAPER"] == (9, 9, 9)          # the module's own: untouched
+        assert ns["LOCAL"] == (7, 7, 7)
+        assert ns["os"] is os
+
     def test_copied_names_are_re_imported(self, restore_theme):
         _theme._apply(*LIGHT)
         assert _color.BG_PRIMARY == (250, 250, 248)

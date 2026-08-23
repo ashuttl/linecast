@@ -11,6 +11,7 @@ import re
 import shutil
 import unicodedata
 
+from linecast import _theme
 from linecast._color import RESET, BOLD, BG_PRIMARY, fg, bg, lerp
 
 
@@ -225,5 +226,4 @@ class Framebuffer:
             lines.append("".join(parts))
         return lines
 
-from linecast import _theme as _theme_mod
-_theme_mod.reimport_on_reload(globals(), "linecast._color", "BG_PRIMARY")
+_theme.track_imports(globals(), "linecast._color")
