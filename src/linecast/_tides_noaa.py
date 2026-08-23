@@ -5,6 +5,7 @@ for NOAA's CO-OPS APIs.
 """
 
 import math
+import threading
 from datetime import datetime, timedelta
 
 from linecast._cache import location_cache_key, read_cache, write_cache
@@ -174,6 +175,15 @@ def _months_covering(start_date, end_date):
     return months
 
 
+_month_locks = {}  # cache file name -> lock held while that month fetches
+_month_locks_lock = threading.Lock()
+
+
+def _month_lock(name):
+    with _month_locks_lock:
+        return _month_locks.setdefault(name, threading.Lock())
+
+
 def fetch_month(station_id, first, interval):
     """Fetch one calendar month of predictions, cached per station and month.
 
@@ -183,6 +193,11 @@ def fetch_month(station_id, first, interval):
     same month reads the same file: a day's view, the live view's two
     weeks, and the expansion when the user scrolls all share it, and the
     file stays valid from one day to the next.
+
+    Two threads asking for the same month at once (a subordinate
+    station's curve and its extremes both come from the hi/lo month)
+    take turns: the second waits on the month's lock and then reads the
+    file the first wrote, instead of making the same request itself.
     """
     kind = "hilo" if interval == "hilo" else "pred"
     cache_file = CACHE_DIR / f"{kind}_{station_id}_{first:%Y%m}.json"
@@ -190,7 +205,8 @@ def fetch_month(station_id, first, interval):
     url = _prediction_url(station_id, first.strftime("%Y%m%d"),
                           last.strftime("%Y%m%d"), interval)
     builder = _build_hilo_row if kind == "hilo" else _build_tide_row
-    return _fetch_prediction_rows(cache_file, url, builder)
+    with _month_lock(cache_file.name):
+        return _fetch_prediction_rows(cache_file, url, builder)
 
 
 def _rows_in_range(station_id, start_date, end_date, interval):

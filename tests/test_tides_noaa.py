@@ -100,6 +100,38 @@ class MonthChunkTests(unittest.TestCase):
         wc.assert_not_called()
 
 
+    def test_two_threads_asking_for_one_month_make_one_request(self):
+        # a subordinate station's curve and its extremes both want the
+        # hi/lo month, and tides.py asks for them on two threads at once
+        import tempfile
+        import threading
+        import time
+        from pathlib import Path
+        from linecast import _http
+        calls = []
+        payload = {"predictions": [
+            {"t": "2026-02-01 00:00", "v": "1.5", "type": "H"}]}
+
+        def slow_fetch(url, headers=None, timeout=10):
+            calls.append(url)
+            time.sleep(0.1)  # long enough for the second thread to arrive
+            return payload
+
+        results = []
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(noaa, "CACHE_DIR", Path(tmp)), \
+             patch.object(_http, "fetch_json", slow_fetch):
+            def ask():
+                results.append(noaa.fetch_month("8410875", date(2026, 2, 1), "hilo"))
+            ts = [threading.Thread(target=ask) for _ in range(2)]
+            for t in ts:
+                t.start()
+            for t in ts:
+                t.join()
+        self.assertEqual(len(calls), 1, calls)
+        self.assertEqual(results, [[["2026-02-01 00:00", 1.5, "H"]]] * 2)
+
+
 class StationLookupTests(unittest.TestCase):
     def test_find_nearest_station_uses_location_scoped_cache(self):
         legacy_cache_file = noaa.CACHE_DIR / "station.json"
