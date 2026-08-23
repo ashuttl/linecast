@@ -22,13 +22,12 @@ reach the screen.  Nominatim is never asked per keystroke — only on
 Enter, when Photon has come back empty.
 """
 
-import os
-import signal
 import threading
 
 from linecast import _maps_style as style
 from linecast._color import RESET, bg, fg
 from linecast._framebuffer import visible_len
+from linecast._live import nudge
 from linecast._maps_i18n import ms
 from linecast._maps_route import (
     NoRoute, PROFILES, RouteUnavailable, maneuver_glyph,
@@ -51,11 +50,6 @@ PANEL_MIN = 30
 PANEL_MAX = 56
 
 
-def _sigwinch():
-    """Wake the live loop the way the background fetchers already do."""
-    os.kill(os.getpid(), signal.SIGWINCH)
-
-
 class SearchState:
     """Everything the `/` prompt knows, and the one worker that feeds it.
 
@@ -75,7 +69,7 @@ class SearchState:
         self.gen = 0
         self._timer = None
         self._lock = threading.Lock()
-        self._refresh = refresh or _sigwinch
+        self._refresh = refresh or nudge
         self._fetch = fetch or photon_search
         self._one_shot = one_shot or nominatim_search
 
@@ -306,7 +300,7 @@ class RouteState:
         self.panel_rows = None  # (width, {row: action}) of the last draw
         self.gen = 0
         self._lock = threading.Lock()
-        self._refresh = refresh or _sigwinch
+        self._refresh = refresh or nudge
         self._fetch = fetch or route_client
 
     def select(self, lat, lon, label=""):

@@ -9,7 +9,6 @@ reaches the network.
 """
 
 import math
-import os
 import threading
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
@@ -18,6 +17,7 @@ from linecast import (
     _builtup, _globe, _globe_now, _maps_streets, _maps_style, _theme,
 )
 from linecast._elevation import elevation_grid
+from linecast._live import nudge as _nudge_repaint
 from linecast._maps_i18n import ms
 from linecast._maps_paint import (
     BORDER_STROKE, RIVER_STROKE, build_terrain_buffer,
@@ -28,15 +28,7 @@ from linecast._runtime import debug_log
 ZOOM_SETTLE = 0.3        # seconds of zoom quiet before a fetch may start
 
 _terrain_cache = {}  # (bbox, w, h) -> sub-pixel colour buffer
-_live_refresh = False
 _fetch_hold = [0.0]  # monotonic deadline; live zoom taps push it forward
-
-
-def _nudge_repaint():
-    """Ask the live loop for a repaint, from any thread."""
-    if _live_refresh:
-        import signal
-        os.kill(os.getpid(), signal.SIGWINCH)
 
 
 def _fetch_held():

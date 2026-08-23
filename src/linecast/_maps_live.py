@@ -14,16 +14,17 @@ import sys
 import threading
 
 from linecast import (
-    _globe, _globe_now, _maps_route, _maps_style, _maps_ui, _maps_views,
+    _globe, _globe_now, _maps_route, _maps_style, _maps_ui,
 )
 from linecast._framebuffer import get_terminal_size
 from linecast._graphics import live_loop
+from linecast._live import nudge as _nudge_repaint
 from linecast._location import get_location
 from linecast._maps_i18n import ms
 from linecast._maps_search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
 )
-from linecast._maps_views import _hold_fetches, _nudge_repaint
+from linecast._maps_views import _hold_fetches
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, maps_parser
 from linecast.maps import (
@@ -101,7 +102,6 @@ def main():
     origin = _endpoint(args.from_, "--from") if args.from_ else None
 
     if runtime.live:
-        _maps_views._live_refresh = True
         zoom = [args.zoom]
         center = [lat, lon]
         pan_preview = [0, 0]
