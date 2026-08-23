@@ -217,7 +217,15 @@ def bg(r, g, b):
 # Color math
 # ---------------------------------------------------------------------------
 def lerp(c1, c2, t):
-    """Linear interpolate between two RGB tuples."""
+    """Linear interpolate between two RGB tuples, truncating each channel.
+
+    Not interchangeable with _theme.lerp_rgb, which rounds and clamps:
+    at t=0.5 between black and white this gives 127 and that gives 128.
+    The framebuffer blends the same sub-pixel several times over (fill,
+    then glow, then curve), and the one-unit difference compounds to as
+    much as four in the sunshine sky, so swapping one for the other
+    moves rendered pixels.  Inputs are trusted: channels are not clamped.
+    """
     t = max(0.0, min(1.0, t))
     return tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
 
