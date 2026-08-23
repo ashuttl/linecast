@@ -34,7 +34,7 @@ from linecast._color import fg, bg, RESET, BOLD
 from linecast._framebuffer import get_terminal_size, fmt_time_dt
 from linecast import _theme
 from linecast._theme import ensure_contrast
-from linecast._weather_style import TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB
+from linecast._weather_style import TOOLTIP_BG_RGB
 from linecast._location import get_location
 from linecast import _radar_layers
 from linecast import _radar_warnings
@@ -980,4 +980,4 @@ if __name__ == "__main__":
 
 from linecast import _theme as _theme_mod
 _theme_mod.reimport_on_reload(globals(), "linecast._weather_style",
-"TOOLTIP_BG_RGB", "TOOLTIP_TEXT_RGB")
+                              "TOOLTIP_BG_RGB")
