@@ -29,7 +29,7 @@ import time
 from linecast import _radar_tiles as tiles
 from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
-from linecast._globe import _radius, _source_zoom, forward
+from linecast._globe import _radius, _source_zoom, bilinear_taps, forward
 from linecast._http import fetch_json
 from linecast._png import decode_rgba
 from linecast._radar_basemap import _load_data
@@ -286,28 +286,18 @@ def clouds(lls, canvas):
     where the mosaic's own edge feathers away, and the two are merged
     with max() — whichever source sees cloud there, cloud is drawn.
     """
-    buf, cw, ch, org_x, org_y, world = canvas
+    buf = canvas[0]
     grids = _cap_grids()
     out = []
     for row in lls:
         o = []
-        for ll in row:
-            if ll is None:
+        for ll, tap in zip(row, bilinear_taps(row, canvas)):
+            if tap is None:
                 o.append(0.0)
                 continue
-            lat = min(85.05, max(-85.05, ll[0]))
-            wx, wy = tiles._lonlat_to_world(ll[1], lat)
-            fx = wx * world - org_x - 0.5
-            fy = min(max(wy * world - org_y - 0.5, 0.0), ch - 1.0)
-            x0 = int(fx) % cw
-            x1 = (x0 + 1) % cw
-            y0 = int(fy)
-            y1 = min(y0 + 1, ch - 1)
-            tx, ty = fx - int(fx), fy - y0
-            a = ((buf[(y0 * cw + x0) * 4 + 3] * (1 - tx)
-                  + buf[(y0 * cw + x1) * 4 + 3] * tx) * (1 - ty)
-                 + (buf[(y1 * cw + x0) * 4 + 3] * (1 - tx)
-                    + buf[(y1 * cw + x1) * 4 + 3] * tx) * ty) / 255.0
+            j00, j01, j10, j11, tx, ty = tap
+            a = ((buf[j00 + 3] * (1 - tx) + buf[j01 + 3] * tx) * (1 - ty)
+                 + (buf[j10 + 3] * (1 - tx) + buf[j11 + 3] * tx) * ty) / 255.0
             if grids is not None and abs(ll[0]) > _CAP_FADE0:
                 t = min(1.0, (abs(ll[0]) - _CAP_FADE0)
                         / (_CAP_FADE1 - _CAP_FADE0))

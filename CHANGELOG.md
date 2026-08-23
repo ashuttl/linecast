@@ -29,6 +29,9 @@ Notable changes, by release. Notes for the next release collect under
   can't fall behind again.
 - Completions: fish's linecast completion now offers nu and nushell,
   and the unknown-shell message lists them.
+- Maps: Dragging and spinning the globe is more than twice as fast,
+  and hovering over it no longer re-places its city labels on every
+  repaint.
 
 ## 1.15.1 — 2026-08-23
 

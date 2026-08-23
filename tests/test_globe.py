@@ -59,6 +59,63 @@ class TestMarkers:
                                   -20.0, 150.0) is None
 
 
+def _varied_canvas(size=64):
+    """A one-tile world of rolling terrain with a transparent hole.
+
+    Elevation varies with both axes so a sampler that swapped its taps
+    would be caught; the hole exercises the weight-only-what-has-data
+    rule and its zero-weight corner."""
+    canvas = bytearray()
+    for y in range(size):
+        for x in range(size):
+            meters = 3000.0 * math.sin(x / 5.0) * math.cos(y / 7.0)
+            v = int(meters + 32768)
+            alpha = 0 if (20 <= x < 26 and 30 <= y < 34) else 255
+            canvas += bytes((v >> 8, v & 0xFF, (x * 37 + y * 11) & 0xFF,
+                             alpha))
+    return (canvas, size, size, 0, 0, size)
+
+
+def _reference_elevation(lls, canvas):
+    """_globe.elevation as it was before the straight-line rewrite."""
+    from linecast._elevation import decode_meters
+    from linecast._radar_tiles import _lonlat_to_world
+    canvas, cw, ch, org_x, org_y, world = canvas
+    grid = []
+    for ll_row in lls:
+        row = []
+        for ll in ll_row:
+            if ll is None:
+                row.append(None)
+                continue
+            lat = min(85.05, max(-85.05, ll[0]))
+            wx, wy = _lonlat_to_world(ll[1], lat)
+            fx = wx * world - org_x - 0.5
+            fy = min(max(wy * world - org_y - 0.5, 0.0), ch - 1.0)
+            x0 = int(fx) % cw
+            x1 = (x0 + 1) % cw
+            y0 = int(fy)
+            y1 = min(y0 + 1, ch - 1)
+            tx, ty = fx - int(fx), fy - y0
+            vals = []
+            for yy, wgt_y in ((y0, 1.0 - ty), (y1, ty)):
+                base = yy * cw * 4
+                for xx, wgt in ((x0, wgt_y * (1.0 - tx)),
+                                (x1, wgt_y * tx)):
+                    j = base + xx * 4
+                    if canvas[j + 3]:
+                        vals.append((decode_meters(
+                            canvas[j], canvas[j + 1], canvas[j + 2]), wgt))
+            if not vals:
+                row.append(None)
+            else:
+                wsum = sum(wgt for _, wgt in vals)
+                row.append(sum(v * wgt for v, wgt in vals) / wsum
+                           if wsum > 0 else vals[0][0])
+        grid.append(row)
+    return grid
+
+
 class TestElevation:
     def _flat_canvas(self, meters):
         # a one-tile world where every pixel decodes to `meters`
@@ -85,6 +142,52 @@ class TestElevation:
         lls, _zs, _rhos = _globe.geometry(89.0, 0.0, 125.0, 12, 12)
         grid = _globe.elevation(lls, 125.0, 12)
         assert grid[6][6] is not None
+
+    def test_matches_the_reference_sampler(self, monkeypatch):
+        # the straight-line sampler is the old one with its temporaries
+        # written out; it must agree with that reference to the metre's
+        # last bits, holes and the pole clamp included
+        canvas = _varied_canvas()
+        monkeypatch.setattr(_globe, "_world_canvas",
+                            lambda z, timeout: canvas)
+        lls, _zs, _rhos = _globe.geometry(70.0, 160.0, 120.0, 48, 36)
+        got = _globe.elevation(lls, 120.0, 36)
+        want = _reference_elevation(lls, canvas)
+        assert len(got) == len(want)
+        seen = 0
+        for g_row, w_row in zip(got, want):
+            for g, w in zip(g_row, w_row):
+                if w is None:
+                    assert g is None
+                    continue
+                seen += 1
+                assert abs(g - w) < 1e-9
+        assert seen > 300
+
+    def test_zero_weight_beside_a_hole_keeps_the_neighbour(self,
+                                                          monkeypatch):
+        # a sample exactly on pixel (x0, y0) weights its three other taps
+        # at zero; when only those carry data, the sampler returns the
+        # first of them undiluted rather than nothing (as it always has)
+        size = 8
+
+        def px(meters, alpha=255):
+            v = int(meters + 32768)
+            return bytes((v >> 8, v & 0xFF, 0, alpha))
+
+        canvas = bytearray(px(500.0) * (size * size))
+        canvas[(0 * size + 2) * 4:(0 * size + 3) * 4] = px(0.0, alpha=0)
+        canvas[(0 * size + 3) * 4:(0 * size + 4) * 4] = px(700.0)
+        canvas[(1 * size + 2) * 4:(1 * size + 3) * 4] = px(900.0)
+        hit = (canvas, size, size, 0, 0, size)
+        # lon -67.5 lands on column 2 exactly (tx == 0); a latitude past
+        # the mercator edge clamps to the top row exactly (ty == 0)
+        lls = [[(89.0, -67.5)]]
+        (tap,) = _globe.bilinear_taps(lls[0], hit)
+        assert tap[0] == (0 * size + 2) * 4 and tap[4:] == (0.0, 0.0)
+        monkeypatch.setattr(_globe, "_world_canvas", lambda z, t: hit)
+        assert _globe.elevation(lls, 125.0, size) == [[700.0]]
+        assert _reference_elevation(lls, hit) == [[700.0]]
 
     def test_warm_tracks_the_stitched_canvas(self, monkeypatch):
         # warm() gates live drag rotation: it must agree with the

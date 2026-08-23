@@ -26,7 +26,7 @@ from linecast._elevation import _fetch_tile, decode_meters
 from linecast._png import decode_rgba
 from linecast._radar_basemap import (
     CITY, CITY_LABEL, DotLayer, _cell_width, _load_data, _localized)
-from linecast._radar_tiles import _TILE_SIZE, _lonlat_to_world, stitch_xyz
+from linecast._radar_tiles import _TILE_SIZE, stitch_xyz
 from linecast._theme import themed
 
 # `zoom` (degrees of latitude the screen spans) at which the flat map
@@ -246,6 +246,67 @@ def _world_canvas(z, timeout):
     return hit
 
 
+def bilinear_taps(ll_row, canvas):
+    """Where one row of samples lands on a stitched world canvas.
+
+    Per sample, the byte offsets of the four pixels around it —
+    (j00, j01, j10, j11) for (x0,y0), (x1,y0), (x0,y1), (x1,y1) — and
+    the (tx, ty) blend between them, or None in space.  The elevation
+    canvas and the cloud mosaic share the mercator layout, so both
+    samplers share this; each reads its own channel from the taps.
+    Straight-line arithmetic on purpose: this runs for every sub-pixel
+    of every drag frame.
+    """
+    _canvas, cw, ch, org_x, org_y, world = canvas
+    log, sin, radians = math.log, math.sin, math.radians
+    four_pi = 4 * math.pi
+    lat_max = _MERCATOR_LAT
+    ch1 = ch - 1.0
+    cw4 = cw * 4
+    out = []
+    app = out.append
+    for ll in ll_row:
+        if ll is None:
+            app(None)
+            continue
+        lat = ll[0]
+        # samples poleward of the tiles' edge clamp to their last ring
+        if lat > lat_max:
+            lat = lat_max
+        elif lat < -lat_max:
+            lat = -lat_max
+        sn = sin(radians(lat))
+        # _lonlat_to_world, inlined
+        fx = (ll[1] + 180.0) / 360.0 * world - org_x - 0.5
+        fy = (0.5 - log((1 + sn) / (1 - sn)) / four_pi) * world - org_y - 0.5
+        if fy < 0.0:
+            fy = 0.0
+        elif fy > ch1:
+            fy = ch1
+        ix = int(fx)
+        x0 = ix % cw
+        x1 = (x0 + 1) % cw  # the antimeridian is a seam only on paper
+        y0 = int(fy)
+        y1 = y0 + 1
+        if y1 >= ch:
+            y1 = ch - 1
+        b0 = y0 * cw4
+        b1 = y1 * cw4
+        app((b0 + x0 * 4, b0 + x1 * 4, b1 + x0 * 4, b1 + x1 * 4,
+             fx - ix, fy - y0))
+    return out
+
+
+def _first_opaque(canvas, taps):
+    """The first tap with data, undiluted — for a sample whose only
+    opaque neighbours carry zero weight (it sits exactly on a pixel
+    beside a hole)."""
+    for j in taps:
+        if canvas[j + 3]:
+            return decode_meters(canvas[j], canvas[j + 1], canvas[j + 2])
+    return None
+
+
 def elevation(lls, zoom, h, timeout=15):
     """Meters under each visible sample of a geometry() grid.
 
@@ -253,40 +314,51 @@ def elevation(lls, zoom, h, timeout=15):
     zoom/h degrees per sample — and the whole world at that zoom is a
     few dozen immutable, disk-cached tiles, so the globe costs the
     network almost nothing after its first spin.
+
+    Bilinear over the four surrounding pixels, weighting only those
+    with data (a tile the network dropped leaves a transparent hole).
+    The inner loop is decode_meters and the blend written out by hand:
+    it runs tens of thousands of times per drag frame, and temporaries
+    were most of its cost.
     """
     z = _source_zoom(zoom, h)
-    canvas, cw, ch, org_x, org_y, world = _world_canvas(z, timeout)
+    hit = _world_canvas(z, timeout)
+    canvas = hit[0]
     grid = []
     for ll_row in lls:
         row = []
-        for ll in ll_row:
-            if ll is None:
-                row.append(None)
+        app = row.append
+        for tap in bilinear_taps(ll_row, hit):
+            if tap is None:
+                app(None)
                 continue
-            lat = min(_MERCATOR_LAT, max(-_MERCATOR_LAT, ll[0]))
-            wx, wy = _lonlat_to_world(ll[1], lat)
-            fx = wx * world - org_x - 0.5
-            fy = min(max(wy * world - org_y - 0.5, 0.0), ch - 1.0)
-            x0 = int(fx) % cw
-            x1 = (x0 + 1) % cw  # the antimeridian is a seam only on paper
-            y0 = int(fy)
-            y1 = min(y0 + 1, ch - 1)
-            tx, ty = fx - int(fx), fy - y0
-            vals = []
-            for yy, wgt_y in ((y0, 1.0 - ty), (y1, ty)):
-                base = yy * cw * 4
-                for xx, wgt in ((x0, wgt_y * (1.0 - tx)),
-                                (x1, wgt_y * tx)):
-                    j = base + xx * 4
-                    if canvas[j + 3]:
-                        vals.append((decode_meters(
-                            canvas[j], canvas[j + 1], canvas[j + 2]), wgt))
-            if not vals:
-                row.append(None)
+            j00, j01, j10, j11, tx, ty = tap
+            acc = 0.0
+            ws = 0.0
+            if canvas[j00 + 3]:
+                w = (1.0 - ty) * (1.0 - tx)
+                acc += ((canvas[j00] * 256 + canvas[j00 + 1]
+                         + canvas[j00 + 2] / 256.0) - 32768.0) * w
+                ws += w
+            if canvas[j01 + 3]:
+                w = (1.0 - ty) * tx
+                acc += ((canvas[j01] * 256 + canvas[j01 + 1]
+                         + canvas[j01 + 2] / 256.0) - 32768.0) * w
+                ws += w
+            if canvas[j10 + 3]:
+                w = ty * (1.0 - tx)
+                acc += ((canvas[j10] * 256 + canvas[j10 + 1]
+                         + canvas[j10 + 2] / 256.0) - 32768.0) * w
+                ws += w
+            if canvas[j11 + 3]:
+                w = ty * tx
+                acc += ((canvas[j11] * 256 + canvas[j11 + 1]
+                         + canvas[j11 + 2] / 256.0) - 32768.0) * w
+                ws += w
+            if ws > 0.0:
+                app(acc / ws)
             else:
-                wsum = sum(wgt for _, wgt in vals)
-                row.append(sum(v * wgt for v, wgt in vals) / wsum
-                           if wsum > 0 else vals[0][0])
+                app(_first_opaque(canvas, (j00, j01, j10, j11)))
         grid.append(row)
     return grid
 
