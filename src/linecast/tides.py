@@ -73,17 +73,12 @@ from linecast._tides_openmeteo import (
     fetch_hilo_range_openmeteo,
     fetch_y_range_openmeteo,
 )
+from linecast import _tides_noaa as _noaa
 from linecast._tides_noaa import (
-    day_to_dt as _day_to_dt,
     fetch_all_stations_noaa as _fetch_all_stations,
-    fetch_hilo,
-    fetch_hilo_range,
     fetch_station_metadata_noaa as _fetch_station_metadata,
-    fetch_tides,
-    fetch_tides_range,
     fetch_y_range,
     find_nearest_station,
-    synthesize_tides_from_hilo,
 )
 from linecast._tides_render import (
     build_now_tooltip as _build_now_tooltip,
@@ -138,34 +133,6 @@ def _is_chs_station_id(station_id):
     """Check if a station ID is a CHS MongoDB ObjectId (24-char hex)."""
     return (len(station_id) == 24 and
             all(c in '0123456789abcdef' for c in station_id.lower()))
-
-
-def _is_subordinate_noaa(station_id):
-    """True when the NOAA station list marks this station type "S".
-
-    Subordinate stations only publish high/low predictions — asking for the
-    6-minute series is a guaranteed error, so callers skip straight to
-    synthesis. Unknown stations read as reference (try the real series).
-    """
-    for s in (_fetch_all_stations() or []):
-        if str(s.get("id", "")) == str(station_id):
-            return s.get("type") == "S"
-    return False
-
-
-def _noaa_tides_range_with_fallback(station_id, start_date, end_date, station_tz):
-    """NOAA 6-minute range; subordinate stations get a synthesized curve.
-
-    The extra day of hi/lo on each side keeps the cosine segments anchored
-    right up to the window edges.
-    """
-    if not _is_subordinate_noaa(station_id):
-        preds = fetch_tides_range(station_id, start_date, end_date, station_tz)
-        if preds:
-            return preds
-    hilo = fetch_hilo_range(station_id, start_date - timedelta(days=1),
-                            end_date + timedelta(days=1), station_tz)
-    return synthesize_tides_from_hilo(hilo)
 
 
 def _is_qld_lat_lng(lat, lng):
@@ -750,32 +717,10 @@ def render(station_id, station_name, station_meta=None, runtime=None,
             predictions, hilo or [], start_dt, hours_shown=LIVE_WINDOW_HOURS,
         )
     else:
-        # Static mode: show current calendar day
+        # Static mode: show the current calendar day
         date = (now_local + timedelta(minutes=offset_minutes)).date()
-        subordinate = _is_subordinate_noaa(station_id)
-        day_preds = None if subordinate else fetch_tides(station_id, date)
-        day_hilo = fetch_hilo(station_id, date) or []
-        preds_dt = []
-        for hour, height in (day_preds or []):
-            dt = _day_to_dt(hour, date, station_tz)
-            if dt is not None:
-                preds_dt.append((dt, height))
-        hilo_dt = []
-        for hour, height, typ in day_hilo:
-            dt = _day_to_dt(hour, date, station_tz)
-            if dt is not None:
-                hilo_dt.append((dt, height, typ))
-        if not preds_dt:
-            # No 6-minute series (subordinate station): synthesize the curve
-            # from hi/lo, pulling the neighbouring days' extremes so the
-            # cosine segments cover the whole calendar-day window.
-            extremes = list(hilo_dt)
-            for day in (date - timedelta(days=1), date + timedelta(days=1)):
-                for hour, height, typ in (fetch_hilo(station_id, day) or []):
-                    dt = _day_to_dt(hour, day, station_tz)
-                    if dt is not None:
-                        extremes.append((dt, height, typ))
-            preds_dt = synthesize_tides_from_hilo(extremes)
+        preds_dt = _noaa.fetch_tides_range_with_fallback(station_id, date, date, station_tz)
+        hilo_dt = _noaa.fetch_hilo_range(station_id, date, date, station_tz)
         if not preds_dt:
             print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)
             sys.exit(1)
@@ -1073,7 +1018,7 @@ def main():
                           fetch_hilo_range_openmeteo),
         }
         _fetch_tides_range, _fetch_hilo_range = _range_fetchers.get(
-            source, (_noaa_tides_range_with_fallback, fetch_hilo_range))
+            source, (_noaa.fetch_tides_range_with_fallback, _noaa.fetch_hilo_range))
 
         if runtime.json_mode:
             import json as _json

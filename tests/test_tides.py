@@ -78,64 +78,25 @@ class RenderTests(unittest.TestCase):
     def test_render_fetches_scrubbed_day_when_offset_crosses_midnight(self):
         now_local = datetime(2026, 3, 5, 23, 30, 0)
         scrubbed_date = date(2026, 3, 6)
+        preds = [(datetime(2026, 3, 6, 0, 0), 0.2), (datetime(2026, 3, 6, 12, 0), 1.8),
+                 (datetime(2026, 3, 6, 23, 54), 0.4)]
+        hilo = [(datetime(2026, 3, 6, 4, 30), 1.8, "H"),
+                (datetime(2026, 3, 6, 11, 0), 0.2, "L")]
 
         with patch.object(tides, "_station_now", return_value=now_local), \
-             patch.object(tides, "_fetch_all_stations", return_value=[]), \
-             patch.object(
-                 tides,
-                 "fetch_tides",
-                 return_value=[(0.0, 0.2), (12.0, 1.8), (23.9, 0.4)],
-             ) as fetch_tides, \
-             patch.object(
-                 tides,
-                 "fetch_hilo",
-                 return_value=[(4.5, 1.8, "H"), (11.0, 0.2, "L")],
-             ) as fetch_hilo, \
+             patch.object(_tides_noaa, "fetch_all_stations_noaa", return_value=[]), \
+             patch.object(_tides_noaa, "fetch_tides_range", return_value=preds) as fetch_tides, \
+             patch.object(_tides_noaa, "fetch_hilo_range", return_value=hilo) as fetch_hilo, \
              patch.object(tides, "get_terminal_size", return_value=(80, 24)):
             output = tides.render("123", "Test Harbor", offset_minutes=120)
 
-        self.assertEqual(fetch_tides.call_args.args[1], scrubbed_date)
-        self.assertEqual(fetch_hilo.call_args.args[1], scrubbed_date)
+        self.assertEqual(fetch_tides.call_args.args[1:3], (scrubbed_date, scrubbed_date))
+        self.assertEqual(fetch_hilo.call_args.args[1:3], (scrubbed_date, scrubbed_date))
         self.assertTrue(isinstance(output, str) and output)
 
 
 if __name__ == "__main__":
     unittest.main()
-
-
-class SubordinateStationTests(unittest.TestCase):
-    STATIONS = [
-        {"id": "8418268", "name": "Fore River", "type": "S"},
-        {"id": "8418150", "name": "PORTLAND", "type": "R"},
-    ]
-
-    def test_subordinate_range_skips_six_minute_fetch(self):
-        hilo = [
-            (datetime(2026, 8, 20, 5, 38), 8.0, "H"),
-            (datetime(2026, 8, 20, 11, 32), 1.8, "L"),
-        ]
-        with patch.object(tides, "_fetch_all_stations",
-                          return_value=self.STATIONS), \
-             patch.object(tides, "fetch_tides_range",
-                          side_effect=AssertionError("must not ask for 6-min")), \
-             patch.object(tides, "fetch_hilo_range", return_value=hilo):
-            preds = tides._noaa_tides_range_with_fallback(
-                "8418268", date(2026, 8, 20), date(2026, 8, 20), None)
-
-        self.assertTrue(preds)
-        self.assertEqual(preds[0], (datetime(2026, 8, 20, 5, 38), 8.0))
-        self.assertEqual(preds[-1], (datetime(2026, 8, 20, 11, 32), 1.8))
-
-    def test_reference_station_uses_real_series(self):
-        real = [(datetime(2026, 8, 20, 0, 0), 4.2)]
-        with patch.object(tides, "_fetch_all_stations",
-                          return_value=self.STATIONS), \
-             patch.object(tides, "fetch_tides_range", return_value=real), \
-             patch.object(tides, "fetch_hilo_range",
-                          side_effect=AssertionError("no fallback needed")):
-            preds = tides._noaa_tides_range_with_fallback(
-                "8418150", date(2026, 8, 20), date(2026, 8, 20), None)
-        self.assertEqual(preds, real)
 
 
 class StaticRenderTests(unittest.TestCase):

@@ -326,6 +326,34 @@ def fetch_hilo_range(station_id, start_date, end_date, station_tz):
     return points
 
 
+def is_subordinate_station(station_id):
+    """True when the station list marks this station type "S".
+
+    Subordinate stations only publish high/low predictions — asking for the
+    6-minute series is a guaranteed error, so callers skip straight to
+    synthesis. Unknown stations read as reference (try the real series).
+    """
+    for s in (fetch_all_stations_noaa() or []):
+        if str(s.get("id", "")) == str(station_id):
+            return s.get("type") == "S"
+    return False
+
+
+def fetch_tides_range_with_fallback(station_id, start_date, end_date, station_tz):
+    """6-minute range; subordinate stations get a synthesized curve.
+
+    The extra day of hi/lo on each side keeps the cosine segments anchored
+    right up to the window edges.
+    """
+    if not is_subordinate_station(station_id):
+        preds = fetch_tides_range(station_id, start_date, end_date, station_tz)
+        if preds:
+            return preds
+    hilo = fetch_hilo_range(station_id, start_date - timedelta(days=1),
+                            end_date + timedelta(days=1), station_tz)
+    return synthesize_tides_from_hilo(hilo)
+
+
 def fetch_y_range(station_id, center_date):
     """Compute the y-axis range from hilo data around the date. Cached 7 days.
 

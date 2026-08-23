@@ -168,6 +168,49 @@ class StationLookupTests(unittest.TestCase):
         write_cache.assert_not_called()
 
 
+class SubordinateStationTests(unittest.TestCase):
+    STATIONS = [
+        {"id": "8418268", "name": "Fore River", "type": "S"},
+        {"id": "8418150", "name": "PORTLAND", "type": "R"},
+    ]
+    HILO = [
+        (datetime(2026, 8, 20, 5, 38), 8.0, "H"),
+        (datetime(2026, 8, 20, 11, 32), 1.8, "L"),
+    ]
+
+    def test_subordinate_range_skips_six_minute_fetch(self):
+        with patch.object(noaa, "fetch_all_stations_noaa", return_value=self.STATIONS), \
+             patch.object(noaa, "fetch_tides_range",
+                          side_effect=AssertionError("must not ask for 6-min")), \
+             patch.object(noaa, "fetch_hilo_range", return_value=self.HILO) as fh:
+            preds = noaa.fetch_tides_range_with_fallback(
+                "8418268", date(2026, 8, 20), date(2026, 8, 20), None)
+
+        self.assertTrue(preds)
+        self.assertEqual(preds[0], (datetime(2026, 8, 20, 5, 38), 8.0))
+        self.assertEqual(preds[-1], (datetime(2026, 8, 20, 11, 32), 1.8))
+        # A day of extremes either side anchors the curve at the window edges
+        self.assertEqual(fh.call_args.args[1:3], (date(2026, 8, 19), date(2026, 8, 21)))
+
+    def test_reference_station_uses_real_series(self):
+        real = [(datetime(2026, 8, 20, 0, 0), 4.2)]
+        with patch.object(noaa, "fetch_all_stations_noaa", return_value=self.STATIONS), \
+             patch.object(noaa, "fetch_tides_range", return_value=real), \
+             patch.object(noaa, "fetch_hilo_range",
+                          side_effect=AssertionError("no fallback needed")):
+            preds = noaa.fetch_tides_range_with_fallback(
+                "8418150", date(2026, 8, 20), date(2026, 8, 20), None)
+        self.assertEqual(preds, real)
+
+    def test_reference_station_without_a_series_is_synthesized(self):
+        with patch.object(noaa, "fetch_all_stations_noaa", return_value=self.STATIONS), \
+             patch.object(noaa, "fetch_tides_range", return_value=[]), \
+             patch.object(noaa, "fetch_hilo_range", return_value=self.HILO):
+            preds = noaa.fetch_tides_range_with_fallback(
+                "8418150", date(2026, 8, 20), date(2026, 8, 20), None)
+        self.assertEqual(preds[0], (datetime(2026, 8, 20, 5, 38), 8.0))
+
+
 class SynthesisTests(unittest.TestCase):
     def test_cosine_between_two_extremes(self):
         high = (datetime(2026, 8, 20, 6, 0), 10.0, "H")
