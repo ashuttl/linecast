@@ -12,6 +12,7 @@ Providers differ only in the constants captured by a Provider instance:
 index URL, colour scheme, zoom ceiling, and cache directory.
 """
 
+import atexit
 import json
 import math
 import os
@@ -203,6 +204,25 @@ def _shared_pool():
             _tile_pool = ThreadPoolExecutor(max_workers=_TILE_WORKERS,
                                             thread_name_prefix="tiles")
         return _tile_pool
+
+
+def _cancel_pool():
+    """Drop every tile fetch not yet started.  Runs at interpreter exit.
+
+    The pool's threads are joined on the way out, and each would work
+    through the queue before it saw the sentinel: quitting mid-animation
+    could mean waiting on a few frames' worth of tiles.  Cancelling the
+    queue leaves only the fetches already in flight.  A fetch that lands
+    on the cancelled pool afterwards fails, which its caller treats like
+    any other missed tile.  Registered with threading's exit hooks, which
+    run before the join; atexit's run after it.
+    """
+    with _tile_pool_lock:
+        if _tile_pool is not None:
+            _tile_pool.shutdown(wait=False, cancel_futures=True)
+
+
+getattr(threading, "_register_atexit", atexit.register)(_cancel_pool)
 
 
 def stitch_xyz(fetch_tile, bbox, z):

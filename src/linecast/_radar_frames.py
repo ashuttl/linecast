@@ -8,6 +8,7 @@ finishing) before the animation starts. The active RadarSource lives here
 too, since every fetch goes through it; radar.main() installs it.
 """
 
+import atexit
 import math
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -31,6 +32,7 @@ _source = None  # active RadarSource, chosen per location in main()
 # in-memory cache of decoded frames: key -> (radar_buffer, echo_pct)
 _frame_cache = {}
 _frame_lock = threading.Lock()
+_prefetch_lock = threading.Lock()  # guards the three prefetch globals below
 _prefetch_key = None  # (bbox, w, h) currently being prefetched
 _prefetch_gen = 0     # bumped when the view changes; stale workers stand down
 _prefetch_done = False  # current window's prefetch worker has finished
@@ -137,12 +139,13 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
     global _prefetch_key, _prefetch_gen, _prefetch_done
     key = (_view_key(bbox, gw, hc), layer,
            tuple((f.time, str(f.token)) for f in frames))
-    if _prefetch_key == key:
-        return
-    _prefetch_key = key
-    _prefetch_done = False
-    _prefetch_gen += 1
-    gen = _prefetch_gen
+    with _prefetch_lock:
+        if _prefetch_key == key:
+            return
+        _prefetch_key = key
+        _prefetch_done = False
+        _prefetch_gen += 1
+        gen = _prefetch_gen
     ordered = frames[start_idx:] + frames[:start_idx]  # current frame first
     want_warnings = _radar_warnings.covers(bbox)
 
@@ -165,12 +168,16 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
             _warm_warnings(ordered[0])
         with ThreadPoolExecutor(max_workers=4) as pool:
             list(pool.map(load, ordered[1:]))
-        if gen == _prefetch_gen:
+        with _prefetch_lock:
             global _prefetch_key, _prefetch_done
-            _prefetch_done = True  # opens the auto-play gate
-            if loaded == 0:
-                # nothing arrived (offline?) — allow a later render to retry
-                _prefetch_key = None
+            current = gen == _prefetch_gen
+            if current:
+                _prefetch_done = True  # opens the auto-play gate
+                if loaded == 0:
+                    # nothing arrived (offline?) — allow a later render
+                    # to retry
+                    _prefetch_key = None
+        if current:
             _nudge()
         if want_warnings:
             # the rest of the window's warning polygons, one fetch at a
@@ -183,6 +190,26 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
                     _warm_warnings(f)
 
     threading.Thread(target=worker, daemon=True).start()
+
+
+def stand_down():
+    """Stop the prefetcher issuing fetches: every frame it has not started
+    yet is skipped, as after a view change.  Runs at interpreter exit.
+
+    The worker's pool threads are not daemons, and the interpreter joins
+    them on the way out — a join that would otherwise wait for every
+    frame still queued behind the sentinel.  Bumping the generation makes
+    each queued load return at once, so quitting is prompt.  Registered
+    with threading's own exit hooks rather than atexit: those run before
+    the executor threads are joined, atexit only after.
+    """
+    global _prefetch_gen, _prefetch_key
+    with _prefetch_lock:
+        _prefetch_gen += 1
+        _prefetch_key = None
+
+
+getattr(threading, "_register_atexit", atexit.register)(stand_down)
 
 
 def _safe_load(bbox, gw, hc, frame, layer="radar"):

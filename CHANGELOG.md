@@ -49,6 +49,9 @@ Notable changes, by release. Notes for the next release collect under
   a fresh one each time, so tile pyramids and the forecast's several
   calls arrive sooner.
 - Every command starts a little faster.
+- Radar: Quitting the live view no longer waits for the rest of the
+  animation window to download, and a one-shot render fetches only the
+  frame it shows.
 
 ## 1.15.1 — 2026-08-23
 

@@ -180,8 +180,12 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     frame = frames[idx]
     when = frame.time
     present = frames[present_idx].time
-    _ensure_prefetch(bbox, graph_w, height_cells, frames, start_idx=idx,
-                     layer=layer)
+    if not block:
+        # live mode warms the window behind the displayed frame; a static
+        # render shows one frame and exits, so the rest would only cost
+        # the tile servers requests nobody looks at
+        _ensure_prefetch(bbox, graph_w, height_cells, frames, start_idx=idx,
+                         layer=layer)
 
     err = None
     loading = False
