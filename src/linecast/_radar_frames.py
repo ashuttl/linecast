@@ -165,13 +165,14 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
                 return  # view moved on; don't fetch for a stale bbox
             if _safe_load(bbox, gw, hc, f, layer):
                 loaded += 1
-            if want_warnings and not f.future:
-                _warm_warnings(f)
 
         # the displayed frame first and alone, so it has every tile
-        # connection to itself; the rest of the window then fills in
-        # behind it (tile fetches share one process-wide pool)
+        # connection to itself (and its warnings follow at once); the
+        # rest of the window then fills in behind it (tile fetches share
+        # one process-wide pool)
         load(ordered[0])
+        if want_warnings and not ordered[0].future:
+            _warm_warnings(ordered[0])
         with ThreadPoolExecutor(max_workers=4) as pool:
             list(pool.map(load, ordered[1:]))
         if gen == _prefetch_gen:
@@ -181,6 +182,15 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
                 # nothing arrived (offline?) — allow a later render to retry
                 _prefetch_key = None
             _nudge()
+        if want_warnings:
+            # the rest of the window's warning polygons, one fetch at a
+            # time after the frames: each is a ~100 ms request, and inside
+            # the pool it held up that thread's next frame
+            for f in ordered[1:]:
+                if gen != _prefetch_gen:
+                    return
+                if not f.future:
+                    _warm_warnings(f)
 
     threading.Thread(target=worker, daemon=True).start()
 
