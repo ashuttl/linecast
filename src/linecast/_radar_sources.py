@@ -1,7 +1,8 @@
 """Pluggable radar sources behind one small contract.
 
 A source exposes:
-  .label / .attribution   — footer text
+  .label / .attribution   — footer text (.model_attribution, if present,
+                            replaces it where has_radar() is false)
   .current_frames()       — ordered Frame list, oldest → newest (may include
                             forecast frames flagged .future)
   .frame_rgba(bbox, gw, hc, frame) → (pw, ph, rgba)  at gw × hc*2, EPSG:4326
@@ -68,6 +69,27 @@ def theme_id(value):
     except ValueError:
         return None
     return num if num in THEMES.values() else None
+
+
+# Where LibreWXR composites real radar (rough boxes, from its source list:
+# MRMS/ECCC, OPERA + DINI, JMA, CWA, MET Malaysia, PAGASA, MARN).  Outside
+# these it serves model-derived precipitation, which is smoother and coarser
+# than radar, and the footer should say so.
+_RADAR_REGIONS = (
+    (-170.0, 24.0, -52.0, 72.0),   # United States and Canada
+    (-25.0, 34.0, 45.0, 72.0),     # Europe
+    (122.0, 24.0, 150.0, 46.0),    # Japan
+    (118.0, 21.0, 123.0, 26.0),    # Taiwan
+    (99.0, 0.5, 120.0, 8.0),       # Malaysia, Singapore, Brunei
+    (116.0, 4.0, 127.0, 21.0),     # Philippines
+    (-91.0, 12.5, -87.0, 15.0),    # El Salvador
+)
+
+
+def has_radar(lat, lon):
+    """True where LibreWXR's frames come from radar rather than a model."""
+    return any(w <= lon <= e and s <= lat <= n
+               for w, s, e, n in _RADAR_REGIONS)
 
 
 def _in_conus(lat, lon):
@@ -168,6 +190,7 @@ class RainViewerSource(_TileSource):
 class LibreWXRSource(_TileSource):
     label = "LibreWXR"
     attribution = "Weather data by LibreWXR · CC BY 4.0"
+    model_attribution = "Precipitation model by LibreWXR (no radar here) · CC BY 4.0"
     themes = THEMES  # advertises the in-radar theme picker
 
     def __init__(self, theme=THEMES[DEFAULT_THEME]):

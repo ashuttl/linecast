@@ -13,10 +13,10 @@ geography, and neutral wind arrows whose contrast rises with speed (calm air
 draws nothing) — both sampled from Open-Meteo and time-synced to the
 displayed frame, so rewinding rewinds them too.
 
-Data: LibreWXR everywhere (global radar composites + model precipitation,
-60-min forecast frames, selectable colour themes); falls back to NEXRAD via
-Iowa Environmental Mesonet (IEM) in the continental US and RainViewer
-elsewhere. Basemap from Natural Earth. Condition layers from Open-Meteo.
+Data: LibreWXR everywhere (radar composites where a public network has
+one, model precipitation elsewhere, 60-min forecast frames, selectable
+colour themes); falls back to NEXRAD via Iowa Environmental Mesonet (IEM)
+in the continental US and RainViewer elsewhere. Basemap from Natural Earth. Condition layers from Open-Meteo.
 
 Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--theme NAME]
              [--layers temp,wind] [--print] [--search CITY]
@@ -46,7 +46,7 @@ from linecast._radar_render import (
 )
 from linecast._radar_source import FRAME_STEP
 from linecast._radar_sources import (DEFAULT_THEME, THEMES, get_source,
-                                     is_local, theme_id)
+                                     has_radar, is_local, theme_id)
 from linecast._runtime import RuntimeConfig, radar_parser, use_metric
 from linecast._graphics import live_loop, visible_len
 from linecast._spinner import SPINNER_FRAMES, Spinner
@@ -720,7 +720,10 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     if err:
         foot = f"{fg(*DIM)}{rs('radar_unavailable', lang, err=err[:40])}{RESET}"
     else:
-        left = f"{fg(*DIM)}{_source.attribution}{RESET}"
+        credit = _source.attribution
+        if not has_radar(lat, lon):  # model-derived here; say so
+            credit = getattr(_source, "model_attribution", credit)
+        left = f"{fg(*DIM)}{credit}{RESET}"
         hint = (f"{fg(*DIM)}{rs('hint', lang)}{RESET}"
                 if sys.stdout.isatty() else "")
         bar = _timeline_bar(idx, len(frames), min(28, max(10, cols // 3)),

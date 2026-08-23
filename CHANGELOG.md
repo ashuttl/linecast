@@ -12,6 +12,9 @@ Notable changes, by release. Notes for the next release collect under
   Zealand's stepped bands. They read reflectivity from
   LibreWXR's grayscale scheme, so snow is coloured separately. The
   theme picker lists these above the server's schemes.
+- Radar: the footer says when the frames come from a precipitation
+  model rather than radar — everywhere outside North America, Europe
+  and a few East Asian networks.
 
 - Sunshine: the solar arc is drawn in braille, and the horizon is a
   dotted braille hairline that dissolves into daylight — it shows only

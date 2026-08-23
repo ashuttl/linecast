@@ -14,7 +14,7 @@ from linecast import _radar_tiles as tiles
 from linecast._radar_source import _floor_step, frame_times
 from linecast._radar_sources import (
     DEFAULT_THEME, Frame, IEMSource, LibreWXRSource, RainViewerSource, THEMES,
-    _in_conus, get_source, theme_id,
+    _in_conus, get_source, has_radar, theme_id,
 )
 
 UTC = datetime.timezone.utc
@@ -83,6 +83,19 @@ class TestInConus:
 
     def test_honolulu_is_not_conus(self):
         assert _in_conus(21.3, -157.8) is False
+
+
+class TestHasRadar:
+    def test_radar_regions(self):
+        assert has_radar(40.4, -80.0)    # Pittsburgh
+        assert has_radar(55.9, -4.3)     # Glasgow
+        assert has_radar(35.7, 139.7)    # Tokyo
+        assert has_radar(14.6, 121.0)    # Manila
+
+    def test_model_regions(self):
+        assert not has_radar(-37.8, 175.3)  # Hamilton, NZ
+        assert not has_radar(-33.9, 151.2)  # Sydney
+        assert not has_radar(-23.5, -46.6)  # São Paulo
 
 
 class TestThemeId:

@@ -127,7 +127,7 @@ The tide chart scrolls across several days and annotates exact highs, lows, and 
 
 ### Radar
 
-Radar animates recent observations and an hour of forecast over a braille basemap. LibreWXR supplies worldwide composites and fills gaps with model-derived precipitation; linecast adds time-synced US warning polygons, optional temperature and wind layers, and hourly infrared satellite imagery.
+Radar animates recent observations and an hour of forecast over a braille basemap. Real radar is only available where a public radar network publishes an open composite: the United States and Canada, Europe, Japan, Taiwan, Malaysia, and the Philippines. Elsewhere — Australia, New Zealand, South America, most of Asia and Africa — LibreWXR fills in with a precipitation model instead. Model data looks smoother and blockier than radar, and the footer says so when that is what you are seeing. On top of the frames, linecast draws US warning polygons that follow the timeline, optional temperature and wind layers, and hourly infrared satellite imagery.
 
 The default theme uses colors from your terminal's color scheme to draw rain radar data on the map. If your theme is monochrome, the radar data will be too. In addition to the default theme, there are a handful of other local themes — `dusk`, `ember`, `ink`, and `marangai` — and you can also choose from LibreWXR's server-rendered themes. Press `t` to switch.
 
