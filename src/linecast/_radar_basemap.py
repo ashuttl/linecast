@@ -320,22 +320,9 @@ class DotLayer:
                                               else owners[cy][cx])
 
     def _dot_line(self, x0, y0, x1, y1, color, rank=0):
-        x0, y0, x1, y1 = int(round(x0)), int(round(y0)), int(round(x1)), int(round(y1))
-        dx, dy = abs(x1 - x0), abs(y1 - y0)
-        sx = 1 if x0 < x1 else -1
-        sy = 1 if y0 < y1 else -1
-        err = dx - dy
-        while True:
-            self._set_dot(x0, y0, color, rank)
-            if x0 == x1 and y0 == y1:
-                break
-            e2 = 2 * err
-            if e2 > -dy:
-                err -= dy
-                x0 += sx
-            if e2 < dx:
-                err += dx
-                y0 += sy
+        for x, y in _bresenham(int(round(x0)), int(round(y0)),
+                               int(round(x1)), int(round(y1))):
+            self._set_dot(x, y, color, rank)
 
     def _in_view(self, points):
         """True if a feature's lon/lat bbox overlaps the view (cheap cull)."""

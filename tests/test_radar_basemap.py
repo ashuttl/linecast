@@ -447,6 +447,19 @@ class TestDotLayerRank:
         assert layer.color[0][1] == self.RED
         assert layer.rank[0][0] == 40
 
+    def test_dot_line_walks_bresenham(self):
+        # the dots a line sets are exactly the integer walk, endpoints
+        # rounded first (a wide layer so the diagonal fits)
+        layer = DotLayer(self.BBOX, 4, 2)
+        layer._dot_line(0.4, 0.6, 6.5, 7.4, self.RED, 1)
+        want = set(basemap_mod._bresenham(0, 1, 6, 7))
+        got = {(cx * 2 + dx, cy * 4 + dy)
+               for cy, row in enumerate(layer.dots)
+               for cx, mask in enumerate(row)
+               for dx in range(2) for dy in range(4)
+               if mask & basemap_mod._BITS[dx][dy]}
+        assert got == want
+
     def test_draw_lines_threads_its_rank(self):
         layer = self._layer()
         west_east = [[(-5.0, 0.0), (5.0, 0.0)]]
