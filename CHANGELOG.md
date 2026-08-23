@@ -5,6 +5,12 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Radar: four colour themes drawn in linecast itself rather than on
+  the tile server — `terminal` draws rain in your terminal's own
+  palette; `dusk`, `ember` and `ink` are ramps that adapt to a light
+  or dark background. They read reflectivity from LibreWXR's
+  grayscale scheme, so snow is coloured separately.
+
 - Sunshine: the solar arc is drawn in braille, and the horizon is a
   dotted braille hairline that dissolves into daylight — it shows only
   where the sky is dark. The half-blocks now render only the sky.

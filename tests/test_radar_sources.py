@@ -91,6 +91,10 @@ class TestThemeId:
         assert theme_id("rainbow") == 7
         assert theme_id("Rainbow ") == 7  # case/space tolerant
 
+    def test_local_palettes_resolve_to_their_name(self):
+        assert theme_id("terminal") == "terminal"
+        assert theme_id("Ember") == "ember"
+
     def test_numeric_ids_accepted_when_known(self):
         assert theme_id("7") == 7
         assert theme_id(0) == 0

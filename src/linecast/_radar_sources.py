@@ -18,14 +18,20 @@ import datetime
 from linecast._png import decode_rgba
 from linecast._radar_source import fetch_frame, frame_times
 from linecast import _radar_tiles as tiles
+from linecast import _radar_palettes as palettes
 
 # rough lower-48 bounding box; IEM/NEXRAD coverage
 _CONUS = (-127.0, 23.0, -65.0, 50.0)
 
-# LibreWXR server-rendered colour schemes (name → tile-path colour id),
-# in picker display order.
+# Colour themes in picker display order.  An int is a LibreWXR
+# server-rendered scheme (the tile-path colour id); a str names one of our
+# own palettes, coloured client-side from the grayscale scheme.
 THEMES = {
     "dark-sky": 8,
+    "terminal": "terminal",
+    "dusk": "dusk",
+    "ember": "ember",
+    "ink": "ink",
     "universal-blue": 2,
     "rainbow": 7,
     "nexrad": 6,
@@ -44,7 +50,7 @@ DEFAULT_THEME = "dark-sky"
 
 
 def theme_id(value):
-    """Resolve a theme name or bare numeric id to a colour id, or None."""
+    """Resolve a theme name or bare numeric id to a theme id, or None."""
     if value is None:
         return None
     text = str(value).strip().lower()
@@ -132,9 +138,12 @@ class _TileSource:
         self.current_frames()  # shares the index refresh
         return self._sat_frames
 
+    smooth = False  # bilinear resample; only right for raw gray tiles
+
     def frame_rgba(self, bbox, gw, hc, frame):
         return tiles.reproject(self.provider, self.host, frame.token,
-                               bbox, gw, hc * 2, mutable=frame.future)
+                               bbox, gw, hc * 2, mutable=frame.future,
+                               smooth=self.smooth)
 
     def satellite_rgba(self, bbox, gw, hc, frame):
         return tiles.reproject(self._sat_provider, self.host, frame.token,
@@ -156,7 +165,17 @@ class LibreWXRSource(_TileSource):
 
     def __init__(self, theme=THEMES[DEFAULT_THEME]):
         self.theme = theme
-        super().__init__(tiles.librewxr_provider(theme))
+        self.palette = palettes.PALETTES.get(theme)
+        self.smooth = self.palette is not None
+        super().__init__(tiles.librewxr_provider(
+            theme if self.palette is None else tiles.RAW_COLOR,
+            smooth=self.palette is None))
+
+    def frame_rgba(self, bbox, gw, hc, frame):
+        w, h, rgba = super().frame_rgba(bbox, gw, hc, frame)
+        if self.palette is not None:
+            palettes.apply(rgba, self.palette)
+        return w, h, rgba
 
 
 def _utc(epoch):

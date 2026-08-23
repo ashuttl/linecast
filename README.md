@@ -127,7 +127,7 @@ The tide chart scrolls across several days and annotates exact highs, lows, and 
 
 ### Radar
 
-Radar animates recent observations and an hour of forecast over a braille basemap. LibreWXR supplies worldwide composites and fills gaps with model-derived precipitation; linecast adds time-synced US warning polygons, optional temperature and wind layers, 13 colour themes, and hourly infrared satellite imagery.
+Radar animates recent observations and an hour of forecast over a braille basemap. LibreWXR supplies worldwide composites and fills gaps with model-derived precipitation; linecast adds time-synced US warning polygons, optional temperature and wind layers, 17 colour themes (four of them coloured in the terminal: `terminal` draws rain in your own palette; `dusk`, `ember` and `ink` are ramps that adapt to a light or dark background), and hourly infrared satellite imagery.
 
 ```sh
 radar --theme rainbow

@@ -29,6 +29,9 @@ _INDEX_TTL = 120     # seconds to trust a cached index before refetching
 _NOWCAST_TTL = 600   # forecast tiles are re-predicted; treat older as stale
 
 LIBREWXR_DEFAULT_URL = "https://api.librewxr.net"
+# The grayscale scheme: gray = dBZ + 32 (+128 for snow).  Fetched unsmoothed
+# it is reflectivity data we can colour ourselves (see _radar_palettes).
+RAW_COLOR = 0
 
 
 class Provider:
@@ -49,12 +52,12 @@ def rainviewer_provider():
                     color=2, options="1_1", max_zoom=7)
 
 
-def librewxr_provider(color):
+def librewxr_provider(color, smooth=True):
     # Base URL overridable so a self-hosted instance can be pointed at; the
     # tile host still comes from the index response's "host" field.
     base = os.environ.get("LINECAST_LIBREWXR_URL", LIBREWXR_DEFAULT_URL)
     return Provider("lwxr", base.rstrip("/") + "/public/weather-maps.json",
-                    color=color, options="1_1", max_zoom=12)
+                    color=color, options=f"{int(smooth)}_1", max_zoom=12)
 
 
 def satellite_provider(provider):
@@ -155,7 +158,8 @@ def _fetch_tile(provider, host, path, z, x, y, timeout=15, mutable=False):
     """
     frame_id = path.strip("/").replace("/", "_")
     cdir = _cache_dir(provider)
-    cpath = cdir / f"{frame_id}_{z}_{x}_{y}_c{provider.color}.png"
+    cpath = (cdir / f"{frame_id}_{z}_{x}_{y}_c{provider.color}"
+             f"_{provider.options}.png")
     if cpath.exists():
         fresh = (not mutable or
                  (time.time() - cpath.stat().st_mtime) < _NOWCAST_TTL)
@@ -173,11 +177,13 @@ def _fetch_tile(provider, host, path, z, x, y, timeout=15, mutable=False):
     return data
 
 
-def reproject(provider, host, path, bbox, w, h, timeout=15, mutable=False):
+def reproject(provider, host, path, bbox, w, h, timeout=15, mutable=False,
+              smooth=False):
     """Fetch the tiles covering `bbox` and resample to a `w`×`h` EPSG:4326 RGBA.
 
     Returns (w, h, bytearray) — same shape decode_rgba yields, so it drops
-    straight into build_radar_buffer.
+    straight into build_radar_buffer.  `smooth` asks for the bilinear pass
+    meant for raw grayscale (reflectivity) tiles.
     """
     z = _pick_zoom(bbox, w, provider.max_zoom)
 
@@ -191,7 +197,7 @@ def reproject(provider, host, path, bbox, w, h, timeout=15, mutable=False):
         except Exception:
             return None
 
-    return reproject_xyz(fetch, bbox, w, h, z)
+    return reproject_xyz(fetch, bbox, w, h, z, smooth=smooth)
 
 
 def stitch_xyz(fetch_tile, bbox, z):
@@ -242,18 +248,24 @@ def stitch_xyz(fetch_tile, bbox, z):
     return canvas, canvas_w, canvas_h, tx0 * _TILE_SIZE, ty0 * _TILE_SIZE, world
 
 
-def reproject_xyz(fetch_tile, bbox, w, h, z):
+def reproject_xyz(fetch_tile, bbox, w, h, z, smooth=False):
     """Stitch the XYZ tiles covering `bbox` at zoom `z`; resample to EPSG:4326.
 
     The Web-Mercator stitch + equirectangular resample is service-agnostic —
     radar and satellite tiles differ only in their fetcher.  Nearest-neighbor
-    resampling, which is right for radar echoes (palette-coded classes that
-    must not blend); terrain does its own bilinear pass over the stitched
-    canvas instead.  Returns (w, h, bytearray RGBA).
+    resampling, which is right for server-coloured radar echoes (palette-
+    coded classes that must not blend); terrain does its own bilinear pass
+    over the stitched canvas instead.  Raw grayscale reflectivity tiles
+    *can* blend, and `smooth=True` resamples them bilinearly (see
+    _smooth_gray) so echoes keep soft edges when a tile pixel spans several
+    cells.  Returns (w, h, bytearray RGBA).
     """
     minlon, minlat, maxlon, maxlat = bbox
     canvas, canvas_w, canvas_h, org_x, org_y, world = \
         stitch_xyz(fetch_tile, bbox, z)
+    if smooth:
+        return _smooth_gray(canvas, canvas_w, canvas_h, org_x, org_y, world,
+                            bbox, w, h)
 
     # x depends only on lon, y only on lat — precompute the column mapping
     col_cx = []
@@ -278,4 +290,66 @@ def reproject_xyz(fetch_tile, bbox, w, h, z):
             si = (base + cx) * 4
             di = di_row + ox * 4
             out[di:di + 4] = canvas[si:si + 4]
+    return w, h, out
+
+
+def _smooth_gray(canvas, canvas_w, canvas_h, org_x, org_y, world, bbox, w, h):
+    """Bilinear resample of a scheme-0 (gray = dBZ + 32, +128 snow) canvas.
+
+    Reflectivity and coverage interpolate separately: alpha fades across an
+    echo's edge, and the gray is the alpha-weighted mean of the covered
+    neighbours so the edge keeps its own intensity instead of darkening
+    toward the transparent side.  The snow bit is carried as a fraction and
+    re-flagged by majority.  Output is the same encoding, so the palette
+    step doesn't know the difference.
+    """
+    minlon, minlat, maxlon, maxlat = bbox
+
+    col = []
+    for ox in range(w):
+        lon = minlon + (ox + 0.5) / w * (maxlon - minlon)
+        wx, _ = _lonlat_to_world(lon, minlat)
+        fx = wx * world - org_x - 0.5
+        x0 = int(fx // 1)
+        col.append((x0, fx - x0))
+
+    out = bytearray(w * h * 4)
+    for oy in range(h):
+        lat = maxlat - (oy + 0.5) / h * (maxlat - minlat)
+        _, wy = _lonlat_to_world(minlon, lat)
+        fy = wy * world - org_y - 0.5
+        y0 = int(fy // 1)
+        ty = fy - y0
+        rows = ((y0, 1 - ty), (y0 + 1, ty))
+        di_row = oy * w * 4
+        for ox in range(w):
+            x0, tx = col[ox]
+            cols = ((x0, 1 - tx), (x0 + 1, tx))
+            a_sum = g_sum = s_sum = 0.0
+            for cy, wy_ in rows:
+                if wy_ == 0:
+                    continue
+                base = min(max(cy, 0), canvas_h - 1) * canvas_w  # edge clamp
+                for cx, wx_ in cols:
+                    if wx_ == 0:
+                        continue
+                    si = (base + min(max(cx, 0), canvas_w - 1)) * 4
+                    a = canvas[si + 3]
+                    if not a:
+                        continue
+                    wgt = wy_ * wx_ * a
+                    a_sum += wgt
+                    gray = canvas[si]
+                    if gray >= 128:
+                        s_sum += wgt
+                        gray -= 128
+                    g_sum += wgt * gray
+            if a_sum <= 0:
+                continue
+            gray = int(g_sum / a_sum + 0.5)
+            if s_sum * 2 >= a_sum:
+                gray += 128
+            di = di_row + ox * 4
+            out[di] = out[di + 1] = out[di + 2] = gray
+            out[di + 3] = int(a_sum + 0.5)
     return w, h, out

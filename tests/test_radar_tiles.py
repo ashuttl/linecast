@@ -123,7 +123,7 @@ class TestTileCachePolicy:
             tiles.CACHE_ROOT = Path(tmp)
             cdir = tiles._cache_dir(provider)
             cdir.mkdir(parents=True)
-            cpath = cdir / "v2_radar_123_3_1_1_c2.png"
+            cpath = cdir / "v2_radar_123_3_1_1_c2_1_1.png"
             cpath.write_bytes(b"CACHED")
             stamp = os.stat(cpath).st_mtime - age
             os.utime(cpath, (stamp, stamp))
@@ -198,3 +198,41 @@ class TestReproject:
         assert (out_w, out_h) == (w, h)
         assert len(out) == w * h * 4
         assert all(v == 0 for v in out)
+
+
+class TestSmoothGray:
+    """Bilinear resample for raw reflectivity tiles."""
+
+    def _canvas(self, pixels, w, h):
+        buf = bytearray(w * h * 4)
+        for (x, y), (gray, a) in pixels.items():
+            i = (y * w + x) * 4
+            buf[i] = buf[i + 1] = buf[i + 2] = gray
+            buf[i + 3] = a
+        return buf
+
+    def _run(self, canvas, w, h, out_w, out_h):
+        # world = canvas size so 1 canvas px == 1/world of the world; bbox
+        # covering exactly the canvas in lon (lat is mercator, keep it tiny
+        # and symmetric so rows map ~linearly)
+        from linecast._radar_tiles import _smooth_gray
+        return _smooth_gray(canvas, w, h, 0, 0, w, (-180, -0.5, 180, 0.5),
+                            out_w, out_h)
+
+    def test_edge_fades_and_keeps_intensity(self):
+        # left half covered at 60 gray, right half transparent; 2 canvas
+        # px wide, sample 4 output px across: centre samples straddle
+        canvas = self._canvas({(0, 0): (60, 255)}, 2, 1)
+        _w, _h, out = self._run(canvas, 2, 1, 4, 1)
+        alphas = [out[i * 4 + 3] for i in range(4)]
+        grays = [out[i * 4] for i in range(4) if out[i * 4 + 3]]
+        assert alphas[0] == 255 and alphas[-1] == 0
+        assert 0 < alphas[2] < 255  # the fade
+        assert all(g == 60 for g in grays)  # never darkened by the gap
+
+    def test_snow_bit_by_majority(self):
+        canvas = self._canvas({(0, 0): (128 + 50, 255), (1, 0): (50, 255)},
+                              2, 1)
+        _w, _h, out = self._run(canvas, 2, 1, 4, 1)
+        assert out[0] >= 128 and out[12] < 128
+        assert all((out[i * 4] & 127) == 50 for i in range(4))

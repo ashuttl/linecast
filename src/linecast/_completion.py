@@ -23,7 +23,7 @@ LANG_CODES = (
 )
 
 # radar --theme palettes; keep in sync with _radar_sources.THEMES
-THEME_VALUES = ("dark-sky", "universal-blue", "rainbow", "nexrad", "original",
+THEME_VALUES = ("dark-sky", "terminal", "dusk", "ember", "ink", "universal-blue", "rainbow", "nexrad", "original",
                 "titan", "twc", "meteored", "datameteo", "viper", "mrms",
                 "max-storm", "black-white")
 # radar --layer display layers; keep in sync with radar.LAYERS
