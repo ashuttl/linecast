@@ -22,7 +22,6 @@ Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--theme NAME]
              [--layers temp,wind] [--print] [--search CITY]
 """
 
-import math
 import os
 import sys
 import threading
@@ -162,8 +161,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
     basemap = _get_basemap(bbox, graph_w, height_cells)
 
-    if layer != "radar" and not getattr(source, "satellite_frames",
-                                        lambda: [])():
+    if layer != "radar" and not _sat_timeline():
         layer = "radar"  # source has no cloud mosaic (IEM fallback)
 
     # oldest → newest (UTC). The cloud mosaic is hourly, so satellite-only
@@ -476,8 +474,7 @@ def main():
             return True
         if key == 's':
             # cycle layers; a no-op on sources without a cloud mosaic
-            if not getattr(_radar_frames._source, "satellite_frames",
-                           lambda: [])():
+            if not _sat_timeline():
                 return False
             i = LAYERS.index(layer_sel[0])
             layer_sel[0] = LAYERS[(i + 1) % len(LAYERS)]
@@ -541,7 +538,8 @@ def main():
         # opposite way; the release re-render re-projects for real
         cols, rows = get_terminal_size()
         gw, hc = max(20, cols), max(8, rows - 2)
-        lon_span = zoom[0] * (gw / (hc * 2)) / math.cos(math.radians(center[0]))
+        minlon, _, maxlon, _ = bbox_for(center[0], center[1], zoom[0], gw, hc)
+        lon_span = maxlon - minlon
         center[0] = max(-80.0, min(80.0, center[0] + drow * zoom[0] / hc))
         center[1] += -dcol * lon_span / gw
         if center[1] > 180.0:

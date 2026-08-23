@@ -18,6 +18,7 @@ from linecast._radar_basemap import (
     Basemap, _point_in_rings, marine_region, nearest_city,
 )
 from linecast._radar_i18n import rs
+from linecast._radar_render import _bbox_key
 from linecast._radar_sources import THEMES, is_local
 from linecast._runtime import use_metric
 from linecast._graphics import visible_len
@@ -32,7 +33,7 @@ _basemap_cache = {}
 
 
 def _get_basemap(bbox, graph_w, height_cells):
-    key = (tuple(round(v, 3) for v in bbox), graph_w, height_cells)
+    key = (_bbox_key(bbox), graph_w, height_cells)
     bm = _basemap_cache.get(key)
     if bm is None:
         bm = Basemap(bbox, graph_w, height_cells)
