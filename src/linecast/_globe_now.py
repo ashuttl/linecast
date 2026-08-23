@@ -320,6 +320,7 @@ def _light_weight(pop):
 # list's identity so swapped-in test data misses.
 _lights_cache = {}
 _LIGHTS_KEEP = 4
+_lights_lock = threading.Lock()  # view workers ask concurrently
 
 
 def city_lights_globe(lat0, lon0, zoom, gw, h):
@@ -329,13 +330,15 @@ def city_lights_globe(lat0, lon0, zoom, gw, h):
     """
     cities = _load_data()["cities"]
     key = (lat0, lon0, zoom, gw, h, id(cities))
-    hit = _lights_cache.get(key)
+    with _lights_lock:
+        hit = _lights_cache.get(key)
     if hit is not None:
         return hit
     hit = _light_cities(cities, lat0, lon0, zoom, gw, h)
-    while len(_lights_cache) >= _LIGHTS_KEEP:
-        del _lights_cache[next(iter(_lights_cache))]
-    _lights_cache[key] = hit
+    with _lights_lock:
+        while len(_lights_cache) >= _LIGHTS_KEEP:
+            del _lights_cache[next(iter(_lights_cache))]
+        _lights_cache[key] = hit
     return hit
 
 

@@ -17,6 +17,7 @@ map into a sphere.  Space gets a one-sub-pixel breath of atmosphere.
 
 import math
 import struct
+import threading
 import zlib
 from collections import namedtuple
 from pathlib import Path
@@ -120,6 +121,11 @@ def forward(lat, lon, lat0, lon0):
 # offset on the grid — so those frames skip the projection entirely.
 _geometry_cache = {}
 _GEOMETRY_KEEP = 4
+# the view workers run geometry() and city_overlays() side by side (a
+# drag starts one per key), so the memos' lookup and evict-then-insert
+# happen under a lock; a miss computes outside it, and two workers
+# computing the same key is fine where an exception is not
+_memo_lock = threading.Lock()
 
 
 def _project(lat0, zoom, w, h):
@@ -164,12 +170,14 @@ def geometry(lat0, lon0, zoom, w, h):
     write them.
     """
     key = (lat0, zoom, w, h)
-    hit = _geometry_cache.get(key)
+    with _memo_lock:
+        hit = _geometry_cache.get(key)
     if hit is None:
         hit = _project(lat0, zoom, w, h)
-        while len(_geometry_cache) >= _GEOMETRY_KEEP:
-            del _geometry_cache[next(iter(_geometry_cache))]
-        _geometry_cache[key] = hit
+        with _memo_lock:
+            while len(_geometry_cache) >= _GEOMETRY_KEEP:
+                del _geometry_cache[next(iter(_geometry_cache))]
+            _geometry_cache[key] = hit
     base, zs, rhos = hit
     lls = [[None if b is None else (b[0], wrap_lon(lon0 + b[1]))
             for b in b_row] for b_row in base]
@@ -592,13 +600,15 @@ def city_overlays(lat0, lon0, zoom, gw, hc, lang="en"):
     """
     cities = _load_data()["cities"]
     key = (lat0, lon0, zoom, gw, hc, lang, id(cities))
-    hit = _overlay_cache.get(key)
+    with _memo_lock:
+        hit = _overlay_cache.get(key)
     if hit is not None:
         return hit
     hit = _place_cities(cities, lat0, lon0, zoom, gw, hc, lang)
-    while len(_overlay_cache) >= _OVERLAY_KEEP:
-        del _overlay_cache[next(iter(_overlay_cache))]
-    _overlay_cache[key] = hit
+    with _memo_lock:
+        while len(_overlay_cache) >= _OVERLAY_KEEP:
+            del _overlay_cache[next(iter(_overlay_cache))]
+        _overlay_cache[key] = hit
     return hit
 
 

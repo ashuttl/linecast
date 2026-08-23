@@ -79,6 +79,59 @@ class TestGeometryCache:
         assert len(_globe._geometry_cache) == _globe._GEOMETRY_KEEP
 
 
+class TestMemoRaces:
+    """The view workers share these memos; concurrent misses must not
+    trip on each other's eviction."""
+
+    @staticmethod
+    def _hammer(fn, rounds=400):
+        import random
+        import threading
+        errs = []
+
+        def run(seed):
+            rnd = random.Random(seed)
+            try:
+                for _ in range(rounds):
+                    fn(rnd)
+            except Exception as exc:  # noqa: BLE001 - the race is the point
+                errs.append(repr(exc))
+
+        old = sys.getswitchinterval()
+        sys.setswitchinterval(1e-6)
+        try:
+            ts = [threading.Thread(target=run, args=(i,)) for i in range(8)]
+            for t in ts:
+                t.start()
+            for t in ts:
+                t.join()
+        finally:
+            sys.setswitchinterval(old)
+        assert errs == []
+
+    def test_geometry(self):
+        self._hammer(lambda rnd: _globe.geometry(
+            rnd.randint(-80, 80), 0.0, 60.0, 6, 4))
+
+    @staticmethod
+    def _few_cities(monkeypatch, module):
+        # placement walks every city; a few dozen keep a miss cheap
+        small = dict(module._load_data())
+        small["cities"] = small["cities"][:40]
+        monkeypatch.setattr(module, "_load_data", lambda: small)
+
+    def test_city_overlays(self, monkeypatch):
+        self._few_cities(monkeypatch, _globe)
+        self._hammer(lambda rnd: _globe.city_overlays(
+            rnd.randint(-80, 80), 0.0, 60.0, 12, 6), rounds=60)
+
+    def test_city_lights(self, monkeypatch):
+        from linecast import _globe_now
+        self._few_cities(monkeypatch, _globe_now)
+        self._hammer(lambda rnd: _globe_now.city_lights_globe(
+            rnd.randint(-80, 80), 0.0, 60.0, 12, 12), rounds=60)
+
+
 class TestWrapLon:
     def test_one_turn_either_way(self):
         from linecast._geo import wrap_lon

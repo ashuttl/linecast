@@ -54,6 +54,8 @@ Notable changes, by release. Notes for the next release collect under
   frame it shows.
 - Radar and maps: Fixed a bug where a download finishing as the view
   closed could corrupt a cached tile.
+- Maps: Fixed a bug where dragging the globe could leave the view
+  blank until the next repaint.
 
 ## 1.15.1 — 2026-08-23
 
