@@ -63,14 +63,51 @@ def _localized(entry, lang):
     return entry[3]
 
 
+_VENDORED_DATA = None  # what _load_data read from disk, as distinct from
+                       # a test's injected _DATA — derived-grid caching
+                       # (Basemap._load_built) engages only on the real data
+
+
 def _load_data():
-    global _DATA
+    global _DATA, _VENDORED_DATA
     if _DATA is None:
         path = os.path.join(os.path.dirname(__file__), "data",
                             "basemap.json.gz")
-        with gzip.open(path, "rt", encoding="utf-8") as fh:
-            _DATA = json.load(fh)
+        _DATA = _VENDORED_DATA = _load_marshalled(path)
     return _DATA
+
+
+def _load_marshalled(path):
+    """The parsed basemap, through a marshal cache in the cache dir.
+
+    gzip+json costs ~0.3s of every radar and maps launch; marshal.load
+    of the already-parsed structure costs ~0.08s.  The cache file is
+    keyed by the interpreter's cache tag (marshal is version-specific)
+    and the source's mtime, so a wheel upgrade or a rebuilt basemap
+    invalidates it by name.
+    """
+    import marshal
+    import sys
+    from linecast import _cache
+
+    st = os.stat(path)
+    cached = (_cache.CACHE_ROOT
+              / f"basemap_{sys.implementation.cache_tag}_{st.st_mtime_ns}.marshal")
+    try:
+        with open(cached, "rb") as fh:
+            return marshal.load(fh)
+    except Exception:
+        pass
+    with gzip.open(path, "rt", encoding="utf-8") as fh:
+        data = json.load(fh)
+    try:
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        for old in cached.parent.glob("basemap_*.marshal"):
+            old.unlink(missing_ok=True)
+        _cache.write_bytes_atomic(cached, marshal.dumps(data))
+    except Exception:
+        pass
+    return data
 
 
 def nearest_city(lat, lon, lang="en"):
@@ -105,6 +142,29 @@ def nearest_city(lat, lon, lang="en"):
     return name, dist_km, bearing
 
 
+_MARINE_BBOXES = (None, None)  # (marine list identity, its bboxes)
+
+
+def _marine_bboxes():
+    """Per-feature lon/lat bounds for the marine list, computed once.
+
+    Ray casting every ring of every ocean to answer one probe point is
+    most of a street map's label pass; a point outside a feature's box
+    cannot be inside the feature, and the box test is all most features
+    ever get.  Keyed to the list object itself so a test swapping _DATA
+    gets fresh boxes."""
+    global _MARINE_BBOXES
+    marine = _load_data().get("marine", ())
+    if _MARINE_BBOXES[0] is not marine:
+        boxes = []
+        for _name, _area, rings in marine:
+            xs = [x for ring in rings for x, _ in ring]
+            ys = [y for ring in rings for _, y in ring]
+            boxes.append((min(xs), min(ys), max(xs), max(ys)))
+        _MARINE_BBOXES = (marine, boxes)
+    return _MARINE_BBOXES[1]
+
+
 def marine_region(lat, lon):
     """Name of the most specific vendored water body containing the point.
 
@@ -114,7 +174,11 @@ def marine_region(lat, lon):
     rings (exteriors and holes alike) decides containment.  Returns None on
     land or in unnamed water.
     """
-    for name, _area, rings in _load_data().get("marine", ()):
+    bboxes = _marine_bboxes()
+    for idx, (name, _area, rings) in enumerate(_load_data().get("marine", ())):
+        x0, y0, x1, y1 = bboxes[idx]
+        if not (x0 <= lon <= x1 and y0 <= lat <= y1):
+            continue
         inside = False
         for ring in rings:
             for i in range(len(ring) - 1):
@@ -302,9 +366,77 @@ class DotLayer:
 class Basemap(DotLayer):
     """Pre-rasterised braille geography for one (bbox, size). Reused per frame."""
 
+    _CACHE_FMT = 1
+
     def __init__(self, bbox, graph_w, height_cells):
         super().__init__(bbox, graph_w, height_cells)
-        self._build()
+        # the disk cache speaks only for the vendored data: a test (or
+        # anything else) that swaps _DATA in must rasterise what it put
+        # there, and must never bake its synthetic grids into the cache
+        cacheable = _DATA is None or _DATA is _VENDORED_DATA
+        if not (cacheable and self._load_built()):
+            self._build()
+            if cacheable:
+                self._store_built()
+
+    # The rasterised geography is deterministic in (bbox, size, data):
+    # COAST and BORDER are fixed constants, so no theme state is baked
+    # in.  A user's radar opens on the same view every day — caching the
+    # built grids turns ~0.6s of scanline fills into a ~5ms read.
+    def _built_path(self):
+        import hashlib
+        from linecast import _cache
+        src = os.path.join(os.path.dirname(__file__), "data",
+                           "basemap.json.gz")
+        key = (self._CACHE_FMT, os.stat(src).st_mtime_ns,
+               tuple(round(v, 6) for v in self.bbox),
+               self.graph_w, self.height_cells)
+        digest = hashlib.md5(repr(key).encode()).hexdigest()[:16]
+        return _cache.CACHE_ROOT / "radar" / f"basemap_cells_{digest}.marshal"
+
+    def _load_built(self):
+        import marshal
+        try:
+            with open(self._built_path(), "rb") as fh:
+                fmt, sea, dots, classes = marshal.load(fh)
+            if fmt != self._CACHE_FMT:
+                return False
+        except Exception:
+            return False
+        gw, hc = self.graph_w, self.height_cells
+        spy_h = hc * 2
+        if len(sea) != spy_h * gw or len(dots) != hc * gw:
+            return False
+        self.sea = [[bool(b) for b in sea[y * gw:(y + 1) * gw]]
+                    for y in range(spy_h)]
+        self.dots = [list(dots[y * gw:(y + 1) * gw]) for y in range(hc)]
+        inks = (None, COAST, BORDER)
+        self.color = [[inks[c] for c in classes[y * gw:(y + 1) * gw]]
+                      for y in range(hc)]
+        self.rank = [[0 if c else -1 for c in classes[y * gw:(y + 1) * gw]]
+                     for y in range(hc)]
+        return True
+
+    def _store_built(self):
+        import marshal
+        from linecast import _cache
+        gw = self.graph_w
+        sea = bytes(bool(v) for row in self.sea for v in row)
+        dots = bytes(v for row in self.dots for v in row)
+        classes = bytes((0 if c is None else 1 if c == COAST else 2)
+                        for row in self.color for c in row)
+        try:
+            path = self._built_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _cache.write_bytes_atomic(
+                path, marshal.dumps((self._CACHE_FMT, sea, dots, classes)))
+            # resizes and travel accumulate views; keep the newest few
+            old = sorted(path.parent.glob("basemap_cells_*.marshal"),
+                         key=lambda p: p.stat().st_mtime, reverse=True)
+            for stale in old[24:]:
+                stale.unlink(missing_ok=True)
+        except Exception:
+            pass
 
     def _fill_polys(self, land, poly_groups, value):
         """Scanline-fill each polygon (a list of rings) into ``land`` at dot

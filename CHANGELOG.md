@@ -14,6 +14,12 @@ Notable changes, by release. Notes for the next release collect under
   for its hot loops, and the globe's stitched world canvas is baked to
   the cache directory after its first assembly, so later launches skip
   the tile decoding entirely.
+- Radar and maps launch faster. The vendored geography parses through
+  a marshal cache (0.3s → 0.08s), radar's rasterised land/sea grids
+  are cached per view (0.6s → milliseconds on the second launch), a
+  bounding-box test spares the water-name lookup its full ray-casting
+  pass, and the version lookup no longer taxes every command's start.
+  What remains of radar's launch is fetching the radar itself.
 - Maps: the globe's two common world canvases now ship in the package
   (2.5 MB, baked at release time by scripts/build_globe_canvas.py), so
   a fresh install draws its first globe with no network at all. The
