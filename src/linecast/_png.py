@@ -8,7 +8,9 @@ the only import is stdlib ``zlib``.
 """
 
 import struct
+import threading
 import zlib
+from collections import OrderedDict
 
 _SIG = b"\x89PNG\r\n\x1a\n"
 _CHANNELS = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}  # channels by colour type at 8-bit
@@ -16,6 +18,54 @@ _CHANNELS = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}  # channels by colour type at 8-bit
 
 class PNGError(Exception):
     pass
+
+
+class DecodeMemo:
+    """A bounded memo of decoded tiles, for any decoder.
+
+    Map tiles are immutable and a view touches the same ones its
+    neighbour did — a pan of one column re-reads nearly every tile the
+    last view already decoded, and decoding is the expensive half (a
+    Paeth-filtered terrarium tile is ~35 ms to unfilter; a z7 vector
+    tile is ~30 ms to parse).  Entries are keyed by the caller and
+    checked against the raw bytes they were decoded from, so a tile
+    that changes on disk (a test fixture, a refreshed tileset) never
+    serves a stale decode.  The newest `cap` entries stay, within a
+    `budget` of raw bytes for formats whose decoded form is much larger
+    than the source.
+    """
+
+    def __init__(self, cap=16, budget=None):
+        self._cap = cap
+        self._budget = budget
+        self._hits = OrderedDict()   # key -> (raw bytes, decoded)
+        self._size = 0
+        self._lock = threading.Lock()
+
+    def get(self, key, data, decode):
+        """The decode of `data`, from the memo when it is the same bytes."""
+        with self._lock:
+            hit = self._hits.get(key)
+            if hit is not None and hit[0] == data:
+                self._hits.move_to_end(key)
+                return hit[1]
+        value = decode(data)
+        with self._lock:
+            old = self._hits.pop(key, None)
+            if old is not None:
+                self._size -= len(old[0])
+            self._hits[key] = (data, value)
+            self._size += len(data)
+            while self._hits and (len(self._hits) > self._cap or (
+                    self._budget is not None and self._size > self._budget)):
+                _, (raw, _v) = self._hits.popitem(last=False)
+                self._size -= len(raw)
+        return value
+
+    def clear(self):
+        with self._lock:
+            self._hits.clear()
+            self._size = 0
 
 
 def _unpack_bits(recon, width, height, stride, depth, color_type):

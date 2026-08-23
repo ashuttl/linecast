@@ -18,7 +18,7 @@ import os
 
 from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, write_bytes_atomic
-from linecast._png import decode_rgba
+from linecast._png import DecodeMemo, decode_rgba
 from linecast._radar_tiles import _pick_zoom, reproject_xyz
 from linecast._runtime import debug_log
 
@@ -32,6 +32,9 @@ ATTRIBUTION = "GHSL © EC JRC"
 # environment variable always wins — point it elsewhere or set it
 # empty to turn the layer off.
 DEFAULT_URL = "https://pub-18689fea99e6428ebbc5e51b36dc6d91.r2.dev"
+
+# decoded tiles, as _elevation keeps them: a pan decodes only what is new
+_decoded = DecodeMemo(cap=16)
 
 
 def enabled():
@@ -91,7 +94,7 @@ def builtup_grid(bbox, w, h, timeout=15):
         if data is None:
             return None
         try:
-            return decode_rgba(data)
+            return _decoded.get((z_, x, y), data, decode_rgba)
         except Exception:
             return None
 

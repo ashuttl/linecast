@@ -37,6 +37,10 @@ Notable changes, by release. Notes for the next release collect under
   time, and the pieces of the view load together.
 - Tides: The y-axis range is no longer re-fetched every day, and the
   cache directory stops gaining a new file per day.
+- Maps: Panning and zooming the terrain view is about three times
+  faster. Tiles are decoded once and reused across pans, zoom steps
+  and the v toggle, and a view on a cold cache no longer waits for
+  each tile source in turn.
 
 ## 1.15.1 — 2026-08-23
 

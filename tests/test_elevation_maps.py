@@ -376,3 +376,68 @@ class TestComposeTerrain:
         # bold glyph is followed by a full reset so the weight can't
         # leak into the next cell (the Framebuffer.render idiom)
         assert "\033[1mX\033[0m" in bold_ov
+
+
+class TestDecodedTileMemo:
+    """Terrarium tiles are immutable, and a pan re-reads nearly every
+    tile the last view decoded — so the decode is memoised, checked
+    against the bytes it came from."""
+
+    BBOX = (-71.5, 42.0, -70.5, 42.6)
+
+    @pytest.fixture(autouse=True)
+    def _fresh(self):
+        _elevation._decoded.clear()
+        yield
+        _elevation._decoded.clear()
+
+    def test_the_same_bytes_decode_once(self, monkeypatch):
+        png = _terrarium_png(256, 256, 40)
+        calls = []
+        real = _elevation.decode_rgba
+        monkeypatch.setattr(_elevation, "decode_rgba",
+                            lambda d: calls.append(1) or real(d))
+        monkeypatch.setattr(_elevation, "_fetch_tile",
+                            lambda z, x, y, timeout=15: png)
+        elevation_grid(self.BBOX, 8, 4)
+        first = len(calls)
+        assert first > 0
+        elevation_grid(self.BBOX, 8, 4)
+        assert len(calls) == first
+
+    def test_new_bytes_at_the_same_key_are_decoded_afresh(self, monkeypatch):
+        tiles = [_terrarium_png(256, 256, 40)]
+        monkeypatch.setattr(_elevation, "_fetch_tile",
+                            lambda z, x, y, timeout=15: tiles[0])
+        assert elevation_grid(self.BBOX, 4, 2)[0][0] == 40.0
+        tiles[0] = _terrarium_png(256, 256, 900)
+        assert elevation_grid(self.BBOX, 4, 2)[0][0] == 900.0
+
+    def test_a_missing_tile_is_not_remembered(self, monkeypatch):
+        monkeypatch.setattr(_elevation, "_fetch_tile",
+                            lambda z, x, y, timeout=15: None)
+        assert elevation_grid(self.BBOX, 4, 2)[0][0] is None
+        png = _terrarium_png(256, 256, 12)
+        monkeypatch.setattr(_elevation, "_fetch_tile",
+                            lambda z, x, y, timeout=15: png)
+        assert elevation_grid(self.BBOX, 4, 2)[0][0] == 12.0
+
+    def test_the_memo_is_bounded(self):
+        from linecast._png import DecodeMemo
+        memo = DecodeMemo(cap=2)
+        for i in range(3):
+            memo.get(i, bytes([i]), lambda d: d * 2)
+        assert list(memo._hits) == [1, 2]
+        # a hit is refreshed, so the eviction order is by last use
+        memo.get(1, b"\x01", lambda d: d * 2)
+        memo.get(3, b"\x03", lambda d: d * 2)
+        assert list(memo._hits) == [1, 3]
+
+    def test_the_byte_budget_evicts_too(self):
+        from linecast._png import DecodeMemo
+        memo = DecodeMemo(cap=16, budget=10)
+        memo.get("a", b"x" * 6, len)
+        memo.get("b", b"y" * 6, len)
+        assert list(memo._hits) == ["b"]
+        memo.get("b", b"y" * 6, len)  # same bytes: served, not re-added
+        assert memo._size == 6

@@ -15,7 +15,7 @@ import os
 
 from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, write_bytes_atomic
-from linecast._png import decode_rgba
+from linecast._png import DecodeMemo, decode_rgba
 from linecast._radar_tiles import _lonlat_to_world, _pick_zoom, stitch_xyz
 from linecast._runtime import debug_log
 
@@ -28,6 +28,10 @@ MAX_ZOOM = 13
 BATHY_ZOOM = 10
 
 ATTRIBUTION = "Terrain: Mapzen/AWS (SRTM, GMTED, ETOPO1)"
+
+# decoded tiles, so a pan re-decodes only the column it uncovered: a
+# view is at most a 4x3 stitch, and sixteen 256 KB decodes is 4 MB
+_decoded = DecodeMemo(cap=16)
 
 
 def _tile_url(z, x, y):
@@ -52,6 +56,17 @@ def _fetch_tile(z, x, y, timeout=15):
     cdir.mkdir(parents=True, exist_ok=True)
     write_bytes_atomic(cpath, data)
     return data
+
+
+def _decoded_tile(z, x, y, timeout):
+    """One tile as (w, h, rgba), or None when unreadable."""
+    data = _fetch_tile(z, x, y, timeout)
+    if data is None:
+        return None
+    try:
+        return _decoded.get((z, x, y), data, decode_rgba)
+    except Exception:
+        return None
 
 
 def decode_meters(r, g, b):
@@ -98,13 +113,7 @@ def _resample(bbox, w, h, z, timeout):
     """One zoom level's tiles, bilinearly sampled to a w×h meters grid."""
 
     def fetch(z_, x, y):
-        data = _fetch_tile(z_, x, y, timeout)
-        if data is None:
-            return None
-        try:
-            return decode_rgba(data)
-        except Exception:
-            return None
+        return _decoded_tile(z_, x, y, timeout)
 
     canvas, cw, ch, org_x, org_y, world = stitch_xyz(fetch, bbox, z)
     minlon, minlat, maxlon, maxlat = bbox
