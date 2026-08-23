@@ -6,6 +6,7 @@ from linecast import _theme
 from linecast._braille import build_braille_curve, interpolate
 from linecast._graphics import bg, fg, fmt_hour, fmt_time_dt, RESET, visible_len
 from linecast._runtime import WeatherRuntime
+from linecast._i18n import lang_of
 from linecast._weather_i18n import DAY_NAMES, FULL_DAY_NAMES, _s
 from linecast._weather_sources import _local_now_for_data
 from linecast._weather_style import (
@@ -242,7 +243,7 @@ def _prepare_hourly_window(hourly, now, graph_w, offset_minutes=0):
 
 def _compute_time_markers(window_dts, total_hours, graph_w, runtime=None):
     """Compute notable timeline columns (midnight, noon) and day labels."""
-    lang = getattr(runtime, "lang", "en") if runtime else "en"
+    lang = lang_of(runtime)
     midnight_cols = set()
     noon_cols = set()
     midnight_day_names = {}
@@ -438,7 +439,7 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
     """Render the hourly section header with day and sun-event labels."""
     # Show "Today" only when the window starts on today's date;
     # otherwise show the actual day name so scrolled views make sense.
-    lang = getattr(runtime, "lang", "en") if runtime else "en"
+    lang = lang_of(runtime)
     if window_dts and now and window_dts[0].date() != now.date():
         day_name = FULL_DAY_NAMES.get(lang, FULL_DAY_NAMES["en"])[window_dts[0].weekday()]
         today_left = f" {TEXT}{day_name}"

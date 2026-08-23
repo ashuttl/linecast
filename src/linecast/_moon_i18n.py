@@ -5,6 +5,7 @@ chart's moon labels); this module holds the strings specific to the ``moon``
 command plus month names for the full/new moon dates.
 """
 
+from linecast._i18n import lang_of, lookup
 from linecast._tides_i18n import MOON_NAMES_I18N, _moon_name  # re-export
 from linecast._weather_i18n import DAY_NAMES  # re-export for convenience
 
@@ -228,15 +229,12 @@ _DATE_MD_DEFAULT = "{day} {month}"
 
 def _ms(key, runtime, **kwargs):
     """Look up a moon-specific localized string."""
-    lang = getattr(runtime, "lang", "en") if runtime else "en"
-    table = _MOON_STRINGS.get(lang, _MOON_STRINGS["en"])
-    text = table.get(key, _MOON_STRINGS["en"].get(key, key))
-    return text.format(**kwargs) if kwargs else text
+    return lookup(_MOON_STRINGS, key, lang_of(runtime), **kwargs)
 
 
 def _fmt_month_day(dt, runtime):
     """Format a month + day date in the runtime language's convention."""
-    lang = getattr(runtime, "lang", "en") if runtime else "en"
+    lang = lang_of(runtime)
     fmt = _DATE_MD.get(lang, _DATE_MD_DEFAULT)
     months = MONTHS_I18N.get(lang, MONTHS_I18N["en"])
     return fmt.format(month=months[dt.month - 1], mnum=dt.month, day=dt.day)
@@ -244,5 +242,4 @@ def _fmt_month_day(dt, runtime):
 
 def _day_abbrev(dt, runtime):
     """Localized three-letter-ish weekday abbreviation."""
-    lang = getattr(runtime, "lang", "en") if runtime else "en"
-    return DAY_NAMES.get(lang, DAY_NAMES["en"])[dt.weekday()]
+    return DAY_NAMES.get(lang_of(runtime), DAY_NAMES["en"])[dt.weekday()]

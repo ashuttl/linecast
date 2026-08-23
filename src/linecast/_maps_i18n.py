@@ -12,6 +12,8 @@ strings are proper names and data credits, so they live in the modules
 that own the data, not here.
 """
 
+from linecast._i18n import lookup
+
 _STRINGS = {
     "en": {
         "hint": "drag pan · v view · / search · ? keys",
@@ -1259,6 +1261,4 @@ _STRINGS = {
 
 def ms(key, lang, **kwargs):
     """Maps UI string for `lang`, falling back to English."""
-    table = _STRINGS.get(lang, _STRINGS["en"])
-    template = table.get(key, _STRINGS["en"].get(key, key))
-    return template.format(**kwargs) if kwargs else template
+    return lookup(_STRINGS, key, lang, **kwargs)

@@ -1,5 +1,7 @@
 """Localized UI strings for the radar view."""
 
+from linecast._i18n import lookup
+
 _STRINGS = {
     "en": {
         "loading": "loading…",
@@ -227,6 +229,4 @@ _STRINGS = {
 
 def rs(key, lang, **kwargs):
     """Radar UI string for `lang`, falling back to English."""
-    table = _STRINGS.get(lang, _STRINGS["en"])
-    template = table.get(key, _STRINGS["en"].get(key, key))
-    return template.format(**kwargs) if kwargs else template
+    return lookup(_STRINGS, key, lang, **kwargs)

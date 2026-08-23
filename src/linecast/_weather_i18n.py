@@ -1,5 +1,7 @@
 """Localized strings and weather code labels for the weather dashboard."""
 
+from linecast._i18n import lang_of, lookup
+
 # Nerd Font WMO icons
 _WMO_ICONS_NERD = {
     0: "\U000F0599", 1: "\U000F0599", 2: "\U000F0595", 3: "\U000F0590",
@@ -1416,6 +1418,4 @@ _STRINGS = {
 
 def _s(key, runtime, **kwargs):
     """Look up a localized string, with optional format substitution."""
-    lang = getattr(runtime, "lang", "en")
-    template = _STRINGS.get(lang, _STRINGS["en"]).get(key, _STRINGS["en"].get(key, key))
-    return template.format(**kwargs) if kwargs else template
+    return lookup(_STRINGS, key, lang_of(runtime), **kwargs)

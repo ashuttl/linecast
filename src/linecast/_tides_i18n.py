@@ -1,5 +1,6 @@
 """Tides localization strings."""
 
+from linecast._i18n import lang_of, lookup
 from linecast._weather_i18n import FULL_DAY_NAMES  # re-export for convenience
 
 _TIDES_STRINGS = {
@@ -129,14 +130,10 @@ MOON_NAMES_I18N = {
 
 def _moon_name(idx, runtime):
     """Return a localized moon phase name for the given index (0-7)."""
-    lang = getattr(runtime, "lang", "en") if runtime else "en"
-    names = MOON_NAMES_I18N.get(lang, MOON_NAMES_I18N["en"])
+    names = MOON_NAMES_I18N.get(lang_of(runtime), MOON_NAMES_I18N["en"])
     return names[idx]
 
 
 def _ts(key, runtime, **kwargs):
     """Look up a tides-specific localized string."""
-    lang = getattr(runtime, "lang", "en") if runtime else "en"
-    table = _TIDES_STRINGS.get(lang, _TIDES_STRINGS["en"])
-    text = table.get(key, _TIDES_STRINGS["en"].get(key, key))
-    return text.format(**kwargs) if kwargs else text
+    return lookup(_TIDES_STRINGS, key, lang_of(runtime), **kwargs)

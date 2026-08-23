@@ -72,6 +72,7 @@ def _truncate_display_width(text, width):
     return text
 
 
+from linecast._i18n import lang_of
 from linecast._weather_i18n import DAY_NAMES, _s
 from linecast._weather_style import (
     ALERT_AMBER,
@@ -104,8 +105,7 @@ def _parse_alert_time(iso_str, runtime=None, tz_name=""):
             from zoneinfo import ZoneInfo
             dt = dt.astimezone(ZoneInfo(tz_name))
         use_24h = runtime.use_24h if runtime else False
-        lang = getattr(runtime, "lang", "en") if runtime else "en"
-        day_names = DAY_NAMES.get(lang, DAY_NAMES["en"])
+        day_names = DAY_NAMES.get(lang_of(runtime), DAY_NAMES["en"])
         day = day_names[dt.weekday()]
         if use_24h:
             return f"{day} {dt.strftime('%H:%M')}"
