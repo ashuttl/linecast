@@ -62,6 +62,18 @@ class TestApply:
         assert sum(ink.rain(60)) < sum(ink.dark_rain(60))
 
 
+class TestMarangai:
+    def test_bands_hold_until_the_next(self):
+        m = pal.PALETTES["marangai"]
+        assert m.dark_rain(16) == m.dark_rain(17)
+        assert m.dark_rain(18) != m.dark_rain(19)
+
+    def test_moderate_jumps_to_blue_without_blending(self):
+        m = pal.PALETTES["marangai"]
+        r, g, b = m.dark_rain(19)
+        assert b > r and b > g  # straight to blue, no grey in between
+
+
 class TestSourceWiring:
     def test_local_theme_fetches_raw_unsmoothed(self):
         with patch.object(sources._TileSource, "_refresh"):

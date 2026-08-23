@@ -44,6 +44,21 @@ def _ramp(stops):
     return colour
 
 
+def _steps(bands):
+    """Discrete colour bands: each (dbz, colour) holds until the next.
+
+    For palettes that change hue at category boundaries, where blending
+    across the boundary would invent a colour neither side means.
+    """
+    def colour(dbz):
+        chosen = bands[0][1]
+        for floor, rgb in bands:
+            if dbz >= floor:
+                chosen = rgb
+        return chosen
+    return colour
+
+
 def _themed_ramp(stops):
     """A ramp re-inked in the terminal's own hues (see _theme.themed).
 
@@ -106,6 +121,33 @@ PALETTES = {
     # brighter one.  The light-terminal twin starts pale and ends deep.
     "dusk": Palette(_ramp(_DUSK_LIGHT), _ramp(_DUSK_LIGHT_SNOW),
                     _ramp(_DUSK_DARK), _ramp(_DUSK_DARK_SNOW)),
+    # marangai (te reo Māori: rainstorm): after MetService New Zealand's national radar.
+    # Light rain walks green to orange, moderate jumps to the blues, heavy
+    # to red and magenta, and hail is drawn in its own greens and pinks —
+    # stepped, as they draw it.  Moderate begins at 19 dBZ (about half a
+    # millimetre an hour), matched by eye against their map rather than
+    # derived.  The light form deepens the top bands.
+    "marangai": Palette(
+        _steps([(10, (140, 170, 40)), (12, (190, 200, 30)),
+                (14, (240, 220, 0)), (16, (250, 180, 0)),
+                (18, (245, 120, 10)),
+                (19, (20, 60, 170)), (23, (30, 110, 230)),
+                (27, (40, 160, 240)), (31, (0, 180, 180)),
+                (35, (210, 30, 20)), (39, (200, 20, 140)),
+                (43, (130, 40, 170)), (47, (60, 20, 110)),
+                (50, (0, 120, 40)), (55, (170, 20, 110))]),
+        _steps([(10, (120, 160, 190)), (19, (40, 110, 160)),
+                (35, (20, 60, 120)), (50, (60, 20, 110))]),
+        _steps([(10, (120, 160, 40)), (12, (180, 200, 30)),
+                (14, (240, 230, 0)), (16, (255, 190, 0)),
+                (18, (255, 130, 20)),
+                (19, (30, 70, 190)), (23, (40, 120, 240)),
+                (27, (60, 180, 250)), (31, (20, 210, 210)),
+                (35, (230, 40, 30)), (39, (220, 40, 160)),
+                (43, (220, 150, 230)), (47, (245, 245, 255)),
+                (50, (90, 220, 90)), (55, (250, 80, 200))]),
+        _steps([(10, (150, 190, 220)), (19, (200, 225, 245)),
+                (35, (235, 245, 255)), (50, (255, 255, 255))])),
     # ink: one blue, the quietest option — deepening on a light terminal,
     # brightening on a dark one, so the cores always lie furthest from
     # the page

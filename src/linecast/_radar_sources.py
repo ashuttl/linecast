@@ -32,6 +32,7 @@ THEMES = {
     "dusk": "dusk",
     "ember": "ember",
     "ink": "ink",
+    "marangai": "marangai",
     "dark-sky": 8,
     "universal-blue": 2,
     "rainbow": 7,

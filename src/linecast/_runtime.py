@@ -195,7 +195,7 @@ def radar_parser():
     p.add_argument("--theme", default=None,
                     help="radar colour theme. Drawn in the terminal: "
                          "terminal (default; your own palette), dusk, "
-                         "ember, ink. Rendered by LibreWXR: dark-sky, "
+                         "ember, ink, marangai. Rendered by LibreWXR: dark-sky, "
                          "universal-blue, rainbow (classic radar look), "
                          "nexrad, original, titan, twc, meteored, "
                          "datameteo, viper, mrms, max-storm, black-white; "

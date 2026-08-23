@@ -5,10 +5,11 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
-- Radar: four colour themes drawn in linecast itself rather than on
+- Radar: five colour themes drawn in linecast itself rather than on
   the tile server — `terminal`, now the default, draws rain in your
   terminal's own palette; `dusk`, `ember` and `ink` are ramps that
-  adapt to a light or dark background. They read reflectivity from
+  adapt to a light or dark background; `marangai` follows MetService New
+  Zealand's stepped bands. They read reflectivity from
   LibreWXR's grayscale scheme, so snow is coloured separately. The
   theme picker lists these above the server's schemes.
 
