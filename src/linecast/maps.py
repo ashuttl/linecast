@@ -33,6 +33,7 @@ import os
 import sys
 import threading
 from collections import namedtuple
+from concurrent.futures import ThreadPoolExecutor
 
 from linecast import (
     _builtup, _climate, _globe, _globe_now, _maps_hover, _maps_route,
@@ -346,6 +347,19 @@ def _tile_water(bbox, gw, hc):
         return None, None, None, None
 
 
+def _builtup_layer(bbox, gw, hc):
+    """The built-up fraction grid for the view, or None when the layer
+    is off or could not be read — the same never-an-error contract as
+    the tile water."""
+    if not _builtup.enabled():
+        return None
+    try:
+        return _builtup.builtup_grid(bbox, gw, hc * 2)
+    except Exception as exc:
+        debug_log(f"builtup layer unavailable: {exc}")
+        return None
+
+
 class TerrainView(namedtuple("TerrainView", "elev coast water rivers cover")):
     """One view's ground truth: the averaged elevation grid, the braille
     shoreline, the sub-pixel inland water mask, the river layer and the
@@ -377,30 +391,31 @@ def _get_elevation(bbox, gw, hc, block):
         # the hillshade step visibly at cell edges; averaging anti-aliases
         # tone transitions and blends shorelines. The fine grid also yields
         # the braille coastline before it is averaged away.
-        fine = elevation_grid(bbox, gw * 2, hc * 4)
-        water, rivers, cover, ocean = _tile_water(bbox, gw, hc)
-        if _builtup.enabled():
+        # The three sources are independent, so their fetches overlap:
+        # the wait is the slowest of them, not the sum.  Only the
+        # elevation may fail the view; the other two degrade to None.
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            water_job = pool.submit(_tile_water, bbox, gw, hc)
+            builtup_job = pool.submit(_builtup_layer, bbox, gw, hc)
+            fine = elevation_grid(bbox, gw * 2, hc * 4)
+        water, rivers, cover, ocean = water_job.result()
+        bu = builtup_job.result()
+        if bu is not None:
             # measured settlement fills wherever the vector story left
             # bare ground; the street-density proxy still runs, so the
             # two agree where both know and cover for each other's gaps
-            try:
-                bu = _builtup.builtup_grid(bbox, gw, hc * 2)
-            except Exception as exc:
-                debug_log(f"builtup layer unavailable: {exc}")
-                bu = None
-            if bu is not None:
-                if cover is None:
-                    cover = [bytearray(gw) for _ in range(hc * 2)]
-                grades = [(lo, _maps_style.COVER_ORDER.index(k) + 1)
-                          for lo, k in _maps_style.COVER_BUILTUP_GRADES]
-                settlement = {gid for _, gid in grades}
-                floor = grades[-1][0]
-                for crow, brow in zip(cover, bu):
-                    for x, f in enumerate(brow):
-                        if f >= floor and (not crow[x]
-                                           or crow[x] in settlement):
-                            crow[x] = next(gid for lo, gid in grades
-                                           if f >= lo)
+            if cover is None:
+                cover = [bytearray(gw) for _ in range(hc * 2)]
+            grades = [(lo, _maps_style.COVER_ORDER.index(k) + 1)
+                      for lo, k in _maps_style.COVER_BUILTUP_GRADES]
+            settlement = {gid for _, gid in grades}
+            floor = grades[-1][0]
+            for crow, brow in zip(cover, bu):
+                for x, f in enumerate(brow):
+                    if f >= floor and (not crow[x]
+                                       or crow[x] in settlement):
+                        crow[x] = next(gid for lo, gid in grades
+                                       if f >= lo)
         if ocean is not None:
             # The OSM coastline outranks the elevation data over the
             # sea, without appeal: coastal DEMs report tidal water as a
