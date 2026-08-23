@@ -17,14 +17,13 @@ Both are OpenStreetMap: attribute "© OpenStreetMap contributors".
 """
 
 import hashlib
-import json
 import math
 import time
 import urllib.parse
-import urllib.request
 
-from linecast import USER_AGENT
+from linecast import user_agent
 from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
+from linecast._http import fetch_json
 from linecast._runtime import debug_log
 
 PHOTON_URL = "https://photon.komoot.io/api"
@@ -76,10 +75,7 @@ class Result:
 
 def _get_json(url, headers=None, timeout=10):
     """The single network seam for this module."""
-    debug_log(f"search fetch {url}")
-    req = urllib.request.Request(url, headers=headers or {})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read())
+    return fetch_json(url, headers=headers, timeout=timeout)
 
 
 def _detail(parts, name):
@@ -105,7 +101,7 @@ def photon_search(query, lat, lon, zoom, lang="en", limit=8, timeout=6):
         params.append(("lang", lang))
     url = f"{PHOTON_URL}?{urllib.parse.urlencode(params)}"
     try:
-        data = _get_json(url, headers={"User-Agent": USER_AGENT},
+        data = _get_json(url, headers={"User-Agent": user_agent()},
                          timeout=timeout)
     except Exception as exc:
         debug_log(f"photon search failed: {exc}")
@@ -181,7 +177,7 @@ def nominatim_search(query, lang="en", limit=8, timeout=10):
               ("addressdetails", 1), ("accept-language", lang)]
     url = f"{NOMINATIM_URL}?{urllib.parse.urlencode(params)}"
     headers = {"User-Agent":
-               f"{USER_AGENT} (+https://github.com/ashuttl/linecast)"}
+               f"{user_agent()} (+https://github.com/ashuttl/linecast)"}
     _throttle()
     try:
         data = _get_json(url, headers=headers, timeout=timeout)

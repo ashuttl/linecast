@@ -22,12 +22,10 @@ Set LINECAST_VECTOR_TILES_URL to point at a self-hosted TileJSON.
 import gzip
 import math
 import os
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, write_bytes_atomic
-from linecast._http import fetch_json_cached
+from linecast._http import fetch_bytes, fetch_json_cached
 from linecast._radar_tiles import _lonlat_to_world
 from linecast._runtime import debug_log
 
@@ -43,8 +41,7 @@ _MAX_ZOOM_FALLBACK = 14
 def tilejson():
     """The cached TileJSON dict, or None when unreachable with no cache."""
     return fetch_json_cached(
-        CACHE_ROOT / "maps" / "tilejson.json", _TILEJSON_TTL, TILEJSON_URL,
-        headers={"User-Agent": USER_AGENT})
+        CACHE_ROOT / "maps" / "tilejson.json", _TILEJSON_TTL, TILEJSON_URL)
 
 
 def tile_info():
@@ -183,10 +180,8 @@ def fetch_tile(z, x, y, timeout=15):
     url = (template.replace("{z}", str(z))
            .replace("{x}", str(x)).replace("{y}", str(y)))
     try:
-        req = urllib.request.Request(url, headers={
-            "User-Agent": USER_AGENT, "Accept-Encoding": "gzip"})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = resp.read()
+        data = fetch_bytes(url, headers={"Accept-Encoding": "gzip"},
+                           timeout=timeout)
         # sniff rather than trust Content-Encoding: static hosts serve
         # pre-gzipped bodies without declaring them
         if data[:2] == b"\x1f\x8b":

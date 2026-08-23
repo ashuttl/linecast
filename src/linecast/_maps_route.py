@@ -18,12 +18,10 @@ differently.
 Directions data © OpenStreetMap contributors.
 """
 
-import json
 import time
-import urllib.error
-import urllib.request
 
-from linecast import USER_AGENT
+from linecast import user_agent
+from linecast._http import fetch_json
 from linecast._runtime import debug_log
 
 PROFILES = ("car", "bike", "foot")
@@ -36,7 +34,8 @@ _QUERY = "?overview=full&geometries=geojson&steps=true"
 
 # FOSSGIS requires a User-Agent that identifies the client and can be
 # contacted; a bare "linecast/1.8.0" is not enough.
-_UA = f"{USER_AGENT} (+https://github.com/ashuttl/linecast)"
+def _ua():
+    return f"{user_agent()} (+https://github.com/ashuttl/linecast)"
 
 _MIN_INTERVAL = 1.0  # the hosts' published rate limit
 _last_request = 0.0  # monotonic stamp of the last network call
@@ -44,9 +43,9 @@ _last_request = 0.0  # monotonic stamp of the last network call
 _MAX_CACHED = 8
 _cache = {}
 
-# URLError and socket.timeout are both OSError; JSONDecodeError is a
+# HTTPError and socket.timeout are both OSError; JSONDecodeError is a
 # ValueError. A malformed body raises out of _parse instead.
-_TRANSPORT = (urllib.error.URLError, OSError, ValueError)
+_TRANSPORT = (OSError, ValueError)
 _MALFORMED = (KeyError, IndexError, TypeError, ValueError)
 
 
@@ -73,10 +72,7 @@ class Route:
 
 def _fetch(url, timeout):
     """The raw request: the decoded JSON body, or an exception."""
-    debug_log(f"route fetch {url}")
-    req = urllib.request.Request(url, headers={"User-Agent": _UA})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read())
+    return fetch_json(url, headers={"User-Agent": _ua()}, timeout=timeout)
 
 
 def _throttle():

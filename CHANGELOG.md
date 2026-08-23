@@ -47,6 +47,9 @@ Notable changes, by release. Notes for the next release collect under
   animation window, so a fresh view fills in sooner.
 - Radar: Refreshing the frame list happens in the background, so a
   slow connection can't pause playback while the index is re-read.
+- Maps and weather: Requests to the same server reuse one connection
+  instead of opening a fresh one each time, so tile pyramids and the
+  forecast's several calls arrive sooner.
 
 ## 1.15.1 — 2026-08-23
 

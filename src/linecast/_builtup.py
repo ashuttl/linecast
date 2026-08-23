@@ -16,8 +16,8 @@ the sparse tileset is the compression.
 
 import os
 
-from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, write_bytes_atomic
+from linecast._http import fetch_bytes
 from linecast._png import DecodeMemo, decode_rgba
 from linecast._radar_tiles import _pick_zoom, reproject_xyz
 from linecast._runtime import debug_log
@@ -55,7 +55,6 @@ def _fetch_tile(z, x, y, timeout=15):
     says, and that kind of wrong answer shouldn't be permanent.
     """
     import time
-    import urllib.request
     cdir = CACHE_ROOT / "maps"
     cpath = cdir / f"builtup_{z}_{x}_{y}.png"
     if cpath.exists():
@@ -65,9 +64,7 @@ def _fetch_tile(z, x, y, timeout=15):
         if time.time() - cpath.stat().st_mtime < 30 * 86400:
             return None  # zero bytes = cached "nothing built here"
     try:
-        req = urllib.request.Request(_tile_url(z, x, y),
-                                     headers={"User-Agent": USER_AGENT})
-        data = urllib.request.urlopen(req, timeout=timeout).read()
+        data = fetch_bytes(_tile_url(z, x, y), timeout=timeout)
     except Exception as exc:
         miss = getattr(exc, "code", None) == 404 or isinstance(
             exc, FileNotFoundError) or "No such file" in str(exc)

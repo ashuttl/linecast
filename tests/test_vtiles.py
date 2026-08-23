@@ -1,14 +1,12 @@
 """Tests for the vector-tile transport layer.
 
 No network: TileJSON discovery is patched at the module and tile
-fetches stub urllib's urlopen. The disk cache is redirected to a
+fetches stub _http.fetch_bytes. The disk cache is redirected to a
 temporary directory per test.
 """
 
 import gzip
-import io
 import sys
-import urllib.request
 from pathlib import Path
 
 import pytest
@@ -24,20 +22,6 @@ from linecast import _vtiles as vt
 
 TEMPLATE = "https://tiles.example/planet/20260802_080001_pt/{z}/{x}/{y}.pbf"
 TILEJSON = {"tiles": [TEMPLATE], "maxzoom": 14}
-
-
-class _Resp:
-    def __init__(self, body):
-        self._body = body
-
-    def read(self):
-        return self._body
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
 
 
 @pytest.fixture
@@ -79,7 +63,6 @@ class TestTileInfo:
         assert vt.tilejson() == TILEJSON
         assert seen["cache_file"] == cache / "maps" / "tilejson.json"
         assert seen["max_age"] == 86400
-        assert "linecast/" in seen["headers"]["User-Agent"]
 
 
 class TestTilesForBbox:
@@ -104,11 +87,11 @@ class TestTilesForBbox:
 
 class TestFetchTile:
     def _stub(self, monkeypatch, body, calls):
-        def fake_urlopen(req, timeout=0):
-            calls.append(req.full_url)
-            return _Resp(body)
+        def fake_fetch(url, headers=None, timeout=0):
+            calls.append(url)
+            return body
 
-        monkeypatch.setattr(vt.urllib.request, "urlopen", fake_urlopen)
+        monkeypatch.setattr(vt, "fetch_bytes", fake_fetch)
 
     def test_gzip_body_decompressed_and_cached_raw(
             self, cache, canned_tilejson, monkeypatch):
@@ -140,10 +123,10 @@ class TestFetchTile:
 
     def test_network_failure_returns_none(self, cache, canned_tilejson,
                                           monkeypatch):
-        def boom(req, timeout=0):
+        def boom(url, headers=None, timeout=0):
             raise OSError("no route to host")
 
-        monkeypatch.setattr(vt.urllib.request, "urlopen", boom)
+        monkeypatch.setattr(vt, "fetch_bytes", boom)
         assert vt.fetch_tile(14, 1, 1) is None
         # a later success is not blocked by the earlier failure
         calls = []

@@ -13,11 +13,10 @@ https://registry.opendata.aws/terrain-tiles/
 
 import os
 
-from linecast import USER_AGENT
-from linecast._cache import CACHE_ROOT, write_bytes_atomic
+from linecast._cache import CACHE_ROOT
+from linecast._http import fetch_bytes_cached
 from linecast._png import DecodeMemo, decode_rgba
 from linecast._radar_tiles import _lonlat_to_world, _pick_zoom, stitch_xyz
-from linecast._runtime import debug_log
 
 DEFAULT_URL = "https://s3.amazonaws.com/elevation-tiles-prod"
 # SRTM's ~30 m native grid runs out around z13; beyond it the tiles are
@@ -41,21 +40,8 @@ def _tile_url(z, x, y):
 
 def _fetch_tile(z, x, y, timeout=15):
     """One terrarium tile as PNG bytes, disk-cached forever (immutable)."""
-    import urllib.request
-    cdir = CACHE_ROOT / "maps"
-    cpath = cdir / f"terrarium_{z}_{x}_{y}.png"
-    if cpath.exists():
-        return cpath.read_bytes()
-    try:
-        req = urllib.request.Request(_tile_url(z, x, y),
-                                     headers={"User-Agent": USER_AGENT})
-        data = urllib.request.urlopen(req, timeout=timeout).read()
-    except Exception as exc:
-        debug_log(f"terrarium tile {z}/{x}/{y} failed: {exc}")
-        return None
-    cdir.mkdir(parents=True, exist_ok=True)
-    write_bytes_atomic(cpath, data)
-    return data
+    cpath = CACHE_ROOT / "maps" / f"terrarium_{z}_{x}_{y}.png"
+    return fetch_bytes_cached(cpath, None, _tile_url(z, x, y), timeout=timeout)
 
 
 def _decoded_tile(z, x, y, timeout):
