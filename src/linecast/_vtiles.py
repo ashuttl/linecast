@@ -125,19 +125,31 @@ def projector(z, tx, ty, extent, bbox, dw, dh):
     minlon, minlat, maxlon, maxlat = bbox
     lon_span = (maxlon - minlon) or 1e-12
     lat_span = (maxlat - minlat) or 1e-12
+    # x depends only on px and y only on py, and both are integers on
+    # a grid of a few thousand — so each axis is computed once per
+    # value and looked up after.  A terrain view projects ~300k
+    # vertices through a few dozen of these; the tables are what turn
+    # most of them into two dict reads.
+    cols, rows = {}, {}
 
     def project(px, py):
-        lon = (tx + px / extent) / n * 360.0 - 180.0
-        wy = (ty + py / extent) / n
-        lat = math.degrees(math.atan(math.sinh(math.pi * (1.0 - 2.0 * wy))))
-        # a view spanning the antimeridian holds wrapped tiles, whose
-        # longitudes come back on the far side of the world
-        if lon < minlon - 180.0:
-            lon += 360.0
-        elif lon > maxlon + 180.0:
-            lon -= 360.0
-        return ((lon - minlon) / lon_span * dw,
-                (maxlat - lat) / lat_span * dh)
+        x = cols.get(px)
+        if x is None:
+            lon = (tx + px / extent) / n * 360.0 - 180.0
+            # a view spanning the antimeridian holds wrapped tiles,
+            # whose longitudes come back on the far side of the world
+            if lon < minlon - 180.0:
+                lon += 360.0
+            elif lon > maxlon + 180.0:
+                lon -= 360.0
+            x = cols[px] = (lon - minlon) / lon_span * dw
+        y = rows.get(py)
+        if y is None:
+            wy = (ty + py / extent) / n
+            lat = math.degrees(math.atan(math.sinh(
+                math.pi * (1.0 - 2.0 * wy))))
+            y = rows[py] = (maxlat - lat) / lat_span * dh
+        return (x, y)
 
     return project
 

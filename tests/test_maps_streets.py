@@ -626,6 +626,17 @@ class TestProjector:
         assert east(EXTENT, 0)[0] == pytest.approx(50.0)   # 180 -> midway
         assert west(0, 0)[0] == pytest.approx(50.0)        # -180 -> same
 
+    def test_the_axis_tables_answer_exactly_as_the_arithmetic(self):
+        # x and y are each memoised per integer coordinate; a vertex
+        # sharing a column with an earlier one must come back bit-for-
+        # bit the same as a fresh projector computes it
+        bbox = (-70.4, 43.6, -70.2, 43.7)
+        table = st._projector(12, 1246, 1495, EXTENT, bbox, 240, 152)
+        pts = [(17, 4000), (17, 9), (3000, 9), (3000, 4000), (-64, 4200)]
+        for px, py in pts:
+            fresh = st._projector(12, 1246, 1495, EXTENT, bbox, 240, 152)
+            assert table(px, py) == fresh(px, py)
+
 
 class TestFillClass:
     def test_unknown_layers_and_classes_are_dropped(self):
