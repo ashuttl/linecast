@@ -205,12 +205,44 @@ def _bg_for_mode(mode, r, g, b):
     return f"\033[{40 + idx if idx < 8 else 100 + (idx - 8)}m"
 
 
+# fg and bg are the hot path of every compose, and most calls repeat a
+# few hundred colours.  The caches above key on clamped ints, so each
+# call still clamped three channels first — about 60% of compose time.
+# These memos key on the raw arguments instead, plus the colour mode
+# (tests swap it), so a repeated colour costs one dict probe.  Nothing
+# here depends on the theme, so a reload leaves them alone; they are
+# cleared when full.
+_FG_MEMO = {}
+_BG_MEMO = {}
+_MEMO_LIMIT = 16384
+
+
 def fg(r, g, b):
-    return _fg_for_mode(_COLOR_MODE, _channel(r), _channel(g), _channel(b))
+    key = (_COLOR_MODE, r, g, b)
+    try:
+        code = _FG_MEMO.get(key)
+    except TypeError:    # an unhashable channel; _channel makes it 0
+        return _fg_for_mode(_COLOR_MODE, _channel(r), _channel(g), _channel(b))
+    if code is None:
+        if len(_FG_MEMO) >= _MEMO_LIMIT:
+            _FG_MEMO.clear()
+        code = _FG_MEMO[key] = _fg_for_mode(
+            _COLOR_MODE, _channel(r), _channel(g), _channel(b))
+    return code
 
 
 def bg(r, g, b):
-    return _bg_for_mode(_COLOR_MODE, _channel(r), _channel(g), _channel(b))
+    key = (_COLOR_MODE, r, g, b)
+    try:
+        code = _BG_MEMO.get(key)
+    except TypeError:
+        return _bg_for_mode(_COLOR_MODE, _channel(r), _channel(g), _channel(b))
+    if code is None:
+        if len(_BG_MEMO) >= _MEMO_LIMIT:
+            _BG_MEMO.clear()
+        code = _BG_MEMO[key] = _bg_for_mode(
+            _COLOR_MODE, _channel(r), _channel(g), _channel(b))
+    return code
 
 
 # ---------------------------------------------------------------------------

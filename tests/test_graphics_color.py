@@ -61,3 +61,48 @@ class ColorMappingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ColorMemoTests(unittest.TestCase):
+    """fg/bg memoize on the raw arguments; the escape codes must not change."""
+
+    def setUp(self):
+        from linecast import _color
+        self._color = _color
+        _color._FG_MEMO.clear()
+        _color._BG_MEMO.clear()
+
+    def _direct(self, which, mode, r, g, b):
+        c = self._color
+        f = c._fg_for_mode if which == "fg" else c._bg_for_mode
+        return f(mode, c._channel(r), c._channel(g), c._channel(b))
+
+    def test_memoized_codes_match_the_uncached_path(self):
+        from unittest.mock import patch
+        c = self._color
+        inputs = [(0, 0, 0), (255, 255, 255), (12.4, 99.6, 200.5), (-5, 300, 0.0),
+                  (1e400, float("nan"), True), ("x", None, [1])]
+        for mode in ("truecolor", "256", "16", "none"):
+            with patch.object(c, "_COLOR_MODE", mode):
+                for rgb in inputs:
+                    for _ in range(2):   # miss, then hit
+                        self.assertEqual(c.fg(*rgb), self._direct("fg", mode, *rgb))
+                        self.assertEqual(c.bg(*rgb), self._direct("bg", mode, *rgb))
+
+    def test_memo_keys_on_colour_mode(self):
+        from unittest.mock import patch
+        c = self._color
+        with patch.object(c, "_COLOR_MODE", "truecolor"):
+            self.assertEqual(c.bg(1, 2, 3), "\033[48;2;1;2;3m")
+        with patch.object(c, "_COLOR_MODE", "none"):
+            self.assertEqual(c.bg(1, 2, 3), "")
+
+    def test_memo_clears_when_full(self):
+        from unittest.mock import patch
+        c = self._color
+        with patch.object(c, "_MEMO_LIMIT", 4), patch.object(c, "_COLOR_MODE", "truecolor"):
+            for i in range(4):
+                c.fg(i, 0, 0)
+            self.assertEqual(len(c._FG_MEMO), 4)
+            self.assertEqual(c.fg(9, 0, 0), "\033[38;2;9;0;0m")
+            self.assertEqual(len(c._FG_MEMO), 1)
