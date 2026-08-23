@@ -1,0 +1,186 @@
+"""Radar frame cache and prefetcher.
+
+Decoded frames are memoised per view (bbox, size, theme) and warmed in
+the background by a prefetch worker, displayed frame first. A view change
+bumps a generation so a superseded worker stands down; the live loop's
+auto-play gate waits on PLAY_READY of the window (or the worker
+finishing) before the animation starts. The active RadarSource lives here
+too, since every fetch goes through it; radar.main() installs it.
+"""
+
+import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
+from linecast import _theme
+from linecast import _radar_warnings
+from linecast._radar_render import _bbox_key, build_radar_buffer
+from linecast._radar_ui import _get_basemap
+
+MAX_REWIND_MIN = 180  # how far back scrubbing can go (IEM; tile sources
+                      # are limited to what their index publishes, ~2 h)
+N_FRAMES = MAX_REWIND_MIN // 5 + 1  # frames in the rewind window
+PLAY_READY = 0.8  # fraction of the frame window that must be buffered
+                  # before auto-play starts (a completed prefetch also opens
+                  # the gate, so a few permanently failing frames can't
+                  # stall playback forever)
+
+_source = None  # active RadarSource, chosen per location in main()
+
+# in-memory cache of decoded frames: key -> (radar_buffer, echo_pct)
+_frame_cache = {}
+_frame_lock = threading.Lock()
+_prefetch_key = None  # (bbox, w, h) currently being prefetched
+_prefetch_gen = 0     # bumped when the view changes; stale workers stand down
+_prefetch_done = False  # current window's prefetch worker has finished
+_live_refresh = False  # live mode: prefetch completions nudge a repaint
+
+
+def _nudge():
+    """Ask the live loop to repaint now that something landed in the
+    background. SIGWINCH rides the loop's existing self-pipe wakeup and is
+    harmless if coalesced; outside live mode this is a no-op."""
+    if _live_refresh:
+        import signal
+        os.kill(os.getpid(), signal.SIGWINCH)
+
+
+def _view_key(bbox, gw, hc):
+    # theme is part of the view: switching palettes must not serve old
+    # colours, and neither must a terminal theme change (_theme.generation)
+    return (_bbox_key(bbox), gw, hc, getattr(_source, "theme", None),
+            _theme.generation)
+
+
+def _sat_timeline():
+    """Satellite-only frame list: the hourly mosaics, played as discrete
+    steps so cloud features visibly move between frames."""
+    return list(getattr(_source, "satellite_frames", lambda: [])())
+
+
+def _frame_key(bbox, gw, hc, frame, layer="radar"):
+    stamp = frame.time.strftime("%Y%m%dT%H%M")
+    if frame.future:
+        # nowcast frames are re-predicted under the same timestamp; a token
+        # digest keeps a superseded prediction from being served forever
+        import hashlib
+        stamp += ":" + hashlib.sha1(str(frame.token).encode()).hexdigest()[:8]
+    return _view_key(bbox, gw, hc) + (layer, stamp)
+
+
+def _load_frame(bbox, gw, hc, frame, layer="radar"):
+    """Return (radar_buffer, echo). Memoised; fetches + decodes on miss."""
+    key = _frame_key(bbox, gw, hc, frame, layer)
+    with _frame_lock:
+        hit = _frame_cache.get(key)
+    if hit is not None:
+        return hit
+    if layer == "sat":
+        pw, ph, rgba = _source.satellite_rgba(bbox, gw, hc, frame)
+    else:
+        pw, ph, rgba = _source.frame_rgba(bbox, gw, hc, frame)
+    result = build_radar_buffer(rgba, pw, ph, gw, hc,
+                                sea=_get_basemap(bbox, gw, hc).sea)
+    with _frame_lock:
+        _frame_cache[key] = result
+        if len(_frame_cache) > N_FRAMES + 8:  # bound to the rewind window
+            for old in list(_frame_cache)[:len(_frame_cache) - (N_FRAMES + 8)]:
+                _frame_cache.pop(old, None)
+    _nudge()  # a frame is ready
+    return result
+
+
+def _cached_frame(bbox, gw, hc, frame, layer="radar"):
+    """Cache-only lookup; never touches the network."""
+    key = _frame_key(bbox, gw, hc, frame, layer)
+    with _frame_lock:
+        return _frame_cache.get(key)
+
+
+def _loaded_mask(bbox, gw, hc, frames, layer="radar"):
+    """Which frames of the window are already decoded and cached."""
+    keys = [_frame_key(bbox, gw, hc, f, layer) for f in frames]
+    with _frame_lock:
+        return [k in _frame_cache for k in keys]
+
+
+def _nearest_cached(bbox, gw, hc, when, layer="radar"):
+    """The cached frame for this view closest in time to `when`, or None."""
+    prefix = _view_key(bbox, gw, hc) + (layer,)
+    want = int(when.strftime("%Y%m%d%H%M"))
+    with _frame_lock:
+        keys = [k for k in _frame_cache if k[:len(prefix)] == prefix]
+        if not keys:
+            return None
+        best = min(keys, key=lambda k: abs(
+            int(k[len(prefix)].split(":")[0].replace("T", "")) - want))
+        return _frame_cache.get(best)
+
+
+def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
+    """Warm the frame window in the background, displayed frame first.
+
+    A view change (pan/zoom/resize/theme) bumps the generation so a
+    superseded worker stops issuing fetches for a view nobody is looking
+    at. The key also covers the frame window itself, so a long-running
+    session re-warms whenever the index publishes a new frame (or
+    re-predicts a nowcast) — cached frames hit instantly, only the new
+    images fetch.
+    """
+    global _prefetch_key, _prefetch_gen, _prefetch_done
+    key = (_view_key(bbox, gw, hc), layer,
+           tuple((f.time, str(f.token)) for f in frames))
+    if _prefetch_key == key:
+        return
+    _prefetch_key = key
+    _prefetch_done = False
+    _prefetch_gen += 1
+    gen = _prefetch_gen
+    ordered = frames[start_idx:] + frames[:start_idx]  # current frame first
+    want_warnings = _radar_warnings.covers(bbox)
+
+    def worker():
+        loaded = 0
+
+        def load(f):
+            nonlocal loaded
+            if gen != _prefetch_gen:
+                return  # view moved on; don't fetch for a stale bbox
+            if _safe_load(bbox, gw, hc, f, layer):
+                loaded += 1
+            if want_warnings and not f.future:
+                _warm_warnings(f)
+
+        # the displayed frame first and alone, so it has every tile
+        # connection to itself; the rest of the window then fills in
+        # behind it (tile fetches share one process-wide pool)
+        load(ordered[0])
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            list(pool.map(load, ordered[1:]))
+        if gen == _prefetch_gen:
+            global _prefetch_key, _prefetch_done
+            _prefetch_done = True  # opens the auto-play gate
+            if loaded == 0:
+                # nothing arrived (offline?) — allow a later render to retry
+                _prefetch_key = None
+            _nudge()
+
+    threading.Thread(target=worker, daemon=True).start()
+
+
+def _safe_load(bbox, gw, hc, frame, layer="radar"):
+    try:
+        _load_frame(bbox, gw, hc, frame, layer)
+        return True
+    except Exception:
+        return False
+
+
+def _warm_warnings(frame):
+    """Prefetch the warning polygons valid at a frame's time (best-effort)."""
+    try:
+        if _radar_warnings.cached_at(frame.time) is None:
+            _radar_warnings.warnings_at(frame.time)
+            _nudge()
+    except Exception:
+        pass

@@ -28,6 +28,10 @@ from linecast._radar_basemap import COAST, SEA_FILL
 from linecast._theme import ensure_contrast
 
 
+def _bbox_key(bbox):
+    return tuple(round(v, 3) for v in bbox)
+
+
 def bbox_for(lat, lon, zoom, graph_w, height_cells):
     """Geographic window so map sub-cells render ~square on screen.
 
