@@ -23,15 +23,16 @@ from linecast import _radar_palettes as palettes
 # rough lower-48 bounding box; IEM/NEXRAD coverage
 _CONUS = (-127.0, 23.0, -65.0, 50.0)
 
-# Colour themes in picker display order.  An int is a LibreWXR
-# server-rendered scheme (the tile-path colour id); a str names one of our
-# own palettes, coloured client-side from the grayscale scheme.
+# Colour themes in picker display order: ours first, then the server's.
+# A str names one of our own palettes, coloured here from the grayscale
+# scheme; an int is a LibreWXR server-rendered scheme (the tile-path
+# colour id).
 THEMES = {
-    "dark-sky": 8,
     "terminal": "terminal",
     "dusk": "dusk",
     "ember": "ember",
     "ink": "ink",
+    "dark-sky": 8,
     "universal-blue": 2,
     "rainbow": 7,
     "nexrad": 6,
@@ -45,8 +46,13 @@ THEMES = {
     "max-storm": 12,
     "black-white": 0,
 }
-DEFAULT_THEME = "dark-sky"
+DEFAULT_THEME = "terminal"
 # (universal-blue is the palette we rendered before LibreWXR)
+
+
+def is_local(theme):
+    """True for a theme coloured here rather than on the tile server."""
+    return isinstance(theme, str)
 
 
 def theme_id(value):

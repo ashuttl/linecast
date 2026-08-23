@@ -45,7 +45,8 @@ from linecast._radar_render import (
     bbox_for, build_radar_buffer, compose,
 )
 from linecast._radar_source import FRAME_STEP
-from linecast._radar_sources import DEFAULT_THEME, THEMES, get_source, theme_id
+from linecast._radar_sources import (DEFAULT_THEME, THEMES, get_source,
+                                     is_local, theme_id)
 from linecast._runtime import RuntimeConfig, radar_parser, use_metric
 from linecast._graphics import live_loop, visible_len
 from linecast._spinner import SPINNER_FRAMES, Spinner
@@ -401,13 +402,18 @@ def _shift_grid(rows, dx, dy, fill):
 
 def _theme_menu_overlay(names, sel, current, lang, cols, rows):
     """Cursor-addressed theme list, drawn over the map via live_loop's \\x00
-    overlay channel. `sel` is the highlighted row, `current` the active id."""
+    overlay channel. `sel` is the highlighted row, `current` the active id.
+    A rule separates the themes coloured here from the server's."""
     inner = min(cols - 4, max(len(n) for n in names) + 4)
-    top = max(1, (rows - (len(names) + 2)) // 2)
+    kinds = [is_local(THEMES.get(n)) for n in names]
+    split = True in kinds and False in kinds
+    top = max(1, (rows - (len(names) + 2 + split)) // 2)
     left = max(0, (cols - inner - 2) // 2)
     title = f" {rs('theme', lang)} "
     lines = [f"┌{title.center(inner, '─')}┐"]
     for i, name in enumerate(names):
+        if i and kinds[i - 1] and not kinds[i]:
+            lines.append(f"├{'─' * inner}┤")
         mark = "●" if THEMES.get(name) == current else " "
         body = f" {mark} {name}"[:inner].ljust(inner)
         if i == sel:

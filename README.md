@@ -127,10 +127,12 @@ The tide chart scrolls across several days and annotates exact highs, lows, and 
 
 ### Radar
 
-Radar animates recent observations and an hour of forecast over a braille basemap. LibreWXR supplies worldwide composites and fills gaps with model-derived precipitation; linecast adds time-synced US warning polygons, optional temperature and wind layers, 17 colour themes (four of them coloured in the terminal: `terminal` draws rain in your own palette; `dusk`, `ember` and `ink` are ramps that adapt to a light or dark background), and hourly infrared satellite imagery.
+Radar animates recent observations and an hour of forecast over a braille basemap. LibreWXR supplies worldwide composites and fills gaps with model-derived precipitation; linecast adds time-synced US warning polygons, optional temperature and wind layers, and hourly infrared satellite imagery.
+
+The default theme uses colors from your terminal's color scheme to draw rain radar data on the map. If your theme is monochrome, the radar data will be too. In addition to the default theme, there are a handful of other local themes — `dusk`, `ember`, and `ink` — and you can also choose from LibreWXR's server-rendered themes. Press `t` to switch.
 
 ```sh
-radar --theme rainbow
+radar --theme dusk
 radar --layers temp,wind
 radar --layer satellite
 ```

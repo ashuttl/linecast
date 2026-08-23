@@ -73,7 +73,7 @@ class CompletionScriptTests(unittest.TestCase):
         self.assertIn("complete -c tides -f -l station -r", script)
         self.assertIn("complete -c sunshine -f -l print", script)
         self.assertIn("complete -c moon -f -l print", script)
-        self.assertIn("complete -c radar -f -l theme -r -a 'dark-sky", script)
+        self.assertIn("complete -c radar -f -l theme -r -a 'terminal", script)
 
     def test_radar_theme_values_track_source_themes(self):
         from linecast._completion import THEME_VALUES

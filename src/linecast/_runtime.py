@@ -193,12 +193,13 @@ def radar_parser():
     p.add_argument("--zoom", type=float, default=6.0,
                     help="degrees of latitude shown top-to-bottom (default 6)")
     p.add_argument("--theme", default=None,
-                    help="radar colour theme (LibreWXR server-rendered): "
-                         "dark-sky (default), universal-blue, rainbow "
-                         "(classic radar look), nexrad, original, titan, "
-                         "twc, meteored, datameteo, viper, mrms, max-storm, "
-                         "black-white; press t in live mode to pick "
-                         "interactively")
+                    help="radar colour theme. Drawn in the terminal: "
+                         "terminal (default; your own palette), dusk, "
+                         "ember, ink. Rendered by LibreWXR: dark-sky, "
+                         "universal-blue, rainbow (classic radar look), "
+                         "nexrad, original, titan, twc, meteored, "
+                         "datameteo, viper, mrms, max-storm, black-white; "
+                         "press t in live mode to pick interactively")
     p.add_argument("--layer", default=None,
                     help="display layer: radar (default) or satellite "
                          "(hourly cloud mosaic); press s in live mode "

@@ -104,8 +104,13 @@ class TestThemeId:
         assert theme_id("255") is None  # raw scheme reserved for a future pass
         assert theme_id(None) is None
 
-    def test_default_theme_is_dark_sky(self):
-        assert THEMES[DEFAULT_THEME] == 8
+    def test_default_theme_is_terminal(self):
+        assert THEMES[DEFAULT_THEME] == "terminal"
+
+    def test_local_themes_listed_before_server_themes(self):
+        kinds = [isinstance(v, str) for v in THEMES.values()]
+        assert kinds == sorted(kinds, reverse=True) and True in kinds \
+            and False in kinds
 
 
 class TestGetSource:
