@@ -1,7 +1,8 @@
 """Minimal pure-Python PNG decoder (stdlib only).
 
 Decodes the cases produced by the IEM NEXRAD WMS server and similar web map
-sources: 8-bit, non-interlaced, colour types 0/2/3/4/6.  Returns raw RGBA
+sources: non-interlaced, colour types 0/2/3/4/6 at 8 bits, plus the packed
+1/2/4-bit indexed and grayscale forms sparse tiles are served in.  Returns raw RGBA
 bytes so callers can sample pixels directly.  Keeps linecast dependency-free —
 the only import is stdlib ``zlib``.
 """
@@ -23,6 +24,25 @@ def _paeth(a, b, c):
     if pa <= pb and pa <= pc:
         return a
     return b if pb <= pc else c
+
+
+def _unpack_bits(recon, width, height, stride, depth, color_type):
+    """Spread packed sub-byte samples to one byte each, MSB first.
+
+    Indexed samples stay palette indices; grayscale samples are scaled to
+    the full 0–255 range as the PNG spec describes.
+    """
+    out = bytearray(width * height)
+    per_byte = 8 // depth
+    mask = (1 << depth) - 1
+    scale = 255 // mask if color_type == 0 else 1
+    for y in range(height):
+        ro, oo = y * stride, y * width
+        for x in range(width):
+            byte = recon[ro + x // per_byte]
+            shift = 8 - depth * (x % per_byte + 1)
+            out[oo + x] = ((byte >> shift) & mask) * scale
+    return out
 
 
 def decode_rgba(data):
@@ -54,7 +74,7 @@ def decode_rgba(data):
         elif ctype == b"IEND":
             break
 
-    if depth != 8:
+    if depth != 8 and not (depth in (1, 2, 4) and color_type in (0, 3)):
         raise PNGError(f"unsupported bit depth {depth}")
     if interlace:
         raise PNGError("interlaced PNG not supported")
@@ -62,12 +82,12 @@ def decode_rgba(data):
         raise PNGError(f"unsupported colour type {color_type}")
 
     channels = _CHANNELS[color_type]
-    stride = width * channels
+    stride = (width * channels * depth + 7) // 8
     raw = zlib.decompress(bytes(idat))
 
     # unfilter scanlines
     recon = bytearray(stride * height)
-    bpp = channels
+    bpp = max(1, channels * depth // 8)
     for y in range(height):
         fi = y * (stride + 1)
         ftype = raw[fi]
@@ -89,6 +109,9 @@ def decode_rgba(data):
             elif ftype != 0:
                 raise PNGError(f"bad filter type {ftype}")
             recon[ro + x] = val
+
+    if depth < 8:
+        recon = _unpack_bits(recon, width, height, stride, depth, color_type)
 
     # expand to RGBA
     out = bytearray(width * height * 4)
