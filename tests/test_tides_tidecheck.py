@@ -322,6 +322,20 @@ class YRangeTests(unittest.TestCase):
 
         self.assertEqual(result, (-0.5, 3.0))
 
+    def test_cache_key_is_month_anchored(self):
+        seen = []
+
+        def fake_read_cache(path, max_age):
+            seen.append(path.name)
+            return {"min": 0.0, "max": 1.0}
+
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"}), \
+             patch.object(tc, "read_cache", side_effect=fake_read_cache):
+            tc.fetch_y_range_tidecheck("test-id", date(2026, 3, 27), None)
+            tc.fetch_y_range_tidecheck("test-id", date(2026, 3, 28), None)
+
+        self.assertEqual(seen, ["tc_yrange_test-id_202603.json"] * 2)
+
 
 class HeightConversionTests(unittest.TestCase):
     """Tests for _maybe_convert_height."""

@@ -215,6 +215,43 @@ class PredictionErrorTests(unittest.TestCase):
         cache_file.unlink.assert_called_once()
 
 
+class YRangeTests(unittest.TestCase):
+    def test_window_is_month_anchored_and_covers_30_days_each_side(self):
+        from datetime import timedelta
+        for center in (date(2026, 8, 1), date(2026, 8, 23), date(2026, 8, 31),
+                       date(2026, 1, 1), date(2026, 12, 31), date(2028, 2, 29)):
+            start, end, key = noaa.y_range_window(center)
+            self.assertEqual(key, center.strftime("%Y%m"))
+            self.assertEqual(start.day, 1)
+            self.assertEqual((end + timedelta(days=1)).day, 1)
+            self.assertLessEqual(start, center - timedelta(days=30))
+            self.assertGreaterEqual(end, center + timedelta(days=30))
+
+    def test_window_edges(self):
+        self.assertEqual(noaa.y_range_window(date(2026, 8, 23)),
+                         (date(2026, 7, 1), date(2026, 9, 30), "202608"))
+        self.assertEqual(noaa.y_range_window(date(2026, 1, 15)),
+                         (date(2025, 12, 1), date(2026, 2, 28), "202601"))
+
+    def test_consecutive_days_share_one_cache_file(self):
+        payload = {"predictions": [{"t": "2026-07-01 00:30", "v": "9.7", "type": "H"},
+                                   {"t": "2026-07-01 06:40", "v": "-0.4", "type": "L"}]}
+        seen = []
+
+        def fake_read_cache(path, max_age):
+            seen.append(path.name)
+            return None
+
+        with patch.object(noaa, "read_cache", side_effect=fake_read_cache), \
+             patch.object(noaa, "fetch_json", return_value=payload) as fj, \
+             patch.object(noaa, "write_cache"):
+            for day in (date(2026, 8, 23), date(2026, 8, 24)):
+                self.assertEqual(noaa.fetch_y_range("8418150", day), (-0.4, 9.7))
+
+        self.assertEqual(seen, ["yrange_8418150_202608.json"] * 2)
+        self.assertIn("begin_date=20260701&end_date=20260930", fj.call_args.args[0])
+
+
 class MetadataTests(unittest.TestCase):
     def test_fetch_station_metadata_normalizes_and_caches(self):
         payload = {

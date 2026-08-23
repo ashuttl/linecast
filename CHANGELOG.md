@@ -35,6 +35,8 @@ Notable changes, by release. Notes for the next release collect under
 - Tides: Opening the tide chart is much faster the first time each
   day. Predictions are fetched a month at a time instead of a day at a
   time, and the pieces of the view load together.
+- Tides: The y-axis range is no longer re-fetched every day, and the
+  cache directory stops gaining a new file per day.
 
 ## 1.15.1 — 2026-08-23
 

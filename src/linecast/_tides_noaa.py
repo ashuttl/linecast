@@ -339,17 +339,33 @@ def fetch_hilo_range(station_id, start_date, end_date, station_tz):
     return points
 
 
+def y_range_window(center_date):
+    """The span the y-axis range is measured over, as (start, end, key).
+
+    The calendar month before *center_date*'s through the month after:
+    at least 30 days either side, which covers two spring/neap cycles.
+    Anchoring to the calendar instead of the date keeps the cache key
+    (like "202608") the same all month, so one request serves every day
+    of the month rather than a fresh 61-day request and a new file each
+    day.
+    """
+    first = month_start(center_date)
+    start = month_start(first - timedelta(days=1))
+    end = month_after(month_after(first)) - timedelta(days=1)
+    return start, end, f"{first:%Y%m}"
+
+
 def fetch_y_range(station_id, center_date):
-    """Compute y-axis range from +/-30 days of hilo data."""
-    start = (center_date - timedelta(days=30)).strftime("%Y%m%d")
-    end = (center_date + timedelta(days=30)).strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"yrange_{station_id}_{start}_{end}.json"
+    """Compute the y-axis range from hilo data around the date. Cached 7 days."""
+    start, end, key = y_range_window(center_date)
+    cache_file = CACHE_DIR / f"yrange_{station_id}_{key}.json"
 
     cached = read_cache(cache_file, 7 * 86400)
     if cached is not None:
         return (cached["min"], cached["max"])
 
-    url = _prediction_url(station_id, start, end, "hilo")
+    url = _prediction_url(station_id, start.strftime("%Y%m%d"),
+                          end.strftime("%Y%m%d"), "hilo")
     try:
         data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=15)
     except Exception:

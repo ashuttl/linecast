@@ -327,12 +327,14 @@ def fetch_hilo_range_chs(station_id, start_date, end_date, station_tz):
 
 
 def fetch_y_range_chs(station_id, center_date, station_tz):
-    """Compute y-axis range from +/-30 days of CHS hilo data. Cached 7 days."""
-    start = center_date - timedelta(days=30)
-    end = center_date + timedelta(days=30)
-    start_str = start.strftime("%Y%m%d")
-    end_str = end.strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"chs_yrange_{station_id}_{start_str}_{end_str}.json"
+    """Compute the y-axis range from CHS hilo data around the date. Cached 7 days.
+
+    The window and cache key are month-anchored (see y_range_window) so
+    consecutive days share one request and one file.
+    """
+    from linecast._tides_noaa import y_range_window
+    start, end, key = y_range_window(center_date)
+    cache_file = CACHE_DIR / f"chs_yrange_{station_id}_{key}.json"
 
     cached = read_cache(cache_file, 7 * 86400)
     if cached is not None:
