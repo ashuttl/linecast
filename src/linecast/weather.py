@@ -319,26 +319,6 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     return output, alert_row_map
 
 
-def render(lat, lng, location_name="", country_code="", offset_minutes=0, runtime=None, data=None, alerts=None, mouse_pos=None, active_alert=None, modal_scroll=0, aqi_data=None, historical=None):
-    """Build the complete weather dashboard."""
-    if runtime is None:
-        runtime = WeatherRuntime.from_sources()
-    if data is None:
-        data = fetch_forecast(lat, lng, runtime)
-    if alerts is None:
-        alerts = fetch_alerts(lat, lng, country_code, lang=runtime.lang)
-    if aqi_data is None:
-        aqi_data = fetch_aqi(lat, lng)
-    if historical is None:
-        try:
-            from datetime import date
-            historical = fetch_historical(lat, lng, date.today(),
-                                          celsius=runtime.celsius, metric=runtime.metric)
-        except Exception:
-            historical = None
-    return render_from_data(data, alerts, runtime, location_name=location_name, offset_minutes=offset_minutes, mouse_pos=mouse_pos, active_alert=active_alert, modal_scroll=modal_scroll, aqi_data=aqi_data, historical=historical)
-
-
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -482,15 +462,12 @@ def main():
                 live["alerts"] = fetch_alerts(lat, lng, final_country, lang=runtime.lang)
                 live["aqi"] = fetch_aqi(lat, lng)
                 live["fetched"] = _t.monotonic()
-            return render(
-                lat,
-                lng,
-                location_name,
-                final_country,
+            return render_from_data(
+                live["data"],
+                live["alerts"],
+                runtime,
+                location_name=location_name,
                 offset_minutes=offset_minutes,
-                runtime=runtime,
-                data=live["data"],
-                alerts=live["alerts"],
                 mouse_pos=mouse_pos,
                 active_alert=active_alert,
                 modal_scroll=modal_scroll,
@@ -506,14 +483,11 @@ def main():
             scroll_step=60,
         )
     else:
-        output, _alert_map = render(
-            lat,
-            lng,
-            location_name,
-            final_country,
-            runtime=runtime,
-            data=data,
-            alerts=alerts,
+        output, _alert_map = render_from_data(
+            data,
+            alerts,
+            runtime,
+            location_name=location_name,
             aqi_data=aqi_data,
             historical=historical,
         )
