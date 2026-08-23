@@ -258,15 +258,30 @@ def fetch_hilo(station_id, date):
     return [(_row_hour(t), v, typ) for t, v, typ in rows if t[:10] == day]
 
 
+_stations_memo = None
+
+
 def fetch_all_stations_noaa():
-    """Fetch the full NOAA tide-prediction station list (cached 30 days)."""
+    """Fetch the full NOAA tide-prediction station list (cached 30 days).
+
+    Parsing the 1.5 MB list costs about 10 ms and one run consults it
+    several times (picking the station, the subordinate check before each
+    fetch, the same check in render), so the parsed list is kept for the
+    life of the process.
+    """
+    global _stations_memo
+    if _stations_memo is not None:
+        return _stations_memo
     cache_file = CACHE_DIR / "all_stations.json"
     url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions"
     data = _fetch_payload(cache_file, 30 * 86400, url, fallback=[])
     if isinstance(data, list):
-        return data
-    stations = data.get("stations", [])
-    write_cache(cache_file, stations)
+        stations = data
+    else:
+        stations = data.get("stations", [])
+        write_cache(cache_file, stations)
+    if stations:
+        _stations_memo = stations
     return stations
 
 

@@ -1116,33 +1116,55 @@ def main():
             "tidecheck": fetch_y_range_tidecheck,
             "openmeteo": fetch_y_range_openmeteo,
         }
-        if source in _y_range_fetchers:
-            y_range = _y_range_fetchers[source](station_id, today, station_tz)
-        else:
-            y_range = fetch_y_range(station_id, today)
 
-        # Fetch marine/wave conditions (optional, may return None)
-        marine_data = None
-        try:
-            _marine_lat = station_meta.get("lat") if station_meta else None
-            _marine_lng = station_meta.get("lng") if station_meta else None
-            if _marine_lat is not None and _marine_lng is not None:
-                marine_data = fetch_marine(float(_marine_lat), float(_marine_lng))
-        except Exception:
-            pass  # Marine data is optional; never crash the tides view
+        def _fetch_y_range():
+            if source in _y_range_fetchers:
+                return _y_range_fetchers[source](station_id, today, station_tz)
+            return fetch_y_range(station_id, today)
 
+        def _fetch_marine_data():
+            # Marine/wave conditions are optional; never crash the tides view
+            try:
+                _marine_lat = station_meta.get("lat") if station_meta else None
+                _marine_lng = station_meta.get("lng") if station_meta else None
+                if _marine_lat is not None and _marine_lng is not None:
+                    return fetch_marine(float(_marine_lat), float(_marine_lng))
+            except Exception:
+                pass
+            return None
+
+        # Live mode pre-fetches ~7 days in each direction; the static view
+        # needs today and its neighbours.
         if runtime.live:
-            # Pre-fetch ~7 days in each direction
             fetch_start = today - timedelta(days=7)
             fetch_end = today + timedelta(days=7)
+        else:
+            fetch_start = today - timedelta(days=1)
+            fetch_end = today + timedelta(days=1)
 
-            all_predictions = _fetch_tides_range(station_id, fetch_start, fetch_end, station_tz)
-            all_hilo = _fetch_hilo_range(station_id, fetch_start, fetch_end, station_tz)
+        # Only the metadata was a dependency; the y-axis range, the marine
+        # conditions, and the predictions themselves are independent, so
+        # fetch them side by side and a cold start costs one round trip.
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            fut_y_range = pool.submit(_fetch_y_range)
+            fut_marine = pool.submit(_fetch_marine_data)
+            fut_preds = pool.submit(_fetch_tides_range, station_id,
+                                    fetch_start, fetch_end, station_tz)
+            fut_hilo = pool.submit(_fetch_hilo_range, station_id,
+                                   fetch_start, fetch_end, station_tz)
+            y_range = fut_y_range.result()
+            marine_data = fut_marine.result()
+            preds = fut_preds.result()
+            hilo_data = fut_hilo.result()
+
+        if not preds:
+            print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)
+            sys.exit(1)
+
+        if runtime.live:
+            all_predictions, all_hilo = preds, hilo_data
             fetched_range = [fetch_start, fetch_end]
-
-            if not all_predictions:
-                print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)
-                sys.exit(1)
 
             def _maybe_expand(offset_minutes):
                 """Expand fetched range if user has scrolled near the edge."""
@@ -1194,16 +1216,6 @@ def main():
             live_loop(_render, interval=60, mouse=True, scroll_step=30)
         else:
             if source != "noaa":
-                preds = _fetch_tides_range(
-                    station_id, today - timedelta(days=1),
-                    today + timedelta(days=1), station_tz)
-                hilo_data = _fetch_hilo_range(
-                    station_id, today - timedelta(days=1),
-                    today + timedelta(days=1), station_tz)
-                if not preds:
-                    print(f"Could not fetch tide data for station {station_id}.",
-                          file=sys.stderr)
-                    sys.exit(1)
                 out = render(
                     station_id,
                     station_name,
