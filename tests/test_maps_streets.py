@@ -26,6 +26,7 @@ from linecast import _maps_streets as st
 from linecast import _maps_style
 from linecast import _theme
 from linecast._radar_basemap import DotLayer
+from linecast._vtiles import projector
 
 WORLD = (-180.0, -85.0511287798066, 180.0, 85.0511287798066)
 EXTENT = 4096
@@ -293,6 +294,48 @@ class TestCoast:
                 neighbours = {fills[0][max(0, cx - 1)],
                               fills[0][min(GW - 1, cx + 1)]}
                 assert ink("water") in neighbours
+
+
+class TestIterLayer:
+    """The one walk every rasteriser and the labeller take through a
+    decoded view: tile by tile, layer by layer, one projector each."""
+
+    def _view(self):
+        return st.decode_view({
+            (1, 0, 0): tile(classed("water", LEFT_HALF, "lake"),
+                            tagged_line("waterway", polyline((0, 0), (9, 9)),
+                                        {"class": "river"})),
+            (1, 1, 0): tile(classed("water", LEFT_HALF, "ocean")),
+        })
+
+    def test_walks_tiles_in_key_order_then_layers_in_the_given_order(self):
+        seen = [(name, feat["tags"].get("class"))
+                for name, feat, _p in st.iter_layer(
+                    self._view(), ("waterway", "water"), WORLD, 8, 4)]
+        assert seen == [("waterway", "river"), ("water", "lake"),
+                        ("water", "ocean")]
+
+    def test_a_geometry_type_filters(self):
+        polys = list(st.iter_layer(self._view(), ("water", "waterway"),
+                                   WORLD, 8, 4, st.POLYGON))
+        assert [f["tags"]["class"] for _n, f, _p in polys] == ["lake",
+                                                                 "ocean"]
+        lines = list(st.iter_layer(self._view(), "waterway", WORLD, 8, 4,
+                                   st.LINESTRING))
+        assert len(lines) == 1
+
+    def test_each_tile_gets_its_own_projector(self):
+        projs = {}
+        for _n, feat, project in st.iter_layer(self._view(), "water",
+                                               WORLD, 8, 4, st.POLYGON):
+            projs[feat["tags"]["class"]] = project
+        # the same tile-local vertex lands a half-world apart
+        assert projs["ocean"](0, 0)[0] - projs["lake"](0, 0)[0] \
+            == pytest.approx(4.0)
+
+    def test_a_missing_layer_yields_nothing(self):
+        assert list(st.iter_layer(self._view(), "building", WORLD, 8, 4)) \
+            == []
 
 
 class TestDecodeMemo:
@@ -606,14 +649,14 @@ class TestFillColors:
 
 class TestProjector:
     def test_tile_corners_land_on_view_corners(self):
-        project = st._projector(0, 0, 0, EXTENT, WORLD, 8, 4)
+        project = projector(0, 0, 0, EXTENT, WORLD, 8, 4)
         assert project(0, 0) == pytest.approx((0.0, 0.0))
         x, y = project(EXTENT, EXTENT)
         assert x == pytest.approx(8.0)
         assert y == pytest.approx(4.0)
 
     def test_longitude_is_exactly_linear(self):
-        project = st._projector(0, 0, 0, EXTENT, WORLD, 8, 4)
+        project = projector(0, 0, 0, EXTENT, WORLD, 8, 4)
         assert project(EXTENT // 2, 0)[0] == pytest.approx(4.0)
         assert project(EXTENT // 4, 0)[0] == pytest.approx(2.0)
 
@@ -621,8 +664,8 @@ class TestProjector:
         # A view straddling the antimeridian holds tile x=0, whose
         # longitudes come back on the far side of the world.
         bbox = (179.0, 0.0, 181.0, 1.0)
-        east = st._projector(1, 1, 0, EXTENT, bbox, 100, 100)   # 0..180E
-        west = st._projector(1, 0, 0, EXTENT, bbox, 100, 100)   # 180W..0
+        east = projector(1, 1, 0, EXTENT, bbox, 100, 100)   # 0..180E
+        west = projector(1, 0, 0, EXTENT, bbox, 100, 100)   # 180W..0
         assert east(EXTENT, 0)[0] == pytest.approx(50.0)   # 180 -> midway
         assert west(0, 0)[0] == pytest.approx(50.0)        # -180 -> same
 
@@ -631,10 +674,10 @@ class TestProjector:
         # sharing a column with an earlier one must come back bit-for-
         # bit the same as a fresh projector computes it
         bbox = (-70.4, 43.6, -70.2, 43.7)
-        table = st._projector(12, 1246, 1495, EXTENT, bbox, 240, 152)
+        table = projector(12, 1246, 1495, EXTENT, bbox, 240, 152)
         pts = [(17, 4000), (17, 9), (3000, 9), (3000, 4000), (-64, 4200)]
         for px, py in pts:
-            fresh = st._projector(12, 1246, 1495, EXTENT, bbox, 240, 152)
+            fresh = projector(12, 1246, 1495, EXTENT, bbox, 240, 152)
             assert table(px, py) == fresh(px, py)
 
 

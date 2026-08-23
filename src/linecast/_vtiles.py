@@ -154,6 +154,34 @@ def projector(z, tx, ty, extent, bbox, dw, dh):
     return project
 
 
+DEFAULT_EXTENT = 4096   # the MVT default, when a layer carries none
+
+
+def iter_layer(view, names, bbox, dw, dh, geom=None):
+    """(layer name, feature, project) for every feature of the named
+    layers in a decoded view, tile by tile in the view's own order.
+
+    `names` is one layer name or a sequence of them; `geom` keeps only
+    features of that geometry type (1 point, 2 linestring, 3 polygon).
+    One projector is built per tile and layer and handed out with each
+    feature: it is the projector every consumer must use, so a fill,
+    its stroke and its label agree to the dot.
+    """
+    if isinstance(names, str):
+        names = (names,)
+    for (z, tx, ty), decoded in view:
+        for name in names:
+            src = decoded.get(name)
+            if src is None:
+                continue
+            project = projector(z, tx, ty, src.get("extent") or DEFAULT_EXTENT,
+                                bbox, dw, dh)
+            for feat in src["features"]:
+                if geom is not None and feat["type"] != geom:
+                    continue
+                yield name, feat, project
+
+
 def _cache_path(version, z, x, y):
     return CACHE_ROOT / "maps" / "vt" / version / f"{z}_{x}_{y}.pbf"
 

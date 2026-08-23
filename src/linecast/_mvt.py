@@ -28,6 +28,9 @@ import gzip
 import struct
 import zlib
 
+# vector_tile.GeomType
+POINT, LINESTRING, POLYGON = 1, 2, 3
+
 
 def _varint(buf, i):
     """Little-endian base-128 varint at buf[i] -> (value, next index)."""

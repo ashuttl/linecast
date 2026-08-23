@@ -46,12 +46,10 @@ from linecast._framebuffer import visible_len
 from linecast._radar_basemap import (
     _bresenham, _cell_width, _load_data, _localized, marine_region,
 )
-from linecast._vtiles import projector
+from linecast._vtiles import iter_layer
 
 LABEL_LAYERS = ("place", "water_name", "park", "transportation_name",
                 "poi", "mountain_peak", "aerodrome_label")
-
-_DEFAULT_EXTENT = 4096
 
 
 # ---------------------------------------------------------------------------
@@ -469,21 +467,15 @@ def _features(view, bbox, graph_w, height_cells, layer_name, dedupe=True):
     dw, dh = graph_w * 2, height_cells * 4
     seen = set()
     out = []
-    for (z, tx, ty), decoded in view:
-        src = decoded.get(layer_name)
-        if src is None:
+    for _name, feat, project in iter_layer(view, layer_name, bbox, dw, dh):
+        props = feat["tags"]
+        key = (layer_name, props.get("name"), props.get("ref"),
+               props.get("class"))
+        if dedupe and key[1] is not None and key in seen:
             continue
-        project = projector(z, tx, ty, src.get("extent") or _DEFAULT_EXTENT,
-                            bbox, dw, dh)
-        for feat in src["features"]:
-            props = feat["tags"]
-            key = (layer_name, props.get("name"), props.get("ref"),
-                   props.get("class"))
-            if dedupe and key[1] is not None and key in seen:
-                continue
-            seen.add(key)
-            out.append((props, [[project(x, y) for x, y in part]
-                                for part in feat["geometry"]]))
+        seen.add(key)
+        out.append((props, [[project(x, y) for x, y in part]
+                            for part in feat["geometry"]]))
     return out
 
 

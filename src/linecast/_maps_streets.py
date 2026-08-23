@@ -21,14 +21,14 @@ _maps_style; this module only asks it questions.
 import math
 
 from linecast import _maps_hover, _maps_labels, _maps_style as style
-from linecast._mvt import assemble_polygons, decode_tile
+from linecast._mvt import (
+    LINESTRING, POLYGON, assemble_polygons, decode_tile,
+)
 from linecast._png import DecodeMemo
 from linecast._radar_basemap import DotLayer, _bresenham, _edge_dots
 from linecast._runtime import debug_log
 from linecast._theme import lerp_rgb
-from linecast._vtiles import (
-    fetch_tiles, projector as _projector, tile_info, tiles_for_bbox,
-)
+from linecast._vtiles import fetch_tiles, iter_layer, tile_info, tiles_for_bbox
 
 # Fill ids double as indices into style.FILL_ORDER, so the id order *is*
 # the stacking order: water over park (a pond in a park), park over
@@ -50,7 +50,6 @@ LINE_LAYERS = ("transportation", "waterway", "aeroway", "boundary")
 CLIP_MARGIN = 8
 
 _MAX_TILES = 16          # a view needs ~4; more means a pathological window
-_DEFAULT_EXTENT = 4096
 _MIN_BUILDING_DOTS = 4.0  # one sub-pixel is 2x2 dots
 
 
@@ -207,25 +206,17 @@ def class_grid(view, bbox, graph_w, height_cells, band):
     dw, dh = graph_w * 2, height_cells * 4
     grid = [bytearray(dw) for _ in range(dh)]
     groups = {URBAN: [], PARK: [], WATER: [], BUILDING: []}
-    for (z, tx, ty), decoded in view:
-        for name in FILL_LAYERS:
-            layer = decoded.get(name)
-            if layer is None:
+    for name, feat, project in iter_layer(view, FILL_LAYERS, bbox, dw, dh,
+                                          POLYGON):
+        cls = fill_class(name, feat["tags"], band)
+        if cls is None:
+            continue
+        for rings in assemble_polygons(feat["geometry"]):
+            pr = [_closed([project(x, y) for x, y in ring])
+                  for ring in rings]
+            if cls == BUILDING and not _big_enough(pr):
                 continue
-            extent = layer.get("extent") or _DEFAULT_EXTENT
-            project = _projector(z, tx, ty, extent, bbox, dw, dh)
-            for feat in layer["features"]:
-                if feat["type"] != 3:      # polygons only
-                    continue
-                cls = fill_class(name, feat["tags"], band)
-                if cls is None:
-                    continue
-                for rings in assemble_polygons(feat["geometry"]):
-                    pr = [_closed([project(x, y) for x, y in ring])
-                          for ring in rings]
-                    if cls == BUILDING and not _big_enough(pr):
-                        continue
-                    groups[cls].append(pr)
+            groups[cls].append(pr)
 
     for cls in (URBAN, PARK, WATER):
         for rings in groups[cls]:
@@ -256,20 +247,13 @@ def _water_class_mask(view, bbox, graph_w, height_cells, classes):
     """(hc*4) x (gw*2) 1/0 mask of the tiles' water polygons in `classes`."""
     dw, dh = graph_w * 2, height_cells * 4
     grid = [bytearray(dw) for _ in range(dh)]
-    for (z, tx, ty), decoded in view:
-        src = decoded.get("water")
-        if src is None:
+    for _name, feat, project in iter_layer(view, "water", bbox, dw, dh,
+                                           POLYGON):
+        if feat["tags"].get("class") not in classes:
             continue
-        extent = src.get("extent") or _DEFAULT_EXTENT
-        project = _projector(z, tx, ty, extent, bbox, dw, dh)
-        for feat in src["features"]:
-            if feat["type"] != 3:      # polygons only
-                continue
-            if feat["tags"].get("class") not in classes:
-                continue
-            for rings in assemble_polygons(feat["geometry"]):
-                _fill_rings(grid, [_closed([project(x, y) for x, y in ring])
-                                   for ring in rings], 1, dw, dh)
+        for rings in assemble_polygons(feat["geometry"]):
+            _fill_rings(grid, [_closed([project(x, y) for x, y in ring])
+                               for ring in rings], 1, dw, dh)
     return grid
 
 
@@ -640,54 +624,46 @@ def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
     hide = None
     roads = [bytearray(dw) for _ in range(dh)]
     deferred = []
-    for (z, tx, ty), decoded in view:
-        for name in LINE_LAYERS:
-            src = decoded.get(name)
-            if src is None:
+    for name, feat, project in iter_layer(view, LINE_LAYERS, bbox, dw, dh,
+                                          LINESTRING):
+        props = feat["tags"]
+        key = line_style(name, props)
+        if key is None:
+            continue
+        weight = style.LINE_STYLES[key][1][band]
+        if not weight:
+            continue
+        color, dash = stroke_ink(key, props, palette)
+        rank = style.LINE_STYLES[key][3]
+        ticks = style.RAIL_TICK_EVERY if key == "rail" else 0
+        if water is not None and key in style.WATERWAY_KEYS:
+            if hide is None:
+                hide = open_water(water)
+            masked = hide
+        else:
+            masked = None
+        label = _maps_labels._name(props, lang)
+        owner = None
+        if label:
+            owner = by_name.get((key, label))
+            if owner is None:
+                owner = by_name[(key, label)] = len(feats)
+                feats.append((key, label))
+        casts = roads if key in style.SHADOW_CASTING else None
+        for part in feat["geometry"]:
+            if label:
+                part_owner = owner
+            else:
+                part_owner = len(feats)
+                feats.append((key, ""))
+            pts = [project(x, y) for x, y in part]
+            if key in style.SHADOWED:
+                deferred.append(
+                    (pts, color, rank, weight, dash, part_owner))
                 continue
-            extent = src.get("extent") or _DEFAULT_EXTENT
-            project = _projector(z, tx, ty, extent, bbox, dw, dh)
-            for feat in src["features"]:
-                if feat["type"] != 2:       # linestrings only
-                    continue
-                props = feat["tags"]
-                key = line_style(name, props)
-                if key is None:
-                    continue
-                weight = style.LINE_STYLES[key][1][band]
-                if not weight:
-                    continue
-                color, dash = stroke_ink(key, props, palette)
-                rank = style.LINE_STYLES[key][3]
-                ticks = style.RAIL_TICK_EVERY if key == "rail" else 0
-                if water is not None and key in style.WATERWAY_KEYS:
-                    if hide is None:
-                        hide = open_water(water)
-                    masked = hide
-                else:
-                    masked = None
-                label = _maps_labels._name(props, lang)
-                owner = None
-                if label:
-                    owner = by_name.get((key, label))
-                    if owner is None:
-                        owner = by_name[(key, label)] = len(feats)
-                        feats.append((key, label))
-                casts = roads if key in style.SHADOW_CASTING else None
-                for part in feat["geometry"]:
-                    if label:
-                        part_owner = owner
-                    else:
-                        part_owner = len(feats)
-                        feats.append((key, ""))
-                    pts = [project(x, y) for x, y in part]
-                    if key in style.SHADOWED:
-                        deferred.append(
-                            (pts, color, rank, weight, dash, part_owner))
-                        continue
-                    stroke_polyline(
-                        layer, pts, color, rank, weight, dash, ticks,
-                        part_owner, masked, casts)
+            stroke_polyline(
+                layer, pts, color, rank, weight, dash, ticks,
+                part_owner, masked, casts)
     if deferred:
         shadow = road_shadow(roads, style.path_shadow_dots(bbox, dh))
         for pts, color, rank, weight, dash, part_owner in deferred:
@@ -714,26 +690,19 @@ def water_lines(view, bbox, graph_w, height_cells, band, color, water=None):
     layer = DotLayer(bbox, graph_w, height_cells)
     hide = open_water(water) if water is not None else None
     dw, dh = graph_w * 2, height_cells * 4
-    for (z, tx, ty), decoded in view:
-        src = decoded.get("waterway")
-        if src is None:
+    for _name, feat, project in iter_layer(view, "waterway", bbox, dw, dh,
+                                           LINESTRING):
+        key = style.waterway_style(feat["tags"])
+        if key is None:
             continue
-        extent = src.get("extent") or _DEFAULT_EXTENT
-        project = _projector(z, tx, ty, extent, bbox, dw, dh)
-        for feat in src["features"]:
-            if feat["type"] != 2:      # linestrings only
-                continue
-            key = style.waterway_style(feat["tags"])
-            if key is None:
-                continue
-            weights = style.TERRAIN_WATERWAY_WEIGHTS.get(key)
-            if weights is None or not weights[band]:
-                continue      # a class terrain does not draw (e.g. ferry)
-            weight = weights[band]
-            rank = style.LINE_STYLES[key][3]
-            for part in feat["geometry"]:
-                stroke_polyline(layer, [project(x, y) for x, y in part],
-                                color, rank, weight, hide=hide)
+        weights = style.TERRAIN_WATERWAY_WEIGHTS.get(key)
+        if weights is None or not weights[band]:
+            continue      # a class terrain does not draw (e.g. ferry)
+        weight = weights[band]
+        rank = style.LINE_STYLES[key][3]
+        for part in feat["geometry"]:
+            stroke_polyline(layer, [project(x, y) for x, y in part],
+                            color, rank, weight, hide=hide)
     return layer
 
 
@@ -759,26 +728,20 @@ def _stamp_aeroways(grid, view, bbox, dw, dh, value):
     without this pass the whole airport reads as meadow.  Runway lines
     stamp two sub-pixels wide — a runway's width is its identity.
     """
-    for (z, tx, ty), decoded in view:
-        src = decoded.get("aeroway")
-        if src is None:
+    for _name, feat, project in iter_layer(view, "aeroway", bbox, dw, dh):
+        cls = feat["tags"].get("class")
+        if cls not in style.AEROWAY_COVER:
             continue
-        extent = src.get("extent") or _DEFAULT_EXTENT
-        project = _projector(z, tx, ty, extent, bbox, dw, dh)
-        for feat in src["features"]:
-            cls = feat["tags"].get("class")
-            if cls not in style.AEROWAY_COVER:
-                continue
-            if feat["type"] == 3:
-                for rings in assemble_polygons(feat["geometry"]):
-                    _fill_rings(grid, [_closed([project(x, y)
-                                                for x, y in ring])
-                                       for ring in rings], value, dw, dh)
-            elif feat["type"] == 2:
-                for part in feat["geometry"]:
-                    _stamp_line(grid, [project(x, y) for x, y in part],
-                                value, dw, dh,
-                                thick=2 if cls == "runway" else 1)
+        if feat["type"] == POLYGON:
+            for rings in assemble_polygons(feat["geometry"]):
+                _fill_rings(grid, [_closed([project(x, y)
+                                            for x, y in ring])
+                                   for ring in rings], value, dw, dh)
+        elif feat["type"] == LINESTRING:
+            for part in feat["geometry"]:
+                _stamp_line(grid, [project(x, y) for x, y in part],
+                            value, dw, dh,
+                            thick=2 if cls == "runway" else 1)
 
 
 def _street_density_urban(grid, view, bbox, dw, dh, value):
@@ -793,20 +756,13 @@ def _street_density_urban(grid, view, bbox, dw, dh, value):
     change — a park inside the grid stays a park.
     """
     dots = [bytearray(dw) for _ in range(dh)]
-    for (z, tx, ty), decoded in view:
-        src = decoded.get("transportation")
-        if src is None:
+    for _name, feat, project in iter_layer(view, "transportation", bbox,
+                                           dw, dh, LINESTRING):
+        if feat["tags"].get("class") not in style.URBAN_STREET_CLASS:
             continue
-        extent = src.get("extent") or _DEFAULT_EXTENT
-        project = _projector(z, tx, ty, extent, bbox, dw, dh)
-        for feat in src["features"]:
-            if feat["type"] != 2:
-                continue
-            if feat["tags"].get("class") not in style.URBAN_STREET_CLASS:
-                continue
-            for part in feat["geometry"]:
-                _stamp_line(dots, [project(x, y) for x, y in part], 1,
-                            dw, dh)
+        for part in feat["geometry"]:
+            _stamp_line(dots, [project(x, y) for x, y in part], 1,
+                        dw, dh)
 
     integ = [[0] * (dw + 1)]
     for y in range(dh):
@@ -870,28 +826,20 @@ def land_cover_grid(view, bbox, graph_w, height_cells):
     dw, dh = graph_w, height_cells * 2
     grid = [bytearray(dw) for _ in range(dh)]
     groups = {}
-    for (z, tx, ty), decoded in view:
-        for name in ("landcover", "landuse"):
-            layer = decoded.get(name)
-            if layer is None:
-                continue
-            extent = layer.get("extent") or _DEFAULT_EXTENT
-            project = _projector(z, tx, ty, extent, bbox, dw, dh)
-            for feat in layer["features"]:
-                if feat["type"] != 3:      # polygons only
-                    continue
-                cls = feat["tags"].get("class")
-                if name == "landcover":
-                    key = style.COVER_LANDCOVER.get(cls)
-                else:
-                    key = ("urban" if cls in style.COVER_URBAN_LANDUSE
-                           else None)
-                if key is None:
-                    continue
-                for rings in assemble_polygons(feat["geometry"]):
-                    groups.setdefault(key, []).append(
-                        [_closed([project(x, y) for x, y in ring])
-                         for ring in rings])
+    for name, feat, project in iter_layer(view, ("landcover", "landuse"),
+                                          bbox, dw, dh, POLYGON):
+        cls = feat["tags"].get("class")
+        if name == "landcover":
+            key = style.COVER_LANDCOVER.get(cls)
+        else:
+            key = ("urban" if cls in style.COVER_URBAN_LANDUSE
+                   else None)
+        if key is None:
+            continue
+        for rings in assemble_polygons(feat["geometry"]):
+            groups.setdefault(key, []).append(
+                [_closed([project(x, y) for x, y in ring])
+                 for ring in rings])
     for i, key in enumerate(style.COVER_ORDER):
         for rings in groups.get(key, ()):
             _fill_rings(grid, rings, i + 1, dw, dh)
