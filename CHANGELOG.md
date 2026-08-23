@@ -19,46 +19,36 @@ Notable changes, by release. Notes for the next release collect under
   labels, in the terrain view and on the globe.
 - Maps: With the sun on, the globe's atmosphere glow fades into night
   along with the ground beside it.
-- Weather: The ten-year climate archive behind the above-or-below-average
-  note is downloaded once a week instead of once a day.
+- Weather: The climate archive behind the above-or-below-average note
+  is downloaded once a week instead of once a day.
 - Weather: In live mode, a failed air-quality or climate-average fetch
   no longer retries the network on every mouse movement.
 - Completions: The tides, sunshine, and moon completions now offer
-  --location, tides also --emoji, and sunshine --lang. The scripts are
-  generated from the same option definitions the commands use, so they
-  can't fall behind again.
-- Completions: fish's linecast completion now offers nu and nushell,
+  `--location`, tides also `--emoji`, and sunshine `--lang`. The
+  scripts are generated from the commands' own option definitions, so
+  they can't fall behind again.
+- Completions: fish's `linecast completion` now offers nu and nushell,
   and the unknown-shell message lists them.
 - Maps: Dragging and spinning the globe is more than twice as fast,
   and hovering over it no longer re-places its city labels on every
   repaint.
-- Tides: Opening the tide chart is much faster the first time each
-  day. Predictions are fetched a month at a time instead of a day at a
-  time, and the pieces of the view load together.
-- Tides: The y-axis range is no longer re-fetched every day, and the
-  cache directory stops gaining a new file per day.
 - Maps: Panning and zooming the terrain view is about three times
-  faster. Tiles are decoded once and reused across pans, zoom steps
-  and the v toggle, and a view on a cold cache no longer waits for
-  each tile source in turn.
-- Radar: Local colour themes draw faster, and switching between them
-  no longer waits on the network.
+  faster, and a view on a cold cache no longer waits for each tile
+  source in turn.
+- Tides: Opening the tide chart is much faster the first time each
+  day, and the cache directory stops gaining new files every day. Old
+  per-day cache files left by earlier versions are cleaned up on the
+  next run.
 - Radar: The frame on screen is fetched before the rest of the
   animation window, so a fresh view fills in sooner.
+- Radar: Local colour themes draw faster, and switching between them
+  no longer waits on the network.
 - Radar: Refreshing the frame list happens in the background, so a
-  slow connection can't pause playback while the index is re-read.
-- Maps and weather: Requests to the same server reuse one connection
-  instead of opening a fresh one each time, so tile pyramids and the
-  forecast's several calls arrive sooner.
-- Commands start a little faster: the package version is looked up
-  only when something prints it.
-- Tides: Old per-day cache files left behind by earlier versions are
-  cleaned up on the next run.
-- Radar: Tile, frame and index downloads reuse one connection per
-  server instead of opening a fresh one each time, and radar and maps
-  start a little faster.
-- Tides: Starts a little faster; the tide providers no longer look up
-  the package version before the first request.
+  slow connection can't pause playback.
+- Requests to the same server reuse one connection instead of opening
+  a fresh one each time, so tile pyramids and the forecast's several
+  calls arrive sooner.
+- Every command starts a little faster.
 
 ## 1.15.1 — 2026-08-23
 
