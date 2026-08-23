@@ -39,10 +39,12 @@ _prefetch_done = False  # current window's prefetch worker has finished
 _buffering = False    # auto-play is held while the frame window buffers
 
 
-def _view_key(bbox, gw, hc):
+def _view_key(bbox, gw, hc, src=None):
     # theme is part of the view: switching palettes must not serve old
     # colours, and neither must a terminal theme change (_theme.generation)
-    return (_bbox_key(bbox), gw, hc, getattr(_source, "theme", None),
+    if src is None:
+        src = _source
+    return (_bbox_key(bbox), gw, hc, getattr(src, "theme", None),
             _theme.generation)
 
 
@@ -52,27 +54,30 @@ def _sat_timeline():
     return list(getattr(_source, "satellite_frames", lambda: [])())
 
 
-def _frame_key(bbox, gw, hc, frame, layer="radar"):
+def _frame_key(bbox, gw, hc, frame, layer="radar", src=None):
     stamp = frame.time.strftime("%Y%m%dT%H%M")
     if frame.future:
         # nowcast frames are re-predicted under the same timestamp; a token
         # digest keeps a superseded prediction from being served forever
         import hashlib
         stamp += ":" + hashlib.sha1(str(frame.token).encode()).hexdigest()[:8]
-    return _view_key(bbox, gw, hc) + (layer, stamp)
+    return _view_key(bbox, gw, hc, src) + (layer, stamp)
 
 
 def _load_frame(bbox, gw, hc, frame, layer="radar"):
     """Return (radar_buffer, echo). Memoised; fetches + decodes on miss."""
-    key = _frame_key(bbox, gw, hc, frame, layer)
+    # one source for the key and the fetch: a theme swap replaces _source
+    # between the two, and the new palette must not land under the old key
+    src = _source
+    key = _frame_key(bbox, gw, hc, frame, layer, src)
     with _frame_lock:
         hit = _frame_cache.get(key)
     if hit is not None:
         return hit
     if layer == "sat":
-        pw, ph, rgba = _source.satellite_rgba(bbox, gw, hc, frame)
+        pw, ph, rgba = src.satellite_rgba(bbox, gw, hc, frame)
     else:
-        pw, ph, rgba = _source.frame_rgba(bbox, gw, hc, frame)
+        pw, ph, rgba = src.frame_rgba(bbox, gw, hc, frame)
     result = build_radar_buffer(rgba, pw, ph, gw, hc,
                                 sea=_get_basemap(bbox, gw, hc).sea)
     with _frame_lock:
