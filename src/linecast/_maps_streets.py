@@ -22,6 +22,7 @@ import math
 
 from linecast import _maps_hover, _maps_labels, _maps_style as style
 from linecast._mvt import assemble_polygons, decode_tile
+from linecast._png import DecodeMemo
 from linecast._radar_basemap import DotLayer, _bresenham, _edge_dots
 from linecast._runtime import debug_log
 from linecast._theme import lerp_rgb
@@ -167,19 +168,29 @@ def fill_class(layer_name, props, band):
     return None
 
 
+# Decoded tiles outlive the view that decoded them: a pan, a zoom step
+# within the same source zoom and a `v` toggle all ask for tiles the
+# last view already parsed, at ~30 ms each for a z7 tile.  Sixteen
+# entries within 3 MB of raw bytes covers a whole terrain view and its
+# neighbour; a decoded z7 tile runs to 5-9 MB, so the budget is what
+# keeps the memo under ~100 MB.
+_decoded = DecodeMemo(cap=16, budget=3 * 1024 * 1024)
+
+
 def decode_view(tiles):
     """[((z, x, y), layers), ...] in tile-key order.
 
     Decoded once and shared by the fills, the strokes and the labels;
     walking in key order rather than arrival order is what keeps a slow
-    tile from changing the picture.
+    tile from changing the picture.  Nothing downstream mutates a
+    decoded tile, so the same decode serves every view that needs it.
     """
     view = []
     for key, data in sorted(tiles.items()):
         if not data:
             continue
         try:
-            view.append((key, decode_tile(data)))
+            view.append((key, _decoded.get(key, data, decode_tile)))
         except ValueError as exc:
             debug_log(f"street tile {key[0]}/{key[1]}/{key[2]} "
                       f"undecodable: {exc}")

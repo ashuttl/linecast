@@ -295,6 +295,33 @@ class TestCoast:
                 assert ink("water") in neighbours
 
 
+class TestDecodeMemo:
+    """A tile is decoded once and serves every view that asks for it,
+    as long as the bytes are the ones it was decoded from."""
+
+    @pytest.fixture(autouse=True)
+    def _fresh(self):
+        st._decoded.clear()
+        yield
+        st._decoded.clear()
+
+    def test_the_same_bytes_share_one_decode(self):
+        data = tile(classed("water", LEFT_HALF, "lake"))
+        first = st.decode_view({Z0: data})
+        again = st.decode_view({Z0: bytes(data)})
+        assert again[0][1] is first[0][1]
+
+    def test_new_bytes_at_the_same_key_decode_afresh(self):
+        lake = st.decode_view({Z0: tile(classed("water", LEFT_HALF, "lake"))})
+        sea = st.decode_view({Z0: tile(classed("water", LEFT_HALF, "ocean"))})
+        assert lake[0][1]["water"]["features"][0]["tags"]["class"] == "lake"
+        assert sea[0][1]["water"]["features"][0]["tags"]["class"] == "ocean"
+
+    def test_an_undecodable_tile_is_skipped_and_not_remembered(self):
+        assert st.decode_view({Z0: b"\x1a\xff\xff\xff\xff\xff"}) == []
+        assert Z0 not in st._decoded._hits
+
+
 # ---------------------------------------------------------------------------
 # Terrain mode's half: inland water only
 # ---------------------------------------------------------------------------
