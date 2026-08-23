@@ -14,6 +14,10 @@ committing on his behalf:
 - When a change is user-visible, add a bullet to the Unreleased
   section of CHANGELOG.md in the same plain style. Andrew edits the
   notes at release time; the bullet is a draft, so keep it factual.
+  One or two sentences on what the user gets — not how it was done,
+  not the timings, not the file names. The mechanism goes in the
+  commit body. "Maps: Fixed a bug that could have caused rendering
+  the globe to fail until the user interacted with it."
 
 ## Releases
 

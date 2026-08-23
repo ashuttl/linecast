@@ -5,40 +5,20 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
-- Maps: the globe no longer sticks on its loading frame. A background
-  fetch that finished while the first frame was still being composed
-  had its repaint nudge thrown away, so the finished globe sat in the
-  cache until the next keypress. The nudge now survives.
-- Maps: the first frame arrives in about a second and a half instead
-  of five or more. The pure-Python PNG decoder gained C-speed paths
-  for its hot loops, and the globe's stitched world canvas is baked to
-  the cache directory after its first assembly, so later launches skip
-  the tile decoding entirely.
-- Radar and maps launch faster. The vendored geography parses through
-  a marshal cache (0.3s → 0.08s), radar's rasterised land/sea grids
-  are cached per view (0.6s → milliseconds on the second launch), a
-  bounding-box test spares the water-name lookup its full ray-casting
-  pass, and the version lookup no longer taxes every command's start.
-  What remains of radar's launch is fetching the radar itself.
-- Maps: the globe's two common world canvases now ship in the package
-  (2.5 MB, baked at release time by scripts/build_globe_canvas.py), so
-  a fresh install draws its first globe with no network at all. The
-  largest size — very tall terminals only — still stitches once
-  locally and is cached.
-- Maps: terrain colour now knows the climate, not just the elevation.
-  A vendored Köppen-Geiger grid (Beck et al. 2023, 67 KB in the
-  package) picks between four hypsometric ramps — humid, steppe,
-  desert, tundra — so the low Sahara reads as sand instead of meadow
-  and the dry Tibetan Plateau as stone instead of snow. Works
-  offline; applies to the terrain view and the globe.
-- Maps: `l` now hides the linework along with the labels — national
-  borders, coastlines, and rivers — in the terrain view and on the
-  globe, leaving the bare planet. Street mode's lines are part of the
-  map itself and stay.
-- Maps: with the sun on, the globe's atmosphere glow now follows it.
-  The blue rim is scattered sunlight, so it fades through the same
-  twilight band as the ground beside it; the night limb keeps only a
-  thin trace of airglow green.
+- Maps: Fixed a bug that could have caused rendering the globe to fail
+  until the user interacted with it.
+- Maps: The globe's first frame draws in about a second and a half
+  instead of five or more.
+- Maps: A fresh install draws its first globe without a network
+  connection.
+- Radar and maps launch faster.
+- Maps: Terrain colour accounts for climate as well as elevation,
+  using the Köppen-Geiger classification, so deserts read as sand and
+  dry plateaus as stone. Applies to the terrain view and the globe.
+- Maps: `l` hides borders, coastlines, and rivers along with the
+  labels, in the terrain view and on the globe.
+- Maps: With the sun on, the globe's atmosphere glow fades into night
+  along with the ground beside it.
 
 ## 1.15.1 — 2026-08-23
 
