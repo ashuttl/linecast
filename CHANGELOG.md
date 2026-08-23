@@ -45,6 +45,8 @@ Notable changes, by release. Notes for the next release collect under
   no longer waits on the network.
 - Radar: The frame on screen is fetched before the rest of the
   animation window, so a fresh view fills in sooner.
+- Radar: Refreshing the frame list happens in the background, so a
+  slow connection can't pause playback while the index is re-read.
 
 ## 1.15.1 — 2026-08-23
 

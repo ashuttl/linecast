@@ -15,6 +15,8 @@ world to RainViewer, with IEM as the last resort.
 """
 
 import datetime
+import threading
+import time
 
 from linecast._png import decode_rgba
 from linecast._radar_source import fetch_frame, frame_times
@@ -23,6 +25,12 @@ from linecast import _radar_palettes as palettes
 
 # rough lower-48 bounding box; IEM/NEXRAD coverage
 _CONUS = (-127.0, 23.0, -65.0, 50.0)
+
+_REFRESH_S = 60  # how long a tile source trusts its frame list
+
+# Called from the refresh thread when a background index refresh changes
+# the frame list; the live radar hangs a repaint nudge here.
+on_index_refresh = None
 
 # Colour themes in picker display order: ours first, then the server's.
 # A str names one of our own palettes, coloured here from the grayscale
@@ -124,21 +132,36 @@ class IEMSource:
 
 
 class _TileSource:
-    """Shared body for sources speaking the RainViewer v2 tile protocol."""
+    """Shared body for sources speaking the RainViewer v2 tile protocol.
 
-    def __init__(self, provider):
+    The first index fetch is synchronous (a source with no frames is no
+    source). After that the frame list refreshes in a background thread
+    once it is _REFRESH_S old, and the stale list is served meanwhile, so
+    a render never waits on the network for the index.
+    """
+
+    def __init__(self, provider, index_from=None):
         self.provider = provider
         self._sat_provider = tiles.satellite_provider(provider)
         self.host = None
         self._frames = []
         self._sat_frames = []
-        self._built_at = 0.0
-        self._refresh()
+        self._checked_at = 0.0
+        self._refresh_lock = threading.Lock()
+        self._refreshing = False
+        if index_from is not None:
+            # same index under other settings (a theme switch): no network
+            self.host = index_from.host
+            self._frames = index_from._frames
+            self._sat_frames = index_from._sat_frames
+            self._checked_at = index_from._checked_at
+        else:
+            self._refresh()
 
     def _refresh(self):
-        import time
+        """Fetch the index and rebuild the frame lists. Returns True when
+        the radar frame list changed."""
         idx = tiles.fetch_index(self.provider)
-        self.host = idx["host"]
         radar = idx.get("radar", {})
         frames = []
         for f in radar.get("past") or []:
@@ -146,21 +169,46 @@ class _TileSource:
         for f in radar.get("nowcast") or []:
             frames.append(Frame(_utc(f["time"]), f["path"], True))
         frames.sort(key=lambda fr: fr.time)
-        self._frames = frames
         # hourly global cloud mosaic; absent from indexes without satellite
         sat = (idx.get("satellite") or {}).get("infrared") or []
-        self._sat_frames = sorted(
+        sat_frames = sorted(
             (Frame(_utc(f["time"]), f["path"], False) for f in sat),
             key=lambda fr: fr.time)
-        self._built_at = time.time()
+        changed = ([(f.time, f.token) for f in frames]
+                   != [(f.time, f.token) for f in self._frames])
+        # whole-list assignments: a reader on another thread sees either
+        # the old list or the new one, never a half-built one
+        self.host = idx["host"]
+        self._frames = frames
+        self._sat_frames = sat_frames
+        self._checked_at = time.time()
+        return changed
 
-    def current_frames(self):
-        import time
-        if not self._frames or (time.time() - self._built_at) > 60:
+    def _refresh_in_background(self):
+        with self._refresh_lock:
+            if self._refreshing:
+                return
+            self._refreshing = True
+
+        def work():
+            changed = False
             try:
-                self._refresh()
+                changed = self._refresh()
             except Exception:
                 pass
+            finally:
+                with self._refresh_lock:
+                    self._refreshing = False
+                    self._checked_at = time.time()  # a failure backs off too
+            hook = on_index_refresh
+            if changed and hook is not None:
+                hook()
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def current_frames(self):
+        if time.time() - self._checked_at > _REFRESH_S:
+            self._refresh_in_background()
         return self._frames
 
     def satellite_frames(self):
@@ -193,13 +241,17 @@ class LibreWXRSource(_TileSource):
     model_attribution = "Precipitation model by LibreWXR (no radar here) · CC BY 4.0"
     themes = THEMES  # advertises the in-radar theme picker
 
-    def __init__(self, theme=THEMES[DEFAULT_THEME]):
+    def __init__(self, theme=THEMES[DEFAULT_THEME], index_from=None):
         self.theme = theme
         self.palette = palettes.PALETTES.get(theme)
         self.smooth = self.palette is not None
         super().__init__(tiles.librewxr_provider(
             theme if self.palette is None else tiles.RAW_COLOR,
-            smooth=self.palette is None))
+            smooth=self.palette is None), index_from=index_from)
+
+    def with_theme(self, theme):
+        """This source's index under another theme; never touches the network."""
+        return LibreWXRSource(theme, index_from=self)
 
     def frame_rgba(self, bbox, gw, hc, frame):
         w, h, rgba = super().frame_rgba(bbox, gw, hc, frame)

@@ -46,6 +46,7 @@ from linecast._radar_render import (
     bbox_for, build_radar_buffer, compose,
 )
 from linecast._radar_source import FRAME_STEP
+from linecast import _radar_sources
 from linecast._radar_sources import (DEFAULT_THEME, THEMES, get_source,
                                      has_radar, is_local, theme_id)
 from linecast._runtime import RuntimeConfig, radar_parser, use_metric
@@ -80,6 +81,15 @@ _prefetch_gen = 0     # bumped when the view changes; stale workers stand down
 _prefetch_done = False  # current window's prefetch worker has finished
 _buffering = False    # auto-play is held while the frame window buffers
 _live_refresh = False  # live mode: prefetch completions nudge a repaint
+
+
+def _nudge():
+    """Ask the live loop to repaint now that something landed in the
+    background. SIGWINCH rides the loop's existing self-pipe wakeup and is
+    harmless if coalesced; outside live mode this is a no-op."""
+    if _live_refresh:
+        import signal
+        os.kill(os.getpid(), signal.SIGWINCH)
 
 
 def _bbox_key(bbox):
@@ -127,11 +137,7 @@ def _load_frame(bbox, gw, hc, frame, layer="radar"):
         if len(_frame_cache) > N_FRAMES + 8:  # bound to the rewind window
             for old in list(_frame_cache)[:len(_frame_cache) - (N_FRAMES + 8)]:
                 _frame_cache.pop(old, None)
-    if _live_refresh:
-        # nudge the live loop to repaint now that a frame is ready (SIGWINCH
-        # rides the loop's existing self-pipe wakeup; harmless if coalesced)
-        import signal
-        os.kill(os.getpid(), signal.SIGWINCH)
+    _nudge()  # a frame is ready
     return result
 
 
@@ -208,9 +214,7 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
             if loaded == 0:
                 # nothing arrived (offline?) — allow a later render to retry
                 _prefetch_key = None
-            if _live_refresh:
-                import signal
-                os.kill(os.getpid(), signal.SIGWINCH)
+            _nudge()
 
     threading.Thread(target=worker, daemon=True).start()
 
@@ -228,9 +232,7 @@ def _warm_warnings(frame):
     try:
         if _radar_warnings.cached_at(frame.time) is None:
             _radar_warnings.warnings_at(frame.time)
-            if _live_refresh:
-                import signal
-                os.kill(os.getpid(), signal.SIGWINCH)
+            _nudge()
     except Exception:
         pass
 
@@ -300,9 +302,8 @@ def _get_field(bbox, block):
                 if len(_field_cache) > 4:
                     _field_cache.clear()
                 _field_cache[key] = (stamp, field)
-        if field is not None and _live_refresh:
-            import signal
-            os.kill(os.getpid(), signal.SIGWINCH)
+        if field is not None:
+            _nudge()
 
     threading.Thread(target=worker, daemon=True).start()
     return None
@@ -854,6 +855,8 @@ def main():
 
     global _live_refresh
     _live_refresh = True
+    # a background index refresh that adds a frame repaints the timeline
+    _radar_sources.on_index_refresh = _nudge
     zoom = [args.zoom]
     center = [lat, lon]          # pans; marker stays at the true location
     region = [_in_conus(lat, lon)]
@@ -912,13 +915,13 @@ def main():
             menu_sel[0] = None
             if choice != getattr(_source, "theme", None):
                 theme_sel[0] = choice
-                _source = get_source(center[0], center[1], N_FRAMES,
-                                     choice)
+                _source = _source.with_theme(choice)  # same index, no fetch
         elif action in ('escape', 'key:t', 'quit'):
             menu_sel[0] = None
         return True  # while the menu is open, no key reaches the map
 
     def on_drag(dcol, drow, done):
+        global _source
         if not done:
             # mid-drag: update the screen-space preview offset only
             changed = pan_preview != [dcol, drow]
@@ -939,14 +942,15 @@ def main():
             center[1] -= 360.0
         elif center[1] < -180.0:
             center[1] += 360.0
-        # crossing the CONUS boundary re-picks the source (and is the
-        # natural moment to retry LibreWXR after a fallback)
+        # crossing the CONUS boundary re-picks the source: the natural
+        # moment to retry LibreWXR after a fallback (a source that offers
+        # themes is LibreWXR already, and would only be re-picked as itself)
         r = _in_conus(center[0], center[1])
         if r != region[0]:
             region[0] = r
-            global _source
-            _source = get_source(center[0], center[1], N_FRAMES,
-                                 theme_sel[0])
+            if getattr(_source, "themes", None) is None:
+                _source = get_source(center[0], center[1], N_FRAMES,
+                                     theme_sel[0])
         return True
 
     live_loop(

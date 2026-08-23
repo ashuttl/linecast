@@ -6,10 +6,13 @@ monkeypatched to a stub, never the real HTTP call.
 
 import datetime
 import sys
+import threading
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from linecast import _radar_sources as sources
 from linecast import _radar_tiles as tiles
 from linecast._radar_source import _floor_step, frame_times
 from linecast._radar_sources import (
@@ -216,6 +219,93 @@ class TestTileSourceFrames:
         assert frames[1].future is False
         assert frames[2].token == "/f1"
         assert frames[2].future is True
+
+    def _counting_stub(self, indexes, gate=None):
+        """fetch_index stub returning indexes[n] on the n-th call; calls
+        after the first wait on `gate` (a refresh held in flight)."""
+        calls = []
+
+        def stub(*a, **k):
+            calls.append(1)
+            if gate is not None and len(calls) > 1:
+                gate.wait(5)
+            result = indexes[min(len(calls), len(indexes)) - 1]
+            if isinstance(result, Exception):
+                raise result
+            return result
+        original = tiles.fetch_index
+        tiles.fetch_index = stub
+        return original, calls
+
+    def _wait_idle(self, src):
+        for _ in range(500):
+            if not src._refreshing:
+                return
+            time.sleep(0.01)
+        raise AssertionError("background refresh never finished")
+
+    def test_fresh_list_served_without_refetch(self):
+        original, calls = self._counting_stub([_INDEX])
+        try:
+            src = LibreWXRSource()
+            first = src.current_frames()
+            assert src.current_frames() is first
+            assert src.satellite_frames() == []
+        finally:
+            tiles.fetch_index = original
+        assert len(calls) == 1
+
+    def test_stale_list_served_while_refresh_runs_in_background(self):
+        newer = {"host": "https://h", "radar": {
+            "past": _INDEX["radar"]["past"] + [{"time": 2500, "path": "/p3"}],
+            "nowcast": _INDEX["radar"]["nowcast"]}}
+        gate, landed = threading.Event(), threading.Event()
+        original, calls = self._counting_stub([_INDEX, newer], gate)
+        sources.on_index_refresh = landed.set
+        try:
+            src = LibreWXRSource()
+            first = src.current_frames()
+            src._checked_at = 0  # a minute passes
+            assert src.current_frames() is first  # no wait on the network
+            assert src._refreshing  # ...but it is running
+            gate.set()
+            assert landed.wait(5)
+            self._wait_idle(src)
+            frames = src.current_frames()
+        finally:
+            tiles.fetch_index = original
+            sources.on_index_refresh = None
+        assert len(calls) == 2
+        assert [f.token for f in frames] == ["/p1", "/p2", "/p3", "/f1"]
+
+    def test_failed_refresh_keeps_frames_and_backs_off(self):
+        original, calls = self._counting_stub([_INDEX, OSError("offline")])
+        try:
+            src = LibreWXRSource()
+            first = src.current_frames()
+            src._checked_at = 0
+            assert src.current_frames() is first
+            self._wait_idle(src)
+            assert src.current_frames() is first  # not retried every tick
+        finally:
+            tiles.fetch_index = original
+        assert len(calls) == 2
+        assert time.time() - src._checked_at < 5
+
+    def test_with_theme_reuses_the_index(self):
+        original, calls = self._counting_stub([_INDEX])
+        try:
+            src = LibreWXRSource("terminal")
+            dusk = src.with_theme("dusk")
+            server = src.with_theme(7)
+        finally:
+            tiles.fetch_index = original
+        assert len(calls) == 1
+        assert dusk.current_frames() is src.current_frames()
+        assert dusk.host == src.host
+        assert (dusk.theme, dusk.provider.color) == ("dusk", tiles.RAW_COLOR)
+        assert (server.theme, server.provider.color) == (7, 7)
+        assert server.palette is None and server.smooth is False
 
     def test_only_librewxr_advertises_themes(self):
         original = self._stub(_INDEX)
