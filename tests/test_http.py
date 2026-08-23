@@ -285,7 +285,10 @@ class TestVersion:
         for code in ("import linecast.weather, linecast._runtime; "
                      "linecast._runtime.weather_parser()",
                      "import linecast.radar",
-                     "import linecast.maps"):
+                     "import linecast.maps",
+                     "import linecast.sunshine",
+                     "import linecast.moon",
+                     "import linecast.tides"):
             out = subprocess.run(
                 [sys.executable, "-X", "importtime", "-c", code],
                 capture_output=True, text=True, cwd=_src).stderr

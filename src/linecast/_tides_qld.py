@@ -10,7 +10,6 @@ from datetime import timezone, timedelta
 import json
 import urllib.parse
 
-from linecast import USER_AGENT
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._tides_common import (
@@ -53,7 +52,7 @@ def fetch_all_stations_qld():
         f"&sort=Site%20asc"
     )
     try:
-        data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=15)
+        data = fetch_json(url, timeout=15)
     except Exception:
         stale = read_stale(cache_file)
         return stale if stale else []
@@ -209,7 +208,6 @@ def _fetch_pred_chunk(station_name, start_date, end_date):
     url = _build_ckan_url(station_name)
     data = fetch_json_cached(
         cache_file, 0, url,
-        headers={"User-Agent": USER_AGENT},
         timeout=20, fallback=None,
     )
     if not data or not isinstance(data, dict):

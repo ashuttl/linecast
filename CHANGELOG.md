@@ -57,6 +57,8 @@ Notable changes, by release. Notes for the next release collect under
 - Radar: Tile, frame and index downloads reuse one connection per
   server instead of opening a fresh one each time, and radar and maps
   start a little faster.
+- Tides: Starts a little faster; the tide providers no longer look up
+  the package version before the first request.
 
 ## 1.15.1 — 2026-08-23
 

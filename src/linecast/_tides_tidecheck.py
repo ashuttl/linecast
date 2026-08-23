@@ -18,7 +18,6 @@ Free tier: 50 requests/day (no credit card required)
 
 import os
 
-from linecast import USER_AGENT
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._tides_common import (
@@ -44,14 +43,11 @@ def is_available():
 
 
 def _headers():
-    """Standard request headers including the API key."""
+    """The API-key header; the User-Agent is attached by _http."""
     key = _api_key()
     if not key:
         return {}
-    return {
-        "User-Agent": USER_AGENT,
-        "X-API-Key": key,
-    }
+    return {"X-API-Key": key}
 
 
 # ---------------------------------------------------------------------------

@@ -33,8 +33,8 @@ class AvailabilityTests(unittest.TestCase):
     def test_headers_include_api_key(self):
         with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "my-key"}):
             h = tc._headers()
-            self.assertEqual(h["X-API-Key"], "my-key")
-            self.assertIn("User-Agent", h)
+            # the User-Agent is attached by _http.fetch_bytes, not here
+            self.assertEqual(h, {"X-API-Key": "my-key"})
 
     def test_headers_empty_without_key(self):
         with patch.dict("os.environ", {}, clear=True):

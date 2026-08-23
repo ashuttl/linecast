@@ -7,7 +7,6 @@ feet for compatibility with the NOAA-based rendering pipeline.
 
 from datetime import timezone, timedelta
 
-from linecast import USER_AGENT
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._tides_common import (
@@ -34,7 +33,6 @@ def fetch_all_stations_chs():
     url = f"{CHS_BASE}/stations?time-series-code=wlp-hilo"
     data = fetch_json_cached(
         cache_file, 30 * 86400, url,
-        headers={"User-Agent": USER_AGENT},
         timeout=15, fallback=None,
     )
     if not data or not isinstance(data, list):
@@ -78,7 +76,6 @@ def fetch_station_metadata_chs(station_id):
     url = f"{CHS_BASE}/stations/{station_id}/metadata"
     data = fetch_json_cached(
         cache_file, 0, url,
-        headers={"User-Agent": USER_AGENT},
         timeout=10, fallback=None,
     )
     if not data:
@@ -153,7 +150,6 @@ def _fetch_pred_chunk(station_id, start_date, end_date, station_tz):
     )
     data = fetch_json_cached(
         cache_file, 0, url,
-        headers={"User-Agent": USER_AGENT},
         timeout=20, fallback=None,
     )
     if not data or not isinstance(data, list):
@@ -195,7 +191,6 @@ def fetch_hilo_range_chs(station_id, start_date, end_date, station_tz):
     )
     data = fetch_json_cached(
         cache_file, 0, url,
-        headers={"User-Agent": USER_AGENT},
         timeout=15, fallback=None,
     )
     if not data or not isinstance(data, list):
@@ -233,7 +228,7 @@ def fetch_y_range_chs(station_id, center_date, station_tz):
             f"?time-series-code=wlp-hilo&from={utc_from}&to={utc_to}"
         )
         try:
-            data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=15)
+            data = fetch_json(url, timeout=15)
         except Exception:
             return None
         if not data or not isinstance(data, list):

@@ -18,7 +18,6 @@ series with parabolic refinement for sub-hour timing.
 
 from datetime import datetime
 
-from linecast import USER_AGENT
 from linecast._cache import location_cache_key
 from linecast._http import fetch_json_cached
 from linecast._tides_common import CACHE_DIR, M_TO_FT, cached_y_range, local_day_bounds
@@ -66,7 +65,6 @@ def _fetch_raw(lat, lng):
     )
     return fetch_json_cached(
         cache_file, RAW_CACHE_MAX_AGE, url,
-        headers={"User-Agent": USER_AGENT},
         timeout=15, fallback=None,
     )
 

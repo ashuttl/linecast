@@ -7,7 +7,6 @@ for NOAA's CO-OPS APIs.
 import math
 from datetime import datetime, timedelta
 
-from linecast import USER_AGENT
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._tides_common import (
@@ -55,7 +54,6 @@ def fetch_station_metadata_noaa(station_id):
         cache_file,
         30 * 86400,
         url,
-        headers={"User-Agent": USER_AGENT},
         timeout=10,
         fallback=None,
     )
@@ -101,7 +99,6 @@ def _fetch_payload(cache_file, max_age, url, fallback=None):
         cache_file,
         0,
         url,
-        headers={"User-Agent": USER_AGENT},
         timeout=10,
         fallback=fallback,
     )
@@ -327,7 +324,7 @@ def fetch_y_range(station_id, center_date):
         url = _prediction_url(station_id, start.strftime("%Y%m%d"),
                               end.strftime("%Y%m%d"), "hilo")
         try:
-            data = fetch_json(url, headers={"User-Agent": USER_AGENT}, timeout=15)
+            data = fetch_json(url, timeout=15)
         except Exception:
             return None
         found = []
