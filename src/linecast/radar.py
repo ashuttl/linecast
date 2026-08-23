@@ -39,7 +39,7 @@ from linecast._location import get_location
 from linecast import _radar_layers
 from linecast import _radar_warnings
 from linecast._radar_basemap import (
-    Basemap, DotLayer, marine_region, nearest_city,
+    Basemap, DotLayer, _point_in_rings, marine_region, nearest_city,
 )
 from linecast._radar_i18n import rs
 from linecast._radar_render import (
@@ -432,19 +432,6 @@ def _theme_menu_overlay(names, sel, current, lang, cols, rows):
     return "".join(
         f"\033[{top + 1 + i};{left + 1}H{fg(*MUTED)}{line}{RESET}"
         for i, line in enumerate(lines))
-
-
-def _point_in_rings(lon, lat, rings):
-    """Even-odd ray cast across all of a warning's rings (same rule as the
-    basemap's marine containment). True if the point falls inside."""
-    inside = False
-    for ring in rings:
-        for i in range(len(ring) - 1):
-            (x0, y0), (x1, y1) = ring[i], ring[i + 1]
-            if (y0 <= lat < y1) or (y1 <= lat < y0):
-                if lon < x0 + (lat - y0) / (y1 - y0) * (x1 - x0):
-                    inside = not inside
-    return inside
 
 
 def _fmt_expire(iso, use_24h):

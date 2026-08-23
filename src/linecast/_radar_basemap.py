@@ -179,16 +179,22 @@ def marine_region(lat, lon):
         x0, y0, x1, y1 = bboxes[idx]
         if not (x0 <= lon <= x1 and y0 <= lat <= y1):
             continue
-        inside = False
-        for ring in rings:
-            for i in range(len(ring) - 1):
-                (x0, y0), (x1, y1) = ring[i], ring[i + 1]
-                if (y0 <= lat < y1) or (y1 <= lat < y0):
-                    if lon < x0 + (lat - y0) / (y1 - y0) * (x1 - x0):
-                        inside = not inside
-        if inside:
+        if _point_in_rings(lon, lat, rings):
             return name
     return None
+
+
+def _point_in_rings(lon, lat, rings):
+    """Even-odd ray cast across all of a feature's rings (exteriors and
+    holes alike). True if the point falls inside."""
+    inside = False
+    for ring in rings:
+        for i in range(len(ring) - 1):
+            (x0, y0), (x1, y1) = ring[i], ring[i + 1]
+            if (y0 <= lat < y1) or (y1 <= lat < y0):
+                if lon < x0 + (lat - y0) / (y1 - y0) * (x1 - x0):
+                    inside = not inside
+    return inside
 
 
 def _project(lon, lat, bbox, w, h):
