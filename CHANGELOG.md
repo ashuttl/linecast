@@ -23,6 +23,12 @@ Notable changes, by release. Notes for the next release collect under
   note is downloaded once a week instead of once a day.
 - Weather: In live mode, a failed air-quality or climate-average fetch
   no longer retries the network on every mouse movement.
+- Completions: The tides, sunshine, and moon completions now offer
+  --location, tides also --emoji, and sunshine --lang. The scripts are
+  generated from the same option definitions the commands use, so they
+  can't fall behind again.
+- Completions: fish's linecast completion now offers nu and nushell,
+  and the unknown-shell message lists them.
 
 ## 1.15.1 — 2026-08-23
 

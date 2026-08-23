@@ -1,10 +1,12 @@
 import io
+import re
 import sys
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
 from linecast import __main__ as cli
-from linecast._completion import available_shells, render_completion
+from linecast import _runtime
+from linecast._completion import COMMANDS, available_shells, render_completion
 
 
 class CompletionScriptTests(unittest.TestCase):
@@ -75,14 +77,105 @@ class CompletionScriptTests(unittest.TestCase):
         self.assertIn("complete -c moon -f -l print", script)
         self.assertIn("complete -c radar -f -l theme -r -a 'terminal", script)
 
+    def test_fish_completion_offers_every_shell(self):
+        script = render_completion("fish")
+        self.assertIn(
+            "complete -c linecast -f -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish nu nushell'",
+            script,
+        )
+
     def test_radar_theme_values_track_source_themes(self):
-        from linecast._completion import THEME_VALUES
         from linecast._radar_sources import THEMES
-        self.assertEqual(tuple(THEMES), THEME_VALUES)
+        themes = " ".join(THEMES)
+        self.assertIn(f"complete -c radar -f -l theme -r -a '{themes}'",
+                      render_completion("fish"))
 
     def test_invalid_shell_raises(self):
         with self.assertRaises(ValueError):
             render_completion("powershell")
+
+
+def _bash_zsh_flags(script, command):
+    """The flag words in a command's case arm."""
+    match = re.search(rf"^    {command}\)\n      \S+ (.*)$", script, re.M)
+    return set(match.group(1).split())
+
+
+def _fish_flags(script, command):
+    flags = set()
+    for line in script.splitlines():
+        if line.startswith(f"complete -c {command} -f "):
+            flags.update("--" + m for m in re.findall(r"-l (\S+)", line))
+            flags.update("-" + m for m in re.findall(r"-s (\S+)", line))
+    return flags
+
+
+def _nu_flags(script, command):
+    match = re.search(rf'^export extern "{command}" \[\n(.*?)^\]', script,
+                      re.M | re.S)
+    return set(re.findall(r"^    (--[\w-]+)", match.group(1), re.M))
+
+
+class CompletionTracksParserTests(unittest.TestCase):
+    """Every option a command's argparse parser defines is offered by
+    every shell's completion, with its choices."""
+
+    def _parser_options(self, command):
+        parser = getattr(_runtime, f"{command}_parser")()
+        options = {}
+        for action in parser._actions:
+            for option in action.option_strings:
+                options[option] = action
+        return options
+
+    def test_every_parser_option_is_completed(self):
+        extract = {
+            "bash": _bash_zsh_flags,
+            "zsh": _bash_zsh_flags,
+            "fish": _fish_flags,
+            "nu": _nu_flags,
+        }
+        for command in COMMANDS:
+            expected = set(self._parser_options(command))
+            for shell, flags_of in extract.items():
+                with self.subTest(shell=shell, command=command):
+                    offered = flags_of(render_completion(shell), command)
+                    if shell == "nu":
+                        # left out on purpose; see _nu_flags in _completion
+                        expected = expected - {"-h", "--help"}
+                    self.assertEqual(offered, expected)
+
+    def test_parser_choices_are_completed(self):
+        scripts = {shell: render_completion(shell)
+                   for shell in ("bash", "zsh", "fish", "nu")}
+        checked = 0
+        for command in COMMANDS:
+            for option, action in self._parser_options(command).items():
+                if not action.choices:
+                    continue
+                checked += 1
+                for shell, script in scripts.items():
+                    if shell == "nu":
+                        values = " ".join(f'"{v}"' for v in action.choices)
+                    else:
+                        values = " ".join(action.choices)
+                    with self.subTest(shell=shell, option=option):
+                        self.assertIn(values, script)
+        self.assertGreater(checked, 0)
+
+    def test_value_taking_flags_are_marked(self):
+        fish = render_completion("fish")
+        nu = render_completion("nu")
+        for command in COMMANDS:
+            for option, action in self._parser_options(command).items():
+                if not option.startswith("--") or action.nargs == 0:
+                    continue
+                with self.subTest(command=command, option=option):
+                    self.assertRegex(
+                        fish,
+                        rf"(?m)^complete -c {command} -f -l {option[2:]} -r",
+                    )
+                    self.assertRegex(nu, rf"(?m)^    {option}: string")
 
 
 class CompletionCommandTests(unittest.TestCase):

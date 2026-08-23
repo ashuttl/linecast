@@ -1,7 +1,17 @@
-"""Shell completion script generation for linecast commands."""
+"""Shell completion script generation for linecast commands.
+
+The per-command flags are read from the argparse parsers in _runtime,
+so a flag added there reaches every shell's completion without a
+parallel list here. Only the pieces argparse does not know about stay
+in this module: the top-level `linecast` dispatcher (hand-rolled in
+__main__), the location/units subcommands, and the value lists for
+flags whose parsers accept free text.
+"""
 
 from __future__ import annotations
 
+# --lang accepts any code; the parser lists these in its help text but
+# has no `choices`, so the completion offers them from here.
 LANG_CODES = (
     "en",
     "fr",
@@ -22,20 +32,10 @@ LANG_CODES = (
     "id",
 )
 
-# radar --theme palettes; keep in sync with _radar_sources.THEMES
-THEME_VALUES = ("terminal", "dusk", "ember", "ink", "marangai", "dark-sky",
-                "universal-blue", "rainbow", "nexrad", "original",
-                "titan", "twc", "meteored", "datameteo", "viper", "mrms",
-                "max-storm", "black-white")
-# radar --layer display layers; keep in sync with radar.LAYERS
-LAYER_VALUES = ("radar", "satellite")
-# maps --view modes; keep in sync with _maps_style.MODES
-MAPS_VIEW_VALUES = ("street", "terrain", "now")
-# maps --profile values; keep in sync with _maps_route.PROFILES
-MAPS_PROFILE_VALUES = ("car", "bike", "foot")
-# radar --layers condition layers; keep in sync with radar.LAYER_NAMES
-CONDITION_VALUES = ("temp", "wind", "temp,wind")
 SHELLS = ("bash", "zsh", "fish", "nu", "nushell")
+
+# The argparse-driven commands, in the order their flags are emitted.
+COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps")
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
 TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps",
@@ -44,116 +44,6 @@ LOCATION_SUBCOMMANDS = ("show", "set", "auto", "search")
 LOCATION_FLAGS = ("--help", "-h", "--version")
 UNITS_SUBCOMMANDS = ("show", "metric", "imperial", "auto")
 UNITS_FLAGS = ("--help", "-h", "--version")
-
-WEATHER_FLAGS = (
-    "--help",
-    "-h",
-    "--version",
-    "--print",
-    "--live",
-    "--oneline",
-    "--json",
-    "--location",
-    "--search",
-    "--emoji",
-    "--metric",
-    "--celsius",
-    "--fahrenheit",
-    "--no-shading",
-    "--lang",
-    "--classic-colors",
-    "--legacy-colors",
-    "--debug",
-)
-
-TIDES_FLAGS = (
-    "--help",
-    "-h",
-    "--version",
-    "--print",
-    "--live",
-    "--oneline",
-    "--json",
-    "--station",
-    "--search",
-    "--nearby",
-    "--metric",
-    "--lang",
-    "--classic-colors",
-    "--legacy-colors",
-    "--debug",
-)
-
-SUNSHINE_FLAGS = (
-    "--help",
-    "-h",
-    "--version",
-    "--print",
-    "--live",
-    "--oneline",
-    "--json",
-    "--emoji",
-    "--classic-colors",
-    "--legacy-colors",
-    "--debug",
-)
-
-MOON_FLAGS = (
-    "--help",
-    "-h",
-    "--version",
-    "--print",
-    "--live",
-    "--oneline",
-    "--json",
-    "--emoji",
-    "--lang",
-    "--classic-colors",
-    "--legacy-colors",
-    "--debug",
-)
-
-RADAR_FLAGS = (
-    "--help",
-    "-h",
-    "--version",
-    "--print",
-    "--live",
-    "--oneline",
-    "--location",
-    "--search",
-    "--zoom",
-    "--theme",
-    "--layer",
-    "--layers",
-    "--emoji",
-    "--lang",
-    "--classic-colors",
-    "--legacy-colors",
-    "--debug",
-)
-
-MAPS_FLAGS = (
-    "--help",
-    "-h",
-    "--version",
-    "--print",
-    "--live",
-    "--oneline",
-    "--location",
-    "--search",
-    "--zoom",
-    "--view",
-    "--to",
-    "--from",
-    "--profile",
-    "--emoji",
-    "--lang",
-    "--classic-colors",
-    "--legacy-colors",
-    "--debug",
-)
-
 COMPLETION_FLAGS = ("--help", "-h")
 
 _SPACE = " "
@@ -168,33 +58,115 @@ def completion_help():
     return f"Usage: linecast completion <shell>\nShells: {shell_list}"
 
 
+def _value_hints():
+    """Completion values for flags whose parser has no `choices`."""
+    from linecast._maps_route import PROFILES
+    from linecast._radar_sources import THEMES
+    return {
+        "--lang": LANG_CODES,
+        "--theme": tuple(THEMES),
+        # radar.main() maps these onto its internal layer names
+        "--layer": ("radar", "satellite"),
+        # radar.parse_layers() takes a comma-separated set
+        "--layers": ("temp", "wind", "temp,wind"),
+        "--profile": tuple(PROFILES),
+    }
+
+
+class _Flag:
+    """One parser option as the generators see it."""
+
+    __slots__ = ("options", "name", "takes_value", "values")
+
+    def __init__(self, options, takes_value, values):
+        self.options = options
+        self.name = next((o for o in options if o.startswith("--")),
+                         options[0])
+        self.takes_value = takes_value
+        self.values = values
+
+    @property
+    def is_help(self):
+        return "--help" in self.options
+
+    @property
+    def is_version(self):
+        return "--version" in self.options
+
+
+def command_flags(command, hints=None):
+    """The flags of a command's argparse parser, in parser order."""
+    from linecast import _runtime
+    if hints is None:
+        hints = _value_hints()
+    parser = getattr(_runtime, f"{command}_parser")()
+    flags = []
+    for action in parser._actions:
+        options = tuple(action.option_strings)
+        if not options:
+            continue
+        takes_value = action.nargs != 0
+        values = None
+        if takes_value:
+            long = next(o for o in options if o.startswith("--"))
+            values = (tuple(action.choices) if action.choices
+                      else hints.get(long))
+        flags.append(_Flag(options, takes_value, values))
+    return flags
+
+
+def _all_command_flags():
+    hints = _value_hints()
+    return {cmd: command_flags(cmd, hints) for cmd in COMMANDS}
+
+
+def _value_lists(flags_by_command):
+    """{flag name: values} for every flag with a value list, in the
+    order the flags are first met."""
+    lists = {}
+    for flags in flags_by_command.values():
+        for flag in flags:
+            if flag.values is not None and flag.name not in lists:
+                lists[flag.name] = flag.values
+    return lists
+
+
+def _free_value_flags(flags_by_command):
+    """Flag names that take a value the completion cannot suggest."""
+    names = []
+    for flags in flags_by_command.values():
+        for flag in flags:
+            if (flag.takes_value and flag.values is None
+                    and flag.name not in names):
+                names.append(flag.name)
+    return names
+
+
+def _words(flags):
+    return _SPACE.join(o for flag in flags for o in flag.options)
+
+
+def _var(name):
+    return f"_linecast_{name[2:]}_values"
+
+
 def render_completion(shell: str):
     key = (shell or "").strip().lower()
     if key == "bash":
-        return _bash_script()
+        return _bash_script(_all_command_flags())
     if key == "zsh":
-        return _zsh_script()
+        return _zsh_script(_all_command_flags())
     if key == "fish":
-        return _fish_script()
+        return _fish_script(_all_command_flags())
     if key in ("nu", "nushell"):
-        return _nu_script()
+        return _nu_script(_all_command_flags())
     raise ValueError(f"unknown shell '{shell}'")
 
 
-def _bash_script():
-    langs = _SPACE.join(LANG_CODES)
-    themes = _SPACE.join(THEME_VALUES)
-    layers = _SPACE.join(LAYER_VALUES)
-    views = _SPACE.join(MAPS_VIEW_VALUES)
-    profiles = _SPACE.join(MAPS_PROFILE_VALUES)
-    conditions = _SPACE.join(CONDITION_VALUES)
+def _bash_script(flags_by_command):
+    value_lists = _value_lists(flags_by_command)
+    free = "|".join(_free_value_flags(flags_by_command))
     top = _SPACE.join((*TOP_LEVEL_COMMANDS, *GLOBAL_FLAGS))
-    weather = _SPACE.join(WEATHER_FLAGS)
-    tides = _SPACE.join(TIDES_FLAGS)
-    sunshine = _SPACE.join(SUNSHINE_FLAGS)
-    moon = _SPACE.join(MOON_FLAGS)
-    radar = _SPACE.join(RADAR_FLAGS)
-    maps = _SPACE.join(MAPS_FLAGS)
     completion = _SPACE.join(COMPLETION_FLAGS)
     location = _SPACE.join(LOCATION_FLAGS)
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
@@ -202,13 +174,50 @@ def _bash_script():
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
     shells = _SPACE.join(SHELLS)
 
+    declarations = "\n".join(
+        f'{_var(name)}="{_SPACE.join(values)}"'
+        for name, values in value_lists.items()
+    )
+    prev_arms = "\n".join(
+        f"    {name})\n"
+        f'      COMPREPLY=( $(compgen -W "${_var(name)}" -- "$cur") )\n'
+        f"      return 0\n"
+        f"      ;;"
+        for name in value_lists
+    )
+    eq_arms = "\n".join(
+        f'  if [[ "$cur" == {name}=* ]]; then\n'
+        f'    _linecast_complete_value_list "{name}=" "${_var(name)}"\n'
+        f"    return 0\n"
+        f"  fi"
+        for name in value_lists
+    )
+    command_arms = "\n".join(
+        f"    {cmd})\n"
+        f"      _linecast_complete_flags {_words(flags)}\n"
+        f"      ;;"
+        for cmd, flags in flags_by_command.items()
+    )
+    standalone = "\n".join(
+        f"_linecast_complete_{cmd}() {{\n"
+        f"  local cur prev\n"
+        f"  COMPREPLY=()\n"
+        f'  cur="${{COMP_WORDS[COMP_CWORD]}}"\n'
+        f'  prev=""\n'
+        f"  if (( COMP_CWORD > 0 )); then\n"
+        f'    prev="${{COMP_WORDS[COMP_CWORD-1]}}"\n'
+        f"  fi\n"
+        f"  _linecast_complete_command {cmd}\n"
+        f"}}\n"
+        for cmd in flags_by_command
+    )
+    registrations = "\n".join(
+        f"complete -F _linecast_complete_{cmd} {cmd}"
+        for cmd in flags_by_command
+    )
+
     return f"""# bash completion for linecast
-_linecast_lang_values="{langs}"
-_linecast_theme_values="{themes}"
-_linecast_layer_values="{layers}"
-_linecast_view_values="{views}"
-_linecast_profile_values="{profiles}"
-_linecast_condition_values="{conditions}"
+{declarations}
 
 _linecast_seen_flag() {{
   local needle="$1"
@@ -243,59 +252,13 @@ _linecast_complete_value_list() {{
 
 _linecast_complete_common_values() {{
   case "$prev" in
-    --lang)
-      COMPREPLY=( $(compgen -W "$_linecast_lang_values" -- "$cur") )
-      return 0
-      ;;
-    --theme)
-      COMPREPLY=( $(compgen -W "$_linecast_theme_values" -- "$cur") )
-      return 0
-      ;;
-    --layer)
-      COMPREPLY=( $(compgen -W "$_linecast_layer_values" -- "$cur") )
-      return 0
-      ;;
-    --layers)
-      COMPREPLY=( $(compgen -W "$_linecast_condition_values" -- "$cur") )
-      return 0
-      ;;
-    --view)
-      COMPREPLY=( $(compgen -W "$_linecast_view_values" -- "$cur") )
-      return 0
-      ;;
-    --profile)
-      COMPREPLY=( $(compgen -W "$_linecast_profile_values" -- "$cur") )
-      return 0
-      ;;
-    --location|--search|--station|--zoom|--to|--from)
+{prev_arms}
+    {free})
       return 0
       ;;
   esac
 
-  if [[ "$cur" == --lang=* ]]; then
-    _linecast_complete_value_list "--lang=" "$_linecast_lang_values"
-    return 0
-  fi
-  if [[ "$cur" == --theme=* ]]; then
-    _linecast_complete_value_list "--theme=" "$_linecast_theme_values"
-    return 0
-  fi
-  if [[ "$cur" == --layers=* ]]; then
-    _linecast_complete_value_list "--layers=" "$_linecast_condition_values"
-    return 0
-  fi
-  if [[ "$cur" == --layer=* ]]; then
-    _linecast_complete_value_list "--layer=" "$_linecast_layer_values"
-    return 0
-  fi
-  if [[ "$cur" == --view=* ]]; then
-    _linecast_complete_value_list "--view=" "$_linecast_view_values"
-    return 0
-  fi
-  if [[ "$cur" == --profile=* ]]; then
-    _linecast_complete_value_list "--profile=" "$_linecast_profile_values"
-    return 0
-  fi
+{eq_arms}
   return 1
 }}
 
@@ -311,24 +274,7 @@ _linecast_complete_command() {{
   fi
 
   case "$cmd" in
-    weather)
-      _linecast_complete_flags {weather}
-      ;;
-    tides)
-      _linecast_complete_flags {tides}
-      ;;
-    sunshine)
-      _linecast_complete_flags {sunshine}
-      ;;
-    moon)
-      _linecast_complete_flags {moon}
-      ;;
-    radar)
-      _linecast_complete_flags {radar}
-      ;;
-    maps)
-      _linecast_complete_flags {maps}
-      ;;
+{command_arms}
     location)
       _linecast_complete_flags {location}
       COMPREPLY+=( $(compgen -W "{location_sub}" -- "$cur") )
@@ -366,117 +312,53 @@ _linecast_complete() {{
   esac
 }}
 
-_linecast_complete_weather() {{
-  local cur prev
-  COMPREPLY=()
-  cur="${{COMP_WORDS[COMP_CWORD]}}"
-  prev=""
-  if (( COMP_CWORD > 0 )); then
-    prev="${{COMP_WORDS[COMP_CWORD-1]}}"
-  fi
-  _linecast_complete_command weather
-}}
-
-_linecast_complete_tides() {{
-  local cur prev
-  COMPREPLY=()
-  cur="${{COMP_WORDS[COMP_CWORD]}}"
-  prev=""
-  if (( COMP_CWORD > 0 )); then
-    prev="${{COMP_WORDS[COMP_CWORD-1]}}"
-  fi
-  _linecast_complete_command tides
-}}
-
-_linecast_complete_sunshine() {{
-  local cur prev
-  COMPREPLY=()
-  cur="${{COMP_WORDS[COMP_CWORD]}}"
-  prev=""
-  if (( COMP_CWORD > 0 )); then
-    prev="${{COMP_WORDS[COMP_CWORD-1]}}"
-  fi
-  _linecast_complete_command sunshine
-}}
-
-_linecast_complete_moon() {{
-  local cur prev
-  COMPREPLY=()
-  cur="${{COMP_WORDS[COMP_CWORD]}}"
-  prev=""
-  if (( COMP_CWORD > 0 )); then
-    prev="${{COMP_WORDS[COMP_CWORD-1]}}"
-  fi
-  _linecast_complete_command moon
-}}
-
-_linecast_complete_radar() {{
-  local cur prev
-  COMPREPLY=()
-  cur="${{COMP_WORDS[COMP_CWORD]}}"
-  prev=""
-  if (( COMP_CWORD > 0 )); then
-    prev="${{COMP_WORDS[COMP_CWORD-1]}}"
-  fi
-  _linecast_complete_command radar
-}}
-
-_linecast_complete_maps() {{
-  local cur prev
-  COMPREPLY=()
-  cur="${{COMP_WORDS[COMP_CWORD]}}"
-  prev=""
-  if (( COMP_CWORD > 0 )); then
-    prev="${{COMP_WORDS[COMP_CWORD-1]}}"
-  fi
-  _linecast_complete_command maps
-}}
-
+{standalone}
 complete -F _linecast_complete linecast
-complete -F _linecast_complete_weather weather
-complete -F _linecast_complete_tides tides
-complete -F _linecast_complete_sunshine sunshine
-complete -F _linecast_complete_moon moon
-complete -F _linecast_complete_radar radar
-complete -F _linecast_complete_maps maps
+{registrations}
 """
 
 
-def _zsh_script():
-    langs = _SPACE.join(LANG_CODES)
-    themes = _SPACE.join(THEME_VALUES)
-    layers = _SPACE.join(LAYER_VALUES)
-    views = _SPACE.join(MAPS_VIEW_VALUES)
-    profiles = _SPACE.join(MAPS_PROFILE_VALUES)
-    conditions = _SPACE.join(CONDITION_VALUES)
+def _zsh_script(flags_by_command):
+    value_lists = _value_lists(flags_by_command)
+    free = "|".join(_free_value_flags(flags_by_command))
     top = _SPACE.join((*TOP_LEVEL_COMMANDS, *GLOBAL_FLAGS))
-    weather = _SPACE.join(WEATHER_FLAGS)
-    tides = _SPACE.join(TIDES_FLAGS)
-    sunshine = _SPACE.join(SUNSHINE_FLAGS)
-    moon = _SPACE.join(MOON_FLAGS)
-    radar = _SPACE.join(RADAR_FLAGS)
-    maps = _SPACE.join(MAPS_FLAGS)
     completion = _SPACE.join(COMPLETION_FLAGS)
     location = _SPACE.join(LOCATION_FLAGS)
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
     units = _SPACE.join(UNITS_FLAGS)
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
     shells = _SPACE.join(SHELLS)
+    standalone = _SPACE.join(flags_by_command)
 
-    return f"""#compdef linecast weather sunshine moon tides radar maps
+    declarations = "\n".join(
+        f"typeset -a {_var(name)}\n"
+        f"{_var(name)}=({_SPACE.join(values)})"
+        for name, values in value_lists.items()
+    )
+    prev_arms = "\n".join(
+        f"    {name})\n"
+        f'      compadd -- "${{{_var(name)}[@]}}"\n'
+        f"      return 0\n"
+        f"      ;;"
+        for name in value_lists
+    )
+    eq_arms = "\n".join(
+        f'  if [[ "$cur" == {name}=* ]]; then\n'
+        f'    _linecast_complete_value_eq "{name}=" "${{{_var(name)}[@]}}"\n'
+        f"    return 0\n"
+        f"  fi"
+        for name in value_lists
+    )
+    command_arms = "\n".join(
+        f"    {cmd})\n"
+        f"      _linecast_add_flags {_words(flags)}\n"
+        f"      ;;"
+        for cmd, flags in flags_by_command.items()
+    )
 
-typeset -a _linecast_lang_values
-_linecast_lang_values=({langs})
-typeset -a _linecast_theme_values
-_linecast_theme_values=({themes})
-typeset -a _linecast_layer_values
-_linecast_layer_values=({layers})
-typeset -a _linecast_view_values
-_linecast_view_values=({views})
-typeset -a _linecast_profile_values
-_linecast_profile_values=({profiles})
-typeset -a _linecast_condition_values
-_linecast_condition_values=({conditions})
+    return f"""#compdef linecast {standalone}
+
+{declarations}
 
 _linecast_seen_flag() {{
   local needle="$1"
@@ -527,59 +409,13 @@ _linecast_complete_common_values() {{
   local cur="${{words[CURRENT]}}"
 
   case "$prev" in
-    --lang)
-      compadd -- "${{_linecast_lang_values[@]}}"
-      return 0
-      ;;
-    --theme)
-      compadd -- "${{_linecast_theme_values[@]}}"
-      return 0
-      ;;
-    --layer)
-      compadd -- "${{_linecast_layer_values[@]}}"
-      return 0
-      ;;
-    --layers)
-      compadd -- "${{_linecast_condition_values[@]}}"
-      return 0
-      ;;
-    --view)
-      compadd -- "${{_linecast_view_values[@]}}"
-      return 0
-      ;;
-    --profile)
-      compadd -- "${{_linecast_profile_values[@]}}"
-      return 0
-      ;;
-    --location|--search|--station|--zoom|--to|--from)
+{prev_arms}
+    {free})
       return 0
       ;;
   esac
 
-  if [[ "$cur" == --lang=* ]]; then
-    _linecast_complete_value_eq "--lang=" "${{_linecast_lang_values[@]}}"
-    return 0
-  fi
-  if [[ "$cur" == --theme=* ]]; then
-    _linecast_complete_value_eq "--theme=" "${{_linecast_theme_values[@]}}"
-    return 0
-  fi
-  if [[ "$cur" == --layers=* ]]; then
-    _linecast_complete_value_eq "--layers=" "${{_linecast_condition_values[@]}}"
-    return 0
-  fi
-  if [[ "$cur" == --layer=* ]]; then
-    _linecast_complete_value_eq "--layer=" "${{_linecast_layer_values[@]}}"
-    return 0
-  fi
-  if [[ "$cur" == --view=* ]]; then
-    _linecast_complete_value_eq "--view=" "${{_linecast_view_values[@]}}"
-    return 0
-  fi
-  if [[ "$cur" == --profile=* ]]; then
-    _linecast_complete_value_eq "--profile=" "${{_linecast_profile_values[@]}}"
-    return 0
-  fi
+{eq_arms}
   return 1
 }}
 
@@ -590,24 +426,7 @@ _linecast_complete_command() {{
   fi
 
   case "$cmd" in
-    weather)
-      _linecast_add_flags {weather}
-      ;;
-    tides)
-      _linecast_add_flags {tides}
-      ;;
-    sunshine)
-      _linecast_add_flags {sunshine}
-      ;;
-    moon)
-      _linecast_add_flags {moon}
-      ;;
-    radar)
-      _linecast_add_flags {radar}
-      ;;
-    maps)
-      _linecast_add_flags {maps}
-      ;;
+{command_arms}
     location)
       _linecast_add_flags {location}
       compadd -- {location_sub}
@@ -645,297 +464,75 @@ _linecast() {{
   return 0
 }}
 
-compdef _linecast linecast weather sunshine moon tides radar maps
+compdef _linecast linecast {standalone}
 """
 
 
-def _fish_command_flags(command, flags, lang=False, theme=False, layer=False,
-                        layers=False, view=False, profile=False,
-                        value_flags=()):
+def _fish_flag_lines(head, flags):
+    """One `complete` line per flag; `head` names the command and any
+    condition, e.g. "-c linecast -f -n '__fish_seen_subcommand_from radar'"
+    or "-c radar -f"."""
     lines = []
-    cond = f"__fish_seen_subcommand_from {command}"
-
     for flag in flags:
-        if flag == "-h":
-            lines.append(
-                f"complete -c linecast -f -n '{cond}' -s h"
-            )
-            continue
-        if flag == "--help":
-            lines.append(
-                f"complete -c linecast -f -n '{cond}' -l help"
-            )
-            continue
-        if flag == "--version":
-            lines.append(
-                f"complete -c linecast -f -n '{cond}' -l version"
-            )
-            continue
-        if flag == "--lang" and lang:
-            values = _SPACE.join(LANG_CODES)
-            lines.append(
-                f"complete -c linecast -f -n '{cond}' -l lang -r -a '{values}'"
-            )
-            continue
-        if flag == "--theme" and theme:
-            values = _SPACE.join(THEME_VALUES)
-            lines.append(
-                f"complete -c linecast -f -n '{cond}' -l theme -r -a '{values}'"
-            )
-            continue
-        if flag == "--layer" and layer:
-            values = _SPACE.join(LAYER_VALUES)
-            lines.append(
-                f"complete -c linecast -f -n '{cond}' -l layer -r -a '{values}'"
-            )
-            continue
-        if flag == "--layers" and layers:
-            values = _SPACE.join(CONDITION_VALUES)
-            lines.append(
-                f"complete -c linecast -f -n '{cond}' -l layers -r -a '{values}'"
-            )
-            continue
-        if flag == "--view" and view:
-            values = _SPACE.join(MAPS_VIEW_VALUES)
-            lines.append(
-                f"complete -c linecast -f -n '{cond}' -l view -r -a '{values}'"
-            )
-            continue
-        if flag == "--profile" and profile:
-            values = _SPACE.join(MAPS_PROFILE_VALUES)
-            lines.append(
-                f"complete -c linecast -f -n '{cond}' -l profile -r "
-                f"-a '{values}'"
-            )
-            continue
-        if flag in value_flags:
-            lines.append(
-                f"complete -c linecast -f -n '{cond}' -l {flag[2:]} -r"
-            )
-            continue
-        if flag.startswith("--"):
-            lines.append(
-                f"complete -c linecast -f -n '{cond}' -l {flag[2:]}"
-            )
-
+        parts = [f"complete {head}"]
+        for option in flag.options:
+            if option.startswith("--"):
+                parts.append(f"-l {option[2:]}")
+            else:
+                parts.append(f"-s {option[1:]}")
+        if flag.takes_value:
+            parts.append("-r")
+        if flag.values is not None:
+            parts.append(f"-a '{_SPACE.join(flag.values)}'")
+        lines.append(_SPACE.join(parts))
     return lines
 
 
-def _fish_standalone_flags(command, flags, lang=False, theme=False,
-                           layer=False, layers=False, view=False,
-                           profile=False, value_flags=()):
-    lines = []
-    for flag in flags:
-        if flag == "-h":
-            lines.append(f"complete -c {command} -f -s h")
-            continue
-        if flag == "--help":
-            lines.append(f"complete -c {command} -f -l help")
-            continue
-        if flag == "--version":
-            lines.append(f"complete -c {command} -f -l version")
-            continue
-        if flag == "--lang" and lang:
-            values = _SPACE.join(LANG_CODES)
-            lines.append(
-                f"complete -c {command} -f -l lang -r -a '{values}'"
-            )
-            continue
-        if flag == "--theme" and theme:
-            values = _SPACE.join(THEME_VALUES)
-            lines.append(
-                f"complete -c {command} -f -l theme -r -a '{values}'"
-            )
-            continue
-        if flag == "--layer" and layer:
-            values = _SPACE.join(LAYER_VALUES)
-            lines.append(
-                f"complete -c {command} -f -l layer -r -a '{values}'"
-            )
-            continue
-        if flag == "--layers" and layers:
-            values = _SPACE.join(CONDITION_VALUES)
-            lines.append(
-                f"complete -c {command} -f -l layers -r -a '{values}'"
-            )
-            continue
-        if flag == "--view" and view:
-            values = _SPACE.join(MAPS_VIEW_VALUES)
-            lines.append(
-                f"complete -c {command} -f -l view -r -a '{values}'"
-            )
-            continue
-        if flag == "--profile" and profile:
-            values = _SPACE.join(MAPS_PROFILE_VALUES)
-            lines.append(
-                f"complete -c {command} -f -l profile -r -a '{values}'"
-            )
-            continue
-        if flag in value_flags:
-            lines.append(f"complete -c {command} -f -l {flag[2:]} -r")
-            continue
-        if flag.startswith("--"):
-            lines.append(f"complete -c {command} -f -l {flag[2:]}")
-    return lines
-
-
-def _fish_script():
+def _fish_script(flags_by_command):
+    commands = _SPACE.join(TOP_LEVEL_COMMANDS)
+    shells = _SPACE.join(SHELLS)
+    location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
+    units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
     lines = [
         "# fish completion for linecast",
-        "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine moon tides radar maps location units completion'",
+        f"complete -c linecast -f -n '__fish_use_subcommand' -a '{commands}'",
         "complete -c linecast -f -n '__fish_use_subcommand' -l help -s h",
         "complete -c linecast -f -n '__fish_use_subcommand' -l version -s v",
-        "complete -c linecast -f -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'",
+        f"complete -c linecast -f -n '__fish_seen_subcommand_from completion' -a '{shells}'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from completion' -l help -s h",
-        "complete -c linecast -f -n '__fish_seen_subcommand_from location' -a 'show set auto search'",
+        f"complete -c linecast -f -n '__fish_seen_subcommand_from location' -a '{location_sub}'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from location' -l help -s h",
-        "complete -c linecast -f -n '__fish_seen_subcommand_from units' -a 'show metric imperial auto'",
+        f"complete -c linecast -f -n '__fish_seen_subcommand_from units' -a '{units_sub}'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from units' -l help -s h",
     ]
 
-    lines.extend(
-        _fish_command_flags(
-            "weather",
-            WEATHER_FLAGS,
-            lang=True,
-            value_flags=("--location", "--search"),
-        )
-    )
-    lines.extend(
-        _fish_command_flags(
-            "tides",
-            TIDES_FLAGS,
-            lang=True,
-            value_flags=("--station", "--search"),
-        )
-    )
-    lines.extend(
-        _fish_command_flags(
-            "sunshine",
-            SUNSHINE_FLAGS,
-        )
-    )
-    lines.extend(
-        _fish_command_flags(
-            "moon",
-            MOON_FLAGS,
-            lang=True,
-        )
-    )
-    lines.extend(
-        _fish_command_flags(
-            "radar",
-            RADAR_FLAGS,
-            lang=True,
-            theme=True,
-            layer=True,
-            layers=True,
-            value_flags=("--location", "--search", "--zoom"),
-        )
-    )
-    lines.extend(
-        _fish_command_flags(
-            "maps",
-            MAPS_FLAGS,
-            lang=True,
-            view=True,
-            profile=True,
-            value_flags=("--location", "--search", "--zoom", "--to",
-                         "--from"),
-        )
-    )
-
-    lines.extend(
-        _fish_standalone_flags(
-            "weather",
-            WEATHER_FLAGS,
-            lang=True,
-            value_flags=("--location", "--search"),
-        )
-    )
-    lines.extend(
-        _fish_standalone_flags(
-            "tides",
-            TIDES_FLAGS,
-            lang=True,
-            value_flags=("--station", "--search"),
-        )
-    )
-    lines.extend(
-        _fish_standalone_flags(
-            "sunshine",
-            SUNSHINE_FLAGS,
-        )
-    )
-    lines.extend(
-        _fish_standalone_flags(
-            "moon",
-            MOON_FLAGS,
-            lang=True,
-        )
-    )
-    lines.extend(
-        _fish_standalone_flags(
-            "radar",
-            RADAR_FLAGS,
-            lang=True,
-            theme=True,
-            layer=True,
-            layers=True,
-            value_flags=("--location", "--search", "--zoom"),
-        )
-    )
-    lines.extend(
-        _fish_standalone_flags(
-            "maps",
-            MAPS_FLAGS,
-            lang=True,
-            view=True,
-            profile=True,
-            value_flags=("--location", "--search", "--zoom", "--to",
-                         "--from"),
-        )
-    )
+    for cmd, flags in flags_by_command.items():
+        head = f"-c linecast -f -n '__fish_seen_subcommand_from {cmd}'"
+        lines.extend(_fish_flag_lines(head, flags))
+    for cmd, flags in flags_by_command.items():
+        lines.extend(_fish_flag_lines(f"-c {cmd} -f", flags))
 
     return "\n".join(lines) + "\n"
 
 
-def _nu_flags(flags, lang=False, theme=False, layer=False,
-              layers=False, view=False, profile=False,
-              value_flags=()):
+def _nu_flags(flags):
     lines = []
     for flag in flags:
-        if flag in ("-h", "-v", "--help"):
+        # --help and -h are left out so Nushell does not hijack help display
+        if flag.is_help:
             continue
-        if flag == "--version":
-            if "-v" in flags:
-                lines.append("    --version(-v) # Show version")
-            else:
-                lines.append("    --version # Show version")
+        if flag.is_version:
+            lines.append(f"    {flag.name} # Show version")
             continue
-        if flag == "--lang" and lang:
-            lines.append('    --lang: string@"nu-complete linecast-lang"')
+        if flag.values is not None:
+            lines.append(
+                f'    {flag.name}: string@"nu-complete linecast-{flag.name[2:]}"'
+            )
             continue
-        if flag == "--theme" and theme:
-            lines.append('    --theme: string@"nu-complete linecast-theme"')
+        if flag.takes_value:
+            lines.append(f"    {flag.name}: string")
             continue
-        if flag == "--layer" and layer:
-            lines.append('    --layer: string@"nu-complete linecast-layer"')
-            continue
-        if flag == "--layers" and layers:
-            lines.append('    --layers: string@"nu-complete linecast-layers"')
-            continue
-        if flag == "--view" and view:
-            lines.append('    --view: string@"nu-complete linecast-view"')
-            continue
-        if flag == "--profile" and profile:
-            lines.append('    --profile: string@"nu-complete linecast-profile"')
-            continue
-        if flag in value_flags:
-            lines.append(f"    {flag}: string")
-            continue
-        if flag.startswith("--"):
-            lines.append(f"    {flag}")
+        lines.append(f"    {flag.name}")
     return lines
 
 
@@ -949,202 +546,63 @@ def _nu_extern(cmd_name, flags_lines, positional_args=()):
     return lines
 
 
-def _nu_script():
-    lines = [
-        "# nushell completion for linecast",
-        "",
-        'def "nu-complete linecast-lang" [] {',
-        "    [ " + " ".join(f'"{code}"' for code in LANG_CODES) + " ]",
+def _nu_value_list(name, values):
+    return [
+        f'def "nu-complete {name}" [] {{',
+        "    [ " + " ".join(f'"{value}"' for value in values) + " ]",
         "}",
         "",
-        'def "nu-complete linecast-theme" [] {',
-        "    [ " + " ".join(f'"{theme}"' for theme in THEME_VALUES) + " ]",
-        "}",
-        "",
-        'def "nu-complete linecast-layer" [] {',
-        "    [ " + " ".join(f'"{layer}"' for layer in LAYER_VALUES) + " ]",
-        "}",
-        "",
-        'def "nu-complete linecast-layers" [] {',
-        "    [ " + " ".join(f'"{c}"' for c in CONDITION_VALUES) + " ]",
-        "}",
-        "",
-        'def "nu-complete linecast-view" [] {',
-        "    [ " + " ".join(f'"{v}"' for v in MAPS_VIEW_VALUES) + " ]",
-        "}",
-        "",
-        'def "nu-complete linecast-profile" [] {',
-        "    [ " + " ".join(f'"{p}"' for p in MAPS_PROFILE_VALUES) + " ]",
-        "}",
-        "",
-        'def "nu-complete linecast-shells" [] {',
-        "    [ " + " ".join(f'"{s}"' for s in SHELLS) + " ]",
-        "}",
-        "",
-        'def "nu-complete linecast-location-subcommands" [] {',
-        "    [ " + " ".join(f'"{sub}"' for sub in LOCATION_SUBCOMMANDS) + " ]",
-        "}",
-        "",
-        'def "nu-complete linecast-units-subcommands" [] {',
-        "    [ " + " ".join(f'"{sub}"' for sub in UNITS_SUBCOMMANDS) + " ]",
-        "}",
-        "",
+    ]
+
+
+def _nu_script(flags_by_command):
+    lines = ["# nushell completion for linecast", ""]
+    for name, values in _value_lists(flags_by_command).items():
+        lines.extend(_nu_value_list(f"linecast-{name[2:]}", values))
+    lines.extend(_nu_value_list("linecast-shells", SHELLS))
+    lines.extend(_nu_value_list("linecast-location-subcommands",
+                                LOCATION_SUBCOMMANDS))
+    lines.extend(_nu_value_list("linecast-units-subcommands",
+                                UNITS_SUBCOMMANDS))
+    lines.extend([
         'export extern "linecast" [',
         "    --version(-v) # Show version",
         "]",
         "",
-    ]
+    ])
 
-    weather_flags = _nu_flags(
-        WEATHER_FLAGS,
-        lang=True,
-        value_flags=("--location", "--search"),
-    )
-    tides_flags = _nu_flags(
-        TIDES_FLAGS,
-        lang=True,
-        value_flags=("--station", "--search"),
-    )
-    sunshine_flags = _nu_flags(SUNSHINE_FLAGS)
-    moon_flags = _nu_flags(MOON_FLAGS, lang=True)
-    radar_flags = _nu_flags(
-        RADAR_FLAGS,
-        lang=True,
-        theme=True,
-        layer=True,
-        layers=True,
-        value_flags=("--location", "--search", "--zoom"),
-    )
-    maps_flags = _nu_flags(
-        MAPS_FLAGS,
-        lang=True,
-        view=True,
-        profile=True,
-        value_flags=(
-            "--location",
-            "--search",
-            "--zoom",
-            "--to",
-            "--from",
-        ),
-    )
+    nu_flags = {cmd: _nu_flags(flags)
+                for cmd, flags in flags_by_command.items()}
+    version_only = ["    --version # Show version"]
 
-    # linecast subcommands
-    lines.extend(_nu_extern("linecast weather", weather_flags))
-    lines.extend(_nu_extern("linecast sunshine", sunshine_flags))
-    lines.extend(_nu_extern("linecast moon", moon_flags))
-    lines.extend(_nu_extern("linecast tides", tides_flags))
-    lines.extend(_nu_extern("linecast radar", radar_flags))
-    lines.extend(_nu_extern("linecast maps", maps_flags))
+    def dispatcher(prefix):
+        # linecast's own subcommands, and the same commands standalone
+        for cmd in TOP_LEVEL_COMMANDS:
+            if cmd in nu_flags:
+                lines.extend(_nu_extern(f"{prefix}{cmd}", nu_flags[cmd]))
+        lines.extend(_nu_extern(
+            f"{prefix}location",
+            version_only,
+            ['subcommand?: string@"nu-complete linecast-location-subcommands"'],
+        ))
+        for sub in LOCATION_SUBCOMMANDS:
+            positional = ["query?: string"] if sub in ("set", "search") else []
+            lines.extend(_nu_extern(f"{prefix}location {sub}", version_only,
+                                    positional))
+        lines.extend(_nu_extern(
+            f"{prefix}units",
+            version_only,
+            ['subcommand?: string@"nu-complete linecast-units-subcommands"'],
+        ))
+        for sub in UNITS_SUBCOMMANDS:
+            lines.extend(_nu_extern(f"{prefix}units {sub}", version_only))
 
-    # linecast location
-    lines.extend(_nu_extern(
-        "linecast location",
-        ["    --version # Show version"],
-        ['subcommand?: string@"nu-complete linecast-location-subcommands"'],
-    ))
-    lines.extend(_nu_extern(
-        "linecast location show",
-        ["    --version # Show version"],
-    ))
-    lines.extend(_nu_extern(
-        "linecast location set",
-        ["    --version # Show version"],
-        ["query?: string"],
-    ))
-    lines.extend(_nu_extern(
-        "linecast location auto",
-        ["    --version # Show version"],
-    ))
-    lines.extend(_nu_extern(
-        "linecast location search",
-        ["    --version # Show version"],
-        ["query?: string"],
-    ))
-
-    # linecast units
-    lines.extend(_nu_extern(
-        "linecast units",
-        ["    --version # Show version"],
-        ['subcommand?: string@"nu-complete linecast-units-subcommands"'],
-    ))
-    lines.extend(_nu_extern(
-        "linecast units show",
-        ["    --version # Show version"],
-    ))
-    lines.extend(_nu_extern(
-        "linecast units metric",
-        ["    --version # Show version"],
-    ))
-    lines.extend(_nu_extern(
-        "linecast units imperial",
-        ["    --version # Show version"],
-    ))
-    lines.extend(_nu_extern(
-        "linecast units auto",
-        ["    --version # Show version"],
-    ))
-
-    # linecast completion
+    dispatcher("linecast ")
     lines.extend(_nu_extern(
         "linecast completion",
         [],
         ['shell?: string@"nu-complete linecast-shells"'],
     ))
-
-    # standalone commands
-    lines.extend(_nu_extern("weather", weather_flags))
-    lines.extend(_nu_extern("sunshine", sunshine_flags))
-    lines.extend(_nu_extern("moon", moon_flags))
-    lines.extend(_nu_extern("tides", tides_flags))
-    lines.extend(_nu_extern("radar", radar_flags))
-    lines.extend(_nu_extern("maps", maps_flags))
-    lines.extend(_nu_extern(
-        "location",
-        ["    --version # Show version"],
-        ['subcommand?: string@"nu-complete linecast-location-subcommands"'],
-    ))
-    lines.extend(_nu_extern(
-        "location show",
-        ["    --version # Show version"],
-    ))
-    lines.extend(_nu_extern(
-        "location set",
-        ["    --version # Show version"],
-        ["query?: string"],
-    ))
-    lines.extend(_nu_extern(
-        "location auto",
-        ["    --version # Show version"],
-    ))
-    lines.extend(_nu_extern(
-        "location search",
-        ["    --version # Show version"],
-        ["query?: string"],
-    ))
-
-    # standalone units
-    lines.extend(_nu_extern(
-        "units",
-        ["    --version # Show version"],
-        ['subcommand?: string@"nu-complete linecast-units-subcommands"'],
-    ))
-    lines.extend(_nu_extern(
-        "units show",
-        ["    --version # Show version"],
-    ))
-    lines.extend(_nu_extern(
-        "units metric",
-        ["    --version # Show version"],
-    ))
-    lines.extend(_nu_extern(
-        "units imperial",
-        ["    --version # Show version"],
-    ))
-    lines.extend(_nu_extern(
-        "units auto",
-        ["    --version # Show version"],
-    ))
+    dispatcher("")
 
     return "\n".join(lines) + "\n"
-
