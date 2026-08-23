@@ -19,6 +19,7 @@ import math
 import struct
 import zlib
 from collections import namedtuple
+from pathlib import Path
 
 from linecast import _cache
 from linecast._elevation import _fetch_tile, decode_meters
@@ -170,15 +171,9 @@ def _canvas_path(z):
     return _cache.CACHE_ROOT / "maps" / f"globe_canvas_v1_{z}.bin"
 
 
-def _canvas_load(z):
-    """The stitched canvas persisted by an earlier run, or None.
-
-    Terrarium tiles are immutable, so the derived canvas is too: a disk
-    hit replaces sixty-four PNG unfilterings with one C-speed inflate,
-    which is the difference between a first frame and a loading frame.
-    """
+def _canvas_read(path):
     try:
-        blob = zlib.decompress(_canvas_path(z).read_bytes())
+        blob = zlib.decompress(path.read_bytes())
         cw, ch, org_x, org_y, world = struct.unpack(">5I", blob[:20])
         canvas = bytearray(blob[20:])
         if len(canvas) != cw * ch * 4:
@@ -186,6 +181,20 @@ def _canvas_load(z):
         return canvas, cw, ch, org_x, org_y, world
     except Exception:
         return None
+
+
+def _canvas_load(z):
+    """A stitched canvas baked earlier, or None.
+
+    Terrarium tiles are immutable, so the derived canvas is too: a disk
+    hit replaces sixty-four PNG unfilterings with one C-speed inflate,
+    which is the difference between a first frame and a loading frame.
+    The wheel ships z1 and z2 (scripts/build_globe_canvas.py), so those
+    globes need no network at all; z3 — very tall terminals only — is
+    stitched once on this machine and cached.
+    """
+    vendored = Path(__file__).parent / "data" / f"globe_canvas_{z}.bin"
+    return _canvas_read(vendored) or _canvas_read(_canvas_path(z))
 
 
 def _canvas_store(z, hit):

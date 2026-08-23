@@ -14,6 +14,11 @@ Notable changes, by release. Notes for the next release collect under
   for its hot loops, and the globe's stitched world canvas is baked to
   the cache directory after its first assembly, so later launches skip
   the tile decoding entirely.
+- Maps: the globe's two common world canvases now ship in the package
+  (2.5 MB, baked at release time by scripts/build_globe_canvas.py), so
+  a fresh install draws its first globe with no network at all. The
+  largest size — very tall terminals only — still stitches once
+  locally and is cached.
 - Maps: terrain colour now knows the climate, not just the elevation.
   A vendored Köppen-Geiger grid (Beck et al. 2023, 67 KB in the
   package) picks between four hypsometric ramps — humid, steppe,
