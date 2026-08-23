@@ -497,6 +497,33 @@ def fill_buffer(elev, water, ground, bg):
     return buf
 
 
+_BORDER_TRIG = (None, None)  # (borders list identity, its trig form)
+
+
+def _border_trig():
+    """Every border vertex as (sin lat, cos lat, lon in radians), once.
+
+    forward() spends four radians() and four trig calls per vertex,
+    and border_layer() asks it about twenty-five thousand vertices a
+    frame; only the centre changes between frames.  Keyed to the list
+    object itself so a test swapping the basemap data gets fresh
+    trig.
+    """
+    global _BORDER_TRIG
+    borders = _load_data()["borders"]
+    if _BORDER_TRIG[0] is not borders:
+        radians, sin, cos = math.radians, math.sin, math.cos
+        trig = []
+        for coords in borders:
+            pts = []
+            for lon, lat in coords:
+                phi = radians(lat)
+                pts.append((sin(phi), cos(phi), radians(lon)))
+            trig.append(pts)
+        _BORDER_TRIG = (borders, trig)
+    return _BORDER_TRIG[1]
+
+
 def border_layer(lat0, lon0, zoom, gw, hc, color):
     """Natural Earth borders stroked onto the globe as a braille layer.
 
@@ -504,22 +531,31 @@ def border_layer(lat0, lon0, zoom, gw, hc, color):
     whose endpoints are more than ~70 degrees of arc apart is skipped —
     two points that far apart in the vendored polylines are an artifact
     of simplification, and their chord would slice across the disk.
+    The per-vertex arithmetic is forward() with its trig hoisted.
     """
     layer = DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
+    dot_line = layer._dot_line
     r = _radius(zoom, hc * 4)
     cx, cy = gw * 2 / 2.0, hc * 4 / 2.0
-    for coords in _load_data()["borders"]:
+    phi0, lam0 = math.radians(lat0), math.radians(lon0)
+    sin0, cos0 = math.sin(phi0), math.cos(phi0)
+    sin, cos = math.sin, math.cos
+    for pts in _border_trig():
         prev = None
-        for lon, lat in coords:
-            ux, uy, cos_c = forward(lat, lon, lat0, lon0)
+        for sin_phi, cos_phi, lam in pts:
+            d = lam - lam0
+            cos_d = cos(d)
+            cos_c = sin0 * sin_phi + cos0 * cos_phi * cos_d
             if cos_c <= 0.02:
                 prev = None
                 continue
+            ux = cos_phi * sin(d)
+            uy = cos0 * sin_phi - sin0 * cos_phi * cos_d
             p = (cx + ux * r, cy - uy * r, ux, uy, cos_c)
             if prev is not None:
                 arc = prev[2] * ux + prev[3] * uy + prev[4] * cos_c
                 if arc > 0.34:
-                    layer._dot_line(prev[0], prev[1], p[0], p[1], color)
+                    dot_line(prev[0], prev[1], p[0], p[1], color)
             prev = p
     return layer
 

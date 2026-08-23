@@ -400,6 +400,52 @@ class TestLabelToggle:
             assert not any(stroke in line for line in off)
 
 
+def _reference_border_layer(lat0, lon0, zoom, gw, hc, color):
+    """border_layer as it was before the trig was hoisted."""
+    from linecast._radar_basemap import DotLayer, _load_data
+    layer = DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
+    r = _globe._radius(zoom, hc * 4)
+    cx, cy = gw * 2 / 2.0, hc * 4 / 2.0
+    for coords in _load_data()["borders"]:
+        prev = None
+        for lon, lat in coords:
+            ux, uy, cos_c = _globe.forward(lat, lon, lat0, lon0)
+            if cos_c <= 0.02:
+                prev = None
+                continue
+            p = (cx + ux * r, cy - uy * r, ux, uy, cos_c)
+            if prev is not None:
+                arc = prev[2] * ux + prev[3] * uy + prev[4] * cos_c
+                if arc > 0.34:
+                    layer._dot_line(prev[0], prev[1], p[0], p[1], color)
+            prev = p
+    return layer
+
+
+class TestBorders:
+    def test_hoisted_trig_strokes_the_same_dots(self):
+        ink = (1, 2, 3)
+        for lat0, lon0 in ((44.0, -70.0), (-30.0, 150.0), (70.0, 179.5)):
+            got = _globe.border_layer(lat0, lon0, 125.0, 80, 22, ink)
+            want = _reference_border_layer(lat0, lon0, 125.0, 80, 22, ink)
+            assert got.dots == want.dots
+            assert got.color == want.color
+        assert any(v for row in got.dots for v in row)
+
+    def test_trig_follows_the_data(self, monkeypatch):
+        # patch the globals _globe's _load_data actually reads: after
+        # the test_oneline sys.modules purge, the basemap module a fresh
+        # import returns can be a different object from the one whose
+        # function _globe imported
+        monkeypatch.setattr(_globe, "_BORDER_TRIG", (None, None))
+        before = _globe._border_trig()
+        assert _globe._border_trig() is before  # same data: same trig
+        monkeypatch.setitem(_globe._load_data.__globals__, "_DATA",
+                            {"borders": [[(0.0, 0.0), (10.0, 10.0)]]})
+        after = _globe._border_trig()
+        assert after is not before and len(after) == 1
+
+
 class TestCities:
     def test_labels_stay_on_screen_and_visible_side(self):
         overlays = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22)
