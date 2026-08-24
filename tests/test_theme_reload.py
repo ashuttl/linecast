@@ -248,7 +248,17 @@ def test_live_loop_re_inks_when_the_terminal_changes(tmp_path):
             if "BG (250, 250, 248)" in seen:
                 break
         os.write(master, b"q")
-        proc.wait(timeout=5)
+        # Keep draining the pty until the child is gone: its teardown
+        # restores the tty with TCSADRAIN, which on macOS waits for the
+        # master to read every pending byte before it returns.
+        deadline = time.monotonic() + 5
+        while proc.poll() is None and time.monotonic() < deadline:
+            if select.select([master], [], [], 0.05)[0]:
+                try:
+                    os.read(master, 65536)
+                except OSError:
+                    break
+        assert proc.poll() is not None, "child did not exit on q"
     finally:
         if proc.poll() is None:
             proc.kill()
