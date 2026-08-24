@@ -144,6 +144,13 @@ def fetch_alerts(lat, lng, country_code="", lang="en", address=None):
         return _fetch_alerts_meteireann(lat, lng)
     if country_code == "JP":
         return _fetch_alerts_jma(lat, lng, lang=lang)
+    # Hong Kong has its own observatory — check before the generic CN path.
+    # Nominatim returns country_code "HK" for Hong Kong SAR; some providers
+    # return "CN" with city="Hong Kong", so we check both.
+    addr = address or {}
+    _hk_city = addr.get("city") or addr.get("town") or addr.get("county") or ""
+    if country_code == "HK" or (country_code == "CN" and "Hong Kong" in _hk_city):
+        return _fetch_alerts_hko()
     if country_code == "CN":
         return _fetch_alerts_cma(lat, lng, lang=lang)
     slug = _METEOALARM_SLUGS.get(country_code)
@@ -696,6 +703,98 @@ def _fetch_alerts_jma(lat, lng, lang="en"):
             "url": "https://www.jma.go.jp/bosai/warning/",
         })
 
+    write_cache(cache_file, alerts)
+    return alerts
+
+
+# ---------------------------------------------------------------------------
+# HKO (Hong Kong Observatory)
+# ---------------------------------------------------------------------------
+
+# Warning type -> (English event name, severity)
+# WRAIN and WTCSGNL have sub-codes; handled via _HKO_RAIN_SEV / _HKO_TC_SEV.
+_HKO_WARNING_INFO = {
+    "WFIRE":  ("Fire Danger Warning",                    "Moderate"),
+    "WFROST": ("Frost Warning",                          "Minor"),
+    "WHOT":   ("Very Hot Weather Warning",               "Minor"),
+    "WCOLD":  ("Cold Weather Warning",                   "Minor"),
+    "WMSGNL": ("Strong Monsoon Signal",                  "Moderate"),
+    "WRAIN":  ("Rainstorm Warning",                      "Moderate"),
+    "WFNTSA": ("Special Announcement on Flooding (NT)",  "Moderate"),
+    "WL":     ("Landslip Warning",                       "Moderate"),
+    "WTCSGNL":("Tropical Cyclone Warning Signal",        "Moderate"),
+    "WTMW":   ("Tsunami Warning",                        "Extreme"),
+    "WTS":    ("Thunderstorm Warning",                   "Minor"),
+}
+
+# WRAIN sub-code -> severity (WRAINB > WRAINR > WRAINA)
+_HKO_RAIN_SEV = {"WRAINB": "Severe", "WRAINR": "Moderate", "WRAINA": "Minor"}
+
+# WTCSGNL sub-code -> severity (TC10 > TC9 > TC8* > TC3 > TC1)
+_HKO_TC_SEV = {
+    "TC10": "Extreme", "TC9": "Extreme",
+    "TC8NE": "Severe", "TC8SE": "Severe", "TC8NW": "Severe", "TC8SW": "Severe",
+    "TC8": "Severe",
+    "TC3": "Moderate", "TC1": "Minor",
+}
+
+
+def _parse_hko_warnsum(data):
+    """Parse HKO warnsum JSON dict into normalised alert list."""
+    alerts = []
+    for key, info in _HKO_WARNING_INFO.items():
+        entry = data.get(key)
+        if not entry:
+            continue
+        if entry.get("actionCode") == "CANCEL":
+            continue
+
+        base_event, base_sev = info
+        code = entry.get("code", key)
+
+        # Refine severity for WRAIN and WTCSGNL based on their sub-code
+        if key == "WRAIN":
+            severity = _HKO_RAIN_SEV.get(code, base_sev)
+            event = entry.get("name") or f"Rainstorm Warning ({code})"
+        elif key == "WTCSGNL":
+            severity = _HKO_TC_SEV.get(code, base_sev)
+            event = entry.get("name") or f"Tropical Cyclone Warning Signal ({code})"
+        else:
+            severity = base_sev
+            event = entry.get("name") or base_event
+
+        # WFIRE: Yellow < Red
+        if key == "WFIRE" and code == "WFIRER":
+            severity = "Severe"
+
+        alerts.append({
+            "event": event,
+            "headline": event,
+            "description": "",
+            "effective": entry.get("issueTime", ""),
+            "expires": entry.get("expireTime", ""),
+            "severity": severity,
+            "url": "https://www.hko.gov.hk/en/detail.htm",
+        })
+
+    severity_order = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
+    alerts.sort(key=lambda a: severity_order.get(a["severity"], 3))
+    return alerts
+
+
+def _fetch_alerts_hko():
+    """Fetch active HKO weather warnings (Hong Kong). Cached 10min."""
+    cache_file = CACHE_DIR / "alerts_hk.json"
+    url = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=en"
+    data = fetch_json_cached(
+        cache_file, 600, url,
+        headers={"User-Agent": USER_AGENT},
+        timeout=10, fallback=[],
+    )
+    if isinstance(data, list):
+        return data
+
+    alerts = _parse_hko_warnsum(data)
     write_cache(cache_file, alerts)
     return alerts
 
