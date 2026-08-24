@@ -257,8 +257,10 @@ def test_live_loop_re_inks_when_the_terminal_changes(tmp_path):
                 try:
                     os.read(master, 65536)
                 except OSError:
+                    # EIO: the child closed its side of the pty, which
+                    # happens a beat before it can be reaped
                     break
-        assert proc.poll() is not None, "child did not exit on q"
+        proc.wait(timeout=5)
     finally:
         if proc.poll() is None:
             proc.kill()
