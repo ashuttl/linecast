@@ -136,8 +136,17 @@ class TestTileCachePolicy:
                 tiles.urllib.request.urlopen = original_open
 
     class _Fresh:
-        def read(self):
-            return b"FRESH"
+        _body = b"FRESH"
+
+        def read(self, n=-1):
+            body, self._body = self._body, b""
+            return body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
 
     def test_immutable_tile_served_from_cache_forever(self):
         def no_network(*a, **k):

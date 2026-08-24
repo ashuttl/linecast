@@ -25,6 +25,7 @@ import urllib.request
 
 from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
+from linecast._http import MAX_JSON_BYTES, read_limited
 from linecast._runtime import debug_log
 
 PHOTON_URL = "https://photon.komoot.io/api"
@@ -79,7 +80,7 @@ def _get_json(url, headers=None, timeout=10):
     debug_log(f"search fetch {url}")
     req = urllib.request.Request(url, headers=headers or {})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read())
+        return json.loads(read_limited(resp, MAX_JSON_BYTES))
 
 
 def _detail(parts, name):

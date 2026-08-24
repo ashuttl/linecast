@@ -38,6 +38,7 @@ def _tile_url(z, x, y):
 def _fetch_tile(z, x, y, timeout=15):
     """One terrarium tile as PNG bytes, disk-cached forever (immutable)."""
     import urllib.request
+    from linecast._http import MAX_TILE_BYTES, read_limited
     cdir = CACHE_ROOT / "maps"
     cpath = cdir / f"terrarium_{z}_{x}_{y}.png"
     if cpath.exists():
@@ -45,7 +46,8 @@ def _fetch_tile(z, x, y, timeout=15):
     try:
         req = urllib.request.Request(_tile_url(z, x, y),
                                      headers={"User-Agent": USER_AGENT})
-        data = urllib.request.urlopen(req, timeout=timeout).read()
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = read_limited(resp, MAX_TILE_BYTES)
     except Exception as exc:
         debug_log(f"terrarium tile {z}/{x}/{y} failed: {exc}")
         return None

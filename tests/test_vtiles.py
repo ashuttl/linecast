@@ -30,8 +30,9 @@ class _Resp:
     def __init__(self, body):
         self._body = body
 
-    def read(self):
-        return self._body
+    def read(self, n=-1):
+        body, self._body = self._body, b""
+        return body
 
     def __enter__(self):
         return self

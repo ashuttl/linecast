@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT, write_bytes_atomic
+from linecast._http import MAX_JSON_BYTES, MAX_TILE_BYTES, read_limited
 from linecast._png import decode_rgba
 from linecast._runtime import debug_log
 
@@ -115,7 +116,8 @@ def fetch_index(provider, timeout=15):
     try:
         req = urllib.request.Request(provider.index_url,
                                      headers={"User-Agent": USER_AGENT})
-        data = urllib.request.urlopen(req, timeout=timeout).read()
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = read_limited(resp, MAX_JSON_BYTES)
         write_bytes_atomic(path, data)
         return json.loads(data)
     except Exception as exc:
@@ -168,7 +170,8 @@ def _fetch_tile(provider, host, path, z, x, y, timeout=15, mutable=False):
     url = _tile_url(provider, host, path, z, x, y)
     try:
         req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        data = urllib.request.urlopen(req, timeout=timeout).read()
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = read_limited(resp, MAX_TILE_BYTES)
     except Exception as exc:
         debug_log(f"{provider.name} tile {z}/{x}/{y} failed: {exc}")
         return cpath.read_bytes() if cpath.exists() else None

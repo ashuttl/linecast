@@ -24,6 +24,7 @@ import urllib.error
 import urllib.request
 
 from linecast import USER_AGENT
+from linecast._http import MAX_JSON_BYTES, read_limited
 from linecast._runtime import debug_log
 
 PROFILES = ("car", "bike", "foot")
@@ -76,7 +77,7 @@ def _fetch(url, timeout):
     debug_log(f"route fetch {url}")
     req = urllib.request.Request(url, headers={"User-Agent": _UA})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read())
+        return json.loads(read_limited(resp, MAX_JSON_BYTES))
 
 
 def _throttle():

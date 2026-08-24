@@ -5,6 +5,15 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+## 1.15.2 — 2026-08-24
+
+- Security: every network response is now read in chunks against a
+  hard size cap (8 MiB for JSON, 16 MiB for tiles and radar frames),
+  refused early when the declared Content-Length is oversized, and
+  gzipped vector tiles decompress against the same cap. A broken or
+  hostile server can no longer balloon linecast's memory or its
+  emitted output.
+
 ## 1.15.1 — 2026-08-23
 
 - Maps: the cloud layer now covers the poles. The satellite mosaic

@@ -15,6 +15,7 @@ import urllib.request
 
 from linecast import USER_AGENT
 from linecast._cache import CACHE_ROOT
+from linecast._http import MAX_TILE_BYTES, read_limited
 from linecast._runtime import debug_log
 
 _WMS = "https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q-t.cgi"
@@ -80,7 +81,8 @@ def fetch_frame(bbox, w, h, when=None, timeout=15):
     try:
         debug_log(f"radar fetch {url}")
         req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        data = urllib.request.urlopen(req, timeout=timeout).read()
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = read_limited(resp, MAX_TILE_BYTES)
     except Exception as exc:
         debug_log(f"radar fetch failed: {exc}")
         if path.exists():
