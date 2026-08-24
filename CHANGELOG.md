@@ -5,6 +5,10 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+## 1.16.1 — 2026-08-24
+
+- Plumbing: Fix for a failing macOS test
+
 ## 1.16.0 — 2026-08-24
 
 - Security (also released as 1.15.2): every network response is read

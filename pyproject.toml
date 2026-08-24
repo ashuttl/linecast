@@ -1,6 +1,6 @@
 [project]
 name = "linecast"
-version = "1.16.0"
+version = "1.16.1"
 description = "Weather, tides, the sun, the moon, and maps, drawn for the terminal. The Old Farmer's Almanac meets Minitel."
 authors = [{name = "Andrew Shuttleworth Fowler"}]
 readme = "README.md"
