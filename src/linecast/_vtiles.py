@@ -19,13 +19,13 @@ tiles never expire.
 Set LINECAST_VECTOR_TILES_URL to point at a self-hosted TileJSON.
 """
 
-import gzip
 import math
 import os
 from concurrent.futures import ThreadPoolExecutor
 
 from linecast._cache import CACHE_ROOT, write_bytes_atomic
-from linecast._http import fetch_bytes, fetch_json_cached
+from linecast._http import (MAX_BODY_BYTES, fetch_bytes,
+                            fetch_json_cached, gunzip_limited)
 from linecast._radar_tiles import _lonlat_to_world
 from linecast._runtime import debug_log
 
@@ -185,7 +185,7 @@ def fetch_tile(z, x, y, timeout=15):
         # sniff rather than trust Content-Encoding: static hosts serve
         # pre-gzipped bodies without declaring them
         if data[:2] == b"\x1f\x8b":
-            data = gzip.decompress(data)
+            data = gunzip_limited(data, MAX_BODY_BYTES)
     except Exception as exc:
         debug_log(f"vector tile {z}/{x}/{y} failed: {exc}")
         return None

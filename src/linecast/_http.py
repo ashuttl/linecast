@@ -24,7 +24,48 @@ from linecast._runtime import debug_log
 _REDIRECTS = (301, 302, 303, 307, 308)
 _MAX_REDIRECTS = 5
 
+# Hard ceilings on how much of a response body we will hold.  Real
+# payloads run a few hundred KB at most; anything bigger is a broken or
+# hostile server, and refusing it keeps memory — and everything
+# downstream of our stdout — bounded.
+MAX_JSON_BYTES = 8 * 1024 * 1024
+MAX_BODY_BYTES = 16 * 1024 * 1024
+
+_CHUNK = 64 * 1024
+
 _local = threading.local()
+
+
+def read_limited(resp, limit):
+    """Stream a response body, refusing to keep more than limit bytes.
+
+    An honest oversized response is refused from its Content-Length
+    before a byte is read; a lying or chunked one is cut off as soon as
+    the stream crosses the limit.
+    """
+    declared = getattr(resp, "length", None)
+    if declared is not None and declared > limit:
+        raise ValueError(f"response of {declared} bytes exceeds cap of {limit}")
+    chunks = []
+    total = 0
+    while True:
+        chunk = resp.read(_CHUNK)
+        if not chunk:
+            return b"".join(chunks)
+        total += len(chunk)
+        if total > limit:
+            raise ValueError(f"response body exceeds cap of {limit} bytes")
+        chunks.append(chunk)
+
+
+def gunzip_limited(data, limit):
+    """Decompress a gzip body, refusing to expand past limit bytes."""
+    import zlib
+    d = zlib.decompressobj(31)
+    out = d.decompress(data, limit)
+    if d.unconsumed_tail:
+        raise ValueError(f"decompressed body exceeds cap of {limit} bytes")
+    return out
 
 
 class HTTPError(OSError):
@@ -50,11 +91,11 @@ def _proxied():
     return False
 
 
-def _fetch_bytes_urllib(url, headers, timeout):
+def _fetch_bytes_urllib(url, headers, timeout, limit):
     import urllib.request
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read()
+        return read_limited(resp, limit)
 
 
 def _connection(key, timeout):
@@ -93,7 +134,7 @@ def _stale_connection_errors():
             ConnectionAbortedError, BrokenPipeError, ssl.SSLEOFError)
 
 
-def _request(url, headers, timeout):
+def _request(url, headers, timeout, limit):
     """One GET on the thread's connection for url's host.
 
     Returns (status, reason, headers, body).  A reused connection the
@@ -115,7 +156,7 @@ def _request(url, headers, timeout):
         try:
             conn.request("GET", selector, headers=headers)
             resp = conn.getresponse()
-            body = resp.read()
+            body = read_limited(resp, limit)
         except _stale_connection_errors() as exc:
             _drop(key)
             if reused and attempt == 0:
@@ -128,12 +169,13 @@ def _request(url, headers, timeout):
         return resp.status, resp.reason, resp.headers, body
 
 
-def fetch_bytes(url, headers=None, timeout=10):
-    """GET url and return the body bytes.
+def fetch_bytes(url, headers=None, timeout=10, limit=MAX_BODY_BYTES):
+    """GET url and return the body bytes, refusing more than limit of them.
 
-    Raises HTTPError for a non-2xx status and OSError (timeouts,
-    refused connections, TLS failures) on transport trouble.  file://
-    URLs read the local file, as they did under urllib.
+    Raises HTTPError for a non-2xx status, OSError (timeouts, refused
+    connections, TLS failures) on transport trouble, and ValueError for
+    a body past the limit.  file:// URLs read the local file, as they
+    did under urllib.
     """
     debug_log(f"fetch {url}")
     from linecast import user_agent
@@ -145,9 +187,9 @@ def fetch_bytes(url, headers=None, timeout=10):
         with open(path, "rb") as fh:
             return fh.read()
     if _proxied():
-        return _fetch_bytes_urllib(url, hdrs, timeout)
+        return _fetch_bytes_urllib(url, hdrs, timeout, limit)
     for _ in range(_MAX_REDIRECTS + 1):
-        status, reason, resp_headers, body = _request(url, hdrs, timeout)
+        status, reason, resp_headers, body = _request(url, hdrs, timeout, limit)
         if 200 <= status < 300:
             return body
         target = resp_headers.get("Location") if status in _REDIRECTS else None
@@ -158,9 +200,10 @@ def fetch_bytes(url, headers=None, timeout=10):
     raise HTTPError(url, status, "too many redirects", resp_headers, body)
 
 
-def fetch_json(url, headers=None, timeout=10):
+def fetch_json(url, headers=None, timeout=10, limit=MAX_JSON_BYTES):
     """Fetch and decode a JSON payload from url."""
-    return json.loads(fetch_bytes(url, headers=headers, timeout=timeout))
+    return json.loads(fetch_bytes(url, headers=headers, timeout=timeout,
+                                  limit=limit))
 
 
 def fetch_json_cached(cache_file, max_age, url, headers=None, timeout=10, fallback=None):

@@ -5,6 +5,13 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Security (also released as 1.15.2): every network response is read
+  in chunks against a hard size cap (8 MiB for JSON, 16 MiB
+  otherwise), refused early when the declared Content-Length is
+  oversized, and gzipped vector tiles decompress against the same
+  cap. A broken or hostile server can no longer balloon linecast's
+  memory or its emitted output.
+
 - Maps: Fixed a bug that could have caused rendering the globe to fail
   until the user interacted with it.
 - Maps: The globe's first frame draws in about a second and a half

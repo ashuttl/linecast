@@ -37,8 +37,9 @@ class _Response:
         self.headers = _Headers(headers or {})
         self._body = body
 
-    def read(self):
-        return self._body
+    def read(self, n=-1):
+        body, self._body = self._body, b""
+        return body
 
 
 class _Sock:
@@ -197,7 +198,7 @@ class TestFetchBytes:
         monkeypatch.setattr(_http, "_proxied", lambda: True)
         seen = {}
 
-        def fake(url, headers, timeout):
+        def fake(url, headers, timeout, limit):
             seen.update(url=url, headers=headers, timeout=timeout)
             return b"via proxy"
 
@@ -294,3 +295,34 @@ class TestVersion:
                 capture_output=True, text=True, cwd=_src).stderr
             assert "importlib.metadata" not in out, code
             assert "urllib.request" not in out, code
+
+
+class TestBodyCap:
+    """The streamed size limit: nothing past the cap is kept."""
+
+    def test_oversized_body_is_refused(self, conns):
+        conns.script = [_Response(body=b"x" * 300)]
+        with pytest.raises(ValueError):
+            _http.fetch_bytes("https://h.example/", limit=100)
+
+    def test_oversized_content_length_refused_before_reading(self, conns):
+        class Loud(_Response):
+            length = 10_000
+
+            def read(self, n=-1):
+                raise AssertionError("read despite oversized Content-Length")
+
+        conns.script = [Loud(body=b"x")]
+        with pytest.raises(ValueError):
+            _http.fetch_bytes("https://h.example/", limit=100)
+
+    def test_body_at_the_limit_is_allowed(self, conns):
+        conns.script = [_Response(body=b"x" * 100)]
+        assert _http.fetch_bytes("https://h.example/", limit=100) == b"x" * 100
+
+    def test_gunzip_bomb_is_refused(self):
+        import gzip
+        bomb = gzip.compress(b"\0" * 10_000_000)
+        with pytest.raises(ValueError):
+            _http.gunzip_limited(bomb, 1_000_000)
+        assert _http.gunzip_limited(gzip.compress(b"streets"), 100) == b"streets"
