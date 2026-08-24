@@ -462,7 +462,7 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
     # Drop the "today" label if it would crowd out a midnight day name
     if midnight_day_names:
         first_col = min(midnight_day_names)
-        if first_col + 1 < label_start:
+        if first_col + 1 <= label_start:
             today_left = " "
             label_start = 1
     right_len = visible_len(today_right) + 2
