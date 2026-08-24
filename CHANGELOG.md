@@ -5,6 +5,8 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+## 1.16.0 — 2026-08-24
+
 - Security (also released as 1.15.2): every network response is read
   in chunks against a hard size cap (8 MiB for JSON, 16 MiB
   otherwise), refused early when the declared Content-Length is
