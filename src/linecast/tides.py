@@ -56,6 +56,11 @@ from linecast._tides_qld import (
     fetch_tides_range_qld, fetch_hilo_range_qld, fetch_y_range_qld,
     _fetch_all_stations_qld,
 )
+from linecast._tides_hko import (
+    find_nearest_station_hko, fetch_station_metadata_hko,
+    fetch_tides_range_hko, fetch_hilo_range_hko, fetch_y_range_hko,
+    _fetch_all_stations_hko,
+)
 from linecast._tides_tidecheck import (
     is_available as _tidecheck_available,
     find_nearest_station_tidecheck,
@@ -330,6 +335,15 @@ def _find_matching_stations(query, cli_location=None):
                 "lat": s.get("lat"), "lng": s.get("lng"),
             })
 
+    for s in (_fetch_all_stations_hko() or []):
+        name = s.get("name", "")
+        haystack = f"{name} hong kong hk".lower()
+        if all(t in haystack for t in tokens):
+            candidates.append({
+                "source": "hko", "id": s["id"], "name": name,
+                "lat": s.get("lat"), "lng": s.get("lng"),
+            })
+
     # TideCheck's server-side search returns coordinates too, so its hits
     # join the pool before the distance sort like any other provider's.
     if _tidecheck_available() and tokens:
@@ -377,7 +391,7 @@ def _search_stations(query, metric=False, limit=20, cli_location=None):
         print("Nearest tide stations:")
 
     source_tags = {"chs": " (Canada)", "qld": " (QLD, Australia)",
-                   "tidecheck": " (TideCheck)"}
+                   "hko": " (HK)", "tidecheck": " (TideCheck)"}
     for c in matches[:limit]:
         left = c["name"] if c["id"] == c["name"] else f"{c['id']}  {c['name']}"
         dist = ""
@@ -996,11 +1010,21 @@ def main():
             if country_code == "CA":
                 source = "chs"
                 station_id, station_name = find_nearest_station_chs(lat, lng)
+            elif country_code == "HK":
+                source = "hko"
+                station_id, station_name = find_nearest_station_hko(lat, lng)
             elif country_code == "AU" and _is_qld_lat_lng(lat, lng):
                 source = "qld"
                 station_id, station_name = find_nearest_station_qld(lat, lng)
             else:
                 station_id, station_name = find_nearest_station(lat, lng)
+
+            # Border/outage fallback: an HKO station may be within 100 nm
+            # even when country_code != "HK" (e.g. Macau, Shenzhen coast).
+            if station_id is None and source != "hko":
+                hko_id, hko_name = find_nearest_station_hko(lat, lng)
+                if hko_id is not None:
+                    station_id, station_name, source = hko_id, hko_name, "hko"
 
             # Border/outage fallback: a NOAA station may be in range even
             # when the regional provider found nothing (e.g. Victoria BC).
@@ -1054,6 +1078,7 @@ def main():
         _metadata_fetchers = {
             "chs": fetch_station_metadata_chs,
             "qld": fetch_station_metadata_qld,
+            "hko": fetch_station_metadata_hko,
             "tidecheck": fetch_station_metadata_tidecheck,
             "openmeteo": fetch_station_metadata_openmeteo,
         }
@@ -1072,6 +1097,7 @@ def main():
         _range_fetchers = {
             "chs": (fetch_tides_range_chs, fetch_hilo_range_chs),
             "qld": (fetch_tides_range_qld, fetch_hilo_range_qld),
+            "hko": (fetch_tides_range_hko, fetch_hilo_range_hko),
             "tidecheck": (fetch_tides_range_tidecheck,
                           fetch_hilo_range_tidecheck),
             "openmeteo": (fetch_tides_range_openmeteo,
@@ -1113,6 +1139,7 @@ def main():
         _y_range_fetchers = {
             "chs": fetch_y_range_chs,
             "qld": fetch_y_range_qld,
+            "hko": fetch_y_range_hko,
             "tidecheck": fetch_y_range_tidecheck,
             "openmeteo": fetch_y_range_openmeteo,
         }
