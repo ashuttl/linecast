@@ -179,6 +179,15 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertIsNone(provider_for_id("portland maine"))
         self.assertIsNone(provider_for_id("Brisbane Bar"))
 
+    def test_provider_for_id_tidecheck_slug_needs_a_key(self):
+        with patch("linecast._tides_tidecheck.is_available", return_value=False):
+            self.assertIsNone(provider_for_id("fes2022-lisbon"))
+        with patch("linecast._tides_tidecheck.is_available", return_value=True):
+            self.assertIs(provider_for_id("fes2022-lisbon"), TIDECHECK)
+            self.assertIsNone(provider_for_id("lisbon"))
+            self.assertIsNone(provider_for_id("Fes2022-Lisbon"))
+            self.assertIsNone(provider_for_id("portland maine"))
+
     def test_names_for_ids(self):
         stations = [{"id": "8418150", "name": "PORTLAND", "state": "ME"}]
         with patch.object(_tides_noaa, "fetch_all_stations_noaa", return_value=stations):

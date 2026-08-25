@@ -264,6 +264,11 @@ class _TideCheck(TideProvider):
     def available(self):
         return tidecheck.is_available()
 
+    def id_matches(self, text):
+        # Without a key the slug is just text, and the search path will
+        # say so
+        return tidecheck.is_available() and tidecheck.is_tidecheck_station_id(text)
+
     def nearest(self, lat, lng):
         return tidecheck.find_nearest_station_tidecheck(lat, lng)
 
@@ -347,9 +352,10 @@ def provider_for_id(text: str) -> TideProvider | None:
 
     Most specific first: the "om:" prefix, then CHS's 24-character hex
     ObjectId (which can happen to be all digits), then HKO's codes
-    (letters, one with a digit; never all digits), then NOAA's digits.
+    (letters, one with a digit; never all digits), then NOAA's digits,
+    then TideCheck's hyphenated slugs (only once a key is set).
     """
-    for provider in (OPENMETEO, CHS, HKO, NOAA):
+    for provider in (OPENMETEO, CHS, HKO, NOAA, TIDECHECK):
         if provider.id_matches(text):
             return provider
     return None

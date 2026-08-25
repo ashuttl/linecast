@@ -7,6 +7,8 @@ Notable changes, by release. Notes for the next release collect under
 
 - Tides: Stations in a timezone linecast has no abbreviation for now
   show their UTC offset, such as "UTC+5:45", instead of a plain "UTC".
+- Tides: `--station` and `TIDE_STATION` take a TideCheck station ID such
+  as `fes2022-lisbon` directly, without spending a search request.
 
 ## 1.17.0 — 2026-08-25
 

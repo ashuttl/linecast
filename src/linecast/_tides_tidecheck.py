@@ -17,6 +17,7 @@ Free tier: 50 requests/day (no credit card required)
 """
 
 import os
+import re
 from datetime import date, datetime, tzinfo
 from typing import Any
 
@@ -200,6 +201,15 @@ def fetch_station_metadata_tidecheck(station_id: str) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 # Prediction fetching
 # ---------------------------------------------------------------------------
+def is_tidecheck_station_id(text: str) -> bool:
+    """True for a TideCheck station slug: a model prefix and a place name
+    joined by hyphens, all lowercase ("fes2022-lisbon").
+
+    A plain word or a place with spaces is a search, not an ID.
+    """
+    return re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)+", text) is not None
+
+
 def _fetch_tides_raw(station_id, days=7):
     """Fetch raw TideCheck tides response (cached 24 hours).
 
