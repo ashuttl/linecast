@@ -215,8 +215,18 @@ class TimezoneTests(unittest.TestCase):
     def test_iana_to_abbr(self):
         self.assertEqual(common.iana_to_abbr("America/Halifax"), "AST")
         self.assertEqual(common.iana_to_abbr("Canada/Atlantic"), "AST")
-        self.assertEqual(common.iana_to_abbr("Europe/Lisbon"), "UTC")
         self.assertEqual(common.iana_to_abbr(""), "UTC")
+        self.assertEqual(common.iana_to_abbr("Not/AZone"), "UTC")
+        # Zones without a mapped abbreviation show their offset instead
+        self.assertEqual(common.iana_to_abbr("Asia/Tashkent"), "UTC+5")
+        self.assertEqual(common.iana_to_abbr("Asia/Kathmandu"), "UTC+5:45")
+        self.assertEqual(common.iana_to_abbr("Pacific/Tahiti"), "UTC-10")
+
+    def test_format_utc_offset(self):
+        self.assertEqual(common.format_utc_offset(0), "UTC")
+        self.assertEqual(common.format_utc_offset(9), "UTC+9")
+        self.assertEqual(common.format_utc_offset(-3.5), "UTC-3:30")
+        self.assertEqual(common.format_utc_offset(5.75), "UTC+5:45")
 
     def test_tz_offset_hours(self):
         self.assertEqual(common.tz_offset_hours(""), 0)

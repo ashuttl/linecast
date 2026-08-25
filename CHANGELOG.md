@@ -5,6 +5,9 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Tides: Stations in a timezone linecast has no abbreviation for now
+  show their UTC offset, such as "UTC+5:45", instead of a plain "UTC".
+
 ## 1.17.0 — 2026-08-25
 
 - Tides: Hong Kong has its own tide stations now. Thirteen Hong Kong

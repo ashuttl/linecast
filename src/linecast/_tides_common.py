@@ -280,8 +280,27 @@ IANA_ABBR = {
 
 
 def iana_to_abbr(tz_code: str) -> str:
-    """Common abbreviation for an IANA timezone, for display ("UTC" when unknown)."""
-    return IANA_ABBR.get(tz_code, "UTC")
+    """Display label for an IANA timezone.
+
+    Zones with a familiar abbreviation get it ("AST"); the rest fall back
+    to their current numeric offset ("UTC+9", "UTC+5:30"), which is at
+    least honest.  Unknown or empty zones read "UTC".
+    """
+    abbr = IANA_ABBR.get(tz_code)
+    if abbr:
+        return abbr
+    return format_utc_offset(tz_offset_hours(tz_code))
+
+
+def format_utc_offset(hours: float) -> str:
+    """"UTC", "UTC+9", "UTC-3:30" for an offset in hours."""
+    if not hours:
+        return "UTC"
+    sign = "+" if hours > 0 else "-"
+    whole, frac = divmod(abs(hours), 1)
+    minutes = round(frac * 60)
+    label = f"UTC{sign}{int(whole)}"
+    return f"{label}:{minutes:02d}" if minutes else label
 
 
 # ---------------------------------------------------------------------------
