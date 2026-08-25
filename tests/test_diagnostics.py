@@ -281,22 +281,33 @@ def fake_tty(monkeypatch):
 
 
 class TestLiveLoopReportsDeadWorkers:
-    def test_the_notice_lands_after_the_screen_is_restored(self, quiet, fake_tty, capsys):
+    def test_the_notice_lands_after_the_screen_is_restored(
+            self, quiet, fake_tty, capsys, monkeypatch):
         import threading
         live = _mod("_live")
         before = threading.excepthook
         seen = []
+        on_screen = []   # what stdout held at the moment the notice was written
 
         def render(offset_minutes=0, **frame):
             _die_in_a_thread("worker-1")
             seen.append(threading.excepthook is not before)
             raise KeyboardInterrupt   # quit, as q would
 
+        report = live.WorkerWatch.report
+
+        def report_and_snapshot(self, stream=None):
+            on_screen.append(capsys.readouterr().out)
+            return report(self, stream)
+        monkeypatch.setattr(live.WorkerWatch, "report", report_and_snapshot)
+
         live.live_loop(render, interval=5)
         out, err = capsys.readouterr()
         assert seen == [True]                    # the hook was ours while it ran
         assert threading.excepthook is before    # and is gone now
-        assert out.endswith("\033[?25h\033[?1049l")  # the screen came back first
+        assert len(on_screen) == 1
+        assert on_screen[0].endswith("\033[?25h\033[?1049l")  # the screen came back first
+        assert out == ""                                      # and nothing after
         assert err == "linecast: a background task failed; run with --debug for details\n"
 
     def test_a_clean_session_says_nothing(self, quiet, fake_tty, capsys):
