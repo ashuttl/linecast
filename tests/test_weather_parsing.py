@@ -585,3 +585,54 @@ class TestCMAAlerts:
             result = fetch_alerts(39.9, 116.4, country_code="CN", lang="zh")
         mock_fn.assert_called_once_with(39.9, 116.4, lang="zh")
         assert result == [{"event": "x"}]
+
+
+# ---------------------------------------------------------------------------
+# HKO warnings (Hong Kong)
+# ---------------------------------------------------------------------------
+
+class TestHKOAlerts:
+    """The warnsum feed is a dict keyed by warning type."""
+
+    def setup_method(self):
+        self.data = _load("hko_warnsum.json")
+
+    def test_parse_orders_by_severity_and_drops_cancelled(self):
+        from linecast._weather_sources import _parse_hko_warnsum
+        alerts = _parse_hko_warnsum(self.data)
+        assert [a["event"] for a in alerts] == [
+            "Black Rainstorm Warning Signal",
+            "Tropical Cyclone Warning Signal",
+            "Thunderstorm Warning",
+        ]
+        assert [a["severity"] for a in alerts] == ["Severe", "Severe", "Minor"]
+        assert alerts[2]["effective"] == "2026-08-25T15:35:00+08:00"
+        assert alerts[2]["expires"] == "2026-08-25T20:30:00+08:00"
+        for a in alerts:
+            for key in ("event", "headline", "description", "severity", "effective",
+                        "expires", "url"):
+                assert key in a
+
+    def test_parse_empty_feed(self):
+        from linecast._weather_sources import _parse_hko_warnsum
+        assert _parse_hko_warnsum({}) == []
+
+    def test_routing_hk_to_hko(self):
+        from linecast._weather_sources import fetch_alerts
+        with patch("linecast._weather_sources._fetch_alerts_hko",
+                   return_value=[{"event": "x"}]) as mock_fn:
+            result = fetch_alerts(22.3, 114.2, country_code="HK")
+        mock_fn.assert_called_once_with()
+        assert result == [{"event": "x"}]
+
+
+class TestReverseGeocodeCountry:
+    """Nominatim files Hong Kong and Macau under China."""
+
+    def test_hong_kong_and_macau_get_their_own_codes(self):
+        from linecast._weather_sources import _country_code
+        assert _country_code({"country_code": "cn", "ISO3166-2-lvl3": "CN-HK"}) == "HK"
+        assert _country_code({"country_code": "cn", "ISO3166-2-lvl3": "CN-MO"}) == "MO"
+        assert _country_code({"country_code": "cn", "ISO3166-2-lvl3": "CN-GD"}) == "CN"
+        assert _country_code({"country_code": "us"}) == "US"
+        assert _country_code({}) == ""

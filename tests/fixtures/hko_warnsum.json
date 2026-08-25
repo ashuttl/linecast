@@ -1,0 +1,32 @@
+{
+ "WTS": {
+  "name": "Thunderstorm Warning",
+  "code": "WTS",
+  "actionCode": "EXTEND",
+  "issueTime": "2026-08-25T15:35:00+08:00",
+  "expireTime": "2026-08-25T20:30:00+08:00",
+  "updateTime": "2026-08-25T18:45:00+08:00"
+ },
+ "WRAIN": {
+  "name": "Black Rainstorm Warning Signal",
+  "code": "WRAINB",
+  "actionCode": "ISSUE",
+  "issueTime": "2026-08-25T16:00:00+08:00",
+  "updateTime": "2026-08-25T16:00:00+08:00"
+ },
+ "WTCSGNL": {
+  "name": "Tropical Cyclone Warning Signal",
+  "code": "TC8NE",
+  "actionCode": "ISSUE",
+  "type": "No. 8 Northeast Gale or Storm Signal",
+  "issueTime": "2026-08-25T14:20:00+08:00",
+  "updateTime": "2026-08-25T14:20:00+08:00"
+ },
+ "WFIRE": {
+  "name": "Yellow Fire Danger Warning",
+  "code": "WFIREY",
+  "actionCode": "CANCEL",
+  "issueTime": "2026-08-25T06:00:00+08:00",
+  "updateTime": "2026-08-25T12:00:00+08:00"
+ }
+}

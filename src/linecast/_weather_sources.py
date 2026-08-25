@@ -34,6 +34,20 @@ def _local_now_for_data(data):
         return datetime.now()
 
 
+def _country_code(addr):
+    """The ISO country code of a Nominatim address, upper-cased.
+
+    Hong Kong and Macau come back as China with the region in the
+    ISO 3166-2 field ("CN-HK", "CN-MO"); each has its own weather
+    service and tide stations, so they get their own codes, as the
+    forward geocoder and the IP lookup already give them.
+    """
+    region = str(addr.get("ISO3166-2-lvl3", "")).upper()
+    if region in ("CN-HK", "CN-MO"):
+        return region[3:]
+    return str(addr.get("country_code", "")).upper()
+
+
 def _reverse_geocode(lat, lng, lang=None):
     """Reverse geocode coordinates to a display name via Nominatim. Cached.
 
@@ -58,7 +72,7 @@ def _reverse_geocode(lat, lng, lang=None):
         addr = data.get("address", {})
         name = addr.get("city") or addr.get("town") or addr.get("village") or ""
         state = addr.get("state", "")
-        country_code = addr.get("country_code", "").upper()
+        country_code = _country_code(addr)
         if name and state:
             display = f"{name}, {state}"
         elif name:
@@ -148,12 +162,7 @@ def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en
         return _fetch_alerts_meteireann(lat, lng)
     if country_code == "JP":
         return _fetch_alerts_jma(lat, lng, lang=lang)
-    # Hong Kong has its own observatory — check before the generic CN path.
-    # Nominatim returns country_code "HK" for Hong Kong SAR; some providers
-    # return "CN" with city="Hong Kong", so we check both.
-    addr = address or {}
-    _hk_city = addr.get("city") or addr.get("town") or addr.get("county") or ""
-    if country_code == "HK" or (country_code == "CN" and "Hong Kong" in _hk_city):
+    if country_code == "HK":
         return _fetch_alerts_hko()
     if country_code == "CN":
         return _fetch_alerts_cma(lat, lng, lang=lang)
@@ -712,31 +721,33 @@ def _fetch_alerts_jma(lat, lng, lang="en"):
 # HKO (Hong Kong Observatory)
 # ---------------------------------------------------------------------------
 
-# Warning type -> (English event name, severity)
-# WRAIN and WTCSGNL have sub-codes; handled via _HKO_RAIN_SEV / _HKO_TC_SEV.
+# The warnsum feed is a dict keyed by warning type; each entry names the
+# warning and carries a code, which for rainstorms and tropical cyclones
+# says how bad (amber/red/black; signal 1/3/8/9/10).
+HKO_WARNINGS_URL = ("https://data.weather.gov.hk/weatherAPI/opendata/"
+                    "weather.php?dataType=warnsum&lang=en")
+
 _HKO_WARNING_INFO = {
-    "WFIRE":  ("Fire Danger Warning",                    "Moderate"),
-    "WFROST": ("Frost Warning",                          "Minor"),
-    "WHOT":   ("Very Hot Weather Warning",               "Minor"),
-    "WCOLD":  ("Cold Weather Warning",                   "Minor"),
-    "WMSGNL": ("Strong Monsoon Signal",                  "Moderate"),
-    "WRAIN":  ("Rainstorm Warning",                      "Moderate"),
-    "WFNTSA": ("Special Announcement on Flooding (NT)",  "Moderate"),
-    "WL":     ("Landslip Warning",                       "Moderate"),
-    "WTCSGNL":("Tropical Cyclone Warning Signal",        "Moderate"),
-    "WTMW":   ("Tsunami Warning",                        "Extreme"),
-    "WTS":    ("Thunderstorm Warning",                   "Minor"),
+    "WFIRE": ("Fire Danger Warning", "Moderate"),
+    "WFROST": ("Frost Warning", "Minor"),
+    "WHOT": ("Very Hot Weather Warning", "Minor"),
+    "WCOLD": ("Cold Weather Warning", "Minor"),
+    "WMSGNL": ("Strong Monsoon Signal", "Moderate"),
+    "WRAIN": ("Rainstorm Warning", "Moderate"),
+    "WFNTSA": ("Special Announcement on Flooding (NT)", "Moderate"),
+    "WL": ("Landslip Warning", "Moderate"),
+    "WTCSGNL": ("Tropical Cyclone Warning Signal", "Moderate"),
+    "WTMW": ("Tsunami Warning", "Extreme"),
+    "WTS": ("Thunderstorm Warning", "Minor"),
 }
 
-# WRAIN sub-code -> severity (WRAINB > WRAINR > WRAINA)
-_HKO_RAIN_SEV = {"WRAINB": "Severe", "WRAINR": "Moderate", "WRAINA": "Minor"}
-
-# WTCSGNL sub-code -> severity (TC10 > TC9 > TC8* > TC3 > TC1)
-_HKO_TC_SEV = {
+# Severity by code, where the code says more than the type does.
+_HKO_CODE_SEV = {
+    "WRAINB": "Severe", "WRAINR": "Moderate", "WRAINA": "Minor",
     "TC10": "Extreme", "TC9": "Extreme",
     "TC8NE": "Severe", "TC8SE": "Severe", "TC8NW": "Severe", "TC8SW": "Severe",
-    "TC8": "Severe",
-    "TC3": "Moderate", "TC1": "Minor",
+    "TC8": "Severe", "TC3": "Moderate", "TC1": "Minor",
+    "WFIRER": "Severe",
 }
 
 
@@ -752,22 +763,8 @@ def _parse_hko_warnsum(data):
 
         base_event, base_sev = info
         code = entry.get("code", key)
-
-        # Refine severity for WRAIN and WTCSGNL based on their sub-code
-        if key == "WRAIN":
-            severity = _HKO_RAIN_SEV.get(code, base_sev)
-            event = entry.get("name") or f"Rainstorm Warning ({code})"
-        elif key == "WTCSGNL":
-            severity = _HKO_TC_SEV.get(code, base_sev)
-            event = entry.get("name") or f"Tropical Cyclone Warning Signal ({code})"
-        else:
-            severity = base_sev
-            event = entry.get("name") or base_event
-
-        # WFIRE: Yellow < Red
-        if key == "WFIRE" and code == "WFIRER":
-            severity = "Severe"
-
+        severity = _HKO_CODE_SEV.get(code, base_sev)
+        event = entry.get("name") or base_event
         alerts.append({
             "event": event,
             "headline": event,
@@ -785,13 +782,9 @@ def _parse_hko_warnsum(data):
 
 def _fetch_alerts_hko():
     """Fetch active HKO weather warnings (Hong Kong). Cached 10min."""
-    cache_file = CACHE_DIR / "alerts_hk.json"
-    url = "https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=en"
-    data = fetch_json_cached(
-        cache_file, 600, url,
-        headers={"User-Agent": USER_AGENT},
-        timeout=10, fallback=[],
-    )
+    cache_file = cache_dir("weather") / "alerts_hk.json"
+    url = HKO_WARNINGS_URL
+    data = fetch_json_cached(cache_file, 600, url, timeout=10, fallback=[])
     if isinstance(data, list):
         return data
 
