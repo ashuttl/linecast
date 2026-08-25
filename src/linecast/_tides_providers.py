@@ -10,6 +10,7 @@ from datetime import date, datetime, tzinfo
 from typing import Any
 
 from linecast import _tides_chs as chs
+from linecast import _tides_hko as hko
 from linecast import _tides_noaa as noaa
 from linecast import _tides_openmeteo as openmeteo
 from linecast import _tides_qld as qld
@@ -47,8 +48,8 @@ class TideProvider:
     """What tides.py asks of a source.
 
     Station IDs are strings the provider recognises: NOAA's digits, CHS's
-    24-hex ObjectIds, QLD's station names, TideCheck's slugs, Open-Meteo's
-    "om:lat,lng". Every method takes and returns the shapes the NOAA
+    24-hex ObjectIds, QLD's station names, HKO's three-letter codes,
+    TideCheck's slugs, Open-Meteo's "om:lat,lng". Every method takes and returns the shapes the NOAA
     pipeline was built on: (datetime, height_ft) points, (datetime,
     height_ft, "H"/"L") extremes, and NOAA-shaped metadata dicts.
     """
@@ -214,6 +215,46 @@ class _QLD(TideProvider):
         return qld.fetch_y_range_qld(station_id, center_date, station_tz)
 
 
+class _HKO(TideProvider):
+    """Hong Kong Observatory: a fixed list of thirteen stations, so the
+    search and the nearest lookup need no network."""
+
+    name = "hko"
+    tag = " (Hong Kong)"
+
+    def id_matches(self, text):
+        return hko.is_hko_station_id(text)
+
+    def name_for_id(self, station_id):
+        return hko.STATION_BY_ID[station_id.upper()]["name"]
+
+    def nearest(self, lat, lng):
+        return hko.find_nearest_station_hko(lat, lng)
+
+    def search(self, query, tokens):
+        found = []
+        for s in hko.STATIONS:
+            name = s["name"]
+            if _matches(f"{name} hong kong hk".lower(), tokens):
+                found.append({
+                    "source": self.name, "id": s["id"], "name": name,
+                    "lat": s["lat"], "lng": s["lng"],
+                })
+        return found
+
+    def station_metadata(self, station_id):
+        return hko.fetch_station_metadata_hko(station_id)
+
+    def tides_range(self, station_id, start_date, end_date, station_tz):
+        return hko.fetch_tides_range_hko(station_id, start_date, end_date, station_tz)
+
+    def hilo_range(self, station_id, start_date, end_date, station_tz):
+        return hko.fetch_hilo_range_hko(station_id, start_date, end_date, station_tz)
+
+    def y_range(self, station_id, center_date, station_tz):
+        return hko.fetch_y_range_hko(station_id, center_date, station_tz)
+
+
 class _TideCheck(TideProvider):
     """Optional: inert without LINECAST_TIDECHECK_KEY."""
 
@@ -293,20 +334,22 @@ class _OpenMeteo(TideProvider):
 NOAA = _NOAA()
 CHS = _CHS()
 QLD = _QLD()
+HKO = _HKO()
 TIDECHECK = _TideCheck()
 OPENMETEO = _OpenMeteo()
 
 # In search order: among stations at equal distance the listing keeps it.
-PROVIDERS = {p.name: p for p in (NOAA, CHS, QLD, TIDECHECK, OPENMETEO)}
+PROVIDERS = {p.name: p for p in (NOAA, CHS, QLD, HKO, TIDECHECK, OPENMETEO)}
 
 
 def provider_for_id(text: str) -> TideProvider | None:
     """The provider whose station IDs look like *text*, or None.
 
     Most specific first: the "om:" prefix, then CHS's 24-character hex
-    ObjectId (which can happen to be all digits), then NOAA's digits.
+    ObjectId (which can happen to be all digits), then HKO's codes
+    (letters, one with a digit; never all digits), then NOAA's digits.
     """
-    for provider in (OPENMETEO, CHS, NOAA):
+    for provider in (OPENMETEO, CHS, HKO, NOAA):
         if provider.id_matches(text):
             return provider
     return None

@@ -4,12 +4,13 @@ from unittest.mock import patch
 
 from linecast import tides
 from linecast import _tides_chs
+from linecast import _tides_hko
 from linecast import _tides_noaa
 from linecast import _tides_openmeteo
 from linecast import _tides_qld
 from linecast import _tides_tidecheck
 from linecast._tides_providers import (
-    CHS, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK, provider_for_id,
+    CHS, HKO, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK, provider_for_id,
 )
 
 
@@ -144,6 +145,7 @@ class StationSearchTests(unittest.TestCase):
         with patch.object(_tides_noaa, "fetch_all_stations_noaa", return_value=[]), \
              patch.object(_tides_chs, "fetch_all_stations_chs", return_value=[]), \
              patch.object(_tides_qld, "fetch_all_stations_qld", return_value=[]), \
+             patch.object(_tides_hko, "STATIONS", []), \
              patch.object(_tides_tidecheck, "is_available", return_value=True), \
              patch.object(_tides_tidecheck, "search_stations_tidecheck",
                           return_value=hit) as search, \
@@ -162,7 +164,8 @@ class ProviderRegistryTests(unittest.TestCase):
     their functions at import, so a patched module function is seen."""
 
     def test_registry_is_keyed_by_source_name(self):
-        self.assertEqual(list(PROVIDERS), ["noaa", "chs", "qld", "tidecheck", "openmeteo"])
+        self.assertEqual(list(PROVIDERS),
+                         ["noaa", "chs", "qld", "hko", "tidecheck", "openmeteo"])
         for name, provider in PROVIDERS.items():
             self.assertEqual(provider.name, name)
 
@@ -171,6 +174,8 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertIs(provider_for_id("5cebf1df3d0f4a073c4bbd1e"), CHS)
         self.assertIs(provider_for_id("123456789012345678901234"), CHS)
         self.assertIs(provider_for_id("om:43.6770,-70.3710"), OPENMETEO)
+        self.assertIs(provider_for_id("CCH"), HKO)
+        self.assertIs(provider_for_id("pt1"), HKO)
         self.assertIsNone(provider_for_id("portland maine"))
         self.assertIsNone(provider_for_id("Brisbane Bar"))
 
@@ -181,6 +186,7 @@ class ProviderRegistryTests(unittest.TestCase):
             self.assertEqual(NOAA.name_for_id("9999999"), "Station 9999999")
         self.assertEqual(CHS.name_for_id("5cebf1df3d0f4a073c4bbd1e"), "Station 5cebf1df")
         self.assertEqual(OPENMETEO.name_for_id("om:1,2"), "Tide model")
+        self.assertEqual(HKO.name_for_id("qub"), "Quarry Bay")
 
     def test_records_call_through_the_modules(self):
         args = ("id", date(2026, 8, 20), date(2026, 8, 21), None)
@@ -290,6 +296,11 @@ class LocationRoutingTests(unittest.TestCase):
         self.assertEqual(asked, ["qld"])
         _picked, asked = self._route(-33.87, 151.21, "AU")
         self.assertNotIn("qld", asked)
+
+    def test_hong_kong_answers_from_its_own_station_list(self):
+        picked, asked = self._route(22.28, 114.16, "HK")
+        self.assertEqual(picked, (HKO, "QUB", "Quarry Bay"))
+        self.assertEqual(asked, [])
 
     def test_tidecheck_only_when_a_key_is_set(self):
         _picked, asked = self._route(38.72, -9.14, "PT")

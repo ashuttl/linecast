@@ -52,7 +52,7 @@ from linecast._marine import fetch_marine, parse_marine_current, format_marine_l
 from linecast._tides_common import sweep_legacy_cache
 from linecast._tides_i18n import _moon_name, _ts
 from linecast._tides_providers import (
-    CHS, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK, provider_for_id,
+    CHS, HKO, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK, provider_for_id,
 )
 from linecast._tides_render import (
     build_now_tooltip as _build_now_tooltip,
@@ -123,7 +123,7 @@ def _station_for_location(lat, lng, country_code):
     """Pick a provider and station for a location: (provider, id, name).
 
     The regional provider for the country goes first (CHS for Canada, QLD
-    for Queensland), then NOAA, which may have a station in range even
+    for Queensland, HKO for Hong Kong), then NOAA, which may have a station in range even
     when the regional one found nothing (Victoria BC, or an outage).
     TideCheck follows when a key is set, and Open-Meteo's global model is
     the last resort. (None, None, None) when nothing covers the spot.
@@ -133,6 +133,8 @@ def _station_for_location(lat, lng, country_code):
         order.append(CHS)
     elif country_code == "AU" and _is_qld_lat_lng(lat, lng):
         order.append(QLD)
+    elif country_code == "HK":
+        order.append(HKO)
     order.append(NOAA)
     if TIDECHECK.available():
         order.append(TIDECHECK)

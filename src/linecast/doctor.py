@@ -63,6 +63,7 @@ def providers():
     from linecast._maps_search import NOMINATIM_URL, PHOTON_URL
     from linecast._radar_tiles import LIBREWXR_DEFAULT_URL
     from linecast._tides_chs import CHS_BASE
+    from linecast._tides_hko import HKO_BASE
     from linecast._tides_qld import QLD_BASE
     from linecast._tides_tidecheck import TIDECHECK_BASE, is_available
     from linecast._vtiles import DEFAULT_TILEJSON_URL
@@ -78,6 +79,7 @@ def providers():
         ("NOAA CO-OPS tides", "https://api.tidesandcurrents.noaa.gov/"),
         ("CHS tides", _root(CHS_BASE)),
         ("Queensland tides", _root(QLD_BASE)),
+        ("HKO tides and warnings", _root(HKO_BASE)),
         ("TideCheck tides", _root(TIDECHECK_BASE) if is_available() else None),
         ("IEM radar and warnings", "https://mesonet.agron.iastate.edu/"),
         ("RainViewer radar", "https://api.rainviewer.com/"),
