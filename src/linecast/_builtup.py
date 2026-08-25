@@ -37,7 +37,7 @@ DEFAULT_URL = "https://pub-18689fea99e6428ebbc5e51b36dc6d91.r2.dev"
 _decoded = DecodeMemo(cap=16)
 
 
-def enabled():
+def enabled() -> bool:
     return bool(os.environ.get("LINECAST_BUILTUP_URL", DEFAULT_URL))
 
 
@@ -77,7 +77,8 @@ def _fetch_tile(z, x, y, timeout=15):
     return data or None
 
 
-def builtup_grid(bbox, w, h, timeout=15):
+def builtup_grid(bbox: tuple[float, float, float, float], w: int, h: int,
+                 timeout: float = 15) -> list[list[int]]:
     """Built fraction 0-255 resampled to a w×h grid over `bbox`.
 
     Rows of ints; 0 where nothing is built or no tile answered.

@@ -21,7 +21,9 @@ Set LINECAST_VECTOR_TILES_URL to point at a self-hosted TileJSON.
 
 import math
 import os
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 from linecast._cache import CACHE_ROOT, write_bytes_atomic
 from linecast._http import (MAX_BODY_BYTES, fetch_bytes,
@@ -38,13 +40,13 @@ _TILEJSON_TTL = 86400  # the planet rebuilds weekly; a day of staleness is fine
 _MAX_ZOOM_FALLBACK = 14
 
 
-def tilejson():
+def tilejson() -> dict[str, Any] | None:
     """The cached TileJSON dict, or None when unreachable with no cache."""
     return fetch_json_cached(
         CACHE_ROOT / "maps" / "tilejson.json", _TILEJSON_TTL, TILEJSON_URL)
 
 
-def tile_info():
+def tile_info() -> tuple[str, str, int] | None:
     """(url_template, version_segment, maxzoom) or None.
 
     The version segment (e.g. "20260802_080001_pt") namespaces the disk
@@ -70,7 +72,7 @@ def tile_info():
     return template, version, maxzoom
 
 
-def tiles_for_bbox(bbox, z):
+def tiles_for_bbox(bbox: tuple[float, float, float, float], z: int) -> list[tuple[int, int, int]]:
     """[(z, x, y), ...] covering the bbox; x wraps at the antimeridian,
     y clamps at the mercator poles."""
     minlon, minlat, maxlon, maxlat = bbox
@@ -88,7 +90,8 @@ def tiles_for_bbox(bbox, z):
             for tx in range(tx0, tx1 + 1)]
 
 
-def projector(z, tx, ty, extent, bbox, dw, dh):
+def projector(z: int, tx: int, ty: int, extent: int, bbox: tuple[float, float, float, float],
+              dw: float, dh: float) -> Callable[[float, float], tuple[float, float]]:
     """Tile-local (x, y) -> dot-space (x, y) for one tile in one view.
 
     Tile coordinates are web mercator; the view is linear in lon/lat
@@ -106,7 +109,8 @@ def projector(z, tx, ty, extent, bbox, dw, dh):
     # value and looked up after.  A terrain view projects ~300k
     # vertices through a few dozen of these; the tables are what turn
     # most of them into two dict reads.
-    cols, rows = {}, {}
+    cols: dict[float, float] = {}
+    rows: dict[float, float] = {}
 
     def project(px, py):
         x = cols.get(px)
@@ -133,7 +137,11 @@ def projector(z, tx, ty, extent, bbox, dw, dh):
 DEFAULT_EXTENT = 4096   # the MVT default, when a layer carries none
 
 
-def iter_layer(view, names, bbox, dw, dh, geom=None):
+def iter_layer(
+    view: Iterable[tuple[tuple[int, int, int], dict[str, Any]]],
+    names: str | Sequence[str], bbox: tuple[float, float, float, float], dw: float, dh: float,
+    geom: int | None = None,
+) -> Iterator[tuple[str, dict[str, Any], Callable[[float, float], tuple[float, float]]]]:
     """(layer name, feature, project) for every feature of the named
     layers in a decoded view, tile by tile in the view's own order.
 
@@ -162,7 +170,7 @@ def _cache_path(version, z, x, y):
     return CACHE_ROOT / "maps" / "vt" / version / f"{z}_{x}_{y}.pbf"
 
 
-def fetch_tile(z, x, y, timeout=15):
+def fetch_tile(z: int, x: int, y: int, timeout: float = 15) -> bytes | None:
     """Raw MVT bytes for a tile (b"" = empty tile), or None on failure.
 
     Disk-cached forever under the current version segment; the cache
@@ -198,7 +206,8 @@ def fetch_tile(z, x, y, timeout=15):
     return data
 
 
-def fetch_tiles(keys, timeout=15):
+def fetch_tiles(keys: list[tuple[int, int, int]], timeout: float = 15
+                ) -> dict[tuple[int, int, int], bytes | None]:
     """{(z, x, y): bytes|None} for a batch, fetched concurrently."""
     if not keys:
         return {}

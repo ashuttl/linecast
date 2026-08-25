@@ -6,9 +6,11 @@ to coastal areas.
 """
 
 from datetime import datetime, timedelta
+from typing import Any
 
 from linecast._cache import CACHE_ROOT, location_cache_key, read_cache
 from linecast._http import fetch_json_cached
+from linecast._runtime import TidesRuntime
 
 CACHE_DIR = CACHE_ROOT / "marine"
 MARINE_CACHE_MAX_AGE = 3600  # 1 hour
@@ -24,7 +26,7 @@ def _compass_direction(degrees):
     return directions[idx]
 
 
-def fetch_marine(lat, lng):
+def fetch_marine(lat: float, lng: float) -> dict[str, Any] | None:
     """Fetch hourly marine forecast from Open-Meteo. Cached 1h.
 
     Returns the raw JSON response dict or None on failure.
@@ -47,7 +49,8 @@ def fetch_marine(lat, lng):
     )
 
 
-def parse_marine_current(data, target_dt=None):
+def parse_marine_current(data: dict[str, Any] | None, target_dt: datetime | None = None
+                         ) -> dict[str, float | None] | None:
     """Extract current marine conditions from an Open-Meteo marine response.
 
     Returns a dict with wave/swell info for the hour nearest to target_dt,
@@ -116,7 +119,8 @@ def parse_marine_current(data, target_dt=None):
     }
 
 
-def format_marine_line(marine, runtime, width=80):
+def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
+                       width: int = 80) -> str:
     """Format marine conditions as a compact display string.
 
     marine: dict from parse_marine_current()

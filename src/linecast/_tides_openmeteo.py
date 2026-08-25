@@ -16,7 +16,8 @@ rendering pipeline.  High/low events are derived locally from the hourly
 series with parabolic refinement for sub-hour timing.
 """
 
-from datetime import datetime
+from datetime import date, datetime, tzinfo
+from typing import Any
 
 from linecast._cache import location_cache_key
 from linecast._http import fetch_json_cached
@@ -33,16 +34,16 @@ RAW_CACHE_MAX_AGE = 3 * 3600
 # ---------------------------------------------------------------------------
 # Pseudo-station IDs
 # ---------------------------------------------------------------------------
-def make_station_id(lat, lng):
+def make_station_id(lat: float, lng: float) -> str:
     """Encode coordinates as an Open-Meteo pseudo-station ID."""
     return f"om:{float(lat):.4f},{float(lng):.4f}"
 
 
-def is_openmeteo_station_id(station_id):
+def is_openmeteo_station_id(station_id: str) -> bool:
     return str(station_id).startswith("om:")
 
 
-def parse_station_id(station_id):
+def parse_station_id(station_id: str) -> tuple[float, float] | None:
     """Decode an `om:lat,lng` pseudo-station ID to (lat, lng) or None."""
     try:
         lat_str, lng_str = str(station_id)[3:].split(",")
@@ -94,7 +95,8 @@ def _series(data, station_tz):
 # ---------------------------------------------------------------------------
 # Coverage check
 # ---------------------------------------------------------------------------
-def find_nearest_openmeteo(lat, lng):
+def find_nearest_openmeteo(lat: float | None, lng: float | None
+                           ) -> tuple[str | None, None]:
     """Return (pseudo_station_id, None) when the tide model covers this
     location, or (None, None) when it doesn't (far inland / fetch failure).
 
@@ -111,7 +113,7 @@ def find_nearest_openmeteo(lat, lng):
 # ---------------------------------------------------------------------------
 # Station metadata
 # ---------------------------------------------------------------------------
-def fetch_station_metadata_openmeteo(station_id):
+def fetch_station_metadata_openmeteo(station_id: str) -> dict[str, Any] | None:
     """Build NOAA-shaped metadata from the model response for this location."""
     coords = parse_station_id(station_id)
     if coords is None:
@@ -140,7 +142,9 @@ def fetch_station_metadata_openmeteo(station_id):
 # ---------------------------------------------------------------------------
 # Predictions
 # ---------------------------------------------------------------------------
-def fetch_tides_range_openmeteo(station_id, start_date, end_date, station_tz):
+def fetch_tides_range_openmeteo(
+    station_id: str, start_date: date, end_date: date, station_tz: tzinfo | None,
+) -> list[tuple[datetime, float]]:
     """Hourly model heights across a date range as [(dt, height_ft)].
 
     The model window is fixed (31 days back, 8 days ahead); dates outside
@@ -179,7 +183,9 @@ def _extrema(points):
     return out
 
 
-def fetch_hilo_range_openmeteo(station_id, start_date, end_date, station_tz):
+def fetch_hilo_range_openmeteo(
+    station_id: str, start_date: date, end_date: date, station_tz: tzinfo | None,
+) -> list[tuple[datetime, float, str]]:
     """High/low events across a date range as [(dt, height_ft, "H"|"L")]."""
     coords = parse_station_id(station_id)
     if coords is None:
@@ -189,7 +195,8 @@ def fetch_hilo_range_openmeteo(station_id, start_date, end_date, station_tz):
     return [(dt, h, t) for dt, h, t in _extrema(points) if lo <= dt <= hi]
 
 
-def fetch_y_range_openmeteo(station_id, center_date, station_tz):
+def fetch_y_range_openmeteo(station_id: str, center_date: date,
+                            station_tz: tzinfo | None) -> tuple[float, float] | None:
     """Y-axis range from the full fetched window (spans spring/neap)."""
     coords = parse_station_id(station_id)
     if coords is None:

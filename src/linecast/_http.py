@@ -17,9 +17,15 @@ import os
 import threading
 import time
 import urllib.parse
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from linecast._cache import read_cache, read_stale, write_bytes_atomic, write_cache
 from linecast._runtime import debug_log
+
+if TYPE_CHECKING:
+    import http.client
+    from email.message import Message
 
 _REDIRECTS = (301, 302, 303, 307, 308)
 _MAX_REDIRECTS = 5
@@ -36,7 +42,7 @@ _CHUNK = 64 * 1024
 _local = threading.local()
 
 
-def read_limited(resp, limit):
+def read_limited(resp: "http.client.HTTPResponse", limit: int) -> bytes:
     """Stream a response body, refusing to keep more than limit bytes.
 
     An honest oversized response is refused from its Content-Length
@@ -46,7 +52,7 @@ def read_limited(resp, limit):
     declared = getattr(resp, "length", None)
     if declared is not None and declared > limit:
         raise ValueError(f"response of {declared} bytes exceeds cap of {limit}")
-    chunks = []
+    chunks: list[bytes] = []
     total = 0
     while True:
         chunk = resp.read(_CHUNK)
@@ -58,7 +64,7 @@ def read_limited(resp, limit):
         chunks.append(chunk)
 
 
-def gunzip_limited(data, limit):
+def gunzip_limited(data: bytes, limit: int) -> bytes:
     """Decompress a gzip body, refusing to expand past limit bytes."""
     import zlib
     d = zlib.decompressobj(31)
@@ -72,7 +78,14 @@ class HTTPError(OSError):
     """A response that was not 2xx.  Mirrors the attributes callers read
     off urllib.error.HTTPError: code, reason, headers, url."""
 
-    def __init__(self, url, code, reason, headers=None, body=b""):
+    url: str
+    code: int
+    reason: str
+    headers: "Message | None"
+    body: bytes
+
+    def __init__(self, url: str, code: int, reason: str,
+                 headers: "Message | None" = None, body: bytes = b"") -> None:
         super().__init__(f"HTTP Error {code}: {reason}")
         self.url = url
         self.code = code
@@ -169,7 +182,8 @@ def _request(url, headers, timeout, limit):
         return resp.status, resp.reason, resp.headers, body
 
 
-def fetch_bytes(url, headers=None, timeout=10, limit=MAX_BODY_BYTES):
+def fetch_bytes(url: str, headers: dict[str, str] | None = None,
+                timeout: float = 10, limit: int = MAX_BODY_BYTES) -> bytes:
     """GET url and return the body bytes, refusing more than limit of them.
 
     Raises HTTPError for a non-2xx status, OSError (timeouts, refused
@@ -200,13 +214,16 @@ def fetch_bytes(url, headers=None, timeout=10, limit=MAX_BODY_BYTES):
     raise HTTPError(url, status, "too many redirects", resp_headers, body)
 
 
-def fetch_json(url, headers=None, timeout=10, limit=MAX_JSON_BYTES):
+def fetch_json(url: str, headers: dict[str, str] | None = None,
+               timeout: float = 10, limit: int = MAX_JSON_BYTES) -> Any:
     """Fetch and decode a JSON payload from url."""
     return json.loads(fetch_bytes(url, headers=headers, timeout=timeout,
                                   limit=limit))
 
 
-def fetch_json_cached(cache_file, max_age, url, headers=None, timeout=10, fallback=None):
+def fetch_json_cached(cache_file: Path, max_age: float, url: str,
+                      headers: dict[str, str] | None = None, timeout: float = 10,
+                      fallback: Any = None) -> Any:
     """Fetch JSON with fresh cache first, stale cache fallback, then fallback value."""
     cached = read_cache(cache_file, max_age)
     if cached is not None:
@@ -227,7 +244,9 @@ def fetch_json_cached(cache_file, max_age, url, headers=None, timeout=10, fallba
     return data
 
 
-def fetch_bytes_cached(cache_file, max_age, url, headers=None, timeout=10):
+def fetch_bytes_cached(cache_file: Path, max_age: float | None, url: str,
+                       headers: dict[str, str] | None = None,
+                       timeout: float = 10) -> bytes | None:
     """Fetch bytes with fresh cache first, stale cache fallback, else None.
 
     max_age None means the cached copy never expires (immutable tiles).

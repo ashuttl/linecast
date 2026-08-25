@@ -6,7 +6,8 @@ for NOAA's CO-OPS APIs.
 
 import math
 import threading
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta, tzinfo
+from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
@@ -30,7 +31,7 @@ def _reference_station_coords(station):
     return station_coords(station)
 
 
-def find_nearest_station(lat, lng):
+def find_nearest_station(lat: float, lng: float) -> tuple[str | None, str | None]:
     """Find the closest NOAA reference station by distance.
 
     Returns (station_id, station_name) or (None, None). Cached for 1 hour.
@@ -44,7 +45,7 @@ def find_nearest_station(lat, lng):
     )
 
 
-def fetch_station_metadata_noaa(station_id):
+def fetch_station_metadata_noaa(station_id: str) -> dict[str, Any] | None:
     """Fetch NOAA station metadata needed for timezone handling."""
     cache_file = CACHE_DIR / f"station_meta_{station_id}.json"
     url = (
@@ -175,7 +176,7 @@ def _months_covering(start_date, end_date):
     return months
 
 
-_month_locks = {}  # cache file name -> lock held while that month fetches
+_month_locks: dict[str, threading.Lock] = {}  # cache file name -> lock held while that month fetches
 _month_locks_lock = threading.Lock()
 
 
@@ -184,7 +185,7 @@ def _month_lock(name):
         return _month_locks.setdefault(name, threading.Lock())
 
 
-def fetch_month(station_id, first, interval):
+def fetch_month(station_id: str, first: date, interval: str) -> list[list[Any]] | None:
     """Fetch one calendar month of predictions, cached per station and month.
 
     NOAA serves at most 31 days of 6-minute predictions per request, so a
@@ -223,7 +224,7 @@ def _rows_in_range(station_id, start_date, end_date, interval):
 _stations_memo = None
 
 
-def fetch_all_stations_noaa():
+def fetch_all_stations_noaa() -> list[dict[str, Any]]:
     """Fetch the full NOAA tide-prediction station list (cached 30 days).
 
     Parsing the 1.5 MB list costs about 10 ms and one run consults it
@@ -247,7 +248,8 @@ def fetch_all_stations_noaa():
     return stations
 
 
-def synthesize_tides_from_hilo(hilo_points, step_minutes=6):
+def synthesize_tides_from_hilo(hilo_points: list[tuple[datetime, float, str]],
+                               step_minutes: int = 6) -> list[tuple[datetime, float]]:
     """Approximate a tide curve from hi/lo extremes by cosine interpolation.
 
     Subordinate NOAA stations only publish high/low predictions. Between two
@@ -278,7 +280,8 @@ def synthesize_tides_from_hilo(hilo_points, step_minutes=6):
     return out
 
 
-def fetch_tides_range(station_id, start_date, end_date, station_tz):
+def fetch_tides_range(station_id: str, start_date: date, end_date: date,
+                      station_tz: tzinfo | None) -> list[tuple[datetime, float]]:
     """6-minute predictions across a date range as sorted [(datetime, height_ft)]."""
     points = []
     for time_str, height in _rows_in_range(station_id, start_date, end_date, "6"):
@@ -289,7 +292,8 @@ def fetch_tides_range(station_id, start_date, end_date, station_tz):
     return points
 
 
-def fetch_hilo_range(station_id, start_date, end_date, station_tz):
+def fetch_hilo_range(station_id: str, start_date: date, end_date: date,
+                     station_tz: tzinfo | None) -> list[tuple[datetime, float, str]]:
     """High/low extremes across a date range as sorted [(datetime, height_ft, type)]."""
     points = []
     for time_str, height, typ in _rows_in_range(station_id, start_date, end_date, "hilo"):
@@ -300,7 +304,7 @@ def fetch_hilo_range(station_id, start_date, end_date, station_tz):
     return points
 
 
-def is_subordinate_station(station_id):
+def is_subordinate_station(station_id: str) -> bool:
     """True when the station list marks this station type "S".
 
     Subordinate stations only publish high/low predictions — asking for the
@@ -313,7 +317,9 @@ def is_subordinate_station(station_id):
     return False
 
 
-def fetch_tides_range_with_fallback(station_id, start_date, end_date, station_tz):
+def fetch_tides_range_with_fallback(
+    station_id: str, start_date: date, end_date: date, station_tz: tzinfo | None,
+) -> list[tuple[datetime, float]]:
     """6-minute range; subordinate stations get a synthesized curve.
 
     The extra day of hi/lo on each side keeps the cosine segments anchored
@@ -328,7 +334,7 @@ def fetch_tides_range_with_fallback(station_id, start_date, end_date, station_tz
     return synthesize_tides_from_hilo(hilo)
 
 
-def fetch_y_range(station_id, center_date):
+def fetch_y_range(station_id: str, center_date: date) -> tuple[float, float] | None:
     """Compute the y-axis range from hilo data around the date. Cached 7 days.
 
     The window and cache key are month-anchored (see y_range_window) so

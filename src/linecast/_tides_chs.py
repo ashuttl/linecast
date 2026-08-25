@@ -5,7 +5,8 @@ All CHS data is in UTC and metres; this module converts to local time and
 feet for compatibility with the NOAA-based rendering pipeline.
 """
 
-from datetime import timezone, timedelta
+from datetime import date, datetime, timezone, timedelta, tzinfo
+from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
@@ -21,13 +22,13 @@ CHS_BASE = "https://api-iwls.dfo-mpo.gc.ca/api/v1"
 # ---------------------------------------------------------------------------
 # Station discovery
 # ---------------------------------------------------------------------------
-def is_chs_station_id(station_id):
+def is_chs_station_id(station_id: str) -> bool:
     """True when a station ID is a CHS MongoDB ObjectId (24-char hex)."""
     return (len(station_id) == 24 and
             all(c in '0123456789abcdef' for c in station_id.lower()))
 
 
-def fetch_all_stations_chs():
+def fetch_all_stations_chs() -> list[dict[str, Any]]:
     """Fetch the full CHS tidal station list (cached 30 days)."""
     cache_file = CACHE_DIR / "chs_all_stations.json"
     url = f"{CHS_BASE}/stations?time-series-code=wlp-hilo"
@@ -47,7 +48,7 @@ def _operating_station_coords(station):
     return station_coords(station, "latitude", "longitude")
 
 
-def find_nearest_station_chs(lat, lng):
+def find_nearest_station_chs(lat: float, lng: float) -> tuple[str | None, str | None]:
     """Find closest CHS tide station by haversine distance.
 
     Returns (station_id, station_name) or (None, None). Cached 1 hour.
@@ -62,7 +63,7 @@ def find_nearest_station_chs(lat, lng):
 # ---------------------------------------------------------------------------
 # Station metadata
 # ---------------------------------------------------------------------------
-def fetch_station_metadata_chs(station_id):
+def fetch_station_metadata_chs(station_id: str) -> dict[str, Any] | None:
     """Fetch CHS station metadata, normalized to match NOAA shape.
 
     Returns dict with: id, name, state, lat, lng, timezone_abbr,
@@ -115,7 +116,8 @@ def _utc_range_for_dates(start_date, end_date, station_tz):
 # ---------------------------------------------------------------------------
 # Prediction fetching
 # ---------------------------------------------------------------------------
-def fetch_tides_range_chs(station_id, start_date, end_date, station_tz):
+def fetch_tides_range_chs(station_id: str, start_date: date, end_date: date,
+                          station_tz: tzinfo | None) -> list[tuple[datetime, float]]:
     """Fetch CHS interval predictions across a date range.
 
     Returns sorted list of (datetime, height_ft) tuples.
@@ -170,7 +172,8 @@ def _fetch_pred_chunk(station_id, start_date, end_date, station_tz):
     return points
 
 
-def fetch_hilo_range_chs(station_id, start_date, end_date, station_tz):
+def fetch_hilo_range_chs(station_id: str, start_date: date, end_date: date,
+                         station_tz: tzinfo | None) -> list[tuple[datetime, float, str]]:
     """Fetch CHS high/low extremes across a date range.
 
     Returns sorted list of (datetime, height_ft, "H"/"L") tuples.
@@ -213,7 +216,8 @@ def fetch_hilo_range_chs(station_id, start_date, end_date, station_tz):
     return labeled
 
 
-def fetch_y_range_chs(station_id, center_date, station_tz):
+def fetch_y_range_chs(station_id: str, center_date: date,
+                      station_tz: tzinfo | None) -> tuple[float, float] | None:
     """Compute the y-axis range from CHS hilo data around the date. Cached 7 days.
 
     The window and cache key are month-anchored (see y_range_window) so

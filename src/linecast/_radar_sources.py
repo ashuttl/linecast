@@ -17,6 +17,7 @@ world to RainViewer, with IEM as the last resort.
 import datetime
 import threading
 import time
+from typing import Any
 
 from linecast._png import decode_rgba
 from linecast._radar_source import fetch_frame, frame_times
@@ -36,7 +37,7 @@ on_index_refresh = None
 # A str names one of our own palettes, coloured here from the grayscale
 # scheme; an int is a LibreWXR server-rendered scheme (the tile-path
 # colour id).
-THEMES = {
+THEMES: dict[str, str | int] = {
     "terminal": "terminal",
     "dusk": "dusk",
     "ember": "ember",
@@ -60,12 +61,12 @@ DEFAULT_THEME = "terminal"
 # (universal-blue is the palette we rendered before LibreWXR)
 
 
-def is_local(theme):
+def is_local(theme: str | int) -> bool:
     """True for a theme coloured here rather than on the tile server."""
     return isinstance(theme, str)
 
 
-def theme_id(value):
+def theme_id(value: str | int | None) -> str | int | None:
     """Resolve a theme name or bare numeric id to a theme id, or None."""
     if value is None:
         return None
@@ -94,7 +95,7 @@ _RADAR_REGIONS = (
 )
 
 
-def has_radar(lat, lon):
+def has_radar(lat: float, lon: float) -> bool:
     """True where LibreWXR's frames come from radar rather than a model."""
     return any(w <= lon <= e and s <= lat <= n
                for w, s, e, n in _RADAR_REGIONS)
@@ -109,7 +110,12 @@ class Frame:
     """One radar frame: a UTC time, a source-specific token, past-or-future."""
     __slots__ = ("time", "token", "future")
 
-    def __init__(self, time, token, future=False):
+    time: datetime.datetime
+    token: Any
+    future: bool
+
+    def __init__(self, time: datetime.datetime, token: Any,
+                 future: bool = False) -> None:
         self.time = time
         self.token = token
         self.future = future
@@ -119,14 +125,15 @@ class IEMSource:
     label = "NEXRAD · IEM"
     attribution = "NEXRAD · IEM"
 
-    def __init__(self, n_frames):
+    def __init__(self, n_frames: int) -> None:
         self.n_frames = n_frames
 
-    def current_frames(self):
+    def current_frames(self) -> list[Frame]:
         # timestamps are cheap to recompute, so newer frames appear live
         return [Frame(t, t) for t in frame_times(self.n_frames)]
 
-    def frame_rgba(self, bbox, gw, hc, frame):
+    def frame_rgba(self, bbox: tuple[float, float, float, float], gw: int, hc: int,
+                   frame: Frame) -> tuple[int, int, bytearray]:
         png = fetch_frame(bbox, gw, hc * 2, when=frame.token)
         return decode_rgba(png)
 
@@ -140,7 +147,12 @@ class _TileSource:
     a render never waits on the network for the index.
     """
 
-    def __init__(self, provider, index_from=None):
+    host: str | None
+    _frames: list[Frame]
+    _sat_frames: list[Frame]
+
+    def __init__(self, provider: tiles.Provider,
+                 index_from: "_TileSource | None" = None) -> None:
         self.provider = provider
         self._sat_provider = tiles.satellite_provider(provider)
         self.host = None
@@ -206,23 +218,25 @@ class _TileSource:
 
         threading.Thread(target=work, daemon=True).start()
 
-    def current_frames(self):
+    def current_frames(self) -> list[Frame]:
         if time.time() - self._checked_at > _REFRESH_S:
             self._refresh_in_background()
         return self._frames
 
-    def satellite_frames(self):
+    def satellite_frames(self) -> list[Frame]:
         self.current_frames()  # shares the index refresh
         return self._sat_frames
 
     smooth = False  # bilinear resample; only right for raw gray tiles
 
-    def frame_rgba(self, bbox, gw, hc, frame):
+    def frame_rgba(self, bbox: tuple[float, float, float, float], gw: int, hc: int,
+                   frame: Frame) -> tuple[int, int, bytearray]:
         return tiles.reproject(self.provider, self.host, frame.token,
                                bbox, gw, hc * 2, mutable=frame.future,
                                smooth=self.smooth)
 
-    def satellite_rgba(self, bbox, gw, hc, frame):
+    def satellite_rgba(self, bbox: tuple[float, float, float, float], gw: int, hc: int,
+                       frame: Frame) -> tuple[int, int, bytearray]:
         return tiles.reproject(self._sat_provider, self.host, frame.token,
                                bbox, gw, hc * 2)
 
@@ -231,7 +245,7 @@ class RainViewerSource(_TileSource):
     label = "RainViewer"
     attribution = "Weather data by RainViewer"
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(tiles.rainviewer_provider())
 
 
@@ -241,7 +255,8 @@ class LibreWXRSource(_TileSource):
     model_attribution = "Precipitation model by LibreWXR (no radar here) · CC BY 4.0"
     themes = THEMES  # advertises the in-radar theme picker
 
-    def __init__(self, theme=THEMES[DEFAULT_THEME], index_from=None):
+    def __init__(self, theme: str | int = THEMES[DEFAULT_THEME],
+                 index_from: _TileSource | None = None) -> None:
         self.theme = theme
         self.palette = palettes.PALETTES.get(theme)
         self.smooth = self.palette is not None
@@ -249,11 +264,12 @@ class LibreWXRSource(_TileSource):
             theme if self.palette is None else tiles.RAW_COLOR,
             smooth=self.palette is None), index_from=index_from)
 
-    def with_theme(self, theme):
+    def with_theme(self, theme: str | int) -> "LibreWXRSource":
         """This source's index under another theme; never touches the network."""
         return LibreWXRSource(theme, index_from=self)
 
-    def frame_rgba(self, bbox, gw, hc, frame):
+    def frame_rgba(self, bbox: tuple[float, float, float, float], gw: int, hc: int,
+                   frame: Frame) -> tuple[int, int, bytearray]:
         w, h, rgba = super().frame_rgba(bbox, gw, hc, frame)
         if self.palette is not None:
             palettes.apply(rgba, self.palette)
@@ -264,12 +280,13 @@ def _utc(epoch):
     return datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc)
 
 
-def get_source(lat, lon, n_frames, theme=None):
+def get_source(lat: float, lon: float, n_frames: int, theme: str | int | None = None
+               ) -> LibreWXRSource | RainViewerSource | IEMSource:
     """Pick the best source for a location, falling back on failure."""
     if theme is None:
         theme = THEMES[DEFAULT_THEME]
     try:
-        src = LibreWXRSource(theme)
+        src: LibreWXRSource | RainViewerSource = LibreWXRSource(theme)
         if src.current_frames():
             return src
     except Exception:

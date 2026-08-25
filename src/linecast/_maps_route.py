@@ -19,6 +19,7 @@ Directions data © OpenStreetMap contributors.
 """
 
 import time
+from typing import Any
 
 from linecast import user_agent
 from linecast._http import fetch_json
@@ -41,7 +42,7 @@ _MIN_INTERVAL = 1.0  # the hosts' published rate limit
 _last_request = 0.0  # monotonic stamp of the last network call
 
 _MAX_CACHED = 8
-_cache = {}
+_cache: dict[tuple[str, float, float, float, float], "Route | NoRoute"] = {}
 
 # HTTPError and socket.timeout are both OSError; JSONDecodeError is a
 # ValueError. A malformed body raises out of _parse instead.
@@ -62,7 +63,14 @@ class Route:
 
     __slots__ = ("coords", "distance_m", "duration_s", "steps", "profile")
 
-    def __init__(self, coords, distance_m, duration_s, steps, profile):
+    coords: list[tuple[float, float]]
+    distance_m: float
+    duration_s: float
+    steps: list[dict[str, Any]]
+    profile: str
+
+    def __init__(self, coords: list[tuple[float, float]], distance_m: float,
+                 duration_s: float, steps: list[dict[str, Any]], profile: str) -> None:
         self.coords = coords  # [(lon, lat)] — GeoJSON order, ready to rasterize
         self.distance_m = distance_m
         self.duration_s = duration_s
@@ -124,7 +132,8 @@ def _remember(key, value):
             _cache.pop(old, None)
 
 
-def route(profile, origin, dest, timeout=10):
+def route(profile: str, origin: tuple[float, float], dest: tuple[float, float],
+          timeout: float = 10) -> Route:
     """Route from origin to dest as (lat, lon) pairs.
 
     Raises NoRoute when the service says there is none, and
@@ -150,7 +159,7 @@ def route(profile, origin, dest, timeout=10):
     if profile == "car":
         urls.append(_FALLBACK + path)
 
-    failure = None
+    failure: Exception | None = None
     for url in urls:
         _throttle()
         try:
@@ -173,7 +182,7 @@ def route(profile, origin, dest, timeout=10):
     raise RouteUnavailable(f"routing service unavailable: {failure}")
 
 
-def decode_polyline(s, precision=5):
+def decode_polyline(s: str, precision: int = 5) -> list[tuple[float, float]]:
     """Decode an encoded-polyline string to [(lat, lon)].
 
     Unused while we ask for geometries=geojson, kept as the safety

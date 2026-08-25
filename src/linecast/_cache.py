@@ -2,11 +2,12 @@
 
 import hashlib, json, os, threading, time
 from pathlib import Path
+from typing import Any
 
 CACHE_ROOT = Path.home() / ".cache" / "linecast"
 
 
-def write_bytes_atomic(path, data):
+def write_bytes_atomic(path: Path, data: bytes) -> None:
     """Write to a sibling temp file, then publish with os.replace.
 
     Readers (and the four commands running side by side in the hero shot)
@@ -18,7 +19,7 @@ def write_bytes_atomic(path, data):
     os.replace(tmp, path)
 
 
-def read_cache(path, max_age):
+def read_cache(path: Path, max_age: float) -> Any:
     """Read JSON cache file if it exists and isn't too old. Returns data or None."""
     if path.exists():
         age = time.time() - path.stat().st_mtime
@@ -30,7 +31,7 @@ def read_cache(path, max_age):
     return None
 
 
-def read_stale(path):
+def read_stale(path: Path) -> Any:
     """Read cache regardless of age (for fallback when network is down)."""
     if path.exists():
         try:
@@ -40,13 +41,13 @@ def read_stale(path):
     return None
 
 
-def write_cache(path, data):
+def write_cache(path: Path, data: Any) -> None:
     """Write JSON cache file (atomically: concurrent commands share these)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     write_bytes_atomic(path, json.dumps(data).encode())
 
 
-def location_cache_key(lat, lng):
+def location_cache_key(lat: float, lng: float) -> str:
     """Short hash for lat/lng to namespace cache files by location."""
     key = f"{lat:.4f},{lng:.4f}"
     return hashlib.md5(key.encode()).hexdigest()[:8]

@@ -29,13 +29,14 @@ def _floor_step(dt):
     return dt.replace(minute=m, second=0, microsecond=0)
 
 
-def latest_frame_time(now_utc=None):
+def latest_frame_time(now_utc: datetime.datetime | None = None) -> datetime.datetime:
     """Newest frame timestamp likely to have data, given radar latency."""
     now_utc = now_utc or datetime.datetime.now(datetime.timezone.utc)
     return _floor_step(now_utc - datetime.timedelta(seconds=_LATENCY))
 
 
-def frame_times(count, end=None):
+def frame_times(count: int, end: datetime.datetime | None = None
+                ) -> list[datetime.datetime]:
     """`count` frame timestamps ending at `end` (default latest), oldest first."""
     end = end or latest_frame_time()
     step = datetime.timedelta(seconds=FRAME_STEP)
@@ -58,7 +59,8 @@ def _cache_path(bbox, w, h, when):
     return _RADAR_CACHE / f"{key}_{stamp}.png"
 
 
-def fetch_frame(bbox, w, h, when=None, timeout=15):
+def fetch_frame(bbox: tuple[float, float, float, float], w: int, h: int,
+                when: datetime.datetime | None = None, timeout: float = 15) -> bytes:
     """Fetch one radar frame as PNG bytes. `when` = UTC datetime or None (latest).
 
     Past frames are cached indefinitely (immutable); the latest frame is cached

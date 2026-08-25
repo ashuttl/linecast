@@ -6,9 +6,10 @@ this module converts to feet for compatibility with the NOAA-based rendering
 pipeline.
 """
 
-from datetime import timezone, timedelta
+from datetime import date, datetime, timezone, timedelta, tzinfo
 import json
 import urllib.parse
+from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
@@ -32,7 +33,7 @@ def _safe_name(station_name):
 # ---------------------------------------------------------------------------
 # Station discovery
 # ---------------------------------------------------------------------------
-def fetch_all_stations_qld():
+def fetch_all_stations_qld() -> list[dict[str, Any]]:
     """Fetch the distinct QLD tidal station list (cached 30 days).
 
     The CKAN datastore_search SQL endpoint lets us pull distinct Site +
@@ -84,7 +85,7 @@ def fetch_all_stations_qld():
     return stations
 
 
-def find_nearest_station_qld(lat, lng):
+def find_nearest_station_qld(lat: float, lng: float) -> tuple[str | None, str | None]:
     """Find closest QLD tide station by haversine distance.
 
     Returns (station_name, station_name) or (None, None).  Cached 1 hour.
@@ -100,7 +101,7 @@ def find_nearest_station_qld(lat, lng):
 # ---------------------------------------------------------------------------
 # Station metadata
 # ---------------------------------------------------------------------------
-def fetch_station_metadata_qld(station_name):
+def fetch_station_metadata_qld(station_name: str) -> dict[str, Any]:
     """Build QLD station metadata, normalized to match NOAA/CHS shape.
 
     Returns dict with: id, name, state, lat, lng, timezone_abbr,
@@ -251,7 +252,8 @@ def _fetch_pred_chunk(station_name, start_date, end_date):
     return points
 
 
-def fetch_tides_range_qld(station_name, start_date, end_date, station_tz=None):
+def fetch_tides_range_qld(station_name: str, start_date: date, end_date: date,
+                          station_tz: tzinfo | None = None) -> list[tuple[datetime, float]]:
     """Fetch QLD interval predictions across a date range.
 
     Returns sorted list of (datetime, height_ft) tuples.
@@ -271,7 +273,8 @@ def fetch_tides_range_qld(station_name, start_date, end_date, station_tz=None):
     return dedup_sorted(points)
 
 
-def fetch_hilo_range_qld(station_name, start_date, end_date, station_tz=None):
+def fetch_hilo_range_qld(station_name: str, start_date: date, end_date: date,
+                         station_tz: tzinfo | None = None) -> list[tuple[datetime, float, str]]:
     """Fetch QLD high/low extremes across a date range.
 
     Returns sorted list of (datetime, height_ft, "H"/"L") tuples.
@@ -290,7 +293,8 @@ def fetch_hilo_range_qld(station_name, start_date, end_date, station_tz=None):
     return label_hilo(extrema)
 
 
-def fetch_y_range_qld(station_name, center_date, station_tz=None):
+def fetch_y_range_qld(station_name: str, center_date: date,
+                      station_tz: tzinfo | None = None) -> tuple[float, float] | None:
     """Compute y-axis range from available QLD prediction data.  Cached 7 days.
 
     QLD only provides ~7 days of data, so the range comes from the three

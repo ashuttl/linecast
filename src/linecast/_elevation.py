@@ -55,11 +55,12 @@ def _decoded_tile(z, x, y, timeout):
         return None
 
 
-def decode_meters(r, g, b):
+def decode_meters(r: int, g: int, b: int) -> float:
     return (r * 256 + g + b / 256.0) - 32768.0
 
 
-def elevation_grid(bbox, w, h, timeout=15):
+def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
+                   timeout: float = 15) -> list[list[float | None]]:
     """Elevation in meters resampled to a w×h grid over `bbox`.
 
     Returns rows of floats; None where no tile data arrived.  Samples are

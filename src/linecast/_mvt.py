@@ -27,6 +27,7 @@ where each feature is {"id", "type", "tags", "geometry"}:
 import gzip
 import struct
 import zlib
+from typing import Any
 
 # vector_tile.GeomType
 POINT, LINESTRING, POLYGON = 1, 2, 3
@@ -187,7 +188,7 @@ def _feature(buf, keys, values):
             "geometry": _geometry(geom)}
 
 
-def decode_tile(data):
+def decode_tile(data: bytes) -> dict[str, dict[str, Any]]:
     """MVT bytes (raw, gzip-, or zlib-wrapped) -> {layer_name: layer}.
 
     Empty input (a 0-byte "empty tile" response) decodes to {}.
@@ -227,7 +228,7 @@ def decode_tile(data):
     return layers
 
 
-def ring_sign(ring):
+def ring_sign(ring: list[tuple[int, int]]) -> int:
     """2x signed shoelace area in tile coords (y down), closing edge
     included.  > 0 exterior, < 0 hole (v2 winding), 0 degenerate."""
     s = 0
@@ -238,7 +239,8 @@ def ring_sign(ring):
     return s
 
 
-def assemble_polygons(rings):
+def assemble_polygons(rings: list[list[tuple[int, int]]]
+                      ) -> list[list[list[tuple[int, int]]]]:
     """A polygon feature's ring list -> [[exterior, hole, ...], ...].
 
     Uses MVT v2 winding: positive-area rings open a polygon, negative

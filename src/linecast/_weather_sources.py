@@ -3,6 +3,7 @@
 import re
 import sys
 from datetime import datetime, timezone, timedelta
+from typing import Any
 
 from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache, location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
@@ -75,7 +76,8 @@ def _reverse_geocode(lat, lng, lang=None):
         return "", "", {}
 
 
-def fetch_forecast(lat, lng, runtime=None):
+def fetch_forecast(lat: float, lng: float,
+                   runtime: WeatherRuntime | None = None) -> dict[str, Any] | None:
     """Fetch hourly + daily forecast from Open-Meteo. Cached 1h."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
@@ -107,7 +109,7 @@ def fetch_forecast(lat, lng, runtime=None):
     )
 
 
-def fetch_aqi(lat, lng):
+def fetch_aqi(lat: float, lng: float) -> dict[str, Any] | None:
     """Fetch current AQI from Open-Meteo Air Quality API. Cached 1h."""
     cache_file = CACHE_DIR / f"aqi_{location_cache_key(lat, lng)}.json"
     url = (
@@ -124,7 +126,8 @@ def fetch_aqi(lat, lng):
     )
 
 
-def fetch_alerts(lat, lng, country_code="", lang="en", address=None):
+def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en",
+                 address: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """Fetch active weather alerts from the appropriate provider.
 
     Routes to the best available source for each country.
@@ -933,7 +936,7 @@ def _geocode_query(query, lang="en"):
     return data.get("results", [])
 
 
-def geocode_first(query, lang="en"):
+def geocode_first(query: str, lang: str = "en") -> tuple[float, float, str] | None:
     """Geocode a place name and return the top result as (lat, lng, label).
 
     Returns ``None`` if nothing matches.

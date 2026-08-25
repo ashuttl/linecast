@@ -41,12 +41,13 @@ def _load():
     return _grid
 
 
-def available():
+def available() -> bool:
     """Whether the vendored grid loaded (drives the footer credit)."""
     return _load() is not None
 
 
-def grid_for_bbox(bbox, w, h):
+def grid_for_bbox(bbox: tuple[float, float, float, float], w: int, h: int
+                  ) -> list[bytearray] | None:
     """Per-sub-pixel family rows for a flat equirectangular view.
 
     Row 0 is the view's north edge, matching the elevation grid.
@@ -71,7 +72,8 @@ def grid_for_bbox(bbox, w, h):
     return rows
 
 
-def grid_for_lls(lls):
+def grid_for_lls(lls: list[list[tuple[float, float] | None]] | None
+                 ) -> list[bytearray] | None:
     """Per-sub-pixel family rows for the globe's lat/lon geometry.
 
     `lls` is the globe's grid of (lat, lon) or None-off-the-disk

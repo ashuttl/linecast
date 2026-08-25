@@ -3,15 +3,16 @@
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 
-def config_file():
+def config_file() -> Path:
     base = os.environ.get("XDG_CONFIG_HOME", "").strip()
     root = Path(base) if base else Path.home() / ".config"
     return root / "linecast" / "config.json"
 
 
-def read_config():
+def read_config() -> dict[str, Any]:
     """Return the parsed config dict, or {} if missing or corrupt."""
     try:
         return json.loads(config_file().read_text())
@@ -19,14 +20,14 @@ def read_config():
         return {}
 
 
-def write_config(data):
+def write_config(data: dict[str, Any]) -> None:
     path = config_file()
     path.parent.mkdir(parents=True, exist_ok=True)
     from linecast._cache import write_bytes_atomic
     write_bytes_atomic(path, (json.dumps(data, indent=2) + "\n").encode())
 
 
-def saved_units():
+def saved_units() -> str | None:
     """Return 'metric' or 'imperial' saved via `linecast units`, or None."""
     units = read_config().get("units")
     if isinstance(units, str) and units.strip().lower() in ("metric", "imperial"):
@@ -34,7 +35,7 @@ def saved_units():
     return None
 
 
-def saved_location():
+def saved_location() -> dict[str, Any] | None:
     """Return the location saved via `linecast location set`, or None.
 
     Shape: {"lat": float, "lng": float, "label": str, "country": str}.

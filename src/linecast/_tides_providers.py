@@ -6,6 +6,9 @@ function (as the tests do) reaches the provider. Where a provider cannot
 do something, its record says so in the method rather than by a flag.
 """
 
+from datetime import date, datetime, tzinfo
+from typing import Any
+
 from linecast import _tides_chs as chs
 from linecast import _tides_noaa as noaa
 from linecast import _tides_openmeteo as openmeteo
@@ -50,39 +53,42 @@ class TideProvider:
     height_ft, "H"/"L") extremes, and NOAA-shaped metadata dicts.
     """
 
-    name = ""   # the source key: cache names and the --json payload
-    tag = ""    # suffix on --search and --nearby listing lines
+    name: str = ""   # the source key: cache names and the --json payload
+    tag: str = ""    # suffix on --search and --nearby listing lines
 
-    def available(self):
+    def available(self) -> bool:
         """False when the provider needs something the user has not set up."""
         return True
 
-    def id_matches(self, text):
+    def id_matches(self, text: str) -> bool:
         """True when a --station value looks like one of this provider's IDs."""
         return False
 
-    def name_for_id(self, station_id):
+    def name_for_id(self, station_id: str) -> str:
         """Display name for a station given by ID, before metadata arrives."""
         return f"Station {station_id}"
 
-    def nearest(self, lat, lng):
+    def nearest(self, lat: float, lng: float) -> tuple[str | None, str | None]:
         """(station_id, station_name) within range of a point, or (None, None)."""
         raise NotImplementedError
 
-    def search(self, query, tokens):
+    def search(self, query: str, tokens: list[str]) -> list[dict[str, Any]]:
         """Stations matching a text query as {source, id, name, lat, lng} dicts."""
         return []
 
-    def station_metadata(self, station_id):
+    def station_metadata(self, station_id: str) -> dict[str, Any] | None:
         raise NotImplementedError
 
-    def tides_range(self, station_id, start_date, end_date, station_tz):
+    def tides_range(self, station_id: str, start_date: date, end_date: date,
+                    station_tz: tzinfo | None) -> list[tuple[datetime, float]]:
         raise NotImplementedError
 
-    def hilo_range(self, station_id, start_date, end_date, station_tz):
+    def hilo_range(self, station_id: str, start_date: date, end_date: date,
+                   station_tz: tzinfo | None) -> list[tuple[datetime, float, str]]:
         raise NotImplementedError
 
-    def y_range(self, station_id, center_date, station_tz):
+    def y_range(self, station_id: str, center_date: date,
+                station_tz: tzinfo | None) -> tuple[float, float] | None:
         raise NotImplementedError
 
 
@@ -292,7 +298,7 @@ OPENMETEO = _OpenMeteo()
 PROVIDERS = {p.name: p for p in (NOAA, CHS, QLD, TIDECHECK, OPENMETEO)}
 
 
-def provider_for_id(text):
+def provider_for_id(text: str) -> TideProvider | None:
     """The provider whose station IDs look like *text*, or None.
 
     Most specific first: the "om:" prefix, then CHS's 24-character hex

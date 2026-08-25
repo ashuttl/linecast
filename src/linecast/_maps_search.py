@@ -60,7 +60,15 @@ class Result:
 
     __slots__ = ("name", "detail", "lat", "lon", "kind", "extent")
 
-    def __init__(self, name, detail, lat, lon, kind, extent=None):
+    name: str
+    detail: str
+    lat: float
+    lon: float
+    kind: str
+    extent: tuple[float, float, float, float] | None
+
+    def __init__(self, name: str, detail: str, lat: float, lon: float, kind: str,
+                 extent: tuple[float, float, float, float] | None = None) -> None:
         self.name = name
         self.detail = detail
         self.lat = lat
@@ -68,7 +76,7 @@ class Result:
         self.kind = kind
         self.extent = extent  # (minlon, minlat, maxlon, maxlat) or None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"Result({self.name!r}, {self.detail!r}, "
                 f"{self.lat!r}, {self.lon!r}, {self.kind!r})")
 
@@ -93,7 +101,8 @@ def _detail(parts, name):
 # Photon
 # ---------------------------------------------------------------------------
 
-def photon_search(query, lat, lon, zoom, lang="en", limit=8, timeout=6):
+def photon_search(query: str, lat: float, lon: float, zoom: float, lang: str = "en",
+                  limit: int = 8, timeout: float = 6) -> list[Result]:
     """Biased type-ahead results near (lat, lon) at the current zoom."""
     params = [("q", query), ("lat", lat), ("lon", lon), ("zoom", int(zoom)),
               ("location_bias_scale", "0.5"), ("limit", int(limit))]
@@ -165,7 +174,8 @@ def _throttle():
     _last_hit = now
 
 
-def nominatim_search(query, lang="en", limit=8, timeout=10):
+def nominatim_search(query: str, lang: str = "en", limit: int = 8,
+                     timeout: float = 10) -> list[Result]:
     """One submitted query, answered from disk when we've asked before."""
     path = _cache_path(query, lang)
     cached = read_cache(path, _SEARCH_TTL)
@@ -245,7 +255,8 @@ def _parse_latlon(text):
     return None
 
 
-def resolve_place(query, lang="en", near=None):
+def resolve_place(query: str | None, lang: str = "en",
+                  near: tuple[float, float] | None = None) -> Result | None:
     """Resolve one query to a single place, for --to and the `d` prompt.
 
     Coordinates parse without asking anyone.  Otherwise Photon first
@@ -289,7 +300,7 @@ def resolve_place(query, lang="en", near=None):
 # Framing
 # ---------------------------------------------------------------------------
 
-def fly_to_zoom(result, aspect=0.55):
+def fly_to_zoom(result: Result, aspect: float = 0.55) -> float:
     """Degrees of latitude to show after jumping to a result: the
     feature's own size with a little air around it, or a guess from what
     kind of thing it is.

@@ -17,6 +17,8 @@ Free tier: 50 requests/day (no credit card required)
 """
 
 import os
+from datetime import date, datetime, tzinfo
+from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
@@ -37,7 +39,7 @@ def _api_key():
     return os.environ.get("LINECAST_TIDECHECK_KEY", "").strip() or None
 
 
-def is_available():
+def is_available() -> bool:
     """Return True when the user has configured a TideCheck API key."""
     return _api_key() is not None
 
@@ -53,7 +55,8 @@ def _headers():
 # ---------------------------------------------------------------------------
 # Station discovery
 # ---------------------------------------------------------------------------
-def find_nearest_station_tidecheck(lat, lng):
+def find_nearest_station_tidecheck(lat: float, lng: float
+                                   ) -> tuple[str | None, str | None]:
     """Find closest TideCheck tide station by lat/lng.
 
     Returns (station_id, station_name) or (None, None).  Cached for 1 hour.
@@ -109,7 +112,7 @@ def find_nearest_station_tidecheck(lat, lng):
     return station_id, station_name
 
 
-def search_stations_tidecheck(query):
+def search_stations_tidecheck(query: str) -> list[dict[str, Any]]:
     """Search TideCheck stations by name substring.
 
     Returns a list of dicts with 'id', 'name', 'lat', and 'lng' keys, or [].
@@ -150,7 +153,7 @@ def search_stations_tidecheck(query):
 # ---------------------------------------------------------------------------
 # Station metadata
 # ---------------------------------------------------------------------------
-def fetch_station_metadata_tidecheck(station_id):
+def fetch_station_metadata_tidecheck(station_id: str) -> dict[str, Any] | None:
     """Fetch TideCheck station metadata, normalized to match NOAA shape.
 
     Returns dict with: id, name, lat, lng, timezone_abbr, timezonecorr,
@@ -212,7 +215,9 @@ def _fetch_tides_raw(station_id, days=7):
     )
 
 
-def fetch_tides_range_tidecheck(station_id, start_date, end_date, station_tz):
+def fetch_tides_range_tidecheck(
+    station_id: str, start_date: date, end_date: date, station_tz: tzinfo | None,
+) -> list[tuple[datetime, float]]:
     """Fetch TideCheck predictions across a date range as a smooth curve.
 
     The API publishes high/low extremes only — no minute series — so the
@@ -241,7 +246,9 @@ def _maybe_convert_height(height, api_response):
     return height * M_TO_FT
 
 
-def fetch_hilo_range_tidecheck(station_id, start_date, end_date, station_tz):
+def fetch_hilo_range_tidecheck(
+    station_id: str, start_date: date, end_date: date, station_tz: tzinfo | None,
+) -> list[tuple[datetime, float, str]]:
     """Fetch TideCheck high/low extremes across a date range.
 
     Returns sorted list of (datetime, height_ft, "H"/"L") tuples.
@@ -292,7 +299,8 @@ def fetch_hilo_range_tidecheck(station_id, start_date, end_date, station_tz):
     return labeled
 
 
-def fetch_y_range_tidecheck(station_id, center_date, station_tz):
+def fetch_y_range_tidecheck(station_id: str, center_date: date,
+                            station_tz: tzinfo | None) -> tuple[float, float] | None:
     """Compute y-axis range from TideCheck hilo data.  Cached 7 days.
 
     TideCheck only serves the next 30 days from now, so the window is not

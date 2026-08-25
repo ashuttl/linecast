@@ -18,7 +18,9 @@ import math
 import os
 import threading
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 from linecast._cache import CACHE_ROOT, write_bytes_atomic
 from linecast._http import fetch_bytes, fetch_bytes_cached
@@ -40,7 +42,14 @@ class Provider:
     """One RainViewer-v2-protocol tile service."""
     __slots__ = ("name", "index_url", "color", "options", "max_zoom")
 
-    def __init__(self, name, index_url, color, options, max_zoom):
+    name: str
+    index_url: str
+    color: int
+    options: str
+    max_zoom: int
+
+    def __init__(self, name: str, index_url: str, color: int, options: str,
+                 max_zoom: int) -> None:
         self.name = name            # cache subdir under radar/
         self.index_url = index_url
         self.color = color          # colour scheme id baked into tile pixels
@@ -48,13 +57,13 @@ class Provider:
         self.max_zoom = max_zoom
 
 
-def rainviewer_provider():
+def rainviewer_provider() -> Provider:
     # Free/personal tier: Universal Blue only, max zoom 7.
     return Provider("rv", "https://api.rainviewer.com/public/weather-maps.json",
                     color=2, options="1_1", max_zoom=7)
 
 
-def librewxr_provider(color, smooth=True):
+def librewxr_provider(color: int, smooth: bool = True) -> Provider:
     # Base URL overridable so a self-hosted instance can be pointed at; the
     # tile host still comes from the index response's "host" field.
     base = os.environ.get("LINECAST_LIBREWXR_URL", LIBREWXR_DEFAULT_URL)
@@ -62,7 +71,7 @@ def librewxr_provider(color, smooth=True):
                     color=color, options=f"{int(smooth)}_1", max_zoom=12)
 
 
-def satellite_provider(provider):
+def satellite_provider(provider: Provider) -> Provider:
     # Satellite tiles ride the same index and URL shape as radar but are
     # only rendered in one scheme (grayscale VIS-over-LW, alpha = cloud
     # opacity), and the source mosaic is ~8 km so deep zooms add nothing.
@@ -80,7 +89,7 @@ def _cache_dir(provider):
 _PRUNE_MAX_AGE = 86400
 
 
-def prune_tile_cache(max_age=_PRUNE_MAX_AGE):
+def prune_tile_cache(max_age: float = _PRUNE_MAX_AGE) -> None:
     """Delete cached radar/satellite tiles older than *max_age* seconds.
 
     Runs at radar startup. Only sweeps the timestamp-keyed radar tree;
@@ -101,7 +110,7 @@ def prune_tile_cache(max_age=_PRUNE_MAX_AGE):
                 pass  # a concurrent radar may have pruned it first
 
 
-def fetch_index(provider, timeout=15):
+def fetch_index(provider: Provider, timeout: float = 15) -> dict[str, Any]:
     """Return the parsed weather-maps.json (host + past/nowcast frame lists).
 
     Cached on disk for _INDEX_TTL seconds; falls back to stale cache on error.
@@ -164,8 +173,9 @@ def _fetch_tile(provider, host, path, z, x, y, timeout=15, mutable=False):
                               timeout=timeout)
 
 
-def reproject(provider, host, path, bbox, w, h, timeout=15, mutable=False,
-              smooth=False):
+def reproject(provider: Provider, host: str, path: str, bbox: tuple[float, float, float, float],
+              w: int, h: int, timeout: float = 15, mutable: bool = False,
+              smooth: bool = False) -> tuple[int, int, bytearray]:
     """Fetch the tiles covering `bbox` and resample to a `w`×`h` EPSG:4326 RGBA.
 
     Returns (w, h, bytearray) — same shape decode_rgba yields, so it drops
@@ -225,7 +235,9 @@ def _cancel_pool():
 getattr(threading, "_register_atexit", atexit.register)(_cancel_pool)
 
 
-def stitch_xyz(fetch_tile, bbox, z):
+def stitch_xyz(fetch_tile: Callable[[int, int, int], tuple[int, int, bytearray] | None],
+               bbox: tuple[float, float, float, float], z: int,
+               ) -> tuple[bytearray, int, int, int, int, int]:
     """Stitch the XYZ tiles covering `bbox` at zoom `z` into one canvas.
 
     `fetch_tile(z, x, y)` returns a decoded `(tw, th, rgba)` tile or None
@@ -272,7 +284,9 @@ def stitch_xyz(fetch_tile, bbox, z):
     return canvas, canvas_w, canvas_h, tx0 * _TILE_SIZE, ty0 * _TILE_SIZE, world
 
 
-def reproject_xyz(fetch_tile, bbox, w, h, z, smooth=False):
+def reproject_xyz(fetch_tile: Callable[[int, int, int], tuple[int, int, bytearray] | None],
+                  bbox: tuple[float, float, float, float], w: int, h: int, z: int,
+                  smooth: bool = False) -> tuple[int, int, bytearray]:
     """Stitch the XYZ tiles covering `bbox` at zoom `z`; resample to EPSG:4326.
 
     The Web-Mercator stitch + equirectangular resample is service-agnostic —

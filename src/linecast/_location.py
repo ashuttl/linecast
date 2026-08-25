@@ -2,6 +2,7 @@
 
 import os
 import sys
+from datetime import tzinfo
 
 from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, write_cache
 from linecast._config import saved_location
@@ -12,7 +13,7 @@ _CACHE_FILE = CACHE_ROOT / "location.json"
 _MAX_AGE = 3600  # 1 hour; implicit IP geolocation should refresh as users move.
 
 
-def get_location():
+def get_location() -> tuple[float | None, float | None, str | None]:
     """Get (lat, lng, country_code) from cache or IP geolocation.
 
     Returns (lat, lng, country_code) on success, (None, None, None) on failure.
@@ -52,8 +53,11 @@ def get_location():
     return None, None, None
 
 
-def resolve_location(cli_location=None, lang="en", need_country=False,
-                     return_label=False):
+def resolve_location(
+    cli_location: str | None = None, lang: str = "en", need_country: bool = False,
+    return_label: bool = False,
+) -> (tuple[float | None, float | None, str | None]
+      | tuple[float | None, float | None, str | None, str]):
     """Resolve the working location for a command.
 
     Precedence: --location flag (*cli_location*) > WEATHER_LOCATION env >
@@ -93,7 +97,7 @@ def resolve_location(cli_location=None, lang="en", need_country=False,
     return (lat, lng, country, label) if return_label else (lat, lng, country)
 
 
-def location_is_pinned(cli_location=None):
+def location_is_pinned(cli_location: str | None = None) -> bool:
     """True when the location comes from a flag, env var, or saved setting.
 
     A pinned location may be anywhere on Earth; an unpinned (IP-derived)
@@ -104,7 +108,7 @@ def location_is_pinned(cli_location=None):
                 or saved_location() is not None)
 
 
-def location_tzinfo(lat, lng):
+def location_tzinfo(lat: float | None, lng: float | None) -> tzinfo | None:
     """tzinfo for a location, via a cached Open-Meteo timezone lookup.
 
     Falls back to the machine's local timezone when the lookup fails

@@ -7,7 +7,10 @@ genuinely theirs: URLs, payload shapes, and unit or timezone quirks.
 """
 
 import re
-from datetime import datetime, timedelta, timezone
+from collections.abc import Callable
+from datetime import date, datetime, timedelta, timezone, tzinfo
+from pathlib import Path
+from typing import Any
 
 from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
 from linecast._geo import haversine_nm
@@ -33,7 +36,7 @@ _LEGACY_CACHE_NAME = re.compile(
 _swept = False
 
 
-def sweep_legacy_cache(cache_dir=CACHE_DIR):
+def sweep_legacy_cache(cache_dir: Path = CACHE_DIR) -> None:
     """Delete the cache files the per-day layout left behind. Once per process.
 
     One directory listing, best effort: a file that will not go is left
@@ -58,17 +61,17 @@ def sweep_legacy_cache(cache_dir=CACHE_DIR):
 # ---------------------------------------------------------------------------
 # Calendar months
 # ---------------------------------------------------------------------------
-def month_start(day):
+def month_start(day: date) -> date:
     """First day of the calendar month containing *day*."""
     return day.replace(day=1)
 
 
-def month_after(first):
+def month_after(first: date) -> date:
     """First day of the month following *first* (itself a first-of-month)."""
     return (first + timedelta(days=32)).replace(day=1)
 
 
-def y_range_window(center_date):
+def y_range_window(center_date: date) -> tuple[date, date, str]:
     """The span the y-axis range is measured over, as (start, end, key).
 
     The calendar month before *center_date*'s through the month after:
@@ -87,7 +90,8 @@ def y_range_window(center_date):
 # ---------------------------------------------------------------------------
 # Nearest station
 # ---------------------------------------------------------------------------
-def station_coords(station, lat_key="lat", lng_key="lng"):
+def station_coords(station: dict[str, Any], lat_key: str = "lat",
+                   lng_key: str = "lng") -> tuple[float, float] | None:
     """(lat, lng) as floats from a station record, or None when unusable."""
     try:
         return float(station[lat_key]), float(station[lng_key])
@@ -95,7 +99,12 @@ def station_coords(station, lat_key="lat", lng_key="lng"):
         return None
 
 
-def nearest_station(cache_file, lat, lng, load_stations, coords, ident):
+def nearest_station(
+    cache_file: Path, lat: float, lng: float,
+    load_stations: Callable[[], list[dict[str, Any]] | None],
+    coords: Callable[[dict[str, Any]], tuple[float, float] | None],
+    ident: Callable[[dict[str, Any]], tuple[str, str]],
+) -> tuple[str | None, str | None]:
     """Pick the closest station within 100 nm, cached per location for an hour.
 
     *load_stations* returns the provider's station list; *coords* maps a
@@ -139,7 +148,8 @@ def nearest_station(cache_file, lat, lng, load_stations, coords, ident):
 # ---------------------------------------------------------------------------
 # Y-axis range
 # ---------------------------------------------------------------------------
-def cached_y_range(cache_file, load_heights):
+def cached_y_range(cache_file: Path, load_heights: Callable[[], list[float] | None],
+                   ) -> tuple[float, float] | None:
     """(min, max) of the heights *load_heights* returns, cached for 7 days.
 
     None when there are no heights; nothing is written then, so the next
@@ -161,7 +171,7 @@ def cached_y_range(cache_file, load_heights):
 # ---------------------------------------------------------------------------
 # Timestamps
 # ---------------------------------------------------------------------------
-def parse_iso(s):
+def parse_iso(s: str) -> datetime:
     """datetime.fromisoformat after dropping a trailing Z and any fraction."""
     s = s.rstrip("Z")
     if "." in s:
@@ -169,7 +179,7 @@ def parse_iso(s):
     return datetime.fromisoformat(s)
 
 
-def parse_utc_iso(s, station_tz=None):
+def parse_utc_iso(s: str, station_tz: tzinfo | None = None) -> datetime:
     """An ISO UTC timestamp as an aware datetime, in *station_tz* when given."""
     dt = parse_iso(s).replace(tzinfo=timezone.utc)
     if station_tz is not None:
@@ -177,7 +187,7 @@ def parse_utc_iso(s, station_tz=None):
     return dt
 
 
-def parse_cached_dt(iso_str, station_tz):
+def parse_cached_dt(iso_str: str, station_tz: tzinfo | None) -> datetime:
     """A datetime written to cache with isoformat(), aware again if a tz is given."""
     dt = datetime.fromisoformat(iso_str)
     if dt.tzinfo is None and station_tz is not None:
@@ -185,7 +195,8 @@ def parse_cached_dt(iso_str, station_tz):
     return dt
 
 
-def local_day_bounds(start_date, end_date, station_tz):
+def local_day_bounds(start_date: date, end_date: date,
+                     station_tz: tzinfo | None) -> tuple[datetime, datetime]:
     """Midnight opening *start_date* and midnight closing *end_date*.
 
     Aware in *station_tz* when one is given, naive otherwise.
@@ -198,7 +209,7 @@ def local_day_bounds(start_date, end_date, station_tz):
     return lo, hi
 
 
-def dedup_sorted(points):
+def dedup_sorted(points: list[tuple[datetime, float]]) -> list[tuple[datetime, float]]:
     """(datetime, height) points sorted by time, one per minute."""
     seen = set()
     unique = []
@@ -214,7 +225,7 @@ def dedup_sorted(points):
 # ---------------------------------------------------------------------------
 # Timezones
 # ---------------------------------------------------------------------------
-def tz_offset_hours(tz_code):
+def tz_offset_hours(tz_code: str) -> float:
     """Current UTC offset in hours for an IANA timezone (0 when unknown)."""
     if not tz_code:
         return 0
@@ -256,7 +267,7 @@ IANA_ABBR = {
 }
 
 
-def iana_to_abbr(tz_code):
+def iana_to_abbr(tz_code: str) -> str:
     """Common abbreviation for an IANA timezone, for display ("UTC" when unknown)."""
     return IANA_ABBR.get(tz_code, "UTC")
 
@@ -264,7 +275,7 @@ def iana_to_abbr(tz_code):
 # ---------------------------------------------------------------------------
 # High/low labelling
 # ---------------------------------------------------------------------------
-def label_hilo(values):
+def label_hilo(values: list[tuple[datetime, float]]) -> list[tuple[datetime, float, str]]:
     """Infer H/L labels for a sequence of extrema (dt, height) tuples.
 
     For sources that publish turning points without saying which are
