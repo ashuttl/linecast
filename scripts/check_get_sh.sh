@@ -28,6 +28,7 @@ version=$(basename "$whl" | sed 's/^linecast-\([^-]*\)-.*/\1/')
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/check_get_sh.XXXXXX") || exit 2
 trap 'rm -rf "$work"' EXIT
+trap 'exit 1' HUP INT TERM   # dash skips the EXIT trap on a bare ^C
 CALLS=$work/calls.log
 fake=$work/fake      # linecast / uvx / pipx stand-ins
 tools=$work/tools    # the utilities get.sh and pip need, and nothing else

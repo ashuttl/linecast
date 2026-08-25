@@ -176,7 +176,9 @@ main() {
         # Nowhere to keep it: a private one-off directory, gone when we exit.
         venv=$(mktemp -d "${TMPDIR:-/tmp}/linecast.XXXXXX")
         trap 'rm -rf "$venv"' EXIT
-        trap 'exit 1' HUP TERM
+        # dash does not run the EXIT trap when a bare ^C kills it.  A bare
+        # exit keeps the status of the command the signal interrupted.
+        trap 'exit' HUP INT TERM
         note "using a throwaway venv in $venv"
     fi
     python=$venv/bin/python
