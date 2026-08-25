@@ -92,11 +92,14 @@ class FetchHold:
     def hold(self):
         deadline = time.monotonic() + self.settle
         self._deadline = deadline
+        # Bound now: a timer still sleeping when the tests swap nudge out
+        # under the next test should fire the one it was armed with.
+        poke = nudge
 
         def settled():
             time.sleep(self.settle + 0.02)
             if self._deadline == deadline:
-                nudge()
+                poke()
 
         threading.Thread(target=settled, daemon=True).start()
 
