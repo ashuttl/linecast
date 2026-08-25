@@ -262,7 +262,8 @@ def _precipitation_line(hourly, now, runtime=None):
             return _s("in_a_couple_hours", runtime)
         if dt.date() == now.date():
             if runtime.use_24h:
-                return _s("around", runtime, time=f"{dt.hour:02d}h")
+                time_text = f"{dt.hour}\u6642" if lang == "ja" else f"{dt.hour:02d}h"
+                return _s("around", runtime, time=time_text)
             h12 = dt.hour % 12 or 12
             suffix = "am" if dt.hour < 12 else "pm"
             return _s("around", runtime, time=f"{h12}{suffix}")
@@ -340,25 +341,27 @@ def _past_precip_line(hourly, now, runtime):
         return ""
 
     # Determine dominant type and format amount
+    metric_sep = _s("metric_unit_sep", runtime)
     if snow_hours >= rain_hours and snow_hours >= mix_hours:
         # Show snow accumulation (Open-Meteo snowfall is in cm)
         if runtime.metric:
-            amt = f"{total_snow_cm:.1f}cm"
+            amt = f"{total_snow_cm:.1f}{metric_sep}cm"
         else:
             inches = total_snow_cm / 2.54
-            amt = f"{inches:.1f}\u2033" if inches >= 1 else f"{inches:.2f}\u2033"
+            unit = _s("precip_inch", runtime)
+            amt = f"{inches:.1f}{unit}" if inches >= 1 else f"{inches:.2f}{unit}"
         ptype = _s("snow", runtime)
     elif mix_hours >= rain_hours:
         if runtime.metric:
-            amt = f"{total_precip:.1f}mm"
+            amt = f"{total_precip:.1f}{metric_sep}mm"
         else:
-            amt = f"{total_precip:.2f}\u2033"
+            amt = f"{total_precip:.2f}{_s('precip_inch', runtime)}"
         ptype = _s("mixed_precip", runtime)
     else:
         if runtime.metric:
-            amt = f"{total_precip:.1f}mm"
+            amt = f"{total_precip:.1f}{metric_sep}mm"
         else:
-            amt = f"{total_precip:.2f}\u2033"
+            amt = f"{total_precip:.2f}{_s('precip_inch', runtime)}"
         ptype = _s("rain", runtime)
 
     return f" {MUTED}{_s('past_precip', runtime, amt=amt, ptype=ptype)}{RESET}"

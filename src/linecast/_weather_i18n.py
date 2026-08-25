@@ -52,13 +52,13 @@ DAY_NAMES = {
     "en": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     "fr": ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"],
     "es": ["lun", "mar", "mi\u00e9", "jue", "vie", "s\u00e1b", "dom"],
-    "de": ["Mon", "Die", "Mit", "Don", "Fre", "Sam", "Son"],
+    "de": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
     "no": ["man", "tir", "ons", "tor", "fre", "l\u00f8r", "s\u00f8n"],
     "is": ["m\u00e1n", "\u00feri", "mi\u00f0", "fim", "f\u00f6s", "lau", "sun"],
     "da": ["man", "tir", "ons", "tor", "fre", "l\u00f8r", "s\u00f8n"],
     "it": ["lun", "mar", "mer", "gio", "ven", "sab", "dom"],
-    "pl": ["pon", "wto", "\u015bro", "czw", "pi\u0105", "sob", "nie"],
-    "nl": ["maa", "din", "woe", "don", "vri", "zat", "zon"],
+    "pl": ["pon.", "wt.", "\u015br.", "czw.", "pt.", "sob.", "niedz."],
+    "nl": ["ma", "di", "wo", "do", "vr", "za", "zo"],
     "pt": ["seg", "ter", "qua", "qui", "sex", "s\u00e1b", "dom"],
     "sv": ["m\u00e5n", "tis", "ons", "tor", "fre", "l\u00f6r", "s\u00f6n"],
     "fi": ["ma", "ti", "ke", "to", "pe", "la", "su"],
@@ -234,7 +234,7 @@ WMO_NAMES_I18N = {
         95: "Ukkonen", 96: "Ukkonen", 99: "Ukkonen",
     },
     "ja": {
-        0: "\u5feb\u6674", 1: "\u304a\u304a\u3080\u306d\u6674\u308c", 2: "\u4e00\u90e8\u66c7\u308a", 3: "\u66c7\u308a",
+        0: "\u5feb\u6674", 1: "\u304a\u304a\u3080\u306d\u6674\u308c", 2: "\u6674\u308c\u6642\u3005\u66c7\u308a", 3: "\u66c7\u308a",
         45: "\u9727", 48: "\u7740\u6c37\u6027\u306e\u9727",
         51: "\u5f31\u3044\u9727\u96e8", 53: "\u9727\u96e8", 55: "\u5f37\u3044\u9727\u96e8",
         56: "\u7740\u6c37\u6027\u306e\u9727\u96e8", 57: "\u7740\u6c37\u6027\u306e\u9727\u96e8",
@@ -451,6 +451,7 @@ _STRINGS = {
     "en": {
         "today": "Today",
         "today_short": "Tod",
+        "metric_unit_sep": "",
         "feels": "feels",
         "wind": "Wind",
         "gusts": "gusts",
@@ -458,6 +459,7 @@ _STRINGS = {
         "dew_pt": "Dew pt",
         "uv": "UV",
         "aqi": "AQI",
+        "precip_inch": "\u2033",
         "until": "until",
         # Comparative line
         "same_temp": "about the same temperature as {ref_day}",
@@ -517,7 +519,7 @@ _STRINGS = {
         "aqi": "IQA",
         "until": "jusqu'\u00e0",
         # Comparative line
-        "same_temp": "\u00e0 peu pr\u00e8s la m\u00eame temp\u00e9rature {subject} qu'{ref_day}",
+        "same_temp": "\u00e0 peu pr\u00e8s aussi chaud {subject} qu'{ref_day}",
         "bit_warmer": "un peu plus chaud {subject} qu'{ref_day}",
         "bit_cooler": "un peu plus frais {subject} qu'{ref_day}",
         "warmer": "plus chaud {subject} qu'{ref_day}",
@@ -558,9 +560,9 @@ _STRINGS = {
         "scroll": "d\u00e9filer",
         "space_to_now": "espace pour revenir",
         # Historical comparison
-        "hist_near_avg": "proche moy.",
-        "hist_above_avg": "{diff} au-dessus moy.",
-        "hist_below_avg": "{diff} en dessous moy.",
+        "hist_near_avg": "proche de la moyenne",
+        "hist_above_avg": "{diff} au-dessus de la moyenne",
+        "hist_below_avg": "{diff} sous la moyenne",
     },
     "es": {
         "today": "hoy",
@@ -574,18 +576,18 @@ _STRINGS = {
         "aqi": "ICA",
         "until": "hasta",
         # Comparative line
-        "same_temp": "aproximadamente la misma temperatura que {ref_day}",
-        "bit_warmer": "un poco m\u00e1s c\u00e1lido que {ref_day}",
-        "bit_cooler": "un poco m\u00e1s fresco que {ref_day}",
-        "warmer": "m\u00e1s c\u00e1lido que {ref_day}",
-        "cooler": "m\u00e1s fresco que {ref_day}",
-        "much_warmer": "mucho m\u00e1s c\u00e1lido que {ref_day}",
-        "much_cooler": "mucho m\u00e1s fresco que {ref_day}",
+        "same_temp": "una temperatura muy parecida a la de {ref_day}",
+        "bit_warmer": "un poco m\u00e1s de calor que {ref_day}",
+        "bit_cooler": "un poco m\u00e1s de fr\u00edo que {ref_day}",
+        "warmer": "m\u00e1s calor que {ref_day}",
+        "cooler": "m\u00e1s fr\u00edo que {ref_day}",
+        "much_warmer": "mucho m\u00e1s calor que {ref_day}",
+        "much_cooler": "mucho m\u00e1s fr\u00edo que {ref_day}",
         "today_subj": "Hoy",
         "tomorrow_subj": "Ma\u00f1ana",
         "yesterday": "ayer",
         "today_ref": "hoy",
-        "will_be": "{subject} ser\u00e1 {comparison}",
+        "will_be": "{subject} har\u00e1 {comparison}",
         # Precipitation line
         "ending": "{desc} terminando {time}",
         "continuing": "{desc} durante todo el d\u00eda",
@@ -615,9 +617,9 @@ _STRINGS = {
         "scroll": "desplazar",
         "space_to_now": "espacio para volver al presente",
         # Historical comparison
-        "hist_near_avg": "cerca del prom.",
-        "hist_above_avg": "{diff} sobre prom.",
-        "hist_below_avg": "{diff} bajo prom.",
+        "hist_near_avg": "cerca del promedio",
+        "hist_above_avg": "{diff} por encima del promedio",
+        "hist_below_avg": "{diff} por debajo del promedio",
     },
     "de": {
         "today": "Heute",
@@ -672,9 +674,9 @@ _STRINGS = {
         "scroll": "scrollen",
         "space_to_now": "Leertaste f\u00fcr jetzt",
         # Historical comparison
-        "hist_near_avg": "nahe Mittel",
-        "hist_above_avg": "{diff} \u00fcber Mittel",
-        "hist_below_avg": "{diff} unter Mittel",
+        "hist_near_avg": "nahe am Durchschnitt",
+        "hist_above_avg": "{diff} \u00fcber dem Durchschnitt",
+        "hist_below_avg": "{diff} unter dem Durchschnitt",
     },
     "no": {
         "today": "i dag",
@@ -802,7 +804,7 @@ _STRINGS = {
         "aqi": "AQI",
         "until": "til",
         # Comparative line
-        "same_temp": "omtrent samme temperatur som {ref_day}",
+        "same_temp": "omtrent lige s\u00e5 varmt som {ref_day}",
         "bit_warmer": "lidt varmere end {ref_day}",
         "bit_cooler": "lidt k\u00f8ligere end {ref_day}",
         "warmer": "varmere end {ref_day}",
@@ -859,7 +861,7 @@ _STRINGS = {
         "aqi": "IQA",
         "until": "fino a",
         # Comparative line
-        "same_temp": "circa la stessa temperatura di {ref_day}",
+        "same_temp": "pi\u00f9 o meno caldo come {ref_day}",
         "bit_warmer": "un po\u2019 pi\u00f9 caldo di {ref_day}",
         "bit_cooler": "un po\u2019 pi\u00f9 fresco di {ref_day}",
         "warmer": "pi\u00f9 caldo di {ref_day}",
@@ -870,7 +872,7 @@ _STRINGS = {
         "tomorrow_subj": "Domani",
         "yesterday": "ieri",
         "today_ref": "oggi",
-        "will_be": "{subject} sar\u00e0 {comparison}",
+        "will_be": "{subject} far\u00e0 {comparison}",
         # Precipitation line
         "ending": "{desc} in esaurimento {time}",
         "continuing": "{desc} per tutta la giornata",
@@ -901,12 +903,13 @@ _STRINGS = {
         "space_to_now": "spazio per tornare a ora",
         # Historical comparison
         "hist_near_avg": "vicino alla media",
-        "hist_above_avg": "{diff} sopra media",
-        "hist_below_avg": "{diff} sotto media",
+        "hist_above_avg": "{diff} sopra la media",
+        "hist_below_avg": "{diff} sotto la media",
     },
     "pl": {
         "today": "dzi\u015b",
-        "today_short": "dzi",
+        "today_short": "dzi\u015b",
+        "metric_unit_sep": " ",
         "feels": "odcz.",
         "wind": "Wiatr",
         "gusts": "porywy",
@@ -916,7 +919,7 @@ _STRINGS = {
         "aqi": "AQI",
         "until": "do",
         # Comparative line
-        "same_temp": "mniej wi\u0119cej taka sama temperatura jak {ref_day}",
+        "same_temp": "mniej wi\u0119cej tak samo ciep\u0142o jak {ref_day}",
         "bit_warmer": "troch\u0119 cieplej ni\u017c {ref_day}",
         "bit_cooler": "troch\u0119 ch\u0142odniej ni\u017c {ref_day}",
         "warmer": "cieplej ni\u017c {ref_day}",
@@ -957,9 +960,9 @@ _STRINGS = {
         "scroll": "przewi\u0144",
         "space_to_now": "spacja, aby wr\u00f3ci\u0107",
         # Historical comparison
-        "hist_near_avg": "blisko \u015br.",
-        "hist_above_avg": "{diff} powy\u017cej \u015br.",
-        "hist_below_avg": "{diff} poni\u017cej \u015br.",
+        "hist_near_avg": "blisko \u015bredniej",
+        "hist_above_avg": "{diff} powy\u017cej \u015bredniej",
+        "hist_below_avg": "{diff} poni\u017cej \u015bredniej",
     },
     "nl": {
         "today": "vandaag",
@@ -973,7 +976,7 @@ _STRINGS = {
         "aqi": "AQI",
         "until": "tot",
         # Comparative line
-        "same_temp": "ongeveer dezelfde temperatuur als {ref_day}",
+        "same_temp": "ongeveer even warm als {ref_day}",
         "bit_warmer": "iets warmer dan {ref_day}",
         "bit_cooler": "iets koeler dan {ref_day}",
         "warmer": "warmer dan {ref_day}",
@@ -1014,9 +1017,9 @@ _STRINGS = {
         "scroll": "scrollen",
         "space_to_now": "spatie om terug te keren",
         # Historical comparison
-        "hist_near_avg": "dicht bij gem.",
-        "hist_above_avg": "{diff} boven gem.",
-        "hist_below_avg": "{diff} onder gem.",
+        "hist_near_avg": "dicht bij het gemiddelde",
+        "hist_above_avg": "{diff} boven het gemiddelde",
+        "hist_below_avg": "{diff} onder het gemiddelde",
     },
     "pt": {
         "today": "hoje",
@@ -1030,7 +1033,7 @@ _STRINGS = {
         "aqi": "IQA",
         "until": "at\u00e9",
         # Comparative line
-        "same_temp": "aproximadamente a mesma temperatura que {ref_day}",
+        "same_temp": "aproximadamente t\u00e3o quente quanto {ref_day}",
         "bit_warmer": "um pouco mais quente que {ref_day}",
         "bit_cooler": "um pouco mais fresco que {ref_day}",
         "warmer": "mais quente que {ref_day}",
@@ -1041,7 +1044,7 @@ _STRINGS = {
         "tomorrow_subj": "Amanh\u00e3",
         "yesterday": "ontem",
         "today_ref": "hoje",
-        "will_be": "{subject} ser\u00e1 {comparison}",
+        "will_be": "{subject} estar\u00e1 {comparison}",
         # Precipitation line
         "ending": "{desc} terminando {time}",
         "continuing": "{desc} durante todo o dia",
@@ -1071,9 +1074,9 @@ _STRINGS = {
         "scroll": "rolar",
         "space_to_now": "espa\u00e7o para voltar ao presente",
         # Historical comparison
-        "hist_near_avg": "perto da m\u00e9d.",
-        "hist_above_avg": "{diff} acima da m\u00e9d.",
-        "hist_below_avg": "{diff} abaixo da m\u00e9d.",
+        "hist_near_avg": "perto da m\u00e9dia",
+        "hist_above_avg": "{diff} acima da m\u00e9dia",
+        "hist_below_avg": "{diff} abaixo da m\u00e9dia",
     },
     "sv": {
         "today": "i dag",
@@ -1087,7 +1090,7 @@ _STRINGS = {
         "aqi": "AQI",
         "until": "till",
         # Comparative line
-        "same_temp": "ungef\u00e4r samma temperatur som {ref_day}",
+        "same_temp": "ungef\u00e4r lika varmt som {ref_day}",
         "bit_warmer": "lite varmare \u00e4n {ref_day}",
         "bit_cooler": "lite svalare \u00e4n {ref_day}",
         "warmer": "varmare \u00e4n {ref_day}",
@@ -1144,13 +1147,13 @@ _STRINGS = {
         "aqi": "AQI",
         "until": "asti",
         # Comparative line
-        "same_temp": "suunnilleen sama l\u00e4mp\u00f6tila kuin {ref_day}",
-        "bit_warmer": "hieman l\u00e4mpim\u00e4mpi kuin {ref_day}",
-        "bit_cooler": "hieman viile\u00e4mpi kuin {ref_day}",
-        "warmer": "l\u00e4mpim\u00e4mpi kuin {ref_day}",
-        "cooler": "viile\u00e4mpi kuin {ref_day}",
-        "much_warmer": "paljon l\u00e4mpim\u00e4mpi kuin {ref_day}",
-        "much_cooler": "paljon viile\u00e4mpi kuin {ref_day}",
+        "same_temp": "suunnilleen yht\u00e4 l\u00e4mmint\u00e4 kuin {ref_day}",
+        "bit_warmer": "hieman l\u00e4mpim\u00e4mp\u00e4\u00e4 kuin {ref_day}",
+        "bit_cooler": "hieman viile\u00e4mp\u00e4\u00e4 kuin {ref_day}",
+        "warmer": "l\u00e4mpim\u00e4mp\u00e4\u00e4 kuin {ref_day}",
+        "cooler": "viile\u00e4mp\u00e4\u00e4 kuin {ref_day}",
+        "much_warmer": "paljon l\u00e4mpim\u00e4mp\u00e4\u00e4 kuin {ref_day}",
+        "much_cooler": "paljon viile\u00e4mp\u00e4\u00e4 kuin {ref_day}",
         "today_subj": "T\u00e4n\u00e4\u00e4n",
         "tomorrow_subj": "Huomenna",
         "yesterday": "eilen",
@@ -1185,9 +1188,9 @@ _STRINGS = {
         "scroll": "vierit\u00e4",
         "space_to_now": "v\u00e4lily\u00f6nti palataksesi",
         # Historical comparison
-        "hist_near_avg": "keskim. l\u00e4hell\u00e4",
-        "hist_above_avg": "{diff} keskim. yli",
-        "hist_below_avg": "{diff} keskim. alle",
+        "hist_near_avg": "l\u00e4hell\u00e4 keskiarvoa",
+        "hist_above_avg": "{diff} keskim\u00e4\u00e4r\u00e4ist\u00e4 korkeampi",
+        "hist_below_avg": "{diff} keskim\u00e4\u00e4r\u00e4ist\u00e4 alempi",
     },
     "ja": {
         "today": "\u4eca\u65e5",
@@ -1199,6 +1202,7 @@ _STRINGS = {
         "dew_pt": "\u9732\u70b9",
         "uv": "UV",
         "aqi": "AQI",
+        "precip_inch": "\u30a4\u30f3\u30c1",
         "until": "\u307e\u3067",
         # Comparative line
         "same_temp": "{ref_day}\u3068\u307b\u307c\u540c\u3058\u6c17\u6e29",
@@ -1214,9 +1218,9 @@ _STRINGS = {
         "today_ref": "\u4eca\u65e5",
         "will_be": "{subject}\u306f{comparison}",
         # Precipitation line
-        "ending": "{desc} {time}\u3084\u3080",
-        "continuing": "{desc} \u4e00\u65e5\u4e2d\u7d9a\u304f",
-        "starting": "{desc} {time}\u964d\u308a\u305d\u3046",
+        "ending": "{desc}\u306f{time}\u3084\u3080",
+        "continuing": "{desc}\u306f\u4e00\u65e5\u4e2d\u7d9a\u304f",
+        "starting": "{time}{desc}\u306e\u898b\u8fbc\u307f",
         "shortly": "\u307e\u3082\u306a\u304f",
         "in_about_an_hour": "\u7d041\u6642\u9593\u5f8c\u306b",
         "in_a_couple_hours": "\u6570\u6642\u9593\u5f8c\u306b",
@@ -1226,12 +1230,12 @@ _STRINGS = {
         "tomorrow_morning": "\u660e\u65e5\u306e\u671d\u306b",
         "tomorrow_afternoon": "\u660e\u65e5\u306e\u5348\u5f8c\u306b",
         "tomorrow_evening": "\u660e\u65e5\u306e\u5915\u65b9\u306b",
-        "on_day": "{day}\u306b",
+        "on_day": "{day}\u66dc\u65e5\u306b",
         # Past precip
-        "past_precip": "\u904e\u53bb24\u6642\u9593\u306e{ptype} {amt}",
-        "snow": "\u964d\u96ea",
-        "rain": "\u964d\u96e8",
-        "mixed_precip": "\u6df7\u5408\u964d\u6c34",
+        "past_precip": "\u904e\u53bb24\u6642\u9593\u306e{ptype}\uff1a{amt}",
+        "snow": "\u964d\u96ea\u91cf",
+        "rain": "\u964d\u6c34\u91cf",
+        "mixed_precip": "\u964d\u6c34\u91cf",
         # Daily precip types
         "Snow": "\u96ea",
         "Rain": "\u96e8",
@@ -1258,7 +1262,7 @@ _STRINGS = {
         "aqi": "AQI",
         "until": "\uae4c\uc9c0",
         # Comparative line
-        "same_temp": "{ref_day}\uacfc \ube44\uc2b7\ud55c \uae30\uc628",
+        "same_temp": "{ref_day} \uc218\uc900\uc758 \uae30\uc628",
         "bit_warmer": "{ref_day}\ubcf4\ub2e4 \uc870\uae08 \ub530\ub73b\ud568",
         "bit_cooler": "{ref_day}\ubcf4\ub2e4 \uc870\uae08 \uc11c\ub298\ud568",
         "warmer": "{ref_day}\ubcf4\ub2e4 \ub530\ub73b\ud568",
@@ -1299,7 +1303,7 @@ _STRINGS = {
         "scroll": "\uc2a4\ud06c\ub864",
         "space_to_now": "\uc2a4\ud398\uc774\uc2a4\ub85c \ud604\uc7ac\ub85c \ub3cc\uc544\uac00\uae30",
         # Historical comparison
-        "hist_near_avg": "\ud3c9\ub144 \ube44\uc2b7",
+        "hist_near_avg": "\ud3c9\ub144\uacfc \ube44\uc2b7",
         "hist_above_avg": "\ud3c9\ub144\ubcf4\ub2e4 {diff} \ub192\uc74c",
         "hist_below_avg": "\ud3c9\ub144\ubcf4\ub2e4 {diff} \ub0ae\uc74c",
     },
@@ -1412,6 +1416,10 @@ _STRINGS = {
         "o_to_open": "o untuk membuka di browser",
         "scroll": "gulir",
         "space_to_now": "spasi untuk kembali",
+        # Historical comparison
+        "hist_near_avg": "mendekati rata-rata",
+        "hist_above_avg": "{diff} di atas rata-rata",
+        "hist_below_avg": "{diff} di bawah rata-rata",
     },
 }
 

@@ -61,9 +61,10 @@ def render_daily(data, width, runtime=None):
         if precip_i >= (1 if runtime.metric else 0.05):
             ptype = _s(_precip_type(wmo_i), runtime)
             if runtime.metric:
-                precip_amt = f"{precip_i:.0f}{runtime.precip_unit}"
+                sep = _s("metric_unit_sep", runtime)
+                precip_amt = f"{precip_i:.0f}{sep}{runtime.precip_unit}"
             else:
-                precip_amt = f"{precip_i:.1f}{runtime.precip_unit}"
+                precip_amt = f"{precip_i:.1f}{_s('precip_inch', runtime)}"
         prob_s = f"{prob_i:.0f}%" if prob_i > 25 else ""
         wind_amt = (
             f"{wind_i:.0f}{runtime.wind_unit}"
