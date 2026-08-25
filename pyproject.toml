@@ -13,6 +13,12 @@ classifiers = [
     "Operating System :: POSIX",
     "Programming Language :: Python :: 3",
 ]
+dependencies = [
+    # Windows ships no IANA time zone database, so zoneinfo has nothing to
+    # read: every ZoneInfo(...) raises and the tz lookups fall back to the
+    # machine zone, which is the wrong zone for anywhere but here.
+    "tzdata; sys_platform == 'win32'",
+]
 
 [project.urls]
 Homepage = "https://github.com/ashuttl/linecast"
