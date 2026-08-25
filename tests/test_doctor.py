@@ -99,11 +99,12 @@ class TestSecrets:
         assert "  LINECAST_TIDECHECK_KEY=(set)" in out
         assert "  LINECAST_SOME_TOKEN=(set)" in out
         assert "  https_proxy=http://proxy.example:3128/?..." in out
-        for leak in ("abc123secret", "tok-xyz", "user", "pw@", "x=1"):
-            assert leak not in out
         _, as_json, _ = _run("--offline", "--json", monkeypatch=monkeypatch)
-        for leak in ("abc123secret", "tok-xyz", "pw@"):
-            assert leak not in as_json
+        for text in (out, as_json):
+            # the userinfo as it would leak, not the bare word "user":
+            # the report prints paths, and a login name can contain it
+            for leak in ("abc123secret", "tok-xyz", "user:pw@", "pw@", "x=1"):
+                assert leak not in text
 
     def test_a_url_override_loses_its_userinfo_and_query(self, no_probes, monkeypatch):
         monkeypatch.setenv("LINECAST_LIBREWXR_URL", "https://alice:pw1@wxr.example/base?token=abc")
