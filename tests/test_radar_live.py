@@ -147,27 +147,26 @@ class TestThemePicker:
 class TestDrag:
     def test_a_preview_repaints_only_when_the_offset_changes(self, app):
         assert app.on_drag(3, 1, False) is True
-        assert app.pan_preview == [3, 1]
+        assert app.pan_preview == (3, 1)
         assert app.on_drag(3, 1, False) is False
         assert app.on_drag(0, 0, True) is True   # release clears the preview
-        assert app.pan_preview == [0, 0]
+        assert app.pan_preview == (0, 0)
         assert app.on_drag(0, 0, True) is False  # a plain click
 
     def test_a_commit_moves_the_centre_against_the_drag(self, app):
-        lat0, lon0 = app.centre
+        lat0, lon0 = app.lat, app.lon
         assert app.on_drag(8, -2, True) is True
-        lat, lon = app.centre
-        assert lat < lat0 and lon < lon0
-        assert app.pan_preview == [0, 0]
-        assert (app.lat, app.lon) == (43.7, -70.3)
+        assert app.lat < lat0 and app.lon < lon0
+        assert app.pan_preview == (0, 0)
+        assert app.home == (43.7, -70.3)  # the marker stays put
 
     def test_the_longitude_wraps(self, app):
-        app.centre[1] = 179.9
+        app.lon = 179.9
         app.on_drag(-40, 0, True)
-        assert -180.0 <= app.centre[1] < 0.0
-        app.centre[1] = -179.9
+        assert -180.0 <= app.lon < 0.0
+        app.lon = -179.9
         app.on_drag(40, 0, True)
-        assert 0.0 < app.centre[1] <= 180.0
+        assert 0.0 < app.lon <= 180.0
 
     def test_leaving_conus_repicks_a_source_without_themes(
             self, app, monkeypatch):
@@ -209,7 +208,7 @@ class TestRender:
         monkeypatch.setattr(_radar_live, "render_radar",
                             lambda *a, **k: seen.update(args=a, **k) or "f")
         app.layers.add("wind")
-        app.pan_preview[:] = [2, -1]
+        app.pan_preview = (2, -1)
         assert app.render(play_frame=3, playing=False,
                           mouse_pos=(4, 5), offset_minutes=0) == "f"
         assert seen["args"] == (43.7, -70.3, "Westbrook", 10.0)

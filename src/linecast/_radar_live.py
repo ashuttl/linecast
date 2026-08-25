@@ -13,6 +13,7 @@ import sys
 from linecast import _radar_frames
 from linecast import _radar_sources
 from linecast._framebuffer import get_terminal_size
+from linecast._geo import wrap_lon
 from linecast._live import LiveApp
 from linecast._location import resolve_location
 from linecast._radar_frames import N_FRAMES, _nudge, _sat_timeline
@@ -46,15 +47,15 @@ class RadarApp(LiveApp):
     def __init__(self, runtime, lat, lon, location_name, zoom, layers,
                  layer, theme):
         self.runtime = runtime
-        self.lat, self.lon = lat, lon
+        self.home = (lat, lon)         # the marker stays at the true location
         self.location_name = location_name
         self.zoom = zoom
-        self.centre = [lat, lon]       # pans; marker stays at the true location
+        self.lat, self.lon = lat, lon  # the view centre; pans
         self.region = _in_conus(lat, lon)
         self.layers = set(layers)
         self.layer = layer
         self.theme = theme             # active theme id (the picker updates it)
-        self.pan_preview = [0, 0]      # live cell offset while a drag is in progress
+        self.pan_preview = (0, 0)      # live cell offset while a drag is in progress
         self.picker = ThemePicker()
 
     def on_action(self, key):
@@ -94,38 +95,32 @@ class RadarApp(LiveApp):
         return True
 
     def on_drag(self, dcol, drow, done):
-        pan_preview = self.pan_preview
-        center = self.centre
         if not done:
             # mid-drag: update the screen-space preview offset only
-            changed = pan_preview != [dcol, drow]
-            pan_preview[0], pan_preview[1] = dcol, drow
+            changed = self.pan_preview != (dcol, drow)
+            self.pan_preview = (dcol, drow)
             return changed
-        had_preview = pan_preview[0] or pan_preview[1]
-        pan_preview[0] = pan_preview[1] = 0
+        had_preview = self.pan_preview[0] or self.pan_preview[1]
+        self.pan_preview = (0, 0)
         if not (dcol or drow):
             return bool(had_preview)  # zero-delta release = plain click
         # commit: dragging pulls the map, so the view centre moves the
         # opposite way; the release re-render re-projects for real
         cols, rows = get_terminal_size()
         gw, hc = max(20, cols), max(8, rows - 2)
-        minlon, _, maxlon, _ = bbox_for(center[0], center[1], self.zoom, gw, hc)
+        minlon, _, maxlon, _ = bbox_for(self.lat, self.lon, self.zoom, gw, hc)
         lon_span = maxlon - minlon
-        center[0] = max(-80.0, min(80.0, center[0] + drow * self.zoom / hc))
-        center[1] += -dcol * lon_span / gw
-        if center[1] > 180.0:
-            center[1] -= 360.0
-        elif center[1] < -180.0:
-            center[1] += 360.0
+        self.lat = max(-80.0, min(80.0, self.lat + drow * self.zoom / hc))
+        self.lon = wrap_lon(self.lon + -dcol * lon_span / gw)
         # crossing the CONUS boundary re-picks the source: the natural
         # moment to retry LibreWXR after a fallback (a source that offers
         # themes is LibreWXR already, and would only be re-picked as itself)
-        r = _in_conus(center[0], center[1])
+        r = _in_conus(self.lat, self.lon)
         if r != self.region:
             self.region = r
             if getattr(_radar_frames._source, "themes", None) is None:
                 _radar_frames._source = get_source(
-                    center[0], center[1], N_FRAMES, self.theme)
+                    self.lat, self.lon, N_FRAMES, self.theme)
         return True
 
     def play_gate(self):
@@ -134,11 +129,11 @@ class RadarApp(LiveApp):
     def render(self, play_frame=0, playing=True, mouse_pos=None, **_):
         themes = getattr(_radar_frames._source, "themes", None)
         return render_radar(
-            self.centre[0], self.centre[1], self.location_name, self.zoom,
+            self.lat, self.lon, self.location_name, self.zoom,
             play_frame=play_frame, playing=playing,
-            marker=(self.lat, self.lon),
+            marker=self.home,
             runtime=self.runtime, block=False, mouse_pos=mouse_pos,
-            pan_offset=(self.pan_preview[0], self.pan_preview[1]),
+            pan_offset=self.pan_preview,
             layers=frozenset(self.layers),
             layer=self.layer,
             theme_menu=((list(themes), self.picker.sel)

@@ -18,6 +18,7 @@ import time
 from linecast import (
     _globe, _globe_now, _maps_route, _maps_style, _maps_ui,
 )
+from linecast._geo import wrap_lon
 from linecast._live import LiveApp, nudge as _nudge_repaint
 from linecast._location import resolve_location
 from linecast._maps_i18n import ms
@@ -30,14 +31,6 @@ from linecast._runtime import RuntimeConfig, maps_parser, set_current
 from linecast.maps import (
     MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP, map_cells, render_map,
 )
-
-
-def _wrap_lon(lon):
-    if lon > 180.0:
-        lon -= 360.0
-    elif lon < -180.0:
-        lon += 360.0
-    return lon
 
 
 class MapApp(LiveApp):
@@ -105,7 +98,7 @@ class MapApp(LiveApp):
             new_span = (new_zoom * (gw / (hc * 2))
                         / math.cos(math.radians(lat_c)))
             self.lat = lat_c
-            self.lon = _wrap_lon(plon - new_span * (fx - 0.5))
+            self.lon = wrap_lon(plon - new_span * (fx - 0.5))
         self.zoom = new_zoom
         _zoom_hold.hold()
         return True
@@ -340,7 +333,7 @@ class MapApp(LiveApp):
         lon_span = (self.zoom * (gw / (hc * 2))
                     / math.cos(math.radians(self.lat)))
         self.lat = max(-80.0, min(80.0, self.lat + drow * self.zoom / hc))
-        self.lon = _wrap_lon(self.lon + -dcol * lon_span / gw)
+        self.lon = wrap_lon(self.lon + -dcol * lon_span / gw)
         return True
 
     def text_mode(self):

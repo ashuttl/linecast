@@ -79,10 +79,11 @@ ZOOM_STEP = 1.5          # matches radar, so the two views feel the same
 _route_layer_cache = Memo(keep=1)   # one slot: (route id, view key) -> DotLayer
 
 
-def map_cells():
+def map_cells(size=None):
     """The map's size in cells: the terminal's columns, at least 20, by
-    its rows less the header and the footer, at least 8."""
-    cols, rows = get_terminal_size()
+    its rows less the header and the footer, at least 8.  `size` is a
+    (cols, rows) already read; None reads the terminal."""
+    cols, rows = size if size is not None else get_terminal_size()
     return max(20, cols), max(8, rows - 2)
 
 
@@ -497,7 +498,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                clouds=False, **_):
     lang = runtime.lang if runtime else "en"
     cols, rows = get_terminal_size()
-    graph_w, height_cells = map_cells()
+    graph_w, height_cells = map_cells((cols, rows))
 
     bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
     m_lat, m_lon = marker if marker else (lat, lon)
