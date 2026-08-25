@@ -57,7 +57,7 @@ jobs:
     # The suite must touch neither the real home nor the user's settings.
     # HOME is a directory nothing can write to, and the environment
     # carries settings that would change every rendered snapshot if a
-    # test read them.
+    # test read them, plus a proxy that would reroute every fetch.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -80,6 +80,7 @@ jobs:
               XDG_CONFIG_HOME="$RUNNER_TEMP/home/.config" \
               XDG_CACHE_HOME="$RUNNER_TEMP/home/.cache" \
               WEATHER_UNITS=metric LINECAST_TEMP=1 LINECAST_LANG=fr \
+              LINECAST_THEME=off https_proxy=http://127.0.0.1:1 \
               "$RUNNER_TEMP/venv/bin/python" -m pytest tests -q -p no:cacheprovider
 
   build:
