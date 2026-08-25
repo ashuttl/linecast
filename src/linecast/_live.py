@@ -62,7 +62,11 @@ def _decode_sgr_mouse(seq):
         cb, cx, cy = int(parts[0]), int(parts[1]), int(parts[2])
     except (ValueError, IndexError, UnicodeDecodeError):
         return None
-    return ('mouse', cb, cx, cy, seq[-1:] == b'm')
+    # A motion report is never a release, whatever terminator was used:
+    # xterm ends motion with 'M', Windows Terminal ends button-less motion
+    # with 'm'.  The motion bit (0x20) settles it on both.
+    is_rel = seq[-1:] == b'm' and not (cb & 0x20)
+    return ('mouse', cb, cx, cy, is_rel)
 
 
 def _decode_legacy_mouse(payload):
@@ -78,7 +82,7 @@ def _decode_legacy_mouse(payload):
     cy = payload[2] - 32
     if cb < 0 or cx < 1 or cy < 1:
         return None
-    is_rel = (cb & 0b11) == 0b11 and not (cb & 0x40)
+    is_rel = (cb & 0b11) == 0b11 and not (cb & 0x40) and not (cb & 0x20)
     return ('mouse', cb, cx, cy, is_rel)
 
 

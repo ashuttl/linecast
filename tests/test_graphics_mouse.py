@@ -21,6 +21,20 @@ class MouseDecodeTests(unittest.TestCase):
         got = _graphics._decode_legacy_mouse(bytes([35, 50, 60]))
         self.assertEqual(got, ('mouse', 3, 18, 28, True))
 
+    def test_decode_sgr_motion_is_not_a_release(self):
+        """Windows Terminal ends button-less motion with 'm'.
+
+        xterm reserves that for releases, so the terminator alone would
+        report every hover as a release and the motion would be dropped.
+        """
+        got = _graphics._decode_sgr_mouse(b"<35;12;7m")
+        self.assertEqual(got, ('mouse', 35, 12, 7, False))
+
+    def test_decode_legacy_motion_is_not_a_release(self):
+        # cb 35 = motion (0x20) with no button held (0b11).
+        got = _graphics._decode_legacy_mouse(bytes([35 + 32, 50, 60]))
+        self.assertEqual(got, ('mouse', 35, 18, 28, False))
+
     def test_decode_legacy_mouse_rejects_invalid(self):
         self.assertIsNone(_graphics._decode_legacy_mouse(bytes([31, 40, 40])))
 
