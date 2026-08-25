@@ -23,7 +23,7 @@ from linecast._maps_i18n import ms
 from linecast._maps_search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
 )
-from linecast._maps_views import _hold_fetches
+from linecast._maps_views import _zoom_hold
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, maps_parser, set_current
 from linecast.maps import (
@@ -143,7 +143,7 @@ def main():
                 elif center[1] < -180.0:
                     center[1] += 360.0
             zoom[0] = new_zoom
-            _hold_fetches()
+            _zoom_hold.hold()
             return True
 
         def spin(gen):

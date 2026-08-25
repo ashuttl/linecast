@@ -1,7 +1,9 @@
 """Live mode: alternate screen rendering with auto-refresh and input handling.
 
 Provides the live_loop() function that runs a render callback in a loop on the
-terminal's alternate screen buffer, with support for:
+terminal's alternate screen buffer, LiveApp — the class an app with keys and
+state subclasses to run under it — and overlay(), which puts a tooltip, modal
+or panel over a frame.  The loop supports:
 
 - Auto-refresh on a configurable interval
 - Immediate re-render on terminal resize (SIGWINCH)
@@ -18,6 +20,28 @@ Mouse protocol references:
 import os
 import sys
 import time as _time
+
+
+# ---------------------------------------------------------------------------
+# Frames
+# ---------------------------------------------------------------------------
+def overlay(body, floating="", motion=None):
+    """A frame with something floating over it: a tooltip, a modal, a panel.
+
+    live_loop paints `body` from the top-left, clearing each line to the
+    margin, then writes `floating` — cursor-addressed escapes — on top,
+    so the overlay is never disturbed by the clear.  `motion` switches
+    any-motion mouse reporting (mode 1003) with this frame: False while
+    a text field is open, since a torn motion sequence reads as ESC —
+    the key guarding the field — True to switch it back on, None to
+    leave it as it is.  With nothing floating and no switch, the body
+    comes back untouched.
+    """
+    switch = "" if motion is None else ("\033[?1003h" if motion
+                                        else "\033[?1003l")
+    if not floating and not switch:
+        return body
+    return f"{body}\x00{switch}{floating}"
 
 
 # ---------------------------------------------------------------------------
@@ -455,7 +479,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             else:
                 output = result
                 alert_row_map = {}
-            # Separate cursor-positioned overlay from main output (\x00 delimiter)
+            # Separate the cursor-positioned overlay from the body (the
+            # \x00 delimiter overlay() writes)
             parts = output.split('\x00', 1)
             main_out = parts[0]
             overlay = parts[1] if len(parts) > 1 else ""
@@ -649,3 +674,93 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             sys.stdout.flush()
         except Exception:
             pass  # tty may already be gone (SIGHUP); nothing left to restore
+
+
+
+# ---------------------------------------------------------------------------
+# Live apps
+# ---------------------------------------------------------------------------
+class LiveApp:
+    """What a live view is made of: state, the hooks that change it, and
+    one render per repaint.
+
+    live_loop's keyword hooks are methods here, with the same contracts
+    (see live_loop's docstring for each); the loop's tuning is the class
+    attributes below, overridden per app.  A hook a subclass leaves
+    alone is not handed to the loop at all, so the loop's own defaults
+    hold exactly as they do for a bare render callback: without
+    on_wheel the wheel scrubs time, without on_drag the press is not
+    tracked and there are no clicks.  `run()` puts the app on screen
+    and calls `stop()` on the way out, however the loop ends.
+
+    An app whose whole state is a render function can still call
+    live_loop directly; this is for the ones with keys.
+    """
+
+    interval = 60        # seconds between idle repaints
+    mouse = True         # SGR mouse tracking; the frame gets mouse_pos
+    scroll_step = 15     # minutes per wheel notch or arrow, when scrubbing
+    auto_play = False    # an animation loop rather than a time scrub
+    play_interval = 0.6  # seconds per frame while playing
+
+    HOOKS = ("on_action", "on_drag", "on_wheel", "intercept", "on_click",
+             "on_open", "play_gate", "text_mode")
+
+    def render(self, **frame):
+        """The frame: a string, or (string, alert_row_map).
+
+        `frame` is what live_loop knows about the moment — offset_minutes,
+        mouse_pos, active_alert, modal_scroll, and play_frame/playing when
+        auto_play is on.  Take what the view uses and swallow the rest.
+        """
+        raise NotImplementedError
+
+    def on_action(self, key):
+        """A single-character key ('+', 'c', …); truthy repaints."""
+        return False
+
+    def on_drag(self, dcol, drow, done):
+        """A left-button drag, as the cumulative cell delta; truthy repaints."""
+        return False
+
+    def on_wheel(self, direction, col, row):
+        """The wheel, owned outright: +1 up / -1 down at (col, row)."""
+        return False
+
+    def intercept(self, action):
+        """Every decoded key before the loop's own handling; truthy
+        consumes it and repaints — how a panel takes the arrows."""
+        return False
+
+    def on_click(self, col, row):
+        """A press and release on one cell; truthy repaints."""
+        return False
+
+    def on_open(self, index):
+        """`o` with alert `index`'s modal open."""
+
+    def play_gate(self):
+        """Whether auto-play may advance a frame."""
+        return True
+
+    def text_mode(self):
+        """Whether a text field is open: printable keys arrive at
+        intercept as 'char:<c>' while it is."""
+        return False
+
+    def stop(self):
+        """The loop is over; park any thread that was serving it."""
+
+    def hooks(self):
+        """The hooks this app overrides, as live_loop keyword arguments."""
+        return {name: getattr(self, name) for name in self.HOOKS
+                if getattr(type(self), name) is not getattr(LiveApp, name)}
+
+    def run(self):
+        """Run the app on the alternate screen until it quits."""
+        try:
+            live_loop(self.render, interval=self.interval, mouse=self.mouse,
+                      scroll_step=self.scroll_step, auto_play=self.auto_play,
+                      play_interval=self.play_interval, **self.hooks())
+        finally:
+            self.stop()

@@ -61,11 +61,13 @@ from linecast._spinner import (  # noqa: F401
 
 # Live mode and input handling
 from linecast._live import (  # noqa: F401
+    LiveApp,
     _decode_sgr_mouse,
     _decode_legacy_mouse,
     _normalize_wheel_cb,
     _read_key,
     live_loop,
+    overlay,
 )
 
 _theme.track_imports(globals(), "linecast._color")

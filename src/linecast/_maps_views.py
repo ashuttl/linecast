@@ -3,9 +3,9 @@
 A view is one bbox at one terminal size.  Each register has a loader
 — _get_elevation, _get_street, _get_globe, and _get_clouds for the
 sky — that answers from a small cache and, live, fetches in the
-background and nudges a repaint when the data lands.  A zoom run holds
-every fetch until the last tap settles, so only the view you stop on
-reaches the network.
+background and nudges a repaint when the data lands (the scaffold is
+_scenes.SceneCache).  A zoom run holds every fetch until the last tap
+settles, so only the view you stop on reaches the network.
 """
 
 import math
@@ -24,100 +24,12 @@ from linecast._maps_paint import (
 )
 from linecast._radar_basemap import _edge_dots
 from linecast._runtime import debug_log
+from linecast._scenes import FetchHold, SceneCache
 
 ZOOM_SETTLE = 0.3        # seconds of zoom quiet before a fetch may start
 
 _terrain_cache = {}  # (bbox, w, h) -> sub-pixel colour buffer
-_fetch_hold = [0.0]  # monotonic deadline; live zoom taps push it forward
-
-
-def _fetch_held():
-    """True while a live zoom gesture is still in flight."""
-    import time
-    return time.monotonic() < _fetch_hold[0]
-
-
-def _hold_fetches():
-    """Zoom taps repaint instantly, but only the view you stop on fetches.
-
-    Each intermediate zoom is its own cache key, so without a hold a
-    run of `-` presses from the default view out to the planet spawns a
-    full tile fetch per step — and they all fight the one view actually
-    asked for.  Each tap pushes the deadline instead; a timer nudges a
-    repaint once the last deadline passes, and that repaint is the one
-    that reaches the network.
-    """
-    import time
-    deadline = time.monotonic() + ZOOM_SETTLE
-    _fetch_hold[0] = deadline
-
-    def settle():
-        time.sleep(ZOOM_SETTLE + 0.02)
-        if _fetch_hold[0] == deadline:
-            _nudge_repaint()
-
-    threading.Thread(target=settle, daemon=True).start()
-
-
-class _ViewCache:
-    """A few built views, loaded in the background when live.
-
-    `get` answers from the cache.  Blocking, a miss runs `load` on the
-    calling thread and raises what it raises.  Live, a miss starts one
-    daemon worker per key — none while a zoom gesture is still in
-    flight — and answers `empty` until the worker's view lands and
-    nudges a repaint; a worker that fails leaves nothing behind, so the
-    next repaint asks again.  The cache holds a handful of views and is
-    cleared, not pruned, when it grows past that: a pan is a few
-    neighbours, and a view older than the last four is not coming back.
-    """
-
-    def __init__(self, empty=None, keep=3):
-        self.empty = empty
-        self.keep = keep
-        self._views = {}
-        self._pending = set()
-        self._lock = threading.Lock()
-
-    def clear(self):
-        with self._lock:
-            self._views.clear()
-
-    def _put(self, key, view):
-        if len(self._views) > self.keep:
-            self._views.clear()
-        self._views[key] = view
-
-    def get(self, key, block, load):
-        with self._lock:
-            hit = self._views.get(key)
-            if hit is not None:
-                return hit
-            if not block:
-                if key in self._pending or _fetch_held():
-                    return self.empty
-                self._pending.add(key)
-
-        if block:
-            hit = load()
-            with self._lock:
-                self._put(key, hit)
-            return hit
-
-        def worker():
-            try:
-                hit = load()
-            except Exception:
-                hit = None
-            with self._lock:
-                self._pending.discard(key)
-                if hit is not None:
-                    self._put(key, hit)
-            if hit is not None:
-                _nudge_repaint()
-
-        threading.Thread(target=worker, daemon=True).start()
-        return self.empty
+_zoom_hold = FetchHold(ZOOM_SETTLE)  # live zoom taps push its deadline
 
 
 def _view_key(bbox, gw, hc):
@@ -250,9 +162,10 @@ class TerrainView(namedtuple("TerrainView", "elev coast water rivers cover")):
 
 
 _EMPTY_TERRAIN = TerrainView(None, None, None, None, None)
-_elev_cache = _ViewCache(_EMPTY_TERRAIN)   # view key -> TerrainView
-_street_cache = _ViewCache((None, None, None))  # -> (fills, layer, labels)
-_globe_cache = _ViewCache()   # (lat, lon, zoom, w, h) -> GlobeView
+# the three registers' scenes, all gated by the zoom hold
+_elev_cache = SceneCache(_EMPTY_TERRAIN, held=_zoom_hold.held)  # -> TerrainView
+_street_cache = SceneCache((None, None, None), held=_zoom_hold.held)  # -> (fills, layer, labels)
+_globe_cache = SceneCache(held=_zoom_hold.held)   # (lat, lon, zoom, w, h) -> GlobeView
 
 
 def _get_elevation(bbox, gw, hc, block):

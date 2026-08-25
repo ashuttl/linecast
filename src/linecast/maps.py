@@ -47,7 +47,7 @@ from linecast._maps_paint import (  # noqa: F401 — the inks and composers
     compose_map, compose_terrain,
 )
 from linecast._maps_views import (  # noqa: F401 — the loaders and caches
-    TerrainView, _EMPTY_TERRAIN, _ViewCache, _coast_dots, _elev_cache,
+    TerrainView, _EMPTY_TERRAIN, _coast_dots, _elev_cache,
     _get_clouds, _get_elevation, _get_globe, _get_street, _globe_cache,
     _street_cache, _terrain_buffer, _terrain_cache, _view_key,
     _water_subpixels,
