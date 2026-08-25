@@ -43,9 +43,11 @@ real_py=$(command -v python3) || { echo "python3 is required" >&2; exit 2; }
 # python3 goes through a wrapper so an env var can bend `-m venv`:
 # CHECK_BREAK_VENV makes it fail the way Debian without python3-venv does
 # (a half-made venv and exit 1); CHECK_VENV_WITHOUT_PIP makes a venv that
-# has no pip.  Anything else runs the real python.
+# has no pip.  Anything else runs the real python.  get.sh runs python
+# with -I, which the wrapper sets aside to match and hands back on exec.
 cat > "$tools/python3" <<EOF
 #!/bin/sh
+iso=; if [ "\${1:-}" = -I ]; then iso=-I; shift; fi
 if [ "\${1:-}" = -m ] && [ "\${2:-}" = venv ]; then
     if [ -n "\${CHECK_BREAK_VENV:-}" ]; then
         for d; do :; done
@@ -55,10 +57,10 @@ if [ "\${1:-}" = -m ] && [ "\${2:-}" = venv ]; then
     fi
     if [ -n "\${CHECK_VENV_WITHOUT_PIP:-}" ]; then
         shift 2
-        exec "$real_py" -m venv --without-pip "\$@"
+        exec "$real_py" \$iso -m venv --without-pip "\$@"
     fi
 fi
-exec "$real_py" "\$@"
+exec "$real_py" \$iso "\$@"
 EOF
 chmod +x "$tools/python3"
 
@@ -168,23 +170,24 @@ cache=$work/cache; appdir=$cache/linecast; venv=$appdir/venv; stamp=$venv/.refre
 piplog=$work/pip.log
 # PATH has no linecast/uvx/pipx now; pip sees only the wheel dir and logs
 # every install; the cache, home, tmp and pip config are all ours.  The
-# knobs below are set around a call and put back after it.
+# knobs below are set around a call and put back after it.  CWD is the
+# directory the piped run starts from, the harness's own by default.
 P=$tools
-XDG=$cache; OVERRIDE=; WHEELS=$WHEEL_DIR; BREAK=; NOPIP=
+XDG=$cache; OVERRIDE=; WHEELS=$WHEEL_DIR; BREAK=; NOPIP=; CWD=.
 venv_run() {
-    without_tty env -i PATH="$P" GET_SH="$GET_SH" HOME="$work/home" TMPDIR="$work/tmp" \
+    ( cd "$CWD" && without_tty env -i PATH="$P" GET_SH="$GET_SH" HOME="$work/home" TMPDIR="$work/tmp" \
         XDG_CACHE_HOME="$XDG" LINECAST_CACHE_DIR="$OVERRIDE" \
         PIP_NO_INDEX=1 PIP_FIND_LINKS="$WHEELS" PIP_CONFIG_FILE=/dev/null \
         PIP_CACHE_DIR="$work/pipcache" PIP_LOG="$piplog" PIP_DISABLE_PIP_VERSION_CHECK=1 \
         CHECK_BREAK_VENV="$BREAK" CHECK_VENV_WITHOUT_PIP="$NOPIP" \
-        sh "$work/piped.sh" "$@" 2>"$work/err"
+        sh "$work/piped.sh" "$@" ) 2>"$work/err"
 }
 installs() { grep -c 'Successfully installed linecast' "$piplog" 2>/dev/null || echo 0; }
 upgrades() { grep -c 'Requirement already satisfied: linecast' "$piplog" 2>/dev/null || echo 0; }
 err() { cat "$work/err"; }
 stale() { ! python3 -c 'import os, sys, time
 sys.exit(time.time() - os.stat(sys.argv[1]).st_mtime >= 86400)' "$stamp" 2>/dev/null; }
-runs() { if [ -x "$1/bin/python" ] && "$1/bin/python" -c 'import linecast' 2>/dev/null; then echo yes; else echo no; fi; }
+runs() { if [ -x "$1/bin/python" ] && "$1/bin/python" -I -c 'import linecast' 2>/dev/null; then echo yes; else echo no; fi; }
 # shellcheck disable=SC2012  # stat differs between GNU and BSD; ls does not
 mode() { ls -ld "$1" | cut -c1-10; }
 
@@ -230,6 +233,31 @@ rm "$venv/bin/python3"; ln -s /nonexistent/python3 "$venv/bin/python3"
 out=$(venv_run sunshine --version)
 has "venv with a dangling python is rebuilt" "linecast $version" "$out"
 is "dangling rebuild ran pip install" 3 "$(installs)"
+
+# A linecast package where the user runs `curl | sh` from.  Without -I it
+# makes a gutted venv pass the import probe, so the venv is never rebuilt
+# and bin/sunshine fails on every run.
+mkdir -p "$work/cwd/linecast"; : > "$work/cwd/linecast/__init__.py"
+rm -rf "${venv:?}/lib"
+CWD=$work/cwd
+out=$(venv_run sunshine --version); rc=$?
+is "linecast package in the cwd: gutted venv exits 0" 0 "$rc"
+has "linecast package in the cwd: gutted venv is rebuilt" "nstalling" "$(err)"
+has "linecast package in the cwd: prints the version" "linecast $version" "$out"
+is "linecast package in the cwd: rebuild ran pip install" 4 "$(installs)"
+
+# Stand-ins for venv, pip and ensurepip there too.  Without -I they run
+# in place of the real modules.
+for m in venv pip ensurepip; do
+    printf 'import sys; sys.exit("PWNED: %s.py from the cwd")\n' "$m" > "$work/cwd/$m.py"
+done
+rm -rf "$appdir"
+out=$(venv_run sunshine --version); rc=$?
+CWD=.
+is "python files in the cwd: exits 0" 0 "$rc"
+lacks "python files in the cwd: none of them ran" "PWNED" "$(err)"
+has "python files in the cwd: prints the version" "linecast $version" "$out"
+is "python files in the cwd: a real venv was made" yes "$(runs "$venv")"
 
 # An impostor venv: a symlink where the venv should be.  Nothing in it
 # may run, and nothing may be written through it.

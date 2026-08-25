@@ -23,6 +23,8 @@
 # the script asks pip for a newer release.  Deleting the venv with rm -rf
 # is always safe; the next run makes a new one.  When there is no cache
 # directory to use, the venv is a throwaway under $TMPDIR, removed on exit.
+# Python runs isolated (-I) throughout, so files in the directory you run
+# from cannot stand in for venv, pip or linecast.
 #
 # One thing a shell script cannot make safe: a cache directory under a
 # parent that is world-writable without the sticky bit, where another user
@@ -89,27 +91,27 @@ present() { [ -e "$1" ] || [ -L "$1" ]; }
 # for a venv whose python was uninstalled from under it, and the import
 # fails on a half-made venv (Debian without python3-venv) or a broken
 # upgrade.  Only called once the directory is known to be ours.
-usable() { [ -x "$python" ] && "$python" -c 'import linecast' 2>/dev/null; }
+usable() { [ -x "$python" ] && "$python" -I -c 'import linecast' 2>/dev/null; }
 
 # The refresh stamp is under a day old.  A missing stamp raises, which
 # counts as old.  Asked of python because BSD find -mtime rounds up.
 fresh() {
-    "$python" -c 'import os, sys, time
+    "$python" -I -c 'import os, sys, time
 sys.exit(time.time() - os.stat(sys.argv[1]).st_mtime >= 86400)' "$stamp" 2>/dev/null
 }
 
-vpip() { "$python" -m pip -q --disable-pip-version-check "$@"; }
+vpip() { "$python" -I -m pip -q --disable-pip-version-check "$@"; }
 
 # Make the venv from scratch and install linecast into it.  Every failure
 # exits, so callers need not check.
 build() {
     note "installing linecast..."
-    if ! ( umask 077 && python3 -m venv --clear "$venv" ); then
+    if ! ( umask 077 && python3 -I -m venv --clear "$venv" ); then
         rm -rf "$venv"
         die "python3 -m venv failed. On Debian/Ubuntu: sudo apt install python3-venv, then run this again."
     fi
-    if ! "$python" -m pip --version >/dev/null 2>&1; then
-        "$python" -m ensurepip --upgrade --default-pip >/dev/null 2>&1 \
+    if ! "$python" -I -m pip --version >/dev/null 2>&1; then
+        "$python" -I -m ensurepip --upgrade --default-pip >/dev/null 2>&1 \
             || die "the venv has no pip and ensurepip is unavailable"
     fi
     vpip install linecast || die "could not install linecast"
@@ -149,7 +151,7 @@ main() {
     # finds but that cannot run.
     command -v python3 >/dev/null 2>&1 \
         || die "Python 3 required — install from python.org or: brew install python"
-    python3 -c '' \
+    python3 -I -c '' \
         || die "python3 is not usable (on macOS run: xcode-select --install)"
 
     venv=
