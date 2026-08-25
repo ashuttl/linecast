@@ -89,10 +89,11 @@ def _load_marshalled(path):
     import marshal
     import sys
     from linecast import _cache
+    from linecast._paths import cache_dir
 
     st = os.stat(path)
-    cached = (_cache.CACHE_ROOT
-              / f"basemap_{sys.implementation.cache_tag}_{st.st_mtime_ns}.marshal")
+    cached = cache_dir(
+        f"basemap_{sys.implementation.cache_tag}_{st.st_mtime_ns}.marshal")
     try:
         with open(cached, "rb") as fh:
             return marshal.load(fh)
@@ -378,14 +379,14 @@ class Basemap(DotLayer):
     # built grids turns ~0.6s of scanline fills into a ~5ms read.
     def _built_path(self):
         import hashlib
-        from linecast import _cache
+        from linecast._paths import cache_dir
         src = os.path.join(os.path.dirname(__file__), "data",
                            "basemap.json.gz")
         key = (self._CACHE_FMT, os.stat(src).st_mtime_ns,
                tuple(round(v, 6) for v in self.bbox),
                self.graph_w, self.height_cells)
         digest = hashlib.md5(repr(key).encode()).hexdigest()[:16]
-        return _cache.CACHE_ROOT / "radar" / f"basemap_cells_{digest}.marshal"
+        return cache_dir("radar", f"basemap_cells_{digest}.marshal")
 
     def _load_built(self):
         import marshal

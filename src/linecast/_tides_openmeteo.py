@@ -21,7 +21,7 @@ from typing import Any
 
 from linecast._cache import location_cache_key
 from linecast._http import fetch_json_cached
-from linecast._tides_common import CACHE_DIR, M_TO_FT, cached_y_range, local_day_bounds
+from linecast._tides_common import M_TO_FT, cache_dir, cached_y_range, local_day_bounds
 
 # One standard fetch window serves every caller (range, hilo, y-range,
 # metadata) from a single cached payload.  The marine API caps forecasts
@@ -57,7 +57,7 @@ def parse_station_id(station_id: str) -> tuple[float, float] | None:
 # ---------------------------------------------------------------------------
 def _fetch_raw(lat, lng):
     """Fetch the standard tide-model window for a location.  Cached 3h."""
-    cache_file = CACHE_DIR / f"om_raw_{location_cache_key(lat, lng)}.json"
+    cache_file = cache_dir() / f"om_raw_{location_cache_key(lat, lng)}.json"
     url = (
         "https://marine-api.open-meteo.com/v1/marine"
         f"?latitude={lat}&longitude={lng}"
@@ -202,6 +202,6 @@ def fetch_y_range_openmeteo(station_id: str, center_date: date,
     if coords is None:
         return None
     return cached_y_range(
-        CACHE_DIR / f"om_yrange_{location_cache_key(*coords)}.json",
+        cache_dir() / f"om_yrange_{location_cache_key(*coords)}.json",
         lambda: [h for _, h in _series(_fetch_raw(*coords), station_tz)],
     )

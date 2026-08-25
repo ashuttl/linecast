@@ -11,7 +11,7 @@ from typing import Any
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._tides_common import (
-    CACHE_DIR, M_TO_FT, cached_y_range, dedup_sorted, iana_to_abbr,
+    M_TO_FT, cache_dir, cached_y_range, dedup_sorted, iana_to_abbr,
     label_hilo, local_day_bounds, nearest_station, parse_cached_dt,
     parse_utc_iso, station_coords, tz_offset_hours, y_range_window,
 )
@@ -30,7 +30,7 @@ def is_chs_station_id(station_id: str) -> bool:
 
 def fetch_all_stations_chs() -> list[dict[str, Any]]:
     """Fetch the full CHS tidal station list (cached 30 days)."""
-    cache_file = CACHE_DIR / "chs_all_stations.json"
+    cache_file = cache_dir() / "chs_all_stations.json"
     url = f"{CHS_BASE}/stations?time-series-code=wlp-hilo"
     data = fetch_json_cached(
         cache_file, 30 * 86400, url,
@@ -54,7 +54,7 @@ def find_nearest_station_chs(lat: float, lng: float) -> tuple[str | None, str | 
     Returns (station_id, station_name) or (None, None). Cached 1 hour.
     """
     return nearest_station(
-        CACHE_DIR / f"chs_station_{location_cache_key(lat, lng)}.json", lat, lng,
+        cache_dir() / f"chs_station_{location_cache_key(lat, lng)}.json", lat, lng,
         fetch_all_stations_chs, _operating_station_coords,
         lambda s: (str(s.get("id", "")), s.get("officialName", "")),
     )
@@ -69,7 +69,7 @@ def fetch_station_metadata_chs(station_id: str) -> dict[str, Any] | None:
     Returns dict with: id, name, state, lat, lng, timezone_abbr,
     timezonecorr, timeZoneCode, observedst, source.
     """
-    cache_file = CACHE_DIR / f"chs_meta_{station_id}.json"
+    cache_file = cache_dir() / f"chs_meta_{station_id}.json"
     cached = read_cache(cache_file, 30 * 86400)
     if cached and cached.get("source") == "chs":
         return cached
@@ -138,7 +138,7 @@ def _fetch_pred_chunk(station_id, start_date, end_date, station_tz):
     """Fetch a single chunk of CHS predictions (max 30 days)."""
     start_str = start_date.strftime("%Y%m%d")
     end_str = end_date.strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"chs_pred_{station_id}_{start_str}_{end_str}.json"
+    cache_file = cache_dir() / f"chs_pred_{station_id}_{start_str}_{end_str}.json"
 
     cached = read_cache(cache_file, 86400)
     if cached is not None:
@@ -181,7 +181,7 @@ def fetch_hilo_range_chs(station_id: str, start_date: date, end_date: date,
     """
     start_str = start_date.strftime("%Y%m%d")
     end_str = end_date.strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"chs_hilo_{station_id}_{start_str}_{end_str}.json"
+    cache_file = cache_dir() / f"chs_hilo_{station_id}_{start_str}_{end_str}.json"
 
     cached = read_cache(cache_file, 86400)
     if cached is not None:
@@ -245,4 +245,4 @@ def fetch_y_range_chs(station_id: str, center_date: date,
                 pass
         return found
 
-    return cached_y_range(CACHE_DIR / f"chs_yrange_{station_id}_{key}.json", heights)
+    return cached_y_range(cache_dir() / f"chs_yrange_{station_id}_{key}.json", heights)

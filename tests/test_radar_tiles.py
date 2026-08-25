@@ -13,6 +13,8 @@ import tempfile
 import zlib
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast import _radar_tiles as tiles
@@ -120,22 +122,17 @@ class TestTileCachePolicy:
     def _run(self, mutable, age, fetch):
         from linecast import _http
         provider = librewxr_provider(2)
-        original_root, original_fetch = tiles.CACHE_ROOT, _http.fetch_bytes
-        with tempfile.TemporaryDirectory() as tmp:
-            tiles.CACHE_ROOT = Path(tmp)
+        with tempfile.TemporaryDirectory() as tmp, pytest.MonkeyPatch.context() as mp:
+            mp.setenv("LINECAST_CACHE_DIR", tmp)
             cdir = tiles._cache_dir(provider)
             cdir.mkdir(parents=True)
             cpath = cdir / "v2_radar_123_3_1_1_c2_1_1.png"
             cpath.write_bytes(b"CACHED")
             stamp = os.stat(cpath).st_mtime - age
             os.utime(cpath, (stamp, stamp))
-            _http.fetch_bytes = fetch
-            try:
-                return tiles._fetch_tile(provider, "https://h", "/v2/radar/123",
-                                         3, 1, 1, mutable=mutable)
-            finally:
-                tiles.CACHE_ROOT = original_root
-                _http.fetch_bytes = original_fetch
+            mp.setattr(_http, "fetch_bytes", fetch)
+            return tiles._fetch_tile(provider, "https://h", "/v2/radar/123",
+                                     3, 1, 1, mutable=mutable)
 
     def test_immutable_tile_served_from_cache_forever(self):
         def no_network(*a, **k):

@@ -13,7 +13,7 @@ https://registry.opendata.aws/terrain-tiles/
 
 import os
 
-from linecast._cache import CACHE_ROOT
+from linecast._paths import cache_dir
 from linecast._http import fetch_bytes_cached
 from linecast._png import DecodeMemo, decode_rgba
 from linecast._radar_tiles import _lonlat_to_world, _pick_zoom, stitch_xyz
@@ -40,7 +40,7 @@ def _tile_url(z, x, y):
 
 def _fetch_tile(z, x, y, timeout=15):
     """One terrarium tile as PNG bytes, disk-cached forever (immutable)."""
-    cpath = CACHE_ROOT / "maps" / f"terrarium_{z}_{x}_{y}.png"
+    cpath = cache_dir("maps", f"terrarium_{z}_{x}_{y}.png")
     return fetch_bytes_cached(cpath, None, _tile_url(z, x, y), timeout=timeout)
 
 

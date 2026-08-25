@@ -28,7 +28,7 @@ class GetLocationTests(unittest.TestCase):
             payload = {"loc": "3.0,4.0", "country": "CA"}
 
             with patch.object(_location, "saved_location", return_value=None), \
-                 patch.object(_location, "_CACHE_FILE", cache_file), \
+                 patch.dict(os.environ, {"LINECAST_CACHE_DIR": tmpdir}), \
                  patch.object(_location, "fetch_json", return_value=payload):
                 location = _location.get_location()
 

@@ -14,7 +14,7 @@ from typing import Any
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._tides_common import (
-    CACHE_DIR, M_TO_FT, cached_y_range, dedup_sorted, label_hilo,
+    M_TO_FT, cache_dir, cached_y_range, dedup_sorted, label_hilo,
     local_day_bounds, nearest_station, parse_cached_dt, parse_iso,
     station_coords, y_range_window,
 )
@@ -39,7 +39,7 @@ def fetch_all_stations_qld() -> list[dict[str, Any]]:
     The CKAN datastore_search SQL endpoint lets us pull distinct Site +
     coordinates in one request.
     """
-    cache_file = CACHE_DIR / "qld_all_stations.json"
+    cache_file = cache_dir() / "qld_all_stations.json"
     cached = read_cache(cache_file, 30 * 86400)
     if cached is not None:
         return cached
@@ -92,7 +92,7 @@ def find_nearest_station_qld(lat: float, lng: float) -> tuple[str | None, str | 
     QLD stations are identified by name, not numeric ID.
     """
     return nearest_station(
-        CACHE_DIR / f"qld_station_{location_cache_key(lat, lng)}.json", lat, lng,
+        cache_dir() / f"qld_station_{location_cache_key(lat, lng)}.json", lat, lng,
         fetch_all_stations_qld, station_coords,
         lambda s: (s["name"], s["name"]),
     )
@@ -107,7 +107,7 @@ def fetch_station_metadata_qld(station_name: str) -> dict[str, Any]:
     Returns dict with: id, name, state, lat, lng, timezone_abbr,
     timezonecorr, timeZoneCode, observedst, source.
     """
-    cache_file = CACHE_DIR / f"qld_meta_{_safe_name(station_name)}.json"
+    cache_file = cache_dir() / f"qld_meta_{_safe_name(station_name)}.json"
     cached = read_cache(cache_file, 30 * 86400)
     if cached and cached.get("source") == "qld":
         return cached
@@ -200,7 +200,7 @@ def _fetch_pred_chunk(station_name, start_date, end_date):
     """
     start_str = start_date.strftime("%Y%m%d")
     end_str = end_date.strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"qld_pred_{_safe_name(station_name)}_{start_str}_{end_str}.json"
+    cache_file = cache_dir() / f"qld_pred_{_safe_name(station_name)}_{start_str}_{end_str}.json"
 
     cached = read_cache(cache_file, 86400)
     if cached is not None:
@@ -314,4 +314,4 @@ def fetch_y_range_qld(station_name: str, center_date: date,
         return [h for _, h in fetch_tides_range_qld(station_name, start, end, station_tz)]
 
     return cached_y_range(
-        CACHE_DIR / f"qld_yrange_{_safe_name(station_name)}_{key}.json", heights)
+        cache_dir() / f"qld_yrange_{_safe_name(station_name)}_{key}.json", heights)

@@ -54,7 +54,7 @@ class _Fetch:
 
 @pytest.fixture
 def cache(tmp_path, monkeypatch):
-    monkeypatch.setattr(ms, "CACHE_ROOT", tmp_path)
+    monkeypatch.setenv("LINECAST_CACHE_DIR", str(tmp_path))
     return tmp_path
 
 

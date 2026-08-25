@@ -23,7 +23,7 @@ from typing import Any
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._tides_common import (
-    CACHE_DIR, M_TO_FT, NEAREST_STATION_CACHE_MAX_AGE, cached_y_range,
+    M_TO_FT, NEAREST_STATION_CACHE_MAX_AGE, cache_dir, cached_y_range,
     iana_to_abbr, parse_cached_dt, parse_utc_iso, tz_offset_hours,
     y_range_window,
 )
@@ -66,7 +66,7 @@ def find_nearest_station_tidecheck(lat: float, lng: float
     if not is_available():
         return None, None
 
-    cache_file = CACHE_DIR / f"tc_station_{location_cache_key(lat, lng)}.json"
+    cache_file = cache_dir() / f"tc_station_{location_cache_key(lat, lng)}.json"
     cached = read_cache(cache_file, NEAREST_STATION_CACHE_MAX_AGE)
     if cached:
         return cached["id"], cached["name"]
@@ -125,7 +125,7 @@ def search_stations_tidecheck(query: str) -> list[dict[str, Any]]:
 
     import urllib.parse
     encoded = urllib.parse.quote(query)
-    cache_file = CACHE_DIR / f"tc_search_{encoded[:40]}.json"
+    cache_file = cache_dir() / f"tc_search_{encoded[:40]}.json"
     url = f"{TIDECHECK_BASE}/stations/search?q={encoded}"
 
     data = fetch_json_cached(
@@ -162,7 +162,7 @@ def fetch_station_metadata_tidecheck(station_id: str) -> dict[str, Any] | None:
     if not is_available():
         return None
 
-    cache_file = CACHE_DIR / f"tc_meta_{station_id}.json"
+    cache_file = cache_dir() / f"tc_meta_{station_id}.json"
     cached = read_cache(cache_file, 30 * 86400)
     if cached and cached.get("source") == "tidecheck":
         return cached
@@ -206,7 +206,7 @@ def _fetch_tides_raw(station_id, days=7):
     if not is_available():
         return None
 
-    cache_file = CACHE_DIR / f"tc_raw_{station_id}_{days}d.json"
+    cache_file = cache_dir() / f"tc_raw_{station_id}_{days}d.json"
     url = f"{TIDECHECK_BASE}/station/{station_id}/tides?days={days}&datum=MLLW"
     return fetch_json_cached(
         cache_file, 86400, url,
@@ -258,7 +258,7 @@ def fetch_hilo_range_tidecheck(
 
     start_str = start_date.strftime("%Y%m%d")
     end_str = end_date.strftime("%Y%m%d")
-    cache_file = CACHE_DIR / f"tc_hilo_{station_id}_{start_str}_{end_str}.json"
+    cache_file = cache_dir() / f"tc_hilo_{station_id}_{start_str}_{end_str}.json"
 
     cached = read_cache(cache_file, 86400)
     if cached is not None:
@@ -323,4 +323,4 @@ def fetch_y_range_tidecheck(station_id: str, center_date: date,
                 pass
         return found
 
-    return cached_y_range(CACHE_DIR / f"tc_yrange_{station_id}_{key}.json", heights)
+    return cached_y_range(cache_dir() / f"tc_yrange_{station_id}_{key}.json", heights)

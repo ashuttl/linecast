@@ -5,11 +5,10 @@ import sys
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
-from linecast._cache import CACHE_ROOT, read_cache, write_cache, location_cache_key
+from linecast._cache import read_cache, write_cache, location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
+from linecast._paths import cache_dir
 from linecast._runtime import WeatherRuntime, current_runtime
-
-CACHE_DIR = CACHE_ROOT / "weather"
 
 
 def _location_from_timezone(tz_str):
@@ -41,7 +40,7 @@ def _reverse_geocode(lat, lng, lang=None):
     Returns (display_name, country_code, address) tuple. `lang` localizes
     the returned names (Nominatim accept-language); cached per language.
     """
-    cache_file = CACHE_DIR / "location.json"
+    cache_file = cache_dir("weather") / "location.json"
     cached = read_cache(cache_file, 86400)  # 24h cache
     if (cached and cached.get("lat") == round(lat, 4)
             and cached.get("lng") == round(lng, 4)
@@ -83,7 +82,8 @@ def fetch_forecast(lat: float, lng: float,
         runtime = current_runtime(WeatherRuntime)
     temp_tag = "C" if runtime.celsius else "F"
     wind_tag = "m" if runtime.metric else "i"
-    cache_file = CACHE_DIR / f"forecast_{location_cache_key(lat, lng)}_{temp_tag}{wind_tag}.json"
+    cache_file = cache_dir(
+        "weather", f"forecast_{location_cache_key(lat, lng)}_{temp_tag}{wind_tag}.json")
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lng}"
@@ -111,7 +111,7 @@ def fetch_forecast(lat: float, lng: float,
 
 def fetch_aqi(lat: float, lng: float) -> dict[str, Any] | None:
     """Fetch current AQI from Open-Meteo Air Quality API. Cached 1h."""
-    cache_file = CACHE_DIR / f"aqi_{location_cache_key(lat, lng)}.json"
+    cache_file = cache_dir("weather") / f"aqi_{location_cache_key(lat, lng)}.json"
     url = (
         "https://air-quality-api.open-meteo.com/v1/air-quality"
         f"?latitude={lat}&longitude={lng}"
@@ -154,7 +154,7 @@ def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en
 
 def _fetch_alerts_nws(lat, lng):
     """Fetch active NWS alerts (US). Cached 15min."""
-    cache_file = CACHE_DIR / f"alerts_{location_cache_key(lat, lng)}.json"
+    cache_file = cache_dir("weather") / f"alerts_{location_cache_key(lat, lng)}.json"
     url = f"https://api.weather.gov/alerts/active?point={lat},{lng}"
     data = fetch_json_cached(
         cache_file,
@@ -191,7 +191,7 @@ def _fetch_alerts_eccc(lat, lng, lang="en"):
 
     Uses the OGC API at api.weather.gc.ca with bbox query.
     """
-    cache_file = CACHE_DIR / f"alerts_ca_{location_cache_key(lat, lng)}_{lang}.json"
+    cache_file = cache_dir("weather") / f"alerts_ca_{location_cache_key(lat, lng)}_{lang}.json"
     # bbox: lng-0.5, lat-0.5, lng+0.5, lat+0.5 (~50km radius)
     bbox = f"{lng - 0.5},{lat - 0.5},{lng + 0.5},{lat + 0.5}"
     url = (
@@ -268,7 +268,7 @@ def _eccc_severity(props):
 
 def _fetch_alerts_brightsky(lat, lng, lang="en"):
     """Fetch DWD alerts via Bright Sky API (Germany). Cached 15min."""
-    cache_file = CACHE_DIR / f"alerts_de_{location_cache_key(lat, lng)}_{lang}.json"
+    cache_file = cache_dir("weather") / f"alerts_de_{location_cache_key(lat, lng)}_{lang}.json"
     url = f"https://api.brightsky.dev/alerts?lat={lat}&lon={lng}"
     data = fetch_json_cached(
         cache_file, 900, url,
@@ -308,7 +308,7 @@ def _fetch_alerts_metno(lat, lng):
 
     Uses api.met.no with lat/lon coordinate filtering.
     """
-    cache_file = CACHE_DIR / f"alerts_no_{location_cache_key(lat, lng)}.json"
+    cache_file = cache_dir("weather") / f"alerts_no_{location_cache_key(lat, lng)}.json"
     url = (
         f"https://api.met.no/weatherapi/metalerts/2.0/current.json"
         f"?lat={lat}&lon={lng}"
@@ -352,7 +352,7 @@ def _fetch_alerts_metno(lat, lng):
 def _fetch_alerts_meteireann(lat, lng):
     """Fetch active warnings from Met Éireann (Ireland). Cached 15min."""
 
-    cache_file = CACHE_DIR / f"alerts_ie_{location_cache_key(lat, lng)}.json"
+    cache_file = cache_dir("weather") / f"alerts_ie_{location_cache_key(lat, lng)}.json"
     url = "https://prodapi.metweb.ie/warnings/active"
     data = fetch_json_cached(
         cache_file, 900, url,
@@ -446,7 +446,8 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
     Filters by severity and area match against the user's Nominatim address.
     Prefers the user's language for alert text, falling back to English.
     """
-    cache_file = CACHE_DIR / f"alerts_eu_{slug}_{location_cache_key(lat, lng)}_{lang}.json"
+    cache_file = cache_dir(
+        "weather", f"alerts_eu_{slug}_{location_cache_key(lat, lng)}_{lang}.json")
     url = f"https://feeds.meteoalarm.org/api/v1/warnings/feeds-{slug}"
     data = fetch_json_cached(
         cache_file, 900, url,
@@ -647,7 +648,7 @@ def _jma_office_for_coords(lat, lng):
 def _fetch_alerts_jma(lat, lng, lang="en"):
     """Fetch active JMA weather warnings (Japan). Cached 15min."""
     office_code = _jma_office_for_coords(lat, lng)
-    cache_file = CACHE_DIR / f"alerts_jp_{office_code}_{lang}.json"
+    cache_file = cache_dir("weather") / f"alerts_jp_{office_code}_{lang}.json"
     url = f"https://www.jma.go.jp/bosai/warning/data/warning/{office_code}.json"
     data = fetch_json_cached(
         cache_file, 900, url,
@@ -807,7 +808,7 @@ def _fetch_alerts_cma(lat, lng, lang="en"):
     """
     provinces = _cma_provinces_for_coords(lat, lng)
     tag = provinces[0]
-    cache_file = CACHE_DIR / f"alerts_cn_{tag}_{lang}.json"
+    cache_file = cache_dir("weather") / f"alerts_cn_{tag}_{lang}.json"
 
     data = fetch_json_cached(
         cache_file, 900,

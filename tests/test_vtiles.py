@@ -26,7 +26,7 @@ TILEJSON = {"tiles": [TEMPLATE], "maxzoom": 14}
 
 @pytest.fixture
 def cache(tmp_path, monkeypatch):
-    monkeypatch.setattr(vt, "CACHE_ROOT", tmp_path)
+    monkeypatch.setenv("LINECAST_CACHE_DIR", str(tmp_path))
     return tmp_path
 
 

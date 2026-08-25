@@ -12,10 +12,9 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Optional
 
-from linecast._cache import CACHE_ROOT, location_cache_key
+from linecast._cache import location_cache_key
 from linecast._http import fetch_json_cached
-
-CACHE_DIR = CACHE_ROOT / "weather"
+from linecast._paths import cache_dir
 
 _HISTORY_YEARS = 10
 _CACHE_MAX_AGE = 7 * 86400  # 7 days — historical data doesn't change
@@ -50,7 +49,7 @@ def fetch_historical(lat: float, lng: float, target_date: date,
     temp_tag = "C" if celsius else "F"
     precip_tag = "mm" if metric else "in"
     cache_file = (
-        CACHE_DIR
+        cache_dir("weather")
         / f"hist_{location_cache_key(lat, lng)}_{start_year}-{end_year}_{temp_tag}{precip_tag}.json"
     )
 

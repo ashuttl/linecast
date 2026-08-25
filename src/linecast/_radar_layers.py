@@ -20,9 +20,10 @@ import datetime
 import math
 
 from linecast import _theme
-from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
+from linecast._cache import read_cache, read_stale, write_cache
 from linecast._color import lerp, interp_stops, BG_PRIMARY
 from linecast._http import fetch_json
+from linecast._paths import cache_dir
 
 # lattice resolution: 10x6 keeps one fetch cheap while resolving synoptic
 # gradients (~0.6° spacing at the default 6° zoom)
@@ -129,7 +130,7 @@ def fetch_field(bbox, timeout=10):
     """Fetch (or load from cache) the Field for the lattice covering `bbox`."""
     key = field_key(bbox)
     minlon, minlat, maxlon, maxlat = key
-    cdir = CACHE_ROOT / "radar"
+    cdir = cache_dir("radar")
     cdir.mkdir(parents=True, exist_ok=True)
     cpath = cdir / ("field_%s_%s_%s_%s.json" % tuple(
         str(round(v, 2)).replace("-", "m").replace(".", "p") for v in key))

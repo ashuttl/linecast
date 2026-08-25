@@ -22,8 +22,9 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from linecast._cache import CACHE_ROOT, write_bytes_atomic
+from linecast._cache import write_bytes_atomic
 from linecast._http import fetch_bytes, fetch_bytes_cached
+from linecast._paths import cache_dir
 from linecast._png import decode_rgba
 from linecast._runtime import debug_log
 
@@ -80,7 +81,7 @@ def satellite_provider(provider: Provider) -> Provider:
 
 
 def _cache_dir(provider):
-    return CACHE_ROOT / "radar" / provider.name
+    return cache_dir("radar", provider.name)
 
 
 # Frame tiles are keyed by their timestamped frame path and never requested
@@ -95,7 +96,7 @@ def prune_tile_cache(max_age: float = _PRUNE_MAX_AGE) -> None:
     Runs at radar startup. Only sweeps the timestamp-keyed radar tree;
     immutable caches (terrain, vector tiles) are someone else's and eternal.
     """
-    root = CACHE_ROOT / "radar"
+    root = cache_dir("radar")
     if not root.is_dir():
         return
     cutoff = time.time() - max_age

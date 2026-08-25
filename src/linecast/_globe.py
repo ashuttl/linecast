@@ -25,6 +25,7 @@ from pathlib import Path
 from linecast import _cache
 from linecast._elevation import _fetch_tile, decode_meters
 from linecast._geo import wrap_lon
+from linecast._paths import cache_dir
 from linecast._png import decode_rgba
 from linecast._radar_basemap import (
     CITY, CITY_LABEL, DotLayer, _cell_width, _load_data, _localized)
@@ -203,7 +204,7 @@ def warm(zoom, h):
 
 
 def _canvas_path(z):
-    return _cache.CACHE_ROOT / "maps" / f"globe_canvas_v1_{z}.bin"
+    return cache_dir("maps", f"globe_canvas_v1_{z}.bin")
 
 
 def _canvas_read(path):

@@ -12,14 +12,19 @@ from datetime import date, datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 from typing import Any
 
-from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
+from linecast import _paths
+from linecast._cache import read_cache, read_stale, write_cache
 from linecast._geo import haversine_nm
 
-CACHE_DIR = CACHE_ROOT / "tides"
 M_TO_FT = 1 / 0.3048
 NEAREST_STATION_CACHE_MAX_AGE = 3600
 NEAREST_STATION_MAX_NM = 100
 Y_RANGE_CACHE_MAX_AGE = 7 * 86400
+
+
+def cache_dir() -> Path:
+    """The directory every tide provider caches under."""
+    return _paths.cache_dir("tides")
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +41,7 @@ _LEGACY_CACHE_NAME = re.compile(
 _swept = False
 
 
-def sweep_legacy_cache(cache_dir: Path = CACHE_DIR) -> None:
+def sweep_legacy_cache(cache_dir: Path | None = None) -> None:
     """Delete the cache files the per-day layout left behind. Once per process.
 
     One directory listing, best effort: a file that will not go is left
@@ -46,6 +51,8 @@ def sweep_legacy_cache(cache_dir: Path = CACHE_DIR) -> None:
     if _swept:
         return
     _swept = True
+    if cache_dir is None:
+        cache_dir = _paths.cache_dir("tides")
     try:
         entries = list(cache_dir.iterdir())
     except OSError:

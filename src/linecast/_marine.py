@@ -8,11 +8,11 @@ to coastal areas.
 from datetime import datetime
 from typing import Any
 
-from linecast._cache import CACHE_ROOT, location_cache_key
+from linecast._cache import location_cache_key
 from linecast._http import fetch_json_cached
+from linecast._paths import cache_dir
 from linecast._runtime import TidesRuntime
 
-CACHE_DIR = CACHE_ROOT / "marine"
 MARINE_CACHE_MAX_AGE = 3600  # 1 hour
 
 
@@ -31,7 +31,7 @@ def fetch_marine(lat: float, lng: float) -> dict[str, Any] | None:
 
     Returns the raw JSON response dict or None on failure.
     """
-    cache_file = CACHE_DIR / f"marine_{location_cache_key(lat, lng)}.json"
+    cache_file = cache_dir("marine") / f"marine_{location_cache_key(lat, lng)}.json"
     url = (
         "https://marine-api.open-meteo.com/v1/marine"
         f"?latitude={lat}&longitude={lng}"

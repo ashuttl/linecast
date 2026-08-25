@@ -12,15 +12,14 @@ Attribution: Iowa Environmental Mesonet, Iowa State University.
 
 import datetime
 
-from linecast._cache import CACHE_ROOT
 from linecast._http import fetch_bytes
+from linecast._paths import cache_dir
 from linecast._runtime import debug_log
 
 _WMS = "https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q-t.cgi"
 _LAYER = "nexrad-n0q-wmst"
 FRAME_STEP = 5 * 60          # radar composite cadence, seconds
 _LATENCY = 5 * 60            # newest frame lags real time by ~one step
-_RADAR_CACHE = CACHE_ROOT / "radar"
 
 
 def _floor_step(dt):
@@ -56,7 +55,7 @@ def _url(bbox, w, h, when):
 def _cache_path(bbox, w, h, when):
     key = f"{bbox[0]:.3f}_{bbox[1]:.3f}_{bbox[2]:.3f}_{bbox[3]:.3f}_{w}x{h}"
     stamp = when.strftime("%Y%m%dT%H%M")
-    return _RADAR_CACHE / f"{key}_{stamp}.png"
+    return cache_dir("radar", f"{key}_{stamp}.png")
 
 
 def fetch_frame(bbox: tuple[float, float, float, float], w: int, h: int,
@@ -86,7 +85,7 @@ def fetch_frame(bbox: tuple[float, float, float, float], w: int, h: int,
             return path.read_bytes()
         raise
 
-    _RADAR_CACHE.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
     return data
 

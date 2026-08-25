@@ -1,15 +1,14 @@
-"""Persistent user settings (~/.config/linecast/config.json)."""
+"""Persistent user settings (config.json under the config root)."""
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
+from linecast._paths import config_root
+
 
 def config_file() -> Path:
-    base = os.environ.get("XDG_CONFIG_HOME", "").strip()
-    root = Path(base) if base else Path.home() / ".config"
-    return root / "linecast" / "config.json"
+    return config_root() / "config.json"
 
 
 def read_config() -> dict[str, Any]:

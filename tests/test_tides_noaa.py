@@ -103,10 +103,10 @@ class MonthChunkTests(unittest.TestCase):
     def test_two_threads_asking_for_one_month_make_one_request(self):
         # a subordinate station's curve and its extremes both want the
         # hi/lo month, and tides.py asks for them on two threads at once
+        import os
         import tempfile
         import threading
         import time
-        from pathlib import Path
         from linecast import _http
         calls = []
         payload = {"predictions": [
@@ -119,7 +119,7 @@ class MonthChunkTests(unittest.TestCase):
 
         results = []
         with tempfile.TemporaryDirectory() as tmp, \
-             patch.object(noaa, "CACHE_DIR", Path(tmp)), \
+             patch.dict(os.environ, {"LINECAST_CACHE_DIR": tmp}), \
              patch.object(_http, "fetch_json", slow_fetch):
             def ask():
                 results.append(noaa.fetch_month("8410875", date(2026, 2, 1), "hilo"))
@@ -134,7 +134,7 @@ class MonthChunkTests(unittest.TestCase):
 
 class StationLookupTests(unittest.TestCase):
     def test_find_nearest_station_uses_location_scoped_cache(self):
-        legacy_cache_file = noaa.CACHE_DIR / "station.json"
+        legacy_cache_file = common.cache_dir() / "station.json"
         stations = [
             {"id": "111", "name": "First Harbor", "lat": 40.0, "lng": -70.0},
             {"id": "222", "name": "Second Harbor", "lat": 47.61, "lng": -122.33},
@@ -189,7 +189,7 @@ class StationLookupTests(unittest.TestCase):
 
     def test_find_nearest_station_uses_stale_cache_on_fetch_error(self):
         lat, lng = 47.61, -122.33
-        cache_file = noaa.CACHE_DIR / f"station_{location_cache_key(lat, lng)}.json"
+        cache_file = common.cache_dir() / f"station_{location_cache_key(lat, lng)}.json"
         stale = {"id": "222", "name": "Second Harbor"}
 
         def fake_read_stale(path):

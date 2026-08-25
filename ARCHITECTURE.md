@@ -85,9 +85,18 @@ Radar frames have their own cache in `_radar_frames.py`, because they
 are prefetched in a particular order (the displayed frame first, then
 the rest of the window) and the animation waits on a fraction of them.
 
-On disk, `_cache.py` writes JSON and bytes under `~/.cache/linecast`,
-with a maximum age per file; `_config.py` reads and writes
-`~/.config/linecast/config.json` (the saved location and units).
+On disk, `_paths.py` decides where files go, and nothing else does.
+The cache root is `LINECAST_CACHE_DIR` if set, else
+`$XDG_CACHE_HOME/linecast`, else `~/.cache/linecast` (on macOS,
+`~/Library/Caches/linecast`, unless an older `~/.cache/linecast` is
+there and the new directory is not). The config root is
+`LINECAST_CONFIG_DIR`, else `$XDG_CONFIG_HOME/linecast`, else
+`~/.config/linecast` on every platform. Both are read from the
+environment each time they are asked for, never frozen at import, so
+a test or a wrapper can move them. `_cache.py` writes JSON and bytes
+under the cache root, with a maximum age per file; `_config.py` reads
+and writes `config.json` under the config root (the saved location
+and units).
 
 ## Where the network is touched
 

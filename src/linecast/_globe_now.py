@@ -27,10 +27,11 @@ import threading
 import time
 
 from linecast import _radar_tiles as tiles
-from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
+from linecast._cache import read_cache, read_stale, write_cache
 from linecast._geo import wrap_lon
 from linecast._globe import _radius, _source_zoom, bilinear_taps, forward
 from linecast._http import fetch_json
+from linecast._paths import cache_dir
 from linecast._png import decode_rgba
 from linecast._radar_basemap import _load_data
 from linecast._scenes import Memo
@@ -159,7 +160,7 @@ def _refresh_cap(timeout):
     Same fallback posture as the mosaic: a stale lattice on a network
     failure beats a clear pole that isn't.
     """
-    cdir = CACHE_ROOT / "maps"
+    cdir = cache_dir("maps")
     cdir.mkdir(parents=True, exist_ok=True)
     cpath = cdir / "polar_clouds.json"
     payload = read_cache(cpath, _CAP_TTL)

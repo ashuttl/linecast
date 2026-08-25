@@ -12,7 +12,7 @@ from typing import Any
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._tides_common import (
-    CACHE_DIR, cached_y_range, month_after, month_start, nearest_station,
+    cache_dir, cached_y_range, month_after, month_start, nearest_station,
     station_coords, y_range_window,
 )
 
@@ -39,7 +39,7 @@ def find_nearest_station(lat: float, lng: float) -> tuple[str | None, str | None
     this works offline and never re-downloads per location.
     """
     return nearest_station(
-        CACHE_DIR / f"station_{location_cache_key(lat, lng)}.json", lat, lng,
+        cache_dir() / f"station_{location_cache_key(lat, lng)}.json", lat, lng,
         fetch_all_stations_noaa, _reference_station_coords,
         lambda s: (str(s.get("id", "")), s.get("name", "")),
     )
@@ -47,7 +47,7 @@ def find_nearest_station(lat: float, lng: float) -> tuple[str | None, str | None
 
 def fetch_station_metadata_noaa(station_id: str) -> dict[str, Any] | None:
     """Fetch NOAA station metadata needed for timezone handling."""
-    cache_file = CACHE_DIR / f"station_meta_{station_id}.json"
+    cache_file = cache_dir() / f"station_meta_{station_id}.json"
     url = (
         "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/"
         f"stations/{station_id}.json?expand=details"
@@ -202,7 +202,7 @@ def fetch_month(station_id: str, first: date, interval: str) -> list[list[Any]] 
     file the first wrote, instead of making the same request itself.
     """
     kind = "hilo" if interval == "hilo" else "pred"
-    cache_file = CACHE_DIR / f"{kind}_{station_id}_{first:%Y%m}.json"
+    cache_file = cache_dir() / f"{kind}_{station_id}_{first:%Y%m}.json"
     last = month_after(first) - timedelta(days=1)
     url = _prediction_url(station_id, first.strftime("%Y%m%d"),
                           last.strftime("%Y%m%d"), interval)
@@ -236,7 +236,7 @@ def fetch_all_stations_noaa() -> list[dict[str, Any]]:
     global _stations_memo
     if _stations_memo is not None:
         return _stations_memo
-    cache_file = CACHE_DIR / "all_stations.json"
+    cache_file = cache_dir() / "all_stations.json"
     url = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions"
     data = _fetch_payload(cache_file, 30 * 86400, url, fallback=[])
     if isinstance(data, list):
@@ -358,4 +358,4 @@ def fetch_y_range(station_id: str, center_date: date) -> tuple[float, float] | N
                 pass
         return found
 
-    return cached_y_range(CACHE_DIR / f"yrange_{station_id}_{key}.json", heights)
+    return cached_y_range(cache_dir() / f"yrange_{station_id}_{key}.json", heights)

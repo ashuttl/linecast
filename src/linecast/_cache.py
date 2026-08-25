@@ -8,8 +8,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-CACHE_ROOT = Path.home() / ".cache" / "linecast"
-
 
 def write_bytes_atomic(path: Path, data: bytes) -> None:
     """Write to a sibling temp file, then publish with os.replace.

@@ -25,14 +25,14 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from linecast._cache import CACHE_ROOT, write_bytes_atomic
+from linecast._cache import write_bytes_atomic
 from linecast._http import (MAX_BODY_BYTES, fetch_bytes,
                             fetch_json_cached, gunzip_limited)
+from linecast._paths import cache_dir
 from linecast._radar_tiles import _lonlat_to_world
 from linecast._runtime import debug_log
 
-TILEJSON_URL = os.environ.get(
-    "LINECAST_VECTOR_TILES_URL", "https://tiles.openfreemap.org/planet")
+DEFAULT_TILEJSON_URL = "https://tiles.openfreemap.org/planet"
 
 ATTRIBUTION = "© OpenMapTiles © OpenStreetMap"
 
@@ -40,10 +40,14 @@ _TILEJSON_TTL = 86400  # the planet rebuilds weekly; a day of staleness is fine
 _MAX_ZOOM_FALLBACK = 14
 
 
+def tilejson_url() -> str:
+    return os.environ.get("LINECAST_VECTOR_TILES_URL", DEFAULT_TILEJSON_URL)
+
+
 def tilejson() -> dict[str, Any] | None:
     """The cached TileJSON dict, or None when unreachable with no cache."""
     return fetch_json_cached(
-        CACHE_ROOT / "maps" / "tilejson.json", _TILEJSON_TTL, TILEJSON_URL)
+        cache_dir("maps", "tilejson.json"), _TILEJSON_TTL, tilejson_url())
 
 
 def tile_info() -> tuple[str, str, int] | None:
@@ -167,7 +171,7 @@ def iter_layer(
 
 
 def _cache_path(version, z, x, y):
-    return CACHE_ROOT / "maps" / "vt" / version / f"{z}_{x}_{y}.pbf"
+    return cache_dir("maps", "vt", version, f"{z}_{x}_{y}.pbf")
 
 
 def fetch_tile(z: int, x: int, y: int, timeout: float = 15) -> bytes | None:

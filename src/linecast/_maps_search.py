@@ -22,8 +22,9 @@ import time
 import urllib.parse
 
 from linecast import user_agent
-from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache
+from linecast._cache import read_cache, read_stale, write_cache
 from linecast._http import fetch_json
+from linecast._paths import cache_dir
 from linecast._runtime import debug_log
 
 PHOTON_URL = "https://photon.komoot.io/api"
@@ -159,7 +160,7 @@ def _photon_extent(extent):
 
 def _cache_path(query, lang):
     key = hashlib.md5(f"{lang}|{query.strip().lower()}".encode()).hexdigest()
-    return CACHE_ROOT / "maps" / "search" / f"{key[:12]}.json"
+    return cache_dir("maps", "search", f"{key[:12]}.json")
 
 
 def _throttle():

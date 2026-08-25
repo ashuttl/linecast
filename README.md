@@ -258,7 +258,16 @@ Completion covers both `linecast <command>` and the standalone commands.
 | `LINECAST_THEME_TIMEOUT_MS` | Terminal palette query timeout in milliseconds (default `100`) |
 | `LINECAST_THEME_POLL` | Seconds between re-reading the terminal palette in live views, so a theme switch re-inks the view in place (default `2`; `0` disables) |
 | `LINECAST_THEME_WATCH` | A file whose modification marks a desktop theme change, prompting an immediate re-read (default: Omarchy's current-theme marker; empty disables) |
+| `LINECAST_CACHE_DIR` | Directory for cached data, used exactly as given |
+| `LINECAST_CONFIG_DIR` | Directory for `config.json`, used exactly as given |
 | `NO_COLOR` | Any non-empty value disables ANSI colours |
+
+Cached data lives in `$XDG_CACHE_HOME/linecast` on Linux, which is
+`~/.cache/linecast` unless you have set `XDG_CACHE_HOME`. On macOS it
+lives in `~/Library/Caches/linecast`; if an older `~/.cache/linecast`
+is already there and the new directory is not, the older one stays in
+use. The settings file is `~/.config/linecast/config.json` on every
+platform (or under `$XDG_CONFIG_HOME`).
 
 </details>
 

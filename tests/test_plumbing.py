@@ -47,7 +47,7 @@ class RadarPruneTests(unittest.TestCase):
                 f.write_bytes(b"x")
             stale_at = 0  # epoch: comfortably past any cutoff
             os.utime(old, (stale_at, stale_at))
-            with patch.object(_radar_tiles, "CACHE_ROOT", Path(tmpdir)):
+            with patch.dict(os.environ, {"LINECAST_CACHE_DIR": tmpdir}):
                 _radar_tiles.prune_tile_cache()
             self.assertFalse(old.exists())
             self.assertTrue(fresh.exists())
@@ -56,7 +56,8 @@ class RadarPruneTests(unittest.TestCase):
     def test_missing_cache_dir_is_fine(self):
         from linecast import _radar_tiles
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.object(_radar_tiles, "CACHE_ROOT", Path(tmpdir) / "nope"):
+            missing = os.path.join(tmpdir, "nope")
+            with patch.dict(os.environ, {"LINECAST_CACHE_DIR": missing}):
                 _radar_tiles.prune_tile_cache()  # must not raise
 
 

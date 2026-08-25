@@ -4,13 +4,17 @@ import os
 import sys
 from datetime import tzinfo
 
-from linecast._cache import CACHE_ROOT, location_cache_key, read_cache, write_cache
+from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._config import saved_location
 from linecast._http import fetch_json, fetch_json_cached
+from linecast._paths import cache_dir
 from linecast._runtime import debug_log
 
-_CACHE_FILE = CACHE_ROOT / "location.json"
 _MAX_AGE = 3600  # 1 hour; implicit IP geolocation should refresh as users move.
+
+
+def _cache_file():
+    return cache_dir("location.json")
 
 
 def get_location() -> tuple[float | None, float | None, str | None]:
@@ -28,7 +32,7 @@ def get_location() -> tuple[float | None, float | None, str | None]:
     if saved is not None:
         return saved["lat"], saved["lng"], saved.get("country", "")
 
-    cached = read_cache(_CACHE_FILE, _MAX_AGE)
+    cached = read_cache(_cache_file(), _MAX_AGE)
     if cached is not None:
         try:
             return cached["lat"], cached["lng"], cached.get("country", "")
@@ -45,7 +49,7 @@ def get_location() -> tuple[float | None, float | None, str | None]:
         if len(parts) == 2:
             lat, lng = float(parts[0]), float(parts[1])
             country = data.get("country", "")
-            write_cache(_CACHE_FILE, {"lat": lat, "lng": lng, "country": country})
+            write_cache(_cache_file(), {"lat": lat, "lng": lng, "country": country})
             return lat, lng, country
     except Exception as exc:
         debug_log(f"geolocation failed: {exc}")
@@ -120,7 +124,7 @@ def location_tzinfo(lat: float | None, lng: float | None) -> tzinfo | None:
     if lat is None or lng is None:
         return machine_tz
 
-    cache_file = CACHE_ROOT / f"timezone_{location_cache_key(lat, lng)}.json"
+    cache_file = cache_dir(f"timezone_{location_cache_key(lat, lng)}.json")
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lng}&timezone=auto"
