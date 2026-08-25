@@ -15,7 +15,8 @@ location, fetches what it needs, and then either prints one frame
 (`--print`, or whenever stdout is not a terminal) or opens the live
 view. `__main__.py` is the `linecast` namespace command that dispatches
 to the same six, plus `location.py` and `units.py` for the saved
-settings and `_completion.py` for the shell completions.
+settings, `doctor.py` for the diagnostic report, and `_completion.py`
+for the shell completions.
 
 The larger commands are split by concern, and the split is the same
 for each of them: the top-level module renders one frame from data it
@@ -126,6 +127,24 @@ user agent. The modules that call it, and who they call:
 
 The public signatures of these modules carry type annotations; the
 rest of the package mostly does not, by choice.
+
+## Diagnostics
+
+A provider, cache or decoder that fails returns its documented
+fallback -- a stale copy, an empty layer, None -- and calls
+`_runtime.log_failure`, which prints one line naming the provider,
+the operation, the host, the exception and the fallback, and prints
+nothing unless `--debug` is on. That is the whole contract: nothing
+reaches stderr in normal use except a user-facing sentence, and a
+`--debug` transcript starts with the version, the Python, the
+platform and where the cache and settings live, then lists every
+fallback taken. URLs in the transcript go through `_http.redact_url`,
+which keeps scheme, host and path and never the query string. The one
+line that prints without `--debug` is the notice after a live session
+in which a background thread crashed; `_live.WorkerWatch` catches it
+with `threading.excepthook` while the alternate screen is up and
+reports it once the terminal is restored. `doctor.py` collects the
+same facts on demand and probes every provider host.
 
 ## Drawing
 

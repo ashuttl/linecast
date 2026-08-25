@@ -4,8 +4,8 @@ The per-command flags are read from the argparse parsers in _runtime,
 so a flag added there reaches every shell's completion without a
 parallel list here. Only the pieces argparse does not know about stay
 in this module: the top-level `linecast` dispatcher (hand-rolled in
-__main__), the location/units subcommands, and the value lists for
-flags whose parsers accept free text.
+__main__), the location/units/doctor subcommands, and the value lists
+for flags whose parsers accept free text.
 """
 
 from __future__ import annotations
@@ -39,11 +39,12 @@ COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps")
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
 TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps",
-                      "location", "units", "completion")
+                      "location", "units", "doctor", "completion")
 LOCATION_SUBCOMMANDS = ("show", "set", "auto", "search")
 LOCATION_FLAGS = ("--help", "-h", "--version")
 UNITS_SUBCOMMANDS = ("show", "metric", "imperial", "auto")
 UNITS_FLAGS = ("--help", "-h", "--version")
+DOCTOR_FLAGS = ("--help", "-h", "--version", "--offline", "--json", "--debug")
 COMPLETION_FLAGS = ("--help", "-h")
 
 _SPACE = " "
@@ -172,6 +173,7 @@ def _bash_script(flags_by_command):
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
     units = _SPACE.join(UNITS_FLAGS)
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
+    doctor = _SPACE.join(DOCTOR_FLAGS)
     shells = _SPACE.join(SHELLS)
 
     declarations = "\n".join(
@@ -283,6 +285,9 @@ _linecast_complete_command() {{
       _linecast_complete_flags {units}
       COMPREPLY+=( $(compgen -W "{units_sub}" -- "$cur") )
       ;;
+    doctor)
+      _linecast_complete_flags {doctor}
+      ;;
     completion)
       _linecast_complete_flags {completion}
       COMPREPLY+=( $(compgen -W "{shells}" -- "$cur") )
@@ -306,7 +311,7 @@ _linecast_complete() {{
 
   cmd="${{COMP_WORDS[1]}}"
   case "$cmd" in
-    weather|tides|sunshine|moon|radar|maps|location|units|completion)
+    weather|tides|sunshine|moon|radar|maps|location|units|doctor|completion)
       _linecast_complete_command "$cmd"
       ;;
   esac
@@ -327,6 +332,7 @@ def _zsh_script(flags_by_command):
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
     units = _SPACE.join(UNITS_FLAGS)
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
+    doctor = _SPACE.join(DOCTOR_FLAGS)
     shells = _SPACE.join(SHELLS)
     standalone = _SPACE.join(flags_by_command)
 
@@ -435,6 +441,9 @@ _linecast_complete_command() {{
       _linecast_add_flags {units}
       compadd -- {units_sub}
       ;;
+    doctor)
+      _linecast_add_flags {doctor}
+      ;;
     completion)
       _linecast_add_flags {completion}
       compadd -- {shells}
@@ -453,7 +462,7 @@ _linecast() {{
     fi
     cmd="${{words[2]}}"
     case "$cmd" in
-      weather|tides|sunshine|moon|radar|maps|location|units|completion)
+      weather|tides|sunshine|moon|radar|maps|location|units|doctor|completion)
         _linecast_complete_command "$cmd"
         ;;
     esac
@@ -504,6 +513,11 @@ def _fish_script(flags_by_command):
         "complete -c linecast -f -n '__fish_seen_subcommand_from location' -l help -s h",
         f"complete -c linecast -f -n '__fish_seen_subcommand_from units' -a '{units_sub}'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from units' -l help -s h",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l help -s h",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l version",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l offline",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l json",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l debug",
     ]
 
     for cmd, flags in flags_by_command.items():
@@ -596,6 +610,8 @@ def _nu_script(flags_by_command):
         ))
         for sub in UNITS_SUBCOMMANDS:
             lines.extend(_nu_extern(f"{prefix}units {sub}", version_only))
+        lines.extend(_nu_extern(f"{prefix}doctor", [
+            *version_only, "    --offline", "    --json", "    --debug"]))
 
     dispatcher("linecast ")
     lines.extend(_nu_extern(

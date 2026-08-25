@@ -288,6 +288,23 @@ def _log_startup():
               f"settings {config_file()}")
 
 
+def doctor_parser():
+    """`linecast doctor` has none of the view flags, so it is not a
+    _base_parser; --version is the same action."""
+    p = argparse.ArgumentParser(
+        prog="linecast doctor",
+        description="Show where linecast keeps its files, what it sees of "
+                    "the terminal, and which providers answer")
+    p.add_argument("--version", action=VersionAction)
+    p.add_argument("--offline", action="store_true",
+                    help="skip the provider probes")
+    p.add_argument("--json", dest="json_mode", action="store_true",
+                    help="the same report as one JSON object, for bug reports")
+    p.add_argument("--debug", action="store_true",
+                    help="show diagnostic info on stderr")
+    return p
+
+
 # ---------------------------------------------------------------------------
 # Live mode resolution
 # ---------------------------------------------------------------------------

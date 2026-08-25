@@ -5,6 +5,12 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Doctor: `linecast doctor` shows which build is running, where the
+  settings file and the cache live and whether the cache can be
+  written, what the terminal supports, which preferences are in force
+  and where each came from, and whether every provider answers.
+  `--json` prints the same report for a bug report; `--offline` skips
+  the probes.
 - Debug: `--debug` now reports every fallback a command takes -- a
   provider that did not answer, a cache file that could not be read,
   a tile that would not decode -- as one line naming the provider,

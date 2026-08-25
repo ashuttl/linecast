@@ -15,6 +15,7 @@ Commands:
   linecast maps        Street and terrain maps: vector streets or hillshaded relief
   linecast location    Show or set a fixed location (overrides IP geolocation)
   linecast units       Show or set preferred units (metric or imperial)
+  linecast doctor      Show where files live, what the terminal supports, and which providers answer
   linecast completion  Print shell completion script (bash, zsh, fish, nushell)
 
 Each command is also installed as a standalone binary (weather, sunshine,
@@ -30,6 +31,7 @@ COMMANDS = {
     "maps": "linecast.maps",
     "location": "linecast.location",
     "units": "linecast.units",
+    "doctor": "linecast.doctor",
 }
 
 

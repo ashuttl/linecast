@@ -239,6 +239,18 @@ use ~/.config/nushell/completions/linecast_completions.nu *
 
 Completion covers both `linecast <command>` and the standalone commands.
 
+### When something looks wrong
+
+```sh
+linecast doctor
+linecast doctor --offline
+linecast doctor --json
+```
+
+`linecast doctor` shows which build is running, where the settings file and the cache are and whether the cache can be written, what the terminal advertised, which units, location and language are in force and where each came from, the environment variables linecast reads (keys shown as "set", never their value), and one line per provider saying whether the host answered. `--offline` skips the probes and `--json` prints the same report as one object, which is the thing to paste into a bug report.
+
+Every command takes `--debug`. It prints, on stderr, one line for each fallback taken along the way: a provider that did not answer, a cache file that could not be read, a tile that would not decode, and what was shown instead. URLs appear as scheme, host and path only. A background task that fails under a live view is reported in one line after the view closes; with `--debug` the traceback is printed in full.
+
 <details>
 <summary><strong>Environment variables</strong></summary>
 

@@ -34,6 +34,8 @@ class CompletionScriptTests(unittest.TestCase):
         self.assertIn('export extern "maps"', script)
         self.assertIn('export extern "location"', script)
         self.assertIn('export extern "units"', script)
+        self.assertIn('export extern "linecast doctor"', script)
+        self.assertIn('export extern "doctor"', script)
         self.assertIn('nu-complete linecast-units-subcommands', script)
         self.assertIn('--metric', script)
         self.assertIn('--theme', script)
@@ -61,7 +63,7 @@ class CompletionScriptTests(unittest.TestCase):
         script = render_completion("fish")
         self.assertIn(
             "complete -c linecast -f -n '__fish_use_subcommand' "
-            "-a 'weather sunshine moon tides radar maps location units completion'",
+            "-a 'weather sunshine moon tides radar maps location units doctor completion'",
             script,
         )
         self.assertIn(
@@ -97,6 +99,28 @@ class CompletionScriptTests(unittest.TestCase):
     def test_invalid_shell_raises(self):
         with self.assertRaises(ValueError):
             render_completion("powershell")
+
+    def test_doctor_flags_track_its_parser(self):
+        """doctor is not a standalone binary, so its flags are listed by
+        hand; they must still be the parser's."""
+        from linecast._completion import DOCTOR_FLAGS
+        parser = _runtime.doctor_parser()
+        expected = {o for a in parser._actions for o in a.option_strings}
+        self.assertEqual(set(DOCTOR_FLAGS), expected)
+        bash = render_completion("bash")
+        zsh = render_completion("zsh")
+        fish = render_completion("fish")
+        nu = render_completion("nu")
+        for flag in expected:
+            if flag.startswith("--"):
+                self.assertIn(
+                    f"complete -c linecast -f -n '__fish_seen_subcommand_from doctor' "
+                    f"-l {flag[2:]}", fish)
+        self.assertIn(f"    doctor)\n      _linecast_complete_flags {' '.join(DOCTOR_FLAGS)}",
+                      bash)
+        self.assertIn(f"    doctor)\n      _linecast_add_flags {' '.join(DOCTOR_FLAGS)}",
+                      zsh)
+        self.assertIn("    --offline\n    --json\n    --debug\n]", nu)
 
 
 def _bash_zsh_flags(script, command):
