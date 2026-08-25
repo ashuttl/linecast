@@ -11,6 +11,7 @@ classifiers = [
     "Environment :: Console",
     "Topic :: Utilities",
     "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
