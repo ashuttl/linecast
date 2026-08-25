@@ -145,7 +145,7 @@ the view you stop on reaches the network.
 
 **Diagnostics.** `_runtime.debug_log(msg)` prints one line on stderr
 when `--debug` is on and nothing otherwise.
-`_runtime.log_failure(provider, operation, exc, url=None, fallback=None)`
+`_runtime.log_failure(provider, operation, exc, url=None, fallback=None, trace=False)`
 is the line every absorbed failure goes through, in the house style:
 
     <provider>: <operation> failed (<host>) -- <ExcType>: <message>; <fallback>
