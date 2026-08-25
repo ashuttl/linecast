@@ -15,7 +15,7 @@
 
 ![linecast weather, sunshine, tides, and radar tiled on an Omarchy desktop](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
 
-linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies, adapts to your terminal theme, and needs no account or API key for its core experience.
+linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies on macOS or Linux, adapts to your terminal theme, and needs no account or API key for its core experience.
 
 | Command | What it shows |
 | --- | --- |
@@ -63,7 +63,20 @@ On Arch, there is a community-maintained [AUR package](https://aur.archlinux.org
 yay -S linecast
 ```
 
-`pipx install linecast` and `pip install linecast` work too. linecast requires Python 3.10+ on macOS or Linux.
+`pipx install linecast` and `pip install linecast` work too. linecast requires Python 3.10+ on macOS, Linux or Windows.
+
+On Windows it pulls in two small packages, because the platform does not
+provide what they stand in for: `tzdata`, since Windows ships no IANA time
+zone database and `zoneinfo` would otherwise find no zones at all, and
+`truststore`, so TLS verification goes through the OS instead of Python's
+partial view of the certificate store — Windows caches trusted roots
+lazily, and a fresh install can hold too few to reach some data sources.
+Neither is installed on macOS or Linux.
+
+Windows Terminal is the one to use: linecast leans on 24-bit colour and
+braille throughout, and reads the mouse through the same ANSI sequences a
+POSIX terminal sends. The Nerd Font icons need a Nerd Font installed and
+selected, as on any platform; `--emoji` swaps them for standard emoji.
 
 ## Take it outside
 
@@ -277,7 +290,8 @@ The six view commands and `linecast doctor` take `--debug`. It prints, on stderr
 | `NO_COLOR` | Any non-empty value disables ANSI colours |
 | `CLICOLOR` / `CLICOLOR_FORCE` | `CLICOLOR=0` disables colour; a non-zero `CLICOLOR_FORCE` keeps it on when output is not a terminal |
 
-Cached data lives in `~/.cache/linecast` on Linux and in
+Cached data lives in `~/.cache/linecast` on Linux and Windows (so
+`C:\Users\you\.cache\linecast` there) and in
 `~/Library/Caches/linecast` on macOS; on a Mac where an older
 `~/.cache/linecast` is already there and the new directory is not, the
 older one stays in use. Setting `XDG_CACHE_HOME` moves it to
