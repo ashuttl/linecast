@@ -474,13 +474,16 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         # Alternate-scroll mode helps terminals that don't report wheel as mouse.
         if is_apple_terminal:
             init += "\033[?1007h"
-    sys.stdout.write(init)
-    sys.stdout.flush()
     watch = WorkerWatch()
     watch.install()
     try:
         _running = True
+        # Cbreak first, then the escapes: on Windows, switching stdin to
+        # VT input resets the terminal's mouse tracking, so enables sent
+        # beforehand are silently dropped.  Order is moot on POSIX.
         term.set_cbreak()
+        sys.stdout.write(init)
+        sys.stdout.flush()
 
         while True:
             # Drain wakeups from before this render: whatever they announced,
