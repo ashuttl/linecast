@@ -107,7 +107,9 @@ def _parse_alert_time(iso_str, runtime=None, tz_name=""):
         day = day_names[dt.weekday()]
         if use_24h:
             return f"{day} {dt.strftime('%H:%M')}"
-        return f"{day} {dt.strftime('%-I%p').replace('AM', 'am').replace('PM', 'pm')}"
+        # %-I is a glibc/BSD extension; Windows' CRT rejects it.
+        hour = dt.hour % 12 or 12
+        return f"{day} {hour}{'am' if dt.hour < 12 else 'pm'}"
     except Exception:
         return ""
 

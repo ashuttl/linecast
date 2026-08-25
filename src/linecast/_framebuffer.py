@@ -87,7 +87,10 @@ def fmt_time_dt(dt, use_24h=False):
     """Format a datetime as a compact time string."""
     if use_24h:
         return dt.strftime("%H:%M")
-    return dt.strftime("%-I:%M%p").lower().replace("am", "a").replace("pm", "p")
+    # %-I is a glibc/BSD extension that Windows' CRT rejects, and %p is
+    # locale-dependent; derive both by hand as fmt_time does just above.
+    hour = dt.hour % 12 or 12
+    return f"{hour}:{dt.minute:02d}{'a' if dt.hour < 12 else 'p'}"
 
 
 def get_terminal_size(fallback=(80, 24)):
