@@ -5,6 +5,13 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Weather: In live mode, `o` opens the alert on screen. After the
+  view refreshed its alerts it could open the wrong one, or none.
+- Plumbing: A map of the code for contributors in ARCHITECTURE.md, a
+  lint check in CI, and type annotations on the modules that talk to
+  the network. The live views share one model now; nothing changes on
+  screen.
+
 ## 1.16.1 — 2026-08-24
 
 - Plumbing: Fix for a failing macOS test
