@@ -49,3 +49,24 @@ exclude = [
   "release-homebrew.sh",
   "uv.lock",
 ]
+
+[tool.ruff]
+# The house lint: ruff's defaults (pyflakes and the pycodestyle errors)
+# plus bugbear and whitespace, at a 100-column line.  Lint, not format —
+# the code is wrapped by hand.  `ruff check src tests scripts` runs it;
+# CI runs the same.
+line-length = 100
+target-version = "py310"
+extend-exclude = ["prototype", ".claude"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "E501", "F", "B", "W"]
+ignore = [
+  "B905",  # zip(strict=) on every zip is noise in code that pairs equal-length rows by construction
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests put the worktree's src on sys.path before importing linecast.
+"tests/*" = ["E402"]
+# The translation tables carry whole sentences; wrapping them helps no one.
+"src/linecast/_*_i18n.py" = ["E501"]
