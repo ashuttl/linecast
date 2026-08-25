@@ -14,6 +14,8 @@ its coast's family, not a default.
 
 from pathlib import Path
 
+from linecast._runtime import log_failure
+
 HUMID, SEMIARID, ARID, POLAR = range(4)
 
 # CC-BY credit for the source classification, kept terse so the
@@ -36,7 +38,8 @@ def _load():
         w, h, rgba = decode_rgba(data)
         # grayscale decodes to RGBA; the family index is the R channel
         _grid = (w, h, bytes(rgba[::4]))
-    except Exception:
+    except Exception as exc:
+        log_failure("png", "climate grid load", exc, fallback="climate shading off")
         _grid = None
     return _grid
 

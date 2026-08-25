@@ -34,6 +34,7 @@ from linecast._http import fetch_json
 from linecast._paths import cache_dir
 from linecast._png import decode_rgba
 from linecast._radar_basemap import _load_data
+from linecast._runtime import log_failure
 from linecast._scenes import Memo
 from linecast._theme import themed
 from linecast.sunshine import _declination
@@ -166,8 +167,10 @@ def _refresh_cap(timeout):
         try:
             payload = _fetch_cap(timeout)
             write_cache(cpath, payload)
-        except Exception:
+        except Exception as exc:
             payload = read_stale(cpath)
+            log_failure("maps/clouds", "polar cap fetch", exc, url="api.open-meteo.com",
+                        fallback="stale cache" if payload is not None else "no polar cap")
     if payload is None or payload == _cloud.get("cap"):
         return False
     with _cloud_lock:
@@ -266,7 +269,9 @@ def refresh(zoom, h, timeout=15):
             return None
         try:
             return decode_rgba(data)
-        except Exception:
+        except Exception as exc:
+            log_failure("maps/clouds", f"satellite tile {z_}/{x}/{y} decode", exc,
+                        fallback="tile left transparent")
             return None
 
     canvas = tiles.stitch_xyz(fetch, _CLOUD_BBOX, z)

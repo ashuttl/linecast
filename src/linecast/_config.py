@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from linecast._paths import config_root
+from linecast._runtime import log_failure
 
 
 def config_file() -> Path:
@@ -16,7 +17,10 @@ def read_config() -> dict[str, Any]:
     """Return the parsed config dict, or {} if missing or corrupt."""
     try:
         return json.loads(config_file().read_text())
-    except (OSError, json.JSONDecodeError):
+    except FileNotFoundError:
+        return {}  # nothing saved yet: the usual case
+    except (OSError, json.JSONDecodeError) as exc:
+        log_failure("config", "read of config.json", exc, fallback="defaults used")
         return {}
 
 

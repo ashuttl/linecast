@@ -5,6 +5,11 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Debug: `--debug` now reports every fallback a command takes -- a
+  provider that did not answer, a cache file that could not be read,
+  a tile that would not decode -- as one line naming the provider,
+  the host and what was shown instead. URLs in the debug output are
+  reduced to scheme, host and path; the query string is never printed.
 - Installer: The `curl | sh` quick start with no arguments works again
   on Debian and Ubuntu, where the script had been exiting without running
   anything.

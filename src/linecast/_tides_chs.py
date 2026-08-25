@@ -10,6 +10,7 @@ from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
+from linecast._runtime import log_failure
 from linecast._tides_common import (
     M_TO_FT, cache_dir, cached_y_range, dedup_sorted, iana_to_abbr,
     label_hilo, local_day_bounds, nearest_station, parse_cached_dt,
@@ -57,6 +58,7 @@ def find_nearest_station_chs(lat: float, lng: float) -> tuple[str | None, str | 
         cache_dir() / f"chs_station_{location_cache_key(lat, lng)}.json", lat, lng,
         fetch_all_stations_chs, _operating_station_coords,
         lambda s: (str(s.get("id", "")), s.get("officialName", "")),
+        tag="tides/chs",
     )
 
 
@@ -233,7 +235,9 @@ def fetch_y_range_chs(station_id: str, center_date: date,
         )
         try:
             data = fetch_json(url, timeout=15)
-        except Exception:
+        except Exception as exc:
+            log_failure("tides/chs", "y-range fetch", exc, url=url,
+                        fallback="auto-scaled axis")
             return None
         if not data or not isinstance(data, list):
             return None

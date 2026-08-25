@@ -23,7 +23,7 @@ from typing import Any
 
 from linecast import user_agent
 from linecast._http import fetch_json
-from linecast._runtime import debug_log
+from linecast._runtime import debug_log, log_failure
 from linecast._scenes import Memo
 
 PROFILES = ("car", "bike", "foot")
@@ -159,11 +159,12 @@ def route(profile: str, origin: tuple[float, float], dest: tuple[float, float],
 
     failure: Exception | None = None
     for url in urls:
+        then = "next router" if url is not urls[-1] else "RouteUnavailable"
         _throttle()
         try:
             body = _fetch(url, timeout)
         except _TRANSPORT as exc:
-            debug_log(f"route fetch failed: {exc}")
+            log_failure("maps/route", "fetch", exc, url=url, fallback=then)
             failure = exc
             continue
         try:
@@ -172,7 +173,7 @@ def route(profile: str, origin: tuple[float, float], dest: tuple[float, float],
             _remember(key, exc)  # don't re-ask for a route that isn't there
             raise
         except _MALFORMED as exc:
-            debug_log(f"route parse failed: {exc}")
+            log_failure("maps/route", "parse", exc, url=url, fallback=then)
             failure = exc
             continue
         _remember(key, result)

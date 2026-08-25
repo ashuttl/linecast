@@ -30,7 +30,7 @@ from linecast._http import (MAX_BODY_BYTES, fetch_bytes,
                             fetch_json_cached, gunzip_limited)
 from linecast._paths import cache_dir
 from linecast._radar_tiles import _lonlat_to_world
-from linecast._runtime import debug_log
+from linecast._runtime import log_failure
 
 DEFAULT_TILEJSON_URL = "https://tiles.openfreemap.org/planet"
 
@@ -199,14 +199,15 @@ def fetch_tile(z: int, x: int, y: int, timeout: float = 15) -> bytes | None:
         if data[:2] == b"\x1f\x8b":
             data = gunzip_limited(data, MAX_BODY_BYTES)
     except Exception as exc:
-        debug_log(f"vector tile {z}/{x}/{y} failed: {exc}")
+        log_failure("maps/vtiles", f"tile {z}/{x}/{y} fetch", exc, url=url,
+                    fallback="no tile")
         return None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         # atomic publish so a concurrent reader never sees a torn file
         write_bytes_atomic(path, data)
     except OSError as exc:
-        debug_log(f"vector tile cache write failed: {exc}")
+        log_failure("cache", f"write of {path.name}", exc, fallback="not cached")
     return data
 
 

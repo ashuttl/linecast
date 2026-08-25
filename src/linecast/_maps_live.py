@@ -27,7 +27,7 @@ from linecast._maps_search import (
 )
 from linecast._maps_views import _zoom_hold
 from linecast._radar_render import bbox_for
-from linecast._runtime import RuntimeConfig, maps_parser, set_current
+from linecast._runtime import RuntimeConfig, log_failure, maps_parser, set_current
 from linecast.maps import (
     MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP, map_cells, render_map,
 )
@@ -142,8 +142,9 @@ class MapApp(LiveApp):
                 gw, hc = map_cells()
                 try:
                     _globe_now.refresh(self.zoom, hc * 4)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    log_failure("maps/clouds", "scheduled refresh", exc,
+                                fallback="previous canvas kept")
             _nudge_repaint()
 
     def on_action(self, key):

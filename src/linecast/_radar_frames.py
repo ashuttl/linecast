@@ -18,6 +18,7 @@ from linecast import _radar_warnings
 from linecast._live import nudge as _nudge  # a landed frame repaints the live view
 from linecast._radar_render import _bbox_key, build_radar_buffer
 from linecast._radar_ui import _get_basemap
+from linecast._runtime import log_failure
 
 MAX_REWIND_MIN = 180  # how far back scrubbing can go (IEM; tile sources
                       # are limited to what their index publishes, ~2 h)
@@ -28,6 +29,11 @@ PLAY_READY = 0.8  # fraction of the frame window that must be buffered
                   # stall playback forever)
 
 _source = None  # active RadarSource, chosen per location in main()
+
+
+def source_tag():
+    """The active source's name for the debug log."""
+    return getattr(_source, "tag", "radar")
 
 # in-memory cache of decoded frames: key -> (radar_buffer, echo_pct)
 _frame_cache = {}
@@ -221,7 +227,9 @@ def _safe_load(bbox, gw, hc, frame, layer="radar"):
     try:
         _load_frame(bbox, gw, hc, frame, layer)
         return True
-    except Exception:
+    except Exception as exc:
+        log_failure(source_tag(), f"prefetch of the {frame.time:%H:%M} frame", exc,
+                    fallback="frame skipped")
         return False
 
 
@@ -231,5 +239,6 @@ def _warm_warnings(frame):
         if _radar_warnings.cached_at(frame.time) is None:
             _radar_warnings.warnings_at(frame.time)
             _nudge()
-    except Exception:
-        pass
+    except Exception as exc:
+        log_failure("radar/warnings", "prefetch", exc, url=_radar_warnings._URL,
+                    fallback="frame shown without warnings")

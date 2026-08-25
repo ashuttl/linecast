@@ -13,6 +13,7 @@ from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
+from linecast._runtime import log_failure
 from linecast._tides_common import (
     M_TO_FT, cache_dir, cached_y_range, dedup_sorted, label_hilo,
     local_day_bounds, nearest_station, parse_cached_dt, parse_iso,
@@ -54,8 +55,10 @@ def fetch_all_stations_qld() -> list[dict[str, Any]]:
     )
     try:
         data = fetch_json(url, timeout=15)
-    except Exception:
+    except Exception as exc:
         stale = read_stale(cache_file)
+        log_failure("tides/qld", "station list fetch", exc, url=url,
+                    fallback="stale cache" if stale else "no stations")
         return stale if stale else []
 
     if not data or not isinstance(data, dict):
@@ -95,6 +98,7 @@ def find_nearest_station_qld(lat: float, lng: float) -> tuple[str | None, str | 
         cache_dir() / f"qld_station_{location_cache_key(lat, lng)}.json", lat, lng,
         fetch_all_stations_qld, station_coords,
         lambda s: (s["name"], s["name"]),
+        tag="tides/qld",
     )
 
 

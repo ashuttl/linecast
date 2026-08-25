@@ -22,7 +22,9 @@ import time as _t
 from linecast import _live
 from linecast._graphics import bg, fg, get_terminal_size, visible_len
 from linecast._location import resolve_location
-from linecast._runtime import WeatherRuntime, install_banner, set_current, weather_parser
+from linecast._runtime import (
+    WeatherRuntime, install_banner, log_failure, set_current, weather_parser,
+)
 from linecast._weather_i18n import (
     WMO_NAMES,
     WMO_NAMES_I18N,
@@ -428,7 +430,10 @@ def main():
                             lat, lng, date.today(),
                             celsius=runtime.celsius, metric=runtime.metric,
                         )
-                    except Exception:
+                    except Exception as exc:
+                        log_failure("weather/climate", "historical averages", exc,
+                                    url="archive-api.open-meteo.com",
+                                    fallback="no comparison")
                         return None
                 fut_hist = pool.submit(_hist)
 

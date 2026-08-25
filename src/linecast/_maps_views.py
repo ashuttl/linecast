@@ -23,7 +23,7 @@ from linecast._maps_paint import (
     BORDER_STROKE, RIVER_STROKE, build_terrain_buffer,
 )
 from linecast._radar_basemap import _edge_dots
-from linecast._runtime import debug_log
+from linecast._runtime import log_failure
 from linecast._scenes import FetchHold, Memo, SceneCache
 
 ZOOM_SETTLE = 0.3        # seconds of zoom quiet before a fetch may start
@@ -133,7 +133,7 @@ def _tile_water(bbox, gw, hc):
         return _maps_streets.build_water_view(bbox, gw, hc, tiles, band,
                                               RIVER_STROKE)
     except Exception as exc:
-        debug_log(f"terrain inland water unavailable: {exc}")
+        log_failure("maps/vtiles", "inland water", exc, fallback="sea-level-only terrain")
         return None, None, None, None
 
 
@@ -146,7 +146,7 @@ def _builtup_layer(bbox, gw, hc):
     try:
         return _builtup.builtup_grid(bbox, gw, hc * 2)
     except Exception as exc:
-        debug_log(f"builtup layer unavailable: {exc}")
+        log_failure("maps/builtup", "layer", exc, fallback="layer off")
         return None
 
 
@@ -163,9 +163,12 @@ class TerrainView(namedtuple("TerrainView", "elev coast water rivers cover")):
 
 _EMPTY_TERRAIN = TerrainView(None, None, None, None, None)
 # the three registers' scenes, all gated by the zoom hold
-_elev_cache = SceneCache(_EMPTY_TERRAIN, held=_zoom_hold.held)  # -> TerrainView
-_street_cache = SceneCache((None, None, None), held=_zoom_hold.held)  # -> (fills, layer, labels)
-_globe_cache = SceneCache(held=_zoom_hold.held)   # (lat, lon, zoom, w, h) -> GlobeView
+_elev_cache = SceneCache(_EMPTY_TERRAIN, held=_zoom_hold.held,
+                         name="terrain")  # -> TerrainView
+_street_cache = SceneCache((None, None, None), held=_zoom_hold.held,
+                           name="street")  # -> (fills, layer, labels)
+_globe_cache = SceneCache(held=_zoom_hold.held,
+                          name="globe")   # (lat, lon, zoom, w, h) -> GlobeView
 
 
 def _get_elevation(bbox, gw, hc, block):
@@ -287,8 +290,8 @@ def _get_clouds(zoom, hc, block):
     if block and canvas is None:
         try:
             _globe_now.refresh(zoom, hc * 4)
-        except Exception:
-            pass
+        except Exception as exc:
+            log_failure("maps/clouds", "refresh", exc, fallback="no cloud layer")
         return _globe_now.peek()
     if canvas is not None and not _globe_now.stale():
         return canvas
@@ -300,7 +303,9 @@ def _get_clouds(zoom, hc, block):
     def worker():
         try:
             changed = _globe_now.refresh(zoom, hc * 4)
-        except Exception:
+        except Exception as exc:
+            log_failure("maps/clouds", "background refresh", exc,
+                        fallback="previous canvas kept")
             changed = False
         with _clouds_lock:
             _clouds_pending[0] = False

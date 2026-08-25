@@ -26,7 +26,7 @@ from linecast._cache import write_bytes_atomic
 from linecast._http import fetch_bytes, fetch_bytes_cached
 from linecast._paths import cache_dir
 from linecast._png import decode_rgba
-from linecast._runtime import debug_log
+from linecast._runtime import log_failure
 
 _TILE_SIZE = 256
 _TILE_WORKERS = 12   # tile fetches in flight across the whole process
@@ -41,13 +41,14 @@ RAW_COLOR = 0
 
 class Provider:
     """One RainViewer-v2-protocol tile service."""
-    __slots__ = ("name", "index_url", "color", "options", "max_zoom")
+    __slots__ = ("name", "index_url", "color", "options", "max_zoom", "tag")
 
     name: str
     index_url: str
     color: int
     options: str
     max_zoom: int
+    tag: str
 
     def __init__(self, name: str, index_url: str, color: int, options: str,
                  max_zoom: int) -> None:
@@ -56,6 +57,11 @@ class Provider:
         self.color = color          # colour scheme id baked into tile pixels
         self.options = options      # {smooth}_{snow}
         self.max_zoom = max_zoom
+        # the provider's name in the debug log (see _runtime.log_failure)
+        self.tag = _TAGS.get(name.split("-", 1)[0], "radar/" + name)
+
+
+_TAGS = {"rv": "radar/rainviewer", "lwxr": "radar/librewxr"}
 
 
 def rainviewer_provider() -> Provider:
@@ -111,7 +117,7 @@ def prune_tile_cache(max_age: float = _PRUNE_MAX_AGE) -> None:
                 except OSError:
                     pass  # a concurrent radar may have pruned it first
     except OSError as exc:
-        debug_log(f"radar: prune skipped {root.name} -- {exc}")
+        log_failure("cache", f"prune of {root.name}", exc, fallback="skipped")
 
 
 def fetch_index(provider: Provider, timeout: float = 15) -> dict[str, Any]:
@@ -124,13 +130,14 @@ def fetch_index(provider: Provider, timeout: float = 15) -> dict[str, Any]:
         if path.exists() and (time.time() - path.stat().st_mtime) < _INDEX_TTL:
             return json.loads(path.read_text())
     except (OSError, ValueError) as exc:
-        debug_log(f"radar: index read failed {path.name} -- {exc}")
+        log_failure("cache", f"read of {path.name}", exc, fallback="refetching")
     try:
         data = fetch_bytes(provider.index_url, timeout=timeout)
         index = json.loads(data)
     except Exception as exc:
-        debug_log(f"{provider.name} index failed: {exc}")
         stale = _stale_index(path)
+        log_failure(provider.tag, "index fetch", exc, url=provider.index_url,
+                    fallback="stale index" if stale is not None else "raised")
         if stale is not None:
             return stale
         raise
@@ -138,7 +145,7 @@ def fetch_index(provider: Provider, timeout: float = 15) -> dict[str, Any]:
         path.parent.mkdir(parents=True, exist_ok=True)
         write_bytes_atomic(path, data)
     except OSError as exc:
-        debug_log(f"radar: index write failed {path.name} -- {exc}")
+        log_failure("cache", f"write of {path.name}", exc, fallback="not cached")
     return index
 
 
@@ -148,7 +155,7 @@ def _stale_index(path):
         if path.exists():
             return json.loads(path.read_text())
     except (OSError, ValueError) as exc:
-        debug_log(f"radar: stale index unreadable {path.name} -- {exc}")
+        log_failure("cache", f"stale read of {path.name}", exc, fallback="no index")
     return None
 
 
@@ -209,7 +216,9 @@ def reproject(provider: Provider, host: str, path: str, bbox: tuple[float, float
             return None
         try:
             return decode_rgba(data)
-        except Exception:
+        except Exception as exc:
+            log_failure(provider.tag, f"tile {z_}/{x}/{y} decode", exc,
+                        fallback="tile left transparent")
             return None
 
     return reproject_xyz(fetch, bbox, w, h, z, smooth=smooth)

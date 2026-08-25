@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from linecast._cache import read_cache, read_stale, write_bytes_atomic, write_cache
-from linecast._runtime import debug_log
+from linecast._runtime import debug_enabled, debug_log, log_failure
 
 if TYPE_CHECKING:
     import http.client
@@ -72,6 +72,31 @@ def gunzip_limited(data: bytes, limit: int) -> bytes:
     if d.unconsumed_tail:
         raise ValueError(f"decompressed body exceeds cap of {limit} bytes")
     return out
+
+
+def redact_url(url: str) -> str:
+    """The URL as the debug log may show it: scheme, host and path.
+
+    The query goes -- it carries coordinates, search text and station
+    ids today and would carry a key the day a provider wanted one --
+    and is shown as "?..." so the reader knows there was one.  The
+    fragment goes too, and the host is the hostname alone (with its
+    port), never the netloc, so the basic-auth userinfo of a self-hosted
+    tile server never reaches a transcript.  A string that is not a URL
+    comes back with only its query trimmed.
+    """
+    parts = urllib.parse.urlsplit(url)
+    host = parts.hostname or ""
+    if ":" in host:
+        host = f"[{host}]"  # an IPv6 literal, as it was written
+    try:
+        port = parts.port
+    except ValueError:
+        port = None
+    if host and port is not None:
+        host = f"{host}:{port}"
+    query = "..." if parts.query else ""
+    return urllib.parse.urlunsplit((parts.scheme, host, parts.path, query, ""))
 
 
 class HTTPError(OSError):
@@ -158,7 +183,8 @@ def _request(url, headers, timeout, limit):
     parts = urllib.parse.urlsplit(url)
     scheme = parts.scheme.lower()
     if scheme not in ("http", "https"):
-        raise ValueError(f"unsupported URL scheme: {url}")
+        raise ValueError(f"unsupported URL scheme {scheme or '(none)'!r} "
+                         f"for host {parts.hostname or '(none)'!r}")
     key = (scheme, parts.hostname, parts.port)
     selector = parts.path or "/"
     if parts.query:
@@ -173,7 +199,7 @@ def _request(url, headers, timeout, limit):
         except _stale_connection_errors() as exc:
             _drop(key)
             if reused and attempt == 0:
-                debug_log(f"reconnecting to {parts.netloc}: {exc}")
+                debug_log(f"reconnecting to {parts.hostname}: {exc}")
                 continue
             raise
         except BaseException:
@@ -191,7 +217,8 @@ def fetch_bytes(url: str, headers: dict[str, str] | None = None,
     a body past the limit.  file:// URLs read the local file, as they
     did under urllib.
     """
-    debug_log(f"fetch {url}")
+    if debug_enabled():
+        debug_log(f"fetch {redact_url(url)}")
     from linecast import user_agent
     hdrs = {"User-Agent": user_agent(), "Connection": "keep-alive"}
     if headers:
@@ -210,7 +237,8 @@ def fetch_bytes(url: str, headers: dict[str, str] | None = None,
         if not target:
             raise HTTPError(url, status, reason, resp_headers, body)
         url = urllib.parse.urljoin(url, target)
-        debug_log(f"redirect -> {url}")
+        if debug_enabled():
+            debug_log(f"redirect -> {redact_url(url)}")
     raise HTTPError(url, status, "too many redirects", resp_headers, body)
 
 
@@ -233,17 +261,13 @@ def fetch_json_cached(cache_file: Path, max_age: float, url: str,
     try:
         data = fetch_json(url, headers=headers, timeout=timeout)
     except Exception as exc:
-        debug_log(f"fetch failed: {url} — {exc}")
         stale = read_stale(cache_file)
-        if stale is not None:
-            debug_log(f"using stale cache: {cache_file.name}")
-            return stale
-        return fallback
+        log_failure("http", "fetch", exc, url=url,
+                    fallback=(f"stale cache {cache_file.name}"
+                              if stale is not None else "fallback value"))
+        return stale if stale is not None else fallback
 
-    try:
-        write_cache(cache_file, data)
-    except OSError as exc:
-        debug_log(f"cache: write failed {cache_file.name} -- {exc}")
+    write_cache(cache_file, data)
     return data
 
 
@@ -259,24 +283,29 @@ def fetch_bytes_cached(cache_file: Path, max_age: float | None, url: str,
                 max_age is None
                 or time.time() - cache_file.stat().st_mtime < max_age):
             return cache_file.read_bytes()
-    except OSError:
-        pass
+    except OSError as exc:
+        log_failure("cache", f"read of {cache_file.name}", exc,
+                    fallback="refetching")
 
     try:
         data = fetch_bytes(url, headers=headers, timeout=timeout)
     except Exception as exc:
-        debug_log(f"fetch failed: {url} — {exc}")
+        stale = None
         try:
             if cache_file.exists():
-                debug_log(f"using stale cache: {cache_file.name}")
-                return cache_file.read_bytes()
-        except OSError:
-            pass
-        return None
+                stale = cache_file.read_bytes()
+        except OSError as stale_exc:
+            log_failure("cache", f"stale read of {cache_file.name}", stale_exc,
+                        fallback="no data")
+        log_failure("http", "fetch", exc, url=url,
+                    fallback=(f"stale cache {cache_file.name}"
+                              if stale is not None else "none"))
+        return stale
 
     try:
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         write_bytes_atomic(cache_file, data)
     except OSError as exc:
-        debug_log(f"cache write failed: {cache_file.name} — {exc}")
+        log_failure("cache", f"write of {cache_file.name}", exc,
+                    fallback="not cached")
     return data

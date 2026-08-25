@@ -11,6 +11,7 @@ from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
+from linecast._runtime import log_failure
 from linecast._tides_common import (
     cache_dir, cached_y_range, month_after, month_start, nearest_station,
     station_coords, y_range_window,
@@ -42,6 +43,7 @@ def find_nearest_station(lat: float, lng: float) -> tuple[str | None, str | None
         cache_dir() / f"station_{location_cache_key(lat, lng)}.json", lat, lng,
         fetch_all_stations_noaa, _reference_station_coords,
         lambda s: (str(s.get("id", "")), s.get("name", "")),
+        tag="tides/noaa",
     )
 
 
@@ -153,8 +155,9 @@ def _fetch_prediction_rows(cache_file, url, row_builder):
         # isn't served as fresh cache for the next 24 hours.
         try:
             cache_file.unlink(missing_ok=True)
-        except OSError:
-            pass
+        except OSError as exc:
+            log_failure("cache", f"delete of {cache_file.name}", exc,
+                        fallback="empty payload may be served as fresh")
         return None
 
     rows = []
@@ -348,7 +351,9 @@ def fetch_y_range(station_id: str, center_date: date) -> tuple[float, float] | N
                               end.strftime("%Y%m%d"), "hilo")
         try:
             data = fetch_json(url, timeout=15)
-        except Exception:
+        except Exception as exc:
+            log_failure("tides/noaa", "y-range fetch", exc, url=url,
+                        fallback="auto-scaled axis")
             return None
         found = []
         for prediction in (data.get("predictions", []) if data else []):

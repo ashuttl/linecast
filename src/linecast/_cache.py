@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from linecast._runtime import debug_log
+from linecast._runtime import log_failure
 
 
 def write_bytes_atomic(path: Path, data: bytes) -> None:
@@ -36,7 +36,7 @@ def read_cache(path: Path, max_age: float) -> Any:
             return None
         return json.loads(path.read_text())
     except (OSError, ValueError) as exc:
-        debug_log(f"cache: read failed {path.name} -- {exc}")
+        log_failure("cache", f"read of {path.name}", exc, fallback="treated as miss")
         return None
 
 
@@ -47,7 +47,7 @@ def read_stale(path: Path) -> Any:
             return None
         return json.loads(path.read_text())
     except (OSError, ValueError) as exc:
-        debug_log(f"cache: read failed {path.name} -- {exc}")
+        log_failure("cache", f"stale read of {path.name}", exc, fallback="no stale copy")
         return None
 
 
@@ -61,7 +61,7 @@ def write_cache(path: Path, data: Any) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         write_bytes_atomic(path, json.dumps(data).encode())
     except OSError as exc:
-        debug_log(f"cache: write failed {path.name} -- {exc}")
+        log_failure("cache", f"write of {path.name}", exc, fallback="not cached")
 
 
 def location_cache_key(lat: float, lng: float) -> str:

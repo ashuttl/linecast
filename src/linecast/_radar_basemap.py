@@ -19,6 +19,7 @@ import os
 import unicodedata
 
 from linecast import _theme
+from linecast._runtime import log_failure
 from linecast._theme import is_light_theme, lerp_rgb
 
 # braille dot bit for (col, row) within a 2x4 cell — matches _braille.py
@@ -97,8 +98,10 @@ def _load_marshalled(path):
     try:
         with open(cached, "rb") as fh:
             return marshal.load(fh)
-    except Exception:
-        pass
+    except FileNotFoundError:
+        pass  # first run: not marshalled yet
+    except Exception as exc:
+        log_failure("cache", f"read of {cached.name}", exc, fallback="parsing basemap.json.gz")
     with gzip.open(path, "rt", encoding="utf-8") as fh:
         data = json.load(fh)
     try:
@@ -106,8 +109,8 @@ def _load_marshalled(path):
         for old in cached.parent.glob("basemap_*.marshal"):
             old.unlink(missing_ok=True)
         _cache.write_bytes_atomic(cached, marshal.dumps(data))
-    except Exception:
-        pass
+    except Exception as exc:
+        log_failure("cache", f"write of {cached.name}", exc, fallback="not cached")
     return data
 
 
@@ -395,7 +398,10 @@ class Basemap(DotLayer):
                 fmt, sea, dots, classes = marshal.load(fh)
             if fmt != self._CACHE_FMT:
                 return False
-        except Exception:
+        except FileNotFoundError:
+            return False  # this size not built yet
+        except Exception as exc:
+            log_failure("cache", "read of the built basemap", exc, fallback="rebuilding")
             return False
         gw, hc = self.graph_w, self.height_cells
         spy_h = hc * 2
@@ -428,8 +434,8 @@ class Basemap(DotLayer):
                          key=lambda p: p.stat().st_mtime, reverse=True)
             for stale in old[24:]:
                 stale.unlink(missing_ok=True)
-        except Exception:
-            pass
+        except Exception as exc:
+            log_failure("cache", "write of the built basemap", exc, fallback="not cached")
 
     def _fill_polys(self, land, poly_groups, value):
         """Scanline-fill each polygon (a list of rings) into ``land`` at dot

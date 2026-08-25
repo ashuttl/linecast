@@ -8,7 +8,7 @@ from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._config import saved_location
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._paths import cache_dir
-from linecast._runtime import debug_log
+from linecast._runtime import log_failure
 
 _MAX_AGE = 3600  # 1 hour; implicit IP geolocation should refresh as users move.
 
@@ -51,7 +51,8 @@ def get_location() -> tuple[float | None, float | None, str | None]:
         lat, lng = float(parts[0]), float(parts[1])
         country = data.get("country", "")
     except Exception as exc:
-        debug_log(f"geolocation failed: {exc}")
+        log_failure("location/ipinfo", "geolocation", exc, url="https://ipinfo.io/json",
+                    fallback="no location")
         return None, None, None
 
     # the answer is in hand; keeping it is a separate, best-effort matter
@@ -144,5 +145,5 @@ def location_tzinfo(lat: float | None, lng: float | None) -> tzinfo | None:
             from zoneinfo import ZoneInfo
             return ZoneInfo(tz_name)
         except Exception as exc:
-            debug_log(f"timezone lookup failed for {tz_name}: {exc}")
+            log_failure("tz", f"lookup of {tz_name}", exc, fallback="machine timezone")
     return machine_tz

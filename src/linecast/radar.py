@@ -54,7 +54,7 @@ from linecast._radar_ui import (  # noqa: F401
     _fmt_expire, _fmt_local, _get_basemap, _panned_place, _shift_grid,
     _theme_menu_overlay, _timeline_bar,
 )
-from linecast._runtime import use_metric
+from linecast._runtime import log_failure, use_metric
 from linecast._graphics import visible_len
 from linecast._spinner import SPINNER_FRAMES
 
@@ -63,7 +63,7 @@ from linecast._spinner import SPINNER_FRAMES
 LAYERS = ("radar", "sat")
 
 # condition-layer state: fetched fields and rendered temp tints, both small
-_field_cache = SceneCache(keep=5, max_age=1800)  # field_key -> Field
+_field_cache = SceneCache(keep=5, max_age=1800, name="condition field")  # field_key -> Field
 _temp_cache = Memo(keep=7)  # (bbox, w, h, field id, hour) -> sub-pixel tint buffer
 
 LAYER_NAMES = {"temp": "temp", "temperature": "temp", "t": "temp",
@@ -95,7 +95,8 @@ def _get_field(bbox, block):
     try:
         return _field_cache.get(key, block,
                                 lambda: _radar_layers.fetch_field(bbox))
-    except Exception:
+    except Exception as exc:
+        log_failure("radar/layers", "condition field", exc, fallback="temp/wind layers off")
         return None
 
 
@@ -162,6 +163,8 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
             radar, echo = _load_frame(bbox, graph_w, height_cells, frame,
                                       layer)
         except Exception as exc:
+            log_failure(_radar_frames.source_tag(), "frame load", exc,
+                        fallback="blank frame")
             radar = [[None] * graph_w for _ in range(height_cells * 2)]
             echo, err = 0.0, str(exc)
     else:
@@ -200,7 +203,9 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         if block:
             try:
                 warns = _radar_warnings.warnings_at(when)
-            except Exception:
+            except Exception as exc:
+                log_failure("radar/warnings", "fetch", exc, url=_radar_warnings._URL,
+                            fallback="no warning outlines")
                 warns = None
         else:
             warns = _radar_warnings.cached_at(when)

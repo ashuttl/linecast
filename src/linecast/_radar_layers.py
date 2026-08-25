@@ -24,6 +24,7 @@ from linecast._cache import read_cache, read_stale, write_cache
 from linecast._color import lerp, interp_stops, BG_PRIMARY
 from linecast._http import fetch_json
 from linecast._paths import cache_dir
+from linecast._runtime import log_failure
 
 # lattice resolution: 10x6 keeps one fetch cheap while resolving synoptic
 # gradients (~0.6° spacing at the default 6° zoom)
@@ -147,8 +148,10 @@ def fetch_field(bbox, timeout=10):
            "&past_days=1&forecast_days=2&timezone=UTC&wind_speed_unit=kmh")
     try:
         results = fetch_json(url, timeout=timeout)
-    except Exception:
+    except Exception as exc:
         stale = read_stale(cpath)  # network down: an old field beats none
+        log_failure("radar/layers", "field fetch", exc, url=url,
+                    fallback="stale field" if stale is not None else "raised")
         if stale is not None:
             return Field(stale)
         raise

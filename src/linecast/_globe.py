@@ -30,6 +30,7 @@ from linecast._png import decode_rgba
 from linecast._radar_basemap import (
     CITY, CITY_LABEL, DotLayer, _cell_width, _load_data, _localized)
 from linecast._radar_tiles import _TILE_SIZE, stitch_xyz
+from linecast._runtime import log_failure
 from linecast._scenes import Memo
 from linecast._theme import themed
 
@@ -215,7 +216,10 @@ def _canvas_read(path):
         if len(canvas) != cw * ch * 4:
             return None
         return canvas, cw, ch, org_x, org_y, world
-    except Exception:
+    except FileNotFoundError:
+        return None  # not baked yet: the usual cold-cache case
+    except Exception as exc:
+        log_failure("cache", f"read of {path.name}", exc, fallback="restitching")
         return None
 
 
@@ -241,8 +245,8 @@ def _canvas_store(z, hit):
         _cache.write_bytes_atomic(
             path, zlib.compress(struct.pack(">5I", cw, ch, org_x, org_y,
                                             world) + bytes(canvas), 6))
-    except Exception:
-        pass
+    except Exception as exc:
+        log_failure("cache", f"write of globe canvas z{z}", exc, fallback="not cached")
 
 
 def _world_canvas(z, timeout):
@@ -262,7 +266,9 @@ def _world_canvas(z, timeout):
                 return None
             try:
                 return decode_rgba(data)
-            except Exception:
+            except Exception as exc:
+                log_failure("maps/elevation", f"globe tile {z_}/{x}/{y} decode", exc,
+                            fallback="hole left, canvas not cached")
                 missed[0] = True
                 return None
 

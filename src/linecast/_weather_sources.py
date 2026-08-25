@@ -8,7 +8,7 @@ from typing import Any
 from linecast._cache import read_cache, write_cache, location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._paths import cache_dir
-from linecast._runtime import WeatherRuntime, current_runtime
+from linecast._runtime import WeatherRuntime, current_runtime, log_failure
 
 
 def _location_from_timezone(tz_str):
@@ -25,8 +25,8 @@ def _local_now_for_data(data):
         try:
             from zoneinfo import ZoneInfo
             return datetime.now(ZoneInfo(tz_name)).replace(tzinfo=None)
-        except Exception:
-            pass
+        except Exception as exc:
+            log_failure("tz", f"lookup of {tz_name}", exc, fallback="utc_offset_seconds used")
     try:
         offset_sec = int(data.get("utc_offset_seconds", 0))
         return (datetime.now(timezone.utc) + timedelta(seconds=offset_sec)).replace(tzinfo=None)
@@ -65,7 +65,9 @@ def _reverse_geocode(lat, lng, lang=None):
             display = name
         else:
             display = ""
-    except Exception:
+    except Exception as exc:
+        log_failure("location/geocoder", "reverse geocode", exc,
+                    url="nominatim.openstreetmap.org", fallback="unnamed location")
         return "", "", {}
 
     # the answer is in hand; keeping it is a separate, best-effort matter
@@ -933,6 +935,7 @@ def _geocode_query(query, lang="en"):
     try:
         data = fetch_json(url, timeout=10)
     except Exception as exc:
+        log_failure("location/geocoder", "geocode", exc, url=url, fallback="exiting")
         print(f"Search failed: {exc}", file=sys.stderr)
         sys.exit(1)
     return data.get("results", [])

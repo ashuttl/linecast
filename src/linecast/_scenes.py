@@ -22,6 +22,7 @@ import threading
 import time
 
 from linecast._live import nudge
+from linecast._runtime import log_failure
 
 
 class Memo:
@@ -113,13 +114,15 @@ class SceneCache:
     clock, not monotonic, so a laptop that slept through the age wakes
     to a miss.  The cache keeps `keep` views, oldest out first: a pan
     is a few neighbours, and a view older than that is not coming back.
+    `name` is what the debug log calls a worker that failed.
     """
 
-    def __init__(self, empty=None, keep=4, held=None, max_age=None):
+    def __init__(self, empty=None, keep=4, held=None, max_age=None, name="scene"):
         self.empty = empty
         self.keep = keep
         self.held = held
         self.max_age = max_age
+        self.name = name
         self._views = {}      # key -> (time.time() stamp, view)
         self._pending = set()
         self._lock = threading.Lock()
@@ -172,7 +175,8 @@ class SceneCache:
         def worker():
             try:
                 hit = load()
-            except Exception:
+            except Exception as exc:
+                log_failure("worker", f"{self.name} load", exc, fallback="view stays empty")
                 hit = None
             with self._lock:
                 self._pending.discard(key)

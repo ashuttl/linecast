@@ -15,6 +15,7 @@ from typing import Any
 from linecast import _paths
 from linecast._cache import read_cache, read_stale, write_cache
 from linecast._geo import haversine_nm
+from linecast._runtime import log_failure
 
 M_TO_FT = 1 / 0.3048
 NEAREST_STATION_CACHE_MAX_AGE = 3600
@@ -111,6 +112,7 @@ def nearest_station(
     load_stations: Callable[[], list[dict[str, Any]] | None],
     coords: Callable[[dict[str, Any]], tuple[float, float] | None],
     ident: Callable[[dict[str, Any]], tuple[str, str]],
+    tag: str = "tides",
 ) -> tuple[str | None, str | None]:
     """Pick the closest station within 100 nm, cached per location for an hour.
 
@@ -118,7 +120,8 @@ def nearest_station(
     station to (lat, lng), or None to leave it out; *ident* maps the chosen
     station to (id, name). When the list cannot be had (empty, or the
     loader raised) the last pick for this location is reused if there is
-    one, so the lookup works offline.
+    one, so the lookup works offline.  *tag* names the provider in the
+    debug log.
     """
     cached = read_cache(cache_file, NEAREST_STATION_CACHE_MAX_AGE)
     if cached:
@@ -126,8 +129,9 @@ def nearest_station(
 
     try:
         stations = load_stations()
-    except Exception:
+    except Exception as exc:
         stations = None
+        log_failure(tag, "station list", exc, fallback="last pick reused if any")
     if not stations:
         stale = read_stale(cache_file)
         if stale:
@@ -240,7 +244,8 @@ def tz_offset_hours(tz_code: str) -> float:
         from zoneinfo import ZoneInfo
         now = datetime.now(ZoneInfo(tz_code))
         return now.utcoffset().total_seconds() / 3600
-    except Exception:
+    except Exception as exc:
+        log_failure("tz", f"lookup of {tz_code}", exc, fallback="offset 0")
         return 0
 
 

@@ -21,7 +21,7 @@ from linecast._http import fetch_bytes
 from linecast._paths import cache_dir
 from linecast._png import DecodeMemo, decode_rgba
 from linecast._radar_tiles import _pick_zoom, reproject_xyz
-from linecast._runtime import debug_log
+from linecast._runtime import log_failure
 
 MAX_ZOOM = 9  # the published pyramid's floor: ~300 m per pixel, plenty for a tint
 
@@ -65,21 +65,23 @@ def _fetch_tile(z, x, y, timeout=15):
             if time.time() - cpath.stat().st_mtime < 30 * 86400:
                 return None  # zero bytes = cached "nothing built here"
     except OSError as exc:
-        debug_log(f"builtup: cache read failed {cpath.name} -- {exc}")
+        log_failure("cache", f"read of {cpath.name}", exc, fallback="refetching")
+    url = _tile_url(z, x, y)
     try:
-        data = fetch_bytes(_tile_url(z, x, y), timeout=timeout)
+        data = fetch_bytes(url, timeout=timeout)
     except Exception as exc:
         miss = getattr(exc, "code", None) == 404 or isinstance(
             exc, FileNotFoundError) or "No such file" in str(exc)
         if not miss:
-            debug_log(f"builtup tile {z}/{x}/{y} failed: {exc}")
+            log_failure("maps/builtup", f"tile {z}/{x}/{y} fetch", exc, url=url,
+                        fallback="no tile")
             return None
         data = b""  # absence means zero; remember it
     try:
         cpath.parent.mkdir(parents=True, exist_ok=True)
         write_bytes_atomic(cpath, data)
     except OSError as exc:
-        debug_log(f"builtup: cache write failed {cpath.name} -- {exc}")
+        log_failure("cache", f"write of {cpath.name}", exc, fallback="not cached")
     return data or None
 
 
@@ -99,7 +101,9 @@ def builtup_grid(bbox: tuple[float, float, float, float], w: int, h: int,
             return None
         try:
             return _decoded.get((z_, x, y), data, decode_rgba)
-        except Exception:
+        except Exception as exc:
+            log_failure("maps/builtup", f"tile {z_}/{x}/{y} decode", exc,
+                        fallback="tile left empty")
             return None
 
     _, _, rgba = reproject_xyz(fetch, bbox, w, h, z)

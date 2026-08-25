@@ -25,7 +25,7 @@ from linecast import user_agent
 from linecast._cache import read_cache, read_stale, write_cache
 from linecast._http import fetch_json
 from linecast._paths import cache_dir
-from linecast._runtime import debug_log
+from linecast._runtime import debug_log, log_failure
 
 PHOTON_URL = "https://photon.komoot.io/api"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
@@ -114,13 +114,15 @@ def photon_search(query: str, lat: float, lon: float, zoom: float, lang: str = "
         data = _get_json(url, headers={"User-Agent": user_agent()},
                          timeout=timeout)
     except Exception as exc:
-        debug_log(f"photon search failed: {exc}")
+        log_failure("maps/search", "photon fetch", exc, url=PHOTON_URL,
+                    fallback="SearchUnavailable")
         raise SearchUnavailable(str(exc)) from exc
     try:
         features = data.get("features") or []
         return [r for r in (_photon_result(f) for f in features) if r]
     except (AttributeError, TypeError, ValueError, KeyError) as exc:
-        debug_log(f"photon response unreadable: {exc}")
+        log_failure("maps/search", "photon parse", exc, url=PHOTON_URL,
+                    fallback="SearchUnavailable")
         raise SearchUnavailable(str(exc)) from exc
 
 
@@ -193,10 +195,11 @@ def nominatim_search(query: str, lang: str = "en", limit: int = 8,
     try:
         data = _get_json(url, headers=headers, timeout=timeout)
     except Exception as exc:
-        debug_log(f"nominatim search failed: {exc}")
         stale = read_stale(path)
+        log_failure("maps/search", "nominatim fetch", exc, url=NOMINATIM_URL,
+                    fallback=(f"stale cache {path.name}" if stale is not None
+                              else "SearchUnavailable"))
         if stale is not None:
-            debug_log(f"using stale search cache: {path.name}")
             return _nominatim_results(stale)
         raise SearchUnavailable(str(exc)) from exc
     write_cache(path, data)
@@ -207,7 +210,8 @@ def _nominatim_results(data):
     try:
         return [r for r in (_nominatim_result(i) for i in data or []) if r]
     except (AttributeError, TypeError, ValueError, KeyError) as exc:
-        debug_log(f"nominatim response unreadable: {exc}")
+        log_failure("maps/search", "nominatim parse", exc, url=NOMINATIM_URL,
+                    fallback="SearchUnavailable")
         raise SearchUnavailable(str(exc)) from exc
 
 

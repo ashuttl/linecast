@@ -17,6 +17,7 @@ from linecast._paths import cache_dir
 from linecast._http import fetch_bytes_cached
 from linecast._png import DecodeMemo, decode_rgba
 from linecast._radar_tiles import _lonlat_to_world, _pick_zoom, stitch_xyz
+from linecast._runtime import log_failure
 
 DEFAULT_URL = "https://s3.amazonaws.com/elevation-tiles-prod"
 # SRTM's ~30 m native grid runs out around z13; beyond it the tiles are
@@ -51,7 +52,9 @@ def _decoded_tile(z, x, y, timeout):
         return None
     try:
         return _decoded.get((z, x, y), data, decode_rgba)
-    except Exception:
+    except Exception as exc:
+        log_failure("maps/elevation", f"tile {z}/{x}/{y} decode", exc,
+                    fallback="tile left empty")
         return None
 
 

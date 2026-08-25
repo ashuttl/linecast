@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from linecast import _theme
 from linecast._graphics import RESET, visible_len
-from linecast._runtime import WeatherRuntime, current_runtime
+from linecast._runtime import WeatherRuntime, current_runtime, log_failure
 from linecast._weather_i18n import (
     DAY_NAMES, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s, _wmo_icons,
 )
@@ -47,8 +47,9 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
                 )
                 if hist_text:
                     left_hist = f"  {MUTED}({hist_text})"
-        except Exception:
-            pass
+        except Exception as exc:
+            log_failure("weather/climate", "historical comparison", exc,
+                        fallback="annotation omitted")
 
     # Humidity/dew point — show when notable
     left_humidity = ""

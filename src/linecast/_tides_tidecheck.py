@@ -22,6 +22,7 @@ from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
+from linecast._runtime import log_failure
 from linecast._tides_common import (
     M_TO_FT, NEAREST_STATION_CACHE_MAX_AGE, cache_dir, cached_y_range,
     iana_to_abbr, parse_cached_dt, parse_utc_iso, tz_offset_hours,
@@ -74,8 +75,10 @@ def find_nearest_station_tidecheck(lat: float, lng: float
     url = f"{TIDECHECK_BASE}/stations/nearest?lat={lat}&lng={lng}"
     try:
         data = fetch_json(url, headers=_headers(), timeout=10)
-    except Exception:
+    except Exception as exc:
         stale = read_stale(cache_file)
+        log_failure("tides/tidecheck", "nearest station fetch", exc, url=url,
+                    fallback="stale cache" if stale else "no station")
         if stale:
             return stale["id"], stale["name"]
         return None, None

@@ -63,6 +63,7 @@ from linecast._radar_ui import (
     CROSSHAIR, DIM, MUTED,
     _ShiftedBasemap, _get_basemap, _panned_place, _shift_grid,
 )
+from linecast._runtime import log_failure
 from linecast._scenes import Memo
 
 # Zoom is degrees of latitude top to bottom.  The floor used to be 0.1
@@ -157,6 +158,7 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
         try:
             view = _get_elevation(bbox, graph_w, height_cells, True)
         except Exception as exc:
+            log_failure("maps/elevation", "terrain load", exc, fallback="empty terrain")
             err = str(exc)
     else:
         view = _get_elevation(bbox, graph_w, height_cells, False)
@@ -255,6 +257,7 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
         try:
             view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, True)
         except Exception as exc:
+            log_failure("maps/elevation", "globe load", exc, fallback="empty globe")
             err = str(exc)
     else:
         view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, False)
@@ -363,6 +366,7 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
             fills, layer, labels = _get_street(bbox, graph_w, height_cells,
                                                True, lang, reserved)
         except Exception as exc:
+            log_failure("maps/vtiles", "street load", exc, fallback="empty street map")
             err = str(exc)
     else:
         fills, layer, labels = _get_street(bbox, graph_w, height_cells,

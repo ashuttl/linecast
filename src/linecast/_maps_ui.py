@@ -42,6 +42,7 @@ from linecast import _theme
 from linecast._theme import ensure_contrast, surface_bg
 from linecast._vtiles import ATTRIBUTION as TILE_ATTRIBUTION
 from linecast._radar_ui import CROSSHAIR, DIM, MUTED
+from linecast._runtime import log_failure
 
 MIN_CHARS = 2          # below this, asking is noise for both of us
 DEBOUNCE = 0.28        # seconds of quiet before a keystroke becomes a query
@@ -168,7 +169,8 @@ class SearchState:
             status = "" if results else "none"
         except SearchUnavailable:
             results, status = [], "error"
-        except Exception:                       # a fetcher must never crash
+        except Exception as exc:                # a fetcher must never crash
+            log_failure("maps/search", "worker", exc, fallback="panel shows error")
             results, status = [], "error"       # the live loop's worker
         self._publish(gen, results, status, auto=True)
 
@@ -189,7 +191,9 @@ class SearchState:
                 status = "" if results else "none"
             except SearchUnavailable:
                 results, status = [], "error"
-            except Exception:
+            except Exception as exc:
+                log_failure("maps/search", "one-shot worker", exc,
+                            fallback="panel shows error")
                 results, status = [], "error"
             self._publish(gen, results, status, auto=False)
 
@@ -381,7 +385,8 @@ class RouteState:
                 found, status = None, "none"
             except RouteUnavailable:
                 found, status = None, "error"
-            except Exception:
+            except Exception as exc:
+                log_failure("maps/route", "worker", exc, fallback="panel shows error")
                 found, status = None, "error"
             with self._lock:
                 if gen != self.gen:

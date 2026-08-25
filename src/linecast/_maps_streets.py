@@ -25,7 +25,7 @@ from linecast._mvt import (
 )
 from linecast._png import DecodeMemo
 from linecast._radar_basemap import DotLayer, _bresenham, _edge_dots
-from linecast._runtime import debug_log
+from linecast._runtime import debug_log, log_failure
 from linecast._theme import lerp_rgb
 from linecast._vtiles import fetch_tiles, iter_layer, tile_info, tiles_for_bbox
 
@@ -190,8 +190,8 @@ def decode_view(tiles):
         try:
             view.append((key, _decoded.get(key, data, decode_tile)))
         except ValueError as exc:
-            debug_log(f"street tile {key[0]}/{key[1]}/{key[2]} "
-                      f"undecodable: {exc}")
+            log_failure("mvt", f"street tile {key[0]}/{key[1]}/{key[2]} decode", exc,
+                        fallback="tile skipped")
     return view
 
 

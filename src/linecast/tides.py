@@ -44,7 +44,8 @@ from linecast._theme import (
 from linecast._geo import haversine_nm
 from linecast._location import resolve_location
 from linecast._runtime import (
-    TidesRuntime, current_runtime, install_banner, set_current, tides_parser,
+    TidesRuntime, current_runtime, install_banner, log_failure, set_current,
+    tides_parser,
 )
 from linecast._spinner import Spinner
 from linecast._marine import fetch_marine, parse_marine_current, format_marine_line
@@ -155,8 +156,8 @@ def _station_tzinfo(meta):
         try:
             from zoneinfo import ZoneInfo
             return ZoneInfo(tz_code)
-        except Exception:
-            pass
+        except Exception as exc:
+            log_failure("tz", f"lookup of {tz_code}", exc, fallback="abbreviation mapping")
 
     tz_abbr = str(meta.get("timezone_abbr", "")).upper()
     state = str(meta.get("state", "")).upper()
@@ -191,8 +192,8 @@ def _station_tzinfo(meta):
         try:
             from zoneinfo import ZoneInfo
             return ZoneInfo(zone_name)
-        except Exception:
-            pass
+        except Exception as exc:
+            log_failure("tz", f"lookup of {zone_name}", exc, fallback="fixed offset")
 
     # Fallback: fixed offset from metadata (less precise around DST boundaries)
     try:
@@ -771,8 +772,9 @@ def render(station_id, station_name, station_meta=None, runtime=None,
                 muted = fg(*MUTED_RGB)
                 dim = fg(*DIM_RGB)
                 lines.append(f" {muted}{wave_icon} {dim}{marine_str}{RESET}")
-        except Exception:
-            pass  # Marine data is optional; never crash
+        except Exception as exc:
+            # Marine data is optional; never crash
+            log_failure("marine/open-meteo", "marine line", exc, fallback="line omitted")
 
     hint = install_banner()
     if hint:
@@ -1010,8 +1012,9 @@ def main():
                 _marine_lng = station_meta.get("lng") if station_meta else None
                 if _marine_lat is not None and _marine_lng is not None:
                     return fetch_marine(float(_marine_lat), float(_marine_lng))
-            except Exception:
-                pass
+            except Exception as exc:
+                log_failure("marine/open-meteo", "marine fetch", exc,
+                            fallback="no marine line")
             return None
 
         # Live mode pre-fetches ~7 days in each direction; the static view

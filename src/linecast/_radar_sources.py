@@ -23,6 +23,7 @@ from linecast._png import decode_rgba
 from linecast._radar_source import fetch_frame, frame_times
 from linecast import _radar_tiles as tiles
 from linecast import _radar_palettes as palettes
+from linecast._runtime import log_failure
 
 # rough lower-48 bounding box; IEM/NEXRAD coverage
 _CONUS = (-127.0, 23.0, -65.0, 50.0)
@@ -124,6 +125,7 @@ class Frame:
 class IEMSource:
     label = "NEXRAD · IEM"
     attribution = "NEXRAD · IEM"
+    tag = "radar/iem"  # the source's name in the debug log
 
     def __init__(self, n_frames: int) -> None:
         self.n_frames = n_frames
@@ -154,6 +156,7 @@ class _TileSource:
     def __init__(self, provider: tiles.Provider,
                  index_from: "_TileSource | None" = None) -> None:
         self.provider = provider
+        self.tag = provider.tag
         self._sat_provider = tiles.satellite_provider(provider)
         self.host = None
         self._frames = []
@@ -206,8 +209,9 @@ class _TileSource:
             changed = False
             try:
                 changed = self._refresh()
-            except Exception:
-                pass
+            except Exception as exc:
+                log_failure(self.tag, "index refresh", exc, url=self.provider.index_url,
+                            fallback="stale frame list kept")
             finally:
                 with self._refresh_lock:
                     self._refreshing = False
@@ -289,13 +293,13 @@ def get_source(lat: float, lon: float, n_frames: int, theme: str | int | None = 
         src: LibreWXRSource | RainViewerSource = LibreWXRSource(theme)
         if src.current_frames():
             return src
-    except Exception:
-        pass
+    except Exception as exc:
+        log_failure("radar/librewxr", "source", exc, fallback="next source")
     if not _in_conus(lat, lon):
         try:
             src = RainViewerSource()
             if src.current_frames():
                 return src
-        except Exception:
-            pass
+        except Exception as exc:
+            log_failure("radar/rainviewer", "source", exc, fallback="falling back to IEM")
     return IEMSource(n_frames)

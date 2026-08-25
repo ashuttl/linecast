@@ -15,7 +15,7 @@ import datetime
 from linecast._cache import write_bytes_atomic
 from linecast._http import fetch_bytes
 from linecast._paths import cache_dir
-from linecast._runtime import debug_log
+from linecast._runtime import debug_log, log_failure
 
 _WMS = "https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0q-t.cgi"
 _LAYER = "nexrad-n0q-wmst"
@@ -78,25 +78,30 @@ def fetch_frame(bbox: tuple[float, float, float, float], w: int, h: int,
                 debug_log(f"radar cache hit: {path.name}")
                 return path.read_bytes()
     except OSError as exc:
-        debug_log(f"radar: frame read failed {path.name} -- {exc}")
+        log_failure("cache", f"read of {path.name}", exc, fallback="refetching")
 
     url = _url(bbox, w, h, when)
     try:
         data = fetch_bytes(url, timeout=timeout)
     except Exception as exc:
-        debug_log(f"radar fetch failed: {exc}")
+        stale = None
         try:
             if path.exists():
-                return path.read_bytes()
+                stale = path.read_bytes()
         except OSError as stale_exc:
-            debug_log(f"radar: stale frame unreadable {path.name} -- {stale_exc}")
+            log_failure("cache", f"stale read of {path.name}", stale_exc,
+                        fallback="no data")
+        log_failure("radar/iem", "frame fetch", exc, url=url,
+                    fallback="stale frame" if stale is not None else "raised")
+        if stale is not None:
+            return stale
         raise
 
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         write_bytes_atomic(path, data)
     except OSError as exc:
-        debug_log(f"radar: frame write failed {path.name} -- {exc}")
+        log_failure("cache", f"write of {path.name}", exc, fallback="not cached")
     return data
 
 

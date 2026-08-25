@@ -17,10 +17,56 @@ def set_debug(value):
     _DEBUG = bool(value)
 
 
+def debug_enabled():
+    """Whether --debug is on, for a caller whose message costs something
+    to build."""
+    return _DEBUG
+
+
 def debug_log(msg):
     """Print a diagnostic message to stderr when --debug is active."""
     if _DEBUG:
         print(f"[linecast] {msg}", file=sys.stderr)
+
+
+def _host_of(where):
+    """The host named by a URL, or the string itself when it is a bare
+    host or a file name a caller passed instead of a URL."""
+    from urllib.parse import urlsplit
+    parts = urlsplit(where)
+    if parts.hostname:
+        return parts.hostname
+    if parts.netloc or parts.scheme:
+        return parts.scheme or ""
+    # no scheme: a bare host, or a cache file's name
+    return parts.path.split("/", 1)[0].rsplit("@", 1)[-1]
+
+
+def log_failure(provider, operation, exc, url=None, fallback=None):
+    """One debug line for a failure the caller absorbed, in the house
+    style:
+
+        <provider>: <operation> failed (<host>) -- <ExcType>: <message>;
+        <fallback>
+
+    Only the URL's host is shown -- never its path, query, userinfo or
+    any header -- and the message is the exception's first line cut at
+    120 characters, so a server's error page or a URL quoted inside the
+    exception cannot spill the rest.  Nothing is formatted, let alone
+    printed, unless --debug is on: this runs inside the tile pools.
+    """
+    if not _DEBUG:
+        return
+    where = ""
+    if url:
+        host = _host_of(str(url))
+        where = f" ({host})" if host else ""
+    text = str(exc)
+    what = type(exc).__name__
+    if text:
+        what += ": " + text.splitlines()[0][:120]
+    tail = f"; {fallback}" if fallback else ""
+    debug_log(f"{provider}: {operation} failed{where} -- {what}{tail}")
 
 
 def install_banner():
@@ -230,6 +276,18 @@ def maps_parser():
     return p
 
 
+def _log_startup():
+    """The first line of a --debug transcript: which build, and where
+    its files live."""
+    import platform
+    from linecast import __version__
+    from linecast._config import config_file
+    from linecast._paths import cache_root
+    debug_log(f"linecast {__version__}, python {platform.python_version()}, "
+              f"{sys.platform} {platform.machine()}; cache {cache_root()}; "
+              f"settings {config_file()}")
+
+
 # ---------------------------------------------------------------------------
 # Live mode resolution
 # ---------------------------------------------------------------------------
@@ -271,6 +329,7 @@ class RuntimeConfig:
         env = _environ(environ)
         if namespace.debug:
             set_debug(True)
+            _log_startup()
         lang = (
             namespace.lang
             or env.get("LINECAST_LANG", "").strip()
