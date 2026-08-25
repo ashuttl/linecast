@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # publish.yml calls this on a release tag, so the wheel that ships is
+  # the one built and smoke-tested here.
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
   lint:
@@ -76,3 +82,71 @@ jobs:
               WEATHER_UNITS=metric LINECAST_TEMP=1 LINECAST_LANG=fr \
               "$RUNNER_TEMP/venv/bin/python" -m pytest tests -q -p no:cacheprovider
 
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - run: pip install build
+
+      - name: Build the wheel and sdist
+        run: python -m build
+
+      - name: Check that both carry the data files
+        run: sh scripts/check_dist.sh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error
+
+  smoke:
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: "3.14"
+          # The oldest interpreter the wheel claims to support.
+          - os: ubuntu-latest
+            python-version: "3.10"
+          - os: macos-latest
+            python-version: "3.14"
+
+    steps:
+      # The checkout is only here for the scripts. The wheel is installed
+      # and run from outside it, so the source tree can never stand in
+      # for what the wheel forgot to ship.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: ${{ runner.temp }}/dist
+
+      - name: Install the wheel into a fresh venv
+        run: |
+          cd "$RUNNER_TEMP"
+          python -m venv venv
+          venv/bin/pip install dist/*.whl
+          wheel=$(basename dist/*.whl)
+          echo "WHEEL_VERSION=$(echo "$wheel" | cut -d- -f2)" >> "$GITHUB_ENV"
+
+      - name: Smoke-test the installed commands
+        run: |
+          PATH="$RUNNER_TEMP/venv/bin:$PATH" \
+            sh scripts/smoke_wheel.sh "$WHEEL_VERSION"
+
+      - name: Run the installer against the wheel
+        run: sh scripts/check_get_sh.sh "$RUNNER_TEMP/dist"

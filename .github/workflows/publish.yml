@@ -6,29 +6,31 @@ on:
       - "v*"
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-      - run: |
-          pip install -e .
-          pip install pytest
-      - run: pytest tests/ -q
+  # Lint, test, build, and smoke-test on the tag. The build job leaves
+  # the wheel and sdist in the dist artifact.
+  verify:
+    uses: ./.github/workflows/test.yml
 
   publish:
-    needs: test
+    needs: verify
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # No checkout and no build here. What goes to PyPI is the artifact
+      # the smoke job installed, byte for byte.
+      - uses: actions/download-artifact@v4
         with:
-          python-version: "3.x"
-      - run: pip install build
-      - run: python -m build
+          name: dist
+          path: dist
+
+      - name: Check the artifact
+        run: |
+          ls -la dist
+          test "$(ls dist/*.whl | wc -l)" -eq 1
+          test "$(ls dist/*.tar.gz | wc -l)" -eq 1
+
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
