@@ -33,7 +33,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/linecast"]
-artifacts = ["src/linecast/data/*.json.gz"]
+# The data ships regardless of any ignore rule; CI checks the built wheel for it.
+artifacts = ["src/linecast/data/*"]
 
 [tool.hatch.build.targets.sdist]
 # Keep the sdist lean: screenshots alone are ~12 MB, and the Homebrew
