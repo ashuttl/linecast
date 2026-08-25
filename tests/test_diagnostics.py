@@ -95,6 +95,27 @@ class TestLogFailure:
         assert _lines(capsys) == [
             "[linecast] worker: scene load failed -- KeyError: 'time'; view stays empty"]
 
+    def test_trace_follows_the_line_with_the_traceback(self, debug, capsys):
+        try:
+            raise KeyError("time")
+        except KeyError as exc:
+            log_failure("worker", "scene load", exc, fallback="view stays empty", trace=True)
+        lines = _lines(capsys)
+        assert lines[0] == (
+            "[linecast] worker: scene load failed -- KeyError: 'time'; view stays empty")
+        assert lines[1] == "Traceback (most recent call last):"
+        assert lines[-1] == "KeyError: 'time'"
+        # an exception that was never raised has no traceback to show
+        log_failure("worker", "scene load", KeyError("time"), trace=True)
+        assert len(_lines(capsys)) == 1
+
+    def test_trace_prints_nothing_when_debug_is_off(self, quiet, capsys):
+        try:
+            raise KeyError("time")
+        except KeyError as exc:
+            log_failure("worker", "scene load", exc, trace=True)
+        assert capsys.readouterr() == ("", "")
+
     def test_the_message_is_its_first_line_cut_at_120(self, debug, capsys):
         long = "x" * 300
         log_failure("png", "decode", ValueError(f"{long}\nsecond line with https://h/?k=v"))
@@ -352,25 +373,34 @@ class TestWeatherFetchThread:
         assert err == "Could not fetch weather data.\n"
         assert "Traceback" not in out + err
 
-    def test_debug_names_the_failure(self, quiet, stubs, monkeypatch, capsys):
+    def test_debug_names_the_failure_and_shows_the_traceback(
+            self, quiet, stubs, monkeypatch, capsys):
         _run_main(stubs, ["weather", "--print", "--debug", "--location", "43.68,-70.37"],
                   monkeypatch)
         err = capsys.readouterr().err
-        assert ("[linecast] worker: weather fetch failed -- RuntimeError: boom; "
-                "the data in hand") in err
+        line = ("[linecast] worker: weather fetch failed -- RuntimeError: boom; "
+                "the data in hand\n")
+        assert line in err
+        after = err.split(line, 1)[1]
+        assert after.startswith("Traceback (most recent call last):\n")
+        assert "RuntimeError: boom\n" in after
         assert err.endswith("Could not fetch weather data.\n")
-        assert "Traceback" not in err
 
 
 class TestTidesPool:
-    def test_settled_returns_none_with_one_line(self, debug, capsys):
+    def test_settled_returns_none_with_one_line_and_the_traceback(self, debug, capsys):
         from concurrent.futures import Future
         tides = _mod("tides")
         future = Future()
-        future.set_exception(KeyError("v"))
+        try:
+            raise KeyError("v")
+        except KeyError as exc:
+            future.set_exception(exc)
         assert tides._settled(future, "tides/noaa", "y-range", "auto-scaled axis") is None
-        assert _lines(capsys) == [
-            "[linecast] tides/noaa: y-range failed -- KeyError: 'v'; auto-scaled axis"]
+        lines = _lines(capsys)
+        assert lines[0] == (
+            "[linecast] tides/noaa: y-range failed -- KeyError: 'v'; auto-scaled axis")
+        assert lines[1] == "Traceback (most recent call last):"
         done = Future()
         done.set_result((1.0, 2.0))
         assert tides._settled(done, "tides/noaa", "y-range", "auto-scaled axis") == (1.0, 2.0)
@@ -397,7 +427,8 @@ class TestTidesPool:
         assert err == "Could not fetch tide data for station 8418150.\n"
         assert "Traceback" not in out + err
 
-    def test_debug_names_the_provider_request(self, quiet, monkeypatch, capsys):
+    def test_debug_names_the_provider_request_and_shows_the_traceback(
+            self, quiet, monkeypatch, capsys):
         tides = _mod("tides")
         monkeypatch.setattr(tides.NOAA, "station_metadata", lambda station_id: None)
 
@@ -408,6 +439,12 @@ class TestTidesPool:
         _run_main(tides, ["tides", "--print", "--debug", "--station", "8418150"],
                   monkeypatch)
         err = capsys.readouterr().err
-        assert ("[linecast] tides/noaa: y-range failed -- KeyError: 'predictions'; "
-                "auto-scaled axis") in err
-        assert "Traceback" not in err
+        line = ("[linecast] tides/noaa: y-range failed -- KeyError: 'predictions'; "
+                "auto-scaled axis\n")
+        assert line in err
+        # the other pool threads log their own fetch lines meanwhile, so
+        # the traceback is looked for after the line, not right after it
+        after = err.split(line, 1)[1]
+        assert "Traceback (most recent call last):\n" in after
+        assert "KeyError: 'predictions'\n" in after
+        assert "in broken\n" in after   # the frame that raised, which the line cannot name

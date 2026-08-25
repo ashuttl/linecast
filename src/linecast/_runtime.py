@@ -45,7 +45,7 @@ def _host_of(where):
     return parts.path.split("/", 1)[0].rsplit("@", 1)[-1]
 
 
-def log_failure(provider, operation, exc, url=None, fallback=None):
+def log_failure(provider, operation, exc, url=None, fallback=None, trace=False):
     """One debug line for a failure the caller absorbed, in the house
     style:
 
@@ -57,6 +57,11 @@ def log_failure(provider, operation, exc, url=None, fallback=None):
     120 characters, so a server's error page or a URL quoted inside the
     exception cannot spill the rest.  Nothing is formatted, let alone
     printed, unless --debug is on: this runs inside the tile pools.
+
+    `trace` follows the line with the traceback, still only with
+    --debug on.  It is for a worker that died, not a request that
+    failed: what a live view's WorkerWatch shows once the screen is
+    back, so a --print run of the same command shows no less.
     """
     if not _DEBUG:
         return
@@ -70,6 +75,9 @@ def log_failure(provider, operation, exc, url=None, fallback=None):
         what += ": " + text.splitlines()[0][:120]
     tail = f"; {fallback}" if fallback else ""
     debug_log(f"{provider}: {operation} failed{where} -- {what}{tail}")
+    if trace and exc.__traceback__ is not None:
+        import traceback
+        sys.stderr.write("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
 
 
 def install_banner():

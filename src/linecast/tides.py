@@ -208,12 +208,13 @@ def _provider_tag(provider):
 
 
 def _settled(future, tag, what, fallback_note):
-    """A pool future's result, or None with one debug line: a provider
-    request that fails leaves the rest of the view standing."""
+    """A pool future's result, or None with one debug line (and the
+    traceback, under --debug): a provider request that fails leaves
+    the rest of the view standing."""
     try:
         return future.result()
     except Exception as exc:
-        log_failure(tag, what, exc, fallback=fallback_note)
+        log_failure(tag, what, exc, fallback=fallback_note, trace=True)
         return None
 
 
