@@ -17,7 +17,7 @@ class ConfigDirMixin(unittest.TestCase):
     def setUp(self):
         self._tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmpdir.cleanup)
-        patcher = patch.dict(os.environ, {"XDG_CONFIG_HOME": self._tmpdir.name})
+        patcher = patch.dict(os.environ, {"LINECAST_CONFIG_DIR": self._tmpdir.name})
         patcher.start()
         self.addCleanup(patcher.stop)
 

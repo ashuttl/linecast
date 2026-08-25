@@ -50,6 +50,12 @@ exclude = [
   "uv.lock",
 ]
 
+[tool.pytest.ini_options]
+# tests/conftest.py blocks the network and moves HOME for every test
+# except those marked integration; run them alone with `-m integration`
+# or leave them out with `-m "not integration"`.
+markers = ["integration: may reach the network or the real home directory"]
+
 [tool.ruff]
 # The house lint: ruff's defaults (pyflakes and the pycodestyle errors)
 # plus bugbear and whitespace, at a 100-column line.  Lint, not format —

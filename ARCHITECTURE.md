@@ -141,11 +141,20 @@ from them, and re-derives when the theme changes under a live view.
 ## Working on it
 
 Run the suite with `uv run --with pytest pytest tests -q`; it takes
-about ten seconds and needs no network. `tests/snapshots/` holds
-rendered frames for fixed data, sizes and clock; if you change how
-something looks on purpose, delete the affected snapshot and run the
-suite once to regenerate it. `ruff check src tests scripts` is the
-lint, configured in `pyproject.toml`; CI runs both.
+about ten seconds. `tests/conftest.py` gives every test a private
+home: a temporary cache directory shared by the session, a fresh
+config directory per test, the environment variables linecast reads
+cleared, and every outbound socket refused. The suite never touches
+the real `~/.cache/linecast` or `~/.config/linecast` and never
+reaches the network, so it passes the same way on a machine with a
+saved location, a metric preference, or no connection. A test that
+genuinely needs either marks itself `@pytest.mark.integration`; run
+those alone with `-m integration` or without them with
+`-m "not integration"` (there are none today). `tests/snapshots/`
+holds rendered frames for fixed data, sizes and clock; if you change
+how something looks on purpose, delete the affected snapshot and run
+the suite once to regenerate it. `ruff check src tests scripts` is
+the lint, configured in `pyproject.toml`; CI runs both.
 
 The live apps are tested as objects: build a `MapApp` or `RadarApp`
 with the terminal size patched and drive its hooks

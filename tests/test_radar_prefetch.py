@@ -102,6 +102,7 @@ class TestStaticRender:
 
         calls = []
         monkeypatch.setattr(rf, "_source", Src())
+        monkeypatch.setattr(rf._radar_warnings, "covers", lambda bbox: False)
         monkeypatch.setattr(radar, "_ensure_prefetch",
                             lambda *a, **k: calls.append(a))
         monkeypatch.setattr(radar, "get_terminal_size", lambda: (40, 12))
