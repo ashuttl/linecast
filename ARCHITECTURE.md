@@ -173,7 +173,28 @@ those alone with `-m integration` or without them with
 holds rendered frames for fixed data, sizes and clock; if you change
 how something looks on purpose, delete the affected snapshot and run
 the suite once to regenerate it. `ruff check src tests scripts` is
-the lint, configured in `pyproject.toml`; CI runs both.
+the lint, configured in `pyproject.toml`.
+
+CI (`.github/workflows/test.yml`) runs the lint, the suite on every
+supported Python and once on macOS, and the suite again with a
+read-only home and hostile settings in the environment. It then
+builds the wheel and the sdist and runs three scripts against them:
+`scripts/check_dist.sh` confirms both carry the data files under
+`linecast/data`; `scripts/smoke_wheel.sh` runs every command's
+`--help` and `--version`, the completions and the settings commands
+from a wheel installed away from the checkout, and reads the data
+files from that install; `scripts/check_get_sh.sh` runs
+`get.sh` offline against the same wheel, with stand-ins for the tools
+it looks for, and checks every branch of it. A release tag runs the
+same workflow and `publish.yml` sends the wheel it tested to PyPI.
+Each script can be run by hand; its header says how.
+
+The other scripts bake data that ships in the wheel or is served from
+the tile bucket: `build_climate_grid.py` (the Köppen-Geiger grid),
+`build_globe_canvas.py` (the globe's stitched elevation canvases),
+`build_builtup_tiles.py` and `upload_builtup_tiles.sh` (the built-up
+raster). `capture_screenshots.sh`, with `capture_moment.py` and
+`capture_radar.py`, refreshes the README screenshots.
 
 The live apps are tested as objects: build a `MapApp` or `RadarApp`
 with the terminal size patched and drive its hooks
