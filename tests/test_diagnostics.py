@@ -83,6 +83,13 @@ class TestLogFailure:
         assert "(api.open-meteo.com)" in a
         assert "(forecast_abc.json)" in b
 
+    def test_a_url_urlsplit_refuses_names_no_host_and_does_not_raise(self, debug, capsys):
+        # an unbalanced IPv6 bracket makes urlsplit raise; this runs
+        # inside except handlers in the tile pools and must not
+        log_failure("http", "fetch", OSError("x"), url="http://user:pw@[bad/x?k=v",
+                    fallback="none")
+        assert _lines(capsys) == ["[linecast] http: fetch failed -- OSError: x; none"]
+
     def test_no_url_no_parenthesis(self, debug, capsys):
         log_failure("worker", "scene load", KeyError("time"), fallback="view stays empty")
         assert _lines(capsys) == [
@@ -122,6 +129,8 @@ class TestRedactUrl:
         ("file:///tmp/tile.png", "file:///tmp/tile.png"),
         ("not a url at all", "not a url at all"),
         ("http://[::1]:8080/x?y=1", "http://[::1]:8080/x?..."),
+        ("http://user:pw@[bad/x?k=v", "(unparseable URL)"),  # urlsplit refuses it
+        ("//[bad", "(unparseable URL)"),
     ])
     def test_cases(self, url, shown):
         assert redact_url(url) == shown

@@ -33,7 +33,10 @@ def _host_of(where):
     """The host named by a URL, or the string itself when it is a bare
     host or a file name a caller passed instead of a URL."""
     from urllib.parse import urlsplit
-    parts = urlsplit(where)
+    try:
+        parts = urlsplit(where)
+    except ValueError:
+        return ""  # an unbalanced IPv6 bracket: name nothing, never raise
     if parts.hostname:
         return parts.hostname
     if parts.netloc or parts.scheme:

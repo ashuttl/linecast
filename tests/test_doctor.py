@@ -105,6 +105,13 @@ class TestSecrets:
         for leak in ("abc123secret", "tok-xyz", "pw@"):
             assert leak not in as_json
 
+    def test_a_proxy_urlsplit_refuses_does_not_end_the_report(self, monkeypatch):
+        monkeypatch.setenv("http_proxy", "http://user:pw@[bad")
+        code, out, err = _run("--offline", monkeypatch=monkeypatch)
+        assert (code, err) == (0, "")
+        assert "  http_proxy=(unparseable URL)" in out
+        assert "pw@" not in out
+
     def test_unset_variables_are_not_listed(self, monkeypatch):
         monkeypatch.delenv("LINECAST_THEME", raising=False)  # pinned by a snapshot test
         _, out, _ = _run("--offline", monkeypatch=monkeypatch)

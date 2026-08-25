@@ -83,9 +83,14 @@ def redact_url(url: str) -> str:
     fragment goes too, and the host is the hostname alone (with its
     port), never the netloc, so the basic-auth userinfo of a self-hosted
     tile server never reaches a transcript.  A string that is not a URL
-    comes back with only its query trimmed.
+    comes back with only its query trimmed; one urlsplit refuses (an
+    unbalanced IPv6 bracket) comes back as a stand-in, since nothing in
+    it can be told apart from userinfo.
     """
-    parts = urllib.parse.urlsplit(url)
+    try:
+        parts = urllib.parse.urlsplit(url)
+    except ValueError:
+        return "(unparseable URL)"
     host = parts.hostname or ""
     if ":" in host:
         host = f"[{host}]"  # an IPv6 literal, as it was written
