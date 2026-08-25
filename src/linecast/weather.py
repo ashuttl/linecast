@@ -15,8 +15,10 @@ Usage: weather [--print] [--oneline] [--json] [--location LAT,LNG | PLACE] [--se
 """
 
 import sys
+import time as _t
 
-from linecast._graphics import bg, fg, get_terminal_size, live_loop, visible_len
+from linecast import _live
+from linecast._graphics import bg, fg, get_terminal_size, visible_len
 from linecast._location import resolve_location
 from linecast._runtime import WeatherRuntime, install_banner, set_current, weather_parser
 from linecast._weather_i18n import (
@@ -311,10 +313,67 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
             cols, rows, runtime,
             offset_minutes=offset_minutes,
         )
-    if overlay:
-        output += "\x00" + overlay
+    output = _live.overlay(output, overlay)
 
     return output, alert_row_map
+
+
+# ---------------------------------------------------------------------------
+# Live
+# ---------------------------------------------------------------------------
+class WeatherApp(_live.LiveApp):
+    """The live weather view: the fetched data, refreshed every interval.
+
+    Keep data in memory between renders: render_fn fires on every input
+    event (hover motion, scroll), and re-reading disk caches — or worse,
+    blocking on a network fetch when a TTL expires — on each mouse move
+    makes the tooltip lag. Refresh at most once per interval instead.
+    """
+
+    interval = 300
+    scroll_step = 60
+    mouse = True
+
+    def __init__(self, data, alerts, aqi, lat, lng, runtime,
+                 location_name="", historical=None, country=""):
+        self.data = data
+        self.alerts = alerts
+        self.aqi = aqi
+        self.fetched = _t.monotonic()
+        self.lat = lat
+        self.lng = lng
+        self.runtime = runtime
+        self.location_name = location_name
+        self.historical = historical
+        self.country = country
+
+    def render(self, offset_minutes=0, mouse_pos=None, active_alert=None,
+               modal_scroll=0):
+        if _t.monotonic() - self.fetched >= 300:
+            self.data = fetch_forecast(self.lat, self.lng, self.runtime) or self.data
+            self.alerts = fetch_alerts(self.lat, self.lng, self.country,
+                                       lang=self.runtime.lang)
+            self.aqi = fetch_aqi(self.lat, self.lng)
+            self.fetched = _t.monotonic()
+        return render_from_data(
+            self.data,
+            self.alerts,
+            self.runtime,
+            location_name=self.location_name,
+            offset_minutes=offset_minutes,
+            mouse_pos=mouse_pos,
+            active_alert=active_alert,
+            modal_scroll=modal_scroll,
+            aqi_data=self.aqi,
+            historical=self.historical,  # cached — doesn't need re-fetch
+        )
+
+    def on_open(self, idx):
+        if 0 <= idx < len(self.alerts):
+            url = self.alerts[idx].get("url", "")
+            if url:
+                import webbrowser
+                webbrowser.open(url)
 
 
 # ---------------------------------------------------------------------------
@@ -425,47 +484,11 @@ def main():
         return
 
     if runtime.live:
-        def _open_alert_url(idx):
-            if 0 <= idx < len(alerts):
-                url = alerts[idx].get("url", "")
-                if url:
-                    import webbrowser
-                    webbrowser.open(url)
-
-        # Keep data in memory between renders: render_fn fires on every input
-        # event (hover motion, scroll), and re-reading disk caches — or worse,
-        # blocking on a network fetch when a TTL expires — on each mouse move
-        # makes the tooltip lag. Refresh at most once per interval instead.
-        import time as _t
-        live = {"data": data, "alerts": alerts, "aqi": aqi_data,
-                "fetched": _t.monotonic()}
-
-        def _render_live(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
-            if _t.monotonic() - live["fetched"] >= 300:
-                live["data"] = fetch_forecast(lat, lng, runtime) or live["data"]
-                live["alerts"] = fetch_alerts(lat, lng, final_country, lang=runtime.lang)
-                live["aqi"] = fetch_aqi(lat, lng)
-                live["fetched"] = _t.monotonic()
-            return render_from_data(
-                live["data"],
-                live["alerts"],
-                runtime,
-                location_name=location_name,
-                offset_minutes=offset_minutes,
-                mouse_pos=mouse_pos,
-                active_alert=active_alert,
-                modal_scroll=modal_scroll,
-                aqi_data=live["aqi"],
-                historical=historical,  # cached — doesn't need re-fetch
-            )
-
-        live_loop(
-            _render_live,
-            interval=300,
-            mouse=True,
-            on_open=_open_alert_url,
-            scroll_step=60,
-        )
+        WeatherApp(
+            data, alerts, aqi_data, lat, lng, runtime,
+            location_name=location_name, historical=historical,
+            country=final_country,
+        ).run()
     else:
         output, _alert_map = render_from_data(
             data,
