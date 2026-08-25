@@ -29,8 +29,9 @@ fail() {
     status=1
 }
 
-bindir=$(dirname "$(command -v linecast)") \
+linecast=$(command -v linecast) \
     || { echo "smoke_wheel: linecast is not on PATH" >&2; exit 1; }
+bindir=$(dirname "$linecast")
 # The probe must import from the install that owns the linecast
 # command, so prefer the interpreter beside it.
 if [ -x "$bindir/python3" ]; then
