@@ -61,6 +61,15 @@ class FakeThread:
 
 
 @pytest.fixture(autouse=True)
+def _house_units(monkeypatch):
+    """Units come from the language alone here: neither WEATHER_UNITS nor
+    a `linecast units` preference saved on this machine may leak in."""
+    from linecast import _config
+    monkeypatch.delenv("WEATHER_UNITS", raising=False)
+    monkeypatch.setattr(_config, "saved_units", lambda: None)
+
+
+@pytest.fixture(autouse=True)
 def _no_real_threads(monkeypatch):
     FakeTimer.armed = []
     FakeThread.started = []

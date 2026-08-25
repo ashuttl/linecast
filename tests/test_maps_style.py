@@ -642,7 +642,9 @@ def test_nice_tables_are_ascending():
 
 
 def test_use_metric(monkeypatch):
+    from linecast import _config
     monkeypatch.delenv("WEATHER_UNITS", raising=False)
+    monkeypatch.setattr(_config, "saved_units", lambda: None)  # no saved pref
     assert ms.use_metric("fr") is True
     assert ms.use_metric("en") is False
     monkeypatch.setenv("WEATHER_UNITS", "metric")
