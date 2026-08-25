@@ -220,6 +220,31 @@ class TestProviders:
         assert hosts["OpenFreeMap streets"] == "https://tiles.example/"
         assert hosts["AWS terrain tiles"] == "https://dem.example/tiles/terrarium/0/0/0.png"
 
+    def test_a_hung_lookup_does_not_hold_the_report(self, monkeypatch):
+        # the socket timeout never reaches getaddrinfo; the deadline does
+        import threading
+        import time
+        doctor = _doctor()
+        release = threading.Event()
+
+        def stuck(url, timeout=doctor.PROBE_TIMEOUT):
+            release.wait(5)
+            return True, "ok"
+        monkeypatch.setattr(doctor, "probe", stuck)
+        monkeypatch.setattr(doctor, "_PROBE_GRACE", 0.1)
+        started = time.monotonic()
+        try:
+            hosts = doctor.probe_all([("a", "https://a.example/"), ("none", None),
+                                      ("b", "https://b.example/x?y=1")], timeout=0.2)
+            elapsed = time.monotonic() - started
+        finally:
+            release.set()
+        assert elapsed < 0.2 + 0.1 + 1
+        assert [h["status"] for h in hosts] == ["timed out (dns)", "not configured",
+                                                "timed out (dns)"]
+        assert hosts[2] == {"name": "b", "host": "b.example", "url": "https://b.example/x?...",
+                            "ok": False, "status": "timed out (dns)"}
+
     def test_probe_names_the_failure(self):
         # the socket is blocked by conftest: an OSError, not a traceback
         ok, status = _doctor().probe("https://api.example/", timeout=1)

@@ -23,6 +23,7 @@ from pathlib import Path
 from linecast._runtime import doctor_parser, set_debug
 
 PROBE_TIMEOUT = 4        # seconds per host; every probe runs at once
+_PROBE_GRACE = 1         # seconds past that before a probe is given up on
 _WALK_LIMIT = 50_000     # cache entries counted before the walk gives up
 _SECRET_WORDS = ("KEY", "TOKEN", "SECRET", "PASSWORD")
 _ENV_NAMES = re.compile(r"^(LINECAST_|WEATHER_|TIDES_|TIDE_STATION$|XDG_.*_HOME$"
@@ -126,23 +127,48 @@ def probe(url, timeout=PROBE_TIMEOUT):
 
 
 def probe_all(hosts, timeout=PROBE_TIMEOUT):
-    """[{name, host, url, ok, status}] with every probe in flight at once,
-    so the whole check takes one timeout, not one per host.  The probe
-    gets the URL as configured; the record carries it redacted."""
-    from concurrent.futures import ThreadPoolExecutor
+    """[{name, host, url, ok, status}] with every probe in flight at once
+    and one deadline over the lot, so the whole check takes one timeout,
+    not one per host.  The probe gets the URL as configured; the record
+    carries it redacted.
+
+    The socket timeout bounds the connect and the read, not the name
+    lookup before them: with the resolver unreachable, getaddrinfo
+    blocks for as long as libc allows.  So the probes run on daemon
+    threads that are joined against the deadline and left behind if
+    still running -- a worker pool would be joined again at exit, and
+    Ctrl-C along with the report would wait on the resolver.
+    """
+    import threading
+    import time
     from linecast._http import redact_url
 
-    def one(item):
-        name, url = item
-        if url is None:
-            return {"name": name, "host": None, "url": None, "ok": None,
-                    "status": "not configured"}
-        ok, status = probe(url, timeout)
+    def record(name, url, ok, status):
         return {"name": name, "host": _hostname(url), "url": redact_url(url),
                 "ok": ok, "status": status}
 
-    with ThreadPoolExecutor(max_workers=max(1, len(hosts))) as pool:
-        return list(pool.map(one, hosts))
+    results = [None] * len(hosts)
+
+    def one(i, name, url):
+        results[i] = record(name, url, *probe(url, timeout))
+
+    threads = []
+    for i, (name, url) in enumerate(hosts):
+        if url is None:
+            results[i] = {"name": name, "host": None, "url": None, "ok": None,
+                          "status": "not configured"}
+            continue
+        thread = threading.Thread(target=one, args=(i, name, url), daemon=True,
+                                  name=f"probe-{i}")
+        thread.start()
+        threads.append(thread)
+    deadline = time.monotonic() + timeout + _PROBE_GRACE
+    for thread in threads:
+        thread.join(max(0.0, deadline - time.monotonic()))
+    for i, (name, url) in enumerate(hosts):
+        if results[i] is None:
+            results[i] = record(name, url, False, "timed out (dns)")
+    return results
 
 
 # ---------------------------------------------------------------------------
