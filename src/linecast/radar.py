@@ -18,22 +18,24 @@ one, model precipitation elsewhere, 60-min forecast frames, selectable
 colour themes); falls back to NEXRAD via Iowa Environmental Mesonet (IEM)
 in the continental US and RainViewer elsewhere. Basemap from Natural Earth. Condition layers from Open-Meteo.
 
+Everything drawn is here: render_radar composes one frame.  What runs
+when you type `radar` — the arguments, the source, the keys and the live
+loop — is in _radar_live.
+
 Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--theme NAME]
              [--layers temp,wind] [--print] [--search CITY]
 """
 
-import os
 import sys
-import threading
 import time as _time
 
 from linecast._color import fg, RESET, BOLD
 from linecast._framebuffer import get_terminal_size
 from linecast import _theme
-from linecast._location import resolve_location
 from linecast import _radar_frames
 from linecast import _radar_layers
 from linecast import _radar_warnings
+from linecast._live import overlay
 from linecast._radar_basemap import DotLayer, _point_in_rings
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for, _bbox_key, compose
@@ -43,29 +45,25 @@ from linecast._radar_frames import (
     _frame_cache, _frame_key, _load_frame, _loaded_mask, _nearest_cached,
     _nudge, _play_gate, _safe_load, _sat_timeline, _view_key,
 )
-from linecast._radar_source import FRAME_STEP
-from linecast import _radar_sources
-from linecast._radar_sources import (DEFAULT_THEME, THEMES, get_source,
-                                     has_radar, theme_id)
+from linecast._radar_sources import has_radar
+from linecast._scenes import Memo, SceneCache
 # the tests reach the view helpers through this module
 from linecast._radar_ui import (
     CROSSHAIR, DIM, MARKER, MUTED, _ShiftedBasemap, _build_warning_tooltip,
     _fmt_expire, _fmt_local, _get_basemap, _panned_place, _shift_grid,
     _theme_menu_overlay, _timeline_bar,
 )
-from linecast._runtime import RuntimeConfig, radar_parser, set_current, use_metric
-from linecast._graphics import live_loop, visible_len
-from linecast._spinner import SPINNER_FRAMES, Spinner
+from linecast._runtime import use_metric
+from linecast._graphics import visible_len
+from linecast._spinner import SPINNER_FRAMES
 
 # display layers, toggled by the s key: precipitation (5-min frames) or
 # the satellite cloud mosaic alone (hourly, deeper timeline)
 LAYERS = ("radar", "sat")
 
 # condition-layer state: fetched fields and rendered temp tints, both small
-_field_cache = {}    # field_key -> (fetched_at, Field)
-_field_pending = set()
-_field_lock = threading.Lock()
-_temp_cache = {}     # (bbox, w, h, field id, hour) -> sub-pixel tint buffer
+_field_cache = SceneCache(keep=4, max_age=1800)  # field_key -> Field
+_temp_cache = Memo(keep=6)  # (bbox, w, h, field id, hour) -> sub-pixel tint buffer
 
 LAYER_NAMES = {"temp": "temp", "temperature": "temp", "t": "temp",
                "wind": "wind", "w": "wind"}
@@ -92,59 +90,21 @@ def _get_field(bbox, block):
     on a miss and nudges a repaint when the background fetch lands, same as
     radar frames.
     """
-    import time
     key = _radar_layers.field_key(bbox)
-    with _field_lock:
-        hit = _field_cache.get(key)
-        if hit is not None and time.time() - hit[0] < 1800:
-            return hit[1]
-        if not block:
-            if key in _field_pending:
-                return None
-            _field_pending.add(key)
-
-    def load():
-        return time.time(), _radar_layers.fetch_field(bbox)
-
-    if block:
-        try:
-            stamp, field = load()
-        except Exception:
-            return None
-        with _field_lock:
-            _field_cache[key] = (stamp, field)
-        return field
-
-    def worker():
-        try:
-            stamp, field = load()
-        except Exception:
-            stamp = field = None
-        with _field_lock:
-            _field_pending.discard(key)
-            if field is not None:
-                if len(_field_cache) > 4:
-                    _field_cache.clear()
-                _field_cache[key] = (stamp, field)
-        if field is not None:
-            _nudge()
-
-    threading.Thread(target=worker, daemon=True).start()
-    return None
+    try:
+        return _field_cache.get(key, block,
+                                lambda: _radar_layers.fetch_field(bbox))
+    except Exception:
+        return None
 
 
 def _temp_buffer(field, t_idx, bbox, graph_w, height_cells):
     """Memoised temperature tint; rebuilt only when view or hour changes."""
     key = (_bbox_key(bbox), graph_w, height_cells, id(field), t_idx,
            _theme.generation)
-    buf = _temp_cache.get(key)
-    if buf is None:
-        buf = _radar_layers.build_temp_buffer(field, t_idx, bbox, graph_w,
-                                              height_cells)
-        if len(_temp_cache) > 6:
-            _temp_cache.clear()
-        _temp_cache[key] = buf
-    return buf
+    return _temp_cache.get(
+        key, lambda: _radar_layers.build_temp_buffer(field, t_idx, bbox,
+                                                     graph_w, height_cells))
 
 
 def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
@@ -356,217 +316,23 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     out = "\n".join([header, *map_lines, foot])
     # a single \x00 overlay channel: the theme picker (modal) wins it while
     # open; otherwise a hover tooltip names any warning under the cursor
-    overlay = ""
+    floating = ""
     if theme_menu is not None:
         names, sel = theme_menu
-        overlay = _theme_menu_overlay(
+        floating = _theme_menu_overlay(
             names, sel, getattr(source, "theme", None), lang, cols,
             rows)
     elif mouse_pos and warns and pan_offset == (0, 0):
-        overlay = _build_warning_tooltip(
+        floating = _build_warning_tooltip(
             warns, mouse_pos, bbox, graph_w, height_cells, cols, rows, use_24h)
-    if overlay:
-        out += "\x00" + overlay
-    return out
+    return overlay(out, floating)
 
 
 def main():
-    args = radar_parser().parse_args()
-    runtime = RuntimeConfig.from_sources(args)
-    set_current(runtime)
-
-    # Sweep day-old frame tiles before fetching new ones — they're keyed by
-    # frame timestamp and will never be asked for again.
-    from linecast._radar_tiles import prune_tile_cache
-    prune_tile_cache()
-
-    if args.search:
-        from linecast._weather_sources import _search_locations
-        _search_locations(args.search, lang=runtime.lang)
-        return
-
-    theme_arg = (args.theme
-                 or os.environ.get("LINECAST_RADAR_THEME", "").strip()
-                 or DEFAULT_THEME)
-    theme = theme_id(theme_arg)
-    if theme is None:
-        print(f'Unknown radar theme "{theme_arg}". '
-              f'Themes: {", ".join(THEMES)}.', file=sys.stderr)
-        sys.exit(2)
-
-    layer_arg = (args.layers
-                 or os.environ.get("LINECAST_RADAR_LAYERS", "")).strip()
-    layers = parse_layers(layer_arg)
-    if layers is None:
-        print(f'Unknown radar layer in "{layer_arg}". Layers: temp, wind.',
-              file=sys.stderr)
-        sys.exit(2)
-
-    layer = {"radar": "radar", "satellite": "sat", "sat": "sat"}.get(
-        (args.layer or os.environ.get("LINECAST_RADAR_LAYER", "").strip()
-         or "radar").lower())
-    if layer is None:
-        print('Unknown radar layer. Layers: radar, satellite.',
-              file=sys.stderr)
-        sys.exit(2)
-
-    # everything from here to the first paint may block on the network
-    # (geocoding, the frame index, static-mode frame fetches) — spin
-    spin = Spinner(rs("loading", runtime.lang))
-    spin.start()
-    try:
-        lat, lon, _cc, location_name = resolve_location(
-            args.location, lang=runtime.lang, return_label=True)
-        if lat is None:
-            spin.stop()
-            print("Could not determine location.", file=sys.stderr)
-            sys.exit(1)
-
-        if not location_name:
-            try:
-                from linecast._weather_sources import _reverse_geocode
-                location_name = _reverse_geocode(
-                    lat, lon, lang=runtime.lang)[0] or ""
-            except Exception:
-                location_name = ""
-
-        _radar_frames._source = get_source(lat, lon, N_FRAMES, theme)
-
-        if not runtime.live:
-            # static: play_frame 0 is the present (newest observed) frame
-            static_out = render_radar(lat, lon, location_name, args.zoom,
-                                      play_frame=0, playing=False,
-                                      runtime=runtime, layers=layers,
-                                      layer=layer)
-    finally:
-        spin.stop()
-
-    if not runtime.live:
-        print(static_out)
-        return
-
-    from linecast._radar_sources import _in_conus
-
-    # a background index refresh that adds a frame repaints the timeline
-    _radar_sources.on_index_refresh = _nudge
-    zoom = [args.zoom]
-    center = [lat, lon]          # pans; marker stays at the true location
-    region = [_in_conus(lat, lon)]
-
-    layer_state = set(layers)
-    layer_sel = [layer]
-
-    def on_action(key):
-        if key in ('c', 'w'):
-            layer_state.symmetric_difference_update(
-                {'temp' if key == 'c' else 'wind'})
-            return True
-        if key == 's':
-            # cycle layers; a no-op on sources without a cloud mosaic
-            if not _sat_timeline():
-                return False
-            i = LAYERS.index(layer_sel[0])
-            layer_sel[0] = LAYERS[(i + 1) % len(LAYERS)]
-            return True
-        if key == '+':
-            new_zoom = max(1.0, zoom[0] / 1.5)
-        elif key == '-':
-            new_zoom = min(60.0, zoom[0] * 1.5)
-        else:
-            return False
-        if new_zoom == zoom[0]:
-            return False
-        zoom[0] = new_zoom
-        return True
-
-    pan_preview = [0, 0]  # live cell offset while a drag is in progress
-    theme_sel = [theme]   # active theme id (the picker updates it)
-    menu_sel = [None]     # picker: None = closed, else highlighted row
-
-    def intercept(action):
-        """Route keys to the theme picker; everything else passes through."""
-        themes = getattr(_radar_frames._source, "themes", None)
-        names = list(themes) if themes else []
-        if menu_sel[0] is None:
-            if action == 'key:t' and names:
-                ids = list(themes.values())
-                cur = getattr(_radar_frames._source, "theme", None)
-                menu_sel[0] = ids.index(cur) if cur in ids else 0
-                return True
-            return False
-        if not names:  # source lost its themes (fallback) — just close
-            menu_sel[0] = None
-            return True
-        if action == 'fwd':
-            menu_sel[0] = (menu_sel[0] - 1) % len(names)
-        elif action == 'back':
-            menu_sel[0] = (menu_sel[0] + 1) % len(names)
-        elif action == 'key:enter':
-            choice = themes[names[menu_sel[0]]]
-            menu_sel[0] = None
-            if choice != getattr(_radar_frames._source, "theme", None):
-                theme_sel[0] = choice
-                # same index, no fetch
-                _radar_frames._source = _radar_frames._source.with_theme(
-                    choice)
-        elif action in ('escape', 'key:t', 'quit'):
-            menu_sel[0] = None
-        return True  # while the menu is open, no key reaches the map
-
-    def on_drag(dcol, drow, done):
-        if not done:
-            # mid-drag: update the screen-space preview offset only
-            changed = pan_preview != [dcol, drow]
-            pan_preview[0], pan_preview[1] = dcol, drow
-            return changed
-        had_preview = pan_preview[0] or pan_preview[1]
-        pan_preview[0] = pan_preview[1] = 0
-        if not (dcol or drow):
-            return bool(had_preview)  # zero-delta release = plain click
-        # commit: dragging pulls the map, so the view centre moves the
-        # opposite way; the release re-render re-projects for real
-        cols, rows = get_terminal_size()
-        gw, hc = max(20, cols), max(8, rows - 2)
-        minlon, _, maxlon, _ = bbox_for(center[0], center[1], zoom[0], gw, hc)
-        lon_span = maxlon - minlon
-        center[0] = max(-80.0, min(80.0, center[0] + drow * zoom[0] / hc))
-        center[1] += -dcol * lon_span / gw
-        if center[1] > 180.0:
-            center[1] -= 360.0
-        elif center[1] < -180.0:
-            center[1] += 360.0
-        # crossing the CONUS boundary re-picks the source: the natural
-        # moment to retry LibreWXR after a fallback (a source that offers
-        # themes is LibreWXR already, and would only be re-picked as itself)
-        r = _in_conus(center[0], center[1])
-        if r != region[0]:
-            region[0] = r
-            if getattr(_radar_frames._source, "themes", None) is None:
-                _radar_frames._source = get_source(
-                    center[0], center[1], N_FRAMES, theme_sel[0])
-        return True
-
-    live_loop(
-        lambda play_frame=0, playing=True, mouse_pos=None, **_: render_radar(
-            center[0], center[1], location_name, zoom[0],
-            play_frame=play_frame, playing=playing, marker=(lat, lon),
-            runtime=runtime, block=False, mouse_pos=mouse_pos,
-            pan_offset=(pan_preview[0], pan_preview[1]),
-            layers=frozenset(layer_state),
-            layer=layer_sel[0],
-            theme_menu=((list(_radar_frames._source.themes), menu_sel[0])
-                        if menu_sel[0] is not None
-                        and getattr(_radar_frames._source, "themes", None)
-                        else None)),
-        interval=FRAME_STEP,   # pick up a new composite every 5 min
-        mouse=True,
-        auto_play=True,
-        play_interval=0.2,     # animation frame rate (~5 fps)
-        on_action=on_action,
-        on_drag=on_drag,
-        intercept=intercept,
-        play_gate=lambda: not _radar_frames._buffering,
-    )
+    # the live loop draws through render_radar, so _radar_live imports this
+    # module; importing it here, at the call, keeps that one-way at load
+    from linecast._radar_live import main as live_main
+    live_main()
 
 
 if __name__ == "__main__":

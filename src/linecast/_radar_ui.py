@@ -5,7 +5,8 @@ These are the radar's screen-side helpers, shared with the maps view: a
 _ShiftedBasemap stands in for a Basemap while a drag preview slides the
 already-composed layers, _panned_place names a view centre from the
 offline basemap data, and the theme picker, warning tooltip and timeline
-scrubber are the chrome the live loop draws around the map.
+scrubber are the chrome the live loop draws around the map.  ThemePicker
+is the picker's state; _radar_live routes the keys to it.
 """
 
 import datetime as _dt
@@ -22,6 +23,7 @@ from linecast._radar_i18n import rs
 from linecast._radar_render import _bbox_key
 from linecast._radar_sources import THEMES, is_local
 from linecast._runtime import use_metric
+from linecast._scenes import Memo
 from linecast._graphics import visible_len
 
 MUTED = (150, 155, 170)
@@ -30,24 +32,20 @@ FAINT = (70, 74, 88)
 MARKER = (255, 240, 120)
 CROSSHAIR = (215, 220, 232)
 
-_basemap_cache = {}
+_basemap_cache = Memo(keep=1)  # only need the current view
 
 
 def _get_basemap(bbox, graph_w, height_cells):
     key = (_bbox_key(bbox), graph_w, height_cells)
-    bm = _basemap_cache.get(key)
-    if bm is None:
-        bm = Basemap(bbox, graph_w, height_cells)
-        _basemap_cache.clear()  # only need the current view
-        _basemap_cache[key] = bm
-    return bm
+    return _basemap_cache.get(
+        key, lambda: Basemap(bbox, graph_w, height_cells))
 
 
 def _fmt_local(dt_utc, use_24h=False):
     return fmt_time_dt(dt_utc.astimezone(), use_24h=use_24h)
 
 
-_place_cache = {}
+_place_cache = Memo(keep=64)
 
 
 def _panned_place(lat, lon, lang):
@@ -84,9 +82,7 @@ def _panned_place(lat, lon, lang):
         else:
             place = f"{lat:.2f}, {lon:.2f}"
 
-    if len(_place_cache) > 64:
-        _place_cache.clear()
-    _place_cache[key] = place
+    _place_cache.put(key, place)
     return place
 
 
@@ -117,6 +113,63 @@ def _shift_grid(rows, dx, dy, fill):
         else:
             out.append(blank[:])
     return out
+
+
+class ThemePicker:
+    """The theme picker's state: closed, or open on a highlighted row.
+
+    `handle(action, themes, current)` consumes one key.  `themes` is the
+    source's name -> id mapping (None or empty when it has none) and
+    `current` its active theme id; both come fresh with each key, since
+    a fallback can swap the source under an open picker.  Enter on a
+    theme other than the current one leaves its id in `chosen` for the
+    caller to drain with take_chosen() and apply.
+    """
+
+    def __init__(self):
+        self.sel = None      # None = closed, else highlighted row
+        self.chosen = None   # a picked theme id, drained by the caller
+
+    @property
+    def is_open(self):
+        return self.sel is not None
+
+    def open(self, themes, current):
+        """Open on the current theme's row (the first, when unknown)."""
+        ids = list(themes.values())
+        self.sel = ids.index(current) if current in ids else 0
+
+    def close(self):
+        self.sel = None
+
+    def take_chosen(self):
+        """Hand the picked theme id to the caller, once."""
+        hit, self.chosen = self.chosen, None
+        return hit
+
+    def handle(self, action, themes, current):
+        """Route keys to the theme picker; everything else passes through."""
+        names = list(themes) if themes else []
+        if self.sel is None:
+            if action == 'key:t' and names:
+                self.open(themes, current)
+                return True
+            return False
+        if not names:  # source lost its themes (fallback) — just close
+            self.close()
+            return True
+        if action == 'fwd':
+            self.sel = (self.sel - 1) % len(names)
+        elif action == 'back':
+            self.sel = (self.sel + 1) % len(names)
+        elif action == 'key:enter':
+            choice = themes[names[self.sel]]
+            self.close()
+            if choice != current:
+                self.chosen = choice
+        elif action in ('escape', 'key:t', 'quit'):
+            self.close()
+        return True  # while the menu is open, no key reaches the map
 
 
 def _theme_menu_overlay(names, sel, current, lang, cols, rows):
