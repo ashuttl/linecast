@@ -105,6 +105,44 @@ class TestSecrets:
         for leak in ("abc123secret", "tok-xyz", "pw@"):
             assert leak not in as_json
 
+    def test_a_url_override_loses_its_userinfo_and_query(self, no_probes, monkeypatch):
+        monkeypatch.setenv("LINECAST_LIBREWXR_URL", "https://alice:pw1@wxr.example/base?token=abc")
+        monkeypatch.setenv("LINECAST_ELEVATION_URL", "https://bob:pw2@dem.example/tiles/")
+        monkeypatch.setenv("LINECAST_TILE_SERVER", "https://carol:pw3@t.example/x?key=k")
+        code, out, err = _run(monkeypatch=monkeypatch)
+        _, as_json, _ = _run("--json", monkeypatch=monkeypatch)
+        assert (code, err) == (0, "")
+        for text in (out, as_json):
+            assert "wxr.example" in text and "dem.example" in text and "t.example" in text
+            for leak in ("alice:", "pw1", "bob:", "pw2", "carol:", "pw3", "token=abc", "key=k"):
+                assert leak not in text
+        assert "  LINECAST_LIBREWXR_URL=https://wxr.example/base?..." in out
+        assert "  LINECAST_ELEVATION_URL=https://dem.example/tiles/" in out
+        assert "  LINECAST_TILE_SERVER=https://t.example/x?..." in out
+        hosts = {h["name"]: h for h in json.loads(as_json)["providers"]}
+        assert hosts["LibreWXR radar and clouds"]["url"] == "https://wxr.example/"
+        assert hosts["AWS terrain tiles"]["url"] == "https://dem.example/tiles/terrarium/0/0/0.png"
+
+    def test_the_probe_gets_the_url_as_configured_and_records_it_redacted(self, monkeypatch):
+        doctor = _doctor()
+        probed = []
+
+        def probe(url, timeout=doctor.PROBE_TIMEOUT):
+            probed.append(url)
+            return True, "ok"
+        monkeypatch.setattr(doctor, "probe", probe)
+        record, = doctor.probe_all([("x", "https://u:p@h.example/t/0.png?k=v")])
+        assert probed == ["https://u:p@h.example/t/0.png?k=v"]
+        assert record == {"name": "x", "host": "h.example", "url": "https://h.example/t/0.png?...",
+                          "ok": True, "status": "ok"}
+
+    def test_an_override_urlsplit_refuses_is_probed_and_reported_as_such(self, monkeypatch):
+        monkeypatch.setenv("LINECAST_LIBREWXR_URL", "https://user:pw@[bad")
+        hosts = {h["name"]: h for h in _doctor().probe_all(_doctor().providers())}
+        record = hosts["LibreWXR radar and clouds"]
+        assert (record["host"], record["url"]) == (None, "(unparseable URL)")
+        assert record["ok"] is False and record["status"].startswith("bad url (")
+
     def test_a_proxy_urlsplit_refuses_does_not_end_the_report(self, monkeypatch):
         monkeypatch.setenv("http_proxy", "http://user:pw@[bad")
         code, out, err = _run("--offline", monkeypatch=monkeypatch)

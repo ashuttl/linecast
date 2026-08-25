@@ -7,8 +7,9 @@ The report is the first thing to ask for in a bug report: it says which
 build is running, where the settings and the cache are and whether the
 cache can be written, what the terminal advertised, which preferences
 are in force and where each came from, every linecast-related
-environment variable (secrets shown as "(set)"), and one line per
-provider host saying whether it answered.  --offline skips the probes;
+environment variable (secrets shown as "(set)", URLs without their
+userinfo or query), and one line per provider host saying whether it
+answered.  --offline skips the probes;
 --json prints the same information as one object with stable keys.
 """
 
@@ -32,9 +33,23 @@ _ENV_NAMES = re.compile(r"^(LINECAST_|WEATHER_|TIDES_|TIDE_STATION$|XDG_.*_HOME$
 # The providers, each with a URL that answers cheaply
 # ---------------------------------------------------------------------------
 def _root(url):
+    """scheme://host/ of a URL, the port kept and any userinfo dropped:
+    an override's credential never reaches the report."""
+    from urllib.parse import urlsplit, urlunsplit
+    from linecast._http import redact_url
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return url  # the probe will say what is wrong with it
+    return redact_url(urlunsplit((parts.scheme, parts.netloc, "/", "", "")))
+
+
+def _hostname(url):
     from urllib.parse import urlsplit
-    parts = urlsplit(url)
-    return f"{parts.scheme}://{parts.netloc}/"
+    try:
+        return urlsplit(url).hostname
+    except ValueError:
+        return None
 
 
 def providers():
@@ -112,9 +127,10 @@ def probe(url, timeout=PROBE_TIMEOUT):
 
 def probe_all(hosts, timeout=PROBE_TIMEOUT):
     """[{name, host, url, ok, status}] with every probe in flight at once,
-    so the whole check takes one timeout, not one per host."""
+    so the whole check takes one timeout, not one per host.  The probe
+    gets the URL as configured; the record carries it redacted."""
     from concurrent.futures import ThreadPoolExecutor
-    from urllib.parse import urlsplit
+    from linecast._http import redact_url
 
     def one(item):
         name, url = item
@@ -122,7 +138,7 @@ def probe_all(hosts, timeout=PROBE_TIMEOUT):
             return {"name": name, "host": None, "url": None, "ok": None,
                     "status": "not configured"}
         ok, status = probe(url, timeout)
-        return {"name": name, "host": urlsplit(url).hostname, "url": url,
+        return {"name": name, "host": _hostname(url), "url": redact_url(url),
                 "ok": ok, "status": status}
 
     with ThreadPoolExecutor(max_workers=max(1, len(hosts))) as pool:
@@ -315,7 +331,8 @@ def _collect_preferences():
 
 def _collect_environment():
     """Every variable linecast reads that is set, secrets as "(set)" and
-    proxy URLs without their userinfo or query."""
+    any URL -- a proxy, an override, whatever else has a scheme --
+    without its userinfo or query."""
     from linecast._http import redact_url
     shown = {}
     for name in sorted(os.environ):
@@ -325,7 +342,7 @@ def _collect_environment():
             continue
         if any(word in name.upper() for word in _SECRET_WORDS):
             shown[name] = "(set)"
-        elif low.endswith("_proxy") and low != "no_proxy":
+        elif (low.endswith(("_proxy", "_url")) and low != "no_proxy") or "://" in value:
             shown[name] = redact_url(value)
         else:
             shown[name] = value
