@@ -99,6 +99,12 @@ def providers():
     ]
 
 
+def _tidecheck_budget():
+    """Where today's TideCheck requests stand, or None without a key."""
+    from linecast._tides_tidecheck import budget_line
+    return budget_line()
+
+
 def probe(url, timeout=PROBE_TIMEOUT):
     """(ok, status) for one host: "ok", "ok (HTTP 404)", or the failure
     in a word or two."""
@@ -394,6 +400,7 @@ def collect(offline=False):
         "preferences": _collect_preferences(),
         "environment": _collect_environment(),
         "providers": None if offline else probe_all(providers()),
+        "tidecheck_budget": _tidecheck_budget(),
     }
     return report
 
@@ -490,6 +497,8 @@ def render(report):
         hwidth = max(len(h["host"] or "") for h in hosts)
         for h in hosts:
             out.append(f"  {h['name']:<{width}}  {h['host'] or '':<{hwidth}}  {h['status']}")
+    if report.get("tidecheck_budget"):
+        out.append(f"  {report['tidecheck_budget']}")
     return "\n".join(out)
 
 

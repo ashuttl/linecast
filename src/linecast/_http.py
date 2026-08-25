@@ -25,6 +25,7 @@ from linecast._runtime import debug_enabled, debug_log, log_failure, redact_url
 
 if TYPE_CHECKING:
     import http.client
+    from collections.abc import Callable
     from email.message import Message
 
 _REDIRECTS = (301, 302, 303, 307, 308)
@@ -226,15 +227,24 @@ def fetch_json(url: str, headers: dict[str, str] | None = None,
 
 def fetch_json_cached(cache_file: Path, max_age: float, url: str,
                       headers: dict[str, str] | None = None, timeout: float = 10,
-                      fallback: Any = None) -> Any:
-    """Fetch JSON with fresh cache first, stale cache fallback, then fallback value."""
+                      fallback: Any = None,
+                      fetch: "Callable[..., Any] | None" = None) -> Any:
+    """Fetch JSON with fresh cache first, stale cache fallback, then fallback value.
+
+    `fetch` replaces fetch_json for the network step (called as
+    fetch(url, timeout=...)), for a provider that counts or signs its
+    own requests; only a cache miss reaches it.
+    """
     cached = read_cache(cache_file, max_age)
     if cached is not None:
         debug_log(f"cache hit: {cache_file.name}")
         return cached
 
     try:
-        data = fetch_json(url, headers=headers, timeout=timeout)
+        if fetch is not None:
+            data = fetch(url, timeout=timeout)
+        else:
+            data = fetch_json(url, headers=headers, timeout=timeout)
     except Exception as exc:
         stale = read_stale(cache_file)
         log_failure("http", "fetch", exc, url=url,

@@ -51,6 +51,7 @@ from linecast._spinner import Spinner
 from linecast._marine import fetch_marine, parse_marine_current, format_marine_line
 from linecast._tides_common import sweep_legacy_cache
 from linecast._tides_i18n import _moon_name, _ts
+from linecast._tides_tidecheck import budget_line as tidecheck_budget_line
 from linecast._tides_providers import (
     CHS, HKO, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK, provider_for_id,
 )
@@ -307,6 +308,9 @@ def _search_stations(query, metric=False, limit=20, cli_location=None):
     if len(matches) > limit:
         print(f"  ... and {len(matches) - limit} more")
     print("\nUse `tides --station <id or name>` to view one.")
+    budget = tidecheck_budget_line()
+    if budget:
+        print(budget)
 
 
 # ---------------------------------------------------------------------------

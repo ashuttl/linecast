@@ -174,7 +174,7 @@ class TestJson:
         code, out, err = _run("--offline", "--json", monkeypatch=monkeypatch)
         assert (code, err) == (0, "")
         report = json.loads(out)
-        assert list(report) == list(SECTIONS)
+        assert list(report) == [*SECTIONS, "tidecheck_budget"]
         assert set(report["linecast"]) == {
             "version", "python", "platform", "machine", "temporary_install"}
         assert set(report["paths"]) == {
@@ -220,8 +220,16 @@ class TestProviders:
         assert "TideCheck tides" in out and "not configured" in out
         monkeypatch.setenv("LINECAST_TIDECHECK_KEY", "k")
         _, out, _ = _run(monkeypatch=monkeypatch)
-        line = next(ln for ln in out.splitlines() if "TideCheck" in ln)
+        line = next(ln for ln in out.splitlines() if "TideCheck tides" in ln)
         assert "tidecheck.com" in line and "not configured" not in line
+        assert "of 50 free-tier requests used today" in out
+
+    def test_tidecheck_budget_is_off_without_a_key(self, no_probes, monkeypatch):
+        monkeypatch.delenv("LINECAST_TIDECHECK_KEY", raising=False)
+        _, out, _ = _run(monkeypatch=monkeypatch)
+        assert "free-tier requests" not in out
+        _, out, _ = _run("--json", monkeypatch=monkeypatch)
+        assert json.loads(out)["tidecheck_budget"] is None
 
     def test_overrides_are_honoured(self, no_probes, monkeypatch):
         monkeypatch.setenv("LINECAST_LIBREWXR_URL", "https://wxr.example:8443/base")

@@ -9,6 +9,10 @@ Notable changes, by release. Notes for the next release collect under
   show their UTC offset, such as "UTC+5:45", instead of a plain "UTC".
 - Tides: `--station` and `TIDE_STATION` take a TideCheck station ID such
   as `fes2022-lisbon` directly, without spending a search request.
+- Tides: `tides --nearby`, `tides --search`, and `linecast doctor` now say
+  how many of the day's 50 free-tier TideCheck requests linecast has used.
+  Set `LINECAST_TIDECHECK_PAID=1` on a paid plan to drop the cap from the
+  line.
 
 ## 1.17.0 — 2026-08-25
 

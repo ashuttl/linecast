@@ -68,7 +68,8 @@ class NearestStationTests(unittest.TestCase):
 
         self.assertEqual(sid, "fes2022-lisbon")
         self.assertEqual(name, "Lisbon, Lisbon, Portugal")
-        mock_write.assert_called_once()
+        # the station, plus one tick on today's request tally
+        self.assertEqual(mock_write.call_count, 2)
 
     def test_far_station_rejected_like_noaa_cutoff(self):
         api_response = [{"id": "somewhere", "name": "Somewhere",
@@ -358,3 +359,53 @@ class HeightConversionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BudgetTests(unittest.TestCase):
+    """The per-day request tally and the line that reports it."""
+
+    def setUp(self):
+        self.env = patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": "k"})
+        self.env.start()
+        self.addCleanup(self.env.stop)
+        self.tally = {}
+
+        def read_stale(path):
+            return self.tally.get(path.name)
+
+        def write_cache(path, data):
+            self.tally[path.name] = data
+
+        for name, fn in (("read_stale", read_stale), ("write_cache", write_cache)):
+            p = patch.object(tc, name, side_effect=fn)
+            p.start()
+            self.addCleanup(p.stop)
+
+    def test_each_network_request_counts(self):
+        self.assertEqual(tc.requests_today(), 0)
+        with patch.object(tc, "fetch_json", return_value=[]):
+            tc._fetch("https://example.invalid/x")
+            tc._fetch("https://example.invalid/y")
+        self.assertEqual(tc.requests_today(), 2)
+
+    def test_cache_hits_do_not_count(self):
+        with patch.object(tc, "read_cache", return_value={"id": "s", "name": "S"}), \
+             patch.object(tc, "fetch_json") as fetch:
+            tc.find_nearest_station_tidecheck(38.7, -9.1)
+        fetch.assert_not_called()
+        self.assertEqual(tc.requests_today(), 0)
+
+    def test_budget_line(self):
+        self.assertEqual(
+            tc.budget_line(),
+            "TideCheck: 0 of 50 free-tier requests used today (UTC)")
+        self.tally[tc._tally_file().name] = {"count": 50}
+        self.assertIn("all 50 free-tier requests used", tc.budget_line())
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_PAID": "1"}):
+            self.assertEqual(tc.budget_line(), "TideCheck: 50 requests sent today (UTC)")
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_KEY": ""}):
+            self.assertIsNone(tc.budget_line())
+
+    def test_a_garbled_tally_reads_as_zero(self):
+        self.tally[tc._tally_file().name] = "junk"
+        self.assertEqual(tc.requests_today(), 0)

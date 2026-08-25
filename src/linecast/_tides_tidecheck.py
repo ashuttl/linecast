@@ -18,7 +18,7 @@ Free tier: 50 requests/day (no credit card required)
 
 import os
 import re
-from datetime import date, datetime, tzinfo
+from datetime import date, datetime, timezone, tzinfo
 from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
@@ -55,6 +55,62 @@ def _headers():
 
 
 # ---------------------------------------------------------------------------
+# Request budget
+# ---------------------------------------------------------------------------
+FREE_TIER_LIMIT = 50
+
+
+def _tally_file(day: date | None = None) -> Any:
+    day = day or datetime.now(timezone.utc).date()
+    return cache_dir() / f"tc_requests_{day.isoformat()}.json"
+
+
+def requests_today() -> int:
+    """How many requests linecast has sent TideCheck today (UTC), from
+    this machine.  The API does not say how many are left, so this is
+    the honest lower bound: another machine on the same key adds to
+    the real total."""
+    data = read_stale(_tally_file())
+    try:
+        return int(data.get("count", 0)) if data else 0
+    except (TypeError, ValueError, AttributeError):
+        return 0
+
+
+def _count_request() -> None:
+    path = _tally_file()
+    write_cache(path, {"count": requests_today() + 1})
+
+
+def _fetch(url, timeout=10):
+    """fetch_json with the API key, counted against today's budget."""
+    _count_request()
+    return fetch_json(url, headers=_headers(), timeout=timeout)
+
+
+def paid_tier() -> bool:
+    """LINECAST_TIDECHECK_PAID=1 says the 50-a-day cap does not apply."""
+    return os.environ.get("LINECAST_TIDECHECK_PAID", "").strip().lower() in (
+        "1", "true", "yes")
+
+
+def budget_line() -> str | None:
+    """One line on where today's requests stand, or None without a key:
+
+        TideCheck: 12 of 50 free-tier requests used today (UTC)
+    """
+    if not is_available():
+        return None
+    used = requests_today()
+    if paid_tier():
+        return f"TideCheck: {used} requests sent today (UTC)"
+    if used >= FREE_TIER_LIMIT:
+        return (f"TideCheck: all {FREE_TIER_LIMIT} free-tier requests used today"
+                " (UTC); cached results only until it resets")
+    return f"TideCheck: {used} of {FREE_TIER_LIMIT} free-tier requests used today (UTC)"
+
+
+# ---------------------------------------------------------------------------
 # Station discovery
 # ---------------------------------------------------------------------------
 def find_nearest_station_tidecheck(lat: float, lng: float
@@ -75,7 +131,7 @@ def find_nearest_station_tidecheck(lat: float, lng: float
 
     url = f"{TIDECHECK_BASE}/stations/nearest?lat={lat}&lng={lng}"
     try:
-        data = fetch_json(url, headers=_headers(), timeout=10)
+        data = _fetch(url)
     except Exception as exc:
         stale = read_stale(cache_file)
         log_failure("tides/tidecheck", "nearest station fetch", exc, url=url,
@@ -132,11 +188,7 @@ def search_stations_tidecheck(query: str) -> list[dict[str, Any]]:
     cache_file = cache_dir() / f"tc_search_{encoded[:40]}.json"
     url = f"{TIDECHECK_BASE}/stations/search?q={encoded}"
 
-    data = fetch_json_cached(
-        cache_file, 86400, url,
-        headers=_headers(),
-        timeout=10, fallback=None,
-    )
+    data = fetch_json_cached(cache_file, 86400, url, fetch=_fetch, fallback=None)
     if not data:
         return []
 
@@ -221,11 +273,8 @@ def _fetch_tides_raw(station_id, days=7):
 
     cache_file = cache_dir() / f"tc_raw_{station_id}_{days}d.json"
     url = f"{TIDECHECK_BASE}/station/{station_id}/tides?days={days}&datum=MLLW"
-    return fetch_json_cached(
-        cache_file, 86400, url,
-        headers=_headers(),
-        timeout=15, fallback=None,
-    )
+    return fetch_json_cached(cache_file, 86400, url, fetch=_fetch, timeout=15,
+                             fallback=None)
 
 
 def fetch_tides_range_tidecheck(

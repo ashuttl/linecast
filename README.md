@@ -261,6 +261,7 @@ The six view commands and `linecast doctor` take `--debug`. It prints, on stderr
 | `TIDE_STATION` | Default tide station ID |
 | `TIDES_UNITS` | `metric` or `imperial` for tide heights; overrides the saved units |
 | `LINECAST_TIDECHECK_KEY` | Optional TideCheck API key for global tide coverage |
+| `LINECAST_TIDECHECK_PAID` | Set to `1` on a paid TideCheck plan; the request tally then drops the 50-a-day free-tier cap |
 | `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, or `id` |
 | `LINECAST_RADAR_THEME` | Default radar colour theme |
 | `LINECAST_LIBREWXR_URL` | Base URL of a self-hosted LibreWXR instance |
