@@ -12,7 +12,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 import pytest
-from conftest import readonly
+from conftest import readonly, unsearchable
 
 
 def _doctor():
@@ -259,6 +259,30 @@ class TestCacheDirectory:
             assert paths["cache_writable_reason"] == "Permission denied"
         finally:
             root.chmod(0o755)
+
+    def test_paths_under_an_unsearchable_parent_are_reported_not_fatal(
+            self, tmp_path, monkeypatch):
+        # Path.exists and Path.is_dir raise PermissionError here before
+        # Python 3.14; the report must say "not writable", not die
+        locked = tmp_path / "locked"
+        locked.mkdir()
+        unsearchable(locked)
+        cache, config = locked / "cache", locked / "config"
+        monkeypatch.setenv("LINECAST_CACHE_DIR", str(cache))
+        monkeypatch.setenv("LINECAST_CONFIG_DIR", str(config))
+        try:
+            code, out, err = _run("--offline", monkeypatch=monkeypatch)
+            assert (code, err) == (0, "")
+            assert (f"  cache     {cache}  (not created yet; "
+                    "NOT writable (Permission denied))") in out
+            assert f"  settings  {config / 'config.json'}  (not created yet)" in out
+            _, as_json, _ = _run("--offline", "--json", monkeypatch=monkeypatch)
+            paths = json.loads(as_json)["paths"]
+            assert (paths["cache_exists"], paths["cache_writable"]) == (False, False)
+            assert paths["cache_writable_reason"] == "Permission denied"
+            assert paths["settings_exists"] is False
+        finally:
+            locked.chmod(0o755)
 
     def test_usage_counts_files_and_bytes(self, tmp_path):
         (tmp_path / "a").mkdir()

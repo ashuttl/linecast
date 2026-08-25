@@ -219,8 +219,12 @@ def _collect_paths():
     from linecast._config import config_file, read_config, saved_location, saved_units
     from linecast._paths import cache_root
     settings = config_file()
+    # os.path, not Path.exists/is_dir: before Python 3.14 those raise
+    # on a parent this process cannot search, which is one of the
+    # setups the report exists to describe
+    settings_exists = os.path.exists(settings)
     keys = []
-    if settings.exists():
+    if settings_exists:
         config = read_config()
         loc = saved_location()
         if loc is not None:
@@ -229,14 +233,14 @@ def _collect_paths():
             keys.append("units")
         keys.extend(sorted(k for k in config if k not in ("location", "units")))
     root = cache_root()
-    exists = root.is_dir()
+    exists = os.path.isdir(root)
     writable, reason = cache_writable(root)
     files, size, complete = cache_usage(root) if exists else (0, 0, True)
     legacy = (sys.platform == "darwin"
               and root == Path.home() / ".cache" / "linecast")
     return {
         "settings_file": str(settings),
-        "settings_exists": settings.exists(),
+        "settings_exists": settings_exists,
         "settings_keys": keys,
         "cache_dir": str(root),
         "cache_exists": exists,
