@@ -72,6 +72,35 @@ def _normalize_color_mode(value):
     return aliases.get(raw)
 
 
+def _enable_windows_vt(stream):
+    """Switch on ANSI processing for a Windows console.
+
+    Windows Terminal enables it already; the classic conhost does not, and
+    without it escape codes are printed literally.  Returns False when the
+    stream is not a console at all (redirected to a file or pipe), which is
+    the same "no colour" answer the TERM check gives elsewhere.
+    """
+    try:
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+    except ImportError:
+        return False
+    ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+    try:
+        handle = msvcrt.get_osfhandle(stream.fileno())
+        kernel32 = ctypes.windll.kernel32
+        mode = wintypes.DWORD()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False  # not a console
+        if mode.value & ENABLE_VIRTUAL_TERMINAL_PROCESSING:
+            return True
+        return bool(kernel32.SetConsoleMode(
+            handle, mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+    except Exception:
+        return False
+
+
 def detect_color_mode(environ=None, stream=None):
     """Return one of: truecolor, 256, 16, none."""
     # Theme probing is part of terminal capability setup and runs once.
@@ -92,7 +121,10 @@ def detect_color_mode(environ=None, stream=None):
 
     term = str(env.get("TERM", "")).strip().lower()
     colorterm = str(env.get("COLORTERM", "")).strip().lower()
-    if term in ("", "dumb"):
+    # Windows consoles do not set TERM, so an empty TERM says nothing about
+    # capability there; the console itself is asked further down instead.
+    windows = sys.platform == "win32"
+    if term == "dumb" or (term == "" and not windows):
         return _COLOR_NONE
 
     if stream is None:
@@ -103,9 +135,17 @@ def detect_color_mode(environ=None, stream=None):
         is_tty = False
 
     force = str(env.get("CLICOLOR_FORCE", "")).strip()
-    if force and force != "0":
+    forced = bool(force and force != "0")
+    if forced:
         is_tty = True
     if not is_tty:
+        return _COLOR_NONE
+
+    if windows:
+        # Windows Terminal and conhost from Windows 10 1703 on are all
+        # 24-bit capable, so the only question is whether VT is switched on.
+        if forced or _enable_windows_vt(stream):
+            return _COLOR_TRUECOLOR
         return _COLOR_NONE
 
     if "truecolor" in colorterm or "24bit" in colorterm:
