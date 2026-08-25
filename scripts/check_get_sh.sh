@@ -234,6 +234,14 @@ out=$(venv_run sunshine --version)
 has "venv with a dangling python is rebuilt" "linecast $version" "$out"
 is "dangling rebuild ran pip install" 3 "$(installs)"
 
+# A pip install cut off before it wrote the console scripts: linecast
+# imports, bin/sunshine is missing.
+rm "$venv/bin/sunshine"
+out=$(venv_run sunshine --version); rc=$?
+is "venv without bin/sunshine: exits 0" 0 "$rc"
+has "venv without bin/sunshine: rebuilt" "linecast $version" "$out"
+is "venv without bin/sunshine: rebuild ran pip install" 4 "$(installs)"
+
 # A linecast package where the user runs `curl | sh` from.  Without -I it
 # makes a gutted venv pass the import probe, so the venv is never rebuilt
 # and bin/sunshine fails on every run.
@@ -244,7 +252,7 @@ out=$(venv_run sunshine --version); rc=$?
 is "linecast package in the cwd: gutted venv exits 0" 0 "$rc"
 has "linecast package in the cwd: gutted venv is rebuilt" "nstalling" "$(err)"
 has "linecast package in the cwd: prints the version" "linecast $version" "$out"
-is "linecast package in the cwd: rebuild ran pip install" 4 "$(installs)"
+is "linecast package in the cwd: rebuild ran pip install" 5 "$(installs)"
 
 # Stand-ins for venv, pip and ensurepip there too.  Without -I they run
 # in place of the real modules.

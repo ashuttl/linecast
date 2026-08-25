@@ -19,12 +19,13 @@
 # else ~/Library/Caches/linecast on macOS, else ~/.cache/linecast.  It is
 # private to you (mode 0700) and is checked before anything in it runs: a
 # real directory, not a symlink, owned by you, with a python that can
-# import linecast.  A venv that fails the check is rebuilt, and once a day
-# the script asks pip for a newer release.  Deleting the venv with rm -rf
-# is always safe; the next run makes a new one.  When there is no cache
-# directory to use, the venv is a throwaway under $TMPDIR, removed on exit.
-# Python runs isolated (-I) throughout, so files in the directory you run
-# from cannot stand in for venv, pip or linecast.
+# import linecast and the command you asked for.  A venv that fails the
+# check is rebuilt, and once a day the script asks pip for a newer
+# release.  Deleting the venv with rm -rf is always safe; the next run
+# makes a new one.  When there is no cache directory to use, the venv is
+# a throwaway under $TMPDIR, removed on exit.  Python runs isolated (-I)
+# throughout, so files in the directory you run from cannot stand in for
+# venv, pip or linecast.
 #
 # One thing a shell script cannot make safe: a cache directory under a
 # parent that is world-writable without the sticky bit, where another user
@@ -87,11 +88,17 @@ cache_dir() {
 ours() { [ -d "$1" ] && [ ! -L "$1" ] && [ -O "$1" ]; }
 present() { [ -e "$1" ] || [ -L "$1" ]; }
 
-# The venv's python exists and can import linecast.  -x alone stays true
-# for a venv whose python was uninstalled from under it, and the import
-# fails on a half-made venv (Debian without python3-venv) or a broken
-# upgrade.  Only called once the directory is known to be ours.
-usable() { [ -x "$python" ] && "$python" -I -c 'import linecast' 2>/dev/null; }
+# The venv's python exists, can import linecast, and the command we are
+# about to run is there.  -x alone stays true for a venv whose python was
+# uninstalled from under it, and the import fails on a half-made venv
+# (Debian without python3-venv) or a broken upgrade.  A pip install cut
+# off between copying the package and writing its scripts leaves a venv
+# that imports but has no bin/<cmd>.  Only called once the directory is
+# known to be ours.
+usable() {
+    [ -x "$python" ] && [ -x "$venv/bin/$cmd" ] \
+        && "$python" -I -c 'import linecast' 2>/dev/null
+}
 
 # The refresh stamp is under a day old.  A missing stamp raises, which
 # counts as old.  Asked of python because BSD find -mtime rounds up.
