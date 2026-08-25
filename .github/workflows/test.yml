@@ -20,14 +20,15 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         include:
           # One macOS leg: the code carries BSD/%-I workarounds that only
           # a Darwin runner actually exercises.
           - os: macos-latest
-            python-version: "3.13"
+            python-version: "3.14"
 
     steps:
       - uses: actions/checkout@v4
@@ -37,9 +38,41 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install
+        # Editable, so the tests see the worktree's src and the version
+        # the installed package reports is the real one.
         run: |
           pip install -e .
           pip install pytest
 
       - name: Run tests
-        run: pytest tests/ -v
+        run: pytest tests -q -p no:cacheprovider
+
+  hermetic:
+    # The suite must touch neither the real home nor the user's settings.
+    # HOME is a directory nothing can write to, and the environment
+    # carries settings that would change every rendered snapshot if a
+    # test read them.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install into a venv
+        # Before HOME moves, so pip never needs a writable home.
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install -e . pytest
+
+      - name: Run tests with a read-only home and hostile settings
+        run: |
+          mkdir "$RUNNER_TEMP/home"
+          chmod 555 "$RUNNER_TEMP/home"
+          env HOME="$RUNNER_TEMP/home" \
+              XDG_CONFIG_HOME="$RUNNER_TEMP/home/.config" \
+              XDG_CACHE_HOME="$RUNNER_TEMP/home/.cache" \
+              WEATHER_UNITS=metric LINECAST_TEMP=1 LINECAST_LANG=fr \
+              "$RUNNER_TEMP/venv/bin/python" -m pytest tests -q -p no:cacheprovider
+
