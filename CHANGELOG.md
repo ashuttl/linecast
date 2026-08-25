@@ -5,6 +5,8 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+## 1.17.0 — 2026-08-25
+
 - Tides: Hong Kong has its own tide stations now. Thirteen Hong Kong
   Observatory stations join the list, picked automatically for a
   location in Hong Kong or by code with `--station CCH`. Thanks to
