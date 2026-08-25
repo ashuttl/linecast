@@ -125,6 +125,26 @@ class TestLogFailure:
         assert "second line" not in line
         assert "k=v" not in line
 
+    def test_a_url_in_the_exception_message_is_redacted(self, debug, capsys):
+        private = "https://alice:secret@example.test/private?token=abc"
+        log_failure("http", "fetch", OSError(f"request failed for {private}"),
+                    fallback="none")
+        line, = _lines(capsys)
+        assert "https://example.test/private?..." in line
+        for leak in ("alice", "secret", "token=abc"):
+            assert leak not in line
+
+    def test_a_url_in_a_traceback_is_redacted(self, debug, capsys):
+        private = "https://alice:secret@example.test/private?token=abc"
+        try:
+            raise OSError(f"request failed for {private}")
+        except OSError as exc:
+            log_failure("worker", "scene load", exc, trace=True)
+        trace = capsys.readouterr().err
+        assert "https://example.test/private?..." in trace
+        for leak in ("alice", "secret", "token=abc"):
+            assert leak not in trace
+
     def test_an_empty_message_leaves_just_the_type(self, debug, capsys):
         log_failure("http", "fetch", OSError(), url="h.example", fallback="none")
         assert _lines(capsys) == ["[linecast] http: fetch failed (h.example) -- OSError; none"]

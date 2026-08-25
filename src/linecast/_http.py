@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from linecast._cache import read_cache, read_stale, write_bytes_atomic, write_cache
-from linecast._runtime import debug_enabled, debug_log, log_failure
+from linecast._runtime import debug_enabled, debug_log, log_failure, redact_url
 
 if TYPE_CHECKING:
     import http.client
@@ -72,36 +72,6 @@ def gunzip_limited(data: bytes, limit: int) -> bytes:
     if d.unconsumed_tail:
         raise ValueError(f"decompressed body exceeds cap of {limit} bytes")
     return out
-
-
-def redact_url(url: str) -> str:
-    """The URL as the debug log may show it: scheme, host and path.
-
-    The query goes -- it carries coordinates, search text and station
-    ids today and would carry a key the day a provider wanted one --
-    and is shown as "?..." so the reader knows there was one.  The
-    fragment goes too, and the host is the hostname alone (with its
-    port), never the netloc, so the basic-auth userinfo of a self-hosted
-    tile server never reaches a transcript.  A string that is not a URL
-    comes back with only its query trimmed; one urlsplit refuses (an
-    unbalanced IPv6 bracket) comes back as a stand-in, since nothing in
-    it can be told apart from userinfo.
-    """
-    try:
-        parts = urllib.parse.urlsplit(url)
-    except ValueError:
-        return "(unparseable URL)"
-    host = parts.hostname or ""
-    if ":" in host:
-        host = f"[{host}]"  # an IPv6 literal, as it was written
-    try:
-        port = parts.port
-    except ValueError:
-        port = None
-    if host and port is not None:
-        host = f"{host}:{port}"
-    query = "..." if parts.query else ""
-    return urllib.parse.urlunsplit((parts.scheme, host, parts.path, query, ""))
 
 
 class HTTPError(OSError):

@@ -74,7 +74,8 @@ class TestOffline:
         _, out, _ = _run("--offline", monkeypatch=monkeypatch)
         assert "(exists; location, units)" in out
         assert "  units     metric (config)" in out
-        assert "  location  Westbrook, Maine (43.6800,-70.3700) (config)" in out
+        assert "  location  (set) (config)" in out
+        assert "Westbrook" not in out and "43.6800" not in out
 
     def test_env_overrides_name_their_source(self, monkeypatch):
         monkeypatch.setenv("WEATHER_UNITS", "metric")
@@ -83,10 +84,21 @@ class TestOffline:
         monkeypatch.setenv("LINECAST_LANG", "fr")
         _, out, _ = _run("--offline", monkeypatch=monkeypatch)
         assert "  units     metric (WEATHER_UNITS); tides imperial (TIDES_UNITS)" in out
-        assert "  location  1.5,2.5 (WEATHER_LOCATION)" in out
+        assert "  location  (set) (WEATHER_LOCATION)" in out
         assert "  language  fr (LINECAST_LANG)" in out
         assert "24-hour (fr)" in out
-        assert "  WEATHER_LOCATION=1.5,2.5" in out
+        assert "  WEATHER_LOCATION=(set)" in out
+        assert "1.5,2.5" not in out
+
+    def test_location_is_masked_in_text_and_json_reports(self, monkeypatch):
+        private = "My Home, 43.6770,-70.3712"
+        monkeypatch.setenv("WEATHER_LOCATION", private)
+        _, text, _ = _run("--offline", monkeypatch=monkeypatch)
+        _, as_json, _ = _run("--offline", "--json", monkeypatch=monkeypatch)
+        for report in (text, as_json):
+            assert private not in report
+            assert "43.6770" not in report
+            assert "WEATHER_LOCATION" in report
 
 
 class TestSecrets:

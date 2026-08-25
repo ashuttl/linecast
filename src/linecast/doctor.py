@@ -7,9 +7,9 @@ The report is the first thing to ask for in a bug report: it says which
 build is running, where the settings and the cache are and whether the
 cache can be written, what the terminal advertised, which preferences
 are in force and where each came from, every linecast-related
-environment variable (secrets shown as "(set)", URLs without their
-userinfo or query), and one line per provider host saying whether it
-answered.  --offline skips the probes;
+environment variable (secrets and locations shown as "(set)", URLs
+without their userinfo or query), and one line per provider host saying
+whether it answered.  --offline skips the probes;
 --json prints the same information as one object with stable keys.
 """
 
@@ -25,7 +25,7 @@ from linecast._runtime import doctor_parser, set_debug
 PROBE_TIMEOUT = 4        # seconds per host; every probe runs at once
 _PROBE_GRACE = 1         # seconds past that before a probe is given up on
 _WALK_LIMIT = 50_000     # cache entries counted before the walk gives up
-_SECRET_WORDS = ("KEY", "TOKEN", "SECRET", "PASSWORD")
+_SECRET_WORDS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "LOCATION")
 _ENV_NAMES = re.compile(r"^(LINECAST_|WEATHER_|TIDES_|TIDE_STATION$|XDG_.*_HOME$"
                         r"|NO_COLOR$|CLICOLOR)")
 
@@ -338,12 +338,9 @@ def _collect_preferences():
     override = env.get("WEATHER_LOCATION", "").strip()
     loc = saved_location()
     if override:
-        location, location_source = override, "WEATHER_LOCATION"
+        location, location_source = "(set)", "WEATHER_LOCATION"
     elif loc is not None:
-        label = loc.get("label") or ""
-        coords = f"{loc['lat']:.4f},{loc['lng']:.4f}"
-        location = f"{label} ({coords})" if label else coords
-        location_source = "config"
+        location, location_source = "(set)", "config"
     else:
         location, location_source = "auto (IP geolocation)", "auto"
     lang_env = env.get("LINECAST_LANG", "").strip()

@@ -150,8 +150,9 @@ is the line every absorbed failure goes through, in the house style:
 
     <provider>: <operation> failed (<host>) -- <ExcType>: <message>; <fallback>
 
-It shows only the host of the URL, cuts the exception's first line at
-120 characters, and formats nothing at all with `--debug` off, so it
+It shows only the host of the URL, redacts URLs quoted by the
+exception, cuts the exception's first line at 120 characters, and
+formats nothing at all with `--debug` off, so it
 is safe to call from inside a tile pool. `_live.WorkerWatch` is the
 `threading.excepthook` the live loop installs, so a crashed worker is
 logged at once and reported once the terminal is the user's again.

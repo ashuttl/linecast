@@ -139,9 +139,11 @@ reaches stderr in normal use except a user-facing sentence, and a
 `--debug` transcript starts with the version, the Python, the
 platform and where the cache and settings live, then lists every
 fallback taken. URLs in the transcript go through `_http.redact_url`,
-which keeps scheme, host and path and never the query string. The one
-line that prints without `--debug` is the notice after a live session
-in which a background thread crashed; `_live.WorkerWatch` catches it
+which keeps scheme, host and path and never the query string; URLs
+quoted inside exception messages and tracebacks are redacted by the
+same rule. The one line that prints without `--debug` is the notice
+after a live session in which a background thread crashed;
+`_live.WorkerWatch` catches it
 with `threading.excepthook` while the alternate screen is up and
 reports it once the terminal is restored, with the traceback under
 `--debug`. The fetch workers behind `weather --print` and

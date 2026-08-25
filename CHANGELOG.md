@@ -16,6 +16,7 @@ Notable changes, by release. Notes for the next release collect under
   a tile that would not decode -- as one line naming the provider,
   the host and what was shown instead. URLs in the debug output are
   reduced to scheme, host and path; the query string is never printed.
+  The same redaction applies to URLs quoted by an exception or traceback.
 - Live: A background task that crashes under a live view no longer
   scrawls a traceback across the screen. One line after the view
   closes says it happened; `--debug` prints the traceback in full.
