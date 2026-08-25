@@ -304,7 +304,7 @@ if [ "$(id -u)" = 0 ]; then
     rm -rf "$appdir"
     skip "read-only cache dir: root can write to any directory"
 else
-    skip "foreign-owned venv and cache dir: needs root to chown (runs in a container job)"
+    skip "foreign-owned venv and cache dir: needs root to chown (CI runs this once more under sudo)"
     rm -rf "$appdir"; mkdir "$appdir"; chmod 500 "$appdir"
     out=$(venv_run sunshine --version); rc=$?
     is "read-only cache dir: exits 0" 0 "$rc"

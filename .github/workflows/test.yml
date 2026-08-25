@@ -150,3 +150,11 @@ jobs:
 
       - name: Run the installer against the wheel
         run: sh scripts/check_get_sh.sh "$RUNNER_TEMP/dist"
+
+      - name: Run the installer against the wheel as root
+        # The harness can only check that get.sh refuses a cache directory
+        # or venv owned by someone else when it can chown, so it runs once
+        # more as root.  sudo replaces PATH with its secure_path, which is
+        # why the PATH setup-python built is handed back through env.
+        if: runner.os == 'Linux'
+        run: sudo env PATH="$PATH" sh scripts/check_get_sh.sh "$RUNNER_TEMP/dist"
