@@ -20,10 +20,14 @@ import os
 import re
 import select
 import sys
-import termios
 import time
-import tty
 from typing import Iterable
+
+try:  # POSIX-only terminal control; absent on Windows
+    import termios
+    import tty
+except ImportError:  # pragma: no cover - Windows only
+    termios = tty = None
 
 RGB = tuple[int, int, int]
 
@@ -314,6 +318,11 @@ def _legacy_mode_requested():
 
 
 def _query_theme_via_osc(timeout_s: float):
+    # The probe needs raw mode and a select() on stdin, neither of which
+    # Windows offers; fall back to the built-in palette there.
+    if termios is None:
+        return None
+
     stdin = sys.stdin
     stdout = sys.stdout
 
