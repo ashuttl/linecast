@@ -110,7 +110,8 @@ sys.exit(time.time() - os.stat(sys.argv[1]).st_mtime >= 86400)' "$stamp" 2>/dev/
 vpip() { "$python" -I -m pip -q --disable-pip-version-check "$@"; }
 
 # Make the venv from scratch and install linecast into it.  Every failure
-# exits, so callers need not check.
+# exits, so callers need not check.  The stamp is best-effort: without it
+# the next run only repeats the upgrade check.
 build() {
     note "installing linecast..."
     if ! ( umask 077 && python3 -I -m venv --clear "$venv" ); then
@@ -122,7 +123,7 @@ build() {
             || die "the venv has no pip and ensurepip is unavailable"
     fi
     vpip install linecast || die "could not install linecast"
-    touch "$stamp"
+    touch "$stamp" 2>/dev/null || :
 }
 
 main() {
@@ -186,10 +187,11 @@ main() {
     elif ! fresh; then
         # Pick up a newer release.  When the index is unreachable pip keeps
         # what is installed and exits 0; any other failure is worth a line
-        # but not an exit.  An upgrade that broke the venv is rebuilt now.
+        # but not an exit, and so is a stamp that cannot be written (a cache
+        # on a read-only mount).  An upgrade that broke the venv is rebuilt.
         vpip install --upgrade --retries 1 --timeout 10 linecast >/dev/null 2>&1 \
             || note "could not check for a newer release; running the installed one"
-        touch "$stamp"
+        touch "$stamp" 2>/dev/null || :
         usable || build
     fi
 
