@@ -8,6 +8,9 @@ Notable changes, by release. Notes for the next release collect under
 - Installer: The `curl | sh` quick start with no arguments works again
   on Debian and Ubuntu, where the script had been exiting without running
   anything.
+- Installer: When nothing but `python3` is available, `get.sh` keeps its
+  environment in a private per-user directory instead of a shared path
+  under `/tmp`, and picks up new releases once a day.
 - Cache: On macOS the cache now lives in `~/Library/Caches/linecast`;
   an existing `~/.cache/linecast` stays in use. `LINECAST_CACHE_DIR`
   and `LINECAST_CONFIG_DIR` put the cache and the settings file

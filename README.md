@@ -39,7 +39,7 @@ Or with nothing but curl — [`get.sh`](get.sh) uses whatever the machine has, d
 curl -sL https://raw.githubusercontent.com/ashuttl/linecast/main/get.sh | sh
 ```
 
-It opens `weather` in live mode; name another tool with `sh -s sunshine`, or pass flags with `sh -s -- --metric`.
+It opens `weather` in live mode; name another tool with `sh -s sunshine`, or pass flags with `sh -s -- --metric`. When nothing else is available, the script keeps a small private environment for linecast in your cache directory and checks for a newer release once a day.
 
 ## Install
 
