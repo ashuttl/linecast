@@ -43,10 +43,6 @@ SESSION_ENV = {
 os.environ.update(SESSION_ENV)
 
 # Every variable linecast reads that would change what a test sees.
-# LINECAST_THEME is not here: _theme reads it once at import, and
-# tests/test_theme_reload.py needs the terminal-following mode it gets
-# when the variable is unset (tests/test_render_snapshots.py pins the
-# fixed palette for itself).
 SCRUBBED = (
     "WEATHER_UNITS", "TIDES_UNITS", "WEATHER_LOCATION", "WEATHER_NO_SHADING",
     "TIDE_STATION", "LINECAST_LANG", "LINECAST_ICONS", "LINECAST_TEMP",
@@ -59,6 +55,25 @@ SCRUBBED = (
 )
 for _name in SCRUBBED:
     os.environ.pop(_name, None)
+
+
+def _proxy_names():
+    """Every *_proxy variable, whatever its case: _http._proxied() sends
+    every fetch down urllib's path when one is set, which changes what
+    a failed fetch raises. A test that wants a proxy sets one itself."""
+    return [name for name in os.environ if name.lower().endswith("_proxy")]
+
+
+for _name in _proxy_names():
+    del os.environ[_name]
+
+# LINECAST_THEME is scrubbed here and not per test because _theme reads
+# it once, at import. Unset, with no terminal to probe, _theme settles
+# on the fallback palette with theme_legacy_mode False: the mode the
+# stored snapshots were rendered in and the one tests/test_theme_reload.py
+# needs. A value inherited from the shell (off, classic) would fix the
+# other palette for the whole session.
+os.environ.pop("LINECAST_THEME", None)
 
 
 @pytest.fixture(autouse=True)
@@ -74,7 +89,7 @@ def _private_home(monkeypatch, tmp_path):
     config_dir = tmp_path / "config"
     config_dir.mkdir()
     monkeypatch.setenv("LINECAST_CONFIG_DIR", str(config_dir))
-    for name in SCRUBBED:
+    for name in (*SCRUBBED, *_proxy_names()):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: HOME))
 

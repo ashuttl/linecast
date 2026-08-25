@@ -10,7 +10,6 @@ To regenerate snapshots after an intentional rendering change:
 
 import json
 import math
-import os
 import re
 import sys
 from datetime import datetime
@@ -21,9 +20,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SNAPSHOTS = Path(__file__).parent / "snapshots"
-
-# Ensure the theme system doesn't try to query the terminal
-os.environ.setdefault("LINECAST_THEME", "classic")
 
 # Fixed "now" for deterministic rendering
 FIXED_NOW = datetime(2026, 3, 5, 14, 30)

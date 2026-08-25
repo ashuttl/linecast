@@ -151,7 +151,7 @@ class TestSecrets:
         assert "pw@" not in out
 
     def test_unset_variables_are_not_listed(self, monkeypatch):
-        monkeypatch.delenv("LINECAST_THEME", raising=False)  # pinned by a snapshot test
+        monkeypatch.delenv("LINECAST_THEME", raising=False)
         _, out, _ = _run("--offline", monkeypatch=monkeypatch)
         assert "LINECAST_TIDECHECK_KEY" not in out
         assert "LINECAST_THEME=" not in out
