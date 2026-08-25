@@ -256,7 +256,7 @@ Every command takes `--debug`. It prints, on stderr, one line for each fallback 
 
 | Variable | Description |
 | --- | --- |
-| `WEATHER_LOCATION` | Default `lat,lng` for location-aware commands; overrides the saved location |
+| `WEATHER_LOCATION` | Default location for location-aware commands, as `lat,lng` or a place name; overrides the saved location |
 | `WEATHER_UNITS` | `metric` or `imperial`; overrides the saved units |
 | `TIDE_STATION` | Default tide station ID |
 | `TIDES_UNITS` | `metric` or `imperial` for tide heights; overrides the saved units |
@@ -273,6 +273,7 @@ Every command takes `--debug`. It prints, on stderr, one line for each fallback 
 | `LINECAST_CACHE_DIR` | Directory for cached data, used exactly as given |
 | `LINECAST_CONFIG_DIR` | Directory for `config.json`, used exactly as given |
 | `NO_COLOR` | Any non-empty value disables ANSI colours |
+| `CLICOLOR` / `CLICOLOR_FORCE` | `CLICOLOR=0` disables colour; a non-zero `CLICOLOR_FORCE` keeps it on when output is not a terminal |
 
 Cached data lives in `$XDG_CACHE_HOME/linecast` on Linux, which is
 `~/.cache/linecast` unless you have set `XDG_CACHE_HOME`. On macOS it
@@ -293,6 +294,10 @@ platform (or under `$XDG_CONFIG_HOME`).
 - **Maps** — terrain from AWS/Mapzen elevation tiles; streets and inland water from [OpenFreeMap](https://openfreemap.org/) (© OpenMapTiles © OpenStreetMap contributors); search from Photon and Nominatim; directions from FOSSGIS OSRM (© OpenStreetMap contributors); globe cloud cover from [LibreWXR](https://librewxr.net/) (CC BY 4.0) satellite imagery; terrain colour picks its ramp from a vendored [Köppen-Geiger climate grid](https://doi.org/10.6084/m9.figshare.21789074) (Beck et al. 2023, CC BY 4.0).
 
 </details>
+
+## Contributing
+
+Pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) says how to run the suite and what a change should look like, and [ARCHITECTURE.md](ARCHITECTURE.md) is the map of the code.
 
 ## Lineage
 
