@@ -174,9 +174,12 @@ cleared, and every outbound socket refused. The suite never touches
 the real `~/.cache/linecast` or `~/.config/linecast` and never
 reaches the network, so it passes the same way on a machine with a
 saved location, a metric preference, or no connection. A test that
-genuinely needs either marks itself `@pytest.mark.integration`; run
-those alone with `-m integration` or without them with
-`-m "not integration"` (there are none today). `tests/snapshots/`
+genuinely needs either marks itself `@pytest.mark.integration`, and
+`pyproject.toml` leaves those out of a plain `pytest tests`; run them
+alone with `-m integration`. Today they are all in
+`tests/test_live_providers.py`, one per provider linecast talks to,
+each making a real request and running the reply through the same
+code the commands use. `tests/snapshots/`
 holds rendered frames for fixed data, sizes and clock; if you change
 how something looks on purpose, delete the affected snapshot and run
 the suite once to regenerate it. `ruff check src tests scripts` is
@@ -194,6 +197,8 @@ files from that install; `scripts/check_get_sh.sh` runs
 `get.sh` offline against the same wheel, with stand-ins for the tools
 it looks for, and checks every branch of it. A release tag runs the
 same workflow and `publish.yml` sends the wheel it tested to PyPI.
+`live.yml` runs the integration tests once a day and keeps one issue
+open while any provider fails.
 Each script can be run by hand; its header says how.
 
 The other scripts bake data that ships in the wheel or is served from

@@ -4,6 +4,7 @@
 
 **Weather, tides, the sun, the moon, and maps, drawn for the terminal. The Old Farmer's Almanac meets Minitel.**
 
+[![Tests](https://github.com/ashuttl/linecast/actions/workflows/test.yml/badge.svg)](https://github.com/ashuttl/linecast/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/linecast)](https://pypi.org/project/linecast/)
 [![Python](https://img.shields.io/pypi/pyversions/linecast)](https://pypi.org/project/linecast/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
