@@ -240,7 +240,10 @@ def fetch_json_cached(cache_file: Path, max_age: float, url: str,
             return stale
         return fallback
 
-    write_cache(cache_file, data)
+    try:
+        write_cache(cache_file, data)
+    except OSError as exc:
+        debug_log(f"cache: write failed {cache_file.name} -- {exc}")
     return data
 
 

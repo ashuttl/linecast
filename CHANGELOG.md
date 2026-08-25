@@ -9,6 +9,10 @@ Notable changes, by release. Notes for the next release collect under
   an existing `~/.cache/linecast` stays in use. `LINECAST_CACHE_DIR`
   and `LINECAST_CONFIG_DIR` put the cache and the settings file
   wherever you like, and `XDG_CACHE_HOME` is honoured.
+- Cache: A cache directory that cannot be written or read no longer
+  stops a command; the data is fetched and shown without being kept.
+  `linecast units` and `linecast location` say in one line when the
+  settings file cannot be saved, instead of printing a traceback.
 - Weather: In live mode, `o` opens the alert on screen. After the
   view refreshed its alerts it could open the wrong one, or none.
 - Plumbing: A map of the code for contributors in ARCHITECTURE.md, a

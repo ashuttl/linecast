@@ -46,15 +46,17 @@ def get_location() -> tuple[float | None, float | None, str | None]:
             timeout=3,
         )
         parts = data.get("loc", "").split(",")
-        if len(parts) == 2:
-            lat, lng = float(parts[0]), float(parts[1])
-            country = data.get("country", "")
-            write_cache(_cache_file(), {"lat": lat, "lng": lng, "country": country})
-            return lat, lng, country
+        if len(parts) != 2:
+            return None, None, None
+        lat, lng = float(parts[0]), float(parts[1])
+        country = data.get("country", "")
     except Exception as exc:
         debug_log(f"geolocation failed: {exc}")
+        return None, None, None
 
-    return None, None, None
+    # the answer is in hand; keeping it is a separate, best-effort matter
+    write_cache(_cache_file(), {"lat": lat, "lng": lng, "country": country})
+    return lat, lng, country
 
 
 def resolve_location(

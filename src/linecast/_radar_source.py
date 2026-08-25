@@ -12,6 +12,7 @@ Attribution: Iowa Environmental Mesonet, Iowa State University.
 
 import datetime
 
+from linecast._cache import write_bytes_atomic
 from linecast._http import fetch_bytes
 from linecast._paths import cache_dir
 from linecast._runtime import debug_log
@@ -69,24 +70,33 @@ def fetch_frame(bbox: tuple[float, float, float, float], w: int, h: int,
     when = _floor_step(when) if when else latest_frame_time()
     path = _cache_path(bbox, w, h, when)
 
-    if path.exists():
-        age = _time_since(path)
-        # immutable once it's not the newest frame; newest is fresh for < a step
-        if not latest or age < FRAME_STEP:
-            debug_log(f"radar cache hit: {path.name}")
-            return path.read_bytes()
+    try:
+        if path.exists():
+            age = _time_since(path)
+            # immutable once it's not the newest frame; newest is fresh for < a step
+            if not latest or age < FRAME_STEP:
+                debug_log(f"radar cache hit: {path.name}")
+                return path.read_bytes()
+    except OSError as exc:
+        debug_log(f"radar: frame read failed {path.name} -- {exc}")
 
     url = _url(bbox, w, h, when)
     try:
         data = fetch_bytes(url, timeout=timeout)
     except Exception as exc:
         debug_log(f"radar fetch failed: {exc}")
-        if path.exists():
-            return path.read_bytes()
+        try:
+            if path.exists():
+                return path.read_bytes()
+        except OSError as stale_exc:
+            debug_log(f"radar: stale frame unreadable {path.name} -- {stale_exc}")
         raise
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_bytes_atomic(path, data)
+    except OSError as exc:
+        debug_log(f"radar: frame write failed {path.name} -- {exc}")
     return data
 
 

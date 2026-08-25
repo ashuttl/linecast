@@ -1,6 +1,7 @@
 """Persistent user settings (config.json under the config root)."""
 
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,19 @@ def write_config(data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     from linecast._cache import write_bytes_atomic
     write_bytes_atomic(path, (json.dumps(data, indent=2) + "\n").encode())
+
+
+def save_config(data: dict[str, Any]) -> None:
+    """write_config for the settings commands.
+
+    A config directory that cannot be written is a fact about the
+    machine, not a bug, so the command ends with one line naming the
+    file and the reason rather than a traceback.
+    """
+    try:
+        write_config(data)
+    except OSError as exc:
+        sys.exit(f"Could not save settings to {config_file()}: {exc.strerror or exc}")
 
 
 def saved_units() -> str | None:

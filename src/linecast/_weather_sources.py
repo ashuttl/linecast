@@ -65,14 +65,16 @@ def _reverse_geocode(lat, lng, lang=None):
             display = name
         else:
             display = ""
-        write_cache(cache_file, {
-            "lat": round(lat, 4), "lng": round(lng, 4), "lang": lang,
-            "name": display, "country_code": country_code,
-            "address": addr,
-        })
-        return display, country_code, addr
     except Exception:
         return "", "", {}
+
+    # the answer is in hand; keeping it is a separate, best-effort matter
+    write_cache(cache_file, {
+        "lat": round(lat, 4), "lng": round(lng, 4), "lang": lang,
+        "name": display, "country_code": country_code,
+        "address": addr,
+    })
+    return display, country_code, addr
 
 
 def fetch_forecast(lat: float, lng: float,

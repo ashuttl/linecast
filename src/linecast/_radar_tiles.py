@@ -97,18 +97,21 @@ def prune_tile_cache(max_age: float = _PRUNE_MAX_AGE) -> None:
     immutable caches (terrain, vector tiles) are someone else's and eternal.
     """
     root = cache_dir("radar")
-    if not root.is_dir():
-        return
     cutoff = time.time() - max_age
-    for provider_dir in root.iterdir():
-        if not provider_dir.is_dir():
-            continue
-        for tile in provider_dir.glob("*.png"):
-            try:
-                if tile.stat().st_mtime < cutoff:
-                    tile.unlink()
-            except OSError:
-                pass  # a concurrent radar may have pruned it first
+    try:
+        if not root.is_dir():
+            return
+        for provider_dir in root.iterdir():
+            if not provider_dir.is_dir():
+                continue
+            for tile in provider_dir.glob("*.png"):
+                try:
+                    if tile.stat().st_mtime < cutoff:
+                        tile.unlink()
+                except OSError:
+                    pass  # a concurrent radar may have pruned it first
+    except OSError as exc:
+        debug_log(f"radar: prune skipped {root.name} -- {exc}")
 
 
 def fetch_index(provider: Provider, timeout: float = 15) -> dict[str, Any]:
@@ -116,23 +119,37 @@ def fetch_index(provider: Provider, timeout: float = 15) -> dict[str, Any]:
 
     Cached on disk for _INDEX_TTL seconds; falls back to stale cache on error.
     """
-    cdir = _cache_dir(provider)
-    cdir.mkdir(parents=True, exist_ok=True)
-    path = cdir / "weather-maps.json"
-    if path.exists() and (time.time() - path.stat().st_mtime) < _INDEX_TTL:
-        try:
+    path = _cache_dir(provider) / "weather-maps.json"
+    try:
+        if path.exists() and (time.time() - path.stat().st_mtime) < _INDEX_TTL:
             return json.loads(path.read_text())
-        except Exception:
-            pass
+    except (OSError, ValueError) as exc:
+        debug_log(f"radar: index read failed {path.name} -- {exc}")
     try:
         data = fetch_bytes(provider.index_url, timeout=timeout)
-        write_bytes_atomic(path, data)
-        return json.loads(data)
+        index = json.loads(data)
     except Exception as exc:
         debug_log(f"{provider.name} index failed: {exc}")
+        stale = _stale_index(path)
+        if stale is not None:
+            return stale
+        raise
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_bytes_atomic(path, data)
+    except OSError as exc:
+        debug_log(f"radar: index write failed {path.name} -- {exc}")
+    return index
+
+
+def _stale_index(path):
+    """The last index we managed to keep, whatever its age, or None."""
+    try:
         if path.exists():
             return json.loads(path.read_text())
-        raise
+    except (OSError, ValueError) as exc:
+        debug_log(f"radar: stale index unreadable {path.name} -- {exc}")
+    return None
 
 
 def _lonlat_to_world(lon, lat):

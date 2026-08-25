@@ -160,9 +160,7 @@ def _refresh_cap(timeout):
     Same fallback posture as the mosaic: a stale lattice on a network
     failure beats a clear pole that isn't.
     """
-    cdir = cache_dir("maps")
-    cdir.mkdir(parents=True, exist_ok=True)
-    cpath = cdir / "polar_clouds.json"
+    cpath = cache_dir("maps", "polar_clouds.json")
     payload = read_cache(cpath, _CAP_TTL)
     if payload is None:
         try:

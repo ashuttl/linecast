@@ -8,6 +8,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from linecast._runtime import debug_log
+
 
 def write_bytes_atomic(path: Path, data: bytes) -> None:
     """Write to a sibling temp file, then publish with os.replace.
@@ -22,31 +24,44 @@ def write_bytes_atomic(path: Path, data: bytes) -> None:
 
 
 def read_cache(path: Path, max_age: float) -> Any:
-    """Read JSON cache file if it exists and isn't too old. Returns data or None."""
-    if path.exists():
-        age = time.time() - path.stat().st_mtime
-        if age < max_age:
-            try:
-                return json.loads(path.read_text())
-            except (json.JSONDecodeError, KeyError):
-                pass
-    return None
+    """Read JSON cache file if it exists and isn't too old. Returns data or None.
+
+    A file that cannot be read or parsed counts as absent: the caller
+    fetches fresh, which is what a cache is for.
+    """
+    try:
+        if not path.exists():
+            return None
+        if time.time() - path.stat().st_mtime >= max_age:
+            return None
+        return json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        debug_log(f"cache: read failed {path.name} -- {exc}")
+        return None
 
 
 def read_stale(path: Path) -> Any:
     """Read cache regardless of age (for fallback when network is down)."""
-    if path.exists():
-        try:
-            return json.loads(path.read_text())
-        except (json.JSONDecodeError, KeyError):
-            pass
-    return None
+    try:
+        if not path.exists():
+            return None
+        return json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        debug_log(f"cache: read failed {path.name} -- {exc}")
+        return None
 
 
 def write_cache(path: Path, data: Any) -> None:
-    """Write JSON cache file (atomically: concurrent commands share these)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    write_bytes_atomic(path, json.dumps(data).encode())
+    """Write JSON cache file (atomically: concurrent commands share these).
+
+    Best effort: a cache directory that cannot be written costs the next
+    run a refetch, and must never cost this run its answer.
+    """
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_bytes_atomic(path, json.dumps(data).encode())
+    except OSError as exc:
+        debug_log(f"cache: write failed {path.name} -- {exc}")
 
 
 def location_cache_key(lat: float, lng: float) -> str:

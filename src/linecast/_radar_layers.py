@@ -131,7 +131,6 @@ def fetch_field(bbox, timeout=10):
     key = field_key(bbox)
     minlon, minlat, maxlon, maxlat = key
     cdir = cache_dir("radar")
-    cdir.mkdir(parents=True, exist_ok=True)
     cpath = cdir / ("field_%s_%s_%s_%s.json" % tuple(
         str(round(v, 2)).replace("-", "m").replace(".", "p") for v in key))
     cached = read_cache(cpath, _FIELD_TTL)

@@ -56,14 +56,16 @@ def _fetch_tile(z, x, y, timeout=15):
     says, and that kind of wrong answer shouldn't be permanent.
     """
     import time
-    cdir = cache_dir("maps")
-    cpath = cdir / f"builtup_{z}_{x}_{y}.png"
-    if cpath.exists():
-        data = cpath.read_bytes()
-        if data:
-            return data
-        if time.time() - cpath.stat().st_mtime < 30 * 86400:
-            return None  # zero bytes = cached "nothing built here"
+    cpath = cache_dir("maps", f"builtup_{z}_{x}_{y}.png")
+    try:
+        if cpath.exists():
+            data = cpath.read_bytes()
+            if data:
+                return data
+            if time.time() - cpath.stat().st_mtime < 30 * 86400:
+                return None  # zero bytes = cached "nothing built here"
+    except OSError as exc:
+        debug_log(f"builtup: cache read failed {cpath.name} -- {exc}")
     try:
         data = fetch_bytes(_tile_url(z, x, y), timeout=timeout)
     except Exception as exc:
@@ -73,8 +75,11 @@ def _fetch_tile(z, x, y, timeout=15):
             debug_log(f"builtup tile {z}/{x}/{y} failed: {exc}")
             return None
         data = b""  # absence means zero; remember it
-    cdir.mkdir(parents=True, exist_ok=True)
-    write_bytes_atomic(cpath, data)
+    try:
+        cpath.parent.mkdir(parents=True, exist_ok=True)
+        write_bytes_atomic(cpath, data)
+    except OSError as exc:
+        debug_log(f"builtup: cache write failed {cpath.name} -- {exc}")
     return data or None
 
 

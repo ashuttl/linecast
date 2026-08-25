@@ -13,7 +13,7 @@ WEATHER_UNITS / TIDES_UNITS env > saved units (this command) > default
 import argparse
 
 from linecast._runtime import VersionAction
-from linecast._config import read_config, write_config, saved_units
+from linecast._config import read_config, save_config, saved_units
 
 
 def _cmd_show():
@@ -28,7 +28,7 @@ def _cmd_show():
 def _cmd_set(units):
     config = read_config()
     config["units"] = units
-    write_config(config)
+    save_config(config)
     if units == "metric":
         print("Units set to metric (celsius, km/h, mm, metres)")
     else:
@@ -38,7 +38,7 @@ def _cmd_set(units):
 def _cmd_auto():
     config = read_config()
     if config.pop("units", None) is not None:
-        write_config(config)
+        save_config(config)
     print("Units set to auto (imperial by default)")
 
 
