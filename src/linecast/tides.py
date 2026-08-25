@@ -28,8 +28,9 @@ from linecast._braille import build_braille_curve
 from linecast._graphics import (
     bg, fg, RESET,
     visible_len, fmt_time_dt,
-    get_terminal_size, live_loop,
+    get_terminal_size,
 )
+from linecast import _live
 from linecast import _theme
 from linecast._theme import (
     best_contrast,
@@ -788,10 +789,85 @@ def render(station_id, station_name, station_meta=None, runtime=None,
             if now_tip:
                 overlay_parts.append(now_tip)
 
-        if overlay_parts:
-            output += "\x00" + "".join(overlay_parts)
+        output = _live.overlay(output, "".join(overlay_parts))
 
     return output
+
+
+# ---------------------------------------------------------------------------
+# Live
+# ---------------------------------------------------------------------------
+class TidesApp(_live.LiveApp):
+    """The live tide view: a sliding window over predictions fetched a
+    week to either side, widened as the user scrolls toward an edge."""
+
+    interval = 60
+    mouse = True
+    # Larger step makes wheel/arrow scrubbing practical for multi-day browsing.
+    scroll_step = 30
+
+    def __init__(self, provider, station_id, station_name, station_meta,
+                 station_tz, runtime, predictions, hilo, fetched_start,
+                 fetched_end, y_range=None, marine_data=None):
+        self.provider = provider
+        self.station_id = station_id
+        self.station_name = station_name
+        self.station_meta = station_meta
+        self.station_tz = station_tz
+        self.runtime = runtime
+        self.predictions = predictions
+        self.hilo = hilo
+        self.fetched_start = fetched_start
+        self.fetched_end = fetched_end
+        self.y_range = y_range
+        self.marine_data = marine_data
+
+    def expand_for(self, offset_minutes):
+        """Expand fetched range if user has scrolled near the edge."""
+        current_now = _station_now(self.station_meta)
+        view_start = _live_window_start(
+            current_now,
+            offset_minutes=offset_minutes,
+            hours_shown=LIVE_WINDOW_HOURS,
+        )
+        view_end = view_start + timedelta(hours=LIVE_WINDOW_HOURS)
+        view_start_date = view_start.date()
+        view_end_date = view_end.date()
+
+        need_expand = False
+        new_start, new_end = self.fetched_start, self.fetched_end
+
+        if view_start_date - timedelta(days=2) < self.fetched_start:
+            new_start = view_start_date - timedelta(days=7)
+            need_expand = True
+        if view_end_date + timedelta(days=2) > self.fetched_end:
+            new_end = view_end_date + timedelta(days=7)
+            need_expand = True
+
+        if need_expand:
+            self.predictions = self.provider.tides_range(
+                self.station_id, new_start, new_end, self.station_tz)
+            self.hilo = self.provider.hilo_range(
+                self.station_id, new_start, new_end, self.station_tz)
+            self.fetched_start = new_start
+            self.fetched_end = new_end
+
+    def render(self, offset_minutes=0, mouse_pos=None, active_alert=None,
+               modal_scroll=0):
+        self.expand_for(offset_minutes)
+        return render(
+            self.station_id,
+            self.station_name,
+            station_meta=self.station_meta,
+            runtime=self.runtime,
+            fullscreen=True,
+            offset_minutes=offset_minutes,
+            mouse_pos=mouse_pos,
+            predictions=self.predictions,
+            hilo=self.hilo,
+            y_range=self.y_range,
+            marine_data=self.marine_data,
+        ), {}
 
 
 # ---------------------------------------------------------------------------
@@ -959,57 +1035,12 @@ def main():
             sys.exit(1)
 
         if runtime.live:
-            all_predictions, all_hilo = preds, hilo_data
-            fetched_range = [fetch_start, fetch_end]
-
-            def _maybe_expand(offset_minutes):
-                """Expand fetched range if user has scrolled near the edge."""
-                nonlocal all_predictions, all_hilo
-                current_now = _station_now(station_meta)
-                view_start = _live_window_start(
-                    current_now,
-                    offset_minutes=offset_minutes,
-                    hours_shown=LIVE_WINDOW_HOURS,
-                )
-                view_end = view_start + timedelta(hours=LIVE_WINDOW_HOURS)
-                view_start_date = view_start.date()
-                view_end_date = view_end.date()
-
-                need_expand = False
-                new_start, new_end = fetched_range[0], fetched_range[1]
-
-                if view_start_date - timedelta(days=2) < fetched_range[0]:
-                    new_start = view_start_date - timedelta(days=7)
-                    need_expand = True
-                if view_end_date + timedelta(days=2) > fetched_range[1]:
-                    new_end = view_end_date + timedelta(days=7)
-                    need_expand = True
-
-                if need_expand:
-                    all_predictions = provider.tides_range(station_id, new_start, new_end, station_tz)
-                    all_hilo = provider.hilo_range(station_id, new_start, new_end, station_tz)
-                    fetched_range[0] = new_start
-                    fetched_range[1] = new_end
-
-            def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
-                _maybe_expand(offset_minutes)
-                return render(
-                    station_id,
-                    station_name,
-                    station_meta=station_meta,
-                    runtime=runtime,
-                    fullscreen=True,
-                    offset_minutes=offset_minutes,
-                    mouse_pos=mouse_pos,
-                    predictions=all_predictions,
-                    hilo=all_hilo,
-                    y_range=y_range,
-                    marine_data=marine_data,
-                ), {}
-
             spin.stop()
-            # Larger step makes wheel/arrow scrubbing practical for multi-day browsing.
-            live_loop(_render, interval=60, mouse=True, scroll_step=30)
+            TidesApp(
+                provider, station_id, station_name, station_meta,
+                station_tz, runtime, preds, hilo_data, fetch_start, fetch_end,
+                y_range=y_range, marine_data=marine_data,
+            ).run()
         elif provider is NOAA:
             # NOAA's static view is the calendar day, which render fetches
             # itself from the month already cached above; every other
