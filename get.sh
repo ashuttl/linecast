@@ -9,7 +9,7 @@ set -e
 # Other tools:  curl -sL URL | sh -s sunshine
 
 cmd="${1:-weather}"
-shift 2>/dev/null || true
+if [ "$#" -gt 0 ]; then shift; fi   # a bare shift is fatal in dash
 
 case "$cmd" in
     weather|sunshine|moon|tides|radar|maps|linecast) ;;

@@ -5,6 +5,9 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Installer: The `curl | sh` quick start with no arguments works again
+  on Debian and Ubuntu, where the script had been exiting without running
+  anything.
 - Cache: On macOS the cache now lives in `~/Library/Caches/linecast`;
   an existing `~/.cache/linecast` stays in use. `LINECAST_CACHE_DIR`
   and `LINECAST_CONFIG_DIR` put the cache and the settings file
