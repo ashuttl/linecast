@@ -14,7 +14,7 @@ are fixed ramps over dBZ, each with a light- and a dark-background form.
 """
 
 from linecast import _theme
-from linecast._color import interp_stops, lerp
+from linecast._color import interp_stops
 
 GRAY_OFFSET = 32
 SNOW_FLAG = 128

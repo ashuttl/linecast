@@ -36,11 +36,11 @@ from linecast import _radar_frames
 from linecast import _radar_layers
 from linecast import _radar_warnings
 from linecast._live import overlay
-from linecast._radar_basemap import DotLayer, _point_in_rings
+from linecast._radar_basemap import DotLayer, _point_in_rings  # noqa: F401 — re-exported
 from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for, _bbox_key, compose
 # the frame cache and prefetcher; the benches reach the rest through here too
-from linecast._radar_frames import (
+from linecast._radar_frames import (  # noqa: F401
     MAX_REWIND_MIN, N_FRAMES, PLAY_READY, _cached_frame, _ensure_prefetch,
     _frame_cache, _frame_key, _load_frame, _loaded_mask, _nearest_cached,
     _nudge, _play_gate, _safe_load, _sat_timeline, _view_key,
@@ -48,7 +48,7 @@ from linecast._radar_frames import (
 from linecast._radar_sources import has_radar
 from linecast._scenes import Memo, SceneCache
 # the tests reach the view helpers through this module
-from linecast._radar_ui import (
+from linecast._radar_ui import (  # noqa: F401
     CROSSHAIR, DIM, MARKER, MUTED, _ShiftedBasemap, _build_warning_tooltip,
     _fmt_expire, _fmt_local, _get_basemap, _panned_place, _shift_grid,
     _theme_menu_overlay, _timeline_bar,

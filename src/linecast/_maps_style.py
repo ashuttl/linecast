@@ -23,7 +23,6 @@ either mode, not a mode — they live in _globe_now.
 """
 
 import math
-import os
 import unicodedata
 
 from linecast._color import color_mode

@@ -1,9 +1,8 @@
 """Tests for the TideCheck tide data source module."""
 
-import json
 import unittest
-from datetime import date, datetime, timezone, timedelta
-from unittest.mock import patch, MagicMock
+from datetime import date, timezone
+from unittest.mock import patch
 
 from linecast import _tides_common as common
 from linecast import _tides_tidecheck as tc

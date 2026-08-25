@@ -5,7 +5,7 @@ import sys
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
-from linecast._cache import CACHE_ROOT, read_cache, read_stale, write_cache, location_cache_key
+from linecast._cache import CACHE_ROOT, read_cache, write_cache, location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._runtime import WeatherRuntime, current_runtime
 
@@ -351,7 +351,6 @@ def _fetch_alerts_metno(lat, lng):
 
 def _fetch_alerts_meteireann(lat, lng):
     """Fetch active warnings from Met Éireann (Ireland). Cached 15min."""
-    import re
 
     cache_file = CACHE_DIR / f"alerts_ie_{location_cache_key(lat, lng)}.json"
     url = "https://prodapi.metweb.ie/warnings/active"

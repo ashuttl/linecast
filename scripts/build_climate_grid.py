@@ -24,7 +24,6 @@ committed — this script reruns only when the source dataset does.
 
 import argparse
 import struct
-import sys
 import zlib
 from collections import deque
 from pathlib import Path

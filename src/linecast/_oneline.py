@@ -6,7 +6,7 @@ these renderers instead of the full terminal UI.
 """
 
 from linecast._graphics import fg, RESET
-from linecast._framebuffer import fmt_time, fmt_time_dt
+from linecast._framebuffer import fmt_time_dt
 
 
 # ---------------------------------------------------------------------------

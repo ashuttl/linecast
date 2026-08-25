@@ -19,7 +19,7 @@ from linecast._color import BG_PRIMARY
 from linecast._elevation import decode_meters, elevation_grid
 from linecast._radar_basemap import BORDER, COAST
 from linecast.maps import (
-    BATHY_STOPS, COAST_STROKE, HYPSO_FAMILIES, BORDER_STROKE, LAKE_FILL,
+    COAST_STROKE, BORDER_STROKE, LAKE_FILL,
     _coast_dots, _edge_dots, _water_subpixels, build_terrain_buffer,
     compose_terrain,
 )

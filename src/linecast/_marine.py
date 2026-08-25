@@ -5,10 +5,10 @@ The API is free and requires no API key, but coverage is limited
 to coastal areas.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
-from linecast._cache import CACHE_ROOT, location_cache_key, read_cache
+from linecast._cache import CACHE_ROOT, location_cache_key
 from linecast._http import fetch_json_cached
 from linecast._runtime import TidesRuntime
 

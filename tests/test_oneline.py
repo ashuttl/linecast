@@ -1,11 +1,9 @@
 """Tests for --oneline compact single-line renderers."""
 
-import importlib
 import re
 import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from unittest.mock import patch
 
 # Ensure the worktree src is preferred over any installed version.
 _src = str(Path(__file__).resolve().parent.parent / "src")

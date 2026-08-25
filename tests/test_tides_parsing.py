@@ -6,7 +6,6 @@ response format, these tests will catch the breakage.
 
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"

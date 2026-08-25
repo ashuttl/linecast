@@ -9,7 +9,6 @@ Respects NO_COLOR (https://no-color.org/), CLICOLOR/CLICOLOR_FORCE
 """
 
 import functools
-import math
 import os
 import sys
 from linecast import _theme

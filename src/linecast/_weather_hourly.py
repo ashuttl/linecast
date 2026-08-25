@@ -7,14 +7,13 @@ from linecast._braille import build_braille_curve, interpolate
 from linecast._graphics import bg, fg, fmt_hour, fmt_time_dt, RESET, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast._i18n import lang_of
-from linecast._weather_i18n import DAY_NAMES, FULL_DAY_NAMES, _s
+from linecast._weather_i18n import FULL_DAY_NAMES, _s
 from linecast._weather_sources import _local_now_for_data
 from linecast._weather_style import (
     CHART_BG_DAY_RGB,
     CHART_BG_NIGHT_RGB,
     CHART_HOVER_RGB,
     DIM,
-    MUTED,
     SPARKLINE,
     SUNRISE_LABEL_RGB,
     SUNSET_LABEL_RGB,
@@ -25,7 +24,6 @@ from linecast._weather_style import (
     _colored_temp,
     _precip_color,
     _temp_color,
-    _uv_color,
 )
 
 

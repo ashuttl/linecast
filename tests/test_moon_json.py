@@ -12,7 +12,6 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast._moon_i18n import _moon_name
 from linecast._moon_json import build_payload
 from linecast._runtime import RuntimeConfig, moon_parser
 from linecast.moon import moon_illumination, upcoming_moon_events
