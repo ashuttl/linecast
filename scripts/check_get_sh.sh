@@ -230,7 +230,10 @@ out=$(venv_run sunshine --version)
 has "venv that cannot import linecast is rebuilt" "linecast $version" "$out"
 is "rebuild ran pip install" 2 "$(installs)"
 
-rm "$venv/bin/python3"; ln -s /nonexistent/python3 "$venv/bin/python3"
+# Which of bin/python* is the real link and which point at it differs
+# by platform, so every one of them dangles, as when the interpreter
+# the venv was made from is gone.
+for p in "$venv"/bin/python*; do rm -f "$p"; ln -s /nonexistent/python3 "$p"; done
 out=$(venv_run sunshine --version)
 has "venv with a dangling python is rebuilt" "linecast $version" "$out"
 is "dangling rebuild ran pip install" 3 "$(installs)"
