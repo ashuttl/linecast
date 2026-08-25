@@ -6,7 +6,7 @@ state subclasses to run under it — and overlay(), which puts a tooltip, modal
 or panel over a frame.  The loop supports:
 
 - Auto-refresh on a configurable interval
-- Immediate re-render on terminal resize (SIGWINCH)
+- Immediate re-render on terminal resize
 - Re-inking in place when the terminal's colour theme changes
 - Keyboard navigation (arrows, q to quit, n to reset)
 - Mouse wheel scrubbing (SGR and legacy X10/VT200 encoding)
@@ -20,6 +20,8 @@ Mouse protocol references:
 import os
 import sys
 import time as _time
+
+from linecast import _term
 
 
 # ---------------------------------------------------------------------------
@@ -108,18 +110,12 @@ def _read_key(fd, text=False):
     'key:enter' for editing. Escape sequences (arrows, mouse) decode
     exactly as before, so list navigation keeps working while typing.
     """
-    import select as _sel
-
     def _read_byte():
-        try:
-            data = os.read(fd, 1)
-        except OSError:
-            return None
-        return data or None
+        return _term.read_byte(fd)
 
     def _read_byte_timeout(timeout=0.15):
-        if _sel.select([fd], [], [], timeout)[0]:
-            return _read_byte()
+        if _term.wait_readable(fd, timeout):
+            return _term.read_byte(fd)
         return None
 
     b = _read_byte()
@@ -271,7 +267,7 @@ def _read_key(fd, text=False):
 # ---------------------------------------------------------------------------
 # Live loop
 # ---------------------------------------------------------------------------
-_running = False  # a live loop is on screen with its SIGWINCH handler installed
+_running = False  # a live loop is on screen with the terminal taken over
 
 
 class WorkerWatch:
@@ -338,15 +334,12 @@ class WorkerWatch:
 def nudge():
     """Ask the live loop to repaint now, from any thread.
 
-    SIGWINCH rides the loop's self-pipe wakeup and coalesces harmlessly
-    when several arrive at once; with no live loop running it does
-    nothing, so background work can call it unconditionally.  A loop
-    that ends between the check and the kill has already put the
-    previous SIGWINCH handler back, so the signal lands there (ignored,
-    by default) rather than in a pipe that is being closed."""
-    if _running:
-        import signal
-        os.kill(os.getpid(), signal.SIGWINCH)
+    Wakeups coalesce harmlessly when several arrive at once, and with no
+    live loop running this does nothing, so background work can call it
+    unconditionally.  _term decides how the wakeup travels: a self-pipe
+    written from the SIGWINCH handler on POSIX, an event the poll picks
+    up on Windows."""
+    _term.nudge()
 
 
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
@@ -415,55 +408,23 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               truthy to re-render. Requires mouse and on_drag (the
               press is only tracked while a drag callback is set).
               Default None preserves existing behavior exactly.
-    Re-renders immediately on terminal resize (SIGWINCH) or input.
+    Re-renders immediately on terminal resize or input.
 
     While idle, re-probes the terminal's colours now and then (see
     _theme.poll_interval / watch_path) and repaints when they change,
     so switching the terminal theme re-inks the view in place.
     """
     global _running
-    import select
-    import signal
-    import termios
-    import tty
     from linecast import _theme
 
-    # Self-pipe for async-signal-safe SIGWINCH wakeup.
-    # threading.Event.set() is NOT safe in signal handlers (its internal
-    # lock can deadlock when SIGWINCH re-enters itself during rapid resize).
-    # os.write() to a pipe is async-signal-safe per POSIX.
-    wake_r, wake_w = os.pipe()
-    os.set_blocking(wake_r, False)
-    os.set_blocking(wake_w, False)
-
-    def _on_winch(*_):
-        if wake_w is None:
-            return  # the loop has ended and its pipe is closed
-        try:
-            os.write(wake_w, b'\x00')
-        except OSError:
-            pass
-
-    prev_winch = signal.signal(signal.SIGWINCH, _on_winch)
-
-    # Route SIGTERM/SIGHUP through SystemExit so `pkill radar` or a closed
-    # terminal still runs the finally block below — otherwise the alternate
-    # screen and mouse reporting are left switched on. 128+signum matches
-    # shell convention for signal deaths.
-    def _exit_on_signal(signum, _frame):
-        sys.exit(128 + signum)
-
-    prev_handlers = {}
-    for _sig in (signal.SIGTERM, signal.SIGHUP):
-        try:
-            prev_handlers[_sig] = signal.signal(_sig, _exit_on_signal)
-        except (ValueError, OSError):
-            pass
+    # Cbreak input, the wakeup nudge() pulls, and resize notice — a self-pipe
+    # and SIGWINCH on POSIX, console modes and a poll on Windows.
+    term = _term.LiveTerminal(sys.stdin.fileno())
+    term.install()
 
     is_apple_terminal = os.environ.get('TERM_PROGRAM') == 'Apple_Terminal'
 
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
+    fd = term.fd
 
     def _mtime(path):
         try:
@@ -519,7 +480,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     watch.install()
     try:
         _running = True
-        tty.setcbreak(fd)
+        term.set_cbreak()
 
         while True:
             # Drain wakeups from before this render: whatever they announced,
@@ -528,10 +489,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             # (and nudge the pipe) while the render is still composing its
             # "loading" frame, and a drain after the paint would swallow that
             # completion, leaving the loading frame up until the next input.
-            try:
-                os.read(wake_r, 512)
-            except OSError:
-                pass
+            term.drain()
             kwargs = {}
             if mouse:
                 kwargs.update(mouse_pos=mouse_pos, active_alert=active_alert,
@@ -566,20 +524,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                                                   or play_gate()):
                         play_frame += 1  # advance the animation
                     break
-                try:
-                    ready, _, _ = select.select([fd, wake_r], [], [], min(0.1, remaining))
-                except (InterruptedError, OSError):
-                    continue
-                if wake_r in ready:
-                    try:
-                        os.read(wake_r, 512)
-                    except OSError:
-                        pass
+                event = term.wait(min(0.1, remaining))
+                if event == 'wake':
                     break
-                if not ready:
+                if event == 'timeout':
                     _maybe_probe()
                     continue
-                if fd in ready:
+                if event == 'input':
                     action = _read_key(
                         fd, text=bool(text_mode is not None and text_mode()))
                     if action == 'theme':
@@ -611,7 +562,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                             play_frame += 1
                         else:
                             offset += scroll_step
-                        if select.select([fd], [], [], 0)[0]:
+                        if _term.wait_readable(fd, 0):
                             continue  # coalesce rapid scrolling
                         break
                     elif action == 'back':
@@ -620,7 +571,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                             play_frame -= 1
                         else:
                             offset -= scroll_step
-                        if select.select([fd], [], [], 0)[0]:
+                        if _term.wait_readable(fd, 0):
                             continue  # coalesce rapid scrolling
                         break
                     elif action == 'reset':
@@ -634,7 +585,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                     elif (on_action is not None and isinstance(action, str)
                           and action.startswith('key:')):
                         if on_action(action[4:]):
-                            if select.select([fd], [], [], 0)[0]:
+                            if _term.wait_readable(fd, 0):
                                 continue  # coalesce held-down keys (zoom taps)
                             break
                     elif mouse and isinstance(action, tuple) and action[0] == 'mouse':
@@ -646,7 +597,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                                 # panel scroll, …) — no scrub fallback.
                                 if on_wheel(1 if wheel_cb == 64 else -1,
                                             cx, cy):
-                                    if select.select([fd], [], [], 0)[0]:
+                                    if _term.wait_readable(fd, 0):
                                         continue  # coalesce rapid wheel
                                     break
                                 continue
@@ -659,7 +610,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                                 play_frame += 1 if wheel_cb == 64 else -1
                             else:
                                 offset += scroll_step if wheel_cb == 64 else -scroll_step
-                            if select.select([fd], [], [], 0)[0]:
+                            if _term.wait_readable(fd, 0):
                                 continue  # coalesce rapid scrolling
                             break
                         if is_rel:
@@ -693,13 +644,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                                 # mid-drag: live preview with cumulative delta
                                 dcol, drow = cx - drag_start[0], cy - drag_start[1]
                                 if on_drag(dcol, drow, False):
-                                    if select.select([fd], [], [], 0)[0]:
+                                    if _term.wait_readable(fd, 0):
                                         continue  # coalesce rapid drag motion
                                     break
                                 continue
                             # Hover-capable terminals.
                             mouse_pos = (cx, cy)
-                            if select.select([fd], [], [], 0)[0]:
+                            if _term.wait_readable(fd, 0):
                                 continue  # coalesce rapid motion: render once at the final position
                             break
                         # Fallback for terminals without motion reporting:
@@ -714,23 +665,10 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     # The finally block still restores the terminal on its way out.
     finally:
         _running = False
-        # The SIGWINCH handler goes back before the pipe closes.  A
-        # background fetch that lands after the loop still calls nudge();
-        # with the handler left installed, its write would go to whatever
-        # file reused the pipe's descriptor number (a cache file being
-        # written, for one), and the byte would be served from that file
-        # from then on.
-        prev_handlers[signal.SIGWINCH] = prev_winch
-        for _sig, _handler in prev_handlers.items():
-            try:
-                signal.signal(_sig, _handler)
-            except (ValueError, OSError):
-                pass
-        os.close(wake_r)
-        os.close(wake_w)
-        wake_r = wake_w = None
+        # Puts back the terminal settings, the signal handlers and the
+        # wakeup channel, in that order — see _term.LiveTerminal.close.
+        term.close()
         try:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
             cleanup = ""
             if mouse:
                 cleanup += "\033[?1006l\033[?1003l\033[?1002l\033[?1000l"

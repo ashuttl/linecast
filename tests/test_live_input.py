@@ -122,17 +122,40 @@ class TestNewBindings:
 class TestNudge:
     """_live.nudge repaints a running live loop and is a no-op otherwise."""
 
-    def test_sends_sigwinch_only_while_a_loop_runs(self, monkeypatch):
+    def test_wakes_the_terminal_only_while_a_loop_runs(self, monkeypatch):
+        """nudge() reaches whichever wakeup the platform layer installed."""
+        from linecast import _live, _term
+        woken = []
+
+        class FakeTerminal:
+            def wake(self):
+                woken.append(True)
+
+        monkeypatch.setattr(_term, "_current", None)
+        _live.nudge()
+        assert woken == []
+        monkeypatch.setattr(_term, "_current", FakeTerminal())
+        _live.nudge()
+        assert woken == [True]
+
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="SIGWINCH is the POSIX wakeup; Windows polls")
+    def test_sigwinch_still_feeds_the_posix_wakeup(self):
+        """A resize signal reaches the loop's wait as a repaint."""
         import signal
-        from linecast import _live
-        sent = []
-        monkeypatch.setattr(_live.os, "kill", lambda pid, sig: sent.append((pid, sig)))
-        monkeypatch.setattr(_live, "_running", False)
-        _live.nudge()
-        assert sent == []
-        monkeypatch.setattr(_live, "_running", True)
-        _live.nudge()
-        assert sent == [(os.getpid(), signal.SIGWINCH)]
+        from linecast import _term
+        r, w = os.pipe()
+        term = _term.LiveTerminal(r)
+        term.install()
+        try:
+            os.kill(os.getpid(), signal.SIGWINCH)
+            assert term.wait(0.5) == "wake"
+            # and with nothing pending it times out rather than spinning
+            assert term.wait(0.05) == "timeout"
+        finally:
+            term.close()
+            os.close(r)
+            os.close(w)
 
     def test_radar_frames_nudge_is_the_live_one(self):
         from linecast import _live, _radar_frames
