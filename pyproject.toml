@@ -53,8 +53,10 @@ exclude = [
 
 [tool.pytest.ini_options]
 # tests/conftest.py blocks the network and moves HOME for every test
-# except those marked integration; run them alone with `-m integration`
-# or leave them out with `-m "not integration"`.
+# except those marked integration. Those are left out by default, so a
+# plain `pytest tests` is hermetic; `-m integration` on the command
+# line runs them alone (tests/test_live_providers.py).
+addopts = "-m 'not integration'"
 markers = ["integration: may reach the network or the real home directory"]
 
 [tool.ruff]
