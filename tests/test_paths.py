@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from conftest import readonly
+from conftest import SESSION_ROOT, readonly
 
 from linecast import _cache, _config, _http, _location, _paths, _runtime, _weather_sources
 from linecast import location, units
@@ -257,6 +257,11 @@ class TestUnwritableConfig:
 # ---------------------------------------------------------------------------
 # conftest.py did its job
 # ---------------------------------------------------------------------------
+def _real_home():
+    import pwd
+    return Path(pwd.getpwuid(os.getuid()).pw_dir)
+
+
 class TestPrivateHome:
     def test_nothing_is_saved(self):
         assert _runtime.units_pref() is None
@@ -268,21 +273,25 @@ class TestPrivateHome:
             assert name not in os.environ
 
     def test_home_is_private(self):
-        import pwd
-        real = Path(pwd.getpwuid(os.getuid()).pw_dir)
+        # The property that matters: the real ~/.cache/linecast and
+        # ~/.config/linecast are never the roots and never above them.
+        # The real home itself may be an ancestor (TMPDIR under $HOME).
+        real = _real_home()
         assert Path.home() != real
-        assert real not in Path.home().parents
-        assert real not in _paths.cache_root().parents
-        assert real not in _paths.config_root().parents
+        assert SESSION_ROOT in Path.home().parents
+        for root, dot in ((_paths.cache_root(), ".cache"), (_paths.config_root(), ".config")):
+            assert root != real / dot / "linecast"
+            assert real / dot not in root.parents
 
     def test_home_survives_a_cleared_environment(self, monkeypatch):
-        import pwd
         private = Path.home()
         for name in ("HOME", "XDG_CACHE_HOME", "XDG_CONFIG_HOME",
                      "LINECAST_CACHE_DIR", "LINECAST_CONFIG_DIR"):
             monkeypatch.delenv(name, raising=False)
         assert Path.home() == private
-        assert Path(pwd.getpwuid(os.getuid()).pw_dir) not in _paths.cache_root().parents
+        real = _real_home()
+        assert real / ".cache" not in _paths.cache_root().parents
+        assert real / ".config" not in _paths.config_root().parents
 
     def test_network_is_blocked(self):
         with pytest.raises(OSError, match="network blocked"):
