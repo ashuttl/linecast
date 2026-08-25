@@ -24,11 +24,11 @@ from linecast._maps_paint import (
 )
 from linecast._radar_basemap import _edge_dots
 from linecast._runtime import debug_log
-from linecast._scenes import FetchHold, SceneCache
+from linecast._scenes import FetchHold, Memo, SceneCache
 
 ZOOM_SETTLE = 0.3        # seconds of zoom quiet before a fetch may start
 
-_terrain_cache = {}  # (bbox, w, h) -> sub-pixel colour buffer
+_terrain_cache = Memo(keep=3)  # (bbox, w, h) -> sub-pixel colour buffer
 _zoom_hold = FetchHold(ZOOM_SETTLE)  # live zoom taps push its deadline
 
 
@@ -244,13 +244,8 @@ def _terrain_buffer(elev, bbox, gw, hc, water=None, cover=None):
     # the tile flags are part of the key: the same view rendered once
     # offline and once with tiles is two different pictures
     key = _view_key(bbox, gw, hc) + (water is not None, cover is not None)
-    buf = _terrain_cache.get(key)
-    if buf is None:
-        buf = build_terrain_buffer(elev, bbox, gw, hc * 2, water, cover)
-        if len(_terrain_cache) > 3:
-            _terrain_cache.clear()
-        _terrain_cache[key] = buf
-    return buf
+    return _terrain_cache.get(key, lambda: build_terrain_buffer(
+        elev, bbox, gw, hc * 2, water, cover))
 
 
 def _get_globe(lat0, lon0, zoom, gw, hc, block):

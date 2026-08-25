@@ -40,6 +40,7 @@ from linecast._color import fg, RESET, BOLD, color_mode, BG_PRIMARY
 from linecast._elevation import ATTRIBUTION
 from linecast._framebuffer import get_terminal_size
 from linecast._graphics import visible_len
+from linecast._live import overlay
 from linecast._maps_i18n import ms
 from linecast._maps_paint import (  # noqa: F401 — the inks and composers
     BATHY_STOPS, BORDER_STROKE, COAST_STROKE, HYPSO_FAMILIES, LABEL_DARK,
@@ -62,6 +63,7 @@ from linecast._radar_ui import (
     CROSSHAIR, DIM, MUTED,
     _ShiftedBasemap, _get_basemap, _panned_place, _shift_grid,
 )
+from linecast._scenes import Memo
 
 # Zoom is degrees of latitude top to bottom.  The floor used to be 0.1
 # (about band 3); street mode's deepest classes — buildings, POI text —
@@ -74,7 +76,14 @@ MAX_ZOOM_DEG = 130.0
 ZOOM_STEP = 1.5          # matches radar, so the two views feel the same
 
 
-_route_layer_cache = {}   # one slot: (route id, view key) -> DotLayer
+_route_layer_cache = Memo(keep=1)   # one slot: (route id, view key) -> DotLayer
+
+
+def map_cells():
+    """The map's size in cells: the terminal's columns, at least 20, by
+    its rows less the header and the footer, at least 8."""
+    cols, rows = get_terminal_size()
+    return max(20, cols), max(8, rows - 2)
 
 
 def _get_route_layer(route, bbox, gw, hc):
@@ -86,17 +95,16 @@ def _get_route_layer(route, bbox, gw, hc):
     """
     if route is None:
         return None
-    key = (id(route), _view_key(bbox, gw, hc))
-    hit = _route_layer_cache.get(key)
-    if hit is not None:
-        return hit
-    layer = DotLayer(bbox, gw, hc)
-    ink = _maps_style.palette().get("route", _maps_style.PALETTE_DARK["route"])
-    rank = _maps_style.LINE_STYLES["route"][3]
-    layer._draw_lines([route.coords], ink, width=2, rank=rank)
-    _route_layer_cache.clear()
-    _route_layer_cache[key] = layer
-    return layer
+
+    def build():
+        layer = DotLayer(bbox, gw, hc)
+        ink = _maps_style.palette().get("route",
+                                        _maps_style.PALETTE_DARK["route"])
+        rank = _maps_style.LINE_STYLES["route"][3]
+        layer._draw_lines([route.coords], ink, width=2, rank=rank)
+        return layer
+
+    return _route_layer_cache.get((id(route), _view_key(bbox, gw, hc)), build)
 
 
 def _scale_bar(bbox, graph_w, lang):
@@ -259,8 +267,8 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
     if elev is not None:
         key = (round(lat0, 2), round(lon0, 2), round(zoom, 1),
                graph_w, height_cells, street)
-        terrain = _terrain_cache.get(key)
-        if terrain is None:
+
+        def build():
             if street:
                 p = _maps_style.palette()
                 terrain = _globe.fill_buffer(elev, p.get("water"),
@@ -278,9 +286,9 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
                     elev, sbbox, graph_w, spy_h, cover=view.cover,
                     climate=_climate.grid_for_lls(view.lls) or ())
             _globe.shade_buffer(terrain, view.shade, view.atmo, BG_PRIMARY)
-            if len(_terrain_cache) > 2:
-                _terrain_cache.clear()
-            _terrain_cache[key] = terrain
+            return terrain
+
+        terrain = _terrain_cache.get(key, build)
         if (sun or clouds) and view.lls is not None:
             terrain = _shade_now(
                 terrain, view.lls, sun,
@@ -489,8 +497,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                clouds=False, **_):
     lang = runtime.lang if runtime else "en"
     cols, rows = get_terminal_size()
-    graph_w = max(20, cols)
-    height_cells = max(8, rows - 2)
+    graph_w, height_cells = map_cells()
 
     bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
     m_lat, m_lon = marker if marker else (lat, lon)
@@ -614,19 +621,19 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         # sequence likely, and a torn sequence looks like ESC — which is
         # exactly the key guarding a text buffer.  Turn 1003 off for as
         # long as the field is open, and back on when it closes.
-        return out + ("\x00\033[?1003l"
-                      + _maps_ui.search_overlay(search, cols, rows, lang))
+        return overlay(out, _maps_ui.search_overlay(search, cols, rows, lang),
+                       motion=False)
     if helping:
-        overlay = _maps_ui.help_overlay(cols, rows, lang, route is not None)
-        if overlay:
-            return out + "\x00\033[?1003h" + overlay
+        floating = _maps_ui.help_overlay(cols, rows, lang, route is not None)
+        if floating:
+            return overlay(out, floating, motion=True)
     if directions is not None and directions.panel:
-        overlay = _maps_ui.directions_overlay(directions, cols, rows, lang,
-                                              home_label=location_name)
-        if overlay:
-            return out + "\x00\033[?1003h" + overlay
+        floating = _maps_ui.directions_overlay(directions, cols, rows, lang,
+                                               home_label=location_name)
+        if floating:
+            return overlay(out, floating, motion=True)
     if not block:
-        out += "\x00\033[?1003h"
+        return overlay(out, motion=True)
     return out
 
 
