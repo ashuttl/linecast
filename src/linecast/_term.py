@@ -72,6 +72,28 @@ else:
             return None
         return mode.value
 
+    def _pipe_ready(fd):
+        """Whether a read on a non-console descriptor would return now.
+
+        select() cannot see a pipe on Windows and a bare os.read would
+        block until something arrives, so ask the pipe directly.  A
+        handle that is not a pipe -- a plain file -- never blocks, so it
+        counts as ready.
+        """
+        try:
+            handle = msvcrt.get_osfhandle(fd)
+        except Exception:
+            return True
+        avail = wintypes.DWORD()
+        if not _k32.PeekNamedPipe(handle, None, 0, None,
+                                  ctypes.byref(avail), None):
+            return True  # not a pipe: the read returns immediately
+        return avail.value > 0
+
+    def _ready(fd, console):
+        """Input waiting on fd, whether it is a console or a pipe."""
+        return msvcrt.kbhit() if console else _pipe_ready(fd)
+
 
 # ---------------------------------------------------------------------------
 # Byte-level input, shared by _read_key
@@ -101,13 +123,10 @@ def wait_readable(fd, timeout):
     if WINDOWS:
         if _pending:
             return True
-        if _console_handle(fd) is None:
-            # Not a console (a pipe under test): os.read will block, and the
-            # callers here only wait when a sequence is already arriving.
-            return True
+        console = _console_handle(fd) is not None
         deadline = _time.monotonic() + timeout
         while True:
-            if msvcrt.kbhit():
+            if _ready(fd, console):
                 return True
             left = deadline - _time.monotonic()
             if left <= 0:
@@ -142,6 +161,7 @@ class LiveTerminal:
         self._old_in_mode = self._old_out_mode = None
         self._handle_in = self._handle_out = None
         self._size = None
+        self._console = None
 
     # -- setup -------------------------------------------------------------
     def install(self):
@@ -226,6 +246,11 @@ class LiveTerminal:
         except OSError:
             pass
 
+    def _is_console(self):
+        if self._console is None:
+            self._console = _console_handle(self.fd) is not None
+        return self._console
+
     def drain(self):
         """Discard wakeups queued before the frame about to be drawn."""
         if WINDOWS:
@@ -249,7 +274,7 @@ class LiveTerminal:
                 if self._event.is_set():
                     self._event.clear()
                     return 'wake'
-                if msvcrt.kbhit():
+                if _ready(self.fd, self._is_console()):
                     return 'input'
                 size = _terminal_size()
                 if size != self._size:
