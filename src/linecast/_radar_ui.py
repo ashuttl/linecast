@@ -10,6 +10,7 @@ is the picker's state; _radar_live routes the keys to it.
 """
 
 import datetime as _dt
+import threading
 
 from linecast import _theme
 from linecast._color import fg, bg, RESET
@@ -33,12 +34,19 @@ MARKER = (255, 240, 120)
 CROSSHAIR = (215, 220, 232)
 
 _basemap_cache = Memo(keep=1)  # only need the current view
+_basemap_lock = threading.Lock()  # the render thread and the frame
+                                  # prefetch workers both ask for it
 
 
 def _get_basemap(bbox, graph_w, height_cells):
     key = (_bbox_key(bbox), graph_w, height_cells)
-    return _basemap_cache.get(
-        key, lambda: Basemap(bbox, graph_w, height_cells))
+    with _basemap_lock:
+        bm = _basemap_cache.get(key)
+    if bm is None:
+        bm = Basemap(bbox, graph_w, height_cells)
+        with _basemap_lock:
+            _basemap_cache.put(key, bm)
+    return bm
 
 
 def _fmt_local(dt_utc, use_24h=False):

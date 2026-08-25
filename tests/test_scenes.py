@@ -160,7 +160,7 @@ class TestSceneCache:
     def test_a_view_past_max_age_is_a_miss(self, monkeypatch):
         cache = SceneCache(max_age=10)
         now = [1000.0]
-        monkeypatch.setattr(_scenes.time, "monotonic", lambda: now[0])
+        monkeypatch.setattr(_scenes.time, "time", lambda: now[0])
         calls = []
         cache.get("k", True, lambda: calls.append(1) or "v")
         now[0] += 9

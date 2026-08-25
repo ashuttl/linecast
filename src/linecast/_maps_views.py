@@ -28,7 +28,7 @@ from linecast._scenes import FetchHold, Memo, SceneCache
 
 ZOOM_SETTLE = 0.3        # seconds of zoom quiet before a fetch may start
 
-_terrain_cache = Memo(keep=3)  # (bbox, w, h) -> sub-pixel colour buffer
+_terrain_cache = Memo(keep=4)  # (bbox, w, h) -> sub-pixel colour buffer
 _zoom_hold = FetchHold(ZOOM_SETTLE)  # live zoom taps push its deadline
 
 

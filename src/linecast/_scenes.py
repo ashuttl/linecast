@@ -30,7 +30,9 @@ class Memo:
     Past `keep` entries the oldest go first, so a pan back to a
     neighbour still hits while a long-gone view does not.  `keep=1` is a
     one-slot memo: the current view and nothing else.  Not locked —
-    callers that share a memo across threads hold their own lock.
+    callers that share a memo across threads hold their own lock; a
+    put that races another one may keep an entry too many, but never
+    raises.
     """
     __slots__ = ("keep", "_items")
 
@@ -50,8 +52,10 @@ class Memo:
         items = self._items
         items.pop(key, None)
         items[key] = value
-        while len(items) > self.keep:
-            del items[next(iter(items))]
+        over = len(items) - self.keep
+        if over > 0:
+            for old in list(items)[:over]:
+                items.pop(old, None)
 
     def clear(self):
         self._items.clear()
@@ -105,9 +109,10 @@ class SceneCache:
     gesture is still in flight — and answers `empty` until the worker's
     view lands and nudges a repaint; a worker that fails leaves nothing
     behind, so the next repaint asks again.  With `max_age`, a view
-    older than that many seconds is a miss.  The cache keeps `keep`
-    views, oldest out first: a pan is a few neighbours, and a view older
-    than that is not coming back.
+    older than that many seconds of wall-clock time is a miss — wall
+    clock, not monotonic, so a laptop that slept through the age wakes
+    to a miss.  The cache keeps `keep` views, oldest out first: a pan
+    is a few neighbours, and a view older than that is not coming back.
     """
 
     def __init__(self, empty=None, keep=4, held=None, max_age=None):
@@ -115,7 +120,7 @@ class SceneCache:
         self.keep = keep
         self.held = held
         self.max_age = max_age
-        self._views = {}      # key -> (monotonic stamp, view)
+        self._views = {}      # key -> (time.time() stamp, view)
         self._pending = set()
         self._lock = threading.Lock()
 
@@ -126,16 +131,18 @@ class SceneCache:
     def _put(self, key, view):
         views = self._views
         views.pop(key, None)
-        views[key] = (time.monotonic(), view)
-        while len(views) > self.keep:
-            del views[next(iter(views))]
+        views[key] = (time.time(), view)
+        over = len(views) - self.keep
+        if over > 0:
+            for old in list(views)[:over]:
+                views.pop(old, None)
 
     def _fresh(self, key):
         hit = self._views.get(key)
         if hit is None:
             return None
         stamp, view = hit
-        if self.max_age is not None and time.monotonic() - stamp >= self.max_age:
+        if self.max_age is not None and time.time() - stamp >= self.max_age:
             del self._views[key]
             return None
         return view

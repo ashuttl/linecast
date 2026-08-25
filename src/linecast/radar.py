@@ -62,8 +62,8 @@ from linecast._spinner import SPINNER_FRAMES
 LAYERS = ("radar", "sat")
 
 # condition-layer state: fetched fields and rendered temp tints, both small
-_field_cache = SceneCache(keep=4, max_age=1800)  # field_key -> Field
-_temp_cache = Memo(keep=6)  # (bbox, w, h, field id, hour) -> sub-pixel tint buffer
+_field_cache = SceneCache(keep=5, max_age=1800)  # field_key -> Field
+_temp_cache = Memo(keep=7)  # (bbox, w, h, field id, hour) -> sub-pixel tint buffer
 
 LAYER_NAMES = {"temp": "temp", "temperature": "temp", "t": "temp",
                "wind": "wind", "w": "wind"}

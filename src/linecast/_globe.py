@@ -183,7 +183,7 @@ def geometry(lat0, lon0, zoom, w, h):
     return lls, zs, rhos
 
 
-_canvas_cache = Memo(keep=1)
+_canvas_cache = Memo(keep=2)  # this zoom's canvas and the last one's
 
 
 def _source_zoom(zoom, h):
