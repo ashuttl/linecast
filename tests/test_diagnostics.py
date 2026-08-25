@@ -19,19 +19,35 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _config, _runtime
-from linecast._http import fetch_json_cached, redact_url
-from linecast._runtime import RuntimeConfig, log_failure
+import importlib
+
+
+def _mod(name):
+    # tests/test_oneline.py re-imports linecast mid-session, so a module
+    # bound at collection time can be a stale copy: look it up per test
+    return importlib.import_module(f"linecast.{name}")
 
 
 @pytest.fixture
 def debug(monkeypatch):
-    monkeypatch.setattr(_runtime, "_DEBUG", True)
+    monkeypatch.setattr(_mod("_runtime"), "_DEBUG", True)
 
 
 @pytest.fixture
 def quiet(monkeypatch):
-    monkeypatch.setattr(_runtime, "_DEBUG", False)
+    monkeypatch.setattr(_mod("_runtime"), "_DEBUG", False)
+
+
+def log_failure(*args, **kwargs):
+    return _mod("_runtime").log_failure(*args, **kwargs)
+
+
+def redact_url(url):
+    return _mod("_http").redact_url(url)
+
+
+def fetch_json_cached(*args, **kwargs):
+    return _mod("_http").fetch_json_cached(*args, **kwargs)
 
 
 def _lines(capsys):
@@ -86,7 +102,7 @@ class TestLogFailure:
         assert _lines(capsys) == ["[linecast] http: fetch failed (h.example) -- OSError; none"]
 
     def test_the_unsupported_scheme_error_names_no_url(self):
-        from linecast._http import fetch_bytes
+        fetch_bytes = _mod("_http").fetch_bytes
         with pytest.raises(ValueError) as info:
             fetch_bytes("ftp://user:pw@host.example/secret/path?k=v")
         assert "host.example" in str(info.value)
@@ -112,28 +128,25 @@ class TestRedactUrl:
 
     def test_the_fetch_line_is_redacted(self, debug, capsys):
         with pytest.raises(OSError):
-            from linecast._http import fetch_bytes
-            fetch_bytes("https://api.example/v1?lat=43.68&lng=-70.37")
+            _mod("_http").fetch_bytes("https://api.example/v1?lat=43.68&lng=-70.37")
         err = capsys.readouterr().err
         assert "[linecast] fetch https://api.example/v1?..." in err
         assert "43.68" not in err
 
 
 class TestStartupLine:
-    def test_debug_starts_with_where_things_live(self, capsys, monkeypatch):
-        monkeypatch.setattr(_runtime, "_DEBUG", False)
-        ns = _runtime.weather_parser().parse_args(["--debug", "--print"])
-        RuntimeConfig.from_sources(ns)
+    def test_debug_starts_with_where_things_live(self, quiet, capsys):
+        rt = _mod("_runtime")
+        rt.RuntimeConfig.from_sources(rt.weather_parser().parse_args(["--debug", "--print"]))
         first = _lines(capsys)[0]
         from linecast import __version__
-        from linecast._paths import cache_root
         assert first.startswith(f"[linecast] linecast {__version__}, python ")
-        assert str(cache_root()) in first
-        assert str(_config.config_file()) in first
+        assert str(_mod("_paths").cache_root()) in first
+        assert str(_mod("_config").config_file()) in first
 
-    def test_nothing_without_debug(self, capsys, monkeypatch):
-        monkeypatch.setattr(_runtime, "_DEBUG", False)
-        RuntimeConfig.from_sources(_runtime.weather_parser().parse_args(["--print"]))
+    def test_nothing_without_debug(self, quiet, capsys):
+        rt = _mod("_runtime")
+        rt.RuntimeConfig.from_sources(rt.weather_parser().parse_args(["--print"]))
         assert capsys.readouterr().err == ""
 
 
@@ -158,7 +171,7 @@ class TestTheSweep:
         assert "; stale cache old.json" in capsys.readouterr().err
 
     def test_reverse_geocode_degrades_with_one_line(self, debug, capsys):
-        from linecast._weather_sources import _reverse_geocode
+        _reverse_geocode = _mod("_weather_sources")._reverse_geocode
         assert _reverse_geocode(12.3456, -65.4321, lang="xx") == ("", "", {})
         err = capsys.readouterr().err
         assert ("[linecast] location/geocoder: reverse geocode failed "
@@ -167,6 +180,7 @@ class TestTheSweep:
         assert "lat=" not in err
 
     def test_a_corrupt_settings_file_is_reported_once(self, debug, capsys):
+        _config = _mod("_config")
         path = _config.config_file()
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("{not json")
@@ -177,12 +191,203 @@ class TestTheSweep:
             "; defaults used"]
 
     def test_a_missing_settings_file_is_not_a_failure(self, debug, capsys):
+        _config = _mod("_config")
         assert not _config.config_file().exists()
         assert _config.read_config() == {}
         assert capsys.readouterr().err == ""
 
     def test_quiet_without_debug(self, quiet, capsys, tmp_path):
-        from linecast._weather_sources import _reverse_geocode
-        _reverse_geocode(12.3456, -65.4321, lang="xx")
+        _mod("_weather_sources")._reverse_geocode(12.3456, -65.4321, lang="xx")
         fetch_json_cached(tmp_path / "none.json", 60, "https://api.example/v1")
         assert capsys.readouterr() == ("", "")
+
+
+# ---------------------------------------------------------------------------
+# Workers that die under a live view
+# ---------------------------------------------------------------------------
+def _die_in_a_thread(name="prefetch"):
+    import threading
+
+    def boom():
+        raise ZeroDivisionError("division by zero")
+    t = threading.Thread(target=boom, name=name)
+    t.start()
+    t.join()
+
+
+class TestWorkerWatch:
+    def test_one_line_after_the_loop_without_debug(self, quiet, capsys):
+        import threading
+        before = threading.excepthook
+        watch = _mod("_live").WorkerWatch()
+        watch.install()
+        _die_in_a_thread()
+        watch.uninstall()
+        assert threading.excepthook is before
+        assert capsys.readouterr().err == ""   # nothing while the screen is up
+        watch.report()
+        assert capsys.readouterr().err == (
+            "linecast: a background task failed; run with --debug for details\n")
+
+    def test_debug_logs_at_once_and_prints_the_traceback_after(self, debug, capsys):
+        watch = _mod("_live").WorkerWatch()
+        watch.install()
+        _die_in_a_thread("tiles-3")
+        watch.uninstall()
+        assert capsys.readouterr().err == (
+            "[linecast] worker: tiles-3 failed -- ZeroDivisionError: division by zero"
+            "; thread ended\n")
+        watch.report()
+        err = capsys.readouterr().err
+        assert err.startswith("linecast: background task tiles-3 failed:\nTraceback")
+        assert "ZeroDivisionError: division by zero" in err
+        assert watch.failures[0][:3] == ("tiles-3", "ZeroDivisionError", "division by zero")
+
+    def test_nothing_to_report_when_nothing_died(self, quiet, capsys):
+        watch = _mod("_live").WorkerWatch()
+        watch.install()
+        watch.uninstall()
+        watch.report()
+        assert capsys.readouterr().err == ""
+
+
+@pytest.fixture
+def fake_tty(monkeypatch):
+    """Enough of a terminal for live_loop to start: a pipe for stdin
+    and termios calls that do nothing."""
+    import os
+    import termios
+    import tty
+    r, w = os.pipe()
+    stdin = os.fdopen(r, "rb", buffering=0)
+    monkeypatch.setattr(sys, "stdin", stdin)
+    monkeypatch.setattr(termios, "tcgetattr", lambda fd: [0, 0, 0, 0, 0, 0, []])
+    monkeypatch.setattr(termios, "tcsetattr", lambda *args: None)
+    monkeypatch.setattr(tty, "setcbreak", lambda fd: None)
+    monkeypatch.setenv("LINECAST_THEME_POLL", "0")
+    monkeypatch.setenv("LINECAST_THEME_WATCH", "")
+    yield
+    stdin.close()
+    os.close(w)
+
+
+class TestLiveLoopReportsDeadWorkers:
+    def test_the_notice_lands_after_the_screen_is_restored(self, quiet, fake_tty, capsys):
+        import threading
+        live = _mod("_live")
+        before = threading.excepthook
+        seen = []
+
+        def render(offset_minutes=0, **frame):
+            _die_in_a_thread("worker-1")
+            seen.append(threading.excepthook is not before)
+            raise KeyboardInterrupt   # quit, as q would
+
+        live.live_loop(render, interval=5)
+        out, err = capsys.readouterr()
+        assert seen == [True]                    # the hook was ours while it ran
+        assert threading.excepthook is before    # and is gone now
+        assert out.endswith("\033[?25h\033[?1049l")  # the screen came back first
+        assert err == "linecast: a background task failed; run with --debug for details\n"
+
+    def test_a_clean_session_says_nothing(self, quiet, fake_tty, capsys):
+        live = _mod("_live")
+
+        def render(offset_minutes=0, **frame):
+            raise KeyboardInterrupt
+
+        live.live_loop(render, interval=5)
+        assert capsys.readouterr().err == ""
+
+
+# ---------------------------------------------------------------------------
+# Worker failures outside the live loop
+# ---------------------------------------------------------------------------
+def _run_main(module, argv, monkeypatch):
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(SystemExit) as info:
+        module.main()
+    return info.value.code
+
+
+class TestWeatherFetchThread:
+    @pytest.fixture
+    def stubs(self, monkeypatch):
+        weather = _mod("weather")
+        monkeypatch.setattr(weather, "_reverse_geocode", lambda lat, lng: ("Here", "US", {}))
+        monkeypatch.setattr(weather, "fetch_aqi", lambda lat, lng: None)
+        monkeypatch.setattr(weather, "fetch_historical", lambda *a, **kw: None)
+        monkeypatch.setattr(weather, "fetch_alerts", lambda *a, **kw: [])
+
+        def broken(lat, lng, runtime):
+            raise RuntimeError("boom")
+        monkeypatch.setattr(weather, "fetch_forecast", broken)
+        return weather
+
+    def test_degrades_to_the_no_data_exit(self, quiet, stubs, monkeypatch, capsys):
+        code = _run_main(stubs, ["weather", "--print", "--location", "43.68,-70.37"],
+                         monkeypatch)
+        out, err = capsys.readouterr()
+        assert code == 1
+        assert err == "Could not fetch weather data.\n"
+        assert "Traceback" not in out + err
+
+    def test_debug_names_the_failure(self, quiet, stubs, monkeypatch, capsys):
+        _run_main(stubs, ["weather", "--print", "--debug", "--location", "43.68,-70.37"],
+                  monkeypatch)
+        err = capsys.readouterr().err
+        assert ("[linecast] worker: weather fetch failed -- RuntimeError: boom; "
+                "the data in hand") in err
+        assert err.endswith("Could not fetch weather data.\n")
+        assert "Traceback" not in err
+
+
+class TestTidesPool:
+    def test_settled_returns_none_with_one_line(self, debug, capsys):
+        from concurrent.futures import Future
+        tides = _mod("tides")
+        future = Future()
+        future.set_exception(KeyError("v"))
+        assert tides._settled(future, "tides/noaa", "y-range", "auto-scaled axis") is None
+        assert _lines(capsys) == [
+            "[linecast] tides/noaa: y-range failed -- KeyError: 'v'; auto-scaled axis"]
+        done = Future()
+        done.set_result((1.0, 2.0))
+        assert tides._settled(done, "tides/noaa", "y-range", "auto-scaled axis") == (1.0, 2.0)
+        assert capsys.readouterr().err == ""
+
+    def test_provider_tags(self):
+        tides = _mod("tides")
+        assert tides._provider_tag(tides.NOAA) == "tides/noaa"
+        assert tides._provider_tag(tides.CHS) == "tides/chs"
+        assert tides._provider_tag(tides.OPENMETEO) == "tides/open-meteo"
+
+    def test_a_provider_that_raises_does_not_take_the_command_down(
+            self, quiet, monkeypatch, capsys):
+        tides = _mod("tides")
+        monkeypatch.setattr(tides.NOAA, "station_metadata", lambda station_id: None)
+
+        def broken(*args):
+            raise KeyError("predictions")
+        monkeypatch.setattr(tides.NOAA, "y_range", broken)
+        monkeypatch.setattr(tides.NOAA, "tides_range", lambda *args: [])
+        code = _run_main(tides, ["tides", "--print", "--station", "8418150"], monkeypatch)
+        out, err = capsys.readouterr()
+        assert code == 1
+        assert err == "Could not fetch tide data for station 8418150.\n"
+        assert "Traceback" not in out + err
+
+    def test_debug_names_the_provider_request(self, quiet, monkeypatch, capsys):
+        tides = _mod("tides")
+        monkeypatch.setattr(tides.NOAA, "station_metadata", lambda station_id: None)
+
+        def broken(*args):
+            raise KeyError("predictions")
+        monkeypatch.setattr(tides.NOAA, "y_range", broken)
+        monkeypatch.setattr(tides.NOAA, "tides_range", lambda *args: [])
+        _run_main(tides, ["tides", "--print", "--debug", "--station", "8418150"],
+                  monkeypatch)
+        err = capsys.readouterr().err
+        assert ("[linecast] tides/noaa: y-range failed -- KeyError: 'predictions'; "
+                "auto-scaled axis") in err
+        assert "Traceback" not in err

@@ -274,6 +274,67 @@ def _read_key(fd, text=False):
 _running = False  # a live loop is on screen with its SIGWINCH handler installed
 
 
+class WorkerWatch:
+    """threading.excepthook for the length of a live loop.
+
+    A worker thread that raises is otherwise reported by Python's own
+    hook: a traceback on stderr, which on the alternate screen is
+    overdrawn by the next frame and gone when the screen is restored.
+    Installed around the loop, this records each one and logs it
+    through log_failure at once; `report()` runs after the terminal is
+    back -- every traceback in full with --debug, one line pointing at
+    --debug without.
+    """
+
+    def __init__(self):
+        self.failures = []   # (thread name, type name, first line, traceback)
+        self._previous = None
+
+    def install(self):
+        import threading
+        self._previous = threading.excepthook
+        threading.excepthook = self._hook
+
+    def uninstall(self):
+        import threading
+        if self._previous is not None:
+            threading.excepthook = self._previous
+            self._previous = None
+
+    def _hook(self, args):
+        try:
+            import traceback
+            from linecast._runtime import log_failure
+            exc = args.exc_value
+            if exc is None:
+                exc = args.exc_type()
+            name = args.thread.name if args.thread is not None else "?"
+            text = "".join(traceback.format_exception(
+                args.exc_type, exc, args.exc_traceback))
+            first = str(exc).splitlines()[0] if str(exc) else ""
+            self.failures.append((name, args.exc_type.__name__, first, text))
+            log_failure("worker", name, exc, fallback="thread ended")
+        except Exception:
+            pass  # a hook that raises would only add a second traceback
+
+    def report(self, stream=None):
+        """What died, on stderr, once the screen is the user's again."""
+        if not self.failures:
+            return
+        from linecast._runtime import debug_enabled
+        stream = sys.stderr if stream is None else stream
+        try:
+            if debug_enabled():
+                for name, _kind, _first, text in self.failures:
+                    stream.write(f"linecast: background task {name} failed:\n{text}")
+            else:
+                stream.write("linecast: a background task failed; "
+                             "run with --debug for details\n")
+            stream.flush()
+        except Exception:
+            pass  # stderr may be gone with the terminal (SIGHUP)
+
+
 def nudge():
     """Ask the live loop to repaint now, from any thread.
 
@@ -454,6 +515,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             init += "\033[?1007h"
     sys.stdout.write(init)
     sys.stdout.flush()
+    watch = WorkerWatch()
+    watch.install()
     try:
         _running = True
         tty.setcbreak(fd)
@@ -678,6 +741,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             sys.stdout.flush()
         except Exception:
             pass  # tty may already be gone (SIGHUP); nothing left to restore
+        watch.uninstall()
+        watch.report()
 
 
 

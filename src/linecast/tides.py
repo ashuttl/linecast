@@ -202,6 +202,21 @@ def _station_tzinfo(meta):
         return None
 
 
+def _provider_tag(provider):
+    """The provider's name in the debug log."""
+    return {"openmeteo": "tides/open-meteo"}.get(provider.name, f"tides/{provider.name}")
+
+
+def _settled(future, tag, what, fallback_note):
+    """A pool future's result, or None with one debug line: a provider
+    request that fails leaves the rest of the view standing."""
+    try:
+        return future.result()
+    except Exception as exc:
+        log_failure(tag, what, exc, fallback=fallback_note)
+        return None
+
+
 def _station_now(meta):
     """Current datetime in station local time when possible."""
     tz = _station_tzinfo(meta)
@@ -1038,10 +1053,11 @@ def main():
                                     fetch_start, fetch_end, station_tz)
             fut_hilo = pool.submit(provider.hilo_range, station_id,
                                    fetch_start, fetch_end, station_tz)
-            y_range = fut_y_range.result()
-            marine_data = fut_marine.result()
-            preds = fut_preds.result()
-            hilo_data = fut_hilo.result()
+            tag = _provider_tag(provider)
+            y_range = _settled(fut_y_range, tag, "y-range", "auto-scaled axis")
+            marine_data = _settled(fut_marine, tag, "marine", "no marine line")
+            preds = _settled(fut_preds, tag, "predictions", "no tide data")
+            hilo_data = _settled(fut_hilo, tag, "hi/lo", "no high/low markers")
 
         if not preds:
             print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)

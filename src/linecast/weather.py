@@ -453,6 +453,10 @@ def main():
 
             if not result["name"] and result["data"]:
                 result["name"] = _location_from_timezone(result["data"].get("timezone", ""))
+        except Exception as exc:
+            # Whatever landed in `result` is shown; a forecast that did
+            # not is the "Could not fetch weather data" exit below.
+            log_failure("worker", "weather fetch", exc, fallback="the data in hand")
         finally:
             # Release the spinner no matter what escapes above — the main
             # thread must never wait forever on a fetch that died.

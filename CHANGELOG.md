@@ -10,6 +10,11 @@ Notable changes, by release. Notes for the next release collect under
   a tile that would not decode -- as one line naming the provider,
   the host and what was shown instead. URLs in the debug output are
   reduced to scheme, host and path; the query string is never printed.
+- Live: A background task that crashes under a live view no longer
+  scrawls a traceback across the screen. One line after the view
+  closes says it happened; `--debug` prints the traceback in full.
+  A failed request in `weather` or `tides` now shows what did arrive
+  instead of ending the command with a traceback.
 - Installer: The `curl | sh` quick start with no arguments works again
   on Debian and Ubuntu, where the script had been exiting without running
   anything.
