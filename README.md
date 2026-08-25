@@ -247,9 +247,9 @@ linecast doctor --offline
 linecast doctor --json
 ```
 
-`linecast doctor` shows which build is running, where the settings file and the cache are and whether the cache can be written, what the terminal advertised, which units, location and language are in force and where each came from, the environment variables linecast reads (keys shown as "set", never their value), and one line per provider saying whether the host answered. `--offline` skips the probes and `--json` prints the same report as one object, which is the thing to paste into a bug report.
+`linecast doctor` shows which build is running, where the settings file and the cache are and whether the cache can be written, what the terminal advertised, which units, location and language are in force and where each came from, the environment variables linecast reads (an API key or token shows as "(set)", never its value; a proxy or a URL override loses its userinfo and query; everything else, `WEATHER_LOCATION` included, is printed as it is set), and one line per provider saying whether the host answered. `--offline` skips the probes and `--json` prints the same report as one object, which is the thing to paste into a bug report.
 
-Every command takes `--debug`. It prints, on stderr, one line for each fallback taken along the way: a provider that did not answer, a cache file that could not be read, a tile that would not decode, and what was shown instead. URLs appear as scheme, host and path only. A background task that fails under a live view is reported in one line after the view closes; with `--debug` the traceback is printed in full.
+The six view commands and `linecast doctor` take `--debug`. It prints, on stderr, one line for each fallback taken along the way: a provider that did not answer, a cache file that could not be read, a tile that would not decode, and what was shown instead. URLs appear as scheme, host and path only. A background task that fails under a live view is reported in one line after the view closes; with `--debug` the traceback is printed in full.
 
 <details>
 <summary><strong>Environment variables</strong></summary>
@@ -275,12 +275,14 @@ Every command takes `--debug`. It prints, on stderr, one line for each fallback 
 | `NO_COLOR` | Any non-empty value disables ANSI colours |
 | `CLICOLOR` / `CLICOLOR_FORCE` | `CLICOLOR=0` disables colour; a non-zero `CLICOLOR_FORCE` keeps it on when output is not a terminal |
 
-Cached data lives in `$XDG_CACHE_HOME/linecast` on Linux, which is
-`~/.cache/linecast` unless you have set `XDG_CACHE_HOME`. On macOS it
-lives in `~/Library/Caches/linecast`; if an older `~/.cache/linecast`
-is already there and the new directory is not, the older one stays in
-use. The settings file is `~/.config/linecast/config.json` on every
-platform (or under `$XDG_CONFIG_HOME`).
+Cached data lives in `~/.cache/linecast` on Linux and in
+`~/Library/Caches/linecast` on macOS; on a Mac where an older
+`~/.cache/linecast` is already there and the new directory is not, the
+older one stays in use. Setting `XDG_CACHE_HOME` moves it to
+`$XDG_CACHE_HOME/linecast` on either platform, and `LINECAST_CACHE_DIR`
+overrides both. The settings file is `~/.config/linecast/config.json`
+on every platform (or under `$XDG_CONFIG_HOME`; `LINECAST_CONFIG_DIR`
+overrides both).
 
 </details>
 
