@@ -222,9 +222,17 @@ directory shared by the session (so the 7 MB basemap is built once),
 a fresh config directory per test (so a saved location can never leak
 between tests), every variable linecast reads cleared, and every
 outbound connection refused. A test that genuinely needs the network
-or the real home marks itself `@pytest.mark.integration`. There are
-none today, and the CI job that runs the suite with a read-only
-`HOME` is there to keep it so.
+or the real home marks itself `@pytest.mark.integration`; pytest
+leaves those out unless asked for them with `-m integration`, and the
+CI job that runs the suite with a read-only `HOME` is there to keep
+the rest hermetic.
+
+The one integration file is `tests/test_live_providers.py`: a test per
+provider that makes a real request and runs the reply through the
+same code the commands use. `.github/workflows/live.yml` runs it once
+a day and keeps an issue open while any provider is down or has
+changed its feed. When you add a provider, add a live test for it
+there as well as the fixture-backed tests.
 
 A fetch is stubbed at the `_http` boundary and nowhere lower: patch
 `fetch_json` or `fetch_bytes` where the module under test imported it

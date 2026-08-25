@@ -1,0 +1,58 @@
+name: Live providers
+
+# Asks every data provider linecast talks to whether it still answers
+# in the shape the code expects, once a day, and keeps one issue open
+# while any does not. The ordinary test suite never touches the
+# network; this is the one place the real feeds are exercised.
+
+on:
+  schedule:
+    - cron: "17 9 * * *"   # daily, 09:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: live-providers
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.x"
+
+      - name: Install
+        run: |
+          pip install -e .
+          pip install pytest
+
+      - name: Ask every provider
+        id: probe
+        env:
+          # Optional: a TideCheck key in the repository secrets brings
+          # that provider into the check; without it the test skips.
+          LINECAST_LIVE_TIDECHECK_KEY: ${{ secrets.LINECAST_LIVE_TIDECHECK_KEY }}
+        run: |
+          set +e
+          pytest tests/test_live_providers.py -m integration \
+              -q -p no:cacheprovider -rfEs --tb=short \
+              2>&1 | tee "$RUNNER_TEMP/report.txt"
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Open, update, or close the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: sh scripts/live_issue.sh "${{ steps.probe.outputs.status }}" "$RUNNER_TEMP/report.txt"
+
+      - name: Report the result
+        run: exit "${{ steps.probe.outputs.status }}"
