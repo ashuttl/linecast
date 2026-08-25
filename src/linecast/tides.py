@@ -59,7 +59,8 @@ from linecast._tides_qld import (
 from linecast._tides_hko import (
     find_nearest_station_hko, fetch_station_metadata_hko,
     fetch_tides_range_hko, fetch_hilo_range_hko, fetch_y_range_hko,
-    _fetch_all_stations_hko,
+    _fetch_all_stations_hko, _STATION_BY_ID as _HKO_STATION_BY_ID,
+    _HOTIDE_TO_HKO as _HOTIDE_TO_HKO, _resolve_id as _hko_resolve_id,
 )
 from linecast._tides_tidecheck import (
     is_available as _tidecheck_available,
@@ -965,7 +966,7 @@ def main():
         # Station: --station flag > TIDE_STATION env var > geolocation
         override = args.station or os.environ.get("TIDE_STATION", "").strip()
 
-        source = "noaa"  # "noaa", "chs", "qld", "tidecheck", or "openmeteo"
+        source = "noaa"  # "noaa", "chs", "qld", "hko", "tidecheck", or "openmeteo"
         if override:
             if _is_openmeteo_station_id(override):
                 source = "openmeteo"
@@ -975,6 +976,12 @@ def main():
                 source = "chs"
                 station_id = override
                 station_name = f"Station {override[:8]}"
+            elif _hko_resolve_id(override) in _HKO_STATION_BY_ID:
+                # Matches an HKO prediction code (CCH, KCT, …) or a legacy
+                # hotide real-time code (chc, ct8, …).
+                source = "hko"
+                station_id = _hko_resolve_id(override)
+                station_name = _HKO_STATION_BY_ID[station_id]["name"]
             elif override.isdigit():
                 station_id = override
                 station_name = f"Station {override}"
