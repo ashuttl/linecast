@@ -1,0 +1,146 @@
+# How linecast is put together
+
+This is the map for someone who wants to change linecast without
+reading all of it first. The README says what the commands do; this
+says where the code for each part lives and how the parts talk to
+each other.
+
+## The commands
+
+Six commands, one module each at the top level of `src/linecast/`:
+`weather.py`, `sunshine.py`, `moon.py`, `tides.py`, `radar.py`,
+`maps.py`. Each has a `main()` that parses arguments (the parsers are
+built in `_runtime.py`, one function per command), resolves the
+location, fetches what it needs, and then either prints one frame
+(`--print`, or whenever stdout is not a terminal) or opens the live
+view. `__main__.py` is the `linecast` namespace command that dispatches
+to the same six, plus `location.py` and `units.py` for the saved
+settings and `_completion.py` for the shell completions.
+
+The larger commands are split by concern, and the split is the same
+for each of them: the top-level module renders one frame from data it
+is given; `_<command>_live.py` holds the live app (state and keys);
+the rest of `_<command>_*.py` fetches, decodes and paints. So `maps.py`
+draws, `_maps_live.py` runs, `_maps_views.py` fetches and caches,
+`_maps_paint.py` holds the inks, `_maps_streets.py` and
+`_maps_labels.py` build the street register, `_maps_ui.py` is the
+search and directions panels, and `_maps_style.py` is the cartography
+as pure data. Radar follows suit with `_radar_live.py`,
+`_radar_frames.py` (the frame cache and prefetcher), `_radar_render.py`
+(the compositor), `_radar_basemap.py`, `_radar_layers.py`,
+`_radar_warnings.py` and `_radar_ui.py`. Weather's rendering is in
+`_weather_hourly.py`, `_weather_daily.py`, `_weather_sections.py` and
+`_weather_alerts.py`; tides' in `_tides_render.py`. Each command's
+translated strings sit in its own `_<command>_i18n.py`, read through
+`_i18n.lookup`.
+
+## The live loop
+
+`_live.live_loop()` is the one engine every live view runs on. It
+puts the terminal on the alternate screen, turns on mouse reporting,
+calls a render function whenever something happened — a key, a wheel
+notch, a drag, a resize, a timer, a background fetch landing — and
+writes the frame. It decodes the escape sequences itself
+(`_read_key`); nothing else in the package reads stdin.
+
+A live view with state subclasses `_live.LiveApp`. The loop's hooks are
+its methods — `render`, `on_action` for single keys, `on_wheel`,
+`on_drag`, `on_click`, `intercept` for a panel that wants every key,
+`text_mode` while a text field is open, `play_gate` for animations —
+and the loop's tuning is its class attributes (`interval`, `mouse`,
+`scroll_step`, `auto_play`, `play_interval`). `run()` puts the app on
+screen; `stop()` is called on the way out. A hook the subclass does
+not override is not handed to the loop, so the loop's defaults stay in
+force: without `on_wheel` the wheel scrubs time, without `on_drag`
+there are no clicks. `MapApp`, `RadarApp`, `WeatherApp` and `TidesApp`
+are the four; sunshine and moon are a single render function and call
+`live_loop` directly.
+
+A frame is a string. Anything floating over it — a tooltip, a modal,
+the search field, the directions panel — is appended with
+`_live.overlay(body, floating, motion=...)`, which puts it on the
+channel the loop draws after the body, where the line clears cannot
+disturb it. `motion` switches any-motion mouse reporting with the
+frame; the search field turns it off, because a torn motion sequence
+reads as ESC.
+
+Background work never draws. It changes state and calls
+`_live.nudge()`, which wakes the loop for a repaint from any thread.
+
+## What a view keeps
+
+Everything a live view paints from was fetched on some earlier repaint
+or in the background. `_scenes.py` holds the two ways of keeping it.
+A `Memo` is a small bounded dictionary that answers or builds on the
+calling thread and forgets its oldest entries: basemaps, place names,
+shaded terrain buffers, route layers. A `SceneCache` holds a view's
+worth of fetched data — an elevation grid, a street layer, a radar
+condition field. Asked to block, it loads on the caller. Live, a miss
+starts one background load for that key, answers an empty value so the
+frame can say "loading", and nudges the loop when the data lands. A
+`FetchHold` can gate it, so a run of zoom taps repaints at once but
+only the view you stop on reaches the network.
+
+Radar frames have their own cache in `_radar_frames.py`, because they
+are prefetched in a particular order (the displayed frame first, then
+the rest of the window) and the animation waits on a fraction of them.
+
+On disk, `_cache.py` writes JSON and bytes under `~/.cache/linecast`,
+with a maximum age per file; `_config.py` reads and writes
+`~/.config/linecast/config.json` (the saved location and units).
+
+## Where the network is touched
+
+Every request goes through `_http.fetch_bytes` and its JSON and cached
+variants, which keep one connection per host per thread and attach the
+user agent. The modules that call it, and who they call:
+
+- `_location.py` — ipinfo.io for the approximate location when none is
+  saved or given; the Open-Meteo geocoder resolves place names.
+- `_weather_sources.py`, `_weather_historical.py`, `_marine.py` —
+  Open-Meteo forecast, air quality, archive and marine APIs; alerts
+  from the US National Weather Service, Environment Canada, MeteoAlarm
+  and a few national services.
+- `_tides_providers.py` and `_tides_noaa.py`, `_tides_chs.py`,
+  `_tides_qld.py`, `_tides_tidecheck.py`, `_tides_openmeteo.py` —
+  NOAA CO-OPS, the Canadian Hydrographic Service, Queensland's open
+  data, TideCheck (needs `LINECAST_TIDECHECK_KEY`) and Open-Meteo, one
+  `TideProvider` each, picked by station.
+- `_radar_sources.py`, `_radar_source.py`, `_radar_tiles.py` — IEM
+  NEXRAD composites, RainViewer and LibreWXR, picked by location;
+  `_radar_warnings.py` for the warning polygons; `_radar_layers.py`
+  for the temperature and wind lattice from Open-Meteo.
+- `_vtiles.py` — OpenFreeMap vector tiles, decoded by `_mvt.py`;
+  `_elevation.py` — the AWS terrain tiles; `_builtup.py` — the
+  built-up raster; `_maps_search.py` — Photon and Nominatim;
+  `_maps_route.py` — OSRM; `_globe_now.py` — the cloud mosaic.
+
+The public signatures of these modules carry type annotations; the
+rest of the package mostly does not, by choice.
+
+## Drawing
+
+`_framebuffer.py` renders colour fields at two sub-pixels per cell
+with half-block characters; `_braille.py` draws curves and strokes at
+2×4 dots per cell. The rule of thumb is that fields (the sea, terrain,
+the moon's glow) are half-blocks and lines (coastlines, borders, the
+tide curve) are braille. `_color.py` turns RGB into escape codes for
+whatever the terminal supports — truecolour, 256, 16 or none — and
+`_theme.py` probes the terminal's own colours, derives every palette
+from them, and re-derives when the theme changes under a live view.
+
+## Working on it
+
+Run the suite with `uv run --with pytest pytest tests -q`; it takes
+about ten seconds and needs no network. `tests/snapshots/` holds
+rendered frames for fixed data, sizes and clock; if you change how
+something looks on purpose, delete the affected snapshot and run the
+suite once to regenerate it. `ruff check src tests scripts` is the
+lint, configured in `pyproject.toml`; CI runs both.
+
+The live apps are tested as objects: build a `MapApp` or `RadarApp`
+with the terminal size patched and drive its hooks
+(`tests/test_maps_live.py`, `tests/test_radar_live.py`). Key decoding
+is tested by writing bytes to a pipe (`tests/test_live_input.py`).
+The installed commands come from `uv tool install`; after changing the
+code, `uv tool install --reinstall .` so your shell runs the new build.
