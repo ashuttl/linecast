@@ -3,6 +3,7 @@
 import math
 
 from linecast import _globe_now
+from linecast._scenes import Memo
 
 
 class TestSubsolar:
@@ -76,7 +77,8 @@ class TestCityLights:
             assert 0.0 < w <= 1.0
 
     def test_same_view_is_served_from_the_memo(self, monkeypatch):
-        monkeypatch.setattr(_globe_now, "_lights_cache", {})
+        monkeypatch.setattr(_globe_now, "_lights_cache",
+                            Memo(keep=_globe_now._LIGHTS_KEEP))
         first = _globe_now.city_lights_globe(20.0, -30.0, 125.0, 80, 44)
         assert _globe_now.city_lights_globe(20.0, -30.0, 125.0, 80, 44) \
             is first

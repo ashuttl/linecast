@@ -13,6 +13,7 @@ per frame timestamp and rasterised per view by the renderer.
 import threading
 
 from linecast._http import fetch_json
+from linecast._scenes import Memo
 
 _URL = "https://mesonet.agron.iastate.edu/geojson/sbw.geojson"
 
@@ -43,7 +44,8 @@ _NAMES = {
 # entirely outside skip the fetch
 _US_BOX = (-180.0, 15.0, -60.0, 72.0)
 
-_cache = {}   # ts key -> [(severity, color, rings), ...]
+_MAX_CACHED = 48  # a little over the radar rewind window
+_cache = Memo(keep=_MAX_CACHED)   # ts key -> [(severity, color, rings), ...]
 
 
 def _forget_colours():
@@ -55,7 +57,6 @@ def _forget_colours():
 from linecast import _theme
 _theme.on_reload(_forget_colours)
 _lock = threading.Lock()
-_MAX_CACHED = 48  # a little over the radar rewind window
 
 
 def covers(bbox):
@@ -118,10 +119,7 @@ def warnings_at(when):
     raw = fetch_json(f"{_URL}?ts={when.strftime('%Y-%m-%dT%H:%M:%SZ')}")
     parsed = _parse(raw)
     with _lock:
-        _cache[key] = parsed
-        if len(_cache) > _MAX_CACHED:
-            for old in list(_cache)[:len(_cache) - _MAX_CACHED]:
-                _cache.pop(old, None)
+        _cache.put(key, parsed)
     return parsed
 
 

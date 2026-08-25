@@ -12,6 +12,7 @@ from linecast._radar_warnings import (
 )
 from linecast._radar_basemap import DotLayer
 from linecast._radar_render import compose
+from linecast._scenes import Memo
 
 
 def _feature(phenomena, significance="W", emergency=False, geom_type="Polygon",
@@ -85,16 +86,15 @@ class TestParse:
 class TestCache:
     def setup_method(self):
         self._orig_fetch = warn_mod.fetch_json
-        self._orig_cache = dict(warn_mod._cache)
-        warn_mod._cache.clear()
+        self._orig_cache = warn_mod._cache
+        warn_mod._cache = Memo(keep=warn_mod._MAX_CACHED)
         self.calls = []
         warn_mod.fetch_json = lambda url: (
             self.calls.append(url) or {"features": [_feature("SV")]})
 
     def teardown_method(self):
         warn_mod.fetch_json = self._orig_fetch
-        warn_mod._cache.clear()
-        warn_mod._cache.update(self._orig_cache)
+        warn_mod._cache = self._orig_cache
 
     def test_fetch_memoised_per_timestamp(self):
         when = dt.datetime(2026, 7, 14, 11, 0, tzinfo=dt.timezone.utc)

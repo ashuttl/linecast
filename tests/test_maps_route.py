@@ -22,6 +22,7 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast import _maps_route as mr
+from linecast._scenes import Memo
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 BODY = json.loads((FIXTURES / "osrm_route.json").read_text())
@@ -50,7 +51,7 @@ class _Clock:
 def _fresh(monkeypatch):
     """Module state is global; every test starts from an empty cache and
     an open throttle gate."""
-    monkeypatch.setattr(mr, "_cache", {})
+    monkeypatch.setattr(mr, "_cache", Memo(keep=mr._MAX_CACHED))
     monkeypatch.setattr(mr, "_last_request", 0.0)
     monkeypatch.setattr(mr, "time", _Clock(1000.0))
 

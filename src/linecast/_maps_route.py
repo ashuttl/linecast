@@ -24,6 +24,7 @@ from typing import Any
 from linecast import user_agent
 from linecast._http import fetch_json
 from linecast._runtime import debug_log
+from linecast._scenes import Memo
 
 PROFILES = ("car", "bike", "foot")
 
@@ -42,7 +43,7 @@ _MIN_INTERVAL = 1.0  # the hosts' published rate limit
 _last_request = 0.0  # monotonic stamp of the last network call
 
 _MAX_CACHED = 8
-_cache: dict[tuple[str, float, float, float, float], "Route | NoRoute"] = {}
+_cache = Memo(keep=_MAX_CACHED)  # (profile, olat, olon, dlat, dlon) -> Route | NoRoute
 
 # HTTPError and socket.timeout are both OSError; JSONDecodeError is a
 # ValueError. A malformed body raises out of _parse instead.
@@ -126,10 +127,7 @@ def _parse(body, profile):
 
 
 def _remember(key, value):
-    _cache[key] = value
-    if len(_cache) > _MAX_CACHED:
-        for old in list(_cache)[:len(_cache) - _MAX_CACHED]:
-            _cache.pop(old, None)
+    _cache.put(key, value)
 
 
 def route(profile: str, origin: tuple[float, float], dest: tuple[float, float],

@@ -29,6 +29,7 @@ from linecast._png import decode_rgba
 from linecast._radar_basemap import (
     CITY, CITY_LABEL, DotLayer, _cell_width, _load_data, _localized)
 from linecast._radar_tiles import _TILE_SIZE, stitch_xyz
+from linecast._scenes import Memo
 from linecast._theme import themed
 
 # `zoom` (degrees of latitude the screen spans) at which the flat map
@@ -119,8 +120,8 @@ def forward(lat, lon, lat0, lon0):
 # holds each sample's (lat, longitude east of the view centre).  A
 # spin or a sideways drag changes only lon0, and lon0 is a constant
 # offset on the grid — so those frames skip the projection entirely.
-_geometry_cache = {}
 _GEOMETRY_KEEP = 4
+_geometry_cache = Memo(keep=_GEOMETRY_KEEP)
 # the view workers run geometry() and city_overlays() side by side (a
 # drag starts one per key), so the memos' lookup and evict-then-insert
 # happen under a lock; a miss computes outside it, and two workers
@@ -175,16 +176,14 @@ def geometry(lat0, lon0, zoom, w, h):
     if hit is None:
         hit = _project(lat0, zoom, w, h)
         with _memo_lock:
-            while len(_geometry_cache) >= _GEOMETRY_KEEP:
-                del _geometry_cache[next(iter(_geometry_cache))]
-            _geometry_cache[key] = hit
+            _geometry_cache.put(key, hit)
     base, zs, rhos = hit
     lls = [[None if b is None else (b[0], wrap_lon(lon0 + b[1]))
             for b in b_row] for b_row in base]
     return lls, zs, rhos
 
 
-_canvas_cache = {}
+_canvas_cache = Memo(keep=1)
 
 
 def _source_zoom(zoom, h):
@@ -272,9 +271,7 @@ def _world_canvas(z, timeout):
         # frozen to disk: the holes would outlive the outage
         if not missed[0]:
             _canvas_store(z, hit)
-    if len(_canvas_cache) > 1:
-        _canvas_cache.clear()
-    _canvas_cache[z] = hit
+    _canvas_cache.put(z, hit)
     return hit
 
 
@@ -584,8 +581,8 @@ def marker_cell(lat0, lon0, zoom, gw, hc, m_lat, m_lon):
 # city_overlays() memo: the placement depends only on the view and the
 # language, but every repaint asks for it — hover included.  Keyed
 # with the cities list's identity so swapped-in test data misses.
-_overlay_cache = {}
 _OVERLAY_KEEP = 4
+_overlay_cache = Memo(keep=_OVERLAY_KEEP)
 
 
 def city_overlays(lat0, lon0, zoom, gw, hc, lang="en"):
@@ -606,9 +603,7 @@ def city_overlays(lat0, lon0, zoom, gw, hc, lang="en"):
         return hit
     hit = _place_cities(cities, lat0, lon0, zoom, gw, hc, lang)
     with _memo_lock:
-        while len(_overlay_cache) >= _OVERLAY_KEEP:
-            del _overlay_cache[next(iter(_overlay_cache))]
-        _overlay_cache[key] = hit
+        _overlay_cache.put(key, hit)
     return hit
 
 

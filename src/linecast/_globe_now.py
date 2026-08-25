@@ -33,6 +33,7 @@ from linecast._globe import _radius, _source_zoom, bilinear_taps, forward
 from linecast._http import fetch_json
 from linecast._png import decode_rgba
 from linecast._radar_basemap import _load_data
+from linecast._scenes import Memo
 from linecast._theme import themed
 from linecast.sunshine import _declination
 
@@ -318,8 +319,8 @@ def _light_weight(pop):
 # city_lights_globe() memo: the lights depend only on the view, but the
 # sun toggle asks for them on every repaint.  Keyed with the cities
 # list's identity so swapped-in test data misses.
-_lights_cache = {}
 _LIGHTS_KEEP = 4
+_lights_cache = Memo(keep=_LIGHTS_KEEP)
 _lights_lock = threading.Lock()  # view workers ask concurrently
 
 
@@ -336,9 +337,7 @@ def city_lights_globe(lat0, lon0, zoom, gw, h):
         return hit
     hit = _light_cities(cities, lat0, lon0, zoom, gw, h)
     with _lights_lock:
-        while len(_lights_cache) >= _LIGHTS_KEEP:
-            del _lights_cache[next(iter(_lights_cache))]
-        _lights_cache[key] = hit
+        _lights_cache.put(key, hit)
     return hit
 
 

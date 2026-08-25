@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast import _globe
+from linecast._scenes import Memo
 
 
 class TestProjection:
@@ -51,21 +52,21 @@ class TestProjection:
 
 class TestGeometryCache:
     def test_cached_view_matches_a_fresh_projection(self, monkeypatch):
-        monkeypatch.setattr(_globe, "_geometry_cache", {})
+        monkeypatch.setattr(_globe, "_geometry_cache", Memo(keep=_globe._GEOMETRY_KEEP))
         lat0, zoom, w, h = 37.0, 90.0, 40, 40
         want = _globe.geometry(lat0, -100.0, zoom, w, h)
         # a second longitude over the same grid comes from the cache;
         # a fresh projection of it must agree exactly
         cached = _globe.geometry(lat0, 55.0, zoom, w, h)
         assert len(_globe._geometry_cache) == 1
-        monkeypatch.setattr(_globe, "_geometry_cache", {})
+        monkeypatch.setattr(_globe, "_geometry_cache", Memo(keep=_globe._GEOMETRY_KEEP))
         fresh = _globe.geometry(lat0, 55.0, zoom, w, h)
         assert cached[0] == fresh[0]
         assert cached[1] == fresh[1] and cached[2] == fresh[2]
         assert want[1] == fresh[1]  # zs never depended on lon0
 
     def test_offset_wraps_across_the_antimeridian(self, monkeypatch):
-        monkeypatch.setattr(_globe, "_geometry_cache", {})
+        monkeypatch.setattr(_globe, "_geometry_cache", Memo(keep=_globe._GEOMETRY_KEEP))
         _globe.geometry(0.0, 0.0, 125.0, 40, 40)
         lls, _zs, _rhos = _globe.geometry(0.0, 175.0, 125.0, 40, 40)
         lons = [ll[1] for row in lls for ll in row if ll is not None]
@@ -73,7 +74,7 @@ class TestGeometryCache:
         assert min(lons) < -170.0 and max(lons) > 170.0
 
     def test_cache_stays_small(self, monkeypatch):
-        monkeypatch.setattr(_globe, "_geometry_cache", {})
+        monkeypatch.setattr(_globe, "_geometry_cache", Memo(keep=_globe._GEOMETRY_KEEP))
         for lat0 in range(-40, 50, 10):
             _globe.geometry(float(lat0), 0.0, 125.0, 8, 8)
         assert len(_globe._geometry_cache) == _globe._GEOMETRY_KEEP
@@ -291,10 +292,10 @@ class TestElevation:
     def test_warm_tracks_the_stitched_canvas(self, monkeypatch):
         # warm() gates live drag rotation: it must agree with the
         # source zoom elevation() actually samples, and never fetch
-        monkeypatch.setattr(_globe, "_canvas_cache", {})
+        monkeypatch.setattr(_globe, "_canvas_cache", Memo(keep=1))
         zoom, h = 125.0, 44 * 4
         assert not _globe.warm(zoom, h)
-        _globe._canvas_cache[_globe._source_zoom(zoom, h)] = object()
+        _globe._canvas_cache.put(_globe._source_zoom(zoom, h), object())
         assert _globe.warm(zoom, h)
         assert not _globe.warm(zoom, h * 8)  # finer grid, colder zoom
 
@@ -507,7 +508,7 @@ class TestCities:
             assert 0 <= col < 80 and 0 <= row < 22
 
     def test_same_view_is_served_from_the_memo(self, monkeypatch):
-        monkeypatch.setattr(_globe, "_overlay_cache", {})
+        monkeypatch.setattr(_globe, "_overlay_cache", Memo(keep=_globe._OVERLAY_KEEP))
         first = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22)
         assert _globe.city_overlays(20.0, -30.0, 125.0, 80, 22) is first
         other = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22, lang="fr")
