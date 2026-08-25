@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from conftest import readonly
 
 from linecast import _cache, _config, _http, _location, _paths, _runtime, _weather_sources
 from linecast import location, units
@@ -133,21 +134,11 @@ class TestCacheDir:
 # ---------------------------------------------------------------------------
 # A cache that cannot be written
 # ---------------------------------------------------------------------------
-def _readonly(path):
-    """Make `path` read-only, or skip when this process would not notice."""
-    if os.geteuid() == 0:
-        pytest.skip("root is not refused by directory modes")
-    path.chmod(0o555)
-    if os.access(path, os.W_OK):
-        path.chmod(0o755)
-        pytest.skip("chmod does not deny writes on this filesystem")
-
-
 @pytest.fixture
 def readonly_cache(tmp_path, monkeypatch):
     root = tmp_path / "ro-cache"
     root.mkdir()
-    _readonly(root)
+    readonly(root)
     monkeypatch.setenv("LINECAST_CACHE_DIR", str(root))
     try:
         yield root
@@ -159,7 +150,7 @@ def readonly_cache(tmp_path, monkeypatch):
 def readonly_config(tmp_path, monkeypatch):
     root = tmp_path / "ro-config"
     root.mkdir()
-    _readonly(root)
+    readonly(root)
     monkeypatch.setenv("LINECAST_CONFIG_DIR", str(root))
     try:
         yield root

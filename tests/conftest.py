@@ -94,6 +94,31 @@ def _private_home(monkeypatch, tmp_path):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: HOME))
 
 
+# ---------------------------------------------------------------------------
+# Directories this process may not write or search
+# ---------------------------------------------------------------------------
+def _restrict(path, mode, access, what):
+    if os.geteuid() == 0:
+        pytest.skip("root is not refused by directory modes")
+    path.chmod(mode)
+    if os.access(path, access):
+        path.chmod(0o755)
+        pytest.skip(f"chmod does not deny {what} on this filesystem")
+
+
+def readonly(path):
+    """Make `path` read-only, or skip when this process would not notice
+    (root, or a filesystem that ignores directory modes). The caller
+    puts the mode back so tmp_path can be cleaned up."""
+    _restrict(path, 0o555, os.W_OK, "writes")
+
+
+def unsearchable(path):
+    """Take every permission off `path`, so a stat of anything below it
+    is refused, or skip when this process would not notice."""
+    _restrict(path, 0o000, os.X_OK, "searches")
+
+
 def _blocked(*args, **kwargs):
     raise OSError("network blocked by tests/conftest.py; "
                   "mark the test @pytest.mark.integration to allow it")

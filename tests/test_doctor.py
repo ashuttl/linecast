@@ -7,13 +7,12 @@ cache and settings paths are the private ones tests/conftest.py set.
 import importlib
 import io
 import json
-import os
-import stat
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 import pytest
+from conftest import readonly
 
 
 def _doctor():
@@ -244,12 +243,10 @@ class TestCacheDirectory:
         assert not root.exists()
         assert not root.parent.exists()
 
-    @pytest.mark.skipif(os.geteuid() == 0, reason="root can write anywhere")
     def test_an_unwritable_cache_is_reported_not_fatal(self, tmp_path, monkeypatch):
         root = tmp_path / "readonly"
         root.mkdir()
-        root.chmod(stat.S_IRUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP
-                   | stat.S_IROTH | stat.S_IXOTH)
+        readonly(root)
         monkeypatch.setenv("LINECAST_CACHE_DIR", str(root))
         try:
             code, out, err = _run("--offline", monkeypatch=monkeypatch)
