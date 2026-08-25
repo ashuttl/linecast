@@ -18,14 +18,14 @@
 # itself caches in: $LINECAST_CACHE_DIR if set, else $XDG_CACHE_HOME/linecast,
 # else ~/Library/Caches/linecast on macOS, else ~/.cache/linecast.  It is
 # private to you (mode 0700) and is checked before anything in it runs: a
-# real directory, not a symlink, owned by you, with a python that can
-# import linecast and the command you asked for.  A venv that fails the
-# check is rebuilt, and once a day the script asks pip for a newer
-# release.  Deleting the venv with rm -rf is always safe; the next run
-# makes a new one.  When there is no cache directory to use, the venv is
-# a throwaway under $TMPDIR, removed on exit.  Python runs isolated (-I)
-# throughout, so files in the directory you run from cannot stand in for
-# venv, pip or linecast.
+# real directory, not a symlink, owned by you and writable, with a python
+# that can import linecast and the command you asked for.  A venv that
+# fails the check is rebuilt, and once a day the script asks pip for a
+# newer release.  Deleting the venv with rm -rf is always safe; the next
+# run makes a new one.  When there is no cache directory to use, the venv
+# is a throwaway under $TMPDIR, removed on exit.  Python runs isolated
+# (-I) throughout, so files in the directory you run from cannot stand in
+# for venv, pip or linecast.
 #
 # One thing a shell script cannot make safe: a cache directory under a
 # parent that is world-writable without the sticky bit, where another user
@@ -163,8 +163,8 @@ main() {
 
     venv=
     if dir=$(cache_dir) && ( umask 077 && mkdir -p "$dir" ) 2>/dev/null; then
-        if ! ours "$dir"; then
-            note "refusing $dir: not a directory owned by you"
+        if ! ours "$dir" || ! [ -w "$dir" ]; then
+            note "refusing $dir: not a writable directory owned by you"
         elif present "$dir/venv" && ! ours "$dir/venv"; then
             note "refusing $dir/venv: not a directory owned by you"
         else

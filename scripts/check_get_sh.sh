@@ -301,8 +301,17 @@ if [ "$(id -u)" = 0 ]; then
     has "foreign-owned cache dir: throwaway venv used" "linecast $version" "$out"
     is "foreign-owned cache dir: left alone" no "$(exists "$venv")"
     rm -rf "$appdir"
+    skip "read-only cache dir: root can write to any directory"
 else
     skip "foreign-owned venv and cache dir: needs root to chown (runs in a container job)"
+    rm -rf "$appdir"; mkdir "$appdir"; chmod 500 "$appdir"
+    out=$(venv_run sunshine --version); rc=$?
+    is "read-only cache dir: exits 0" 0 "$rc"
+    has "read-only cache dir: refused" "refusing" "$(err)"
+    has "read-only cache dir: throwaway venv used" "linecast $version" "$out"
+    is "read-only cache dir: left alone" no "$(exists "$venv")"
+    is "read-only cache dir: throwaway removed on exit" "" "$(ls -A "$work/tmp")"
+    chmod 700 "$appdir"; rm -rf "$appdir"
 fi
 
 OVERRIDE=$work/override
