@@ -46,3 +46,29 @@ def _use_utf8_on_windows():
 
 
 _use_utf8_on_windows()
+
+
+def _use_os_certificates_on_windows():
+    """Verify TLS through Windows rather than Python's view of its store.
+
+    Python's ssl module trusts the roots already cached in the Windows
+    certificate store, and Windows fills that store lazily — a fresh
+    install can hold barely a dozen.  Anything signed by a root it has
+    not met yet dies with CERTIFICATE_VERIFY_FAILED, which is how the
+    terrain tiles on s3.amazonaws.com came back empty while every other
+    host worked.  truststore hands verification to the OS, which fetches
+    roots on demand and honours any an administrator added — so a
+    corporate TLS proxy keeps working too, which a bundled CA list would
+    have broken.
+    """
+    import sys
+    if sys.platform != "win32":
+        return
+    try:
+        import truststore
+        truststore.inject_into_ssl()
+    except Exception:
+        pass  # not installed or refused: Python's own verification stands
+
+
+_use_os_certificates_on_windows()

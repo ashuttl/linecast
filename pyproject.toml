@@ -18,6 +18,9 @@ dependencies = [
     # read: every ZoneInfo(...) raises and the tz lookups fall back to the
     # machine zone, which is the wrong zone for anywhere but here.
     "tzdata; sys_platform == 'win32'",
+    # Windows caches trusted roots lazily, so Python's ssl sees only the
+    # handful it has met; truststore asks the OS to verify instead.
+    "truststore; sys_platform == 'win32'",
 ]
 
 [project.urls]
