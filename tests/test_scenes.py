@@ -72,11 +72,13 @@ class TestFetchHold:
     def test_only_the_last_hold_nudges(self, monkeypatch):
         nudged = []
         monkeypatch.setattr(_scenes, "nudge", lambda: nudged.append(1))
-        hold = FetchHold(settle=0.03)
+        # Taps well inside the settle time: a runner that oversleeps the
+        # gap between them would otherwise make an earlier tap settle.
+        hold = FetchHold(settle=0.2)
         for _ in range(3):
             hold.hold()
             time.sleep(0.01)
-        time.sleep(0.15)
+        time.sleep(0.5)
         assert nudged == [1]
 
 
