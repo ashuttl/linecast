@@ -112,10 +112,11 @@ user agent. The modules that call it, and who they call:
   from the US National Weather Service, Environment Canada, MeteoAlarm
   and a few national services.
 - `_tides_providers.py` and `_tides_noaa.py`, `_tides_chs.py`,
-  `_tides_qld.py`, `_tides_tidecheck.py`, `_tides_openmeteo.py` —
-  NOAA CO-OPS, the Canadian Hydrographic Service, Queensland's open
-  data, TideCheck (needs `LINECAST_TIDECHECK_KEY`) and Open-Meteo, one
-  `TideProvider` each, picked by station.
+  `_tides_qld.py`, `_tides_hko.py`, `_tides_tidecheck.py`,
+  `_tides_openmeteo.py` — NOAA CO-OPS, the Canadian Hydrographic
+  Service, Queensland's open data, the Hong Kong Observatory, TideCheck
+  (needs `LINECAST_TIDECHECK_KEY`) and Open-Meteo, one `TideProvider`
+  each, picked by station.
 - `_radar_sources.py`, `_radar_source.py`, `_radar_tiles.py` — IEM
   NEXRAD composites, RainViewer and LibreWXR, picked by location;
   `_radar_warnings.py` for the warning polygons; `_radar_layers.py`

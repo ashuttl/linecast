@@ -5,6 +5,13 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Tides: Hong Kong has its own tide stations now. Thirteen Hong Kong
+  Observatory stations join the list, picked automatically for a
+  location in Hong Kong or by code with `--station CCH`. Thanks to
+  ErwinTATP.
+- Weather: Alerts in Hong Kong come from the Hong Kong Observatory's
+  warnings -- rainstorm, tropical cyclone signals, thunderstorm and
+  the rest -- instead of the mainland service. Thanks to ErwinTATP.
 - Doctor: `linecast doctor` shows which build is running, where the
   settings file and the cache live and whether the cache can be
   written, what the terminal supports, which preferences are in force
