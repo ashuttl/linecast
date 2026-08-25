@@ -117,7 +117,9 @@ class _NOAA(TideProvider):
         found = []
         for s in (noaa.fetch_all_stations_noaa() or []):
             state = s.get("state", "")
-            haystack = f"{s.get('name', '')} {state} {US_STATE_NAMES.get(state.upper(), '')}".lower()
+            haystack = (
+                f"{s.get('name', '')} {state} {US_STATE_NAMES.get(state.upper(), '')}"
+            ).lower()
             if _matches(haystack, tokens):
                 found.append({
                     "source": self.name, "id": str(s.get("id", "")),

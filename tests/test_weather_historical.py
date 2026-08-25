@@ -182,7 +182,8 @@ class TestFetchHistorical:
         assert result is None
 
     def test_returns_none_on_empty_data(self):
-        with patch("linecast._weather_historical.fetch_json_cached", return_value={"daily": {"time": []}}):
+        with patch("linecast._weather_historical.fetch_json_cached",
+                   return_value={"daily": {"time": []}}):
             result = fetch_historical(40.7, -74.0, date(2026, 3, 27))
         assert result is None
 

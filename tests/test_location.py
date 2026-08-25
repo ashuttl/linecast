@@ -11,9 +11,11 @@ from linecast import _config, _location, location
 
 class GetLocationTests(unittest.TestCase):
     def test_saved_location_overrides_ip_geolocation(self):
-        saved = {"lat": 44.4293, "lng": -70.0356, "label": "Fayette, Maine, United States", "country": "US"}
+        saved = {"lat": 44.4293, "lng": -70.0356, "label": "Fayette, Maine, United States",
+                 "country": "US"}
         with patch.object(_location, "saved_location", return_value=saved), \
-             patch.object(_location, "fetch_json", side_effect=AssertionError("should not hit network")):
+             patch.object(_location, "fetch_json",
+                          side_effect=AssertionError("should not hit network")):
             self.assertEqual(_location.get_location(), (44.4293, -70.0356, "US"))
 
     def test_stale_cache_refreshes_after_one_hour(self):

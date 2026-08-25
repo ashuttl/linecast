@@ -654,7 +654,8 @@ def _render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime,
                 else:
                     r, g, b = _temp_color(temp, runtime)
                     brightness = night_dim + (1.0 - night_dim) * dl
-                    line += f"{fg(int(r * brightness), int(g * brightness), int(b * brightness))}{ch}"
+                    line += fg(int(r * brightness), int(g * brightness), int(b * brightness))
+                    line += ch
         lines.append(f"{line}{RESET}")
     return lines
 
@@ -873,7 +874,8 @@ def _render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows, ind
     return [f" {''.join(precip_chars)}{RESET}"]
 
 
-def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runtime=None, hover_col=None, offset_minutes=0):
+def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runtime=None,
+                  hover_col=None, offset_minutes=0):
     """Hourly forecast: braille temperature curve + precipitation graph."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
@@ -883,7 +885,8 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
         now = _local_now_for_data(data)
 
     graph_w = max(10, width - 2)
-    window = _prepare_hourly_window(data.get("hourly", {}), now, graph_w, offset_minutes=offset_minutes)
+    window = _prepare_hourly_window(data.get("hourly", {}), now, graph_w,
+                                    offset_minutes=offset_minutes)
     if window is None:
         return []
 
@@ -971,7 +974,8 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     all_wind_dirs = window.get("all_wind_dirs", window_wind_dirs)
     if use_full_canvas and all_winds:
         all_total_hours = max(1, len(all_winds) - 1)
-        full_canvas = _place_wind_labels(all_winds, all_wind_dirs, all_total_hours, all_graph_w, runtime)
+        full_canvas = _place_wind_labels(all_winds, all_wind_dirs, all_total_hours,
+                                         all_graph_w, runtime)
         if full_canvas is not None:
             # Extract visible window slice
             win_start = int(round(win_start_col))

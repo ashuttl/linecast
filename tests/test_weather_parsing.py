@@ -193,7 +193,8 @@ class TestBrightSkyAlerts:
             alerts = _fetch_alerts_brightsky(52.52, 13.405)
         assert isinstance(alerts, list)
         for a in alerts:
-            for key in ("event", "headline", "description", "severity", "effective", "expires", "url"):
+            for key in ("event", "headline", "description", "severity", "effective", "expires",
+                        "url"):
                 assert key in a, f"Missing normalized key: {key}"
 
 
@@ -330,7 +331,8 @@ class TestJMAAlerts:
         assert isinstance(alerts, list)
         assert len(alerts) > 0
         for a in alerts:
-            for key in ("event", "headline", "description", "severity", "effective", "expires", "url"):
+            for key in ("event", "headline", "description", "severity", "effective", "expires",
+                        "url"):
                 assert key in a, f"Missing normalized key: {key}"
         # Active warning codes should be deduped across areas.
         assert len(alerts) == 3
@@ -362,42 +364,48 @@ class TestAlertProviderRouting:
 
     def test_routes_us_to_nws(self):
         from linecast._weather_sources import fetch_alerts
-        with patch("linecast._weather_sources._fetch_alerts_nws", return_value=[{"event": "x"}]) as mock_fn:
+        with patch("linecast._weather_sources._fetch_alerts_nws",
+                   return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(40.7, -74.0, country_code="US")
         mock_fn.assert_called_once_with(40.7, -74.0)
         assert result == [{"event": "x"}]
 
     def test_routes_ca_to_eccc(self):
         from linecast._weather_sources import fetch_alerts
-        with patch("linecast._weather_sources._fetch_alerts_eccc", return_value=[{"event": "x"}]) as mock_fn:
+        with patch("linecast._weather_sources._fetch_alerts_eccc",
+                   return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(45.4, -75.7, country_code="CA", lang="fr")
         mock_fn.assert_called_once_with(45.4, -75.7, lang="fr")
         assert result == [{"event": "x"}]
 
     def test_routes_de_to_brightsky(self):
         from linecast._weather_sources import fetch_alerts
-        with patch("linecast._weather_sources._fetch_alerts_brightsky", return_value=[{"event": "x"}]) as mock_fn:
+        with patch("linecast._weather_sources._fetch_alerts_brightsky",
+                   return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(52.52, 13.405, country_code="DE", lang="de")
         mock_fn.assert_called_once_with(52.52, 13.405, lang="de")
         assert result == [{"event": "x"}]
 
     def test_routes_no_to_metno(self):
         from linecast._weather_sources import fetch_alerts
-        with patch("linecast._weather_sources._fetch_alerts_metno", return_value=[{"event": "x"}]) as mock_fn:
+        with patch("linecast._weather_sources._fetch_alerts_metno",
+                   return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(59.91, 10.75, country_code="NO")
         mock_fn.assert_called_once_with(59.91, 10.75)
         assert result == [{"event": "x"}]
 
     def test_routes_ie_to_meteireann(self):
         from linecast._weather_sources import fetch_alerts
-        with patch("linecast._weather_sources._fetch_alerts_meteireann", return_value=[{"event": "x"}]) as mock_fn:
+        with patch("linecast._weather_sources._fetch_alerts_meteireann",
+                   return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(53.35, -6.26, country_code="IE")
         mock_fn.assert_called_once_with(53.35, -6.26)
         assert result == [{"event": "x"}]
 
     def test_routes_jp_to_jma(self):
         from linecast._weather_sources import fetch_alerts
-        with patch("linecast._weather_sources._fetch_alerts_jma", return_value=[{"event": "x"}]) as mock_fn:
+        with patch("linecast._weather_sources._fetch_alerts_jma",
+                   return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(35.68, 139.76, country_code="JP", lang="ja")
         mock_fn.assert_called_once_with(35.68, 139.76, lang="ja")
         assert result == [{"event": "x"}]
@@ -405,7 +413,8 @@ class TestAlertProviderRouting:
     def test_routes_meteoalarm_country(self):
         from linecast._weather_sources import fetch_alerts
         address = {"city": "Amsterdam", "state": "Noord-Holland"}
-        with patch("linecast._weather_sources._fetch_alerts_meteoalarm", return_value=[{"event": "x"}]) as mock_fn:
+        with patch("linecast._weather_sources._fetch_alerts_meteoalarm",
+                   return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(52.37, 4.89, country_code="NL", lang="en", address=address)
         mock_fn.assert_called_once_with(52.37, 4.89, "netherlands", lang="en", address=address)
         assert result == [{"event": "x"}]
@@ -461,10 +470,14 @@ class TestLocationMatching:
 
     def test_cma_severity_from_pic(self):
         from linecast._weather_sources import _cma_severity_from_pic
-        assert _cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0005001.png") == "Extreme"
-        assert _cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0007002.png") == "Severe"
-        assert _cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0007003.png") == "Moderate"
-        assert _cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0007004.png") == "Minor"
+        assert (_cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0005001.png")
+                == "Extreme")
+        assert (_cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0007002.png")
+                == "Severe")
+        assert (_cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0007003.png")
+                == "Moderate")
+        assert (_cma_severity_from_pic("https://image.nmc.cn/assets/img/alarm/p0007004.png")
+                == "Minor")
         assert _cma_severity_from_pic("") == "Moderate"
 
     def test_parse_cma_issuetime(self):
@@ -520,7 +533,8 @@ class TestCMAAlerts:
             assert a["severity"] == "Moderate"
             assert a["effective"]  # non-empty
             assert "nmc.cn" in a["url"]
-            for key in ("event", "headline", "description", "severity", "effective", "expires", "url"):
+            for key in ("event", "headline", "description", "severity", "effective", "expires",
+                        "url"):
                 assert key in a
 
     def test_parse_shanxi_zh(self):
@@ -559,13 +573,15 @@ class TestCMAAlerts:
         events = {a["event"] for a in alerts}
         assert "Yellow Dense Fog Warning" in events
         for a in alerts:
-            for key in ("event", "headline", "description", "severity", "effective", "expires", "url"):
+            for key in ("event", "headline", "description", "severity", "effective", "expires",
+                        "url"):
                 assert key in a
 
     def test_routing_cn_to_cma(self):
         """fetch_alerts routes CN to _fetch_alerts_cma."""
         from linecast._weather_sources import fetch_alerts
-        with patch("linecast._weather_sources._fetch_alerts_cma", return_value=[{"event": "x"}]) as mock_fn:
+        with patch("linecast._weather_sources._fetch_alerts_cma",
+                   return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(39.9, 116.4, country_code="CN", lang="zh")
         mock_fn.assert_called_once_with(39.9, 116.4, lang="zh")
         assert result == [{"event": "x"}]

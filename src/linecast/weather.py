@@ -11,7 +11,9 @@ and MeteoAlarm (30 European countries).
 
 Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 
-Usage: weather [--print] [--oneline] [--json] [--location LAT,LNG | PLACE] [--search CITY] [--emoji] [--metric] [--celsius] [--fahrenheit] [--no-shading] [--lang fr] [--classic-colors]
+Usage: weather [--print] [--oneline] [--json] [--location LAT,LNG | PLACE] [--search CITY]
+               [--emoji] [--metric] [--celsius] [--fahrenheit] [--no-shading] [--lang fr]
+               [--classic-colors]
 """
 
 import sys
@@ -56,7 +58,8 @@ from linecast._weather_sources import (
 )
 
 
-def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, cols, rows, runtime, offset_minutes=0):
+def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, cols, rows,
+                         runtime, offset_minutes=0):
     """Build a tooltip overlay for mouse hover on the hourly chart.
 
     Returns cursor-positioned escape sequences to draw the tooltip, or "".
@@ -87,7 +90,8 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
 
     dt = window["dts"][idx] if idx < len(window["dts"]) else None
     temp = window["temps"][idx]
-    apparent = window["apparent_temps"][idx] if idx < len(window.get("apparent_temps", [])) else None
+    apparent = (window["apparent_temps"][idx]
+                if idx < len(window.get("apparent_temps", [])) else None)
     code = window["codes"][idx] if idx < len(window["codes"]) else 0
     wind = window["winds"][idx] if idx < len(window["winds"]) else 0
     wind_dir = window["wind_dirs"][idx] if idx < len(window["wind_dirs"]) else 0
@@ -162,7 +166,8 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     return result
 
 
-def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0, aqi_data=None, historical=None):
+def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, mouse_pos=None,
+                     active_alert=None, modal_scroll=0, aqi_data=None, historical=None):
     """Build the complete weather dashboard from preloaded data."""
     if not data:
         return f"{TEXT}Could not fetch weather data.{RESET}", {}
@@ -172,7 +177,8 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     tz_name = data.get("timezone", "")
 
     # Pre-render fixed-height sections to budget graph rows accurately
-    alert_lines = render_alerts(alerts, width=cols, runtime=runtime, tz_name=tz_name) if alerts else []
+    alert_lines = (render_alerts(alerts, width=cols, runtime=runtime, tz_name=tz_name)
+                   if alerts else [])
     comp = _comparative_line(data.get("daily", {}), now_local, runtime)
     precip = _precipitation_line(data.get("hourly", {}), now_local, runtime)
     past_precip = _past_precip_line(data.get("hourly", {}), now_local, runtime)
@@ -206,7 +212,8 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     if has_uv_row:
         graph_budget -= 1
 
-    has_precip_graph = bool(hourly.get("precipitation_probability")) and max(hourly.get("precipitation_probability", [0])) > 5
+    has_precip_graph = (bool(hourly.get("precipitation_probability"))
+                        and max(hourly.get("precipitation_probability", [0])) > 5)
     if has_precip_graph:
         n_precip_braille = min(3, max(1, graph_budget // 6))
         remaining_for_temp = graph_budget - n_precip_braille
@@ -219,7 +226,8 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     lines = []
 
     # Header
-    lines.append(render_header(data, cols, location_name, runtime=runtime, aqi_data=aqi_data, historical=historical))
+    lines.append(render_header(data, cols, location_name, runtime=runtime, aqi_data=aqi_data,
+                               historical=historical))
     lines.append("")
 
     # Hourly — first pass without hover to establish line boundaries
@@ -250,7 +258,8 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
             graph_w = max(10, cols - 2)
             mouse_col_raw = mouse_pos[0] - 2  # 1-based terminal col → 0-based graph col
             if 0 <= mouse_col_raw < graph_w:
-                window = _prepare_hourly_window(hourly, now_local, graph_w, offset_minutes=offset_minutes)
+                window = _prepare_hourly_window(hourly, now_local, graph_w,
+                                                offset_minutes=offset_minutes)
                 if window:
                     n = len(window["temps"])
                     total_hours = window["total_hours"]

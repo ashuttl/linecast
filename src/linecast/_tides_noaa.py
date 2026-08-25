@@ -176,7 +176,8 @@ def _months_covering(start_date, end_date):
     return months
 
 
-_month_locks: dict[str, threading.Lock] = {}  # cache file name -> lock held while that month fetches
+# cache file name -> lock held while that month fetches
+_month_locks: dict[str, threading.Lock] = {}
 _month_locks_lock = threading.Lock()
 
 

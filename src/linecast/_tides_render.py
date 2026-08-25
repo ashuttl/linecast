@@ -22,9 +22,12 @@ def _rebuild():
     global TIP_TEXT_RGB, DIM
     DIM_RGB = ensure_contrast(neutral_tone(0.32), _theme.theme_bg, minimum=2.0)
     MUTED_RGB = ensure_contrast(neutral_tone(0.48), _theme.theme_bg, minimum=2.5)
-    MOON_RISE_RGB = ensure_contrast(best_contrast((_theme.theme_ansi[5], _theme.theme_ansi[13]), minimum=2.0), _theme.theme_bg, minimum=2.0)
+    MOON_RISE_RGB = ensure_contrast(
+        best_contrast((_theme.theme_ansi[5], _theme.theme_ansi[13]), minimum=2.0),
+        _theme.theme_bg, minimum=2.0)
     MOON_SET_RGB = ensure_contrast(
-        lerp_rgb(best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12]), minimum=2.0), _theme.theme_ansi[5], 0.35),
+        lerp_rgb(best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12]), minimum=2.0),
+                 _theme.theme_ansi[5], 0.35),
         minimum=2.0,
     )
     TIP_BG_RGB = darken(surface_bg(0.10), 0.45 if not is_light_theme() else 0.10)
@@ -579,7 +582,8 @@ def build_now_tooltip(now_col, now_info, chart_start, cols, graph_w):
     return result
 
 
-def build_tide_hover_tooltip(window, graph_col, mouse_row, chart_start, chart_end, cols, rows, graph_w, runtime):
+def build_tide_hover_tooltip(window, graph_col, mouse_row, chart_start, chart_end,
+                             cols, rows, graph_w, runtime):
     """Build cursor-positioned tooltip overlay for mouse hover on the chart."""
     line_idx = mouse_row - 1
     if not (chart_start <= line_idx < chart_end):

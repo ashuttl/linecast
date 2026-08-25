@@ -169,7 +169,8 @@ def ensure_contrast(color: RGB, background: RGB | None = None, minimum: float = 
     return lerp_rgb(color, target, 1.0)
 
 
-def best_contrast(candidates: Iterable[RGB], background: RGB | None = None, minimum: float = 2.0) -> RGB:
+def best_contrast(candidates: Iterable[RGB], background: RGB | None = None,
+                  minimum: float = 2.0) -> RGB:
     if background is None:
         background = theme_bg
     colors = [clamp_rgb(c) for c in candidates]

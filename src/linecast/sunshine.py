@@ -61,17 +61,23 @@ def _rebuild():
         INFO_DIM_RGB = (70, 80, 100)
         INFO_TEXT_RGB = (200, 205, 215)
     else:
-        _SKY_BLUE = best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12], _theme.theme_ansi[6]), minimum=1.8)
-        _SKY_CYAN = best_contrast((_theme.theme_ansi[6], _theme.theme_ansi[14], _theme.theme_fg), minimum=1.8)
+        _SKY_BLUE = best_contrast(
+            (_theme.theme_ansi[4], _theme.theme_ansi[12], _theme.theme_ansi[6]), minimum=1.8)
+        _SKY_CYAN = best_contrast(
+            (_theme.theme_ansi[6], _theme.theme_ansi[14], _theme.theme_fg), minimum=1.8)
         _SKY_MAGENTA = best_contrast((_theme.theme_ansi[5], _theme.theme_ansi[13]), minimum=1.8)
         _SKY_RED = best_contrast((_theme.theme_ansi[1], _theme.theme_ansi[9]), minimum=1.8)
         _SKY_YELLOW = best_contrast((_theme.theme_ansi[3], _theme.theme_ansi[11]), minimum=1.8)
         _SKY_WHITE = best_contrast((_theme.theme_ansi[15], _theme.theme_fg), minimum=2.0)
 
-        HORIZON_COLOR = ensure_contrast(neutral_tone(0.45), _theme.theme_bg, minimum=1.7)  # hairline divider
-        CURVE_COLOR = ensure_contrast(neutral_tone(0.74), _theme.theme_bg, minimum=2.4)  # neutral arc
-        SUN_GLOW_DAY_RGB = best_contrast((_theme.theme_ansi[15], lighten(_theme.theme_fg, 0.12)), minimum=1.8)
-        SUN_GLOW_TWILIGHT_RGB = ensure_contrast(lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.45), _theme.theme_bg, minimum=1.6)
+        # hairline divider
+        HORIZON_COLOR = ensure_contrast(neutral_tone(0.45), _theme.theme_bg, minimum=1.7)
+        # neutral arc
+        CURVE_COLOR = ensure_contrast(neutral_tone(0.74), _theme.theme_bg, minimum=2.4)
+        SUN_GLOW_DAY_RGB = best_contrast(
+            (_theme.theme_ansi[15], lighten(_theme.theme_fg, 0.12)), minimum=1.8)
+        SUN_GLOW_TWILIGHT_RGB = ensure_contrast(
+            lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.45), _theme.theme_bg, minimum=1.6)
         SUN_CORE_RGB = best_contrast((_theme.theme_ansi[15], _theme.theme_fg), minimum=2.0)
         INFO_AMBER_RGB = ensure_contrast(_SKY_YELLOW, _theme.theme_bg, minimum=2.3)
         INFO_PURPLE_RGB = ensure_contrast(_SKY_MAGENTA, _theme.theme_bg, minimum=2.3)

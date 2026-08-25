@@ -39,7 +39,8 @@ def _rebuild():
     RED_RGB = best_contrast((_theme.theme_ansi[1], _theme.theme_ansi[9]), minimum=2.1)
     MAGENTA_RGB = best_contrast((_theme.theme_ansi[5], _theme.theme_ansi[13]), minimum=2.1)
     BRIGHT_YELLOW_RGB = ensure_contrast(_theme.theme_ansi[11], _theme.theme_bg, minimum=2.4)
-    ALERT_BLUE_BASE_RGB = best_contrast((_theme.theme_ansi[12], _theme.theme_ansi[14], _theme.theme_ansi[6]), minimum=2.1)
+    ALERT_BLUE_BASE_RGB = best_contrast(
+        (_theme.theme_ansi[12], _theme.theme_ansi[14], _theme.theme_ansi[6]), minimum=2.1)
 
     TEMP_COLORS = [
         (0, ensure_contrast(lerp_rgb(BLUE_RGB, CYAN_RGB, 0.15), _theme.theme_bg, minimum=2.1)),
@@ -70,11 +71,14 @@ def _rebuild():
         CHART_BG_DAY_RGB = lighten(lerp_rgb(_theme.theme_bg, CYAN_RGB, 0.06), 0.05)
 
     CHART_HOVER_RGB = ensure_contrast(surface_bg(0.36), CHART_BG_NIGHT_RGB, minimum=1.5)
-    SUNRISE_LABEL_RGB = ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.20), _theme.theme_bg, minimum=2.0)
-    SUNSET_LABEL_RGB = ensure_contrast(lerp_rgb(RED_RGB, MAGENTA_RGB, 0.25), _theme.theme_bg, minimum=2.0)
+    SUNRISE_LABEL_RGB = ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.20), _theme.theme_bg,
+                                        minimum=2.0)
+    SUNSET_LABEL_RGB = ensure_contrast(lerp_rgb(RED_RGB, MAGENTA_RGB, 0.25), _theme.theme_bg,
+                                       minimum=2.0)
     TOOLTIP_BG_RGB = darken(surface_bg(0.10), 0.45 if not is_light_theme() else 0.10)
     TOOLTIP_TEXT_RGB = ensure_contrast(TEXT_RGB, TOOLTIP_BG_RGB, minimum=4.5)
-    MODAL_BG_RGB = darken(lerp_rgb(_theme.theme_bg, BLUE_RGB, 0.04), 0.10 if not is_light_theme() else 0.06)
+    MODAL_BG_RGB = darken(lerp_rgb(_theme.theme_bg, BLUE_RGB, 0.04),
+                          0.10 if not is_light_theme() else 0.06)
     MODAL_BORDER_RGB = ensure_contrast(DIM_RGB, MODAL_BG_RGB, minimum=2.2)
     LINK_RGB = ensure_contrast(_theme.theme_ansi[4], MODAL_BG_RGB, minimum=3.0)
 
@@ -140,7 +144,8 @@ def _rebuild_scales():
         (151, RED_RGB),
         (201, MAGENTA_RGB),
     ]
-    UV_COLOR = fg(*ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.30), _theme.theme_bg, minimum=2.5))
+    UV_COLOR = fg(*ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.30), _theme.theme_bg,
+                                   minimum=2.5))
 
 
 _rebuild_scales()

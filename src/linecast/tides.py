@@ -16,7 +16,8 @@ on geolocation. Use --station with a station ID or name to override, and
 --nearby to list the closest stations.
 For extra station coverage set LINECAST_TIDECHECK_KEY (free at tidecheck.com).
 
-Usage: tides [--print] [--oneline] [--json] [--location PLACE] [--station ID | NAME] [--search QUERY] [--nearby] [--metric] [--lang LANG] [--classic-colors]
+Usage: tides [--print] [--oneline] [--json] [--location PLACE] [--station ID | NAME]
+             [--search QUERY] [--nearby] [--metric] [--lang LANG] [--classic-colors]
 """
 
 import math
@@ -72,9 +73,12 @@ def _rebuild():
     global CURVE_COLOR, NOW_LINE_COLOR, HOVER_COLOR, DIM_RGB, MUTED_RGB
     global TEXT_RGB, PILL_BG_RGB, PILL_FG_RGB, NOW_PILL_RGB, NOW_PILL_TEXT_RGB
     global DIM, NIGHT_DIM
-    CURVE_COLOR = ensure_contrast(best_contrast((_theme.theme_ansi[6], _theme.theme_ansi[14], _theme.theme_fg), minimum=2.0), _theme.theme_bg, minimum=2.0)
+    CURVE_COLOR = ensure_contrast(
+        best_contrast((_theme.theme_ansi[6], _theme.theme_ansi[14], _theme.theme_fg), minimum=2.0),
+        _theme.theme_bg, minimum=2.0)
     NOW_LINE_COLOR = ensure_contrast(
-        lerp_rgb(best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12]), minimum=2.0), _theme.theme_bg, 0.30),
+        lerp_rgb(best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12]), minimum=2.0),
+                 _theme.theme_bg, 0.30),
         minimum=1.8,
     )
     HOVER_COLOR = ensure_contrast(surface_bg(0.40), _theme.theme_bg, minimum=1.5)
@@ -83,8 +87,11 @@ def _rebuild():
     TEXT_RGB = ensure_contrast(_theme.theme_fg, _theme.theme_bg, minimum=4.5)
     PILL_BG_RGB = surface_bg(0.08)
     PILL_FG_RGB = ensure_contrast(neutral_tone(0.72), PILL_BG_RGB, minimum=3.0)
-    NOW_PILL_RGB = ensure_contrast(best_contrast((_theme.theme_ansi[6], _theme.theme_ansi[14]), minimum=2.0), _theme.theme_bg, minimum=2.0)
-    NOW_PILL_TEXT_RGB = best_contrast(((12, 20, 30), _theme.theme_bg, _theme.theme_fg), background=NOW_PILL_RGB, minimum=4.5)
+    NOW_PILL_RGB = ensure_contrast(
+        best_contrast((_theme.theme_ansi[6], _theme.theme_ansi[14]), minimum=2.0),
+        _theme.theme_bg, minimum=2.0)
+    NOW_PILL_TEXT_RGB = best_contrast(((12, 20, 30), _theme.theme_bg, _theme.theme_fg),
+                                      background=NOW_PILL_RGB, minimum=4.5)
     DIM = fg(*DIM_RGB)
     NIGHT_DIM = 0.6 if not is_light_theme() else 0.78
 
@@ -202,7 +209,8 @@ def _station_now(meta):
     return datetime.now()
 
 
-def _live_window_start(now_local, offset_minutes, hours_shown=LIVE_WINDOW_HOURS, now_ratio=LIVE_NOW_RATIO):
+def _live_window_start(now_local, offset_minutes, hours_shown=LIVE_WINDOW_HOURS,
+                       now_ratio=LIVE_NOW_RATIO):
     """Start datetime for the live view window.
 
     Keeps "now" at a fixed fraction of the viewport so the default view
@@ -405,7 +413,8 @@ def _compute_y_axis_labels(n_rows, graph_w, value_range, pad_frac, runtime):
 
     total_dots = n_rows * 4
     # Use raw range (before padding) for step calculation
-    disp_range = abs(runtime.convert_height(value_range[1]) - runtime.convert_height(value_range[0]))
+    disp_range = abs(runtime.convert_height(value_range[1])
+                     - runtime.convert_height(value_range[0]))
 
     step = 1 if disp_range <= 4 else 2 if disp_range <= 10 else 5
     dim_color = DIM_RGB  # match x-axis tick color (DIM)
@@ -466,7 +475,8 @@ def _render_tide_braille_rows(braille_rows, col_daylight, midnight_cols,
             elif ch != '\u2800':
                 dl = col_daylight[ci] if ci < len(col_daylight) else 1.0
                 brightness = NIGHT_DIM + (1.0 - NIGHT_DIM) * dl
-                line += f"{fg(int(cr * brightness), int(cg * brightness), int(cb * brightness))}{ch}"
+                line += fg(int(cr * brightness), int(cg * brightness), int(cb * brightness))
+                line += ch
             elif hover_col is not None and ci == hover_col:
                 line += f"{hover_fg}\u2502"
             elif now_col is not None and ci == now_col:

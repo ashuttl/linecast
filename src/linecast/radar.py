@@ -16,7 +16,8 @@ displayed frame, so rewinding rewinds them too.
 Data: LibreWXR everywhere (radar composites where a public network has
 one, model precipitation elsewhere, 60-min forecast frames, selectable
 colour themes); falls back to NEXRAD via Iowa Environmental Mesonet (IEM)
-in the continental US and RainViewer elsewhere. Basemap from Natural Earth. Condition layers from Open-Meteo.
+in the continental US and RainViewer elsewhere. Basemap from Natural Earth.
+Condition layers from Open-Meteo.
 
 Everything drawn is here: render_radar composes one frame.  What runs
 when you type `radar` — the arguments, the source, the keys and the live

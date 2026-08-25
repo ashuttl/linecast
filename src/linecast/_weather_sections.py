@@ -5,7 +5,9 @@ from datetime import datetime, timedelta
 from linecast import _theme
 from linecast._graphics import RESET, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime
-from linecast._weather_i18n import DAY_NAMES, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s, _wmo_icons
+from linecast._weather_i18n import (
+    DAY_NAMES, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s, _wmo_icons,
+)
 from linecast._weather_style import MUTED, TEXT, WIND_COLOR, _aqi_color, _colored_temp
 
 
@@ -54,7 +56,8 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
         # Show dew point when it's uncomfortably high (>= 60°F / 15°C)
         dew_f = dew_point * 9 / 5 + 32 if runtime.celsius else dew_point
         if dew_f >= 60:
-            left_humidity = f"  {MUTED}{_s('dew_pt', runtime)} {_colored_temp(dew_point, runtime, deg)}"
+            left_humidity = (f"  {MUTED}{_s('dew_pt', runtime)} "
+                             f"{_colored_temp(dew_point, runtime, deg)}")
         elif humidity >= 70 or humidity <= 25:
             left_humidity = f"  {MUTED}{_s('humidity', runtime)} {humidity:.0f}%"
 
@@ -201,7 +204,8 @@ def _ucfirst(s):
     return s[:1].upper() + s[1:] if s else s
 
 
-_PRECIP_CODES = {51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99}
+_PRECIP_CODES = {51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86,
+                 95, 96, 99}
 
 _PRECIP_DESCS = {
     51: "light drizzle", 53: "drizzle", 55: "heavy drizzle",

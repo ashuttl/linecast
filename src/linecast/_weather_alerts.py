@@ -348,7 +348,8 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0, tz_name=""):
         r_pos = top_row + 1 + i
         line_vis = visible_len(line)
         pad = max(0, inner_w - line_vis)
-        result += f"\033[{r_pos};{left_col}H{MBG}{BORDER}\u2502{RESET}{MBG} {line}{MBG}{' ' * pad} {BORDER}\u2502{RESET}"
+        result += (f"\033[{r_pos};{left_col}H{MBG}{BORDER}\u2502{RESET}{MBG} {line}"
+                   f"{MBG}{' ' * pad} {BORDER}\u2502{RESET}")
 
     # Bottom border with hints
     bot_row = top_row + visible_h + 1
@@ -364,7 +365,8 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0, tz_name=""):
     if hint_len + 2 < modal_w - 2:
         left_bar = (modal_w - 2 - hint_len) // 2
         right_bar = modal_w - 2 - hint_len - left_bar
-        bot_line = f"{BORDER}\u2570{bar_ch * left_bar}{MUTED}{hint}{BORDER}{bar_ch * right_bar}\u256f"
+        bot_line = (f"{BORDER}\u2570{bar_ch * left_bar}{MUTED}{hint}"
+                    f"{BORDER}{bar_ch * right_bar}\u256f")
     else:
         bot_line = f"{BORDER}\u2570{horiz}\u256f"
     result += f"\033[{bot_row};{left_col}H{MBG}{bot_line}{RESET}"

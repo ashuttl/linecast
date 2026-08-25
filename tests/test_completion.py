@@ -60,15 +60,18 @@ class CompletionScriptTests(unittest.TestCase):
     def test_fish_completion_includes_namespace_and_standalone_commands(self):
         script = render_completion("fish")
         self.assertIn(
-            "complete -c linecast -f -n '__fish_use_subcommand' -a 'weather sunshine moon tides radar maps location units completion'",
+            "complete -c linecast -f -n '__fish_use_subcommand' "
+            "-a 'weather sunshine moon tides radar maps location units completion'",
             script,
         )
         self.assertIn(
-            "complete -c linecast -f -n '__fish_seen_subcommand_from location' -a 'show set auto search'",
+            "complete -c linecast -f -n '__fish_seen_subcommand_from location' "
+            "-a 'show set auto search'",
             script,
         )
         self.assertIn(
-            "complete -c linecast -f -n '__fish_seen_subcommand_from units' -a 'show metric imperial auto'",
+            "complete -c linecast -f -n '__fish_seen_subcommand_from units' "
+            "-a 'show metric imperial auto'",
             script,
         )
         self.assertIn("complete -c weather -f -l print", script)
@@ -80,7 +83,8 @@ class CompletionScriptTests(unittest.TestCase):
     def test_fish_completion_offers_every_shell(self):
         script = render_completion("fish")
         self.assertIn(
-            "complete -c linecast -f -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish nu nushell'",
+            "complete -c linecast -f -n '__fish_seen_subcommand_from completion' "
+            "-a 'bash zsh fish nu nushell'",
             script,
         )
 

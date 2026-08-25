@@ -104,7 +104,8 @@ class TestWeatherLocaleImprovements:
             {"temperature_2m_max": [20, 21, 18]}, now, runtime
         )
 
-        assert warmer == "Huomenna on hieman l\u00e4mpim\u00e4mp\u00e4\u00e4 kuin t\u00e4n\u00e4\u00e4n"
+        assert warmer == ("Huomenna on hieman l\u00e4mpim\u00e4mp\u00e4\u00e4 "
+                          "kuin t\u00e4n\u00e4\u00e4n")
         assert cooler == "Huomenna on hieman viile\u00e4mp\u00e4\u00e4 kuin t\u00e4n\u00e4\u00e4n"
 
     def test_standard_german_and_dutch_weekday_abbreviations(self):
@@ -132,7 +133,8 @@ class TestJapaneseWeather:
 
     def test_forecast_phrases_use_japanese_grammar(self):
         runtime = SimpleNamespace(lang="ja")
-        assert _s("ending", runtime, desc="\u96e8", time="\u307e\u3082\u306a\u304f") == "\u96e8\u306f\u307e\u3082\u306a\u304f\u3084\u3080"
+        assert (_s("ending", runtime, desc="\u96e8", time="\u307e\u3082\u306a\u304f")
+                == "\u96e8\u306f\u307e\u3082\u306a\u304f\u3084\u3080")
         assert _s("on_day", runtime, day="\u706b") == "\u706b\u66dc\u65e5\u306b"
 
     def test_same_day_forecast_uses_japanese_hour_suffix(self):
@@ -167,4 +169,5 @@ class TestJapaneseWeather:
 
         line = _past_precip_line(hourly, now, runtime)
 
-        assert "\u904e\u53bb24\u6642\u9593\u306e\u964d\u6c34\u91cf\uff1a0.02\u30a4\u30f3\u30c1" in line
+        assert ("\u904e\u53bb24\u6642\u9593\u306e\u964d\u6c34\u91cf\uff1a"
+                "0.02\u30a4\u30f3\u30c1") in line
