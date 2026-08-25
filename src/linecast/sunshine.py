@@ -16,6 +16,7 @@ Usage: sunshine [--print] [--oneline] [--json] [--location PLACE] [--emoji] [--c
 
 import math
 import sys
+import time as _time
 from datetime import datetime, timezone
 
 from linecast._braille import braille_rows_from_ys
@@ -224,7 +225,6 @@ _theme.on_reload(_rebuild_sky)
 #
 # Accuracy: ~1 minute for sunrise/sunset, ~0.3° for elevation.
 # ---------------------------------------------------------------------------
-import time as _time
 
 def _tz_offset_hours():
     return _time.localtime().tm_gmtoff / 3600
@@ -560,7 +560,6 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
 
     amber = fg(*INFO_AMBER_RGB)
     purple = fg(*INFO_PURPLE_RGB)
-    muted = fg(*INFO_MUTED_RGB)
     dim = fg(*INFO_DIM_RGB)
     text = fg(*INFO_TEXT_RGB)
 

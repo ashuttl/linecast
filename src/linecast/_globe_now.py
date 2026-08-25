@@ -69,7 +69,7 @@ def _rebuild():
 
 
 _rebuild()
-from linecast import _theme
+from linecast import _theme  # noqa: E402 — the hook needs the palette above
 _theme.on_reload(_rebuild)
 
 

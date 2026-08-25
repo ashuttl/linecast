@@ -103,7 +103,7 @@ class CachedYRangeTests(unittest.TestCase):
         for empty in ([], None):
             with patch.object(common, "read_cache", return_value=None), \
                  patch.object(common, "write_cache") as write_cache:
-                self.assertIsNone(common.cached_y_range(self.FILE, lambda: empty))
+                self.assertIsNone(common.cached_y_range(self.FILE, lambda empty=empty: empty))
             write_cache.assert_not_called()
 
 

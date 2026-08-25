@@ -146,8 +146,8 @@ class TestBasemapLakes:
 
     def setup_method(self):
         self._original_data = basemap_mod._DATA
-        square = lambda x0, y0, x1, y1: [
-            [x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]
+        def square(x0, y0, x1, y1):
+            return [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]
         basemap_mod._DATA = {
             # land spans [-4,4]^2; the lake [-2,2]^2 has an island [0.5,1.5]^2
             "land": [[square(-4, -4, 4, 4)]],
@@ -300,8 +300,8 @@ class TestMarineRegion:
 
     def setup_method(self):
         self._original_data = basemap_mod._DATA
-        square = lambda x0, y0, x1, y1: [
-            [x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]
+        def square(x0, y0, x1, y1):
+            return [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]
         basemap_mod._DATA = {
             "land": [], "borders": [], "cities": [],
             # smallest-area-first, as the builder writes it; Big Sea has an

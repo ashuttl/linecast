@@ -65,7 +65,7 @@ def main():
     cmd = args[0]
     if cmd not in COMMANDS:
         print(f"linecast: unknown command '{cmd}'", file=sys.stderr)
-        print(f"Run 'linecast --help' for usage.", file=sys.stderr)
+        print("Run 'linecast --help' for usage.", file=sys.stderr)
         sys.exit(1)
 
     # Shift argv so the subcommand sees itself as argv[0]

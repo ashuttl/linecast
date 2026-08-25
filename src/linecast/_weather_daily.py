@@ -76,7 +76,7 @@ def render_daily(data, width, runtime=None):
     def _measure_details(compact):
         details = []
         mp, mpr, mw = 0, 0, 0
-        for precip_amt, prob_s, wind_amt, ptype, wmo_i in day_raw:
+        for precip_amt, prob_s, wind_amt, ptype, _wmo_i in day_raw:
             if compact:
                 precip_s = precip_amt
                 wind_s = wind_amt
@@ -140,9 +140,6 @@ def render_daily(data, width, runtime=None):
         icon = icons.get(wmo, icons[0])
         hi = hi_temps[i] if i < len(hi_temps) else 0
         lo = lo_temps[i] if i < len(lo_temps) else 0
-        precip = precip_sum[i] if i < len(precip_sum) else 0
-        prob = precip_prob[i] if i < len(precip_prob) else 0
-        wind = wind_max[i] if i < len(wind_max) else 0
 
         # Temperature range bar with integrated labels
         lo_pos = int((lo - scale_min) / scale_range * (bar_w - 1))

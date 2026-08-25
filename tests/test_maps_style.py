@@ -314,7 +314,7 @@ def test_line_ranks_read_as_the_intended_sentence():
 
 
 def test_every_line_ink_exists_in_the_palette():
-    for key, (ink_key, weights, dash, rank) in ms.LINE_STYLES.items():
+    for key, (ink_key, weights, dash, _rank) in ms.LINE_STYLES.items():
         assert ink_key in ms.PALETTE_DARK, key
         assert len(weights) == 8, key
         assert all(0 <= w <= 3 for w in weights), key

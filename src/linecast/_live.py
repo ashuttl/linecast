@@ -361,7 +361,10 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     so switching the terminal theme re-inks the view in place.
     """
     global _running
-    import select, signal, termios, tty
+    import select
+    import signal
+    import termios
+    import tty
     from linecast import _theme
 
     # Self-pipe for async-signal-safe SIGWINCH wakeup.

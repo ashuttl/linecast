@@ -7,6 +7,25 @@ from datetime import datetime
 from linecast import _theme
 from linecast._graphics import bg, fg, visible_len, RESET, BOLD
 from linecast._theme import best_contrast
+from linecast._i18n import lang_of
+from linecast._weather_i18n import DAY_NAMES, _s
+from linecast._weather_style import (
+    ALERT_AMBER,
+    ALERT_AMBER_RGB,
+    ALERT_BLUE,
+    ALERT_BLUE_RGB,
+    ALERT_RED,
+    ALERT_RED_RGB,
+    ALERT_YELLOW,
+    ALERT_YELLOW_RGB,
+    DIM_RGB,
+    LINK_RGB,
+    MODAL_BG_RGB,
+    MODAL_BORDER_RGB,
+    MUTED,
+    TEXT_RGB,
+    WIND_COLOR,
+)
 
 
 def _char_width(ch):
@@ -70,27 +89,6 @@ def _truncate_display_width(text, width):
             return "\u2026"
         w += cw
     return text
-
-
-from linecast._i18n import lang_of
-from linecast._weather_i18n import DAY_NAMES, _s
-from linecast._weather_style import (
-    ALERT_AMBER,
-    ALERT_AMBER_RGB,
-    ALERT_BLUE,
-    ALERT_BLUE_RGB,
-    ALERT_RED,
-    ALERT_RED_RGB,
-    ALERT_YELLOW,
-    ALERT_YELLOW_RGB,
-    DIM_RGB,
-    LINK_RGB,
-    MODAL_BG_RGB,
-    MODAL_BORDER_RGB,
-    MUTED,
-    TEXT_RGB,
-    WIND_COLOR,
-)
 
 
 def _pill_text_rgb(bg_rgb):
@@ -191,7 +189,7 @@ def render_alerts(alerts, width=80, remaining_rows=None, runtime=None, tz_name="
         groups.setdefault(key, []).append(alert)
 
     lines = []
-    for key, group in groups.items():
+    for _key, group in groups.items():
         if len(group) == 1:
             # Single alert — render normally
             lines.extend(_render_single_alert(group[0], width, runtime=runtime, tz_name=tz_name))

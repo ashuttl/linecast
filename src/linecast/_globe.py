@@ -52,7 +52,7 @@ def _rebuild():
     _AIRGLOW = themed((96, 150, 116))
 
 
-from linecast import _theme
+from linecast import _theme  # noqa: E402 — the hook needs the palette above
 _theme.on_reload(_rebuild)
 
 # lls (the coarse per-sample lat/lon grid) and glow_lls (the limb

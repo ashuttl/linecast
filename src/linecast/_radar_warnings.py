@@ -54,7 +54,7 @@ def _forget_colours():
         _cache.clear()
 
 
-from linecast import _theme
+from linecast import _theme  # noqa: E402 — the hook needs the cache above
 _theme.on_reload(_forget_colours)
 _lock = threading.Lock()
 

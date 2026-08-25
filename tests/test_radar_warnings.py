@@ -167,5 +167,6 @@ class TestStrokeWidth:
         thin._draw_lines([ring], (255, 0, 0))
         thick = DotLayer((0, 0, 1, 1), 20, 10)
         thick._draw_lines([ring], (255, 0, 0), width=2)
-        count = lambda l: sum(bin(c).count("1") for r in l.dots for c in r)
+        def count(layer):
+            return sum(bin(c).count("1") for r in layer.dots for c in r)
         assert count(thick) > count(thin)

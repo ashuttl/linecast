@@ -205,7 +205,7 @@ def decode_tile(data: bytes) -> dict[str, dict[str, Any]]:
         keys, values, raw_feats = [], [], []
         # features may appear before keys/values on the wire, so
         # collect bytes first and decode features after the walk
-        for lfn, lwt, lv in _fields(v):
+        for lfn, _lwt, lv in _fields(v):
             if lfn == 1:
                 name = lv.decode("utf-8", errors="replace")
             elif lfn == 2:

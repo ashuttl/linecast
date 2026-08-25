@@ -324,7 +324,7 @@ class TestMapsSnapshot:
             tiles = {}
             for key in st.tiles_for_bbox(bbox, 12):
                 z, tx, ty = key
-                def xy(lon, lat):
+                def xy(lon, lat, z=z, tx=tx, ty=ty):
                     return self._tile_xy(lon, lat, z, tx, ty)
                 west = xy(minlon - pad, maxlat + pad)
                 east = xy(midlon, minlat - pad)

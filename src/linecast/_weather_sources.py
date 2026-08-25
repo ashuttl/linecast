@@ -846,7 +846,7 @@ def _parse_cma_data(data, provinces, lang="en"):
     # Province-level alarms first (most important), then county-level
     for entry in province_alarms + entries:
         alertid = entry.get("alertid", "")
-        if not alertid[:2] in prefixes:
+        if alertid[:2] not in prefixes:
             continue
 
         title = entry.get("title", "")

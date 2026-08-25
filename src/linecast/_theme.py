@@ -239,8 +239,8 @@ def themed(color: RGB) -> RGB:
     if color_mode() not in ("truecolor", "256"):
         return color
     r, g, b = color
-    h, l, s = colorsys.rgb_to_hls(r / 255.0, g / 255.0, b / 255.0)
-    if s <= 0.001 or l <= 0.0 or l >= 1.0:
+    h, lum, s = colorsys.rgb_to_hls(r / 255.0, g / 255.0, b / 255.0)
+    if s <= 0.001 or lum <= 0.0 or lum >= 1.0:
         return color
     x = (h * 6.0) % 6.0
     i = int(x)
@@ -250,7 +250,7 @@ def themed(color: RGB) -> RGB:
     d = ((h1 - h0 + 0.5) % 1.0) - 0.5          # shortest arc h0 -> h1
     nh = (h0 + d * t) % 1.0
     ns = min(1.0, s * ((s0 + (s1 - s0) * t) ** 0.5))
-    nr, ng, nb = colorsys.hls_to_rgb(nh, l, ns)
+    nr, ng, nb = colorsys.hls_to_rgb(nh, lum, ns)
     cand = clamp_rgb((nr * 255.0, ng * 255.0, nb * 255.0))
     return _with_luminance(cand, luminance(color))
 

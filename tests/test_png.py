@@ -5,7 +5,8 @@ class TestPackedDepths:
 
     def _png(self, width, height, depth, color_type, rows, palette=None,
              trns=None):
-        import struct, zlib
+        import struct
+        import zlib
         def chunk(t, b):
             return (struct.pack(">I", len(b)) + t + b
                     + struct.pack(">I", zlib.crc32(t + b) & 0xFFFFFFFF))

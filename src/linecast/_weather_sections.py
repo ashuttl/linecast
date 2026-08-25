@@ -82,7 +82,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
 
     def _join_right(*parts):
         filled = [p for p in parts if p]
-        return f"  ".join(filled) if filled else ""
+        return "  ".join(filled) if filled else ""
 
     def _assemble(left, right):
         if not right:

@@ -186,9 +186,12 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
 
     # Count non-hourly lines precisely
     non_hourly = 2  # header + blank
-    if comp: non_hourly += 1
-    if precip: non_hourly += 1
-    if past_precip: non_hourly += 1
+    if comp:
+        non_hourly += 1
+    if precip:
+        non_hourly += 1
+    if past_precip:
+        non_hourly += 1
     non_hourly += 1  # blank before daily
     non_hourly += len(daily_lines_rendered)
     if alert_lines:

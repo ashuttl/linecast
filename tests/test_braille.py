@@ -71,7 +71,6 @@ class TestBuildBrailleCurve:
 
     def test_value_range_clamps_axis(self):
         """Explicit value_range should fix the y-axis regardless of data."""
-        rows_auto = build_braille_curve([10, 20, 30], graph_w=5, n_rows=2)
         rows_fixed = build_braille_curve([10, 20, 30], graph_w=5, n_rows=2,
                                           value_range=(0, 100))
         # With a wider range, dots should be more concentrated (less spread)

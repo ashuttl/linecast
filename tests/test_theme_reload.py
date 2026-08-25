@@ -61,8 +61,8 @@ class TestApply:
         _theme._apply(*LIGHT)
         light = (_weather_style.TEXT_RGB, sunshine.INFO_TEXT_RGB,
                  tides.TEXT_RGB, moon.MOON_SHADOW_RGB, _radar_basemap.SEA_FILL)
-        for d, l in zip(dark, light):
-            assert d != l
+        for d, lt in zip(dark, light):
+            assert d != lt
         # text is ink on the new background, not the old one
         assert _theme.contrast_ratio(_weather_style.TEXT_RGB, (250, 250, 248)) >= 4.5
         assert _theme.contrast_ratio(tides.TEXT_RGB, (250, 250, 248)) >= 4.5
@@ -175,7 +175,8 @@ class TestProbe:
         try:
             _theme.request_probe(qw)
         finally:
-            os.close(qr); os.close(qw)
+            os.close(qr)
+            os.close(qw)
         replies = _replies(*LIGHT)
         for body in replies[:-1]:
             os.write(w, b"\x1b]" + body.encode() + b"\x07")

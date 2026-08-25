@@ -37,7 +37,7 @@ def main():
     for z in ZOOMS:
         missed = []
 
-        def fetch(z_, x, y):
+        def fetch(z_, x, y, missed=missed):
             data = _fetch_tile(z_, x, y, timeout=30)
             if data is None:
                 missed.append((z_, x, y))

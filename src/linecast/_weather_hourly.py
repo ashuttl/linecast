@@ -340,20 +340,24 @@ def _find_temperature_extrema(col_temps, graph_w):
             lo = v
             j = i - 1
             while j >= 0 and col_temps[j] <= v:
-                lo = min(lo, col_temps[j]); j -= 1
+                lo = min(lo, col_temps[j])
+                j -= 1
             hi = v
             j = i + 1
             while j < n and col_temps[j] <= v:
-                hi = min(hi, col_temps[j]); j += 1
+                hi = min(hi, col_temps[j])
+                j += 1
             return v - max(lo, hi)
         lo = v
         j = i - 1
         while j >= 0 and col_temps[j] >= v:
-            lo = max(lo, col_temps[j]); j -= 1
+            lo = max(lo, col_temps[j])
+            j -= 1
         hi = v
         j = i + 1
         while j < n and col_temps[j] >= v:
-            hi = max(hi, col_temps[j]); j += 1
+            hi = max(hi, col_temps[j])
+            j += 1
         return min(lo, hi) - v
 
     # All candidates: (x, temp, is_peak, score, is_curve)
@@ -417,7 +421,7 @@ def _find_temperature_extrema(col_temps, graph_w):
     # collide even when adjacent.  A day's morning valley and afternoon peak sit
     # closer than min_gap, and gating across kinds would let one silently evict
     # the other (topographic prominence makes the pair score almost equally).
-    for x, temp, is_peak, score, is_curve in sorted(
+    for x, temp, is_peak, _score, _is_curve in sorted(
         scored, key=lambda c: (c[4], -c[3])
     ):
         if any(abs(x - ex) < min_gap for ex, _, ep in extrema if ep == is_peak):

@@ -413,7 +413,6 @@ class Basemap(DotLayer):
     def _store_built(self):
         import marshal
         from linecast import _cache
-        gw = self.graph_w
         sea = bytes(bool(v) for row in self.sea for v in row)
         dots = bytes(v for row in self.dots for v in row)
         classes = bytes((0 if c is None else 1 if c == COAST else 2)
