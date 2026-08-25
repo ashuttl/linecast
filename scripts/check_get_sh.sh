@@ -323,12 +323,29 @@ is "LINECAST_CACHE_DIR: venv lands at \$LINECAST_CACHE_DIR/venv" yes "$(runs "$w
 is "LINECAST_CACHE_DIR: XDG cache left alone" no "$(exists "$venv")"
 is "LINECAST_CACHE_DIR: directory is private (0700)" "drwx------" "$(mode "$work/override")"
 
+# With no usable XDG_CACHE_HOME the cache is under HOME, by the same rule
+# get.sh applies: ~/Library/Caches/linecast on macOS, ~/.cache/linecast
+# elsewhere.
+legacy=$work/home/.cache/linecast
+if [ "$(uname -s)" = Darwin ]; then native=$work/home/Library/Caches/linecast; else native=$legacy; fi
 XDG=relative/path
 out=$(venv_run sunshine --version)
 XDG=$cache
 has "relative XDG_CACHE_HOME: prints the version" "linecast $version" "$out"
-is "relative XDG_CACHE_HOME: ignored, venv under HOME/.cache/linecast" yes "$(runs "$work/home/.cache/linecast/venv")"
+is "relative XDG_CACHE_HOME: ignored, venv under the home cache dir" yes "$(runs "$native/venv")"
 is "relative XDG_CACHE_HOME: nothing made under the harness cwd" no "$(exists relative)"
+rm -rf "$work/home/.cache" "$work/home/Library"
+
+# An older ~/.cache/linecast stays in use on every platform when it exists
+# and the native macOS directory does not.
+mkdir -p "$legacy"
+XDG=
+out=$(venv_run sunshine --version)
+XDG=$cache
+has "existing ~/.cache/linecast: prints the version" "linecast $version" "$out"
+is "existing ~/.cache/linecast: venv lands there" yes "$(runs "$legacy/venv")"
+is "existing ~/.cache/linecast: ~/Library/Caches not created" no "$(exists "$work/home/Library")"
+rm -rf "$work/home/.cache"
 
 rm -rf "$appdir"
 NOPIP=1
