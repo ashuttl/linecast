@@ -23,3 +23,26 @@ def __getattr__(name):
 def user_agent():
     """The User-Agent header value, resolved on first call and cached."""
     return globals().get("USER_AGENT") or __getattr__("USER_AGENT")
+
+
+def _use_utf8_on_windows():
+    """Keep non-console output UTF-8 on Windows.
+
+    A redirected stdout there gets the locale encoding — usually cp1252 —
+    and braille, box drawing and Nerd Font glyphs are not in it, so
+    `weather --print > out.txt` or piping to another command dies with
+    UnicodeEncodeError.  The console itself is already UTF-8, so this
+    only ever matters off-terminal.  Costs one platform check elsewhere.
+    """
+    import sys
+    if sys.platform != "win32":
+        return
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            if (stream.encoding or "").lower().replace("-", "") != "utf8":
+                stream.reconfigure(encoding="utf-8")
+        except Exception:
+            pass  # replaced or non-reconfigurable stream: leave it alone
+
+
+_use_utf8_on_windows()
