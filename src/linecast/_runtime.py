@@ -507,9 +507,13 @@ def default_icons(env, stream=None):
     WT_SESSION all unset is the legacy Windows console, whose fonts
     have no emoji.
     """
+    # tmux and screen replace TERM_PROGRAM with their own name, so the
+    # terminals' private variables, which the shell inherited before the
+    # multiplexer started, are checked as well.
     if env.get("TERM_PROGRAM", "").lower() in ("wezterm", "ghostty"):
         return "nerd"
-    if env.get("KITTY_WINDOW_ID"):
+    if env.get("KITTY_WINDOW_ID") or env.get("WEZTERM_PANE") \
+            or env.get("GHOSTTY_RESOURCES_DIR"):
         return "nerd"
     stream = sys.stdout if stream is None else stream
     if not _interactive_utf8(stream):
