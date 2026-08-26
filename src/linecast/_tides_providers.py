@@ -56,6 +56,7 @@ class TideProvider:
 
     name: str = ""   # the source key: cache names and the --json payload
     tag: str = ""    # suffix on --search and --nearby listing lines
+    label: str = ""  # the source's human name: the view's footer
 
     def available(self) -> bool:
         """False when the provider needs something the user has not set up."""
@@ -101,6 +102,7 @@ def _noaa_label(station):
 
 class _NOAA(TideProvider):
     name = "noaa"
+    label = "NOAA"
 
     def id_matches(self, text):
         return text.isdigit()
@@ -147,6 +149,7 @@ class _NOAA(TideProvider):
 class _CHS(TideProvider):
     name = "chs"
     tag = " (Canada)"
+    label = "CHS"
 
     def id_matches(self, text):
         return chs.is_chs_station_id(text)
@@ -187,6 +190,7 @@ class _QLD(TideProvider):
 
     name = "qld"
     tag = " (QLD, Australia)"
+    label = "Queensland Open Data"
 
     def nearest(self, lat, lng):
         return qld.find_nearest_station_qld(lat, lng)
@@ -221,6 +225,7 @@ class _HKO(TideProvider):
 
     name = "hko"
     tag = " (Hong Kong)"
+    label = "Hong Kong Observatory"
 
     def id_matches(self, text):
         return hko.is_hko_station_id(text)
@@ -260,6 +265,7 @@ class _TideCheck(TideProvider):
 
     name = "tidecheck"
     tag = " (TideCheck)"
+    label = "TideCheck"
 
     def available(self):
         return tidecheck.is_available()
@@ -304,6 +310,7 @@ class _OpenMeteo(TideProvider):
     "station" is the location itself, labelled with the place's name."""
 
     name = "openmeteo"
+    label = "Open-Meteo tide model"
 
     def id_matches(self, text):
         return openmeteo.is_openmeteo_station_id(text)

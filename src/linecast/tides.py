@@ -101,9 +101,6 @@ def _rebuild():
 _rebuild()
 _theme.on_reload(_rebuild)
 
-# Nerd Font icons
-WAVE_ICON = "\U000F0F85"            # 󰾅
-
 LIVE_WINDOW_HOURS = 24
 LIVE_NOW_RATIO = 0.25  # Keep "now" ~25% from the left in live mode.
 
@@ -535,7 +532,7 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0):
         pfg = fg(*PILL_FG_RGB)
         pedge = fg(*PILL_BG_RGB)
         pill = f"{pedge}\u2590{pbg}{pfg} {name} {RESET}{pedge}\u258c{RESET}"
-        pill_w = len(name) + 4  # ▐ + space + name + space + ▌
+        pill_w = visible_len(name) + 4  # ▐ + space + name + space + ▌
     else:
         pill = ""
         pill_w = 0
@@ -545,13 +542,13 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0):
     phase_name = _moon_name(idx, runtime)
     moon_color = fg(*MUTED_RGB)
     moon_str = f"{moon_color}{moon_icon} {DIM}{phase_name}{RESET}"
-    moon_w = len(moon_icon) + 1 + len(phase_name)
+    moon_w = visible_len(moon_icon) + 1 + visible_len(phase_name)
 
     # "Space to return" hint (right, only when scrolled)
     if offset_minutes:
         hint_text = _ts("space_to_now", runtime)
         hint = f"{DIM}{hint_text}{RESET}"
-        right_w = len(hint_text)
+        right_w = visible_len(hint_text)
         padding = max(1, cols - 1 - pill_w - right_w)
         return f"{pill}{' ' * padding}{hint}"
 
@@ -702,9 +699,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     w_secs = w_total * 3600
 
     # --- dimensions (header + day_labels + braille + ticks + extras) ---
-    extra = 0
-    if marine_data is not None:
-        extra += 1
+    extra = 1  # the footer line: marine conditions + data source
     if install_banner():
         extra += 1
     n_braille_rows = max(2, rows - ((3 + extra) if fullscreen else 7))
@@ -788,20 +783,24 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         now_col=now_col, hover_col=hover_graph_col,
     ))
 
-    # Marine conditions line (optional)
+    # Footer: marine conditions on the left, the data source on the
+    # right, one line.  Too narrow for both: marine wins.
+    marine_str = ""
     if marine_data is not None:
         try:
             marine = parse_marine_current(marine_data, now_local)
-            marine_str = format_marine_line(marine, runtime, width=cols)
-            if marine_str:
-                wave_icon = {"nerd": WAVE_ICON, "emoji": "\U0001F30A",
-                             "plain": "≈"}[runtime.icons]
-                muted = fg(*MUTED_RGB)
-                dim = fg(*DIM_RGB)
-                lines.append(f" {muted}{wave_icon} {dim}{marine_str}{RESET}")
+            marine_str = format_marine_line(marine, runtime, width=cols) or ""
         except Exception as exc:
             # Marine data is optional; never crash
             log_failure("marine/open-meteo", "marine line", exc, fallback="line omitted")
+    dim = fg(*DIM_RGB)
+    pad = cols - 2 - visible_len(marine_str) - visible_len(provider.label)
+    if marine_str and pad >= 2:
+        lines.append(f" {dim}{marine_str}{' ' * pad}{provider.label}{RESET}")
+    elif marine_str:
+        lines.append(f" {dim}{marine_str}{RESET}")
+    else:
+        lines.append(f" {dim}{provider.label}{RESET}")
 
     hint = install_banner()
     if hint:
@@ -906,6 +905,7 @@ class TidesApp(_live.LiveApp):
             hilo=self.hilo,
             y_range=self.y_range,
             marine_data=self.marine_data,
+            provider=self.provider,
         ), {}
 
 
@@ -1107,6 +1107,7 @@ def main():
                 hilo=hilo_data,
                 y_range=y_range,
                 marine_data=marine_data,
+                provider=provider,
             )
             spin.stop()
             print(out)

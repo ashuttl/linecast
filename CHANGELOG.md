@@ -15,6 +15,12 @@ Notable changes, by release. Notes for the next release collect under
   align at their true width instead of drifting a column per glyph.
 - Sunshine and moon render cleanly on 256- and 16-colour terminals: no
   more blue fringe on the moon's edge or rainbow rings in the sky.
+- Tides: The footer now names the data source for your station — NOAA,
+  CHS, Queensland Open Data, Hong Kong Observatory, TideCheck, or
+  Open-Meteo's tide model.
+- Tides: The marine line drops its redundant wave icon and separates
+  waves from swell with a middot, and the moon phase in the header no
+  longer loses its last letter when icons are emoji.
 - Tides: Stations in a timezone linecast has no abbreviation for now
   show their UTC offset, such as "UTC+5:45", instead of a plain "UTC".
 - Tides: `--station` and `TIDE_STATION` take a TideCheck station ID such

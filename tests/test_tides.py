@@ -45,6 +45,16 @@ class RenderTests(unittest.TestCase):
             now_local - timedelta(hours=6) + timedelta(minutes=120),
         )
 
+    def test_render_footer_names_the_data_source(self):
+        now_local = datetime(2026, 3, 5, 12, 0, 0)
+        preds = [(now_local + timedelta(hours=h), float(h % 12))
+                 for h in range(-6, 30)]
+        with patch.object(tides, "_station_now", return_value=now_local), \
+             patch.object(tides, "get_terminal_size", return_value=(80, 24)):
+            out = tides.render("CCH", "Cheung Chau", predictions=preds,
+                               hilo=[], provider=HKO)
+        self.assertIn("Hong Kong Observatory", out)
+
     def test_render_fetches_scrubbed_day_when_offset_crosses_midnight(self):
         now_local = datetime(2026, 3, 5, 23, 30, 0)
         scrubbed_date = date(2026, 3, 6)
