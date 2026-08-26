@@ -95,7 +95,7 @@ class TestRender:
             runtime=app.runtime, fullscreen=True,
             offset_minutes=6 * 24 * 60, mouse_pos=(4, 5),
             predictions=app.predictions, hilo=app.hilo,
-            y_range=(0, 4), marine_data={"m": 1},
+            y_range=(0, 4), marine_data={"m": 1}, provider=app.provider,
         )
 
 

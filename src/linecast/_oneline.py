@@ -6,7 +6,7 @@ these renderers instead of the full terminal UI.
 """
 
 from linecast._graphics import fg, RESET
-from linecast._framebuffer import fmt_time_dt
+from linecast._framebuffer import fmt_time, fmt_time_dt
 
 
 # ---------------------------------------------------------------------------
@@ -85,23 +85,8 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None):
     _idx, _name, moon_icon = moon_phase(now_dt, runtime)
 
     # Format sunrise/sunset times compactly
-    use_24h = runtime.use_24h
-    if use_24h:
-        def _fmt(h):
-            hh = int(h) % 24
-            mm = int((h % 1) * 60)
-            return f"{hh:02d}:{mm:02d}"
-    else:
-        def _fmt(h):
-            hh = int(h) % 24
-            mm = int((h % 1) * 60)
-            if hh == 0:
-                return f"12:{mm:02d}a"
-            if hh == 12:
-                return f"12:{mm:02d}p"
-            if hh < 12:
-                return f"{hh}:{mm:02d}a"
-            return f"{hh - 12}:{mm:02d}p"
+    def _fmt(h):
+        return fmt_time(h, use_24h=runtime.use_24h)
 
     delta_str = f"{d_sign}{d_m}m{d_s}s" if d_s else f"{d_sign}{d_m}m"
 

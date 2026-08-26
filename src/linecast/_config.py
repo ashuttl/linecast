@@ -16,7 +16,7 @@ def config_file() -> Path:
 def read_config() -> dict[str, Any]:
     """Return the parsed config dict, or {} if missing or corrupt."""
     try:
-        return json.loads(config_file().read_text())
+        return json.loads(config_file().read_bytes())
     except FileNotFoundError:
         return {}  # nothing saved yet: the usual case
     except (OSError, json.JSONDecodeError) as exc:
@@ -49,6 +49,22 @@ def saved_units() -> str | None:
     units = read_config().get("units")
     if isinstance(units, str) and units.strip().lower() in ("metric", "imperial"):
         return units.strip().lower()
+    return None
+
+
+def saved_clock() -> str | None:
+    """Return '12' or '24' saved via `linecast clock`, or None."""
+    clock = read_config().get("clock")
+    if str(clock).strip() in ("12", "24"):
+        return str(clock).strip()
+    return None
+
+
+def saved_icons() -> str | None:
+    """Return 'nerd', 'emoji' or 'plain' saved via `linecast icons`, or None."""
+    icons = read_config().get("icons")
+    if isinstance(icons, str) and icons.strip().lower() in ("nerd", "emoji", "plain"):
+        return icons.strip().lower()
     return None
 
 

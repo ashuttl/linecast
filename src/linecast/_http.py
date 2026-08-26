@@ -200,7 +200,9 @@ def fetch_bytes(url: str, headers: dict[str, str] | None = None,
     if headers:
         hdrs.update(headers)
     if url.startswith("file:"):
-        path = urllib.parse.unquote(urllib.parse.urlsplit(url).path)
+        # url2pathname unquotes and turns /C:/x into C:\x on Windows.
+        from urllib.request import url2pathname
+        path = url2pathname(urllib.parse.urlsplit(url).path)
         with open(path, "rb") as fh:
             return fh.read()
     if _proxied():

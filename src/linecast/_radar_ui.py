@@ -69,7 +69,7 @@ def _panned_place(lat, lon, lang):
         return hit
 
     def city_phrase(name, km, bearing):
-        metric = use_metric(lang)
+        metric = use_metric()
         dist = km if metric else km * 0.621371
         if dist < 2:
             return name

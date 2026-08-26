@@ -34,10 +34,17 @@ def cache_dir() -> Path:
 # Names from before predictions and y-ranges were keyed by month: one NOAA
 # file per day of predictions or extremes, and one y-range file per date
 # window. Nothing reads them any more; the month-keyed files have six
-# digits where these have eight.
+# digits where these have eight. The QLD provider's move from the
+# storm-tide monitoring feed to the predicted-interval gauges also
+# orphaned its station list and the files keyed by the feed's
+# all-lowercase site slugs (gauge names carry capitals).
 _LEGACY_CACHE_NAME = re.compile(
     r"^(?:(?:pred|hilo)_\d+_\d{8}"
-    r"|(?:chs_|tc_|qld_)?yrange_.+_\d{8}_\d{8})\.json$"
+    r"|(?:chs_|tc_|qld_)?yrange_.+_\d{8}_\d{8}"
+    r"|qld_all_stations"
+    r"|qld_meta_[a-z0-9]+"
+    r"|qld_pred_[a-z0-9]+_\d{8}_\d{8}"
+    r"|qld_yrange_[a-z0-9]+_\d{6})\.json$"
 )
 _swept = False
 

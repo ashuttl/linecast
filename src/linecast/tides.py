@@ -42,7 +42,7 @@ from linecast._theme import (
     surface_bg,
 )
 from linecast._geo import haversine_nm
-from linecast._location import resolve_location
+from linecast._location import country_for_defaults, resolve_location
 from linecast._runtime import (
     TidesRuntime, current_runtime, install_banner, log_failure, set_current,
     tides_parser,
@@ -100,9 +100,6 @@ def _rebuild():
 
 _rebuild()
 _theme.on_reload(_rebuild)
-
-# Nerd Font icons
-WAVE_ICON = "\U000F0F85"            # 󰾅
 
 LIVE_WINDOW_HOURS = 24
 LIVE_NOW_RATIO = 0.25  # Keep "now" ~25% from the left in live mode.
@@ -288,7 +285,7 @@ def _search_stations(query, metric=False, limit=20, cli_location=None):
             print("Could not fetch any station lists (offline?).")
         else:
             print(f"No stations matching \"{query}\". "
-                  "Try `tides --nearby` to list the nearest stations.")
+                  "Try `linecast tides --nearby` to list the nearest stations.")
         sys.exit(0)
 
     if nearby:
@@ -307,7 +304,7 @@ def _search_stations(query, metric=False, limit=20, cli_location=None):
 
     if len(matches) > limit:
         print(f"  ... and {len(matches) - limit} more")
-    print("\nUse `tides --station <id or name>` to view one.")
+    print("\nUse `linecast tides --station <id or name>` to view one.")
     budget = tidecheck_budget_line()
     if budget:
         print(budget)
@@ -535,7 +532,7 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0):
         pfg = fg(*PILL_FG_RGB)
         pedge = fg(*PILL_BG_RGB)
         pill = f"{pedge}\u2590{pbg}{pfg} {name} {RESET}{pedge}\u258c{RESET}"
-        pill_w = len(name) + 4  # ▐ + space + name + space + ▌
+        pill_w = visible_len(name) + 4  # ▐ + space + name + space + ▌
     else:
         pill = ""
         pill_w = 0
@@ -545,13 +542,13 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0):
     phase_name = _moon_name(idx, runtime)
     moon_color = fg(*MUTED_RGB)
     moon_str = f"{moon_color}{moon_icon} {DIM}{phase_name}{RESET}"
-    moon_w = len(moon_icon) + 1 + len(phase_name)
+    moon_w = visible_len(moon_icon) + 1 + visible_len(phase_name)
 
     # "Space to return" hint (right, only when scrolled)
     if offset_minutes:
         hint_text = _ts("space_to_now", runtime)
         hint = f"{DIM}{hint_text}{RESET}"
-        right_w = len(hint_text)
+        right_w = visible_len(hint_text)
         padding = max(1, cols - 1 - pill_w - right_w)
         return f"{pill}{' ' * padding}{hint}"
 
@@ -573,8 +570,12 @@ def _info_line(window, now_height, now_dt, width, offset_minutes, rising, runtim
     now_text = fg(*NOW_PILL_TEXT_RGB)
 
     arrow = "\u2197" if rising else "\u2198"
-    icon_hi = "\U000F0799"   # 󰞙
-    icon_lo = "\U000F0796"   # 󰞖
+    if runtime.icons == "nerd":
+        icon_hi = "\U000F0799"   # 󰞙
+        icon_lo = "\U000F0796"   # 󰞖
+    else:
+        icon_hi = "▲"
+        icon_lo = "▼"
 
     h_display = runtime.convert_height(now_height)
     unit = runtime.height_unit
@@ -698,9 +699,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     w_secs = w_total * 3600
 
     # --- dimensions (header + day_labels + braille + ticks + extras) ---
-    extra = 0
-    if marine_data is not None:
-        extra += 1
+    extra = 1  # the footer line: marine conditions + data source
     if install_banner():
         extra += 1
     n_braille_rows = max(2, rows - ((3 + extra) if fullscreen else 7))
@@ -784,19 +783,24 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         now_col=now_col, hover_col=hover_graph_col,
     ))
 
-    # Marine conditions line (optional)
+    # Footer: marine conditions on the left, the data source on the
+    # right, one line.  Too narrow for both: marine wins.
+    marine_str = ""
     if marine_data is not None:
         try:
             marine = parse_marine_current(marine_data, now_local)
-            marine_str = format_marine_line(marine, runtime, width=cols)
-            if marine_str:
-                wave_icon = "\U0001F30A" if runtime.emoji else WAVE_ICON
-                muted = fg(*MUTED_RGB)
-                dim = fg(*DIM_RGB)
-                lines.append(f" {muted}{wave_icon} {dim}{marine_str}{RESET}")
+            marine_str = format_marine_line(marine, runtime, width=cols) or ""
         except Exception as exc:
             # Marine data is optional; never crash
             log_failure("marine/open-meteo", "marine line", exc, fallback="line omitted")
+    dim = fg(*DIM_RGB)
+    pad = cols - 2 - visible_len(marine_str) - visible_len(provider.label)
+    if marine_str and pad >= 2:
+        lines.append(f" {dim}{marine_str}{' ' * pad}{provider.label}{RESET}")
+    elif marine_str:
+        lines.append(f" {dim}{marine_str}{RESET}")
+    else:
+        lines.append(f" {dim}{provider.label}{RESET}")
 
     hint = install_banner()
     if hint:
@@ -901,6 +905,7 @@ class TidesApp(_live.LiveApp):
             hilo=self.hilo,
             y_range=self.y_range,
             marine_data=self.marine_data,
+            provider=self.provider,
         ), {}
 
 
@@ -917,7 +922,7 @@ def main():
     # behaves like --nearby (empty query = nearest stations).
     if args.nearby or args.search is not None:
         query = args.search or ""
-        _search_stations(query, metric=args.metric,
+        _search_stations(query, metric=runtime.metric,
                          limit=15 if not query.strip() else 20,
                          cli_location=args.location)
         return
@@ -944,13 +949,21 @@ def main():
                                                   cli_location=args.location)
                 if not matches:
                     print(f'No stations matching "{override}". '
-                          "Try `tides --nearby` to list the nearest stations.",
+                          "Try `linecast tides --nearby` to list the nearest stations.",
                           file=sys.stderr)
                     sys.exit(1)
                 best = matches[0]
                 provider = PROVIDERS[best["source"]]
                 station_id = best["id"]
                 station_name = best["name"] or f"Station {station_id[:8]}"
+            # A named station says nothing about where the user is; the
+            # units default still follows their own location, as it does
+            # in the branch below.
+            _lat, _lng, _cc = resolve_location(args.location, lang=runtime.lang)
+            own = country_for_defaults(args.location, _cc, _lat, _lng)
+            if own:
+                runtime = TidesRuntime.from_sources(args, country=own)
+                set_current(runtime)
         else:
             # need_country: provider routing (CHS for Canada, QLD for
             # Queensland) hinges on the country of the target location.
@@ -959,6 +972,12 @@ def main():
             if lat is None:
                 print("Could not determine location for tide station lookup.", file=sys.stderr)
                 sys.exit(1)
+
+            # Re-resolve the runtime a cold cache made countryless.
+            own = country_for_defaults(args.location, country_code, lat, lng)
+            if own:
+                runtime = TidesRuntime.from_sources(args, country=own)
+                set_current(runtime)
 
             provider, station_id, station_name = _station_for_location(
                 lat, lng, country_code)
@@ -979,8 +998,8 @@ def main():
             if station_id is None:
                 hint = ("No tide station within 100nm, and the global tide "
                         "model has no coverage here (inland?).\n"
-                        "  Try `tides --nearby` to list the nearest stations, "
-                        "or `tides --station <id or name>`.")
+                        "  Try `linecast tides --nearby` to list the nearest stations, "
+                        "or `linecast tides --station <id or name>`.")
                 if not TIDECHECK.available():
                     hint += ("\n  For more station coverage, set "
                              "LINECAST_TIDECHECK_KEY (free at tidecheck.com).")
@@ -1102,6 +1121,7 @@ def main():
                 hilo=hilo_data,
                 y_range=y_range,
                 marine_data=marine_data,
+                provider=provider,
             )
             spin.stop()
             print(out)

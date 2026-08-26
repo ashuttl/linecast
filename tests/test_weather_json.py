@@ -29,12 +29,12 @@ EXPECTED_TOP_KEYS = {
 
 
 def _load_fixture():
-    return json.loads((FIXTURES / "open_meteo_forecast.json").read_text())
+    return json.loads((FIXTURES / "open_meteo_forecast.json").read_text(encoding="utf-8"))
 
 
 def _runtime(**overrides):
     defaults = dict(
-        live=False, emoji=True, lang="en", oneline=False,
+        live=False, icons="emoji", lang="en", oneline=False,
         celsius=False, metric=False, shading=False,
     )
     defaults.update(overrides)

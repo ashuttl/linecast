@@ -398,9 +398,9 @@ class RouteState:
         threading.Thread(target=body, daemon=True).start()
 
 
-def _fmt_distance(metres, lang):
+def _fmt_distance(metres):
     """Distance in the reader's units, with one decimal where it helps."""
-    if style.use_metric(lang):
+    if style.use_metric():
         if metres < 1000:
             return f"{round(metres):,} m"
         return f"{metres / 1000:.1f} km"
@@ -423,7 +423,7 @@ def route_summary(route, lang="en"):
     """`11.7 km · 13m · driving` for the header readout slot."""
     if route is None:
         return ""
-    return (f"{_fmt_distance(route.distance_m, lang)}"
+    return (f"{_fmt_distance(route.distance_m)}"
             f" · {_fmt_duration(route.duration_s)}"
             f" · {ms('profile_' + route.profile, lang)}")
 
@@ -461,18 +461,18 @@ def _step_text(step, lang, origin_label="", dest_label=""):
     return name or ""
 
 
-def _step_dist(step, lang):
+def _step_dist(step):
     """The distance column: how far you follow this step, blank where
     there is nowhere further to follow (arrive)."""
     metres = step.get("distance_m") or 0.0
-    return _fmt_distance(metres, lang) if metres else ""
+    return _fmt_distance(metres) if metres else ""
 
 
 def steps_text(route, lang="en", origin_label="", dest_label=""):
     """The maneuver list as plain printable lines, for --print."""
     lines = []
     for step in route.steps:
-        line = (f" {maneuver_glyph(step)} {_step_dist(step, lang):>8}  "
+        line = (f" {maneuver_glyph(step)} {_step_dist(step):>8}  "
                 f"{_step_text(step, lang, origin_label, dest_label)}")
         lines.append(line.rstrip())
     return lines
@@ -524,7 +524,7 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
 
     mode = ms('profile_' + state.profile, lang)
     if route is not None:
-        mode += (f" · {_fmt_distance(route.distance_m, lang)}"
+        mode += (f" · {_fmt_distance(route.distance_m)}"
                  f" · {_fmt_duration(route.duration_s)}")
     out = [
         field(2, "o", labels[0], _point_label(state.origin, home_label)),
@@ -544,7 +544,7 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
         for i in range(start, start + limit):
             s = steps[i]
             plain = " " + _fit(f"  {maneuver_glyph(s)} "
-                               f"{_step_dist(s, lang):>8}  "
+                               f"{_step_dist(s):>8}  "
                                f"{_step_text(s, lang)}", width - 2)
             body = (f"\033[7m{plain} \033[27m" if i == step
                     else plain)

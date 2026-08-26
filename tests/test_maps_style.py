@@ -641,13 +641,17 @@ def test_nice_tables_are_ascending():
         assert len(set(distances)) == len(distances)
 
 
-def test_use_metric(monkeypatch):
-    assert ms.use_metric("fr") is True
-    assert ms.use_metric("en") is False
-    monkeypatch.setenv("WEATHER_UNITS", "metric")
-    assert ms.use_metric("en") is True
-    monkeypatch.setenv("WEATHER_UNITS", "imperial")
-    assert ms.use_metric("en") is False
+def test_use_metric():
+    from linecast._runtime import RuntimeConfig, maps_parser, set_current
+    try:
+        set_current(RuntimeConfig.from_sources(
+            maps_parser().parse_args(["--print", "--metric"]), environ={}))
+        assert ms.use_metric() is True
+        set_current(RuntimeConfig.from_sources(
+            maps_parser().parse_args(["--print", "--imperial"]), environ={}))
+        assert ms.use_metric() is False
+    finally:
+        set_current(None)
 
 
 def test_attribution_short_form_is_actually_shorter():
@@ -684,7 +688,7 @@ def test_fill_order_is_bottom_to_top():
 
 
 def test_module_touches_neither_disk_nor_network():
-    source = (Path(ms.__file__)).read_text()
+    source = (Path(ms.__file__)).read_text(encoding="utf-8")
     for forbidden in ("open(", "urllib", "requests", "socket", "Path(",
                       "_vtiles", "_http"):
         assert forbidden not in source, forbidden

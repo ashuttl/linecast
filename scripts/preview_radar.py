@@ -2,7 +2,7 @@
 PNG for visual QA, using the real linecast modules.
 
     NE_DIR unused; needs data/basemap.json.gz already built.
-    python3 prototype/preview_radar.py [lat] [lon] [zoom] out.png
+    python3 scripts/preview_radar.py [lat] [lon] [zoom] out.png
 """
 
 import os

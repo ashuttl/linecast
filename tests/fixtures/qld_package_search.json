@@ -1,0 +1,121 @@
+{
+ "help": "https://www.data.qld.gov.au/api/3/action/help_show?name=package_search",
+ "success": true,
+ "result": {
+  "count": 81,
+  "results": [
+   {
+    "name": "southport-tide-gauge-predicted-interval-data",
+    "title": "Southport tide gauge—predicted interval data",
+    "num_resources": 4,
+    "resources": [
+     {
+      "id": "bfebd34c-48cc-44f8-941f-35e5372fc057",
+      "name": "Description—Southport tide gauge predicted interval data",
+      "format": "TXT",
+      "url": "http://tmr.qld.gov.au/-/media/aboutus/corpinfo/Open data/predictiveintervaldata/Southport/P100035_description.txt",
+      "datastore_active": false
+     },
+     {
+      "id": "e091aba3-bf77-48d9-8d8b-8eed5ac28556",
+      "name": "2026—Southport tide gauge predicted interval data",
+      "format": "CSV",
+      "url": "https://www.data.qld.gov.au/dataset/df35144c-6f67-42a8-bd20-8dc93707487d/resource/e091aba3-bf77-48d9-8d8b-8eed5ac28556/download/p100035_marine-operations-base-southport_2026_10min.csv",
+      "datastore_active": true
+     },
+     {
+      "id": "ef6f478c-84e8-4450-af0a-953ad9060a41",
+      "name": "2025—Southport tide gauge predicted interval data",
+      "format": "CSV",
+      "url": "https://www.data.qld.gov.au/dataset/df35144c-6f67-42a8-bd20-8dc93707487d/resource/ef6f478c-84e8-4450-af0a-953ad9060a41/download/p100035_marine-operations-base-southport_2025_10min.csv",
+      "datastore_active": true
+     },
+     {
+      "id": "8f38d964-4e9e-4951-a82e-65c816560181",
+      "name": "2024—Southport tide gauge predicted interval data",
+      "format": "CSV",
+      "url": "https://www.data.qld.gov.au/dataset/df35144c-6f67-42a8-bd20-8dc93707487d/resource/8f38d964-4e9e-4951-a82e-65c816560181/download/p100035_marine-operations-base-southport_2024_10min.csv",
+      "datastore_active": false
+     }
+    ]
+   },
+   {
+    "name": "shorncliffe-tide-gauge-predicted-interval-data",
+    "title": "Shorncliffe tide gauge—predicted interval data",
+    "num_resources": 3,
+    "resources": [
+     {
+      "id": "4738da1a-68bb-4b02-9da6-2fa836a3873f",
+      "name": "2026 — Shorncliffe tide gauge predicted interval data",
+      "format": "CSV",
+      "url": "https://www.data.qld.gov.au/dataset/e3fc22b8-6a21-45be-b987-4c5b263cf3ec/resource/4738da1a-68bb-4b02-9da6-2fa836a3873f/download/p100903_shorncliffe-pier-storm-surge_2026_10min.csv",
+      "datastore_active": true
+     },
+     {
+      "id": "831f8ff6-fdbe-48ef-875f-e14d66c0d8a0",
+      "name": "2025 — Shorncliffe tide gauge predicted interval data",
+      "format": "CSV",
+      "url": "https://www.data.qld.gov.au/dataset/e3fc22b8-6a21-45be-b987-4c5b263cf3ec/resource/831f8ff6-fdbe-48ef-875f-e14d66c0d8a0/download/p100903_shorncliffe-pier-storm-surge_2025_10min.csv",
+      "datastore_active": true
+     },
+     {
+      "id": "ba886835-2f94-48a7-8bc6-3525dbb7548e",
+      "name": "2024 — Shorncliffe tide gauge predicted interval data",
+      "format": "CSV",
+      "url": "https://www.data.qld.gov.au/dataset/e3fc22b8-6a21-45be-b987-4c5b263cf3ec/resource/ba886835-2f94-48a7-8bc6-3525dbb7548e/download/p100903_shorncliffe-pier-storm-surge_2024_10min.csv",
+      "datastore_active": true
+     }
+    ]
+   },
+   {
+    "name": "brisbane-bar-tide-gauge-predicted-interval-data",
+    "title": "Brisbane Bar tide gauge—predicted interval data",
+    "num_resources": 4,
+    "resources": [
+     {
+      "id": "6fa1fc7c-f73d-4b52-9f54-f9e39eafedb0",
+      "name": "Description—Brisbane Bar tide gauge predicted interval data",
+      "format": "TXT",
+      "url": "http://tmr.qld.gov.au/-/media/aboutus/corpinfo/Open data/predictiveintervaldata/Brisbane-Bar/P046046A_description.txt",
+      "datastore_active": false
+     },
+     {
+      "id": "11f33b0e-953f-46f4-84a9-1aa0a779a5e7",
+      "name": "2026—Brisbane Bar tide gauge predicted interval data",
+      "format": "CSV",
+      "url": "https://www.data.qld.gov.au/dataset/fbf695ef-a340-45a4-a347-9605ec27b007/resource/11f33b0e-953f-46f4-84a9-1aa0a779a5e7/download/p046046a_brisbane-bar_2026_10min.csv",
+      "datastore_active": true
+     },
+     {
+      "id": "d6ce8597-c0e4-42fe-854e-15143ba7b0e4",
+      "name": "2025—Brisbane Bar tide gauge predicted interval data",
+      "format": "CSV",
+      "url": "https://www.data.qld.gov.au/dataset/fbf695ef-a340-45a4-a347-9605ec27b007/resource/d6ce8597-c0e4-42fe-854e-15143ba7b0e4/download/p046046a_brisbane-bar_2025_10min.csv",
+      "datastore_active": true
+     },
+     {
+      "id": "0573ba09-5ece-490b-a145-ded751ffede7",
+      "name": "2024—Brisbane Bar tide gauge predicted interval data",
+      "format": "CSV",
+      "url": "https://www.data.qld.gov.au/dataset/fbf695ef-a340-45a4-a347-9605ec27b007/resource/0573ba09-5ece-490b-a145-ded751ffede7/download/p046046a_brisbane-bar_2024_10min.csv",
+      "datastore_active": false
+     }
+    ]
+   },
+   {
+    "name": "badu-island-tide-gauge-predicted-high-low-data",
+    "title": "Badu Island tide gauge—predicted high/low data",
+    "num_resources": 1,
+    "resources": [
+     {
+      "id": "f8ba2323-aff0-494a-9a2d-ce1df6db40b5",
+      "name": "2026 —Badu Island tide gauge predicted interval data",
+      "format": "CSV",
+      "url": "https://www.data.qld.gov.au/dataset/60ef56cc-d528-4635-af84-19adf58d73ac/resource/f8ba2323-aff0-494a-9a2d-ce1df6db40b5/download/q100544_badu-island_2026_hilo.csv",
+      "datastore_active": true
+     }
+    ]
+   }
+  ]
+ }
+}

@@ -96,6 +96,31 @@ class ResolveLocationTests(unittest.TestCase):
                 (45.25, -66.06, "CA"))
 
 
+class CountryForDefaultsTests(unittest.TestCase):
+    def test_own_location_uses_the_resolved_country(self):
+        self.assertEqual(
+            _location.country_for_defaults(None, "US", 43.68, -70.35),
+            "US",
+        )
+
+    def test_override_keeps_a_known_home_country(self):
+        with patch.object(_location, "own_country", return_value="CA"), \
+             patch("linecast._weather_sources._reverse_geocode",
+                   side_effect=AssertionError("home country already known")):
+            self.assertIsNone(
+                _location.country_for_defaults("Portland", "", 43.68, -70.35)
+            )
+
+    def test_first_run_override_uses_the_viewed_country_as_a_fallback(self):
+        with patch.object(_location, "own_country", return_value=None), \
+             patch("linecast._weather_sources._reverse_geocode",
+                   return_value=("Portland, Maine", "US", {})):
+            self.assertEqual(
+                _location.country_for_defaults("Portland", "", 43.68, -70.35),
+                "US",
+            )
+
+
 class LocationPinnedTests(unittest.TestCase):
     def test_pinned_by_flag_env_or_saved(self):
         with patch.dict(os.environ, {"WEATHER_LOCATION": ""}), \

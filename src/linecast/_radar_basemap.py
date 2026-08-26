@@ -8,7 +8,7 @@ per-cell braille dot masks + colours, a sub-pixel sea mask, and city label
 overlays for a given geographic window.
 
 Data: Natural Earth (public domain, 1:50m), simplified globally by
-prototype/build_basemap_data.py → data/basemap.json.gz.  Per view we clip to
+scripts/build_basemap_data.py → data/basemap.json.gz.  Per view we clip to
 the visible bounding box so a whole-world dataset stays cheap to rasterise.
 """
 
@@ -16,10 +16,10 @@ import gzip
 import json
 import math
 import os
-import unicodedata
 
 from linecast import _theme
 from linecast._runtime import log_failure
+from linecast._textwidth import char_width
 from linecast._theme import is_light_theme, lerp_rgb
 
 # braille dot bit for (col, row) within a 2x4 cell — matches _braille.py
@@ -47,11 +47,6 @@ _rebuild()
 _theme.on_reload(_rebuild)
 
 _DATA = None
-
-
-def _cell_width(ch):
-    """Terminal columns a single character occupies (2 for CJK/wide glyphs)."""
-    return 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
 
 
 def _localized(entry, lang):
@@ -556,7 +551,7 @@ class Basemap(DotLayer):
             # label to the right, unless it runs off the edge or collides
             c = col + 1
             for ch in name:
-                w = _cell_width(ch)
+                w = char_width(ch)
                 if c + w > self.graph_w:
                     break
                 if (c, row) in overlays or (w == 2 and (c + 1, row) in overlays):

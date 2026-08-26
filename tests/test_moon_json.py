@@ -27,13 +27,14 @@ FIXED_NOW = datetime(2026, 8, 14, 12, 0, tzinfo=timezone.utc)
 
 EXPECTED_TOP_KEYS = {
     "schema", "location", "timezone", "fetched_at", "phase", "icon",
-    "illumination", "waxing", "age_days", "events", "next_full", "next_new",
-    "southern", "altitude_deg", "up_now",
+    "illumination", "waxing", "age_days", "events", "next_full",
+    "next_full_name", "next_new", "day_of_year", "days_in_year",
+    "next_season_event", "southern", "altitude_deg", "up_now",
 }
 
 
 def _runtime(**overrides):
-    defaults = dict(live=False, emoji=False, lang="en", oneline=False)
+    defaults = dict(live=False, icons="nerd", lang="en", oneline=False)
     defaults.update(overrides)
     return RuntimeConfig(**defaults)
 
@@ -80,7 +81,7 @@ class TestPhase:
 
     def test_nerd_icon_by_default_emoji_on_request(self):
         assert _payload()["icon"] in _NERD_ICONS["moon_icons"]
-        p = _payload(runtime=_runtime(emoji=True))
+        p = _payload(runtime=_runtime(icons="emoji"))
         assert p["icon"] in _EMOJI_ICONS["moon_icons"]
 
 

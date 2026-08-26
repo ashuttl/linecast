@@ -279,7 +279,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     if field is not None and "temp" in layers:
         # temperature at the view centre, in the units _panned_place uses
         tc = field.sample_temp(t_idx, lon, lat)
-        metric = use_metric(lang)
+        metric = runtime.metric if runtime else use_metric()
         tag += (f" · {round(tc)}°C" if metric
                 else f" · {round(tc * 9 / 5 + 32)}°F")
     icon = "▶" if playing else "⏸"

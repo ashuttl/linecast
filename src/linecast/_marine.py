@@ -165,7 +165,7 @@ def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
     if not parts:
         return ""
 
-    return " \u2502 ".join(parts)
+    return " \u00b7 ".join(parts)
 
 
 def _format_height(meters, runtime):

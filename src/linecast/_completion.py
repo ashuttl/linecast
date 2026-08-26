@@ -39,11 +39,15 @@ COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps")
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
 TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps",
-                      "location", "units", "doctor", "completion")
+                      "location", "units", "clock", "icons", "link", "doctor", "completion")
 LOCATION_SUBCOMMANDS = ("show", "set", "auto", "search")
 LOCATION_FLAGS = ("--help", "-h", "--version")
 UNITS_SUBCOMMANDS = ("show", "metric", "imperial", "auto")
 UNITS_FLAGS = ("--help", "-h", "--version")
+CLOCK_SUBCOMMANDS = ("show", "12", "24", "auto")
+CLOCK_FLAGS = ("--help", "-h", "--version")
+ICONS_SUBCOMMANDS = ("show", "nerd", "emoji", "plain", "auto")
+ICONS_FLAGS = ("--help", "-h", "--version")
 DOCTOR_FLAGS = ("--help", "-h", "--version", "--offline", "--json", "--debug")
 COMPLETION_FLAGS = ("--help", "-h")
 
@@ -101,6 +105,12 @@ def command_flags(command, hints=None):
     if hints is None:
         hints = _value_hints()
     parser = getattr(_runtime, f"{command}_parser")()
+    return _parser_flags(parser, hints)
+
+
+def _parser_flags(parser, hints=None):
+    """An argparse parser's options in the form the generators use."""
+    hints = {} if hints is None else hints
     flags = []
     for action in parser._actions:
         options = tuple(action.option_strings)
@@ -114,6 +124,11 @@ def command_flags(command, hints=None):
                       else hints.get(long))
         flags.append(_Flag(options, takes_value, values))
     return flags
+
+
+def _link_flags():
+    from linecast.link import link_parser
+    return _parser_flags(link_parser())
 
 
 def _all_command_flags():
@@ -165,15 +180,22 @@ def render_completion(shell: str):
 
 
 def _bash_script(flags_by_command):
+    link_flags = _link_flags()
     value_lists = _value_lists(flags_by_command)
-    free = "|".join(_free_value_flags(flags_by_command))
+    free = "|".join((*_free_value_flags(flags_by_command),
+                     *_free_value_flags({"link": link_flags})))
     top = _SPACE.join((*TOP_LEVEL_COMMANDS, *GLOBAL_FLAGS))
     completion = _SPACE.join(COMPLETION_FLAGS)
     location = _SPACE.join(LOCATION_FLAGS)
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
     units = _SPACE.join(UNITS_FLAGS)
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
+    clock = _SPACE.join(CLOCK_FLAGS)
+    clock_sub = _SPACE.join(CLOCK_SUBCOMMANDS)
+    icons = _SPACE.join(ICONS_FLAGS)
+    icons_sub = _SPACE.join(ICONS_SUBCOMMANDS)
     doctor = _SPACE.join(DOCTOR_FLAGS)
+    link = _words(link_flags)
     shells = _SPACE.join(SHELLS)
 
     declarations = "\n".join(
@@ -285,8 +307,19 @@ _linecast_complete_command() {{
       _linecast_complete_flags {units}
       COMPREPLY+=( $(compgen -W "{units_sub}" -- "$cur") )
       ;;
+    clock)
+      _linecast_complete_flags {clock}
+      COMPREPLY+=( $(compgen -W "{clock_sub}" -- "$cur") )
+      ;;
+    icons)
+      _linecast_complete_flags {icons}
+      COMPREPLY+=( $(compgen -W "{icons_sub}" -- "$cur") )
+      ;;
     doctor)
       _linecast_complete_flags {doctor}
+      ;;
+    link)
+      _linecast_complete_flags {link}
       ;;
     completion)
       _linecast_complete_flags {completion}
@@ -311,7 +344,7 @@ _linecast_complete() {{
 
   cmd="${{COMP_WORDS[1]}}"
   case "$cmd" in
-    weather|tides|sunshine|moon|radar|maps|location|units|doctor|completion)
+    weather|tides|sunshine|moon|radar|maps|location|units|clock|icons|link|doctor|completion)
       _linecast_complete_command "$cmd"
       ;;
   esac
@@ -324,15 +357,22 @@ complete -F _linecast_complete linecast
 
 
 def _zsh_script(flags_by_command):
+    link_flags = _link_flags()
     value_lists = _value_lists(flags_by_command)
-    free = "|".join(_free_value_flags(flags_by_command))
+    free = "|".join((*_free_value_flags(flags_by_command),
+                     *_free_value_flags({"link": link_flags})))
     top = _SPACE.join((*TOP_LEVEL_COMMANDS, *GLOBAL_FLAGS))
     completion = _SPACE.join(COMPLETION_FLAGS)
     location = _SPACE.join(LOCATION_FLAGS)
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
     units = _SPACE.join(UNITS_FLAGS)
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
+    clock = _SPACE.join(CLOCK_FLAGS)
+    clock_sub = _SPACE.join(CLOCK_SUBCOMMANDS)
+    icons = _SPACE.join(ICONS_FLAGS)
+    icons_sub = _SPACE.join(ICONS_SUBCOMMANDS)
     doctor = _SPACE.join(DOCTOR_FLAGS)
+    link = _words(link_flags)
     shells = _SPACE.join(SHELLS)
     standalone = _SPACE.join(flags_by_command)
 
@@ -441,8 +481,19 @@ _linecast_complete_command() {{
       _linecast_add_flags {units}
       compadd -- {units_sub}
       ;;
+    clock)
+      _linecast_add_flags {clock}
+      compadd -- {clock_sub}
+      ;;
+    icons)
+      _linecast_add_flags {icons}
+      compadd -- {icons_sub}
+      ;;
     doctor)
       _linecast_add_flags {doctor}
+      ;;
+    link)
+      _linecast_add_flags {link}
       ;;
     completion)
       _linecast_add_flags {completion}
@@ -462,7 +513,7 @@ _linecast() {{
     fi
     cmd="${{words[2]}}"
     case "$cmd" in
-      weather|tides|sunshine|moon|radar|maps|location|units|doctor|completion)
+      weather|tides|sunshine|moon|radar|maps|location|units|clock|icons|link|doctor|completion)
         _linecast_complete_command "$cmd"
         ;;
     esac
@@ -502,6 +553,8 @@ def _fish_script(flags_by_command):
     shells = _SPACE.join(SHELLS)
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
+    clock_sub = _SPACE.join(CLOCK_SUBCOMMANDS)
+    icons_sub = _SPACE.join(ICONS_SUBCOMMANDS)
     lines = [
         "# fish completion for linecast",
         f"complete -c linecast -f -n '__fish_use_subcommand' -a '{commands}'",
@@ -513,12 +566,19 @@ def _fish_script(flags_by_command):
         "complete -c linecast -f -n '__fish_seen_subcommand_from location' -l help -s h",
         f"complete -c linecast -f -n '__fish_seen_subcommand_from units' -a '{units_sub}'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from units' -l help -s h",
+        f"complete -c linecast -f -n '__fish_seen_subcommand_from clock' -a '{clock_sub}'",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from clock' -l help -s h",
+        f"complete -c linecast -f -n '__fish_seen_subcommand_from icons' -a '{icons_sub}'",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from icons' -l help -s h",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l help -s h",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l version",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l offline",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l json",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l debug",
     ]
+
+    lines.extend(_fish_flag_lines(
+        "-c linecast -f -n '__fish_seen_subcommand_from link'", _link_flags()))
 
     for cmd, flags in flags_by_command.items():
         head = f"-c linecast -f -n '__fish_seen_subcommand_from {cmd}'"
@@ -534,6 +594,10 @@ def _nu_flags(flags):
     for flag in flags:
         # --help and -h are left out so Nushell does not hijack help display
         if flag.is_help:
+            continue
+        # Nushell flag names must be identifiers, which --12h/--24h are
+        # not; they stay completable in the other shells only
+        if not flag.name.lstrip("-")[:1].isalpha():
             continue
         if flag.is_version:
             lines.append(f"    {flag.name} # Show version")
@@ -578,6 +642,10 @@ def _nu_script(flags_by_command):
                                 LOCATION_SUBCOMMANDS))
     lines.extend(_nu_value_list("linecast-units-subcommands",
                                 UNITS_SUBCOMMANDS))
+    lines.extend(_nu_value_list("linecast-clock-subcommands",
+                                CLOCK_SUBCOMMANDS))
+    lines.extend(_nu_value_list("linecast-icons-subcommands",
+                                ICONS_SUBCOMMANDS))
     lines.extend([
         'export extern "linecast" [',
         "    --version(-v) # Show version",
@@ -610,10 +678,25 @@ def _nu_script(flags_by_command):
         ))
         for sub in UNITS_SUBCOMMANDS:
             lines.extend(_nu_extern(f"{prefix}units {sub}", version_only))
+        lines.extend(_nu_extern(
+            f"{prefix}clock",
+            version_only,
+            ['subcommand?: string@"nu-complete linecast-clock-subcommands"'],
+        ))
+        for sub in CLOCK_SUBCOMMANDS:
+            lines.extend(_nu_extern(f"{prefix}clock {sub}", version_only))
+        lines.extend(_nu_extern(
+            f"{prefix}icons",
+            version_only,
+            ['subcommand?: string@"nu-complete linecast-icons-subcommands"'],
+        ))
+        for sub in ICONS_SUBCOMMANDS:
+            lines.extend(_nu_extern(f"{prefix}icons {sub}", version_only))
         lines.extend(_nu_extern(f"{prefix}doctor", [
             *version_only, "    --offline", "    --json", "    --debug"]))
 
     dispatcher("linecast ")
+    lines.extend(_nu_extern("linecast link", _nu_flags(_link_flags())))
     lines.extend(_nu_extern(
         "linecast completion",
         [],

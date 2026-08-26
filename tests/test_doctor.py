@@ -7,6 +7,7 @@ cache and settings paths are the private ones tests/conftest.py set.
 import importlib
 import io
 import json
+import os
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -86,7 +87,7 @@ class TestOffline:
         assert "  units     metric (WEATHER_UNITS); tides imperial (TIDES_UNITS)" in out
         assert "  location  (set) (WEATHER_LOCATION)" in out
         assert "  language  fr (LINECAST_LANG)" in out
-        assert "24-hour (fr)" in out
+        assert "  clock     24-hour (auto)" in out
         assert "  WEATHER_LOCATION=(set)" in out
         assert "1.5,2.5" not in out
 
@@ -109,7 +110,10 @@ class TestSecrets:
         code, out, _ = _run("--offline", monkeypatch=monkeypatch)
         assert "  LINECAST_TIDECHECK_KEY=(set)" in out
         assert "  LINECAST_SOME_TOKEN=(set)" in out
-        assert "  https_proxy=http://proxy.example:3128/?..." in out
+        # Windows stores environment names in upper case; the report
+        # prints the name as the environment holds it.
+        shown = next(k for k in os.environ if k.lower() == "https_proxy")
+        assert f"  {shown}=http://proxy.example:3128/?..." in out
         _, as_json, _ = _run("--offline", "--json", monkeypatch=monkeypatch)
         for text in (out, as_json):
             # the userinfo as it would leak, not the bare word "user":
@@ -118,15 +122,15 @@ class TestSecrets:
                 assert leak not in text
 
     def test_a_url_override_loses_its_userinfo_and_query(self, no_probes, monkeypatch):
-        monkeypatch.setenv("LINECAST_LIBREWXR_URL", "https://alice:pw1@wxr.example/base?token=abc")
-        monkeypatch.setenv("LINECAST_ELEVATION_URL", "https://bob:pw2@dem.example/tiles/")
-        monkeypatch.setenv("LINECAST_TILE_SERVER", "https://carol:pw3@t.example/x?key=k")
+        monkeypatch.setenv("LINECAST_LIBREWXR_URL", "https://alice:pw-1@wxr.example/base?token=abc")
+        monkeypatch.setenv("LINECAST_ELEVATION_URL", "https://bob:pw-2@dem.example/tiles/")
+        monkeypatch.setenv("LINECAST_TILE_SERVER", "https://carol:pw-3@t.example/x?key=k")
         code, out, err = _run(monkeypatch=monkeypatch)
         _, as_json, _ = _run("--json", monkeypatch=monkeypatch)
         assert (code, err) == (0, "")
         for text in (out, as_json):
             assert "wxr.example" in text and "dem.example" in text and "t.example" in text
-            for leak in ("alice:", "pw1", "bob:", "pw2", "carol:", "pw3", "token=abc", "key=k"):
+            for leak in ("alice:", "pw-1", "bob:", "pw-2", "carol:", "pw-3", "token=abc", "key=k"):
                 assert leak not in text
         assert "  LINECAST_LIBREWXR_URL=https://wxr.example/base?..." in out
         assert "  LINECAST_ELEVATION_URL=https://dem.example/tiles/" in out
@@ -159,7 +163,8 @@ class TestSecrets:
         monkeypatch.setenv("http_proxy", "http://user:pw@[bad")
         code, out, err = _run("--offline", monkeypatch=monkeypatch)
         assert (code, err) == (0, "")
-        assert "  http_proxy=(unparseable URL)" in out
+        shown = next(k for k in os.environ if k.lower() == "http_proxy")
+        assert f"  {shown}=(unparseable URL)" in out
         assert "pw@" not in out
 
     def test_unset_variables_are_not_listed(self, monkeypatch):
@@ -183,9 +188,10 @@ class TestJson:
             "cache_bytes", "cache_count_complete", "cache_legacy_location"}
         assert set(report["terminal"]) == {
             "term", "colorterm", "color_mode", "columns", "lines", "stdout_tty",
-            "icons", "theme", "clock", "lang"}
+            "icons", "theme", "lang"}
         assert set(report["preferences"]) == {
-            "units", "units_source", "tides_units", "tides_units_source", "location",
+            "units", "units_source", "tides_units", "tides_units_source",
+            "clock", "clock_source", "location",
             "location_source", "language", "language_source"}
         assert isinstance(report["environment"], dict)
         assert report["providers"] is None
@@ -354,7 +360,7 @@ class TestFlags:
     def test_version_and_help(self, monkeypatch):
         from linecast import __version__
         code, out, err = _run("--version", monkeypatch=monkeypatch)
-        assert (code, out, err) == (0, f"linecast doctor (linecast {__version__})\n", "")
+        assert (code, out, err) == (0, f"linecast {__version__}\n", "")
         code, out, err = _run("--help", monkeypatch=monkeypatch)
         assert code == 0 and "--offline" in out and "--json" in out
 

@@ -107,7 +107,7 @@ class TestFormatComparison:
     """Test the short annotation formatting."""
 
     def _runtime(self, celsius=False, lang="en"):
-        return WeatherRuntime(live=False, emoji=False, lang=lang,
+        return WeatherRuntime(live=False, icons="nerd", lang=lang,
                               celsius=celsius, metric=celsius, shading=True,
                               oneline=False)
 
@@ -283,7 +283,7 @@ class TestHeaderIntegration:
             },
         }
         hist = HistoricalAverages(avg_high=60.0, avg_low=40.0, avg_precip=0.1, years=10)
-        runtime = WeatherRuntime(live=False, emoji=False, lang="en",
+        runtime = WeatherRuntime(live=False, icons="nerd", lang="en",
                                  celsius=False, metric=False, shading=True,
                                  oneline=False)
         result = render_header(data, 120, "Test City", runtime=runtime, historical=hist)
@@ -311,7 +311,7 @@ class TestHeaderIntegration:
                 "temperature_2m_min": [42.0, 45.0],
             },
         }
-        runtime = WeatherRuntime(live=False, emoji=False, lang="en",
+        runtime = WeatherRuntime(live=False, icons="nerd", lang="en",
                                  celsius=False, metric=False, shading=True,
                                  oneline=False)
         result = render_header(data, 120, "Test City", runtime=runtime, historical=None)

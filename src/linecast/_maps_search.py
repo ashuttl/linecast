@@ -189,8 +189,7 @@ def nominatim_search(query: str, lang: str = "en", limit: int = 8,
     params = [("q", query), ("format", "jsonv2"), ("limit", int(limit)),
               ("addressdetails", 1), ("accept-language", lang)]
     url = f"{NOMINATIM_URL}?{urllib.parse.urlencode(params)}"
-    headers = {"User-Agent":
-               f"{user_agent()} (+https://github.com/ashuttl/linecast)"}
+    headers = {"User-Agent": user_agent()}
     _throttle()
     try:
         data = _get_json(url, headers=headers, timeout=timeout)

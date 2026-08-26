@@ -14,9 +14,9 @@ built in `_runtime.py`, one function per command), resolves the
 location, fetches what it needs, and then either prints one frame
 (`--print`, or whenever stdout is not a terminal) or opens the live
 view. `__main__.py` is the `linecast` namespace command that dispatches
-to the same six, plus `location.py` and `units.py` for the saved
-settings, `doctor.py` for the diagnostic report, and `_completion.py`
-for the shell completions.
+to the same six, plus `location.py`, `units.py`, `clock.py` and `icons.py`
+for the saved settings, `doctor.py` for the diagnostic report, and
+`_completion.py` for the shell completions.
 
 The larger commands are split by concern, and the split is the same
 for each of them: the top-level module renders one frame from data it
@@ -96,8 +96,8 @@ there and the new directory is not). The config root is
 environment each time they are asked for, never frozen at import, so
 a test or a wrapper can move them. `_cache.py` writes JSON and bytes
 under the cache root, with a maximum age per file; `_config.py` reads
-and writes `config.json` under the config root (the saved location
-and units).
+and writes `config.json` under the config root (the saved location,
+units, clock and icons).
 
 ## Where the network is touched
 
@@ -147,8 +147,8 @@ after a live session in which a background thread crashed;
 `_live.WorkerWatch` catches it
 with `threading.excepthook` while the alternate screen is up and
 reports it once the terminal is restored, with the traceback under
-`--debug`. The fetch workers behind `weather --print` and
-`tides --print` add the traceback the same way
+`--debug`. The fetch workers behind `linecast weather --print` and
+`linecast tides --print` add the traceback the same way
 (`log_failure(..., trace=True)`), so a worker that died is shown in
 full either way. `doctor.py`
 collects the same facts on demand and probes every provider host.

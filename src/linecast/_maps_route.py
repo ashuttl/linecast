@@ -34,11 +34,6 @@ _PRIMARY = "https://routing.openstreetmap.de/routed-{profile}/route/v1/driving/"
 _FALLBACK = "https://router.project-osrm.org/route/v1/driving/"
 _QUERY = "?overview=full&geometries=geojson&steps=true"
 
-# FOSSGIS requires a User-Agent that identifies the client and can be
-# contacted; a bare "linecast/1.8.0" is not enough.
-def _ua():
-    return f"{user_agent()} (+https://github.com/ashuttl/linecast)"
-
 _MIN_INTERVAL = 1.0  # the hosts' published rate limit
 _last_request = 0.0  # monotonic stamp of the last network call
 
@@ -81,7 +76,7 @@ class Route:
 
 def _fetch(url, timeout):
     """The raw request: the decoded JSON body, or an exception."""
-    return fetch_json(url, headers={"User-Agent": _ua()}, timeout=timeout)
+    return fetch_json(url, headers={"User-Agent": user_agent()}, timeout=timeout)
 
 
 def _throttle():

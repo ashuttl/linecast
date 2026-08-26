@@ -1,41 +1,743 @@
 {
-  "help": "https://www.data.qld.gov.au/api/3/action/help_show?name=datastore_search",
-  "success": true,
-  "result": {
-    "include_total": true,
-    "resource_id": "1311fc19-1e60-444f-b5cf-24687f1c15a7",
-    "fields": [
-      {"type": "text", "id": "Site"},
-      {"type": "timestamp", "id": "DateTime"},
-      {"type": "numeric", "id": "Water Level"},
-      {"type": "numeric", "id": "Prediction"},
-      {"type": "numeric", "id": "Residual"},
-      {"type": "numeric", "id": "Latitude"},
-      {"type": "numeric", "id": "Longitude"}
-    ],
-    "records_format": "objects",
-    "records": [
-      {"Site": "Cairns", "DateTime": "2026-03-27T00:00:00", "Water Level": 1.45, "Prediction": 1.42, "Residual": 0.03, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T00:10:00", "Water Level": 1.38, "Prediction": 1.35, "Residual": 0.03, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T00:20:00", "Water Level": 1.30, "Prediction": 1.28, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T00:30:00", "Water Level": 1.22, "Prediction": 1.20, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T00:40:00", "Water Level": 1.14, "Prediction": 1.12, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T00:50:00", "Water Level": 1.06, "Prediction": 1.04, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T01:00:00", "Water Level": 0.98, "Prediction": 0.96, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T01:10:00", "Water Level": 0.91, "Prediction": 0.89, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T01:20:00", "Water Level": 0.84, "Prediction": 0.82, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T01:30:00", "Water Level": 0.78, "Prediction": 0.76, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T01:40:00", "Water Level": 0.73, "Prediction": 0.71, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T01:50:00", "Water Level": 0.69, "Prediction": 0.67, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T02:00:00", "Water Level": 0.66, "Prediction": 0.64, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T02:10:00", "Water Level": 0.64, "Prediction": 0.62, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T02:20:00", "Water Level": 0.63, "Prediction": 0.61, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T02:30:00", "Water Level": 0.64, "Prediction": 0.62, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T02:40:00", "Water Level": 0.66, "Prediction": 0.64, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T02:50:00", "Water Level": 0.70, "Prediction": 0.68, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T03:00:00", "Water Level": 0.75, "Prediction": 0.73, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781},
-      {"Site": "Cairns", "DateTime": "2026-03-27T03:10:00", "Water Level": 0.82, "Prediction": 0.80, "Residual": 0.02, "Latitude": -16.9186, "Longitude": 145.7781}
-    ],
-    "total": 20
-  }
+ "help": "https://www.data.qld.gov.au/api/3/action/help_show?name=datastore_search",
+ "success": true,
+ "result": {
+  "fields": [
+   {
+    "id": "Date",
+    "type": "text"
+   },
+   {
+    "id": "Time",
+    "type": "text"
+   },
+   {
+    "id": "Reading",
+    "type": "text"
+   }
+  ],
+  "records": [
+   {
+    "Date": "26/08/2026",
+    "Time": "23:50",
+    "Reading": "0.680"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "23:40",
+    "Reading": "0.729"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "23:30",
+    "Reading": "0.780"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "23:20",
+    "Reading": "0.831"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "23:10",
+    "Reading": "0.883"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "23:00",
+    "Reading": "0.935"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "22:50",
+    "Reading": "0.987"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "22:40",
+    "Reading": "1.039"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "22:30",
+    "Reading": "1.090"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "22:20",
+    "Reading": "1.140"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "22:10",
+    "Reading": "1.190"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "22:00",
+    "Reading": "1.238"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "21:50",
+    "Reading": "1.285"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "21:40",
+    "Reading": "1.330"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "21:30",
+    "Reading": "1.373"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "21:20",
+    "Reading": "1.415"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "21:10",
+    "Reading": "1.454"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "21:00",
+    "Reading": "1.491"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "20:50",
+    "Reading": "1.525"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "20:40",
+    "Reading": "1.555"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "20:30",
+    "Reading": "1.583"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "20:20",
+    "Reading": "1.606"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "20:10",
+    "Reading": "1.626"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "20:00",
+    "Reading": "1.641"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "19:50",
+    "Reading": "1.652"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "19:40",
+    "Reading": "1.658"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "19:30",
+    "Reading": "1.659"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "19:20",
+    "Reading": "1.656"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "19:10",
+    "Reading": "1.648"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "19:00",
+    "Reading": "1.635"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "18:50",
+    "Reading": "1.618"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "18:40",
+    "Reading": "1.597"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "18:30",
+    "Reading": "1.572"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "18:20",
+    "Reading": "1.543"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "18:10",
+    "Reading": "1.510"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "18:00",
+    "Reading": "1.474"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "17:50",
+    "Reading": "1.435"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "17:40",
+    "Reading": "1.393"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "17:30",
+    "Reading": "1.349"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "17:20",
+    "Reading": "1.303"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "17:10",
+    "Reading": "1.254"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "17:00",
+    "Reading": "1.205"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "16:50",
+    "Reading": "1.154"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "16:40",
+    "Reading": "1.102"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "16:30",
+    "Reading": "1.050"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "16:20",
+    "Reading": "0.997"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "16:10",
+    "Reading": "0.944"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "16:00",
+    "Reading": "0.892"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "15:50",
+    "Reading": "0.840"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "15:40",
+    "Reading": "0.788"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "15:30",
+    "Reading": "0.737"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "15:20",
+    "Reading": "0.688"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "15:10",
+    "Reading": "0.639"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "15:00",
+    "Reading": "0.592"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "14:50",
+    "Reading": "0.548"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "14:40",
+    "Reading": "0.504"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "14:30",
+    "Reading": "0.464"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "14:20",
+    "Reading": "0.427"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "14:10",
+    "Reading": "0.393"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "14:00",
+    "Reading": "0.363"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "13:50",
+    "Reading": "0.337"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "13:40",
+    "Reading": "0.315"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "13:30",
+    "Reading": "0.297"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "13:20",
+    "Reading": "0.283"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "13:10",
+    "Reading": "0.274"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "13:00",
+    "Reading": "0.269"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "12:50",
+    "Reading": "0.269"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "12:40",
+    "Reading": "0.272"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "12:30",
+    "Reading": "0.279"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "12:20",
+    "Reading": "0.290"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "12:10",
+    "Reading": "0.304"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "12:00",
+    "Reading": "0.322"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "11:50",
+    "Reading": "0.342"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "11:40",
+    "Reading": "0.366"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "11:30",
+    "Reading": "0.394"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "11:20",
+    "Reading": "0.423"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "11:10",
+    "Reading": "0.455"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "11:00",
+    "Reading": "0.489"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "10:50",
+    "Reading": "0.524"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "10:40",
+    "Reading": "0.562"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "10:30",
+    "Reading": "0.601"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "10:20",
+    "Reading": "0.639"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "10:10",
+    "Reading": "0.679"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "10:00",
+    "Reading": "0.719"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "09:50",
+    "Reading": "0.758"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "09:40",
+    "Reading": "0.798"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "09:30",
+    "Reading": "0.836"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "09:20",
+    "Reading": "0.872"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "09:10",
+    "Reading": "0.909"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "09:00",
+    "Reading": "0.943"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "08:50",
+    "Reading": "0.975"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "08:40",
+    "Reading": "1.005"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "08:30",
+    "Reading": "1.033"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "08:20",
+    "Reading": "1.058"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "08:10",
+    "Reading": "1.080"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "08:00",
+    "Reading": "1.100"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "07:50",
+    "Reading": "1.116"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "07:40",
+    "Reading": "1.129"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "07:30",
+    "Reading": "1.138"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "07:20",
+    "Reading": "1.144"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "07:10",
+    "Reading": "1.146"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "07:00",
+    "Reading": "1.145"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "06:50",
+    "Reading": "1.140"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "06:40",
+    "Reading": "1.132"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "06:30",
+    "Reading": "1.121"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "06:20",
+    "Reading": "1.107"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "06:10",
+    "Reading": "1.091"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "06:00",
+    "Reading": "1.071"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "05:50",
+    "Reading": "1.049"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "05:40",
+    "Reading": "1.025"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "05:30",
+    "Reading": "0.998"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "05:20",
+    "Reading": "0.970"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "05:10",
+    "Reading": "0.939"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "05:00",
+    "Reading": "0.907"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "04:50",
+    "Reading": "0.872"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "04:40",
+    "Reading": "0.837"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "04:30",
+    "Reading": "0.801"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "04:20",
+    "Reading": "0.764"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "04:10",
+    "Reading": "0.727"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "04:00",
+    "Reading": "0.689"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "03:50",
+    "Reading": "0.652"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "03:40",
+    "Reading": "0.616"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "03:30",
+    "Reading": "0.579"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "03:20",
+    "Reading": "0.544"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "03:10",
+    "Reading": "0.512"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "03:00",
+    "Reading": "0.480"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "02:50",
+    "Reading": "0.450"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "02:40",
+    "Reading": "0.424"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "02:30",
+    "Reading": "0.399"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "02:20",
+    "Reading": "0.378"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "02:10",
+    "Reading": "0.361"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "02:00",
+    "Reading": "0.348"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "01:50",
+    "Reading": "0.339"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "01:40",
+    "Reading": "0.335"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "01:30",
+    "Reading": "0.336"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "01:20",
+    "Reading": "0.341"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "01:10",
+    "Reading": "0.350"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "01:00",
+    "Reading": "0.365"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "00:50",
+    "Reading": "0.383"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "00:40",
+    "Reading": "0.405"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "00:30",
+    "Reading": "0.431"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "00:20",
+    "Reading": "0.461"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "00:10",
+    "Reading": "0.493"
+   },
+   {
+    "Date": "26/08/2026",
+    "Time": "00:00",
+    "Reading": "0.528"
+   }
+  ],
+  "total": 144
+ }
 }

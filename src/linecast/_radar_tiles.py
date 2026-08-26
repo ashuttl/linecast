@@ -128,7 +128,7 @@ def fetch_index(provider: Provider, timeout: float = 15) -> dict[str, Any]:
     path = _cache_dir(provider) / "weather-maps.json"
     try:
         if path.exists() and (time.time() - path.stat().st_mtime) < _INDEX_TTL:
-            return json.loads(path.read_text())
+            return json.loads(path.read_bytes())
     except (OSError, ValueError) as exc:
         log_failure("cache", f"read of {path.name}", exc, fallback="refetching")
     try:
@@ -153,7 +153,7 @@ def _stale_index(path):
     """The last index we managed to keep, whatever its age, or None."""
     try:
         if path.exists():
-            return json.loads(path.read_text())
+            return json.loads(path.read_bytes())
     except (OSError, ValueError) as exc:
         log_failure("cache", f"stale read of {path.name}", exc, fallback="no index")
     return None

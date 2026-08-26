@@ -109,7 +109,7 @@ def _get_route_layer(route, bbox, gw, hc):
     return _route_layer_cache.get((id(route), _view_key(bbox, gw, hc)), build)
 
 
-def _scale_bar(bbox, graph_w, lang):
+def _scale_bar(bbox, graph_w):
     """`├────────┤ 500 m`, or "" when no nice distance fits the view.
 
     Lives at the left of the footer, ahead of the attribution: it is the
@@ -117,7 +117,7 @@ def _scale_bar(bbox, graph_w, lang):
     is cheaper than a grid.
     """
     best = _maps_style.scale_bar(bbox, graph_w,
-                                 _maps_style.use_metric(lang))
+                                 _maps_style.use_metric())
     if best is None:
         return ""
     cells, label = best
@@ -491,7 +491,7 @@ def _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells, lang):
         probe = elev[height_cells][graph_w // 2]  # centre sub-pixel row
     if probe is None:
         return ""
-    return f" · {_maps_style.fmt_elev(probe, lang)}"
+    return f" · {_maps_style.fmt_elev(probe)}"
 
 
 def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
@@ -607,7 +607,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                            ATTRIBUTION)
             else:
                 attribs = (long, both, ATTRIBUTION)
-        scale = (_scale_bar(bbox, graph_w, lang)
+        scale = (_scale_bar(bbox, graph_w)
                  if view == "street" and not globe else "")
         # first rung that fits wins: long+hint, short+hint, short, bare
         ladder = [f"{scale}{fg(*DIM)}{a}{RESET}  {hint}" for a in attribs]

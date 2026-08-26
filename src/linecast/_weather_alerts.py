@@ -1,11 +1,11 @@
 """Weather alert rendering."""
 
 import textwrap
-import unicodedata
 from datetime import datetime
 
 from linecast import _theme
 from linecast._graphics import bg, fg, visible_len, RESET, BOLD
+from linecast._textwidth import char_width
 from linecast._theme import best_contrast
 from linecast._i18n import lang_of
 from linecast._weather_i18n import DAY_NAMES, _s
@@ -28,21 +28,16 @@ from linecast._weather_style import (
 )
 
 
-def _char_width(ch):
-    eaw = unicodedata.east_asian_width(ch)
-    return 2 if eaw in ("W", "F") else 1
-
-
 def _wrap_display_width(text, width):
     """Wrap plain text to fit within a terminal display width.
 
-    Handles CJK double-width characters correctly.  Falls back to
-    ``textwrap.wrap`` when the text contains no wide characters.
+    Handles CJK double-width and emoji characters correctly.  Falls back
+    to ``textwrap.wrap`` when every character is a single cell.
     """
     if not text:
         return [""]
-    # Fast path: no wide chars → stdlib is fine
-    if not any(_char_width(ch) == 2 for ch in text):
+    # Fast path: every char is one cell → stdlib is fine
+    if visible_len(text) == len(text):
         return textwrap.wrap(text, width) or [""]
 
     lines = []
@@ -50,8 +45,8 @@ def _wrap_display_width(text, width):
     line_w = 0
     last_sp = -1
 
-    for ch in text:
-        cw = _char_width(ch)
+    for i, ch in enumerate(text):
+        cw = char_width(ch, text[i + 1:i + 2])
         if line_w + cw > width:
             if ch == " ":
                 lines.append(line)
@@ -61,7 +56,7 @@ def _wrap_display_width(text, width):
                 lines.append(line[:last_sp])
                 rest = line[last_sp + 1:]
                 line = rest + ch
-                line_w = sum(_char_width(c) for c in line)
+                line_w = visible_len(line)
                 last_sp = -1
             else:
                 lines.append(line)
@@ -81,7 +76,7 @@ def _truncate_display_width(text, width):
     """Truncate plain text to fit within a terminal display width, adding \u2026 if needed."""
     w = 0
     for i, ch in enumerate(text):
-        cw = _char_width(ch)
+        cw = char_width(ch, text[i + 1:i + 2])
         if w + cw > width:
             # Back up for the ellipsis
             if w > 0:
@@ -107,7 +102,8 @@ def _parse_alert_time(iso_str, runtime=None, tz_name=""):
         day = day_names[dt.weekday()]
         if use_24h:
             return f"{day} {dt.strftime('%H:%M')}"
-        return f"{day} {dt.strftime('%-I%p').replace('AM', 'am').replace('PM', 'pm')}"
+        from linecast._framebuffer import fmt_hour_phrase
+        return f"{day} {fmt_hour_phrase(dt.hour)}"
     except Exception:
         return ""
 

@@ -31,8 +31,26 @@ _WMO_ICONS_EMOJI = {
 }
 
 
+# Plain Unicode WMO icons: text-presentation glyphs with wide font
+# coverage, single-cell everywhere.  Partly cloudy and overcast share a
+# cloud; the label beside the icon keeps them apart.
+_WMO_ICONS_PLAIN = {
+    0: "☀", 1: "☀", 2: "☁", 3: "☁",
+    45: "≡", 48: "≡",
+    51: "☂", 53: "☂", 55: "☂",
+    56: "☂", 57: "☂",
+    61: "☂", 63: "☂", 65: "☂",
+    66: "☂", 67: "☂",
+    71: "❄", 73: "❄", 75: "❄", 77: "❄",
+    80: "☂", 81: "☂", 82: "☂",
+    85: "❄", 86: "❄",
+    95: "☈", 96: "☈", 99: "☈",
+}
+
+
 def _wmo_icons(runtime):
-    return _WMO_ICONS_EMOJI if runtime.emoji else _WMO_ICONS_NERD
+    return {"nerd": _WMO_ICONS_NERD, "emoji": _WMO_ICONS_EMOJI,
+            "plain": _WMO_ICONS_PLAIN}[runtime.icons]
 
 
 WMO_NAMES = {

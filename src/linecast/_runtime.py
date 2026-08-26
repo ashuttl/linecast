@@ -133,29 +133,103 @@ def env_truthy(value):
 
 
 # ---------------------------------------------------------------------------
-# Units preference
+# Units and clock preferences
 # ---------------------------------------------------------------------------
+_UNSET = object()  # "look the country up yourself" default for the resolvers
+
+# argv[0] as the process started, before dispatch renames it to
+# "linecast <command>"; `linecast link` needs the binary's own path.
+INVOKED_AS = None
+
+
+def default_units(country):
+    """The units for a user who has expressed no preference."""
+    return "imperial" if country == "US" else "metric"
+
+
+# Countries where the 12-hour clock is the everyday written form: a
+# timetable, a shop sign or a weather report there says 6:50 pm, not
+# 18:50.  Everywhere else the 24-hour clock is the default.
+TWELVE_HOUR_COUNTRIES = frozenset((
+    "US", "CA", "AU", "NZ", "PH", "IN", "PK", "BD", "MY", "EG", "SA",
+))
+
+
+def default_clock(country=None):
+    """The clock style for a user who has expressed no preference."""
+    return "12" if country in TWELVE_HOUR_COUNTRIES else "24"
+
+
+def resolve_units(namespace=None, environ=None, legacy_env="WEATHER_UNITS",
+                  country=_UNSET):
+    """The units for this run, and where they came from.
+
+    Returns ("metric" | "imperial", source); source is "flag", the
+    winning env var's name, "config", or "auto".  Precedence:
+    --metric/--imperial flags, the command's own env var (WEATHER_UNITS /
+    TIDES_UNITS), LINECAST_UNITS, the `units` key in config.json, then
+    the default for *country* -- the user's own, looked up offline via
+    own_country() unless the caller already knows it.
+    """
+    env = _environ(environ)
+    if namespace is not None:
+        if getattr(namespace, "imperial", False):
+            return "imperial", "flag"
+        if getattr(namespace, "metric", False):
+            return "metric", "flag"
+    for name in (legacy_env, "LINECAST_UNITS"):
+        value = env.get(name, "").strip().lower()
+        if value in ("metric", "imperial"):
+            return value, name
+    from linecast._config import saved_units
+    saved = saved_units()
+    if saved is not None:
+        return saved, "config"
+    if country is _UNSET:
+        from linecast._location import own_country
+        country = own_country()
+    return default_units(country), "auto"
+
+
+def resolve_clock(namespace=None, environ=None, country=_UNSET):
+    """The clock style for this run, and where it came from.
+
+    Returns ("12" | "24", source); source is "flag", "LINECAST_CLOCK",
+    "config", or "auto".  Precedence: --12h/--24h flags, LINECAST_CLOCK,
+    the `clock` key in config.json (`linecast clock 12|24`), then the
+    default for *country*, looked up as resolve_units does.
+    """
+    env = _environ(environ)
+    if namespace is not None and getattr(namespace, "clock", None) in ("12", "24"):
+        return namespace.clock, "flag"
+    value = env.get("LINECAST_CLOCK", "").strip()
+    if value in ("12", "24"):
+        return value, "LINECAST_CLOCK"
+    from linecast._config import saved_clock
+    saved = saved_clock()
+    if saved is not None:
+        return saved, "config"
+    if country is _UNSET:
+        from linecast._location import own_country
+        country = own_country()
+    return default_clock(country), "auto"
+
+
 def units_pref(env_var="WEATHER_UNITS", environ=None):
     """The user's explicit units preference, or None if they have none.
 
     Precedence: the command's env var (WEATHER_UNITS / TIDES_UNITS), then
-    the `units` key in config.json (`linecast units metric|imperial`).
+    LINECAST_UNITS, then the `units` key in config.json
+    (`linecast units metric|imperial`).
     """
-    env = _environ(environ)
-    value = env.get(env_var, "").strip().lower()
-    if value in ("metric", "imperial"):
-        return value
-    from linecast._config import saved_units
-    return saved_units()
+    value, source = resolve_units(None, environ, env_var, country=None)
+    return None if source == "auto" else value
 
 
-def use_metric(lang, environ=None):
-    """The house units heuristic, in one place: an explicit preference
-    wins; otherwise any non-English UI is metric."""
-    pref = units_pref("WEATHER_UNITS", environ)
-    if pref is not None:
-        return pref == "metric"
-    return lang != "en"
+def use_metric():
+    """The resolved units of the running command, for render helpers
+    called without a runtime (radar and maps)."""
+    return current_runtime().metric
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +249,12 @@ class VersionAction(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         from linecast import __version__
-        sys.stdout.write(f"{parser.prog} (linecast {__version__})\n")
+        # `linecast weather --version` is linecast's version; a parser
+        # under another name (a symlink's) says whose it is.
+        if parser.prog.split()[0] == "linecast":
+            sys.stdout.write(f"linecast {__version__}\n")
+        else:
+            sys.stdout.write(f"{parser.prog} (linecast {__version__})\n")
         parser.exit()
 
 
@@ -188,8 +267,13 @@ def _base_parser(prog, description):
                     help="force live mode (default when interactive)")
     p.add_argument("--oneline", action="store_true",
                     help="compact single-line output")
+    p.add_argument("--icons", choices=("nerd", "emoji", "plain"), default=None,
+                    help="icon set: Nerd Font glyphs, standard emoji, or "
+                         "plain Unicode (default: nerd where the terminal "
+                         "bundles the glyphs, emoji on other interactive "
+                         "terminals, plain when piped or redirected)")
     p.add_argument("--emoji", action="store_true",
-                    help="use standard emoji instead of Nerd Font icons")
+                    help="use standard emoji icons (same as --icons emoji)")
     p.add_argument("--lang", default=None,
                     help="UI language code (en, fr, es, de, it, pt, nl, pl, "
                          "no, sv, is, da, fi, id, ja, ko, zh)")
@@ -202,16 +286,32 @@ def _base_parser(prog, description):
     return p
 
 
+def _add_units_flags(p, metric_help, imperial_help):
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--metric", action="store_true", help=metric_help)
+    g.add_argument("--imperial", action="store_true", help=imperial_help)
+
+
+def _add_clock_flags(p):
+    # explicit dest: "12h" is not a Python identifier
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--24h", dest="clock", action="store_const", const="24",
+                    default=None, help="24-hour clock")
+    g.add_argument("--12h", dest="clock", action="store_const", const="12",
+                    help="12-hour clock")
+
+
 def weather_parser():
-    p = _base_parser("weather",
+    p = _base_parser("linecast weather",
                       "Terminal weather dashboard with braille temperature "
                       "curve and alerts")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
     p.add_argument("--search", default=None,
                     help="search for a location and exit")
-    p.add_argument("--metric", action="store_true",
-                    help="metric units: celsius, km/h, mm")
+    _add_units_flags(p, "metric units: celsius, km/h, mm",
+                     "imperial units: fahrenheit, mph, inches")
+    _add_clock_flags(p)
     p.add_argument("--celsius", action="store_true",
                     help="celsius temperatures only")
     p.add_argument("--fahrenheit", action="store_true",
@@ -224,7 +324,7 @@ def weather_parser():
 
 
 def tides_parser():
-    p = _base_parser("tides",
+    p = _base_parser("linecast tides",
                       "Terminal tide chart with braille rendering")
     p.add_argument("--location", default=None,
                     help="find the nearest station to 'lat,lng' or a "
@@ -236,35 +336,38 @@ def tides_parser():
                          "(no query: list nearest stations)")
     p.add_argument("--nearby", action="store_true",
                     help="list the nearest tide stations and exit")
-    p.add_argument("--metric", action="store_true",
-                    help="heights in meters instead of feet")
+    _add_units_flags(p, "heights in meters",
+                     "heights in feet")
+    _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")
     return p
 
 
 def sunshine_parser():
-    p = _base_parser("sunshine",
+    p = _base_parser("linecast sunshine",
                       "Solar arc inspired by the Apple Watch Solar face")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
+    _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")
     return p
 
 
 def moon_parser():
-    p = _base_parser("moon",
+    p = _base_parser("linecast moon",
                       "Moon phase, illumination, and rise/set times")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
+    _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")
     return p
 
 
 def radar_parser():
-    p = _base_parser("radar",
+    p = _base_parser("linecast radar",
                       "Terminal weather radar over a braille basemap (US + global)")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
@@ -288,11 +391,14 @@ def radar_parser():
                     help="condition layers to show, comma-separated: "
                          "temp (temperature tint), wind (speed/direction "
                          "arrows); press c/w in live mode to toggle")
+    _add_units_flags(p, "metric units: celsius, kilometres",
+                     "imperial units: fahrenheit, miles")
+    _add_clock_flags(p)
     return p
 
 
 def maps_parser():
-    p = _base_parser("maps",
+    p = _base_parser("linecast maps",
                       "Street map and terrain map: vector streets, or "
                       "hillshaded elevation under braille coastlines")
     p.add_argument("--location", default=None,
@@ -316,6 +422,8 @@ def maps_parser():
                          "(default: your location)")
     p.add_argument("--profile", default="car",
                     help="how to travel: car, bike or foot (default car)")
+    _add_units_flags(p, "metric units: kilometres and metres",
+                     "imperial units: miles and feet")
     return p
 
 
@@ -371,23 +479,114 @@ def _resolve_live(ns):
 # ---------------------------------------------------------------------------
 # Runtime config dataclasses
 # ---------------------------------------------------------------------------
+ICON_SETS = ("nerd", "emoji", "plain")
+
+
+def _interactive_utf8(stream):
+    """Whether *stream* is an interactive UTF-8 terminal — the setting
+    emoji are known to render in."""
+    try:
+        if not stream.isatty():
+            return False
+        return "utf" in (getattr(stream, "encoding", "") or "").lower()
+    except Exception:
+        return False
+
+
+def default_icons(env, stream=None):
+    """The icon set to assume when nothing was asked for.
+
+    A terminal cannot be asked which font it renders with, so "does this
+    user have a Nerd Font?" is unanswerable in general.  What is knowable:
+    WezTerm, kitty (since 0.32) and Ghostty ship the Nerd Font symbols as
+    a built-in fallback font, so the icons render there regardless of the
+    configured font.
+
+    Every other modern terminal draws emoji from a system fallback font,
+    so an interactive UTF-8 stream gets the emoji set.  Plain Unicode is
+    kept for the cases emoji cannot be trusted: output that is piped or
+    redirected (stable single-cell widths, greppable), a stream whose
+    encoding cannot carry emoji, TERM=dumb, and a console where no
+    terminal identifies itself at all — TERM, TERM_PROGRAM and
+    WT_SESSION all unset is the legacy Windows console, whose fonts
+    have no emoji.
+    """
+    # A terminal's identity can remain in the environment after stdout is
+    # redirected, so the stream wins first: automatic piped output is plain
+    # regardless of which terminal launched the command.
+    stream = sys.stdout if stream is None else stream
+    if not _interactive_utf8(stream):
+        return "plain"
+    if env.get("TERM", "").lower() == "dumb":
+        return "plain"
+
+    # tmux and screen replace TERM_PROGRAM with their own name, so the
+    # terminals' private variables, which the shell inherited before the
+    # multiplexer started, are checked as well.
+    if env.get("TERM_PROGRAM", "").lower() in ("wezterm", "ghostty"):
+        return "nerd"
+    if env.get("KITTY_WINDOW_ID") or env.get("WEZTERM_PANE") \
+            or env.get("GHOSTTY_RESOURCES_DIR"):
+        return "nerd"
+    if not (env.get("TERM") or env.get("TERM_PROGRAM")
+            or env.get("WT_SESSION")):
+        return "plain"
+    return "emoji"
+
+
+def resolve_icons(namespace=None, environ=None):
+    """The icon set for this run, and where it came from.
+
+    Returns (set, source); source is "flag", "LINECAST_ICONS", "config"
+    or "auto".  Precedence: --icons (and --emoji), LINECAST_ICONS, the
+    `icons` key in config.json (`linecast icons nerd|emoji|plain`), then
+    terminal detection.
+    """
+    env = _environ(environ)
+    explicit = getattr(namespace, "icons", None)
+    if explicit in ICON_SETS:
+        return explicit, "flag"
+    if getattr(namespace, "emoji", False):
+        return "emoji", "flag"
+    env_pref = env.get("LINECAST_ICONS", "").strip().lower()
+    if env_pref in ICON_SETS:
+        return env_pref, "LINECAST_ICONS"
+    from linecast._config import saved_icons
+    saved = saved_icons()
+    if saved is not None:
+        return saved, "config"
+    return default_icons(env), "auto"
+
+
+def _resolve_icons(namespace, env):
+    return resolve_icons(namespace, env)[0]
+
+
 @dataclass(frozen=True)
 class RuntimeConfig:
     live: bool
-    emoji: bool
+    icons: str
     lang: str
     oneline: bool
     json_mode: bool = False  # machine-readable JSON output
+    metric: bool = True      # resolved units, every command
+    use_24h: bool = True     # resolved clock, every command
 
     # the parser whose defaults stand in before a main() has run
     _parser = staticmethod(lambda: _base_parser("linecast", ""))
+    # the command's own units env var, before LINECAST_UNITS
+    _legacy_units_env = "WEATHER_UNITS"
 
     @classmethod
-    def from_sources(cls, namespace, environ=None):
+    def from_sources(cls, namespace, environ=None, country=_UNSET):
         """Build the runtime from a parsed argparse namespace and the
-        environment (os.environ unless *environ* is given)."""
+        environment (os.environ unless *environ* is given).
+
+        *country* feeds the units default; mains that have resolved the
+        user's location call again with it (see resolve_units).
+        """
         env = _environ(environ)
-        if namespace.debug:
+        if namespace.debug and not _DEBUG:
             set_debug(True)
             _log_startup()
         lang = (
@@ -395,13 +594,17 @@ class RuntimeConfig:
             or env.get("LINECAST_LANG", "").strip()
             or "en"
         ).lower()[:2]
+        units, _source = resolve_units(namespace, env, cls._legacy_units_env,
+                                       country)
+        clock, _source = resolve_clock(namespace, env, country)
         return cls(
             live=_resolve_live(namespace),
-            emoji=(getattr(namespace, "emoji", False)
-                   or env.get("LINECAST_ICONS", "").lower() == "emoji"),
+            icons=_resolve_icons(namespace, env),
             lang=lang if len(lang) == 2 and lang.isalpha() else "en",
             oneline=namespace.oneline,
             json_mode=getattr(namespace, "json_mode", False),
+            metric=units == "metric",
+            use_24h=clock == "24",
         )
 
     @classmethod
@@ -409,42 +612,32 @@ class RuntimeConfig:
         """The runtime with no flags given."""
         return cls.from_sources(cls._parser().parse_args([]), environ)
 
-    @property
-    def use_24h(self):
-        return self.lang != "en"
-
 
 @dataclass(frozen=True)
 class WeatherRuntime(RuntimeConfig):
-    # Defaults required: the base class ends in a defaulted field (json_mode).
-    celsius: bool = False
-    metric: bool = False  # wind (km/h) and precipitation (mm)
+    # Defaults required: the base class ends in defaulted fields.
+    celsius: bool = True
     shading: bool = True
 
     _parser = staticmethod(weather_parser)
 
     @classmethod
-    def from_sources(cls, namespace, environ=None):
+    def from_sources(cls, namespace, environ=None, country=_UNSET):
         env = _environ(environ)
-        base = RuntimeConfig.from_sources(namespace, env)
-        all_metric = (
-            namespace.metric
-            or units_pref("WEATHER_UNITS", env) == "metric"
-        )
+        base = RuntimeConfig.from_sources(namespace, env, country)
         # --celsius / --fahrenheit override temperature independently
         if namespace.fahrenheit:
             celsius = False
-        elif namespace.celsius or all_metric:
-            celsius = True
         else:
-            celsius = False
+            celsius = namespace.celsius or base.metric
         return cls(
             live=base.live,
-            emoji=base.emoji,
+            icons=base.icons,
             lang=base.lang,
             oneline=base.oneline,
             celsius=celsius,
-            metric=namespace.metric or all_metric,
+            metric=base.metric,
+            use_24h=base.use_24h,
             shading=(not namespace.no_shading
                      and not env_truthy(env.get("WEATHER_NO_SHADING", ""))),
             json_mode=base.json_mode,
@@ -465,26 +658,8 @@ class WeatherRuntime(RuntimeConfig):
 
 @dataclass(frozen=True)
 class TidesRuntime(RuntimeConfig):
-    # Default required: the base class ends in a defaulted field (json_mode).
-    metric: bool = False  # heights in meters instead of feet
-
     _parser = staticmethod(tides_parser)
-
-    @classmethod
-    def from_sources(cls, namespace, environ=None):
-        env = _environ(environ)
-        base = RuntimeConfig.from_sources(namespace, env)
-        return cls(
-            live=base.live,
-            emoji=base.emoji,
-            lang=base.lang,
-            oneline=base.oneline,
-            json_mode=base.json_mode,
-            metric=(
-                namespace.metric
-                or units_pref("TIDES_UNITS", env) == "metric"
-            ),
-        )
+    _legacy_units_env = "TIDES_UNITS"
 
     @property
     def height_unit(self):

@@ -45,6 +45,16 @@ class RenderTests(unittest.TestCase):
             now_local - timedelta(hours=6) + timedelta(minutes=120),
         )
 
+    def test_render_footer_names_the_data_source(self):
+        now_local = datetime(2026, 3, 5, 12, 0, 0)
+        preds = [(now_local + timedelta(hours=h), float(h % 12))
+                 for h in range(-6, 30)]
+        with patch.object(tides, "_station_now", return_value=now_local), \
+             patch.object(tides, "get_terminal_size", return_value=(80, 24)):
+            out = tides.render("CCH", "Cheung Chau", predictions=preds,
+                               hilo=[], provider=HKO)
+        self.assertIn("Hong Kong Observatory", out)
+
     def test_render_fetches_scrubbed_day_when_offset_crosses_midnight(self):
         now_local = datetime(2026, 3, 5, 23, 30, 0)
         scrubbed_date = date(2026, 3, 6)
@@ -258,7 +268,7 @@ class ProviderRegistryTests(unittest.TestCase):
                           return_value=("om:43.6770,-70.3710", None)), \
              patch("linecast._sunshine_json._location_label", return_value="Portland, ME"):
             self.assertEqual(OPENMETEO.nearest(43.677, -70.371),
-                             ("om:43.6770,-70.3710", "Portland, ME (model)"))
+                             ("om:43.6770,-70.3710", "Portland, ME"))
         with patch.object(_tides_openmeteo, "find_nearest_openmeteo",
                           return_value=(None, None)):
             self.assertEqual(OPENMETEO.nearest(39.0, -98.0), (None, None))
@@ -321,7 +331,7 @@ class LocationRoutingTests(unittest.TestCase):
 
     def test_openmeteo_is_the_last_resort(self):
         picked, _asked = self._route(38.72, -9.14, "PT", openmeteo=("om:38.7200,-9.1400", None))
-        self.assertEqual(picked, (OPENMETEO, "om:38.7200,-9.1400", "Somewhere (model)"))
+        self.assertEqual(picked, (OPENMETEO, "om:38.7200,-9.1400", "Somewhere"))
 
     def test_nothing_in_range(self):
         picked, _asked = self._route(39.0, -98.0, "US", key=True)

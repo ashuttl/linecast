@@ -263,8 +263,11 @@ def _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime):
     """Compute sunrise/sunset labels mapped to graph columns."""
     sun_labels = {}
     use_24h = runtime.use_24h
-    sunrise_icon = "\u2600\ufe0f" if runtime.emoji else "\U000F059C"
-    sunset_icon = "\U0001f305" if runtime.emoji else "\U000F059B"
+    # Sunrise and sunset are marked with up and down arrows in every
+    # icon set: they say rise and set more plainly than any sun glyph,
+    # match the oneline view, and stay one cell wide.
+    sunrise_icon = "\u2191"
+    sunset_icon = "\u2193"
     if window_dts and sun_events:
         t0 = window_dts[0]
         for rise, sset in sun_events:

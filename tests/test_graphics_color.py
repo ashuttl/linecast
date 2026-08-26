@@ -1,3 +1,4 @@
+import sys
 import unittest
 
 from linecast import _graphics
@@ -17,16 +18,22 @@ class DetectColorModeTests(unittest.TestCase):
         mode = _graphics.detect_color_mode(environ=env, stream=_TTY(True))
         self.assertEqual(mode, "none")
 
+    @unittest.skipIf(sys.platform == "win32",
+                     "Windows asks the console for capability, not TERM")
     def test_colorterm_truecolor_wins(self):
         env = {"TERM": "xterm-256color", "COLORTERM": "truecolor"}
         mode = _graphics.detect_color_mode(environ=env, stream=_TTY(True))
         self.assertEqual(mode, "truecolor")
 
+    @unittest.skipIf(sys.platform == "win32",
+                     "Windows asks the console for capability, not TERM")
     def test_term_256color_detected(self):
         env = {"TERM": "screen-256color"}
         mode = _graphics.detect_color_mode(environ=env, stream=_TTY(True))
         self.assertEqual(mode, "256")
 
+    @unittest.skipIf(sys.platform == "win32",
+                     "Windows asks the console for capability, not TERM")
     def test_defaults_to_16_for_basic_tty(self):
         env = {"TERM": "xterm"}
         mode = _graphics.detect_color_mode(environ=env, stream=_TTY(True))
@@ -57,6 +64,20 @@ class ColorMappingTests(unittest.TestCase):
         seq = _graphics._bg_for_mode("256", 12, 34, 56)
         self.assertTrue(seq.startswith("\033[48;5;"))
         self.assertTrue(seq.endswith("m"))
+
+    def test_ansi16_keeps_muted_colors_neutral(self):
+        from linecast._color import _ANSI16_NEUTRALS, _rgb_to_ansi16
+        # a soft gradient's blends must not gain saturation: dark
+        # blue-slate used to land on navy, dusk blue-gray on teal
+        self.assertIn(_rgb_to_ansi16(57, 64, 80), _ANSI16_NEUTRALS)
+        self.assertIn(_rgb_to_ansi16(38, 60, 78), _ANSI16_NEUTRALS)
+        self.assertIn(_rgb_to_ansi16(55, 87, 103), _ANSI16_NEUTRALS)
+
+    def test_ansi16_keeps_saturated_colors_saturated(self):
+        from linecast._color import _rgb_to_ansi16
+        self.assertEqual(_rgb_to_ansi16(255, 0, 0), 9)     # bright red
+        self.assertEqual(_rgb_to_ansi16(60, 80, 200), 12)  # bright blue
+        self.assertEqual(_rgb_to_ansi16(30, 90, 40), 2)    # green
 
 
 if __name__ == "__main__":

@@ -60,6 +60,60 @@ def get_location() -> tuple[float | None, float | None, str | None]:
     return lat, lng, country
 
 
+def own_country() -> str | None:
+    """The user's own country (ISO alpha-2), for units and clock defaults.
+
+    The saved location's country, else the IP-geolocation cache -- read
+    with a 30-day tolerance, since a country changes far more slowly than
+    a position -- else None.  Never fetches: the defaults must resolve
+    offline, and before any command has touched the network.
+    """
+    saved = saved_location()
+    if saved is not None and saved.get("country"):
+        return saved["country"]
+    cached = read_cache(_cache_file(), 30 * 86400)
+    if cached is not None and cached.get("country"):
+        return cached["country"]
+    return None
+
+
+def country_for_defaults(
+    cli_location: str | None, country_code: str | None,
+    lat: float | None = None, lng: float | None = None,
+) -> str | None:
+    """The country whose conventions set the units and clock defaults.
+
+    That is the user's own country: the resolved location's when nothing
+    points the view elsewhere.  With a --location override the user's
+    country comes from own_country() and this returns None, meaning the
+    runtime already has it -- except on a first run, before a location is
+    saved or an IP answer cached, when nothing is known.  Then the viewed
+    place's country stands in: imperial for "Portland, Maine" is a better
+    guess than metric-and-24-hour.  Reverse geocoding it is cached.
+    """
+    if not location_overridden(cli_location):
+        return country_code or None
+    if own_country() is not None:
+        return None
+    if country_code:
+        return country_code
+    if lat is None or lng is None:
+        return None
+    try:
+        from linecast._weather_sources import _reverse_geocode
+        _name, country, _addr = _reverse_geocode(lat, lng)
+    except Exception:
+        return None
+    return country or None
+
+
+def location_overridden(cli_location: str | None = None) -> bool:
+    """True when a --location flag or WEATHER_LOCATION points the view
+    somewhere explicit -- a place that need not be the user's own, so
+    its country must not feed the units default."""
+    return bool((cli_location or os.environ.get("WEATHER_LOCATION", "")).strip())
+
+
 def resolve_location(
     cli_location: str | None = None, lang: str = "en", need_country: bool = False,
     return_label: bool = False,

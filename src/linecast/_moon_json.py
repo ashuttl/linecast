@@ -6,8 +6,10 @@ and low-precision rise/set ephemeris; times are minute-precision local ISO
 strings and missing values become None rather than raising.
 """
 
+import calendar
 from datetime import timedelta, timezone
 
+from linecast._seasons import full_moon_name, next_season_event
 from linecast._sunshine_json import _iso, _local_timezone_name, _location_label
 
 SCHEMA_VERSION = 1
@@ -45,8 +47,13 @@ def build_payload(now_local, lat, lng, runtime, location=None):
 
     days_to_full = ((0.5 - frac) % 1.0) * SYNODIC_MONTH
     days_to_new = ((1.0 - frac) % 1.0) * SYNODIC_MONTH
-    next_full = (now_local + timedelta(days=days_to_full)).date().isoformat()
+    full_dt = now_local + timedelta(days=days_to_full)
+    next_full = full_dt.date().isoformat()
     next_new = (now_local + timedelta(days=days_to_new)).date().isoformat()
+
+    event, event_utc = next_season_event(now_local)
+    event_kind = ("march_equinox", "june_solstice",
+                  "september_equinox", "december_solstice")[event]
 
     altitude = _moon_altitude_deg(now_local.astimezone(timezone.utc), lat, lng)
 
@@ -63,7 +70,16 @@ def build_payload(now_local, lat, lng, runtime, location=None):
         "age_days": round(age_days, 1),
         "events": events,
         "next_full": next_full,
+        # Traditional Old Farmer's Almanac name for that full moon,
+        # e.g. "Harvest" or "Blue"
+        "next_full_name": full_moon_name(full_dt, SYNODIC_MONTH),
         "next_new": next_new,
+        "day_of_year": now_local.timetuple().tm_yday,
+        "days_in_year": 366 if calendar.isleap(now_local.year) else 365,
+        "next_season_event": {
+            "kind": event_kind,
+            "time": _iso(event_utc.astimezone(now_local.tzinfo)),
+        },
         "southern": bool(lat is not None and lat < 0),
         # Extras a widget would want beyond the phase basics:
         "altitude_deg": round(altitude, 1),

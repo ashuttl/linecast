@@ -1,5 +1,6 @@
 """python -m linecast / linecast CLI entry point."""
 
+import os
 import sys
 from linecast._completion import available_shells, completion_help, render_completion
 
@@ -15,11 +16,15 @@ Commands:
   linecast maps        Street and terrain maps: vector streets or hillshaded relief
   linecast location    Show or set a fixed location (overrides IP geolocation)
   linecast units       Show or set preferred units (metric or imperial)
+  linecast clock       Show or set the clock style (12-hour or 24-hour)
+  linecast icons       Show or set the icon set (nerd, emoji, or plain)
+  linecast link        Make the short commands (weather, moon, …) as links to linecast
   linecast doctor      Show where files live, what the terminal supports, and which providers answer
   linecast completion  Print shell completion script (bash, zsh, fish, nushell)
 
-Each command is also installed as a standalone binary (weather, sunshine,
-moon, tides, radar, maps). Run any command with --help for options.
+Prefer the short spellings? `linecast link` makes them, or a shell
+alias (alias weather='linecast weather') runs the command directly.
+Run any command with --help for options.
 """
 
 COMMANDS = {
@@ -31,11 +36,42 @@ COMMANDS = {
     "maps": "linecast.maps",
     "location": "linecast.location",
     "units": "linecast.units",
+    "clock": "linecast.clock",
+    "icons": "linecast.icons",
+    "link": "linecast.link",
     "doctor": "linecast.doctor",
 }
 
+# The commands that answer to their own name as argv[0], for users and
+# distro packages that link or copy the binary under a short name. Only
+# these dispatch: the utility commands (location, units, doctor) have no
+# standalone spelling to honour.
+STANDALONE = ("weather", "sunshine", "moon", "tides", "radar", "maps")
+
+
+def _run(cmd, args):
+    # Shift argv so the subcommand sees itself as argv[0], keeping the
+    # original where `linecast link` can find the binary.
+    from linecast import _runtime
+    _runtime.INVOKED_AS = sys.argv[0]
+    sys.argv = [f"linecast {cmd}"] + list(args)
+    import importlib
+    mod = importlib.import_module(COMMANDS[cmd])
+    mod.main()
+
 
 def main():
+    # A binary named for a command is that command: a symlink or copy
+    # of the linecast binary called `weather` runs the weather command,
+    # arguments untouched.  Distro packages ship the short commands as
+    # symlinks to this binary, so a name some other package owns can be
+    # left out without losing the command.  lower() and splitext cover
+    # Windows, where the copy is weather.exe.
+    prog = os.path.splitext(os.path.basename(sys.argv[0] or ""))[0].lower()
+    if prog in STANDALONE:
+        _run(prog, sys.argv[1:])
+        return
+
     args = sys.argv[1:]
 
     # The version comes from importlib.metadata, which costs more than
@@ -70,12 +106,7 @@ def main():
         print("Run 'linecast --help' for usage.", file=sys.stderr)
         sys.exit(1)
 
-    # Shift argv so the subcommand sees itself as argv[0]
-    sys.argv = [f"linecast {cmd}"] + args[1:]
-
-    import importlib
-    mod = importlib.import_module(COMMANDS[cmd])
-    mod.main()
+    _run(cmd, args[1:])
 
 
 if __name__ == "__main__":

@@ -7,12 +7,11 @@ formatting helpers used across the UI.
 
 import math
 import os
-import re
 import shutil
-import unicodedata
 
 from linecast import _theme
 from linecast._color import RESET, BOLD, BG_PRIMARY, fg, bg, lerp
+from linecast._textwidth import char_width, visible_len  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
@@ -28,45 +27,14 @@ def halfblock(top, bot):
     return f"{bg(*top)}{fg(*bot)}{HALF_BLOCK}"
 
 
-def visible_len(s):
-    """Length of a string ignoring ANSI escapes, counting wide/emoji chars as 2."""
-    stripped = re.sub(r'\033\][^\033]*\033\\', '', s)  # strip OSC sequences (hyperlinks)
-    stripped = re.sub(r'\033\[[^m]*m', '', stripped)
-    chars = list(stripped)
-    n = 0
-    i = 0
-    while i < len(chars):
-        ch = chars[i]
-        cp = ord(ch)
-        # Check if next char is VS16 (emoji presentation selector)
-        has_vs16 = (i + 1 < len(chars) and chars[i + 1] == '\ufe0f')
-        if ch == '\ufe0f':
-            # VS16 itself is zero-width (already accounted for on the base char)
-            i += 1
-            continue
-        cat = unicodedata.category(ch)
-        eaw = unicodedata.east_asian_width(ch)
-        if cat == 'Co':
-            # Private Use Area (Nerd Font icons) — single-width
-            n += 1
-        elif eaw in ('W', 'F'):
-            n += 2
-        elif has_vs16:
-            # Base char + VS16 → emoji presentation → double-width
-            n += 2
-        elif cp >= 0x1F000:
-            n += 2
-        else:
-            n += 1
-        i += 1
-    return n
-
-
-def fmt_time(hours):
-    """Format decimal hours as H:MM."""
+def fmt_time(hours, use_24h=False):
+    """Format decimal hours as h:MMa/p, or HH:MM on a 24-hour clock."""
     h = int(hours) % 24
     m = int((hours % 1) * 60)
-    return f"{h}:{m:02d}"
+    if use_24h:
+        return f"{h:02d}:{m:02d}"
+    h12 = h % 12 or 12
+    return f"{h12}:{m:02d}{'a' if h < 12 else 'p'}"
 
 
 def fmt_hour(h, use_24h=False):
@@ -83,11 +51,23 @@ def fmt_hour(h, use_24h=False):
     return f"{h - 12}p"
 
 
+def fmt_hour_phrase(hour, use_24h=False, lang="en"):
+    """Conversational hour: '3pm' (12h), '15h' (24h), '15時' (Japanese)."""
+    hour = hour % 24
+    if use_24h:
+        return f"{hour}時" if lang == "ja" else f"{hour:02d}h"
+    h12 = hour % 12 or 12
+    return f"{h12}{'am' if hour < 12 else 'pm'}"
+
+
 def fmt_time_dt(dt, use_24h=False):
     """Format a datetime as a compact time string."""
     if use_24h:
         return dt.strftime("%H:%M")
-    return dt.strftime("%-I:%M%p").lower().replace("am", "a").replace("pm", "p")
+    # %-I is a glibc/BSD extension that Windows' CRT rejects, and %p is
+    # locale-dependent; derive both by hand as fmt_time does just above.
+    hour = dt.hour % 12 or 12
+    return f"{hour}:{dt.minute:02d}{'a' if dt.hour < 12 else 'p'}"
 
 
 def get_terminal_size(fallback=(80, 24)):
@@ -202,7 +182,8 @@ class Framebuffer:
 
         overlays: dict of {(col, cell_row): (char, fg_color)} for character overlays.
                   These replace the half-block at that position with a character
-                  drawn in fg_color over the appropriate background.
+                  drawn in fg_color over the appropriate background.  A third
+                  tuple element False drops the default bold weight.
         Returns a list of strings, one per cell row.
         """
         if overlays is None:
@@ -216,10 +197,12 @@ class Framebuffer:
                 bot = self.fb[row * 2 + 1][x]
                 key = (x, row)
                 if key in overlays:
-                    char, fg_color = overlays[key]
+                    entry = overlays[key]
+                    char, fg_color = entry[0], entry[1]
+                    weight = BOLD if len(entry) < 3 or entry[2] else ""
                     # An overlay char covers the whole cell; blend the two
                     # sub-pixels so its background matches the cell center.
-                    parts.append(f"{bg(*self.cell_bg(x, row))}{fg(*fg_color)}{BOLD}{char}{RESET}")
+                    parts.append(f"{bg(*self.cell_bg(x, row))}{fg(*fg_color)}{weight}{char}{RESET}")
                 else:
                     parts.append(halfblock(top, bot))
             parts.append(RESET)

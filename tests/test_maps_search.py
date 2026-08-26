@@ -27,8 +27,8 @@ if _src not in sys.path:
 from linecast import _maps_search as ms
 
 FIXTURES = Path(__file__).parent / "fixtures"
-PHOTON = json.loads((FIXTURES / "photon_search.json").read_text())
-NOMINATIM = json.loads((FIXTURES / "nominatim_search.json").read_text())
+PHOTON = json.loads((FIXTURES / "photon_search.json").read_text(encoding="utf-8"))
+NOMINATIM = json.loads((FIXTURES / "nominatim_search.json").read_text(encoding="utf-8"))
 
 
 class _Fetch:
@@ -250,7 +250,7 @@ class TestNominatimCache:
         files = list((cache / "maps" / "search").glob("*.json"))
         assert len(files) == 1
         assert len(files[0].stem) == 12  # md5 prefix
-        assert json.loads(files[0].read_text()) == NOMINATIM
+        assert json.loads(files[0].read_text(encoding="utf-8")) == NOMINATIM
 
     def test_second_call_never_touches_the_network(self, cache, no_throttle,
                                                    monkeypatch):

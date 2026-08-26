@@ -5,14 +5,76 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
-- Tides: Stations in a timezone linecast has no abbreviation for now
-  show their UTC offset, such as "UTC+5:45", instead of a plain "UTC".
-- Tides: `--station` and `TIDE_STATION` take a TideCheck station ID such
-  as `fes2022-lisbon` directly, without spending a search request.
-- Tides: `tides --nearby`, `tides --search`, and `linecast doctor` now say
-  how many of the day's 50 free-tier TideCheck requests linecast has used.
-  Set `LINECAST_TIDECHECK_PAID=1` on a paid plan to drop the cap from the
-  line.
+linecast 2.0 runs on Windows, installs a single `linecast` command,
+and picks its defaults from your location. Upgrading from 1.x, four things change
+unless you say otherwise; each has a one-line fix below.
+
+Major changes this version:
+
+- Windows: linecast now runs in Windows Terminal. Windows
+  installs `tzdata` and `truststore`; macOS and Linux remain
+  dependency-free.
+- Install (breaking): The six short commands (`weather`, `sunshine`,
+  `moon`, `tides`, `radar`, `maps`) are no longer installed, because
+  their names collide with other programs. Use `linecast <command>`,
+  or run `linecast link` once to put the six names back as links to
+  the `linecast` binary (it skips any name something else owns;
+  `--remove` undoes it). A shell alias works too.
+- Units: Metric is now the default everywhere except the United
+  States, judged by the saved location or the machine's IP.
+  `linecast units metric|imperial|auto` saves a choice, `LINECAST_UNITS`
+  and `--metric`/`--imperial` override it per run, and radar and maps
+  follow the same setting instead of guessing from the interface
+  language.
+- Clock: The default follows the country instead of the interface
+  language: 12-hour in the United States, Canada, Australia and the
+  other places that write 6:50 pm, 24-hour everywhere else. A French
+  speaker in the US now gets 12-hour; an English speaker in France,
+  24-hour. `linecast clock 12|24|auto` saves a choice, `LINECAST_CLOCK`
+  and `--12h`/`--24h` override it per run, and sunshine follows the
+  same preference as the other views.
+- Icons: linecast no longer assumes a Nerd Font. Terminals known to
+  bundle its glyphs use them, other interactive terminals use emoji,
+  and piped output uses plain Unicode. `linecast icons nerd` restores
+  the full set for a terminal whose font linecast cannot see;
+  `--icons nerd|emoji|plain` and `LINECAST_ICONS` choose per run, and
+  `linecast doctor` previews all three.
+
+Other changes:
+
+- Settings: `linecast units`, `linecast clock` and `linecast icons`
+  now say which setting is in force and where it came from.
+- Cache and settings: JSON is read as UTF-8 on every platform. A saved
+  location or cached response with a non-ASCII name no longer appears
+  lost on Windows.
+- Drawing: Emoji in alerts and map labels wrap at their real display
+  width. Sunshine and moon no longer acquire coloured rings on 256- or
+  16-colour terminals, and sunrise and sunset use plain arrows in every
+  icon set.
+- Moon: The full-screen layout follows the terminal. A wide window
+  floats the details beside a taller moon; a small one shortens or
+  drops lines before they can wrap, and every size fills the screen
+  while keeping stars out from under the text.
+- Moon: The next full moon carries its traditional Almanac name —
+  Harvest Moon, Wolf Moon, Blue Moon and the rest. The last line gives
+  the day of the year and counts down to the next equinox or solstice;
+  `--json` carries the same fields.
+- Tides: Queensland stations now show the future. Maritime Safety
+  Queensland's predicted datasets carry the whole calendar year,
+  replacing the monitoring feed that ended at the present and left the
+  curve flat. Coverage grows from about two dozen sites to nearly
+  eighty gauges; a saved station from before resolves to the nearest
+  new gauge.
+- Tides: The footer names the station's data source — NOAA, CHS,
+  Queensland Open Data, Hong Kong Observatory, TideCheck, or Open-Meteo's
+  tide model — and the location pill drops its "(model)" suffix. The
+  header and marine line fit correctly with emoji, and an unfamiliar
+  timezone shows its UTC offset instead of plain UTC.
+- Tides: `--station` and `TIDE_STATION` accept a TideCheck station ID
+  such as `fes2022-lisbon` without spending a search request.
+  `linecast tides --nearby`, `--search`, and `linecast doctor` show how
+  many of the day's 50 free-tier requests have been used;
+  `LINECAST_TIDECHECK_PAID=1` hides the tally.
 
 ## 1.17.0 — 2026-08-25
 

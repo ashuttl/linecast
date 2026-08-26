@@ -194,7 +194,7 @@ class TestUnwritableCache:
 
     def test_nws_alerts_still_answer(self, readonly_cache, monkeypatch):
         fixture = Path(__file__).parent / "fixtures" / "nws_alerts_with_test.json"
-        payload = json.loads(fixture.read_text())
+        payload = json.loads(fixture.read_text(encoding="utf-8"))
         monkeypatch.setattr(_http, "fetch_json",
                             lambda url, headers=None, timeout=10: payload)
         alerts = _weather_sources._fetch_alerts_nws(40.7, -74.0)
@@ -213,6 +213,8 @@ class TestUnreadableCache:
         assert _cache.read_cache(path, 60) is None
         assert _cache.read_stale(path) is None
 
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason="file modes do not deny reads on Windows")
     def test_an_unreadable_file_reads_as_absent(self, tmp_path):
         if os.geteuid() == 0:
             pytest.skip("root is not refused by file modes")
@@ -258,6 +260,9 @@ class TestUnwritableConfig:
 # conftest.py did its job
 # ---------------------------------------------------------------------------
 def _real_home():
+    if sys.platform == "win32":
+        from conftest import REAL_HOME
+        return REAL_HOME
     import pwd
     return Path(pwd.getpwuid(os.getuid()).pw_dir)
 
@@ -285,8 +290,9 @@ class TestPrivateHome:
 
     def test_home_survives_a_cleared_environment(self, monkeypatch):
         private = Path.home()
-        for name in ("HOME", "XDG_CACHE_HOME", "XDG_CONFIG_HOME",
-                     "LINECAST_CACHE_DIR", "LINECAST_CONFIG_DIR"):
+        for name in ("HOME", "USERPROFILE", "XDG_CACHE_HOME",
+                     "XDG_CONFIG_HOME", "LINECAST_CACHE_DIR",
+                     "LINECAST_CONFIG_DIR"):
             monkeypatch.delenv(name, raising=False)
         assert Path.home() == private
         real = _real_home()

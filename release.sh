@@ -12,6 +12,13 @@ set -euo pipefail
 
 BUMP="${1:-patch}"
 LINECAST_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Releases are cut from main: the script pushes main and tags it.
+BRANCH=$(git -C "$LINECAST_DIR" branch --show-current)
+if [ "$BRANCH" != "main" ]; then
+  echo "On branch '$BRANCH'. Merge to main first, then release from there."
+  exit 1
+fi
 CHANGELOG="$LINECAST_DIR/CHANGELOG.md"
 
 # GNU sed wants -i, BSD/macOS sed wants -i '' — releases happen from both

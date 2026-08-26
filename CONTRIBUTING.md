@@ -45,17 +45,18 @@ running the build they were installed from until you reinstall from
 the checkout:
 
 ```sh
-uv run weather --print
+uv run linecast weather --print
 uv run linecast doctor --offline
 uv tool install --reinstall .
 ```
 
 ## How a command runs
 
-Each command is a console script (`[project.scripts]` in
-`pyproject.toml`) that calls `main()` in its module; `linecast
-weather` goes through `__main__.py` to the same `main()`, so the two
-are one code path.
+Every command runs through the one console script (`[project.scripts]`
+in `pyproject.toml`): `linecast weather` goes through `__main__.py` to
+`main()` in the command's module, and a binary or alias named `weather`
+reaches the same `main()` by argv[0] dispatch, so the two are one code
+path.
 
 `main()` does the same things in the same order in every command. It
 parses arguments with the command's parser factory from `_runtime.py`
@@ -270,6 +271,30 @@ against the built wheel, and `publish.yml` then sends that same wheel
 to PyPI, byte for byte. Homebrew follows with
 `./release-homebrew.sh <version>` once PyPI has it.
 
+## Packaging for a distribution
+
+The wheel installs one command: `linecast`. The short names
+(`weather`, `sunshine`, `moon`, `tides`, `radar`, `maps`) are common
+words, and on some systems one of them is already taken —
+`/usr/bin/sunshine` belongs to the Sunshine streaming server on a
+machine that has it, and a package that ships the file anyway cannot
+be installed there at all (issue #20). So the wheel ships none of
+them, and `scripts/smoke_wheel.sh` fails if one creeps back in.
+
+The `linecast` binary answers to the name it is invoked by: a symlink
+to it called `weather` runs the weather command, arguments untouched.
+So a distribution package may ship any of the short commands as
+symlinks where its ecosystem allows, and a user may make their own
+symlink or shell alias (`linecast link` makes the six of them, and
+skips any name another program owns). Every command stays reachable
+as `linecast <command>`, so a short name left out costs the short
+spelling and nothing else.
+
+Two things a package should not do: rename the commands to something
+of its own, and declare the short names as provided or virtual
+packages — linecast is not a substitute for another program that
+happens to share a name.
+
 ## Why there are no dependencies
 
 linecast has no runtime dependencies, and a pull request that adds
@@ -280,7 +305,7 @@ Importing `linecast.weather` costs about 30 ms on top of the
 interpreter, and the modules a command does not need on every run are
 imported inside the function that needs them. A dependency that
 imports at startup is paid on every run of every command, and a
-status bar that calls `moon --oneline` once a minute notices.
+status bar that calls `linecast moon --oneline` once a minute notices.
 
 Installability. `get.sh` runs linecast on a machine with nothing but
 `python3`, installing the package into a small venv of its own;

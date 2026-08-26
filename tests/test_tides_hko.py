@@ -20,7 +20,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def _load(name):
-    return json.loads((FIXTURES / name).read_text())
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
 def _fake_fetch_year(data_type, station_id, year):

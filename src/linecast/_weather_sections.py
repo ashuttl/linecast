@@ -266,12 +266,9 @@ def _precipitation_line(hourly, now, runtime=None):
         if delta < 4:
             return _s("in_a_couple_hours", runtime)
         if dt.date() == now.date():
-            if runtime.use_24h:
-                time_text = f"{dt.hour}\u6642" if lang == "ja" else f"{dt.hour:02d}h"
-                return _s("around", runtime, time=time_text)
-            h12 = dt.hour % 12 or 12
-            suffix = "am" if dt.hour < 12 else "pm"
-            return _s("around", runtime, time=f"{h12}{suffix}")
+            from linecast._framebuffer import fmt_hour_phrase
+            return _s("around", runtime,
+                      time=fmt_hour_phrase(dt.hour, runtime.use_24h, lang))
         if dt.date() == (now + timedelta(days=1)).date():
             if dt.hour < 5:
                 return _s("overnight", runtime)

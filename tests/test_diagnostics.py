@@ -304,16 +304,19 @@ class TestWorkerWatch:
 @pytest.fixture
 def fake_tty(monkeypatch):
     """Enough of a terminal for live_loop to start: a pipe for stdin
-    and termios calls that do nothing."""
+    and termios calls that do nothing.  On Windows a pipe needs no
+    faking: set_cbreak sees no console handle and leaves it alone."""
     import os
-    import termios
-    import tty
     r, w = os.pipe()
     stdin = os.fdopen(r, "rb", buffering=0)
     monkeypatch.setattr(sys, "stdin", stdin)
-    monkeypatch.setattr(termios, "tcgetattr", lambda fd: [0, 0, 0, 0, 0, 0, []])
-    monkeypatch.setattr(termios, "tcsetattr", lambda *args: None)
-    monkeypatch.setattr(tty, "setcbreak", lambda fd: None)
+    if sys.platform != "win32":
+        import termios
+        import tty
+        monkeypatch.setattr(termios, "tcgetattr",
+                            lambda fd: [0, 0, 0, 0, 0, 0, []])
+        monkeypatch.setattr(termios, "tcsetattr", lambda *args: None)
+        monkeypatch.setattr(tty, "setcbreak", lambda fd: None)
     monkeypatch.setenv("LINECAST_THEME_POLL", "0")
     monkeypatch.setenv("LINECAST_THEME_WATCH", "")
     yield

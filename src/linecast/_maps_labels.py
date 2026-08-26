@@ -42,10 +42,10 @@ see rather than the point the data hands you.
 import heapq
 
 from linecast import _maps_style as style
-from linecast._framebuffer import visible_len
 from linecast._radar_basemap import (
-    _bresenham, _cell_width, _load_data, _localized, marine_region,
+    _bresenham, _load_data, _localized, marine_region,
 )
+from linecast._textwidth import char_width, visible_len
 from linecast._vtiles import iter_layer
 
 LABEL_LAYERS = ("place", "water_name", "park", "transportation_name",
@@ -778,7 +778,7 @@ def poi_candidates(view, bbox, graph_w, height_cells, band, lang):
             if layer_name == "mountain_peak":
                 if name and band >= style.POI_PEAK_LABEL_BAND:
                     try:
-                        ele = style.fmt_elev(float(props["ele"]), lang)
+                        ele = style.fmt_elev(float(props["ele"]))
                         name = f"{name} {ele}"
                     except (KeyError, TypeError, ValueError):
                         pass
@@ -812,7 +812,7 @@ def _emit(overlays, occ, row, col, text, ink, bold, mark=None):
         overlays[(c, row)] = (ch, ink, bold)
         if mark is not None:
             mark[0][(c, row)] = mark[1]
-        if _cell_width(ch) == 2:
+        if char_width(ch) == 2:
             overlays[(c + 1, row)] = ("", ink, False)
             if mark is not None:
                 mark[0][(c + 1, row)] = mark[1]
