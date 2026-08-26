@@ -391,3 +391,24 @@ class TestQLDBoundaryDetection(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FindExtremaTest(unittest.TestCase):
+    """Centimetre-rounded readings step down through a neap stand; the
+    staircase must not read as one low after another."""
+
+    def test_staircase_yields_alternating_extrema(self):
+        from datetime import datetime, timedelta
+        from linecast._tides_qld import _find_extrema
+        heights = [1.70, 1.68, 1.66, 1.65, 1.65, 1.65, 1.66, 1.66, 1.65,
+                   1.65, 1.64, 1.64, 1.64, 1.65, 1.67, 1.70]
+        t0 = datetime(2026, 9, 3, 22, 0)
+        points = [(t0 + timedelta(minutes=10 * i), h) for i, h in enumerate(heights)]
+        found = _find_extrema(points)
+        kinds = []
+        for i in range(len(found)):
+            kinds.append("H" if (i % 2 == 0) == (found[0][1] > found[1][1]) else "L")
+        self.assertEqual([h for _dt, h in found], [1.65, 1.66, 1.64])
+        self.assertEqual(kinds, ["L", "H", "L"])
+        # a run of equal readings is reported at its middle
+        self.assertEqual(found[0][0], t0 + timedelta(minutes=40))

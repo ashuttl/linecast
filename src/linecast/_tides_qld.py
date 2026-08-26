@@ -300,13 +300,25 @@ def _find_extrema(points):
     if len(points) < 3:
         return list(points)
 
+    # The readings are rounded to the centimetre, so a neap stand is a
+    # staircase of equal values.  Each run of equal heights collapses to
+    # one point at its middle; between two runs the height always
+    # changes, so a strict turning-point test on the runs yields peaks
+    # and troughs that alternate, never two lows in a row.
+    runs = []
+    i = 0
+    while i < len(points):
+        j = i
+        while j + 1 < len(points) and points[j + 1][1] == points[i][1]:
+            j += 1
+        runs.append((points[(i + j) // 2][0], points[i][1]))
+        i = j + 1
+
     extrema = []
-    for i in range(1, len(points) - 1):
-        dt_prev, h_prev = points[i - 1]
-        dt_curr, h_curr = points[i]
-        dt_next, h_next = points[i + 1]
-        if (h_curr > h_prev and h_curr >= h_next) or (h_curr < h_prev and h_curr <= h_next):
-            extrema.append((dt_curr, h_curr))
+    for k in range(1, len(runs) - 1):
+        h_prev, h_curr, h_next = runs[k - 1][1], runs[k][1], runs[k + 1][1]
+        if (h_curr > h_prev and h_curr > h_next) or (h_curr < h_prev and h_curr < h_next):
+            extrema.append(runs[k])
 
     return extrema
 
