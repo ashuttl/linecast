@@ -5,6 +5,8 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+## 2.0.0 — 2026-08-26
+
 linecast 2.0 runs on Windows, installs a single `linecast` command,
 and picks its defaults from your location. Upgrading from 1.x, four things change
 unless you say otherwise; each has a one-line fix below.
