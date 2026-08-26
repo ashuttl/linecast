@@ -82,12 +82,12 @@ selected, set `LINECAST_ICONS=nerd` for the full set.
 ## Take it outside
 
 ```sh
-weather
-sunshine
-moon
-tides
-radar
-maps
+linecast weather
+linecast sunshine
+linecast moon
+linecast tides
+linecast radar
+linecast maps
 ```
 
 Every command finds your approximate location from your IP address and opens in live mode when run in a terminal. Drag or scroll where it makes sense; each app shows its keyboard controls along the bottom.
@@ -95,21 +95,21 @@ Every command finds your approximate location from your IP address and opens in 
 Pass a place name or coordinates to go somewhere else:
 
 ```sh
-weather --location "Québec"
-radar --location 41.88,-87.63
-maps --view terrain --location "Innsbruck"
-maps --to "Portland Head Light" --profile bike
+linecast weather --location "Québec"
+linecast radar --location 41.88,-87.63
+linecast maps --view terrain --location "Innsbruck"
+linecast maps --to "Portland Head Light" --profile bike
 ```
 
 Use `--print` for one static frame. When output is piped, linecast does this automatically. Weather, sunshine, moon, and tides also offer `--json` and compact `--oneline` output for status bars.
 
-If a short command name conflicts with something already on your system, everything also lives under the `linecast` namespace:
+Prefer the short spellings? Alias them — the names are yours, not linecast's, so they never collide with anything else on your system:
 
 ```sh
-linecast weather --metric
-linecast radar --theme rainbow
-linecast maps --view terrain
+alias weather='linecast weather' radar='linecast radar'
 ```
+
+A symlink works too: the `linecast` binary answers to the name it is invoked by, so a link named `moon` runs the moon command.
 
 ![the same desk in motion: the radar loop plays while weather, tides, and the solar arc keep watch](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.gif)
 
@@ -130,13 +130,13 @@ The weather dashboard combines current conditions, daylight-shaded hourly temper
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-dusk.png" width="49%" alt="sunshine at dusk">
 </p>
 
-`moon` draws the current phase with its real terminator, mare shading, halo, and orientation for your hemisphere, then tells you what the Moon is doing next. Try `moon --oneline` for a status bar.
+`moon` draws the current phase with its real terminator, mare shading, halo, and orientation for your hemisphere, then tells you what the Moon is doing next. Try `linecast moon --oneline` for a status bar.
 
 ![waxing gibbous Moon](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon.png)
 
 ### Tides
 
-The tide chart scrolls across several days and annotates exact highs, lows, and the current predicted water level. Coverage comes from NOAA in the US, the Canadian Hydrographic Service, Queensland Open Data, and the Hong Kong Observatory; anywhere else, the chart falls back to Open-Meteo's global tide model, so nearly any coastline works out of the box. An optional [TideCheck](https://tidecheck.com/) key adds more named stations. Run `tides --nearby` to list the closest stations, or `tides --station <id or name>` to pin one.
+The tide chart scrolls across several days and annotates exact highs, lows, and the current predicted water level. Coverage comes from NOAA in the US, the Canadian Hydrographic Service, Queensland Open Data, and the Hong Kong Observatory; anywhere else, the chart falls back to Open-Meteo's global tide model, so nearly any coastline works out of the box. An optional [TideCheck](https://tidecheck.com/) key adds more named stations. Run `linecast tides --nearby` to list the closest stations, or `linecast tides --station <id or name>` to pin one.
 
 ![tide chart](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
 
@@ -147,9 +147,9 @@ Radar animates recent observations and an hour of forecast over a braille basema
 The default theme uses colors from your terminal's color scheme to draw rain radar data on the map. If your theme is monochrome, the radar data will be too. In addition to the default theme, there are a handful of other local themes — `dusk`, `ember`, `ink`, and `marangai` — and you can also choose from LibreWXR's server-rendered themes. Press `t` to switch.
 
 ```sh
-radar --theme dusk
-radar --layers temp,wind
-radar --layer satellite
+linecast radar --theme dusk
+linecast radar --layers temp,wind
+linecast radar --layer satellite
 ```
 
 ![animated radar forecast over Glasgow](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar.gif)
@@ -165,7 +165,7 @@ Terrain view turns global elevation into hillshade and a hypsometric ramp, from 
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-terrain.png" width="49%" alt="terrain map of the Alps around Innsbruck">
 </p>
 
-Zoom all the way out and either view becomes an orthographic globe you can rotate by dragging — or set spinning with `r`. Two keys switch on the sky as it is right now: `s` shades the planet into actual daylight, with a creeping terminator and cities glowing on the night side, and `c` lays the current global cloud cover over it from live satellite imagery. `maps --view now` opens straight to the full picture.
+Zoom all the way out and either view becomes an orthographic globe you can rotate by dragging — or set spinning with `r`. Two keys switch on the sky as it is right now: `s` shades the planet into actual daylight, with a creeping terminator and cities glowing on the night side, and `c` lays the current global cloud cover over it from live satellite imagery. `linecast maps --view now` opens straight to the full picture.
 
 ![the globe as it is right now: live daylight and the terminator](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-globe.png)
 
@@ -184,10 +184,10 @@ Everything is a single key — `?` shows this list in the app:
 | `q` | quit |
 
 ```sh
-maps --location "Portland, Maine" --zoom 0.01
-maps --view terrain --location 60.4,5.3 --zoom 8
-maps --view now
-maps --from "Gorham, Maine" --to "Portland Head Light" --profile foot
+linecast maps --location "Portland, Maine" --zoom 0.01
+linecast maps --view terrain --location 60.4,5.3 --zoom 8
+linecast maps --view now
+linecast maps --from "Gorham, Maine" --to "Portland Head Light" --profile foot
 ```
 
 ## Make it yours
@@ -240,8 +240,8 @@ Use `--lang` or `LINECAST_LANG` to localize the interface. Seventeen languages a
 > English, French, Spanish, German, Italian, Portuguese, Dutch, Polish, Norwegian, Swedish, Icelandic, Danish, Finnish, Japanese, Korean, Chinese, and Indonesian
 
 ```sh
-weather --lang fr
-radar --lang zh
+linecast weather --lang fr
+linecast radar --lang zh
 ```
 
 ### Colour and icons

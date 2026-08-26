@@ -19,7 +19,7 @@
 # else ~/Library/Caches/linecast on macOS, else ~/.cache/linecast.  It is
 # private to you (mode 0700) and is checked before anything in it runs: a
 # real directory, not a symlink, owned by you and writable, with a python
-# that can import linecast and the command you asked for.  A venv that
+# that can import linecast and the linecast binary beside it.  A venv that
 # fails the check is rebuilt, and once a day the script asks pip for a
 # newer release.  Deleting the venv with rm -rf is always safe; the next
 # run makes a new one.  When there is no cache directory to use, the venv
@@ -88,15 +88,15 @@ cache_dir() {
 ours() { [ -d "$1" ] && [ ! -L "$1" ] && [ -O "$1" ]; }
 present() { [ -e "$1" ] || [ -L "$1" ]; }
 
-# The venv's python exists, can import linecast, and the command we are
-# about to run is there.  -x alone stays true for a venv whose python was
+# The venv's python exists, can import linecast, and the linecast
+# binary is there.  -x alone stays true for a venv whose python was
 # uninstalled from under it, and the import fails on a half-made venv
 # (Debian without python3-venv) or a broken upgrade.  A pip install cut
 # off between copying the package and writing its scripts leaves a venv
-# that imports but has no bin/<cmd>.  Only called once the directory is
-# known to be ours.
+# that imports but has no bin/linecast.  Only called once the directory
+# is known to be ours.
 usable() {
-    [ -x "$python" ] && [ -x "$venv/bin/$cmd" ] \
+    [ -x "$python" ] && [ -x "$venv/bin/linecast" ] \
         && "$python" -I -c 'import linecast' 2>/dev/null
 }
 
@@ -136,21 +136,25 @@ main() {
         *) die "unknown command: $cmd (try weather, sunshine, moon, tides, radar, or maps)" ;;
     esac
 
+    # Every command is a subcommand of the one linecast binary;
+    # `linecast` itself takes its arguments bare.
+    if [ "$cmd" != linecast ]; then set -- "$cmd" "$@"; fi
+
     # Already installed?
     if command -v linecast >/dev/null 2>&1; then
-        if [ "$cmd" = linecast ]; then run linecast "$@"; else run linecast "$cmd" "$@"; fi
+        run linecast "$@"
         return
     fi
 
     # uvx (from uv) — ephemeral run, no install needed
     if command -v uvx >/dev/null 2>&1; then
-        run uvx --quiet linecast "$cmd" "$@"
+        run uvx --quiet linecast "$@"
         return
     fi
 
     # pipx — ephemeral run, no install needed
     if command -v pipx >/dev/null 2>&1; then
-        run pipx run linecast "$cmd" "$@"
+        run pipx run linecast "$@"
         return
     fi
 
@@ -198,7 +202,7 @@ main() {
     fi
 
     export LINECAST_TEMP=1
-    run "$venv/bin/$cmd" "$@"
+    run "$venv/bin/linecast" "$@"
 }
 
 main "$@"

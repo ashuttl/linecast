@@ -34,10 +34,14 @@ Notable changes, by release. Notes for the next release collect under
   Coverage grows from about two dozen sites to 78 gauges, Brisbane Bar
   to the Torres Strait. Station names change to the gauge names; a
   saved station from before resolves to the nearest gauge.
-- The linecast binary now answers to the name it is invoked by: a
-  symlink to it called `weather` runs the weather command. Distribution
-  packages can ship the short commands as symlinks and leave out any
-  name the system already uses; `linecast <command>` always works.
+- Installing linecast now installs one command, `linecast`; the short
+  commands (`weather`, `sunshine`, `moon`, `tides`, `radar`, `maps`)
+  are no longer placed on the PATH, where they could collide with
+  programs that share those names — `/usr/bin/sunshine` belongs to the
+  Sunshine streaming server on a machine that has it. Every command
+  works as `linecast <command>`, and the binary answers to the name it
+  is invoked by, so an alias or symlink named `weather` brings the
+  short spelling back.
 - Icons no longer come out as boxes without a Nerd Font. linecast now
   uses Nerd Font glyphs only where the terminal is known to bundle them
   (WezTerm, kitty, Ghostty) and emoji on other interactive terminals;

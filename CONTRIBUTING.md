@@ -45,17 +45,18 @@ running the build they were installed from until you reinstall from
 the checkout:
 
 ```sh
-uv run weather --print
+uv run linecast weather --print
 uv run linecast doctor --offline
 uv tool install --reinstall .
 ```
 
 ## How a command runs
 
-Each command is a console script (`[project.scripts]` in
-`pyproject.toml`) that calls `main()` in its module; `linecast
-weather` goes through `__main__.py` to the same `main()`, so the two
-are one code path.
+Every command runs through the one console script (`[project.scripts]`
+in `pyproject.toml`): `linecast weather` goes through `__main__.py` to
+`main()` in the command's module, and a binary or alias named `weather`
+reaches the same `main()` by argv[0] dispatch, so the two are one code
+path.
 
 `main()` does the same things in the same order in every command. It
 parses arguments with the command's parser factory from `_runtime.py`
@@ -272,21 +273,21 @@ to PyPI, byte for byte. Homebrew follows with
 
 ## Packaging for a distribution
 
-The wheel installs seven commands: `linecast`, and the six short
-names (`weather`, `sunshine`, `moon`, `tides`, `radar`, `maps`) as
-standalone binaries. The short names are common words, and on some
-systems one of them is already taken — `/usr/bin/sunshine` belongs
-to the Sunshine streaming server on a machine that has it, and a
-package that ships the file anyway cannot be installed there at all.
+The wheel installs one command: `linecast`. The short names
+(`weather`, `sunshine`, `moon`, `tides`, `radar`, `maps`) are common
+words, and on some systems one of them is already taken —
+`/usr/bin/sunshine` belongs to the Sunshine streaming server on a
+machine that has it, and a package that ships the file anyway cannot
+be installed there at all (issue #20). So the wheel ships none of
+them, and `scripts/smoke_wheel.sh` fails if one creeps back in.
 
-A distribution package should guarantee only the `linecast` binary.
-That binary answers to the name it is invoked by: a symlink to it
-called `weather` runs the weather command, arguments untouched. So a
-package can ship the short commands as symlinks and leave out any
-name its ecosystem already uses, at install time or at build time,
-whichever the package manager supports. Every command stays
-reachable as `linecast <command>`, so a name left out costs the
-short spelling and nothing else.
+The `linecast` binary answers to the name it is invoked by: a symlink
+to it called `weather` runs the weather command, arguments untouched.
+So a distribution package may ship any of the short commands as
+symlinks where its ecosystem allows, and a user may make their own
+symlink or shell alias. Every command stays reachable as `linecast
+<command>`, so a short name left out costs the short spelling and
+nothing else.
 
 Two things a package should not do: rename the commands to something
 of its own, and declare the short names as provided or virtual

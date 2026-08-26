@@ -20,8 +20,9 @@ Commands:
   linecast doctor      Show where files live, what the terminal supports, and which providers answer
   linecast completion  Print shell completion script (bash, zsh, fish, nushell)
 
-Each command is also installed as a standalone binary (weather, sunshine,
-moon, tides, radar, maps). Run any command with --help for options.
+Prefer the short spellings? A shell alias (alias weather='linecast
+weather') or a symlink named weather runs the weather command directly.
+Run any command with --help for options.
 """
 
 COMMANDS = {
@@ -37,9 +38,10 @@ COMMANDS = {
     "doctor": "linecast.doctor",
 }
 
-# The commands [project.scripts] also installs under their own names.
-# Only these dispatch on argv[0]: the utility commands (location, units,
-# doctor) have no standalone spelling to honour.
+# The commands that answer to their own name as argv[0], for users and
+# distro packages that link or copy the binary under a short name. Only
+# these dispatch: the utility commands (location, units, doctor) have no
+# standalone spelling to honour.
 STANDALONE = ("weather", "sunshine", "moon", "tides", "radar", "maps")
 
 

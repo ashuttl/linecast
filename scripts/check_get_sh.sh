@@ -238,17 +238,17 @@ out=$(venv_run sunshine --version)
 has "venv with a dangling python is rebuilt" "linecast $version" "$out"
 is "dangling rebuild ran pip install" 3 "$(installs)"
 
-# A pip install cut off before it wrote the console scripts: linecast
-# imports, bin/sunshine is missing.
-rm "$venv/bin/sunshine"
+# A pip install cut off before it wrote the console script: linecast
+# imports, bin/linecast is missing.
+rm "$venv/bin/linecast"
 out=$(venv_run sunshine --version); rc=$?
-is "venv without bin/sunshine: exits 0" 0 "$rc"
-has "venv without bin/sunshine: rebuilt" "linecast $version" "$out"
-is "venv without bin/sunshine: rebuild ran pip install" 4 "$(installs)"
+is "venv without bin/linecast: exits 0" 0 "$rc"
+has "venv without bin/linecast: rebuilt" "linecast $version" "$out"
+is "venv without bin/linecast: rebuild ran pip install" 4 "$(installs)"
 
 # A linecast package where the user runs `curl | sh` from.  Without -I it
 # makes a gutted venv pass the import probe, so the venv is never rebuilt
-# and bin/sunshine fails on every run.
+# and bin/linecast fails on every run.
 mkdir -p "$work/cwd/linecast"; : > "$work/cwd/linecast/__init__.py"
 rm -rf "${venv:?}/lib"
 CWD=$work/cwd
@@ -273,7 +273,7 @@ is "python files in the cwd: a real venv was made" yes "$(runs "$venv")"
 
 # An impostor venv: a symlink where the venv should be.  Nothing in it
 # may run, and nothing may be written through it.
-mkdir -p "$work/evil/bin"; printf '#!/bin/sh\necho PWNED\n' > "$work/evil/bin/sunshine"; chmod +x "$work/evil/bin/sunshine"
+mkdir -p "$work/evil/bin"; printf '#!/bin/sh\necho PWNED\n' > "$work/evil/bin/linecast"; chmod +x "$work/evil/bin/linecast"
 rm -rf "$venv"; ln -s "$work/evil" "$venv"
 out=$(venv_run sunshine --version); rc=$?
 is "symlinked venv: exits 0" 0 "$rc"

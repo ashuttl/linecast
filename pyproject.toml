@@ -28,14 +28,14 @@ dependencies = [
 Homepage = "https://github.com/ashuttl/linecast"
 Issues = "https://github.com/ashuttl/linecast/issues"
 
+# Only `linecast` is installed. The short names (weather, sunshine,
+# moon, tides, radar, maps) are common words that other packages also
+# claim — /usr/bin/sunshine belongs to the Sunshine streaming server
+# where it is installed (issue #20) — so they are left to the user: the
+# binary dispatches on argv[0], and a symlink or alias named `weather`
+# runs the weather command.
 [project.scripts]
 linecast = "linecast.__main__:main"
-weather = "linecast.weather:main"
-sunshine = "linecast.sunshine:main"
-moon = "linecast.moon:main"
-tides = "linecast.tides:main"
-radar = "linecast.radar:main"
-maps = "linecast.maps:main"
 
 [build-system]
 requires = ["hatchling"]

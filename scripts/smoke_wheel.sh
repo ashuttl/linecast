@@ -80,10 +80,14 @@ run "linecast --version" linecast --version
 expect "linecast --version" "$version"
 
 for cmd in $commands; do
-    run "$cmd --help" "$cmd" --help
     run "linecast $cmd --help" linecast "$cmd" --help
-    run "$cmd --version" "$cmd" --version
-    expect "$cmd --version" "$version"
+    run "linecast $cmd --version" linecast "$cmd" --version
+    expect "linecast $cmd --version" "$version"
+    # The short names are not installed (issue #20): they are common
+    # words other packages already own, so only `linecast` ships.
+    if [ -e "$bindir/$cmd" ]; then
+        fail "$cmd: wheel installed $bindir/$cmd; only linecast should ship"
+    fi
 done
 
 for shell in bash zsh fish nushell; do
