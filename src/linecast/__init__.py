@@ -15,7 +15,12 @@ def __getattr__(name):
         except Exception:
             v = "dev"
         globals()["__version__"] = v
-        globals()["USER_AGENT"] = f"linecast/{v}"
+        # The contact URL is part of the agent because FOSSGIS and
+        # Nominatim ask for a client that can be reached, and a bare
+        # "linecast/1.17.0" is not enough. Every host sees the same
+        # string, so there is one place to change it.
+        globals()["USER_AGENT"] = (
+            f"linecast/{v} (+https://github.com/ashuttl/linecast)")
         return globals()[name]
     raise AttributeError(name)
 
