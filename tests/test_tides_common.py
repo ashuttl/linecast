@@ -20,6 +20,10 @@ class LegacyCacheSweepTests(unittest.TestCase):
         "chs_yrange_05320_20260724_20260922.json",
         "tc_yrange_fes2022-lisbon_20260724_20260922.json",
         "qld_yrange_Gold_Coast_20260820_20260826.json",
+        "qld_all_stations.json",
+        "qld_meta_birkdale.json",
+        "qld_pred_birkdale_20260823_20260824.json",
+        "qld_yrange_birkdale_202608.json",
     ]
     CURRENT = [
         "pred_8418150_202608.json",
@@ -32,6 +36,8 @@ class LegacyCacheSweepTests(unittest.TestCase):
         "chs_hilo_05320_20260816_20260830.json",
         "tc_hilo_fes2022-lisbon_20260822_20260824.json",
         "qld_pred_Gold_Coast_20260823_20260824.json",
+        "qld_stations.json",
+        "qld_meta_Brisbane_Bar.json",
         "all_stations.json",
         "station_meta_8418150.json",
         "station_abcd1234.json",

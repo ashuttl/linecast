@@ -5,6 +5,13 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Tides: Queensland stations now show the future. The provider reads
+  Maritime Safety Queensland's predicted tide datasets, which carry a
+  full year ahead, instead of the monitoring feed that ended at the
+  present — so the curve no longer flatlines at the now marker.
+  Coverage grows from about two dozen sites to 78 gauges, Brisbane Bar
+  to the Torres Strait. Station names change to the gauge names; a
+  saved station from before resolves to the nearest gauge.
 - The linecast binary now answers to the name it is invoked by: a
   symlink to it called `weather` runs the weather command. Distribution
   packages can ship the short commands as symlinks and leave out any

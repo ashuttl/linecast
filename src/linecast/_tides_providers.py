@@ -204,6 +204,16 @@ class _QLD(TideProvider):
                     "source": self.name, "id": name, "name": name,
                     "lat": s.get("lat"), "lng": s.get("lng"),
                 })
+        if not found and tokens:
+            # A saved value from the monitoring-feed era ("birkdale")
+            # names a site that is gone; offer the gauge nearest it.
+            legacy = qld.legacy_station_for_slug(query)
+            if legacy:
+                found.append({
+                    "source": self.name, "id": legacy["name"],
+                    "name": legacy["name"],
+                    "lat": legacy.get("lat"), "lng": legacy.get("lng"),
+                })
         return found
 
     def station_metadata(self, station_id):
