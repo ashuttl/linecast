@@ -42,7 +42,7 @@ from linecast._theme import (
     surface_bg,
 )
 from linecast._geo import haversine_nm
-from linecast._location import location_overridden, resolve_location
+from linecast._location import country_for_defaults, resolve_location
 from linecast._runtime import (
     TidesRuntime, current_runtime, install_banner, log_failure, set_current,
     tides_parser,
@@ -956,6 +956,14 @@ def main():
                 provider = PROVIDERS[best["source"]]
                 station_id = best["id"]
                 station_name = best["name"] or f"Station {station_id[:8]}"
+            # A named station says nothing about where the user is; the
+            # units default still follows their own location, as it does
+            # in the branch below.
+            _lat, _lng, _cc = resolve_location(args.location, lang=runtime.lang)
+            own = country_for_defaults(args.location, _cc, _lat, _lng)
+            if own:
+                runtime = TidesRuntime.from_sources(args, country=own)
+                set_current(runtime)
         else:
             # need_country: provider routing (CHS for Canada, QLD for
             # Queensland) hinges on the country of the target location.
@@ -965,11 +973,10 @@ def main():
                 print("Could not determine location for tide station lookup.", file=sys.stderr)
                 sys.exit(1)
 
-            # With no override the resolved location is the user's own,
-            # so the units default can follow its country -- re-resolve
-            # the runtime a cold cache made countryless.
-            if country_code and not location_overridden(args.location):
-                runtime = TidesRuntime.from_sources(args, country=country_code)
+            # Re-resolve the runtime a cold cache made countryless.
+            own = country_for_defaults(args.location, country_code, lat, lng)
+            if own:
+                runtime = TidesRuntime.from_sources(args, country=own)
                 set_current(runtime)
 
             provider, station_id, station_name = _station_for_location(

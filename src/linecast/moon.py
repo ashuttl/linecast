@@ -27,7 +27,7 @@ from linecast._graphics import (
 )
 from linecast._i18n import lang_of
 from linecast._location import (
-    location_is_pinned, location_overridden, location_tzinfo, resolve_location,
+    country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
 from linecast._moon_i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
@@ -434,7 +434,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
         (f"{amber}↑{text}{rise_txt}  {purple}↓{text}{set_txt}{RESET}",
          f"{amber}↑{text}{rise_when}  {purple}↓{text}{set_when}{RESET}"),
         (f"{dim}{full_txt} · {new_txt}{RESET}",
-         f"{dim}{_moon_name(4, runtime)} {_fmt_month_day(full_dt, runtime)} · "
+         f"{dim}{full_label} {_fmt_month_day(full_dt, runtime)} · "
          f"{new_label} {_fmt_month_day(new_dt, runtime)}{RESET}",
          f"{dim}{_moon_name(4, runtime)} {_fmt_month_day(full_dt, runtime)}{RESET}"),
         (f"{dim}{year_txt} · {season_txt}{RESET}",
@@ -490,8 +490,9 @@ def main():
 
     # With no override the resolved location is the user's own; let the
     # units default follow its country (a cold cache resolved without one)
-    if country and not location_overridden(args.location):
-        runtime = RuntimeConfig.from_sources(args, country=country)
+    own = country_for_defaults(args.location, country, lat, lng)
+    if own:
+        runtime = RuntimeConfig.from_sources(args, country=own)
         set_current(runtime)
 
     # A pinned location may sit in another time zone; resolve it so times

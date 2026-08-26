@@ -36,7 +36,7 @@ from linecast._theme import (
     theme_legacy_mode,
 )
 from linecast._location import (
-    location_is_pinned, location_overridden, location_tzinfo, resolve_location,
+    country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
 from linecast._runtime import (
     RuntimeConfig, current_runtime, install_banner, set_current, sunshine_parser,
@@ -652,8 +652,9 @@ def main():
 
     # With no override the resolved location is the user's own; let the
     # units default follow its country (a cold cache resolved without one)
-    if country and not location_overridden(args.location):
-        runtime = RuntimeConfig.from_sources(args, country=country)
+    own = country_for_defaults(args.location, country, lat, lng)
+    if own:
+        runtime = RuntimeConfig.from_sources(args, country=own)
         set_current(runtime)
 
     # A pinned location may sit in another time zone; resolve it so times

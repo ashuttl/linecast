@@ -22,7 +22,7 @@ import time as _t
 
 from linecast import _live
 from linecast._graphics import bg, fg, get_terminal_size, visible_len
-from linecast._location import location_overridden, resolve_location
+from linecast._location import country_for_defaults, resolve_location
 from linecast._runtime import (
     WeatherRuntime, install_banner, log_failure, set_current, weather_parser,
 )
@@ -413,8 +413,9 @@ def main():
     # With no override the resolved location is the user's own, so the
     # units default can follow its country -- re-resolve the runtime,
     # which a cold cache made countryless, before anything is fetched.
-    if country_code and not location_overridden(args.location):
-        runtime = WeatherRuntime.from_sources(args, country=country_code)
+    own = country_for_defaults(args.location, country_code, lat, lng)
+    if own:
+        runtime = WeatherRuntime.from_sources(args, country=own)
         set_current(runtime)
 
     # Fetch data in parallel for faster startup

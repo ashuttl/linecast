@@ -77,6 +77,36 @@ def own_country() -> str | None:
     return None
 
 
+def country_for_defaults(
+    cli_location: str | None, country_code: str | None,
+    lat: float | None = None, lng: float | None = None,
+) -> str | None:
+    """The country whose conventions set the units and clock defaults.
+
+    That is the user's own country: the resolved location's when nothing
+    points the view elsewhere.  With a --location override the user's
+    country comes from own_country() and this returns None, meaning the
+    runtime already has it -- except on a first run, before a location is
+    saved or an IP answer cached, when nothing is known.  Then the viewed
+    place's country stands in: imperial for "Portland, Maine" is a better
+    guess than metric-and-24-hour.  Reverse geocoding it is cached.
+    """
+    if not location_overridden(cli_location):
+        return country_code or None
+    if own_country() is not None:
+        return None
+    if country_code:
+        return country_code
+    if lat is None or lng is None:
+        return None
+    try:
+        from linecast._weather_sources import _reverse_geocode
+        _name, country, _addr = _reverse_geocode(lat, lng)
+    except Exception:
+        return None
+    return country or None
+
+
 def location_overridden(cli_location: str | None = None) -> bool:
     """True when a --location flag or WEATHER_LOCATION points the view
     somewhere explicit -- a place that need not be the user's own, so
