@@ -270,6 +270,29 @@ against the built wheel, and `publish.yml` then sends that same wheel
 to PyPI, byte for byte. Homebrew follows with
 `./release-homebrew.sh <version>` once PyPI has it.
 
+## Packaging for a distribution
+
+The wheel installs seven commands: `linecast`, and the six short
+names (`weather`, `sunshine`, `moon`, `tides`, `radar`, `maps`) as
+standalone binaries. The short names are common words, and on some
+systems one of them is already taken — `/usr/bin/sunshine` belongs
+to the Sunshine streaming server on a machine that has it, and a
+package that ships the file anyway cannot be installed there at all.
+
+A distribution package should guarantee only the `linecast` binary.
+That binary answers to the name it is invoked by: a symlink to it
+called `weather` runs the weather command, arguments untouched. So a
+package can ship the short commands as symlinks and leave out any
+name its ecosystem already uses, at install time or at build time,
+whichever the package manager supports. Every command stays
+reachable as `linecast <command>`, so a name left out costs the
+short spelling and nothing else.
+
+Two things a package should not do: rename the commands to something
+of its own, and declare the short names as provided or virtual
+packages — linecast is not a substitute for another program that
+happens to share a name.
+
 ## Why there are no dependencies
 
 linecast has no runtime dependencies, and a pull request that adds
