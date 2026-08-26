@@ -208,16 +208,29 @@ def _rgb_to_xterm256(r, g, b):
     return cube_idx
 
 
+_ANSI16_NEUTRALS = (0, 7, 8, 15)  # black, silver, gray, white
+
+
 @functools.lru_cache(maxsize=4096)
 def _rgb_to_ansi16(r, g, b):
-    return min(
-        range(len(_ANSI16_RGB)),
-        key=lambda i: (
-            (_ANSI16_RGB[i][0] - r) ** 2
-            + (_ANSI16_RGB[i][1] - g) ** 2
-            + (_ANSI16_RGB[i][2] - b) ** 2
-        ),
-    )
+    # A muted colour must not gain saturation: by raw distance a dark
+    # blue-slate lands on ANSI navy and a dusk blue-gray on teal, and
+    # the terminal's palette paints those far more vivid than the table
+    # here assumes — a saturated fringe on every soft gradient.  A
+    # near-neutral is confined to the neutral entries (the 256 mapper's
+    # chroma threshold); everything else pays for a saturation mismatch
+    # alongside plain distance.
+    sat = max(r, g, b) - min(r, g, b)
+    if sat < 34:
+        candidates = _ANSI16_NEUTRALS
+    else:
+        candidates = range(len(_ANSI16_RGB))
+    def dist(i):
+        cr, cg, cb = _ANSI16_RGB[i]
+        csat = max(cr, cg, cb) - min(cr, cg, cb)
+        return ((cr - r) ** 2 + (cg - g) ** 2 + (cb - b) ** 2
+                + (csat - sat) ** 2)
+    return min(candidates, key=dist)
 
 
 @functools.lru_cache(maxsize=16384)

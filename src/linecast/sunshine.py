@@ -22,8 +22,8 @@ from datetime import datetime, timezone
 
 from linecast._braille import braille_rows_from_ys
 from linecast._graphics import (
-    fg, RESET, BG_PRIMARY, lerp, interp_stops, visible_len, fmt_time,
-    get_terminal_size, Framebuffer, live_loop,
+    fg, RESET, BG_PRIMARY, color_mode, lerp, interp_stops, visible_len,
+    fmt_time, get_terminal_size, Framebuffer, live_loop,
 )
 from linecast import _theme
 from linecast._theme import (
@@ -87,9 +87,6 @@ def _rebuild():
         INFO_DIM_RGB = ensure_contrast(neutral_tone(0.32), _theme.theme_bg, minimum=2.0)
         INFO_TEXT_RGB = ensure_contrast(_theme.theme_fg, _theme.theme_bg, minimum=4.5)
 
-
-_rebuild()
-_theme.on_reload(_rebuild)
 
 _EMOJI_ICONS = {
     "sun_char": "\u25cf",         # ●
@@ -236,8 +233,40 @@ def _rebuild_sky():
         ]
 
 
-_rebuild_sky()
-_theme.on_reload(_rebuild_sky)
+def _tame_for_mode():
+    """Below truecolor, pull the sky toward gray.
+
+    The 6-level xterm cube has no entry that keeps a muted blue-cyan's
+    hue: adjacent gradient blends snap to purple, teal and lavender in
+    turn, and the smooth sky renders as rainbow rings.  Near gray the
+    quantizer uses the 24-step ramp instead, which stays smooth, so
+    trade the chroma away.  Saturated stops (the sunset band) keep most
+    of their colour; the muted mid-sky gives up the most.
+    """
+    global SKY_NEAR_HORIZON, SKY_FAR_HORIZON, SKY_ZENITH
+    global SUN_GLOW_DAY_RGB, SUN_GLOW_TWILIGHT_RGB
+    if color_mode() not in ("256", "16"):
+        return
+
+    def tamed(rgb):
+        r, g, b = rgb
+        luma = int(0.30 * r + 0.59 * g + 0.11 * b)
+        return lerp((r, g, b), (luma, luma, luma), 0.55)
+
+    SKY_NEAR_HORIZON = [(e, tamed(c)) for e, c in SKY_NEAR_HORIZON]
+    SKY_FAR_HORIZON = [(e, tamed(c)) for e, c in SKY_FAR_HORIZON]
+    SKY_ZENITH = [(e, tamed(c)) for e, c in SKY_ZENITH]
+    SUN_GLOW_TWILIGHT_RGB = tamed(SUN_GLOW_TWILIGHT_RGB)
+
+
+def _rebuild_all():
+    _rebuild()
+    _rebuild_sky()
+    _tame_for_mode()
+
+
+_rebuild_all()
+_theme.on_reload(_rebuild_all)
 
 # ---------------------------------------------------------------------------
 # Solar math

@@ -13,6 +13,8 @@ Notable changes, by release. Notes for the next release collect under
   can see what your font renders.
 - Weather: Alert text and city labels that contain emoji now wrap and
   align at their true width instead of drifting a column per glyph.
+- Sunshine and moon render cleanly on 256- and 16-colour terminals: no
+  more blue fringe on the moon's edge or rainbow rings in the sky.
 - Tides: Stations in a timezone linecast has no abbreviation for now
   show their UTC offset, such as "UTC+5:45", instead of a plain "UTC".
 - Tides: `--station` and `TIDE_STATION` take a TideCheck station ID such
