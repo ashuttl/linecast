@@ -15,7 +15,7 @@
 
 ![linecast weather, sunshine, tides, and radar tiled on an Omarchy desktop](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
 
-linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies on macOS or Linux, adapts to your terminal theme, and needs no account or API key for its core experience.
+linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies on macOS or Linux (and just two on Windows), adapts to your terminal theme, and needs no account or API key for its core experience.
 
 | Command | What it shows |
 | --- | --- |
@@ -33,6 +33,8 @@ Run linecast immediately with [uv](https://docs.astral.sh/uv/), without installi
 ```sh
 uvx linecast weather
 ```
+
+Any of the six commands above works in place of `weather`.
 
 Or with nothing but curl — [`get.sh`](get.sh) uses whatever the machine has, down to plain `python3`:
 
@@ -65,19 +67,7 @@ yay -S linecast
 
 `pipx install linecast` and `pip install linecast` work too. linecast requires Python 3.10+ on macOS, Linux or Windows.
 
-On Windows it pulls in two small packages, because the platform does not
-provide what they stand in for: `tzdata`, since Windows ships no IANA time
-zone database and `zoneinfo` would otherwise find no zones at all, and
-`truststore`, so TLS verification goes through the OS instead of Python's
-partial view of the certificate store — Windows caches trusted roots
-lazily, and a fresh install can hold too few to reach some data sources.
-Neither is installed on macOS or Linux.
-
-Windows Terminal is the one to use: linecast leans on 24-bit colour and
-braille throughout, and reads the mouse through the same ANSI sequences a
-POSIX terminal sends. Icons default to emoji in Windows Terminal (the
-legacy console gets plain Unicode); with a Nerd Font installed and
-selected, set `LINECAST_ICONS=nerd` for the full set.
+On Windows it also installs `tzdata` (Windows has no IANA time zone database) and `truststore` (TLS verification through the OS certificate store). Icons default to emoji in Windows Terminal; with a Nerd Font installed and selected, set `LINECAST_ICONS=nerd` for the full set.
 
 ## Take it outside
 
@@ -90,7 +80,7 @@ linecast radar
 linecast maps
 ```
 
-Every command finds your approximate location from your IP address and opens in live mode when run in a terminal. Drag or scroll where it makes sense; each app shows its keyboard controls along the bottom.
+Every command opens in live mode when run in a terminal, at the city your IP address suggests unless you have [saved a location](#location). Drag or scroll where it makes sense; each app shows its keyboard controls along the bottom.
 
 Pass a place name or coordinates to go somewhere else:
 
@@ -103,13 +93,11 @@ linecast maps --to "Portland Head Light" --profile bike
 
 Use `--print` for one static frame. When output is piped, linecast does this automatically. Weather, sunshine, moon, and tides also offer `--json` and compact `--oneline` output for status bars.
 
-Prefer the short spellings? Alias them — the names are yours, not linecast's, so they never collide with anything else on your system:
+Prefer the short spellings? Alias them — the names are yours, not linecast's, so they never collide with anything else on your system. A symlink named `moon` works too; the binary answers to the name it is invoked by.
 
 ```sh
 alias weather='linecast weather' radar='linecast radar'
 ```
-
-A symlink works too: the `linecast` binary answers to the name it is invoked by, so a link named `moon` runs the moon command.
 
 ![the same desk in motion: the radar loop plays while weather, tides, and the solar arc keep watch](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.gif)
 
@@ -142,7 +130,7 @@ The tide chart scrolls across several days and annotates exact highs, lows, and 
 
 ### Radar
 
-Radar animates recent observations and an hour of forecast over a braille basemap. Real radar is only available where a public radar network publishes an open composite: the United States and Canada, Europe, Japan, Taiwan, Malaysia, and the Philippines. Elsewhere — Australia, New Zealand, South America, most of Asia and Africa — LibreWXR fills in with a precipitation model instead. Model data looks smoother and blockier than radar, and the footer says so when that is what you are seeing. On top of the frames, linecast draws US warning polygons that follow the timeline, optional temperature and wind layers, and hourly infrared satellite imagery.
+Radar animates recent observations and an hour of forecast over a braille basemap. Real radar is only available where a public network publishes an open composite — North America, Europe, and parts of East and Southeast Asia. Elsewhere LibreWXR fills in with a precipitation model, which looks smoother and blockier than radar; the footer says so when that is what you are seeing. On top of the frames, linecast draws US warning polygons that follow the timeline, optional temperature and wind layers, and hourly infrared satellite imagery.
 
 The default theme uses colors from your terminal's color scheme to draw rain radar data on the map. If your theme is monochrome, the radar data will be too. In addition to the default theme, there are a handful of other local themes — `dusk`, `ember`, `ink`, and `marangai` — and you can also choose from LibreWXR's server-rendered themes. Press `t` to switch.
 
@@ -156,7 +144,7 @@ linecast radar --layer satellite
 
 ### Maps
 
-Street view renders OpenFreeMap vector tiles as solid water, land, parks, and buildings under a braille road network. Hover a feature to name and highlight it; search with `/`, ask for directions with `d`, or switch views with `v`. Directions open as a small panel: labelled from, to, and mode fields — each showing the key that edits it, and all clickable — above the turn-by-turn steps. Arrow (or click) through the maneuvers and the map flies along the route.
+Street view renders OpenFreeMap vector tiles as solid water, land, parks, and buildings under a braille road network. Hover a feature to name and highlight it; search with `/`, ask for directions with `d`, or switch views with `v`. Directions open as a panel of turn-by-turn steps; arrow (or click) through them and the map flies along the route.
 
 Terrain view turns global elevation into hillshade and a hypsometric ramp, from deep ocean trenches through lowland green to alpine white. Coastlines, borders, water, and cities are drawn over it in braille.
 
@@ -192,6 +180,8 @@ linecast maps --from "Gorham, Maine" --to "Portland Head Light" --profile foot
 
 ## Make it yours
 
+Settings live in `~/.config/linecast/config.json`. For any of them, a command-line flag beats an environment variable, which beats the saved setting.
+
 ### Location
 
 Save one location for every command:
@@ -205,7 +195,7 @@ linecast location auto
 linecast location search fayette
 ```
 
-`set` takes a place name — it is geocoded once, on the spot, and the first match is saved — or exact `lat,lng` coordinates; `search` lists the candidates when the first match might not be the right one. The setting lives in `~/.config/linecast/config.json`. A command's `--location` flag or `WEATHER_LOCATION` takes precedence. Times follow the location: point `sunshine` or `moon` somewhere across an ocean and sunrise, sunset, moonrise, and moonset come back in that place's local clock.
+`set` takes a place name — it is geocoded once, on the spot, and the first match is saved — or exact `lat,lng` coordinates; `search` lists the candidates when the first match might not be the right one. A command's `--location` flag or `WEATHER_LOCATION` takes precedence. With no location saved or passed, linecast falls back to IP geolocation: a single anonymous request to [ipinfo.io](https://ipinfo.io/), which returns the rough position of your network connection — usually the right city, sometimes the wrong one, and off by a lot on a VPN or corporate network. The answer is cached for an hour; saving a location, or setting any override, means the request is never made. Times follow the location: point `sunshine` or `moon` somewhere across an ocean and sunrise, sunset, moonrise, and moonset come back in that place's local clock.
 
 ### Units
 
@@ -218,7 +208,7 @@ linecast units
 linecast units auto
 ```
 
-This also lives in `config.json`. Every view command takes `--metric` and `--imperial`; `weather` adds `--celsius` and `--fahrenheit` for the temperature alone. A flag beats `WEATHER_UNITS` / `TIDES_UNITS` (which apply to their one command), which beat `LINECAST_UNITS`, which beats the saved setting.
+Every view command takes `--metric` and `--imperial`; `weather` adds `--celsius` and `--fahrenheit` for the temperature alone. `LINECAST_UNITS` sets units for every command; `WEATHER_UNITS` and `TIDES_UNITS` override it for their one command.
 
 ### Clock
 
@@ -231,7 +221,7 @@ linecast clock
 linecast clock auto
 ```
 
-This also lives in `config.json`. The time-showing commands take `--12h` and `--24h` for one run; a flag beats `LINECAST_CLOCK`, which beats the saved setting.
+The time-showing commands take `--12h` and `--24h` for one run, and `LINECAST_CLOCK` sets it in the environment.
 
 ### Language
 
@@ -244,9 +234,9 @@ linecast weather --lang fr
 linecast radar --lang zh
 ```
 
-### Colour and icons
+### Color and icons
 
-linecast queries the terminal palette so its colours belong in your theme. Set `LINECAST_COLOR` to `truecolor`, `256`, `16`, or `none` to override colour detection, or use the standard `NO_COLOR` variable. A [Nerd Font](https://www.nerdfonts.com/) gives the best icon rendering, and linecast uses its glyphs automatically in terminals that bundle them (WezTerm, kitty, Ghostty); other interactive terminals get emoji, and piped or redirected output falls back to plain Unicode, whose glyphs are one cell wide everywhere. `LINECAST_ICONS` or `--icons` picks explicitly: `nerd`, `emoji`, or `plain`. `linecast doctor` shows a glyph from each set so you can see what your font renders.
+linecast queries the terminal palette so its colors belong in your theme. Set `LINECAST_COLOR` to `truecolor`, `256`, `16`, or `none` to override color detection, or use the standard `NO_COLOR` variable. A [Nerd Font](https://www.nerdfonts.com/) gives the best icon rendering, and linecast uses its glyphs automatically in terminals that bundle them (WezTerm, kitty, Ghostty); other interactive terminals get emoji, and piped or redirected output falls back to plain Unicode, whose glyphs are one cell wide everywhere. `LINECAST_ICONS` or `--icons` picks explicitly: `nerd`, `emoji`, or `plain`. `linecast doctor` shows a glyph from each set so you can see what your font renders.
 
 ### Shell completion
 
@@ -276,9 +266,9 @@ linecast doctor --offline
 linecast doctor --json
 ```
 
-`linecast doctor` shows which build is running, where the settings file and the cache are and whether the cache can be written, what the terminal advertised, which units, clock, location and language are in force and where each came from, the environment variables linecast reads (an API key, token, or location shows as "(set)", never its value; a proxy or a URL override loses its userinfo and query), and one line per provider saying whether the host answered. `--offline` skips the probes and `--json` prints the same report as one object, which is the thing to paste into a bug report.
+`linecast doctor` reports the build, the settings and cache paths, what the terminal advertised, which settings are in force and where each came from, and whether each data provider answered. Secrets show as "(set)", never their value. `--offline` skips the probes; `--json` is the thing to paste into a bug report.
 
-The six view commands and `linecast doctor` take `--debug`. It prints, on stderr, one line for each fallback taken along the way: a provider that did not answer, a cache file that could not be read, a tile that would not decode, and what was shown instead. URLs, including ones quoted by an exception, appear as scheme, host and path only. A background task that fails under a live view is reported in one line after the view closes; with `--debug` the traceback is printed in full with URLs redacted the same way.
+The six view commands and `linecast doctor` take `--debug`, which prints one line on stderr for each fallback taken along the way — a provider that did not answer, a tile that would not decode — and what was shown instead. URLs are reduced to scheme, host, and path.
 
 <details>
 <summary><strong>Environment variables</strong></summary>
@@ -294,7 +284,7 @@ The six view commands and `linecast doctor` take `--debug`. It prints, on stderr
 | `LINECAST_TIDECHECK_KEY` | Optional TideCheck API key for global tide coverage |
 | `LINECAST_TIDECHECK_PAID` | Set to `1` on a paid TideCheck plan; the request tally then drops the 50-a-day free-tier cap |
 | `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, or `id` |
-| `LINECAST_RADAR_THEME` | Default radar colour theme |
+| `LINECAST_RADAR_THEME` | Default radar color theme |
 | `LINECAST_LIBREWXR_URL` | Base URL of a self-hosted LibreWXR instance |
 | `LINECAST_ICONS` | icon set: `nerd`, `emoji`, or `plain` (default: `nerd` where the terminal bundles the glyphs, `emoji` on other interactive terminals, `plain` when piped) |
 | `LINECAST_COLOR` | `auto`, `truecolor`, `256`, `16`, or `none` |
@@ -304,29 +294,22 @@ The six view commands and `linecast doctor` take `--debug`. It prints, on stderr
 | `LINECAST_THEME_WATCH` | A file whose modification marks a desktop theme change, prompting an immediate re-read (default: Omarchy's current-theme marker; empty disables) |
 | `LINECAST_CACHE_DIR` | Directory for cached data, used exactly as given |
 | `LINECAST_CONFIG_DIR` | Directory for `config.json`, used exactly as given |
-| `NO_COLOR` | Any non-empty value disables ANSI colours |
-| `CLICOLOR` / `CLICOLOR_FORCE` | `CLICOLOR=0` disables colour; a non-zero `CLICOLOR_FORCE` keeps it on when output is not a terminal |
+| `NO_COLOR` | Any non-empty value disables ANSI colors |
+| `CLICOLOR` / `CLICOLOR_FORCE` | `CLICOLOR=0` disables color; a non-zero `CLICOLOR_FORCE` keeps it on when output is not a terminal |
 
-Cached data lives in `~/.cache/linecast` on Linux and Windows (so
-`C:\Users\you\.cache\linecast` there) and in
-`~/Library/Caches/linecast` on macOS; on a Mac where an older
-`~/.cache/linecast` is already there and the new directory is not, the
-older one stays in use. Setting `XDG_CACHE_HOME` moves it to
-`$XDG_CACHE_HOME/linecast` on either platform, and `LINECAST_CACHE_DIR`
-overrides both. The settings file is `~/.config/linecast/config.json`
-on every platform (or under `$XDG_CONFIG_HOME`; `LINECAST_CONFIG_DIR`
-overrides both).
+Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast` elsewhere; settings in `~/.config/linecast/config.json`. Both honor the `XDG_*` variables, and the `LINECAST_*_DIR` variables above override everything.
 
 </details>
 
 <details>
 <summary><strong>Data sources and coverage</strong></summary>
 
+- **Location** — [ipinfo.io](https://ipinfo.io/) for IP geolocation when no location is saved or passed; place names are geocoded by Open-Meteo.
 - **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Hong Kong Observatory, Met Éireann, Japan Meteorological Agency, MET Norway, and MeteoAlarm.
 - **Sunshine and Moon** — computed locally from astronomical equations.
 - **Tides** — NOAA CO-OPS, Canadian Hydrographic Service, Queensland Open Data, Hong Kong Observatory, Open-Meteo's tide model as a global fallback, and optionally TideCheck.
 - **Radar** — [LibreWXR](https://librewxr.net/), with NEXRAD via Iowa Environmental Mesonet and RainViewer as fallbacks; warning polygons come from the US National Weather Service via IEM. The basemap is derived from Natural Earth.
-- **Maps** — terrain from AWS/Mapzen elevation tiles; streets and inland water from [OpenFreeMap](https://openfreemap.org/) (© OpenMapTiles © OpenStreetMap contributors); search from Photon and Nominatim; directions from FOSSGIS OSRM (© OpenStreetMap contributors); globe cloud cover from [LibreWXR](https://librewxr.net/) (CC BY 4.0) satellite imagery; terrain colour picks its ramp from a vendored [Köppen-Geiger climate grid](https://doi.org/10.6084/m9.figshare.21789074) (Beck et al. 2023, CC BY 4.0).
+- **Maps** — terrain from AWS/Mapzen elevation tiles; streets and inland water from [OpenFreeMap](https://openfreemap.org/) (© OpenMapTiles © OpenStreetMap contributors); search from Photon and Nominatim; directions from FOSSGIS OSRM (© OpenStreetMap contributors); globe cloud cover from [LibreWXR](https://librewxr.net/) (CC BY 4.0) satellite imagery; terrain color picks its ramp from a vendored [Köppen-Geiger climate grid](https://doi.org/10.6084/m9.figshare.21789074) (Beck et al. 2023, CC BY 4.0).
 
 </details>
 
@@ -342,8 +325,7 @@ Pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) says how to run th
 
 <p align="center"><em>Prior art.</em></p>
 
-A Telic-Alcatel videotex terminal draws the weather, sometime in the
-1980s. Photograph from the collection at
+A Telic-Alcatel videotex terminal draws the weather, circa 1990. Photograph from the collection at
 [minitel-alcatel.fr](https://www.minitel-alcatel.fr/).
 
 ## License
