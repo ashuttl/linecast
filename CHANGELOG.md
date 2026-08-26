@@ -5,6 +5,8 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Weather: Alert text and city labels that contain emoji now wrap and
+  align at their true width instead of drifting a column per glyph.
 - Tides: Stations in a timezone linecast has no abbreviation for now
   show their UTC offset, such as "UTC+5:45", instead of a plain "UTC".
 - Tides: `--station` and `TIDE_STATION` take a TideCheck station ID such

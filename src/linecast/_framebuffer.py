@@ -7,12 +7,11 @@ formatting helpers used across the UI.
 
 import math
 import os
-import re
 import shutil
-import unicodedata
 
 from linecast import _theme
 from linecast._color import RESET, BOLD, BG_PRIMARY, fg, bg, lerp
+from linecast._textwidth import char_width, visible_len  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
@@ -26,40 +25,6 @@ def halfblock(top, bot):
     if top == bot:
         return f"{bg(*top)} "
     return f"{bg(*top)}{fg(*bot)}{HALF_BLOCK}"
-
-
-def visible_len(s):
-    """Length of a string ignoring ANSI escapes, counting wide/emoji chars as 2."""
-    stripped = re.sub(r'\033\][^\033]*\033\\', '', s)  # strip OSC sequences (hyperlinks)
-    stripped = re.sub(r'\033\[[^m]*m', '', stripped)
-    chars = list(stripped)
-    n = 0
-    i = 0
-    while i < len(chars):
-        ch = chars[i]
-        cp = ord(ch)
-        # Check if next char is VS16 (emoji presentation selector)
-        has_vs16 = (i + 1 < len(chars) and chars[i + 1] == '\ufe0f')
-        if ch == '\ufe0f':
-            # VS16 itself is zero-width (already accounted for on the base char)
-            i += 1
-            continue
-        cat = unicodedata.category(ch)
-        eaw = unicodedata.east_asian_width(ch)
-        if cat == 'Co':
-            # Private Use Area (Nerd Font icons) — single-width
-            n += 1
-        elif eaw in ('W', 'F'):
-            n += 2
-        elif has_vs16:
-            # Base char + VS16 → emoji presentation → double-width
-            n += 2
-        elif cp >= 0x1F000:
-            n += 2
-        else:
-            n += 1
-        i += 1
-    return n
 
 
 def fmt_time(hours):

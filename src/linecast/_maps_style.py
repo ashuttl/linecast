@@ -2,9 +2,9 @@
 
 Pure data and pure functions: every colour, threshold, glyph, adapter
 and label rule that street mode needs, with no file or network access
-and no state.  Imports are limited to the stdlib plus ``_color`` and
-``_theme`` so this module can be imported from anywhere (including a
-test) without dragging in the renderer.
+and no state.  Imports are limited to the stdlib plus ``_color``,
+``_theme`` and ``_textwidth`` so this module can be imported from
+anywhere (including a test) without dragging in the renderer.
 
 The design intent, condensed: the terminal is not a small screen, it is
 a coarse one.  A braille cell holds exactly one ink, so hierarchy is
@@ -23,9 +23,9 @@ either mode, not a mode — they live in _globe_now.
 """
 
 import math
-import unicodedata
 
 from linecast._color import color_mode
+from linecast._textwidth import char_width
 from linecast import _theme
 from linecast._theme import is_light_theme, lerp_rgb, themed
 
@@ -710,8 +710,9 @@ def spaced(name):
     not fit.  Drop-not-shrink is the house rule, and an unspaced
     fallback would collide with the shield register.
     """
-    if any(unicodedata.east_asian_width(c) in ("W", "F") for c in name):
-        return name                      # CJK: never upper, never space
+    if any(char_width(c, n) != 1
+           for c, n in zip(name, name[1:] + " ")):
+        return name                      # CJK or emoji: never upper, never space
     return " ".join(name.upper())
 
 
@@ -751,7 +752,7 @@ def max_instances(total_visible_cells):
 # ---------------------------------------------------------------------------
 # POI
 # ---------------------------------------------------------------------------
-# Ten marks, all audited against the real _framebuffer.visible_len: each
+# Ten marks, all audited against the real _textwidth.visible_len: each
 # returns 1.  No emoji-presentation characters ever — visible_len counts
 # them as 2 and they break column alignment.
 GLYPH_AIRPORT = "✈"     # aerodrome_label layer

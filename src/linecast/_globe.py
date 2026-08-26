@@ -28,7 +28,8 @@ from linecast._geo import wrap_lon
 from linecast._paths import cache_dir
 from linecast._png import decode_rgba
 from linecast._radar_basemap import (
-    CITY, CITY_LABEL, DotLayer, _cell_width, _load_data, _localized)
+    CITY, CITY_LABEL, DotLayer, _load_data, _localized)
+from linecast._textwidth import char_width
 from linecast._radar_tiles import _TILE_SIZE, stitch_xyz
 from linecast._runtime import log_failure
 from linecast._scenes import Memo
@@ -642,7 +643,7 @@ def _place_cities(cities, lat0, lon0, zoom, gw, hc, lang):
         overlays[(col, row)] = ("•", CITY)
         c = col + 1
         for ch in name:
-            w = _cell_width(ch)
+            w = char_width(ch)
             if c + w > gw:
                 break
             if (c, row) in overlays or (w == 2 and (c + 1, row) in overlays):
