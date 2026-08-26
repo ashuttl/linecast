@@ -25,14 +25,22 @@ _DESCRIBE = {
 
 
 def _cmd_show():
-    icons = saved_icons()
-    if icons is None:
-        print("auto (nerd where the terminal bundles the glyphs, emoji on "
-              "other interactive terminals, plain when piped; "
-              "LINECAST_ICONS still applies)")
-        return
-    print(f"{icons}  [fixed]")
-    print("Run 'linecast icons auto' to return to the default.")
+    """What the next run will use, and why."""
+    import os
+    from linecast._runtime import resolve_icons
+    icons, source = resolve_icons(None, os.environ)
+    if source == "auto":
+        print(f"{icons}  [auto]")
+        print("Detected from the terminal; piped output is always plain.")
+        print("Run 'linecast icons nerd|emoji|plain' to fix it.")
+    elif source == "config":
+        print(f"{icons}  [fixed]")
+        print("Run 'linecast icons auto' to return to the default.")
+    else:
+        print(f"{icons}  [{source}]")
+        saved = saved_icons()
+        if saved is not None:
+            print(f"The saved setting ({saved}) is overridden by {source}.")
 
 
 def _cmd_set(icons):

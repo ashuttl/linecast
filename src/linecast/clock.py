@@ -12,19 +12,29 @@ elsewhere).
 """
 
 import argparse
+import os
 
-from linecast._runtime import VersionAction
+from linecast._runtime import VersionAction, resolve_clock
 from linecast._config import read_config, save_config, saved_clock
 
 
 def _cmd_show():
-    clock = saved_clock()
-    if clock is None:
-        print("auto (24-hour; 12-hour in the US, Canada, Australia and "
-              "a few others; LINECAST_CLOCK still applies)")
-        return
-    print(f"{clock}-hour  [fixed]")
-    print("Run 'linecast clock auto' to return to the default.")
+    """What the next run will use, and why."""
+    from linecast._location import own_country
+    country = own_country()
+    clock, source = resolve_clock(None, os.environ, country)
+    if source == "auto":
+        where = country or "country unknown, so 24-hour"
+        print(f"{clock}-hour  [auto: {where}]")
+        print("Run 'linecast clock 12' or 'linecast clock 24' to fix it.")
+    elif source == "config":
+        print(f"{clock}-hour  [fixed]")
+        print("Run 'linecast clock auto' to return to the default.")
+    else:
+        print(f"{clock}-hour  [{source}]")
+        saved = saved_clock()
+        if saved is not None:
+            print(f"The saved setting ({saved}-hour) is overridden by {source}.")
 
 
 def _cmd_set(clock):

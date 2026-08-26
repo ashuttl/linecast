@@ -13,19 +13,30 @@ machine's IP).
 """
 
 import argparse
+import os
 
-from linecast._runtime import VersionAction
+from linecast._runtime import VersionAction, resolve_units
 from linecast._config import read_config, save_config, saved_units
 
 
 def _cmd_show():
-    units = saved_units()
-    if units is None:
-        print("auto (metric; imperial in the US; "
-              "LINECAST_UNITS/WEATHER_UNITS/TIDES_UNITS still apply)")
-        return
-    print(f"{units}  [fixed]")
-    print("Run 'linecast units auto' to return to the default.")
+    """What the next run will use, and why."""
+    from linecast._location import own_country
+    country = own_country()
+    units, source = resolve_units(None, os.environ, "WEATHER_UNITS", country)
+    if source == "auto":
+        where = country or "country unknown, so metric"
+        print(f"{units}  [auto: {where}]")
+        print("Run 'linecast units metric' or 'linecast units imperial' "
+              "to fix it.")
+    elif source == "config":
+        print(f"{units}  [fixed]")
+        print("Run 'linecast units auto' to return to the default.")
+    else:
+        print(f"{units}  [{source}]")
+        saved = saved_units()
+        if saved is not None:
+            print(f"The saved setting ({saved}) is overridden by {source}.")
 
 
 def _cmd_set(units):
