@@ -4,7 +4,7 @@ Simplifies with Douglas-Peucker, rounds coordinates, and writes a compact
 gzipped JSON consumed at runtime by linecast._radar_basemap.  Run once at
 authoring time:
 
-    NE_DIR=/path/to/geojson python3 prototype/build_basemap_data.py
+    NE_DIR=/path/to/geojson python3 scripts/build_basemap_data.py
 
 Output: src/linecast/data/basemap.json.gz
 """
