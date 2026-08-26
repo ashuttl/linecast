@@ -360,7 +360,7 @@ class TestFlags:
     def test_version_and_help(self, monkeypatch):
         from linecast import __version__
         code, out, err = _run("--version", monkeypatch=monkeypatch)
-        assert (code, out, err) == (0, f"linecast doctor (linecast {__version__})\n", "")
+        assert (code, out, err) == (0, f"linecast {__version__}\n", "")
         code, out, err = _run("--help", monkeypatch=monkeypatch)
         assert code == 0 and "--offline" in out and "--json" in out
 

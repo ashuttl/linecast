@@ -245,7 +245,12 @@ class VersionAction(argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         from linecast import __version__
-        sys.stdout.write(f"{parser.prog} (linecast {__version__})\n")
+        # `linecast weather --version` is linecast's version; a parser
+        # under another name (a symlink's) says whose it is.
+        if parser.prog.split()[0] == "linecast":
+            sys.stdout.write(f"linecast {__version__}\n")
+        else:
+            sys.stdout.write(f"{parser.prog} (linecast {__version__})\n")
         parser.exit()
 
 
@@ -293,7 +298,7 @@ def _add_clock_flags(p):
 
 
 def weather_parser():
-    p = _base_parser("weather",
+    p = _base_parser("linecast weather",
                       "Terminal weather dashboard with braille temperature "
                       "curve and alerts")
     p.add_argument("--location", default=None,
@@ -315,7 +320,7 @@ def weather_parser():
 
 
 def tides_parser():
-    p = _base_parser("tides",
+    p = _base_parser("linecast tides",
                       "Terminal tide chart with braille rendering")
     p.add_argument("--location", default=None,
                     help="find the nearest station to 'lat,lng' or a "
@@ -336,7 +341,7 @@ def tides_parser():
 
 
 def sunshine_parser():
-    p = _base_parser("sunshine",
+    p = _base_parser("linecast sunshine",
                       "Solar arc inspired by the Apple Watch Solar face")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
@@ -347,7 +352,7 @@ def sunshine_parser():
 
 
 def moon_parser():
-    p = _base_parser("moon",
+    p = _base_parser("linecast moon",
                       "Moon phase, illumination, and rise/set times")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
@@ -358,7 +363,7 @@ def moon_parser():
 
 
 def radar_parser():
-    p = _base_parser("radar",
+    p = _base_parser("linecast radar",
                       "Terminal weather radar over a braille basemap (US + global)")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
@@ -389,7 +394,7 @@ def radar_parser():
 
 
 def maps_parser():
-    p = _base_parser("maps",
+    p = _base_parser("linecast maps",
                       "Street map and terrain map: vector streets, or "
                       "hillshaded elevation under braille coastlines")
     p.add_argument("--location", default=None,
