@@ -285,7 +285,7 @@ def _search_stations(query, metric=False, limit=20, cli_location=None):
             print("Could not fetch any station lists (offline?).")
         else:
             print(f"No stations matching \"{query}\". "
-                  "Try `tides --nearby` to list the nearest stations.")
+                  "Try `linecast tides --nearby` to list the nearest stations.")
         sys.exit(0)
 
     if nearby:
@@ -304,7 +304,7 @@ def _search_stations(query, metric=False, limit=20, cli_location=None):
 
     if len(matches) > limit:
         print(f"  ... and {len(matches) - limit} more")
-    print("\nUse `tides --station <id or name>` to view one.")
+    print("\nUse `linecast tides --station <id or name>` to view one.")
     budget = tidecheck_budget_line()
     if budget:
         print(budget)
@@ -949,7 +949,7 @@ def main():
                                                   cli_location=args.location)
                 if not matches:
                     print(f'No stations matching "{override}". '
-                          "Try `tides --nearby` to list the nearest stations.",
+                          "Try `linecast tides --nearby` to list the nearest stations.",
                           file=sys.stderr)
                     sys.exit(1)
                 best = matches[0]
@@ -998,8 +998,8 @@ def main():
             if station_id is None:
                 hint = ("No tide station within 100nm, and the global tide "
                         "model has no coverage here (inland?).\n"
-                        "  Try `tides --nearby` to list the nearest stations, "
-                        "or `tides --station <id or name>`.")
+                        "  Try `linecast tides --nearby` to list the nearest stations, "
+                        "or `linecast tides --station <id or name>`.")
                 if not TIDECHECK.available():
                     hint += ("\n  For more station coverage, set "
                              "LINECAST_TIDECHECK_KEY (free at tidecheck.com).")
