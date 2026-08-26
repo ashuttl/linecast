@@ -194,7 +194,7 @@ class TestUnwritableCache:
 
     def test_nws_alerts_still_answer(self, readonly_cache, monkeypatch):
         fixture = Path(__file__).parent / "fixtures" / "nws_alerts_with_test.json"
-        payload = json.loads(fixture.read_text())
+        payload = json.loads(fixture.read_text(encoding="utf-8"))
         monkeypatch.setattr(_http, "fetch_json",
                             lambda url, headers=None, timeout=10: payload)
         alerts = _weather_sources._fetch_alerts_nws(40.7, -74.0)

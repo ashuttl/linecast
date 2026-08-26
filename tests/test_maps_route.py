@@ -25,7 +25,7 @@ from linecast import _maps_route as mr
 from linecast._scenes import Memo
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-BODY = json.loads((FIXTURES / "osrm_route.json").read_text())
+BODY = json.loads((FIXTURES / "osrm_route.json").read_text(encoding="utf-8"))
 
 WESTBROOK = (43.677, -70.371)   # (lat, lon) — the fixture's origin
 PORTLAND = (43.661, -70.255)

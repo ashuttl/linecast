@@ -5,6 +5,9 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Windows: Fixed a bug where a saved location or cached data with a
+  non-ASCII name could fail to read back, so the setting appeared
+  lost and the cache was refetched every run.
 - Units: Metric is now the default everywhere except the United
   States, judged by the saved location or the machine's IP. A saved
   `linecast units` choice, the units variables, and the new `--metric`

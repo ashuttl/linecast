@@ -16,7 +16,7 @@ def config_file() -> Path:
 def read_config() -> dict[str, Any]:
     """Return the parsed config dict, or {} if missing or corrupt."""
     try:
-        return json.loads(config_file().read_text())
+        return json.loads(config_file().read_bytes())
     except FileNotFoundError:
         return {}  # nothing saved yet: the usual case
     except (OSError, json.JSONDecodeError) as exc:

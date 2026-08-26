@@ -30,7 +30,7 @@ class AtomicWriteTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "sub" / "cache.json"
             write_cache(path, {"a": 1})
-            self.assertEqual(json.loads(path.read_text()), {"a": 1})
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"a": 1})
             self.assertEqual(os.listdir(path.parent), ["cache.json"])
 
 

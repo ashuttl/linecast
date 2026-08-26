@@ -22,7 +22,7 @@ from linecast._tides_providers import QLD as QLD_PROVIDER
 
 
 def _load(name):
-    return json.loads((FIXTURES / name).read_text())
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
 STATIONS = [

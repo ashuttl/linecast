@@ -122,15 +122,15 @@ class TestSecrets:
                 assert leak not in text
 
     def test_a_url_override_loses_its_userinfo_and_query(self, no_probes, monkeypatch):
-        monkeypatch.setenv("LINECAST_LIBREWXR_URL", "https://alice:pw1@wxr.example/base?token=abc")
-        monkeypatch.setenv("LINECAST_ELEVATION_URL", "https://bob:pw2@dem.example/tiles/")
-        monkeypatch.setenv("LINECAST_TILE_SERVER", "https://carol:pw3@t.example/x?key=k")
+        monkeypatch.setenv("LINECAST_LIBREWXR_URL", "https://alice:pw-1@wxr.example/base?token=abc")
+        monkeypatch.setenv("LINECAST_ELEVATION_URL", "https://bob:pw-2@dem.example/tiles/")
+        monkeypatch.setenv("LINECAST_TILE_SERVER", "https://carol:pw-3@t.example/x?key=k")
         code, out, err = _run(monkeypatch=monkeypatch)
         _, as_json, _ = _run("--json", monkeypatch=monkeypatch)
         assert (code, err) == (0, "")
         for text in (out, as_json):
             assert "wxr.example" in text and "dem.example" in text and "t.example" in text
-            for leak in ("alice:", "pw1", "bob:", "pw2", "carol:", "pw3", "token=abc", "key=k"):
+            for leak in ("alice:", "pw-1", "bob:", "pw-2", "carol:", "pw-3", "token=abc", "key=k"):
                 assert leak not in text
         assert "  LINECAST_LIBREWXR_URL=https://wxr.example/base?..." in out
         assert "  LINECAST_ELEVATION_URL=https://dem.example/tiles/" in out

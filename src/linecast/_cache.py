@@ -34,7 +34,7 @@ def read_cache(path: Path, max_age: float) -> Any:
             return None
         if time.time() - path.stat().st_mtime >= max_age:
             return None
-        return json.loads(path.read_text())
+        return json.loads(path.read_bytes())
     except (OSError, ValueError) as exc:
         log_failure("cache", f"read of {path.name}", exc, fallback="treated as miss")
         return None
@@ -45,7 +45,7 @@ def read_stale(path: Path) -> Any:
     try:
         if not path.exists():
             return None
-        return json.loads(path.read_text())
+        return json.loads(path.read_bytes())
     except (OSError, ValueError) as exc:
         log_failure("cache", f"stale read of {path.name}", exc, fallback="no stale copy")
         return None
