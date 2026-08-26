@@ -143,12 +143,17 @@ def default_units(country):
     return "imperial" if country == "US" else "metric"
 
 
-def default_clock():
-    """The clock style for a user who has expressed no preference.
+# Countries where the 12-hour clock is the everyday written form: a
+# timetable, a shop sign or a weather report there says 6:50 pm, not
+# 18:50.  Everywhere else the 24-hour clock is the default.
+TWELVE_HOUR_COUNTRIES = frozenset((
+    "US", "CA", "AU", "NZ", "PH", "IN", "PK", "BD", "MY", "EG", "SA",
+))
 
-    The policy, in one line: a 24-hour clock everywhere.
-    """
-    return "24"
+
+def default_clock(country=None):
+    """The clock style for a user who has expressed no preference."""
+    return "12" if country in TWELVE_HOUR_COUNTRIES else "24"
 
 
 def resolve_units(namespace=None, environ=None, legacy_env="WEATHER_UNITS",
@@ -182,13 +187,13 @@ def resolve_units(namespace=None, environ=None, legacy_env="WEATHER_UNITS",
     return default_units(country), "auto"
 
 
-def resolve_clock(namespace=None, environ=None):
+def resolve_clock(namespace=None, environ=None, country=_UNSET):
     """The clock style for this run, and where it came from.
 
     Returns ("12" | "24", source); source is "flag", "LINECAST_CLOCK",
     "config", or "auto".  Precedence: --12h/--24h flags, LINECAST_CLOCK,
     the `clock` key in config.json (`linecast clock 12|24`), then the
-    default.
+    default for *country*, looked up as resolve_units does.
     """
     env = _environ(environ)
     if namespace is not None and getattr(namespace, "clock", None) in ("12", "24"):
@@ -200,7 +205,10 @@ def resolve_clock(namespace=None, environ=None):
     saved = saved_clock()
     if saved is not None:
         return saved, "config"
-    return default_clock(), "auto"
+    if country is _UNSET:
+        from linecast._location import own_country
+        country = own_country()
+    return default_clock(country), "auto"
 
 
 def units_pref(env_var="WEATHER_UNITS", environ=None):
@@ -571,7 +579,7 @@ class RuntimeConfig:
         ).lower()[:2]
         units, _source = resolve_units(namespace, env, cls._legacy_units_env,
                                        country)
-        clock, _source = resolve_clock(namespace, env)
+        clock, _source = resolve_clock(namespace, env, country)
         return cls(
             live=_resolve_live(namespace),
             icons=_resolve_icons(namespace, env),

@@ -6,7 +6,9 @@ Usage: linecast clock [show]
        linecast clock auto
 
 Precedence for every command: --12h/--24h flags > LINECAST_CLOCK env >
-saved clock (this command) > default (24-hour).
+saved clock (this command) > default (12-hour in the countries that
+write it, judged by the saved location or the machine's IP; 24-hour
+elsewhere).
 """
 
 import argparse
@@ -18,7 +20,8 @@ from linecast._config import read_config, save_config, saved_clock
 def _cmd_show():
     clock = saved_clock()
     if clock is None:
-        print("auto (24-hour; LINECAST_CLOCK still applies)")
+        print("auto (24-hour; 12-hour in the US, Canada, Australia and "
+              "a few others; LINECAST_CLOCK still applies)")
         return
     print(f"{clock}-hour  [fixed]")
     print("Run 'linecast clock auto' to return to the default.")
@@ -35,7 +38,7 @@ def _cmd_auto():
     config = read_config()
     if config.pop("clock", None) is not None:
         save_config(config)
-    print("Clock set to auto (24-hour by default)")
+    print("Clock set to auto (follows the country)")
 
 
 def main():

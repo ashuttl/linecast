@@ -30,10 +30,11 @@ terminal bundles a Nerd Font (`linecast icons nerd`).
   judged by the saved location or the machine's IP. Every view command
   takes `--metric` and `--imperial`; radar and maps now follow the same
   setting instead of guessing from the interface language.
-- Clock: The default is now the 24-hour clock. Save a choice with
-  `linecast clock 12|24|auto`; `LINECAST_CLOCK` and `--12h`/`--24h`
-  override it per run, and sunshine now follows the same preference as
-  the other views.
+- Clock: The default now follows the country: 12-hour in the United
+  States, Canada, Australia and the other places that write 6:50 pm,
+  24-hour everywhere else. Save a choice with `linecast clock 12|24|auto`;
+  `LINECAST_CLOCK` and `--12h`/`--24h` override it per run, and sunshine
+  now follows the same preference as the other views.
 - Icons: linecast no longer assumes a Nerd Font. Terminals known to
   bundle its glyphs use them, other interactive terminals use emoji,
   and piped output uses plain Unicode. `--icons nerd|emoji|plain` and

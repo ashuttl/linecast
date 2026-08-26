@@ -212,7 +212,7 @@ Every view command takes `--metric` and `--imperial`; `weather` adds `--celsius`
 
 ### Clock
 
-The clock is 24-hour by default; save the 12-hour clock (or pin 24-hour) for every command:
+The clock follows the country: 12-hour in the United States, Canada, Australia, and the other places that write 6:50 pm, 24-hour everywhere else. Pin either for every command:
 
 ```sh
 linecast clock 12

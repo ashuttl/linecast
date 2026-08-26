@@ -54,6 +54,21 @@ class ResolveClockTests(ConfigDirMixin):
     def test_default_is_24h(self):
         self.assertEqual(resolve_clock(None, {}), ("24", "auto"))
         self.assertEqual(default_clock(), "24")
+        self.assertEqual(default_clock("FR"), "24")
+
+    def test_default_is_12h_where_the_12_hour_clock_is_written(self):
+        for country in ("US", "CA", "AU", "NZ", "IN", "PH"):
+            self.assertEqual(default_clock(country), "12", country)
+        self.assertEqual(resolve_clock(None, {}, country="US"), ("12", "auto"))
+
+    def test_saved_location_country_feeds_the_default(self):
+        _config.write_config({"location": {"lat": 43.7, "lng": -70.4,
+                                           "name": "Westbrook", "country": "US"}})
+        self.assertEqual(resolve_clock(None, {}), ("12", "auto"))
+
+    def test_config_beats_the_country(self):
+        _config.write_config({"clock": "24"})
+        self.assertEqual(resolve_clock(None, {}, country="US"), ("24", "config"))
 
     def test_config_beats_the_default(self):
         _config.write_config({"clock": "12"})

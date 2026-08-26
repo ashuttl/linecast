@@ -363,7 +363,7 @@ def _collect_preferences():
 
     weather, weather_source = units("WEATHER_UNITS")
     tides, tides_source = units("TIDES_UNITS")
-    clock, clock_source = resolve_clock(None, env)
+    clock, clock_source = resolve_clock(None, env, country)
     override = env.get("WEATHER_LOCATION", "").strip()
     loc = saved_location()
     if override:
