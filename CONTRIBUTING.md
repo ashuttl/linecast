@@ -285,9 +285,10 @@ The `linecast` binary answers to the name it is invoked by: a symlink
 to it called `weather` runs the weather command, arguments untouched.
 So a distribution package may ship any of the short commands as
 symlinks where its ecosystem allows, and a user may make their own
-symlink or shell alias. Every command stays reachable as `linecast
-<command>`, so a short name left out costs the short spelling and
-nothing else.
+symlink or shell alias (`linecast link` makes the six of them, and
+skips any name another program owns). Every command stays reachable
+as `linecast <command>`, so a short name left out costs the short
+spelling and nothing else.
 
 Two things a package should not do: rename the commands to something
 of its own, and declare the short names as provided or virtual
