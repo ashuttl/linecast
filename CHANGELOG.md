@@ -12,6 +12,9 @@ Notable changes, by release. Notes for the next release collect under
   Moon, Wolf Moon, Blue Moon and the rest, following the Old Farmer's
   Almanac. A new last line gives the day of the year and counts down
   to the next equinox or solstice. `--json` carries the same fields.
+- Moon: The layout follows the terminal. A wide window floats the
+  details in the sky beside a taller moon; a small one shortens its
+  lines, and gives them up before letting anything wrap or scroll.
 - Tides: Queensland stations now show the future. The provider reads
   Maritime Safety Queensland's predicted tide datasets, which carry a
   full year ahead, instead of the monitoring feed that ended at the

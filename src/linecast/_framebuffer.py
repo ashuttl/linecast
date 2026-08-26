@@ -170,7 +170,8 @@ class Framebuffer:
 
         overlays: dict of {(col, cell_row): (char, fg_color)} for character overlays.
                   These replace the half-block at that position with a character
-                  drawn in fg_color over the appropriate background.
+                  drawn in fg_color over the appropriate background.  A third
+                  tuple element False drops the default bold weight.
         Returns a list of strings, one per cell row.
         """
         if overlays is None:
@@ -184,10 +185,12 @@ class Framebuffer:
                 bot = self.fb[row * 2 + 1][x]
                 key = (x, row)
                 if key in overlays:
-                    char, fg_color = overlays[key]
+                    entry = overlays[key]
+                    char, fg_color = entry[0], entry[1]
+                    weight = BOLD if len(entry) < 3 or entry[2] else ""
                     # An overlay char covers the whole cell; blend the two
                     # sub-pixels so its background matches the cell center.
-                    parts.append(f"{bg(*self.cell_bg(x, row))}{fg(*fg_color)}{BOLD}{char}{RESET}")
+                    parts.append(f"{bg(*self.cell_bg(x, row))}{fg(*fg_color)}{weight}{char}{RESET}")
                 else:
                     parts.append(halfblock(top, bot))
             parts.append(RESET)

@@ -31,6 +31,7 @@ from linecast._moon_i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
 )
 from linecast._seasons import full_moon_name, next_season_event
+from linecast._textwidth import char_width
 from linecast._tides_i18n import _ts  # shared "space to return to now" hint
 from linecast._runtime import RuntimeConfig, install_banner, moon_parser, set_current
 from linecast import _theme
@@ -219,24 +220,229 @@ def _center(line, width):
     return " " * pad + line
 
 
+def _first_fit(width, *variants):
+    """The widest variant that fits, or None when even the last overflows."""
+    for variant in variants:
+        if visible_len(variant) <= width:
+            return variant
+    return None
+
+
+def _panel_overlays(panel, x0, row0, graph_w):
+    """Character overlays for the wide layout's info column.
+
+    *panel* is a list of lines, each a list of (text, rgb, bold)
+    segments.  A wide character claims a second, empty cell so the row
+    keeps its width; a zero-width character (the emoji variation
+    selector) rides along in the cell before it.  Each line also claims
+    a clear cell at either end, so no star touches the text.
+    """
+    overlays = {}
+    for i, segments in enumerate(panel):
+        x = x0
+        prev = None
+        if segments and x0 > 0:
+            overlays[(x0 - 1, row0 + i)] = (" ", segments[0][1], False)
+        for text, color, bold in segments:
+            for j, ch in enumerate(text):
+                w = char_width(ch, text[j + 1:j + 2])
+                if w == 0 and prev is not None:
+                    kept, c, b = overlays[prev]
+                    overlays[prev] = (kept + ch, c, b)
+                    continue
+                if x + w > graph_w:
+                    break
+                overlays[(x, row0 + i)] = (ch, color, bold)
+                prev = (x, row0 + i)
+                if w == 2:
+                    overlays[(x + 1, row0 + i)] = ("", color, bold)
+                x += w
+        if segments and x < graph_w:
+            overlays[(x, row0 + i)] = (" ", segments[-1][1], False)
+    return overlays
+
+
 def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
-    """Build the full-screen moon display: disc plus info lines."""
+    """Build the full-screen moon display: disc plus info lines.
+
+    Three layouts, by terminal size: a wide terminal floats the info as
+    a left-aligned column in the sky beside a full-height disc; a normal
+    one stacks centered lines beneath the disc; a small one shortens or
+    sheds lines rather than letting them wrap.
+    """
     idx, _name, icon = moon_phase(now_local, runtime)
     name = _moon_name(idx, runtime)
     frac = moon_cycle_frac(now_local)
     illum = moon_illumination(now_local)
     age = frac * SYNODIC_MONTH
     alt = _moon_altitude_deg(now_local.astimezone(timezone.utc), lat, lng)
+    up = alt > HORIZON_THRESHOLD_DEG
     rise, sset = upcoming_moon_events(now_local, lat, lng)
+
+    days_to_full = ((0.5 - frac) % 1.0) * SYNODIC_MONTH
+    days_to_new = ((1.0 - frac) % 1.0) * SYNODIC_MONTH
+    full_dt = now_local + timedelta(days=days_to_full)
+    new_dt = now_local + timedelta(days=days_to_new)
+    event, event_utc = next_season_event(now_local)
+    event_local = event_utc.astimezone(now_local.tzinfo)
+    days_to_event = (event_utc - now_local).total_seconds() / 86400.0
+    year_len = 366 if calendar.isleap(now_local.year) else 365
+
+    # The Old Farmer's Almanac names for the full moon are an English-
+    # language tradition; other languages keep the plain phase name.
+    full_label = _moon_name(4, runtime)
+    if lang_of(runtime) == "en":
+        moon_name = full_moon_name(full_dt, SYNODIC_MONTH)
+        full_label = ("Blue Moon" if moon_name == "Blue"
+                      else f"Full {moon_name} Moon")
+
+    # Text pieces shared by every layout.
+    def in_days(days):
+        return _ms('in_days', runtime, days=f'{days:.1f}')
+
+    illum_txt = _ms('illuminated', runtime, pct=f'{illum * 100:.0f}')
+    age_txt = _ms('age', runtime, age=f'{age:.1f}', total=f'{SYNODIC_MONTH:.1f}')
+    alt_txt = _ms('above_horizon', runtime, alt=f'{alt:.0f}')
+    below_txt = _ms('below_horizon', runtime)
+    rise_when = _fmt_event(rise, now_local, runtime)
+    set_when = _fmt_event(sset, now_local, runtime)
+    rise_txt = f"{_ms('moonrise', runtime)} {rise_when}"
+    set_txt = f"{_ms('moonset', runtime)} {set_when}"
+    full_txt = (f"{full_label} {_fmt_month_day(full_dt, runtime)} "
+                f"({in_days(days_to_full)})")
+    new_label = _moon_name(0, runtime)
+    new_txt = (f"{new_label} {_fmt_month_day(new_dt, runtime)} "
+               f"({in_days(days_to_new)})")
+    year_txt = _ms('year_day', runtime,
+                   n=now_local.timetuple().tm_yday, total=year_len)
+    season_short = (f"{_season_label(event, lat, runtime)} "
+                    f"{_fmt_month_day(event_local, runtime)}")
+    season_txt = f"{season_short} ({in_days(days_to_event)})"
+    when_txt = (f"{_day_abbrev(now_local, runtime)} "
+                f"{_fmt_month_day(now_local, runtime)} "
+                f"{fmt_time_dt(now_local, use_24h=runtime.use_24h)}")
 
     cols, rows = get_terminal_size()
     hint = install_banner()
-    graph_w = max(30, cols - 2)
-    # Fullscreen fills the terminal exactly: graph plus info lines (and the
-    # install banner, when present) come to `rows` lines, no spare row at
-    # the bottom.  The plain print leaves two rows for the shell prompt.
-    info_rows = 5 + (1 if hint else 0)
-    graph_h = max(6, rows - info_rows - (0 if fullscreen else 2))
+    # Track even a very narrow terminal rather than overflow it; the
+    # floor only guards against a degenerate reported size.
+    graph_w = max(16, cols - 2)
+
+    # --- wide layout: the info as a column in the sky beside the disc ---
+    T, D, A, P = INFO_TEXT_RGB, INFO_DIM_RGB, INFO_AMBER_RGB, INFO_PURPLE_RGB
+    panel = [
+        [(f"{icon} {name}", T, True)],
+        [(illum_txt, D, False)],
+        [(age_txt, D, False)],
+        [],
+    ]
+    if offset_minutes:
+        # Scrubbed away from the present: lead with the simulated moment
+        # ("Up now" would lie), and show how to get back.
+        panel.append([(when_txt, A, False)])
+        panel.append([(alt_txt, T, False)] if up else [(below_txt, D, False)])
+    elif up:
+        panel.append([(_ms('up_now', runtime), A, False),
+                      (f" · {alt_txt}", T, False)])
+    else:
+        panel.append([(below_txt, D, False)])
+    panel += [
+        [("↑", A, False), (rise_txt, T, False)],
+        [("↓", P, False), (set_txt, T, False)],
+        [],
+        [(full_txt, D, False)],
+        [(new_txt, D, False)],
+        [],
+        [(year_txt, D, False)],
+        [(season_txt, D, False)],
+    ]
+    if offset_minutes:
+        panel += [[], [(_ts('space_to_now', runtime), D, False)]]
+
+    panel_w = max(visible_len("".join(t for t, _c, _b in line))
+                  for line in panel)
+    panel_h = len(panel)
+    # Fullscreen fills the terminal exactly (plus the install banner,
+    # when present); the plain print leaves two rows for the prompt.
+    wide_h = max(6, rows - (1 if hint else 0) - (0 if fullscreen else 2))
+    region_w = graph_w - panel_w - 3   # sky left over for the disc
+    # Prefer the column: go wide whenever it fits and costs the disc
+    # nothing.  Stacking spends five rows on info, so the sky beside a
+    # full-height disc wins well before the terminal is truly wide.
+    stacked_h = max(6, rows - 5 - (1 if hint else 0) - (0 if fullscreen else 2))
+    wide_radius = min(wide_h * 2 * 0.41, region_w * 0.5 - 3.0)
+    stacked_radius = min(stacked_h * 2 * 0.41, graph_w * 0.5 - 3.0)
+    if wide_radius >= stacked_radius and panel_h + 2 <= wide_h:
+        graph_h = wide_h
+        total_spy = graph_h * 2
+        radius = max(4.0, wide_radius)
+        cx = region_w // 2
+        cy = total_spy // 2
+        fb = Framebuffer(graph_w, graph_h)
+        _draw_stars(fb, cx, cy, radius)
+        fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
+                       peak_alpha=0.10 + 0.20 * illum)
+        _draw_moon_disc(fb, cx, cy, radius, frac, southern=(lat < 0))
+        lines = fb.render(overlays=_panel_overlays(
+            panel, graph_w - panel_w - 2, (graph_h - panel_h) // 2, graph_w))
+        if hint:
+            lines.append(hint)
+        return "\n".join(lines)
+
+    # --- stacked layout: centered lines beneath the disc ---
+    amber = fg(*INFO_AMBER_RGB)
+    purple = fg(*INFO_PURPLE_RGB)
+    text = fg(*INFO_TEXT_RGB)
+    dim = fg(*INFO_DIM_RGB)
+
+    # Candidate renderings per line, widest first; a small terminal takes
+    # the first that fits, and a line whose narrowest form still
+    # overflows is dropped rather than left to wrap.
+    if offset_minutes:
+        status = f"{text}{alt_txt}" if up else f"{dim}{below_txt}"
+        status_line = (
+            f"{amber}{when_txt}{text} · {status}{text} · "
+            f"{dim}{_ts('space_to_now', runtime)}{RESET}",
+            f"{amber}{when_txt}{text} · {status}{RESET}",
+            f"{amber}{when_txt}{RESET}",
+        )
+    elif up:
+        status_line = (
+            f"{amber}{_ms('up_now', runtime)}{text} · {alt_txt}{RESET}",
+            f"{amber}{_ms('up_now', runtime)}{text} · {alt:.0f}°{RESET}",
+            f"{amber}{_ms('up_now', runtime)}{RESET}",
+        )
+    else:
+        status_line = (f"{dim}{below_txt}{RESET}",)
+
+    candidates = [
+        (f"{text}{icon} {name}  {dim}{illum_txt} · {age_txt}{RESET}",
+         f"{text}{icon} {name}  {dim}{illum_txt}{RESET}",
+         f"{text}{icon} {name}{RESET}"),
+        status_line,
+        (f"{amber}↑{text}{rise_txt}  {purple}↓{text}{set_txt}{RESET}",
+         f"{amber}↑{text}{rise_when}  {purple}↓{text}{set_when}{RESET}"),
+        (f"{dim}{full_txt} · {new_txt}{RESET}",
+         f"{dim}{_moon_name(4, runtime)} {_fmt_month_day(full_dt, runtime)} · "
+         f"{new_label} {_fmt_month_day(new_dt, runtime)}{RESET}",
+         f"{dim}{_moon_name(4, runtime)} {_fmt_month_day(full_dt, runtime)}{RESET}"),
+        (f"{dim}{year_txt} · {season_txt}{RESET}",
+         f"{dim}{year_txt} · {season_short}{RESET}",
+         f"{dim}{year_txt}{RESET}"),
+    ]
+    # Fit against cols - 2 so a line that just fits still gets a column
+    # of air at each edge instead of running wall to wall.
+    fit_w = max(20, cols - 2)
+    info = [line for line in (_first_fit(fit_w, *c) for c in candidates)
+            if line is not None]
+
+    # A very short terminal gives up trailing lines (the least essential
+    # come last) before squeezing the disc below its minimum height.
+    reserve = (1 if hint else 0) + (0 if fullscreen else 2)
+    while len(info) > 1 and rows - len(info) - reserve < 6:
+        info.pop()
+
+    graph_h = max(6, rows - len(info) - reserve)
     total_spy = graph_h * 2
 
     # Half-block sub-pixels are roughly square, so one radius serves both
@@ -252,73 +458,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
                    peak_alpha=0.10 + 0.20 * illum)
     _draw_moon_disc(fb, cx, cy, radius, frac, southern=(lat < 0))
     lines = fb.render()
-
-    # --- info lines ---
-    amber = fg(*INFO_AMBER_RGB)
-    purple = fg(*INFO_PURPLE_RGB)
-    text = fg(*INFO_TEXT_RGB)
-    dim = fg(*INFO_DIM_RGB)
-
-    days_to_full = ((0.5 - frac) % 1.0) * SYNODIC_MONTH
-    days_to_new = ((1.0 - frac) % 1.0) * SYNODIC_MONTH
-    full_dt = now_local + timedelta(days=days_to_full)
-    new_dt = now_local + timedelta(days=days_to_new)
-
-    info = [
-        f"{text}{icon} {name}  "
-        f"{dim}{_ms('illuminated', runtime, pct=f'{illum * 100:.0f}')} · "
-        f"{_ms('age', runtime, age=f'{age:.1f}', total=f'{SYNODIC_MONTH:.1f}')}{RESET}"
-    ]
-
-    if offset_minutes:
-        # Scrubbed away from the present: lead with the simulated moment
-        # ("Up now" would lie), and show how to get back.
-        when = (f"{_day_abbrev(now_local, runtime)} "
-                f"{_fmt_month_day(now_local, runtime)} "
-                f"{fmt_time_dt(now_local, use_24h=runtime.use_24h)}")
-        if alt > HORIZON_THRESHOLD_DEG:
-            status = f"{text}{_ms('above_horizon', runtime, alt=f'{alt:.0f}')}"
-        else:
-            status = f"{dim}{_ms('below_horizon', runtime)}"
-        info.append(
-            f"{amber}{when}{text} · {status}{text} · "
-            f"{dim}{_ts('space_to_now', runtime)}{RESET}"
-        )
-    elif alt > HORIZON_THRESHOLD_DEG:
-        info.append(
-            f"{amber}{_ms('up_now', runtime)}{text} · "
-            f"{_ms('above_horizon', runtime, alt=f'{alt:.0f}')}{RESET}"
-        )
-    else:
-        info.append(f"{dim}{_ms('below_horizon', runtime)}{RESET}")
-
-    info.append(
-        f"{amber}↑{text}{_ms('moonrise', runtime)} {_fmt_event(rise, now_local, runtime)}  "
-        f"{purple}↓{text}{_ms('moonset', runtime)} {_fmt_event(sset, now_local, runtime)}{RESET}"
-    )
-    # The Old Farmer's Almanac names for the full moon are an English-
-    # language tradition; other languages keep the plain phase name.
-    full_label = _moon_name(4, runtime)
-    if lang_of(runtime) == "en":
-        moon_name = full_moon_name(full_dt, SYNODIC_MONTH)
-        full_label = ("Blue Moon" if moon_name == "Blue"
-                      else f"Full {moon_name} Moon")
-    info.append(
-        f"{dim}{full_label} {_fmt_month_day(full_dt, runtime)} "
-        f"({_ms('in_days', runtime, days=f'{days_to_full:.1f}')}) · "
-        f"{_moon_name(0, runtime)} {_fmt_month_day(new_dt, runtime)} "
-        f"({_ms('in_days', runtime, days=f'{days_to_new:.1f}')}){RESET}"
-    )
-
-    event, event_utc = next_season_event(now_local)
-    event_local = event_utc.astimezone(now_local.tzinfo)
-    days_to_event = (event_utc - now_local).total_seconds() / 86400.0
-    year_len = 366 if calendar.isleap(now_local.year) else 365
-    info.append(
-        f"{dim}{_ms('year_day', runtime, n=now_local.timetuple().tm_yday, total=year_len)} · "
-        f"{_season_label(event, lat, runtime)} {_fmt_month_day(event_local, runtime)} "
-        f"({_ms('in_days', runtime, days=f'{days_to_event:.1f}')}){RESET}"
-    )
 
     lines.extend(_center(line, cols) for line in info)
 
