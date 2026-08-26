@@ -233,6 +233,10 @@ def _read_key(fd, text=False):
 
     if b in (b'q', b'Q'):
         return 'quit'
+    # On Windows cbreak turns off the console's own Ctrl-C handling, so
+    # the keystroke arrives as ETX instead of a KeyboardInterrupt.
+    if b == b'\x03':
+        return 'quit'
     if b in (b'o', b'O'):
         return 'open'
     if b in (b'n', b'N', b' '):
