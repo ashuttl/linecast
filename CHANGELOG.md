@@ -6,15 +6,12 @@ Notable changes, by release. Notes for the next release collect under
 ## Unreleased
 
 linecast 2.0 runs on Windows, installs a single `linecast` command,
-and picks its defaults from where you are rather than assuming the
-United States and a Nerd Font. Upgrading from 1.x, four things change
+and picks its defaults from your location. Upgrading from 1.x, four things change
 unless you say otherwise; each has a one-line fix below.
 
 Major changes this version:
 
-- Windows: linecast now runs in Windows Terminal, with live keyboard
-  and mouse input, resizing, 24-bit colour, time zones, redirected
-  UTF-8 output, and TLS through the Windows certificate store. Windows
+- Windows: linecast now runs in Windows Terminal. Windows
   installs `tzdata` and `truststore`; macOS and Linux remain
   dependency-free.
 - Install (breaking): The six short commands (`weather`, `sunshine`,
@@ -22,13 +19,13 @@ Major changes this version:
   their names collide with other programs. Use `linecast <command>`,
   or run `linecast link` once to put the six names back as links to
   the `linecast` binary (it skips any name something else owns;
-  `--remove` undoes it). A shell alias works too. A status bar that
-  runs `moon --oneline` needs one of these after upgrading.
+  `--remove` undoes it). A shell alias works too.
 - Units: Metric is now the default everywhere except the United
-  States, judged by the saved location or the machine's IP. Every view
-  takes `--metric` and `--imperial`, and radar and maps follow the
-  same setting instead of guessing from the interface language.
-  `linecast units imperial` keeps things as they were.
+  States, judged by the saved location or the machine's IP.
+  `linecast units metric|imperial|auto` saves a choice, `LINECAST_UNITS`
+  and `--metric`/`--imperial` override it per run, and radar and maps
+  follow the same setting instead of guessing from the interface
+  language.
 - Clock: The default follows the country instead of the interface
   language: 12-hour in the United States, Canada, Australia and the
   other places that write 6:50 pm, 24-hour everywhere else. A French
