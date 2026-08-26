@@ -30,6 +30,7 @@ Notable changes, by release. Notes for the next release collect under
 - Moon: The layout follows the terminal. A wide window floats the
   details in the sky beside a taller moon; a small one shortens its
   lines, and gives them up before letting anything wrap or scroll.
+- Moon: Stars no longer show through the details in the wide layout.
 - Tides: Queensland stations now show the future. The provider reads
   Maritime Safety Queensland's predicted tide datasets, which carry a
   full year ahead, instead of the monitoring feed that ended at the

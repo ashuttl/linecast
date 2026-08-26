@@ -147,12 +147,20 @@ def _fmt_event(dt, now_local, runtime):
 # ---------------------------------------------------------------------------
 # Disc rendering
 # ---------------------------------------------------------------------------
-def _draw_stars(fb, cx, cy, radius):
-    """Sprinkle a deterministic star field, keeping clear of the Moon."""
+def _draw_stars(fb, cx, cy, radius, clear=()):
+    """Sprinkle a deterministic star field, keeping clear of the Moon.
+
+    *clear* is a set of (col, row) cells to leave dark — the ones text
+    will overlay, since a star under a letter would show through as
+    that letter's background.
+    """
     keep_out = (radius + 3.0) ** 2
     for spy in range(fb.total_spy):
         dy = spy - cy
+        row = spy // 2
         for x in range(fb.graph_w):
+            if (x, row) in clear:
+                continue
             dx = x - cx
             if dx * dx + dy * dy < keep_out:
                 continue
@@ -380,13 +388,14 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
         radius = max(4.0, wide_radius)
         cx = region_w // 2
         cy = total_spy // 2
+        overlays = _panel_overlays(
+            panel, graph_w - panel_w - 2, (graph_h - panel_h) // 2, graph_w)
         fb = Framebuffer(graph_w, graph_h)
-        _draw_stars(fb, cx, cy, radius)
+        _draw_stars(fb, cx, cy, radius, clear=overlays.keys())
         fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
                        peak_alpha=0.10 + 0.20 * illum)
         _draw_moon_disc(fb, cx, cy, radius, frac, southern=(lat < 0))
-        lines = fb.render(overlays=_panel_overlays(
-            panel, graph_w - panel_w - 2, (graph_h - panel_h) // 2, graph_w))
+        lines = fb.render(overlays=overlays)
         if hint:
             lines.append(hint)
         return "\n".join(lines)
