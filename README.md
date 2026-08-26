@@ -198,17 +198,18 @@ Save one location for every command:
 
 ```sh
 linecast location set "Portland, Maine"
+linecast location set "westbrook, maine"
 linecast location set 44.54,-68.42
 linecast location
 linecast location auto
 linecast location search fayette
 ```
 
-The setting lives in `~/.config/linecast/config.json`. A command's `--location` flag or `WEATHER_LOCATION` takes precedence. Times follow the location: point `sunshine` or `moon` somewhere across an ocean and sunrise, sunset, moonrise, and moonset come back in that place's local clock.
+`set` takes a place name — it is geocoded once, on the spot, and the first match is saved — or exact `lat,lng` coordinates; `search` lists the candidates when the first match might not be the right one. The setting lives in `~/.config/linecast/config.json`. A command's `--location` flag or `WEATHER_LOCATION` takes precedence. Times follow the location: point `sunshine` or `moon` somewhere across an ocean and sunrise, sunset, moonrise, and moonset come back in that place's local clock.
 
 ### Units
 
-Imperial is the default; save metric (or pin imperial) for every command:
+Metric is the default — imperial in the United States, judged by the saved location or, failing that, the machine's IP — and either can be pinned for every command:
 
 ```sh
 linecast units metric
@@ -217,7 +218,20 @@ linecast units
 linecast units auto
 ```
 
-This also lives in `config.json`. A command's `--metric`, `--celsius`, or `--fahrenheit` flag, or the `WEATHER_UNITS` / `TIDES_UNITS` variables, take precedence.
+This also lives in `config.json`. Every view command takes `--metric` and `--imperial`; `weather` adds `--celsius` and `--fahrenheit` for the temperature alone. A flag beats `WEATHER_UNITS` / `TIDES_UNITS` (which apply to their one command), which beat `LINECAST_UNITS`, which beats the saved setting.
+
+### Clock
+
+The clock is 24-hour by default; save the 12-hour clock (or pin 24-hour) for every command:
+
+```sh
+linecast clock 12
+linecast clock 24
+linecast clock
+linecast clock auto
+```
+
+This also lives in `config.json`. The time-showing commands take `--12h` and `--24h` for one run; a flag beats `LINECAST_CLOCK`, which beats the saved setting.
 
 ### Language
 
@@ -262,7 +276,7 @@ linecast doctor --offline
 linecast doctor --json
 ```
 
-`linecast doctor` shows which build is running, where the settings file and the cache are and whether the cache can be written, what the terminal advertised, which units, location and language are in force and where each came from, the environment variables linecast reads (an API key, token, or location shows as "(set)", never its value; a proxy or a URL override loses its userinfo and query), and one line per provider saying whether the host answered. `--offline` skips the probes and `--json` prints the same report as one object, which is the thing to paste into a bug report.
+`linecast doctor` shows which build is running, where the settings file and the cache are and whether the cache can be written, what the terminal advertised, which units, clock, location and language are in force and where each came from, the environment variables linecast reads (an API key, token, or location shows as "(set)", never its value; a proxy or a URL override loses its userinfo and query), and one line per provider saying whether the host answered. `--offline` skips the probes and `--json` prints the same report as one object, which is the thing to paste into a bug report.
 
 The six view commands and `linecast doctor` take `--debug`. It prints, on stderr, one line for each fallback taken along the way: a provider that did not answer, a cache file that could not be read, a tile that would not decode, and what was shown instead. URLs, including ones quoted by an exception, appear as scheme, host and path only. A background task that fails under a live view is reported in one line after the view closes; with `--debug` the traceback is printed in full with URLs redacted the same way.
 
@@ -272,9 +286,11 @@ The six view commands and `linecast doctor` take `--debug`. It prints, on stderr
 | Variable | Description |
 | --- | --- |
 | `WEATHER_LOCATION` | Default location for location-aware commands, as `lat,lng` or a place name; overrides the saved location |
-| `WEATHER_UNITS` | `metric` or `imperial`; overrides the saved units |
+| `WEATHER_UNITS` | `metric` or `imperial` for the weather command; overrides `LINECAST_UNITS` and the saved units |
 | `TIDE_STATION` | Default tide station ID |
-| `TIDES_UNITS` | `metric` or `imperial` for tide heights; overrides the saved units |
+| `TIDES_UNITS` | `metric` or `imperial` for tide heights; overrides `LINECAST_UNITS` and the saved units |
+| `LINECAST_UNITS` | `metric` or `imperial` for every command; overrides the saved units |
+| `LINECAST_CLOCK` | `12` or `24`; overrides the saved clock |
 | `LINECAST_TIDECHECK_KEY` | Optional TideCheck API key for global tide coverage |
 | `LINECAST_TIDECHECK_PAID` | Set to `1` on a paid TideCheck plan; the request tally then drops the 50-a-day free-tier cap |
 | `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, or `id` |

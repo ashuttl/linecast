@@ -39,11 +39,13 @@ COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps")
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
 TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps",
-                      "location", "units", "doctor", "completion")
+                      "location", "units", "clock", "doctor", "completion")
 LOCATION_SUBCOMMANDS = ("show", "set", "auto", "search")
 LOCATION_FLAGS = ("--help", "-h", "--version")
 UNITS_SUBCOMMANDS = ("show", "metric", "imperial", "auto")
 UNITS_FLAGS = ("--help", "-h", "--version")
+CLOCK_SUBCOMMANDS = ("show", "12", "24", "auto")
+CLOCK_FLAGS = ("--help", "-h", "--version")
 DOCTOR_FLAGS = ("--help", "-h", "--version", "--offline", "--json", "--debug")
 COMPLETION_FLAGS = ("--help", "-h")
 
@@ -173,6 +175,8 @@ def _bash_script(flags_by_command):
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
     units = _SPACE.join(UNITS_FLAGS)
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
+    clock = _SPACE.join(CLOCK_FLAGS)
+    clock_sub = _SPACE.join(CLOCK_SUBCOMMANDS)
     doctor = _SPACE.join(DOCTOR_FLAGS)
     shells = _SPACE.join(SHELLS)
 
@@ -285,6 +289,10 @@ _linecast_complete_command() {{
       _linecast_complete_flags {units}
       COMPREPLY+=( $(compgen -W "{units_sub}" -- "$cur") )
       ;;
+    clock)
+      _linecast_complete_flags {clock}
+      COMPREPLY+=( $(compgen -W "{clock_sub}" -- "$cur") )
+      ;;
     doctor)
       _linecast_complete_flags {doctor}
       ;;
@@ -311,7 +319,7 @@ _linecast_complete() {{
 
   cmd="${{COMP_WORDS[1]}}"
   case "$cmd" in
-    weather|tides|sunshine|moon|radar|maps|location|units|doctor|completion)
+    weather|tides|sunshine|moon|radar|maps|location|units|clock|doctor|completion)
       _linecast_complete_command "$cmd"
       ;;
   esac
@@ -332,6 +340,8 @@ def _zsh_script(flags_by_command):
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
     units = _SPACE.join(UNITS_FLAGS)
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
+    clock = _SPACE.join(CLOCK_FLAGS)
+    clock_sub = _SPACE.join(CLOCK_SUBCOMMANDS)
     doctor = _SPACE.join(DOCTOR_FLAGS)
     shells = _SPACE.join(SHELLS)
     standalone = _SPACE.join(flags_by_command)
@@ -441,6 +451,10 @@ _linecast_complete_command() {{
       _linecast_add_flags {units}
       compadd -- {units_sub}
       ;;
+    clock)
+      _linecast_add_flags {clock}
+      compadd -- {clock_sub}
+      ;;
     doctor)
       _linecast_add_flags {doctor}
       ;;
@@ -462,7 +476,7 @@ _linecast() {{
     fi
     cmd="${{words[2]}}"
     case "$cmd" in
-      weather|tides|sunshine|moon|radar|maps|location|units|doctor|completion)
+      weather|tides|sunshine|moon|radar|maps|location|units|clock|doctor|completion)
         _linecast_complete_command "$cmd"
         ;;
     esac
@@ -502,6 +516,7 @@ def _fish_script(flags_by_command):
     shells = _SPACE.join(SHELLS)
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
+    clock_sub = _SPACE.join(CLOCK_SUBCOMMANDS)
     lines = [
         "# fish completion for linecast",
         f"complete -c linecast -f -n '__fish_use_subcommand' -a '{commands}'",
@@ -513,6 +528,8 @@ def _fish_script(flags_by_command):
         "complete -c linecast -f -n '__fish_seen_subcommand_from location' -l help -s h",
         f"complete -c linecast -f -n '__fish_seen_subcommand_from units' -a '{units_sub}'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from units' -l help -s h",
+        f"complete -c linecast -f -n '__fish_seen_subcommand_from clock' -a '{clock_sub}'",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from clock' -l help -s h",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l help -s h",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l version",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l offline",
@@ -534,6 +551,10 @@ def _nu_flags(flags):
     for flag in flags:
         # --help and -h are left out so Nushell does not hijack help display
         if flag.is_help:
+            continue
+        # Nushell flag names must be identifiers, which --12h/--24h are
+        # not; they stay completable in the other shells only
+        if not flag.name.lstrip("-")[:1].isalpha():
             continue
         if flag.is_version:
             lines.append(f"    {flag.name} # Show version")
@@ -578,6 +599,8 @@ def _nu_script(flags_by_command):
                                 LOCATION_SUBCOMMANDS))
     lines.extend(_nu_value_list("linecast-units-subcommands",
                                 UNITS_SUBCOMMANDS))
+    lines.extend(_nu_value_list("linecast-clock-subcommands",
+                                CLOCK_SUBCOMMANDS))
     lines.extend([
         'export extern "linecast" [',
         "    --version(-v) # Show version",
@@ -610,6 +633,13 @@ def _nu_script(flags_by_command):
         ))
         for sub in UNITS_SUBCOMMANDS:
             lines.extend(_nu_extern(f"{prefix}units {sub}", version_only))
+        lines.extend(_nu_extern(
+            f"{prefix}clock",
+            version_only,
+            ['subcommand?: string@"nu-complete linecast-clock-subcommands"'],
+        ))
+        for sub in CLOCK_SUBCOMMANDS:
+            lines.extend(_nu_extern(f"{prefix}clock {sub}", version_only))
         lines.extend(_nu_extern(f"{prefix}doctor", [
             *version_only, "    --offline", "    --json", "    --debug"]))
 

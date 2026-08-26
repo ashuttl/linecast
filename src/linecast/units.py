@@ -5,9 +5,11 @@ Usage: linecast units [show]
        linecast units imperial
        linecast units auto
 
-Precedence for every command: --metric/--celsius/--fahrenheit flags >
-WEATHER_UNITS / TIDES_UNITS env > saved units (this command) > default
-(imperial, except distances shown in a non-English UI).
+Precedence for every command: --metric/--imperial (and weather's
+--celsius/--fahrenheit) flags > WEATHER_UNITS / TIDES_UNITS env >
+LINECAST_UNITS env > saved units (this command) > default (metric;
+imperial in the United States, judged by the saved location or the
+machine's IP).
 """
 
 import argparse
@@ -19,7 +21,8 @@ from linecast._config import read_config, save_config, saved_units
 def _cmd_show():
     units = saved_units()
     if units is None:
-        print("auto (imperial; WEATHER_UNITS/TIDES_UNITS still apply)")
+        print("auto (metric; imperial in the US; "
+              "LINECAST_UNITS/WEATHER_UNITS/TIDES_UNITS still apply)")
         return
     print(f"{units}  [fixed]")
     print("Run 'linecast units auto' to return to the default.")
@@ -39,7 +42,7 @@ def _cmd_auto():
     config = read_config()
     if config.pop("units", None) is not None:
         save_config(config)
-    print("Units set to auto (imperial by default)")
+    print("Units set to auto (metric; imperial in the US)")
 
 
 def main():

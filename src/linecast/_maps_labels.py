@@ -778,7 +778,7 @@ def poi_candidates(view, bbox, graph_w, height_cells, band, lang):
             if layer_name == "mountain_peak":
                 if name and band >= style.POI_PEAK_LABEL_BAND:
                     try:
-                        ele = style.fmt_elev(float(props["ele"]), lang)
+                        ele = style.fmt_elev(float(props["ele"]))
                         name = f"{name} {ele}"
                     except (KeyError, TypeError, ValueError):
                         pass

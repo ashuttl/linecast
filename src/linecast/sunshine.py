@@ -35,7 +35,9 @@ from linecast._theme import (
     neutral_tone,
     theme_legacy_mode,
 )
-from linecast._location import location_is_pinned, location_tzinfo, resolve_location
+from linecast._location import (
+    location_is_pinned, location_overridden, location_tzinfo, resolve_location,
+)
 from linecast._runtime import (
     RuntimeConfig, current_runtime, install_banner, set_current, sunshine_parser,
 )
@@ -617,12 +619,12 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
 
     delta_str = f"{d_sign}{d_m}m {d_s}s" if d_s > 0 else f"{d_sign}{d_m}m"
 
-    left = f"{amber}{icons['sun_icon']} {text}{fmt_time(sunrise)}"
+    left = f"{amber}{icons['sun_icon']} {text}{fmt_time(sunrise, runtime.use_24h)}"
     if offset_minutes:
-        center = f"{text}{fmt_time(now_hour)}"
+        center = f"{text}{fmt_time(now_hour, runtime.use_24h)}"
     else:
         center = f"{text}{dl_h}h {dl_m:02d}m {dim}({delta_str})"
-    right = f"{text}{fmt_time(sunset)} {purple}{icons['sunset_icon']}"
+    right = f"{text}{fmt_time(sunset, runtime.use_24h)} {purple}{icons['sunset_icon']}"
 
     lw = visible_len(left)
     cw = visible_len(center)
@@ -643,10 +645,16 @@ def main():
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
 
-    lat, lng, _country = resolve_location(args.location, lang=runtime.lang)
+    lat, lng, country = resolve_location(args.location, lang=runtime.lang)
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
+
+    # With no override the resolved location is the user's own; let the
+    # units default follow its country (a cold cache resolved without one)
+    if country and not location_overridden(args.location):
+        runtime = RuntimeConfig.from_sources(args, country=country)
+        set_current(runtime)
 
     # A pinned location may sit in another time zone; resolve it so times
     # match the location. None (IP-derived location) means machine-local

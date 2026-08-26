@@ -898,16 +898,16 @@ NICE_IMP = (
 )
 
 
-def use_metric(lang):
-    """The house units heuristic (see _runtime.use_metric)."""
+def use_metric():
+    """The running command's resolved units (see _runtime.use_metric)."""
     from linecast._runtime import use_metric as _use_metric
-    return _use_metric(lang)
+    return _use_metric()
 
 
-def fmt_elev(meters, lang):
+def fmt_elev(meters):
     """An elevation, in the reader's units.  Unit symbols are not
     translated — matching the rest of the house."""
-    if use_metric(lang):
+    if use_metric():
         return f"{round(meters):,} m"
     return f"{round(meters * 3.28084):,} ft"
 

@@ -87,7 +87,7 @@ class TestOffline:
         assert "  units     metric (WEATHER_UNITS); tides imperial (TIDES_UNITS)" in out
         assert "  location  (set) (WEATHER_LOCATION)" in out
         assert "  language  fr (LINECAST_LANG)" in out
-        assert "24-hour (fr)" in out
+        assert "  clock     24-hour (auto)" in out
         assert "  WEATHER_LOCATION=(set)" in out
         assert "1.5,2.5" not in out
 
@@ -188,9 +188,10 @@ class TestJson:
             "cache_bytes", "cache_count_complete", "cache_legacy_location"}
         assert set(report["terminal"]) == {
             "term", "colorterm", "color_mode", "columns", "lines", "stdout_tty",
-            "icons", "theme", "clock", "lang"}
+            "icons", "theme", "lang"}
         assert set(report["preferences"]) == {
-            "units", "units_source", "tides_units", "tides_units_source", "location",
+            "units", "units_source", "tides_units", "tides_units_source",
+            "clock", "clock_source", "location",
             "location_source", "language", "language_source"}
         assert isinstance(report["environment"], dict)
         assert report["providers"] is None

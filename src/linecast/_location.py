@@ -60,6 +60,30 @@ def get_location() -> tuple[float | None, float | None, str | None]:
     return lat, lng, country
 
 
+def own_country() -> str | None:
+    """The user's own country (ISO alpha-2), for units and clock defaults.
+
+    The saved location's country, else the IP-geolocation cache -- read
+    with a 30-day tolerance, since a country changes far more slowly than
+    a position -- else None.  Never fetches: the defaults must resolve
+    offline, and before any command has touched the network.
+    """
+    saved = saved_location()
+    if saved is not None and saved.get("country"):
+        return saved["country"]
+    cached = read_cache(_cache_file(), 30 * 86400)
+    if cached is not None and cached.get("country"):
+        return cached["country"]
+    return None
+
+
+def location_overridden(cli_location: str | None = None) -> bool:
+    """True when a --location flag or WEATHER_LOCATION points the view
+    somewhere explicit -- a place that need not be the user's own, so
+    its country must not feed the units default."""
+    return bool((cli_location or os.environ.get("WEATHER_LOCATION", "")).strip())
+
+
 def resolve_location(
     cli_location: str | None = None, lang: str = "en", need_country: bool = False,
     return_label: bool = False,

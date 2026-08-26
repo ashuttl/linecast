@@ -250,7 +250,9 @@ def _human(n):
 # Collecting the report
 # ---------------------------------------------------------------------------
 def _collect_paths():
-    from linecast._config import config_file, read_config, saved_location, saved_units
+    from linecast._config import (
+        config_file, read_config, saved_clock, saved_location, saved_units,
+    )
     from linecast._paths import cache_root
     settings = config_file()
     # os.path, not Path.exists/is_dir: before Python 3.14 those raise
@@ -265,7 +267,10 @@ def _collect_paths():
             keys.append("location")
         if saved_units() is not None:
             keys.append("units")
-        keys.extend(sorted(k for k in config if k not in ("location", "units")))
+        if saved_clock() is not None:
+            keys.append("clock")
+        keys.extend(sorted(k for k in config
+                           if k not in ("location", "units", "clock")))
     root = cache_root()
     exists = os.path.isdir(root)
     writable, reason = cache_writable(root)
@@ -328,7 +333,6 @@ def _collect_terminal():
         "stdout_tty": _is_tty(sys.stdout),
         "icons": icons,
         "theme": theme,
-        "clock": "24-hour" if runtime.use_24h else "12-hour",
         "lang": runtime.lang,
     }
 
@@ -341,20 +345,21 @@ def _is_tty(stream):
 
 
 def _collect_preferences():
-    from linecast._config import saved_location, saved_units
+    from linecast._config import saved_location
+    from linecast._location import own_country
+    from linecast._runtime import resolve_clock, resolve_units
     env = os.environ
-    saved = saved_units()
+    country = own_country()
 
-    def units(var):
-        value = env.get(var, "").strip().lower()
-        if value in ("metric", "imperial"):
-            return value, var
-        if saved is not None:
-            return saved, "config"
-        return "auto", "auto"
+    def units(legacy_env):
+        value, source = resolve_units(None, env, legacy_env, country)
+        if source == "auto" and country:
+            source = f"auto: {country}"
+        return value, source
 
     weather, weather_source = units("WEATHER_UNITS")
     tides, tides_source = units("TIDES_UNITS")
+    clock, clock_source = resolve_clock(None, env)
     override = env.get("WEATHER_LOCATION", "").strip()
     loc = saved_location()
     if override:
@@ -369,6 +374,8 @@ def _collect_preferences():
         "units_source": weather_source,
         "tides_units": tides,
         "tides_units_source": tides_source,
+        "clock": f"{clock}-hour",
+        "clock_source": clock_source,
         "location": location,
         "location_source": location_source,
         "language": (lang_env or "en").lower()[:2],
@@ -478,7 +485,6 @@ def render(report):
         # one glyph from each set; whichever renders as a box is missing
         ("glyph check", "nerd \U000F0599  emoji ☀️  plain ☀"),
         ("theme", term["theme"]),
-        ("clock", f"{term['clock']} ({term['lang']})"),
     ]
     out += [""] + _section("terminal", rows)
 
@@ -488,6 +494,7 @@ def render(report):
         units += f"; tides {prefs['tides_units']} ({prefs['tides_units_source']})"
     rows = [
         ("units", units),
+        ("clock", f"{prefs['clock']} ({prefs['clock_source']})"),
         ("location", prefs["location"]
          + ("" if prefs["location_source"] == "auto"
             else f" ({prefs['location_source']})")),

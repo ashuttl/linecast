@@ -52,6 +52,14 @@ def saved_units() -> str | None:
     return None
 
 
+def saved_clock() -> str | None:
+    """Return '12' or '24' saved via `linecast clock`, or None."""
+    clock = read_config().get("clock")
+    if str(clock).strip() in ("12", "24"):
+        return str(clock).strip()
+    return None
+
+
 def saved_location() -> dict[str, Any] | None:
     """Return the location saved via `linecast location set`, or None.
 

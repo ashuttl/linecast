@@ -26,7 +26,9 @@ from linecast._graphics import (
     fg, RESET, lerp, visible_len, get_terminal_size, Framebuffer, live_loop,
 )
 from linecast._i18n import lang_of
-from linecast._location import location_is_pinned, location_tzinfo, resolve_location
+from linecast._location import (
+    location_is_pinned, location_overridden, location_tzinfo, resolve_location,
+)
 from linecast._moon_i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
 )
@@ -472,10 +474,16 @@ def main():
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
 
-    lat, lng, _country = resolve_location(args.location, lang=runtime.lang)
+    lat, lng, country = resolve_location(args.location, lang=runtime.lang)
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
+
+    # With no override the resolved location is the user's own; let the
+    # units default follow its country (a cold cache resolved without one)
+    if country and not location_overridden(args.location):
+        runtime = RuntimeConfig.from_sources(args, country=country)
+        set_current(runtime)
 
     # A pinned location may sit in another time zone; resolve it so times
     # match the location instead of the machine.

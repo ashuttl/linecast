@@ -5,6 +5,18 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Units: Metric is now the default everywhere except the United
+  States, judged by the saved location or the machine's IP. A saved
+  `linecast units` choice, the units variables, and the new `--metric`
+  and `--imperial` flags on every view command still win.
+- Clock: The clock can now be chosen. `linecast clock 12|24|auto`
+  saves it, `LINECAST_CLOCK` and the new `--12h`/`--24h` flags
+  override it per run, and the default is the 24-hour clock.
+- Sunshine: The full-screen view now honours the clock preference;
+  it used to show 24-hour times regardless.
+- Radar and maps: distances, elevations and the temperature layer now
+  follow the same units setting as every other command, instead of
+  guessing from the interface language.
 - Moon: The disc now leaves some sky above and below instead of
   nearly touching the info lines, and the full-screen view uses the
   whole terminal with no blank row at the bottom.

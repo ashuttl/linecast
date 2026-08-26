@@ -18,11 +18,29 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
+from contextlib import contextmanager
+
 from linecast import _color, _maps_i18n
 from linecast import _maps_ui as mu
 from linecast._framebuffer import visible_len
 from linecast._maps_route import NoRoute, Route, RouteUnavailable
 from linecast._maps_search import Result, SearchUnavailable
+@contextmanager
+def _units(flag):
+    """Pin the running command's units; distances follow the setting,
+    not the language.
+
+    _runtime is imported at call time, not module time: another test
+    module's sys.modules purge (test_oneline) would otherwise leave this
+    file's set_current writing into a copy use_metric() no longer reads.
+    """
+    import linecast._runtime as rt
+    rt.set_current(rt.RuntimeConfig.from_sources(
+        rt.maps_parser().parse_args(["--print", flag]), environ={}))
+    try:
+        yield
+    finally:
+        rt.set_current(None)
 
 
 class FakeTimer:
@@ -625,7 +643,8 @@ class TestDirectionsOverlay:
                                      home_label=home_label)
 
     def test_the_field_rows_wear_their_labels_and_keys(self):
-        plain = strip(self._overlay())
+        with _units("--imperial"):
+            plain = strip(self._overlay())
         assert re.search(r"o from +Westbrook", plain)
         assert re.search(r"d to +Portland Head Light", plain)
         assert re.search(r"p mode +driving · 11.7 mi · 24m", plain)
@@ -643,7 +662,8 @@ class TestDirectionsOverlay:
     def test_steps_keep_their_road_names(self):
         # The endpoints' labels live in the field rows now; the depart
         # and arrive rows go back to being roads.
-        plain = strip(self._overlay())
+        with _units("--imperial"):
+            plain = strip(self._overlay())
         assert "Main Street" in plain
         assert "Spring Street" in plain
         assert "2.0 mi" in plain            # distances in the reader's units
@@ -750,10 +770,12 @@ class TestStepsText:
 class TestRouteSummary:
     def test_the_header_summary(self):
         route = fake_route("car", distance=11700.0, duration=800.0)
-        assert mu.route_summary(route, "en") == "7.3 mi · 13m · driving"
-        # French takes metric from the language alone; the duration's
+        with _units("--imperial"):
+            assert mu.route_summary(route, "en") == "7.3 mi · 13m · driving"
+        # units follow the setting, not the language; the duration's
         # unit letters stay untranslated, the profile word does not.
-        assert mu.route_summary(route, "fr") == "11.7 km · 13m · en voiture"
+        with _units("--metric"):
+            assert mu.route_summary(route, "fr") == "11.7 km · 13m · en voiture"
 
     def test_hours_are_split_out(self):
         assert mu._fmt_duration(60) == "1m"
@@ -761,17 +783,20 @@ class TestRouteSummary:
         assert mu._fmt_duration(4920) == "1h 22m"
 
     def test_short_distances_do_not_pretend_to_precision(self):
-        assert mu._fmt_distance(240, "fr") == "240 m"
-        assert mu._fmt_distance(2400, "fr") == "2.4 km"
-        assert mu._fmt_distance(240, "en") == "787 ft"
-        assert mu._fmt_distance(24000, "en") == "14.9 mi"
+        with _units("--metric"):
+            assert mu._fmt_distance(240) == "240 m"
+            assert mu._fmt_distance(2400) == "2.4 km"
+        with _units("--imperial"):
+            assert mu._fmt_distance(240) == "787 ft"
+            assert mu._fmt_distance(24000) == "14.9 mi"
 
     def test_the_profile_word_is_localized_but_the_units_are_not(self):
-        for profile, word in (("car", "driving"), ("bike", "cycling"),
-                              ("foot", "walking")):
-            summary = mu.route_summary(fake_route(profile), "en")
-            assert summary.endswith(word)
-            assert " mi · " in summary
+        with _units("--imperial"):
+            for profile, word in (("car", "driving"), ("bike", "cycling"),
+                                  ("foot", "walking")):
+                summary = mu.route_summary(fake_route(profile), "en")
+                assert summary.endswith(word)
+                assert " mi · " in summary
 
     def test_no_route_is_no_summary(self):
         assert mu.route_summary(None, "en") == ""

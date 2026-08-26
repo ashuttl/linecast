@@ -458,8 +458,8 @@ class TestPoi:
     def test_a_peak_carries_its_elevation_from_band_five(self):
         peak = points("mountain_peak",
                       (2048, 2048, {"name": "Katahdin", "ele": 1606}))
-        assert "Katahdin 5,269 ft" in text_at(overlays(peak, band=5),
-                                              HC // 2)
+        assert "Katahdin 1,606 m" in text_at(overlays(peak, band=5),
+                                             HC // 2)
         assert text_at(overlays(peak, band=4), HC // 2) \
             == _maps_style.GLYPH_PEAK
 

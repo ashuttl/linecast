@@ -62,6 +62,12 @@ class Argv0DispatchTests(unittest.TestCase):
         self.assertEqual(ran["module"], "linecast.moon")
         self.assertEqual(ran["argv"], ["linecast moon", "--oneline"])
 
+    def test_clock_dispatches_and_is_listed_in_help(self):
+        ran = self._dispatch("/usr/bin/linecast", "clock", "12")
+        self.assertEqual(ran["module"], "linecast.clock")
+        self.assertEqual(ran["argv"], ["linecast clock", "12"])
+        self.assertIn("linecast clock", cli.HELP)
+
     def test_every_standalone_name_is_a_command(self):
         for name in cli.STANDALONE:
             with self.subTest(name=name):

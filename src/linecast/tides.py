@@ -42,7 +42,7 @@ from linecast._theme import (
     surface_bg,
 )
 from linecast._geo import haversine_nm
-from linecast._location import resolve_location
+from linecast._location import location_overridden, resolve_location
 from linecast._runtime import (
     TidesRuntime, current_runtime, install_banner, log_failure, set_current,
     tides_parser,
@@ -922,7 +922,7 @@ def main():
     # behaves like --nearby (empty query = nearest stations).
     if args.nearby or args.search is not None:
         query = args.search or ""
-        _search_stations(query, metric=args.metric,
+        _search_stations(query, metric=runtime.metric,
                          limit=15 if not query.strip() else 20,
                          cli_location=args.location)
         return
@@ -964,6 +964,13 @@ def main():
             if lat is None:
                 print("Could not determine location for tide station lookup.", file=sys.stderr)
                 sys.exit(1)
+
+            # With no override the resolved location is the user's own,
+            # so the units default can follow its country -- re-resolve
+            # the runtime a cold cache made countryless.
+            if country_code and not location_overridden(args.location):
+                runtime = TidesRuntime.from_sources(args, country=country_code)
+                set_current(runtime)
 
             provider, station_id, station_name = _station_for_location(
                 lat, lng, country_code)

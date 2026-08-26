@@ -12,7 +12,8 @@ and MeteoAlarm (30 European countries).
 Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 
 Usage: weather [--print] [--oneline] [--json] [--location LAT,LNG | PLACE] [--search CITY]
-               [--icons SET] [--emoji] [--metric] [--celsius] [--fahrenheit]
+               [--icons SET] [--emoji] [--metric] [--imperial] [--12h] [--24h]
+               [--celsius] [--fahrenheit]
                [--no-shading] [--lang fr] [--classic-colors]
 """
 
@@ -21,7 +22,7 @@ import time as _t
 
 from linecast import _live
 from linecast._graphics import bg, fg, get_terminal_size, visible_len
-from linecast._location import resolve_location
+from linecast._location import location_overridden, resolve_location
 from linecast._runtime import (
     WeatherRuntime, install_banner, log_failure, set_current, weather_parser,
 )
@@ -408,6 +409,13 @@ def main():
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
+
+    # With no override the resolved location is the user's own, so the
+    # units default can follow its country -- re-resolve the runtime,
+    # which a cold cache made countryless, before anything is fetched.
+    if country_code and not location_overridden(args.location):
+        runtime = WeatherRuntime.from_sources(args, country=country_code)
+        set_current(runtime)
 
     # Fetch data in parallel for faster startup
     from concurrent.futures import ThreadPoolExecutor

@@ -133,29 +133,91 @@ def env_truthy(value):
 
 
 # ---------------------------------------------------------------------------
-# Units preference
+# Units and clock preferences
 # ---------------------------------------------------------------------------
+_UNSET = object()  # "look the country up yourself" default for the resolvers
+
+
+def default_units(country):
+    """The units for a user who has expressed no preference."""
+    return "imperial" if country == "US" else "metric"
+
+
+def default_clock():
+    """The clock style for a user who has expressed no preference.
+
+    The policy, in one line: a 24-hour clock everywhere.
+    """
+    return "24"
+
+
+def resolve_units(namespace=None, environ=None, legacy_env="WEATHER_UNITS",
+                  country=_UNSET):
+    """The units for this run, and where they came from.
+
+    Returns ("metric" | "imperial", source); source is "flag", the
+    winning env var's name, "config", or "auto".  Precedence:
+    --metric/--imperial flags, the command's own env var (WEATHER_UNITS /
+    TIDES_UNITS), LINECAST_UNITS, the `units` key in config.json, then
+    the default for *country* -- the user's own, looked up offline via
+    own_country() unless the caller already knows it.
+    """
+    env = _environ(environ)
+    if namespace is not None:
+        if getattr(namespace, "imperial", False):
+            return "imperial", "flag"
+        if getattr(namespace, "metric", False):
+            return "metric", "flag"
+    for name in (legacy_env, "LINECAST_UNITS"):
+        value = env.get(name, "").strip().lower()
+        if value in ("metric", "imperial"):
+            return value, name
+    from linecast._config import saved_units
+    saved = saved_units()
+    if saved is not None:
+        return saved, "config"
+    if country is _UNSET:
+        from linecast._location import own_country
+        country = own_country()
+    return default_units(country), "auto"
+
+
+def resolve_clock(namespace=None, environ=None):
+    """The clock style for this run, and where it came from.
+
+    Returns ("12" | "24", source); source is "flag", "LINECAST_CLOCK",
+    "config", or "auto".  Precedence: --12h/--24h flags, LINECAST_CLOCK,
+    the `clock` key in config.json (`linecast clock 12|24`), then the
+    default.
+    """
+    env = _environ(environ)
+    if namespace is not None and getattr(namespace, "clock", None) in ("12", "24"):
+        return namespace.clock, "flag"
+    value = env.get("LINECAST_CLOCK", "").strip()
+    if value in ("12", "24"):
+        return value, "LINECAST_CLOCK"
+    from linecast._config import saved_clock
+    saved = saved_clock()
+    if saved is not None:
+        return saved, "config"
+    return default_clock(), "auto"
+
+
 def units_pref(env_var="WEATHER_UNITS", environ=None):
     """The user's explicit units preference, or None if they have none.
 
     Precedence: the command's env var (WEATHER_UNITS / TIDES_UNITS), then
-    the `units` key in config.json (`linecast units metric|imperial`).
+    LINECAST_UNITS, then the `units` key in config.json
+    (`linecast units metric|imperial`).
     """
-    env = _environ(environ)
-    value = env.get(env_var, "").strip().lower()
-    if value in ("metric", "imperial"):
-        return value
-    from linecast._config import saved_units
-    return saved_units()
+    value, source = resolve_units(None, environ, env_var, country=None)
+    return None if source == "auto" else value
 
 
-def use_metric(lang, environ=None):
-    """The house units heuristic, in one place: an explicit preference
-    wins; otherwise any non-English UI is metric."""
-    pref = units_pref("WEATHER_UNITS", environ)
-    if pref is not None:
-        return pref == "metric"
-    return lang != "en"
+def use_metric():
+    """The resolved units of the running command, for render helpers
+    called without a runtime (radar and maps)."""
+    return current_runtime().metric
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +269,21 @@ def _base_parser(prog, description):
     return p
 
 
+def _add_units_flags(p, metric_help, imperial_help):
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--metric", action="store_true", help=metric_help)
+    g.add_argument("--imperial", action="store_true", help=imperial_help)
+
+
+def _add_clock_flags(p):
+    # explicit dest: "12h" is not a Python identifier
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--24h", dest="clock", action="store_const", const="24",
+                    default=None, help="24-hour clock")
+    g.add_argument("--12h", dest="clock", action="store_const", const="12",
+                    help="12-hour clock")
+
+
 def weather_parser():
     p = _base_parser("weather",
                       "Terminal weather dashboard with braille temperature "
@@ -215,8 +292,9 @@ def weather_parser():
                     help="location as 'lat,lng' or place name")
     p.add_argument("--search", default=None,
                     help="search for a location and exit")
-    p.add_argument("--metric", action="store_true",
-                    help="metric units: celsius, km/h, mm")
+    _add_units_flags(p, "metric units: celsius, km/h, mm",
+                     "imperial units: fahrenheit, mph, inches")
+    _add_clock_flags(p)
     p.add_argument("--celsius", action="store_true",
                     help="celsius temperatures only")
     p.add_argument("--fahrenheit", action="store_true",
@@ -241,8 +319,9 @@ def tides_parser():
                          "(no query: list nearest stations)")
     p.add_argument("--nearby", action="store_true",
                     help="list the nearest tide stations and exit")
-    p.add_argument("--metric", action="store_true",
-                    help="heights in meters instead of feet")
+    _add_units_flags(p, "heights in meters",
+                     "heights in feet")
+    _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")
     return p
@@ -253,6 +332,7 @@ def sunshine_parser():
                       "Solar arc inspired by the Apple Watch Solar face")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
+    _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")
     return p
@@ -263,6 +343,7 @@ def moon_parser():
                       "Moon phase, illumination, and rise/set times")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
+    _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")
     return p
@@ -293,6 +374,9 @@ def radar_parser():
                     help="condition layers to show, comma-separated: "
                          "temp (temperature tint), wind (speed/direction "
                          "arrows); press c/w in live mode to toggle")
+    _add_units_flags(p, "metric units: celsius, kilometres",
+                     "imperial units: fahrenheit, miles")
+    _add_clock_flags(p)
     return p
 
 
@@ -321,6 +405,8 @@ def maps_parser():
                          "(default: your location)")
     p.add_argument("--profile", default="car",
                     help="how to travel: car, bike or foot (default car)")
+    _add_units_flags(p, "metric units: kilometres and metres",
+                     "imperial units: miles and feet")
     return p
 
 
@@ -443,16 +529,24 @@ class RuntimeConfig:
     lang: str
     oneline: bool
     json_mode: bool = False  # machine-readable JSON output
+    metric: bool = True      # resolved units, every command
+    use_24h: bool = True     # resolved clock, every command
 
     # the parser whose defaults stand in before a main() has run
     _parser = staticmethod(lambda: _base_parser("linecast", ""))
+    # the command's own units env var, before LINECAST_UNITS
+    _legacy_units_env = "WEATHER_UNITS"
 
     @classmethod
-    def from_sources(cls, namespace, environ=None):
+    def from_sources(cls, namespace, environ=None, country=_UNSET):
         """Build the runtime from a parsed argparse namespace and the
-        environment (os.environ unless *environ* is given)."""
+        environment (os.environ unless *environ* is given).
+
+        *country* feeds the units default; mains that have resolved the
+        user's location call again with it (see resolve_units).
+        """
         env = _environ(environ)
-        if namespace.debug:
+        if namespace.debug and not _DEBUG:
             set_debug(True)
             _log_startup()
         lang = (
@@ -460,12 +554,17 @@ class RuntimeConfig:
             or env.get("LINECAST_LANG", "").strip()
             or "en"
         ).lower()[:2]
+        units, _source = resolve_units(namespace, env, cls._legacy_units_env,
+                                       country)
+        clock, _source = resolve_clock(namespace, env)
         return cls(
             live=_resolve_live(namespace),
             icons=_resolve_icons(namespace, env),
             lang=lang if len(lang) == 2 and lang.isalpha() else "en",
             oneline=namespace.oneline,
             json_mode=getattr(namespace, "json_mode", False),
+            metric=units == "metric",
+            use_24h=clock == "24",
         )
 
     @classmethod
@@ -473,42 +572,32 @@ class RuntimeConfig:
         """The runtime with no flags given."""
         return cls.from_sources(cls._parser().parse_args([]), environ)
 
-    @property
-    def use_24h(self):
-        return self.lang != "en"
-
 
 @dataclass(frozen=True)
 class WeatherRuntime(RuntimeConfig):
-    # Defaults required: the base class ends in a defaulted field (json_mode).
-    celsius: bool = False
-    metric: bool = False  # wind (km/h) and precipitation (mm)
+    # Defaults required: the base class ends in defaulted fields.
+    celsius: bool = True
     shading: bool = True
 
     _parser = staticmethod(weather_parser)
 
     @classmethod
-    def from_sources(cls, namespace, environ=None):
+    def from_sources(cls, namespace, environ=None, country=_UNSET):
         env = _environ(environ)
-        base = RuntimeConfig.from_sources(namespace, env)
-        all_metric = (
-            namespace.metric
-            or units_pref("WEATHER_UNITS", env) == "metric"
-        )
+        base = RuntimeConfig.from_sources(namespace, env, country)
         # --celsius / --fahrenheit override temperature independently
         if namespace.fahrenheit:
             celsius = False
-        elif namespace.celsius or all_metric:
-            celsius = True
         else:
-            celsius = False
+            celsius = namespace.celsius or base.metric
         return cls(
             live=base.live,
             icons=base.icons,
             lang=base.lang,
             oneline=base.oneline,
             celsius=celsius,
-            metric=namespace.metric or all_metric,
+            metric=base.metric,
+            use_24h=base.use_24h,
             shading=(not namespace.no_shading
                      and not env_truthy(env.get("WEATHER_NO_SHADING", ""))),
             json_mode=base.json_mode,
@@ -529,26 +618,8 @@ class WeatherRuntime(RuntimeConfig):
 
 @dataclass(frozen=True)
 class TidesRuntime(RuntimeConfig):
-    # Default required: the base class ends in a defaulted field (json_mode).
-    metric: bool = False  # heights in meters instead of feet
-
     _parser = staticmethod(tides_parser)
-
-    @classmethod
-    def from_sources(cls, namespace, environ=None):
-        env = _environ(environ)
-        base = RuntimeConfig.from_sources(namespace, env)
-        return cls(
-            live=base.live,
-            icons=base.icons,
-            lang=base.lang,
-            oneline=base.oneline,
-            json_mode=base.json_mode,
-            metric=(
-                namespace.metric
-                or units_pref("TIDES_UNITS", env) == "metric"
-            ),
-        )
+    _legacy_units_env = "TIDES_UNITS"
 
     @property
     def height_unit(self):

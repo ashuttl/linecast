@@ -27,11 +27,14 @@ def halfblock(top, bot):
     return f"{bg(*top)}{fg(*bot)}{HALF_BLOCK}"
 
 
-def fmt_time(hours):
-    """Format decimal hours as H:MM."""
+def fmt_time(hours, use_24h=False):
+    """Format decimal hours as h:MMa/p, or HH:MM on a 24-hour clock."""
     h = int(hours) % 24
     m = int((hours % 1) * 60)
-    return f"{h}:{m:02d}"
+    if use_24h:
+        return f"{h:02d}:{m:02d}"
+    h12 = h % 12 or 12
+    return f"{h12}:{m:02d}{'a' if h < 12 else 'p'}"
 
 
 def fmt_hour(h, use_24h=False):
@@ -46,6 +49,15 @@ def fmt_hour(h, use_24h=False):
     if h < 12:
         return f"{h}a"
     return f"{h - 12}p"
+
+
+def fmt_hour_phrase(hour, use_24h=False, lang="en"):
+    """Conversational hour: '3pm' (12h), '15h' (24h), '15時' (Japanese)."""
+    hour = hour % 24
+    if use_24h:
+        return f"{hour}時" if lang == "ja" else f"{hour:02d}h"
+    h12 = hour % 12 or 12
+    return f"{h12}{'am' if hour < 12 else 'pm'}"
 
 
 def fmt_time_dt(dt, use_24h=False):

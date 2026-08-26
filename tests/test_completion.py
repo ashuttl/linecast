@@ -63,7 +63,7 @@ class CompletionScriptTests(unittest.TestCase):
         script = render_completion("fish")
         self.assertIn(
             "complete -c linecast -f -n '__fish_use_subcommand' "
-            "-a 'weather sunshine moon tides radar maps location units doctor completion'",
+            "-a 'weather sunshine moon tides radar maps location units clock doctor completion'",
             script,
         )
         self.assertIn(
@@ -170,7 +170,8 @@ class CompletionTracksParserTests(unittest.TestCase):
                     offered = flags_of(render_completion(shell), command)
                     if shell == "nu":
                         # left out on purpose; see _nu_flags in _completion
-                        expected = expected - {"-h", "--help"}
+                        # (--12h/--24h are not Nushell identifiers)
+                        expected = expected - {"-h", "--help", "--12h", "--24h"}
                     self.assertEqual(offered, expected)
 
     def test_parser_choices_are_completed(self):
