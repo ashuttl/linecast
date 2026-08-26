@@ -147,8 +147,8 @@ after a live session in which a background thread crashed;
 `_live.WorkerWatch` catches it
 with `threading.excepthook` while the alternate screen is up and
 reports it once the terminal is restored, with the traceback under
-`--debug`. The fetch workers behind `weather --print` and
-`tides --print` add the traceback the same way
+`--debug`. The fetch workers behind `linecast weather --print` and
+`linecast tides --print` add the traceback the same way
 (`log_failure(..., trace=True)`), so a worker that died is shown in
 full either way. `doctor.py`
 collects the same facts on demand and probes every provider host.

@@ -7,7 +7,7 @@ Notable changes, by release. Notes for the next release collect under
 
 Upgrading from 1.x: four things change unless you say otherwise. The
 short commands are gone (`linecast weather`, or an alias). The clock
-follows your country instead of always showing 12-hour time
+follows your country instead of the interface language
 (`linecast clock 12`). Units follow your country instead of defaulting
 to imperial (`linecast units imperial`). Icons are emoji unless your
 terminal bundles a Nerd Font (`linecast icons nerd`).
@@ -30,9 +30,11 @@ terminal bundles a Nerd Font (`linecast icons nerd`).
   judged by the saved location or the machine's IP. Every view command
   takes `--metric` and `--imperial`; radar and maps now follow the same
   setting instead of guessing from the interface language.
-- Clock: The default now follows the country: 12-hour in the United
-  States, Canada, Australia and the other places that write 6:50 pm,
-  24-hour everywhere else. Save a choice with `linecast clock 12|24|auto`;
+- Clock: The default now follows the country instead of the interface
+  language: 12-hour in the United States, Canada, Australia and the
+  other places that write 6:50 pm, 24-hour everywhere else. A French
+  speaker in the US now gets 12-hour; an English speaker in France,
+  24-hour. Save a choice with `linecast clock 12|24|auto`;
   `LINECAST_CLOCK` and `--12h`/`--24h` override it per run, and sunshine
   now follows the same preference as the other views.
 - Icons: linecast no longer assumes a Nerd Font. Terminals known to
@@ -54,17 +56,19 @@ terminal bundles a Nerd Font (`linecast icons nerd`).
   the day of the year and counts down to the next equinox or solstice;
   `--json` carries the same fields.
 - Tides: Queensland stations now show the future. Maritime Safety
-  Queensland's predicted datasets carry a full year ahead, replacing the
-  monitoring feed that ended at the present and made the curve flatline.
-  Coverage grows from about two dozen sites to 78 gauges; a saved station
-  from before resolves to the nearest new gauge.
+  Queensland's predicted datasets carry the whole calendar year,
+  replacing the monitoring feed that ended at the present and made the
+  curve flatline. Coverage grows from about two dozen sites to nearly
+  eighty gauges; a saved station from before resolves to the nearest new
+  gauge.
 - Tides: The footer now names the station's data source — NOAA, CHS,
   Queensland Open Data, Hong Kong Observatory, TideCheck, or Open-Meteo's
-  tide model. The header and marine line also fit correctly with emoji,
-  and an unfamiliar timezone shows its UTC offset instead of plain UTC.
+  tide model, and the location pill drops its "(model)" suffix. The
+  header and marine line also fit correctly with emoji, and an unfamiliar
+  timezone shows its UTC offset instead of plain UTC.
 - Tides: `--station` and `TIDE_STATION` accept a TideCheck station ID such
-  as `fes2022-lisbon` without spending a search request. `tides --nearby`,
-  `tides --search`, and `linecast doctor` show how many of the day's 50
+  as `fes2022-lisbon` without spending a search request. `linecast tides --nearby`,
+  `linecast tides --search`, and `linecast doctor` show how many of the day's 50
   free-tier requests have been used; `LINECAST_TIDECHECK_PAID=1` hides the
   free-tier tally.
 

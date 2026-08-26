@@ -15,16 +15,16 @@
 
 ![linecast weather, sunshine, tides, and radar tiled on an Omarchy desktop](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
 
-linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies on macOS or Linux (and just two on Windows), adapts to your terminal theme, and needs no account or API key for its core experience.
+linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies on macOS or Linux (and just two on Windows), adapts to your terminal theme (on macOS and Linux), and needs no account or API key for its core experience.
 
 | Command | What it shows |
 | --- | --- |
-| `weather` | Current conditions, an hourly braille temperature curve, seven-day forecast, air quality, comparisons, and official alerts |
-| `sunshine` | The Sun moving across its daily arc, with sky gradients, day length, and moon phase |
-| `moon` | A shaded lunar disc, illumination, altitude, rise and set times, and the next full and new moons |
-| `tides` | A sunlight-shaded tide curve, current water level, and high and low times |
-| `radar` | Animated worldwide radar or satellite imagery, warning polygons, temperature, and wind |
-| `maps` | Detailed vector streets, terrain and bathymetry, a spinnable globe with live daylight and clouds, place search, and directions |
+| `linecast weather` | Current conditions, an hourly braille temperature curve, seven-day forecast, air quality, comparisons, and official alerts |
+| `linecast sunshine` | The Sun moving across its daily arc, with sky gradients, day length, and moon phase |
+| `linecast moon` | A shaded lunar disc, illumination, altitude, rise and set times, and the next full and new moons |
+| `linecast tides` | A sunlight-shaded tide curve, current water level, and high and low times |
+| `linecast radar` | Animated worldwide radar or satellite imagery, warning polygons, temperature, and wind |
+| `linecast maps` | Detailed vector streets, terrain and bathymetry, a spinnable globe with live daylight and clouds, place search, and directions |
 
 ## Quick try
 
@@ -65,7 +65,7 @@ On Arch, there is a community-maintained [AUR package](https://aur.archlinux.org
 yay -S linecast
 ```
 
-`pipx install linecast` and `pip install linecast` work too. linecast requires Python 3.10+ on macOS, Linux or Windows.
+`pipx install linecast` and `pip install linecast` work too. linecast requires Python 3.10+ on macOS, Linux or Windows (Windows Terminal; Git Bash and mintty see a pipe, not a terminal, so they get static output).
 
 On Windows it also installs `tzdata` (Windows has no IANA time zone database) and `truststore` (TLS verification through the OS certificate store). Icons default to emoji in Windows Terminal; with a Nerd Font installed and selected, `linecast icons nerd` switches to the full set.
 
@@ -195,7 +195,7 @@ linecast location auto
 linecast location search fayette
 ```
 
-`set` takes a place name — it is geocoded once, on the spot, and the first match is saved — or exact `lat,lng` coordinates; `search` lists the candidates when the first match might not be the right one. A command's `--location` flag or `WEATHER_LOCATION` takes precedence. With no location saved or passed, linecast falls back to IP geolocation: a single anonymous request to [ipinfo.io](https://ipinfo.io/), which returns the rough position of your network connection — usually the right city, sometimes the wrong one, and off by a lot on a VPN or corporate network. The answer is cached for an hour; saving a location, or setting any override, means the request is never made. Times follow the location: point `sunshine` or `moon` somewhere across an ocean and sunrise, sunset, moonrise, and moonset come back in that place's local clock.
+`set` takes a place name — it is geocoded once, on the spot, and the first match is saved — or exact `lat,lng` coordinates; `search` lists the candidates when the first match might not be the right one. A command's `--location` flag or `WEATHER_LOCATION` takes precedence. With no location saved or passed, linecast falls back to IP geolocation: a single anonymous request to [ipinfo.io](https://ipinfo.io/), which returns the rough position of your network connection — usually the right city, sometimes the wrong one, and off by a lot on a VPN or corporate network. The answer is cached for an hour; saving a location, or setting any override, means the request is never made. Times follow the location: point `linecast sunshine` or `linecast moon` somewhere across an ocean and sunrise, sunset, moonrise, and moonset come back in that place's local clock.
 
 ### Units
 
@@ -268,7 +268,7 @@ linecast completion nu | save -f ~/.config/nushell/completions/linecast_completi
 use ~/.config/nushell/completions/linecast_completions.nu *
 ```
 
-Completion covers both `linecast <command>` and the standalone commands.
+Completion covers `linecast <command>` and the short names, for anyone who aliased or symlinked them.
 
 ### When something looks wrong
 

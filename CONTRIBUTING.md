@@ -304,7 +304,7 @@ Importing `linecast.weather` costs about 30 ms on top of the
 interpreter, and the modules a command does not need on every run are
 imported inside the function that needs them. A dependency that
 imports at startup is paid on every run of every command, and a
-status bar that calls `moon --oneline` once a minute notices.
+status bar that calls `linecast moon --oneline` once a minute notices.
 
 Installability. `get.sh` runs linecast on a machine with nothing but
 `python3`, installing the package into a small venv of its own;
