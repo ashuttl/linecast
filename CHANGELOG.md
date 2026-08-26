@@ -26,6 +26,8 @@ Notable changes, by release. Notes for the next release collect under
   explicitly with `--icons nerd|emoji|plain` or `LINECAST_ICONS`;
   `linecast doctor` shows a glyph from each set so you can see what
   your font renders.
+- Weather: Using plain arrows instead of emoji/icons for sunrise and
+  sunset in the hourly chart.
 - Weather: Alert text and city labels that contain emoji now wrap and
   align at their true width instead of drifting a column per glyph.
 - Sunshine and moon render cleanly on 256- and 16-colour terminals: no
