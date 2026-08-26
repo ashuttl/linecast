@@ -5,75 +5,79 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
-Upgrading from 1.x: four things change unless you say otherwise. The
-short commands are gone (`linecast weather`, `linecast link`, or an
-alias). The clock
-follows your country instead of the interface language
-(`linecast clock 12`). Units follow your country instead of defaulting
-to imperial (`linecast units imperial`). Icons are emoji unless your
-terminal bundles a Nerd Font (`linecast icons nerd`).
+linecast 2.0 runs on Windows, installs a single `linecast` command,
+and picks its defaults from where you are rather than assuming the
+United States and a Nerd Font. Upgrading from 1.x, four things change
+unless you say otherwise; each has a one-line fix below.
 
+Major changes this version:
+
+- Windows: linecast now runs in Windows Terminal, with live keyboard
+  and mouse input, resizing, 24-bit colour, time zones, redirected
+  UTF-8 output, and TLS through the Windows certificate store. Windows
+  installs `tzdata` and `truststore`; macOS and Linux remain
+  dependency-free.
 - Install (breaking): The six short commands (`weather`, `sunshine`,
-  `moon`, `tides`, `radar`, `maps`) are no longer installed because
-  their common names can collide with other programs. Use
-  `linecast <command>` after upgrading, or run `linecast link` once to
-  put the six names back as links to the `linecast` binary, skipping
-  any that something else owns (`--remove` undoes it). An alias works
-  too; the binary answers to the name it is invoked by. A status bar
-  that runs `moon --oneline` needs one of these.
-- Windows: linecast now runs in Windows Terminal, including its live
-  keyboard and mouse input, resizing, 24-bit colour, time zones,
-  redirected UTF-8 output, and TLS through the Windows certificate
-  store. Windows installs `tzdata` and `truststore`; macOS and Linux
-  remain dependency-free.
-- Cache and settings: JSON is now read as UTF-8 on every platform. A
-  saved location or cached response with a non-ASCII name no longer
-  appears lost on Windows.
-- Units: Metric is now the default everywhere except the United States,
-  judged by the saved location or the machine's IP. Every view command
-  takes `--metric` and `--imperial`; radar and maps now follow the same
-  setting instead of guessing from the interface language.
-- Clock: The default now follows the country instead of the interface
+  `moon`, `tides`, `radar`, `maps`) are no longer installed, because
+  their names collide with other programs. Use `linecast <command>`,
+  or run `linecast link` once to put the six names back as links to
+  the `linecast` binary (it skips any name something else owns;
+  `--remove` undoes it). A shell alias works too. A status bar that
+  runs `moon --oneline` needs one of these after upgrading.
+- Units: Metric is now the default everywhere except the United
+  States, judged by the saved location or the machine's IP. Every view
+  takes `--metric` and `--imperial`, and radar and maps follow the
+  same setting instead of guessing from the interface language.
+  `linecast units imperial` keeps things as they were.
+- Clock: The default follows the country instead of the interface
   language: 12-hour in the United States, Canada, Australia and the
   other places that write 6:50 pm, 24-hour everywhere else. A French
   speaker in the US now gets 12-hour; an English speaker in France,
-  24-hour. Save a choice with `linecast clock 12|24|auto`;
-  `LINECAST_CLOCK` and `--12h`/`--24h` override it per run, and sunshine
-  now follows the same preference as the other views.
+  24-hour. `linecast clock 12|24|auto` saves a choice, `LINECAST_CLOCK`
+  and `--12h`/`--24h` override it per run, and sunshine follows the
+  same preference as the other views.
 - Icons: linecast no longer assumes a Nerd Font. Terminals known to
   bundle its glyphs use them, other interactive terminals use emoji,
-  and piped output uses plain Unicode. `--icons nerd|emoji|plain` and
-  `LINECAST_ICONS` choose explicitly; `linecast doctor` previews all
-  three sets. `linecast icons nerd|emoji|plain|auto` saves the choice
-  for a terminal whose font linecast cannot see.
-- Drawing: Emoji in alerts and map labels now wrap at their real display
+  and piped output uses plain Unicode. `linecast icons nerd` restores
+  the full set for a terminal whose font linecast cannot see;
+  `--icons nerd|emoji|plain` and `LINECAST_ICONS` choose per run, and
+  `linecast doctor` previews all three.
+
+Other changes:
+
+- Settings: `linecast units`, `linecast clock` and `linecast icons`
+  now say which setting is in force and where it came from.
+- Cache and settings: JSON is read as UTF-8 on every platform. A saved
+  location or cached response with a non-ASCII name no longer appears
+  lost on Windows.
+- Drawing: Emoji in alerts and map labels wrap at their real display
   width. Sunshine and moon no longer acquire coloured rings on 256- or
-  16-colour terminals, and sunrise and sunset use stable plain arrows in
-  every icon set.
-- Moon: The full-screen layout now follows the terminal. A wide window
-  floats the details beside a taller moon; a small one shortens or drops
-  lines before they can wrap, and every size uses the whole screen while
-  keeping stars out from under the text.
-- Moon: The next full moon now carries its traditional Almanac name —
+  16-colour terminals, and sunrise and sunset use plain arrows in every
+  icon set.
+- Moon: The full-screen layout follows the terminal. A wide window
+  floats the details beside a taller moon; a small one shortens or
+  drops lines before they can wrap, and every size fills the screen
+  while keeping stars out from under the text.
+- Moon: The next full moon carries its traditional Almanac name —
   Harvest Moon, Wolf Moon, Blue Moon and the rest. The last line gives
   the day of the year and counts down to the next equinox or solstice;
   `--json` carries the same fields.
 - Tides: Queensland stations now show the future. Maritime Safety
   Queensland's predicted datasets carry the whole calendar year,
-  replacing the monitoring feed that ended at the present and made the
-  curve flatline. Coverage grows from about two dozen sites to nearly
-  eighty gauges; a saved station from before resolves to the nearest new
-  gauge.
-- Tides: The footer now names the station's data source — NOAA, CHS,
+  replacing the monitoring feed that ended at the present and left the
+  curve flat. Coverage grows from about two dozen sites to nearly
+  eighty gauges; a saved station from before resolves to the nearest
+  new gauge.
+- Tides: The footer names the station's data source — NOAA, CHS,
   Queensland Open Data, Hong Kong Observatory, TideCheck, or Open-Meteo's
-  tide model, and the location pill drops its "(model)" suffix. The
-  header and marine line also fit correctly with emoji, and an unfamiliar
+  tide model — and the location pill drops its "(model)" suffix. The
+  header and marine line fit correctly with emoji, and an unfamiliar
   timezone shows its UTC offset instead of plain UTC.
-- Tides: `--station` and `TIDE_STATION` accept a TideCheck station ID such
-  as `fes2022-lisbon` without spending a search request. `linecast tides --nearby`,
-  `linecast tides --search`, and `linecast doctor` show how many of the day's 50
-  free-tier requests have been used; `LINECAST_TIDECHECK_PAID=1` hides the
-  free-tier tally.
+- Tides: `--station` and `TIDE_STATION` accept a TideCheck station ID
+  such as `fes2022-lisbon` without spending a search request.
+  `linecast tides --nearby`, `--search`, and `linecast doctor` show how
+  many of the day's 50 free-tier requests have been used;
+  `LINECAST_TIDECHECK_PAID=1` hides the tally.
 
 ## 1.17.0 — 2026-08-25
 
