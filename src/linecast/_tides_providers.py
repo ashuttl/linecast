@@ -324,7 +324,7 @@ class _OpenMeteo(TideProvider):
             return None, None
         try:
             from linecast._sunshine_json import _location_label
-            return station_id, f"{_location_label(lat, lng)} (model)"
+            return station_id, _location_label(lat, lng)
         except Exception:
             return station_id, "Tide model"
 

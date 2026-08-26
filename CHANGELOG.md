@@ -17,7 +17,8 @@ Notable changes, by release. Notes for the next release collect under
   more blue fringe on the moon's edge or rainbow rings in the sky.
 - Tides: The footer now names the data source for your station — NOAA,
   CHS, Queensland Open Data, Hong Kong Observatory, TideCheck, or
-  Open-Meteo's tide model.
+  Open-Meteo's tide model — and the location pill drops its "(model)"
+  suffix, since the footer now carries that.
 - Tides: The marine line drops its redundant wave icon and separates
   waves from swell with a middot, and the moon phase in the header no
   longer loses its last letter when icons are emoji.
