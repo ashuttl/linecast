@@ -19,10 +19,15 @@ A test that genuinely needs the network or the real home marks itself
 import http.client
 import os
 import socket
+import sys
 import tempfile
 from pathlib import Path
 
 import pytest
+
+# The home this user actually has, taken before the private one is
+# announced: Windows has no pwd module to ask later.
+REAL_HOME = Path.home()
 
 _SESSION = tempfile.TemporaryDirectory(prefix="linecast-tests-")
 SESSION_ROOT = Path(_SESSION.name)
@@ -40,6 +45,9 @@ SESSION_ENV = {
     "LINECAST_CACHE_DIR": str(CACHE_HOME / "linecast"),
     "LINECAST_CONFIG_DIR": str(CONFIG_HOME / "linecast"),
 }
+if sys.platform == "win32":
+    # expanduser reads USERPROFILE here, never HOME.
+    SESSION_ENV["USERPROFILE"] = str(HOME)
 os.environ.update(SESSION_ENV)
 
 # Every variable linecast reads that would change what a test sees.
@@ -98,6 +106,8 @@ def _private_home(monkeypatch, tmp_path):
 # Directories this process may not write or search
 # ---------------------------------------------------------------------------
 def _restrict(path, mode, access, what):
+    if sys.platform == "win32":
+        pytest.skip("directory modes do not deny access on Windows")
     if os.geteuid() == 0:
         pytest.skip("root is not refused by directory modes")
     path.chmod(mode)

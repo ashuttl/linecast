@@ -1,3 +1,4 @@
+import sys
 import unittest
 
 from linecast import _graphics
@@ -17,16 +18,22 @@ class DetectColorModeTests(unittest.TestCase):
         mode = _graphics.detect_color_mode(environ=env, stream=_TTY(True))
         self.assertEqual(mode, "none")
 
+    @unittest.skipIf(sys.platform == "win32",
+                     "Windows asks the console for capability, not TERM")
     def test_colorterm_truecolor_wins(self):
         env = {"TERM": "xterm-256color", "COLORTERM": "truecolor"}
         mode = _graphics.detect_color_mode(environ=env, stream=_TTY(True))
         self.assertEqual(mode, "truecolor")
 
+    @unittest.skipIf(sys.platform == "win32",
+                     "Windows asks the console for capability, not TERM")
     def test_term_256color_detected(self):
         env = {"TERM": "screen-256color"}
         mode = _graphics.detect_color_mode(environ=env, stream=_TTY(True))
         self.assertEqual(mode, "256")
 
+    @unittest.skipIf(sys.platform == "win32",
+                     "Windows asks the console for capability, not TERM")
     def test_defaults_to_16_for_basic_tty(self):
         env = {"TERM": "xterm"}
         mode = _graphics.detect_color_mode(environ=env, stream=_TTY(True))

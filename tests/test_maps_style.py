@@ -684,7 +684,7 @@ def test_fill_order_is_bottom_to_top():
 
 
 def test_module_touches_neither_disk_nor_network():
-    source = (Path(ms.__file__)).read_text()
+    source = (Path(ms.__file__)).read_text(encoding="utf-8")
     for forbidden in ("open(", "urllib", "requests", "socket", "Path(",
                       "_vtiles", "_http"):
         assert forbidden not in source, forbidden

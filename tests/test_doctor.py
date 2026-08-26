@@ -7,6 +7,7 @@ cache and settings paths are the private ones tests/conftest.py set.
 import importlib
 import io
 import json
+import os
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -109,7 +110,10 @@ class TestSecrets:
         code, out, _ = _run("--offline", monkeypatch=monkeypatch)
         assert "  LINECAST_TIDECHECK_KEY=(set)" in out
         assert "  LINECAST_SOME_TOKEN=(set)" in out
-        assert "  https_proxy=http://proxy.example:3128/?..." in out
+        # Windows stores environment names in upper case; the report
+        # prints the name as the environment holds it.
+        shown = next(k for k in os.environ if k.lower() == "https_proxy")
+        assert f"  {shown}=http://proxy.example:3128/?..." in out
         _, as_json, _ = _run("--offline", "--json", monkeypatch=monkeypatch)
         for text in (out, as_json):
             # the userinfo as it would leak, not the bare word "user":
@@ -159,7 +163,8 @@ class TestSecrets:
         monkeypatch.setenv("http_proxy", "http://user:pw@[bad")
         code, out, err = _run("--offline", monkeypatch=monkeypatch)
         assert (code, err) == (0, "")
-        assert "  http_proxy=(unparseable URL)" in out
+        shown = next(k for k in os.environ if k.lower() == "http_proxy")
+        assert f"  {shown}=(unparseable URL)" in out
         assert "pw@" not in out
 
     def test_unset_variables_are_not_listed(self, monkeypatch):

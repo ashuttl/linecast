@@ -34,19 +34,19 @@ def _strip_ansi(text):
 
 
 def _load_fixture(name):
-    return json.loads((FIXTURES / name).read_text())
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
 def _read_snapshot(name):
     path = SNAPSHOTS / name
     if path.exists():
-        return path.read_text()
+        return path.read_text(encoding="utf-8")
     return None
 
 
 def _write_snapshot(name, content):
     SNAPSHOTS.mkdir(exist_ok=True)
-    (SNAPSHOTS / name).write_text(content)
+    (SNAPSHOTS / name).write_text(content, encoding="utf-8")
 
 
 def _compare_or_create(snapshot_name, actual):
