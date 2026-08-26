@@ -93,7 +93,7 @@ linecast maps --to "Portland Head Light" --profile bike
 
 Use `--print` for one static frame. When output is piped, linecast does this automatically. Weather, sunshine, moon, and tides also offer `--json` and compact `--oneline` output for status bars.
 
-Prefer the short spellings? Alias them — the names are yours, not linecast's, so they never collide with anything else on your system. A symlink named `moon` works too; the binary answers to the name it is invoked by.
+Prefer the short spellings? The names are yours, not linecast's, so they never collide with anything else on your system. `linecast link` makes `weather`, `sunshine`, `moon`, `tides`, `radar` and `maps` as links beside the `linecast` binary, skipping any name something else already owns; `linecast link --remove` takes them away again. A shell alias does the same job:
 
 ```sh
 alias weather='linecast weather' radar='linecast radar'

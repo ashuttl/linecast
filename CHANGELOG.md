@@ -6,7 +6,8 @@ Notable changes, by release. Notes for the next release collect under
 ## Unreleased
 
 Upgrading from 1.x: four things change unless you say otherwise. The
-short commands are gone (`linecast weather`, or an alias). The clock
+short commands are gone (`linecast weather`, `linecast link`, or an
+alias). The clock
 follows your country instead of the interface language
 (`linecast clock 12`). Units follow your country instead of defaulting
 to imperial (`linecast units imperial`). Icons are emoji unless your
@@ -15,9 +16,11 @@ terminal bundles a Nerd Font (`linecast icons nerd`).
 - Install (breaking): The six short commands (`weather`, `sunshine`,
   `moon`, `tides`, `radar`, `maps`) are no longer installed because
   their common names can collide with other programs. Use
-  `linecast <command>` after upgrading. An alias or symlink restores a
-  short spelling; the `linecast` binary answers to the name it is
-  invoked by.
+  `linecast <command>` after upgrading, or run `linecast link` once to
+  put the six names back as links to the `linecast` binary, skipping
+  any that something else owns (`--remove` undoes it). An alias works
+  too; the binary answers to the name it is invoked by. A status bar
+  that runs `moon --oneline` needs one of these.
 - Windows: linecast now runs in Windows Terminal, including its live
   keyboard and mouse input, resizing, 24-bit colour, time zones,
   redirected UTF-8 output, and TLS through the Windows certificate

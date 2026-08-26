@@ -137,6 +137,10 @@ def env_truthy(value):
 # ---------------------------------------------------------------------------
 _UNSET = object()  # "look the country up yourself" default for the resolvers
 
+# argv[0] as the process started, before dispatch renames it to
+# "linecast <command>"; `linecast link` needs the binary's own path.
+INVOKED_AS = None
+
 
 def default_units(country):
     """The units for a user who has expressed no preference."""

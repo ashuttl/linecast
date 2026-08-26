@@ -18,11 +18,12 @@ Commands:
   linecast units       Show or set preferred units (metric or imperial)
   linecast clock       Show or set the clock style (12-hour or 24-hour)
   linecast icons       Show or set the icon set (nerd, emoji, or plain)
+  linecast link        Make the short commands (weather, moon, …) as links to linecast
   linecast doctor      Show where files live, what the terminal supports, and which providers answer
   linecast completion  Print shell completion script (bash, zsh, fish, nushell)
 
-Prefer the short spellings? A shell alias (alias weather='linecast
-weather') or a symlink named weather runs the weather command directly.
+Prefer the short spellings? `linecast link` makes them, or a shell
+alias (alias weather='linecast weather') runs the command directly.
 Run any command with --help for options.
 """
 
@@ -37,6 +38,7 @@ COMMANDS = {
     "units": "linecast.units",
     "clock": "linecast.clock",
     "icons": "linecast.icons",
+    "link": "linecast.link",
     "doctor": "linecast.doctor",
 }
 
@@ -48,7 +50,10 @@ STANDALONE = ("weather", "sunshine", "moon", "tides", "radar", "maps")
 
 
 def _run(cmd, args):
-    # Shift argv so the subcommand sees itself as argv[0]
+    # Shift argv so the subcommand sees itself as argv[0], keeping the
+    # original where `linecast link` can find the binary.
+    from linecast import _runtime
+    _runtime.INVOKED_AS = sys.argv[0]
     sys.argv = [f"linecast {cmd}"] + list(args)
     import importlib
     mod = importlib.import_module(COMMANDS[cmd])

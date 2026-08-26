@@ -39,7 +39,7 @@ COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps")
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
 TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps",
-                      "location", "units", "clock", "icons", "doctor", "completion")
+                      "location", "units", "clock", "icons", "link", "doctor", "completion")
 LOCATION_SUBCOMMANDS = ("show", "set", "auto", "search")
 LOCATION_FLAGS = ("--help", "-h", "--version")
 UNITS_SUBCOMMANDS = ("show", "metric", "imperial", "auto")
