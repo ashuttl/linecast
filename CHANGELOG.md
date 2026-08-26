@@ -21,10 +21,11 @@ Notable changes, by release. Notes for the next release collect under
   name the system already uses; `linecast <command>` always works.
 - Icons no longer come out as boxes without a Nerd Font. linecast now
   uses Nerd Font glyphs only where the terminal is known to bundle them
-  (WezTerm, kitty, Ghostty) and plain Unicode symbols everywhere else.
-  Pick a set explicitly with `--icons nerd|emoji|plain` or
-  `LINECAST_ICONS`; `linecast doctor` shows a glyph from each set so you
-  can see what your font renders.
+  (WezTerm, kitty, Ghostty) and emoji on other interactive terminals;
+  piped or redirected output gets plain Unicode symbols. Pick a set
+  explicitly with `--icons nerd|emoji|plain` or `LINECAST_ICONS`;
+  `linecast doctor` shows a glyph from each set so you can see what
+  your font renders.
 - Weather: Alert text and city labels that contain emoji now wrap and
   align at their true width instead of drifting a column per glyph.
 - Sunshine and moon render cleanly on 256- and 16-colour terminals: no

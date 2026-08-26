@@ -311,9 +311,14 @@ def _collect_terminal():
         icons = f"{runtime.icons} (LINECAST_ICONS)"
     elif runtime.icons == "nerd":
         icons = "nerd font (this terminal bundles the glyphs)"
-    else:
-        icons = ("plain (no Nerd Font assumed; set LINECAST_ICONS to "
+    elif runtime.icons == "emoji":
+        icons = ("emoji (interactive terminal; set LINECAST_ICONS to "
                  "nerd, emoji or plain)")
+    elif not tty:
+        icons = "plain (stdout is not a tty)"
+    else:
+        icons = ("plain (this console is not known to draw emoji; set "
+                 "LINECAST_ICONS to nerd, emoji or plain)")
     return {
         "term": env.get("TERM", ""),
         "colorterm": env.get("COLORTERM", ""),

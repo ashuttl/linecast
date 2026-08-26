@@ -191,7 +191,8 @@ def _base_parser(prog, description):
     p.add_argument("--icons", choices=("nerd", "emoji", "plain"), default=None,
                     help="icon set: Nerd Font glyphs, standard emoji, or "
                          "plain Unicode (default: nerd where the terminal "
-                         "bundles the glyphs, plain elsewhere)")
+                         "bundles the glyphs, emoji on other interactive "
+                         "terminals, plain when piped or redirected)")
     p.add_argument("--emoji", action="store_true",
                     help="use standard emoji icons (same as --icons emoji)")
     p.add_argument("--lang", default=None,
@@ -378,21 +379,48 @@ def _resolve_live(ns):
 ICON_SETS = ("nerd", "emoji", "plain")
 
 
-def default_icons(env):
+def _interactive_utf8(stream):
+    """Whether *stream* is an interactive UTF-8 terminal — the setting
+    emoji are known to render in."""
+    try:
+        if not stream.isatty():
+            return False
+        return "utf" in (getattr(stream, "encoding", "") or "").lower()
+    except Exception:
+        return False
+
+
+def default_icons(env, stream=None):
     """The icon set to assume when nothing was asked for.
 
     A terminal cannot be asked which font it renders with, so "does this
     user have a Nerd Font?" is unanswerable in general.  What is knowable:
     WezTerm, kitty (since 0.32) and Ghostty ship the Nerd Font symbols as
     a built-in fallback font, so the icons render there regardless of the
-    configured font.  Everywhere else the safe answer is plain Unicode,
-    which never draws a tofu box.
+    configured font.
+
+    Every other modern terminal draws emoji from a system fallback font,
+    so an interactive UTF-8 stream gets the emoji set.  Plain Unicode is
+    kept for the cases emoji cannot be trusted: output that is piped or
+    redirected (stable single-cell widths, greppable), a stream whose
+    encoding cannot carry emoji, TERM=dumb, and a console where no
+    terminal identifies itself at all — TERM, TERM_PROGRAM and
+    WT_SESSION all unset is the legacy Windows console, whose fonts
+    have no emoji.
     """
     if env.get("TERM_PROGRAM", "").lower() in ("wezterm", "ghostty"):
         return "nerd"
     if env.get("KITTY_WINDOW_ID"):
         return "nerd"
-    return "plain"
+    stream = sys.stdout if stream is None else stream
+    if not _interactive_utf8(stream):
+        return "plain"
+    if env.get("TERM", "").lower() == "dumb":
+        return "plain"
+    if not (env.get("TERM") or env.get("TERM_PROGRAM")
+            or env.get("WT_SESSION")):
+        return "plain"
+    return "emoji"
 
 
 def _resolve_icons(namespace, env):
