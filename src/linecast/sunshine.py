@@ -11,7 +11,8 @@ in half-block characters with ANSI color at 2x vertical sub-pixel
 resolution (true color when available). Location is cached from IP
 geolocation (~1 network call per week).
 
-Usage: sunshine [--print] [--oneline] [--json] [--location PLACE] [--emoji] [--classic-colors]
+Usage: sunshine [--print] [--oneline] [--json] [--location PLACE] [--icons SET]
+                [--emoji] [--classic-colors]
 """
 
 import math
@@ -123,8 +124,30 @@ _NERD_ICONS = {
 }
 
 
+# Text-presentation glyphs only: the phase dial ○ ◔ ◑ ◕ ● loses the
+# waxing/waning mirror, but every font can draw it.
+_PLAIN_ICONS = {
+    "sun_char": "●",
+    "sun_icon": "↑",
+    "sunset_icon": "↓",
+    "moon_icons": [
+        "○",  # New Moon
+        "◔",  # Waxing Crescent
+        "◑",  # First Quarter
+        "◕",  # Waxing Gibbous
+        "●",  # Full Moon
+        "◕",  # Waning Gibbous
+        "◑",  # Last Quarter
+        "◔",  # Waning Crescent
+    ],
+}
+
+
 def _icon_set(runtime):
-    return _EMOJI_ICONS if runtime.emoji else _NERD_ICONS
+    return {"nerd": _NERD_ICONS, "emoji": _EMOJI_ICONS,
+            "plain": _PLAIN_ICONS}[runtime.icons]
+
+
 MOON_NAMES = [
     "New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous",
     "Full Moon", "Waning Gibbous", "Last Quarter", "Waning Crescent",

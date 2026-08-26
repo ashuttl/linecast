@@ -263,8 +263,10 @@ def _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime):
     """Compute sunrise/sunset labels mapped to graph columns."""
     sun_labels = {}
     use_24h = runtime.use_24h
-    sunrise_icon = "\u2600\ufe0f" if runtime.emoji else "\U000F059C"
-    sunset_icon = "\U0001f305" if runtime.emoji else "\U000F059B"
+    sunrise_icon = {"nerd": "\U000F059C", "emoji": "\u2600\ufe0f",
+                    "plain": "\u2191"}[runtime.icons]
+    sunset_icon = {"nerd": "\U000F059B", "emoji": "\U0001f305",
+                   "plain": "\u2193"}[runtime.icons]
     if window_dts and sun_events:
         t0 = window_dts[0]
         for rise, sset in sun_events:

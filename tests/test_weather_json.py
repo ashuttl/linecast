@@ -34,7 +34,7 @@ def _load_fixture():
 
 def _runtime(**overrides):
     defaults = dict(
-        live=False, emoji=True, lang="en", oneline=False,
+        live=False, icons="emoji", lang="en", oneline=False,
         celsius=False, metric=False, shading=False,
     )
     defaults.update(overrides)

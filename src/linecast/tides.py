@@ -573,8 +573,12 @@ def _info_line(window, now_height, now_dt, width, offset_minutes, rising, runtim
     now_text = fg(*NOW_PILL_TEXT_RGB)
 
     arrow = "\u2197" if rising else "\u2198"
-    icon_hi = "\U000F0799"   # 󰞙
-    icon_lo = "\U000F0796"   # 󰞖
+    if runtime.icons == "nerd":
+        icon_hi = "\U000F0799"   # 󰞙
+        icon_lo = "\U000F0796"   # 󰞖
+    else:
+        icon_hi = "▲"
+        icon_lo = "▼"
 
     h_display = runtime.convert_height(now_height)
     unit = runtime.height_unit
@@ -790,7 +794,8 @@ def render(station_id, station_name, station_meta=None, runtime=None,
             marine = parse_marine_current(marine_data, now_local)
             marine_str = format_marine_line(marine, runtime, width=cols)
             if marine_str:
-                wave_icon = "\U0001F30A" if runtime.emoji else WAVE_ICON
+                wave_icon = {"nerd": WAVE_ICON, "emoji": "\U0001F30A",
+                             "plain": "≈"}[runtime.icons]
                 muted = fg(*MUTED_RGB)
                 dim = fg(*DIM_RGB)
                 lines.append(f" {muted}{wave_icon} {dim}{marine_str}{RESET}")

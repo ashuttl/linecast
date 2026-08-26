@@ -87,7 +87,7 @@ class TestWeatherSnapshot:
     def _make_runtime(self, **overrides):
         from linecast._runtime import WeatherRuntime
         defaults = dict(
-            live=False, emoji=True, lang="en", oneline=False,
+            live=False, icons="emoji", lang="en", oneline=False,
             celsius=False, metric=False, shading=False,
         )
         defaults.update(overrides)
@@ -115,7 +115,7 @@ class TestSunshineSnapshot:
         from linecast.sunshine import render
         from linecast._runtime import RuntimeConfig
 
-        runtime = RuntimeConfig(live=False, emoji=True, lang="en", oneline=False)
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
         # Pin the UTC offset so the snapshot is hermetic. solar_times() reads
         # the host's live offset via _tz_offset_hours(), which otherwise makes
         # this test depend on both the machine's timezone and the current DST
@@ -146,7 +146,7 @@ class TestMoonSnapshot:
         from linecast.moon import render
         from linecast._runtime import RuntimeConfig
 
-        runtime = RuntimeConfig(live=False, emoji=True, lang=lang, oneline=False)
+        runtime = RuntimeConfig(live=False, icons="emoji", lang=lang, oneline=False)
         with patch("linecast.moon.get_terminal_size", return_value=(80, 24)):
             output = render(self._now(), 43.7, -79.4, runtime)
         return _strip_ansi(output)
@@ -162,7 +162,7 @@ class TestMoonSnapshot:
         from linecast.moon import render
         from linecast._runtime import RuntimeConfig
 
-        runtime = RuntimeConfig(live=False, emoji=True, lang="en", oneline=False)
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
         with patch("linecast.moon.get_terminal_size", return_value=(80, 24)):
             output = _strip_ansi(
                 render(self._now(), 43.7, -79.4, runtime, offset_minutes=2880)
@@ -211,7 +211,7 @@ class TestMapsSnapshot:
 
     def _runtime(self):
         from linecast._runtime import RuntimeConfig
-        return RuntimeConfig(live=False, emoji=True, lang="en",
+        return RuntimeConfig(live=False, icons="emoji", lang="en",
                              oneline=False)
 
     def _render(self, view, fetch_patch, zoom=0.02):

@@ -290,7 +290,7 @@ def _collect_paths():
 def _collect_terminal():
     import shutil
     from linecast import _color, _theme
-    from linecast._runtime import RuntimeConfig
+    from linecast._runtime import ICON_SETS, RuntimeConfig
     env = os.environ
     _theme.ensure_theme_loaded()  # no OSC probe unless stdout is a tty
     theme_env = env.get("LINECAST_THEME", "").strip()
@@ -307,6 +307,13 @@ def _collect_terminal():
         theme = "fixed palette (the terminal did not answer the probe)"
     size = shutil.get_terminal_size(fallback=(0, 0))
     runtime = RuntimeConfig.defaults()
+    if env.get("LINECAST_ICONS", "").strip().lower() in ICON_SETS:
+        icons = f"{runtime.icons} (LINECAST_ICONS)"
+    elif runtime.icons == "nerd":
+        icons = "nerd font (this terminal bundles the glyphs)"
+    else:
+        icons = ("plain (no Nerd Font assumed; set LINECAST_ICONS to "
+                 "nerd, emoji or plain)")
     return {
         "term": env.get("TERM", ""),
         "colorterm": env.get("COLORTERM", ""),
@@ -314,7 +321,7 @@ def _collect_terminal():
         "columns": size.columns,
         "lines": size.lines,
         "stdout_tty": _is_tty(sys.stdout),
-        "icons": "emoji" if runtime.emoji else "nerd font",
+        "icons": icons,
         "theme": theme,
         "clock": "24-hour" if runtime.use_24h else "12-hour",
         "lang": runtime.lang,
@@ -463,6 +470,8 @@ def render(report):
          + ("" if term["stdout_tty"] else " (stdout is not a tty)")),
         ("size", size),
         ("icons", term["icons"]),
+        # one glyph from each set; whichever renders as a box is missing
+        ("glyph check", "nerd \U000F0599  emoji ☀️  plain ☀"),
         ("theme", term["theme"]),
         ("clock", f"{term['clock']} ({term['lang']})"),
     ]

@@ -75,8 +75,8 @@ Neither is installed on macOS or Linux.
 
 Windows Terminal is the one to use: linecast leans on 24-bit colour and
 braille throughout, and reads the mouse through the same ANSI sequences a
-POSIX terminal sends. The Nerd Font icons need a Nerd Font installed and
-selected, as on any platform; `--emoji` swaps them for standard emoji.
+POSIX terminal sends. Icons default to plain Unicode; with a Nerd Font
+installed and selected, set `LINECAST_ICONS=nerd` for the full set.
 
 ## Take it outside
 
@@ -231,7 +231,7 @@ radar --lang zh
 
 ### Colour and icons
 
-linecast queries the terminal palette so its colours belong in your theme. Set `LINECAST_COLOR` to `truecolor`, `256`, `16`, or `none` to override colour detection, or use the standard `NO_COLOR` variable. A [Nerd Font](https://www.nerdfonts.com/) gives the best icon rendering; `--emoji` or `LINECAST_ICONS=emoji` uses standard emoji instead.
+linecast queries the terminal palette so its colours belong in your theme. Set `LINECAST_COLOR` to `truecolor`, `256`, `16`, or `none` to override colour detection, or use the standard `NO_COLOR` variable. A [Nerd Font](https://www.nerdfonts.com/) gives the best icon rendering, and linecast uses its glyphs automatically in terminals that bundle them (WezTerm, kitty, Ghostty); everywhere else it stays with plain Unicode, which any font can draw. `LINECAST_ICONS` or `--icons` picks explicitly: `nerd`, `emoji`, or `plain`. `linecast doctor` shows a glyph from each set so you can see what your font renders.
 
 ### Shell completion
 
@@ -279,7 +279,7 @@ The six view commands and `linecast doctor` take `--debug`. It prints, on stderr
 | `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, or `id` |
 | `LINECAST_RADAR_THEME` | Default radar colour theme |
 | `LINECAST_LIBREWXR_URL` | Base URL of a self-hosted LibreWXR instance |
-| `LINECAST_ICONS` | `emoji` to use standard emoji instead of Nerd Font icons |
+| `LINECAST_ICONS` | icon set: `nerd`, `emoji`, or `plain` (default: `nerd` where the terminal bundles the glyphs, `plain` elsewhere) |
 | `LINECAST_COLOR` | `auto`, `truecolor`, `256`, `16`, or `none` |
 | `LINECAST_THEME` | `auto` (default), or `classic` / `legacy` / `off` for the fixed palette |
 | `LINECAST_THEME_TIMEOUT_MS` | Terminal palette query timeout in milliseconds (default `100`) |

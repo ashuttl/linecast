@@ -59,7 +59,7 @@ def test_render_tide_ticks_anchor_to_clock_boundaries():
 
 
 def test_compute_moon_labels_contains_rise_and_set_over_two_days():
-    runtime = SimpleNamespace(use_24h=False, emoji=False)
+    runtime = SimpleNamespace(use_24h=False, icons="nerd")
     station_meta = {"lat": "44.3876", "lng": "-68.2039", "timezonecorr": -5}
     window_start = datetime(2026, 3, 5, 0, 0, tzinfo=timezone(timedelta(hours=-5)))
     graph_w = 120

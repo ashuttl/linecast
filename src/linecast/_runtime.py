@@ -188,8 +188,12 @@ def _base_parser(prog, description):
                     help="force live mode (default when interactive)")
     p.add_argument("--oneline", action="store_true",
                     help="compact single-line output")
+    p.add_argument("--icons", choices=("nerd", "emoji", "plain"), default=None,
+                    help="icon set: Nerd Font glyphs, standard emoji, or "
+                         "plain Unicode (default: nerd where the terminal "
+                         "bundles the glyphs, plain elsewhere)")
     p.add_argument("--emoji", action="store_true",
-                    help="use standard emoji instead of Nerd Font icons")
+                    help="use standard emoji icons (same as --icons emoji)")
     p.add_argument("--lang", default=None,
                     help="UI language code (en, fr, es, de, it, pt, nl, pl, "
                          "no, sv, is, da, fi, id, ja, ko, zh)")
@@ -371,10 +375,43 @@ def _resolve_live(ns):
 # ---------------------------------------------------------------------------
 # Runtime config dataclasses
 # ---------------------------------------------------------------------------
+ICON_SETS = ("nerd", "emoji", "plain")
+
+
+def default_icons(env):
+    """The icon set to assume when nothing was asked for.
+
+    A terminal cannot be asked which font it renders with, so "does this
+    user have a Nerd Font?" is unanswerable in general.  What is knowable:
+    WezTerm, kitty (since 0.32) and Ghostty ship the Nerd Font symbols as
+    a built-in fallback font, so the icons render there regardless of the
+    configured font.  Everywhere else the safe answer is plain Unicode,
+    which never draws a tofu box.
+    """
+    if env.get("TERM_PROGRAM", "").lower() in ("wezterm", "ghostty"):
+        return "nerd"
+    if env.get("KITTY_WINDOW_ID"):
+        return "nerd"
+    return "plain"
+
+
+def _resolve_icons(namespace, env):
+    """--icons beats --emoji beats LINECAST_ICONS beats detection."""
+    explicit = getattr(namespace, "icons", None)
+    if explicit in ICON_SETS:
+        return explicit
+    if getattr(namespace, "emoji", False):
+        return "emoji"
+    env_pref = env.get("LINECAST_ICONS", "").strip().lower()
+    if env_pref in ICON_SETS:
+        return env_pref
+    return default_icons(env)
+
+
 @dataclass(frozen=True)
 class RuntimeConfig:
     live: bool
-    emoji: bool
+    icons: str
     lang: str
     oneline: bool
     json_mode: bool = False  # machine-readable JSON output
@@ -397,8 +434,7 @@ class RuntimeConfig:
         ).lower()[:2]
         return cls(
             live=_resolve_live(namespace),
-            emoji=(getattr(namespace, "emoji", False)
-                   or env.get("LINECAST_ICONS", "").lower() == "emoji"),
+            icons=_resolve_icons(namespace, env),
             lang=lang if len(lang) == 2 and lang.isalpha() else "en",
             oneline=namespace.oneline,
             json_mode=getattr(namespace, "json_mode", False),
@@ -440,7 +476,7 @@ class WeatherRuntime(RuntimeConfig):
             celsius = False
         return cls(
             live=base.live,
-            emoji=base.emoji,
+            icons=base.icons,
             lang=base.lang,
             oneline=base.oneline,
             celsius=celsius,
@@ -476,7 +512,7 @@ class TidesRuntime(RuntimeConfig):
         base = RuntimeConfig.from_sources(namespace, env)
         return cls(
             live=base.live,
-            emoji=base.emoji,
+            icons=base.icons,
             lang=base.lang,
             oneline=base.oneline,
             json_mode=base.json_mode,

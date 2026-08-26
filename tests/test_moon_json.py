@@ -33,7 +33,7 @@ EXPECTED_TOP_KEYS = {
 
 
 def _runtime(**overrides):
-    defaults = dict(live=False, emoji=False, lang="en", oneline=False)
+    defaults = dict(live=False, icons="nerd", lang="en", oneline=False)
     defaults.update(overrides)
     return RuntimeConfig(**defaults)
 
@@ -80,7 +80,7 @@ class TestPhase:
 
     def test_nerd_icon_by_default_emoji_on_request(self):
         assert _payload()["icon"] in _NERD_ICONS["moon_icons"]
-        p = _payload(runtime=_runtime(emoji=True))
+        p = _payload(runtime=_runtime(icons="emoji"))
         assert p["icon"] in _EMOJI_ICONS["moon_icons"]
 
 

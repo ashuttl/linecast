@@ -12,8 +12,8 @@ and MeteoAlarm (30 European countries).
 Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 
 Usage: weather [--print] [--oneline] [--json] [--location LAT,LNG | PLACE] [--search CITY]
-               [--emoji] [--metric] [--celsius] [--fahrenheit] [--no-shading] [--lang fr]
-               [--classic-colors]
+               [--icons SET] [--emoji] [--metric] [--celsius] [--fahrenheit]
+               [--no-shading] [--lang fr] [--classic-colors]
 """
 
 import sys

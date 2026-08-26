@@ -56,7 +56,7 @@ def _hilo():
 
 
 def _runtime(**overrides):
-    defaults = dict(live=False, emoji=False, lang="en", oneline=False,
+    defaults = dict(live=False, icons="nerd", lang="en", oneline=False,
                     metric=False)
     defaults.update(overrides)
     return TidesRuntime(**defaults)

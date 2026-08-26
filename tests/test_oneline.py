@@ -32,7 +32,7 @@ def _strip_ansi(s):
 class TestWeatherOneline:
     def _runtime(self, **overrides):
         defaults = dict(
-            live=False, emoji=True, lang="en", oneline=True,
+            live=False, icons="emoji", lang="en", oneline=True,
             celsius=False, metric=False, shading=True,
         )
         defaults.update(overrides)
@@ -115,7 +115,7 @@ class TestWeatherOneline:
 
 class TestSunshineOneline:
     def _runtime(self, **overrides):
-        defaults = dict(live=False, emoji=True, lang="en", oneline=True)
+        defaults = dict(live=False, icons="emoji", lang="en", oneline=True)
         defaults.update(overrides)
         return RuntimeConfig(**defaults)
 
@@ -150,7 +150,7 @@ class TestSunshineOneline:
 
 class TestMoonOneline:
     def _runtime(self, **overrides):
-        defaults = dict(live=False, emoji=True, lang="en", oneline=True)
+        defaults = dict(live=False, icons="emoji", lang="en", oneline=True)
         defaults.update(overrides)
         return RuntimeConfig(**defaults)
 
@@ -191,7 +191,7 @@ class TestMoonOneline:
 
 class TestTidesOneline:
     def _runtime(self, **overrides):
-        defaults = dict(live=False, emoji=True, lang="en", oneline=True, metric=False)
+        defaults = dict(live=False, icons="emoji", lang="en", oneline=True, metric=False)
         defaults.update(overrides)
         return TidesRuntime(**defaults)
 

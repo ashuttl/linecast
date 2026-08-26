@@ -1,6 +1,6 @@
 """Moon phase, illumination, and rise/set times.
 
-Usage: moon [--print] [--oneline] [--json] [--location PLACE] [--emoji] [--lang CODE]
+Usage: moon [--print] [--oneline] [--json] [--location PLACE] [--icons SET] [--emoji] [--lang CODE]
 
 Renders the Moon itself — a shaded disc with the correct phase terminator,
 mare shading, and a soft halo over a star field — plus the current phase and

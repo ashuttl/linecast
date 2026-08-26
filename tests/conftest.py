@@ -60,6 +60,9 @@ SCRUBBED = (
     "LINECAST_ELEVATION_URL", "LINECAST_BUILTUP_URL",
     "LINECAST_VECTOR_TILES_URL", "LINECAST_COLOR", "NO_COLOR", "CLICOLOR",
     "CLICOLOR_FORCE", "COLUMNS", "LINES",
+    # icon-set detection: a dev running tests inside WezTerm or kitty
+    # must see the same "plain" default CI sees
+    "TERM_PROGRAM", "KITTY_WINDOW_ID",
 )
 for _name in SCRUBBED:
     os.environ.pop(_name, None)
