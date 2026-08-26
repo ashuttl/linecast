@@ -5,6 +5,10 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- The linecast binary now answers to the name it is invoked by: a
+  symlink to it called `weather` runs the weather command. Distribution
+  packages can ship the short commands as symlinks and leave out any
+  name the system already uses; `linecast <command>` always works.
 - Icons no longer come out as boxes without a Nerd Font. linecast now
   uses Nerd Font glyphs only where the terminal is known to bundle them
   (WezTerm, kitty, Ghostty) and plain Unicode symbols everywhere else.
