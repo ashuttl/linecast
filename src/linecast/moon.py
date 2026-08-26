@@ -5,15 +5,18 @@ Usage: moon [--print] [--oneline] [--json] [--location PLACE] [--icons SET] [--e
 Renders the Moon itself — a shaded disc with the correct phase terminator,
 mare shading, and a soft halo over a star field — plus the current phase and
 illuminated fraction, whether the Moon is up right now, the next moonrise
-and moonset, and the dates of the next full and new moons. The disc is
-mirrored for southern-hemisphere observers, who see the Moon "upside down"
-relative to the northern view.
+and moonset, and the dates of the next full and new moons. In English the
+full moon carries its traditional almanac name (Harvest Moon and the rest),
+and a final line gives the day of the year and the next equinox or solstice.
+The disc is mirrored for southern-hemisphere observers, who see the Moon
+"upside down" relative to the northern view.
 
 Rise/set times use the same low-precision ephemeris as the tides chart's
 moon labels (accurate to within a few minutes); phase and illumination come
 from the mean synodic cycle, which is what printed almanacs round to as well.
 """
 
+import calendar
 import math
 import sys
 from datetime import datetime, timedelta, timezone
@@ -22,8 +25,12 @@ from linecast._framebuffer import fmt_time_dt
 from linecast._graphics import (
     fg, RESET, lerp, visible_len, get_terminal_size, Framebuffer, live_loop,
 )
+from linecast._i18n import lang_of
 from linecast._location import location_is_pinned, location_tzinfo, resolve_location
-from linecast._moon_i18n import _day_abbrev, _fmt_month_day, _moon_name, _ms
+from linecast._moon_i18n import (
+    _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
+)
+from linecast._seasons import full_moon_name, next_season_event
 from linecast._tides_i18n import _ts  # shared "space to return to now" hint
 from linecast._runtime import RuntimeConfig, install_banner, moon_parser, set_current
 from linecast import _theme
@@ -228,7 +235,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     # Fullscreen fills the terminal exactly: graph plus info lines (and the
     # install banner, when present) come to `rows` lines, no spare row at
     # the bottom.  The plain print leaves two rows for the shell prompt.
-    info_rows = 4 + (1 if hint else 0)
+    info_rows = 5 + (1 if hint else 0)
     graph_h = max(6, rows - info_rows - (0 if fullscreen else 2))
     total_spy = graph_h * 2
 
@@ -289,11 +296,28 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
         f"{amber}↑{text}{_ms('moonrise', runtime)} {_fmt_event(rise, now_local, runtime)}  "
         f"{purple}↓{text}{_ms('moonset', runtime)} {_fmt_event(sset, now_local, runtime)}{RESET}"
     )
+    # The Old Farmer's Almanac names for the full moon are an English-
+    # language tradition; other languages keep the plain phase name.
+    full_label = _moon_name(4, runtime)
+    if lang_of(runtime) == "en":
+        moon_name = full_moon_name(full_dt, SYNODIC_MONTH)
+        full_label = ("Blue Moon" if moon_name == "Blue"
+                      else f"Full {moon_name} Moon")
     info.append(
-        f"{dim}{_moon_name(4, runtime)} {_fmt_month_day(full_dt, runtime)} "
+        f"{dim}{full_label} {_fmt_month_day(full_dt, runtime)} "
         f"({_ms('in_days', runtime, days=f'{days_to_full:.1f}')}) · "
         f"{_moon_name(0, runtime)} {_fmt_month_day(new_dt, runtime)} "
         f"({_ms('in_days', runtime, days=f'{days_to_new:.1f}')}){RESET}"
+    )
+
+    event, event_utc = next_season_event(now_local)
+    event_local = event_utc.astimezone(now_local.tzinfo)
+    days_to_event = (event_utc - now_local).total_seconds() / 86400.0
+    year_len = 366 if calendar.isleap(now_local.year) else 365
+    info.append(
+        f"{dim}{_ms('year_day', runtime, n=now_local.timetuple().tm_yday, total=year_len)} · "
+        f"{_season_label(event, lat, runtime)} {_fmt_month_day(event_local, runtime)} "
+        f"({_ms('in_days', runtime, days=f'{days_to_event:.1f}')}){RESET}"
     )
 
     lines.extend(_center(line, cols) for line in info)

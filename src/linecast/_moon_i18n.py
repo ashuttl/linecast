@@ -19,6 +19,11 @@ _MOON_STRINGS = {
         "moonrise": "Moonrise",
         "moonset": "Moonset",
         "in_days": "in {days}d",
+        "year_day": "Day {n} of {total}",
+        "spring_equinox": "Spring equinox",
+        "summer_solstice": "Summer solstice",
+        "autumn_equinox": "Autumn equinox",
+        "winter_solstice": "Winter solstice",
     },
     "fr": {
         "illuminated": "{pct} % éclairée",
@@ -29,6 +34,11 @@ _MOON_STRINGS = {
         "moonrise": "Lever de lune",
         "moonset": "Coucher de lune",
         "in_days": "dans {days} j",
+        "year_day": "Jour {n} sur {total}",
+        "spring_equinox": "Équinoxe de printemps",
+        "summer_solstice": "Solstice d'été",
+        "autumn_equinox": "Équinoxe d'automne",
+        "winter_solstice": "Solstice d'hiver",
     },
     "es": {
         "illuminated": "{pct} % iluminada",
@@ -39,6 +49,11 @@ _MOON_STRINGS = {
         "moonrise": "Salida de la luna",
         "moonset": "Puesta de la luna",
         "in_days": "en {days} d",
+        "year_day": "Día {n} de {total}",
+        "spring_equinox": "Equinoccio de primavera",
+        "summer_solstice": "Solsticio de verano",
+        "autumn_equinox": "Equinoccio de otoño",
+        "winter_solstice": "Solsticio de invierno",
     },
     "de": {
         "illuminated": "{pct} % beleuchtet",
@@ -49,6 +64,11 @@ _MOON_STRINGS = {
         "moonrise": "Mondaufgang",
         "moonset": "Monduntergang",
         "in_days": "in {days} T",
+        "year_day": "Tag {n} von {total}",
+        "spring_equinox": "Frühlingsanfang",
+        "summer_solstice": "Sommeranfang",
+        "autumn_equinox": "Herbstanfang",
+        "winter_solstice": "Winteranfang",
     },
     "it": {
         "illuminated": "{pct}% illuminata",
@@ -59,6 +79,11 @@ _MOON_STRINGS = {
         "moonrise": "Sorgere della luna",
         "moonset": "Tramonto della luna",
         "in_days": "tra {days} g",
+        "year_day": "Giorno {n} di {total}",
+        "spring_equinox": "Equinozio di primavera",
+        "summer_solstice": "Solstizio d'estate",
+        "autumn_equinox": "Equinozio d'autunno",
+        "winter_solstice": "Solstizio d'inverno",
     },
     "pt": {
         "illuminated": "{pct}% iluminada",
@@ -69,6 +94,11 @@ _MOON_STRINGS = {
         "moonrise": "Nascer da lua",
         "moonset": "Pôr da lua",
         "in_days": "em {days} d",
+        "year_day": "Dia {n} de {total}",
+        "spring_equinox": "Equinócio de primavera",
+        "summer_solstice": "Solstício de verão",
+        "autumn_equinox": "Equinócio de outono",
+        "winter_solstice": "Solstício de inverno",
     },
     "nl": {
         "illuminated": "{pct}% verlicht",
@@ -79,6 +109,11 @@ _MOON_STRINGS = {
         "moonrise": "Maanopkomst",
         "moonset": "Maanondergang",
         "in_days": "over {days} d",
+        "year_day": "Dag {n} van {total}",
+        "spring_equinox": "Lente-equinox",
+        "summer_solstice": "Zomerzonnewende",
+        "autumn_equinox": "Herfstequinox",
+        "winter_solstice": "Winterzonnewende",
     },
     "pl": {
         "illuminated": "{pct}% oświetlenia",
@@ -89,6 +124,11 @@ _MOON_STRINGS = {
         "moonrise": "Wschód księżyca",
         "moonset": "Zachód księżyca",
         "in_days": "za {days} d",
+        "year_day": "Dzień {n} z {total}",
+        "spring_equinox": "Równonoc wiosenna",
+        "summer_solstice": "Przesilenie letnie",
+        "autumn_equinox": "Równonoc jesienna",
+        "winter_solstice": "Przesilenie zimowe",
     },
     "no": {
         "illuminated": "{pct} % belyst",
@@ -99,6 +139,11 @@ _MOON_STRINGS = {
         "moonrise": "Måneoppgang",
         "moonset": "Månenedgang",
         "in_days": "om {days} d",
+        "year_day": "Dag {n} av {total}",
+        "spring_equinox": "Vårjevndøgn",
+        "summer_solstice": "Sommersolverv",
+        "autumn_equinox": "Høstjevndøgn",
+        "winter_solstice": "Vintersolverv",
     },
     "sv": {
         "illuminated": "{pct} % belyst",
@@ -109,6 +154,11 @@ _MOON_STRINGS = {
         "moonrise": "Månuppgång",
         "moonset": "Månnedgång",
         "in_days": "om {days} d",
+        "year_day": "Dag {n} av {total}",
+        "spring_equinox": "Vårdagjämning",
+        "summer_solstice": "Sommarsolstånd",
+        "autumn_equinox": "Höstdagjämning",
+        "winter_solstice": "Vintersolstånd",
     },
     "da": {
         "illuminated": "{pct} % belyst",
@@ -119,6 +169,11 @@ _MOON_STRINGS = {
         "moonrise": "Måneopgang",
         "moonset": "Månenedgang",
         "in_days": "om {days} d",
+        "year_day": "Dag {n} af {total}",
+        "spring_equinox": "Forårsjævndøgn",
+        "summer_solstice": "Sommersolhverv",
+        "autumn_equinox": "Efterårsjævndøgn",
+        "winter_solstice": "Vintersolhverv",
     },
     "is": {
         "illuminated": "{pct}% upplýst",
@@ -129,6 +184,11 @@ _MOON_STRINGS = {
         "moonrise": "Tunglris",
         "moonset": "Tunglsetur",
         "in_days": "eftir {days} d",
+        "year_day": "Dagur {n} af {total}",
+        "spring_equinox": "Vorjafndægur",
+        "summer_solstice": "Sumarsólstöður",
+        "autumn_equinox": "Haustjafndægur",
+        "winter_solstice": "Vetrarsólstöður",
     },
     "fi": {
         "illuminated": "{pct} % valaistunut",
@@ -139,6 +199,11 @@ _MOON_STRINGS = {
         "moonrise": "Kuunnousu",
         "moonset": "Kuunlasku",
         "in_days": "{days} pv kuluttua",
+        "year_day": "Päivä {n} / {total}",
+        "spring_equinox": "Kevätpäiväntasaus",
+        "summer_solstice": "Kesäpäivänseisaus",
+        "autumn_equinox": "Syyspäiväntasaus",
+        "winter_solstice": "Talvipäivänseisaus",
     },
     "ja": {
         "illuminated": "輝面比 {pct}%",
@@ -149,6 +214,11 @@ _MOON_STRINGS = {
         "moonrise": "月の出",
         "moonset": "月の入り",
         "in_days": "{days}日後",
+        "year_day": "今年 {n} 日目 / {total} 日",
+        "spring_equinox": "春分",
+        "summer_solstice": "夏至",
+        "autumn_equinox": "秋分",
+        "winter_solstice": "冬至",
     },
     "ko": {
         "illuminated": "{pct}% 밝음",
@@ -159,6 +229,11 @@ _MOON_STRINGS = {
         "moonrise": "월출",
         "moonset": "월몰",
         "in_days": "{days}일 후",
+        "year_day": "올해 {n}일째 / {total}일",
+        "spring_equinox": "춘분",
+        "summer_solstice": "하지",
+        "autumn_equinox": "추분",
+        "winter_solstice": "동지",
     },
     "zh": {
         "illuminated": "亮面 {pct}%",
@@ -169,6 +244,11 @@ _MOON_STRINGS = {
         "moonrise": "月出",
         "moonset": "月落",
         "in_days": "{days}天后",
+        "year_day": "今年第 {n} 天 / {total} 天",
+        "spring_equinox": "春分",
+        "summer_solstice": "夏至",
+        "autumn_equinox": "秋分",
+        "winter_solstice": "冬至",
     },
     "id": {
         "illuminated": "{pct}% diterangi",
@@ -179,6 +259,11 @@ _MOON_STRINGS = {
         "moonrise": "Bulan terbit",
         "moonset": "Bulan terbenam",
         "in_days": "dalam {days} hr",
+        "year_day": "Hari ke-{n} dari {total}",
+        "spring_equinox": "Ekuinoks musim semi",
+        "summer_solstice": "Solstis musim panas",
+        "autumn_equinox": "Ekuinoks musim gugur",
+        "winter_solstice": "Solstis musim dingin",
     },
 }
 
@@ -230,6 +315,25 @@ _DATE_MD_DEFAULT = "{day} {month}"
 def _ms(key, runtime, **kwargs):
     """Look up a moon-specific localized string."""
     return lookup(_MOON_STRINGS, key, lang_of(runtime), **kwargs)
+
+
+# Season names for the four events (March equinox, June solstice,
+# September equinox, December solstice), by hemisphere.  East Asian
+# solar terms (春分, 夏至, …) name the event itself, not the local
+# season, so those languages keep the northern mapping everywhere.
+_SEASON_KEYS_NORTH = ("spring_equinox", "summer_solstice",
+                      "autumn_equinox", "winter_solstice")
+_SEASON_KEYS_SOUTH = ("autumn_equinox", "winter_solstice",
+                      "spring_equinox", "summer_solstice")
+_SEASON_ABSOLUTE_LANGS = frozenset({"ja", "ko", "zh"})
+
+
+def _season_label(event, lat, runtime):
+    """Localized name for a season event index, seen from latitude *lat*."""
+    south = lat is not None and lat < 0
+    if south and lang_of(runtime) not in _SEASON_ABSOLUTE_LANGS:
+        return _ms(_SEASON_KEYS_SOUTH[event], runtime)
+    return _ms(_SEASON_KEYS_NORTH[event], runtime)
 
 
 def _fmt_month_day(dt, runtime):

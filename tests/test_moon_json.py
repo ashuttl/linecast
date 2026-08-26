@@ -27,8 +27,9 @@ FIXED_NOW = datetime(2026, 8, 14, 12, 0, tzinfo=timezone.utc)
 
 EXPECTED_TOP_KEYS = {
     "schema", "location", "timezone", "fetched_at", "phase", "icon",
-    "illumination", "waxing", "age_days", "events", "next_full", "next_new",
-    "southern", "altitude_deg", "up_now",
+    "illumination", "waxing", "age_days", "events", "next_full",
+    "next_full_name", "next_new", "day_of_year", "days_in_year",
+    "next_season_event", "southern", "altitude_deg", "up_now",
 }
 
 
