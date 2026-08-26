@@ -223,13 +223,19 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     rise, sset = upcoming_moon_events(now_local, lat, lng)
 
     cols, rows = get_terminal_size()
+    hint = install_banner()
     graph_w = max(30, cols - 2)
-    graph_h = max(6, rows - (5 if fullscreen else 6))
+    # Fullscreen fills the terminal exactly: graph plus info lines (and the
+    # install banner, when present) come to `rows` lines, no spare row at
+    # the bottom.  The plain print leaves two rows for the shell prompt.
+    info_rows = 4 + (1 if hint else 0)
+    graph_h = max(6, rows - info_rows - (0 if fullscreen else 2))
     total_spy = graph_h * 2
 
     # Half-block sub-pixels are roughly square, so one radius serves both
-    # axes; the vertical extent is what binds on normal terminals.
-    radius = max(4.0, min(total_spy * 0.5 - 1.5, graph_w * 0.5 - 3.0))
+    # axes; the vertical extent is what binds on normal terminals.  The
+    # disc takes ~82% of the graph height, leaving sky above and below.
+    radius = max(4.0, min(total_spy * 0.41, graph_w * 0.5 - 3.0))
     cx = graph_w // 2
     cy = total_spy // 2
 
@@ -292,7 +298,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
 
     lines.extend(_center(line, cols) for line in info)
 
-    hint = install_banner()
     if hint:
         lines.append(hint)
 

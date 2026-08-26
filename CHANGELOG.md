@@ -5,6 +5,9 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Moon: The disc now leaves some sky above and below instead of
+  nearly touching the info lines, and the full-screen view uses the
+  whole terminal with no blank row at the bottom.
 - Tides: Queensland stations now show the future. The provider reads
   Maritime Safety Queensland's predicted tide datasets, which carry a
   full year ahead, instead of the monitoring feed that ended at the
