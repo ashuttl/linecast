@@ -35,6 +35,11 @@ jobs:
           # a Darwin runner actually exercises.
           - os: macos-latest
             python-version: "3.14"
+          # One Windows leg: console modes, USERPROFILE, and UTF-8 reads
+          # only mean anything on a Windows runner. hermetic and smoke
+          # stay POSIX-only (chmod 555, venv/bin/, shell scripts).
+          - os: windows-latest
+            python-version: "3.14"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
