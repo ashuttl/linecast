@@ -67,7 +67,7 @@ yay -S linecast
 
 `pipx install linecast` and `pip install linecast` work too. linecast requires Python 3.10+ on macOS, Linux or Windows.
 
-On Windows it also installs `tzdata` (Windows has no IANA time zone database) and `truststore` (TLS verification through the OS certificate store). Icons default to emoji in Windows Terminal; with a Nerd Font installed and selected, set `LINECAST_ICONS=nerd` for the full set.
+On Windows it also installs `tzdata` (Windows has no IANA time zone database) and `truststore` (TLS verification through the OS certificate store). Icons default to emoji in Windows Terminal; with a Nerd Font installed and selected, `linecast icons nerd` switches to the full set.
 
 ## Take it outside
 
@@ -236,7 +236,19 @@ linecast radar --lang zh
 
 ### Color and icons
 
-linecast queries the terminal palette so its colors belong in your theme. Set `LINECAST_COLOR` to `truecolor`, `256`, `16`, or `none` to override color detection, or use the standard `NO_COLOR` variable. A [Nerd Font](https://www.nerdfonts.com/) gives the best icon rendering, and linecast uses its glyphs automatically in terminals that bundle them (WezTerm, kitty, Ghostty); other interactive terminals get emoji, and piped or redirected output falls back to plain Unicode, whose glyphs are one cell wide everywhere. `LINECAST_ICONS` or `--icons` picks explicitly: `nerd`, `emoji`, or `plain`. `linecast doctor` shows a glyph from each set so you can see what your font renders.
+linecast queries the terminal palette so its colors belong in your theme. Set `LINECAST_COLOR` to `truecolor`, `256`, `16`, or `none` to override color detection, or use the standard `NO_COLOR` variable.
+
+Icons come in three sets. [Nerd Font](https://www.nerdfonts.com/) glyphs are used automatically in terminals that bundle them (WezTerm, kitty, Ghostty); other interactive terminals get emoji, and piped or redirected output falls back to plain Unicode, whose glyphs are one cell wide everywhere. A terminal cannot say what font it is drawing with, so if you have a Nerd Font in Alacritty, foot, or iTerm2, say so once:
+
+```sh
+linecast icons nerd
+linecast icons emoji
+linecast icons plain
+linecast icons
+linecast icons auto
+```
+
+`--icons` and `LINECAST_ICONS` pick a set for one run, and `linecast doctor` shows a glyph from each so you can see what your font renders.
 
 ### Shell completion
 
@@ -286,7 +298,7 @@ The six view commands and `linecast doctor` take `--debug`, which prints one lin
 | `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, or `id` |
 | `LINECAST_RADAR_THEME` | Default radar color theme |
 | `LINECAST_LIBREWXR_URL` | Base URL of a self-hosted LibreWXR instance |
-| `LINECAST_ICONS` | icon set: `nerd`, `emoji`, or `plain` (default: `nerd` where the terminal bundles the glyphs, `emoji` on other interactive terminals, `plain` when piped) |
+| `LINECAST_ICONS` | icon set: `nerd`, `emoji`, or `plain`; overrides the saved icons (default: `nerd` where the terminal bundles the glyphs, `emoji` on other interactive terminals, `plain` when piped) |
 | `LINECAST_COLOR` | `auto`, `truecolor`, `256`, `16`, or `none` |
 | `LINECAST_THEME` | `auto` (default), or `classic` / `legacy` / `off` for the fixed palette |
 | `LINECAST_THEME_TIMEOUT_MS` | Terminal palette query timeout in milliseconds (default `100`) |

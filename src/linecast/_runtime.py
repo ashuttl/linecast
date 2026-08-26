@@ -509,17 +509,32 @@ def default_icons(env, stream=None):
     return "emoji"
 
 
-def _resolve_icons(namespace, env):
-    """--icons beats --emoji beats LINECAST_ICONS beats detection."""
+def resolve_icons(namespace=None, environ=None):
+    """The icon set for this run, and where it came from.
+
+    Returns (set, source); source is "flag", "LINECAST_ICONS", "config"
+    or "auto".  Precedence: --icons (and --emoji), LINECAST_ICONS, the
+    `icons` key in config.json (`linecast icons nerd|emoji|plain`), then
+    terminal detection.
+    """
+    env = _environ(environ)
     explicit = getattr(namespace, "icons", None)
     if explicit in ICON_SETS:
-        return explicit
+        return explicit, "flag"
     if getattr(namespace, "emoji", False):
-        return "emoji"
+        return "emoji", "flag"
     env_pref = env.get("LINECAST_ICONS", "").strip().lower()
     if env_pref in ICON_SETS:
-        return env_pref
-    return default_icons(env)
+        return env_pref, "LINECAST_ICONS"
+    from linecast._config import saved_icons
+    saved = saved_icons()
+    if saved is not None:
+        return saved, "config"
+    return default_icons(env), "auto"
+
+
+def _resolve_icons(namespace, env):
+    return resolve_icons(namespace, env)[0]
 
 
 @dataclass(frozen=True)

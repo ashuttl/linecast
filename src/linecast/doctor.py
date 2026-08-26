@@ -251,7 +251,8 @@ def _human(n):
 # ---------------------------------------------------------------------------
 def _collect_paths():
     from linecast._config import (
-        config_file, read_config, saved_clock, saved_location, saved_units,
+        config_file, read_config, saved_clock, saved_icons, saved_location,
+        saved_units,
     )
     from linecast._paths import cache_root
     settings = config_file()
@@ -269,8 +270,10 @@ def _collect_paths():
             keys.append("units")
         if saved_clock() is not None:
             keys.append("clock")
+        if saved_icons() is not None:
+            keys.append("icons")
         keys.extend(sorted(k for k in config
-                           if k not in ("location", "units", "clock")))
+                           if k not in ("location", "units", "clock", "icons")))
     root = cache_root()
     exists = os.path.isdir(root)
     writable, reason = cache_writable(root)
@@ -295,7 +298,7 @@ def _collect_paths():
 def _collect_terminal():
     import shutil
     from linecast import _color, _theme
-    from linecast._runtime import ICON_SETS, RuntimeConfig
+    from linecast._runtime import RuntimeConfig, resolve_icons
     env = os.environ
     _theme.ensure_theme_loaded()  # no OSC probe unless stdout is a tty
     theme_env = env.get("LINECAST_THEME", "").strip()
@@ -312,18 +315,19 @@ def _collect_terminal():
         theme = "fixed palette (the terminal did not answer the probe)"
     size = shutil.get_terminal_size(fallback=(0, 0))
     runtime = RuntimeConfig.defaults()
-    if env.get("LINECAST_ICONS", "").strip().lower() in ICON_SETS:
-        icons = f"{runtime.icons} (LINECAST_ICONS)"
-    elif runtime.icons == "nerd":
+    icon_set, icon_source = resolve_icons(None, env)
+    if icon_source != "auto":
+        icons = f"{icon_set} ({icon_source})"
+    elif icon_set == "nerd":
         icons = "nerd font (this terminal bundles the glyphs)"
-    elif runtime.icons == "emoji":
-        icons = ("emoji (interactive terminal; set LINECAST_ICONS to "
-                 "nerd, emoji or plain)")
+    elif icon_set == "emoji":
+        icons = ("emoji (interactive terminal; run 'linecast icons nerd' "
+                 "if your font is a Nerd Font)")
     elif not tty:
         icons = "plain (stdout is not a tty)"
     else:
-        icons = ("plain (this console is not known to draw emoji; set "
-                 "LINECAST_ICONS to nerd, emoji or plain)")
+        icons = ("plain (this console is not known to draw emoji; "
+                 "'linecast icons' picks a set)")
     return {
         "term": env.get("TERM", ""),
         "colorterm": env.get("COLORTERM", ""),

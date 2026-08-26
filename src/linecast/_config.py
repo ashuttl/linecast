@@ -60,6 +60,14 @@ def saved_clock() -> str | None:
     return None
 
 
+def saved_icons() -> str | None:
+    """Return 'nerd', 'emoji' or 'plain' saved via `linecast icons`, or None."""
+    icons = read_config().get("icons")
+    if isinstance(icons, str) and icons.strip().lower() in ("nerd", "emoji", "plain"):
+        return icons.strip().lower()
+    return None
+
+
 def saved_location() -> dict[str, Any] | None:
     """Return the location saved via `linecast location set`, or None.
 

@@ -17,6 +17,7 @@ Commands:
   linecast location    Show or set a fixed location (overrides IP geolocation)
   linecast units       Show or set preferred units (metric or imperial)
   linecast clock       Show or set the clock style (12-hour or 24-hour)
+  linecast icons       Show or set the icon set (nerd, emoji, or plain)
   linecast doctor      Show where files live, what the terminal supports, and which providers answer
   linecast completion  Print shell completion script (bash, zsh, fish, nushell)
 
@@ -35,6 +36,7 @@ COMMANDS = {
     "location": "linecast.location",
     "units": "linecast.units",
     "clock": "linecast.clock",
+    "icons": "linecast.icons",
     "doctor": "linecast.doctor",
 }
 

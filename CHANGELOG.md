@@ -5,6 +5,13 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+Upgrading from 1.x: four things change unless you say otherwise. The
+short commands are gone (`linecast weather`, or an alias). The clock
+follows your country instead of always showing 12-hour time
+(`linecast clock 12`). Units follow your country instead of defaulting
+to imperial (`linecast units imperial`). Icons are emoji unless your
+terminal bundles a Nerd Font (`linecast icons nerd`).
+
 - Install (breaking): The six short commands (`weather`, `sunshine`,
   `moon`, `tides`, `radar`, `maps`) are no longer installed because
   their common names can collide with other programs. Use
@@ -31,7 +38,8 @@ Notable changes, by release. Notes for the next release collect under
   bundle its glyphs use them, other interactive terminals use emoji,
   and piped output uses plain Unicode. `--icons nerd|emoji|plain` and
   `LINECAST_ICONS` choose explicitly; `linecast doctor` previews all
-  three sets.
+  three sets. `linecast icons nerd|emoji|plain|auto` saves the choice
+  for a terminal whose font linecast cannot see.
 - Drawing: Emoji in alerts and map labels now wrap at their real display
   width. Sunshine and moon no longer acquire coloured rings on 256- or
   16-colour terminals, and sunrise and sunset use stable plain arrows in

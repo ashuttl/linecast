@@ -102,3 +102,58 @@ class IconResolutionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SavedIconsTests(unittest.TestCase):
+    """`linecast icons` persists a set; env and flags still beat it."""
+
+    def setUp(self):
+        import os
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        patcher = mock.patch.dict(os.environ, {"LINECAST_CONFIG_DIR": tmp.name,
+                                               "LINECAST_CACHE_DIR": tmp.name})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_set_and_show(self):
+        import io
+        from contextlib import redirect_stdout
+        from linecast import _config, icons
+        with redirect_stdout(io.StringIO()):
+            icons._cmd_set("nerd")
+        self.assertEqual(_config.saved_icons(), "nerd")
+        out = io.StringIO()
+        with redirect_stdout(out):
+            icons._cmd_show()
+        self.assertIn("nerd", out.getvalue())
+        with redirect_stdout(io.StringIO()):
+            icons._cmd_auto()
+        self.assertIsNone(_config.saved_icons())
+
+    def test_saved_icons_ignores_junk(self):
+        from linecast import _config
+        _config.write_config({"icons": "webdings"})
+        self.assertIsNone(_config.saved_icons())
+
+    def test_config_beats_detection(self):
+        from linecast import _config
+        from linecast._runtime import resolve_icons
+        _config.write_config({"icons": "nerd"})
+        with mock.patch("sys.stdout", TTY):
+            self.assertEqual(resolve_icons(None, {"TERM": "xterm-256color"}),
+                             ("nerd", "config"))
+            rt = RuntimeConfig.from_sources(
+                _args("--print"), environ={"TERM": "xterm-256color"})
+        self.assertEqual(rt.icons, "nerd")
+
+    def test_env_and_flags_beat_config(self):
+        from linecast import _config
+        from linecast._runtime import resolve_icons
+        _config.write_config({"icons": "nerd"})
+        self.assertEqual(resolve_icons(None, {"LINECAST_ICONS": "plain"}),
+                         ("plain", "LINECAST_ICONS"))
+        self.assertEqual(resolve_icons(_args("--icons", "emoji"),
+                                       {"LINECAST_ICONS": "plain"}),
+                         ("emoji", "flag"))
