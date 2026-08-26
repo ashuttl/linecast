@@ -98,7 +98,8 @@ def _remove(directory, binary):
     return 1 if refused else 0
 
 
-def main():
+def link_parser():
+    """The parser, shared with generated shell completions."""
     parser = argparse.ArgumentParser(
         prog="linecast link",
         description="Make (or remove) the short commands as links to linecast",
@@ -108,7 +109,11 @@ def main():
                         help="where to put the links (default: beside linecast)")
     parser.add_argument("--remove", action="store_true",
                         help="remove the links this command made")
-    args = parser.parse_args()
+    return parser
+
+
+def main():
+    args = link_parser().parse_args()
 
     binary = _binary()
     if binary is None:

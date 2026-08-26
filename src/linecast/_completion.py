@@ -105,6 +105,12 @@ def command_flags(command, hints=None):
     if hints is None:
         hints = _value_hints()
     parser = getattr(_runtime, f"{command}_parser")()
+    return _parser_flags(parser, hints)
+
+
+def _parser_flags(parser, hints=None):
+    """An argparse parser's options in the form the generators use."""
+    hints = {} if hints is None else hints
     flags = []
     for action in parser._actions:
         options = tuple(action.option_strings)
@@ -118,6 +124,11 @@ def command_flags(command, hints=None):
                       else hints.get(long))
         flags.append(_Flag(options, takes_value, values))
     return flags
+
+
+def _link_flags():
+    from linecast.link import link_parser
+    return _parser_flags(link_parser())
 
 
 def _all_command_flags():
@@ -169,8 +180,10 @@ def render_completion(shell: str):
 
 
 def _bash_script(flags_by_command):
+    link_flags = _link_flags()
     value_lists = _value_lists(flags_by_command)
-    free = "|".join(_free_value_flags(flags_by_command))
+    free = "|".join((*_free_value_flags(flags_by_command),
+                     *_free_value_flags({"link": link_flags})))
     top = _SPACE.join((*TOP_LEVEL_COMMANDS, *GLOBAL_FLAGS))
     completion = _SPACE.join(COMPLETION_FLAGS)
     location = _SPACE.join(LOCATION_FLAGS)
@@ -182,6 +195,7 @@ def _bash_script(flags_by_command):
     icons = _SPACE.join(ICONS_FLAGS)
     icons_sub = _SPACE.join(ICONS_SUBCOMMANDS)
     doctor = _SPACE.join(DOCTOR_FLAGS)
+    link = _words(link_flags)
     shells = _SPACE.join(SHELLS)
 
     declarations = "\n".join(
@@ -304,6 +318,9 @@ _linecast_complete_command() {{
     doctor)
       _linecast_complete_flags {doctor}
       ;;
+    link)
+      _linecast_complete_flags {link}
+      ;;
     completion)
       _linecast_complete_flags {completion}
       COMPREPLY+=( $(compgen -W "{shells}" -- "$cur") )
@@ -327,7 +344,7 @@ _linecast_complete() {{
 
   cmd="${{COMP_WORDS[1]}}"
   case "$cmd" in
-    weather|tides|sunshine|moon|radar|maps|location|units|clock|icons|doctor|completion)
+    weather|tides|sunshine|moon|radar|maps|location|units|clock|icons|link|doctor|completion)
       _linecast_complete_command "$cmd"
       ;;
   esac
@@ -340,8 +357,10 @@ complete -F _linecast_complete linecast
 
 
 def _zsh_script(flags_by_command):
+    link_flags = _link_flags()
     value_lists = _value_lists(flags_by_command)
-    free = "|".join(_free_value_flags(flags_by_command))
+    free = "|".join((*_free_value_flags(flags_by_command),
+                     *_free_value_flags({"link": link_flags})))
     top = _SPACE.join((*TOP_LEVEL_COMMANDS, *GLOBAL_FLAGS))
     completion = _SPACE.join(COMPLETION_FLAGS)
     location = _SPACE.join(LOCATION_FLAGS)
@@ -353,6 +372,7 @@ def _zsh_script(flags_by_command):
     icons = _SPACE.join(ICONS_FLAGS)
     icons_sub = _SPACE.join(ICONS_SUBCOMMANDS)
     doctor = _SPACE.join(DOCTOR_FLAGS)
+    link = _words(link_flags)
     shells = _SPACE.join(SHELLS)
     standalone = _SPACE.join(flags_by_command)
 
@@ -472,6 +492,9 @@ _linecast_complete_command() {{
     doctor)
       _linecast_add_flags {doctor}
       ;;
+    link)
+      _linecast_add_flags {link}
+      ;;
     completion)
       _linecast_add_flags {completion}
       compadd -- {shells}
@@ -490,7 +513,7 @@ _linecast() {{
     fi
     cmd="${{words[2]}}"
     case "$cmd" in
-      weather|tides|sunshine|moon|radar|maps|location|units|clock|icons|doctor|completion)
+      weather|tides|sunshine|moon|radar|maps|location|units|clock|icons|link|doctor|completion)
         _linecast_complete_command "$cmd"
         ;;
     esac
@@ -553,6 +576,9 @@ def _fish_script(flags_by_command):
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l json",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l debug",
     ]
+
+    lines.extend(_fish_flag_lines(
+        "-c linecast -f -n '__fish_seen_subcommand_from link'", _link_flags()))
 
     for cmd, flags in flags_by_command.items():
         head = f"-c linecast -f -n '__fish_seen_subcommand_from {cmd}'"
@@ -670,6 +696,7 @@ def _nu_script(flags_by_command):
             *version_only, "    --offline", "    --json", "    --debug"]))
 
     dispatcher("linecast ")
+    lines.extend(_nu_extern("linecast link", _nu_flags(_link_flags())))
     lines.extend(_nu_extern(
         "linecast completion",
         [],

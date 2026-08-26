@@ -511,6 +511,15 @@ def default_icons(env, stream=None):
     WT_SESSION all unset is the legacy Windows console, whose fonts
     have no emoji.
     """
+    # A terminal's identity can remain in the environment after stdout is
+    # redirected, so the stream wins first: automatic piped output is plain
+    # regardless of which terminal launched the command.
+    stream = sys.stdout if stream is None else stream
+    if not _interactive_utf8(stream):
+        return "plain"
+    if env.get("TERM", "").lower() == "dumb":
+        return "plain"
+
     # tmux and screen replace TERM_PROGRAM with their own name, so the
     # terminals' private variables, which the shell inherited before the
     # multiplexer started, are checked as well.
@@ -519,11 +528,6 @@ def default_icons(env, stream=None):
     if env.get("KITTY_WINDOW_ID") or env.get("WEZTERM_PANE") \
             or env.get("GHOSTTY_RESOURCES_DIR"):
         return "nerd"
-    stream = sys.stdout if stream is None else stream
-    if not _interactive_utf8(stream):
-        return "plain"
-    if env.get("TERM", "").lower() == "dumb":
-        return "plain"
     if not (env.get("TERM") or env.get("TERM_PROGRAM")
             or env.get("WT_SESSION")):
         return "plain"

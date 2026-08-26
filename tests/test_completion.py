@@ -7,6 +7,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from linecast import __main__ as cli
 from linecast import _runtime
 from linecast._completion import COMMANDS, available_shells, render_completion
+from linecast.link import link_parser
 
 
 class CompletionScriptTests(unittest.TestCase):
@@ -206,6 +207,34 @@ class CompletionTracksParserTests(unittest.TestCase):
                         rf"(?m)^complete -c {command} -f -l {option[2:]} -r",
                     )
                     self.assertRegex(nu, rf"(?m)^    {option}: string")
+
+    def test_link_flags_are_completed_in_every_shell(self):
+        expected = {
+            option
+            for action in link_parser()._actions
+            for option in action.option_strings
+        }
+        for shell in ("bash", "zsh"):
+            self.assertEqual(_bash_zsh_flags(render_completion(shell), "link"),
+                             expected)
+
+        fish = render_completion("fish")
+        offered = set()
+        for line in fish.splitlines():
+            if "__fish_seen_subcommand_from link" not in line:
+                continue
+            offered.update("--" + name for name in re.findall(r"-l (\S+)", line))
+            offered.update("-" + name for name in re.findall(r"-s (\S+)", line))
+        self.assertEqual(offered, expected)
+        self.assertRegex(
+            fish,
+            r"(?m)^complete -c linecast -f "
+            r"-n '__fish_seen_subcommand_from link' -l dir -r$",
+        )
+
+        # Nushell owns help itself and represents only the long spellings.
+        self.assertEqual(_nu_flags(render_completion("nu"), "linecast link"),
+                         {"--version", "--dir", "--remove"})
 
 
 class CompletionCommandTests(unittest.TestCase):

@@ -50,10 +50,19 @@ class IconDefaultTests(unittest.TestCase):
         self.assertEqual(default_icons({}, TTY), "plain")
         self.assertEqual(default_icons({"TERM": "dumb"}, TTY), "plain")
 
-    def test_bundling_terminal_beats_the_stream(self):
-        # nerd glyphs are single-cell and safe to pipe; the terminal is
-        # what decides, as before
-        self.assertEqual(default_icons({"TERM_PROGRAM": "WezTerm"}, PIPE), "nerd")
+    def test_bundling_terminal_does_not_override_a_pipe(self):
+        # TERM_PROGRAM and the private terminal variables survive a pipe;
+        # redirected output is still promised to be plain and portable.
+        environments = (
+            {"TERM_PROGRAM": "WezTerm"},
+            {"TERM_PROGRAM": "ghostty"},
+            {"KITTY_WINDOW_ID": "1"},
+            {"WEZTERM_PANE": "1"},
+            {"GHOSTTY_RESOURCES_DIR": "/x"},
+        )
+        for env in environments:
+            with self.subTest(env=env):
+                self.assertEqual(default_icons(env, PIPE), "plain")
 
 
 class IconResolutionTests(unittest.TestCase):
@@ -70,8 +79,9 @@ class IconResolutionTests(unittest.TestCase):
         self.assertEqual(rt.icons, "plain")
 
     def test_bundling_terminal_defaults_to_nerd(self):
-        rt = RuntimeConfig.from_sources(
-            _args("--print"), environ={"TERM_PROGRAM": "WezTerm"})
+        with mock.patch("sys.stdout", TTY):
+            rt = RuntimeConfig.from_sources(
+                _args("--print"), environ={"TERM_PROGRAM": "WezTerm"})
         self.assertEqual(rt.icons, "nerd")
 
     def test_env_picks_the_set(self):

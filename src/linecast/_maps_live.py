@@ -20,7 +20,7 @@ from linecast import (
 )
 from linecast._geo import wrap_lon
 from linecast._live import LiveApp, nudge as _nudge_repaint
-from linecast._location import location_overridden, resolve_location
+from linecast._location import country_for_defaults, resolve_location
 from linecast._maps_i18n import ms
 from linecast._maps_search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
@@ -412,11 +412,12 @@ def main():
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
 
-    # With no override the resolved location is the user's own; let the
-    # units default follow its country before the first render (a cold
-    # cache resolved without one)
-    if country and not location_overridden(args.location):
-        runtime = RuntimeConfig.from_sources(args, country=country)
+    # Re-resolve a countryless first-run runtime consistently with the
+    # other views. An explicit location only stands in when the user's own
+    # country is not known yet; country_for_defaults keeps that distinction.
+    own = country_for_defaults(args.location, country, lat, lon)
+    if own:
+        runtime = RuntimeConfig.from_sources(args, country=own)
         set_current(runtime)
 
     if not location_name:
