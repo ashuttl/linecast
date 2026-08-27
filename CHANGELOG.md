@@ -73,6 +73,10 @@ Other changes:
   tide model — and the location pill drops its "(model)" suffix. The
   header and marine line fit correctly with emoji, and an unfamiliar
   timezone shows its UTC offset instead of plain UTC.
+- Tides: The header names the place instead of printing its
+  coordinates. Somewhere the global tide model covers, with no station
+  nearby, a tide table for the wrong hemisphere used to look like a
+  tide table.
 - Tides: `--station` and `TIDE_STATION` accept a TideCheck station ID
   such as `fes2022-lisbon` without spending a search request.
   `linecast tides --nearby`, `--search`, and `linecast doctor` show how

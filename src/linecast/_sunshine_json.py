@@ -38,11 +38,46 @@ def _hour_to_dt(date, decimal_hour):
             + timedelta(hours=decimal_hour))
 
 
+# Nominatim names a point from the narrowest tier that carries a value:
+# the locality if it has one, else the region it sits in, else the
+# country. Anywhere with no city, town or village on it -- open water,
+# farmland, a hamlet beside a Tasmanian river -- comes back with an empty
+# name and a perfectly good address beside it.
+_ADDRESS_TIERS = (
+    ("city", "town", "village", "hamlet", "suburb", "municipality",
+     "locality", "county"),
+    ("state", "province", "region", "state_district"),
+    ("country",),
+)
+
+
+def _address_label(address):
+    """A place name assembled from a Nominatim address dict, or "".
+
+    Two tiers at most, so the result reads like the reverse geocoder's own
+    display name: "Tasmania, Australia" rather than the whole hierarchy.
+    """
+    if not address:
+        return ""
+    parts = []
+    for tier in _ADDRESS_TIERS:
+        for key in tier:
+            val = str(address.get(key) or "").strip()
+            if val:
+                if val not in parts:
+                    parts.append(val)
+                break
+        if len(parts) == 2:
+            break
+    return ", ".join(parts)
+
+
 def _location_label(lat, lng):
     """Best available display name for the current coordinates.
 
     Prefers the label saved via `linecast location set`, then the cached
-    reverse geocode (same source weather uses), then bare coordinates.
+    reverse geocode (same source weather uses), then the address that
+    reverse geocode returned beside an empty name, then bare coordinates.
     """
     try:
         from linecast._config import saved_location
@@ -57,9 +92,12 @@ def _location_label(lat, lng):
         pass
     try:
         from linecast._weather_sources import _reverse_geocode
-        name, _country, _addr = _reverse_geocode(lat, lng)
+        name, _country, addr = _reverse_geocode(lat, lng)
         if name:
             return name
+        from_address = _address_label(addr)
+        if from_address:
+            return from_address
     except Exception:
         pass
     if lat is None or lng is None:

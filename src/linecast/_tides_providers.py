@@ -57,6 +57,10 @@ class TideProvider:
     name: str = ""   # the source key: cache names and the --json payload
     tag: str = ""    # suffix on --search and --nearby listing lines
     label: str = ""  # the source's human name: the view's footer
+    # True for a model with no stations behind it, whose "station" is the
+    # requested point: the name it returns is one it made up for that
+    # point, so a caller holding a better name should use its own.
+    stationless: bool = False
 
     def available(self) -> bool:
         """False when the provider needs something the user has not set up."""
@@ -71,7 +75,12 @@ class TideProvider:
         return f"Station {station_id}"
 
     def nearest(self, lat: float, lng: float) -> tuple[str | None, str | None]:
-        """(station_id, station_name) within range of a point, or (None, None)."""
+        """(station_id, station_name) within range of a point, or (None, None).
+
+        A *stationless* provider takes a further ``label`` keyword: the
+        name the caller already holds for the point, which saves it
+        working one out.
+        """
         raise NotImplementedError
 
     def search(self, query: str, tokens: list[str]) -> list[dict[str, Any]]:
@@ -321,6 +330,7 @@ class _OpenMeteo(TideProvider):
 
     name = "openmeteo"
     label = "Open-Meteo tide model"
+    stationless = True
 
     def id_matches(self, text):
         return openmeteo.is_openmeteo_station_id(text)
@@ -328,10 +338,15 @@ class _OpenMeteo(TideProvider):
     def name_for_id(self, station_id):
         return "Tide model"
 
-    def nearest(self, lat, lng):
+    def nearest(self, lat, lng, label=""):
         station_id, _ = openmeteo.find_nearest_openmeteo(lat, lng)
         if station_id is None:
             return None, None
+        if label:
+            # The caller geocoded a place name to get here and still has
+            # what it was called; reverse-geocoding the coordinates back
+            # into a worse version of it helps nobody.
+            return station_id, label
         try:
             from linecast._sunshine_json import _location_label
             return station_id, _location_label(lat, lng)

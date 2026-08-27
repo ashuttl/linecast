@@ -117,7 +117,7 @@ def _is_qld_lat_lng(lat, lng):
     return -30 <= lat <= -9 and 137 <= lng <= 155
 
 
-def _station_for_location(lat, lng, country_code):
+def _station_for_location(lat, lng, country_code, label=""):
     """Pick a provider and station for a location: (provider, id, name).
 
     The regional provider for the country goes first (CHS for Canada, QLD
@@ -125,6 +125,11 @@ def _station_for_location(lat, lng, country_code):
     when the regional one found nothing (Victoria BC, or an outage).
     TideCheck follows when a key is set, and Open-Meteo's global model is
     the last resort. (None, None, None) when nothing covers the spot.
+
+    *label* is the name the geocoder gave the place the user asked for.
+    A stationless provider names its pseudo-station by reverse-geocoding
+    the point, which is a slower way of getting a worse answer, so the
+    label stands in when there is one.
     """
     order = []
     if country_code == "CA":
@@ -139,7 +144,10 @@ def _station_for_location(lat, lng, country_code):
     order.append(OPENMETEO)
 
     for provider in order:
-        station_id, station_name = provider.nearest(lat, lng)
+        if provider.stationless:
+            station_id, station_name = provider.nearest(lat, lng, label=label)
+        else:
+            station_id, station_name = provider.nearest(lat, lng)
         if station_id is not None:
             return provider, station_id, station_name
     return None, None, None
@@ -967,8 +975,13 @@ def main():
         else:
             # need_country: provider routing (CHS for Canada, QLD for
             # Queensland) hinges on the country of the target location.
-            lat, lng, country_code = resolve_location(
-                args.location, lang=runtime.lang, need_country=True)
+            # return_label: the forward geocoder already named the place
+            # the user asked for. Keeping it spares a reverse-geocode
+            # round trip and, more to the point, keeps the header able to
+            # show that "Leith" was read as the one in Tasmania.
+            lat, lng, country_code, resolved_label = resolve_location(
+                args.location, lang=runtime.lang, need_country=True,
+                return_label=True)
             if lat is None:
                 print("Could not determine location for tide station lookup.", file=sys.stderr)
                 sys.exit(1)
@@ -980,7 +993,7 @@ def main():
                 set_current(runtime)
 
             provider, station_id, station_name = _station_for_location(
-                lat, lng, country_code)
+                lat, lng, country_code, label=resolved_label)
 
             if station_id is None and runtime.json_mode:
                 # No station in range: emit the payload shape anyway, with
@@ -990,7 +1003,7 @@ def main():
                 from linecast._tides_json import build_payload
                 payload = build_payload(
                     None, runtime, datetime.now().astimezone(), [], [],
-                    location=_location_label(lat, lng),
+                    location=resolved_label or _location_label(lat, lng),
                 )
                 print(_json.dumps(payload, ensure_ascii=False))
                 return

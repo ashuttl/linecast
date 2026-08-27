@@ -336,3 +336,107 @@ class LocationRoutingTests(unittest.TestCase):
     def test_nothing_in_range(self):
         picked, _asked = self._route(39.0, -98.0, "US", key=True)
         self.assertEqual(picked, (None, None, None))
+
+
+class LocationLabelTests(unittest.TestCase):
+    """Coordinates are the last resort, not the second."""
+
+    def _label(self, name, address, saved=None):
+        from linecast._sunshine_json import _location_label
+        with patch("linecast._config.saved_location", return_value=saved), \
+             patch("linecast._weather_sources._reverse_geocode",
+                   return_value=(name, "AU", address)):
+            return _location_label(-41.1576, 146.2589)
+
+    def test_an_empty_name_falls_through_to_the_address(self):
+        # Nominatim gives a hamlet on a Tasmanian river an empty name and
+        # a perfectly good address beside it; the header used to print the
+        # coordinates and ignore the address it was holding.
+        self.assertEqual(
+            self._label("", {"state": "Tasmania", "country": "Australia"}),
+            "Tasmania, Australia")
+
+    def test_a_name_still_wins(self):
+        self.assertEqual(
+            self._label("Devonport, Tasmania", {"state": "Tasmania"}),
+            "Devonport, Tasmania")
+
+    def test_coordinates_remain_the_last_resort(self):
+        self.assertEqual(self._label("", {}), "-41.1576,146.2589")
+
+
+class AddressLabelTests(unittest.TestCase):
+    """Two tiers at most, narrowest first."""
+
+    def _label(self, address):
+        from linecast._sunshine_json import _address_label
+        return _address_label(address)
+
+    def test_a_region_pairs_with_its_country(self):
+        self.assertEqual(
+            self._label({"state": "Tasmania", "country": "Australia"}),
+            "Tasmania, Australia")
+
+    def test_a_locality_pairs_with_its_region(self):
+        self.assertEqual(
+            self._label({"city": "Edinburgh", "state": "Scotland",
+                         "country": "United Kingdom"}),
+            "Edinburgh, Scotland")
+
+    def test_a_county_pairs_with_its_state_not_its_country(self):
+        self.assertEqual(
+            self._label({"county": "Latrobe", "state": "Tasmania",
+                         "country": "Australia"}),
+            "Latrobe, Tasmania")
+
+    def test_a_country_alone_will_do(self):
+        self.assertEqual(self._label({"country": "Australia"}), "Australia")
+
+    def test_nothing_usable_is_empty(self):
+        self.assertEqual(self._label({}), "")
+        self.assertEqual(self._label(None), "")
+        self.assertEqual(self._label({"ocean": "Pacific"}), "")
+
+
+class StationLabelTests(unittest.TestCase):
+    """The forward geocoder already named the place; tides should use it."""
+
+    def test_a_stationless_provider_takes_the_geocoders_label(self):
+        with patch.object(_tides_noaa, "find_nearest_station",
+                          return_value=(None, None)), \
+             patch.object(_tides_tidecheck, "is_available", return_value=False), \
+             patch.object(_tides_openmeteo, "find_nearest_openmeteo",
+                          return_value=("om:-41.1576,146.2589", None)), \
+             patch("linecast._sunshine_json._location_label") as reverse:
+            picked = tides._station_for_location(
+                -41.1576, 146.2589, "AU", label="Leith, Tasmania, Australia")
+        self.assertEqual(picked[0], OPENMETEO)
+        self.assertEqual(picked[2], "Leith, Tasmania, Australia")
+        # and the round trip to name what we could already name is spared
+        reverse.assert_not_called()
+
+    def test_a_real_station_keeps_its_own_name(self):
+        # The header names the station, and NOAA knows what its stations
+        # are called better than the user's query does.
+        with patch.object(_tides_noaa, "find_nearest_station",
+                          return_value=("8418150", "PORTLAND")), \
+             patch.object(_tides_tidecheck, "is_available", return_value=False):
+            picked = tides._station_for_location(43.68, -70.36, "US",
+                                                 label="Portland, Maine")
+        self.assertEqual(picked, (NOAA, "8418150", "PORTLAND"))
+
+    def test_without_a_label_the_provider_still_names_itself(self):
+        with patch.object(_tides_noaa, "find_nearest_station",
+                          return_value=(None, None)), \
+             patch.object(_tides_tidecheck, "is_available", return_value=False), \
+             patch.object(_tides_openmeteo, "find_nearest_openmeteo",
+                          return_value=("om:-41.1576,146.2589", None)), \
+             patch("linecast._sunshine_json._location_label",
+                   return_value="Tasmania, Australia"):
+            picked = tides._station_for_location(-41.1576, 146.2589, "AU")
+        self.assertEqual(picked[2], "Tasmania, Australia")
+
+    def test_only_stationless_providers_are_overridden(self):
+        self.assertTrue(OPENMETEO.stationless)
+        for provider in (NOAA, CHS, HKO, QLD, TIDECHECK):
+            self.assertFalse(provider.stationless, provider.name)
