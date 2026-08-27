@@ -66,17 +66,20 @@ _theme.track_imports(globals(), "linecast.sunshine")
 # Palette
 # ---------------------------------------------------------------------------
 def _rebuild():
-    global MOON_LIT_RGB, MOON_SHADOW_RGB, MOON_GLOW_RGB, STAR_RGB, STAR_DIM_RGB
+    global MOON_LIT_RGB, MOON_SHADOW_RGB, MOON_GLOW_RGB
+    global STAR_BRIGHT_RGB, STAR_RGB, STAR_DIM_RGB
     if theme_legacy_mode:
         MOON_LIT_RGB = (228, 230, 238)
         MOON_SHADOW_RGB = (36, 40, 56)
         MOON_GLOW_RGB = (150, 160, 190)
+        STAR_BRIGHT_RGB = (206, 214, 236)
         STAR_RGB = (150, 158, 180)
         STAR_DIM_RGB = (84, 92, 115)
     else:
         MOON_LIT_RGB = best_contrast((_theme.theme_ansi[15], _theme.theme_fg), minimum=2.5)
         MOON_SHADOW_RGB = ensure_contrast(surface_bg(0.30), _theme.theme_bg, minimum=1.2)
         MOON_GLOW_RGB = ensure_contrast(neutral_tone(0.60), _theme.theme_bg, minimum=1.8)
+        STAR_BRIGHT_RGB = ensure_contrast(neutral_tone(0.80), _theme.theme_bg, minimum=3.2)
         STAR_RGB = ensure_contrast(neutral_tone(0.58), _theme.theme_bg, minimum=2.2)
         STAR_DIM_RGB = ensure_contrast(neutral_tone(0.40), _theme.theme_bg, minimum=1.5)
 
@@ -147,31 +150,62 @@ def _fmt_event(dt, now_local, runtime):
 # ---------------------------------------------------------------------------
 # Disc rendering
 # ---------------------------------------------------------------------------
-def _draw_stars(fb, cx, cy, radius, clear=()):
-    """Sprinkle a deterministic star field, keeping clear of the Moon.
+# Star glyphs by magnitude: (cumulative share of 1000, glyph, brightness,
+# bold).  The sky is mostly faint — the pointed glyphs stay rare enough to
+# read as individual bright stars rather than as texture.  Brightness runs
+# the STAR_DIM → STAR → STAR_BRIGHT ramp.
+_STAR_KINDS = (
+    (440, "·", 0.00, False),
+    (700, "·", 0.42, False),
+    (860, "+", 0.62, False),
+    (960, "✦", 0.85, True),
+    (1000, "✱", 1.00, True),
+)
 
-    *clear* is a set of (col, row) cells to leave dark — the ones text
-    will overlay, since a star under a letter would show through as
-    that letter's background.
+# Cells in a thousand that hold a star at all.
+_STAR_DENSITY = 34
+
+
+def _star_color(t):
+    """Colour for a star of brightness *t*, along the three-stop ramp."""
+    if t <= 0.5:
+        return lerp(STAR_DIM_RGB, STAR_RGB, t * 2.0)
+    return lerp(STAR_RGB, STAR_BRIGHT_RGB, (t - 0.5) * 2.0)
+
+
+def _star_overlays(fb, cx, cy, radius, taken=()):
+    """A deterministic star field as character overlays, clear of the Moon.
+
+    Returns {(col, row): (glyph, rgb, bold)}.  Stars are drawn as glyphs
+    rather than sub-pixels, so each one claims a whole cell; *taken* is the
+    set of cells the info column already owns, which a star must not
+    displace.
     """
     keep_out = (radius + 3.0) ** 2
-    for spy in range(fb.total_spy):
-        dy = spy - cy
-        row = spy // 2
+    stars = {}
+    for row in range(fb.graph_h):
+        dy = (row * 2 + 0.5) - cy   # cell centre, in sub-pixels
         for x in range(fb.graph_w):
-            if (x, row) in clear:
+            if (x, row) in taken:
                 continue
             dx = x - cx
             if dx * dx + dy * dy < keep_out:
                 continue
-            h = (x * 2654435761 + spy * 40503) & 0xFFFFFFFF
+            h = (x * 2654435761 + row * 40503) & 0xFFFFFFFF
             h = ((h ^ (h >> 15)) * 2246822519) & 0xFFFFFFFF
             h ^= h >> 13
-            v = h % 1000
-            if v < 4:
-                fb.set_pixel(x, spy, STAR_RGB, 0.9)
-            elif v < 12:
-                fb.set_pixel(x, spy, STAR_DIM_RGB, 0.7)
+            if h % 1000 >= _STAR_DENSITY:
+                continue
+            # A second, independent draw picks the magnitude, so density
+            # and brightness do not vary together across the sky.
+            k = ((h >> 10) * 2654435761) & 0xFFFFFFFF
+            k ^= k >> 16
+            k %= 1000
+            for cutoff, glyph, bright, bold in _STAR_KINDS:
+                if k < cutoff:
+                    stars[(x, row)] = (glyph, _star_color(bright), bold)
+                    break
+    return stars
 
 
 def _maria_shade(sx, sy):
@@ -391,11 +425,11 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
         overlays = _panel_overlays(
             panel, graph_w - panel_w - 2, (graph_h - panel_h) // 2, graph_w)
         fb = Framebuffer(graph_w, graph_h)
-        _draw_stars(fb, cx, cy, radius, clear=overlays.keys())
         fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
                        peak_alpha=0.10 + 0.20 * illum)
         _draw_moon_disc(fb, cx, cy, radius, frac, southern=(lat < 0))
-        lines = fb.render(overlays=overlays)
+        stars = _star_overlays(fb, cx, cy, radius, taken=overlays.keys())
+        lines = fb.render(overlays={**stars, **overlays})
         if hint:
             lines.append(hint)
         return "\n".join(lines)
@@ -464,11 +498,10 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     cy = total_spy // 2
 
     fb = Framebuffer(graph_w, graph_h)
-    _draw_stars(fb, cx, cy, radius)
     fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
                    peak_alpha=0.10 + 0.20 * illum)
     _draw_moon_disc(fb, cx, cy, radius, frac, southern=(lat < 0))
-    lines = fb.render()
+    lines = fb.render(overlays=_star_overlays(fb, cx, cy, radius))
 
     lines.extend(_center(line, cols) for line in info)
 

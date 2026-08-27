@@ -93,6 +93,9 @@ Other changes:
 - Live views: Taking a screenshot with cmd-ctrl-shift-4 on a Mac no
   longer kills the view and leaves the shell echoing mouse movements.
   Ctrl-\ now quits cleanly as well.
+- Moon: The star field is drawn with a mix of star shapes at varied
+  brightness, so the sky reads as stars of different magnitudes
+  rather than a scatter of identical blocks.
 
 ## 1.17.0 — 2026-08-25
 
