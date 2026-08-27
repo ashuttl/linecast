@@ -5,6 +5,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+
 jobs:
   # Lint, test, build, and smoke-test on the tag. The build job leaves
   # the wheel and sdist in the dist artifact.
