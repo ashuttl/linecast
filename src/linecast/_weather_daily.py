@@ -12,6 +12,16 @@ from linecast._weather_style import DIM, TEXT, WIND_COLOR, _precip_color, _preci
 _USE_BG_FILL = color_mode() != "none"
 
 
+def _lpad(s, w):
+    """Left-align ``s`` in ``w`` terminal columns."""
+    return s + " " * max(0, w - visible_len(s))
+
+
+def _rpad(s, w):
+    """Right-align ``s`` in ``w`` terminal columns."""
+    return " " * max(0, w - visible_len(s)) + s
+
+
 def render_daily(data, width, runtime=None):
     """Daily forecast with temperature range bars."""
     if runtime is None:
@@ -85,11 +95,11 @@ def render_daily(data, width, runtime=None):
                 wind_s = f"{_s('wind', runtime)} {wind_amt}" if wind_amt else ""
             details.append((precip_s, prob_s, wind_s))
             if precip_s:
-                mp = max(mp, len(precip_s))
+                mp = max(mp, visible_len(precip_s))
             if prob_s:
-                mpr = max(mpr, len(prob_s))
+                mpr = max(mpr, visible_len(prob_s))
             if wind_s:
-                mw = max(mw, len(wind_s))
+                mw = max(mw, visible_len(wind_s))
         right_w = 0
         if mpr:
             right_w += 2 + mpr
@@ -203,13 +213,13 @@ def render_daily(data, width, runtime=None):
 
         precip_s, prob_s, wind_s = day_details[i - 1]
         pcolor = _precip_color(wmo)
+        # Pad by terminal columns, not code points: CJK labels are double-width.
         if max_prob_w:
-            line += f"  {pcolor}{prob_s:>{max_prob_w}}" if prob_s else f"  {' ' * max_prob_w}"
+            line += f"  {pcolor}{_rpad(prob_s, max_prob_w)}"
         if max_precip_w:
-            line += (f"  {pcolor}{precip_s:<{max_precip_w}}" if precip_s
-                     else f"  {' ' * max_precip_w}")
+            line += f"  {pcolor}{_lpad(precip_s, max_precip_w)}"
         if max_wind_w:
-            line += f"  {WIND_COLOR}{wind_s:<{max_wind_w}}" if wind_s else f"  {' ' * max_wind_w}"
+            line += f"  {WIND_COLOR}{_lpad(wind_s, max_wind_w)}"
 
         lines.append(f"{line}{RESET}")
 
