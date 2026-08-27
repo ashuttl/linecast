@@ -187,13 +187,13 @@ class LiveTerminal:
             self._prev_handlers[signal.SIGWINCH] = signal.signal(
                 signal.SIGWINCH, _on_winch)
 
-            # Route SIGTERM/SIGHUP through SystemExit so `pkill radar` or a
-            # closed terminal still runs the caller's finally block --
+            # Route SIGTERM/SIGHUP/SIGQUIT through SystemExit so `pkill
+            # radar` or a closed terminal still runs the caller's finally --
             # otherwise the alternate screen and mouse reporting are left on.
             def _exit_on_signal(signum, _frame):
                 sys.exit(128 + signum)
 
-            for _sig in (signal.SIGTERM, signal.SIGHUP):
+            for _sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT):
                 try:
                     self._prev_handlers[_sig] = signal.signal(
                         _sig, _exit_on_signal)
@@ -231,6 +231,22 @@ class LiveTerminal:
             return
         self._old_settings = termios.tcgetattr(self.fd)
         tty.setcbreak(self.fd)
+        # Cbreak keeps ISIG, so the tty still turns the QUIT character
+        # (^\, 0x1C) into SIGQUIT -- and terminals following xterm send
+        # 0x1C for ctrl-4, which macOS's screenshot shortcut (cmd-ctrl-
+        # shift-4) delivers to the terminal on its way through.  The
+        # default action kills the process without the finally block, and
+        # the shell inherits a terminal with mouse reporting still on.
+        # Disable the character: the keypress becomes an ordinary byte the
+        # loop ignores, and a screenshot leaves the view standing.
+        try:
+            attrs = termios.tcgetattr(self.fd)
+            vdisable = getattr(termios, "_POSIX_VDISABLE",
+                               os.fpathconf(self.fd, "PC_VDISABLE"))
+            attrs[6][termios.VQUIT] = vdisable
+            termios.tcsetattr(self.fd, termios.TCSANOW, attrs)
+        except (OSError, ValueError, termios.error):
+            pass
 
     # -- running -----------------------------------------------------------
     def wake(self):

@@ -54,6 +54,10 @@ Other changes:
 - Weather: A severe European alert now shows only where it applies. A
   MeteoAlarm feed covers a whole country, so a flood warning for a
   single river gauge was reaching everyone in it.
+- Weather: The daily forecast keeps its rows on one line in Japanese,
+  Chinese, and Korean. The rain and wind columns were measured by
+  character count, so double-width labels pushed the last rows past
+  the edge of the terminal.
 - Moon: The full-screen layout follows the terminal. A wide window
   floats the details beside a taller moon; a small one shortens or
   drops lines before they can wrap, and every size fills the screen
@@ -86,6 +90,9 @@ Other changes:
   `linecast tides --nearby`, `--search`, and `linecast doctor` show how
   many of the day's 50 free-tier requests have been used;
   `LINECAST_TIDECHECK_PAID=1` hides the tally.
+- Live views: Taking a screenshot with cmd-ctrl-shift-4 on a Mac no
+  longer kills the view and leaves the shell echoing mouse movements.
+  Ctrl-\ now quits cleanly as well.
 
 ## 1.17.0 — 2026-08-25
 
