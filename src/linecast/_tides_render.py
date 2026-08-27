@@ -244,6 +244,27 @@ def _moon_altitude_deg(dt_utc, lat_deg, lng_deg):
     return math.degrees(math.asin(sin_alt))
 
 
+def _moon_azimuth_deg(dt_utc, lat_deg, lng_deg):
+    """Approximate Moon azimuth, degrees east of north.
+
+    The companion to _moon_altitude_deg: same RA/dec and hour angle
+    (Meeus, ch. 13), so knowing which way to look costs only the second
+    trig call.  Meeus measures azimuth westward from south; the +180
+    turns that into the compass bearing the rest of the app speaks.
+    """
+    ra_deg, dec_deg = _moon_ra_dec(dt_utc)
+    lst_deg = _norm_deg(_gmst_deg(dt_utc) + lng_deg)
+    hour_angle = math.radians((lst_deg - ra_deg + 540.0) % 360.0 - 180.0)
+
+    lat = math.radians(lat_deg)
+    dec = math.radians(dec_deg)
+    azimuth = math.atan2(
+        math.sin(hour_angle),
+        math.cos(hour_angle) * math.sin(lat) - math.tan(dec) * math.cos(lat),
+    )
+    return (math.degrees(azimuth) + 180.0) % 360.0
+
+
 def _refine_moon_crossing_utc(t0_utc, t1_utc, lat_deg, lng_deg, threshold_deg):
     """Refine a moonrise/moonset crossing between two UTC datetimes.
 

@@ -45,7 +45,10 @@ from linecast._theme import (
     surface_bg,
     theme_legacy_mode,
 )
-from linecast._tides_render import _moon_altitude_deg, _moon_events_for_local_date
+from linecast._radar_i18n import rs
+from linecast._tides_render import (
+    _moon_altitude_deg, _moon_azimuth_deg, _moon_events_for_local_date,
+)
 from linecast.sunshine import (
     INFO_AMBER_RGB,
     INFO_DIM_RGB,
@@ -145,6 +148,44 @@ def _fmt_event(dt, now_local, runtime):
     if days_ahead > 1:
         return f"{time_str} ({_day_abbrev(dt, runtime)}, +{days_ahead}d)"
     return time_str
+
+
+def _fmt_countdown(delta):
+    """`48m`, `6h 56m`, `2d 4h` — how long until an event.
+
+    The unit letters are left untranslated, as _fmt_duration does for the
+    route readout: they read as symbols rather than words, and a number
+    beside a letter survives every layout this has to fit.
+    """
+    minutes = max(0, int(delta.total_seconds() // 60))
+    if minutes < 60:
+        return f"{minutes}m"
+    if minutes < 60 * 24:
+        return f"{minutes // 60}h {minutes % 60:02d}m"
+    return f"{minutes // 1440}d {(minutes % 1440) // 60}h"
+
+
+def _event_phrase(label, dt, now_local, runtime):
+    """`Moonrise in 6h 56m (19:48)` — the wait first, the clock time after.
+
+    The countdown is what the question "when does the Moon rise" usually
+    means; the absolute time is the check against it.  A later day is
+    named inside the parentheses rather than in a second pair.
+    """
+    if dt is None:
+        return f"{label} —"
+    when = fmt_time_dt(dt, use_24h=runtime.use_24h)
+    days_ahead = (dt.date() - now_local.date()).days
+    if days_ahead >= 1:
+        when = f"{when} {_day_abbrev(dt, runtime)}"
+    ahead = _ms('in_time', runtime, dur=_fmt_countdown(dt - now_local))
+    return f"{label} {ahead} ({when})"
+
+
+def _compass_point(azimuth_deg, runtime):
+    """The eight-point compass abbreviation, in the display language."""
+    points = rs("compass", lang_of(runtime)).split()
+    return points[round(azimuth_deg / 45.0) % 8]
 
 
 # ---------------------------------------------------------------------------
@@ -319,8 +360,10 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     frac = moon_cycle_frac(now_local)
     illum = moon_illumination(now_local)
     age = frac * SYNODIC_MONTH
-    alt = _moon_altitude_deg(now_local.astimezone(timezone.utc), lat, lng)
+    moment_utc = now_local.astimezone(timezone.utc)
+    alt = _moon_altitude_deg(moment_utc, lat, lng)
     up = alt > HORIZON_THRESHOLD_DEG
+    bearing = _compass_point(_moon_azimuth_deg(moment_utc, lat, lng), runtime)
     rise, sset = upcoming_moon_events(now_local, lat, lng)
 
     days_to_full = ((0.5 - frac) % 1.0) * SYNODIC_MONTH
@@ -347,11 +390,15 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     illum_txt = _ms('illuminated', runtime, pct=f'{illum * 100:.0f}')
     age_txt = _ms('age', runtime, age=f'{age:.1f}', total=f'{SYNODIC_MONTH:.1f}')
     alt_txt = _ms('above_horizon', runtime, alt=f'{alt:.0f}')
+    # After "Up now" the long phrase is redundant — being up is the whole
+    # claim — so the altitude goes short and spends the room on where to
+    # actually look.
+    alt_dir_txt = f"{alt:.0f}° · {bearing}"
     below_txt = _ms('below_horizon', runtime)
     rise_when = _fmt_event(rise, now_local, runtime)
     set_when = _fmt_event(sset, now_local, runtime)
-    rise_txt = f"{_ms('moonrise', runtime)} {rise_when}"
-    set_txt = f"{_ms('moonset', runtime)} {set_when}"
+    rise_txt = _event_phrase(_ms('moonrise', runtime), rise, now_local, runtime)
+    set_txt = _event_phrase(_ms('moonset', runtime), sset, now_local, runtime)
     full_txt = (f"{full_label} {_fmt_month_day(full_dt, runtime)} "
                 f"({in_days(days_to_full)})")
     new_label = _moon_name(0, runtime)
@@ -384,10 +431,11 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
         # Scrubbed away from the present: lead with the simulated moment
         # ("Up now" would lie), and show how to get back.
         panel.append([(when_txt, A, False)])
-        panel.append([(alt_txt, T, False)] if up else [(below_txt, D, False)])
+        panel.append([(f"{alt_txt} · {bearing}", T, False)] if up
+                     else [(below_txt, D, False)])
     elif up:
         panel.append([(_ms('up_now', runtime), A, False),
-                      (f" · {alt_txt}", T, False)])
+                      (f" · {alt_dir_txt}", T, False)])
     else:
         panel.append([(below_txt, D, False)])
     panel += [
@@ -444,7 +492,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     # the first that fits, and a line whose narrowest form still
     # overflows is dropped rather than left to wrap.
     if offset_minutes:
-        status = f"{text}{alt_txt}" if up else f"{dim}{below_txt}"
+        status = (f"{text}{alt_txt} · {bearing}" if up
+                  else f"{dim}{below_txt}")
         status_line = (
             f"{amber}{when_txt}{text} · {status}{text} · "
             f"{dim}{_ts('space_to_now', runtime)}{RESET}",
@@ -453,7 +502,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
         )
     elif up:
         status_line = (
-            f"{amber}{_ms('up_now', runtime)}{text} · {alt_txt}{RESET}",
+            f"{amber}{_ms('up_now', runtime)}{text} · {alt_dir_txt}{RESET}",
             f"{amber}{_ms('up_now', runtime)}{text} · {alt:.0f}°{RESET}",
             f"{amber}{_ms('up_now', runtime)}{RESET}",
         )
@@ -465,7 +514,12 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
          f"{text}{icon} {name}  {dim}{illum_txt}{RESET}",
          f"{text}{icon} {name}{RESET}"),
         status_line,
+        # The countdown roughly doubles this line's width, so keep the
+        # plain labelled time between it and the bare clock times —
+        # otherwise a middle-width terminal drops the labels entirely.
         (f"{amber}↑{text}{rise_txt}  {purple}↓{text}{set_txt}{RESET}",
+         f"{amber}↑{text}{_ms('moonrise', runtime)} {rise_when}  "
+         f"{purple}↓{text}{_ms('moonset', runtime)} {set_when}{RESET}",
          f"{amber}↑{text}{rise_when}  {purple}↓{text}{set_when}{RESET}"),
         (f"{dim}{full_txt} · {new_txt}{RESET}",
          f"{dim}{full_label} {_fmt_month_day(full_dt, runtime)} · "

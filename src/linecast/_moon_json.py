@@ -23,7 +23,7 @@ def build_payload(now_local, lat, lng, runtime, location=None):
     geocode lookup).
     """
     from linecast._moon_i18n import _moon_name
-    from linecast._tides_render import _moon_altitude_deg
+    from linecast._tides_render import _moon_altitude_deg, _moon_azimuth_deg
     from linecast.moon import (
         HORIZON_THRESHOLD_DEG,
         moon_illumination,
@@ -55,7 +55,9 @@ def build_payload(now_local, lat, lng, runtime, location=None):
     event_kind = ("march_equinox", "june_solstice",
                   "september_equinox", "december_solstice")[event]
 
-    altitude = _moon_altitude_deg(now_local.astimezone(timezone.utc), lat, lng)
+    moment_utc = now_local.astimezone(timezone.utc)
+    altitude = _moon_altitude_deg(moment_utc, lat, lng)
+    azimuth = _moon_azimuth_deg(moment_utc, lat, lng)
 
     return {
         "schema": SCHEMA_VERSION,
@@ -83,5 +85,6 @@ def build_payload(now_local, lat, lng, runtime, location=None):
         "southern": bool(lat is not None and lat < 0),
         # Extras a widget would want beyond the phase basics:
         "altitude_deg": round(altitude, 1),
+        "azimuth_deg": round(azimuth, 1),
         "up_now": altitude > HORIZON_THRESHOLD_DEG,
     }

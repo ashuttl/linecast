@@ -29,7 +29,8 @@ EXPECTED_TOP_KEYS = {
     "schema", "location", "timezone", "fetched_at", "phase", "icon",
     "illumination", "waxing", "age_days", "events", "next_full",
     "next_full_name", "next_new", "day_of_year", "days_in_year",
-    "next_season_event", "southern", "altitude_deg", "up_now",
+    "next_season_event", "southern", "altitude_deg", "azimuth_deg",
+    "up_now",
 }
 
 
@@ -137,6 +138,32 @@ class TestHemisphereAndAltitude:
         assert isinstance(p["altitude_deg"], float)
         assert -90 <= p["altitude_deg"] <= 90
         assert isinstance(p["up_now"], bool)
+
+    def test_azimuth_is_a_bearing(self):
+        p = _payload()
+        assert isinstance(p["azimuth_deg"], float)
+        assert 0 <= p["azimuth_deg"] < 360
+
+    def test_azimuth_swings_east_to_west_while_up(self):
+        """The Moon crosses the sky one way: rising east, setting west.
+
+        Sampled across a night it should climb to a maximum altitude near
+        due south (northern hemisphere) with the bearing increasing
+        through it, which is the property a compass hint depends on.
+        """
+        from linecast._tides_render import _moon_altitude_deg, _moon_azimuth_deg
+
+        samples = []
+        for hour in range(24):
+            t = FIXED_NOW.replace(hour=hour)
+            alt = _moon_altitude_deg(t, LAT, LNG)
+            if alt > 5.0:
+                samples.append((hour, _moon_azimuth_deg(t, LAT, LNG)))
+        assert len(samples) >= 3, "expected the Moon up for part of the day"
+        bearings = [az for _h, az in samples]
+        assert bearings == sorted(bearings), bearings
+        # Well above the horizon it is south of the observer, never north.
+        assert all(45 < az < 315 for az in bearings), bearings
 
 
 class TestLiveSuppression:

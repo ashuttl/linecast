@@ -96,6 +96,12 @@ Other changes:
 - Moon: The star field is drawn with a mix of star shapes at varied
   brightness, so the sky reads as stars of different magnitudes
   rather than a scatter of identical blocks.
+- Moon: Moonrise and moonset lead with how long until they happen,
+  with the clock time after — "Moonrise in 6h 29m (20:59)". A time on
+  a later day is named inside the same parentheses.
+- Moon: When the Moon is up, the line that gives its altitude now also
+  names the compass direction to look in. `--json` gains
+  `azimuth_deg` alongside `altitude_deg`.
 
 ## 1.17.0 — 2026-08-25
 

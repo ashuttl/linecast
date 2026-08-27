@@ -109,3 +109,58 @@ class TestCompactLayout:
         lines = _render(24, 8)
         assert all(visible_len(line) <= 24 for line in lines)
         assert "Waning Gibbous" in "\n".join(lines)
+
+
+class TestCountdownAndCompass:
+    """The rise/set countdown and the compass hint, added for issue #26."""
+
+    def test_rise_line_leads_with_the_wait(self):
+        lines = _render(140, 40, fullscreen=True)
+        row = lines[_info_row(lines, "Moonrise")]
+        # "Moonrise in 6h 29m (20:59)": the countdown precedes the clock
+        # time, and the clock time is the parenthesised one.
+        assert re.search(r"Moonrise in \d+[dhm][^()]*\(\d", row), row
+
+    def test_countdown_formats_by_magnitude(self):
+        from linecast.moon import _fmt_countdown
+
+        assert _fmt_countdown(timedelta(minutes=48)) == "48m"
+        assert _fmt_countdown(timedelta(hours=6, minutes=56)) == "6h 56m"
+        assert _fmt_countdown(timedelta(hours=6, minutes=5)) == "6h 05m"
+        assert _fmt_countdown(timedelta(days=2, hours=4)) == "2d 4h"
+        # A past event clamps rather than showing a negative wait.
+        assert _fmt_countdown(timedelta(minutes=-5)) == "0m"
+
+    def test_a_later_day_is_named_inside_the_parentheses(self):
+        lines = _render(140, 40, fullscreen=True)
+        row = lines[_info_row(lines, "Moonset")]
+        assert re.search(r"\(\d[^()]*\)", row), row
+        assert "))" not in row and "((" not in row
+
+    def test_compass_point_appears_when_the_moon_is_up(self):
+        # 2026-03-06 02:00 local: the Moon is up and near culmination.
+        from linecast.moon import render
+        from linecast._runtime import RuntimeConfig
+
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en",
+                                oneline=False)
+        moment = NOW.replace(day=6, hour=2, minute=0)
+        with patch("linecast.moon.get_terminal_size", return_value=(140, 40)):
+            out = _strip_ansi(render(moment, 43.7, -79.4, runtime,
+                                     fullscreen=True))
+        row = [l for l in out.split("\n") if "Up now" in l]
+        assert row, "expected the Moon to be up at this moment"
+        assert re.search(r"Up now · -?\d+° · [NESW]{1,2}$", row[0].rstrip()), row[0]
+
+    def test_compass_point_is_localised(self):
+        """French names the western points with O, not W."""
+        from linecast.moon import _compass_point
+        from linecast._runtime import RuntimeConfig
+
+        fr = RuntimeConfig(live=False, icons="emoji", lang="fr", oneline=False)
+        en = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
+        assert _compass_point(270.0, en) == "W"
+        assert _compass_point(270.0, fr) == "O"
+        assert _compass_point(0.0, en) == "N"
+        # Wraps rather than running off the end of the eight points.
+        assert _compass_point(359.0, en) == "N"
