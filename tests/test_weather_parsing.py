@@ -636,3 +636,199 @@ class TestReverseGeocodeCountry:
         assert _country_code({"country_code": "cn", "ISO3166-2-lvl3": "CN-GD"}) == "CN"
         assert _country_code({"country_code": "us"}) == "US"
         assert _country_code({}) == ""
+
+
+# ---------------------------------------------------------------------------
+# MeteoAlarm area filtering: a country-wide feed narrowed to one user
+# ---------------------------------------------------------------------------
+
+def _box(south, north, west, east):
+    """A CAP polygon ring around a lat/lng box, closed."""
+    corners = [(south, west), (south, east), (north, east), (north, west),
+               (south, west)]
+    return [" ".join(f"{lat},{lng}" for lat, lng in corners)]
+
+
+def _feed(*warnings):
+    return {"warnings": [{"alert": {"info": [info]}} for info in warnings]}
+
+
+def _warning(event, severity, area_desc, polygon=None):
+    area = {"areaDesc": area_desc}
+    if polygon is not None:
+        area["polygon"] = polygon
+    return {"language": "en-GB", "severity": severity, "event": event,
+            "headline": event, "area": [area]}
+
+
+def _alerts(data, lat, lng, address):
+    from linecast import _weather_sources as ws
+    with patch.object(ws, "fetch_json_cached", return_value=data), \
+            patch.object(ws, "write_cache", lambda *a, **k: None):
+        return ws._fetch_alerts_meteoalarm(lat, lng, "united-kingdom",
+                                           address=address)
+
+
+EDINBURGH = (55.95, -3.19, {"city": "City of Edinburgh",
+                            "state": "Alba / Scotland"})
+
+
+class TestMeteoAlarmGeometry:
+    """A CAP polygon says where a warning applies, so it settles the matter."""
+
+    def test_a_gauge_in_another_city_does_not_reach_edinburgh(self):
+        # The bug this fixes: the Environment Agency posts per-gauge flood
+        # warnings as Severe, and every one of them reached every user in
+        # the country.
+        lat, lng, address = EDINBURGH
+        data = _feed(_warning("Flood Warning: Perry Brook at Perry Barr",
+                              "Severe", "Perry Brook at Perry Barr",
+                              _box(52.533, 52.548, -1.919, -1.902)))
+        assert _alerts(data, lat, lng, address) == []
+
+    def test_the_same_warning_reaches_the_brook(self):
+        data = _feed(_warning("Flood Warning: Perry Brook at Perry Barr",
+                              "Severe", "Perry Brook at Perry Barr",
+                              _box(52.533, 52.548, -1.919, -1.902)))
+        got = _alerts(data, 52.54, -1.91, {"city": "Birmingham"})
+        assert [a["event"] for a in got] == [
+            "Flood Warning: Perry Brook at Perry Barr"]
+
+    def test_a_national_warning_still_lands(self):
+        lat, lng, address = EDINBURGH
+        data = _feed(_warning("Red wind warning", "Severe",
+                              "United Kingdom", _box(49, 61, -9, 2)))
+        # the colour prefix is stripped: the pill already carries severity
+        assert [a["event"] for a in _alerts(data, lat, lng, address)] == [
+            "wind warning"]
+
+    def test_geometry_outranks_a_matching_areadesc(self):
+        # "Scotland" is one of Edinburgh's words, but the polygon is over
+        # Shetland; the polygon is the warning's own account of itself.
+        lat, lng, address = EDINBURGH
+        data = _feed(_warning("Yellow wind warning", "Moderate",
+                              "Scotland", _box(60.0, 60.9, -1.6, -0.7)))
+        assert _alerts(data, lat, lng, address) == []
+
+    def test_geometry_outranks_severity(self):
+        # Being outside an Extreme warning's polygon means being outside it.
+        lat, lng, address = EDINBURGH
+        data = _feed(_warning("Red rain warning", "Extreme", "Cornwall",
+                              _box(50.0, 50.9, -5.7, -4.2)))
+        assert _alerts(data, lat, lng, address) == []
+
+    def test_an_unparseable_polygon_falls_back_to_the_areadesc(self):
+        lat, lng, address = EDINBURGH
+        data = _feed(_warning("Yellow wind warning", "Moderate",
+                              "Alba / Scotland", ["nonsense"]))
+        assert [a["event"] for a in _alerts(data, lat, lng, address)] == [
+            "wind warning"]
+
+
+class TestMeteoAlarmWithoutGeometry:
+    """Feeds carrying no polygon fall back to reading the areaDesc."""
+
+    def test_a_matching_areadesc_is_kept(self):
+        lat, lng, address = EDINBURGH
+        data = _feed(_warning("Yellow wind warning", "Moderate",
+                              "Alba / Scotland"))
+        assert [a["event"] for a in _alerts(data, lat, lng, address)] == [
+            "wind warning"]
+
+    def test_an_unmatched_severe_lands_only_on_an_empty_board(self):
+        lat, lng, address = EDINBURGH
+        data = _feed(_warning("Flood Warning", "Severe", "Perry Brook"))
+        assert [a["event"] for a in _alerts(data, lat, lng, address)] == [
+            "Flood Warning"]
+
+    def test_a_local_alert_outranks_an_unmatched_severe(self):
+        lat, lng, address = EDINBURGH
+        data = _feed(_warning("Flood Warning", "Severe", "Perry Brook"),
+                     _warning("Yellow wind warning", "Moderate",
+                              "Alba / Scotland"))
+        assert [a["event"] for a in _alerts(data, lat, lng, address)] == [
+            "wind warning"]
+
+    def test_an_unmatched_moderate_is_dropped_outright(self):
+        lat, lng, address = EDINBURGH
+        data = _feed(_warning("Yellow thunderstorm warning", "Moderate",
+                              "East Midlands | London & South East England"))
+        assert _alerts(data, lat, lng, address) == []
+
+    def test_everything_lands_when_the_address_is_unknown(self):
+        data = _feed(_warning("Yellow wind warning", "Moderate", "Wales"))
+        assert len(_alerts(data, 55.95, -3.19, None)) == 1
+
+
+class TestMeteoAlarmLocationWords:
+    """Words that name a tier rather than a place match far too much."""
+
+    def test_administrative_words_are_dropped(self):
+        from linecast._weather_sources import _extract_location_words
+        words = _extract_location_words({"city": "City of Edinburgh",
+                                         "state": "Alba / Scotland"})
+        assert "city" not in words
+        assert {"edinburgh", "scotland"} <= words
+
+    def test_a_place_survives_its_tier_word(self):
+        from linecast._weather_sources import _extract_location_words
+        words = _extract_location_words({"state": "Auvergne-Rhône-Alpes Region"})
+        assert words == {"auvergne-rhône-alpes"}
+
+
+class TestMeteoAlarmDedup:
+    """Two warnings of one kind stay distinguishable by the ground they cover."""
+
+    def test_distinct_areas_are_kept_apart(self):
+        data = _feed(_warning("Flood Warning", "Severe", "River Ouse",
+                              _box(53.9, 54.1, -1.2, -1.0)),
+                     _warning("Flood Warning", "Severe", "River Foss",
+                              _box(53.9, 54.1, -1.2, -1.0)))
+        got = _alerts(data, 54.0, -1.1, {"city": "York"})
+        assert len(got) == 2
+
+    def test_a_repeated_warning_is_collapsed(self):
+        data = _feed(_warning("Flood Warning", "Severe", "River Ouse",
+                              _box(53.9, 54.1, -1.2, -1.0)),
+                     _warning("Flood Warning", "Severe", "River Ouse",
+                              _box(53.9, 54.1, -1.2, -1.0)))
+        got = _alerts(data, 54.0, -1.1, {"city": "York"})
+        assert len(got) == 1
+
+
+class TestCapPolygons:
+    """Parsing and point-in-ring, the pieces the filtering rests on."""
+
+    def test_parses_a_closed_ring(self):
+        from linecast._weather_sources import _cap_polygons
+        rings = _cap_polygons({"polygon": _box(0, 1, 0, 1)})
+        assert len(rings) == 1
+        assert rings[0][0] == (0.0, 0.0)
+
+    def test_a_bare_string_is_accepted(self):
+        from linecast._weather_sources import _cap_polygons
+        assert len(_cap_polygons({"polygon": _box(0, 1, 0, 1)[0]})) == 1
+
+    def test_no_polygon_is_no_rings(self):
+        from linecast._weather_sources import _cap_polygons
+        assert _cap_polygons({"areaDesc": "somewhere"}) == []
+
+    def test_a_ring_too_short_to_enclose_anything_is_skipped(self):
+        from linecast._weather_sources import _cap_polygons
+        assert _cap_polygons({"polygon": ["1,1 2,2"]}) == []
+
+    def test_inside_and_outside(self):
+        from linecast._weather_sources import _cap_polygons, _point_in_ring
+        ring = _cap_polygons({"polygon": _box(50, 52, -2, 0)})[0]
+        assert _point_in_ring(51, -1, ring)
+        assert not _point_in_ring(55, -1, ring)
+        assert not _point_in_ring(51, 3, ring)
+
+    def test_a_concave_ring_excludes_its_notch(self):
+        # A C-shape: the middle of the opening is outside, though it sits
+        # within the bounding box.
+        from linecast._weather_sources import _point_in_ring
+        ring = [(0, 0), (0, 3), (1, 3), (1, 1), (2, 1), (2, 3), (3, 3),
+                (3, 0), (0, 0)]
+        assert _point_in_ring(1.5, 0.5, ring)
+        assert not _point_in_ring(1.5, 2.0, ring)

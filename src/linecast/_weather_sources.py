@@ -480,6 +480,8 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
     location_words = _extract_location_words(address)
     alerts = []
     seen = set()
+    national = []
+    national_seen = set()
     for w in data.get("warnings", []):
         alert_obj = w.get("alert", {})
         infos = alert_obj.get("info", [])
@@ -488,6 +490,7 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
         en_info = None
         other_info = None
         area_descs = []
+        areas = []
         for info in infos:
             info_lang = info.get("language", "")
             if info_lang.startswith(lang):
@@ -498,6 +501,7 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
                 other_info = info
             for area in info.get("area", []):
                 area_descs.append(area.get("areaDesc", ""))
+                areas.append(area)
         info = preferred_info or en_info or other_info
         if not info:
             continue
@@ -514,17 +518,30 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
         # since we already convey severity via the pill background colour.
         event = re.sub(r"^(?:yellow|orange|red|green)\s+", "", event, flags=re.IGNORECASE)
 
-        # For Moderate: only include if area matches user's location
-        if severity == "Moderate" and location_words:
-            if not any(_area_matches(ad, location_words) for ad in area_descs):
-                continue
+        # The feed is the whole country's, so every alert has to earn its
+        # place. A CAP polygon settles it outright: it is the warning's
+        # own account of the ground it covers, and it tells a gauge on one
+        # brook apart from a red warning for half the country, which no
+        # reading of an areaDesc can. Where the feed carries geometry,
+        # nothing else is consulted -- not even severity, since being
+        # outside an Extreme warning's polygon means being outside it.
+        rings = [ring for area in areas for ring in _cap_polygons(area)]
+        if rings:
+            matched = any(_point_in_ring(lat, lng, ring) for ring in rings)
+            geometric = True
+        else:
+            geometric = False
+            # No geometry: fall back to reading the areaDesc against the
+            # user's address. Extreme is exempt -- at that level the
+            # country should hear about it wherever it is -- and so is a
+            # user we hold no address for, there being nothing to match.
+            if severity == "Extreme" or not location_words:
+                matched = True
+            else:
+                matched = any(_area_matches(ad, location_words)
+                              for ad in area_descs)
 
-        dedup_key = (event, severity)
-        if dedup_key in seen:
-            continue
-        seen.add(dedup_key)
-
-        alerts.append({
+        alert = {
             "event": event,
             "headline": info.get("headline") or event,
             "description": info.get("description") or "",
@@ -532,9 +549,49 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
             "expires": info.get("expires") or "",
             "severity": severity,
             "url": info.get("web") or "",
-        })
+        }
+
+        if not matched:
+            if geometric:
+                continue  # the warning says where it applies; believe it
+            # Read off an areaDesc, "no match" is a weaker finding. A
+            # Severe warning for one river gauge 500km away is noise, but
+            # a red warning for the whole country carries an areaDesc
+            # that matches nobody's address either, and dropping that
+            # would be the worse mistake. Hold the unmatched Severe ones
+            # back and show them only if nothing local turned up: a
+            # national warning still lands on an empty board, and a single
+            # brook no longer outranks the local picture.
+            key = (event, severity)
+            if severity == "Severe" and key not in national_seen:
+                national_seen.add(key)
+                national.append(alert)
+            continue
+
+        # areaDesc belongs in the key: on (event, severity) alone a
+        # country in flood collapses to one arbitrary river's warning.
+        dedup_key = (event, severity, " | ".join(area_descs))
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+        alerts.append(alert)
+
+    if not alerts:
+        alerts = national
     write_cache(cache_file, alerts)
     return alerts
+
+
+# Words that name an administrative tier rather than a place. Nominatim
+# gives Edinburgh a county of "City of Edinburgh" and the Rhône one of
+# "Auvergne-Rhône-Alpes Region"; left in, "city" and "region" match a good
+# part of Europe's areaDescs and the filter stops filtering.
+_GENERIC_PLACE_WORDS = frozenset({
+    "administrative", "area", "borough", "canton", "city", "council",
+    "county", "department", "district", "division", "metropolitan",
+    "municipality", "prefecture", "province", "region", "regional",
+    "state", "territory", "unitary",
+})
 
 
 def _extract_location_words(address):
@@ -547,9 +604,56 @@ def _extract_location_words(address):
         val = address.get(key, "")
         if val:
             for word in val.split():
-                if len(word) >= 3:
-                    words.add(word.lower())
+                word = word.strip("(),.").lower()
+                if len(word) >= 3 and word not in _GENERIC_PLACE_WORDS:
+                    words.add(word)
     return words
+
+
+def _cap_polygons(area):
+    """The closed rings on a CAP area, as [[(lat, lng), ...], ...].
+
+    CAP writes a ring as space-separated "lat,lon" pairs; MeteoAlarm
+    carries them in a list, one per ring. Anything unparseable is skipped
+    rather than raised on -- a malformed ring must not cost the user an
+    alert, and an area with no usable ring falls back to areaDesc.
+    """
+    raw = area.get("polygon")
+    if not raw:
+        return []
+    rings = []
+    for ring in (raw if isinstance(raw, list) else [raw]):
+        points = []
+        for pair in str(ring).split():
+            lat_str, _, lng_str = pair.partition(",")
+            try:
+                points.append((float(lat_str), float(lng_str)))
+            except ValueError:
+                continue
+        if len(points) >= 3:
+            rings.append(points)
+    return rings
+
+
+def _point_in_ring(lat, lng, ring):
+    """True when (lat, lng) falls inside a closed ring, by ray casting.
+
+    Cast east along the parallel and count crossings. Warning polygons are
+    small enough for plate carree to be exact enough; the nearest edge
+    case is a point on the boundary, which may fall either way and costs
+    nothing either way.
+    """
+    inside = False
+    j = len(ring) - 1
+    for i, (lat_i, lng_i) in enumerate(ring):
+        lat_j, lng_j = ring[j]
+        # The straddle test guarantees lat_j != lat_i, so the slope is safe
+        if (lat_i > lat) != (lat_j > lat):
+            crossing = lng_i + (lat - lat_i) * (lng_j - lng_i) / (lat_j - lat_i)
+            if lng < crossing:
+                inside = not inside
+        j = i
+    return inside
 
 
 def _area_matches(area_desc, location_words):

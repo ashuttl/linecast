@@ -51,6 +51,9 @@ Other changes:
   width. Sunshine and moon no longer acquire coloured rings on 256- or
   16-colour terminals, and sunrise and sunset use plain arrows in every
   icon set.
+- Weather: A severe European alert now shows only where it applies. A
+  MeteoAlarm feed covers a whole country, so a flood warning for a
+  single river gauge was reaching everyone in it.
 - Moon: The full-screen layout follows the terminal. A wide window
   floats the details beside a taller moon; a small one shortens or
   drops lines before they can wrap, and every size fills the screen
