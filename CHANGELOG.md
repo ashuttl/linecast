@@ -73,6 +73,10 @@ Other changes:
   tide model — and the location pill drops its "(model)" suffix. The
   header and marine line fit correctly with emoji, and an unfamiliar
   timezone shows its UTC offset instead of plain UTC.
+- Maps: The map tile cache no longer grows without limit. Tiles left
+  behind by a superseded edition of the map are dropped and the rest
+  kept under 256 MB, oldest first; `LINECAST_MAPS_CACHE_MB` sets
+  another size, and `linecast doctor` shows what the tiles are using.
 - Tides: The header names the place instead of printing its
   coordinates. Somewhere the global tide model covers, with no station
   nearby, a tide table for the wrong hemisphere used to look like a

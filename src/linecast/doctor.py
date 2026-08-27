@@ -278,6 +278,12 @@ def _collect_paths():
     exists = os.path.isdir(root)
     writable, reason = cache_writable(root)
     files, size, complete = cache_usage(root) if exists else (0, 0, True)
+    # Map tiles are the part that grows without being asked to, and the
+    # only part under a cap, so doctor reports it separately.
+    from linecast._maps_tile_cache import cache_limit_bytes
+    maps_root = root / "maps"
+    _mfiles, maps_size, _mcomplete = (
+        cache_usage(maps_root) if os.path.isdir(maps_root) else (0, 0, True))
     legacy = (sys.platform == "darwin"
               and root == Path.home() / ".cache" / "linecast")
     return {
@@ -292,6 +298,8 @@ def _collect_paths():
         "cache_bytes": size,
         "cache_count_complete": complete,
         "cache_legacy_location": legacy,
+        "maps_cache_bytes": maps_size,
+        "maps_cache_limit": cache_limit_bytes(),
     }
 
 
@@ -472,6 +480,11 @@ def render(report):
         state += f"; NOT writable ({paths['cache_writable_reason']})"
     cache = f"{paths['cache_dir']}  ({state})"
     rows = [("settings", settings), ("cache", cache)]
+    if paths["cache_exists"] and paths["maps_cache_bytes"]:
+        rows.append(("map tiles",
+                     f"{_human(paths['maps_cache_bytes'])} of that "
+                     f"(cap {_human(paths['maps_cache_limit'])}, swept "
+                     "when maps starts)"))
     if paths["cache_legacy_location"]:
         rows.append(("", "the older location; ~/Library/Caches/linecast "
                          "takes over once this one is removed"))

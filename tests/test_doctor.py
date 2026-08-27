@@ -185,7 +185,8 @@ class TestJson:
         assert set(report["paths"]) == {
             "settings_file", "settings_exists", "settings_keys", "cache_dir",
             "cache_exists", "cache_writable", "cache_writable_reason", "cache_files",
-            "cache_bytes", "cache_count_complete", "cache_legacy_location"}
+            "cache_bytes", "cache_count_complete", "cache_legacy_location",
+            "maps_cache_bytes", "maps_cache_limit"}
         assert set(report["terminal"]) == {
             "term", "colorterm", "color_mode", "columns", "lines", "stdout_tty",
             "icons", "theme", "lang"}

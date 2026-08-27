@@ -305,6 +305,7 @@ The six view commands and `linecast doctor` take `--debug`, which prints one lin
 | `LINECAST_THEME_POLL` | Seconds between re-reading the terminal palette in live views, so a theme switch re-inks the view in place (default `2`; `0` disables) |
 | `LINECAST_THEME_WATCH` | A file whose modification marks a desktop theme change, prompting an immediate re-read (default: Omarchy's current-theme marker; empty disables) |
 | `LINECAST_CACHE_DIR` | Directory for cached data, used exactly as given |
+| `LINECAST_MAPS_CACHE_MB` | Size the map tile cache is swept back to when `maps` starts (default `256`) |
 | `LINECAST_CONFIG_DIR` | Directory for `config.json`, used exactly as given |
 | `NO_COLOR` | Any non-empty value disables ANSI colors |
 | `CLICOLOR` / `CLICOLOR_FORCE` | `CLICOLOR=0` disables color; a non-zero `CLICOLOR_FORCE` keeps it on when output is not a terminal |

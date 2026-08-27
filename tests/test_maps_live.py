@@ -455,3 +455,46 @@ class TestMapCells:
         from linecast._maps_style import z_eff
         assert seen == dict(lat=43.68, lon=-70.37, z=int(z_eff(bbox, HC)),
                             lang="en")
+
+
+class TestStartupPrune:
+    """Maps sweeps its tile cache before the session adds to it."""
+
+    def _argv(self, monkeypatch, *args):
+        monkeypatch.setattr(sys, "argv", ["linecast-maps", *args])
+
+    def test_the_sweep_runs_before_anything_is_fetched(self, monkeypatch):
+        from linecast import _maps_tile_cache
+
+        calls = []
+
+        class Bail(Exception):
+            pass
+
+        def bail(*a, **k):
+            calls.append("resolve")
+            raise Bail
+
+        self._argv(monkeypatch)
+        monkeypatch.setattr(_maps_tile_cache, "prune_maps_cache",
+                            lambda *a, **k: calls.append("prune"))
+        monkeypatch.setattr(_maps_live, "resolve_location", bail)
+
+        with pytest.raises(Bail):
+            _maps_live.main()
+
+        assert calls == ["prune", "resolve"]
+
+    def test_search_adds_no_tiles_so_it_does_not_wait(self, monkeypatch):
+        from linecast import _maps_tile_cache, _weather_sources
+
+        calls = []
+        self._argv(monkeypatch, "--search", "leith")
+        monkeypatch.setattr(_maps_tile_cache, "prune_maps_cache",
+                            lambda *a, **k: calls.append("prune"))
+        monkeypatch.setattr(_weather_sources, "_search_locations",
+                            lambda *a, **k: calls.append("search"))
+
+        _maps_live.main()
+
+        assert calls == ["search"]

@@ -406,6 +406,13 @@ def main():
         _search_locations(args.search, lang=runtime.lang)
         return
 
+    # Sweep the tile cache before this session adds to it: dead
+    # vector-tile versions first, then back under the size cap. Map tiles
+    # never go stale, so nothing here goes by age alone. After --search,
+    # which adds no tiles and should not wait on a tilejson fetch.
+    from linecast._maps_tile_cache import prune_maps_cache
+    prune_maps_cache()
+
     lat, lon, country, location_name = resolve_location(
         args.location, lang=runtime.lang, return_label=True)
     if lat is None:
