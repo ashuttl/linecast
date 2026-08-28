@@ -5,8 +5,8 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
-- Moon: The maria are drawn at their real positions and sizes, and
-  darker, so the full moon looks like the one in the sky.
+- Moon: The disc now shows the real lunar surface, from NASA's Lunar
+  Reconnaissance Orbiter imagery, instead of a sketch of the maria.
 - Maps: Near the poles, the map switches to the globe sooner. Flat
   maps of Antarctica used to run off the edge of the world.
 - Maps: Better style consistency between street maps in flat mode and

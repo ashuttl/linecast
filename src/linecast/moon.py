@@ -20,6 +20,7 @@ import calendar
 import math
 import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from linecast._framebuffer import fmt_time_dt
 from linecast._graphics import (
@@ -35,7 +36,9 @@ from linecast._moon_i18n import (
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._textwidth import char_width
 from linecast._tides_i18n import _ts  # shared "space to return to now" hint
-from linecast._runtime import RuntimeConfig, install_banner, moon_parser, set_current
+from linecast._runtime import (
+    RuntimeConfig, install_banner, log_failure, moon_parser, set_current,
+)
 from linecast import _theme
 from linecast._theme import (
     best_contrast,
@@ -90,54 +93,30 @@ def _rebuild():
 _rebuild()
 _theme.on_reload(_rebuild)
 
-# Near-side maria: (latitude °N, longitude °E, area km²). Centres are
-# the IAU Gazetteer of Planetary Nomenclature; areas are the published
-# basalt extents. Each sea is drawn as the circle of the same area, so
-# an irregular sea keeps its share of the disc even though it loses its
-# outline — a portrait, not a chart, but nothing here is eyeballed. The
-# view is the mean sub-Earth point (librations ignored), north up, east
-# right.
-_MOON_RADIUS_KM = 1737.4
-_MARIA = [
-    ( 32.8, -15.6,  830_000),  # Mare Imbrium
-    ( 28.0,  17.5,  320_000),  # Mare Serenitatis
-    (  8.5,  31.4,  421_000),  # Mare Tranquillitatis
-    ( 17.0,  59.1,  176_000),  # Mare Crisium
-    ( -7.8,  51.3,  310_000),  # Mare Fecunditatis
-    (-15.2,  35.5,   84_000),  # Mare Nectaris
-    ( 18.4, -57.4, 4_000_000), # Oceanus Procellarum
-    (-24.4, -38.6,  113_000),  # Mare Humorum
-    (-21.3, -16.6,  254_000),  # Mare Nubium
-    ( 56.0,   1.4,  436_000),  # Mare Frigoris
-    ( 13.3,   3.6,   55_000),  # Mare Vaporum
-    (-10.0, -23.1,  111_000),  # Mare Cognitum
-    (  7.5, -30.9,  207_000),  # Mare Insularum
-]
-
-# Mare basalt has a normal albedo of about 0.07–0.10 against 0.12–0.18
-# for the highlands, so a sea reads roughly 35–40% darker than its
-# surroundings; MARE_CONTRAST is the darkening applied inside a sea.
-MARE_CONTRAST = 0.38
-MARE_RIM_RAD = math.radians(8.0)  # edge softening, as an angle on the sphere
+# The disc's surface comes from NASA's LRO mosaic (see
+# scripts/build_moon_albedo.py): a greyscale map of the near side,
+# longitude −90…90 left to right, latitude 90…−90 top to bottom, with
+# the highlands scaled to white. The view is the mean sub-Earth point
+# (librations ignored), north up, east right.
+_albedo = None
+_albedo_tried = False
 
 
-def _unit_vector(lat_deg, lon_deg):
-    lat, lon = math.radians(lat_deg), math.radians(lon_deg)
-    return (math.cos(lat) * math.sin(lon), -math.sin(lat), math.cos(lat) * math.cos(lon))
-
-
-def _angular_radius(area_km2):
-    """Angular radius of the spherical cap with the given area."""
-    # cap area = 2πR²(1 − cos ρ)
-    return math.acos(1.0 - area_km2 / (2.0 * math.pi * _MOON_RADIUS_KM ** 2))
-
-
-# (centre unit vector, angular radius) for each sea, in the disc frame:
-# x east, y down (south), z toward the observer.
-_MARIA_SPHERE = [
-    (_unit_vector(lat, lon), _angular_radius(area))
-    for lat, lon, area in _MARIA
-]
+def _load_albedo():
+    """(width, height, greyscale bytes) of the bundled map, or None."""
+    global _albedo, _albedo_tried
+    if _albedo_tried:
+        return _albedo
+    _albedo_tried = True
+    try:
+        from linecast._png import decode_rgba
+        data = (Path(__file__).parent / "data" / "moon_albedo.png").read_bytes()
+        w, h, rgba = decode_rgba(data)
+        _albedo = (w, h, bytes(rgba[::4]))
+    except Exception as exc:
+        log_failure("png", "moon albedo load", exc, fallback="plain disc")
+        _albedo = None
+    return _albedo
 
 
 def moon_illumination(dt):
@@ -283,25 +262,27 @@ def _star_overlays(fb, cx, cy, radius, taken=()):
     return stars
 
 
-def _maria_shade(sx, sy):
-    """Mare darkening at a unit-disc point: MARE_CONTRAST inside any sea.
+def _surface_shade(sx, sy, albedo):
+    """Darkening at a unit-disc point, sampled from the albedo map.
 
-    The point is lifted onto the sphere and each sea tested by great-
-    circle distance from its centre, so limb foreshortening comes out of
-    the projection rather than a hand-placed ellipse. The rim fades over
-    MARE_RIM_RAD either side of the boundary; overlapping seas merge.
+    The point is lifted onto the sphere and its latitude and longitude
+    looked up in the map with bilinear filtering, so limb foreshortening
+    comes out of the projection. Returns 0 for highland-bright, up to 1
+    for black.
     """
+    w, h, px = albedo
     sz = math.sqrt(max(0.0, 1.0 - sx * sx - sy * sy))
-    m = 0.0
-    for (mx, my, mz), rho in _MARIA_SPHERE:
-        dot = max(-1.0, min(1.0, sx * mx + sy * my + sz * mz))
-        # Fade centred on the boundary so the sea keeps its area.
-        inside = (rho - math.acos(dot)) / MARE_RIM_RAD + 0.5
-        if inside > 0.0:
-            m = max(m, min(1.0, inside))
-            if m >= 1.0:
-                break
-    return MARE_CONTRAST * m
+    lat = math.asin(max(-1.0, min(1.0, -sy)))
+    lon = math.atan2(sx, sz)                        # −π/2…π/2 on the near side
+    u = (lon / math.pi + 0.5) * w - 0.5             # map spans −90…90
+    v = (0.5 - lat / math.pi) * h - 0.5
+    x0 = int(math.floor(u)); y0 = int(math.floor(v))
+    fx = u - x0; fy = v - y0
+    x0 = max(0, min(w - 1, x0)); x1 = min(w - 1, x0 + 1)
+    y0 = max(0, min(h - 1, y0)); y1 = min(h - 1, y0 + 1)
+    top = px[y0 * w + x0] * (1 - fx) + px[y0 * w + x1] * fx
+    bottom = px[y1 * w + x0] * (1 - fx) + px[y1 * w + x1] * fx
+    return 1.0 - (top * (1 - fy) + bottom * fy) / 255.0
 
 
 def _draw_moon_disc(fb, cx, cy, radius, frac, southern):
@@ -318,6 +299,7 @@ def _draw_moon_disc(fb, cx, cy, radius, frac, southern):
     edge = max(1.0 / radius, 0.04)   # anti-aliasing band, in unit radii
     soft = 0.10                       # terminator softness, in unit radii
     scan = int(radius + 2)
+    albedo = _load_albedo()
     for dy in range(-scan, scan + 1):
         uy = dy / radius
         for dx in range(-scan, scan + 1):
@@ -336,7 +318,9 @@ def _draw_moon_disc(fb, cx, cy, radius, frac, southern):
             d = (sx - c * chord) if waxing else (-c * chord - sx)
             lit_alpha = max(0.0, min(1.0, (d + soft) / (2.0 * soft)))
 
-            shade = _maria_shade(sx, sy) + 0.18 * rr  # maria + limb falloff
+            shade = 0.18 * rr  # limb falloff
+            if albedo is not None:
+                shade += _surface_shade(sx, sy, albedo)
             lit_px = darken(MOON_LIT_RGB, min(0.55, shade))
             color = lerp(MOON_SHADOW_RGB, lit_px, lit_alpha)
             fb.set_pixel(cx + dx, cy + dy, color, cover)
