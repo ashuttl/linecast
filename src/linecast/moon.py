@@ -90,19 +90,53 @@ def _rebuild():
 _rebuild()
 _theme.on_reload(_rebuild)
 
-# Near-side maria, in unit-disc coordinates as seen from the northern
-# hemisphere (x right/east, y down): (x, y, radius, darkening strength).
-# Positions are approximate — this is a portrait, not a chart.
+# Near-side maria: (latitude °N, longitude °E, area km²). Centres are
+# the IAU Gazetteer of Planetary Nomenclature; areas are the published
+# basalt extents. Each sea is drawn as the circle of the same area, so
+# an irregular sea keeps its share of the disc even though it loses its
+# outline — a portrait, not a chart, but nothing here is eyeballed. The
+# view is the mean sub-Earth point (librations ignored), north up, east
+# right.
+_MOON_RADIUS_KM = 1737.4
 _MARIA = [
-    (-0.30, -0.42, 0.26, 0.16),  # Mare Imbrium
-    ( 0.08, -0.38, 0.18, 0.15),  # Mare Serenitatis
-    ( 0.28, -0.16, 0.20, 0.15),  # Mare Tranquillitatis
-    ( 0.62, -0.28, 0.11, 0.14),  # Mare Crisium
-    ( 0.48,  0.10, 0.15, 0.12),  # Mare Fecunditatis
-    ( 0.32,  0.24, 0.10, 0.10),  # Mare Nectaris
-    (-0.55, -0.05, 0.30, 0.13),  # Oceanus Procellarum
-    (-0.42,  0.30, 0.11, 0.11),  # Mare Humorum
-    (-0.18,  0.32, 0.16, 0.12),  # Mare Nubium
+    ( 32.8, -15.6,  830_000),  # Mare Imbrium
+    ( 28.0,  17.5,  320_000),  # Mare Serenitatis
+    (  8.5,  31.4,  421_000),  # Mare Tranquillitatis
+    ( 17.0,  59.1,  176_000),  # Mare Crisium
+    ( -7.8,  51.3,  310_000),  # Mare Fecunditatis
+    (-15.2,  35.5,   84_000),  # Mare Nectaris
+    ( 18.4, -57.4, 4_000_000), # Oceanus Procellarum
+    (-24.4, -38.6,  113_000),  # Mare Humorum
+    (-21.3, -16.6,  254_000),  # Mare Nubium
+    ( 56.0,   1.4,  436_000),  # Mare Frigoris
+    ( 13.3,   3.6,   55_000),  # Mare Vaporum
+    (-10.0, -23.1,  111_000),  # Mare Cognitum
+    (  7.5, -30.9,  207_000),  # Mare Insularum
+]
+
+# Mare basalt has a normal albedo of about 0.07–0.10 against 0.12–0.18
+# for the highlands, so a sea reads roughly 35–40% darker than its
+# surroundings; MARE_CONTRAST is the darkening applied inside a sea.
+MARE_CONTRAST = 0.38
+MARE_RIM_RAD = math.radians(8.0)  # edge softening, as an angle on the sphere
+
+
+def _unit_vector(lat_deg, lon_deg):
+    lat, lon = math.radians(lat_deg), math.radians(lon_deg)
+    return (math.cos(lat) * math.sin(lon), -math.sin(lat), math.cos(lat) * math.cos(lon))
+
+
+def _angular_radius(area_km2):
+    """Angular radius of the spherical cap with the given area."""
+    # cap area = 2πR²(1 − cos ρ)
+    return math.acos(1.0 - area_km2 / (2.0 * math.pi * _MOON_RADIUS_KM ** 2))
+
+
+# (centre unit vector, angular radius) for each sea, in the disc frame:
+# x east, y down (south), z toward the observer.
+_MARIA_SPHERE = [
+    (_unit_vector(lat, lon), _angular_radius(area))
+    for lat, lon, area in _MARIA
 ]
 
 
@@ -250,13 +284,24 @@ def _star_overlays(fb, cx, cy, radius, taken=()):
 
 
 def _maria_shade(sx, sy):
-    """Total mare darkening at a unit-disc point, capped for subtlety."""
+    """Mare darkening at a unit-disc point: MARE_CONTRAST inside any sea.
+
+    The point is lifted onto the sphere and each sea tested by great-
+    circle distance from its centre, so limb foreshortening comes out of
+    the projection rather than a hand-placed ellipse. The rim fades over
+    MARE_RIM_RAD either side of the boundary; overlapping seas merge.
+    """
+    sz = math.sqrt(max(0.0, 1.0 - sx * sx - sy * sy))
     m = 0.0
-    for bx, by, br, bs in _MARIA:
-        dd = ((sx - bx) ** 2 + (sy - by) ** 2) / (br * br)
-        if dd < 4.0:
-            m += bs * math.exp(-dd)
-    return min(0.30, m)
+    for (mx, my, mz), rho in _MARIA_SPHERE:
+        dot = max(-1.0, min(1.0, sx * mx + sy * my + sz * mz))
+        # Fade centred on the boundary so the sea keeps its area.
+        inside = (rho - math.acos(dot)) / MARE_RIM_RAD + 0.5
+        if inside > 0.0:
+            m = max(m, min(1.0, inside))
+            if m >= 1.0:
+                break
+    return MARE_CONTRAST * m
 
 
 def _draw_moon_disc(fb, cx, cy, radius, frac, southern):
@@ -292,7 +337,7 @@ def _draw_moon_disc(fb, cx, cy, radius, frac, southern):
             lit_alpha = max(0.0, min(1.0, (d + soft) / (2.0 * soft)))
 
             shade = _maria_shade(sx, sy) + 0.18 * rr  # maria + limb falloff
-            lit_px = darken(MOON_LIT_RGB, min(0.45, shade))
+            lit_px = darken(MOON_LIT_RGB, min(0.55, shade))
             color = lerp(MOON_SHADOW_RGB, lit_px, lit_alpha)
             fb.set_pixel(cx + dx, cy + dy, color, cover)
 

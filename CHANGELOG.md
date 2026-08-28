@@ -5,6 +5,8 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Moon: The maria are drawn at their real positions and sizes, and
+  darker, so the full moon looks like the one in the sky.
 - Maps: Near the poles, the map switches to the globe sooner. Flat
   maps of Antarctica used to run off the edge of the world.
 - Maps: Better style consistency between street maps in flat mode and
