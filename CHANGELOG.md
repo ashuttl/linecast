@@ -5,6 +5,47 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
+- Weather: A severe European alert now shows only where it applies. A
+  MeteoAlarm feed covers a whole country, so a flood warning for a
+  single river gauge was reaching everyone in it.
+- Weather: The daily forecast keeps its rows on one line in Japanese,
+  Chinese, and Korean. The rain and wind columns were measured by
+  character count, so double-width labels pushed the last rows past
+  the edge of the terminal.
+- Tides: The header names the place instead of printing its
+  coordinates. Somewhere the global tide model covers, with no station
+  nearby, a tide table for the wrong hemisphere used to look like a
+  tide table.
+- Moon: The star field is drawn with a mix of star shapes at varied
+  brightness, so the sky reads as stars of different magnitudes
+  rather than a scatter of identical blocks.
+- Moon: Moonrise and moonset lead with how long until they happen,
+  with the clock time after — "Moonrise in 6h 29m (20:59)". A time on
+  a later day is named inside the same parentheses.
+- Moon: When the Moon is up, the line that gives its altitude now also
+  names the compass direction to look in. `--json` gains
+  `azimuth_deg` alongside `altitude_deg`.
+- Maps: The globe draws inland water. The Great Lakes, the Caspian,
+  Baikal and every other lake big enough to see are water at planet
+  zoom, in the terrain view and the street one, with a shoreline to
+  match. Elevation data alone could not tell a lake from the ground
+  beside it.
+- Maps: City lights are the terrain view's alone now. The street view
+  no longer lights its cities with the sun on, flat or on the globe;
+  its fills stay a little brighter at night to make up for it.
+- Maps: The street view's globe is its own picture: land a dark grey
+  against a near-black sea, the other way round from the flat street
+  map, where the two fills are all there is to see.
+- Maps: The map tile cache no longer grows without limit. Tiles left
+  behind by a superseded edition of the map are dropped and the rest
+  kept under 256 MB, oldest first; `LINECAST_MAPS_CACHE_MB` sets
+  another size, and `linecast doctor` shows what the tiles are using.
+- Live views: Taking a screenshot with cmd-ctrl-shift-4 on a Mac no
+  longer kills the view and leaves the shell echoing mouse movements.
+  Ctrl-\ now quits cleanly as well.
+
+## 2.0.0 — 2026-08-26
+
 linecast 2.0 runs on Windows, installs a single `linecast` command,
 and picks its defaults from your location. Upgrading from 1.x, four things change
 unless you say otherwise; each has a one-line fix below.
@@ -51,13 +92,6 @@ Other changes:
   width. Sunshine and moon no longer acquire coloured rings on 256- or
   16-colour terminals, and sunrise and sunset use plain arrows in every
   icon set.
-- Weather: A severe European alert now shows only where it applies. A
-  MeteoAlarm feed covers a whole country, so a flood warning for a
-  single river gauge was reaching everyone in it.
-- Weather: The daily forecast keeps its rows on one line in Japanese,
-  Chinese, and Korean. The rain and wind columns were measured by
-  character count, so double-width labels pushed the last rows past
-  the edge of the terminal.
 - Moon: The full-screen layout follows the terminal. A wide window
   floats the details beside a taller moon; a small one shortens or
   drops lines before they can wrap, and every size fills the screen
@@ -77,42 +111,11 @@ Other changes:
   tide model — and the location pill drops its "(model)" suffix. The
   header and marine line fit correctly with emoji, and an unfamiliar
   timezone shows its UTC offset instead of plain UTC.
-- Maps: The map tile cache no longer grows without limit. Tiles left
-  behind by a superseded edition of the map are dropped and the rest
-  kept under 256 MB, oldest first; `LINECAST_MAPS_CACHE_MB` sets
-  another size, and `linecast doctor` shows what the tiles are using.
-- Tides: The header names the place instead of printing its
-  coordinates. Somewhere the global tide model covers, with no station
-  nearby, a tide table for the wrong hemisphere used to look like a
-  tide table.
 - Tides: `--station` and `TIDE_STATION` accept a TideCheck station ID
   such as `fes2022-lisbon` without spending a search request.
   `linecast tides --nearby`, `--search`, and `linecast doctor` show how
   many of the day's 50 free-tier requests have been used;
   `LINECAST_TIDECHECK_PAID=1` hides the tally.
-- Live views: Taking a screenshot with cmd-ctrl-shift-4 on a Mac no
-  longer kills the view and leaves the shell echoing mouse movements.
-  Ctrl-\ now quits cleanly as well.
-- Moon: The star field is drawn with a mix of star shapes at varied
-  brightness, so the sky reads as stars of different magnitudes
-  rather than a scatter of identical blocks.
-- Moon: Moonrise and moonset lead with how long until they happen,
-  with the clock time after — "Moonrise in 6h 29m (20:59)". A time on
-  a later day is named inside the same parentheses.
-- Moon: When the Moon is up, the line that gives its altitude now also
-  names the compass direction to look in. `--json` gains
-  `azimuth_deg` alongside `altitude_deg`.
-- Maps: The globe draws inland water. The Great Lakes, the Caspian,
-  Baikal and every other lake big enough to see are water at planet
-  zoom, in the terrain view and the street one, with a shoreline to
-  match. Elevation data alone could not tell a lake from the ground
-  beside it.
-- Maps: City lights are the terrain view's alone now. The street view
-  no longer lights its cities with the sun on, flat or on the globe;
-  its fills stay a little brighter at night to make up for it.
-- Maps: The street view's globe is its own picture: land a dark grey
-  against a near-black sea, the other way round from the flat street
-  map, where the two fills are all there is to see.
 
 ## 1.17.0 — 2026-08-25
 
