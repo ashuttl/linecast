@@ -120,7 +120,7 @@ The weather dashboard combines current conditions, daylight-shaded hourly temper
 
 `moon` draws the current phase with its real terminator, mare shading, halo, and orientation for your hemisphere, then tells you what the Moon is doing next. Try `linecast moon --oneline` for a status bar.
 
-![waxing gibbous Moon](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon.png)
+![full Moon](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon.png)
 
 ### Tides
 
