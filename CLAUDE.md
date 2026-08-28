@@ -18,6 +18,9 @@ committing on his behalf:
   not the timings, not the file names. The mechanism goes in the
   commit body. "Maps: Fixed a bug that could have caused rendering
   the globe to fail until the user interacted with it."
+  Plain and short beats vivid: "Maps: Better style consistency
+  between street maps in flat mode and globe mode" — not a line about
+  what the globe "used to" do, not a metaphor, not a flourish.
 
 ## Releases
 

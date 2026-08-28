@@ -5,14 +5,12 @@ Notable changes, by release. Notes for the next release collect under
 
 ## Unreleased
 
-- Maps: Near the poles the map goes round sooner. A flat map of the
-  Ross Sea used to run off the edge of the world on two sides.
-- Maps: The street view keeps its colours when it goes round. The
-  globe used to swap the land and sea shades and draw borders the
-  flat street map never had, so zooming out across the hand-off
-  changed the picture rather than the curvature.
-- Maps: With sunshine on, the street view's coastlines and roads
-  fade into the night side along with the ground under them.
+- Maps: Near the poles, the map switches to the globe sooner. Flat
+  maps of Antarctica used to run off the edge of the world.
+- Maps: Better style consistency between street maps in flat mode and
+  globe mode.
+- Maps: With sunshine on, street map coastlines and roads fade on the
+  night side.
 - Weather: A severe European alert now shows only where it applies. A
   MeteoAlarm feed covers a whole country, so a flood warning for a
   single river gauge was reaching everyone in it.
