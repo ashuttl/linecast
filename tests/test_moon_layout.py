@@ -148,7 +148,7 @@ class TestCountdownAndCompass:
         with patch("linecast.moon.get_terminal_size", return_value=(140, 40)):
             out = _strip_ansi(render(moment, 43.7, -79.4, runtime,
                                      fullscreen=True))
-        row = [l for l in out.split("\n") if "Up now" in l]
+        row = [line for line in out.split("\n") if "Up now" in line]
         assert row, "expected the Moon to be up at this moment"
         assert re.search(r"Up now · -?\d+° · [NESW]{1,2}$", row[0].rstrip()), row[0]
 

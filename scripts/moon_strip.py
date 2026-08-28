@@ -35,7 +35,7 @@ text they would replace: those lines carry the almanac name ("Full
 Sturgeon Moon") and the countdowns, and no strip here carries either.
 """
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 sys.path.insert(0, "src")
 
@@ -189,6 +189,33 @@ CANDIDATES_BY_KEY = [(label.split()[0], fn) for label, fn in CANDIDATES]
 
 LAT, LNG = 43.7, -79.4
 STRIP_MAX = 58
+
+
+def in_situ(now, rt, which, lat, lng):
+    """Draw the real moon view with one strip below it, at the real size.
+
+    The strip is paid for out of the sky: the view is rendered into a
+    terminal shortened by exactly the rows the strip takes, so what the
+    disc gives up is what you see.
+    """
+    from linecast._graphics import get_terminal_size
+    from linecast import moon as moon_view
+
+    fn = dict(CANDIDATES_BY_KEY)[which]
+    cols, rows = get_terminal_size()
+    strip = fn(now, rt, min(cols - 4, STRIP_MAX))
+
+    # render() reads the size through its own module global; a script can
+    # rebind it directly rather than reach for a test double.
+    real = moon_view.get_terminal_size
+    moon_view.get_terminal_size = lambda: (cols, rows - len(strip))
+    try:
+        view = moon_view.render(now, lat, lng, rt, fullscreen=True)
+    finally:
+        moon_view.get_terminal_size = real
+
+    pad = " " * max(0, (cols - visible_len(strip[0])) // 2)
+    return "\n".join([view] + [pad + line for line in strip])
 
 
 def main():

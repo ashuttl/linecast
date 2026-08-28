@@ -276,10 +276,14 @@ def _surface_shade(sx, sy, albedo):
     lon = math.atan2(sx, sz)                        # −π/2…π/2 on the near side
     u = (lon / math.pi + 0.5) * w - 0.5             # map spans −90…90
     v = (0.5 - lat / math.pi) * h - 0.5
-    x0 = int(math.floor(u)); y0 = int(math.floor(v))
-    fx = u - x0; fy = v - y0
-    x0 = max(0, min(w - 1, x0)); x1 = min(w - 1, x0 + 1)
-    y0 = max(0, min(h - 1, y0)); y1 = min(h - 1, y0 + 1)
+    x0 = int(math.floor(u))
+    y0 = int(math.floor(v))
+    fx = u - x0
+    fy = v - y0
+    x0 = max(0, min(w - 1, x0))
+    x1 = min(w - 1, x0 + 1)
+    y0 = max(0, min(h - 1, y0))
+    y1 = min(h - 1, y0 + 1)
     top = px[y0 * w + x0] * (1 - fx) + px[y0 * w + x1] * fx
     bottom = px[y1 * w + x0] * (1 - fx) + px[y1 * w + x1] * fx
     return 1.0 - (top * (1 - fy) + bottom * fy) / 255.0
