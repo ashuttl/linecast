@@ -313,8 +313,10 @@ def fake_tty(monkeypatch):
     if sys.platform != "win32":
         import termios
         import tty
+        # A full-length control-character list: short of one, disabling
+        # the QUIT character has nothing to assign into.
         monkeypatch.setattr(termios, "tcgetattr",
-                            lambda fd: [0, 0, 0, 0, 0, 0, []])
+                            lambda fd: [0, 0, 0, 0, 0, 0, [0] * 32])
         monkeypatch.setattr(termios, "tcsetattr", lambda *args: None)
         monkeypatch.setattr(tty, "setcbreak", lambda fd: None)
     monkeypatch.setenv("LINECAST_THEME_POLL", "0")

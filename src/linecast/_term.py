@@ -241,11 +241,14 @@ class LiveTerminal:
         # loop ignores, and a screenshot leaves the view standing.
         try:
             attrs = termios.tcgetattr(self.fd)
-            vdisable = getattr(termios, "_POSIX_VDISABLE",
-                               os.fpathconf(self.fd, "PC_VDISABLE"))
+            vdisable = getattr(termios, "_POSIX_VDISABLE", None)
+            if vdisable is None:
+                # Only ask the fd when the constant is missing: fpathconf
+                # refuses anything that is not a terminal.
+                vdisable = os.fpathconf(self.fd, "PC_VDISABLE")
             attrs[6][termios.VQUIT] = vdisable
             termios.tcsetattr(self.fd, termios.TCSANOW, attrs)
-        except (OSError, ValueError, termios.error):
+        except (OSError, ValueError, IndexError, termios.error):
             pass
 
     # -- running -----------------------------------------------------------
