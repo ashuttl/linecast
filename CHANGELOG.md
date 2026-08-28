@@ -7,6 +7,10 @@ Notable changes, by release. Notes for the next release collect under
 
 - Maps: Near the poles the map goes round sooner. A flat map of the
   Ross Sea used to run off the edge of the world on two sides.
+- Maps: The street view keeps its colours when it goes round. The
+  globe used to swap the land and sea shades and draw borders the
+  flat street map never had, so zooming out across the hand-off
+  changed the picture rather than the curvature.
 - Weather: A severe European alert now shows only where it applies. A
   MeteoAlarm feed covers a whole country, so a flood warning for a
   single river gauge was reaching everyone in it.

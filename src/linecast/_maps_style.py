@@ -63,15 +63,6 @@ PALETTE_DARK = {
     "park":           (22, 34, 26),
     "water":          (30, 44, 62),
     "building":       (34, 36, 42),
-    # --- the street planet -------------------------------------------
-    # Past the hand-off there are no streets left to draw, and the two
-    # fills are the whole picture: the ladder inverts so the land is
-    # the figure and the sea the ground, which is how a planet reads
-    # from outside.  Not blended toward the terminal background the
-    # way `ground` is — these two have to hold their own against
-    # space, whatever colour space happens to be.
-    "globe_water":    (7, 9, 14),
-    "globe_ground":   (58, 62, 72),
     # --- line inks (braille strokes) ---------------------------------
     "motorway":       (245, 185, 70),   # THE accent — the only warm ink
     "ramp":           (178, 138, 60),
@@ -113,8 +104,6 @@ PALETTE_LIGHT = {
     "park":           (223, 234, 222),
     "water":          (206, 216, 222),
     "building":       (214, 214, 212),
-    "globe_water":    (240, 243, 246),
-    "globe_ground":   (176, 183, 192),
     "motorway":       (176, 116, 20),
     "ramp":           (196, 146, 64),
     "trunk":          (52, 54, 66),

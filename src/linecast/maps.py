@@ -248,10 +248,13 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
     labels with their contrast-picked ink — so crossing the projection
     boundary changes the shape of the world, not the look of it.
 
-    Street's two fills are the exception, and they are the exception
-    because at planet scale they are the whole picture: no streets, no
-    landcover, nothing else to carry the ladder.  So it inverts — land
-    the figure, the sea the ground.  City lights it never had: they
+    Street keeps exactly the two fills and the coast ink the flat
+    street map draws with, and draws no borders, because the flat
+    street map draws none: the frame before the hand-off and the frame
+    after it should differ in curvature and nothing else.  The land is
+    the terminal's own background, as it is on the flat map, so the
+    planet reads as lit seas on a dark ground with the atmosphere
+    marking its edge.  City lights it never had: they
     belong to terrain in either projection (_render_street says why),
     and the night floor that suits a register without them is the same
     one the flat street map takes.
@@ -276,21 +279,19 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
     coast = (view.coast if view is not None and show_labels
              else None)
     borders = (view.borders if view is not None and show_labels
-               else None)
+               and not street else None)
+    palette = _maps_style.palette()
     if elev is not None:
         key = (round(lat0, 2), round(lon0, 2), round(zoom, 1),
                graph_w, height_cells, street)
 
         def build():
             if street:
-                # the planet's own two fills where the palette has
-                # them: the coarse 16-colour table does not, and falls
-                # back to the flat map's water and ground
-                p = _maps_style.palette()
+                # the flat street map's own two fills; the 16-colour
+                # table paints none, and the coastline carries it
                 terrain = _globe.fill_buffer(
-                    elev, p.get("globe_water", p.get("water")),
-                    p.get("globe_ground", p.get("ground")), BG_PRIMARY,
-                    view.water)
+                    elev, palette.get("water"), palette.get("ground"),
+                    BG_PRIMARY, view.water)
             else:
                 # a scale-only bbox: the shader needs metres per
                 # sub-pixel, which on the disk is the hand-off zoom's
@@ -344,7 +345,9 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
 
     strokes = [borders] if borders is not None else None
     lines = compose_terrain(None, terrain, overlays, graph_w,
-                            height_cells, coast=coast, strokes=strokes)
+                            height_cells, coast=coast, strokes=strokes,
+                            coast_ink=palette.get("coast") if street
+                            else None)
     return lines, readout, "", loading, err
 
 

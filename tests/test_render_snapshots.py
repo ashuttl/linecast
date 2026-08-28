@@ -284,8 +284,9 @@ class TestMapsSnapshot:
             zoom=125.0)
         _compare_or_create("maps_globe_80x24.txt", output)
 
-        # the street register rides the same sphere: flat fills, the
-        # same coastline, borders and labels — pinned separately
+        # the street register rides the same sphere in the flat street
+        # map's own fills and coast ink, with no borders — pinned
+        # separately
         output = self._render(
             "street", patch.object(maps, "_get_globe", get_globe),
             zoom=125.0)

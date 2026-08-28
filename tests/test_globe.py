@@ -655,20 +655,13 @@ class TestStreetRegister:
         assert shaded[0][0][4] == {}           # the lights argument
         assert shaded[0][1]["night"] == _globe_now.NIGHT_STREET
 
-    def test_the_planet_fills_invert_the_flat_map_ladder(self):
+    def test_the_street_planet_wears_the_street_map_fills(self):
+        # crossing the hand-off changes the curvature and nothing
+        # else: no separate globe pair in either theme
         from linecast import _maps_style
-
-        def lum(c):
-            return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
-
         for p in (_maps_style.PALETTE_DARK, _maps_style.PALETTE_LIGHT):
-            flat = lum(p["water"]) - lum(p["ground"])
-            planet = lum(p["globe_water"]) - lum(p["globe_ground"])
-            # the sea and the land swap which one is the darker
-            assert flat * planet < 0
-        # and the planet's sea is the extreme of its theme's range
-        assert lum(_maps_style.PALETTE_DARK["globe_water"]) < 20
-        assert lum(_maps_style.PALETTE_LIGHT["globe_water"]) > 230
+            assert "globe_water" not in p and "globe_ground" not in p
+            assert p["water"] and p["ground"]
 
 
 class TestCities:

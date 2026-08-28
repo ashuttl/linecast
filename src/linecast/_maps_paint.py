@@ -295,7 +295,7 @@ def _contrast_ink(cell_bg):
 
 
 def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
-                    coast=None, strokes=None):
+                    coast=None, strokes=None, coast_ink=None):
     """Terrain fill with braille geography *on top* (inverse of radar).
 
     The coastline comes from `coast` — sea-level contour masks derived
@@ -305,12 +305,16 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
     a light or dark ink per cell for contrast; a truthy third tuple
     element renders the glyph bold.
 
+    `coast_ink` overrides the terrain coastline colour — the street
+    globe strokes its shore in the street map's own ink.
+
     `strokes` is an ordered list of extra braille layers (anything with
     .dots and .color cell grids, e.g. streets, a route), lowest priority
     first: dot masks OR together, and the last layer with dots in a cell
     owns its ink — the same one-ink-per-cell rule the layers themselves
     resolve by draw order.
     """
+    coast_stroke = coast_ink if coast_ink is not None else COAST_STROKE
     lines = []
     for cy in range(height_cells):
         top_row = terrain[cy * 2]
@@ -347,7 +351,7 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
                     if sink is not None:
                         stroke = sink
                     else:
-                        stroke = COAST_STROKE if cmask else BORDER_STROKE
+                        stroke = coast_stroke if cmask else BORDER_STROKE
                     parts.append(f"{cell_bg}{fg(*stroke)}"
                                  f"{chr(0x2800 + (bmask | cmask | smask))}")
                 continue
