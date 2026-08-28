@@ -4,20 +4,25 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+New this version:
+
 - Moon: The disc now shows the real lunar surface, from NASA's Lunar Reconnaissance Orbiter imagery, instead of a sketch of the maria.
-- Maps: Near the poles, as you zoom out, the map switches to the globe sooner. Flat maps of Antarctica used to run off the edge of the world.
-- Maps: Better style consistency between street maps in flat mode and globe mode.
-- Maps: With sunlight and shadows on, street map coastlines and roads dim on the night side.
-- Weather: A severe European alert now shows only where it applies. A MeteoAlarm feed covers a whole country, so a flood warning for a single river gauge was reaching everyone in it.
-- Weather: The daily forecast keeps its rows on one line in Japanese, Chinese, and Korean. The rain and wind columns were measured by character count, so double-width labels pushed the last rows past the edge of the terminal.
-- Tides: The header names the place instead of printing its coordinates. Somewhere the global tide model covers, with no station nearby, a tide table for the wrong hemisphere used to look like a tide table.
 - Moon: The star field is drawn with a mix of star shapes at varied brightness, so the sky reads as stars of different magnitudes rather than a scatter of identical blocks.
 - Moon: Moonrise and moonset lead with how long until they happen, with the clock time after — "Moonrise in 6h 29m (20:59)". A time on a later day is named inside the same parentheses.
 - Moon: When the Moon is up, the line that gives its altitude now also names the compass direction to look in. `--json` gains `azimuth_deg` alongside `altitude_deg`.
 - Maps: The globe draws inland water. The Great Lakes, the Caspian, Baikal and every other lake big enough to see are water at planet zoom, in the terrain view and the street one, with a shoreline to match.
 - Maps: City lights were only ever intended for the terrain view. The street view no longer lights its cities, flat or on the globe; its fills stay a little brighter at night to make up for it.
 - Maps: The street view's globe is its own picture: land a dark grey against a near-black sea, the other way round from the flat street map, where the two fills are all there is to see.
+- Maps: Better style consistency between street maps in flat mode and globe mode.
+- Maps: With sunlight and shadows on, street map coastlines and roads dim on the night side.
 - Maps: The map tile cache no longer grows without limit. Tiles left behind by a superseded edition of the map are dropped and the rest kept under 256 MB, the tiles you haven't looked at in longest going first; `LINECAST_MAPS_CACHE_MB` sets another size, and `linecast doctor` shows what the tiles are using.
+
+Fixes:
+
+- Maps: Near the poles, as you zoom out, the map switches to the globe sooner. Flat maps of Antarctica used to run off the edge of the world.
+- Weather: A severe European alert now shows only where it applies. A MeteoAlarm feed covers a whole country, so a flood warning for a single river gauge was reaching everyone in it.
+- Weather: The daily forecast keeps its rows on one line in Japanese, Chinese, and Korean. The rain and wind columns were measured by character count, so double-width labels pushed the last rows past the edge of the terminal.
+- Tides: The header names the place instead of printing its coordinates. Somewhere the global tide model covers, with no station nearby, a tide table for the wrong hemisphere used to look like a tide table.
 - Live views: Taking a screenshot with cmd-ctrl-shift-4 on a Mac no longer kills the view and leaves the shell echoing mouse movements. Ctrl-\ now quits cleanly as well.
 
 ## 2.0.0 — 2026-08-26
