@@ -250,11 +250,11 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
 
     Street's two fills are the exception, and they are the exception
     because at planet scale they are the whole picture: no streets, no
-    landcover, nothing else to carry the ladder.  So it inverts —
-    land the figure, the sea the ground — and drops the city lights,
-    which are a picture of where the ground is built up and read as
-    landcover over fills that claim nothing about the ground at all.
-    Terrain keeps its lights; it has the shader to hold them.
+    landcover, nothing else to carry the ladder.  So it inverts — land
+    the figure, the sea the ground.  City lights it never had: they
+    belong to terrain in either projection (_render_street says why),
+    and the night floor that suits a register without them is the same
+    one the flat street map takes.
     """
     lat0 = (bbox[1] + bbox[3]) / 2
     lon0 = (bbox[0] + bbox[2]) / 2
@@ -309,10 +309,6 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
 
         terrain = _terrain_cache.get(key, build)
         if (sun or clouds) and view.lls is not None:
-            # city lights are terrain's: they are a picture of where
-            # the ground is built up, and the street planet's two
-            # quiet fills say nothing about the ground at all — lit
-            # blobs over them read as landcover, not as cities
             terrain = _shade_now(
                 terrain, view.lls, sun,
                 _get_clouds(zoom, height_cells, block) if clouds else None,
@@ -403,14 +399,17 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
         labels = {}
     if sun or clouds:
         # the sky over the streets: the fills darken and cloud over,
-        # the strokes and glyphs stay ink — a lit window is ink too
+        # the strokes and glyphs stay ink.  No city lights — they are
+        # terrain's, a picture of where the ground is built up, and
+        # this map already draws the city itself.  Nothing burns back
+        # through the dark here, so the fills keep a higher floor to
+        # stay a map at night (see _globe_now.NIGHT_STREET).
         fills = _shade_now(
             fills, _globe_now.flat_lls(bbox, graph_w, height_cells * 2),
             sun,
             (_get_clouds(bbox[3] - bbox[1], height_cells, block)
              if clouds else None),
-            _globe_now.city_lights_flat(bbox, graph_w, height_cells * 2)
-            if sun else {})
+            {}, night=_globe_now.NIGHT_STREET)
 
     hover, hot, hot_glyphs = _hover(layer, mouse_pos, pan_offset, lang)
 

@@ -576,9 +576,9 @@ class TestBorders:
         assert after is not before and len(after) == 1
 
 
-class TestStreetPlanet:
-    """The street register past the hand-off: its own two fills, and
-    none of terrain's city lights."""
+class TestStreetRegister:
+    """City lights are terrain's, in either projection; and past the
+    hand-off the street register paints its own two fills."""
 
     @staticmethod
     def _view(gw, hc):
@@ -614,6 +614,28 @@ class TestStreetPlanet:
 
     def test_the_terrain_planet_still_lights_its_cities(self, monkeypatch):
         assert self._render(monkeypatch, street=False) != []
+
+    def test_the_flat_street_map_asks_for_none_either(self, monkeypatch):
+        from linecast import _globe_now, maps
+        gw, hc = 40, 12
+        asked, shaded = [], []
+
+        def lights(*a, **k):
+            asked.append(a)
+            return {}
+
+        monkeypatch.setattr(_globe_now, "city_lights_flat", lights)
+        monkeypatch.setattr(maps, "_get_street", lambda *a, **k:
+                            (None, None, None))
+        real = maps._shade_now
+        monkeypatch.setattr(maps, "_shade_now", lambda *a, **k:
+                            shaded.append((a, k)) or real(*a, **k))
+        maps._render_street((-71.0, 43.0, -70.0, 44.0), gw, hc, False,
+                            (0, 0), None, None, None, None, "en", None,
+                            sun=True)
+        assert asked == []
+        assert shaded[0][0][4] == {}           # the lights argument
+        assert shaded[0][1]["night"] == _globe_now.NIGHT_STREET
 
     def test_the_planet_fills_invert_the_flat_map_ladder(self):
         from linecast import _maps_style

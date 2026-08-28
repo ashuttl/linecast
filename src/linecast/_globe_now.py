@@ -63,10 +63,11 @@ _CAP_FADE0, _CAP_FADE1 = 70.0, 72.6
 # (_theme.themed), so night on a green-monochrome terminal is green
 # moonlight and its cities burn in the theme's own warm.
 #
-# The street planet keeps a higher floor, because it has nothing else:
-# terrain's night is carried by the city lights burning through it, and
-# the street map draws none — crush its two fills as far and the land
-# and the sea are one black shape until the terminator comes round.
+# The street register keeps a higher floor, in either projection,
+# because it has nothing else: terrain's night is carried by the city
+# lights burning back through it, and street draws none — crush its
+# fills as far and the land and the sea are one black shape until the
+# terminator comes round.
 def _rebuild():
     global _NIGHT, NIGHT_STREET, _CLOUD_DAY, _CLOUD_NIGHT, _CITY_LIGHT
     _NIGHT = tuple(c / 255.0 for c in themed((41, 51, 77)))
