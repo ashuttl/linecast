@@ -215,19 +215,20 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
 
 
 
-def _shade_now(buf, lls, sun, canvas, lights, glow=None):
+def _shade_now(buf, lls, sun, canvas, lights, glow=None, night=None):
     """A copy of `buf` shaded into the present moment.
 
     The cached buffer stays pristine — daylight moves with the clock,
     so the moment is applied per repaint, never memoised.  `glow` is
     the globe's (atmo, limb lls) pair: the rim glow is scattered
-    sunlight, so the terminator gates it too.
+    sunlight, so the terminator gates it too.  `night` is the caller's
+    own night floor, where the default would leave nothing to see.
     """
     buf = [row[:] for row in buf]
     sub = _globe_now.subsolar() if sun else None
     day = _globe_now.daylight(lls, sub) if sun else None
     cloud = _globe_now.clouds(lls, canvas) if canvas is not None else None
-    _globe_now.apply(buf, day, cloud, lights if sun else {})
+    _globe_now.apply(buf, day, cloud, lights if sun else {}, night)
     if sun and glow is not None:
         atmo, glow_lls = glow
         _globe.gate_glow(buf, atmo, _globe_now.daylight(glow_lls, sub),
@@ -246,6 +247,14 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
     keep the coastline rule, the Natural Earth borders and the city
     labels with their contrast-picked ink — so crossing the projection
     boundary changes the shape of the world, not the look of it.
+
+    Street's two fills are the exception, and they are the exception
+    because at planet scale they are the whole picture: no streets, no
+    landcover, nothing else to carry the ladder.  So it inverts —
+    land the figure, the sea the ground — and drops the city lights,
+    which are a picture of where the ground is built up and read as
+    landcover over fills that claim nothing about the ground at all.
+    Terrain keeps its lights; it has the shader to hold them.
     """
     lat0 = (bbox[1] + bbox[3]) / 2
     lon0 = (bbox[0] + bbox[2]) / 2
@@ -274,10 +283,14 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
 
         def build():
             if street:
+                # the planet's own two fills where the palette has
+                # them: the coarse 16-colour table does not, and falls
+                # back to the flat map's water and ground
                 p = _maps_style.palette()
-                terrain = _globe.fill_buffer(elev, p.get("water"),
-                                             p.get("ground"), BG_PRIMARY,
-                                             view.water)
+                terrain = _globe.fill_buffer(
+                    elev, p.get("globe_water", p.get("water")),
+                    p.get("globe_ground", p.get("ground")), BG_PRIMARY,
+                    view.water)
             else:
                 # a scale-only bbox: the shader needs metres per
                 # sub-pixel, which on the disk is the hand-off zoom's
@@ -296,13 +309,19 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
 
         terrain = _terrain_cache.get(key, build)
         if (sun or clouds) and view.lls is not None:
+            # city lights are terrain's: they are a picture of where
+            # the ground is built up, and the street planet's two
+            # quiet fills say nothing about the ground at all — lit
+            # blobs over them read as landcover, not as cities
             terrain = _shade_now(
                 terrain, view.lls, sun,
                 _get_clouds(zoom, height_cells, block) if clouds else None,
                 _globe_now.city_lights_globe(lat0, lon0, zoom, graph_w,
-                                             height_cells * 2) if sun else {},
+                                             height_cells * 2)
+                if sun and not street else {},
                 glow=(view.atmo, view.glow_lls)
-                if view.glow_lls is not None else None)
+                if view.glow_lls is not None else None,
+                night=_globe_now.NIGHT_STREET if street else None)
     else:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
 

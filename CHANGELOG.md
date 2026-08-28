@@ -107,6 +107,9 @@ Other changes:
   zoom, in the terrain view and the street one, with a shoreline to
   match. Elevation data alone could not tell a lake from the ground
   beside it.
+- Maps: The street view's globe is its own picture now: land a dark
+  grey against a near-black sea, the other way round from the flat
+  street map, and no city lights. The terrain globe keeps its lights.
 
 ## 1.17.0 — 2026-08-25
 

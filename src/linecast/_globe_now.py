@@ -62,9 +62,15 @@ _CAP_FADE0, _CAP_FADE1 = 70.0, 72.6
 # The sky's inks pass through the theme's hue transfer like the ground's
 # (_theme.themed), so night on a green-monochrome terminal is green
 # moonlight and its cities burn in the theme's own warm.
+#
+# The street planet keeps a higher floor, because it has nothing else:
+# terrain's night is carried by the city lights burning through it, and
+# the street map draws none — crush its two fills as far and the land
+# and the sea are one black shape until the terminator comes round.
 def _rebuild():
-    global _NIGHT, _CLOUD_DAY, _CLOUD_NIGHT, _CITY_LIGHT
+    global _NIGHT, NIGHT_STREET, _CLOUD_DAY, _CLOUD_NIGHT, _CITY_LIGHT
     _NIGHT = tuple(c / 255.0 for c in themed((41, 51, 77)))
+    NIGHT_STREET = tuple(c / 255.0 for c in themed((108, 118, 140)))
     _CLOUD_DAY = themed((236, 240, 244))
     _CLOUD_NIGHT = themed((96, 106, 126))
     _CITY_LIGHT = themed((255, 186, 110))
@@ -378,7 +384,7 @@ def city_lights_flat(bbox, gw, h):
     return out
 
 
-def apply(buf, day, cloud, lights):
+def apply(buf, day, cloud, lights, night=None):
     """Shade a sub-pixel RGB buffer into this moment, in place.
 
     `day` and `cloud` are each optional, because the sun and the
@@ -389,7 +395,12 @@ def apply(buf, day, cloud, lights):
     infrared keeps night clouds faintly slate, and the cities burn
     through last.  A None pixel (a palette that paints no fills)
     stays None — there is nothing there to shade.
+
+    `night` overrides the night floor, for a register whose night has
+    no lights to carry it.
     """
+    if night is None:
+        night = _NIGHT
     for y, row in enumerate(buf):
         d_row = day[y] if day is not None else None
         c_row = cloud[y] if cloud is not None else None
@@ -405,9 +416,9 @@ def apply(buf, day, cloud, lights):
                 g += (_CLOUD_DAY[1] - g) * a
                 b += (_CLOUD_DAY[2] - b) * a
             if d < 1.0:
-                r *= _NIGHT[0] + (1.0 - _NIGHT[0]) * d
-                g *= _NIGHT[1] + (1.0 - _NIGHT[1]) * d
-                b *= _NIGHT[2] + (1.0 - _NIGHT[2]) * d
+                r *= night[0] + (1.0 - night[0]) * d
+                g *= night[1] + (1.0 - night[1]) * d
+                b *= night[2] + (1.0 - night[2]) * d
                 if c > 0.02:
                     a = c * 0.35 * (1.0 - d)
                     r += (_CLOUD_NIGHT[0] - r) * a

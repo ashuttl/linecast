@@ -117,6 +117,26 @@ class TestApply:
         r, g, b = buf[0][0]
         assert r > 150 and r > b  # warm, not blue
 
+    def test_a_higher_night_floor_keeps_more_of_the_ground(self):
+        # the street planet's night: no lights to carry it, so the two
+        # fills have to survive the dark themselves
+        default = [[(90, 110, 60)]]
+        street = [[(90, 110, 60)]]
+        _globe_now.apply(default, [[0.0]], None, {})
+        _globe_now.apply(street, [[0.0]], None, {},
+                         night=_globe_now.NIGHT_STREET)
+        assert sum(street[0][0]) > sum(default[0][0])
+        assert sum(street[0][0]) < 90 + 110 + 60  # still night
+
+    def test_the_street_floor_keeps_land_off_sea(self):
+        # what the floor is for: a dark grey land and a black sea stay
+        # two different colours after the terminator passes
+        land, sea = [[(58, 62, 72)]], [[(7, 9, 14)]]
+        for buf in (land, sea):
+            _globe_now.apply(buf, [[0.0]], None, {},
+                             night=_globe_now.NIGHT_STREET)
+        assert sum(land[0][0]) - sum(sea[0][0]) > 30
+
     def test_daylit_city_stays_dark(self):
         buf = [[(90, 110, 60)]]
         _globe_now.apply(buf, [[1.0]], None, {(0, 0): 1.0})

@@ -493,7 +493,9 @@ def fill_buffer(elev, water, ground, bg, wet=None):
     """Street-register fills for the globe: flat sea, flat ground.
 
     The street map's planet is the street map's idiom — two quiet
-    fills and a braille coastline — bent onto the sphere.  A palette
+    fills and a braille coastline — bent onto the sphere, and inked
+    from the palette's own globe pair, which inverts the flat map's
+    ladder so the land is the figure (see _maps_style).  A palette
     that paints no fills (the 16-colour line map) gets background, and
     the coastline carries the geography alone, exactly as it does on
     the flat map.

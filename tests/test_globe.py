@@ -576,6 +576,61 @@ class TestBorders:
         assert after is not before and len(after) == 1
 
 
+class TestStreetPlanet:
+    """The street register past the hand-off: its own two fills, and
+    none of terrain's city lights."""
+
+    @staticmethod
+    def _view(gw, hc):
+        lls, zs, rhos = _globe.geometry(20.0, -30.0, 125.0, gw, hc * 2)
+        elev = [[None if ll is None else 500.0 for ll in row]
+                for row in lls]
+        return _globe.GlobeView(elev, [[0] * gw for _ in range(hc)], zs,
+                                _globe.atmosphere(rhos, 125.0, hc * 2),
+                                None, None, lls)
+
+    def _render(self, monkeypatch, street):
+        from linecast import _globe_now, maps
+        gw, hc = 40, 12
+        asked = []
+        monkeypatch.setattr(maps, "_get_globe",
+                            lambda *a: self._view(gw, hc))
+        monkeypatch.setattr(maps, "get_terminal_size",
+                            lambda: (gw, hc + 2))
+        monkeypatch.setattr(_globe, "city_overlays", lambda *a, **k: {})
+
+        def lights(*a, **k):
+            asked.append(a)
+            return {}
+
+        monkeypatch.setattr(_globe_now, "city_lights_globe", lights)
+        bbox = (-31.0, -42.5, -29.0, 82.5)  # centre (20, -30), zoom 125
+        maps._render_globe(bbox, gw, hc, True, (0, 0), None, None, None,
+                           None, "en", None, street=street, sun=True)
+        return asked
+
+    def test_the_street_planet_asks_for_no_city_lights(self, monkeypatch):
+        assert self._render(monkeypatch, street=True) == []
+
+    def test_the_terrain_planet_still_lights_its_cities(self, monkeypatch):
+        assert self._render(monkeypatch, street=False) != []
+
+    def test_the_planet_fills_invert_the_flat_map_ladder(self):
+        from linecast import _maps_style
+
+        def lum(c):
+            return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+        for p in (_maps_style.PALETTE_DARK, _maps_style.PALETTE_LIGHT):
+            flat = lum(p["water"]) - lum(p["ground"])
+            planet = lum(p["globe_water"]) - lum(p["globe_ground"])
+            # the sea and the land swap which one is the darker
+            assert flat * planet < 0
+        # and the planet's sea is the extreme of its theme's range
+        assert lum(_maps_style.PALETTE_DARK["globe_water"]) < 20
+        assert lum(_maps_style.PALETTE_LIGHT["globe_water"]) > 230
+
+
 class TestCities:
     def test_labels_stay_on_screen_and_visible_side(self):
         overlays = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22)
