@@ -124,6 +124,37 @@ def daylight(lls, sun):
     return out
 
 
+def ink_dusk(lls, sun, night, gw, hc):
+    """Per-cell RGB multipliers for braille ink, following the fills.
+
+    apply() scales each fill channel by ``night + (1 - night) * day``;
+    the same factor, averaged over a cell's two sub-pixels, dims the
+    strokes drawn across it so a coastline on the night side fades
+    with the sea it outlines instead of glowing at noon brightness.
+    Space (None) counts as noon: nothing there is dark, only empty.
+    """
+    day = daylight(lls, sun)
+    out = []
+    for cy in range(hc):
+        top, bot = day[cy * 2], day[cy * 2 + 1]
+        row = []
+        for cx in range(gw):
+            a, b = top[cx], bot[cx]
+            d = ((1.0 if a is None else a) + (1.0 if b is None else b)) / 2
+            row.append(None if d >= 1.0 else
+                       tuple(n + (1.0 - n) * d for n in night))
+        out.append(row)
+    return out
+
+
+def dim_ink(ink, factor):
+    """`ink` scaled by an ink_dusk factor; either None passes through."""
+    if ink is None or factor is None:
+        return ink
+    return (int(ink[0] * factor[0]), int(ink[1] * factor[1]),
+            int(ink[2] * factor[2]))
+
+
 def flat_lls(bbox, w, h):
     """The (lat, lon) under each sample of a flat w×h view.
 

@@ -9,7 +9,7 @@ layers into terminal lines, one composer per register.
 
 import math
 
-from linecast import _climate, _maps_hover, _maps_style, _theme
+from linecast import _climate, _globe_now, _maps_hover, _maps_style, _theme
 from linecast._color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
 )
@@ -295,7 +295,8 @@ def _contrast_ink(cell_bg):
 
 
 def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
-                    coast=None, strokes=None, coast_ink=None):
+                    coast=None, strokes=None, coast_ink=None,
+                    ink_dusk=None):
     """Terrain fill with braille geography *on top* (inverse of radar).
 
     The coastline comes from `coast` — sea-level contour masks derived
@@ -306,7 +307,9 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
     element renders the glyph bold.
 
     `coast_ink` overrides the terrain coastline colour — the street
-    globe strokes its shore in the street map's own ink.
+    globe strokes its shore in the street map's own ink.  `ink_dusk`
+    is a per-cell grid of RGB multipliers (_globe_now.ink_dusk) that
+    dims braille strokes with the night; glyphs keep their ink.
 
     `strokes` is an ordered list of extra braille layers (anything with
     .dots and .color cell grids, e.g. streets, a route), lowest priority
@@ -352,6 +355,9 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
                         stroke = sink
                     else:
                         stroke = coast_stroke if cmask else BORDER_STROKE
+                    if ink_dusk is not None:
+                        stroke = _globe_now.dim_ink(stroke,
+                                                    ink_dusk[cy][cx])
                     parts.append(f"{cell_bg}{fg(*stroke)}"
                                  f"{chr(0x2800 + (bmask | cmask | smask))}")
                 continue
@@ -362,7 +368,7 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
 
 
 def compose_map(fills, layer, overlays, graph_w, height_cells,
-                strokes=None, hot=None, hot_glyphs=None):
+                strokes=None, hot=None, hot_glyphs=None, ink_dusk=None):
     """Street-mode composer: area fills under one ranked braille layer.
 
     fills:    (hc*2) x gw sub-pixel RGB grid.  An entry may be None,
@@ -459,6 +465,8 @@ def compose_map(fills, layer, overlays, graph_w, height_cells,
                 parts.append(f"{cell_bg}{fg(*lift) if lift else ''}{BOLD}"
                              f"{chr(0x2800 + mask)}{RESET}")
                 continue
+            if ink_dusk is not None:
+                stroke = _globe_now.dim_ink(stroke, ink_dusk[cy][cx])
             stroke_fg = fg(*stroke) if stroke is not None else ""
             parts.append(f"{cell_bg}{stroke_fg}{chr(0x2800 + mask)}")
         parts.append(RESET)

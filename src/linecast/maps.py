@@ -215,6 +215,20 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
 
 
 
+def _ink_dusk(lls, sun, graph_w, height_cells):
+    """The street register's per-cell ink dimming, or None by day.
+
+    The street map's strokes are its geography, and a coastline drawn
+    at noon brightness across a darkened sea reads as a wire.  The
+    inks fade by the fills' own night factor (see _globe_now.ink_dusk).
+    """
+    if not sun or lls is None:
+        return None
+    return _globe_now.ink_dusk(lls, _globe_now.subsolar(),
+                               _globe_now.NIGHT_STREET, graph_w,
+                               height_cells)
+
+
 def _shade_now(buf, lls, sun, canvas, lights, glow=None, night=None):
     """A copy of `buf` shaded into the present moment.
 
@@ -276,6 +290,7 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
         loading = view is None
 
     elev = view.elev if view is not None else None
+    dusk = None
     coast = (view.coast if view is not None and show_labels
              else None)
     borders = (view.borders if view is not None and show_labels
@@ -319,6 +334,8 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
                 glow=(view.atmo, view.glow_lls)
                 if view.glow_lls is not None else None,
                 night=_globe_now.NIGHT_STREET if street else None)
+            if street:
+                dusk = _ink_dusk(view.lls, sun, graph_w, height_cells)
     else:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
 
@@ -333,6 +350,8 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
         terrain = _shift_grid(terrain, dx, dy * 2, None)
         if coast is not None:
             coast = _shift_grid(coast, dx, dy, 0)
+        if dusk is not None:
+            dusk = _shift_grid(dusk, dx, dy, None)
         borders = _shift_layer(borders, dx, dy)
     overlays = _place_marks(overlays, marker_cell, origin_cell, dest_cell,
                             dx, dy, graph_w, height_cells, False)
@@ -347,7 +366,7 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
     lines = compose_terrain(None, terrain, overlays, graph_w,
                             height_cells, coast=coast, strokes=strokes,
                             coast_ink=palette.get("coast") if street
-                            else None)
+                            else None, ink_dusk=dusk)
     return lines, readout, "", loading, err
 
 
@@ -400,19 +419,22 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
         layer = _ShiftedLayer([[0] * graph_w for _ in range(height_cells)],
                               [[None] * graph_w for _ in range(height_cells)])
         labels = {}
+    dusk = None
     if sun or clouds:
         # the sky over the streets: the fills darken and cloud over,
-        # the strokes and glyphs stay ink.  No city lights — they are
+        # the strokes dim with them and the glyphs stay ink.  No city
+        # lights — they are
         # terrain's, a picture of where the ground is built up, and
         # this map already draws the city itself.  Nothing burns back
         # through the dark here, so the fills keep a higher floor to
         # stay a map at night (see _globe_now.NIGHT_STREET).
+        lls = _globe_now.flat_lls(bbox, graph_w, height_cells * 2)
         fills = _shade_now(
-            fills, _globe_now.flat_lls(bbox, graph_w, height_cells * 2),
-            sun,
+            fills, lls, sun,
             (_get_clouds(bbox[3] - bbox[1], height_cells, block)
              if clouds else None),
             {}, night=_globe_now.NIGHT_STREET)
+        dusk = _ink_dusk(lls, sun, graph_w, height_cells)
 
     hover, hot, hot_glyphs = _hover(layer, mouse_pos, pan_offset, lang)
 
@@ -424,13 +446,16 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
             _shift_grid(layer.color, dx, dy, None),
             {(c + dx, r + dy) for c, r in layer.ribbon})
         fills = _shift_grid(fills, dx, dy * 2, None)
+        if dusk is not None:
+            dusk = _shift_grid(dusk, dx, dy, None)
         route_layer = _shift_layer(route_layer, dx, dy)
     overlays = _place_marks(overlays, marker_cell, origin_cell, dest_cell,
                             dx, dy, graph_w, height_cells, True)
 
     strokes = [route_layer] if route_layer is not None else None
     lines = compose_map(fills, layer, overlays, graph_w, height_cells,
-                        strokes=strokes, hot=hot, hot_glyphs=hot_glyphs)
+                        strokes=strokes, hot=hot, hot_glyphs=hot_glyphs,
+                        ink_dusk=dusk)
     return lines, "", hover, loading, err
 
 

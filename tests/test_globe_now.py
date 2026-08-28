@@ -221,3 +221,21 @@ class TestPolarCap:
         canvas = (bytes(4 * 4 * 4), 4, 4, 0, 0, 4)
         out = _globe_now.clouds([[(85.0, 0.0)]], canvas)
         assert out[0][0] == 0.0
+
+
+class TestInkDusk:
+    def test_ink_fades_by_the_fills_night_factor(self):
+        # a 2x2-cell view: left column at the subsolar point (noon),
+        # right column at its antipode (night); space on the top row
+        sun = (0.0, 0.0)
+        lls = [[None, None], [None, None],
+               [(0.0, 0.0), (0.0, 180.0)], [(0.0, 0.0), (0.0, 180.0)]]
+        night = (0.5, 0.5, 0.5)
+        dusk = _globe_now.ink_dusk(lls, sun, night, 2, 2)
+        assert dusk[0] == [None, None]           # space is not dark
+        assert dusk[1][0] is None                # noon keeps the ink
+        assert dusk[1][1] == (0.5, 0.5, 0.5)     # night takes the floor
+        assert _globe_now.dim_ink((100, 140, 180), dusk[1][1]) == (50, 70, 90)
+        assert _globe_now.dim_ink((100, 140, 180), None) == (100, 140, 180)
+        assert _globe_now.dim_ink(None, dusk[1][1]) is None
+
