@@ -276,7 +276,8 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
             if street:
                 p = _maps_style.palette()
                 terrain = _globe.fill_buffer(elev, p.get("water"),
-                                             p.get("ground"), BG_PRIMARY)
+                                             p.get("ground"), BG_PRIMARY,
+                                             view.water)
             else:
                 # a scale-only bbox: the shader needs metres per
                 # sub-pixel, which on the disk is the hand-off zoom's
@@ -287,7 +288,8 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
                 # the empty-tuple fallback means "no climate known" —
                 # never "derive from bbox", because sbbox is scale-only
                 terrain = build_terrain_buffer(
-                    elev, sbbox, graph_w, spy_h, cover=view.cover,
+                    elev, sbbox, graph_w, spy_h, water=view.water,
+                    cover=view.cover,
                     climate=_climate.grid_for_lls(view.lls) or ())
             _globe.shade_buffer(terrain, view.shade, view.atmo, BG_PRIMARY)
             return terrain

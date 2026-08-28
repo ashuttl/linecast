@@ -263,12 +263,17 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block):
         lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, gw, hc * 2)
         grid = _box_average(fine, gw, hc)
         atmo = _globe.atmosphere(rhos, zoom, hc * 2)
+        # the lakes come from the vendored polygons rather than the
+        # tiles, but they join the fill and the shoreline by exactly
+        # the flat view's rule: one mask, one union, one boundary
+        wet = _globe.lake_mask(lat0, lon0, zoom, gw * 2, hc * 4)
         return _globe.GlobeView(
-            grid, _coast_dots(fine, gw, hc), zs, atmo,
+            grid, _coast_dots(fine, gw, hc, wet), zs, atmo,
             _globe.ice_cover(lls, grid,
                              _maps_style.COVER_ORDER.index("ice") + 1),
             _globe.border_layer(lat0, lon0, zoom, gw, hc, BORDER_STROKE),
-            lls, _globe.limb_lls(lat0, lon0, zoom, gw, hc * 2, atmo))
+            lls, _globe.limb_lls(lat0, lon0, zoom, gw, hc * 2, atmo),
+            _water_subpixels(wet, gw, hc) if wet is not None else None)
 
     key = (round(lat0, 2), round(lon0, 2), round(zoom, 1), gw, hc)
     return _globe_cache.get(key, block, load)

@@ -60,10 +60,12 @@ _theme.on_reload(_rebuild)
 
 # lls (the coarse per-sample lat/lon grid) and glow_lls (the limb
 # point each rim-glow sample grazes) ride along for the now register,
-# which re-shades a cached view into the current moment
+# which re-shades a cached view into the current moment; water is the
+# sub-pixel inland mask the elevation data cannot report
 GlobeView = namedtuple("GlobeView",
-                       "elev coast shade atmo cover borders lls glow_lls",
-                       defaults=(None, None))
+                       "elev coast shade atmo cover borders lls glow_lls "
+                       "water",
+                       defaults=(None, None, None))
 
 
 def ice_cover(lls, elev, ice_id):
@@ -487,7 +489,7 @@ def gate_glow(buf, atmo, day, bg):
                 for i in range(3))
 
 
-def fill_buffer(elev, water, ground, bg):
+def fill_buffer(elev, water, ground, bg, wet=None):
     """Street-register fills for the globe: flat sea, flat ground.
 
     The street map's planet is the street map's idiom — two quiet
@@ -495,12 +497,19 @@ def fill_buffer(elev, water, ground, bg):
     that paints no fills (the 16-colour line map) gets background, and
     the coastline carries the geography alone, exactly as it does on
     the flat map.
+
+    `wet` is the optional sub-pixel inland mask, and it takes the same
+    fill the sea does: street mode draws one water, whether it is an
+    ocean or a lake.
     """
     buf = []
-    for row in elev:
+    for y, row in enumerate(elev):
+        wet_row = wet[y] if wet is not None else None
         out = []
-        for e in row:
-            if e is None:
+        for x, e in enumerate(row):
+            if wet_row is not None and wet_row[x]:
+                out.append(water if water is not None else bg)
+            elif e is None:
                 out.append(bg)
             elif e <= 0:
                 out.append(water if water is not None else bg)
@@ -571,6 +580,128 @@ def border_layer(lat0, lon0, zoom, gw, hc, color):
                     dot_line(prev[0], prev[1], p[0], p[1], color)
             prev = p
     return layer
+
+
+# A lake that would paint fewer than this many dots is not drawn: one
+# or two dots tint no sub-pixel of fill, and the shoreline stroked
+# round them reads as dirt on the disk rather than as water.  The
+# Canadian Shield alone would speckle a whole province.
+_LAKE_MIN_DOTS = 3
+
+# _lake_trig() memo: (lake polygons in projection-ready trig, each
+# with the spherical cap that covers it).  Keyed to the list object
+# itself so a test swapping the basemap data gets fresh trig.
+_LAKE_TRIG = (None, None)
+
+
+def _lake_trig():
+    """Every lake as rings of (sin lat, cos lat, lon), plus its cap.
+
+    The same per-vertex hoist border_layer() gets, and one addition:
+    the unit vector of the polygon's middle and the angle that reaches
+    its farthest vertex.  A single dot product against the view centre
+    then answers both questions a frame asks of a lake — is all of it
+    on the near side of the limb, and is it wider than a dot — without
+    touching a vertex.
+    """
+    global _LAKE_TRIG
+    lakes = _load_data().get("lakes", ())
+    if _LAKE_TRIG[0] is not lakes:
+        radians, sin, cos = math.radians, math.sin, math.cos
+        out = []
+        for rings in lakes:
+            pts, vecs = [], []
+            for ring in rings:
+                trig = []
+                for lon, lat in ring:
+                    phi, lam = radians(lat), radians(lon)
+                    sin_phi, cos_phi = sin(phi), cos(phi)
+                    trig.append((sin_phi, cos_phi, lam))
+                    vecs.append((cos_phi * cos(lam), cos_phi * sin(lam),
+                                 sin_phi))
+                pts.append(trig)
+            cx = sum(v[0] for v in vecs) / len(vecs)
+            cy = sum(v[1] for v in vecs) / len(vecs)
+            cz = sum(v[2] for v in vecs) / len(vecs)
+            norm = math.sqrt(cx * cx + cy * cy + cz * cz)
+            if norm < 1e-9:
+                continue  # vertices all round the sphere: not a lake
+            cx, cy, cz = cx / norm, cy / norm, cz / norm
+            cos_r = min(1.0, max(-1.0, min(v[0] * cx + v[1] * cy + v[2] * cz
+                                           for v in vecs)))
+            out.append((pts, cx, cy, cz, cos_r,
+                        math.sqrt(1.0 - cos_r * cos_r), math.acos(cos_r)))
+        _LAKE_TRIG = (lakes, out)
+    return _LAKE_TRIG[1]
+
+
+def lake_mask(lat0, lon0, zoom, dw, dh):
+    """Dot-resolution inland water over the disk, or None for none of it.
+
+    Elevation cannot report a lake: a terrarium sample over Superior
+    reads the surface's hundred and eighty metres, which is the meadow
+    beside it too.  So the flat map takes its lakes from the vector
+    tiles, and those stop long before planet scale — the globe carves
+    the same Natural Earth lakes the radar basemap does, projected
+    onto the disk and scanline-filled, even-odd across a polygon's
+    rings so an island in a lake stays dry.
+
+    A lake is drawn only if it lies wholly on the near side of the
+    limb and paints more than a dot or two.  A lake on the limb is
+    foreshortened to nothing anyway, and the ponds are a speckle no
+    cell could resolve.
+    """
+    r = _radius(zoom, dh)
+    ox, oy = dw / 2.0, dh / 2.0
+    phi0, lam0 = math.radians(lat0), math.radians(lon0)
+    sin0, cos0 = math.sin(phi0), math.cos(phi0)
+    vx, vy, vz = cos0 * math.cos(lam0), cos0 * math.sin(lam0), sin0
+    sin, cos, sqrt = math.sin, math.cos, math.sqrt
+    rows = [bytearray(dw) for _ in range(dh)]
+    any_water = False
+    for pts, lx, ly, lz, cos_r, sin_r, rad in _lake_trig():
+        if 2.0 * rad * r < 1.0:
+            continue  # narrower than the dot that would have to hold it
+        d = lx * vx + ly * vy + lz * vz
+        if d <= 0.0 or d * cos_r - sqrt(max(0.0, 1.0 - d * d)) * sin_r <= 0.02:
+            continue  # over the limb, in whole or in part
+        prings = []
+        for ring in pts:
+            projected = []
+            for sin_phi, cos_phi, lam in ring:
+                delta = lam - lam0
+                ux = cos_phi * sin(delta)
+                uy = cos0 * sin_phi - sin0 * cos_phi * cos(delta)
+                projected.append((ox + ux * r, oy - uy * r))
+            prings.append(projected)
+        ys = [p[1] for ring in prings for p in ring]
+        y0 = max(0, int(min(ys)))
+        y1 = min(dh - 1, int(max(ys)) + 1)
+        spans, painted = [], 0
+        for y in range(y0, y1 + 1):
+            yc = y + 0.5
+            xs = []
+            for ring in prings:
+                for i in range(len(ring) - 1):
+                    ax, ay = ring[i]
+                    bx, by = ring[i + 1]
+                    if (ay <= yc < by) or (by <= yc < ay):
+                        xs.append(ax + (yc - ay) / (by - ay) * (bx - ax))
+            xs.sort()
+            for i in range(0, len(xs) - 1, 2):
+                xa = max(0, int(xs[i] + 0.5))
+                xb = min(dw, int(xs[i + 1] + 0.5))
+                if xb > xa:
+                    spans.append((y, xa, xb))
+                    painted += xb - xa
+        if painted < _LAKE_MIN_DOTS:
+            continue
+        any_water = True
+        for y, xa, xb in spans:
+            row = rows[y]
+            for x in range(xa, xb):
+                row[x] = 1
+    return rows if any_water else None
 
 
 def marker_cell(lat0, lon0, zoom, gw, hc, m_lat, m_lon):

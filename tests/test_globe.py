@@ -374,6 +374,82 @@ class TestIce:
         assert _globe.ice_cover(lls, elev, 7) is None
 
 
+def _lake_square(lat, lon, half):
+    """One square lake, as the vendored data spells a polygon."""
+    return [[[(lon - half, lat - half), (lon + half, lat - half),
+              (lon + half, lat + half), (lon - half, lat + half),
+              (lon - half, lat - half)]]]
+
+
+class TestLakes:
+    # a planet-scale view over the Great Lakes, at the grid the fine
+    # elevation samples use: two dots per cell each way
+    VIEW = (45.0, -85.0, 82.0, 264, 164)
+
+    def _wet(self, mask, lat, lon):
+        lat0, lon0, zoom, dw, dh = self.VIEW
+        ux, uy, cos_c = _globe.forward(lat, lon, lat0, lon0)
+        r = _globe._radius(zoom, dh)
+        return bool(mask[int(dh / 2 - uy * r)][int(dw / 2 + ux * r)])
+
+    def test_the_great_lakes_are_water_and_michigan_is_not(self):
+        mask = _globe.lake_mask(*self.VIEW)
+        for lat, lon in ((47.7, -87.5), (44.0, -87.0), (44.8, -82.4),
+                         (42.2, -81.2), (43.7, -77.9)):
+            assert self._wet(mask, lat, lon)
+        # the land the elevation data reports at the same height, a
+        # dot or more clear of any shore
+        for lat, lon in ((42.0, -93.6), (38.0, -85.0), (41.0, -100.0)):
+            assert not self._wet(mask, lat, lon)
+
+    def test_a_lake_on_the_far_side_is_not_drawn(self, monkeypatch):
+        monkeypatch.setattr(_globe, "_LAKE_TRIG", (None, None))
+        monkeypatch.setitem(_globe._load_data.__globals__, "_DATA",
+                            {"lakes": _lake_square(-45.0, 95.0, 4.0)})
+        assert _globe.lake_mask(*self.VIEW) is None
+
+    def test_a_pond_under_a_dot_is_not_drawn(self, monkeypatch):
+        monkeypatch.setattr(_globe, "_LAKE_TRIG", (None, None))
+        lat0, lon0 = self.VIEW[0], self.VIEW[1]
+        monkeypatch.setitem(_globe._load_data.__globals__, "_DATA",
+                            {"lakes": _lake_square(lat0, lon0, 0.02)})
+        assert _globe.lake_mask(*self.VIEW) is None
+        # the same pond an order of magnitude wider does draw
+        monkeypatch.setattr(_globe, "_LAKE_TRIG", (None, None))
+        monkeypatch.setitem(_globe._load_data.__globals__, "_DATA",
+                            {"lakes": _lake_square(lat0, lon0, 0.5)})
+        mask = _globe.lake_mask(*self.VIEW)
+        assert self._wet(mask, lat0, lon0)
+
+    def test_an_island_in_a_lake_stays_dry(self, monkeypatch):
+        monkeypatch.setattr(_globe, "_LAKE_TRIG", (None, None))
+        lat0, lon0 = self.VIEW[0], self.VIEW[1]
+        rings = (_lake_square(lat0, lon0, 4.0)[0]
+                 + _lake_square(lat0, lon0, 1.0)[0])
+        monkeypatch.setitem(_globe._load_data.__globals__, "_DATA",
+                            {"lakes": [rings]})
+        mask = _globe.lake_mask(*self.VIEW)
+        assert self._wet(mask, lat0 + 2.5, lon0)   # the lake
+        assert not self._wet(mask, lat0, lon0)     # its island
+
+    def test_trig_follows_the_data(self, monkeypatch):
+        monkeypatch.setattr(_globe, "_LAKE_TRIG", (None, None))
+        before = _globe._lake_trig()
+        assert _globe._lake_trig() is before  # same data: same trig
+        monkeypatch.setitem(_globe._load_data.__globals__, "_DATA",
+                            {"lakes": _lake_square(0.0, 0.0, 1.0)})
+        after = _globe._lake_trig()
+        assert after is not before and len(after) == 1
+
+    def test_street_fills_paint_a_lake_as_water(self):
+        elev = [[500.0, 500.0], [500.0, None]]
+        wet = [[0, 1], [1, 0]]
+        buf = _globe.fill_buffer(elev, (1, 1, 1), (9, 9, 9), (0, 0, 0), wet)
+        # inland water takes the sea's fill, at either sign and over a
+        # hole in the elevation data
+        assert buf == [[(9, 9, 9), (1, 1, 1)], [(1, 1, 1), (0, 0, 0)]]
+
+
 class TestLabelToggle:
     def test_globe_render_hides_city_text_when_toggled(self, monkeypatch):
         from linecast import maps

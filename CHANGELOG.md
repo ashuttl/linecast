@@ -102,6 +102,11 @@ Other changes:
 - Moon: When the Moon is up, the line that gives its altitude now also
   names the compass direction to look in. `--json` gains
   `azimuth_deg` alongside `altitude_deg`.
+- Maps: The globe draws inland water. The Great Lakes, the Caspian,
+  Baikal and every other lake big enough to see are water at planet
+  zoom, in the terrain view and the street one, with a shoreline to
+  match. Elevation data alone could not tell a lake from the ground
+  beside it.
 
 ## 1.17.0 — 2026-08-25
 
