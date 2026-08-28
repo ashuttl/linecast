@@ -86,7 +86,8 @@ class MapApp(LiveApp):
         pcol, prow = (at[0] - 1, at[1] - 2) if at else (-1, -1)
         # anchored zoom is a flat-map identity — on either side of
         # the globe hand-off, zoom about the centre instead
-        if (self.zoom >= _globe.ZOOM_DEG or new_zoom >= _globe.ZOOM_DEG):
+        if (_globe.is_globe(self.zoom, self.lat)
+                or _globe.is_globe(new_zoom, self.lat)):
             pcol = -1
         if 0 <= pcol < gw and 0 <= prow < hc:
             fx, fy = (pcol + 0.5) / gw, (prow + 0.5) / hc
@@ -117,7 +118,7 @@ class MapApp(LiveApp):
             time.sleep(0.4)
             if self.spinning != gen:
                 break
-            if self.zoom < _globe.ZOOM_DEG:
+            if not _globe.is_globe(self.zoom, self.lat):
                 self.spinning = 0
                 break
             if self.drag_base is not None:
@@ -170,7 +171,7 @@ class MapApp(LiveApp):
                 self.spinning = 0
                 return False
             gw, hc = map_cells()
-            if (self.zoom < _globe.ZOOM_DEG
+            if (not _globe.is_globe(self.zoom, self.lat)
                     or not _globe.warm(self.zoom, hc * 4)):
                 return False  # only a warm globe spins
             self.spin_seq += 1
@@ -304,7 +305,7 @@ class MapApp(LiveApp):
         # keeps whichever idiom it started with.
         globing = self.drag_base is not None or (
             not (self.pan_preview[0] or self.pan_preview[1])
-            and self.zoom >= _globe.ZOOM_DEG
+            and _globe.is_globe(self.zoom, self.lat)
             and _globe.warm(self.zoom, hc * 4))
         if globing:
             if self.drag_base is None:
@@ -358,7 +359,7 @@ class MapApp(LiveApp):
         # A rotating globe repaints synchronously: its canvas is
         # warm, so "blocking" is ~a tenth of a second of arithmetic,
         # and the alternative is a blank disk between frames.
-        sync = self.drag_sync and self.zoom >= _globe.ZOOM_DEG
+        sync = self.drag_sync and _globe.is_globe(self.zoom, self.lat)
         self.drag_sync = False
         return render_map(
             self.lat, self.lon, self.location_name, self.zoom,

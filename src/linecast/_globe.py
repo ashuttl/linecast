@@ -36,8 +36,26 @@ from linecast._scenes import Memo
 from linecast._theme import themed
 
 # `zoom` (degrees of latitude the screen spans) at which the flat map
-# hands the view to the globe
+# hands the view to the globe — at the equator.  See is_globe.
 ZOOM_DEG = 45.0
+
+
+def is_globe(zoom, lat):
+    """Whether a view centred at `lat` spanning `zoom` degrees is a globe.
+
+    The flat map is equirectangular about its centre, and its width in
+    longitude grows as 1/cos(lat): a window that is a modest 9° tall
+    at 78°S is as wide as one 45° tall at the equator, and it runs off
+    both edges of the tile world — the antimeridian and the 85th
+    parallel — while stretching the ice five times too wide.  So the
+    hand-off is judged by the window's *widest* extent, and the poles
+    go round at zooms the equator never would.  A window that reaches
+    past the 85th parallel goes round whatever its width: the tiles
+    end there, and the globe has a pole.
+    """
+    cos_lat = max(0.05, math.cos(math.radians(lat)))
+    return (zoom / cos_lat >= ZOOM_DEG
+            or abs(lat) + zoom / 2 > _MERCATOR_LAT)
 
 # Mercator tiles end at the 85th parallel; samples poleward of it clamp
 # to that ring, which reads as polar ocean in the north and the ice

@@ -70,7 +70,7 @@ from linecast._scenes import Memo
 # (about band 3); street mode's deepest classes — buildings, POI text —
 # need 0.0012, which is roughly two metres per braille dot.
 MIN_ZOOM_DEG = 0.0012
-# past _globe.ZOOM_DEG the terrain view is an orthographic globe; at
+# past _globe.is_globe the view is an orthographic globe; at
 # the ceiling the whole planet fits the screen's height with a margin
 # (the disk's diameter is 2·(180/π) ≈ 114.6 zoom-degrees)
 MAX_ZOOM_DEG = 130.0
@@ -526,7 +526,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
 
     bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
     m_lat, m_lon = marker if marker else (lat, lon)
-    globe = zoom >= _globe.ZOOM_DEG
+    globe = _globe.is_globe(zoom, lat)
     if globe:
         # markers live on a sphere now: project them orthographically,
         # and let the far hemisphere hide what it hides

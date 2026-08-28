@@ -50,6 +50,24 @@ class TestProjection:
         assert abs((a[0] - b[0]) - 90.0 / 400) < 0.01
 
 
+class TestHandOff:
+    def test_equator_hands_off_at_zoom_deg(self):
+        assert not _globe.is_globe(_globe.ZOOM_DEG - 1, 0.0)
+        assert _globe.is_globe(_globe.ZOOM_DEG, 0.0)
+
+    def test_poles_hand_off_by_width(self):
+        # a 21° window at the Ross Sea is 220° of longitude wide — it
+        # ran off the antimeridian as a flat map, so it goes round
+        assert not _globe.is_globe(21.0, 0.0)
+        assert _globe.is_globe(21.0, -78.0)
+        assert not _globe.is_globe(7.0, -78.0)
+
+    def test_reaching_past_the_tiles_hands_off(self):
+        # the Mercator tiles end at the 85th parallel
+        assert _globe.is_globe(3.0, -84.0)
+        assert not _globe.is_globe(3.0, -80.0)
+
+
 class TestGeometryCache:
     def test_cached_view_matches_a_fresh_projection(self, monkeypatch):
         monkeypatch.setattr(_globe, "_geometry_cache", Memo(keep=_globe._GEOMETRY_KEEP))
