@@ -12,7 +12,6 @@ New this version:
 - Moon: When the Moon is up, the line that gives its altitude now also names the compass direction to look in. `--json` gains `azimuth_deg` alongside `altitude_deg`.
 - Maps: The globe draws inland water. The Great Lakes, the Caspian, Baikal and every other lake big enough to see are water at planet zoom, in the terrain view and the street one, with a shoreline to match.
 - Maps: City lights were only ever intended for the terrain view. The street view no longer lights its cities, flat or on the globe; its fills stay a little brighter at night to make up for it.
-- Maps: The street view's globe is its own picture: land a dark grey against a near-black sea, the other way round from the flat street map, where the two fills are all there is to see.
 - Maps: Better style consistency between street maps in flat mode and globe mode.
 - Maps: With sunlight and shadows on, street map coastlines and roads dim on the night side.
 - Maps: The map tile cache no longer grows without limit. Tiles left behind by a superseded edition of the map are dropped and the rest kept under 256 MB, the tiles you haven't looked at in longest going first; `LINECAST_MAPS_CACHE_MB` sets another size, and `linecast doctor` shows what the tiles are using.
