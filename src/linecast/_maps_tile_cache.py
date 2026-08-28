@@ -15,11 +15,16 @@ the old one is dead weight that nothing will ask for again -- 135MB of it
 in the cache that prompted this, against 33MB still in use. Dropping
 those costs nothing at all, so it happens first and unconditionally.
 
-What remains is capped. Over the cap, the oldest-fetched tiles go first:
-an imperfect stand-in for least-recently-used, since a tile is written
-once and read many times and read times are not reliably recorded, but
-good enough to retire the continent visited once last spring ahead of the
-city visited every morning.
+What remains is capped, and over the cap the least recently used tiles
+go first. A tile is written once and read many times, so its write time
+says when it was first fetched and nothing more -- sweeping by that
+would retire the city visited every morning ahead of the continent
+visited once last spring, which is the wrong way round. So reading a
+tile marks it (note_tile_use, below) and the sweep goes by the mark.
+
+Empty tiles are exempt too, for the same reason from the other end: a
+zero-byte file is a cached "nothing here", and dropping one frees
+nothing while costing a refetch.
 
 Only the tile pyramids are evictable. The handful of small artifacts
 beside them -- the tilejson, the polar cloud mask, the search results,
@@ -29,6 +34,7 @@ cost real work to rebuild, so the sweep leaves them alone.
 
 import os
 import shutil
+import time
 
 from linecast._paths import cache_dir
 from linecast._runtime import log_failure
@@ -44,6 +50,32 @@ _BYTES_PER_MB = 1_000_000
 
 _EVICTABLE_SUFFIXES = (".pbf", ".png")
 _KEEP_PREFIXES = ("globe_canvas",)
+
+# How stale a tile's mark has to be before a read rewrites it. The sweep
+# wants nothing finer than a day, and a view redrawing at speed should
+# not touch the disk once per tile per frame.
+_MARK_AFTER = 86400
+
+
+def note_tile_use(path):
+    """Mark a cached tile as used just now, for the sweep to sort by.
+
+    Called on the hit path of the tile readers. Best effort: a mark that
+    cannot be written leaves the tile sorting by its fetch time, which is
+    where it started.
+
+    Empty files are left unmarked. A zero-byte tile is a cached miss
+    whose mtime is its expiry, not its age, and it holds no bytes the
+    sweep could want back.
+    """
+    try:
+        stat = os.stat(path)
+        now = time.time()
+        if not stat.st_size or now - stat.st_mtime < _MARK_AFTER:
+            return
+        os.utime(path, (now, now))
+    except OSError:
+        pass
 
 
 def cache_limit_bytes():
@@ -97,7 +129,7 @@ def _drop_stale_vector_versions(root, keep):
 
 
 def _tile_files(root):
-    """(path, size, mtime) for each evictable tile under *root*."""
+    """(path, size, last used) for each evictable tile under *root*."""
     found = []
     stack = [str(root)]
     while stack:
@@ -113,7 +145,16 @@ def _tile_files(root):
                         if entry.name.startswith(_KEEP_PREFIXES):
                             continue
                         stat = entry.stat()
-                        found.append((entry.path, stat.st_size, stat.st_mtime))
+                        # a cached "nothing here" frees no bytes, and
+                        # dropping it only buys a refetch
+                        if not stat.st_size:
+                            continue
+                        # atime as well: where the filesystem keeps it, it
+                        # sees the reads that happened before a tile was
+                        # first marked, and where it doesn't it reads as
+                        # the fetch time and costs nothing.
+                        used = max(stat.st_atime, stat.st_mtime)
+                        found.append((entry.path, stat.st_size, used))
                     except OSError:
                         continue  # vanished under us; someone else's problem
         except OSError:
@@ -141,7 +182,7 @@ def prune_maps_cache(limit=None):
         total = sum(size for _, size, _ in tiles)
         if total <= limit:
             return freed
-        tiles.sort(key=lambda tile: tile[2])  # oldest fetched first
+        tiles.sort(key=lambda tile: tile[2])  # least recently used first
         for path, size, _ in tiles:
             if total <= limit:
                 break

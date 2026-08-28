@@ -44,8 +44,9 @@ Notable changes, by release. Notes for the next release collect under
   map, where the two fills are all there is to see.
 - Maps: The map tile cache no longer grows without limit. Tiles left
   behind by a superseded edition of the map are dropped and the rest
-  kept under 256 MB, oldest first; `LINECAST_MAPS_CACHE_MB` sets
-  another size, and `linecast doctor` shows what the tiles are using.
+  kept under 256 MB, the tiles you haven't looked at in longest going
+  first; `LINECAST_MAPS_CACHE_MB` sets another size, and `linecast
+  doctor` shows what the tiles are using.
 - Live views: Taking a screenshot with cmd-ctrl-shift-4 on a Mac no
   longer kills the view and leaves the shell echoing mouse movements.
   Ctrl-\ now quits cleanly as well.

@@ -15,6 +15,7 @@ import os
 
 from linecast._paths import cache_dir
 from linecast._http import fetch_bytes_cached
+from linecast._maps_tile_cache import note_tile_use
 from linecast._png import DecodeMemo, decode_rgba
 from linecast._radar_tiles import _lonlat_to_world, _pick_zoom, stitch_xyz
 from linecast._runtime import log_failure
@@ -42,7 +43,9 @@ def _tile_url(z, x, y):
 def _fetch_tile(z, x, y, timeout=15):
     """One terrarium tile as PNG bytes, disk-cached forever (immutable)."""
     cpath = cache_dir("maps", f"terrarium_{z}_{x}_{y}.png")
-    return fetch_bytes_cached(cpath, None, _tile_url(z, x, y), timeout=timeout)
+    data = fetch_bytes_cached(cpath, None, _tile_url(z, x, y), timeout=timeout)
+    note_tile_use(cpath)  # so the sweep sees a tile still in use
+    return data
 
 
 def _decoded_tile(z, x, y, timeout):

@@ -28,6 +28,7 @@ from typing import Any
 from linecast._cache import write_bytes_atomic
 from linecast._http import (MAX_BODY_BYTES, fetch_bytes,
                             fetch_json_cached, gunzip_limited)
+from linecast._maps_tile_cache import note_tile_use
 from linecast._paths import cache_dir
 from linecast._radar_tiles import _lonlat_to_world
 from linecast._runtime import log_failure
@@ -186,9 +187,12 @@ def fetch_tile(z: int, x: int, y: int, timeout: float = 15) -> bytes | None:
     template, version, _ = info
     path = _cache_path(version, z, x, y)
     try:
-        return path.read_bytes()
+        data = path.read_bytes()
     except OSError:
         pass
+    else:
+        note_tile_use(path)  # so the sweep sees a tile still in use
+        return data
     url = (template.replace("{z}", str(z))
            .replace("{x}", str(x)).replace("{y}", str(y)))
     try:

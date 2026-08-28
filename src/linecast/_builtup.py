@@ -18,6 +18,7 @@ import os
 
 from linecast._cache import write_bytes_atomic
 from linecast._http import fetch_bytes
+from linecast._maps_tile_cache import note_tile_use
 from linecast._paths import cache_dir
 from linecast._png import DecodeMemo, decode_rgba
 from linecast._radar_tiles import _pick_zoom, reproject_xyz
@@ -61,6 +62,7 @@ def _fetch_tile(z, x, y, timeout=15):
         if cpath.exists():
             data = cpath.read_bytes()
             if data:
+                note_tile_use(cpath)  # so the sweep sees a tile still in use
                 return data
             if time.time() - cpath.stat().st_mtime < 30 * 86400:
                 return None  # zero bytes = cached "nothing built here"

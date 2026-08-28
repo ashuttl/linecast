@@ -1,12 +1,13 @@
 """The map tile cache is swept by size, and by which vector version is live."""
 
 import os
+import time
 
 import pytest
 
 from linecast import _maps_tile_cache
 from linecast._maps_tile_cache import (DEFAULT_CACHE_MB, cache_limit_bytes,
-                                  prune_maps_cache)
+                                  note_tile_use, prune_maps_cache)
 
 MB = 1_000_000  # decimal, as _maps_cache and doctor both count it
 
@@ -66,7 +67,7 @@ class TestSizeCap:
         assert prune_maps_cache(limit=10 * MB) == 0
         assert tile.exists()
 
-    def test_evicts_oldest_fetched_first(self, cache, monkeypatch):
+    def test_evicts_least_recently_used_first(self, cache, monkeypatch):
         version_is(monkeypatch, "")
         stale = write(cache / "terrarium_10_1_1.png", 4 * MB, age_days=200)
         older = write(cache / "terrarium_10_2_2.png", 4 * MB, age_days=30)
@@ -78,6 +79,20 @@ class TestSizeCap:
         assert older.exists() and fresh.exists()
         assert freed == 4 * MB
 
+    def test_a_tile_still_being_read_outlives_a_newer_one(self, cache,
+                                                          monkeypatch):
+        # Home: fetched first, so the oldest on disk, and read every
+        # morning since. The trip abroad is newer and finished with.
+        version_is(monkeypatch, "")
+        home = write(cache / "terrarium_10_1_1.png", 4 * MB, age_days=200)
+        trip = write(cache / "terrarium_10_2_2.png", 4 * MB, age_days=30)
+        note_tile_use(home)
+
+        prune_maps_cache(limit=4 * MB)
+
+        assert home.exists()
+        assert not trip.exists()
+
     def test_sweeps_vector_tiles_under_the_live_version_too(self, cache, monkeypatch):
         version_is(monkeypatch, "live")
         old = write(cache / "vt" / "live" / "8_1_1.pbf", 4 * MB, age_days=90)
@@ -87,6 +102,17 @@ class TestSizeCap:
 
         assert not old.exists()
         assert new.exists()
+
+    def test_spares_the_cached_misses(self, cache, monkeypatch):
+        # A zero-byte tile is a cached "nothing built here". Sweeping it
+        # frees nothing and costs a refetch, so it stays.
+        version_is(monkeypatch, "")
+        miss = write(cache / "builtup_9_1_1.png", 0, age_days=200)
+        write(cache / "terrarium_10_1_1.png", 8 * MB, age_days=100)
+
+        prune_maps_cache(limit=1 * MB)
+
+        assert miss.exists()
 
     def test_spares_the_small_artifacts_beside_the_tiles(self, cache, monkeypatch):
         # A few megabytes between them, and real work to rebuild: the cap
@@ -108,6 +134,38 @@ class TestSizeCap:
     def test_a_missing_cache_is_not_an_error(self, tmp_path, monkeypatch):
         monkeypatch.setenv("LINECAST_CACHE_DIR", str(tmp_path / "nothing here"))
         assert prune_maps_cache() == 0
+
+
+class TestNoteTileUse:
+    def test_marks_a_tile_read_after_a_long_gap(self, tmp_path):
+        tile = write(tmp_path / "terrarium_10_1_1.png", 1024, age_days=200)
+
+        note_tile_use(tile)
+
+        assert time.time() - tile.stat().st_mtime < 60
+
+    def test_leaves_a_recently_marked_tile_alone(self, tmp_path):
+        # A view redrawing at speed reads the same tiles every frame; the
+        # sweep wants nothing finer than a day, so the disk stays quiet.
+        tile = write(tmp_path / "terrarium_10_1_1.png", 1024, age_days=0.5)
+        before = tile.stat().st_mtime
+
+        note_tile_use(tile)
+
+        assert tile.stat().st_mtime == before
+
+    def test_leaves_a_cached_miss_alone(self, tmp_path):
+        # An empty file is builtup's "nothing built here", and its mtime
+        # is the expiry of that answer, not the age of a tile.
+        miss = write(tmp_path / "builtup_9_1_1.png", 0, age_days=200)
+        before = miss.stat().st_mtime
+
+        note_tile_use(miss)
+
+        assert miss.stat().st_mtime == before
+
+    def test_a_tile_that_cannot_be_marked_is_not_an_error(self, tmp_path):
+        note_tile_use(tmp_path / "gone.png")
 
 
 class TestCacheLimit:
