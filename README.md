@@ -15,7 +15,7 @@
 
 ![linecast weather, sunshine, tides, and radar tiled on an Omarchy desktop](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
 
-linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies on macOS or Linux (and just two on Windows), adapts to your terminal theme (on macOS and Linux), and needs no account or API key for its core experience.
+linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies on macOS or Linux (and just two on Windows), tries to match your terminal theme (on macOS and Linux), and needs no account or API key.
 
 | Command | What it shows |
 | --- | --- |
@@ -28,7 +28,7 @@ linecast turns free public data into six live, mouse-friendly terminal apps. It 
 
 ## Quick try
 
-Run linecast immediately with [uv](https://docs.astral.sh/uv/), without installing it:
+Try linecast without installing it, with [uv](https://docs.astral.sh/uv/):
 
 ```sh
 uvx linecast weather
@@ -91,7 +91,7 @@ linecast maps --view terrain --location "Innsbruck"
 linecast maps --to "Portland Head Light" --profile bike
 ```
 
-Use `--print` for one static frame. When output is piped, linecast does this automatically. Weather, sunshine, moon, and tides also offer `--json` and compact `--oneline` output for status bars.
+Use `--print` for one static frame. When output is piped, linecast does this automatically. Weather, sunshine, moon, and tides also have `--json` and a short `--oneline` for status bars.
 
 Prefer the short spellings? The names are yours, not linecast's, so they never collide with anything else on your system. `linecast link` makes `weather`, `sunshine`, `moon`, `tides`, `radar` and `maps` as links beside the `linecast` binary, skipping any name something else already owns; `linecast link --remove` takes them away again. A shell alias does the same job:
 
@@ -195,11 +195,11 @@ linecast location auto
 linecast location search fayette
 ```
 
-`set` takes a place name — it is geocoded once, on the spot, and the first match is saved — or exact `lat,lng` coordinates; `search` lists the candidates when the first match might not be the right one. A command's `--location` flag or `WEATHER_LOCATION` takes precedence. With no location saved or passed, linecast falls back to IP geolocation: a single anonymous request to [ipinfo.io](https://ipinfo.io/), which returns the rough position of your network connection — usually the right city, sometimes the wrong one, and off by a lot on a VPN or corporate network. The answer is cached for an hour; saving a location, or setting any override, means the request is never made. Times follow the location: point `linecast sunshine` or `linecast moon` somewhere across an ocean and sunrise, sunset, moonrise, and moonset come back in that place's local clock.
+`set` takes a place name — it is looked up once, on the spot, and the first match is saved — or exact `lat,lng` coordinates; `search` lists the candidates when the first match might not be the right one. A command's `--location` flag or `WEATHER_LOCATION` wins. With no location saved or passed, linecast falls back to IP geolocation: a single anonymous request to [ipinfo.io](https://ipinfo.io/), which returns the rough position of your network connection — usually the right city, sometimes the wrong one, and off by a lot on a VPN or corporate network. The answer is cached for an hour; save a location, or set any override, and the request is not made at all. Times follow the location: point `linecast sunshine` or `linecast moon` somewhere across an ocean and sunrise, sunset, moonrise, and moonset come back in that place's local clock.
 
 ### Units
 
-Metric is the default — imperial in the United States, judged by the saved location or, failing that, the machine's IP — and either can be pinned for every command:
+Metric is the default — imperial in the United States, going by the saved location or, failing that, the machine's IP — and either can be pinned for every command:
 
 ```sh
 linecast units metric
@@ -212,7 +212,7 @@ Every view command takes `--metric` and `--imperial`; `weather` adds `--celsius`
 
 ### Clock
 
-The clock follows the country: 12-hour in the United States, Canada, Australia, and the other places that write 6:50 pm, 24-hour everywhere else. Pin either for every command:
+The clock tries to follow the country: 12-hour in the United States, Canada, Australia, and the other places that write 6:50 pm, 24-hour everywhere else. Pin either for every command:
 
 ```sh
 linecast clock 12
@@ -225,7 +225,7 @@ The time-showing commands take `--12h` and `--24h` for one run, and `LINECAST_CL
 
 ### Language
 
-Use `--lang` or `LINECAST_LANG` to localize the interface. Seventeen languages are supported:
+Use `--lang` or `LINECAST_LANG` to pick the language. There are seventeen:
 
 > English, French, Spanish, German, Italian, Portuguese, Dutch, Polish, Norwegian, Swedish, Icelandic, Danish, Finnish, Japanese, Korean, Chinese, and Indonesian
 
@@ -236,9 +236,9 @@ linecast radar --lang zh
 
 ### Color and icons
 
-linecast queries the terminal palette so its colors belong in your theme. Set `LINECAST_COLOR` to `truecolor`, `256`, `16`, or `none` to override color detection, or use the standard `NO_COLOR` variable.
+linecast asks the terminal for its palette so its colors belong in your theme. Set `LINECAST_COLOR` to `truecolor`, `256`, `16`, or `none` to choose the color mode yourself, or use the standard `NO_COLOR` variable.
 
-Icons come in three sets. [Nerd Font](https://www.nerdfonts.com/) glyphs are used automatically in terminals that bundle them (WezTerm, kitty, Ghostty); other interactive terminals get emoji, and piped or redirected output falls back to plain Unicode, whose glyphs are one cell wide everywhere. A terminal cannot say what font it is drawing with, so if you have a Nerd Font in Alacritty, foot, or iTerm2, say so once:
+Icons come in three sets. [Nerd Font](https://www.nerdfonts.com/) glyphs are used automatically in terminals that bundle them (WezTerm, kitty, Ghostty); other interactive terminals get emoji, and piped or redirected output falls back to plain Unicode, whose glyphs are one cell wide everywhere. Most terminals don't make their current font available programmatically, so if you have a Nerd Font in Alacritty, foot, or iTerm2, say so once:
 
 ```sh
 linecast icons nerd
@@ -319,7 +319,7 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 
 - **Location** — [ipinfo.io](https://ipinfo.io/) for IP geolocation when no location is saved or passed; place names are geocoded by Open-Meteo.
 - **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Hong Kong Observatory, Met Éireann, Japan Meteorological Agency, MET Norway, and MeteoAlarm.
-- **Sunshine and Moon** — computed locally from astronomical equations; the Moon's face is a vendored greyscale of NASA SVS's [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) (Lunar Reconnaissance Orbiter, public domain).
+- **Sunshine and Moon** — computed on your device from the astronomical equations; the Moon's face is a vendored grayscale of NASA SVS's [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) (Lunar Reconnaissance Orbiter, public domain).
 - **Tides** — NOAA CO-OPS, Canadian Hydrographic Service, Queensland Open Data, Hong Kong Observatory, Open-Meteo's tide model as a global fallback, and optionally TideCheck.
 - **Radar** — [LibreWXR](https://librewxr.net/), with NEXRAD via Iowa Environmental Mesonet and RainViewer as fallbacks; warning polygons come from the US National Weather Service via IEM. The basemap is derived from Natural Earth.
 - **Maps** — terrain from AWS/Mapzen elevation tiles; streets and inland water from [OpenFreeMap](https://openfreemap.org/) (© OpenMapTiles © OpenStreetMap contributors); search from Photon and Nominatim; directions from FOSSGIS OSRM (© OpenStreetMap contributors); globe cloud cover from [LibreWXR](https://librewxr.net/) (CC BY 4.0) satellite imagery; terrain color picks its ramp from a vendored [Köppen-Geiger climate grid](https://doi.org/10.6084/m9.figshare.21789074) (Beck et al. 2023, CC BY 4.0).
@@ -328,7 +328,7 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 
 ## Contributing
 
-Pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) says how to run the suite and what a change should look like, and [ARCHITECTURE.md](ARCHITECTURE.md) is the map of the code.
+Pull requests are welcome. [ARCHITECTURE.md](ARCHITECTURE.md) is the map of the code. The suite runs with `uv run --with pytest pytest tests -q` and the lint with `uvx ruff check src tests scripts`; both are meant to run without the network and without touching your home directory.
 
 ## Lineage
 
