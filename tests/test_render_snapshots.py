@@ -171,23 +171,61 @@ class TestMoonSnapshot:
         assert "space to return to now" in output
         assert "Up now" not in output
 
-    def test_moon_southern_hemisphere_mirrors_disc(self):
-        """A waxing moon lights the east limb in the north, west in the south."""
+    def test_disc_turns_with_the_parallactic_angle(self):
+        """A waxing moon lights the right limb pole-up, the left half-turned."""
         from linecast._framebuffer import Framebuffer
         from linecast.moon import _draw_moon_disc
 
-        def side_brightness(southern):
+        def side_brightness(parallactic_deg):
             fb = Framebuffer(40, 20)
-            _draw_moon_disc(fb, 20, 20, 15, 0.25, southern)
+            _draw_moon_disc(fb, 20, 20, 15, 0.25, parallactic_deg)
             left = sum(sum(fb.fb[20][x]) for x in range(6, 18))
             right = sum(sum(fb.fb[20][x]) for x in range(23, 35))
             return left, right
 
-        n_left, n_right = side_brightness(southern=False)
-        s_left, s_right = side_brightness(southern=True)
-        assert n_right > n_left
-        assert s_left > s_right
-        assert (n_left, n_right) == (s_right, s_left)
+        up_left, up_right = side_brightness(0.0)
+        over_left, over_right = side_brightness(180.0)
+        assert up_right > up_left
+        assert over_left > over_right
+        assert (up_left, up_right) == (over_right, over_left)
+
+    def test_orientation_holds_steady_across_the_equator(self):
+        """Walking over the equator must not turn the Moon upside down.
+
+        Half a degree either side of the line, at one instant, the tilt
+        should differ by about a degree -- not by the half turn the old
+        hemisphere test drew.
+        """
+        from datetime import timezone
+        from linecast._tides_render import _moon_parallactic_deg
+
+        moment = datetime(2026, 3, 5, 4, 0, tzinfo=timezone.utc)
+        north = _moon_parallactic_deg(moment, 0.5, 36.8)
+        south = _moon_parallactic_deg(moment, -0.5, 36.8)
+        assert abs(north - south) < 2.0
+
+    def test_familiar_hemisphere_view_falls_out_of_the_angle(self):
+        """The old rule of thumb should survive where it was true.
+
+        A moon on the meridian sits near pole-up for a northern observer
+        and near a half turn for a southern one; between rising and
+        setting the tilt sweeps most of the way in between.
+        """
+        from datetime import timedelta, timezone
+        from linecast._tides_render import (
+            _moon_altitude_deg, _moon_parallactic_deg,
+        )
+
+        day = datetime(2026, 3, 5, tzinfo=timezone.utc)
+        assert abs(_moon_parallactic_deg(
+            day + timedelta(hours=6, minutes=50), 43.7, -79.4)) < 5.0
+        assert abs(abs(_moon_parallactic_deg(
+            day + timedelta(hours=14, minutes=5), -41.3, 174.8)) - 180.0) < 5.0
+
+        tilts = [_moon_parallactic_deg(day + timedelta(hours=h), 43.7, -79.4)
+                 for h in range(24)
+                 if _moon_altitude_deg(day + timedelta(hours=h), 43.7, -79.4) > 0]
+        assert max(tilts) - min(tilts) > 60.0
 
 
 # -----------------------------------------------------------------------

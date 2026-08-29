@@ -8,8 +8,10 @@ illuminated fraction, whether the Moon is up right now, the next moonrise
 and moonset, and the dates of the next full and new moons. In English the
 full moon carries its traditional almanac name (Harvest Moon and the rest),
 and a final line gives the day of the year and the next equinox or solstice.
-The disc is mirrored for southern-hemisphere observers, who see the Moon
-"upside down" relative to the northern view.
+The disc is tilted by the Moon's parallactic angle, so it carries the
+orientation the observer would see: near pole-up from the north, close to
+"upside down" from the south, and turning steadily between moonrise and
+moonset.
 
 Rise/set times use the same low-precision ephemeris as the tides chart's
 moon labels (accurate to within a few minutes); phase and illumination come
@@ -51,6 +53,7 @@ from linecast._theme import (
 from linecast._radar_i18n import rs
 from linecast._tides_render import (
     _moon_altitude_deg, _moon_azimuth_deg, _moon_events_for_local_date,
+    _moon_parallactic_deg,
 )
 from linecast.sunshine import (
     INFO_AMBER_RGB,
@@ -289,16 +292,28 @@ def _surface_shade(sx, sy, albedo):
     return 1.0 - (top * (1 - fy) + bottom * fy) / 255.0
 
 
-def _draw_moon_disc(fb, cx, cy, radius, frac, southern):
+def _draw_moon_disc(fb, cx, cy, radius, frac, parallactic_deg):
     """Draw the phase-shaded lunar disc centered at (cx, cy) sub-pixels.
 
     The terminator is the standard phase ellipse: for a chord at height y
-    the lit/dark boundary sits at x = cos(2π·frac)·√(1−y²). Waxing phases
-    light the right (east) limb in the northern view; the whole view is
-    rotated 180° for southern observers.
+    the lit/dark boundary sits at x = cos(2π·frac)·√(1−y²), with waxing
+    phases lighting the right limb. That is the pole-up view; the disc is
+    then turned clockwise by the parallactic angle, which is what tilts it
+    the way the observer sees it. On the meridian that angle is near 0°
+    from the north and near 180° from the south, the old rule of thumb,
+    but it turns steadily between moonrise and moonset — through about a
+    right angle at temperate latitudes, and nearly a half turn near the
+    equator.
+
+    The terminator is assumed square to the Moon's poles, which is right
+    to within about 20°; correcting it needs the bright limb's position
+    angle, and so a solar ephemeris we don't carry.
     """
     theta = 2.0 * math.pi * frac
     c = math.cos(theta)
+    q = math.radians(parallactic_deg)
+    cos_q = math.cos(q)
+    sin_q = math.sin(q)
     waxing = frac < 0.5
     edge = max(1.0 / radius, 0.04)   # anti-aliasing band, in unit radii
     soft = 0.10                       # terminator softness, in unit radii
@@ -316,8 +331,8 @@ def _draw_moon_disc(fb, cx, cy, radius, frac, southern):
             if cover <= 0.02:
                 continue
 
-            sx = -ux if southern else ux
-            sy = -uy if southern else uy
+            sx = ux * cos_q + uy * sin_q
+            sy = -ux * sin_q + uy * cos_q
             chord = math.sqrt(max(0.0, 1.0 - sy * sy))
             d = (sx - c * chord) if waxing else (-c * chord - sx)
             lit_alpha = max(0.0, min(1.0, (d + soft) / (2.0 * soft)))
@@ -397,6 +412,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     alt = _moon_altitude_deg(moment_utc, lat, lng)
     up = alt > HORIZON_THRESHOLD_DEG
     bearing = _compass_point(_moon_azimuth_deg(moment_utc, lat, lng), runtime)
+    parallactic = _moon_parallactic_deg(moment_utc, lat, lng)
     rise, sset = upcoming_moon_events(now_local, lat, lng)
 
     days_to_full = ((0.5 - frac) % 1.0) * SYNODIC_MONTH
@@ -508,7 +524,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
         fb = Framebuffer(graph_w, graph_h)
         fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
                        peak_alpha=0.10 + 0.20 * illum)
-        _draw_moon_disc(fb, cx, cy, radius, frac, southern=(lat < 0))
+        _draw_moon_disc(fb, cx, cy, radius, frac, parallactic)
         stars = _star_overlays(fb, cx, cy, radius, taken=overlays.keys())
         lines = fb.render(overlays={**stars, **overlays})
         if hint:
@@ -587,7 +603,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     fb = Framebuffer(graph_w, graph_h)
     fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
                    peak_alpha=0.10 + 0.20 * illum)
-    _draw_moon_disc(fb, cx, cy, radius, frac, southern=(lat < 0))
+    _draw_moon_disc(fb, cx, cy, radius, frac, parallactic)
     lines = fb.render(overlays=_star_overlays(fb, cx, cy, radius))
 
     lines.extend(_center(line, cols) for line in info)

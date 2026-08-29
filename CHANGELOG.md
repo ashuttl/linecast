@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Moon: The disc is drawn at the tilt you would actually see, worked out from your latitude and where the Moon is in your sky, rather than being flipped over for everyone south of the equator. It turns through the night as the Moon rises and sets.
+
 ## 2.1.0 — 2026-08-28
 
 New this version:
