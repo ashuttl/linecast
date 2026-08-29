@@ -21,6 +21,7 @@ import time as _time
 from datetime import datetime, timezone
 
 from linecast._braille import braille_rows_from_ys
+from linecast._ephemeris import moon_phase_frac
 from linecast._graphics import (
     fg, RESET, BG_PRIMARY, color_mode, lerp, interp_stops, visible_len,
     fmt_time, get_terminal_size, Framebuffer, live_loop,
@@ -384,12 +385,9 @@ SYNODIC_MONTH = 29.53058867
 
 def moon_cycle_frac(dt):
     """Fraction of the synodic cycle elapsed since New Moon, in [0, 1)."""
-    # Known New Moon reference: 2000-Jan-06 18:14 UTC (Meeus, table 49.A).
-    ref = datetime(2000, 1, 6, 18, 14, tzinfo=timezone.utc)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    diff = (dt - ref).total_seconds() / 86400.0
-    return (diff % SYNODIC_MONTH) / SYNODIC_MONTH
+    return moon_phase_frac(dt.astimezone(timezone.utc))
 
 def moon_phase(dt, runtime=None):
     """Returns (index 0-7, name, nerd_font_icon).
