@@ -23,7 +23,7 @@ from linecast._graphics import (
     get_terminal_size, Framebuffer, overlay,
 )
 from linecast._sunshine_i18n import (
-    _fmt_month_day, axis_month_labels, relative_day,
+    _fmt_month_day, axis_month_labels, relative_day, sky_event, sky_phase,
 )
 from linecast._textwidth import char_width
 from linecast._theme import (
@@ -235,7 +235,9 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
 
     # --- today's sun: a point on both axes ---
     x_today = max(0, min(graph_w - 1, int((today_doy - 0.5) / days * graph_w)))
-    spy_now = now_hour / 24 * total_spy
+    # The glyph and its glow share a sub-pixel, so the glow cannot round
+    # into the cell below the dot.
+    spy_now = min(total_spy - 1, int(now_hour / 24 * total_spy))
     e_now = sun.sun_elevation(lat, lng, now_hour, today_doy,
                               tz_offs[today_doy - 1])
     # A warm halo rather than the daily view's near-white one: over the
@@ -273,7 +275,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
                      else darken(cell, 0.55))
             overlays[(x, 0)] = (ch, color, False)
 
-    sun_row = max(0, min(graph_h - 1, int(spy_now) // 2))
+    sun_row = spy_now // 2
     overlays[(x_today, sun_row)] = (icons["sun_char"], sun.SUN_CORE_RGB)
 
     lines = fb.render(overlays)
@@ -292,19 +294,45 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     tooltip = ""
     if hover_x is not None:
         tooltip = _hover_tooltip(lat, lng, hover_x, mouse_pos[1], graph_w,
-                                 cols, rows, year, days, tz_offs, today_doy,
-                                 runtime, sun, icons)
+                                 graph_h, cols, rows, year, days, tz_offs,
+                                 today_doy, runtime, sun, icons)
     # overlay() keeps the cursor-addressed tooltip apart from the body so
     # live_loop draws it after its end-of-screen clear, not before.
     return overlay("\n".join(lines), tooltip)
 
 
-def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, cols, rows,
+def _hover_moment(lat, lng, doy, tz_off, mouse_row, graph_h, sun, runtime):
+    """(hour, label) for the hovered row of a day.
+
+    A row is a coarse slice of the day — forty minutes on a typical
+    screen — so the hour is the row's middle, and the label names the
+    sky there. When the row lands on solar noon, sunrise or sunset the
+    moment snaps to the event and the tooltip says the event's own
+    time: the marks worth pointing at are otherwise unhittable.
+    """
+    row = max(0, min(graph_h - 1, mouse_row - 1))
+    hour = (row + 0.5) / graph_h * 24
+    reach = 24 / graph_h * 0.6
+    sunrise, sunset = sun.solar_times(lat, lng, doy, tz_off)
+    noon = (sunrise + sunset) / 2
+    events = [("solar_noon", noon)]
+    if 0.05 < sunset - sunrise < 23.95:   # the sun does rise and set
+        events += [("sunrise", sunrise), ("sunset", sunset)]
+    for key, at in events:
+        if abs(hour - at) <= reach and 0 <= at < 24:
+            return at, sky_event(key, runtime)
+    elev = sun.sun_elevation(lat, lng, hour, doy, tz_off)
+    return hour, sky_phase(elev, runtime)
+
+
+def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
                    year, days, tz_offs, today_doy, runtime, sun, icons):
-    """Cursor-positioned tooltip for the hovered day, tides-style."""
+    """Cursor-positioned tooltip for the hovered day and time, tides-style."""
     doy = max(1, min(days, int((hover_x + 0.5) / graph_w * days) + 1))
     date = datetime(year, 1, 1) + timedelta(days=doy - 1)
     sunrise, sunset, day_len = _day_facts(lat, lng, doy, tz_offs[doy - 1], sun)
+    hour, sky = _hover_moment(lat, lng, doy, tz_offs[doy - 1], mouse_row,
+                              graph_h, sun, runtime)
     _, _, today_len = _day_facts(lat, lng, today_doy,
                                  tz_offs[today_doy - 1], sun)
 
@@ -317,6 +345,7 @@ def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, cols, rows,
     tip_lines = [
         f"{tip_bg}{tip_fg} {_fmt_month_day(date, runtime)} "
         f"{tip_dim}· {rel} ",
+        f"{tip_bg}{tip_fg} {fmt_time(hour, runtime.use_24h)} {tip_dim}· {sky} ",
         f"{tip_bg}{tip_fg} {icons['sun_icon']} "
         f"{fmt_time(sunrise, runtime.use_24h)}  "
         f"{fmt_time(sunset, runtime.use_24h)} {icons['sunset_icon']} ",

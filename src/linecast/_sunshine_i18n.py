@@ -15,6 +15,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "in {n} days",
         "day_ago": "{n} day ago",
         "days_ago": "{n} days ago",
+        "sky_night": "night",
+        "sky_astronomical": "astronomical twilight",
+        "sky_nautical": "nautical twilight",
+        "sky_civil": "civil twilight",
+        "sky_day": "daylight",
+        "solar_noon": "solar noon",
+        "sunrise": "sunrise",
+        "sunset": "sunset",
     },
     "fr": {
         "today": "aujourd'hui",
@@ -22,6 +30,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "dans {n} jours",
         "day_ago": "il y a {n} jour",
         "days_ago": "il y a {n} jours",
+        "sky_night": "nuit",
+        "sky_astronomical": "crépuscule astronomique",
+        "sky_nautical": "crépuscule nautique",
+        "sky_civil": "crépuscule civil",
+        "sky_day": "jour",
+        "solar_noon": "midi solaire",
+        "sunrise": "lever du soleil",
+        "sunset": "coucher du soleil",
     },
     "es": {
         "today": "hoy",
@@ -29,6 +45,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "en {n} días",
         "day_ago": "hace {n} día",
         "days_ago": "hace {n} días",
+        "sky_night": "noche",
+        "sky_astronomical": "crepúsculo astronómico",
+        "sky_nautical": "crepúsculo náutico",
+        "sky_civil": "crepúsculo civil",
+        "sky_day": "día",
+        "solar_noon": "mediodía solar",
+        "sunrise": "amanecer",
+        "sunset": "atardecer",
     },
     "de": {
         "today": "heute",
@@ -36,6 +60,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "in {n} Tagen",
         "day_ago": "vor {n} Tag",
         "days_ago": "vor {n} Tagen",
+        "sky_night": "Nacht",
+        "sky_astronomical": "astronomische Dämmerung",
+        "sky_nautical": "nautische Dämmerung",
+        "sky_civil": "bürgerliche Dämmerung",
+        "sky_day": "Tag",
+        "solar_noon": "Sonnenhöchststand",
+        "sunrise": "Sonnenaufgang",
+        "sunset": "Sonnenuntergang",
     },
     "it": {
         "today": "oggi",
@@ -43,6 +75,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "tra {n} giorni",
         "day_ago": "{n} giorno fa",
         "days_ago": "{n} giorni fa",
+        "sky_night": "notte",
+        "sky_astronomical": "crepuscolo astronomico",
+        "sky_nautical": "crepuscolo nautico",
+        "sky_civil": "crepuscolo civile",
+        "sky_day": "giorno",
+        "solar_noon": "mezzogiorno solare",
+        "sunrise": "alba",
+        "sunset": "tramonto",
     },
     "pt": {
         "today": "hoje",
@@ -50,6 +90,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "em {n} dias",
         "day_ago": "há {n} dia",
         "days_ago": "há {n} dias",
+        "sky_night": "noite",
+        "sky_astronomical": "crepúsculo astronômico",
+        "sky_nautical": "crepúsculo náutico",
+        "sky_civil": "crepúsculo civil",
+        "sky_day": "dia",
+        "solar_noon": "meio-dia solar",
+        "sunrise": "nascer do sol",
+        "sunset": "pôr do sol",
     },
     "nl": {
         "today": "vandaag",
@@ -57,6 +105,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "over {n} dagen",
         "day_ago": "{n} dag geleden",
         "days_ago": "{n} dagen geleden",
+        "sky_night": "nacht",
+        "sky_astronomical": "astronomische schemering",
+        "sky_nautical": "nautische schemering",
+        "sky_civil": "burgerlijke schemering",
+        "sky_day": "dag",
+        "solar_noon": "zonnemiddag",
+        "sunrise": "zonsopkomst",
+        "sunset": "zonsondergang",
     },
     "pl": {
         "today": "dziś",
@@ -64,6 +120,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "za {n} dni",
         "day_ago": "{n} dzień temu",
         "days_ago": "{n} dni temu",
+        "sky_night": "noc",
+        "sky_astronomical": "zmierzch astronomiczny",
+        "sky_nautical": "zmierzch nautyczny",
+        "sky_civil": "zmierzch cywilny",
+        "sky_day": "dzień",
+        "solar_noon": "południe słoneczne",
+        "sunrise": "wschód słońca",
+        "sunset": "zachód słońca",
     },
     "no": {
         "today": "i dag",
@@ -71,6 +135,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "om {n} dager",
         "day_ago": "{n} dag siden",
         "days_ago": "{n} dager siden",
+        "sky_night": "natt",
+        "sky_astronomical": "astronomisk tussmørke",
+        "sky_nautical": "nautisk tussmørke",
+        "sky_civil": "borgerlig tussmørke",
+        "sky_day": "dag",
+        "solar_noon": "solmiddag",
+        "sunrise": "soloppgang",
+        "sunset": "solnedgang",
     },
     "sv": {
         "today": "i dag",
@@ -78,6 +150,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "om {n} dagar",
         "day_ago": "{n} dag sedan",
         "days_ago": "{n} dagar sedan",
+        "sky_night": "natt",
+        "sky_astronomical": "astronomisk skymning",
+        "sky_nautical": "nautisk skymning",
+        "sky_civil": "borgerlig skymning",
+        "sky_day": "dag",
+        "solar_noon": "solmiddag",
+        "sunrise": "soluppgång",
+        "sunset": "solnedgång",
     },
     "da": {
         "today": "i dag",
@@ -85,6 +165,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "om {n} dage",
         "day_ago": "{n} dag siden",
         "days_ago": "{n} dage siden",
+        "sky_night": "nat",
+        "sky_astronomical": "astronomisk tusmørke",
+        "sky_nautical": "nautisk tusmørke",
+        "sky_civil": "borgerligt tusmørke",
+        "sky_day": "dag",
+        "solar_noon": "solmiddag",
+        "sunrise": "solopgang",
+        "sunset": "solnedgang",
     },
     "is": {
         "today": "í dag",
@@ -92,6 +180,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "eftir {n} daga",
         "day_ago": "fyrir {n} degi",
         "days_ago": "fyrir {n} dögum",
+        "sky_night": "nótt",
+        "sky_astronomical": "stjörnufræðileg ljósaskipti",
+        "sky_nautical": "siglingaljósaskipti",
+        "sky_civil": "borgaraleg ljósaskipti",
+        "sky_day": "dagur",
+        "solar_noon": "sólarhádegi",
+        "sunrise": "sólarupprás",
+        "sunset": "sólsetur",
     },
     "fi": {
         "today": "tänään",
@@ -99,6 +195,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "{n} päivän kuluttua",
         "day_ago": "{n} päivä sitten",
         "days_ago": "{n} päivää sitten",
+        "sky_night": "yö",
+        "sky_astronomical": "astronominen hämärä",
+        "sky_nautical": "merenkulullinen hämärä",
+        "sky_civil": "porvarillinen hämärä",
+        "sky_day": "päivä",
+        "solar_noon": "aurinkokeskipäivä",
+        "sunrise": "auringonnousu",
+        "sunset": "auringonlasku",
     },
     "ja": {
         "today": "今日",
@@ -106,6 +210,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "{n}日後",
         "day_ago": "{n}日前",
         "days_ago": "{n}日前",
+        "sky_night": "夜",
+        "sky_astronomical": "天文薄明",
+        "sky_nautical": "航海薄明",
+        "sky_civil": "市民薄明",
+        "sky_day": "昼",
+        "solar_noon": "南中",
+        "sunrise": "日の出",
+        "sunset": "日の入り",
     },
     "ko": {
         "today": "오늘",
@@ -113,6 +225,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "{n}일 후",
         "day_ago": "{n}일 전",
         "days_ago": "{n}일 전",
+        "sky_night": "밤",
+        "sky_astronomical": "천문박명",
+        "sky_nautical": "항해박명",
+        "sky_civil": "시민박명",
+        "sky_day": "낮",
+        "solar_noon": "남중",
+        "sunrise": "일출",
+        "sunset": "일몰",
     },
     "zh": {
         "today": "今天",
@@ -120,6 +240,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "{n}天后",
         "day_ago": "{n}天前",
         "days_ago": "{n}天前",
+        "sky_night": "夜晚",
+        "sky_astronomical": "天文曙暮光",
+        "sky_nautical": "航海曙暮光",
+        "sky_civil": "民用曙暮光",
+        "sky_day": "白天",
+        "solar_noon": "太阳正午",
+        "sunrise": "日出",
+        "sunset": "日落",
     },
     "id": {
         "today": "hari ini",
@@ -127,6 +255,14 @@ _SUNSHINE_STRINGS = {
         "in_days": "{n} hari lagi",
         "day_ago": "{n} hari lalu",
         "days_ago": "{n} hari lalu",
+        "sky_night": "malam",
+        "sky_astronomical": "senja astronomi",
+        "sky_nautical": "senja nautika",
+        "sky_civil": "senja sipil",
+        "sky_day": "siang",
+        "solar_noon": "tengah hari surya",
+        "sunrise": "matahari terbit",
+        "sunset": "matahari terbenam",
     },
 }
 
@@ -146,6 +282,26 @@ _NUMERIC_AXIS_LANGS = frozenset({"ja", "ko", "zh"})
 def _ss(key, runtime, **kwargs):
     """Look up a sunshine-specific localized string."""
     return lookup(_SUNSHINE_STRINGS, key, lang_of(runtime), **kwargs)
+
+
+def sky_phase(elev, runtime):
+    """Name the sky for a sun elevation: day, the three twilights, night."""
+    if elev >= -0.833:
+        key = "sky_day"
+    elif elev >= -6:
+        key = "sky_civil"
+    elif elev >= -12:
+        key = "sky_nautical"
+    elif elev >= -18:
+        key = "sky_astronomical"
+    else:
+        key = "sky_night"
+    return _ss(key, runtime)
+
+
+def sky_event(key, runtime):
+    """'solar noon', 'sunrise', 'sunset'."""
+    return _ss(key, runtime)
 
 
 def relative_day(diff, runtime):
