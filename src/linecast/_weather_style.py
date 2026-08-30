@@ -128,7 +128,7 @@ def _precip_type(wmo_code):
 
 
 def _rebuild_scales():
-    global UV_COLORS, AQI_COLORS, UV_COLOR
+    global UV_COLORS, AQI_COLORS, INDIA_AQI_COLORS, UV_COLOR
     UV_COLORS = [
         (0, GREEN_RGB),
         (3, YELLOW_RGB),
@@ -143,6 +143,16 @@ def _rebuild_scales():
         (101, ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.45), _theme.theme_bg, minimum=2.1)),
         (151, RED_RGB),
         (201, MAGENTA_RGB),
+    ]
+
+    # The CPCB scale runs to 500 with wider bands: Satisfactory to 100,
+    # Moderate to 200, Poor to 300, Very Poor to 400, Severe past it.
+    INDIA_AQI_COLORS = [
+        (0, GREEN_RGB),
+        (101, YELLOW_RGB),
+        (201, ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.45), _theme.theme_bg, minimum=2.1)),
+        (301, RED_RGB),
+        (401, MAGENTA_RGB),
     ]
     UV_COLOR = fg(*ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.30), _theme.theme_bg,
                                    minimum=2.5))
@@ -160,6 +170,11 @@ def _uv_color(uv):
 def _aqi_color(aqi):
     """ANSI fg escape for a US AQI value."""
     return fg(*interp_stops(AQI_COLORS, aqi))
+
+
+def _india_aqi_color(aqi):
+    """ANSI fg escape for a CPCB National AQI value."""
+    return fg(*interp_stops(INDIA_AQI_COLORS, aqi))
 
 
 def _precip_color(wmo_code):

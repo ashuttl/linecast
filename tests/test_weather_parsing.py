@@ -419,6 +419,14 @@ class TestAlertProviderRouting:
         mock_fn.assert_called_once_with(52.37, 4.89, "netherlands", lang="en", address=address)
         assert result == [{"event": "x"}]
 
+    def test_routes_in_to_sachet(self):
+        from linecast._weather_sources import fetch_alerts
+        with patch("linecast._weather_sources._fetch_alerts_sachet",
+                   return_value=[{"event": "x"}]) as mock_fn:
+            result = fetch_alerts(28.61, 77.21, country_code="IN")
+        mock_fn.assert_called_once_with(28.61, 77.21, lang="en")
+        assert result == [{"event": "x"}]
+
     def test_unknown_country_returns_empty(self):
         from linecast._weather_sources import fetch_alerts
         assert fetch_alerts(0, 0, country_code="XX") == []
@@ -832,3 +840,193 @@ class TestCapPolygons:
                 (3, 0), (0, 0)]
         assert _point_in_ring(1.5, 0.5, ring)
         assert not _point_in_ring(1.5, 2.0, ring)
+
+
+# ---------------------------------------------------------------------------
+# SACHET alerts (India)
+# ---------------------------------------------------------------------------
+
+def _sachet_cap_from_fixtures(cache_file, max_age, url, **kwargs):
+    """Serve the CAP fixtures the way fetch_bytes_cached would."""
+    for identifier in ("2026081001", "2026081002"):
+        if identifier in url:
+            return (FIXTURES / f"sachet_cap_{identifier}.xml").read_bytes()
+    return None
+
+
+class TestSachetAlerts:
+    """Parse a SACHET feed snapshot with its CAP files."""
+
+    def setup_method(self):
+        self.feed = _load("sachet_alerts.json")
+
+    def _alerts(self, lat, lng, lang="en"):
+        from linecast._weather_sources import _fetch_alerts_sachet
+        with patch("linecast._weather_sources.fetch_json_cached",
+                   return_value=self.feed), \
+             patch("linecast._http.fetch_bytes_cached",
+                   side_effect=_sachet_cap_from_fixtures):
+            return _fetch_alerts_sachet(lat, lng, lang=lang)
+
+    def test_feed_entry_shape(self):
+        for entry in self.feed:
+            assert "identifier" in entry
+            assert "centroid" in entry
+            assert "area_covered" in entry
+            assert "severity_color" in entry
+
+    def test_delhi_gets_nearby_and_statewide_alerts(self):
+        alerts = self._alerts(28.61, 77.21)
+        events = [a["event"] for a in alerts]
+        # Two nowcasts over Delhi, plus the state-wide rain warning whose
+        # disc covers the city from 120km out; Assam's flood is not here.
+        assert "Thunderstorm with Lightning" in events
+        assert "Lightning" in events
+        assert "Very Heavy Rain" in events
+        assert len(alerts) == 3
+
+    def test_most_severe_first(self):
+        alerts = self._alerts(28.61, 77.21)
+        assert alerts[0]["severity"] == "Extreme"
+        severities = [a["severity"] for a in alerts]
+        assert severities == sorted(
+            severities, key=("Extreme", "Severe", "Moderate", "Minor").index)
+
+    def test_regional_language_alert_shown_in_english(self):
+        alerts = self._alerts(28.61, 77.21)
+        lightning = next(a for a in alerts if a["event"] == "Lightning")
+        assert lightning["headline"].startswith("There is a possibility of lightning")
+
+    def test_user_language_block_preferred_when_present(self):
+        alerts = self._alerts(28.61, 77.21, lang="hi")
+        lightning = next(a for a in alerts if a["event"] == "Lightning")
+        assert "बिजली" in lightning["headline"]
+
+    def test_cap_severity_beats_feed_color(self):
+        # The feed says orange (Severe) and the CAP file agrees; the
+        # yellow one's CAP file says Moderate.
+        alerts = self._alerts(28.61, 77.21)
+        thunder = next(a for a in alerts
+                       if a["event"] == "Thunderstorm with Lightning")
+        assert thunder["severity"] == "Severe"
+
+    def test_alert_without_cap_file_falls_back_to_feed(self):
+        alerts = self._alerts(27.49, 94.91)  # Dibrugarh, Assam
+        assert len(alerts) == 1
+        flood = alerts[0]
+        assert flood["event"] == "Flood"
+        assert flood["severity"] == "Moderate"  # yellow
+        assert flood["headline"].startswith("River Brahmaputra")
+        assert flood["effective"] == "2035-01-01T09:00:00+05:30"
+
+    def test_expired_alert_dropped(self):
+        alerts = self._alerts(28.61, 77.21)
+        assert all(a["event"] != "Dust Storm" for a in alerts)
+
+    def test_far_away_user_gets_nothing(self):
+        assert self._alerts(8.5, 76.9) == []  # Thiruvananthapuram
+
+    def test_normalized_fields_present(self):
+        for alert in self._alerts(28.61, 77.21):
+            for key in ("event", "headline", "description", "effective",
+                        "expires", "severity", "url"):
+                assert key in alert
+
+    def test_unusable_feed_is_no_alerts(self):
+        from linecast._weather_sources import _fetch_alerts_sachet
+        with patch("linecast._weather_sources.fetch_json_cached",
+                   return_value=None):
+            assert _fetch_alerts_sachet(28.61, 77.21) == []
+
+    def test_feed_datetime_parsing(self):
+        from linecast._weather_sources import _sachet_datetime
+        assert (_sachet_datetime("Sun Aug 30 21:00:00 IST 2026")
+                == "2026-08-30T21:00:00+05:30")
+        assert _sachet_datetime("nonsense") == ""
+        assert _sachet_datetime(None) == ""
+
+
+# ---------------------------------------------------------------------------
+# CPCB National AQI (India)
+# ---------------------------------------------------------------------------
+
+def _india_aqi_response(current_time="2026-01-02T05:00", **series):
+    """A minimal Open-Meteo air quality response for india_aqi."""
+    times = ([f"2026-01-01T{h:02d}:00" for h in range(24)]
+             + [f"2026-01-02T{h:02d}:00" for h in range(24)])
+    hourly = {"time": times}
+    defaults = {
+        "pm2_5": 60.0, "pm10": 100.0, "nitrogen_dioxide": 40.0,
+        "sulphur_dioxide": 40.0, "ozone": 50.0, "carbon_monoxide": 1000.0,
+    }
+    defaults.update(series)
+    for key, value in defaults.items():
+        hourly[key] = [value] * len(times) if not isinstance(value, list) else value
+    return {"current": {"time": current_time, "us_aqi": 150}, "hourly": hourly}
+
+
+class TestIndiaAqi:
+    def test_sub_index_band_edges(self):
+        from linecast._weather_sources import _india_sub_index
+        assert _india_sub_index("pm2_5", 0) == 0
+        assert _india_sub_index("pm2_5", 30) == 50
+        assert _india_sub_index("pm2_5", 45) == 75
+        assert _india_sub_index("pm2_5", 90) == 200
+        assert _india_sub_index("pm10", 365) == 318.75
+
+    def test_sub_index_severe_band_caps_at_500(self):
+        from linecast._weather_sources import _india_sub_index
+        assert round(_india_sub_index("pm2_5", 300), 1) == 438.5
+        assert _india_sub_index("pm2_5", 380) == 500
+        assert _india_sub_index("pm2_5", 9999) == 500
+
+    def test_sub_index_co_in_micrograms(self):
+        from linecast._weather_sources import _india_sub_index
+        assert _india_sub_index("carbon_monoxide", 2000) == 100  # 2 mg/m³
+
+    def test_worst_sub_index_wins(self):
+        from linecast._weather_sources import india_aqi
+        assert india_aqi(_india_aqi_response()) == 100  # pm2_5 60 / pm10 100
+        assert india_aqi(_india_aqi_response(pm2_5=90.0)) == 200
+
+    def test_forecast_hours_are_ignored(self):
+        from linecast._weather_sources import india_aqi
+        # 60 up to the current hour (index 29), absurd afterwards
+        series = [60.0] * 30 + [999.0] * 18
+        assert india_aqi(_india_aqi_response(pm2_5=series)) == 100
+
+    def test_no_particulates_no_index(self):
+        from linecast._weather_sources import india_aqi
+        none = [None] * 48
+        assert india_aqi(_india_aqi_response(pm2_5=none, pm10=none)) is None
+
+    def test_old_cached_response_without_hourly_is_none(self):
+        from linecast._weather_sources import india_aqi
+        assert india_aqi({"current": {"us_aqi": 150}}) is None
+        assert india_aqi(None) is None
+
+    def test_apply_only_in_india(self):
+        from linecast._weather_sources import apply_india_aqi
+        data = _india_aqi_response()
+        apply_india_aqi(data, "US")
+        assert "india_aqi" not in data["current"]
+        apply_india_aqi(data, "IN")
+        assert data["current"]["india_aqi"] == 100
+
+    def test_categories(self):
+        from linecast._weather_sources import india_aqi_category
+        assert india_aqi_category(40) == "Good"
+        assert india_aqi_category(100) == "Satisfactory"
+        assert india_aqi_category(150) == "Moderate"
+        assert india_aqi_category(250) == "Poor"
+        assert india_aqi_category(350) == "Very Poor"
+        assert india_aqi_category(450) == "Severe"
+
+    def test_header_shows_cpcb_number(self):
+        from linecast._weather_sections import render_header
+        forecast = _load("open_meteo_forecast.json")
+        aqi_data = _india_aqi_response(pm2_5=300.0)
+        from linecast._weather_sources import apply_india_aqi
+        apply_india_aqi(aqi_data, "IN")
+        header = render_header(forecast, 120, "Delhi", aqi_data=aqi_data)
+        assert "438" in header  # the CPCB number, not us_aqi's 150

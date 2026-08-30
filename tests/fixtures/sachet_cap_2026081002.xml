@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cap:alert xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">
+<cap:identifier>IN-2026081002_9</cap:identifier>
+<cap:sender>Delhi-SDMA</cap:sender>
+<cap:sent>2035-01-01T08:55:00+05:30</cap:sent>
+<cap:status>Actual</cap:status>
+<cap:msgType>Alert</cap:msgType>
+<cap:scope>Public</cap:scope>
+<cap:restriction/>
+<cap:addresses/>
+<cap:note/>
+<cap:incidents/>
+<cap:info>
+<cap:language>en-IN</cap:language>
+<cap:category>Met</cap:category>
+<cap:event>Lightning</cap:event>
+<cap:urgency>Expected</cap:urgency>
+<cap:severity>Moderate</cap:severity>
+<cap:certainty>Possible</cap:certainty>
+<cap:audience>1</cap:audience>
+<cap:effective>2035-01-01T09:00:00+05:30</cap:effective>
+<cap:onset>2035-01-01T08:59:00+05:30</cap:onset>
+<cap:expires>2035-01-01T11:00:00+05:30</cap:expires>
+<cap:headline>There is a possibility of lightning in your area. Take shelter in a safe building.</cap:headline>
+<cap:description/>
+<cap:instruction>Please follow SDMA guidelines.</cap:instruction>
+<cap:contact/>
+<cap:area>
+<cap:areaDesc>North Delhi</cap:areaDesc>
+<cap:altitude>0</cap:altitude>
+<cap:ceiling>0</cap:ceiling>
+</cap:area>
+</cap:info>
+<cap:info>
+<cap:language>HI</cap:language>
+<cap:category>Met</cap:category>
+<cap:event>Lightning</cap:event>
+<cap:urgency>Expected</cap:urgency>
+<cap:severity>Moderate</cap:severity>
+<cap:certainty>Possible</cap:certainty>
+<cap:audience>1</cap:audience>
+<cap:effective>2035-01-01T09:00:00+05:30</cap:effective>
+<cap:onset>2035-01-01T08:59:00+05:30</cap:onset>
+<cap:expires>2035-01-01T11:00:00+05:30</cap:expires>
+<cap:headline>आपके क्षेत्र में बिजली गिरने की संभावना है। सुरक्षित भवनों में शरण लें।</cap:headline>
+<cap:description/>
+<cap:instruction>Please follow SDMA guidelines.</cap:instruction>
+<cap:contact/>
+<cap:area>
+<cap:areaDesc>North Delhi</cap:areaDesc>
+<cap:altitude>0</cap:altitude>
+<cap:ceiling>0</cap:ceiling>
+</cap:area>
+</cap:info>
+</cap:alert>
