@@ -26,6 +26,13 @@ def char_width(ch, next_ch=""):
         return 0
     if unicodedata.category(ch) == 'Co':
         return 1        # Private Use Area (Nerd Font icons) — single-width
+    # Nonspacing marks ride their base's cell: a Devanagari matra above
+    # or below, a virama, an anusvara, a Thai or Arabic vowel sign.
+    # Spacing marks (Mc — ा, ि) keep their own cell, as wcwidth has it.
+    if unicodedata.category(ch) in ('Mn', 'Me'):
+        return 0
+    if ch in '\u200b\u200c\u200d\u2060\ufeff':
+        return 0        # zero-width space and joiners (ZWNJ/ZWJ in Indic text)
     if unicodedata.east_asian_width(ch) in ('W', 'F'):
         return 2
     if next_ch == _VS16:
