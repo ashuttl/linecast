@@ -130,6 +130,41 @@ class TestSunshineSnapshot:
         stripped = _strip_ansi(output)
         _compare_or_create("sunshine_80x24.txt", stripped)
 
+    def test_sunshine_year_80x24(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        from linecast._sunshine_year import render_year
+        from linecast._runtime import RuntimeConfig
+
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
+        # A named zone rather than the host's: the year's per-day offsets
+        # and the sun's placement then depend on nothing but the arguments.
+        tz = ZoneInfo("America/Toronto")
+        now = datetime(2026, 3, 5, 14, 30, tzinfo=tz)
+        with patch("linecast._sunshine_year.get_terminal_size",
+                   return_value=(80, 24)):
+            output = render_year(43.7, -79.4, now, runtime, tz=tz,
+                                 location_label="Toronto")
+        _compare_or_create("sunshine_year_80x24.txt", _strip_ansi(output))
+
+    def test_sunshine_year_polar_80x24(self):
+        """Longyearbyen in March: both polar seasons in one field."""
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        from linecast._sunshine_year import render_year
+        from linecast._runtime import RuntimeConfig
+
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
+        tz = ZoneInfo("Europe/Oslo")
+        now = datetime(2026, 3, 5, 14, 30, tzinfo=tz)
+        with patch("linecast._sunshine_year.get_terminal_size",
+                   return_value=(80, 24)):
+            output = render_year(78.22, 15.65, now, runtime, tz=tz,
+                                 location_label="Longyearbyen")
+        _compare_or_create("sunshine_year_polar_80x24.txt", _strip_ansi(output))
+
 
 # -----------------------------------------------------------------------
 # Moon rendering snapshot
