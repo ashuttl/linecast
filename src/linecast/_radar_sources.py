@@ -7,16 +7,20 @@ A source exposes:
                             forecast frames flagged .future)
   .frame_rgba(bbox, gw, hc, frame) → (pw, ph, rgba)  at gw × hc*2, EPSG:4326
 
-Region routing: LibreWXR is primary almost everywhere — real radar
-composites for North America / Europe / East Asia, model precipitation
-elsewhere, nowcast frames, and selectable colour themes.  Where RainViewer
-composites a national radar feed LibreWXR lacks (IMD's Indian network),
-RainViewer leads instead: real echoes there beat the model.  On failure,
-the continental US falls back to IEM/NEXRAD (deep 3h history, native
-projection) and the rest of the world to RainViewer, with IEM as the last
-resort.  RainViewer keeps the locally-coloured themes too, its Universal
-Blue tiles decoded back to reflectivity first (_radar_ub); of the server
-schemes it can only ever show universal-blue.
+Region routing: LibreWXR is primary everywhere — real radar composites for
+North America / Europe / East Asia, model precipitation elsewhere, nowcast
+frames, and selectable colour themes.  On failure, the continental US falls
+back to IEM/NEXRAD (deep 3h history, native projection) and the rest of the
+world to RainViewer, with IEM as the last resort.  RainViewer keeps the
+locally-coloured themes, its Universal Blue tiles decoded back to
+reflectivity first (_radar_ub); of the server schemes it can only ever
+show universal-blue.
+
+(RainViewer also composites IMD's Indian radar, which LibreWXR lacks, and
+for a moment led there — but its IMD frames animate badly: stations on a
+slower scan cadence sit frozen across the 10-minute composites and blink
+in and out, and the free tier has no nowcast.  LibreWXR's model, coherent
+and an hour ahead, reads better.  See issue #40 before trying that again.)
 """
 
 import datetime
@@ -114,23 +118,6 @@ def has_radar(lat: float, lon: float) -> bool:
     """True where LibreWXR's frames come from radar rather than a model."""
     return any(w <= lon <= e and s <= lat <= n
                for w, s, e, n in _RADAR_REGIONS)
-
-
-# Where RainViewer composites a national radar feed LibreWXR has no source
-# for, so real echoes are only a provider away.  IMD's network is a couple
-# dozen radars, so the box also holds gaps — but a gap draws nothing, which
-# is still more honest than a model.  Growing this list is the whole change
-# when another such feed turns up.
-_RV_RADAR_REGIONS = (
-    (68.0, 6.0, 97.5, 36.0),   # India (IMD)
-)
-
-
-def rv_radar(lat: float, lon: float) -> bool:
-    """True where RainViewer carries real radar and LibreWXR only a model."""
-    return any(w <= lon <= e and s <= lat <= n
-               for w, s, e, n in _RV_RADAR_REGIONS)
-
 
 def _in_conus(lat, lon):
     w, s, e, n = _CONUS
@@ -335,13 +322,6 @@ def get_source(lat: float, lon: float, n_frames: int, theme: str | int | None = 
     if theme is None:
         theme = THEMES[DEFAULT_THEME]
     src: LibreWXRSource | RainViewerSource
-    if rv_radar(lat, lon):
-        try:
-            src = RainViewerSource(theme)
-            if src.current_frames():
-                return src
-        except Exception as exc:
-            log_failure("radar/rainviewer", "source", exc, fallback="next source")
     try:
         src = LibreWXRSource(theme)
         if src.current_frames():

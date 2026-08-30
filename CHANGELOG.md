@@ -4,8 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-- Radar: In India, the radar shows real echoes from IMD's Doppler network, by way of RainViewer's composite, instead of model precipitation.
-- Radar: The colour themes drawn in the terminal's own palette — terminal, dusk, ember, ink, marangai — now work where RainViewer supplies the radar, India included.
+- Radar: The colour themes drawn in the terminal's own palette — terminal, dusk, ember, ink, marangai — now survive a fallback to RainViewer, instead of dropping to its blue scheme.
 - Location: IP geolocation and place-name search each have a second source now, asked when the usual one doesn't answer.
 - Maps: Street tiles fall back to the OpenStreetMap US Tileservice when OpenFreeMap doesn't answer; the credit line names whichever source drew the map.
 - Maps: `LINECAST_ELEVATION_URL` accepts a full tile URL template, for elevation hosts with their own path shape.

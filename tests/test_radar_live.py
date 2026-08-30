@@ -178,37 +178,25 @@ class TestDrag:
         monkeypatch.setattr(rf, "_source", FakeSource(None, kind="iem"))
         monkeypatch.setattr(_radar_live, "_in_conus",
                             lambda lat, lon: lon < -60)
-        app.region = (True, False)
+        app.region = True
         app.on_drag(-40, 0, True)   # eastwards, out over the Atlantic
-        assert app.region == (False, False)
+        assert app.region is False
         assert len(picks) == 1
         assert picks[0][2:] == (rf.N_FRAMES, "classic")
 
-    def test_the_preferred_source_is_left_alone_across_the_boundary(
+    def test_librewxr_is_left_alone_across_the_boundary(
             self, app, monkeypatch):
         picks = []
         monkeypatch.setattr(_radar_live, "get_source",
                             lambda *a: picks.append(a))
         monkeypatch.setattr(_radar_live, "_in_conus",
                             lambda lat, lon: lon < -60)
-        app.region = (True, False)
-        app.on_drag(-40, 0, True)   # LibreWXR stays LibreWXR
-        assert app.region == (False, False)
+        app.region = True
+        app.on_drag(-40, 0, True)
+        assert app.region is False
         assert picks == []
 
-    def test_entering_a_national_feed_region_trades_librewxr_away(
-            self, app, monkeypatch):
-        picks = []
-        monkeypatch.setattr(_radar_live, "get_source",
-                            lambda *a: picks.append(a) or FakeSource(None))
-        monkeypatch.setattr(_radar_live, "rv_radar",
-                            lambda lat, lon: lon > -60)
-        app.region = (False, False)
-        app.on_drag(-40, 0, True)   # eastwards, into the feed's region
-        assert app.region == (False, True)
-        assert len(picks) == 1
-
-    def test_leaving_a_national_feed_region_trades_rainviewer_back(
+    def test_a_themed_rainviewer_is_still_a_fallback_to_retry(
             self, app, monkeypatch):
         picks = []
         monkeypatch.setattr(_radar_live, "get_source",
@@ -216,12 +204,9 @@ class TestDrag:
         monkeypatch.setattr(rf, "_source", FakeSource({"terminal": "terminal"},
                                                       "terminal", kind="rv"))
         monkeypatch.setattr(_radar_live, "_in_conus",
-                            lambda lat, lon: False)
-        monkeypatch.setattr(_radar_live, "rv_radar",
-                            lambda lat, lon: lon > -60)
-        app.region = (False, True)
-        app.on_drag(40, 0, True)    # westwards, out of the feed's region
-        assert app.region == (False, False)
+                            lambda lat, lon: lon < -60)
+        app.region = True
+        app.on_drag(-40, 0, True)
         assert len(picks) == 1
 
 

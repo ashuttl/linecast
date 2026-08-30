@@ -13,12 +13,10 @@ geography, and neutral wind arrows whose contrast rises with speed (calm air
 draws nothing) — both sampled from Open-Meteo and time-synced to the
 displayed frame, so rewinding rewinds them too.
 
-Data: LibreWXR nearly everywhere (radar composites where a public network
-has one, model precipitation elsewhere, 60-min forecast frames, selectable
-colour themes); RainViewer over India, where it composites IMD's radar
-network and LibreWXR has only the model; falls back to NEXRAD via Iowa
-Environmental Mesonet (IEM) in the continental US and RainViewer
-elsewhere. Basemap from Natural Earth.
+Data: LibreWXR everywhere (radar composites where a public network has
+one, model precipitation elsewhere, 60-min forecast frames, selectable
+colour themes); falls back to NEXRAD via Iowa Environmental Mesonet (IEM)
+in the continental US and RainViewer elsewhere. Basemap from Natural Earth.
 Condition layers from Open-Meteo.
 
 Everything drawn is here: render_radar composes one frame.  What runs
