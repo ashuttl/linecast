@@ -735,9 +735,18 @@ def _sky_name(lat, lng, doy, hour, sunrise, sunset, tz_offset_h, runtime):
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    args = sunshine_parser().parse_args()
+    parser = sunshine_parser()
+    args = parser.parse_args()
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
+
+    # --year picks a view. --json and --oneline describe today and have
+    # no year form, so the combination is a mistake worth naming rather
+    # than a flag to drop on the floor.
+    if getattr(args, "year", False) and (runtime.json_mode or runtime.oneline):
+        mode = "--json" if runtime.json_mode else "--oneline"
+        parser.error(f"--year has no {mode} output "
+                     f"(--year is a view; {mode} describes today)")
 
     lat, lng, country, label = resolve_location(
         args.location, lang=runtime.lang, return_label=True)
