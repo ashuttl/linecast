@@ -208,10 +208,11 @@ class TestPolarCap:
 
     def test_clouds_fill_the_cap_and_fade_at_the_edge(self, monkeypatch):
         monkeypatch.setitem(_globe_now._cloud, "cap", self._cap())
+        monkeypatch.setitem(_globe_now._cloud, "white", None)
         canvas = (bytes(4 * 4 * 4), 4, 4, 0, 0, 4)  # empty mosaic
-        lls = [[(85.0, 0.0), (69.0, 0.0), (-85.0, 0.0), None]]
+        lls = [[(85.0, 0.0), (67.0, 0.0), (-85.0, 0.0), None]]
         out = _globe_now.clouds(lls, canvas)
-        assert out[0][0] > 0.8      # deep in the northern cap: full deck
+        assert out[0][0] > 0.4      # deep in the northern cap: full deck
         assert out[0][1] == 0.0     # equatorward of the fade: untouched
         assert out[0][2] == 0.0     # southern cap is genuinely clear
         assert out[0][3] == 0.0     # off the disk
@@ -221,6 +222,48 @@ class TestPolarCap:
         canvas = (bytes(4 * 4 * 4), 4, 4, 0, 0, 4)
         out = _globe_now.clouds([[(85.0, 0.0)]], canvas)
         assert out[0][0] == 0.0
+
+    def test_the_full_deck_is_granular_not_flat(self, monkeypatch):
+        # a solid model deck must not paint one flat sheet: the noise
+        # gives it the mosaic's grain, within the mosaic's brightness
+        monkeypatch.setitem(_globe_now._cloud, "cap", self._cap())
+        monkeypatch.setitem(_globe_now._cloud, "white", 0.6)
+        canvas = (bytes(4 * 4 * 4), 4, 4, 0, 0, 4)
+        lls = [[(80.0, -180.0 + k * 1.7) for k in range(200)]]
+        (row,) = _globe_now.clouds(lls, canvas)
+        assert max(row) - min(row) > 0.1
+        assert max(row) <= 0.6 * 1.15 + 1e-9
+        assert min(row) > 0.0
+
+    def test_a_clear_model_sky_stays_clear(self, monkeypatch):
+        # granulation invents texture, never cloud where the model
+        # reports none
+        monkeypatch.setitem(_globe_now._cloud, "cap",
+                            self._cap(north=0.0))
+        canvas = (bytes(4 * 4 * 4), 4, 4, 0, 0, 4)
+        lls = [[(74.0 + k % 15, -180.0 + k * 3.7) for k in range(100)]]
+        (row,) = _globe_now.clouds(lls, canvas)
+        assert max(row) == 0.0
+
+    def test_noise_is_stable_and_bounded(self):
+        pts = [(-170.0 + k * 3.3, 71.0 + k % 19) for k in range(100)]
+        vals = [_globe_now._noise(lat, lon) for lon, lat in pts]
+        assert vals == [_globe_now._noise(lat, lon) for lon, lat in pts]
+        assert all(0.0 <= v <= 1.0 for v in vals)
+        assert len(set(round(v, 3) for v in vals)) > 20
+
+    def test_noise_wraps_at_the_antimeridian(self):
+        assert abs(_globe_now._noise(80.0, -180.0)
+                   - _globe_now._noise(80.0, 180.0)) < 1e-9
+
+    def test_white_follows_the_mosaic(self):
+        size = 256
+        cloudy = (bytearray(bytes((200, 200, 200, 180)) * size * size),
+                  size, size, 0, 0, size)
+        w = _globe_now._mosaic_white(cloudy)
+        assert abs(w - 180 / 255.0) < 0.02
+        empty = (bytearray(size * size * 4), size, size, 0, 0, size)
+        assert _globe_now._mosaic_white(empty) is None
 
 
 class TestInkDusk:

@@ -12,9 +12,17 @@ radar view's satellite layer: alpha is cloud opacity, coverage runs to
 about the 72nd parallels, and the newest frame trails real time by an
 hour or two.  Poleward of the geostationary ring a coarse Open-Meteo
 cloud-cover lattice stands in — model, not satellite, the same trade
-the radar view makes where no radar reaches — fading in exactly where
-the mosaic's own feathered edge fades out, so a pole-centred globe
-doesn't wear a moat of suspiciously clear sky.  Daylight is astronomy — the subsolar
+the radar view makes where no radar reaches — seeding in where the
+mosaic's own feathered edge fades out, so a pole-centred globe
+doesn't wear a moat of suspiciously clear sky.  The lattice is smooth
+and bright where the mosaic is grainy and measured, so it is not
+drawn as itself: value noise anchored to the graticule breaks its
+cover into granules at the mosaic's own scale, its full deck is held
+to the white the mosaic actually paints, and the hand-off is a
+dithered cross-fade — granules sparse at the feather, closing to the
+model's cover over a few degrees, along a border that wanders instead
+of running along a parallel.  The change of source should never read
+as a change of material.  Daylight is astronomy — the subsolar
 point from the clock and a civil-twilight ramp — and night dims to a
 readable blue rather than black, because a map you cannot read is not
 a map.  Cities burn through the dark side, graded by population: the
@@ -52,10 +60,110 @@ _REFRESH_S = 300     # trust a fetched index this long before re-asking
 _CAP_LATS = [72.0, 76.0, 80.0, 84.0, 88.0]
 _CAP_NLON = 12
 _CAP_TTL = 6 * 3600
-# the mosaic's own alpha feathers to nothing between these parallels
-# (measured; the ring's horizon, softened upstream) — the model fades
-# in over the same band, so neither source ever shows an edge
-_CAP_FADE0, _CAP_FADE1 = 70.0, 72.6
+# the mosaic's alpha feathers to nothing by about the 72.6th parallels
+# (measured; the ring's horizon, softened upstream).  The model's
+# granules start seeding where the feather starts, but the deck closes
+# slowly — density carries the fade, not opacity, and the model's full
+# cover waits until _CAP_FULL — because a dithered cross-fade reads as
+# weather thickening while an opacity ramp pinned to the feather reads
+# as a fog bank with a straight edge
+_CAP_FADE0, _CAP_FULL = 70.0, 76.0
+# how far the noise lets that band wander off its parallels: a border
+# drawn at one exact latitude is the first thing the eye finds
+_CAP_WOBBLE = 1.6
+# and how far a slow swell (one wave in ~30° of longitude) carries the
+# whole band: granule-scale wobble hides the edge up close, but a
+# front that averages the same latitude all the way around the planet
+# still gives itself away at planet zoom
+_CAP_SWELL = 4.0
+# the model's full deck when the mosaic offers no measure of its own
+_CAP_WHITE = 0.7
+
+# the granule scales, weights, and lon lattice sizes of the noise that
+# textures the cap: two octaves near the size the mosaic's own pixels
+# paint at planet zoom, the lattice counts chosen so longitude wraps
+# without a seam at the antimeridian
+_NOISE_OCTAVES = ((3.0, 0.65, 120), (1.2, 0.35, 300))
+
+
+def _lattice(ix, iy):
+    """A stable pseudo-random 0..1 for one noise lattice point."""
+    h = (ix * 374761393 + iy * 668265263) & 0xFFFFFFFF
+    h = ((h ^ (h >> 13)) * 1274126177) & 0xFFFFFFFF
+    return ((h ^ (h >> 16)) & 0xFFFF) / 65535.0
+
+
+def _noise(lat, lon):
+    """Granular value noise 0..1, anchored to the graticule.
+
+    Deterministic on purpose: the granules stay put under a drag and
+    from one repaint to the next — weather, not static.
+    """
+    n = 0.0
+    floor = math.floor
+    for cell, weight, cells in _NOISE_OCTAVES:
+        fx = (lon + 180.0) / cell
+        fy = (lat + 90.0) / cell
+        ix, iy = floor(fx), floor(fy)
+        tx, ty = fx - ix, fy - iy
+        tx = tx * tx * (3.0 - 2.0 * tx)
+        ty = ty * ty * (3.0 - 2.0 * ty)
+        ix %= cells
+        x1 = (ix + 1) % cells
+        top = _lattice(ix, iy) + (_lattice(x1, iy) - _lattice(ix, iy)) * tx
+        bot = (_lattice(ix, iy + 1)
+               + (_lattice(x1, iy + 1) - _lattice(ix, iy + 1)) * tx)
+        n += (top + (bot - top) * ty) * weight
+    return n
+
+
+# the noise, tabulated: clouds() runs for every sub-pixel of every
+# drag frame, so per sample the texture must cost a lookup, not eight
+# hashes.  The generator is sampled once onto a 0.4° ring of the
+# polar band — finer than its smallest granule — and read back
+# bilinearly.  Indexed by |lat|: the caps share a pattern no view can
+# see both of.  Built on first need; refresh() warms it off the paint
+# path.  A concurrent build is benign — both threads compute the same
+# deterministic table.
+_NOISE_STEP = 0.4
+_NOISE_LAT0 = 66.0
+_NOISE_COLS = int(360.0 / _NOISE_STEP)  # divides evenly: lon wraps
+_NOISE_ROWS = int((90.0 - _NOISE_LAT0) / _NOISE_STEP) + 1
+_noise_table = None
+_swell_table = None
+
+
+def _noise_grid():
+    global _noise_table, _swell_table
+    if _noise_table is None:
+        raw = [_noise(_NOISE_LAT0 + r * _NOISE_STEP,
+                      -180.0 + k * _NOISE_STEP)
+               for r in range(_NOISE_ROWS)
+               for k in range(_NOISE_COLS)]
+        # rank-flattened: interpolated value noise pools around its
+        # mean, which would squeeze every granule threshold into a
+        # narrow band of latitudes.  Spread evenly, cover maps to
+        # granule density one for one and the cross-fade actually
+        # spans its degrees.
+        table = [0.0] * len(raw)
+        last = len(raw) - 1.0
+        for rank, i in enumerate(sorted(range(len(raw)),
+                                        key=raw.__getitem__)):
+            table[i] = rank / last
+        # the swell: a twelve-point ring of its own, smoothed, giving
+        # the fade band one slow wave of latitude per 30° of longitude
+        ring = [_lattice(i, -7) for i in range(12)]
+        swell = []
+        for k in range(_NOISE_COLS):
+            f = k * 12.0 / _NOISE_COLS
+            i0 = int(f)
+            tx = f - i0
+            tx = tx * tx * (3.0 - 2.0 * tx)
+            v = ring[i0] + (ring[(i0 + 1) % 12] - ring[i0]) * tx
+            swell.append((v - 0.5) * _CAP_SWELL)
+        _swell_table = swell
+        _noise_table = table
+    return _noise_table
 
 # night floor per channel: dark enough to read as night, blue enough to
 # read as moonlight, bright enough to leave the geography legible.
@@ -169,7 +277,35 @@ def flat_lls(bbox, w, h):
 
 
 _cloud_lock = threading.Lock()
-_cloud = {"stamp": None, "canvas": None, "checked": 0.0, "cap": None}
+_cloud = {"stamp": None, "canvas": None, "checked": 0.0, "cap": None,
+          "white": None}
+
+
+def _mosaic_white(canvas):
+    """What the mosaic calls cloud, measured where it still sees.
+
+    Mean alpha of the clearly cloudy pixels in the bands just
+    equatorward of the feather, both hemispheres — the brightness the
+    cap must not outshine.  None when the canvas is too empty to say.
+    """
+    buf, cw, ch, _org_x, org_y, world = canvas
+    total = count = 0
+    for sign in (1.0, -1.0):
+        for k in range(17):
+            sn = math.sin(math.radians(sign * (62.0 + k * 0.5)))
+            y = int((0.5 - math.log((1 + sn) / (1 - sn))
+                     / (4 * math.pi)) * world - org_y)
+            if not 0 <= y < ch:
+                continue
+            base = y * cw * 4
+            for x in range(0, cw, 2):
+                a = buf[base + x * 4 + 3]
+                if a > 40:
+                    total += a
+                    count += 1
+    if count < 200:
+        return None
+    return min(0.85, max(0.5, total / count / 255.0))
 
 
 def _fetch_cap(timeout):
@@ -287,6 +423,7 @@ def refresh(zoom, h, timeout=15):
     no clouds at all.
     """
     cap_changed = _refresh_cap(timeout)
+    _noise_grid()  # warmed here, off the paint path
     prov = _provider()
     idx = tiles.fetch_index(prov, timeout)
     frames = (idx.get("satellite") or {}).get("infrared") or []
@@ -313,9 +450,11 @@ def refresh(zoom, h, timeout=15):
             return None
 
     canvas = tiles.stitch_xyz(fetch, _CLOUD_BBOX, z)
+    white = _mosaic_white(canvas)
     with _cloud_lock:
         _cloud["stamp"] = (path, z)
         _cloud["canvas"] = canvas
+        _cloud["white"] = white
     return True
 
 
@@ -327,9 +466,24 @@ def clouds(lls, canvas):
     the model lattice takes over, smoothstepped in across the band
     where the mosaic's own edge feathers away, and the two are merged
     with max() — whichever source sees cloud there, cloud is drawn.
+
+    The lattice arrives as smooth cover fractions on a coarse grid;
+    drawn straight, that is an airbrush over a photograph.  So the
+    noise granulates it — cover decides what fraction of granules are
+    cloud, a full deck going solid and a clear sky staying empty — the
+    granule the sample falls in modulates its brightness, capped by
+    the white the mosaic itself paints, and the fade is the granules
+    seeding in, sparse at the feather and closed by _CAP_FULL, along
+    a border the same noise wobbles off its parallels.
     """
     buf = canvas[0]
     grids = _cap_grids()
+    noise = _noise_grid() if grids is not None else None
+    white = _cloud.get("white") or _CAP_WHITE
+    edge0 = _CAP_FADE0 - (_CAP_WOBBLE + _CAP_SWELL) / 2
+    fade = _CAP_FULL - _CAP_FADE0
+    swell = _swell_table
+    cols, rows = _NOISE_COLS, _NOISE_ROWS
     out = []
     for row in lls:
         o = []
@@ -340,14 +494,37 @@ def clouds(lls, canvas):
             j00, j01, j10, j11, tx, ty = tap
             a = ((buf[j00 + 3] * (1 - tx) + buf[j01 + 3] * tx) * (1 - ty)
                  + (buf[j10 + 3] * (1 - tx) + buf[j11 + 3] * tx) * ty) / 255.0
-            if grids is not None and abs(ll[0]) > _CAP_FADE0:
-                t = min(1.0, (abs(ll[0]) - _CAP_FADE0)
-                        / (_CAP_FADE1 - _CAP_FADE0))
-                t = t * t * (3.0 - 2.0 * t)
-                c = _cap_cover(grids, ll[0], ll[1])
-                # cover fraction → opacity, graded so scattered cloud
-                # stays a veil and full deck matches the mosaic's white
-                a = max(a, t * c * c * 0.85)
+            alat = ll[0] if ll[0] > 0.0 else -ll[0]
+            if grids is not None and alat > edge0:
+                fx = (ll[1] + 180.0) % 360.0 / _NOISE_STEP
+                fy = (alat - _NOISE_LAT0) / _NOISE_STEP
+                x0 = int(fx)
+                nx = fx - x0
+                x1 = (x0 + 1) % cols
+                y0 = int(fy)
+                if y0 > rows - 2:
+                    y0 = rows - 2
+                ny = fy - y0
+                b0 = y0 * cols
+                b1 = b0 + cols
+                top = noise[b0 + x0]
+                top += (noise[b0 + x1] - top) * nx
+                bot = noise[b1 + x0]
+                bot += (noise[b1 + x1] - bot) * nx
+                n = top + (bot - top) * ny
+                t = (alat + swell[x0] + (n - 0.5) * _CAP_WOBBLE
+                     - _CAP_FADE0) / fade
+                if t > 0.0:
+                    if t > 1.0:
+                        t = 1.0
+                    t = t * t * (3.0 - 2.0 * t)
+                    c = _cap_cover(grids, ll[0], ll[1]) * t
+                    u = (n - 1.0 + 1.5 * c) * 2.0
+                    if u > 0.0:
+                        if u > 1.0:
+                            u = 1.0
+                        u = u * u * (3.0 - 2.0 * u)
+                        a = max(a, u * white * (0.65 + 0.5 * n))
             o.append(a)
         out.append(o)
     return out
