@@ -30,11 +30,11 @@ On disk, `_paths.py` decides where files go, and nothing else should. The cache 
 
 Every request goes through `_http.fetch_bytes` and its JSON and cached forms, which keep one connection per host per thread and attach the user agent. The modules that call it, and who they call:
 
-- `_location.py` — ipinfo.io for a rough location when none is saved or given; the Open-Meteo geocoder turns place names into coordinates.
+- `_location.py` — ipinfo.io for a rough location when none is saved or given, ipwho.is and GeoJS behind it; the Open-Meteo geocoder turns place names into coordinates, Photon behind it.
 - `_weather_sources.py`, `_weather_historical.py`, `_marine.py` — Open-Meteo forecast, air quality, archive and marine APIs; alerts from the US National Weather Service, Environment Canada, MeteoAlarm and a few national services.
 - `_tides_providers.py` and `_tides_noaa.py`, `_tides_chs.py`, `_tides_qld.py`, `_tides_hko.py`, `_tides_tidecheck.py`, `_tides_openmeteo.py` — NOAA CO-OPS, the Canadian Hydrographic Service, Queensland's open data, the Hong Kong Observatory, TideCheck (needs `LINECAST_TIDECHECK_KEY`) and Open-Meteo, one `TideProvider` each, picked by station.
 - `_radar_sources.py`, `_radar_source.py`, `_radar_tiles.py` — IEM NEXRAD composites, RainViewer and LibreWXR, picked by location; `_radar_warnings.py` for the warning polygons; `_radar_layers.py` for the temperature and wind lattice from Open-Meteo.
-- `_vtiles.py` — OpenFreeMap vector tiles, decoded by `_mvt.py`; `_elevation.py` — the AWS terrain tiles; `_builtup.py` — the built-up raster; `_maps_search.py` — Photon and Nominatim; `_maps_route.py` — OSRM; `_globe_now.py` — the cloud mosaic.
+- `_vtiles.py` — OpenFreeMap vector tiles, the OpenStreetMap US Tileservice behind them, decoded by `_mvt.py`; `_elevation.py` — the AWS terrain tiles; `_builtup.py` — the built-up raster; `_maps_search.py` — Photon and Nominatim; `_maps_route.py` — OSRM; `_globe_now.py` — the cloud mosaic.
 
 The public signatures of these modules carry type annotations; the rest of the package mostly does not, by choice.
 

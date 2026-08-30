@@ -6,6 +6,9 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 - Radar: In India, the radar shows real echoes from IMD's Doppler network, by way of RainViewer's composite, instead of model precipitation.
 - Radar: The colour themes drawn in the terminal's own palette — terminal, dusk, ember, ink, marangai — now work where RainViewer supplies the radar, India included.
+- Location: IP geolocation and place-name search each have a second source now, asked when the usual one doesn't answer.
+- Maps: Street tiles fall back to the OpenStreetMap US Tileservice when OpenFreeMap doesn't answer; the credit line names whichever source drew the map.
+- Maps: `LINECAST_ELEVATION_URL` accepts a full tile URL template, for elevation hosts with their own path shape.
 - Moon: The disc is drawn at the tilt you would actually see, worked out from your latitude and where the Moon is in your sky, rather than being flipped over for everyone south of the equator. It turns through the night as the Moon rises and sets.
 - Moon: The lit edge now faces the Sun. It was drawn square to the Moon's poles before, which put it as much as a half turn out.
 - Moon: Phases, illumination and the Moon's age are worked out from where the Moon actually is, not from an average month. New and full moons now land within a quarter of an hour of the published times, where they could be most of a day out; the phase named on a given evening is the one the almanac names. Moonrise and moonset times improve with them.
