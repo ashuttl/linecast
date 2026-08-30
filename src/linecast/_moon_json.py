@@ -7,7 +7,7 @@ strings and missing values become None rather than raising.
 """
 
 import calendar
-from datetime import timedelta, timezone
+from datetime import timezone
 
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._sunshine_json import _iso, _local_timezone_name, _location_label
@@ -23,9 +23,12 @@ def build_payload(now_local, lat, lng, runtime, location=None):
     geocode lookup).
     """
     from linecast._moon_i18n import _moon_name
-    from linecast._tides_render import _moon_altitude_deg, _moon_azimuth_deg
+    from linecast._ephemeris import (
+        _moon_altitude_deg, _moon_azimuth_deg, moon_age_days,
+    )
     from linecast.moon import (
         HORIZON_THRESHOLD_DEG,
+        _next_phase_local,
         moon_illumination,
         upcoming_moon_events,
     )
@@ -34,7 +37,8 @@ def build_payload(now_local, lat, lng, runtime, location=None):
     idx, _name, icon = moon_phase(now_local, runtime)
     frac = moon_cycle_frac(now_local)
     illumination = moon_illumination(now_local) * 100.0
-    age_days = frac * SYNODIC_MONTH
+    moment_utc = now_local.astimezone(timezone.utc)
+    age_days = moon_age_days(moment_utc)
 
     rise, sset = upcoming_moon_events(now_local, lat, lng)
     events = [
@@ -45,17 +49,15 @@ def build_payload(now_local, lat, lng, runtime, location=None):
         )
     ]
 
-    days_to_full = ((0.5 - frac) % 1.0) * SYNODIC_MONTH
-    days_to_new = ((1.0 - frac) % 1.0) * SYNODIC_MONTH
-    full_dt = now_local + timedelta(days=days_to_full)
+    # The same searched moments the panel prints, so the two agree.
+    full_dt = _next_phase_local(moment_utc, 0.5, now_local)
     next_full = full_dt.date().isoformat()
-    next_new = (now_local + timedelta(days=days_to_new)).date().isoformat()
+    next_new = _next_phase_local(moment_utc, 0.0, now_local).date().isoformat()
 
     event, event_utc = next_season_event(now_local)
     event_kind = ("march_equinox", "june_solstice",
                   "september_equinox", "december_solstice")[event]
 
-    moment_utc = now_local.astimezone(timezone.utc)
     altitude = _moon_altitude_deg(moment_utc, lat, lng)
     azimuth = _moon_azimuth_deg(moment_utc, lat, lng)
 
