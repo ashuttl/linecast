@@ -349,6 +349,9 @@ def sunshine_parser():
                       "Solar arc inspired by the Apple Watch Solar face")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
+    p.add_argument("--year", action="store_true",
+                    help="year view: a column of sky for each day, with "
+                         "sunrise and sunset as the day/night boundary")
     _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")
