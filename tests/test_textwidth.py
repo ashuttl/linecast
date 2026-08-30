@@ -66,3 +66,50 @@ class TestWrappingRespectsMarks:
         # The cut falls before a column-bearing character, so a virama
         # never strands: the tail keeps its consonant's marks.
         assert out.endswith("र्…")
+
+
+class TestClusterCappedModel:
+    def setup_method(self):
+        from linecast import _textwidth
+        _textwidth.set_cluster_capped(True)
+
+    def teardown_method(self):
+        from linecast import _textwidth
+        _textwidth.set_cluster_capped(False)
+
+    def test_conjunct_with_matra_caps_at_two(self):
+        # वर्षा: व + the र्षा cluster, which sums to 3 but draws in 2
+        assert visible_len("वर्षा") == 3
+        # क्षेत्र: two conjunct clusters of 2 each
+        assert visible_len("क्षेत्र") == 4
+
+    def test_plain_syllables_unchanged(self):
+        assert visible_len("बिजली") == 5
+        assert visible_len("हैं") == 1
+        assert visible_len("तथा") == 3
+
+    def test_ascii_and_cjk_unchanged(self):
+        assert visible_len("hello") == 5
+        assert visible_len("中文") == 4
+        assert visible_len("\U0001f327") == 2
+
+    def test_default_model_adds_characters_up(self):
+        from linecast import _textwidth
+        _textwidth.set_cluster_capped(False)
+        assert visible_len("वर्षा") == 4
+        assert visible_len("क्षेत्र") == 4  # same either way: े is nonspacing
+
+
+class TestCalibration:
+    def test_cpr_parsing(self):
+        from linecast._textwidth import _cpr_width
+        assert _cpr_width("\033[12;3R") == 2
+        assert _cpr_width("\033[1;4R") == 3
+        assert _cpr_width("garbage\033[7;3Rtrailing") == 2
+        assert _cpr_width("\033[12R") is None
+        assert _cpr_width("") is None
+
+    def test_probe_is_a_noop_without_a_tty(self):
+        from linecast import _textwidth
+        _textwidth.calibrate_from_terminal(timeout_s=0.01)
+        assert _textwidth._CLUSTER_CAPPED is False
