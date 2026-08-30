@@ -736,7 +736,7 @@ def main():
     # Day and year keep separate scrub offsets, so flipping between them
     # returns to where each was left. The year view scrubs nothing: the
     # mouse hovers it instead.
-    state = {"year": year_mode, "minutes": 0}
+    state = {"year": year_mode, "minutes": 0, "palette": None}
 
     def _render_view(offset_minutes=0, mouse_pos=None, active_alert=None,
                      modal_scroll=0):
@@ -747,7 +747,7 @@ def main():
             return render_year(
                 lat, lng, _now(), runtime, tz=tz, fullscreen=live,
                 dst=dst, location_label=location_label,
-                mouse_pos=mouse_pos,
+                mouse_pos=mouse_pos, palette=state["palette"],
             )
         now = _now()
         if state["minutes"]:
@@ -794,6 +794,10 @@ def main():
     def _on_key(key):
         if key == "y":
             state["year"] = not state["year"]
+            return True
+        if key == "p" and state["year"]:
+            from linecast._sunshine_year import next_palette
+            state["palette"] = next_palette(state["palette"])
             return True
         return False
 

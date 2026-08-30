@@ -70,7 +70,7 @@ def _day_tz_offsets(year, days, tz):
 
 
 def _sky_color(elev, sun):
-    """Representative sky color for a moment with the sun at elev degrees.
+    """The day view's own sky, keyed by elevation alone.
 
     Low sun keeps the near-horizon palette (the warm sunrise band paints
     itself); high sun blends toward the zenith blue so midday doesn't
@@ -80,6 +80,89 @@ def _sky_color(elev, sun):
     zen = interp_stops(sun.SKY_ZENITH, elev)
     w = max(0.0, min(0.85, (elev - 3) / 30))
     return lerp(near, zen, w)
+
+
+def _dial_stops(sun):
+    """A ramp after the Apple Watch Solar Dial face.
+
+    The day view's sky is built around a warm horizon; here the warm
+    stop is a narrow seam at 0° and everything else is blue. Night is
+    navy rather than the bare background, twilight is slate, and full
+    day settles on a mid sky blue that never reaches white, so a long
+    polar summer reads as a calm field rather than a glare.
+    """
+    if sun.theme_legacy_mode:
+        return [
+            (-18, (12, 16, 40)),
+            (-12, (22, 30, 68)),
+            ( -8, (48, 62, 112)),
+            ( -5, (96, 82, 132)),
+            ( -2, (172, 118, 130)),
+            (  0, (208, 154, 140)),
+            (  2, (236, 190, 150)),
+            (  5, (190, 180, 178)),
+            (  8, (140, 170, 206)),
+            ( 12, (108, 160, 224)),
+            ( 18, (100, 156, 224)),
+            ( 30, (84, 144, 220)),
+            ( 90, (70, 132, 214)),
+        ]
+    bg_ = _theme.theme_bg
+    # The day view's blue may settle on ANSI cyan; the dial wants a blue.
+    sky = best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12]),
+                        minimum=1.8)
+    red, magenta, yellow = sun._SKY_RED, sun._SKY_MAGENTA, sun._SKY_YELLOW
+    white = sun._SKY_WHITE
+    slate = lerp_rgb(bg_, sky, 0.45)
+    rose = lerp_rgb(lerp_rgb(magenta, red, 0.30), slate, 0.25)
+    peach = lerp_rgb(lerp_rgb(yellow, red, 0.30), white, 0.35)
+    day = lerp_rgb(sky, white, 0.18)
+    return [
+        (-18, lerp_rgb(bg_, sky, 0.10)),
+        (-12, lerp_rgb(bg_, sky, 0.25)),
+        ( -8, slate),
+        ( -5, lerp_rgb(slate, magenta, 0.35)),
+        ( -2, rose),
+        (  0, lerp_rgb(rose, peach, 0.55)),
+        (  2, peach),
+        (  5, lerp_rgb(peach, day, 0.40)),
+        (  8, lerp_rgb(peach, day, 0.70)),
+        ( 12, lerp_rgb(day, white, 0.10)),
+        ( 18, day),
+        ( 30, lerp_rgb(sky, white, 0.10)),
+        ( 90, sky),
+    ]
+
+
+def _stops_shader(build):
+    def shader(sun):
+        stops = build(sun)
+        return lambda elev: interp_stops(stops, elev)
+    return shader
+
+
+# Named year palettes: each entry takes the sunshine module (whose colors
+# are rebuilt on theme reload) and returns elevation → RGB. "graph" is
+# the day view's sky folded onto elevation; the rest are ideas being
+# tried. Pick one with LINECAST_SUNSHINE_YEAR_PALETTE, or press p in the
+# live view to cycle.
+PALETTES = {
+    "graph": lambda sun: (lambda elev: _sky_color(elev, sun)),
+    "dial": _stops_shader(_dial_stops),
+}
+DEFAULT_PALETTE = "dial"
+
+
+def palette_name(name=None):
+    """Resolve a palette name: the argument, the environment, the default."""
+    import os
+    name = name or os.environ.get("LINECAST_SUNSHINE_YEAR_PALETTE", "")
+    return name if name in PALETTES else DEFAULT_PALETTE
+
+
+def next_palette(name):
+    names = list(PALETTES)
+    return names[(names.index(palette_name(name)) + 1) % len(names)]
 
 
 def _day_facts(lat, lng, doy, tz_off, sun):
@@ -104,9 +187,12 @@ def _fmt_len_delta(delta_hours):
 
 
 def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
-                dst=False, location_label="", mouse_pos=None):
+                dst=False, location_label="", mouse_pos=None,
+                palette=None):
     """Build the year-scale sky field display."""
     from linecast import sunshine as sun  # palettes, rebuilt on theme reload
+
+    shader = PALETTES[palette_name(palette)](sun)
 
     icons = sun._icon_set(runtime)
     cols, rows = get_terminal_size()
@@ -144,7 +230,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
             e = round(sun.sun_elevation(lat, lng, hour, doy, tzoff) * 4) / 4
             c = shade.get(e)
             if c is None:
-                c = shade[e] = _sky_color(e, sun)
+                c = shade[e] = shader(e)
             fb.fb[spy][x] = c
 
     # --- today's sun: a point on both axes ---
