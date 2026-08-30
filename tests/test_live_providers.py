@@ -128,6 +128,30 @@ def test_ipinfo_geolocation(failures):
     assert len(country or "") == 2
 
 
+@pytest.mark.parametrize("provider", ["ipwho.is", "GeoJS"])
+def test_geolocation_fallbacks(failures, provider):
+    # the second and third opinions, asked directly: get_location would
+    # only reach them with ipinfo down
+    from linecast._http import fetch_json
+    from linecast._location import PROVIDERS
+    _name, url, parse = next(p for p in PROVIDERS if p[0] == provider)
+    lat, lng, country = parse(
+        fetch_json(url, headers={"Accept": "application/json"}, timeout=10))
+    assert failures() == []
+    assert -90 <= lat <= 90 and -180 <= lng <= 180
+    assert len(country) == 2
+
+
+def test_photon_geocoder_fallback(failures):
+    # the geocoder's second source, asked directly: _geocode_query would
+    # only reach it with Open-Meteo down
+    from linecast._weather_sources import _photon_query
+    results = _photon_query("Westbrook, Maine")
+    assert failures() == []
+    assert any(r["admin1"] == "Maine" and r["country_code"] == "US"
+               for r in results)
+
+
 def test_nominatim_reverse(failures):
     from linecast._weather_sources import _reverse_geocode
     name, country, address = _reverse_geocode(*PORTLAND)
@@ -296,6 +320,26 @@ def test_openfreemap_tiles(failures):
     data = fetch_tile(*keys[0])
     assert failures() == []
     assert data, "empty or missing tile over Portland"
+
+
+def test_osmus_streets_fallback(failures):
+    # the street tiles' second source, asked directly: fetch_tile would
+    # only reach it with OpenFreeMap down
+    from linecast._http import MAX_BODY_BYTES, fetch_bytes, fetch_json, gunzip_limited
+    from linecast._mvt import decode_tile
+    from linecast._vtiles import FALLBACK_TILEJSON_URL, tiles_for_bbox
+    tj = fetch_json(FALLBACK_TILEJSON_URL, timeout=10)
+    template = tj["tiles"][0]
+    assert "{z}" in template
+    z, x, y = tiles_for_bbox(PORTLAND_BBOX, 10)[0]
+    url = (template.replace("{z}", str(z))
+           .replace("{x}", str(x)).replace("{y}", str(y)))
+    data = fetch_bytes(url, headers={"Accept-Encoding": "gzip"}, timeout=15)
+    if data[:2] == b"\x1f\x8b":
+        data = gunzip_limited(data, MAX_BODY_BYTES)
+    layers = decode_tile(data)
+    assert failures() == []
+    assert "water" in layers and "transportation" in layers
 
 
 def test_aws_terrain_tiles(failures):
