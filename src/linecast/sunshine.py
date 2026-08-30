@@ -11,8 +11,8 @@ in half-block characters with ANSI color at 2x vertical sub-pixel
 resolution (true color when available). Location is cached from IP
 geolocation (~1 network call per week).
 
-Usage: sunshine [--print] [--oneline] [--json] [--location PLACE] [--icons SET]
-                [--emoji] [--classic-colors]
+Usage: sunshine [--print] [--oneline] [--json] [--year] [--location PLACE]
+                [--icons SET] [--emoji] [--classic-colors]
 """
 
 import math
@@ -684,6 +684,23 @@ def main():
         return
 
     live = runtime.live
+
+    if getattr(args, "year", False):
+        from linecast._sunshine_year import render_year
+
+        def _render_year(offset_minutes=0, mouse_pos=None, active_alert=None,
+                         modal_scroll=0):
+            return render_year(
+                lat, lng, _now(), runtime, tz=tz, fullscreen=live,
+                cursor_day_offset=int(offset_minutes // 1440),
+            )
+
+        if live:
+            # Each wheel click or arrow key scrubs the cursor one day.
+            live_loop(_render_year, mouse=True, scroll_step=1440)
+        else:
+            print(_render_year())
+        return
 
     def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
         # mouse_pos/active_alert/modal_scroll are ignored; accepted so sunshine
