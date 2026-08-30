@@ -352,6 +352,10 @@ def sunshine_parser():
     p.add_argument("--year", action="store_true",
                     help="year view: a column of sky for each day, with "
                          "sunrise and sunset as the day/night boundary")
+    p.add_argument("--dst", action="store_true",
+                    help="in the year view, plot each day in its own UTC "
+                         "offset so clock changes show as steps (default: "
+                         "the location's current offset all year)")
     _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")

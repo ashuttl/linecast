@@ -4,7 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-- Sunshine: A year view (`--year`) draws a column of sky for each day of the year, sunrise and sunset appearing as the edge between night and day. A marker shows the current day and time; scrolling moves a cursor through the calendar, with that day's sunrise, sunset, and day length below.
+- Sunshine: A year view (`--year`) draws a column of sky for each day of the year, sunrise and sunset appearing as the edge between night and day. A marker shows the current day and time; scrolling moves a cursor through the calendar, with that day's sunrise, sunset, and day length below. In live mode, `y` switches between the day and the year.
 
 ## 2.1.0 — 2026-08-28
 

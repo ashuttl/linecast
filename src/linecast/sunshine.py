@@ -645,7 +645,8 @@ def main():
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
 
-    lat, lng, country = resolve_location(args.location, lang=runtime.lang)
+    lat, lng, country, label = resolve_location(
+        args.location, lang=runtime.lang, return_label=True)
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
@@ -686,31 +687,44 @@ def main():
         return
 
     live = runtime.live
+    year_mode = getattr(args, "year", False)
+    dst = getattr(args, "dst", False)
 
-    if getattr(args, "year", False):
-        from linecast._sunshine_year import render_year
+    location_label = ""
+    if year_mode or live:
+        # The year view names the place in a corner. The forward geocoder
+        # already labeled a place-name override; otherwise the (cached)
+        # reverse geocoder names the coordinates, as radar does.
+        location_label = label
+        if not location_label:
+            try:
+                from linecast._weather_sources import _reverse_geocode
+                location_label = _reverse_geocode(
+                    lat, lng, lang=runtime.lang)[0] or ""
+            except Exception:
+                location_label = ""
+        location_label = (location_label.split(",")[0].strip()
+                          or f"{lat:.2f},{lng:.2f}")
 
-        def _render_year(offset_minutes=0, mouse_pos=None, active_alert=None,
-                         modal_scroll=0):
+    # Day and year keep separate scrub offsets, so flipping between them
+    # returns to where each was left.
+    state = {"year": year_mode, "days": 0, "minutes": 0}
+
+    def _render_view(offset_minutes=0, mouse_pos=None, active_alert=None,
+                     modal_scroll=0):
+        # offset_minutes/mouse_pos/active_alert/modal_scroll are ignored;
+        # scrubbing is handled here (per mode) rather than by live_loop.
+        if state["year"]:
+            from linecast._sunshine_year import render_year
             return render_year(
                 lat, lng, _now(), runtime, tz=tz, fullscreen=live,
-                cursor_day_offset=int(offset_minutes // 1440),
+                cursor_day_offset=state["days"], dst=dst,
+                location_label=location_label,
             )
-
-        if live:
-            # Each wheel click or arrow key scrubs the cursor one day.
-            live_loop(_render_year, mouse=True, scroll_step=1440)
-        else:
-            print(_render_year())
-        return
-
-    def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
-        # mouse_pos/active_alert/modal_scroll are ignored; accepted so sunshine
-        # can use shared live_loop mouse-wheel scrubbing support.
         now = _now()
-        if offset_minutes:
+        if state["minutes"]:
             from datetime import timedelta
-            now = now + timedelta(minutes=offset_minutes)
+            now = now + timedelta(minutes=state["minutes"])
         doy = now.timetuple().tm_yday
         now_hour = now.hour + now.minute / 60 + now.second / 3600
         return render(
@@ -719,15 +733,45 @@ def main():
             doy,
             now_hour,
             fullscreen=live,
-            offset_minutes=offset_minutes,
+            offset_minutes=state["minutes"],
             runtime=runtime,
             tz_offset_h=_offset_hours(now),
         )
 
-    if live:
-        live_loop(_render, mouse=True)
-    else:
-        print(_render())
+    if not live:
+        print(_render_view())
+        return
+
+    # A wheel notch or arrow key scrubs a day of the year, or 15 minutes
+    # of the day, depending on the view; y flips between the two.
+    def _step(n):
+        if state["year"]:
+            state["days"] += n
+        else:
+            state["minutes"] += 15 * n
+        return True
+
+    def _intercept(action):
+        if action == "fwd":
+            return _step(1)
+        if action == "back":
+            return _step(-1)
+        if action == "reset":
+            state["days" if state["year"] else "minutes"] = 0
+            return True
+        return False
+
+    def _on_wheel(direction, _col, _row):
+        return _step(direction)
+
+    def _on_key(key):
+        if key == "y":
+            state["year"] = not state["year"]
+            return True
+        return False
+
+    live_loop(_render_view, mouse=True, intercept=_intercept,
+              on_wheel=_on_wheel, on_action=_on_key)
 
 if __name__ == "__main__":
     main()

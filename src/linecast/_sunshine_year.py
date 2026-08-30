@@ -5,9 +5,11 @@ midnight at the bottom). Every half-block sub-pixel takes a representative
 sky color for that day and time from the same elevation-keyed palette the
 daily view uses, so sunrise and sunset are never drawn: they emerge as the
 boundary where night gives way to the twilight gradient gives way to day.
-Times are wall-clock, so DST shows as cliffs in the band.
+By default the whole year is plotted in the location's current UTC offset,
+so the band stays smooth; with dst=True each day uses its own offset and
+the clock changes show as steps.
 
-A dotted hairline marks the day under the cursor (today until scrubbed);
+A dashed hairline marks the day under the cursor (today until scrubbed);
 the sun glyph sits at (today, now) — a point on both axes.
 """
 
@@ -22,10 +24,6 @@ from linecast._graphics import (
 from linecast._theme import darken
 
 _theme.track_imports(globals(), "linecast._color")
-
-# Dotted reference rows (local clock hours). Unlabeled on purpose: with
-# midnight at both edges the middle line can only be noon.
-_HOUR_LINES = (6, 12, 18)
 
 _MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
@@ -52,17 +50,18 @@ def _sky_color(elev, sun):
     """Representative sky color for a moment with the sun at elev degrees.
 
     Low sun keeps the near-horizon palette (the warm sunrise band paints
-    itself); high sun blends toward the zenith blue so midday doesn't
-    wash out to the near-white the horizon table ends in.
+    itself); once the sun is well up the color goes fully to the zenith
+    blue — the field shows the sky, not the sun, so daylight reads as a
+    light bright blue rather than the near-white the horizon table ends in.
     """
     near = interp_stops(sun.SKY_NEAR_HORIZON, elev)
     zen = interp_stops(sun.SKY_ZENITH, elev)
-    w = max(0.0, min(0.85, (elev - 3) / 30))
+    w = max(0.0, min(1.0, (elev - 3) / 25))
     return lerp(near, zen, w)
 
 
 def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
-                cursor_day_offset=0):
+                cursor_day_offset=0, dst=False, location_label=""):
     """Build the year-scale sky field display."""
     from linecast import sunshine as sun  # palettes, rebuilt on theme reload
 
@@ -75,7 +74,14 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
 
     year = now.year
     days = 366 if calendar.isleap(year) else 365
-    tz_offs = _day_tz_offsets(year, days, tz)
+    if dst:
+        tz_offs = _day_tz_offsets(year, days, tz)
+    else:
+        off = now.utcoffset()
+        if off is None:
+            off = datetime.now().astimezone().utcoffset()
+        off_h = off.total_seconds() / 3600 if off else 0.0
+        tz_offs = [off_h] * days
 
     today_doy = now.timetuple().tm_yday
     cursor_doy = max(1, min(days, today_doy + cursor_day_offset))
@@ -108,42 +114,35 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
                 else sun.SUN_GLOW_TWILIGHT_RGB)
     fb.draw_radial(x_today, spy_now, sun_warm, 5, peak_alpha=0.85)
 
-    # Cursor day hairline — dashed, drawn in the sub-pixel buffer itself so
-    # it never flattens a gradient cell. Light thread over night, dark
-    # thread over day.
-    x_cursor = max(0, min(graph_w - 1,
-                          int((cursor_doy - 0.5) / days * graph_w)))
-    for spy in range(total_spy):
-        if spy % 4:
-            continue
-        c = fb.fb[spy][x_cursor]
-        luma = 0.30 * c[0] + 0.59 * c[1] + 0.11 * c[2]
-        target = sun.CURVE_COLOR if luma < 130 else darken(c, 0.5)
-        fb.fb[spy][x_cursor] = lerp(c, target, 0.6)
-
-    # --- overlays: hour hairlines, sun glyph ---
+    # --- overlays: cursor hairline, location hint, sun glyph ---
     overlays = {}
 
-    # Dotted hour lines, fading into lit sky exactly as the daily view's
-    # horizon hairline does: they read against night, dissolve in day.
-    # An overlay char flattens its cell to one color, so gradient cells
-    # (twilight, and the cursor's dashes) are left alone.
-    for h in _HOUR_LINES:
-        row = max(0, min(graph_h - 1, int(h / 24 * graph_h)))
-        for dot_x in range(0, graph_w * 2, 3):
-            ci = dot_x // 2
-            if ci == x_cursor:
-                continue
-            top, bot = fb.fb[row * 2][ci], fb.fb[row * 2 + 1][ci]
-            if max(abs(a - b) for a, b in zip(top, bot)) > 12:
-                continue
-            cell = fb.cell_bg(ci, row)
-            lit = min(1.0, max(abs(a - b) for a, b in zip(cell, fb.bg)) / 40)
-            if lit >= 1.0:
-                continue
-            dot = 0x01 if dot_x % 2 == 0 else 0x08
-            overlays[(ci, row)] = (
-                chr(0x2800 + dot), lerp(sun.HORIZON_COLOR, cell, lit))
+    # Cursor day hairline — a braille stitch, one dash per cell, so it
+    # stays sharp. Light thread over night, dark thread over day. An
+    # overlay char flattens its cell to one color, so in gradient cells
+    # (the twilight band) the dash is drawn in the sub-pixel buffer
+    # instead, keeping the sunrise colors intact.
+    x_cursor = max(0, min(graph_w - 1,
+                          int((cursor_doy - 0.5) / days * graph_w)))
+    for row in range(graph_h):
+        top, bot = fb.fb[row * 2][x_cursor], fb.fb[row * 2 + 1][x_cursor]
+        cell = fb.cell_bg(x_cursor, row)
+        luma = 0.30 * cell[0] + 0.59 * cell[1] + 0.11 * cell[2]
+        color = sun.CURVE_COLOR if luma < 130 else darken(cell, 0.5)
+        if max(abs(a - b) for a, b in zip(top, bot)) <= 12:
+            overlays[(x_cursor, row)] = (chr(0x2800 + 0x02 + 0x10), color, False)
+        else:
+            spy = row * 2
+            fb.fb[spy][x_cursor] = lerp(fb.fb[spy][x_cursor], color, 0.6)
+
+    # Location hint, dim, in the top-right corner (December midnight — the
+    # darkest patch of sky the chart has).
+    if location_label:
+        label = location_label[:max(0, graph_w // 3)]
+        x0 = graph_w - len(label) - 1
+        for i, ch in enumerate(label):
+            if 0 <= x0 + i < graph_w:
+                overlays[(x0 + i, 0)] = (ch, sun.INFO_DIM_RGB, False)
 
     sun_row = max(0, min(graph_h - 1, int(spy_now) // 2))
     overlays[(x_today, sun_row)] = (icons["sun_char"], sun.SUN_CORE_RGB)
