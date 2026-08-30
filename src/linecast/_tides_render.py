@@ -13,6 +13,7 @@ from linecast._theme import (
     neutral_tone,
     surface_bg,
 )
+from linecast._runtime import log_failure
 from linecast._weather_i18n import FULL_DAY_NAMES
 from linecast._ephemeris import _moon_events_for_local_date
 from linecast.sunshine import daylight_factor as solar_daylight_factor, moon_phase
@@ -86,7 +87,8 @@ def compute_daylight_window(graph_w, window_start, total_hours, station_meta):
     try:
         lat = float(station_meta["lat"])
         tz_offset_h = float(station_meta["timezonecorr"])
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError) as exc:
+        log_failure("tides", "daylight window", exc, fallback="no night shading")
         return [1.0] * graph_w
 
     try:
@@ -136,14 +138,16 @@ def compute_moon_labels(window_start, total_hours, graph_w, station_meta, runtim
     try:
         lat = float(station_meta["lat"])
         lng = float(station_meta["lng"])
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError) as exc:
+        log_failure("tides", "moon labels", exc, fallback="labels omitted")
         return {}
 
     tzinfo = window_start.tzinfo
     if tzinfo is None:
         try:
             tzinfo = timezone(timedelta(hours=float(station_meta.get("timezonecorr"))))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as exc:
+            log_failure("tides", "moon labels", exc, fallback="labels omitted")
             return {}
         local_start = window_start.replace(tzinfo=tzinfo)
     else:

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from linecast import _theme
 from linecast._graphics import RESET, visible_len
-from linecast._runtime import WeatherRuntime, current_runtime, log_failure
+from linecast._runtime import WeatherRuntime, current_runtime, log_failure, log_skipped
 from linecast._weather_i18n import (
     DAY_NAMES, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s, _wmo_icons,
 )
@@ -255,13 +255,18 @@ def _precipitation_line(hourly, now, runtime=None):
 
     # Build window: (data_index, datetime) for next 24h
     window = []
+    dropped = 0
+    bad = None
     for i, t in enumerate(times):
         try:
             dt = datetime.fromisoformat(t)
             if dt >= current_hour:
                 window.append((i, dt))
-        except Exception:
+        except (TypeError, ValueError) as exc:
+            dropped += 1
+            bad = exc
             continue
+    log_skipped("weather/open-meteo", "hourly times", dropped, len(times), bad)
     window = [(i, dt) for i, dt in window if dt <= current_hour + timedelta(hours=24)]
     if len(window) < 2:
         return ""
@@ -338,10 +343,14 @@ def _past_precip_line(hourly, now, runtime):
     rain_hours = 0
     mix_hours = 0
 
+    dropped = 0
+    bad = None
     for i, t in enumerate(times):
         try:
             dt = datetime.fromisoformat(t)
-        except Exception:
+        except (TypeError, ValueError) as exc:
+            dropped += 1
+            bad = exc
             continue
         if dt < past_start or dt > current_hour:
             continue
@@ -357,6 +366,7 @@ def _past_precip_line(hourly, now, runtime):
                 mix_hours += 1
             else:
                 rain_hours += 1
+    log_skipped("weather/open-meteo", "hourly times", dropped, len(times), bad)
 
     if total_precip < (0.5 if runtime.metric else 0.01) and total_snow_cm < 0.1:
         return ""

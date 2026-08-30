@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from linecast import _theme
 from linecast._braille import build_braille_curve, interpolate
 from linecast._graphics import bg, fg, fmt_hour, fmt_time_dt, RESET, visible_len
-from linecast._runtime import WeatherRuntime, current_runtime
+from linecast._runtime import WeatherRuntime, current_runtime, log_skipped
 from linecast._i18n import lang_of
 from linecast._weather_i18n import FULL_DAY_NAMES, _s
 from linecast._weather_sources import _local_now_for_data
@@ -63,19 +63,25 @@ def _parse_sun_events(daily):
     events = []
     sunrises = daily.get("sunrise", [])
     sunsets = daily.get("sunset", [])
-    for i in range(max(len(sunrises), len(sunsets))):
+    total = max(len(sunrises), len(sunsets))
+    dropped = 0
+    bad = None
+    for i in range(total):
         rise = sunset = None
         try:
             if i < len(sunrises) and sunrises[i]:
                 rise = datetime.fromisoformat(sunrises[i])
-        except Exception:
-            pass
+        except (TypeError, ValueError) as exc:
+            dropped += 1
+            bad = exc
         try:
             if i < len(sunsets) and sunsets[i]:
                 sunset = datetime.fromisoformat(sunsets[i])
-        except Exception:
-            pass
+        except (TypeError, ValueError) as exc:
+            dropped += 1
+            bad = exc
         events.append((rise, sunset))
+    log_skipped("weather/open-meteo", "sun events", dropped, total * 2, bad)
     return events
 
 

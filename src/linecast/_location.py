@@ -124,7 +124,8 @@ def country_for_defaults(
     try:
         from linecast._weather_sources import _reverse_geocode
         _name, country, _addr = _reverse_geocode(lat, lng)
-    except Exception:
+    except Exception as exc:
+        log_failure("location/geocoder", "country lookup", exc, fallback="no country")
         return None
     return country or None
 

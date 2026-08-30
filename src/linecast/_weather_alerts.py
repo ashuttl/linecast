@@ -8,6 +8,7 @@ from linecast._graphics import bg, fg, visible_len, RESET, BOLD
 from linecast._textwidth import char_widths
 from linecast._theme import best_contrast
 from linecast._i18n import lang_of
+from linecast._runtime import log_failure
 from linecast._weather_i18n import DAY_NAMES, _s
 from linecast._weather_style import (
     ALERT_AMBER,
@@ -92,6 +93,8 @@ def _pill_text_rgb(bg_rgb):
 
 def _parse_alert_time(iso_str, runtime=None, tz_name=""):
     """Parse ISO time string to a short display string in local time."""
+    if not iso_str:
+        return ""
     try:
         dt = datetime.fromisoformat(iso_str)
         if tz_name and dt.tzinfo is not None:
@@ -104,7 +107,8 @@ def _parse_alert_time(iso_str, runtime=None, tz_name=""):
             return f"{day} {dt.strftime('%H:%M')}"
         from linecast._framebuffer import fmt_hour_phrase
         return f"{day} {fmt_hour_phrase(dt.hour)}"
-    except Exception:
+    except Exception as exc:
+        log_failure("weather/alerts", "alert time", exc, fallback="time omitted")
         return ""
 
 

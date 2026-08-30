@@ -15,6 +15,7 @@ from typing import Optional
 from linecast._cache import location_cache_key
 from linecast._http import fetch_json_cached
 from linecast._paths import cache_dir
+from linecast._runtime import log_skipped
 
 _HISTORY_YEARS = 10
 _CACHE_MAX_AGE = 7 * 86400  # 7 days — historical data doesn't change
@@ -98,12 +99,16 @@ def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages
     sum_precip = 0.0
     count = 0
 
+    dropped = 0
+    bad = None
     for i, t in enumerate(times):
         # times are "YYYY-MM-DD" strings
         try:
             parts = t.split("-")
             m, d = int(parts[1]), int(parts[2])
-        except (IndexError, ValueError):
+        except (IndexError, ValueError) as exc:
+            dropped += 1
+            bad = exc
             continue
 
         if m == month and d == day:
@@ -115,6 +120,7 @@ def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages
                 sum_lo += lo
                 sum_precip += (pr if pr is not None else 0)
                 count += 1
+    log_skipped("weather/climate", "daily dates", dropped, len(times), bad)
 
     if count == 0:
         return None

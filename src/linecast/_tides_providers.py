@@ -15,6 +15,7 @@ from linecast import _tides_noaa as noaa
 from linecast import _tides_openmeteo as openmeteo
 from linecast import _tides_qld as qld
 from linecast import _tides_tidecheck as tidecheck
+from linecast._runtime import log_failure
 
 # Full names for the state/territory abbreviations NOAA stations carry, so
 # queries like "portland maine" match "PORTLAND, ME".
@@ -350,7 +351,9 @@ class _OpenMeteo(TideProvider):
         try:
             from linecast._sunshine_json import _location_label
             return station_id, _location_label(lat, lng)
-        except Exception:
+        except Exception as exc:
+            log_failure("tides/open-meteo", "location label", exc,
+                        fallback='"Tide model"')
             return station_id, "Tide model"
 
     def station_metadata(self, station_id):

@@ -23,7 +23,7 @@ from linecast._radar_basemap import (
 from linecast._radar_i18n import rs
 from linecast._radar_render import _bbox_key
 from linecast._radar_sources import THEMES, is_local
-from linecast._runtime import use_metric
+from linecast._runtime import log_failure, use_metric
 from linecast._scenes import Memo
 from linecast._graphics import visible_len
 
@@ -211,7 +211,8 @@ def _fmt_expire(iso, use_24h):
         return None
     try:
         exp = _dt.datetime.fromisoformat(iso.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError) as exc:
+        log_failure("radar/warnings", "expiry time", exc, fallback="time omitted")
         return None
     return _fmt_local(exp, use_24h)
 

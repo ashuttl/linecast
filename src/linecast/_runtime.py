@@ -112,6 +112,21 @@ def log_failure(provider, operation, exc, url=None, fallback=None, trace=False):
         sys.stderr.write(_redact_urls_in_text(rendered))
 
 
+def log_skipped(provider, what, skipped, total, exc=None):
+    """One debug line when parsing dropped records a provider sent, with
+    the last exception standing in for the lot.  Nothing when nothing was
+    dropped, so a loop can count skips and call this unconditionally:
+    one bad record is a glitch, `40 of 40 skipped` is a schema change.
+    """
+    if not skipped or not _DEBUG:
+        return
+    tail = f"{skipped} of {total} skipped"
+    if exc is None:
+        debug_log(f"{provider}: parse of {what} failed -- {tail}")
+    else:
+        log_failure(provider, f"parse of {what}", exc, fallback=tail)
+
+
 def install_banner():
     """A one-line install hint shown when running from a temporary venv (get.sh)."""
     if not os.environ.get("LINECAST_TEMP"):

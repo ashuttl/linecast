@@ -23,7 +23,7 @@ from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
-from linecast._runtime import log_failure
+from linecast._runtime import log_failure, log_skipped
 from linecast._tides_common import (
     M_TO_FT, NEAREST_STATION_CACHE_MAX_AGE, cache_dir, cached_y_range,
     iana_to_abbr, parse_cached_dt, parse_utc_iso, tz_offset_hours,
@@ -159,8 +159,9 @@ def find_nearest_station_tidecheck(lat: float, lng: float
     try:
         if float(station.get("distanceKm", 0)) > 185:
             return None, None
-    except (TypeError, ValueError):
-        pass
+    except (TypeError, ValueError) as exc:
+        log_failure("tides/tidecheck", "distance check", exc,
+                    fallback="station accepted unchecked")
 
     station_id = str(station.get("id", ""))
     station_name = station.get("label") or station.get("name", "")
@@ -337,6 +338,7 @@ def fetch_hilo_range_tidecheck(
         return []
 
     labeled = []
+    bad = None
     for ex in extremes:
         try:
             dt_local = parse_utc_iso(ex.get("time", ""), station_tz)
@@ -351,8 +353,11 @@ def fetch_hilo_range_tidecheck(
             else:
                 typ = "H"  # default; will be corrected below
             labeled.append((dt_local, height_ft, typ))
-        except (KeyError, ValueError, TypeError):
+        except (KeyError, ValueError, TypeError) as exc:
+            bad = exc
             continue
+    log_skipped("tides/tidecheck", "extremes",
+                len(extremes) - len(labeled), len(extremes), bad)
 
     labeled.sort(key=lambda p: p[0])
 
@@ -377,12 +382,16 @@ def fetch_y_range_tidecheck(station_id: str, center_date: date,
         if not data:
             return None
         found = []
-        for ex in data.get("extremes", []):
+        extremes = data.get("extremes", [])
+        bad = None
+        for ex in extremes:
             try:
                 height = float(ex.get("height", 0))
                 found.append(_maybe_convert_height(height, data))
-            except (KeyError, ValueError, TypeError):
-                pass
+            except (KeyError, ValueError, TypeError) as exc:
+                bad = exc
+        log_skipped("tides/tidecheck", "y-range heights",
+                    len(extremes) - len(found), len(extremes), bad)
         return found
 
     return cached_y_range(cache_dir() / f"tc_yrange_{station_id}_{key}.json", heights)

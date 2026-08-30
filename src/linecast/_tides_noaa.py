@@ -11,7 +11,7 @@ from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
-from linecast._runtime import log_failure
+from linecast._runtime import log_failure, log_skipped
 from linecast._tides_common import (
     cache_dir, cached_y_range, month_after, month_start, nearest_station,
     station_coords, y_range_window,
@@ -165,6 +165,8 @@ def _fetch_prediction_rows(cache_file, url, row_builder):
         row = row_builder(prediction)
         if row is not None:
             rows.append(row)
+    log_skipped("tides/noaa", "prediction rows",
+                len(predictions) - len(rows), len(predictions))
     write_cache(cache_file, rows)
     return rows
 
@@ -356,11 +358,14 @@ def fetch_y_range(station_id: str, center_date: date) -> tuple[float, float] | N
                         fallback="auto-scaled axis")
             return None
         found = []
-        for prediction in (data.get("predictions", []) if data else []):
+        rows = data.get("predictions", []) if data else []
+        bad = None
+        for prediction in rows:
             try:
                 found.append(float(prediction["v"]))
-            except (KeyError, ValueError):
-                pass
+            except (KeyError, ValueError) as exc:
+                bad = exc
+        log_skipped("tides/noaa", "y-range heights", len(rows) - len(found), len(rows), bad)
         return found
 
     return cached_y_range(cache_dir() / f"yrange_{station_id}_{key}.json", heights)

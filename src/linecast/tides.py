@@ -204,9 +204,13 @@ def _station_tzinfo(meta):
             log_failure("tz", f"lookup of {zone_name}", exc, fallback="fixed offset")
 
     # Fallback: fixed offset from metadata (less precise around DST boundaries)
+    corr = meta.get("timezonecorr")
+    if corr is None:
+        return None
     try:
-        return timezone(timedelta(hours=float(meta.get("timezonecorr"))))
-    except Exception:
+        return timezone(timedelta(hours=float(corr)))
+    except (TypeError, ValueError, OverflowError) as exc:
+        log_failure("tz", "offset from metadata", exc, fallback="no timezone")
         return None
 
 
