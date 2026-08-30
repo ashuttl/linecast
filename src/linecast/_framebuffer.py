@@ -183,7 +183,9 @@ class Framebuffer:
         overlays: dict of {(col, cell_row): (char, fg_color)} for character overlays.
                   These replace the half-block at that position with a character
                   drawn in fg_color over the appropriate background.  A third
-                  tuple element False drops the default bold weight.
+                  tuple element False drops the default bold weight.  An
+                  empty char emits nothing for the cell: the slot a wide
+                  glyph in the cell before it already covers.
         Returns a list of strings, one per cell row.
         """
         if overlays is None:
@@ -199,6 +201,8 @@ class Framebuffer:
                 if key in overlays:
                     entry = overlays[key]
                     char, fg_color = entry[0], entry[1]
+                    if not char:
+                        continue
                     weight = BOLD if len(entry) < 3 or entry[2] else ""
                     # An overlay char covers the whole cell; blend the two
                     # sub-pixels so its background matches the cell center.

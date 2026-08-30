@@ -424,6 +424,28 @@ def moon_phase(dt, runtime=None):
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
+def corner_label_cells(label, graph_w):
+    """(x, char) overlay cells for a label right-aligned in the top row.
+
+    Laid out by cell width, so a double-width glyph takes two columns:
+    its own, and an empty one after it that the framebuffer skips.
+    Truncated to a third of the chart.
+    """
+    from linecast._textwidth import char_width
+    cells = []
+    used = 0
+    limit = max(0, graph_w // 3)
+    for ch in label:
+        w = char_width(ch)
+        if used + w > limit:
+            break
+        cells.append((used, ch))
+        cells.extend((used + k, "") for k in range(1, w))
+        used += w
+    x0 = graph_w - used - 1
+    return [(x0 + off, ch) for off, ch in cells if 0 <= x0 + off < graph_w]
+
+
 def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=None,
            tz_offset_h=None, location_label=""):
     """Build the complete multi-line solar arc display."""
@@ -573,15 +595,11 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     # anything from night to full daylight, so the hint darkens against a
     # lit cell rather than disappearing into it.
     if location_label:
-        hint_label = location_label[:max(0, graph_w // 3)]
-        hint_x0 = graph_w - len(hint_label) - 1
-        for i, ch in enumerate(hint_label):
-            x = hint_x0 + i
-            if 0 <= x < graph_w:
-                cell = fb.cell_bg(x, 0)
-                luma = 0.30 * cell[0] + 0.59 * cell[1] + 0.11 * cell[2]
-                color = INFO_DIM_RGB if luma < 130 else darken(cell, 0.55)
-                overlays[(x, 0)] = (ch, color, False)
+        for x, ch in corner_label_cells(location_label, graph_w):
+            cell = fb.cell_bg(x, 0)
+            luma = 0.30 * cell[0] + 0.59 * cell[1] + 0.11 * cell[2]
+            color = INFO_DIM_RGB if luma < 130 else darken(cell, 0.55)
+            overlays[(x, 0)] = (ch, color, False)
     sun_cell_row = sun_spy_i // 2
     overlays[(now_x, sun_cell_row)] = (icons["sun_char"], SUN_CORE_RGB)
     lines = fb.render(overlays)

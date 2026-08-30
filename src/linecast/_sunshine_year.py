@@ -180,16 +180,12 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     # sky at every latitude short of a polar summer, where it darkens
     # against the lit cell instead).
     if location_label:
-        label = location_label[:max(0, graph_w // 3)]
-        x0 = graph_w - len(label) - 1
-        for i, ch in enumerate(label):
-            x = x0 + i
-            if 0 <= x < graph_w:
-                cell = fb.cell_bg(x, 0)
-                luma = 0.30 * cell[0] + 0.59 * cell[1] + 0.11 * cell[2]
-                color = (sun.INFO_DIM_RGB if luma < 130
-                         else darken(cell, 0.55))
-                overlays[(x, 0)] = (ch, color, False)
+        for x, ch in sun.corner_label_cells(location_label, graph_w):
+            cell = fb.cell_bg(x, 0)
+            luma = 0.30 * cell[0] + 0.59 * cell[1] + 0.11 * cell[2]
+            color = (sun.INFO_DIM_RGB if luma < 130
+                     else darken(cell, 0.55))
+            overlays[(x, 0)] = (ch, color, False)
 
     sun_row = max(0, min(graph_h - 1, int(spy_now) // 2))
     overlays[(x_today, sun_row)] = (icons["sun_char"], sun.SUN_CORE_RGB)
