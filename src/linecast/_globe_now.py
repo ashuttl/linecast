@@ -10,36 +10,29 @@ hour) keeps a long-running view honest without ever playing frames.
 Clouds ride the LibreWXR global infrared mosaic that already feeds the
 radar view's satellite layer: alpha is cloud opacity, coverage runs to
 about the 72nd parallels, and the newest frame trails real time by an
-hour or two.  Poleward of the geostationary ring a coarse Open-Meteo
-cloud-cover lattice stands in — model, not satellite, the same trade
-the radar view makes where no radar reaches — seeding in where the
-mosaic's own feathered edge fades out, so a pole-centred globe
-doesn't wear a moat of suspiciously clear sky.  The lattice is smooth
-and bright where the mosaic is grainy and measured, so it is not
-drawn as itself: value noise anchored to the graticule breaks its
-cover into granules at the mosaic's own scale, its full deck is held
-to the white the mosaic actually paints, and the hand-off is a
-dithered cross-fade — granules sparse at the feather, closing to the
-model's cover over a few degrees, along a border that wanders instead
-of running along a parallel.  The change of source should never read
-as a change of material.  Daylight is astronomy — the subsolar
+hour or two.  Poleward of the geostationary ring nothing sees at all,
+so the mosaic is continued rather than replaced: fractal noise
+generated on the sphere itself — Photoshop's old Clouds filter, bent
+around a globe so the pole holds no pinch and the antimeridian no
+seam — is developed against the mosaic's own last healthy ring,
+sector of longitude by sector, cloudy where the ring is cloudy, clear
+where it is clear, at the white the ring actually paints.  Invented
+weather, deliberately: nobody reads a forecast off the top of the
+planet, and a cap that belongs to the picture beats a truthful hole
+in it.  Daylight is astronomy — the subsolar
 point from the clock and a civil-twilight ramp — and night dims to a
 readable blue rather than black, because a map you cannot read is not
 a map.  Cities burn through the dark side, graded by population: the
 basemap's own registry doing its best Black Marble.
 """
 
-import datetime
 import math
 import threading
 import time
 
 from linecast import _radar_tiles as tiles
-from linecast._cache import read_cache, read_stale, write_cache
 from linecast._geo import wrap_lon
 from linecast._globe import _radius, _source_zoom, bilinear_taps, forward
-from linecast._http import fetch_json
-from linecast._paths import cache_dir
 from linecast._png import decode_rgba
 from linecast._radar_basemap import _load_data
 from linecast._runtime import log_failure
@@ -47,121 +40,110 @@ from linecast._scenes import Memo
 from linecast._theme import themed
 from linecast.sunshine import _declination
 
-ATTRIBUTION = "Clouds: LibreWXR + Open-Meteo · CC BY 4.0"
+ATTRIBUTION = "Clouds: LibreWXR · CC BY 4.0"
 
 # the mosaic ends at the mercator tile edge, like the elevation canvas
 _CLOUD_BBOX = (-180.0, -85.05, 180.0, 85.05)
 _REFRESH_S = 300     # trust a fetched index this long before re-asking
 
-# polar cap lattice: rings of Open-Meteo cloud cover poleward of the
-# mosaic, one point at each pole.  Coarse on purpose — at planet scale
-# a whole cap is a hundred pixels — and hourly, so one fetch a quarter
-# of a day keeps a long-running view honest.
-_CAP_LATS = [72.0, 76.0, 80.0, 84.0, 88.0]
-_CAP_NLON = 12
-_CAP_TTL = 6 * 3600
-# the mosaic's alpha feathers to nothing by about the 72.6th parallels
-# (measured; the ring's horizon, softened upstream).  The model's
-# granules start seeding where the feather starts, but the deck closes
-# slowly — density carries the fade, not opacity, and the model's full
-# cover waits until _CAP_FULL — because a dithered cross-fade reads as
-# weather thickening while an opacity ramp pinned to the feather reads
-# as a fog bank with a straight edge
-_CAP_FADE0, _CAP_FULL = 70.0, 76.0
+# the mosaic's alpha feathers to nothing between about the 70th and
+# 72.6th parallels (measured; the ring's horizon, softened upstream).
+# The cap's billows seed in from just below the feather and close to
+# the ring's own cover right where it dies, so the two sources overlap
+# and their max() never dips between them
+_CAP_FADE0, _CAP_FULL = 68.5, 72.0
 # how far the noise lets that band wander off its parallels: a border
 # drawn at one exact latitude is the first thing the eye finds
 _CAP_WOBBLE = 1.6
-# and how far a slow swell (one wave in ~30° of longitude) carries the
-# whole band: granule-scale wobble hides the edge up close, but a
-# front that averages the same latitude all the way around the planet
-# still gives itself away at planet zoom
-_CAP_SWELL = 4.0
-# the model's full deck when the mosaic offers no measure of its own
+# the deck's white when the mosaic offers no measure of its own
 _CAP_WHITE = 0.7
+# the ring's cloudiness is measured into this many longitude sectors;
+# poleward of _CAP_BLEND0 the cap settles toward the ring's mean,
+# because at the pole every longitude is the same place
+_CAP_SECT = 48
+_CAP_BLEND0 = 78.0
 
-# the granule scales, weights, and lon lattice sizes of the noise that
-# textures the cap: two octaves near the size the mosaic's own pixels
-# paint at planet zoom, the lattice counts chosen so longitude wraps
-# without a seam at the antimeridian
-_NOISE_OCTAVES = ((3.0, 0.65, 120), (1.2, 0.35, 300))
+# the fBm octaves (frequency over the unit sphere, weight): billow
+# scales near what the mosaic's own pixels paint at planet zoom
+_NOISE_OCTAVES = ((11.0, 0.5), (23.0, 0.3), (47.0, 0.2))
 
 
-def _lattice(ix, iy):
+def _lattice(ix, iy, iz):
     """A stable pseudo-random 0..1 for one noise lattice point."""
-    h = (ix * 374761393 + iy * 668265263) & 0xFFFFFFFF
+    h = (ix * 374761393 + iy * 668265263 + iz * 2246822519) & 0xFFFFFFFF
     h = ((h ^ (h >> 13)) * 1274126177) & 0xFFFFFFFF
     return ((h ^ (h >> 16)) & 0xFFFF) / 65535.0
 
 
-def _noise(lat, lon):
-    """Granular value noise 0..1, anchored to the graticule.
+def _fbm(lat, lon):
+    """Fractal cloud noise 0..1 at one point of the sphere.
 
-    Deterministic on purpose: the granules stay put under a drag and
-    from one repaint to the next — weather, not static.
+    Value noise summed over octaves of the point's position in space,
+    not of its coordinates: the texture owns no graticule, so the pole
+    wears billows like everywhere else instead of the pinch every flat
+    anchoring makes, and the antimeridian is nowhere.  Deterministic
+    on purpose: the billows stay put under a drag and from one repaint
+    to the next — weather, not static.
     """
+    phi, lam = math.radians(lat), math.radians(lon)
+    cp = math.cos(phi)
+    x = cp * math.cos(lam) + 1.0
+    y = cp * math.sin(lam) + 1.0
+    z = math.sin(phi) + 1.0
     n = 0.0
-    floor = math.floor
-    for cell, weight, cells in _NOISE_OCTAVES:
-        fx = (lon + 180.0) / cell
-        fy = (lat + 90.0) / cell
-        ix, iy = floor(fx), floor(fy)
-        tx, ty = fx - ix, fy - iy
+    for freq, weight in _NOISE_OCTAVES:
+        fx, fy, fz = x * freq, y * freq, z * freq
+        ix, iy, iz = int(fx), int(fy), int(fz)
+        tx, ty, tz = fx - ix, fy - iy, fz - iz
         tx = tx * tx * (3.0 - 2.0 * tx)
         ty = ty * ty * (3.0 - 2.0 * ty)
-        ix %= cells
-        x1 = (ix + 1) % cells
-        top = _lattice(ix, iy) + (_lattice(x1, iy) - _lattice(ix, iy)) * tx
-        bot = (_lattice(ix, iy + 1)
-               + (_lattice(x1, iy + 1) - _lattice(ix, iy + 1)) * tx)
-        n += (top + (bot - top) * ty) * weight
+        tz = tz * tz * (3.0 - 2.0 * tz)
+        e = _lattice(ix, iy, iz)
+        e += (_lattice(ix + 1, iy, iz) - e) * tx
+        f = _lattice(ix, iy + 1, iz)
+        f += (_lattice(ix + 1, iy + 1, iz) - f) * tx
+        near = e + (f - e) * ty
+        e = _lattice(ix, iy, iz + 1)
+        e += (_lattice(ix + 1, iy, iz + 1) - e) * tx
+        f = _lattice(ix, iy + 1, iz + 1)
+        f += (_lattice(ix + 1, iy + 1, iz + 1) - f) * tx
+        far = e + (f - e) * ty
+        n += (near + (far - near) * tz) * weight
     return n
 
 
 # the noise, tabulated: clouds() runs for every sub-pixel of every
-# drag frame, so per sample the texture must cost a lookup, not eight
-# hashes.  The generator is sampled once onto a 0.4° ring of the
-# polar band — finer than its smallest granule — and read back
-# bilinearly.  Indexed by |lat|: the caps share a pattern no view can
-# see both of.  Built on first need; refresh() warms it off the paint
-# path.  A concurrent build is benign — both threads compute the same
-# deterministic table.
-_NOISE_STEP = 0.4
+# drag frame, so per sample the texture must cost a lookup, not two
+# dozen hashes.  The generator is sampled once onto a half-degree ring
+# of the polar band — finer than its smallest billow — and read back
+# bilinearly; the table stores a field that is smooth on the sphere,
+# so reading it through the graticule reintroduces no pinch.  Indexed
+# by |lat|: the caps share a pattern no view can see both of.  Built
+# on first need; refresh() warms it off the paint path.  A concurrent
+# build is benign — both threads compute the same deterministic table.
+_NOISE_STEP = 0.5
 _NOISE_LAT0 = 66.0
 _NOISE_COLS = int(360.0 / _NOISE_STEP)  # divides evenly: lon wraps
 _NOISE_ROWS = int((90.0 - _NOISE_LAT0) / _NOISE_STEP) + 1
 _noise_table = None
-_swell_table = None
 
 
 def _noise_grid():
-    global _noise_table, _swell_table
+    global _noise_table
     if _noise_table is None:
-        raw = [_noise(_NOISE_LAT0 + r * _NOISE_STEP,
-                      -180.0 + k * _NOISE_STEP)
+        raw = [_fbm(_NOISE_LAT0 + r * _NOISE_STEP,
+                    -180.0 + k * _NOISE_STEP)
                for r in range(_NOISE_ROWS)
                for k in range(_NOISE_COLS)]
         # rank-flattened: interpolated value noise pools around its
-        # mean, which would squeeze every granule threshold into a
-        # narrow band of latitudes.  Spread evenly, cover maps to
-        # granule density one for one and the cross-fade actually
-        # spans its degrees.
+        # mean, which would squeeze every billow threshold into a
+        # narrow band.  Spread evenly, cover maps to billow density
+        # one for one.
         table = [0.0] * len(raw)
         last = len(raw) - 1.0
         for rank, i in enumerate(sorted(range(len(raw)),
                                         key=raw.__getitem__)):
             table[i] = rank / last
-        # the swell: a twelve-point ring of its own, smoothed, giving
-        # the fade band one slow wave of latitude per 30° of longitude
-        ring = [_lattice(i, -7) for i in range(12)]
-        swell = []
-        for k in range(_NOISE_COLS):
-            f = k * 12.0 / _NOISE_COLS
-            i0 = int(f)
-            tx = f - i0
-            tx = tx * tx * (3.0 - 2.0 * tx)
-            v = ring[i0] + (ring[(i0 + 1) % 12] - ring[i0]) * tx
-            swell.append((v - 0.5) * _CAP_SWELL)
-        _swell_table = swell
         _noise_table = table
     return _noise_table
 
@@ -277,8 +259,8 @@ def flat_lls(bbox, w, h):
 
 
 _cloud_lock = threading.Lock()
-_cloud = {"stamp": None, "canvas": None, "checked": 0.0, "cap": None,
-          "white": None}
+_cloud = {"stamp": None, "canvas": None, "checked": 0.0, "white": None,
+          "cover": None}
 
 
 def _mosaic_white(canvas):
@@ -308,95 +290,41 @@ def _mosaic_white(canvas):
     return min(0.85, max(0.5, total / count / 255.0))
 
 
-def _fetch_cap(timeout):
-    """One request for both caps: hourly cover at every lattice point."""
-    pts = []
-    for sign in (1.0, -1.0):
-        for alat in _CAP_LATS:
-            for k in range(_CAP_NLON):
-                pts.append((sign * alat, -180.0 + k * 360.0 / _CAP_NLON))
-        pts.append((sign * 90.0, 0.0))
-    lat_q = ",".join(f"{lat:.1f}" for lat, _ in pts)
-    lon_q = ",".join(f"{lon:.1f}" for _, lon in pts)
-    url = ("https://api.open-meteo.com/v1/forecast"
-           f"?latitude={lat_q}&longitude={lon_q}"
-           "&hourly=cloud_cover&forecast_days=2&timezone=UTC")
-    results = fetch_json(url, timeout=timeout)
-    if isinstance(results, dict):
-        results = [results]
-    cover = [[x if x is not None else 0.0
-              for x in p["hourly"]["cloud_cover"]] for p in results]
-    return {"times": results[0]["hourly"]["time"], "cover": cover}
+def _ring_cover(canvas, white):
+    """The ring's cloudiness by longitude sector, per hemisphere.
 
-
-def _refresh_cap(timeout):
-    """Bring the polar lattice up to date.  Returns True when it changed.
-
-    Same fallback posture as the mosaic: a stale lattice on a network
-    failure beats a clear pole that isn't.
+    Mean alpha over the last band the mosaic sees whole, folded by
+    `white` into the cover fraction the cap continues poleward: a
+    cloudy sector gets a cloudy cap, a clear sector a clear one, and
+    the hand-off matches by construction.  {northern: (sectors, mean)}
+    with a smoothing pass so no sector edge ever lands in the picture;
+    None when the canvas is too empty to say.
     """
-    cpath = cache_dir("maps", "polar_clouds.json")
-    payload = read_cache(cpath, _CAP_TTL)
-    if payload is None:
-        try:
-            payload = _fetch_cap(timeout)
-            write_cache(cpath, payload)
-        except Exception as exc:
-            payload = read_stale(cpath)
-            log_failure("maps/clouds", "polar cap fetch", exc, url="api.open-meteo.com",
-                        fallback="stale cache" if payload is not None else "no polar cap")
-    if payload is None or payload == _cloud.get("cap"):
-        return False
-    with _cloud_lock:
-        _cloud["cap"] = payload
-    return True
-
-
-def _cap_grids():
-    """Per-hemisphere cover rings for this hour, or None.
-
-    {northern: [ring][lon_idx]} in cover fraction 0..1, the pole's
-    single point widened into a ring of its own so bilinear sampling
-    needs no special case at 90°.
-    """
-    cap = _cloud.get("cap")
-    if cap is None:
-        return None
-    now = datetime.datetime.now(datetime.timezone.utc)
-    times = [datetime.datetime.fromisoformat(t).replace(
-        tzinfo=datetime.timezone.utc) for t in cap["times"]]
-    t = min(range(len(times)),
-            key=lambda i: abs((times[i] - now).total_seconds()))
-    per, block = _CAP_NLON, len(_CAP_LATS) * _CAP_NLON + 1
-    grids = {}
-    for northern, base in ((True, 0), (False, block)):
-        rings = [[cap["cover"][base + r * per + k][t] / 100.0
-                  for k in range(per)] for r in range(len(_CAP_LATS))]
-        rings.append([cap["cover"][base + block - 1][t] / 100.0] * per)
-        grids[northern] = rings
-    return grids
-
-
-def _cap_cover(grids, lat, lon):
-    """Bilinear cover fraction at a point, lon wrapping, lat clamped."""
-    rings = grids[lat > 0]
-    ring_lats = _CAP_LATS
-    alat = min(abs(lat), 90.0)
-    r = len(ring_lats) - 1
-    for i in range(len(ring_lats) - 1):
-        if alat <= ring_lats[i + 1]:
-            r = i
-            break
-    span = (90.0 if r == len(ring_lats) - 1 else ring_lats[r + 1]) \
-        - ring_lats[r]
-    ty = max(0.0, min(1.0, (alat - ring_lats[r]) / span))
-    fx = (lon + 180.0) % 360.0 / (360.0 / _CAP_NLON)
-    k0 = int(fx) % _CAP_NLON
-    k1 = (k0 + 1) % _CAP_NLON
-    tx = fx - int(fx)
-    top = rings[r][k0] + (rings[r][k1] - rings[r][k0]) * tx
-    bot = rings[r + 1][k0] + (rings[r + 1][k1] - rings[r + 1][k0]) * tx
-    return top + (bot - top) * ty
+    buf, cw, ch, org_x, org_y, world = canvas
+    out = {}
+    for northern, sign in ((True, 1.0), (False, -1.0)):
+        sums = [0.0] * _CAP_SECT
+        counts = [0] * _CAP_SECT
+        for k in range(12):
+            sn = math.sin(math.radians(sign * (63.5 + k * 0.5)))
+            y = int((0.5 - math.log((1 + sn) / (1 - sn))
+                     / (4 * math.pi)) * world - org_y)
+            if not 0 <= y < ch:
+                continue
+            base = y * cw * 4
+            for x in range(cw):
+                s = int((x + org_x + 0.5) * _CAP_SECT / world) % _CAP_SECT
+                sums[s] += buf[base + x * 4 + 3]
+                counts[s] += 1
+        if sum(counts) < 200:
+            return None
+        mean = [sums[i] / counts[i] / 255.0 if counts[i] else 0.0
+                for i in range(_CAP_SECT)]
+        mean = [(mean[i - 1] + 2 * mean[i] + mean[(i + 1) % _CAP_SECT]) / 4
+                for i in range(_CAP_SECT)]
+        cov = [min(1.0, m / white) for m in mean]
+        out[northern] = (cov, sum(cov) / _CAP_SECT)
+    return out
 
 
 def _provider():
@@ -422,7 +350,6 @@ def refresh(zoom, h, timeout=15):
     never dropped on failure — stale clouds over a live terminator beat
     no clouds at all.
     """
-    cap_changed = _refresh_cap(timeout)
     _noise_grid()  # warmed here, off the paint path
     prov = _provider()
     idx = tiles.fetch_index(prov, timeout)
@@ -430,13 +357,13 @@ def refresh(zoom, h, timeout=15):
     with _cloud_lock:
         _cloud["checked"] = time.time()
     if not frames:
-        return cap_changed
+        return False
     z = _source_zoom(zoom, h)
     path = frames[-1]["path"]
     host = idx["host"]
     with _cloud_lock:
         if _cloud["stamp"] == (path, z) and _cloud["canvas"] is not None:
-            return cap_changed
+            return False
 
     def fetch(z_, x, y):
         data = tiles._fetch_tile(prov, host, path, z_, x, y, timeout)
@@ -451,10 +378,12 @@ def refresh(zoom, h, timeout=15):
 
     canvas = tiles.stitch_xyz(fetch, _CLOUD_BBOX, z)
     white = _mosaic_white(canvas)
+    cover = _ring_cover(canvas, white or _CAP_WHITE)
     with _cloud_lock:
         _cloud["stamp"] = (path, z)
         _cloud["canvas"] = canvas
         _cloud["white"] = white
+        _cloud["cover"] = cover
     return True
 
 
@@ -463,26 +392,23 @@ def clouds(lls, canvas):
 
     Alpha 0 is clear sky and no-data alike, which is the honest merge
     equatorward: where the mosaic is dark, the sky is clear.  Poleward
-    the model lattice takes over, smoothstepped in across the band
-    where the mosaic's own edge feathers away, and the two are merged
-    with max() — whichever source sees cloud there, cloud is drawn.
-
-    The lattice arrives as smooth cover fractions on a coarse grid;
-    drawn straight, that is an airbrush over a photograph.  So the
-    noise granulates it — cover decides what fraction of granules are
-    cloud, a full deck going solid and a clear sky staying empty — the
-    granule the sample falls in modulates its brightness, capped by
-    the white the mosaic itself paints, and the fade is the granules
-    seeding in, sparse at the feather and closed by _CAP_FULL, along
-    a border the same noise wobbles off its parallels.
+    the cap takes over: the sphere's fractal noise, developed against
+    the ring's measured cover.  A sector's cloudiness decides what
+    fraction of its billows are cloud — a cloudy ring closing to a
+    deck, a clear one staying clear — the billow a sample falls in
+    grades its brightness under the ring's own white, and the two
+    sources merge with max() across an overlapping fade, so neither
+    edge ever shows.  The same noise wobbles the fade band off its
+    parallels.
     """
     buf = canvas[0]
-    grids = _cap_grids()
-    noise = _noise_grid() if grids is not None else None
+    cover = _cloud.get("cover")
+    noise = _noise_grid() if cover is not None else None
     white = _cloud.get("white") or _CAP_WHITE
-    edge0 = _CAP_FADE0 - (_CAP_WOBBLE + _CAP_SWELL) / 2
+    edge0 = _CAP_FADE0 - _CAP_WOBBLE / 2
     fade = _CAP_FULL - _CAP_FADE0
-    swell = _swell_table
+    sect_w = 360.0 / _CAP_SECT
+    blend = 90.0 - _CAP_BLEND0
     cols, rows = _NOISE_COLS, _NOISE_ROWS
     out = []
     for row in lls:
@@ -495,7 +421,7 @@ def clouds(lls, canvas):
             a = ((buf[j00 + 3] * (1 - tx) + buf[j01 + 3] * tx) * (1 - ty)
                  + (buf[j10 + 3] * (1 - tx) + buf[j11 + 3] * tx) * ty) / 255.0
             alat = ll[0] if ll[0] > 0.0 else -ll[0]
-            if grids is not None and alat > edge0:
+            if cover is not None and alat > edge0:
                 fx = (ll[1] + 180.0) % 360.0 / _NOISE_STEP
                 fy = (alat - _NOISE_LAT0) / _NOISE_STEP
                 x0 = int(fx)
@@ -511,20 +437,30 @@ def clouds(lls, canvas):
                 top += (noise[b0 + x1] - top) * nx
                 bot = noise[b1 + x0]
                 bot += (noise[b1 + x1] - bot) * nx
-                n = top + (bot - top) * ny
-                t = (alat + swell[x0] + (n - 0.5) * _CAP_WOBBLE
-                     - _CAP_FADE0) / fade
+                v = top + (bot - top) * ny
+                t = (alat + (v - 0.5) * _CAP_WOBBLE - _CAP_FADE0) / fade
                 if t > 0.0:
                     if t > 1.0:
                         t = 1.0
-                    t = t * t * (3.0 - 2.0 * t)
-                    c = _cap_cover(grids, ll[0], ll[1]) * t
-                    u = (n - 1.0 + 1.5 * c) * 2.0
+                    ring, mean = cover[ll[0] > 0.0]
+                    f = ((ll[1] + 180.0) / sect_w
+                         + _CAP_SECT - 0.5) % _CAP_SECT
+                    s0 = int(f)
+                    c = ring[s0] + (ring[(s0 + 1) % _CAP_SECT]
+                                    - ring[s0]) * (f - s0)
+                    w = (alat - _CAP_BLEND0) / blend
+                    if w > 0.0:
+                        w = w * w * (3.0 - 2.0 * w)
+                        c += (mean - c) * w
+                    c *= t
+                    u = (v - 1.0 + 1.5 * c) * 2.0
                     if u > 0.0:
                         if u > 1.0:
                             u = 1.0
                         u = u * u * (3.0 - 2.0 * u)
-                        a = max(a, u * white * (0.65 + 0.5 * n))
+                        m = u * white * (0.55 + 0.7 * v)
+                        if m > a:
+                            a = m if m < 1.0 else 1.0
             o.append(a)
         out.append(o)
     return out

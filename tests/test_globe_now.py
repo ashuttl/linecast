@@ -161,7 +161,6 @@ class TestRefresh:
         tiles = _globe_now.tiles
         monkeypatch.setattr(_globe_now, "_cloud",
                             {"stamp": None, "canvas": None, "checked": 0.0})
-        monkeypatch.setattr(_globe_now, "_refresh_cap", lambda t: False)
         monkeypatch.setattr(tiles, "fetch_index",
                             lambda prov, timeout=15: self._index(["/v2/s/1"]))
         monkeypatch.setattr(tiles, "_fetch_tile", lambda *a, **k: None)
@@ -174,87 +173,90 @@ class TestRefresh:
         tiles = _globe_now.tiles
         monkeypatch.setattr(_globe_now, "_cloud",
                             {"stamp": None, "canvas": None, "checked": 0.0})
-        monkeypatch.setattr(_globe_now, "_refresh_cap", lambda t: False)
         monkeypatch.setattr(tiles, "fetch_index",
                             lambda prov, timeout=15: {"host": "h"})
         assert _globe_now.refresh(130.0, 208) is False
         assert _globe_now.peek() is None
 
-    def test_fresh_polar_lattice_alone_repaints(self, monkeypatch):
-        # no new mosaic frame, but the cap changed: worth a repaint
-        tiles = _globe_now.tiles
-        monkeypatch.setattr(_globe_now, "_cloud",
-                            {"stamp": None, "canvas": None, "checked": 0.0})
-        monkeypatch.setattr(_globe_now, "_refresh_cap", lambda t: True)
-        monkeypatch.setattr(tiles, "fetch_index",
-                            lambda prov, timeout=15: {"host": "h"})
-        assert _globe_now.refresh(130.0, 208) is True
-
 
 class TestPolarCap:
-    def _cap(self, north=100.0, south=0.0):
-        """A one-hour lattice: solid deck up north, clear down south."""
-        n_ring = len(_globe_now._CAP_LATS)
-        block = n_ring * _globe_now._CAP_NLON + 1
-        return {"times": ["2026-08-23T00:00"],
-                "cover": [[north]] * block + [[south]] * block}
-
-    def test_cover_interpolates_and_clamps(self, monkeypatch):
-        monkeypatch.setitem(_globe_now._cloud, "cap", self._cap())
-        grids = _globe_now._cap_grids()
-        assert _globe_now._cap_cover(grids, 90.0, 0.0) == 1.0
-        assert _globe_now._cap_cover(grids, 71.0, 123.0) == 1.0  # clamped
-        assert _globe_now._cap_cover(grids, -80.0, 45.0) == 0.0
+    def _cover(self, north=1.0, south=0.0):
+        """Ring cover: a solid deck up north, clear skies down south."""
+        n = [north] * _globe_now._CAP_SECT
+        s = [south] * _globe_now._CAP_SECT
+        return {True: (n, north), False: (s, south)}
 
     def test_clouds_fill_the_cap_and_fade_at_the_edge(self, monkeypatch):
-        monkeypatch.setitem(_globe_now._cloud, "cap", self._cap())
+        monkeypatch.setitem(_globe_now._cloud, "cover", self._cover())
         monkeypatch.setitem(_globe_now._cloud, "white", None)
         canvas = (bytes(4 * 4 * 4), 4, 4, 0, 0, 4)  # empty mosaic
-        lls = [[(85.0, 0.0), (67.0, 0.0), (-85.0, 0.0), None]]
+        lls = [[(85.0, 0.0), (66.5, 0.0), (-85.0, 0.0), None]]
         out = _globe_now.clouds(lls, canvas)
-        assert out[0][0] > 0.4      # deep in the northern cap: full deck
-        assert out[0][1] == 0.0     # equatorward of the fade: untouched
-        assert out[0][2] == 0.0     # southern cap is genuinely clear
+        assert out[0][0] > 0.35     # deep in the cloudy cap: a deck
+        assert out[0][1] == 0.0     # equatorward of the seeding: untouched
+        assert out[0][2] == 0.0     # the clear hemisphere stays clear
         assert out[0][3] == 0.0     # off the disk
 
-    def test_no_lattice_leaves_the_mosaic_alone(self, monkeypatch):
-        monkeypatch.setitem(_globe_now._cloud, "cap", None)
+    def test_no_measure_leaves_the_mosaic_alone(self, monkeypatch):
+        monkeypatch.setitem(_globe_now._cloud, "cover", None)
         canvas = (bytes(4 * 4 * 4), 4, 4, 0, 0, 4)
         out = _globe_now.clouds([[(85.0, 0.0)]], canvas)
         assert out[0][0] == 0.0
 
-    def test_the_full_deck_is_granular_not_flat(self, monkeypatch):
-        # a solid model deck must not paint one flat sheet: the noise
-        # gives it the mosaic's grain, within the mosaic's brightness
-        monkeypatch.setitem(_globe_now._cloud, "cap", self._cap())
+    def test_the_deck_is_billowed_not_flat(self, monkeypatch):
+        # a solid deck must not paint one flat sheet: the noise gives
+        # it grain, held under the mosaic's own white
+        monkeypatch.setitem(_globe_now._cloud, "cover", self._cover())
         monkeypatch.setitem(_globe_now._cloud, "white", 0.6)
         canvas = (bytes(4 * 4 * 4), 4, 4, 0, 0, 4)
         lls = [[(80.0, -180.0 + k * 1.7) for k in range(200)]]
         (row,) = _globe_now.clouds(lls, canvas)
         assert max(row) - min(row) > 0.1
-        assert max(row) <= 0.6 * 1.15 + 1e-9
+        assert max(row) <= 0.6 * 1.25 + 1e-9
         assert min(row) > 0.0
 
-    def test_a_clear_model_sky_stays_clear(self, monkeypatch):
-        # granulation invents texture, never cloud where the model
-        # reports none
-        monkeypatch.setitem(_globe_now._cloud, "cap",
-                            self._cap(north=0.0))
+    def test_a_clear_ring_keeps_its_cap_clear(self, monkeypatch):
+        # the noise invents texture, never cloud where the ring is dark
+        monkeypatch.setitem(_globe_now._cloud, "cover",
+                            self._cover(north=0.0))
         canvas = (bytes(4 * 4 * 4), 4, 4, 0, 0, 4)
         lls = [[(74.0 + k % 15, -180.0 + k * 3.7) for k in range(100)]]
         (row,) = _globe_now.clouds(lls, canvas)
         assert max(row) == 0.0
 
-    def test_noise_is_stable_and_bounded(self):
-        pts = [(-170.0 + k * 3.3, 71.0 + k % 19) for k in range(100)]
-        vals = [_globe_now._noise(lat, lon) for lon, lat in pts]
-        assert vals == [_globe_now._noise(lat, lon) for lon, lat in pts]
-        assert all(0.0 <= v <= 1.0 for v in vals)
-        assert len(set(round(v, 3) for v in vals)) > 20
+    def test_the_cap_continues_the_ring_sector_by_sector(self, monkeypatch):
+        # a cloudy west and a clear east, and the cap follows each
+        half = _globe_now._CAP_SECT // 2
+        ring = [1.0] * half + [0.0] * half
+        monkeypatch.setitem(_globe_now._cloud, "cover",
+                            {True: (ring, 0.5), False: (ring, 0.5)})
+        monkeypatch.setitem(_globe_now._cloud, "white", 0.6)
+        canvas = (bytes(4 * 4 * 4), 4, 4, 0, 0, 4)
+        cloudy = [[(75.0, -90.0 + k * 0.7) for k in range(100)]]
+        clear = [[(75.0, 90.0 + k * 0.7) for k in range(100)]]
+        (cl,) = _globe_now.clouds(cloudy, canvas)
+        (cr,) = _globe_now.clouds(clear, canvas)
+        assert sum(cl) / len(cl) > 0.3
+        assert max(cr) == 0.0
 
-    def test_noise_wraps_at_the_antimeridian(self):
-        assert abs(_globe_now._noise(80.0, -180.0)
-                   - _globe_now._noise(80.0, 180.0)) < 1e-9
+    def test_noise_is_stable_and_bounded(self):
+        tab = _globe_now._noise_grid()
+        assert len(tab) == _globe_now._NOISE_ROWS * _globe_now._NOISE_COLS
+        assert min(tab) >= 0.0 and max(tab) <= 1.0
+        assert _globe_now._noise_grid() is tab
+
+    def test_the_sphere_noise_has_no_antimeridian_seam(self):
+        assert abs(_globe_now._fbm(80.0, -180.0)
+                   - _globe_now._fbm(80.0, 180.0)) < 1e-6
+
+    def test_the_pole_wears_billows_not_a_pinch(self):
+        # every point within a tenth of a degree of the pole is nearly
+        # the same point in space, so the noise must nearly agree —
+        # the failure mode this guards is a texture anchored to the
+        # graticule, whose longitudes pinch to slivers at 90°
+        vals = [_globe_now._fbm(89.9, -180.0 + k * 10.0)
+                for k in range(36)]
+        assert max(vals) - min(vals) < 0.15
 
     def test_white_follows_the_mosaic(self):
         size = 256
@@ -264,6 +266,19 @@ class TestPolarCap:
         assert abs(w - 180 / 255.0) < 0.02
         empty = (bytearray(size * size * 4), size, size, 0, 0, size)
         assert _globe_now._mosaic_white(empty) is None
+
+    def test_ring_cover_reads_the_band(self):
+        size = 256
+        cloudy = (bytearray(bytes((200, 200, 200, 180)) * size * size),
+                  size, size, 0, 0, size)
+        cover = _globe_now._ring_cover(cloudy, 180 / 255.0)
+        for northern in (True, False):
+            sectors, mean = cover[northern]
+            assert len(sectors) == _globe_now._CAP_SECT
+            assert all(abs(s - 1.0) < 1e-6 for s in sectors)
+            assert abs(mean - 1.0) < 1e-6
+        empty = (bytearray(size * size * 4), size, size, 0, 0, size)
+        assert _globe_now._ring_cover(empty, 0.7)[True][1] == 0.0
 
 
 class TestInkDusk:
