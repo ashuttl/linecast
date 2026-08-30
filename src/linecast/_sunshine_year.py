@@ -33,6 +33,9 @@ from linecast._theme import (
 
 _theme.track_imports(globals(), "linecast._color")
 
+SUN_DOT_RGB = (255, 255, 255)
+SUN_GLOW_RGB = (255, 214, 120)
+
 def _rebuild():
     # Now and hover hairlines and the hover tooltip, tides' recipe.
     global NOW_LINE_RGB, HOVER_RGB, TIP_BG_RGB, TIP_TEXT_RGB, TIP_DIM_RGB
@@ -246,10 +249,10 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     spy_now = min(total_spy - 1, int(now_hour / 24 * total_spy))
     e_now = sun.sun_elevation(lat, lng, now_hour, today_doy,
                               tz_offs[today_doy - 1])
-    # A warm halo rather than the daily view's near-white one: over the
-    # bright midday field a white glow vanishes, an amber one reads.
-    sun_warm = (sun.INFO_AMBER_RGB if e_now > -2
-                else sun.SUN_GLOW_TWILIGHT_RGB)
+    # The sun is drawn, not typeset: a white dot in a gold halo on every
+    # theme. Theme-derived inks are contrast-checked against the page,
+    # which greys the dot and buries the glow in a light theme's day.
+    sun_warm = SUN_GLOW_RGB if e_now > -2 else sun.SUN_GLOW_TWILIGHT_RGB
     fb.draw_radial(x_today, spy_now, sun_warm, 5, peak_alpha=0.85)
 
     # --- hover: which day is the mouse over? ---
@@ -284,14 +287,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
                                 False)
 
     sun_row = spy_now // 2
-    # On a light theme the dot sits on navy at night and a pale day by
-    # noon, so it picks its ink against the cell behind it. A dark
-    # theme keeps the day view's white: a contrast check over the
-    # mid-blue day would grey it.
-    dot = sun.SUN_CORE_RGB
-    if is_light_theme():
-        dot = best_contrast((_theme.theme_ansi[15], _theme.theme_fg),
-                            fb.cell_bg(x_today, sun_row), minimum=2.0)
+    dot = SUN_DOT_RGB
     overlays[(x_today, sun_row)] = (icons["sun_char"], dot)
 
     lines = fb.render(overlays)
