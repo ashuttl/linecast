@@ -70,9 +70,19 @@ class TestPhase:
         frac = moon_cycle_frac(FIXED_NOW)
         p = _payload()
         assert p["waxing"] == (frac < 0.5)
-        assert p["age_days"] == round(frac * SYNODIC_MONTH, 1)
         assert p["illumination"] == round(moon_illumination(FIXED_NOW) * 100, 1)
         assert 0 <= p["illumination"] <= 100
+        # Age is time since the last new moon, not the phase angle scaled
+        # by a mean month, so the two agree only to within the Moon's own
+        # unevenness — most of a day at the extremes.
+        assert abs(p["age_days"] - frac * SYNODIC_MONTH) < 1.0
+
+    def test_age_is_measured_from_the_last_new_moon(self):
+        from linecast._ephemeris import next_moon_phase_utc
+
+        last_new = next_moon_phase_utc(FIXED_NOW, 0.0, backwards=True)
+        elapsed = (FIXED_NOW - last_new).total_seconds() / 86400.0
+        assert _payload()["age_days"] == round(elapsed, 1)
 
     def test_phase_name_localized(self):
         en = _payload()["phase"]
@@ -151,7 +161,7 @@ class TestHemisphereAndAltitude:
         due south (northern hemisphere) with the bearing increasing
         through it, which is the property a compass hint depends on.
         """
-        from linecast._tides_render import _moon_altitude_deg, _moon_azimuth_deg
+        from linecast._ephemeris import _moon_altitude_deg, _moon_azimuth_deg
 
         samples = []
         for hour in range(24):
