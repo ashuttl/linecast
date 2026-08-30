@@ -89,7 +89,8 @@ class GeocoderFallbackTests(unittest.TestCase):
                    "geometry": {"coordinates": [-70.37, 43.68]}}
 
         def fake(url, headers=None, timeout=0):
-            if "geocoding-api.open-meteo.com" in url:
+            from urllib.parse import urlsplit
+            if urlsplit(url).hostname == "geocoding-api.open-meteo.com":
                 raise OSError("down")
             return {"features": [feature]}
 
