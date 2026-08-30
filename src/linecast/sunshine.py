@@ -334,6 +334,22 @@ def solar_times(lat, lng, doy, tz_offset_h=None):
     tz = _tz_offset_hours() if tz_offset_h is None else tz_offset_h
     return noon_utc - ha/15 + tz, noon_utc + ha/15 + tz
 
+
+# A day length this close to 0h or 24h means the hour angle above was
+# clamped: the sun does not cross the horizon at this latitude today, and
+# solar_times() returned noon twice rather than a rise and a set.
+POLAR_EPSILON_HOURS = 0.01
+
+
+def polar_state(day_len_h):
+    """"night", "day", or None — whether the sun crosses the horizon."""
+    if day_len_h <= POLAR_EPSILON_HOURS:
+        return "night"
+    if day_len_h >= 24 - POLAR_EPSILON_HOURS:
+        return "day"
+    return None
+
+
 def sun_elevation(lat, lng, local_hour, doy, tz_offset_h=None):
     """Sun elevation angle in degrees at a given local hour."""
     decl = _declination(doy)
@@ -645,6 +661,8 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
 def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, offset_minutes=0,
                tz_offset_h=None):
     """Sunrise — day length (delta) — sunset."""
+    from linecast._sunshine_i18n import polar_name
+
     icons = _icon_set(runtime)
     day_len = sunset - sunrise
     dl_h = int(day_len)
@@ -664,19 +682,30 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
 
     delta_str = f"{d_sign}{d_m}m {d_s}s" if d_s > 0 else f"{d_sign}{d_m}m"
 
-    left = f"{amber}{icons['sun_icon']} {text}{fmt_time(sunrise, runtime.use_24h)}"
+    # Through a polar season there is no sunrise or sunset to print: the
+    # dashes stand where the times would, and the phrase takes the place
+    # of a day-length delta that is zero every day of it.
+    polar = polar_state(day_len)
+    rise_txt = "\u2014" if polar else fmt_time(sunrise, runtime.use_24h)
+    set_txt = "\u2014" if polar else fmt_time(sunset, runtime.use_24h)
+
+    left = f"{amber}{icons['sun_icon']} {text}{rise_txt}"
     if offset_minutes:
         center = f"{text}{fmt_time(now_hour, runtime.use_24h)}"
+    elif polar:
+        center = (f"{text}{dl_h}h {dl_m:02d}m "
+                  f"{dim}\u00b7 {polar_name(polar, runtime)}")
     else:
         center = f"{text}{dl_h}h {dl_m:02d}m {dim}({delta_str})"
-    right = f"{text}{fmt_time(sunset, runtime.use_24h)} {purple}{icons['sunset_icon']}"
+    right = f"{text}{set_txt} {purple}{icons['sunset_icon']}"
 
     lw = visible_len(left)
     cw = visible_len(center)
     rw = visible_len(right)
 
     # The sky at the shown moment, dim, after the center — when it fits.
-    if now_hour is not None:
+    # A polar center already names the sky for the whole day.
+    if now_hour is not None and not polar:
         sky = _sky_name(lat, lng, doy, now_hour, sunrise, sunset,
                         tz_offset_h, runtime)
         if lw + cw + len(sky) + 3 + rw + 4 <= width:

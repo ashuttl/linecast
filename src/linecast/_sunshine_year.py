@@ -23,7 +23,8 @@ from linecast._graphics import (
     get_terminal_size, Framebuffer, overlay,
 )
 from linecast._sunshine_i18n import (
-    _fmt_month_day, axis_month_labels, relative_day, sky_event, sky_phase,
+    _fmt_month_day, axis_month_labels, polar_name, relative_day, sky_event,
+    sky_phase,
 )
 from linecast._textwidth import char_width
 from linecast._theme import (
@@ -391,14 +392,25 @@ def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
     tip_fg = fg(*TIP_TEXT_RGB)
     tip_dim = fg(*TIP_DIM_RGB)
 
+    # Through a polar season the rise and set line has nothing to say —
+    # solar_times() gives solar noon twice — so the phrase stands in its
+    # place. The length and its delta from today stay: they are what
+    # makes a polar day worth pointing at.
+    polar = sun.polar_state(day_len)
+    if polar:
+        times = f"{tip_bg}{tip_fg} {polar_name(polar, runtime)} "
+    else:
+        times = (f"{tip_bg}{tip_fg} {icons['sun_icon']} "
+                 f"{fmt_time(sunrise, runtime.use_24h)}  "
+                 f"{fmt_time(sunset, runtime.use_24h)} "
+                 f"{icons['sunset_icon']} ")
+
     tip_lines = [
         f"{tip_bg}{tip_fg} {_fmt_month_day(date, runtime)} "
         f"{tip_dim}· {rel} ",
         f"{tip_bg}{tip_fg} {fmt_time(hour % 24, runtime.use_24h)}"
         f"{tip_dim}{' ' + zone if zone else ''} · {sky} ",
-        f"{tip_bg}{tip_fg} {icons['sun_icon']} "
-        f"{fmt_time(sunrise, runtime.use_24h)}  "
-        f"{fmt_time(sunset, runtime.use_24h)} {icons['sunset_icon']} ",
+        times,
         f"{tip_bg}{tip_fg} {_fmt_len(day_len)} "
         f"{tip_dim}({_fmt_len_delta(day_len - today_len)}) ",
     ]
@@ -447,6 +459,7 @@ def _info_line(lat, lng, doy, tz_off, width, runtime):
 
     icons = sun._icon_set(runtime)
     sunrise, sunset, day_len = _day_facts(lat, lng, doy, tz_off, sun)
+    polar = sun.polar_state(day_len)
 
     y_rise, y_set = sun.solar_times(lat, lng, doy - 1, tz_off)
     delta_sec = (day_len - (y_set - y_rise)) * 3600
@@ -462,9 +475,17 @@ def _info_line(lat, lng, doy, tz_off, width, runtime):
 
     dl_h = int(day_len)
     dl_m = int((day_len - dl_h) * 60)
-    center = f"{text}{dl_h}h {dl_m:02d}m {dim}({delta_str})"
-    left = f"{amber}{icons['sun_icon']} {text}{fmt_time(sunrise, runtime.use_24h)}"
-    right = f"{text}{fmt_time(sunset, runtime.use_24h)} {purple}{icons['sunset_icon']}"
+    # As in the day view: dashes where a polar season has no times, and
+    # the phrase in place of a delta that is zero all season.
+    if polar:
+        center = (f"{text}{dl_h}h {dl_m:02d}m "
+                  f"{dim}\u00b7 {polar_name(polar, runtime)}")
+    else:
+        center = f"{text}{dl_h}h {dl_m:02d}m {dim}({delta_str})"
+    rise_txt = "\u2014" if polar else fmt_time(sunrise, runtime.use_24h)
+    set_txt = "\u2014" if polar else fmt_time(sunset, runtime.use_24h)
+    left = f"{amber}{icons['sun_icon']} {text}{rise_txt}"
+    right = f"{text}{set_txt} {purple}{icons['sunset_icon']}"
 
     lw, cw, rw = visible_len(left), visible_len(center), visible_len(right)
     total_gap = max(0, width - lw - cw - rw - 2)

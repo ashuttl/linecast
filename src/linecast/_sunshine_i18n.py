@@ -20,6 +20,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "nautical twilight",
         "sky_civil": "civil twilight",
         "sky_day": "daylight",
+        "midnight_sun": "midnight sun",
+        "polar_night": "polar night",
         "solar_noon": "solar noon",
         "sunrise": "sunrise",
         "sunset": "sunset",
@@ -35,6 +37,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "crépuscule nautique",
         "sky_civil": "crépuscule civil",
         "sky_day": "jour",
+        "midnight_sun": "soleil de minuit",
+        "polar_night": "nuit polaire",
         "solar_noon": "midi solaire",
         "sunrise": "lever du soleil",
         "sunset": "coucher du soleil",
@@ -50,6 +54,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "crepúsculo náutico",
         "sky_civil": "crepúsculo civil",
         "sky_day": "día",
+        "midnight_sun": "sol de medianoche",
+        "polar_night": "noche polar",
         "solar_noon": "mediodía solar",
         "sunrise": "amanecer",
         "sunset": "atardecer",
@@ -65,6 +71,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "nautische Dämmerung",
         "sky_civil": "bürgerliche Dämmerung",
         "sky_day": "Tag",
+        "midnight_sun": "Mitternachtssonne",
+        "polar_night": "Polarnacht",
         "solar_noon": "Sonnenhöchststand",
         "sunrise": "Sonnenaufgang",
         "sunset": "Sonnenuntergang",
@@ -80,6 +88,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "crepuscolo nautico",
         "sky_civil": "crepuscolo civile",
         "sky_day": "giorno",
+        "midnight_sun": "sole di mezzanotte",
+        "polar_night": "notte polare",
         "solar_noon": "mezzogiorno solare",
         "sunrise": "alba",
         "sunset": "tramonto",
@@ -95,6 +105,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "crepúsculo náutico",
         "sky_civil": "crepúsculo civil",
         "sky_day": "dia",
+        "midnight_sun": "sol da meia-noite",
+        "polar_night": "noite polar",
         "solar_noon": "meio-dia solar",
         "sunrise": "nascer do sol",
         "sunset": "pôr do sol",
@@ -110,6 +122,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "nautische schemering",
         "sky_civil": "burgerlijke schemering",
         "sky_day": "dag",
+        "midnight_sun": "middernachtzon",
+        "polar_night": "poolnacht",
         "solar_noon": "zonnemiddag",
         "sunrise": "zonsopkomst",
         "sunset": "zonsondergang",
@@ -125,6 +139,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "zmierzch nautyczny",
         "sky_civil": "zmierzch cywilny",
         "sky_day": "dzień",
+        "midnight_sun": "słońce o północy",
+        "polar_night": "noc polarna",
         "solar_noon": "południe słoneczne",
         "sunrise": "wschód słońca",
         "sunset": "zachód słońca",
@@ -140,6 +156,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "nautisk tussmørke",
         "sky_civil": "borgerlig tussmørke",
         "sky_day": "dag",
+        "midnight_sun": "midnattssol",
+        "polar_night": "mørketid",
         "solar_noon": "solmiddag",
         "sunrise": "soloppgang",
         "sunset": "solnedgang",
@@ -155,6 +173,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "nautisk skymning",
         "sky_civil": "borgerlig skymning",
         "sky_day": "dag",
+        "midnight_sun": "midnattssol",
+        "polar_night": "polarnatt",
         "solar_noon": "solmiddag",
         "sunrise": "soluppgång",
         "sunset": "solnedgång",
@@ -170,6 +190,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "nautisk tusmørke",
         "sky_civil": "borgerligt tusmørke",
         "sky_day": "dag",
+        "midnight_sun": "midnatssol",
+        "polar_night": "polarnat",
         "solar_noon": "solmiddag",
         "sunrise": "solopgang",
         "sunset": "solnedgang",
@@ -185,6 +207,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "siglingaljósaskipti",
         "sky_civil": "borgaraleg ljósaskipti",
         "sky_day": "dagur",
+        "midnight_sun": "miðnætursól",
+        "polar_night": "heimskautanótt",
         "solar_noon": "sólarhádegi",
         "sunrise": "sólarupprás",
         "sunset": "sólsetur",
@@ -200,6 +224,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "merenkulullinen hämärä",
         "sky_civil": "porvarillinen hämärä",
         "sky_day": "päivä",
+        "midnight_sun": "yötön yö",
+        "polar_night": "kaamos",
         "solar_noon": "aurinkokeskipäivä",
         "sunrise": "auringonnousu",
         "sunset": "auringonlasku",
@@ -215,6 +241,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "航海薄明",
         "sky_civil": "市民薄明",
         "sky_day": "昼",
+        "midnight_sun": "白夜",
+        "polar_night": "極夜",
         "solar_noon": "南中",
         "sunrise": "日の出",
         "sunset": "日の入り",
@@ -230,6 +258,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "항해박명",
         "sky_civil": "시민박명",
         "sky_day": "낮",
+        "midnight_sun": "백야",
+        "polar_night": "극야",
         "solar_noon": "남중",
         "sunrise": "일출",
         "sunset": "일몰",
@@ -245,6 +275,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "航海曙暮光",
         "sky_civil": "民用曙暮光",
         "sky_day": "白天",
+        "midnight_sun": "极昼",
+        "polar_night": "极夜",
         "solar_noon": "太阳正午",
         "sunrise": "日出",
         "sunset": "日落",
@@ -260,6 +292,8 @@ _SUNSHINE_STRINGS = {
         "sky_nautical": "senja nautika",
         "sky_civil": "senja sipil",
         "sky_day": "siang",
+        "midnight_sun": "matahari tengah malam",
+        "polar_night": "malam kutub",
         "solar_noon": "tengah hari surya",
         "sunrise": "matahari terbit",
         "sunset": "matahari terbenam",
@@ -302,6 +336,20 @@ def sky_phase(elev, runtime):
 def sky_event(key, runtime):
     """'solar noon', 'sunrise', 'sunset'."""
     return _ss(key, runtime)
+
+
+def polar_name(state, runtime):
+    """'midnight sun' or 'polar night' for a polar_state(), else "".
+
+    On a day with no horizon crossing solar_times() returns solar noon
+    for both the rise and the set. The phrase goes where those clock
+    times would, there being none to give.
+    """
+    if state == "day":
+        return _ss("midnight_sun", runtime)
+    if state == "night":
+        return _ss("polar_night", runtime)
+    return ""
 
 
 def relative_day(diff, runtime):
