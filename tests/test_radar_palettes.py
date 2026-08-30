@@ -3,6 +3,7 @@ from unittest.mock import patch
 from linecast import _radar_palettes as pal
 from linecast import _radar_sources as sources
 from linecast import _radar_tiles as tiles
+from linecast import _radar_ub as ub
 
 
 class TestDecode:
@@ -12,6 +13,52 @@ class TestDecode:
 
     def test_high_bit_flags_snow(self):
         assert pal.decode(128 + 42) == (10, True)
+
+
+class TestUniversalBlue:
+    def _tile(self, *colours):
+        buf = bytearray()
+        for c in colours:
+            buf += bytes(c)
+        return buf
+
+    def test_known_colours_decode_to_their_gray(self):
+        # published table: dBZ 20 rain is #00a3e0, so gray 52
+        buf = self._tile((0x00, 0xa3, 0xe0, 0xff))
+        ub.to_gray(buf)
+        assert tuple(buf) == (52, 52, 52, 255)
+        assert pal.decode(52) == (20, False)
+
+    def test_snow_colours_carry_the_snow_flag(self):
+        # every colour in the snow half of the table decodes back to snow
+        snow = [g for g in range(128, 256) if ub._TABLE[g * 4 + 3]]
+        assert snow, "snow rows expected in the table"
+        buf = self._tile(*(ub._TABLE[g * 4:g * 4 + 4] for g in snow))
+        ub.to_gray(buf)
+        for i in range(len(snow)):
+            _, is_snow = pal.decode(buf[i * 4])
+            assert is_snow
+
+    def test_round_trip_is_exact_for_every_visible_gray(self):
+        # a table colour maps to a gray whose own colour is that colour —
+        # a saturated run collapses to its first gray, same colour either way
+        vis = [g for g in range(256) if ub._TABLE[g * 4 + 3]]
+        buf = self._tile(*(ub._TABLE[g * 4:g * 4 + 4] for g in vis))
+        ub.to_gray(buf)
+        for i, g in enumerate(vis):
+            got = buf[i * 4]
+            assert ub._TABLE[got * 4:got * 4 + 4] == ub._TABLE[g * 4:g * 4 + 4]
+            assert got <= g  # the run's first gray stands for it
+
+    def test_transparent_stays_transparent(self):
+        buf = self._tile((0, 0, 0, 0))
+        ub.to_gray(buf)
+        assert tuple(buf) == (0, 0, 0, 0)
+
+    def test_a_drifted_colour_snaps_to_the_nearest_entry(self):
+        buf = self._tile((0x00, 0xa4, 0xe0, 0xff))  # one green off dBZ 20
+        ub.to_gray(buf)
+        assert tuple(buf) == (52, 52, 52, 255)
 
 
 class TestApply:
@@ -97,3 +144,28 @@ class TestSourceWiring:
             _w, _h, rgba = src.frame_rgba((0, 0, 1, 1), 1, 1,
                                           sources.Frame(None, "/p"))
         assert tuple(rgba[:3]) == pal.PALETTES["ember"].rain(28)
+
+    def test_rainviewer_local_theme_decodes_then_recolours(self):
+        seen = {}
+
+        def fake_reproject(*a, **k):
+            seen.update(k)
+            # a dBZ-28 Universal Blue pixel, as the decode hook gets it
+            tile = bytearray(ub._TABLE[60 * 4:60 * 4 + 4])
+            k["transform"](tile)
+            return 1, 1, tile
+
+        with patch.object(sources._TileSource, "_refresh"), \
+                patch.object(tiles, "reproject", fake_reproject):
+            src = sources.RainViewerSource("ember")
+            _w, _h, rgba = src.frame_rgba((0, 0, 1, 1), 1, 1,
+                                          sources.Frame(None, "/p"))
+        assert seen["smooth"] is True
+        assert seen["transform"] is ub.to_gray
+        assert tuple(rgba[:3]) == pal.PALETTES["ember"].rain(28)
+
+    def test_rainviewer_server_theme_unchanged(self):
+        with patch.object(sources._TileSource, "_refresh"):
+            src = sources.RainViewerSource(2)
+        assert src.palette is None and src.transform is None
+        assert src.provider.options == "1_1"

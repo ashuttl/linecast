@@ -64,10 +64,12 @@ class Provider:
 _TAGS = {"rv": "radar/rainviewer", "lwxr": "radar/librewxr"}
 
 
-def rainviewer_provider() -> Provider:
-    # Free/personal tier: Universal Blue only, max zoom 7.
+def rainviewer_provider(smooth: bool = True) -> Provider:
+    # Free/personal tier: Universal Blue only (the colour id in the URL is
+    # ignored), max zoom 7.  Unsmoothed tiles keep the published table's
+    # exact colours, which is what lets _radar_ub decode them.
     return Provider("rv", "https://api.rainviewer.com/public/weather-maps.json",
-                    color=2, options="1_1", max_zoom=7)
+                    color=2, options=f"{int(smooth)}_1", max_zoom=7)
 
 
 def librewxr_provider(color: int, smooth: bool = True) -> Provider:
@@ -200,12 +202,16 @@ def _fetch_tile(provider, host, path, z, x, y, timeout=15, mutable=False):
 
 def reproject(provider: Provider, host: str, path: str, bbox: tuple[float, float, float, float],
               w: int, h: int, timeout: float = 15, mutable: bool = False,
-              smooth: bool = False) -> tuple[int, int, bytearray]:
+              smooth: bool = False,
+              transform: Callable[[bytearray], Any] | None = None,
+              ) -> tuple[int, int, bytearray]:
     """Fetch the tiles covering `bbox` and resample to a `w`×`h` EPSG:4326 RGBA.
 
     Returns (w, h, bytearray) — same shape decode_rgba yields, so it drops
     straight into build_radar_buffer.  `smooth` asks for the bilinear pass
-    meant for raw grayscale (reflectivity) tiles.
+    meant for raw grayscale (reflectivity) tiles; `transform` rewrites each
+    decoded tile in place first (see _radar_ub), so the disk cache keeps
+    the bytes as served.
     """
     z = _pick_zoom(bbox, w, provider.max_zoom)
 
@@ -215,11 +221,14 @@ def reproject(provider: Provider, host: str, path: str, bbox: tuple[float, float
         if data is None:
             return None
         try:
-            return decode_rgba(data)
+            tile = decode_rgba(data)
         except Exception as exc:
             log_failure(provider.tag, f"tile {z_}/{x}/{y} decode", exc,
                         fallback="tile left transparent")
             return None
+        if transform is not None:
+            transform(tile[2])
+        return tile
 
     return reproject_xyz(fetch, bbox, w, h, z, smooth=smooth)
 

@@ -4,7 +4,9 @@ The server-rendered schemes bake colour into tile pixels; these themes
 instead fetch LibreWXR's grayscale scheme (colour 0, unsmoothed) and
 colour it here.  In that scheme a pixel's gray level is the reflectivity:
 gray = dBZ + 32, and +128 flags snow.  Unsmoothed tiles keep those values
-exact; the smoothed variant blurs across the snow bit.
+exact; the smoothed variant blurs across the snow bit.  RainViewer serves
+no grayscale, so its tiles reach the same encoding by inverting the one
+scheme it does serve (see _radar_ub).
 
 Colouring locally is what lets a theme draw the weather in the terminal's
 own colours: ``terminal`` takes the ``dusk`` ladder and re-inks each step

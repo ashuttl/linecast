@@ -16,8 +16,8 @@ from linecast import _radar_sources as sources
 from linecast import _radar_tiles as tiles
 from linecast._radar_source import _floor_step, frame_times
 from linecast._radar_sources import (
-    DEFAULT_THEME, Frame, IEMSource, LibreWXRSource, RainViewerSource, THEMES,
-    _in_conus, get_source, has_radar, rv_radar, theme_id,
+    DEFAULT_THEME, Frame, IEMSource, LibreWXRSource, RainViewerSource,
+    RV_THEMES, THEMES, _in_conus, get_source, has_radar, rv_radar, theme_id,
 )
 
 UTC = datetime.timezone.utc
@@ -216,6 +216,17 @@ class TestGetSource:
         assert isinstance(src, LibreWXRSource)
         assert src.theme == 7
 
+    def test_theme_threads_through_to_rainviewer(self):
+        original = self._patch({"rv": _INDEX})
+        try:
+            src = get_source(28.6, 77.2, 5, theme="dusk")
+        finally:
+            tiles.fetch_index = original
+        assert isinstance(src, RainViewerSource)
+        assert src.theme == "dusk"
+        assert src.palette is not None
+        assert src.provider.options == "0_1"  # exact colours to decode
+
     def test_conus_skips_rainviewer_leg(self):
         # IEM covers CONUS with deeper history; RainViewer adds nothing there
         original = self._patch({"rv": _INDEX})
@@ -344,14 +355,32 @@ class TestTileSourceFrames:
         assert (server.theme, server.provider.color) == (7, 7)
         assert server.palette is None and server.smooth is False
 
-    def test_only_librewxr_advertises_themes(self):
+    def test_advertised_themes_match_what_each_source_can_draw(self):
         original = self._stub(_INDEX)
         try:
             assert getattr(LibreWXRSource(), "themes", None) is THEMES
-            assert getattr(RainViewerSource(), "themes", None) is None
+            assert getattr(RainViewerSource(), "themes", None) is RV_THEMES
         finally:
             tiles.fetch_index = original
         assert getattr(IEMSource(4), "themes", None) is None
+        # RainViewer draws the local palettes plus its one server scheme
+        assert set(RV_THEMES) == {n for n, v in THEMES.items()
+                                  if isinstance(v, str)} | {"universal-blue"}
+
+    def test_rainviewer_with_theme_reuses_the_index(self):
+        calls = []
+        original = tiles.fetch_index
+        tiles.fetch_index = lambda *a, **k: calls.append(1) or _INDEX
+        try:
+            src = RainViewerSource("terminal")
+            blue = src.with_theme(2)
+        finally:
+            tiles.fetch_index = original
+        assert len(calls) == 1
+        assert blue.current_frames() is src.current_frames()
+        assert src.transform is not None and src.smooth is True
+        assert blue.transform is None and blue.smooth is False
+        assert blue.provider.options == "1_1"
 
 
 class TestIEMSource:

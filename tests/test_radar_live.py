@@ -15,16 +15,18 @@ from linecast._radar_ui import ThemePicker
 
 
 class FakeSource:
-    """Enough of a RadarSource for the keys: a theme and a palette list."""
+    """Enough of a RadarSource for the keys: a theme, a palette list, and
+    the kind get_source would know it by."""
 
-    def __init__(self, themes=None, theme=None):
+    def __init__(self, themes=None, theme=None, kind="lwxr"):
         self.themes = themes
         self.theme = theme
+        self.kind = kind
         self.swapped = []
 
     def with_theme(self, theme):
         self.swapped.append(theme)
-        return FakeSource(self.themes, theme)
+        return FakeSource(self.themes, theme, self.kind)
 
 
 THEMES = {"Classic": "classic", "Rainbow": "rainbow", "Mono": "mono"}
@@ -168,12 +170,12 @@ class TestDrag:
         app.on_drag(40, 0, True)
         assert 0.0 < app.lon <= 180.0
 
-    def test_leaving_conus_repicks_a_source_without_themes(
+    def test_leaving_conus_repicks_a_fallback_source(
             self, app, monkeypatch):
         picks = []
         monkeypatch.setattr(_radar_live, "get_source",
                             lambda *a: picks.append(a) or FakeSource(None))
-        monkeypatch.setattr(rf, "_source", FakeSource(None))
+        monkeypatch.setattr(rf, "_source", FakeSource(None, kind="iem"))
         monkeypatch.setattr(_radar_live, "_in_conus",
                             lambda lat, lon: lon < -60)
         app.region = (True, False)
@@ -182,7 +184,7 @@ class TestDrag:
         assert len(picks) == 1
         assert picks[0][2:] == (rf.N_FRAMES, "classic")
 
-    def test_a_source_with_themes_is_left_alone_across_the_boundary(
+    def test_the_preferred_source_is_left_alone_across_the_boundary(
             self, app, monkeypatch):
         picks = []
         monkeypatch.setattr(_radar_live, "get_source",
@@ -190,11 +192,11 @@ class TestDrag:
         monkeypatch.setattr(_radar_live, "_in_conus",
                             lambda lat, lon: lon < -60)
         app.region = (True, False)
-        app.on_drag(-40, 0, True)
+        app.on_drag(-40, 0, True)   # LibreWXR stays LibreWXR
         assert app.region == (False, False)
         assert picks == []
 
-    def test_entering_a_national_feed_region_repicks_even_with_themes(
+    def test_entering_a_national_feed_region_trades_librewxr_away(
             self, app, monkeypatch):
         picks = []
         monkeypatch.setattr(_radar_live, "get_source",
@@ -204,6 +206,22 @@ class TestDrag:
         app.region = (False, False)
         app.on_drag(-40, 0, True)   # eastwards, into the feed's region
         assert app.region == (False, True)
+        assert len(picks) == 1
+
+    def test_leaving_a_national_feed_region_trades_rainviewer_back(
+            self, app, monkeypatch):
+        picks = []
+        monkeypatch.setattr(_radar_live, "get_source",
+                            lambda *a: picks.append(a) or FakeSource(None))
+        monkeypatch.setattr(rf, "_source", FakeSource({"terminal": "terminal"},
+                                                      "terminal", kind="rv"))
+        monkeypatch.setattr(_radar_live, "_in_conus",
+                            lambda lat, lon: False)
+        monkeypatch.setattr(_radar_live, "rv_radar",
+                            lambda lat, lon: lon > -60)
+        app.region = (False, True)
+        app.on_drag(40, 0, True)    # westwards, out of the feed's region
+        assert app.region == (False, False)
         assert len(picks) == 1
 
 

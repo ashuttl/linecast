@@ -112,16 +112,16 @@ class RadarApp(LiveApp):
         lon_span = maxlon - minlon
         self.lat = max(-80.0, min(80.0, self.lat + drow * self.zoom / hc))
         self.lon = wrap_lon(self.lon + -dcol * lon_span / gw)
-        # crossing a region boundary re-picks the source: the natural
-        # moment to retry LibreWXR after a fallback (a source that offers
-        # themes is LibreWXR already, and would only be re-picked as
-        # itself) — and, entering a national-feed region, to trade the
-        # themed model for RainViewer's real echoes
+        # crossing a region boundary re-picks the source when the one in
+        # hand isn't the kind get_source would lead with there: the
+        # natural moment to retry a preferred source after a fallback,
+        # and to trade LibreWXR's model for RainViewer's real echoes on
+        # the way into a national-feed region — and back on the way out
         r = (_in_conus(self.lat, self.lon), rv_radar(self.lat, self.lon))
         if r != self.region:
             self.region = r
-            if (getattr(_radar_frames._source, "themes", None) is None
-                    or r[1]):
+            want = "rv" if r[1] else "lwxr"
+            if getattr(_radar_frames._source, "kind", None) != want:
                 _radar_frames._source = get_source(
                     self.lat, self.lon, N_FRAMES, self.theme)
         return True
