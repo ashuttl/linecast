@@ -46,6 +46,8 @@ from linecast._theme import (
     best_contrast,
     darken,
     ensure_contrast,
+    is_light_theme,
+    lerp_rgb,
     neutral_tone,
     surface_bg,
     theme_legacy_mode,
@@ -76,8 +78,10 @@ _theme.track_imports(globals(), "linecast.sunshine")
 # Palette
 # ---------------------------------------------------------------------------
 def _rebuild():
-    global MOON_LIT_RGB, MOON_SHADOW_RGB, MOON_GLOW_RGB
+    global MOON_LIT_RGB, MOON_SHADOW_RGB, MOON_GLOW_RGB, SKY_RGB
     global STAR_BRIGHT_RGB, STAR_RGB, STAR_DIM_RGB
+    global PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
+    SKY_RGB = _theme.theme_bg
     if theme_legacy_mode:
         MOON_LIT_RGB = (228, 230, 238)
         MOON_SHADOW_RGB = (36, 40, 56)
@@ -85,6 +89,19 @@ def _rebuild():
         STAR_BRIGHT_RGB = (206, 214, 236)
         STAR_RGB = (150, 158, 180)
         STAR_DIM_RGB = (84, 92, 115)
+    elif is_light_theme():
+        # The night sky is dark whatever the terminal: a navy from the
+        # theme's blue, with a white Moon and stars lifted from the sky.
+        blue = best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12]),
+                             minimum=1.8)
+        SKY_RGB = darken(blue, 0.80)
+        white = (250, 252, 255)
+        MOON_LIT_RGB = white
+        MOON_SHADOW_RGB = lerp_rgb(SKY_RGB, white, 0.10)
+        MOON_GLOW_RGB = lerp_rgb(SKY_RGB, white, 0.55)
+        STAR_BRIGHT_RGB = lerp_rgb(SKY_RGB, white, 0.85)
+        STAR_RGB = lerp_rgb(SKY_RGB, white, 0.60)
+        STAR_DIM_RGB = lerp_rgb(SKY_RGB, white, 0.38)
     else:
         MOON_LIT_RGB = best_contrast((_theme.theme_ansi[15], _theme.theme_fg), minimum=2.5)
         MOON_SHADOW_RGB = ensure_contrast(surface_bg(0.30), _theme.theme_bg, minimum=1.2)
@@ -92,6 +109,13 @@ def _rebuild():
         STAR_BRIGHT_RGB = ensure_contrast(neutral_tone(0.80), _theme.theme_bg, minimum=3.2)
         STAR_RGB = ensure_contrast(neutral_tone(0.58), _theme.theme_bg, minimum=2.2)
         STAR_DIM_RGB = ensure_contrast(neutral_tone(0.40), _theme.theme_bg, minimum=1.5)
+    # The wide layout's panel sits in the sky, so its inks contrast with
+    # the sky; the stacked layout's lines sit on the page and keep the
+    # page inks.
+    PANEL_TEXT_RGB = ensure_contrast(INFO_TEXT_RGB, SKY_RGB, minimum=4.5)
+    PANEL_DIM_RGB = ensure_contrast(INFO_DIM_RGB, SKY_RGB, minimum=2.0)
+    PANEL_AMBER_RGB = ensure_contrast(INFO_AMBER_RGB, SKY_RGB, minimum=2.3)
+    PANEL_PURPLE_RGB = ensure_contrast(INFO_PURPLE_RGB, SKY_RGB, minimum=2.3)
 
 
 _rebuild()
@@ -487,7 +511,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     graph_w = max(16, cols - 2)
 
     # --- wide layout: the info as a column in the sky beside the disc ---
-    T, D, A, P = INFO_TEXT_RGB, INFO_DIM_RGB, INFO_AMBER_RGB, INFO_PURPLE_RGB
+    T, D, A, P = PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
     panel = [
         [(f"{icon} {name}", T, True)],
         [(illum_txt, D, False)],
@@ -539,7 +563,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
         cy = total_spy // 2
         overlays = _panel_overlays(
             panel, graph_w - panel_w - 2, (graph_h - panel_h) // 2, graph_w)
-        fb = Framebuffer(graph_w, graph_h)
+        fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
         fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
                        peak_alpha=0.10 + 0.20 * illum)
         _draw_moon_disc(fb, cx, cy, radius, illum, limb, axis)
@@ -618,7 +642,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     cx = graph_w // 2
     cy = total_spy // 2
 
-    fb = Framebuffer(graph_w, graph_h)
+    fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
     fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
                    peak_alpha=0.10 + 0.20 * illum)
     _draw_moon_disc(fb, cx, cy, radius, illum, limb, axis)
