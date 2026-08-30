@@ -37,6 +37,13 @@ _theme.track_imports(globals(), "linecast._color")
 SUN_DOT_RGB = (255, 255, 255)
 SUN_GLOW_RGB = (255, 214, 120)
 
+# The last sky field built, by the things that shape it. Everything the
+# mouse moves — the hover hairline, the tooltip — is drawn over the
+# field, not into it, so a hover would otherwise pay for a quarter of a
+# million elevations again on a large terminal. Cleared on theme reload,
+# where the palette itself changes.
+_FIELD_CACHE = {}
+
 def _rebuild():
     # Now and hover hairlines and the hover tooltip, tides' recipe.
     global NOW_LINE_RGB, HOVER_RGB, TIP_BG_RGB, TIP_TEXT_RGB, TIP_DIM_RGB
@@ -50,6 +57,7 @@ def _rebuild():
     TIP_BG_RGB = darken(surface_bg(0.10), 0.45 if not is_light_theme() else 0.10)
     TIP_TEXT_RGB = ensure_contrast(_theme.theme_fg, TIP_BG_RGB, minimum=4.5)
     TIP_DIM_RGB = ensure_contrast(surface_bg(0.55), TIP_BG_RGB, minimum=2.2)
+    _FIELD_CACHE.clear()
 
 
 _rebuild()
@@ -196,13 +204,43 @@ def _fmt_len_delta(delta_hours):
     return f"{sign}{m}m"
 
 
+def _sky_field(lat, lng, graph_w, graph_h, days, tz_offs, palette, sun):
+    """Sub-pixel sky rows for the whole year, [spy][x], memoized.
+
+    The field depends on the place, the size, the palette and each day's
+    offset, and on nothing that changes between frames. One size and
+    palette are on screen at a time, so the cache holds the last field
+    and no more; the caller gets a copy to draw the sun into.
+    """
+    key = (lat, lng, graph_w, graph_h, days, palette, tuple(tz_offs))
+    rows = _FIELD_CACHE.get(key)
+    if rows is None:
+        shader = PALETTES[palette](sun)
+        total_spy = graph_h * 2
+        rows = [[None] * graph_w for _ in range(total_spy)]
+        shade = {}
+        for x in range(graph_w):
+            day = min(days - 1, int((x + 0.5) / graph_w * days))
+            doy = day + 1
+            tzoff = tz_offs[day]
+            for spy in range(total_spy):
+                hour = (spy + 0.5) / total_spy * 24
+                # Color depends only on elevation; quantize to 0.25° and memo.
+                e = round(sun.sun_elevation(lat, lng, hour, doy, tzoff) * 4) / 4
+                c = shade.get(e)
+                if c is None:
+                    c = shade[e] = shader(e)
+                rows[spy][x] = c
+        _FIELD_CACHE.clear()
+        _FIELD_CACHE[key] = rows
+    return [row[:] for row in rows]
+
+
 def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
                 dst=False, location_label="", mouse_pos=None,
                 palette=None):
     """Build the year-scale sky field display."""
     from linecast import sunshine as sun  # palettes, rebuilt on theme reload
-
-    shader = PALETTES[palette_name(palette)](sun)
 
     icons = sun._icon_set(runtime)
     cols, rows = get_terminal_size()
@@ -232,19 +270,8 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
 
     # --- the sky field ---
     fb = Framebuffer(graph_w, graph_h)
-    shade = {}
-    for x in range(graph_w):
-        day = min(days - 1, int((x + 0.5) / graph_w * days))
-        doy = day + 1
-        tzoff = tz_offs[day]
-        for spy in range(total_spy):
-            hour = (spy + 0.5) / total_spy * 24
-            # Color depends only on elevation; quantize to 0.25° and memo.
-            e = round(sun.sun_elevation(lat, lng, hour, doy, tzoff) * 4) / 4
-            c = shade.get(e)
-            if c is None:
-                c = shade[e] = shader(e)
-            fb.fb[spy][x] = c
+    fb.fb = _sky_field(lat, lng, graph_w, graph_h, days, tz_offs,
+                       palette_name(palette), sun)
 
     # --- today's sun: a point on both axes ---
     x_today = max(0, min(graph_w - 1, int((today_doy - 0.5) / days * graph_w)))
