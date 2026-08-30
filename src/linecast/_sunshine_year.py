@@ -214,8 +214,11 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
 
     year = now.year
     days = 366 if calendar.isleap(year) else 365
+    # Each day's own offset is always known: the tooltip speaks the zone
+    # a day will be in, even when the field is drawn in one offset.
+    day_offs = _day_tz_offsets(year, days, tz)
     if dst:
-        tz_offs = _day_tz_offsets(year, days, tz)
+        tz_offs = day_offs
     else:
         off = now.utcoffset()
         if off is None:
@@ -308,14 +311,15 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
         tooltip = _hover_tooltip(lat, lng, hover_x, mouse_pos[1], graph_w,
                                  graph_h, cols, rows, year, days, tz_offs,
                                  today_doy, runtime, sun, icons,
-                                 today=(x_today, now_hour))
+                                 today=(x_today, now_hour),
+                                 day_offs=day_offs, tz=tz)
     # overlay() keeps the cursor-addressed tooltip apart from the body so
     # live_loop draws it after its end-of-screen clear, not before.
     return overlay("\n".join(lines), tooltip)
 
 
 def _hover_moment(lat, lng, doy, tz_off, mouse_row, graph_h, sun, runtime,
-                  now_hour=None):
+                  now_hour=None, shift=0.0):
     """(hour, label) for the hovered row of a day.
 
     A row is a coarse slice of the day — forty minutes on a typical
@@ -327,6 +331,11 @@ def _hover_moment(lat, lng, doy, tz_off, mouse_row, graph_h, sun, runtime,
     row = max(0, min(graph_h - 1, mouse_row - 1))
     hour = (row + 0.5) / graph_h * 24
     reach = 24 / graph_h * 0.6
+    # On today's column, a row near the sun glyph is now itself.
+    if now_hour is not None and abs(hour - now_hour) <= reach:
+        hour = now_hour
+    # The axis is the chart's clock; shift moves it into the day's own.
+    hour += shift
     sunrise, sunset = sun.solar_times(lat, lng, doy, tz_off)
     noon = (sunrise + sunset) / 2
     events = [("solar_noon", noon)]
@@ -335,20 +344,29 @@ def _hover_moment(lat, lng, doy, tz_off, mouse_row, graph_h, sun, runtime,
     for key, at in events:
         if abs(hour - at) <= reach and 0 <= at < 24:
             return at, sky_event(key, runtime)
-    # On today's column, a row near the sun glyph is now itself.
-    if now_hour is not None and abs(hour - now_hour) <= reach:
-        hour = now_hour
     elev = sun.sun_elevation(lat, lng, hour, doy, tz_off)
     return hour, sky_phase(elev, runtime)
 
 
+def _zone_name(date, tz):
+    """The zone's abbreviation at noon on a date: 'EST', 'GMT', '+0530'."""
+    noon = date.replace(hour=12)
+    local = noon.astimezone() if tz is None else noon.replace(tzinfo=tz)
+    name = local.tzname() or ""
+    if not name or name[0] in "+-" and ":" in name:
+        name = local.strftime("%z")
+    return name
+
+
 def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
                    year, days, tz_offs, today_doy, runtime, sun, icons,
-                   today=None):
+                   today=None, day_offs=None, tz=None):
     """Cursor-positioned tooltip for the hovered day and time, tides-style.
 
     today is (x_today, now_hour): on that column the day is today and a
-    row near the sun glyph reads as now.
+    row near the sun glyph reads as now. Times are in the day's own
+    offset (day_offs), not the chart's, and carry the zone's name when
+    it differs from today's.
     """
     now_hour = None
     if today and hover_x == today[0]:
@@ -356,9 +374,14 @@ def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
     else:
         doy = max(1, min(days, int((hover_x + 0.5) / graph_w * days) + 1))
     date = datetime(year, 1, 1) + timedelta(days=doy - 1)
-    sunrise, sunset, day_len = _day_facts(lat, lng, doy, tz_offs[doy - 1], sun)
-    hour, sky = _hover_moment(lat, lng, doy, tz_offs[doy - 1], mouse_row,
-                              graph_h, sun, runtime, now_hour)
+    day_off = (day_offs or tz_offs)[doy - 1]
+    shift = day_off - tz_offs[doy - 1]
+    sunrise, sunset, day_len = _day_facts(lat, lng, doy, day_off, sun)
+    hour, sky = _hover_moment(lat, lng, doy, day_off, mouse_row,
+                              graph_h, sun, runtime, now_hour, shift)
+    zone = ""
+    if day_offs and day_off != day_offs[today_doy - 1]:
+        zone = _zone_name(date, tz)
     _, _, today_len = _day_facts(lat, lng, today_doy,
                                  tz_offs[today_doy - 1], sun)
 
@@ -371,7 +394,8 @@ def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
     tip_lines = [
         f"{tip_bg}{tip_fg} {_fmt_month_day(date, runtime)} "
         f"{tip_dim}· {rel} ",
-        f"{tip_bg}{tip_fg} {fmt_time(hour, runtime.use_24h)} {tip_dim}· {sky} ",
+        f"{tip_bg}{tip_fg} {fmt_time(hour % 24, runtime.use_24h)}"
+        f"{tip_dim}{' ' + zone if zone else ''} · {sky} ",
         f"{tip_bg}{tip_fg} {icons['sun_icon']} "
         f"{fmt_time(sunrise, runtime.use_24h)}  "
         f"{fmt_time(sunset, runtime.use_24h)} {icons['sunset_icon']} ",
