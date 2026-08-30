@@ -176,9 +176,9 @@ class TestDrag:
         monkeypatch.setattr(rf, "_source", FakeSource(None))
         monkeypatch.setattr(_radar_live, "_in_conus",
                             lambda lat, lon: lon < -60)
-        app.region = True
+        app.region = (True, False)
         app.on_drag(-40, 0, True)   # eastwards, out over the Atlantic
-        assert app.region is False
+        assert app.region == (False, False)
         assert len(picks) == 1
         assert picks[0][2:] == (rf.N_FRAMES, "classic")
 
@@ -189,10 +189,22 @@ class TestDrag:
                             lambda *a: picks.append(a))
         monkeypatch.setattr(_radar_live, "_in_conus",
                             lambda lat, lon: lon < -60)
-        app.region = True
+        app.region = (True, False)
         app.on_drag(-40, 0, True)
-        assert app.region is False
+        assert app.region == (False, False)
         assert picks == []
+
+    def test_entering_a_national_feed_region_repicks_even_with_themes(
+            self, app, monkeypatch):
+        picks = []
+        monkeypatch.setattr(_radar_live, "get_source",
+                            lambda *a: picks.append(a) or FakeSource(None))
+        monkeypatch.setattr(_radar_live, "rv_radar",
+                            lambda lat, lon: lon > -60)
+        app.region = (False, False)
+        app.on_drag(-40, 0, True)   # eastwards, into the feed's region
+        assert app.region == (False, True)
+        assert len(picks) == 1
 
 
 class TestPlayGate:

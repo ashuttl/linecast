@@ -7,11 +7,14 @@ A source exposes:
                             forecast frames flagged .future)
   .frame_rgba(bbox, gw, hc, frame) → (pw, ph, rgba)  at gw × hc*2, EPSG:4326
 
-Region routing: LibreWXR is primary everywhere — real radar composites for
-North America / Europe / East Asia, model precipitation elsewhere, nowcast
-frames, and selectable colour themes.  On failure, the continental US falls
-back to IEM/NEXRAD (deep 3h history, native projection) and the rest of the
-world to RainViewer, with IEM as the last resort.
+Region routing: LibreWXR is primary almost everywhere — real radar
+composites for North America / Europe / East Asia, model precipitation
+elsewhere, nowcast frames, and selectable colour themes.  Where RainViewer
+composites a national radar feed LibreWXR lacks (IMD's Indian network),
+RainViewer leads instead: real echoes there beat the model.  On failure,
+the continental US falls back to IEM/NEXRAD (deep 3h history, native
+projection) and the rest of the world to RainViewer, with IEM as the last
+resort.
 """
 
 import datetime
@@ -100,6 +103,22 @@ def has_radar(lat: float, lon: float) -> bool:
     """True where LibreWXR's frames come from radar rather than a model."""
     return any(w <= lon <= e and s <= lat <= n
                for w, s, e, n in _RADAR_REGIONS)
+
+
+# Where RainViewer composites a national radar feed LibreWXR has no source
+# for, so real echoes are only a provider away.  IMD's network is a couple
+# dozen radars, so the box also holds gaps — but a gap draws nothing, which
+# is still more honest than a model.  Growing this list is the whole change
+# when another such feed turns up.
+_RV_RADAR_REGIONS = (
+    (68.0, 6.0, 97.5, 36.0),   # India (IMD)
+)
+
+
+def rv_radar(lat: float, lon: float) -> bool:
+    """True where RainViewer carries real radar and LibreWXR only a model."""
+    return any(w <= lon <= e and s <= lat <= n
+               for w, s, e, n in _RV_RADAR_REGIONS)
 
 
 def _in_conus(lat, lon):
@@ -289,8 +308,16 @@ def get_source(lat: float, lon: float, n_frames: int, theme: str | int | None = 
     """Pick the best source for a location, falling back on failure."""
     if theme is None:
         theme = THEMES[DEFAULT_THEME]
+    src: LibreWXRSource | RainViewerSource
+    if rv_radar(lat, lon):
+        try:
+            src = RainViewerSource()
+            if src.current_frames():
+                return src
+        except Exception as exc:
+            log_failure("radar/rainviewer", "source", exc, fallback="next source")
     try:
-        src: LibreWXRSource | RainViewerSource = LibreWXRSource(theme)
+        src = LibreWXRSource(theme)
         if src.current_frames():
             return src
     except Exception as exc:

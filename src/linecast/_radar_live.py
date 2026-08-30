@@ -21,7 +21,7 @@ from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for
 from linecast._radar_source import FRAME_STEP
 from linecast._radar_sources import (
-    DEFAULT_THEME, THEMES, _in_conus, get_source, theme_id,
+    DEFAULT_THEME, THEMES, _in_conus, get_source, rv_radar, theme_id,
 )
 from linecast._radar_ui import ThemePicker
 from linecast._runtime import RuntimeConfig, radar_parser, set_current
@@ -51,7 +51,7 @@ class RadarApp(LiveApp):
         self.location_name = location_name
         self.zoom = zoom
         self.lat, self.lon = lat, lon  # the view centre; pans
-        self.region = _in_conus(lat, lon)
+        self.region = (_in_conus(lat, lon), rv_radar(lat, lon))
         self.layers = set(layers)
         self.layer = layer
         self.theme = theme             # active theme id (the picker updates it)
@@ -112,13 +112,16 @@ class RadarApp(LiveApp):
         lon_span = maxlon - minlon
         self.lat = max(-80.0, min(80.0, self.lat + drow * self.zoom / hc))
         self.lon = wrap_lon(self.lon + -dcol * lon_span / gw)
-        # crossing the CONUS boundary re-picks the source: the natural
+        # crossing a region boundary re-picks the source: the natural
         # moment to retry LibreWXR after a fallback (a source that offers
-        # themes is LibreWXR already, and would only be re-picked as itself)
-        r = _in_conus(self.lat, self.lon)
+        # themes is LibreWXR already, and would only be re-picked as
+        # itself) — and, entering a national-feed region, to trade the
+        # themed model for RainViewer's real echoes
+        r = (_in_conus(self.lat, self.lon), rv_radar(self.lat, self.lon))
         if r != self.region:
             self.region = r
-            if getattr(_radar_frames._source, "themes", None) is None:
+            if (getattr(_radar_frames._source, "themes", None) is None
+                    or r[1]):
                 _radar_frames._source = get_source(
                     self.lat, self.lon, N_FRAMES, self.theme)
         return True

@@ -17,7 +17,7 @@ from linecast import _radar_tiles as tiles
 from linecast._radar_source import _floor_step, frame_times
 from linecast._radar_sources import (
     DEFAULT_THEME, Frame, IEMSource, LibreWXRSource, RainViewerSource, THEMES,
-    _in_conus, get_source, has_radar, theme_id,
+    _in_conus, get_source, has_radar, rv_radar, theme_id,
 )
 
 UTC = datetime.timezone.utc
@@ -101,6 +101,25 @@ class TestHasRadar:
         assert not has_radar(-23.5, -46.6)  # São Paulo
 
 
+class TestRvRadar:
+    def test_india_is_rainviewer_radar(self):
+        assert rv_radar(28.6, 77.2)   # Delhi
+        assert rv_radar(19.1, 72.9)   # Mumbai
+        assert rv_radar(13.1, 80.3)   # Chennai
+
+    def test_elsewhere_is_not(self):
+        assert not rv_radar(51.5, -0.12)   # London — LibreWXR radar
+        assert not rv_radar(-33.9, 151.2)  # Sydney — model everywhere
+        assert not rv_radar(38.5, -97.0)   # Kansas — LibreWXR radar
+
+    def test_rv_regions_never_overlap_librewxr_radar(self):
+        # a corner inside both lists would route real LibreWXR radar away
+        from linecast._radar_sources import _RV_RADAR_REGIONS
+        for w, s, e, n in _RV_RADAR_REGIONS:
+            assert not any(has_radar(lat, lon)
+                           for lat in (s, n) for lon in (w, e))
+
+
 class TestThemeId:
     def test_names_resolve(self):
         assert theme_id("universal-blue") == 2
@@ -178,6 +197,24 @@ class TestGetSource:
         finally:
             tiles.fetch_index = original
         assert isinstance(src, IEMSource)
+
+    def test_india_prefers_rainviewer(self):
+        # both indexes up: India routes to RainViewer's IMD composite
+        original = self._patch({"rv": _INDEX, "lwxr": _INDEX})
+        try:
+            src = get_source(28.6, 77.2, 5)
+        finally:
+            tiles.fetch_index = original
+        assert isinstance(src, RainViewerSource)
+
+    def test_india_falls_back_to_librewxr_model(self):
+        original = self._patch({"lwxr": _INDEX})
+        try:
+            src = get_source(28.6, 77.2, 5, theme=7)
+        finally:
+            tiles.fetch_index = original
+        assert isinstance(src, LibreWXRSource)
+        assert src.theme == 7
 
     def test_conus_skips_rainviewer_leg(self):
         # IEM covers CONUS with deeper history; RainViewer adds nothing there
