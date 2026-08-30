@@ -945,6 +945,16 @@ class TestSachetAlerts:
         assert _sachet_datetime("nonsense") == ""
         assert _sachet_datetime(None) == ""
 
+    def test_cap_language_codes_normalize_to_iso(self):
+        # SACHET's own coinages ("OD" for Odia, "TL" for Telugu) beside
+        # the upcased ISO codes it uses for most languages.
+        from linecast._weather_sources import _sachet_cap_lang
+        assert _sachet_cap_lang("en-IN") == "en"
+        assert _sachet_cap_lang("HI") == "hi"
+        assert _sachet_cap_lang("MR") == "mr"
+        assert _sachet_cap_lang("OD") == "or"
+        assert _sachet_cap_lang("TL") == "te"
+
 
 # ---------------------------------------------------------------------------
 # CPCB National AQI (India)
@@ -1030,3 +1040,4 @@ class TestIndiaAqi:
         apply_india_aqi(aqi_data, "IN")
         header = render_header(forecast, 120, "Delhi", aqi_data=aqi_data)
         assert "438" in header  # the CPCB number, not us_aqi's 150
+        assert "Severe" in header  # the CPCB category, marking the scale

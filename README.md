@@ -234,6 +234,8 @@ linecast weather --lang fr
 linecast radar --lang zh
 ```
 
+In India, alerts follow `--lang` further than the app itself: SACHET publishes many alerts in the state language, so `--lang hi`, `te`, `or`, `mr`, or another Indian language code shows an alert's own regional text where it exists, while the rest of the app stays in English.
+
 ### Color and icons
 
 linecast asks the terminal for its palette so its colors belong in your theme. Set `LINECAST_COLOR` to `truecolor`, `256`, `16`, or `none` to choose the color mode yourself, or use the standard `NO_COLOR` variable.

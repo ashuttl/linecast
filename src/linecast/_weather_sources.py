@@ -1428,8 +1428,24 @@ def _sachet_cap_infos(identifier):
     return infos or None
 
 
+# SACHET tags a CAP info block with its own uppercase language code.
+# Most are the ISO 639-1 code upcased ("HI", "MR"); these are not.
+_SACHET_CAP_LANGS = {"od": "or", "tl": "te"}
+
+
+def _sachet_cap_lang(code):
+    """A SACHET CAP language code ("en-IN", "HI", "TL") as ISO 639-1."""
+    code = code.partition("-")[0].lower()
+    return _SACHET_CAP_LANGS.get(code, code)
+
+
 def _sachet_alert_from_cap(entry, lang):
-    """A normalized alert from a SACHET CAP file, or None to fall back."""
+    """A normalized alert from a SACHET CAP file, or None to fall back.
+
+    An alert often carries its info in the state language besides
+    English; --lang picks it, so `--lang hi` reads SACHET's own Hindi
+    even though the app's UI does not speak it.
+    """
     identifier = entry.get("identifier")
     if not identifier:
         return None
@@ -1437,11 +1453,9 @@ def _sachet_alert_from_cap(entry, lang):
     if not infos:
         return None
 
-    # Prefer the user's language, then English; the feed marks regional-
-    # language blocks with odd codes ("TL"), so match on the prefix.
-    def _in_lang(prefix):
+    def _in_lang(iso):
         return next((i for i in infos
-                     if i.get("language", "").lower().startswith(prefix)), None)
+                     if _sachet_cap_lang(i.get("language", "")) == iso), None)
     info = _in_lang(lang.lower()) or _in_lang("en") or infos[0]
 
     event = info.get("event", "").strip()
