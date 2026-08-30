@@ -73,13 +73,12 @@ def _sky_color(elev, sun):
     """Representative sky color for a moment with the sun at elev degrees.
 
     Low sun keeps the near-horizon palette (the warm sunrise band paints
-    itself); once the sun is well up the color goes fully to the zenith
-    blue — the field shows the sky, not the sun, so daylight reads as a
-    light bright blue rather than the near-white the horizon table ends in.
+    itself); high sun blends toward the zenith blue so midday doesn't
+    wash out to the near-white the horizon table ends in.
     """
     near = interp_stops(sun.SKY_NEAR_HORIZON, elev)
     zen = interp_stops(sun.SKY_ZENITH, elev)
-    w = max(0.0, min(1.0, (elev - 3) / 25))
+    w = max(0.0, min(0.85, (elev - 3) / 30))
     return lerp(near, zen, w)
 
 
