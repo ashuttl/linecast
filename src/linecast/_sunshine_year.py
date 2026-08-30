@@ -381,7 +381,9 @@ def _zone_name(date, tz):
     noon = date.replace(hour=12)
     local = noon.astimezone() if tz is None else noon.replace(tzinfo=tz)
     name = local.tzname() or ""
-    if not name or name[0] in "+-" and ":" in name:
+    # 'EST', 'CET' — an abbreviation stands as it is. A name with an
+    # offset in it ('+05:30', 'UTC+05:30') is shorter as bare %z.
+    if not name or any(ch.isdigit() for ch in name):
         name = local.strftime("%z")
     return name
 
