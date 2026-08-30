@@ -22,16 +22,16 @@ from linecast._graphics import (
     fg, bg, RESET, interp_stops, lerp, visible_len, fmt_time,
     get_terminal_size, Framebuffer, overlay,
 )
+from linecast._sunshine_i18n import (
+    _fmt_month_day, axis_month_labels, relative_day,
+)
+from linecast._textwidth import char_width
 from linecast._theme import (
     best_contrast, darken, ensure_contrast, is_light_theme, lerp_rgb,
     surface_bg,
 )
 
 _theme.track_imports(globals(), "linecast._color")
-
-_MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
-               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
 
 def _rebuild():
     # Now and hover hairlines and the hover tooltip, tides' recipe.
@@ -111,8 +111,10 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     icons = sun._icon_set(runtime)
     cols, rows = get_terminal_size()
 
+    # One row fewer than the day view: the month axis sits between the
+    # field and the info line, so the two views end on the same row.
     graph_w = max(30, cols - 2)
-    graph_h = max(6, rows - (3 if fullscreen else 6))
+    graph_h = max(6, rows - (2 if fullscreen else 7))
     total_spy = graph_h * 2
 
     year = now.year
@@ -195,7 +197,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     lines = fb.render(overlays)
 
     # --- month labels ---
-    lines.append(_month_line(year, days, graph_w))
+    lines.append(_month_line(year, days, graph_w, runtime))
 
     # --- info line for today ---
     lines.append(_info_line(lat, lng, today_doy, tz_offs[today_doy - 1],
@@ -224,20 +226,14 @@ def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, cols, rows,
     _, _, today_len = _day_facts(lat, lng, today_doy,
                                  tz_offs[today_doy - 1], sun)
 
-    diff = doy - today_doy
-    if diff == 0:
-        rel = "today"
-    elif diff > 0:
-        rel = f"in {diff} day" + ("s" if diff > 1 else "")
-    else:
-        rel = f"{-diff} day" + ("s" if diff < -1 else "") + " ago"
+    rel = relative_day(doy - today_doy, runtime)
 
     tip_bg = bg(*TIP_BG_RGB)
     tip_fg = fg(*TIP_TEXT_RGB)
     tip_dim = fg(*TIP_DIM_RGB)
 
     tip_lines = [
-        f"{tip_bg}{tip_fg} {_MONTH_ABBR[date.month - 1]} {date.day} "
+        f"{tip_bg}{tip_fg} {_fmt_month_day(date, runtime)} "
         f"{tip_dim}· {rel} ",
         f"{tip_bg}{tip_fg} {icons['sun_icon']} "
         f"{fmt_time(sunrise, runtime.use_24h)}  "
@@ -261,17 +257,24 @@ def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, cols, rows,
                    for i, line in enumerate(padded))
 
 
-def _month_line(year, days, graph_w):
+def _month_line(year, days, graph_w, runtime):
     from linecast import sunshine as sun
 
-    label_w = 3 if graph_w >= 72 else 1
+    labels = axis_month_labels(runtime, narrow=graph_w < 72)
+    # Cells, not characters: a wide (CJK) glyph takes two columns, so
+    # its label writes the glyph and leaves an empty slot after it.
     chars = [" "] * graph_w
     doy = 0
     for m in range(12):
         x = int(doy / days * graph_w)
-        for i, ch in enumerate(_MONTH_ABBR[m][:label_w]):
-            if x + i < graph_w:
-                chars[x + i] = ch
+        for ch in labels[m]:
+            w = char_width(ch)
+            if x + w > graph_w:
+                break
+            chars[x] = ch
+            for k in range(1, w):
+                chars[x + k] = ""
+            x += w
         doy += calendar.monthrange(year, m + 1)[1]
     dim = fg(*sun.INFO_MUTED_RGB)
     return f"{RESET} {dim}{''.join(chars)}{RESET}"
