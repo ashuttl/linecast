@@ -113,6 +113,11 @@ def build_payload(data, location_name, country_code, runtime,
             "pm2_5": aqi_current.get("pm2_5"),
             "pm10": aqi_current.get("pm10"),
         }
+        india_value = aqi_current.get("india_aqi")
+        if india_value is not None:
+            from linecast._weather_sources import india_aqi_category
+            aqi_out["india_aqi"] = round(india_value)
+            aqi_out["india_aqi_category"] = india_aqi_category(india_value)
 
     return {
         "schema": SCHEMA_VERSION,

@@ -8,7 +8,8 @@ from linecast._runtime import WeatherRuntime, current_runtime, log_failure
 from linecast._weather_i18n import (
     DAY_NAMES, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s, _wmo_icons,
 )
-from linecast._weather_style import MUTED, TEXT, WIND_COLOR, _aqi_color, _colored_temp
+from linecast._weather_style import (MUTED, TEXT, WIND_COLOR, _aqi_color,
+                                     _colored_temp, _india_aqi_color)
 
 
 def render_header(data, width, location_name="", runtime=None, aqi_data=None, historical=None):
@@ -62,15 +63,33 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
         elif humidity >= 70 or humidity <= 25:
             left_humidity = f"  {MUTED}{_s('humidity', runtime)} {humidity:.0f}%"
 
-    # AQI — show when data available
+    # AQI — show when data available. India reads its own CPCB scale,
+    # attached upstream (apply_india_aqi); the number, its colors, and
+    # the category word follow that scale there. The category ("Very
+    # Poor") is how CPCB bulletins print the index, and it is what tells
+    # a reader which of the two scales the number is on.
     aqi_value = None
+    india_scale = False
     if aqi_data and isinstance(aqi_data, dict):
         aqi_current = aqi_data.get("current", {})
-        aqi_value = aqi_current.get("us_aqi")
+        india_value = aqi_current.get("india_aqi")
+        if india_value is not None:
+            aqi_value = india_value
+            india_scale = True
+        else:
+            aqi_value = aqi_current.get("us_aqi")
 
     left_aqi = ""
     if aqi_value is not None:
-        left_aqi = f"  {MUTED}{_s('aqi', runtime)} {_aqi_color(aqi_value)}{aqi_value:.0f}"
+        if india_scale:
+            from linecast._weather_sources import india_aqi_category
+            color = _india_aqi_color(aqi_value)
+            category = india_aqi_category(aqi_value)
+            left_aqi = (f"  {MUTED}{_s('aqi', runtime)} "
+                        f"{color}{aqi_value:.0f} {category}")
+        else:
+            left_aqi = (f"  {MUTED}{_s('aqi', runtime)} "
+                        f"{_aqi_color(aqi_value)}{aqi_value:.0f}")
 
     # Right side: wind info + location (progressively droppable)
     wind_part = ""

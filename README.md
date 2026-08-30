@@ -105,7 +105,7 @@ alias weather='linecast weather' radar='linecast radar'
 
 ### Weather
 
-The weather dashboard combines current conditions, daylight-shaded hourly temperatures, precipitation, daily ranges, air quality, and natural-language comparisons. Official alerts are available across 36 countries and open to their full detail in live mode.
+The weather dashboard combines current conditions, daylight-shaded hourly temperatures, precipitation, daily ranges, air quality, and natural-language comparisons. Official alerts are available across 37 countries and open to their full detail in live mode. In India, air quality is shown on the CPCB's National AQI scale, the one official bulletins use.
 
 ![weather dashboard](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
 
@@ -234,6 +234,8 @@ linecast weather --lang fr
 linecast radar --lang zh
 ```
 
+In India, alerts follow `--lang` further than the app itself: SACHET publishes many alerts in the state language, so `--lang hi`, `te`, `or`, `mr`, or another Indian language code shows an alert's own regional text where it exists, while the rest of the app stays in English.
+
 ### Color and icons
 
 linecast asks the terminal for its palette so its colors belong in your theme. Set `LINECAST_COLOR` to `truecolor`, `256`, `16`, or `none` to choose the color mode yourself, or use the standard `NO_COLOR` variable.
@@ -318,7 +320,7 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 <summary><strong>Data sources and coverage</strong></summary>
 
 - **Location** — [ipinfo.io](https://ipinfo.io/) for IP geolocation when no location is saved or passed; place names are geocoded by Open-Meteo.
-- **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Hong Kong Observatory, Met Éireann, Japan Meteorological Agency, MET Norway, and MeteoAlarm.
+- **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Hong Kong Observatory, Met Éireann, Japan Meteorological Agency, MET Norway, MeteoAlarm, and SACHET (India's national alert aggregator).
 - **Sunshine and Moon** — computed on your device from the astronomical equations; the Moon's face is a vendored grayscale of NASA SVS's [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) (Lunar Reconnaissance Orbiter, public domain).
 - **Tides** — NOAA CO-OPS, Canadian Hydrographic Service, Queensland Open Data, Hong Kong Observatory, Open-Meteo's tide model as a global fallback, and optionally TideCheck.
 - **Radar** — [LibreWXR](https://librewxr.net/), with NEXRAD via Iowa Environmental Mesonet and RainViewer as fallbacks; warning polygons come from the US National Weather Service via IEM. The basemap is derived from Natural Earth.

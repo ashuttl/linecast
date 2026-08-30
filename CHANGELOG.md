@@ -4,6 +4,9 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: Official alerts in India, from SACHET, the national warning system — IMD weather warnings, flood bulletins, and state nowcasts, shown in English where the push text is in a regional language. `--lang hi` (or another Indian language code) keeps the regional text instead.
+- Weather: In India, air quality is the CPCB's National AQI, the number official bulletins report, instead of the US index, with its category word (Good to Severe) beside the number. `--json` adds `india_aqi` and its category.
+- Text in scripts that stack marks on their letters — Devanagari, Thai, Arabic — now measures the width terminals give it, and linecast asks the terminal once whether it draws a conjunct and its vowel sign in two cells or three, so Hindi alerts line up either way.
 - Sunshine: A year view (`--year`) draws a column of sky for each day of the year, sunrise and sunset appearing as the edge between night and day. A marker shows the current day and time; pointing at a day shows its sunrise, sunset, and day length. In live mode, `y` switches between the day and the year.
 - Moon: The disc is drawn at the tilt you would actually see, worked out from your latitude and where the Moon is in your sky, rather than being flipped over for everyone south of the equator. It turns through the night as the Moon rises and sets.
 - Moon: The lit edge now faces the Sun. It was drawn square to the Moon's poles before, which put it as much as a half turn out.

@@ -5,7 +5,7 @@ from datetime import datetime
 
 from linecast import _theme
 from linecast._graphics import bg, fg, visible_len, RESET, BOLD
-from linecast._textwidth import char_width
+from linecast._textwidth import char_widths
 from linecast._theme import best_contrast
 from linecast._i18n import lang_of
 from linecast._weather_i18n import DAY_NAMES, _s
@@ -45,8 +45,9 @@ def _wrap_display_width(text, width):
     line_w = 0
     last_sp = -1
 
+    widths = char_widths(text)
     for i, ch in enumerate(text):
-        cw = char_width(ch, text[i + 1:i + 2])
+        cw = widths[i]
         if line_w + cw > width:
             if ch == " ":
                 lines.append(line)
@@ -75,8 +76,7 @@ def _wrap_display_width(text, width):
 def _truncate_display_width(text, width):
     """Truncate plain text to fit within a terminal display width, adding \u2026 if needed."""
     w = 0
-    for i, ch in enumerate(text):
-        cw = char_width(ch, text[i + 1:i + 2])
+    for i, cw in enumerate(char_widths(text)):
         if w + cw > width:
             # Back up for the ellipsis
             if w > 0:
