@@ -31,6 +31,7 @@ from linecast._theme import (
     best_contrast,
     darken,
     ensure_contrast,
+    is_light_theme,
     lerp_rgb,
     lighten,
     neutral_tone,
@@ -52,7 +53,8 @@ def _rebuild():
     global HORIZON_COLOR, CURVE_COLOR, SUN_GLOW_DAY_RGB, SUN_GLOW_TWILIGHT_RGB
     global SUN_CORE_RGB, INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_MUTED_RGB
     global INFO_DIM_RGB, INFO_TEXT_RGB, _SKY_BLUE, _SKY_CYAN, _SKY_MAGENTA
-    global _SKY_RED, _SKY_YELLOW, _SKY_WHITE
+    global _SKY_RED, _SKY_YELLOW, _SKY_WHITE, SKY_NIGHT
+    SKY_NIGHT = BG_PRIMARY
     if theme_legacy_mode:
         # Original pre-theme palette (classic mode).
         HORIZON_COLOR = (90, 98, 125)
@@ -75,15 +77,24 @@ def _rebuild():
         _SKY_YELLOW = best_contrast((_theme.theme_ansi[3], _theme.theme_ansi[11]), minimum=1.8)
         _SKY_WHITE = best_contrast((_theme.theme_ansi[15], _theme.theme_fg), minimum=2.0)
 
+        # Night is dark whatever the terminal. On a light theme the sky
+        # sits on a navy from the theme's blue, not the page, and the
+        # inks drawn over the sky contrast with that.
+        if is_light_theme():
+            SKY_NIGHT = darken(_SKY_BLUE, 0.80)
+            _SKY_WHITE = (250, 252, 255)
+
         # hairline divider
-        HORIZON_COLOR = ensure_contrast(neutral_tone(0.45), _theme.theme_bg, minimum=1.7)
+        HORIZON_COLOR = ensure_contrast(neutral_tone(0.45), SKY_NIGHT, minimum=1.7)
         # neutral arc
-        CURVE_COLOR = ensure_contrast(neutral_tone(0.74), _theme.theme_bg, minimum=2.4)
+        CURVE_COLOR = ensure_contrast(neutral_tone(0.74), SKY_NIGHT, minimum=2.4)
         SUN_GLOW_DAY_RGB = best_contrast(
-            (_theme.theme_ansi[15], lighten(_theme.theme_fg, 0.12)), minimum=1.8)
+            (_theme.theme_ansi[15], lighten(_theme.theme_fg, 0.12)), SKY_NIGHT,
+            minimum=1.8)
         SUN_GLOW_TWILIGHT_RGB = ensure_contrast(
-            lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.45), _theme.theme_bg, minimum=1.6)
-        SUN_CORE_RGB = best_contrast((_theme.theme_ansi[15], _theme.theme_fg), minimum=2.0)
+            lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.45), SKY_NIGHT, minimum=1.6)
+        SUN_CORE_RGB = best_contrast((_theme.theme_ansi[15], _theme.theme_fg),
+                                     SKY_NIGHT, minimum=2.0)
         INFO_AMBER_RGB = ensure_contrast(_SKY_YELLOW, _theme.theme_bg, minimum=2.3)
         INFO_PURPLE_RGB = ensure_contrast(_SKY_MAGENTA, _theme.theme_bg, minimum=2.3)
         INFO_MUTED_RGB = ensure_contrast(neutral_tone(0.48), _theme.theme_bg, minimum=2.4)
@@ -196,10 +207,11 @@ def _rebuild_sky():
             ( 90, (132, 188, 250)),
         ]
     else:
+        night = SKY_NIGHT
         SKY_NEAR_HORIZON = [   # warm side — sky color near the sun at the horizon
-            (-18, BG_PRIMARY),
-            (-12, darken(lerp_rgb(_theme.theme_bg, _SKY_MAGENTA, 0.18), 0.10)),
-            ( -6, lerp_rgb(_theme.theme_bg, _SKY_RED, 0.35)),
+            (-18, night),
+            (-12, darken(lerp_rgb(night, _SKY_MAGENTA, 0.18), 0.10)),
+            ( -6, lerp_rgb(night, _SKY_RED, 0.35)),
             ( -3, lerp_rgb(_SKY_RED, _SKY_MAGENTA, 0.20)),
             (  0, lerp_rgb(_SKY_YELLOW, _SKY_RED, 0.28)),
             (  3, lerp_rgb(_SKY_YELLOW, _SKY_WHITE, 0.20)),
@@ -210,9 +222,9 @@ def _rebuild_sky():
         ]
 
         SKY_FAR_HORIZON = [    # cool side — sky color far from the sun at the horizon
-            (-18, BG_PRIMARY),
-            (-12, darken(lerp_rgb(_theme.theme_bg, _SKY_MAGENTA, 0.14), 0.12)),
-            ( -6, lerp_rgb(_theme.theme_bg, _SKY_MAGENTA, 0.30)),
+            (-18, night),
+            (-12, darken(lerp_rgb(night, _SKY_MAGENTA, 0.14), 0.12)),
+            ( -6, lerp_rgb(night, _SKY_MAGENTA, 0.30)),
             ( -3, lerp_rgb(_SKY_MAGENTA, _SKY_RED, 0.30)),
             (  0, lerp_rgb(_SKY_RED, _SKY_MAGENTA, 0.30)),
             (  3, lerp_rgb(_SKY_RED, _SKY_CYAN, 0.25)),
@@ -223,10 +235,10 @@ def _rebuild_sky():
         ]
 
         SKY_ZENITH = [         # sky color at the top of the display
-            (-18, BG_PRIMARY),
-            (-12, darken(lerp_rgb(_theme.theme_bg, _SKY_BLUE, 0.10), 0.14)),
-            ( -6, darken(lerp_rgb(_theme.theme_bg, _SKY_BLUE, 0.18), 0.08)),
-            ( -3, lerp_rgb(_theme.theme_bg, _SKY_MAGENTA, 0.22)),
+            (-18, night),
+            (-12, darken(lerp_rgb(night, _SKY_BLUE, 0.10), 0.14)),
+            ( -6, darken(lerp_rgb(night, _SKY_BLUE, 0.18), 0.08)),
+            ( -3, lerp_rgb(night, _SKY_MAGENTA, 0.22)),
             (  0, lerp_rgb(_SKY_MAGENTA, _SKY_BLUE, 0.32)),
             (  3, lerp_rgb(_SKY_MAGENTA, _SKY_BLUE, 0.48)),
             (  8, lerp_rgb(_SKY_BLUE, _SKY_CYAN, 0.22)),
@@ -424,6 +436,12 @@ def moon_phase(dt, runtime=None):
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
+def corner_label_ink(cell):
+    """A dim ink for the corner label over a sky cell, light or dark."""
+    luma = 0.30 * cell[0] + 0.59 * cell[1] + 0.11 * cell[2]
+    return lighten(cell, 0.45) if luma < 130 else darken(cell, 0.55)
+
+
 def corner_label_cells(label, graph_w):
     """(x, char) overlay cells for a label right-aligned in the top row.
 
@@ -495,7 +513,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     sunrise, sunset = solar_times(lat, lng, doy, tz_offset_h)
 
     # --- build framebuffer ---
-    fb = Framebuffer(graph_w, graph_h)
+    fb = Framebuffer(graph_w, graph_h, bg_color=SKY_NIGHT)
 
     # 1. Sky glow — above horizon, centered on sun, irrespective of arc
     if now_elev > -18:
@@ -597,9 +615,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     if location_label:
         for x, ch in corner_label_cells(location_label, graph_w):
             cell = fb.cell_bg(x, 0)
-            luma = 0.30 * cell[0] + 0.59 * cell[1] + 0.11 * cell[2]
-            color = INFO_DIM_RGB if luma < 130 else darken(cell, 0.55)
-            overlays[(x, 0)] = (ch, color, False)
+            overlays[(x, 0)] = (ch, corner_label_ink(cell), False)
     sun_cell_row = sun_spy_i // 2
     overlays[(now_x, sun_cell_row)] = (icons["sun_char"], SUN_CORE_RGB)
     lines = fb.render(overlays)

@@ -107,19 +107,25 @@ def _dial_stops(sun):
             ( 30, (84, 144, 220)),
             ( 90, (70, 132, 214)),
         ]
-    bg_ = _theme.theme_bg
     # The day view's blue may settle on ANSI cyan; the dial wants a blue.
     sky = best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12]),
                         minimum=1.8)
     red, magenta, yellow = sun._SKY_RED, sun._SKY_MAGENTA, sun._SKY_YELLOW
     white = sun._SKY_WHITE
-    slate = lerp_rgb(bg_, sky, 0.45)
+    if is_light_theme():
+        # Night dark and day light whatever the page: the night is the
+        # day view's navy, the day the theme's blue lifted toward white.
+        night = sun.SKY_NIGHT
+        day = lerp_rgb(sky, white, 0.50)
+    else:
+        night = lerp_rgb(_theme.theme_bg, sky, 0.10)
+        day = lerp_rgb(sky, white, 0.18)
+    slate = lerp_rgb(night, sky, 0.40)
     rose = lerp_rgb(lerp_rgb(magenta, red, 0.30), slate, 0.25)
     peach = lerp_rgb(lerp_rgb(yellow, red, 0.30), white, 0.35)
-    day = lerp_rgb(sky, white, 0.18)
     return [
-        (-18, lerp_rgb(bg_, sky, 0.10)),
-        (-12, lerp_rgb(bg_, sky, 0.25)),
+        (-18, night),
+        (-12, lerp_rgb(night, sky, 0.17)),
         ( -8, slate),
         ( -5, lerp_rgb(slate, magenta, 0.35)),
         ( -2, rose),
@@ -129,8 +135,8 @@ def _dial_stops(sun):
         (  8, lerp_rgb(peach, day, 0.70)),
         ( 12, lerp_rgb(day, white, 0.10)),
         ( 18, day),
-        ( 30, lerp_rgb(sky, white, 0.10)),
-        ( 90, sky),
+        ( 30, lerp_rgb(day, sky, 0.45)),
+        ( 90, lerp_rgb(day, sky, 0.60)),
     ]
 
 
@@ -274,14 +280,15 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     # against the lit cell instead).
     if location_label:
         for x, ch in sun.corner_label_cells(location_label, graph_w):
-            cell = fb.cell_bg(x, 0)
-            luma = 0.30 * cell[0] + 0.59 * cell[1] + 0.11 * cell[2]
-            color = (sun.INFO_DIM_RGB if luma < 130
-                     else darken(cell, 0.55))
-            overlays[(x, 0)] = (ch, color, False)
+            overlays[(x, 0)] = (ch, sun.corner_label_ink(fb.cell_bg(x, 0)),
+                                False)
 
     sun_row = spy_now // 2
-    overlays[(x_today, sun_row)] = (icons["sun_char"], sun.SUN_CORE_RGB)
+    # The dot contrasts with the sky behind it: white over navy, dark
+    # over a light theme's day.
+    dot = best_contrast((_theme.theme_ansi[15], _theme.theme_fg),
+                        fb.cell_bg(x_today, sun_row), minimum=2.0)
+    overlays[(x_today, sun_row)] = (icons["sun_char"], dot)
 
     lines = fb.render(overlays)
 
