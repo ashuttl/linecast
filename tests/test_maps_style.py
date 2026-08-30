@@ -655,10 +655,13 @@ def test_use_metric():
 
 
 def test_attribution_short_form_is_actually_shorter():
-    assert visible_len(ms.ATTRIB_TILES_SHORT) < visible_len(
-        ms.ATTRIB_TILES_LONG)
+    from linecast import _vtiles
+    from unittest.mock import patch
+    with patch.object(_vtiles, "source_credit", return_value="OpenFreeMap"):
+        long = _vtiles.attribution_long()
+    assert visible_len(ms.ATTRIB_TILES_SHORT) < visible_len(long)
     assert "OpenStreetMap" in ms.ATTRIB_TILES_SHORT
-    assert "OpenFreeMap" in ms.ATTRIB_TILES_LONG
+    assert "OpenFreeMap" in long
 
 
 def test_modes():

@@ -875,8 +875,6 @@ def poi_glyph(cls):
 # ---------------------------------------------------------------------------
 # Cartographic furniture
 # ---------------------------------------------------------------------------
-ATTRIB_TILES_LONG = (
-    "OpenFreeMap © OpenMapTiles © OpenStreetMap contributors")
 ATTRIB_TILES_SHORT = "© OpenMapTiles © OpenStreetMap"
 
 # Labels are stored, not computed: the obvious f"{d/1609.344:g} mi"

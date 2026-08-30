@@ -635,12 +635,12 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                         base, ATTRIBUTION) if clouds
                        else (base, ATTRIBUTION))
         elif view == "street":
-            attribs = ((f"{_maps_style.ATTRIB_TILES_LONG} · "
-                        f"{_globe_now.ATTRIBUTION}",
-                        _maps_style.ATTRIB_TILES_LONG,
+            from linecast._vtiles import attribution_long
+            tiles_long = attribution_long()
+            attribs = ((f"{tiles_long} · {_globe_now.ATTRIBUTION}",
+                        tiles_long,
                         _maps_style.ATTRIB_TILES_SHORT) if clouds
-                       else (_maps_style.ATTRIB_TILES_LONG,
-                             _maps_style.ATTRIB_TILES_SHORT))
+                       else (tiles_long, _maps_style.ATTRIB_TILES_SHORT))
         else:
             # terrain's lakes and rivers come from the tiles too, so the
             # first rung credits both sources and the fallbacks shorten;
