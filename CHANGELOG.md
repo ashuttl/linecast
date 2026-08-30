@@ -4,6 +4,9 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: Official alerts in India, from SACHET, the national warning system — IMD weather warnings, flood bulletins, and state nowcasts, shown in English where the push text is in a regional language.
+- Weather: In India, air quality is the CPCB's National AQI, the number official bulletins report, instead of the US index. `--json` adds `india_aqi` and its category.
+
 ## 2.1.0 — 2026-08-28
 
 New this version:

@@ -128,12 +128,20 @@ def fetch_forecast(lat: float, lng: float,
 
 
 def fetch_aqi(lat: float, lng: float) -> dict[str, Any] | None:
-    """Fetch current AQI from Open-Meteo Air Quality API. Cached 1h."""
+    """Fetch current AQI from Open-Meteo Air Quality API. Cached 1h.
+
+    The hourly pollutant series covers the past day so the Indian AQI,
+    which is defined over running averages, can be computed on-device
+    (india_aqi below).
+    """
     cache_file = cache_dir("weather") / f"aqi_{location_cache_key(lat, lng)}.json"
     url = (
         "https://air-quality-api.open-meteo.com/v1/air-quality"
         f"?latitude={lat}&longitude={lng}"
         "&current=us_aqi,european_aqi,pm2_5,pm10"
+        "&hourly=pm2_5,pm10,nitrogen_dioxide,sulphur_dioxide,"
+        "carbon_monoxide,ozone"
+        "&past_days=1&forecast_days=1"
     )
     return fetch_json_cached(
         cache_file,
@@ -142,6 +150,104 @@ def fetch_aqi(lat: float, lng: float) -> dict[str, Any] | None:
         timeout=10,
         fallback=None,
     )
+
+
+# CPCB National AQI (India, 2014): each pollutant maps onto the shared
+# index bands through its own concentration breakpoints, and the AQI is
+# the worst sub-index. Concentrations in µg/m³ (Open-Meteo's unit; the
+# CPCB states CO in mg/m³, converted here). The top band is open-ended
+# ("250+" for PM2.5); its ceiling below continues the slope of the band
+# before it, and the index is capped at 500 either way.
+_INDIA_AQI_INDEX = (0, 50, 100, 200, 300, 400, 500)
+_INDIA_AQI_BREAKPOINTS = {
+    "pm2_5": (0, 30, 60, 90, 120, 250, 380),
+    "pm10": (0, 50, 100, 250, 350, 430, 510),
+    "nitrogen_dioxide": (0, 40, 80, 180, 280, 400, 520),
+    "sulphur_dioxide": (0, 40, 80, 380, 800, 1600, 2400),
+    "ozone": (0, 50, 100, 168, 208, 748, 1288),
+    "carbon_monoxide": (0, 1000, 2000, 10000, 17000, 34000, 51000),
+}
+
+# Averaging windows, in hours: 24 for the particulates and gases, 8 for
+# CO and ozone, per the CPCB's definition.
+_INDIA_AQI_WINDOWS = {
+    "pm2_5": 24, "pm10": 24, "nitrogen_dioxide": 24, "sulphur_dioxide": 24,
+    "ozone": 8, "carbon_monoxide": 8,
+}
+
+
+def _india_sub_index(pollutant, concentration):
+    """One pollutant's CPCB sub-index, linear within its band."""
+    breakpoints = _INDIA_AQI_BREAKPOINTS[pollutant]
+    if concentration >= breakpoints[-1]:
+        return 500.0
+    for band in range(1, len(breakpoints)):
+        if concentration <= breakpoints[band]:
+            c_lo, c_hi = breakpoints[band - 1], breakpoints[band]
+            i_lo, i_hi = _INDIA_AQI_INDEX[band - 1], _INDIA_AQI_INDEX[band]
+            return i_lo + (i_hi - i_lo) * (concentration - c_lo) / (c_hi - c_lo)
+    return 500.0
+
+
+def india_aqi(aqi_data):
+    """The CPCB National AQI from an Open-Meteo air quality response.
+
+    Averages each pollutant's hourly series over its window, ending at
+    the current hour, and takes the worst sub-index. Following the CPCB,
+    no index is reported without particulate data, and a window more
+    than half empty is not averaged.
+
+    Returns None when the response has no hourly series (an older cached
+    response) or too little data; the caller falls back to the US AQI.
+    """
+    if not isinstance(aqi_data, dict):
+        return None
+    hourly = aqi_data.get("hourly") or {}
+    times = hourly.get("time") or []
+    now = (aqi_data.get("current") or {}).get("time")
+    try:
+        end = times.index(now) + 1
+    except ValueError:
+        return None
+
+    worst = None
+    has_pm = False
+    for pollutant, window in _INDIA_AQI_WINDOWS.items():
+        series = hourly.get(pollutant) or []
+        values = [v for v in series[max(0, end - window):end] if v is not None]
+        if len(values) < window // 2 + 1:
+            continue
+        sub = _india_sub_index(pollutant, sum(values) / len(values))
+        if pollutant in ("pm2_5", "pm10"):
+            has_pm = True
+        if worst is None or sub > worst:
+            worst = sub
+    if worst is None or not has_pm:
+        return None
+    return worst
+
+
+def india_aqi_category(value):
+    """The CPCB's name for an index value, as its bulletins print it."""
+    for ceiling, name in ((50, "Good"), (100, "Satisfactory"),
+                          (200, "Moderate"), (300, "Poor"),
+                          (400, "Very Poor")):
+        if value <= ceiling:
+            return name
+    return "Severe"
+
+
+def apply_india_aqi(aqi_data, country_code):
+    """Attach the CPCB index to an air quality response for India.
+
+    render_header and the JSON payload show it in place of the US AQI
+    when present; elsewhere the response passes through untouched.
+    """
+    if country_code != "IN" or not isinstance(aqi_data, dict):
+        return
+    value = india_aqi(aqi_data)
+    if value is not None:
+        aqi_data.setdefault("current", {})["india_aqi"] = value
 
 
 def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en",
@@ -166,6 +272,8 @@ def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en
         return _fetch_alerts_hko()
     if country_code == "CN":
         return _fetch_alerts_cma(lat, lng, lang=lang)
+    if country_code == "IN":
+        return _fetch_alerts_sachet(lat, lng, lang=lang)
     slug = _METEOALARM_SLUGS.get(country_code)
     if slug:
         return _fetch_alerts_meteoalarm(lat, lng, slug, lang=lang, address=address)
@@ -1118,6 +1226,245 @@ def _parse_cma_issuetime(s):
     if len(s) >= 16 and s[4] == "/" and s[7] == "/" and s[10] == " ":
         return f"{s[0:4]}-{s[5:7]}-{s[8:10]}T{s[11:16]}:00"
     return ""
+
+
+# ---------------------------------------------------------------------------
+# SACHET (National Disaster Management Authority, India)
+# ---------------------------------------------------------------------------
+
+_SACHET_FEED_URL = "https://sachet.ndma.gov.in/cap_public_website/FetchAllAlertDetails"
+_SACHET_CAP_URL = ("https://sachet.ndma.gov.in/cap_public_website/FetchXMLFile"
+                   "?identifier={identifier}")
+
+_IST = timezone(timedelta(hours=5, minutes=30))
+
+# The feed's colour is the fallback when an alert's CAP file is out of
+# reach; the file itself carries the standard CAP severity.
+_SACHET_COLORS = {"red": "Extreme", "orange": "Severe", "yellow": "Moderate"}
+
+_SACHET_MONTHS = {
+    "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+    "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
+}
+
+
+def _fetch_alerts_sachet(lat, lng, lang="en"):
+    """Fetch active alerts from SACHET, India's national CAP aggregator.
+
+    One national feed lists every active alert — IMD weather warnings,
+    CWC flood bulletins, state SDMA nowcasts — with a centroid and the
+    area covered, so a single request (cached 15min) serves any location
+    in the country. An alert is kept when the user sits within the disc
+    of that area, plus slack for the shapes a disc misses.
+
+    The feed's push text is often in a regional language alone; each
+    alert's CAP file carries an info block per language, English always
+    among them, so the kept alerts are refined from their CAP files
+    (cached per alert — a SACHET update is a new identifier).
+    """
+    import math
+
+    feed = fetch_json_cached(
+        cache_dir("weather") / "alerts_in_feed.json", 900,
+        _SACHET_FEED_URL, timeout=15, fallback=None,
+    )
+    if not isinstance(feed, list):
+        return []
+
+    cos_lat = math.cos(math.radians(lat))
+    candidates = []
+    for entry in feed:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            lng_str, lat_str = str(entry.get("centroid", "")).split(",")
+            clat, clng = float(lat_str), float(lng_str)
+        except ValueError:
+            continue
+        try:
+            area = float(entry.get("area_covered") or 0.0)
+        except (TypeError, ValueError):
+            area = 0.0
+        radius_km = math.sqrt(area / math.pi) if area > 0 else 0.0
+        dist_km = 111.32 * math.hypot(lat - clat, (lng - clng) * cos_lat)
+        if dist_km <= radius_km + 25.0:
+            candidates.append((dist_km, entry))
+
+    # Nearest first, and a ceiling on CAP fetches: past a dozen alerts on
+    # one spot the marginal one adds latency, not information.
+    candidates.sort(key=lambda pair: pair[0])
+    now = datetime.now(timezone.utc)
+    alerts = []
+    seen = set()
+    for _dist, entry in candidates[:12]:
+        alert = (_sachet_alert_from_cap(entry, lang)
+                 or _sachet_alert_from_feed(entry))
+        if alert is None:
+            continue
+        expires = _parse_iso_aware(alert["expires"])
+        if expires is not None and expires < now:
+            continue  # the cached feed can outlive an alert by up to 15min
+        dedup_key = (alert["event"], alert["severity"], alert["headline"])
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+        alerts.append(alert)
+
+    severity_order = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
+    alerts.sort(key=lambda a: severity_order.get(a["severity"], 3))
+
+    _sweep_sachet_cap_files(feed)
+    return alerts
+
+
+def _sweep_sachet_cap_files(feed):
+    """Drop cached CAP files for alerts no longer in the feed.
+
+    India issues nowcasts by the hundred a day; without a sweep the
+    cache would keep every one this user was ever near.
+    """
+    live = {str(entry.get("identifier"))
+            for entry in feed if isinstance(entry, dict)}
+    try:
+        for path in cache_dir("weather").glob("alerts_in_cap_*.xml"):
+            if path.stem[len("alerts_in_cap_"):] not in live:
+                path.unlink(missing_ok=True)
+    except OSError as exc:
+        log_failure("cache", "sweep of SACHET CAP files", exc,
+                    fallback="left in place")
+
+
+def _parse_iso_aware(iso_str):
+    """An ISO timestamp as an aware UTC datetime, or None."""
+    try:
+        dt = datetime.fromisoformat(iso_str)
+    except (TypeError, ValueError):
+        return None
+    if dt.tzinfo is None:
+        return None
+    return dt.astimezone(timezone.utc)
+
+
+def _sachet_datetime(s):
+    """A SACHET feed time ("Sun Aug 30 21:00:00 IST 2026") as ISO 8601.
+
+    Parsed by hand: strptime's %a and %b follow the process locale, and
+    the feed's English month names must parse on a German machine too.
+    """
+    m = re.match(r"\w+ (\w+) (\d+) (\d+):(\d+):(\d+) IST (\d+)", str(s or ""))
+    if not m:
+        return ""
+    month = _SACHET_MONTHS.get(m.group(1))
+    if month is None:
+        return ""
+    day, hour, minute, second, year = (int(g) for g in m.groups()[1:])
+    try:
+        dt = datetime(year, month, day, hour, minute, second, tzinfo=_IST)
+    except ValueError:
+        return ""
+    return dt.isoformat()
+
+
+def _sachet_alert_from_feed(entry):
+    """A normalized alert from a SACHET feed entry alone."""
+    event = str(entry.get("disaster_type") or "").strip()
+    message = str(entry.get("warning_message") or "").strip()
+    if not event and not message:
+        return None
+    severity = _SACHET_COLORS.get(
+        str(entry.get("severity_color") or "").lower(), "Moderate")
+    return {
+        "event": event or "Alert",
+        "headline": message or event,
+        "description": message,
+        "effective": _sachet_datetime(entry.get("effective_start_time")),
+        "expires": _sachet_datetime(entry.get("effective_end_time")),
+        "severity": severity,
+        "url": "https://sachet.ndma.gov.in/",
+    }
+
+
+def _sachet_cap_infos(identifier):
+    """The info blocks of one SACHET CAP file, as dicts; None on failure.
+
+    Cached without expiry: an alert's CAP file never changes — SACHET
+    issues updates under a new identifier — and the per-identifier files
+    are swept once the alert leaves the feed (_sweep_sachet_cap_files).
+    """
+    from xml.etree import ElementTree
+
+    from linecast._http import fetch_bytes_cached
+
+    # A shorter timeout than usual: these fetches run one after another,
+    # and a dozen of them must not hold the dashboard for two minutes.
+    raw = fetch_bytes_cached(
+        cache_dir("weather") / f"alerts_in_cap_{identifier}.xml", None,
+        _SACHET_CAP_URL.format(identifier=identifier), timeout=6,
+    )
+    if not raw:
+        return None
+    try:
+        root = ElementTree.fromstring(raw)
+    except ElementTree.ParseError as exc:
+        log_failure("weather/alerts", f"CAP parse of {identifier}", exc,
+                    fallback="feed entry used")
+        return None
+
+    def _local(tag):
+        return tag.rsplit("}", 1)[-1]
+
+    infos = []
+    for info_el in root.iter():
+        if _local(info_el.tag) != "info":
+            continue
+        info = {}
+        for child in info_el:
+            tag = _local(child.tag)
+            if tag in ("language", "event", "severity", "headline",
+                       "description", "instruction", "effective", "onset",
+                       "expires"):
+                info[tag] = (child.text or "").strip()
+        infos.append(info)
+    return infos or None
+
+
+def _sachet_alert_from_cap(entry, lang):
+    """A normalized alert from a SACHET CAP file, or None to fall back."""
+    identifier = entry.get("identifier")
+    if not identifier:
+        return None
+    infos = _sachet_cap_infos(identifier)
+    if not infos:
+        return None
+
+    # Prefer the user's language, then English; the feed marks regional-
+    # language blocks with odd codes ("TL"), so match on the prefix.
+    def _in_lang(prefix):
+        return next((i for i in infos
+                     if i.get("language", "").lower().startswith(prefix)), None)
+    info = _in_lang(lang.lower()) or _in_lang("en") or infos[0]
+
+    event = info.get("event", "").strip()
+    headline = " ".join(info.get("headline", "").split())
+    description = " ".join(info.get("description", "").split())
+    instruction = " ".join(info.get("instruction", "").split())
+    if not event and not headline:
+        return None
+    if instruction and instruction.lower() != "please follow sdma guidelines.":
+        description = f"{description} {instruction}".strip()
+    severity = info.get("severity", "").capitalize()
+    if severity not in ("Extreme", "Severe", "Moderate", "Minor"):
+        severity = _SACHET_COLORS.get(
+            str(entry.get("severity_color") or "").lower(), "Moderate")
+    return {
+        "event": event or "Alert",
+        "headline": headline or event,
+        "description": description or headline,
+        "effective": info.get("effective") or info.get("onset") or "",
+        "expires": info.get("expires", ""),
+        "severity": severity,
+        "url": "https://sachet.ndma.gov.in/",
+    }
 
 
 def _geocode_query(query, lang="en"):
