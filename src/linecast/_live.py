@@ -261,6 +261,8 @@ def _read_key(fd, text=False):
         return 'key:d'
     if b in (b'l', b'L'):
         return 'key:l'
+    if b in (b'y', b'Y'):
+        return 'key:y'
     if b in (b'r', b'R'):
         return 'key:r'
     if b == b'/':

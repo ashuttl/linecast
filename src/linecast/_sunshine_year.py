@@ -9,8 +9,9 @@ By default the whole year is plotted in the location's current UTC offset,
 so the band stays smooth; with dst=True each day uses its own offset and
 the clock changes show as steps.
 
-A dashed hairline marks the day under the cursor (today until scrubbed);
-the sun glyph sits at (today, now) — a point on both axes.
+A hairline marks today, with the sun glyph at (today, now) — a point on
+both axes. Hovering the mouse over the chart raises a second hairline and
+a tooltip with that day's sunrise, sunset, and day length, tides-style.
 """
 
 import calendar
@@ -18,15 +19,37 @@ from datetime import datetime, timedelta
 
 from linecast import _theme
 from linecast._graphics import (
-    fg, RESET, interp_stops, lerp, visible_len, fmt_time,
+    fg, bg, RESET, interp_stops, lerp, visible_len, fmt_time,
     get_terminal_size, Framebuffer,
 )
-from linecast._theme import darken
+from linecast._theme import (
+    best_contrast, darken, ensure_contrast, is_light_theme, lerp_rgb,
+    surface_bg,
+)
 
 _theme.track_imports(globals(), "linecast._color")
 
 _MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def _rebuild():
+    # Now and hover hairlines and the hover tooltip, tides' recipe.
+    global NOW_LINE_RGB, HOVER_RGB, TIP_BG_RGB, TIP_TEXT_RGB, TIP_DIM_RGB
+    NOW_LINE_RGB = ensure_contrast(
+        lerp_rgb(best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12]),
+                               minimum=2.0),
+                 _theme.theme_bg, 0.30),
+        minimum=1.8,
+    )
+    HOVER_RGB = ensure_contrast(surface_bg(0.40), _theme.theme_bg, minimum=1.5)
+    TIP_BG_RGB = darken(surface_bg(0.10), 0.45 if not is_light_theme() else 0.10)
+    TIP_TEXT_RGB = ensure_contrast(_theme.theme_fg, TIP_BG_RGB, minimum=4.5)
+    TIP_DIM_RGB = ensure_contrast(surface_bg(0.55), TIP_BG_RGB, minimum=2.2)
+
+
+_rebuild()
+_theme.on_reload(_rebuild)
 
 
 def _day_tz_offsets(year, days, tz):
@@ -60,8 +83,29 @@ def _sky_color(elev, sun):
     return lerp(near, zen, w)
 
 
+def _day_facts(lat, lng, doy, tz_off, sun):
+    """(sunrise, sunset, day length in hours) for one day."""
+    sunrise, sunset = sun.solar_times(lat, lng, doy, tz_off)
+    return sunrise, sunset, sunset - sunrise
+
+
+def _fmt_len(hours):
+    h = int(hours)
+    m = int((hours - h) * 60)
+    return f"{h}h {m:02d}m"
+
+
+def _fmt_len_delta(delta_hours):
+    sign = "+" if delta_hours >= 0 else "−"
+    total_m = int(round(abs(delta_hours) * 60))
+    h, m = divmod(total_m, 60)
+    if h:
+        return f"{sign}{h}h {m:02d}m"
+    return f"{sign}{m}m"
+
+
 def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
-                cursor_day_offset=0, dst=False, location_label=""):
+                dst=False, location_label="", mouse_pos=None):
     """Build the year-scale sky field display."""
     from linecast import sunshine as sun  # palettes, rebuilt on theme reload
 
@@ -84,7 +128,6 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
         tz_offs = [off_h] * days
 
     today_doy = now.timetuple().tm_yday
-    cursor_doy = max(1, min(days, today_doy + cursor_day_offset))
     now_hour = now.hour + now.minute / 60 + now.second / 3600
 
     # --- the sky field ---
@@ -114,35 +157,38 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
                 else sun.SUN_GLOW_TWILIGHT_RGB)
     fb.draw_radial(x_today, spy_now, sun_warm, 5, peak_alpha=0.85)
 
-    # --- overlays: cursor hairline, location hint, sun glyph ---
+    # --- hover: which day is the mouse over? ---
+    hover_x = None
+    if mouse_pos:
+        mcol, mrow = mouse_pos
+        gx, gy = mcol - 2, mrow - 1  # 1-based terminal → 0-based chart cell
+        if 0 <= gx < graph_w and 0 <= gy < graph_h:
+            hover_x = gx
+
+    # --- overlays: hairlines, location hint, sun glyph ---
     overlays = {}
 
-    # Cursor day hairline — a braille stitch, one dash per cell, so it
-    # stays sharp. Light thread over night, dark thread over day. An
-    # overlay char flattens its cell to one color, so in gradient cells
-    # (the twilight band) the dash is drawn in the sub-pixel buffer
-    # instead, keeping the sunrise colors intact.
-    x_cursor = max(0, min(graph_w - 1,
-                          int((cursor_doy - 0.5) / days * graph_w)))
+    # Today — the now hairline, as in tides.
     for row in range(graph_h):
-        top, bot = fb.fb[row * 2][x_cursor], fb.fb[row * 2 + 1][x_cursor]
-        cell = fb.cell_bg(x_cursor, row)
-        luma = 0.30 * cell[0] + 0.59 * cell[1] + 0.11 * cell[2]
-        color = sun.CURVE_COLOR if luma < 130 else darken(cell, 0.5)
-        if max(abs(a - b) for a, b in zip(top, bot)) <= 12:
-            overlays[(x_cursor, row)] = (chr(0x2800 + 0x02 + 0x10), color, False)
-        else:
-            spy = row * 2
-            fb.fb[spy][x_cursor] = lerp(fb.fb[spy][x_cursor], color, 0.6)
+        overlays[(x_today, row)] = ("│", NOW_LINE_RGB, False)
+    if hover_x is not None and hover_x != x_today:
+        for row in range(graph_h):
+            overlays[(hover_x, row)] = ("│", HOVER_RGB, False)
 
-    # Location hint, dim, in the top-right corner (December midnight — the
-    # darkest patch of sky the chart has).
+    # Location hint, dim, in the top-right corner (December midnight — dark
+    # sky at every latitude short of a polar summer, where it darkens
+    # against the lit cell instead).
     if location_label:
         label = location_label[:max(0, graph_w // 3)]
         x0 = graph_w - len(label) - 1
         for i, ch in enumerate(label):
-            if 0 <= x0 + i < graph_w:
-                overlays[(x0 + i, 0)] = (ch, sun.INFO_DIM_RGB, False)
+            x = x0 + i
+            if 0 <= x < graph_w:
+                cell = fb.cell_bg(x, 0)
+                luma = 0.30 * cell[0] + 0.59 * cell[1] + 0.11 * cell[2]
+                color = (sun.INFO_DIM_RGB if luma < 130
+                         else darken(cell, 0.55))
+                overlays[(x, 0)] = (ch, color, False)
 
     sun_row = max(0, min(graph_h - 1, int(spy_now) // 2))
     overlays[(x_today, sun_row)] = (icons["sun_char"], sun.SUN_CORE_RGB)
@@ -152,16 +198,66 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     # --- month labels ---
     lines.append(_month_line(year, days, graph_w))
 
-    # --- info line for the day under the cursor ---
-    lines.append(_info_line(lat, lng, cursor_doy, tz_offs[cursor_doy - 1],
-                            year, days, cols, runtime,
-                            scrubbed=cursor_doy != today_doy))
+    # --- info line for today ---
+    lines.append(_info_line(lat, lng, today_doy, tz_offs[today_doy - 1],
+                            cols, runtime))
 
     hint = sun.install_banner()
     if hint:
         lines.append(hint)
 
-    return "\n".join(lines)
+    out = "\n".join(lines)
+    if hover_x is not None:
+        out += _hover_tooltip(lat, lng, hover_x, mouse_pos[1], graph_w,
+                              cols, rows, year, days, tz_offs, today_doy,
+                              runtime, sun, icons)
+    return out
+
+
+def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, cols, rows,
+                   year, days, tz_offs, today_doy, runtime, sun, icons):
+    """Cursor-positioned tooltip for the hovered day, tides-style."""
+    doy = max(1, min(days, int((hover_x + 0.5) / graph_w * days) + 1))
+    date = datetime(year, 1, 1) + timedelta(days=doy - 1)
+    sunrise, sunset, day_len = _day_facts(lat, lng, doy, tz_offs[doy - 1], sun)
+    _, _, today_len = _day_facts(lat, lng, today_doy,
+                                 tz_offs[today_doy - 1], sun)
+
+    diff = doy - today_doy
+    if diff == 0:
+        rel = "today"
+    elif diff > 0:
+        rel = f"in {diff} day" + ("s" if diff > 1 else "")
+    else:
+        rel = f"{-diff} day" + ("s" if diff < -1 else "") + " ago"
+
+    tip_bg = bg(*TIP_BG_RGB)
+    tip_fg = fg(*TIP_TEXT_RGB)
+    tip_dim = fg(*TIP_DIM_RGB)
+
+    tip_lines = [
+        f"{tip_bg}{tip_fg} {_MONTH_ABBR[date.month - 1]} {date.day} "
+        f"{tip_dim}· {rel} ",
+        f"{tip_bg}{tip_fg} {icons['sun_icon']} "
+        f"{fmt_time(sunrise, runtime.use_24h)}  "
+        f"{fmt_time(sunset, runtime.use_24h)} {icons['sunset_icon']} ",
+        f"{tip_bg}{tip_fg} {_fmt_len(day_len)} "
+        f"{tip_dim}({_fmt_len_delta(day_len - today_len)}) ",
+    ]
+
+    max_w = max(visible_len(line) for line in tip_lines)
+    padded = [f"{line}{tip_bg}{' ' * (max_w - visible_len(line))}{RESET}"
+              for line in tip_lines]
+
+    tooltip_col = hover_x + 3  # right of the hover hairline, 1-based + margin
+    tooltip_row = mouse_row
+    if tooltip_col + max_w - 1 > cols:
+        tooltip_col = max(1, hover_x + 2 - max_w)
+    if tooltip_row + len(padded) - 1 > rows:
+        tooltip_row = max(1, rows - len(padded) + 1)
+
+    return "".join(f"\033[{tooltip_row + i};{tooltip_col}H{line}"
+                   for i, line in enumerate(padded))
 
 
 def _month_line(year, days, graph_w):
@@ -180,15 +276,12 @@ def _month_line(year, days, graph_w):
     return f"{RESET} {dim}{''.join(chars)}{RESET}"
 
 
-def _info_line(lat, lng, doy, tz_off, year, days, width, runtime, scrubbed):
-    """Sunrise — [date ·] day length (delta) — sunset, for the cursor day."""
+def _info_line(lat, lng, doy, tz_off, width, runtime):
+    """Sunrise — day length (delta vs yesterday) — sunset, for today."""
     from linecast import sunshine as sun
 
     icons = sun._icon_set(runtime)
-    sunrise, sunset = sun.solar_times(lat, lng, doy, tz_off)
-    day_len = sunset - sunrise
-    dl_h = int(day_len)
-    dl_m = int((day_len - dl_h) * 60)
+    sunrise, sunset, day_len = _day_facts(lat, lng, doy, tz_off, sun)
 
     y_rise, y_set = sun.solar_times(lat, lng, doy - 1, tz_off)
     delta_sec = (day_len - (y_set - y_rise)) * 3600
@@ -202,14 +295,9 @@ def _info_line(lat, lng, doy, tz_off, year, days, width, runtime, scrubbed):
     dim = fg(*sun.INFO_DIM_RGB)
     text = fg(*sun.INFO_TEXT_RGB)
 
-    length = f"{dl_h}h {dl_m:02d}m {dim}({delta_str})"
-    if scrubbed:
-        date = datetime(year, 1, 1) + timedelta(days=doy - 1)
-        label = f"{_MONTH_ABBR[date.month - 1]} {date.day}"
-        center = f"{text}{label} · {length}"
-    else:
-        center = f"{text}{length}"
-
+    dl_h = int(day_len)
+    dl_m = int((day_len - dl_h) * 60)
+    center = f"{text}{dl_h}h {dl_m:02d}m {dim}({delta_str})"
     left = f"{amber}{icons['sun_icon']} {text}{fmt_time(sunrise, runtime.use_24h)}"
     right = f"{text}{fmt_time(sunset, runtime.use_24h)} {purple}{icons['sunset_icon']}"
 

@@ -427,7 +427,7 @@ def moon_phase(dt, runtime=None):
 # Rendering
 # ---------------------------------------------------------------------------
 def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=None,
-           tz_offset_h=None):
+           tz_offset_h=None, location_label=""):
     """Build the complete multi-line solar arc display."""
     if runtime is None:
         runtime = current_runtime(RuntimeConfig)
@@ -571,6 +571,19 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
         for ci in range(graph_w):
             if curve_bits[row][ci]:
                 overlays[(ci, row)] = (chr(0x2800 + curve_bits[row][ci]), CURVE_COLOR)
+    # Location hint, dim, in the top-right corner. The sky there can be
+    # anything from night to full daylight, so the hint darkens against a
+    # lit cell rather than disappearing into it.
+    if location_label:
+        hint_label = location_label[:max(0, graph_w // 3)]
+        hint_x0 = graph_w - len(hint_label) - 1
+        for i, ch in enumerate(hint_label):
+            x = hint_x0 + i
+            if 0 <= x < graph_w:
+                cell = fb.cell_bg(x, 0)
+                luma = 0.30 * cell[0] + 0.59 * cell[1] + 0.11 * cell[2]
+                color = INFO_DIM_RGB if luma < 130 else darken(cell, 0.55)
+                overlays[(x, 0)] = (ch, color, False)
     sun_cell_row = sun_spy_i // 2
     overlays[(now_x, sun_cell_row)] = (icons["sun_char"], SUN_CORE_RGB)
     lines = fb.render(overlays)
@@ -690,36 +703,35 @@ def main():
     year_mode = getattr(args, "year", False)
     dst = getattr(args, "dst", False)
 
-    location_label = ""
-    if year_mode or live:
-        # The year view names the place in a corner. The forward geocoder
-        # already labeled a place-name override; otherwise the (cached)
-        # reverse geocoder names the coordinates, as radar does.
-        location_label = label
-        if not location_label:
-            try:
-                from linecast._weather_sources import _reverse_geocode
-                location_label = _reverse_geocode(
-                    lat, lng, lang=runtime.lang)[0] or ""
-            except Exception:
-                location_label = ""
-        location_label = (location_label.split(",")[0].strip()
-                          or f"{lat:.2f},{lng:.2f}")
+    # Both views name the place in a corner. The forward geocoder already
+    # labeled a place-name override; otherwise the (cached) reverse
+    # geocoder names the coordinates, as radar does.
+    location_label = label
+    if not location_label:
+        try:
+            from linecast._weather_sources import _reverse_geocode
+            location_label = _reverse_geocode(
+                lat, lng, lang=runtime.lang)[0] or ""
+        except Exception:
+            location_label = ""
+    location_label = (location_label.split(",")[0].strip()
+                      or f"{lat:.2f},{lng:.2f}")
 
     # Day and year keep separate scrub offsets, so flipping between them
-    # returns to where each was left.
-    state = {"year": year_mode, "days": 0, "minutes": 0}
+    # returns to where each was left. The year view scrubs nothing: the
+    # mouse hovers it instead.
+    state = {"year": year_mode, "minutes": 0}
 
     def _render_view(offset_minutes=0, mouse_pos=None, active_alert=None,
                      modal_scroll=0):
-        # offset_minutes/mouse_pos/active_alert/modal_scroll are ignored;
-        # scrubbing is handled here (per mode) rather than by live_loop.
+        # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
+        # is handled here (day view only) rather than by live_loop.
         if state["year"]:
             from linecast._sunshine_year import render_year
             return render_year(
                 lat, lng, _now(), runtime, tz=tz, fullscreen=live,
-                cursor_day_offset=state["days"], dst=dst,
-                location_label=location_label,
+                dst=dst, location_label=location_label,
+                mouse_pos=mouse_pos,
             )
         now = _now()
         if state["minutes"]:
@@ -736,18 +748,17 @@ def main():
             offset_minutes=state["minutes"],
             runtime=runtime,
             tz_offset_h=_offset_hours(now),
+            location_label=location_label,
         )
 
     if not live:
         print(_render_view())
         return
 
-    # A wheel notch or arrow key scrubs a day of the year, or 15 minutes
-    # of the day, depending on the view; y flips between the two.
+    # A wheel notch or arrow key scrubs 15 minutes of the day view; the
+    # year view consumes them without moving. y flips between the two.
     def _step(n):
-        if state["year"]:
-            state["days"] += n
-        else:
+        if not state["year"]:
             state["minutes"] += 15 * n
         return True
 
@@ -757,7 +768,7 @@ def main():
         if action == "back":
             return _step(-1)
         if action == "reset":
-            state["days" if state["year"] else "minutes"] = 0
+            state["minutes"] = 0
             return True
         return False
 
