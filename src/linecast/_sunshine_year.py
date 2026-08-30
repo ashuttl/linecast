@@ -284,10 +284,14 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
                                 False)
 
     sun_row = spy_now // 2
-    # The dot contrasts with the sky behind it: white over navy, dark
-    # over a light theme's day.
-    dot = best_contrast((_theme.theme_ansi[15], _theme.theme_fg),
-                        fb.cell_bg(x_today, sun_row), minimum=2.0)
+    # On a light theme the dot sits on navy at night and a pale day by
+    # noon, so it picks its ink against the cell behind it. A dark
+    # theme keeps the day view's white: a contrast check over the
+    # mid-blue day would grey it.
+    dot = sun.SUN_CORE_RGB
+    if is_light_theme():
+        dot = best_contrast((_theme.theme_ansi[15], _theme.theme_fg),
+                            fb.cell_bg(x_today, sun_row), minimum=2.0)
     overlays[(x_today, sun_row)] = (icons["sun_char"], dot)
 
     lines = fb.render(overlays)
