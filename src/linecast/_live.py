@@ -778,6 +778,8 @@ class LiveApp:
 
     def run(self):
         """Run the app on the alternate screen until it quits."""
+        from linecast._textwidth import calibrate_from_terminal
+        calibrate_from_terminal()
         try:
             live_loop(self.render, interval=self.interval, mouse=self.mouse,
                       scroll_step=self.scroll_step, auto_play=self.auto_play,

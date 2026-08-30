@@ -524,6 +524,8 @@ def main():
             country=final_country,
         ).run()
     else:
+        from linecast._textwidth import calibrate_from_terminal
+        calibrate_from_terminal()
         output, _alert_map = render_from_data(
             data,
             alerts,
