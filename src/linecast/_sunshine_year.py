@@ -160,10 +160,11 @@ def _stops_shader(build):
 
 
 # Named year palettes: each entry takes the sunshine module (whose colors
-# are rebuilt on theme reload) and returns elevation → RGB. "graph" is
-# the day view's sky folded onto elevation; the rest are ideas being
-# tried. Pick one with LINECAST_SUNSHINE_YEAR_PALETTE, or press p in the
-# live view to cycle.
+# are rebuilt on theme reload) and returns elevation → RGB. "dial" is the
+# Solar Dial ramp the view is drawn for; "graph" is the day view's own
+# sky folded onto elevation, kept because it is the honest answer to
+# "what does the day view look like all year". LINECAST_SUNSHINE_YEAR_PALETTE
+# picks one.
 PALETTES = {
     "graph": lambda sun: (lambda elev: _sky_color(elev, sun)),
     "dial": _stops_shader(_dial_stops),
@@ -176,11 +177,6 @@ def palette_name(name=None):
     import os
     name = name or os.environ.get("LINECAST_SUNSHINE_YEAR_PALETTE", "")
     return name if name in PALETTES else DEFAULT_PALETTE
-
-
-def next_palette(name):
-    names = list(PALETTES)
-    return names[(names.index(palette_name(name)) + 1) % len(names)]
 
 
 def _day_facts(lat, lng, doy, tz_off, sun):
