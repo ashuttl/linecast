@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from linecast import _theme
 from linecast._graphics import (
     fg, bg, RESET, interp_stops, lerp, visible_len, fmt_time,
-    get_terminal_size, Framebuffer,
+    get_terminal_size, Framebuffer, overlay,
 )
 from linecast._theme import (
     best_contrast, darken, ensure_contrast, is_light_theme, lerp_rgb,
@@ -206,12 +206,14 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     if hint:
         lines.append(hint)
 
-    out = "\n".join(lines)
+    tooltip = ""
     if hover_x is not None:
-        out += _hover_tooltip(lat, lng, hover_x, mouse_pos[1], graph_w,
-                              cols, rows, year, days, tz_offs, today_doy,
-                              runtime, sun, icons)
-    return out
+        tooltip = _hover_tooltip(lat, lng, hover_x, mouse_pos[1], graph_w,
+                                 cols, rows, year, days, tz_offs, today_doy,
+                                 runtime, sun, icons)
+    # overlay() keeps the cursor-addressed tooltip apart from the body so
+    # live_loop draws it after its end-of-screen clear, not before.
+    return overlay("\n".join(lines), tooltip)
 
 
 def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, cols, rows,
