@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Draw the repository's GitHub star history as a braille curve.
 
     python3 scripts/star_history.py [owner/repo] [--days N] [--weeks N] [--width N]
