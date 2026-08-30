@@ -659,12 +659,32 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
     cw = visible_len(center)
     rw = visible_len(right)
 
+    # The sky at the shown moment, dim, after the center — when it fits.
+    if now_hour is not None:
+        sky = _sky_name(lat, lng, doy, now_hour, sunrise, sunset,
+                        tz_offset_h, runtime)
+        if lw + cw + len(sky) + 3 + rw + 4 <= width:
+            center += f" {dim}· {sky}"
+            cw = visible_len(center)
+
     total_gap = max(0, width - lw - cw - rw - 2)
     left_gap = max(1, total_gap // 2)
     right_gap = max(1, total_gap - left_gap)
     line = f" {left}{' ' * left_gap}{center}{' ' * right_gap}{right} "
 
     return f"{RESET}{line}{RESET}"
+
+def _sky_name(lat, lng, doy, hour, sunrise, sunset, tz_offset_h, runtime):
+    """Name the sky at a moment: an event within five minutes, else the phase."""
+    from linecast._sunshine_i18n import sky_event, sky_phase
+    events = [("solar_noon", (sunrise + sunset) / 2)]
+    if 0.05 < sunset - sunrise < 23.95:
+        events += [("sunrise", sunrise), ("sunset", sunset)]
+    for key, at in events:
+        if abs(hour - at) <= 5 / 60:
+            return sky_event(key, runtime)
+    return sky_phase(sun_elevation(lat, lng, hour, doy, tz_offset_h), runtime)
+
 
 # ---------------------------------------------------------------------------
 # Main
