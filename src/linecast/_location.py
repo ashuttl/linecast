@@ -13,6 +13,30 @@ from linecast._runtime import log_failure
 _MAX_AGE = 3600  # 1 hour; implicit IP geolocation should refresh as users move.
 
 
+def _parse_ipinfo(data):
+    lat, lng = data.get("loc", "").split(",")
+    return float(lat), float(lng), data.get("country", "")
+
+
+def _parse_ipwhois(data):
+    if data.get("success") is False:  # errors still arrive as HTTP 200
+        raise ValueError(data.get("message") or "refused")
+    return float(data["latitude"]), float(data["longitude"]), data.get("country_code", "")
+
+
+def _parse_geojs(data):
+    return float(data["latitude"]), float(data["longitude"]), data.get("country_code", "")
+
+
+# Tried in order; each is keyless. ipinfo.io answers first; ipwho.is and
+# GeoJS are the second opinions when it doesn't (issue #34).
+PROVIDERS = (
+    ("ipinfo", "https://ipinfo.io/json", _parse_ipinfo),
+    ("ipwho.is", "https://ipwho.is/", _parse_ipwhois),
+    ("GeoJS", "https://get.geojs.io/v1/ip/geo.json", _parse_geojs),
+)
+
+
 def _cache_file():
     return cache_dir("location.json")
 
@@ -39,20 +63,18 @@ def get_location() -> tuple[float | None, float | None, str | None]:
         except KeyError:
             pass
 
-    try:
-        data = fetch_json(
-            "https://ipinfo.io/json",
-            headers={"Accept": "application/json"},
-            timeout=3,
-        )
-        parts = data.get("loc", "").split(",")
-        if len(parts) != 2:
-            return None, None, None
-        lat, lng = float(parts[0]), float(parts[1])
-        country = data.get("country", "")
-    except Exception as exc:
-        log_failure("location/ipinfo", "geolocation", exc, url="https://ipinfo.io/json",
-                    fallback="no location")
+    for i, (name, url, parse) in enumerate(PROVIDERS):
+        try:
+            data = fetch_json(url, headers={"Accept": "application/json"},
+                              timeout=3)
+            lat, lng, country = parse(data)
+            break
+        except Exception as exc:
+            last = i == len(PROVIDERS) - 1
+            log_failure(f"location/{name}", "geolocation", exc, url=url,
+                        fallback="no location" if last
+                        else PROVIDERS[i + 1][0])
+    else:
         return None, None, None
 
     # the answer is in hand; keeping it is a separate, best-effort matter

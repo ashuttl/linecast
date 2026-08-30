@@ -1481,8 +1481,42 @@ def _sachet_alert_from_cap(entry, lang):
     }
 
 
+def _photon_query(query, lang="en", timeout=10):
+    """Photon's answer to a place name, reshaped to the Open-Meteo
+    geocoder's result dicts — the second source when Open-Meteo doesn't
+    answer. Photon speaks en/de/fr only; any other language asks in
+    English rather than getting an error back."""
+    import urllib.parse
+
+    from linecast import user_agent
+    from linecast._maps_search import PHOTON_LANGS, PHOTON_URL
+
+    params = [("q", query), ("limit", 10)]
+    if lang in PHOTON_LANGS:
+        params.append(("lang", lang))
+    url = f"{PHOTON_URL}?{urllib.parse.urlencode(params)}"
+    data = fetch_json(url, headers={"User-Agent": user_agent()}, timeout=timeout)
+    results = []
+    for feature in data.get("features") or []:
+        props = feature.get("properties") or {}
+        name = (props.get("name") or "").strip()
+        coords = (feature.get("geometry") or {}).get("coordinates") or []
+        if not name or len(coords) < 2:
+            continue
+        results.append({
+            "name": name,
+            "latitude": float(coords[1]),
+            "longitude": float(coords[0]),
+            "admin1": props.get("state", ""),
+            "country": props.get("country", ""),
+            "country_code": props.get("countrycode", ""),
+        })
+    return results
+
+
 def _geocode_query(query, lang="en"):
-    """Geocode a place name via Open-Meteo. Returns list of result dicts."""
+    """Geocode a place name via Open-Meteo, falling back to Photon.
+    Returns list of result dicts."""
     import urllib.parse
 
     url = (
@@ -1492,9 +1526,14 @@ def _geocode_query(query, lang="en"):
     try:
         data = fetch_json(url, timeout=10)
     except Exception as exc:
-        log_failure("location/geocoder", "geocode", exc, url=url, fallback="exiting")
-        print(f"Search failed: {exc}", file=sys.stderr)
-        sys.exit(1)
+        log_failure("location/geocoder", "geocode", exc, url=url, fallback="Photon")
+        try:
+            return _photon_query(query, lang=lang)
+        except Exception as photon_exc:
+            log_failure("location/photon", "geocode", photon_exc,
+                        fallback="exiting")
+            print(f"Search failed: {exc}", file=sys.stderr)
+            sys.exit(1)
     return data.get("results", [])
 
 
