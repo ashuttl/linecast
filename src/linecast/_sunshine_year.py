@@ -253,6 +253,11 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
         gx, gy = mcol - 2, mrow - 1  # 1-based terminal → 0-based chart cell
         if 0 <= gx < graph_w and 0 <= gy < graph_h:
             hover_x = gx
+            # A column is two or three days wide, so a pointer on the
+            # today hairline can land a day off. Within a cell of it,
+            # the hover is today.
+            if abs(hover_x - x_today) <= 1:
+                hover_x = x_today
 
     # --- overlays: hairlines, location hint, sun glyph ---
     overlays = {}
@@ -295,13 +300,15 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     if hover_x is not None:
         tooltip = _hover_tooltip(lat, lng, hover_x, mouse_pos[1], graph_w,
                                  graph_h, cols, rows, year, days, tz_offs,
-                                 today_doy, runtime, sun, icons)
+                                 today_doy, runtime, sun, icons,
+                                 today=(x_today, now_hour))
     # overlay() keeps the cursor-addressed tooltip apart from the body so
     # live_loop draws it after its end-of-screen clear, not before.
     return overlay("\n".join(lines), tooltip)
 
 
-def _hover_moment(lat, lng, doy, tz_off, mouse_row, graph_h, sun, runtime):
+def _hover_moment(lat, lng, doy, tz_off, mouse_row, graph_h, sun, runtime,
+                  now_hour=None):
     """(hour, label) for the hovered row of a day.
 
     A row is a coarse slice of the day — forty minutes on a typical
@@ -321,18 +328,30 @@ def _hover_moment(lat, lng, doy, tz_off, mouse_row, graph_h, sun, runtime):
     for key, at in events:
         if abs(hour - at) <= reach and 0 <= at < 24:
             return at, sky_event(key, runtime)
+    # On today's column, a row near the sun glyph is now itself.
+    if now_hour is not None and abs(hour - now_hour) <= reach:
+        hour = now_hour
     elev = sun.sun_elevation(lat, lng, hour, doy, tz_off)
     return hour, sky_phase(elev, runtime)
 
 
 def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
-                   year, days, tz_offs, today_doy, runtime, sun, icons):
-    """Cursor-positioned tooltip for the hovered day and time, tides-style."""
-    doy = max(1, min(days, int((hover_x + 0.5) / graph_w * days) + 1))
+                   year, days, tz_offs, today_doy, runtime, sun, icons,
+                   today=None):
+    """Cursor-positioned tooltip for the hovered day and time, tides-style.
+
+    today is (x_today, now_hour): on that column the day is today and a
+    row near the sun glyph reads as now.
+    """
+    now_hour = None
+    if today and hover_x == today[0]:
+        doy, now_hour = today_doy, today[1]
+    else:
+        doy = max(1, min(days, int((hover_x + 0.5) / graph_w * days) + 1))
     date = datetime(year, 1, 1) + timedelta(days=doy - 1)
     sunrise, sunset, day_len = _day_facts(lat, lng, doy, tz_offs[doy - 1], sun)
     hour, sky = _hover_moment(lat, lng, doy, tz_offs[doy - 1], mouse_row,
-                              graph_h, sun, runtime)
+                              graph_h, sun, runtime, now_hour)
     _, _, today_len = _day_facts(lat, lng, today_doy,
                                  tz_offs[today_doy - 1], sun)
 
