@@ -38,8 +38,7 @@ Or with [uv](https://docs.astral.sh/uv/):
 uv tool install linecast
 ```
 
-`pipx install linecast` and `pip install linecast` work too, and Arch has a community-maintained [AUR package](https://aur.archlinux.org/packages/linecast). linecast needs Python 3.10 or newer on macOS, Linux, or Windows.
-
+`pipx install linecast` and `pip install linecast` work too, and there are community-maintained packages in the [AUR](https://aur.archlinux.org/packages/linecast) and in [nixpkgs](https://search.nixos.org/packages?channel=unstable&show=linecast) (unstable channel, for now). linecast needs Python 3.10 or newer on macOS, Linux, or Windows.
 To try it before installing anything:
 
 ```sh
