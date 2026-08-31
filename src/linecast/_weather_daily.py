@@ -6,7 +6,9 @@ from linecast import _theme
 from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast._weather_i18n import DAY_NAMES, _s, _wmo_icons
-from linecast._weather_style import DIM, TEXT, WIND_COLOR, _precip_color, _precip_type, _temp_color
+from linecast._weather_style import (
+    DIM, TEXT, WIND_COLOR, _knockout_ink, _precip_color, _precip_type, _temp_color,
+)
 
 
 _USE_BG_FILL = color_mode() != "none"
@@ -132,7 +134,6 @@ def render_daily(data, width, runtime=None):
     scale_max = scale_max + max_hi_label * deg_per_char
     scale_range = max(scale_max - scale_min, 1)
 
-    dark_fg = fg(20, 20, 25)
     icons = _wmo_icons(runtime)
 
     for i in range(1, display_end):
@@ -170,6 +171,16 @@ def render_daily(data, width, runtime=None):
         lo_r, lo_g, lo_b = _temp_color(lo, runtime)
         hi_r, hi_g, hi_b = _temp_color(hi, runtime)
 
+        # A label knocked out of the bar reads against the fill, not the
+        # page: dark over a warm bar, white over a cold one's deep blue.
+        # The ink is picked once per label, from the fill at the label's
+        # middle cell, so a number never changes color part-way through.
+        span = max(1, hi_pos - lo_pos)
+        lo_mid = lo + (hi - lo) * (lo_len / 2) / span
+        hi_mid = lo + (hi - lo) * (filled_w - hi_len / 2) / span
+        lo_ink = fg(*_knockout_ink(_temp_color(lo_mid, runtime)))
+        hi_ink = fg(*_knockout_ink(_temp_color(hi_mid, runtime)))
+
         cells = []
         for bx in range(bar_w):
             if lo_pos <= bx <= hi_pos:
@@ -178,13 +189,13 @@ def render_daily(data, width, runtime=None):
                 r, g, b = _temp_color(temp_at, runtime)
                 rel = bx - lo_pos
                 if lo_inside and rel < lo_len:
-                    cells.append((lo_label[rel], f"{bg(r, g, b)}{dark_fg}{BOLD}"))
+                    cells.append((lo_label[rel], f"{bg(r, g, b)}{lo_ink}{BOLD}"))
                 elif both_inside and rel >= filled_w - hi_len:
                     hi_idx = rel - (filled_w - hi_len)
-                    cells.append((hi_label[hi_idx], f"{bg(r, g, b)}{dark_fg}{BOLD}"))
+                    cells.append((hi_label[hi_idx], f"{bg(r, g, b)}{hi_ink}{BOLD}"))
                 elif hi_inside and not both_inside and rel >= filled_w - hi_len:
                     hi_idx = rel - (filled_w - hi_len)
-                    cells.append((hi_label[hi_idx], f"{bg(r, g, b)}{dark_fg}{BOLD}"))
+                    cells.append((hi_label[hi_idx], f"{bg(r, g, b)}{hi_ink}{BOLD}"))
                 else:
                     # Background-painted cells avoid seam artifacts between block glyphs.
                     if _USE_BG_FILL:

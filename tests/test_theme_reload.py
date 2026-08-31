@@ -121,7 +121,8 @@ class TestLightThemeInk:
     """What a light theme must not turn dark.
 
     An ink contrast-checked against the page comes out dark on a light
-    theme, which is right for text on the page and wrong for a sun.
+    theme, which is right for text on the page and wrong for a sun, or
+    for a number knocked out of a bar the page never touches.
     """
 
     def test_the_sun_keeps_its_colours_on_every_theme(self, restore_theme):
@@ -131,6 +132,15 @@ class TestLightThemeInk:
         assert (sunshine.SUN_DOT_RGB, sunshine.SUN_GLOW_RGB) == drawn
         for ink in drawn:
             assert _theme.luminance(ink) > 0.5
+
+    def test_a_bar_label_takes_its_ink_from_the_bar(self, restore_theme):
+        _theme._apply(*LIGHT)
+        cold = _weather_style.TEMP_COLORS[0][1]   # the coldest fill: deep blue
+        ink = _weather_style._knockout_ink(cold)
+        assert _theme.luminance(ink) > 0.5        # white, not the page's ink
+        assert _theme.contrast_ratio(ink, cold) >= 4.5
+        pale = _weather_style._knockout_ink((250, 204, 21))
+        assert _theme.luminance(pale) < 0.5
 
 
 @pytest.fixture

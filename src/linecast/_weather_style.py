@@ -108,6 +108,19 @@ _theme.on_reload(_rebuild)
 SPARKLINE = "\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588"  # ▁▂▃▄▅▆▇█
 
 
+# Text knocked out of a filled bar or pill reads against the fill, not
+# against the page: the fill is a temperature or an alert level, and can
+# be anything from deep blue to red. The ink is one of the two poles.
+KNOCKOUT_DARK_RGB = (20, 20, 25)
+KNOCKOUT_LIGHT_RGB = (255, 255, 255)
+
+
+def _knockout_ink(fill):
+    """Ink for text drawn on a cell filled with ``fill``."""
+    return best_contrast((KNOCKOUT_DARK_RGB, KNOCKOUT_LIGHT_RGB), fill,
+                         minimum=4.5)
+
+
 def _temp_color(temp, runtime):
     temp_f = temp * 9 / 5 + 32 if runtime.celsius else temp
     return interp_stops(TEMP_COLORS, temp_f)
