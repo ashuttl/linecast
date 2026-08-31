@@ -11,8 +11,8 @@ in half-block characters with ANSI color at 2x vertical sub-pixel
 resolution (true color when available). Location is cached from IP
 geolocation (~1 network call per week).
 
-Usage: sunshine [--print] [--oneline] [--json] [--location PLACE] [--icons SET]
-                [--emoji] [--classic-colors]
+Usage: sunshine [--print] [--oneline] [--json] [--year] [--location PLACE]
+                [--icons SET] [--emoji] [--classic-colors]
 """
 
 import math
@@ -21,6 +21,7 @@ import time as _time
 from datetime import datetime, timezone
 
 from linecast._braille import braille_rows_from_ys
+from linecast._ephemeris import moon_phase_frac
 from linecast._graphics import (
     fg, RESET, BG_PRIMARY, color_mode, lerp, interp_stops, visible_len,
     fmt_time, get_terminal_size, Framebuffer, live_loop,
@@ -30,6 +31,7 @@ from linecast._theme import (
     best_contrast,
     darken,
     ensure_contrast,
+    is_light_theme,
     lerp_rgb,
     lighten,
     neutral_tone,
@@ -47,18 +49,25 @@ _theme.track_imports(globals(), "linecast._color")
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
+# The sun is drawn, not typeset: a white dot in a gold halo on every
+# theme. Theme-derived inks are contrast-checked against the page, which
+# greys the dot and buries the glow in a light theme's day. Shared with
+# the year view.
+SUN_DOT_RGB = (255, 255, 255)
+SUN_GLOW_RGB = (255, 214, 120)
+
+
 def _rebuild():
-    global HORIZON_COLOR, CURVE_COLOR, SUN_GLOW_DAY_RGB, SUN_GLOW_TWILIGHT_RGB
-    global SUN_CORE_RGB, INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_MUTED_RGB
+    global HORIZON_COLOR, CURVE_COLOR, SUN_GLOW_TWILIGHT_RGB
+    global INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_MUTED_RGB
     global INFO_DIM_RGB, INFO_TEXT_RGB, _SKY_BLUE, _SKY_CYAN, _SKY_MAGENTA
-    global _SKY_RED, _SKY_YELLOW, _SKY_WHITE
+    global _SKY_RED, _SKY_YELLOW, _SKY_WHITE, SKY_NIGHT
+    SKY_NIGHT = BG_PRIMARY
     if theme_legacy_mode:
         # Original pre-theme palette (classic mode).
         HORIZON_COLOR = (90, 98, 125)
         CURVE_COLOR = (160, 168, 195)
-        SUN_GLOW_DAY_RGB = (255, 250, 220)
         SUN_GLOW_TWILIGHT_RGB = (180, 195, 225)
-        SUN_CORE_RGB = (255, 255, 255)
         INFO_AMBER_RGB = (251, 191, 36)
         INFO_PURPLE_RGB = (167, 139, 250)
         INFO_MUTED_RGB = (100, 110, 130)
@@ -74,15 +83,19 @@ def _rebuild():
         _SKY_YELLOW = best_contrast((_theme.theme_ansi[3], _theme.theme_ansi[11]), minimum=1.8)
         _SKY_WHITE = best_contrast((_theme.theme_ansi[15], _theme.theme_fg), minimum=2.0)
 
+        # Night is dark whatever the terminal. On a light theme the sky
+        # sits on a navy from the theme's blue, not the page, and the
+        # inks drawn over the sky contrast with that.
+        if is_light_theme():
+            SKY_NIGHT = darken(_SKY_BLUE, 0.80)
+            _SKY_WHITE = (250, 252, 255)
+
         # hairline divider
-        HORIZON_COLOR = ensure_contrast(neutral_tone(0.45), _theme.theme_bg, minimum=1.7)
+        HORIZON_COLOR = ensure_contrast(neutral_tone(0.45), SKY_NIGHT, minimum=1.7)
         # neutral arc
-        CURVE_COLOR = ensure_contrast(neutral_tone(0.74), _theme.theme_bg, minimum=2.4)
-        SUN_GLOW_DAY_RGB = best_contrast(
-            (_theme.theme_ansi[15], lighten(_theme.theme_fg, 0.12)), minimum=1.8)
+        CURVE_COLOR = ensure_contrast(neutral_tone(0.74), SKY_NIGHT, minimum=2.4)
         SUN_GLOW_TWILIGHT_RGB = ensure_contrast(
-            lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.45), _theme.theme_bg, minimum=1.6)
-        SUN_CORE_RGB = best_contrast((_theme.theme_ansi[15], _theme.theme_fg), minimum=2.0)
+            lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.45), SKY_NIGHT, minimum=1.6)
         INFO_AMBER_RGB = ensure_contrast(_SKY_YELLOW, _theme.theme_bg, minimum=2.3)
         INFO_PURPLE_RGB = ensure_contrast(_SKY_MAGENTA, _theme.theme_bg, minimum=2.3)
         INFO_MUTED_RGB = ensure_contrast(neutral_tone(0.48), _theme.theme_bg, minimum=2.4)
@@ -195,10 +208,11 @@ def _rebuild_sky():
             ( 90, (132, 188, 250)),
         ]
     else:
+        night = SKY_NIGHT
         SKY_NEAR_HORIZON = [   # warm side — sky color near the sun at the horizon
-            (-18, BG_PRIMARY),
-            (-12, darken(lerp_rgb(_theme.theme_bg, _SKY_MAGENTA, 0.18), 0.10)),
-            ( -6, lerp_rgb(_theme.theme_bg, _SKY_RED, 0.35)),
+            (-18, night),
+            (-12, darken(lerp_rgb(night, _SKY_MAGENTA, 0.18), 0.10)),
+            ( -6, lerp_rgb(night, _SKY_RED, 0.35)),
             ( -3, lerp_rgb(_SKY_RED, _SKY_MAGENTA, 0.20)),
             (  0, lerp_rgb(_SKY_YELLOW, _SKY_RED, 0.28)),
             (  3, lerp_rgb(_SKY_YELLOW, _SKY_WHITE, 0.20)),
@@ -209,9 +223,9 @@ def _rebuild_sky():
         ]
 
         SKY_FAR_HORIZON = [    # cool side — sky color far from the sun at the horizon
-            (-18, BG_PRIMARY),
-            (-12, darken(lerp_rgb(_theme.theme_bg, _SKY_MAGENTA, 0.14), 0.12)),
-            ( -6, lerp_rgb(_theme.theme_bg, _SKY_MAGENTA, 0.30)),
+            (-18, night),
+            (-12, darken(lerp_rgb(night, _SKY_MAGENTA, 0.14), 0.12)),
+            ( -6, lerp_rgb(night, _SKY_MAGENTA, 0.30)),
             ( -3, lerp_rgb(_SKY_MAGENTA, _SKY_RED, 0.30)),
             (  0, lerp_rgb(_SKY_RED, _SKY_MAGENTA, 0.30)),
             (  3, lerp_rgb(_SKY_RED, _SKY_CYAN, 0.25)),
@@ -222,10 +236,10 @@ def _rebuild_sky():
         ]
 
         SKY_ZENITH = [         # sky color at the top of the display
-            (-18, BG_PRIMARY),
-            (-12, darken(lerp_rgb(_theme.theme_bg, _SKY_BLUE, 0.10), 0.14)),
-            ( -6, darken(lerp_rgb(_theme.theme_bg, _SKY_BLUE, 0.18), 0.08)),
-            ( -3, lerp_rgb(_theme.theme_bg, _SKY_MAGENTA, 0.22)),
+            (-18, night),
+            (-12, darken(lerp_rgb(night, _SKY_BLUE, 0.10), 0.14)),
+            ( -6, darken(lerp_rgb(night, _SKY_BLUE, 0.18), 0.08)),
+            ( -3, lerp_rgb(night, _SKY_MAGENTA, 0.22)),
             (  0, lerp_rgb(_SKY_MAGENTA, _SKY_BLUE, 0.32)),
             (  3, lerp_rgb(_SKY_MAGENTA, _SKY_BLUE, 0.48)),
             (  8, lerp_rgb(_SKY_BLUE, _SKY_CYAN, 0.22)),
@@ -246,7 +260,7 @@ def _tame_for_mode():
     of their colour; the muted mid-sky gives up the most.
     """
     global SKY_NEAR_HORIZON, SKY_FAR_HORIZON, SKY_ZENITH
-    global SUN_GLOW_DAY_RGB, SUN_GLOW_TWILIGHT_RGB
+    global SUN_GLOW_TWILIGHT_RGB
     if color_mode() not in ("256", "16"):
         return
 
@@ -321,6 +335,22 @@ def solar_times(lat, lng, doy, tz_offset_h=None):
     tz = _tz_offset_hours() if tz_offset_h is None else tz_offset_h
     return noon_utc - ha/15 + tz, noon_utc + ha/15 + tz
 
+
+# A day length this close to 0h or 24h means the hour angle above was
+# clamped: the sun does not cross the horizon at this latitude today, and
+# solar_times() returned noon twice rather than a rise and a set.
+POLAR_EPSILON_HOURS = 0.01
+
+
+def polar_state(day_len_h):
+    """"night", "day", or None — whether the sun crosses the horizon."""
+    if day_len_h <= POLAR_EPSILON_HOURS:
+        return "night"
+    if day_len_h >= 24 - POLAR_EPSILON_HOURS:
+        return "day"
+    return None
+
+
 def sun_elevation(lat, lng, local_hour, doy, tz_offset_h=None):
     """Sun elevation angle in degrees at a given local hour."""
     decl = _declination(doy)
@@ -384,12 +414,9 @@ SYNODIC_MONTH = 29.53058867
 
 def moon_cycle_frac(dt):
     """Fraction of the synodic cycle elapsed since New Moon, in [0, 1)."""
-    # Known New Moon reference: 2000-Jan-06 18:14 UTC (Meeus, table 49.A).
-    ref = datetime(2000, 1, 6, 18, 14, tzinfo=timezone.utc)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    diff = (dt - ref).total_seconds() / 86400.0
-    return (diff % SYNODIC_MONTH) / SYNODIC_MONTH
+    return moon_phase_frac(dt.astimezone(timezone.utc))
 
 def moon_phase(dt, runtime=None):
     """Returns (index 0-7, name, nerd_font_icon).
@@ -426,8 +453,36 @@ def moon_phase(dt, runtime=None):
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
+def corner_label_ink(cell):
+    """A dim ink for the corner label over a sky cell, light or dark."""
+    luma = 0.30 * cell[0] + 0.59 * cell[1] + 0.11 * cell[2]
+    return lighten(cell, 0.45) if luma < 130 else darken(cell, 0.55)
+
+
+def corner_label_cells(label, graph_w):
+    """(x, char) overlay cells for a label right-aligned in the top row.
+
+    Laid out by cell width, so a double-width glyph takes two columns:
+    its own, and an empty one after it that the framebuffer skips.
+    Truncated to a third of the chart.
+    """
+    from linecast._textwidth import char_width
+    cells = []
+    used = 0
+    limit = max(0, graph_w // 3)
+    for ch in label:
+        w = char_width(ch)
+        if used + w > limit:
+            break
+        cells.append((used, ch))
+        cells.extend((used + k, "") for k in range(1, w))
+        used += w
+    x0 = graph_w - used - 1
+    return [(x0 + off, ch) for off, ch in cells if 0 <= x0 + off < graph_w]
+
+
 def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=None,
-           tz_offset_h=None):
+           tz_offset_h=None, location_label=""):
     """Build the complete multi-line solar arc display."""
     if runtime is None:
         runtime = current_runtime(RuntimeConfig)
@@ -475,7 +530,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     sunrise, sunset = solar_times(lat, lng, doy, tz_offset_h)
 
     # --- build framebuffer ---
-    fb = Framebuffer(graph_w, graph_h)
+    fb = Framebuffer(graph_w, graph_h, bg_color=SKY_NIGHT)
 
     # 1. Sky glow — above horizon, centered on sun, irrespective of arc
     if now_elev > -18:
@@ -538,7 +593,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     sun_spy_i = int(round(now_spy))
     sun_spy_i = max(0, min(total_spy - 1, sun_spy_i))
     sun_r = max(5, int(min(graph_w, total_spy) * 0.04))
-    sun_warm = SUN_GLOW_DAY_RGB if now_elev > -2 else SUN_GLOW_TWILIGHT_RGB
+    sun_warm = SUN_GLOW_RGB if now_elev > -2 else SUN_GLOW_TWILIGHT_RGB
 
     fb.draw_radial(now_x, now_spy, sun_warm, sun_r)
 
@@ -548,7 +603,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
             sx, sy = now_x + dx, sun_spy_i + dy
             if 0 <= sx < graph_w and 0 <= sy < total_spy:
                 d = math.sqrt(dx * dx + (dy * 1.5) ** 2)
-                fb.set_pixel(sx, sy, SUN_CORE_RGB, max(0, 1 - d * 0.5))
+                fb.set_pixel(sx, sy, SUN_DOT_RGB, max(0, 1 - d * 0.5))
 
     # --- render framebuffer with braille horizon, curve, and sun overlays ---
     overlays = {}
@@ -571,8 +626,15 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
         for ci in range(graph_w):
             if curve_bits[row][ci]:
                 overlays[(ci, row)] = (chr(0x2800 + curve_bits[row][ci]), CURVE_COLOR)
+    # Location hint, dim, in the top-right corner. The sky there can be
+    # anything from night to full daylight, so the hint darkens against a
+    # lit cell rather than disappearing into it.
+    if location_label:
+        for x, ch in corner_label_cells(location_label, graph_w):
+            cell = fb.cell_bg(x, 0)
+            overlays[(x, 0)] = (ch, corner_label_ink(cell), False)
     sun_cell_row = sun_spy_i // 2
-    overlays[(now_x, sun_cell_row)] = (icons["sun_char"], SUN_CORE_RGB)
+    overlays[(now_x, sun_cell_row)] = (icons["sun_char"], SUN_DOT_RGB)
     lines = fb.render(overlays)
 
     # --- info line ---
@@ -600,6 +662,8 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
 def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, offset_minutes=0,
                tz_offset_h=None):
     """Sunrise — day length (delta) — sunset."""
+    from linecast._sunshine_i18n import polar_name
+
     icons = _icon_set(runtime)
     day_len = sunset - sunrise
     dl_h = int(day_len)
@@ -619,16 +683,35 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
 
     delta_str = f"{d_sign}{d_m}m {d_s}s" if d_s > 0 else f"{d_sign}{d_m}m"
 
-    left = f"{amber}{icons['sun_icon']} {text}{fmt_time(sunrise, runtime.use_24h)}"
+    # Through a polar season there is no sunrise or sunset to print: the
+    # dashes stand where the times would, and the phrase takes the place
+    # of a day-length delta that is zero every day of it.
+    polar = polar_state(day_len)
+    rise_txt = "\u2014" if polar else fmt_time(sunrise, runtime.use_24h)
+    set_txt = "\u2014" if polar else fmt_time(sunset, runtime.use_24h)
+
+    left = f"{amber}{icons['sun_icon']} {text}{rise_txt}"
     if offset_minutes:
         center = f"{text}{fmt_time(now_hour, runtime.use_24h)}"
+    elif polar:
+        center = (f"{text}{dl_h}h {dl_m:02d}m "
+                  f"{dim}\u00b7 {polar_name(polar, runtime)}")
     else:
         center = f"{text}{dl_h}h {dl_m:02d}m {dim}({delta_str})"
-    right = f"{text}{fmt_time(sunset, runtime.use_24h)} {purple}{icons['sunset_icon']}"
+    right = f"{text}{set_txt} {purple}{icons['sunset_icon']}"
 
     lw = visible_len(left)
     cw = visible_len(center)
     rw = visible_len(right)
+
+    # The sky at the shown moment, dim, after the center — when it fits.
+    # A polar center already names the sky for the whole day.
+    if now_hour is not None and not polar:
+        sky = _sky_name(lat, lng, doy, now_hour, sunrise, sunset,
+                        tz_offset_h, runtime)
+        if lw + cw + len(sky) + 3 + rw + 4 <= width:
+            center += f" {dim}· {sky}"
+            cw = visible_len(center)
 
     total_gap = max(0, width - lw - cw - rw - 2)
     left_gap = max(1, total_gap // 2)
@@ -637,15 +720,37 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
 
     return f"{RESET}{line}{RESET}"
 
+def _sky_name(lat, lng, doy, hour, sunrise, sunset, tz_offset_h, runtime):
+    """Name the sky at a moment: an event within five minutes, else the phase."""
+    from linecast._sunshine_i18n import sky_event, sky_phase
+    events = [("solar_noon", (sunrise + sunset) / 2)]
+    if 0.05 < sunset - sunrise < 23.95:
+        events += [("sunrise", sunrise), ("sunset", sunset)]
+    for key, at in events:
+        if abs(hour - at) <= 5 / 60:
+            return sky_event(key, runtime)
+    return sky_phase(sun_elevation(lat, lng, hour, doy, tz_offset_h), runtime)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    args = sunshine_parser().parse_args()
+    parser = sunshine_parser()
+    args = parser.parse_args()
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
 
-    lat, lng, country = resolve_location(args.location, lang=runtime.lang)
+    # --year picks a view. --json and --oneline describe today and have
+    # no year form, so the combination is a mistake worth naming rather
+    # than a flag to drop on the floor.
+    if getattr(args, "year", False) and (runtime.json_mode or runtime.oneline):
+        mode = "--json" if runtime.json_mode else "--oneline"
+        parser.error(f"--year has no {mode} output "
+                     f"(--year is a view; {mode} describes today)")
+
+    lat, lng, country, label = resolve_location(
+        args.location, lang=runtime.lang, return_label=True)
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
@@ -686,14 +791,43 @@ def main():
         return
 
     live = runtime.live
+    year_mode = getattr(args, "year", False)
+    dst = getattr(args, "dst", False)
 
-    def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
-        # mouse_pos/active_alert/modal_scroll are ignored; accepted so sunshine
-        # can use shared live_loop mouse-wheel scrubbing support.
+    # Both views name the place in a corner. The forward geocoder already
+    # labeled a place-name override; otherwise the (cached) reverse
+    # geocoder names the coordinates, as radar does.
+    location_label = label
+    if not location_label:
+        try:
+            from linecast._weather_sources import _reverse_geocode
+            location_label = _reverse_geocode(
+                lat, lng, lang=runtime.lang)[0] or ""
+        except Exception:
+            location_label = ""
+    location_label = (location_label.split(",")[0].strip()
+                      or f"{lat:.2f},{lng:.2f}")
+
+    # Day and year keep separate scrub offsets, so flipping between them
+    # returns to where each was left. The year view scrubs nothing: the
+    # mouse hovers it instead.
+    state = {"year": year_mode, "minutes": 0}
+
+    def _render_view(offset_minutes=0, mouse_pos=None, active_alert=None,
+                     modal_scroll=0):
+        # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
+        # is handled here (day view only) rather than by live_loop.
+        if state["year"]:
+            from linecast._sunshine_year import render_year
+            return render_year(
+                lat, lng, _now(), runtime, tz=tz, fullscreen=live,
+                dst=dst, location_label=location_label,
+                mouse_pos=mouse_pos,
+            )
         now = _now()
-        if offset_minutes:
+        if state["minutes"]:
             from datetime import timedelta
-            now = now + timedelta(minutes=offset_minutes)
+            now = now + timedelta(minutes=state["minutes"])
         doy = now.timetuple().tm_yday
         now_hour = now.hour + now.minute / 60 + now.second / 3600
         return render(
@@ -702,15 +836,44 @@ def main():
             doy,
             now_hour,
             fullscreen=live,
-            offset_minutes=offset_minutes,
+            offset_minutes=state["minutes"],
             runtime=runtime,
             tz_offset_h=_offset_hours(now),
+            location_label=location_label,
         )
 
-    if live:
-        live_loop(_render, mouse=True)
-    else:
-        print(_render())
+    if not live:
+        print(_render_view())
+        return
+
+    # A wheel notch or arrow key scrubs 15 minutes of the day view; the
+    # year view consumes them without moving. y flips between the two.
+    def _step(n):
+        if not state["year"]:
+            state["minutes"] += 15 * n
+        return True
+
+    def _intercept(action):
+        if action == "fwd":
+            return _step(1)
+        if action == "back":
+            return _step(-1)
+        if action == "reset":
+            state["minutes"] = 0
+            return True
+        return False
+
+    def _on_wheel(direction, _col, _row):
+        return _step(direction)
+
+    def _on_key(key):
+        if key == "y":
+            state["year"] = not state["year"]
+            return True
+        return False
+
+    live_loop(_render_view, mouse=True, intercept=_intercept,
+              on_wheel=_on_wheel, on_action=_on_key)
 
 if __name__ == "__main__":
     main()

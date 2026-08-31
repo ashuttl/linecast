@@ -11,7 +11,16 @@ Region routing: LibreWXR is primary everywhere — real radar composites for
 North America / Europe / East Asia, model precipitation elsewhere, nowcast
 frames, and selectable colour themes.  On failure, the continental US falls
 back to IEM/NEXRAD (deep 3h history, native projection) and the rest of the
-world to RainViewer, with IEM as the last resort.
+world to RainViewer, with IEM as the last resort.  RainViewer keeps the
+locally-coloured themes, its Universal Blue tiles decoded back to
+reflectivity first (_radar_ub); of the server schemes it can only ever
+show universal-blue.
+
+(RainViewer also composites IMD's Indian radar, which LibreWXR lacks, and
+for a moment led there — but its IMD frames animate badly: stations on a
+slower scan cadence sit frozen across the 10-minute composites and blink
+in and out, and the free tier has no nowcast.  LibreWXR's model, coherent
+and an hour ahead, reads better.  See issue #40 before trying that again.)
 """
 
 import datetime
@@ -23,6 +32,7 @@ from linecast._png import decode_rgba
 from linecast._radar_source import fetch_frame, frame_times
 from linecast import _radar_tiles as tiles
 from linecast import _radar_palettes as palettes
+from linecast import _radar_ub
 from linecast._runtime import log_failure
 
 # rough lower-48 bounding box; IEM/NEXRAD coverage
@@ -67,6 +77,14 @@ def is_local(theme: str | int) -> bool:
     return isinstance(theme, str)
 
 
+# RainViewer's free tier serves Universal Blue whatever colour id the URL
+# asks for, so its picker offers our own palettes — decoded from those
+# tiles, see _radar_ub — and universal-blue itself.
+RV_THEMES: dict[str, str | int] = {
+    name: v for name, v in THEMES.items() if is_local(v)}
+RV_THEMES["universal-blue"] = THEMES["universal-blue"]
+
+
 def theme_id(value: str | int | None) -> str | int | None:
     """Resolve a theme name or bare numeric id to a theme id, or None."""
     if value is None:
@@ -101,7 +119,6 @@ def has_radar(lat: float, lon: float) -> bool:
     return any(w <= lon <= e and s <= lat <= n
                for w, s, e, n in _RADAR_REGIONS)
 
-
 def _in_conus(lat, lon):
     w, s, e, n = _CONUS
     return w <= lon <= e and s <= lat <= n
@@ -125,6 +142,7 @@ class Frame:
 class IEMSource:
     label = "NEXRAD · IEM"
     attribution = "NEXRAD · IEM"
+    kind = "iem"
     tag = "radar/iem"  # the source's name in the debug log
 
     def __init__(self, n_frames: int) -> None:
@@ -231,13 +249,19 @@ class _TileSource:
         self.current_frames()  # shares the index refresh
         return self._sat_frames
 
-    smooth = False  # bilinear resample; only right for raw gray tiles
+    smooth = False     # bilinear resample; only right for raw gray tiles
+    palette = None     # a local palette to colour scheme-0 gray through
+    transform = None   # rewrites each decoded tile to scheme-0 gray first
 
     def frame_rgba(self, bbox: tuple[float, float, float, float], gw: int, hc: int,
                    frame: Frame) -> tuple[int, int, bytearray]:
-        return tiles.reproject(self.provider, self.host, frame.token,
-                               bbox, gw, hc * 2, mutable=frame.future,
-                               smooth=self.smooth)
+        w, h, rgba = tiles.reproject(self.provider, self.host, frame.token,
+                                     bbox, gw, hc * 2, mutable=frame.future,
+                                     smooth=self.smooth,
+                                     transform=self.transform)
+        if self.palette is not None:
+            palettes.apply(rgba, self.palette)
+        return w, h, rgba
 
     def satellite_rgba(self, bbox: tuple[float, float, float, float], gw: int, hc: int,
                        frame: Frame) -> tuple[int, int, bytearray]:
@@ -248,15 +272,30 @@ class _TileSource:
 class RainViewerSource(_TileSource):
     label = "RainViewer"
     attribution = "Weather data by RainViewer"
+    kind = "rv"
+    themes = RV_THEMES  # advertises the in-radar theme picker
 
-    def __init__(self) -> None:
-        super().__init__(tiles.rainviewer_provider())
+    def __init__(self, theme: str | int = THEMES[DEFAULT_THEME],
+                 index_from: _TileSource | None = None) -> None:
+        self.theme = theme
+        self.palette = palettes.PALETTES.get(theme)
+        self.smooth = self.palette is not None
+        # a local palette wants the exact table colours to decode; a
+        # server theme can only ever be Universal Blue here, smoothed
+        self.transform = _radar_ub.to_gray if self.palette is not None else None
+        super().__init__(tiles.rainviewer_provider(smooth=self.palette is None),
+                         index_from=index_from)
+
+    def with_theme(self, theme: str | int) -> "RainViewerSource":
+        """This source's index under another theme; never touches the network."""
+        return RainViewerSource(theme, index_from=self)
 
 
 class LibreWXRSource(_TileSource):
     label = "LibreWXR"
     attribution = "Weather data by LibreWXR · CC BY 4.0"
     model_attribution = "Precipitation model by LibreWXR (no radar here) · CC BY 4.0"
+    kind = "lwxr"
     themes = THEMES  # advertises the in-radar theme picker
 
     def __init__(self, theme: str | int = THEMES[DEFAULT_THEME],
@@ -272,16 +311,29 @@ class LibreWXRSource(_TileSource):
         """This source's index under another theme; never touches the network."""
         return LibreWXRSource(theme, index_from=self)
 
-    def frame_rgba(self, bbox: tuple[float, float, float, float], gw: int, hc: int,
-                   frame: Frame) -> tuple[int, int, bytearray]:
-        w, h, rgba = super().frame_rgba(bbox, gw, hc, frame)
-        if self.palette is not None:
-            palettes.apply(rgba, self.palette)
-        return w, h, rgba
-
 
 def _utc(epoch):
     return datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc)
+
+
+# Set from radar --source: pins one source instead of routing by
+# location, so what each shows can be compared over the same spot.
+FORCED_SOURCE: str | None = None  # "librewxr" | "rainviewer" | "iem"
+
+
+def _forced_source(n_frames, theme):
+    """The source --source pinned, IEM standing in when it won't answer."""
+    if FORCED_SOURCE != "iem":
+        cls = (LibreWXRSource if FORCED_SOURCE == "librewxr"
+               else RainViewerSource)
+        try:
+            src = cls(theme)
+            if src.current_frames():
+                return src
+        except Exception as exc:
+            log_failure(f"radar/{FORCED_SOURCE}", "pinned source", exc,
+                        fallback="IEM")
+    return IEMSource(n_frames)
 
 
 def get_source(lat: float, lon: float, n_frames: int, theme: str | int | None = None
@@ -289,15 +341,18 @@ def get_source(lat: float, lon: float, n_frames: int, theme: str | int | None = 
     """Pick the best source for a location, falling back on failure."""
     if theme is None:
         theme = THEMES[DEFAULT_THEME]
+    if FORCED_SOURCE is not None:
+        return _forced_source(n_frames, theme)
+    src: LibreWXRSource | RainViewerSource
     try:
-        src: LibreWXRSource | RainViewerSource = LibreWXRSource(theme)
+        src = LibreWXRSource(theme)
         if src.current_frames():
             return src
     except Exception as exc:
         log_failure("radar/librewxr", "source", exc, fallback="next source")
     if not _in_conus(lat, lon):
         try:
-            src = RainViewerSource()
+            src = RainViewerSource(theme)
             if src.current_frames():
                 return src
         except Exception as exc:

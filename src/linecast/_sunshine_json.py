@@ -11,19 +11,6 @@ from datetime import datetime, timedelta
 
 SCHEMA_VERSION = 1
 
-# Day lengths this close to 0h/24h mean solar_times() clamped the hour
-# angle: the sun never crosses the horizon at this latitude today.
-_POLAR_EPSILON_HOURS = 0.01
-
-
-def _polar_state(day_len_h):
-    """"night", "day", or None — whether the sun crosses the horizon."""
-    if day_len_h <= _POLAR_EPSILON_HOURS:
-        return "night"
-    if day_len_h >= 24 - _POLAR_EPSILON_HOURS:
-        return "day"
-    return None
-
 
 def _iso(dt):
     """Minute-precision local ISO string, or None."""
@@ -129,7 +116,7 @@ def build_payload(lat, lng, now=None, location=None):
     zone gets that location's local times. *location* overrides the
     display name (skips the geocode lookup).
     """
-    from linecast.sunshine import solar_times, sun_elevation
+    from linecast.sunshine import polar_state, solar_times, sun_elevation
 
     if now is None:
         now = datetime.now()
@@ -153,8 +140,8 @@ def build_payload(lat, lng, now=None, location=None):
 
     # Each day is tested separately: on the boundary dates of a polar
     # season one of the two is clamped and the other is a real crossing.
-    polar = _polar_state(day_len_h)
-    tomorrow_polar = _polar_state(t_set_h - t_rise_h)
+    polar = polar_state(day_len_h)
+    tomorrow_polar = polar_state(t_set_h - t_rise_h)
 
     solar_noon = _hour_to_dt(today, (rise_h + set_h) / 2)
     tomorrow = today + timedelta(days=1)

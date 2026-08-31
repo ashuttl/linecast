@@ -42,6 +42,10 @@ def log_failure(*args, **kwargs):
     return _mod("_runtime").log_failure(*args, **kwargs)
 
 
+def log_skipped(*args, **kwargs):
+    return _mod("_runtime").log_skipped(*args, **kwargs)
+
+
 def redact_url(url):
     return _mod("_http").redact_url(url)
 
@@ -156,6 +160,27 @@ class TestLogFailure:
         assert "host.example" in str(info.value)
         for leak in ("secret", "pw", "k=v"):
             assert leak not in str(info.value)
+
+
+class TestLogSkipped:
+    def test_the_count_and_the_last_exception(self, debug, capsys):
+        log_skipped("tides/chs", "hilo rows", 3, 40, ValueError("bad height"))
+        assert _lines(capsys) == [
+            "[linecast] tides/chs: parse of hilo rows failed -- ValueError: bad height"
+            "; 3 of 40 skipped"]
+
+    def test_without_an_exception_the_count_stands_alone(self, debug, capsys):
+        log_skipped("tides/noaa", "prediction rows", 40, 40)
+        assert _lines(capsys) == [
+            "[linecast] tides/noaa: parse of prediction rows failed -- 40 of 40 skipped"]
+
+    def test_nothing_when_nothing_was_skipped(self, debug, capsys):
+        log_skipped("tides/chs", "hilo rows", 0, 40, ValueError("bad"))
+        assert capsys.readouterr() == ("", "")
+
+    def test_nothing_when_debug_is_off(self, quiet, capsys):
+        log_skipped("tides/chs", "hilo rows", 3, 40, ValueError("bad"))
+        assert capsys.readouterr() == ("", "")
 
 
 class TestRedactUrl:

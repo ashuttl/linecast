@@ -214,6 +214,14 @@ class TestOptionalSections:
             "us_aqi": 42, "european_aqi": 30, "pm2_5": 8.1, "pm10": 12.0,
         }
 
+    def test_india_aqi_included_when_attached(self):
+        aqi = {"current": {"us_aqi": 180, "european_aqi": 120,
+                           "pm2_5": 110.0, "pm10": 240.0,
+                           "india_aqi": 366.6}}
+        out = _payload(country_code="IN", aqi_data=aqi)["aqi"]
+        assert out["india_aqi"] == 367
+        assert out["india_aqi_category"] == "Very Poor"
+
     def test_historical_asdict(self):
         hist = HistoricalAverages(avg_high=41.2, avg_low=26.7,
                                   avg_precip=0.11, years=10)

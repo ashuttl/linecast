@@ -16,7 +16,14 @@ day, which is how a stale template heals.
 Versioned tile URLs are immutable (10-year max-age upstream), so cached
 tiles never expire.
 
-Set LINECAST_VECTOR_TILES_URL to point at a self-hosted TileJSON.
+When OpenFreeMap doesn't answer and no usable cache is on disk, the
+OpenStreetMap US Tileservice stands in: the same OpenMapTiles schema,
+also keyless, rebuilt daily. Anonymous use there is rate-limited and
+their policy asks for a "Tiles by OSM US" credit, so it is asked only
+as the second source and the attribution line names it while it serves.
+
+Set LINECAST_VECTOR_TILES_URL to point at a self-hosted TileJSON; an
+override is the user's chosen source and gets no fallback.
 """
 
 import math
@@ -25,38 +32,101 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from linecast._cache import write_bytes_atomic
-from linecast._http import (MAX_BODY_BYTES, fetch_bytes,
-                            fetch_json_cached, gunzip_limited)
+from linecast._cache import (read_cache, read_stale, write_bytes_atomic,
+                             write_cache)
+from linecast._http import MAX_BODY_BYTES, fetch_bytes, fetch_json, gunzip_limited
 from linecast._maps_tile_cache import note_tile_use
 from linecast._paths import cache_dir
 from linecast._radar_tiles import _lonlat_to_world
-from linecast._runtime import log_failure
+from linecast._runtime import debug_log, log_failure
 
 DEFAULT_TILEJSON_URL = "https://tiles.openfreemap.org/planet"
+FALLBACK_TILEJSON_URL = "https://tiles.openstreetmap.us/vector/openmaptiles.json"
 
 ATTRIBUTION = "© OpenMapTiles © OpenStreetMap"
 
+# What the attribution line names for each source; None for an override,
+# whose operator is the user.
+_CREDITS = {DEFAULT_TILEJSON_URL: "OpenFreeMap",
+            FALLBACK_TILEJSON_URL: "Tiles by OSM US"}
+
 _TILEJSON_TTL = 86400  # the planet rebuilds weekly; a day of staleness is fine
 _MAX_ZOOM_FALLBACK = 14
+
+_active_url: str | None = None  # the source whose TileJSON last answered
 
 
 def tilejson_url() -> str:
     return os.environ.get("LINECAST_VECTOR_TILES_URL", DEFAULT_TILEJSON_URL)
 
 
+def _sources() -> list[tuple[str, str]]:
+    """(url, cache file name) in asking order. An override is the user's
+    chosen source, so it stands alone; the default gets the fallback."""
+    override = os.environ.get("LINECAST_VECTOR_TILES_URL")
+    if override:
+        return [(override, "tilejson.json")]
+    return [(DEFAULT_TILEJSON_URL, "tilejson.json"),
+            (FALLBACK_TILEJSON_URL, "tilejson_fallback.json")]
+
+
+def source_credit() -> str | None:
+    """Who the attribution line names for the tiles now being served."""
+    return _CREDITS.get(_active_url or tilejson_url())
+
+
+def attribution_long() -> str:
+    """The street register's full credit, naming whichever source is
+    serving — OpenFreeMap, or OSM US when the fallback stepped in; a
+    self-hosted override names nobody."""
+    credit = source_credit()
+    base = "© OpenMapTiles © OpenStreetMap contributors"
+    return f"{credit} {base}" if credit else base
+
+
+def _served(data, url):
+    global _active_url
+    _active_url = url
+    return data
+
+
 def tilejson() -> dict[str, Any] | None:
-    """The cached TileJSON dict, or None when unreachable with no cache."""
-    return fetch_json_cached(
-        cache_dir("maps", "tilejson.json"), _TILEJSON_TTL, tilejson_url())
+    """The TileJSON dict, or None when no source is reachable or cached.
+
+    Each source in turn: fresh cache, then the network. Only when every
+    source has failed do the stale caches answer, again in source order —
+    yesterday's OpenFreeMap template usually still serves, and beats
+    switching sources over a blip."""
+    sources = _sources()
+    for i, (url, name) in enumerate(sources):
+        cache_file = cache_dir("maps", name)
+        data = read_cache(cache_file, _TILEJSON_TTL)
+        if data is not None:
+            debug_log(f"cache hit: {name}")
+            return _served(data, url)
+        try:
+            data = fetch_json(url, timeout=10)
+        except Exception as exc:
+            log_failure("maps/vtiles", "tilejson fetch", exc, url=url,
+                        fallback=(sources[i + 1][0] if i + 1 < len(sources)
+                                  else "stale cache"))
+            continue
+        write_cache(cache_file, data)
+        return _served(data, url)
+    for url, name in sources:
+        stale = read_stale(cache_dir("maps", name))
+        if stale is not None:
+            return _served(stale, url)
+    return None
 
 
 def tile_info() -> tuple[str, str, int] | None:
     """(url_template, version_segment, maxzoom) or None.
 
     The version segment (e.g. "20260802_080001_pt") namespaces the disk
-    cache; when the template carries no recognizable segment the whole
-    host is used so distinct sources still cache separately.
+    cache; when the template carries no recognizable segment the host
+    (plus the TileJSON's build date, when it has one) stands in, so
+    distinct sources still cache separately.
     """
     tj = tilejson()
     if not tj:
@@ -65,11 +135,19 @@ def tile_info() -> tuple[str, str, int] | None:
     if not tiles:
         return None
     template = tiles[0]
-    version = "default"
-    for seg in template.split("/"):
-        if len(seg) >= 15 and seg[:8].isdigit() and "_" in seg:
-            version = seg
-            break
+    version = next((seg for seg in template.split("/")
+                    if len(seg) >= 15 and seg[:8].isdigit() and "_" in seg),
+                   None)
+    if version is None:
+        # No dated segment (OSM US, a self-hosted source): namespace by
+        # host so distinct sources never mix tiles, and by the build date
+        # planetiler stamps so a daily-rebuilt source refreshes with its
+        # TileJSON instead of serving the first-cached tile forever.
+        import urllib.parse
+        version = urllib.parse.urlsplit(template).hostname or "default"
+        stamp = str(tj.get("timestamp", ""))[:10].replace("-", "")
+        if len(stamp) == 8 and stamp.isdigit():
+            version = f"{version}_{stamp}"
     try:
         maxzoom = int(tj.get("maxzoom", _MAX_ZOOM_FALLBACK))
     except (TypeError, ValueError):

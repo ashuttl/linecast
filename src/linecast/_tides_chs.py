@@ -10,7 +10,7 @@ from typing import Any
 
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
-from linecast._runtime import log_failure
+from linecast._runtime import log_failure, log_skipped
 from linecast._tides_common import (
     M_TO_FT, cache_dir, cached_y_range, dedup_sorted, iana_to_abbr,
     label_hilo, local_day_bounds, nearest_station, parse_cached_dt,
@@ -161,14 +161,17 @@ def _fetch_pred_chunk(station_id, start_date, end_date, station_tz):
 
     rows = []
     points = []
+    bad = None
     for entry in data:
         try:
             dt_local = parse_utc_iso(entry["eventDate"], station_tz)
             height_ft = float(entry["value"]) * M_TO_FT
             rows.append({"dt": dt_local.isoformat(), "v": height_ft})
             points.append((dt_local, height_ft))
-        except (KeyError, ValueError, TypeError):
+        except (KeyError, ValueError, TypeError) as exc:
+            bad = exc
             continue
+    log_skipped("tides/chs", "water-level rows", len(data) - len(rows), len(data), bad)
 
     write_cache(cache_file, rows)
     return points
@@ -202,13 +205,16 @@ def fetch_hilo_range_chs(station_id: str, start_date: date, end_date: date,
         return []
 
     raw = []
+    bad = None
     for entry in data:
         try:
             dt_local = parse_utc_iso(entry["eventDate"], station_tz)
             height_ft = float(entry["value"]) * M_TO_FT
             raw.append((dt_local, height_ft))
-        except (KeyError, ValueError, TypeError):
+        except (KeyError, ValueError, TypeError) as exc:
+            bad = exc
             continue
+    log_skipped("tides/chs", "hilo rows", len(data) - len(raw), len(data), bad)
 
     # CHS wlp-hilo does not label highs vs lows.
     labeled = label_hilo(raw)
@@ -242,11 +248,13 @@ def fetch_y_range_chs(station_id: str, center_date: date,
         if not data or not isinstance(data, list):
             return None
         found = []
+        bad = None
         for entry in data:
             try:
                 found.append(float(entry["value"]) * M_TO_FT)
-            except (KeyError, ValueError, TypeError):
-                pass
+            except (KeyError, ValueError, TypeError) as exc:
+                bad = exc
+        log_skipped("tides/chs", "y-range heights", len(data) - len(found), len(data), bad)
         return found
 
     return cached_y_range(cache_dir() / f"chs_yrange_{station_id}_{key}.json", heights)

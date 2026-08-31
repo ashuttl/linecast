@@ -112,6 +112,21 @@ def log_failure(provider, operation, exc, url=None, fallback=None, trace=False):
         sys.stderr.write(_redact_urls_in_text(rendered))
 
 
+def log_skipped(provider, what, skipped, total, exc=None):
+    """One debug line when parsing dropped records a provider sent, with
+    the last exception standing in for the lot.  Nothing when nothing was
+    dropped, so a loop can count skips and call this unconditionally:
+    one bad record is a glitch, `40 of 40 skipped` is a schema change.
+    """
+    if not skipped or not _DEBUG:
+        return
+    tail = f"{skipped} of {total} skipped"
+    if exc is None:
+        debug_log(f"{provider}: parse of {what} failed -- {tail}")
+    else:
+        log_failure(provider, f"parse of {what}", exc, fallback=tail)
+
+
 def install_banner():
     """A one-line install hint shown when running from a temporary venv (get.sh)."""
     if not os.environ.get("LINECAST_TEMP"):
@@ -349,6 +364,13 @@ def sunshine_parser():
                       "Solar arc inspired by the Apple Watch Solar face")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
+    p.add_argument("--year", action="store_true",
+                    help="year view: a column of sky for each day, with "
+                         "sunrise and sunset as the day/night boundary")
+    p.add_argument("--dst", action="store_true",
+                    help="in the year view, plot each day in its own UTC "
+                         "offset so clock changes show as steps (default: "
+                         "the location's current offset all year)")
     _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")
@@ -391,6 +413,11 @@ def radar_parser():
                     help="condition layers to show, comma-separated: "
                          "temp (temperature tint), wind (speed/direction "
                          "arrows); press c/w in live mode to toggle")
+    p.add_argument("--source", default=None,
+                    help="pin the frame source instead of routing by "
+                         "location: librewxr, rainviewer, or iem "
+                         "(NEXRAD, US only); for comparing what each "
+                         "shows over the same spot")
     _add_units_flags(p, "metric units: celsius, kilometres",
                      "imperial units: fahrenheit, miles")
     _add_clock_flags(p)

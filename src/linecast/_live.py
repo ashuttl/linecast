@@ -261,6 +261,8 @@ def _read_key(fd, text=False):
         return 'key:d'
     if b in (b'l', b'L'):
         return 'key:l'
+    if b in (b'y', b'Y'):
+        return 'key:y'
     if b in (b'r', b'R'):
         return 'key:r'
     if b == b'/':
@@ -776,6 +778,8 @@ class LiveApp:
 
     def run(self):
         """Run the app on the alternate screen until it quits."""
+        from linecast._textwidth import calibrate_from_terminal
+        calibrate_from_terminal()
         try:
             live_loop(self.render, interval=self.interval, mouse=self.mouse,
                       scroll_step=self.scroll_step, auto_play=self.auto_play,

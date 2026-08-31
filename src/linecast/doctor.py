@@ -58,7 +58,7 @@ def providers():
     URL overrides.  TideCheck's url is None until a key is configured.
     A 4xx from a host root is still a host that answers."""
     from linecast._builtup import DEFAULT_URL as BUILTUP_URL
-    from linecast._elevation import DEFAULT_URL as ELEVATION_URL
+    from linecast._elevation import tile_url as elevation_tile_url
     from linecast._maps_route import _FALLBACK as OSRM_FALLBACK, _PRIMARY as OSRM_PRIMARY
     from linecast._maps_search import NOMINATIM_URL, PHOTON_URL
     from linecast._radar_tiles import LIBREWXR_DEFAULT_URL
@@ -66,7 +66,7 @@ def providers():
     from linecast._tides_hko import HKO_BASE
     from linecast._tides_qld import QLD_BASE
     from linecast._tides_tidecheck import TIDECHECK_BASE, is_available
-    from linecast._vtiles import DEFAULT_TILEJSON_URL
+    from linecast._vtiles import DEFAULT_TILEJSON_URL, FALLBACK_TILEJSON_URL
     env = os.environ
     return [
         ("Open-Meteo forecast", "https://api.open-meteo.com/"),
@@ -75,7 +75,10 @@ def providers():
         ("Open-Meteo archive", "https://archive-api.open-meteo.com/"),
         ("Open-Meteo air quality", "https://air-quality-api.open-meteo.com/"),
         ("NWS alerts", "https://api.weather.gov/"),
+        ("MetService alerts", "https://alerts.metservice.com/"),
         ("ipinfo geolocation", "https://ipinfo.io/"),
+        ("ipwho geolocation (fallback)", "https://ipwho.is/"),
+        ("GeoJS geolocation (fallback)", "https://get.geojs.io/"),
         ("NOAA CO-OPS tides", "https://api.tidesandcurrents.noaa.gov/"),
         ("CHS tides", _root(CHS_BASE)),
         ("Queensland tides", _root(QLD_BASE)),
@@ -87,10 +90,12 @@ def providers():
          _root(env.get("LINECAST_LIBREWXR_URL") or LIBREWXR_DEFAULT_URL)),
         ("OpenFreeMap streets",
          _root(env.get("LINECAST_VECTOR_TILES_URL") or DEFAULT_TILEJSON_URL)),
+        # an override is the user's chosen source and gets no fallback
+        ("OSM US streets (fallback)",
+         None if env.get("LINECAST_VECTOR_TILES_URL")
+         else _root(FALLBACK_TILEJSON_URL)),
         # the bucket root is a listing of every tile; z0 is one small tile
-        ("AWS terrain tiles",
-         (env.get("LINECAST_ELEVATION_URL") or ELEVATION_URL).rstrip("/")
-         + "/terrarium/0/0/0.png"),
+        ("AWS terrain tiles", elevation_tile_url(0, 0, 0)),
         ("built-up raster", _root(env.get("LINECAST_BUILTUP_URL") or BUILTUP_URL)),
         ("Photon search", _root(PHOTON_URL)),
         ("Nominatim search", _root(NOMINATIM_URL) + "status"),

@@ -8,12 +8,14 @@ illuminated fraction, whether the Moon is up right now, the next moonrise
 and moonset, and the dates of the next full and new moons. In English the
 full moon carries its traditional almanac name (Harvest Moon and the rest),
 and a final line gives the day of the year and the next equinox or solstice.
-The disc is mirrored for southern-hemisphere observers, who see the Moon
-"upside down" relative to the northern view.
+The disc is drawn as the observer would see it. Its tilt in the sky is the
+Moon's parallactic angle — near pole-up from the north, close to "upside
+down" from the south, and turning steadily between moonrise and moonset —
+and the terminator lies square to the bright limb, which points at the Sun.
 
-Rise/set times use the same low-precision ephemeris as the tides chart's
-moon labels (accurate to within a few minutes); phase and illumination come
-from the mean synodic cycle, which is what printed almanacs round to as well.
+Times and positions come from `_ephemeris.py`, which is good to a couple
+of arcminutes: the principal phases land within a quarter of an hour of
+the published ones, which is the accuracy an almanac is read at.
 """
 
 import calendar
@@ -44,13 +46,17 @@ from linecast._theme import (
     best_contrast,
     darken,
     ensure_contrast,
+    is_light_theme,
+    lerp_rgb,
     neutral_tone,
     surface_bg,
     theme_legacy_mode,
 )
 from linecast._radar_i18n import rs
-from linecast._tides_render import (
+from linecast._ephemeris import (
     _moon_altitude_deg, _moon_azimuth_deg, _moon_events_for_local_date,
+    _moon_parallactic_deg, moon_age_days, moon_axis_deg,
+    moon_bright_limb_deg, moon_illuminated_fraction, next_moon_phase_utc,
 )
 from linecast.sunshine import (
     INFO_AMBER_RGB,
@@ -72,8 +78,10 @@ _theme.track_imports(globals(), "linecast.sunshine")
 # Palette
 # ---------------------------------------------------------------------------
 def _rebuild():
-    global MOON_LIT_RGB, MOON_SHADOW_RGB, MOON_GLOW_RGB
+    global MOON_LIT_RGB, MOON_SHADOW_RGB, MOON_GLOW_RGB, SKY_RGB
     global STAR_BRIGHT_RGB, STAR_RGB, STAR_DIM_RGB
+    global PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
+    SKY_RGB = _theme.theme_bg
     if theme_legacy_mode:
         MOON_LIT_RGB = (228, 230, 238)
         MOON_SHADOW_RGB = (36, 40, 56)
@@ -81,6 +89,19 @@ def _rebuild():
         STAR_BRIGHT_RGB = (206, 214, 236)
         STAR_RGB = (150, 158, 180)
         STAR_DIM_RGB = (84, 92, 115)
+    elif is_light_theme():
+        # The night sky is dark whatever the terminal: a navy from the
+        # theme's blue, with a white Moon and stars lifted from the sky.
+        blue = best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12]),
+                             minimum=1.8)
+        SKY_RGB = darken(blue, 0.80)
+        white = (250, 252, 255)
+        MOON_LIT_RGB = white
+        MOON_SHADOW_RGB = lerp_rgb(SKY_RGB, white, 0.10)
+        MOON_GLOW_RGB = lerp_rgb(SKY_RGB, white, 0.55)
+        STAR_BRIGHT_RGB = lerp_rgb(SKY_RGB, white, 0.85)
+        STAR_RGB = lerp_rgb(SKY_RGB, white, 0.60)
+        STAR_DIM_RGB = lerp_rgb(SKY_RGB, white, 0.38)
     else:
         MOON_LIT_RGB = best_contrast((_theme.theme_ansi[15], _theme.theme_fg), minimum=2.5)
         MOON_SHADOW_RGB = ensure_contrast(surface_bg(0.30), _theme.theme_bg, minimum=1.2)
@@ -88,6 +109,13 @@ def _rebuild():
         STAR_BRIGHT_RGB = ensure_contrast(neutral_tone(0.80), _theme.theme_bg, minimum=3.2)
         STAR_RGB = ensure_contrast(neutral_tone(0.58), _theme.theme_bg, minimum=2.2)
         STAR_DIM_RGB = ensure_contrast(neutral_tone(0.40), _theme.theme_bg, minimum=1.5)
+    # The wide layout's panel sits in the sky, so its inks contrast with
+    # the sky; the stacked layout's lines sit on the page and keep the
+    # page inks.
+    PANEL_TEXT_RGB = ensure_contrast(INFO_TEXT_RGB, SKY_RGB, minimum=4.5)
+    PANEL_DIM_RGB = ensure_contrast(INFO_DIM_RGB, SKY_RGB, minimum=2.0)
+    PANEL_AMBER_RGB = ensure_contrast(INFO_AMBER_RGB, SKY_RGB, minimum=2.3)
+    PANEL_PURPLE_RGB = ensure_contrast(INFO_PURPLE_RGB, SKY_RGB, minimum=2.3)
 
 
 _rebuild()
@@ -120,13 +148,10 @@ def _load_albedo():
 
 
 def moon_illumination(dt):
-    """Illuminated fraction of the lunar disc, in [0, 1].
-
-    For a uniformly lit sphere the fraction is (1 − cos elongation) / 2;
-    the mean synodic cycle position stands in for elongation, consistent
-    with the accuracy of moon_phase().
-    """
-    return (1.0 - math.cos(2.0 * math.pi * moon_cycle_frac(dt))) / 2.0
+    """Illuminated fraction of the lunar disc, in [0, 1]."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return moon_illuminated_fraction(dt.astimezone(timezone.utc))
 
 
 def upcoming_moon_events(now_local, lat, lng):
@@ -289,21 +314,33 @@ def _surface_shade(sx, sy, albedo):
     return 1.0 - (top * (1 - fy) + bottom * fy) / 255.0
 
 
-def _draw_moon_disc(fb, cx, cy, radius, frac, southern):
+def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg):
     """Draw the phase-shaded lunar disc centered at (cx, cy) sub-pixels.
 
-    The terminator is the standard phase ellipse: for a chord at height y
-    the lit/dark boundary sits at x = cos(2π·frac)·√(1−y²). Waxing phases
-    light the right (east) limb in the northern view; the whole view is
-    rotated 180° for southern observers.
+    Two angles set the picture, both screen bearings with 0 straight up
+    and 90 to the right. *limb_deg* points at the bright limb, so the
+    terminator is drawn square to it; *axis_deg* points at the Moon's
+    north pole, so the maria sit the way the observer sees them. They are
+    not the same angle and do not move together, which is why they are
+    passed separately: the terminator follows the Sun round the Moon over
+    a month, while the maria only tilt with the observer.
+
+    The terminator is the standard phase ellipse. For a lit fraction k the
+    boundary lies at (1 − 2k)·√(1 − y²) along the bright-limb axis, which
+    gives the whole disc at full, a straight edge at the quarters, and
+    nothing at new.
     """
-    theta = 2.0 * math.pi * frac
-    c = math.cos(theta)
-    waxing = frac < 0.5
     edge = max(1.0 / radius, 0.04)   # anti-aliasing band, in unit radii
     soft = 0.10                       # terminator softness, in unit radii
     scan = int(radius + 2)
     albedo = _load_albedo()
+
+    boundary = 1.0 - 2.0 * illum
+    limb = math.radians(limb_deg)
+    limb_x, limb_y = math.sin(limb), -math.cos(limb)
+    axis = math.radians(axis_deg)
+    axis_c, axis_s = math.cos(axis), math.sin(axis)
+
     for dy in range(-scan, scan + 1):
         uy = dy / radius
         for dx in range(-scan, scan + 1):
@@ -316,15 +353,16 @@ def _draw_moon_disc(fb, cx, cy, radius, frac, southern):
             if cover <= 0.02:
                 continue
 
-            sx = -ux if southern else ux
-            sy = -uy if southern else uy
-            chord = math.sqrt(max(0.0, 1.0 - sy * sy))
-            d = (sx - c * chord) if waxing else (-c * chord - sx)
+            # Distance past the terminator, along the bright-limb axis.
+            along = ux * limb_x + uy * limb_y
+            across = ux * -limb_y + uy * limb_x
+            d = along - boundary * math.sqrt(max(0.0, 1.0 - across * across))
             lit_alpha = max(0.0, min(1.0, (d + soft) / (2.0 * soft)))
 
             shade = 0.18 * rr  # limb falloff
             if albedo is not None:
-                shade += _surface_shade(sx, sy, albedo)
+                shade += _surface_shade(ux * axis_c + uy * axis_s,
+                                        -ux * axis_s + uy * axis_c, albedo)
             lit_px = darken(MOON_LIT_RGB, min(0.55, shade))
             color = lerp(MOON_SHADOW_RGB, lit_px, lit_alpha)
             fb.set_pixel(cx + dx, cy + dy, color, cover)
@@ -380,6 +418,20 @@ def _panel_overlays(panel, x0, row0, graph_w):
     return overlays
 
 
+def _next_phase_local(moment_utc, target_frac, now_local):
+    """Next new or full moon, in the observer's timezone.
+
+    Falls back to a mean-synodic estimate if the search comes up empty,
+    so the panel still has a date to print.
+    """
+    found = next_moon_phase_utc(moment_utc, target_frac)
+    if found is None:
+        frac = moon_cycle_frac(now_local)
+        ahead = ((target_frac - frac) % 1.0) * SYNODIC_MONTH
+        return now_local + timedelta(days=ahead)
+    return found.astimezone(now_local.tzinfo)
+
+
 def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     """Build the full-screen moon display: disc plus info lines.
 
@@ -390,19 +442,25 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     """
     idx, _name, icon = moon_phase(now_local, runtime)
     name = _moon_name(idx, runtime)
-    frac = moon_cycle_frac(now_local)
     illum = moon_illumination(now_local)
-    age = frac * SYNODIC_MONTH
     moment_utc = now_local.astimezone(timezone.utc)
+    age = moon_age_days(moment_utc)
     alt = _moon_altitude_deg(moment_utc, lat, lng)
     up = alt > HORIZON_THRESHOLD_DEG
     bearing = _compass_point(_moon_azimuth_deg(moment_utc, lat, lng), runtime)
+    # Where the bright limb and the Moon's north pole fall on screen.
+    # Position angles run from celestial north through east, which is
+    # anticlockwise with north up; the parallactic angle then says how
+    # far celestial north itself is turned from the observer's vertical.
+    parallactic = _moon_parallactic_deg(moment_utc, lat, lng)
+    limb = parallactic - moon_bright_limb_deg(moment_utc)
+    axis = parallactic - moon_axis_deg(moment_utc)
     rise, sset = upcoming_moon_events(now_local, lat, lng)
 
-    days_to_full = ((0.5 - frac) % 1.0) * SYNODIC_MONTH
-    days_to_new = ((1.0 - frac) % 1.0) * SYNODIC_MONTH
-    full_dt = now_local + timedelta(days=days_to_full)
-    new_dt = now_local + timedelta(days=days_to_new)
+    full_dt = _next_phase_local(moment_utc, 0.5, now_local)
+    new_dt = _next_phase_local(moment_utc, 0.0, now_local)
+    days_to_full = (full_dt - now_local).total_seconds() / 86400.0
+    days_to_new = (new_dt - now_local).total_seconds() / 86400.0
     event, event_utc = next_season_event(now_local)
     event_local = event_utc.astimezone(now_local.tzinfo)
     days_to_event = (event_utc - now_local).total_seconds() / 86400.0
@@ -453,7 +511,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     graph_w = max(16, cols - 2)
 
     # --- wide layout: the info as a column in the sky beside the disc ---
-    T, D, A, P = INFO_TEXT_RGB, INFO_DIM_RGB, INFO_AMBER_RGB, INFO_PURPLE_RGB
+    T, D, A, P = PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
     panel = [
         [(f"{icon} {name}", T, True)],
         [(illum_txt, D, False)],
@@ -505,10 +563,10 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
         cy = total_spy // 2
         overlays = _panel_overlays(
             panel, graph_w - panel_w - 2, (graph_h - panel_h) // 2, graph_w)
-        fb = Framebuffer(graph_w, graph_h)
+        fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
         fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
                        peak_alpha=0.10 + 0.20 * illum)
-        _draw_moon_disc(fb, cx, cy, radius, frac, southern=(lat < 0))
+        _draw_moon_disc(fb, cx, cy, radius, illum, limb, axis)
         stars = _star_overlays(fb, cx, cy, radius, taken=overlays.keys())
         lines = fb.render(overlays={**stars, **overlays})
         if hint:
@@ -584,10 +642,10 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     cx = graph_w // 2
     cy = total_spy // 2
 
-    fb = Framebuffer(graph_w, graph_h)
+    fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
     fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
                    peak_alpha=0.10 + 0.20 * illum)
-    _draw_moon_disc(fb, cx, cy, radius, frac, southern=(lat < 0))
+    _draw_moon_disc(fb, cx, cy, radius, illum, limb, axis)
     lines = fb.render(overlays=_star_overlays(fb, cx, cy, radius))
 
     lines.extend(_center(line, cols) for line in info)

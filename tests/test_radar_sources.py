@@ -16,8 +16,8 @@ from linecast import _radar_sources as sources
 from linecast import _radar_tiles as tiles
 from linecast._radar_source import _floor_step, frame_times
 from linecast._radar_sources import (
-    DEFAULT_THEME, Frame, IEMSource, LibreWXRSource, RainViewerSource, THEMES,
-    _in_conus, get_source, has_radar, theme_id,
+    DEFAULT_THEME, Frame, IEMSource, LibreWXRSource, RainViewerSource,
+    RV_THEMES, THEMES, _in_conus, get_source, has_radar, theme_id,
 )
 
 UTC = datetime.timezone.utc
@@ -179,6 +179,17 @@ class TestGetSource:
             tiles.fetch_index = original
         assert isinstance(src, IEMSource)
 
+    def test_theme_survives_the_fall_back_to_rainviewer(self):
+        original = self._patch({"rv": _INDEX})
+        try:
+            src = get_source(51.5, -0.12, 5, theme="dusk")
+        finally:
+            tiles.fetch_index = original
+        assert isinstance(src, RainViewerSource)
+        assert src.theme == "dusk"
+        assert src.palette is not None
+        assert src.provider.options == "0_1"  # exact colours to decode
+
     def test_conus_skips_rainviewer_leg(self):
         # IEM covers CONUS with deeper history; RainViewer adds nothing there
         original = self._patch({"rv": _INDEX})
@@ -186,6 +197,31 @@ class TestGetSource:
             src = get_source(38.5, -97.0, 5)
         finally:
             tiles.fetch_index = original
+        assert isinstance(src, IEMSource)
+
+    def _forced(self, name, by_provider, lat=51.5, lon=-0.12):
+        original = self._patch(by_provider)
+        sources.FORCED_SOURCE = name
+        try:
+            return get_source(lat, lon, 5)
+        finally:
+            sources.FORCED_SOURCE = None
+            tiles.fetch_index = original
+
+    def test_forced_rainviewer_wins_over_librewxr(self):
+        src = self._forced("rainviewer", {"rv": _INDEX, "lwxr": _INDEX})
+        assert isinstance(src, RainViewerSource)
+
+    def test_forced_librewxr_is_librewxr(self):
+        src = self._forced("librewxr", {"rv": _INDEX, "lwxr": _INDEX})
+        assert isinstance(src, LibreWXRSource)
+
+    def test_forced_iem_skips_the_tile_sources(self):
+        src = self._forced("iem", {"rv": _INDEX, "lwxr": _INDEX})
+        assert isinstance(src, IEMSource)
+
+    def test_forced_source_still_falls_back_on_failure(self):
+        src = self._forced("rainviewer", {})
         assert isinstance(src, IEMSource)
 
 
@@ -307,14 +343,32 @@ class TestTileSourceFrames:
         assert (server.theme, server.provider.color) == (7, 7)
         assert server.palette is None and server.smooth is False
 
-    def test_only_librewxr_advertises_themes(self):
+    def test_advertised_themes_match_what_each_source_can_draw(self):
         original = self._stub(_INDEX)
         try:
             assert getattr(LibreWXRSource(), "themes", None) is THEMES
-            assert getattr(RainViewerSource(), "themes", None) is None
+            assert getattr(RainViewerSource(), "themes", None) is RV_THEMES
         finally:
             tiles.fetch_index = original
         assert getattr(IEMSource(4), "themes", None) is None
+        # RainViewer draws the local palettes plus its one server scheme
+        assert set(RV_THEMES) == {n for n, v in THEMES.items()
+                                  if isinstance(v, str)} | {"universal-blue"}
+
+    def test_rainviewer_with_theme_reuses_the_index(self):
+        calls = []
+        original = tiles.fetch_index
+        tiles.fetch_index = lambda *a, **k: calls.append(1) or _INDEX
+        try:
+            src = RainViewerSource("terminal")
+            blue = src.with_theme(2)
+        finally:
+            tiles.fetch_index = original
+        assert len(calls) == 1
+        assert blue.current_frames() is src.current_frames()
+        assert src.transform is not None and src.smooth is True
+        assert blue.transform is None and blue.smooth is False
+        assert blue.provider.options == "1_1"
 
 
 class TestIEMSource:

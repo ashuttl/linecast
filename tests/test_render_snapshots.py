@@ -130,6 +130,41 @@ class TestSunshineSnapshot:
         stripped = _strip_ansi(output)
         _compare_or_create("sunshine_80x24.txt", stripped)
 
+    def test_sunshine_year_80x24(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        from linecast._sunshine_year import render_year
+        from linecast._runtime import RuntimeConfig
+
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
+        # A named zone rather than the host's: the year's per-day offsets
+        # and the sun's placement then depend on nothing but the arguments.
+        tz = ZoneInfo("America/Toronto")
+        now = datetime(2026, 3, 5, 14, 30, tzinfo=tz)
+        with patch("linecast._sunshine_year.get_terminal_size",
+                   return_value=(80, 24)):
+            output = render_year(43.7, -79.4, now, runtime, tz=tz,
+                                 location_label="Toronto")
+        _compare_or_create("sunshine_year_80x24.txt", _strip_ansi(output))
+
+    def test_sunshine_year_polar_80x24(self):
+        """Longyearbyen in March: both polar seasons in one field."""
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        from linecast._sunshine_year import render_year
+        from linecast._runtime import RuntimeConfig
+
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
+        tz = ZoneInfo("Europe/Oslo")
+        now = datetime(2026, 3, 5, 14, 30, tzinfo=tz)
+        with patch("linecast._sunshine_year.get_terminal_size",
+                   return_value=(80, 24)):
+            output = render_year(78.22, 15.65, now, runtime, tz=tz,
+                                 location_label="Longyearbyen")
+        _compare_or_create("sunshine_year_polar_80x24.txt", _strip_ansi(output))
+
 
 # -----------------------------------------------------------------------
 # Moon rendering snapshot
@@ -171,24 +206,176 @@ class TestMoonSnapshot:
         assert "space to return to now" in output
         assert "Up now" not in output
 
-    def test_moon_southern_hemisphere_mirrors_disc(self):
-        """A waxing moon lights the east limb in the north, west in the south."""
+    def test_terminator_squares_up_to_the_bright_limb(self):
+        """The lit half sits where the bright limb points."""
         from linecast._framebuffer import Framebuffer
         from linecast.moon import _draw_moon_disc
 
-        def side_brightness(southern):
+        def sides(limb_deg, axis_deg=0.0, illum=0.5):
             fb = Framebuffer(40, 20)
-            _draw_moon_disc(fb, 20, 20, 15, 0.25, southern)
+            _draw_moon_disc(fb, 20, 20, 15, illum, limb_deg, axis_deg)
             left = sum(sum(fb.fb[20][x]) for x in range(6, 18))
             right = sum(sum(fb.fb[20][x]) for x in range(23, 35))
             return left, right
 
-        n_left, n_right = side_brightness(southern=False)
-        s_left, s_right = side_brightness(southern=True)
-        assert n_right > n_left
-        assert s_left > s_right
-        assert (n_left, n_right) == (s_right, s_left)
+        lit_right = sides(90.0)
+        lit_left = sides(-90.0)
+        assert lit_right[1] > lit_right[0]
+        assert lit_left[0] > lit_left[1]
 
+    def test_maria_turn_without_moving_the_terminator(self):
+        """The two angles are independent: the Sun lights one side of the
+        Moon whichever way the Moon's own pole happens to be leaning."""
+        from linecast._framebuffer import Framebuffer
+        from linecast.moon import _draw_moon_disc
+
+        def render(axis_deg):
+            fb = Framebuffer(40, 20)
+            _draw_moon_disc(fb, 20, 20, 15, 0.5, 90.0, axis_deg)
+            left = sum(sum(fb.fb[20][x]) for x in range(6, 18))
+            right = sum(sum(fb.fb[20][x]) for x in range(23, 35))
+            return fb, (left, right)
+
+        upright, upright_sides = render(0.0)
+        tilted, tilted_sides = render(40.0)
+        assert tilted_sides[1] > tilted_sides[0]      # still lit on the right
+        assert tilted.fb != upright.fb                # but the maria moved
+
+    def test_lit_fraction_drives_the_terminator(self):
+        """Full fills the disc, new empties it."""
+        from linecast._framebuffer import Framebuffer
+        from linecast.moon import _draw_moon_disc
+
+        def brightness(illum):
+            fb = Framebuffer(40, 20)
+            _draw_moon_disc(fb, 20, 20, 15, illum, 90.0, 0.0)
+            return sum(sum(fb.fb[20][x]) for x in range(6, 35))
+
+        assert brightness(1.0) > brightness(0.5) > brightness(0.02)
+
+    def test_orientation_holds_steady_across_the_equator(self):
+        """Walking over the equator must not turn the Moon upside down.
+
+        Half a degree either side of the line, at one instant, the tilt
+        should differ by about a degree -- not by the half turn the old
+        hemisphere test drew.
+        """
+        from datetime import timezone
+        from linecast._ephemeris import _moon_parallactic_deg
+
+        moment = datetime(2026, 3, 5, 4, 0, tzinfo=timezone.utc)
+        north = _moon_parallactic_deg(moment, 0.5, 36.8)
+        south = _moon_parallactic_deg(moment, -0.5, 36.8)
+        assert abs(north - south) < 2.0
+
+    def test_familiar_hemisphere_view_falls_out_of_the_angle(self):
+        """The old rule of thumb should survive where it was true.
+
+        A moon on the meridian sits near pole-up for a northern observer
+        and near a half turn for a southern one; between rising and
+        setting the tilt sweeps most of the way in between.
+        """
+        from datetime import timedelta, timezone
+        from linecast._ephemeris import (
+            _moon_altitude_deg, _moon_parallactic_deg,
+        )
+
+        day = datetime(2026, 3, 5, tzinfo=timezone.utc)
+        assert abs(_moon_parallactic_deg(
+            day + timedelta(hours=6, minutes=50), 43.7, -79.4)) < 5.0
+        assert abs(abs(_moon_parallactic_deg(
+            day + timedelta(hours=14, minutes=5), -41.3, 174.8)) - 180.0) < 5.0
+
+        tilts = [_moon_parallactic_deg(day + timedelta(hours=h), 43.7, -79.4)
+                 for h in range(24)
+                 if _moon_altitude_deg(day + timedelta(hours=h), 43.7, -79.4) > 0]
+        assert max(tilts) - min(tilts) > 60.0
+
+
+
+# -----------------------------------------------------------------------
+# Ephemeris accuracy
+# -----------------------------------------------------------------------
+class TestEphemerisAccuracy:
+    """The Moon, checked against published times and positions.
+
+    Reference values are the ones the almanacs print, to the minute. The
+    tolerances say what this low-precision ephemeris is for: naming the
+    right phase on the right evening, not navigating by it.
+    """
+
+    # Principal phases of early 2026, UTC.
+    PHASES = [
+        (0.0, "2026-01-18 19:51"), (0.0, "2026-02-17 12:01"),
+        (0.0, "2026-03-19 01:23"), (0.0, "2026-04-17 11:51"),
+        (0.5, "2026-01-03 10:02"), (0.5, "2026-02-01 22:09"),
+        (0.5, "2026-03-03 11:37"), (0.5, "2026-04-02 02:11"),
+    ]
+
+    def test_principal_phases_land_within_a_quarter_hour(self):
+        from datetime import timedelta, timezone
+        from linecast._ephemeris import next_moon_phase_utc
+
+        for target, stamp in self.PHASES:
+            want = datetime.strptime(stamp, "%Y-%m-%d %H:%M").replace(
+                tzinfo=timezone.utc)
+            got = next_moon_phase_utc(want - timedelta(days=5), target)
+            assert got is not None, stamp
+            off = abs((got - want).total_seconds()) / 60.0
+            assert off < 15.0, f"{stamp}: off by {off:.0f} min"
+
+    def test_disc_is_full_when_the_almanac_says_full(self):
+        from datetime import timezone
+        from linecast._ephemeris import moon_illuminated_fraction
+
+        full = datetime(2026, 3, 3, 11, 37, tzinfo=timezone.utc)
+        new = datetime(2026, 3, 19, 1, 23, tzinfo=timezone.utc)
+        assert moon_illuminated_fraction(full) > 0.999
+        assert moon_illuminated_fraction(new) < 0.001
+
+    def test_moon_position_within_a_tenth_of_a_degree(self):
+        """Geocentric RA/dec against pyephem, which uses ELP2000."""
+        from datetime import timezone
+        from linecast._ephemeris import _moon_ra_dec
+
+        # (UTC, RA deg, dec deg)
+        known = [
+            ("2026-01-15 00:00", 249.8438, -27.3160),
+            ("2026-03-05 19:30", 190.8829, -7.9009),
+            ("2026-06-21 12:00", 174.8110, 0.0488),
+            ("2026-11-08 06:00", 209.9764, -17.1436),
+        ]
+        for stamp, ra, dec in known:
+            when = datetime.strptime(stamp, "%Y-%m-%d %H:%M").replace(
+                tzinfo=timezone.utc)
+            got_ra, got_dec = _moon_ra_dec(when)
+            d_ra = abs((got_ra - ra + 540.0) % 360.0 - 180.0) * math.cos(
+                math.radians(dec))
+            assert math.hypot(d_ra, got_dec - dec) < 0.1, stamp
+
+    def test_bright_limb_points_at_the_sun(self):
+        """The lit edge must face the Sun, wherever both happen to be."""
+        from datetime import timezone
+        from linecast._ephemeris import (
+            _moon_altitude_deg, _moon_parallactic_deg, moon_bright_limb_deg,
+        )
+
+        # Bearing from Moon to Sun in the alt/az frame, 0 = up, +90 = right,
+        # taken from pyephem at four moments over a year at four sites.
+        cases = [
+            ("2026-01-24 18:00", 51.5, -0.1, 131.3),
+            ("2026-04-22 06:00", -33.9, 151.2, -84.3),
+            ("2026-08-02 21:00", 1.3, 36.8, -154.7),
+            ("2026-10-30 00:00", 64.1, -21.9, -116.2),
+        ]
+        for stamp, lat, lng, want in cases:
+            when = datetime.strptime(stamp, "%Y-%m-%d %H:%M").replace(
+                tzinfo=timezone.utc)
+            assert _moon_altitude_deg(when, lat, lng) > 0, stamp
+            drawn = (_moon_parallactic_deg(when, lat, lng)
+                     - moon_bright_limb_deg(when))
+            off = abs((drawn - want + 540.0) % 360.0 - 180.0)
+            assert off < 3.0, f"{stamp}: off by {off:.1f} deg"
 
 # -----------------------------------------------------------------------
 # Maps rendering snapshots

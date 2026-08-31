@@ -35,15 +35,25 @@ ATTRIBUTION = "Terrain: Mapzen/AWS (SRTM, GMTED, ETOPO1)"
 _decoded = DecodeMemo(cap=16)
 
 
-def _tile_url(z, x, y):
-    base = os.environ.get("LINECAST_ELEVATION_URL", DEFAULT_URL).rstrip("/")
-    return f"{base}/terrarium/{z}/{x}/{y}.png"
+def tile_url(z, x, y):
+    """URL for one tile, honouring LINECAST_ELEVATION_URL.
+
+    The override is a bucket root by default; one carrying {z} is a full
+    template, which is how a keyed host with its own path shape (Nextzen,
+    say) can stand in — no public keyless mirror of these tiles exists
+    to be a built-in second source (issue #34).
+    """
+    base = os.environ.get("LINECAST_ELEVATION_URL", DEFAULT_URL)
+    if "{z}" in base:
+        return (base.replace("{z}", str(z))
+                .replace("{x}", str(x)).replace("{y}", str(y)))
+    return f"{base.rstrip('/')}/terrarium/{z}/{x}/{y}.png"
 
 
 def _fetch_tile(z, x, y, timeout=15):
     """One terrarium tile as PNG bytes, disk-cached forever (immutable)."""
     cpath = cache_dir("maps", f"terrarium_{z}_{x}_{y}.png")
-    data = fetch_bytes_cached(cpath, None, _tile_url(z, x, y), timeout=timeout)
+    data = fetch_bytes_cached(cpath, None, tile_url(z, x, y), timeout=timeout)
     note_tile_use(cpath)  # so the sweep sees a tile still in use
     return data
 

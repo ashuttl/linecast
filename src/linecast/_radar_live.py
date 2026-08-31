@@ -112,13 +112,13 @@ class RadarApp(LiveApp):
         lon_span = maxlon - minlon
         self.lat = max(-80.0, min(80.0, self.lat + drow * self.zoom / hc))
         self.lon = wrap_lon(self.lon + -dcol * lon_span / gw)
-        # crossing the CONUS boundary re-picks the source: the natural
-        # moment to retry LibreWXR after a fallback (a source that offers
-        # themes is LibreWXR already, and would only be re-picked as itself)
+        # crossing the CONUS boundary re-picks the source when the one in
+        # hand isn't LibreWXR: the natural moment to retry it after a
+        # fallback (a themed RainViewer is still a fallback)
         r = _in_conus(self.lat, self.lon)
         if r != self.region:
             self.region = r
-            if getattr(_radar_frames._source, "themes", None) is None:
+            if getattr(_radar_frames._source, "kind", None) != "lwxr":
                 _radar_frames._source = get_source(
                     self.lat, self.lon, N_FRAMES, self.theme)
         return True
@@ -179,6 +179,15 @@ def main():
         print('Unknown radar layer. Layers: radar, satellite.',
               file=sys.stderr)
         sys.exit(2)
+
+    source_arg = (args.source
+                  or os.environ.get("LINECAST_RADAR_SOURCE", "")).strip().lower()
+    if source_arg:
+        if source_arg not in ("librewxr", "rainviewer", "iem"):
+            print('Unknown radar source. Sources: librewxr, rainviewer, iem.',
+                  file=sys.stderr)
+            sys.exit(2)
+        _radar_sources.FORCED_SOURCE = source_arg
 
     # everything from here to the first paint may block on the network
     # (geocoding, the frame index, static-mode frame fetches) — spin

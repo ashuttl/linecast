@@ -5,8 +5,8 @@
 #   scripts/capture_screenshots.sh all
 #   scripts/capture_screenshots.sh weather moon maps hero
 #
-# The individual targets are weather, sunshine, moon, tides, radar, maps, and
-# hero. "all" captures every app but NOT the hero: the shipped hero is a
+# The individual targets are weather, sunshine, year, moon, tides, radar,
+# maps, and hero. "all" captures every app but NOT the hero: the shipped hero is a
 # hand-composed whole-screen screenshot, and the hero target — a live
 # auto-capture of four apps tiled on one offscreen desktop — would overwrite
 # it, so it only runs when named explicitly. The app captures use live
@@ -27,6 +27,8 @@ TERRAIN_PLACE=${LINECAST_CAPTURE_TERRAIN_PLACE:-Innsbruck}
 GLOBE_PLACE=${LINECAST_CAPTURE_GLOBE_PLACE:-20,-30}
 TIDE_STATION=${LINECAST_CAPTURE_TIDE_STATION:-8418150}
 ASTRO_LOCATION=${LINECAST_CAPTURE_ASTRO_LOCATION:-43.676,-70.371}
+ARCTIC_PLACE=${LINECAST_CAPTURE_ARCTIC_PLACE:-Longyearbyen}
+ANTARCTIC_PLACE=${LINECAST_CAPTURE_ANTARCTIC_PLACE:-Vostok Station}
 
 usage() {
     cat <<'EOF'
@@ -36,6 +38,7 @@ Targets:
   all        capture every app (default; leaves the hand-made hero alone)
   weather    weather.png
   sunshine   sunshine-day.png and sunshine-dusk.png
+  year       sunshine-year.png, plus -arctic and -antarctic at 78° either side
   moon       moon.png
   tides      tides.png
   radar      radar.png and radar.gif
@@ -52,6 +55,8 @@ Environment overrides:
   LINECAST_CAPTURE_GLOBE_PLACE
   LINECAST_CAPTURE_TIDE_STATION
   LINECAST_CAPTURE_ASTRO_LOCATION
+  LINECAST_CAPTURE_ARCTIC_PLACE
+  LINECAST_CAPTURE_ANTARCTIC_PLACE
 EOF
 }
 
@@ -98,6 +103,34 @@ sunshine() {
         uv --directory "$REPO_DIR" run python \
         "$REPO_DIR/scripts/capture_moment.py" \
         --at 2026-06-21T20:15 --location "$ASTRO_LOCATION" sunshine
+}
+
+year() {
+    # The year view at the home location and at two places near the poles,
+    # each with the pointer on the December solstice so the hover tooltip is
+    # in frame. On a 120x36 terminal that is column 115, row 18 (noon). The
+    # first hover only carries the pointer onto the window: a single warp
+    # from outside arrives as a pointer enter, not the motion the app
+    # listens for, so the second, real move is what raises the tooltip.
+    #
+    # "Today" is the June solstice, as in the day captures. capture_moment
+    # reads --at in this machine's zone, so the later two are 13:30 local
+    # time in Svalbard and at Vostok as seen from US Eastern; if that drifts
+    # only the sun glyph's row moves.
+    local place at name spec
+    for spec in "$ASTRO_LOCATION|2026-06-21T13:30|sunshine-year.png" \
+                "$ARCTIC_PLACE|2026-06-21T07:30|sunshine-year-arctic.png" \
+                "$ANTARCTIC_PLACE|2026-06-21T04:30|sunshine-year-antarctic.png"; do
+        IFS='|' read -r place at name <<<"$spec"
+        printf 'Capturing sunshine year view for %s…\n' "$place"
+        "$CAPTURE_TOOL" -s 120x36 -w 6 \
+            --hover 100x12 --sleep 0.5 --hover 115x18 --sleep 1 \
+            -o "$SHOT_DIR/$name" \
+            uv --directory "$REPO_DIR" run python \
+            "$REPO_DIR/scripts/capture_moment.py" \
+            --at "$at" --location "$ASTRO_LOCATION" sunshine -- \
+            --year --location "$place"
+    done
 }
 
 moon() {
@@ -207,10 +240,11 @@ hero() {
 
 run_target() {
     case "$1" in
-        weather|sunshine|moon|tides|radar|maps|globe|hero) "$1" ;;
+        weather|sunshine|year|moon|tides|radar|maps|globe|hero) "$1" ;;
         all)
             weather
             sunshine
+            year
             moon
             tides
             radar

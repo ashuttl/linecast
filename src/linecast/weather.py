@@ -7,7 +7,7 @@ Temperature-driven color palette, Nerd Font icons, clean column alignment.
 
 Alerts sourced from NWS (US), Environment Canada (CA), Bright Sky/DWD (DE),
 MET Norway (NO), Met \u00c9ireann (IE), JMA (Japan), CMA (China),
-and MeteoAlarm (30 European countries).
+MetService (NZ), and MeteoAlarm (34 European countries).
 
 Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 
@@ -55,6 +55,7 @@ from linecast._weather_sources import (
     _location_from_timezone,
     _reverse_geocode,
     _search_locations,
+    apply_india_aqi,
     fetch_aqi,
     fetch_alerts,
     fetch_forecast,
@@ -369,6 +370,7 @@ class WeatherApp(_live.LiveApp):
             self.alerts = fetch_alerts(self.lat, self.lng, self.country,
                                        lang=self.runtime.lang)
             self.aqi = fetch_aqi(self.lat, self.lng)
+            apply_india_aqi(self.aqi, self.country)
             self.fetched = _t.monotonic()
         return render_from_data(
             self.data,
@@ -493,6 +495,7 @@ def main():
     data = result.get("data")
     alerts = result.get("alerts", [])
     aqi_data = result.get("aqi")
+    apply_india_aqi(aqi_data, final_country)
     historical = result.get("historical")
 
     if data is None:
@@ -521,6 +524,8 @@ def main():
             country=final_country,
         ).run()
     else:
+        from linecast._textwidth import calibrate_from_terminal
+        calibrate_from_terminal()
         output, _alert_map = render_from_data(
             data,
             alerts,

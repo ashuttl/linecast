@@ -15,74 +15,55 @@
 
 ![linecast weather, sunshine, tides, and radar tiled on an Omarchy desktop](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
 
-linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies on macOS or Linux (and just two on Windows), tries to match your terminal theme (on macOS and Linux), and needs no account or API key.
+linecast turns free public data into six live, mouse-friendly terminal apps for macOS, Linux, and Windows. It is pure Python with no third-party dependencies (two on Windows), tries to match your terminal theme, and needs no accounts or API keys.
 
 | Command | What it shows |
 | --- | --- |
-| `linecast weather` | Current conditions, an hourly braille temperature curve, seven-day forecast, air quality, comparisons, and official alerts |
-| `linecast sunshine` | The Sun moving across its daily arc, with sky gradients, day length, and moon phase |
-| `linecast moon` | A shaded lunar disc, illumination, altitude, rise and set times, and the next full and new moons |
-| `linecast tides` | A sunlight-shaded tide curve, current water level, and high and low times |
-| `linecast radar` | Animated worldwide radar or satellite imagery, warning polygons, temperature, and wind |
-| `linecast maps` | Detailed vector streets, terrain and bathymetry, a spinnable globe with live daylight and clouds, place search, and directions |
-
-## Quick try
-
-Try linecast without installing it, with [uv](https://docs.astral.sh/uv/):
-
-```sh
-uvx linecast weather
-```
-
-Any of the six commands above works in place of `weather`.
-
-Or with nothing but curl — [`get.sh`](get.sh) uses whatever the machine has, down to plain `python3`:
-
-```sh
-curl -sL https://raw.githubusercontent.com/ashuttl/linecast/main/get.sh | sh
-```
-
-It opens `weather` in live mode; name another tool with `sh -s sunshine`, or pass flags with `sh -s -- --metric`. When nothing else is available, the script keeps a small private environment for linecast in your cache directory and checks for a newer release once a day.
+| `linecast weather` | Current conditions, an hourly braille temperature curve, a seven-day forecast, air quality, how today compares with a normal day, and official alerts |
+| `linecast sunshine` | The sun on its daily arc, with the color of the sky, day length, and moon phase |
+| `linecast moon` | The moon as seen from where you are, with illumination, altitude, rise and set times, and the next full and new moons |
+| `linecast tides` | A tide curve shaded by daylight, the current water level, and the times of high and low tide |
+| `linecast radar` | Animated radar or satellite imagery for the whole world, warning polygons, temperature, and wind |
+| `linecast maps` | Street maps, terrain, and a globe you can spin, with live daylight and clouds, place search, and directions |
 
 ## Install
 
-With [uv](https://docs.astral.sh/uv/):
+```sh
+brew install linecast
+```
+
+Or with [uv](https://docs.astral.sh/uv/):
 
 ```sh
 uv tool install linecast
 ```
 
-Or use Homebrew:
+`pipx install linecast` and `pip install linecast` work too, and Arch has a community-maintained [AUR package](https://aur.archlinux.org/packages/linecast). linecast needs Python 3.10 or newer on macOS, Linux, or Windows.
+
+To try it before installing anything:
 
 ```sh
-brew tap ashuttl/linecast
-brew install linecast
+uvx linecast weather
 ```
 
-On Arch, there is a community-maintained [AUR package](https://aur.archlinux.org/packages/linecast):
+Or with nothing but curl — [`get.sh`](get.sh) runs linecast with whatever the machine has, down to plain `python3`:
 
 ```sh
-yay -S linecast
+curl -sL https://raw.githubusercontent.com/ashuttl/linecast/main/get.sh | sh
 ```
 
-`pipx install linecast` and `pip install linecast` work too. linecast requires Python 3.10+ on macOS, Linux or Windows (Windows Terminal; Git Bash and mintty see a pipe, not a terminal, so they get static output).
+It opens `weather`; name another tool with `sh -s sunshine`, or pass flags with `sh -s -- --metric`.
 
-On Windows it also installs `tzdata` (Windows has no IANA time zone database) and `truststore` (TLS verification through the OS certificate store). Icons default to emoji in Windows Terminal; with a Nerd Font installed and selected, `linecast icons nerd` switches to the full set.
+<details>
+<summary><strong>On Windows</strong></summary>
 
-## Take it outside
+Use Windows Terminal; Git Bash and mintty see a pipe rather than a terminal, so they get static output. The install adds two packages: `tzdata`, because Windows has no IANA time zone database, and `truststore`, for TLS verification through the OS certificate store. Icons default to emoji in Windows Terminal; with a Nerd Font installed and selected, `linecast icons nerd` switches to the full set.
 
-```sh
-linecast weather
-linecast sunshine
-linecast moon
-linecast tides
-linecast radar
-linecast maps
-```
+</details>
 
-Every command opens in live mode when run in a terminal, at the city your IP address suggests unless you have [saved a location](#location). Drag or scroll where it makes sense; each app shows its keyboard controls along the bottom.
+## Using it
 
-Pass a place name or coordinates to go somewhere else:
+Every command opens in live mode when run in a terminal, set to where your IP address says you are unless you have [saved a location](#location).
 
 ```sh
 linecast weather --location "Québec"
@@ -91,48 +72,59 @@ linecast maps --view terrain --location "Innsbruck"
 linecast maps --to "Portland Head Light" --profile bike
 ```
 
-Use `--print` for one static frame. When output is piped, linecast does this automatically. Weather, sunshine, moon, and tides also have `--json` and a short `--oneline` for status bars.
+`--print` gives one static frame, and piped output gets one automatically. Weather, sunshine, moon, and tides also have `--json`, and a short `--oneline` for status bars.
 
-Prefer the short spellings? The names are yours, not linecast's, so they never collide with anything else on your system. `linecast link` makes `weather`, `sunshine`, `moon`, `tides`, `radar` and `maps` as links beside the `linecast` binary, skipping any name something else already owns; `linecast link --remove` takes them away again. A shell alias does the same job:
-
-```sh
-alias weather='linecast weather' radar='linecast radar'
-```
-
-![the same desk in motion: the radar loop plays while weather, tides, and the solar arc keep watch](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.gif)
+![an animated version of the hero screenshot, showing the weather radar moving](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.gif)
 
 ## A closer look
 
 ### Weather
 
-The weather dashboard combines current conditions, daylight-shaded hourly temperatures, precipitation, daily ranges, air quality, and natural-language comparisons. Official alerts are available across 36 countries and open to their full detail in live mode.
+The dashboard combines current conditions, hourly temperatures shaded by daylight, precipitation, daily ranges, air quality, and a line on how today compares with a normal day. Official alerts cover 45 countries; click one to read it in full, or press `o` to open it in your browser. In India, air quality is shown on the CPCB's National AQI scale.
 
 ![weather dashboard](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
 
 ### Sunshine and Moon
 
-`sunshine` is inspired by the Apple Watch Solar face. The arc and sky move through dawn, day, dusk, and night; day length includes its change from yesterday.
+`sunshine` is inspired by the Apple Watch Solar face. The arc and sky move through dawn, day, dusk, and night, and the day length comes with how much longer or shorter it is than yesterday.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-day.png" width="49%" alt="sunshine at midday">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-dusk.png" width="49%" alt="sunshine at dusk">
 </p>
 
-`moon` draws the current phase with its real terminator, mare shading, halo, and orientation for your hemisphere, then tells you what the Moon is doing next. Try `linecast moon --oneline` for a status bar.
+`linecast sunshine --year` draws a whole year instead of one day. Each column is a day, running from midnight at the top to midnight at the bottom, and every point in it takes the color of the sky at that hour. Sunrise and sunset are not drawn as lines; they are where the night colors meet the day colors. Point at a day to see its sunrise, sunset and day length, along with the time and the sky under the pointer. In live mode, `y` switches between the day view and the year view. `--dst` plots each day in its own clock, so the clock changes show as steps.
+
+![the year view for Westbrook, Maine, with the pointer on the December solstice](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-year.png)
+
+Near the poles the same chart turns into polar night and midnight sun. These are Longyearbyen and Vostok Station, at 78° north and 78° south.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-year-arctic.png" width="49%" alt="the year view for Longyearbyen, Svalbard">
+  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-year-antarctic.png" width="49%" alt="the year view for Vostok Station, Antarctica">
+</p>
+
+`moon` draws the current phase as you would see it from your location, with the shadow falling where it really does, the maria shaded, and a halo around it. Scroll to move through time. `linecast moon --oneline` fits a status bar.
+
+Point `sunshine` or `moon` somewhere across an ocean and the rise and set times come back in that place's local clock.
 
 ![full Moon](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon.png)
 
 ### Tides
 
-The tide chart scrolls across several days and annotates exact highs, lows, and the current predicted water level. Coverage comes from NOAA in the US, the Canadian Hydrographic Service, Queensland Open Data, and the Hong Kong Observatory; anywhere else, the chart falls back to Open-Meteo's global tide model, so nearly any coastline works out of the box. An optional [TideCheck](https://tidecheck.com/) key adds more named stations. Run `linecast tides --nearby` to list the closest stations, or `linecast tides --station <id or name>` to pin one.
+The tide chart runs across several days and marks the highs, the lows, and the current predicted water level. Scroll to move through time.
+
+Predictions come from the national services where they exist — NOAA in the US, the Canadian Hydrographic Service, Queensland Open Data, and the Hong Kong Observatory — and from Open-Meteo's global tide model everywhere else. An optional [TideCheck](https://tidecheck.com/) key adds more named stations. `linecast tides --nearby` lists the closest stations; `linecast tides --station <id or name>` pins one.
 
 ![tide chart](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
 
 ### Radar
 
-Radar animates recent observations and an hour of forecast over a braille basemap. Real radar is only available where a public network publishes an open composite — North America, Europe, and parts of East and Southeast Asia. Elsewhere LibreWXR fills in with a precipitation model, which looks smoother and blockier than radar; the footer says so when that is what you are seeing. On top of the frames, linecast draws US warning polygons that follow the timeline, optional temperature and wind layers, and hourly infrared satellite imagery.
+Radar animates recent observations and an hour of forecast over a braille basemap.
 
-The default theme uses colors from your terminal's color scheme to draw rain radar data on the map. If your theme is monochrome, the radar data will be too. In addition to the default theme, there are a handful of other local themes — `dusk`, `ember`, `ink`, and `marangai` — and you can also choose from LibreWXR's server-rendered themes. Press `t` to switch.
+Real radar exists only where open composites are published: North America, Europe, and parts of East and Southeast Asia. Elsewhere, LibreWXR fills in with a precipitation model, and it looks like one. US warning polygons are drawn too, along with optional temperature and wind layers and hourly infrared satellite imagery.
+
+Rain is drawn in colors taken from your terminal theme; if the theme is monochrome, so is the rain. There are a few fixed themes as well — `dusk`, `ember`, `ink`, and `marangai` — plus LibreWXR's server-rendered ones. Press `t` to switch.
 
 ```sh
 linecast radar --theme dusk
@@ -140,20 +132,24 @@ linecast radar --layers temp,wind
 linecast radar --layer satellite
 ```
 
+`--source librewxr`, `--source rainviewer`, or `--source iem` pins one frame source instead of routing by location, for comparing what each shows over the same spot.
+
 ![animated radar forecast over Glasgow](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar.gif)
 
 ### Maps
 
-Street view renders OpenFreeMap vector tiles as solid water, land, parks, and buildings under a braille road network. Hover a feature to name and highlight it; search with `/`, ask for directions with `d`, or switch views with `v`. Directions open as a panel of turn-by-turn steps; arrow (or click) through them and the map flies along the route.
+Maps draws the streets in braille over water, land, parks, and buildings filled in solid color.
 
-Terrain view turns global elevation into hillshade and a hypsometric ramp, from deep ocean trenches through lowland green to alpine white. Coastlines, borders, water, and cities are drawn over it in braille.
+In terrain view, the land is shaded by height and lit from one side, like a relief map. Coastlines, borders, water, and cities are drawn over it in braille; `l` toggles them and the labels.
+
+Search with `/` and ask for directions with `d`. Directions open as a panel of turn-by-turn steps; arrow or click through them and the map flies along the route.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-street.png" width="49%" alt="street map of Portland, Maine">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-terrain.png" width="49%" alt="terrain map of the Alps around Innsbruck">
 </p>
 
-Zoom all the way out and either view becomes an orthographic globe you can rotate by dragging — or set spinning with `r`. Two keys switch on the sky as it is right now: `s` shades the planet into actual daylight, with a creeping terminator and cities glowing on the night side, and `c` lays the current global cloud cover over it from live satellite imagery. `linecast maps --view now` opens straight to the full picture.
+Zoom all the way out and either view becomes a globe you can rotate by dragging, or set spinning with `r`. Two keys switch on the sky as it is right now: `s` shades the planet into actual daylight, with a creeping terminator and cities glowing on the night side, and `c` lays the current global cloud cover over it from live satellite imagery. `linecast maps --view now` opens straight to the full picture.
 
 ![the globe as it is right now: live daylight and the terminator](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-globe.png)
 
@@ -162,7 +158,7 @@ Everything is a single key — `?` shows this list in the app:
 | Keys | |
 |------|---|
 | drag · wheel · hover | pan, zoom at the pointer, identify what's under the cursor |
-| `+` `-` | zoom (a held key coasts; only the view you stop on fetches) |
+| `+` `-` | zoom |
 | `n` | back to the start view |
 | `v` `l` | street ↔ terrain · toggle labels & lines |
 | `s` `c` | daylight and night city lights · live cloud cover |
@@ -195,11 +191,13 @@ linecast location auto
 linecast location search fayette
 ```
 
-`set` takes a place name — it is looked up once, on the spot, and the first match is saved — or exact `lat,lng` coordinates; `search` lists the candidates when the first match might not be the right one. A command's `--location` flag or `WEATHER_LOCATION` wins. With no location saved or passed, linecast falls back to IP geolocation: a single anonymous request to [ipinfo.io](https://ipinfo.io/), which returns the rough position of your network connection — usually the right city, sometimes the wrong one, and off by a lot on a VPN or corporate network. The answer is cached for an hour; save a location, or set any override, and the request is not made at all. Times follow the location: point `linecast sunshine` or `linecast moon` somewhere across an ocean and sunrise, sunset, moonrise, and moonset come back in that place's local clock.
+`set` takes a place name or exact `lat,lng` coordinates. A name is looked up once, on the spot, and the first match is saved; `search` lists the candidates when the first match might not be the right one. A command's `--location` flag or `WEATHER_LOCATION` wins over the saved location.
+
+With no location saved or passed, linecast falls back to IP geolocation: a single anonymous request to [ipinfo.io](https://ipinfo.io/) (or to ipwho.is or GeoJS if it doesn't answer), which returns the rough position of your network connection — usually the right city, sometimes the wrong one, and off by a lot on a VPN or corporate network. The answer is cached for an hour. Save a location, or set any override, and the request is not made at all.
 
 ### Units
 
-Metric is the default — imperial in the United States, going by the saved location or, failing that, the machine's IP — and either can be pinned for every command:
+Units follow the location: imperial in the United States, metric everywhere else. Either can be pinned for every command:
 
 ```sh
 linecast units metric
@@ -234,11 +232,13 @@ linecast weather --lang fr
 linecast radar --lang zh
 ```
 
+In India, alerts go one step further: SACHET publishes many of them in the state language, and `--lang hi`, `te`, `or`, `mr`, or another Indian language code shows that regional text where it exists, while the rest of the app stays in English.
+
 ### Color and icons
 
 linecast asks the terminal for its palette so its colors belong in your theme. Set `LINECAST_COLOR` to `truecolor`, `256`, `16`, or `none` to choose the color mode yourself, or use the standard `NO_COLOR` variable.
 
-Icons come in three sets. [Nerd Font](https://www.nerdfonts.com/) glyphs are used automatically in terminals that bundle them (WezTerm, kitty, Ghostty); other interactive terminals get emoji, and piped or redirected output falls back to plain Unicode, whose glyphs are one cell wide everywhere. Most terminals don't make their current font available programmatically, so if you have a Nerd Font in Alacritty, foot, or iTerm2, say so once:
+Icons come in three sets: [Nerd Font](https://www.nerdfonts.com/) glyphs in terminals that bundle them (WezTerm, kitty, Ghostty), emoji in other terminals, and plain Unicode when output is piped. If you have installed a Nerd Font in Alacritty, foot, or iTerm2, linecast cannot tell, so say so once:
 
 ```sh
 linecast icons nerd
@@ -249,6 +249,10 @@ linecast icons auto
 ```
 
 `--icons` and `LINECAST_ICONS` pick a set for one run, and `linecast doctor` shows a glyph from each so you can see what your font renders.
+
+### Short names
+
+If you'd rather type `weather` than `linecast weather`, `linecast link` makes `weather`, `sunshine`, `moon`, `tides`, `radar`, and `maps` as links beside the `linecast` binary, skipping any name something else already owns; `linecast link --remove` takes them away. A shell alias does the same job.
 
 ### Shell completion
 
@@ -268,7 +272,7 @@ linecast completion nu | save -f ~/.config/nushell/completions/linecast_completi
 use ~/.config/nushell/completions/linecast_completions.nu *
 ```
 
-Completion covers `linecast <command>` and the short names, for anyone who aliased or symlinked them.
+Completion covers `linecast <command>` and the short names, for anyone who aliased or linked them.
 
 ### When something looks wrong
 
@@ -280,7 +284,7 @@ linecast doctor --json
 
 `linecast doctor` reports the build, the settings and cache paths, what the terminal advertised, which settings are in force and where each came from, and whether each data provider answered. Secrets show as "(set)", never their value. `--offline` skips the probes; `--json` is the thing to paste into a bug report.
 
-The six view commands and `linecast doctor` take `--debug`, which prints one line on stderr for each fallback taken along the way — a provider that did not answer, a tile that would not decode — and what was shown instead. URLs are reduced to scheme, host, and path.
+The six view commands and `linecast doctor` take `--debug`, which prints a line on stderr for each fallback taken along the way — a provider that did not answer, a tile that would not decode — and what was shown instead.
 
 <details>
 <summary><strong>Environment variables</strong></summary>
@@ -297,7 +301,13 @@ The six view commands and `linecast doctor` take `--debug`, which prints one lin
 | `LINECAST_TIDECHECK_PAID` | Set to `1` on a paid TideCheck plan; the request tally then drops the 50-a-day free-tier cap |
 | `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, or `id` |
 | `LINECAST_RADAR_THEME` | Default radar color theme |
+| `LINECAST_RADAR_SOURCE` | Pin the radar frame source: `librewxr`, `rainviewer`, or `iem` |
+| `LINECAST_RADAR_LAYER` | `radar` (default) or `satellite`, the imagery `radar` opens with |
+| `LINECAST_RADAR_LAYERS` | Overlays `radar` opens with, `temp`, `wind`, or both comma-separated |
+| `LINECAST_SUNSHINE_YEAR_PALETTE` | `dial` (default) for the Solar Dial colors in `sunshine --year`, or `graph` for the day view's own sky |
 | `LINECAST_LIBREWXR_URL` | Base URL of a self-hosted LibreWXR instance |
+| `LINECAST_VECTOR_TILES_URL` | TileJSON URL of a self-hosted street tile server, used instead of OpenFreeMap with no fallback |
+| `LINECAST_ELEVATION_URL` | Elevation tile source for `maps`: a bucket root holding `terrarium/{z}/{x}/{y}.png`, or a full tile URL template containing `{z}`, `{x}`, and `{y}` |
 | `LINECAST_ICONS` | icon set: `nerd`, `emoji`, or `plain`; overrides the saved icons (default: `nerd` where the terminal bundles the glyphs, `emoji` on other interactive terminals, `plain` when piped) |
 | `LINECAST_COLOR` | `auto`, `truecolor`, `256`, `16`, or `none` |
 | `LINECAST_THEME` | `auto` (default), or `classic` / `legacy` / `off` for the fixed palette |
@@ -317,12 +327,12 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 <details>
 <summary><strong>Data sources and coverage</strong></summary>
 
-- **Location** — [ipinfo.io](https://ipinfo.io/) for IP geolocation when no location is saved or passed; place names are geocoded by Open-Meteo.
-- **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Hong Kong Observatory, Met Éireann, Japan Meteorological Agency, MET Norway, and MeteoAlarm.
+- **Location** — [ipinfo.io](https://ipinfo.io/) for IP geolocation when no location is saved or passed, with [ipwho.is](https://ipwho.is/) and [GeoJS](https://www.geojs.io/) as fallbacks; place names are geocoded by Open-Meteo, with Photon as a fallback.
+- **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Hong Kong Observatory, Met Éireann, Japan Meteorological Agency, MET Norway, MetService New Zealand, MeteoAlarm, and SACHET (India's national alert aggregator).
 - **Sunshine and Moon** — computed on your device from the astronomical equations; the Moon's face is a vendored grayscale of NASA SVS's [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) (Lunar Reconnaissance Orbiter, public domain).
 - **Tides** — NOAA CO-OPS, Canadian Hydrographic Service, Queensland Open Data, Hong Kong Observatory, Open-Meteo's tide model as a global fallback, and optionally TideCheck.
 - **Radar** — [LibreWXR](https://librewxr.net/), with NEXRAD via Iowa Environmental Mesonet and RainViewer as fallbacks; warning polygons come from the US National Weather Service via IEM. The basemap is derived from Natural Earth.
-- **Maps** — terrain from AWS/Mapzen elevation tiles; streets and inland water from [OpenFreeMap](https://openfreemap.org/) (© OpenMapTiles © OpenStreetMap contributors); search from Photon and Nominatim; directions from FOSSGIS OSRM (© OpenStreetMap contributors); globe cloud cover from [LibreWXR](https://librewxr.net/) (CC BY 4.0) satellite imagery; terrain color picks its ramp from a vendored [Köppen-Geiger climate grid](https://doi.org/10.6084/m9.figshare.21789074) (Beck et al. 2023, CC BY 4.0).
+- **Maps** — terrain from AWS/Mapzen elevation tiles; streets and inland water from [OpenFreeMap](https://openfreemap.org/) vector tiles (© OpenMapTiles © OpenStreetMap contributors), with the [OpenStreetMap US Tileservice](https://tiles.openstreetmap.us/) as a fallback (Tiles by OSM US); search from Photon and Nominatim; directions from FOSSGIS OSRM (© OpenStreetMap contributors); globe cloud cover from [LibreWXR](https://librewxr.net/) (CC BY 4.0) satellite imagery; terrain color picks its ramp from a vendored [Köppen-Geiger climate grid](https://doi.org/10.6084/m9.figshare.21789074) (Beck et al. 2023, CC BY 4.0).
 
 </details>
 

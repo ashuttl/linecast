@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cap:alert xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">
+<cap:identifier>IN-2026081001_8</cap:identifier>
+<cap:sender>IMD-New-Delhi</cap:sender>
+<cap:sent>2035-01-01T08:58:00+05:30</cap:sent>
+<cap:status>Actual</cap:status>
+<cap:msgType>Alert</cap:msgType>
+<cap:scope>Public</cap:scope>
+<cap:restriction/>
+<cap:addresses/>
+<cap:note/>
+<cap:incidents/>
+<cap:info>
+<cap:language>en-IN</cap:language>
+<cap:category>Met</cap:category>
+<cap:event>Thunderstorm with Lightning</cap:event>
+<cap:urgency>Expected</cap:urgency>
+<cap:severity>Severe</cap:severity>
+<cap:certainty>Likely</cap:certainty>
+<cap:audience>1</cap:audience>
+<cap:effective>2035-01-01T09:00:00+05:30</cap:effective>
+<cap:onset>2035-01-01T08:59:00+05:30</cap:onset>
+<cap:expires>2035-01-01T21:00:00+05:30</cap:expires>
+<cap:headline>Thunderstorm with lightning is very likely over Delhi NCR during the next 3 hours.</cap:headline>
+<cap:description>Thunderstorm accompanied with lightning and gusty winds reaching 40-50 kmph is very likely over Delhi NCR.</cap:description>
+<cap:instruction>Stay indoors and unplug electrical appliances.</cap:instruction>
+<cap:contact/>
+<cap:area>
+<cap:areaDesc>New Delhi, Central Delhi districts</cap:areaDesc>
+<cap:altitude>0</cap:altitude>
+<cap:ceiling>0</cap:ceiling>
+</cap:area>
+</cap:info>
+</cap:alert>

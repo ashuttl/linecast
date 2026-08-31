@@ -130,6 +130,13 @@ class TestZoom:
         assert app.zoom_to(MAX_ZOOM_DEG * 2) is False
         assert app.zoom_to(MAX_ZOOM_DEG) is False
 
+    def test_the_ceiling_opens_up_on_a_narrow_terminal(self, monkeypatch):
+        app = make(zoom=MAX_ZOOM_DEG)
+        monkeypatch.setattr(maps, "get_terminal_size", lambda: (54, 47))
+        assert app.zoom_to(1e9)
+        assert app.zoom == maps.max_zoom(*maps.map_cells())
+        assert app.zoom > MAX_ZOOM_DEG
+
     def test_an_anchored_zoom_keeps_the_point_under_the_pointer(self):
         app = make(zoom=2.0)
         before = point_under(app, 30, 12)

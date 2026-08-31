@@ -108,6 +108,19 @@ _theme.on_reload(_rebuild)
 SPARKLINE = "\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588"  # ▁▂▃▄▅▆▇█
 
 
+# Text knocked out of a filled bar or pill reads against the fill, not
+# against the page: the fill is a temperature or an alert level, and can
+# be anything from deep blue to red. The ink is one of the two poles.
+KNOCKOUT_DARK_RGB = (20, 20, 25)
+KNOCKOUT_LIGHT_RGB = (255, 255, 255)
+
+
+def _knockout_ink(fill):
+    """Ink for text drawn on a cell filled with ``fill``."""
+    return best_contrast((KNOCKOUT_DARK_RGB, KNOCKOUT_LIGHT_RGB), fill,
+                         minimum=4.5)
+
+
 def _temp_color(temp, runtime):
     temp_f = temp * 9 / 5 + 32 if runtime.celsius else temp
     return interp_stops(TEMP_COLORS, temp_f)
@@ -128,7 +141,7 @@ def _precip_type(wmo_code):
 
 
 def _rebuild_scales():
-    global UV_COLORS, AQI_COLORS, UV_COLOR
+    global UV_COLORS, AQI_COLORS, INDIA_AQI_COLORS, UV_COLOR
     UV_COLORS = [
         (0, GREEN_RGB),
         (3, YELLOW_RGB),
@@ -143,6 +156,16 @@ def _rebuild_scales():
         (101, ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.45), _theme.theme_bg, minimum=2.1)),
         (151, RED_RGB),
         (201, MAGENTA_RGB),
+    ]
+
+    # The CPCB scale runs to 500 with wider bands: Satisfactory to 100,
+    # Moderate to 200, Poor to 300, Very Poor to 400, Severe past it.
+    INDIA_AQI_COLORS = [
+        (0, GREEN_RGB),
+        (101, YELLOW_RGB),
+        (201, ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.45), _theme.theme_bg, minimum=2.1)),
+        (301, RED_RGB),
+        (401, MAGENTA_RGB),
     ]
     UV_COLOR = fg(*ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.30), _theme.theme_bg,
                                    minimum=2.5))
@@ -160,6 +183,11 @@ def _uv_color(uv):
 def _aqi_color(aqi):
     """ANSI fg escape for a US AQI value."""
     return fg(*interp_stops(AQI_COLORS, aqi))
+
+
+def _india_aqi_color(aqi):
+    """ANSI fg escape for a CPCB National AQI value."""
+    return fg(*interp_stops(INDIA_AQI_COLORS, aqi))
 
 
 def _precip_color(wmo_code):

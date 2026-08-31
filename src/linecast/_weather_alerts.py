@@ -5,9 +5,9 @@ from datetime import datetime
 
 from linecast import _theme
 from linecast._graphics import bg, fg, visible_len, RESET, BOLD
-from linecast._textwidth import char_width
-from linecast._theme import best_contrast
+from linecast._textwidth import char_widths
 from linecast._i18n import lang_of
+from linecast._runtime import log_failure
 from linecast._weather_i18n import DAY_NAMES, _s
 from linecast._weather_style import (
     ALERT_AMBER,
@@ -25,6 +25,7 @@ from linecast._weather_style import (
     MUTED,
     TEXT_RGB,
     WIND_COLOR,
+    _knockout_ink,
 )
 
 
@@ -45,8 +46,9 @@ def _wrap_display_width(text, width):
     line_w = 0
     last_sp = -1
 
+    widths = char_widths(text)
     for i, ch in enumerate(text):
-        cw = char_width(ch, text[i + 1:i + 2])
+        cw = widths[i]
         if line_w + cw > width:
             if ch == " ":
                 lines.append(line)
@@ -75,8 +77,7 @@ def _wrap_display_width(text, width):
 def _truncate_display_width(text, width):
     """Truncate plain text to fit within a terminal display width, adding \u2026 if needed."""
     w = 0
-    for i, ch in enumerate(text):
-        cw = char_width(ch, text[i + 1:i + 2])
+    for i, cw in enumerate(char_widths(text)):
         if w + cw > width:
             # Back up for the ellipsis
             if w > 0:
@@ -86,12 +87,10 @@ def _truncate_display_width(text, width):
     return text
 
 
-def _pill_text_rgb(bg_rgb):
-    return best_contrast(((20, 20, 25), TEXT_RGB), background=bg_rgb, minimum=4.5)
-
-
 def _parse_alert_time(iso_str, runtime=None, tz_name=""):
     """Parse ISO time string to a short display string in local time."""
+    if not iso_str:
+        return ""
     try:
         dt = datetime.fromisoformat(iso_str)
         if tz_name and dt.tzinfo is not None:
@@ -104,7 +103,8 @@ def _parse_alert_time(iso_str, runtime=None, tz_name=""):
             return f"{day} {dt.strftime('%H:%M')}"
         from linecast._framebuffer import fmt_hour_phrase
         return f"{day} {fmt_hour_phrase(dt.hour)}"
-    except Exception:
+    except Exception as exc:
+        log_failure("weather/alerts", "alert time", exc, fallback="time omitted")
         return ""
 
 
@@ -132,7 +132,7 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name=""):
     """Render one alert as a single compact line: pill + date range + truncated body."""
     severity = alert.get("severity", "")
     r, g, b = _severity_rgb(severity)
-    dark_fg = fg(*_pill_text_rgb((r, g, b)))
+    dark_fg = fg(*_knockout_ink((r, g, b)))
     bg_color = bg(r, g, b)
     event = alert.get("event", "Unknown")
     effective = _parse_alert_time(alert.get("effective", ""), runtime, tz_name)
@@ -196,7 +196,7 @@ def render_alerts(alerts, width=80, remaining_rows=None, runtime=None, tz_name="
             for alert in group:
                 severity = alert.get("severity", "")
                 r, g, b = _severity_rgb(severity)
-                dark_fg = fg(*_pill_text_rgb((r, g, b)))
+                dark_fg = fg(*_knockout_ink((r, g, b)))
                 bg_color = bg(r, g, b)
                 event = alert.get("event", "Unknown")
                 pills.append(f"{bg_color}{dark_fg}{BOLD} \u26a0 {event} {RESET}")
@@ -232,7 +232,7 @@ def _build_modal_content(alert, inner_w, runtime=None, tz_name=""):
     TFG = fg(*TEXT_RGB)
     severity = alert.get("severity", "")
     r, g, b = _severity_rgb(severity)
-    dark_fg = fg(*_pill_text_rgb((r, g, b)))
+    dark_fg = fg(*_knockout_ink((r, g, b)))
     bg_color = bg(r, g, b)
     event = alert.get("event", "Unknown")
 

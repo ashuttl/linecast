@@ -4,11 +4,12 @@ from datetime import datetime, timedelta
 
 from linecast import _theme
 from linecast._graphics import RESET, visible_len
-from linecast._runtime import WeatherRuntime, current_runtime, log_failure
+from linecast._runtime import WeatherRuntime, current_runtime, log_failure, log_skipped
 from linecast._weather_i18n import (
     DAY_NAMES, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s, _wmo_icons,
 )
-from linecast._weather_style import MUTED, TEXT, WIND_COLOR, _aqi_color, _colored_temp
+from linecast._weather_style import (MUTED, TEXT, WIND_COLOR, _aqi_color,
+                                     _colored_temp, _india_aqi_color)
 
 
 def render_header(data, width, location_name="", runtime=None, aqi_data=None, historical=None):
@@ -62,15 +63,33 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
         elif humidity >= 70 or humidity <= 25:
             left_humidity = f"  {MUTED}{_s('humidity', runtime)} {humidity:.0f}%"
 
-    # AQI — show when data available
+    # AQI — show when data available. India reads its own CPCB scale,
+    # attached upstream (apply_india_aqi); the number, its colors, and
+    # the category word follow that scale there. The category ("Very
+    # Poor") is how CPCB bulletins print the index, and it is what tells
+    # a reader which of the two scales the number is on.
     aqi_value = None
+    india_scale = False
     if aqi_data and isinstance(aqi_data, dict):
         aqi_current = aqi_data.get("current", {})
-        aqi_value = aqi_current.get("us_aqi")
+        india_value = aqi_current.get("india_aqi")
+        if india_value is not None:
+            aqi_value = india_value
+            india_scale = True
+        else:
+            aqi_value = aqi_current.get("us_aqi")
 
     left_aqi = ""
     if aqi_value is not None:
-        left_aqi = f"  {MUTED}{_s('aqi', runtime)} {_aqi_color(aqi_value)}{aqi_value:.0f}"
+        if india_scale:
+            from linecast._weather_sources import india_aqi_category
+            color = _india_aqi_color(aqi_value)
+            category = india_aqi_category(aqi_value)
+            left_aqi = (f"  {MUTED}{_s('aqi', runtime)} "
+                        f"{color}{aqi_value:.0f} {category}")
+        else:
+            left_aqi = (f"  {MUTED}{_s('aqi', runtime)} "
+                        f"{_aqi_color(aqi_value)}{aqi_value:.0f}")
 
     # Right side: wind info + location (progressively droppable)
     wind_part = ""
@@ -236,13 +255,18 @@ def _precipitation_line(hourly, now, runtime=None):
 
     # Build window: (data_index, datetime) for next 24h
     window = []
+    dropped = 0
+    bad = None
     for i, t in enumerate(times):
         try:
             dt = datetime.fromisoformat(t)
             if dt >= current_hour:
                 window.append((i, dt))
-        except Exception:
+        except (TypeError, ValueError) as exc:
+            dropped += 1
+            bad = exc
             continue
+    log_skipped("weather/open-meteo", "hourly times", dropped, len(times), bad)
     window = [(i, dt) for i, dt in window if dt <= current_hour + timedelta(hours=24)]
     if len(window) < 2:
         return ""
@@ -319,10 +343,14 @@ def _past_precip_line(hourly, now, runtime):
     rain_hours = 0
     mix_hours = 0
 
+    dropped = 0
+    bad = None
     for i, t in enumerate(times):
         try:
             dt = datetime.fromisoformat(t)
-        except Exception:
+        except (TypeError, ValueError) as exc:
+            dropped += 1
+            bad = exc
             continue
         if dt < past_start or dt > current_hour:
             continue
@@ -338,6 +366,7 @@ def _past_precip_line(hourly, now, runtime):
                 mix_hours += 1
             else:
                 rain_hours += 1
+    log_skipped("weather/open-meteo", "hourly times", dropped, len(times), bad)
 
     if total_precip < (0.5 if runtime.metric else 0.01) and total_snow_cm < 0.1:
         return ""

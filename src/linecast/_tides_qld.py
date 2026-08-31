@@ -21,7 +21,7 @@ from typing import Any
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._geo import haversine_nm
 from linecast._http import fetch_json
-from linecast._runtime import log_failure
+from linecast._runtime import log_failure, log_skipped
 from linecast._tides_common import (
     M_TO_FT, NEAREST_STATION_MAX_NM, cache_dir, cached_y_range, dedup_sorted,
     label_hilo, nearest_station, parse_cached_dt, station_coords,
@@ -421,14 +421,19 @@ def _fetch_pred_chunk(station_name, start_date, end_date):
                 return [(parse_cached_dt(r["dt"], AEST), r["v"]) for r in stale]
             return []
 
+        kept = len(points)
+        bad = None
         for rec in records:
             try:
                 dt_local = _parse_gauge_dt(rec["Date"], rec["Time"])
                 height_ft = float(rec["Reading"]) * M_TO_FT
-            except (KeyError, ValueError, TypeError):
+            except (KeyError, ValueError, TypeError) as exc:
+                bad = exc
                 continue
             rows.append({"dt": dt_local.isoformat(), "v": height_ft})
             points.append((dt_local, height_ft))
+        log_skipped("tides/qld", f"{year} prediction records",
+                    len(records) - (len(points) - kept), len(records), bad)
 
     write_cache(cache_file, rows)
     return points
@@ -499,11 +504,15 @@ def fetch_y_range_qld(station_name: str, center_date: date,
             except Exception as exc:
                 log_failure("tides/qld", "y-range fetch", exc, fallback="partial range")
                 continue
+            kept = len(values)
+            bad = None
             for rec in records:
                 try:
                     values.append(float(rec["Reading"]) * M_TO_FT)
-                except (KeyError, ValueError, TypeError):
-                    continue
+                except (KeyError, ValueError, TypeError) as exc:
+                    bad = exc
+            log_skipped("tides/qld", f"{year} y-range heights",
+                        len(records) - (len(values) - kept), len(records), bad)
         return values
 
     return cached_y_range(

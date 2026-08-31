@@ -35,6 +35,77 @@ class GetLocationTests(unittest.TestCase):
         self.assertEqual(location, (3.0, 4.0, "CA"))
 
 
+class GeolocationProviderChainTests(unittest.TestCase):
+    def _get_location(self, fake_fetch):
+        with tempfile.TemporaryDirectory() as tmpdir, \
+             patch.dict(os.environ, {"LINECAST_CACHE_DIR": tmpdir}), \
+             patch.object(_location, "saved_location", return_value=None), \
+             patch.object(_location, "fetch_json", side_effect=fake_fetch):
+            return _location.get_location()
+
+    def test_second_source_answers_when_the_first_fails(self):
+        def fake(url, headers=None, timeout=0):
+            if url == "https://ipwho.is/":
+                return {"success": True, "latitude": 3.0, "longitude": 4.0,
+                        "country_code": "CA"}
+            raise OSError("down")
+
+        self.assertEqual(self._get_location(fake), (3.0, 4.0, "CA"))
+
+    def test_geojs_is_the_third_opinion(self):
+        def fake(url, headers=None, timeout=0):
+            if url == "https://get.geojs.io/v1/ip/geo.json":
+                # GeoJS sends coordinates as strings
+                return {"latitude": "5.5", "longitude": "-6.5",
+                        "country_code": "GB"}
+            raise OSError("down")
+
+        self.assertEqual(self._get_location(fake), (5.5, -6.5, "GB"))
+
+    def test_ipwhois_refusal_arrives_as_http_200(self):
+        def fake(url, headers=None, timeout=0):
+            if url == "https://ipwho.is/":
+                return {"success": False, "message": "limit reached"}
+            if url == "https://get.geojs.io/v1/ip/geo.json":
+                return {"latitude": "5.5", "longitude": "-6.5",
+                        "country_code": "GB"}
+            raise OSError("down")
+
+        self.assertEqual(self._get_location(fake), (5.5, -6.5, "GB"))
+
+    def test_every_source_down_is_no_location(self):
+        def fake(url, headers=None, timeout=0):
+            raise OSError("down")
+
+        self.assertEqual(self._get_location(fake), (None, None, None))
+
+
+class GeocoderFallbackTests(unittest.TestCase):
+    def test_photon_answers_when_open_meteo_fails(self):
+        from linecast import _weather_sources
+        feature = {"properties": {"name": "Westbrook", "state": "Maine",
+                                  "country": "United States",
+                                  "countrycode": "US"},
+                   "geometry": {"coordinates": [-70.37, 43.68]}}
+
+        def fake(url, headers=None, timeout=0):
+            from urllib.parse import urlsplit
+            if urlsplit(url).hostname == "geocoding-api.open-meteo.com":
+                raise OSError("down")
+            return {"features": [feature]}
+
+        with patch.object(_weather_sources, "fetch_json", side_effect=fake):
+            hit = _weather_sources.geocode_first("Westbrook")
+        self.assertEqual(hit, (43.68, -70.37, "Westbrook, Maine, United States"))
+
+    def test_both_geocoders_down_exits(self):
+        from linecast import _weather_sources
+        with patch.object(_weather_sources, "fetch_json",
+                          side_effect=OSError("down")):
+            with self.assertRaises(SystemExit):
+                _weather_sources._geocode_query("Westbrook")
+
+
 class ResolveLocationTests(unittest.TestCase):
     def test_flag_coords_beat_env_and_saved(self):
         with patch.dict(os.environ, {"WEATHER_LOCATION": "1.0,2.0"}), \

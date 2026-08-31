@@ -15,16 +15,18 @@ from linecast._radar_ui import ThemePicker
 
 
 class FakeSource:
-    """Enough of a RadarSource for the keys: a theme and a palette list."""
+    """Enough of a RadarSource for the keys: a theme, a palette list, and
+    the kind get_source would know it by."""
 
-    def __init__(self, themes=None, theme=None):
+    def __init__(self, themes=None, theme=None, kind="lwxr"):
         self.themes = themes
         self.theme = theme
+        self.kind = kind
         self.swapped = []
 
     def with_theme(self, theme):
         self.swapped.append(theme)
-        return FakeSource(self.themes, theme)
+        return FakeSource(self.themes, theme, self.kind)
 
 
 THEMES = {"Classic": "classic", "Rainbow": "rainbow", "Mono": "mono"}
@@ -168,12 +170,12 @@ class TestDrag:
         app.on_drag(40, 0, True)
         assert 0.0 < app.lon <= 180.0
 
-    def test_leaving_conus_repicks_a_source_without_themes(
+    def test_leaving_conus_repicks_a_fallback_source(
             self, app, monkeypatch):
         picks = []
         monkeypatch.setattr(_radar_live, "get_source",
                             lambda *a: picks.append(a) or FakeSource(None))
-        monkeypatch.setattr(rf, "_source", FakeSource(None))
+        monkeypatch.setattr(rf, "_source", FakeSource(None, kind="iem"))
         monkeypatch.setattr(_radar_live, "_in_conus",
                             lambda lat, lon: lon < -60)
         app.region = True
@@ -182,7 +184,7 @@ class TestDrag:
         assert len(picks) == 1
         assert picks[0][2:] == (rf.N_FRAMES, "classic")
 
-    def test_a_source_with_themes_is_left_alone_across_the_boundary(
+    def test_librewxr_is_left_alone_across_the_boundary(
             self, app, monkeypatch):
         picks = []
         monkeypatch.setattr(_radar_live, "get_source",
@@ -193,6 +195,19 @@ class TestDrag:
         app.on_drag(-40, 0, True)
         assert app.region is False
         assert picks == []
+
+    def test_a_themed_rainviewer_is_still_a_fallback_to_retry(
+            self, app, monkeypatch):
+        picks = []
+        monkeypatch.setattr(_radar_live, "get_source",
+                            lambda *a: picks.append(a) or FakeSource(None))
+        monkeypatch.setattr(rf, "_source", FakeSource({"terminal": "terminal"},
+                                                      "terminal", kind="rv"))
+        monkeypatch.setattr(_radar_live, "_in_conus",
+                            lambda lat, lon: lon < -60)
+        app.region = True
+        app.on_drag(-40, 0, True)
+        assert len(picks) == 1
 
 
 class TestPlayGate:

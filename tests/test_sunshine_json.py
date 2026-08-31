@@ -13,7 +13,8 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast._runtime import RuntimeConfig, sunshine_parser
-from linecast._sunshine_json import build_payload, _polar_state
+from linecast._sunshine_json import build_payload
+from linecast.sunshine import polar_state
 from linecast.sunshine import _tz_offset_hours, solar_times
 
 
@@ -61,7 +62,7 @@ def _dt(iso):
 
 def _polar_on(lat, doy):
     rise_h, set_h = solar_times(lat, LNG, doy)
-    return _polar_state(set_h - rise_h)
+    return polar_state(set_h - rise_h)
 
 
 def _boundary_doy(lat, today_state, tomorrow_state):

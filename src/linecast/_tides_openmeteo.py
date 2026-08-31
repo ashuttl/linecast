@@ -21,6 +21,7 @@ from typing import Any
 
 from linecast._cache import location_cache_key
 from linecast._http import fetch_json_cached
+from linecast._runtime import log_failure, log_skipped
 from linecast._tides_common import M_TO_FT, cache_dir, cached_y_range, local_day_bounds
 
 # One standard fetch window serves every caller (range, hilo, y-range,
@@ -48,7 +49,9 @@ def parse_station_id(station_id: str) -> tuple[float, float] | None:
     try:
         lat_str, lng_str = str(station_id)[3:].split(",")
         return float(lat_str), float(lng_str)
-    except (ValueError, IndexError):
+    except (ValueError, IndexError) as exc:
+        log_failure("tides/open-meteo", "parse of station id", exc,
+                    fallback="no station")
         return None
 
 
@@ -78,16 +81,21 @@ def _series(data, station_tz):
     times = hourly.get("time", [])
     heights = hourly.get("sea_level_height_msl", [])
     points = []
+    dropped = 0
+    bad = None
     for t, h in zip(times, heights):
         if h is None:
-            continue
+            continue  # no model coverage for that hour: routine, not a failure
         try:
             dt = datetime.fromisoformat(t)
-        except ValueError:
+        except ValueError as exc:
+            dropped += 1
+            bad = exc
             continue
         if station_tz is not None:
             dt = dt.replace(tzinfo=station_tz)
         points.append((dt, float(h) * M_TO_FT))
+    log_skipped("tides/open-meteo", "marine hours", dropped, len(times), bad)
     points.sort(key=lambda p: p[0])
     return points
 

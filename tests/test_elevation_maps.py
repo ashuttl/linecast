@@ -56,6 +56,24 @@ class TestDecodeMeters:
         assert decode_meters(v >> 8, v & 0xFF, 128) == -3999.5
 
 
+class TestTileUrl:
+    def test_default_is_the_aws_bucket(self, monkeypatch):
+        monkeypatch.delenv("LINECAST_ELEVATION_URL", raising=False)
+        assert _elevation.tile_url(0, 0, 0) == (
+            "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/0/0/0.png")
+
+    def test_override_root_gets_the_terrarium_path(self, monkeypatch):
+        monkeypatch.setenv("LINECAST_ELEVATION_URL", "https://dem.example/tiles/")
+        assert _elevation.tile_url(1, 2, 3) == (
+            "https://dem.example/tiles/terrarium/1/2/3.png")
+
+    def test_override_template_is_used_verbatim(self, monkeypatch):
+        monkeypatch.setenv("LINECAST_ELEVATION_URL",
+                           "https://dem.example/t/{z}/{x}/{y}.png?api_key=k")
+        assert _elevation.tile_url(3, 2, 1) == (
+            "https://dem.example/t/3/2/1.png?api_key=k")
+
+
 class TestElevationGrid:
     def test_uniform_tiles_give_uniform_grid(self, monkeypatch):
         png = _terrarium_png(256, 256, 1234)

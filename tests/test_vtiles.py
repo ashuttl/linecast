@@ -42,27 +42,90 @@ class TestTileInfo:
         assert version == "20260802_080001_pt"
         assert maxzoom == 14
 
-    def test_unversioned_template_gets_default_namespace(self, monkeypatch):
+    def test_unversioned_template_namespaced_by_host(self, monkeypatch):
         monkeypatch.setattr(vt, "tilejson", lambda: {
             "tiles": ["https://host/osm/{z}/{x}/{y}"], "maxzoom": 14})
-        assert vt.tile_info()[1] == "default"
+        assert vt.tile_info()[1] == "host"
+
+    def test_unversioned_template_with_build_date_refreshes_daily(
+            self, monkeypatch):
+        monkeypatch.setattr(vt, "tilejson", lambda: {
+            "tiles": ["https://host/osm/{z}/{x}/{y}"], "maxzoom": 14,
+            "timestamp": "2026-08-30T00:00:00Z"})
+        assert vt.tile_info()[1] == "host_20260830"
 
     def test_missing_tilejson_yields_none(self, monkeypatch):
         monkeypatch.setattr(vt, "tilejson", lambda: None)
         assert vt.tile_info() is None
 
     def test_tilejson_disk_cache_wiring(self, cache, monkeypatch):
-        seen = {}
+        calls = []
 
-        def fake_cached(cache_file, max_age, url, headers=None, **kw):
-            seen.update(cache_file=cache_file, max_age=max_age, url=url,
-                        headers=headers)
+        def fake_fetch(url, timeout=0):
+            calls.append(url)
             return dict(TILEJSON)
 
-        monkeypatch.setattr(vt, "fetch_json_cached", fake_cached)
+        monkeypatch.setattr(vt, "fetch_json", fake_fetch)
         assert vt.tilejson() == TILEJSON
-        assert seen["cache_file"] == cache / "maps" / "tilejson.json"
-        assert seen["max_age"] == 86400
+        assert calls == [vt.DEFAULT_TILEJSON_URL]
+        assert (cache / "maps" / "tilejson.json").exists()
+        assert vt.source_credit() == "OpenFreeMap"
+        # the second ask is a fresh cache hit, not a request
+        assert vt.tilejson() == TILEJSON
+        assert len(calls) == 1
+
+    def test_tilejson_second_source_answers_when_the_first_fails(
+            self, cache, monkeypatch):
+        def fake_fetch(url, timeout=0):
+            if url == vt.DEFAULT_TILEJSON_URL:
+                raise OSError("down")
+            return dict(TILEJSON)
+
+        monkeypatch.setattr(vt, "fetch_json", fake_fetch)
+        assert vt.tilejson() == TILEJSON
+        assert vt.source_credit() == "Tiles by OSM US"
+        assert (cache / "maps" / "tilejson_fallback.json").exists()
+
+    def test_tilejson_override_stands_alone(self, cache, monkeypatch):
+        monkeypatch.setenv("LINECAST_VECTOR_TILES_URL",
+                           "https://self.example/planet")
+        calls = []
+
+        def fake_fetch(url, timeout=0):
+            calls.append(url)
+            raise OSError("down")
+
+        monkeypatch.setattr(vt, "fetch_json", fake_fetch)
+        assert vt.tilejson() is None
+        assert calls == ["https://self.example/planet"]
+
+    def test_tilejson_stale_cache_beats_switching_sources(
+            self, cache, monkeypatch):
+        import json
+        import os
+        import time
+        stale = cache / "maps" / "tilejson.json"
+        stale.parent.mkdir(parents=True)
+        stale.write_text(json.dumps(TILEJSON))
+        old = time.time() - 200000
+        os.utime(stale, (old, old))
+
+        def fake_fetch(url, timeout=0):
+            raise OSError("down")
+
+        monkeypatch.setattr(vt, "fetch_json", fake_fetch)
+        assert vt.tilejson() == TILEJSON
+        assert vt.source_credit() == "OpenFreeMap"
+
+
+class TestAttribution:
+    def test_names_the_serving_source(self, monkeypatch):
+        monkeypatch.setattr(vt, "source_credit", lambda: "Tiles by OSM US")
+        assert vt.attribution_long().startswith("Tiles by OSM US ")
+
+    def test_override_credits_the_data_not_its_operator(self, monkeypatch):
+        monkeypatch.setattr(vt, "source_credit", lambda: None)
+        assert vt.attribution_long().startswith("© OpenMapTiles")
 
 
 class TestTilesForBbox:

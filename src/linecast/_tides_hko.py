@@ -25,6 +25,7 @@ from typing import Any
 
 from linecast._cache import location_cache_key
 from linecast._http import fetch_json_cached
+from linecast._runtime import log_skipped
 from linecast._tides_common import (
     M_TO_FT, cache_dir, cached_y_range, label_hilo, local_day_bounds,
     nearest_station, station_coords, y_range_window,
@@ -123,9 +124,11 @@ def parse_hhot_rows(rows: list[list[str]], year: int) -> list[tuple[datetime, fl
     day, so it lands on the next date, and no row has an hour 00.
     """
     points = []
+    dropped = 0
     for row in rows:
         day = _day(year, row)
         if day is None:
+            dropped += 1
             continue
         midnight = datetime(day.year, day.month, day.day, tzinfo=HKT)
         for hour, val in enumerate(row[2:26], start=1):
@@ -134,6 +137,7 @@ def parse_hhot_rows(rows: list[list[str]], year: int) -> list[tuple[datetime, fl
             except (ValueError, TypeError):
                 continue
             points.append((midnight + timedelta(hours=hour), height_ft))
+    log_skipped("tides/hko", "HHOT rows", dropped, len(rows))
     return points
 
 
@@ -141,9 +145,11 @@ def parse_hlt_rows(rows: list[list[str]], year: int) -> list[tuple[datetime, flo
     """(datetime_hkt, height_ft) turning points from a year's HLT rows,
     in time order and not yet labelled high or low."""
     events = []
+    dropped = 0
     for row in rows:
         day = _day(year, row)
         if day is None:
+            dropped += 1
             continue
         for t_str, h_str in zip(row[2::2], row[3::2]):
             if not t_str:
@@ -156,6 +162,7 @@ def parse_hlt_rows(rows: list[list[str]], year: int) -> list[tuple[datetime, flo
             except (ValueError, TypeError):
                 continue
             events.append((dt, height_ft))
+    log_skipped("tides/hko", "HLT rows", dropped, len(rows))
     events.sort(key=lambda p: p[0])
     return events
 
