@@ -15,13 +15,13 @@
 
 ![linecast weather, sunshine, tides, and radar tiled on an Omarchy desktop](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
 
-linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies on macOS or Linux (and just two on Windows), tries to match your terminal theme (on macOS and Linux), and needs no account or API key.
+linecast turns free public data into six live, mouse-friendly terminal apps. It is pure Python, has no dependencies on macOS or Linux (and just two on Windows), tries to match your terminal theme, and needs no accounts or API keys.
 
 | Command | What it shows |
 | --- | --- |
 | `linecast weather` | Current conditions, an hourly braille temperature curve, seven-day forecast, air quality, comparisons, and official alerts |
-| `linecast sunshine` | The Sun moving across its daily arc, with sky gradients, day length, and moon phase |
-| `linecast moon` | A shaded lunar disc, illumination, altitude, rise and set times, and the next full and new moons |
+| `linecast sunshine` | The sun moving across its daily arc, with sky gradients, day length, and moon phase |
+| `linecast moon` | The moon as seen from a particular location, with illumination, altitude, rise and set times, and the next full and new moons |
 | `linecast tides` | A sunlight-shaded tide curve, current water level, and high and low times |
 | `linecast radar` | Animated worldwide radar or satellite imagery, warning polygons, temperature, and wind |
 | `linecast maps` | Detailed vector streets, terrain and bathymetry, a spinnable globe with live daylight and clouds, place search, and directions |
@@ -55,7 +55,6 @@ uv tool install linecast
 Or use Homebrew:
 
 ```sh
-brew tap ashuttl/linecast
 brew install linecast
 ```
 
@@ -80,9 +79,9 @@ linecast radar
 linecast maps
 ```
 
-Every command opens in live mode when run in a terminal, at the city your IP address suggests unless you have [saved a location](#location). Drag or scroll where it makes sense; each app shows its keyboard controls along the bottom.
+Every command opens in live mode when run in a terminal, set to your apparent location based on your IP address unless you have [saved a location](#location).
 
-Pass a place name or coordinates to go somewhere else:
+You can launch directly into a particular mode with commands like:
 
 ```sh
 linecast weather --location "Québec"
@@ -93,19 +92,15 @@ linecast maps --to "Portland Head Light" --profile bike
 
 Use `--print` for one static frame. When output is piped, linecast does this automatically. Weather, sunshine, moon, and tides also have `--json` and a short `--oneline` for status bars.
 
-Prefer the short spellings? The names are yours, not linecast's, so they never collide with anything else on your system. `linecast link` makes `weather`, `sunshine`, `moon`, `tides`, `radar` and `maps` as links beside the `linecast` binary, skipping any name something else already owns; `linecast link --remove` takes them away again. A shell alias does the same job:
+If you'd rather type just `weather` instead of `linecast weather`, you can run `linecast link`. That will make `weather`, `sunshine`, `moon`, `tides`, `radar` and `maps` as links beside the `linecast` binary, skipping any name something else already owns; `linecast link --remove` takes them away again. You could also just set up a shell alias.
 
-```sh
-alias weather='linecast weather' radar='linecast radar'
-```
-
-![the same desk in motion: the radar loop plays while weather, tides, and the solar arc keep watch](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.gif)
+![an animated version of the hero screenshot, showing the weather radar moving](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.gif)
 
 ## A closer look
 
 ### Weather
 
-The weather dashboard combines current conditions, daylight-shaded hourly temperatures, precipitation, daily ranges, air quality, and natural-language comparisons. Official alerts are available across 37 countries and open to their full detail in live mode. In India, air quality is shown on the CPCB's National AQI scale, the one official bulletins use.
+The weather dashboard combines current conditions, daylight-shaded hourly temperatures, precipitation, daily ranges, air quality, and natural-language comparisons. Official alerts are available across 37 countries and open to their full detail in live mode. In India, air quality is shown on the CPCB's National AQI scale.
 
 ![weather dashboard](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
 
@@ -118,21 +113,25 @@ The weather dashboard combines current conditions, daylight-shaded hourly temper
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-dusk.png" width="49%" alt="sunshine at dusk">
 </p>
 
-`moon` draws the current phase with its real terminator, mare shading, halo, and orientation for your hemisphere, then tells you what the Moon is doing next. Try `linecast moon --oneline` for a status bar.
+`moon` draws the current phase with its real terminator, mare shading, halo, and orientation for your location. Scroll to move through time. Try `linecast moon --oneline` for a status bar.
 
 ![full Moon](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon.png)
 
 ### Tides
 
-The tide chart scrolls across several days and annotates exact highs, lows, and the current predicted water level. Coverage comes from NOAA in the US, the Canadian Hydrographic Service, Queensland Open Data, and the Hong Kong Observatory; anywhere else, the chart falls back to Open-Meteo's global tide model, so nearly any coastline works out of the box. An optional [TideCheck](https://tidecheck.com/) key adds more named stations. Run `linecast tides --nearby` to list the closest stations, or `linecast tides --station <id or name>` to pin one.
+The tide chart scrolls across several days and annotates exact highs, lows, and the current predicted water level. Scroll to move through time.
+
+Data comes from NOAA in the US, the Canadian Hydrographic Service, Queensland Open Data, the Hong Kong Observatory, and Open-Meteo's global tide model. An optional [TideCheck](https://tidecheck.com/) key adds more named stations. Run `linecast tides --nearby` to list the closest stations, or `linecast tides --station <id or name>` to pin one.
 
 ![tide chart](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
 
 ### Radar
 
-Radar animates recent observations and an hour of forecast over a braille basemap. Real radar is only available where a public network publishes an open composite — North America, Europe, and parts of East and Southeast Asia. Elsewhere LibreWXR fills in with a precipitation model, which looks smoother and blockier than radar; the footer says so when that is what you are seeing. On top of the frames, linecast draws US warning polygons that follow the timeline, optional temperature and wind layers, and hourly infrared satellite imagery.
+Radar draws animated recent observations and an hour of forecast over a braille basemap.
 
-The default theme uses colors from your terminal's color scheme to draw rain radar data on the map. If your theme is monochrome, the radar data will be too. In addition to the default theme, there are a handful of other local themes — `dusk`, `ember`, `ink`, and `marangai` — and you can also choose from LibreWXR's server-rendered themes. Press `t` to switch.
+Note: Real radar is only available in North America, Europe, and parts of East and Southeast Asia, where open composites are published. Elsewhere, LibreWXR fills in with a precipitation model, which looks smoother and blockier than radar. US warning polygons are also drawn, along with optional temperature and wind layers, and hourly infrared satellite imagery.
+
+The default color scheme uses colors calculated from your terminal's color scheme to draw rain radar data on the map. If your theme is monochrome, the radar data will be too. In addition to the default theme, there are a handful of other local themes — `dusk`, `ember`, `ink`, and `marangai` — and you can also choose from LibreWXR's server-rendered themes. Press `t` to switch.
 
 ```sh
 linecast radar --theme dusk
@@ -144,16 +143,19 @@ linecast radar --layer satellite
 
 ### Maps
 
-Street view renders OpenFreeMap vector tiles as solid water, land, parks, and buildings under a braille road network. Hover a feature to name and highlight it; search with `/`, ask for directions with `d`, or switch views with `v`. Directions open as a panel of turn-by-turn steps; arrow (or click) through them and the map flies along the route.
+Maps draws OpenFreeMap vector tiles as solid water, land, parks, and buildings under a braille road network.
 
-Terrain view turns global elevation into hillshade and a hypsometric ramp, from deep ocean trenches through lowland green to alpine white. Coastlines, borders, water, and cities are drawn over it in braille.
+In terrain view, it turns global elevation into hillshade and a hypsometric ramp. Coastlines, borders, water, and cities are drawn over it in braille – toggle them and labels on or off with `l`.
+
+Search with `/`, ask for directions with `d`, or switch views with `v`. Zoom in and out with `-` and `+`, or by scrolling. Click and drag to pan. Directions open as a panel of turn-by-turn steps; arrow (or click) through them and the map flies along the route.
+
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-street.png" width="49%" alt="street map of Portland, Maine">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-terrain.png" width="49%" alt="terrain map of the Alps around Innsbruck">
 </p>
 
-Zoom all the way out and either view becomes an orthographic globe you can rotate by dragging — or set spinning with `r`. Two keys switch on the sky as it is right now: `s` shades the planet into actual daylight, with a creeping terminator and cities glowing on the night side, and `c` lays the current global cloud cover over it from live satellite imagery. `linecast maps --view now` opens straight to the full picture.
+Zoom all the way out and either view becomes an orthographic globe you can rotate by dragging, or set spinning with `r`. Two keys switch on the sky as it is right now: `s` shades the planet into actual daylight, with a creeping terminator and cities glowing on the night side, and `c` lays the current global cloud cover over it from live satellite imagery. `linecast maps --view now` opens straight to the full picture.
 
 ![the globe as it is right now: live daylight and the terminator](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-globe.png)
 
@@ -162,7 +164,7 @@ Everything is a single key — `?` shows this list in the app:
 | Keys | |
 |------|---|
 | drag · wheel · hover | pan, zoom at the pointer, identify what's under the cursor |
-| `+` `-` | zoom (a held key coasts; only the view you stop on fetches) |
+| `+` `-` | zoom |
 | `n` | back to the start view |
 | `v` `l` | street ↔ terrain · toggle labels & lines |
 | `s` `c` | daylight and night city lights · live cloud cover |
