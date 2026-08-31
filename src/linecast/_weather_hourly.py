@@ -233,9 +233,11 @@ def _prepare_hourly_window(hourly, now, graph_w, offset_minutes=0):
         "uv": window_uv,
         "dts": window_dts,
         "total_hours": total_hours,
+        "hours_shown": hours_shown,
         "all_temps": temps,
         "all_winds": wind_speeds,
         "all_wind_dirs": wind_directions,
+        "all_uv": uv_indices,
         "start_idx": start_idx,
         "end_idx": end_idx,
         "all_temp_range": (all_temp_lo, all_temp_hi),
@@ -727,19 +729,85 @@ def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None, hover_co
     return f" {DIM}{''.join(canvas)}{RESET}"
 
 
-def _place_wind_labels(winds, wind_dirs, total_hours, graph_w, runtime):
-    """Compute wind label positions on a canvas, returning the character array.
+def _place_labels(items, graph_w):
+    """Lay out (column, text) labels left to right, dropping any that collide.
 
-    This is separated from rendering so it can be run on the full dataset
-    for stable label placement while scrolling.
+    Each label is anchored on its column and kept whole; the return value is a
+    list of (start_column, text) pairs.
+    """
+    placed = []
+    occupied = [False] * graph_w
+    for x, text in items:
+        start = max(0, x - len(text) // 2)
+        if start + len(text) > graph_w:
+            start = graph_w - len(text)
+        if start < 0:
+            continue
+        if any(occupied[start + j] for j in range(len(text))):
+            continue
+        for j in range(len(text)):
+            occupied[start + j] = True
+        placed.append((start, text))
+    return placed
+
+
+def _labels_to_canvas(placed, graph_w):
+    """Draw placed labels onto a character array of the given width."""
+    if not placed:
+        return None
+    canvas = [" "] * graph_w
+    for start, text in placed:
+        for j, ch in enumerate(text):
+            if 0 <= start + j < graph_w:
+                canvas[start + j] = ch
+    return canvas
+
+
+def _labels_in_window(placed, win_start_col, win_span, graph_w):
+    """Map labels from the full-width canvas into the visible window.
+
+    Each label moves as a unit. Resampling the character canvas column by
+    column instead would drop or double the odd digit, since the two canvases
+    are close to but not exactly the same scale.
+    """
+    scale = (graph_w - 1) / max(1, win_span)
+    moved = []
+    for start, text in placed:
+        vis = int(round((start - win_start_col) * scale))
+        # Labels that only partly fit are left out: a clipped one reads as a
+        # different number rather than a truncated one.
+        if vis < 0 or vis + len(text) > graph_w:
+            continue
+        moved.append((vis, text))
+    moved.sort()
+    kept = []
+    last_end = -1
+    for start, text in moved:
+        if start <= last_end:
+            continue
+        kept.append((start, text))
+        last_end = start + len(text) - 1
+    return kept
+
+
+def _sample_columns(graph_w, total_hours):
+    """Columns to consider for a label, roughly one every three hours."""
+    interval = max(1, int(3 / total_hours * (graph_w - 1))) if total_hours > 0 else 6
+    return range(0, graph_w, max(1, interval))
+
+
+def _place_wind_labels(winds, wind_dirs, total_hours, graph_w, runtime):
+    """Place wind arrows and speeds at the windy parts of the chart.
+
+    Placement is separate from rendering so it can run over the whole dataset,
+    which keeps labels still while the chart scrolls under them.
     """
     wind_threshold = 25 if runtime.metric else 15
     if not winds or max(winds, default=0) <= wind_threshold:
-        return None
+        return []
 
-    canvas = [" "] * graph_w
-    sample_interval = max(1, int(3 / total_hours * (graph_w - 1))) if total_hours > 0 else 6
-    for x in range(0, graph_w, max(1, sample_interval)):
+    candidates = []
+    for x in _sample_columns(graph_w, total_hours):
         t = x / max(1, graph_w - 1) * max(0, len(winds) - 1)
         lo_i = int(t)
         hi_i = min(lo_i + 1, len(winds) - 1)
@@ -751,36 +819,40 @@ def _place_wind_labels(winds, wind_dirs, total_hours, graph_w, runtime):
         dir_i = max(0, min(len(wind_dirs) - 1, int(round(t)))) if wind_dirs else 0
         deg = wind_dirs[dir_i] if wind_dirs else 0
         sector = int((deg + 22.5) / 45) % 8
-        arrow = WIND_ARROWS[sector]
-        label = f"{arrow}{speed:.0f}"
-
-        start = max(0, x - len(label) // 2)
-        if start + len(label) > graph_w:
-            start = graph_w - len(label)
-        if all(canvas[start + j] == " " for j in range(len(label)) if start + j < graph_w):
-            for j, ch in enumerate(label):
-                if start + j < graph_w:
-                    canvas[start + j] = ch
-    if not any(c != " " for c in canvas):
-        return None
-    return canvas
+        candidates.append((x, f"{WIND_ARROWS[sector]}{speed:.0f}"))
+    return _place_labels(candidates, graph_w)
 
 
-def _render_wind_canvas(wind_canvas, graph_w, midnight_cols=None, hover_col=None):
-    """Render a pre-computed wind canvas with styling and indicator lines."""
-    if wind_canvas is None or not any(c != " " for c in wind_canvas):
+def _place_uv_labels(uv_values, total_hours, graph_w, runtime):
+    """Place UV index labels where UV is remarkable (>= 6)."""
+    if not uv_values or max(uv_values, default=0) < 6:
+        return []
+
+    col_uv = _interpolate_columns(uv_values, graph_w)
+    candidates = []
+    for x in _sample_columns(graph_w, total_hours):
+        uv = col_uv[x]
+        if uv < 6:
+            continue
+        candidates.append((x, f"{_s('uv', runtime)}{uv:.0f}"))
+    return _place_labels(candidates, graph_w)
+
+
+def _render_label_canvas(canvas, graph_w, color, midnight_cols=None, hover_col=None):
+    """Render a pre-computed label canvas with styling and indicator lines."""
+    if canvas is None or not any(c != " " for c in canvas):
         return None
 
     hover_fg = fg(*CHART_HOVER_RGB)
     midnight_fg = DIM
     parts = [" "]
-    in_wind = False
+    in_label = False
     for x in range(graph_w):
-        ch = wind_canvas[x] if x < len(wind_canvas) else " "
+        ch = canvas[x] if x < len(canvas) else " "
         if ch != " ":
-            if not in_wind:
-                parts.append(WIND_COLOR)
-                in_wind = True
+            if not in_label:
+                parts.append(color)
+                in_label = True
             parts.append(ch)
         else:
             indicator = None
@@ -789,13 +861,13 @@ def _render_wind_canvas(wind_canvas, graph_w, midnight_cols=None, hover_col=None
             elif midnight_cols and x in midnight_cols:
                 indicator = midnight_fg
             if indicator:
-                if in_wind:
-                    in_wind = False
+                if in_label:
+                    in_label = False
                 parts.append(f"{indicator}\u2502")
             else:
-                if not in_wind:
-                    parts.append(WIND_COLOR)
-                    in_wind = True
+                if not in_label:
+                    parts.append(color)
+                    in_label = True
                 parts.append(" ")
     parts.append(RESET)
     return "".join(parts)
@@ -804,61 +876,17 @@ def _render_wind_canvas(wind_canvas, graph_w, midnight_cols=None, hover_col=None
 def _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime,
                      midnight_cols=None, hover_col=None):
     """Render wind arrows/speed labels at high-wind positions."""
-    canvas = _place_wind_labels(window_winds, window_wind_dirs, total_hours, graph_w, runtime)
-    return _render_wind_canvas(canvas, graph_w, midnight_cols=midnight_cols, hover_col=hover_col)
+    placed = _place_wind_labels(window_winds, window_wind_dirs, total_hours, graph_w, runtime)
+    return _render_label_canvas(_labels_to_canvas(placed, graph_w), graph_w, WIND_COLOR,
+                                midnight_cols=midnight_cols, hover_col=hover_col)
 
 
 def _render_uv_row(window_uv, total_hours, graph_w, runtime,
                     midnight_cols=None, hover_col=None):
     """Render UV index labels at positions where UV is remarkable (>= 6)."""
-    if not window_uv or max(window_uv, default=0) < 6:
-        return None
-
-    uv_canvas = [" "] * graph_w
-    sample_interval = max(1, int(3 / total_hours * (graph_w - 1))) if total_hours > 0 else 6
-    col_uv = _interpolate_columns(window_uv, graph_w)
-    for x in range(0, graph_w, max(1, sample_interval)):
-        uv = col_uv[x]
-        if uv < 6:
-            continue
-        label = f"{_s('uv', runtime)}{uv:.0f}"
-        start = max(0, x - len(label) // 2)
-        if start + len(label) > graph_w:
-            start = graph_w - len(label)
-        if all(uv_canvas[start + j] == " " for j in range(len(label)) if start + j < graph_w):
-            for j, ch in enumerate(label):
-                if start + j < graph_w:
-                    uv_canvas[start + j] = ch
-    if not any(c != " " for c in uv_canvas):
-        return None
-
-    hover_fg = fg(*CHART_HOVER_RGB)
-    midnight_fg = DIM
-    parts = [" "]
-    in_uv = False
-    for x, ch in enumerate(uv_canvas):
-        if ch != " ":
-            if not in_uv:
-                parts.append(UV_COLOR)
-                in_uv = True
-            parts.append(ch)
-        else:
-            indicator = None
-            if hover_col is not None and x == hover_col:
-                indicator = hover_fg
-            elif midnight_cols and x in midnight_cols:
-                indicator = midnight_fg
-            if indicator:
-                if in_uv:
-                    in_uv = False
-                parts.append(f"{indicator}\u2502")
-            else:
-                if not in_uv:
-                    parts.append(UV_COLOR)
-                    in_uv = True
-                parts.append(" ")
-    parts.append(RESET)
-    return "".join(parts)
+    placed = _place_uv_labels(window_uv, total_hours, graph_w, runtime)
+    return _render_label_canvas(_labels_to_canvas(placed, graph_w), graph_w, UV_COLOR,
+                                midnight_cols=midnight_cols, hover_col=hover_col)
 
 
 def _render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows, indicator_cols=None):
@@ -931,9 +959,14 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     n_all = len(all_temps)
     use_full_canvas = n_all > n_window and n_window > 1
     if use_full_canvas:
-        all_graph_w = max(graph_w, int(graph_w * n_all / n_window))
-        win_start_col = start_idx / max(1, n_all - 1) * (all_graph_w - 1)
-        win_end_col = end_idx / max(1, n_all - 1) * (all_graph_w - 1)
+        # Columns per hour, fixed by the terminal width alone. Deriving it from
+        # the window's sample count instead would rescale the whole canvas
+        # whenever the window happened to hold one hour more or less, and every
+        # label on it would shift.
+        cols_per_hour = (graph_w - 1) / max(1, window.get("hours_shown", 24))
+        all_graph_w = max(graph_w, int(round(cols_per_hour * (n_all - 1))) + 1)
+        win_start_col = start_idx * cols_per_hour
+        win_end_col = end_idx * cols_per_hour
         win_span = win_end_col - win_start_col
 
         all_col_temps = _interpolate_columns(all_temps, all_graph_w)
@@ -981,33 +1014,30 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     has_global_uv = window.get("all_uv_max", 0) >= 6
     has_global_precip = window.get("all_precip_max", 0) > 5
 
-    # Compute wind labels on the full dataset for stable placement while
-    # scrolling, then extract the visible window slice.
+    # Place wind and UV labels on the full dataset, then move the ones that
+    # fall inside the window into it, so they hold still while scrolling.
     all_winds = window.get("all_winds", window_winds)
     all_wind_dirs = window.get("all_wind_dirs", window_wind_dirs)
+    all_uv = window.get("all_uv", window_uv)
     if use_full_canvas and all_winds:
-        all_total_hours = max(1, len(all_winds) - 1)
-        full_canvas = _place_wind_labels(all_winds, all_wind_dirs, all_total_hours,
-                                         all_graph_w, runtime)
-        if full_canvas is not None:
-            # Extract visible window slice
-            win_start = int(round(win_start_col))
-            vis_canvas = []
-            for vx in range(graph_w):
-                fx = win_start + int(round(vx / max(1, graph_w - 1) * win_span))
-                if 0 <= fx < len(full_canvas):
-                    vis_canvas.append(full_canvas[fx])
-                else:
-                    vis_canvas.append(" ")
-            wind_line = _render_wind_canvas(vis_canvas, graph_w,
-                                            midnight_cols=midnight_cols, hover_col=hover_col)
-        else:
-            wind_line = None
+        all_wind_hours = max(1, len(all_winds) - 1)
+        placed = _place_wind_labels(all_winds, all_wind_dirs, all_wind_hours,
+                                    all_graph_w, runtime)
+        visible = _labels_in_window(placed, win_start_col, win_span, graph_w)
+        wind_line = _render_label_canvas(_labels_to_canvas(visible, graph_w), graph_w, WIND_COLOR,
+                                         midnight_cols=midnight_cols, hover_col=hover_col)
     else:
         wind_line = _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime,
                                      midnight_cols=midnight_cols, hover_col=hover_col)
-    uv_line = _render_uv_row(window_uv, total_hours, graph_w, runtime,
-                              midnight_cols=midnight_cols, hover_col=hover_col)
+    if use_full_canvas and all_uv:
+        all_uv_hours = max(1, len(all_uv) - 1)
+        placed = _place_uv_labels(all_uv, all_uv_hours, all_graph_w, runtime)
+        visible = _labels_in_window(placed, win_start_col, win_span, graph_w)
+        uv_line = _render_label_canvas(_labels_to_canvas(visible, graph_w), graph_w, UV_COLOR,
+                                       midnight_cols=midnight_cols, hover_col=hover_col)
+    else:
+        uv_line = _render_uv_row(window_uv, total_hours, graph_w, runtime,
+                                 midnight_cols=midnight_cols, hover_col=hover_col)
 
     # Always reserve rows for wind/UV/precip if they appear anywhere in the
     # full dataset, so the chart height stays stable while scrolling.

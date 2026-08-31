@@ -6,6 +6,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 - Weather: Official alerts in New Zealand, from MetService, matched to your spot by each warning's own polygon.
 - Weather: Alerts now also cover Ukraine, Israel, Bosnia and Herzegovina, Moldova, Montenegro, and North Macedonia, through MeteoAlarm.
+- Weather: The wind and UV readings under the hourly chart hold still while the chart scrolls, and no longer pick up a stray digit: a 22mph wind could read 220.
 - Radar: `--source` pins one frame source — `librewxr`, `rainviewer`, or `iem` — instead of choosing by location, for comparing what each shows over the same spot.
 - Radar: The colour themes drawn in the terminal's own palette — terminal, dusk, ember, ink, marangai — now survive a fallback to RainViewer, instead of dropping to its blue scheme.
 - Location: IP geolocation and place-name search each have a second source now, asked when the usual one doesn't answer.
