@@ -413,6 +413,11 @@ def radar_parser():
                     help="condition layers to show, comma-separated: "
                          "temp (temperature tint), wind (speed/direction "
                          "arrows); press c/w in live mode to toggle")
+    p.add_argument("--source", default=None,
+                    help="pin the frame source instead of routing by "
+                         "location: librewxr, rainviewer, or iem "
+                         "(NEXRAD, US only); for comparing what each "
+                         "shows over the same spot")
     _add_units_flags(p, "metric units: celsius, kilometres",
                      "imperial units: fahrenheit, miles")
     _add_clock_flags(p)

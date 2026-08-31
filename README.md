@@ -141,6 +141,8 @@ linecast radar --layers temp,wind
 linecast radar --layer satellite
 ```
 
+`--source librewxr`, `--source rainviewer`, or `--source iem` pins one frame source instead of routing by location, for comparing what each shows over the same spot.
+
 ![animated radar forecast over Glasgow](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar.gif)
 
 ### Maps
@@ -303,6 +305,7 @@ The six view commands and `linecast doctor` take `--debug`, which prints one lin
 | `LINECAST_TIDECHECK_PAID` | Set to `1` on a paid TideCheck plan; the request tally then drops the 50-a-day free-tier cap |
 | `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, or `id` |
 | `LINECAST_RADAR_THEME` | Default radar color theme |
+| `LINECAST_RADAR_SOURCE` | Pin the radar frame source: `librewxr`, `rainviewer`, or `iem` |
 | `LINECAST_LIBREWXR_URL` | Base URL of a self-hosted LibreWXR instance |
 | `LINECAST_ICONS` | icon set: `nerd`, `emoji`, or `plain`; overrides the saved icons (default: `nerd` where the terminal bundles the glyphs, `emoji` on other interactive terminals, `plain` when piped) |
 | `LINECAST_COLOR` | `auto`, `truecolor`, `256`, `16`, or `none` |
