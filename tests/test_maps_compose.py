@@ -16,11 +16,11 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _color, _maps_style
+from linecast import _color, _globe, _maps_style
 from linecast._framebuffer import HALF_BLOCK
 from linecast.maps import (
     LABEL_DARK, LABEL_LIGHT, MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP,
-    _view_key, compose_map,
+    _view_key, compose_map, max_zoom,
 )
 
 GREEN = (40, 60, 40)
@@ -239,6 +239,23 @@ class TestZoomRange:
         assert _maps_style.band_for(_maps_style.z_eff(deepest, hc)) == 7
         old_floor = (-70.0, 43.0, -69.0, 43.1)
         assert _maps_style.band_for(_maps_style.z_eff(old_floor, hc)) == 3
+
+    def test_a_narrow_terminal_gets_a_higher_ceiling(self):
+        # The disk is as wide as it is tall, and a cell is two grid
+        # rows: a map narrower than twice its height in cells runs the
+        # planet off both sides at 130.
+        assert max_zoom(100, 40) == MAX_ZOOM_DEG
+        gw, hc = 54, 45
+        assert max_zoom(gw, hc) > MAX_ZOOM_DEG
+
+        def edges(zoom):
+            _lls, _zs, rhos = _globe.geometry(0.0, 0.0, zoom, gw, hc * 2)
+            on = [x for row in rhos for x, rho in enumerate(row) if rho <= 1.0]
+            return min(on), max(on)
+
+        assert edges(MAX_ZOOM_DEG) == (0, gw - 1)   # clipped, both edges
+        left, right = edges(max_zoom(gw, hc))
+        assert 0 < left and right < gw - 1
 
     def test_the_step_walks_the_whole_range_in_a_sane_number_of_presses(self):
         assert ZOOM_STEP == 1.5

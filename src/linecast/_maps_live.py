@@ -29,7 +29,7 @@ from linecast._maps_views import _zoom_hold
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, log_failure, maps_parser, set_current
 from linecast.maps import (
-    MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP, map_cells, render_map,
+    MIN_ZOOM_DEG, ZOOM_STEP, map_cells, max_zoom, render_map,
 )
 
 
@@ -79,10 +79,10 @@ class MapApp(LiveApp):
         the difference between a wheel that explores and one that
         makes you chase the thing you were looking at.
         """
-        new_zoom = max(MIN_ZOOM_DEG, min(MAX_ZOOM_DEG, new_zoom))
+        gw, hc = map_cells()
+        new_zoom = max(MIN_ZOOM_DEG, min(max_zoom(gw, hc), new_zoom))
         if new_zoom == self.zoom:
             return False
-        gw, hc = map_cells()
         pcol, prow = (at[0] - 1, at[1] - 2) if at else (-1, -1)
         # anchored zoom is a flat-map identity — on either side of
         # the globe hand-off, zoom about the centre instead
@@ -196,7 +196,7 @@ class MapApp(LiveApp):
         gw, hc = map_cells()
         self.lat, self.lon = result.lat, result.lon
         self.zoom = max(MIN_ZOOM_DEG, min(
-            MAX_ZOOM_DEG, fly_to_zoom(result, (hc * 2) / gw)))
+            max_zoom(gw, hc), fly_to_zoom(result, (hc * 2) / gw)))
 
     def fly_to_step(self, step):
         """Frame one maneuver: centre on it, zoomed to roughly the
@@ -206,7 +206,7 @@ class MapApp(LiveApp):
         if loc is None:
             return
         span = max(0.004, step["distance_m"] * 2.4 / 110540.0)
-        self.zoom = max(MIN_ZOOM_DEG, min(MAX_ZOOM_DEG, span))
+        self.zoom = max(MIN_ZOOM_DEG, min(max_zoom(*map_cells()), span))
         self.lat = max(-80.0, min(80.0, loc[1]))
         self.lon = loc[0]
 
@@ -393,7 +393,7 @@ def main():
     if sky:
         args.view = "terrain"
         if args.zoom is None:
-            args.zoom = MAX_ZOOM_DEG
+            args.zoom = max_zoom(*map_cells())
     if args.zoom is None:
         args.zoom = _maps_style.DEFAULT_ZOOM[args.view]
 

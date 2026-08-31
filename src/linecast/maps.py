@@ -72,7 +72,8 @@ from linecast._scenes import Memo
 MIN_ZOOM_DEG = 0.0012
 # past _globe.is_globe the view is an orthographic globe; at
 # the ceiling the whole planet fits the screen's height with a margin
-# (the disk's diameter is 2·(180/π) ≈ 114.6 zoom-degrees)
+# (the disk's diameter is 2·(180/π) ≈ 114.6 zoom-degrees).  A narrow
+# terminal needs more room than that: see max_zoom.
 MAX_ZOOM_DEG = 130.0
 ZOOM_STEP = 1.5          # matches radar, so the two views feel the same
 
@@ -86,6 +87,18 @@ def map_cells(size=None):
     (cols, rows) already read; None reads the terminal."""
     cols, rows = size if size is not None else get_terminal_size()
     return max(20, cols), max(8, rows - 2)
+
+
+def max_zoom(gw, hc):
+    """The zoom-out ceiling for a gw by hc map: the whole disk on screen.
+
+    MAX_ZOOM_DEG frames the planet against the map's height, which is
+    the binding edge on a terminal at least twice as wide as it is
+    tall.  Narrower than that and the disk runs off both sides at the
+    same zoom, so the ceiling rises in proportion: the planet ends up
+    smaller than the height alone would make it, and whole.
+    """
+    return MAX_ZOOM_DEG * max(1.0, hc * 2 / gw)
 
 
 def _get_route_layer(route, bbox, gw, hc):

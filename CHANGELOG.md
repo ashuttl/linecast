@@ -23,6 +23,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: The high and low written inside a day's temperature bar turn white where the bar is dark, instead of staying black and disappearing into the colder end of the scale.
 - Sunshine: On a light terminal theme the sun keeps its white centre and warm glow in both views, instead of turning dark against the daytime sky.
 - Sunshine: A year view (`--year`) draws a column of sky for each day of the year, sunrise and sunset appearing as the edge between night and day. Its colors follow the Apple Watch Solar Dial: blue sky, navy night, a soft band of sunrise between. A marker shows the current day and time; pointing at a day shows its sunrise, sunset, and day length in the clock that day will keep, named when it differs from today's (`06:36 EST`), and the time under the pointer with the sky there — daylight, civil, nautical or astronomical twilight, night — or the moment itself when it is near sunrise, sunset, solar noon, or the marker for now. The year is drawn in the location's current UTC offset so the edge stays smooth; `--dst` plots each day in its own offset instead, and the clock changes show as steps. In live mode, `y` switches between the day and the year.
+- Maps: On a terminal narrower than it is tall, zooming all the way out now leaves the whole globe on screen. It used to stop at a zoom that fit the height, running the planet off both sides.
 
 ## 2.1.0 — 2026-08-28
 
