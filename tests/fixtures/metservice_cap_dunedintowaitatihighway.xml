@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.554.0.roadsnow.dunedintowaitatihighway.20260831090341532.0</identifier>
+  <sender>https://www.metservice.com</sender>
+  <sent>2026-08-31T21:03:41+12:00</sent>
+  <status>Actual</status>
+  <msgType>Update</msgType>
+  <scope>Public</scope>
+  <references>https://www.metservice.com,2.49.0.0.554.0.roadsnow.dunedintowaitatihighway.20260830232733616.0,2026-08-31T11:27:33+12:00</references>
+  <info>
+    <category>Met</category>
+    <event>snow</event>
+    <responseType>Monitor</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Moderate</severity>
+    <certainty>Likely</certainty>
+    <onset>2026-08-31T20:00:00+12:00</onset>
+    <expires>2035-01-01T06:00:00+13:00</expires>
+    <senderName>Meteorological Service of New Zealand Limited</senderName>
+    <headline>Road Snowfall Warning</headline>
+    <description>Snow showers may continue about the road overnight Monday into early Tuesday morning. 1 to 3 cm may accumulate about the highest part of the road with lesser amounts down to 100 metres.</description>
+    <instruction>Note: A Road Snowfall Warning means there is a likelihood of snow settling on the road during the warning period. People intending to travel on this road should prepare for winter driving conditions. For information on the current status of the road and any closures, see the NZTA website.</instruction>
+    <web>https://metservice.com/warnings/home</web>
+    <parameter>
+      <valueName>NextUpdate</valueName>
+      <value>2026-09-01T11:00:00+12:00</value>
+    </parameter>
+    <parameter>
+      <valueName>ColourCode</valueName>
+      <value>Orange</value>
+    </parameter>
+    <parameter>
+      <valueName>ColourCodeHex</valueName>
+      <value>#FF8918</value>
+    </parameter>
+    <area>
+      <areaDesc>Dunedin to Waitati Highway (SH1)</areaDesc>
+      <polygon>-45.834,170.507 -45.836,170.511 -45.837,170.517 -45.840,170.519 -45.842,170.518 -45.848,170.512 -45.852,170.511 -45.853,170.509 -45.853,170.507 -45.851,170.506 -45.847,170.507 -45.840,170.514 -45.840,170.509 -45.838,170.504 -45.836,170.502 -45.834,170.501 -45.829,170.505 -45.825,170.515 -45.817,170.514 -45.809,170.518 -45.803,170.512 -45.801,170.512 -45.795,170.517 -45.794,170.520 -45.792,170.524 -45.789,170.542 -45.787,170.548 -45.784,170.550 -45.774,170.551 -45.768,170.556 -45.757,170.555 -45.754,170.556 -45.752,170.558 -45.746,170.567 -45.746,170.570 -45.746,170.571 -45.748,170.571 -45.754,170.562 -45.757,170.561 -45.769,170.561 -45.775,170.556 -45.787,170.554 -45.790,170.550 -45.792,170.545 -45.796,170.525 -45.798,170.521 -45.802,170.518 -45.808,170.523 -45.817,170.520 -45.825,170.520 -45.828,170.518 -45.831,170.509 -45.834,170.507</polygon>
+    </area>
+  </info>
+<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments"/><SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/><Reference URI=""><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></Transforms><DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><DigestValue>XdbikORBUSQ/g7ZzhN21/3IK8XjFODQYXYKePedBWkA=</DigestValue></Reference></SignedInfo><SignatureValue>oQ7z8ouHlYyw02n0t1jY9Lm0q8/1FTI86qmiVtnwa9JoHzcEaIElKqzcPpVKIwc8JIG/pk2Pmhw/&#13;
+jQQukWt1mvj/tbQMIURYoUDM1H8HnKVYwh9sfVQzy4usrXV/DDNPbuCgSEAIpsAD7eukUhqA93wP&#13;
+oKGcvddDP7i35AtGtdbxHoBj//3fwYEXg2PBnKNkuDwtVcyeNX+nu0xCcTyxO4NMfUH63Pnv0beQ&#13;
+p2vZmoB34KMiY3+IXkzNZX43FqZJW7ktAoDPoQqyFwgDCTjRJmqZoge4ryd/n4Aup+j8IZhsyb/7&#13;
+3ke1ajjr2byBVEzRCfrU+i/JdLQ00dQsZEFCJA==</SignatureValue><KeyInfo><X509Data><X509Certificate>MIID+zCCAuOgAwIBAgIEQXDSuTANBgkqhkiG9w0BAQsFADCBrTELMAkGA1UEBhMCTloxEzARBgNV&#13;
+BAgTCldlbGxpbmd0b24xEzARBgNVBAcTCldlbGxpbmd0b24xNjA0BgNVBAoTLU1FVEVPUk9MT0dJ&#13;
+Q0FMIFNFUlZJQ0UgT0YgTkVXIFpFQUxBTkQgTElNSVRFRDEfMB0GA1UECxMWSW5mb3JtYXRpb24g&#13;
+VGVjaG5vbG9neTEbMBkGA1UEAxMSY2FwLm1ldHNlcnZpY2UuY29tMB4XDTI1MTAyMDIyNDU1NloX&#13;
+DTI2MTAyMDIyNDU1Nlowga0xCzAJBgNVBAYTAk5aMRMwEQYDVQQIEwpXZWxsaW5ndG9uMRMwEQYD&#13;
+VQQHEwpXZWxsaW5ndG9uMTYwNAYDVQQKEy1NRVRFT1JPTE9HSUNBTCBTRVJWSUNFIE9GIE5FVyBa&#13;
+RUFMQU5EIExJTUlURUQxHzAdBgNVBAsTFkluZm9ybWF0aW9uIFRlY2hub2xvZ3kxGzAZBgNVBAMT&#13;
+EmNhcC5tZXRzZXJ2aWNlLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAOtYoScZ&#13;
+w+ucewOrHmJLm0jtfWRqYQzN22od96kr1ruHroKyUWfP9ckX0qaewA51m8gZEC+cms3+U9tFELWL&#13;
+xvMfCw1vqexbyQbudu6jf9BIBx9FpZtxIjVuJL/6bLlqyDJhBH8Dq9A5Z5aK0Wc6GHoBijDH9O1H&#13;
+Z/vZsPVqVoBKVby3vvMeMdDPPomVpYZdRpQy4ApLUsmiYoqiQeEDIb5EQ/HrX2WjK9iuwfp+eOn7&#13;
+Mz5v4b0Kl7PuSzqAzIdyJePiibmhEu+o6MWQOl34qXH4cPo/SJD9lHM0j3ZoAQoIVqEXY2Jg2QJc&#13;
+/zd96n1qXPm+Gp0zeed5G0HCU4epXX0CAwEAAaMhMB8wHQYDVR0OBBYEFKxsISH42wf950TylFDE&#13;
+xkSCqq52MA0GCSqGSIb3DQEBCwUAA4IBAQAjS+EC5034C1JjYxFeej/9E4/0F1lrshbX5dEkKUNy&#13;
+fbSxv6+UeES51P01lUp4qBRMZGLOQJtla1b9haumYxzOg83vw4HIFP1dK71P5bh5RapKBxnGLo7z&#13;
+Xstq1dyBgAC9F6ztgSEMAeLEKImQOmV0Rfzsu9PdiUv7YMU6MIkCMr7Nqz5kqN49Lb1RrneHw2be&#13;
+UyQUUh6GL0SOx19p1NpzDr2uFlEI7UXR6RzrI1fOaceR3q6EhoPy7YGil3VRe/e6OhnHbpOfxUeE&#13;
+xqYPOKJ8bXTA8aBVGIpRz4RAqr8e1KqtrQeMpy8fPkmtJefUeiltRfUdUDOHvCqbgtItoPpQ</X509Certificate></X509Data></KeyInfo></Signature></alert>

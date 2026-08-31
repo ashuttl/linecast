@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+  <channel>
+    <title>Metservice Public CAP Alerts</title>
+    <link>https://www.metservice.com</link>
+    <description>Current Watches, Warnings and Advisories for New Zealand issued by MetService</description>
+    <copyright>Copyright Meteorological Service of New Zealand Limited, 2026. Licensed under Creative Commons BY 4.0.</copyright>
+    <pubDate>Mon, 31 Aug 2026 23:21:28 +1200</pubDate>
+    <item>
+      <title>Road Snowfall Warning</title>
+      <guid>2.49.0.0.554.0.roadsnow.desertroad.20260831090341521.0</guid>
+      <category>Met</category>
+      <pubDate>Mon, 31 Aug 2026 21:03:41 +1200</pubDate>
+      <description>Snow showers are expected to affect higher parts of the road late Monday night and early Tuesday morning. Around 1 cm could accumulate above 800 metres. </description>
+      <link>https://alerts.metservice.com/cap/alert?id=2.49.0.0.554.0.roadsnow.desertroad.20260831090341521.0</link>
+    </item>
+    <item>
+      <title>Road Snowfall Warning</title>
+      <guid>2.49.0.0.554.0.roadsnow.dunedintowaitatihighway.20260831090341532.0</guid>
+      <category>Met</category>
+      <pubDate>Mon, 31 Aug 2026 21:03:41 +1200</pubDate>
+      <description>Snow showers may continue about the road overnight Monday into early Tuesday morning. 1 to 3 cm may accumulate about the highest part of the road with lesser amounts down to 100 metres.</description>
+      <link>https://alerts.metservice.com/cap/alert?id=2.49.0.0.554.0.roadsnow.dunedintowaitatihighway.20260831090341532.0</link>
+    </item>
+  </channel>
+</rss>

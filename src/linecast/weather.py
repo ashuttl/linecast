@@ -7,7 +7,7 @@ Temperature-driven color palette, Nerd Font icons, clean column alignment.
 
 Alerts sourced from NWS (US), Environment Canada (CA), Bright Sky/DWD (DE),
 MET Norway (NO), Met \u00c9ireann (IE), JMA (Japan), CMA (China),
-and MeteoAlarm (30 European countries).
+MetService (NZ), and MeteoAlarm (34 European countries).
 
 Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
 
