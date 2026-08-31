@@ -274,6 +274,8 @@ def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en
         return _fetch_alerts_cma(lat, lng, lang=lang)
     if country_code == "IN":
         return _fetch_alerts_sachet(lat, lng, lang=lang)
+    if country_code == "NZ":
+        return _fetch_alerts_metservice(lat, lng)
     slug = _METEOALARM_SLUGS.get(country_code)
     if slug:
         return _fetch_alerts_meteoalarm(lat, lng, slug, lang=lang, address=address)
@@ -557,14 +559,18 @@ def _parse_meteireann_dt(s):
 # ISO 3166-1 alpha-2 -> MeteoAlarm feed slug
 # DE, NO, IE excluded — they have dedicated providers above
 _METEOALARM_SLUGS = {
-    "AT": "austria", "BE": "belgium", "BG": "bulgaria", "HR": "croatia",
+    "AT": "austria", "BE": "belgium", "BA": "bosnia-herzegovina",
+    "BG": "bulgaria", "HR": "croatia",
     "CY": "cyprus", "CZ": "czechia", "DK": "denmark", "EE": "estonia",
     "FI": "finland", "FR": "france", "GR": "greece",
-    "HU": "hungary", "IS": "iceland", "IT": "italy",
+    "HU": "hungary", "IS": "iceland", "IL": "israel", "IT": "italy",
     "LV": "latvia", "LT": "lithuania", "LU": "luxembourg", "MT": "malta",
-    "NL": "netherlands", "PL": "poland", "PT": "portugal",
+    "MD": "moldova", "ME": "montenegro",
+    "NL": "netherlands", "MK": "republic-of-north-macedonia",
+    "PL": "poland", "PT": "portugal",
     "RO": "romania", "RS": "serbia", "SK": "slovakia", "SI": "slovenia",
-    "ES": "spain", "SE": "sweden", "CH": "switzerland", "GB": "united-kingdom",
+    "ES": "spain", "SE": "sweden", "CH": "switzerland",
+    "UA": "ukraine", "GB": "united-kingdom",
 }
 
 
@@ -1478,6 +1484,165 @@ def _sachet_alert_from_cap(entry, lang):
         "expires": info.get("expires", ""),
         "severity": severity,
         "url": "https://sachet.ndma.gov.in/",
+    }
+
+
+# ---------------------------------------------------------------------------
+# MetService (New Zealand)
+# ---------------------------------------------------------------------------
+
+_METSERVICE_FEED_URL = "https://alerts.metservice.com/cap/rss"
+_METSERVICE_CAP_URL = "https://alerts.metservice.com/cap/alert?id={identifier}"
+
+# The ColourCode parameter carries MetService's public severity ladder;
+# the CAP severity field stands in when an alert has no colour.
+_METSERVICE_COLORS = {"red": "Extreme", "orange": "Severe", "yellow": "Moderate"}
+
+
+def _fetch_alerts_metservice(lat, lng):
+    """Fetch active MetService warnings (New Zealand). Feed cached 15min.
+
+    The public CAP feed (CC BY 4.0) lists every current watch, warning
+    and advisory as an RSS item pointing at a CAP file, which carries
+    the polygon of the ground it covers, so alerts are kept by
+    point-in-polygon: a road snowfall warning for the Desert Road should
+    not follow a user in Auckland. CAP files are cached per identifier —
+    a MetService update is a new identifier — and swept once their alert
+    leaves the feed.
+    """
+    from xml.etree import ElementTree
+
+    from linecast._http import fetch_bytes_cached
+
+    raw = fetch_bytes_cached(
+        cache_dir("weather") / "alerts_nz_feed.xml", 900,
+        _METSERVICE_FEED_URL, timeout=15)
+    if not raw:
+        return []
+    try:
+        feed = ElementTree.fromstring(raw)
+    except ElementTree.ParseError as exc:
+        log_failure("weather/alerts", "MetService feed parse", exc,
+                    fallback="no alerts")
+        return []
+
+    identifiers = [guid.text.strip() for guid in feed.iter("guid")
+                   if guid.text and guid.text.strip()]
+
+    now = datetime.now(timezone.utc)
+    alerts = []
+    seen = set()
+    for identifier in identifiers[:30]:
+        alert = _metservice_alert_from_cap(identifier, lat, lng)
+        if alert is None:
+            continue
+        expires = _parse_iso_aware(alert["expires"])
+        if expires is not None and expires < now:
+            continue  # the cached feed can outlive an alert by up to 15min
+        dedup_key = (alert["event"], alert["severity"], alert["headline"])
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+        alerts.append(alert)
+
+    severity_order = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
+    alerts.sort(key=lambda a: severity_order.get(a["severity"], 3))
+
+    _sweep_metservice_cap_files(identifiers)
+    return alerts
+
+
+def _sweep_metservice_cap_files(identifiers):
+    """Drop cached CAP files for alerts no longer in the feed."""
+    live = set(identifiers)
+    try:
+        for path in cache_dir("weather").glob("alerts_nz_cap_*.xml"):
+            if path.stem[len("alerts_nz_cap_"):] not in live:
+                path.unlink(missing_ok=True)
+    except OSError as exc:
+        log_failure("cache", "sweep of MetService CAP files", exc,
+                    fallback="left in place")
+
+
+def _metservice_alert_from_cap(identifier, lat, lng):
+    """One feed item as a normalized alert, or None when it does not
+    apply: the CAP file is out of reach or malformed, the alert is a
+    test or a cancellation, or its polygons say the user is outside the
+    warned ground.
+    """
+    from xml.etree import ElementTree
+
+    from linecast._http import fetch_bytes_cached
+
+    # A shorter timeout than usual: these fetches run one after another,
+    # and a stormy week's worth must not hold the dashboard for long.
+    raw = fetch_bytes_cached(
+        cache_dir("weather") / f"alerts_nz_cap_{identifier}.xml", None,
+        _METSERVICE_CAP_URL.format(identifier=identifier), timeout=6)
+    if not raw:
+        return None
+    try:
+        root = ElementTree.fromstring(raw)
+    except ElementTree.ParseError as exc:
+        log_failure("weather/alerts", f"CAP parse of {identifier}", exc,
+                    fallback="skipped")
+        return None
+
+    def _local(tag):
+        return tag.rsplit("}", 1)[-1]
+
+    status = msg_type = ""
+    info_el = None
+    for child in root:
+        tag = _local(child.tag)
+        if tag == "status":
+            status = (child.text or "").strip()
+        elif tag == "msgType":
+            msg_type = (child.text or "").strip()
+        elif tag == "info" and info_el is None:
+            info_el = child
+    if status != "Actual" or msg_type == "Cancel" or info_el is None:
+        return None
+
+    info = {}
+    colour = ""
+    rings = []
+    for child in info_el:
+        tag = _local(child.tag)
+        if tag in ("event", "severity", "headline", "description",
+                   "effective", "onset", "expires", "web"):
+            info[tag] = (child.text or "").strip()
+        elif tag == "parameter":
+            fields = {_local(c.tag): (c.text or "").strip() for c in child}
+            if fields.get("valueName") == "ColourCode":
+                colour = fields.get("value", "").lower()
+        elif tag == "area":
+            polygons = [(c.text or "") for c in child
+                        if _local(c.tag) == "polygon"]
+            rings.extend(_cap_polygons({"polygon": polygons}))
+
+    # The polygon is the warning's own account of the ground it covers;
+    # a CAP file without one (rare) is taken as nationwide.
+    if rings and not any(_point_in_ring(lat, lng, ring) for ring in rings):
+        return None
+
+    headline = " ".join(info.get("headline", "").split())
+    event = headline or info.get("event", "").capitalize()
+    if not event:
+        return None
+    severity = _METSERVICE_COLORS.get(colour, "")
+    if not severity:
+        severity = info.get("severity", "").capitalize()
+        if severity not in ("Extreme", "Severe", "Moderate", "Minor"):
+            severity = "Moderate"
+    return {
+        "event": event,
+        "headline": headline or event,
+        "description": " ".join(info.get("description", "").split()),
+        "effective": info.get("effective") or info.get("onset") or "",
+        "expires": info.get("expires", ""),
+        "severity": severity,
+        "url": info.get("web") or "https://www.metservice.com/warnings/home",
     }
 
 

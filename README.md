@@ -100,7 +100,7 @@ If you'd rather type just `weather` instead of `linecast weather`, you can run `
 
 ### Weather
 
-The weather dashboard combines current conditions, daylight-shaded hourly temperatures, precipitation, daily ranges, air quality, and natural-language comparisons. Official alerts are available across 37 countries and open to their full detail in live mode. In India, air quality is shown on the CPCB's National AQI scale.
+The weather dashboard combines current conditions, daylight-shaded hourly temperatures, precipitation, daily ranges, air quality, and natural-language comparisons. Official alerts are available across 44 countries and open to their full detail in live mode. In India, air quality is shown on the CPCB's National AQI scale.
 
 ![weather dashboard](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
 
@@ -140,6 +140,8 @@ linecast radar --theme dusk
 linecast radar --layers temp,wind
 linecast radar --layer satellite
 ```
+
+`--source librewxr`, `--source rainviewer`, or `--source iem` pins one frame source instead of routing by location, for comparing what each shows over the same spot.
 
 ![animated radar forecast over Glasgow](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar.gif)
 
@@ -303,6 +305,7 @@ The six view commands and `linecast doctor` take `--debug`, which prints one lin
 | `LINECAST_TIDECHECK_PAID` | Set to `1` on a paid TideCheck plan; the request tally then drops the 50-a-day free-tier cap |
 | `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, or `id` |
 | `LINECAST_RADAR_THEME` | Default radar color theme |
+| `LINECAST_RADAR_SOURCE` | Pin the radar frame source: `librewxr`, `rainviewer`, or `iem` |
 | `LINECAST_LIBREWXR_URL` | Base URL of a self-hosted LibreWXR instance |
 | `LINECAST_ICONS` | icon set: `nerd`, `emoji`, or `plain`; overrides the saved icons (default: `nerd` where the terminal bundles the glyphs, `emoji` on other interactive terminals, `plain` when piped) |
 | `LINECAST_COLOR` | `auto`, `truecolor`, `256`, `16`, or `none` |
@@ -324,7 +327,7 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 <summary><strong>Data sources and coverage</strong></summary>
 
 - **Location** — [ipinfo.io](https://ipinfo.io/) for IP geolocation when no location is saved or passed, with [ipwho.is](https://ipwho.is/) and [GeoJS](https://www.geojs.io/) as fallbacks; place names are geocoded by Open-Meteo, with Photon as a fallback.
-- **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Hong Kong Observatory, Met Éireann, Japan Meteorological Agency, MET Norway, MeteoAlarm, and SACHET (India's national alert aggregator).
+- **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Hong Kong Observatory, Met Éireann, Japan Meteorological Agency, MET Norway, MetService New Zealand, MeteoAlarm, and SACHET (India's national alert aggregator).
 - **Sunshine and Moon** — computed on your device from the astronomical equations; the Moon's face is a vendored grayscale of NASA SVS's [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) (Lunar Reconnaissance Orbiter, public domain).
 - **Tides** — NOAA CO-OPS, Canadian Hydrographic Service, Queensland Open Data, Hong Kong Observatory, Open-Meteo's tide model as a global fallback, and optionally TideCheck.
 - **Radar** — [LibreWXR](https://librewxr.net/), with NEXRAD via Iowa Environmental Mesonet and RainViewer as fallbacks; warning polygons come from the US National Weather Service via IEM. The basemap is derived from Natural Earth.

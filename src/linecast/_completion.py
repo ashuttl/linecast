@@ -74,6 +74,7 @@ def _value_hints():
         "--layer": ("radar", "satellite"),
         # radar.parse_layers() takes a comma-separated set
         "--layers": ("temp", "wind", "temp,wind"),
+        "--source": ("librewxr", "rainviewer", "iem"),
         "--profile": tuple(PROFILES),
     }
 

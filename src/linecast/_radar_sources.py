@@ -316,11 +316,33 @@ def _utc(epoch):
     return datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc)
 
 
+# Set from radar --source: pins one source instead of routing by
+# location, so what each shows can be compared over the same spot.
+FORCED_SOURCE: str | None = None  # "librewxr" | "rainviewer" | "iem"
+
+
+def _forced_source(n_frames, theme):
+    """The source --source pinned, IEM standing in when it won't answer."""
+    if FORCED_SOURCE != "iem":
+        cls = (LibreWXRSource if FORCED_SOURCE == "librewxr"
+               else RainViewerSource)
+        try:
+            src = cls(theme)
+            if src.current_frames():
+                return src
+        except Exception as exc:
+            log_failure(f"radar/{FORCED_SOURCE}", "pinned source", exc,
+                        fallback="IEM")
+    return IEMSource(n_frames)
+
+
 def get_source(lat: float, lon: float, n_frames: int, theme: str | int | None = None
                ) -> LibreWXRSource | RainViewerSource | IEMSource:
     """Pick the best source for a location, falling back on failure."""
     if theme is None:
         theme = THEMES[DEFAULT_THEME]
+    if FORCED_SOURCE is not None:
+        return _forced_source(n_frames, theme)
     src: LibreWXRSource | RainViewerSource
     try:
         src = LibreWXRSource(theme)

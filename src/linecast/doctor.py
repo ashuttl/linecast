@@ -75,6 +75,7 @@ def providers():
         ("Open-Meteo archive", "https://archive-api.open-meteo.com/"),
         ("Open-Meteo air quality", "https://air-quality-api.open-meteo.com/"),
         ("NWS alerts", "https://api.weather.gov/"),
+        ("MetService alerts", "https://alerts.metservice.com/"),
         ("ipinfo geolocation", "https://ipinfo.io/"),
         ("ipwho geolocation (fallback)", "https://ipwho.is/"),
         ("GeoJS geolocation (fallback)", "https://get.geojs.io/"),

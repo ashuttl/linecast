@@ -199,6 +199,31 @@ class TestGetSource:
             tiles.fetch_index = original
         assert isinstance(src, IEMSource)
 
+    def _forced(self, name, by_provider, lat=51.5, lon=-0.12):
+        original = self._patch(by_provider)
+        sources.FORCED_SOURCE = name
+        try:
+            return get_source(lat, lon, 5)
+        finally:
+            sources.FORCED_SOURCE = None
+            tiles.fetch_index = original
+
+    def test_forced_rainviewer_wins_over_librewxr(self):
+        src = self._forced("rainviewer", {"rv": _INDEX, "lwxr": _INDEX})
+        assert isinstance(src, RainViewerSource)
+
+    def test_forced_librewxr_is_librewxr(self):
+        src = self._forced("librewxr", {"rv": _INDEX, "lwxr": _INDEX})
+        assert isinstance(src, LibreWXRSource)
+
+    def test_forced_iem_skips_the_tile_sources(self):
+        src = self._forced("iem", {"rv": _INDEX, "lwxr": _INDEX})
+        assert isinstance(src, IEMSource)
+
+    def test_forced_source_still_falls_back_on_failure(self):
+        src = self._forced("rainviewer", {})
+        assert isinstance(src, IEMSource)
+
 
 class TestTileSourceFrames:
     def _stub(self, index):

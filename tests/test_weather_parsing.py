@@ -427,6 +427,27 @@ class TestAlertProviderRouting:
         mock_fn.assert_called_once_with(28.61, 77.21, lang="en")
         assert result == [{"event": "x"}]
 
+    def test_routes_nz_to_metservice(self):
+        from linecast._weather_sources import fetch_alerts
+        with patch("linecast._weather_sources._fetch_alerts_metservice",
+                   return_value=[{"event": "x"}]) as mock_fn:
+            result = fetch_alerts(-41.29, 174.78, country_code="NZ")
+        mock_fn.assert_called_once_with(-41.29, 174.78)
+        assert result == [{"event": "x"}]
+
+    def test_routes_newer_meteoalarm_members(self):
+        from linecast._weather_sources import fetch_alerts
+        for code, slug, lat, lng in (
+                ("UA", "ukraine", 50.45, 30.52),
+                ("BA", "bosnia-herzegovina", 43.86, 18.41),
+                ("MK", "republic-of-north-macedonia", 41.99, 21.43)):
+            with patch("linecast._weather_sources._fetch_alerts_meteoalarm",
+                       return_value=[{"event": "x"}]) as mock_fn:
+                result = fetch_alerts(lat, lng, country_code=code)
+            mock_fn.assert_called_once_with(lat, lng, slug, lang="en",
+                                            address=None)
+            assert result == [{"event": "x"}]
+
     def test_unknown_country_returns_empty(self):
         from linecast._weather_sources import fetch_alerts
         assert fetch_alerts(0, 0, country_code="XX") == []
@@ -1041,3 +1062,63 @@ class TestIndiaAqi:
         header = render_header(forecast, 120, "Delhi", aqi_data=aqi_data)
         assert "438" in header  # the CPCB number, not us_aqi's 150
         assert "Severe" in header  # the CPCB category, marking the scale
+
+
+# ---------------------------------------------------------------------------
+# MetService alerts (New Zealand)
+# ---------------------------------------------------------------------------
+
+def _metservice_from_fixtures(cache_file, max_age, url, **kwargs):
+    """Serve the feed and CAP fixtures the way fetch_bytes_cached would."""
+    if url.endswith("/cap/rss"):
+        return (FIXTURES / "metservice_rss.xml").read_bytes()
+    for name in ("desertroad", "dunedintowaitatihighway"):
+        if name in url:
+            return (FIXTURES / f"metservice_cap_{name}.xml").read_bytes()
+    return None
+
+
+class TestMetServiceAlerts:
+    """Parse a MetService CAP feed snapshot with its CAP files."""
+
+    def _alerts(self, lat, lng, side_effect=_metservice_from_fixtures):
+        from linecast._weather_sources import _fetch_alerts_metservice
+        with patch("linecast._http.fetch_bytes_cached",
+                   side_effect=side_effect):
+            return _fetch_alerts_metservice(lat, lng)
+
+    def test_desert_road_gets_its_warning(self):
+        alerts = self._alerts(-39.379, 175.709)
+        assert len(alerts) == 1
+        a = alerts[0]
+        assert a["event"] == "Road Snowfall Warning"
+        assert a["severity"] == "Severe"  # ColourCode Orange
+        assert "Snow showers are expected" in a["description"]
+        for key in ("event", "headline", "description", "effective",
+                    "expires", "severity", "url"):
+            assert key in a
+
+    def test_dunedin_gets_the_other_warning(self):
+        alerts = self._alerts(-45.765, 170.56)
+        assert len(alerts) == 1
+        assert "Snow showers may continue" in alerts[0]["description"]
+
+    def test_auckland_is_outside_both_polygons(self):
+        assert self._alerts(-36.85, 174.76) == []
+
+    def test_expired_alert_dropped(self):
+        def expired(cache_file, max_age, url, **kwargs):
+            raw = _metservice_from_fixtures(cache_file, max_age, url)
+            return raw and raw.replace(b"2035-01-01", b"2020-01-01")
+        assert self._alerts(-39.379, 175.709, side_effect=expired) == []
+
+    def test_cancelled_alert_dropped(self):
+        def cancelled(cache_file, max_age, url, **kwargs):
+            raw = _metservice_from_fixtures(cache_file, max_age, url)
+            return raw and raw.replace(b"<msgType>Update</msgType>",
+                                       b"<msgType>Cancel</msgType>")
+        assert self._alerts(-39.379, 175.709, side_effect=cancelled) == []
+
+    def test_unreachable_feed_is_no_alerts(self):
+        assert self._alerts(-39.379, 175.709,
+                            side_effect=lambda *a, **k: None) == []

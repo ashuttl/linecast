@@ -180,6 +180,15 @@ def main():
               file=sys.stderr)
         sys.exit(2)
 
+    source_arg = (args.source
+                  or os.environ.get("LINECAST_RADAR_SOURCE", "")).strip().lower()
+    if source_arg:
+        if source_arg not in ("librewxr", "rainviewer", "iem"):
+            print('Unknown radar source. Sources: librewxr, rainviewer, iem.',
+                  file=sys.stderr)
+            sys.exit(2)
+        _radar_sources.FORCED_SOURCE = source_arg
+
     # everything from here to the first paint may block on the network
     # (geocoding, the frame index, static-mode frame fetches) — spin
     spin = Spinner(rs("loading", runtime.lang))
