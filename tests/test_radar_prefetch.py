@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast import _radar_frames as rf
+from linecast import _radar_tiles as tiles
 from linecast._radar_sources import Frame
 
 _src = str(Path(__file__).resolve().parent.parent / "src")
@@ -112,3 +113,90 @@ class TestStaticRender:
         radar.render_radar(43.7, -70.3, "Westbrook", 10.0, play_frame=0,
                            playing=True, block=False)
         assert len(calls) == 1
+
+
+class TestIncompleteFrames:
+    """A frame that lost tiles is refused, not kept.
+
+    The hole a missing tile leaves is shaped exactly like clear weather,
+    so a frame memoised with one plays that hole for the rest of the
+    session — long after the tiles it wanted became available.
+    """
+
+    def _source(self, fail_frames):
+        class Src:
+            kind, theme = "lwxr", None
+            attribution = label = "stub"
+            tag = "radar/stub"
+
+            def current_frames(self):
+                return _frames(3)
+
+            def frame_rgba(self, bbox, gw, hc, frame):
+                if frame.token in fail_frames:
+                    raise tiles.IncompleteFrame(1, 4)
+                return 4, 4, bytearray(4 * 4 * 4)
+
+        return Src()
+
+    def test_an_incomplete_frame_is_not_memoised(self, monkeypatch):
+        monkeypatch.setattr(rf, "_source", self._source({1}))
+        monkeypatch.setattr(rf, "_frame_cache", {})
+        frames = _frames(3)
+        bbox, gw, hc = (0, 0, 1, 1), 4, 2
+
+        assert rf._safe_load(bbox, gw, hc, frames[0])
+        assert not rf._safe_load(bbox, gw, hc, frames[1])
+        assert rf._cached_frame(bbox, gw, hc, frames[0]) is not None
+        assert rf._cached_frame(bbox, gw, hc, frames[1]) is None
+        # the play gate counts it as missing, so auto-play waits for it
+        assert rf._loaded_mask(bbox, gw, hc, frames[:2]) == [True, False]
+
+    def test_the_frame_is_fetched_again_next_time(self, monkeypatch):
+        """Refusing it is only worth anything if it is retried."""
+        fail = {1}
+        monkeypatch.setattr(rf, "_source", self._source(fail))
+        monkeypatch.setattr(rf, "_frame_cache", {})
+        frames = _frames(3)
+        bbox, gw, hc = (0, 0, 1, 1), 4, 2
+
+        assert not rf._safe_load(bbox, gw, hc, frames[1])
+        fail.clear()  # the host is well again
+        assert rf._safe_load(bbox, gw, hc, frames[1])
+        assert rf._cached_frame(bbox, gw, hc, frames[1]) is not None
+
+    def test_a_source_that_cannot_serve_is_stepped_over(self, monkeypatch):
+        """The displayed frame comes back short: fall down the chain."""
+        stalled = self._source({0, 1, 2})
+        healthy = self._source(set())
+        healthy.kind = "rv"
+        monkeypatch.setattr(rf, "_source", stalled)
+        monkeypatch.setattr(rf, "_fell_back", False)
+        monkeypatch.setattr(rf._radar_sources, "demote", lambda src: healthy)
+
+        assert rf._fall_back() is True
+        assert rf._source is healthy
+        # only once: a source having a bad minute is not abandoned twice
+        assert rf._fall_back() is False
+
+    def test_no_fall_back_when_the_chain_is_spent(self, monkeypatch):
+        monkeypatch.setattr(rf, "_source", self._source({0}))
+        monkeypatch.setattr(rf, "_fell_back", False)
+        monkeypatch.setattr(rf._radar_sources, "demote", lambda src: None)
+        assert rf._fall_back() is False
+
+    def test_frames_are_keyed_by_source(self, monkeypatch):
+        """Two sources on one theme can publish a frame for the same
+        minute; falling to the second must not serve the first's."""
+        lwxr = self._source(set())
+        monkeypatch.setattr(rf, "_source", lwxr)
+        monkeypatch.setattr(rf, "_frame_cache", {})
+        frames = _frames(1)
+        bbox, gw, hc = (0, 0, 1, 1), 4, 2
+        rf._safe_load(bbox, gw, hc, frames[0])
+        assert rf._cached_frame(bbox, gw, hc, frames[0]) is not None
+
+        rv = self._source(set())
+        rv.kind = "rv"
+        monkeypatch.setattr(rf, "_source", rv)
+        assert rf._cached_frame(bbox, gw, hc, frames[0]) is None

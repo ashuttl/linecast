@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Radar: Frames that arrive incomplete are no longer drawn or kept — the missing parts looked like clear weather. They are fetched again, and a source that cannot serve its tiles falls back to the next one.
 - Sunshine: Sunrise and sunset times are more accurate. They could be ten or more minutes out in spring and autumn, most at high latitudes; the sky in both views and the globe's day/night edge sharpen with them.
 
 ## 2.2.0 — 2026-08-31

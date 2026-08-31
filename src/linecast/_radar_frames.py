@@ -4,8 +4,10 @@ Decoded frames are memoised per view (bbox, size, theme) and warmed in
 the background by a prefetch worker, displayed frame first. A view change
 bumps a generation so a superseded worker stands down; the live loop's
 auto-play gate waits on PLAY_READY of the window (or the worker
-finishing) before the animation starts. The active RadarSource lives here
-too, since every fetch goes through it; radar.main() installs it.
+finishing) before the animation starts. A frame that came back short of
+tiles is refused rather than memoised, and a source that cannot serve
+even the displayed frame is stepped over. The active RadarSource lives
+here too, since every fetch goes through it; radar.main() installs it.
 """
 
 import atexit
@@ -14,11 +16,12 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from linecast import _theme
+from linecast import _radar_sources
 from linecast import _radar_warnings
 from linecast._live import nudge as _nudge  # a landed frame repaints the live view
 from linecast._radar_render import _bbox_key, build_radar_buffer
 from linecast._radar_ui import _get_basemap
-from linecast._runtime import log_failure
+from linecast._runtime import debug_log, log_failure
 
 MAX_REWIND_MIN = 180  # how far back scrubbing can go (IEM; tile sources
                       # are limited to what their index publishes, ~2 h)
@@ -29,6 +32,8 @@ PLAY_READY = 0.8  # fraction of the frame window that must be buffered
                   # stall playback forever)
 
 _source = None  # active RadarSource, chosen per location in main()
+_fell_back = False  # the chain has been stepped down once already
+frame_load_failed = False  # a static render's frame did not arrive
 
 
 def source_tag():
@@ -47,11 +52,14 @@ _buffering = False    # auto-play is held while the frame window buffers
 
 def _view_key(bbox, gw, hc, src=None):
     # theme is part of the view: switching palettes must not serve old
-    # colours, and neither must a terminal theme change (_theme.generation)
+    # colours, and neither must a terminal theme change (_theme.generation).
+    # So is the source: two of them can be on the same theme and publish a
+    # frame for the same minute, and falling from one to the other must not
+    # serve the frame the first one drew.
     if src is None:
         src = _source
-    return (_bbox_key(bbox), gw, hc, getattr(src, "theme", None),
-            _theme.generation)
+    return (_bbox_key(bbox), gw, hc, getattr(src, "kind", None),
+            getattr(src, "theme", None), _theme.generation)
 
 
 def _sat_timeline():
@@ -71,7 +79,13 @@ def _frame_key(bbox, gw, hc, frame, layer="radar", src=None):
 
 
 def _load_frame(bbox, gw, hc, frame, layer="radar"):
-    """Return (radar_buffer, echo). Memoised; fetches + decodes on miss."""
+    """Return (radar_buffer, echo). Memoised; fetches + decodes on miss.
+
+    A frame that lost tiles raises IncompleteFrame out of the source and
+    is never reached by the memo below, so the holes it would have shown
+    are neither drawn nor kept: the prefetcher tries it again, and until
+    it lands the view holds the nearest frame it does have.
+    """
     # one source for the key and the fetch: a theme swap replaces _source
     # between the two, and the new palette must not land under the old key
     src = _source
@@ -166,15 +180,22 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
         def load(f):
             nonlocal loaded
             if gen != _prefetch_gen:
-                return  # view moved on; don't fetch for a stale bbox
-            if _safe_load(bbox, gw, hc, f, layer):
-                loaded += 1
+                return False  # view moved on; don't fetch for a stale bbox
+            if not _safe_load(bbox, gw, hc, f, layer):
+                return False
+            loaded += 1
+            return True
 
         # the displayed frame first and alone, so it has every tile
         # connection to itself (and its warnings follow at once); the
         # rest of the window then fills in behind it (tile fetches share
         # one process-wide pool)
-        load(ordered[0])
+        if not load(ordered[0]) and gen == _prefetch_gen and _fall_back():
+            # the source changed under us: this window's frames belong to
+            # the old one, so leave them and let the repaint start again
+            # against the new source's own index
+            _nudge()
+            return
         if want_warnings and not ordered[0].future:
             _warm_warnings(ordered[0])
         with ThreadPoolExecutor(max_workers=4) as pool:
@@ -221,6 +242,28 @@ def stand_down():
 
 
 getattr(threading, "_register_atexit", atexit.register)(stand_down)
+
+
+def _fall_back():
+    """Swap _source for the next one down the chain.  True if it moved.
+
+    The displayed frame is the one the source gets every tile connection
+    to itself; when even that comes back short, the host is not serving,
+    and waiting on the rest of the window only spends more time to learn
+    it again.  Once per session, so a source that is merely having a bad
+    minute is not abandoned on the strength of a second one.
+    """
+    global _source, _fell_back
+    if _fell_back:
+        return False
+    nxt = _radar_sources.demote(_source)
+    if nxt is None:
+        _fell_back = True  # nothing to fall to; stop asking
+        return False
+    debug_log(f"{source_tag()}: the displayed frame did not arrive; "
+              f"falling back to {nxt.label}")
+    _source, _fell_back = nxt, True
+    return True
 
 
 def _safe_load(bbox, gw, hc, frame, layer="radar"):

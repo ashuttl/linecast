@@ -11,7 +11,9 @@ Region routing: LibreWXR is primary everywhere — real radar composites for
 North America / Europe / East Asia, model precipitation elsewhere, nowcast
 frames, and selectable colour themes.  On failure, the continental US falls
 back to IEM/NEXRAD (deep 3h history, native projection) and the rest of the
-world to RainViewer, with IEM as the last resort.  RainViewer keeps the
+world to RainViewer, with IEM as the last resort.  A host that answers
+its index and then stalls on the tiles is stepped over the same way, once
+a frame has come back short (see demote).  RainViewer keeps the
 locally-coloured themes, its Universal Blue tiles decoded back to
 reflectivity first (_radar_ub); of the server schemes it can only ever
 show universal-blue.
@@ -336,25 +338,66 @@ def _forced_source(n_frames, theme):
     return IEMSource(n_frames)
 
 
-def get_source(lat: float, lon: float, n_frames: int, theme: str | int | None = None
-               ) -> LibreWXRSource | RainViewerSource | IEMSource:
-    """Pick the best source for a location, falling back on failure."""
-    if theme is None:
-        theme = THEMES[DEFAULT_THEME]
-    if FORCED_SOURCE is not None:
-        return _forced_source(n_frames, theme)
-    src: LibreWXRSource | RainViewerSource
-    try:
-        src = LibreWXRSource(theme)
-        if src.current_frames():
-            return src
-    except Exception as exc:
-        log_failure("radar/librewxr", "source", exc, fallback="next source")
+# What get_source last routed, so demote() can pick up the chain where
+# the source in hand left off without being handed the location again.
+_routing: tuple[float, float, int] | None = None
+
+_TAGS = {"lwxr": "radar/librewxr", "rv": "radar/rainviewer", "iem": "radar/iem"}
+
+
+def _chain(lat: float, lon: float) -> list[str]:
+    """The sources to try for a location, best first."""
+    kinds = ["lwxr"]
     if not _in_conus(lat, lon):
+        kinds.append("rv")   # IEM has only the lower 48
+    kinds.append("iem")
+    return kinds
+
+
+def _first_answering(kinds, n_frames, theme):
+    """The first source in `kinds` that hands back a frame list."""
+    for kind in kinds:
+        if kind == "iem":
+            return IEMSource(n_frames)   # no index to fail on
+        cls = LibreWXRSource if kind == "lwxr" else RainViewerSource
         try:
-            src = RainViewerSource(theme)
+            src = cls(theme)
             if src.current_frames():
                 return src
         except Exception as exc:
-            log_failure("radar/rainviewer", "source", exc, fallback="falling back to IEM")
+            log_failure(_TAGS[kind], "source", exc, fallback="next source")
     return IEMSource(n_frames)
+
+
+def get_source(lat: float, lon: float, n_frames: int, theme: str | int | None = None
+               ) -> LibreWXRSource | RainViewerSource | IEMSource:
+    """Pick the best source for a location, falling back on failure."""
+    global _routing
+    if theme is None:
+        theme = THEMES[DEFAULT_THEME]
+    _routing = (lat, lon, n_frames)
+    if FORCED_SOURCE is not None:
+        return _forced_source(n_frames, theme)
+    return _first_answering(_chain(lat, lon), n_frames, theme)
+
+
+def demote(src) -> "LibreWXRSource | RainViewerSource | IEMSource | None":
+    """The next source down the chain from `src`, or None if there is none.
+
+    For a tile host that answers its index and then cannot serve the
+    tiles: every frame comes back short and the window stays empty, and
+    nothing in the index says so.  A source the user pinned with
+    --source is left where they put it.
+    """
+    if FORCED_SOURCE is not None or _routing is None:
+        return None
+    lat, lon, n_frames = _routing
+    kinds = _chain(lat, lon)
+    kind = getattr(src, "kind", None)
+    if kind not in kinds:
+        return None
+    rest = kinds[kinds.index(kind) + 1:]
+    if not rest:
+        return None
+    return _first_answering(rest, n_frames,
+                            getattr(src, "theme", THEMES[DEFAULT_THEME]))

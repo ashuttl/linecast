@@ -32,6 +32,29 @@ _TILE_SIZE = 256
 _TILE_WORKERS = 12   # tile fetches in flight across the whole process
 _INDEX_TTL = 120     # seconds to trust a cached index before refetching
 _NOWCAST_TTL = 600   # forecast tiles are re-predicted; treat older as stale
+_RETRY_TIMEOUT = 5   # second attempt at a tile the first one did not get
+
+
+class IncompleteFrame(Exception):
+    """A stitch that lost tiles to the network.
+
+    Raised rather than returned, because the canvas it would otherwise
+    hand back is indistinguishable from a real one: a tile that never
+    arrived leaves a hole shaped exactly like fair weather, and a frame
+    memoised with one shows that hole for the rest of the session.  Both
+    providers answer a region with nothing in it with a small opaque PNG
+    and never a 404, so a tile that does not arrive is a failure, not an
+    empty sky.
+    """
+
+    missed: int
+    total: int
+
+    def __init__(self, missed: int, total: int) -> None:
+        super().__init__(f"{missed} of {total} tiles did not arrive")
+        self.missed = missed
+        self.total = total
+
 
 LIBREWXR_DEFAULT_URL = "https://api.librewxr.net"
 # The grayscale scheme: gray = dBZ + 32 (+128 for snow).  Fetched unsmoothed
@@ -185,6 +208,12 @@ def _tile_url(provider, host, path, z, x, y):
             f"{provider.color}/{provider.options}.png")
 
 
+def _tile_cache_path(provider, path, z, x, y):
+    frame_id = path.strip("/").replace("/", "_")
+    return (_cache_dir(provider) / f"{frame_id}_{z}_{x}_{y}_c{provider.color}"
+            f"_{provider.options}.png")
+
+
 def _fetch_tile(provider, host, path, z, x, y, timeout=15, mutable=False):
     """One tile as PNG bytes, disk-cached per colour scheme.
 
@@ -192,12 +221,22 @@ def _fetch_tile(provider, host, path, z, x, y, timeout=15, mutable=False):
     are re-predicted between index refreshes, so a cached copy older than
     _NOWCAST_TTL is refetched (stale bytes still serve as a network fallback).
     """
-    frame_id = path.strip("/").replace("/", "_")
-    cpath = (_cache_dir(provider) / f"{frame_id}_{z}_{x}_{y}_c{provider.color}"
-             f"_{provider.options}.png")
+    cpath = _tile_cache_path(provider, path, z, x, y)
     url = _tile_url(provider, host, path, z, x, y)
     return fetch_bytes_cached(cpath, _NOWCAST_TTL if mutable else None, url,
                               timeout=timeout)
+
+
+def _discard_tile(provider, path, z, x, y):
+    """Drop a cached tile whose bytes would not decode.
+
+    A past frame's tiles never expire, so bytes that arrived torn would
+    otherwise refuse that frame for as long as the cache keeps them.
+    """
+    try:
+        _tile_cache_path(provider, path, z, x, y).unlink(missing_ok=True)
+    except OSError as exc:
+        log_failure("cache", "discard of a torn tile", exc, fallback="kept")
 
 
 def reproject(provider: Provider, host: str, path: str, bbox: tuple[float, float, float, float],
@@ -212,25 +251,48 @@ def reproject(provider: Provider, host: str, path: str, bbox: tuple[float, float
     meant for raw grayscale (reflectivity) tiles; `transform` rewrites each
     decoded tile in place first (see _radar_ub), so the disk cache keeps
     the bytes as served.
+
+    A tile that does not arrive is asked for once more before the frame is
+    given up on, and a frame still short of tiles raises IncompleteFrame
+    rather than returning a canvas with holes in it.
     """
     z = _pick_zoom(bbox, w, provider.max_zoom)
+    # list.append is atomic, and the pool fetches these concurrently
+    wanted: list[tuple[int, int, int]] = []
+    missed: list[tuple[int, int, int]] = []
 
     def fetch(z_, x, y):
+        wanted.append((z_, x, y))
         data = _fetch_tile(provider, host, path, z_, x, y, timeout,
                            mutable=mutable)
         if data is None:
-            return None
-        try:
-            tile = decode_rgba(data)
-        except Exception as exc:
-            log_failure(provider.tag, f"tile {z_}/{x}/{y} decode", exc,
-                        fallback="tile left transparent")
-            return None
-        if transform is not None:
-            transform(tile[2])
-        return tile
+            # A tile the server was slow to render is often still being
+            # rendered when our timeout fires: the request that timed out
+            # is what set it going, and a second one collects it in a few
+            # hundred milliseconds.  The retry runs in this pool thread,
+            # so it goes alongside the other tiles rather than after them,
+            # and it waits _RETRY_TIMEOUT rather than the full timeout —
+            # a tile that is not ready by now was never coming.
+            data = _fetch_tile(provider, host, path, z_, x, y,
+                               _RETRY_TIMEOUT, mutable=mutable)
+        if data is not None:
+            try:
+                tile = decode_rgba(data)
+            except Exception as exc:
+                _discard_tile(provider, path, z_, x, y)
+                log_failure(provider.tag, f"tile {z_}/{x}/{y} decode", exc,
+                            fallback="frame refused, tile dropped")
+            else:
+                if transform is not None:
+                    transform(tile[2])
+                return tile
+        missed.append((z_, x, y))
+        return None
 
-    return reproject_xyz(fetch, bbox, w, h, z, smooth=smooth)
+    result = reproject_xyz(fetch, bbox, w, h, z, smooth=smooth)
+    if missed:
+        raise IncompleteFrame(len(missed), len(wanted))
+    return result
 
 
 _tile_pool = None

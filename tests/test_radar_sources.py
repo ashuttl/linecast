@@ -225,6 +225,64 @@ class TestGetSource:
         assert isinstance(src, IEMSource)
 
 
+class TestDemote:
+    """Stepping down the chain from a host that serves its index and
+    then stalls on the tiles."""
+
+    def _patch(self, by_provider):
+        original = tiles.fetch_index
+        tiles.fetch_index = _stub_index(by_provider)
+        return original
+
+    def test_librewxr_steps_down_to_rainviewer(self):
+        original = self._patch({"lwxr": _INDEX, "rv": _INDEX})
+        try:
+            src = get_source(51.5, -0.12, 5, theme="dusk")
+            assert isinstance(src, LibreWXRSource)
+            nxt = sources.demote(src)
+        finally:
+            tiles.fetch_index = original
+        assert isinstance(nxt, RainViewerSource)
+        assert nxt.theme == "dusk"  # the picker's choice survives the step
+
+    def test_conus_steps_down_to_iem(self):
+        original = self._patch({"lwxr": _INDEX, "rv": _INDEX})
+        try:
+            src = get_source(38.5, -97.0, 5)
+            nxt = sources.demote(src)
+        finally:
+            tiles.fetch_index = original
+        assert isinstance(nxt, IEMSource)
+        assert nxt.n_frames == 5
+
+    def test_nothing_below_the_last_resort(self):
+        original = self._patch({"lwxr": _INDEX})
+        try:
+            get_source(51.5, -0.12, 5)
+            assert sources.demote(IEMSource(5)) is None
+        finally:
+            tiles.fetch_index = original
+
+    def test_a_pinned_source_is_left_where_the_user_put_it(self):
+        original = self._patch({"lwxr": _INDEX, "rv": _INDEX})
+        sources.FORCED_SOURCE = "librewxr"
+        try:
+            src = get_source(51.5, -0.12, 5)
+            assert sources.demote(src) is None
+        finally:
+            sources.FORCED_SOURCE = None
+            tiles.fetch_index = original
+
+    def test_unrouted_source_has_nowhere_to_go(self):
+        original = self._patch({"rv": _INDEX})
+        routing, sources._routing = sources._routing, None
+        try:
+            assert sources.demote(IEMSource(5)) is None
+        finally:
+            sources._routing = routing
+            tiles.fetch_index = original
+
+
 class TestTileSourceFrames:
     def _stub(self, index):
         original = tiles.fetch_index

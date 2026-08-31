@@ -167,6 +167,9 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                         fallback="blank frame")
             radar = [[None] * graph_w for _ in range(height_cells * 2)]
             echo, err = 0.0, str(exc)
+            # main() reads this to decide whether to fall down the source
+            # chain and render once more
+            _radar_frames.frame_load_failed = True
     else:
         # live mode: never block a render on the network — show the nearest
         # cached frame (radar pops in as the prefetcher lands frames)
