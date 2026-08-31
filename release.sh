@@ -97,4 +97,4 @@ git push origin main "$TAG"
 gh release create "$TAG" --title "$TAG" --notes-file "$NOTES_FILE"
 
 echo "Pushed $TAG and published its GitHub Release. CI will publish to PyPI."
-echo "Once live, run: ./release-homebrew.sh $NEW_VERSION"
+echo "Homebrew follows on its own: BrewTestBot bumps homebrew/core from PyPI."
