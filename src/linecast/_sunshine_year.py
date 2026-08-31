@@ -34,9 +34,6 @@ from linecast._theme import (
 
 _theme.track_imports(globals(), "linecast._color")
 
-SUN_DOT_RGB = (255, 255, 255)
-SUN_GLOW_RGB = (255, 214, 120)
-
 # The last sky field built, by the things that shape it. Everything the
 # mouse moves — the hover hairline, the tooltip — is drawn over the
 # field, not into it, so a hover would otherwise pay for a quarter of a
@@ -276,10 +273,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     spy_now = min(total_spy - 1, int(now_hour / 24 * total_spy))
     e_now = sun.sun_elevation(lat, lng, now_hour, today_doy,
                               tz_offs[today_doy - 1])
-    # The sun is drawn, not typeset: a white dot in a gold halo on every
-    # theme. Theme-derived inks are contrast-checked against the page,
-    # which greys the dot and buries the glow in a light theme's day.
-    sun_warm = SUN_GLOW_RGB if e_now > -2 else sun.SUN_GLOW_TWILIGHT_RGB
+    sun_warm = sun.SUN_GLOW_RGB if e_now > -2 else sun.SUN_GLOW_TWILIGHT_RGB
     fb.draw_radial(x_today, spy_now, sun_warm, 5, peak_alpha=0.85)
 
     # --- hover: which day is the mouse over? ---
@@ -314,8 +308,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
                                 False)
 
     sun_row = spy_now // 2
-    dot = SUN_DOT_RGB
-    overlays[(x_today, sun_row)] = (icons["sun_char"], dot)
+    overlays[(x_today, sun_row)] = (icons["sun_char"], sun.SUN_DOT_RGB)
 
     lines = fb.render(overlays)
 

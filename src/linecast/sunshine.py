@@ -49,9 +49,17 @@ _theme.track_imports(globals(), "linecast._color")
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
+# The sun is drawn, not typeset: a white dot in a gold halo on every
+# theme. Theme-derived inks are contrast-checked against the page, which
+# greys the dot and buries the glow in a light theme's day. Shared with
+# the year view.
+SUN_DOT_RGB = (255, 255, 255)
+SUN_GLOW_RGB = (255, 214, 120)
+
+
 def _rebuild():
-    global HORIZON_COLOR, CURVE_COLOR, SUN_GLOW_DAY_RGB, SUN_GLOW_TWILIGHT_RGB
-    global SUN_CORE_RGB, INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_MUTED_RGB
+    global HORIZON_COLOR, CURVE_COLOR, SUN_GLOW_TWILIGHT_RGB
+    global INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_MUTED_RGB
     global INFO_DIM_RGB, INFO_TEXT_RGB, _SKY_BLUE, _SKY_CYAN, _SKY_MAGENTA
     global _SKY_RED, _SKY_YELLOW, _SKY_WHITE, SKY_NIGHT
     SKY_NIGHT = BG_PRIMARY
@@ -59,9 +67,7 @@ def _rebuild():
         # Original pre-theme palette (classic mode).
         HORIZON_COLOR = (90, 98, 125)
         CURVE_COLOR = (160, 168, 195)
-        SUN_GLOW_DAY_RGB = (255, 250, 220)
         SUN_GLOW_TWILIGHT_RGB = (180, 195, 225)
-        SUN_CORE_RGB = (255, 255, 255)
         INFO_AMBER_RGB = (251, 191, 36)
         INFO_PURPLE_RGB = (167, 139, 250)
         INFO_MUTED_RGB = (100, 110, 130)
@@ -88,13 +94,8 @@ def _rebuild():
         HORIZON_COLOR = ensure_contrast(neutral_tone(0.45), SKY_NIGHT, minimum=1.7)
         # neutral arc
         CURVE_COLOR = ensure_contrast(neutral_tone(0.74), SKY_NIGHT, minimum=2.4)
-        SUN_GLOW_DAY_RGB = best_contrast(
-            (_theme.theme_ansi[15], lighten(_theme.theme_fg, 0.12)), SKY_NIGHT,
-            minimum=1.8)
         SUN_GLOW_TWILIGHT_RGB = ensure_contrast(
             lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.45), SKY_NIGHT, minimum=1.6)
-        SUN_CORE_RGB = best_contrast((_theme.theme_ansi[15], _theme.theme_fg),
-                                     SKY_NIGHT, minimum=2.0)
         INFO_AMBER_RGB = ensure_contrast(_SKY_YELLOW, _theme.theme_bg, minimum=2.3)
         INFO_PURPLE_RGB = ensure_contrast(_SKY_MAGENTA, _theme.theme_bg, minimum=2.3)
         INFO_MUTED_RGB = ensure_contrast(neutral_tone(0.48), _theme.theme_bg, minimum=2.4)
@@ -259,7 +260,7 @@ def _tame_for_mode():
     of their colour; the muted mid-sky gives up the most.
     """
     global SKY_NEAR_HORIZON, SKY_FAR_HORIZON, SKY_ZENITH
-    global SUN_GLOW_DAY_RGB, SUN_GLOW_TWILIGHT_RGB
+    global SUN_GLOW_TWILIGHT_RGB
     if color_mode() not in ("256", "16"):
         return
 
@@ -592,7 +593,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     sun_spy_i = int(round(now_spy))
     sun_spy_i = max(0, min(total_spy - 1, sun_spy_i))
     sun_r = max(5, int(min(graph_w, total_spy) * 0.04))
-    sun_warm = SUN_GLOW_DAY_RGB if now_elev > -2 else SUN_GLOW_TWILIGHT_RGB
+    sun_warm = SUN_GLOW_RGB if now_elev > -2 else SUN_GLOW_TWILIGHT_RGB
 
     fb.draw_radial(now_x, now_spy, sun_warm, sun_r)
 
@@ -602,7 +603,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
             sx, sy = now_x + dx, sun_spy_i + dy
             if 0 <= sx < graph_w and 0 <= sy < total_spy:
                 d = math.sqrt(dx * dx + (dy * 1.5) ** 2)
-                fb.set_pixel(sx, sy, SUN_CORE_RGB, max(0, 1 - d * 0.5))
+                fb.set_pixel(sx, sy, SUN_DOT_RGB, max(0, 1 - d * 0.5))
 
     # --- render framebuffer with braille horizon, curve, and sun overlays ---
     overlays = {}
@@ -633,7 +634,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
             cell = fb.cell_bg(x, 0)
             overlays[(x, 0)] = (ch, corner_label_ink(cell), False)
     sun_cell_row = sun_spy_i // 2
-    overlays[(now_x, sun_cell_row)] = (icons["sun_char"], SUN_CORE_RGB)
+    overlays[(now_x, sun_cell_row)] = (icons["sun_char"], SUN_DOT_RGB)
     lines = fb.render(overlays)
 
     # --- info line ---

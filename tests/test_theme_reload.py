@@ -117,6 +117,22 @@ class TestApply:
         assert _radar_render.SEA_FILL == _radar_basemap.SEA_FILL
 
 
+class TestLightThemeInk:
+    """What a light theme must not turn dark.
+
+    An ink contrast-checked against the page comes out dark on a light
+    theme, which is right for text on the page and wrong for a sun.
+    """
+
+    def test_the_sun_keeps_its_colours_on_every_theme(self, restore_theme):
+        _theme._apply(*DARK)
+        drawn = (sunshine.SUN_DOT_RGB, sunshine.SUN_GLOW_RGB)
+        _theme._apply(*LIGHT)
+        assert (sunshine.SUN_DOT_RGB, sunshine.SUN_GLOW_RGB) == drawn
+        for ink in drawn:
+            assert _theme.luminance(ink) > 0.5
+
+
 @pytest.fixture
 def pipe():
     r, w = os.pipe()
