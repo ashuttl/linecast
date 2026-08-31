@@ -4,30 +4,38 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+Sunshine has a year view. The Moon's phases and times are more accurate, and official weather alerts now reach India, New Zealand, and six more European countries.
+
+New this version:
+
+- Sunshine: `--year` draws a column of sky for each day of the year, sunrise and sunset appearing as the edge between night and day. Its colors imitate the sky: blue sky, navy night, a soft band of dawn/dusk between. A marker sits on the current day and time, and in live mode `y` switches between the day and the year.
+- Sunshine: Pointing at a day in the year view shows its sunrise, sunset and day length, and the time under the pointer with the sky there — daylight, civil, nautical or astronomical twilight, night — or the moment itself when it is near sunrise, sunset, solar noon or the marker for now. The times keep the clock that day will keep, named when it differs from today's (`06:36 EST`).
+- Sunshine: The year is drawn in the location's current UTC offset, so the edge stays smooth. `--dst` plots each day in its own offset instead, and the clock changes show as steps.
+- Sunshine: Where the sun does not rise or set at all, both views now say which it is — midnight sun, or polar night — instead of giving a sunrise and a sunset that were really the same moment, solar noon. `--json` already reported this as `polar`.
+- Sunshine: The info line names the sky at the moment shown — daylight, the twilights, night — or sunrise, sunset and solar noon as they pass.
+- Moon: Phases, illumination and the Moon's age are worked out from where the Moon actually is, not from an average month. New and full moons now land within a quarter of an hour of the published times, where they could be most of a day out, and the phase named on a given evening is the one the almanac names. Moonrise and moonset times improve with them.
+- Moon: The lit edge now faces the Sun. It was drawn square to the Moon's poles before, which put it as much as a half turn out.
+- Moon: The disc is drawn at the tilt you would actually see, worked out from your latitude and where the Moon is in your sky, and it turns through the night as the Moon rises and sets. It used to be flipped over for everyone south of the equator and left at that.
+- Weather: Official alerts in India, from SACHET, the national warning system — IMD weather warnings, flood bulletins and state nowcasts. They are shown in English where the push text is in a regional language; `--lang hi` (or another Indian language code) uses the alert text in that language if available. linecast itself is not translated into Hindi or the other Indian languages — the rest of the app stays in English — it just shows the alert in the language the source wrote it in.
+- Weather: In India, air quality is the CPCB's National AQI, the number official bulletins report, with its category word (Good to Severe) beside it, instead of the US index. `--json` adds `india_aqi` and its category.
+- Text in scripts that stack marks on their letters — Devanagari, Thai, Arabic — now measures the width terminals give it, so an alert in one of them lines up instead of pushing the layout about. linecast asks the terminal once whether it draws a conjunct and its vowel sign in two cells or three, since terminals disagree. This is about drawing text a data source sends in those languages; the interface is not translated into them.
 - Weather: Official alerts in New Zealand, from MetService, matched to your spot by each warning's own polygon.
 - Weather: Alerts now also cover Ukraine, Israel, Bosnia and Herzegovina, Moldova, Montenegro, and North Macedonia, through MeteoAlarm.
-- Weather: The wind and UV readings under the hourly chart hold still while the chart scrolls, and no longer pick up a stray digit: a 22mph wind could read 220.
-- Radar: `--source` pins one frame source — `librewxr`, `rainviewer`, or `iem` — instead of choosing by location, for comparing what each shows over the same spot.
-- Radar: The colour themes drawn in the terminal's own palette — terminal, dusk, ember, ink, marangai — now survive a fallback to RainViewer, instead of dropping to its blue scheme.
-- Location: IP geolocation and place-name search each have a second source now, asked when the usual one doesn't answer.
-- Maps: Street tiles fall back to the OpenStreetMap US Tileservice when OpenFreeMap doesn't answer; the credit line names whichever source drew the map.
+- Maps: The clouds near the poles, where the satellites cannot see, now carry the satellite picture onward — matching its cloudiness, brightness and grain — instead of switching to a forecast model. The globe looks more natural now when zoomed all the way out with clouds on.
+- Maps: Street tiles fall back to the OpenStreetMap US Tileservice when OpenFreeMap doesn't answer. The credit line names whichever source drew the map.
 - Maps: `LINECAST_ELEVATION_URL` accepts a full tile URL template, for elevation hosts with their own path shape.
-- Records a provider sent that could not be parsed now show up in the `--debug` transcript, with a count, instead of being dropped in silence.
-- Moon: The disc is drawn at the tilt you would actually see, worked out from your latitude and where the Moon is in your sky, rather than being flipped over for everyone south of the equator. It turns through the night as the Moon rises and sets.
-- Moon: The lit edge now faces the Sun. It was drawn square to the Moon's poles before, which put it as much as a half turn out.
-- Moon: Phases, illumination and the Moon's age are worked out from where the Moon actually is, not from an average month. New and full moons now land within a quarter of an hour of the published times, where they could be most of a day out; the phase named on a given evening is the one the almanac names. Moonrise and moonset times improve with them.
-- Weather: Official alerts in India, from SACHET, the national warning system — IMD weather warnings, flood bulletins, and state nowcasts, shown in English where the push text is in a regional language. `--lang hi` (or another Indian language code) keeps the regional text instead.
-- Weather: In India, air quality is the CPCB's National AQI, the number official bulletins report, instead of the US index, with its category word (Good to Severe) beside the number. `--json` adds `india_aqi` and its category.
-- Text in scripts that stack marks on their letters — Devanagari, Thai, Arabic — now measures the width terminals give it, and linecast asks the terminal once whether it draws a conjunct and its vowel sign in two cells or three, so Hindi alerts line up either way.
-- Sunshine: On a light terminal theme the night sky is dark and the day light, in both the day and year views, instead of the night being the page.
+- Location: IP geolocation and place-name search each have a second source now, asked when the usual one doesn't answer.
+- Radar: `--source` pins one frame source — `librewxr`, `rainviewer`, or `iem` — instead of choosing by location, for comparing what each shows over the same spot.
+
+Fixes:
+
+- Sunshine: On a light terminal theme the night sky is dark and the day light, in both views, and the sun keeps its white centre and warm glow. The night used to be the page, and the sun turned dark against the daytime sky.
 - Moon: On a light terminal theme the sky is dark and the Moon is light, instead of a dark disc on the page.
-- Sunshine: Where the sun does not rise or set at all, both views now say which it is — midnight sun, or polar night — instead of giving a sunrise and a sunset that are really the same moment, solar noon. `--json` already reported this as `polar`.
-- Sunshine: The info line names the sky at the moment shown — daylight, the twilights, night, or sunrise, sunset and solar noon as they pass.
-- Maps: The clouds near the poles, where the satellites cannot see, now carry the satellite picture onward — matching its cloudiness, brightness and grain around the top of the planet — instead of switching to a forecast model. No seam, bright veil, or pinwheel marks where the data ends.
-- Weather: The high and low written inside a day's temperature bar turn white where the bar is dark, instead of staying black and disappearing into the colder end of the scale.
-- Sunshine: On a light terminal theme the sun keeps its white centre and warm glow in both views, instead of turning dark against the daytime sky.
-- Sunshine: A year view (`--year`) draws a column of sky for each day of the year, sunrise and sunset appearing as the edge between night and day. Its colors follow the Apple Watch Solar Dial: blue sky, navy night, a soft band of sunrise between. A marker shows the current day and time; pointing at a day shows its sunrise, sunset, and day length in the clock that day will keep, named when it differs from today's (`06:36 EST`), and the time under the pointer with the sky there — daylight, civil, nautical or astronomical twilight, night — or the moment itself when it is near sunrise, sunset, solar noon, or the marker for now. The year is drawn in the location's current UTC offset so the edge stays smooth; `--dst` plots each day in its own offset instead, and the clock changes show as steps. In live mode, `y` switches between the day and the year.
 - Maps: On a terminal narrower than it is tall, zooming all the way out now leaves the whole globe on screen. It used to stop at a zoom that fit the height, running the planet off both sides.
+- Weather: The high and low written inside a day's temperature bar turn white where the bar is dark, instead of staying black and disappearing into the colder end of the scale.
+- Weather: The wind and UV readings under the hourly chart hold still while the chart scrolls, and no longer pick up a stray digit: a 22mph wind could read 220.
+- Radar: The color themes drawn in the terminal's own palette — terminal, dusk, ember, ink, marangai — now survive a fallback to RainViewer, instead of dropping to its blue scheme.
+- Debug: A record a provider sent that could not be parsed now shows up in the `--debug` transcript, with a count, instead of being dropped in silence.
 
 ## 2.1.0 — 2026-08-28
 
