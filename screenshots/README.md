@@ -24,7 +24,10 @@ scripts/capture_screenshots.sh weather sunshine moon tides radar maps globe hero
 
 Weather, tides, radar, and maps use current public data. Sunshine and Moon use
 fixed local moments through `scripts/capture_moment.py`, keeping those frames
-repeatable at any time of day.
+repeatable at any time of day. The year target adds the pointer: termshot moves
+it onto the December solstice so the hover tooltip is in the frame, and the
+two polar frames are Longyearbyen and Vostok Station, at 78° either side of
+the equator.
 
 The globe target is honestly unrepeatable by design: it opens the terrain
 planet and presses `s`, so the frame carries the terminator and night city

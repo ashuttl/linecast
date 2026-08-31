@@ -115,6 +115,15 @@ The weather dashboard combines current conditions, daylight-shaded hourly temper
 
 `linecast sunshine --year` draws a whole year instead of one day. Each column is a day, running from midnight at the top to midnight at the bottom, and every point in it takes the color of the sky at that hour. Sunrise and sunset are not drawn as lines; they are where the night colors meet the day colors. Point at a day to see its sunrise, sunset and day length, along with the time and the sky under the pointer. In live mode, `y` switches between the day view and the year view. The whole year is drawn in the location's current UTC offset, which keeps that boundary smooth across a clock change; `--dst` plots each day in its own offset instead, so the clock changes show as steps.
 
+![the year view for Westbrook, Maine, with the pointer on the December solstice](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-year.png)
+
+Near the poles the same chart turns into polar night and midnight sun. These are Longyearbyen and Vostok Station, at 78° north and 78° south.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-year-arctic.png" width="49%" alt="the year view for Longyearbyen, Svalbard">
+  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-year-antarctic.png" width="49%" alt="the year view for Vostok Station, Antarctica">
+</p>
+
 `moon` draws the current phase with its real terminator, mare shading, halo, and orientation for your location. Scroll to move through time. Try `linecast moon --oneline` for a status bar.
 
 ![full Moon](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon.png)
