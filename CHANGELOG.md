@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Sunshine: Sunrise and sunset times are more accurate. They could be ten or more minutes out in spring and autumn, most at high latitudes; the sky in both views and the globe's day/night edge sharpen with them.
+
 ## 2.2.0 — 2026-08-31
 
 Sunshine has a year view. The Moon's phases and times are more accurate, and official weather alerts now reach India, New Zealand, and six more European countries.

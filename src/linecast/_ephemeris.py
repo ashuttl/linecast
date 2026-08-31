@@ -85,6 +85,11 @@ def _sun_ra_dec(dt_utc):
                           _obliquity(_julian_day(dt_utc) - 2451543.5))
 
 
+def sun_declination(dt_utc):
+    """Sun's declination in degrees."""
+    return _sun_ra_dec(dt_utc)[1]
+
+
 # Schlyter's perturbation terms for the Moon, in degrees. Each is an
 # amplitude and the integer multiples of (Ms, Mm, D, F) making up its
 # argument: the Sun's mean anomaly, the Moon's, the mean elongation, and

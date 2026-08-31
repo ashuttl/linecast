@@ -18,10 +18,11 @@ Usage: sunshine [--print] [--oneline] [--json] [--year] [--location PLACE]
 import math
 import sys
 import time as _time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 
 from linecast._braille import braille_rows_from_ys
-from linecast._ephemeris import moon_phase_frac
+from linecast._ephemeris import moon_phase_frac, sun_declination
 from linecast._graphics import (
     fg, RESET, BG_PRIMARY, color_mode, lerp, interp_stops, visible_len,
     fmt_time, get_terminal_size, Framebuffer, live_loop,
@@ -305,12 +306,20 @@ def _equation_of_time(doy):
     B = math.radians(360 / 365 * (doy - 81))
     return 9.87 * math.sin(2*B) - 7.53 * math.cos(B) - 1.5 * math.sin(B)
 
-def _declination(doy):
-    """Solar declination in degrees (simplified sinusoidal approximation).
+@lru_cache(maxsize=1024)
+def _declination_on(year, doy):
+    """Solar declination in degrees at UTC noon on a day of *year*."""
+    noon = datetime(year, 1, 1, 12, tzinfo=timezone.utc) + timedelta(days=doy - 1)
+    return sun_declination(noon)
 
-    23.45° is Earth's axial tilt; day 81 ≈ vernal equinox.
+
+def _declination(doy):
+    """Solar declination in degrees, from the ephemeris.
+
+    doy is a day of the machine's current year; 0 and 367 reach into the
+    neighboring years, as callers' yesterday and tomorrow do.
     """
-    return 23.45 * math.sin(math.radians(360 / 365 * (doy - 81)))
+    return _declination_on(datetime.now().year, doy)
 
 def solar_times(lat, lng, doy, tz_offset_h=None):
     """Sunrise/sunset as local decimal hours.
