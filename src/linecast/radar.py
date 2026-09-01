@@ -30,7 +30,7 @@ Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--theme NAME]
 import sys
 import time as _time
 
-from linecast._color import fg, RESET, BOLD
+from linecast._color import fg, RESET
 from linecast._framebuffer import get_terminal_size
 from linecast import _theme
 from linecast import _radar_frames
@@ -286,13 +286,13 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         tag += (f" · {round(tc)}°C" if metric
                 else f" · {round(tc * 9 / 5 + 32)}°F")
     icon = "▶" if playing else "⏸"
-    # with the cloud layer in, the coverage figure is cloud, not echo
+    # with the cloud layer in, the coverage figure is cloud, not echo —
+    # and its word is what tells the two layers apart up here
     pct = rs("echo_pct" if layer == "radar" else "cloud_pct",
              lang, pct=f"{echo:.0f}")
-    brand = "radar" if layer == "radar" else "satellite ☁"
 
     def _header(place_str):
-        return (f"{fg(*MARKER)}{BOLD}⬤ {brand}{RESET}  {fg(*MUTED)}{place_str}"
+        return (f"{fg(*MUTED)}{place_str}"
                 f"{RESET}  {fg(*DIM)}{icon} {_fmt_local(when, use_24h)} · {age}{tag} "
                 f"· {pct}{RESET}")
 

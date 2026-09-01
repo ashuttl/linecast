@@ -36,7 +36,7 @@ from linecast import (
     _builtup, _climate, _globe, _globe_now, _maps_hover, _maps_style,
     _maps_ui,
 )
-from linecast._color import fg, RESET, BOLD, color_mode, BG_PRIMARY
+from linecast._color import fg, RESET, color_mode, BG_PRIMARY
 from linecast._elevation import ATTRIBUTION
 from linecast._framebuffer import get_terminal_size
 from linecast._graphics import visible_len
@@ -44,7 +44,7 @@ from linecast._live import overlay
 from linecast._maps_i18n import ms
 from linecast._maps_paint import (  # noqa: F401 — the inks and composers
     BATHY_STOPS, BORDER_STROKE, COAST_STROKE, HYPSO_FAMILIES, LABEL_DARK,
-    LABEL_LIGHT, LAKE_FILL, MARKER, _BADGE, build_terrain_buffer,
+    LABEL_LIGHT, LAKE_FILL, MARKER, build_terrain_buffer,
     compose_map, compose_terrain,
 )
 from linecast._maps_views import (  # noqa: F401 — the loaders and caches
@@ -216,7 +216,7 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     overlays = _place_marks(overlays, marker_cell, origin_cell, dest_cell,
                             dx, dy, graph_w, height_cells, False)
     readout = _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells,
-                            lang)
+                            lang, centre=not sun)
 
     # rivers under the route, which is the order the strokes list means:
     # a route along a river valley owns the cells it shares.
@@ -373,7 +373,7 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
     # the street map, answers with places rather than metres
     readout = ("" if street else
                _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells,
-                             lang))
+                             lang, centre=False))
 
     strokes = [borders] if borders is not None else None
     lines = compose_terrain(None, terrain, overlays, graph_w,
@@ -536,9 +536,12 @@ def _place_marks(overlays, marker_cell, origin_cell, dest_cell, dx, dy,
                       street)
 
 
-def _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells, lang):
+def _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells, lang,
+                  centre=True):
     """The elevation under the pointer, or at the view centre — or ""
-    when the view has no elevation yet."""
+    when the view has no elevation yet.  `centre` off keeps the pointer
+    probe but drops the standing centre one: pointing is a question,
+    but a view wide enough to be a globe isn't asking about one spot."""
     if elev is None:
         return ""
     probe = None
@@ -549,6 +552,8 @@ def _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells, lang):
         if 0 <= pcol < graph_w and 0 <= prow < height_cells:
             probe = elev[prow * 2][pcol]
     if probe is None:
+        if not centre:
+            return ""
         probe = elev[height_cells][graph_w // 2]  # centre sub-pixel row
     if probe is None:
         return ""
@@ -608,6 +613,13 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         readout = hover
     elif route is not None:
         readout = f" · {_maps_ui.route_summary(route, lang)}"
+    elif sun and not readout:
+        # with daylight on the fact of interest is the sun, not the
+        # centre pixel: name what it stands over, from the same offline
+        # gazetteer that names a panned view
+        s_lat, s_lon = _globe_now.subsolar()
+        under = _panned_place(s_lat, s_lon, lang)
+        readout = f" · {ms('sun_over', lang, place=under)}"
 
     panned = abs(lat - m_lat) > 1e-9 or abs(lon - m_lon) > 1e-9
     place = (_panned_place(lat, lon, lang) if panned
@@ -618,8 +630,8 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     mode = f" · {ms('mode_' + view, lang)}"
 
     def _header(place_str):
-        return (f"{fg(*_BADGE)}{BOLD}⬤ maps{RESET}  {fg(*MUTED)}"
-                f"{place_str}{RESET}{fg(*DIM)}{mode}{readout}{tag}{RESET}")
+        return (f"{fg(*MUTED)}{place_str}{RESET}"
+                f"{fg(*DIM)}{mode}{readout}{tag}{RESET}")
 
     header = _header(place)
     over = visible_len(header) - cols

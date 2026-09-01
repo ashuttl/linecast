@@ -6,6 +6,7 @@ and every placeholder survives translation — the three ways a
 translation table actually breaks at runtime.
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -44,12 +45,12 @@ def test_no_value_is_empty_or_padded(lang):
 
 @pytest.mark.parametrize("lang", sorted(TABLE))
 def test_placeholders_survive_translation(lang):
-    # A dropped {err} is a KeyError at the worst possible moment.
+    # A dropped {err} is a KeyError at the worst possible moment; an
+    # invented one is a KeyError in every language but English.
     for key, english in TABLE["en"].items():
-        if "{err}" in english:
-            assert "{err}" in TABLE[lang][key], (lang, key)
-        else:
-            assert "{" not in TABLE[lang][key], (lang, key)
+        wanted = set(re.findall(r"{\w+}", english))
+        assert set(re.findall(r"{\w+}", TABLE[lang][key])) == wanted, \
+            (lang, key)
 
 
 @pytest.mark.parametrize("lang", sorted(TABLE))

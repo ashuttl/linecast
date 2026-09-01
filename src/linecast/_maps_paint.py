@@ -32,7 +32,6 @@ LABEL_LIGHT = themed((232, 232, 240))
 # theme's own bright accent, not an absolute yellow
 _MARKER_RAW = MARKER
 MARKER = themed(_MARKER_RAW)
-_BADGE = themed((110, 168, 96))     # the header's "⬤ maps" green
 
 # Inland water: lakes and rivers are *not* on the bathymetric ramp.  A
 # terrarium sample reports the elevation of the water's surface, so a
@@ -155,7 +154,7 @@ _LIGHT_TINT = themed((255, 248, 228))
 @_theme.on_reload
 def _rebuild_inks():
     # every themed() ink above, re-inked for the new theme
-    global COAST_STROKE, BORDER_STROKE, LABEL_DARK, LABEL_LIGHT, MARKER, _BADGE
+    global COAST_STROKE, BORDER_STROKE, LABEL_DARK, LABEL_LIGHT, MARKER
     global LAKE_FILL, RIVER_STROKE, HYPSO_FAMILIES, BATHY_STOPS, _SHADOW_TINT
     global _LIGHT_TINT
     COAST_STROKE = themed((22, 32, 52))
@@ -163,7 +162,6 @@ def _rebuild_inks():
     LABEL_DARK = themed((28, 32, 44))
     LABEL_LIGHT = themed((232, 232, 240))
     MARKER = themed(_MARKER_RAW)
-    _BADGE = themed((110, 168, 96))
     LAKE_FILL = themed((74, 118, 156))
     RIVER_STROKE = themed((108, 152, 190))
     HYPSO_FAMILIES = [[(m, themed(c)) for m, c in fam]

@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Maps and radar: The header no longer announces which app it is — it starts with the place name.
+- Maps: With daylight on, the header names what the sun is standing over — "sun over North Pacific Ocean" — instead of the elevation at the view centre. The globe drops that centre readout too; pointing at the terrain still reads the elevation there.
 - Maps: Route shields now name their network — I-95, US-1, ME-128, and the sign's own M6 or A38 — and take the sign's color where one exists: interstates and motorways in blue, US routes in white, UK primary routes in green. A shield appears at most twice per view.
 - Maps: Exit numbers now read as exits — bracketed, in the ramp's dimmer ink — instead of floating over the highway as bare numbers that could be routes. A numbered road also shows its street name again at close zooms, where the addresses live.
 - Maps: Major cities set their names in capitals, and national and state capitals get a star instead of a dot.
