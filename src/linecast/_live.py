@@ -46,6 +46,39 @@ def overlay(body, floating="", motion=None):
     return f"{body}\x00{switch}{floating}"
 
 
+def pointer_chip(lines, col, mouse_row, cols, rows, pad_bg="", flip_at=None):
+    """A floating chip near the pointer, placed so the pointer cannot cover it.
+
+    The pointer glyph hangs down and right of its hotspot — further when a
+    user has sized it up — so the chip goes below the pointer row with a
+    clear row between, and flips to just above the pointer when there is
+    no room below; pushed inward at the screen edges as a last resort.
+
+    `lines` are the chip's rows, styled but unpadded; they are padded to
+    one visible width, with `pad_bg` re-asserted under the padding.  `col`
+    is the 1-based terminal column of the chip's left edge; a chip past
+    the right edge slides inward, or with `flip_at` ends just left of that
+    column instead (for chips beside a hairline or the pointer itself).
+    Returns cursor-addressed escapes for overlay()'s floating channel.
+    """
+    if not lines:
+        return ""
+    from linecast._graphics import RESET, visible_len
+    width = max(visible_len(line) for line in lines)
+    padded = [f"{line}{pad_bg}{' ' * (width - visible_len(line))}{RESET}"
+              for line in lines]
+    height = len(padded)
+    row = mouse_row + 2
+    if row + height - 1 > rows:
+        row = mouse_row - height
+    if row < 1:
+        row = max(1, rows - height + 1)
+    if col + width - 1 > cols:
+        col = max(1, (cols - width + 1) if flip_at is None else flip_at - width)
+    return "".join(f"\033[{row + i};{col}H{line}"
+                   for i, line in enumerate(padded))
+
+
 # ---------------------------------------------------------------------------
 # Mouse decoding
 # ---------------------------------------------------------------------------

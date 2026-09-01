@@ -12,7 +12,7 @@ is the picker's state; _radar_live routes the keys to it.
 import datetime as _dt
 import threading
 
-from linecast import _theme
+from linecast import _live, _theme
 from linecast._color import fg, bg, RESET
 from linecast._framebuffer import fmt_time_dt
 from linecast._theme import ensure_contrast
@@ -25,7 +25,6 @@ from linecast._radar_render import _bbox_key
 from linecast._radar_sources import THEMES, is_local
 from linecast._runtime import log_failure, use_metric
 from linecast._scenes import Memo
-from linecast._graphics import visible_len
 
 MUTED = (150, 155, 170)
 DIM = (110, 114, 130)
@@ -258,18 +257,9 @@ def _build_warning_tooltip(warns, mouse_pos, bbox, graph_w, height_cells,
     if len(hits) > 4:
         lines.append(f"{TBG} {fg(*MUTED)}+{len(hits) - 4} ")
 
-    width = max(visible_len(ln) for ln in lines)
-    padded = [f"{ln}{TBG}{' ' * (width - visible_len(ln))}{RESET}"
-              for ln in lines]
-
-    # anchor below-right of the pointer, pulled inward at the screen edges
-    col = mcol + 1
-    row = mrow + 1
-    if col + width - 1 > cols:
-        col = max(1, mcol - width)
-    if row + len(padded) - 1 > rows:
-        row = max(1, mrow - len(padded))
-    return "".join(f"\033[{row + i};{col}H{ln}" for i, ln in enumerate(padded))
+    # right of the pointer, or ending just left of it at the screen edge
+    return _live.pointer_chip(lines, mcol + 1, mrow, cols, rows,
+                              pad_bg=TBG, flip_at=mcol)
 
 
 def _timeline_bar(idx, n, width, present=None, loaded=None):

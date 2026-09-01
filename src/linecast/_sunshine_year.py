@@ -17,7 +17,7 @@ a tooltip with that day's sunrise, sunset, and day length, tides-style.
 import calendar
 from datetime import datetime, timedelta
 
-from linecast import _theme
+from linecast import _live, _theme
 from linecast._graphics import (
     fg, bg, RESET, interp_stops, lerp, visible_len, fmt_time,
     get_terminal_size, Framebuffer, overlay,
@@ -433,19 +433,9 @@ def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
         f"{tip_dim}({_fmt_len_delta(day_len - today_len)}) ",
     ]
 
-    max_w = max(visible_len(line) for line in tip_lines)
-    padded = [f"{line}{tip_bg}{' ' * (max_w - visible_len(line))}{RESET}"
-              for line in tip_lines]
-
-    tooltip_col = hover_x + 3  # right of the hover hairline, 1-based + margin
-    tooltip_row = mouse_row
-    if tooltip_col + max_w - 1 > cols:
-        tooltip_col = max(1, hover_x + 2 - max_w)
-    if tooltip_row + len(padded) - 1 > rows:
-        tooltip_row = max(1, rows - len(padded) + 1)
-
-    return "".join(f"\033[{tooltip_row + i};{tooltip_col}H{line}"
-                   for i, line in enumerate(padded))
+    # right of the hover hairline, or ending just left of it at the edge
+    return _live.pointer_chip(tip_lines, hover_x + 3, mouse_row, cols, rows,
+                              pad_bg=tip_bg, flip_at=hover_x + 2)
 
 
 def _month_line(year, days, graph_w, runtime):
