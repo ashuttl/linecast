@@ -52,7 +52,6 @@ from linecast._weather_render import (
 from linecast._weather_historical import fetch_historical
 from linecast._weather_sources import (
     _local_now_for_data,
-    _location_from_timezone,
     _reverse_geocode,
     _search_locations,
     apply_india_aqi,
@@ -443,12 +442,11 @@ def main():
                 result["historical"] = fut_hist.result()
 
             # A place the reverse geocoder cannot name keeps the name the
-            # user typed; the timezone city is the last resort, not a
-            # stand-in for a named place (issue #50).
+            # user typed; failing that, the coordinates, as radar and maps
+            # show them — never the timezone city, which can be a continent
+            # away (issue #50).
             if not result["name"]:
-                result["name"] = geo_label
-            if not result["name"] and result["data"]:
-                result["name"] = _location_from_timezone(result["data"].get("timezone", ""))
+                result["name"] = geo_label or f"{lat:.2f}, {lng:.2f}"
         except Exception as exc:
             # Whatever landed in `result` is shown; a forecast that did
             # not is the "Could not fetch weather data" exit below.
