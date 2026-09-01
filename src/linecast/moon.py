@@ -33,8 +33,8 @@ from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
 from linecast._lunisolar import (
-    CALENDAR_MERIDIAN_HOURS, CALENDAR_NATIVE_LANG, CALENDAR_OF_LANG,
-    current_term, lunisolar_date, next_lunar_event, next_term,
+    CALENDAR_MERIDIAN_HOURS, CALENDAR_NATIVE_LANG, current_term,
+    lunisolar_date, next_lunar_event, next_term, resolve_calendar,
 )
 from linecast._moon_i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
@@ -512,14 +512,15 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     # The lunisolar calendar: on by default for the languages whose
     # readers know the moon through it, and available to anyone with
-    # --calendar — the lunar date beside the phase, the solar term in
-    # progress with the next one's date, and the coming festival. A
-    # calendar shown in its own language keeps its own script; any
-    # other language gets the customary English names.
+    # --calendar or `linecast calendar` — the lunar date beside the
+    # phase, the solar term in progress with the next one's date, and
+    # the coming festival. A calendar shown in its own language keeps
+    # its own script; any other language gets the customary English
+    # names.
     lang = lang_of(runtime)
-    cal = calendar_name if calendar_name else CALENDAR_OF_LANG.get(lang)
+    cal = resolve_calendar(calendar_name, lang)
     lunar_txt = term_txt = term_short = fest_txt = fest_short = None
-    if cal is not None and cal != "none":
+    if cal is not None:
         cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
         label_lang = lang if CALENDAR_NATIVE_LANG[cal] == lang else "en"
         lunar = lunisolar_date(now_local.date(), cal_tz)
@@ -752,7 +753,8 @@ def main():
     if runtime.json_mode:
         import json
         from linecast._moon_json import build_payload
-        payload = build_payload(_now(), lat, lng, runtime)
+        payload = build_payload(_now(), lat, lng, runtime,
+                                calendar=args.calendar)
         print(json.dumps(payload, ensure_ascii=False))
         return
 

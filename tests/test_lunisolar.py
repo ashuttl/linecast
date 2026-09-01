@@ -137,3 +137,26 @@ class TestLabels:
             assert festival_table(cal, native=True)
             assert festival_table(cal, native=False)
             assert term_label(0, lang)
+
+
+class TestResolveCalendar:
+    def test_flag_beats_saved_beats_language(self):
+        from linecast._config import read_config, write_config
+        from linecast._lunisolar import resolve_calendar
+        original = read_config()
+        try:
+            assert resolve_calendar(None, "en") is None
+            assert resolve_calendar(None, "zh") == "chinese"
+            assert resolve_calendar("korean", "zh") == "korean"
+            assert resolve_calendar("none", "zh") is None
+
+            saved = dict(original, calendar="japanese")
+            write_config(saved)
+            assert resolve_calendar(None, "en") == "japanese"
+            assert resolve_calendar(None, "zh") == "japanese"
+            assert resolve_calendar("chinese", "en") == "chinese"
+
+            write_config(dict(original, calendar="none"))
+            assert resolve_calendar(None, "zh") is None
+        finally:
+            write_config(original)

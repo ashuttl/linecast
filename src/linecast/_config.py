@@ -68,6 +68,20 @@ def saved_icons() -> str | None:
     return None
 
 
+def saved_calendar() -> str | None:
+    """Return the calendar saved via `linecast calendar`, or None.
+
+    'chinese', 'japanese', or 'korean' pins that lunisolar calendar in
+    every language; 'none' turns the calendar lines off even where the
+    language would show them.
+    """
+    cal = read_config().get("calendar")
+    if isinstance(cal, str) and cal.strip().lower() in (
+            "chinese", "japanese", "korean", "none"):
+        return cal.strip().lower()
+    return None
+
+
 def saved_location() -> dict[str, Any] | None:
     """Return the location saved via `linecast location set`, or None.
 

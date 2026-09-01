@@ -33,6 +33,18 @@ CALENDAR_MERIDIAN_HOURS = {"chinese": 8, "japanese": 9, "korean": 9}
 CALENDAR_OF_LANG = {"zh": "chinese", "ja": "japanese", "ko": "korean"}
 CALENDAR_NATIVE_LANG = {cal: lang for lang, cal in CALENDAR_OF_LANG.items()}
 
+
+def resolve_calendar(flag, lang):
+    """The calendar the moon command should show, or None for none.
+
+    Precedence: the --calendar flag > the `linecast calendar` setting >
+    the calendar native to the UI language > none. 'none' anywhere in
+    that chain stops it.
+    """
+    from linecast._config import saved_calendar
+    choice = flag or saved_calendar() or CALENDAR_OF_LANG.get(lang)
+    return None if choice in (None, "none") else choice
+
 _MEAN_DEG_PER_DAY = 360.0 / 365.2422
 
 

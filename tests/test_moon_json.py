@@ -30,7 +30,7 @@ EXPECTED_TOP_KEYS = {
     "illumination", "waxing", "age_days", "events", "next_full",
     "next_full_name", "next_new", "day_of_year", "days_in_year",
     "next_season_event", "southern", "altitude_deg", "azimuth_deg",
-    "up_now",
+    "up_now", "calendar",
 }
 
 
@@ -187,3 +187,34 @@ class TestLiveSuppression:
         args = moon_parser().parse_args(["--print"])
         runtime = RuntimeConfig.from_sources(namespace=args)
         assert runtime.json_mode is False
+
+
+class TestCalendarBlock:
+    """The lunisolar calendar in the payload, resolved like the panel."""
+
+    MOMENT = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+
+    def test_null_by_default_in_english(self):
+        assert _payload()["calendar"] is None
+
+    def test_native_block_for_chinese(self):
+        payload = _payload(now_local=self.MOMENT, runtime=_runtime(lang="zh"))
+        cal = payload["calendar"]
+        assert cal["name"] == "chinese"
+        assert (cal["month"], cal["day"], cal["leap_month"]) == (7, 20, False)
+        assert cal["label"] == "农历七月二十"
+        assert cal["solar_term"] == "处暑"
+        assert cal["next_solar_term"] == {"name": "白露", "date": "2026-09-07"}
+        assert cal["next_festival"] == {"name": "中秋节", "date": "2026-09-25"}
+
+    def test_english_names_with_the_flag(self):
+        payload = _payload(now_local=self.MOMENT, calendar="chinese")
+        cal = payload["calendar"]
+        assert cal["label"] == "month 7 day 20"
+        assert cal["solar_term"] == "End of Heat"
+        assert cal["next_festival"]["name"] == "Mid-Autumn Festival"
+
+    def test_none_flag_wins_over_the_language(self):
+        payload = _payload(now_local=self.MOMENT,
+                           runtime=_runtime(lang="zh"), calendar="none")
+        assert payload["calendar"] is None
