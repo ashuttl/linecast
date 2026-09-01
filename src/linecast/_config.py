@@ -71,13 +71,13 @@ def saved_icons() -> str | None:
 def saved_calendar() -> str | None:
     """Return the calendar saved via `linecast calendar`, or None.
 
-    'chinese', 'japanese', or 'korean' pins that lunisolar calendar in
-    every language; 'none' turns the calendar lines off even where the
-    language would show them.
+    'chinese', 'japanese', 'korean', or 'hawaiian' pins that calendar
+    in every language; 'none' turns the calendar lines off even where
+    the language would show them.
     """
     cal = read_config().get("calendar")
     if isinstance(cal, str) and cal.strip().lower() in (
-            "chinese", "japanese", "korean", "none"):
+            "chinese", "japanese", "korean", "hawaiian", "none"):
         return cal.strip().lower()
     return None
 

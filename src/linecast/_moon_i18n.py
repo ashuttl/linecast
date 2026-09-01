@@ -501,3 +501,38 @@ _JA_NIGHT_NAMES = (
 def ja_night_name(day):
     """The Japanese name of the old calendar's night *day* (1-30)."""
     return _JA_NIGHT_NAMES[day - 1]
+
+
+# Hawaiʻi names the nights too — the pō mahina, as the WPRFMC's annual
+# Kaulana Mahina prints them (after Clarice Taylor's Hawaiian Almanac,
+# Oʻahu). Proper nouns with no customary English renderings, so every
+# UI language reads them in Hawaiian. Three ten-night anahulu: the four
+# waxing ʻOle nights, then three waning ones, keep the count at thirty.
+_PO_MAHINA = (
+    "Hilo", "Hoaka", "Kūkahi", "Kūlua", "Kūkolu",
+    "Kūpau", "ʻOlekūkahi", "ʻOlekūlua", "ʻOlekūkolu", "ʻOlepau",
+    "Huna", "Mōhalu", "Hua", "Akua", "Hoku",
+    "Māhealani", "Kulu", "Lāʻaukūkahi", "Lāʻaukūlua", "Lāʻaupau",
+    "ʻOlekūkahi", "ʻOlekūlua", "ʻOlepau", "Kāloakūkahi", "Kāloakūlua",
+    "Kāloapau", "Kāne", "Lono", "Mauli", "Muku",
+)
+
+_ANAHULU = ("hoʻonui", "poepoe", "hōʻemi")
+
+
+def po_mahina_name(night, nights):
+    """The Hawaiian name of *night* in a month of *nights* (29 or 30).
+
+    A 29-night month drops Mauli, never Muku — the convention of every
+    published 29-night month in the 2025 and 2026 Kaulana Mahina.
+    """
+    if night >= nights:
+        return _PO_MAHINA[29]                # Muku closes the month
+    if night == nights - 1 and nights >= 30:
+        return _PO_MAHINA[28]                # Mauli keeps its place
+    return _PO_MAHINA[min(night, 28) - 1]
+
+
+def anahulu_name(night):
+    """The anahulu (ten-night span) that *night* falls in."""
+    return _ANAHULU[min((night - 1) // 10, 2)]

@@ -79,7 +79,20 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     lang = lang_of(runtime)
     cal = resolve_calendar(calendar, lang)
     calendar_block = None
-    if cal is not None:
+    if cal == "hawaiian":
+        # The Kaulana Mahina has no months-by-number, solar terms, or
+        # festivals; its block carries the night instead.
+        from linecast._moon_i18n import anahulu_name, po_mahina_name
+        from linecast._pacific import hawaiian_night
+        night, nights = hawaiian_night(now_local.date())
+        calendar_block = {
+            "name": cal,
+            "night": night,
+            "nights_in_month": nights,
+            "night_name": po_mahina_name(night, nights),
+            "anahulu": anahulu_name(night),
+        }
+    elif cal is not None:
         cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
         native = CALENDAR_NATIVE_LANG[cal] == lang
         label_lang = lang if native else "en"

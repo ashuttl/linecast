@@ -108,6 +108,8 @@ Near the poles the same chart turns into polar night and midnight sun. These are
 
 In Chinese, Japanese, and Korean the moon also follows the traditional calendar: the lunar date sits beside the phase name — and in Japanese the night is called by its own name, 十六夜, 居待月, 更待月 — with the solar term in progress and a countdown to the next festival, 中秋节, 추석, or 十五夜. Any language can ask for any of the three with `--calendar chinese`, `japanese`, or `korean`, written with the customary English names ("End of Heat · White Dew Sep 7", "Mid-Autumn Festival Sep 25"). The months, leap months, and solar terms are all computed from the ephemeris at each calendar's own meridian; nothing is looked up.
 
+`--calendar hawaiian` follows the Kaulana Mahina, which names every night: Hilo, Hoaka, the Kū and ʻOle nights, through Māhealani, Kāne, and Muku, each in its ten-night anahulu — hoʻonui waxing, poepoe round, hōʻemi waning. The month begins at Hilo, the first night the young crescent can be seen, so it is computed as a visibility date — crescent geometry in the evening sky over Hawaiʻi, not a fixed step from the new moon — and checked against every month of the [Western Pacific Regional Fishery Management Council's published calendars](https://www.wpcouncil.org/educational-resources/lunar-calendars/), whose annual editions also carry the fishing and planting practice that goes with each night.
+
 `--almanac` adds the Old Farmer's Almanac's counsel: what the light or dark of the moon favors in the garden, and the day's solunar activity periods — the majors when the Moon crosses the meridian above or below, the minors at moonrise and moonset.
 
 Point `sunshine` or `moon` somewhere across an ocean and the rise and set times come back in that place's local clock.
@@ -240,10 +242,11 @@ In India, alerts go one step further: SACHET publishes many of them in the state
 
 ### Calendar
 
-The moon's lunisolar calendar follows the language: Chinese with `--lang zh`, Japanese with `ja`, Korean with `ko`, none otherwise. Pin one — or none — for every run:
+The moon's traditional calendar follows the language: Chinese with `--lang zh`, Japanese with `ja`, Korean with `ko`, none otherwise. Pin one — Hawaiian included — or none, for every run:
 
 ```sh
 linecast calendar chinese
+linecast calendar hawaiian
 linecast calendar none
 linecast calendar
 linecast calendar auto

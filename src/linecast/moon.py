@@ -38,8 +38,10 @@ from linecast._lunisolar import (
 )
 from linecast._moon_i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
-    festival_table, ja_night_name, lunar_date_label, term_label,
+    anahulu_name, festival_table, ja_night_name, lunar_date_label,
+    po_mahina_name, term_label,
 )
+from linecast._pacific import hawaiian_night
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._textwidth import char_width
 from linecast._tides_i18n import _ts  # shared "space to return to now" hint
@@ -521,7 +523,15 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     lang = lang_of(runtime)
     cal = resolve_calendar(calendar_name, lang)
     lunar_txt = term_txt = term_short = fest_txt = fest_short = None
-    if cal is not None:
+    if cal == "hawaiian":
+        # The Kaulana Mahina names every night, in Hawaiian for every
+        # reader — the pō names have no English renderings — and has no
+        # solar terms or lunar-dated festivals, so the headline carries
+        # the whole calendar: the night's name and its anahulu.
+        night, nights = hawaiian_night(now_local.date())
+        name = po_mahina_name(night, nights)
+        lunar_txt = f"anahulu {anahulu_name(night)}"
+    elif cal is not None:
         cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
         label_lang = lang if CALENDAR_NATIVE_LANG[cal] == lang else "en"
         lunar = lunisolar_date(now_local.date(), cal_tz)

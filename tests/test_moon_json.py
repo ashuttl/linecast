@@ -270,3 +270,18 @@ class TestJapaneseNightName:
         moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
         payload = _payload(now_local=moment, runtime=_runtime(lang="zh"))
         assert payload["calendar"]["night_name"] is None
+
+
+class TestHawaiianCalendarBlock:
+    def test_the_kaulana_mahina_names_the_night(self):
+        # Sep 1 2026 is the twentieth night of the month begun Aug 13,
+        # per the printed 2026 Kaulana Mahina.
+        moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="hawaiian")
+        assert payload["calendar"] == {
+            "name": "hawaiian",
+            "night": 20,
+            "nights_in_month": 30,
+            "night_name": "Lāʻaupau",
+            "anahulu": "poepoe",
+        }

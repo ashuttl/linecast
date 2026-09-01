@@ -185,17 +185,24 @@ def _moon_ecliptic(dt_utc):
 
     lon += math.radians(total(_MOON_LON_TERMS))
     lat += math.radians(total(_MOON_LAT_TERMS))
-    # Schlyter perturbs the distance too, but it only scales a vector
-    # we take the direction of, so it is left out.
+    # Schlyter perturbs the distance too, but direction is what the
+    # callers here want, and the two-body radius is already within a
+    # percent — good enough for the parallax and crescent width the
+    # Hawaiian calendar reads from it.
 
-    return lon, lat
+    return lon, lat, radius
 
 
 def _moon_ra_dec(dt_utc):
     """Geocentric Moon right ascension/declination in degrees."""
-    lon, lat = _moon_ecliptic(dt_utc)
+    lon, lat, _dist = _moon_ecliptic(dt_utc)
     return _to_equatorial(lon, lat, 1.0,
                           _obliquity(_julian_day(dt_utc) - 2451543.5))
+
+
+def _moon_distance_er(dt_utc):
+    """Moon distance in Earth radii (two-body, unperturbed: ~1%)."""
+    return _moon_ecliptic(dt_utc)[2]
 
 
 def _gmst_deg(dt_utc):
@@ -436,7 +443,7 @@ def moon_phase_frac(dt_utc):
     also keeps an eccentric orbit from naming the wrong phase: the Moon
     runs ahead of and behind the mean by the better part of a day.
     """
-    moon_lon, _lat = _moon_ecliptic(dt_utc)
+    moon_lon, _lat, _dist = _moon_ecliptic(dt_utc)
     sun_lon, _r = _sun_ecliptic(dt_utc)
     return ((math.degrees(moon_lon - sun_lon)) % 360.0) / 360.0
 
