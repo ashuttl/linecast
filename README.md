@@ -106,6 +106,10 @@ Near the poles the same chart turns into polar night and midnight sun. These are
 
 `moon` draws the current phase as you would see it from your location, with the shadow falling where it really does, the maria shaded, and a halo around it. Scroll to move through time. `linecast moon --oneline` fits a status bar.
 
+In Chinese, Japanese, and Korean the moon also follows the traditional calendar: the lunar date sits beside the phase name — and in Japanese the night is called by its own name, 十六夜, 居待月, 更待月 — with the solar term in progress and a countdown to the next festival, 中秋节, 추석, or 十五夜. Any language can ask for any of the three with `--calendar chinese`, `japanese`, or `korean`, written with the customary English names ("End of Heat · White Dew Sep 7", "Mid-Autumn Festival Sep 25"). The months, leap months, and solar terms are all computed from the ephemeris at each calendar's own meridian; nothing is looked up.
+
+`--almanac` adds the Old Farmer's Almanac's counsel: what the light or dark of the moon favors in the garden, and the day's solunar activity periods — the majors when the Moon crosses the meridian above or below, the minors at moonrise and moonset.
+
 Point `sunshine` or `moon` somewhere across an ocean and the rise and set times come back in that place's local clock.
 
 ![full Moon](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon.png)
@@ -233,6 +237,19 @@ linecast radar --lang zh
 ```
 
 In India, alerts go one step further: SACHET publishes many of them in the state language, and `--lang hi`, `te`, `or`, `mr`, or another Indian language code shows that regional text where it exists, while the rest of the app stays in English.
+
+### Calendar
+
+The moon's lunisolar calendar follows the language: Chinese with `--lang zh`, Japanese with `ja`, Korean with `ko`, none otherwise. Pin one — or none — for every run:
+
+```sh
+linecast calendar chinese
+linecast calendar none
+linecast calendar
+linecast calendar auto
+```
+
+`moon` takes `--calendar` for one run.
 
 ### Color and icons
 
