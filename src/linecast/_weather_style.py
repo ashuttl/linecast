@@ -22,7 +22,7 @@ def _rebuild():
     global ALERT_BLUE_BASE_RGB, TEMP_COLORS, PRECIP_RAIN_RGB, PRECIP_SNOW_RGB
     global PRECIP_MIX_RGB, PRECIP_STORM_RGB, ALERT_RED_RGB, ALERT_AMBER_RGB
     global ALERT_YELLOW_RGB, ALERT_BLUE_RGB, CHART_BG_NIGHT_RGB
-    global CHART_BG_DAY_RGB, CHART_HOVER_RGB, SUNRISE_LABEL_RGB
+    global CHART_BG_DAY_RGB, CHART_HOVER_RGB, CHART_NOW_RGB, SUNRISE_LABEL_RGB
     global SUNSET_LABEL_RGB, TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB, MODAL_BG_RGB
     global MODAL_BORDER_RGB, LINK_RGB, TEXT, DIM, MUTED, PRECIP, PRECIP_RAIN
     global PRECIP_SNOW, PRECIP_MIX, PRECIP_STORM, ALERT_RED, ALERT_AMBER
@@ -71,6 +71,13 @@ def _rebuild():
         CHART_BG_DAY_RGB = lighten(lerp_rgb(_theme.theme_bg, CYAN_RGB, 0.06), 0.05)
 
     CHART_HOVER_RGB = ensure_contrast(surface_bg(0.36), CHART_BG_NIGHT_RGB, minimum=1.5)
+    # The current-time divider: the same washed blue as the tides now line,
+    # brighter than a midnight divider but quieter than the data colors.
+    CHART_NOW_RGB = ensure_contrast(
+        lerp_rgb(best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12]), minimum=2.0),
+                 _theme.theme_bg, 0.30),
+        minimum=1.8,
+    )
     SUNRISE_LABEL_RGB = ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.20), _theme.theme_bg,
                                         minimum=2.0)
     SUNSET_LABEL_RGB = ensure_contrast(lerp_rgb(RED_RGB, MAGENTA_RGB, 0.25), _theme.theme_bg,

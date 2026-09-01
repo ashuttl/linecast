@@ -123,6 +123,32 @@ class TestWindLabels:
         _assert_labels_creep(_WIND_LABEL, 0)
 
 
+class TestNowMarker:
+    """A line marks the current time, like the midnight dividers (issue #49)."""
+
+    def _tick_line(self, now, offset_minutes):
+        lines = render_hourly(_forecast(), _WIDTH, now=now, runtime=_runtime(),
+                              offset_minutes=offset_minutes)
+        return _ANSI.sub("", lines[1])
+
+    def test_marks_now_when_scrolled_into_the_past(self):
+        # Window starts 10 hours before now; the marker lands mid-chart, in
+        # the same column the divider formula gives.
+        now = _T0 + timedelta(hours=20)
+        tick = self._tick_line(now, offset_minutes=-600)
+        graph_w = _WIDTH - 2
+        col = int(10 / 48 * (graph_w - 1))
+        assert tick[col + 1] == "│", f"no now marker at column {col}: {tick!r}"
+        assert tick[col + 2] == " "  # not a midnight "│00" label
+
+    def test_no_marker_once_now_is_behind_the_window(self):
+        # Scrolled 10 hours ahead, now is left of the window; only the two
+        # midnight "│00" labels remain.
+        now = _T0 + timedelta(hours=20)
+        tick = self._tick_line(now, offset_minutes=600)
+        assert tick.count("│") == 2
+
+
 class TestUVLabels:
     def test_every_label_is_a_plausible_index(self):
         for offset in _offsets():

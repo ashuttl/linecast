@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: A line on the hourly chart marks the current time, in the style of the midnight dividers, so now is still visible after scrolling away from it.
 - Weather: The hover pop-up sits clear of the mouse pointer instead of underneath it.
 - Weather: Fixed the place name for small towns — the header could show the timezone city ("New York") instead of the place itself.
 - Radar: Frames that arrive incomplete are no longer drawn or kept — the missing parts looked like clear weather. They are fetched again, and a source that cannot serve its tiles falls back to the next one.
