@@ -43,7 +43,7 @@ from linecast._moon_i18n import (
     po_mahina_name, term_label,
 )
 from linecast._pacific import (
-    ANAHULU_COUNSEL, COUNSEL_ATTRIBUTION, hawaiian_night, night_note,
+    ANAHULU_COUNSEL, COUNSEL_LINK, hawaiian_night, night_note,
 )
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._textwidth import char_width
@@ -532,7 +532,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # A calendar shown in its own language keeps its own script; any
     # other language gets the customary English names.
     lunar_txt = term_txt = term_short = fest_txt = fest_short = None
-    good_txt = hold_txt = solunar_txt = attrib_txt = None
+    good_txt = hold_txt = solunar_txt = attrib_txt = attrib_url = None
     if cal == "hawaiian":
         # The Kaulana Mahina names every night, in Hawaiian for every
         # reader — the pō names have no English renderings — and has
@@ -546,7 +546,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         note = night_note(name)
         counsel = ANAHULU_COUNSEL[anahulu_name(night)]
         good_txt, hold_txt = (note or counsel), (counsel if note else None)
-        attrib_txt = f"— {COUNSEL_ATTRIBUTION}"
+        attrib_txt, attrib_url = COUNSEL_LINK
     elif cal == "almanac":
         # The Old Farmer's Almanac: the aside names the half of the
         # month, the counsel is the gardening rule for it, and the
@@ -609,9 +609,14 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     cols, rows = get_terminal_size()
     hint = install_banner()
     # The counsel's attribution is a footer, not a panel line: italic,
-    # dim, pinned to the bottom of the viewport under both layouts.
-    footer = (_center(f"{fg(*INFO_DIM_RGB)}\x1b[3m{attrib_txt}{RESET}", cols)
-              if attrib_txt else "")
+    # dim, pinned to the bottom of the viewport under both layouts,
+    # and a link where the terminal follows them.
+    footer = ""
+    if attrib_txt:
+        footer = f"{fg(*INFO_DIM_RGB)}\x1b[3m{attrib_txt}{RESET}"
+        if attrib_url:
+            footer = f"\033]8;;{attrib_url}\033\\{footer}\033]8;;\033\\"
+        footer = _center(footer, cols)
     # Track even a very narrow terminal rather than overflow it; the
     # floor only guards against a degenerate reported size.
     graph_w = max(16, cols - 2)

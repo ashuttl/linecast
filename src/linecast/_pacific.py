@@ -155,6 +155,10 @@ def hawaiian_night(local_date):
 # ---------------------------------------------------------------------------
 
 COUNSEL_ATTRIBUTION = "Western Pacific Regional Fishery Management Council"
+# The on-screen attribution: the Council's domain, linking to the
+# lunar calendars themselves.
+COUNSEL_LINK = ("wpcouncil.org",
+                "https://www.wpcouncil.org/educational-resources/lunar-calendars/")
 
 # Per-anahulu fishing counsel, keyed by the anahulu names in
 # _moon_i18n.
