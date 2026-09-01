@@ -364,3 +364,75 @@ def _fmt_month_day(dt, runtime):
 def _day_abbrev(dt, runtime):
     """Localized three-letter-ish weekday abbreviation."""
     return DAY_NAMES.get(lang_of(runtime), DAY_NAMES["en"])[dt.weekday()]
+
+
+# ---------------------------------------------------------------------------
+# The lunisolar calendar's names, for the languages whose readers know
+# the moon through it (see _lunisolar.py for the calendar itself).
+# ---------------------------------------------------------------------------
+
+# Solar terms in longitude order, index 0 at the March equinox — the
+# indexing current_term() and next_term() use.
+SOLAR_TERMS_I18N = {
+    "zh": ["春分", "清明", "谷雨", "立夏", "小满", "芒种",
+           "夏至", "小暑", "大暑", "立秋", "处暑", "白露",
+           "秋分", "寒露", "霜降", "立冬", "小雪", "大雪",
+           "冬至", "小寒", "大寒", "立春", "雨水", "惊蛰"],
+    "ja": ["春分", "清明", "穀雨", "立夏", "小満", "芒種",
+           "夏至", "小暑", "大暑", "立秋", "処暑", "白露",
+           "秋分", "寒露", "霜降", "立冬", "小雪", "大雪",
+           "冬至", "小寒", "大寒", "立春", "雨水", "啓蟄"],
+    "ko": ["춘분", "청명", "곡우", "입하", "소만", "망종",
+           "하지", "소서", "대서", "입추", "처서", "백로",
+           "추분", "한로", "상강", "입동", "소설", "대설",
+           "동지", "소한", "대한", "입춘", "우수", "경칩"],
+}
+
+# Festivals dated by the lunar calendar, (month, day) → name. Japan
+# moved its festivals to Gregorian dates in 1873; the two moon-viewing
+# nights are what remains on the old calendar.
+FESTIVALS_I18N = {
+    "zh": {(1, 1): "春节", (1, 15): "元宵节", (5, 5): "端午节",
+           (7, 7): "七夕", (8, 15): "中秋节", (9, 9): "重阳节"},
+    "ja": {(8, 15): "十五夜", (9, 13): "十三夜"},
+    "ko": {(1, 1): "설날", (1, 15): "정월대보름", (5, 5): "단오",
+           (8, 15): "추석"},
+}
+
+# Chinese months and days have names, not numbers: the eleventh and
+# twelfth months are 冬月 and 腊月, the first ten days take 初, the
+# twenties 廿.
+_ZH_MONTHS = ["正月", "二月", "三月", "四月", "五月", "六月",
+              "七月", "八月", "九月", "十月", "冬月", "腊月"]
+_ZH_DIGITS = "一二三四五六七八九十"
+
+
+def _zh_day_name(day):
+    if day <= 10:
+        return "初" + _ZH_DIGITS[day - 1]
+    if day < 20:
+        return "十" + _ZH_DIGITS[day - 11]
+    if day == 20:
+        return "二十"
+    if day < 30:
+        return "廿" + _ZH_DIGITS[day - 21]
+    return "三十"
+
+
+def lunar_date_label(month, day, leap, lang):
+    """The lunar date as its own calendar writes it."""
+    if lang == "zh":
+        leap_mark = "闰" if leap else ""
+        return f"农历{leap_mark}{_ZH_MONTHS[month - 1]}{_zh_day_name(day)}"
+    if lang == "ja":
+        leap_mark = "閏" if leap else ""
+        return f"旧暦{leap_mark}{month}月{day}日"
+    if lang == "ko":
+        leap_mark = "윤" if leap else ""
+        return f"음력 {leap_mark}{month}월 {day}일"
+    return f"{month}-{day}" + ("+" if leap else "")
+
+
+def term_label(index, lang):
+    """The localized name of solar term *index* (0 = March equinox)."""
+    return SOLAR_TERMS_I18N.get(lang, SOLAR_TERMS_I18N["zh"])[index]

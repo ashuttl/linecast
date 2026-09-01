@@ -9,6 +9,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Sunshine: Languages that use different words for morning and evening twilight now see the right one for the time of day — świt and zmierzch in Polish, fajar and senja in Indonesian, gryning and skymning in Swedish, aube and crépuscule in French, and so on — instead of the evening word around the clock.
 - Sunshine: The Polish and Finnish names for nautical twilight now use the standard terms (żeglarski, nauttinen).
 - Moon: The Korean phase names now use the everyday words — 상현달, 보름달, 그믐달, with the gibbous phases as 차오르는 달 and 기우는 달.
+- Moon: In Chinese, Japanese, and Korean the panel now follows the traditional calendar: the lunar date beside the phase name (农历七月二十, 旧暦7月20日, 음력 7월 20일), the solar term in progress with the next one's date, and the coming festival — 中秋节, 추석, or 十五夜.
 
 ## 2.2.0 — 2026-08-31
 

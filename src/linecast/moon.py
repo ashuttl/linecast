@@ -32,8 +32,13 @@ from linecast._i18n import lang_of
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
+from linecast._lunisolar import (
+    CALENDAR_TZ_HOURS, current_term, lunisolar_date, next_lunar_event,
+    next_term,
+)
 from linecast._moon_i18n import (
-    _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
+    FESTIVALS_I18N, _day_abbrev, _fmt_month_day, _moon_name, _ms,
+    _season_label, lunar_date_label, term_label,
 )
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._textwidth import char_width
@@ -504,6 +509,34 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
                 f"{_fmt_month_day(now_local, runtime)} "
                 f"{fmt_time_dt(now_local, use_24h=runtime.use_24h)}")
 
+    # The lunisolar calendar, for the languages whose readers know the
+    # moon through it: the lunar date beside the phase, the solar term
+    # in progress with the next one's date, and the coming festival.
+    lang = lang_of(runtime)
+    cal_tz = CALENDAR_TZ_HOURS.get(lang)
+    lunar_txt = term_txt = term_short = fest_txt = fest_short = None
+    if cal_tz is not None:
+        lunar = lunisolar_date(now_local.date(), cal_tz)
+        if lunar is not None:
+            lunar_txt = lunar_date_label(*lunar, lang)
+        cur_k, _cur_start = current_term(moment_utc)
+        nxt_k, nxt_start = next_term(moment_utc)
+        nxt_local = nxt_start.astimezone(now_local.tzinfo)
+        days_to_term = (nxt_start - moment_utc).total_seconds() / 86400.0
+        term_short = term_label(cur_k, lang)
+        term_txt = (f"{term_short} · {term_label(nxt_k, lang)} "
+                    f"{_fmt_month_day(nxt_local, runtime)} "
+                    f"({in_days(days_to_term)})")
+        fest = next_lunar_event(now_local.date(), cal_tz,
+                                FESTIVALS_I18N[lang])
+        if fest is not None:
+            fest_day, fest_name = fest
+            fest_short = f"{fest_name} {_fmt_month_day(fest_day, runtime)}"
+            fest_gap = (fest_day - now_local.date()).days
+            fest_txt = fest_short if fest_gap == 0 else (
+                f"{fest_short} "
+                f"({_ms('in_days', runtime, days=str(fest_gap))})")
+
     cols, rows = get_terminal_size()
     hint = install_banner()
     # Track even a very narrow terminal rather than overflow it; the
@@ -513,7 +546,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     # --- wide layout: the info as a column in the sky beside the disc ---
     T, D, A, P = PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
     panel = [
-        [(f"{icon} {name}", T, True)],
+        [(f"{icon} {name}", T, True)] + (
+            [(f" · {lunar_txt}", T, False)] if lunar_txt else []),
         [(illum_txt, D, False)],
         [(age_txt, D, False)],
         [],
@@ -536,6 +570,14 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
         [(full_txt, D, False)],
         [(new_txt, D, False)],
         [],
+    ]
+    if term_txt:
+        panel.append([(term_txt, D, False)])
+    if fest_txt:
+        panel.append([(fest_txt, T, False)])
+    if term_txt or fest_txt:
+        panel.append([])
+    panel += [
         [(year_txt, D, False)],
         [(season_txt, D, False)],
     ]
@@ -600,10 +642,21 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     else:
         status_line = (f"{dim}{below_txt}{RESET}",)
 
+    if lunar_txt:
+        head_line = (
+            f"{text}{icon} {name} · {lunar_txt}  "
+            f"{dim}{illum_txt} · {age_txt}{RESET}",
+            f"{text}{icon} {name} · {lunar_txt}  {dim}{illum_txt}{RESET}",
+            f"{text}{icon} {name} · {lunar_txt}{RESET}",
+            f"{text}{icon} {name}{RESET}")
+    else:
+        head_line = (
+            f"{text}{icon} {name}  {dim}{illum_txt} · {age_txt}{RESET}",
+            f"{text}{icon} {name}  {dim}{illum_txt}{RESET}",
+            f"{text}{icon} {name}{RESET}")
+
     candidates = [
-        (f"{text}{icon} {name}  {dim}{illum_txt} · {age_txt}{RESET}",
-         f"{text}{icon} {name}  {dim}{illum_txt}{RESET}",
-         f"{text}{icon} {name}{RESET}"),
+        head_line,
         status_line,
         # The countdown roughly doubles this line's width, so keep the
         # plain labelled time between it and the bare clock times —
@@ -620,6 +673,16 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
          f"{dim}{year_txt} · {season_short}{RESET}",
          f"{dim}{year_txt}{RESET}"),
     ]
+    if term_txt:
+        # Between rise/set and the phase dates: the calendar line, the
+        # festival leading since it is the one people wait for.
+        cal_line = ((f"{dim}{term_txt} · {text}{fest_txt}{RESET}",
+                     f"{text}{fest_txt}  {dim}{term_short}{RESET}",
+                     f"{text}{fest_short}{RESET}")
+                    if fest_txt else
+                    (f"{dim}{term_txt}{RESET}",
+                     f"{dim}{term_short}{RESET}"))
+        candidates.insert(3, cal_line)
     # Fit against cols - 2 so a line that just fits still gets a column
     # of air at each edge instead of running wall to wall.
     fit_w = max(20, cols - 2)
