@@ -278,7 +278,7 @@ class TestHawaiianCalendarBlock:
         payload = _payload(now_local=moment, calendar="hawaiian")
         counsel = payload["calendar"]["counsel"]
         assert counsel["night_note"] is None
-        assert counsel["anahulu"].startswith("Fair to good fishing")
+        assert counsel["anahulu"].startswith("Poepoe nights")
         assert counsel["source"] == (
             "Western Pacific Regional Fishery Management Council")
 
@@ -288,7 +288,7 @@ class TestHawaiianCalendarBlock:
         moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
         payload = _payload(now_local=moment, calendar="hawaiian")
         block = dict(payload["calendar"])
-        assert block.pop("counsel")["anahulu"].startswith("Fair to good")
+        assert block.pop("counsel")["anahulu"].startswith("Poepoe nights")
         assert block == {
             "name": "hawaiian",
             "night": 20,

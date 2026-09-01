@@ -92,6 +92,7 @@ def _rebuild():
     global MOON_LIT_RGB, MOON_SHADOW_RGB, MOON_GLOW_RGB, SKY_RGB
     global STAR_BRIGHT_RGB, STAR_RGB, STAR_DIM_RGB
     global PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
+    global PANEL_FAINT_RGB, INFO_FAINT_RGB
     SKY_RGB = _theme.theme_bg
     if theme_legacy_mode:
         MOON_LIT_RGB = (228, 230, 238)
@@ -125,6 +126,9 @@ def _rebuild():
     # page inks.
     PANEL_TEXT_RGB = ensure_contrast(INFO_TEXT_RGB, SKY_RGB, minimum=4.5)
     PANEL_DIM_RGB = ensure_contrast(INFO_DIM_RGB, SKY_RGB, minimum=2.0)
+    # A shade fainter than dim, for the counsel's source line.
+    PANEL_FAINT_RGB = lerp_rgb(SKY_RGB, PANEL_DIM_RGB, 0.62)
+    INFO_FAINT_RGB = lerp_rgb(_theme.theme_bg, INFO_DIM_RGB, 0.62)
     PANEL_AMBER_RGB = ensure_contrast(INFO_AMBER_RGB, SKY_RGB, minimum=2.3)
     PANEL_PURPLE_RGB = ensure_contrast(INFO_PURPLE_RGB, SKY_RGB, minimum=2.3)
 
@@ -387,6 +391,20 @@ def _center(line, width):
     return " " * pad + line
 
 
+def _link_overlay_row(overlays, url, x0, row, width):
+    """Wrap one overlay line's glyphs in an OSC 8 hyperlink.
+
+    Cell by cell, under a shared id, so a terminal that follows OSC 8
+    treats the phrase as one link and underlines it whole on hover.
+    """
+    pre = f"\033]8;id=wpc;{url}\033\\"
+    post = "\033]8;;\033\\"
+    for x in range(x0, x0 + width):
+        cell = overlays.get((x, row))
+        if cell and cell[0]:
+            overlays[(x, row)] = (f"{pre}{cell[0]}{post}", *cell[1:])
+
+
 def _wrap(text, width):
     """textwrap.wrap without widows: no lone word on the last line."""
     lines = textwrap.wrap(text, width)
@@ -622,15 +640,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     cols, rows = get_terminal_size()
     hint = install_banner()
-    # The counsel's attribution is a footer, not a panel line: italic,
-    # dim, pinned to the bottom of the viewport under both layouts,
-    # and a link where the terminal follows them.
-    footer = ""
-    if attrib_txt:
-        footer = f"{fg(*INFO_DIM_RGB)}\x1b[3m{attrib_txt}{RESET}"
-        if attrib_url:
-            footer = f"\033]8;;{attrib_url}\033\\{footer}\033]8;;\033\\"
-        footer = _center(footer, cols)
     # Track even a very narrow terminal rather than overflow it; the
     # floor only guards against a degenerate reported size.
     graph_w = max(16, cols - 2)
@@ -686,6 +695,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     # A long counsel line breaks rather than dragging the whole column
     # wide: it may run at most a third past the longest other line.
+    attrib_at = None
     if good_txt:
         base_w = max(visible_len("".join(t for t, _c, _b in line))
                      for line in panel)
@@ -693,15 +703,20 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         block = [[(seg, D, False)]
                  for txt in (good_txt, hold_txt, solunar_txt) if txt
                  for seg in _wrap(txt, wrap_w)]
+        if attrib_txt:
+            # The source rides directly under the counsel it credits,
+            # a shade fainter; the wide layout links it after the
+            # overlays are laid.
+            attrib_at = counsel_at + len(block)
+            block.append([(attrib_txt, PANEL_FAINT_RGB, False)])
         panel[counsel_at:counsel_at] = block + [[]]
 
     panel_w = max(visible_len("".join(t for t, _c, _b in line))
                   for line in panel)
     panel_h = len(panel)
-    # Fullscreen fills the terminal exactly (plus the install banner
-    # and the attribution footer, when present); the plain print
-    # leaves two rows for the prompt.
-    chrome = (1 if hint else 0) + (1 if footer else 0)
+    # Fullscreen fills the terminal exactly (plus the install banner,
+    # when present); the plain print leaves two rows for the prompt.
+    chrome = 1 if hint else 0
     wide_h = max(6, rows - chrome - (0 if fullscreen else 2))
     region_w = graph_w - panel_w - 3   # sky left over for the disc
     # Prefer the column: go wide whenever it fits and costs the disc
@@ -722,10 +737,13 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
                        peak_alpha=0.10 + 0.20 * illum)
         _draw_moon_disc(fb, cx, cy, radius, illum, limb, axis)
+        if attrib_at is not None and attrib_url:
+            _link_overlay_row(overlays, attrib_url,
+                              graph_w - panel_w - 2,
+                              (graph_h - panel_h) // 2 + attrib_at,
+                              visible_len(attrib_txt))
         stars = _star_overlays(fb, cx, cy, radius, taken=overlays.keys())
         lines = fb.render(overlays={**stars, **overlays})
-        if footer:
-            lines.append(footer)
         if hint:
             lines.append(hint)
         return "\n".join(lines)
@@ -782,6 +800,12 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                        for seg in _wrap(txt, fit_w)]
         if solunar_txt:
             candidates.append((f"{dim}{solunar_txt}{RESET}",))
+        if attrib_txt:
+            styled = f"{fg(*INFO_FAINT_RGB)}{attrib_txt}{RESET}"
+            if attrib_url:
+                styled = (f"\033]8;id=wpc;{attrib_url}\033\\{styled}"
+                          f"\033]8;;\033\\")
+            candidates.append((styled,))
     candidates += [
         status_line,
         # The countdown roughly doubles this line's width, so keep the
@@ -838,8 +862,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     lines.extend(_center(line, cols) for line in info)
 
-    if footer:
-        lines.append(footer)
     if hint:
         lines.append(hint)
 

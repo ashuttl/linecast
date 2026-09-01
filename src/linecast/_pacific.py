@@ -155,18 +155,20 @@ def hawaiian_night(local_date):
 # ---------------------------------------------------------------------------
 
 COUNSEL_ATTRIBUTION = "Western Pacific Regional Fishery Management Council"
-# The on-screen attribution: the Council's domain, linking to the
-# lunar calendars themselves.
-COUNSEL_LINK = ("wpcouncil.org",
+# The on-screen attribution, linking to the lunar calendars
+# themselves.
+COUNSEL_LINK = ("Source: WPRFMC",
                 "https://www.wpcouncil.org/educational-resources/lunar-calendars/")
 
 # Per-anahulu fishing counsel, keyed by the anahulu names in
-# _moon_i18n.
+# _moon_i18n. Each line leads with the anahulu it speaks for, so it
+# reads as the tradition's counsel and not as a weather forecast.
 ANAHULU_COUNSEL = {
-    "hoʻonui": ("Good lamalama (torching) and net fishing the first "
-                "half of the anahulu; poor fishing the rest"),
-    "poepoe": "Fair to good fishing, near shore and deep sea",
-    "hōʻemi": ("Poor fishing the first half of the anahulu; the "
+    "hoʻonui": ("Hoʻonui nights — good lamalama (torching) and net "
+                "fishing in the first half; poor fishing the rest"),
+    "poepoe": ("Poepoe nights — fair to good fishing, near shore "
+               "and deep sea"),
+    "hōʻemi": ("Hōʻemi nights — poor fishing in the first half; the "
                "second half good at night and in the deep sea"),
 }
 
