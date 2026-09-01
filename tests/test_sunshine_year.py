@@ -245,28 +245,20 @@ class TestTooltip:
 
 
 # ---------------------------------------------------------------------------
-# The info line
+# The bottom row
 # ---------------------------------------------------------------------------
-class TestInfoLine:
-    def test_an_ordinary_day_gives_sunrise_and_sunset(self):
+class TestBottomRow:
+    """The month labels overlay the field's last row; no info line follows."""
+
+    def test_the_last_line_carries_the_month_labels(self):
         now = datetime(2026, 3, 5, 14, 30, tzinfo=TORONTO)
         line = _info_line(_render(*TORONTO_LL, now, tz=TORONTO))
-        assert len(re.findall(r"\d{2}:\d{2}", line)) == 2
-        assert "—" not in line
+        assert "Jan" in line
+        assert "Dec" in line
 
-    def test_midnight_sun_invents_no_times(self):
-        now = datetime(2026, 6, 21, 12, 0, tzinfo=OSLO)
-        line = _info_line(_render(*SVALBARD, now, tz=OSLO))
-        assert "midnight sun" in line
-        assert "24h 00m" in line
-        assert line.count("—") == 2
-        assert not re.search(r"\d{1,2}:\d{2}", line)
-
-    def test_polar_night_invents_no_times(self):
-        now = datetime(2026, 12, 21, 12, 0, tzinfo=OSLO)
-        line = _info_line(_render(*SVALBARD, now, tz=OSLO))
-        assert "polar night" in line
-        assert "0h 00m" in line
+    def test_no_sunrise_or_sunset_times_below_the_field(self):
+        now = datetime(2026, 3, 5, 14, 30, tzinfo=TORONTO)
+        line = _info_line(_render(*TORONTO_LL, now, tz=TORONTO))
         assert not re.search(r"\d{1,2}:\d{2}", line)
 
 
@@ -312,7 +304,10 @@ class TestPolarState:
 # ---------------------------------------------------------------------------
 class TestMonthAxis:
     def _labels(self, graph_w):
-        return _strip(year._month_line(2026, 365, graph_w, _runtime()))
+        chars = [" "] * graph_w
+        for x, ch in year._month_axis_cells(2026, 365, graph_w, _runtime()):
+            chars[x] = ch
+        return "".join(chars)
 
     def test_wide_labels_are_abbreviations(self):
         line = self._labels(98)
@@ -326,8 +321,8 @@ class TestMonthAxis:
 
     def test_the_axis_never_runs_past_the_field(self):
         for graph_w in (30, 40, 71, 72, 98, 200):
-            body = self._labels(graph_w)[1:]  # the leading margin space
-            assert len(body) <= graph_w, graph_w
+            cells = year._month_axis_cells(2026, 365, graph_w, _runtime())
+            assert all(0 <= x < graph_w for x, _ in cells), graph_w
 
 
 # ---------------------------------------------------------------------------
