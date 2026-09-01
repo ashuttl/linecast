@@ -387,6 +387,15 @@ def _center(line, width):
     return " " * pad + line
 
 
+def _wrap(text, width):
+    """textwrap.wrap without widows: no lone word on the last line."""
+    lines = textwrap.wrap(text, width)
+    if len(lines) > 1 and " " not in lines[-1]:
+        head, last = lines[-2].rsplit(" ", 1)
+        lines[-2:] = [head, f"{last} {lines[-1]}"]
+    return lines
+
+
 def _first_fit(width, *variants):
     """The widest variant that fits, or None when even the last overflows."""
     for variant in variants:
@@ -543,6 +552,11 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         night, nights = hawaiian_night(now_local.date())
         name = po_mahina_name(night, nights)
         lunar_txt = f"anahulu {anahulu_name(night)}"
+        # The pō name already says which night of the month this is,
+        # so "day 20.2 of 29.5" would read as a rival count; the age
+        # keeps its astronomical name and shares a line with the
+        # illumination.
+        age_txt = _ms('lunar_age', runtime, age=f'{age:.1f}')
         note = night_note(name)
         counsel = ANAHULU_COUNSEL[anahulu_name(night)]
         good_txt, hold_txt = (note or counsel), (counsel if note else None)
@@ -626,10 +640,12 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     panel = [
         [(f"{icon} {name}", T, True)] + (
             [(f" · {head_extra}", T, False)] if head_extra else []),
-        [(illum_txt, D, False)],
-        [(age_txt, D, False)],
-        [],
     ]
+    if cal == "hawaiian":
+        panel.append([(f"{illum_txt} · {age_txt}", D, False)])
+    else:
+        panel += [[(illum_txt, D, False)], [(age_txt, D, False)]]
+    panel.append([])
     # The counsel reads the night the headline names, so it goes right
     # here — inserted once the rest of the panel has fixed the column,
     # so it can wrap against that width instead of setting it.
@@ -676,7 +692,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         wrap_w = max(int(base_w * 1.3), 28)
         block = [[(seg, D, False)]
                  for txt in (good_txt, hold_txt, solunar_txt) if txt
-                 for seg in textwrap.wrap(txt, wrap_w)]
+                 for seg in _wrap(txt, wrap_w)]
         panel[counsel_at:counsel_at] = block + [[]]
 
     panel_w = max(visible_len("".join(t for t, _c, _b in line))
@@ -763,7 +779,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         # rather than shed.
         candidates += [(f"{dim}{seg}{RESET}",)
                        for txt in (good_txt, hold_txt) if txt
-                       for seg in textwrap.wrap(txt, fit_w)]
+                       for seg in _wrap(txt, fit_w)]
         if solunar_txt:
             candidates.append((f"{dim}{solunar_txt}{RESET}",))
     candidates += [

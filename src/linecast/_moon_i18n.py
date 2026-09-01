@@ -13,6 +13,7 @@ _MOON_STRINGS = {
     "en": {
         "illuminated": "{pct}% illuminated",
         "age": "day {age} of {total}",
+        "lunar_age": "lunar age {age}d",
         "up_now": "Up now",
         "above_horizon": "{alt}° above the horizon",
         "below_horizon": "Below the horizon",
@@ -39,6 +40,7 @@ _MOON_STRINGS = {
     "fr": {
         "illuminated": "{pct} % éclairée",
         "age": "jour {age} sur {total}",
+        "lunar_age": "âge lunaire {age} j",
         "up_now": "Levée",
         "above_horizon": "{alt}° au-dessus de l'horizon",
         "below_horizon": "Sous l'horizon",
@@ -55,6 +57,7 @@ _MOON_STRINGS = {
     "es": {
         "illuminated": "{pct} % iluminada",
         "age": "día {age} de {total}",
+        "lunar_age": "edad lunar {age} d",
         "up_now": "Visible ahora",
         "above_horizon": "{alt}° sobre el horizonte",
         "below_horizon": "Bajo el horizonte",
@@ -71,6 +74,7 @@ _MOON_STRINGS = {
     "de": {
         "illuminated": "{pct} % beleuchtet",
         "age": "Tag {age} von {total}",
+        "lunar_age": "Mondalter {age} T",
         "up_now": "Jetzt sichtbar",
         "above_horizon": "{alt}° über dem Horizont",
         "below_horizon": "Unter dem Horizont",
@@ -87,6 +91,7 @@ _MOON_STRINGS = {
     "it": {
         "illuminated": "{pct}% illuminata",
         "age": "giorno {age} di {total}",
+        "lunar_age": "età lunare {age} g",
         "up_now": "Visibile ora",
         "above_horizon": "{alt}° sopra l'orizzonte",
         "below_horizon": "Sotto l'orizzonte",
@@ -103,6 +108,7 @@ _MOON_STRINGS = {
     "pt": {
         "illuminated": "{pct}% iluminada",
         "age": "dia {age} de {total}",
+        "lunar_age": "idade lunar {age} d",
         "up_now": "Visível agora",
         "above_horizon": "{alt}° acima do horizonte",
         "below_horizon": "Abaixo do horizonte",
@@ -119,6 +125,7 @@ _MOON_STRINGS = {
     "nl": {
         "illuminated": "{pct}% verlicht",
         "age": "dag {age} van {total}",
+        "lunar_age": "maanleeftijd {age} d",
         "up_now": "Nu zichtbaar",
         "above_horizon": "{alt}° boven de horizon",
         "below_horizon": "Onder de horizon",
@@ -135,6 +142,7 @@ _MOON_STRINGS = {
     "pl": {
         "illuminated": "{pct}% oświetlenia",
         "age": "dzień {age} z {total}",
+        "lunar_age": "wiek księżyca {age} d",
         "up_now": "Nad horyzontem",
         "above_horizon": "{alt}° nad horyzontem",
         "below_horizon": "Pod horyzontem",
@@ -151,6 +159,7 @@ _MOON_STRINGS = {
     "no": {
         "illuminated": "{pct} % belyst",
         "age": "dag {age} av {total}",
+        "lunar_age": "månens alder {age} d",
         "up_now": "Oppe nå",
         "above_horizon": "{alt}° over horisonten",
         "below_horizon": "Under horisonten",
@@ -167,6 +176,7 @@ _MOON_STRINGS = {
     "sv": {
         "illuminated": "{pct} % belyst",
         "age": "dag {age} av {total}",
+        "lunar_age": "månens ålder {age} d",
         "up_now": "Uppe nu",
         "above_horizon": "{alt}° över horisonten",
         "below_horizon": "Under horisonten",
@@ -183,6 +193,7 @@ _MOON_STRINGS = {
     "da": {
         "illuminated": "{pct} % belyst",
         "age": "dag {age} af {total}",
+        "lunar_age": "månens alder {age} d",
         "up_now": "Oppe nu",
         "above_horizon": "{alt}° over horisonten",
         "below_horizon": "Under horisonten",
@@ -199,6 +210,7 @@ _MOON_STRINGS = {
     "is": {
         "illuminated": "{pct}% upplýst",
         "age": "dagur {age} af {total}",
+        "lunar_age": "tunglaldur {age} d",
         "up_now": "Á lofti núna",
         "above_horizon": "{alt}° yfir sjóndeildarhring",
         "below_horizon": "Undir sjóndeildarhring",
@@ -215,6 +227,7 @@ _MOON_STRINGS = {
     "fi": {
         "illuminated": "{pct} % valaistunut",
         "age": "päivä {age} / {total}",
+        "lunar_age": "kuun ikä {age} pv",
         "up_now": "Näkyvissä nyt",
         "above_horizon": "{alt}° horisontin yläpuolella",
         "below_horizon": "Horisontin alapuolella",
@@ -231,6 +244,7 @@ _MOON_STRINGS = {
     "ja": {
         "illuminated": "輝面比 {pct}%",
         "age": "月齢 {age} / {total}",
+        "lunar_age": "月齢 {age}",
         "up_now": "現在昇っています",
         "above_horizon": "高度 {alt}°",
         "below_horizon": "地平線の下",
@@ -247,6 +261,7 @@ _MOON_STRINGS = {
     "ko": {
         "illuminated": "{pct}% 밝음",
         "age": "월령 {age} / {total}",
+        "lunar_age": "월령 {age}",
         "up_now": "지금 떠 있음",
         "above_horizon": "고도 {alt}°",
         "below_horizon": "지평선 아래",
@@ -263,6 +278,7 @@ _MOON_STRINGS = {
     "zh": {
         "illuminated": "亮面 {pct}%",
         "age": "月龄 {age} / {total}",
+        "lunar_age": "月龄 {age}",
         "up_now": "现在已升起",
         "above_horizon": "高度 {alt}°",
         "below_horizon": "在地平线下",
@@ -279,6 +295,7 @@ _MOON_STRINGS = {
     "id": {
         "illuminated": "{pct}% diterangi",
         "age": "hari {age} dari {total}",
+        "lunar_age": "umur bulan {age} hr",
         "up_now": "Di atas cakrawala",
         "above_horizon": "{alt}° di atas cakrawala",
         "below_horizon": "Di bawah cakrawala",
