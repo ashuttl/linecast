@@ -153,15 +153,21 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     # Snapped hour column (1-based terminal col) — use int() to match midnight divider formula
     snap_col = int(idx / max(1, total_hours) * (graph_w - 1)) + 2
 
-    # Position: top-left anchored to snapped column, pushed inward at edges
+    # Position: anchored to the snapped column, below the pointer with a
+    # clear row between, so the pointer glyph — which hangs down and right
+    # of its hotspot, further when sized up — does not sit on the text
+    # (issue #48). Flipped to just above the pointer when there is no room
+    # below; pushed inward at the edges as a last resort.
     tooltip_w = max_w
     tooltip_h = len(padded)
     tooltip_col = snap_col
-    tooltip_row = mouse_row
+    tooltip_row = mouse_row + 2
+    if tooltip_row + tooltip_h - 1 > rows:
+        tooltip_row = mouse_row - tooltip_h
+    if tooltip_row < 1:
+        tooltip_row = max(1, rows - tooltip_h + 1)
     if tooltip_col + tooltip_w - 1 > cols:
         tooltip_col = max(1, cols - tooltip_w + 1)
-    if tooltip_row + tooltip_h - 1 > rows:
-        tooltip_row = max(1, rows - tooltip_h + 1)
 
     # Tooltip
     result = ""
