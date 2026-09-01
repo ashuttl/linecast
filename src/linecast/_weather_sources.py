@@ -11,13 +11,6 @@ from linecast._paths import cache_dir
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure
 
 
-def _location_from_timezone(tz_str):
-    """Extract display name from timezone like 'America/New_York' -> 'New York'."""
-    if not tz_str or "/" not in tz_str:
-        return ""
-    return tz_str.rsplit("/", 1)[-1].replace("_", " ")
-
-
 def _local_now_for_data(data):
     """Current local time in the forecast's timezone (as naive local datetime)."""
     tz_name = data.get("timezone", "")
@@ -70,7 +63,11 @@ def _reverse_geocode(lat, lng, lang=None):
             url += f"&accept-language={lang}"
         data = fetch_json(url, timeout=10)
         addr = data.get("address", {})
-        name = addr.get("city") or addr.get("town") or addr.get("village") or ""
+        # Nominatim files small places under keys all the way down to
+        # hamlet (Fayette, Maine is one); without them the name comes back
+        # empty and the caller falls back to the timezone city (issue #50).
+        name = (addr.get("city") or addr.get("town") or addr.get("village")
+                or addr.get("hamlet") or addr.get("municipality") or "")
         state = addr.get("state", "")
         country_code = _country_code(addr)
         if name and state:

@@ -3,7 +3,7 @@
 from datetime import timedelta, timezone
 
 from linecast._graphics import RESET, bg, fg, fmt_hour, fmt_time_dt, visible_len
-from linecast import _theme
+from linecast import _live, _theme
 from linecast._theme import (
     best_contrast,
     darken,
@@ -416,23 +416,5 @@ def build_tide_hover_tooltip(window, graph_col, mouse_row, chart_start, chart_en
         f"{tip_bg}{tip_fg} {h_display:.1f}{runtime.height_unit} ",
     ]
 
-    max_w = max(visible_len(line) for line in tip_lines)
-    padded = []
-    for line in tip_lines:
-        pad = max_w - visible_len(line)
-        padded.append(f"{line}{' ' * pad}{RESET}")
-
-    snap_col = graph_col + 2
-    tooltip_col = snap_col
-    tooltip_row = mouse_row
-    tooltip_w = max_w
-    tooltip_h = len(padded)
-    if tooltip_col + tooltip_w - 1 > cols:
-        tooltip_col = max(1, cols - tooltip_w + 1)
-    if tooltip_row + tooltip_h - 1 > rows:
-        tooltip_row = max(1, rows - tooltip_h + 1)
-
-    result = ""
-    for i, line in enumerate(padded):
-        result += f"\033[{tooltip_row + i};{tooltip_col}H{line}"
-    return result
+    return _live.pointer_chip(tip_lines, graph_col + 2, mouse_row, cols, rows,
+                              pad_bg=tip_bg)

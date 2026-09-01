@@ -102,3 +102,31 @@ class TestTuning:
         assert WeatherApp.scroll_step == 60
         assert WeatherApp.mouse is True
         assert set(_app(lambda: 0.0).hooks()) == {"on_open"}
+
+
+class TestHoverTooltip:
+    """The tooltip keeps clear of the pointer glyph (issue #48)."""
+
+    def _rows_used(self, mouse_row, rows):
+        import json
+        import re
+        from datetime import datetime
+        from linecast._runtime import WeatherRuntime
+
+        data = json.loads(
+            (Path(__file__).parent / "fixtures" / "open_meteo_forecast.json")
+            .read_text(encoding="utf-8"))
+        runtime = WeatherRuntime(live=False, icons="emoji", lang="en",
+                                 oneline=False, celsius=False, metric=False)
+        with patch.object(weather, "_local_now_for_data",
+                          return_value=datetime(2026, 3, 5, 14, 30)):
+            overlay = weather._build_hover_tooltip(
+                data, 40, mouse_row, 2, rows - 1, 80, rows, runtime)
+        assert overlay
+        return [int(m) for m in re.findall(r"\x1b\[(\d+);\d+H", overlay)]
+
+    def test_sits_below_the_pointer_with_a_clear_row(self):
+        assert min(self._rows_used(mouse_row=5, rows=40)) == 7
+
+    def test_flips_above_when_there_is_no_room_below(self):
+        assert max(self._rows_used(mouse_row=22, rows=24)) == 21
