@@ -39,7 +39,11 @@ COMMANDS = {
     "units": "linecast.units",
     "clock": "linecast.clock",
     "icons": "linecast.icons",
-    "calendar": "linecast.calendar",
+    # calendar_cmd, not calendar: running any file in this package as a
+    # script (python src/linecast/moon.py) puts the package directory
+    # first on sys.path, where a calendar.py would shadow the standard
+    # library module the rest of the code imports.
+    "calendar": "linecast.calendar_cmd",
     "link": "linecast.link",
     "doctor": "linecast.doctor",
 }

@@ -1,5 +1,9 @@
 """Show or set the lunisolar calendar the moon command follows.
 
+The module is calendar_cmd, not calendar, so that running a file in
+this package as a script never shadows the standard library's calendar
+module; the command is still `linecast calendar`, via __main__'s map.
+
 Usage: linecast calendar [show]
        linecast calendar chinese | japanese | korean
        linecast calendar none
