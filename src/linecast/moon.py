@@ -41,7 +41,9 @@ from linecast._moon_i18n import (
     anahulu_name, festival_table, ja_night_name, lunar_date_label,
     po_mahina_name, term_label,
 )
-from linecast._pacific import hawaiian_night
+from linecast._pacific import (
+    ANAHULU_COUNSEL, COUNSEL_ATTRIBUTION, hawaiian_night, night_note,
+)
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._textwidth import char_width
 from linecast._tides_i18n import _ts  # shared "space to return to now" hint
@@ -563,9 +565,18 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # The almanac's counsel, on request: gardening by the light and
     # dark of the moon as the Old Farmer's Almanac prints the rule, and
     # the day's solunar periods — majors at the Moon's meridian passes,
-    # minors at moonrise and moonset.
+    # minors at moonrise and moonset. With the Hawaiian calendar the
+    # Kaulana Mahina's own counsel takes the slot instead — the night's
+    # kapu or ʻole note when it has one, the anahulu's fishing counsel,
+    # and the source named plainly.
     good_txt = hold_txt = solunar_txt = almanac_phase_txt = None
-    if almanac:
+    attrib_txt = None
+    if almanac and cal == "hawaiian":
+        note = night_note(name)
+        counsel = ANAHULU_COUNSEL[anahulu_name(night)]
+        good_txt, hold_txt = (note or counsel), (counsel if note else None)
+        attrib_txt = f"— {COUNSEL_ATTRIBUTION}"
+    elif almanac:
         waxing = moon_cycle_frac(now_local) < 0.5
         half = "light" if waxing else "dark"
         almanac_phase_txt = _ms(f'{half}_of_moon', runtime)
@@ -573,6 +584,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                        things=_ms(f'{half}_good', runtime))
         hold_txt = _ms('hold_off', runtime,
                        things=_ms(f'{half}_hold', runtime))
+    if almanac:
         upper, lower = _moon_transits_for_local_date(
             now_local.date(), lng, now_local.tzinfo)
         day_rise, day_set = _moon_events_for_local_date(
@@ -624,12 +636,13 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         [],
     ]
     if good_txt:
-        panel += [
-            [(good_txt, D, False)],
-            [(hold_txt, D, False)],
-            [(solunar_txt, D, False)],
-            [],
-        ]
+        panel += [[(good_txt, D, False)]]
+        if hold_txt:
+            panel += [[(hold_txt, D, False)]]
+        panel += [[(solunar_txt, D, False)]]
+        if attrib_txt:
+            panel += [[(attrib_txt, D, False)]]
+        panel += [[]]
     panel += [
         [(full_txt, D, False)],
         [(new_txt, D, False)],
@@ -732,8 +745,11 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     ]
     if good_txt:
         candidates.append((f"{dim}{good_txt} · {hold_txt}{RESET}",
-                           f"{dim}{good_txt}{RESET}"))
+                           f"{dim}{good_txt}{RESET}")
+                          if hold_txt else (f"{dim}{good_txt}{RESET}",))
         candidates.append((f"{dim}{solunar_txt}{RESET}",))
+        if attrib_txt:
+            candidates.append((f"{dim}{attrib_txt}{RESET}",))
     if term_txt:
         # The calendar line, the festival leading since it is the one
         # people wait for.

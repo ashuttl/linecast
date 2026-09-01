@@ -14,8 +14,13 @@ from datetime import date, timedelta
 
 import pytest
 
-from linecast._moon_i18n import anahulu_name, po_mahina_name
-from linecast._pacific import hawaiian_night
+from linecast._moon_i18n import _ANAHULU, _PO_MAHINA, anahulu_name, po_mahina_name
+from linecast._pacific import (
+    ANAHULU_COUNSEL,
+    _NIGHT_NOTES,
+    hawaiian_night,
+    night_note,
+)
 
 # (Hilo, Muku) of every month in the 2025 and 2026 printed editions.
 PUBLISHED_MONTHS = [
@@ -119,3 +124,26 @@ class TestAnahulu:
         assert anahulu_name(20) == "poepoe"
         assert anahulu_name(21) == "hōʻemi"
         assert anahulu_name(30) == "hōʻemi"
+
+
+class TestCounsel:
+    """The vendored WPRFMC counsel stays keyed to real names."""
+
+    def test_every_anahulu_has_counsel(self):
+        assert set(ANAHULU_COUNSEL) == set(_ANAHULU)
+
+    def test_every_note_names_a_real_night(self):
+        assert set(_NIGHT_NOTES) <= set(_PO_MAHINA)
+
+    def test_the_kapu_nights_as_the_display_draws_them(self):
+        # Kapu Kū over Hilo..Kūlua, Hua over Mōhalu..Hua, Kāloa over
+        # the first two Kāloa nights, Kāne over Kāne and Lono.
+        assert night_note("Hilo").startswith("Kapu Kū")
+        assert night_note("Kūlua").startswith("Kapu Kū")
+        assert night_note("Kūkolu") is None
+        assert night_note("Hua").startswith("Kapu Hua")
+        assert night_note("Kāloakūlua").startswith("Kapu Kāloa")
+        assert night_note("Kāloapau") is None
+        assert night_note("Lono").startswith("Kapu Kāne")
+        assert night_note("Mauli") is None
+        assert night_note("ʻOlepau").startswith("ʻOle night")

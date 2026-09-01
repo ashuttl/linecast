@@ -142,3 +142,48 @@ def hawaiian_night(local_date):
     else:
         nxt = next_moon_phase_utc(conj + timedelta(days=1), 0.0)
     return (local_date - start).days + 1, (_hilo_date(nxt) - start).days
+
+
+# ---------------------------------------------------------------------------
+# The practice layer, shown with --almanac: fishing counsel quoted
+# from the Council's educational display "Hawaiian Moon Phases and
+# Traditional Natural Resource Management" (WPRFMC, NOAA-funded) —
+# the same source the UH Climate Data Portal cites for its guidance.
+# The Council's own words, lightly compressed, never paraphrased into
+# new claims. Permission to carry this layer is asked but not yet
+# answered (issue #46, scope B); it ships nowhere until it is.
+# ---------------------------------------------------------------------------
+
+COUNSEL_ATTRIBUTION = "Western Pacific Regional Fishery Management Council"
+
+# Per-anahulu fishing counsel, keyed by the anahulu names in
+# _moon_i18n.
+ANAHULU_COUNSEL = {
+    "hoʻonui": ("Good lamalama (torching) and net fishing the first "
+                "half of the anahulu; poor fishing the rest"),
+    "poepoe": "Fair to good fishing, near shore and deep sea",
+    "hōʻemi": ("Poor fishing the first half of the anahulu; the "
+               "second half good at night and in the deep sea"),
+}
+
+# Nights the display marks specially: the four monthly kapu (sacred)
+# periods, drawn there over these exact nights, and the unproductive
+# ʻOle runs — both runs, so the repeated names collapse to one entry.
+_KU = "Kapu Kū — spent at temple; no planting or fishing"
+_OLE = "ʻOle night — low fishing productivity"
+_HUA = "Kapu Hua — a sacred period"
+_KALOA = "Kapu Kāloa — certain crops planted, certain kinds of fishing"
+_NIGHT_NOTES = {
+    "Hilo": _KU, "Hoaka": _KU, "Kūkahi": _KU, "Kūlua": _KU,
+    "ʻOlekūkahi": _OLE, "ʻOlekūlua": _OLE,
+    "ʻOlekūkolu": _OLE, "ʻOlepau": _OLE,
+    "Mōhalu": _HUA, "Hua": _HUA,
+    "Kāloakūkahi": _KALOA, "Kāloakūlua": _KALOA,
+    "Kāne": "Kapu Kāne — fishing and planting restricted",
+    "Lono": "Kapu Kāne — prayers and offerings to Lono",
+}
+
+
+def night_note(po_name):
+    """The display's kapu or ʻole note for a named night, or None."""
+    return _NIGHT_NOTES.get(po_name)

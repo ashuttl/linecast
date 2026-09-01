@@ -273,6 +273,22 @@ class TestJapaneseNightName:
 
 
 class TestHawaiianCalendarBlock:
+    def test_the_almanac_carries_the_councils_counsel(self):
+        # The 20th night, Lāʻaupau, has no kapu note; the poepoe
+        # counsel and the attribution carry the block.
+        moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="hawaiian",
+                           almanac=True)
+        counsel = payload["almanac"]["counsel"]
+        assert counsel["night_note"] is None
+        assert counsel["anahulu"].startswith("Fair to good fishing")
+        assert counsel["source"] == (
+            "Western Pacific Regional Fishery Management Council")
+
+    def test_other_calendars_have_no_counsel(self):
+        payload = _payload(almanac=True)
+        assert "counsel" not in payload["almanac"]
+
     def test_the_kaulana_mahina_names_the_night(self):
         # Sep 1 2026 is the twentieth night of the month begun Aug 13,
         # per the printed 2026 Kaulana Mahina.

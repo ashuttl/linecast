@@ -140,6 +140,19 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
             "solunar_minor": sorted(_iso(t) for t in (day_rise, day_set)
                                     if t is not None),
         }
+        if cal == "hawaiian":
+            # The Kaulana Mahina's counsel, as the panel shows it.
+            from linecast._moon_i18n import anahulu_name, po_mahina_name
+            from linecast._pacific import (
+                ANAHULU_COUNSEL, COUNSEL_ATTRIBUTION, hawaiian_night,
+                night_note,
+            )
+            night, nights = hawaiian_night(now_local.date())
+            almanac_block["counsel"] = {
+                "night_note": night_note(po_mahina_name(night, nights)),
+                "anahulu": ANAHULU_COUNSEL[anahulu_name(night)],
+                "source": COUNSEL_ATTRIBUTION,
+            }
 
     return {
         "schema": SCHEMA_VERSION,
