@@ -21,6 +21,16 @@ _MOON_STRINGS = {
         "in_days": "in {days}d",
         "in_time": "in {dur}",
         "year_day": "Day {n} of {total}",
+        "light_of_moon": "light of the moon",
+        "dark_of_moon": "dark of the moon",
+        "good_for": "Good for {things}",
+        "hold_off": "Hold off {things}",
+        "light_good": "sowing above-ground crops, grafting, transplanting",
+        "light_hold": "root crops",
+        "dark_good": "root crops, pruning, weeding",
+        "dark_hold": "sowing above-ground crops",
+        "solunar_major": "Solunar major",
+        "solunar_minor": "minor",
         "spring_equinox": "Spring equinox",
         "summer_solstice": "Summer solstice",
         "autumn_equinox": "Autumn equinox",
@@ -364,3 +374,130 @@ def _fmt_month_day(dt, runtime):
 def _day_abbrev(dt, runtime):
     """Localized three-letter-ish weekday abbreviation."""
     return DAY_NAMES.get(lang_of(runtime), DAY_NAMES["en"])[dt.weekday()]
+
+
+# ---------------------------------------------------------------------------
+# The lunisolar calendar's names (see _lunisolar.py for the calendar
+# itself). Each calendar reads in its own script for its own language;
+# every other UI language gets the customary English renderings, the
+# same fallback the string tables use.
+# ---------------------------------------------------------------------------
+
+# Solar terms in longitude order, index 0 at the March equinox — the
+# indexing current_term() and next_term() use. The terms are common to
+# all three calendars; only the writing differs.
+SOLAR_TERMS_I18N = {
+    "en": ["Spring Equinox", "Clear and Bright", "Grain Rain",
+           "Start of Summer", "Grain Buds", "Grain in Ear",
+           "Summer Solstice", "Minor Heat", "Major Heat",
+           "Start of Autumn", "End of Heat", "White Dew",
+           "Autumn Equinox", "Cold Dew", "Frost's Descent",
+           "Start of Winter", "Minor Snow", "Major Snow",
+           "Winter Solstice", "Minor Cold", "Major Cold",
+           "Start of Spring", "Rain Water", "Awakening of Insects"],
+    "zh": ["春分", "清明", "谷雨", "立夏", "小满", "芒种",
+           "夏至", "小暑", "大暑", "立秋", "处暑", "白露",
+           "秋分", "寒露", "霜降", "立冬", "小雪", "大雪",
+           "冬至", "小寒", "大寒", "立春", "雨水", "惊蛰"],
+    "ja": ["春分", "清明", "穀雨", "立夏", "小満", "芒種",
+           "夏至", "小暑", "大暑", "立秋", "処暑", "白露",
+           "秋分", "寒露", "霜降", "立冬", "小雪", "大雪",
+           "冬至", "小寒", "大寒", "立春", "雨水", "啓蟄"],
+    "ko": ["춘분", "청명", "곡우", "입하", "소만", "망종",
+           "하지", "소서", "대서", "입추", "처서", "백로",
+           "추분", "한로", "상강", "입동", "소설", "대설",
+           "동지", "소한", "대한", "입춘", "우수", "경칩"],
+}
+
+# Festivals dated by the lunar calendar, (month, day) → (native name,
+# English name), per calendar. Japan moved its festivals to Gregorian
+# dates in 1873; the two moon-viewing nights are what remains on the
+# old calendar.
+_FESTIVALS = {
+    "chinese": {
+        (1, 1): ("春节", "Chinese New Year"),
+        (1, 15): ("元宵节", "Lantern Festival"),
+        (5, 5): ("端午节", "Dragon Boat Festival"),
+        (7, 7): ("七夕", "Qixi"),
+        (8, 15): ("中秋节", "Mid-Autumn Festival"),
+        (9, 9): ("重阳节", "Double Ninth"),
+    },
+    "japanese": {
+        (8, 15): ("十五夜", "Tsukimi"),
+        (9, 13): ("十三夜", "Jūsan'ya"),
+    },
+    "korean": {
+        (1, 1): ("설날", "Seollal"),
+        (1, 15): ("정월대보름", "Daeboreum"),
+        (5, 5): ("단오", "Dano"),
+        (8, 15): ("추석", "Chuseok"),
+    },
+}
+
+
+def festival_table(calendar, native):
+    """(month, day) → name for a calendar's festivals.
+
+    *native* picks the calendar's own script; otherwise the customary
+    English names.
+    """
+    return {md: names[0] if native else names[1]
+            for md, names in _FESTIVALS[calendar].items()}
+
+# Chinese months and days have names, not numbers: the eleventh and
+# twelfth months are 冬月 and 腊月, the first ten days take 初, the
+# twenties 廿.
+_ZH_MONTHS = ["正月", "二月", "三月", "四月", "五月", "六月",
+              "七月", "八月", "九月", "十月", "冬月", "腊月"]
+_ZH_DIGITS = "一二三四五六七八九十"
+
+
+def _zh_day_name(day):
+    if day <= 10:
+        return "初" + _ZH_DIGITS[day - 1]
+    if day < 20:
+        return "十" + _ZH_DIGITS[day - 11]
+    if day == 20:
+        return "二十"
+    if day < 30:
+        return "廿" + _ZH_DIGITS[day - 21]
+    return "三十"
+
+
+def lunar_date_label(month, day, leap, lang):
+    """The lunar date as its own calendar writes it, English otherwise."""
+    if lang == "zh":
+        leap_mark = "闰" if leap else ""
+        return f"农历{leap_mark}{_ZH_MONTHS[month - 1]}{_zh_day_name(day)}"
+    if lang == "ja":
+        leap_mark = "閏" if leap else ""
+        return f"旧暦{leap_mark}{month}月{day}日"
+    if lang == "ko":
+        leap_mark = "윤" if leap else ""
+        return f"음력 {leap_mark}{month}월 {day}일"
+    leap_mark = "leap " if leap else ""
+    return f"{leap_mark}month {month} day {day}"
+
+
+def term_label(index, lang):
+    """The name of solar term *index* (0 = March equinox)."""
+    return SOLAR_TERMS_I18N.get(lang, SOLAR_TERMS_I18N["en"])[index]
+
+
+# Japan names the nights, not just the phases: after the full moon the
+# names narrate the lengthening wait for moonrise — stand and wait,
+# sit and wait, lie down, wait past midnight. The named nights are the
+# traditional ones; the days between take the plain counted form.
+_JA_NIGHT_NAMES = (
+    "新月", "二日月", "三日月", "四日月", "五日月",
+    "六日月", "七日月", "八日月", "九日月", "十日夜",
+    "十一日月", "十二日月", "十三夜", "小望月", "十五夜",
+    "十六夜", "立待月", "居待月", "寝待月", "更待月",
+    "二十一日月", "二十二日月", "二十三夜", "二十四日月", "二十五日月",
+    "二十六夜", "二十七日月", "二十八日月", "二十九日月", "三十日月",
+)
+
+
+def ja_night_name(day):
+    """The Japanese name of the old calendar's night *day* (1-30)."""
+    return _JA_NIGHT_NAMES[day - 1]

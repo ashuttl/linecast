@@ -18,6 +18,7 @@ Commands:
   linecast units       Show or set preferred units (metric or imperial)
   linecast clock       Show or set the clock style (12-hour or 24-hour)
   linecast icons       Show or set the icon set (nerd, emoji, or plain)
+  linecast calendar    Show or set the moon's lunisolar calendar (chinese, japanese, korean)
   linecast link        Make the short commands (weather, moon, …) as links to linecast
   linecast doctor      Show where files live, what the terminal supports, and which providers answer
   linecast completion  Print shell completion script (bash, zsh, fish, nushell)
@@ -38,6 +39,11 @@ COMMANDS = {
     "units": "linecast.units",
     "clock": "linecast.clock",
     "icons": "linecast.icons",
+    # calendar_cmd, not calendar: running any file in this package as a
+    # script (python src/linecast/moon.py) puts the package directory
+    # first on sys.path, where a calendar.py would shadow the standard
+    # library module the rest of the code imports.
+    "calendar": "linecast.calendar_cmd",
     "link": "linecast.link",
     "doctor": "linecast.doctor",
 }

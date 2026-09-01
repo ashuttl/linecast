@@ -30,7 +30,7 @@ EXPECTED_TOP_KEYS = {
     "illumination", "waxing", "age_days", "events", "next_full",
     "next_full_name", "next_new", "day_of_year", "days_in_year",
     "next_season_event", "southern", "altitude_deg", "azimuth_deg",
-    "up_now",
+    "up_now", "calendar", "almanac",
 }
 
 
@@ -187,3 +187,86 @@ class TestLiveSuppression:
         args = moon_parser().parse_args(["--print"])
         runtime = RuntimeConfig.from_sources(namespace=args)
         assert runtime.json_mode is False
+
+
+class TestCalendarBlock:
+    """The lunisolar calendar in the payload, resolved like the panel."""
+
+    MOMENT = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+
+    def test_null_by_default_in_english(self):
+        assert _payload()["calendar"] is None
+
+    def test_native_block_for_chinese(self):
+        payload = _payload(now_local=self.MOMENT, runtime=_runtime(lang="zh"))
+        cal = payload["calendar"]
+        assert cal["name"] == "chinese"
+        assert (cal["month"], cal["day"], cal["leap_month"]) == (7, 20, False)
+        assert cal["label"] == "农历七月二十"
+        assert cal["solar_term"] == "处暑"
+        assert cal["next_solar_term"] == {"name": "白露", "date": "2026-09-07"}
+        assert cal["next_festival"] == {"name": "中秋节", "date": "2026-09-25"}
+
+    def test_english_names_with_the_flag(self):
+        payload = _payload(now_local=self.MOMENT, calendar="chinese")
+        cal = payload["calendar"]
+        assert cal["label"] == "month 7 day 20"
+        assert cal["solar_term"] == "End of Heat"
+        assert cal["next_festival"]["name"] == "Mid-Autumn Festival"
+
+    def test_none_flag_wins_over_the_language(self):
+        payload = _payload(now_local=self.MOMENT,
+                           runtime=_runtime(lang="zh"), calendar="none")
+        assert payload["calendar"] is None
+
+
+class TestAlmanacBlock:
+    def test_null_without_the_flag(self):
+        assert _payload()["almanac"] is None
+
+    def test_gardening_half_matches_the_phase(self):
+        payload = _payload(almanac=True)
+        block = payload["almanac"]
+        assert block["gardening"] == ("light" if payload["waxing"] else "dark")
+
+    def test_solunar_periods_are_todays_times(self):
+        block = _payload(almanac=True)["almanac"]
+        for key in ("solunar_major", "solunar_minor"):
+            times = block[key]
+            assert 1 <= len(times) <= 2
+            assert times == sorted(times)
+            for stamp in times:
+                dt = datetime.fromisoformat(stamp)
+                assert dt.date() == FIXED_NOW.date()
+
+
+class TestMoonTransits:
+    def test_upper_transit_crosses_the_meridian(self):
+        from linecast._ephemeris import (
+            _moon_azimuth_deg, _moon_altitude_deg,
+            _moon_transits_for_local_date,
+        )
+        upper, lower = _moon_transits_for_local_date(
+            FIXED_NOW.date(), LNG, timezone.utc)
+        assert upper is not None
+        azimuth = _moon_azimuth_deg(upper.astimezone(timezone.utc), LAT, LNG)
+        assert min(azimuth, 360 - azimuth) > 90  # southern half of the sky
+        assert abs(((azimuth - 180) + 180) % 360 - 180) < 2.0
+        if lower is not None:
+            up_alt = _moon_altitude_deg(upper.astimezone(timezone.utc), LAT, LNG)
+            low_alt = _moon_altitude_deg(lower.astimezone(timezone.utc), LAT, LNG)
+            assert up_alt > low_alt
+
+
+class TestJapaneseNightName:
+    def test_the_night_follows_the_old_calendars_day(self):
+        moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, runtime=_runtime(lang="ja"))
+        cal = payload["calendar"]
+        assert cal["day"] == 20
+        assert cal["night_name"] == "更待月"
+
+    def test_other_calendars_have_no_night_name(self):
+        moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, runtime=_runtime(lang="zh"))
+        assert payload["calendar"]["night_name"] is None

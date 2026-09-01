@@ -32,8 +32,13 @@ from linecast._i18n import lang_of
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
+from linecast._lunisolar import (
+    CALENDAR_MERIDIAN_HOURS, CALENDAR_NATIVE_LANG, current_term,
+    lunisolar_date, next_lunar_event, next_term, resolve_calendar,
+)
 from linecast._moon_i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
+    festival_table, ja_night_name, lunar_date_label, term_label,
 )
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._textwidth import char_width
@@ -55,8 +60,9 @@ from linecast._theme import (
 from linecast._radar_i18n import rs
 from linecast._ephemeris import (
     _moon_altitude_deg, _moon_azimuth_deg, _moon_events_for_local_date,
-    _moon_parallactic_deg, moon_age_days, moon_axis_deg,
-    moon_bright_limb_deg, moon_illuminated_fraction, next_moon_phase_utc,
+    _moon_parallactic_deg, _moon_transits_for_local_date, moon_age_days,
+    moon_axis_deg, moon_bright_limb_deg, moon_illuminated_fraction,
+    next_moon_phase_utc,
 )
 from linecast.sunshine import (
     INFO_AMBER_RGB,
@@ -432,7 +438,8 @@ def _next_phase_local(moment_utc, target_frac, now_local):
     return found.astimezone(now_local.tzinfo)
 
 
-def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
+def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
+           calendar_name=None, almanac=False):
     """Build the full-screen moon display: disc plus info lines.
 
     Three layouts, by terminal size: a wide terminal floats the info as
@@ -504,6 +511,77 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
                 f"{_fmt_month_day(now_local, runtime)} "
                 f"{fmt_time_dt(now_local, use_24h=runtime.use_24h)}")
 
+    # The lunisolar calendar: on by default for the languages whose
+    # readers know the moon through it, and available to anyone with
+    # --calendar or `linecast calendar` — the lunar date beside the
+    # phase, the solar term in progress with the next one's date, and
+    # the coming festival. A calendar shown in its own language keeps
+    # its own script; any other language gets the customary English
+    # names.
+    lang = lang_of(runtime)
+    cal = resolve_calendar(calendar_name, lang)
+    lunar_txt = term_txt = term_short = fest_txt = fest_short = None
+    if cal is not None:
+        cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
+        label_lang = lang if CALENDAR_NATIVE_LANG[cal] == lang else "en"
+        lunar = lunisolar_date(now_local.date(), cal_tz)
+        if lunar is not None:
+            lunar_txt = lunar_date_label(*lunar, label_lang)
+            # Japan names the night itself: on the old calendar's 18th
+            # the moon is 居待月 whatever octant the phase rounds to,
+            # so the headline follows the day, not the bucket.
+            if cal == "japanese" and label_lang == "ja":
+                name = ja_night_name(lunar[1])
+        cur_k, _cur_start = current_term(moment_utc)
+        nxt_k, nxt_start = next_term(moment_utc)
+        nxt_local = nxt_start.astimezone(now_local.tzinfo)
+        days_to_term = (nxt_start - moment_utc).total_seconds() / 86400.0
+        term_short = term_label(cur_k, label_lang)
+        term_txt = (f"{term_short} · {term_label(nxt_k, label_lang)} "
+                    f"{_fmt_month_day(nxt_local, runtime)} "
+                    f"({in_days(days_to_term)})")
+        fest = next_lunar_event(now_local.date(), cal_tz,
+                                festival_table(cal, label_lang != "en"))
+        if fest is not None:
+            fest_day, fest_name = fest
+            fest_short = f"{fest_name} {_fmt_month_day(fest_day, runtime)}"
+            fest_gap = (fest_day - now_local.date()).days
+            fest_txt = fest_short if fest_gap == 0 else (
+                f"{fest_short} "
+                f"({_ms('in_days', runtime, days=str(fest_gap))})")
+
+    # The almanac's counsel, on request: gardening by the light and
+    # dark of the moon as the Old Farmer's Almanac prints the rule, and
+    # the day's solunar periods — majors at the Moon's meridian passes,
+    # minors at moonrise and moonset.
+    good_txt = hold_txt = solunar_txt = almanac_phase_txt = None
+    if almanac:
+        waxing = moon_cycle_frac(now_local) < 0.5
+        half = "light" if waxing else "dark"
+        almanac_phase_txt = _ms(f'{half}_of_moon', runtime)
+        good_txt = _ms('good_for', runtime,
+                       things=_ms(f'{half}_good', runtime))
+        hold_txt = _ms('hold_off', runtime,
+                       things=_ms(f'{half}_hold', runtime))
+        upper, lower = _moon_transits_for_local_date(
+            now_local.date(), lng, now_local.tzinfo)
+        day_rise, day_set = _moon_events_for_local_date(
+            now_local.date(), lat, lng, now_local.tzinfo)
+
+        def _times(moments):
+            times = sorted(t for t in moments if t is not None)
+            return " · ".join(fmt_time_dt(t, use_24h=runtime.use_24h)
+                              for t in times) or "—"
+
+        solunar_txt = (f"{_ms('solunar_major', runtime)} "
+                       f"{_times((upper, lower))}  "
+                       f"{_ms('solunar_minor', runtime)} "
+                       f"{_times((day_rise, day_set))}")
+
+    # The headline has room for one aside; the calendar's date outranks
+    # the almanac's half of the month.
+    head_extra = lunar_txt or almanac_phase_txt
+
     cols, rows = get_terminal_size()
     hint = install_banner()
     # Track even a very narrow terminal rather than overflow it; the
@@ -513,7 +591,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     # --- wide layout: the info as a column in the sky beside the disc ---
     T, D, A, P = PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
     panel = [
-        [(f"{icon} {name}", T, True)],
+        [(f"{icon} {name}", T, True)] + (
+            [(f" · {head_extra}", T, False)] if head_extra else []),
         [(illum_txt, D, False)],
         [(age_txt, D, False)],
         [],
@@ -533,9 +612,26 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
         [("↑", A, False), (rise_txt, T, False)],
         [("↓", P, False), (set_txt, T, False)],
         [],
+    ]
+    if good_txt:
+        panel += [
+            [(good_txt, D, False)],
+            [(hold_txt, D, False)],
+            [(solunar_txt, D, False)],
+            [],
+        ]
+    panel += [
         [(full_txt, D, False)],
         [(new_txt, D, False)],
         [],
+    ]
+    if term_txt:
+        panel.append([(term_txt, D, False)])
+    if fest_txt:
+        panel.append([(fest_txt, T, False)])
+    if term_txt or fest_txt:
+        panel.append([])
+    panel += [
         [(year_txt, D, False)],
         [(season_txt, D, False)],
     ]
@@ -600,10 +696,21 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     else:
         status_line = (f"{dim}{below_txt}{RESET}",)
 
+    if head_extra:
+        head_line = (
+            f"{text}{icon} {name} · {head_extra}  "
+            f"{dim}{illum_txt} · {age_txt}{RESET}",
+            f"{text}{icon} {name} · {head_extra}  {dim}{illum_txt}{RESET}",
+            f"{text}{icon} {name} · {head_extra}{RESET}",
+            f"{text}{icon} {name}{RESET}")
+    else:
+        head_line = (
+            f"{text}{icon} {name}  {dim}{illum_txt} · {age_txt}{RESET}",
+            f"{text}{icon} {name}  {dim}{illum_txt}{RESET}",
+            f"{text}{icon} {name}{RESET}")
+
     candidates = [
-        (f"{text}{icon} {name}  {dim}{illum_txt} · {age_txt}{RESET}",
-         f"{text}{icon} {name}  {dim}{illum_txt}{RESET}",
-         f"{text}{icon} {name}{RESET}"),
+        head_line,
         status_line,
         # The countdown roughly doubles this line's width, so keep the
         # plain labelled time between it and the bare clock times —
@@ -612,6 +719,22 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
          f"{amber}↑{text}{_ms('moonrise', runtime)} {rise_when}  "
          f"{purple}↓{text}{_ms('moonset', runtime)} {set_when}{RESET}",
          f"{amber}↑{text}{rise_when}  {purple}↓{text}{set_when}{RESET}"),
+    ]
+    if good_txt:
+        candidates.append((f"{dim}{good_txt} · {hold_txt}{RESET}",
+                           f"{dim}{good_txt}{RESET}"))
+        candidates.append((f"{dim}{solunar_txt}{RESET}",))
+    if term_txt:
+        # The calendar line, the festival leading since it is the one
+        # people wait for.
+        candidates.append(
+            (f"{dim}{term_txt} · {text}{fest_txt}{RESET}",
+             f"{text}{fest_txt}  {dim}{term_short}{RESET}",
+             f"{text}{fest_short}{RESET}")
+            if fest_txt else
+            (f"{dim}{term_txt}{RESET}",
+             f"{dim}{term_short}{RESET}"))
+    candidates += [
         (f"{dim}{full_txt} · {new_txt}{RESET}",
          f"{dim}{full_label} {_fmt_month_day(full_dt, runtime)} · "
          f"{new_label} {_fmt_month_day(new_dt, runtime)}{RESET}",
@@ -683,7 +806,9 @@ def main():
     if runtime.json_mode:
         import json
         from linecast._moon_json import build_payload
-        payload = build_payload(_now(), lat, lng, runtime)
+        payload = build_payload(_now(), lat, lng, runtime,
+                                calendar=args.calendar,
+                                almanac=args.almanac)
         print(json.dumps(payload, ensure_ascii=False))
         return
 
@@ -701,7 +826,8 @@ def main():
         if offset_minutes:
             moment += timedelta(minutes=offset_minutes)
         return render(moment, lat, lng, runtime, fullscreen=live,
-                      offset_minutes=offset_minutes)
+                      offset_minutes=offset_minutes,
+                      calendar_name=args.calendar, almanac=args.almanac)
 
     if live:
         live_loop(_render, mouse=True)

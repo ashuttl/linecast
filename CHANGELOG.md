@@ -12,6 +12,12 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: Fixed the place name for small towns — the header could show the timezone city ("New York") instead of the place itself.
 - Radar: Frames that arrive incomplete are no longer drawn or kept — the missing parts looked like clear weather. They are fetched again, and a source that cannot serve its tiles falls back to the next one.
 - Sunshine: Sunrise and sunset times are more accurate. They could be ten or more minutes out in spring and autumn, most at high latitudes; the sky in both views and the globe's day/night edge sharpen with them.
+- Sunshine: Languages that use different words for morning and evening twilight now see the right one for the time of day — świt and zmierzch in Polish, fajar and senja in Indonesian, gryning and skymning in Swedish, aube and crépuscule in French, and so on — instead of the evening word around the clock.
+- Sunshine: The Polish and Finnish names for nautical twilight now use the standard terms (żeglarski, nauttinen).
+- Moon: The Korean phase names now use the everyday words — 상현달, 보름달, 그믐달, with the gibbous phases as 차오르는 달 and 기우는 달.
+- Moon: In Chinese, Japanese, and Korean the panel now follows the traditional calendar: the lunar date beside the phase name (农历七月二十, 旧暦7月20日, 음력 7월 20일), the solar term in progress with the next one's date, and the coming festival — 中秋节, 추석, or 十五夜. Any language can ask for any of the three with `--calendar chinese`, `japanese`, or `korean`, shown with the customary English names ("End of Heat · White Dew Sep 7", "Mid-Autumn Festival Sep 25"); `--calendar none` turns it off, and `linecast calendar` saves the choice the way units and icons are saved. `--json` reports it all in a `calendar` block — lunar date, solar term, next festival — or null when none is shown.
+- Moon: `--almanac` adds the Old Farmer's Almanac's counsel: gardening by the light and dark of the moon, and the day's solunar periods — the majors at the Moon's meridian passes, the minors at moonrise and moonset. `--json` gains a matching `almanac` block.
+- Moon: In Japanese the headline now names the night itself, following the old calendar's day — 十六夜, 立待月, 居待月, 寝待月, 更待月 — instead of rounding to the nearest phase name.
 
 ## 2.2.0 — 2026-08-31
 

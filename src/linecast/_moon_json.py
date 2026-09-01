@@ -6,7 +6,9 @@ and low-precision rise/set ephemeris; times are minute-precision local ISO
 strings and missing values become None rather than raising.
 """
 
-import calendar
+# The build_payload argument named `calendar` would shadow the stdlib
+# module inside the function, so just the function comes in.
+from calendar import isleap
 from datetime import timezone
 
 from linecast._seasons import full_moon_name, next_season_event
@@ -15,12 +17,15 @@ from linecast._sunshine_json import _iso, _local_timezone_name, _location_label
 SCHEMA_VERSION = 1
 
 
-def build_payload(now_local, lat, lng, runtime, location=None):
+def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
+                  almanac=False):
     """Build the `moon --json` payload dict.
 
     *now_local* is a timezone-aware local datetime, matching what moon's
     render path uses. *location* overrides the display name (skips the
-    geocode lookup).
+    geocode lookup). *calendar* is the --calendar flag, resolved against
+    the saved setting and language the same way the panel resolves it;
+    *almanac* adds the --almanac block.
     """
     from linecast._moon_i18n import _moon_name
     from linecast._ephemeris import (
@@ -61,6 +66,68 @@ def build_payload(now_local, lat, lng, runtime, location=None):
     altitude = _moon_altitude_deg(moment_utc, lat, lng)
     azimuth = _moon_azimuth_deg(moment_utc, lat, lng)
 
+    # The lunisolar calendar, resolved exactly as the panel resolves
+    # it, so the two agree; null when no calendar is in effect.
+    from linecast._i18n import lang_of
+    from linecast._lunisolar import (
+        CALENDAR_MERIDIAN_HOURS, CALENDAR_NATIVE_LANG, current_term,
+        lunisolar_date, next_lunar_event, next_term, resolve_calendar,
+    )
+    from linecast._moon_i18n import (
+        festival_table, ja_night_name, lunar_date_label, term_label,
+    )
+    lang = lang_of(runtime)
+    cal = resolve_calendar(calendar, lang)
+    calendar_block = None
+    if cal is not None:
+        cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
+        native = CALENDAR_NATIVE_LANG[cal] == lang
+        label_lang = lang if native else "en"
+        lunar = lunisolar_date(now_local.date(), cal_tz)
+        cur_k, _cur_start = current_term(moment_utc)
+        nxt_k, nxt_start = next_term(moment_utc)
+        fest = next_lunar_event(now_local.date(), cal_tz,
+                                festival_table(cal, native))
+        calendar_block = {
+            "name": cal,
+            "month": lunar[0] if lunar else None,
+            "day": lunar[1] if lunar else None,
+            "leap_month": lunar[2] if lunar else None,
+            "label": (lunar_date_label(*lunar, label_lang)
+                      if lunar else None),
+            # Japan names the night itself; the other calendars don't.
+            "night_name": (ja_night_name(lunar[1])
+                           if cal == "japanese" and lunar else None),
+            "solar_term": term_label(cur_k, label_lang),
+            "next_solar_term": {
+                "name": term_label(nxt_k, label_lang),
+                "date": (nxt_start.astimezone(now_local.tzinfo)
+                         .date().isoformat()),
+            },
+            "next_festival": ({"name": fest[1],
+                               "date": fest[0].isoformat()}
+                              if fest else None),
+        }
+
+    # The almanac's counsel, on request, matching the --almanac panel:
+    # which half of the month it is, and the day's solunar periods.
+    almanac_block = None
+    if almanac:
+        from linecast._ephemeris import (
+            _moon_events_for_local_date, _moon_transits_for_local_date,
+        )
+        upper, lower = _moon_transits_for_local_date(
+            now_local.date(), lng, now_local.tzinfo)
+        day_rise, day_set = _moon_events_for_local_date(
+            now_local.date(), lat, lng, now_local.tzinfo)
+        almanac_block = {
+            "gardening": "light" if frac < 0.5 else "dark",
+            "solunar_major": sorted(_iso(t) for t in (upper, lower)
+                                    if t is not None),
+            "solunar_minor": sorted(_iso(t) for t in (day_rise, day_set)
+                                    if t is not None),
+        }
+
     return {
         "schema": SCHEMA_VERSION,
         "location": location if location is not None else _location_label(lat, lng),
@@ -79,12 +146,14 @@ def build_payload(now_local, lat, lng, runtime, location=None):
         "next_full_name": full_moon_name(full_dt, SYNODIC_MONTH),
         "next_new": next_new,
         "day_of_year": now_local.timetuple().tm_yday,
-        "days_in_year": 366 if calendar.isleap(now_local.year) else 365,
+        "days_in_year": 366 if isleap(now_local.year) else 365,
         "next_season_event": {
             "kind": event_kind,
             "time": _iso(event_utc.astimezone(now_local.tzinfo)),
         },
         "southern": bool(lat is not None and lat < 0),
+        "calendar": calendar_block,
+        "almanac": almanac_block,
         # Extras a widget would want beyond the phase basics:
         "altitude_deg": round(altitude, 1),
         "azimuth_deg": round(azimuth, 1),

@@ -366,7 +366,7 @@ def _hover_moment(lat, lng, doy, tz_off, mouse_row, graph_h, sun, runtime,
         if abs(hour - at) <= reach and 0 <= at < 24:
             return at, sky_event(key, runtime)
     elev = sun.sun_elevation(lat, lng, hour, doy, tz_off)
-    return hour, sky_phase(elev, runtime)
+    return hour, sky_phase(elev, runtime, morning=hour < noon)
 
 
 def _zone_name(date, tz):
