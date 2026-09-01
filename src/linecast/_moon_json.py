@@ -74,7 +74,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         lunisolar_date, next_lunar_event, next_term, resolve_calendar,
     )
     from linecast._moon_i18n import (
-        festival_table, lunar_date_label, term_label,
+        festival_table, ja_night_name, lunar_date_label, term_label,
     )
     lang = lang_of(runtime)
     cal = resolve_calendar(calendar, lang)
@@ -95,6 +95,9 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
             "leap_month": lunar[2] if lunar else None,
             "label": (lunar_date_label(*lunar, label_lang)
                       if lunar else None),
+            # Japan names the night itself; the other calendars don't.
+            "night_name": (ja_night_name(lunar[1])
+                           if cal == "japanese" and lunar else None),
             "solar_term": term_label(cur_k, label_lang),
             "next_solar_term": {
                 "name": term_label(nxt_k, label_lang),

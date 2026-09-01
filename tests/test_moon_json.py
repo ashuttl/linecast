@@ -256,3 +256,17 @@ class TestMoonTransits:
             up_alt = _moon_altitude_deg(upper.astimezone(timezone.utc), LAT, LNG)
             low_alt = _moon_altitude_deg(lower.astimezone(timezone.utc), LAT, LNG)
             assert up_alt > low_alt
+
+
+class TestJapaneseNightName:
+    def test_the_night_follows_the_old_calendars_day(self):
+        moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, runtime=_runtime(lang="ja"))
+        cal = payload["calendar"]
+        assert cal["day"] == 20
+        assert cal["night_name"] == "更待月"
+
+    def test_other_calendars_have_no_night_name(self):
+        moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, runtime=_runtime(lang="zh"))
+        assert payload["calendar"]["night_name"] is None

@@ -38,7 +38,7 @@ from linecast._lunisolar import (
 )
 from linecast._moon_i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
-    festival_table, lunar_date_label, term_label,
+    festival_table, ja_night_name, lunar_date_label, term_label,
 )
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._textwidth import char_width
@@ -527,6 +527,11 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         lunar = lunisolar_date(now_local.date(), cal_tz)
         if lunar is not None:
             lunar_txt = lunar_date_label(*lunar, label_lang)
+            # Japan names the night itself: on the old calendar's 18th
+            # the moon is 居待月 whatever octant the phase rounds to,
+            # so the headline follows the day, not the bucket.
+            if cal == "japanese" and label_lang == "ja":
+                name = ja_night_name(lunar[1])
         cur_k, _cur_start = current_term(moment_utc)
         nxt_k, nxt_start = next_term(moment_utc)
         nxt_local = nxt_start.astimezone(now_local.tzinfo)

@@ -482,3 +482,22 @@ def lunar_date_label(month, day, leap, lang):
 def term_label(index, lang):
     """The name of solar term *index* (0 = March equinox)."""
     return SOLAR_TERMS_I18N.get(lang, SOLAR_TERMS_I18N["en"])[index]
+
+
+# Japan names the nights, not just the phases: after the full moon the
+# names narrate the lengthening wait for moonrise — stand and wait,
+# sit and wait, lie down, wait past midnight. The named nights are the
+# traditional ones; the days between take the plain counted form.
+_JA_NIGHT_NAMES = (
+    "新月", "二日月", "三日月", "四日月", "五日月",
+    "六日月", "七日月", "八日月", "九日月", "十日夜",
+    "十一日月", "十二日月", "十三夜", "小望月", "十五夜",
+    "十六夜", "立待月", "居待月", "寝待月", "更待月",
+    "二十一日月", "二十二日月", "二十三夜", "二十四日月", "二十五日月",
+    "二十六夜", "二十七日月", "二十八日月", "二十九日月", "三十日月",
+)
+
+
+def ja_night_name(day):
+    """The Japanese name of the old calendar's night *day* (1-30)."""
+    return _JA_NIGHT_NAMES[day - 1]

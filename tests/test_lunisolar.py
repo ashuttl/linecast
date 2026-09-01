@@ -160,3 +160,22 @@ class TestResolveCalendar:
             assert resolve_calendar(None, "zh") is None
         finally:
             write_config(original)
+
+
+class TestJapaneseNightNames:
+    def test_the_named_nights(self):
+        from linecast._moon_i18n import ja_night_name
+        assert ja_night_name(3) == "三日月"
+        assert ja_night_name(13) == "十三夜"
+        assert ja_night_name(15) == "十五夜"
+        assert ja_night_name(16) == "十六夜"
+        assert [ja_night_name(d) for d in (17, 18, 19, 20)] == [
+            "立待月", "居待月", "寝待月", "更待月"]
+        assert ja_night_name(23) == "二十三夜"
+        assert ja_night_name(26) == "二十六夜"
+        assert ja_night_name(30) == "三十日月"
+
+    def test_every_night_of_a_long_month_has_a_name(self):
+        from linecast._moon_i18n import ja_night_name
+        names = [ja_night_name(d) for d in range(1, 31)]
+        assert len(set(names)) == 30
