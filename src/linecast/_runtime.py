@@ -384,16 +384,15 @@ def moon_parser():
                     help="location as 'lat,lng' or place name")
     p.add_argument("--calendar",
                     choices=("chinese", "japanese", "korean", "hawaiian",
-                             "none"),
+                             "almanac", "none"),
                     default=None,
-                    help="show a traditional lunar calendar — the lunar "
-                         "date, solar term, and next festival, or for "
-                         "hawaiian the named night and its anahulu "
-                         "(default: the calendar native to --lang zh, ja, "
-                         "or ko; none otherwise)")
-    p.add_argument("--almanac", action="store_true",
-                    help="almanac counsel: gardening by the light and dark "
-                         "of the moon, and the day's solunar periods")
+                    help="read the moon by a traditional calendar: the "
+                         "lunar date, solar term, and festival (chinese, "
+                         "japanese, korean); the named night, anahulu, and "
+                         "counsel (hawaiian); or the Old Farmer's gardening "
+                         "rule and solunar periods (almanac). Default: the "
+                         "calendar native to --lang zh, ja, or ko; none "
+                         "otherwise")
     _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")

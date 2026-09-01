@@ -5,7 +5,7 @@ this package as a script never shadows the standard library's calendar
 module; the command is still `linecast calendar`, via __main__'s map.
 
 Usage: linecast calendar [show]
-       linecast calendar chinese | japanese | korean | hawaiian
+       linecast calendar chinese | japanese | korean | hawaiian | almanac
        linecast calendar none
        linecast calendar auto
 
@@ -33,7 +33,7 @@ def _cmd_show():
     else:
         print(f"auto  [{_NATURAL}]")
         print("Run 'linecast calendar chinese', 'japanese', 'korean', "
-              "or 'hawaiian' to fix one.")
+              "'hawaiian', or 'almanac' to fix one.")
 
 
 def _cmd_set(choice):
@@ -44,7 +44,12 @@ def _cmd_set(choice):
         print("Calendar turned off; the moon panel keeps the phase lines only")
     elif choice == "hawaiian":
         print("Calendar set to hawaiian: the moon names each night — "
-              "the pō mahina and its anahulu — in every language")
+              "the pō mahina, its anahulu, and its counsel — in every "
+              "language")
+    elif choice == "almanac":
+        print("Calendar set to almanac: the moon shows the Old Farmer's "
+              "gardening rule and the day's solunar periods in every "
+              "language")
     else:
         print(f"Calendar set to {choice}: the moon shows its lunar date, "
               f"solar term, and next festival in every language")
@@ -71,11 +76,15 @@ def main():
     sub.add_parser("hawaiian",
                    help="Kaulana Mahina — nights counted from the first "
                         "visible crescent over Hawaiʻi")
+    sub.add_parser("almanac",
+                   help="Old Farmer's Almanac — gardening by the moon "
+                        "and solunar periods")
     sub.add_parser("none", help="no calendar lines, whatever the language")
     sub.add_parser("auto", help="clear the saved calendar and follow the language")
     args = parser.parse_args()
 
-    if args.action in ("chinese", "japanese", "korean", "hawaiian", "none"):
+    if args.action in ("chinese", "japanese", "korean", "hawaiian",
+                       "almanac", "none"):
         _cmd_set(args.action)
     elif args.action == "auto":
         _cmd_auto()

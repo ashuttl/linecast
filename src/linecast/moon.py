@@ -443,7 +443,7 @@ def _next_phase_local(moment_utc, target_frac, now_local):
 
 
 def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
-           calendar_name=None, almanac=False):
+           calendar_name=None):
     """Build the full-screen moon display: disc plus info lines.
 
     Three layouts, by terminal size: a wide terminal floats the info as
@@ -478,9 +478,14 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     year_len = 366 if calendar.isleap(now_local.year) else 365
 
     # The Old Farmer's Almanac names for the full moon are an English-
-    # language tradition; other languages keep the plain phase name.
+    # language tradition: they show in English by default and with the
+    # almanac calendar, but a panel reading the moon through another
+    # tradition's calendar keeps the plain phase name — Harvest Moon
+    # is the almanac's name, not the Kaulana Mahina's or the 农历's.
+    lang = lang_of(runtime)
+    cal = resolve_calendar(calendar_name, lang)
     full_label = _moon_name(4, runtime)
-    if lang_of(runtime) == "en":
+    if lang == "en" and cal in (None, "almanac"):
         moon_name = full_moon_name(full_dt, SYNODIC_MONTH)
         full_label = ("Blue Moon" if moon_name == "Blue"
                       else f"Full {moon_name} Moon")
@@ -515,24 +520,58 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                 f"{_fmt_month_day(now_local, runtime)} "
                 f"{fmt_time_dt(now_local, use_24h=runtime.use_24h)}")
 
-    # The lunisolar calendar: on by default for the languages whose
+    # The traditional calendar: on by default for the languages whose
     # readers know the moon through it, and available to anyone with
-    # --calendar or `linecast calendar` — the lunar date beside the
-    # phase, the solar term in progress with the next one's date, and
-    # the coming festival. A calendar shown in its own language keeps
-    # its own script; any other language gets the customary English
-    # names.
-    lang = lang_of(runtime)
-    cal = resolve_calendar(calendar_name, lang)
+    # --calendar or `linecast calendar`. The Chinese, Japanese, and
+    # Korean calendars read the moon as a date — the lunar day beside
+    # the phase, the solar term in progress, the coming festival. The
+    # Hawaiian calendar reads it as a named night with its counsel,
+    # and the almanac is the English-language reading of the same
+    # kind: the Old Farmer's gardening rule and the solunar periods.
+    # A calendar shown in its own language keeps its own script; any
+    # other language gets the customary English names.
     lunar_txt = term_txt = term_short = fest_txt = fest_short = None
+    good_txt = hold_txt = solunar_txt = attrib_txt = None
     if cal == "hawaiian":
         # The Kaulana Mahina names every night, in Hawaiian for every
-        # reader — the pō names have no English renderings — and has no
-        # solar terms or lunar-dated festivals, so the headline carries
-        # the whole calendar: the night's name and its anahulu.
+        # reader — the pō names have no English renderings — and has
+        # no solar terms or lunar-dated festivals: the headline is the
+        # night and its anahulu, and the counsel lines below are the
+        # night's kapu or ʻole note when it has one, the anahulu's
+        # fishing counsel, and the source named plainly.
         night, nights = hawaiian_night(now_local.date())
         name = po_mahina_name(night, nights)
         lunar_txt = f"anahulu {anahulu_name(night)}"
+        note = night_note(name)
+        counsel = ANAHULU_COUNSEL[anahulu_name(night)]
+        good_txt, hold_txt = (note or counsel), (counsel if note else None)
+        attrib_txt = f"— {COUNSEL_ATTRIBUTION}"
+    elif cal == "almanac":
+        # The Old Farmer's Almanac: the aside names the half of the
+        # month, the counsel is the gardening rule for it, and the
+        # solunar periods put the majors at the Moon's meridian
+        # passes, the minors at moonrise and moonset.
+        waxing = moon_cycle_frac(now_local) < 0.5
+        half = "light" if waxing else "dark"
+        lunar_txt = _ms(f'{half}_of_moon', runtime)
+        good_txt = _ms('good_for', runtime,
+                       things=_ms(f'{half}_good', runtime))
+        hold_txt = _ms('hold_off', runtime,
+                       things=_ms(f'{half}_hold', runtime))
+        upper, lower = _moon_transits_for_local_date(
+            now_local.date(), lng, now_local.tzinfo)
+        day_rise, day_set = _moon_events_for_local_date(
+            now_local.date(), lat, lng, now_local.tzinfo)
+
+        def _times(moments):
+            times = sorted(t for t in moments if t is not None)
+            return " · ".join(fmt_time_dt(t, use_24h=runtime.use_24h)
+                              for t in times) or "—"
+
+        solunar_txt = (f"{_ms('solunar_major', runtime)} "
+                       f"{_times((upper, lower))}  "
+                       f"{_ms('solunar_minor', runtime)} "
+                       f"{_times((day_rise, day_set))}")
     elif cal is not None:
         cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
         label_lang = lang if CALENDAR_NATIVE_LANG[cal] == lang else "en"
@@ -562,47 +601,9 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                 f"{fest_short} "
                 f"({_ms('in_days', runtime, days=str(fest_gap))})")
 
-    # The almanac's counsel, on request: gardening by the light and
-    # dark of the moon as the Old Farmer's Almanac prints the rule, and
-    # the day's solunar periods — majors at the Moon's meridian passes,
-    # minors at moonrise and moonset. With the Hawaiian calendar the
-    # Kaulana Mahina's own counsel takes the slot instead — the night's
-    # kapu or ʻole note when it has one, the anahulu's fishing counsel,
-    # and the source named plainly.
-    good_txt = hold_txt = solunar_txt = almanac_phase_txt = None
-    attrib_txt = None
-    if almanac and cal == "hawaiian":
-        note = night_note(name)
-        counsel = ANAHULU_COUNSEL[anahulu_name(night)]
-        good_txt, hold_txt = (note or counsel), (counsel if note else None)
-        attrib_txt = f"— {COUNSEL_ATTRIBUTION}"
-    elif almanac:
-        waxing = moon_cycle_frac(now_local) < 0.5
-        half = "light" if waxing else "dark"
-        almanac_phase_txt = _ms(f'{half}_of_moon', runtime)
-        good_txt = _ms('good_for', runtime,
-                       things=_ms(f'{half}_good', runtime))
-        hold_txt = _ms('hold_off', runtime,
-                       things=_ms(f'{half}_hold', runtime))
-    if almanac:
-        upper, lower = _moon_transits_for_local_date(
-            now_local.date(), lng, now_local.tzinfo)
-        day_rise, day_set = _moon_events_for_local_date(
-            now_local.date(), lat, lng, now_local.tzinfo)
-
-        def _times(moments):
-            times = sorted(t for t in moments if t is not None)
-            return " · ".join(fmt_time_dt(t, use_24h=runtime.use_24h)
-                              for t in times) or "—"
-
-        solunar_txt = (f"{_ms('solunar_major', runtime)} "
-                       f"{_times((upper, lower))}  "
-                       f"{_ms('solunar_minor', runtime)} "
-                       f"{_times((day_rise, day_set))}")
-
-    # The headline has room for one aside; the calendar's date outranks
-    # the almanac's half of the month.
-    head_extra = lunar_txt or almanac_phase_txt
+    # The headline has room for one aside: the calendar's own — the
+    # lunar date, the anahulu, or the almanac's half of the month.
+    head_extra = lunar_txt
 
     cols, rows = get_terminal_size()
     hint = install_banner()
@@ -639,7 +640,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         panel += [[(good_txt, D, False)]]
         if hold_txt:
             panel += [[(hold_txt, D, False)]]
-        panel += [[(solunar_txt, D, False)]]
+        if solunar_txt:
+            panel += [[(solunar_txt, D, False)]]
         if attrib_txt:
             panel += [[(attrib_txt, D, False)]]
         panel += [[]]
@@ -747,7 +749,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         candidates.append((f"{dim}{good_txt} · {hold_txt}{RESET}",
                            f"{dim}{good_txt}{RESET}")
                           if hold_txt else (f"{dim}{good_txt}{RESET}",))
-        candidates.append((f"{dim}{solunar_txt}{RESET}",))
+        if solunar_txt:
+            candidates.append((f"{dim}{solunar_txt}{RESET}",))
         if attrib_txt:
             candidates.append((f"{dim}{attrib_txt}{RESET}",))
     if term_txt:
@@ -833,8 +836,7 @@ def main():
         import json
         from linecast._moon_json import build_payload
         payload = build_payload(_now(), lat, lng, runtime,
-                                calendar=args.calendar,
-                                almanac=args.almanac)
+                                calendar=args.calendar)
         print(json.dumps(payload, ensure_ascii=False))
         return
 
@@ -853,7 +855,7 @@ def main():
             moment += timedelta(minutes=offset_minutes)
         return render(moment, lat, lng, runtime, fullscreen=live,
                       offset_minutes=offset_minutes,
-                      calendar_name=args.calendar, almanac=args.almanac)
+                      calendar_name=args.calendar)
 
     if live:
         live_loop(_render, mouse=True)

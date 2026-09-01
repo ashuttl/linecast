@@ -145,7 +145,7 @@ def hawaiian_night(local_date):
 
 
 # ---------------------------------------------------------------------------
-# The practice layer, shown with --almanac: fishing counsel quoted
+# The practice layer, shown with the calendar: fishing counsel quoted
 # from the Council's educational display "Hawaiian Moon Phases and
 # Traditional Natural Resource Management" (WPRFMC, NOAA-funded) —
 # the same source the UH Climate Data Portal cites for its guidance.

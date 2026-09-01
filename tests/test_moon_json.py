@@ -30,7 +30,7 @@ EXPECTED_TOP_KEYS = {
     "illumination", "waxing", "age_days", "events", "next_full",
     "next_full_name", "next_new", "day_of_year", "days_in_year",
     "next_season_event", "southern", "altitude_deg", "azimuth_deg",
-    "up_now", "calendar", "almanac",
+    "up_now", "calendar",
 }
 
 
@@ -220,17 +220,15 @@ class TestCalendarBlock:
         assert payload["calendar"] is None
 
 
-class TestAlmanacBlock:
-    def test_null_without_the_flag(self):
-        assert _payload()["almanac"] is None
-
+class TestAlmanacCalendarBlock:
     def test_gardening_half_matches_the_phase(self):
-        payload = _payload(almanac=True)
-        block = payload["almanac"]
+        payload = _payload(calendar="almanac")
+        block = payload["calendar"]
+        assert block["name"] == "almanac"
         assert block["gardening"] == ("light" if payload["waxing"] else "dark")
 
     def test_solunar_periods_are_todays_times(self):
-        block = _payload(almanac=True)["almanac"]
+        block = _payload(calendar="almanac")["calendar"]
         for key in ("solunar_major", "solunar_minor"):
             times = block[key]
             assert 1 <= len(times) <= 2
@@ -273,28 +271,25 @@ class TestJapaneseNightName:
 
 
 class TestHawaiianCalendarBlock:
-    def test_the_almanac_carries_the_councils_counsel(self):
+    def test_the_calendar_carries_the_councils_counsel(self):
         # The 20th night, Lāʻaupau, has no kapu note; the poepoe
         # counsel and the attribution carry the block.
         moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
-        payload = _payload(now_local=moment, calendar="hawaiian",
-                           almanac=True)
-        counsel = payload["almanac"]["counsel"]
+        payload = _payload(now_local=moment, calendar="hawaiian")
+        counsel = payload["calendar"]["counsel"]
         assert counsel["night_note"] is None
         assert counsel["anahulu"].startswith("Fair to good fishing")
         assert counsel["source"] == (
             "Western Pacific Regional Fishery Management Council")
-
-    def test_other_calendars_have_no_counsel(self):
-        payload = _payload(almanac=True)
-        assert "counsel" not in payload["almanac"]
 
     def test_the_kaulana_mahina_names_the_night(self):
         # Sep 1 2026 is the twentieth night of the month begun Aug 13,
         # per the printed 2026 Kaulana Mahina.
         moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
         payload = _payload(now_local=moment, calendar="hawaiian")
-        assert payload["calendar"] == {
+        block = dict(payload["calendar"])
+        assert block.pop("counsel")["anahulu"].startswith("Fair to good")
+        assert block == {
             "name": "hawaiian",
             "night": 20,
             "nights_in_month": 30,

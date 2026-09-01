@@ -17,15 +17,13 @@ from linecast._sunshine_json import _iso, _local_timezone_name, _location_label
 SCHEMA_VERSION = 1
 
 
-def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
-                  almanac=False):
+def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
     """Build the `moon --json` payload dict.
 
     *now_local* is a timezone-aware local datetime, matching what moon's
     render path uses. *location* overrides the display name (skips the
     geocode lookup). *calendar* is the --calendar flag, resolved against
-    the saved setting and language the same way the panel resolves it;
-    *almanac* adds the --almanac block.
+    the saved setting and language the same way the panel resolves it.
     """
     from linecast._moon_i18n import _moon_name
     from linecast._ephemeris import (
@@ -66,7 +64,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     altitude = _moon_altitude_deg(moment_utc, lat, lng)
     azimuth = _moon_azimuth_deg(moment_utc, lat, lng)
 
-    # The lunisolar calendar, resolved exactly as the panel resolves
+    # The traditional calendar, resolved exactly as the panel resolves
     # it, so the two agree; null when no calendar is in effect.
     from linecast._i18n import lang_of
     from linecast._lunisolar import (
@@ -81,9 +79,12 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     calendar_block = None
     if cal == "hawaiian":
         # The Kaulana Mahina has no months-by-number, solar terms, or
-        # festivals; its block carries the night instead.
+        # festivals; its block carries the night and its counsel.
         from linecast._moon_i18n import anahulu_name, po_mahina_name
-        from linecast._pacific import hawaiian_night
+        from linecast._pacific import (
+            ANAHULU_COUNSEL, COUNSEL_ATTRIBUTION, hawaiian_night,
+            night_note,
+        )
         night, nights = hawaiian_night(now_local.date())
         calendar_block = {
             "name": cal,
@@ -91,6 +92,29 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
             "nights_in_month": nights,
             "night_name": po_mahina_name(night, nights),
             "anahulu": anahulu_name(night),
+            "counsel": {
+                "night_note": night_note(po_mahina_name(night, nights)),
+                "anahulu": ANAHULU_COUNSEL[anahulu_name(night)],
+                "source": COUNSEL_ATTRIBUTION,
+            },
+        }
+    elif cal == "almanac":
+        # The Old Farmer's reading: which half of the month it is, and
+        # the day's solunar periods.
+        from linecast._ephemeris import (
+            _moon_events_for_local_date, _moon_transits_for_local_date,
+        )
+        upper, lower = _moon_transits_for_local_date(
+            now_local.date(), lng, now_local.tzinfo)
+        day_rise, day_set = _moon_events_for_local_date(
+            now_local.date(), lat, lng, now_local.tzinfo)
+        calendar_block = {
+            "name": cal,
+            "gardening": "light" if frac < 0.5 else "dark",
+            "solunar_major": sorted(_iso(t) for t in (upper, lower)
+                                    if t is not None),
+            "solunar_minor": sorted(_iso(t) for t in (day_rise, day_set)
+                                    if t is not None),
         }
     elif cal is not None:
         cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
@@ -122,38 +146,6 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
                               if fest else None),
         }
 
-    # The almanac's counsel, on request, matching the --almanac panel:
-    # which half of the month it is, and the day's solunar periods.
-    almanac_block = None
-    if almanac:
-        from linecast._ephemeris import (
-            _moon_events_for_local_date, _moon_transits_for_local_date,
-        )
-        upper, lower = _moon_transits_for_local_date(
-            now_local.date(), lng, now_local.tzinfo)
-        day_rise, day_set = _moon_events_for_local_date(
-            now_local.date(), lat, lng, now_local.tzinfo)
-        almanac_block = {
-            "gardening": "light" if frac < 0.5 else "dark",
-            "solunar_major": sorted(_iso(t) for t in (upper, lower)
-                                    if t is not None),
-            "solunar_minor": sorted(_iso(t) for t in (day_rise, day_set)
-                                    if t is not None),
-        }
-        if cal == "hawaiian":
-            # The Kaulana Mahina's counsel, as the panel shows it.
-            from linecast._moon_i18n import anahulu_name, po_mahina_name
-            from linecast._pacific import (
-                ANAHULU_COUNSEL, COUNSEL_ATTRIBUTION, hawaiian_night,
-                night_note,
-            )
-            night, nights = hawaiian_night(now_local.date())
-            almanac_block["counsel"] = {
-                "night_note": night_note(po_mahina_name(night, nights)),
-                "anahulu": ANAHULU_COUNSEL[anahulu_name(night)],
-                "source": COUNSEL_ATTRIBUTION,
-            }
-
     return {
         "schema": SCHEMA_VERSION,
         "location": location if location is not None else _location_label(lat, lng),
@@ -179,7 +171,6 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         },
         "southern": bool(lat is not None and lat < 0),
         "calendar": calendar_block,
-        "almanac": almanac_block,
         # Extras a widget would want beyond the phase basics:
         "altitude_deg": round(altitude, 1),
         "azimuth_deg": round(azimuth, 1),

@@ -5,7 +5,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 ## Unreleased
 
 - Moon: `--calendar hawaiian` (or `linecast calendar hawaiian`) follows the Kaulana Mahina: each night named — Hilo, Hoaka, Māhealani, Muku — with its anahulu, the month starting the first night the crescent can be seen over Hawaiʻi, matching the Western Pacific Regional Fishery Management Council's published calendars.
-- Moon: With the Hawaiian calendar, `--almanac` shows the night's traditional fishing counsel — the kapu periods, the ʻole nights, the anahulu's outlook — quoted from the Western Pacific Regional Fishery Management Council's educational materials.
+- Moon: The Hawaiian calendar carries the night's traditional fishing counsel — the kapu periods, the ʻole nights, the anahulu's outlook — quoted from the Western Pacific Regional Fishery Management Council's educational materials and attributed on screen.
+- Moon: The Old Farmer's full-moon names (Harvest, Blue, and the rest) now show only in the plain English view and with the almanac calendar; a panel following another tradition's calendar keeps the plain phase name.
 - Maps and radar: The header no longer announces which app it is — it starts with the place name.
 - Maps: With daylight on, the header names what the sun is standing over — "sun over North Pacific Ocean" — instead of the elevation at the view centre. The globe drops that centre readout too; pointing at the terrain still reads the elevation there.
 - Maps: Route shields now name their network — I-95, US-1, ME-128, and the sign's own M6 or A38 — and take the sign's color where one exists: interstates and motorways in blue, US routes in white, UK primary routes in green. A shield appears at most twice per view.
@@ -26,7 +27,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Sunshine: The Italian names for morning twilight are now the customary short ones — alba astronomica, nautica, civile.
 - Moon: The Korean phase names now use the everyday words — 상현달, 보름달, 그믐달, with the gibbous phases as 차오르는 달 and 기우는 달.
 - Moon: In Chinese, Japanese, and Korean the panel now follows the traditional calendar: the lunar date beside the phase name (农历七月二十, 旧暦7月20日, 음력 7월 20일), the solar term in progress with the next one's date, and the coming festival — 中秋节, 추석, or 十五夜. Any language can ask for any of the three with `--calendar chinese`, `japanese`, or `korean`, shown with the customary English names ("End of Heat · White Dew Sep 7", "Mid-Autumn Festival Sep 25"); `--calendar none` turns it off, and `linecast calendar` saves the choice the way units and icons are saved. `--json` reports it all in a `calendar` block — lunar date, solar term, next festival — or null when none is shown.
-- Moon: `--almanac` adds the Old Farmer's Almanac's counsel: gardening by the light and dark of the moon, and the day's solunar periods — the majors at the Moon's meridian passes, the minors at moonrise and moonset. `--json` gains a matching `almanac` block.
+- Moon: `--calendar almanac` reads the moon the way the Old Farmer's Almanac does: the light or dark of the moon beside the phase, gardening counsel for it, and the day's solunar periods — the majors at the Moon's meridian passes, the minors at moonrise and moonset. `--json` reports it in the `calendar` block.
 - Moon: In Japanese the headline now names the night itself, following the old calendar's day — 十六夜, 立待月, 居待月, 寝待月, 更待月 — instead of rounding to the nearest phase name.
 
 ## 2.2.0 — 2026-08-31
