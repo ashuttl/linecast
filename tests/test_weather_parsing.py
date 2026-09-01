@@ -667,6 +667,30 @@ class TestReverseGeocodeCountry:
         assert _country_code({}) == ""
 
 
+class TestReverseGeocodeName:
+    """Nominatim names small places under keys down to hamlet (issue #50)."""
+
+    def _name(self, address):
+        from linecast import _weather_sources as ws
+        with patch.object(ws, "read_cache", return_value=None), \
+                patch.object(ws, "write_cache", lambda *a, **k: None), \
+                patch.object(ws, "fetch_json", return_value={"address": address}):
+            name, _cc, _addr = ws._reverse_geocode(44.4, -70.0)
+        return name
+
+    def test_hamlet_names_the_place(self):
+        assert self._name({"hamlet": "Fayette", "county": "Kennebec County",
+                           "state": "Maine", "country_code": "us"}) == "Fayette, Maine"
+
+    def test_city_outranks_smaller_keys(self):
+        assert self._name({"city": "Portland", "hamlet": "Stroudwater",
+                           "state": "Maine", "country_code": "us"}) == "Portland, Maine"
+
+    def test_no_name_stays_empty(self):
+        assert self._name({"county": "Kennebec County", "state": "Maine",
+                           "country_code": "us"}) == ""
+
+
 # ---------------------------------------------------------------------------
 # MeteoAlarm area filtering: a country-wide feed narrowed to one user
 # ---------------------------------------------------------------------------

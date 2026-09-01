@@ -407,7 +407,8 @@ def main():
         return
 
     # country_code is "" for an override; the reverse geocode fills it in
-    lat, lng, country_code = resolve_location(args.location, lang=runtime.lang)
+    lat, lng, country_code, geo_label = resolve_location(
+        args.location, lang=runtime.lang, return_label=True)
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
@@ -462,6 +463,11 @@ def main():
                 result["aqi"] = fut_aqi.result()
                 result["historical"] = fut_hist.result()
 
+            # A place the reverse geocoder cannot name keeps the name the
+            # user typed; the timezone city is the last resort, not a
+            # stand-in for a named place (issue #50).
+            if not result["name"]:
+                result["name"] = geo_label
             if not result["name"] and result["data"]:
                 result["name"] = _location_from_timezone(result["data"].get("timezone", ""))
         except Exception as exc:

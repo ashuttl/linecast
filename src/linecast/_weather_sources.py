@@ -70,7 +70,11 @@ def _reverse_geocode(lat, lng, lang=None):
             url += f"&accept-language={lang}"
         data = fetch_json(url, timeout=10)
         addr = data.get("address", {})
-        name = addr.get("city") or addr.get("town") or addr.get("village") or ""
+        # Nominatim files small places under keys all the way down to
+        # hamlet (Fayette, Maine is one); without them the name comes back
+        # empty and the caller falls back to the timezone city (issue #50).
+        name = (addr.get("city") or addr.get("town") or addr.get("village")
+                or addr.get("hamlet") or addr.get("municipality") or "")
         state = addr.get("state", "")
         country_code = _country_code(addr)
         if name and state:
