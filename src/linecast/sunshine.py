@@ -738,7 +738,8 @@ def _sky_name(lat, lng, doy, hour, sunrise, sunset, tz_offset_h, runtime):
     for key, at in events:
         if abs(hour - at) <= 5 / 60:
             return sky_event(key, runtime)
-    return sky_phase(sun_elevation(lat, lng, hour, doy, tz_offset_h), runtime)
+    return sky_phase(sun_elevation(lat, lng, hour, doy, tz_offset_h), runtime,
+                     morning=hour < (sunrise + sunset) / 2)
 
 
 # ---------------------------------------------------------------------------

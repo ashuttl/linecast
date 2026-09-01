@@ -171,3 +171,61 @@ class TestJapaneseWeather:
 
         assert ("\u904e\u53bb24\u6642\u9593\u306e\u964d\u6c34\u91cf\uff1a"
                 "0.02\u30a4\u30f3\u30c1") in line
+
+
+class TestTwilightDirection:
+    """Languages with separate dawn and dusk words get the right one."""
+
+    def test_dawn_and_dusk_words_differ_where_the_language_splits(self):
+        from linecast._sunshine_i18n import sky_phase
+        expected = {
+            "pl": ("świt cywilny", "zmierzch cywilny"),
+            "id": ("fajar sipil", "senja sipil"),
+            "sv": ("borgerlig gryning", "borgerlig skymning"),
+            "fr": ("aube civile", "crépuscule civil"),
+            "de": ("bürgerliche Morgendämmerung",
+                   "bürgerliche Abenddämmerung"),
+            "zh": ("民用晨光", "民用昏影"),
+        }
+        for lang, (dawn, dusk) in expected.items():
+            runtime = SimpleNamespace(lang=lang)
+            assert sky_phase(-4, runtime, morning=True) == dawn
+            assert sky_phase(-4, runtime, morning=False) == dusk
+
+    def test_generic_words_stay_put_where_the_language_does_not_split(self):
+        from linecast._sunshine_i18n import sky_phase
+        for lang in ("en", "fi", "ja", "ko", "no", "da", "is"):
+            runtime = SimpleNamespace(lang=lang)
+            generic = sky_phase(-4, runtime)
+            assert sky_phase(-4, runtime, morning=True) == generic
+            assert sky_phase(-4, runtime, morning=False) == generic
+
+    def test_no_direction_keeps_the_generic_name(self):
+        from linecast._sunshine_i18n import sky_phase
+        assert sky_phase(-4, SimpleNamespace(lang="pl")) == "zmierzch cywilny"
+        assert sky_phase(-10, SimpleNamespace(lang="pl"),
+                         morning=True) == "świt żeglarski"
+
+    def test_day_and_night_ignore_the_direction(self):
+        from linecast._sunshine_i18n import sky_phase
+        runtime = SimpleNamespace(lang="pl")
+        assert sky_phase(10, runtime, morning=True) == sky_phase(10, runtime)
+        assert sky_phase(-30, runtime, morning=False) == sky_phase(-30, runtime)
+
+    def test_polish_and_finnish_nautical_terms_are_standard(self):
+        from linecast._sunshine_i18n import sky_phase
+        assert (sky_phase(-10, SimpleNamespace(lang="pl"), morning=False)
+                == "zmierzch żeglarski")
+        assert (sky_phase(-10, SimpleNamespace(lang="fi"))
+                == "nauttinen hämärä")
+
+
+class TestKoreanMoonNames:
+    def test_everyday_phase_words(self):
+        from linecast._tides_i18n import MOON_NAMES_I18N
+        assert MOON_NAMES_I18N["ko"] == [
+            "삭", "초승달", "상현달",
+            "차오르는 달", "보름달",
+            "기우는 달", "하현달",
+            "그믐달",
+        ]

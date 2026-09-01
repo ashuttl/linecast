@@ -6,6 +6,9 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 - Radar: Frames that arrive incomplete are no longer drawn or kept — the missing parts looked like clear weather. They are fetched again, and a source that cannot serve its tiles falls back to the next one.
 - Sunshine: Sunrise and sunset times are more accurate. They could be ten or more minutes out in spring and autumn, most at high latitudes; the sky in both views and the globe's day/night edge sharpen with them.
+- Sunshine: Languages that use different words for morning and evening twilight now see the right one for the time of day — świt and zmierzch in Polish, fajar and senja in Indonesian, gryning and skymning in Swedish, aube and crépuscule in French, and so on — instead of the evening word around the clock.
+- Sunshine: The Polish and Finnish names for nautical twilight now use the standard terms (żeglarski, nauttinen).
+- Moon: The Korean phase names now use the everyday words — 상현달, 보름달, 그믐달, with the gibbous phases as 차오르는 달 and 기우는 달.
 
 ## 2.2.0 — 2026-08-31
 
