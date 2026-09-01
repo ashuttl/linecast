@@ -15,7 +15,7 @@
 
 ![linecast weather, sunshine, tides, and radar tiled on an Omarchy desktop](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
 
-linecast turns free public data into six live, mouse-friendly terminal apps for macOS, Linux, and Windows. It is pure Python with no third-party dependencies (two on Windows), tries to match your terminal theme, and needs no accounts or API keys. It's retrofuturistic information architecture based on public data for the common good.
+linecast turns free public data into six live, mouse-friendly terminal apps for macOS, Linux, and Windows. It is pure Python with no third-party dependencies (two on Windows), tries to match your terminal theme, and needs no accounts or API keys.
 
 | Command | What it shows |
 | --- | --- |
