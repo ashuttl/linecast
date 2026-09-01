@@ -1,7 +1,8 @@
 """Street-mode labels — the scarcest resource on the page.
 
-Four inks, two cases, and a budget of about sixteen labels for the whole
-view.  Everything here follows from that scarcity: candidates are
+A short ladder of inks, two cases, and a budget of about sixteen labels
+for the whole view.  Everything here follows from that scarcity:
+candidates are
 ranked, walked in strict priority order, and a label that cannot be
 placed cleanly is **dropped** — never nudged, never shrunk, never
 abbreviated.  Only road labels and shields may move at all, and only by
@@ -494,15 +495,27 @@ def place_candidates(view, bbox, graph_w, height_cells, band, lang):
     tile's own `place` layer fills in underneath it, ranked by the rank
     the tile carries for the purpose.  Names seen twice keep the first,
     which is the Natural Earth one and therefore the localised one.
+
+    Each candidate carries its LABEL_STYLES kind — a major city takes
+    the caps register, everything else its class — and whether it is a
+    capital, which trades the settlement dot for a star.  The vendored
+    list knows nothing of capitals, so a tile place that is one lends
+    the flag to the Natural Earth entry of the same name.
     """
     out = []
     low = band < style.PLACE_SOURCE_BAND
+    capitals = set()
     for props, parts in _features(view, bbox, graph_w, height_cells,
                                   "place"):
         cls = props.get("class")
         rank = style.CLASS_RANK.get(cls)
         if rank is None:                  # an unlisted class is dropped
             continue
+        star = (cls in ("city", "town", "village", "hamlet")
+                and style.is_capital(props))
+        if star:
+            capitals.add(_name(props, lang))
+            capitals.add(str(props.get("name") or ""))
         lo, hi = style.CLASS_BANDS.get(cls, (0, 99))
         if not lo <= band <= hi:
             continue
@@ -512,7 +525,9 @@ def place_candidates(view, bbox, graph_w, height_cells, band, lang):
             # Below the switch the tile's settlements sort after the
             # vendored ones, which take ranks 1..n among themselves.
             tile_rank = _rank(props) + (1000 if low else 0)
-            out.append(((rank, tile_rank, name), cls, name, cell))
+            out.append(((rank, tile_rank, name),
+                        style.place_kind(cls, _rank(props)), name, cell,
+                        star))
 
     if low:
         minlon, minlat, maxlon, maxlat = bbox
@@ -525,8 +540,11 @@ def place_candidates(view, bbox, graph_w, height_cells, band, lang):
                         * height_cells))
             name = _localized(entry, lang)
             if name and _in_view(cell, graph_w, height_cells):
+                kind = ("city_major" if entry[2] >= style.CITY_CAPS_POP
+                        else "city")
                 out.append(((style.CLASS_RANK["city"], i + 1, name),
-                            "city", name, cell))
+                            kind, name, cell,
+                            name in capitals or entry[3] in capitals))
     out.sort(key=lambda c: c[0])
     seen, unique = set(), []
     for cand in out:
@@ -671,7 +689,7 @@ def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
 
 
 def road_candidates(view, bbox, graph_w, height_cells, band, lang):
-    """(shields, street names), each sorted into placement order.
+    """(shields, street names, exits), each sorted into placement order.
 
     Every segment carrying the same name is merged into one candidate:
     OpenStreetMap splits a street at each junction, so a single feature
@@ -680,9 +698,19 @@ def road_candidates(view, bbox, graph_w, height_cells, band, lang):
 
     On a highway the ref is the single most valuable label on screen —
     you navigate by "I-95", not "Maine Turnpike" — so shields outrank
-    street names and get their own budget.
+    street names and get their own budget.  The text and the register
+    come from the route's network (style.shield), because a bare `95`
+    on the page is a number and `I-95` is a road.
+
+    Junctions ride in the same layer as bare points — subclass
+    `junction`, ref the exit number — and are the one thing here that
+    is not a road.  Fed through the shield path they float ambiguous
+    `47`s over the turnpike, and their names ("Sowton Interchange")
+    entered the street contest at motorway rank on a single cell of
+    geometry.  They come back as their own list instead, gated to the
+    bands where an exit number is something a reader can act on.
     """
-    refs, names, numbered = {}, {}, set()
+    refs, names, numbered, exits = {}, {}, set(), {}
     for props, parts in _features(view, bbox, graph_w, height_cells,
                                   "transportation_name", dedupe=False):
         cells = [c for part in parts
@@ -691,19 +719,31 @@ def road_candidates(view, bbox, graph_w, height_cells, band, lang):
             continue
         cls = props.get("class")
         key = style.OMT_ROAD_CLASS.get(cls)
-        ref = str(props.get("ref") or "").strip()
+        if props.get("subclass") == "junction":
+            ref = " ".join(str(props.get("ref") or "").split()).upper()
+            if (ref and cls in style.SHIELD_CLASSES
+                    and band >= style.EXIT_BAND
+                    and len(ref) <= style.SHIELD_MAX_REF):
+                exits.setdefault(ref, set()).update(cells)
+            continue
         name = _name(props, lang)
-        if (ref and cls in style.SHIELD_CLASSES
-                and len(ref) <= style.SHIELD_MAX_REF):
-            shield = refs.setdefault(ref.replace(" ", "-").upper(),
-                                     [style.LINE_STYLES[key or cls][3], []])
-            shield[0] = max(shield[0], style.LINE_STYLES[key or cls][3])
-            shield[1].extend(cells)
-            # You navigate a numbered road by its number. Spending a
-            # second label on "Lisbon Street" for ME-196 says less and
-            # costs the same.
-            numbered.add(name)
-        key = style.OMT_ROAD_CLASS.get(cls)
+        if cls in style.SHIELD_CLASSES:
+            hit = style.shield(props)
+            if hit is not None:
+                text, kind = hit
+                rank = style.LINE_STYLES[key or cls][3]
+                shield = refs.setdefault(text, [rank, kind, []])
+                if rank > shield[0]:
+                    shield[0], shield[1] = rank, kind
+                shield[2].extend(cells)
+                # You navigate a numbered road by its number — at atlas
+                # zoom.  Spending a second label on "Lisbon Street" for
+                # ME-196 there says less and costs the same; from the
+                # street grid down the name is what the addresses are
+                # on, and US-302's shield alone left Forest Avenue
+                # nameless through the middle of Portland.
+                if band < style.NUMBERED_NAME_BAND:
+                    numbered.add(name)
         # A road's name has no business on screen at a zoom where the
         # road itself is not drawn: the class's own band gate decides.
         if key is not None and not style.LINE_STYLES[key][1][band]:
@@ -716,13 +756,15 @@ def road_candidates(view, bbox, graph_w, height_cells, band, lang):
     # The four shields a view can afford should be the four biggest
     # roads, not the four lowest numbers: an interstate outranks a
     # state route whatever they are called.
-    shields = sorted(((-rank, text), "shield", text, cells)
-                     for text, (rank, cells) in refs.items())
+    shields = sorted(((-rank, text), kind, text, cells)
+                     for text, (rank, kind, cells) in refs.items())
     streets = sorted(((-rank, name), "road" if rank >= 38 else "road_minor",
                       name, cells)
                      for name, (rank, cells) in names.items()
                      if name not in numbered)
-    return shields, streets
+    exits = sorted(((len(ref), ref), "exit", ref, sorted(cells))
+                   for ref, cells in exits.items())
+    return shields, streets, exits
 
 
 def poi_candidates(view, bbox, graph_w, height_cells, band, lang):
@@ -913,10 +955,10 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
     """{(col, row): (char, ink, bold)} for one view.
 
     Walked in strict priority order — places, water and park names,
-    shields, street names, POI glyphs, POI names — each against its own
-    ceiling.  Sub-budgets are ceilings, not reservations: unused place
-    slots do not flow to streets.  The page is allowed to be
-    under-filled.
+    shields, exit numbers, street names, POI glyphs, POI names — each
+    against its own ceiling.  Sub-budgets are ceilings, not
+    reservations: unused place slots do not flow to streets.  The page
+    is allowed to be under-filled.
 
     A `marks` dict, if given, collects {cell: (i18n key, name, seq)} for
     the POI glyphs that were actually placed — hover's first lookup, and
@@ -946,21 +988,23 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
     total = style.label_budget(graph_w, height_cells)
     placed = 0
 
-    # 2 — places, with the one anchor mark the map uses for settlements
+    # 2 — places, with the anchor mark the map uses for settlements:
+    # the everyday dot, or the capital's star
     budget = style.place_budget(total)
-    for _key, cls, name, cell in place_candidates(
+    for _key, kind, name, cell, star in place_candidates(
             view, bbox, graph_w, height_cells, band, lang):
         if budget <= 0 or placed >= total:
             break
-        kind = cls if cls in style.LABEL_STYLES else "village"
         ink, case, bold = _style_for(kind, palette)
-        settlement = cls in ("city", "town", "village", "hamlet")
-        anchor = (style.GLYPH_GENERIC, ink, bold) if settlement else None
+        settlement = kind in ("city_major", "city", "town", "village",
+                              "hamlet")
+        glyph = style.GLYPH_CAPITAL if star else style.GLYPH_GENERIC
+        anchor = (glyph, ink, bold) if settlement else None
         text = _cased(name, case)
         # An island name belongs on the island, the same way a park name
         # belongs inside the park — but the tile hands islands over as
         # bare points, so the width has to come off the water mask.
-        if (cls == "island" and water_mask is not None
+        if (kind == "island" and water_mask is not None
                 and _land_run(water_mask, cell) < visible_len(text)):
             continue
         if _place_point(overlays, occ, cell, text, ink, bold,
@@ -988,10 +1032,11 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
             budget -= 1
             placed += 1
 
-    shields, streets = road_candidates(view, bbox, graph_w, height_cells,
-                                       band, lang)
+    shields, streets, exits = road_candidates(view, bbox, graph_w,
+                                              height_cells, band, lang)
 
-    # 4 — route shields: the amber and the bold *are* the shield
+    # 4 — route shields: the network's colour and the bold *are* the
+    # shield
     budget = style.shield_budget(total)
     for _key, kind, text, cells in shields:
         if budget <= 0 or placed >= total:
@@ -999,13 +1044,27 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
         ink, case, bold = _style_for(kind, palette)
         n = _place_beside(overlays, occ, cells, _cased(text, case), ink,
                           bold, style.SHIELD_REPEAT_CELLS,
-                          min(budget, style.max_instances(
-                              graph_w * height_cells)),
+                          min(budget, style.SHIELD_MAX_INSTANCES),
                           _text_mark(texts, text))
         budget -= n
         placed += n
 
-    # 5 — street names, major to minor
+    # 5 — exit numbers, bracketed so they can never read as a route.
+    # An exit is a point: it goes on its own cell or nowhere, though a
+    # junction split across carriageways may offer more than one cell.
+    budget = style.exit_budget(total)
+    for _key, kind, ref, cells in exits:
+        if budget <= 0 or placed >= total:
+            break
+        ink, case, bold = _style_for(kind, palette)
+        text = f"[{_cased(ref, case)}]"
+        for cell in cells:
+            if _place_point(overlays, occ, cell, text, ink, bold):
+                budget -= 1
+                placed += 1
+                break
+
+    # 6 — street names, major to minor
     budget = style.street_budget(total)
     for _key, kind, name, cells in streets:
         if budget <= 0 or placed >= total:
@@ -1019,7 +1078,7 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
         budget -= n
         placed += n
 
-    # 6 and 7 — POI glyphs, and names for the tier-1 few at the bottom
+    # 7 and 8 — POI glyphs, and names for the tier-1 few at the bottom
     glyphs = style.poi_glyph_budget(graph_w, height_cells)
     text_budget = style.poi_text_budget(total)
     for seq, (key, glyph, ink_key, name, cell) in enumerate(poi_candidates(

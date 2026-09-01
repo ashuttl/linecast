@@ -218,6 +218,52 @@ class TestPlaceCandidates:
         assert "Köln" in text_at(ov, HC // 2)
 
 
+class TestPlaceHierarchy:
+    """No type size to work with, so the settlement ladder is caps,
+    bold and ink density — Boston has to outrank Lynn at a glance —
+    and a capital trades the settlement dot for a star."""
+
+    def test_a_major_city_takes_the_caps_register(self):
+        # Both are place=city; the tile's rank draws the line.
+        ov = overlays(points(
+            "place",
+            (1024, 2048, {"class": "city", "name": "Boston", "rank": 2}),
+            (3072, 2048, {"class": "city", "name": "Lynn", "rank": 9})))
+        row = text_at(ov, HC // 2)
+        assert "BOSTON" in row
+        assert "Lynn" in row
+
+    def test_a_capital_gets_a_star_instead_of_a_dot(self):
+        # OpenMapTiles' `capital` is the admin level of what the place
+        # is capital of: 4 is a state, which is Boston.
+        ov = overlays(place_layer(2048, 2048,
+                                  {"class": "city", "name": "Boston",
+                                   "rank": 2, "capital": 4}))
+        assert _maps_style.GLYPH_CAPITAL in text_at(ov, HC // 2)
+        assert _maps_style.GLYPH_GENERIC not in text_at(ov, HC // 2)
+
+    def test_a_county_seat_is_not_a_capital(self):
+        # Portland, Maine carries capital=6; a star on every county
+        # seat is a sky full of stars.
+        ov = overlays(place_layer(2048, 2048,
+                                  {"class": "city", "name": "Portland",
+                                   "rank": 6, "capital": 6}))
+        assert _maps_style.GLYPH_GENERIC in text_at(ov, HC // 2)
+        assert _maps_style.GLYPH_CAPITAL not in text_at(ov, HC // 2)
+
+    def test_the_tile_lends_its_capital_flag_to_natural_earth(self):
+        # Below the source switch the vendored list leads, and it knows
+        # nothing of capitals; the tile place of the same name does.
+        biggest = max(_load_data()["cities"], key=lambda e: e[2])
+        flagged = place_layer(2048, 2048,
+                              {"class": "city", "name": biggest[3],
+                               "capital": 2})
+        view = st.decode_view({(0, 0, 0): tile(flagged)})
+        cands = lb.place_candidates(view, WORLD, 200, 40, 0, "en")
+        starred = {c[2] for c in cands if c[4]}
+        assert biggest[3] in starred
+
+
 class TestIslandNames:
     """The place layer carries islands as bare points, so an island name
     is a place label with no settlement dot and no polygon to sit in —
@@ -332,15 +378,90 @@ class TestPlaceSourceSwitch:
         placed = "".join(ch for _pos, (ch, *_r) in sorted(ov.items()))
         assert placed
         biggest = max(_load_data()["cities"], key=lambda e: e[2])[3]
-        assert biggest[:4] in placed
+        # A megacity takes the caps register.
+        assert biggest[:4].upper() in placed
 
 
 class TestRoadLabels:
-    def test_a_shield_is_the_ref_upper_cased_and_hyphenated(self):
+    def test_an_interstate_is_signed_by_its_network(self):
+        # A bare `95` floats: the network is what turns it into a road.
         road = lines("transportation_name",
                      (polyline((1024, 2048), (3072, 2048)),
-                      {"class": "motorway", "ref": "i 95"}))
+                      {"class": "motorway", "ref": "95",
+                       "network": "us-interstate"}))
         assert "I-95" in text_at(overlays(road), HC // 2)
+
+    def test_a_state_route_takes_its_state_code_from_the_route_tag(self):
+        # The coarse `network` only says us-state; which state comes
+        # from the OSM route network the tile carries alongside.
+        road = lines("transportation_name",
+                     (polyline((1024, 2048), (3072, 2048)),
+                      {"class": "trunk", "ref": "128",
+                       "network": "us-state",
+                       "route_1_ref": "128",
+                       "route_1_network": "US:MA"}))
+        assert "MA-128" in text_at(overlays(road), HC // 2)
+
+    def test_a_us_route_is_prefixed_us(self):
+        road = lines("transportation_name",
+                     (polyline((1024, 2048), (3072, 2048)),
+                      {"class": "trunk", "ref": "1",
+                       "network": "us-highway"}))
+        assert "US-1" in text_at(overlays(road), HC // 2)
+
+    def test_a_state_without_its_route_tag_stays_bare(self):
+        # us-state alone cannot say which state, and a bare number
+        # beats a guessed one.
+        road = lines("transportation_name",
+                     (polyline((1024, 2048), (3072, 2048)),
+                      {"class": "trunk", "ref": "25",
+                       "network": "us-state"}))
+        assert "25" in text_at(overlays(road), HC // 2)
+
+    def test_a_lettered_ref_is_what_the_sign_already_says(self):
+        # M6 and A38 carry their own identity; A 13 collapses to the
+        # A13 on the panel.
+        m6 = lines("transportation_name",
+                   (polyline((1024, 2048), (3072, 2048)),
+                    {"class": "motorway", "ref": "M6",
+                     "network": "gb-motorway"}))
+        assert "M6" in text_at(overlays(m6), HC // 2)
+        a13 = lines("transportation_name",
+                    (polyline((1024, 2048), (3072, 2048)),
+                     {"class": "motorway", "ref": "A 13"}))
+        assert "A13" in text_at(overlays(a13), HC // 2)
+
+    def test_a_walking_route_never_lends_its_network(self):
+        # ME-9 doubles as the Sebago to the Sea Trail; only the route
+        # whose own ref matches the displayed ref may name it.
+        road = lines("transportation_name",
+                     (polyline((1024, 2048), (3072, 2048)),
+                      {"class": "trunk", "ref": "9",
+                       "route_1_network": "rwn",
+                       "route_1_name": "Sebago to the Sea Trail",
+                       "route_2_ref": "9",
+                       "route_2_network": "US:ME"}))
+        assert "ME-9" in text_at(overlays(road), HC // 2)
+
+    def test_each_network_signs_in_its_own_register(self):
+        def kind(props):
+            road = lines("transportation_name",
+                         (polyline((1024, 2048), (3072, 2048)), props))
+            view = st.decode_view({(0, 0, 0): tile(road)})
+            shields, _s, _e = lb.road_candidates(view, WORLD, GW, HC, 7,
+                                                 "en")
+            return shields[0][1]
+
+        assert kind({"class": "motorway", "ref": "95",
+                     "network": "us-interstate"}) == "shield_i"
+        assert kind({"class": "motorway", "ref": "M6",
+                     "network": "gb-motorway"}) == "shield_i"
+        assert kind({"class": "trunk", "ref": "1",
+                     "network": "us-highway"}) == "shield_us"
+        assert kind({"class": "trunk", "ref": "A38",
+                     "network": "gb-trunk"}) == "shield_gn"
+        assert kind({"class": "trunk", "ref": "25",
+                     "network": "us-state"}) == "shield"
 
     def test_a_long_ref_is_not_a_shield(self):
         road = lines("transportation_name",
@@ -383,7 +504,8 @@ class TestRoadLabels:
         ov = overlays(road)
         assert all_text(ov).count("Long Street") == 1
         view = st.decode_view({(0, 0, 0): tile(road)})
-        _shields, streets = lb.road_candidates(view, WORLD, GW, HC, 7, "en")
+        _shields, streets, _exits = lb.road_candidates(view, WORLD, GW, HC,
+                                                       7, "en")
         assert len(streets) == 1
         assert len(streets[0][3]) > GW // 2      # both segments' cells
 
@@ -396,7 +518,7 @@ class TestRoadLabels:
         assert "Ridge Road" not in all_text(overlays(road, band=3))
         assert "Ridge Road" in all_text(overlays(road, band=4))
 
-    def test_a_numbered_road_is_labelled_by_its_number_alone(self):
+    def test_a_numbered_road_is_its_number_alone_at_atlas_zoom(self):
         # You navigate ME-196 by "196", not by "Lisbon Street"; a second
         # label on the same road says less and costs the same.
         road = lines("transportation_name",
@@ -406,6 +528,37 @@ class TestRoadLabels:
         placed = all_text(overlays(road, band=2))
         assert "196" in placed
         assert "Lisbon Street" not in placed
+
+    def test_a_numbered_road_earns_its_name_back_on_the_street_grid(self):
+        # Standing in Portland the road is Forest Avenue — the name the
+        # addresses are on — and US-302's shield alone left it nameless.
+        road = lines("transportation_name",
+                     (polyline((0, 2048), (4096, 2048)),
+                      {"class": "trunk", "ref": "302",
+                       "network": "us-highway",
+                       "name": "Forest Avenue"}))
+        view = st.decode_view({(0, 0, 0): tile(road)})
+        for band, named in ((4, False), (5, True)):
+            ov = lb.label_overlays(view, WORLD, 200, 40, band,
+                                   _maps_style.palette(), "en")
+            row = text_at(ov, 20)
+            assert "US-302" in row
+            assert ("Forest Avenue" in row) == named
+
+    def test_a_shield_repeats_at_most_once(self):
+        # US-302 snakes across a whole Portland view; the distance rule
+        # alone stamped it four times and spent the entire shield
+        # budget on one road.
+        road = lines("transportation_name",
+                     (polyline((0, 0), (4096, 4096)),
+                      {"class": "motorway", "ref": "302",
+                       "network": "us-highway"}))
+        big = lb.label_overlays(
+            st.decode_view({(0, 0, 0): tile(road)}), WORLD, 200, 40, 5,
+            _maps_style.palette(), "en")
+        texts = "".join(ch for _pos, (ch, *_r) in big.items())
+        # one '3' per instance of "US-302"
+        assert texts.count("3") == _maps_style.SHIELD_MAX_INSTANCES
 
     def test_shields_are_ordered_by_road_not_by_number(self):
         # The four shields a view can afford should be the four biggest
@@ -417,8 +570,47 @@ class TestRoadLabels:
             (polyline((0, 3072), (4096, 3072)),
              {"class": "motorway", "ref": "95"}))
         view = st.decode_view({(0, 0, 0): tile(road)})
-        shields, _streets = lb.road_candidates(view, WORLD, GW, HC, 2, "en")
+        shields, _streets, _exits = lb.road_candidates(view, WORLD, GW, HC,
+                                                       2, "en")
         assert [s[2] for s in shields] == ["95", "11"]
+
+
+class TestExits:
+    """Motorway junctions arrive in the same layer as bare points with
+    the exit number as their ref; fed through the shield path they
+    floated ambiguous `47`s over the turnpike."""
+
+    def _junction(self, props):
+        return points("transportation_name", (2048, 2048, props))
+
+    def test_an_exit_number_is_bracketed_never_a_shield(self):
+        ov = overlays(self._junction({"class": "motorway",
+                                      "subclass": "junction",
+                                      "ref": "47"}))
+        assert "[47]" in text_at(ov, HC // 2)
+
+    def test_an_exit_waits_for_neighbourhood_zoom(self):
+        junction = self._junction({"class": "motorway",
+                                   "subclass": "junction", "ref": "47"})
+        assert overlays(junction, band=4) == {}
+        assert overlays(junction, band=5) != {}
+
+    def test_a_junction_name_is_not_a_street(self):
+        # "Sowton Interchange" entered the street contest at motorway
+        # rank on a single cell of geometry.
+        ov = overlays(self._junction({"class": "motorway",
+                                      "subclass": "junction",
+                                      "name": "Sowton Interchange"}))
+        assert "Sowton" not in all_text(ov)
+
+    def test_a_junction_split_across_carriageways_places_once(self):
+        ov = overlays(points(
+            "transportation_name",
+            (2000, 2048, {"class": "motorway", "subclass": "junction",
+                          "ref": "47"}),
+            (2100, 2048, {"class": "motorway", "subclass": "junction",
+                          "ref": "47"})))
+        assert all_text(ov).count("[") == 1
 
 
 class TestPoi:
@@ -490,8 +682,9 @@ class TestPlacementDiscipline:
     def test_the_highest_ranked_candidates_are_the_survivors(self):
         ov = overlays(self._cities(20))
         placed = "".join(ch for _pos, (ch, *_r) in sorted(ov.items()))
-        assert "City00" in placed
+        assert "CITY00" in placed        # rank 1: the caps register
         assert "City19" not in placed
+        assert "CITY19" not in placed
 
     def test_reserved_cells_are_routed_around(self):
         # The marker and the crosshair are placed first and always win;

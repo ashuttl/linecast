@@ -182,7 +182,8 @@ EXPECT_16 = {
     "trunk": 15, "primary": 15, "secondary": 7, "minor": 7,
     "service": 8, "path": 8, "rail": 8, "transit": 8, "aeroway": 8,
     "border0": 8, "border1": 8, "route": 14, "lbl_city": 15,
-    "lbl_road": 15, "lbl_shield": 15, "poi_med": 9,
+    "lbl_road": 15, "lbl_shield": 15, "lbl_shield_i": 12,
+    "lbl_shield_us": 15, "lbl_shield_gn": 10, "poi_med": 9,
 }
 
 
@@ -446,9 +447,13 @@ def test_label_styles_use_only_palette_inks():
         assert isinstance(bold, bool)
 
 
-def test_only_four_label_classes_are_bold():
+def test_only_the_top_of_each_ladder_is_bold():
+    # Cities, the admin names above them, and the shields — where the
+    # bold *is* the shield.  Exits deliberately stay regular so they
+    # defer to every shield near them.
     bold = {c for c, style in ms.LABEL_STYLES.items() if style[2]}
-    assert bold == {"city", "state", "country", "shield"}
+    assert bold == {"city_major", "city", "state", "country",
+                    "shield", "shield_i", "shield_us", "shield_gn"}
 
 
 def test_class_rank_orders_places_and_omits_the_rest():
@@ -532,8 +537,8 @@ def test_every_glyph_is_single_width():
         assert ord(glyph) < 0x1F000              # no emoji block
 
 
-def test_the_glyph_set_is_exactly_ten_marks():
-    assert len(ms.GLYPH_INK) == 10
+def test_the_glyph_set_is_exactly_eleven_marks():
+    assert len(ms.GLYPH_INK) == 11
     assert ms.GLYPH_STATION not in (ms.GLYPH_GENERIC, ms.GLYPH_PEAK)
     for glyph, ink_key in ms.GLYPH_INK.items():
         assert ink_key in ms.PALETTE_DARK, glyph

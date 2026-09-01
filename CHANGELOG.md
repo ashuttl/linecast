@@ -4,6 +4,9 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Maps: Route shields now name their network — I-95, US-1, ME-128, and the sign's own M6 or A38 — and take the sign's color where one exists: interstates and motorways in blue, US routes in white, UK primary routes in green. A shield appears at most twice per view.
+- Maps: Exit numbers now read as exits — bracketed, in the ramp's dimmer ink — instead of floating over the highway as bare numbers that could be routes. A numbered road also shows its street name again at close zooms, where the addresses live.
+- Maps: Major cities set their names in capitals, and national and state capitals get a star instead of a dot.
 - Weather and tides: The live views no longer freeze on a slow network — the five-minute weather refresh and the wider tide range fetched when scrolling near an edge now load in the background while the view keeps drawing what it has.
 - Sunshine: The year view fills the window with the sky field. The month labels now sit on the field itself, and the sunrise/sunset line — which described only today — is gone; the pop-up gives those times for any day.
 - Sunshine: The year view's daylight is hazier near sunrise and sunset — whiter low sky settling into blue as the sun climbs, as on a clear day.
