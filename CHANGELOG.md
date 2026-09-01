@@ -8,7 +8,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Sunshine: The year view fills the window with the sky field. The month labels now sit on the field itself, and the sunrise/sunset line — which described only today — is gone; the pop-up gives those times for any day.
 - Sunshine: The year view's daylight is hazier near sunrise and sunset — whiter low sky settling into blue as the sun climbs, as on a clear day.
 - Weather: A line on the hourly chart marks the current time, in the style of the midnight dividers, so now is still visible after scrolling away from it.
-- The hover pop-ups — weather, tides, radar warnings, the sunshine year view — sit clear of the mouse pointer instead of underneath it.
+- The hover pop-ups — weather, tides, radar warnings, the sunshine year view — sit clear of the mouse pointer instead of underneath it (thanks @ebrannin for #48).
 - Weather: Fixed the place name for small towns — the header could show the timezone city ("New York") instead of the place itself.
 - Radar: Frames that arrive incomplete are no longer drawn or kept — the missing parts looked like clear weather. They are fetched again, and a source that cannot serve its tiles falls back to the next one.
 - Sunshine: Sunrise and sunset times are more accurate. They could be ten or more minutes out in spring and autumn, most at high latitudes; the sky in both views and the globe's day/night edge sharpen with them.
