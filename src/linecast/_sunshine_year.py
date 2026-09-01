@@ -132,6 +132,10 @@ def _dial_stops(sun):
     slate = lerp_rgb(night, sky, 0.40)
     rose = lerp_rgb(lerp_rgb(magenta, red, 0.30), slate, 0.25)
     peach = lerp_rgb(lerp_rgb(yellow, red, 0.30), white, 0.35)
+    # The low sky is hazy — whiter near the horizon, as on a clear day —
+    # and settles into the blue as the sun climbs. A soft edge for the
+    # day region, not information.
+    haze = lerp_rgb(day, white, 0.22)
     return [
         (-18, night),
         (-12, lerp_rgb(night, sky, 0.17)),
@@ -140,11 +144,11 @@ def _dial_stops(sun):
         ( -2, rose),
         (  0, lerp_rgb(rose, peach, 0.55)),
         (  2, peach),
-        (  5, lerp_rgb(peach, day, 0.40)),
-        (  8, lerp_rgb(peach, day, 0.70)),
-        ( 12, lerp_rgb(day, white, 0.10)),
-        ( 18, day),
-        ( 30, lerp_rgb(day, sky, 0.45)),
+        (  5, lerp_rgb(peach, haze, 0.45)),
+        (  8, lerp_rgb(peach, haze, 0.80)),
+        ( 12, haze),
+        ( 22, lerp_rgb(haze, day, 0.65)),
+        ( 35, lerp_rgb(day, sky, 0.40)),
         ( 90, lerp_rgb(day, sky, 0.60)),
     ]
 
