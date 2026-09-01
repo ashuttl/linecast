@@ -21,6 +21,7 @@ the published ones, which is the accuracy an almanac is read at.
 import calendar
 import math
 import sys
+import textwrap
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -607,6 +608,10 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     cols, rows = get_terminal_size()
     hint = install_banner()
+    # The counsel's attribution is a footer, not a panel line: italic,
+    # dim, pinned to the bottom of the viewport under both layouts.
+    footer = (_center(f"{fg(*INFO_DIM_RGB)}\x1b[3m{attrib_txt}{RESET}", cols)
+              if attrib_txt else "")
     # Track even a very narrow terminal rather than overflow it; the
     # floor only guards against a degenerate reported size.
     graph_w = max(16, cols - 2)
@@ -620,6 +625,10 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         [(age_txt, D, False)],
         [],
     ]
+    # The counsel reads the night the headline names, so it goes right
+    # here — inserted once the rest of the panel has fixed the column,
+    # so it can wrap against that width instead of setting it.
+    counsel_at = len(panel)
     if offset_minutes:
         # Scrubbed away from the present: lead with the simulated moment
         # ("Up now" would lie), and show how to get back.
@@ -636,15 +645,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         [("↓", P, False), (set_txt, T, False)],
         [],
     ]
-    if good_txt:
-        panel += [[(good_txt, D, False)]]
-        if hold_txt:
-            panel += [[(hold_txt, D, False)]]
-        if solunar_txt:
-            panel += [[(solunar_txt, D, False)]]
-        if attrib_txt:
-            panel += [[(attrib_txt, D, False)]]
-        panel += [[]]
     panel += [
         [(full_txt, D, False)],
         [(new_txt, D, False)],
@@ -663,17 +663,30 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     if offset_minutes:
         panel += [[], [(_ts('space_to_now', runtime), D, False)]]
 
+    # A long counsel line breaks rather than dragging the whole column
+    # wide: it may run at most a third past the longest other line.
+    if good_txt:
+        base_w = max(visible_len("".join(t for t, _c, _b in line))
+                     for line in panel)
+        wrap_w = max(int(base_w * 1.3), 28)
+        block = [[(seg, D, False)]
+                 for txt in (good_txt, hold_txt, solunar_txt) if txt
+                 for seg in textwrap.wrap(txt, wrap_w)]
+        panel[counsel_at:counsel_at] = block + [[]]
+
     panel_w = max(visible_len("".join(t for t, _c, _b in line))
                   for line in panel)
     panel_h = len(panel)
-    # Fullscreen fills the terminal exactly (plus the install banner,
-    # when present); the plain print leaves two rows for the prompt.
-    wide_h = max(6, rows - (1 if hint else 0) - (0 if fullscreen else 2))
+    # Fullscreen fills the terminal exactly (plus the install banner
+    # and the attribution footer, when present); the plain print
+    # leaves two rows for the prompt.
+    chrome = (1 if hint else 0) + (1 if footer else 0)
+    wide_h = max(6, rows - chrome - (0 if fullscreen else 2))
     region_w = graph_w - panel_w - 3   # sky left over for the disc
     # Prefer the column: go wide whenever it fits and costs the disc
     # nothing.  Stacking spends five rows on info, so the sky beside a
     # full-height disc wins well before the terminal is truly wide.
-    stacked_h = max(6, rows - 5 - (1 if hint else 0) - (0 if fullscreen else 2))
+    stacked_h = max(6, rows - 5 - chrome - (0 if fullscreen else 2))
     wide_radius = min(wide_h * 2 * 0.41, region_w * 0.5 - 3.0)
     stacked_radius = min(stacked_h * 2 * 0.41, graph_w * 0.5 - 3.0)
     if wide_radius >= stacked_radius and panel_h + 2 <= wide_h:
@@ -690,6 +703,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         _draw_moon_disc(fb, cx, cy, radius, illum, limb, axis)
         stars = _star_overlays(fb, cx, cy, radius, taken=overlays.keys())
         lines = fb.render(overlays={**stars, **overlays})
+        if footer:
+            lines.append(footer)
         if hint:
             lines.append(hint)
         return "\n".join(lines)
@@ -734,8 +749,19 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
             f"{text}{icon} {name}  {dim}{illum_txt}{RESET}",
             f"{text}{icon} {name}{RESET}")
 
-    candidates = [
-        head_line,
+    # Fit against cols - 2 so a line that just fits still gets a column
+    # of air at each edge instead of running wall to wall.
+    fit_w = max(20, cols - 2)
+    candidates = [head_line]
+    if good_txt:
+        # The counsel follows the name it reads, wrapped to the width
+        # rather than shed.
+        candidates += [(f"{dim}{seg}{RESET}",)
+                       for txt in (good_txt, hold_txt) if txt
+                       for seg in textwrap.wrap(txt, fit_w)]
+        if solunar_txt:
+            candidates.append((f"{dim}{solunar_txt}{RESET}",))
+    candidates += [
         status_line,
         # The countdown roughly doubles this line's width, so keep the
         # plain labelled time between it and the bare clock times —
@@ -745,14 +771,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
          f"{purple}↓{text}{_ms('moonset', runtime)} {set_when}{RESET}",
          f"{amber}↑{text}{rise_when}  {purple}↓{text}{set_when}{RESET}"),
     ]
-    if good_txt:
-        candidates.append((f"{dim}{good_txt} · {hold_txt}{RESET}",
-                           f"{dim}{good_txt}{RESET}")
-                          if hold_txt else (f"{dim}{good_txt}{RESET}",))
-        if solunar_txt:
-            candidates.append((f"{dim}{solunar_txt}{RESET}",))
-        if attrib_txt:
-            candidates.append((f"{dim}{attrib_txt}{RESET}",))
     if term_txt:
         # The calendar line, the festival leading since it is the one
         # people wait for.
@@ -772,15 +790,12 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
          f"{dim}{year_txt} · {season_short}{RESET}",
          f"{dim}{year_txt}{RESET}"),
     ]
-    # Fit against cols - 2 so a line that just fits still gets a column
-    # of air at each edge instead of running wall to wall.
-    fit_w = max(20, cols - 2)
     info = [line for line in (_first_fit(fit_w, *c) for c in candidates)
             if line is not None]
 
     # A very short terminal gives up trailing lines (the least essential
     # come last) before squeezing the disc below its minimum height.
-    reserve = (1 if hint else 0) + (0 if fullscreen else 2)
+    reserve = chrome + (0 if fullscreen else 2)
     while len(info) > 1 and rows - len(info) - reserve < 6:
         info.pop()
 
@@ -802,6 +817,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     lines.extend(_center(line, cols) for line in info)
 
+    if footer:
+        lines.append(footer)
     if hint:
         lines.append(hint)
 
