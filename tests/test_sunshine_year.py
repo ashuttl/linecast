@@ -201,6 +201,37 @@ class TestHoverMoment:
         assert shifted == plain + 1.0
 
 
+class TestMorningIsSolarNoon:
+    """The dawn/dusk split turns on solar noon, not on 12:00.
+
+    Utqiaġvik sits far west in its zone, so solar noon falls near 13:30;
+    through the polar-night twilight, half past noon on the clock is still
+    morning. Swedish tells dawn from dusk, so a clock-noon comparison
+    would name the wrong one.
+    """
+
+    UTQIAGVIK = (71.29, -156.79, -9.0)
+    DOY = _doy(datetime(2026, 12, 21))
+
+    def test_the_hovered_row_reads_the_solar_clock(self):
+        lat, lng, tz_off = self.UTQIAGVIK
+        runtime = _runtime(lang="sv")
+        # graph_h 24: a mouse row reads as the middle of its hour.
+        _, before = year._hover_moment(lat, lng, self.DOY, tz_off, 13, 24,
+                                       sun, runtime)  # 12:30
+        _, after = year._hover_moment(lat, lng, self.DOY, tz_off, 15, 24,
+                                      sun, runtime)   # 14:30
+        assert before == "borgerlig gryning"
+        assert after == "borgerlig skymning"
+
+    def test_the_day_views_sky_name_agrees(self):
+        lat, lng, tz_off = self.UTQIAGVIK
+        sunrise, sunset = sun.solar_times(lat, lng, self.DOY, tz_off)
+        label = sun._sky_name(lat, lng, self.DOY, 12.5, sunrise, sunset,
+                              tz_off, _runtime(lang="sv"))
+        assert label == "borgerlig gryning"
+
+
 class TestTooltip:
     def _tip(self, lat, lng, now, mouse_pos, **kw):
         return _tooltip(_render(lat, lng, now, mouse_pos=mouse_pos, **kw))

@@ -183,6 +183,7 @@ class TestTwilightDirection:
             "id": ("fajar sipil", "senja sipil"),
             "sv": ("borgerlig gryning", "borgerlig skymning"),
             "fr": ("aube civile", "crépuscule civil"),
+            "it": ("alba civile", "crepuscolo civile"),
             "de": ("bürgerliche Morgendämmerung",
                    "bürgerliche Abenddämmerung"),
             "zh": ("民用晨光", "民用昏影"),
@@ -218,6 +219,37 @@ class TestTwilightDirection:
                 == "zmierzch żeglarski")
         assert (sky_phase(-10, SimpleNamespace(lang="fi"))
                 == "nauttinen hämärä")
+
+
+class TestRelativeDays:
+    def test_scandinavian_ago_keeps_its_preposition(self):
+        """'för … sedan' and 'for … siden' wrap the count on both sides."""
+        from linecast._sunshine_i18n import relative_day
+        expected = {
+            "sv": ("för 1 dag sedan", "för 3 dagar sedan"),
+            "da": ("for 1 dag siden", "for 3 dage siden"),
+            "no": ("for 1 dag siden", "for 3 dager siden"),
+        }
+        for lang, (one, three) in expected.items():
+            runtime = SimpleNamespace(lang=lang)
+            assert relative_day(-1, runtime) == one
+            assert relative_day(-3, runtime) == three
+
+
+class TestMonthAxisLabels:
+    def test_french_june_and_july_are_distinct(self):
+        from linecast._sunshine_i18n import axis_month_labels
+        labels = axis_month_labels(SimpleNamespace(lang="fr"))
+        assert labels[5] == "jun"
+        assert labels[6] == "jul"
+
+    def test_wide_labels_are_distinct_in_every_language(self):
+        """No two months may truncate to the same axis label."""
+        from linecast._moon_i18n import MONTHS_I18N
+        from linecast._sunshine_i18n import _AXIS_MONTHS, axis_month_labels
+        for lang in set(MONTHS_I18N) | set(_AXIS_MONTHS):
+            labels = axis_month_labels(SimpleNamespace(lang=lang))
+            assert len(set(labels)) == 12, lang
 
 
 class TestKoreanMoonNames:
