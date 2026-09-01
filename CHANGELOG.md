@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather and tides: The live views no longer freeze on a slow network — the five-minute weather refresh and the wider tide range fetched when scrolling near an edge now load in the background while the view keeps drawing what it has.
 - Sunshine: The year view fills the window with the sky field. The month labels now sit on the field itself, and the sunrise/sunset line — which described only today — is gone; the pop-up gives those times for any day.
 - Sunshine: The year view's daylight is hazier near sunrise and sunset — whiter low sky settling into blue as the sun climbs, as on a clear day.
 - Weather: A line on the hourly chart marks the current time, in the style of the midnight dividers, so now is still visible after scrolling away from it.

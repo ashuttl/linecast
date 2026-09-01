@@ -18,6 +18,7 @@ Usage: weather [--print] [--oneline] [--json] [--location LAT,LNG | PLACE] [--se
 """
 
 import sys
+import threading
 import time as _t
 
 from linecast import _live
@@ -321,7 +322,9 @@ class WeatherApp(_live.LiveApp):
     Keep data in memory between renders: render_fn fires on every input
     event (hover motion, scroll), and re-reading disk caches — or worse,
     blocking on a network fetch when a TTL expires — on each mouse move
-    makes the tooltip lag. Refresh at most once per interval instead.
+    makes the tooltip lag. Refresh at most once per interval, and off
+    the render thread: the view keeps painting what it has while a
+    worker fetches, so a slow network never freezes hover or scroll.
     """
 
     interval = 300
@@ -340,16 +343,38 @@ class WeatherApp(_live.LiveApp):
         self.location_name = location_name
         self.historical = historical
         self.country = country
+        self._worker = None
+
+    def _refresh(self):
+        """Fetch fresh data and swap it in, off the render thread.
+
+        `fetched` moves whatever the outcome — before the worker dies,
+        so render never sees a dead worker with a stale stamp — and a
+        dead network is asked once per interval, not once per repaint.
+        """
+        try:
+            data = fetch_forecast(self.lat, self.lng, self.runtime)
+            alerts = fetch_alerts(self.lat, self.lng, self.country,
+                                  lang=self.runtime.lang)
+            aqi = fetch_aqi(self.lat, self.lng)
+            apply_india_aqi(aqi, self.country)
+            if data:
+                self.data = data
+            self.alerts = alerts
+            self.aqi = aqi
+        except Exception as exc:
+            log_failure("weather", "live refresh", exc,
+                        fallback="view stays stale")
+        finally:
+            self.fetched = _t.monotonic()
+        _live.nudge()
 
     def render(self, offset_minutes=0, mouse_pos=None, active_alert=None,
                modal_scroll=0):
-        if _t.monotonic() - self.fetched >= 300:
-            self.data = fetch_forecast(self.lat, self.lng, self.runtime) or self.data
-            self.alerts = fetch_alerts(self.lat, self.lng, self.country,
-                                       lang=self.runtime.lang)
-            self.aqi = fetch_aqi(self.lat, self.lng)
-            apply_india_aqi(self.aqi, self.country)
-            self.fetched = _t.monotonic()
+        if _t.monotonic() - self.fetched >= 300 and not (
+                self._worker and self._worker.is_alive()):
+            self._worker = threading.Thread(target=self._refresh, daemon=True)
+            self._worker.start()
         return render_from_data(
             self.data,
             self.alerts,

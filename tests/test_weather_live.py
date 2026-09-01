@@ -1,6 +1,7 @@
 """WeatherApp: the live weather view's refresh and alert opening."""
 
 import sys
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -39,10 +40,16 @@ class TestRender:
             "aqi_data": {"aqi": 1}, "historical": {"h": 1},
         }
 
-    def test_render_after_the_interval_refreshes_all_three_fetches(self):
+    def test_render_after_the_interval_refreshes_in_the_background(self):
         app = _app(lambda: 1000.0)
+        release = threading.Event()
+
+        def slow_forecast(*a, **k):
+            release.wait(1.0)
+            return {"v": 2}
+
         with patch.object(weather, "fetch_forecast",
-                          return_value={"v": 2}) as forecast, \
+                          side_effect=slow_forecast) as forecast, \
              patch.object(weather, "fetch_alerts",
                           return_value=[{"url": "u"}]) as alerts, \
              patch.object(weather, "fetch_aqi", return_value={"aqi": 2}) as aqi, \
@@ -50,6 +57,10 @@ class TestRender:
                           return_value=("out", {})) as render, \
              patch("time.monotonic", return_value=1300.0):
             app.render()
+            # this repaint painted the data it had, without waiting
+            assert render.call_args[0][:2] == ({"v": 1}, [])
+            release.set()
+            app._worker.join(1.0)
         forecast.assert_called_once_with(43.0, -70.0, app.runtime)
         alerts.assert_called_once_with(43.0, -70.0, "US", lang="en")
         aqi.assert_called_once_with(43.0, -70.0)
@@ -57,9 +68,29 @@ class TestRender:
         assert app.alerts == [{"url": "u"}]
         assert app.aqi == {"aqi": 2}
         assert app.fetched == 1300.0
-        args, kwargs = render.call_args
-        assert args[:2] == ({"v": 2}, [{"url": "u"}])
-        assert kwargs["aqi_data"] == {"aqi": 2}
+        assert not app._worker.is_alive()
+
+    def test_one_refresh_in_flight_at_a_time(self):
+        app = _app(lambda: 1000.0)
+        release = threading.Event()
+
+        def slow_forecast(*a, **k):
+            release.wait(1.0)
+            return {"v": 2}
+
+        with patch.object(weather, "fetch_forecast", side_effect=slow_forecast), \
+             patch.object(weather, "fetch_alerts", return_value=[]), \
+             patch.object(weather, "fetch_aqi", return_value=None), \
+             patch.object(weather, "render_from_data",
+                          return_value=("out", {})), \
+             patch("time.monotonic", return_value=1300.0):
+            app.render()
+            worker = app._worker
+            app.render()
+            assert app._worker is worker   # no second worker
+            release.set()
+            worker.join(1.0)
+        assert app.data == {"v": 2}
 
     def test_a_failed_forecast_refresh_keeps_the_old_data(self):
         app = _app(lambda: 1000.0)
@@ -70,7 +101,9 @@ class TestRender:
                           return_value=("out", {})) as render, \
              patch("time.monotonic", return_value=2000.0):
             app.render()
+            app._worker.join(1.0)
         assert app.data == {"v": 1}
+        assert app.fetched == 2000.0   # a dead network waits out the interval
         assert render.call_args[0][0] == {"v": 1}
 
 
