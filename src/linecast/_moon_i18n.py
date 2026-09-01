@@ -367,13 +367,24 @@ def _day_abbrev(dt, runtime):
 
 
 # ---------------------------------------------------------------------------
-# The lunisolar calendar's names, for the languages whose readers know
-# the moon through it (see _lunisolar.py for the calendar itself).
+# The lunisolar calendar's names (see _lunisolar.py for the calendar
+# itself). Each calendar reads in its own script for its own language;
+# every other UI language gets the customary English renderings, the
+# same fallback the string tables use.
 # ---------------------------------------------------------------------------
 
 # Solar terms in longitude order, index 0 at the March equinox — the
-# indexing current_term() and next_term() use.
+# indexing current_term() and next_term() use. The terms are common to
+# all three calendars; only the writing differs.
 SOLAR_TERMS_I18N = {
+    "en": ["Spring Equinox", "Clear and Bright", "Grain Rain",
+           "Start of Summer", "Grain Buds", "Grain in Ear",
+           "Summer Solstice", "Minor Heat", "Major Heat",
+           "Start of Autumn", "End of Heat", "White Dew",
+           "Autumn Equinox", "Cold Dew", "Frost's Descent",
+           "Start of Winter", "Minor Snow", "Major Snow",
+           "Winter Solstice", "Minor Cold", "Major Cold",
+           "Start of Spring", "Rain Water", "Awakening of Insects"],
     "zh": ["春分", "清明", "谷雨", "立夏", "小满", "芒种",
            "夏至", "小暑", "大暑", "立秋", "处暑", "白露",
            "秋分", "寒露", "霜降", "立冬", "小雪", "大雪",
@@ -388,16 +399,40 @@ SOLAR_TERMS_I18N = {
            "동지", "소한", "대한", "입춘", "우수", "경칩"],
 }
 
-# Festivals dated by the lunar calendar, (month, day) → name. Japan
-# moved its festivals to Gregorian dates in 1873; the two moon-viewing
-# nights are what remains on the old calendar.
-FESTIVALS_I18N = {
-    "zh": {(1, 1): "春节", (1, 15): "元宵节", (5, 5): "端午节",
-           (7, 7): "七夕", (8, 15): "中秋节", (9, 9): "重阳节"},
-    "ja": {(8, 15): "十五夜", (9, 13): "十三夜"},
-    "ko": {(1, 1): "설날", (1, 15): "정월대보름", (5, 5): "단오",
-           (8, 15): "추석"},
+# Festivals dated by the lunar calendar, (month, day) → (native name,
+# English name), per calendar. Japan moved its festivals to Gregorian
+# dates in 1873; the two moon-viewing nights are what remains on the
+# old calendar.
+_FESTIVALS = {
+    "chinese": {
+        (1, 1): ("春节", "Chinese New Year"),
+        (1, 15): ("元宵节", "Lantern Festival"),
+        (5, 5): ("端午节", "Dragon Boat Festival"),
+        (7, 7): ("七夕", "Qixi"),
+        (8, 15): ("中秋节", "Mid-Autumn Festival"),
+        (9, 9): ("重阳节", "Double Ninth"),
+    },
+    "japanese": {
+        (8, 15): ("十五夜", "Tsukimi"),
+        (9, 13): ("十三夜", "Jūsan'ya"),
+    },
+    "korean": {
+        (1, 1): ("설날", "Seollal"),
+        (1, 15): ("정월대보름", "Daeboreum"),
+        (5, 5): ("단오", "Dano"),
+        (8, 15): ("추석", "Chuseok"),
+    },
 }
+
+
+def festival_table(calendar, native):
+    """(month, day) → name for a calendar's festivals.
+
+    *native* picks the calendar's own script; otherwise the customary
+    English names.
+    """
+    return {md: names[0] if native else names[1]
+            for md, names in _FESTIVALS[calendar].items()}
 
 # Chinese months and days have names, not numbers: the eleventh and
 # twelfth months are 冬月 and 腊月, the first ten days take 初, the
@@ -420,7 +455,7 @@ def _zh_day_name(day):
 
 
 def lunar_date_label(month, day, leap, lang):
-    """The lunar date as its own calendar writes it."""
+    """The lunar date as its own calendar writes it, English otherwise."""
     if lang == "zh":
         leap_mark = "闰" if leap else ""
         return f"农历{leap_mark}{_ZH_MONTHS[month - 1]}{_zh_day_name(day)}"
@@ -430,9 +465,10 @@ def lunar_date_label(month, day, leap, lang):
     if lang == "ko":
         leap_mark = "윤" if leap else ""
         return f"음력 {leap_mark}{month}월 {day}일"
-    return f"{month}-{day}" + ("+" if leap else "")
+    leap_mark = "leap " if leap else ""
+    return f"{leap_mark}month {month} day {day}"
 
 
 def term_label(index, lang):
-    """The localized name of solar term *index* (0 = March equinox)."""
-    return SOLAR_TERMS_I18N.get(lang, SOLAR_TERMS_I18N["zh"])[index]
+    """The name of solar term *index* (0 = March equinox)."""
+    return SOLAR_TERMS_I18N.get(lang, SOLAR_TERMS_I18N["en"])[index]

@@ -9,7 +9,8 @@ these are end-to-end checks of the month, day, and leap arithmetic.
 from datetime import date, datetime, timezone
 
 from linecast._lunisolar import (
-    CALENDAR_TZ_HOURS,
+    CALENDAR_MERIDIAN_HOURS,
+    CALENDAR_NATIVE_LANG,
     _civil,
     current_term,
     lunisolar_date,
@@ -18,7 +19,7 @@ from linecast._lunisolar import (
     sun_crossing_utc,
 )
 from linecast._moon_i18n import (
-    FESTIVALS_I18N,
+    festival_table,
     lunar_date_label,
     term_label,
 )
@@ -82,15 +83,23 @@ class TestSolarTerms:
 
 class TestFestivals:
     def test_next_festival_is_mid_autumn(self):
-        got = next_lunar_event(date(2026, 9, 1), 8, FESTIVALS_I18N["zh"])
+        got = next_lunar_event(date(2026, 9, 1), 8,
+                               festival_table("chinese", native=True))
         assert got == (date(2026, 9, 25), "中秋节")
 
+    def test_english_names_for_other_languages(self):
+        got = next_lunar_event(date(2026, 9, 1), 8,
+                               festival_table("chinese", native=False))
+        assert got == (date(2026, 9, 25), "Mid-Autumn Festival")
+
     def test_korean_new_year(self):
-        got = next_lunar_event(date(2026, 1, 1), 9, FESTIVALS_I18N["ko"])
+        got = next_lunar_event(date(2026, 1, 1), 9,
+                               festival_table("korean", native=True))
         assert got == (date(2026, 2, 17), "설날")
 
     def test_a_festival_today_still_shows(self):
-        got = next_lunar_event(date(2026, 9, 25), 8, FESTIVALS_I18N["zh"])
+        got = next_lunar_event(date(2026, 9, 25), 8,
+                               festival_table("chinese", native=True))
         assert got == (date(2026, 9, 25), "中秋节")
 
     def test_festivals_skip_the_leap_month(self):
@@ -116,7 +125,15 @@ class TestLabels:
         assert lunar_date_label(7, 20, False, "ko") == "음력 7월 20일"
         assert lunar_date_label(7, 20, True, "ko") == "음력 윤7월 20일"
 
-    def test_calendar_languages_all_have_tables(self):
-        for lang in CALENDAR_TZ_HOURS:
-            assert lang in FESTIVALS_I18N
+    def test_english_serves_every_other_language(self):
+        assert lunar_date_label(7, 20, False, "en") == "month 7 day 20"
+        assert lunar_date_label(6, 5, True, "fr") == "leap month 6 day 5"
+        assert term_label(10, "en") == "End of Heat"
+        assert term_label(10, "de") == "End of Heat"
+
+    def test_every_calendar_has_names_and_a_meridian(self):
+        for cal, lang in CALENDAR_NATIVE_LANG.items():
+            assert cal in CALENDAR_MERIDIAN_HOURS
+            assert festival_table(cal, native=True)
+            assert festival_table(cal, native=False)
             assert term_label(0, lang)

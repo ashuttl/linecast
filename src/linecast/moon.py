@@ -33,12 +33,12 @@ from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
 from linecast._lunisolar import (
-    CALENDAR_TZ_HOURS, current_term, lunisolar_date, next_lunar_event,
-    next_term,
+    CALENDAR_MERIDIAN_HOURS, CALENDAR_NATIVE_LANG, CALENDAR_OF_LANG,
+    current_term, lunisolar_date, next_lunar_event, next_term,
 )
 from linecast._moon_i18n import (
-    FESTIVALS_I18N, _day_abbrev, _fmt_month_day, _moon_name, _ms,
-    _season_label, lunar_date_label, term_label,
+    _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
+    festival_table, lunar_date_label, term_label,
 )
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._textwidth import char_width
@@ -437,7 +437,8 @@ def _next_phase_local(moment_utc, target_frac, now_local):
     return found.astimezone(now_local.tzinfo)
 
 
-def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
+def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
+           calendar_name=None):
     """Build the full-screen moon display: disc plus info lines.
 
     Three layouts, by terminal size: a wide terminal floats the info as
@@ -509,26 +510,31 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
                 f"{_fmt_month_day(now_local, runtime)} "
                 f"{fmt_time_dt(now_local, use_24h=runtime.use_24h)}")
 
-    # The lunisolar calendar, for the languages whose readers know the
-    # moon through it: the lunar date beside the phase, the solar term
-    # in progress with the next one's date, and the coming festival.
+    # The lunisolar calendar: on by default for the languages whose
+    # readers know the moon through it, and available to anyone with
+    # --calendar — the lunar date beside the phase, the solar term in
+    # progress with the next one's date, and the coming festival. A
+    # calendar shown in its own language keeps its own script; any
+    # other language gets the customary English names.
     lang = lang_of(runtime)
-    cal_tz = CALENDAR_TZ_HOURS.get(lang)
+    cal = calendar_name if calendar_name else CALENDAR_OF_LANG.get(lang)
     lunar_txt = term_txt = term_short = fest_txt = fest_short = None
-    if cal_tz is not None:
+    if cal is not None and cal != "none":
+        cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
+        label_lang = lang if CALENDAR_NATIVE_LANG[cal] == lang else "en"
         lunar = lunisolar_date(now_local.date(), cal_tz)
         if lunar is not None:
-            lunar_txt = lunar_date_label(*lunar, lang)
+            lunar_txt = lunar_date_label(*lunar, label_lang)
         cur_k, _cur_start = current_term(moment_utc)
         nxt_k, nxt_start = next_term(moment_utc)
         nxt_local = nxt_start.astimezone(now_local.tzinfo)
         days_to_term = (nxt_start - moment_utc).total_seconds() / 86400.0
-        term_short = term_label(cur_k, lang)
-        term_txt = (f"{term_short} · {term_label(nxt_k, lang)} "
+        term_short = term_label(cur_k, label_lang)
+        term_txt = (f"{term_short} · {term_label(nxt_k, label_lang)} "
                     f"{_fmt_month_day(nxt_local, runtime)} "
                     f"({in_days(days_to_term)})")
         fest = next_lunar_event(now_local.date(), cal_tz,
-                                FESTIVALS_I18N[lang])
+                                festival_table(cal, label_lang != "en"))
         if fest is not None:
             fest_day, fest_name = fest
             fest_short = f"{fest_name} {_fmt_month_day(fest_day, runtime)}"
@@ -764,7 +770,8 @@ def main():
         if offset_minutes:
             moment += timedelta(minutes=offset_minutes)
         return render(moment, lat, lng, runtime, fullscreen=live,
-                      offset_minutes=offset_minutes)
+                      offset_minutes=offset_minutes,
+                      calendar_name=args.calendar)
 
     if live:
         live_loop(_render, mouse=True)

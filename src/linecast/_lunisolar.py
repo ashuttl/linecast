@@ -25,10 +25,13 @@ from functools import lru_cache
 
 from linecast._ephemeris import _sun_ecliptic, next_moon_phase_utc
 
-# The meridian each language's traditional calendar is computed at,
-# in hours east of UTC. Languages absent here don't read the moon
-# through a lunisolar calendar.
-CALENDAR_TZ_HOURS = {"zh": 8, "ja": 9, "ko": 9}
+# The three calendars, each computed at its own meridian (hours east
+# of UTC), and the language each is native to. Any UI language can ask
+# for any of them with --calendar; these defaults just pick the natural
+# one for readers who already live on it.
+CALENDAR_MERIDIAN_HOURS = {"chinese": 8, "japanese": 9, "korean": 9}
+CALENDAR_OF_LANG = {"zh": "chinese", "ja": "japanese", "ko": "korean"}
+CALENDAR_NATIVE_LANG = {cal: lang for lang, cal in CALENDAR_OF_LANG.items()}
 
 _MEAN_DEG_PER_DAY = 360.0 / 365.2422
 
