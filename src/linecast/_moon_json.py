@@ -17,13 +17,15 @@ from linecast._sunshine_json import _iso, _local_timezone_name, _location_label
 SCHEMA_VERSION = 1
 
 
-def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
+def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
+                  almanac=False):
     """Build the `moon --json` payload dict.
 
     *now_local* is a timezone-aware local datetime, matching what moon's
     render path uses. *location* overrides the display name (skips the
     geocode lookup). *calendar* is the --calendar flag, resolved against
-    the saved setting and language the same way the panel resolves it.
+    the saved setting and language the same way the panel resolves it;
+    *almanac* adds the --almanac block.
     """
     from linecast._moon_i18n import _moon_name
     from linecast._ephemeris import (
@@ -104,6 +106,25 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
                               if fest else None),
         }
 
+    # The almanac's counsel, on request, matching the --almanac panel:
+    # which half of the month it is, and the day's solunar periods.
+    almanac_block = None
+    if almanac:
+        from linecast._ephemeris import (
+            _moon_events_for_local_date, _moon_transits_for_local_date,
+        )
+        upper, lower = _moon_transits_for_local_date(
+            now_local.date(), lng, now_local.tzinfo)
+        day_rise, day_set = _moon_events_for_local_date(
+            now_local.date(), lat, lng, now_local.tzinfo)
+        almanac_block = {
+            "gardening": "light" if frac < 0.5 else "dark",
+            "solunar_major": sorted(_iso(t) for t in (upper, lower)
+                                    if t is not None),
+            "solunar_minor": sorted(_iso(t) for t in (day_rise, day_set)
+                                    if t is not None),
+        }
+
     return {
         "schema": SCHEMA_VERSION,
         "location": location if location is not None else _location_label(lat, lng),
@@ -129,6 +150,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
         },
         "southern": bool(lat is not None and lat < 0),
         "calendar": calendar_block,
+        "almanac": almanac_block,
         # Extras a widget would want beyond the phase basics:
         "altitude_deg": round(altitude, 1),
         "azimuth_deg": round(azimuth, 1),

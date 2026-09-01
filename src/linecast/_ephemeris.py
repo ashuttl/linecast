@@ -368,6 +368,52 @@ def _moon_events_for_local_date(local_date, lat_deg, lng_deg, tzinfo, threshold_
     return rise, sset
 
 
+def _moon_transits_for_local_date(local_date, lng_deg, tzinfo):
+    """Local instants the Moon crosses the meridian on one local date.
+
+    Returns (upper, lower): the meridian transit and anti-transit as
+    aware local datetimes, either None on a date without one — the
+    lunar day runs about 24h50m, so a date can miss one of the pair.
+    Latitude plays no part: a transit is the hour angle reaching 0°
+    (upper) or 180° (lower). Solunar tables put their major activity
+    periods at these two moments, their minors at moonrise and moonset.
+    """
+    start_local = datetime(local_date.year, local_date.month,
+                           local_date.day, tzinfo=tzinfo)
+    end_local = start_local + timedelta(days=1)
+    start_utc = start_local.astimezone(timezone.utc)
+    end_utc = end_local.astimezone(timezone.utc)
+
+    def offset(dt_utc, kind):
+        ra_deg, _dec = _moon_ra_dec(dt_utc)
+        h = _norm_deg(_gmst_deg(dt_utc) + lng_deg - ra_deg)
+        return (h + 180.0) % 360.0 - 180.0 if kind == "upper" else h - 180.0
+
+    found = {"upper": None, "lower": None}
+    step = timedelta(minutes=30)
+    for kind in found:
+        t_prev, v_prev = start_utc, offset(start_utc, kind)
+        t_cur = t_prev + step
+        while t_cur <= end_utc and found[kind] is None:
+            v_cur = offset(t_cur, kind)
+            # The hour angle gains ~14.5° an hour; a small ascending
+            # zero crossing is a transit, a big jump is the wrap.
+            if v_prev < 0 <= v_cur and v_cur - v_prev < 180.0:
+                lo, hi = t_prev, t_cur
+                for _ in range(20):
+                    mid = lo + (hi - lo) / 2
+                    if offset(mid, kind) < 0:
+                        lo = mid
+                    else:
+                        hi = mid
+                cross_local = (lo + (hi - lo) / 2).astimezone(tzinfo)
+                if start_local <= cross_local < end_local:
+                    found[kind] = cross_local
+            t_prev, v_prev = t_cur, v_cur
+            t_cur += step
+    return found["upper"], found["lower"]
+
+
 def _angular_separation(ra1, dec1, ra2, dec2):
     """Angle between two equatorial directions, in degrees."""
     ra1, dec1, ra2, dec2 = (math.radians(v) for v in (ra1, dec1, ra2, dec2))

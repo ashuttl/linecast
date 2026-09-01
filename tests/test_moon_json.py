@@ -30,7 +30,7 @@ EXPECTED_TOP_KEYS = {
     "illumination", "waxing", "age_days", "events", "next_full",
     "next_full_name", "next_new", "day_of_year", "days_in_year",
     "next_season_event", "southern", "altitude_deg", "azimuth_deg",
-    "up_now", "calendar",
+    "up_now", "calendar", "almanac",
 }
 
 
@@ -218,3 +218,41 @@ class TestCalendarBlock:
         payload = _payload(now_local=self.MOMENT,
                            runtime=_runtime(lang="zh"), calendar="none")
         assert payload["calendar"] is None
+
+
+class TestAlmanacBlock:
+    def test_null_without_the_flag(self):
+        assert _payload()["almanac"] is None
+
+    def test_gardening_half_matches_the_phase(self):
+        payload = _payload(almanac=True)
+        block = payload["almanac"]
+        assert block["gardening"] == ("light" if payload["waxing"] else "dark")
+
+    def test_solunar_periods_are_todays_times(self):
+        block = _payload(almanac=True)["almanac"]
+        for key in ("solunar_major", "solunar_minor"):
+            times = block[key]
+            assert 1 <= len(times) <= 2
+            assert times == sorted(times)
+            for stamp in times:
+                dt = datetime.fromisoformat(stamp)
+                assert dt.date() == FIXED_NOW.date()
+
+
+class TestMoonTransits:
+    def test_upper_transit_crosses_the_meridian(self):
+        from linecast._ephemeris import (
+            _moon_azimuth_deg, _moon_altitude_deg,
+            _moon_transits_for_local_date,
+        )
+        upper, lower = _moon_transits_for_local_date(
+            FIXED_NOW.date(), LNG, timezone.utc)
+        assert upper is not None
+        azimuth = _moon_azimuth_deg(upper.astimezone(timezone.utc), LAT, LNG)
+        assert min(azimuth, 360 - azimuth) > 90  # southern half of the sky
+        assert abs(((azimuth - 180) + 180) % 360 - 180) < 2.0
+        if lower is not None:
+            up_alt = _moon_altitude_deg(upper.astimezone(timezone.utc), LAT, LNG)
+            low_alt = _moon_altitude_deg(lower.astimezone(timezone.utc), LAT, LNG)
+            assert up_alt > low_alt

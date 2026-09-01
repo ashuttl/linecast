@@ -389,6 +389,9 @@ def moon_parser():
                          "date, solar term, and next festival (default: the "
                          "calendar native to --lang zh, ja, or ko; none "
                          "otherwise)")
+    p.add_argument("--almanac", action="store_true",
+                    help="almanac counsel: gardening by the light and dark "
+                         "of the moon, and the day's solunar periods")
     _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")
