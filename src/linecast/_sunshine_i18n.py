@@ -99,9 +99,9 @@ _SUNSHINE_STRINGS = {
         "sky_astronomical": "crepuscolo astronomico",
         "sky_nautical": "crepuscolo nautico",
         "sky_civil": "crepuscolo civile",
-        "sky_astronomical_dawn": "crepuscolo astronomico mattutino",
-        "sky_nautical_dawn": "crepuscolo nautico mattutino",
-        "sky_civil_dawn": "crepuscolo civile mattutino",
+        "sky_astronomical_dawn": "alba astronomica",
+        "sky_nautical_dawn": "alba nautica",
+        "sky_civil_dawn": "alba civile",
         "sky_day": "giorno",
         "midnight_sun": "sole di mezzanotte",
         "polar_night": "notte polare",
@@ -176,8 +176,8 @@ _SUNSHINE_STRINGS = {
         "today": "i dag",
         "in_day": "om {n} dag",
         "in_days": "om {n} dager",
-        "day_ago": "{n} dag siden",
-        "days_ago": "{n} dager siden",
+        "day_ago": "for {n} dag siden",
+        "days_ago": "for {n} dager siden",
         "sky_night": "natt",
         "sky_astronomical": "astronomisk tussmørke",
         "sky_nautical": "nautisk tussmørke",
@@ -193,8 +193,8 @@ _SUNSHINE_STRINGS = {
         "today": "i dag",
         "in_day": "om {n} dag",
         "in_days": "om {n} dagar",
-        "day_ago": "{n} dag sedan",
-        "days_ago": "{n} dagar sedan",
+        "day_ago": "för {n} dag sedan",
+        "days_ago": "för {n} dagar sedan",
         "sky_night": "natt",
         "sky_astronomical": "astronomisk skymning",
         "sky_nautical": "nautisk skymning",
@@ -213,8 +213,8 @@ _SUNSHINE_STRINGS = {
         "today": "i dag",
         "in_day": "om {n} dag",
         "in_days": "om {n} dage",
-        "day_ago": "{n} dag siden",
-        "days_ago": "{n} dage siden",
+        "day_ago": "for {n} dag siden",
+        "days_ago": "for {n} dage siden",
         "sky_night": "nat",
         "sky_astronomical": "astronomisk tusmørke",
         "sky_nautical": "nautisk tusmørke",
@@ -339,12 +339,15 @@ _SUNSHINE_STRINGS = {
     },
 }
 
-# Month-axis labels for languages whose month names aren't abbreviated in
-# MONTHS_I18N (CJK dates are numeric; Finnish months are long words).
+# Month-axis labels where the first three letters of the MONTHS_I18N name
+# won't do: CJK dates are numeric, Finnish months are long words, and
+# French juin and juillet share their first three letters.
 # Everything else takes the first letters of the MONTHS_I18N name.
 _AXIS_MONTHS = {
     "fi": ["tam", "hel", "maa", "huh", "tou", "kes",
            "hei", "elo", "syy", "lok", "mar", "jou"],
+    "fr": ["jan", "fév", "mar", "avr", "mai", "jun",
+           "jul", "aoû", "sep", "oct", "nov", "déc"],
     "ja": [f"{m}月" for m in range(1, 13)],
     "ko": [f"{m}월" for m in range(1, 13)],
     "zh": [f"{m}月" for m in range(1, 13)],
@@ -377,8 +380,7 @@ def sky_phase(elev, runtime, morning=None):
         key = "sky_astronomical"
     else:
         key = "sky_night"
-    if morning is not None and key.startswith("sky_") and key not in (
-            "sky_day", "sky_night"):
+    if morning is not None and key not in ("sky_day", "sky_night"):
         table = _SUNSHINE_STRINGS.get(lang_of(runtime), {})
         variant = key + ("_dawn" if morning else "_dusk")
         if variant in table:
