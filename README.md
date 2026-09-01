@@ -93,7 +93,7 @@ The dashboard combines current conditions, hourly temperatures shaded by dayligh
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-dusk.png" width="49%" alt="sunshine at dusk">
 </p>
 
-`linecast sunshine --year` draws a whole year instead of one day. Each column is a day, running from midnight at the top to midnight at the bottom, and every point in it takes the color of the sky at that hour. Sunrise and sunset are not drawn as lines; they are where the night colors meet the day colors. Point at a day to see its sunrise, sunset and day length, along with the time and the sky under the pointer. In live mode, `y` switches between the day view and the year view. `--dst` plots each day in its own clock, so the clock changes show as steps.
+`linecast sunshine --year` draws a whole year instead of one day. Each column is a day, running from midnight at the top to midnight at the bottom, and every point in it takes the color of the sky at that hour. Sunrise and sunset emerge where the night colors meet the day colors. Hover over a day to see its sunrise, sunset and day length, along with the time and the sky under the pointer. In live mode, `y` switches between the day view and the year view. `--dst` plots each day in its own clock, so the clock changes show as steps.
 
 ![the year view for Westbrook, Maine, with the pointer on the December solstice](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-year.png)
 
