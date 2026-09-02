@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Radar: The marangai theme's top bands now match MetService's legend more closely — heavy rain stays in the reds, and the possible-hail run of purple, white, green, and pink starts higher, around 45 dBZ.
 - Moon: `--calendar hawaiian` (or `linecast calendar hawaiian`) follows the Kaulana Mahina: each night named — Hilo, Hoaka, Māhealani, Muku — with its anahulu, the month starting the first night the crescent can be seen over Hawaiʻi, matching the Western Pacific Regional Fishery Management Council's published calendars.
 - Moon: The Hawaiian calendar carries the night's traditional fishing counsel — the kapu periods, the ʻole nights, the anahulu's outlook — quoted from the Western Pacific Regional Fishery Management Council's educational materials and attributed on screen.
 - Moon: The Old Farmer's full-moon names (Harvest, Blue, and the rest) now show only in the plain English view and with the almanac calendar; a panel following another tradition's calendar keeps the plain phase name.
