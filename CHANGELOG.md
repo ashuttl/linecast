@@ -4,6 +4,10 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: Alerts in Poland no longer bury the forecast. Warsaw was getting every warning in the country, 419 of them, because the Polish word for province matched them all (issue #57). The words that name a tier rather than a place are now set aside in every language MeteoAlarm speaks, and any word the feed shows to match most of the country is set aside with them.
+- Weather: A warning filed county by county, word for word the same across a province, now shows once, naming the reader's own county.
+- Weather: The board keeps at most eight alerts, gravest first, whatever a feed sends.
+
 ## 2.2.0 — 2026-08-31
 
 Sunshine has a year view. The Moon's phases and times are more accurate, and official weather alerts now reach India, New Zealand, and six more European countries.
