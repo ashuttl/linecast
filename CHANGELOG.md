@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: Alerts across Europe now match the ground they cover. Most MeteoAlarm feeds name a warning's region by code rather than by polygon, and linecast now ships the geometry for every one of those codes, so a warning for a county applies to the people in that county and to nobody else. The area-name matching that went wrong in Poland (issue #57) remains only for the few countries whose feeds carry neither polygons nor these codes.
+
 ## 2.2.1 — 2026-09-02
 
 - Weather: Alerts in Poland no longer bury the forecast. Warsaw was getting every warning in the country, 419 of them, because the Polish word for province matched them all (issue #57). The words that name a tier rather than a place are now set aside in every language MeteoAlarm speaks, and any word the feed shows to match most of the country is set aside with them.

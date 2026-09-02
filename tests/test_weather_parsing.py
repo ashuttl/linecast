@@ -888,6 +888,105 @@ class TestMeteoAlarmPerCountyFeeds:
         assert len(got) == 2
 
 
+def _coded(event, severity, area_desc, codes, description=None):
+    """A warning naming its ground by EMMA_ID, as most MeteoAlarm feeds do."""
+    info = _warning(event, severity, area_desc, description=description)
+    info["area"][0]["geocode"] = [{"valueName": "EMMA_ID", "value": c} for c in codes]
+    return info
+
+
+def _ring(lat0, lat1, lng0, lng1):
+    return [(lat0, lng0), (lat0, lng1), (lat1, lng1), (lat1, lng0)]
+
+
+FAKE_REGIONS = [
+    ("XX001", (50.0, 51.0, 10.0, 11.0), [(_ring(50.0, 51.0, 10.0, 11.0), [])]),
+    ("XX002", (52.0, 53.0, 10.0, 11.0), [(_ring(52.0, 53.0, 10.0, 11.0), [])]),
+    # a province holding XX001, with a hole where a lake is
+    ("XX100", (49.0, 53.5, 9.0, 12.0),
+     [(_ring(49.0, 53.5, 9.0, 12.0), [_ring(49.2, 49.4, 9.2, 9.4)])]),
+]
+
+
+class TestMeteoAlarmRegions:
+    """An EMMA_ID names ground; the baked geometry says whose."""
+
+    def setup_method(self):
+        from linecast import _meteoalarm_regions as mr
+        self._saved = (mr._REGIONS, mr._CODES)
+        mr._REGIONS, mr._CODES = FAKE_REGIONS, None
+
+    def teardown_method(self):
+        from linecast import _meteoalarm_regions as mr
+        mr._REGIONS, mr._CODES = self._saved
+
+    def test_a_point_is_in_its_region_and_the_province_around_it(self):
+        from linecast._meteoalarm_regions import regions_at
+        assert regions_at(50.5, 10.5) == {"XX001", "XX100"}
+
+    def test_a_hole_is_outside(self):
+        from linecast._meteoalarm_regions import regions_at
+        assert regions_at(49.3, 9.3) == set()
+
+    def test_a_warning_for_the_users_county_reaches_them(self):
+        data = _feed(_coded("Storm", "Moderate", "somewhere", ["XX001"]))
+        assert len(_alerts(data, 50.5, 10.5, {"city": "Elsewhere"})) == 1
+
+    def test_a_warning_for_the_next_county_does_not(self):
+        # Even a Severe one, and even though the areaDesc names the
+        # user's city: the code says where it applies.
+        data = _feed(_coded("Storm", "Severe", "Elsewhere", ["XX002"]))
+        assert _alerts(data, 50.5, 10.5, {"city": "Elsewhere"}) == []
+
+    def test_a_warning_for_the_province_reaches_everyone_in_it(self):
+        data = _feed(_coded("Heat", "Moderate", "the province", ["XX100"]))
+        assert len(_alerts(data, 50.5, 10.5, {"city": "Nowhere"})) == 1
+
+    def test_a_code_the_data_lacks_falls_back_to_the_area_name(self):
+        data = _feed(_coded("Storm", "Moderate", "Elsewhere", ["ZZ999"]),
+                     _coded("Storm", "Moderate", "Otherplace", ["ZZ998"]))
+        got = _alerts(data, 50.5, 10.5, {"city": "Elsewhere"})
+        assert [a["headline"] for a in got] == ["Storm for Elsewhere"]
+
+    def test_a_point_no_region_covers_falls_back_to_the_area_name(self):
+        data = _feed(_coded("Storm", "Moderate", "Elsewhere", ["XX001"]))
+        got = _alerts(data, 60.0, 30.0, {"city": "Elsewhere"})
+        assert len(got) == 1
+
+    def test_only_geocodes_typed_emma_id_count(self):
+        # France's NUTS3 codes share their form with EMMA_IDs for other ground.
+        info = _warning("Storm", "Moderate", "somewhere")
+        info["area"][0]["geocode"] = [{"valueName": "NUTS3", "value": "XX002"}]
+        got = _alerts(_feed(info), 50.5, 10.5, {"city": "somewhere"})
+        assert len(got) == 1  # matched on the areaDesc, not excluded by XX002
+
+
+class TestMeteoAlarmRegionsData:
+    """The shipped file answers for real places."""
+
+    def setup_method(self):
+        from linecast import _meteoalarm_regions as mr
+        mr._REGIONS, mr._CODES = None, None
+
+    def test_warsaw_is_in_one_polish_county(self):
+        from linecast._meteoalarm_regions import regions_at
+        assert regions_at(52.23, 21.01) == {"PL1465"}
+
+    def test_issue_57s_county_is_where_the_feed_says(self):
+        from linecast._meteoalarm_regions import regions_at, known
+        assert known("PL3001")
+        assert "PL3001" in regions_at(52.995, 16.92)  # Chodzież
+        assert "PL3001" not in regions_at(52.23, 21.01)
+
+    def test_a_district_sits_inside_its_state(self):
+        from linecast._meteoalarm_regions import regions_at
+        assert regions_at(48.209, 16.372) == {"AT010", "AT901"}  # Vienna
+
+    def test_the_atlantic_is_nowhere(self):
+        from linecast._meteoalarm_regions import regions_at
+        assert regions_at(43.66, -70.26) == set()
+
+
 class TestAlertCap:
     """However many a feed sends, the board shows the gravest few."""
 

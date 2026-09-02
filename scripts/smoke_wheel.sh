@@ -9,7 +9,7 @@
 # something on stdout, and print nothing on stderr; the --version
 # outputs must carry the version given (or, with no argument, the
 # version the installed package reports). The last check imports
-# linecast from that same install and reads each of the four data
+# linecast from that same install and reads each of the five data
 # files, which is what catches a wheel that installed but shipped
 # without them.
 #
@@ -21,7 +21,7 @@
 set -u
 
 commands="weather sunshine moon tides radar maps"
-data="basemap.json.gz climate.png globe_canvas_1.bin globe_canvas_2.bin"
+data="basemap.json.gz climate.png globe_canvas_1.bin globe_canvas_2.bin meteoalarm_regions.bin.gz"
 status=0
 
 fail() {

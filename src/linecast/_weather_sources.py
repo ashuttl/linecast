@@ -627,6 +627,7 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
     ]
     location_words = _drop_feed_wide_words(
         _extract_location_words(address), per_warning_descs)
+    here = _regions_here(lat, lng, warnings)
     alerts = []
     seen = {}
     national = []
@@ -654,6 +655,7 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
         info = preferred_info or en_info or other_info
         if not info:
             continue
+        codes = _emma_codes(areas)
 
         severity = info.get("severity", "")
         if severity == "Minor":
@@ -677,6 +679,14 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
         rings = [ring for area in areas for ring in _cap_polygons(area)]
         if rings:
             matched = any(_point_in_ring(lat, lng, ring) for ring in rings)
+            geometric = True
+        elif codes and here:
+            # No polygon, but a geocode: an EMMA_ID names a region whose
+            # ground MeteoAlarm publishes and we carry, so it is as good
+            # as a polygon. Only where the point is in some region of
+            # the data, though; off the coast, or in a country the data
+            # lacks, the codes prove nothing and the areaDesc must do.
+            matched = bool(codes & here)
             geometric = True
         else:
             geometric = False
@@ -829,6 +839,36 @@ def _drop_feed_wide_words(location_words, per_warning_descs):
     return kept
 
 
+def _emma_codes(areas):
+    """The EMMA_ID geocodes on a warning's areas that the data knows.
+
+    Only geocodes typed EMMA_ID count. France files NUTS3 codes, and
+    FR101 is both a NUTS3 code and an EMMA_ID for different ground; a
+    value alone would match the wrong region.
+    """
+    from linecast._meteoalarm_regions import known
+    codes = set()
+    for area in areas:
+        for geocode in area.get("geocode") or []:
+            if geocode.get("valueName") == "EMMA_ID":
+                value = geocode.get("value") or ""
+                if known(value):
+                    codes.add(value)
+    return codes
+
+
+def _regions_here(lat, lng, warnings):
+    """The EMMA_IDs covering the point, looked up only if a warning could use them."""
+    from linecast._meteoalarm_regions import regions_at
+    for w in warnings:
+        for info in w.get("alert", {}).get("info", []):
+            for area in info.get("area", []):
+                for geocode in area.get("geocode") or []:
+                    if geocode.get("valueName") == "EMMA_ID":
+                        return regions_at(lat, lng)
+    return set()
+
+
 def _extract_location_words(address):
     """Extract location words from a Nominatim address for area matching."""
     if not address:
@@ -871,24 +911,9 @@ def _cap_polygons(area):
 
 
 def _point_in_ring(lat, lng, ring):
-    """True when (lat, lng) falls inside a closed ring, by ray casting.
-
-    Cast east along the parallel and count crossings. Warning polygons are
-    small enough for plate carree to be exact enough; the nearest edge
-    case is a point on the boundary, which may fall either way and costs
-    nothing either way.
-    """
-    inside = False
-    j = len(ring) - 1
-    for i, (lat_i, lng_i) in enumerate(ring):
-        lat_j, lng_j = ring[j]
-        # The straddle test guarantees lat_j != lat_i, so the slope is safe
-        if (lat_i > lat) != (lat_j > lat):
-            crossing = lng_i + (lat - lat_i) * (lng_j - lng_i) / (lat_j - lat_i)
-            if lng < crossing:
-                inside = not inside
-        j = i
-    return inside
+    """True when (lat, lng) falls inside a closed ring. See _meteoalarm_regions."""
+    from linecast._meteoalarm_regions import point_in_ring
+    return point_in_ring(lat, lng, ring)
 
 
 def _area_matches(area_desc, location_words):
