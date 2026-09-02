@@ -48,6 +48,7 @@ Fixes:
 - Tides: The Indonesian view names the wave and swell lines in Indonesian (gelombang, alun) instead of English.
 - Radar: Frames that arrive incomplete are fetched again instead of drawn, since the missing parts looked like clear weather. A source that cannot serve its tiles falls back to the next one.
 - Text in scripts with combining marks, Thai for one, no longer loses those marks in chart and map labels.
+- Shell completions offer the `calendar` command and its choices.
 - The hover pop-ups in weather, tides, radar, and the sunshine year view sit clear of the mouse pointer instead of underneath it (thanks [@ebrannin-bw](https://github.com/ebrannin-bw) for [#48](https://github.com/ashuttl/linecast/issues/48)).
 
 ## 2.2.2 — 2026-09-02
