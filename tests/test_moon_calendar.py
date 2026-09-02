@@ -184,6 +184,36 @@ class TestCalendars:
         body, _chip = _render(120, 34, calendar="hebrew", now=now)
         assert "Feb 2025 · Shevat 5785" in body[0]
 
+    def test_hebrew_day_in_the_corner(self):
+        # Each cell's bottom-right corner carries the Hebrew day, faint:
+        # 1 September 2026 is 19 Elul, and the 12th is 1 Tishrei.
+        from linecast import _moon_calendar
+        now = datetime(2026, 9, 2, 14, 30, tzinfo=ET)
+        body, _chip = _render(120, 34, calendar="hebrew", now=now)
+        left, row0, cell_w, cell_h, _w, lead, _n, _y, _m = \
+            _moon_calendar._last_grid
+
+        def corner(day):
+            slot = lead + day - 1
+            wk, c = divmod(slot, 7)
+            x0 = left + c * cell_w
+            line = _blocks_to_space(body[row0 + wk * cell_h + cell_h - 1])
+            return line[x0:x0 + cell_w].rstrip()
+
+        assert corner(1).endswith("19") and corner(12).endswith(" 1")
+        assert corner(30).endswith("19")
+
+    def test_hijri_day_in_the_corner(self):
+        from linecast import _moon_calendar
+        now = datetime(2026, 9, 2, 14, 30, tzinfo=ET)
+        body, _chip = _render(120, 34, calendar="islamic", now=now)
+        left, row0, cell_w, cell_h, _w, lead, _n, _y, _m = \
+            _moon_calendar._last_grid
+        slot = lead + 12 - 1          # 12 September is 1 Rabiʻ al-Thani
+        wk, c = divmod(slot, 7)
+        line = _blocks_to_space(body[row0 + wk * cell_h + cell_h - 1])
+        assert line[left + c * cell_w:left + (c + 1) * cell_w].rstrip().endswith(" 1")
+
     def test_hijri_months_in_the_title(self):
         now = datetime(2026, 9, 2, 14, 30, tzinfo=ET)
         body, _chip = _render(120, 34, calendar="islamic", now=now)

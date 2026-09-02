@@ -393,6 +393,16 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                          _clip(text, x0 + cell_w - 1 - nx), ink,
                          max_x=graph_w)
 
+        # A calendar that counts its own days sets the day's number in
+        # the far corner, faint, the way the dual wall calendars print
+        # the other calendar's date small beside the civil one. The
+        # title says which months the numbers belong to.
+        if cal in ("hebrew", "islamic") and cell_h >= 3 and cell_w >= 6:
+            other = (hebrew_date if cal == "hebrew" else hijri_date)(d)[2]
+            num = str(other)
+            _put(overlays, x0 + cell_w - 1 - len(num), y0 + cell_h - 1,
+                 num, F, max_x=graph_w)
+
     lines = fb.render(overlays=overlays)
     if hint:
         lines.append(hint)
