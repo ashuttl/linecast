@@ -28,6 +28,10 @@ repeatable at any time of day. The year target adds the pointer: termshot moves
 it onto the December solstice so the hover tooltip is in the frame, and the
 two polar frames are Longyearbyen and Vostok Station, at 78° either side of
 the equator.
+The moon target also captures Okinawa in Japanese on the evening after the
+mid-autumn full moon of 2026, once as the disc (the night named 十六夜) and
+once after pressing `v`, with the pointer on the 25th so the calendar's hover
+chip reads 十五夜.
 
 The globe target is honestly unrepeatable by design: it opens the terrain
 planet and presses `s`, so the frame carries the terminator and night city
