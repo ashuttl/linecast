@@ -206,6 +206,17 @@ def build_cities(features):
     that actually differ from the default name, so Latin-script duplicates
     cost nothing.  The traditional-Chinese ``zht`` value is dropped when it
     equals the simplified ``zh`` value (they coincide for most places).
+
+    The stored population is POP_MAX — the LandScan urban-agglomeration
+    figure — only for a place that can answer for its agglomeration:
+    NE's MEGACITY anchor, a city of a million in its own right, or a
+    national capital.  Every other place stores POP_MIN, the city
+    proper.  POP_MAX alone hands each satellite its whole metro (Irvine
+    carries greater LA's 3.0M against 212k of its own), which put
+    IRVINE in the caps register over Stockton and sorted it as the
+    second-biggest city in California.  Anchors keep POP_MAX because
+    the city proper undercounts exactly the places that matter most:
+    San Francisco is 732k inside its own lines.
     """
     minlon, minlat, maxlon, maxlat = REGION
     cities = []
@@ -214,10 +225,15 @@ def build_cities(features):
         if not (minlon <= lon <= maxlon and minlat <= lat <= maxlat):
             continue
         pr = ft["properties"]
-        pop = int(pr.get("POP_MAX") or 0)
-        capital = "capital" in (pr.get("FEATURECLA") or "").lower()
-        if pop < 40000 and not capital:
+        pop_max = int(pr.get("POP_MAX") or 0)
+        pop_min = int(pr.get("POP_MIN") or 0)
+        fcla = pr.get("FEATURECLA") or ""
+        capital = "capital" in fcla.lower()
+        if pop_max < 40000 and not capital:
             continue
+        anchor = (pr.get("MEGACITY") == 1 or pop_min >= 1_000_000
+                  or fcla.startswith("Admin-0 capital"))
+        pop = pop_max if anchor else min(pop_max, pop_min)
         name = pr.get("NAME") or "?"
         # NAME_<LANG> keys → {lang: value}, keeping only real differences
         tr = {k[5:].lower(): pr[k] for k in pr

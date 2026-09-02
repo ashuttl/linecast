@@ -835,7 +835,10 @@ def shield(props):
 # magnitude apart.  The tile's own rank draws the line — London and
 # Paris carry 1, Dublin and Brussels 3, Birmingham and Manchester 5,
 # Leeds and Portland, Maine 6 — and below the source switch the Natural
-# Earth entries carry a population instead.
+# Earth entries carry a population instead: the agglomeration for a
+# metro's anchor city, the city proper for everything else (see
+# build_basemap_data.build_cities), so Long Beach cannot take the caps
+# register on greater LA's numbers.
 CITY_CAPS_RANK = 5
 CITY_CAPS_POP = 1_000_000
 
