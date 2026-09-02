@@ -1,0 +1,28 @@
+name: Lunar calendar editions
+
+# Looks once a week for a new year of lunar calendars on the Western
+# Pacific council's site and opens an issue when one appears, so the
+# Hawaiian calendar's tests get pinned to the new printed months.
+# Editions have appeared between November and February.
+
+on:
+  schedule:
+    - cron: "41 10 * * 1"   # Mondays, 10:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Look for a new edition
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: sh scripts/edition_watch.sh

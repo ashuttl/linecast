@@ -26,7 +26,8 @@ implementation and the ones it passes over all score q ≤ −0.110, so
 the line sits midway, and moving Hilo by a day would take a q error
 of 0.025 on the nearest month. A new edition's months belong in
 tests/test_pacific.py; if one disagrees, the cutoff is what to
-recalibrate.
+recalibrate. A scheduled workflow watches the council's page and opens
+an issue when a new year's calendars appear.
 """
 
 import math

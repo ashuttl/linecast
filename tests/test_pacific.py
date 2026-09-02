@@ -22,6 +22,11 @@ from linecast._pacific import (
     night_note,
 )
 
+# The newest edition whose months are pinned below. The scheduled
+# edition watch (scripts/edition_watch.sh) opens an issue when the
+# council's page lists a later year than this.
+LATEST_EDITION = 2026
+
 # (Hilo, Muku) of every month in the 2025 and 2026 printed editions.
 PUBLISHED_MONTHS = [
     (date(2024, 11, 2), date(2024, 12, 1)),
@@ -63,6 +68,11 @@ class TestPublishedMonths:
         assert nights in (29, 30)
         assert hawaiian_night(hilo) == (1, nights)
         assert hawaiian_night(muku) == (nights, nights)
+
+    def test_latest_edition_is_the_one_pinned(self):
+        # An edition's pages run from the November before its year to
+        # the February after it, so its last month ends the next year.
+        assert PUBLISHED_MONTHS[-1][1].year == LATEST_EDITION + 1
 
     def test_consecutive_days_stay_consecutive(self):
         prev = hawaiian_night(date(2025, 1, 1))
