@@ -652,7 +652,7 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
         info = preferred_info or en_info or other_info
         if not info:
             continue
-        codes = _emma_codes(areas)
+        codes = _region_keys(areas)
 
         severity = info.get("severity", "")
         if severity == "Minor":
@@ -678,11 +678,11 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
             matched = any(_point_in_ring(lat, lng, ring) for ring in rings)
             geometric = True
         elif codes and here:
-            # No polygon, but a geocode: an EMMA_ID names a region whose
-            # ground MeteoAlarm publishes and we carry, so it is as good
-            # as a polygon. Only where the point is in some region of
-            # the data, though; off the coast, or in a country the data
-            # lacks, the codes prove nothing and the areaDesc must do.
+            # No polygon, but a geocode: an EMMA_ID or NUTS code names a
+            # region whose ground is published and we carry, so it is as
+            # good as a polygon. Only where the point is in some region
+            # of the data, though; off the coast, or in a country the
+            # data lacks, the codes prove nothing and the areaDesc must do.
             matched = bool(codes & here)
             geometric = True
         else:
@@ -836,33 +836,30 @@ def _drop_feed_wide_words(location_words, per_warning_descs):
     return kept
 
 
-def _emma_codes(areas):
-    """The EMMA_ID geocodes on a warning's areas that the data knows.
+def _region_keys(areas):
+    """The geocodes on a warning's areas that the data has ground for.
 
-    Only geocodes typed EMMA_ID count. France files NUTS3 codes, and
-    FR101 is both a NUTS3 code and an EMMA_ID for different ground; a
-    value alone would match the wrong region.
+    Each is looked up by type and value: EMMA_IDs as themselves, a
+    NUTS3 or NUTS2 code under its type. France's FR101 is both a NUTS3
+    code and an EMMA_ID; the type keeps them from crossing.
     """
-    from linecast._meteoalarm_regions import known
-    codes = set()
+    from linecast._meteoalarm_regions import key_for, known
+    keys = set()
     for area in areas:
         for geocode in area.get("geocode") or []:
-            if geocode.get("valueName") == "EMMA_ID":
-                value = geocode.get("value") or ""
-                if known(value):
-                    codes.add(value)
-    return codes
+            key = key_for(geocode.get("valueName") or "", geocode.get("value") or "")
+            if known(key):
+                keys.add(key)
+    return keys
 
 
 def _regions_here(lat, lng, warnings):
-    """The EMMA_IDs covering the point, looked up only if a warning could use them."""
+    """The region keys covering the point, looked up only if a warning could use them."""
     from linecast._meteoalarm_regions import regions_at
     for w in warnings:
         for info in w.get("alert", {}).get("info", []):
-            for area in info.get("area", []):
-                for geocode in area.get("geocode") or []:
-                    if geocode.get("valueName") == "EMMA_ID":
-                        return regions_at(lat, lng)
+            if _region_keys(info.get("area", [])):
+                return regions_at(lat, lng)
     return set()
 
 
