@@ -4,42 +4,48 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+The moon follows traditional calendars and has a month view. Thai is the eighteenth language. Street maps get route shields and a label hierarchy, sunrise and sunset times are more accurate, and every European alert feed is now matched by geometry.
+
+New this version:
+
+- Moon: In Chinese, Japanese, and Korean the panel follows the traditional calendar: the lunar date beside the phase name (农历七月二十, 旧暦7月20日, 음력 7월 20일), the solar term in progress with the next one's date, and the coming festival, 中秋节, 추석, or 十五夜.
+- Moon: In Japanese the headline names the night by the old calendar's day: 十六夜, 立待月, 居待月, 寝待月, 更待月.
+- Moon: `--calendar chinese`, `japanese`, or `korean` shows one of these calendars in any language, with the customary English names ("End of Heat · White Dew Sep 7", "Mid-Autumn Festival Sep 25"). `--calendar none` turns it off, and `linecast calendar` saves the choice the way units and icons are saved.
+- Moon: `--calendar thai` follows the Thai lunar calendar, and so does `--lang th`: the waxing or waning day in Thai numerals (แรม ๔ ค่ำ เดือน ๙), the year's animal, the next วันพระ, and the coming festival, มาฆบูชา through ลอยกระทง. The dates come from the traditional Suriyayart arithmetic and are checked against the official holy days of 2023–2026.
+- Moon: `--calendar hawaiian` follows the Kaulana Mahina. Each night is named (Hilo, Hoaka, Māhealani, Muku) with its anahulu, and the month starts on the first night the crescent can be seen over Hawaiʻi, matching the Western Pacific Regional Fishery Management Council's published calendars.
+- Moon: The Hawaiian calendar shows the night's traditional fishing counsel: the kapu periods, the ʻole nights, and the anahulu's outlook, quoted from the Council's educational materials and attributed on screen.
+- Moon: `--calendar almanac` reads the moon the way the Old Farmer's Almanac does: the light or dark of the moon beside the phase, gardening counsel for it, and the day's solunar periods. The almanac's full-moon names (Harvest, Blue, and the rest) show here and in the plain English view; a panel following another calendar keeps the plain phase name.
+- Moon: `--json` reports the active calendar in a `calendar` block, or null when none is shown.
+- Moon: `v` in live mode flips between the disc and a month calendar of phases. Each day is a small shaded disc, with today, the principal phases, and the active calendar's dates and festivals marked. Scroll to page through months, hover a day for its phase, moonrise, and moonset, and click one to open it in the disc view.
+- Sunshine: `v` switches between the day and year views, the same key as in maps and moon. `y` still works.
+- Thai is the eighteenth language. `--lang th` puts the whole app in Thai.
+- Maps: Route shields name their network (I-95, US-1, ME-128, M6, A38) and take the sign's color where one exists: interstates and motorways in blue, US routes in white, UK primary routes in green. A shield appears at most twice per view.
+- Maps: Exit numbers are bracketed and drawn in the ramp's dimmer ink, so they no longer look like route numbers. A numbered road also shows its street name at close zooms.
+- Maps: Major cities set their names in capitals, judged by the city's own population rather than its metro area's, and national and state capitals get a star instead of a dot.
+- Maps: Street maps shade built-up ground, so towns and cities read as settlement even where no one has mapped the land use.
+- Maps: With daylight on, the header names what the sun is over ("sun over North Pacific Ocean") instead of the elevation at the view centre. Pointing at the terrain still reads the elevation there.
+- Maps and radar: The header starts with the place name instead of the app's name.
+- Weather: A line on the hourly chart marks the current time, so now stays visible after scrolling away from it.
+- Sunshine: The year view fills the window with the sky field, and the month labels sit on the field itself. The sunrise/sunset line, which described only today, is gone; the pop-up gives those times for any day.
+- Sunshine: The year view's daylight is hazier near sunrise and sunset, whiter low in the sky and settling into blue as the sun climbs.
+- Radar: The marangai theme's top bands match MetService's legend more closely. Heavy rain stays in the reds, and the possible-hail run of purple, white, green, and pink starts around 45 dBZ.
+
+Fixes:
+
+- Weather: The last MeteoAlarm feeds are matched by geometry: Bulgaria, Romania, France, Hungary, Belgium, and North Macedonia, which name a region by its NUTS code, and Czechia, which names a group of municipalities. Every European alert now applies to the ground it covers.
 - Weather: Alerts in Switzerland show again. The Swiss feed draws every warning's outline and had grown past the size linecast would read, so the board showed a quiet day.
-- Tides: The Indonesian view now names the wave and swell lines in Indonesian (gelombang, alun) instead of English.
-- Weather: Alerts in Bulgaria, Romania, France, Hungary, Belgium, North Macedonia, and Czechia now match the ground they cover, as the rest of Europe's do. Those feeds name a warning's region by a code linecast could not place until now; with them, every European feed is matched by geometry.
-- Thai is the eighteenth language: `--lang th` puts the whole app — weather, sunshine, moon, tides, radar, and maps — in Thai.
-- Moon: `--lang th` (or `--calendar thai`) follows the Thai lunar calendar: the waxing or waning day in Thai numerals — แรม ๔ ค่ำ เดือน ๙ — with the year's animal, the next วันพระ, and the coming festival, มาฆบูชา through ลอยกระทง, computed by the traditional Suriyayart arithmetic and checked against the official holy days of 2023–2026.
-- Weather, sunshine, tides, maps, and radar: Text in scripts with combining marks — Thai, for one — no longer loses those marks in chart labels and map labels.
-- Moon: `v` in live mode flips between the disc and a month calendar of phases — each day a small shaded disc, with today, the principal phases, and the active traditional calendar's dates and festivals marked. Scroll to page through months; hover a day for its phase, moonrise, and moonset; click one to open it in the disc view.
-- Sunshine: `v` now also switches between the day and year views, so the view toggle is the same key as in maps and moon; `y` still works.
-- Maps: Street maps now shade built-up ground, a quiet sibling to the park green, so towns and cities read as settlement even where no one has mapped the land use.
-- Radar: The marangai theme's top bands now match MetService's legend more closely — heavy rain stays in the reds, and the possible-hail run of purple, white, green, and pink starts higher, around 45 dBZ.
-- Moon: `--calendar hawaiian` (or `linecast calendar hawaiian`) follows the Kaulana Mahina: each night named — Hilo, Hoaka, Māhealani, Muku — with its anahulu, the month starting the first night the crescent can be seen over Hawaiʻi, matching the Western Pacific Regional Fishery Management Council's published calendars.
-- Moon: The Hawaiian calendar carries the night's traditional fishing counsel — the kapu periods, the ʻole nights, the anahulu's outlook — quoted from the Western Pacific Regional Fishery Management Council's educational materials and attributed on screen.
-- Moon: The Old Farmer's full-moon names (Harvest, Blue, and the rest) now show only in the plain English view and with the almanac calendar; a panel following another tradition's calendar keeps the plain phase name.
-- Maps and radar: The header no longer announces which app it is — it starts with the place name.
-- Maps: With daylight on, the header names what the sun is standing over — "sun over North Pacific Ocean" — instead of the elevation at the view centre. The globe drops that centre readout too; pointing at the terrain still reads the elevation there.
-- Maps: Route shields now name their network — I-95, US-1, ME-128, and the sign's own M6 or A38 — and take the sign's color where one exists: interstates and motorways in blue, US routes in white, UK primary routes in green. A shield appears at most twice per view.
-- Maps: Exit numbers now read as exits — bracketed, in the ramp's dimmer ink — instead of floating over the highway as bare numbers that could be routes. A numbered road also shows its street name again at close zooms, where the addresses live.
-- Maps: Major cities set their names in capitals, and national and state capitals get a star instead of a dot.
-- Maps: A city no longer counts as major on its metro area's population — Long Beach, Oakland, and Irvine take title case again, while Los Angeles, San Francisco, and the other true anchors keep their capitals.
-- Weather and tides: The live views no longer freeze on a slow network — the five-minute weather refresh and the wider tide range fetched when scrolling near an edge now load in the background while the view keeps drawing what it has.
-- Sunshine: The year view fills the window with the sky field. The month labels now sit on the field itself, and the sunrise/sunset line — which described only today — is gone; the pop-up gives those times for any day.
-- Sunshine: The year view's daylight is hazier near sunrise and sunset — whiter low sky settling into blue as the sun climbs, as on a clear day.
-- Weather: A line on the hourly chart marks the current time, in the style of the midnight dividers, so now is still visible after scrolling away from it.
-- The hover pop-ups — weather, tides, radar warnings, the sunshine year view — sit clear of the mouse pointer instead of underneath it (thanks [@ebrannin-bw](https://github.com/ebrannin-bw) for [#48](https://github.com/ashuttl/linecast/issues/48)).
-- Weather: Fixed the place name for small towns — the header could show the timezone city ("New York") instead of the place itself.
-- Radar: Frames that arrive incomplete are no longer drawn or kept — the missing parts looked like clear weather. They are fetched again, and a source that cannot serve its tiles falls back to the next one.
-- Sunshine: Sunrise and sunset times are more accurate. They could be ten or more minutes out in spring and autumn, most at high latitudes; the sky in both views and the globe's day/night edge sharpen with them.
-- Sunshine: Languages that use different words for morning and evening twilight now see the right one for the time of day — świt and zmierzch in Polish, fajar and senja in Indonesian, gryning and skymning in Swedish, aube and crépuscule in French, and so on — instead of the evening word around the clock.
-- Sunshine: The Polish and Finnish names for nautical twilight now use the standard terms (żeglarski, nauttinen).
-- Sunshine: The Swedish, Danish, and Norwegian "days ago" phrases now begin with their preposition — för 3 dagar sedan, for 3 dage siden — instead of dropping it.
-- Sunshine: The year view's month axis in French now tells June from July (jun, jul) — both had truncated to "jui".
-- Sunshine: The Italian names for morning twilight are now the customary short ones — alba astronomica, nautica, civile.
-- Moon: The Korean phase names now use the everyday words — 상현달, 보름달, 그믐달, with the gibbous phases as 차오르는 달 and 기우는 달.
-- Moon: In Chinese, Japanese, and Korean the panel now follows the traditional calendar: the lunar date beside the phase name (农历七月二十, 旧暦7月20日, 음력 7월 20일), the solar term in progress with the next one's date, and the coming festival — 中秋节, 추석, or 十五夜. Any language can ask for any of the three with `--calendar chinese`, `japanese`, or `korean`, shown with the customary English names ("End of Heat · White Dew Sep 7", "Mid-Autumn Festival Sep 25"); `--calendar none` turns it off, and `linecast calendar` saves the choice the way units and icons are saved. `--json` reports it all in a `calendar` block — lunar date, solar term, next festival — or null when none is shown.
-- Moon: `--calendar almanac` reads the moon the way the Old Farmer's Almanac does: the light or dark of the moon beside the phase, gardening counsel for it, and the day's solunar periods — the majors at the Moon's meridian passes, the minors at moonrise and moonset. `--json` reports it in the `calendar` block.
-- Moon: In Japanese the headline now names the night itself, following the old calendar's day — 十六夜, 立待月, 居待月, 寝待月, 更待月 — instead of rounding to the nearest phase name.
+- Weather and tides: The live views no longer freeze on a slow network. The weather refresh and the wider tide range fetched when scrolling load in the background while the view keeps drawing what it has.
+- Weather: The header names small towns correctly. It could show the timezone city ("New York") instead of the place itself.
+- Sunshine: Sunrise and sunset times are more accurate. They could be ten or more minutes out in spring and autumn, most at high latitudes. The sky in both views and the globe's day/night edge sharpen with them.
+- Sunshine: Languages with different words for morning and evening twilight now use the right one for the time of day: świt and zmierzch in Polish, gryning and skymning in Swedish, aube and crépuscule in French, and so on. The evening word was used around the clock.
+- Sunshine: The Polish and Finnish names for nautical twilight use the standard terms (żeglarski, nauttinen), and the Italian names for morning twilight are the customary short ones (alba astronomica, nautica, civile).
+- Sunshine: The Swedish, Danish, and Norwegian "days ago" phrases begin with their preposition: för 3 dagar sedan, for 3 dage siden.
+- Sunshine: The year view's month axis in French tells June from July (jun, jul). Both had truncated to "jui".
+- Moon: The Korean phase names use the everyday words: 상현달, 보름달, 그믐달, with the gibbous phases as 차오르는 달 and 기우는 달.
+- Tides: The Indonesian view names the wave and swell lines in Indonesian (gelombang, alun) instead of English.
+- Radar: Frames that arrive incomplete are fetched again instead of drawn, since the missing parts looked like clear weather. A source that cannot serve its tiles falls back to the next one.
+- Text in scripts with combining marks, Thai for one, no longer loses those marks in chart and map labels.
+- The hover pop-ups in weather, tides, radar, and the sunshine year view sit clear of the mouse pointer instead of underneath it (thanks [@ebrannin-bw](https://github.com/ebrannin-bw) for [#48](https://github.com/ashuttl/linecast/issues/48)).
 
 ## 2.2.2 — 2026-09-02
 
