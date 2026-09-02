@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Tides: The Indonesian view now names the wave and swell lines in Indonesian (gelombang, alun) instead of English.
 - Weather: Alerts in Bulgaria, Romania, France, Hungary, Belgium, North Macedonia, and Czechia now match the ground they cover, as the rest of Europe's do. Those feeds name a warning's region by a code linecast could not place until now; with them, every European feed is matched by geometry.
 - Thai is the eighteenth language: `--lang th` puts the whole app — weather, sunshine, moon, tides, radar, and maps — in Thai.
 - Moon: `--lang th` (or `--calendar thai`) follows the Thai lunar calendar: the waxing or waning day in Thai numerals — แรม ๔ ค่ำ เดือน ๙ — with the year's animal, the next วันพระ, and the coming festival, มาฆบูชา through ลอยกระทง, computed by the traditional Suriyayart arithmetic and checked against the official holy days of 2023–2026.
