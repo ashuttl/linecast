@@ -44,11 +44,12 @@ from linecast._lunisolar import (
 from linecast._moon_i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
     anahulu_name, festival_table, ja_night_name, lunar_date_label,
-    po_mahina_name, term_label, thai_festival_name, thai_lunar_label,
+    pacific_night_label, term_label, thai_festival_name, thai_lunar_label,
     thai_year_label, wan_phra_label,
 )
 from linecast._pacific import (
-    ANAHULU_COUNSEL, COUNSEL_SOURCE_LINE, hawaiian_night, night_note,
+    ANAHULU_COUNSEL, COUNSEL_SOURCE_LINE, PACIFIC_CALENDARS, night_note,
+    pacific_night,
 )
 from linecast._thai_lunar import (
     is_wan_phra, next_thai_festival, next_wan_phra, thai_lunar_date,
@@ -548,32 +549,35 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # --calendar or `linecast calendar`. The Chinese, Japanese, and
     # Korean calendars read the moon as a date — the lunar day beside
     # the phase, the solar term in progress, the coming festival. The
-    # Hawaiian calendar reads it as a named night with its counsel,
-    # and the almanac is the English-language reading of the same
-    # kind: the Old Farmer's gardening rule and the solunar periods.
+    # Pacific calendars read it as a named night, the Hawaiian one
+    # with its counsel, and the almanac is the English-language
+    # reading of the same kind: the Old Farmer's gardening rule and
+    # the solunar periods.
     # A calendar shown in its own language keeps its own script; any
     # other language gets the customary English names.
     lunar_txt = term_txt = term_short = fest_txt = fest_short = None
     good_txt = hold_txt = solunar_txt = attrib_txt = None
-    if cal == "hawaiian":
-        # The Kaulana Mahina names every night, in Hawaiian for every
-        # reader — the pō names have no English renderings — and has
-        # no solar terms or lunar-dated festivals: the headline is the
-        # night and its anahulu, and the counsel lines below are the
-        # night's kapu or ʻole note when it has one, the anahulu's
-        # fishing counsel, and the source named plainly.
-        night, nights = hawaiian_night(now_local.date())
-        name = po_mahina_name(night, nights)
-        lunar_txt = f"anahulu {anahulu_name(night)}"
-        # The pō name already says which night of the month this is,
-        # so "day 20.2 of 29.5" would read as a rival count; the age
-        # keeps its astronomical name and shares a line with the
-        # illumination.
+    if cal in PACIFIC_CALENDARS:
+        # The Pacific calendars name every night, in their own
+        # language for every reader — the names have no English
+        # renderings — and have no solar terms or lunar-dated
+        # festivals: the headline is the night. The name already says
+        # which night of the month this is, so "day 20.2 of 29.5"
+        # would read as a rival count; the age keeps its astronomical
+        # name and shares a line with the illumination.
+        night, nights = pacific_night(cal, now_local.date())
+        name = pacific_night_label(cal, night, nights)
         age_txt = _ms('lunar_age', runtime, age=f'{age:.1f}')
-        note = night_note(name)
-        counsel = ANAHULU_COUNSEL[anahulu_name(night)]
-        good_txt, hold_txt = (note or counsel), (counsel if note else None)
-        attrib_txt = COUNSEL_SOURCE_LINE
+        if cal == "hawaiian":
+            # The Kaulana Mahina adds the anahulu beside the name, and
+            # the counsel lines below: the night's kapu or ʻole note
+            # when it has one, the anahulu's fishing counsel, and the
+            # source named plainly.
+            lunar_txt = f"anahulu {anahulu_name(night)}"
+            note = night_note(name)
+            counsel = ANAHULU_COUNSEL[anahulu_name(night)]
+            good_txt, hold_txt = (note or counsel), (counsel if note else None)
+            attrib_txt = COUNSEL_SOURCE_LINE
     elif cal == "almanac":
         # The Old Farmer's Almanac: the aside names the half of the
         # month, the counsel is the gardening rule for it, and the
@@ -671,7 +675,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         [(f"{icon} {name}", T, True)] + (
             [(f" · {head_extra}", T, False)] if head_extra else []),
     ]
-    if cal == "hawaiian":
+    if cal in PACIFIC_CALENDARS:
         panel.append([(f"{illum_txt} · {age_txt}", D, False)])
     else:
         panel += [[(illum_txt, D, False)], [(age_txt, D, False)]]

@@ -1,37 +1,58 @@
-"""The Hawaiian lunar calendar (Kaulana Mahina), from the ephemeris.
+"""Pacific lunar calendars, from the ephemeris: Hawaiʻi, American
+Samoa, and the Mariana Islands.
 
-The month is a count of nights beginning at Hilo, the night the young
+Each is a count of named nights beginning the evening the young
 crescent is first seen, not the night of the new moon itself: thirty
-named nights (pō mahina) in three ten-night anahulu — hoʻonui waxing,
-poepoe round, hōʻemi waning — with Mauli dropped when a lunation runs
-only twenty-nine nights, so Muku always closes the month.
+names to a month, the twenty-ninth dropped when a lunation runs only
+twenty-nine nights, so the last name always closes the month. Hawaiʻi
+groups its nights in three ten-night anahulu — hoʻonui waxing, poepoe
+round, hōʻemi waning; the Samoan and CHamoru calendars print their
+nights ten to a row as well but name no periods.
 
-The reference for the mapping is the Western Pacific Regional Fishery
-Management Council's annual Kaulana Mahina, whose night names follow
-Clarice Taylor's Hawaiian Almanac (Oʻahu) and whose month starts come
-from HM Nautical Almanac Office crescent-visibility data. That makes
-Hilo a *visibility* date, and no fixed offset from the conjunction
-reproduces it: usually Hilo is the civil day after the conjunction's
-(at UTC−10), but when that evening's crescent geometry is poor the
-published month starts a day later still.
+The reference for every mapping is the Western Pacific Regional
+Fishery Management Council's annual lunar calendars: the Kaulana
+Mahina for Hawaiʻi, whose night names follow Clarice Taylor's
+Hawaiian Almanac (Oʻahu), and the American Samoa, Guam, and CNMI
+editions. Their month starts come from HM Nautical Almanac Office
+crescent-visibility data for Honolulu, Pago Pago Harbor, and Hagåtña,
+which makes each first night a *visibility* date: no fixed offset
+from the conjunction reproduces any of the three tables. Usually the
+first night is the civil day after the conjunction's at the
+calendar's meridian, but when that evening's crescent geometry is
+poor the published month starts a day later still.
 
-So Hilo is computed the way the source computes it: Yallop's q test
-(NAO Technical Note 69) for the evening sky at Honolulu — arc of
-vision against crescent width at the standard "best time", sunset
-plus four ninths of the moonset lag. The cutoff is calibrated, not
-taken from Yallop's visibility codes: against every month of the 2025
-and 2026 editions — 28 month starts, Nov 2024 through Feb 2027 — the
-evenings the published table accepts all score q ≥ −0.060 by this
-implementation and the ones it passes over all score q ≤ −0.110, so
-the line sits midway, and moving Hilo by a day would take a q error
-of 0.025 on the nearest month. A new edition's months belong in
+So the first night is computed the way the source computes it:
+Yallop's q test (NAO Technical Note 69) for the evening sky at each
+calendar's own place — arc of vision against crescent width at the
+standard "best time", sunset plus four ninths of the moonset lag. The
+cutoff is calibrated per calendar, not taken from Yallop's visibility
+codes: it is the q that best separates the evenings the printed
+tables accept from the ones they pass over.
+
+- Hawaiʻi: 28 months of the 2025 and 2026 editions (Nov 2024 – Feb
+  2027). Accepted evenings all score q ≥ −0.060, rejected ones
+  q ≤ −0.110; the line sits midway, and every month fits.
+- American Samoa: 75 months of the 2021–2026 editions (Jan 2021 – Feb
+  2027). The line sits between −0.072 and −0.037, and 72 months fit.
+  Three fit no cutoff at all: the printed table passes over the
+  evenings of 10 Mar 2024 (q −0.005) and 20 Nov 2025 (−0.009) yet
+  accepts 25 Jun 2025 (−0.139), the poorest crescent it ever took.
+- Mariana Islands: 75 months of the 2021–2026 Guam and CNMI editions,
+  which print the same dates. The line sits between 0.010 and 0.048,
+  and 70 months fit. Five fit no cutoff: evenings passed over at
+  q 0.092–0.103 (Oct 2021, Jan and Jun 2024) and accepted at 0.003
+  and −0.041 (Aug 2023, Dec 2024).
+
+Every month of the 2026 editions fits, so the calendar shown agrees
+with the one on the wall now. A new edition's months belong in
 tests/test_pacific.py; if one disagrees, the cutoff is what to
-recalibrate.
+recalibrate, and the departures listed there are what to check first.
 """
 
 import math
 from datetime import timedelta
 from functools import lru_cache
+from typing import NamedTuple
 
 from linecast._ephemeris import (
     _angular_separation,
@@ -45,17 +66,34 @@ from linecast._ephemeris import (
 )
 from linecast._lunisolar import _civil, _day_start_utc
 
-MERIDIAN_HOURS = -10
-_LAT, _LNG = 21.31, -157.86      # Honolulu; the published tables are Oʻahu's
-_Q_FIRST_VISIBLE = -0.085        # calibrated; see the module docstring
+
+class _Observer(NamedTuple):
+    lat: float
+    lng: float
+    meridian_hours: int
+    q_first_visible: float          # calibrated; see the module docstring
 
 
-def _sun_alt_az_deg(dt_utc):
-    """Sun altitude and azimuth at Honolulu, by the Moon's formulas."""
+CALENDARS = {
+    # Honolulu; the published tables are Oʻahu's.
+    "hawaiian": _Observer(21.31, -157.86, -10, -0.085),
+    # Pago Pago Harbor.
+    "samoan": _Observer(-14.28, -170.69, -11, -0.054),
+    # Hagåtña. The CNMI edition gives its phases for Garapan but prints
+    # the same month starts as Guam's, so both read this table.
+    "chamorro": _Observer(13.475, 144.75, 10, 0.029),
+}
+# The CNMI edition: the CHamoru nights with their Refaluwasch names.
+CALENDARS["refaluwasch"] = CALENDARS["chamorro"]
+PACIFIC_CALENDARS = tuple(CALENDARS)
+
+
+def _sun_alt_az_deg(dt_utc, obs):
+    """Sun altitude and azimuth at the observer, by the Moon's formulas."""
     ra, dec = _sun_ra_dec(dt_utc)
-    lst = _norm_deg(_gmst_deg(dt_utc) + _LNG)
+    lst = _norm_deg(_gmst_deg(dt_utc) + obs.lng)
     hour_angle = math.radians((lst - ra + 540.0) % 360.0 - 180.0)
-    lat, dec_r = math.radians(_LAT), math.radians(dec)
+    lat, dec_r = math.radians(obs.lat), math.radians(dec)
     sin_alt = (math.sin(lat) * math.sin(dec_r)
                + math.cos(lat) * math.cos(dec_r) * math.cos(hour_angle))
     alt = math.degrees(math.asin(max(-1.0, min(1.0, sin_alt))))
@@ -77,7 +115,7 @@ def _setting_instant(t_lo, t_hi, alt_of, horizon):
     return t_lo
 
 
-def _crescent_q(evening):
+def _crescent_q(evening, obs):
     """Yallop's q for the young crescent on *evening*, or None if set.
 
     Topocentric arc of vision (geocentric altitudes less the Moon's
@@ -85,12 +123,12 @@ def _crescent_q(evening):
     time. The Moon within a couple of days of new is what this is
     for; the polynomial is Yallop's own.
     """
-    dusk = _day_start_utc(evening, MERIDIAN_HOURS) + timedelta(hours=16)
+    dusk = _day_start_utc(evening, obs.meridian_hours) + timedelta(hours=16)
     sunset = _setting_instant(dusk, dusk + timedelta(hours=5),
-                              lambda t: _sun_alt_az_deg(t)[0], -0.833)
+                              lambda t: _sun_alt_az_deg(t, obs)[0], -0.833)
 
     def moon_alt(t):
-        return _moon_altitude_deg(t, _LAT, _LNG)
+        return _moon_altitude_deg(t, obs.lat, obs.lng)
 
     # The same effective horizon moonrise/set uses elsewhere in the app.
     if moon_alt(sunset) <= 0.125:
@@ -102,7 +140,7 @@ def _crescent_q(evening):
     parallax = math.degrees(math.asin(1.0 / _moon_distance_er(best)))
     alt = moon_alt(best)
     arcv = (alt - parallax * math.cos(math.radians(alt))
-            - _sun_alt_az_deg(best)[0])
+            - _sun_alt_az_deg(best, obs)[0])
     moon_ra, moon_dec = _moon_ra_dec(best)
     arcl = _angular_separation(moon_ra, moon_dec, *_sun_ra_dec(best))
     width = 60.0 * 0.27245 * parallax * (1.0 - math.cos(math.radians(arcl)))
@@ -110,38 +148,44 @@ def _crescent_q(evening):
                     - 0.1018 * width ** 3)) / 10.0
 
 
-def _hilo_date(conj_utc):
-    """The civil date of Hilo for the month begun at *conj_utc*."""
-    day = _civil(conj_utc, MERIDIAN_HOURS) + timedelta(days=1)
+def _first_night(conj_utc, obs):
+    """The civil date of the first night of the month begun at *conj_utc*."""
+    day = _civil(conj_utc, obs.meridian_hours) + timedelta(days=1)
     for _ in range(2):
-        q = _crescent_q(day)
-        if q is not None and q > _Q_FIRST_VISIBLE:
+        q = _crescent_q(day, obs)
+        if q is not None and q > obs.q_first_visible:
             return day
         day += timedelta(days=1)
     return day       # two evenings on the crescent is beyond doubt
 
 
-@lru_cache(maxsize=128)
-def hawaiian_night(local_date):
+@lru_cache(maxsize=512)
+def pacific_night(cal, local_date):
     """(night, nights in the month) for a Gregorian date, both 1-based.
 
-    The mapping is fixed by the Hawaiian meridian: a user anywhere
-    looks their own civil date up in it, which is what the printed
-    calendar's readers do.
+    The mapping is fixed by the calendar's own meridian: a user
+    anywhere looks their own civil date up in it, which is what the
+    printed calendar's readers do.
     """
-    conj = next_moon_phase_utc(_day_start_utc(local_date, MERIDIAN_HOURS),
+    obs = CALENDARS[cal]
+    conj = next_moon_phase_utc(_day_start_utc(local_date, obs.meridian_hours),
                                0.0, backwards=True)
-    start = _hilo_date(conj)
+    start = _first_night(conj, obs)
     if start > local_date:
-        # The tail of the old month: its Muku, or the extra dark night
-        # before a late Hilo.
+        # The tail of the old month: its last night, or the extra dark
+        # night before a late first crescent.
         nxt = conj
         conj = next_moon_phase_utc(conj - timedelta(days=2), 0.0,
                                    backwards=True)
-        start = _hilo_date(conj)
+        start = _first_night(conj, obs)
     else:
         nxt = next_moon_phase_utc(conj + timedelta(days=1), 0.0)
-    return (local_date - start).days + 1, (_hilo_date(nxt) - start).days
+    return (local_date - start).days + 1, (_first_night(nxt, obs) - start).days
+
+
+def hawaiian_night(local_date):
+    """(night, nights in the month) by the Kaulana Mahina."""
+    return pacific_night("hawaiian", local_date)
 
 
 # ---------------------------------------------------------------------------

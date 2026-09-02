@@ -124,6 +124,14 @@ class TestCalendars:
         text = "\n".join(body)
         assert "Hilo" in text and "Muku" in text
 
+    def test_samoan_and_chamorro_name_the_nights(self):
+        body, _chip = _render(120, 34, calendar="samoan")
+        text = "\n".join(body)
+        assert "Masina Fou" in text and "Masina Maunā" in text
+        body, _chip = _render(120, 34, calendar="refaluwasch")
+        text = "\n".join(body)
+        assert "Sinahen Håcha" in text and "Sinahi" in text
+
     def test_plain_english_carries_no_labels(self):
         body, _chip = _render(100, 32)
         assert "月" not in "\n".join(body)

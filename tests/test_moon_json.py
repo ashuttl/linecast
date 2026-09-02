@@ -270,6 +270,32 @@ class TestJapaneseNightName:
         assert payload["calendar"]["night_name"] is None
 
 
+class TestOtherPacificBlocks:
+    def test_the_samoan_block_names_the_night(self):
+        # Sep 1 2026 is the twentieth night of the month begun Aug 13,
+        # per the printed 2026 American Samoa calendar.
+        moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="samoan")
+        assert payload["calendar"] == {
+            "name": "samoan",
+            "night": 20,
+            "nights_in_month": 29,
+            "night_name": "Masina Sulutele",
+        }
+
+    def test_the_cnmi_block_carries_the_refaluwasch_name(self):
+        # Aug 31 2026 is the eighteenth night of the month begun Aug 14,
+        # Ketai’ Empe’ / Ara on the printed CNMI page.
+        moment = datetime(2026, 8, 31, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="refaluwasch")
+        block = payload["calendar"]
+        assert block["night_name"] == "Ketai’ Empe’"
+        assert block["refaluwasch_name"] == "Ara"
+        payload = _payload(now_local=moment, calendar="chamorro")
+        assert "refaluwasch_name" not in payload["calendar"]
+        assert payload["calendar"]["night_name"] == "Ketai’ Empe’"
+
+
 class TestHawaiianCalendarBlock:
     def test_the_calendar_carries_the_councils_counsel(self):
         # The 20th night, Lāʻaupau, has no kapu note; the poepoe

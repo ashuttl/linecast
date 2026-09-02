@@ -114,6 +114,8 @@ In Thai the moon follows the Thai lunar calendar, ปฏิทินจันท
 
 `--calendar hawaiian` follows the Kaulana Mahina, which names every night: Hilo, Hoaka, the Kū and ʻOle nights, through Māhealani, Kāne, and Muku, each in its ten-night anahulu — hoʻonui waxing, poepoe round, hōʻemi waning. The month begins at Hilo, the first night the young crescent can be seen, so it is computed as a visibility date — crescent geometry in the evening sky over Hawaiʻi, not a fixed step from the new moon — and checked against every month of the [Western Pacific Regional Fishery Management Council's published calendars](https://www.wpcouncil.org/educational-resources/lunar-calendars/). The panel carries the Council's counsel for the night — the four monthly kapu periods, the unproductive ʻOle nights, and each anahulu's fishing outlook — quoted from their educational materials, with a Source: wpcouncil.org line under it.
 
+`--calendar samoan` and `--calendar chamorro` follow the Council's American Samoa and Guam calendars the same way. Each names thirty nights, Masina Fou through Masina Maunā and Sinahen Håcha through Sinahi, beginning the first evening the crescent can be seen over Pago Pago Harbor or Hagåtña, and each is checked against every month the Council has printed since 2021. `--calendar refaluwasch` shows the CNMI edition: the CHamoru night with its Refaluwasch name beside it on the eleven nights that tradition names, Sighauru through Arofú. In a few months of the 2021 to 2025 editions the printed start departs from the visibility data it otherwise follows; the tests list them, and every month of the 2026 calendars matches to the night.
+
 `--calendar almanac` reads the moon the way the Old Farmer's Almanac does — the same kind of tradition, from the English-language side: the light or dark of the moon beside the phase, what each half favors in the garden, and the day's solunar activity periods — the majors when the Moon crosses the meridian above or below, the minors at moonrise and moonset. The almanac's full-moon names (Harvest, Wolf, and the rest) belong to it too: they show there and in the plain English view, while a panel following another tradition's calendar keeps the plain phase name.
 
 Point `sunshine` or `moon` somewhere across an ocean and the rise and set times come back in that place's local clock.
@@ -246,12 +248,15 @@ In India, alerts go one step further: SACHET publishes many of them in the state
 
 ### Calendar
 
-The moon's traditional calendar follows the language: Chinese with `--lang zh`, Japanese with `ja`, Korean with `ko`, Thai with `th`, none otherwise. Pin one — the Hawaiian calendar and the Old Farmer's Almanac included — or none, for every run:
+The moon's traditional calendar follows the language: Chinese with `--lang zh`, Japanese with `ja`, Korean with `ko`, Thai with `th`, none otherwise. Pin one — the Pacific calendars and the Old Farmer's Almanac included — or none, for every run:
 
 ```sh
 linecast calendar chinese
 linecast calendar thai
 linecast calendar hawaiian
+linecast calendar samoan
+linecast calendar chamorro
+linecast calendar refaluwasch
 linecast calendar almanac
 linecast calendar none
 linecast calendar
