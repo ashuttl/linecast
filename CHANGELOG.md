@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Moon: `v` in live mode flips between the disc and a month calendar of phases — each day a small shaded disc, with today, the principal phases, and the active traditional calendar's dates and festivals marked. Scroll to page through months; hover a day for its phase, moonrise, and moonset.
+- Sunshine: `v` now also switches between the day and year views, so the view toggle is the same key as in maps and moon; `y` still works.
 - Maps: Street maps now shade built-up ground, a quiet sibling to the park green, so towns and cities read as settlement even where no one has mapped the land use.
 - Radar: The marangai theme's top bands now match MetService's legend more closely — heavy rain stays in the reds, and the possible-hail run of purple, white, green, and pink starts higher, around 45 dBZ.
 - Moon: `--calendar hawaiian` (or `linecast calendar hawaiian`) follows the Kaulana Mahina: each night named — Hilo, Hoaka, Māhealani, Muku — with its anahulu, the month starting the first night the crescent can be seen over Hawaiʻi, matching the Western Pacific Regional Fishery Management Council's published calendars.

@@ -16,6 +16,10 @@ and the terminator lies square to the bright limb, which points at the Sun.
 Times and positions come from `_ephemeris.py`, which is good to a couple
 of arcminutes: the principal phases land within a quarter of an hour of
 the published ones, which is the accuracy an almanac is read at.
+
+In live mode `v` flips to a month-calendar view of the phases (see
+`_moon_calendar.py`); the wheel or arrows page months there, and space
+returns to this month.
 """
 
 import calendar
@@ -881,20 +885,61 @@ def main():
 
     live = runtime.live
 
+    # The disc and the calendar keep separate scrub offsets, so flipping
+    # between them returns to where each was left: minutes through the
+    # disc's time, whole months through the calendar.
+    state = {"cal": False, "minutes": 0, "months": 0}
+
     def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
-        # Extra args are ignored; accepted so moon can use shared live_loop
-        # mouse-wheel scrubbing support.
+        # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
+        # is handled here (per view) rather than by live_loop.
+        if state["cal"]:
+            from linecast._moon_calendar import render_calendar
+            return render_calendar(_now(), lat, lng, runtime,
+                                   month_offset=state["months"],
+                                   fullscreen=live, mouse_pos=mouse_pos,
+                                   calendar_name=args.calendar)
         moment = _now()
-        if offset_minutes:
-            moment += timedelta(minutes=offset_minutes)
+        if state["minutes"]:
+            moment += timedelta(minutes=state["minutes"])
         return render(moment, lat, lng, runtime, fullscreen=live,
-                      offset_minutes=offset_minutes,
+                      offset_minutes=state["minutes"],
                       calendar_name=args.calendar)
 
-    if live:
-        live_loop(_render, mouse=True)
-    else:
+    if not live:
         print(_render())
+        return
+
+    # A wheel notch or arrow key scrubs 15 minutes of the disc view or a
+    # month of the calendar; space returns each to now. v flips views.
+    def _step(n):
+        if state["cal"]:
+            state["months"] += n
+        else:
+            state["minutes"] += 15 * n
+        return True
+
+    def _intercept(action):
+        if action == "fwd":
+            return _step(1)
+        if action == "back":
+            return _step(-1)
+        if action == "reset":
+            state["months" if state["cal"] else "minutes"] = 0
+            return True
+        return False
+
+    def _on_wheel(direction, _col, _row):
+        return _step(direction)
+
+    def _on_key(key):
+        if key == "v":
+            state["cal"] = not state["cal"]
+            return True
+        return False
+
+    live_loop(_render, mouse=True, intercept=_intercept,
+              on_wheel=_on_wheel, on_action=_on_key)
 
 
 if __name__ == "__main__":

@@ -857,7 +857,8 @@ def main():
         return
 
     # A wheel notch or arrow key scrubs 15 minutes of the day view; the
-    # year view consumes them without moving. y flips between the two.
+    # year view consumes them without moving. v flips between the two
+    # (y still works: the view is --year's).
     def _step(n):
         if not state["year"]:
             state["minutes"] += 15 * n
@@ -877,7 +878,7 @@ def main():
         return _step(direction)
 
     def _on_key(key):
-        if key == "y":
+        if key in ("v", "y"):
             state["year"] = not state["year"]
             return True
         return False

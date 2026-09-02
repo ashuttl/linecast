@@ -1,0 +1,163 @@
+"""The moon's calendar view: the month grid, its labels, and the hover chip.
+
+These assert structure — every day lands once, the right days are
+called out, nothing overflows — rather than exact pixels, in the manner
+of test_moon_layout.
+"""
+
+import re
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from linecast._textwidth import visible_len  # noqa: E402
+
+# Fixed-offset zones keep the ephemeris hermetic. September 2026 holds
+# all four principal phases on distinct days.
+ET = timezone(timedelta(hours=-4))
+JST = timezone(timedelta(hours=9))
+NOW = datetime(2026, 9, 1, 14, 30, tzinfo=ET)
+
+
+def _strip_ansi(text):
+    text = re.sub(r"\x1b\][^\x1b]*\x1b\\", "", text)
+    text = re.sub(r"\x1b\[[^a-zA-Z]*[a-zA-Z]", "", text)
+    return re.sub(r"\x1b[()][0-9A-Za-z]", "", text)
+
+
+def _render(cols, rows, lang="en", calendar=None, mouse_pos=None,
+            month_offset=0, now=NOW, lat=43.7, lng=-70.3):
+    from linecast._moon_calendar import render_calendar
+    from linecast._runtime import RuntimeConfig
+
+    runtime = RuntimeConfig(live=False, icons="emoji", lang=lang,
+                            oneline=False)
+    with patch("linecast._moon_calendar.get_terminal_size",
+               return_value=(cols, rows)):
+        out = render_calendar(now, lat, lng, runtime, fullscreen=True,
+                              mouse_pos=mouse_pos, month_offset=month_offset,
+                              calendar_name=calendar)
+    parts = out.split("\x00", 1)
+    body = _strip_ansi(parts[0]).split("\n")
+    chip = _strip_ansi(parts[1]) if len(parts) > 1 else ""
+    return body, chip
+
+
+def _blocks_to_space(line):
+    return re.sub(r"[▀▄█]", " ", line)
+
+
+class TestGrid:
+    def test_every_day_lands_exactly_once(self):
+        body, _chip = _render(100, 32)
+        tokens = re.findall(r"\d+", _blocks_to_space("\n".join(body)))
+        days = sorted(int(t) for t in tokens if 1 <= int(t) <= 30)
+        assert days == list(range(1, 31))
+
+    def test_title_and_weekdays(self):
+        body, _chip = _render(100, 32)
+        assert "Sep 2026" in body[0]
+        assert "Sun" in body[1] and "Sat" in body[1]
+        # English weeks open on Sunday: Sep 1 2026 is a Tuesday, so day 1
+        # sits under the third column, two empty cells in.
+        first_day_row = next(line for line in body
+                             if re.search(r"\b1\b", _blocks_to_space(line)))
+        assert _blocks_to_space(first_day_row).index("1") >= 2 * (100 // 7)
+
+    def test_monday_first_for_german(self):
+        body, _chip = _render(100, 32, lang="de")
+        assert body[1].strip().startswith("Mo")
+
+    def test_nothing_overflows(self):
+        for cols, rows in ((100, 32), (80, 24), (44, 16), (30, 12)):
+            body, _chip = _render(cols, rows)
+            assert len(body) <= rows
+            assert all(visible_len(line) <= cols for line in body)
+
+    def test_tiny_grid_falls_back_to_glyphs(self):
+        body, _chip = _render(30, 12)
+        assert any("🌒" in line or "🌘" in line for line in body)
+
+    def test_paged_month_names_itself_and_the_way_back(self):
+        body, _chip = _render(100, 32, month_offset=1)
+        assert "Oct 2026" in body[0]
+        assert "space" in body[0]
+
+
+class TestPhaseDays:
+    def test_september_2026_principal_phases(self):
+        from linecast._moon_calendar import principal_phase_days
+        found = {d.day: idx
+                 for d, (idx, _at) in principal_phase_days(2026, 9, ET).items()}
+        # Last quarter the 4th, new the 10th, first quarter the 18th,
+        # full the 26th — Eastern Time.
+        assert found == {4: 6, 10: 0, 18: 2, 26: 4}
+
+    def test_meridian_moves_the_day(self):
+        from linecast._moon_calendar import principal_phase_days
+        found = {d.day: idx
+                 for d, (idx, _at) in principal_phase_days(2026, 9, JST).items()}
+        assert found[11] == 0 and found[27] == 4
+
+
+class TestCalendars:
+    def test_japanese_month_start_and_tsukimi(self):
+        now = datetime(2026, 9, 1, 14, 30, tzinfo=JST)
+        body, _chip = _render(100, 32, lang="ja", now=now, lat=35.7, lng=139.7)
+        text = "\n".join(body)
+        assert "8月" in text        # 旧暦8月 opens on the 11th
+        assert "十五夜" in text     # the 25th
+        assert "2026年9月" in body[0]
+
+    def test_chinese_day_names_and_festival(self):
+        now = datetime(2026, 9, 1, 14, 30, tzinfo=timezone(timedelta(hours=8)))
+        body, _chip = _render(100, 32, lang="zh", calendar="chinese", now=now)
+        text = "\n".join(body)
+        assert "初二" in text
+        assert "中秋节" in text
+
+    def test_hawaiian_names_the_nights(self):
+        body, _chip = _render(120, 34, calendar="hawaiian")
+        text = "\n".join(body)
+        assert "Hilo" in text and "Muku" in text
+
+    def test_plain_english_carries_no_labels(self):
+        body, _chip = _render(100, 32)
+        assert "月" not in "\n".join(body)
+
+
+class TestHoverChip:
+    def _chip_over(self, day, **kw):
+        # Day cells are cell_w=100//7=14 wide from left=1, cell_h=6 from
+        # row 2 (32-row fullscreen, 5 weeks); Sep 2026 leads with 2 blanks.
+        slot = 2 + day - 1
+        wk, c = divmod(slot, 7)
+        col = 1 + c * 14 + 3
+        row = 3 + wk * 6 + 2
+        return _render(100, 32, mouse_pos=(col, row), **kw)
+
+    def test_ordinary_day_reads_phase_and_events(self):
+        _body, chip = self._chip_over(16)
+        assert "Sep 16" in chip
+        assert "illuminated" in chip
+        assert "↑" in chip and "↓" in chip
+
+    def test_principal_day_reads_the_moment(self):
+        _body, chip = self._chip_over(26)
+        assert "Full" in chip
+        assert re.search(r"\d{1,2}:\d{2}", chip)
+
+    def test_full_moon_keeps_its_almanac_name(self):
+        _body, chip = self._chip_over(26)
+        assert "Harvest" in chip
+
+    def test_calendar_line_rides_along(self):
+        _body, chip = self._chip_over(25, calendar="chinese")
+        assert "Mid-Autumn" in chip
+
+    def test_off_grid_raises_nothing(self):
+        _body, chip = _render(100, 32, mouse_pos=(1, 1))
+        assert chip == ""

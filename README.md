@@ -93,7 +93,7 @@ The dashboard combines current conditions, hourly temperatures shaded by dayligh
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-dusk.png" width="49%" alt="sunshine at dusk">
 </p>
 
-`linecast sunshine --year` draws a whole year instead of one day. Each column is a day, running from midnight at the top to midnight at the bottom, and every point in it takes the color of the sky at that hour. Sunrise and sunset emerge where the night colors meet the day colors. Hover over a day to see its sunrise, sunset and day length, along with the time and the sky under the pointer. In live mode, `y` switches between the day view and the year view. `--dst` plots each day in its own clock, so the clock changes show as steps.
+`linecast sunshine --year` draws a whole year instead of one day. Each column is a day, running from midnight at the top to midnight at the bottom, and every point in it takes the color of the sky at that hour. Sunrise and sunset emerge where the night colors meet the day colors. Hover over a day to see its sunrise, sunset and day length, along with the time and the sky under the pointer. In live mode, `v` (or `y`) switches between the day view and the year view. `--dst` plots each day in its own clock, so the clock changes show as steps.
 
 ![the year view for Westbrook, Maine, with the pointer on the December solstice](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-year.png)
 
@@ -105,6 +105,8 @@ Near the poles the same chart turns into polar night and midnight sun. These are
 </p>
 
 `moon` draws the current phase as you would see it from your location, with the shadow falling where it really does, the maria shaded, and a halo around it. Scroll to move through time. `linecast moon --oneline` fits a status bar.
+
+In live mode, `v` flips to a calendar: the month laid out week by week, each day carrying its phase as a small shaded disc, with today, the full and new moons, and the quarters marked. Scroll to page through the months, and hover over a day for its phase, moonrise, and moonset. When a traditional calendar is active the grid carries its reading too — the 农历 day names, the lunar month starts, the festivals, the pō mahina — and the pop-up gives the full lunar date.
 
 In Chinese, Japanese, and Korean the moon also follows the traditional calendar: the lunar date sits beside the phase name — and in Japanese the night is called by its own name, 十六夜, 居待月, 更待月 — with the solar term in progress and a countdown to the next festival, 中秋节, 추석, or 十五夜. Any language can ask for any of the three with `--calendar chinese`, `japanese`, or `korean`, written with the customary English names ("End of Heat · White Dew Sep 7", "Mid-Autumn Festival Sep 25"). The months, leap months, and solar terms are all computed from the ephemeris at each calendar's own meridian; nothing is looked up.
 
