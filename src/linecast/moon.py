@@ -18,8 +18,8 @@ of arcminutes: the principal phases land within a quarter of an hour of
 the published ones, which is the accuracy an almanac is read at.
 
 In live mode `v` flips to a month-calendar view of the phases (see
-`_moon_calendar.py`); the wheel or arrows page months there, and space
-returns to this month.
+`_moon_calendar.py`); the wheel or arrows page months there, space
+returns to this month, and clicking a day opens it in the disc view.
 """
 
 import calendar
@@ -969,8 +969,27 @@ def main():
             return True
         return False
 
+    def _on_drag(_dcol, _drow, _done):
+        # Nothing to drag; the loop only tracks clicks while a drag
+        # callback is set, so this no-op is the price of _on_click.
+        return False
+
+    def _on_click(col, row):
+        # A calendar day is a doorway: click it and the disc view opens
+        # on that day, at this hour, with space the way back to now.
+        if not state["cal"]:
+            return False
+        from linecast._moon_calendar import clicked_day
+        target = clicked_day(col, row)
+        if target is None:
+            return False
+        state["minutes"] = (target - _now().date()).days * 1440
+        state["cal"] = False
+        return True
+
     live_loop(_render, mouse=True, intercept=_intercept,
-              on_wheel=_on_wheel, on_action=_on_key)
+              on_wheel=_on_wheel, on_action=_on_key,
+              on_drag=_on_drag, on_click=_on_click)
 
 
 if __name__ == "__main__":

@@ -7,7 +7,9 @@ called out, and — when a traditional calendar is active — the calendar's
 own reading in the cells: the 农历 day names, the lunar month starts, the
 festivals, the pō mahina. The wheel or arrows page months; space returns
 to this month. Hovering a day raises a chip with the day's phase,
-moonrise and moonset, and the calendar's line for it, tides-style.
+moonrise and moonset, and the calendar's line for it, tides-style; a
+click hands the day to the disc view (moon.py's `_on_click`, through
+`clicked_day` below).
 
 The discs are drawn icon-fashion — north up, the waxing moon lit on the
 right (the southern hemisphere sees it mirrored) — rather than at the
@@ -229,6 +231,12 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     row0 = 2 + max(0, (graph_h - 2 - cell_h * weeks) // 2)
     radius = min(cell_h - 1.0, (cell_w - 2) / 2)
 
+    # The frame on screen is the one clicks and hovers land on, so its
+    # geometry is kept for clicked_day() rather than recomputed.
+    global _last_grid
+    _last_grid = (left, row0, cell_w, cell_h, weeks, lead, days_in,
+                  year, month)
+
     phase_days = principal_phase_days(year, month, tzinfo)
 
     T, D, A, P = (_moon.PANEL_TEXT_RGB, _moon.PANEL_DIM_RGB,
@@ -329,15 +337,35 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     # Hover: the chip for the day under the pointer.
     chip = ""
     if mouse_pos:
-        gx, gy = mouse_pos[0] - 1 - left, mouse_pos[1] - 1 - row0
-        if 0 <= gx < grid_w and 0 <= gy < cell_h * weeks:
-            day = (gy // cell_h) * 7 + gx // cell_w - lead + 1
-            if 1 <= day <= days_in:
-                chip = _hover_chip(
-                    date(year, month, day), now_local, lat, lng, runtime,
-                    cal, native, fest, phase_days, mouse_pos, cols, rows,
-                    moon_phase, moon_cycle_frac, SYNODIC_MONTH)
+        d = clicked_day(*mouse_pos)
+        if d is not None:
+            chip = _hover_chip(
+                d, now_local, lat, lng, runtime,
+                cal, native, fest, phase_days, mouse_pos, cols, rows,
+                moon_phase, moon_cycle_frac, SYNODIC_MONTH)
     return overlay("\n".join(lines), chip)
+
+
+_last_grid = None   # geometry of the last rendered grid, for clicked_day
+
+
+def clicked_day(col, row):
+    """The date under a 1-based terminal cell, from the last rendered grid.
+
+    None off the grid, or before any grid has been drawn. The same
+    mapping serves the hover chip, so a click opens exactly the day the
+    chip was reading.
+    """
+    if _last_grid is None:
+        return None
+    left, row0, cell_w, cell_h, weeks, lead, days_in, year, month = _last_grid
+    gx, gy = col - 1 - left, row - 1 - row0
+    if not (0 <= gx < cell_w * 7 and 0 <= gy < cell_h * weeks):
+        return None
+    day = (gy // cell_h) * 7 + gx // cell_w - lead + 1
+    if 1 <= day <= days_in:
+        return date(year, month, day)
+    return None
 
 
 def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,

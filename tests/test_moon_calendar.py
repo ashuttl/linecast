@@ -161,3 +161,31 @@ class TestHoverChip:
     def test_off_grid_raises_nothing(self):
         _body, chip = _render(100, 32, mouse_pos=(1, 1))
         assert chip == ""
+
+
+class TestClickedDay:
+    def test_maps_a_cell_to_its_day(self):
+        from datetime import date
+        from linecast._moon_calendar import clicked_day
+        _render(100, 32)
+        # Same geometry as TestHoverChip: day 16 sits in week 2, col 3.
+        assert clicked_day(1 + 3 * 14 + 3, 3 + 2 * 6 + 2) == date(2026, 9, 16)
+
+    def test_matches_the_hover_chip(self):
+        from linecast._moon_calendar import clicked_day
+        pos = (1 + 3 * 14 + 3, 3 + 2 * 6 + 2)
+        _body, chip = _render(100, 32, mouse_pos=pos)
+        d = clicked_day(*pos)
+        assert f"Sep {d.day}" in chip
+
+    def test_off_grid_is_none(self):
+        from linecast._moon_calendar import clicked_day
+        _render(100, 32)
+        assert clicked_day(1, 1) is None
+        assert clicked_day(1000, 1000) is None
+
+    def test_leading_blank_cell_is_none(self):
+        from linecast._moon_calendar import clicked_day
+        _render(100, 32)
+        # Sep 2026 leads with two empty cells (Sun, Mon of week one).
+        assert clicked_day(1 + 3, 3 + 2) is None
