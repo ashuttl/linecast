@@ -829,6 +829,8 @@ _HEBREW_HOLIDAYS = {
     "sukkot": "Sukkot",
     "shemini_atzeret": "Shemini Atzeret",
     "simchat_torah": "Simchat Torah",
+    # One day in Israel, so a printed calendar names it with both.
+    "shemini_atzeret_simchat_torah": "Shemini Atzeret / Simchat Torah",
     "hanukkah": "Hanukkah",
     "tu_bishvat": "Tu BiShvat",
     "purim": "Purim",

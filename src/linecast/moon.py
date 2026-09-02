@@ -513,8 +513,23 @@ def calendar_headline(cal, now_local, lat, lng, runtime, lang):
     return name, lunar_date_label(*lunar, label_lang)
 
 
+def keeps_israel_days(country, lat, lng):
+    """Whether the viewed place keeps the Hebrew holidays as Israel does.
+
+    The second day of Yom Tov is a rule about where the reader is, so
+    the answer is the country of the location shown, not the user's
+    own. resolve_location leaves the country blank for an override, so
+    it is reverse geocoded then (cached); still blank, as offline with
+    a cold cache, stays diaspora.
+    """
+    if not country:
+        from linecast._weather_sources import _reverse_geocode
+        _name, country, _addr = _reverse_geocode(lat, lng)
+    return (country or "").upper() == "IL"
+
+
 def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
-           calendar_name=None):
+           calendar_name=None, israel=False):
     """Build the full-screen moon display: disc plus info lines.
 
     Three layouts, by terminal size: a wide terminal floats the info as
@@ -699,7 +714,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         term_txt = (f"{term_short} · {hebrew_month_name(nxt_year, nxt_month)} "
                     f"{_fmt_month_day(nxt_day, runtime)} "
                     f"({_ms('in_days', runtime, days=str(nxt_gap))})")
-        fest_day, fest_key = next_holiday(h_day)
+        fest_day, fest_key = next_holiday(h_day, israel)
         fest_gap = (fest_day - now_local.date()).days
         if fest_day <= h_day:
             fest_txt = fest_short = hebrew_holiday_name(fest_key)
@@ -1001,11 +1016,16 @@ def main():
     def _now():
         return datetime.now(tz) if tz is not None else datetime.now().astimezone()
 
+    # The Hebrew holidays follow the place shown; the check costs a
+    # reverse geocode for an override, so only that calendar pays it.
+    israel = (resolve_calendar(args.calendar, lang_of(runtime)) == "hebrew"
+              and keeps_israel_days(country, lat, lng))
+
     if runtime.json_mode:
         import json
         from linecast._moon_json import build_payload
         payload = build_payload(_now(), lat, lng, runtime,
-                                calendar=args.calendar)
+                                calendar=args.calendar, israel=israel)
         print(json.dumps(payload, ensure_ascii=False))
         return
 
@@ -1029,13 +1049,13 @@ def main():
             return render_calendar(_now(), lat, lng, runtime,
                                    month_offset=state["months"],
                                    fullscreen=live, mouse_pos=mouse_pos,
-                                   calendar_name=args.calendar)
+                                   calendar_name=args.calendar, israel=israel)
         moment = _now()
         if state["minutes"]:
             moment += timedelta(minutes=state["minutes"])
         return render(moment, lat, lng, runtime, fullscreen=live,
                       offset_minutes=state["minutes"],
-                      calendar_name=args.calendar)
+                      calendar_name=args.calendar, israel=israel)
 
     if not live:
         print(_render())

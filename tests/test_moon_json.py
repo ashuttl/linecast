@@ -340,6 +340,18 @@ class TestIslamicCalendarBlock:
 
 
 class TestHebrewCalendarBlock:
+    def test_the_holidays_follow_the_place(self):
+        # 4 October 2026, midday: Simchat Torah in the diaspora, an
+        # ordinary day in Israel with Hanukkah next.
+        moment = datetime(2026, 10, 4, 12, 0, tzinfo=timezone(timedelta(hours=-4)))
+        block = _payload(now_local=moment, calendar="hebrew")["calendar"]
+        assert block["holiday"] == "Simchat Torah"
+        block = _payload(now_local=moment, calendar="hebrew",
+                         israel=True)["calendar"]
+        assert block["holiday"] is None
+        assert block["next_holiday"] == {"name": "Hanukkah",
+                                         "date": "2026-12-05"}
+
     def test_the_block_reads_the_hebrew_date(self):
         # Midday on 2 September 2026 is 20 Elul 5786; Tishrei and Rosh
         # Hashanah come on the 12th.

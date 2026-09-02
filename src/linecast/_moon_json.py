@@ -17,7 +17,8 @@ from linecast._sunshine_json import _iso, _local_timezone_name, _location_label
 SCHEMA_VERSION = 1
 
 
-def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
+def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
+                  israel=False):
     """Build the `moon --json` payload dict.
 
     *now_local* is a timezone-aware local datetime, matching what moon's
@@ -166,8 +167,8 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
         # panel turns it, in letters too (the panel keeps to
         # transliteration, since terminals lay Hebrew out unreliably;
         # a JSON consumer can do better), the year's shape, the coming
-        # month, the holiday in progress, and the next holiday,
-        # diaspora dates.
+        # month, the holiday in progress, and the next holiday, by
+        # the scheme of the place (*israel*).
         from linecast._hebrew import (
             days_in_month, days_in_year, hebrew_date, holiday_key,
             is_leap_year, next_holiday,
@@ -182,8 +183,8 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
         h_day = now_local.date() + timedelta(days=1 if evening else 0)
         h_year, h_month, h_dom = hebrew_date(h_day)
         nxt_day, (nxt_year, nxt_month) = next_hebrew_month(h_day)
-        hol_day, hol_key = next_holiday(h_day)
-        today_key = holiday_key(h_day)
+        hol_day, hol_key = next_holiday(h_day, israel)
+        today_key = holiday_key(h_day, israel)
         calendar_block = {
             "name": cal,
             "year": h_year,

@@ -29,7 +29,7 @@ def _strip_ansi(text):
 
 
 def _render(cols, rows, lang="en", calendar=None, mouse_pos=None,
-            month_offset=0, now=NOW, lat=43.7, lng=-70.3):
+            month_offset=0, now=NOW, lat=43.7, lng=-70.3, israel=False):
     from linecast._moon_calendar import render_calendar
     from linecast._runtime import RuntimeConfig
 
@@ -39,7 +39,7 @@ def _render(cols, rows, lang="en", calendar=None, mouse_pos=None,
                return_value=(cols, rows)):
         out = render_calendar(now, lat, lng, runtime, fullscreen=True,
                               mouse_pos=mouse_pos, month_offset=month_offset,
-                              calendar_name=calendar)
+                              calendar_name=calendar, israel=israel)
     parts = out.split("\x00", 1)
     body = _strip_ansi(parts[0]).split("\n")
     chip = _strip_ansi(parts[1]) if len(parts) > 1 else ""
@@ -159,6 +159,16 @@ class TestCalendars:
                               month_offset=1)
         text = "\n".join(body)
         assert "4 Simchat Tora" in text and "12 Cheshvan" in text
+
+    def test_hebrew_holidays_in_israel(self):
+        # Seen from Jerusalem, Simchat Torah shares Shemini Atzeret's
+        # day and 4 October is an ordinary day.
+        now = datetime(2026, 9, 2, 14, 30, tzinfo=ET)
+        body, _chip = _render(120, 34, calendar="hebrew", now=now,
+                              month_offset=1, israel=True)
+        text = "\n".join(body)
+        assert "3 Shemini Atz" in text
+        assert "4 Simchat Tora" not in text
 
     def test_plain_english_carries_no_labels(self):
         body, _chip = _render(100, 32)

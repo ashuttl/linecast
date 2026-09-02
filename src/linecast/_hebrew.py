@@ -23,10 +23,12 @@ The Hebrew day begins at sunset. The panel turns the date with the
 reader's own sunset (_hijri.after_sunset, shared with the Islamic
 calendar, which keeps the same evening); the month grid and the
 holiday dates keep civil days, the way printed calendars do. The
-holidays are the diaspora observance — a second day of Rosh Hashanah,
-Sukkot, Shavuot, and Pesach's first and last days, and Simchat Torah
-the day after Shemini Atzeret — since that is what a reader outside
-Israel keeps.
+holidays follow the place: outside Israel a second day of Sukkot,
+Shavuot, and Pesach's first and last days, and Simchat Torah the day
+after Shemini Atzeret; in Israel one day each, and Simchat Torah on
+Shemini Atzeret itself. Rosh Hashanah keeps two days everywhere. The
+callers pass *israel* from the viewed location's country, the way a
+printed calendar sold in Jerusalem differs from one sold in Brooklyn.
 """
 
 from datetime import date, timedelta
@@ -42,7 +44,9 @@ _MEAN_YEAR_DAYS = 35975351 / 98496       # 235 lunations over 19 years
 # The holidays the panel counts down to, in calendar order from
 # Tishrei: key → (month, day, days). "adar" is the month Purim falls
 # in, Adar II when the year has two. Tisha B'Av is postponed a day
-# when the 9th of Av is a Saturday.
+# when the 9th of Av is a Saturday. HOLIDAYS is the diaspora count;
+# HOLIDAYS_ISRAEL drops the second day of Yom Tov and keeps Simchat
+# Torah with Shemini Atzeret, as calendars printed in Israel do.
 HOLIDAYS = (
     ("rosh_hashanah", 7, 1, 2),
     ("yom_kippur", 7, 10, 1),
@@ -54,6 +58,18 @@ HOLIDAYS = (
     ("purim", "adar", 14, 1),
     ("pesach", 1, 15, 8),
     ("shavuot", 3, 6, 2),
+    ("tisha_bav", 5, 9, 1),
+)
+HOLIDAYS_ISRAEL = (
+    ("rosh_hashanah", 7, 1, 2),
+    ("yom_kippur", 7, 10, 1),
+    ("sukkot", 7, 15, 7),
+    ("shemini_atzeret_simchat_torah", 7, 22, 1),
+    ("hanukkah", 9, 25, 8),
+    ("tu_bishvat", 11, 15, 1),
+    ("purim", "adar", 14, 1),
+    ("pesach", 1, 15, 7),
+    ("shavuot", 3, 6, 1),
     ("tisha_bav", 5, 9, 1),
 )
 
@@ -183,10 +199,10 @@ def rosh_chodesh(local_date):
 
 
 @lru_cache(maxsize=64)
-def _holidays_of_year(year):
+def _holidays_of_year(year, israel=False):
     """[(first civil date, last civil date, key)] of *year*, in order."""
     out = []
-    for key, month, day, days in HOLIDAYS:
+    for key, month, day, days in (HOLIDAYS_ISRAEL if israel else HOLIDAYS):
         if month == "adar":
             month = _last_month(year)
         first = date.fromordinal(_ordinal(year, month, day))
@@ -196,16 +212,16 @@ def _holidays_of_year(year):
     return out
 
 
-def holiday_key(local_date):
+def holiday_key(local_date, israel=False):
     """The holiday *local_date* falls within, or None."""
     year = hebrew_date(local_date)[0]
-    for first, last, key in _holidays_of_year(year):
+    for first, last, key in _holidays_of_year(year, israel):
         if first <= local_date <= last:
             return key
     return None
 
 
-def next_holiday(local_date):
+def next_holiday(local_date, israel=False):
     """(first civil date, key) of the holiday at or after *local_date*.
 
     A holiday in progress counts: on the third day of Sukkot the
@@ -213,7 +229,7 @@ def next_holiday(local_date):
     """
     year = hebrew_date(local_date)[0]
     for y in (year, year + 1):
-        for first, last, key in _holidays_of_year(y):
+        for first, last, key in _holidays_of_year(y, israel):
             if local_date <= last:
                 return first, key
     raise AssertionError("no holiday within two years")

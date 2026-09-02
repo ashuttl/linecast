@@ -116,7 +116,7 @@ def principal_phase_days(year, month, tzinfo):
     return out
 
 
-def _cell_label(day, cal, native, fest, lang="en"):
+def _cell_label(day, cal, native, fest, lang="en", israel=False):
     """(text, is_festival) for the calendar's line in a day cell, or None.
 
     A festival names its day in every script. Beyond that only the
@@ -139,7 +139,7 @@ def _cell_label(day, cal, native, fest, lang="en"):
     if cal == "hebrew":
         # A holiday names every day it runs, Sukkot's seven and
         # Hanukkah's eight included, the way a printed calendar does.
-        key = holiday_key(day)
+        key = holiday_key(day, israel)
         if key:
             return hebrew_holiday_name(key), True
         year, m, d = hebrew_date(day)
@@ -217,7 +217,8 @@ def _clip(text, width):
 
 
 def render_calendar(now_local, lat, lng, runtime, month_offset=0,
-                    fullscreen=False, mouse_pos=None, calendar_name=None):
+                    fullscreen=False, mouse_pos=None, calendar_name=None,
+                    israel=False):
     """Build the calendar view: a month grid of shaded phase discs."""
     from linecast import moon as _moon  # palettes, rebuilt on theme reload
     from linecast.sunshine import moon_cycle_frac, moon_phase, SYNODIC_MONTH
@@ -340,7 +341,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         # labels (month starts, festivals) ride just after the day
         # number instead, so they cannot read as another cell's.
         if cal and cell_h >= 3 and cell_w >= 6:
-            label = _cell_label(d, cal, native, fest, lang)
+            label = _cell_label(d, cal, native, fest, lang, israel)
             if label:
                 text, is_fest = label
                 ink = P if is_fest else F
@@ -366,7 +367,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
             chip = _hover_chip(
                 d, now_local, lat, lng, runtime,
                 cal, native, fest, phase_days, mouse_pos, cols, rows,
-                moon_phase, moon_cycle_frac, SYNODIC_MONTH)
+                moon_phase, moon_cycle_frac, SYNODIC_MONTH, israel)
     return overlay("\n".join(lines), chip)
 
 
@@ -394,7 +395,7 @@ def clicked_day(col, row):
 
 def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
                 phase_days, mouse_pos, cols, rows,
-                moon_phase, moon_cycle_frac, SYNODIC_MONTH):
+                moon_phase, moon_cycle_frac, SYNODIC_MONTH, israel=False):
     """The hovered day, read in full: date, phase, rise and set, calendar."""
     from linecast import moon as _moon
 
@@ -451,7 +452,7 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
             cal_line = f"{hijri_observance_name(key, lang)} · {cal_line}"
     elif cal == "hebrew":
         cal_line = hebrew_date_label(*hebrew_date(d))
-        key = holiday_key(d)
+        key = holiday_key(d, israel)
         if key:
             cal_line = f"{hebrew_holiday_name(key)} · {cal_line}"
         elif rosh_chodesh(d):

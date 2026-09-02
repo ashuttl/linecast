@@ -18,6 +18,7 @@ from linecast._hebrew import (
     days_in_month,
     days_in_year,
     hebrew_date,
+    HOLIDAYS_ISRAEL,
     holiday_key,
     is_leap_year,
     month_start,
@@ -399,6 +400,77 @@ class TestHolidays:
         assert hebrew_holiday_name("tisha_bav") == "Tisha B'Av"
         for key, *_rest in HOLIDAYS:
             assert hebrew_holiday_name(key)
+
+
+class TestIsraelHolidays:
+    """The scheme a calendar printed in Israel keeps: one day of Yom
+    Tov, Simchat Torah on Shemini Atzeret. Hebcal with Israel set is
+    the reference."""
+
+    @pytest.mark.parametrize("day,key", PUBLISHED_HOLIDAYS)
+    def test_every_holiday_of_2023_through_2026(self, day, key):
+        if key == "simchat_torah":
+            # The day after Shemini Atzeret is an ordinary day.
+            assert holiday_key(day, israel=True) is None
+        elif key == "shemini_atzeret":
+            assert holiday_key(day, israel=True) == "shemini_atzeret_simchat_torah"
+        else:
+            assert holiday_key(day, israel=True) == key
+
+    def test_one_day_of_yom_tov(self):
+        # Pesach's seven days and Shavuot's one; the diaspora keeps
+        # an eighth and a second.
+        assert holiday_key(date(2026, 4, 8), israel=True) == "pesach"
+        assert holiday_key(date(2026, 4, 9), israel=True) is None
+        assert holiday_key(date(2026, 4, 9)) == "pesach"
+        assert holiday_key(date(2026, 5, 22), israel=True) == "shavuot"
+        assert holiday_key(date(2026, 5, 23), israel=True) is None
+        assert holiday_key(date(2026, 5, 23)) == "shavuot"
+
+    def test_rosh_hashanah_keeps_two_days_everywhere(self):
+        assert holiday_key(date(2026, 9, 12), israel=True) == "rosh_hashanah"
+        assert holiday_key(date(2026, 9, 13), israel=True) == "rosh_hashanah"
+        assert holiday_key(date(2026, 9, 14), israel=True) is None
+
+    def test_simchat_torah_falls_on_shemini_atzeret(self):
+        assert [holiday_key(date(2026, 9, 26) + timedelta(days=n), israel=True)
+                for n in range(9)] == (["sukkot"] * 7
+                                       + ["shemini_atzeret_simchat_torah", None])
+        assert next_holiday(date(2026, 10, 4), israel=True) == (
+            date(2026, 12, 5), "hanukkah")
+        assert next_holiday(date(2026, 10, 4)) == (date(2026, 10, 4),
+                                                    "simchat_torah")
+
+    def test_every_holiday_has_a_name(self):
+        for key, *_rest in HOLIDAYS_ISRAEL:
+            assert hebrew_holiday_name(key)
+        assert (hebrew_holiday_name("shemini_atzeret_simchat_torah")
+                == "Shemini Atzeret / Simchat Torah")
+
+
+class TestKeepsIsraelDays:
+    """The scheme follows the country of the place shown."""
+
+    def test_a_known_country_is_not_geocoded(self, monkeypatch):
+        from linecast import moon
+        monkeypatch.setattr("linecast._weather_sources._reverse_geocode",
+                            lambda *a, **k: pytest.fail("geocoded"))
+        assert moon.keeps_israel_days("IL", 31.8, 35.2)
+        assert moon.keeps_israel_days("il", 31.8, 35.2)
+        assert not moon.keeps_israel_days("US", 43.7, -70.3)
+
+    def test_an_override_is_reverse_geocoded(self, monkeypatch):
+        from linecast import moon
+        monkeypatch.setattr("linecast._weather_sources._reverse_geocode",
+                            lambda lat, lng, lang=None: ("Jerusalem", "IL", {}))
+        assert moon.keeps_israel_days("", 31.8, 35.2)
+        assert moon.keeps_israel_days(None, 31.8, 35.2)
+
+    def test_offline_stays_diaspora(self, monkeypatch):
+        from linecast import moon
+        monkeypatch.setattr("linecast._weather_sources._reverse_geocode",
+                            lambda lat, lng, lang=None: ("", "", {}))
+        assert not moon.keeps_israel_days("", 31.8, 35.2)
 
 
 class TestAfterSunset:
