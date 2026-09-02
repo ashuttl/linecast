@@ -472,10 +472,15 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
             m, day_n, leap = lunar
             label_lang = lang if native else "en"
             cal_line = lunar_date_label(m, day_n, leap, label_lang)
-            if cal == "japanese" and native:
-                cal_line = f"{ja_night_name(day_n)} · {cal_line}"
+            parts = []
             if not leap and (m, day_n) in fest:
-                cal_line = f"{fest[(m, day_n)]} · {cal_line}"
+                parts.append(fest[(m, day_n)])
+            if cal == "japanese" and native:
+                night = ja_night_name(day_n)
+                # 十五夜 names both the festival and the night; say it once.
+                if night not in parts:
+                    parts.append(night)
+            cal_line = " · ".join([*parts, cal_line])
 
     tip_lines = [
         f"{tip_bg}{tip_fg} {head} ",

@@ -204,6 +204,14 @@ class TestHoverChip:
         _body, chip = self._chip_over(25, calendar="chinese")
         assert "Mid-Autumn" in chip
 
+    def test_japanese_night_named_once(self):
+        # 十五夜 is both the night's name and the festival's on 8/15.
+        _body, chip = self._chip_over(25, lang="ja", calendar="japanese")
+        assert "十五夜 · 旧暦8月15日" in chip
+        assert chip.count("十五夜") == 1
+        _body, chip = self._chip_over(26, lang="ja", calendar="japanese")
+        assert "十六夜 · 旧暦8月16日" in chip
+
     def test_hijri_date_in_the_chip(self):
         # March 2026 opens on a Sunday, so day 20 is week 2, column 5.
         pos = (1 + 5 * 14 + 3, 3 + 2 * 6 + 2)
