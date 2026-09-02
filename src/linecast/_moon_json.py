@@ -162,8 +162,11 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
         }
     elif cal == "hebrew":
         # The Hebrew date, turned with the reader's sunset as the
-        # panel turns it, the year's shape, the coming month, the
-        # holiday in progress, and the next holiday, diaspora dates.
+        # panel turns it, in letters too (the panel keeps to
+        # transliteration, since terminals lay Hebrew out unreliably;
+        # a JSON consumer can do better), the year's shape, the coming
+        # month, the holiday in progress, and the next holiday,
+        # diaspora dates.
         from linecast._hebrew import (
             days_in_month, days_in_year, hebrew_date, holiday_key,
             is_leap_year, next_holiday,
@@ -171,7 +174,8 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
         from linecast._hebrew import next_month_start as next_hebrew_month
         from linecast._hijri import after_sunset
         from linecast._moon_i18n import (
-            hebrew_date_label, hebrew_holiday_name, hebrew_month_name,
+            hebrew_date_hebrew, hebrew_date_label, hebrew_holiday_name,
+            hebrew_month_name,
         )
         evening = after_sunset(now_local, lat, lng)
         h_day = now_local.date() + timedelta(days=1 if evening else 0)
@@ -189,6 +193,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
             "day": h_dom,
             "days_in_month": days_in_month(h_year, h_month),
             "label": hebrew_date_label(h_year, h_month, h_dom),
+            "hebrew_label": hebrew_date_hebrew(h_year, h_month, h_dom),
             "after_sunset": evening,
             "holiday": hebrew_holiday_name(today_key) if today_key else None,
             "next_month": {

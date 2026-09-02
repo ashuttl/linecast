@@ -355,6 +355,7 @@ class TestHebrewCalendarBlock:
             "day": 20,
             "days_in_month": 29,
             "label": "20 Elul 5786",
+            "hebrew_label": "כ׳ אלול תשפ״ו",
             "after_sunset": False,
             "holiday": None,
             "next_month": {"name": "Tishrei", "date": "2026-09-12"},

@@ -808,6 +808,19 @@ def hijri_observance_name(key, lang):
 _HEBREW_MONTHS = ("Nisan", "Iyar", "Sivan", "Tammuz", "Av", "Elul",
                   "Tishrei", "Cheshvan", "Kislev", "Tevet", "Shevat",
                   "Adar", "Adar II")
+_HEBREW_MONTHS_HE = ("ניסן", "אייר", "סיון", "תמוז", "אב", "אלול",
+                     "תשרי", "חשון", "כסלו", "טבת", "שבט",
+                     "אדר", "אדר ב׳")
+
+# The letter numerals: units, tens, and hundreds each have a letter,
+# read by adding them up; 15 and 16 are written ט״ו and ט״ז rather
+# than with the letters of the divine name.
+_GEMATRIA = ((400, "ת"), (300, "ש"), (200, "ר"), (100, "ק"), (90, "צ"),
+             (80, "פ"), (70, "ע"), (60, "ס"), (50, "נ"), (40, "מ"),
+             (30, "ל"), (20, "כ"), (10, "י"), (9, "ט"), (8, "ח"),
+             (7, "ז"), (6, "ו"), (5, "ה"), (4, "ד"), (3, "ג"),
+             (2, "ב"), (1, "א"))
+_GERESH, _GERSHAYIM = "\u05f3", "\u05f4"
 
 # Holiday names by the keys _hebrew's next_holiday returns.
 _HEBREW_HOLIDAYS = {
@@ -840,6 +853,40 @@ def hebrew_date_label(year, month, day):
 
 def hebrew_holiday_name(key):
     return _HEBREW_HOLIDAYS[key]
+
+
+def hebrew_numeral(n):
+    """*n* in Hebrew letters: כ׳ for 20, כ״ג for 23, ט״ו for 15."""
+    letters = ""
+    while n:
+        for value, letter in _GEMATRIA:
+            if value <= n:
+                letters += letter
+                n -= value
+                break
+    letters = letters.replace("יה", "טו").replace("יו", "טז")
+    if len(letters) == 1:
+        return letters + _GERESH
+    return letters[:-1] + _GERSHAYIM + letters[-1]
+
+
+def hebrew_year_numeral(year):
+    """The year as it is written, without its thousands: תשפ״ו for 5786.
+
+    A round thousand has nothing left to write, so the thousands
+    stand alone: ו׳ for 6000.
+    """
+    rest = year % 1000
+    return hebrew_numeral(rest if rest else year // 1000)
+
+
+def hebrew_date_hebrew(year, month, day):
+    """כ״ג תשרי תשפ״ז — the date in Hebrew letters, for --json."""
+    from linecast._hebrew import is_leap_year
+    name = _HEBREW_MONTHS_HE[month - 1]
+    if month == 12 and is_leap_year(year):
+        name = "אדר א׳"
+    return f"{hebrew_numeral(day)} {name} {hebrew_year_numeral(year)}"
 
 
 def rosh_chodesh_label(year, month):

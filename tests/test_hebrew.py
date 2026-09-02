@@ -27,7 +27,8 @@ from linecast._hebrew import (
 )
 from linecast._hijri import after_sunset
 from linecast._moon_i18n import (
-    hebrew_date_label, hebrew_holiday_name, hebrew_month_name,
+    hebrew_date_hebrew, hebrew_date_label, hebrew_holiday_name,
+    hebrew_month_name, hebrew_numeral, hebrew_year_numeral,
     rosh_chodesh_label,
 )
 
@@ -300,6 +301,43 @@ class TestDates:
         assert rosh_chodesh(date(2026, 10, 13)) is None
         assert rosh_chodesh(date(2026, 9, 12)) is None
         assert rosh_chodesh_label(5787, 8) == "Rosh Chodesh Cheshvan"
+
+
+class TestHebrewLetters:
+    """The date in letters, as Hebcal writes it."""
+
+    @pytest.mark.parametrize("n,letters", [
+        (1, "א׳"), (9, "ט׳"), (10, "י׳"), (11, "י״א"), (14, "י״ד"),
+        (15, "ט״ו"), (16, "ט״ז"), (17, "י״ז"), (20, "כ׳"), (23, "כ״ג"),
+        (29, "כ״ט"), (30, "ל׳"),
+    ])
+    def test_the_days_of_a_month(self, n, letters):
+        assert hebrew_numeral(n) == letters
+
+    @pytest.mark.parametrize("year,letters", [
+        (5780, "תש״פ"), (5781, "תשפ״א"), (5786, "תשפ״ו"), (5787, "תשפ״ז"),
+        (5790, "תש״צ"), (5700, "ת״ש"), (5800, "ת״ת"), (5900, "תת״ק"),
+        (5500, "ת״ק"), (6000, "ו׳"),
+    ])
+    def test_the_years(self, year, letters):
+        assert hebrew_year_numeral(year) == letters
+
+    def test_the_date(self):
+        assert hebrew_date_hebrew(5786, 6, 20) == "כ׳ אלול תשפ״ו"
+        assert hebrew_date_hebrew(5787, 7, 23) == "כ״ג תשרי תשפ״ז"
+        assert hebrew_date_hebrew(5787, 12, 1) == "א׳ אדר א׳ תשפ״ז"
+        assert hebrew_date_hebrew(5787, 13, 14) == "י״ד אדר ב׳ תשפ״ז"
+        assert hebrew_date_hebrew(5786, 12, 15) == "ט״ו אדר תשפ״ו"
+
+    def test_every_month_has_its_name(self):
+        # The first of each month of a leap year, month and year.
+        names = {hebrew_date_hebrew(5787, m, 1).split(" ", 1)[1]
+                 for m in range(1, 14)}
+        assert names == {
+            "ניסן תשפ״ז", "אייר תשפ״ז", "סיון תשפ״ז", "תמוז תשפ״ז", "אב תשפ״ז",
+            "אלול תשפ״ז", "תשרי תשפ״ז", "חשון תשפ״ז", "כסלו תשפ״ז", "טבת תשפ״ז",
+            "שבט תשפ״ז", "אדר א׳ תשפ״ז", "אדר ב׳ תשפ״ז",
+        }
 
 
 class TestHolidays:
