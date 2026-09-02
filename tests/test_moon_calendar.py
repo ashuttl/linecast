@@ -132,6 +132,19 @@ class TestCalendars:
         text = "\n".join(body)
         assert "Sinahen Håcha" in text and "Sinahi" in text
 
+    def test_islamic_month_starts_and_observances(self):
+        # Ramadan 1447 opens on 18 February 2026; the grid marks the
+        # month start, and March carries Laylat al-Qadr and Eid al-Fitr.
+        now = datetime(2026, 2, 10, 14, 30, tzinfo=ET)
+        body, _chip = _render(120, 34, calendar="islamic", now=now)
+        text = "\n".join(body)
+        assert "18 Ramadan" in text
+        body, _chip = _render(120, 34, calendar="islamic", now=now,
+                              month_offset=1)
+        text = "\n".join(body)
+        # A 16-cell column clips the longer name after the day number.
+        assert "16 Laylat al" in text and "20 Eid al-Fitr" in text
+
     def test_plain_english_carries_no_labels(self):
         body, _chip = _render(100, 32)
         assert "月" not in "\n".join(body)
@@ -165,6 +178,13 @@ class TestHoverChip:
     def test_calendar_line_rides_along(self):
         _body, chip = self._chip_over(25, calendar="chinese")
         assert "Mid-Autumn" in chip
+
+    def test_hijri_date_in_the_chip(self):
+        # March 2026 opens on a Sunday, so day 20 is week 2, column 5.
+        pos = (1 + 5 * 14 + 3, 3 + 2 * 6 + 2)
+        _body, chip = _render(100, 32, mouse_pos=pos, calendar="islamic",
+                              now=datetime(2026, 3, 1, 14, 30, tzinfo=ET))
+        assert "Eid al-Fitr · 1 Shawwal 1447 AH" in chip
 
     def test_off_grid_raises_nothing(self):
         _body, chip = _render(100, 32, mouse_pos=(1, 1))

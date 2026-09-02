@@ -729,3 +729,52 @@ def pacific_night_label(cal, night, nights):
 def anahulu_name(night):
     """The anahulu (ten-night span) that *night* falls in."""
     return _ANAHULU[min((night - 1) // 10, 2)]
+
+
+# ---------------------------------------------------------------------------
+# The Islamic calendar's names (see _hijri.py for the calendar itself).
+# Arabic is not a UI language, so the months are transliterated for
+# every reader; Indonesian, the one UI language of a Muslim-majority
+# country, gets the spellings its dictionary standardizes.
+# ---------------------------------------------------------------------------
+
+_HIJRI_MONTHS = {
+    "en": ("Muharram", "Safar", "Rabiʻ al-Awwal", "Rabiʻ al-Thani",
+           "Jumada al-Ula", "Jumada al-Thani", "Rajab", "Shaʻban",
+           "Ramadan", "Shawwal", "Dhu al-Qaʻdah", "Dhu al-Hijjah"),
+    "id": ("Muharam", "Safar", "Rabiulawal", "Rabiulakhir",
+           "Jumadilawal", "Jumadilakhir", "Rajab", "Syakban",
+           "Ramadan", "Syawal", "Zulkaidah", "Zulhijah"),
+}
+
+# Observance names by the keys _hijri's next_observance returns.
+_HIJRI_OBSERVANCES = {
+    "new_year": ("Islamic New Year", "Tahun Baru Islam"),
+    "ashura": ("Ashura", "Asyura"),
+    "mawlid": ("Mawlid", "Maulid Nabi"),
+    "ramadan": ("Ramadan begins", "Awal Ramadan"),
+    "qadr": ("Laylat al-Qadr", "Lailatulqadar"),
+    "eid_fitr": ("Eid al-Fitr", "Idulfitri"),
+    "arafah": ("Day of Arafah", "Hari Arafah"),
+    "eid_adha": ("Eid al-Adha", "Iduladha"),
+}
+
+
+def hijri_lang(lang):
+    """The language the Islamic calendar's names are written in."""
+    return "id" if lang == "id" else "en"
+
+
+def hijri_month_name(month, lang):
+    return _HIJRI_MONTHS[hijri_lang(lang)][month - 1]
+
+
+def hijri_date_label(year, month, day, lang):
+    """23 Ramadan 1447 AH — the Hijri date as it is customarily written."""
+    era = "H" if hijri_lang(lang) == "id" else "AH"
+    return f"{day} {hijri_month_name(month, lang)} {year} {era}"
+
+
+def hijri_observance_name(key, lang):
+    english, indonesian = _HIJRI_OBSERVANCES[key]
+    return indonesian if hijri_lang(lang) == "id" else english

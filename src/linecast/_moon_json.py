@@ -9,7 +9,7 @@ strings and missing values become None rather than raising.
 # The build_payload argument named `calendar` would shadow the stdlib
 # module inside the function, so just the function comes in.
 from calendar import isleap
-from datetime import timezone
+from datetime import timedelta, timezone
 
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._sunshine_json import _iso, _local_timezone_name, _location_label
@@ -125,6 +125,40 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
                                     if t is not None),
             "solunar_minor": sorted(_iso(t) for t in (day_rise, day_set)
                                     if t is not None),
+        }
+    elif cal == "islamic":
+        # The Umm al-Qura reading: the Hijri date, turned with the
+        # reader's sunset as the panel turns it, the month's length,
+        # the coming month, and the next observance.
+        from linecast._hijri import (
+            after_sunset, days_in_month, hijri_date, next_month_start,
+            next_observance,
+        )
+        from linecast._moon_i18n import (
+            hijri_date_label, hijri_month_name, hijri_observance_name,
+        )
+        evening = after_sunset(now_local, lat, lng)
+        h_day = now_local.date() + timedelta(days=1 if evening else 0)
+        h_year, h_month, h_dom = hijri_date(h_day)
+        nxt_day, (_nxt_year, nxt_month) = next_month_start(h_day)
+        obs_day, obs_key = next_observance(now_local.date())
+        calendar_block = {
+            "name": cal,
+            "year": h_year,
+            "month": h_month,
+            "month_name": hijri_month_name(h_month, lang),
+            "day": h_dom,
+            "days_in_month": days_in_month(h_day),
+            "label": hijri_date_label(h_year, h_month, h_dom, lang),
+            "after_sunset": evening,
+            "next_month": {
+                "name": hijri_month_name(nxt_month, lang),
+                "date": nxt_day.isoformat(),
+            },
+            "next_observance": {
+                "name": hijri_observance_name(obs_key, lang),
+                "date": obs_day.isoformat(),
+            },
         }
     elif cal == "thai":
         # The Thai calendar: the waxing/waning day, the year's animal,

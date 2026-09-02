@@ -31,9 +31,11 @@ from linecast._lunisolar import (
     CALENDAR_MERIDIAN_HOURS, CALENDAR_NATIVE_LANG, lunisolar_date,
     resolve_calendar,
 )
+from linecast._hijri import hijri_date, observance_key
 from linecast._moon_i18n import (
     MONTHS_I18N, _day_abbrev, _fmt_month_day, _moon_name, _ms, _zh_day_name,
-    _ZH_MONTHS, anahulu_name, festival_table, ja_night_name, lunar_date_label,
+    _ZH_MONTHS, anahulu_name, festival_table, hijri_date_label,
+    hijri_month_name, hijri_observance_name, ja_night_name, lunar_date_label,
     pacific_night_label, pacific_night_name, thai_festival_name,
     thai_lunar_label, thai_month_label,
     wan_phra_label,
@@ -112,17 +114,25 @@ def principal_phase_days(year, month, tzinfo):
     return out
 
 
-def _cell_label(day, cal, native, fest):
+def _cell_label(day, cal, native, fest, lang="en"):
     """(text, is_festival) for the calendar's line in a day cell, or None.
 
     A festival names its day in every script. Beyond that only the
     labels that read at a glance appear: the 农历 day names, which are
-    words, and each lunar month's opening day for Japanese and Korean.
-    The full lunar date lives in the hover chip.
+    words, and each lunar month's opening day for Japanese, Korean,
+    and the Hijri calendar. The full lunar date lives in the hover chip.
     """
     if cal in PACIFIC_CALENDARS:
         night, nights = pacific_night(cal, day)
         return pacific_night_name(cal, night, nights), False
+    if cal == "islamic":
+        key = observance_key(day)
+        if key:
+            return hijri_observance_name(key, lang), True
+        _year, m, d = hijri_date(day)
+        if d == 1:
+            return hijri_month_name(m, lang), False
+        return None
     if cal == "thai":
         # Festivals and month starts as the other calendars have them,
         # plus the วันพระ — the printed Thai calendars mark all four
@@ -317,7 +327,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         # labels (month starts, festivals) ride just after the day
         # number instead, so they cannot read as another cell's.
         if cal and cell_h >= 3 and cell_w >= 6:
-            label = _cell_label(d, cal, native, fest)
+            label = _cell_label(d, cal, native, fest, lang)
             if label:
                 text, is_fest = label
                 ink = P if is_fest else F
@@ -421,6 +431,11 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
     elif cal == "almanac":
         half = "light" if moon_cycle_frac(noon) < 0.5 else "dark"
         cal_line = _ms(f"{half}_of_moon", runtime)
+    elif cal == "islamic":
+        cal_line = hijri_date_label(*hijri_date(d), lang)
+        key = observance_key(d)
+        if key:
+            cal_line = f"{hijri_observance_name(key, lang)} · {cal_line}"
     elif cal == "thai":
         m, day_n, doubled = thai_lunar_date(d)
         label_lang = "th" if native else "en"

@@ -41,9 +41,13 @@ from linecast._lunisolar import (
     CALENDAR_MERIDIAN_HOURS, CALENDAR_NATIVE_LANG, current_term,
     lunisolar_date, next_lunar_event, next_term, resolve_calendar,
 )
+from linecast._hijri import (
+    after_sunset, hijri_date, next_month_start, next_observance,
+)
 from linecast._moon_i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
-    anahulu_name, festival_table, ja_night_name, lunar_date_label,
+    anahulu_name, festival_table, hijri_date_label, hijri_month_name,
+    hijri_observance_name, ja_night_name, lunar_date_label,
     pacific_night_label, term_label, thai_festival_name, thai_lunar_label,
     thai_year_label, wan_phra_label,
 )
@@ -604,6 +608,30 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                        f"{_times((upper, lower))}  "
                        f"{_ms('solunar_minor', runtime)} "
                        f"{_times((day_rise, day_set))}")
+    elif cal == "islamic":
+        # The Hijri day begins at sunset, and the panel is read in the
+        # evening, so the date turns with the reader's own sunset. The
+        # calendar keeps no solar terms; the coming month takes the
+        # terms' place, and the observances are counted down by civil
+        # date, the way the printed calendar has them.
+        h_day = now_local.date()
+        if after_sunset(now_local, lat, lng):
+            h_day += timedelta(days=1)
+        h_year, h_month, h_dom = hijri_date(h_day)
+        lunar_txt = hijri_date_label(h_year, h_month, h_dom, lang)
+        term_short = hijri_month_name(h_month, lang)
+        nxt_day, (_nxt_year, nxt_month) = next_month_start(h_day)
+        nxt_gap = (nxt_day - now_local.date()).days
+        term_txt = (f"{term_short} · {hijri_month_name(nxt_month, lang)} "
+                    f"{_fmt_month_day(nxt_day, runtime)} "
+                    f"({_ms('in_days', runtime, days=str(nxt_gap))})")
+        fest_day, fest_key = next_observance(now_local.date())
+        fest_short = (f"{hijri_observance_name(fest_key, lang)} "
+                      f"{_fmt_month_day(fest_day, runtime)}")
+        fest_gap = (fest_day - now_local.date()).days
+        fest_txt = fest_short if fest_gap == 0 else (
+            f"{fest_short} "
+            f"({_ms('in_days', runtime, days=str(fest_gap))})")
     elif cal == "thai":
         # The Thai calendar reads the moon as a waxing or waning day —
         # ขึ้น/แรม … ค่ำ — in Thai numerals, as the printed calendars

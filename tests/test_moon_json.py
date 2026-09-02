@@ -2,7 +2,7 @@
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Ensure the worktree src is preferred over any installed version.
@@ -294,6 +294,49 @@ class TestOtherPacificBlocks:
         payload = _payload(now_local=moment, calendar="chamorro")
         assert "refaluwasch_name" not in payload["calendar"]
         assert payload["calendar"]["night_name"] == "Ketai’ Empe’"
+
+
+class TestIslamicCalendarBlock:
+    def test_the_block_reads_the_umm_al_qura_date(self):
+        # Midday on 13 March 2026 is 24 Ramadan 1447; the next
+        # observance is Laylat al-Qadr on the 16th, and Shawwal begins
+        # on the 20th, Eid al-Fitr.
+        moment = datetime(2026, 3, 13, 16, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="islamic")
+        assert payload["calendar"] == {
+            "name": "islamic",
+            "year": 1447,
+            "month": 9,
+            "month_name": "Ramadan",
+            "day": 24,
+            "days_in_month": 30,
+            "label": "24 Ramadan 1447 AH",
+            "after_sunset": False,
+            "next_month": {"name": "Shawwal", "date": "2026-03-20"},
+            "next_observance": {"name": "Laylat al-Qadr",
+                                "date": "2026-03-16"},
+        }
+
+    def test_the_date_turns_at_sunset(self):
+        # Half past eight in the evening in Maine, 19 March: the Hijri
+        # day is already 1 Shawwal, while Eid's civil date is tomorrow.
+        eastern = timezone(timedelta(hours=-4))
+        moment = datetime(2026, 3, 19, 20, 30, tzinfo=eastern)
+        payload = _payload(now_local=moment, calendar="islamic")
+        block = payload["calendar"]
+        assert block["after_sunset"] is True
+        assert block["label"] == "1 Shawwal 1447 AH"
+        assert block["next_observance"] == {"name": "Eid al-Fitr",
+                                            "date": "2026-03-20"}
+        assert block["next_month"]["name"] == "Dhu al-Qaʻdah"
+
+    def test_indonesian_names(self):
+        moment = datetime(2026, 3, 13, 16, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="islamic",
+                           runtime=_runtime(lang="id"))
+        block = payload["calendar"]
+        assert block["label"] == "24 Ramadan 1447 H"
+        assert block["next_observance"]["name"] == "Lailatulqadar"
 
 
 class TestHawaiianCalendarBlock:

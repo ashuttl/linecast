@@ -7,6 +7,7 @@ module; the command is still `linecast calendar`, via __main__'s map.
 Usage: linecast calendar [show]
        linecast calendar chinese | japanese | korean | thai | almanac
        linecast calendar hawaiian | samoan | chamorro | refaluwasch
+       linecast calendar islamic
        linecast calendar none
        linecast calendar auto
 
@@ -37,7 +38,7 @@ def _cmd_show():
         print(f"auto  [{_NATURAL}]")
         print("Run 'linecast calendar chinese', 'japanese', 'korean', "
               "'thai', 'hawaiian', 'samoan', 'chamorro', 'refaluwasch', "
-              "or 'almanac' to fix one.")
+              "'islamic', or 'almanac' to fix one.")
 
 
 def _cmd_set(choice):
@@ -62,6 +63,10 @@ def _cmd_set(choice):
         print("Calendar set to refaluwasch: the moon names each night by "
               "the CNMI lunar calendar, the CHamoru name with the "
               "Refaluwasch beside it, in every language")
+    elif choice == "islamic":
+        print("Calendar set to islamic: the moon shows the Hijri date by "
+              "the Umm al-Qura calendar, the coming month, and the next "
+              "observance in every language")
     elif choice == "thai":
         print("Calendar set to thai: the moon shows its lunar date, "
               "the coming \u0e27\u0e31\u0e19\u0e1e\u0e23\u0e30, and the next festival in every "
@@ -108,6 +113,10 @@ def main():
     sub.add_parser("refaluwasch",
                    help="CNMI — the same nights, CHamoru and Refaluwasch "
                         "names together")
+    sub.add_parser("islamic",
+                   help="Umm al-Qura — the Hijri date by Saudi Arabia's "
+                        "civil rule, with Ramadan, the Eids, and the "
+                        "other observances")
     sub.add_parser("almanac",
                    help="Old Farmer's Almanac — gardening by the moon "
                         "and solunar periods")
