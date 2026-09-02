@@ -5,7 +5,8 @@ this package as a script never shadows the standard library's calendar
 module; the command is still `linecast calendar`, via __main__'s map.
 
 Usage: linecast calendar [show]
-       linecast calendar chinese | japanese | korean | thai | hawaiian | almanac
+       linecast calendar chinese | japanese | korean | thai | almanac
+       linecast calendar hawaiian | samoan | chamorro | refaluwasch
        linecast calendar none
        linecast calendar auto
 
@@ -15,7 +16,9 @@ native to the UI language (--lang zh, ja, ko, or th) > none.
 
 import argparse
 
-from linecast._config import read_config, save_config, saved_calendar
+from linecast._config import (
+    CALENDAR_CHOICES, read_config, save_config, saved_calendar,
+)
 from linecast._runtime import VersionAction
 
 _NATURAL = ("chinese with --lang zh, japanese with ja, "
@@ -33,7 +36,8 @@ def _cmd_show():
     else:
         print(f"auto  [{_NATURAL}]")
         print("Run 'linecast calendar chinese', 'japanese', 'korean', "
-              "'thai', 'hawaiian', or 'almanac' to fix one.")
+              "'thai', 'hawaiian', 'samoan', 'chamorro', 'refaluwasch', "
+              "or 'almanac' to fix one.")
 
 
 def _cmd_set(choice):
@@ -46,6 +50,18 @@ def _cmd_set(choice):
         print("Calendar set to hawaiian: the moon names each night — "
               "the pō mahina, its anahulu, and its counsel — in every "
               "language")
+    elif choice == "samoan":
+        print("Calendar set to samoan: the moon names each night by the "
+              "American Samoa lunar calendar — Masina Fou to Masina Maunā "
+              "— in every language")
+    elif choice == "chamorro":
+        print("Calendar set to chamorro: the moon names each night by the "
+              "Guam lunar calendar — Sinahen Håcha to Sinahi — in every "
+              "language")
+    elif choice == "refaluwasch":
+        print("Calendar set to refaluwasch: the moon names each night by "
+              "the CNMI lunar calendar, the CHamoru name with the "
+              "Refaluwasch beside it, in every language")
     elif choice == "thai":
         print("Calendar set to thai: the moon shows its lunar date, "
               "the coming \u0e27\u0e31\u0e19\u0e1e\u0e23\u0e30, and the next festival in every "
@@ -83,6 +99,15 @@ def main():
     sub.add_parser("hawaiian",
                    help="Kaulana Mahina — nights counted from the first "
                         "visible crescent over Hawaiʻi")
+    sub.add_parser("samoan",
+                   help="American Samoa — nights counted from the first "
+                        "visible crescent over Pago Pago")
+    sub.add_parser("chamorro",
+                   help="Guam — nights counted from the first visible "
+                        "crescent over Hagåtña")
+    sub.add_parser("refaluwasch",
+                   help="CNMI — the same nights, CHamoru and Refaluwasch "
+                        "names together")
     sub.add_parser("almanac",
                    help="Old Farmer's Almanac — gardening by the moon "
                         "and solunar periods")
@@ -90,8 +115,7 @@ def main():
     sub.add_parser("auto", help="clear the saved calendar and follow the language")
     args = parser.parse_args()
 
-    if args.action in ("chinese", "japanese", "korean", "thai",
-                       "hawaiian", "almanac", "none"):
+    if args.action in CALENDAR_CHOICES:
         _cmd_set(args.action)
     elif args.action == "auto":
         _cmd_auto()

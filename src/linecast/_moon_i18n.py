@@ -635,17 +635,95 @@ _PO_MAHINA = (
 _ANAHULU = ("hoʻonui", "poepoe", "hōʻemi")
 
 
-def po_mahina_name(night, nights):
-    """The Hawaiian name of *night* in a month of *nights* (29 or 30).
+# American Samoa names its nights too — the masina, as the Council's
+# annual American Samoa lunar calendar prints them, the same thirty in
+# every edition since 2021. Two nights carry a second name on the
+# page, the first and the full moon, written here as printed.
+_MASINA = (
+    "Masina Fou/Faatoavaaia", "Masina Tofilofilo", "Masina Tolu",
+    "Masina Faalao", "Masina Salefuga", "Masina Tulalupe",
+    "Masina Motuega", "Masina Aufasa", "Masina Matuatua",
+    "Masina Loloatai",
+    "Masina Malupeaua", "Masina Mātofitofi", "Masina Aiaina",
+    "Masina Punifaga", "Masina Atoa/Atoa Liʻo le Masina",
+    "Masina Leʻaleʻa", "Masina Feetetele", "Masina Ataatatai",
+    "Masina Fagaeleele", "Masina Sulutele",
+    "Masina Nauna", "Masina Usunoa", "Masina Motusaga",
+    "Masina Tatelega", "Masina Faasagafulu", "Masina Tāfaleu",
+    "Masina Fataleu", "Masina Mitiloa", "Masina Fanoloa", "Masina Maunā",
+)
 
-    A 29-night month drops Mauli, never Muku — the convention of every
-    published 29-night month in the 2025 and 2026 Kaulana Mahina.
+# The CHamoru nights — the pulan — as the Council's Guam calendar
+# prints them, and as its CNMI calendar has printed them since 2025.
+# Pulan Gualåffon, the sixteenth, is the full moon.
+_PULAN = (
+    "Sinahen Håcha", "Sinahen Hugua", "Sinahen Tulu", "Sumahi I Pilan",
+    "Sinahen Lima", "Sinahen Gunum", "Sinahen Fiti", "Kuåtto",
+    "Kuåtto Kosiente", "E’egeng",
+    "Dengnga", "Luma’annok", "Gumofatanon", "Pånglao Tunas/Echong",
+    "Atahguen Atdao", "Pulan Gualåffon", "Mumalilingu Empe’",
+    "Ketai’ Empe’", "Sumenhomhom", "Kuåtto Mangguånte",
+    "Humunaohuyong Pulan", "Humomhom", "Tunas Talo’", "Hihot Talo’",
+    "Halomsahguan", "Sinahen Ulu", "Finaloffan Puti’on", "Dalalai Pulan",
+    "Kumaninifes", "Sinahi",
+)
+
+# The Refaluwasch (Carolinian) names the CNMI calendar sets beside the
+# CHamoru ones, keyed by position in the thirty: eleven nights, the
+# same eleven in the 2025 and 2026 editions. The 2022–2024 editions
+# printed a Refaluwasch name for every night; the Council trimmed the
+# list, and these are the names it kept.
+_REFALUWASCH = {
+    1: "Sighauru", 2: "Eling", 3: "Meseling", 9: "Eschúw",
+    14: "Emmasch", 15: "Úúr", 16: "Letiw", 17: "Ghiney", 18: "Ara",
+    21: "Arosan Efnágh", 27: "Arofú",
+}
+
+_PACIFIC_NIGHTS = {
+    "hawaiian": _PO_MAHINA, "samoan": _MASINA,
+    "chamorro": _PULAN, "refaluwasch": _PULAN,
+}
+
+
+def _night_index(night, nights):
+    """Where *night* of a month of *nights* (29 or 30) sits in the thirty.
+
+    A 29-night month drops the twenty-ninth name, never the last — the
+    convention of every published 29-night month in all three
+    calendars: Mauli goes and Muku closes, Masina Fanoloa goes and
+    Masina Maunā closes, Kumaninifes goes and Sinahi closes.
     """
     if night >= nights:
-        return _PO_MAHINA[29]                # Muku closes the month
+        return 29                            # the last name closes the month
     if night == nights - 1 and nights >= 30:
-        return _PO_MAHINA[28]                # Mauli keeps its place
-    return _PO_MAHINA[min(night, 28) - 1]
+        return 28                            # the twenty-ninth keeps its place
+    return min(night, 28) - 1
+
+
+def pacific_night_name(cal, night, nights):
+    """The name of *night* in a month of *nights*, in *cal*'s tradition."""
+    return _PACIFIC_NIGHTS[cal][_night_index(night, nights)]
+
+
+def po_mahina_name(night, nights):
+    """The Hawaiian name of *night* in a month of *nights* (29 or 30)."""
+    return pacific_night_name("hawaiian", night, nights)
+
+
+def refaluwasch_name(night, nights):
+    """The Refaluwasch name of *night*, or None on a night without one."""
+    return _REFALUWASCH.get(_night_index(night, nights) + 1)
+
+
+def pacific_night_label(cal, night, nights):
+    """The headline for a night: its name, with the Refaluwasch beside
+    the CHamoru where the CNMI calendar prints one."""
+    name = pacific_night_name(cal, night, nights)
+    if cal == "refaluwasch":
+        other = refaluwasch_name(night, nights)
+        if other:
+            return f"{name} · {other}"
+    return name
 
 
 def anahulu_name(night):

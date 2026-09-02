@@ -68,16 +68,20 @@ def saved_icons() -> str | None:
     return None
 
 
+CALENDAR_CHOICES = ("chinese", "japanese", "korean", "thai", "hawaiian",
+                    "samoan", "chamorro", "refaluwasch", "almanac", "none")
+
+
 def saved_calendar() -> str | None:
     """Return the calendar saved via `linecast calendar`, or None.
 
-    'chinese', 'japanese', 'korean', 'hawaiian', or 'almanac' pins
-    that calendar in every language; 'none' turns the calendar lines
-    off even where the language would show them.
+    A calendar name — 'chinese', 'japanese', 'korean', 'thai',
+    'hawaiian', 'samoan', 'chamorro', 'refaluwasch', or 'almanac' —
+    pins that calendar in every language; 'none' turns the calendar
+    lines off even where the language would show them.
     """
     cal = read_config().get("calendar")
-    if isinstance(cal, str) and cal.strip().lower() in (
-            "chinese", "japanese", "korean", "hawaiian", "almanac", "none"):
+    if isinstance(cal, str) and cal.strip().lower() in CALENDAR_CHOICES:
         return cal.strip().lower()
     return None
 

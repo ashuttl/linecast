@@ -74,31 +74,40 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
     from linecast._moon_i18n import (
         festival_table, ja_night_name, lunar_date_label, term_label,
     )
+    from linecast._pacific import PACIFIC_CALENDARS
     lang = lang_of(runtime)
     cal = resolve_calendar(calendar, lang)
     calendar_block = None
-    if cal == "hawaiian":
-        # The Kaulana Mahina has no months-by-number, solar terms, or
-        # festivals; its block carries the night and its counsel.
-        from linecast._moon_i18n import anahulu_name, po_mahina_name
+    if cal in PACIFIC_CALENDARS:
+        # The Pacific calendars have no months-by-number, solar terms,
+        # or festivals; the block carries the night. The Kaulana
+        # Mahina adds its anahulu and counsel, the CNMI calendar the
+        # night's Refaluwasch name.
+        from linecast._moon_i18n import (
+            anahulu_name, pacific_night_name, refaluwasch_name,
+        )
         from linecast._pacific import (
             ANAHULU_COUNSEL, COUNSEL_ATTRIBUTION, COUNSEL_URL,
-            hawaiian_night, night_note,
+            night_note, pacific_night,
         )
-        night, nights = hawaiian_night(now_local.date())
+        night, nights = pacific_night(cal, now_local.date())
+        name = pacific_night_name(cal, night, nights)
         calendar_block = {
             "name": cal,
             "night": night,
             "nights_in_month": nights,
-            "night_name": po_mahina_name(night, nights),
-            "anahulu": anahulu_name(night),
-            "counsel": {
-                "night_note": night_note(po_mahina_name(night, nights)),
+            "night_name": name,
+        }
+        if cal == "hawaiian":
+            calendar_block["anahulu"] = anahulu_name(night)
+            calendar_block["counsel"] = {
+                "night_note": night_note(name),
                 "anahulu": ANAHULU_COUNSEL[anahulu_name(night)],
                 "source": COUNSEL_ATTRIBUTION,
                 "url": COUNSEL_URL,
-            },
-        }
+            }
+        elif cal == "refaluwasch":
+            calendar_block["refaluwasch_name"] = refaluwasch_name(night, nights)
     elif cal == "almanac":
         # The Old Farmer's reading: which half of the month it is, and
         # the day's solunar periods.
