@@ -382,6 +382,9 @@ def moon_parser():
                       "Moon phase, illumination, and rise/set times")
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
+    p.add_argument("--grid", action="store_true",
+                    help="open on the month view: a calendar of the "
+                         "month's phases (v flips between the views)")
     p.add_argument("--calendar",
                     choices=("chinese", "japanese", "korean", "thai",
                              "hawaiian", "samoan", "chamorro", "refaluwasch",

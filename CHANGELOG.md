@@ -21,7 +21,7 @@ New this version:
 - Moon: `--json` reports the active calendar in a `calendar` block, or null when none is shown.
 - Doctor: `linecast doctor` lists the calendar in force with the other preferences, and where it came from.
 - Moon: `--oneline` carries the calendar too: the lunar date after the rise and set times (· 20 Elul 5786, · 旧暦7月22日), and the night's name in place of the phase name where the calendar names nights.
-- Moon: `v` in live mode flips between the disc and a month calendar of phases. Each day is a small shaded disc, with today, the principal phases, and the active calendar's dates and festivals marked. Scroll to page through months, hover a day for its phase, moonrise, and moonset, and click one to open it in the disc view.
+- Moon: `v` in live mode flips between the disc and a month calendar of phases. Each day is a small shaded disc, with today, the principal phases, and the active calendar's dates and festivals marked. Scroll to page through months, hover a day for its phase, moonrise, and moonset, and click one to open it in the disc view. `linecast moon --grid` opens on the calendar.
 - Sunshine: `v` switches between the day and year views, the same key as in maps and moon. `y` still works.
 - Thai is the eighteenth language. `--lang th` puts the whole app in Thai.
 - Maps: Route shields name their network (I-95, US-1, ME-128, M6, A38) and take the sign's color where one exists: interstates and motorways in blue, US routes in white, UK primary routes in green. A shield appears at most twice per view.

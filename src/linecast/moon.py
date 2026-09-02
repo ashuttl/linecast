@@ -1,6 +1,7 @@
 """Moon phase, illumination, and rise/set times.
 
-Usage: moon [--print] [--oneline] [--json] [--location PLACE] [--icons SET] [--emoji] [--lang CODE]
+Usage: moon [--print] [--oneline] [--json] [--grid] [--location PLACE] [--icons SET] [--emoji]
+            [--lang CODE]
 
 Renders the Moon itself — a shaded disc with the correct phase terminator,
 mare shading, and a soft halo over a star field — plus the current phase and
@@ -993,9 +994,17 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
 
 def main():
-    args = moon_parser().parse_args()
+    parser = moon_parser()
+    args = parser.parse_args()
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
+
+    # --grid picks a view, as sunshine's --year does. --json and
+    # --oneline describe the moment and have no grid form.
+    if args.grid and (runtime.json_mode or runtime.oneline):
+        mode = "--json" if runtime.json_mode else "--oneline"
+        parser.error(f"--grid has no {mode} output "
+                     f"(--grid is a view; {mode} describes now)")
 
     lat, lng, country = resolve_location(args.location, lang=runtime.lang)
     if lat is None:
@@ -1038,8 +1047,9 @@ def main():
 
     # The disc and the calendar keep separate scrub offsets, so flipping
     # between them returns to where each was left: minutes through the
-    # disc's time, whole months through the calendar.
-    state = {"cal": False, "minutes": 0, "months": 0}
+    # disc's time, whole months through the calendar. --grid opens on
+    # the calendar; v flips either way.
+    state = {"cal": args.grid, "minutes": 0, "months": 0}
 
     def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
         # offset_minutes/active_alert/modal_scroll are ignored; scrubbing

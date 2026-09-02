@@ -6,6 +6,7 @@ of test_moon_layout.
 """
 
 import re
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -294,3 +295,33 @@ class TestClickedDay:
         _render(100, 32)
         # Sep 2026 leads with two empty cells (Sun, Mon of week one).
         assert clicked_day(1 + 3, 3 + 2) is None
+
+
+# ---------------------------------------------------------------------------
+# Flags
+# ---------------------------------------------------------------------------
+class TestFlags:
+    def _run(self, *flags):
+        import os
+        root = Path(__file__).parent.parent
+        return subprocess.run(
+            [sys.executable, "-m", "linecast", "moon", *flags],
+            capture_output=True, text=True, cwd=root,
+            env={**os.environ, "PYTHONPATH": str(root / "src")},
+        )
+
+    def test_grid_has_no_json_output(self):
+        done = self._run("--grid", "--json")
+        assert done.returncode == 2
+        assert "--grid has no --json output" in done.stderr
+
+    def test_grid_has_no_oneline_output(self):
+        done = self._run("--grid", "--oneline")
+        assert done.returncode == 2
+        assert "--grid has no --oneline output" in done.stderr
+
+    def test_grid_parses_with_a_calendar(self):
+        from linecast._runtime import moon_parser
+        args = moon_parser().parse_args(["--grid", "--calendar", "hebrew"])
+        assert args.grid and args.calendar == "hebrew"
+        assert not moon_parser().parse_args([]).grid
