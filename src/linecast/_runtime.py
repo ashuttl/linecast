@@ -385,7 +385,7 @@ def moon_parser():
     p.add_argument("--calendar",
                     choices=("chinese", "japanese", "korean", "thai",
                              "hawaiian", "samoan", "chamorro", "refaluwasch",
-                             "islamic", "almanac", "none"),
+                             "islamic", "hebrew", "almanac", "none"),
                     default=None,
                     help="read the moon by a traditional calendar: the "
                          "lunar date, solar term, and festival (chinese, "
@@ -395,8 +395,10 @@ def moon_parser():
                          "chamorro; refaluwasch, the CNMI calendar's "
                          "CHamoru and Refaluwasch names); the Hijri date, "
                          "coming month, and observance by the Umm al-Qura "
-                         "calendar (islamic); or the Old Farmer's gardening "
-                         "rule and solunar periods (almanac). Default: the calendar native to "
+                         "calendar (islamic); the Hebrew date, coming "
+                         "month, and holiday (hebrew); or the Old Farmer's "
+                         "gardening rule and solunar periods (almanac). "
+                         "Default: the calendar native to "
                          "--lang zh, ja, ko, or th; none otherwise")
     _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",

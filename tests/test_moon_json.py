@@ -339,6 +339,55 @@ class TestIslamicCalendarBlock:
         assert block["next_observance"]["name"] == "Lailatulqadar"
 
 
+class TestHebrewCalendarBlock:
+    def test_the_block_reads_the_hebrew_date(self):
+        # Midday on 2 September 2026 is 20 Elul 5786; Tishrei and Rosh
+        # Hashanah come on the 12th.
+        moment = datetime(2026, 9, 2, 16, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="hebrew")
+        assert payload["calendar"] == {
+            "name": "hebrew",
+            "year": 5786,
+            "leap_year": False,
+            "days_in_year": 354,
+            "month": 6,
+            "month_name": "Elul",
+            "day": 20,
+            "days_in_month": 29,
+            "label": "20 Elul 5786",
+            "after_sunset": False,
+            "holiday": None,
+            "next_month": {"name": "Tishrei", "date": "2026-09-12"},
+            "next_holiday": {"name": "Rosh Hashanah",
+                             "date": "2026-09-12"},
+        }
+
+    def test_the_date_turns_at_sunset(self):
+        # Half past eight on the evening of 11 September in Maine: the
+        # year has turned, and Rosh Hashanah has begun, while its
+        # civil date is tomorrow.
+        eastern = timezone(timedelta(hours=-4))
+        moment = datetime(2026, 9, 11, 20, 30, tzinfo=eastern)
+        payload = _payload(now_local=moment, calendar="hebrew")
+        block = payload["calendar"]
+        assert block["after_sunset"] is True
+        assert block["label"] == "1 Tishrei 5787"
+        assert block["leap_year"] is True
+        assert block["holiday"] == "Rosh Hashanah"
+        assert block["next_holiday"] == {"name": "Rosh Hashanah",
+                                         "date": "2026-09-12"}
+        assert block["next_month"] == {"name": "Cheshvan",
+                                       "date": "2026-10-12"}
+
+    def test_a_holiday_in_progress(self):
+        moment = datetime(2026, 12, 7, 16, 0, tzinfo=timezone.utc)
+        block = _payload(now_local=moment, calendar="hebrew")["calendar"]
+        assert block["label"] == "27 Kislev 5787"
+        assert block["holiday"] == "Hanukkah"
+        assert block["next_holiday"] == {"name": "Hanukkah",
+                                         "date": "2026-12-05"}
+
+
 class TestHawaiianCalendarBlock:
     def test_the_calendar_carries_the_councils_counsel(self):
         # The 20th night, Lāʻaupau, has no kapu note; the poepoe

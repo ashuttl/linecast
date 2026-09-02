@@ -171,6 +171,7 @@ def after_sunset(now_local, lat, lng):
     The day begins at sunset, so an evening reader is already in the
     next one: the Sun is down and it is evening rather than the small
     hours. Where the Sun does not set the day keeps to the civil date.
+    The Hebrew day begins at the same sunset, and _hebrew shares this.
     """
     if lat is None or lng is None:
         return False

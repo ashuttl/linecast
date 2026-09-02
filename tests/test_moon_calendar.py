@@ -145,6 +145,21 @@ class TestCalendars:
         # A 16-cell column clips the longer name after the day number.
         assert "16 Laylat al" in text and "20 Eid al-Fitr" in text
 
+    def test_hebrew_holidays_and_month_starts(self):
+        # Tishrei 5787 opens on 12 September 2026: the grid names the
+        # two days of Rosh Hashanah, Yom Kippur, and the days of
+        # Sukkot, and October carries Simchat Torah and 1 Cheshvan.
+        now = datetime(2026, 9, 2, 14, 30, tzinfo=ET)
+        body, _chip = _render(120, 34, calendar="hebrew", now=now)
+        text = "\n".join(body)
+        assert "12 Rosh Hashan" in text and "13 Rosh Hashan" in text
+        assert "21 Yom Kippur" in text
+        assert "26 Sukkot" in text and "30 Sukkot" in text
+        body, _chip = _render(120, 34, calendar="hebrew", now=now,
+                              month_offset=1)
+        text = "\n".join(body)
+        assert "4 Simchat Tora" in text and "12 Cheshvan" in text
+
     def test_plain_english_carries_no_labels(self):
         body, _chip = _render(100, 32)
         assert "月" not in "\n".join(body)
@@ -185,6 +200,19 @@ class TestHoverChip:
         _body, chip = _render(100, 32, mouse_pos=pos, calendar="islamic",
                               now=datetime(2026, 3, 1, 14, 30, tzinfo=ET))
         assert "Eid al-Fitr · 1 Shawwal 1447 AH" in chip
+
+    def test_hebrew_date_in_the_chip(self):
+        # September 2026 opens on a Tuesday, so the 12th is week 1,
+        # column 6, and October's 11th (a Sunday) is week 2, column 0.
+        now = datetime(2026, 9, 1, 14, 30, tzinfo=ET)
+        pos = (1 + 6 * 14 + 3, 3 + 1 * 6 + 2)
+        _body, chip = _render(100, 32, mouse_pos=pos, calendar="hebrew",
+                              now=now)
+        assert "Rosh Hashanah · 1 Tishrei 5787" in chip
+        pos = (1 + 0 * 14 + 3, 3 + 2 * 6 + 2)
+        _body, chip = _render(100, 32, mouse_pos=pos, calendar="hebrew",
+                              now=now, month_offset=1)
+        assert "Rosh Chodesh Cheshvan · 30 Tishrei 5787" in chip
 
     def test_off_grid_raises_nothing(self):
         _body, chip = _render(100, 32, mouse_pos=(1, 1))
