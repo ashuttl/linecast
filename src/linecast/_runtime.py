@@ -291,7 +291,7 @@ def _base_parser(prog, description):
                     help="use standard emoji icons (same as --icons emoji)")
     p.add_argument("--lang", default=None,
                     help="UI language code (en, fr, es, de, it, pt, nl, pl, "
-                         "no, sv, is, da, fi, id, ja, ko, zh)")
+                         "no, sv, is, da, fi, id, ja, ko, zh, th)")
     p.add_argument("--classic-colors", action="store_true",
                     help="use pre-theme fixed color palette")
     p.add_argument("--legacy-colors", action="store_true",
@@ -383,16 +383,17 @@ def moon_parser():
     p.add_argument("--location", default=None,
                     help="location as 'lat,lng' or place name")
     p.add_argument("--calendar",
-                    choices=("chinese", "japanese", "korean", "hawaiian",
-                             "almanac", "none"),
+                    choices=("chinese", "japanese", "korean", "thai",
+                             "hawaiian", "almanac", "none"),
                     default=None,
                     help="read the moon by a traditional calendar: the "
                          "lunar date, solar term, and festival (chinese, "
-                         "japanese, korean); the named night, anahulu, and "
-                         "counsel (hawaiian); or the Old Farmer's gardening "
-                         "rule and solunar periods (almanac). Default: the "
-                         "calendar native to --lang zh, ja, or ko; none "
-                         "otherwise")
+                         "japanese, korean); the waxing/waning day, wan "
+                         "phra, and festival (thai); the named night, "
+                         "anahulu, and counsel (hawaiian); or the Old "
+                         "Farmer's gardening rule and solunar periods "
+                         "(almanac). Default: the calendar native to "
+                         "--lang zh, ja, ko, or th; none otherwise")
     _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")

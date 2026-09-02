@@ -117,6 +117,40 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
             "solunar_minor": sorted(_iso(t) for t in (day_rise, day_set)
                                     if t is not None),
         }
+    elif cal == "thai":
+        # The Thai calendar: the waxing/waning day, the year's animal,
+        # the วันพระ, and the coming festival. No solar terms.
+        from linecast._moon_i18n import (
+            thai_festival_name, thai_lunar_label, thai_year_label,
+        )
+        from linecast._thai_lunar import (
+            cs_year, is_wan_phra, next_thai_festival, next_wan_phra,
+            thai_lunar_date, year_animal_index,
+        )
+        today = now_local.date()
+        t_month, t_day, t_doubled = thai_lunar_date(today)
+        label_lang = "th" if lang == "th" else "en"
+        fest_day, fest_key = next_thai_festival(today)
+        calendar_block = {
+            "name": cal,
+            "month": t_month,
+            "doubled_eighth": t_doubled,
+            "day": t_day,
+            "phase": "waxing" if t_day <= 15 else "waning",
+            "phase_day": t_day if t_day <= 15 else t_day - 15,
+            "label": thai_lunar_label(t_month, t_day, t_doubled,
+                                      label_lang),
+            "year_cs": cs_year(today),
+            "year_be": today.year + 543,
+            "year_animal": thai_year_label(year_animal_index(today),
+                                           label_lang),
+            "wan_phra": is_wan_phra(today),
+            "next_wan_phra": next_wan_phra(today).isoformat(),
+            "next_festival": {
+                "name": thai_festival_name(fest_key, label_lang),
+                "date": fest_day.isoformat(),
+            },
+        }
     elif cal is not None:
         cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
         native = CALENDAR_NATIVE_LANG[cal] == lang

@@ -21,7 +21,9 @@ from datetime import date, datetime, time, timedelta, timezone
 from linecast import _live, _theme
 from linecast._ephemeris import _moon_events_for_local_date, next_moon_phase_utc
 from linecast._framebuffer import fmt_time_dt
-from linecast._graphics import Framebuffer, bg, fg, get_terminal_size, overlay
+from linecast._graphics import (
+    Framebuffer, bg, fg, get_terminal_size, overlay, visible_len,
+)
 from linecast._i18n import lang_of
 from linecast._lunisolar import (
     CALENDAR_MERIDIAN_HOURS, CALENDAR_NATIVE_LANG, lunisolar_date,
@@ -30,9 +32,13 @@ from linecast._lunisolar import (
 from linecast._moon_i18n import (
     MONTHS_I18N, _day_abbrev, _fmt_month_day, _moon_name, _ms, _zh_day_name,
     _ZH_MONTHS, anahulu_name, festival_table, ja_night_name, lunar_date_label,
-    po_mahina_name,
+    po_mahina_name, thai_festival_name, thai_lunar_label, thai_month_label,
+    wan_phra_label,
 )
 from linecast._pacific import hawaiian_night
+from linecast._thai_lunar import (
+    _festival_key as thai_festival_key, is_wan_phra, thai_lunar_date,
+)
 from linecast._seasons import full_moon_name
 from linecast._textwidth import char_width
 from linecast._theme import darken, ensure_contrast, is_light_theme, surface_bg
@@ -72,6 +78,9 @@ def _month_title(year, month, lang):
     if lang == "fi":
         return f"{month}/{year}"
     months = MONTHS_I18N.get(lang, MONTHS_I18N["en"])
+    if lang == "th":
+        # Thai calendars year themselves in the Buddhist Era.
+        return f"{months[month - 1]} {year + 543}"
     return f"{months[month - 1]} {year}"
 
 
@@ -111,6 +120,20 @@ def _cell_label(day, cal, native, fest):
     if cal == "hawaiian":
         night, nights = hawaiian_night(day)
         return po_mahina_name(night, nights), False
+    if cal == "thai":
+        # Festivals and month starts as the other calendars have them,
+        # plus the วันพระ — the printed Thai calendars mark all four
+        # holy days in every month's grid.
+        label_lang = "th" if native else "en"
+        key = thai_festival_key(day)
+        if key:
+            return thai_festival_name(key, label_lang), True
+        m, d, doubled = thai_lunar_date(day)
+        if d == 1:
+            return thai_month_label(m, doubled, label_lang), False
+        if native and is_wan_phra(day):
+            return wan_phra_label(False, label_lang), False
+        return None
     if cal not in CALENDAR_MERIDIAN_HOURS:
         return None
     lunar = lunisolar_date(day, CALENDAR_MERIDIAN_HOURS[cal])
@@ -133,12 +156,22 @@ def _cell_label(day, cal, native, fest):
 
 
 def _put(overlays, x, row, text, rgb, bold=False, max_x=None):
-    """Write *text* into the overlay dict, wide glyphs claiming two cells."""
+    """Write *text* into the overlay dict, wide glyphs claiming two cells.
+
+    A zero-width combining mark (a Thai vowel sign, say) joins its
+    base's cell instead of claiming one of its own.
+    """
+    prev = None
     for j, ch in enumerate(text):
         w = char_width(ch, text[j + 1:j + 2])
+        if w == 0 and prev is not None:
+            kept, c, b = overlays[prev]
+            overlays[prev] = (kept + ch, c, b)
+            continue
         if max_x is not None and x + w > max_x:
             break
         overlays[(x, row)] = (ch, rgb, bold)
+        prev = (x, row)
         if w == 2:
             overlays[(x + 1, row)] = ("", rgb, bold)
         x += max(w, 1)
@@ -208,8 +241,8 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     # Title, centred over the grid; paged away, the way back rides beside it.
     title = _month_title(year, month, lang)
     aside = f" · {_ts('space_to_now', runtime)}" if month_offset else ""
-    t_w = sum(max(char_width(c), 1) for c in title)
-    a_w = sum(max(char_width(c), 1) for c in aside)
+    t_w = visible_len(title)
+    a_w = visible_len(aside)
     tx = left + max(0, (grid_w - t_w - a_w) // 2)
     tx = _put(overlays, tx, 0, title, A if month_offset else T, bold=True,
               max_x=graph_w)
@@ -358,6 +391,15 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
     elif cal == "almanac":
         half = "light" if moon_cycle_frac(noon) < 0.5 else "dark"
         cal_line = _ms(f"{half}_of_moon", runtime)
+    elif cal == "thai":
+        m, day_n, doubled = thai_lunar_date(d)
+        label_lang = "th" if native else "en"
+        cal_line = thai_lunar_label(m, day_n, doubled, label_lang)
+        key = thai_festival_key(d)
+        if key:
+            cal_line = f"{thai_festival_name(key, label_lang)} · {cal_line}"
+        elif is_wan_phra(d):
+            cal_line = f"{wan_phra_label(False, label_lang)} · {cal_line}"
     elif cal in CALENDAR_MERIDIAN_HOURS:
         lunar = lunisolar_date(d, CALENDAR_MERIDIAN_HOURS[cal])
         if lunar is not None:

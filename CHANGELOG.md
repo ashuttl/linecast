@@ -4,6 +4,9 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Thai is the eighteenth language: `--lang th` puts the whole app — weather, sunshine, moon, tides, radar, and maps — in Thai.
+- Moon: `--lang th` (or `--calendar thai`) follows the Thai lunar calendar: the waxing or waning day in Thai numerals — แรม ๔ ค่ำ เดือน ๙ — with the year's animal, the next วันพระ, and the coming festival, มาฆบูชา through ลอยกระทง, computed by the traditional Suriyayart arithmetic and checked against the official holy days of 2023–2026.
+- Weather, sunshine, tides, maps, and radar: Text in scripts with combining marks — Thai, for one — no longer loses those marks in chart labels and map labels.
 - Moon: `v` in live mode flips between the disc and a month calendar of phases — each day a small shaded disc, with today, the principal phases, and the active traditional calendar's dates and festivals marked. Scroll to page through months; hover a day for its phase, moonrise, and moonset.
 - Sunshine: `v` now also switches between the day and year views, so the view toggle is the same key as in maps and moon; `y` still works.
 - Maps: Street maps now shade built-up ground, a quiet sibling to the park green, so towns and cities read as settlement even where no one has mapped the land use.

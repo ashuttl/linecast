@@ -44,10 +44,15 @@ from linecast._lunisolar import (
 from linecast._moon_i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
     anahulu_name, festival_table, ja_night_name, lunar_date_label,
-    po_mahina_name, term_label,
+    po_mahina_name, term_label, thai_festival_name, thai_lunar_label,
+    thai_year_label, wan_phra_label,
 )
 from linecast._pacific import (
     ANAHULU_COUNSEL, COUNSEL_SOURCE_LINE, hawaiian_night, night_note,
+)
+from linecast._thai_lunar import (
+    is_wan_phra, next_thai_festival, next_wan_phra, thai_lunar_date,
+    year_animal_index,
 )
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._textwidth import char_width
@@ -595,6 +600,32 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                        f"{_times((upper, lower))}  "
                        f"{_ms('solunar_minor', runtime)} "
                        f"{_times((day_rise, day_set))}")
+    elif cal == "thai":
+        # The Thai calendar reads the moon as a waxing or waning day —
+        # ขึ้น/แรม … ค่ำ — in Thai numerals, as the printed calendars
+        # have it. It keeps no solar terms; the recurring observance is
+        # the วันพระ, the four holy days of each month, so that line
+        # takes the terms' place, led by the year's animal.
+        label_lang = "th" if lang == "th" else "en"
+        t_month, t_day, t_doubled = thai_lunar_date(now_local.date())
+        lunar_txt = thai_lunar_label(t_month, t_day, t_doubled, label_lang)
+        term_short = thai_year_label(year_animal_index(now_local.date()),
+                                     label_lang)
+        if is_wan_phra(now_local.date()):
+            term_txt = f"{term_short} · {wan_phra_label(True, label_lang)}"
+        else:
+            wp = next_wan_phra(now_local.date())
+            wp_gap = (wp - now_local.date()).days
+            term_txt = (f"{term_short} · {wan_phra_label(False, label_lang)} "
+                        f"{_fmt_month_day(wp, runtime)} "
+                        f"({_ms('in_days', runtime, days=str(wp_gap))})")
+        fest_day, fest_key = next_thai_festival(now_local.date())
+        fest_short = (f"{thai_festival_name(fest_key, label_lang)} "
+                      f"{_fmt_month_day(fest_day, runtime)}")
+        fest_gap = (fest_day - now_local.date()).days
+        fest_txt = fest_short if fest_gap == 0 else (
+            f"{fest_short} "
+            f"({_ms('in_days', runtime, days=str(fest_gap))})")
     elif cal is not None:
         cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
         label_lang = lang if CALENDAR_NATIVE_LANG[cal] == lang else "en"

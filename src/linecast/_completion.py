@@ -29,6 +29,7 @@ LANG_CODES = (
     "ja",
     "ko",
     "zh",
+    "th",
     "id",
 )
 

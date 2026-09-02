@@ -110,6 +110,8 @@ In live mode, `v` flips to a calendar: the month laid out week by week, each day
 
 In Chinese, Japanese, and Korean the moon also follows the traditional calendar: the lunar date sits beside the phase name — and in Japanese the night is called by its own name, 十六夜, 居待月, 更待月 — with the solar term in progress and a countdown to the next festival, 中秋节, 추석, or 十五夜. Any language can ask for any of the three with `--calendar chinese`, `japanese`, or `korean`, written with the customary English names ("End of Heat · White Dew Sep 7", "Mid-Autumn Festival Sep 25"). The months, leap months, and solar terms are all computed from the ephemeris at each calendar's own meridian; nothing is looked up.
 
+In Thai the moon follows the Thai lunar calendar, ปฏิทินจันทรคติไทย: the waxing or waning day sits beside the phase in Thai numerals, as the printed calendars have it — แรม ๔ ค่ำ เดือน ๙ — with the year's animal, a countdown to the next วันพระ (the four Buddhist holy days of each month), and the coming festival, มาฆบูชา through ลอยกระทง. This calendar is arithmetic rather than astronomical: the months run on the old Suriyayart reckoning, in which 800 solar years are exactly 292207 days — the same integer bookkeeping behind every printed Thai calendar, checked against the official holy days of 2023–2026. Any language can ask for it with `--calendar thai` ("month 9 · waning 4", "Loy Krathong Nov 24").
+
 `--calendar hawaiian` follows the Kaulana Mahina, which names every night: Hilo, Hoaka, the Kū and ʻOle nights, through Māhealani, Kāne, and Muku, each in its ten-night anahulu — hoʻonui waxing, poepoe round, hōʻemi waning. The month begins at Hilo, the first night the young crescent can be seen, so it is computed as a visibility date — crescent geometry in the evening sky over Hawaiʻi, not a fixed step from the new moon — and checked against every month of the [Western Pacific Regional Fishery Management Council's published calendars](https://www.wpcouncil.org/educational-resources/lunar-calendars/). The panel carries the Council's counsel for the night — the four monthly kapu periods, the unproductive ʻOle nights, and each anahulu's fishing outlook — quoted from their educational materials, with a Source: wpcouncil.org line under it.
 
 `--calendar almanac` reads the moon the way the Old Farmer's Almanac does — the same kind of tradition, from the English-language side: the light or dark of the moon beside the phase, what each half favors in the garden, and the day's solunar activity periods — the majors when the Moon crosses the meridian above or below, the minors at moonrise and moonset. The almanac's full-moon names (Harvest, Wolf, and the rest) belong to it too: they show there and in the plain English view, while a panel following another tradition's calendar keeps the plain phase name.
@@ -231,9 +233,9 @@ The time-showing commands take `--12h` and `--24h` for one run, and `LINECAST_CL
 
 ### Language
 
-Use `--lang` or `LINECAST_LANG` to pick the language. There are seventeen:
+Use `--lang` or `LINECAST_LANG` to pick the language. There are eighteen:
 
-> English, French, Spanish, German, Italian, Portuguese, Dutch, Polish, Norwegian, Swedish, Icelandic, Danish, Finnish, Japanese, Korean, Chinese, and Indonesian
+> English, French, Spanish, German, Italian, Portuguese, Dutch, Polish, Norwegian, Swedish, Icelandic, Danish, Finnish, Japanese, Korean, Chinese, Thai, and Indonesian
 
 ```sh
 linecast weather --lang fr
@@ -244,10 +246,11 @@ In India, alerts go one step further: SACHET publishes many of them in the state
 
 ### Calendar
 
-The moon's traditional calendar follows the language: Chinese with `--lang zh`, Japanese with `ja`, Korean with `ko`, none otherwise. Pin one — the Hawaiian calendar and the Old Farmer's Almanac included — or none, for every run:
+The moon's traditional calendar follows the language: Chinese with `--lang zh`, Japanese with `ja`, Korean with `ko`, Thai with `th`, none otherwise. Pin one — the Hawaiian calendar and the Old Farmer's Almanac included — or none, for every run:
 
 ```sh
 linecast calendar chinese
+linecast calendar thai
 linecast calendar hawaiian
 linecast calendar almanac
 linecast calendar none
@@ -322,7 +325,7 @@ The six view commands and `linecast doctor` take `--debug`, which prints a line 
 | `LINECAST_CLOCK` | `12` or `24`; overrides the saved clock |
 | `LINECAST_TIDECHECK_KEY` | Optional TideCheck API key for global tide coverage |
 | `LINECAST_TIDECHECK_PAID` | Set to `1` on a paid TideCheck plan; the request tally then drops the 50-a-day free-tier cap |
-| `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, or `id` |
+| `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, `th`, or `id` |
 | `LINECAST_RADAR_THEME` | Default radar color theme |
 | `LINECAST_RADAR_SOURCE` | Pin the radar frame source: `librewxr`, `rainviewer`, or `iem` |
 | `LINECAST_RADAR_LAYER` | `radar` (default) or `satellite`, the imagery `radar` opens with |
