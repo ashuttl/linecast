@@ -453,11 +453,20 @@ def _month_axis_cells(year, days, graph_w, runtime):
     doy = 0
     for m in range(12):
         x = int(doy / days * graph_w)
+        last_base = None
         for ch in labels[m]:
             w = char_width(ch)
+            if w == 0:
+                # A combining mark (a Thai vowel sign, say) rides in
+                # its base's cell rather than claiming the next one.
+                if last_base is not None:
+                    bx, base = cells[last_base]
+                    cells[last_base] = (bx, base + ch)
+                continue
             if x + w > graph_w:
                 break
             cells.append((x, ch))
+            last_base = len(cells) - 1
             cells.extend((x + k, "") for k in range(1, w))
             x += w
         doy += calendar.monthrange(year, m + 1)[1]

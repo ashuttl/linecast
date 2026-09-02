@@ -292,6 +292,23 @@ _MOON_STRINGS = {
         "autumn_equinox": "秋分",
         "winter_solstice": "冬至",
     },
+    "th": {
+        "illuminated": "สว่าง {pct}%",
+        "age": "คืนที่ {age} / {total}",
+        "lunar_age": "ดวงจันทร์อายุ {age} วัน",
+        "up_now": "อยู่บนท้องฟ้า",
+        "above_horizon": "{alt}° เหนือขอบฟ้า",
+        "below_horizon": "ใต้ขอบฟ้า",
+        "moonrise": "ดวงจันทร์ขึ้น",
+        "moonset": "ดวงจันทร์ตก",
+        "in_days": "อีก {days} วัน",
+        "in_time": "อีก {dur}",
+        "year_day": "วันที่ {n} จาก {total} ของปี",
+        "spring_equinox": "วสันตวิษุวัต",
+        "summer_solstice": "ครีษมายัน",
+        "autumn_equinox": "ศารทวิษุวัต",
+        "winter_solstice": "เหมายัน",
+    },
     "id": {
         "illuminated": "{pct}% diterangi",
         "age": "hari {age} dari {total}",
@@ -339,6 +356,8 @@ MONTHS_I18N = {
             "jul", "aug", "sep", "okt", "nov", "dec"],
     "is": ["jan", "feb", "mar", "apr", "maí", "jún",
             "júl", "ágú", "sep", "okt", "nóv", "des"],
+    "th": ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+            "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."],
     "id": ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
             "Jul", "Agu", "Sep", "Okt", "Nov", "Des"],
 }
@@ -364,12 +383,13 @@ def _ms(key, runtime, **kwargs):
 # Season names for the four events (March equinox, June solstice,
 # September equinox, December solstice), by hemisphere.  East Asian
 # solar terms (春分, 夏至, …) name the event itself, not the local
-# season, so those languages keep the northern mapping everywhere.
+# season, and Thai's Sanskrit terms (วสันตวิษุวัต, …) likewise, so
+# those languages keep the northern mapping everywhere.
 _SEASON_KEYS_NORTH = ("spring_equinox", "summer_solstice",
                       "autumn_equinox", "winter_solstice")
 _SEASON_KEYS_SOUTH = ("autumn_equinox", "winter_solstice",
                       "spring_equinox", "summer_solstice")
-_SEASON_ABSOLUTE_LANGS = frozenset({"ja", "ko", "zh"})
+_SEASON_ABSOLUTE_LANGS = frozenset({"ja", "ko", "zh", "th"})
 
 
 def _season_label(event, lat, runtime):
@@ -518,6 +538,84 @@ _JA_NIGHT_NAMES = (
 def ja_night_name(day):
     """The Japanese name of the old calendar's night *day* (1-30)."""
     return _JA_NIGHT_NAMES[day - 1]
+
+
+# ---------------------------------------------------------------------------
+# The Thai calendar's names (see _thai_lunar.py for the calendar
+# itself). Thai lunar dates are traditionally printed in Thai numerals
+# — ขึ้น ๘ ค่ำ เดือน ๓ — so the native labels keep them; the rest of
+# the UI stays with Arabic digits, as modern Thai print does.
+# ---------------------------------------------------------------------------
+
+_TH_DIGITS = "๐๑๒๓๔๕๖๗๘๙"
+
+
+def _th_num(n):
+    return "".join(_TH_DIGITS[ord(c) - 48] for c in str(n))
+
+
+def thai_month_label(month, doubled, lang):
+    """เดือนอ้าย, เดือนยี่, เดือน ๓ … เดือน ๘๘ — the months as the
+    printed calendars name them: the first two by their archaic names,
+    the doubled eighth by its doubled numeral."""
+    if lang == "th":
+        if doubled:
+            return "เดือน ๘๘"
+        if month == 1:
+            return "เดือนอ้าย"
+        if month == 2:
+            return "เดือนยี่"
+        return f"เดือน {_th_num(month)}"
+    return f"month {'8/8' if doubled else month}"
+
+
+def thai_lunar_label(month, day, doubled, lang):
+    """The Thai lunar date as the printed calendars write it."""
+    if lang == "th":
+        phase, d = ("ขึ้น", day) if day <= 15 else ("แรม", day - 15)
+        return f"{phase} {_th_num(d)} ค่ำ {thai_month_label(month, doubled, lang)}"
+    phase, d = ("waxing", day) if day <= 15 else ("waning", day - 15)
+    return f"{thai_month_label(month, doubled, lang)} · {phase} {d}"
+
+
+# The twelve-animal cycle, indexed as year_animal_index counts it
+# (0 = ชวด, the rat).
+_TH_ANIMALS = ("ชวด", "ฉลู", "ขาล", "เถาะ", "มะโรง", "มะเส็ง",
+               "มะเมีย", "มะแม", "วอก", "ระกา", "จอ", "กุน")
+_TH_ANIMALS_EN = ("Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake",
+                  "Horse", "Goat", "Monkey", "Rooster", "Dog", "Pig")
+
+
+def thai_year_label(animal_index, lang):
+    """ปีมะเมีย — the lunar year named by its animal."""
+    if lang == "th":
+        return "ปี" + _TH_ANIMALS[animal_index]
+    return f"Year of the {_TH_ANIMALS_EN[animal_index]}"
+
+
+def wan_phra_label(today, lang):
+    """The Buddhist holy day, named — today's, or the coming one's."""
+    if lang == "th":
+        return "วันนี้วันพระ" if today else "วันพระ"
+    return "Wan Phra today" if today else "Wan Phra"
+
+
+# Festival names by the keys _thai_lunar's next_thai_festival returns,
+# (native, customary English).
+_TH_FESTIVALS = {
+    "makha": ("มาฆบูชา", "Makha Bucha"),
+    "visakha": ("วิสาขบูชา", "Visakha Bucha"),
+    "asalha": ("อาสาฬหบูชา", "Asalha Bucha"),
+    "khao_phansa": ("เข้าพรรษา", "Khao Phansa"),
+    "ok_phansa": ("ออกพรรษา", "Ok Phansa"),
+    "loy_krathong": ("ลอยกระทง", "Loy Krathong"),
+    "songkran": ("สงกรานต์", "Songkran"),
+}
+
+
+def thai_festival_name(key, lang):
+    native, english = _TH_FESTIVALS[key]
+    return native if lang == "th" else english
 
 
 # Hawaiʻi names the nights too — the pō mahina, as the WPRFMC's annual

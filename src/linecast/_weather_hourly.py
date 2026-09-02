@@ -491,9 +491,17 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
         name_w = visible_len(name)
         if pos >= 0 and pos + name_w <= mid_w:
             cx = pos
+            base = None
             for c in name:
-                mid_canvas[cx] = c
                 cw = visible_len(c)
+                if cw == 0:
+                    # A combining mark (a Thai vowel sign, say) shares
+                    # its base's cell rather than claiming the next one.
+                    if base is not None:
+                        mid_canvas[base] += c
+                    continue
+                mid_canvas[cx] = c
+                base = cx
                 for k in range(1, cw):
                     if cx + k < mid_w:
                         mid_canvas[cx + k] = ""
@@ -507,10 +515,16 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
         if all(mid_canvas[pos + j] == " " for j in range(lbl_w)):
             color = SUNRISE_LABEL_RGB if is_rise else SUNSET_LABEL_RGB
             cx = pos
+            base = None
             for c in lbl:
+                cw = visible_len(c)
+                if cw == 0:
+                    if base is not None:
+                        mid_canvas[base] += c
+                    continue
                 mid_canvas[cx] = c
                 mid_colors[cx] = color
-                cw = visible_len(c)
+                base = cx
                 for k in range(1, cw):
                     if cx + k < mid_w:
                         mid_canvas[cx + k] = ""

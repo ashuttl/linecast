@@ -317,6 +317,23 @@ _SUNSHINE_STRINGS = {
         "sunrise": "日出",
         "sunset": "日落",
     },
+    "th": {
+        "today": "วันนี้",
+        "in_day": "อีก {n} วัน",
+        "in_days": "อีก {n} วัน",
+        "day_ago": "{n} วันก่อน",
+        "days_ago": "{n} วันก่อน",
+        "sky_night": "กลางคืน",
+        "sky_astronomical": "แสงสนธยาดาราศาสตร์",
+        "sky_nautical": "แสงสนธยาเดินเรือ",
+        "sky_civil": "แสงสนธยาพลเรือน",
+        "sky_day": "กลางวัน",
+        "midnight_sun": "พระอาทิตย์เที่ยงคืน",
+        "polar_night": "คืนขั้วโลก",
+        "solar_noon": "เที่ยงวันสุริยะ",
+        "sunrise": "ดวงอาทิตย์ขึ้น",
+        "sunset": "ดวงอาทิตย์ตก",
+    },
     "id": {
         "today": "hari ini",
         "in_day": "{n} hari lagi",
@@ -351,6 +368,11 @@ _AXIS_MONTHS = {
     "ja": [f"{m}月" for m in range(1, 13)],
     "ko": [f"{m}월" for m in range(1, 13)],
     "zh": [f"{m}月" for m in range(1, 13)],
+    # Thai's dotted abbreviations (ม.ค.) truncate badly at three
+    # characters; the dotless short forms are the ones used where
+    # space is tight.
+    "th": ["มค", "กพ", "มีค", "เมย", "พค", "มิย",
+           "กค", "สค", "กย", "ตค", "พย", "ธค"],
 }
 _NUMERIC_AXIS_LANGS = frozenset({"ja", "ko", "zh"})
 

@@ -662,6 +662,10 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         elif view == "street":
             from linecast._vtiles import attribution_long
             tiles_long = attribution_long()
+            if _builtup.enabled():
+                # the settlement raster tints street ground too, and its
+                # CC-BY credit rides the long rung as it does on terrain
+                tiles_long = f"{tiles_long} · {_builtup.ATTRIBUTION}"
             attribs = ((f"{tiles_long} · {_globe_now.ATTRIBUTION}",
                         tiles_long,
                         _maps_style.ATTRIB_TILES_SHORT) if clouds

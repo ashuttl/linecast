@@ -850,8 +850,16 @@ def _emit(overlays, occ, row, col, text, ink, bold, mark=None):
     """
     occ.claim(row, col, visible_len(text))
     c = col
+    prev = None
     for ch in text:
+        if char_width(ch) == 0 and prev is not None:
+            # A combining mark (a Thai vowel sign, say) rides in its
+            # base's cell rather than claiming the next one.
+            kept, i, b = overlays[prev]
+            overlays[prev] = (kept + ch, i, b)
+            continue
         overlays[(c, row)] = (ch, ink, bold)
+        prev = (c, row)
         if mark is not None:
             mark[0][(c, row)] = mark[1]
         if char_width(ch) == 2:

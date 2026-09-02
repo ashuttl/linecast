@@ -4,6 +4,13 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Thai is the eighteenth language: `--lang th` puts the whole app — weather, sunshine, moon, tides, radar, and maps — in Thai.
+- Moon: `--lang th` (or `--calendar thai`) follows the Thai lunar calendar: the waxing or waning day in Thai numerals — แรม ๔ ค่ำ เดือน ๙ — with the year's animal, the next วันพระ, and the coming festival, มาฆบูชา through ลอยกระทง, computed by the traditional Suriyayart arithmetic and checked against the official holy days of 2023–2026.
+- Weather, sunshine, tides, maps, and radar: Text in scripts with combining marks — Thai, for one — no longer loses those marks in chart labels and map labels.
+- Moon: `v` in live mode flips between the disc and a month calendar of phases — each day a small shaded disc, with today, the principal phases, and the active traditional calendar's dates and festivals marked. Scroll to page through months; hover a day for its phase, moonrise, and moonset; click one to open it in the disc view.
+- Sunshine: `v` now also switches between the day and year views, so the view toggle is the same key as in maps and moon; `y` still works.
+- Maps: Street maps now shade built-up ground, a quiet sibling to the park green, so towns and cities read as settlement even where no one has mapped the land use.
+- Radar: The marangai theme's top bands now match MetService's legend more closely — heavy rain stays in the reds, and the possible-hail run of purple, white, green, and pink starts higher, around 45 dBZ.
 - Moon: `--calendar hawaiian` (or `linecast calendar hawaiian`) follows the Kaulana Mahina: each night named — Hilo, Hoaka, Māhealani, Muku — with its anahulu, the month starting the first night the crescent can be seen over Hawaiʻi, matching the Western Pacific Regional Fishery Management Council's published calendars.
 - Moon: The Hawaiian calendar carries the night's traditional fishing counsel — the kapu periods, the ʻole nights, the anahulu's outlook — quoted from the Western Pacific Regional Fishery Management Council's educational materials and attributed on screen.
 - Moon: The Old Farmer's full-moon names (Harvest, Blue, and the rest) now show only in the plain English view and with the almanac calendar; a panel following another tradition's calendar keeps the plain phase name.
@@ -12,6 +19,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: Route shields now name their network — I-95, US-1, ME-128, and the sign's own M6 or A38 — and take the sign's color where one exists: interstates and motorways in blue, US routes in white, UK primary routes in green. A shield appears at most twice per view.
 - Maps: Exit numbers now read as exits — bracketed, in the ramp's dimmer ink — instead of floating over the highway as bare numbers that could be routes. A numbered road also shows its street name again at close zooms, where the addresses live.
 - Maps: Major cities set their names in capitals, and national and state capitals get a star instead of a dot.
+- Maps: A city no longer counts as major on its metro area's population — Long Beach, Oakland, and Irvine take title case again, while Los Angeles, San Francisco, and the other true anchors keep their capitals.
 - Weather and tides: The live views no longer freeze on a slow network — the five-minute weather refresh and the wider tide range fetched when scrolling near an edge now load in the background while the view keeps drawing what it has.
 - Sunshine: The year view fills the window with the sky field. The month labels now sit on the field itself, and the sunrise/sunset line — which described only today — is gone; the pop-up gives those times for any day.
 - Sunshine: The year view's daylight is hazier near sunrise and sunset — whiter low sky settling into blue as the sun climbs, as on a clear day.

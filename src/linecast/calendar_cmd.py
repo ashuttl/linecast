@@ -5,12 +5,12 @@ this package as a script never shadows the standard library's calendar
 module; the command is still `linecast calendar`, via __main__'s map.
 
 Usage: linecast calendar [show]
-       linecast calendar chinese | japanese | korean | hawaiian | almanac
+       linecast calendar chinese | japanese | korean | thai | hawaiian | almanac
        linecast calendar none
        linecast calendar auto
 
 Precedence: moon's --calendar flag > this setting > the calendar
-native to the UI language (--lang zh, ja, or ko) > none.
+native to the UI language (--lang zh, ja, ko, or th) > none.
 """
 
 import argparse
@@ -19,7 +19,7 @@ from linecast._config import read_config, save_config, saved_calendar
 from linecast._runtime import VersionAction
 
 _NATURAL = ("chinese with --lang zh, japanese with ja, "
-            "korean with ko; none otherwise")
+            "korean with ko, thai with th; none otherwise")
 
 
 def _cmd_show():
@@ -33,7 +33,7 @@ def _cmd_show():
     else:
         print(f"auto  [{_NATURAL}]")
         print("Run 'linecast calendar chinese', 'japanese', 'korean', "
-              "'hawaiian', or 'almanac' to fix one.")
+              "'thai', 'hawaiian', or 'almanac' to fix one.")
 
 
 def _cmd_set(choice):
@@ -45,6 +45,10 @@ def _cmd_set(choice):
     elif choice == "hawaiian":
         print("Calendar set to hawaiian: the moon names each night — "
               "the pō mahina, its anahulu, and its counsel — in every "
+              "language")
+    elif choice == "thai":
+        print("Calendar set to thai: the moon shows its lunar date, "
+              "the coming \u0e27\u0e31\u0e19\u0e1e\u0e23\u0e30, and the next festival in every "
               "language")
     elif choice == "almanac":
         print("Calendar set to almanac: the moon shows the Old Farmer's "
@@ -73,6 +77,9 @@ def main():
     sub.add_parser("chinese", help="农历 — months from new moons at UTC+8")
     sub.add_parser("japanese", help="旧暦 — the same rules at UTC+9")
     sub.add_parser("korean", help="음력 — the same rules at UTC+9")
+    sub.add_parser("thai",
+                   help="จันทรคติไทย — the Suriyayart arithmetic, with "
+                        "วันพระ and festivals")
     sub.add_parser("hawaiian",
                    help="Kaulana Mahina — nights counted from the first "
                         "visible crescent over Hawaiʻi")
@@ -83,8 +90,8 @@ def main():
     sub.add_parser("auto", help="clear the saved calendar and follow the language")
     args = parser.parse_args()
 
-    if args.action in ("chinese", "japanese", "korean", "hawaiian",
-                       "almanac", "none"):
+    if args.action in ("chinese", "japanese", "korean", "thai",
+                       "hawaiian", "almanac", "none"):
         _cmd_set(args.action)
     elif args.action == "auto":
         _cmd_auto()

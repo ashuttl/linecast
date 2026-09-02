@@ -132,7 +132,11 @@ class TestLabels:
         assert term_label(10, "de") == "End of Heat"
 
     def test_every_calendar_has_names_and_a_meridian(self):
+        # The Thai calendar is arithmetic (see _thai_lunar and
+        # test_thai_lunar), so it carries no meridian or solar terms.
         for cal, lang in CALENDAR_NATIVE_LANG.items():
+            if cal == "thai":
+                continue
             assert cal in CALENDAR_MERIDIAN_HOURS
             assert festival_table(cal, native=True)
             assert festival_table(cal, native=False)

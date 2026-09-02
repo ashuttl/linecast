@@ -507,9 +507,12 @@ def aeroway_style(props):
 FILL_ORDER = ("ground", "urban", "park", "water", "building")
 
 # Debut band per fill key.  `park` is a union of three sources with two
-# different floors, so it carries a pair.
+# different floors, so it carries a pair.  `builtup` is the measured
+# settlement raster feeding the urban fill where no landuse polygon
+# claimed the ground; it debuts with the parks — the two subtle ground
+# tints are siblings, and B3 is where its z9 source is native.
 FILL_DEBUT = {"water": 0, "park": 3, "park_extra": 5, "urban": 5,
-              "building": 7}
+              "builtup": 3, "building": 7}
 
 URBAN_LANDUSE = ("residential", "commercial", "industrial", "retail")
 
@@ -832,7 +835,10 @@ def shield(props):
 # magnitude apart.  The tile's own rank draws the line — London and
 # Paris carry 1, Dublin and Brussels 3, Birmingham and Manchester 5,
 # Leeds and Portland, Maine 6 — and below the source switch the Natural
-# Earth entries carry a population instead.
+# Earth entries carry a population instead: the agglomeration for a
+# metro's anchor city, the city proper for everything else (see
+# build_basemap_data.build_cities), so Long Beach cannot take the caps
+# register on greater LA's numbers.
 CITY_CAPS_RANK = 5
 CITY_CAPS_POP = 1_000_000
 

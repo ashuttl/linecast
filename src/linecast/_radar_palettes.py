@@ -125,19 +125,19 @@ PALETTES = {
                     _ramp(_DUSK_DARK), _ramp(_DUSK_DARK_SNOW)),
     # marangai (te reo Māori: rainstorm): after MetService New Zealand's national radar.
     # Light rain walks green to orange, moderate jumps to the blues, heavy
-    # to red and magenta, and hail is drawn in its own greens and pinks —
-    # stepped, as they draw it.  Moderate begins at 19 dBZ (about half a
-    # millimetre an hour), matched by eye against their map rather than
-    # derived.  The light form deepens the top bands.
+    # stays in the reds, and possible hail runs purple through white to
+    # green and pink — stepped, as they draw it.  Moderate begins at 19 dBZ
+    # (about half a millimetre an hour), matched by eye against their map
+    # rather than derived.  The light form deepens the top bands.
     "marangai": Palette(
         _steps([(10, (140, 170, 40)), (12, (190, 200, 30)),
                 (14, (240, 220, 0)), (16, (250, 180, 0)),
                 (18, (245, 120, 10)),
                 (19, (20, 60, 170)), (23, (30, 110, 230)),
                 (27, (40, 160, 240)), (31, (0, 180, 180)),
-                (35, (210, 30, 20)), (39, (200, 20, 140)),
-                (43, (130, 40, 170)), (47, (60, 20, 110)),
-                (50, (0, 120, 40)), (55, (170, 20, 110))]),
+                (35, (210, 30, 20)), (40, (230, 75, 0)),
+                (45, (110, 10, 150)), (48, (60, 20, 110)),
+                (51, (0, 120, 40)), (55, (170, 20, 110))]),
         _steps([(10, (120, 160, 190)), (19, (40, 110, 160)),
                 (35, (20, 60, 120)), (50, (60, 20, 110))]),
         _steps([(10, (120, 160, 40)), (12, (180, 200, 30)),
@@ -145,9 +145,9 @@ PALETTES = {
                 (18, (255, 130, 20)),
                 (19, (30, 70, 190)), (23, (40, 120, 240)),
                 (27, (60, 180, 250)), (31, (20, 210, 210)),
-                (35, (230, 40, 30)), (39, (220, 40, 160)),
-                (43, (220, 150, 230)), (47, (245, 245, 255)),
-                (50, (90, 220, 90)), (55, (250, 80, 200))]),
+                (35, (230, 40, 30)), (40, (255, 80, 10)),
+                (45, (170, 50, 220)), (48, (245, 245, 255)),
+                (51, (100, 235, 70)), (55, (255, 70, 220))]),
         _steps([(10, (150, 190, 220)), (19, (200, 225, 245)),
                 (35, (235, 245, 255)), (50, (255, 255, 255))])),
     # ink: one blue, the quietest option — deepening on a light terminal,

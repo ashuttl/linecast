@@ -231,11 +231,20 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
     fetches in the background, exactly as the elevation path does."""
 
     def load():
-        band, tiles = _maps_streets.fetch_view(bbox, hc)
+        # the settlement raster fetches alongside the vector tiles, as
+        # the terrain path overlaps its sources; below its debut band
+        # the layer is never asked for, so a deep view pays nothing
+        band, _z_src, keys = _maps_streets.view_tiles(bbox, hc)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            bu_job = (pool.submit(_builtup_layer, bbox, gw, hc)
+                      if band >= _maps_style.FILL_DEBUT["builtup"]
+                      else None)
+            tiles = _maps_streets.fetch_tiles(keys)
         if not any(tiles.values()):
             raise RuntimeError(ms('offline', 'en'))
-        return _maps_streets.build_street_view(bbox, gw, hc, tiles, band,
-                                               lang, reserved)
+        return _maps_streets.build_street_view(
+            bbox, gw, hc, tiles, band, lang, reserved,
+            bu_job.result() if bu_job is not None else None)
 
     key = _view_key(bbox, gw, hc) + (lang, tuple(sorted(reserved)))
     return _street_cache.get(key, block, load)

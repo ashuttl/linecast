@@ -792,13 +792,20 @@ def _place_cities(cities, lat0, lon0, zoom, gw, hc, lang):
         placed.append((col, row))
         overlays[(col, row)] = ("•", CITY)
         c = col + 1
+        prev = None
         for ch in name:
             w = char_width(ch)
+            if w == 0 and prev is not None:
+                # A combining mark rides in its base's cell.
+                kept, ink = overlays[prev]
+                overlays[prev] = (kept + ch, ink)
+                continue
             if c + w > gw:
                 break
             if (c, row) in overlays or (w == 2 and (c + 1, row) in overlays):
                 break
             overlays[(c, row)] = (ch, CITY_LABEL)
+            prev = (c, row)
             if w == 2:
                 overlays[(c + 1, row)] = ("", None)
             c += w

@@ -83,6 +83,11 @@ _TIDES_STRINGS = {
         "waves": "\u6d77\u6d6a",
         "swell": "\u6d8c\u6d6a",
     },
+    "th": {
+        "space_to_now": "space กลับสู่ปัจจุบัน",
+        "waves": "คลื่น",
+        "swell": "คลื่นใต้น้ำ",
+    },
     "id": {
         "space_to_now": "spasi untuk kembali ke sekarang",
     },
@@ -122,6 +127,8 @@ MOON_NAMES_I18N = {
             "\ubcf4\ub984\ub2ec", "\uae30\uc6b0\ub294 \ub2ec", "\ud558\ud604\ub2ec", "\uadf8\ubbd0\ub2ec"],
     "zh": ["\u65b0\u6708", "\u86fe\u7709\u6708", "\u4e0a\u5f26\u6708", "\u76c8\u51f8\u6708",
             "\u6ee1\u6708", "\u4e8f\u51f8\u6708", "\u4e0b\u5f26\u6708", "\u6b8b\u6708"],
+    "th": ["จันทร์ดับ", "จันทร์เสี้ยวข้างขึ้น", "จันทร์ครึ่งดวงข้างขึ้น", "จันทร์ค่อนดวงข้างขึ้น",
+            "จันทร์เต็มดวง", "จันทร์ค่อนดวงข้างแรม", "จันทร์ครึ่งดวงข้างแรม", "จันทร์เสี้ยวข้างแรม"],
     "id": ["Bulan Baru", "Sabit Awal", "Kuarter Pertama", "Cembung Awal",
             "Bulan Purnama", "Cembung Akhir", "Kuarter Akhir", "Sabit Akhir"],
 }

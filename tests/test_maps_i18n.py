@@ -1,6 +1,6 @@
 """Tests for the maps string table.
 
-Seventeen languages, one key list. The table is checked for shape rather
+Eighteen languages, one key list. The table is checked for shape rather
 than for meaning: every language carries every key, no value is empty,
 and every placeholder survives translation — the three ways a
 translation table actually breaks at runtime.
@@ -28,7 +28,7 @@ KEYS = set(TABLE["en"])
 
 def test_every_language_the_cli_offers_has_a_table():
     assert set(LANG_CODES) <= set(TABLE)
-    assert len(TABLE) == 17
+    assert len(TABLE) == 18
 
 
 @pytest.mark.parametrize("lang", sorted(TABLE))

@@ -28,9 +28,12 @@ from linecast._ephemeris import _sun_ecliptic, next_moon_phase_utc
 # The three calendars, each computed at its own meridian (hours east
 # of UTC), and the language each is native to. Any UI language can ask
 # for any of them with --calendar; these defaults just pick the natural
-# one for readers who already live on it.
+# one for readers who already live on it. The Thai calendar is also
+# native to its language but is arithmetic, not astronomical — it
+# lives in _thai_lunar and needs no meridian.
 CALENDAR_MERIDIAN_HOURS = {"chinese": 8, "japanese": 9, "korean": 9}
-CALENDAR_OF_LANG = {"zh": "chinese", "ja": "japanese", "ko": "korean"}
+CALENDAR_OF_LANG = {"zh": "chinese", "ja": "japanese", "ko": "korean",
+                    "th": "thai"}
 CALENDAR_NATIVE_LANG = {cal: lang for lang, cal in CALENDAR_OF_LANG.items()}
 
 
