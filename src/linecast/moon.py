@@ -41,12 +41,15 @@ from linecast._lunisolar import (
     CALENDAR_MERIDIAN_HOURS, CALENDAR_NATIVE_LANG, current_term,
     lunisolar_date, next_lunar_event, next_term, resolve_calendar,
 )
+from linecast._hebrew import hebrew_date, next_holiday
+from linecast._hebrew import next_month_start as next_hebrew_month
 from linecast._hijri import (
     after_sunset, hijri_date, next_month_start, next_observance,
 )
 from linecast._moon_i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
-    anahulu_name, festival_table, hijri_date_label, hijri_month_name,
+    anahulu_name, festival_table, hebrew_date_label, hebrew_holiday_name,
+    hebrew_month_name, hijri_date_label, hijri_month_name,
     hijri_observance_name, ja_night_name, lunar_date_label,
     pacific_night_label, term_label, thai_festival_name, thai_lunar_label,
     thai_year_label, wan_phra_label,
@@ -612,8 +615,10 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         # The Hijri day begins at sunset, and the panel is read in the
         # evening, so the date turns with the reader's own sunset. The
         # calendar keeps no solar terms; the coming month takes the
-        # terms' place, and the observances are counted down by civil
-        # date, the way the printed calendar has them.
+        # terms' place. The observances keep civil dates, except that
+        # one counts as begun once the evening that opens it has come,
+        # and the day before, the countdown says so instead of "in
+        # 1d" — the same rule as the Hebrew calendar's below.
         h_day = now_local.date()
         if after_sunset(now_local, lat, lng):
             h_day += timedelta(days=1)
@@ -625,13 +630,44 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         term_txt = (f"{term_short} · {hijri_month_name(nxt_month, lang)} "
                     f"{_fmt_month_day(nxt_day, runtime)} "
                     f"({_ms('in_days', runtime, days=str(nxt_gap))})")
-        fest_day, fest_key = next_observance(now_local.date())
-        fest_short = (f"{hijri_observance_name(fest_key, lang)} "
-                      f"{_fmt_month_day(fest_day, runtime)}")
+        fest_day, fest_key = next_observance(h_day)
         fest_gap = (fest_day - now_local.date()).days
-        fest_txt = fest_short if fest_gap == 0 else (
-            f"{fest_short} "
-            f"({_ms('in_days', runtime, days=str(fest_gap))})")
+        if fest_day <= h_day:
+            fest_txt = fest_short = hijri_observance_name(fest_key, lang)
+        else:
+            fest_short = (f"{hijri_observance_name(fest_key, lang)} "
+                          f"{_fmt_month_day(fest_day, runtime)}")
+            fest_txt = f"{fest_short} ({_ms('begins_at_sunset', runtime)})" \
+                if fest_gap == 1 else (
+                    f"{fest_short} "
+                    f"({_ms('in_days', runtime, days=str(fest_gap))})")
+    elif cal == "hebrew":
+        # The Hebrew day begins at sunset too, and the date turns with
+        # the reader's own. The coming month takes the terms' place
+        # and the holidays are counted down as the observances are
+        # above, in progress from the evening that opens them.
+        h_day = now_local.date()
+        if after_sunset(now_local, lat, lng):
+            h_day += timedelta(days=1)
+        h_year, h_month, h_dom = hebrew_date(h_day)
+        lunar_txt = hebrew_date_label(h_year, h_month, h_dom)
+        term_short = hebrew_month_name(h_year, h_month)
+        nxt_day, (nxt_year, nxt_month) = next_hebrew_month(h_day)
+        nxt_gap = (nxt_day - now_local.date()).days
+        term_txt = (f"{term_short} · {hebrew_month_name(nxt_year, nxt_month)} "
+                    f"{_fmt_month_day(nxt_day, runtime)} "
+                    f"({_ms('in_days', runtime, days=str(nxt_gap))})")
+        fest_day, fest_key = next_holiday(h_day)
+        fest_gap = (fest_day - now_local.date()).days
+        if fest_day <= h_day:
+            fest_txt = fest_short = hebrew_holiday_name(fest_key)
+        else:
+            fest_short = (f"{hebrew_holiday_name(fest_key)} "
+                          f"{_fmt_month_day(fest_day, runtime)}")
+            fest_txt = f"{fest_short} ({_ms('begins_at_sunset', runtime)})" \
+                if fest_gap == 1 else (
+                    f"{fest_short} "
+                    f"({_ms('in_days', runtime, days=str(fest_gap))})")
     elif cal == "thai":
         # The Thai calendar reads the moon as a waxing or waning day —
         # ขึ้น/แรม … ค่ำ — in Thai numerals, as the printed calendars

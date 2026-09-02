@@ -31,13 +31,15 @@ from linecast._lunisolar import (
     CALENDAR_MERIDIAN_HOURS, CALENDAR_NATIVE_LANG, lunisolar_date,
     resolve_calendar,
 )
+from linecast._hebrew import hebrew_date, holiday_key, rosh_chodesh
 from linecast._hijri import hijri_date, observance_key
 from linecast._moon_i18n import (
     MONTHS_I18N, _day_abbrev, _fmt_month_day, _moon_name, _ms, _zh_day_name,
-    _ZH_MONTHS, anahulu_name, festival_table, hijri_date_label,
+    _ZH_MONTHS, anahulu_name, festival_table, hebrew_date_label,
+    hebrew_holiday_name, hebrew_month_name, hijri_date_label,
     hijri_month_name, hijri_observance_name, ja_night_name, lunar_date_label,
-    pacific_night_label, pacific_night_name, thai_festival_name,
-    thai_lunar_label, thai_month_label,
+    pacific_night_label, pacific_night_name, rosh_chodesh_label,
+    thai_festival_name, thai_lunar_label, thai_month_label,
     wan_phra_label,
 )
 from linecast._pacific import PACIFIC_CALENDARS, pacific_night
@@ -120,7 +122,8 @@ def _cell_label(day, cal, native, fest, lang="en"):
     A festival names its day in every script. Beyond that only the
     labels that read at a glance appear: the 农历 day names, which are
     words, and each lunar month's opening day for Japanese, Korean,
-    and the Hijri calendar. The full lunar date lives in the hover chip.
+    and the Hijri and Hebrew calendars. The full lunar date lives in
+    the hover chip.
     """
     if cal in PACIFIC_CALENDARS:
         night, nights = pacific_night(cal, day)
@@ -132,6 +135,16 @@ def _cell_label(day, cal, native, fest, lang="en"):
         _year, m, d = hijri_date(day)
         if d == 1:
             return hijri_month_name(m, lang), False
+        return None
+    if cal == "hebrew":
+        # A holiday names every day it runs, Sukkot's seven and
+        # Hanukkah's eight included, the way a printed calendar does.
+        key = holiday_key(day)
+        if key:
+            return hebrew_holiday_name(key), True
+        year, m, d = hebrew_date(day)
+        if d == 1:
+            return hebrew_month_name(year, m), False
         return None
     if cal == "thai":
         # Festivals and month starts as the other calendars have them,
@@ -436,6 +449,13 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
         key = observance_key(d)
         if key:
             cal_line = f"{hijri_observance_name(key, lang)} · {cal_line}"
+    elif cal == "hebrew":
+        cal_line = hebrew_date_label(*hebrew_date(d))
+        key = holiday_key(d)
+        if key:
+            cal_line = f"{hebrew_holiday_name(key)} · {cal_line}"
+        elif rosh_chodesh(d):
+            cal_line = f"{rosh_chodesh_label(*rosh_chodesh(d))} · {cal_line}"
     elif cal == "thai":
         m, day_n, doubled = thai_lunar_date(d)
         label_lang = "th" if native else "en"

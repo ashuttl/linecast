@@ -129,7 +129,8 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
     elif cal == "islamic":
         # The Umm al-Qura reading: the Hijri date, turned with the
         # reader's sunset as the panel turns it, the month's length,
-        # the coming month, and the next observance.
+        # the coming month, and the next observance — today's, once
+        # the evening that opens it has come.
         from linecast._hijri import (
             after_sunset, days_in_month, hijri_date, next_month_start,
             next_observance,
@@ -141,7 +142,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
         h_day = now_local.date() + timedelta(days=1 if evening else 0)
         h_year, h_month, h_dom = hijri_date(h_day)
         nxt_day, (_nxt_year, nxt_month) = next_month_start(h_day)
-        obs_day, obs_key = next_observance(now_local.date())
+        obs_day, obs_key = next_observance(h_day)
         calendar_block = {
             "name": cal,
             "year": h_year,
@@ -158,6 +159,51 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
             "next_observance": {
                 "name": hijri_observance_name(obs_key, lang),
                 "date": obs_day.isoformat(),
+            },
+        }
+    elif cal == "hebrew":
+        # The Hebrew date, turned with the reader's sunset as the
+        # panel turns it, in letters too (the panel keeps to
+        # transliteration, since terminals lay Hebrew out unreliably;
+        # a JSON consumer can do better), the year's shape, the coming
+        # month, the holiday in progress, and the next holiday,
+        # diaspora dates.
+        from linecast._hebrew import (
+            days_in_month, days_in_year, hebrew_date, holiday_key,
+            is_leap_year, next_holiday,
+        )
+        from linecast._hebrew import next_month_start as next_hebrew_month
+        from linecast._hijri import after_sunset
+        from linecast._moon_i18n import (
+            hebrew_date_hebrew, hebrew_date_label, hebrew_holiday_name,
+            hebrew_month_name,
+        )
+        evening = after_sunset(now_local, lat, lng)
+        h_day = now_local.date() + timedelta(days=1 if evening else 0)
+        h_year, h_month, h_dom = hebrew_date(h_day)
+        nxt_day, (nxt_year, nxt_month) = next_hebrew_month(h_day)
+        hol_day, hol_key = next_holiday(h_day)
+        today_key = holiday_key(h_day)
+        calendar_block = {
+            "name": cal,
+            "year": h_year,
+            "leap_year": is_leap_year(h_year),
+            "days_in_year": days_in_year(h_year),
+            "month": h_month,
+            "month_name": hebrew_month_name(h_year, h_month),
+            "day": h_dom,
+            "days_in_month": days_in_month(h_year, h_month),
+            "label": hebrew_date_label(h_year, h_month, h_dom),
+            "hebrew_label": hebrew_date_hebrew(h_year, h_month, h_dom),
+            "after_sunset": evening,
+            "holiday": hebrew_holiday_name(today_key) if today_key else None,
+            "next_month": {
+                "name": hebrew_month_name(nxt_year, nxt_month),
+                "date": nxt_day.isoformat(),
+            },
+            "next_holiday": {
+                "name": hebrew_holiday_name(hol_key),
+                "date": hol_day.isoformat(),
             },
         }
     elif cal == "thai":

@@ -20,6 +20,7 @@ _MOON_STRINGS = {
         "moonrise": "Moonrise",
         "moonset": "Moonset",
         "in_days": "in {days}d",
+        "begins_at_sunset": "begins at sunset",
         "in_time": "in {dur}",
         "year_day": "Day {n} of {total}",
         "light_of_moon": "light of the moon",
@@ -47,6 +48,7 @@ _MOON_STRINGS = {
         "moonrise": "Lever de lune",
         "moonset": "Coucher de lune",
         "in_days": "dans {days} j",
+        "begins_at_sunset": "commence au coucher du soleil",
         "in_time": "dans {dur}",
         "year_day": "Jour {n} sur {total}",
         "spring_equinox": "Équinoxe de printemps",
@@ -64,6 +66,7 @@ _MOON_STRINGS = {
         "moonrise": "Salida de la luna",
         "moonset": "Puesta de la luna",
         "in_days": "en {days} d",
+        "begins_at_sunset": "comienza al atardecer",
         "in_time": "en {dur}",
         "year_day": "Día {n} de {total}",
         "spring_equinox": "Equinoccio de primavera",
@@ -81,6 +84,7 @@ _MOON_STRINGS = {
         "moonrise": "Mondaufgang",
         "moonset": "Monduntergang",
         "in_days": "in {days} T",
+        "begins_at_sunset": "beginnt bei Sonnenuntergang",
         "in_time": "in {dur}",
         "year_day": "Tag {n} von {total}",
         "spring_equinox": "Frühlingsanfang",
@@ -98,6 +102,7 @@ _MOON_STRINGS = {
         "moonrise": "Sorgere della luna",
         "moonset": "Tramonto della luna",
         "in_days": "tra {days} g",
+        "begins_at_sunset": "inizia al tramonto",
         "in_time": "tra {dur}",
         "year_day": "Giorno {n} di {total}",
         "spring_equinox": "Equinozio di primavera",
@@ -115,6 +120,7 @@ _MOON_STRINGS = {
         "moonrise": "Nascer da lua",
         "moonset": "Pôr da lua",
         "in_days": "em {days} d",
+        "begins_at_sunset": "começa ao pôr do sol",
         "in_time": "em {dur}",
         "year_day": "Dia {n} de {total}",
         "spring_equinox": "Equinócio de primavera",
@@ -132,6 +138,7 @@ _MOON_STRINGS = {
         "moonrise": "Maanopkomst",
         "moonset": "Maanondergang",
         "in_days": "over {days} d",
+        "begins_at_sunset": "begint bij zonsondergang",
         "in_time": "over {dur}",
         "year_day": "Dag {n} van {total}",
         "spring_equinox": "Lente-equinox",
@@ -149,6 +156,7 @@ _MOON_STRINGS = {
         "moonrise": "Wschód księżyca",
         "moonset": "Zachód księżyca",
         "in_days": "za {days} d",
+        "begins_at_sunset": "zaczyna się o zachodzie słońca",
         "in_time": "za {dur}",
         "year_day": "Dzień {n} z {total}",
         "spring_equinox": "Równonoc wiosenna",
@@ -166,6 +174,7 @@ _MOON_STRINGS = {
         "moonrise": "Måneoppgang",
         "moonset": "Månenedgang",
         "in_days": "om {days} d",
+        "begins_at_sunset": "begynner ved solnedgang",
         "in_time": "om {dur}",
         "year_day": "Dag {n} av {total}",
         "spring_equinox": "Vårjevndøgn",
@@ -183,6 +192,7 @@ _MOON_STRINGS = {
         "moonrise": "Månuppgång",
         "moonset": "Månnedgång",
         "in_days": "om {days} d",
+        "begins_at_sunset": "börjar vid solnedgången",
         "in_time": "om {dur}",
         "year_day": "Dag {n} av {total}",
         "spring_equinox": "Vårdagjämning",
@@ -200,6 +210,7 @@ _MOON_STRINGS = {
         "moonrise": "Måneopgang",
         "moonset": "Månenedgang",
         "in_days": "om {days} d",
+        "begins_at_sunset": "begynder ved solnedgang",
         "in_time": "om {dur}",
         "year_day": "Dag {n} af {total}",
         "spring_equinox": "Forårsjævndøgn",
@@ -217,6 +228,7 @@ _MOON_STRINGS = {
         "moonrise": "Tunglris",
         "moonset": "Tunglsetur",
         "in_days": "eftir {days} d",
+        "begins_at_sunset": "hefst við sólsetur",
         "in_time": "eftir {dur}",
         "year_day": "Dagur {n} af {total}",
         "spring_equinox": "Vorjafndægur",
@@ -234,6 +246,7 @@ _MOON_STRINGS = {
         "moonrise": "Kuunnousu",
         "moonset": "Kuunlasku",
         "in_days": "{days} pv kuluttua",
+        "begins_at_sunset": "alkaa auringonlaskusta",
         "in_time": "{dur} kuluttua",
         "year_day": "Päivä {n} / {total}",
         "spring_equinox": "Kevätpäiväntasaus",
@@ -251,6 +264,7 @@ _MOON_STRINGS = {
         "moonrise": "月の出",
         "moonset": "月の入り",
         "in_days": "{days}日後",
+        "begins_at_sunset": "日没に始まる",
         "in_time": "{dur}後",
         "year_day": "今年 {n} 日目 / {total} 日",
         "spring_equinox": "春分",
@@ -268,6 +282,7 @@ _MOON_STRINGS = {
         "moonrise": "월출",
         "moonset": "월몰",
         "in_days": "{days}일 후",
+        "begins_at_sunset": "일몰에 시작",
         "in_time": "{dur} 후",
         "year_day": "올해 {n}일째 / {total}일",
         "spring_equinox": "춘분",
@@ -285,6 +300,7 @@ _MOON_STRINGS = {
         "moonrise": "月出",
         "moonset": "月落",
         "in_days": "{days}天后",
+        "begins_at_sunset": "日落开始",
         "in_time": "{dur}后",
         "year_day": "今年第 {n} 天 / {total} 天",
         "spring_equinox": "春分",
@@ -302,6 +318,7 @@ _MOON_STRINGS = {
         "moonrise": "ดวงจันทร์ขึ้น",
         "moonset": "ดวงจันทร์ตก",
         "in_days": "อีก {days} วัน",
+        "begins_at_sunset": "เริ่มเมื่อพระอาทิตย์ตก",
         "in_time": "อีก {dur}",
         "year_day": "วันที่ {n} จาก {total} ของปี",
         "spring_equinox": "วสันตวิษุวัต",
@@ -319,6 +336,7 @@ _MOON_STRINGS = {
         "moonrise": "Bulan terbit",
         "moonset": "Bulan terbenam",
         "in_days": "dalam {days} hr",
+        "begins_at_sunset": "mulai saat matahari terbenam",
         "in_time": "dalam {dur}",
         "year_day": "Hari ke-{n} dari {total}",
         "spring_equinox": "Ekuinoks musim semi",
@@ -778,3 +796,98 @@ def hijri_date_label(year, month, day, lang):
 def hijri_observance_name(key, lang):
     english, indonesian = _HIJRI_OBSERVANCES[key]
     return indonesian if hijri_lang(lang) == "id" else english
+
+
+# ---------------------------------------------------------------------------
+# The Hebrew calendar's names (see _hebrew.py for the calendar itself).
+# Hebrew is not a UI language and terminals lay its script out
+# unreliably, so the months and holidays are transliterated, one
+# spelling for every reader: Tishrei, Cheshvan, Pesach.
+# ---------------------------------------------------------------------------
+
+_HEBREW_MONTHS = ("Nisan", "Iyar", "Sivan", "Tammuz", "Av", "Elul",
+                  "Tishrei", "Cheshvan", "Kislev", "Tevet", "Shevat",
+                  "Adar", "Adar II")
+_HEBREW_MONTHS_HE = ("ניסן", "אייר", "סיון", "תמוז", "אב", "אלול",
+                     "תשרי", "חשון", "כסלו", "טבת", "שבט",
+                     "אדר", "אדר ב׳")
+
+# The letter numerals: units, tens, and hundreds each have a letter,
+# read by adding them up; 15 and 16 are written ט״ו and ט״ז rather
+# than with the letters of the divine name.
+_GEMATRIA = ((400, "ת"), (300, "ש"), (200, "ר"), (100, "ק"), (90, "צ"),
+             (80, "פ"), (70, "ע"), (60, "ס"), (50, "נ"), (40, "מ"),
+             (30, "ל"), (20, "כ"), (10, "י"), (9, "ט"), (8, "ח"),
+             (7, "ז"), (6, "ו"), (5, "ה"), (4, "ד"), (3, "ג"),
+             (2, "ב"), (1, "א"))
+_GERESH, _GERSHAYIM = "\u05f3", "\u05f4"
+
+# Holiday names by the keys _hebrew's next_holiday returns.
+_HEBREW_HOLIDAYS = {
+    "rosh_hashanah": "Rosh Hashanah",
+    "yom_kippur": "Yom Kippur",
+    "sukkot": "Sukkot",
+    "shemini_atzeret": "Shemini Atzeret",
+    "simchat_torah": "Simchat Torah",
+    "hanukkah": "Hanukkah",
+    "tu_bishvat": "Tu BiShvat",
+    "purim": "Purim",
+    "pesach": "Pesach",
+    "shavuot": "Shavuot",
+    "tisha_bav": "Tisha B'Av",
+}
+
+
+def hebrew_month_name(year, month):
+    """The month's name; the twelfth is Adar I in a year with two Adars."""
+    from linecast._hebrew import is_leap_year
+    if month == 12 and is_leap_year(year):
+        return "Adar I"
+    return _HEBREW_MONTHS[month - 1]
+
+
+def hebrew_date_label(year, month, day):
+    """23 Tishrei 5787 — the Hebrew date as it is customarily written."""
+    return f"{day} {hebrew_month_name(year, month)} {year}"
+
+
+def hebrew_holiday_name(key):
+    return _HEBREW_HOLIDAYS[key]
+
+
+def hebrew_numeral(n):
+    """*n* in Hebrew letters: כ׳ for 20, כ״ג for 23, ט״ו for 15."""
+    letters = ""
+    while n:
+        for value, letter in _GEMATRIA:
+            if value <= n:
+                letters += letter
+                n -= value
+                break
+    letters = letters.replace("יה", "טו").replace("יו", "טז")
+    if len(letters) == 1:
+        return letters + _GERESH
+    return letters[:-1] + _GERSHAYIM + letters[-1]
+
+
+def hebrew_year_numeral(year):
+    """The year as it is written, without its thousands: תשפ״ו for 5786.
+
+    A round thousand has nothing left to write, so the thousands
+    stand alone: ו׳ for 6000.
+    """
+    rest = year % 1000
+    return hebrew_numeral(rest if rest else year // 1000)
+
+
+def hebrew_date_hebrew(year, month, day):
+    """כ״ג תשרי תשפ״ז — the date in Hebrew letters, for --json."""
+    from linecast._hebrew import is_leap_year
+    name = _HEBREW_MONTHS_HE[month - 1]
+    if month == 12 and is_leap_year(year):
+        name = "אדר א׳"
+    return f"{hebrew_numeral(day)} {name} {hebrew_year_numeral(year)}"
+
+
+def rosh_chodesh_label(year, month):
+    return f"Rosh Chodesh {hebrew_month_name(year, month)}"
