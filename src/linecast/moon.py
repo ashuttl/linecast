@@ -43,7 +43,7 @@ from linecast._moon_i18n import (
     po_mahina_name, term_label,
 )
 from linecast._pacific import (
-    ANAHULU_COUNSEL, COUNSEL_LINK, hawaiian_night, night_note,
+    ANAHULU_COUNSEL, COUNSEL_SOURCE_LINE, hawaiian_night, night_note,
 )
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._textwidth import char_width
@@ -391,20 +391,6 @@ def _center(line, width):
     return " " * pad + line
 
 
-def _link_overlay_row(overlays, url, x0, row, width):
-    """Wrap one overlay line's glyphs in an OSC 8 hyperlink.
-
-    Cell by cell, under a shared id, so a terminal that follows OSC 8
-    treats the phrase as one link and underlines it whole on hover.
-    """
-    pre = f"\033]8;id=wpc;{url}\033\\"
-    post = "\033]8;;\033\\"
-    for x in range(x0, x0 + width):
-        cell = overlays.get((x, row))
-        if cell and cell[0]:
-            overlays[(x, row)] = (f"{pre}{cell[0]}{post}", *cell[1:])
-
-
 def _wrap(text, width):
     """textwrap.wrap without widows: no lone word on the last line."""
     lines = textwrap.wrap(text, width)
@@ -559,7 +545,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # A calendar shown in its own language keeps its own script; any
     # other language gets the customary English names.
     lunar_txt = term_txt = term_short = fest_txt = fest_short = None
-    good_txt = hold_txt = solunar_txt = attrib_txt = attrib_url = None
+    good_txt = hold_txt = solunar_txt = attrib_txt = None
     if cal == "hawaiian":
         # The Kaulana Mahina names every night, in Hawaiian for every
         # reader — the pō names have no English renderings — and has
@@ -578,7 +564,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         note = night_note(name)
         counsel = ANAHULU_COUNSEL[anahulu_name(night)]
         good_txt, hold_txt = (note or counsel), (counsel if note else None)
-        attrib_txt, attrib_url = COUNSEL_LINK
+        attrib_txt = COUNSEL_SOURCE_LINE
     elif cal == "almanac":
         # The Old Farmer's Almanac: the aside names the half of the
         # month, the counsel is the gardening rule for it, and the
@@ -695,7 +681,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     # A long counsel line breaks rather than dragging the whole column
     # wide: it may run at most a third past the longest other line.
-    attrib_at = None
     if good_txt:
         base_w = max(visible_len("".join(t for t, _c, _b in line))
                      for line in panel)
@@ -705,9 +690,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                  for seg in _wrap(txt, wrap_w)]
         if attrib_txt:
             # The source rides directly under the counsel it credits,
-            # a shade fainter; the wide layout links it after the
-            # overlays are laid.
-            attrib_at = counsel_at + len(block)
+            # a shade fainter.
             block.append([(attrib_txt, PANEL_FAINT_RGB, False)])
         panel[counsel_at:counsel_at] = block + [[]]
 
@@ -737,11 +720,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
                        peak_alpha=0.10 + 0.20 * illum)
         _draw_moon_disc(fb, cx, cy, radius, illum, limb, axis)
-        if attrib_at is not None and attrib_url:
-            _link_overlay_row(overlays, attrib_url,
-                              graph_w - panel_w - 2,
-                              (graph_h - panel_h) // 2 + attrib_at,
-                              visible_len(attrib_txt))
         stars = _star_overlays(fb, cx, cy, radius, taken=overlays.keys())
         lines = fb.render(overlays={**stars, **overlays})
         if hint:
@@ -801,11 +779,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         if solunar_txt:
             candidates.append((f"{dim}{solunar_txt}{RESET}",))
         if attrib_txt:
-            styled = f"{fg(*INFO_FAINT_RGB)}{attrib_txt}{RESET}"
-            if attrib_url:
-                styled = (f"\033]8;id=wpc;{attrib_url}\033\\{styled}"
-                          f"\033]8;;\033\\")
-            candidates.append((styled,))
+            candidates.append((f"{fg(*INFO_FAINT_RGB)}{attrib_txt}{RESET}",))
     candidates += [
         status_line,
         # The countdown roughly doubles this line's width, so keep the

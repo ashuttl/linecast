@@ -155,13 +155,12 @@ def hawaiian_night(local_date):
 # ---------------------------------------------------------------------------
 
 COUNSEL_ATTRIBUTION = "Western Pacific Regional Fishery Management Council"
-# The on-screen attribution. The label names the domain rather than
-# the acronym because the live view owns the mouse (for scrubbing),
-# which suppresses terminal-native link hover and click there: the
-# text has to carry the address on its own. The OSC 8 link still
-# rides along for --print output, scrollback, and foot's URL mode.
-COUNSEL_LINK = ("Source: wpcouncil.org",
-                "https://www.wpcouncil.org/educational-resources/lunar-calendars/")
+# The on-screen attribution names the domain: the live view owns the
+# mouse for scrubbing, so no terminal can offer link hover or click
+# there — the text carries the address on its own. The URL itself
+# goes out only in the JSON, as data.
+COUNSEL_SOURCE_LINE = "Source: wpcouncil.org"
+COUNSEL_URL = "https://www.wpcouncil.org/educational-resources/lunar-calendars/"
 
 # Per-anahulu fishing counsel, keyed by the anahulu names in
 # _moon_i18n. Each line leads with the anahulu it speaks for, so it

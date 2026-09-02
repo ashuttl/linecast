@@ -82,7 +82,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
         # festivals; its block carries the night and its counsel.
         from linecast._moon_i18n import anahulu_name, po_mahina_name
         from linecast._pacific import (
-            ANAHULU_COUNSEL, COUNSEL_ATTRIBUTION, COUNSEL_LINK,
+            ANAHULU_COUNSEL, COUNSEL_ATTRIBUTION, COUNSEL_URL,
             hawaiian_night, night_note,
         )
         night, nights = hawaiian_night(now_local.date())
@@ -96,7 +96,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
                 "night_note": night_note(po_mahina_name(night, nights)),
                 "anahulu": ANAHULU_COUNSEL[anahulu_name(night)],
                 "source": COUNSEL_ATTRIBUTION,
-                "url": COUNSEL_LINK[1],
+                "url": COUNSEL_URL,
             },
         }
     elif cal == "almanac":
