@@ -478,12 +478,21 @@ def corner_label_cells(label, graph_w):
     from linecast._textwidth import char_width
     cells = []
     used = 0
+    last_base = None
     limit = max(0, graph_w // 3)
     for ch in label:
         w = char_width(ch)
+        if w == 0:
+            # A combining mark (a Thai vowel sign, say) rides in its
+            # base's cell rather than claiming the next one.
+            if last_base is not None:
+                x, base = cells[last_base]
+                cells[last_base] = (x, base + ch)
+            continue
         if used + w > limit:
             break
         cells.append((used, ch))
+        last_base = len(cells) - 1
         cells.extend((used + k, "") for k in range(1, w))
         used += w
     x0 = graph_w - used - 1

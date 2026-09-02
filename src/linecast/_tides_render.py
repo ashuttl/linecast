@@ -255,12 +255,20 @@ def render_day_label_line(midnight_day_names, graph_w, moon_labels=None):
         if not allow_overlap and any(canvas[start + i] != " " for i in range(width)):
             return False
         x = start
+        base = None
         for ch in text:
             if x >= graph_w:
                 break
+            ch_w = visible_len(ch)
+            if ch_w == 0:
+                # A combining mark (a Thai vowel sign, say) shares its
+                # base's cell rather than claiming the next one.
+                if base is not None:
+                    canvas[base] += ch
+                continue
             canvas[x] = ch
             canvas_colors[x] = color
-            ch_w = visible_len(ch)
+            base = x
             for k in range(1, ch_w):
                 if x + k < graph_w:
                     canvas[x + k] = ""
