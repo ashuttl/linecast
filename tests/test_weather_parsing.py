@@ -465,7 +465,7 @@ class TestLocationMatching:
         address = {"city": "Madrid", "state": "Comunidad de Madrid"}
         words = _extract_location_words(address)
         assert "madrid" in words
-        assert "comunidad" in words
+        assert "comunidad" not in words  # a tier, and Valencia's too
         assert "de" not in words  # too short
 
     def test_area_matches_positive(self):
@@ -706,12 +706,15 @@ def _feed(*warnings):
     return {"warnings": [{"alert": {"info": [info]}} for info in warnings]}
 
 
-def _warning(event, severity, area_desc, polygon=None):
+def _warning(event, severity, area_desc, polygon=None, description=None):
     area = {"areaDesc": area_desc}
     if polygon is not None:
         area["polygon"] = polygon
-    return {"language": "en-GB", "severity": severity, "event": event,
-            "headline": event, "area": [area]}
+    info = {"language": "en-GB", "severity": severity, "event": event,
+            "headline": f"{event} for {area_desc}", "area": [area]}
+    if description is not None:
+        info["description"] = description
+    return info
 
 
 def _alerts(data, lat, lng, address):
@@ -827,6 +830,108 @@ class TestMeteoAlarmLocationWords:
         from linecast._weather_sources import _extract_location_words
         words = _extract_location_words({"state": "Auvergne-Rhône-Alpes Region"})
         assert words == {"auvergne-rhône-alpes"}
+
+    def test_tier_words_are_dropped_in_the_countrys_own_language(self):
+        # Issue #57: Nominatim names Warsaw in Polish, and "województwo"
+        # begins every Polish areaDesc in the country.
+        from linecast._weather_sources import _extract_location_words
+        words = _extract_location_words({"city": "Warszawa",
+                                         "state": "województwo mazowieckie"})
+        assert words == {"warszawa", "mazowieckie"}
+        words = _extract_location_words({"city": "Brno",
+                                         "state": "Jihomoravský kraj",
+                                         "county": "okres Brno-město"})
+        assert words == {"brno", "jihomoravský", "brno-město"}
+
+
+class TestMeteoAlarmFeedWideWords:
+    """A word found across most of the feed names no single place."""
+
+    def _descs(self, n, word):
+        return [[f"{word} district {i}"] for i in range(n)]
+
+    def test_a_word_across_the_whole_feed_is_dropped(self):
+        from linecast._weather_sources import _drop_feed_wide_words
+        descs = self._descs(30, "zork")
+        assert _drop_feed_wide_words({"zork", "york"}, descs) == {"york"}
+
+    def test_a_word_in_a_few_warnings_is_kept(self):
+        from linecast._weather_sources import _drop_feed_wide_words
+        descs = self._descs(30, "zork") + [["york"]] * 3
+        assert "york" in _drop_feed_wide_words({"york"}, descs)
+
+    def test_a_small_feed_is_not_judged(self):
+        # Three warnings, all in one province: the province is not generic.
+        from linecast._weather_sources import _drop_feed_wide_words
+        descs = self._descs(3, "masovia")
+        assert _drop_feed_wide_words({"masovia"}, descs) == {"masovia"}
+
+    def test_an_unlisted_tier_word_is_learned_from_the_feed(self):
+        # The tier-word list cannot know every language; the feed can.
+        data = _feed(*[_warning("Wind warning", "Moderate",
+                                f"zorkland zone {i}", description="Gusts.")
+                       for i in range(25)])
+        got = _alerts(data, 54.0, -1.1, {"city": "York", "state": "Zorkland"})
+        assert got == []
+
+
+class TestMeteoAlarmPerCountyFeeds:
+    """Poland files one warning per county; a province's worth read as one."""
+
+    def _poland(self):
+        storm = "Thunderstorms with hail."
+        masovia = [_warning("Thunderstorm warning", "Moderate",
+                            f"województwo mazowieckie powiat {name}",
+                            description=storm)
+                   for name in ("ciechanowski", "płocki", "Warszawa",
+                                "wołomiński", "żyrardowski")]
+        elsewhere = [_warning("Thunderstorm warning", "Moderate",
+                              f"województwo wielkopolskie powiat {i}",
+                              description=storm)
+                     for i in range(20)]
+        return _feed(*masovia, *elsewhere)
+
+    WARSAW = {"city": "Warszawa", "state": "województwo mazowieckie"}
+
+    def test_a_province_word_does_not_match_the_country(self):
+        got = _alerts(self._poland(), 52.23, 21.01, self.WARSAW)
+        assert len(got) == 1
+
+    def test_the_copy_kept_names_the_users_own_county(self):
+        got = _alerts(self._poland(), 52.23, 21.01, self.WARSAW)
+        assert "Warszawa" in got[0]["headline"]
+
+    def test_warnings_that_read_differently_stay_apart(self):
+        data = _feed(_warning("Rain warning", "Moderate",
+                              "województwo mazowieckie powiat płocki",
+                              description="30 to 40 mm."),
+                     _warning("Rain warning", "Moderate",
+                              "województwo mazowieckie powiat Warszawa",
+                              description="50 to 70 mm."))
+        got = _alerts(data, 52.23, 21.01, self.WARSAW)
+        assert len(got) == 2
+
+
+class TestAlertCap:
+    """However many a feed sends, the board shows the gravest few."""
+
+    def test_the_gravest_come_first_and_the_rest_are_cut(self):
+        from linecast._weather_sources import _trim_alerts, MAX_ALERTS
+        alerts = ([{"event": f"m{i}", "severity": "Moderate"} for i in range(6)]
+                  + [{"event": "x", "severity": "Extreme"}]
+                  + [{"event": f"s{i}", "severity": "Severe"} for i in range(6)])
+        got = _trim_alerts(alerts)
+        assert len(got) == MAX_ALERTS
+        assert got[0]["event"] == "x"
+        assert [a["severity"] for a in got[1:7]] == ["Severe"] * 6
+        assert got[7]["event"] == "m0"
+
+    def test_the_cap_applies_to_every_provider(self):
+        from linecast import _weather_sources as ws
+        many = [{"event": f"a{i}", "severity": "Moderate"} for i in range(40)]
+        with patch.object(ws, "_fetch_alerts_nws", return_value=many):
+            got = ws.fetch_alerts(43.6, -70.3, "US")
+        assert len(got) == ws.MAX_ALERTS
 
 
 class TestMeteoAlarmDedup:

@@ -247,12 +247,39 @@ def apply_india_aqi(aqi_data, country_code):
         aqi_data.setdefault("current", {})["india_aqi"] = value
 
 
+# Alerts past this many are cut, gravest first. Enough for a bad day on
+# one point -- a hurricane's watch, warning, surge, and flood advisories
+# fit -- and few enough that a feed gone wrong stays a band, not a wall.
+MAX_ALERTS = 8
+
+_SEVERITY_RANK = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
+
+
 def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en",
                  address: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """Fetch active weather alerts from the appropriate provider.
 
-    Routes to the best available source for each country.
+    Routes to the best available source for each country, then keeps
+    the board readable: the gravest alerts first, and no more than
+    MAX_ALERTS of them. A feed that files one warning per county can
+    land hundreds on a single point (issue #57); past a handful, the
+    pills stop informing and start papering the screen.
     """
+    alerts = _fetch_alerts_routed(lat, lng, country_code, lang, address)
+    return _trim_alerts(alerts)
+
+
+def _trim_alerts(alerts):
+    """The gravest alerts first, at most MAX_ALERTS of them.
+
+    The sort is stable, so a provider's own order holds within a
+    severity; an unknown severity sorts last.
+    """
+    ranked = sorted(alerts, key=lambda a: _SEVERITY_RANK.get(a.get("severity"), 9))
+    return ranked[:MAX_ALERTS]
+
+
+def _fetch_alerts_routed(lat, lng, country_code, lang, address):
     if country_code == "US":
         return _fetch_alerts_nws(lat, lng)
     if country_code == "CA":
@@ -588,12 +615,20 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
     if isinstance(data, list):
         return data
 
-    location_words = _extract_location_words(address)
+    warnings = data.get("warnings", [])
+    per_warning_descs = [
+        [area.get("areaDesc", "")
+         for info in w.get("alert", {}).get("info", [])
+         for area in info.get("area", [])]
+        for w in warnings
+    ]
+    location_words = _drop_feed_wide_words(
+        _extract_location_words(address), per_warning_descs)
     alerts = []
-    seen = set()
+    seen = {}
     national = []
     national_seen = set()
-    for w in data.get("warnings", []):
+    for w in warnings:
         alert_obj = w.get("alert", {})
         infos = alert_obj.get("info", [])
         # Prefer user's language, fall back to English, then first available
@@ -679,12 +714,28 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
                 national.append(alert)
             continue
 
-        # areaDesc belongs in the key: on (event, severity) alone a
-        # country in flood collapses to one arbitrary river's warning.
-        dedup_key = (event, severity, " | ".join(area_descs))
-        if dedup_key in seen:
+        # The text, not the ground, tells one warning from another.
+        # Poland's service files a storm as one warning per county, word
+        # for word the same across a province, and every county in the
+        # province matched a Masovian address: 28 pills for one storm
+        # (issue #57). Two warnings that read the same are one warning
+        # to the reader. Where there is no text, the ground covered is
+        # all that tells them apart, and it stays in the key: on
+        # (event, severity) alone a country in flood collapses to one
+        # arbitrary river's warning.
+        dedup_key = (event, severity,
+                     alert["description"] or " | ".join(area_descs))
+        # Of the copies, keep the one whose ground reads most like the
+        # user's address, so the headline names their own county.
+        score = sum(1 for word in location_words
+                    if any(word in ad.lower() for ad in area_descs))
+        held = seen.get(dedup_key)
+        if held is not None:
+            if score > held[0]:
+                alerts[held[1]] = alert
+                seen[dedup_key] = (score, held[1])
             continue
-        seen.add(dedup_key)
+        seen[dedup_key] = (score, len(alerts))
         alerts.append(alert)
 
     if not alerts:
@@ -697,12 +748,82 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
 # gives Edinburgh a county of "City of Edinburgh" and the Rhône one of
 # "Auvergne-Rhône-Alpes Region"; left in, "city" and "region" match a good
 # part of Europe's areaDescs and the filter stops filtering.
+#
+# Addresses come back in the country's own language, and so do the
+# areaDescs, so every MeteoAlarm country's tier words belong here too.
+# Warsaw's address is "Warszawa, województwo mazowieckie", and every
+# Polish areaDesc begins "województwo ..."; that one word matched the
+# whole country's warnings, 419 of them (issue #57).
 _GENERIC_PLACE_WORDS = frozenset({
-    "administrative", "area", "borough", "canton", "city", "council",
-    "county", "department", "district", "division", "metropolitan",
-    "municipality", "prefecture", "province", "region", "regional",
-    "state", "territory", "unitary",
+    # English, and the English names Nominatim gives foreign tiers
+    "administrative", "area", "autonomous", "borough", "canton", "city",
+    "community", "council", "county", "department", "district",
+    "division", "metropolitan", "municipality", "oblast", "okrug",
+    "prefecture", "province", "raion", "region", "regional", "state",
+    "territory", "unitary", "voivodeship",
+    # Polish
+    "województwo", "powiat", "gmina", "miasto",
+    # Czech, Slovak
+    "kraj", "okres", "obec", "hlavní", "město", "mesto",
+    # Hungarian
+    "megye", "vármegye", "járás", "város", "kerület",
+    # Romanian, Moldovan
+    "județul", "județ", "municipiul", "comuna", "sectorul", "raionul",
+    # Bulgarian, Serbian, Macedonian, Montenegrin
+    "област", "община", "општина", "округ", "град", "opština", "grad",
+    # Croatian, Slovenian, Bosnian
+    "županija", "općina", "občina", "mestna", "kanton",
+    # German (Austria, Switzerland, Luxembourg)
+    "bezirk", "landkreis", "kreis", "gemeinde", "stadt", "regierungsbezirk",
+    # Dutch, Flemish
+    "provincie", "gemeente", "arrondissement", "gewest", "stad",
+    # French (France, Belgium, Switzerland, Luxembourg)
+    "département", "région", "commune", "métropole", "communauté", "ville",
+    # Spanish, Catalan, Galician, Basque
+    "provincia", "comunidad", "autónoma", "municipio", "comarca",
+    "comunitat", "província", "autònoma", "concello", "probintzia",
+    # Portuguese
+    "distrito", "concelho", "freguesia", "município", "região",
+    # Italian
+    "regione", "comune", "città", "metropolitana",
+    # Greek, Cypriot
+    "περιφέρεια", "περιφερειακή", "ενότητα", "δήμος", "νομός", "επαρχία",
+    # Danish, Swedish, Finnish, Icelandic
+    "kommune", "län", "kommun", "maakunta", "kunta", "seutukunta",
+    "sveitarfélag", "sýsla",
+    # Estonian, Latvian, Lithuanian
+    "maakond", "vald", "linn", "novads", "pagasts", "pilsēta",
+    "apskritis", "rajonas", "savivaldybė", "miestas", "seniūnija",
+    # Maltese, Irish, Hebrew
+    "reġjun", "kunsill", "lokali", "contae", "מחוז", "נפת", "נפה",
 })
+
+# A word the feed itself shows to be a tier word: one found in the areas
+# of this share of a country's warnings names no single place, whatever
+# language it is in. Judged only on a feed big enough to be telling; in
+# a quiet country with three warnings, all in one province, the
+# province's name matches all three and is not generic for it.
+_FEED_WIDE_SHARE = 0.8
+_FEED_WIDE_MIN_WARNINGS = 20
+
+
+def _drop_feed_wide_words(location_words, per_warning_descs):
+    """Location words minus any that match most of the feed.
+
+    per_warning_descs holds one list of areaDesc strings per warning.
+    The list of tier words above cannot know every language Nominatim
+    speaks; this reads the tier words off the feed at hand instead.
+    """
+    if len(per_warning_descs) < _FEED_WIDE_MIN_WARNINGS:
+        return location_words
+    limit = _FEED_WIDE_SHARE * len(per_warning_descs)
+    kept = set()
+    for word in location_words:
+        hits = sum(1 for descs in per_warning_descs
+                   if any(word in d.lower() for d in descs))
+        if hits < limit:
+            kept.add(word)
+    return kept
 
 
 def _extract_location_words(address):

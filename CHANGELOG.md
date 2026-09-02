@@ -38,6 +38,12 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Moon: `--calendar almanac` reads the moon the way the Old Farmer's Almanac does: the light or dark of the moon beside the phase, gardening counsel for it, and the day's solunar periods — the majors at the Moon's meridian passes, the minors at moonrise and moonset. `--json` reports it in the `calendar` block.
 - Moon: In Japanese the headline now names the night itself, following the old calendar's day — 十六夜, 立待月, 居待月, 寝待月, 更待月 — instead of rounding to the nearest phase name.
 
+## 2.2.1 — 2026-09-02
+
+- Weather: Alerts in Poland no longer bury the forecast. Warsaw was getting every warning in the country, 419 of them, because the Polish word for province matched them all (issue #57). The words that name a tier rather than a place are now set aside in every language MeteoAlarm speaks, and any word the feed shows to match most of the country is set aside with them.
+- Weather: A warning filed county by county, word for word the same across a province, now shows once, naming the reader's own county.
+- Weather: The board keeps at most eight alerts, gravest first, whatever a feed sends.
+
 ## 2.2.0 — 2026-08-31
 
 Sunshine has a year view. The Moon's phases and times are more accurate, and official weather alerts now reach India, New Zealand, and six more European countries.
