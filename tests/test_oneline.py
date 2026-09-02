@@ -184,6 +184,29 @@ class TestMoonOneline:
         plain = _strip_ansi(line)
         assert "Pleine Lune" in plain
 
+    def test_a_calendar_date_ends_the_line(self):
+        # 21 January 2000 is 14 Shevat 5760, the eve of Tu BiShvat;
+        # the line a status bar already shows is kept, and the date
+        # follows it.
+        plain = _strip_ansi(moon_oneline(self._now(), 43.66, -70.26,
+                                         self._runtime(), calendar="none"))
+        with_cal = _strip_ansi(moon_oneline(self._now(), 43.66, -70.26,
+                                            self._runtime(), calendar="hebrew"))
+        assert " · " not in plain
+        assert with_cal == f"{plain} · 14 Shevat 5760"
+
+    def test_a_calendar_that_names_nights_replaces_the_phase_name(self):
+        plain = _strip_ansi(moon_oneline(self._now(), 19.7, -155.1,
+                                         self._runtime(), calendar="hawaiian"))
+        assert "Full Moon" not in plain
+        assert " · anahulu " in plain
+
+    def test_the_almanac_names_the_half_of_the_month(self):
+        plain = _strip_ansi(moon_oneline(self._now(), 43.66, -70.26,
+                                         self._runtime(), calendar="almanac"))
+        # The test moment sits at the full moon, on the turn between halves.
+        assert plain.endswith((" · light of the moon", " · dark of the moon"))
+
 
 # ---------------------------------------------------------------------------
 # Tides oneline

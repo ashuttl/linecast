@@ -473,6 +473,46 @@ def _next_phase_local(moment_utc, target_frac, now_local):
     return found.astimezone(now_local.tzinfo)
 
 
+def calendar_headline(cal, now_local, lat, lng, runtime, lang):
+    """(name, aside) the calendar puts in the headline, either None.
+
+    The Pacific calendars name the night, so the name stands in for the
+    phase name; Japanese in Japanese names it too (居待月 on the old
+    calendar's 18th, whatever octant the phase rounds to). The aside is
+    the lunar date — Chinese, Japanese, Korean, Thai, Hijri (turned at
+    the reader's sunset), Hebrew (the same) — or the anahulu, or the
+    almanac's half of the month. A calendar shown in its own language
+    keeps its own script; any other language gets the English names.
+    """
+    if cal is None:
+        return None, None
+    if cal in PACIFIC_CALENDARS:
+        night, nights = pacific_night(cal, now_local.date())
+        name = pacific_night_label(cal, night, nights)
+        aside = f"anahulu {anahulu_name(night)}" if cal == "hawaiian" else None
+        return name, aside
+    if cal == "almanac":
+        half = "light" if moon_cycle_frac(now_local) < 0.5 else "dark"
+        return None, _ms(f'{half}_of_moon', runtime)
+    if cal in ("islamic", "hebrew"):
+        h_day = now_local.date()
+        if after_sunset(now_local, lat, lng):
+            h_day += timedelta(days=1)
+        if cal == "islamic":
+            return None, hijri_date_label(*hijri_date(h_day), lang)
+        return None, hebrew_date_label(*hebrew_date(h_day))
+    if cal == "thai":
+        label_lang = "th" if lang == "th" else "en"
+        t_month, t_day, t_doubled = thai_lunar_date(now_local.date())
+        return None, thai_lunar_label(t_month, t_day, t_doubled, label_lang)
+    label_lang = lang if CALENDAR_NATIVE_LANG[cal] == lang else "en"
+    lunar = lunisolar_date(now_local.date(), CALENDAR_MERIDIAN_HOURS[cal])
+    if lunar is None:
+        return None, None
+    name = ja_night_name(lunar[1]) if label_lang == "ja" else None
+    return name, lunar_date_label(*lunar, label_lang)
+
+
 def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
            calendar_name=None):
     """Build the full-screen moon display: disc plus info lines.
@@ -515,6 +555,13 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # is the almanac's name, not the Kaulana Mahina's or the 农历's.
     lang = lang_of(runtime)
     cal = resolve_calendar(calendar_name, lang)
+    # The headline is the calendar's: the night's name where the
+    # calendar names nights, and the lunar date or the almanac's half
+    # of the month as an aside. The one-line summary shows the same.
+    cal_name, lunar_txt = calendar_headline(cal, now_local, lat, lng,
+                                            runtime, lang)
+    if cal_name:
+        name = cal_name
     full_label = _moon_name(4, runtime)
     if lang == "en" and cal in (None, "almanac"):
         moon_name = full_moon_name(full_dt, SYNODIC_MONTH)
@@ -562,7 +609,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # the solunar periods.
     # A calendar shown in its own language keeps its own script; any
     # other language gets the customary English names.
-    lunar_txt = term_txt = term_short = fest_txt = fest_short = None
+    term_txt = term_short = fest_txt = fest_short = None
     good_txt = hold_txt = solunar_txt = attrib_txt = None
     if cal in PACIFIC_CALENDARS:
         # The Pacific calendars name every night, in their own
@@ -572,15 +619,13 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         # which night of the month this is, so "day 20.2 of 29.5"
         # would read as a rival count; the age keeps its astronomical
         # name and shares a line with the illumination.
-        night, nights = pacific_night(cal, now_local.date())
-        name = pacific_night_label(cal, night, nights)
+        night, _nights = pacific_night(cal, now_local.date())
         age_txt = _ms('lunar_age', runtime, age=f'{age:.1f}')
         if cal == "hawaiian":
             # The Kaulana Mahina adds the anahulu beside the name, and
             # the counsel lines below: the night's kapu or ʻole note
             # when it has one, the anahulu's fishing counsel, and the
             # source named plainly.
-            lunar_txt = f"anahulu {anahulu_name(night)}"
             note = night_note(name)
             counsel = ANAHULU_COUNSEL[anahulu_name(night)]
             good_txt, hold_txt = (note or counsel), (counsel if note else None)
@@ -592,7 +637,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         # passes, the minors at moonrise and moonset.
         waxing = moon_cycle_frac(now_local) < 0.5
         half = "light" if waxing else "dark"
-        lunar_txt = _ms(f'{half}_of_moon', runtime)
         good_txt = _ms('good_for', runtime,
                        things=_ms(f'{half}_good', runtime))
         hold_txt = _ms('hold_off', runtime,
@@ -623,7 +667,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         if after_sunset(now_local, lat, lng):
             h_day += timedelta(days=1)
         h_year, h_month, h_dom = hijri_date(h_day)
-        lunar_txt = hijri_date_label(h_year, h_month, h_dom, lang)
         term_short = hijri_month_name(h_month, lang)
         nxt_day, (_nxt_year, nxt_month) = next_month_start(h_day)
         nxt_gap = (nxt_day - now_local.date()).days
@@ -650,7 +693,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         if after_sunset(now_local, lat, lng):
             h_day += timedelta(days=1)
         h_year, h_month, h_dom = hebrew_date(h_day)
-        lunar_txt = hebrew_date_label(h_year, h_month, h_dom)
         term_short = hebrew_month_name(h_year, h_month)
         nxt_day, (nxt_year, nxt_month) = next_hebrew_month(h_day)
         nxt_gap = (nxt_day - now_local.date()).days
@@ -675,8 +717,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         # the วันพระ, the four holy days of each month, so that line
         # takes the terms' place, led by the year's animal.
         label_lang = "th" if lang == "th" else "en"
-        t_month, t_day, t_doubled = thai_lunar_date(now_local.date())
-        lunar_txt = thai_lunar_label(t_month, t_day, t_doubled, label_lang)
         term_short = thai_year_label(year_animal_index(now_local.date()),
                                      label_lang)
         if is_wan_phra(now_local.date()):
@@ -697,14 +737,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     elif cal is not None:
         cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
         label_lang = lang if CALENDAR_NATIVE_LANG[cal] == lang else "en"
-        lunar = lunisolar_date(now_local.date(), cal_tz)
-        if lunar is not None:
-            lunar_txt = lunar_date_label(*lunar, label_lang)
-            # Japan names the night itself: on the old calendar's 18th
-            # the moon is 居待月 whatever octant the phase rounds to,
-            # so the headline follows the day, not the bucket.
-            if cal == "japanese" and label_lang == "ja":
-                name = ja_night_name(lunar[1])
         cur_k, _cur_start = current_term(moment_utc)
         nxt_k, nxt_start = next_term(moment_utc)
         nxt_local = nxt_start.astimezone(now_local.tzinfo)
@@ -979,7 +1011,7 @@ def main():
 
     if runtime.oneline:
         from linecast._oneline import moon_oneline
-        print(moon_oneline(_now(), lat, lng, runtime))
+        print(moon_oneline(_now(), lat, lng, runtime, calendar=args.calendar))
         return
 
     live = runtime.live

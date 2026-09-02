@@ -110,23 +110,39 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None):
 # Moon oneline
 # ---------------------------------------------------------------------------
 
-def moon_oneline(now_local, lat, lng, runtime):
+def moon_oneline(now_local, lat, lng, runtime, calendar=None):
     """Return a compact moon summary line.
 
     Example: ``waxing_gibbous_icon Waxing Gibbous 84% ↓4:12a ↑9:41p``
 
     Rise/set are the *next* events from now — never today's already-passed
     ones — listed chronologically, so a leading ↓ means the Moon is up.
+
+    With a traditional calendar in effect the line carries what the
+    panel's headline carries: the night's name in place of the phase
+    name where the calendar names nights, and the lunar date (or the
+    anahulu, or the almanac's half of the month) after the events —
+    ``… ↓4:12a ↑9:41p · 20 Elul 5786`` — so the line a status bar
+    already shows is unchanged up to the new ending.
     """
-    from linecast.moon import moon_illumination, upcoming_moon_events
+    from linecast.moon import (
+        calendar_headline, moon_illumination, upcoming_moon_events,
+    )
     from linecast.sunshine import (
         moon_phase, INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_TEXT_RGB,
     )
+    from linecast._i18n import lang_of
+    from linecast._lunisolar import resolve_calendar
     from linecast._tides_i18n import _moon_name
 
     idx, _name, icon = moon_phase(now_local, runtime)
     name = _moon_name(idx, runtime)
     illum = moon_illumination(now_local)
+    lang = lang_of(runtime)
+    cal_name, aside = calendar_headline(
+        resolve_calendar(calendar, lang), now_local, lat, lng, runtime, lang)
+    if cal_name:
+        name = cal_name
 
     amber = fg(*INFO_AMBER_RGB)
     purple = fg(*INFO_PURPLE_RGB)
@@ -141,6 +157,8 @@ def moon_oneline(now_local, lat, lng, runtime):
     for dt, arrow in events:
         color = amber if arrow == "↑" else purple
         parts.append(f"{color}{arrow}{text}{fmt_time_dt(dt, use_24h=runtime.use_24h)}")
+    if aside:
+        parts.append(f"{text}· {aside}")
 
     return " ".join(parts) + RESET
 

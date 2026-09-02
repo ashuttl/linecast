@@ -19,6 +19,7 @@ New this version:
 - Moon: The Hawaiian calendar shows the night's traditional fishing counsel: the kapu periods, the ʻole nights, and the anahulu's outlook, quoted from the Council's educational materials and attributed on screen.
 - Moon: `--calendar almanac` reads the moon the way the Old Farmer's Almanac does: the light or dark of the moon beside the phase, gardening counsel for it, and the day's solunar periods. The almanac's full-moon names (Harvest, Blue, and the rest) show here and in the plain English view; a panel following another calendar keeps the plain phase name.
 - Moon: `--json` reports the active calendar in a `calendar` block, or null when none is shown.
+- Moon: `--oneline` carries the calendar too: the lunar date after the rise and set times (· 20 Elul 5786, · 旧暦7月22日), and the night's name in place of the phase name where the calendar names nights.
 - Moon: `v` in live mode flips between the disc and a month calendar of phases. Each day is a small shaded disc, with today, the principal phases, and the active calendar's dates and festivals marked. Scroll to page through months, hover a day for its phase, moonrise, and moonset, and click one to open it in the disc view.
 - Sunshine: `v` switches between the day and year views, the same key as in maps and moon. `y` still works.
 - Thai is the eighteenth language. `--lang th` puts the whole app in Thai.
