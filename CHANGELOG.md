@@ -4,7 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-The moon follows traditional calendars and has a month view. Thai is the eighteenth language. Street maps get route shields and a label hierarchy, sunrise and sunset times are more accurate, and every European alert feed is now matched by geometry.
+The moon follows traditional calendars: Chinese, Japanese, Korean, and Thai by language, and Hebrew, Islamic, Hawaiian, Samoan, CHamoru, and the Old Farmer's Almanac by choice. It has a month view too. Thai is the eighteenth language. Street maps get route shields and a label hierarchy, sunrise and sunset times are more accurate, and every European alert feed is now matched by geometry.
 
 New this version:
 
@@ -19,6 +19,7 @@ New this version:
 - Moon: The Hawaiian calendar shows the night's traditional fishing counsel: the kapu periods, the ʻole nights, and the anahulu's outlook, quoted from the Council's educational materials and attributed on screen.
 - Moon: `--calendar almanac` reads the moon the way the Old Farmer's Almanac does: the light or dark of the moon beside the phase, gardening counsel for it, and the day's solunar periods. The almanac's full-moon names (Harvest, Blue, and the rest) show here and in the plain English view; a panel following another calendar keeps the plain phase name.
 - Moon: `--json` reports the active calendar in a `calendar` block, or null when none is shown.
+- Doctor: `linecast doctor` lists the calendar in force with the other preferences, and where it came from.
 - Moon: `--oneline` carries the calendar too: the lunar date after the rise and set times (· 20 Elul 5786, · 旧暦7月22日), and the night's name in place of the phase name where the calendar names nights.
 - Moon: `v` in live mode flips between the disc and a month calendar of phases. Each day is a small shaded disc, with today, the principal phases, and the active calendar's dates and festivals marked. Scroll to page through months, hover a day for its phase, moonrise, and moonset, and click one to open it in the disc view.
 - Sunshine: `v` switches between the day and year views, the same key as in maps and moon. `y` still works.
@@ -29,7 +30,7 @@ New this version:
 - Maps: Street maps shade built-up ground, so towns and cities read as settlement even where no one has mapped the land use.
 - Maps: With daylight on, the header names what the sun is over ("sun over North Pacific Ocean") instead of the elevation at the view centre. Pointing at the terrain still reads the elevation there.
 - Maps and radar: The header starts with the place name instead of the app's name.
-- Weather: A line on the hourly chart marks the current time, so now stays visible after scrolling away from it.
+- Weather: A line on the hourly chart marks the current time, so now stays visible after scrolling away from it (thanks [@ebrannin-bw](https://github.com/ebrannin-bw) for [#49](https://github.com/ashuttl/linecast/issues/49)).
 - Sunshine: The year view fills the window with the sky field, and the month labels sit on the field itself. The sunrise/sunset line, which described only today, is gone; the pop-up gives those times for any day.
 - Sunshine: The year view's daylight is hazier near sunrise and sunset, whiter low in the sky and settling into blue as the sun climbs.
 - Radar: The marangai theme's top bands match MetService's legend more closely. Heavy rain stays in the reds, and the possible-hail run of purple, white, green, and pink starts around 45 dBZ.
