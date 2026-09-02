@@ -134,12 +134,13 @@ class TestCalendars:
         assert "Sinahen Håcha" in text and "Sinahi" in text
 
     def test_islamic_month_starts_and_observances(self):
-        # Ramadan 1447 opens on 18 February 2026; the grid marks the
-        # month start, and March carries Laylat al-Qadr and Eid al-Fitr.
+        # Ramadan 1447 opens on 18 February 2026; the month's name
+        # stands before its 1 in the cell's corner, and March carries
+        # Laylat al-Qadr and Eid al-Fitr.
         now = datetime(2026, 2, 10, 14, 30, tzinfo=ET)
         body, _chip = _render(120, 34, calendar="islamic", now=now)
         text = "\n".join(body)
-        assert "18 Ramadan" in text
+        assert "18 Ramadan beg" in text and "Ramadan 1" in text
         body, _chip = _render(120, 34, calendar="islamic", now=now,
                               month_offset=1)
         text = "\n".join(body)
@@ -149,7 +150,8 @@ class TestCalendars:
     def test_hebrew_holidays_and_month_starts(self):
         # Tishrei 5787 opens on 12 September 2026: the grid names the
         # two days of Rosh Hashanah, Yom Kippur, and the days of
-        # Sukkot, and October carries Simchat Torah and 1 Cheshvan.
+        # Sukkot, and October carries Simchat Torah and, in the
+        # corner, Cheshvan's 1.
         now = datetime(2026, 9, 2, 14, 30, tzinfo=ET)
         body, _chip = _render(120, 34, calendar="hebrew", now=now)
         text = "\n".join(body)
@@ -159,7 +161,8 @@ class TestCalendars:
         body, _chip = _render(120, 34, calendar="hebrew", now=now,
                               month_offset=1)
         text = "\n".join(body)
-        assert "4 Simchat Tora" in text and "12 Cheshvan" in text
+        assert "4 Simchat Tora" in text and "Cheshvan 1" in text
+        assert "12 Cheshvan" not in text
 
     def test_hebrew_holidays_in_israel(self):
         # Seen from Jerusalem, Simchat Torah shares Shemini Atzeret's
@@ -200,8 +203,10 @@ class TestCalendars:
             line = _blocks_to_space(body[row0 + wk * cell_h + cell_h - 1])
             return line[x0:x0 + cell_w].rstrip()
 
-        assert corner(1).endswith("19") and corner(12).endswith(" 1")
-        assert corner(30).endswith("19")
+        assert corner(1).endswith("19") and corner(30).endswith("19")
+        # Tishrei opens on Rosh Hashanah, which takes the top line; the
+        # corner still names the month, so it is never lost.
+        assert corner(12).endswith("Tishrei 1")
 
     def test_hijri_day_in_the_corner(self):
         from linecast import _moon_calendar

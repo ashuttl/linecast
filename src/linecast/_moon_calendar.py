@@ -149,31 +149,24 @@ def _cell_label(day, cal, native, fest, lang="en", israel=False):
 
     A festival names its day in every script. Beyond that only the
     labels that read at a glance appear: the 农历 day names, which are
-    words, and each lunar month's opening day for Japanese, Korean,
-    and the Hijri and Hebrew calendars. The full lunar date lives in
-    the hover chip.
+    words, and each lunar month's opening day for Japanese and Korean.
+    The Hijri and Hebrew calendars count their days in the cell's
+    corner instead (render_calendar), and name the month there. The
+    full lunar date lives in the hover chip.
     """
     if cal in PACIFIC_CALENDARS:
         night, nights = pacific_night(cal, day)
         return pacific_night_name(cal, night, nights), False
     if cal == "islamic":
+        # The month starts ride in the corner with the Hijri day.
         key = observance_key(day)
-        if key:
-            return hijri_observance_name(key, lang), True
-        _year, m, d = hijri_date(day)
-        if d == 1:
-            return hijri_month_name(m, lang), False
-        return None
+        return (hijri_observance_name(key, lang), True) if key else None
     if cal == "hebrew":
         # A holiday names every day it runs, Sukkot's seven and
         # Hanukkah's eight included, the way a printed calendar does.
+        # The month starts ride in the corner with the Hebrew day.
         key = holiday_key(day, israel)
-        if key:
-            return hebrew_holiday_name(key), True
-        year, m, d = hebrew_date(day)
-        if d == 1:
-            return hebrew_month_name(year, m), False
-        return None
+        return (hebrew_holiday_name(key), True) if key else None
     if cal == "thai":
         # Festivals and month starts as the other calendars have them,
         # plus the วันพระ — the printed Thai calendars mark all four
@@ -300,9 +293,10 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     overlays = {}
 
     # Title, centred over the grid. A calendar with months of its own
-    # sets them beside the civil month, as the wall calendars do; paged
-    # away, the way back rides at the end. The span is the first to go
-    # when the row runs short.
+    # sets them beside the civil month, as the wall calendars do, in the
+    # text ink so they read as part of the title; paged away, the way
+    # back rides at the end, dim. The span is the first to go when the
+    # row runs short.
     title = _month_title(year, month, lang)
     span = _calendar_span(cal, year, month, days_in, lang)
     span = f" · {span}" if span else ""
@@ -316,7 +310,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     tx = _put(overlays, tx, 0, title, A if month_offset else T, bold=True,
               max_x=graph_w)
     if span:
-        tx = _put(overlays, tx, 0, span, D, max_x=graph_w)
+        tx = _put(overlays, tx, 0, span, T, max_x=graph_w)
     if aside:
         _put(overlays, tx, 0, aside, D, max_x=graph_w)
 
@@ -395,13 +389,24 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
 
         # A calendar that counts its own days sets the day's number in
         # the far corner, faint, the way the dual wall calendars print
-        # the other calendar's date small beside the civil one. The
-        # title says which months the numbers belong to.
+        # the other calendar's date small beside the civil one. A
+        # month's opening day carries the month's name in front of its
+        # 1, so the count and the name change together; the title says
+        # which months the numbers belong to.
         if cal in ("hebrew", "islamic") and cell_h >= 3 and cell_w >= 6:
-            other = (hebrew_date if cal == "hebrew" else hijri_date)(d)[2]
-            num = str(other)
-            _put(overlays, x0 + cell_w - 1 - len(num), y0 + cell_h - 1,
-                 num, F, max_x=graph_w)
+            if cal == "hebrew":
+                oy, om, od = hebrew_date(d)
+                name = hebrew_month_name(oy, om)
+            else:
+                _oy, om, od = hijri_date(d)
+                name = hijri_month_name(om, lang)
+            text = str(od)
+            if od == 1:
+                room = cell_w - 2 - len(text) - 1
+                if room >= 3:
+                    text = f"{_clip(name, room)} {text}"
+            _put(overlays, x0 + cell_w - 1 - visible_len(text),
+                 y0 + cell_h - 1, text, F, max_x=graph_w)
 
     lines = fb.render(overlays=overlays)
     if hint:
