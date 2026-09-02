@@ -170,6 +170,37 @@ class TestCalendars:
         assert "3 Shemini Atz" in text
         assert "4 Simchat Tora" not in text
 
+    def test_hebrew_months_in_the_title(self):
+        # September runs from Elul into Tishrei, across the new year;
+        # October stays in 5787; February 2025 sat inside Shevat.
+        now = datetime(2026, 9, 2, 14, 30, tzinfo=ET)
+        body, _chip = _render(120, 34, calendar="hebrew", now=now)
+        assert "Sep 2026 · Elul 5786 – Tishrei 5787" in body[0]
+        body, _chip = _render(120, 34, calendar="hebrew", now=now,
+                              month_offset=1)
+        assert "Oct 2026 · Tishrei – Cheshvan 5787" in body[0]
+        now = datetime(2025, 2, 10, 14, 30, tzinfo=ET)
+        body, _chip = _render(120, 34, calendar="hebrew", now=now)
+        assert "Feb 2025 · Shevat 5785" in body[0]
+
+    def test_hijri_months_in_the_title(self):
+        now = datetime(2026, 9, 2, 14, 30, tzinfo=ET)
+        body, _chip = _render(120, 34, calendar="islamic", now=now)
+        assert ("Sep 2026 · Rabiʻ al-Awwal – Rabiʻ al-Thani 1448 AH"
+                in body[0])
+        body, _chip = _render(120, 34, calendar="islamic", now=now,
+                              lang="id")
+        assert "Rabiulawal – Rabiulakhir 1448 H" in body[0]
+
+    def test_title_span_yields_to_a_narrow_grid(self):
+        # Paged away on a narrow terminal, the way back keeps its place
+        # and the calendar's months are the part that goes.
+        now = datetime(2026, 9, 2, 14, 30, tzinfo=ET)
+        body, _chip = _render(48, 24, calendar="islamic", now=now,
+                              month_offset=1)
+        assert "Oct 2026" in body[0] and "Rabi" not in body[0]
+        assert "now" in body[0]
+
     def test_plain_english_carries_no_labels(self):
         body, _chip = _render(100, 32)
         assert "月" not in "\n".join(body)

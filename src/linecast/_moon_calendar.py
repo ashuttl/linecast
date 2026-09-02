@@ -37,7 +37,7 @@ from linecast._moon_i18n import (
     MONTHS_I18N, _day_abbrev, _fmt_month_day, _moon_name, _ms, _zh_day_name,
     _ZH_MONTHS, anahulu_name, festival_table, hebrew_date_label,
     hebrew_holiday_name, hebrew_month_name, hijri_date_label,
-    hijri_month_name, hijri_observance_name, ja_night_name, lunar_date_label,
+    hijri_lang, hijri_month_name, hijri_observance_name, ja_night_name, lunar_date_label,
     pacific_night_label, pacific_night_name, rosh_chodesh_label,
     thai_festival_name, thai_lunar_label, thai_month_label,
     wan_phra_label,
@@ -89,6 +89,34 @@ def _month_title(year, month, lang):
         # Thai calendars year themselves in the Buddhist Era.
         return f"{months[month - 1]} {year + 543}"
     return f"{months[month - 1]} {year}"
+
+
+def _calendar_span(cal, year, month, days_in, lang):
+    """The Hebrew or Hijri months a civil month runs through, for the title.
+
+    `Elul 5786 – Tishrei 5787`, `Tishrei – Cheshvan 5787`, or a lone
+    `Shevat 5787` for the February that fits inside one month. The
+    printed wall calendars set this under the civil month; here it also
+    covers the month starts the cells cannot show, since Tishrei and
+    Muharram both open on a holiday that takes the cell.
+    """
+    if cal == "hebrew":
+        y1, m1, _ = hebrew_date(date(year, month, 1))
+        y2, m2, _ = hebrew_date(date(year, month, days_in))
+        n1, n2 = hebrew_month_name(y1, m1), hebrew_month_name(y2, m2)
+        era = ""
+    elif cal == "islamic":
+        y1, m1, _ = hijri_date(date(year, month, 1))
+        y2, m2, _ = hijri_date(date(year, month, days_in))
+        n1, n2 = hijri_month_name(m1, lang), hijri_month_name(m2, lang)
+        era = " H" if hijri_lang(lang) == "id" else " AH"
+    else:
+        return None
+    if (y1, m1) == (y2, m2):
+        return f"{n1} {y1}{era}"
+    if y1 == y2:
+        return f"{n1} – {n2} {y1}{era}"
+    return f"{n1} {y1}{era} – {n2} {y2}{era}"
 
 
 def principal_phase_days(year, month, tzinfo):
@@ -271,14 +299,24 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     fb = Framebuffer(graph_w, graph_h, bg_color=_moon.SKY_RGB)
     overlays = {}
 
-    # Title, centred over the grid; paged away, the way back rides beside it.
+    # Title, centred over the grid. A calendar with months of its own
+    # sets them beside the civil month, as the wall calendars do; paged
+    # away, the way back rides at the end. The span is the first to go
+    # when the row runs short.
     title = _month_title(year, month, lang)
+    span = _calendar_span(cal, year, month, days_in, lang)
+    span = f" · {span}" if span else ""
     aside = f" · {_ts('space_to_now', runtime)}" if month_offset else ""
     t_w = visible_len(title)
+    s_w = visible_len(span)
     a_w = visible_len(aside)
-    tx = left + max(0, (grid_w - t_w - a_w) // 2)
+    if t_w + s_w + a_w > grid_w:
+        span, s_w = "", 0
+    tx = left + max(0, (grid_w - t_w - s_w - a_w) // 2)
     tx = _put(overlays, tx, 0, title, A if month_offset else T, bold=True,
               max_x=graph_w)
+    if span:
+        tx = _put(overlays, tx, 0, span, D, max_x=graph_w)
     if aside:
         _put(overlays, tx, 0, aside, D, max_x=graph_w)
 
