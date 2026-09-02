@@ -245,7 +245,7 @@ _MOON_STRINGS = {
         "illuminated": "輝面比 {pct}%",
         "age": "月齢 {age} / {total}",
         "lunar_age": "月齢 {age}",
-        "up_now": "現在昇っています",
+        "up_now": "現在出ています",
         "above_horizon": "高度 {alt}°",
         "below_horizon": "地平線の下",
         "moonrise": "月の出",
