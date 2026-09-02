@@ -38,6 +38,10 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Moon: `--calendar almanac` reads the moon the way the Old Farmer's Almanac does: the light or dark of the moon beside the phase, gardening counsel for it, and the day's solunar periods — the majors at the Moon's meridian passes, the minors at moonrise and moonset. `--json` reports it in the `calendar` block.
 - Moon: In Japanese the headline now names the night itself, following the old calendar's day — 十六夜, 立待月, 居待月, 寝待月, 更待月 — instead of rounding to the nearest phase name.
 
+## 2.2.2 — 2026-09-02
+
+- Weather: Alerts across Europe now match the ground they cover. Most MeteoAlarm feeds name a warning's region by code rather than by polygon, and linecast now ships the geometry for every one of those codes, so a warning for a county applies to the people in that county and to nobody else. The area-name matching that went wrong in Poland (issue #57) remains only for the few countries whose feeds carry neither polygons nor these codes.
+
 ## 2.2.1 — 2026-09-02
 
 - Weather: Alerts in Poland no longer bury the forecast. Warsaw was getting every warning in the country, 419 of them, because the Polish word for province matched them all (issue #57). The words that name a tier rather than a place are now set aside in every language MeteoAlarm speaks, and any word the feed shows to match most of the country is set aside with them.
