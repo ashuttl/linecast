@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, next]
   pull_request:
-    branches: [main]
+    branches: [main, next]
   # publish.yml calls this on a release tag, so the wheel that ships is
   # the one built and smoke-tested here.
   workflow_call:

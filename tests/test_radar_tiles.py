@@ -180,8 +180,21 @@ class TestReproject:
         i = (cy * w + cx) * 4
         assert tuple(out[i:i + 4]) == color
 
-    def test_missing_tile_yields_fully_transparent_output(self):
-        original = self._patch_fetch_tile(lambda *a, **k: None)
+    def test_missing_tile_is_asked_for_a_second_time(self):
+        """A tile the server was still rendering lands on the retry.
+
+        The request that timed out is what set the render going, so the
+        second one collects it — and the frame is whole, not holed.
+        """
+        color = (100, 150, 200, 255)
+        png = _solid_png(_TILE_SIZE, _TILE_SIZE, *color)
+        calls = []
+
+        def flaky(provider, host, path, z, x, y, timeout=15, mutable=False):
+            calls.append((z, x, y, timeout))
+            return None if len(calls) % 2 else png  # first no, second yes
+
+        original = self._patch_fetch_tile(flaky)
         try:
             bbox = (-10.0, -10.0, 10.0, 10.0)
             w, h = 4, 4
@@ -191,8 +204,25 @@ class TestReproject:
             tiles._fetch_tile = original
 
         assert (out_w, out_h) == (w, h)
-        assert len(out) == w * h * 4
-        assert all(v == 0 for v in out)
+        assert len(calls) == 2 and calls[0][:3] == calls[1][:3]
+        # the retry does not wait out the full timeout a second time
+        assert calls[1][3] == tiles._RETRY_TIMEOUT
+        i = ((h // 2) * w + w // 2) * 4
+        assert tuple(out[i:i + 4]) == color
+
+    def test_tile_missing_after_the_retry_refuses_the_frame(self):
+        """A hole is shaped exactly like fair weather, so it is not drawn."""
+        original = self._patch_fetch_tile(lambda *a, **k: None)
+        try:
+            bbox = (-10.0, -10.0, 10.0, 10.0)
+            with pytest.raises(tiles.IncompleteFrame) as excinfo:
+                reproject(rainviewer_provider(), "https://host", "/path",
+                          bbox, 4, 4)
+        finally:
+            tiles._fetch_tile = original
+
+        assert excinfo.value.missed == excinfo.value.total == 1
+        assert "1 of 1 tiles did not arrive" in str(excinfo.value)
 
 
 class TestSmoothGray:
@@ -305,3 +335,26 @@ def _reference_smooth_gray(canvas, canvas_w, canvas_h, org_x, org_y, world,
             out[di] = out[di + 1] = out[di + 2] = gray
             out[di + 3] = int(a_sum + 0.5)
     return w, h, out
+
+
+class TestTornTile:
+    """Bytes that will not decode are dropped, not kept forever."""
+
+    def test_undecodable_cached_tile_is_discarded(self, tmp_path, monkeypatch):
+        provider = rainviewer_provider()
+        monkeypatch.setattr(tiles, "_cache_dir", lambda p: tmp_path)
+        cached = []
+
+        def serve_torn(cache_file, max_age, url, **kw):
+            cache_file.write_bytes(b"not a png")  # as a torn download would
+            cached.append(cache_file)
+            return b"not a png"
+
+        monkeypatch.setattr(tiles, "fetch_bytes_cached", serve_torn)
+        with pytest.raises(tiles.IncompleteFrame):
+            reproject(provider, "https://host", "/path",
+                      (-10.0, -10.0, 10.0, 10.0), 4, 4)
+
+        assert cached, "the stub was never reached"
+        # a past frame's tiles never expire, so the torn bytes had to go
+        assert not any(p.exists() for p in cached)

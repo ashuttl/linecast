@@ -1,6 +1,7 @@
 """Moon phase, illumination, and rise/set times.
 
-Usage: moon [--print] [--oneline] [--json] [--location PLACE] [--icons SET] [--emoji] [--lang CODE]
+Usage: moon [--print] [--oneline] [--json] [--grid] [--location PLACE] [--icons SET] [--emoji]
+            [--lang CODE]
 
 Renders the Moon itself — a shaded disc with the correct phase terminator,
 mare shading, and a soft halo over a star field — plus the current phase and
@@ -16,11 +17,16 @@ and the terminator lies square to the bright limb, which points at the Sun.
 Times and positions come from `_ephemeris.py`, which is good to a couple
 of arcminutes: the principal phases land within a quarter of an hour of
 the published ones, which is the accuracy an almanac is read at.
+
+In live mode `v` flips to a month-calendar view of the phases (see
+`_moon_calendar.py`); the wheel or arrows page months there, space
+returns to this month, and clicking a day opens it in the disc view.
 """
 
 import calendar
 import math
 import sys
+import textwrap
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -32,8 +38,30 @@ from linecast._i18n import lang_of
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
+from linecast._lunisolar import (
+    CALENDAR_MERIDIAN_HOURS, CALENDAR_NATIVE_LANG, current_term,
+    lunisolar_date, next_lunar_event, next_term, resolve_calendar,
+)
+from linecast._hebrew import hebrew_date, next_holiday
+from linecast._hebrew import next_month_start as next_hebrew_month
+from linecast._hijri import (
+    after_sunset, hijri_date, next_month_start, next_observance,
+)
 from linecast._moon_i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
+    anahulu_name, festival_table, hebrew_date_label, hebrew_holiday_name,
+    hebrew_month_name, hijri_date_label, hijri_month_name,
+    hijri_observance_name, ja_night_name, lunar_date_label,
+    pacific_night_label, term_label, thai_festival_name, thai_lunar_label,
+    thai_year_label, wan_phra_label,
+)
+from linecast._pacific import (
+    ANAHULU_COUNSEL, COUNSEL_SOURCE_LINE, PACIFIC_CALENDARS, night_note,
+    pacific_night,
+)
+from linecast._thai_lunar import (
+    is_wan_phra, next_thai_festival, next_wan_phra, thai_lunar_date,
+    year_animal_index,
 )
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._textwidth import char_width
@@ -55,8 +83,9 @@ from linecast._theme import (
 from linecast._radar_i18n import rs
 from linecast._ephemeris import (
     _moon_altitude_deg, _moon_azimuth_deg, _moon_events_for_local_date,
-    _moon_parallactic_deg, moon_age_days, moon_axis_deg,
-    moon_bright_limb_deg, moon_illuminated_fraction, next_moon_phase_utc,
+    _moon_parallactic_deg, _moon_transits_for_local_date, moon_age_days,
+    moon_axis_deg, moon_bright_limb_deg, moon_illuminated_fraction,
+    next_moon_phase_utc,
 )
 from linecast.sunshine import (
     INFO_AMBER_RGB,
@@ -81,6 +110,7 @@ def _rebuild():
     global MOON_LIT_RGB, MOON_SHADOW_RGB, MOON_GLOW_RGB, SKY_RGB
     global STAR_BRIGHT_RGB, STAR_RGB, STAR_DIM_RGB
     global PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
+    global PANEL_FAINT_RGB, INFO_FAINT_RGB
     SKY_RGB = _theme.theme_bg
     if theme_legacy_mode:
         MOON_LIT_RGB = (228, 230, 238)
@@ -114,6 +144,9 @@ def _rebuild():
     # page inks.
     PANEL_TEXT_RGB = ensure_contrast(INFO_TEXT_RGB, SKY_RGB, minimum=4.5)
     PANEL_DIM_RGB = ensure_contrast(INFO_DIM_RGB, SKY_RGB, minimum=2.0)
+    # A shade fainter than dim, for the counsel's source line.
+    PANEL_FAINT_RGB = lerp_rgb(SKY_RGB, PANEL_DIM_RGB, 0.62)
+    INFO_FAINT_RGB = lerp_rgb(_theme.theme_bg, INFO_DIM_RGB, 0.62)
     PANEL_AMBER_RGB = ensure_contrast(INFO_AMBER_RGB, SKY_RGB, minimum=2.3)
     PANEL_PURPLE_RGB = ensure_contrast(INFO_PURPLE_RGB, SKY_RGB, minimum=2.3)
 
@@ -376,6 +409,15 @@ def _center(line, width):
     return " " * pad + line
 
 
+def _wrap(text, width):
+    """textwrap.wrap without widows: no lone word on the last line."""
+    lines = textwrap.wrap(text, width)
+    if len(lines) > 1 and " " not in lines[-1]:
+        head, last = lines[-2].rsplit(" ", 1)
+        lines[-2:] = [head, f"{last} {lines[-1]}"]
+    return lines
+
+
 def _first_fit(width, *variants):
     """The widest variant that fits, or None when even the last overflows."""
     for variant in variants:
@@ -432,7 +474,63 @@ def _next_phase_local(moment_utc, target_frac, now_local):
     return found.astimezone(now_local.tzinfo)
 
 
-def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
+def calendar_headline(cal, now_local, lat, lng, runtime, lang):
+    """(name, aside) the calendar puts in the headline, either None.
+
+    The Pacific calendars name the night, so the name stands in for the
+    phase name; Japanese in Japanese names it too (居待月 on the old
+    calendar's 18th, whatever octant the phase rounds to). The aside is
+    the lunar date — Chinese, Japanese, Korean, Thai, Hijri (turned at
+    the reader's sunset), Hebrew (the same) — or the anahulu, or the
+    almanac's half of the month. A calendar shown in its own language
+    keeps its own script; any other language gets the English names.
+    """
+    if cal is None:
+        return None, None
+    if cal in PACIFIC_CALENDARS:
+        night, nights = pacific_night(cal, now_local.date())
+        name = pacific_night_label(cal, night, nights)
+        aside = f"anahulu {anahulu_name(night)}" if cal == "hawaiian" else None
+        return name, aside
+    if cal == "almanac":
+        half = "light" if moon_cycle_frac(now_local) < 0.5 else "dark"
+        return None, _ms(f'{half}_of_moon', runtime)
+    if cal in ("islamic", "hebrew"):
+        h_day = now_local.date()
+        if after_sunset(now_local, lat, lng):
+            h_day += timedelta(days=1)
+        if cal == "islamic":
+            return None, hijri_date_label(*hijri_date(h_day), lang)
+        return None, hebrew_date_label(*hebrew_date(h_day))
+    if cal == "thai":
+        label_lang = "th" if lang == "th" else "en"
+        t_month, t_day, t_doubled = thai_lunar_date(now_local.date())
+        return None, thai_lunar_label(t_month, t_day, t_doubled, label_lang)
+    label_lang = lang if CALENDAR_NATIVE_LANG[cal] == lang else "en"
+    lunar = lunisolar_date(now_local.date(), CALENDAR_MERIDIAN_HOURS[cal])
+    if lunar is None:
+        return None, None
+    name = ja_night_name(lunar[1]) if label_lang == "ja" else None
+    return name, lunar_date_label(*lunar, label_lang)
+
+
+def keeps_israel_days(country, lat, lng):
+    """Whether the viewed place keeps the Hebrew holidays as Israel does.
+
+    The second day of Yom Tov is a rule about where the reader is, so
+    the answer is the country of the location shown, not the user's
+    own. resolve_location leaves the country blank for an override, so
+    it is reverse geocoded then (cached); still blank, as offline with
+    a cold cache, stays diaspora.
+    """
+    if not country:
+        from linecast._weather_sources import _reverse_geocode
+        _name, country, _addr = _reverse_geocode(lat, lng)
+    return (country or "").upper() == "IL"
+
+
+def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
+           calendar_name=None, israel=False):
     """Build the full-screen moon display: disc plus info lines.
 
     Three layouts, by terminal size: a wide terminal floats the info as
@@ -467,9 +565,21 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     year_len = 366 if calendar.isleap(now_local.year) else 365
 
     # The Old Farmer's Almanac names for the full moon are an English-
-    # language tradition; other languages keep the plain phase name.
+    # language tradition: they show in English by default and with the
+    # almanac calendar, but a panel reading the moon through another
+    # tradition's calendar keeps the plain phase name — Harvest Moon
+    # is the almanac's name, not the Kaulana Mahina's or the 农历's.
+    lang = lang_of(runtime)
+    cal = resolve_calendar(calendar_name, lang)
+    # The headline is the calendar's: the night's name where the
+    # calendar names nights, and the lunar date or the almanac's half
+    # of the month as an aside. The one-line summary shows the same.
+    cal_name, lunar_txt = calendar_headline(cal, now_local, lat, lng,
+                                            runtime, lang)
+    if cal_name:
+        name = cal_name
     full_label = _moon_name(4, runtime)
-    if lang_of(runtime) == "en":
+    if lang == "en" and cal in (None, "almanac"):
         moon_name = full_moon_name(full_dt, SYNODIC_MONTH)
         full_label = ("Blue Moon" if moon_name == "Blue"
                       else f"Full {moon_name} Moon")
@@ -504,6 +614,167 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
                 f"{_fmt_month_day(now_local, runtime)} "
                 f"{fmt_time_dt(now_local, use_24h=runtime.use_24h)}")
 
+    # The traditional calendar: on by default for the languages whose
+    # readers know the moon through it, and available to anyone with
+    # --calendar or `linecast calendar`. The Chinese, Japanese, and
+    # Korean calendars read the moon as a date — the lunar day beside
+    # the phase, the solar term in progress, the coming festival. The
+    # Pacific calendars read it as a named night, the Hawaiian one
+    # with its counsel, and the almanac is the English-language
+    # reading of the same kind: the Old Farmer's gardening rule and
+    # the solunar periods.
+    # A calendar shown in its own language keeps its own script; any
+    # other language gets the customary English names.
+    term_txt = term_short = fest_txt = fest_short = None
+    good_txt = hold_txt = solunar_txt = attrib_txt = None
+    if cal in PACIFIC_CALENDARS:
+        # The Pacific calendars name every night, in their own
+        # language for every reader — the names have no English
+        # renderings — and have no solar terms or lunar-dated
+        # festivals: the headline is the night. The name already says
+        # which night of the month this is, so "day 20.2 of 29.5"
+        # would read as a rival count; the age keeps its astronomical
+        # name and shares a line with the illumination.
+        night, _nights = pacific_night(cal, now_local.date())
+        age_txt = _ms('lunar_age', runtime, age=f'{age:.1f}')
+        if cal == "hawaiian":
+            # The Kaulana Mahina adds the anahulu beside the name, and
+            # the counsel lines below: the night's kapu or ʻole note
+            # when it has one, the anahulu's fishing counsel, and the
+            # source named plainly.
+            note = night_note(name)
+            counsel = ANAHULU_COUNSEL[anahulu_name(night)]
+            good_txt, hold_txt = (note or counsel), (counsel if note else None)
+            attrib_txt = COUNSEL_SOURCE_LINE
+    elif cal == "almanac":
+        # The Old Farmer's Almanac: the aside names the half of the
+        # month, the counsel is the gardening rule for it, and the
+        # solunar periods put the majors at the Moon's meridian
+        # passes, the minors at moonrise and moonset.
+        waxing = moon_cycle_frac(now_local) < 0.5
+        half = "light" if waxing else "dark"
+        good_txt = _ms('good_for', runtime,
+                       things=_ms(f'{half}_good', runtime))
+        hold_txt = _ms('hold_off', runtime,
+                       things=_ms(f'{half}_hold', runtime))
+        upper, lower = _moon_transits_for_local_date(
+            now_local.date(), lng, now_local.tzinfo)
+        day_rise, day_set = _moon_events_for_local_date(
+            now_local.date(), lat, lng, now_local.tzinfo)
+
+        def _times(moments):
+            times = sorted(t for t in moments if t is not None)
+            return " · ".join(fmt_time_dt(t, use_24h=runtime.use_24h)
+                              for t in times) or "—"
+
+        solunar_txt = (f"{_ms('solunar_major', runtime)} "
+                       f"{_times((upper, lower))}  "
+                       f"{_ms('solunar_minor', runtime)} "
+                       f"{_times((day_rise, day_set))}")
+    elif cal == "islamic":
+        # The Hijri day begins at sunset, and the panel is read in the
+        # evening, so the date turns with the reader's own sunset. The
+        # calendar keeps no solar terms; the coming month takes the
+        # terms' place. The observances keep civil dates, except that
+        # one counts as begun once the evening that opens it has come,
+        # and the day before, the countdown says so instead of "in
+        # 1d" — the same rule as the Hebrew calendar's below.
+        h_day = now_local.date()
+        if after_sunset(now_local, lat, lng):
+            h_day += timedelta(days=1)
+        h_year, h_month, h_dom = hijri_date(h_day)
+        term_short = hijri_month_name(h_month, lang)
+        nxt_day, (_nxt_year, nxt_month) = next_month_start(h_day)
+        nxt_gap = (nxt_day - now_local.date()).days
+        term_txt = (f"{term_short} · {hijri_month_name(nxt_month, lang)} "
+                    f"{_fmt_month_day(nxt_day, runtime)} "
+                    f"({_ms('in_days', runtime, days=str(nxt_gap))})")
+        fest_day, fest_key = next_observance(h_day)
+        fest_gap = (fest_day - now_local.date()).days
+        if fest_day <= h_day:
+            fest_txt = fest_short = hijri_observance_name(fest_key, lang)
+        else:
+            fest_short = (f"{hijri_observance_name(fest_key, lang)} "
+                          f"{_fmt_month_day(fest_day, runtime)}")
+            fest_txt = f"{fest_short} ({_ms('begins_at_sunset', runtime)})" \
+                if fest_gap == 1 else (
+                    f"{fest_short} "
+                    f"({_ms('in_days', runtime, days=str(fest_gap))})")
+    elif cal == "hebrew":
+        # The Hebrew day begins at sunset too, and the date turns with
+        # the reader's own. The coming month takes the terms' place
+        # and the holidays are counted down as the observances are
+        # above, in progress from the evening that opens them.
+        h_day = now_local.date()
+        if after_sunset(now_local, lat, lng):
+            h_day += timedelta(days=1)
+        h_year, h_month, h_dom = hebrew_date(h_day)
+        term_short = hebrew_month_name(h_year, h_month)
+        nxt_day, (nxt_year, nxt_month) = next_hebrew_month(h_day)
+        nxt_gap = (nxt_day - now_local.date()).days
+        term_txt = (f"{term_short} · {hebrew_month_name(nxt_year, nxt_month)} "
+                    f"{_fmt_month_day(nxt_day, runtime)} "
+                    f"({_ms('in_days', runtime, days=str(nxt_gap))})")
+        fest_day, fest_key = next_holiday(h_day, israel)
+        fest_gap = (fest_day - now_local.date()).days
+        if fest_day <= h_day:
+            fest_txt = fest_short = hebrew_holiday_name(fest_key)
+        else:
+            fest_short = (f"{hebrew_holiday_name(fest_key)} "
+                          f"{_fmt_month_day(fest_day, runtime)}")
+            fest_txt = f"{fest_short} ({_ms('begins_at_sunset', runtime)})" \
+                if fest_gap == 1 else (
+                    f"{fest_short} "
+                    f"({_ms('in_days', runtime, days=str(fest_gap))})")
+    elif cal == "thai":
+        # The Thai calendar reads the moon as a waxing or waning day —
+        # ขึ้น/แรม … ค่ำ — in Thai numerals, as the printed calendars
+        # have it. It keeps no solar terms; the recurring observance is
+        # the วันพระ, the four holy days of each month, so that line
+        # takes the terms' place, led by the year's animal.
+        label_lang = "th" if lang == "th" else "en"
+        term_short = thai_year_label(year_animal_index(now_local.date()),
+                                     label_lang)
+        if is_wan_phra(now_local.date()):
+            term_txt = f"{term_short} · {wan_phra_label(True, label_lang)}"
+        else:
+            wp = next_wan_phra(now_local.date())
+            wp_gap = (wp - now_local.date()).days
+            term_txt = (f"{term_short} · {wan_phra_label(False, label_lang)} "
+                        f"{_fmt_month_day(wp, runtime)} "
+                        f"({_ms('in_days', runtime, days=str(wp_gap))})")
+        fest_day, fest_key = next_thai_festival(now_local.date())
+        fest_short = (f"{thai_festival_name(fest_key, label_lang)} "
+                      f"{_fmt_month_day(fest_day, runtime)}")
+        fest_gap = (fest_day - now_local.date()).days
+        fest_txt = fest_short if fest_gap == 0 else (
+            f"{fest_short} "
+            f"({_ms('in_days', runtime, days=str(fest_gap))})")
+    elif cal is not None:
+        cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
+        label_lang = lang if CALENDAR_NATIVE_LANG[cal] == lang else "en"
+        cur_k, _cur_start = current_term(moment_utc)
+        nxt_k, nxt_start = next_term(moment_utc)
+        nxt_local = nxt_start.astimezone(now_local.tzinfo)
+        days_to_term = (nxt_start - moment_utc).total_seconds() / 86400.0
+        term_short = term_label(cur_k, label_lang)
+        term_txt = (f"{term_short} · {term_label(nxt_k, label_lang)} "
+                    f"{_fmt_month_day(nxt_local, runtime)} "
+                    f"({in_days(days_to_term)})")
+        fest = next_lunar_event(now_local.date(), cal_tz,
+                                festival_table(cal, label_lang != "en"))
+        if fest is not None:
+            fest_day, fest_name = fest
+            fest_short = f"{fest_name} {_fmt_month_day(fest_day, runtime)}"
+            fest_gap = (fest_day - now_local.date()).days
+            fest_txt = fest_short if fest_gap == 0 else (
+                f"{fest_short} "
+                f"({_ms('in_days', runtime, days=str(fest_gap))})")
+
+    # The headline has room for one aside: the calendar's own — the
+    # lunar date, the anahulu, or the almanac's half of the month.
+    head_extra = lunar_txt
+
     cols, rows = get_terminal_size()
     hint = install_banner()
     # Track even a very narrow terminal rather than overflow it; the
@@ -513,11 +784,18 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     # --- wide layout: the info as a column in the sky beside the disc ---
     T, D, A, P = PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
     panel = [
-        [(f"{icon} {name}", T, True)],
-        [(illum_txt, D, False)],
-        [(age_txt, D, False)],
-        [],
+        [(f"{icon} {name}", T, True)] + (
+            [(f" · {head_extra}", T, False)] if head_extra else []),
     ]
+    if cal in PACIFIC_CALENDARS:
+        panel.append([(f"{illum_txt} · {age_txt}", D, False)])
+    else:
+        panel += [[(illum_txt, D, False)], [(age_txt, D, False)]]
+    panel.append([])
+    # The counsel reads the night the headline names, so it goes right
+    # here — inserted once the rest of the panel has fixed the column,
+    # so it can wrap against that width instead of setting it.
+    counsel_at = len(panel)
     if offset_minutes:
         # Scrubbed away from the present: lead with the simulated moment
         # ("Up now" would lie), and show how to get back.
@@ -533,26 +811,52 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
         [("↑", A, False), (rise_txt, T, False)],
         [("↓", P, False), (set_txt, T, False)],
         [],
+    ]
+    panel += [
         [(full_txt, D, False)],
         [(new_txt, D, False)],
         [],
+    ]
+    if term_txt:
+        panel.append([(term_txt, D, False)])
+    if fest_txt:
+        panel.append([(fest_txt, T, False)])
+    if term_txt or fest_txt:
+        panel.append([])
+    panel += [
         [(year_txt, D, False)],
         [(season_txt, D, False)],
     ]
     if offset_minutes:
         panel += [[], [(_ts('space_to_now', runtime), D, False)]]
 
+    # A long counsel line breaks rather than dragging the whole column
+    # wide: it may run at most a third past the longest other line.
+    if good_txt:
+        base_w = max(visible_len("".join(t for t, _c, _b in line))
+                     for line in panel)
+        wrap_w = max(int(base_w * 1.3), 28)
+        block = [[(seg, D, False)]
+                 for txt in (good_txt, hold_txt, solunar_txt) if txt
+                 for seg in _wrap(txt, wrap_w)]
+        if attrib_txt:
+            # The source rides directly under the counsel it credits,
+            # a shade fainter.
+            block.append([(attrib_txt, PANEL_FAINT_RGB, False)])
+        panel[counsel_at:counsel_at] = block + [[]]
+
     panel_w = max(visible_len("".join(t for t, _c, _b in line))
                   for line in panel)
     panel_h = len(panel)
     # Fullscreen fills the terminal exactly (plus the install banner,
     # when present); the plain print leaves two rows for the prompt.
-    wide_h = max(6, rows - (1 if hint else 0) - (0 if fullscreen else 2))
+    chrome = 1 if hint else 0
+    wide_h = max(6, rows - chrome - (0 if fullscreen else 2))
     region_w = graph_w - panel_w - 3   # sky left over for the disc
     # Prefer the column: go wide whenever it fits and costs the disc
     # nothing.  Stacking spends five rows on info, so the sky beside a
     # full-height disc wins well before the terminal is truly wide.
-    stacked_h = max(6, rows - 5 - (1 if hint else 0) - (0 if fullscreen else 2))
+    stacked_h = max(6, rows - 5 - chrome - (0 if fullscreen else 2))
     wide_radius = min(wide_h * 2 * 0.41, region_w * 0.5 - 3.0)
     stacked_radius = min(stacked_h * 2 * 0.41, graph_w * 0.5 - 3.0)
     if wide_radius >= stacked_radius and panel_h + 2 <= wide_h:
@@ -600,10 +904,34 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
     else:
         status_line = (f"{dim}{below_txt}{RESET}",)
 
-    candidates = [
-        (f"{text}{icon} {name}  {dim}{illum_txt} · {age_txt}{RESET}",
-         f"{text}{icon} {name}  {dim}{illum_txt}{RESET}",
-         f"{text}{icon} {name}{RESET}"),
+    if head_extra:
+        head_line = (
+            f"{text}{icon} {name} · {head_extra}  "
+            f"{dim}{illum_txt} · {age_txt}{RESET}",
+            f"{text}{icon} {name} · {head_extra}  {dim}{illum_txt}{RESET}",
+            f"{text}{icon} {name} · {head_extra}{RESET}",
+            f"{text}{icon} {name}{RESET}")
+    else:
+        head_line = (
+            f"{text}{icon} {name}  {dim}{illum_txt} · {age_txt}{RESET}",
+            f"{text}{icon} {name}  {dim}{illum_txt}{RESET}",
+            f"{text}{icon} {name}{RESET}")
+
+    # Fit against cols - 2 so a line that just fits still gets a column
+    # of air at each edge instead of running wall to wall.
+    fit_w = max(20, cols - 2)
+    candidates = [head_line]
+    if good_txt:
+        # The counsel follows the name it reads, wrapped to the width
+        # rather than shed.
+        candidates += [(f"{dim}{seg}{RESET}",)
+                       for txt in (good_txt, hold_txt) if txt
+                       for seg in _wrap(txt, fit_w)]
+        if solunar_txt:
+            candidates.append((f"{dim}{solunar_txt}{RESET}",))
+        if attrib_txt:
+            candidates.append((f"{fg(*INFO_FAINT_RGB)}{attrib_txt}{RESET}",))
+    candidates += [
         status_line,
         # The countdown roughly doubles this line's width, so keep the
         # plain labelled time between it and the bare clock times —
@@ -612,6 +940,18 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
          f"{amber}↑{text}{_ms('moonrise', runtime)} {rise_when}  "
          f"{purple}↓{text}{_ms('moonset', runtime)} {set_when}{RESET}",
          f"{amber}↑{text}{rise_when}  {purple}↓{text}{set_when}{RESET}"),
+    ]
+    if term_txt:
+        # The calendar line, the festival leading since it is the one
+        # people wait for.
+        candidates.append(
+            (f"{dim}{term_txt} · {text}{fest_txt}{RESET}",
+             f"{text}{fest_txt}  {dim}{term_short}{RESET}",
+             f"{text}{fest_short}{RESET}")
+            if fest_txt else
+            (f"{dim}{term_txt}{RESET}",
+             f"{dim}{term_short}{RESET}"))
+    candidates += [
         (f"{dim}{full_txt} · {new_txt}{RESET}",
          f"{dim}{full_label} {_fmt_month_day(full_dt, runtime)} · "
          f"{new_label} {_fmt_month_day(new_dt, runtime)}{RESET}",
@@ -620,15 +960,12 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
          f"{dim}{year_txt} · {season_short}{RESET}",
          f"{dim}{year_txt}{RESET}"),
     ]
-    # Fit against cols - 2 so a line that just fits still gets a column
-    # of air at each edge instead of running wall to wall.
-    fit_w = max(20, cols - 2)
     info = [line for line in (_first_fit(fit_w, *c) for c in candidates)
             if line is not None]
 
     # A very short terminal gives up trailing lines (the least essential
     # come last) before squeezing the disc below its minimum height.
-    reserve = (1 if hint else 0) + (0 if fullscreen else 2)
+    reserve = chrome + (0 if fullscreen else 2)
     while len(info) > 1 and rows - len(info) - reserve < 6:
         info.pop()
 
@@ -657,9 +994,17 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0):
 
 
 def main():
-    args = moon_parser().parse_args()
+    parser = moon_parser()
+    args = parser.parse_args()
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)
+
+    # --grid picks a view, as sunshine's --year does. --json and
+    # --oneline describe the moment and have no grid form.
+    if args.grid and (runtime.json_mode or runtime.oneline):
+        mode = "--json" if runtime.json_mode else "--oneline"
+        parser.error(f"--grid has no {mode} output "
+                     f"(--grid is a view; {mode} describes now)")
 
     lat, lng, country = resolve_location(args.location, lang=runtime.lang)
     if lat is None:
@@ -680,33 +1025,101 @@ def main():
     def _now():
         return datetime.now(tz) if tz is not None else datetime.now().astimezone()
 
+    # The Hebrew holidays follow the place shown; the check costs a
+    # reverse geocode for an override, so only that calendar pays it.
+    israel = (resolve_calendar(args.calendar, lang_of(runtime)) == "hebrew"
+              and keeps_israel_days(country, lat, lng))
+
     if runtime.json_mode:
         import json
         from linecast._moon_json import build_payload
-        payload = build_payload(_now(), lat, lng, runtime)
+        payload = build_payload(_now(), lat, lng, runtime,
+                                calendar=args.calendar, israel=israel)
         print(json.dumps(payload, ensure_ascii=False))
         return
 
     if runtime.oneline:
         from linecast._oneline import moon_oneline
-        print(moon_oneline(_now(), lat, lng, runtime))
+        print(moon_oneline(_now(), lat, lng, runtime, calendar=args.calendar))
         return
 
     live = runtime.live
 
-    def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
-        # Extra args are ignored; accepted so moon can use shared live_loop
-        # mouse-wheel scrubbing support.
-        moment = _now()
-        if offset_minutes:
-            moment += timedelta(minutes=offset_minutes)
-        return render(moment, lat, lng, runtime, fullscreen=live,
-                      offset_minutes=offset_minutes)
+    # The disc and the calendar keep separate scrub offsets, so flipping
+    # between them returns to where each was left: minutes through the
+    # disc's time, whole months through the calendar. --grid opens on
+    # the calendar; v flips either way.
+    state = {"cal": args.grid, "minutes": 0, "months": 0}
 
-    if live:
-        live_loop(_render, mouse=True)
-    else:
+    def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
+        # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
+        # is handled here (per view) rather than by live_loop.
+        if state["cal"]:
+            from linecast._moon_calendar import render_calendar
+            return render_calendar(_now(), lat, lng, runtime,
+                                   month_offset=state["months"],
+                                   fullscreen=live, mouse_pos=mouse_pos,
+                                   calendar_name=args.calendar, israel=israel)
+        moment = _now()
+        if state["minutes"]:
+            moment += timedelta(minutes=state["minutes"])
+        return render(moment, lat, lng, runtime, fullscreen=live,
+                      offset_minutes=state["minutes"],
+                      calendar_name=args.calendar, israel=israel)
+
+    if not live:
         print(_render())
+        return
+
+    # A wheel notch or arrow key scrubs 15 minutes of the disc view or a
+    # month of the calendar; space returns each to now. v flips views.
+    def _step(n):
+        if state["cal"]:
+            state["months"] += n
+        else:
+            state["minutes"] += 15 * n
+        return True
+
+    def _intercept(action):
+        if action == "fwd":
+            return _step(1)
+        if action == "back":
+            return _step(-1)
+        if action == "reset":
+            state["months" if state["cal"] else "minutes"] = 0
+            return True
+        return False
+
+    def _on_wheel(direction, _col, _row):
+        return _step(direction)
+
+    def _on_key(key):
+        if key == "v":
+            state["cal"] = not state["cal"]
+            return True
+        return False
+
+    def _on_drag(_dcol, _drow, _done):
+        # Nothing to drag; the loop only tracks clicks while a drag
+        # callback is set, so this no-op is the price of _on_click.
+        return False
+
+    def _on_click(col, row):
+        # A calendar day is a doorway: click it and the disc view opens
+        # on that day, at this hour, with space the way back to now.
+        if not state["cal"]:
+            return False
+        from linecast._moon_calendar import clicked_day
+        target = clicked_day(col, row)
+        if target is None:
+            return False
+        state["minutes"] = (target - _now().date()).days * 1440
+        state["cal"] = False
+        return True
+
+    live_loop(_render, mouse=True, intercept=_intercept,
+              on_wheel=_on_wheel, on_action=_on_key,
+              on_drag=_on_drag, on_click=_on_click)
 
 
 if __name__ == "__main__":

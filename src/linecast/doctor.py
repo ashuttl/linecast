@@ -386,6 +386,16 @@ def _collect_preferences():
     else:
         location, location_source = "auto (IP geolocation)", "auto"
     lang_env = env.get("LINECAST_LANG", "").strip()
+    language = (lang_env or "en").lower()[:2]
+    from linecast._config import saved_calendar
+    from linecast._lunisolar import CALENDAR_OF_LANG
+    saved_cal = saved_calendar()
+    if saved_cal is not None:
+        calendar, calendar_source = saved_cal, "config"
+    else:
+        native = CALENDAR_OF_LANG.get(language)
+        calendar = native or "none"
+        calendar_source = f"auto: {language}" if native else "auto"
     return {
         "units": weather,
         "units_source": weather_source,
@@ -395,8 +405,10 @@ def _collect_preferences():
         "clock_source": clock_source,
         "location": location,
         "location_source": location_source,
-        "language": (lang_env or "en").lower()[:2],
+        "language": language,
         "language_source": "LINECAST_LANG" if lang_env else "default",
+        "calendar": calendar,
+        "calendar_source": calendar_source,
     }
 
 
@@ -521,6 +533,7 @@ def render(report):
          + ("" if prefs["location_source"] == "auto"
             else f" ({prefs['location_source']})")),
         ("language", f"{prefs['language']} ({prefs['language_source']})"),
+        ("calendar", f"{prefs['calendar']} ({prefs['calendar_source']})"),
     ]
     out += [""] + _section("preferences", rows)
 

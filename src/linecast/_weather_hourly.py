@@ -13,6 +13,7 @@ from linecast._weather_style import (
     CHART_BG_DAY_RGB,
     CHART_BG_NIGHT_RGB,
     CHART_HOVER_RGB,
+    CHART_NOW_RGB,
     DIM,
     SPARKLINE,
     SUNRISE_LABEL_RGB,
@@ -490,9 +491,17 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
         name_w = visible_len(name)
         if pos >= 0 and pos + name_w <= mid_w:
             cx = pos
+            base = None
             for c in name:
-                mid_canvas[cx] = c
                 cw = visible_len(c)
+                if cw == 0:
+                    # A combining mark (a Thai vowel sign, say) shares
+                    # its base's cell rather than claiming the next one.
+                    if base is not None:
+                        mid_canvas[base] += c
+                    continue
+                mid_canvas[cx] = c
+                base = cx
                 for k in range(1, cw):
                     if cx + k < mid_w:
                         mid_canvas[cx + k] = ""
@@ -506,10 +515,16 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
         if all(mid_canvas[pos + j] == " " for j in range(lbl_w)):
             color = SUNRISE_LABEL_RGB if is_rise else SUNSET_LABEL_RGB
             cx = pos
+            base = None
             for c in lbl:
+                cw = visible_len(c)
+                if cw == 0:
+                    if base is not None:
+                        mid_canvas[base] += c
+                    continue
                 mid_canvas[cx] = c
                 mid_colors[cx] = color
-                cw = visible_len(c)
+                base = cx
                 for k in range(1, cw):
                     if cx + k < mid_w:
                         mid_canvas[cx + k] = ""
@@ -607,7 +622,7 @@ def _compute_extrema_overlays(extrema, col_temps, n_rows, graph_w, runtime, valu
 
 
 def _render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime,
-                         overlays=None, hover_col=None):
+                         overlays=None, hover_col=None, now_col=None):
     """Render braille temperature rows with optional day/night shading."""
     if overlays is None:
         overlays = {}
@@ -615,6 +630,7 @@ def _render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime,
     night_dim = 0.6
     midnight_fg = DIM
     hover_fg = fg(*CHART_HOVER_RGB)
+    now_fg = fg(*CHART_NOW_RGB)
     bg_night = CHART_BG_NIGHT_RGB
     bg_day = CHART_BG_DAY_RGB
 
@@ -644,11 +660,13 @@ def _render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime,
                     line += f"{fg(*oc_color)}{oc}"
                 continue
 
-            # Pick indicator color for empty cells (hover > midnight)
+            # Pick indicator color for empty cells (hover > now > midnight)
             indicator = None
             if ch == '\u2800':
                 if hover_col is not None and ci == hover_col:
                     indicator = hover_fg
+                elif now_col is not None and ci == now_col:
+                    indicator = now_fg
                 elif ci in midnight_cols:
                     indicator = midnight_fg
 
@@ -675,7 +693,8 @@ def _render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime,
     return lines
 
 
-def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None, hover_col=None):
+def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None, hover_col=None,
+                        now_col=None):
     """Render compact timeline tick labels under the chart.
 
     Labels are anchored to clock-aligned hours so they scroll with the data
@@ -726,6 +745,8 @@ def _render_tick_labels(window_dts, total_hours, graph_w, runtime=None, hover_co
         last_end = x + len(tick_label) + 1
     if hover_col is not None and 0 <= hover_col < graph_w and canvas[hover_col] == " ":
         canvas[hover_col] = "\u2502"
+    elif now_col is not None and 0 <= now_col < graph_w and canvas[now_col] == " ":
+        canvas[now_col] = "\u2502"
     return f" {DIM}{''.join(canvas)}{RESET}"
 
 
@@ -838,12 +859,14 @@ def _place_uv_labels(uv_values, total_hours, graph_w, runtime):
     return _place_labels(candidates, graph_w)
 
 
-def _render_label_canvas(canvas, graph_w, color, midnight_cols=None, hover_col=None):
+def _render_label_canvas(canvas, graph_w, color, midnight_cols=None, hover_col=None,
+                         now_col=None):
     """Render a pre-computed label canvas with styling and indicator lines."""
     if canvas is None or not any(c != " " for c in canvas):
         return None
 
     hover_fg = fg(*CHART_HOVER_RGB)
+    now_fg = fg(*CHART_NOW_RGB)
     midnight_fg = DIM
     parts = [" "]
     in_label = False
@@ -858,6 +881,8 @@ def _render_label_canvas(canvas, graph_w, color, midnight_cols=None, hover_col=N
             indicator = None
             if hover_col is not None and x == hover_col:
                 indicator = hover_fg
+            elif now_col is not None and x == now_col:
+                indicator = now_fg
             elif midnight_cols and x in midnight_cols:
                 indicator = midnight_fg
             if indicator:
@@ -874,19 +899,21 @@ def _render_label_canvas(canvas, graph_w, color, midnight_cols=None, hover_col=N
 
 
 def _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime,
-                     midnight_cols=None, hover_col=None):
+                     midnight_cols=None, hover_col=None, now_col=None):
     """Render wind arrows/speed labels at high-wind positions."""
     placed = _place_wind_labels(window_winds, window_wind_dirs, total_hours, graph_w, runtime)
     return _render_label_canvas(_labels_to_canvas(placed, graph_w), graph_w, WIND_COLOR,
-                                midnight_cols=midnight_cols, hover_col=hover_col)
+                                midnight_cols=midnight_cols, hover_col=hover_col,
+                                now_col=now_col)
 
 
 def _render_uv_row(window_uv, total_hours, graph_w, runtime,
-                    midnight_cols=None, hover_col=None):
+                    midnight_cols=None, hover_col=None, now_col=None):
     """Render UV index labels at positions where UV is remarkable (>= 6)."""
     placed = _place_uv_labels(window_uv, total_hours, graph_w, runtime)
     return _render_label_canvas(_labels_to_canvas(placed, graph_w), graph_w, UV_COLOR,
-                                midnight_cols=midnight_cols, hover_col=hover_col)
+                                midnight_cols=midnight_cols, hover_col=hover_col,
+                                now_col=now_col)
 
 
 def _render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows, indicator_cols=None):
@@ -945,6 +972,15 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     midnight_cols, _noon_cols, midnight_day_names = _compute_time_markers(
         window_dts, total_hours, graph_w, runtime
     )
+
+    # The current time, marked like a midnight divider but in its own
+    # color: at launch it sits at the left edge, and it keeps saying
+    # "you are here" once the chart has been scrolled (issue #49).
+    now_col = None
+    if window_dts and total_hours > 0:
+        now_off = (now - window_dts[0]).total_seconds() / 3600
+        if 0 <= now_off <= total_hours:
+            now_col = int(now_off / total_hours * (graph_w - 1))
     sun_labels = _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime)
     col_daylight = _compute_daylight_columns(window_dts, sun_events, graph_w)
     col_temps = _interpolate_columns(window_temps, graph_w)
@@ -997,7 +1033,8 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
         )
     ]
 
-    tick_line = _render_tick_labels(window_dts, total_hours, graph_w, runtime, hover_col=hover_col)
+    tick_line = _render_tick_labels(window_dts, total_hours, graph_w, runtime, hover_col=hover_col,
+                                    now_col=now_col)
     if tick_line:
         lines.append(tick_line)
 
@@ -1006,7 +1043,7 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     overlays = _compute_extrema_overlays(extrema, col_temps, n_braille_rows, graph_w, runtime,
                                           value_range=all_temp_range)
     lines.extend(_render_braille_rows(braille_rows, col_daylight, midnight_cols, runtime, overlays,
-                                       hover_col=hover_col))
+                                       hover_col=hover_col, now_col=now_col))
 
     window_uv = window.get("uv", [])
     wind_threshold = 25 if runtime.metric else 15
@@ -1025,19 +1062,23 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
                                     all_graph_w, runtime)
         visible = _labels_in_window(placed, win_start_col, win_span, graph_w)
         wind_line = _render_label_canvas(_labels_to_canvas(visible, graph_w), graph_w, WIND_COLOR,
-                                         midnight_cols=midnight_cols, hover_col=hover_col)
+                                         midnight_cols=midnight_cols, hover_col=hover_col,
+                                         now_col=now_col)
     else:
         wind_line = _render_wind_row(window_winds, window_wind_dirs, total_hours, graph_w, runtime,
-                                     midnight_cols=midnight_cols, hover_col=hover_col)
+                                     midnight_cols=midnight_cols, hover_col=hover_col,
+                                     now_col=now_col)
     if use_full_canvas and all_uv:
         all_uv_hours = max(1, len(all_uv) - 1)
         placed = _place_uv_labels(all_uv, all_uv_hours, all_graph_w, runtime)
         visible = _labels_in_window(placed, win_start_col, win_span, graph_w)
         uv_line = _render_label_canvas(_labels_to_canvas(visible, graph_w), graph_w, UV_COLOR,
-                                       midnight_cols=midnight_cols, hover_col=hover_col)
+                                       midnight_cols=midnight_cols, hover_col=hover_col,
+                                       now_col=now_col)
     else:
         uv_line = _render_uv_row(window_uv, total_hours, graph_w, runtime,
-                                 midnight_cols=midnight_cols, hover_col=hover_col)
+                                 midnight_cols=midnight_cols, hover_col=hover_col,
+                                 now_col=now_col)
 
     # Always reserve rows for wind/UV/precip if they appear anywhere in the
     # full dataset, so the chart height stays stable while scrolling.
@@ -1050,8 +1091,10 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
     elif has_global_uv:
         lines.append("")
 
-    # Indicator columns for precip: midnight dividers + hover
+    # Indicator columns for precip: midnight dividers + now + hover
     indicator_cols = set(midnight_cols)
+    if now_col is not None:
+        indicator_cols.add(now_col)
     if hover_col is not None:
         indicator_cols.add(hover_col)
     precip_lines = _render_precip_rows(window_precip, window_codes, graph_w, n_precip_rows,

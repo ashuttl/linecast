@@ -88,6 +88,9 @@ PALETTE_DARK = {
     "lbl_road":       (168, 172, 184),
     "lbl_road_minor": (118, 122, 134),
     "lbl_shield":     (232, 178, 96),
+    "lbl_shield_i":   (118, 158, 245),  # interstate / motorway blue
+    "lbl_shield_us":  (214, 218, 230),  # US route: black-on-white sign
+    "lbl_shield_gn":  (118, 188, 138),  # UK primary route / E-road green
     "lbl_water":      (112, 140, 168),
     "lbl_park":       (104, 146, 116),
     "poi_ink":        (150, 155, 170),
@@ -127,6 +130,9 @@ PALETTE_LIGHT = {
     "lbl_road":       (96, 100, 112),
     "lbl_road_minor": (140, 144, 156),
     "lbl_shield":     (150, 96, 12),
+    "lbl_shield_i":   (36, 88, 196),
+    "lbl_shield_us":  (54, 58, 70),
+    "lbl_shield_gn":  (26, 122, 62),
     "lbl_water":      (78, 116, 150),
     "lbl_park":       (70, 118, 84),
     "poi_ink":        (104, 110, 124),
@@ -177,6 +183,9 @@ PALETTE_16 = {
     "lbl_city":   (255, 255, 255),    # 15
     "lbl_road":   (255, 255, 255),    # 15
     "lbl_shield": (255, 255, 255),    # 15
+    "lbl_shield_i": (92, 92, 255),    # 12 bright blue
+    "lbl_shield_us": (255, 255, 255),  # 15
+    "lbl_shield_gn": (0, 255, 0),     # 10 bright green
     "poi_med":    (255, 0, 0),        # 9
 }
 _PALETTE_16_DEFAULT = (192, 192, 192)   # 7
@@ -498,9 +507,12 @@ def aeroway_style(props):
 FILL_ORDER = ("ground", "urban", "park", "water", "building")
 
 # Debut band per fill key.  `park` is a union of three sources with two
-# different floors, so it carries a pair.
+# different floors, so it carries a pair.  `builtup` is the measured
+# settlement raster feeding the urban fill where no landuse polygon
+# claimed the ground; it debuts with the parks — the two subtle ground
+# tints are siblings, and B3 is where its z9 source is native.
 FILL_DEBUT = {"water": 0, "park": 3, "park_extra": 5, "urban": 5,
-              "building": 7}
+              "builtup": 3, "building": 7}
 
 URBAN_LANDUSE = ("residential", "commercial", "industrial", "retail")
 
@@ -599,10 +611,14 @@ COVER_BUILTUP_GRADES = ((84, "core"), (48, "urban"), (18, "suburb"))
 # ---------------------------------------------------------------------------
 # Labels
 # ---------------------------------------------------------------------------
-# Four emphasis states, two cases.  No italics (unreliable), no
-# underline, no reverse video (reserved for UI panels), no ink outside
-# this table.  case is "title", "spaced" or "upper".
+# A short ladder of emphasis states, two cases.  No italics
+# (unreliable), no underline, no reverse video (reserved for UI panels),
+# no ink outside this table.  case is "title", "spaced" or "upper".
 LABEL_STYLES = {
+    # No type size to spend, so the settlement ladder is caps, bold and
+    # ink density: BOSTON outranks Lynn at a glance or the tiers are
+    # not doing their job.
+    "city_major":   ("lbl_city", "upper", True),
     "city":         ("lbl_city", "title", True),
     "town":         ("lbl_town", "title", False),
     "village":      ("lbl_village", "title", False),
@@ -622,7 +638,18 @@ LABEL_STYLES = {
     "water":        ("lbl_water", "spaced", False),
     "road":         ("lbl_road", "title", False),
     "road_minor":   ("lbl_road_minor", "title", False),
+    # One shield register per sign palette, where a palette exists: the
+    # interstate and the motorway sign in blue, the US route in the
+    # black-on-white of its own shield, the UK primary route and the
+    # E-road in green.  Everything else — state routes vary too much to
+    # imitate — keeps the amber.  The bold *is* the shield.
     "shield":       ("lbl_shield", "upper", True),
+    "shield_i":     ("lbl_shield_i", "upper", True),
+    "shield_us":    ("lbl_shield_us", "upper", True),
+    "shield_gn":    ("lbl_shield_gn", "upper", True),
+    # An exit is a point on the road, not a route: the ramp's dimmer
+    # amber and no bold, so it defers to every shield near it.
+    "exit":         ("ramp", "upper", False),
     "poi":          ("poi_lbl", "title", False),
 }
 
@@ -698,8 +725,140 @@ PLACE_SOURCE_BAND = 3
 SHIELD_MAX_REF = 6           # ref_length above this is not a shield
 SHIELD_CLASSES = ("motorway", "trunk")
 SHIELD_REPEAT_CELLS = 30     # min cells between repeats of one shield
+# A shield names the road, not its length: US-302 snakes across a whole
+# Portland view, and left to the distance rule alone it stamped itself
+# four times and spent the entire shield budget on one road.
+SHIELD_MAX_INSTANCES = 2
 ROAD_REPEAT_CELLS = 40       # ditto for street names
+EXIT_BAND = 5                # exit numbers wait for neighbourhood zoom
+# From this band up a numbered road's street name is a candidate again.
+# On a road atlas the road is US-302 and the name would say less for
+# the same cells; standing in the city it is Forest Avenue — the name
+# the addresses are on — and the shield alone left it nameless.
+NUMBERED_NAME_BAND = 5
 POI_TEXT_MAX = 14            # characters before the ellipsis
+
+# The signed abbreviation for the numbered networks whose refs are bare
+# numbers.  The general rule below handles `US:ME` -> `ME`; these are
+# the networks whose second segment is not the prefix a driver reads.
+_SHIELD_PREFIX = {"US:I": "I", "US:US": "US", "CA:TRANSCANADA": "TCH"}
+
+# Countries whose region-numbered routes sign the region code — `US:MA`
+# is MA-128 on the shield, `CA:ON` is ON-401.
+_SHIELD_REGIONAL = ("US", "CA", "MX", "AU")
+
+# Coarse `network` fallbacks, for a feature the tile gives no route_N
+# attributes.  `us-state` is deliberately absent: without the route
+# tag there is nothing to say *which* state, and a bare number beats a
+# guessed one.
+_SHIELD_COARSE = {"US-INTERSTATE": "I", "US-HIGHWAY": "US",
+                  "CA-TRANSCANADA": "TCH"}
+
+
+def _shield_networks(props, ref):
+    """The feature's network tags, normalised, most specific first.
+
+    The route_N attributes carry the OSM network (`US:I`, `US:ME`,
+    `omt-gb-motorway`); only the ones whose own ref matches the
+    displayed ref count, so a road that is also a walking route does not
+    take the trail's network.  The coarse `network` field rides last.
+    """
+    nets = []
+    for i in range(1, 7):
+        rref = props.get(f"route_{i}_ref")
+        if rref is None or " ".join(str(rref).split()).upper() != ref:
+            continue
+        net = props.get(f"route_{i}_network")
+        if net:
+            nets.append(str(net))
+    coarse = props.get("network")
+    if coarse:
+        nets.append(str(coarse))
+    return [n.upper().removeprefix("OMT-") for n in nets]
+
+
+def _shield_kind(nets):
+    """Which LABEL_STYLES shield register a set of networks signs in."""
+    for net in nets:
+        if net == "US:I" or net == "US-INTERSTATE" \
+                or net.endswith("MOTORWAY"):
+            return "shield_i"
+        if net in ("US:US", "US-HIGHWAY"):
+            return "shield_us"
+        if net in ("GB-TRUNK", "GB-PRIMARY", "E-ROAD"):
+            return "shield_gn"
+    return "shield"
+
+
+def shield(props):
+    """(text, LABEL_STYLES kind) for a route feature, or None.
+
+    A bare number floats: `128` over a road is a route, an exit, or a
+    house number, and the reader should not have to guess.  The text is
+    what the sign in front of the driver says — the network prefix
+    joined to the number (`I-495`, `US-1`, `ME-128`), or the ref as the
+    sign already writes it where it carries its own letter (`M6`,
+    `A38`, and `A 13` collapses to the `A13` on the panel).
+
+    The length gate is on the bare ref, as the ref_length the tile
+    carries measures it: a prefix earned from the network never costs a
+    shield its place.
+    """
+    ref = " ".join(str(props.get("ref") or "").split())
+    if not ref or len(ref) > SHIELD_MAX_REF:
+        return None
+    ref = ref.upper()
+    nets = _shield_networks(props, ref)
+    if ref[0].isalpha():
+        text = ref.replace(" ", "")
+    else:
+        prefix = ""
+        for net in nets:
+            parts = net.split(":")
+            head = ":".join(parts[:2])
+            if head in _SHIELD_PREFIX:
+                prefix = _SHIELD_PREFIX[head]
+                break
+            if (len(parts) >= 2 and parts[0] in _SHIELD_REGIONAL
+                    and parts[1].isalpha() and len(parts[1]) <= 3):
+                prefix = parts[1]
+                break
+            if net in _SHIELD_COARSE:
+                prefix = _SHIELD_COARSE[net]
+                break
+        text = f"{prefix}-{ref}" if prefix else ref
+    return text, _shield_kind(nets)
+
+
+# The within-class split the settlement ladder cannot do without: Boston
+# and Lynn are both place=city, ninety thousand people and an order of
+# magnitude apart.  The tile's own rank draws the line — London and
+# Paris carry 1, Dublin and Brussels 3, Birmingham and Manchester 5,
+# Leeds and Portland, Maine 6 — and below the source switch the Natural
+# Earth entries carry a population instead: the agglomeration for a
+# metro's anchor city, the city proper for everything else (see
+# build_basemap_data.build_cities), so Long Beach cannot take the caps
+# register on greater LA's numbers.
+CITY_CAPS_RANK = 5
+CITY_CAPS_POP = 1_000_000
+
+
+def place_kind(cls, rank):
+    """LABEL_STYLES key for a place class and its tile rank."""
+    if cls == "city" and rank <= CITY_CAPS_RANK:
+        return "city_major"
+    return cls
+
+
+def is_capital(props):
+    """True for a national or first-level (state, province) capital.
+
+    OpenMapTiles carries `capital` as the admin level of what the place
+    is capital *of*: 2 a country, 4 a state or province.  6 — the county
+    seat — is deliberately not a capital here: Portland, Maine carries a
+    6, and a star on every county seat is a sky full of stars.
+    """
+    return props.get("capital") in (2, 3, 4)
 
 
 def spaced(name):
@@ -732,6 +891,10 @@ def shield_budget(total):
     return 4
 
 
+def exit_budget(total):
+    return 4
+
+
 def water_park_budget(total):
     return min(3, total)                        # shared: water + park
 
@@ -752,9 +915,9 @@ def max_instances(total_visible_cells):
 # ---------------------------------------------------------------------------
 # POI
 # ---------------------------------------------------------------------------
-# Ten marks, all audited against the real _textwidth.visible_len: each
-# returns 1.  No emoji-presentation characters ever — visible_len counts
-# them as 2 and they break column alignment.
+# Eleven marks, all audited against the real _textwidth.visible_len:
+# each returns 1.  No emoji-presentation characters ever — visible_len
+# counts them as 2 and they break column alignment.
 GLYPH_AIRPORT = "✈"     # aerodrome_label layer
 GLYPH_PEAK = "▲"        # mountain_peak layer
 GLYPH_STATION = "◉"     # rail or metro station — sole meaning
@@ -764,7 +927,8 @@ GLYPH_LODGING = "⌂"
 GLYPH_NOTABLE = "✦"
 GLYPH_WORSHIP = "†"
 GLYPH_FERRY = "◆"
-GLYPH_GENERIC = "•"     # also the sole place anchor
+GLYPH_GENERIC = "•"     # also the everyday place anchor
+GLYPH_CAPITAL = "★"     # the capital's place anchor, never a POI mark
 
 # The one place a glyph is given a name.  The `?` panel reads it as its
 # legend and hover reads it as its readout word, in this order — so a
@@ -781,6 +945,7 @@ GLYPH_LEGEND = {
     GLYPH_WORSHIP: "poi_worship",
     GLYPH_FERRY: "poi_ferry",
     GLYPH_GENERIC: "poi_other",
+    GLYPH_CAPITAL: "poi_capital",
 }
 
 GLYPH_INK = {
@@ -794,6 +959,7 @@ GLYPH_INK = {
     GLYPH_WORSHIP: "poi_ink",
     GLYPH_FERRY: "lbl_water",
     GLYPH_GENERIC: "poi_ink",
+    GLYPH_CAPITAL: "poi_ink",
 }
 
 POI_CLASS_GLYPH = {

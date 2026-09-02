@@ -36,6 +36,9 @@ _SUNSHINE_STRINGS = {
         "sky_astronomical": "crépuscule astronomique",
         "sky_nautical": "crépuscule nautique",
         "sky_civil": "crépuscule civil",
+        "sky_astronomical_dawn": "aube astronomique",
+        "sky_nautical_dawn": "aube nautique",
+        "sky_civil_dawn": "aube civile",
         "sky_day": "jour",
         "midnight_sun": "soleil de minuit",
         "polar_night": "nuit polaire",
@@ -53,6 +56,9 @@ _SUNSHINE_STRINGS = {
         "sky_astronomical": "crepúsculo astronómico",
         "sky_nautical": "crepúsculo náutico",
         "sky_civil": "crepúsculo civil",
+        "sky_astronomical_dawn": "crepúsculo astronómico matutino",
+        "sky_nautical_dawn": "crepúsculo náutico matutino",
+        "sky_civil_dawn": "crepúsculo civil matutino",
         "sky_day": "día",
         "midnight_sun": "sol de medianoche",
         "polar_night": "noche polar",
@@ -70,6 +76,12 @@ _SUNSHINE_STRINGS = {
         "sky_astronomical": "astronomische Dämmerung",
         "sky_nautical": "nautische Dämmerung",
         "sky_civil": "bürgerliche Dämmerung",
+        "sky_astronomical_dawn": "astronomische Morgendämmerung",
+        "sky_nautical_dawn": "nautische Morgendämmerung",
+        "sky_civil_dawn": "bürgerliche Morgendämmerung",
+        "sky_astronomical_dusk": "astronomische Abenddämmerung",
+        "sky_nautical_dusk": "nautische Abenddämmerung",
+        "sky_civil_dusk": "bürgerliche Abenddämmerung",
         "sky_day": "Tag",
         "midnight_sun": "Mitternachtssonne",
         "polar_night": "Polarnacht",
@@ -87,6 +99,9 @@ _SUNSHINE_STRINGS = {
         "sky_astronomical": "crepuscolo astronomico",
         "sky_nautical": "crepuscolo nautico",
         "sky_civil": "crepuscolo civile",
+        "sky_astronomical_dawn": "alba astronomica",
+        "sky_nautical_dawn": "alba nautica",
+        "sky_civil_dawn": "alba civile",
         "sky_day": "giorno",
         "midnight_sun": "sole di mezzanotte",
         "polar_night": "notte polare",
@@ -104,6 +119,9 @@ _SUNSHINE_STRINGS = {
         "sky_astronomical": "crepúsculo astronômico",
         "sky_nautical": "crepúsculo náutico",
         "sky_civil": "crepúsculo civil",
+        "sky_astronomical_dawn": "crepúsculo astronômico matutino",
+        "sky_nautical_dawn": "crepúsculo náutico matutino",
+        "sky_civil_dawn": "crepúsculo civil matutino",
         "sky_day": "dia",
         "midnight_sun": "sol da meia-noite",
         "polar_night": "noite polar",
@@ -121,6 +139,12 @@ _SUNSHINE_STRINGS = {
         "sky_astronomical": "astronomische schemering",
         "sky_nautical": "nautische schemering",
         "sky_civil": "burgerlijke schemering",
+        "sky_astronomical_dawn": "astronomische ochtendschemering",
+        "sky_nautical_dawn": "nautische ochtendschemering",
+        "sky_civil_dawn": "burgerlijke ochtendschemering",
+        "sky_astronomical_dusk": "astronomische avondschemering",
+        "sky_nautical_dusk": "nautische avondschemering",
+        "sky_civil_dusk": "burgerlijke avondschemering",
         "sky_day": "dag",
         "midnight_sun": "middernachtzon",
         "polar_night": "poolnacht",
@@ -136,8 +160,11 @@ _SUNSHINE_STRINGS = {
         "days_ago": "{n} dni temu",
         "sky_night": "noc",
         "sky_astronomical": "zmierzch astronomiczny",
-        "sky_nautical": "zmierzch nautyczny",
+        "sky_nautical": "zmierzch żeglarski",
         "sky_civil": "zmierzch cywilny",
+        "sky_astronomical_dawn": "świt astronomiczny",
+        "sky_nautical_dawn": "świt żeglarski",
+        "sky_civil_dawn": "świt cywilny",
         "sky_day": "dzień",
         "midnight_sun": "słońce o północy",
         "polar_night": "noc polarna",
@@ -149,8 +176,8 @@ _SUNSHINE_STRINGS = {
         "today": "i dag",
         "in_day": "om {n} dag",
         "in_days": "om {n} dager",
-        "day_ago": "{n} dag siden",
-        "days_ago": "{n} dager siden",
+        "day_ago": "for {n} dag siden",
+        "days_ago": "for {n} dager siden",
         "sky_night": "natt",
         "sky_astronomical": "astronomisk tussmørke",
         "sky_nautical": "nautisk tussmørke",
@@ -166,12 +193,15 @@ _SUNSHINE_STRINGS = {
         "today": "i dag",
         "in_day": "om {n} dag",
         "in_days": "om {n} dagar",
-        "day_ago": "{n} dag sedan",
-        "days_ago": "{n} dagar sedan",
+        "day_ago": "för {n} dag sedan",
+        "days_ago": "för {n} dagar sedan",
         "sky_night": "natt",
         "sky_astronomical": "astronomisk skymning",
         "sky_nautical": "nautisk skymning",
         "sky_civil": "borgerlig skymning",
+        "sky_astronomical_dawn": "astronomisk gryning",
+        "sky_nautical_dawn": "nautisk gryning",
+        "sky_civil_dawn": "borgerlig gryning",
         "sky_day": "dag",
         "midnight_sun": "midnattssol",
         "polar_night": "polarnatt",
@@ -183,8 +213,8 @@ _SUNSHINE_STRINGS = {
         "today": "i dag",
         "in_day": "om {n} dag",
         "in_days": "om {n} dage",
-        "day_ago": "{n} dag siden",
-        "days_ago": "{n} dage siden",
+        "day_ago": "for {n} dag siden",
+        "days_ago": "for {n} dage siden",
         "sky_night": "nat",
         "sky_astronomical": "astronomisk tusmørke",
         "sky_nautical": "nautisk tusmørke",
@@ -221,7 +251,7 @@ _SUNSHINE_STRINGS = {
         "days_ago": "{n} päivää sitten",
         "sky_night": "yö",
         "sky_astronomical": "astronominen hämärä",
-        "sky_nautical": "merenkulullinen hämärä",
+        "sky_nautical": "nauttinen hämärä",
         "sky_civil": "porvarillinen hämärä",
         "sky_day": "päivä",
         "midnight_sun": "yötön yö",
@@ -274,12 +304,35 @@ _SUNSHINE_STRINGS = {
         "sky_astronomical": "天文曙暮光",
         "sky_nautical": "航海曙暮光",
         "sky_civil": "民用曙暮光",
+        "sky_astronomical_dawn": "天文晨光",
+        "sky_nautical_dawn": "航海晨光",
+        "sky_civil_dawn": "民用晨光",
+        "sky_astronomical_dusk": "天文昏影",
+        "sky_nautical_dusk": "航海昏影",
+        "sky_civil_dusk": "民用昏影",
         "sky_day": "白天",
         "midnight_sun": "极昼",
         "polar_night": "极夜",
         "solar_noon": "太阳正午",
         "sunrise": "日出",
         "sunset": "日落",
+    },
+    "th": {
+        "today": "วันนี้",
+        "in_day": "อีก {n} วัน",
+        "in_days": "อีก {n} วัน",
+        "day_ago": "{n} วันก่อน",
+        "days_ago": "{n} วันก่อน",
+        "sky_night": "กลางคืน",
+        "sky_astronomical": "แสงสนธยาดาราศาสตร์",
+        "sky_nautical": "แสงสนธยาเดินเรือ",
+        "sky_civil": "แสงสนธยาพลเรือน",
+        "sky_day": "กลางวัน",
+        "midnight_sun": "พระอาทิตย์เที่ยงคืน",
+        "polar_night": "คืนขั้วโลก",
+        "solar_noon": "เที่ยงวันสุริยะ",
+        "sunrise": "ดวงอาทิตย์ขึ้น",
+        "sunset": "ดวงอาทิตย์ตก",
     },
     "id": {
         "today": "hari ini",
@@ -291,6 +344,9 @@ _SUNSHINE_STRINGS = {
         "sky_astronomical": "senja astronomi",
         "sky_nautical": "senja nautika",
         "sky_civil": "senja sipil",
+        "sky_astronomical_dawn": "fajar astronomi",
+        "sky_nautical_dawn": "fajar nautika",
+        "sky_civil_dawn": "fajar sipil",
         "sky_day": "siang",
         "midnight_sun": "matahari tengah malam",
         "polar_night": "malam kutub",
@@ -300,15 +356,23 @@ _SUNSHINE_STRINGS = {
     },
 }
 
-# Month-axis labels for languages whose month names aren't abbreviated in
-# MONTHS_I18N (CJK dates are numeric; Finnish months are long words).
+# Month-axis labels where the first three letters of the MONTHS_I18N name
+# won't do: CJK dates are numeric, Finnish months are long words, and
+# French juin and juillet share their first three letters.
 # Everything else takes the first letters of the MONTHS_I18N name.
 _AXIS_MONTHS = {
     "fi": ["tam", "hel", "maa", "huh", "tou", "kes",
            "hei", "elo", "syy", "lok", "mar", "jou"],
+    "fr": ["jan", "fév", "mar", "avr", "mai", "jun",
+           "jul", "aoû", "sep", "oct", "nov", "déc"],
     "ja": [f"{m}月" for m in range(1, 13)],
     "ko": [f"{m}월" for m in range(1, 13)],
     "zh": [f"{m}月" for m in range(1, 13)],
+    # Thai's dotted abbreviations (ม.ค.) truncate badly at three
+    # characters; the dotless short forms are the ones used where
+    # space is tight.
+    "th": ["มค", "กพ", "มีค", "เมย", "พค", "มิย",
+           "กค", "สค", "กย", "ตค", "พย", "ธค"],
 }
 _NUMERIC_AXIS_LANGS = frozenset({"ja", "ko", "zh"})
 
@@ -318,8 +382,16 @@ def _ss(key, runtime, **kwargs):
     return lookup(_SUNSHINE_STRINGS, key, lang_of(runtime), **kwargs)
 
 
-def sky_phase(elev, runtime):
-    """Name the sky for a sun elevation: day, the three twilights, night."""
+def sky_phase(elev, runtime, morning=None):
+    """Name the sky for a sun elevation: day, the three twilights, night.
+
+    Many languages name the two twilights of a day with different words
+    — Polish świt and zmierzch, Indonesian fajar and senja, Swedish
+    gryning and skymning — so *morning* tells them apart: True before
+    solar noon, False after, None for a language-generic name. Languages
+    without the split simply have no _dawn/_dusk entries and keep their
+    one word either way.
+    """
     if elev >= -0.833:
         key = "sky_day"
     elif elev >= -6:
@@ -330,6 +402,11 @@ def sky_phase(elev, runtime):
         key = "sky_astronomical"
     else:
         key = "sky_night"
+    if morning is not None and key not in ("sky_day", "sky_night"):
+        table = _SUNSHINE_STRINGS.get(lang_of(runtime), {})
+        variant = key + ("_dawn" if morning else "_dusk")
+        if variant in table:
+            key = variant
     return _ss(key, runtime)
 
 

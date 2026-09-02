@@ -550,13 +550,20 @@ class Basemap(DotLayer):
             overlays[(col, row)] = ("•", CITY)  # •
             # label to the right, unless it runs off the edge or collides
             c = col + 1
+            prev = None
             for ch in name:
                 w = char_width(ch)
+                if w == 0 and prev is not None:
+                    # A combining mark rides in its base's cell.
+                    kept, ink = overlays[prev]
+                    overlays[prev] = (kept + ch, ink)
+                    continue
                 if c + w > self.graph_w:
                     break
                 if (c, row) in overlays or (w == 2 and (c + 1, row) in overlays):
                     break
                 overlays[(c, row)] = (ch, CITY_LABEL)
+                prev = (c, row)
                 if w == 2:
                     overlays[(c + 1, row)] = ("", None)  # consumed by wide glyph
                 c += w

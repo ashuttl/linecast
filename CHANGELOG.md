@@ -4,13 +4,58 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+The moon follows traditional calendars: Chinese, Japanese, Korean, and Thai by language; Hebrew, Islamic, Hawaiian, Samoan, CHamoru, and the Old Farmer's Almanac by choice. It has a month view. Thai is the eighteenth language. Street maps get route shields, sunrise and sunset times are more accurate, and every European alert now applies to the ground it covers.
+
+New this version:
+
+- Moon: In Chinese, Japanese, and Korean the panel follows the traditional calendar: the lunar date beside the phase name (农历七月二十, 旧暦7月20日, 음력 7월 20일), the solar term in progress and the date of the next, and the coming festival (中秋节, 추석, 十五夜). In Japanese the headline names the night by the old calendar's day: 十六夜, 立待月, 居待月, 寝待月, 更待月.
+- Moon: In Thai the panel follows the Thai lunar calendar: the waxing or waning day in Thai numerals (แรม ๔ ค่ำ เดือน ๙), the year's animal, the next วันพระ, and the coming festival, มาฆบูชา through ลอยกระทง.
+- Moon: In Chinese, Japanese, Korean, or Thai (`--lang zh`, `ja`, `ko`, `th`) the matching calendar comes with the language. In any other language, `--calendar chinese`, `japanese`, `korean`, or `thai` shows one of them, with the customary English names ("Mid-Autumn Festival Sep 25"). The calendars below belong to no language and are chosen the same way. `--calendar none` turns any of them off, `linecast calendar` saves the choice, and `linecast doctor` shows it.
+- Moon: `--calendar hawaiian` follows the Kaulana Mahina. Each night is named (Hilo, Hoaka, Māhealani, Muku) with its anahulu, and the month begins on the first night the crescent can be seen over Hawaiʻi, as in the Western Pacific Regional Fishery Management Council's calendars. The panel also gives the night's traditional fishing counsel, quoted from the Council's educational materials and credited on screen.
+- Moon: `--calendar samoan` and `--calendar chamorro` follow the Council's American Samoa and Guam calendars: thirty named nights, counted from the first evening the crescent can be seen over Pago Pago or Hagåtña. `--calendar refaluwasch` is the CNMI calendar, which sets the Refaluwasch name beside the CHamoru one on the nights tradition names.
+- Moon: `--calendar islamic` follows the Umm al-Qura calendar: the Hijri date beside the phase (23 Ramadan 1447 AH), turning at sunset, the coming month, and the next observance from Islamic New Year through Eid al-Adha, with "begins at sunset" the day before. Month starts follow Saudi Arabia's civil rule; a country's announced dates may differ by a day.
+- Moon: `--calendar hebrew` follows the Hebrew calendar: the date beside the phase (20 Elul 5786), turning at sunset, the coming month, and the next holiday from Rosh Hashanah through Tisha B'Av, with "begins at sunset" the day before. A location in Israel keeps one day of Yom Tov, anywhere else two. `--json` carries the date in Hebrew letters too (כ׳ אלול תשפ״ו).
+- Moon: `--calendar almanac` reads the moon the way the Old Farmer's Almanac does: the light or dark of the moon, gardening counsel for it, and the day's solunar periods. The almanac's full-moon names (Harvest, Blue, and the rest) show here and in the plain English view.
+- Moon: `--json` reports the active calendar in a `calendar` block, or null when none is shown. `--oneline` adds the lunar date after the rise and set times (· 20 Elul 5786, · 旧暦7月22日), or the night's name in place of the phase where the calendar names nights.
+- Moon: `v` in live mode flips between the disc and a month of phases. Each day is a small shaded disc, with today and the principal phases marked; a calendar in force sets its months in the title, its festivals on the days, and, for Hebrew and Islamic, its date in the corner of each cell. Scroll to page through months, hover a day for its phase, moonrise, and moonset, and click one to open it in the disc view. `linecast moon --grid` opens on the month.
+- Sunshine: `v` switches between the day and year views, the same key as in maps and moon. `y` still works.
+- Thai is the eighteenth language. `--lang th` puts the whole app in Thai.
+- Maps: Route shields name their network (I-95, US-1, ME-128, M6, A38) and take the sign's color where there is one: interstates and motorways blue, US routes white, UK primary routes green. A shield appears at most twice per view.
+- Maps: Exit numbers are bracketed and drawn in the ramp's dimmer ink, so they no longer pass for route numbers. A numbered road also shows its name at close zooms.
+- Maps: Major cities are named in capitals, going by the city's own population rather than its metro area's, and national and state capitals get a star instead of a dot.
+- Maps: Street maps shade built-up ground, so towns and cities read as settlement even where no one has mapped the land use.
+- Maps: With daylight on, the header names what the sun is over ("sun over North Pacific Ocean") instead of the elevation at the centre of the view. Pointing at the terrain still reads the elevation there.
+- Maps and radar: The header starts with the place name instead of the app's name.
+- Weather: A line on the hourly chart marks the current time, so now stays visible after scrolling away from it (thanks [@ebrannin-bw](https://github.com/ebrannin-bw) for [#49](https://github.com/ashuttl/linecast/issues/49)).
+- Sunshine: The year view fills the window with the sky, and the month labels sit on it. The sunrise/sunset line, which described only today, is gone; the pop-up gives those times for any day.
+- Sunshine: The year view's daylight is hazier near sunrise and sunset, whiter low in the sky and bluer as the sun climbs.
+- Radar: The marangai theme's top bands match MetService's legend more closely: heavy rain stays in the reds, and the possible-hail run of purple, white, green, and pink starts around 45 dBZ.
+
+Fixes:
+
+- Weather: The last MeteoAlarm feeds are matched by geometry: Bulgaria, Romania, France, Hungary, Belgium, North Macedonia, and Czechia. Every European alert now applies to the ground it covers.
+- Weather: Alerts in Switzerland show again. The Swiss feed had grown past the size linecast would read, so the board showed a quiet day.
+- Weather and tides: The live views no longer freeze on a slow network. Refreshes load in the background while the view keeps drawing what it has.
+- Weather: The header names small towns correctly. It could show the timezone city ("New York") instead of the place itself.
+- Sunshine: Sunrise and sunset times are more accurate. They could be ten or more minutes out in spring and autumn, most at high latitudes. The sky in both views and the globe's day/night edge sharpen with them.
+- Sunshine: Languages with different words for morning and evening twilight now use the right one: świt and zmierzch in Polish, gryning and skymning in Swedish, aube and crépuscule in French. The evening word was used around the clock.
+- Sunshine: The Polish and Finnish names for nautical twilight use the standard terms (żeglarski, nauttinen), and the Italian names for morning twilight are the customary short ones (alba astronomica, nautica, civile).
+- Sunshine: The Swedish, Danish, and Norwegian "days ago" phrases begin with their preposition: för 3 dagar sedan, for 3 dage siden.
+- Sunshine: The year view's month axis in French tells June from July (jun, jul). Both had truncated to "jui".
+- Moon: The Korean phase names use the everyday words: 상현달, 보름달, 그믐달, with the gibbous phases as 차오르는 달 and 기우는 달.
+- Tides: The Indonesian view names the wave and swell lines in Indonesian (gelombang, alun) instead of English.
+- Radar: Frames that arrive incomplete are fetched again instead of drawn, since the missing parts looked like clear weather. A source that cannot serve its tiles falls back to the next.
+- Chart and map labels in scripts with combining marks, Thai for one, keep those marks.
+- Shell completions offer the `calendar` command and its choices.
+- The hover pop-ups in weather, tides, radar, and the sunshine year view sit clear of the mouse pointer instead of underneath it (thanks [@ebrannin-bw](https://github.com/ebrannin-bw) for [#48](https://github.com/ashuttl/linecast/issues/48)).
+
 ## 2.2.2 — 2026-09-02
 
-- Weather: Alerts across Europe now match the ground they cover. Most MeteoAlarm feeds name a warning's region by code rather than by polygon, and linecast now ships the geometry for every one of those codes, so a warning for a county applies to the people in that county and to nobody else. The area-name matching that went wrong in Poland (issue #57) remains only for the few countries whose feeds carry neither polygons nor these codes.
+- Weather: Alerts across Europe now match the ground they cover. Most MeteoAlarm feeds name a warning's region by code rather than by outline, and linecast now carries the outline for every code, so a warning for a county reaches that county and nobody else. Matching by area name, which went wrong in Poland (issue #57), remains only where a feed carries neither.
 
 ## 2.2.1 — 2026-09-02
 
-- Weather: Alerts in Poland no longer bury the forecast. Warsaw was getting every warning in the country, 419 of them, because the Polish word for province matched them all (issue #57). The words that name a tier rather than a place are now set aside in every language MeteoAlarm speaks, and any word the feed shows to match most of the country is set aside with them.
+- Weather: Alerts in Poland no longer bury the forecast. Warsaw was getting every warning in the country, 419 of them, because the Polish word for province matched them all (issue #57). Words that name a tier rather than a place are now set aside in every MeteoAlarm language, along with any word that matches most of a country.
 - Weather: A warning filed county by county, word for word the same across a province, now shows once, naming the reader's own county.
 - Weather: The board keeps at most eight alerts, gravest first, whatever a feed sends.
 
@@ -20,55 +65,55 @@ Sunshine has a year view. The Moon's phases and times are more accurate, and off
 
 New this version:
 
-- Sunshine: `--year` draws a column of sky for each day of the year, sunrise and sunset appearing as the edge between night and day. Its colors imitate the sky: blue sky, navy night, a soft band of dawn/dusk between. A marker sits on the current day and time, and in live mode `y` switches between the day and the year.
-- Sunshine: Pointing at a day in the year view shows its sunrise, sunset and day length, and the time under the pointer with the sky there — daylight, civil, nautical or astronomical twilight, night — or the moment itself when it is near sunrise, sunset, solar noon or the marker for now. The times keep the clock that day will keep, named when it differs from today's (`06:36 EST`).
+- Sunshine: `--year` draws a column of sky for each day of the year, with sunrise and sunset as the edge between night and day: blue by day, navy by night, a soft band of twilight between. A marker sits on the current day and time, and in live mode `y` switches between the day and the year.
+- Sunshine: Pointing at a day in the year view shows its sunrise, sunset, and day length, and the sky at the time under the pointer: daylight, one of the twilights, night, or sunrise, sunset, and solar noon themselves when the pointer is near them. The times keep the clock that day will keep, named when it differs from today's (`06:36 EST`).
 - Sunshine: The year is drawn in the location's current UTC offset, so the edge stays smooth. `--dst` plots each day in its own offset instead, and the clock changes show as steps.
-- Sunshine: Where the sun does not rise or set at all, both views now say which it is — midnight sun, or polar night — instead of giving a sunrise and a sunset that were really the same moment, solar noon. `--json` already reported this as `polar`.
-- Sunshine: The info line names the sky at the moment shown — daylight, the twilights, night — or sunrise, sunset and solar noon as they pass.
-- Moon: Phases, illumination and the Moon's age are worked out from where the Moon actually is, not from an average month. New and full moons now land within a quarter of an hour of the published times, where they could be most of a day out, and the phase named on a given evening is the one the almanac names. Moonrise and moonset times improve with them.
-- Moon: The lit edge now faces the Sun. It was drawn square to the Moon's poles before, which put it as much as a half turn out.
-- Moon: The disc is drawn at the tilt you would actually see, worked out from your latitude and where the Moon is in your sky, and it turns through the night as the Moon rises and sets. It used to be flipped over for everyone south of the equator and left at that.
-- Weather: Official alerts in India, from SACHET, the national warning system — IMD weather warnings, flood bulletins and state nowcasts. They are shown in English where the push text is in a regional language; `--lang hi` (or another Indian language code) uses the alert text in that language if available. linecast itself is not translated into Hindi or the other Indian languages — the rest of the app stays in English — it just shows the alert in the language the source wrote it in.
-- Weather: In India, air quality is the CPCB's National AQI, the number official bulletins report, with its category word (Good to Severe) beside it, instead of the US index. `--json` adds `india_aqi` and its category.
-- Text in scripts that stack marks on their letters — Devanagari, Thai, Arabic — now measures the width terminals give it, so an alert in one of them lines up instead of pushing the layout about. linecast asks the terminal once whether it draws a conjunct and its vowel sign in two cells or three, since terminals disagree. This is about drawing text a data source sends in those languages; the interface is not translated into them.
+- Sunshine: Where the sun does not rise or set, both views now say which it is, midnight sun or polar night, instead of a sunrise and sunset that were both solar noon. `--json` already reported this as `polar`.
+- Sunshine: The info line names the sky at the moment shown: daylight, a twilight, night, or sunrise, sunset, and solar noon as they pass.
+- Moon: Phases, illumination, and the Moon's age come from where the Moon actually is, not from an average month. New and full moons now land within a quarter of an hour of the published times, where they could be most of a day out, and the evening's phase is the one the almanac names. Moonrise and moonset improve with them.
+- Moon: The lit edge now faces the Sun. It was drawn square to the Moon's poles, as much as a half turn out.
+- Moon: The disc is drawn at the tilt you would see from your latitude and the Moon's place in your sky, and it turns through the night. It used to be flipped over south of the equator and left at that.
+- Weather: Official alerts in India, from SACHET, the national warning system: IMD weather warnings, flood bulletins, and state nowcasts. They show in English; `--lang hi`, or another Indian language code, uses the alert's own text in that language where the source wrote one. The rest of the app stays in English.
+- Weather: In India, air quality is the CPCB's National AQI, the number official bulletins report, with its category (Good to Severe), instead of the US index. `--json` adds `india_aqi` and its category.
+- Text in scripts that stack marks on their letters, Devanagari, Thai, Arabic, now measures the width the terminal gives it, so an alert in one of them lines up instead of pushing the layout about. linecast asks the terminal once how it draws a conjunct and its vowel sign, since terminals disagree.
 - Weather: Official alerts in New Zealand, from MetService, matched to your spot by each warning's own polygon.
 - Weather: Alerts now also cover Ukraine, Israel, Bosnia and Herzegovina, Moldova, Montenegro, and North Macedonia, through MeteoAlarm.
-- Maps: The clouds near the poles, where the satellites cannot see, now carry the satellite picture onward — matching its cloudiness, brightness and grain — instead of switching to a forecast model. The globe looks more natural now when zoomed all the way out with clouds on.
+- Maps: Near the poles, where the satellites cannot see, the clouds carry the satellite picture onward, matching its cloudiness, brightness, and grain, instead of switching to a forecast model. The globe looks more natural zoomed all the way out with clouds on.
 - Maps: Street tiles fall back to the OpenStreetMap US Tileservice when OpenFreeMap doesn't answer. The credit line names whichever source drew the map.
 - Maps: `LINECAST_ELEVATION_URL` accepts a full tile URL template, for elevation hosts with their own path shape.
-- Location: IP geolocation and place-name search each have a second source now, asked when the usual one doesn't answer.
-- Radar: `--source` pins one frame source — `librewxr`, `rainviewer`, or `iem` — instead of choosing by location, for comparing what each shows over the same spot.
+- Location: IP geolocation and place-name search each have a second source, asked when the first doesn't answer.
+- Radar: `--source` pins one frame source, `librewxr`, `rainviewer`, or `iem`, instead of choosing by location, for comparing what each shows over the same spot.
 
 Fixes:
 
 - Sunshine: On a light terminal theme the night sky is dark and the day light, in both views, and the sun keeps its white centre and warm glow. The night used to be the page, and the sun turned dark against the daytime sky.
 - Moon: On a light terminal theme the sky is dark and the Moon is light, instead of a dark disc on the page.
-- Maps: On a terminal narrower than it is tall, zooming all the way out now leaves the whole globe on screen. It used to stop at a zoom that fit the height, running the planet off both sides.
-- Weather: The high and low written inside a day's temperature bar turn white where the bar is dark, instead of staying black and disappearing into the colder end of the scale.
+- Maps: On a terminal taller than it is wide, zooming all the way out keeps the whole globe on screen. It used to fit the height and run the planet off both sides.
+- Weather: The high and low inside a day's temperature bar turn white where the bar is dark, instead of vanishing into the cold end of the scale.
 - Weather: The wind and UV readings under the hourly chart hold still while the chart scrolls, and no longer pick up a stray digit: a 22mph wind could read 220.
-- Radar: The color themes drawn in the terminal's own palette — terminal, dusk, ember, ink, marangai — now survive a fallback to RainViewer, instead of dropping to its blue scheme.
-- Debug: A record a provider sent that could not be parsed now shows up in the `--debug` transcript, with a count, instead of being dropped in silence.
+- Radar: The themes drawn in the terminal's own palette (terminal, dusk, ember, ink, marangai) survive a fallback to RainViewer instead of dropping to its blue scheme.
+- Debug: A provider record that could not be parsed shows up in the `--debug` transcript, with a count, instead of being dropped in silence.
 
 ## 2.1.0 — 2026-08-28
 
 New this version:
 
 - Moon: The disc now shows the real lunar surface, from NASA's Lunar Reconnaissance Orbiter imagery, instead of a sketch of the maria.
-- Moon: The star field is drawn with a mix of star shapes at varied brightness, so the sky reads as stars of different magnitudes rather than a scatter of identical blocks.
-- Moon: Moonrise and moonset lead with how long until they happen, with the clock time after — "Moonrise in 6h 29m (20:59)". A time on a later day is named inside the same parentheses.
-- Moon: When the Moon is up, the line that gives its altitude now also names the compass direction to look in. `--json` gains `azimuth_deg` alongside `altitude_deg`.
-- Maps: The globe draws inland water. The Great Lakes, the Caspian, Baikal and every other lake big enough to see are water at planet zoom, in the terrain view and the street one, with a shoreline to match.
-- Maps: City lights were only ever intended for the terrain view. The street view no longer lights its cities, flat or on the globe; its fills stay a little brighter at night to make up for it.
+- Moon: The star field mixes star shapes and brightnesses, so the sky reads as stars of different magnitudes rather than a scatter of identical blocks.
+- Moon: Moonrise and moonset lead with how long until they happen, then the clock time: "Moonrise in 6h 29m (20:59)". A time on a later day names the day in the same parentheses.
+- Moon: When the Moon is up, the altitude line also names the compass direction to look in. `--json` gains `azimuth_deg`.
+- Maps: The globe draws inland water. The Great Lakes, the Caspian, Baikal, and every other lake big enough to see are water at planet zoom, in both the terrain and street views, with a shoreline.
+- Maps: City lights belong to the terrain view. The street view no longer lights its cities, flat or on the globe; its fills stay a little brighter at night to make up for it.
 - Maps: Better style consistency between street maps in flat mode and globe mode.
 - Maps: With sunlight and shadows on, street map coastlines and roads dim on the night side.
-- Maps: The map tile cache no longer grows without limit. Tiles left behind by a superseded edition of the map are dropped and the rest kept under 256 MB, the tiles you haven't looked at in longest going first; `LINECAST_MAPS_CACHE_MB` sets another size, and `linecast doctor` shows what the tiles are using.
+- Maps: The tile cache no longer grows without limit. Tiles from a superseded edition of the map are dropped and the rest kept under 256 MB, least recently seen first. `LINECAST_MAPS_CACHE_MB` sets another size, and `linecast doctor` shows what the tiles are using.
 
 Fixes:
 
 - Maps: Near the poles, as you zoom out, the map switches to the globe sooner. Flat maps of Antarctica used to run off the edge of the world.
 - Weather: A severe European alert now shows only where it applies. A MeteoAlarm feed covers a whole country, so a flood warning for a single river gauge was reaching everyone in it.
-- Weather: The daily forecast keeps its rows on one line in Japanese, Chinese, and Korean. The rain and wind columns were measured by character count, so double-width labels pushed the last rows past the edge of the terminal.
-- Tides: The header names the place instead of printing its coordinates. Somewhere the global tide model covers, with no station nearby, a tide table for the wrong hemisphere used to look like a tide table.
+- Weather: The daily forecast keeps its rows on one line in Japanese, Chinese, and Korean. Double-width labels were measured by character count and pushed the last rows off the edge.
+- Tides: The header names the place instead of its coordinates. Where only the global model covers, a tide table for the wrong hemisphere used to look like any other.
 - Live views: Taking a screenshot with cmd-ctrl-shift-4 on a Mac no longer kills the view and leaves the shell echoing mouse movements. Ctrl-\ now quits cleanly as well.
 
 ## 2.0.0 — 2026-08-26

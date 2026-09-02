@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
-"""Draw the repository's GitHub star history as a braille curve.
+"""Draw the repository's GitHub star history as a bar per day.
 
-    python3 scripts/star_history.py [owner/repo] [--days N] [--weeks N] [--width N]
+    python3 scripts/star_history.py [owner/repo] [--days N] [--weeks N] [--width N] [--total]
 
 Asks the stargazers API for the star media type, which adds a starred_at
-timestamp to each entry, and plots the running total with the same braille
-curve builder the weather and tide charts use.
+timestamp to each entry, and draws the stars gained each day as a block
+bar, the way the hourly forecast draws rain.
 
---days and --weeks narrow the window to the most recent stretch.  The curve
-still plots the true running total, so the axis starts wherever the
-repository stood when the window opened rather than at zero.  A narrow
-window is cheap: stargazers come back oldest first, so the fetch walks the
-pages backwards from the newest and stops at the first one past the cutoff.
+--days and --weeks narrow the window to the most recent stretch.  --total
+plots the running total as a braille curve instead, which is also what a
+window too long to give every day a column of its own falls back to.  The
+curve starts wherever the repository stood when the window opened rather
+than at zero; the bars always stand on zero.
+
+A narrow window is cheap: stargazers come back oldest first, so the fetch
+walks the pages backwards from the newest and stops at the first one past
+the cutoff.
 
 The API lists the people who have a star today, so a star since taken away
 was never there as far as this chart is concerned.
@@ -31,10 +35,12 @@ from linecast import _theme  # noqa: E402
 from linecast._braille import build_braille_curve  # noqa: E402
 from linecast._color import RESET, fg  # noqa: E402
 from linecast._theme import ensure_contrast, neutral_tone  # noqa: E402
+from linecast._weather_style import SPARKLINE  # noqa: E402
 
 DEFAULT_REPO = "ashuttl/linecast"
 PER_PAGE = 100
 ROWS = 8
+SLOT_MAX = 7  # a few days shouldn't spread into slabs
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
@@ -69,13 +75,18 @@ def star_dates(repo, cutoff):
     return sorted(dates), max(0, total - len(dates))
 
 
-def running_totals(dates, before, start, end):
-    """The repository's total star count on each day from start to end."""
+def daily_counts(dates, start, end):
+    """The stars gained on each day from start to end."""
     per_day = [0] * ((end - start).days + 1)
     for d in dates:
         i = (d - start).days
         if 0 <= i < len(per_day):
             per_day[i] += 1
+    return per_day
+
+
+def running_totals(per_day, before):
+    """The repository's total star count at the end of each day."""
     total = before
     series = []
     for gained in per_day:
@@ -96,22 +107,43 @@ def nice_step(span, ticks=5):
     return max(1, int(10 * magnitude))
 
 
-def y_labels(lo, hi, rows):
-    """A label per character row, on the rows round values land in."""
+def y_labels(lo, hi, rows, units=4):
+    """A label per character row, on the rows round values land in.
+
+    *units* is the vertical resolution of one row: four dots for a braille
+    curve, eight steps for a block bar.
+    """
     labels = [""] * rows
     if hi <= lo:
         labels[rows // 2] = str(int(hi))
         return labels
-    dots = rows * 4
+    steps = rows * units
     step = nice_step(hi - lo)
     value = (int(lo) // step) * step
     while value <= hi:
         if value >= lo:
-            row = round((1 - (value - lo) / (hi - lo)) * (dots - 1)) // 4
+            row = round((1 - (value - lo) / (hi - lo)) * (steps - 1)) // units
             if not labels[row]:
                 labels[row] = str(int(value))
         value += step
     return labels
+
+
+def bar_rows(values, peak, rows, bar, gap):
+    """Block bars, one per value, standing on zero and grown in eighths."""
+    heights = []
+    for value in values:
+        eighths = round(value / peak * rows * 8) if peak else 0
+        heights.append(max(1, eighths) if value else 0)  # a day with a star shows one
+    lines = []
+    for r in range(rows):
+        floor = (rows - 1 - r) * 8  # the eighths already filled below this row
+        cells = []
+        for height in heights:
+            filled = min(8, max(0, height - floor))
+            cells.append((SPARKLINE[filled - 1] if filled else " ") * bar + " " * gap)
+        lines.append("".join(cells).rstrip())
+    return lines
 
 
 def date_label(day, with_day):
@@ -120,7 +152,7 @@ def date_label(day, with_day):
 
 
 def x_ticks(start, end, span):
-    """(date, label) pairs to mark under the curve, at a spacing the span suits."""
+    """(date, label) pairs to mark under the chart, at a spacing the span suits."""
     if span <= 21:
         every = 1 if span <= 8 else 3
         days = [start + dt.timedelta(days=i) for i in range(0, span, every)]
@@ -141,19 +173,22 @@ def x_ticks(start, end, span):
     return ticks
 
 
-def x_axis(start, end, span, width):
-    """The tick row and the label row beneath the curve."""
+def x_axis(start, end, span, width, column):
+    """The tick row and the label row beneath the chart.
+
+    *column* gives the column a day's mark belongs over.
+    """
     marks = [" "] * width
     names = [" "] * width
     for day, label in x_ticks(start, end, span):
-        col = round((day - start).days / max(1, span - 1) * (width - 1))
+        col = column((day - start).days)
         if not 0 <= col < width:
             continue
         marks[col] = "╷"
         at = min(col, width - len(label))  # flush left of the edge rather than dropped
         if at >= 0 and all(c == " " for c in names[max(0, at - 1):at + len(label) + 1]):
             names[at:at + len(label)] = label
-    return "".join(marks), "".join(names)
+    return "".join(marks).rstrip(), "".join(names).rstrip()
 
 
 def main():
@@ -167,6 +202,7 @@ def main():
     if weeks is not None:
         days = weeks * 7
     width = option("--width")
+    as_total = "--total" in argv
     repo = next((a for a in argv if "/" in a), DEFAULT_REPO)
 
     today = dt.datetime.now(dt.timezone.utc).date()  # stars are stamped UTC
@@ -182,20 +218,38 @@ def main():
     else:
         start = cutoff
     end = max(dates[-1], today) if dates else today
-    series = running_totals(dates, before, start, end)
-    span = len(series)
+    per_day = daily_counts(dates, start, end)
+    series = running_totals(per_day, before)
+    span = len(per_day)
     total = series[-1]
 
     _theme.ensure_theme_loaded()
     muted = fg(*ensure_contrast(neutral_tone(0.48), _theme.theme_bg, minimum=2.5))
     dim = fg(*ensure_contrast(neutral_tone(0.32), _theme.theme_bg, minimum=2.0))
 
+    peak = max(per_day)
     lo = min(series) if cutoff else 0
-    labels = y_labels(lo, total, ROWS)
-    gutter = max(len(text) for text in labels)
+    bar_labels = y_labels(0, peak, ROWS, units=8)
+    curve_labels = y_labels(lo, total, ROWS)
     if width is None:
+        gutter = max(len(text) for text in curve_labels)  # the wider of the two
         width = max(20, shutil.get_terminal_size((80, 24)).columns - gutter - 2)
-    curve = build_braille_curve(series, width, n_rows=ROWS, value_range=(lo, total))
+
+    if not as_total and span <= width:  # a day too narrow for a bar wants the curve
+        labels = bar_labels
+        slot = min(width // span, SLOT_MAX)
+        gap = 1 if slot >= 2 else 0
+        bar = slot - gap
+        rows = bar_rows(per_day, peak, ROWS, bar, gap)
+        def column(i):
+            return i * slot + (bar - 1) // 2  # the middle of that day's bar
+    else:
+        labels = curve_labels
+        curve = build_braille_curve(series, width, n_rows=ROWS, value_range=(lo, total))
+        rows = ["".join(char for char, _ in row) for row in curve]
+        def column(i):
+            return round(i / max(1, span - 1) * (width - 1))
+    gutter = max(len(text) for text in labels)
 
     gained = len(dates)
     opened = date_label(start, True)
@@ -208,10 +262,9 @@ def main():
     print()
     print(f"  {repo} — {total} stars  {muted}{window}{RESET}")
     print()
-    for label, row in zip(labels, curve):
-        cells = "".join(char for char, _ in row)
-        print(f"{dim}{label:>{gutter}}{RESET} {cells}")
-    marks, names = x_axis(start, end, span, width)
+    for label, row in zip(labels, rows):
+        print(f"{dim}{label:>{gutter}}{RESET} {row}")
+    marks, names = x_axis(start, end, span, width, column)
     print(f"{' ' * gutter} {dim}{marks}{RESET}")
     print(f"{' ' * gutter} {muted}{names}{RESET}")
     print()

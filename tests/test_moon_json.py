@@ -2,7 +2,7 @@
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Ensure the worktree src is preferred over any installed version.
@@ -30,7 +30,7 @@ EXPECTED_TOP_KEYS = {
     "illumination", "waxing", "age_days", "events", "next_full",
     "next_full_name", "next_new", "day_of_year", "days_in_year",
     "next_season_event", "southern", "altitude_deg", "azimuth_deg",
-    "up_now",
+    "up_now", "calendar",
 }
 
 
@@ -187,3 +187,243 @@ class TestLiveSuppression:
         args = moon_parser().parse_args(["--print"])
         runtime = RuntimeConfig.from_sources(namespace=args)
         assert runtime.json_mode is False
+
+
+class TestCalendarBlock:
+    """The lunisolar calendar in the payload, resolved like the panel."""
+
+    MOMENT = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+
+    def test_null_by_default_in_english(self):
+        assert _payload()["calendar"] is None
+
+    def test_native_block_for_chinese(self):
+        payload = _payload(now_local=self.MOMENT, runtime=_runtime(lang="zh"))
+        cal = payload["calendar"]
+        assert cal["name"] == "chinese"
+        assert (cal["month"], cal["day"], cal["leap_month"]) == (7, 20, False)
+        assert cal["label"] == "农历七月二十"
+        assert cal["solar_term"] == "处暑"
+        assert cal["next_solar_term"] == {"name": "白露", "date": "2026-09-07"}
+        assert cal["next_festival"] == {"name": "中秋节", "date": "2026-09-25"}
+
+    def test_english_names_with_the_flag(self):
+        payload = _payload(now_local=self.MOMENT, calendar="chinese")
+        cal = payload["calendar"]
+        assert cal["label"] == "month 7 day 20"
+        assert cal["solar_term"] == "End of Heat"
+        assert cal["next_festival"]["name"] == "Mid-Autumn Festival"
+
+    def test_none_flag_wins_over_the_language(self):
+        payload = _payload(now_local=self.MOMENT,
+                           runtime=_runtime(lang="zh"), calendar="none")
+        assert payload["calendar"] is None
+
+
+class TestAlmanacCalendarBlock:
+    def test_gardening_half_matches_the_phase(self):
+        payload = _payload(calendar="almanac")
+        block = payload["calendar"]
+        assert block["name"] == "almanac"
+        assert block["gardening"] == ("light" if payload["waxing"] else "dark")
+
+    def test_solunar_periods_are_todays_times(self):
+        block = _payload(calendar="almanac")["calendar"]
+        for key in ("solunar_major", "solunar_minor"):
+            times = block[key]
+            assert 1 <= len(times) <= 2
+            assert times == sorted(times)
+            for stamp in times:
+                dt = datetime.fromisoformat(stamp)
+                assert dt.date() == FIXED_NOW.date()
+
+
+class TestMoonTransits:
+    def test_upper_transit_crosses_the_meridian(self):
+        from linecast._ephemeris import (
+            _moon_azimuth_deg, _moon_altitude_deg,
+            _moon_transits_for_local_date,
+        )
+        upper, lower = _moon_transits_for_local_date(
+            FIXED_NOW.date(), LNG, timezone.utc)
+        assert upper is not None
+        azimuth = _moon_azimuth_deg(upper.astimezone(timezone.utc), LAT, LNG)
+        assert min(azimuth, 360 - azimuth) > 90  # southern half of the sky
+        assert abs(((azimuth - 180) + 180) % 360 - 180) < 2.0
+        if lower is not None:
+            up_alt = _moon_altitude_deg(upper.astimezone(timezone.utc), LAT, LNG)
+            low_alt = _moon_altitude_deg(lower.astimezone(timezone.utc), LAT, LNG)
+            assert up_alt > low_alt
+
+
+class TestJapaneseNightName:
+    def test_the_night_follows_the_old_calendars_day(self):
+        moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, runtime=_runtime(lang="ja"))
+        cal = payload["calendar"]
+        assert cal["day"] == 20
+        assert cal["night_name"] == "更待月"
+
+    def test_other_calendars_have_no_night_name(self):
+        moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, runtime=_runtime(lang="zh"))
+        assert payload["calendar"]["night_name"] is None
+
+
+class TestOtherPacificBlocks:
+    def test_the_samoan_block_names_the_night(self):
+        # Sep 1 2026 is the twentieth night of the month begun Aug 13,
+        # per the printed 2026 American Samoa calendar.
+        moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="samoan")
+        assert payload["calendar"] == {
+            "name": "samoan",
+            "night": 20,
+            "nights_in_month": 29,
+            "night_name": "Masina Sulutele",
+        }
+
+    def test_the_cnmi_block_carries_the_refaluwasch_name(self):
+        # Aug 31 2026 is the eighteenth night of the month begun Aug 14,
+        # Ketai’ Empe’ / Ara on the printed CNMI page.
+        moment = datetime(2026, 8, 31, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="refaluwasch")
+        block = payload["calendar"]
+        assert block["night_name"] == "Ketai’ Empe’"
+        assert block["refaluwasch_name"] == "Ara"
+        payload = _payload(now_local=moment, calendar="chamorro")
+        assert "refaluwasch_name" not in payload["calendar"]
+        assert payload["calendar"]["night_name"] == "Ketai’ Empe’"
+
+
+class TestIslamicCalendarBlock:
+    def test_the_block_reads_the_umm_al_qura_date(self):
+        # Midday on 13 March 2026 is 24 Ramadan 1447; the next
+        # observance is Laylat al-Qadr on the 16th, and Shawwal begins
+        # on the 20th, Eid al-Fitr.
+        moment = datetime(2026, 3, 13, 16, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="islamic")
+        assert payload["calendar"] == {
+            "name": "islamic",
+            "year": 1447,
+            "month": 9,
+            "month_name": "Ramadan",
+            "day": 24,
+            "days_in_month": 30,
+            "label": "24 Ramadan 1447 AH",
+            "after_sunset": False,
+            "next_month": {"name": "Shawwal", "date": "2026-03-20"},
+            "next_observance": {"name": "Laylat al-Qadr",
+                                "date": "2026-03-16"},
+        }
+
+    def test_the_date_turns_at_sunset(self):
+        # Half past eight in the evening in Maine, 19 March: the Hijri
+        # day is already 1 Shawwal, while Eid's civil date is tomorrow.
+        eastern = timezone(timedelta(hours=-4))
+        moment = datetime(2026, 3, 19, 20, 30, tzinfo=eastern)
+        payload = _payload(now_local=moment, calendar="islamic")
+        block = payload["calendar"]
+        assert block["after_sunset"] is True
+        assert block["label"] == "1 Shawwal 1447 AH"
+        assert block["next_observance"] == {"name": "Eid al-Fitr",
+                                            "date": "2026-03-20"}
+        assert block["next_month"]["name"] == "Dhu al-Qaʻdah"
+
+    def test_indonesian_names(self):
+        moment = datetime(2026, 3, 13, 16, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="islamic",
+                           runtime=_runtime(lang="id"))
+        block = payload["calendar"]
+        assert block["label"] == "24 Ramadan 1447 H"
+        assert block["next_observance"]["name"] == "Lailatulqadar"
+
+
+class TestHebrewCalendarBlock:
+    def test_the_holidays_follow_the_place(self):
+        # 4 October 2026, midday: Simchat Torah in the diaspora, an
+        # ordinary day in Israel with Hanukkah next.
+        moment = datetime(2026, 10, 4, 12, 0, tzinfo=timezone(timedelta(hours=-4)))
+        block = _payload(now_local=moment, calendar="hebrew")["calendar"]
+        assert block["holiday"] == "Simchat Torah"
+        block = _payload(now_local=moment, calendar="hebrew",
+                         israel=True)["calendar"]
+        assert block["holiday"] is None
+        assert block["next_holiday"] == {"name": "Hanukkah",
+                                         "date": "2026-12-05"}
+
+    def test_the_block_reads_the_hebrew_date(self):
+        # Midday on 2 September 2026 is 20 Elul 5786; Tishrei and Rosh
+        # Hashanah come on the 12th.
+        moment = datetime(2026, 9, 2, 16, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="hebrew")
+        assert payload["calendar"] == {
+            "name": "hebrew",
+            "year": 5786,
+            "leap_year": False,
+            "days_in_year": 354,
+            "month": 6,
+            "month_name": "Elul",
+            "day": 20,
+            "days_in_month": 29,
+            "label": "20 Elul 5786",
+            "hebrew_label": "כ׳ אלול תשפ״ו",
+            "after_sunset": False,
+            "holiday": None,
+            "next_month": {"name": "Tishrei", "date": "2026-09-12"},
+            "next_holiday": {"name": "Rosh Hashanah",
+                             "date": "2026-09-12"},
+        }
+
+    def test_the_date_turns_at_sunset(self):
+        # Half past eight on the evening of 11 September in Maine: the
+        # year has turned, and Rosh Hashanah has begun, while its
+        # civil date is tomorrow.
+        eastern = timezone(timedelta(hours=-4))
+        moment = datetime(2026, 9, 11, 20, 30, tzinfo=eastern)
+        payload = _payload(now_local=moment, calendar="hebrew")
+        block = payload["calendar"]
+        assert block["after_sunset"] is True
+        assert block["label"] == "1 Tishrei 5787"
+        assert block["leap_year"] is True
+        assert block["holiday"] == "Rosh Hashanah"
+        assert block["next_holiday"] == {"name": "Rosh Hashanah",
+                                         "date": "2026-09-12"}
+        assert block["next_month"] == {"name": "Cheshvan",
+                                       "date": "2026-10-12"}
+
+    def test_a_holiday_in_progress(self):
+        moment = datetime(2026, 12, 7, 16, 0, tzinfo=timezone.utc)
+        block = _payload(now_local=moment, calendar="hebrew")["calendar"]
+        assert block["label"] == "27 Kislev 5787"
+        assert block["holiday"] == "Hanukkah"
+        assert block["next_holiday"] == {"name": "Hanukkah",
+                                         "date": "2026-12-05"}
+
+
+class TestHawaiianCalendarBlock:
+    def test_the_calendar_carries_the_councils_counsel(self):
+        # The 20th night, Lāʻaupau, has no kapu note; the poepoe
+        # counsel and the attribution carry the block.
+        moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="hawaiian")
+        counsel = payload["calendar"]["counsel"]
+        assert counsel["night_note"] is None
+        assert counsel["anahulu"].startswith("Poepoe nights")
+        assert counsel["source"] == (
+            "Western Pacific Regional Fishery Management Council")
+
+    def test_the_kaulana_mahina_names_the_night(self):
+        # Sep 1 2026 is the twentieth night of the month begun Aug 13,
+        # per the printed 2026 Kaulana Mahina.
+        moment = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="hawaiian")
+        block = dict(payload["calendar"])
+        assert block.pop("counsel")["anahulu"].startswith("Poepoe nights")
+        assert block == {
+            "name": "hawaiian",
+            "night": 20,
+            "nights_in_month": 30,
+            "night_name": "Lāʻaupau",
+            "anahulu": "poepoe",
+        }

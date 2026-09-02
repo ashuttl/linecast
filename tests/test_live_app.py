@@ -24,6 +24,37 @@ class TestOverlay:
         assert overlay("b", motion=True) == "b\x00\033[?1003h"
 
 
+class TestPointerChip:
+    """The chip never sits under the pointer glyph, which hangs down-right."""
+
+    def _rows_cols(self, out):
+        import re
+        return [(int(r), int(c)) for r, c in re.findall(r"\033\[(\d+);(\d+)H", out)]
+
+    def test_sits_below_the_pointer_with_a_clear_row(self):
+        pos = self._rows_cols(_live.pointer_chip(["a", "bb"], 10, 5, 80, 24))
+        assert pos == [(7, 10), (8, 10)]
+
+    def test_flips_above_when_there_is_no_room_below(self):
+        pos = self._rows_cols(_live.pointer_chip(["a", "bb"], 10, 22, 80, 24))
+        assert pos == [(20, 10), (21, 10)]
+
+    def test_slides_inward_at_the_right_edge(self):
+        pos = self._rows_cols(_live.pointer_chip(["abcd"], 79, 5, 80, 24))
+        assert pos == [(7, 77)]
+
+    def test_flip_at_ends_the_chip_left_of_the_anchor(self):
+        pos = self._rows_cols(_live.pointer_chip(["abcd"], 79, 5, 80, 24, flip_at=78))
+        assert pos == [(7, 74)]
+
+    def test_pads_to_one_width_with_the_fill(self):
+        out = _live.pointer_chip(["a", "bb"], 10, 5, 80, 24, pad_bg="<BG>")
+        assert "a<BG> " in out
+
+    def test_nothing_from_no_lines(self):
+        assert _live.pointer_chip([], 10, 5, 80, 24) == ""
+
+
 class TestHooks:
     def test_a_bare_app_hands_the_loop_nothing(self):
         assert LiveApp().hooks() == {}

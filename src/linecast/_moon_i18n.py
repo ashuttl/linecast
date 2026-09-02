@@ -13,14 +13,26 @@ _MOON_STRINGS = {
     "en": {
         "illuminated": "{pct}% illuminated",
         "age": "day {age} of {total}",
+        "lunar_age": "lunar age {age}d",
         "up_now": "Up now",
         "above_horizon": "{alt}° above the horizon",
         "below_horizon": "Below the horizon",
         "moonrise": "Moonrise",
         "moonset": "Moonset",
         "in_days": "in {days}d",
+        "begins_at_sunset": "begins at sunset",
         "in_time": "in {dur}",
         "year_day": "Day {n} of {total}",
+        "light_of_moon": "light of the moon",
+        "dark_of_moon": "dark of the moon",
+        "good_for": "Good for {things}",
+        "hold_off": "Hold off {things}",
+        "light_good": "sowing above-ground crops, grafting, transplanting",
+        "light_hold": "root crops",
+        "dark_good": "root crops, pruning, weeding",
+        "dark_hold": "sowing above-ground crops",
+        "solunar_major": "Solunar major",
+        "solunar_minor": "minor",
         "spring_equinox": "Spring equinox",
         "summer_solstice": "Summer solstice",
         "autumn_equinox": "Autumn equinox",
@@ -29,12 +41,14 @@ _MOON_STRINGS = {
     "fr": {
         "illuminated": "{pct} % éclairée",
         "age": "jour {age} sur {total}",
+        "lunar_age": "âge lunaire {age} j",
         "up_now": "Levée",
         "above_horizon": "{alt}° au-dessus de l'horizon",
         "below_horizon": "Sous l'horizon",
         "moonrise": "Lever de lune",
         "moonset": "Coucher de lune",
         "in_days": "dans {days} j",
+        "begins_at_sunset": "commence au coucher du soleil",
         "in_time": "dans {dur}",
         "year_day": "Jour {n} sur {total}",
         "spring_equinox": "Équinoxe de printemps",
@@ -45,12 +59,14 @@ _MOON_STRINGS = {
     "es": {
         "illuminated": "{pct} % iluminada",
         "age": "día {age} de {total}",
+        "lunar_age": "edad lunar {age} d",
         "up_now": "Visible ahora",
         "above_horizon": "{alt}° sobre el horizonte",
         "below_horizon": "Bajo el horizonte",
         "moonrise": "Salida de la luna",
         "moonset": "Puesta de la luna",
         "in_days": "en {days} d",
+        "begins_at_sunset": "comienza al atardecer",
         "in_time": "en {dur}",
         "year_day": "Día {n} de {total}",
         "spring_equinox": "Equinoccio de primavera",
@@ -61,12 +77,14 @@ _MOON_STRINGS = {
     "de": {
         "illuminated": "{pct} % beleuchtet",
         "age": "Tag {age} von {total}",
+        "lunar_age": "Mondalter {age} T",
         "up_now": "Jetzt sichtbar",
         "above_horizon": "{alt}° über dem Horizont",
         "below_horizon": "Unter dem Horizont",
         "moonrise": "Mondaufgang",
         "moonset": "Monduntergang",
         "in_days": "in {days} T",
+        "begins_at_sunset": "beginnt bei Sonnenuntergang",
         "in_time": "in {dur}",
         "year_day": "Tag {n} von {total}",
         "spring_equinox": "Frühlingsanfang",
@@ -77,12 +95,14 @@ _MOON_STRINGS = {
     "it": {
         "illuminated": "{pct}% illuminata",
         "age": "giorno {age} di {total}",
+        "lunar_age": "età lunare {age} g",
         "up_now": "Visibile ora",
         "above_horizon": "{alt}° sopra l'orizzonte",
         "below_horizon": "Sotto l'orizzonte",
         "moonrise": "Sorgere della luna",
         "moonset": "Tramonto della luna",
         "in_days": "tra {days} g",
+        "begins_at_sunset": "inizia al tramonto",
         "in_time": "tra {dur}",
         "year_day": "Giorno {n} di {total}",
         "spring_equinox": "Equinozio di primavera",
@@ -93,12 +113,14 @@ _MOON_STRINGS = {
     "pt": {
         "illuminated": "{pct}% iluminada",
         "age": "dia {age} de {total}",
+        "lunar_age": "idade lunar {age} d",
         "up_now": "Visível agora",
         "above_horizon": "{alt}° acima do horizonte",
         "below_horizon": "Abaixo do horizonte",
         "moonrise": "Nascer da lua",
         "moonset": "Pôr da lua",
         "in_days": "em {days} d",
+        "begins_at_sunset": "começa ao pôr do sol",
         "in_time": "em {dur}",
         "year_day": "Dia {n} de {total}",
         "spring_equinox": "Equinócio de primavera",
@@ -109,12 +131,14 @@ _MOON_STRINGS = {
     "nl": {
         "illuminated": "{pct}% verlicht",
         "age": "dag {age} van {total}",
+        "lunar_age": "maanleeftijd {age} d",
         "up_now": "Nu zichtbaar",
         "above_horizon": "{alt}° boven de horizon",
         "below_horizon": "Onder de horizon",
         "moonrise": "Maanopkomst",
         "moonset": "Maanondergang",
         "in_days": "over {days} d",
+        "begins_at_sunset": "begint bij zonsondergang",
         "in_time": "over {dur}",
         "year_day": "Dag {n} van {total}",
         "spring_equinox": "Lente-equinox",
@@ -125,12 +149,14 @@ _MOON_STRINGS = {
     "pl": {
         "illuminated": "{pct}% oświetlenia",
         "age": "dzień {age} z {total}",
+        "lunar_age": "wiek księżyca {age} d",
         "up_now": "Nad horyzontem",
         "above_horizon": "{alt}° nad horyzontem",
         "below_horizon": "Pod horyzontem",
         "moonrise": "Wschód księżyca",
         "moonset": "Zachód księżyca",
         "in_days": "za {days} d",
+        "begins_at_sunset": "zaczyna się o zachodzie słońca",
         "in_time": "za {dur}",
         "year_day": "Dzień {n} z {total}",
         "spring_equinox": "Równonoc wiosenna",
@@ -141,12 +167,14 @@ _MOON_STRINGS = {
     "no": {
         "illuminated": "{pct} % belyst",
         "age": "dag {age} av {total}",
+        "lunar_age": "månens alder {age} d",
         "up_now": "Oppe nå",
         "above_horizon": "{alt}° over horisonten",
         "below_horizon": "Under horisonten",
         "moonrise": "Måneoppgang",
         "moonset": "Månenedgang",
         "in_days": "om {days} d",
+        "begins_at_sunset": "begynner ved solnedgang",
         "in_time": "om {dur}",
         "year_day": "Dag {n} av {total}",
         "spring_equinox": "Vårjevndøgn",
@@ -157,12 +185,14 @@ _MOON_STRINGS = {
     "sv": {
         "illuminated": "{pct} % belyst",
         "age": "dag {age} av {total}",
+        "lunar_age": "månens ålder {age} d",
         "up_now": "Uppe nu",
         "above_horizon": "{alt}° över horisonten",
         "below_horizon": "Under horisonten",
         "moonrise": "Månuppgång",
         "moonset": "Månnedgång",
         "in_days": "om {days} d",
+        "begins_at_sunset": "börjar vid solnedgången",
         "in_time": "om {dur}",
         "year_day": "Dag {n} av {total}",
         "spring_equinox": "Vårdagjämning",
@@ -173,12 +203,14 @@ _MOON_STRINGS = {
     "da": {
         "illuminated": "{pct} % belyst",
         "age": "dag {age} af {total}",
+        "lunar_age": "månens alder {age} d",
         "up_now": "Oppe nu",
         "above_horizon": "{alt}° over horisonten",
         "below_horizon": "Under horisonten",
         "moonrise": "Måneopgang",
         "moonset": "Månenedgang",
         "in_days": "om {days} d",
+        "begins_at_sunset": "begynder ved solnedgang",
         "in_time": "om {dur}",
         "year_day": "Dag {n} af {total}",
         "spring_equinox": "Forårsjævndøgn",
@@ -189,12 +221,14 @@ _MOON_STRINGS = {
     "is": {
         "illuminated": "{pct}% upplýst",
         "age": "dagur {age} af {total}",
+        "lunar_age": "tunglaldur {age} d",
         "up_now": "Á lofti núna",
         "above_horizon": "{alt}° yfir sjóndeildarhring",
         "below_horizon": "Undir sjóndeildarhring",
         "moonrise": "Tunglris",
         "moonset": "Tunglsetur",
         "in_days": "eftir {days} d",
+        "begins_at_sunset": "hefst við sólsetur",
         "in_time": "eftir {dur}",
         "year_day": "Dagur {n} af {total}",
         "spring_equinox": "Vorjafndægur",
@@ -205,12 +239,14 @@ _MOON_STRINGS = {
     "fi": {
         "illuminated": "{pct} % valaistunut",
         "age": "päivä {age} / {total}",
+        "lunar_age": "kuun ikä {age} pv",
         "up_now": "Näkyvissä nyt",
         "above_horizon": "{alt}° horisontin yläpuolella",
         "below_horizon": "Horisontin alapuolella",
         "moonrise": "Kuunnousu",
         "moonset": "Kuunlasku",
         "in_days": "{days} pv kuluttua",
+        "begins_at_sunset": "alkaa auringonlaskusta",
         "in_time": "{dur} kuluttua",
         "year_day": "Päivä {n} / {total}",
         "spring_equinox": "Kevätpäiväntasaus",
@@ -221,12 +257,14 @@ _MOON_STRINGS = {
     "ja": {
         "illuminated": "輝面比 {pct}%",
         "age": "月齢 {age} / {total}",
-        "up_now": "現在昇っています",
+        "lunar_age": "月齢 {age}",
+        "up_now": "現在出ています",
         "above_horizon": "高度 {alt}°",
         "below_horizon": "地平線の下",
         "moonrise": "月の出",
         "moonset": "月の入り",
         "in_days": "{days}日後",
+        "begins_at_sunset": "日没に始まる",
         "in_time": "{dur}後",
         "year_day": "今年 {n} 日目 / {total} 日",
         "spring_equinox": "春分",
@@ -237,12 +275,14 @@ _MOON_STRINGS = {
     "ko": {
         "illuminated": "{pct}% 밝음",
         "age": "월령 {age} / {total}",
+        "lunar_age": "월령 {age}",
         "up_now": "지금 떠 있음",
         "above_horizon": "고도 {alt}°",
         "below_horizon": "지평선 아래",
         "moonrise": "월출",
         "moonset": "월몰",
         "in_days": "{days}일 후",
+        "begins_at_sunset": "일몰에 시작",
         "in_time": "{dur} 후",
         "year_day": "올해 {n}일째 / {total}일",
         "spring_equinox": "춘분",
@@ -253,12 +293,14 @@ _MOON_STRINGS = {
     "zh": {
         "illuminated": "亮面 {pct}%",
         "age": "月龄 {age} / {total}",
+        "lunar_age": "月龄 {age}",
         "up_now": "现在已升起",
         "above_horizon": "高度 {alt}°",
         "below_horizon": "在地平线下",
         "moonrise": "月出",
         "moonset": "月落",
         "in_days": "{days}天后",
+        "begins_at_sunset": "日落开始",
         "in_time": "{dur}后",
         "year_day": "今年第 {n} 天 / {total} 天",
         "spring_equinox": "春分",
@@ -266,15 +308,35 @@ _MOON_STRINGS = {
         "autumn_equinox": "秋分",
         "winter_solstice": "冬至",
     },
+    "th": {
+        "illuminated": "สว่าง {pct}%",
+        "age": "คืนที่ {age} / {total}",
+        "lunar_age": "ดวงจันทร์อายุ {age} วัน",
+        "up_now": "อยู่บนท้องฟ้า",
+        "above_horizon": "{alt}° เหนือขอบฟ้า",
+        "below_horizon": "ใต้ขอบฟ้า",
+        "moonrise": "ดวงจันทร์ขึ้น",
+        "moonset": "ดวงจันทร์ตก",
+        "in_days": "อีก {days} วัน",
+        "begins_at_sunset": "เริ่มเมื่อพระอาทิตย์ตก",
+        "in_time": "อีก {dur}",
+        "year_day": "วันที่ {n} จาก {total} ของปี",
+        "spring_equinox": "วสันตวิษุวัต",
+        "summer_solstice": "ครีษมายัน",
+        "autumn_equinox": "ศารทวิษุวัต",
+        "winter_solstice": "เหมายัน",
+    },
     "id": {
         "illuminated": "{pct}% diterangi",
         "age": "hari {age} dari {total}",
+        "lunar_age": "umur bulan {age} hr",
         "up_now": "Di atas cakrawala",
         "above_horizon": "{alt}° di atas cakrawala",
         "below_horizon": "Di bawah cakrawala",
         "moonrise": "Bulan terbit",
         "moonset": "Bulan terbenam",
         "in_days": "dalam {days} hr",
+        "begins_at_sunset": "mulai saat matahari terbenam",
         "in_time": "dalam {dur}",
         "year_day": "Hari ke-{n} dari {total}",
         "spring_equinox": "Ekuinoks musim semi",
@@ -312,6 +374,8 @@ MONTHS_I18N = {
             "jul", "aug", "sep", "okt", "nov", "dec"],
     "is": ["jan", "feb", "mar", "apr", "maí", "jún",
             "júl", "ágú", "sep", "okt", "nóv", "des"],
+    "th": ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+            "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."],
     "id": ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
             "Jul", "Agu", "Sep", "Okt", "Nov", "Des"],
 }
@@ -337,12 +401,13 @@ def _ms(key, runtime, **kwargs):
 # Season names for the four events (March equinox, June solstice,
 # September equinox, December solstice), by hemisphere.  East Asian
 # solar terms (春分, 夏至, …) name the event itself, not the local
-# season, so those languages keep the northern mapping everywhere.
+# season, and Thai's Sanskrit terms (วสันตวิษุวัต, …) likewise, so
+# those languages keep the northern mapping everywhere.
 _SEASON_KEYS_NORTH = ("spring_equinox", "summer_solstice",
                       "autumn_equinox", "winter_solstice")
 _SEASON_KEYS_SOUTH = ("autumn_equinox", "winter_solstice",
                       "spring_equinox", "summer_solstice")
-_SEASON_ABSOLUTE_LANGS = frozenset({"ja", "ko", "zh"})
+_SEASON_ABSOLUTE_LANGS = frozenset({"ja", "ko", "zh", "th"})
 
 
 def _season_label(event, lat, runtime):
@@ -364,3 +429,467 @@ def _fmt_month_day(dt, runtime):
 def _day_abbrev(dt, runtime):
     """Localized three-letter-ish weekday abbreviation."""
     return DAY_NAMES.get(lang_of(runtime), DAY_NAMES["en"])[dt.weekday()]
+
+
+# ---------------------------------------------------------------------------
+# The lunisolar calendar's names (see _lunisolar.py for the calendar
+# itself). Each calendar reads in its own script for its own language;
+# every other UI language gets the customary English renderings, the
+# same fallback the string tables use.
+# ---------------------------------------------------------------------------
+
+# Solar terms in longitude order, index 0 at the March equinox — the
+# indexing current_term() and next_term() use. The terms are common to
+# all three calendars; only the writing differs.
+SOLAR_TERMS_I18N = {
+    "en": ["Spring Equinox", "Clear and Bright", "Grain Rain",
+           "Start of Summer", "Grain Buds", "Grain in Ear",
+           "Summer Solstice", "Minor Heat", "Major Heat",
+           "Start of Autumn", "End of Heat", "White Dew",
+           "Autumn Equinox", "Cold Dew", "Frost's Descent",
+           "Start of Winter", "Minor Snow", "Major Snow",
+           "Winter Solstice", "Minor Cold", "Major Cold",
+           "Start of Spring", "Rain Water", "Awakening of Insects"],
+    "zh": ["春分", "清明", "谷雨", "立夏", "小满", "芒种",
+           "夏至", "小暑", "大暑", "立秋", "处暑", "白露",
+           "秋分", "寒露", "霜降", "立冬", "小雪", "大雪",
+           "冬至", "小寒", "大寒", "立春", "雨水", "惊蛰"],
+    "ja": ["春分", "清明", "穀雨", "立夏", "小満", "芒種",
+           "夏至", "小暑", "大暑", "立秋", "処暑", "白露",
+           "秋分", "寒露", "霜降", "立冬", "小雪", "大雪",
+           "冬至", "小寒", "大寒", "立春", "雨水", "啓蟄"],
+    "ko": ["춘분", "청명", "곡우", "입하", "소만", "망종",
+           "하지", "소서", "대서", "입추", "처서", "백로",
+           "추분", "한로", "상강", "입동", "소설", "대설",
+           "동지", "소한", "대한", "입춘", "우수", "경칩"],
+}
+
+# Festivals dated by the lunar calendar, (month, day) → (native name,
+# English name), per calendar. Japan moved its festivals to Gregorian
+# dates in 1873; the two moon-viewing nights are what remains on the
+# old calendar.
+_FESTIVALS = {
+    "chinese": {
+        (1, 1): ("春节", "Chinese New Year"),
+        (1, 15): ("元宵节", "Lantern Festival"),
+        (5, 5): ("端午节", "Dragon Boat Festival"),
+        (7, 7): ("七夕", "Qixi"),
+        (8, 15): ("中秋节", "Mid-Autumn Festival"),
+        (9, 9): ("重阳节", "Double Ninth"),
+    },
+    "japanese": {
+        (8, 15): ("十五夜", "Tsukimi"),
+        (9, 13): ("十三夜", "Jūsan'ya"),
+    },
+    "korean": {
+        (1, 1): ("설날", "Seollal"),
+        (1, 15): ("정월대보름", "Daeboreum"),
+        (5, 5): ("단오", "Dano"),
+        (8, 15): ("추석", "Chuseok"),
+    },
+}
+
+
+def festival_table(calendar, native):
+    """(month, day) → name for a calendar's festivals.
+
+    *native* picks the calendar's own script; otherwise the customary
+    English names.
+    """
+    return {md: names[0] if native else names[1]
+            for md, names in _FESTIVALS[calendar].items()}
+
+# Chinese months and days have names, not numbers: the eleventh and
+# twelfth months are 冬月 and 腊月, the first ten days take 初, the
+# twenties 廿.
+_ZH_MONTHS = ["正月", "二月", "三月", "四月", "五月", "六月",
+              "七月", "八月", "九月", "十月", "冬月", "腊月"]
+_ZH_DIGITS = "一二三四五六七八九十"
+
+
+def _zh_day_name(day):
+    if day <= 10:
+        return "初" + _ZH_DIGITS[day - 1]
+    if day < 20:
+        return "十" + _ZH_DIGITS[day - 11]
+    if day == 20:
+        return "二十"
+    if day < 30:
+        return "廿" + _ZH_DIGITS[day - 21]
+    return "三十"
+
+
+def lunar_date_label(month, day, leap, lang):
+    """The lunar date as its own calendar writes it, English otherwise."""
+    if lang == "zh":
+        leap_mark = "闰" if leap else ""
+        return f"农历{leap_mark}{_ZH_MONTHS[month - 1]}{_zh_day_name(day)}"
+    if lang == "ja":
+        leap_mark = "閏" if leap else ""
+        return f"旧暦{leap_mark}{month}月{day}日"
+    if lang == "ko":
+        leap_mark = "윤" if leap else ""
+        return f"음력 {leap_mark}{month}월 {day}일"
+    leap_mark = "leap " if leap else ""
+    return f"{leap_mark}month {month} day {day}"
+
+
+def term_label(index, lang):
+    """The name of solar term *index* (0 = March equinox)."""
+    return SOLAR_TERMS_I18N.get(lang, SOLAR_TERMS_I18N["en"])[index]
+
+
+# Japan names the nights, not just the phases: after the full moon the
+# names narrate the lengthening wait for moonrise — stand and wait,
+# sit and wait, lie down, wait past midnight. The named nights are the
+# traditional ones; the days between take the plain counted form.
+_JA_NIGHT_NAMES = (
+    "新月", "二日月", "三日月", "四日月", "五日月",
+    "六日月", "七日月", "八日月", "九日月", "十日夜",
+    "十一日月", "十二日月", "十三夜", "小望月", "十五夜",
+    "十六夜", "立待月", "居待月", "寝待月", "更待月",
+    "二十一日月", "二十二日月", "二十三夜", "二十四日月", "二十五日月",
+    "二十六夜", "二十七日月", "二十八日月", "二十九日月", "三十日月",
+)
+
+
+def ja_night_name(day):
+    """The Japanese name of the old calendar's night *day* (1-30)."""
+    return _JA_NIGHT_NAMES[day - 1]
+
+
+# ---------------------------------------------------------------------------
+# The Thai calendar's names (see _thai_lunar.py for the calendar
+# itself). Thai lunar dates are traditionally printed in Thai numerals
+# — ขึ้น ๘ ค่ำ เดือน ๓ — so the native labels keep them; the rest of
+# the UI stays with Arabic digits, as modern Thai print does.
+# ---------------------------------------------------------------------------
+
+_TH_DIGITS = "๐๑๒๓๔๕๖๗๘๙"
+
+
+def _th_num(n):
+    return "".join(_TH_DIGITS[ord(c) - 48] for c in str(n))
+
+
+def thai_month_label(month, doubled, lang):
+    """เดือนอ้าย, เดือนยี่, เดือน ๓ … เดือน ๘๘ — the months as the
+    printed calendars name them: the first two by their archaic names,
+    the doubled eighth by its doubled numeral."""
+    if lang == "th":
+        if doubled:
+            return "เดือน ๘๘"
+        if month == 1:
+            return "เดือนอ้าย"
+        if month == 2:
+            return "เดือนยี่"
+        return f"เดือน {_th_num(month)}"
+    return f"month {'8/8' if doubled else month}"
+
+
+def thai_lunar_label(month, day, doubled, lang):
+    """The Thai lunar date as the printed calendars write it."""
+    if lang == "th":
+        phase, d = ("ขึ้น", day) if day <= 15 else ("แรม", day - 15)
+        return f"{phase} {_th_num(d)} ค่ำ {thai_month_label(month, doubled, lang)}"
+    phase, d = ("waxing", day) if day <= 15 else ("waning", day - 15)
+    return f"{thai_month_label(month, doubled, lang)} · {phase} {d}"
+
+
+# The twelve-animal cycle, indexed as year_animal_index counts it
+# (0 = ชวด, the rat).
+_TH_ANIMALS = ("ชวด", "ฉลู", "ขาล", "เถาะ", "มะโรง", "มะเส็ง",
+               "มะเมีย", "มะแม", "วอก", "ระกา", "จอ", "กุน")
+_TH_ANIMALS_EN = ("Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake",
+                  "Horse", "Goat", "Monkey", "Rooster", "Dog", "Pig")
+
+
+def thai_year_label(animal_index, lang):
+    """ปีมะเมีย — the lunar year named by its animal."""
+    if lang == "th":
+        return "ปี" + _TH_ANIMALS[animal_index]
+    return f"Year of the {_TH_ANIMALS_EN[animal_index]}"
+
+
+def wan_phra_label(today, lang):
+    """The Buddhist holy day, named — today's, or the coming one's."""
+    if lang == "th":
+        return "วันนี้วันพระ" if today else "วันพระ"
+    return "Wan Phra today" if today else "Wan Phra"
+
+
+# Festival names by the keys _thai_lunar's next_thai_festival returns,
+# (native, customary English).
+_TH_FESTIVALS = {
+    "makha": ("มาฆบูชา", "Makha Bucha"),
+    "visakha": ("วิสาขบูชา", "Visakha Bucha"),
+    "asalha": ("อาสาฬหบูชา", "Asalha Bucha"),
+    "khao_phansa": ("เข้าพรรษา", "Khao Phansa"),
+    "ok_phansa": ("ออกพรรษา", "Ok Phansa"),
+    "loy_krathong": ("ลอยกระทง", "Loy Krathong"),
+    "songkran": ("สงกรานต์", "Songkran"),
+}
+
+
+def thai_festival_name(key, lang):
+    native, english = _TH_FESTIVALS[key]
+    return native if lang == "th" else english
+
+
+# Hawaiʻi names the nights too — the pō mahina, as the WPRFMC's annual
+# Kaulana Mahina prints them (after Clarice Taylor's Hawaiian Almanac,
+# Oʻahu). Proper nouns with no customary English renderings, so every
+# UI language reads them in Hawaiian. Three ten-night anahulu: the four
+# waxing ʻOle nights, then three waning ones, keep the count at thirty.
+_PO_MAHINA = (
+    "Hilo", "Hoaka", "Kūkahi", "Kūlua", "Kūkolu",
+    "Kūpau", "ʻOlekūkahi", "ʻOlekūlua", "ʻOlekūkolu", "ʻOlepau",
+    "Huna", "Mōhalu", "Hua", "Akua", "Hoku",
+    "Māhealani", "Kulu", "Lāʻaukūkahi", "Lāʻaukūlua", "Lāʻaupau",
+    "ʻOlekūkahi", "ʻOlekūlua", "ʻOlepau", "Kāloakūkahi", "Kāloakūlua",
+    "Kāloapau", "Kāne", "Lono", "Mauli", "Muku",
+)
+
+_ANAHULU = ("hoʻonui", "poepoe", "hōʻemi")
+
+
+# American Samoa names its nights too — the masina, as the Council's
+# annual American Samoa lunar calendar prints them, the same thirty in
+# every edition since 2021. Two nights carry a second name on the
+# page, the first and the full moon, written here as printed.
+_MASINA = (
+    "Masina Fou/Faatoavaaia", "Masina Tofilofilo", "Masina Tolu",
+    "Masina Faalao", "Masina Salefuga", "Masina Tulalupe",
+    "Masina Motuega", "Masina Aufasa", "Masina Matuatua",
+    "Masina Loloatai",
+    "Masina Malupeaua", "Masina Mātofitofi", "Masina Aiaina",
+    "Masina Punifaga", "Masina Atoa/Atoa Liʻo le Masina",
+    "Masina Leʻaleʻa", "Masina Feetetele", "Masina Ataatatai",
+    "Masina Fagaeleele", "Masina Sulutele",
+    "Masina Nauna", "Masina Usunoa", "Masina Motusaga",
+    "Masina Tatelega", "Masina Faasagafulu", "Masina Tāfaleu",
+    "Masina Fataleu", "Masina Mitiloa", "Masina Fanoloa", "Masina Maunā",
+)
+
+# The CHamoru nights — the pulan — as the Council's Guam calendar
+# prints them, and as its CNMI calendar has printed them since 2025.
+# Pulan Gualåffon, the sixteenth, is the full moon.
+_PULAN = (
+    "Sinahen Håcha", "Sinahen Hugua", "Sinahen Tulu", "Sumahi I Pilan",
+    "Sinahen Lima", "Sinahen Gunum", "Sinahen Fiti", "Kuåtto",
+    "Kuåtto Kosiente", "E’egeng",
+    "Dengnga", "Luma’annok", "Gumofatanon", "Pånglao Tunas/Echong",
+    "Atahguen Atdao", "Pulan Gualåffon", "Mumalilingu Empe’",
+    "Ketai’ Empe’", "Sumenhomhom", "Kuåtto Mangguånte",
+    "Humunaohuyong Pulan", "Humomhom", "Tunas Talo’", "Hihot Talo’",
+    "Halomsahguan", "Sinahen Ulu", "Finaloffan Puti’on", "Dalalai Pulan",
+    "Kumaninifes", "Sinahi",
+)
+
+# The Refaluwasch (Carolinian) names the CNMI calendar sets beside the
+# CHamoru ones, keyed by position in the thirty: eleven nights, the
+# same eleven in the 2025 and 2026 editions. The 2022–2024 editions
+# printed a Refaluwasch name for every night; the Council trimmed the
+# list, and these are the names it kept.
+_REFALUWASCH = {
+    1: "Sighauru", 2: "Eling", 3: "Meseling", 9: "Eschúw",
+    14: "Emmasch", 15: "Úúr", 16: "Letiw", 17: "Ghiney", 18: "Ara",
+    21: "Arosan Efnágh", 27: "Arofú",
+}
+
+_PACIFIC_NIGHTS = {
+    "hawaiian": _PO_MAHINA, "samoan": _MASINA,
+    "chamorro": _PULAN, "refaluwasch": _PULAN,
+}
+
+
+def _night_index(night, nights):
+    """Where *night* of a month of *nights* (29 or 30) sits in the thirty.
+
+    A 29-night month drops the twenty-ninth name, never the last — the
+    convention of every published 29-night month in all three
+    calendars: Mauli goes and Muku closes, Masina Fanoloa goes and
+    Masina Maunā closes, Kumaninifes goes and Sinahi closes.
+    """
+    if night >= nights:
+        return 29                            # the last name closes the month
+    if night == nights - 1 and nights >= 30:
+        return 28                            # the twenty-ninth keeps its place
+    return min(night, 28) - 1
+
+
+def pacific_night_name(cal, night, nights):
+    """The name of *night* in a month of *nights*, in *cal*'s tradition."""
+    return _PACIFIC_NIGHTS[cal][_night_index(night, nights)]
+
+
+def po_mahina_name(night, nights):
+    """The Hawaiian name of *night* in a month of *nights* (29 or 30)."""
+    return pacific_night_name("hawaiian", night, nights)
+
+
+def refaluwasch_name(night, nights):
+    """The Refaluwasch name of *night*, or None on a night without one."""
+    return _REFALUWASCH.get(_night_index(night, nights) + 1)
+
+
+def pacific_night_label(cal, night, nights):
+    """The headline for a night: its name, with the Refaluwasch beside
+    the CHamoru where the CNMI calendar prints one."""
+    name = pacific_night_name(cal, night, nights)
+    if cal == "refaluwasch":
+        other = refaluwasch_name(night, nights)
+        if other:
+            return f"{name} · {other}"
+    return name
+
+
+def anahulu_name(night):
+    """The anahulu (ten-night span) that *night* falls in."""
+    return _ANAHULU[min((night - 1) // 10, 2)]
+
+
+# ---------------------------------------------------------------------------
+# The Islamic calendar's names (see _hijri.py for the calendar itself).
+# Arabic is not a UI language, so the months are transliterated for
+# every reader; Indonesian, the one UI language of a Muslim-majority
+# country, gets the spellings its dictionary standardizes.
+# ---------------------------------------------------------------------------
+
+_HIJRI_MONTHS = {
+    "en": ("Muharram", "Safar", "Rabiʻ al-Awwal", "Rabiʻ al-Thani",
+           "Jumada al-Ula", "Jumada al-Thani", "Rajab", "Shaʻban",
+           "Ramadan", "Shawwal", "Dhu al-Qaʻdah", "Dhu al-Hijjah"),
+    "id": ("Muharam", "Safar", "Rabiulawal", "Rabiulakhir",
+           "Jumadilawal", "Jumadilakhir", "Rajab", "Syakban",
+           "Ramadan", "Syawal", "Zulkaidah", "Zulhijah"),
+}
+
+# Observance names by the keys _hijri's next_observance returns.
+_HIJRI_OBSERVANCES = {
+    "new_year": ("Islamic New Year", "Tahun Baru Islam"),
+    "ashura": ("Ashura", "Asyura"),
+    "mawlid": ("Mawlid", "Maulid Nabi"),
+    "ramadan": ("Ramadan begins", "Awal Ramadan"),
+    "qadr": ("Laylat al-Qadr", "Lailatulqadar"),
+    "eid_fitr": ("Eid al-Fitr", "Idulfitri"),
+    "arafah": ("Day of Arafah", "Hari Arafah"),
+    "eid_adha": ("Eid al-Adha", "Iduladha"),
+}
+
+
+def hijri_lang(lang):
+    """The language the Islamic calendar's names are written in."""
+    return "id" if lang == "id" else "en"
+
+
+def hijri_month_name(month, lang):
+    return _HIJRI_MONTHS[hijri_lang(lang)][month - 1]
+
+
+def hijri_date_label(year, month, day, lang):
+    """23 Ramadan 1447 AH — the Hijri date as it is customarily written."""
+    era = "H" if hijri_lang(lang) == "id" else "AH"
+    return f"{day} {hijri_month_name(month, lang)} {year} {era}"
+
+
+def hijri_observance_name(key, lang):
+    english, indonesian = _HIJRI_OBSERVANCES[key]
+    return indonesian if hijri_lang(lang) == "id" else english
+
+
+# ---------------------------------------------------------------------------
+# The Hebrew calendar's names (see _hebrew.py for the calendar itself).
+# Hebrew is not a UI language and terminals lay its script out
+# unreliably, so the months and holidays are transliterated, one
+# spelling for every reader: Tishrei, Cheshvan, Pesach.
+# ---------------------------------------------------------------------------
+
+_HEBREW_MONTHS = ("Nisan", "Iyar", "Sivan", "Tammuz", "Av", "Elul",
+                  "Tishrei", "Cheshvan", "Kislev", "Tevet", "Shevat",
+                  "Adar", "Adar II")
+_HEBREW_MONTHS_HE = ("ניסן", "אייר", "סיון", "תמוז", "אב", "אלול",
+                     "תשרי", "חשון", "כסלו", "טבת", "שבט",
+                     "אדר", "אדר ב׳")
+
+# The letter numerals: units, tens, and hundreds each have a letter,
+# read by adding them up; 15 and 16 are written ט״ו and ט״ז rather
+# than with the letters of the divine name.
+_GEMATRIA = ((400, "ת"), (300, "ש"), (200, "ר"), (100, "ק"), (90, "צ"),
+             (80, "פ"), (70, "ע"), (60, "ס"), (50, "נ"), (40, "מ"),
+             (30, "ל"), (20, "כ"), (10, "י"), (9, "ט"), (8, "ח"),
+             (7, "ז"), (6, "ו"), (5, "ה"), (4, "ד"), (3, "ג"),
+             (2, "ב"), (1, "א"))
+_GERESH, _GERSHAYIM = "\u05f3", "\u05f4"
+
+# Holiday names by the keys _hebrew's next_holiday returns.
+_HEBREW_HOLIDAYS = {
+    "rosh_hashanah": "Rosh Hashanah",
+    "yom_kippur": "Yom Kippur",
+    "sukkot": "Sukkot",
+    "shemini_atzeret": "Shemini Atzeret",
+    "simchat_torah": "Simchat Torah",
+    # One day in Israel, so a printed calendar names it with both.
+    "shemini_atzeret_simchat_torah": "Shemini Atzeret / Simchat Torah",
+    "hanukkah": "Hanukkah",
+    "tu_bishvat": "Tu BiShvat",
+    "purim": "Purim",
+    "pesach": "Pesach",
+    "shavuot": "Shavuot",
+    "tisha_bav": "Tisha B'Av",
+}
+
+
+def hebrew_month_name(year, month):
+    """The month's name; the twelfth is Adar I in a year with two Adars."""
+    from linecast._hebrew import is_leap_year
+    if month == 12 and is_leap_year(year):
+        return "Adar I"
+    return _HEBREW_MONTHS[month - 1]
+
+
+def hebrew_date_label(year, month, day):
+    """23 Tishrei 5787 — the Hebrew date as it is customarily written."""
+    return f"{day} {hebrew_month_name(year, month)} {year}"
+
+
+def hebrew_holiday_name(key):
+    return _HEBREW_HOLIDAYS[key]
+
+
+def hebrew_numeral(n):
+    """*n* in Hebrew letters: כ׳ for 20, כ״ג for 23, ט״ו for 15."""
+    letters = ""
+    while n:
+        for value, letter in _GEMATRIA:
+            if value <= n:
+                letters += letter
+                n -= value
+                break
+    letters = letters.replace("יה", "טו").replace("יו", "טז")
+    if len(letters) == 1:
+        return letters + _GERESH
+    return letters[:-1] + _GERSHAYIM + letters[-1]
+
+
+def hebrew_year_numeral(year):
+    """The year as it is written, without its thousands: תשפ״ו for 5786.
+
+    A round thousand has nothing left to write, so the thousands
+    stand alone: ו׳ for 6000.
+    """
+    rest = year % 1000
+    return hebrew_numeral(rest if rest else year // 1000)
+
+
+def hebrew_date_hebrew(year, month, day):
+    """כ״ג תשרי תשפ״ז — the date in Hebrew letters, for --json."""
+    from linecast._hebrew import is_leap_year
+    name = _HEBREW_MONTHS_HE[month - 1]
+    if month == 12 and is_leap_year(year):
+        name = "אדר א׳"
+    return f"{hebrew_numeral(day)} {name} {hebrew_year_numeral(year)}"
+
+
+def rosh_chodesh_label(year, month):
+    return f"Rosh Chodesh {hebrew_month_name(year, month)}"

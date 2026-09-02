@@ -17,9 +17,9 @@ a tooltip with that day's sunrise, sunset, and day length, tides-style.
 import calendar
 from datetime import datetime, timedelta
 
-from linecast import _theme
+from linecast import _live, _theme
 from linecast._graphics import (
-    fg, bg, RESET, interp_stops, lerp, visible_len, fmt_time,
+    fg, bg, interp_stops, lerp, fmt_time,
     get_terminal_size, Framebuffer, overlay,
 )
 from linecast._sunshine_i18n import (
@@ -132,6 +132,10 @@ def _dial_stops(sun):
     slate = lerp_rgb(night, sky, 0.40)
     rose = lerp_rgb(lerp_rgb(magenta, red, 0.30), slate, 0.25)
     peach = lerp_rgb(lerp_rgb(yellow, red, 0.30), white, 0.35)
+    # The low sky is hazy — whiter near the horizon, as on a clear day —
+    # and settles into the blue as the sun climbs. A soft edge for the
+    # day region, not information.
+    haze = lerp_rgb(day, white, 0.22)
     return [
         (-18, night),
         (-12, lerp_rgb(night, sky, 0.17)),
@@ -140,11 +144,11 @@ def _dial_stops(sun):
         ( -2, rose),
         (  0, lerp_rgb(rose, peach, 0.55)),
         (  2, peach),
-        (  5, lerp_rgb(peach, day, 0.40)),
-        (  8, lerp_rgb(peach, day, 0.70)),
-        ( 12, lerp_rgb(day, white, 0.10)),
-        ( 18, day),
-        ( 30, lerp_rgb(day, sky, 0.45)),
+        (  5, lerp_rgb(peach, haze, 0.45)),
+        (  8, lerp_rgb(peach, haze, 0.80)),
+        ( 12, haze),
+        ( 22, lerp_rgb(haze, day, 0.65)),
+        ( 35, lerp_rgb(day, sky, 0.40)),
         ( 90, lerp_rgb(day, sky, 0.60)),
     ]
 
@@ -238,10 +242,11 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     icons = sun._icon_set(runtime)
     cols, rows = get_terminal_size()
 
-    # One row fewer than the day view: the month axis sits between the
-    # field and the info line, so the two views end on the same row.
+    # The field fills the window; the month labels overlay its bottom
+    # row rather than taking a row of their own, so the view ends where
+    # the day view (field plus info line) does.
     graph_w = max(30, cols - 2)
-    graph_h = max(6, rows - (2 if fullscreen else 7))
+    graph_h = max(6, rows - (0 if fullscreen else 5))
     total_spy = graph_h * 2
 
     year = now.year
@@ -307,17 +312,16 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
             overlays[(x, 0)] = (ch, sun.corner_label_ink(fb.cell_bg(x, 0)),
                                 False)
 
+    # Month labels, dim, along the bottom row — midnight at every
+    # latitude, so the ink darkens only against a polar-summer sky.
+    for x, ch in _month_axis_cells(year, days, graph_w, runtime):
+        overlays[(x, graph_h - 1)] = (
+            ch, sun.corner_label_ink(fb.cell_bg(x, graph_h - 1)), False)
+
     sun_row = spy_now // 2
     overlays[(x_today, sun_row)] = (icons["sun_char"], sun.SUN_DOT_RGB)
 
     lines = fb.render(overlays)
-
-    # --- month labels ---
-    lines.append(_month_line(year, days, graph_w, runtime))
-
-    # --- info line for today ---
-    lines.append(_info_line(lat, lng, today_doy, tz_offs[today_doy - 1],
-                            cols, runtime))
 
     hint = sun.install_banner()
     if hint:
@@ -362,7 +366,7 @@ def _hover_moment(lat, lng, doy, tz_off, mouse_row, graph_h, sun, runtime,
         if abs(hour - at) <= reach and 0 <= at < 24:
             return at, sky_event(key, runtime)
     elev = sun.sun_elevation(lat, lng, hour, doy, tz_off)
-    return hour, sky_phase(elev, runtime)
+    return hour, sky_phase(elev, runtime, morning=hour < noon)
 
 
 def _zone_name(date, tz):
@@ -433,80 +437,37 @@ def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
         f"{tip_dim}({_fmt_len_delta(day_len - today_len)}) ",
     ]
 
-    max_w = max(visible_len(line) for line in tip_lines)
-    padded = [f"{line}{tip_bg}{' ' * (max_w - visible_len(line))}{RESET}"
-              for line in tip_lines]
-
-    tooltip_col = hover_x + 3  # right of the hover hairline, 1-based + margin
-    tooltip_row = mouse_row
-    if tooltip_col + max_w - 1 > cols:
-        tooltip_col = max(1, hover_x + 2 - max_w)
-    if tooltip_row + len(padded) - 1 > rows:
-        tooltip_row = max(1, rows - len(padded) + 1)
-
-    return "".join(f"\033[{tooltip_row + i};{tooltip_col}H{line}"
-                   for i, line in enumerate(padded))
+    # right of the hover hairline, or ending just left of it at the edge
+    return _live.pointer_chip(tip_lines, hover_x + 3, mouse_row, cols, rows,
+                              pad_bg=tip_bg, flip_at=hover_x + 2)
 
 
-def _month_line(year, days, graph_w, runtime):
-    from linecast import sunshine as sun
+def _month_axis_cells(year, days, graph_w, runtime):
+    """(x, char) overlay cells for the month labels, one per month start.
 
+    Cells, not characters: a wide (CJK) glyph takes two columns — its
+    own, and an empty slot after it that the framebuffer skips.
+    """
     labels = axis_month_labels(runtime, narrow=graph_w < 72)
-    # Cells, not characters: a wide (CJK) glyph takes two columns, so
-    # its label writes the glyph and leaves an empty slot after it.
-    chars = [" "] * graph_w
+    cells = []
     doy = 0
     for m in range(12):
         x = int(doy / days * graph_w)
+        last_base = None
         for ch in labels[m]:
             w = char_width(ch)
+            if w == 0:
+                # A combining mark (a Thai vowel sign, say) rides in
+                # its base's cell rather than claiming the next one.
+                if last_base is not None:
+                    bx, base = cells[last_base]
+                    cells[last_base] = (bx, base + ch)
+                continue
             if x + w > graph_w:
                 break
-            chars[x] = ch
-            for k in range(1, w):
-                chars[x + k] = ""
+            cells.append((x, ch))
+            last_base = len(cells) - 1
+            cells.extend((x + k, "") for k in range(1, w))
             x += w
         doy += calendar.monthrange(year, m + 1)[1]
-    dim = fg(*sun.INFO_MUTED_RGB)
-    return f"{RESET} {dim}{''.join(chars)}{RESET}"
-
-
-def _info_line(lat, lng, doy, tz_off, width, runtime):
-    """Sunrise — day length (delta vs yesterday) — sunset, for today."""
-    from linecast import sunshine as sun
-
-    icons = sun._icon_set(runtime)
-    sunrise, sunset, day_len = _day_facts(lat, lng, doy, tz_off, sun)
-    polar = sun.polar_state(day_len)
-
-    y_rise, y_set = sun.solar_times(lat, lng, doy - 1, tz_off)
-    delta_sec = (day_len - (y_set - y_rise)) * 3600
-    d_sign = "+" if delta_sec >= 0 else "−"
-    d_m = int(abs(delta_sec)) // 60
-    d_s = int(abs(delta_sec)) % 60
-    delta_str = f"{d_sign}{d_m}m {d_s}s" if d_s > 0 else f"{d_sign}{d_m}m"
-
-    amber = fg(*sun.INFO_AMBER_RGB)
-    purple = fg(*sun.INFO_PURPLE_RGB)
-    dim = fg(*sun.INFO_DIM_RGB)
-    text = fg(*sun.INFO_TEXT_RGB)
-
-    dl_h = int(day_len)
-    dl_m = int((day_len - dl_h) * 60)
-    # As in the day view: dashes where a polar season has no times, and
-    # the phrase in place of a delta that is zero all season.
-    if polar:
-        center = (f"{text}{dl_h}h {dl_m:02d}m "
-                  f"{dim}\u00b7 {polar_name(polar, runtime)}")
-    else:
-        center = f"{text}{dl_h}h {dl_m:02d}m {dim}({delta_str})"
-    rise_txt = "\u2014" if polar else fmt_time(sunrise, runtime.use_24h)
-    set_txt = "\u2014" if polar else fmt_time(sunset, runtime.use_24h)
-    left = f"{amber}{icons['sun_icon']} {text}{rise_txt}"
-    right = f"{text}{set_txt} {purple}{icons['sunset_icon']}"
-
-    lw, cw, rw = visible_len(left), visible_len(center), visible_len(right)
-    total_gap = max(0, width - lw - cw - rw - 2)
-    left_gap = max(1, total_gap // 2)
-    right_gap = max(1, total_gap - left_gap)
-    return f"{RESET} {left}{' ' * left_gap}{center}{' ' * right_gap}{right} {RESET}"
+    return cells

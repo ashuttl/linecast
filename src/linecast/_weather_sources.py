@@ -11,13 +11,6 @@ from linecast._paths import cache_dir
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure
 
 
-def _location_from_timezone(tz_str):
-    """Extract display name from timezone like 'America/New_York' -> 'New York'."""
-    if not tz_str or "/" not in tz_str:
-        return ""
-    return tz_str.rsplit("/", 1)[-1].replace("_", " ")
-
-
 def _local_now_for_data(data):
     """Current local time in the forecast's timezone (as naive local datetime)."""
     tz_name = data.get("timezone", "")
@@ -70,7 +63,11 @@ def _reverse_geocode(lat, lng, lang=None):
             url += f"&accept-language={lang}"
         data = fetch_json(url, timeout=10)
         addr = data.get("address", {})
-        name = addr.get("city") or addr.get("town") or addr.get("village") or ""
+        # Nominatim files small places under keys all the way down to
+        # hamlet (Fayette, Maine is one); without them the name comes back
+        # empty and the caller falls back to the timezone city (issue #50).
+        name = (addr.get("city") or addr.get("town") or addr.get("village")
+                or addr.get("hamlet") or addr.get("municipality") or "")
         state = addr.get("state", "")
         country_code = _country_code(addr)
         if name and state:
@@ -600,6 +597,13 @@ _METEOALARM_SLUGS = {
     "UA": "ukraine", "GB": "united-kingdom",
 }
 
+# A feed is the whole country's, and one that draws every warning's
+# outline runs big: Switzerland's was 9.4 MB on 2026-09-02, past the
+# 8 MiB fetch_json allows, and the refusal read as a quiet day. The cap
+# stays, since a runaway server is still the thing it is for, but high
+# enough that a stormy day in a polygon-filing country gets through.
+_METEOALARM_FEED_BYTES = 32 * 1024 * 1024
+
 
 def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
     """Fetch MeteoAlarm warnings for a European country. Cached 15min.
@@ -611,9 +615,10 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
         "weather", f"alerts_eu_{slug}_{location_cache_key(lat, lng)}_{lang}.json")
     url = f"https://feeds.meteoalarm.org/api/v1/warnings/feeds-{slug}"
     data = fetch_json_cached(
-        cache_file, 900, url,
-        headers={"Accept": "application/json"},
-        timeout=15, fallback=[],
+        cache_file, 900, url, timeout=15, fallback=[],
+        fetch=lambda url, timeout: fetch_json(
+            url, headers={"Accept": "application/json"}, timeout=timeout,
+            limit=_METEOALARM_FEED_BYTES),
     )
     if isinstance(data, list):
         return data
@@ -655,7 +660,7 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
         info = preferred_info or en_info or other_info
         if not info:
             continue
-        codes = _emma_codes(areas)
+        codes = _region_keys(areas)
 
         severity = info.get("severity", "")
         if severity == "Minor":
@@ -681,11 +686,11 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
             matched = any(_point_in_ring(lat, lng, ring) for ring in rings)
             geometric = True
         elif codes and here:
-            # No polygon, but a geocode: an EMMA_ID names a region whose
-            # ground MeteoAlarm publishes and we carry, so it is as good
-            # as a polygon. Only where the point is in some region of
-            # the data, though; off the coast, or in a country the data
-            # lacks, the codes prove nothing and the areaDesc must do.
+            # No polygon, but a geocode: an EMMA_ID, NUTS, or CISORP code
+            # names a region whose ground we carry, so it is as
+            # good as a polygon. Only where the point is in some region
+            # of the data, though; off the coast, or in a country the
+            # data lacks, the codes prove nothing and the areaDesc must do.
             matched = bool(codes & here)
             geometric = True
         else:
@@ -839,33 +844,30 @@ def _drop_feed_wide_words(location_words, per_warning_descs):
     return kept
 
 
-def _emma_codes(areas):
-    """The EMMA_ID geocodes on a warning's areas that the data knows.
+def _region_keys(areas):
+    """The geocodes on a warning's areas that the data has ground for.
 
-    Only geocodes typed EMMA_ID count. France files NUTS3 codes, and
-    FR101 is both a NUTS3 code and an EMMA_ID for different ground; a
-    value alone would match the wrong region.
+    Each is looked up by type and value: EMMA_IDs as themselves, a
+    NUTS3, NUTS2, or CISORP code under its type. France's FR101 is both
+    a NUTS3 code and an EMMA_ID; the type keeps them from crossing.
     """
-    from linecast._meteoalarm_regions import known
-    codes = set()
+    from linecast._meteoalarm_regions import key_for, known
+    keys = set()
     for area in areas:
         for geocode in area.get("geocode") or []:
-            if geocode.get("valueName") == "EMMA_ID":
-                value = geocode.get("value") or ""
-                if known(value):
-                    codes.add(value)
-    return codes
+            key = key_for(geocode.get("valueName") or "", geocode.get("value") or "")
+            if known(key):
+                keys.add(key)
+    return keys
 
 
 def _regions_here(lat, lng, warnings):
-    """The EMMA_IDs covering the point, looked up only if a warning could use them."""
+    """The region keys covering the point, looked up only if a warning could use them."""
     from linecast._meteoalarm_regions import regions_at
     for w in warnings:
         for info in w.get("alert", {}).get("info", []):
-            for area in info.get("area", []):
-                for geocode in area.get("geocode") or []:
-                    if geocode.get("valueName") == "EMMA_ID":
-                        return regions_at(lat, lng)
+            if _region_keys(info.get("area", [])):
+                return regions_at(lat, lng)
     return set()
 
 

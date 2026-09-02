@@ -9,7 +9,7 @@ Alerts sourced from NWS (US), Environment Canada (CA), Bright Sky/DWD (DE),
 MET Norway (NO), Met \u00c9ireann (IE), JMA (Japan), CMA (China),
 MetService (NZ), and MeteoAlarm (34 European countries).
 
-Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh
+Languages: en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, id, ja, ko, zh, th
 
 Usage: weather [--print] [--oneline] [--json] [--location LAT,LNG | PLACE] [--search CITY]
                [--icons SET] [--emoji] [--metric] [--imperial] [--12h] [--24h]
@@ -18,10 +18,11 @@ Usage: weather [--print] [--oneline] [--json] [--location LAT,LNG | PLACE] [--se
 """
 
 import sys
+import threading
 import time as _t
 
 from linecast import _live
-from linecast._graphics import bg, fg, get_terminal_size, visible_len
+from linecast._graphics import bg, fg, get_terminal_size
 from linecast._location import country_for_defaults, resolve_location
 from linecast._runtime import (
     WeatherRuntime, install_banner, log_failure, set_current, weather_parser,
@@ -52,7 +53,6 @@ from linecast._weather_render import (
 from linecast._weather_historical import fetch_historical
 from linecast._weather_sources import (
     _local_now_for_data,
-    _location_from_timezone,
     _reverse_geocode,
     _search_locations,
     apply_india_aqi,
@@ -143,31 +143,10 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     if not lines:
         return ""
 
-    # Pad all lines to the same visible width
-    max_w = max(visible_len(line) for line in lines)
-    padded = []
-    for line in lines:
-        pad = max_w - visible_len(line)
-        padded.append(f"{line}{' ' * pad}{RESET}")
-
     # Snapped hour column (1-based terminal col) — use int() to match midnight divider formula
     snap_col = int(idx / max(1, total_hours) * (graph_w - 1)) + 2
 
-    # Position: top-left anchored to snapped column, pushed inward at edges
-    tooltip_w = max_w
-    tooltip_h = len(padded)
-    tooltip_col = snap_col
-    tooltip_row = mouse_row
-    if tooltip_col + tooltip_w - 1 > cols:
-        tooltip_col = max(1, cols - tooltip_w + 1)
-    if tooltip_row + tooltip_h - 1 > rows:
-        tooltip_row = max(1, rows - tooltip_h + 1)
-
-    # Tooltip
-    result = ""
-    for i, line in enumerate(padded):
-        result += f"\033[{tooltip_row + i};{tooltip_col}H{line}"
-    return result
+    return _live.pointer_chip(lines, snap_col, mouse_row, cols, rows, pad_bg=TBG)
 
 
 def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, mouse_pos=None,
@@ -343,7 +322,9 @@ class WeatherApp(_live.LiveApp):
     Keep data in memory between renders: render_fn fires on every input
     event (hover motion, scroll), and re-reading disk caches — or worse,
     blocking on a network fetch when a TTL expires — on each mouse move
-    makes the tooltip lag. Refresh at most once per interval instead.
+    makes the tooltip lag. Refresh at most once per interval, and off
+    the render thread: the view keeps painting what it has while a
+    worker fetches, so a slow network never freezes hover or scroll.
     """
 
     interval = 300
@@ -362,16 +343,38 @@ class WeatherApp(_live.LiveApp):
         self.location_name = location_name
         self.historical = historical
         self.country = country
+        self._worker = None
+
+    def _refresh(self):
+        """Fetch fresh data and swap it in, off the render thread.
+
+        `fetched` moves whatever the outcome — before the worker dies,
+        so render never sees a dead worker with a stale stamp — and a
+        dead network is asked once per interval, not once per repaint.
+        """
+        try:
+            data = fetch_forecast(self.lat, self.lng, self.runtime)
+            alerts = fetch_alerts(self.lat, self.lng, self.country,
+                                  lang=self.runtime.lang)
+            aqi = fetch_aqi(self.lat, self.lng)
+            apply_india_aqi(aqi, self.country)
+            if data:
+                self.data = data
+            self.alerts = alerts
+            self.aqi = aqi
+        except Exception as exc:
+            log_failure("weather", "live refresh", exc,
+                        fallback="view stays stale")
+        finally:
+            self.fetched = _t.monotonic()
+        _live.nudge()
 
     def render(self, offset_minutes=0, mouse_pos=None, active_alert=None,
                modal_scroll=0):
-        if _t.monotonic() - self.fetched >= 300:
-            self.data = fetch_forecast(self.lat, self.lng, self.runtime) or self.data
-            self.alerts = fetch_alerts(self.lat, self.lng, self.country,
-                                       lang=self.runtime.lang)
-            self.aqi = fetch_aqi(self.lat, self.lng)
-            apply_india_aqi(self.aqi, self.country)
-            self.fetched = _t.monotonic()
+        if _t.monotonic() - self.fetched >= 300 and not (
+                self._worker and self._worker.is_alive()):
+            self._worker = threading.Thread(target=self._refresh, daemon=True)
+            self._worker.start()
         return render_from_data(
             self.data,
             self.alerts,
@@ -407,7 +410,8 @@ def main():
         return
 
     # country_code is "" for an override; the reverse geocode fills it in
-    lat, lng, country_code = resolve_location(args.location, lang=runtime.lang)
+    lat, lng, country_code, geo_label = resolve_location(
+        args.location, lang=runtime.lang, return_label=True)
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
@@ -462,8 +466,12 @@ def main():
                 result["aqi"] = fut_aqi.result()
                 result["historical"] = fut_hist.result()
 
-            if not result["name"] and result["data"]:
-                result["name"] = _location_from_timezone(result["data"].get("timezone", ""))
+            # A place the reverse geocoder cannot name keeps the name the
+            # user typed; failing that, the coordinates, as radar and maps
+            # show them — never the timezone city, which can be a continent
+            # away (issue #50).
+            if not result["name"]:
+                result["name"] = geo_label or f"{lat:.2f}, {lng:.2f}"
         except Exception as exc:
             # Whatever landed in `result` is shown; a forecast that did
             # not is the "Could not fetch weather data" exit below.

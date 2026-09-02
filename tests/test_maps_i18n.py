@@ -1,11 +1,12 @@
 """Tests for the maps string table.
 
-Seventeen languages, one key list. The table is checked for shape rather
+Eighteen languages, one key list. The table is checked for shape rather
 than for meaning: every language carries every key, no value is empty,
 and every placeholder survives translation — the three ways a
 translation table actually breaks at runtime.
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -27,7 +28,7 @@ KEYS = set(TABLE["en"])
 
 def test_every_language_the_cli_offers_has_a_table():
     assert set(LANG_CODES) <= set(TABLE)
-    assert len(TABLE) == 17
+    assert len(TABLE) == 18
 
 
 @pytest.mark.parametrize("lang", sorted(TABLE))
@@ -44,12 +45,12 @@ def test_no_value_is_empty_or_padded(lang):
 
 @pytest.mark.parametrize("lang", sorted(TABLE))
 def test_placeholders_survive_translation(lang):
-    # A dropped {err} is a KeyError at the worst possible moment.
+    # A dropped {err} is a KeyError at the worst possible moment; an
+    # invented one is a KeyError in every language but English.
     for key, english in TABLE["en"].items():
-        if "{err}" in english:
-            assert "{err}" in TABLE[lang][key], (lang, key)
-        else:
-            assert "{" not in TABLE[lang][key], (lang, key)
+        wanted = set(re.findall(r"{\w+}", english))
+        assert set(re.findall(r"{\w+}", TABLE[lang][key])) == wanted, \
+            (lang, key)
 
 
 @pytest.mark.parametrize("lang", sorted(TABLE))

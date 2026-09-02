@@ -85,6 +85,11 @@ def _sun_ra_dec(dt_utc):
                           _obliquity(_julian_day(dt_utc) - 2451543.5))
 
 
+def sun_declination(dt_utc):
+    """Sun's declination in degrees."""
+    return _sun_ra_dec(dt_utc)[1]
+
+
 # Schlyter's perturbation terms for the Moon, in degrees. Each is an
 # amplitude and the integer multiples of (Ms, Mm, D, F) making up its
 # argument: the Sun's mean anomaly, the Moon's, the mean elongation, and
@@ -180,17 +185,24 @@ def _moon_ecliptic(dt_utc):
 
     lon += math.radians(total(_MOON_LON_TERMS))
     lat += math.radians(total(_MOON_LAT_TERMS))
-    # Schlyter perturbs the distance too, but it only scales a vector
-    # we take the direction of, so it is left out.
+    # Schlyter perturbs the distance too, but direction is what the
+    # callers here want, and the two-body radius is already within a
+    # percent — good enough for the parallax and crescent width the
+    # Hawaiian calendar reads from it.
 
-    return lon, lat
+    return lon, lat, radius
 
 
 def _moon_ra_dec(dt_utc):
     """Geocentric Moon right ascension/declination in degrees."""
-    lon, lat = _moon_ecliptic(dt_utc)
+    lon, lat, _dist = _moon_ecliptic(dt_utc)
     return _to_equatorial(lon, lat, 1.0,
                           _obliquity(_julian_day(dt_utc) - 2451543.5))
+
+
+def _moon_distance_er(dt_utc):
+    """Moon distance in Earth radii (two-body, unperturbed: ~1%)."""
+    return _moon_ecliptic(dt_utc)[2]
 
 
 def _gmst_deg(dt_utc):
@@ -363,6 +375,52 @@ def _moon_events_for_local_date(local_date, lat_deg, lng_deg, tzinfo, threshold_
     return rise, sset
 
 
+def _moon_transits_for_local_date(local_date, lng_deg, tzinfo):
+    """Local instants the Moon crosses the meridian on one local date.
+
+    Returns (upper, lower): the meridian transit and anti-transit as
+    aware local datetimes, either None on a date without one — the
+    lunar day runs about 24h50m, so a date can miss one of the pair.
+    Latitude plays no part: a transit is the hour angle reaching 0°
+    (upper) or 180° (lower). Solunar tables put their major activity
+    periods at these two moments, their minors at moonrise and moonset.
+    """
+    start_local = datetime(local_date.year, local_date.month,
+                           local_date.day, tzinfo=tzinfo)
+    end_local = start_local + timedelta(days=1)
+    start_utc = start_local.astimezone(timezone.utc)
+    end_utc = end_local.astimezone(timezone.utc)
+
+    def offset(dt_utc, kind):
+        ra_deg, _dec = _moon_ra_dec(dt_utc)
+        h = _norm_deg(_gmst_deg(dt_utc) + lng_deg - ra_deg)
+        return (h + 180.0) % 360.0 - 180.0 if kind == "upper" else h - 180.0
+
+    found = {"upper": None, "lower": None}
+    step = timedelta(minutes=30)
+    for kind in found:
+        t_prev, v_prev = start_utc, offset(start_utc, kind)
+        t_cur = t_prev + step
+        while t_cur <= end_utc and found[kind] is None:
+            v_cur = offset(t_cur, kind)
+            # The hour angle gains ~14.5° an hour; a small ascending
+            # zero crossing is a transit, a big jump is the wrap.
+            if v_prev < 0 <= v_cur and v_cur - v_prev < 180.0:
+                lo, hi = t_prev, t_cur
+                for _ in range(20):
+                    mid = lo + (hi - lo) / 2
+                    if offset(mid, kind) < 0:
+                        lo = mid
+                    else:
+                        hi = mid
+                cross_local = (lo + (hi - lo) / 2).astimezone(tzinfo)
+                if start_local <= cross_local < end_local:
+                    found[kind] = cross_local
+            t_prev, v_prev = t_cur, v_cur
+            t_cur += step
+    return found["upper"], found["lower"]
+
+
 def _angular_separation(ra1, dec1, ra2, dec2):
     """Angle between two equatorial directions, in degrees."""
     ra1, dec1, ra2, dec2 = (math.radians(v) for v in (ra1, dec1, ra2, dec2))
@@ -385,7 +443,7 @@ def moon_phase_frac(dt_utc):
     also keeps an eccentric orbit from naming the wrong phase: the Moon
     runs ahead of and behind the mean by the better part of a day.
     """
-    moon_lon, _lat = _moon_ecliptic(dt_utc)
+    moon_lon, _lat, _dist = _moon_ecliptic(dt_utc)
     sun_lon, _r = _sun_ecliptic(dt_utc)
     return ((math.degrees(moon_lon - sun_lon)) % 360.0) / 360.0
 

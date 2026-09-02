@@ -101,3 +101,27 @@ class Argv0DispatchTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ScriptModeStdlibShadowTests(unittest.TestCase):
+    def test_running_a_command_file_directly_keeps_the_stdlib_calendar(self):
+        """python src/linecast/moon.py must not shadow stdlib modules.
+
+        Running a file inside the package as a script puts the package
+        directory itself first on sys.path, so a module named after a
+        standard library one (the calendar command was briefly
+        calendar.py) breaks every `import calendar` in the package.
+        """
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        package = Path(__file__).resolve().parent.parent / "src" / "linecast"
+        code = (
+            "import sys; sys.path.insert(0, r'%s'); "
+            "import calendar; calendar.isleap(2026)" % package
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)

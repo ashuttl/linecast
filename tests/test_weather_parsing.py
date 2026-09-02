@@ -312,6 +312,33 @@ class TestMeteoAlarmAlerts:
 # JMA alerts parsing
 # ---------------------------------------------------------------------------
 
+class TestMeteoAlarmFeedSize:
+    """A feed that outlines every warning is bigger than fetch_json allows."""
+
+    def test_the_feed_is_fetched_under_a_wider_cap(self):
+        from linecast import _weather_sources as ws
+        from linecast._http import MAX_JSON_BYTES
+        seen = {}
+
+        def miss(cache_file, max_age, url, **kwargs):
+            # a cache miss: fetch_json_cached hands the network step to `fetch`
+            return kwargs["fetch"](url, timeout=kwargs["timeout"])
+
+        def fetch_json(url, headers=None, timeout=10, limit=MAX_JSON_BYTES):
+            seen.update(url=url, limit=limit, accept=(headers or {}).get("Accept"))
+            return {"warnings": []}
+
+        with patch.object(ws, "fetch_json_cached", side_effect=miss), \
+                patch.object(ws, "fetch_json", fetch_json), \
+                patch.object(ws, "write_cache", lambda *a, **k: None):
+            ws._fetch_alerts_meteoalarm(46.95, 7.45, "switzerland", address={})
+        assert seen["url"].endswith("/feeds-switzerland")
+        assert seen["accept"] == "application/json"
+        assert seen["limit"] == ws._METEOALARM_FEED_BYTES
+        # 9.4 MB on a quiet September day; give a stormy one room
+        assert seen["limit"] >= 3 * MAX_JSON_BYTES
+
+
 class TestJMAAlerts:
     """Verify we can parse a real JMA warning response."""
 
@@ -667,6 +694,30 @@ class TestReverseGeocodeCountry:
         assert _country_code({}) == ""
 
 
+class TestReverseGeocodeName:
+    """Nominatim names small places under keys down to hamlet (issue #50)."""
+
+    def _name(self, address):
+        from linecast import _weather_sources as ws
+        with patch.object(ws, "read_cache", return_value=None), \
+                patch.object(ws, "write_cache", lambda *a, **k: None), \
+                patch.object(ws, "fetch_json", return_value={"address": address}):
+            name, _cc, _addr = ws._reverse_geocode(44.4, -70.0)
+        return name
+
+    def test_hamlet_names_the_place(self):
+        assert self._name({"hamlet": "Fayette", "county": "Kennebec County",
+                           "state": "Maine", "country_code": "us"}) == "Fayette, Maine"
+
+    def test_city_outranks_smaller_keys(self):
+        assert self._name({"city": "Portland", "hamlet": "Stroudwater",
+                           "state": "Maine", "country_code": "us"}) == "Portland, Maine"
+
+    def test_no_name_stays_empty(self):
+        assert self._name({"county": "Kennebec County", "state": "Maine",
+                           "country_code": "us"}) == ""
+
+
 # ---------------------------------------------------------------------------
 # MeteoAlarm area filtering: a country-wide feed narrowed to one user
 # ---------------------------------------------------------------------------
@@ -888,10 +939,11 @@ class TestMeteoAlarmPerCountyFeeds:
         assert len(got) == 2
 
 
-def _coded(event, severity, area_desc, codes, description=None):
-    """A warning naming its ground by EMMA_ID, as most MeteoAlarm feeds do."""
+def _coded(event, severity, area_desc, codes, description=None,
+           value_name="EMMA_ID"):
+    """A warning naming its ground by geocode: EMMA_ID for most feeds."""
     info = _warning(event, severity, area_desc, description=description)
-    info["area"][0]["geocode"] = [{"valueName": "EMMA_ID", "value": c} for c in codes]
+    info["area"][0]["geocode"] = [{"valueName": value_name, "value": c} for c in codes]
     return info
 
 
@@ -905,6 +957,11 @@ FAKE_REGIONS = [
     # a province holding XX001, with a hole where a lake is
     ("XX100", (49.0, 53.5, 9.0, 12.0),
      [(_ring(49.0, 53.5, 9.0, 12.0), [_ring(49.2, 49.4, 9.2, 9.4)])]),
+    # a NUTS3 code spelled like XX002, over XX001's ground, not XX002's
+    ("NUTS3/XX002", (50.0, 51.0, 10.0, 11.0), [(_ring(50.0, 51.0, 10.0, 11.0), [])]),
+    # two Czech-style ORPs, one on XX001's ground
+    ("CISORP/0001", (50.0, 51.0, 10.0, 11.0), [(_ring(50.0, 51.0, 10.0, 11.0), [])]),
+    ("CISORP/0002", (50.0, 51.0, 11.0, 12.0), [(_ring(50.0, 51.0, 11.0, 12.0), [])]),
 ]
 
 
@@ -922,7 +979,7 @@ class TestMeteoAlarmRegions:
 
     def test_a_point_is_in_its_region_and_the_province_around_it(self):
         from linecast._meteoalarm_regions import regions_at
-        assert regions_at(50.5, 10.5) == {"XX001", "XX100"}
+        assert regions_at(50.5, 10.5) == {"XX001", "XX100", "NUTS3/XX002", "CISORP/0001"}
 
     def test_a_hole_is_outside(self):
         from linecast._meteoalarm_regions import regions_at
@@ -953,12 +1010,43 @@ class TestMeteoAlarmRegions:
         got = _alerts(data, 60.0, 30.0, {"city": "Elsewhere"})
         assert len(got) == 1
 
-    def test_only_geocodes_typed_emma_id_count(self):
-        # France's NUTS3 codes share their form with EMMA_IDs for other ground.
-        info = _warning("Storm", "Moderate", "somewhere")
-        info["area"][0]["geocode"] = [{"valueName": "NUTS3", "value": "XX002"}]
-        got = _alerts(_feed(info), 50.5, 10.5, {"city": "somewhere"})
-        assert len(got) == 1  # matched on the areaDesc, not excluded by XX002
+    def test_a_code_is_looked_up_under_its_type(self):
+        # France's NUTS3 codes share their form with EMMA_IDs for other
+        # ground: XX002 the EMMA_ID is the next county over, XX002 the
+        # NUTS3 code is here. Each warning lands where its own type says.
+        here = (50.5, 10.5)
+        nuts = _feed(_coded("Storm", "Moderate", "Elsewhere", ["XX002"],
+                            value_name="NUTS3"))
+        assert len(_alerts(nuts, *here, {"city": "Nowhere"})) == 1
+        emma = _feed(_coded("Storm", "Moderate", "Elsewhere", ["XX002"]))
+        assert _alerts(emma, *here, {"city": "Nowhere"}) == []
+
+    def test_a_typed_code_the_data_lacks_falls_back_to_the_area_name(self):
+        # XX001 is known as an EMMA_ID, not as a NUTS3 code.
+        data = _feed(_coded("Storm", "Moderate", "Elsewhere", ["XX001"],
+                            value_name="NUTS3"))
+        got = _alerts(data, 52.5, 10.5, {"city": "Elsewhere"})
+        assert len(got) == 1  # matched on the areaDesc, not excluded by XX001
+
+    def test_a_czech_warning_lands_in_one_of_its_orps(self):
+        # ČHMÚ files one area for several ORPs, a CISORP per ORP, and
+        # beside each an EMMA_ID the data lacks. The CISORPs place it.
+        info = _warning("Storm", "Moderate", "Some kraj (Here, There)")
+        info["area"][0]["geocode"] = [
+            {"valueName": "CISORP", "value": "0001"},
+            {"valueName": "EMMA_ID", "value": "CZ00001"},
+            {"valueName": "CISORP", "value": "0002"},
+            {"valueName": "EMMA_ID", "value": "CZ00002"},
+        ]
+        assert len(_alerts(_feed(info), 50.5, 10.5, {"city": "Nowhere"})) == 1
+        assert _alerts(_feed(info), 52.5, 10.5, {"city": "Nowhere"}) == []
+
+    def test_keys_are_spelled_by_type(self):
+        from linecast._meteoalarm_regions import key_for
+        assert key_for("EMMA_ID", "PL3001") == "PL3001"
+        assert key_for("NUTS3", "FR101") == "NUTS3/FR101"
+        assert key_for("NUTS2", "HU10") == "NUTS2/HU10"
+        assert key_for("CISORP", "2101") == "CISORP/2101"
 
 
 class TestMeteoAlarmRegionsData:
@@ -985,6 +1073,59 @@ class TestMeteoAlarmRegionsData:
     def test_the_atlantic_is_nowhere(self):
         from linecast._meteoalarm_regions import regions_at
         assert regions_at(43.66, -70.26) == set()
+
+    # The NUTS-coded feeds (issue #59): each capital in its own region,
+    # under the type its country files.
+
+    def test_paris_is_in_its_departement_by_either_spelling(self):
+        # FR101 is Paris both as an EMMA_ID and as a NUTS3 code; the two
+        # are separate entries, and only the NUTS3 one answers for NUTS3.
+        from linecast._meteoalarm_regions import regions_at
+        got = regions_at(48.8566, 2.3522)
+        assert "FR101" in got
+        assert {k for k in got if k.startswith("NUTS")} == {"NUTS3/FR101"}
+
+    def test_cayenne_is_in_overseas_france(self):
+        from linecast._meteoalarm_regions import regions_at
+        assert "NUTS3/FRA30" in regions_at(4.9224, -52.3135)
+
+    def test_budapest_is_in_central_hungary_as_2013_spelled_it(self):
+        from linecast._meteoalarm_regions import regions_at
+        got = regions_at(47.4979, 19.0402)
+        assert {k for k in got if k.startswith("NUTS")} == {"NUTS2/HU10"}
+
+    def test_sofia_is_in_its_oblast(self):
+        from linecast._meteoalarm_regions import regions_at
+        got = regions_at(42.6977, 23.3219)
+        assert {k for k in got if k.startswith("NUTS")} == {"NUTS3/BG411"}
+
+    def test_bucharest_is_in_its_judet(self):
+        from linecast._meteoalarm_regions import regions_at
+        got = regions_at(44.4268, 26.1025)
+        assert {k for k in got if k.startswith("NUTS")} == {"NUTS3/RO321"}
+
+    def test_antwerp_is_in_its_province(self):
+        from linecast._meteoalarm_regions import regions_at
+        got = regions_at(51.2194, 4.4025)
+        assert {k for k in got if k.startswith("NUTS")} == {"NUTS2/BE21"}
+
+    def test_skopje_answers_under_the_label_its_feed_uses(self):
+        # North Macedonia files its EMMA_IDs typed NUTS3.
+        from linecast._meteoalarm_regions import regions_at
+        assert regions_at(41.9973, 21.4280) == {"MK008", "NUTS3/MK008"}
+
+    def test_prague_is_its_own_orp_by_both_spellings(self):
+        # The statistical office codes Prague 1000; the feed files 1100.
+        from linecast._meteoalarm_regions import regions_at
+        got = regions_at(50.0755, 14.4378)
+        assert {k for k in got if k.startswith("CISORP")} == {"CISORP/1000", "CISORP/1100"}
+        assert "CZ014" in got  # and the kraj around it, MeteoAlarm's own region
+
+    def test_brno_is_in_its_orp_and_not_the_next(self):
+        from linecast._meteoalarm_regions import regions_at, known
+        assert "CISORP/6203" in regions_at(49.1951, 16.6068)
+        assert known("CISORP/6217")  # Tišnov, one ORP over
+        assert "CISORP/6217" not in regions_at(49.1951, 16.6068)
 
 
 class TestAlertCap:

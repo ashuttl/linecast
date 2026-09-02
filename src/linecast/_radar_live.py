@@ -221,10 +221,19 @@ def main():
 
         if not runtime.live:
             # static: play_frame 0 is the present (newest observed) frame
-            static_out = render_radar(lat, lon, location_name, args.zoom,
-                                      play_frame=0, playing=False,
-                                      runtime=runtime, layers=layers,
-                                      layer=layer)
+            def render_once():
+                return render_radar(lat, lon, location_name, args.zoom,
+                                    play_frame=0, playing=False,
+                                    runtime=runtime, layers=layers,
+                                    layer=layer)
+
+            static_out = render_once()
+            if _radar_frames.frame_load_failed and _radar_frames._fall_back():
+                # the source answered its index and then could not serve the
+                # tiles; the one we fall to keeps its own frame list, so the
+                # whole render goes again rather than the frame alone
+                _radar_frames.frame_load_failed = False
+                static_out = render_once()
     finally:
         spin.stop()
 

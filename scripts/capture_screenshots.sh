@@ -29,6 +29,7 @@ TIDE_STATION=${LINECAST_CAPTURE_TIDE_STATION:-8418150}
 ASTRO_LOCATION=${LINECAST_CAPTURE_ASTRO_LOCATION:-43.676,-70.371}
 ARCTIC_PLACE=${LINECAST_CAPTURE_ARCTIC_PLACE:-Longyearbyen}
 ANTARCTIC_PLACE=${LINECAST_CAPTURE_ANTARCTIC_PLACE:-Vostok Station}
+OKINAWA_LOCATION=${LINECAST_CAPTURE_OKINAWA_LOCATION:-26.2124,127.6809}
 
 usage() {
     cat <<'EOF'
@@ -39,7 +40,7 @@ Targets:
   weather    weather.png
   sunshine   sunshine-day.png and sunshine-dusk.png
   year       sunshine-year.png, plus -arctic and -antarctic at 78° either side
-  moon       moon.png
+  moon       moon.png, plus moon-okinawa.png in Japanese and moon-calendar.png
   tides      tides.png
   radar      radar.png and radar.gif
   maps       maps-street.png and maps-terrain.png
@@ -57,6 +58,7 @@ Environment overrides:
   LINECAST_CAPTURE_ASTRO_LOCATION
   LINECAST_CAPTURE_ARCTIC_PLACE
   LINECAST_CAPTURE_ANTARCTIC_PLACE
+  LINECAST_CAPTURE_OKINAWA_LOCATION
 EOF
 }
 
@@ -139,6 +141,26 @@ moon() {
         uv --directory "$REPO_DIR" run python \
         "$REPO_DIR/scripts/capture_moment.py" \
         --at 2026-08-22T21:30 --location "$ASTRO_LOCATION" moon
+    # Okinawa in Japanese, the evening after the mid-autumn full moon of
+    # 2026, so the headline names the night 十六夜 and the calendar's
+    # September carries 十五夜 on the 25th. capture_moment's --at lands as
+    # the place's local time here. The calendar frame presses v and hovers
+    # the 25th (column 84, row 27 on 120x40; the first hover only carries
+    # the pointer onto the window, the second raises the chip). --focus
+    # gives the disc frame the same accent border the key presses give
+    # the calendar.
+    "$CAPTURE_TOOL" -s 120x40 -w 6 --focus -o "$SHOT_DIR/moon-okinawa.png" \
+        uv --directory "$REPO_DIR" run python \
+        "$REPO_DIR/scripts/capture_moment.py" \
+        --at 2026-09-26T21:30 --location "$OKINAWA_LOCATION" moon -- \
+        --lang ja --24h
+    "$CAPTURE_TOOL" -s 120x40 -w 6 --press v --sleep 2 \
+        --hover 84x27 --sleep 1 --hover 85x27 --sleep 2 \
+        -o "$SHOT_DIR/moon-calendar.png" \
+        uv --directory "$REPO_DIR" run python \
+        "$REPO_DIR/scripts/capture_moment.py" \
+        --at 2026-09-26T21:30 --location "$OKINAWA_LOCATION" moon -- \
+        --lang ja --24h
 }
 
 tides() {

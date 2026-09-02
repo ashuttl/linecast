@@ -18,10 +18,11 @@ Usage: sunshine [--print] [--oneline] [--json] [--year] [--location PLACE]
 import math
 import sys
 import time as _time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 
 from linecast._braille import braille_rows_from_ys
-from linecast._ephemeris import moon_phase_frac
+from linecast._ephemeris import moon_phase_frac, sun_declination
 from linecast._graphics import (
     fg, RESET, BG_PRIMARY, color_mode, lerp, interp_stops, visible_len,
     fmt_time, get_terminal_size, Framebuffer, live_loop,
@@ -305,12 +306,20 @@ def _equation_of_time(doy):
     B = math.radians(360 / 365 * (doy - 81))
     return 9.87 * math.sin(2*B) - 7.53 * math.cos(B) - 1.5 * math.sin(B)
 
-def _declination(doy):
-    """Solar declination in degrees (simplified sinusoidal approximation).
+@lru_cache(maxsize=1024)
+def _declination_on(year, doy):
+    """Solar declination in degrees at UTC noon on a day of *year*."""
+    noon = datetime(year, 1, 1, 12, tzinfo=timezone.utc) + timedelta(days=doy - 1)
+    return sun_declination(noon)
 
-    23.45° is Earth's axial tilt; day 81 ≈ vernal equinox.
+
+def _declination(doy):
+    """Solar declination in degrees, from the ephemeris.
+
+    doy is a day of the machine's current year; 0 and 367 reach into the
+    neighboring years, as callers' yesterday and tomorrow do.
     """
-    return 23.45 * math.sin(math.radians(360 / 365 * (doy - 81)))
+    return _declination_on(datetime.now().year, doy)
 
 def solar_times(lat, lng, doy, tz_offset_h=None):
     """Sunrise/sunset as local decimal hours.
@@ -469,12 +478,21 @@ def corner_label_cells(label, graph_w):
     from linecast._textwidth import char_width
     cells = []
     used = 0
+    last_base = None
     limit = max(0, graph_w // 3)
     for ch in label:
         w = char_width(ch)
+        if w == 0:
+            # A combining mark (a Thai vowel sign, say) rides in its
+            # base's cell rather than claiming the next one.
+            if last_base is not None:
+                x, base = cells[last_base]
+                cells[last_base] = (x, base + ch)
+            continue
         if used + w > limit:
             break
         cells.append((used, ch))
+        last_base = len(cells) - 1
         cells.extend((used + k, "") for k in range(1, w))
         used += w
     x0 = graph_w - used - 1
@@ -729,7 +747,8 @@ def _sky_name(lat, lng, doy, hour, sunrise, sunset, tz_offset_h, runtime):
     for key, at in events:
         if abs(hour - at) <= 5 / 60:
             return sky_event(key, runtime)
-    return sky_phase(sun_elevation(lat, lng, hour, doy, tz_offset_h), runtime)
+    return sky_phase(sun_elevation(lat, lng, hour, doy, tz_offset_h), runtime,
+                     morning=hour < (sunrise + sunset) / 2)
 
 
 # ---------------------------------------------------------------------------
@@ -847,7 +866,8 @@ def main():
         return
 
     # A wheel notch or arrow key scrubs 15 minutes of the day view; the
-    # year view consumes them without moving. y flips between the two.
+    # year view consumes them without moving. v flips between the two
+    # (y still works: the view is --year's).
     def _step(n):
         if not state["year"]:
             state["minutes"] += 15 * n
@@ -867,7 +887,7 @@ def main():
         return _step(direction)
 
     def _on_key(key):
-        if key == "y":
+        if key in ("v", "y"):
             state["year"] = not state["year"]
             return True
         return False

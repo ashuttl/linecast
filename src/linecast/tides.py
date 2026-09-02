@@ -23,6 +23,8 @@ Usage: tides [--print] [--oneline] [--json] [--location PLACE] [--station ID | N
 import math
 import os
 import sys
+import threading
+import time as _t
 from datetime import datetime, timezone, timedelta
 
 from linecast._braille import build_braille_curve
@@ -871,9 +873,19 @@ class TidesApp(_live.LiveApp):
         self.fetched_end = fetched_end
         self.y_range = y_range
         self.marine_data = marine_data
+        self._worker = None
+        self._retry_at = 0.0   # monotonic; no expansion before this
 
     def expand_for(self, offset_minutes):
-        """Expand fetched range if user has scrolled near the edge."""
+        """Widen the fetched range when the user scrolls near an edge.
+
+        The fetch runs on a worker so a slow network never stalls the
+        scroll: the view keeps painting the range it has, and the wider
+        one nudges a repaint when it lands. The providers absorb network
+        failures and answer empty, and an empty range is a failure, not
+        a flat sea — the old range stays, and the next try waits out a
+        short pause so a dead network is not asked on every repaint.
+        """
         current_now = _station_now(self.station_meta)
         view_start = _live_window_start(
             current_now,
@@ -894,13 +906,31 @@ class TidesApp(_live.LiveApp):
             new_end = view_end_date + timedelta(days=7)
             need_expand = True
 
-        if need_expand:
-            self.predictions = self.provider.tides_range(
-                self.station_id, new_start, new_end, self.station_tz)
-            self.hilo = self.provider.hilo_range(
-                self.station_id, new_start, new_end, self.station_tz)
-            self.fetched_start = new_start
-            self.fetched_end = new_end
+        if (not need_expand or _t.monotonic() < self._retry_at
+                or (self._worker and self._worker.is_alive())):
+            return
+
+        def worker():
+            try:
+                predictions = self.provider.tides_range(
+                    self.station_id, new_start, new_end, self.station_tz)
+                hilo = self.provider.hilo_range(
+                    self.station_id, new_start, new_end, self.station_tz)
+            except Exception as exc:
+                log_failure("tides", "range expansion", exc,
+                            fallback="edge stays put")
+                predictions = None
+            if predictions:
+                self.predictions = predictions
+                self.hilo = hilo
+                self.fetched_start = new_start
+                self.fetched_end = new_end
+                _live.nudge()
+            else:
+                self._retry_at = _t.monotonic() + 30
+
+        self._worker = threading.Thread(target=worker, daemon=True)
+        self._worker.start()
 
     def render(self, offset_minutes=0, mouse_pos=None, active_alert=None,
                modal_scroll=0):

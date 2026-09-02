@@ -39,6 +39,7 @@ uv tool install linecast
 ```
 
 `pipx install linecast` and `pip install linecast` work too, and there are community-maintained packages in the [AUR](https://aur.archlinux.org/packages/linecast) and in [nixpkgs](https://search.nixos.org/packages?channel=unstable&show=linecast) (unstable channel, for now). linecast needs Python 3.10 or newer on macOS, Linux, or Windows.
+
 To try it before installing anything:
 
 ```sh
@@ -92,7 +93,7 @@ The dashboard combines current conditions, hourly temperatures shaded by dayligh
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-dusk.png" width="49%" alt="sunshine at dusk">
 </p>
 
-`linecast sunshine --year` draws a whole year instead of one day. Each column is a day, running from midnight at the top to midnight at the bottom, and every point in it takes the color of the sky at that hour. Sunrise and sunset are not drawn as lines; they are where the night colors meet the day colors. Point at a day to see its sunrise, sunset and day length, along with the time and the sky under the pointer. In live mode, `y` switches between the day view and the year view. `--dst` plots each day in its own clock, so the clock changes show as steps.
+`linecast sunshine --year` draws a whole year instead of one day. Each column is a day, running from midnight at the top to midnight at the bottom, and every point in it takes the color of the sky at that hour. Sunrise and sunset emerge where the night colors meet the day colors. Hover over a day to see its sunrise, sunset and day length, along with the time and the sky under the pointer. In live mode, `v` (or `y`) switches between the day view and the year view. `--dst` plots each day in its own clock, so the clock changes show as steps.
 
 ![the year view for Westbrook, Maine, with the pointer on the December solstice](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-year.png)
 
@@ -104,6 +105,27 @@ Near the poles the same chart turns into polar night and midnight sun. These are
 </p>
 
 `moon` draws the current phase as you would see it from your location, with the shadow falling where it really does, the maria shaded, and a halo around it. Scroll to move through time. `linecast moon --oneline` fits a status bar.
+
+In live mode, `v` flips to a calendar (or start there with `linecast moon --grid`): the month laid out week by week, each day carrying its phase as a small shaded disc, with today, the full and new moons, and the quarters marked. Scroll to page through the months, and hover over a day for its phase, moonrise, and moonset. When a traditional calendar is active the grid carries its reading too — the 农历 day names, the lunar month starts, the festivals, the pō mahina — and the pop-up gives the full lunar date. Click a day and the disc view opens on it.
+
+In Chinese, Japanese, and Korean the moon also follows the traditional calendar: the lunar date sits beside the phase name — and in Japanese the night is called by its own name, 十六夜, 居待月, 更待月 — with the solar term in progress and a countdown to the next festival, 中秋节, 추석, or 十五夜. Any language can ask for any of the three with `--calendar chinese`, `japanese`, or `korean`, written with the customary English names ("End of Heat · White Dew Sep 7", "Mid-Autumn Festival Sep 25"). The months, leap months, and solar terms are all computed from the ephemeris at each calendar's own meridian; nothing is looked up.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon-okinawa.png" width="49%" alt="the moon over Okinawa in Japanese: 十六夜, the sixteenth night of the eighth month">
+  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon-calendar.png" width="49%" alt="the month calendar for September 2026 in Japanese, with 十五夜 on the 25th and the pointer on it">
+</p>
+
+In Thai the moon follows the Thai lunar calendar, ปฏิทินจันทรคติไทย: the waxing or waning day sits beside the phase in Thai numerals, as the printed calendars have it — แรม ๔ ค่ำ เดือน ๙ — with the year's animal, a countdown to the next วันพระ (the four Buddhist holy days of each month), and the coming festival, มาฆบูชา through ลอยกระทง. This calendar is arithmetic rather than astronomical: the months run on the old Suriyayart reckoning, in which 800 solar years are exactly 292207 days — the same integer bookkeeping behind every printed Thai calendar, checked against the official holy days of 2023–2026. Any language can ask for it with `--calendar thai` ("month 9 · waning 4", "Loy Krathong Nov 24").
+
+`--calendar hawaiian` follows the Kaulana Mahina, which names every night: Hilo, Hoaka, the Kū and ʻOle nights, through Māhealani, Kāne, and Muku, each in its ten-night anahulu — hoʻonui waxing, poepoe round, hōʻemi waning. The month begins at Hilo, the first night the young crescent can be seen, so it is computed as a visibility date — crescent geometry in the evening sky over Hawaiʻi, not a fixed step from the new moon — and checked against every month of the [Western Pacific Regional Fishery Management Council's published calendars](https://www.wpcouncil.org/educational-resources/lunar-calendars/). The panel carries the Council's counsel for the night — the four monthly kapu periods, the unproductive ʻOle nights, and each anahulu's fishing outlook — quoted from their educational materials, with a Source: wpcouncil.org line under it.
+
+`--calendar samoan` and `--calendar chamorro` follow the Council's American Samoa and Guam calendars the same way. Each names thirty nights, Masina Fou through Masina Maunā and Sinahen Håcha through Sinahi, beginning the first evening the crescent can be seen over Pago Pago Harbor or Hagåtña, and each is checked against every month the Council has printed since 2021. `--calendar refaluwasch` shows the CNMI edition: the CHamoru night with its Refaluwasch name beside it on the eleven nights that tradition names, Sighauru through Arofú. In a few months of the 2021 to 2025 editions the printed start departs from the visibility data it otherwise follows; the tests list them, and every month of the 2026 calendars matches to the night.
+
+`--calendar islamic` follows the Umm al-Qura calendar, Saudi Arabia's civil calendar, which is the one Islamic calendar a program can compute: since 1423 AH its rule is geometric — a month begins the day after the first sunset at Mecca that follows the new moon with the Moon still above the horizon — and linecast evaluates it from the same ephemeris the rest of the app draws with. Checked against the published calendar for 1423 through 1500 AH, it matches every month but one, in 2006, where the new moon fell five minutes before Mecca's sunset by one reckoning and after it by the other. The Hijri date sits beside the phase (23 Ramadan 1447 AH) and turns at your own sunset, since the Hijri day begins in the evening; the coming month and the next observance follow with their civil dates — Islamic New Year, Ashura, Mawlid, the start of Ramadan, Laylat al-Qadr, Eid al-Fitr, the Day of Arafah, and Eid al-Adha — and on the day before one the countdown says it begins at sunset. The months are transliterated in every language (Indonesian gets its own spellings, Ramadan, Syawal, Zulhijah), and the month grid sets the Hijri months in its title, gives each day's Hijri date in the corner of its cell, and marks each month's first day and the observances. Most countries begin Ramadan and the Eids on a sighting of the crescent, so a country's announced dates may differ from these by a day; Saudi Arabia's own announcements sometimes do.
+
+`--calendar hebrew` follows the Hebrew calendar, which has been pure arithmetic since the fourth century: the year begins at the mean new moon of Tishrei, moved by the four postponement rules, and a thirteenth month, Adar I, comes seven times in nineteen years. linecast computes it from those rules (Dershowitz and Reingold's *Calendrical Calculations* is the reference) and the tests pin every month of 5780 through 5790 and every holiday of 2023 through 2026 against Hebcal. The date sits beside the phase (20 Elul 5786) and turns at your own sunset, since the Hebrew day begins in the evening; the coming month and the next holiday follow with their civil dates — Rosh Hashanah, Yom Kippur, Sukkot, Shemini Atzeret, Simchat Torah, Hanukkah, Tu BiShvat, Purim, Pesach, Shavuot, and Tisha B'Av — and on the day before a holiday the countdown says it begins at sunset. The holidays follow the place shown, the way a calendar printed in Jerusalem differs from one printed in Brooklyn: outside Israel a second day of Sukkot, Shavuot, and Pesach's first and last days, and Simchat Torah the day after Shemini Atzeret; in Israel one day each, with Simchat Torah on Shemini Atzeret itself. Hebrew is not one of the app's languages, so the months and holidays are transliterated in every language; the month grid sets the Hebrew months in its title, gives each day's Hebrew date in the corner of its cell, names each holiday's days, and marks the month starts, and the hover chip notes each Rosh Chodesh. `--json` adds the date in Hebrew letters as well, כ׳ אלול תשפ״ו, for a consumer that can lay Hebrew out.
+
+`--calendar almanac` reads the moon the way the Old Farmer's Almanac does — the same kind of tradition, from the English-language side: the light or dark of the moon beside the phase, what each half favors in the garden, and the day's solunar activity periods — the majors when the Moon crosses the meridian above or below, the minors at moonrise and moonset. The almanac's full-moon names (Harvest, Wolf, and the rest) belong to it too: they show there and in the plain English view, while a panel following another tradition's calendar keeps the plain phase name.
 
 Point `sunshine` or `moon` somewhere across an ocean and the rise and set times come back in that place's local clock.
 
@@ -222,9 +244,9 @@ The time-showing commands take `--12h` and `--24h` for one run, and `LINECAST_CL
 
 ### Language
 
-Use `--lang` or `LINECAST_LANG` to pick the language. There are seventeen:
+Use `--lang` or `LINECAST_LANG` to pick the language. There are eighteen:
 
-> English, French, Spanish, German, Italian, Portuguese, Dutch, Polish, Norwegian, Swedish, Icelandic, Danish, Finnish, Japanese, Korean, Chinese, and Indonesian
+> English, French, Spanish, German, Italian, Portuguese, Dutch, Polish, Norwegian, Swedish, Icelandic, Danish, Finnish, Japanese, Korean, Chinese, Thai, and Indonesian
 
 ```sh
 linecast weather --lang fr
@@ -232,6 +254,27 @@ linecast radar --lang zh
 ```
 
 In India, alerts go one step further: SACHET publishes many of them in the state language, and `--lang hi`, `te`, `or`, `mr`, or another Indian language code shows that regional text where it exists, while the rest of the app stays in English.
+
+### Calendar
+
+The moon's traditional calendar follows the language: Chinese with `--lang zh`, Japanese with `ja`, Korean with `ko`, Thai with `th`, none otherwise. Pin one — the Pacific calendars, the Islamic and Hebrew calendars, and the Old Farmer's Almanac included — or none, for every run:
+
+```sh
+linecast calendar chinese
+linecast calendar thai
+linecast calendar hawaiian
+linecast calendar samoan
+linecast calendar chamorro
+linecast calendar refaluwasch
+linecast calendar islamic
+linecast calendar hebrew
+linecast calendar almanac
+linecast calendar none
+linecast calendar
+linecast calendar auto
+```
+
+`moon` takes `--calendar` for one run.
 
 ### Color and icons
 
@@ -298,7 +341,7 @@ The six view commands and `linecast doctor` take `--debug`, which prints a line 
 | `LINECAST_CLOCK` | `12` or `24`; overrides the saved clock |
 | `LINECAST_TIDECHECK_KEY` | Optional TideCheck API key for global tide coverage |
 | `LINECAST_TIDECHECK_PAID` | Set to `1` on a paid TideCheck plan; the request tally then drops the 50-a-day free-tier cap |
-| `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, or `id` |
+| `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, `th`, or `id` |
 | `LINECAST_RADAR_THEME` | Default radar color theme |
 | `LINECAST_RADAR_SOURCE` | Pin the radar frame source: `librewxr`, `rainviewer`, or `iem` |
 | `LINECAST_RADAR_LAYER` | `radar` (default) or `satellite`, the imagery `radar` opens with |
@@ -327,7 +370,7 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 <summary><strong>Data sources and coverage</strong></summary>
 
 - **Location** — [ipinfo.io](https://ipinfo.io/) for IP geolocation when no location is saved or passed, with [ipwho.is](https://ipwho.is/) and [GeoJS](https://www.geojs.io/) as fallbacks; place names are geocoded by Open-Meteo, with Photon as a fallback.
-- **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Hong Kong Observatory, Met Éireann, Japan Meteorological Agency, MET Norway, MetService New Zealand, MeteoAlarm (with its warning-region geometry vendored, © EUMETNET, CC BY 4.0), and SACHET (India's national alert aggregator).
+- **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Hong Kong Observatory, Met Éireann, Japan Meteorological Agency, MET Norway, MetService New Zealand, MeteoAlarm (with its warning-region geometry vendored, © EUMETNET, CC BY 4.0, the NUTS regions some feeds file from [Eurostat GISCO](https://ec.europa.eu/eurostat/web/gisco), © EuroGeographics for the administrative boundaries, and Czechia's ORP boundaries from [ČÚZK RÚIAN](https://www.cuzk.gov.cz/) with the [Czech Statistical Office](https://csu.gov.cz/)'s code list, both open data), and SACHET (India's national alert aggregator).
 - **Sunshine and Moon** — computed on your device from the astronomical equations; the Moon's face is a vendored grayscale of NASA SVS's [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) (Lunar Reconnaissance Orbiter, public domain).
 - **Tides** — NOAA CO-OPS, Canadian Hydrographic Service, Queensland Open Data, Hong Kong Observatory, Open-Meteo's tide model as a global fallback, and optionally TideCheck.
 - **Radar** — [LibreWXR](https://librewxr.net/), with NEXRAD via Iowa Environmental Mesonet and RainViewer as fallbacks; warning polygons come from the US National Weather Service via IEM. The basemap is derived from Natural Earth.

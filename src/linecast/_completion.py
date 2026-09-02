@@ -4,11 +4,13 @@ The per-command flags are read from the argparse parsers in _runtime,
 so a flag added there reaches every shell's completion without a
 parallel list here. Only the pieces argparse does not know about stay
 in this module: the top-level `linecast` dispatcher (hand-rolled in
-__main__), the location/units/doctor subcommands, and the value lists
+__main__), the location/units/clock/icons/calendar/doctor subcommands, and the value lists
 for flags whose parsers accept free text.
 """
 
 from __future__ import annotations
+
+from linecast._config import CALENDAR_CHOICES
 
 # --lang accepts any code; the parser lists these in its help text but
 # has no `choices`, so the completion offers them from here.
@@ -29,6 +31,7 @@ LANG_CODES = (
     "ja",
     "ko",
     "zh",
+    "th",
     "id",
 )
 
@@ -39,7 +42,8 @@ COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps")
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
 TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps",
-                      "location", "units", "clock", "icons", "link", "doctor", "completion")
+                      "location", "units", "clock", "icons", "calendar", "link", "doctor",
+                      "completion")
 LOCATION_SUBCOMMANDS = ("show", "set", "auto", "search")
 LOCATION_FLAGS = ("--help", "-h", "--version")
 UNITS_SUBCOMMANDS = ("show", "metric", "imperial", "auto")
@@ -48,6 +52,10 @@ CLOCK_SUBCOMMANDS = ("show", "12", "24", "auto")
 CLOCK_FLAGS = ("--help", "-h", "--version")
 ICONS_SUBCOMMANDS = ("show", "nerd", "emoji", "plain", "auto")
 ICONS_FLAGS = ("--help", "-h", "--version")
+# `linecast calendar` takes the same names as moon's --calendar, plus
+# show and auto; the list is _config's so the two cannot drift.
+CALENDAR_SUBCOMMANDS = ("show", *CALENDAR_CHOICES, "auto")
+CALENDAR_FLAGS = ("--help", "-h", "--version")
 DOCTOR_FLAGS = ("--help", "-h", "--version", "--offline", "--json", "--debug")
 COMPLETION_FLAGS = ("--help", "-h")
 
@@ -195,6 +203,8 @@ def _bash_script(flags_by_command):
     clock_sub = _SPACE.join(CLOCK_SUBCOMMANDS)
     icons = _SPACE.join(ICONS_FLAGS)
     icons_sub = _SPACE.join(ICONS_SUBCOMMANDS)
+    calendar = _SPACE.join(CALENDAR_FLAGS)
+    calendar_sub = _SPACE.join(CALENDAR_SUBCOMMANDS)
     doctor = _SPACE.join(DOCTOR_FLAGS)
     link = _words(link_flags)
     shells = _SPACE.join(SHELLS)
@@ -316,6 +326,10 @@ _linecast_complete_command() {{
       _linecast_complete_flags {icons}
       COMPREPLY+=( $(compgen -W "{icons_sub}" -- "$cur") )
       ;;
+    calendar)
+      _linecast_complete_flags {calendar}
+      COMPREPLY+=( $(compgen -W "{calendar_sub}" -- "$cur") )
+      ;;
     doctor)
       _linecast_complete_flags {doctor}
       ;;
@@ -345,7 +359,7 @@ _linecast_complete() {{
 
   cmd="${{COMP_WORDS[1]}}"
   case "$cmd" in
-    weather|tides|sunshine|moon|radar|maps|location|units|clock|icons|link|doctor|completion)
+    weather|tides|sunshine|moon|radar|maps|location|units|clock|icons|calendar|link|doctor|completion)
       _linecast_complete_command "$cmd"
       ;;
   esac
@@ -372,6 +386,8 @@ def _zsh_script(flags_by_command):
     clock_sub = _SPACE.join(CLOCK_SUBCOMMANDS)
     icons = _SPACE.join(ICONS_FLAGS)
     icons_sub = _SPACE.join(ICONS_SUBCOMMANDS)
+    calendar = _SPACE.join(CALENDAR_FLAGS)
+    calendar_sub = _SPACE.join(CALENDAR_SUBCOMMANDS)
     doctor = _SPACE.join(DOCTOR_FLAGS)
     link = _words(link_flags)
     shells = _SPACE.join(SHELLS)
@@ -490,6 +506,10 @@ _linecast_complete_command() {{
       _linecast_add_flags {icons}
       compadd -- {icons_sub}
       ;;
+    calendar)
+      _linecast_add_flags {calendar}
+      compadd -- {calendar_sub}
+      ;;
     doctor)
       _linecast_add_flags {doctor}
       ;;
@@ -514,7 +534,7 @@ _linecast() {{
     fi
     cmd="${{words[2]}}"
     case "$cmd" in
-      weather|tides|sunshine|moon|radar|maps|location|units|clock|icons|link|doctor|completion)
+      weather|tides|sunshine|moon|radar|maps|location|units|clock|icons|calendar|link|doctor|completion)
         _linecast_complete_command "$cmd"
         ;;
     esac
@@ -556,6 +576,7 @@ def _fish_script(flags_by_command):
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
     clock_sub = _SPACE.join(CLOCK_SUBCOMMANDS)
     icons_sub = _SPACE.join(ICONS_SUBCOMMANDS)
+    calendar_sub = _SPACE.join(CALENDAR_SUBCOMMANDS)
     lines = [
         "# fish completion for linecast",
         f"complete -c linecast -f -n '__fish_use_subcommand' -a '{commands}'",
@@ -571,6 +592,8 @@ def _fish_script(flags_by_command):
         "complete -c linecast -f -n '__fish_seen_subcommand_from clock' -l help -s h",
         f"complete -c linecast -f -n '__fish_seen_subcommand_from icons' -a '{icons_sub}'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from icons' -l help -s h",
+        f"complete -c linecast -f -n '__fish_seen_subcommand_from calendar' -a '{calendar_sub}'",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from calendar' -l help -s h",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l help -s h",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l version",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l offline",
@@ -647,6 +670,8 @@ def _nu_script(flags_by_command):
                                 CLOCK_SUBCOMMANDS))
     lines.extend(_nu_value_list("linecast-icons-subcommands",
                                 ICONS_SUBCOMMANDS))
+    lines.extend(_nu_value_list("linecast-calendar-subcommands",
+                                CALENDAR_SUBCOMMANDS))
     lines.extend([
         'export extern "linecast" [',
         "    --version(-v) # Show version",
@@ -693,6 +718,13 @@ def _nu_script(flags_by_command):
         ))
         for sub in ICONS_SUBCOMMANDS:
             lines.extend(_nu_extern(f"{prefix}icons {sub}", version_only))
+        lines.extend(_nu_extern(
+            f"{prefix}calendar",
+            version_only,
+            ['subcommand?: string@"nu-complete linecast-calendar-subcommands"'],
+        ))
+        for sub in CALENDAR_SUBCOMMANDS:
+            lines.extend(_nu_extern(f"{prefix}calendar {sub}", version_only))
         lines.extend(_nu_extern(f"{prefix}doctor", [
             *version_only, "    --offline", "    --json", "    --debug"]))
 

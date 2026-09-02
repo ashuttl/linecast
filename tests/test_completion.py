@@ -65,7 +65,7 @@ class CompletionScriptTests(unittest.TestCase):
         self.assertIn(
             "complete -c linecast -f -n '__fish_use_subcommand' "
             "-a 'weather sunshine moon tides radar maps location units clock icons "
-            "link doctor completion'",
+            "calendar link doctor completion'",
             script,
         )
         self.assertIn(
@@ -123,6 +123,43 @@ class CompletionScriptTests(unittest.TestCase):
         self.assertIn(f"    doctor)\n      _linecast_add_flags {' '.join(DOCTOR_FLAGS)}",
                       zsh)
         self.assertIn("    --offline\n    --json\n    --debug\n]", nu)
+
+    def test_top_level_commands_track_the_dispatcher(self):
+        """The `linecast` dispatcher's table is hand-rolled, and so is the
+        completion's list of its commands; a command added to one must
+        reach the other."""
+        from linecast._completion import TOP_LEVEL_COMMANDS
+        self.assertEqual(set(TOP_LEVEL_COMMANDS), set(cli.COMMANDS) | {"completion"})
+        for shell in ("bash", "zsh", "fish", "nu"):
+            script = render_completion(shell)
+            for command in cli.COMMANDS:
+                with self.subTest(shell=shell, command=command):
+                    self.assertIn(command, script)
+
+    def test_calendar_subcommands_track_its_parser(self):
+        """`linecast calendar` takes the calendar names moon's --calendar
+        takes, plus show and auto; every shell offers them all."""
+        from linecast._completion import CALENDAR_SUBCOMMANDS
+        moon_choices = self._moon_calendar_choices()
+        self.assertEqual(set(CALENDAR_SUBCOMMANDS), moon_choices | {"show", "auto"})
+        bash = render_completion("bash")
+        zsh = render_completion("zsh")
+        fish = render_completion("fish")
+        nu = render_completion("nu")
+        joined = " ".join(CALENDAR_SUBCOMMANDS)
+        self.assertIn(f'COMPREPLY+=( $(compgen -W "{joined}" -- "$cur") )', bash)
+        self.assertIn(f"compadd -- {joined}", zsh)
+        self.assertIn(f"complete -c linecast -f -n '__fish_seen_subcommand_from calendar' "
+                      f"-a '{joined}'", fish)
+        for sub in CALENDAR_SUBCOMMANDS:
+            self.assertIn(f'export extern "linecast calendar {sub}"', nu)
+            self.assertIn(f'export extern "calendar {sub}"', nu)
+
+    def _moon_calendar_choices(self):
+        for action in _runtime.moon_parser()._actions:
+            if "--calendar" in action.option_strings:
+                return set(action.choices)
+        self.fail("moon has no --calendar")
 
 
 def _bash_zsh_flags(script, command):

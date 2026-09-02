@@ -83,8 +83,15 @@ _TIDES_STRINGS = {
         "waves": "\u6d77\u6d6a",
         "swell": "\u6d8c\u6d6a",
     },
+    "th": {
+        "space_to_now": "space กลับสู่ปัจจุบัน",
+        "waves": "คลื่น",
+        "swell": "คลื่นใต้น้ำ",
+    },
     "id": {
         "space_to_now": "spasi untuk kembali ke sekarang",
+        "waves": "Gelombang",
+        "swell": "Alun",
     },
 }
 
@@ -118,10 +125,12 @@ MOON_NAMES_I18N = {
             "T\u00e4ysikuu", "V\u00e4henev\u00e4 Kuu", "Viimeinen Nelj\u00e4nnes", "V\u00e4henev\u00e4 Sirppi"],
     "ja": ["\u65b0\u6708", "\u4e09\u65e5\u6708", "\u4e0a\u5f26", "\u5341\u4e09\u591c",
             "\u6e80\u6708", "\u5bdd\u5f85\u6708", "\u4e0b\u5f26", "\u6709\u660e\u6708"],
-    "ko": ["\uc0ad", "\ucd08\uc2b9\ub2ec", "\uc0c1\ud604", "\ucc28\uc624\ub984",
-            "\ubcf4\ub984", "\uae30\uc6b8\uc74c", "\ud558\ud604", "\uadf8\ubfc0"],
+    "ko": ["\uc0ad", "\ucd08\uc2b9\ub2ec", "\uc0c1\ud604\ub2ec", "\ucc28\uc624\ub974\ub294 \ub2ec",
+            "\ubcf4\ub984\ub2ec", "\uae30\uc6b0\ub294 \ub2ec", "\ud558\ud604\ub2ec", "\uadf8\ubbd0\ub2ec"],
     "zh": ["\u65b0\u6708", "\u86fe\u7709\u6708", "\u4e0a\u5f26\u6708", "\u76c8\u51f8\u6708",
             "\u6ee1\u6708", "\u4e8f\u51f8\u6708", "\u4e0b\u5f26\u6708", "\u6b8b\u6708"],
+    "th": ["จันทร์ดับ", "จันทร์เสี้ยวข้างขึ้น", "จันทร์ครึ่งดวงข้างขึ้น", "จันทร์ค่อนดวงข้างขึ้น",
+            "จันทร์เต็มดวง", "จันทร์ค่อนดวงข้างแรม", "จันทร์ครึ่งดวงข้างแรม", "จันทร์เสี้ยวข้างแรม"],
     "id": ["Bulan Baru", "Sabit Awal", "Kuarter Pertama", "Cembung Awal",
             "Bulan Purnama", "Cembung Akhir", "Kuarter Akhir", "Sabit Akhir"],
 }
