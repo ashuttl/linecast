@@ -678,8 +678,8 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
             matched = any(_point_in_ring(lat, lng, ring) for ring in rings)
             geometric = True
         elif codes and here:
-            # No polygon, but a geocode: an EMMA_ID or NUTS code names a
-            # region whose ground is published and we carry, so it is as
+            # No polygon, but a geocode: an EMMA_ID, NUTS, or CISORP code
+            # names a region whose ground we carry, so it is as
             # good as a polygon. Only where the point is in some region
             # of the data, though; off the coast, or in a country the
             # data lacks, the codes prove nothing and the areaDesc must do.
@@ -840,8 +840,8 @@ def _region_keys(areas):
     """The geocodes on a warning's areas that the data has ground for.
 
     Each is looked up by type and value: EMMA_IDs as themselves, a
-    NUTS3 or NUTS2 code under its type. France's FR101 is both a NUTS3
-    code and an EMMA_ID; the type keeps them from crossing.
+    NUTS3, NUTS2, or CISORP code under its type. France's FR101 is both
+    a NUTS3 code and an EMMA_ID; the type keeps them from crossing.
     """
     from linecast._meteoalarm_regions import key_for, known
     keys = set()

@@ -1,21 +1,23 @@
 """MeteoAlarm's warning regions, baked: which regions cover a point.
 
 Most MeteoAlarm feeds put no polygon on a warning, only a geocode --
-an EMMA_ID such as PL3001, one per county, district, or province, or
-for a few feeds a NUTS code -- and the feed is the whole country's.
-Reading the areaDesc against the user's address was the old way of
-telling which of those warnings were theirs, and it matched on a tier
-word once too often (issue #57). The geometry for every EMMA_ID is
-published by MeteoAlarm, and Eurostat's for the NUTS regions; here
-they are, simplified and packed by scripts/build_meteoalarm_regions.py,
-so the question "is this point inside PL3001?" has a plain answer.
+an EMMA_ID such as PL3001, one per county, district, or province; for
+a few feeds a NUTS code; for Czechia a CISORP, one per municipality
+with extended powers -- and the feed is the whole country's. Reading
+the areaDesc against the user's address was the old way of telling
+which of those warnings were theirs, and it matched on a tier word
+once too often (issue #57). The geometry for every EMMA_ID is
+published by MeteoAlarm, Eurostat's for the NUTS regions, and the
+Czech cadastre's for the ORPs; here they are, simplified and packed by
+scripts/build_meteoalarm_regions.py, so the question "is this point
+inside PL3001?" has a plain answer.
 
 A region is keyed the way key_for spells it: a bare EMMA_ID, or the
-geocode type and value joined by "/" (NUTS3/FR101) for any other type,
-so codes of different types can never cross (issue #59).
+geocode type and value joined by "/" (NUTS3/FR101, CISORP/2101) for
+any other type, so codes of different types can never cross (#59).
 
-Loaded on first use and kept for the process. Under a megabyte of gzip
-and a struct walk: a few tens of milliseconds, paid only by a weather
+Loaded on first use and kept for the process. A megabyte of gzip and
+a struct walk: a few tens of milliseconds, paid only by a weather
 call in a MeteoAlarm country.
 """
 

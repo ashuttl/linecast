@@ -932,6 +932,9 @@ FAKE_REGIONS = [
      [(_ring(49.0, 53.5, 9.0, 12.0), [_ring(49.2, 49.4, 9.2, 9.4)])]),
     # a NUTS3 code spelled like XX002, over XX001's ground, not XX002's
     ("NUTS3/XX002", (50.0, 51.0, 10.0, 11.0), [(_ring(50.0, 51.0, 10.0, 11.0), [])]),
+    # two Czech-style ORPs, one on XX001's ground
+    ("CISORP/0001", (50.0, 51.0, 10.0, 11.0), [(_ring(50.0, 51.0, 10.0, 11.0), [])]),
+    ("CISORP/0002", (50.0, 51.0, 11.0, 12.0), [(_ring(50.0, 51.0, 11.0, 12.0), [])]),
 ]
 
 
@@ -949,7 +952,7 @@ class TestMeteoAlarmRegions:
 
     def test_a_point_is_in_its_region_and_the_province_around_it(self):
         from linecast._meteoalarm_regions import regions_at
-        assert regions_at(50.5, 10.5) == {"XX001", "XX100", "NUTS3/XX002"}
+        assert regions_at(50.5, 10.5) == {"XX001", "XX100", "NUTS3/XX002", "CISORP/0001"}
 
     def test_a_hole_is_outside(self):
         from linecast._meteoalarm_regions import regions_at
@@ -998,11 +1001,25 @@ class TestMeteoAlarmRegions:
         got = _alerts(data, 52.5, 10.5, {"city": "Elsewhere"})
         assert len(got) == 1  # matched on the areaDesc, not excluded by XX001
 
+    def test_a_czech_warning_lands_in_one_of_its_orps(self):
+        # ČHMÚ files one area for several ORPs, a CISORP per ORP, and
+        # beside each an EMMA_ID the data lacks. The CISORPs place it.
+        info = _warning("Storm", "Moderate", "Some kraj (Here, There)")
+        info["area"][0]["geocode"] = [
+            {"valueName": "CISORP", "value": "0001"},
+            {"valueName": "EMMA_ID", "value": "CZ00001"},
+            {"valueName": "CISORP", "value": "0002"},
+            {"valueName": "EMMA_ID", "value": "CZ00002"},
+        ]
+        assert len(_alerts(_feed(info), 50.5, 10.5, {"city": "Nowhere"})) == 1
+        assert _alerts(_feed(info), 52.5, 10.5, {"city": "Nowhere"}) == []
+
     def test_keys_are_spelled_by_type(self):
         from linecast._meteoalarm_regions import key_for
         assert key_for("EMMA_ID", "PL3001") == "PL3001"
         assert key_for("NUTS3", "FR101") == "NUTS3/FR101"
         assert key_for("NUTS2", "HU10") == "NUTS2/HU10"
+        assert key_for("CISORP", "2101") == "CISORP/2101"
 
 
 class TestMeteoAlarmRegionsData:
@@ -1069,6 +1086,19 @@ class TestMeteoAlarmRegionsData:
         # North Macedonia files its EMMA_IDs typed NUTS3.
         from linecast._meteoalarm_regions import regions_at
         assert regions_at(41.9973, 21.4280) == {"MK008", "NUTS3/MK008"}
+
+    def test_prague_is_its_own_orp_by_both_spellings(self):
+        # The statistical office codes Prague 1000; the feed files 1100.
+        from linecast._meteoalarm_regions import regions_at
+        got = regions_at(50.0755, 14.4378)
+        assert {k for k in got if k.startswith("CISORP")} == {"CISORP/1000", "CISORP/1100"}
+        assert "CZ014" in got  # and the kraj around it, MeteoAlarm's own region
+
+    def test_brno_is_in_its_orp_and_not_the_next(self):
+        from linecast._meteoalarm_regions import regions_at, known
+        assert "CISORP/6203" in regions_at(49.1951, 16.6068)
+        assert known("CISORP/6217")  # Tišnov, one ORP over
+        assert "CISORP/6217" not in regions_at(49.1951, 16.6068)
 
 
 class TestAlertCap:
