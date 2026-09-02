@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: Alerts in Switzerland show again. The Swiss feed draws every warning's outline and had grown past the size linecast would read, so the board showed a quiet day.
 - Tides: The Indonesian view now names the wave and swell lines in Indonesian (gelombang, alun) instead of English.
 - Weather: Alerts in Bulgaria, Romania, France, Hungary, Belgium, North Macedonia, and Czechia now match the ground they cover, as the rest of Europe's do. Those feeds name a warning's region by a code linecast could not place until now; with them, every European feed is matched by geometry.
 - Thai is the eighteenth language: `--lang th` puts the whole app — weather, sunshine, moon, tides, radar, and maps — in Thai.
