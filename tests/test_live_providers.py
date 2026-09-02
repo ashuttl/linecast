@@ -189,6 +189,43 @@ def test_alerts(failures, country, point, provider):
 
 
 # ---------------------------------------------------------------------------
+# MeteoAlarm: every feed's warnings can still be placed
+# ---------------------------------------------------------------------------
+# A warning with no CAP polygon is matched by a geocode against the
+# region file baked into the wheel, and that file only knows the codes
+# the feeds filed when it was baked. A feed that moves to a new NUTS
+# edition, or starts filing a code type the file lacks, would fall back
+# to matching on the area name without a word; this asks every feed,
+# every day, whether the file still places all of it.
+from linecast._weather_sources import _METEOALARM_SLUGS  # noqa: E402
+
+
+@pytest.mark.parametrize("country, slug", sorted(_METEOALARM_SLUGS.items()),
+                         ids=sorted(_METEOALARM_SLUGS))
+def test_meteoalarm_feed_is_placed(failures, country, slug):
+    from linecast._http import fetch_json
+    from linecast._weather_sources import (_METEOALARM_FEED_BYTES, _cap_polygons,
+                                           _region_keys)
+    # under the runtime's own cap, so a feed outgrowing it fails here too
+    feed = fetch_json(f"https://feeds.meteoalarm.org/api/v1/warnings/feeds-{slug}",
+                      headers={"Accept": "application/json"}, timeout=15,
+                      limit=_METEOALARM_FEED_BYTES)
+    assert failures() == []
+    unplaced = {}
+    for w in feed.get("warnings", []):
+        for info in w.get("alert", {}).get("info", []):
+            for area in info.get("area", []):
+                if _cap_polygons(area) or _region_keys([area]):
+                    continue
+                codes = " ".join(f"{g.get('valueName')}/{g.get('value')}"
+                                 for g in area.get("geocode") or []) or "(no geocode)"
+                unplaced[codes] = unplaced.get(codes, 0) + 1
+    assert not unplaced, (
+        f"{country}: {sum(unplaced.values())} areas the region file cannot place: "
+        + "; ".join(f"{n} x [{codes}]" for codes, n in sorted(unplaced.items())[:12]))
+
+
+# ---------------------------------------------------------------------------
 # Tides
 # ---------------------------------------------------------------------------
 def _check_hilo(hilo):

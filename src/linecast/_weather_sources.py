@@ -597,6 +597,13 @@ _METEOALARM_SLUGS = {
     "UA": "ukraine", "GB": "united-kingdom",
 }
 
+# A feed is the whole country's, and one that draws every warning's
+# outline runs big: Switzerland's was 9.4 MB on 2026-09-02, past the
+# 8 MiB fetch_json allows, and the refusal read as a quiet day. The cap
+# stays, since a runaway server is still the thing it is for, but high
+# enough that a stormy day in a polygon-filing country gets through.
+_METEOALARM_FEED_BYTES = 32 * 1024 * 1024
+
 
 def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
     """Fetch MeteoAlarm warnings for a European country. Cached 15min.
@@ -608,9 +615,10 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
         "weather", f"alerts_eu_{slug}_{location_cache_key(lat, lng)}_{lang}.json")
     url = f"https://feeds.meteoalarm.org/api/v1/warnings/feeds-{slug}"
     data = fetch_json_cached(
-        cache_file, 900, url,
-        headers={"Accept": "application/json"},
-        timeout=15, fallback=[],
+        cache_file, 900, url, timeout=15, fallback=[],
+        fetch=lambda url, timeout: fetch_json(
+            url, headers={"Accept": "application/json"}, timeout=timeout,
+            limit=_METEOALARM_FEED_BYTES),
     )
     if isinstance(data, list):
         return data

@@ -312,6 +312,33 @@ class TestMeteoAlarmAlerts:
 # JMA alerts parsing
 # ---------------------------------------------------------------------------
 
+class TestMeteoAlarmFeedSize:
+    """A feed that outlines every warning is bigger than fetch_json allows."""
+
+    def test_the_feed_is_fetched_under_a_wider_cap(self):
+        from linecast import _weather_sources as ws
+        from linecast._http import MAX_JSON_BYTES
+        seen = {}
+
+        def miss(cache_file, max_age, url, **kwargs):
+            # a cache miss: fetch_json_cached hands the network step to `fetch`
+            return kwargs["fetch"](url, timeout=kwargs["timeout"])
+
+        def fetch_json(url, headers=None, timeout=10, limit=MAX_JSON_BYTES):
+            seen.update(url=url, limit=limit, accept=(headers or {}).get("Accept"))
+            return {"warnings": []}
+
+        with patch.object(ws, "fetch_json_cached", side_effect=miss), \
+                patch.object(ws, "fetch_json", fetch_json), \
+                patch.object(ws, "write_cache", lambda *a, **k: None):
+            ws._fetch_alerts_meteoalarm(46.95, 7.45, "switzerland", address={})
+        assert seen["url"].endswith("/feeds-switzerland")
+        assert seen["accept"] == "application/json"
+        assert seen["limit"] == ws._METEOALARM_FEED_BYTES
+        # 9.4 MB on a quiet September day; give a stormy one room
+        assert seen["limit"] >= 3 * MAX_JSON_BYTES
+
+
 class TestJMAAlerts:
     """Verify we can parse a real JMA warning response."""
 

@@ -90,6 +90,8 @@ _TIDES_STRINGS = {
     },
     "id": {
         "space_to_now": "spasi untuk kembali ke sekarang",
+        "waves": "Gelombang",
+        "swell": "Alun",
     },
 }
 
