@@ -299,3 +299,40 @@ class TestLabels:
     def test_observance_names(self):
         assert hijri_observance_name("qadr", "en") == "Laylat al-Qadr"
         assert hijri_observance_name("ramadan", "de") == "Ramadan begins"
+
+
+class TestPanel:
+    """The moon panel's observance line around Eid al-Fitr 1447."""
+
+    def _text(self, now):
+        import re
+        from unittest.mock import patch
+
+        from linecast._runtime import RuntimeConfig
+        from linecast.moon import render
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en",
+                                oneline=False)
+        with patch("linecast.moon.get_terminal_size",
+                   return_value=(100, 30)):
+            out = render(now, 43.68, -70.37, runtime, fullscreen=True,
+                         calendar_name="islamic")
+        return re.sub(r"\x1b\[[0-9;]*m", "", out)
+
+    def test_the_eve_says_begins_at_sunset(self):
+        eastern = timezone(timedelta(hours=-4))
+        text = self._text(datetime(2026, 3, 19, 12, 0, tzinfo=eastern))
+        assert "30 Ramadan 1447 AH" in text
+        assert "Ramadan · Shawwal Mar 20 (in 1d)" in text
+        assert "Eid al-Fitr Mar 20 (begins at sunset)" in text
+
+    def test_the_evening_is_already_the_observance(self):
+        eastern = timezone(timedelta(hours=-4))
+        text = self._text(datetime(2026, 3, 19, 20, 30, tzinfo=eastern))
+        assert "1 Shawwal 1447 AH" in text
+        assert "Eid al-Fitr" in text and "Eid al-Fitr Mar 20" not in text
+
+    def test_the_next_evening_has_moved_on(self):
+        eastern = timezone(timedelta(hours=-4))
+        text = self._text(datetime(2026, 3, 20, 20, 30, tzinfo=eastern))
+        assert "2 Shawwal 1447 AH" in text
+        assert "Day of Arafah May 26 (in 67d)" in text

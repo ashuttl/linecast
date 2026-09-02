@@ -615,8 +615,10 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         # The Hijri day begins at sunset, and the panel is read in the
         # evening, so the date turns with the reader's own sunset. The
         # calendar keeps no solar terms; the coming month takes the
-        # terms' place, and the observances are counted down by civil
-        # date, the way the printed calendar has them.
+        # terms' place. The observances keep civil dates, except that
+        # one counts as begun once the evening that opens it has come,
+        # and the day before, the countdown says so instead of "in
+        # 1d" — the same rule as the Hebrew calendar's below.
         h_day = now_local.date()
         if after_sunset(now_local, lat, lng):
             h_day += timedelta(days=1)
@@ -628,20 +630,22 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         term_txt = (f"{term_short} · {hijri_month_name(nxt_month, lang)} "
                     f"{_fmt_month_day(nxt_day, runtime)} "
                     f"({_ms('in_days', runtime, days=str(nxt_gap))})")
-        fest_day, fest_key = next_observance(now_local.date())
-        fest_short = (f"{hijri_observance_name(fest_key, lang)} "
-                      f"{_fmt_month_day(fest_day, runtime)}")
+        fest_day, fest_key = next_observance(h_day)
         fest_gap = (fest_day - now_local.date()).days
-        fest_txt = fest_short if fest_gap == 0 else (
-            f"{fest_short} "
-            f"({_ms('in_days', runtime, days=str(fest_gap))})")
+        if fest_day <= h_day:
+            fest_txt = fest_short = hijri_observance_name(fest_key, lang)
+        else:
+            fest_short = (f"{hijri_observance_name(fest_key, lang)} "
+                          f"{_fmt_month_day(fest_day, runtime)}")
+            fest_txt = f"{fest_short} ({_ms('begins_at_sunset', runtime)})" \
+                if fest_gap == 1 else (
+                    f"{fest_short} "
+                    f"({_ms('in_days', runtime, days=str(fest_gap))})")
     elif cal == "hebrew":
         # The Hebrew day begins at sunset too, and the date turns with
-        # the reader's own. The coming month takes the terms' place,
-        # as for the Hijri calendar. The holidays keep civil dates,
-        # except that a holiday is counted in progress once the
-        # evening that opens it has come, and the day before it the
-        # countdown says so instead of "in 1d".
+        # the reader's own. The coming month takes the terms' place
+        # and the holidays are counted down as the observances are
+        # above, in progress from the evening that opens them.
         h_day = now_local.date()
         if after_sunset(now_local, lat, lng):
             h_day += timedelta(days=1)

@@ -129,7 +129,8 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
     elif cal == "islamic":
         # The Umm al-Qura reading: the Hijri date, turned with the
         # reader's sunset as the panel turns it, the month's length,
-        # the coming month, and the next observance.
+        # the coming month, and the next observance — today's, once
+        # the evening that opens it has come.
         from linecast._hijri import (
             after_sunset, days_in_month, hijri_date, next_month_start,
             next_observance,
@@ -141,7 +142,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None):
         h_day = now_local.date() + timedelta(days=1 if evening else 0)
         h_year, h_month, h_dom = hijri_date(h_day)
         nxt_day, (_nxt_year, nxt_month) = next_month_start(h_day)
-        obs_day, obs_key = next_observance(now_local.date())
+        obs_day, obs_key = next_observance(h_day)
         calendar_block = {
             "name": cal,
             "year": h_year,
