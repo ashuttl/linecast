@@ -305,15 +305,23 @@ def fill_cells(grid, graph_w, height_cells):
     return out
 
 
-def fill_colors(grid, graph_w, height_cells, palette):
+def fill_colors(grid, graph_w, height_cells, palette, builtup=None):
     """Dot-resolution classes -> the sub-pixel RGB grid compose_map wants.
 
     A sub-pixel spans 2x2 dots and takes the topmost class holding at
     least half of them — the same >=2-of-4 rule as the radar sea mask.
     An entry is None where the palette paints nothing, which is how the
     16-colour and `none` modes end up as line maps.
+
+    `builtup` is the measured settlement grid at sub-pixel resolution,
+    or None.  A sub-pixel no polygon claimed takes the urban tint where
+    enough of it is built — the same "measured fills where the vector
+    story is silent" role the layer plays in terrain, in street mode's
+    one flat register: the town nobody drew landuse polygons for still
+    reads as a town.
     """
     inks = [palette.get(key) for key in style.FILL_ORDER]
+    floor = style.COVER_BUILTUP_GRADES[-1][0]
     out = []
     for spy in range(height_cells * 2):
         top, bot = grid[spy * 2], grid[spy * 2 + 1]
@@ -327,6 +335,9 @@ def fill_colors(grid, graph_w, height_cells, palette):
                         + (quad[2] == cls) + (quad[3] == cls) >= 2:
                     row[x] = inks[cls]
                     break
+            else:
+                if builtup is not None and builtup[spy][x] >= floor:
+                    row[x] = inks[URBAN]
         out.append(row)
     return out
 
@@ -938,13 +949,16 @@ def water_owners(coast, wet, waters, feats, graph_w, height_cells):
 
 
 def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
-                      reserved=()):
+                      reserved=(), builtup=None):
     """(fills, layer, overlays) for one view — the pure half, no network.
 
     `tiles` maps (z, x, y) to raw MVT bytes, or to None for a tile that
     could not be read; a missing tile simply contributes nothing.
     `reserved` are cells the caller has already spoken for (the marker
-    and the crosshair), which labels must route around.
+    and the crosshair), which labels must route around.  `builtup` is
+    the settlement grid for the urban fill, already fetched by the
+    caller because this half takes no network; the band gate is still
+    applied here, with the other fill debuts.
 
     The layer comes back carrying `.hover`, the index that answers what
     is under a pointer.  It is built here rather than on demand because
@@ -954,7 +968,9 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     palette = style.palette()
     view = decode_view(tiles)
     grid, water = class_grid(view, bbox, graph_w, height_cells, band)
-    fills = fill_colors(grid, graph_w, height_cells, palette)
+    if band < style.FILL_DEBUT["builtup"]:
+        builtup = None
+    fills = fill_colors(grid, graph_w, height_cells, palette, builtup)
 
     # Labels run before the raster, against the same water mask, because
     # naming the water is what tells the shore which shore it is.
