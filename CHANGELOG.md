@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+## 2.3.0 — 2026-09-02
+
 The moon follows traditional calendars: Chinese, Japanese, Korean, and Thai by language; Hebrew, Islamic, Hawaiian, Samoan, CHamoru, and the Old Farmer's Almanac by choice. It has a month view. Thai is the eighteenth language. Street maps get route shields, sunrise and sunset times are more accurate, and every European alert now applies to the ground it covers.
 
 New this version:
