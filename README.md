@@ -82,7 +82,7 @@ linecast maps --to "Portland Head Light" --profile bike
 
 ### Weather
 
-Current conditions, hourly temperatures shaded by daylight, precipitation, daily ranges, air quality, and a line on how today compares with a normal day. Official alerts cover 45 countries; click one to read it in full, or press `o` to open it in your browser. In India, air quality uses the CPCB's National AQI scale.
+Current conditions, hourly temperatures shaded by daylight, precipitation, daily ranges, air quality, and a line on how today compares with a normal day. Official alerts cover 45 countries; click one to read it in full, or press `o` to open it in your browser. In India, air quality uses the CPCB's National AQI scale. If the forecast service cannot be reached, the last forecast stands in, and a line under the header says which day it is from; `r` asks for a newer one.
 
 ![weather dashboard](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
 

@@ -38,6 +38,7 @@ class TestRender:
             "location_name": "Westbrook", "offset_minutes": 30,
             "mouse_pos": (2, 3), "active_alert": None, "modal_scroll": 0,
             "aqi_data": {"aqi": 1}, "historical": {"h": 1},
+            "notice": None,   # today's data carries no stale-forecast line
         }
 
     def test_render_after_the_interval_refreshes_in_the_background(self):
@@ -134,7 +135,7 @@ class TestTuning:
         assert WeatherApp.interval == 300
         assert WeatherApp.scroll_step == 60
         assert WeatherApp.mouse is True
-        assert set(_app(lambda: 0.0).hooks()) == {"on_open"}
+        assert set(_app(lambda: 0.0).hooks()) == {"on_open", "on_action"}
 
 
 class TestHoverTooltip:

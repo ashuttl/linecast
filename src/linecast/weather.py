@@ -28,11 +28,14 @@ from linecast._runtime import (
     WeatherRuntime, install_banner, log_failure, set_current, weather_parser,
 )
 from linecast._weather_i18n import (
+    FULL_DAY_NAMES,
     WMO_NAMES,
     WMO_NAMES_I18N,
     _s,
 )
 from linecast._weather_render import (
+    ALERT_AMBER,
+    MUTED,
     RESET,
     TEXT,
     TOOLTIP_BG_RGB,
@@ -59,6 +62,7 @@ from linecast._weather_sources import (
     fetch_aqi,
     fetch_alerts,
     fetch_forecast,
+    forecast_date,
 )
 
 
@@ -149,9 +153,45 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     return _live.pointer_chip(lines, snap_col, mouse_row, cols, rows, pad_bg=TBG)
 
 
+def forecast_notice(data, runtime, live=False, fetching=False, failed_at=None):
+    """One line saying the forecast on screen is from an earlier day and
+    how to get a newer one, or None while it is today's.
+
+    A forecast on screen from another day means every fetch since has
+    failed and the cache stood in (see forecast_is_todays).  The line
+    names the day, says a fetch is under way while one is, and after a
+    failed one says when it failed, so a retry visibly did something.
+    """
+    made = forecast_date(data)
+    if made is None:
+        return None
+    now_local = _local_now_for_data(data)
+    if made == now_local.date():
+        return None
+    if fetching:
+        return f"{MUTED}{_s('forecast_fetching', runtime)}{RESET}"
+    days_ago = (now_local.date() - made).days
+    if 1 <= days_ago <= 6:
+        names = FULL_DAY_NAMES.get(runtime.lang, FULL_DAY_NAMES["en"])
+        day = names[made.weekday()]
+    else:
+        day = made.isoformat()
+    if failed_at is not None:
+        text = _s("forecast_stale_at", runtime, day=day,
+                  time=_fmt_time(failed_at, runtime.use_24h))
+    else:
+        text = _s("forecast_stale", runtime, day=day)
+    hint = _s("retry_key" if live else "retry_run", runtime)
+    return f"{ALERT_AMBER}{text} {hint}{RESET}"
+
+
 def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, mouse_pos=None,
-                     active_alert=None, modal_scroll=0, aqi_data=None, historical=None):
-    """Build the complete weather dashboard from preloaded data."""
+                     active_alert=None, modal_scroll=0, aqi_data=None, historical=None,
+                     notice=None):
+    """Build the complete weather dashboard from preloaded data.
+
+    `notice` is a line for under the header -- forecast_notice's, when
+    the forecast is not today's."""
     if not data:
         return f"{TEXT}Could not fetch weather data.{RESET}", {}
 
@@ -169,6 +209,8 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
 
     # Count non-hourly lines precisely
     non_hourly = 2  # header + blank
+    if notice:
+        non_hourly += 1
     if comp:
         non_hourly += 1
     if precip:
@@ -214,6 +256,8 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     # Header
     lines.append(render_header(data, cols, location_name, runtime=runtime, aqi_data=aqi_data,
                                historical=historical))
+    if notice:
+        lines.append(notice)
     lines.append("")
 
     # Hourly — first pass without hover to establish line boundaries
@@ -344,6 +388,7 @@ class WeatherApp(_live.LiveApp):
         self.historical = historical
         self.country = country
         self._worker = None
+        self.attempted = None   # local time the last refresh finished
 
     def _refresh(self):
         """Fetch fresh data and swap it in, off the render thread.
@@ -367,14 +412,32 @@ class WeatherApp(_live.LiveApp):
                         fallback="view stays stale")
         finally:
             self.fetched = _t.monotonic()
+            self.attempted = _local_now_for_data(self.data)
         _live.nudge()
+
+    def _refreshing(self):
+        return bool(self._worker and self._worker.is_alive())
+
+    def _start_refresh(self):
+        if not self._refreshing():
+            self._worker = threading.Thread(target=self._refresh, daemon=True)
+            self._worker.start()
+
+    def on_action(self, key):
+        """`r` asks for a newer forecast now rather than at the next
+        interval -- the retry the stale-forecast line offers."""
+        if key == "r":
+            self._start_refresh()
+            return True
+        return False
 
     def render(self, offset_minutes=0, mouse_pos=None, active_alert=None,
                modal_scroll=0):
-        if _t.monotonic() - self.fetched >= 300 and not (
-                self._worker and self._worker.is_alive()):
-            self._worker = threading.Thread(target=self._refresh, daemon=True)
-            self._worker.start()
+        if _t.monotonic() - self.fetched >= 300:
+            self._start_refresh()
+        notice = forecast_notice(self.data, self.runtime, live=True,
+                                 fetching=self._refreshing(),
+                                 failed_at=self.attempted)
         return render_from_data(
             self.data,
             self.alerts,
@@ -386,6 +449,7 @@ class WeatherApp(_live.LiveApp):
             modal_scroll=modal_scroll,
             aqi_data=self.aqi,
             historical=self.historical,  # cached — doesn't need re-fetch
+            notice=notice,
         )
 
     def on_open(self, idx):
@@ -541,6 +605,7 @@ def main():
             location_name=location_name,
             aqi_data=aqi_data,
             historical=historical,
+            notice=forecast_notice(data, runtime),
         )
         print(output)
 

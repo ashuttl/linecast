@@ -493,6 +493,12 @@ _STRINGS = {
     "en": {
         "today": "Today",
         "today_short": "Tod",
+        "forecast_stale": "This forecast is from {day}; a newer one could not be fetched.",
+        "forecast_stale_at": ("This forecast is from {day}; a newer one could not be "
+                              "fetched at {time}."),
+        "forecast_fetching": "Fetching a newer forecast\u2026",
+        "retry_run": "Run again to retry.",
+        "retry_key": "Press r to retry.",
         "metric_unit_sep": "",
         "feels": "feels",
         "wind": "Wind",
