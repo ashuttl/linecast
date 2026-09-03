@@ -111,6 +111,7 @@ class TestForecastNotice:
         with patch.object(weather, "_local_now_for_data", return_value=LATER):
             line = _strip(forecast_notice(FIXTURE, _runtime(lang="fr")))
         assert "jeudi" in line
+        assert "pr\u00e9vision" in line and "Relancez" in line   # one-shot: run again
 
     def test_the_line_sits_under_the_header(self):
         runtime = weather.WeatherRuntime.defaults()
