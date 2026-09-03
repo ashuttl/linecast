@@ -288,9 +288,50 @@ def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en
     MAX_ALERTS of them. A feed that files one warning per county can
     land hundreds on a single point (issue #57); past a handful, the
     pills stop informing and start papering the screen.
+
+    An alert past its own expiry is dropped here, whatever its source.
+    Each provider caches its list for fifteen minutes, and a stale copy
+    stands in for as long as the provider is unreachable, so without
+    this a wind advisory fetched on Tuesday could still be listed on
+    Thursday (issue #70).
     """
     alerts = _fetch_alerts_routed(lat, lng, country_code, lang, address)
-    return _trim_alerts(alerts)
+    return _trim_alerts(_drop_expired(alerts))
+
+
+def _alert_expiry(alert):
+    """When a normalized alert lapses, as an aware UTC datetime, or None
+    when it does not say.
+
+    Providers write the expiry as ISO 8601 with an offset, or with a
+    trailing Z, which fromisoformat reads only from Python 3.11. A time
+    with no offset is taken as UTC: an hour or two out is a far smaller
+    error than never expiring.
+    """
+    expires = alert.get("expires") if isinstance(alert, dict) else None
+    if not isinstance(expires, str) or not expires:
+        return None
+    if expires.endswith("Z"):
+        expires = expires[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(expires)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _drop_expired(alerts, now=None):
+    """The alerts still in force at `now` (UTC), or that carry no expiry."""
+    if now is None:
+        now = datetime.now(timezone.utc)
+    kept = []
+    for alert in alerts:
+        expiry = _alert_expiry(alert)
+        if expiry is None or expiry >= now:
+            kept.append(alert)
+    return kept
 
 
 def _trim_alerts(alerts):
@@ -588,16 +629,29 @@ def _meteireann_severity(level):
 def _parse_meteireann_dt(s):
     """Parse Met Éireann datetime to ISO format.
 
-    Input: "HH:MM Weekday DD/MM/YYYY" -> "YYYY-MM-DDTHH:MM:00"
+    Input: "HH:MM Weekday DD/MM/YYYY" -> "YYYY-MM-DDTHH:MM:00+01:00"
+
+    The feed gives Irish local time with no offset. The offset is added
+    so the time can be compared with the clock as well as shown; when
+    the zone data is missing the time stays naive, as it always was.
     """
-    import re
     if not s:
         return ""
     m = re.match(r"(\d{2}):(\d{2})\s+\w+\s+(\d{2})/(\d{2})/(\d{4})", s)
-    if m:
-        hour, minute, day, month, year = m.groups()
-        return f"{year}-{month}-{day}T{hour}:{minute}:00"
-    return ""
+    if not m:
+        return ""
+    hour, minute, day, month, year = (int(g) for g in m.groups())
+    try:
+        dt = datetime(year, month, day, hour, minute)
+    except ValueError:
+        return ""
+    try:
+        from zoneinfo import ZoneInfo
+        dt = dt.replace(tzinfo=ZoneInfo("Europe/Dublin"))
+    except Exception as exc:
+        log_failure("weather/alerts", "Irish time zone", exc,
+                    fallback="time left without an offset")
+    return dt.isoformat()
 
 
 # ---------------------------------------------------------------------------

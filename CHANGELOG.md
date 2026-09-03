@@ -5,6 +5,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 ## Unreleased
 
 - Cache files are now readable only by the user who owns them.
+- Weather: An alert drops off the board once it expires. An alert kept from an earlier fetch could stay listed for as long as its provider was unreachable.
 
 ## 2.3.1 — 2026-09-03
 
