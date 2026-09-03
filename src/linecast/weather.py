@@ -63,6 +63,7 @@ from linecast._weather_sources import (
     fetch_alerts,
     fetch_forecast,
     forecast_date,
+    forecast_is_todays,
 )
 
 
@@ -412,7 +413,11 @@ class WeatherApp(_live.LiveApp):
                         fallback="view stays stale")
         finally:
             self.fetched = _t.monotonic()
-            self.attempted = _local_now_for_data(self.data)
+            # When the notice says a fetch failed.  Cleared by a current
+            # forecast, so that at midnight, when it stops being current,
+            # the line does not report a fetch that succeeded as failed.
+            self.attempted = (None if forecast_is_todays(self.data)
+                              else _local_now_for_data(self.data))
         _live.nudge()
 
     def _refreshing(self):

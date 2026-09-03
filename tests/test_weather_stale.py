@@ -157,7 +157,30 @@ class TestRetryKey:
             app._worker.join(1.0)
         forecast.assert_called_once_with(43.0, -70.0, app.runtime)
         assert app.data == {"v": 2}
-        assert app.attempted is not None   # the notice can say when it was tried
+
+    def test_a_refresh_that_still_gets_an_old_forecast_records_when(self):
+        app = _app()
+        with patch.object(weather, "fetch_forecast", return_value=FIXTURE), \
+             patch.object(weather, "fetch_alerts", return_value=[]), \
+             patch.object(weather, "fetch_aqi", return_value=None), \
+             patch.object(_weather_sources, "datetime") as dt:
+            dt.now.return_value = LATER
+            app.on_action("r")
+            app._worker.join(1.0)
+        assert app.attempted == LATER    # the notice can say when it was tried
+
+    def test_a_refresh_that_gets_todays_forecast_records_nothing(self):
+        # At midnight the forecast stops being today's; the line must not
+        # then report the fetch that got it, which succeeded, as a failed one.
+        app = _app()
+        with patch.object(weather, "fetch_forecast", return_value=FIXTURE), \
+             patch.object(weather, "fetch_alerts", return_value=[]), \
+             patch.object(weather, "fetch_aqi", return_value=None), \
+             patch.object(_weather_sources, "datetime") as dt:
+            dt.now.return_value = MADE
+            app.on_action("r")
+            app._worker.join(1.0)
+        assert app.attempted is None
 
     def test_other_keys_are_not_ours(self):
         app = _app()
