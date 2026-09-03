@@ -2,7 +2,7 @@
 
 import re
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from typing import Any
 
 from linecast._cache import read_cache, write_cache, location_cache_key
@@ -90,9 +90,32 @@ def _reverse_geocode(lat, lng, lang=None):
     return display, country_code, addr
 
 
+def forecast_date(data) -> "date | None":
+    """The day a forecast calls today: with past_days=1 the daily series
+    starts yesterday, so index 1 is the day it was fetched.  None when
+    the payload has no such series."""
+    try:
+        return date.fromisoformat(data["daily"]["time"][1])
+    except (KeyError, IndexError, TypeError, ValueError):
+        return None
+
+
+def forecast_is_todays(data) -> bool:
+    """Whether a forecast's today is today where it is for.
+
+    The cache test for fetch_forecast: a copy fetched on an earlier day
+    is stale however young its file, and at midnight the day it calls
+    today has gone by.  Either way the next run asks Open-Meteo again
+    rather than labelling the wrong day "Today" (issue #68).
+    """
+    made = forecast_date(data)
+    return made is not None and made == _local_now_for_data(data).date()
+
+
 def fetch_forecast(lat: float, lng: float,
                    runtime: WeatherRuntime | None = None) -> dict[str, Any] | None:
-    """Fetch hourly + daily forecast from Open-Meteo. Cached 1h."""
+    """Fetch hourly + daily forecast from Open-Meteo. Cached 1h, and
+    only while it still says today is today."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
     temp_tag = "C" if runtime.celsius else "F"
@@ -121,6 +144,7 @@ def fetch_forecast(lat: float, lng: float,
         url,
         timeout=10,
         fallback=None,
+        fresh=forecast_is_todays,
     )
 
 
