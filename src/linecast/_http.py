@@ -15,12 +15,11 @@ headers that are specific to them.
 import json
 import os
 import threading
-import time
 import urllib.parse
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from linecast._cache import read_cache, read_stale, write_bytes_atomic, write_cache
+from linecast._cache import is_fresh, read_cache, read_stale, write_bytes_atomic, write_cache
 from linecast._runtime import debug_enabled, debug_log, log_failure, redact_url
 
 if TYPE_CHECKING:
@@ -230,15 +229,21 @@ def fetch_json(url: str, headers: dict[str, str] | None = None,
 def fetch_json_cached(cache_file: Path, max_age: float, url: str,
                       headers: dict[str, str] | None = None, timeout: float = 10,
                       fallback: Any = None,
-                      fetch: "Callable[..., Any] | None" = None) -> Any:
+                      fetch: "Callable[..., Any] | None" = None,
+                      fresh: "Callable[[Any], bool] | None" = None) -> Any:
     """Fetch JSON with fresh cache first, stale cache fallback, then fallback value.
 
     `fetch` replaces fetch_json for the network step (called as
     fetch(url, timeout=...)), for a provider that counts or signs its
     own requests; only a cache miss reaches it.
+
+    `fresh` is a second test a cached copy must pass, on its content
+    rather than its age -- a forecast whose "today" has gone by is stale
+    however young the file.  A copy that fails it is refetched, and
+    still stands in when the refetch fails.
     """
     cached = read_cache(cache_file, max_age)
-    if cached is not None:
+    if cached is not None and (fresh is None or fresh(cached)):
         debug_log(f"cache hit: {cache_file.name}")
         return cached
 
@@ -268,7 +273,7 @@ def fetch_bytes_cached(cache_file: Path, max_age: float | None, url: str,
     try:
         if cache_file.exists() and (
                 max_age is None
-                or time.time() - cache_file.stat().st_mtime < max_age):
+                or is_fresh(cache_file.stat().st_mtime, max_age)):
             return cache_file.read_bytes()
     except OSError as exc:
         log_failure("cache", f"read of {cache_file.name}", exc,

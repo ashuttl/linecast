@@ -23,6 +23,24 @@ def write_bytes_atomic(path: Path, data: bytes) -> None:
     os.replace(tmp, path)
 
 
+# How far into the future a file's mtime may sit and still count as
+# just written: a coarse filesystem clock, not a clock that was later
+# set back.
+_FUTURE_SLACK = 60
+
+
+def is_fresh(mtime: float, max_age: float) -> bool:
+    """Whether a file written at `mtime` is within `max_age` seconds old.
+
+    A modification time in the future means the clock was wrong when
+    the file was written, or is wrong now; either way its age says
+    nothing, and a file that never ages would be served forever
+    (issue #68).  Such a file counts as expired.
+    """
+    age = time.time() - mtime
+    return -_FUTURE_SLACK <= age < max_age
+
+
 def read_cache(path: Path, max_age: float) -> Any:
     """Read JSON cache file if it exists and isn't too old. Returns data or None.
 
@@ -32,7 +50,7 @@ def read_cache(path: Path, max_age: float) -> Any:
     try:
         if not path.exists():
             return None
-        if time.time() - path.stat().st_mtime >= max_age:
+        if not is_fresh(path.stat().st_mtime, max_age):
             return None
         return json.loads(path.read_bytes())
     except (OSError, ValueError) as exc:

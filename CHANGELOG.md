@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: A forecast from an earlier day no longer passes as today's. When a newer one cannot be fetched, the view says which day the forecast is from and how to retry, the daily list names that day instead of calling it today, and `r` asks for a fresh one in live mode.
+
 ## 2.3.0 — 2026-09-02
 
 The moon follows traditional calendars: Chinese, Japanese, Korean, and Thai by language; Hebrew, Islamic, Hawaiian, Samoan, CHamoru, and the Old Farmer's Almanac by choice. It has a month view. Thai is the eighteenth language. Street maps get route shields, sunrise and sunset times are more accurate, and every European alert now applies to the ground it covers.

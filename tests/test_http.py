@@ -264,6 +264,40 @@ class TestFetchBytesCached:
         assert not (tmp_path / "t.png").exists()
 
 
+class TestFetchJsonCached:
+    def test_a_fresh_copy_that_passes_the_test_is_served(self, conns, tmp_path):
+        path = tmp_path / "f.json"
+        path.write_text('{"day": "today"}')
+        got = _http.fetch_json_cached(path, 60, "https://h.example/",
+                                      fresh=lambda d: d["day"] == "today")
+        assert got == {"day": "today"}
+        assert conns.instances == []
+
+    def test_a_fresh_copy_that_fails_the_test_is_refetched(self, conns, tmp_path):
+        path = tmp_path / "f.json"
+        path.write_text('{"day": "tuesday"}')
+        conns.script = [_Response(body=b'{"day": "today"}')]
+        got = _http.fetch_json_cached(path, 60, "https://h.example/",
+                                      fresh=lambda d: d["day"] == "today")
+        assert got == {"day": "today"}
+        assert path.read_text() == '{"day": "today"}'
+
+    def test_a_copy_that_fails_the_test_still_stands_in_for_a_dead_network(
+            self, conns, tmp_path):
+        path = tmp_path / "f.json"
+        path.write_text('{"day": "tuesday"}')
+        conns.script = [OSError("down")]
+        got = _http.fetch_json_cached(path, 60, "https://h.example/",
+                                      fresh=lambda d: d["day"] == "today")
+        assert got == {"day": "tuesday"}
+
+    def test_without_a_test_age_alone_decides(self, conns, tmp_path):
+        path = tmp_path / "f.json"
+        path.write_text('{"day": "tuesday"}')
+        assert _http.fetch_json_cached(path, 60, "https://h.example/") == {"day": "tuesday"}
+        assert conns.instances == []
+
+
 class TestVersion:
     def test_user_agent_is_cached(self):
         first = linecast.user_agent()
