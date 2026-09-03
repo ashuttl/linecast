@@ -142,8 +142,11 @@ class TestSunshineSnapshot:
         # and the sun's placement then depend on nothing but the arguments.
         tz = ZoneInfo("America/Toronto")
         now = datetime(2026, 3, 5, 14, 30, tzinfo=tz)
+        # The corner clock names the weekday only on a day that is not
+        # the user's; pin the user's day to the rendered one.
         with patch("linecast._sunshine_year.get_terminal_size",
-                   return_value=(80, 24)):
+                   return_value=(80, 24)), \
+             patch("linecast.sunshine._local_today", return_value=now.date()):
             output = render_year(43.7, -79.4, now, runtime, tz=tz,
                                  location_label="Toronto")
         _compare_or_create("sunshine_year_80x24.txt", _strip_ansi(output))
@@ -160,7 +163,8 @@ class TestSunshineSnapshot:
         tz = ZoneInfo("Europe/Oslo")
         now = datetime(2026, 3, 5, 14, 30, tzinfo=tz)
         with patch("linecast._sunshine_year.get_terminal_size",
-                   return_value=(80, 24)):
+                   return_value=(80, 24)), \
+             patch("linecast.sunshine._local_today", return_value=now.date()):
             output = render_year(78.22, 15.65, now, runtime, tz=tz,
                                  location_label="Longyearbyen")
         _compare_or_create("sunshine_year_polar_80x24.txt", _strip_ansi(output))

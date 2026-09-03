@@ -25,7 +25,7 @@ from linecast._braille import braille_rows_from_ys
 from linecast._ephemeris import moon_phase_frac, sun_declination
 from linecast._graphics import (
     fg, RESET, BG_PRIMARY, color_mode, lerp, interp_stops, visible_len,
-    fmt_time, get_terminal_size, Framebuffer, live_loop,
+    fmt_time, fmt_time_dt, get_terminal_size, Framebuffer, live_loop,
 )
 from linecast import _theme
 from linecast._theme import (
@@ -468,18 +468,60 @@ def corner_label_ink(cell):
     return lighten(cell, 0.45) if luma < 130 else darken(cell, 0.55)
 
 
+def _corner_limit(graph_w):
+    """How much of the top row the corner label may take: half the chart."""
+    return max(0, graph_w // 2)
+
+
+def _local_today():
+    """The user's own date, on the machine's clock."""
+    return datetime.now().date()
+
+
+def clock_label(now, runtime, today=None):
+    """'2:14p': the time of the shown moment on the location's own clock,
+    so a pinned place reads as a world clock. The weekday is added only
+    when that moment falls on a different day from the user's own --
+    a place across the date line, or the day view scrubbed past
+    midnight -- as 'Fri 3:14a'. `today` is the user's date, the
+    machine's by default.
+    """
+    from linecast._i18n import lang_of
+    from linecast._weather_i18n import DAY_NAMES
+    if today is None:
+        today = _local_today()
+    clock = fmt_time_dt(now, runtime.use_24h)
+    if now.date() == today:
+        return clock
+    day = DAY_NAMES.get(lang_of(runtime), DAY_NAMES["en"])[now.weekday()]
+    return f"{day} {clock}"
+
+
+def corner_label(location_label, clock, graph_w):
+    """The top-right label: the place and the clock, joined by a middle
+    dot, when the corner has room for both; the clock alone when it does
+    not, since a truncated place name would cost the time (issue #66).
+    """
+    if not location_label:
+        return clock
+    joined = f"{location_label} \u00b7 {clock}"
+    if visible_len(joined) <= _corner_limit(graph_w):
+        return joined
+    return clock
+
+
 def corner_label_cells(label, graph_w):
     """(x, char) overlay cells for a label right-aligned in the top row.
 
     Laid out by cell width, so a double-width glyph takes two columns:
     its own, and an empty one after it that the framebuffer skips.
-    Truncated to a third of the chart.
+    Truncated to half the chart.
     """
     from linecast._textwidth import char_width
     cells = []
     used = 0
     last_base = None
-    limit = max(0, graph_w // 3)
+    limit = _corner_limit(graph_w)
     for ch in label:
         w = char_width(ch)
         if w == 0:
@@ -500,8 +542,13 @@ def corner_label_cells(label, graph_w):
 
 
 def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=None,
-           tz_offset_h=None, location_label=""):
-    """Build the complete multi-line solar arc display."""
+           tz_offset_h=None, location_label="", now=None):
+    """Build the complete multi-line solar arc display.
+
+    `now` is the shown moment as a datetime, scrubbing included; when
+    given, the corner names its time beside the place, and its weekday
+    when that is not the user's own.
+    """
     if runtime is None:
         runtime = current_runtime(RuntimeConfig)
     icons = _icon_set(runtime)
@@ -644,11 +691,14 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
         for ci in range(graph_w):
             if curve_bits[row][ci]:
                 overlays[(ci, row)] = (chr(0x2800 + curve_bits[row][ci]), CURVE_COLOR)
-    # Location hint, dim, in the top-right corner. The sky there can be
-    # anything from night to full daylight, so the hint darkens against a
-    # lit cell rather than disappearing into it.
-    if location_label:
-        for x, ch in corner_label_cells(location_label, graph_w):
+    # Location and clock, dim, in the top-right corner. The sky there can
+    # be anything from night to full daylight, so the hint darkens against
+    # a lit cell rather than disappearing into it.
+    label = location_label
+    if now is not None:
+        label = corner_label(location_label, clock_label(now, runtime), graph_w)
+    if label:
+        for x, ch in corner_label_cells(label, graph_w):
             cell = fb.cell_bg(x, 0)
             overlays[(x, 0)] = (ch, corner_label_ink(cell), False)
     sun_cell_row = sun_spy_i // 2
@@ -859,6 +909,7 @@ def main():
             runtime=runtime,
             tz_offset_h=_offset_hours(now),
             location_label=location_label,
+            now=now,
         )
 
     if not live:

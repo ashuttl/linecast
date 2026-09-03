@@ -6,6 +6,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 - Cache files are now readable only by the user who owns them.
 - Weather: An alert drops off the board once it expires. An alert kept from an earlier fetch could stay listed for as long as its provider was unreachable.
+- Sunshine: The corner that names the place now gives its time too, in both the day and year views, with the day of the week when it is not your own, so a pinned location reads as a world clock.
 
 ## 2.3.1 — 2026-09-03
 

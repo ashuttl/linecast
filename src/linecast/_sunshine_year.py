@@ -304,11 +304,13 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
         for row in range(graph_h):
             overlays[(hover_x, row)] = ("│", HOVER_RGB, False)
 
-    # Location hint, dim, in the top-right corner (December midnight — dark
-    # sky at every latitude short of a polar summer, where it darkens
-    # against the lit cell instead).
-    if location_label:
-        for x, ch in sun.corner_label_cells(location_label, graph_w):
+    # Location and clock, dim, in the top-right corner (December midnight
+    # — dark sky at every latitude short of a polar summer, where it
+    # darkens against the lit cell instead).
+    label = sun.corner_label(location_label, sun.clock_label(now, runtime),
+                             graph_w)
+    if label:
+        for x, ch in sun.corner_label_cells(label, graph_w):
             overlays[(x, 0)] = (ch, sun.corner_label_ink(fb.cell_bg(x, 0)),
                                 False)
 
