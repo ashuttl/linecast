@@ -6,6 +6,7 @@ from linecast import _theme
 from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast._weather_i18n import DAY_NAMES, _s, _wmo_icons
+from linecast._weather_sources import _local_now_for_data
 from linecast._weather_style import (
     DIM, TEXT, WIND_COLOR, _knockout_ink, _precip_color, _precip_type, _temp_color,
 )
@@ -24,10 +25,16 @@ def _rpad(s, w):
     return " " * max(0, w - visible_len(s)) + s
 
 
-def render_daily(data, width, runtime=None):
-    """Daily forecast with temperature range bars."""
+def render_daily(data, width, runtime=None, now=None):
+    """Daily forecast with temperature range bars.
+
+    `now` is the local time where the forecast is for; the first row is
+    labelled "Today" only when it is today by that clock, and by its
+    weekday like the rest when the forecast is from an earlier day."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
+    if now is None:
+        now = _local_now_for_data(data)
     daily = data.get("daily", {})
     times = daily.get("time", [])
     hi_temps = daily.get("temperature_2m_max", [])
@@ -136,8 +143,9 @@ def render_daily(data, width, runtime=None):
 
     icons = _wmo_icons(runtime)
 
+    today = now.date().isoformat()
     for i in range(1, display_end):
-        if i == 1:
+        if i == 1 and times[i] == today:
             day_name = _s("today_short", runtime)
         else:
             try:

@@ -205,7 +205,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     comp = _comparative_line(data.get("daily", {}), now_local, runtime)
     precip = _precipitation_line(data.get("hourly", {}), now_local, runtime)
     past_precip = _past_precip_line(data.get("hourly", {}), now_local, runtime)
-    daily_lines_rendered = render_daily(data, cols, runtime)
+    daily_lines_rendered = render_daily(data, cols, runtime, now=now_local)
 
     # Count non-hourly lines precisely
     non_hourly = 2  # header + blank

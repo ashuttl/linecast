@@ -125,6 +125,21 @@ class TestForecastNotice:
         assert lines[2] == ""
 
 
+class TestDailyLabels:
+    def _rows(self, now):
+        from linecast._weather_daily import render_daily
+        runtime = weather.WeatherRuntime.defaults()
+        lines = render_daily(FIXTURE, 100, runtime, now=now)
+        return [_strip(line).split()[0] for line in lines]
+
+    def test_the_first_row_is_today_on_the_day_it_was_made(self):
+        assert self._rows(MADE)[:3] == ["Tod", "Fri", "Sat"]
+
+    def test_the_first_row_is_its_weekday_on_a_later_day(self):
+        # The forecast's days keep their names; none of them is today.
+        assert self._rows(LATER)[:3] == ["Thu", "Fri", "Sat"]
+
+
 def _app(clock=lambda: 1000.0):
     with patch("time.monotonic", side_effect=clock):
         return WeatherApp({"v": 1}, [], None, 43.0, -70.0, _runtime(),
