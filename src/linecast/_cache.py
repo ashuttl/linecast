@@ -19,7 +19,11 @@ def write_bytes_atomic(path: Path, data: bytes) -> None:
     exit can't leave a truncated payload behind to be served forever.
     """
     tmp = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
-    tmp.write_bytes(data)
+    # 0600: cache files can hold the user's chosen coordinates, so they
+    # belong to the user alone even under a permissive umask.
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(data)
     os.replace(tmp, path)
 
 
