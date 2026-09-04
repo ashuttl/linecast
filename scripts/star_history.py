@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """Draw the repository's GitHub star history as a bar per day.
 
-    python3 scripts/star_history.py [owner/repo] [--days N] [--weeks N] [--width N] [--total]
+    python3 scripts/star_history.py [owner/repo] [--days N] [--weeks N] [--width N]
+                                    [--smooth] [--total]
 
 Asks the stargazers API for the star media type, which adds a starred_at
 timestamp to each entry, and draws the stars gained each day as a block
-bar, the way the hourly forecast draws rain.
+bar, the way the hourly forecast draws rain.  Days are local: a star at
+nine in the evening counts toward the evening, not the UTC morning after.
+
+--smooth draws each day as the average of the seven days ending there,
+which flattens the spike a link somewhere makes and shows the pace
+underneath.
 
 --days and --weeks narrow the window to the most recent stretch.  --total
 plots the running total as a braille curve instead, which is also what a
@@ -41,6 +47,7 @@ DEFAULT_REPO = "ashuttl/linecast"
 PER_PAGE = 100
 ROWS = 8
 SLOT_MAX = 7  # a few days shouldn't spread into slabs
+SMOOTH_DAYS = 7
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
@@ -56,6 +63,11 @@ def gh(path):
     return json.loads(run.stdout)
 
 
+def local_date(stamp):
+    """The local calendar day an ISO-8601 UTC timestamp falls on."""
+    return dt.datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone().date()
+
+
 def star_dates(repo, cutoff):
     """Star dates on or after *cutoff*, and the total standing before it.
 
@@ -67,7 +79,7 @@ def star_dates(repo, cutoff):
     dates = []
     for page in range((total + PER_PAGE - 1) // PER_PAGE, 0, -1):
         batch = gh(f"repos/{repo}/stargazers?per_page={PER_PAGE}&page={page}")
-        stamps = [dt.date.fromisoformat(s["starred_at"][:10]) for s in batch]
+        stamps = [local_date(s["starred_at"]) for s in batch]
         kept = [d for d in stamps if cutoff is None or d >= cutoff]
         dates = kept + dates
         if len(kept) < len(stamps):
@@ -83,6 +95,18 @@ def daily_counts(dates, start, end):
         if 0 <= i < len(per_day):
             per_day[i] += 1
     return per_day
+
+
+def rolling_mean(values, window):
+    """Each value averaged with the ones before it, *window* wide.
+
+    The first few average over what stands before them, so the early days
+    of a fresh repository read as zeros beforehand, which they were.
+    """
+    smoothed = []
+    for i in range(len(values)):
+        smoothed.append(sum(values[max(0, i - window + 1):i + 1]) / window)
+    return smoothed
 
 
 def running_totals(per_day, before):
@@ -202,14 +226,19 @@ def main():
     if weeks is not None:
         days = weeks * 7
     width = option("--width")
+    smooth = "--smooth" in argv
     as_total = "--total" in argv
     repo = next((a for a in argv if "/" in a), DEFAULT_REPO)
 
-    today = dt.datetime.now(dt.timezone.utc).date()  # stars are stamped UTC
+    today = dt.date.today()
     cutoff = today - dt.timedelta(days=days - 1) if days else None
-    dates, before = star_dates(repo, cutoff)
-    if not dates and not before:
+    # A smoothed window needs the days before it to average the first bars over.
+    warmup = SMOOTH_DAYS - 1 if smooth and cutoff else 0
+    fetched, before = star_dates(repo, cutoff - dt.timedelta(days=warmup) if cutoff else None)
+    if not fetched and not before:
         sys.exit(f"{repo} has no stars yet.")
+    dates = [d for d in fetched if cutoff is None or d >= cutoff]
+    before += len(fetched) - len(dates)
 
     if not cutoff:
         start = dates[0]
@@ -222,12 +251,17 @@ def main():
     series = running_totals(per_day, before)
     span = len(per_day)
     total = series[-1]
+    if smooth:
+        lead = start - dt.timedelta(days=warmup)
+        bars = rolling_mean(daily_counts(fetched, lead, end), SMOOTH_DAYS)[warmup:]
+    else:
+        bars = per_day
 
     _theme.ensure_theme_loaded()
     muted = fg(*ensure_contrast(neutral_tone(0.48), _theme.theme_bg, minimum=2.5))
     dim = fg(*ensure_contrast(neutral_tone(0.32), _theme.theme_bg, minimum=2.0))
 
-    peak = max(per_day)
+    peak = max(bars)
     lo = min(series) if cutoff else 0
     bar_labels = y_labels(0, peak, ROWS, units=8)
     curve_labels = y_labels(lo, total, ROWS)
@@ -240,7 +274,7 @@ def main():
         slot = min(width // span, SLOT_MAX)
         gap = 1 if slot >= 2 else 0
         bar = slot - gap
-        rows = bar_rows(per_day, peak, ROWS, bar, gap)
+        rows = bar_rows(bars, peak, ROWS, bar, gap)
         def column(i):
             return i * slot + (bar - 1) // 2  # the middle of that day's bar
     else:
@@ -259,6 +293,8 @@ def main():
     if cutoff:
         unit = "day" if days == 1 else "days"
         window = f"+{gained} in the last {days} {unit} \u00b7 {window}"
+    if smooth and not as_total and span <= width:
+        window = f"{SMOOTH_DAYS}-day average \u00b7 {window}"
     print()
     print(f"  {repo} — {total} stars  {muted}{window}{RESET}")
     print()
