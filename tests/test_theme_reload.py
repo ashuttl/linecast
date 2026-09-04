@@ -21,7 +21,7 @@ if _src not in sys.path:
 
 from linecast import (  # noqa: E402
     _color, _framebuffer, _maps_style, _radar_basemap, _radar_render,
-    _theme, _weather_render, _weather_style, moon, sunshine, tides,
+    _theme, _weather_alerts, _weather_render, _weather_style, moon, sunshine, tides,
 )
 from linecast._live import _read_key  # noqa: E402
 
@@ -141,6 +141,19 @@ class TestLightThemeInk:
         assert _theme.contrast_ratio(ink, cold) >= 4.5
         pale = _weather_style._knockout_ink((250, 204, 21))
         assert _theme.luminance(pale) < 0.5
+
+    def test_alert_modal_background_follows_the_theme(self, restore_theme, monkeypatch):
+        monkeypatch.setattr(_color, "_COLOR_MODE", "truecolor")
+        _theme._apply(*DARK)
+        old_bg = _weather_alerts.bg(*_weather_alerts.MODAL_BG_RGB)
+        _theme._apply(*LIGHT)
+        new_bg = _weather_alerts.bg(*_weather_alerts.MODAL_BG_RGB)
+        modal, _max_scroll = _weather_alerts.build_alert_modal(
+            {"event": "Fog", "description": "Visibility is low."}, 80, 24)
+        assert new_bg in modal
+        assert old_bg not in modal
+        assert _theme.contrast_ratio(
+            _weather_alerts.TEXT_RGB, _weather_alerts.MODAL_BG_RGB) >= 4.5
 
 
 @pytest.fixture
