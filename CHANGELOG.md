@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Maps: The map moves the way the sky does now. Zoom steps ease in, a flicked drag coasts to a stop, and a search result or a directions step is flown to rather than jumped to. While a view is on its way the last picture stands in, moved to where the camera now looks, instead of a blank map.
 - Sky: A new view, `linecast sky`, draws the night sky from where you stand: the stars for the moment, the constellation figures and their names, the planets, the Moon at its phase, the Sun, and the Milky Way once the sky is dark. Drag to look around, zoom with `+` and `-`, scroll through time, and press `p` to watch the night pass. `--json` and `--oneline` say what is up.
 - Sky: `/` searches the sky. Type a star, a planet, or a constellation and the view flies to it; if it is below the horizon the panel says when it rises and where, and Enter again moves the clock to that moment. `--at Orion` opens on one.
 - Sky: `t` steps through twenty-two other traditions' constellations and star names, from the Chinese lunar mansions to the Hawaiian star lines and H. A. Rey's figures, with `--culture` and `linecast culture` to pick one. Chinese comes with the language. See CULTURES.md for the sources.

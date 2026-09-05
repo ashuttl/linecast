@@ -22,7 +22,8 @@ from linecast._maps_i18n import ms
 from linecast._maps_paint import (
     BORDER_STROKE, RIVER_STROKE, build_terrain_buffer,
 )
-from linecast._radar_basemap import _edge_dots
+from linecast._radar_basemap import Basemap, _edge_dots
+from linecast._radar_render import _bbox_key
 from linecast._runtime import log_failure
 from linecast._scenes import FetchHold, Memo, SceneCache
 
@@ -169,10 +170,28 @@ _street_cache = SceneCache((None, None, None), held=_zoom_hold.held,
                            name="street")  # -> (fills, layer, labels)
 _globe_cache = SceneCache(held=_zoom_hold.held,
                           name="globe")   # (lat, lon, zoom, w, h) -> GlobeView
+# the flat terrain map's Natural Earth borders and city labels: vendored
+# data, but a third of a second to stroke at a new window, so it loads
+# like a fetch and the last frame's borders stand in meanwhile
+_basemap_cache = SceneCache(held=_zoom_hold.held, name="basemap")
 
 
-def _get_elevation(bbox, gw, hc, block):
-    """A TerrainView for the view; live mode fetches in the background."""
+def _get_basemap(bbox, gw, hc, block, peek=False, force=False):
+    """The Basemap for the view, or None while it builds in the background."""
+    key = (_bbox_key(bbox), gw, hc)
+    if peek:
+        return _basemap_cache.peek(key)
+    return _basemap_cache.get(key, block, lambda: Basemap(bbox, gw, hc),
+                              force=force)
+
+
+def _get_elevation(bbox, gw, hc, block, peek=False, force=False):
+    """A TerrainView for the view; live mode fetches in the background.
+
+    `peek` answers from the cache alone — a frame in motion asks for
+    nothing.  `force` starts a live load even under the zoom hold, for
+    a destination the camera is already flying to.
+    """
 
     def load():
         # fetch at 2x and box-average down: point-sampled elevation makes
@@ -218,15 +237,23 @@ def _get_elevation(bbox, gw, hc, block):
                     if o:
                         e = frow[dx]
                         frow[dx] = -0.5 if e is None else min(e, -0.5)
-        return TerrainView(
+        view = TerrainView(
             _box_average(fine, gw, hc), _coast_dots(fine, gw, hc, water),
             _water_subpixels(water, gw, hc) if water is not None else None,
             rivers, cover)
+        # the shaded buffer is the other slow step; built here, on
+        # the worker, so the repaint that shows the view composes it
+        _terrain_buffer(view.elev, bbox, gw, hc, view.water, view.cover)
+        return view
 
-    return _elev_cache.get(_view_key(bbox, gw, hc), block, load)
+    key = _view_key(bbox, gw, hc)
+    if peek:
+        return _elev_cache.peek(key) or _EMPTY_TERRAIN
+    return _elev_cache.get(key, block, load, force=force)
 
 
-def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
+def _get_street(bbox, gw, hc, block, lang="en", reserved=(), peek=False,
+                force=False):
     """(fills, ranked layer, label overlays) for the view; live mode
     fetches in the background, exactly as the elevation path does."""
 
@@ -247,7 +274,9 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
             bu_job.result() if bu_job is not None else None)
 
     key = _view_key(bbox, gw, hc) + (lang, tuple(sorted(reserved)))
-    return _street_cache.get(key, block, load)
+    if peek:
+        return _street_cache.peek(key) or (None, None, None)
+    return _street_cache.get(key, block, load, force=force)
 
 
 
@@ -260,7 +289,11 @@ def _terrain_buffer(elev, bbox, gw, hc, water=None, cover=None):
         elev, bbox, gw, hc * 2, water, cover))
 
 
-def _get_globe(lat0, lon0, zoom, gw, hc, block):
+def _globe_key(lat0, lon0, zoom, gw, hc):
+    return (round(lat0, 2), round(lon0, 2), round(zoom, 1), gw, hc)
+
+
+def _get_globe(lat0, lon0, zoom, gw, hc, block, peek=False, force=False):
     """A GlobeView for the view; live mode fetches in the background."""
 
     def load():
@@ -284,8 +317,10 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block):
             lls, _globe.limb_lls(lat0, lon0, zoom, gw, hc * 2, atmo),
             _water_subpixels(wet, gw, hc) if wet is not None else None)
 
-    key = (round(lat0, 2), round(lon0, 2), round(zoom, 1), gw, hc)
-    return _globe_cache.get(key, block, load)
+    key = _globe_key(lat0, lon0, zoom, gw, hc)
+    if peek:
+        return _globe_cache.peek(key)
+    return _globe_cache.get(key, block, load, force=force)
 
 
 _clouds_pending = [False]

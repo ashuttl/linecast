@@ -158,13 +158,22 @@ class SceneCache:
         with self._lock:
             return self._fresh(key)
 
-    def get(self, key, block, load):
+    def busy(self):
+        """Whether any background load is still running."""
+        with self._lock:
+            return bool(self._pending)
+
+    def get(self, key, block, load, force=False):
+        """The view under `key`.  `force` starts a live load even while
+        the hold says a gesture is in flight — for a destination the
+        caller already knows it is going to, so the view can be on
+        its way before the camera gets there."""
         with self._lock:
             hit = self._fresh(key)
             if hit is not None:
                 return hit
             if not block:
-                if key in self._pending or (self.held is not None
+                if key in self._pending or (not force and self.held is not None
                                             and self.held()):
                     return self.empty
                 self._pending.add(key)

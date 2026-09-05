@@ -478,11 +478,11 @@ class TestLabelToggle:
         view = _globe.GlobeView(elev, [[0] * gw for _ in range(hc)], zs,
                                 _globe.atmosphere(rhos, 125.0, hc * 2),
                                 None, None)
-        monkeypatch.setattr(maps, "_get_globe", lambda *a: view)
+        monkeypatch.setattr(maps, "_get_globe", lambda *a, **k: view)
         monkeypatch.setattr(maps, "get_terminal_size", lambda: (gw, hc + 2))
         bbox = (-31.0, -42.5, -29.0, 82.5)  # centre (20, -30), zoom 125
-        args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
-                "en", None)
+        args = (bbox, gw, hc, True, False, None, (None, None, None),
+                "en", lambda: None)
         on, *_rest = maps._render_globe(*args, show_labels=True)
         off, *_rest = maps._render_globe(*args, show_labels=False)
         assert any("•" in line for line in on)
@@ -502,12 +502,12 @@ class TestLabelToggle:
         view = _globe.GlobeView(elev, coast, zs,
                                 _globe.atmosphere(rhos, 125.0, hc * 2),
                                 None, borders)
-        monkeypatch.setattr(maps, "_get_globe", lambda *a: view)
+        monkeypatch.setattr(maps, "_get_globe", lambda *a, **k: view)
         monkeypatch.setattr(maps, "get_terminal_size", lambda: (gw, hc + 2))
         monkeypatch.setattr(_globe, "city_overlays", lambda *a, **k: {})
         bbox = (-31.0, -42.5, -29.0, 82.5)
-        args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
-                "en", None)
+        args = (bbox, gw, hc, True, False, None, (None, None, None),
+                "en", lambda: None)
         on, *_rest = maps._render_globe(*args, show_labels=True)
         off, *_rest = maps._render_globe(*args, show_labels=False)
         border = chr(0x2800 + borders.dots[hc // 2][gw // 2 + 2])
@@ -524,7 +524,7 @@ class TestLabelToggle:
         rivers = maps.DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
         rivers._set_dot((gw // 2 - 8) * 2, hc // 2 * 4 + 1, (0, 0, 255))
         terrain = maps.TerrainView(elev, coast, None, rivers, None)
-        monkeypatch.setattr(maps, "_get_elevation", lambda *a: terrain)
+        monkeypatch.setattr(maps, "_get_elevation", lambda *a, **k: terrain)
 
         class FakeBasemap:
             dots = [[0] * gw for _ in range(hc)]
@@ -537,10 +537,10 @@ class TestLabelToggle:
                 return {}
 
         monkeypatch.setattr(maps, "_get_basemap",
-                            lambda *a: FakeBasemap())
+                            lambda *a, **k: FakeBasemap())
         bbox = (-70.5, 43.5, -69.5, 44.5)
-        args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
-                "en", None)
+        args = (bbox, gw, hc, True, False, None, (None, None, None),
+                "en", lambda: None)
         on, *_rest = maps._render_terrain(*args, show_labels=True)
         off, *_rest = maps._render_terrain(*args, show_labels=False)
         for stroke in (chr(0x2807), chr(0x2810), chr(0x2802)):
@@ -623,8 +623,9 @@ class TestStreetRegister:
 
         monkeypatch.setattr(_globe_now, "city_lights_globe", lights)
         bbox = (-31.0, -42.5, -29.0, 82.5)  # centre (20, -30), zoom 125
-        maps._render_globe(bbox, gw, hc, True, (0, 0), None, None, None,
-                           None, "en", None, street=street, sun=True)
+        maps._render_globe(bbox, gw, hc, True, False, None,
+                           (None, None, None), "en", lambda: None,
+                           street=street, sun=True)
         return asked
 
     def test_the_street_planet_asks_for_no_city_lights(self, monkeypatch):
@@ -645,12 +646,15 @@ class TestStreetRegister:
         monkeypatch.setattr(_globe_now, "city_lights_flat", lights)
         monkeypatch.setattr(maps, "_get_street", lambda *a, **k:
                             (None, None, None))
+        # no remembered frame to stand in: the bare ground is shaded
+        from linecast import _maps_motion
+        _maps_motion.forget()
         real = maps._shade_now
         monkeypatch.setattr(maps, "_shade_now", lambda *a, **k:
                             shaded.append((a, k)) or real(*a, **k))
         maps._render_street((-71.0, 43.0, -70.0, 44.0), gw, hc, False,
-                            (0, 0), None, None, None, None, "en", None,
-                            sun=True)
+                            False, None, (None, None, None), "en",
+                            lambda: None, sun=True)
         assert asked == []
         assert shaded[0][0][4] == {}           # the lights argument
         assert shaded[0][1]["night"] == _globe_now.NIGHT_STREET

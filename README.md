@@ -162,7 +162,7 @@ linecast radar --layer satellite
 
 Streets are drawn in braille over water, land, parks, and buildings in solid color. In terrain view the land is shaded by height and lit from one side, like a relief map, with coastlines, borders, water, and cities in braille over it; `l` toggles them and the labels.
 
-Search with `/` and ask for directions with `d`. Directions open as a panel of turn-by-turn steps; arrow or click through them and the map flies along the route.
+Drag to pan, and let go while moving to coast; `+`, `-` and the wheel zoom about the pointer. Search with `/` and the map flies there; ask for directions with `d`. Directions open as a panel of turn-by-turn steps; arrow or click through them and the map flies along the route.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-street.png" width="49%" alt="street map of Portland, Maine">
