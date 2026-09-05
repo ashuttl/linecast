@@ -5,28 +5,53 @@ import sys
 from linecast._completion import available_shells, completion_help, render_completion
 
 HELP = """\
-linecast {version} — weather, sunlight, tides, radar, the Moon, and maps for the terminal
+linecast {version} — weather, sunlight, the moon, tides, radar, and maps for the terminal
 
-Commands:
-  linecast weather     Weather dashboard with braille temperature curve and alerts
-  linecast sunshine    Solar arc inspired by the Apple Watch Solar face
-  linecast moon        Moon phase, illumination, and rise/set times
-  linecast tides       Tide chart with braille rendering (NOAA, CHS, QLD + global model)
-  linecast radar       Weather radar over a braille basemap (US + global)
-  linecast maps        Street and terrain maps: vector streets or hillshaded relief
-  linecast location    Show or set a fixed location (overrides IP geolocation)
-  linecast units       Show or set preferred units (metric or imperial)
-  linecast clock       Show or set the clock style (12-hour or 24-hour)
-  linecast icons       Show or set the icon set (nerd, emoji, or plain)
-  linecast calendar    Show or set the moon calendar (chinese, japanese, korean, thai, hawaiian, …)
-  linecast link        Make the short commands (weather, moon, …) as links to linecast
-  linecast doctor      Show where files live, what the terminal supports, and which providers answer
-  linecast completion  Print shell completion script (bash, zsh, fish, nushell)
+  linecast weather     Conditions now, the day's temperature curve, the forecast, and alerts
+  linecast sunshine    The sun's arc across the sky, dawn to dusk, or the whole year
+  linecast moon        The moon as it looks tonight, its rise and set, and a month calendar
+  linecast tides       Tide chart from the nearest station, or a global model where there is none
+  linecast radar       Weather radar over a map, the last hour and the next
+  linecast maps        Street maps, hillshaded terrain, and routes
 
-Prefer the short spellings? `linecast link` makes them, or a shell
-alias (alias weather='linecast weather') runs the command directly.
+Settings (run alone to show, give a value to set):
+  linecast location    A fixed place, instead of the one your IP address suggests
+  linecast units       metric or imperial
+  linecast clock       12-hour or 24-hour
+  linecast icons       nerd, emoji, or plain
+  linecast calendar    Which calendar the moon follows: chinese, japanese, korean, thai,
+                       hawaiian, samoan, chamorro, refaluwasch, islamic, hebrew, almanac, or none
+
+Housekeeping:
+  linecast link        Make weather, moon, … short commands beside linecast
+  linecast doctor      Where files live, what the terminal supports, which providers answer
+  linecast completion  Shell completion script for bash, zsh, fish, or nushell
+
 Run any command with --help for options.
 """
+
+
+def sky_now():
+    """The Moon tonight, in one line, for the foot of the help page.
+
+    The help page is where linecast introduces itself, and this is the
+    one thing it can say about the sky without a place or a network:
+    the phase is arithmetic on the clock. Nothing here is worth failing
+    the help page over, so any trouble returns an empty string.
+    """
+    try:
+        from datetime import datetime, timezone
+        from types import SimpleNamespace
+        from linecast._runtime import resolve_icons
+        from linecast._ephemeris import moon_illuminated_fraction
+        from linecast.sunshine import moon_phase
+        now = datetime.now(timezone.utc)
+        icons, _source = resolve_icons()
+        _idx, name, icon = moon_phase(now, SimpleNamespace(icons=icons))
+        return f"{icon} {name}, {moon_illuminated_fraction(now) * 100:.0f}% lit"
+    except Exception:
+        return ""
+
 
 COMMANDS = {
     "weather": "linecast.weather",
@@ -86,6 +111,10 @@ def main():
     if not args or args[0] in ("-h", "--help"):
         from linecast import __version__
         print(HELP.format(version=__version__).rstrip())
+        sky = sky_now()
+        if sky:
+            print()
+            print(sky)
         sys.exit(0)
 
     if args[0] in ("-v", "--version"):

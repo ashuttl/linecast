@@ -74,7 +74,7 @@ class Argv0DispatchTests(unittest.TestCase):
                 ran = self._dispatch(f"/usr/bin/{name}")
                 self.assertEqual(ran["module"], cli.COMMANDS[name])
 
-    def _expect_help(self, argv0):
+    def _help_output(self, argv0):
         old_argv = sys.argv
         out = StringIO()
         try:
@@ -85,7 +85,10 @@ class Argv0DispatchTests(unittest.TestCase):
         finally:
             sys.argv = old_argv
         self.assertEqual(exc.exception.code, 0)
-        self.assertIn("linecast weather", out.getvalue())
+        return out.getvalue()
+
+    def _expect_help(self, argv0):
+        self.assertIn("linecast weather", self._help_output(argv0))
 
     def test_plain_linecast_is_not_dispatched(self):
         self._expect_help("/usr/bin/linecast")
@@ -97,6 +100,23 @@ class Argv0DispatchTests(unittest.TestCase):
 
     def test_python_m_linecast_is_not_dispatched(self):
         self._expect_help("/somewhere/linecast/__main__.py")
+
+    def test_help_names_every_calendar(self):
+        from linecast._config import CALENDAR_CHOICES
+        for name in CALENDAR_CHOICES:
+            with self.subTest(name=name):
+                self.assertRegex(cli.HELP, rf"\b{name}\b")
+
+    def test_help_ends_with_the_moon_tonight(self):
+        # The one thing the help page can say about the sky without a
+        # place or a network: the phase, from the clock alone.
+        out = self._help_output("/usr/bin/linecast")
+        self.assertRegex(out.rstrip().splitlines()[-1], r"^\S+ \w[\w ]+, \d+% lit$")
+
+    def test_help_survives_the_moon_going_wrong(self):
+        with mock.patch("linecast.sunshine.moon_phase", side_effect=RuntimeError("no sky")):
+            out = self._help_output("/usr/bin/linecast")
+        self.assertTrue(out.rstrip().endswith("Run any command with --help for options."))
 
 
 if __name__ == "__main__":
