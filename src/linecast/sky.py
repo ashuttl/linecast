@@ -258,8 +258,47 @@ def alt_az_of(v):
             math.degrees(math.atan2(e, n)) % 360.0)
 
 
-def compass_point(az_deg, runtime):
-    """The eight-point compass abbreviation, in the display language."""
+# The Hawaiian star compass, Nainoa Thompson's: the horizon in thirty-two
+# houses of 11.25°, each point the centre of the house of its name. Four
+# cardinal houses — ʻĀkau north, Hikina east, Hema south, Komohana west —
+# and, in each quadrant, seven houses named alike from the east or west
+# point toward the pole: Lā, ʻĀina, Noio, Manu, Nālani, Nāleo, Haka.
+# The quadrants are the winds: Koʻolau northeast, Malanai southeast, Kona
+# southwest, Hoʻolua northwest. A star rises in a house and sets in the
+# house of the same name on the other side. (Polynesian Voyaging
+# Society, hokulea.com, "The Star Compass".)
+_STAR_COMPASS_HOUSES = ("Lā", "ʻĀina", "Noio", "Manu", "Nālani", "Nāleo", "Haka")
+_STAR_COMPASS_CARDINALS = {0.0: "ʻĀkau", 90.0: "Hikina", 180.0: "Hema", 270.0: "Komohana"}
+_STAR_COMPASS_QUADRANTS = ((90.0, -1.0, "Koʻolau"), (90.0, 1.0, "Malanai"),
+                           (270.0, -1.0, "Kona"), (270.0, 1.0, "Hoʻolua"))
+
+
+def star_compass():
+    """The thirty-two houses as (azimuth, house, quadrant or "", cardinal)."""
+    houses = [(az, name, "", True) for az, name in _STAR_COMPASS_CARDINALS.items()]
+    for start, direction, quadrant in _STAR_COMPASS_QUADRANTS:
+        for k, name in enumerate(_STAR_COMPASS_HOUSES, 1):
+            houses.append(((start + direction * 11.25 * k) % 360.0, name, quadrant, False))
+    return sorted(houses)
+
+
+def compass_marks(runtime, culture=None):
+    """What to write along the horizon: (azimuth, label, bold) for the
+    eight compass points, or for the Hawaiian culture's star compass."""
+    if culture == "hawaiian":
+        return [(az, name, cardinal) for az, name, _q, cardinal in star_compass()]
+    return [(i * 45.0, label, i % 2 == 0)
+            for i, label in enumerate(rs("compass", lang_of(runtime)).split())]
+
+
+def compass_point(az_deg, runtime, culture=None, quadrant=False):
+    """The direction as words: the eight-point abbreviation in the display
+    language, or with the Hawaiian culture the house of the star compass,
+    with its quadrant when *quadrant* is asked for ("Manu Koʻolau")."""
+    if culture == "hawaiian":
+        az, name, quad, _cardinal = min(star_compass(),
+                                        key=lambda h: abs((az_deg - h[0] + 180.0) % 360.0 - 180.0))
+        return f"{name} {quad}" if quadrant and quad else name
     points = rs("compass", lang_of(runtime)).split()
     return points[round(az_deg / 45.0) % 8]
 
@@ -808,8 +847,10 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
             place_star(entry)
 
     # --- the compass, along the horizon ---
-    for i, label in enumerate(compass_points(runtime)):
-        p = project(_mat_apply(cam, horizontal_vector(i * 45.0, 0.0)), f, cx, cy)
+    # The cardinal points first, so they win the room from the others.
+    marks = sorted(compass_marks(runtime, view.culture), key=lambda m: not m[2])
+    for az, label, bold in marks:
+        p = project(_mat_apply(cam, horizontal_vector(az, 0.0)), f, cx, cy)
         if p is None:
             continue
         # The label sits on the row under the horizon, or on the edge row
@@ -818,7 +859,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         row = max(0, min(graph_h - 1, int(math.floor(p[1] / 2.0)) + 1))
         cell = fb.cell_bg(max(0, min(graph_w - 1, col)), row)
         _put_text(overlays, taken, label, col, row, lighten(cell, 0.45),
-                  i % 2 == 0, graph_w, graph_h, pad=0)
+                  bold, graph_w, graph_h, pad=1)
 
     # --- the names ---
     def beside(text, col, row, ink):
@@ -911,7 +952,8 @@ def _status_line(scene, now_local, runtime, view, width, location_label,
     text, dim, amber = fg(*TEXT_RGB), fg(*DIM_RGB), fg(*AMBER_RGB)
     clock = clock_label(now_local, runtime, today)
     left = f"{text}{location_label} {dim}· {text}{clock}" if location_label else f"{text}{clock}"
-    facing = _sk("facing", runtime, dir=compass_point(view.az, runtime))
+    facing = _sk("facing", runtime, dir=compass_point(view.az, runtime, view.culture,
+                                                      quadrant=True))
     if view.alt >= 75.0:
         facing = _sk("overhead", runtime)
     center = f"{dim}{facing} · {_sk('field_of_view', runtime, deg=f'{view.fov:.0f}')}"
@@ -923,7 +965,7 @@ def _status_line(scene, now_local, runtime, view, width, location_label,
     elif offset_minutes:
         center += f"  {dim}{_ts('space_to_now', runtime)}"
     sky = sky_phase(scene.sun_alt, runtime, morning=scene.morning())
-    up = _whats_up(scene, runtime, limit)
+    up = _whats_up(scene, runtime, limit, view.culture)
     right_full = f"{dim}{sky} · {text}{up}" if up else f"{dim}{sky}"
     right_short = f"{dim}{sky}"
 
@@ -951,18 +993,18 @@ def _status_line(scene, now_local, runtime, view, width, location_label,
     return f"{RESET}{line}{RESET}"
 
 
-def _whats_up(scene, runtime, limit):
+def _whats_up(scene, runtime, limit, culture=None):
     """The Moon and the planets above the horizon, brightest first, each
     with the way to look: '🌖 84% W · Jupiter SE · Saturn S'."""
     parts = []
     if scene.moon_alt > 0.0:
         _idx, _name, icon = moon_phase(scene.moment_utc, runtime)
         parts.append(f"{icon} {scene.moon_illum * 100:.0f}% "
-                     f"{compass_point(scene.moon_az, runtime)}")
+                     f"{compass_point(scene.moon_az, runtime, culture)}")
     for key, _vec, alt, az, mag in scene.planets:
         if alt > 0.0 and easily_seen(mag, alt, scene):
             where = (_sk("overhead", runtime) if alt > 80.0
-                     else compass_point(az, runtime))
+                     else compass_point(az, runtime, culture))
             parts.append(f"{body_name(key, runtime)} {where}")
     return " · ".join(parts)
 
@@ -1016,7 +1058,7 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
         if view.culture and iau_name and iau_name != proper:
             detail = f"{iau_name} · {detail}"
         _alt, az = alt_az_of(_mat_apply(scene.horizontal, star_vectors()[i]))
-    where = f"{alt:.0f}° · {compass_point(az, runtime)}"
+    where = f"{alt:.0f}° · {compass_point(az, runtime, view.culture)}"
     lines = [f"{tip_bg}{tip_fg} {title} ",
              f"{tip_bg}{tip_dim} {detail} ",
              f"{tip_bg}{tip_dim} {where} "]

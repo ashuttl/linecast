@@ -646,3 +646,40 @@ class TestCultures:
         assert _config.saved_culture() is None
         _config.write_config({"culture": "klingon"})
         assert _config.saved_culture() is None
+
+
+# ---------------------------------------------------------------------------
+# The Hawaiian star compass
+# ---------------------------------------------------------------------------
+class TestStarCompass:
+    def test_thirty_two_houses_of_eleven_and_a_quarter_degrees(self):
+        houses = sky.star_compass()
+        assert len(houses) == 32
+        azimuths = [h[0] for h in houses]
+        assert azimuths == sorted(azimuths)
+        assert all(abs((b - a) - 11.25) < 1e-9 for a, b in zip(azimuths, azimuths[1:]))
+        by_az = {az: (name, quad) for az, name, quad, _c in houses}
+        assert by_az[0.0] == ("ʻĀkau", "") and by_az[90.0] == ("Hikina", "")
+        assert by_az[180.0] == ("Hema", "") and by_az[270.0] == ("Komohana", "")
+        assert by_az[78.75] == ("Lā", "Koʻolau") and by_az[101.25] == ("Lā", "Malanai")
+        assert by_az[45.0] == ("Manu", "Koʻolau") and by_az[315.0] == ("Manu", "Hoʻolua")
+        assert by_az[11.25] == ("Haka", "Koʻolau") and by_az[191.25] == ("Haka", "Kona")
+        assert by_az[258.75] == ("Lā", "Kona")
+
+    def test_directions_speak_the_compass_in_force(self):
+        assert sky.compass_point(45.0, _runtime()) == "NE"
+        assert sky.compass_point(45.0, _runtime(), "hawaiian") == "Manu"
+        assert sky.compass_point(47.0, _runtime(), "hawaiian", quadrant=True) == "Manu Koʻolau"
+        assert sky.compass_point(1.0, _runtime(), "hawaiian", quadrant=True) == "ʻĀkau"
+        assert sky.compass_point(45.0, _runtime(), "norse") == "NE"
+        marks = sky.compass_marks(_runtime(), "hawaiian")
+        assert len(marks) == 32 and sum(1 for m in marks if m[2]) == 4
+        assert len(sky.compass_marks(_runtime())) == 8
+
+    def test_the_horizon_wears_the_houses(self):
+        scene = Scene(NIGHT.astimezone(timezone.utc), LAT, LNG)
+        view = default_view(scene, 120, 30, 90.0, 110.0)._replace(culture="hawaiian")
+        out = _strip(_frame(NIGHT, 120, 30, view=view))
+        assert "Hikina" in out and "Lā" in out and "Noio" in out
+        assert "facing Hikina" in out
+        assert " E " not in out.split("\n")[-1]

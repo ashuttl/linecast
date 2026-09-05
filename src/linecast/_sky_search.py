@@ -315,7 +315,7 @@ def _wrap(text, width):
     return lines
 
 
-def describe_rising(target, rising, runtime):
+def describe_rising(target, rising, runtime, culture=None):
     """'Orion rises at 02:14 in the E', or that it never rises here."""
     from linecast._framebuffer import fmt_time_dt
     from linecast._sky_i18n import _sk
@@ -325,7 +325,7 @@ def describe_rising(target, rising, runtime):
     when, az = rising
     return _sk("rises_at", runtime, name=target.label.split(" · ")[0],
                time=fmt_time_dt(when, use_24h=runtime.use_24h),
-               dir=compass_point(az, runtime))
+               dir=compass_point(az, runtime, culture))
 
 
 def utc(dt):

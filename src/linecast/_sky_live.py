@@ -284,7 +284,7 @@ class SkyApp(LiveApp):
             self._wake()
             return True
         rising = next_rising(target, self.scene_at, now)
-        self.search.note = describe_rising(target, rising, self.runtime)
+        self.search.note = describe_rising(target, rising, self.runtime, self.culture)
         self.search.jump = (rising[0], target) if rising else None
         return True
 
