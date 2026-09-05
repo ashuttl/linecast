@@ -527,12 +527,16 @@ def _paint_sky(fb, scene, cam, f, cx, cy):
             d = 1.0 + rho2
             cx_, cy_, cz_ = 2.0 * u / d, 2.0 * v / d, (1.0 - rho2) / d
             up = cx_ * r2 + cy_ * u2 + cz_ * f2
-            if up < 0.0:
+            # A sub-pixel spans 1/(f·d) radians here, so up·f·d is the
+            # horizon's distance in sub-pixels: the one it crosses takes
+            # a share of each side, and the edge is a line, not a stair.
+            edge = up * f * d
+            if edge < -0.5:
                 depth = min(30, int(-up * 57.3))
                 row[x] = ground[depth]
                 continue
             omega += cell_omega / (d * d)
-            alt = degrees(asin(up if up < 1.0 else 1.0))
+            alt = degrees(asin(up)) if 0.0 < up < 1.0 else (90.0 if up >= 1.0 else 0.0)
             a = int(alt * 2.0 + 0.5)
             if twilight:
                 e = cx_ * r0 + cy_ * u0 + cz_ * f0
@@ -558,6 +562,8 @@ def _paint_sky(fb, scene, cam, f, cx, cy):
                     # Thinner near the horizon, where the air takes it.
                     color = lerp(color, milky, milk_alpha * b / 255.0
                                  * min(1.0, alt / 14.0))
+            if edge < 0.5:
+                color = lerp(ground[0], color, edge + 0.5)
             row[x] = color
     return omega
 
