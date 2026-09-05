@@ -1150,7 +1150,7 @@ class TestMeteoAlarmRegionsData:
 
     def test_a_district_sits_inside_its_state(self):
         from linecast._meteoalarm_regions import regions_at
-        assert regions_at(48.209, 16.372) == {"AT010", "AT901"}  # Vienna
+        assert regions_at(48.209, 16.372) == {"AT901"}  # Vienna, its own district
 
     def test_the_atlantic_is_nowhere(self):
         from linecast._meteoalarm_regions import regions_at
@@ -1201,7 +1201,7 @@ class TestMeteoAlarmRegionsData:
         from linecast._meteoalarm_regions import regions_at
         got = regions_at(50.0755, 14.4378)
         assert {k for k in got if k.startswith("CISORP")} == {"CISORP/1000", "CISORP/1100"}
-        assert "CZ014" in got  # and the kraj around it, MeteoAlarm's own region
+        assert "CZ01100" in got  # and the EMMA_ID the feed files beside it
 
     def test_brno_is_in_its_orp_and_not_the_next(self):
         from linecast._meteoalarm_regions import regions_at, known
