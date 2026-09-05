@@ -79,6 +79,52 @@ def pointer_chip(lines, col, mouse_row, cols, rows, pad_bg="", flip_at=None):
                    for i, line in enumerate(padded))
 
 
+MUTED = (150, 155, 170)   # the frame and text of a menu box
+
+
+def menu_box(lines, cols, rows, title="", sel=None, border="", fill="",
+             more=(False, False)):
+    """A centred box of rows for overlay()'s floating channel: the radar's
+    theme picker and the sky's tradition picker are drawn with it, so the
+    two read as one thing.
+
+    `lines` are plain-text rows, or None for a rule across the box; each
+    is padded to the widest and cut to the screen. `sel` is the index of
+    the highlighted row, drawn in reverse video. `title` sits in the top
+    border. `border` colours the frame and the text; `fill` is a
+    background escape for the interior, or empty to leave the terminal's.
+    `more` says whether there is more above and below the rows shown,
+    marked ▲ and ▼ in the borders.
+    """
+    from linecast._graphics import RESET, visible_len
+    widths = [visible_len(line) for line in lines if line is not None]
+    inner = min(cols - 4, (max(widths) if widths else 0) + 1)
+    top = max(1, (rows - (len(lines) + 2)) // 2)
+    left = max(0, (cols - inner - 2) // 2)
+    head = f" {title} ".center(inner, "─") if title else "─" * inner
+    foot = "─" * inner
+    above, below = more
+    if above:
+        head = head[:inner - 2] + "▲" + head[inner - 1:]
+    if below:
+        foot = foot[:inner - 2] + "▼" + foot[inner - 1:]
+    out = [f"┌{head}┐"]
+    for i, line in enumerate(lines):
+        if line is None:
+            out.append(f"├{'─' * inner}┤")
+            continue
+        while visible_len(line) > inner:
+            line = line[:-1]
+        body = line + " " * (inner - visible_len(line))
+        if i == sel:
+            body = f"\033[7m{body}\033[27m"  # reverse-video highlight
+        out.append(f"│{body}│")
+    out.append(f"└{foot}┘")
+    return "".join(
+        f"\033[{top + 1 + i};{left + 1}H{border}{fill}{line}{RESET}"
+        for i, line in enumerate(out))
+
+
 # ---------------------------------------------------------------------------
 # Mouse decoding
 # ---------------------------------------------------------------------------
