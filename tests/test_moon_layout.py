@@ -150,7 +150,8 @@ class TestCountdownAndCompass:
                                      fullscreen=True))
         row = [line for line in out.split("\n") if "Up now" in line]
         assert row, "expected the Moon to be up at this moment"
-        assert re.search(r"Up now · -?\d+° · [NESW]{1,2}$", row[0].rstrip()), row[0]
+        # A star may sit in the sky beyond the text on the same row.
+        assert re.search(r"Up now · -?\d+° · [NESW]{1,2}(\s|$)", row[0]), row[0]
 
     def test_compass_point_is_localised(self):
         """French names the western points with O, not W."""

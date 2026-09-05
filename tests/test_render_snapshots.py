@@ -49,6 +49,18 @@ def _write_snapshot(name, content):
     (SNAPSHOTS / name).write_text(content, encoding="utf-8")
 
 
+def _sphere(lat_deg, lon_deg):
+    """A unit-sphere point in the Moon's frame from selenographic coordinates."""
+    lat, lon = math.radians(lat_deg), math.radians(lon_deg)
+    return (math.cos(lat) * math.sin(lon), -math.sin(lat),
+            math.cos(lat) * math.cos(lon))
+
+
+def _max_channel_gap(a, b):
+    return max(abs(pa[i] - pb[i])
+               for ra, rb in zip(a, b) for pa, pb in zip(ra, rb) for i in range(3))
+
+
 def _compare_or_create(snapshot_name, actual):
     """Compare against stored snapshot, or create it on first run."""
     stored = _read_snapshot(snapshot_name)
@@ -294,6 +306,219 @@ class TestMoonSnapshot:
                  for h in range(24)
                  if _moon_altitude_deg(day + timedelta(hours=h), 43.7, -79.4) > 0]
         assert max(tilts) - min(tilts) > 60.0
+
+    def test_map_covers_the_whole_moon(self):
+        """The albedo map runs the full 360°, near side in the middle."""
+        from linecast.moon import _load_albedo, _surface_shade
+
+        w, h, _px = _load_albedo()
+        assert (w, h) == (512, 256)
+        # The far side is highland almost throughout; Mare Moscoviense is
+        # the exception, at about 27°N 148°E. Sample both from the far side.
+        far_highland = _surface_shade(*_sphere(-20.0, -140.0), _load_albedo())
+        moscoviense = _surface_shade(*_sphere(27.0, 148.0), _load_albedo())
+        assert moscoviense > far_highland + 0.1
+        # The seam at ±180° is continuous: the two sides of it agree.
+        east = _surface_shade(*_sphere(10.0, 179.9), _load_albedo())
+        west = _surface_shade(*_sphere(10.0, -179.9), _load_albedo())
+        assert abs(east - west) < 0.05
+
+    def test_no_turn_is_the_identity(self):
+        """A disc drawn through an identity turn is the disc drawn without."""
+        from linecast._framebuffer import Framebuffer
+        from linecast.moon import _IDENTITY, _draw_moon_disc
+
+        plain = Framebuffer(40, 20)
+        _draw_moon_disc(plain, 20, 20, 15, 0.7, 110.0, 25.0)
+        turned = Framebuffer(40, 20)
+        _draw_moon_disc(turned, 20, 20, 15, 0.7, 110.0, 25.0, _IDENTITY)
+        assert turned.fb == plain.fb
+
+    def test_a_turn_carries_the_light_round_with_the_surface(self):
+        """Dragging turns the whole Moon: the lit half goes with it."""
+        from linecast._framebuffer import Framebuffer
+        from linecast.moon import _draw_moon_disc, _rotation
+
+        def render(turn, illum=0.5):
+            fb = Framebuffer(40, 20)
+            _draw_moon_disc(fb, 20, 20, 15, illum, 90.0, 0.0, turn)
+            row = fb.fb[20]
+            left = sum(sum(row[x]) for x in range(6, 18))
+            right = sum(sum(row[x]) for x in range(23, 35))
+            return fb, left, right
+
+        upright, left0, right0 = render(None)
+        assert right0 > left0
+        # A half turn about the vertical shows the far side, lit on the
+        # other side now, over different ground.
+        far, left1, right1 = render(_rotation((0.0, 1.0, 0.0), math.pi))
+        assert left1 > right1
+        assert far.fb != upright.fb
+        # A full Moon turned round shows its night: the far side is dark.
+        full, _l, _r = render(None, illum=1.0)
+        night, _l, _r = render(_rotation((0.0, 1.0, 0.0), math.pi), illum=1.0)
+        disc = range(6, 35)
+        assert (sum(sum(night.fb[20][x]) for x in disc)
+                < 0.8 * sum(sum(full.fb[20][x]) for x in disc))
+        # A full turn brings everything back, to rounding.
+        back, _l, _r = render(_rotation((0.0, 1.0, 0.0), 2.0 * math.pi))
+        assert _max_channel_gap(back.fb, upright.fb) <= 2
+
+    def test_earthshine_shows_the_maria_on_the_near_side_only(self):
+        """A thin crescent's night carries a ghost of the surface; the far
+        side's night, turned toward us, is flat shadow."""
+        from linecast._framebuffer import Framebuffer
+        from linecast.moon import MOON_SHADOW_RGB, _draw_moon_disc, _rotation
+
+        def night_row(illum, turn=None):
+            fb = Framebuffer(60, 30)
+            _draw_moon_disc(fb, 30, 30, 24, illum, 90.0, 0.0, turn)
+            return [fb.fb[30][x] for x in range(10, 26)]   # left, in shadow
+
+        crescent = night_row(0.05)
+        assert len(set(crescent)) > 3                    # the maria show
+        assert all(px != MOON_SHADOW_RGB for px in crescent)
+        far_night = night_row(1.0, _rotation((0.0, 1.0, 0.0), math.pi))
+        assert set(far_night) == {MOON_SHADOW_RGB}      # no Earth to shine
+        near_full = night_row(0.98)
+        assert near_full[8] != crescent[8]               # fainter by the phase
+
+    def test_the_disc_view_night_is_darker_than_the_sky(self):
+        from linecast._framebuffer import Framebuffer
+        from linecast.moon import (
+            MOON_NIGHT_RGB, MOON_SHADOW_RGB, SKY_RGB, _draw_moon_disc, _rotation,
+        )
+
+        assert sum(MOON_NIGHT_RGB) < sum(SKY_RGB)
+        fb = Framebuffer(60, 30)
+        _draw_moon_disc(fb, 30, 30, 24, 1.0, 90.0, 0.0,
+                        _rotation((0.0, 1.0, 0.0), math.pi), night=MOON_NIGHT_RGB)
+        assert fb.fb[30][20] == MOON_NIGHT_RGB
+        fb = Framebuffer(60, 30)
+        _draw_moon_disc(fb, 30, 30, 24, 1.0, 90.0, 0.0,
+                        _rotation((0.0, 1.0, 0.0), math.pi))
+        assert fb.fb[30][20] == MOON_SHADOW_RGB     # the calendar's default
+
+    def test_stars_are_sown_evenly_and_keep_off_the_moon(self):
+        from linecast._framebuffer import Framebuffer
+        from linecast.moon import _STAR_DENSITY, _star_overlays
+
+        fb = Framebuffer(120, 40)
+        cx, cy, radius = 60, 40, 30
+        taken = {(x, row) for x in range(90, 120) for row in range(10, 30)}
+        sky = (60.0, 20.0, 0.0)   # the Moon in Taurus, pole up
+        stars = _star_overlays(fb, cx, cy, radius, sky, taken=taken)
+        free = sum(1 for x in range(120) for row in range(40)
+                   if (x, row) not in taken
+                   and (x - cx) ** 2 + (row * 2 + 0.5 - cy) ** 2 >= (radius + 3) ** 2)
+        wanted = _STAR_DENSITY / 1000 * free
+        assert 0.5 * wanted < len(stars) < 1.6 * wanted
+        assert not (set(stars) & taken)
+        for x, row in stars:
+            assert (x - cx) ** 2 + (row * 2 + 0.5 - cy) ** 2 >= (radius + 3) ** 2
+        # The sky's corners are not bare: each quarter holds stars.
+        quarters = {(x < cx, row * 2 < cy) for x, row in stars}
+        assert len(quarters) == 4
+
+    def test_the_sky_is_the_real_one(self):
+        """Sirius sits where it should about the Moon, and turns with the
+        parallactic angle as the night goes on."""
+        from linecast._framebuffer import Framebuffer
+        from linecast.moon import _load_stars, _star_overlays
+
+        stars = _load_stars()
+        assert len(stars) > 2000
+        ra, dec = stars[0]                        # Sirius, the brightest
+        assert abs(math.degrees(ra) - 101.29) < 0.02
+        assert abs(math.degrees(dec) + 16.72) < 0.02
+
+        fb = Framebuffer(160, 60)
+        cx, cy, radius = 80, 60, 20
+        # The Moon sixty degrees due north of Sirius, celestial north
+        # straight up: Sirius hangs below the disc, focal length times
+        # the angle down.
+        sky = (101.29, 43.28, 0.0)
+        field = _star_overlays(fb, cx, cy, radius, sky)
+        brightest = [cell for cell, (glyph, _c, _b) in field.items() if glyph == "✱"]
+        expect = (cx, int((cy + 1.5 * radius * math.radians(60.0)) // 2))
+        assert expect in brightest, (expect, brightest)
+        # Later in the night the sky has turned: with celestial north
+        # ninety degrees round to the right, Sirius lies to the left.
+        field = _star_overlays(fb, cx, cy, radius, (101.29, 43.28, 90.0))
+        brightest = [cell for cell, (glyph, _c, _b) in field.items() if glyph == "✱"]
+        expect = (cx - int(round(1.5 * radius * math.radians(60.0))), cy // 2)
+        assert expect in brightest, (expect, brightest)
+
+    def test_turning_the_disc_sweeps_the_stars_the_other_way(self):
+        """Roll the surface right and the sky behind it goes left, as the
+        background does when you walk round a statue."""
+        from linecast.moon import (
+            _load_stars, _project_star, _rotation, _star_direction,
+        )
+
+        cx, cy, radius = 60, 40, 30
+        turn = _rotation((0.0, 1.0, 0.0), 0.6)   # a drag to the right
+        moved = []
+        for ra, dec in _load_stars()[:300]:
+            d = _star_direction(ra, dec, (60.0, 20.0, 0.0))
+            rest = _project_star(d, None, cx, cy, radius)
+            turned = _project_star(d, turn, cx, cy, radius)
+            if rest is None or turned is None:
+                continue
+            if 0 <= rest[0] < 120 and abs(rest[1] * 2 - cy) < 10:
+                moved.append(turned[0] - rest[0])
+        assert moved and all(dx < 0 for dx in moved)
+
+    def test_drag_rolls_the_surface_with_the_pointer(self):
+        """Dragging right brings the left limb toward the centre, dragging
+        down brings the top; a drag the length of the radius is a radian."""
+        from linecast.moon import Turn, _axis_angle, _mat_transpose
+
+        def centre_after(dcol, drow):
+            turn = Turn()
+            turn.radius = 40.0
+            turn.drag(dcol, drow)
+            m = _mat_transpose(turn.matrix())   # screen point → surface point
+            return (m[2], m[5], m[8]), _axis_angle(turn.matrix())[1]
+
+        (x, _y, _z), angle = centre_after(40, 0)
+        assert x < -0.8 and abs(angle - 1.0) < 1e-9
+        (_x, y, _z), angle = centre_after(0, 20)   # a cell is two sub-pixels tall
+        assert y < -0.8 and abs(angle - 1.0) < 1e-9
+
+    def test_release_settles_back_to_rest(self):
+        """Let go and the turn eases to nothing, on the clock."""
+        from linecast.moon import Turn, _axis_angle
+
+        turn = Turn()
+        turn.radius = 40.0
+        assert turn.matrix() is None
+        assert turn.release() is False             # nothing was dragged
+        turn.drag(30, 5)
+        held = _axis_angle(turn.matrix())[1]
+        assert turn.release() is True
+        with patch("linecast.moon.time.monotonic",
+                   return_value=turn._settle[2] + Turn.SETTLE * 0.5):
+            assert 0.0 < _axis_angle(turn.matrix())[1] < held
+        with patch("linecast.moon.time.monotonic",
+                   return_value=turn._settle[2] + Turn.SETTLE * 1.01):
+            assert turn.matrix() is None
+        turn._ticker.join(timeout=2.0)
+        assert not turn._ticker.is_alive()
+
+    def test_a_drag_mid_settle_picks_the_disc_up_where_it_is(self):
+        from linecast.moon import Turn, _axis_angle
+
+        turn = Turn()
+        turn.radius = 40.0
+        turn.drag(40, 0)
+        turn.release()
+        with patch("linecast.moon.time.monotonic",
+                   return_value=turn._settle[2] + Turn.SETTLE * 0.5):
+            partway = _axis_angle(turn.matrix())[1]
+            turn.drag(0, 0)
+        assert abs(_axis_angle(turn.matrix())[1] - partway) < 1e-9
+        assert turn._settle is None
 
 
 

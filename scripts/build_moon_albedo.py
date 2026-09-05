@@ -8,14 +8,17 @@ Wide Angle Camera imagery (public domain).
     uv run scripts/build_moon_albedo.py
 
 Writes src/linecast/data/moon_albedo.png: an 8-bit greyscale
-equirectangular map of the near side only — longitude −90…90 left to
-right, latitude 90…−90 top to bottom — scaled so the bright highlands
-sit near 255. The view ignores libration, so the far side never shows.
-The file is committed; this script reruns only if the source does.
-Needs macOS `sips` for the JPEG decode — the package itself reads
-only PNG.
+equirectangular map of the whole Moon — longitude −180…180 left to
+right with the near side in the middle, latitude 90…−90 top to bottom
+— scaled so the bright highlands sit near 255. The view ignores
+libration, so at rest only the near side shows; the far side is there
+for when the disc is dragged round. The file is committed; this
+script reruns only if the source does. The JPEG decode goes through
+macOS `sips` or ImageMagick, whichever is present — the package itself
+reads only PNG.
 """
 
+import shutil
 import struct
 import subprocess
 import sys
@@ -48,13 +51,25 @@ def encode_grey(width, height, pixels):
             + _chunk(b"IEND", b""))
 
 
+def to_png(jpg, png):
+    """Resize the JPEG to WIDTH×HEIGHT and write it as PNG."""
+    if shutil.which("sips"):
+        cmd = ["sips", "-z", str(HEIGHT), str(WIDTH), "-s", "format", "png",
+               str(jpg), "--out", str(png)]
+    elif shutil.which("magick") or shutil.which("convert"):
+        cmd = [shutil.which("magick") or "convert", str(jpg),
+               "-resize", f"{WIDTH}x{HEIGHT}!", str(png)]
+    else:
+        sys.exit("need macOS sips or ImageMagick to decode the JPEG")
+    subprocess.run(cmd, check=True, capture_output=True)
+
+
 def main():
     with tempfile.TemporaryDirectory() as tmp:
         jpg = Path(tmp) / "moon.jpg"
         png = Path(tmp) / "moon.png"
         jpg.write_bytes(urllib.request.urlopen(SOURCE).read())
-        subprocess.run(["sips", "-z", str(HEIGHT), str(WIDTH), "-s", "format", "png",
-                        str(jpg), "--out", str(png)], check=True, capture_output=True)
+        to_png(jpg, png)
         w, h, rgba = decode_rgba(png.read_bytes())
     assert (w, h) == (WIDTH, HEIGHT)
     grey = [(rgba[i] * 299 + rgba[i + 1] * 587 + rgba[i + 2] * 114) // 1000
@@ -63,12 +78,14 @@ def main():
     # "typical bright highland", so crater rays and the brightest floors
     # clip rather than pull everything else down. A mild gamma keeps the
     # ordinary highland near white and leaves the maria their contrast.
-    ref = sorted(grey)[int(len(grey) * 0.90)]
-    scaled = bytes(int(255 * min(1.0, v / ref) ** 0.8) for v in grey)
+    # The percentile is taken over the near side alone, as it was when
+    # the map stopped there, so the face at rest keeps its look.
     half = WIDTH // 2
-    near = b"".join(scaled[y * WIDTH + half // 2:y * WIDTH + half // 2 + half]
-                    for y in range(HEIGHT))
-    OUT.write_bytes(encode_grey(half, HEIGHT, near))
+    near = [grey[y * WIDTH + x]
+            for y in range(HEIGHT) for x in range(half // 2, half // 2 + half)]
+    ref = sorted(near)[int(len(near) * 0.90)]
+    scaled = bytes(int(255 * min(1.0, v / ref) ** 0.8) for v in grey)
+    OUT.write_bytes(encode_grey(WIDTH, HEIGHT, scaled))
     print(f"wrote {OUT} ({OUT.stat().st_size} bytes, highland ref {ref})")
 
 
