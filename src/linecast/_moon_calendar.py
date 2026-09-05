@@ -457,6 +457,10 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
     illum = _moon.moon_illumination(noon)
     principal = phase_days.get(d)
     lang = lang_of(runtime)
+    lunar = (lunisolar_date(d, CALENDAR_MERIDIAN_HOURS[cal])
+             if cal in CALENDAR_MERIDIAN_HOURS else None)
+    japanese_night = (ja_night_name(lunar[1])
+                      if cal == "japanese" and native and lunar is not None else None)
 
     tip_bg = bg(*TIP_BG_RGB)
     tip_fg = fg(*TIP_TEXT_RGB)
@@ -469,7 +473,7 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
 
     if principal:
         idx, at = principal
-        name = _moon_name(idx, runtime)
+        name = japanese_night or _moon_name(idx, runtime)
         if idx == 4 and lang == "en" and cal in (None, "almanac"):
             mn = full_moon_name(at, SYNODIC_MONTH)
             name = "Blue Moon" if mn == "Blue" else f"Full {mn} Moon"
@@ -478,7 +482,7 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
                       f"{fmt_time_dt(at, use_24h=runtime.use_24h)}")
     else:
         idx, _name, icon = moon_phase(noon, runtime)
-        name = _moon_name(idx, runtime)
+        name = japanese_night or _moon_name(idx, runtime)
         phase_line = (f"{icon} {name} · "
                       f"{_ms('illuminated', runtime, pct=f'{illum * 100:.0f}')}")
 
@@ -520,18 +524,18 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
         elif is_wan_phra(d):
             cal_line = f"{wan_phra_label(False, label_lang)} · {cal_line}"
     elif cal in CALENDAR_MERIDIAN_HOURS:
-        lunar = lunisolar_date(d, CALENDAR_MERIDIAN_HOURS[cal])
         if lunar is not None:
             m, day_n, leap = lunar
             label_lang = lang if native else "en"
             cal_line = lunar_date_label(m, day_n, leap, label_lang)
             parts = []
-            if not leap and (m, day_n) in fest:
-                parts.append(fest[(m, day_n)])
+            festival = fest.get((m, day_n)) if not leap else None
+            if festival and festival != japanese_night:
+                parts.append(festival)
             if cal == "japanese" and native:
                 night = ja_night_name(day_n)
-                # 十五夜 names both the festival and the night; say it once.
-                if night not in parts:
+                # The phase line already names this Japanese night.
+                if night != japanese_night and night not in parts:
                     parts.append(night)
             cal_line = " · ".join([*parts, cal_line])
 

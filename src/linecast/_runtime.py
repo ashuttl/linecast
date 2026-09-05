@@ -3,6 +3,7 @@
 import argparse
 from dataclasses import dataclass
 import os
+import re
 import sys
 
 
@@ -230,6 +231,52 @@ def resolve_clock(namespace=None, environ=None, country=_UNSET):
     return default_clock(country), "auto"
 
 
+# The locale variables, in the order gettext consults them.  LANGUAGE is
+# a colon-separated list of preferences; the other three name one locale.
+LOCALE_VARS = ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG")
+
+
+def language_of(value):
+    """The two-letter language a locale-style value names, or None.
+
+    "fr", "fr-FR", "de_DE.UTF-8", and "EN_us" name their language in the
+    leading letters.  "C", "POSIX", "C.UTF-8", and three-letter codes such
+    as "fil_PH" name none linecast could act on, and neither does junk.
+    """
+    letters = re.match(r"[a-z]*", (value or "").strip().lower()).group()
+    return letters if len(letters) == 2 else None
+
+
+def resolve_lang(namespace=None, environ=None):
+    """The language for this run, and where it came from.
+
+    Returns (code, source); source is "flag", "LINECAST_LANG", "config",
+    the name of the locale variable that decided it (one of LOCALE_VARS),
+    or "default".  Precedence: --lang, LINECAST_LANG, the `language` key
+    in config.json (`linecast language fr`), the terminal's locale, then
+    English.  A value that does not name a two-letter language is ignored.
+    """
+    env = _environ(environ)
+    candidates = (
+        (getattr(namespace, "lang", None) if namespace is not None else None, "flag"),
+        (env.get("LINECAST_LANG", ""), "LINECAST_LANG"),
+    )
+    for value, source in candidates:
+        code = language_of(value)
+        if code is not None:
+            return code, source
+    from linecast._config import saved_language
+    saved = saved_language()
+    if saved is not None:
+        return saved, "config"
+    for name in LOCALE_VARS:
+        for value in env.get(name, "").split(":"):
+            code = language_of(value)
+            if code is not None:
+                return code, name
+    return "en", "default"
+
+
 def units_pref(env_var="WEATHER_UNITS", environ=None):
     """The user's explicit units preference, or None if they have none.
 
@@ -290,8 +337,9 @@ def _base_parser(prog, description):
     p.add_argument("--emoji", action="store_true",
                     help="use standard emoji icons (same as --icons emoji)")
     p.add_argument("--lang", default=None,
-                    help="UI language code (en, fr, es, de, it, pt, nl, pl, "
-                         "no, sv, is, da, fi, id, ja, ko, zh, th)")
+                    help="language code (en, fr, es, de, it, pt, nl, pl, "
+                         "no, sv, is, da, fi, ja, ko, zh, th, or id); "
+                         "'linecast language' saves one")
     p.add_argument("--classic-colors", action="store_true",
                     help="use pre-theme fixed color palette")
     p.add_argument("--legacy-colors", action="store_true",
@@ -637,18 +685,14 @@ class RuntimeConfig:
         if namespace.debug and not _DEBUG:
             set_debug(True)
             _log_startup()
-        lang = (
-            namespace.lang
-            or env.get("LINECAST_LANG", "").strip()
-            or "en"
-        ).lower()[:2]
+        lang, _source = resolve_lang(namespace, env)
         units, _source = resolve_units(namespace, env, cls._legacy_units_env,
                                        country)
         clock, _source = resolve_clock(namespace, env, country)
         return cls(
             live=_resolve_live(namespace),
             icons=_resolve_icons(namespace, env),
-            lang=lang if len(lang) == 2 and lang.isalpha() else "en",
+            lang=lang,
             oneline=namespace.oneline,
             json_mode=getattr(namespace, "json_mode", False),
             metric=units == "metric",

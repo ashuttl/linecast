@@ -250,10 +250,13 @@ class TestShippedFile:
     def test_every_meteoalarm_country_has_ground_or_files_polygons(self):
         # A new member added to the router needs a re-bake; this is
         # where that shows. Switzerland, the UK and Ukraine put a CAP
-        # polygon on every warning and publish no EMMA regions.
+        # polygon on every warning and publish no EMMA regions; Estonia,
+        # Israel, Luxembourg and Sweden file polygons too, and their
+        # regions left MeteoAlarm's list in its 2026 editions.
         from linecast._weather_sources import _METEOALARM_SLUGS
         emma_countries = {key[:2] for key, _, _ in self.regions if "/" not in key}
-        assert set(_METEOALARM_SLUGS) - emma_countries == {"CH", "GB", "UA"}
+        assert (set(_METEOALARM_SLUGS) - emma_countries
+                == {"CH", "EE", "GB", "IL", "LU", "SE", "UA"})
 
     def test_the_typed_regions_are_the_ones_the_bake_script_declares(self, bake):
         # The countries the script lists under NUTS, plus the alias

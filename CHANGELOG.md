@@ -4,7 +4,19 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: MeteoAlarm warnings for Transnistria and Gagauzia in Moldova, and for five more Dutch coastal waters, now reach the place they name. The region data is refreshed to MeteoAlarm's July 2026 list.
+- `linecast` on its own now sorts the commands into the six views, the settings, and housekeeping, and ends with the moon's phase tonight.
+- `linecast language fr` saves the language for every run, the way `linecast units` and `linecast clock` save theirs. `--lang` still picks one for a single run.
+- linecast now speaks the terminal's language when it is one of the eighteen it knows, read from `LANG` the way other command-line tools read it. It spoke English until asked. `linecast language en` keeps English.
 - Cache files are now readable only by the user who owns them.
+- Weather: Alert details stay legible when a live view follows the terminal from a dark theme to a light one.
+- Weather: An alert drops off the board once it expires. An alert kept from an earlier fetch could stay listed for as long as its provider was unreachable.
+- Moon: A Japanese calendar chip names the evening by its lunar day instead of giving it a conflicting generic phase name.
+- Moon: Drag the disc to turn the Moon over, light and dark with it, and bring the far side round. Let go and it settles back to the face it really shows.
+- Moon: The night side shows the maria faintly in earthshine, most at a thin crescent and not at all near full. It is darker than the sky around it now, as it looks in life, with the halo outlining the disc.
+- Moon: The stars are the real sky around the Moon, from the Yale Bright Star Catalogue, so scrolling through time turns them with the night and the Moon keeps its place among its constellations. They sweep past as the disc is dragged, the way they would if you were circling the Moon.
+- Moon: In a terminal too narrow for the info column, the phase and the status now sit in the top corners of the sky and the rest runs along the bottom, with the disc in the sky between. The day of the month comes before the illumination.
+- Sunshine: The corner that names the place now gives its time too, in both the day and year views, with the day of the week when it is not your own, so a pinned location reads as a world clock.
 
 ## 2.3.1 — 2026-09-03
 

@@ -68,6 +68,15 @@ def saved_icons() -> str | None:
     return None
 
 
+def saved_language() -> str | None:
+    """Return the language code saved via `linecast language`, or None."""
+    from linecast._i18n import is_language_code
+    lang = read_config().get("language")
+    if isinstance(lang, str) and is_language_code(lang.strip()):
+        return lang.strip().lower()
+    return None
+
+
 CALENDAR_CHOICES = ("chinese", "japanese", "korean", "thai", "hawaiian",
                     "samoan", "chamorro", "refaluwasch", "islamic", "hebrew",
                     "almanac", "none")

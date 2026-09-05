@@ -5,8 +5,10 @@ its response format, these tests will catch the breakage.
 """
 
 import json
+import os
 import sys
-from datetime import datetime
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -383,6 +385,83 @@ class TestJMAAlerts:
 
 
 # ---------------------------------------------------------------------------
+# Alert expiry (issue #70)
+# ---------------------------------------------------------------------------
+
+def _alert(expires, event="Wind Advisory", severity="Minor"):
+    return {"event": event, "headline": event, "description": "",
+            "effective": "", "expires": expires, "severity": severity, "url": ""}
+
+
+class TestAlertExpiry:
+    """An alert past its own expiry is dropped, however it reached us."""
+
+    NOW = datetime(2026, 9, 3, 12, 0, tzinfo=timezone.utc)
+
+    def test_expiry_reads_each_provider_format(self):
+        from linecast._weather_sources import _alert_expiry
+        # NWS, Bright Sky, MET Norway, MeteoAlarm, HKO: an offset
+        assert (_alert_expiry(_alert("2026-09-03T18:00:00-04:00"))
+                == datetime(2026, 9, 3, 22, 0, tzinfo=timezone.utc))
+        # ECCC: milliseconds and a Z, which Python 3.10 cannot read as-is
+        assert (_alert_expiry(_alert("2026-03-06T06:00:00.000Z"))
+                == datetime(2026, 3, 6, 6, 0, tzinfo=timezone.utc))
+        # No offset at all is taken as UTC rather than never expiring
+        assert (_alert_expiry(_alert("2026-03-07T18:00:00"))
+                == datetime(2026, 3, 7, 18, 0, tzinfo=timezone.utc))
+
+    def test_no_expiry_is_none(self):
+        from linecast._weather_sources import _alert_expiry
+        assert _alert_expiry(_alert("")) is None
+        assert _alert_expiry(_alert(None)) is None
+        assert _alert_expiry(_alert("next Tuesday")) is None
+        assert _alert_expiry({"event": "x"}) is None
+        assert _alert_expiry("not an alert") is None
+
+    def test_lapsed_alerts_are_dropped_and_the_rest_kept(self):
+        from linecast._weather_sources import _drop_expired
+        lapsed = _alert("2026-09-01T18:00:00+00:00")
+        current = _alert("2026-09-03T18:00:00+00:00")
+        open_ended = _alert("")
+        assert _drop_expired([lapsed, current, open_ended], now=self.NOW) == [
+            current, open_ended]
+
+    def test_fetch_alerts_drops_a_lapsed_alert_from_any_provider(self):
+        from linecast._weather_sources import fetch_alerts
+        lapsed = _alert("2026-01-01T00:00:00+00:00", event="Old")
+        current = _alert("2035-01-01T00:00:00+00:00", event="New")
+        with patch("linecast._weather_sources._fetch_alerts_nws",
+                   return_value=[lapsed, current]):
+            assert fetch_alerts(40.7, -74.0, country_code="US") == [current]
+
+    def test_lapsed_alerts_do_not_count_against_the_cap(self):
+        from linecast._weather_sources import MAX_ALERTS, fetch_alerts
+        lapsed = [_alert("2026-01-01T00:00:00+00:00", event=f"Old {i}",
+                         severity="Extreme") for i in range(MAX_ALERTS + 1)]
+        current = _alert("2035-01-01T00:00:00+00:00", event="New")
+        with patch("linecast._weather_sources._fetch_alerts_nws",
+                   return_value=lapsed + [current]):
+            assert fetch_alerts(40.7, -74.0, country_code="US") == [current]
+
+    def test_a_stale_copy_kept_through_an_outage_does_not_outlive_its_alert(self):
+        """The cached list stands in when the provider is unreachable; an
+        alert that lapsed in the meantime must not come back with it."""
+        from linecast._cache import location_cache_key
+        from linecast._paths import cache_dir
+        from linecast._weather_sources import fetch_alerts
+        cache_file = cache_dir("weather") / f"alerts_{location_cache_key(40.7, -74.0)}.json"
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        lapsed = _alert("2026-01-01T00:00:00+00:00", event="Old")
+        current = _alert("2035-01-01T00:00:00+00:00", event="New")
+        cache_file.write_text(json.dumps([lapsed, current]), encoding="utf-8")
+        an_hour_ago = time.time() - 3600  # past the fifteen-minute cache
+        os.utime(cache_file, (an_hour_ago, an_hour_ago))
+        with patch("linecast._http.fetch_json", side_effect=OSError("down")) as net:
+            assert fetch_alerts(40.7, -74.0, country_code="US") == [current]
+        assert net.called
+
+
+# ---------------------------------------------------------------------------
 # Alert provider dispatch tests
 # ---------------------------------------------------------------------------
 
@@ -519,8 +598,11 @@ class TestLocationMatching:
 
     def test_parse_meteireann_dt(self):
         from linecast._weather_sources import _parse_meteireann_dt
-        assert _parse_meteireann_dt("00:00 Saturday 07/03/2026") == "2026-03-07T00:00:00"
-        assert _parse_meteireann_dt("14:30 Monday 15/12/2025") == "2025-12-15T14:30:00"
+        # Irish local time, with the offset of the day: GMT in winter, IST in summer
+        assert _parse_meteireann_dt("00:00 Saturday 07/03/2026") == "2026-03-07T00:00:00+00:00"
+        assert _parse_meteireann_dt("14:30 Monday 15/12/2025") == "2025-12-15T14:30:00+00:00"
+        assert _parse_meteireann_dt("14:30 Monday 15/06/2026") == "2026-06-15T14:30:00+01:00"
+        assert _parse_meteireann_dt("14:30 Monday 31/02/2026") == ""
         assert _parse_meteireann_dt("") == ""
         assert _parse_meteireann_dt(None) == ""
 
@@ -1068,7 +1150,7 @@ class TestMeteoAlarmRegionsData:
 
     def test_a_district_sits_inside_its_state(self):
         from linecast._meteoalarm_regions import regions_at
-        assert regions_at(48.209, 16.372) == {"AT010", "AT901"}  # Vienna
+        assert regions_at(48.209, 16.372) == {"AT901"}  # Vienna, its own district
 
     def test_the_atlantic_is_nowhere(self):
         from linecast._meteoalarm_regions import regions_at
@@ -1119,7 +1201,7 @@ class TestMeteoAlarmRegionsData:
         from linecast._meteoalarm_regions import regions_at
         got = regions_at(50.0755, 14.4378)
         assert {k for k in got if k.startswith("CISORP")} == {"CISORP/1000", "CISORP/1100"}
-        assert "CZ014" in got  # and the kraj around it, MeteoAlarm's own region
+        assert "CZ01100" in got  # and the EMMA_ID the feed files beside it
 
     def test_brno_is_in_its_orp_and_not_the_next(self):
         from linecast._meteoalarm_regions import regions_at, known

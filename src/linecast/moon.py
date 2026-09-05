@@ -25,14 +25,17 @@ returns to this month, and clicking a day opens it in the disc view.
 
 import calendar
 import math
+import struct
 import sys
 import textwrap
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from linecast._framebuffer import fmt_time_dt
 from linecast._graphics import (
-    fg, RESET, lerp, visible_len, get_terminal_size, Framebuffer, live_loop,
+    lerp, visible_len, get_terminal_size, Framebuffer, live_loop,
 )
 from linecast._i18n import lang_of
 from linecast._location import (
@@ -69,7 +72,7 @@ from linecast._tides_i18n import _ts  # shared "space to return to now" hint
 from linecast._runtime import (
     RuntimeConfig, install_banner, log_failure, moon_parser, set_current,
 )
-from linecast import _theme
+from linecast import _live, _theme
 from linecast._theme import (
     best_contrast,
     darken,
@@ -83,7 +86,8 @@ from linecast._theme import (
 from linecast._radar_i18n import rs
 from linecast._ephemeris import (
     _moon_altitude_deg, _moon_azimuth_deg, _moon_events_for_local_date,
-    _moon_parallactic_deg, _moon_transits_for_local_date, moon_age_days,
+    _moon_parallactic_deg, _moon_ra_dec, _moon_transits_for_local_date,
+    moon_age_days,
     moon_axis_deg, moon_bright_limb_deg, moon_illuminated_fraction,
     next_moon_phase_utc,
 )
@@ -107,10 +111,10 @@ _theme.track_imports(globals(), "linecast.sunshine")
 # Palette
 # ---------------------------------------------------------------------------
 def _rebuild():
-    global MOON_LIT_RGB, MOON_SHADOW_RGB, MOON_GLOW_RGB, SKY_RGB
+    global MOON_LIT_RGB, MOON_SHADOW_RGB, MOON_NIGHT_RGB, MOON_GLOW_RGB, SKY_RGB
     global STAR_BRIGHT_RGB, STAR_RGB, STAR_DIM_RGB
     global PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
-    global PANEL_FAINT_RGB, INFO_FAINT_RGB
+    global PANEL_FAINT_RGB
     SKY_RGB = _theme.theme_bg
     if theme_legacy_mode:
         MOON_LIT_RGB = (228, 230, 238)
@@ -139,14 +143,17 @@ def _rebuild():
         STAR_BRIGHT_RGB = ensure_contrast(neutral_tone(0.80), _theme.theme_bg, minimum=3.2)
         STAR_RGB = ensure_contrast(neutral_tone(0.58), _theme.theme_bg, minimum=2.2)
         STAR_DIM_RGB = ensure_contrast(neutral_tone(0.40), _theme.theme_bg, minimum=1.5)
-    # The wide layout's panel sits in the sky, so its inks contrast with
-    # the sky; the stacked layout's lines sit on the page and keep the
-    # page inks.
+    # The disc's night is darker than the sky around it, as it looks in
+    # life, where the sky near the Moon is lit by the Moon and the night
+    # side is lit by nothing but Earth; the halo outlines the disc. The
+    # calendar's small discs have no halo and keep the lighter shadow.
+    MOON_NIGHT_RGB = darken(SKY_RGB, 0.5)
+    # The info sits in the sky in every layout, so its inks contrast
+    # with the sky rather than the page.
     PANEL_TEXT_RGB = ensure_contrast(INFO_TEXT_RGB, SKY_RGB, minimum=4.5)
     PANEL_DIM_RGB = ensure_contrast(INFO_DIM_RGB, SKY_RGB, minimum=2.0)
     # A shade fainter than dim, for the counsel's source line.
     PANEL_FAINT_RGB = lerp_rgb(SKY_RGB, PANEL_DIM_RGB, 0.62)
-    INFO_FAINT_RGB = lerp_rgb(_theme.theme_bg, INFO_DIM_RGB, 0.62)
     PANEL_AMBER_RGB = ensure_contrast(INFO_AMBER_RGB, SKY_RGB, minimum=2.3)
     PANEL_PURPLE_RGB = ensure_contrast(INFO_PURPLE_RGB, SKY_RGB, minimum=2.3)
 
@@ -155,10 +162,11 @@ _rebuild()
 _theme.on_reload(_rebuild)
 
 # The disc's surface comes from NASA's LRO mosaic (see
-# scripts/build_moon_albedo.py): a greyscale map of the near side,
-# longitude −90…90 left to right, latitude 90…−90 top to bottom, with
-# the highlands scaled to white. The view is the mean sub-Earth point
-# (librations ignored), north up, east right.
+# scripts/build_moon_albedo.py): a greyscale map of the whole Moon,
+# longitude −180…180 left to right with the near side in the middle,
+# latitude 90…−90 top to bottom, with the highlands scaled to white.
+# The view is the mean sub-Earth point (librations ignored), north up,
+# east right; the far side only shows when the disc is dragged round.
 _albedo = None
 _albedo_tried = False
 
@@ -285,61 +293,144 @@ def _star_color(t):
     return lerp(STAR_RGB, STAR_BRIGHT_RGB, (t - 0.5) * 2.0)
 
 
-def _star_overlays(fb, cx, cy, radius, taken=()):
-    """A deterministic star field as character overlays, clear of the Moon.
+# The stars are the real sky around the Moon: the Yale Bright Star
+# Catalogue to magnitude 5.5 (see scripts/build_star_catalogue.py),
+# placed about the Moon's true position for the moment, with celestial
+# north turned by the parallactic angle the disc already follows. So
+# scrolling through time wheels the sky with the night and walks the
+# Moon through its constellations. The disc is drawn far larger than
+# scale; the sky is projected as an equidistant fisheye, screen centre
+# looking away from the viewer, whose focal length is the disc's radius
+# and a half — the screen's corner is about ninety degrees from the
+# Moon — which keeps the resting sky evenly sown out to the corners and
+# lets a drag carry the sky round the other way, as the background does
+# when you walk round a statue, at about half again the surface's pace.
+_STAR_FOCAL = 1.5
+_stars = None
+
+
+def _load_stars():
+    """[(ra_rad, dec_rad)] brightest first, from the bundled catalogue."""
+    global _stars
+    if _stars is None:
+        try:
+            data = (Path(__file__).parent / "data" / "stars.bin").read_bytes()
+            _stars = [(math.radians(ra / 100.0), math.radians(dec / 100.0))
+                      for ra, dec, _mag in struct.iter_unpack("<Hhb", data)]
+        except Exception as exc:
+            log_failure("stars", "star catalogue load", exc, fallback="no stars")
+            _stars = []
+    return _stars
+
+
+def _star_direction(ra, dec, sky):
+    """A star's direction in the resting screen frame.
+
+    *sky* is (moon_ra_deg, moon_dec_deg, parallactic_deg): where the Moon
+    is and how far celestial north is turned from the screen's up. The
+    frame is x right, y down, z toward the viewer, the Moon at −z.
+    """
+    moon_ra, moon_dec, parallactic = sky
+    ra0, dec0 = math.radians(moon_ra), math.radians(moon_dec)
+    d_ra = ra - ra0
+    # Angular distance and position angle (north through east) of the
+    # star from the Moon, then the screen bearing: position angles run
+    # anticlockwise from north on the sky, bearings clockwise from up.
+    cos_rho = (math.sin(dec0) * math.sin(dec)
+               + math.cos(dec0) * math.cos(dec) * math.cos(d_ra))
+    sin_rho = math.sqrt(max(0.0, 1.0 - cos_rho * cos_rho))
+    pa = math.atan2(math.cos(dec) * math.sin(d_ra),
+                    math.sin(dec) * math.cos(dec0)
+                    - math.cos(dec) * math.sin(dec0) * math.cos(d_ra))
+    bearing = math.radians(parallactic) - pa
+    return (sin_rho * math.sin(bearing), -sin_rho * math.cos(bearing), -cos_rho)
+
+
+def _project_star(d, turn, cx, cy, radius):
+    """The cell a star in direction *d* lands on, or None if it is behind
+    the viewer. *turn* is the disc's rotation, or None at rest."""
+    if turn is not None:
+        d = _mat_apply(turn, d)
+    x, y, z = d
+    sin_t = math.sqrt(x * x + y * y)
+    if sin_t < 1e-9:
+        if z > 0.0:
+            return None      # straight behind the viewer
+        dx = dy = 0.0
+    else:
+        t = math.atan2(sin_t, -z) * _STAR_FOCAL * radius / sin_t
+        dx, dy = x * t, y * t
+    return int(round(cx + dx)), int((cy + dy) // 2)
+
+
+def _star_overlays(fb, cx, cy, radius, sky, taken=(), turn=None):
+    """The stars as character overlays, clear of the Moon.
 
     Returns {(col, row): (glyph, rgb, bold)}.  Stars are drawn as glyphs
     rather than sub-pixels, so each one claims a whole cell; *taken* is the
     set of cells the info column already owns, which a star must not
-    displace.
+    displace. *sky* places the Moon among the stars (see _star_direction);
+    *turn* is the disc's rotation, which carries the sky round.
     """
+    # Show the brightest stars down to the magnitude that puts about
+    # _STAR_DENSITY per thousand cells on screen: the screen's solid
+    # angle, cell by cell, says how much of the sky it holds.
+    focal = _STAR_FOCAL * radius
+    seen = 0.0
+    for row in range(fb.graph_h):
+        dy = (row * 2 + 0.5) - cy
+        for x in range(fb.graph_w):
+            dx = x - cx
+            t = math.hypot(dx, dy) / focal
+            if t < math.pi:
+                seen += (math.sin(t) / t if t > 1e-9 else 1.0) * 2.0 / (focal * focal)
+    wanted = _STAR_DENSITY / 1000.0 * fb.graph_w * fb.graph_h
+    catalogue = _load_stars()
+    count = min(len(catalogue),
+                int(round(wanted * 4.0 * math.pi / max(seen, 1e-9))))
+
     keep_out = (radius + 3.0) ** 2
     stars = {}
-    for row in range(fb.graph_h):
-        dy = (row * 2 + 0.5) - cy   # cell centre, in sub-pixels
-        for x in range(fb.graph_w):
-            if (x, row) in taken:
-                continue
-            dx = x - cx
-            if dx * dx + dy * dy < keep_out:
-                continue
-            h = (x * 2654435761 + row * 40503) & 0xFFFFFFFF
-            h = ((h ^ (h >> 15)) * 2246822519) & 0xFFFFFFFF
-            h ^= h >> 13
-            if h % 1000 >= _STAR_DENSITY:
-                continue
-            # A second, independent draw picks the magnitude, so density
-            # and brightness do not vary together across the sky.
-            k = ((h >> 10) * 2654435761) & 0xFFFFFFFF
-            k ^= k >> 16
-            k %= 1000
-            for cutoff, glyph, bright, bold in _STAR_KINDS:
-                if k < cutoff:
-                    stars[(x, row)] = (glyph, _star_color(bright), bold)
-                    break
+    for i, (ra, dec) in enumerate(catalogue[:count]):
+        cell = _project_star(_star_direction(ra, dec, sky), turn, cx, cy, radius)
+        if cell is None:
+            continue
+        x, row = cell
+        if not (0 <= x < fb.graph_w and 0 <= row < fb.graph_h) or (x, row) in taken:
+            continue
+        dx, dy = x - cx, (row * 2 + 0.5) - cy
+        if dx * dx + dy * dy < keep_out:
+            continue
+        # The glyph goes by rank among those shown, so the brightest few
+        # on screen get the pointed glyphs whatever the magnitude cut.
+        share = min(999, (count - i) * 1000 // count)
+        for cutoff, glyph, bright, bold in _STAR_KINDS:
+            if share < cutoff:
+                stars[(x, row)] = (glyph, _star_color(bright), bold)
+                break
     return stars
 
 
-def _surface_shade(sx, sy, albedo):
-    """Darkening at a unit-disc point, sampled from the albedo map.
+def _surface_shade(sx, sy, sz, albedo):
+    """Darkening at a unit-sphere point, sampled from the albedo map.
 
-    The point is lifted onto the sphere and its latitude and longitude
-    looked up in the map with bilinear filtering, so limb foreshortening
-    comes out of the projection. Returns 0 for highland-bright, up to 1
-    for black.
+    The point is in the Moon's own frame — north up, the near side's
+    centre toward the viewer — and its latitude and longitude are looked
+    up in the map with bilinear filtering, so limb foreshortening comes
+    out of the projection. Returns 0 for highland-bright, up to 1 for
+    black.
     """
     w, h, px = albedo
-    sz = math.sqrt(max(0.0, 1.0 - sx * sx - sy * sy))
     lat = math.asin(max(-1.0, min(1.0, -sy)))
-    lon = math.atan2(sx, sz)                        # −π/2…π/2 on the near side
-    u = (lon / math.pi + 0.5) * w - 0.5             # map spans −90…90
+    lon = math.atan2(sx, sz)                        # −π…π, 0 facing Earth
+    u = (lon / (2.0 * math.pi) + 0.5) * w - 0.5     # map spans −180…180
     v = (0.5 - lat / math.pi) * h - 0.5
     x0 = int(math.floor(u))
     y0 = int(math.floor(v))
     fx = u - x0
     fy = v - y0
-    x0 = max(0, min(w - 1, x0))
-    x1 = min(w - 1, x0 + 1)
+    x0 %= w                                         # the seam is the far side's middle
+    x1 = (x0 + 1) % w
     y0 = max(0, min(h - 1, y0))
     y1 = min(h - 1, y0 + 1)
     top = px[y0 * w + x0] * (1 - fx) + px[y0 * w + x1] * fx
@@ -347,7 +438,140 @@ def _surface_shade(sx, sy, albedo):
     return 1.0 - (top * (1 - fy) + bottom * fy) / 255.0
 
 
-def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg):
+def _mat_mul(a, b):
+    """Product of two 3×3 matrices, each nine floats row-major."""
+    return tuple(sum(a[i * 3 + k] * b[k * 3 + j] for k in range(3))
+                 for i in range(3) for j in range(3))
+
+
+def _mat_transpose(a):
+    return (a[0], a[3], a[6], a[1], a[4], a[7], a[2], a[5], a[8])
+
+
+def _mat_apply(a, v):
+    x, y, z = v
+    return (a[0] * x + a[1] * y + a[2] * z,
+            a[3] * x + a[4] * y + a[5] * z,
+            a[6] * x + a[7] * y + a[8] * z)
+
+
+def _rotation(axis, angle):
+    """Rotation by *angle* radians about the unit vector *axis*."""
+    x, y, z = axis
+    c, s = math.cos(angle), math.sin(angle)
+    t = 1.0 - c
+    return (t * x * x + c, t * x * y - s * z, t * x * z + s * y,
+            t * x * y + s * z, t * y * y + c, t * y * z - s * x,
+            t * x * z - s * y, t * y * z + s * x, t * z * z + c)
+
+
+def _axis_angle(m):
+    """The unit axis and angle (0…π) of a rotation matrix."""
+    angle = math.acos(max(-1.0, min(1.0, (m[0] + m[4] + m[8] - 1.0) / 2.0)))
+    s = math.sin(angle)
+    if s > 1e-6:
+        axis = ((m[7] - m[5]) / (2 * s), (m[2] - m[6]) / (2 * s),
+                (m[3] - m[1]) / (2 * s))
+    elif angle < 1e-6:
+        axis = (0.0, 1.0, 0.0)
+    else:
+        # A half turn: M + I is twice the axis's outer product with
+        # itself, so its longest column points along the axis.
+        cols = [(m[i] + (i == 0), m[3 + i] + (i == 1), m[6 + i] + (i == 2))
+                for i in range(3)]
+        cx, cy, cz = max(cols, key=lambda c: c[0] ** 2 + c[1] ** 2 + c[2] ** 2)
+        n = math.sqrt(cx * cx + cy * cy + cz * cz)
+        axis = (cx / n, cy / n, cz / n)
+    return axis, angle
+
+
+class Turn:
+    """The disc as the user has turned it.
+
+    A drag rolls the Moon under the pointer, trackball fashion: the
+    surface follows the pointer, so a drag the length of the radius is
+    about a radian, and the far side comes round the limb. Letting go
+    eases it back to the face it really shows, with a small overshoot.
+    While it settles, a thread wakes the live loop for the frames; the
+    frames themselves are timed, so a slow terminal drops some rather
+    than dragging the settle out.
+    """
+
+    SETTLE = 0.7   # seconds from release to rest
+    TICK = 1 / 30  # wakeups per second while settling
+
+    def __init__(self):
+        self.radius = 40.0    # the disc's radius in sub-pixels, from the last render
+        self._base = None     # orientation when the drag began
+        self._held = None     # orientation under the pointer, mid-drag
+        self._settle = None   # (axis, angle, started) after a release
+        self._ticker = None
+
+    def drag(self, dcol, drow):
+        """The pointer has moved this far, in cells, since the press."""
+        if self._base is None:
+            self._base = self.matrix() or _IDENTITY  # mid-settle: pick it up
+            self._settle = None
+        dx, dy = float(dcol), 2.0 * drow   # a cell is two sub-pixels tall
+        dist = math.hypot(dx, dy)
+        if dist == 0.0:
+            self._held = self._base
+        else:
+            # Rolling the surface along the drag is a turn about the axis
+            # square to it in the screen plane.
+            self._held = _mat_mul(_rotation((-dy / dist, dx / dist, 0.0),
+                                            dist / self.radius), self._base)
+        return True
+
+    def release(self):
+        """The button is up; ease back to rest from wherever the disc is."""
+        if self._base is None:
+            return False
+        axis, angle = _axis_angle(self._held)
+        self._base = self._held = None
+        if angle < 1e-3:
+            return True
+        self._settle = (axis, angle, time.monotonic())
+        if self._ticker is None or not self._ticker.is_alive():
+            self._ticker = threading.Thread(target=self._tick, daemon=True)
+            self._ticker.start()
+        return True
+
+    def matrix(self):
+        """The rotation to draw now, or None at rest."""
+        if self._held is not None:
+            return self._held
+        if self._settle is None:
+            return None
+        axis, angle, started = self._settle
+        s = (time.monotonic() - started) / self.SETTLE
+        if s >= 1.0:
+            self._settle = None
+            return None
+        return _rotation(axis, angle * (1.0 - _ease_out_back(s)))
+
+    def _tick(self):
+        while True:
+            settle = self._settle
+            if settle is None:
+                return
+            time.sleep(self.TICK)
+            _live.nudge()
+            if time.monotonic() >= settle[2] + self.SETTLE:
+                return   # that wakeup draws the disc at rest
+
+
+_IDENTITY = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
+
+
+def _ease_out_back(s):
+    """0→1 with a small overshoot near the end, so the settle bounces."""
+    c1 = 1.2
+    return 1.0 + (c1 + 1.0) * (s - 1.0) ** 3 + c1 * (s - 1.0) ** 2
+
+
+def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
+                    turn=None, night=None):
     """Draw the phase-shaded lunar disc centered at (cx, cy) sub-pixels.
 
     Two angles set the picture, both screen bearings with 0 straight up
@@ -358,21 +582,52 @@ def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg):
     passed separately: the terminator follows the Sun round the Moon over
     a month, while the maria only tilt with the observer.
 
-    The terminator is the standard phase ellipse. For a lit fraction k the
-    boundary lies at (1 − 2k)·√(1 − y²) along the bright-limb axis, which
-    gives the whole disc at full, a straight edge at the quarters, and
-    nothing at new.
+    *turn* is a rotation (a 3×3 matrix as nine floats, row-major, in the
+    screen frame: x right, y down, z toward the viewer) the user has put
+    on the Moon by dragging it. The whole Moon turns, light and dark with
+    the surface: the Sun's direction turns with the map, so the far side
+    comes round the limb in the daylight or the night it is really in.
+
+    The terminator is the great circle square to the Sun. A point is lit
+    by the cosine of the Sun's elevation over it, softened across the
+    line; seen from the front that is the standard phase ellipse, the
+    whole disc at full, a straight edge at the quarters, nothing at new.
+
+    The night side facing Earth is not quite black: earthshine lifts it
+    by the Earth's own phase, which is the complement of the Moon's, so
+    the maria show faintly in the old Moon in the new Moon's arms and
+    not at all near full. The far side's night gets none. *night* is
+    the colour of that unlit ground; the shadow colour when not given.
     """
+    if night is None:
+        night = MOON_SHADOW_RGB
     edge = max(1.0 / radius, 0.04)   # anti-aliasing band, in unit radii
     soft = 0.10                       # terminator softness, in unit radii
+    earthshine = 0.20 * (1.0 - illum)  # night-side lift, facing Earth square on
     scan = int(radius + 2)
     albedo = _load_albedo()
 
-    boundary = 1.0 - 2.0 * illum
+    # The Sun's direction, from the phase: behind the viewer at full,
+    # along the bright limb at the quarters, behind the Moon at new.
     limb = math.radians(limb_deg)
     limb_x, limb_y = math.sin(limb), -math.cos(limb)
+    sun_z = 2.0 * illum - 1.0
+    sun_r = math.sqrt(max(0.0, 1.0 - sun_z * sun_z))
+    sun = (sun_r * limb_x, sun_r * limb_y, sun_z)
+    earth = (0.0, 0.0, 1.0)
+    if turn is not None:
+        sun = _mat_apply(turn, sun)   # the light turns with the surface
+        earth = _mat_apply(turn, earth)
+    sun_x, sun_y, sun_z = sun
+    earth_x, earth_y, earth_z = earth
+    # Screen point to surface point: undo the user's turn (a rotation's
+    # inverse is its transpose), then the tilt that put the pole where
+    # the observer sees it, so the map is read north up.
     axis = math.radians(axis_deg)
     axis_c, axis_s = math.cos(axis), math.sin(axis)
+    tilt = (axis_c, axis_s, 0.0, -axis_s, axis_c, 0.0, 0.0, 0.0, 1.0)
+    m = _mat_mul(tilt, _mat_transpose(turn)) if turn is not None else tilt
+    m00, m01, m02, m10, m11, m12, m20, m21, m22 = m
 
     for dy in range(-scan, scan + 1):
         uy = dy / radius
@@ -386,29 +641,29 @@ def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg):
             if cover <= 0.02:
                 continue
 
-            # Distance past the terminator, along the bright-limb axis.
-            along = ux * limb_x + uy * limb_y
-            across = ux * -limb_y + uy * limb_x
-            d = along - boundary * math.sqrt(max(0.0, 1.0 - across * across))
+            # How far into daylight: the cosine of the Sun's elevation
+            # over this point, softened across the terminator.
+            uz = math.sqrt(1.0 - rr) if rr < 1.0 else 0.0
+            d = ux * sun_x + uy * sun_y + uz * sun_z
             lit_alpha = max(0.0, min(1.0, (d + soft) / (2.0 * soft)))
 
             shade = 0.18 * rr  # limb falloff
             if albedo is not None:
-                shade += _surface_shade(ux * axis_c + uy * axis_s,
-                                        -ux * axis_s + uy * axis_c, albedo)
+                shade += _surface_shade(m00 * ux + m01 * uy + m02 * uz,
+                                        m10 * ux + m11 * uy + m12 * uz,
+                                        m20 * ux + m21 * uy + m22 * uz,
+                                        albedo)
             lit_px = darken(MOON_LIT_RGB, min(0.55, shade))
-            color = lerp(MOON_SHADOW_RGB, lit_px, lit_alpha)
+            # Earthshine: the shaded surface, faintly, where Earth is up.
+            glow = earthshine * (ux * earth_x + uy * earth_y + uz * earth_z)
+            night_px = lerp(night, lit_px, glow) if glow > 0.0 else night
+            color = lerp(night_px, lit_px, lit_alpha)
             fb.set_pixel(cx + dx, cy + dy, color, cover)
 
 
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
-def _center(line, width):
-    pad = max(0, (width - visible_len(line)) // 2)
-    return " " * pad + line
-
-
 def _wrap(text, width):
     """textwrap.wrap without widows: no lone word on the last line."""
     lines = textwrap.wrap(text, width)
@@ -416,14 +671,6 @@ def _wrap(text, width):
         head, last = lines[-2].rsplit(" ", 1)
         lines[-2:] = [head, f"{last} {lines[-1]}"]
     return lines
-
-
-def _first_fit(width, *variants):
-    """The widest variant that fits, or None when even the last overflows."""
-    for variant in variants:
-        if visible_len(variant) <= width:
-            return variant
-    return None
 
 
 def _panel_overlays(panel, x0, row0, graph_w):
@@ -530,13 +777,15 @@ def keeps_israel_days(country, lat, lng):
 
 
 def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
-           calendar_name=None, israel=False):
+           calendar_name=None, israel=False, turn=None):
     """Build the full-screen moon display: disc plus info lines.
 
     Three layouts, by terminal size: a wide terminal floats the info as
     a left-aligned column in the sky beside a full-height disc; a normal
-    one stacks centered lines beneath the disc; a small one shortens or
-    sheds lines rather than letting them wrap.
+    one puts the phase line and the status in the sky's top corners and
+    the rest along the bottom; a small one shortens or sheds lines
+    rather than letting them wrap. *turn* is the live view's
+    Turn, the way the user has dragged the disc round, or None.
     """
     idx, _name, icon = moon_phase(now_local, runtime)
     name = _moon_name(idx, runtime)
@@ -553,7 +802,18 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     parallactic = _moon_parallactic_deg(moment_utc, lat, lng)
     limb = parallactic - moon_bright_limb_deg(moment_utc)
     axis = parallactic - moon_axis_deg(moment_utc)
+    sky = (*_moon_ra_dec(moment_utc), parallactic)   # the stars about the Moon
     rise, sset = upcoming_moon_events(now_local, lat, lng)
+
+    rotation = turn.matrix() if turn is not None else None
+
+    def paint_disc(fb, cx, cy, radius):
+        if turn is not None:
+            turn.radius = radius   # so a drag knows how far a radian is
+        fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
+                       peak_alpha=0.10 + 0.20 * illum)
+        _draw_moon_disc(fb, cx, cy, radius, illum, limb, axis, rotation,
+                        night=MOON_NIGHT_RGB)
 
     full_dt = _next_phase_local(moment_utc, 0.5, now_local)
     new_dt = _next_phase_local(moment_utc, 0.0, now_local)
@@ -788,9 +1048,9 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
             [(f" · {head_extra}", T, False)] if head_extra else []),
     ]
     if cal in PACIFIC_CALENDARS:
-        panel.append([(f"{illum_txt} · {age_txt}", D, False)])
+        panel.append([(f"{age_txt} · {illum_txt}", D, False)])
     else:
-        panel += [[(illum_txt, D, False)], [(age_txt, D, False)]]
+        panel += [[(age_txt, D, False)], [(illum_txt, D, False)]]
     panel.append([])
     # The counsel reads the night the headline names, so it goes right
     # here — inserted once the rest of the panel has fixed the column,
@@ -848,148 +1108,186 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     panel_w = max(visible_len("".join(t for t, _c, _b in line))
                   for line in panel)
     panel_h = len(panel)
+
+    # --- stacked layout: the info in the corners of the sky ---
+    # The phase line sits top left and the status top right; the rest
+    # runs along the bottom, centered, and the disc takes the sky
+    # between. Every line has renderings widest first: a small terminal
+    # takes the first that fits, and a line whose narrowest form still
+    # overflows is dropped rather than left to wrap.
+    def seg_w(segments):
+        return sum(visible_len(t) for t, _c, _b in segments)
+
+    def first_fit(width, *variants):
+        for variant in variants:
+            if seg_w(variant) <= width:
+                return variant
+        return None
+
+    if offset_minutes:
+        status = ([(f"{alt_txt} · {bearing}", T, False)] if up
+                  else [(below_txt, D, False)])
+        status_line = (
+            [(when_txt, A, False), (" · ", T, False)] + status
+            + [(" · ", T, False), (_ts('space_to_now', runtime), D, False)],
+            [(when_txt, A, False), (" · ", T, False)] + status,
+            [(when_txt, A, False)],
+        )
+    elif up:
+        status_line = (
+            [(_ms('up_now', runtime), A, False), (f" · {alt_dir_txt}", T, False)],
+            [(_ms('up_now', runtime), A, False), (f" · {alt:.0f}°", T, False)],
+            [(_ms('up_now', runtime), A, False)],
+        )
+    else:
+        status_line = ([(below_txt, D, False)],)
+
+    # The aside — the age and the illumination — rides on the phase
+    # line when the row has room, and otherwise takes the row beneath,
+    # where it is dim enough to sit against the sky without the disc
+    # making way for it.
+    head = f"{icon} {name}" + (f" · {head_extra}" if head_extra else "")
+    aside_line = (
+        [(f"{age_txt} · {illum_txt}", D, False)],
+        [(age_txt, D, False)],
+    )
+    head_line = (
+        [(head, T, True), (f"  {age_txt} · {illum_txt}", D, False)],
+        [(head, T, True)],
+    )
+    if head_extra:
+        head_line += ([(f"{icon} {name}", T, True)],)
+
+    candidates = []
+    if good_txt:
+        # The counsel leads the bottom lines, wrapped to the width
+        # rather than shed.
+        candidates += [([(seg, D, False)],)
+                       for txt in (good_txt, hold_txt) if txt
+                       for seg in _wrap(txt, graph_w)]
+        if solunar_txt:
+            candidates.append(([(solunar_txt, D, False)],))
+        if attrib_txt:
+            candidates.append(([(attrib_txt, PANEL_FAINT_RGB, False)],))
+    candidates.append((
+        # The countdown roughly doubles this line's width, so keep the
+        # plain labelled time between it and the bare clock times —
+        # otherwise a middle-width terminal drops the labels entirely.
+        [("↑", A, False), (f"{rise_txt}  ", T, False),
+         ("↓", P, False), (set_txt, T, False)],
+        [("↑", A, False), (f"{_ms('moonrise', runtime)} {rise_when}  ", T, False),
+         ("↓", P, False), (f"{_ms('moonset', runtime)} {set_when}", T, False)],
+        [("↑", A, False), (f"{rise_when}  ", T, False),
+         ("↓", P, False), (set_when, T, False)],
+    ))
+    if term_txt:
+        # The calendar line, the festival leading since it is the one
+        # people wait for.
+        candidates.append(
+            ([(f"{term_txt} · ", D, False), (fest_txt, T, False)],
+             [(fest_txt, T, False), (f"  {term_short}", D, False)],
+             [(fest_short, T, False)])
+            if fest_txt else
+            ([(term_txt, D, False)],
+             [(term_short, D, False)]))
+    candidates += [
+        ([(f"{full_txt} · {new_txt}", D, False)],
+         [(f"{full_label} {_fmt_month_day(full_dt, runtime)} · "
+           f"{new_label} {_fmt_month_day(new_dt, runtime)}", D, False)],
+         [(f"{_moon_name(4, runtime)} {_fmt_month_day(full_dt, runtime)}",
+           D, False)]),
+        ([(f"{year_txt} · {season_txt}", D, False)],
+         [(f"{year_txt} · {season_short}", D, False)],
+         [(year_txt, D, False)]),
+    ]
+    bottom = [line for line in (first_fit(graph_w, *c) for c in candidates)
+              if line is not None]
+
+    # The top row holds the phase line and the status together, a
+    # column of air at each edge and two between. When both must give
+    # something up they give it up evenly, the status keeping a little
+    # more: scrubbed away from now it is the line that says when this
+    # is and how to get back. When no renderings of the two share the
+    # row, the status takes the row beneath.
+    room = graph_w - 2
+    pairs = sorted(((ih + i_s, i_s, ih) for ih in range(len(head_line))
+                    for i_s in range(len(status_line))))
+    fit = next(((head_line[ih], status_line[i_s]) for _n, i_s, ih in pairs
+                if seg_w(head_line[ih]) + 2 + seg_w(status_line[i_s]) <= room),
+               None)
+    if fit:
+        head_fit, status_fit = fit
+        top_rows = 1
+    else:
+        head_fit = first_fit(room, *head_line)
+        status_fit = first_fit(room, *status_line)
+        top_rows = 2 if status_fit else 1
+    aside_fit = aside_at = None
+    if head_fit is not head_line[0]:
+        # The aside goes under the name: on the row after the status
+        # when the status took the second row and will not share it.
+        aside_at = 1
+        if top_rows > 1:
+            aside_fit = first_fit(room - 2 - seg_w(status_fit), *aside_line)
+            if aside_fit is None:
+                aside_at = 2
+        if aside_fit is None:
+            aside_fit = first_fit(room, *aside_line)
+
     # Fullscreen fills the terminal exactly (plus the install banner,
     # when present); the plain print leaves two rows for the prompt.
-    chrome = 1 if hint else 0
-    wide_h = max(6, rows - chrome - (0 if fullscreen else 2))
+    reserve = (1 if hint else 0) + (0 if fullscreen else 2)
+    graph_h = max(6, rows - reserve)
     region_w = graph_w - panel_w - 3   # sky left over for the disc
     # Prefer the column: go wide whenever it fits and costs the disc
-    # nothing.  Stacking spends five rows on info, so the sky beside a
-    # full-height disc wins well before the terminal is truly wide.
-    stacked_h = max(6, rows - 5 - chrome - (0 if fullscreen else 2))
-    wide_radius = min(wide_h * 2 * 0.41, region_w * 0.5 - 3.0)
+    # nothing.  Stacking spends a row at the top and several at the
+    # bottom, so the sky beside a full-height disc wins well before
+    # the terminal is truly wide.
+    stacked_h = max(6, graph_h - top_rows - len(bottom))
+    wide_radius = min(graph_h * 2 * 0.41, region_w * 0.5 - 3.0)
     stacked_radius = min(stacked_h * 2 * 0.41, graph_w * 0.5 - 3.0)
-    if wide_radius >= stacked_radius and panel_h + 2 <= wide_h:
-        graph_h = wide_h
+    if wide_radius >= stacked_radius and panel_h + 2 <= graph_h:
         total_spy = graph_h * 2
         radius = max(4.0, wide_radius)
         cx = region_w // 2
         cy = total_spy // 2
         overlays = _panel_overlays(
             panel, graph_w - panel_w - 2, (graph_h - panel_h) // 2, graph_w)
-        fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
-        fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
-                       peak_alpha=0.10 + 0.20 * illum)
-        _draw_moon_disc(fb, cx, cy, radius, illum, limb, axis)
-        stars = _star_overlays(fb, cx, cy, radius, taken=overlays.keys())
-        lines = fb.render(overlays={**stars, **overlays})
-        if hint:
-            lines.append(hint)
-        return "\n".join(lines)
-
-    # --- stacked layout: centered lines beneath the disc ---
-    amber = fg(*INFO_AMBER_RGB)
-    purple = fg(*INFO_PURPLE_RGB)
-    text = fg(*INFO_TEXT_RGB)
-    dim = fg(*INFO_DIM_RGB)
-
-    # Candidate renderings per line, widest first; a small terminal takes
-    # the first that fits, and a line whose narrowest form still
-    # overflows is dropped rather than left to wrap.
-    if offset_minutes:
-        status = (f"{text}{alt_txt} · {bearing}" if up
-                  else f"{dim}{below_txt}")
-        status_line = (
-            f"{amber}{when_txt}{text} · {status}{text} · "
-            f"{dim}{_ts('space_to_now', runtime)}{RESET}",
-            f"{amber}{when_txt}{text} · {status}{RESET}",
-            f"{amber}{when_txt}{RESET}",
-        )
-    elif up:
-        status_line = (
-            f"{amber}{_ms('up_now', runtime)}{text} · {alt_dir_txt}{RESET}",
-            f"{amber}{_ms('up_now', runtime)}{text} · {alt:.0f}°{RESET}",
-            f"{amber}{_ms('up_now', runtime)}{RESET}",
-        )
     else:
-        status_line = (f"{dim}{below_txt}{RESET}",)
-
-    if head_extra:
-        head_line = (
-            f"{text}{icon} {name} · {head_extra}  "
-            f"{dim}{illum_txt} · {age_txt}{RESET}",
-            f"{text}{icon} {name} · {head_extra}  {dim}{illum_txt}{RESET}",
-            f"{text}{icon} {name} · {head_extra}{RESET}",
-            f"{text}{icon} {name}{RESET}")
-    else:
-        head_line = (
-            f"{text}{icon} {name}  {dim}{illum_txt} · {age_txt}{RESET}",
-            f"{text}{icon} {name}  {dim}{illum_txt}{RESET}",
-            f"{text}{icon} {name}{RESET}")
-
-    # Fit against cols - 2 so a line that just fits still gets a column
-    # of air at each edge instead of running wall to wall.
-    fit_w = max(20, cols - 2)
-    candidates = [head_line]
-    if good_txt:
-        # The counsel follows the name it reads, wrapped to the width
-        # rather than shed.
-        candidates += [(f"{dim}{seg}{RESET}",)
-                       for txt in (good_txt, hold_txt) if txt
-                       for seg in _wrap(txt, fit_w)]
-        if solunar_txt:
-            candidates.append((f"{dim}{solunar_txt}{RESET}",))
-        if attrib_txt:
-            candidates.append((f"{fg(*INFO_FAINT_RGB)}{attrib_txt}{RESET}",))
-    candidates += [
-        status_line,
-        # The countdown roughly doubles this line's width, so keep the
-        # plain labelled time between it and the bare clock times —
-        # otherwise a middle-width terminal drops the labels entirely.
-        (f"{amber}↑{text}{rise_txt}  {purple}↓{text}{set_txt}{RESET}",
-         f"{amber}↑{text}{_ms('moonrise', runtime)} {rise_when}  "
-         f"{purple}↓{text}{_ms('moonset', runtime)} {set_when}{RESET}",
-         f"{amber}↑{text}{rise_when}  {purple}↓{text}{set_when}{RESET}"),
-    ]
-    if term_txt:
-        # The calendar line, the festival leading since it is the one
-        # people wait for.
-        candidates.append(
-            (f"{dim}{term_txt} · {text}{fest_txt}{RESET}",
-             f"{text}{fest_txt}  {dim}{term_short}{RESET}",
-             f"{text}{fest_short}{RESET}")
-            if fest_txt else
-            (f"{dim}{term_txt}{RESET}",
-             f"{dim}{term_short}{RESET}"))
-    candidates += [
-        (f"{dim}{full_txt} · {new_txt}{RESET}",
-         f"{dim}{full_label} {_fmt_month_day(full_dt, runtime)} · "
-         f"{new_label} {_fmt_month_day(new_dt, runtime)}{RESET}",
-         f"{dim}{_moon_name(4, runtime)} {_fmt_month_day(full_dt, runtime)}{RESET}"),
-        (f"{dim}{year_txt} · {season_txt}{RESET}",
-         f"{dim}{year_txt} · {season_short}{RESET}",
-         f"{dim}{year_txt}{RESET}"),
-    ]
-    info = [line for line in (_first_fit(fit_w, *c) for c in candidates)
-            if line is not None]
-
-    # A very short terminal gives up trailing lines (the least essential
-    # come last) before squeezing the disc below its minimum height.
-    reserve = chrome + (0 if fullscreen else 2)
-    while len(info) > 1 and rows - len(info) - reserve < 6:
-        info.pop()
-
-    graph_h = max(6, rows - len(info) - reserve)
-    total_spy = graph_h * 2
-
-    # Half-block sub-pixels are roughly square, so one radius serves both
-    # axes; the vertical extent is what binds on normal terminals.  The
-    # disc takes ~82% of the graph height, leaving sky above and below.
-    radius = max(4.0, min(total_spy * 0.41, graph_w * 0.5 - 3.0))
-    cx = graph_w // 2
-    cy = total_spy // 2
+        # A short terminal gives up bottom lines (the least essential
+        # come last) before squeezing the disc below six rows of sky.
+        while bottom and graph_h - top_rows - len(bottom) < 6:
+            bottom.pop()
+        band_h = max(1, graph_h - top_rows - len(bottom))
+        band_spy = band_h * 2
+        # Half-block sub-pixels are roughly square, so one radius
+        # serves both axes; the vertical extent is what binds on normal
+        # terminals.  The disc takes ~82% of the band between the top
+        # row and the bottom lines, leaving sky above and below.
+        radius = max(4.0, min(band_spy * 0.41, graph_w * 0.5 - 3.0))
+        cx = graph_w // 2
+        cy = top_rows * 2 + band_spy // 2
+        overlays = {}
+        if head_fit:
+            overlays.update(_panel_overlays([head_fit], 1, 0, graph_w))
+        if aside_fit:
+            overlays.update(_panel_overlays([aside_fit], 1, aside_at, graph_w))
+        if status_fit:
+            overlays.update(_panel_overlays(
+                [status_fit], graph_w - 1 - seg_w(status_fit), top_rows - 1,
+                graph_w))
+        for i, line in enumerate(bottom):
+            overlays.update(_panel_overlays(
+                [line], (graph_w - seg_w(line)) // 2,
+                graph_h - len(bottom) + i, graph_w))
 
     fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
-    fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
-                   peak_alpha=0.10 + 0.20 * illum)
-    _draw_moon_disc(fb, cx, cy, radius, illum, limb, axis)
-    lines = fb.render(overlays=_star_overlays(fb, cx, cy, radius))
-
-    lines.extend(_center(line, cols) for line in info)
-
+    paint_disc(fb, cx, cy, radius)
+    stars = _star_overlays(fb, cx, cy, radius, sky, taken=overlays.keys(),
+                           turn=rotation)
+    lines = fb.render(overlays={**stars, **overlays})
     if hint:
         lines.append(hint)
-
     return "\n".join(lines)
 
 
@@ -1050,6 +1348,7 @@ def main():
     # disc's time, whole months through the calendar. --grid opens on
     # the calendar; v flips either way.
     state = {"cal": args.grid, "minutes": 0, "months": 0}
+    turn = Turn()
 
     def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
         # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
@@ -1065,7 +1364,7 @@ def main():
             moment += timedelta(minutes=state["minutes"])
         return render(moment, lat, lng, runtime, fullscreen=live,
                       offset_minutes=state["minutes"],
-                      calendar_name=args.calendar, israel=israel)
+                      calendar_name=args.calendar, israel=israel, turn=turn)
 
     if not live:
         print(_render())
@@ -1099,10 +1398,13 @@ def main():
             return True
         return False
 
-    def _on_drag(_dcol, _drow, _done):
-        # Nothing to drag; the loop only tracks clicks while a drag
-        # callback is set, so this no-op is the price of _on_click.
-        return False
+    def _on_drag(dcol, drow, done):
+        # Drag the disc to turn the Moon; let go and it settles back.
+        # The calendar has nothing to drag, but the loop only tracks
+        # clicks while a drag callback is set, so it answers here too.
+        if state["cal"]:
+            return False
+        return turn.release() if done else turn.drag(dcol, drow)
 
     def _on_click(col, row):
         # A calendar day is a doorway: click it and the disc view opens

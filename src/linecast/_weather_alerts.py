@@ -219,16 +219,13 @@ def render_alerts(alerts, width=80, remaining_rows=None, runtime=None, tz_name="
 # Alert modal (full detail overlay for live mode click)
 # ---------------------------------------------------------------------------
 
-_MODAL_BG = MODAL_BG_RGB
-
-
 def _build_modal_content(alert, inner_w, runtime=None, tz_name=""):
     """Build the full list of content lines for the alert modal.
 
     Returns a list of (text, is_blank) tuples. Each text string already
     contains ANSI color codes and will be padded by the caller.
     """
-    MBG = bg(*_MODAL_BG)
+    MBG = bg(*MODAL_BG_RGB)
     TFG = fg(*TEXT_RGB)
     severity = alert.get("severity", "")
     r, g, b = _severity_rgb(severity)
@@ -291,7 +288,7 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0, tz_name=""):
     Returns cursor-positioned ANSI escape sequences to draw the modal.
     scroll: number of content lines scrolled down (0 = top).
     """
-    MBG = bg(*_MODAL_BG)
+    MBG = bg(*MODAL_BG_RGB)
     BORDER = fg(*MODAL_BORDER_RGB)
 
     # Modal dimensions

@@ -9,10 +9,13 @@ warnings apply here.
 
 Two kinds of geocode are placed:
 
-  EMMA_ID   MeteoAlarm's own regions, from the geocodes GeoJSON on its
-            re-users page (https://meteoalarm.org/en/page/re-users,
-            "geocodes json"; CC BY 4.0, EUMETNET). Keyed by bare code:
-            PL3001.
+  EMMA_ID   MeteoAlarm's own regions, from the geocodes GeoJSON its
+            Redistribution Hub page links, kept in the meteoalarm-pm-group
+            "documents" project on GitLab under a dated name
+            (MeteoAlarm_Geocodes_2026_07_31.json; CC BY 4.0, EUMETNET).
+            Keyed by bare code: PL3001. A new edition drops the codes
+            feeds no longer file, so a bake from it can lose regions
+            as well as gain them.
   NUTS2/3   Eurostat's statistical regions, for the feeds that file
             those instead (Bulgaria, Romania, and France at level 3;
             Hungary and Belgium at level 2), from GISCO's 2013 edition
@@ -35,11 +38,11 @@ ground. North Macedonia files its EMMA_IDs under the NUTS3 label, so
 those are written a second time under NUTS3/ (ALIASES). ČHMÚ's Czech
 feed files Prague as CISORP 1100 where the statistical office says
 1000, so Prague is written under both. (It also files every ORP a
-second time as an EMMA_ID of CZ0 + CISORP, a code MeteoAlarm's own
-list has never had; that one is left unplaced, since the CISORP
-beside it does the work.)
+second time as an EMMA_ID of CZ0 + CISORP; MeteoAlarm's list carries
+those since its 2026 editions, so both codes on an area now place it.)
 
-    python3 scripts/build_meteoalarm_regions.py bake /path/to/geocodes.json
+    python3 scripts/build_meteoalarm_regions.py bake \
+        "https://gitlab.com/meteoalarm-pm-group/documents/-/raw/master/MeteoAlarm_Geocodes_2026_07_31.json"
 
 fetches the NUTS files from GISCO and the Czech ORP files from ČÚZK and
 ČSÚ; pass --nuts3, --nuts2, --orp, and --cisorp to use local copies.

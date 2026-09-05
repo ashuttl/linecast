@@ -108,7 +108,7 @@ Near the poles the same chart turns into polar night and midnight sun. These are
 
 ### Moon
 
-`moon` draws the phase as you see it from where you are, with the shadow falling where it really does, the maria shaded, and a halo around it. Scroll to move through time. Point it somewhere across an ocean and the rise and set times come back in that place's local clock.
+`moon` draws the phase as you see it from where you are, with the shadow falling where it really does, the maria shaded, earthshine on the night side, and a halo around it. Scroll to move through time. The stars around it are the real ones for the moment, so scrolling turns the sky with the night and walks the Moon through its constellations. Drag the disc to turn the Moon over and see the far side, with the stars wheeling past; let go and it settles back. Point it somewhere across an ocean and the rise and set times come back in that place's local clock.
 
 ![full Moon](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon.png)
 
@@ -213,12 +213,12 @@ Every view command takes `--metric` and `--imperial` for one run, and the ones t
 
 ### Language
 
-`--lang` or `LINECAST_LANG` picks the language. There are eighteen:
+linecast speaks the terminal's language when it is one it knows, read from `LANG` and the other locale variables the way most command-line tools read them, and English otherwise. `linecast language fr` saves a language instead, `--lang` or `LINECAST_LANG` picks one for a run, and `linecast language auto` goes back to following the terminal. There are eighteen:
 
 > English, French, Spanish, German, Italian, Portuguese, Dutch, Polish, Norwegian, Swedish, Icelandic, Danish, Finnish, Japanese, Korean, Chinese, Thai, and Indonesian
 
 ```sh
-linecast weather --lang fr
+linecast language fr
 linecast radar --lang zh
 ```
 
@@ -292,7 +292,7 @@ The six view commands and `linecast doctor` take `--debug`, which prints a line 
 | `WEATHER_UNITS` | Units for the weather command; overrides `LINECAST_UNITS` |
 | `TIDES_UNITS` | Units for tide heights; overrides `LINECAST_UNITS` |
 | `LINECAST_CLOCK` | `12` or `24`; overrides the saved clock |
-| `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, `th`, or `id` |
+| `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, `th`, or `id`; overrides the saved language and the terminal's locale |
 | `LINECAST_ICONS` | `nerd`, `emoji`, or `plain`; overrides the saved icons |
 | `LINECAST_COLOR` | `auto`, `truecolor`, `256`, `16`, or `none` |
 | `NO_COLOR` | Any non-empty value disables ANSI colors |
@@ -325,7 +325,7 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 
 - **Location** — [ipinfo.io](https://ipinfo.io/) for IP geolocation when no location is saved or passed, with [ipwho.is](https://ipwho.is/) and [GeoJS](https://www.geojs.io/) as fallbacks; place names are geocoded by Open-Meteo, with Photon as a fallback.
 - **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Hong Kong Observatory, Met Éireann, Japan Meteorological Agency, MET Norway, MetService New Zealand, MeteoAlarm (with its warning-region geometry vendored, © EUMETNET, CC BY 4.0, the NUTS regions some feeds file from [Eurostat GISCO](https://ec.europa.eu/eurostat/web/gisco), © EuroGeographics for the administrative boundaries, and Czechia's ORP boundaries from [ČÚZK RÚIAN](https://www.cuzk.gov.cz/) with the [Czech Statistical Office](https://csu.gov.cz/)'s code list, both open data), and SACHET (India's national alert aggregator).
-- **Sunshine and Moon** — computed on your device from the astronomical equations; the Moon's face is a vendored grayscale of NASA SVS's [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) (Lunar Reconnaissance Orbiter, public domain). The Pacific calendars are checked against the [Western Pacific Regional Fishery Management Council](https://www.wpcouncil.org/educational-resources/lunar-calendars/)'s published calendars and quote its educational materials.
+- **Sunshine and Moon** — computed on your device from the astronomical equations; the Moon's face is a vendored grayscale of NASA SVS's [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) (Lunar Reconnaissance Orbiter, public domain), and the stars around it are the [Yale Bright Star Catalogue](http://tdc-www.harvard.edu/catalogs/bsc5.html) (Hoffleit & Warren, 1991) to magnitude 5.5. The Pacific calendars are checked against the [Western Pacific Regional Fishery Management Council](https://www.wpcouncil.org/educational-resources/lunar-calendars/)'s published calendars and quote its educational materials.
 - **Tides** — NOAA CO-OPS, Canadian Hydrographic Service, Queensland Open Data, Hong Kong Observatory, Open-Meteo's tide model as a global fallback, and optionally TideCheck.
 - **Radar** — [LibreWXR](https://librewxr.net/), with NEXRAD via Iowa Environmental Mesonet and RainViewer as fallbacks; warning polygons come from the US National Weather Service via IEM. The basemap is derived from Natural Earth.
 - **Maps** — terrain from AWS/Mapzen elevation tiles; streets and inland water from [OpenFreeMap](https://openfreemap.org/) vector tiles (© OpenMapTiles © OpenStreetMap contributors), with the [OpenStreetMap US Tileservice](https://tiles.openstreetmap.us/) as a fallback (Tiles by OSM US); search from Photon and Nominatim; directions from FOSSGIS OSRM (© OpenStreetMap contributors); globe cloud cover from [LibreWXR](https://librewxr.net/) (CC BY 4.0) satellite imagery; terrain color picks its ramp from a vendored [Köppen-Geiger climate grid](https://doi.org/10.6084/m9.figshare.21789074) (Beck et al. 2023, CC BY 4.0).
