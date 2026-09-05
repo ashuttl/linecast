@@ -75,16 +75,33 @@ class TestWideLayout:
 
 
 class TestStackedLayout:
-    def test_info_sits_beneath_the_disc(self):
+    def test_info_sits_in_the_corners_of_the_sky(self):
         lines = _render(60, 24)
-        assert _info_row(lines, "Waning Gibbous") == len(lines) - 5
+        assert all(visible_len(line) <= 60 for line in lines)
+        # The phase line top left, the status top right, on the same row;
+        # the aside, with no room beside them, on the row beneath.
+        top = lines[0]
+        assert top.find("Waning Gibbous") < top.find("Below the horizon")
+        assert visible_len(top.rstrip()) >= 60 - 3
+        assert not top.startswith("   ")
+        assert "illuminated" not in top
+        assert re.match(r"\s{1,3}day 16\.3 of 29\.5 · 94% illuminated", lines[1])
+        # The rest along the bottom, in stanza order, the season line last.
+        assert _info_row(lines, "Moonrise") < _info_row(lines, "Full Pink Moon")
         assert "Day 64 of 365" in lines[-1]
+        # The bottom lines are centered.
+        last = lines[-1]
+        left = len(last) - len(last.lstrip())
+        right = len(last) - len(last.rstrip())
+        assert abs(left - right) <= 2, (left, right)
 
     def test_80x24_prefers_two_columns(self):
-        # Stacking spends five rows on info; here the column beside a
-        # full-height disc gives a bigger moon, so the layout goes wide.
+        # Stacking spends a row at the top and several at the bottom;
+        # here the column beside a full-height disc gives a bigger
+        # moon, so the layout goes wide and the moons take separate
+        # lines.
         lines = _render(80, 24)
-        assert _info_row(lines, "Waning Gibbous") < len(lines) - 8
+        assert _info_row(lines, "Full Pink Moon") != _info_row(lines, "New Moon")
 
 
 class TestCompactLayout:

@@ -11,6 +11,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Moon: Drag the disc to turn the Moon over, light and dark with it, and bring the far side round. Let go and it settles back to the face it really shows.
 - Moon: The night side shows the maria faintly in earthshine, most at a thin crescent and not at all near full. It is darker than the sky around it now, as it looks in life, with the halo outlining the disc.
 - Moon: The stars are the real sky around the Moon, from the Yale Bright Star Catalogue, so scrolling through time turns them with the night and the Moon keeps its place among its constellations. They sweep past as the disc is dragged, the way they would if you were circling the Moon.
+- Moon: In a terminal too narrow for the info column, the phase and the status now sit in the top corners of the sky and the rest runs along the bottom, with the disc in the sky between. The day of the month comes before the illumination.
 - Sunshine: The corner that names the place now gives its time too, in both the day and year views, with the day of the week when it is not your own, so a pinned location reads as a world clock.
 
 ## 2.3.1 — 2026-09-03

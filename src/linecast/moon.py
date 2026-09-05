@@ -35,7 +35,7 @@ from pathlib import Path
 
 from linecast._framebuffer import fmt_time_dt
 from linecast._graphics import (
-    fg, RESET, lerp, visible_len, get_terminal_size, Framebuffer, live_loop,
+    lerp, visible_len, get_terminal_size, Framebuffer, live_loop,
 )
 from linecast._i18n import lang_of
 from linecast._location import (
@@ -114,7 +114,7 @@ def _rebuild():
     global MOON_LIT_RGB, MOON_SHADOW_RGB, MOON_NIGHT_RGB, MOON_GLOW_RGB, SKY_RGB
     global STAR_BRIGHT_RGB, STAR_RGB, STAR_DIM_RGB
     global PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
-    global PANEL_FAINT_RGB, INFO_FAINT_RGB
+    global PANEL_FAINT_RGB
     SKY_RGB = _theme.theme_bg
     if theme_legacy_mode:
         MOON_LIT_RGB = (228, 230, 238)
@@ -148,14 +148,12 @@ def _rebuild():
     # side is lit by nothing but Earth; the halo outlines the disc. The
     # calendar's small discs have no halo and keep the lighter shadow.
     MOON_NIGHT_RGB = darken(SKY_RGB, 0.5)
-    # The wide layout's panel sits in the sky, so its inks contrast with
-    # the sky; the stacked layout's lines sit on the page and keep the
-    # page inks.
+    # The info sits in the sky in every layout, so its inks contrast
+    # with the sky rather than the page.
     PANEL_TEXT_RGB = ensure_contrast(INFO_TEXT_RGB, SKY_RGB, minimum=4.5)
     PANEL_DIM_RGB = ensure_contrast(INFO_DIM_RGB, SKY_RGB, minimum=2.0)
     # A shade fainter than dim, for the counsel's source line.
     PANEL_FAINT_RGB = lerp_rgb(SKY_RGB, PANEL_DIM_RGB, 0.62)
-    INFO_FAINT_RGB = lerp_rgb(_theme.theme_bg, INFO_DIM_RGB, 0.62)
     PANEL_AMBER_RGB = ensure_contrast(INFO_AMBER_RGB, SKY_RGB, minimum=2.3)
     PANEL_PURPLE_RGB = ensure_contrast(INFO_PURPLE_RGB, SKY_RGB, minimum=2.3)
 
@@ -666,11 +664,6 @@ def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
-def _center(line, width):
-    pad = max(0, (width - visible_len(line)) // 2)
-    return " " * pad + line
-
-
 def _wrap(text, width):
     """textwrap.wrap without widows: no lone word on the last line."""
     lines = textwrap.wrap(text, width)
@@ -678,14 +671,6 @@ def _wrap(text, width):
         head, last = lines[-2].rsplit(" ", 1)
         lines[-2:] = [head, f"{last} {lines[-1]}"]
     return lines
-
-
-def _first_fit(width, *variants):
-    """The widest variant that fits, or None when even the last overflows."""
-    for variant in variants:
-        if visible_len(variant) <= width:
-            return variant
-    return None
 
 
 def _panel_overlays(panel, x0, row0, graph_w):
@@ -797,8 +782,9 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     Three layouts, by terminal size: a wide terminal floats the info as
     a left-aligned column in the sky beside a full-height disc; a normal
-    one stacks centered lines beneath the disc; a small one shortens or
-    sheds lines rather than letting them wrap. *turn* is the live view's
+    one puts the phase line and the status in the sky's top corners and
+    the rest along the bottom; a small one shortens or sheds lines
+    rather than letting them wrap. *turn* is the live view's
     Turn, the way the user has dragged the disc round, or None.
     """
     idx, _name, icon = moon_phase(now_local, runtime)
@@ -1062,9 +1048,9 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
             [(f" · {head_extra}", T, False)] if head_extra else []),
     ]
     if cal in PACIFIC_CALENDARS:
-        panel.append([(f"{illum_txt} · {age_txt}", D, False)])
+        panel.append([(f"{age_txt} · {illum_txt}", D, False)])
     else:
-        panel += [[(illum_txt, D, False)], [(age_txt, D, False)]]
+        panel += [[(age_txt, D, False)], [(illum_txt, D, False)]]
     panel.append([])
     # The counsel reads the night the headline names, so it goes right
     # here — inserted once the rest of the panel has fixed the column,
@@ -1122,146 +1108,186 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     panel_w = max(visible_len("".join(t for t, _c, _b in line))
                   for line in panel)
     panel_h = len(panel)
+
+    # --- stacked layout: the info in the corners of the sky ---
+    # The phase line sits top left and the status top right; the rest
+    # runs along the bottom, centered, and the disc takes the sky
+    # between. Every line has renderings widest first: a small terminal
+    # takes the first that fits, and a line whose narrowest form still
+    # overflows is dropped rather than left to wrap.
+    def seg_w(segments):
+        return sum(visible_len(t) for t, _c, _b in segments)
+
+    def first_fit(width, *variants):
+        for variant in variants:
+            if seg_w(variant) <= width:
+                return variant
+        return None
+
+    if offset_minutes:
+        status = ([(f"{alt_txt} · {bearing}", T, False)] if up
+                  else [(below_txt, D, False)])
+        status_line = (
+            [(when_txt, A, False), (" · ", T, False)] + status
+            + [(" · ", T, False), (_ts('space_to_now', runtime), D, False)],
+            [(when_txt, A, False), (" · ", T, False)] + status,
+            [(when_txt, A, False)],
+        )
+    elif up:
+        status_line = (
+            [(_ms('up_now', runtime), A, False), (f" · {alt_dir_txt}", T, False)],
+            [(_ms('up_now', runtime), A, False), (f" · {alt:.0f}°", T, False)],
+            [(_ms('up_now', runtime), A, False)],
+        )
+    else:
+        status_line = ([(below_txt, D, False)],)
+
+    # The aside — the age and the illumination — rides on the phase
+    # line when the row has room, and otherwise takes the row beneath,
+    # where it is dim enough to sit against the sky without the disc
+    # making way for it.
+    head = f"{icon} {name}" + (f" · {head_extra}" if head_extra else "")
+    aside_line = (
+        [(f"{age_txt} · {illum_txt}", D, False)],
+        [(age_txt, D, False)],
+    )
+    head_line = (
+        [(head, T, True), (f"  {age_txt} · {illum_txt}", D, False)],
+        [(head, T, True)],
+    )
+    if head_extra:
+        head_line += ([(f"{icon} {name}", T, True)],)
+
+    candidates = []
+    if good_txt:
+        # The counsel leads the bottom lines, wrapped to the width
+        # rather than shed.
+        candidates += [([(seg, D, False)],)
+                       for txt in (good_txt, hold_txt) if txt
+                       for seg in _wrap(txt, graph_w)]
+        if solunar_txt:
+            candidates.append(([(solunar_txt, D, False)],))
+        if attrib_txt:
+            candidates.append(([(attrib_txt, PANEL_FAINT_RGB, False)],))
+    candidates.append((
+        # The countdown roughly doubles this line's width, so keep the
+        # plain labelled time between it and the bare clock times —
+        # otherwise a middle-width terminal drops the labels entirely.
+        [("↑", A, False), (f"{rise_txt}  ", T, False),
+         ("↓", P, False), (set_txt, T, False)],
+        [("↑", A, False), (f"{_ms('moonrise', runtime)} {rise_when}  ", T, False),
+         ("↓", P, False), (f"{_ms('moonset', runtime)} {set_when}", T, False)],
+        [("↑", A, False), (f"{rise_when}  ", T, False),
+         ("↓", P, False), (set_when, T, False)],
+    ))
+    if term_txt:
+        # The calendar line, the festival leading since it is the one
+        # people wait for.
+        candidates.append(
+            ([(f"{term_txt} · ", D, False), (fest_txt, T, False)],
+             [(fest_txt, T, False), (f"  {term_short}", D, False)],
+             [(fest_short, T, False)])
+            if fest_txt else
+            ([(term_txt, D, False)],
+             [(term_short, D, False)]))
+    candidates += [
+        ([(f"{full_txt} · {new_txt}", D, False)],
+         [(f"{full_label} {_fmt_month_day(full_dt, runtime)} · "
+           f"{new_label} {_fmt_month_day(new_dt, runtime)}", D, False)],
+         [(f"{_moon_name(4, runtime)} {_fmt_month_day(full_dt, runtime)}",
+           D, False)]),
+        ([(f"{year_txt} · {season_txt}", D, False)],
+         [(f"{year_txt} · {season_short}", D, False)],
+         [(year_txt, D, False)]),
+    ]
+    bottom = [line for line in (first_fit(graph_w, *c) for c in candidates)
+              if line is not None]
+
+    # The top row holds the phase line and the status together, a
+    # column of air at each edge and two between. When both must give
+    # something up they give it up evenly, the status keeping a little
+    # more: scrubbed away from now it is the line that says when this
+    # is and how to get back. When no renderings of the two share the
+    # row, the status takes the row beneath.
+    room = graph_w - 2
+    pairs = sorted(((ih + i_s, i_s, ih) for ih in range(len(head_line))
+                    for i_s in range(len(status_line))))
+    fit = next(((head_line[ih], status_line[i_s]) for _n, i_s, ih in pairs
+                if seg_w(head_line[ih]) + 2 + seg_w(status_line[i_s]) <= room),
+               None)
+    if fit:
+        head_fit, status_fit = fit
+        top_rows = 1
+    else:
+        head_fit = first_fit(room, *head_line)
+        status_fit = first_fit(room, *status_line)
+        top_rows = 2 if status_fit else 1
+    aside_fit = aside_at = None
+    if head_fit is not head_line[0]:
+        # The aside goes under the name: on the row after the status
+        # when the status took the second row and will not share it.
+        aside_at = 1
+        if top_rows > 1:
+            aside_fit = first_fit(room - 2 - seg_w(status_fit), *aside_line)
+            if aside_fit is None:
+                aside_at = 2
+        if aside_fit is None:
+            aside_fit = first_fit(room, *aside_line)
+
     # Fullscreen fills the terminal exactly (plus the install banner,
     # when present); the plain print leaves two rows for the prompt.
-    chrome = 1 if hint else 0
-    wide_h = max(6, rows - chrome - (0 if fullscreen else 2))
+    reserve = (1 if hint else 0) + (0 if fullscreen else 2)
+    graph_h = max(6, rows - reserve)
     region_w = graph_w - panel_w - 3   # sky left over for the disc
     # Prefer the column: go wide whenever it fits and costs the disc
-    # nothing.  Stacking spends five rows on info, so the sky beside a
-    # full-height disc wins well before the terminal is truly wide.
-    stacked_h = max(6, rows - 5 - chrome - (0 if fullscreen else 2))
-    wide_radius = min(wide_h * 2 * 0.41, region_w * 0.5 - 3.0)
+    # nothing.  Stacking spends a row at the top and several at the
+    # bottom, so the sky beside a full-height disc wins well before
+    # the terminal is truly wide.
+    stacked_h = max(6, graph_h - top_rows - len(bottom))
+    wide_radius = min(graph_h * 2 * 0.41, region_w * 0.5 - 3.0)
     stacked_radius = min(stacked_h * 2 * 0.41, graph_w * 0.5 - 3.0)
-    if wide_radius >= stacked_radius and panel_h + 2 <= wide_h:
-        graph_h = wide_h
+    if wide_radius >= stacked_radius and panel_h + 2 <= graph_h:
         total_spy = graph_h * 2
         radius = max(4.0, wide_radius)
         cx = region_w // 2
         cy = total_spy // 2
         overlays = _panel_overlays(
             panel, graph_w - panel_w - 2, (graph_h - panel_h) // 2, graph_w)
-        fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
-        paint_disc(fb, cx, cy, radius)
-        stars = _star_overlays(fb, cx, cy, radius, sky, taken=overlays.keys(),
-                               turn=rotation)
-        lines = fb.render(overlays={**stars, **overlays})
-        if hint:
-            lines.append(hint)
-        return "\n".join(lines)
-
-    # --- stacked layout: centered lines beneath the disc ---
-    amber = fg(*INFO_AMBER_RGB)
-    purple = fg(*INFO_PURPLE_RGB)
-    text = fg(*INFO_TEXT_RGB)
-    dim = fg(*INFO_DIM_RGB)
-
-    # Candidate renderings per line, widest first; a small terminal takes
-    # the first that fits, and a line whose narrowest form still
-    # overflows is dropped rather than left to wrap.
-    if offset_minutes:
-        status = (f"{text}{alt_txt} · {bearing}" if up
-                  else f"{dim}{below_txt}")
-        status_line = (
-            f"{amber}{when_txt}{text} · {status}{text} · "
-            f"{dim}{_ts('space_to_now', runtime)}{RESET}",
-            f"{amber}{when_txt}{text} · {status}{RESET}",
-            f"{amber}{when_txt}{RESET}",
-        )
-    elif up:
-        status_line = (
-            f"{amber}{_ms('up_now', runtime)}{text} · {alt_dir_txt}{RESET}",
-            f"{amber}{_ms('up_now', runtime)}{text} · {alt:.0f}°{RESET}",
-            f"{amber}{_ms('up_now', runtime)}{RESET}",
-        )
     else:
-        status_line = (f"{dim}{below_txt}{RESET}",)
-
-    if head_extra:
-        head_line = (
-            f"{text}{icon} {name} · {head_extra}  "
-            f"{dim}{illum_txt} · {age_txt}{RESET}",
-            f"{text}{icon} {name} · {head_extra}  {dim}{illum_txt}{RESET}",
-            f"{text}{icon} {name} · {head_extra}{RESET}",
-            f"{text}{icon} {name}{RESET}")
-    else:
-        head_line = (
-            f"{text}{icon} {name}  {dim}{illum_txt} · {age_txt}{RESET}",
-            f"{text}{icon} {name}  {dim}{illum_txt}{RESET}",
-            f"{text}{icon} {name}{RESET}")
-
-    # Fit against cols - 2 so a line that just fits still gets a column
-    # of air at each edge instead of running wall to wall.
-    fit_w = max(20, cols - 2)
-    candidates = [head_line]
-    if good_txt:
-        # The counsel follows the name it reads, wrapped to the width
-        # rather than shed.
-        candidates += [(f"{dim}{seg}{RESET}",)
-                       for txt in (good_txt, hold_txt) if txt
-                       for seg in _wrap(txt, fit_w)]
-        if solunar_txt:
-            candidates.append((f"{dim}{solunar_txt}{RESET}",))
-        if attrib_txt:
-            candidates.append((f"{fg(*INFO_FAINT_RGB)}{attrib_txt}{RESET}",))
-    candidates += [
-        status_line,
-        # The countdown roughly doubles this line's width, so keep the
-        # plain labelled time between it and the bare clock times —
-        # otherwise a middle-width terminal drops the labels entirely.
-        (f"{amber}↑{text}{rise_txt}  {purple}↓{text}{set_txt}{RESET}",
-         f"{amber}↑{text}{_ms('moonrise', runtime)} {rise_when}  "
-         f"{purple}↓{text}{_ms('moonset', runtime)} {set_when}{RESET}",
-         f"{amber}↑{text}{rise_when}  {purple}↓{text}{set_when}{RESET}"),
-    ]
-    if term_txt:
-        # The calendar line, the festival leading since it is the one
-        # people wait for.
-        candidates.append(
-            (f"{dim}{term_txt} · {text}{fest_txt}{RESET}",
-             f"{text}{fest_txt}  {dim}{term_short}{RESET}",
-             f"{text}{fest_short}{RESET}")
-            if fest_txt else
-            (f"{dim}{term_txt}{RESET}",
-             f"{dim}{term_short}{RESET}"))
-    candidates += [
-        (f"{dim}{full_txt} · {new_txt}{RESET}",
-         f"{dim}{full_label} {_fmt_month_day(full_dt, runtime)} · "
-         f"{new_label} {_fmt_month_day(new_dt, runtime)}{RESET}",
-         f"{dim}{_moon_name(4, runtime)} {_fmt_month_day(full_dt, runtime)}{RESET}"),
-        (f"{dim}{year_txt} · {season_txt}{RESET}",
-         f"{dim}{year_txt} · {season_short}{RESET}",
-         f"{dim}{year_txt}{RESET}"),
-    ]
-    info = [line for line in (_first_fit(fit_w, *c) for c in candidates)
-            if line is not None]
-
-    # A very short terminal gives up trailing lines (the least essential
-    # come last) before squeezing the disc below its minimum height.
-    reserve = chrome + (0 if fullscreen else 2)
-    while len(info) > 1 and rows - len(info) - reserve < 6:
-        info.pop()
-
-    graph_h = max(6, rows - len(info) - reserve)
-    total_spy = graph_h * 2
-
-    # Half-block sub-pixels are roughly square, so one radius serves both
-    # axes; the vertical extent is what binds on normal terminals.  The
-    # disc takes ~82% of the graph height, leaving sky above and below.
-    radius = max(4.0, min(total_spy * 0.41, graph_w * 0.5 - 3.0))
-    cx = graph_w // 2
-    cy = total_spy // 2
+        # A short terminal gives up bottom lines (the least essential
+        # come last) before squeezing the disc below six rows of sky.
+        while bottom and graph_h - top_rows - len(bottom) < 6:
+            bottom.pop()
+        band_h = max(1, graph_h - top_rows - len(bottom))
+        band_spy = band_h * 2
+        # Half-block sub-pixels are roughly square, so one radius
+        # serves both axes; the vertical extent is what binds on normal
+        # terminals.  The disc takes ~82% of the band between the top
+        # row and the bottom lines, leaving sky above and below.
+        radius = max(4.0, min(band_spy * 0.41, graph_w * 0.5 - 3.0))
+        cx = graph_w // 2
+        cy = top_rows * 2 + band_spy // 2
+        overlays = {}
+        if head_fit:
+            overlays.update(_panel_overlays([head_fit], 1, 0, graph_w))
+        if aside_fit:
+            overlays.update(_panel_overlays([aside_fit], 1, aside_at, graph_w))
+        if status_fit:
+            overlays.update(_panel_overlays(
+                [status_fit], graph_w - 1 - seg_w(status_fit), top_rows - 1,
+                graph_w))
+        for i, line in enumerate(bottom):
+            overlays.update(_panel_overlays(
+                [line], (graph_w - seg_w(line)) // 2,
+                graph_h - len(bottom) + i, graph_w))
 
     fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
     paint_disc(fb, cx, cy, radius)
-    lines = fb.render(overlays=_star_overlays(fb, cx, cy, radius, sky,
-                                              turn=rotation))
-
-    lines.extend(_center(line, cols) for line in info)
-
+    stars = _star_overlays(fb, cx, cy, radius, sky, taken=overlays.keys(),
+                           turn=rotation)
+    lines = fb.render(overlays={**stars, **overlays})
     if hint:
         lines.append(hint)
-
     return "\n".join(lines)
 
 
