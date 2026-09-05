@@ -454,3 +454,86 @@ class TestCamera:
         app.intercept("back")
         assert app.minutes == 15
         assert app.moment() == NIGHT + timedelta(minutes=15)
+
+
+# ---------------------------------------------------------------------------
+# The search
+# ---------------------------------------------------------------------------
+class TestSearch:
+    def _pool(self, lang="en"):
+        from linecast._sky_search import targets
+        return targets(_runtime(lang=lang))
+
+    def test_finds_by_name_designation_and_constellation(self):
+        from linecast._sky_search import search
+        pool = self._pool()
+        assert search("vega", pool)[0].label == "Vega · α Lyr"
+        assert search("alpha lyr", pool)[0].label == "Vega · α Lyr"
+        assert search("Orion", pool)[0].kind == "constellation"
+        assert search("jup", pool)[0].key == "jupiter"
+        assert search("moon", pool)[0].kind == "moon"
+        assert search("xyzzy", pool) == []
+
+    def test_whole_names_beat_prefixes_and_bright_beats_faint(self):
+        from linecast._sky_search import search
+        labels = [t.label for t in search("ori", self._pool())]
+        assert labels[0] == "Orion"
+        assert labels.index("Rigel · β Ori") < labels.index("Bellatrix · γ Ori")
+
+    def test_the_display_language_names_work(self):
+        from linecast._sky_search import search
+        hits = search("Poissons", self._pool("fr"))
+        assert hits and hits[0].key["id"] == "Psc"
+        assert hits[0].label == "Poissons · Pisces"
+
+    def test_a_thing_not_up_gets_its_rising(self):
+        from linecast._sky_search import describe_rising, next_rising, search
+        pool = self._pool()
+
+        def scene_at(dt):
+            return Scene(dt.astimezone(timezone.utc), LAT, LNG)
+
+        orion = search("orion", pool)[0]
+        assert orion.place(scene_at(NIGHT))[0] < 0.0
+        rising = next_rising(orion, scene_at, NIGHT)
+        assert rising is not None
+        when, az = rising
+        assert NIGHT < when < NIGHT + timedelta(hours=8)
+        assert 45.0 < az < 135.0
+        assert describe_rising(orion, rising, _runtime()).startswith("Orion rises at ")
+        canopus = search("canopus", pool)[0]
+        assert next_rising(canopus, scene_at, NIGHT) is None
+        assert "never rises" in describe_rising(canopus, None, _runtime())
+
+    def test_the_panel_flies_or_offers_the_moment(self):
+        from linecast._sky_live import SkyApp
+        app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
+        assert app.intercept("key:/") and app.search.open and app.text_mode()
+        for ch in "orion":
+            app.intercept(f"char:{ch}")
+        assert app.search.results[0].label == "Orion"
+        app.intercept("key:enter")
+        assert app.search.open and "rises at" in app.search.note and app.search.jump
+        app.intercept("key:enter")
+        assert not app.search.open and app.minutes > 60
+        alt, _az = app.search.pool()[0].place(app.scene_at(app.moment()))  # the Sun
+        assert alt < 0.0   # still night when Orion is up
+        app.intercept("key:/")
+        for ch in "vega":
+            app.intercept(f"char:{ch}")
+        app.intercept("key:enter")
+        assert not app.search.open and app.camera._fly is not None
+        app.intercept("key:/")
+        app.intercept("escape")
+        assert not app.search.open
+        app.stop()
+
+    def test_at_flag_frames_the_target(self):
+        from linecast._sky_search import search
+        pool = self._pool()
+        scene = Scene(NIGHT.astimezone(timezone.utc), LAT, LNG)
+        saturn = search("saturn", pool)[0]
+        alt, az = saturn.place(scene)
+        view = default_view(scene, 100, 30, aim=(alt, az))
+        assert abs(view.az - az) < 1e-9
+        assert 18.0 <= search("orion", pool)[0].fov(110.0) <= 120.0

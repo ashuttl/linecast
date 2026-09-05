@@ -467,6 +467,9 @@ def sky_parser():
                     help="which way to look: a compass point (N, NE, E, …) "
                          "or a bearing in degrees (default: the Moon if it "
                          "is up, else a bright planet, else south)")
+    p.add_argument("--at", default=None,
+                    help="open on a star, planet, or constellation by name "
+                         "(Vega, Jupiter, Orion), zoomed to frame it")
     p.add_argument("--fov", type=float, default=None,
                     help="how many degrees of sky across the screen, 6 to "
                          "236 (default 110; zoom live with + and -)")

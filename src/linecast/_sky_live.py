@@ -26,6 +26,9 @@ from linecast.sky import (
     focal_length, render,
 )
 from linecast._framebuffer import get_terminal_size
+from linecast._sky_search import (
+    SkySearch, Target, describe_rising, next_rising, search_overlay,
+)
 
 TICK = 1 / 30
 ZOOM_STEP = 1.32          # per + or - press
@@ -185,7 +188,10 @@ class Camera:
 
     def zoom(self, factor):
         target = self._zoom[1] if self._zoom is not None else self.fov
-        target = max(FOV_MIN, min(FOV_MAX, target * factor))
+        return self.zoom_to(target * factor)
+
+    def zoom_to(self, target):
+        target = max(FOV_MIN, min(FOV_MAX, target))
         if abs(target - self.fov) < 1e-6:
             return False
         self._zoom = (self.fov, target, time.monotonic())
@@ -211,11 +217,13 @@ class SkyApp(LiveApp):
     scroll_step = 15
 
     def __init__(self, now_fn, lat, lng, runtime, facing=None, fov=FOV_DEFAULT,
-                 location_label=""):
+                 location_label="", aim=None):
         self.now_fn = now_fn
         self.lat, self.lng = lat, lng
         self.runtime = runtime
         self.location_label = location_label
+        self.search = SkySearch(runtime)
+        self._panel_was_open = False
         self.minutes = 0            # the scrub, whole minutes
         self.played = 0.0           # seconds added by play
         self.speed = None           # seconds per second while playing
@@ -226,7 +234,7 @@ class SkyApp(LiveApp):
         from datetime import timezone
         now = now_fn()
         view = default_view(Scene(now.astimezone(timezone.utc), lat, lng), cols, rows,
-                            facing, fov)
+                            facing, fov, aim=aim)
         self.camera = Camera(view.az, view.alt, view.fov)
         self.scene = None
 
@@ -258,18 +266,79 @@ class SkyApp(LiveApp):
             if self.speed is None and not self.camera.moving():
                 return
 
+    # -- search ----------------------------------------------------------
+    def scene_at(self, moment):
+        from datetime import timezone
+        return Scene(moment.astimezone(timezone.utc), self.lat, self.lng)
+
+    def go_to(self, target):
+        """Fly to a found thing if it is up; otherwise say when it rises
+        and offer that moment."""
+        now = self.moment()
+        alt, az = target.place(self.scene_at(now))
+        if alt > 1.0:
+            self.camera.fly_to(az, alt)
+            self.camera.zoom_to(target.fov(self.camera.fov))
+            self.search.close()
+            self._wake()
+            return True
+        rising = next_rising(target, self.scene_at, now)
+        self.search.note = describe_rising(target, rising, self.runtime)
+        self.search.jump = (rising[0], target) if rising else None
+        return True
+
+    def jump(self):
+        """Take the offered moment: the clock moves to a little after the
+        rising, and the view turns to the thing."""
+        from datetime import timedelta
+        when, target = self.search.jump
+        self.minutes = int(round((when + timedelta(minutes=25) - self.now_fn())
+                                 .total_seconds() / 60.0))
+        self.played = 0.0
+        alt, az = target.place(self.scene_at(self.moment()))
+        self.camera.fly_to(az, max(alt, 8.0))
+        self.camera.zoom_to(target.fov(self.camera.fov))
+        self.search.close()
+        self._wake()
+        return True
+
     # -- hooks -----------------------------------------------------------
     def render(self, offset_minutes=0, mouse_pos=None, **_):
         view = self.camera.view()
         now = self.moment()
-        cols, _rows = get_terminal_size()
+        cols, rows = get_terminal_size()
         self.camera.graph_w = max(20, cols - 2)
         self.camera.focal = focal_length(self.camera.graph_w, view.fov)
-        return render(now, self.lat, self.lng, self.runtime, view, fullscreen=True,
-                      offset_minutes=self.offset_minutes(), mouse_pos=mouse_pos,
-                      location_label=self.location_label, speed=self.speed)
+        frame = render(now, self.lat, self.lng, self.runtime, view, fullscreen=True,
+                       offset_minutes=self.offset_minutes(),
+                       mouse_pos=None if self.search.open else mouse_pos,
+                       location_label=self.location_label, speed=self.speed)
+        body, _sep, floating = frame.partition("\x00")
+        if self.search.open:
+            # The field owns the keys; motion reporting is off while it is
+            # open, since a torn motion sequence reads as ESC.
+            self._panel_was_open = True
+            return _live.overlay(body, floating + search_overlay(
+                self.search, cols, rows, self.runtime), motion=False)
+        if self._panel_was_open:
+            self._panel_was_open = False
+            return _live.overlay(body, floating, motion=True)
+        return frame
+
+    def text_mode(self):
+        return self.search.open
 
     def intercept(self, action):
+        if self.search.open:
+            result = self.search.handle(action)
+            if isinstance(result, Target):
+                return self.go_to(result)
+            if result == "jump":
+                return self.jump()
+            return True
+        if action == "key:/":
+            self.search.start()
+            return True
         if action == "fwd":
             self.minutes += self.scroll_step
             return True

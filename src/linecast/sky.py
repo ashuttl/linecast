@@ -1,7 +1,7 @@
 """The night sky from where you stand: stars, planets, the Moon, the Milky Way.
 
 Usage: sky [--print] [--oneline] [--json] [--location PLACE] [--facing DIR]
-           [--fov DEG] [--icons SET] [--emoji] [--lang CODE]
+           [--at NAME] [--fov DEG] [--icons SET] [--emoji] [--lang CODE]
 
 You stand at your location and look out: the horizon runs along the
 bottom with the compass points under it, and the sky above holds the
@@ -25,7 +25,8 @@ move through time; `+` and `-` zoom; `p` plays time at an hour a
 second, then a day, then a week; `c` cycles the constellation figures
 and names; `1`–`8` face the compass points in turn and `9` looks
 straight up; `m` faces the Moon; space returns to now. Point at
-anything for its name.
+anything for its name, or press `/` and type one: a star, a planet, or
+a constellation, and the view flies to it, or says when it will rise.
 
 Positions come from `_ephemeris.py` and `_planets.py`, good to a few
 arcminutes, which is finer than a cell at the closest zoom.
@@ -981,17 +982,22 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
 # ---------------------------------------------------------------------------
 # Choosing where to look
 # ---------------------------------------------------------------------------
-def default_view(scene, cols, rows, facing=None, fov=FOV_DEFAULT):
-    """Where to look first: the Moon if it is up, else the brightest planet
-    up in a dark sky, else south (north below the equator), with the
-    horizon just above the bottom of the screen."""
+def default_view(scene, cols, rows, facing=None, fov=FOV_DEFAULT, aim=None):
+    """Where to look first: the thing `aim` names as (alt, az) if given,
+    else the Moon if it is up, else the brightest planet up in a dark
+    sky, else south (north below the equator), with the horizon just
+    above the bottom of the screen."""
     graph_w, graph_h = max(20, cols - 2), max(6, rows - 3)
     f = focal_length(graph_w, fov)
     # The altitude at the top and bottom edges, looking level.
     half_v = math.degrees(2.0 * math.atan(graph_h / (2.0 * f)))
     alt = max(8.0, min(45.0, half_v - 7.0))
     target_alt = None
-    if facing is not None:
+    if aim is not None:
+        target_alt, az = aim
+        if target_alt < alt:
+            alt = max(8.0, target_alt + half_v * 0.3)
+    elif facing is not None:
         az = facing
     elif scene.moon_alt > 5.0:
         az, target_alt = scene.moon_az, scene.moon_alt
@@ -1050,6 +1056,16 @@ def main():
     except ValueError as exc:
         parser.error(str(exc))
     fov = max(FOV_MIN, min(FOV_MAX, args.fov)) if args.fov else FOV_DEFAULT
+    aim = None
+    if args.at:
+        from linecast._sky_search import search, targets
+        found = search(args.at, targets(runtime), limit=1)
+        if not found:
+            parser.error(f"nothing in the sky called {args.at!r}")
+        target = found[0]
+        aim = target.place(Scene(_now().astimezone(timezone.utc), lat, lng))
+        if not args.fov:
+            fov = target.fov(FOV_DEFAULT)
 
     if runtime.json_mode:
         import json
@@ -1068,10 +1084,11 @@ def main():
         now = _now()
         cols, rows = get_terminal_size()
         view = default_view(Scene(now.astimezone(timezone.utc), lat, lng),
-                            cols, rows, facing, fov)
+                            cols, rows, facing, fov, aim=aim)
         print(render(now, lat, lng, runtime, view, location_label=label))
         return
-    SkyApp(_now, lat, lng, runtime, facing=facing, fov=fov, location_label=label).run()
+    SkyApp(_now, lat, lng, runtime, facing=facing, fov=fov, location_label=label,
+           aim=aim).run()
 
 
 if __name__ == "__main__":
