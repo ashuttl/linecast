@@ -1,0 +1,223 @@
+"""Sky command localization strings.
+
+The constellation names come with the catalogue (see _sky_catalogue) and
+the star names are the IAU's, the same in every language; the compass
+points are the radar's, and the twilight names the sunshine view's. What
+is left is the Sun, the Moon, the planets, and a few phrases.
+"""
+
+from linecast._i18n import lang_of, lookup
+
+_SKY_STRINGS = {
+    "en": {
+        "sun": "Sun", "moon": "Moon",
+        "mercury": "Mercury", "venus": "Venus", "mars": "Mars",
+        "jupiter": "Jupiter", "saturn": "Saturn", "uranus": "Uranus",
+        "neptune": "Neptune",
+        "facing": "facing {dir}",
+        "field_of_view": "{deg}° wide",
+        "overhead": "overhead",
+        "planets_none": "no planets up",
+        "star": "star",
+    },
+    "fr": {
+        "sun": "Soleil", "moon": "Lune",
+        "mercury": "Mercure", "venus": "Vénus", "mars": "Mars",
+        "jupiter": "Jupiter", "saturn": "Saturne", "uranus": "Uranus",
+        "neptune": "Neptune",
+        "facing": "vers {dir}",
+        "field_of_view": "{deg}° de champ",
+        "overhead": "au zénith",
+        "planets_none": "aucune planète visible",
+        "star": "étoile",
+    },
+    "es": {
+        "sun": "Sol", "moon": "Luna",
+        "mercury": "Mercurio", "venus": "Venus", "mars": "Marte",
+        "jupiter": "Júpiter", "saturn": "Saturno", "uranus": "Urano",
+        "neptune": "Neptuno",
+        "facing": "hacia el {dir}",
+        "field_of_view": "{deg}° de campo",
+        "overhead": "en el cenit",
+        "planets_none": "ningún planeta visible",
+        "star": "estrella",
+    },
+    "de": {
+        "sun": "Sonne", "moon": "Mond",
+        "mercury": "Merkur", "venus": "Venus", "mars": "Mars",
+        "jupiter": "Jupiter", "saturn": "Saturn", "uranus": "Uranus",
+        "neptune": "Neptun",
+        "facing": "Blick nach {dir}",
+        "field_of_view": "{deg}° Sichtfeld",
+        "overhead": "im Zenit",
+        "planets_none": "keine Planeten am Himmel",
+        "star": "Stern",
+    },
+    "it": {
+        "sun": "Sole", "moon": "Luna",
+        "mercury": "Mercurio", "venus": "Venere", "mars": "Marte",
+        "jupiter": "Giove", "saturn": "Saturno", "uranus": "Urano",
+        "neptune": "Nettuno",
+        "facing": "verso {dir}",
+        "field_of_view": "{deg}° di campo",
+        "overhead": "allo zenit",
+        "planets_none": "nessun pianeta visibile",
+        "star": "stella",
+    },
+    "pt": {
+        "sun": "Sol", "moon": "Lua",
+        "mercury": "Mercúrio", "venus": "Vênus", "mars": "Marte",
+        "jupiter": "Júpiter", "saturn": "Saturno", "uranus": "Urano",
+        "neptune": "Netuno",
+        "facing": "virado a {dir}",
+        "field_of_view": "{deg}° de campo",
+        "overhead": "no zênite",
+        "planets_none": "nenhum planeta visível",
+        "star": "estrela",
+    },
+    "nl": {
+        "sun": "Zon", "moon": "Maan",
+        "mercury": "Mercurius", "venus": "Venus", "mars": "Mars",
+        "jupiter": "Jupiter", "saturn": "Saturnus", "uranus": "Uranus",
+        "neptune": "Neptunus",
+        "facing": "kijkend naar {dir}",
+        "field_of_view": "{deg}° breed",
+        "overhead": "in het zenit",
+        "planets_none": "geen planeten te zien",
+        "star": "ster",
+    },
+    "pl": {
+        "sun": "Słońce", "moon": "Księżyc",
+        "mercury": "Merkury", "venus": "Wenus", "mars": "Mars",
+        "jupiter": "Jowisz", "saturn": "Saturn", "uranus": "Uran",
+        "neptune": "Neptun",
+        "facing": "kierunek {dir}",
+        "field_of_view": "{deg}° pola",
+        "overhead": "w zenicie",
+        "planets_none": "brak planet nad horyzontem",
+        "star": "gwiazda",
+    },
+    "no": {
+        "sun": "Solen", "moon": "Månen",
+        "mercury": "Merkur", "venus": "Venus", "mars": "Mars",
+        "jupiter": "Jupiter", "saturn": "Saturn", "uranus": "Uranus",
+        "neptune": "Neptun",
+        "facing": "mot {dir}",
+        "field_of_view": "{deg}° bredt",
+        "overhead": "i senit",
+        "planets_none": "ingen planeter oppe",
+        "star": "stjerne",
+    },
+    "sv": {
+        "sun": "Solen", "moon": "Månen",
+        "mercury": "Merkurius", "venus": "Venus", "mars": "Mars",
+        "jupiter": "Jupiter", "saturn": "Saturnus", "uranus": "Uranus",
+        "neptune": "Neptunus",
+        "facing": "mot {dir}",
+        "field_of_view": "{deg}° brett",
+        "overhead": "i zenit",
+        "planets_none": "inga planeter uppe",
+        "star": "stjärna",
+    },
+    "is": {
+        "sun": "Sólin", "moon": "Tunglið",
+        "mercury": "Merkúríus", "venus": "Venus", "mars": "Mars",
+        "jupiter": "Júpíter", "saturn": "Satúrnus", "uranus": "Úranus",
+        "neptune": "Neptúnus",
+        "facing": "í {dir}",
+        "field_of_view": "{deg}° breitt",
+        "overhead": "í hvirfilpunkti",
+        "planets_none": "engar reikistjörnur á lofti",
+        "star": "stjarna",
+    },
+    "da": {
+        "sun": "Solen", "moon": "Månen",
+        "mercury": "Merkur", "venus": "Venus", "mars": "Mars",
+        "jupiter": "Jupiter", "saturn": "Saturn", "uranus": "Uranus",
+        "neptune": "Neptun",
+        "facing": "mod {dir}",
+        "field_of_view": "{deg}° bredt",
+        "overhead": "i zenit",
+        "planets_none": "ingen planeter oppe",
+        "star": "stjerne",
+    },
+    "fi": {
+        "sun": "Aurinko", "moon": "Kuu",
+        "mercury": "Merkurius", "venus": "Venus", "mars": "Mars",
+        "jupiter": "Jupiter", "saturn": "Saturnus", "uranus": "Uranus",
+        "neptune": "Neptunus",
+        "facing": "suunta {dir}",
+        "field_of_view": "{deg}° leveä",
+        "overhead": "zeniitissä",
+        "planets_none": "ei planeettoja näkyvissä",
+        "star": "tähti",
+    },
+    "ja": {
+        "sun": "太陽", "moon": "月",
+        "mercury": "水星", "venus": "金星", "mars": "火星",
+        "jupiter": "木星", "saturn": "土星", "uranus": "天王星",
+        "neptune": "海王星",
+        "facing": "{dir}を向く",
+        "field_of_view": "視野{deg}°",
+        "overhead": "天頂",
+        "planets_none": "見える惑星なし",
+        "star": "恒星",
+    },
+    "ko": {
+        "sun": "태양", "moon": "달",
+        "mercury": "수성", "venus": "금성", "mars": "화성",
+        "jupiter": "목성", "saturn": "토성", "uranus": "천왕성",
+        "neptune": "해왕성",
+        "facing": "{dir} 방향",
+        "field_of_view": "시야 {deg}°",
+        "overhead": "천정",
+        "planets_none": "보이는 행성 없음",
+        "star": "별",
+    },
+    "zh": {
+        "sun": "太阳", "moon": "月亮",
+        "mercury": "水星", "venus": "金星", "mars": "火星",
+        "jupiter": "木星", "saturn": "土星", "uranus": "天王星",
+        "neptune": "海王星",
+        "facing": "面向{dir}",
+        "field_of_view": "视野{deg}°",
+        "overhead": "天顶",
+        "planets_none": "无可见行星",
+        "star": "恒星",
+    },
+    "th": {
+        "sun": "ดวงอาทิตย์", "moon": "ดวงจันทร์",
+        "mercury": "ดาวพุธ", "venus": "ดาวศุกร์", "mars": "ดาวอังคาร",
+        "jupiter": "ดาวพฤหัสบดี", "saturn": "ดาวเสาร์", "uranus": "ดาวยูเรนัส",
+        "neptune": "ดาวเนปจูน",
+        "facing": "หันไปทาง {dir}",
+        "field_of_view": "กว้าง {deg}°",
+        "overhead": "กลางศีรษะ",
+        "planets_none": "ไม่มีดาวเคราะห์บนท้องฟ้า",
+        "star": "ดาวฤกษ์",
+    },
+    "id": {
+        "sun": "Matahari", "moon": "Bulan",
+        "mercury": "Merkurius", "venus": "Venus", "mars": "Mars",
+        "jupiter": "Jupiter", "saturn": "Saturnus", "uranus": "Uranus",
+        "neptune": "Neptunus",
+        "facing": "menghadap {dir}",
+        "field_of_view": "lebar {deg}°",
+        "overhead": "di zenit",
+        "planets_none": "tidak ada planet terlihat",
+        "star": "bintang",
+    },
+}
+
+# The scripts whose constellation names are not set in capitals on the
+# chart: capitals are a Latin-alphabet convention.
+NO_CAPITALS = frozenset({"ja", "ko", "zh", "th"})
+
+
+def _sk(key, runtime, **kwargs):
+    return lookup(_SKY_STRINGS, key, lang_of(runtime), **kwargs)
+
+
+def body_name(key, runtime):
+    """The Sun, the Moon, or a planet by its key, in the display language."""
+    return _sk(key, runtime)

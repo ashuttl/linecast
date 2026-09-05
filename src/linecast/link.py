@@ -19,7 +19,7 @@ import sys
 from linecast import _runtime
 from linecast._runtime import VersionAction
 
-SHORT_NAMES = ("weather", "sunshine", "moon", "tides", "radar", "maps")
+SHORT_NAMES = ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps")
 
 
 def _binary():

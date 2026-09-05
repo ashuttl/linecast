@@ -457,6 +457,25 @@ def moon_parser():
     return p
 
 
+def sky_parser():
+    p = _base_parser("linecast sky",
+                      "The night sky from where you stand: stars, planets, "
+                      "the Moon, and the Milky Way")
+    p.add_argument("--location", default=None,
+                    help="location as 'lat,lng' or place name")
+    p.add_argument("--facing", default=None,
+                    help="which way to look: a compass point (N, NE, E, …) "
+                         "or a bearing in degrees (default: the Moon if it "
+                         "is up, else a bright planet, else south)")
+    p.add_argument("--fov", type=float, default=None,
+                    help="how many degrees of sky across the screen, 6 to "
+                         "236 (default 110; zoom live with + and -)")
+    _add_clock_flags(p)
+    p.add_argument("--json", dest="json_mode", action="store_true",
+                    help="machine-readable JSON output (implies --print)")
+    return p
+
+
 def radar_parser():
     p = _base_parser("linecast radar",
                       "Terminal weather radar over a braille basemap (US + global)")

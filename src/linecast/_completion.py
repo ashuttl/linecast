@@ -39,10 +39,10 @@ LANG_CODES = (
 SHELLS = ("bash", "zsh", "fish", "nu", "nushell")
 
 # The argparse-driven commands, in the order their flags are emitted.
-COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps")
+COMMANDS = ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps")
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
-TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps",
+TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps",
                       "location", "language", "units", "clock", "icons", "calendar",
                       "link", "doctor",
                       "completion")
@@ -371,7 +371,7 @@ _linecast_complete() {{
 
   cmd="${{COMP_WORDS[1]}}"
   case "$cmd" in
-    weather|tides|sunshine|moon|radar|maps|location|language|units|clock|icons|calendar|link|doctor|completion)
+    weather|tides|sunshine|moon|sky|radar|maps|location|language|units|clock|icons|calendar|link|doctor|completion)
       _linecast_complete_command "$cmd"
       ;;
   esac
@@ -552,7 +552,7 @@ _linecast() {{
     fi
     cmd="${{words[2]}}"
     case "$cmd" in
-      weather|tides|sunshine|moon|radar|maps|location|language|units|clock|icons|calendar|link|doctor|completion)
+      weather|tides|sunshine|moon|sky|radar|maps|location|language|units|clock|icons|calendar|link|doctor|completion)
         _linecast_complete_command "$cmd"
         ;;
     esac

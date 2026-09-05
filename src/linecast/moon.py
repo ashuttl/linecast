@@ -293,7 +293,7 @@ def _star_color(t):
 
 
 # The stars are the real sky around the Moon: the Yale Bright Star
-# Catalogue to magnitude 5.5 (see scripts/build_star_catalogue.py),
+# Catalogue (see scripts/build_sky_catalogue.py and _sky_catalogue),
 # placed about the Moon's true position for the moment, with celestial
 # north turned by the parallactic angle the disc already follows. So
 # scrolling through time wheels the sky with the night and walks the

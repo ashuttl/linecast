@@ -15,13 +15,14 @@
 
 ![linecast weather, sunshine, tides, and radar tiled on an Omarchy desktop](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
 
-linecast turns free public data into six live, mouse-friendly terminal apps for macOS, Linux, and Windows. It is pure Python with no dependencies (two on Windows), takes its colors from your terminal theme, and needs no accounts or API keys.
+linecast turns free public data into seven live, mouse-friendly terminal apps for macOS, Linux, and Windows. It is pure Python with no dependencies (two on Windows), takes its colors from your terminal theme, and needs no accounts or API keys.
 
 | Command | What it shows |
 | --- | --- |
 | `linecast weather` | Current conditions, hourly temperatures, a seven-day forecast, air quality, how today compares with normal, and official alerts |
 | `linecast sunshine` | The sun on its daily arc, with the color of the sky, day length, and moon phase |
 | `linecast moon` | The moon as you see it from where you are, with rise and set times and the next full and new moons |
+| `linecast sky` | The night sky from where you stand: the stars, the constellations, the planets, the Moon, and the Milky Way |
 | `linecast tides` | A tide curve shaded by daylight, the water level now, and the times of high and low tide |
 | `linecast radar` | Animated radar or satellite imagery for the whole world, with warnings, temperature, and wind |
 | `linecast maps` | Street maps, terrain, and a globe you can spin, with live daylight and clouds, place search, and directions |
@@ -74,7 +75,7 @@ linecast maps --view terrain --location "Innsbruck"
 linecast maps --to "Portland Head Light" --profile bike
 ```
 
-`--print` gives one static frame, and piped output gets one automatically. Weather, sunshine, moon, and tides also have `--json`, and `--oneline` for a status bar.
+`--print` gives one static frame, and piped output gets one automatically. Weather, sunshine, moon, sky, and tides also have `--json`, and `--oneline` for a status bar.
 
 ![an animated version of the hero screenshot, showing the weather radar moving](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.gif)
 
@@ -120,6 +121,12 @@ The moon can also follow a traditional calendar, with that calendar's date besid
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon-okinawa.png" width="49%" alt="the moon over Okinawa in Japanese: 十六夜, the sixteenth night of the eighth month">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon-calendar.png" width="49%" alt="the month calendar for September 2026 in Japanese, with 十五夜 on the 25th and the pointer on it">
 </p>
+
+### Sky
+
+`sky` is the night sky from where you stand. The horizon runs along the bottom with the compass points under it, and above it are the real stars for the moment, the constellation figures drawn faintly through them with their names, the planets marked and named, the Moon at its phase and tilt, and the Milky Way once the sky is dark enough. By day the sky is blue and holds only the Sun, and perhaps Venus. Scroll into the evening and the sky goes through its twilight colors while the stars come out one by one, brightest first.
+
+Drag to look around, and let go while moving to coast. `+` and `-` zoom: as the view closes in, fainter stars and more names appear, and the Moon grows into the disc the moon view draws. Zoom all the way out while looking up and the horizon closes into a circle, the whole sky at once, the way the almanacs print it. `p` plays time at an hour a second, then a day, then a week, so you can watch the stars wheel and the Moon run through its phases; space returns to now. `c` cycles the constellation figures and names, `1` to `8` face the compass points, `9` looks straight up, and `m` faces the Moon. Point at anything for its name, and `--facing SW` or `--fov 40` open the view where you want it.
 
 ### Tides
 
@@ -250,7 +257,7 @@ linecast icons nerd
 
 ### Short names and shell completion
 
-`linecast link` makes `weather`, `sunshine`, `moon`, `tides`, `radar`, and `maps` links beside the `linecast` binary, skipping any name something else already owns; `linecast link --remove` takes them away. A shell alias does the same job.
+`linecast link` makes `weather`, `sunshine`, `moon`, `sky`, `tides`, `radar`, and `maps` links beside the `linecast` binary, skipping any name something else already owns; `linecast link --remove` takes them away. A shell alias does the same job.
 
 ```sh
 # Bash

@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Sky: A new view, `linecast sky`, draws the night sky from where you stand: the stars for the moment, the constellation figures and their names, the planets, the Moon at its phase, the Sun, and the Milky Way once the sky is dark. Drag to look around, zoom with `+` and `-`, scroll through time, and press `p` to watch the night pass. `--json` and `--oneline` say what is up.
 - Weather: MeteoAlarm warnings for Transnistria and Gagauzia in Moldova, and for five more Dutch coastal waters, now reach the place they name. The region data is refreshed to MeteoAlarm's July 2026 list.
 - `linecast` on its own now sorts the commands into the six views, the settings, and housekeeping, and ends with the moon's phase tonight.
 - `linecast language fr` saves the language for every run, the way `linecast units` and `linecast clock` save theirs. `--lang` still picks one for a single run.

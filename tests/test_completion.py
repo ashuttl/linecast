@@ -56,7 +56,7 @@ class CompletionScriptTests(unittest.TestCase):
 
     def test_zsh_completion_includes_namespace_and_standalone_commands(self):
         script = render_completion("zsh")
-        self.assertIn("compdef _linecast linecast weather sunshine moon tides radar maps",
+        self.assertIn("compdef _linecast linecast weather sunshine moon sky tides radar maps",
                       script)
         self.assertIn("_linecast_complete_command", script)
 
@@ -64,7 +64,7 @@ class CompletionScriptTests(unittest.TestCase):
         script = render_completion("fish")
         self.assertIn(
             "complete -c linecast -f -n '__fish_use_subcommand' "
-            "-a 'weather sunshine moon tides radar maps location language units clock "
+            "-a 'weather sunshine moon sky tides radar maps location language units clock "
             "icons calendar link doctor completion'",
             script,
         )

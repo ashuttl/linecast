@@ -5,11 +5,12 @@ import sys
 from linecast._completion import available_shells, completion_help, render_completion
 
 HELP = """\
-linecast {version} — weather, sunlight, the moon, tides, radar, and maps for the terminal
+linecast {version} — weather, sunlight, the moon, the sky, tides, radar, and maps for the terminal
 
   linecast weather     Conditions now, the day's temperature curve, the forecast, and alerts
   linecast sunshine    The sun's arc across the sky, dawn to dusk, or the whole year
   linecast moon        The moon as it looks tonight, its rise and set, and a month calendar
+  linecast sky         The stars, planets, and Milky Way over you, as you would see them
   linecast tides       Tide chart from the nearest station, or a global model where there is none
   linecast radar       Weather radar over a map, the last hour and the next
   linecast maps        Street maps, hillshaded terrain, and routes
@@ -59,6 +60,7 @@ COMMANDS = {
     "weather": "linecast.weather",
     "sunshine": "linecast.sunshine",
     "moon": "linecast.moon",
+    "sky": "linecast.sky",
     "tides": "linecast.tides",
     "radar": "linecast.radar",
     "maps": "linecast.maps",
@@ -80,7 +82,7 @@ COMMANDS = {
 # distro packages that link or copy the binary under a short name. Only
 # these dispatch: the utility commands (location, units, doctor) have no
 # standalone spelling to honour.
-STANDALONE = ("weather", "sunshine", "moon", "tides", "radar", "maps")
+STANDALONE = ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps")
 
 
 def _run(cmd, args):
