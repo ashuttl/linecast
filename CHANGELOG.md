@@ -6,6 +6,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 - `linecast` on its own now sorts the commands into the six views, the settings, and housekeeping, and ends with the moon's phase tonight.
 - `linecast language fr` saves the language for every run, the way `linecast units` and `linecast clock` save theirs. `--lang` still picks one for a single run.
+- linecast now speaks the terminal's language when it is one of the eighteen it knows, read from `LANG` the way other command-line tools read it. It spoke English until asked. `linecast language en` keeps English.
 - Cache files are now readable only by the user who owns them.
 - Weather: Alert details stay legible when a live view follows the terminal from a dark theme to a light one.
 - Weather: An alert drops off the board once it expires. An alert kept from an earlier fetch could stay listed for as long as its provider was unreachable.

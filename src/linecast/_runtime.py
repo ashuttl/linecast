@@ -3,6 +3,7 @@
 import argparse
 from dataclasses import dataclass
 import os
+import re
 import sys
 
 
@@ -230,29 +231,49 @@ def resolve_clock(namespace=None, environ=None, country=_UNSET):
     return default_clock(country), "auto"
 
 
+# The locale variables, in the order gettext consults them.  LANGUAGE is
+# a colon-separated list of preferences; the other three name one locale.
+LOCALE_VARS = ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG")
+
+
+def language_of(value):
+    """The two-letter language a locale-style value names, or None.
+
+    "fr", "fr-FR", "de_DE.UTF-8", and "EN_us" name their language in the
+    leading letters.  "C", "POSIX", "C.UTF-8", and three-letter codes such
+    as "fil_PH" name none linecast could act on, and neither does junk.
+    """
+    letters = re.match(r"[a-z]*", (value or "").strip().lower()).group()
+    return letters if len(letters) == 2 else None
+
+
 def resolve_lang(namespace=None, environ=None):
     """The language for this run, and where it came from.
 
     Returns (code, source); source is "flag", "LINECAST_LANG", "config",
+    the name of the locale variable that decided it (one of LOCALE_VARS),
     or "default".  Precedence: --lang, LINECAST_LANG, the `language` key
-    in config.json (`linecast language fr`), then English.  A value that
-    is not a two-letter code is ignored, as it always was.
+    in config.json (`linecast language fr`), the terminal's locale, then
+    English.  A value that does not name a two-letter language is ignored.
     """
-    from linecast._i18n import is_language_code
     env = _environ(environ)
     candidates = (
         (getattr(namespace, "lang", None) if namespace is not None else None, "flag"),
         (env.get("LINECAST_LANG", ""), "LINECAST_LANG"),
     )
     for value, source in candidates:
-        # fr-FR and en_US name their language in the first two letters
-        value = (value or "").strip().lower()[:2]
-        if is_language_code(value):
-            return value, source
+        code = language_of(value)
+        if code is not None:
+            return code, source
     from linecast._config import saved_language
     saved = saved_language()
     if saved is not None:
         return saved, "config"
+    for name in LOCALE_VARS:
+        for value in env.get(name, "").split(":"):
+            code = language_of(value)
+            if code is not None:
+                return code, name
     return "en", "default"
 
 

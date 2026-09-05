@@ -36,6 +36,27 @@ class LanguageCommandTests(ConfigDirMixin):
             language._cmd_show()
         self.assertIn("fr  French  [fixed]", out.getvalue())
 
+    def test_show_names_the_locale_that_decided(self):
+        out = io.StringIO()
+        with patch.dict(os.environ, {"LANG": "ja_JP.UTF-8"}), redirect_stdout(out):
+            language._cmd_show()
+        self.assertIn("ja  Japanese  [auto: LANG=ja_JP.UTF-8]", out.getvalue())
+        self.assertIn("linecast language <code>", out.getvalue())
+
+    def test_auto_reports_what_the_terminal_gives(self):
+        with redirect_stdout(io.StringIO()):
+            language._cmd_set("fr")
+        out = io.StringIO()
+        with patch.dict(os.environ, {"LANG": "de_DE.UTF-8"}), redirect_stdout(out):
+            language._cmd_auto()
+        self.assertIsNone(_config.saved_language())
+        self.assertIn("auto (de German, from LANG)", out.getvalue())
+
+        out = io.StringIO()
+        with redirect_stdout(out):
+            language._cmd_auto()
+        self.assertIn("auto (English)", out.getvalue())
+
     def test_show_lists_every_language_by_default(self):
         out = io.StringIO()
         with redirect_stdout(out):
@@ -102,6 +123,46 @@ class ResolveLangTests(ConfigDirMixin):
     def test_junk_env_value_falls_through(self):
         _config.write_config({"language": "fr"})
         self.assertEqual(resolve_lang(None, {"LINECAST_LANG": "7"}), ("fr", "config"))
+
+    def test_the_terminal_locale_decides_when_nothing_is_saved(self):
+        self.assertEqual(resolve_lang(None, {"LANG": "de_DE.UTF-8"}), ("de", "LANG"))
+
+    def test_config_beats_the_locale(self):
+        _config.write_config({"language": "fr"})
+        self.assertEqual(resolve_lang(None, {"LANG": "de_DE.UTF-8"}), ("fr", "config"))
+
+    def test_linecast_lang_beats_the_locale(self):
+        self.assertEqual(resolve_lang(None, {"LINECAST_LANG": "ja", "LANG": "de_DE.UTF-8"}),
+                         ("ja", "LINECAST_LANG"))
+
+    def test_locale_variables_in_gettext_order(self):
+        env = {"LANG": "de_DE.UTF-8", "LC_MESSAGES": "fr_FR.UTF-8",
+               "LC_ALL": "sv_SE.UTF-8", "LANGUAGE": "ja:de"}
+        self.assertEqual(resolve_lang(None, env), ("ja", "LANGUAGE"))
+        del env["LANGUAGE"]
+        self.assertEqual(resolve_lang(None, env), ("sv", "LC_ALL"))
+        env["LC_ALL"] = ""
+        self.assertEqual(resolve_lang(None, env), ("fr", "LC_MESSAGES"))
+        del env["LC_MESSAGES"]
+        self.assertEqual(resolve_lang(None, env), ("de", "LANG"))
+
+    def test_a_language_list_skips_entries_that_name_none(self):
+        self.assertEqual(resolve_lang(None, {"LANGUAGE": "C:fil_PH:pt_BR"}),
+                         ("pt", "LANGUAGE"))
+
+    def test_the_c_and_posix_locales_mean_english(self):
+        for value in ("C", "POSIX", "C.UTF-8", "c.utf8", ""):
+            with self.subTest(value=value):
+                self.assertEqual(resolve_lang(None, {"LANG": value, "LC_ALL": value}),
+                                 ("en", "default"))
+
+    def test_a_three_letter_code_is_not_trimmed_to_two(self):
+        # fil_PH is Filipino, not Finnish
+        self.assertEqual(resolve_lang(None, {"LANG": "fil_PH"}), ("en", "default"))
+        self.assertEqual(resolve_lang(None, {"LINECAST_LANG": "fil"}), ("en", "default"))
+
+    def test_an_english_locale_is_english_from_the_locale(self):
+        self.assertEqual(resolve_lang(None, {"LANG": "en_GB.UTF-8"}), ("en", "LANG"))
 
 
 class RuntimeLangTests(ConfigDirMixin):

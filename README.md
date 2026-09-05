@@ -213,7 +213,7 @@ Every view command takes `--metric` and `--imperial` for one run, and the ones t
 
 ### Language
 
-`linecast language fr` saves the language, `--lang` or `LINECAST_LANG` picks one for a run, and `linecast language auto` returns to English. There are eighteen:
+linecast speaks the terminal's language when it is one it knows, read from `LANG` and the other locale variables the way most command-line tools read them, and English otherwise. `linecast language fr` saves a language instead, `--lang` or `LINECAST_LANG` picks one for a run, and `linecast language auto` goes back to following the terminal. There are eighteen:
 
 > English, French, Spanish, German, Italian, Portuguese, Dutch, Polish, Norwegian, Swedish, Icelandic, Danish, Finnish, Japanese, Korean, Chinese, Thai, and Indonesian
 
@@ -292,7 +292,7 @@ The six view commands and `linecast doctor` take `--debug`, which prints a line 
 | `WEATHER_UNITS` | Units for the weather command; overrides `LINECAST_UNITS` |
 | `TIDES_UNITS` | Units for tide heights; overrides `LINECAST_UNITS` |
 | `LINECAST_CLOCK` | `12` or `24`; overrides the saved clock |
-| `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, `th`, or `id` |
+| `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, `th`, or `id`; overrides the saved language and the terminal's locale |
 | `LINECAST_ICONS` | `nerd`, `emoji`, or `plain`; overrides the saved icons |
 | `LINECAST_COLOR` | `auto`, `truecolor`, `256`, `16`, or `none` |
 | `NO_COLOR` | Any non-empty value disables ANSI colors |
