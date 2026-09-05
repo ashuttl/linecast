@@ -438,6 +438,33 @@ def _glow(fb, x, y, rgb, radius, alpha, cam, f, cx, cy):
             px[sy][sx] = lerp(px[sy][sx], rgb, math.exp(-0.5 * (dist / sigma) ** 2) * alpha)
 
 
+def _behind_the_horizon(fb, x, y, radius, cam, f, cx, cy, draw):
+    """Run *draw*, then give the ground back wherever it looks below the
+    horizon within *radius* of (x, y): a rising Sun or Moon is cut by
+    the skyline, blended across the sub-pixel the horizon crosses as
+    the sky pass blends it."""
+    u0, u1, u2 = cam[2], cam[5], cam[8]
+    scan = int(radius) + 3
+    x0, x1 = max(0, int(x) - scan), min(fb.graph_w, int(x) + scan + 1)
+    y0, y1 = max(0, int(y) - scan), min(fb.total_spy, int(y) + scan + 1)
+    px = fb.fb
+    saved = [row[x0:x1] for row in px[y0:y1]]
+    draw()
+    inv2f = 1.0 / (2.0 * f)
+    for sy in range(y0, y1):
+        v = (cy - (sy + 0.5)) * inv2f
+        row, before = px[sy], saved[sy - y0]
+        for sx in range(x0, x1):
+            u = (sx + 0.5 - cx) * inv2f
+            d = 1.0 + u * u + v * v
+            vx, vy, vz = 2.0 * u / d, 2.0 * v / d, (2.0 - d) / d
+            edge = (vx * u0 + vy * u1 + vz * u2) * f * d
+            if edge < -0.5:
+                row[sx] = before[sx - x0]
+            elif edge < 0.5:
+                row[sx] = lerp(before[sx - x0], row[sx], edge + 0.5)
+
+
 def _draw_disc(fb, x, y, radius, rgb):
     """A filled, anti-aliased disc of *radius* sub-pixels at (x, y)."""
     edge = 0.6
@@ -652,7 +679,8 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         lift = max(0.0, min(1.0, (scene.sun_alt + 3.0) / 6.0))
         _glow(fb, sx, sy, SUN_GLOW_RGB, glow, 0.9 * lift, cam, f, cx, cy)
         if scene.sun_alt > -0.9:
-            _draw_disc(fb, sx, sy, radius, SUN_DOT_RGB)
+            _behind_the_horizon(fb, sx, sy, radius, cam, f, cx, cy,
+                                lambda: _draw_disc(fb, sx, sy, radius, SUN_DOT_RGB))
         hits.append((sx, sy, "sun", None))
 
     # --- the Moon ---
@@ -674,12 +702,13 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         cell = fb.cell_bg(max(0, min(graph_w - 1, int(mx))),
                           max(0, min(graph_h - 1, int(my) // 2)))
         up = _screen_up_deg(moon_cam, cam, f, cx, cy)
-        _draw_moon_disc(fb, int(round(mx)), int(round(my)), radius, illum,
-                        up + scene.moon_limb, up + scene.moon_axis, None,
-                        night=lerp(cell, darken(NIGHT_RGB, 0.5), dark),
-                        lit=lerp((253, 253, 255), MOON_LIT_RGB, dark),
-                        contrast=0.35 + 0.65 * dark, earthshine=dark,
-                        dusk=0.4 * (1.0 - dark))
+        _behind_the_horizon(fb, mx, my, radius, cam, f, cx, cy, lambda: _draw_moon_disc(
+            fb, int(round(mx)), int(round(my)), radius, illum,
+            up + scene.moon_limb, up + scene.moon_axis, None,
+            night=lerp(cell, darken(NIGHT_RGB, 0.5), dark),
+            lit=lerp((253, 253, 255), MOON_LIT_RGB, dark),
+            contrast=0.35 + 0.65 * dark, earthshine=dark,
+            dusk=0.4 * (1.0 - dark)))
         hits.append((mx, my, "moon", None))
 
     # --- the stars, gathered ---
