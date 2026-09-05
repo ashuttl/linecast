@@ -64,8 +64,8 @@ class CompletionScriptTests(unittest.TestCase):
         script = render_completion("fish")
         self.assertIn(
             "complete -c linecast -f -n '__fish_use_subcommand' "
-            "-a 'weather sunshine moon tides radar maps location units clock icons "
-            "calendar link doctor completion'",
+            "-a 'weather sunshine moon tides radar maps location language units clock "
+            "icons calendar link doctor completion'",
             script,
         )
         self.assertIn(
@@ -154,6 +154,25 @@ class CompletionScriptTests(unittest.TestCase):
         for sub in CALENDAR_SUBCOMMANDS:
             self.assertIn(f'export extern "linecast calendar {sub}"', nu)
             self.assertIn(f'export extern "calendar {sub}"', nu)
+
+    def test_language_subcommands_list_every_language(self):
+        """`linecast language` takes every code linecast has strings for,
+        plus show and auto; every shell offers them all."""
+        from linecast._completion import LANGUAGE_SUBCOMMANDS
+        from linecast._i18n import LANGUAGE_CODES
+        self.assertEqual(set(LANGUAGE_SUBCOMMANDS), set(LANGUAGE_CODES) | {"show", "auto"})
+        bash = render_completion("bash")
+        zsh = render_completion("zsh")
+        fish = render_completion("fish")
+        nu = render_completion("nu")
+        joined = " ".join(LANGUAGE_SUBCOMMANDS)
+        self.assertIn(f'COMPREPLY+=( $(compgen -W "{joined}" -- "$cur") )', bash)
+        self.assertIn(f"compadd -- {joined}", zsh)
+        self.assertIn(f"complete -c linecast -f -n '__fish_seen_subcommand_from language' "
+                      f"-a '{joined}'", fish)
+        for sub in LANGUAGE_SUBCOMMANDS:
+            self.assertIn(f'export extern "linecast language {sub}"', nu)
+            self.assertIn(f'export extern "language {sub}"', nu)
 
     def _moon_calendar_choices(self):
         for action in _runtime.moon_parser()._actions:

@@ -230,6 +230,32 @@ def resolve_clock(namespace=None, environ=None, country=_UNSET):
     return default_clock(country), "auto"
 
 
+def resolve_lang(namespace=None, environ=None):
+    """The language for this run, and where it came from.
+
+    Returns (code, source); source is "flag", "LINECAST_LANG", "config",
+    or "default".  Precedence: --lang, LINECAST_LANG, the `language` key
+    in config.json (`linecast language fr`), then English.  A value that
+    is not a two-letter code is ignored, as it always was.
+    """
+    from linecast._i18n import is_language_code
+    env = _environ(environ)
+    candidates = (
+        (getattr(namespace, "lang", None) if namespace is not None else None, "flag"),
+        (env.get("LINECAST_LANG", ""), "LINECAST_LANG"),
+    )
+    for value, source in candidates:
+        # fr-FR and en_US name their language in the first two letters
+        value = (value or "").strip().lower()[:2]
+        if is_language_code(value):
+            return value, source
+    from linecast._config import saved_language
+    saved = saved_language()
+    if saved is not None:
+        return saved, "config"
+    return "en", "default"
+
+
 def units_pref(env_var="WEATHER_UNITS", environ=None):
     """The user's explicit units preference, or None if they have none.
 
@@ -290,8 +316,9 @@ def _base_parser(prog, description):
     p.add_argument("--emoji", action="store_true",
                     help="use standard emoji icons (same as --icons emoji)")
     p.add_argument("--lang", default=None,
-                    help="UI language code (en, fr, es, de, it, pt, nl, pl, "
-                         "no, sv, is, da, fi, id, ja, ko, zh, th)")
+                    help="language code (en, fr, es, de, it, pt, nl, pl, "
+                         "no, sv, is, da, fi, ja, ko, zh, th, or id); "
+                         "'linecast language' saves one")
     p.add_argument("--classic-colors", action="store_true",
                     help="use pre-theme fixed color palette")
     p.add_argument("--legacy-colors", action="store_true",
@@ -637,18 +664,14 @@ class RuntimeConfig:
         if namespace.debug and not _DEBUG:
             set_debug(True)
             _log_startup()
-        lang = (
-            namespace.lang
-            or env.get("LINECAST_LANG", "").strip()
-            or "en"
-        ).lower()[:2]
+        lang, _source = resolve_lang(namespace, env)
         units, _source = resolve_units(namespace, env, cls._legacy_units_env,
                                        country)
         clock, _source = resolve_clock(namespace, env, country)
         return cls(
             live=_resolve_live(namespace),
             icons=_resolve_icons(namespace, env),
-            lang=lang if len(lang) == 2 and lang.isalpha() else "en",
+            lang=lang,
             oneline=namespace.oneline,
             json_mode=getattr(namespace, "json_mode", False),
             metric=units == "metric",

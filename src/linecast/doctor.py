@@ -256,8 +256,8 @@ def _human(n):
 # ---------------------------------------------------------------------------
 def _collect_paths():
     from linecast._config import (
-        config_file, read_config, saved_clock, saved_icons, saved_location,
-        saved_units,
+        config_file, read_config, saved_clock, saved_icons, saved_language,
+        saved_location, saved_units,
     )
     from linecast._paths import cache_root
     settings = config_file()
@@ -271,6 +271,8 @@ def _collect_paths():
         loc = saved_location()
         if loc is not None:
             keys.append("location")
+        if saved_language() is not None:
+            keys.append("language")
         if saved_units() is not None:
             keys.append("units")
         if saved_clock() is not None:
@@ -278,7 +280,8 @@ def _collect_paths():
         if saved_icons() is not None:
             keys.append("icons")
         keys.extend(sorted(k for k in config
-                           if k not in ("location", "units", "clock", "icons")))
+                           if k not in ("location", "language", "units",
+                                        "clock", "icons")))
     root = cache_root()
     exists = os.path.isdir(root)
     writable, reason = cache_writable(root)
@@ -385,8 +388,8 @@ def _collect_preferences():
         location, location_source = "(set)", "config"
     else:
         location, location_source = "auto (IP geolocation)", "auto"
-    lang_env = env.get("LINECAST_LANG", "").strip()
-    language = (lang_env or "en").lower()[:2]
+    from linecast._runtime import resolve_lang
+    language, language_source = resolve_lang(None, env)
     from linecast._config import saved_calendar
     from linecast._lunisolar import CALENDAR_OF_LANG
     saved_cal = saved_calendar()
@@ -406,7 +409,7 @@ def _collect_preferences():
         "location": location,
         "location_source": location_source,
         "language": language,
-        "language_source": "LINECAST_LANG" if lang_env else "default",
+        "language_source": language_source,
         "calendar": calendar,
         "calendar_source": calendar_source,
     }

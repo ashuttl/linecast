@@ -213,12 +213,12 @@ Every view command takes `--metric` and `--imperial` for one run, and the ones t
 
 ### Language
 
-`--lang` or `LINECAST_LANG` picks the language. There are eighteen:
+`linecast language fr` saves the language, `--lang` or `LINECAST_LANG` picks one for a run, and `linecast language auto` returns to English. There are eighteen:
 
 > English, French, Spanish, German, Italian, Portuguese, Dutch, Polish, Norwegian, Swedish, Icelandic, Danish, Finnish, Japanese, Korean, Chinese, Thai, and Indonesian
 
 ```sh
-linecast weather --lang fr
+linecast language fr
 linecast radar --lang zh
 ```
 

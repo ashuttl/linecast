@@ -16,11 +16,13 @@ linecast {version} — weather, sunlight, the moon, tides, radar, and maps for t
 
 Settings (run alone to show, give a value to set):
   linecast location    A fixed place, instead of the one your IP address suggests
+  linecast language    en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh, th, or id
   linecast units       metric or imperial
   linecast clock       12-hour or 24-hour
   linecast icons       nerd, emoji, or plain
   linecast calendar    Which calendar the moon follows: chinese, japanese, korean, thai,
                        hawaiian, samoan, chamorro, refaluwasch, islamic, hebrew, almanac, or none
+  For one run, a flag: --location "Québec" or 41.88,-87.63, --lang fr, --imperial, --24h
 
 Housekeeping:
   linecast link        Make weather, moon, … short commands beside linecast
@@ -61,6 +63,7 @@ COMMANDS = {
     "radar": "linecast.radar",
     "maps": "linecast.maps",
     "location": "linecast.location",
+    "language": "linecast.language",
     "units": "linecast.units",
     "clock": "linecast.clock",
     "icons": "linecast.icons",

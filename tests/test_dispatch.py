@@ -101,6 +101,12 @@ class Argv0DispatchTests(unittest.TestCase):
     def test_python_m_linecast_is_not_dispatched(self):
         self._expect_help("/somewhere/linecast/__main__.py")
 
+    def test_help_names_every_language(self):
+        from linecast._i18n import LANGUAGE_CODES
+        for code in LANGUAGE_CODES:
+            with self.subTest(code=code):
+                self.assertRegex(cli.HELP, rf"\b{code}\b")
+
     def test_help_names_every_calendar(self):
         from linecast._config import CALENDAR_CHOICES
         for name in CALENDAR_CHOICES:

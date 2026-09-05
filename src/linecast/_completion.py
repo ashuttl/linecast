@@ -4,13 +4,14 @@ The per-command flags are read from the argparse parsers in _runtime,
 so a flag added there reaches every shell's completion without a
 parallel list here. Only the pieces argparse does not know about stay
 in this module: the top-level `linecast` dispatcher (hand-rolled in
-__main__), the location/units/clock/icons/calendar/doctor subcommands, and the value lists
+__main__), the location/language/units/clock/icons/calendar/doctor subcommands, and the value lists
 for flags whose parsers accept free text.
 """
 
 from __future__ import annotations
 
 from linecast._config import CALENDAR_CHOICES
+from linecast._i18n import LANGUAGE_CODES
 
 # --lang accepts any code; the parser lists these in its help text but
 # has no `choices`, so the completion offers them from here.
@@ -42,10 +43,15 @@ COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps")
 
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
 TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "tides", "radar", "maps",
-                      "location", "units", "clock", "icons", "calendar", "link", "doctor",
+                      "location", "language", "units", "clock", "icons", "calendar",
+                      "link", "doctor",
                       "completion")
 LOCATION_SUBCOMMANDS = ("show", "set", "auto", "search")
 LOCATION_FLAGS = ("--help", "-h", "--version")
+# `linecast language` takes the codes linecast has strings for; the
+# list is _i18n's so the two cannot drift.
+LANGUAGE_SUBCOMMANDS = ("show", *LANGUAGE_CODES, "auto")
+LANGUAGE_FLAGS = ("--help", "-h", "--version")
 UNITS_SUBCOMMANDS = ("show", "metric", "imperial", "auto")
 UNITS_FLAGS = ("--help", "-h", "--version")
 CLOCK_SUBCOMMANDS = ("show", "12", "24", "auto")
@@ -197,6 +203,8 @@ def _bash_script(flags_by_command):
     completion = _SPACE.join(COMPLETION_FLAGS)
     location = _SPACE.join(LOCATION_FLAGS)
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
+    language = _SPACE.join(LANGUAGE_FLAGS)
+    language_sub = _SPACE.join(LANGUAGE_SUBCOMMANDS)
     units = _SPACE.join(UNITS_FLAGS)
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
     clock = _SPACE.join(CLOCK_FLAGS)
@@ -314,6 +322,10 @@ _linecast_complete_command() {{
       _linecast_complete_flags {location}
       COMPREPLY+=( $(compgen -W "{location_sub}" -- "$cur") )
       ;;
+    language)
+      _linecast_complete_flags {language}
+      COMPREPLY+=( $(compgen -W "{language_sub}" -- "$cur") )
+      ;;
     units)
       _linecast_complete_flags {units}
       COMPREPLY+=( $(compgen -W "{units_sub}" -- "$cur") )
@@ -359,7 +371,7 @@ _linecast_complete() {{
 
   cmd="${{COMP_WORDS[1]}}"
   case "$cmd" in
-    weather|tides|sunshine|moon|radar|maps|location|units|clock|icons|calendar|link|doctor|completion)
+    weather|tides|sunshine|moon|radar|maps|location|language|units|clock|icons|calendar|link|doctor|completion)
       _linecast_complete_command "$cmd"
       ;;
   esac
@@ -380,6 +392,8 @@ def _zsh_script(flags_by_command):
     completion = _SPACE.join(COMPLETION_FLAGS)
     location = _SPACE.join(LOCATION_FLAGS)
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
+    language = _SPACE.join(LANGUAGE_FLAGS)
+    language_sub = _SPACE.join(LANGUAGE_SUBCOMMANDS)
     units = _SPACE.join(UNITS_FLAGS)
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
     clock = _SPACE.join(CLOCK_FLAGS)
@@ -494,6 +508,10 @@ _linecast_complete_command() {{
       _linecast_add_flags {location}
       compadd -- {location_sub}
       ;;
+    language)
+      _linecast_add_flags {language}
+      compadd -- {language_sub}
+      ;;
     units)
       _linecast_add_flags {units}
       compadd -- {units_sub}
@@ -534,7 +552,7 @@ _linecast() {{
     fi
     cmd="${{words[2]}}"
     case "$cmd" in
-      weather|tides|sunshine|moon|radar|maps|location|units|clock|icons|calendar|link|doctor|completion)
+      weather|tides|sunshine|moon|radar|maps|location|language|units|clock|icons|calendar|link|doctor|completion)
         _linecast_complete_command "$cmd"
         ;;
     esac
@@ -573,6 +591,7 @@ def _fish_script(flags_by_command):
     commands = _SPACE.join(TOP_LEVEL_COMMANDS)
     shells = _SPACE.join(SHELLS)
     location_sub = _SPACE.join(LOCATION_SUBCOMMANDS)
+    language_sub = _SPACE.join(LANGUAGE_SUBCOMMANDS)
     units_sub = _SPACE.join(UNITS_SUBCOMMANDS)
     clock_sub = _SPACE.join(CLOCK_SUBCOMMANDS)
     icons_sub = _SPACE.join(ICONS_SUBCOMMANDS)
@@ -586,6 +605,8 @@ def _fish_script(flags_by_command):
         "complete -c linecast -f -n '__fish_seen_subcommand_from completion' -l help -s h",
         f"complete -c linecast -f -n '__fish_seen_subcommand_from location' -a '{location_sub}'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from location' -l help -s h",
+        f"complete -c linecast -f -n '__fish_seen_subcommand_from language' -a '{language_sub}'",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from language' -l help -s h",
         f"complete -c linecast -f -n '__fish_seen_subcommand_from units' -a '{units_sub}'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from units' -l help -s h",
         f"complete -c linecast -f -n '__fish_seen_subcommand_from clock' -a '{clock_sub}'",
@@ -664,6 +685,8 @@ def _nu_script(flags_by_command):
     lines.extend(_nu_value_list("linecast-shells", SHELLS))
     lines.extend(_nu_value_list("linecast-location-subcommands",
                                 LOCATION_SUBCOMMANDS))
+    lines.extend(_nu_value_list("linecast-language-subcommands",
+                                LANGUAGE_SUBCOMMANDS))
     lines.extend(_nu_value_list("linecast-units-subcommands",
                                 UNITS_SUBCOMMANDS))
     lines.extend(_nu_value_list("linecast-clock-subcommands",
@@ -697,6 +720,13 @@ def _nu_script(flags_by_command):
             positional = ["query?: string"] if sub in ("set", "search") else []
             lines.extend(_nu_extern(f"{prefix}location {sub}", version_only,
                                     positional))
+        lines.extend(_nu_extern(
+            f"{prefix}language",
+            version_only,
+            ['subcommand?: string@"nu-complete linecast-language-subcommands"'],
+        ))
+        for sub in LANGUAGE_SUBCOMMANDS:
+            lines.extend(_nu_extern(f"{prefix}language {sub}", version_only))
         lines.extend(_nu_extern(
             f"{prefix}units",
             version_only,
