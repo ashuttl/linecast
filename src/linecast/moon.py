@@ -25,7 +25,6 @@ returns to this month, and clicking a day opens it in the disc view.
 
 import calendar
 import math
-import struct
 import sys
 import textwrap
 import threading
@@ -306,21 +305,12 @@ def _star_color(t):
 # lets a drag carry the sky round the other way, as the background does
 # when you walk round a statue, at about half again the surface's pace.
 _STAR_FOCAL = 1.5
-_stars = None
 
 
 def _load_stars():
     """[(ra_rad, dec_rad)] brightest first, from the bundled catalogue."""
-    global _stars
-    if _stars is None:
-        try:
-            data = (Path(__file__).parent / "data" / "stars.bin").read_bytes()
-            _stars = [(math.radians(ra / 100.0), math.radians(dec / 100.0))
-                      for ra, dec, _mag in struct.iter_unpack("<Hhb", data)]
-        except Exception as exc:
-            log_failure("stars", "star catalogue load", exc, fallback="no stars")
-            _stars = []
-    return _stars
+    from linecast._sky_catalogue import star_positions
+    return star_positions()
 
 
 def _star_direction(ra, dec, sky):
