@@ -58,8 +58,10 @@ class Geom:
         return self.gw == other.gw and self.hc == other.hc
 
     def same_centre(self, other):
-        return (abs(self.lat - other.lat) < 1e-9
-                and abs(_lon_delta(self.lon, other.lon)) < 1e-9)
+        # a millimetre: the centres come through a bbox and back, and
+        # the last bits differ
+        return (abs(self.lat - other.lat) < 1e-8
+                and abs(_lon_delta(self.lon, other.lon)) < 1e-8)
 
     def overlap(self, other):
         """A rough fraction of `other`'s window this one covers, 0..1.

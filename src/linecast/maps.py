@@ -32,6 +32,7 @@ Usage: maps [--location LAT,LNG | PLACE] [--zoom DEG] [--view MODE]
 import functools
 import sys
 import threading
+import time
 
 from linecast import (
     _builtup, _climate, _globe, _globe_now, _maps_hover, _maps_motion,
@@ -316,6 +317,16 @@ def _shade_now(buf, lls, sun, canvas, lights, glow=None, night=None):
 
 
 _globe_baking = threading.Lock()   # one globe frame bakes at a time
+_globe_baked = [0.0]               # when the last bake started
+# Seconds between bakes while the globe turns.  A bake is a third of a
+# second of pure Python, and while it runs the interpreter's lock goes
+# to it far more than to the frames: a re-projected frame that takes
+# 8 ms alone takes 60 to 150 with a bake beside it, whatever the
+# switch interval.  So the bakes are spaced out — smooth motion with a
+# brief stutter at each, rather than a uniform crawl — and the frames
+# between are the last bake re-projected, which is exact geometry a
+# degree or two stale.
+BAKE_GAP = 1.5
 
 
 def _globe_frame(lat0, lon0, zoom, graph_w, height_cells, block, lang,
@@ -391,8 +402,12 @@ def _bake_globe(lat0, lon0, zoom, graph_w, height_cells, lang, street,
     time, at whatever rate the arithmetic allows, each becoming the
     keyframe the next placeholders are cut from.
     """
+    now = time.monotonic()
+    if now - _globe_baked[0] < BAKE_GAP:
+        return
     if not _globe_baking.acquire(blocking=False):
         return
+    _globe_baked[0] = now
 
     def bake():
         try:

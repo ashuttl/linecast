@@ -37,7 +37,6 @@ from linecast.maps import (
 
 
 TICK = 1 / 30
-SWITCH_INTERVAL = 0.001   # seconds between thread switches while moving
 ZOOM_EASE = 0.28          # seconds for a zoom step to land
 COAST_HALF_LIFE = 0.22    # seconds for a flick's speed to halve
 COAST_FLOOR = 0.5         # cells per second below which a coast stops
@@ -323,20 +322,11 @@ class MapApp(LiveApp):
                 self._ticker.start()
 
     def _tick(self):
-        # While frames are due, the interpreter hands the lock between
-        # threads more often: a loader in the background is pure Python
-        # for seconds at a time, and at the default interval it can keep
-        # the repaint waiting for a tenth of one.
-        interval = sys.getswitchinterval()
-        sys.setswitchinterval(min(interval, SWITCH_INTERVAL))
-        try:
-            while True:
-                time.sleep(TICK)
-                _nudge_repaint()
-                if not self.camera.moving():
-                    return
-        finally:
-            sys.setswitchinterval(interval)
+        while True:
+            time.sleep(TICK)
+            _nudge_repaint()
+            if not self.camera.moving():
+                return
 
     # -- moving ----------------------------------------------------------
     def zoom_to(self, new_zoom, at=None):
