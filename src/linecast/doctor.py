@@ -399,6 +399,15 @@ def _collect_preferences():
         native = CALENDAR_OF_LANG.get(language)
         calendar = native or "none"
         calendar_source = f"auto: {language}" if native else "auto"
+    from linecast._config import saved_culture
+    from linecast._sky_catalogue import CULTURE_OF_LANG
+    saved_culture_ = saved_culture()
+    if saved_culture_ is not None:
+        culture, culture_source = saved_culture_, "config"
+    else:
+        native = CULTURE_OF_LANG.get(language)
+        culture = native or "none"
+        culture_source = f"auto: {language}" if native else "auto"
     return {
         "units": weather,
         "units_source": weather_source,
@@ -412,6 +421,8 @@ def _collect_preferences():
         "language_source": language_source,
         "calendar": calendar,
         "calendar_source": calendar_source,
+        "culture": culture,
+        "culture_source": culture_source,
     }
 
 
@@ -537,6 +548,7 @@ def render(report):
             else f" ({prefs['location_source']})")),
         ("language", f"{prefs['language']} ({prefs['language_source']})"),
         ("calendar", f"{prefs['calendar']} ({prefs['calendar_source']})"),
+        ("culture", f"{prefs['culture']} ({prefs['culture_source']})"),
     ]
     out += [""] + _section("preferences", rows)
 

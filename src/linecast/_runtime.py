@@ -473,6 +473,12 @@ def sky_parser():
     p.add_argument("--fov", type=float, default=None,
                     help="how many degrees of sky across the screen, 6 to "
                          "236 (default 110; zoom live with + and -)")
+    from linecast._config import CULTURE_CHOICES
+    p.add_argument("--culture", choices=CULTURE_CHOICES, default=None,
+                    help="draw another tradition's constellations and star "
+                         "names in place of the IAU's (t steps through them "
+                         "live; 'linecast culture' saves one). Default: "
+                         "chinese with --lang zh; the IAU sky otherwise")
     _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")

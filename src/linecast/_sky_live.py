@@ -217,12 +217,13 @@ class SkyApp(LiveApp):
     scroll_step = 15
 
     def __init__(self, now_fn, lat, lng, runtime, facing=None, fov=FOV_DEFAULT,
-                 location_label="", aim=None):
+                 location_label="", aim=None, culture=None):
         self.now_fn = now_fn
         self.lat, self.lng = lat, lng
         self.runtime = runtime
         self.location_label = location_label
-        self.search = SkySearch(runtime)
+        self.culture = culture
+        self.search = SkySearch(runtime, culture=culture)
         self._panel_was_open = False
         self.minutes = 0            # the scrub, whole minutes
         self.played = 0.0           # seconds added by play
@@ -304,7 +305,7 @@ class SkyApp(LiveApp):
 
     # -- hooks -----------------------------------------------------------
     def render(self, offset_minutes=0, mouse_pos=None, **_):
-        view = self.camera.view()
+        view = self.camera.view()._replace(culture=self.culture)
         now = self.moment()
         cols, rows = get_terminal_size()
         self.camera.graph_w = max(20, cols - 2)
@@ -363,6 +364,14 @@ class SkyApp(LiveApp):
             changed = cam.zoom(ZOOM_STEP)
         elif key == "c":
             cam.figures = (cam.figures + 2) % 3   # 2 → 1 → 0 → 2
+            return True
+        elif key == "t":
+            # The traditions in turn, the IAU sky between rounds.
+            from linecast._config import CULTURE_CHOICES
+            order = [c for c in CULTURE_CHOICES if c != "none"]
+            i = order.index(self.culture) + 1 if self.culture in order else 0
+            self.culture = order[i] if i < len(order) else None
+            self.search.set_culture(self.culture)
             return True
         elif key == "p":
             if self.speed is None:

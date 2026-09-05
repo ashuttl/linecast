@@ -10,7 +10,7 @@ for flags whose parsers accept free text.
 
 from __future__ import annotations
 
-from linecast._config import CALENDAR_CHOICES
+from linecast._config import CALENDAR_CHOICES, CULTURE_CHOICES
 from linecast._i18n import LANGUAGE_CODES
 
 # --lang accepts any code; the parser lists these in its help text but
@@ -44,7 +44,7 @@ COMMANDS = ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps")
 GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
 TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps",
                       "location", "language", "units", "clock", "icons", "calendar",
-                      "link", "doctor",
+                      "culture", "link", "doctor",
                       "completion")
 LOCATION_SUBCOMMANDS = ("show", "set", "auto", "search")
 LOCATION_FLAGS = ("--help", "-h", "--version")
@@ -62,6 +62,10 @@ ICONS_FLAGS = ("--help", "-h", "--version")
 # show and auto; the list is _config's so the two cannot drift.
 CALENDAR_SUBCOMMANDS = ("show", *CALENDAR_CHOICES, "auto")
 CALENDAR_FLAGS = ("--help", "-h", "--version")
+# `linecast culture` takes the same names as sky's --culture, plus show
+# and auto; the list is _config's so the two cannot drift.
+CULTURE_SUBCOMMANDS = ("show", *CULTURE_CHOICES, "auto")
+CULTURE_FLAGS = ("--help", "-h", "--version")
 DOCTOR_FLAGS = ("--help", "-h", "--version", "--offline", "--json", "--debug")
 COMPLETION_FLAGS = ("--help", "-h")
 
@@ -213,6 +217,8 @@ def _bash_script(flags_by_command):
     icons_sub = _SPACE.join(ICONS_SUBCOMMANDS)
     calendar = _SPACE.join(CALENDAR_FLAGS)
     calendar_sub = _SPACE.join(CALENDAR_SUBCOMMANDS)
+    culture = _SPACE.join(CULTURE_FLAGS)
+    culture_sub = _SPACE.join(CULTURE_SUBCOMMANDS)
     doctor = _SPACE.join(DOCTOR_FLAGS)
     link = _words(link_flags)
     shells = _SPACE.join(SHELLS)
@@ -342,6 +348,10 @@ _linecast_complete_command() {{
       _linecast_complete_flags {calendar}
       COMPREPLY+=( $(compgen -W "{calendar_sub}" -- "$cur") )
       ;;
+    culture)
+      _linecast_complete_flags {culture}
+      COMPREPLY+=( $(compgen -W "{culture_sub}" -- "$cur") )
+      ;;
     doctor)
       _linecast_complete_flags {doctor}
       ;;
@@ -371,7 +381,7 @@ _linecast_complete() {{
 
   cmd="${{COMP_WORDS[1]}}"
   case "$cmd" in
-    weather|tides|sunshine|moon|sky|radar|maps|location|language|units|clock|icons|calendar|link|doctor|completion)
+    weather|tides|sunshine|moon|sky|radar|maps|location|language|units|clock|icons|calendar|culture|link|doctor|completion)
       _linecast_complete_command "$cmd"
       ;;
   esac
@@ -402,6 +412,8 @@ def _zsh_script(flags_by_command):
     icons_sub = _SPACE.join(ICONS_SUBCOMMANDS)
     calendar = _SPACE.join(CALENDAR_FLAGS)
     calendar_sub = _SPACE.join(CALENDAR_SUBCOMMANDS)
+    culture = _SPACE.join(CULTURE_FLAGS)
+    culture_sub = _SPACE.join(CULTURE_SUBCOMMANDS)
     doctor = _SPACE.join(DOCTOR_FLAGS)
     link = _words(link_flags)
     shells = _SPACE.join(SHELLS)
@@ -528,6 +540,10 @@ _linecast_complete_command() {{
       _linecast_add_flags {calendar}
       compadd -- {calendar_sub}
       ;;
+    culture)
+      _linecast_add_flags {culture}
+      compadd -- {culture_sub}
+      ;;
     doctor)
       _linecast_add_flags {doctor}
       ;;
@@ -552,7 +568,7 @@ _linecast() {{
     fi
     cmd="${{words[2]}}"
     case "$cmd" in
-      weather|tides|sunshine|moon|sky|radar|maps|location|language|units|clock|icons|calendar|link|doctor|completion)
+      weather|tides|sunshine|moon|sky|radar|maps|location|language|units|clock|icons|calendar|culture|link|doctor|completion)
         _linecast_complete_command "$cmd"
         ;;
     esac
@@ -596,6 +612,7 @@ def _fish_script(flags_by_command):
     clock_sub = _SPACE.join(CLOCK_SUBCOMMANDS)
     icons_sub = _SPACE.join(ICONS_SUBCOMMANDS)
     calendar_sub = _SPACE.join(CALENDAR_SUBCOMMANDS)
+    culture_sub = _SPACE.join(CULTURE_SUBCOMMANDS)
     lines = [
         "# fish completion for linecast",
         f"complete -c linecast -f -n '__fish_use_subcommand' -a '{commands}'",
@@ -615,6 +632,8 @@ def _fish_script(flags_by_command):
         "complete -c linecast -f -n '__fish_seen_subcommand_from icons' -l help -s h",
         f"complete -c linecast -f -n '__fish_seen_subcommand_from calendar' -a '{calendar_sub}'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from calendar' -l help -s h",
+        f"complete -c linecast -f -n '__fish_seen_subcommand_from culture' -a '{culture_sub}'",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from culture' -l help -s h",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l help -s h",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l version",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l offline",
@@ -695,6 +714,8 @@ def _nu_script(flags_by_command):
                                 ICONS_SUBCOMMANDS))
     lines.extend(_nu_value_list("linecast-calendar-subcommands",
                                 CALENDAR_SUBCOMMANDS))
+    lines.extend(_nu_value_list("linecast-culture-subcommands",
+                                CULTURE_SUBCOMMANDS))
     lines.extend([
         'export extern "linecast" [',
         "    --version(-v) # Show version",
@@ -755,6 +776,13 @@ def _nu_script(flags_by_command):
         ))
         for sub in CALENDAR_SUBCOMMANDS:
             lines.extend(_nu_extern(f"{prefix}calendar {sub}", version_only))
+        lines.extend(_nu_extern(
+            f"{prefix}culture",
+            version_only,
+            ['subcommand?: string@"nu-complete linecast-culture-subcommands"'],
+        ))
+        for sub in CULTURE_SUBCOMMANDS:
+            lines.extend(_nu_extern(f"{prefix}culture {sub}", version_only))
         lines.extend(_nu_extern(f"{prefix}doctor", [
             *version_only, "    --offline", "    --json", "    --debug"]))
 

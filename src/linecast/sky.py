@@ -1,7 +1,8 @@
 """The night sky from where you stand: stars, planets, the Moon, the Milky Way.
 
 Usage: sky [--print] [--oneline] [--json] [--location PLACE] [--facing DIR]
-           [--at NAME] [--fov DEG] [--icons SET] [--emoji] [--lang CODE]
+           [--at NAME] [--fov DEG] [--culture NAME] [--icons SET] [--emoji]
+           [--lang CODE]
 
 You stand at your location and look out: the horizon runs along the
 bottom with the compass points under it, and the sky above holds the
@@ -27,6 +28,10 @@ and names; `1`–`8` face the compass points in turn and `9` looks
 straight up; `m` faces the Moon; space returns to now. Point at
 anything for its name, or press `/` and type one: a star, a planet, or
 a constellation, and the view flies to it, or says when it will rise.
+`t` steps through the sky cultures: the constellations and star names
+of twenty-two traditions besides the IAU's, from the Chinese lunar
+mansions to the Hawaiian star lines; `--culture` or `linecast culture`
+picks one to open on, and Chinese brings its own with the language.
 
 Positions come from `_ephemeris.py` and `_planets.py`, good to a few
 arcminutes, which is finer than a cell at the closest zoom.
@@ -61,8 +66,9 @@ from linecast._runtime import (
     RuntimeConfig, install_banner, set_current, sky_parser,
 )
 from linecast._sky_catalogue import (
-    MILKY_WAY_H, MILKY_WAY_W, constellation_name, constellations,
-    milky_way, star_names, star_vectors, stars,
+    MILKY_WAY_H, MILKY_WAY_W, constellation_name, constellations, culture_title,
+    figures_for, milky_way, names_for, resolve_culture, star_names, star_vectors,
+    stars,
 )
 from linecast._sky_i18n import NO_CAPITALS, _sk, body_name
 from linecast._sunshine_i18n import sky_phase
@@ -160,11 +166,12 @@ _LIMIT_BY_SUN = [
     (-3.0, -0.4), (0.0, -2.4), (5.0, -3.9), (90.0, -4.4),
 ]
 
-View = namedtuple("View", "az alt fov figures")
+View = namedtuple("View", "az alt fov figures culture", defaults=(None,))
 View.__doc__ = """Where the view looks: azimuth and altitude of its centre
-in degrees, the field of view across the screen in degrees, and how much
-of the constellations to draw (0 nothing, 1 the figures, 2 the figures
-and their names)."""
+in degrees, the field of view across the screen in degrees, how much of
+the constellations to draw (0 nothing, 1 the figures, 2 the figures and
+their names), and the sky culture whose constellations and star names
+those are, or None for the IAU sky."""
 
 FOV_MIN, FOV_MAX, FOV_DEFAULT = 6.0, 236.0, 110.0
 FIGURES_DEFAULT = 2
@@ -625,6 +632,9 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     frame = _mat_mul(cam, scene.horizontal)   # equatorial to camera
     lang = lang_of(runtime)
 
+    figures = figures_for(view.culture, lang) if view.culture else constellations()
+    names = names_for(view.culture, lang) if view.culture else star_names()
+
     fb = Framebuffer(graph_w, graph_h, bg_color=NIGHT_RGB)
     omega = _paint_sky(fb, scene, cam, f, cx, cy)
     limit = _star_limit(scene, omega, graph_w * graph_h)
@@ -680,7 +690,6 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     # covers a name.
     catalogue = stars()
     vectors = star_vectors()
-    names = star_names()
     label_limit = _label_limit(view.fov)
     dim, mid, bright = STAR_DIM_RGB, STAR_RGB, STAR_BRIGHT_RGB
     m0, m1, m2, m3, m4, m5, m6, m7, m8 = frame
@@ -798,7 +807,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
             beside(names[i][0], col, row, lerp(fb.cell_bg(col, row), label_ink, 0.85))
     if view.figures >= 2 and scene.darkness > 0.25:
         name_ink = lerp(NIGHT_RGB, FIGURE_NAME_RGB, scene.darkness)
-        for record in constellations():
+        for record in figures:
             if not record["lines"]:
                 continue
             at = _mat_apply(frame, record["at"])
@@ -821,7 +830,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
                         spread = max(spread, math.hypot(q[0] - px0, q[1] - py0))
             if spread < 10.0:
                 continue
-            name = constellation_name(record, lang)
+            name = record["name"] if view.culture else constellation_name(record, lang)
             if lang not in NO_CAPITALS:
                 name = name.upper()
             col = int(round(px0 - visible_len(name) / 2.0))
@@ -838,7 +847,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     # --- the constellation figures, in the cells left over ---
     if view.figures and scene.darkness > 0.05:
         dots = {}
-        for record in constellations():
+        for record in figures:
             for line in record["lines"]:
                 pts = [_mat_apply(frame, v) for v in line]
                 for a, b in zip(pts, pts[1:]):
@@ -877,6 +886,8 @@ def _status_line(scene, now_local, runtime, view, width, location_label,
     if view.alt >= 75.0:
         facing = _sk("overhead", runtime)
     center = f"{dim}{facing} · {_sk('field_of_view', runtime, deg=f'{view.fov:.0f}')}"
+    if view.culture:
+        center += f" · {culture_title(view.culture)}"
     if speed:
         rate = "1h/s" if speed < 20000 else ("1d/s" if speed < 200000 else "1w/s")
         center += f"  {amber}▶ {rate}"
@@ -967,9 +978,14 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
         title, detail = body_name(key, runtime), f"mag {mag:+.1f}"
     else:
         i, alt, mag = payload
-        proper, desig = star_names().get(i, ("", ""))
+        lang = lang_of(runtime)
+        proper, desig = (names_for(view.culture, lang) if view.culture
+                         else star_names()).get(i, ("", ""))
+        iau_name = star_names().get(i, ("", ""))[0]
         title = proper or desig or _sk("star", runtime)
         detail = f"{desig} · mag {mag:.1f}" if proper and desig else f"mag {mag:.1f}"
+        if view.culture and iau_name and iau_name != proper:
+            detail = f"{iau_name} · {detail}"
         _alt, az = alt_az_of(_mat_apply(scene.horizontal, star_vectors()[i]))
     where = f"{alt:.0f}° · {compass_point(az, runtime)}"
     lines = [f"{tip_bg}{tip_fg} {title} ",
@@ -1056,10 +1072,11 @@ def main():
     except ValueError as exc:
         parser.error(str(exc))
     fov = max(FOV_MIN, min(FOV_MAX, args.fov)) if args.fov else FOV_DEFAULT
+    culture = resolve_culture(args.culture, lang_of(runtime))
     aim = None
     if args.at:
         from linecast._sky_search import search, targets
-        found = search(args.at, targets(runtime), limit=1)
+        found = search(args.at, targets(runtime, culture), limit=1)
         if not found:
             parser.error(f"nothing in the sky called {args.at!r}")
         target = found[0]
@@ -1084,11 +1101,11 @@ def main():
         now = _now()
         cols, rows = get_terminal_size()
         view = default_view(Scene(now.astimezone(timezone.utc), lat, lng),
-                            cols, rows, facing, fov, aim=aim)
+                            cols, rows, facing, fov, aim=aim)._replace(culture=culture)
         print(render(now, lat, lng, runtime, view, location_label=label))
         return
     SkyApp(_now, lat, lng, runtime, facing=facing, fov=fov, location_label=label,
-           aim=aim).run()
+           aim=aim, culture=culture).run()
 
 
 if __name__ == "__main__":

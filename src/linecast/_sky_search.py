@@ -75,15 +75,16 @@ class Target:
         return min(current, 60.0)
 
 
-def targets(runtime):
-    """Everything searchable, for the display language."""
+def targets(runtime, culture=None):
+    """Everything searchable, for the display language and the culture:
+    with a culture set its constellations replace the IAU's and its star
+    names join theirs."""
     from linecast._i18n import lang_of
     from linecast._planets import PLANETS
     from linecast._sky_catalogue import (
-        constellation_name, constellations, star_names, stars,
+        constellation_name, constellations, figures_for, names_for, star_names, stars,
     )
     from linecast._sky_i18n import body_name
-    from linecast.sky import _mat_apply, _mat_transpose  # noqa: F401 (kept local)
     lang = lang_of(runtime)
     out = [Target("sun", body_name("sun", runtime), None,
                   [body_name("sun", runtime), "sun", "sol"], -30.0),
@@ -93,24 +94,30 @@ def targets(runtime):
         out.append(Target("planet", body_name(key, runtime), key,
                           [body_name(key, runtime), key], -10.0 + i))
     catalogue = stars()
+    cultural = names_for(culture, lang) if culture else {}
     for i, (proper, desig) in star_names().items():
         mag = catalogue[i][2]
-        label = proper or desig
-        names = [proper, desig]
+        own = cultural.get(i, ("", ""))[0]
+        label = own or proper or desig
+        names = [proper, desig, own]
         if desig:
             # "alpha lyr" and "alpha lyrae" find α Lyr as well.
             letter, _, con = desig.partition(" ")
             for word, greek in _GREEK.items():
                 if letter.startswith(greek):
                     names.append(f"{word}{letter[len(greek):]} {con}")
-        out.append(Target("star", f"{label} · {desig}" if proper else label, i,
+        out.append(Target("star", f"{label} · {desig}" if (proper or own) else label, i,
                           names, mag))
-    for record in constellations():
+    for i, (own, desig) in cultural.items():
+        if i not in star_names() and own:
+            out.append(Target("star", f"{own} · {desig}" if desig else own, i,
+                              [own, desig], catalogue[i][2]))
+    for record in (figures_for(culture, lang) if culture else constellations()):
         if not record["lines"]:
             continue
-        name = constellation_name(record, lang)
+        name = record["name"] if culture else constellation_name(record, lang)
         names = {record["name"], record["gen"], record["id"], name,
-                 *record["names"].values()}
+                 record.get("detail", ""), *record["names"].values()}
         # Angular radius of the figure about its label point.
         ax, ay, az = record["at"]
         spread = 0.0
@@ -178,8 +185,9 @@ class SkySearch:
     """The `/` panel's state: the query, its matches, the choice, and the
     answer for a thing that is not up."""
 
-    def __init__(self, runtime, refresh=None):
+    def __init__(self, runtime, refresh=None, culture=None):
         self.runtime = runtime
+        self.culture = culture
         self.open = False
         self.query = ""
         self.results = []
@@ -192,8 +200,12 @@ class SkySearch:
 
     def pool(self):
         if self._pool is None:
-            self._pool = targets(self.runtime)
+            self._pool = targets(self.runtime, self.culture)
         return self._pool
+
+    def set_culture(self, culture):
+        self.culture = culture
+        self._pool = None
 
     def start(self):
         self.open = True

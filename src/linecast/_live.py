@@ -276,6 +276,8 @@ def _read_key(fd, text=False):
         return 'reset'
     if b in (b'+', b'='):
         return 'key:+'
+    if b.isdigit():
+        return 'key:' + b.decode()
     if b in (b'-', b'_'):
         return 'key:-'
     if b in (b't', b'T'):

@@ -537,3 +537,112 @@ class TestSearch:
         view = default_view(scene, 100, 30, aim=(alt, az))
         assert abs(view.az - az) < 1e-9
         assert 18.0 <= search("orion", pool)[0].fov(110.0) <= 120.0
+
+
+# ---------------------------------------------------------------------------
+# The sky cultures
+# ---------------------------------------------------------------------------
+class TestCultures:
+    def test_every_choice_has_data_with_a_licence_and_credits(self):
+        from linecast._config import CULTURE_CHOICES
+        from linecast._sky_catalogue import culture
+        for short in CULTURE_CHOICES:
+            if short == "none":
+                continue
+            record = culture(short)
+            assert record is not None, short
+            assert record["figures"] and record["title"], short
+            assert "CC" in record["license"], short
+            assert record["authors"], short
+
+    def test_hawaiian_names_its_star_lines_and_stars(self):
+        figures = sky.figures_for("hawaiian", "en")
+        names = {f["name"] for f in figures}
+        assert "Ke Ka o Makali’i" in names or "Ke Kā o Makaliʻi" in names
+        stars_named = sky.names_for("hawaiian", "en")
+        assert "Hokulei" in {n for n, _d in stars_named.values()}
+        # No fallback: the IAU names stay out of this sky.
+        assert "Vega" not in {n for n, _d in stars_named.values()}
+
+    def test_chinese_speaks_chinese_to_chinese_readers(self):
+        zh = {f["name"] for f in sky.figures_for("chinese", "zh")}
+        en = {f["name"] for f in sky.figures_for("chinese", "en")}
+        assert "毕宿" in zh and "Net" in en and "Net" not in zh
+        # The star names are English-only in the data, so they stay out
+        # of the Chinese view rather than mix scripts.
+        assert sky.names_for("chinese", "zh") == {}
+        english = {n for n, _d in sky.names_for("chinese", "en").values()}
+        assert len(english) > 2000 and "Northern Pole II" in english
+
+    def test_a_culture_keeping_the_iau_figures_keeps_their_names(self):
+        rey = sky.figures_for("rey", "fr")
+        assert any(f["name"] == "Big Dipper" for f in rey)
+        snt = sky.figures_for("snt", "fr")
+        assert any(f["name"] == "Orion" for f in snt)
+        # Ruelle: French names for French readers, the IAU's otherwise.
+        assert any(f["name"] == "Orion" for f in sky.figures_for("ruelle", "en"))
+        assert any("Orion" in f["name"] for f in sky.figures_for("ruelle", "fr"))
+        assert any(n == "Vega" for n, _d in sky.names_for("snt", "en").values())
+
+    def test_resolution_follows_flag_setting_language(self):
+        from linecast import _config
+        assert sky.resolve_culture("norse", "en") == "norse"
+        assert sky.resolve_culture(None, "zh") == "chinese"
+        assert sky.resolve_culture(None, "en") is None
+        assert sky.resolve_culture("none", "zh") is None
+        _config.write_config({"culture": "maori"})
+        assert sky.resolve_culture(None, "zh") == "maori"
+        _config.write_config({"culture": "none"})
+        assert sky.resolve_culture(None, "zh") is None
+
+    def test_a_culture_draws_and_names_the_status(self):
+        scene = Scene(NIGHT.astimezone(timezone.utc), LAT, LNG)
+        view = default_view(scene, 100, 30, 103.0, 110.0)._replace(culture="hawaiian")
+        out = _strip(_frame(NIGHT, 100, 30, view=view))
+        assert "Hawaiian" in out
+        assert "PISCES" not in out
+        view = default_view(scene, 100, 30, 200.0, 110.0)._replace(culture="chinese")
+        out = _strip(_frame(NIGHT, 100, 30, view=view, lang="zh"))
+        assert "Chinese" in out
+
+    def test_t_steps_through_the_traditions_and_back(self):
+        from linecast._config import CULTURE_CHOICES
+        from linecast._sky_live import SkyApp
+        app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
+        seen = []
+        for _ in range(len(CULTURE_CHOICES)):
+            app.on_action("t")
+            seen.append(app.culture)
+        assert seen[:-1] == [c for c in CULTURE_CHOICES if c != "none"]
+        assert seen[-1] is None
+        app.stop()
+
+    def test_search_knows_the_culture(self):
+        from linecast._sky_search import search, targets
+        pool = targets(_runtime(), "hawaiian")
+        assert search("hokulei", pool)[0].kind == "star"
+        assert search("makali", pool)[0].kind == "constellation"
+        assert search("orion", pool) == []   # the IAU figures are set aside
+
+    def test_digits_reach_the_view(self):
+        from linecast._live import _read_key
+        from unittest.mock import patch
+        with patch("linecast._term.read_byte", return_value=b"7"):
+            assert _read_key(0) == "key:7"
+
+    def test_culture_command(self):
+        import io
+        from contextlib import redirect_stdout
+        from linecast import _config, culture_cmd
+        with redirect_stdout(io.StringIO()):
+            culture_cmd._cmd_set("norse")
+        assert _config.saved_culture() == "norse"
+        out = io.StringIO()
+        with redirect_stdout(out):
+            culture_cmd._cmd_show()
+        assert "norse  [fixed]" in out.getvalue()
+        with redirect_stdout(io.StringIO()):
+            culture_cmd._cmd_auto()
+        assert _config.saved_culture() is None
+        _config.write_config({"culture": "klingon"})
+        assert _config.saved_culture() is None

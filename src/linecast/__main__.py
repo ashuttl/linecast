@@ -23,6 +23,8 @@ Settings (run alone to show, give a value to set):
   linecast icons       nerd, emoji, or plain
   linecast calendar    Which calendar the moon follows: chinese, japanese, korean, thai,
                        hawaiian, samoan, chamorro, refaluwasch, islamic, hebrew, almanac, or none
+  linecast culture     Whose constellations the sky draws: chinese, hawaiian, norse, maori,
+                       boorong, and seventeen more, or none for the IAU sky
   For one run, a flag: --location "Québec" or 41.88,-87.63, --lang fr, --imperial, --24h
 
 Housekeeping:
@@ -74,6 +76,7 @@ COMMANDS = {
     # first on sys.path, where a calendar.py would shadow the standard
     # library module the rest of the code imports.
     "calendar": "linecast.calendar_cmd",
+    "culture": "linecast.culture_cmd",
     "link": "linecast.link",
     "doctor": "linecast.doctor",
 }

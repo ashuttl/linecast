@@ -128,6 +128,10 @@ The moon can also follow a traditional calendar, with that calendar's date besid
 
 Drag to look around, and let go while moving to coast. `+` and `-` zoom: as the view closes in, fainter stars and more names appear, and the Moon grows into the disc the moon view draws. Zoom all the way out while looking up and the horizon closes into a circle, the whole sky at once, the way the almanacs print it. `p` plays time at an hour a second, then a day, then a week, so you can watch the stars wheel and the Moon run through its phases; space returns to now. `c` cycles the constellation figures and names, `1` to `8` face the compass points, `9` looks straight up, and `m` faces the Moon. Point at anything for its name, and `--facing SW` or `--fov 40` open the view where you want it.
 
+Press `/` and type a name, a star, a planet, or a constellation, and the view flies to it. If it is below the horizon the panel says when it rises and where, and Enter again moves the clock to that moment. `--at Jupiter` opens on it.
+
+The sky has been drawn many ways. `t` steps through twenty-two traditions besides the IAU's, each with its own figures and star names: the Chinese Three Enclosures and Twenty-Eight Mansions, the Hawaiian star lines, the Boorong sky of Victoria, the Norse, Sami, Māori, Tongan, Mongolian, Romanian, Belarusian and Indian Vedic skies, H. A. Rey's stick figures, and more. `--culture hawaiian` opens on one, `linecast culture` saves one, and Chinese comes with the language. [CULTURES.md](CULTURES.md) lists them with their sources.
+
 ### Tides
 
 The tide chart runs across several days and marks the highs, the lows, and the predicted water level now. Scroll to move through time.
@@ -242,6 +246,18 @@ linecast calendar auto
 ```
 
 The names are `chinese`, `japanese`, `korean`, `thai`, `hawaiian`, `samoan`, `chamorro`, `refaluwasch`, `islamic`, `hebrew`, and `almanac`. `moon --calendar` takes one for a single run. [CALENDARS.md](CALENDARS.md) describes each.
+
+### Culture
+
+The sky draws the IAU constellations unless the language brings a tradition with it: Chinese gets the Chinese sky. Pin any of the twenty-two bundled traditions for every run, or none:
+
+```sh
+linecast culture hawaiian
+linecast culture none
+linecast culture auto
+```
+
+`sky --culture` takes one for a single run, and `t` steps through them live. [CULTURES.md](CULTURES.md) lists them with their credits.
 
 ### Color and icons
 

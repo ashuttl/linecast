@@ -14,6 +14,20 @@ equirectangular map in celestial coordinates.
 
 The Milky Way step needs ImageMagick (`magick`) to read the EXR.
 
+The sky cultures are Stellarium's collection (github.com/Stellarium/
+stellarium-skycultures), the ones whose text and lines are under a
+Creative Commons licence that allows redistribution and derived work
+(CC BY or CC BY-SA); the no-derivatives, non-commercial and GPL ones are
+left out. Their figures name stars by Hipparcos number, so the bake also
+reads the Hipparcos main catalogue (CDS I/239) for positions, and
+matches Hipparcos stars to ours by HD number for the star names.
+
+- cultures.json.gz: one record per culture with its id, title, region,
+  native language, credits and licence, the constellations (english and
+  native names, the IAU code where the culture keeps the IAU figures,
+  the label position, and the figure as polylines of [ra, dec] in
+  hundredths of a degree) and the star names by index into stars.bin.
+
 Writes three files under src/linecast/data/:
 
 - stars.bin: one six-byte record per star to visual magnitude 6.5,
@@ -39,6 +53,8 @@ the sources do.
 
 import gzip
 import json
+import math
+import re
 import struct
 import sys
 import urllib.request
@@ -48,6 +64,18 @@ BSC_URL = "http://tdc-www.harvard.edu/catalogs/bsc5.dat.gz"
 CELESTIAL = "https://raw.githubusercontent.com/ofrohn/d3-celestial/master/data/"
 MILKY_WAY_URL = ("https://svs.gsfc.nasa.gov/vis/a000000/a004800/a004851/"
                  "milkyway_2020_4k.exr")
+HIPPARCOS_URL = "https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat"
+SKYCULTURES = "https://raw.githubusercontent.com/Stellarium/stellarium-skycultures/master/"
+
+# The cultures shipped, by Stellarium's directory name: every one whose
+# text and lines the collection puts under CC BY or CC BY-SA.
+CULTURES = (
+    "anutan", "belarusian", "blackfoot", "boorong", "bugis", "chinese",
+    "chinese_contemporary", "hawaiian_starlines", "indian",
+    "japanese_moon_stations", "mandar", "maori", "mongolian", "norse",
+    "romanian", "ruelle", "sami", "siberian", "tongan", "tukano",
+    "western_SnT", "western_rey",
+)
 LIMIT = 6.5
 DATA = Path(__file__).resolve().parent.parent / "src/linecast/data"
 
@@ -69,8 +97,12 @@ MW_W, MW_H = 1080, 540
 def fetch(name, src):
     if src is not None:
         return (src / name).read_bytes()
-    url = {"bsc5.dat.gz": BSC_URL, "milkyway_2020_4k.exr": MILKY_WAY_URL}.get(
-        name, CELESTIAL + name)
+    url = {"bsc5.dat.gz": BSC_URL, "milkyway_2020_4k.exr": MILKY_WAY_URL,
+           "hip_main.dat": HIPPARCOS_URL}.get(name, CELESTIAL + name)
+    if name.startswith("sc/"):
+        culture, _, filename = name[3:].partition(".")
+        url = (f"{SKYCULTURES}{culture}/"
+               f"{'index.json' if filename == 'json' else 'description.md'}")
     print(f"fetching {url}")
     return urllib.request.urlopen(url).read()
 
@@ -237,6 +269,97 @@ def bake_milky_way(src):
     print(f"wrote {out} ({out.stat().st_size} bytes, {MW_W}x{MW_H})")
 
 
+# ---------------------------------------------------------------------------
+# The sky cultures
+# ---------------------------------------------------------------------------
+def hipparcos(src):
+    """{HIP: (ra_deg, dec_deg, HD or None)} from the main catalogue."""
+    out = {}
+    for line in fetch("hip_main.dat", src).decode("latin-1").splitlines():
+        f = line.split("|")
+        try:
+            hip, ra, dec = int(f[1]), float(f[8]), float(f[9])
+        except (ValueError, IndexError):
+            continue
+        hd = f[71].strip()
+        out[hip] = (ra, dec, int(hd) if hd.isdigit() else None)
+    return out
+
+
+def section(markdown, heading):
+    """The text under a level-two heading, on one line, links reduced to
+    their text and footnote marks dropped."""
+    m = re.search(rf"^## {heading}s?\s*$(.*?)(?=^## |\Z)", markdown, re.S | re.M | re.I)
+    if not m:
+        return ""
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", m.group(1))
+    text = re.sub(r"\[#?\d+\]", "", text)
+    return " ".join(text.replace("_", "").split())
+
+
+def bake_cultures(stars, src):
+    hip = hipparcos(src)
+    by_hd = {s["hd"]: i for i, s in enumerate(stars) if s["hd"] is not None}
+    cultures = []
+    for name in CULTURES:
+        index = json.loads(fetch(f"sc/{name}.json", src))
+        md = fetch(f"sc/{name}.md", src).decode("utf-8")
+        constellations = []
+        for record in index["constellations"]:
+            lines = []
+            for line in record.get("lines", []):
+                pts = [hip[v] for v in line if isinstance(v, int) and v in hip]
+                if len(pts) >= 2:
+                    lines.append([hundredths(ra, dec) for ra, dec, _hd in pts])
+            if not lines:
+                continue
+            # The label sits at the figure's centroid on the sphere.
+            xs = ys = zs = 0.0
+            seen = set()
+            for line in record["lines"]:
+                for v in line:
+                    if isinstance(v, int) and v in hip and v not in seen:
+                        seen.add(v)
+                        ra, dec = math.radians(hip[v][0]), math.radians(hip[v][1])
+                        xs += math.cos(dec) * math.cos(ra)
+                        ys += math.cos(dec) * math.sin(ra)
+                        zs += math.sin(dec)
+            ra = math.degrees(math.atan2(ys, xs)) % 360.0
+            dec = math.degrees(math.atan2(zs, math.hypot(xs, ys)))
+            common = record.get("common_name", {})
+            entry = {"english": common.get("english", ""),
+                     "native": common.get("native", ""),
+                     "at": hundredths(ra, dec), "lines": lines}
+            if record.get("iau"):
+                entry["iau"] = record["iau"]
+            constellations.append(entry)
+        star_names = {}
+        for key, entries in index.get("common_names", {}).items():
+            try:
+                hip_id = int(key.split()[1])
+            except (IndexError, ValueError):
+                continue
+            hd = hip.get(hip_id, (0, 0, None))[2]
+            if hd is None or hd not in by_hd or not entries:
+                continue
+            first = entries[0]
+            star_names[str(by_hd[hd])] = [first.get("english", ""), first.get("native", "")]
+        cultures.append({
+            "id": name, "title": md.split("\n", 1)[0].strip("# ").strip(),
+            "region": index.get("region", ""),
+            "native_lang": (index.get("native_lang") or "").split("_")[0],
+            "fallback": bool(index.get("fallback_to_international_names")),
+            "authors": section(md, "Author"), "license": section(md, "License"),
+            "constellations": constellations, "star_names": star_names,
+        })
+        print(f"  {name:24} {len(constellations):3} figures, {len(star_names):4} star names"
+              f"  [{cultures[-1]['license'][:40]}]")
+    out = DATA / "cultures.json.gz"
+    out.write_bytes(gzip.compress(
+        json.dumps(cultures, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), 9))
+    print(f"wrote {out} ({out.stat().st_size} bytes, {len(cultures)} cultures)")
+
+
 def main():
     src = None
     if len(sys.argv) == 3 and sys.argv[1] == "--from":
@@ -248,6 +371,7 @@ def main():
     out.write_bytes(gzip.compress(
         json.dumps(sky, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), 9))
     print(f"wrote {out} ({out.stat().st_size} bytes)")
+    bake_cultures(stars, src)
     bake_milky_way(src)
 
 

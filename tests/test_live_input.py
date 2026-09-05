@@ -114,7 +114,7 @@ class TestNewBindings:
     def test_unbound_printables_still_dropped(self, pipe):
         # letters outside the whitelist return None with text off —
         # the pre-existing contract other commands rely on
-        for data in (b"a", b"z", b"1", b"."):
+        for data in (b"a", b"z", b"x", b"."):
             os.write(pipe[1], data)
             assert _read_key(pipe[0]) is None
 
