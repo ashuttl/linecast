@@ -358,6 +358,22 @@ class TestStrings:
         for code in LANGUAGE_CODES:
             assert set(_SKY_STRINGS[code]) == keys, code
 
+    def test_every_culture_has_a_title_in_every_language(self):
+        from linecast._i18n import LANGUAGE_CODES
+        from linecast._sky_catalogue import CULTURES
+        from linecast._sky_i18n import CULTURE_TITLES
+        assert set(CULTURE_TITLES) == set(CULTURES)
+        for short, titles in CULTURE_TITLES.items():
+            assert set(titles) == set(LANGUAGE_CODES), short
+            for code, title in titles.items():
+                assert title.strip() == title and 0 < len(title) <= 30, (short, code)
+
+    def test_culture_title_follows_the_language(self):
+        assert sky.culture_title("chinese") == "Chinese"
+        assert sky.culture_title("chinese", "fr") != "Chinese"
+        assert sky.culture_title("chinese", "zh") != "Chinese"
+        assert sky.culture_title("chinese", "xx") == "Chinese"
+
     def test_oneline(self):
         from linecast._oneline import sky_oneline
         line = _strip(sky_oneline(NIGHT, LAT, LNG, _runtime()))
@@ -603,7 +619,7 @@ class TestCultures:
         assert "PISCES" not in out
         view = default_view(scene, 100, 30, 200.0, 110.0)._replace(culture="chinese")
         out = _strip(_frame(NIGHT, 100, 30, view=view, lang="zh"))
-        assert "Chinese" in out
+        assert sky.culture_title("chinese", "zh") in out
 
     def test_t_steps_through_the_traditions_and_back(self):
         from linecast._config import CULTURE_CHOICES

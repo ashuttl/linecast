@@ -958,7 +958,7 @@ def _status_line(scene, now_local, runtime, view, width, location_label,
         facing = _sk("overhead", runtime)
     center = f"{dim}{facing} · {_sk('field_of_view', runtime, deg=f'{view.fov:.0f}')}"
     if view.culture:
-        center += f" · {culture_title(view.culture)}"
+        center += f" · {culture_title(view.culture, lang_of(runtime))}"
     if speed:
         rate = "1h/s" if speed < 20000 else ("1d/s" if speed < 200000 else "1w/s")
         center += f"  {amber}▶ {rate}"

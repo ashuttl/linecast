@@ -203,7 +203,13 @@ def culture(short):
     return prepared
 
 
-def culture_title(short):
+def culture_title(short, lang="en"):
+    """The culture's name in the display language: the translation table's
+    where it has one, else the English title from the data."""
+    from linecast._sky_i18n import culture_title_text
+    text = culture_title_text(short, lang)
+    if text:
+        return text
     prepared = culture(short)
     return prepared["title"] if prepared else short
 

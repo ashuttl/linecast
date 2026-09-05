@@ -34,14 +34,16 @@ def _cmd_show():
 
 
 def _cmd_set(choice):
+    from linecast._runtime import resolve_lang
     from linecast._sky_catalogue import culture_title
+    lang = resolve_lang()[0]
     config = read_config()
     config["culture"] = choice
     save_config(config)
     if choice == "none":
         print("Culture turned off; the sky keeps the IAU constellations and names")
     else:
-        print(f"Culture set to {choice}: the sky draws the {culture_title(choice)} "
+        print(f"Culture set to {choice}: the sky draws the {culture_title(choice, lang)} "
               f"constellations and star names in every language")
 
 
@@ -53,7 +55,9 @@ def _cmd_auto():
 
 
 def main():
+    from linecast._runtime import resolve_lang
     from linecast._sky_catalogue import culture_title
+    lang = resolve_lang()[0]
     parser = argparse.ArgumentParser(
         prog="linecast culture",
         description="Show or set the sky culture the sky command draws: whose "
@@ -64,7 +68,7 @@ def main():
     sub.add_parser("show", help="show the current culture setting (default)")
     for choice in CULTURE_CHOICES:
         if choice != "none":
-            sub.add_parser(choice, help=culture_title(choice))
+            sub.add_parser(choice, help=culture_title(choice, lang))
     sub.add_parser("none", help="the IAU sky, whatever the language")
     sub.add_parser("auto", help="follow the language (the default)")
     args = parser.parse_args()
