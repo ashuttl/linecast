@@ -107,13 +107,14 @@ def constellation_name(record, lang):
     return record["names"].get(lang, record["name"])
 
 
-MILKY_WAY_W, MILKY_WAY_H = 720, 360
+MILKY_WAY_W, MILKY_WAY_H = 1080, 540
 
 
 def milky_way():
-    """The Milky Way's brightness, 0–255, as a 720×360 raster in galactic
-    coordinates: longitude 180° at the left edge running to −180°,
-    latitude +90° at the top. Empty bytes if the raster is missing."""
+    """The Milky Way's brightness, 0–255, as a 1080×540 raster in
+    celestial coordinates: right ascension 0h at the centre, increasing
+    to the left as the sky is seen from inside, declination +90° at the
+    top. Empty bytes if the raster is missing."""
     global _milky_way
     if _milky_way is None:
         try:
@@ -124,14 +125,3 @@ def milky_way():
             log_failure("sky", "Milky Way load", exc, fallback="no Milky Way")
             _milky_way = b""
     return _milky_way
-
-
-# Equatorial (J2000) to galactic: the rows are the galactic x, y, z axes
-# in equatorial coordinates (Hipparcos, vol. 1, §1.5.3). Applied to a
-# vector in the frame `star_vectors` uses, it gives galactic x, y, z,
-# with longitude atan2(y, x) and latitude asin(z).
-EQ_TO_GAL = (
-    -0.0548755604, -0.8734370902, -0.4838350155,
-    +0.4941094279, -0.4448296300, +0.7469822445,
-    -0.8676661490, -0.1980763734, +0.4559837762,
-)

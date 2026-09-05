@@ -329,10 +329,18 @@ class TestCatalogue:
         assert len(raster) == sky.MILKY_WAY_W * sky.MILKY_WAY_H
         # Bright toward the galactic centre, dark at the poles.
         w, h = sky.MILKY_WAY_W, sky.MILKY_WAY_H
-        centre = max(raster[row * w + x]
-                     for row in range(h // 2 - 10, h // 2 + 10)
-                     for x in range(w // 2 - 20, w // 2 + 20))
-        assert centre > 150 and raster[w // 2] == 0
+
+        def at(ra, dec):
+            col = int(w / 2.0 - ra * w / 360.0) % w
+            return raster[min(h - 1, int((90.0 - dec) * h / 180.0)) * w + col]
+
+        # Bright in the bulge about the galactic centre (the centre itself
+        # is behind dust), dark at the galactic poles, and the Great Rift
+        # in Cygnus darker than the star cloud beside it.
+        assert max(at(266.4 + dra, -28.9 + ddec)
+                   for dra in (-6, -3, 0, 3, 6) for ddec in (-6, -3, 0, 3, 6)) > 150
+        assert at(192.9, 27.1) < 20 and at(12.9, -27.1) < 20
+        assert at(305.0, 40.0) < at(310.0, 45.0)
 
     def test_the_moon_view_shares_the_stars(self):
         from linecast.moon import _load_stars

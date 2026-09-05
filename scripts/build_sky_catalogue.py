@@ -3,11 +3,16 @@
 The sky view and the moon view share one set of stars, the Yale Bright
 Star Catalogue, 5th revised edition (Hoffleit & Warren, 1991), as served
 by the Harvard-Smithsonian Center for Astrophysics. The constellation
-figures, the constellation names in many languages, the star names, and
-the Milky Way's outline are Olaf Frohn's d3-celestial data files (BSD
-licence), which draw on the IAU's lists.
+figures, the constellation names in many languages, and the star names
+are Olaf Frohn's d3-celestial data files (BSD licence), which draw on the
+IAU's lists. The Milky Way is the diffuse layer of NASA's Deep Star Maps
+2020 (Scientific Visualization Studio, public domain), the unresolved
+starlight of the Galaxy drawn from Gaia with the dust lanes in it, as an
+equirectangular map in celestial coordinates.
 
     uv run scripts/build_sky_catalogue.py [--from DIR]
+
+The Milky Way step needs ImageMagick (`magick`) to read the EXR.
 
 Writes three files under src/linecast/data/:
 
@@ -21,11 +26,11 @@ Writes three files under src/linecast/data/:
   abbreviation, Latin name and genitive, label position, names in the
   languages linecast speaks where they differ from the Latin, and its
   figure as polylines of [ra, dec] in hundredths of a degree}.
-- milkyway.bin.gz: a 720×360 byte raster of the Milky Way's brightness
-  in galactic coordinates — longitude 180° at the left edge running to
-  −180°, latitude +90° at the top — from the five nested outline
-  contours, softened so a terminal cell reads as glow rather than as a
-  step.
+- milkyway.bin.gz: a 1080×540 byte raster of the Milky Way's brightness
+  in celestial coordinates, right ascension 0h at the centre increasing
+  to the left (as the sky is seen from inside), declination +90° at the
+  top: the NASA layer downsampled, with the sky's own floor taken off
+  and a gamma that keeps the dust lanes legible beside the bulge.
 
 `--from DIR` reads the source files from a directory instead of
 downloading them. The outputs are committed; this script reruns only if
@@ -34,7 +39,6 @@ the sources do.
 
 import gzip
 import json
-import math
 import struct
 import sys
 import urllib.request
@@ -42,6 +46,8 @@ from pathlib import Path
 
 BSC_URL = "http://tdc-www.harvard.edu/catalogs/bsc5.dat.gz"
 CELESTIAL = "https://raw.githubusercontent.com/ofrohn/d3-celestial/master/data/"
+MILKY_WAY_URL = ("https://svs.gsfc.nasa.gov/vis/a000000/a004800/a004851/"
+                 "milkyway_2020_4k.exr")
 LIMIT = 6.5
 DATA = Path(__file__).resolve().parent.parent / "src/linecast/data"
 
@@ -57,20 +63,14 @@ GREEK = {
 SUPERSCRIPT = {"1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶",
                "7": "⁷", "8": "⁸", "9": "⁹"}
 
-# Equatorial (J2000) to galactic: the rows are the galactic x, y, z axes
-# in equatorial coordinates (Hipparcos, vol. 1, §1.5.3).
-EQ_TO_GAL = (
-    (-0.0548755604, -0.8734370902, -0.4838350155),
-    (+0.4941094279, -0.4448296300, +0.7469822445),
-    (-0.8676661490, -0.1980763734, +0.4559837762),
-)
-MW_W, MW_H = 720, 360
+MW_W, MW_H = 1080, 540
 
 
 def fetch(name, src):
     if src is not None:
         return (src / name).read_bytes()
-    url = BSC_URL if name == "bsc5.dat.gz" else CELESTIAL + name
+    url = {"bsc5.dat.gz": BSC_URL, "milkyway_2020_4k.exr": MILKY_WAY_URL}.get(
+        name, CELESTIAL + name)
     print(f"fetching {url}")
     return urllib.request.urlopen(url).read()
 
@@ -183,92 +183,57 @@ def bake_constellations(src):
 # ---------------------------------------------------------------------------
 # The Milky Way
 # ---------------------------------------------------------------------------
-def to_galactic(ra_deg, dec_deg):
-    """Galactic longitude and latitude in degrees, l in (-180, 180]."""
-    ra, dec = math.radians(ra_deg), math.radians(dec_deg)
-    v = (math.cos(dec) * math.cos(ra), math.cos(dec) * math.sin(ra), math.sin(dec))
-    x, y, z = (sum(r[i] * v[i] for i in range(3)) for r in EQ_TO_GAL)
-    lon = math.degrees(math.atan2(y, x))
-    return lon, math.degrees(math.asin(max(-1.0, min(1.0, z))))
+# The sky's floor and the band's working ceiling, as fractions of the
+# layer's full scale: below the floor is the dark sky's own glow and the
+# grain of the source, above the ceiling only a few knots in the bulge.
+# Between them a gamma under one lifts the faint outer band and keeps
+# the dust lanes legible.
+MW_FLOOR, MW_CEILING, MW_GAMMA = 0.016, 0.30, 0.6
 
 
-def fill_feature(grid, rings):
-    """Add one to every raster cell inside the spherical polygon *rings*.
-
-    The test is the even-odd rule along the meridian from the cell to the
-    north galactic pole, which is known to lie outside every outline: a
-    cell is inside when an odd number of ring edges cross its longitude
-    above it. Done column by column, that is the classic scanline fill
-    turned on its side, exact on the sphere because a galactic meridian
-    is the ray the rule wants. Edges that cross the ±180° seam are split
-    there.
-    """
-    crossings = [[] for _ in range(MW_W)]
-    for ring in rings:
-        pts = [to_galactic(ra, dec) for ra, dec in ring]
-        for (l0, b0), (l1, b1) in zip(pts, pts[1:] + pts[:1]):
-            if l1 - l0 > 180.0:
-                l1 -= 360.0
-            elif l0 - l1 > 180.0:
-                l1 += 360.0
-            if l0 == l1:
-                continue
-            lo, hi = sorted((l0, l1))
-            # Columns whose centre longitude lies within the edge's span.
-            # Column x spans longitude 180 - x/2 down to 180 - (x+1)/2.
-            for x in range(MW_W):
-                lon = 180.0 - (x + 0.5) * 360.0 / MW_W
-                for shift in (0.0, -360.0, 360.0):
-                    lx = lon + shift
-                    if lo <= lx < hi:
-                        crossings[x].append(b0 + (b1 - b0) * (lx - l0) / (l1 - l0))
-    for x, col in enumerate(crossings):
-        col.sort(reverse=True)
-        for top, bottom in zip(col[0::2], col[1::2]):
-            # Rows whose centre latitude falls between the two crossings.
-            r0 = max(0, int(math.floor((90.0 - top) * MW_H / 180.0)))
-            r1 = min(MW_H, int(math.ceil((90.0 - bottom) * MW_H / 180.0)))
-            for row in range(r0, r1):
-                lat = 90.0 - (row + 0.5) * 180.0 / MW_H
-                if bottom <= lat < top:
-                    grid[row][x] += 1
-
-
-def soften(grid, passes=3, radius=3):
-    """Box-blur the raster, wrapping in longitude, so the contour steps
-    read as a glow. Three passes of a box are close to a Gaussian."""
-    for _ in range(passes):
-        # Along rows (longitude, wrapping).
-        out = [[0.0] * MW_W for _ in range(MW_H)]
-        span = 2 * radius + 1
-        for r in range(MW_H):
-            row = grid[r]
-            acc = sum(row[(x) % MW_W] for x in range(-radius, radius + 1))
-            for x in range(MW_W):
-                out[r][x] = acc / span
-                acc += row[(x + radius + 1) % MW_W] - row[(x - radius) % MW_W]
-        grid = out
-        # Down columns (latitude, clamped).
-        out = [[0.0] * MW_W for _ in range(MW_H)]
-        for x in range(MW_W):
-            for r in range(MW_H):
-                lo, hi = max(0, r - radius), min(MW_H - 1, r + radius)
-                out[r][x] = sum(grid[k][x] for k in range(lo, hi + 1)) / (hi - lo + 1)
-        grid = out
-    return grid
+def smooth(grid):
+    """One pass of a 3x3 box over the raster, wrapping in right ascension:
+    the layer's grain averaged away, the dust lanes (many cells wide at
+    this size) kept."""
+    w, h = MW_W, MW_H
+    out = [0.0] * (w * h)
+    for r in range(h):
+        r0, r1 = max(0, r - 1), min(h - 1, r + 1)
+        for x in range(w):
+            acc = 0.0
+            n = 0
+            for rr in (r0, r, r1):
+                base = rr * w
+                for xx in (x - 1, x, x + 1):
+                    acc += grid[base + xx % w]
+                    n += 1
+            out[r * w + x] = acc / n
+    return out
 
 
 def bake_milky_way(src):
-    grid = [[0] * MW_W for _ in range(MW_H)]
-    for f in json.loads(fetch("mw.json", src))["features"]:
-        for polygon in f["geometry"]["coordinates"]:
-            fill_feature(grid, polygon)
-    peak = max(max(row) for row in grid)
-    print(f"  Milky Way contours nest {peak} deep")
-    grid = soften(grid)
+    import subprocess
+    import tempfile
+    exr = fetch("milkyway_2020_4k.exr", src)
+    with tempfile.TemporaryDirectory() as tmp:
+        exr_path = Path(tmp) / "milkyway.exr"
+        pgm_path = Path(tmp) / "milkyway.pgm"
+        exr_path.write_bytes(exr)
+        # Grey, area-averaged down to the raster's size, as plain-text
+        # floating point so there is nothing to decode but numbers.
+        subprocess.run(["magick", str(exr_path), "-colorspace", "Gray",
+                        "-define", "quantum:format=floating-point", "-depth", "32",
+                        "-resize", f"{MW_W}x{MW_H}!", "-compress", "none",
+                        str(pgm_path)], check=True)
+        tokens = pgm_path.read_text().split()
+    assert tokens[0] == "P2" and (int(tokens[1]), int(tokens[2])) == (MW_W, MW_H)
+    scale = float(tokens[3])
+    values = smooth([int(t) / scale for t in tokens[4:]])
     out = DATA / "milkyway.bin.gz"
     out.write_bytes(gzip.compress(bytes(
-        min(255, int(round(v * 255.0 / peak))) for row in grid for v in row), 9))
+        int(round(255.0 * max(0.0, min(1.0, (v - MW_FLOOR) / (MW_CEILING - MW_FLOOR)))
+                  ** MW_GAMMA))
+        for v in values), 9))
     print(f"wrote {out} ({out.stat().st_size} bytes, {MW_W}x{MW_H})")
 
 

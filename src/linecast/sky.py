@@ -60,7 +60,7 @@ from linecast._runtime import (
     RuntimeConfig, install_banner, set_current, sky_parser,
 )
 from linecast._sky_catalogue import (
-    EQ_TO_GAL, MILKY_WAY_H, MILKY_WAY_W, constellation_name, constellations,
+    MILKY_WAY_H, MILKY_WAY_W, constellation_name, constellations,
     milky_way, star_names, star_vectors, stars,
 )
 from linecast._sky_i18n import NO_CAPITALS, _sk, body_name
@@ -505,14 +505,13 @@ def _paint_sky(fb, scene, cam, f, cx, cy):
     # Toward the Sun along the horizon: the glow follows its azimuth.
     se, sn = math.sin(math.radians(scene.sun_az)), math.cos(math.radians(scene.sun_az))
     twilight = scene.sun_alt > -18.0
-    # Camera to galactic, for the Milky Way: the frame's transpose, then
-    # the equatorial-to-galactic rotation.
-    to_gal = _mat_mul(EQ_TO_GAL, _mat_transpose(_mat_mul(cam, scene.horizontal)))
-    g0, g1, g2, g3, g4, g5, g6, g7, g8 = to_gal
+    # Camera to equatorial, for the Milky Way raster: the frame's transpose.
+    g0, g1, g2, g3, g4, g5, g6, g7, g8 = _mat_transpose(_mat_mul(cam, scene.horizontal))
     milk = milky_way() if scene.darkness > 0.0 else b""
-    milk_alpha = 0.42 * scene.darkness
+    milk_alpha = 0.48 * scene.darkness
     milky = MILKY_RGB
     mw_w, mw_h = MILKY_WAY_W, MILKY_WAY_H
+    mw_ra, mw_dec = mw_w / 360.0, mw_h / 180.0
     px = fb.fb
     inv2f = 1.0 / (2.0 * f)
     asin, atan2, degrees, sqrt = math.asin, math.atan2, math.degrees, math.sqrt
@@ -553,10 +552,11 @@ def _paint_sky(fb, scene, cam, f, cx, cy):
                 gx = g0 * cx_ + g1 * cy_ + g2 * cz_
                 gy = g3 * cx_ + g4 * cy_ + g5 * cz_
                 gz = g6 * cx_ + g7 * cy_ + g8 * cz_
-                lon = degrees(atan2(gy, gx))
-                mc = int((180.0 - lon) * 2.0) % mw_w
+                # Right ascension runs leftward across the raster, as the
+                # sky does from inside; 0h is the middle column.
+                mc = int(mw_w / 2.0 - degrees(atan2(gy, gx)) * mw_ra) % mw_w
                 gz = gz if -1.0 < gz < 1.0 else (1.0 if gz > 0 else -1.0)
-                mr = int((90.0 - degrees(asin(gz))) * 2.0)
+                mr = int((90.0 - degrees(asin(gz))) * mw_dec)
                 b = milk[min(mw_h - 1, mr) * mw_w + mc]
                 if b > 6:
                     # Thinner near the horizon, where the air takes it.
