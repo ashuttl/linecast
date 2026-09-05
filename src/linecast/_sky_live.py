@@ -26,6 +26,8 @@ from linecast.sky import (
     focal_length, render,
 )
 from linecast._framebuffer import get_terminal_size
+from linecast._i18n import lang_of
+from linecast._sky_picker import CulturePicker, picker_overlay
 from linecast._sky_search import (
     SkySearch, Target, describe_rising, next_rising, search_overlay,
 )
@@ -224,6 +226,7 @@ class SkyApp(LiveApp):
         self.location_label = location_label
         self.culture = culture
         self.search = SkySearch(runtime, culture=culture)
+        self.picker = CulturePicker(lang_of(runtime))
         self._panel_was_open = False
         self.minutes = 0            # the scrub, whole minutes
         self.played = 0.0           # seconds added by play
@@ -303,6 +306,11 @@ class SkyApp(LiveApp):
         self._wake()
         return True
 
+    # -- the tradition ---------------------------------------------------
+    def set_culture(self, culture):
+        self.culture = culture
+        self.search.set_culture(culture)
+
     # -- hooks -----------------------------------------------------------
     def render(self, offset_minutes=0, mouse_pos=None, **_):
         view = self.camera.view()._replace(culture=self.culture)
@@ -310,17 +318,21 @@ class SkyApp(LiveApp):
         cols, rows = get_terminal_size()
         self.camera.graph_w = max(20, cols - 2)
         self.camera.focal = focal_length(self.camera.graph_w, view.fov)
+        panel = self.search.open or self.picker.open
         frame = render(now, self.lat, self.lng, self.runtime, view, fullscreen=True,
                        offset_minutes=self.offset_minutes(),
-                       mouse_pos=None if self.search.open else mouse_pos,
+                       mouse_pos=None if panel else mouse_pos,
                        location_label=self.location_label, speed=self.speed)
         body, _sep, floating = frame.partition("\x00")
-        if self.search.open:
-            # The field owns the keys; motion reporting is off while it is
-            # open, since a torn motion sequence reads as ESC.
+        if panel:
+            # The panel owns the keys; motion reporting is off while one
+            # is open, since a torn motion sequence reads as ESC.
             self._panel_was_open = True
-            return _live.overlay(body, floating + search_overlay(
-                self.search, cols, rows, self.runtime), motion=False)
+            if self.search.open:
+                floating += search_overlay(self.search, cols, rows, self.runtime)
+            else:
+                floating += picker_overlay(self.picker, cols, rows, self.runtime)
+            return _live.overlay(body, floating, motion=False)
         if self._panel_was_open:
             self._panel_was_open = False
             return _live.overlay(body, floating, motion=True)
@@ -336,6 +348,9 @@ class SkyApp(LiveApp):
                 return self.go_to(result)
             if result == "jump":
                 return self.jump()
+            return True
+        if self.picker.handle(action, self.culture):
+            self.set_culture(self.picker.culture)
             return True
         if action == "key:/":
             self.search.start()
@@ -353,6 +368,10 @@ class SkyApp(LiveApp):
         return False
 
     def on_wheel(self, direction, _col, _row):
+        if self.picker.open:
+            self.picker.move(-direction)
+            self.set_culture(self.picker.culture)
+            return True
         self.minutes += self.scroll_step * direction
         return True
 
@@ -364,14 +383,6 @@ class SkyApp(LiveApp):
             changed = cam.zoom(ZOOM_STEP)
         elif key == "c":
             cam.figures = (cam.figures + 2) % 3   # 2 → 1 → 0 → 2
-            return True
-        elif key == "t":
-            # The traditions in turn, the IAU sky between rounds.
-            from linecast._config import CULTURE_CHOICES
-            order = [c for c in CULTURE_CHOICES if c != "none"]
-            i = order.index(self.culture) + 1 if self.culture in order else 0
-            self.culture = order[i] if i < len(order) else None
-            self.search.set_culture(self.culture)
             return True
         elif key == "p":
             if self.speed is None:
@@ -400,6 +411,8 @@ class SkyApp(LiveApp):
         return changed
 
     def on_drag(self, dcol, drow, done):
+        if self.picker.open:
+            return False
         if done:
             moved = self.camera.release()
             if self.camera.moving():

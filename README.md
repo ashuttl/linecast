@@ -130,7 +130,7 @@ Drag to look around, and let go while moving to coast. `+` and `-` zoom: as the 
 
 Press `/` and type a name, a star, a planet, or a constellation, and the view flies to it. If it is below the horizon the panel says when it rises and where, and Enter again moves the clock to that moment. `--at Jupiter` opens on it.
 
-The sky has been drawn many ways. `t` steps through twenty-two traditions besides the IAU's, each with its own figures and star names: the Chinese Three Enclosures and Twenty-Eight Mansions, the Hawaiian star lines, the Boorong sky of Victoria, the Norse, Sami, Māori, Tongan, Mongolian, Romanian, Belarusian and Indian Vedic skies, H. A. Rey's stick figures, and more. `--culture hawaiian` opens on one, `linecast culture` saves one, and Chinese comes with the language. The Hawaiian sky also puts the navigators' star compass along the horizon, the thirty-two houses from Hikina round to Komohana, in place of the compass points. [CULTURES.md](CULTURES.md) lists them with their sources.
+The sky has been drawn many ways. `t` opens a list of twenty-two traditions besides the IAU's, each with its own figures and star names, and the sky redraws under the highlight as you move through them: the Chinese Three Enclosures and Twenty-Eight Mansions, the Hawaiian star lines, the Boorong sky of Victoria, the Norse, Sami, Māori, Tongan, Mongolian, Romanian, Belarusian and Indian Vedic skies, H. A. Rey's stick figures, and more. `--culture hawaiian` opens on one, `linecast culture` saves one, and Chinese comes with the language. The Hawaiian sky also puts the navigators' star compass along the horizon, the thirty-two houses from Hikina round to Komohana, in place of the compass points. [CULTURES.md](CULTURES.md) lists them with their sources.
 
 ### Tides
 
@@ -257,7 +257,7 @@ linecast culture none
 linecast culture auto
 ```
 
-`sky --culture` takes one for a single run, and `t` steps through them live. [CULTURES.md](CULTURES.md) lists them with their credits.
+`sky --culture` takes one for a single run, and `t` picks one live. [CULTURES.md](CULTURES.md) lists them with their credits.
 
 ### Color and icons
 

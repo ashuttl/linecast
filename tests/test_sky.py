@@ -649,17 +649,83 @@ class TestCultures:
         out = _strip(_frame(NIGHT, 100, 30, view=view, lang="zh"))
         assert sky.culture_title("chinese", "zh") in out
 
-    def test_t_steps_through_the_traditions_and_back(self):
-        from linecast._config import CULTURE_CHOICES
+    def test_t_opens_the_traditions_on_the_current_one(self):
+        from linecast._sky_live import SkyApp
+        app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True), culture="norse")
+        assert app.intercept("key:t") is True
+        assert app.picker.open
+        assert app.picker.rows[app.picker.sel] == ("norse", "Norse")
+        assert app.picker.rows[0] == (None, "IAU")
+        titles = [t for _c, t in app.picker.rows[1:]]
+        assert titles == sorted(titles, key=str.casefold)
+        assert len(titles) == 22
+        app.stop()
+
+    def test_the_highlight_previews_and_enter_keeps_it(self):
         from linecast._sky_live import SkyApp
         app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
-        seen = []
-        for _ in range(len(CULTURE_CHOICES)):
-            app.on_action("t")
-            seen.append(app.culture)
-        assert seen[:-1] == [c for c in CULTURE_CHOICES if c != "none"]
-        assert seen[-1] is None
+        app.intercept("key:t")
+        assert app.picker.sel == 0 and app.culture is None
+        assert app.intercept("back") is True
+        first = app.picker.rows[1][0]
+        assert app.culture == first
+        assert app.search.culture == first
+        assert app.intercept("fwd") is True
+        assert app.culture is None
+        assert app.intercept("fwd") is True       # wraps to the last row
+        last = app.picker.rows[-1][0]
+        assert app.culture == last
+        assert app.intercept("key:enter") is True
+        assert not app.picker.open
+        assert app.culture == last
         app.stop()
+
+    def test_escape_puts_the_sky_back_and_t_keeps_what_is_shown(self):
+        from linecast._sky_live import SkyApp
+        app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True), culture="maori")
+        app.intercept("key:t")
+        app.intercept("back")
+        assert app.culture != "maori"
+        assert app.intercept("escape") is True
+        assert not app.picker.open and app.culture == "maori"
+        app.intercept("key:t")
+        app.on_wheel(-1, 0, 0)                     # wheel down moves down
+        shown = app.culture
+        assert shown != "maori"
+        assert app.intercept("key:t") is True
+        assert not app.picker.open and app.culture == shown
+        app.stop()
+
+    def test_the_open_panel_takes_every_key_and_the_drag(self):
+        from linecast._sky_live import SkyApp
+        app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
+        app.intercept("key:t")
+        assert app.intercept("key:/") is True and not app.search.open
+        assert app.intercept("key:c") is True
+        assert app.on_drag(5, 0, False) is False
+        assert app.picker.open
+        app.stop()
+
+    def test_the_panel_draws_and_scrolls_on_a_short_terminal(self):
+        from linecast._sky_picker import CulturePicker, picker_overlay
+        picker = CulturePicker("en")
+        picker.start("tukano")
+        tall = _strip(picker_overlay(picker, 100, 40, _runtime()))
+        assert "tradition" in tall and "IAU" in tall and "Tukano" in tall
+        assert "▲" not in tall and "▼" not in tall
+        short = _strip(picker_overlay(picker, 100, 12, _runtime()))
+        assert "Tukano" in short and "▲" in short and "▼" not in short
+        picker.start(None)
+        top = _strip(picker_overlay(picker, 100, 12, _runtime()))
+        assert "IAU" in top and "▲" not in top and "▼" in top
+
+    def test_the_panel_names_the_traditions_in_the_language(self):
+        from linecast._sky_picker import CulturePicker, picker_overlay
+        picker = CulturePicker("fr")
+        picker.start("chinese")
+        out = _strip(picker_overlay(picker, 100, 40, _runtime(lang="fr")))
+        assert sky.culture_title("chinese", "fr") in out
+        assert "Chinese" not in out
 
     def test_search_finds_a_star_by_the_language_s_name_or_the_iau_s(self):
         from linecast._sky_search import search, targets

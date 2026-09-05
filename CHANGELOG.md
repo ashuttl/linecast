@@ -6,7 +6,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 - Sky: A new view, `linecast sky`, draws the night sky from where you stand: the stars for the moment, the constellation figures and their names, the planets, the Moon at its phase, the Sun, and the Milky Way once the sky is dark. Drag to look around, zoom with `+` and `-`, scroll through time, and press `p` to watch the night pass. `--json` and `--oneline` say what is up.
 - Sky: `/` searches the sky. Type a star, a planet, or a constellation and the view flies to it; if it is below the horizon the panel says when it rises and where, and Enter again moves the clock to that moment. `--at Orion` opens on one.
-- Sky: `t` steps through twenty-two other traditions' constellations and star names, from the Chinese lunar mansions to the Hawaiian star lines and H. A. Rey's figures, with `--culture` and `linecast culture` to pick one. Chinese comes with the language. See CULTURES.md for the sources.
+- Sky: `t` opens a list of twenty-two other traditions' constellations and star names, from the Chinese lunar mansions to the Hawaiian star lines and H. A. Rey's figures, and the sky redraws as the highlight moves; `--culture` and `linecast culture` pick one to open on. Chinese comes with the language. See CULTURES.md for the sources.
 - Sky: The Sun and the Moon are cut by the skyline as they rise and set.
 - Sky: With the Hawaiian culture the horizon carries the navigators' star compass, thirty-two houses from Hikina round to Komohana, and directions are given by house.
 - Sky: The status line and `linecast culture --help` name the sky culture in the display language, so a Chinese view no longer ends in "Chinese".

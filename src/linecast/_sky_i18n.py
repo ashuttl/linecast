@@ -25,6 +25,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} rises at {time} in the {dir}',
         "never_rises": '{name} never rises from here',
         "search_jump": 'enter again to go to that moment',
+        "tradition": "tradition",
     },
     "fr": {
         "sun": "Soleil", "moon": "Lune",
@@ -41,6 +42,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} se lève à {time} au {dir}',
         "never_rises": '{name} ne se lève jamais ici',
         "search_jump": 'entrée encore pour aller à ce moment',
+        "tradition": "tradition",
     },
     "es": {
         "sun": "Sol", "moon": "Luna",
@@ -57,6 +59,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} sale a las {time} por el {dir}',
         "never_rises": '{name} nunca sale desde aquí',
         "search_jump": 'intro de nuevo para ir a ese momento',
+        "tradition": "tradición",
     },
     "de": {
         "sun": "Sonne", "moon": "Mond",
@@ -73,6 +76,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} geht um {time} im {dir} auf',
         "never_rises": '{name} geht hier nie auf',
         "search_jump": 'noch einmal Eingabe für diesen Moment',
+        "tradition": "Tradition",
     },
     "it": {
         "sun": "Sole", "moon": "Luna",
@@ -89,6 +93,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} sorge alle {time} a {dir}',
         "never_rises": '{name} non sorge mai da qui',
         "search_jump": 'invio di nuovo per andare a quel momento',
+        "tradition": "tradizione",
     },
     "pt": {
         "sun": "Sol", "moon": "Lua",
@@ -105,6 +110,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} nasce às {time} a {dir}',
         "never_rises": '{name} nunca nasce daqui',
         "search_jump": 'enter de novo para ir a esse momento',
+        "tradition": "tradição",
     },
     "nl": {
         "sun": "Zon", "moon": "Maan",
@@ -121,6 +127,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} komt op om {time} in het {dir}',
         "never_rises": '{name} komt hier nooit op',
         "search_jump": 'nogmaals enter om naar dat moment te gaan',
+        "tradition": "traditie",
     },
     "pl": {
         "sun": "Słońce", "moon": "Księżyc",
@@ -137,6 +144,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} wschodzi o {time} na {dir}',
         "never_rises": '{name} nigdy tu nie wschodzi',
         "search_jump": 'enter jeszcze raz, by przejść do tej chwili',
+        "tradition": "tradycja",
     },
     "no": {
         "sun": "Solen", "moon": "Månen",
@@ -153,6 +161,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} står opp {time} i {dir}',
         "never_rises": '{name} står aldri opp herfra',
         "search_jump": 'enter igjen for å gå til det øyeblikket',
+        "tradition": "tradisjon",
     },
     "sv": {
         "sun": "Solen", "moon": "Månen",
@@ -169,6 +178,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} går upp {time} i {dir}',
         "never_rises": '{name} går aldrig upp härifrån',
         "search_jump": 'enter igen för att gå till den stunden',
+        "tradition": "tradition",
     },
     "is": {
         "sun": "Sólin", "moon": "Tunglið",
@@ -185,6 +195,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} rís kl. {time} í {dir}',
         "never_rises": '{name} rís aldrei héðan',
         "search_jump": 'enter aftur til að fara á þá stund',
+        "tradition": "hefð",
     },
     "da": {
         "sun": "Solen", "moon": "Månen",
@@ -201,6 +212,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} står op {time} i {dir}',
         "never_rises": '{name} står aldrig op herfra',
         "search_jump": 'enter igen for at gå til det øjeblik',
+        "tradition": "tradition",
     },
     "fi": {
         "sun": "Aurinko", "moon": "Kuu",
@@ -217,6 +229,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} nousee {time} suunnassa {dir}',
         "never_rises": '{name} ei nouse täältä koskaan',
         "search_jump": 'enter uudelleen siirtyäksesi siihen hetkeen',
+        "tradition": "perinne",
     },
     "ja": {
         "sun": "太陽", "moon": "月",
@@ -233,6 +246,7 @@ _SKY_STRINGS = {
         "rises_at": '{name}は{time}に{dir}から昇る',
         "never_rises": '{name}はここでは昇らない',
         "search_jump": 'もう一度Enterでその時刻へ',
+        "tradition": "伝統",
     },
     "ko": {
         "sun": "태양", "moon": "달",
@@ -249,6 +263,7 @@ _SKY_STRINGS = {
         "rises_at": '{name}은(는) {time}에 {dir}에서 뜸',
         "never_rises": '{name}은(는) 여기서 뜨지 않음',
         "search_jump": '다시 Enter로 그 시각으로 이동',
+        "tradition": "전통",
     },
     "zh": {
         "sun": "太阳", "moon": "月亮",
@@ -265,6 +280,7 @@ _SKY_STRINGS = {
         "rises_at": '{name}于{time}从{dir}升起',
         "never_rises": '{name}在此地永不升起',
         "search_jump": '再按回车前往该时刻',
+        "tradition": "传统",
     },
     "th": {
         "sun": "ดวงอาทิตย์", "moon": "ดวงจันทร์",
@@ -281,6 +297,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} ขึ้นเวลา {time} ทาง {dir}',
         "never_rises": '{name} ไม่ขึ้นจากที่นี่',
         "search_jump": 'กด Enter อีกครั้งเพื่อไปยังเวลานั้น',
+        "tradition": "ประเพณี",
     },
     "id": {
         "sun": "Matahari", "moon": "Bulan",
@@ -297,6 +314,7 @@ _SKY_STRINGS = {
         "rises_at": '{name} terbit pukul {time} di {dir}',
         "never_rises": '{name} tidak pernah terbit dari sini',
         "search_jump": 'enter lagi untuk ke saat itu',
+        "tradition": "tradisi",
     },
 }
 

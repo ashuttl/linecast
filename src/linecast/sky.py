@@ -28,9 +28,10 @@ and names; `1`–`8` face the compass points in turn and `9` looks
 straight up; `m` faces the Moon; space returns to now. Point at
 anything for its name, or press `/` and type one: a star, a planet, or
 a constellation, and the view flies to it, or says when it will rise.
-`t` steps through the sky cultures: the constellations and star names
-of twenty-two traditions besides the IAU's, from the Chinese lunar
-mansions to the Hawaiian star lines; `--culture` or `linecast culture`
+`t` opens the traditions: the constellations and star names of
+twenty-two cultures besides the IAU's, from the Chinese lunar mansions
+to the Hawaiian star lines. The sky draws the one highlighted; Enter
+keeps it, Escape puts the sky back. `--culture` or `linecast culture`
 picks one to open on, and Chinese brings its own with the language.
 
 Positions come from `_ephemeris.py` and `_planets.py`, good to a few
