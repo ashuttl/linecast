@@ -316,6 +316,34 @@ class TestCatalogue:
             assert name in proper
         assert sky.star_names()[0] == ("Sirius", "α CMa")
 
+    def test_the_stars_have_their_names_in_the_language(self):
+        from linecast._i18n import LANGUAGE_CODES
+        assert sky.star_names("ja")[0] == ("シリウス", "α CMa")
+        assert sky.star_names("pl")[0] == ("Syriusz", "α CMa")
+        vega = next(i for i, (n, _d) in sky.star_names().items() if n == "Vega")
+        assert sky.star_names("zh")[vega] == ("织女一", "α Lyr")
+        assert sky.star_names("en") is sky.star_names()
+        assert sky.star_names("xx") == sky.star_names()
+        polaris = next(i for i, (n, _d) in sky.star_names().items() if n == "Polaris")
+        assert sky.star_names("th")[polaris][0] == "ดาวเหนือ"
+        for code in LANGUAGE_CODES:
+            # Every language keeps every star, and a translated name is
+            # never the designation again.
+            names = sky.star_names(code)
+            assert set(names) == set(sky.star_names())
+            assert all(proper != desig for proper, desig in names.values() if proper)
+
+    def test_the_constellations_have_their_names_in_every_language(self):
+        from linecast._i18n import LANGUAGE_CODES
+        ursa = next(r for r in sky.constellations() if r["id"] == "UMa")
+        assert ursa["name"] == "Ursa Major"
+        for code in LANGUAGE_CODES:
+            # Indonesian charts print the Latin names, as the IAU does.
+            if code not in ("en", "id"):
+                assert sky.constellation_name(ursa, code) != ursa["name"], code
+        assert sky.constellation_name(ursa, "pl") == "Wielka Niedźwiedzica"
+        assert sky.constellation_name(ursa, "en") == ursa["name"]
+
     def test_the_constellations(self):
         records = sky.constellations()
         assert len(records) == 89   # Serpens in two parts
@@ -632,6 +660,27 @@ class TestCultures:
         assert seen[:-1] == [c for c in CULTURE_CHOICES if c != "none"]
         assert seen[-1] is None
         app.stop()
+
+    def test_search_finds_a_star_by_the_language_s_name_or_the_iau_s(self):
+        from linecast._sky_search import search, targets
+        pool = targets(_runtime(lang="pl"))
+        assert search("syriusz", pool)[0].label == "Syriusz · α CMa"
+        assert search("sirius", pool)[0].label == "Syriusz · α CMa"
+        assert search("wielki pies", pool)[0].kind == "constellation"
+        pool = targets(_runtime(lang="ja"))
+        assert search("シリウス", pool)[0].key == 0
+
+    def test_a_language_labels_the_stars_its_own_way(self):
+        view = View(103.0, 30.0, 20.0, 2)
+        english = _strip(_frame(NIGHT, 200, 60, view=view))
+        japanese = _strip(_frame(NIGHT, 200, 60, view=view, lang="ja"))
+        own = {sky.star_names()[i][0]: name
+               for i, (name, _d) in sky.star_names("ja").items()
+               if name and name != sky.star_names()[i][0]}
+        shown = [iau for iau in own if iau in english]
+        assert shown, "no translated star is in the frame"
+        for iau in shown:
+            assert own[iau] in japanese and iau not in japanese
 
     def test_search_knows_the_culture(self):
         from linecast._sky_search import search, targets

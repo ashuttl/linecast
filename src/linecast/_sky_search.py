@@ -77,8 +77,9 @@ class Target:
 
 def targets(runtime, culture=None):
     """Everything searchable, for the display language and the culture:
-    with a culture set its constellations replace the IAU's and its star
-    names join theirs."""
+    the stars by the IAU's name, the language's own where it has one, and
+    the designation; with a culture set its constellations replace the
+    IAU's and its star names join theirs."""
     from linecast._i18n import lang_of
     from linecast._planets import PLANETS
     from linecast._sky_catalogue import (
@@ -95,11 +96,13 @@ def targets(runtime, culture=None):
                           [body_name(key, runtime), key], -10.0 + i))
     catalogue = stars()
     cultural = names_for(culture, lang) if culture else {}
+    local = star_names(lang)
     for i, (proper, desig) in star_names().items():
         mag = catalogue[i][2]
         own = cultural.get(i, ("", ""))[0]
-        label = own or proper or desig
-        names = [proper, desig, own]
+        mine = local[i][0]   # the language's own name, or the IAU's again
+        label = own or mine or desig
+        names = [proper, desig, own, mine]
         if desig:
             # "alpha lyr" and "alpha lyrae" find α Lyr as well.
             letter, _, con = desig.partition(" ")

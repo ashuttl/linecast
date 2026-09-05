@@ -1,9 +1,10 @@
 """Sky command localization strings.
 
-The constellation names come with the catalogue (see _sky_catalogue) and
-the star names are the IAU's, the same in every language; the compass
+The constellation names and the star names come with the catalogue (see
+_sky_catalogue), in each language where it has its own; the compass
 points are the radar's, and the twilight names the sunshine view's. What
-is left is the Sun, the Moon, the planets, and a few phrases.
+is left is the Sun, the Moon, the planets, the cultures' titles, and a
+few phrases.
 """
 
 from linecast._i18n import lang_of, lookup

@@ -10,6 +10,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Sky: The Sun and the Moon are cut by the skyline as they rise and set.
 - Sky: With the Hawaiian culture the horizon carries the navigators' star compass, thirty-two houses from Hikina round to Komohana, and directions are given by house.
 - Sky: The status line and `linecast culture --help` name the sky culture in the display language, so a Chinese view no longer ends in "Chinese".
+- Sky: The constellations have their names in all eighteen languages now, and the stars carry the names a chart in the language prints: Syriusz, シリウス, 天狼星, ดาวเหนือ. The pointer gives the IAU name beside them, and `/` finds a star by either.
 - Weather: MeteoAlarm warnings for Transnistria and Gagauzia in Moldova, and for five more Dutch coastal waters, now reach the place they name. The region data is refreshed to MeteoAlarm's July 2026 list.
 - `linecast` on its own now sorts the commands into the six views, the settings, and housekeeping, and ends with the moon's phase tonight.
 - `linecast language fr` saves the language for every run, the way `linecast units` and `linecast clock` save theirs. `--lang` still picks one for a single run.

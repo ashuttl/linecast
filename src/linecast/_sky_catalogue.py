@@ -24,6 +24,8 @@ _DATA = Path(__file__).parent / "data"
 _stars = None       # [(ra_rad, dec_rad, vmag, b_v)] brightest first
 _vectors = None     # [(x, y, z)] unit vectors, equatorial frame, parallel
 _names = None       # {index: (proper name or "", designation or "")}
+_translated = None  # {index: {lang: name}} where a language names a star its own way
+_by_lang = {}       # star_names(lang), built once per language
 _constellations = None
 _milky_way = None
 _cultures = None    # {stellarium id: raw record}
@@ -66,12 +68,17 @@ def equatorial_vector(ra, dec):
 
 
 def _load_sky():
-    global _names, _constellations
+    global _names, _translated, _constellations
     if _names is not None:
         return
     try:
         sky = json.loads(gzip.decompress((_DATA / "sky.json.gz").read_bytes()))
-        _names = {i: (proper, desig) for i, proper, desig in sky["names"]}
+        _names = {}
+        _translated = {}
+        for i, proper, desig, *rest in sky["names"]:
+            _names[i] = (proper, desig)
+            if rest:
+                _translated[i] = rest[0]
         _constellations = []
         for c in sky["constellations"]:
             ra, dec = c["at"]
@@ -87,13 +94,20 @@ def _load_sky():
     except Exception as exc:
         log_failure("sky", "sky catalogue load", exc,
                     fallback="no names or constellations")
-        _names, _constellations = {}, []
+        _names, _translated, _constellations = {}, {}, []
 
 
-def star_names():
-    """{index: (proper name or "", designation or "")}, indexed as `stars`."""
+def star_names(lang=None):
+    """{index: (proper name or "", designation or "")}, indexed as `stars`:
+    the IAU's names, or with *lang* the names that language prints where
+    it has its own (Syriusz, シリウス, ดาวเหนือ) and the IAU's elsewhere."""
     _load_sky()
-    return _names
+    if lang is None or lang == "en":
+        return _names
+    if lang not in _by_lang:
+        _by_lang[lang] = {i: (_translated.get(i, {}).get(lang) or proper, desig)
+                          for i, (proper, desig) in _names.items()}
+    return _by_lang[lang]
 
 
 def constellations():

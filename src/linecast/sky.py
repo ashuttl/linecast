@@ -699,7 +699,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     lang = lang_of(runtime)
 
     figures = figures_for(view.culture, lang) if view.culture else constellations()
-    names = names_for(view.culture, lang) if view.culture else star_names()
+    names = names_for(view.culture, lang) if view.culture else star_names(lang)
 
     fb = Framebuffer(graph_w, graph_h, bg_color=NIGHT_RGB)
     omega = _paint_sky(fb, scene, cam, f, cx, cy)
@@ -1051,11 +1051,12 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
         i, alt, mag = payload
         lang = lang_of(runtime)
         proper, desig = (names_for(view.culture, lang) if view.culture
-                         else star_names()).get(i, ("", ""))
+                         else star_names(lang)).get(i, ("", ""))
         iau_name = star_names().get(i, ("", ""))[0]
         title = proper or desig or _sk("star", runtime)
         detail = f"{desig} · mag {mag:.1f}" if proper and desig else f"mag {mag:.1f}"
-        if view.culture and iau_name and iau_name != proper:
+        if iau_name and iau_name != proper:
+            # A culture's name, or the language's own, with the IAU's beside it.
             detail = f"{iau_name} · {detail}"
         _alt, az = alt_az_of(_mat_apply(scene.horizontal, star_vectors()[i]))
     where = f"{alt:.0f}° · {compass_point(az, runtime, view.culture)}"
