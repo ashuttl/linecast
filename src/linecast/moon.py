@@ -561,7 +561,8 @@ def _ease_out_back(s):
 
 
 def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
-                    turn=None, night=None):
+                    turn=None, night=None, lit=None, contrast=1.0,
+                    earthshine=1.0, dusk=0.0):
     """Draw the phase-shaded lunar disc centered at (cx, cy) sub-pixels.
 
     Two angles set the picture, both screen bearings with 0 straight up
@@ -588,12 +589,23 @@ def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
     the maria show faintly in the old Moon in the new Moon's arms and
     not at all near full. The far side's night gets none. *night* is
     the colour of that unlit ground; the shadow colour when not given.
+
+    The last four are for a Moon in a lit sky, where it looks nothing
+    like it does at night: *lit* is the colour of the sunlit surface
+    (the palette's white when not given), *contrast* scales the maria
+    and the limb's darkening, *earthshine* scales the night side's lift
+    (none by day, when the sky outshines it), and *dusk* darkens the lit
+    surface toward the terminator, where the Sun is low over the ground
+    and the relief throws shadows -- the grey zone a daytime Moon shows
+    beside a limb that has vanished into the sky.
     """
     if night is None:
         night = MOON_SHADOW_RGB
+    if lit is None:
+        lit = MOON_LIT_RGB
     edge = max(1.0 / radius, 0.04)   # anti-aliasing band, in unit radii
     soft = 0.10                       # terminator softness, in unit radii
-    earthshine = 0.20 * (1.0 - illum)  # night-side lift, facing Earth square on
+    earthshine = 0.20 * (1.0 - illum) * earthshine  # night-side lift, facing Earth square on
     scan = int(radius + 2)
     albedo = _load_albedo()
 
@@ -643,7 +655,9 @@ def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
                                         m10 * ux + m11 * uy + m12 * uz,
                                         m20 * ux + m21 * uy + m22 * uz,
                                         albedo)
-            lit_px = darken(MOON_LIT_RGB, min(0.55, shade))
+            lit_px = darken(lit, min(0.55, shade * contrast))
+            if dusk > 0.0 and d < 0.6:
+                lit_px = darken(lit_px, dusk * math.exp(-max(0.0, d) / 0.12))
             # Earthshine: the shaded surface, faintly, where Earth is up.
             glow = earthshine * (ux * earth_x + uy * earth_y + uz * earth_z)
             night_px = lerp(night, lit_px, glow) if glow > 0.0 else night

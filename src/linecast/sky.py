@@ -405,6 +405,31 @@ def _plot_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h):
             dots[(col, row)] = dots.get((col, row), 0) | _BRAILLE[dx & 1][dy & 3]
 
 
+def _glow(fb, x, y, rgb, radius, alpha, cam, f, cx, cy):
+    """A radial glow about (x, y), as the framebuffer's, but only on the
+    sky: the ground is not lit by what stands behind it."""
+    u0, u1, u2 = cam[2], cam[5], cam[8]
+    xi, yi = int(round(x)), int(round(y))
+    scan = int(radius) + 2
+    sigma = radius * 0.35
+    px = fb.fb
+    for dy in range(-scan, scan + 1):
+        sy = yi + dy
+        if sy < 0 or sy >= fb.total_spy:
+            continue
+        for dx in range(-scan, scan + 1):
+            sx = xi + dx
+            if sx < 0 or sx >= fb.graph_w:
+                continue
+            dist = math.sqrt(dx * dx + dy * dy)
+            if dist > radius + 1:
+                continue
+            vx, vy, vz = unproject(sx + 0.5, sy + 0.5, f, cx, cy)
+            if vx * u0 + vy * u1 + vz * u2 < 0.0:
+                continue
+            px[sy][sx] = lerp(px[sy][sx], rgb, math.exp(-0.5 * (dist / sigma) ** 2) * alpha)
+
+
 def _draw_disc(fb, x, y, radius, rgb):
     """A filled, anti-aliased disc of *radius* sub-pixels at (x, y)."""
     edge = 0.6
@@ -608,8 +633,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         radius = max(2.0, f * math.tan(math.radians(0.267)) * 2.0)
         glow = max(10.0, radius * 6.0)
         lift = max(0.0, min(1.0, (scene.sun_alt + 3.0) / 6.0))
-        fb.draw_radial(int(round(sx)), sy, SUN_GLOW_RGB, int(glow), aspect=1.0,
-                       peak_alpha=0.9 * lift)
+        _glow(fb, sx, sy, SUN_GLOW_RGB, glow, 0.9 * lift, cam, f, cx, cy)
         if scene.sun_alt > -0.9:
             _draw_disc(fb, sx, sy, radius, SUN_DOT_RGB)
         hits.append((sx, sy, "sun", None))
@@ -621,17 +645,24 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         mx, my = moon_at
         radius = max(2.2, f * math.tan(math.radians(0.26)) * 2.0)
         illum = scene.moon_illum
-        # Against a bright sky the Moon is a pale thing without a halo and
-        # its night side is the sky; at night it owns its patch of sky.
-        fb.draw_radial(int(round(mx)), my, MOON_GLOW_RGB,
-                       int(max(3.0, radius * 1.8)), aspect=1.0,
-                       peak_alpha=(0.12 + 0.28 * illum) * scene.darkness)
+        # At night the Moon owns its patch of sky, with a halo, its maria,
+        # and earthshine on the night side. By day it is washed out: the
+        # sunlit surface near white with the maria faint, the night side
+        # the sky itself, and a grey zone along the terminator the only
+        # sign of the dark half.
+        dark = scene.darkness
+        if dark > 0.0:
+            _glow(fb, mx, my, MOON_GLOW_RGB, max(3.0, radius * 1.8),
+                  (0.12 + 0.28 * illum) * dark, cam, f, cx, cy)
         cell = fb.cell_bg(max(0, min(graph_w - 1, int(mx))),
                           max(0, min(graph_h - 1, int(my) // 2)))
         up = _screen_up_deg(moon_cam, cam, f, cx, cy)
-        _draw_moon_disc(fb, int(round(mx)), int(round(my)), radius, illum, up + scene.moon_limb,
-                        up + scene.moon_axis, None,
-                        night=lerp(cell, darken(NIGHT_RGB, 0.5), scene.darkness))
+        _draw_moon_disc(fb, int(round(mx)), int(round(my)), radius, illum,
+                        up + scene.moon_limb, up + scene.moon_axis, None,
+                        night=lerp(cell, darken(NIGHT_RGB, 0.5), dark),
+                        lit=lerp((253, 253, 255), MOON_LIT_RGB, dark),
+                        contrast=0.35 + 0.65 * dark, earthshine=dark,
+                        dusk=0.4 * (1.0 - dark))
         hits.append((mx, my, "moon", None))
 
     # --- the stars, gathered ---
