@@ -509,6 +509,9 @@ _STRINGS = {
         "aqi": "AQI",
         "precip_inch": "\u2033",
         "until": "until",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "High humidity is making it feel warmer",
         "feels_sun": "The sun is making it feel warmer",
@@ -576,6 +579,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "IQA",
         "until": "jusqu'\u00e0",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "L'humidit\u00e9 fait monter le ressenti",
         "feels_sun": "Le soleil fait monter le ressenti",
@@ -643,6 +649,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "ICA",
         "until": "hasta",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "La humedad hace que se sienta m\u00e1s calor",
         "feels_sun": "El sol hace que se sienta m\u00e1s calor",
@@ -710,6 +719,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "LQI",
         "until": "bis",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "Die hohe Luftfeuchtigkeit l\u00e4sst es w\u00e4rmer wirken",
         "feels_sun": "Die Sonne l\u00e4sst es w\u00e4rmer wirken",
@@ -777,6 +789,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "til",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "H\u00f8y luftfuktighet f\u00e5r det til \u00e5 f\u00f8les varmere",
         "feels_sun": "Sola f\u00e5r det til \u00e5 f\u00f8les varmere",
@@ -844,6 +859,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "til",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "Vegna raka finnst manni hl\u00fdrra",
         "feels_sun": "Vegna s\u00f3lar finnst manni hl\u00fdrra",
@@ -911,6 +929,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "til",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "H\u00f8j luftfugtighed f\u00e5r det til at f\u00f8les varmere",
         "feels_sun": "Solen f\u00e5r det til at f\u00f8les varmere",
@@ -978,6 +999,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "IQA",
         "until": "fino a",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "L\u2019umidit\u00e0 elevata fa sembrare pi\u00f9 caldo",
         "feels_sun": "Il sole fa sembrare pi\u00f9 caldo",
@@ -1046,6 +1070,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "do",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "Wysoka wilgotno\u015b\u0107 podnosi temperatur\u0119 odczuwaln\u0105",
         "feels_sun": "S\u0142o\u0144ce podnosi temperatur\u0119 odczuwaln\u0105",
@@ -1113,6 +1140,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "tot",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "Hoge luchtvochtigheid laat het warmer aanvoelen",
         "feels_sun": "De zon laat het warmer aanvoelen",
@@ -1180,6 +1210,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "IQA",
         "until": "at\u00e9",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "A umidade alta faz parecer mais quente",
         "feels_sun": "O sol faz parecer mais quente",
@@ -1247,6 +1280,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "till",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "H\u00f6g luftfuktighet f\u00e5r det att k\u00e4nnas varmare",
         "feels_sun": "Solen f\u00e5r det att k\u00e4nnas varmare",
@@ -1314,6 +1350,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "asti",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "Korkea kosteus saa s\u00e4\u00e4n tuntumaan l\u00e4mpim\u00e4mm\u00e4lt\u00e4",
         "feels_sun": "Aurinko saa s\u00e4\u00e4n tuntumaan l\u00e4mpim\u00e4mm\u00e4lt\u00e4",
@@ -1382,6 +1421,9 @@ _STRINGS = {
         "aqi": "AQI",
         "precip_inch": "\u30a4\u30f3\u30c1",
         "until": "\u307e\u3067",
+        # Sentence punctuation for the prose lines
+        "sentence_end": "\u3002",
+        "sentence_join": "\u3002",
         # Feels-like line
         "feels_humid": "\u6e7f\u5ea6\u304c\u9ad8\u304f\u4f53\u611f\u6e29\u5ea6\u306f\u9ad8\u3081",
         "feels_sun": "\u65e5\u5dee\u3057\u3067\u4f53\u611f\u6e29\u5ea6\u306f\u9ad8\u3081",
@@ -1449,6 +1491,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "\uae4c\uc9c0",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "\uc2b5\ub3c4\uac00 \ub192\uc544 \uccb4\uac10\uc628\ub3c4\uac00 \ub192\uc74c",
         "feels_sun": "\ud587\ubcd5\uc73c\ub85c \uccb4\uac10\uc628\ub3c4\uac00 \ub192\uc74c",
@@ -1516,6 +1561,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "\u5230",
+        # Sentence punctuation for the prose lines
+        "sentence_end": "\u3002",
+        "sentence_join": "\u3002",
         # Feels-like line
         "feels_humid": "\u6e7f\u5ea6\u5927\uff0c\u4f53\u611f\u504f\u6696",
         "feels_sun": "\u9633\u5149\u4f7f\u4f53\u611f\u504f\u6696",
@@ -1586,6 +1634,9 @@ _STRINGS = {
         "metric_unit_sep": " ",
         "precip_inch": " นิ้ว",
         "until": "จนถึง",
+        # Sentence punctuation for the prose lines
+        "sentence_end": "",
+        "sentence_join": "  ",
         # Feels-like line
         "feels_humid": "ความชื้นสูงทำให้รู้สึกอุ่นขึ้น",
         "feels_sun": "แดดทำให้รู้สึกอุ่นขึ้น",
@@ -1653,6 +1704,9 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "IKU",
         "until": "hingga",
+        # Sentence punctuation for the prose lines
+        "sentence_end": ".",
+        "sentence_join": ". ",
         # Feels-like line
         "feels_humid": "Kelembapan tinggi membuat terasa lebih hangat",
         "feels_sun": "Sinar matahari membuat terasa lebih hangat",

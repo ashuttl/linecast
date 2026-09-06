@@ -61,13 +61,23 @@ class TestFeelsSentence:
 
         assert feels_sentence(current, DAILY, midnight, _runtime()) == ""
 
-    def test_desert_air_explains_a_cooler_reading_even_in_a_breeze(self):
+    def test_dry_air_explains_a_cooler_reading_when_the_air_is_still(self):
+        current = {"temperature_2m": 95, "apparent_temperature": 90,
+                   "relative_humidity_2m": 8, "wind_speed_10m": 2,
+                   "weather_code": 0}
+
+        assert feels_sentence(current, DAILY, NOON, _runtime()) == \
+            _s("feels_dry", _runtime())
+
+    def test_a_breeze_outweighs_the_dryness_it_blows(self):
+        # Same desert, now with 9 mph of wind: 2.8 C of cooling against the
+        # dry air's 0.7, so the wind is what there is to say.
         current = {"temperature_2m": 95, "apparent_temperature": 90,
                    "relative_humidity_2m": 18, "wind_speed_10m": 9,
                    "weather_code": 0}
 
         assert feels_sentence(current, DAILY, NOON, _runtime()) == \
-            _s("feels_dry", _runtime())
+            _s("feels_wind", _runtime())
 
     def test_a_small_gap_says_nothing(self):
         current = {"temperature_2m": 70, "apparent_temperature": 68,
@@ -75,24 +85,28 @@ class TestFeelsSentence:
 
         assert feels_sentence(current, DAILY, NOON, _runtime()) == ""
 
-    def test_an_unexplained_gap_says_nothing(self):
-        current = {"temperature_2m": 55, "apparent_temperature": 61,
-                   "dew_point_2m": 35, "wind_speed_10m": 2, "weather_code": 3}
+    def test_a_forecast_too_old_to_carry_humidity_says_nothing(self):
+        # The arithmetic needs it; forecasts cached before it was asked for
+        # do not have it.
+        current = {"temperature_2m": 40, "apparent_temperature": 30,
+                   "wind_speed_10m": 18, "weather_code": 3}
 
         assert feels_sentence(current, DAILY, NOON, _runtime()) == ""
 
     def test_a_light_breeze_is_enough_to_name_the_wind(self):
-        current = {"temperature_2m": 52, "apparent_temperature": 47,
-                   "relative_humidity_2m": 57, "dew_point_2m": 37,
-                   "wind_speed_10m": 6, "weather_code": 0}
+        # Reykjavik on a clear September afternoon: 6 mph carries 1.9 C of
+        # the 5 F gap, more than the dry air's 1.5.
+        current = {"temperature_2m": 52.2, "apparent_temperature": 46.7,
+                   "relative_humidity_2m": 56, "dew_point_2m": 37.4,
+                   "wind_speed_10m": 6.9, "weather_code": 0}
 
         assert feels_sentence(current, DAILY, NOON, _runtime()) == \
             _s("feels_wind", _runtime())
 
-    def test_still_air_names_nothing(self):
+    def test_nothing_worth_a_degree_says_nothing(self):
         current = {"temperature_2m": 52, "apparent_temperature": 47,
-                   "relative_humidity_2m": 57, "dew_point_2m": 37,
-                   "wind_speed_10m": 1, "weather_code": 0}
+                   "relative_humidity_2m": 68, "wind_speed_10m": 1,
+                   "weather_code": 0}
 
         assert feels_sentence(current, DAILY, NOON, _runtime()) == ""
 
@@ -102,7 +116,8 @@ class TestFeelsSentence:
     def test_the_threshold_follows_the_unit(self):
         # Two and a half degrees is worth saying in Celsius, not in Fahrenheit.
         current = {"temperature_2m": 20, "apparent_temperature": 17.5,
-                   "wind_speed_10m": 25, "weather_code": 3}
+                   "relative_humidity_2m": 60, "wind_speed_10m": 25,
+                   "weather_code": 3}
 
         assert feels_sentence(current, DAILY, NOON,
                               _runtime(celsius=True, metric=True)) != ""
@@ -114,7 +129,8 @@ class TestNarrativePacking:
 
     DATA = {
         "current": {"temperature_2m": 40, "apparent_temperature": 30,
-                    "wind_speed_10m": 18, "weather_code": 3},
+                    "relative_humidity_2m": 70, "wind_speed_10m": 18,
+                    "weather_code": 3},
         "daily": dict(DAILY, temperature_2m_max=[60, 62, 63]),
         "hourly": {},
     }
@@ -127,20 +143,26 @@ class TestNarrativePacking:
         lines = narrative_lines(self.DATA, NOON, 200, _runtime())
 
         assert len(lines) == 1
-        assert " · " in self._plain(lines)[0]
+        assert ". " in self._plain(lines)[0]
 
     def test_the_same_two_take_a_line_each_when_narrow(self):
         lines = narrative_lines(self.DATA, NOON, 40, _runtime())
 
         assert len(lines) == 2
-        assert all(" · " not in line for line in self._plain(lines))
+        assert all(". " not in line for line in self._plain(lines))
+
+    def test_every_line_is_punctuated_as_a_sentence(self):
+        for width in (40, 200):
+            for line in self._plain(narrative_lines(self.DATA, NOON, width,
+                                                    _runtime())):
+                assert line.endswith("."), line
 
     def test_a_shared_line_never_overruns_the_terminal(self):
         from linecast._graphics import visible_len
         for width in range(30, 140, 7):
             lines = narrative_lines(self.DATA, NOON, width, _runtime())
             shared = [line for line, text in zip(lines, self._plain(lines))
-                      if " \u00b7 " in text]
+                      if text.count(".") > 1]
             assert all(visible_len(line) <= width for line in shared)
 
     def test_nothing_to_say_renders_nothing(self):
@@ -148,6 +170,13 @@ class TestNarrativePacking:
 
 
 class TestFeelsStringsAreTranslated:
+    def test_every_language_punctuates_its_own_sentences(self):
+        for lang, table in _STRINGS.items():
+            assert "sentence_end" in table, f"{lang} has no sentence_end"
+            assert "sentence_join" in table, f"{lang} has no sentence_join"
+            # The joiner carries the terminator, whatever mark that is.
+            assert table["sentence_join"].startswith(table["sentence_end"])
+
     def test_every_language_has_its_own_feels_phrases(self):
         keys = ("feels_humid", "feels_sun", "feels_wind", "feels_dry")
         for lang, table in _STRINGS.items():

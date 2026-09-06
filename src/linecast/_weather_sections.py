@@ -1,5 +1,6 @@
 """Header and narrative weather text sections."""
 
+import math
 from datetime import datetime, timedelta
 
 from linecast import _theme
@@ -173,11 +174,6 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
 # ---------------------------------------------------------------------------
 # The prose lines under the graph
 # ---------------------------------------------------------------------------
-# What separates two sentences sharing a line.  The same mark the maps and
-# radar hints use, and it needs no punctuation added to the sentences.
-NARRATIVE_SEP = " \u00b7 "
-
-
 def _muted(sentence):
     """A sentence as a dashboard line, or nothing when there is no sentence."""
     return f" {MUTED}{sentence}{RESET}" if sentence else ""
@@ -202,23 +198,46 @@ def narrative_lines(data, now, width, runtime=None):
     if not sentences:
         return []
 
+    # Read as prose, so the sentences are punctuated as prose: a full stop
+    # between two sharing a line and at the end of every one.  Which mark
+    # that is, and whether a space follows it, is the language's business.
+    join = _s("sentence_join", runtime)
+    end = _s("sentence_end", runtime)
+
     budget = max(1, width - 1)  # the line's leading space
     rows = [sentences[0]]
     for sentence in sentences[1:]:
-        joined = rows[-1] + NARRATIVE_SEP + sentence
-        if visible_len(joined) <= budget:
+        joined = rows[-1] + join + sentence
+        if visible_len(joined + end) <= budget:
             rows[-1] = joined
         else:
             rows.append(sentence)
-    return [_muted(row) for row in rows]
+    return [_muted(row + end) for row in rows]
 
 
 # ---------------------------------------------------------------------------
 # Feels-like line
-# ---------------------------------------------------------------------------
-# Clear enough for the sun to be worth blaming for a warm apparent
-# temperature: clear, mostly clear, partly cloudy.
-_SUNNY_CODES = (0, 1, 2)
+# Open-Meteo's apparent temperature is the Australian one, which is the air
+# temperature plus a humidity term and minus a wind term:
+#
+#     AT = Ta + 0.33e - 0.70v - 4.00      e in hPa, v in m/s
+#
+# with sunshine added on top.  Checked against the API hour by hour, those
+# two terms account for the reading to within a few tenths overnight, and
+# what is left over rises and falls with the sun.  So the same arithmetic,
+# run backwards, says how much of the gap each of the three is holding --
+# no guessing from thresholds, and the answer is right by construction.
+#
+# A term has to be worth a degree Celsius before it is worth a sentence.
+_FEELS_FLOOR_C = 1.0
+
+
+def _feels_terms(temp_c, humidity, wind_ms, gap_c):
+    """What humidity, wind and sunshine each contribute, in degrees Celsius."""
+    vapour = humidity / 100 * 6.105 * math.exp(17.27 * temp_c / (237.7 + temp_c))
+    humid = 0.33 * vapour - 4.0     # zero at a dew point near 10 C
+    wind = -0.70 * wind_ms
+    return {"humid": humid, "wind": wind, "sun": gap_c - humid - wind}
 
 
 def _is_daylight(daily, now):
@@ -234,41 +253,47 @@ def _is_daylight(daily, now):
 def feels_sentence(current, daily, now, runtime=None):
     """Why the air feels warmer or cooler than the thermometer reads.
 
-    Open-Meteo folds humidity, wind and sunshine into one apparent
-    temperature.  This names whichever of the three the conditions point
-    to, and says nothing when the gap is small or unexplained -- the
-    header already prints the number."""
+    Names whichever of humidity, wind and sunshine is holding most of the
+    gap, and says nothing when the gap is small, when no one thing is
+    holding a degree of it, or when the forecast is too old to carry the
+    humidity the arithmetic needs.  The header already prints the number;
+    this is only here to say what is behind it."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
     temp = current.get("temperature_2m")
     feels = current.get("apparent_temperature")
-    if temp is None or feels is None:
+    humidity = current.get("relative_humidity_2m")
+    wind = current.get("wind_speed_10m")
+    if temp is None or feels is None or humidity is None or wind is None:
         return ""
 
     gap = feels - temp
     if abs(gap) < (2 if runtime.celsius else 3):
         return ""
 
-    if gap > 0:
-        # Muggy air raises the apparent temperature; a dew point this high
-        # is the mark of it, and it holds whatever the humidity reads.
-        dew_point = current.get("dew_point_2m")
-        if dew_point is not None and dew_point >= (15 if runtime.celsius else 59):
-            return _s("feels_humid", runtime)
-        if current.get("weather_code", 0) in _SUNNY_CODES and _is_daylight(daily, now):
-            return _s("feels_sun", runtime)
+    to_c = (lambda t: t) if runtime.celsius else (lambda t: (t - 32) * 5 / 9)
+    terms = _feels_terms(
+        to_c(temp), humidity,
+        wind / 3.6 if runtime.metric else wind * 0.44704,
+        gap if runtime.celsius else gap * 5 / 9,
+    )
+
+    # Of the terms pushing the way the reading went, the largest one.
+    pushing = sorted(((abs(size), name) for name, size in terms.items()
+                      if (size > 0) == (gap > 0)), reverse=True)
+    if not pushing or pushing[0][0] < _FEELS_FLOOR_C:
         return ""
 
-    # Desert air first: hot and this dry, evaporation is the story whether
-    # or not there is a breeze.  Otherwise the wind, which cools by about a
-    # degree Celsius for every 5 km/h of it and so is worth naming from a
-    # light breeze up.
-    humidity = current.get("relative_humidity_2m")
-    if (humidity is not None and humidity <= 25
-            and temp >= (30 if runtime.celsius else 86)):
-        return _s("feels_dry", runtime)
-    if (current.get("wind_speed_10m") or 0) >= (8 if runtime.metric else 5):
+    holding = pushing[0][1]
+    if holding == "wind":
         return _s("feels_wind", runtime)
+    if holding == "humid":
+        return _s("feels_humid" if gap > 0 else "feels_dry", runtime)
+    # Sunshine is the leftover, so it carries whatever the formula and the
+    # API disagree about.  Claim it only when it warms, and only with the
+    # sun actually up.
+    if gap > 0 and _is_daylight(daily, now):
+        return _s("feels_sun", runtime)
     return ""
 
 
