@@ -18,6 +18,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Moon: The stars are the real sky around the Moon, from the Yale Bright Star Catalogue, so scrolling through time turns them with the night and the Moon keeps its place among its constellations. They sweep past as the disc is dragged, the way they would if you were circling the Moon.
 - Moon: In a terminal too narrow for the info column, the phase and the status now sit in the top corners of the sky and the rest runs along the bottom, with the disc in the sky between. The day of the month comes before the illumination.
 - Sunshine: The corner that names the place now gives its time too, in both the day and year views, with the day of the week when it is not your own, so a pinned location reads as a world clock.
+- Sunshine: In the zones east of the date line that keep UTC+13 or +14 — Samoa, Tonga, Kiritimati — `--json` dated sunrise, sunset and solar noon a day late and named the wrong next event. The day and year views there now name sunrise, solar noon and sunset when the moment is one of them, rather than passing over it.
 
 ## 2.3.1 — 2026-09-03
 

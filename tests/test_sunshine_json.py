@@ -2,7 +2,7 @@
 
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Ensure the worktree src is preferred over any installed version.
@@ -201,6 +201,51 @@ class TestPolar:
         assert p["tomorrow_sunrise"] is not None
         assert p["next_event"] == {"kind": "sunrise",
                                    "time": p["tomorrow_sunrise"]}
+
+
+class TestFarEasternZones:
+    """UTC+13 and +14, whose clocks run ahead of their own sun by more
+    than twelve hours.
+
+    Kiritimati keeps UTC+14 at 157°W. Its solar noon is a day and a half
+    after midnight UTC, and the local hours it comes back in used to run
+    past 24 — which dated every event in the payload to tomorrow, and
+    made the next event a sunrise twenty-one hours off when it was a
+    sunset nine hours off. The same point on Hawai'i's UTC-10 was always
+    right, which is what named the cause.
+    """
+
+    KIRITIMATI = dict(lat=1.87, lng=-157.40)
+
+    def _at(self, place, offset_h):
+        zone = timezone(timedelta(hours=offset_h))
+        now = datetime(2026, 9, 6, 9, 0, tzinfo=zone)
+        return build_payload(now=now, location="Testville", **place)
+
+    def test_the_day_events_carry_the_day_asked_for(self):
+        p = self._at(self.KIRITIMATI, 14)
+        for key in ("sunrise", "solar_noon", "sunset"):
+            assert p[key].startswith("2026-09-06"), (key, p[key])
+        assert p["tomorrow_sunrise"].startswith("2026-09-07")
+
+    def test_the_next_event_at_nine_in_the_morning_is_the_sunset(self):
+        p = self._at(self.KIRITIMATI, 14)
+        assert p["next_event"] == {"kind": "sunset", "time": p["sunset"]}
+
+    def test_the_clock_time_of_noon_ignores_which_side_of_the_line(self):
+        # One point, put in the zone Kiritimati keeps and in the one
+        # Hawai'i keeps on the same meridian: the two are a day apart on
+        # the calendar and see the same sun at the same clock time.
+        east = self._at(self.KIRITIMATI, 14)
+        west = self._at(self.KIRITIMATI, -10)
+        assert east["solar_noon"][11:] == west["solar_noon"][11:]
+
+    def test_samoa_and_tonga_keep_their_own_date(self):
+        for place, offset in ((dict(lat=-13.83, lng=-171.77), 13),
+                              (dict(lat=-21.14, lng=-175.20), 13)):
+            p = self._at(place, offset)
+            assert p["sunrise"].startswith("2026-09-06"), p["sunrise"]
+            assert p["sunset"].startswith("2026-09-06"), p["sunset"]
 
 
 class TestLiveSuppression:
