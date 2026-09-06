@@ -1513,8 +1513,8 @@ _STRINGS = {
         "today_ref": "\uc624\ub298",
         "will_be": "{subject}\uc740 {comparison}",
         # Precipitation line
-        "ending": "{desc} {time} \uadf8\uce68",
-        "continuing": "{desc} \ud558\ub8e8 \uc885\uc77c",
+        "ending": "{desc} {time} \uadf8\uce68 \uc608\uc0c1",
+        "continuing": "{desc} \ud558\ub8e8 \uc885\uc77c \uc9c0\uc18d \uc608\uc0c1",
         "starting": "{desc} {time} \uc608\uc0c1",
         "shortly": "\uace7",
         "in_about_an_hour": "\uc57d 1\uc2dc\uac04 \ud6c4",
@@ -1583,8 +1583,8 @@ _STRINGS = {
         "today_ref": "\u4eca\u5929",
         "will_be": "{subject}{comparison}",
         # Precipitation line
-        "ending": "{desc} {time}\u505c\u6b62",
-        "continuing": "{desc} \u6301\u7eed\u4e00\u6574\u5929",
+        "ending": "{desc} \u9884\u8ba1{time}\u505c\u6b62",
+        "continuing": "{desc} \u5c06\u6301\u7eed\u4e00\u6574\u5929",
         "starting": "{desc} \u53ef\u80fd{time}\u5f00\u59cb",
         "shortly": "\u5373\u5c06",
         "in_about_an_hour": "\u7ea6\u4e00\u5c0f\u65f6\u540e",
@@ -1656,8 +1656,8 @@ _STRINGS = {
         "today_ref": "วันนี้",
         "will_be": "{subject}จะ{comparison}",
         # Precipitation line
-        "ending": "{desc}จะหยุด{time}",
-        "continuing": "{desc}ต่อเนื่องตลอดวัน",
+        "ending": "คาดว่า{desc}จะหยุด{time}",
+        "continuing": "คาดว่า{desc}จะต่อเนื่องตลอดวัน",
         "starting": "คาดว่าจะมี{desc}{time}",
         "shortly": "ในไม่ช้า",
         "in_about_an_hour": "ในอีกราว 1 ชั่วโมง",
