@@ -171,6 +171,108 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
 
 
 # ---------------------------------------------------------------------------
+# The prose lines under the graph
+# ---------------------------------------------------------------------------
+# What separates two sentences sharing a line.  The same mark the maps and
+# radar hints use, and it needs no punctuation added to the sentences.
+NARRATIVE_SEP = " \u00b7 "
+
+
+def _muted(sentence):
+    """A sentence as a dashboard line, or nothing when there is no sentence."""
+    return f" {MUTED}{sentence}{RESET}" if sentence else ""
+
+
+def narrative_lines(data, now, width, runtime=None):
+    """The prose under the graph, packed into as few lines as it fits on.
+
+    A sentence per line leaves most of a wide terminal empty and takes
+    rows the graph wants on a narrow one, so sentences share a line while
+    there is room and only spill onto another when there is not."""
+    if runtime is None:
+        runtime = current_runtime(WeatherRuntime)
+    daily = data.get("daily", {})
+    hourly = data.get("hourly", {})
+    sentences = [s for s in (
+        feels_sentence(data.get("current", {}), daily, now, runtime),
+        comparative_sentence(daily, now, runtime),
+        precipitation_sentence(hourly, now, runtime),
+        past_precip_sentence(hourly, now, runtime),
+    ) if s]
+    if not sentences:
+        return []
+
+    budget = max(1, width - 1)  # the line's leading space
+    rows = [sentences[0]]
+    for sentence in sentences[1:]:
+        joined = rows[-1] + NARRATIVE_SEP + sentence
+        if visible_len(joined) <= budget:
+            rows[-1] = joined
+        else:
+            rows.append(sentence)
+    return [_muted(row) for row in rows]
+
+
+# ---------------------------------------------------------------------------
+# Feels-like line
+# ---------------------------------------------------------------------------
+# Clear enough for the sun to be worth blaming for a warm apparent
+# temperature: clear, mostly clear, partly cloudy.
+_SUNNY_CODES = (0, 1, 2)
+
+
+def _is_daylight(daily, now):
+    """Whether `now` falls between today's sunrise and sunset.  False when
+    the day has no sunrise -- a polar winter, or a forecast that omits it."""
+    from linecast._weather_hourly import _parse_sun_events
+    for rise, sunset in _parse_sun_events(daily):
+        if rise is not None and rise.date() == now.date():
+            return sunset is not None and rise <= now <= sunset
+    return False
+
+
+def feels_sentence(current, daily, now, runtime=None):
+    """Why the air feels warmer or cooler than the thermometer reads.
+
+    Open-Meteo folds humidity, wind and sunshine into one apparent
+    temperature.  This names whichever of the three the conditions point
+    to, and says nothing when the gap is small or unexplained -- the
+    header already prints the number."""
+    if runtime is None:
+        runtime = current_runtime(WeatherRuntime)
+    temp = current.get("temperature_2m")
+    feels = current.get("apparent_temperature")
+    if temp is None or feels is None:
+        return ""
+
+    gap = feels - temp
+    if abs(gap) < (2 if runtime.celsius else 3):
+        return ""
+
+    if gap > 0:
+        # Muggy air raises the apparent temperature; a dew point this high
+        # is the mark of it, and it holds whatever the humidity reads.
+        dew_point = current.get("dew_point_2m")
+        if dew_point is not None and dew_point >= (15 if runtime.celsius else 59):
+            return _s("feels_humid", runtime)
+        if current.get("weather_code", 0) in _SUNNY_CODES and _is_daylight(daily, now):
+            return _s("feels_sun", runtime)
+        return ""
+
+    # Desert air first: hot and this dry, evaporation is the story whether
+    # or not there is a breeze.  Otherwise the wind, which cools by about a
+    # degree Celsius for every 5 km/h of it and so is worth naming from a
+    # light breeze up.
+    humidity = current.get("relative_humidity_2m")
+    if (humidity is not None and humidity <= 25
+            and temp >= (30 if runtime.celsius else 86)):
+        return _s("feels_dry", runtime)
+    if (current.get("wind_speed_10m") or 0) >= (8 if runtime.metric else 5):
+        return _s("feels_wind", runtime)
+    return ""
+
+
+# ---------------------------------------------------------------------------
 # Comparative weather line
 # ---------------------------------------------------------------------------
 def comparative_sentence(daily, now, runtime=None):
@@ -210,10 +312,7 @@ def comparative_sentence(daily, now, runtime=None):
 
 def _comparative_line(daily, now, runtime=None):
     """ANSI-muted comparative sentence for the dashboard."""
-    sentence = comparative_sentence(daily, now, runtime)
-    if not sentence:
-        return ""
-    return f" {MUTED}{sentence}{RESET}"
+    return _muted(comparative_sentence(daily, now, runtime))
 
 
 # ---------------------------------------------------------------------------
@@ -239,8 +338,8 @@ _PRECIP_DESCS = {
 }
 
 
-def _precipitation_line(hourly, now, runtime=None):
-    """Natural language description of upcoming precipitation."""
+def precipitation_sentence(hourly, now, runtime=None):
+    """Plain-text description of upcoming precipitation."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
     lang = runtime.lang
@@ -312,20 +411,23 @@ def _precipitation_line(hourly, now, runtime=None):
         current_desc = desc(first_idx)
         for i, dt in window[1:]:
             if not is_precip(i):
-                text = _s("ending", runtime, desc=_ucfirst(current_desc), time=time_phrase(dt))
-                return f" {MUTED}{text}{RESET}"
-        text = _s("continuing", runtime, desc=_ucfirst(current_desc))
-        return f" {MUTED}{text}{RESET}"
+                return _s("ending", runtime, desc=_ucfirst(current_desc),
+                          time=time_phrase(dt))
+        return _s("continuing", runtime, desc=_ucfirst(current_desc))
 
     for i, dt in window[1:]:
         if is_precip(i):
-            text = _s("starting", runtime, desc=_ucfirst(desc(i)), time=time_phrase(dt))
-            return f" {MUTED}{text}{RESET}"
+            return _s("starting", runtime, desc=_ucfirst(desc(i)), time=time_phrase(dt))
     return ""
 
 
-def _past_precip_line(hourly, now, runtime):
-    """Natural language summary of precipitation in the last 24 hours."""
+def _precipitation_line(hourly, now, runtime=None):
+    """ANSI-muted precipitation sentence for the dashboard."""
+    return _muted(precipitation_sentence(hourly, now, runtime))
+
+
+def past_precip_sentence(hourly, now, runtime):
+    """Plain-text summary of precipitation in the last 24 hours."""
     times = hourly.get("time", [])
     precip = hourly.get("precipitation", [])
     snowfall = hourly.get("snowfall", [])
@@ -397,6 +499,11 @@ def _past_precip_line(hourly, now, runtime):
             amt = f"{total_precip:.2f}{_s('precip_inch', runtime)}"
         ptype = _s("rain", runtime)
 
-    return f" {MUTED}{_s('past_precip', runtime, amt=amt, ptype=ptype)}{RESET}"
+    return _s("past_precip", runtime, amt=amt, ptype=ptype)
+
+
+def _past_precip_line(hourly, now, runtime):
+    """ANSI-muted past-precipitation sentence for the dashboard."""
+    return _muted(past_precip_sentence(hourly, now, runtime))
 
 _theme.track_imports(globals(), "linecast._weather_style")

@@ -2,7 +2,7 @@
 """Weather — terminal weather dashboard.
 
 Renders a text-based dashboard with current conditions, braille temperature
-curve, daily range bars, comparative weather line, and weather alerts.
+curve, daily range bars, a line or two of prose, and weather alerts.
 Temperature-driven color palette, Nerd Font icons, clean column alignment.
 
 Alerts sourced from NWS (US), Environment Canada (CA), Bright Sky/DWD (DE),
@@ -42,12 +42,10 @@ from linecast._weather_render import (
     TOOLTIP_TEXT_RGB,
     WIND_ARROWS,
     _colored_temp,
-    _comparative_line,
     _fmt_time,
-    _past_precip_line,
-    _precipitation_line,
     _prepare_hourly_window,
     build_alert_modal,
+    narrative_lines,
     render_alerts,
     render_daily,
     render_header,
@@ -203,21 +201,14 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     # Pre-render fixed-height sections to budget graph rows accurately
     alert_lines = (render_alerts(alerts, width=cols, runtime=runtime, tz_name=tz_name)
                    if alerts else [])
-    comp = _comparative_line(data.get("daily", {}), now_local, runtime)
-    precip = _precipitation_line(data.get("hourly", {}), now_local, runtime)
-    past_precip = _past_precip_line(data.get("hourly", {}), now_local, runtime)
+    narrative = narrative_lines(data, now_local, cols, runtime)
     daily_lines_rendered = render_daily(data, cols, runtime, now=now_local)
 
     # Count non-hourly lines precisely
     non_hourly = 2  # header + blank
     if notice:
         non_hourly += 1
-    if comp:
-        non_hourly += 1
-    if precip:
-        non_hourly += 1
-    if past_precip:
-        non_hourly += 1
+    non_hourly += len(narrative)
     non_hourly += 1  # blank before daily
     non_hourly += len(daily_lines_rendered)
     if alert_lines:
@@ -308,17 +299,8 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
 
     lines.extend(hourly_lines)
 
-    # Comparative line
-    if comp:
-        lines.append(comp)
-
-    # Precipitation forecast
-    if precip:
-        lines.append(precip)
-
-    # Past 24h precipitation
-    if past_precip:
-        lines.append(past_precip)
+    # Feels-like, comparative, and precipitation prose
+    lines.extend(narrative)
 
     lines.append("")
 

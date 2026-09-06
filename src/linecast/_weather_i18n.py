@@ -509,6 +509,11 @@ _STRINGS = {
         "aqi": "AQI",
         "precip_inch": "\u2033",
         "until": "until",
+        # Feels-like line
+        "feels_humid": "High humidity is making it feel warmer",
+        "feels_sun": "The sun is making it feel warmer",
+        "feels_wind": "The wind is making it feel cooler",
+        "feels_dry": "The dry air is making it feel cooler",
         # Comparative line
         "same_temp": "about the same temperature as {ref_day}",
         "bit_warmer": "a bit warmer than {ref_day}",
@@ -571,6 +576,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "IQA",
         "until": "jusqu'\u00e0",
+        # Feels-like line
+        "feels_humid": "L'humidit\u00e9 fait monter le ressenti",
+        "feels_sun": "Le soleil fait monter le ressenti",
+        "feels_wind": "Le vent fait baisser le ressenti",
+        "feels_dry": "L'air sec fait baisser le ressenti",
         # Comparative line
         "same_temp": "\u00e0 peu pr\u00e8s aussi chaud {subject} qu'{ref_day}",
         "bit_warmer": "un peu plus chaud {subject} qu'{ref_day}",
@@ -633,6 +643,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "ICA",
         "until": "hasta",
+        # Feels-like line
+        "feels_humid": "La humedad hace que se sienta m\u00e1s calor",
+        "feels_sun": "El sol hace que se sienta m\u00e1s calor",
+        "feels_wind": "El viento hace que se sienta m\u00e1s fr\u00edo",
+        "feels_dry": "El aire seco hace que se sienta m\u00e1s fr\u00edo",
         # Comparative line
         "same_temp": "una temperatura muy parecida a la de {ref_day}",
         "bit_warmer": "un poco m\u00e1s de calor que {ref_day}",
@@ -695,6 +710,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "LQI",
         "until": "bis",
+        # Feels-like line
+        "feels_humid": "Die hohe Luftfeuchtigkeit l\u00e4sst es w\u00e4rmer wirken",
+        "feels_sun": "Die Sonne l\u00e4sst es w\u00e4rmer wirken",
+        "feels_wind": "Der Wind l\u00e4sst es k\u00fchler wirken",
+        "feels_dry": "Die trockene Luft l\u00e4sst es k\u00fchler wirken",
         # Comparative line
         "same_temp": "etwa so warm wie {ref_day}",
         "bit_warmer": "etwas w\u00e4rmer als {ref_day}",
@@ -757,6 +777,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "til",
+        # Feels-like line
+        "feels_humid": "H\u00f8y luftfuktighet f\u00e5r det til \u00e5 f\u00f8les varmere",
+        "feels_sun": "Sola f\u00e5r det til \u00e5 f\u00f8les varmere",
+        "feels_wind": "Vinden f\u00e5r det til \u00e5 f\u00f8les kaldere",
+        "feels_dry": "T\u00f8rr luft f\u00e5r det til \u00e5 f\u00f8les kaldere",
         # Comparative line
         "same_temp": "omtrent like varmt som {ref_day}",
         "bit_warmer": "litt varmere enn {ref_day}",
@@ -819,6 +844,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "til",
+        # Feels-like line
+        "feels_humid": "Vegna raka finnst manni hl\u00fdrra",
+        "feels_sun": "Vegna s\u00f3lar finnst manni hl\u00fdrra",
+        "feels_wind": "Vegna vinds finnst manni kaldara",
+        "feels_dry": "Vegna \u00feurrs lofts finnst manni kaldara",
         # Comparative line
         "same_temp": "svipa\u00f0 hitastig og {ref_day}",
         "bit_warmer": "a\u00f0eins hl\u00fdrra en {ref_day}",
@@ -881,6 +911,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "til",
+        # Feels-like line
+        "feels_humid": "H\u00f8j luftfugtighed f\u00e5r det til at f\u00f8les varmere",
+        "feels_sun": "Solen f\u00e5r det til at f\u00f8les varmere",
+        "feels_wind": "Vinden f\u00e5r det til at f\u00f8les koldere",
+        "feels_dry": "T\u00f8r luft f\u00e5r det til at f\u00f8les koldere",
         # Comparative line
         "same_temp": "omtrent lige s\u00e5 varmt som {ref_day}",
         "bit_warmer": "lidt varmere end {ref_day}",
@@ -943,6 +978,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "IQA",
         "until": "fino a",
+        # Feels-like line
+        "feels_humid": "L\u2019umidit\u00e0 elevata fa sembrare pi\u00f9 caldo",
+        "feels_sun": "Il sole fa sembrare pi\u00f9 caldo",
+        "feels_wind": "Il vento fa sembrare pi\u00f9 fresco",
+        "feels_dry": "L\u2019aria secca fa sembrare pi\u00f9 fresco",
         # Comparative line
         "same_temp": "pi\u00f9 o meno caldo come {ref_day}",
         "bit_warmer": "un po\u2019 pi\u00f9 caldo di {ref_day}",
@@ -1006,6 +1046,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "do",
+        # Feels-like line
+        "feels_humid": "Wysoka wilgotno\u015b\u0107 podnosi temperatur\u0119 odczuwaln\u0105",
+        "feels_sun": "S\u0142o\u0144ce podnosi temperatur\u0119 odczuwaln\u0105",
+        "feels_wind": "Wiatr obni\u017ca temperatur\u0119 odczuwaln\u0105",
+        "feels_dry": "Suche powietrze obni\u017ca temperatur\u0119 odczuwaln\u0105",
         # Comparative line
         "same_temp": "mniej wi\u0119cej tak samo ciep\u0142o jak {ref_day}",
         "bit_warmer": "troch\u0119 cieplej ni\u017c {ref_day}",
@@ -1068,6 +1113,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "tot",
+        # Feels-like line
+        "feels_humid": "Hoge luchtvochtigheid laat het warmer aanvoelen",
+        "feels_sun": "De zon laat het warmer aanvoelen",
+        "feels_wind": "De wind laat het koeler aanvoelen",
+        "feels_dry": "Droge lucht laat het koeler aanvoelen",
         # Comparative line
         "same_temp": "ongeveer even warm als {ref_day}",
         "bit_warmer": "iets warmer dan {ref_day}",
@@ -1130,6 +1180,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "IQA",
         "until": "at\u00e9",
+        # Feels-like line
+        "feels_humid": "A umidade alta faz parecer mais quente",
+        "feels_sun": "O sol faz parecer mais quente",
+        "feels_wind": "O vento faz parecer mais frio",
+        "feels_dry": "O ar seco faz parecer mais frio",
         # Comparative line
         "same_temp": "aproximadamente t\u00e3o quente quanto {ref_day}",
         "bit_warmer": "um pouco mais quente que {ref_day}",
@@ -1192,6 +1247,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "till",
+        # Feels-like line
+        "feels_humid": "H\u00f6g luftfuktighet f\u00e5r det att k\u00e4nnas varmare",
+        "feels_sun": "Solen f\u00e5r det att k\u00e4nnas varmare",
+        "feels_wind": "Vinden f\u00e5r det att k\u00e4nnas kallare",
+        "feels_dry": "Torr luft f\u00e5r det att k\u00e4nnas kallare",
         # Comparative line
         "same_temp": "ungef\u00e4r lika varmt som {ref_day}",
         "bit_warmer": "lite varmare \u00e4n {ref_day}",
@@ -1254,6 +1314,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "asti",
+        # Feels-like line
+        "feels_humid": "Korkea kosteus saa s\u00e4\u00e4n tuntumaan l\u00e4mpim\u00e4mm\u00e4lt\u00e4",
+        "feels_sun": "Aurinko saa s\u00e4\u00e4n tuntumaan l\u00e4mpim\u00e4mm\u00e4lt\u00e4",
+        "feels_wind": "Tuuli saa s\u00e4\u00e4n tuntumaan kylmemm\u00e4lt\u00e4",
+        "feels_dry": "Kuiva ilma saa s\u00e4\u00e4n tuntumaan kylmemm\u00e4lt\u00e4",
         # Comparative line
         "same_temp": "suunnilleen yht\u00e4 l\u00e4mmint\u00e4 kuin {ref_day}",
         "bit_warmer": "hieman l\u00e4mpim\u00e4mp\u00e4\u00e4 kuin {ref_day}",
@@ -1317,6 +1382,11 @@ _STRINGS = {
         "aqi": "AQI",
         "precip_inch": "\u30a4\u30f3\u30c1",
         "until": "\u307e\u3067",
+        # Feels-like line
+        "feels_humid": "\u6e7f\u5ea6\u304c\u9ad8\u304f\u4f53\u611f\u6e29\u5ea6\u306f\u9ad8\u3081",
+        "feels_sun": "\u65e5\u5dee\u3057\u3067\u4f53\u611f\u6e29\u5ea6\u306f\u9ad8\u3081",
+        "feels_wind": "\u98a8\u3067\u4f53\u611f\u6e29\u5ea6\u306f\u4f4e\u3081",
+        "feels_dry": "\u4e7e\u3044\u305f\u7a7a\u6c17\u3067\u4f53\u611f\u6e29\u5ea6\u306f\u4f4e\u3081",
         # Comparative line
         "same_temp": "{ref_day}\u3068\u307b\u307c\u540c\u3058\u6c17\u6e29",
         "bit_warmer": "{ref_day}\u3088\u308a\u3084\u3084\u6696\u304b\u3044",
@@ -1379,6 +1449,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "\uae4c\uc9c0",
+        # Feels-like line
+        "feels_humid": "\uc2b5\ub3c4\uac00 \ub192\uc544 \uccb4\uac10\uc628\ub3c4\uac00 \ub192\uc74c",
+        "feels_sun": "\ud587\ubcd5\uc73c\ub85c \uccb4\uac10\uc628\ub3c4\uac00 \ub192\uc74c",
+        "feels_wind": "\ubc14\ub78c\uc73c\ub85c \uccb4\uac10\uc628\ub3c4\uac00 \ub0ae\uc74c",
+        "feels_dry": "\uac74\uc870\ud55c \uacf5\uae30\ub85c \uccb4\uac10\uc628\ub3c4\uac00 \ub0ae\uc74c",
         # Comparative line
         "same_temp": "{ref_day} \uc218\uc900\uc758 \uae30\uc628",
         "bit_warmer": "{ref_day}\ubcf4\ub2e4 \uc870\uae08 \ub530\ub73b\ud568",
@@ -1441,6 +1516,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "AQI",
         "until": "\u5230",
+        # Feels-like line
+        "feels_humid": "\u6e7f\u5ea6\u5927\uff0c\u4f53\u611f\u504f\u6696",
+        "feels_sun": "\u9633\u5149\u4f7f\u4f53\u611f\u504f\u6696",
+        "feels_wind": "\u98ce\u4f7f\u4f53\u611f\u504f\u51c9",
+        "feels_dry": "\u7a7a\u6c14\u5e72\u71e5\uff0c\u4f53\u611f\u504f\u51c9",
         # Comparative line
         "same_temp": "\u4e0e{ref_day}\u6c14\u6e29\u76f8\u8fd1",
         "bit_warmer": "\u6bd4{ref_day}\u7a0d\u6696",
@@ -1506,6 +1586,11 @@ _STRINGS = {
         "metric_unit_sep": " ",
         "precip_inch": " นิ้ว",
         "until": "จนถึง",
+        # Feels-like line
+        "feels_humid": "ความชื้นสูงทำให้รู้สึกอุ่นขึ้น",
+        "feels_sun": "แดดทำให้รู้สึกอุ่นขึ้น",
+        "feels_wind": "ลมทำให้รู้สึกเย็นลง",
+        "feels_dry": "อากาศแห้งทำให้รู้สึกเย็นลง",
         # Comparative line
         "same_temp": "มีอุณหภูมิใกล้เคียงกับ{ref_day}",
         "bit_warmer": "อุ่นกว่า{ref_day}เล็กน้อย",
@@ -1568,6 +1653,11 @@ _STRINGS = {
         "uv": "UV",
         "aqi": "IKU",
         "until": "hingga",
+        # Feels-like line
+        "feels_humid": "Kelembapan tinggi membuat terasa lebih hangat",
+        "feels_sun": "Sinar matahari membuat terasa lebih hangat",
+        "feels_wind": "Angin membuat terasa lebih sejuk",
+        "feels_dry": "Udara kering membuat terasa lebih sejuk",
         # Comparative line
         "same_temp": "bersuhu hampir sama dengan {ref_day}",
         "bit_warmer": "sedikit lebih hangat dari {ref_day}",
