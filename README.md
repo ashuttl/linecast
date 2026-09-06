@@ -15,13 +15,14 @@
 
 ![linecast weather, sunshine, tides, and radar tiled on an Omarchy desktop](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
 
-linecast turns free public data into six live, mouse-friendly terminal apps for macOS, Linux, and Windows. It is pure Python with no dependencies (two on Windows), takes its colors from your terminal theme, and needs no accounts or API keys.
+linecast turns free public data into seven live, mouse-friendly terminal apps for macOS, Linux, and Windows. It is pure Python with no dependencies (two on Windows), takes its colors from your terminal theme, and needs no accounts or API keys.
 
 | Command | What it shows |
 | --- | --- |
 | `linecast weather` | Current conditions, hourly temperatures, a seven-day forecast, air quality, how today compares with normal, and official alerts |
 | `linecast sunshine` | The sun on its daily arc, with the color of the sky, day length, and moon phase |
 | `linecast moon` | The moon as you see it from where you are, with rise and set times and the next full and new moons |
+| `linecast sky` | The night sky from where you stand: the stars, the constellations, the planets, the Moon, and the Milky Way |
 | `linecast tides` | A tide curve shaded by daylight, the water level now, and the times of high and low tide |
 | `linecast radar` | Animated radar or satellite imagery for the whole world, with warnings, temperature, and wind |
 | `linecast maps` | Street maps, terrain, and a globe you can spin, with live daylight and clouds, place search, and directions |
@@ -65,7 +66,7 @@ Use Windows Terminal. Git Bash and mintty see a pipe rather than a terminal, so 
 
 ## Using it
 
-Run in a terminal, every command opens live, at the place your IP address suggests until you [save a location](#location).
+Run in a terminal, every command opens live, at the place your IP address suggests until you [save a location](#location). Press `?` in any live view for its controls. `?`, Esc, or `q` closes help; another shortcut closes it and performs that action. In a short window, use the left/right arrows or wheel to page through the list.
 
 ```sh
 linecast weather --location "Québec"
@@ -74,7 +75,7 @@ linecast maps --view terrain --location "Innsbruck"
 linecast maps --to "Portland Head Light" --profile bike
 ```
 
-`--print` gives one static frame, and piped output gets one automatically. Weather, sunshine, moon, and tides also have `--json`, and `--oneline` for a status bar.
+`--print` gives one static frame, and piped output gets one automatically. Weather, sunshine, moon, sky, and tides also have `--json`, and `--oneline` for a status bar.
 
 ![an animated version of the hero screenshot, showing the weather radar moving](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.gif)
 
@@ -120,6 +121,16 @@ The moon can also follow a traditional calendar, with that calendar's date besid
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon-okinawa.png" width="49%" alt="the moon over Okinawa in Japanese: 十六夜, the sixteenth night of the eighth month">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon-calendar.png" width="49%" alt="the month calendar for September 2026 in Japanese, with 十五夜 on the 25th and the pointer on it">
 </p>
+
+### Sky
+
+`sky` is the night sky from where you stand. The horizon runs along the bottom with the compass points under it, and above it are the real stars for the moment, the constellation figures drawn faintly through them with their names, the planets marked and named, the Moon at its phase and tilt, and the Milky Way once the sky is dark enough. By day the sky is blue and holds only the Sun, and perhaps Venus. Scroll into the evening and the sky goes through its twilight colors while the stars come out one by one, brightest first.
+
+Drag to look around, and let go while moving to coast. `+` and `-` zoom: as the view closes in, fainter stars and more names appear, and the Moon grows into the disc the moon view draws. Zoom all the way out while looking up and the horizon closes into a circle, the whole sky at once, the way the almanacs print it. `p` plays time at an hour a second, then a day, then a week, so you can watch the stars wheel and the Moon run through its phases; space returns to now. `c` cycles the constellation figures and names, `1` to `8` face the compass points, `9` looks straight up, and `m` faces the Moon. Point at anything for its name, and `--facing SW` or `--fov 40` open the view where you want it.
+
+Press `/` and type a name, a star, a planet, or a constellation, and the view flies to it. If it is below the horizon the panel says when it rises and where, and Enter again moves the clock to that moment. `--at Jupiter` opens on it.
+
+The sky has been drawn many ways. `t` opens a list of twenty-two traditions besides the IAU's, each with its own figures and star names, and the sky redraws under the highlight as you move through them: the Chinese Three Enclosures and Twenty-Eight Mansions, the Hawaiian star lines, the Boorong sky of Victoria, the Norse, Sami, Māori, Tongan, Mongolian, Romanian, Belarusian and Indian Vedic skies, H. A. Rey's stick figures, and more. `--culture hawaiian` opens on one, `linecast culture` saves one, and Chinese comes with the language. The Hawaiian sky also puts the navigators' star compass along the horizon, the thirty-two houses from Hikina round to Komohana, in place of the compass points. [CULTURES.md](CULTURES.md) lists them with their sources.
 
 ### Tides
 
@@ -236,6 +247,18 @@ linecast calendar auto
 
 The names are `chinese`, `japanese`, `korean`, `thai`, `hawaiian`, `samoan`, `chamorro`, `refaluwasch`, `islamic`, `hebrew`, and `almanac`. `moon --calendar` takes one for a single run. [CALENDARS.md](CALENDARS.md) describes each.
 
+### Culture
+
+The sky draws the IAU constellations unless the language brings a tradition with it: Chinese gets the Chinese sky. Pin any of the twenty-two bundled traditions for every run, or none:
+
+```sh
+linecast culture hawaiian
+linecast culture none
+linecast culture auto
+```
+
+`sky --culture` takes one for a single run, and `t` picks one live. [CULTURES.md](CULTURES.md) lists them with their credits.
+
 ### Color and icons
 
 linecast asks the terminal for its palette so its colors belong in your theme. `LINECAST_COLOR` set to `truecolor`, `256`, `16`, or `none` chooses the color mode yourself, and the standard `NO_COLOR` is honored.
@@ -250,7 +273,7 @@ linecast icons nerd
 
 ### Short names and shell completion
 
-`linecast link` makes `weather`, `sunshine`, `moon`, `tides`, `radar`, and `maps` links beside the `linecast` binary, skipping any name something else already owns; `linecast link --remove` takes them away. A shell alias does the same job.
+`linecast link` makes `weather`, `sunshine`, `moon`, `sky`, `tides`, `radar`, and `maps` links beside the `linecast` binary, skipping any name something else already owns; `linecast link --remove` takes them away. A shell alias does the same job.
 
 ```sh
 # Bash
@@ -325,7 +348,8 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 
 - **Location** — [ipinfo.io](https://ipinfo.io/) for IP geolocation when no location is saved or passed, with [ipwho.is](https://ipwho.is/) and [GeoJS](https://www.geojs.io/) as fallbacks; place names are geocoded by Open-Meteo, with Photon as a fallback.
 - **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality. Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Hong Kong Observatory, Met Éireann, Japan Meteorological Agency, MET Norway, MetService New Zealand, MeteoAlarm (with its warning-region geometry vendored, © EUMETNET, CC BY 4.0, the NUTS regions some feeds file from [Eurostat GISCO](https://ec.europa.eu/eurostat/web/gisco), © EuroGeographics for the administrative boundaries, and Czechia's ORP boundaries from [ČÚZK RÚIAN](https://www.cuzk.gov.cz/) with the [Czech Statistical Office](https://csu.gov.cz/)'s code list, both open data), and SACHET (India's national alert aggregator).
-- **Sunshine and Moon** — computed on your device from the astronomical equations; the Moon's face is a vendored grayscale of NASA SVS's [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) (Lunar Reconnaissance Orbiter, public domain), and the stars around it are the [Yale Bright Star Catalogue](http://tdc-www.harvard.edu/catalogs/bsc5.html) (Hoffleit & Warren, 1991) to magnitude 5.5. The Pacific calendars are checked against the [Western Pacific Regional Fishery Management Council](https://www.wpcouncil.org/educational-resources/lunar-calendars/)'s published calendars and quote its educational materials.
+- **Sunshine and Moon** — computed on your device from the astronomical equations; the Moon's face is a vendored grayscale of NASA SVS's [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) (Lunar Reconnaissance Orbiter, public domain), and the stars around it are the [Yale Bright Star Catalogue](http://tdc-www.harvard.edu/catalogs/bsc5.html) (Hoffleit & Warren, 1991) to magnitude 6.5. The Pacific calendars are checked against the [Western Pacific Regional Fishery Management Council](https://www.wpcouncil.org/educational-resources/lunar-calendars/)'s published calendars and quote its educational materials.
+- **Sky** — computed on your device: the bright stars are the same Yale Bright Star Catalogue, with 108,520 fainter stars from David Nash’s [HYG v4.1](https://github.com/astronexus/HYG-Database) (CC BY-SA 4.0) revealed as you zoom in; [star data credits](src/linecast/data/STARS.md) describe the bundled supplement. The 107 Messier galaxies, nebulae and clusters, the constellation figures, their names, and the IAU star names are Olaf Frohn's [d3-celestial](https://github.com/ofrohn/d3-celestial) data (BSD), the names in the other languages linecast speaks are [Wikidata](https://www.wikidata.org/)'s labels (CC0), the planets follow Paul Schlyter's equations, and the Milky Way is the diffuse layer of NASA SVS's [Deep Star Maps 2020](https://svs.gsfc.nasa.gov/4851) (public domain). The sky cultures are [Stellarium's collection](https://github.com/Stellarium/stellarium-skycultures), placed from the Hipparcos catalogue; [CULTURES.md](CULTURES.md) has the credits.
 - **Tides** — NOAA CO-OPS, Canadian Hydrographic Service, Queensland Open Data, Hong Kong Observatory, Open-Meteo's tide model as a global fallback, and optionally TideCheck.
 - **Radar** — [LibreWXR](https://librewxr.net/), with NEXRAD via Iowa Environmental Mesonet and RainViewer as fallbacks; warning polygons come from the US National Weather Service via IEM. The basemap is derived from Natural Earth.
 - **Maps** — terrain from AWS/Mapzen elevation tiles; streets and inland water from [OpenFreeMap](https://openfreemap.org/) vector tiles (© OpenMapTiles © OpenStreetMap contributors), with the [OpenStreetMap US Tileservice](https://tiles.openstreetmap.us/) as a fallback (Tiles by OSM US); search from Photon and Nominatim; directions from FOSSGIS OSRM (© OpenStreetMap contributors); globe cloud cover from [LibreWXR](https://librewxr.net/) (CC BY 4.0) satellite imagery; terrain color picks its ramp from a vendored [Köppen-Geiger climate grid](https://doi.org/10.6084/m9.figshare.21789074) (Beck et al. 2023, CC BY 4.0).

@@ -564,7 +564,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                block=True, pan_offset=(0, 0), mouse_pos=None,
                view="terrain", search=None, route=None, dest=None,
                origin=None, directions=None,
-               note="", helping=False, show_labels=True, sun=False,
+               note="", show_labels=True, sun=False,
                clouds=False, **_):
     lang = runtime.lang if runtime else "en"
     cols, rows = get_terminal_size()
@@ -697,7 +697,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
 
     out = "\n".join([header, *map_lines, foot])
     # One floating thing at a time, through the one overlay channel;
-    # search beats help beats the steps panel.
+    # Search sits above the steps panel; the live loop owns help.
     if search is not None and search.open:
         # Any-motion mouse reporting is what makes a torn escape
         # sequence likely, and a torn sequence looks like ESC — which is
@@ -705,10 +705,6 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         # long as the field is open, and back on when it closes.
         return overlay(out, _maps_ui.search_overlay(search, cols, rows, lang),
                        motion=False)
-    if helping:
-        floating = _maps_ui.help_overlay(cols, rows, lang, route is not None)
-        if floating:
-            return overlay(out, floating, motion=True)
     if directions is not None and directions.panel:
         floating = _maps_ui.directions_overlay(directions, cols, rows, lang,
                                                home_label=location_name)

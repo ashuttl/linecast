@@ -25,7 +25,6 @@ returns to this month, and clicking a day opens it in the disc view.
 
 import calendar
 import math
-import struct
 import sys
 import textwrap
 import threading
@@ -294,7 +293,7 @@ def _star_color(t):
 
 
 # The stars are the real sky around the Moon: the Yale Bright Star
-# Catalogue to magnitude 5.5 (see scripts/build_star_catalogue.py),
+# Catalogue (see scripts/build_sky_catalogue.py and _sky_catalogue),
 # placed about the Moon's true position for the moment, with celestial
 # north turned by the parallactic angle the disc already follows. So
 # scrolling through time wheels the sky with the night and walks the
@@ -306,21 +305,12 @@ def _star_color(t):
 # lets a drag carry the sky round the other way, as the background does
 # when you walk round a statue, at about half again the surface's pace.
 _STAR_FOCAL = 1.5
-_stars = None
 
 
 def _load_stars():
     """[(ra_rad, dec_rad)] brightest first, from the bundled catalogue."""
-    global _stars
-    if _stars is None:
-        try:
-            data = (Path(__file__).parent / "data" / "stars.bin").read_bytes()
-            _stars = [(math.radians(ra / 100.0), math.radians(dec / 100.0))
-                      for ra, dec, _mag in struct.iter_unpack("<Hhb", data)]
-        except Exception as exc:
-            log_failure("stars", "star catalogue load", exc, fallback="no stars")
-            _stars = []
-    return _stars
+    from linecast._sky_catalogue import star_positions
+    return star_positions()
 
 
 def _star_direction(ra, dec, sky):
@@ -571,7 +561,8 @@ def _ease_out_back(s):
 
 
 def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
-                    turn=None, night=None):
+                    turn=None, night=None, lit=None, contrast=1.0,
+                    earthshine=1.0, dusk=0.0):
     """Draw the phase-shaded lunar disc centered at (cx, cy) sub-pixels.
 
     Two angles set the picture, both screen bearings with 0 straight up
@@ -598,12 +589,23 @@ def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
     the maria show faintly in the old Moon in the new Moon's arms and
     not at all near full. The far side's night gets none. *night* is
     the colour of that unlit ground; the shadow colour when not given.
+
+    The last four are for a Moon in a lit sky, where it looks nothing
+    like it does at night: *lit* is the colour of the sunlit surface
+    (the palette's white when not given), *contrast* scales the maria
+    and the limb's darkening, *earthshine* scales the night side's lift
+    (none by day, when the sky outshines it), and *dusk* darkens the lit
+    surface toward the terminator, where the Sun is low over the ground
+    and the relief throws shadows -- the grey zone a daytime Moon shows
+    beside a limb that has vanished into the sky.
     """
     if night is None:
         night = MOON_SHADOW_RGB
+    if lit is None:
+        lit = MOON_LIT_RGB
     edge = max(1.0 / radius, 0.04)   # anti-aliasing band, in unit radii
     soft = 0.10                       # terminator softness, in unit radii
-    earthshine = 0.20 * (1.0 - illum)  # night-side lift, facing Earth square on
+    earthshine = 0.20 * (1.0 - illum) * earthshine  # night-side lift, facing Earth square on
     scan = int(radius + 2)
     albedo = _load_albedo()
 
@@ -653,7 +655,9 @@ def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
                                         m10 * ux + m11 * uy + m12 * uz,
                                         m20 * ux + m21 * uy + m22 * uz,
                                         albedo)
-            lit_px = darken(MOON_LIT_RGB, min(0.55, shade))
+            lit_px = darken(lit, min(0.55, shade * contrast))
+            if dusk > 0.0 and d < 0.6:
+                lit_px = darken(lit_px, dusk * math.exp(-max(0.0, d) / 0.12))
             # Earthshine: the shaded surface, faintly, where Earth is up.
             glow = earthshine * (ux * earth_x + uy * earth_y + uz * earth_z)
             night_px = lerp(night, lit_px, glow) if glow > 0.0 else night
@@ -1419,7 +1423,10 @@ def main():
         state["cal"] = False
         return True
 
-    live_loop(_render, mouse=True, intercept=_intercept,
+    from linecast._help import HelpPanel
+    help_panel = HelpPanel(lambda: 'moon_calendar' if state['cal'] else 'moon',
+                           runtime.lang)
+    live_loop(_render, mouse=True, intercept=_intercept, help_panel=help_panel,
               on_wheel=_on_wheel, on_action=_on_key,
               on_drag=_on_drag, on_click=_on_click)
 

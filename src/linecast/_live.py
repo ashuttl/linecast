@@ -79,6 +79,52 @@ def pointer_chip(lines, col, mouse_row, cols, rows, pad_bg="", flip_at=None):
                    for i, line in enumerate(padded))
 
 
+MUTED = (150, 155, 170)   # the frame and text of a menu box
+
+
+def menu_box(lines, cols, rows, title="", sel=None, border="", fill="",
+             more=(False, False)):
+    """A centred box of rows for overlay()'s floating channel: the radar's
+    theme picker and the sky's tradition picker are drawn with it, so the
+    two read as one thing.
+
+    `lines` are plain-text rows, or None for a rule across the box; each
+    is padded to the widest and cut to the screen. `sel` is the index of
+    the highlighted row, drawn in reverse video. `title` sits in the top
+    border. `border` colours the frame and the text; `fill` is a
+    background escape for the interior, or empty to leave the terminal's.
+    `more` says whether there is more above and below the rows shown,
+    marked ▲ and ▼ in the borders.
+    """
+    from linecast._graphics import RESET, visible_len
+    widths = [visible_len(line) for line in lines if line is not None]
+    inner = min(cols - 4, (max(widths) if widths else 0) + 1)
+    top = max(1, (rows - (len(lines) + 2)) // 2)
+    left = max(0, (cols - inner - 2) // 2)
+    head = f" {title} ".center(inner, "─") if title else "─" * inner
+    foot = "─" * inner
+    above, below = more
+    if above:
+        head = head[:inner - 2] + "▲" + head[inner - 1:]
+    if below:
+        foot = foot[:inner - 2] + "▼" + foot[inner - 1:]
+    out = [f"┌{head}┐"]
+    for i, line in enumerate(lines):
+        if line is None:
+            out.append(f"├{'─' * inner}┤")
+            continue
+        while visible_len(line) > inner:
+            line = line[:-1]
+        body = line + " " * (inner - visible_len(line))
+        if i == sel:
+            body = f"\033[7m{body}\033[27m"  # reverse-video highlight
+        out.append(f"│{body}│")
+    out.append(f"└{foot}┘")
+    return "".join(
+        f"\033[{top + 1 + i};{left + 1}H{border}{fill}{line}{RESET}"
+        for i, line in enumerate(out))
+
+
 # ---------------------------------------------------------------------------
 # Mouse decoding
 # ---------------------------------------------------------------------------
@@ -276,6 +322,8 @@ def _read_key(fd, text=False):
         return 'reset'
     if b in (b'+', b'='):
         return 'key:+'
+    if b.isdigit():
+        return 'key:' + b.decode()
     if b in (b'-', b'_'):
         return 'key:-'
     if b in (b't', b'T'):
@@ -294,6 +342,8 @@ def _read_key(fd, text=False):
         return 'key:d'
     if b in (b'l', b'L'):
         return 'key:l'
+    if b in (b'm', b'M'):
+        return 'key:m'
     if b in (b'y', b'Y'):
         return 'key:y'
     if b in (b'r', b'R'):
@@ -388,7 +438,7 @@ def nudge():
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
               intercept=None, play_gate=None, on_wheel=None, text_mode=None,
-              on_click=None):
+              on_click=None, help_panel=None):
     """Run render_fn() in a loop on the alternate screen buffer.
 
     render_fn: callable(offset_minutes=0) returning (display_string, metadata)
@@ -451,6 +501,9 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               truthy to re-render. Requires mouse and on_drag (the
               press is only tracked while a drag callback is set).
               Default None preserves existing behavior exactly.
+    help_panel: optional _help.HelpPanel for the view's controls. It owns
+                `?` and input while open, without changing the view's state.
+                Text fields still receive a literal question mark.
     Re-renders immediately on terminal resize or input.
 
     While idle, re-probes the terminal's colours now and then (see
@@ -506,6 +559,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     play_frame = 0
     mouse_pos = None
     drag_start = None    # (col, row) of left-button press while on_drag is set
+    drag_delta = (0, 0)  # last displayed drag, to finish before opening help
     active_alert = None  # index of alert whose modal is open, or None
     modal_scroll = 0     # scroll offset within the modal
     alert_row_map = {}   # 0-based line index → alert index
@@ -554,6 +608,14 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             parts = output.split('\x00', 1)
             main_out = parts[0]
             overlay = parts[1] if len(parts) > 1 else ""
+            if help_panel is not None and help_panel.open:
+                from linecast._framebuffer import get_terminal_size
+                overlay = "\033[?1003l" + help_panel.render(*get_terminal_size())
+            elif help_panel is not None and mouse:
+                # A search field may intentionally disable motion; only
+                # restore it when the caller's overlay has not done so.
+                if "\033[?1003l" not in overlay:
+                    overlay = "\033[?1003h" + overlay
             # \033[H homes cursor; \033[K clears line remainders;
             # \033[J clears below; overlay draws on top after clear
             padded = main_out.replace('\n', '\033[K\n')
@@ -581,6 +643,15 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                         fd, text=bool(text_mode is not None and text_mode()))
                     if action == 'theme':
                         break  # the terminal's colours changed: repaint
+                    help_closed = False
+                    if help_panel is not None:
+                        was_helping = help_panel.open
+                        if help_panel.handle(action):
+                            if not was_helping and help_panel.open and drag_start is not None:
+                                on_drag(*drag_delta, True)
+                            drag_start = None
+                            break
+                        help_closed = was_helping and not help_panel.open
                     if (intercept is not None and action is not None
                             and not isinstance(action, tuple)
                             and intercept(action)):
@@ -675,6 +746,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                             # Left button press (not release, not motion)
                             if on_drag is not None:
                                 drag_start = (cx, cy)
+                                drag_delta = (0, 0)
                             row_idx = cy - 1  # 1-based → 0-based
                             if active_alert is not None:
                                 # Click while modal open — dismiss
@@ -689,6 +761,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                             if drag_start is not None:
                                 # mid-drag: live preview with cumulative delta
                                 dcol, drow = cx - drag_start[0], cy - drag_start[1]
+                                drag_delta = (dcol, drow)
                                 if on_drag(dcol, drow, False):
                                     if _term.wait_readable(fd, 0):
                                         continue  # coalesce rapid drag motion
@@ -704,6 +777,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                         if (cb & 0b11) in (0, 1, 2):
                             mouse_pos = (cx, cy)
                             break
+                    if help_closed:
+                        break  # even an unbound key must erase the panel
     except KeyboardInterrupt:
         pass
     # SystemExit is NOT swallowed: a sys.exit(1) from a render callback (or
@@ -809,6 +884,12 @@ class LiveApp:
         return {name: getattr(self, name) for name in self.HOOKS
                 if getattr(type(self), name) is not getattr(LiveApp, name)}
 
+    help_view = None
+
+    def help_panel(self):
+        from linecast._help import HelpPanel
+        return HelpPanel(self.help_view, self.runtime.lang) if self.help_view else None
+
     def run(self):
         """Run the app on the alternate screen until it quits."""
         from linecast._textwidth import calibrate_from_terminal
@@ -816,6 +897,7 @@ class LiveApp:
         try:
             live_loop(self.render, interval=self.interval, mouse=self.mouse,
                       scroll_step=self.scroll_step, auto_play=self.auto_play,
-                      play_interval=self.play_interval, **self.hooks())
+                      play_interval=self.play_interval, help_panel=self.help_panel(),
+                      **self.hooks())
         finally:
             self.stop()

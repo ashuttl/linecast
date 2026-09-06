@@ -376,6 +376,8 @@ class WeatherApp(_live.LiveApp):
     scroll_step = 60
     mouse = True
 
+    help_view = 'weather'
+
     def __init__(self, data, alerts, aqi, lat, lng, runtime,
                  location_name="", historical=None, country=""):
         self.data = data
