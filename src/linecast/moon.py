@@ -1423,7 +1423,10 @@ def main():
         state["cal"] = False
         return True
 
-    live_loop(_render, mouse=True, intercept=_intercept,
+    from linecast._help import HelpPanel
+    help_panel = HelpPanel(lambda: 'moon_calendar' if state['cal'] else 'moon',
+                           runtime.lang)
+    live_loop(_render, mouse=True, intercept=_intercept, help_panel=help_panel,
               on_wheel=_on_wheel, on_action=_on_key,
               on_drag=_on_drag, on_click=_on_click)
 

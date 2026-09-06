@@ -93,6 +93,12 @@ class TestTextMode:
 
 
 class TestNewBindings:
+    def test_moon_shortcut_and_question_mark(self, pipe):
+        assert _key(pipe, b'm') == 'key:m'
+        assert _key(pipe, b'M') == 'key:m'
+        assert _key(pipe, b'?') == 'key:?'
+        assert _key(pipe, b'?', text=True) == 'char:?'
+
     def test_new_maps_keys(self, pipe):
         for data, action in ((b"v", "key:v"), (b"V", "key:v"),
                              (b"p", "key:p"), (b"P", "key:p"),

@@ -66,7 +66,7 @@ Use Windows Terminal. Git Bash and mintty see a pipe rather than a terminal, so 
 
 ## Using it
 
-Run in a terminal, every command opens live, at the place your IP address suggests until you [save a location](#location).
+Run in a terminal, every command opens live, at the place your IP address suggests until you [save a location](#location). Press `?` in any live view for its controls. `?`, Esc, or `q` closes help; another shortcut closes it and performs that action. In a short window, use the left/right arrows or wheel to page through the list.
 
 ```sh
 linecast weather --location "Québec"

@@ -858,6 +858,8 @@ class TidesApp(_live.LiveApp):
     # Larger step makes wheel/arrow scrubbing practical for multi-day browsing.
     scroll_step = 30
 
+    help_view = 'tides'
+
     def __init__(self, provider, station_id, station_name, station_meta,
                  station_tz, runtime, predictions, hilo, fetched_start,
                  fetched_end, y_range=None, marine_data=None):

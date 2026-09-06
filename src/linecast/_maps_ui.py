@@ -568,9 +568,8 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
 # ---------------------------------------------------------------------------
 # The `?` panel
 # ---------------------------------------------------------------------------
-# Every key that does something, in the order you learn them. `esc` and
-# `q` are in the frame rather than the list — the frame is where a
-# reader looks for the way out.
+# Every key that does something, in the order you learn them. The
+# shared panel adds the way out in its bottom border.
 HELP_KEYS = (
     ("drag", 'help_pan'),
     ("wheel", 'help_zoom_pointer'),
@@ -594,19 +593,11 @@ HELP_KEYS = (
 # The legend is the glyph table read in order; hover reads the same one.
 HELP_GLYPHS = tuple(style.GLYPH_LEGEND.items())
 
-HELP_WIDTH = 47
-_KEY_COL = 9
 
-
-def _help_rows(lang, route, glyphs, terse=False):
+def _help_rows(lang, route, glyphs):
     """(mark, text) content rows; None is a blank spacer."""
     rows = []
     for entry in HELP_KEYS:
-        if terse and entry is not None and entry[0] in ("?", "hover"):
-            # tightest rung: `?` names the panel being read, and hover
-            # is the one key that teaches itself the moment the
-            # pointer moves
-            continue
         rows.append(None if entry is None
                     else (entry[0], ms(entry[1], lang)))
     if glyphs:
@@ -622,50 +613,14 @@ def _help_rows(lang, route, glyphs, terse=False):
     return rows
 
 
+def help_rows(cols, rows, lang="en", route=False):
+    """Keep the map legend when it fits; short windows retain the controls."""
+    full = _help_rows(lang, route, glyphs=True)
+    if len(full) + 4 <= rows:
+        return full
+    return _help_rows(lang, route, glyphs=False)
+
+
 def help_overlay(cols, rows, lang="en", route=False):
-    """The `?` panel, or "" when the terminal cannot hold it.
-
-    Degradation is deterministic and never scrolls: drop the glyph
-    legend, then the blank spacers, then the `?` row naming the panel
-    itself, then give up entirely — a panel that scrolls is a panel you
-    have to operate.
-    """
-    surface = surface_bg(0.10)
-    ink = ensure_contrast(_theme.theme_fg, surface, 4.0)
-    width = max(24, min(cols - 4, HELP_WIDTH))
-    budget = rows - 2
-
-    for glyphs, blanks, terse in ((True, True, False), (False, True, False),
-                                  (False, False, False), (False, False, True)):
-        content = _help_rows(lang, route, glyphs, terse)
-        if not blanks:
-            content = [r for r in content if r is not None]
-        if len(content) + 2 <= budget:
-            break
-    else:
-        return ""
-
-    title = f" {ms('help_title', lang)} "
-    close = f" {ms('help_close', lang)} "
-    top = max(1, (rows - (len(content) + 2)) // 2)
-    left = max(0, (cols - width - 2) // 2)
-
-    lines = [f"{fg(*MUTED)}╭{title.center(width, '─')}╮{RESET}"]
-    for row in content:
-        if row is None:
-            body = " " * width
-        else:
-            mark, text = row
-            if mark:
-                pad = " " * max(1, _KEY_COL - visible_len(mark))
-                body = (f"  {fg(*CROSSHAIR)}{mark}{pad}"
-                        f"{fg(*MUTED)}{_fit(text, width - _KEY_COL - 3)}")
-            else:
-                body = f"  {fg(*DIM)}{_fit(text, width - 3)}"
-            body += " " * max(0, width - visible_len(body))
-        lines.append(f"{fg(*MUTED)}│{bg(*surface)}{fg(*ink)}{body}"
-                     f"{RESET}{fg(*MUTED)}│{RESET}")
-    lines.append(f"{fg(*MUTED)}╰{close.center(width, '─')}╯{RESET}")
-
-    return "".join(f"\033[{top + i};{left + 1}H{line}"
-                   for i, line in enumerate(lines))
+    from linecast._help import panel
+    return panel(help_rows(cols, rows, lang, route), cols, rows, lang)[0]

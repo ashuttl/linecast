@@ -853,14 +853,8 @@ class TestHelpPanel:
     @pytest.mark.parametrize("rows", [12, 14, 20, 24, 40])
     @pytest.mark.parametrize("lang", LANGS)
     def test_it_never_overflows_the_terminal(self, rows, lang):
-        # Degradation is deterministic and never scrolls: a panel that
-        # scrolls is a panel you have to operate.
+        # Short terminals get pages; each page stays inside the window.
         panel = mu.help_overlay(80, rows, lang, route=True)
-        if not panel:
-            # Giving up entirely is a legal rung, but only when the
-            # terminal really is too short for the smallest form.
-            assert rows <= 14, (lang, rows)
-            return
         lines = panel_lines(panel)
         assert len(lines) <= rows - 2, (lang, rows, len(lines))
         for line in lines:
@@ -872,5 +866,7 @@ class TestHelpPanel:
             for line in lines:
                 assert visible_len(line) <= cols
 
-    def test_a_terminal_too_short_for_the_panel_gets_none(self):
-        assert mu.help_overlay(80, 8, "en") == ""
+    def test_a_short_terminal_gets_a_page_of_controls(self):
+        panel = mu.help_overlay(80, 8, "en")
+        assert '←→ 1/' in panel
+        assert len(panel_lines(panel)) <= 8

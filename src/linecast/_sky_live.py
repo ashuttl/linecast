@@ -218,6 +218,8 @@ class SkyApp(LiveApp):
     mouse = True
     scroll_step = 15
 
+    help_view = 'sky'
+
     def __init__(self, now_fn, lat, lng, runtime, facing=None, fov=FOV_DEFAULT,
                  location_label="", aim=None, culture=None):
         self.now_fn = now_fn

@@ -943,7 +943,10 @@ def main():
             return True
         return False
 
-    live_loop(_render_view, mouse=True, intercept=_intercept,
+    from linecast._help import HelpPanel
+    help_panel = HelpPanel(lambda: 'sunshine_year' if state['year'] else 'sunshine',
+                           runtime.lang)
+    live_loop(_render_view, mouse=True, intercept=_intercept, help_panel=help_panel,
               on_wheel=_on_wheel, on_action=_on_key)
 
 if __name__ == "__main__":

@@ -4,6 +4,9 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Every live view now has a `?` help panel with its controls in the display language. The list follows the active view and can be paged through in a short window.
+- Sky: The `m` key now turns toward the Moon when it is above the horizon.
+
 - Sky: Galaxies, nebulae, and clusters now have positions, names, and search targets. Extended objects such as Andromeda appear as faint glows that grow as you zoom in.
 - Sky: Zooming in reveals fainter stars from a catalog of nearly 117,000, with catalog designations available under the pointer.
 

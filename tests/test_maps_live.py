@@ -90,7 +90,7 @@ class TestConstruction:
         assert (app.lat, app.lon) == app.home == (43.68, -70.37)
         assert app.zoom == 2.0 and app.view == "street"
         assert app.sun and app.clouds and app.show_labels
-        assert not app.helping and app.pan_preview == (0, 0)
+        assert app.pan_preview == (0, 0)
         assert app.drag_base is None and not app.drag_sync
         assert app.spinning == 0 and app.spin_seq == 0
         assert app.interval == 3600 and app.mouse is True
@@ -281,19 +281,15 @@ class TestIntercept:
         app = make()
         app.search.start()
         assert app.intercept('key:?') is True
-        assert app.helping is False
         assert app.intercept('char:a') is True
         assert app.search.query == "a"
 
-    def test_help_toggles_and_any_key_closes_it(self):
+    def test_help_uses_the_shared_panel_with_map_credits(self):
         app = make()
-        assert app.intercept('key:?') is True and app.helping
-        assert app.intercept('key:?') is True and not app.helping
-        app.intercept('key:?')
-        assert app.intercept('escape') is True and not app.helping
-        app.intercept('key:?')
-        assert app.intercept('key:/') is True
-        assert not app.helping and app.search.open
+        help_panel = app.help_panel()
+        assert help_panel.handle('key:?') and help_panel.open
+        assert _maps_ui.TILE_ATTRIBUTION in help_panel.render(100, 42)
+        assert help_panel.handle('escape') and not help_panel.open
 
     def test_slash_opens_search_and_o_the_origin(self):
         app = make()
@@ -392,7 +388,7 @@ class TestRender:
         assert f["pan_offset"] == (3, 1) and f["mouse_pos"] == (4, 5)
         assert f["view"] == "street" and f["search"] is app.search
         assert f["directions"] is app.routes and f["route"] is None
-        assert f["helping"] is False and f["show_labels"] is True
+        assert f["show_labels"] is True
         assert f["sun"] is True and f["clouds"] is True
 
     def test_a_globe_drag_renders_blocking_once(self, frames):

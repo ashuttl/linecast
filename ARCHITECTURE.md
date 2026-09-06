@@ -18,6 +18,8 @@ A live view with state subclasses `_live.LiveApp`. The loop's hooks are its meth
 
 A frame is a string. Anything floating over it — a tooltip, a modal, the search field, the directions panel — is appended with `_live.overlay(body, floating, motion=...)`, which puts it on the channel the loop draws after the body, where clearing lines cannot touch it. `motion` switches any-motion mouse reporting with the frame; the search field turns it off, because a torn motion sequence reads as ESC.
 
+`_help.py` owns the shared `?` panel, its layout, paging, and input handling; `_help_i18n.py` holds its translated descriptions. Each `LiveApp` names its `help_view`, while moon and sunshine pass a panel whose controls follow their active view. Maps supplies its controls and optional glyph legend and credits. The live loop draws help over the frame and consumes mouse gestures while it is open; a command key dismisses it before continuing through normal dispatch. Text fields still receive a literal question mark.
+
 Background work should not draw. It changes state and calls `_live.nudge()`, which wakes the loop for a repaint from any thread.
 
 ## What a view keeps

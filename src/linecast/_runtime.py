@@ -321,7 +321,8 @@ class VersionAction(argparse.Action):
 
 
 def _base_parser(prog, description):
-    p = argparse.ArgumentParser(prog=prog, description=description)
+    p = argparse.ArgumentParser(prog=prog, description=description,
+                                epilog="In a live view, press ? for controls; Esc closes help.")
     p.add_argument("--version", action=VersionAction)
     p.add_argument("--print", dest="print_mode", action="store_true",
                     help="single static snapshot (no live mode)")

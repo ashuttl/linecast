@@ -44,6 +44,8 @@ class RadarApp(LiveApp):
     auto_play = True
     play_interval = 0.2     # animation frame rate (~5 fps)
 
+    help_view = 'radar'
+
     def __init__(self, runtime, lat, lon, location_name, zoom, layers,
                  layer, theme):
         self.runtime = runtime
