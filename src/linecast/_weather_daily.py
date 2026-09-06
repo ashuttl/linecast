@@ -77,13 +77,18 @@ def render_daily(data, width, runtime=None, now=None):
         wmo_i = wmo_codes[i] if i < len(wmo_codes) else 0
         precip_amt = ""
         ptype = ""
-        if precip_i >= (1 if runtime.metric else 0.05):
+        # 0.04" is 1 mm, so the same rain earns a row in either unit.  A
+        # tenth of an inch is 2.5 mm, too coarse to name amounts that
+        # small honestly, so inches take a second decimal under one.
+        if precip_i >= (1 if runtime.metric else 0.04):
             ptype = _s(_precip_type(wmo_i), runtime)
             if runtime.metric:
                 sep = _s("metric_unit_sep", runtime)
                 precip_amt = f"{precip_i:.0f}{sep}{runtime.precip_unit}"
             else:
-                precip_amt = f"{precip_i:.1f}{_s('precip_inch', runtime)}"
+                unit = _s('precip_inch', runtime)
+                precip_amt = (f"{precip_i:.1f}{unit}" if precip_i >= 1
+                              else f"{precip_i:.2f}{unit}")
         prob_s = f"{prob_i:.0f}%" if prob_i > 25 else ""
         wind_amt = (
             f"{wind_i:.0f}{runtime.wind_unit}"

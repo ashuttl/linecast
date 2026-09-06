@@ -368,7 +368,9 @@ def _past_precip_line(hourly, now, runtime):
                 rain_hours += 1
     log_skipped("weather/open-meteo", "hourly times", dropped, len(times), bad)
 
-    if total_precip < (0.5 if runtime.metric else 0.01) and total_snow_cm < 0.1:
+    # 0.25 mm is 0.01", the line between a trace and a measurable
+    # amount, so the same rain qualifies in either unit
+    if total_precip < (0.25 if runtime.metric else 0.01) and total_snow_cm < 0.1:
         return ""
 
     # Determine dominant type and format amount

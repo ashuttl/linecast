@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: The rain in the last 24 hours, and the rain named beside a day in the forecast, now appear at the same amount of rain in millimetres as in inches. Small amounts in inches are given to a hundredth rather than a tenth.
 - Weather: MeteoAlarm warnings for Transnistria and Gagauzia in Moldova, and for five more Dutch coastal waters, now reach the place they name. The region data is refreshed to MeteoAlarm's July 2026 list.
 - `linecast` on its own now sorts the commands into the six views, the settings, and housekeeping, and ends with the moon's phase tonight.
 - `linecast language fr` saves the language for every run, the way `linecast units` and `linecast clock` save theirs. `--lang` still picks one for a single run.
