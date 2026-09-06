@@ -260,8 +260,8 @@ def figures_for(short, lang):
             detail = fig["native"] if name == fig["english"] else fig["english"]
         if not name:
             continue
-        out.append({"id": fig["id"], "name": name, "gen": "", "names": {},
-                    "detail": detail if detail != name else "",
+        out.append({"id": fig["id"], "iau": fig["iau"], "name": name, "gen": "",
+                    "names": {}, "detail": detail if detail != name else "",
                     "at": fig["at"], "lines": fig["lines"]})
     return out
 

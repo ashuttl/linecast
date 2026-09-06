@@ -1,8 +1,9 @@
 """The sky view's `/`: find a thing in the sky, and go to it.
 
 No network: everything searchable is already in memory, the Sun, the
-Moon, the planets, every named or designated star, and the
-constellations in Latin and in the display language, and extended
+Moon, the planets, every named or designated star, the constellations
+in Latin and in the display language and by the English names a few go
+by, the asterisms from the Big Dipper to the False Cross, and extended
 Messier objects by name or catalogue designation. Typing narrows
 the list; Enter flies the camera to the chosen thing. When it is below
 the horizon the panel says when it rises and where, and a second Enter
@@ -29,14 +30,24 @@ _GREEK = {
     "psi": "ψ", "omega": "ω",
 }
 
+# The English names a few constellations go by, for the search; the label
+# keeps the Latin. Keyed by IAU code, so a tradition that keeps the IAU's
+# figure gets them too.
+_ENGLISH = {
+    "Cru": ("Southern Cross",), "UMa": ("Great Bear",), "UMi": ("Little Bear",),
+    "CrB": ("Northern Crown",), "CrA": ("Southern Crown",),
+    "TrA": ("Southern Triangle",), "PsA": ("Southern Fish",),
+}
+
 
 class Target:
     """Something the search can land on.
 
-    `kind` is "sun", "moon", "planet", "star", "deep_sky" or "constellation"; `label`
-    is what the panel shows; `key` is the planet's name, the star's index,
-    or the constellation record. `spread` is a constellation's angular
-    radius in degrees, for the zoom that frames it.
+    `kind` is "sun", "moon", "planet", "star", "deep_sky", "asterism" or
+    "constellation"; `label` is what the panel shows; `key` is the planet's
+    name, the star's index, or the constellation, asterism or object
+    record. `spread` is a constellation's or asterism's angular radius in
+    degrees, for the zoom that frames it.
     """
 
     __slots__ = ("kind", "label", "key", "names", "rank", "spread")
@@ -69,7 +80,7 @@ class Target:
     def fov(self, current):
         """A field that shows the thing: a constellation framed with air
         around it, the Moon close, a star or planet no wider than sixty."""
-        if self.kind == "constellation":
+        if self.kind in ("constellation", "asterism"):
             return max(18.0, min(120.0, self.spread * 2.0 * 1.7))
         if self.kind == "deep_sky":
             return max(6.0, min(current, max(self.key['size']) / 60.0 * 2.5))
@@ -127,12 +138,20 @@ def targets(runtime, culture=None):
                    record['designation'].replace(' ', ''), *record['aliases']]
         out.append(Target('deep_sky', f"{name} · {ident}" if name != ident else ident,
                           record, aliases, record['mag']))
+    from linecast._sky_asterisms import asterism_name, asterisms
+    for record in asterisms():
+        name = asterism_name(record, lang)
+        names = {record["name"], name, *record["aliases"], *record["names"].values()}
+        label = name if name == record["name"] else f"{name} · {record['name']}"
+        out.append(Target("asterism", label, record, names, -record["spread"],
+                          record["spread"]))
     for record in (figures_for(culture, lang) if culture else constellations()):
         if not record["lines"]:
             continue
         name = record["name"] if culture else constellation_name(record, lang)
         names = {record["name"], record["gen"], record["id"], name,
-                 record.get("detail", ""), *record["names"].values()}
+                 record.get("detail", ""), *record["names"].values(),
+                 *_ENGLISH.get(record.get("iau") or record["id"], ())}
         # Angular radius of the figure about its label point.
         ax, ay, az = record["at"]
         spread = 0.0

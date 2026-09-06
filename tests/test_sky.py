@@ -518,6 +518,46 @@ class TestSearch:
         assert search("moon", pool)[0].kind == "moon"
         assert search("xyzzy", pool) == []
 
+    def test_finds_asterisms_and_english_constellation_names(self):
+        import math
+        from linecast._sky_search import search
+        from linecast._sky_catalogue import star_names, star_vectors
+        pool = self._pool()
+        dipper = search("big dipper", pool)[0]
+        assert dipper.kind == "asterism" and dipper.label == "Big Dipper"
+        assert search("plough", pool)[0] is dipper
+        assert search("charles's wain", pool)[0] is dipper
+        # Seven stars, centred among them: Dubhe and Alkaid both within
+        # the spread, and the spread about the Dipper's real size.
+        assert len(dipper.key["stars"]) == 7
+        vectors = star_vectors()
+        for name in ("Dubhe", "Alkaid"):
+            i = next(i for i, (p, _d) in star_names().items() if p == name)
+            dot = sum(a * b for a, b in zip(dipper.key["at"], vectors[i]))
+            assert math.degrees(math.acos(dot)) <= dipper.spread + 1e-6
+        assert 10.0 < dipper.spread < 16.0
+        assert 30.0 < dipper.fov(90.0) < 60.0
+        assert search("summer triangle", pool)[0].kind == "asterism"
+        assert search("orion's belt", pool)[0].kind == "asterism"
+        assert search("tres marías", pool)[0].label == "Orion's Belt"
+        # The Pointers reach α Cen through its superscript, α¹ Cen.
+        assert 3 in search("southern pointers", pool)[0].key["stars"]
+        assert search("southern cross", pool)[0].key["id"] == "Cru"
+        assert search("great bear", pool)[0].key["id"] == "UMa"
+        # The display language's own name leads the label.
+        pool_fr = self._pool("fr")
+        french = search("grande casserole", pool_fr)[0]
+        assert french.label == "Grande Casserole · Big Dipper"
+        assert search("big dipper", pool_fr)[0] is french
+
+    def test_asterisms_and_iau_english_names_follow_the_tradition(self):
+        from linecast._sky_search import search, targets
+        norse = targets(_runtime(), "norse")
+        assert search("big dipper", norse)[0].kind == "asterism"
+        assert search("southern cross", norse) == []
+        snt = targets(_runtime(), "snt")
+        assert search("southern cross", snt)[0].kind == "constellation"
+
     def test_whole_names_beat_prefixes_and_bright_beats_faint(self):
         from linecast._sky_search import search
         labels = [t.label for t in search("ori", self._pool())]
@@ -594,13 +634,13 @@ class TestSearch:
 
             app.intercept("back")
             selected = app.search.results[app.search.sel]
-            assert selected.label == "Orion Nebula · M42"
+            assert selected.label == "Orion's Belt"
             assert app.search.note == "" and app.search.jump is None
 
             app.intercept("key:enter")
             assert app.minutes == 0
             assert app.search.open and app.search.jump[1] is selected
-            assert "Orion Nebula" in app.search.note
+            assert "Orion's Belt" in app.search.note
         finally:
             app.stop()
 
@@ -775,7 +815,8 @@ class TestCultures:
         pool = targets(_runtime(), "hawaiian")
         assert search("hokulei", pool)[0].kind == "star"
         assert search("makali", pool)[0].kind == "constellation"
-        assert all(t.kind == "deep_sky" for t in search("orion", pool))  # Orion Nebula remains
+        # The Orion Nebula and Orion's Belt remain; the constellation does not.
+        assert all(t.kind in ("deep_sky", "asterism") for t in search("orion", pool))
 
     def test_digits_reach_the_view(self):
         from linecast._live import _read_key
