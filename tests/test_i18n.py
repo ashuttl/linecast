@@ -126,7 +126,8 @@ class TestJapaneseWeather:
 
         sentence = comparative_sentence(daily, datetime(2026, 8, 24, 10), runtime)
 
-        assert sentence == "\u4eca\u65e5\u306f\u6628\u65e5\u3088\u308a\u6696\u304b\u3044"
+        assert sentence == ("\u4eca\u65e5\u306f\u6628\u65e5\u3088\u308a"
+                            "\u6696\u304b\u304f\u306a\u308b")
 
     def test_partly_cloudy_is_idiomatic(self):
         assert WMO_NAMES_I18N["ja"][2] == "\u6674\u308c\u6642\u3005\u66c7\u308a"
@@ -134,7 +135,9 @@ class TestJapaneseWeather:
     def test_forecast_phrases_use_japanese_grammar(self):
         runtime = SimpleNamespace(lang="ja")
         assert (_s("ending", runtime, desc="\u96e8", time="\u307e\u3082\u306a\u304f")
-                == "\u96e8\u306f\u307e\u3082\u306a\u304f\u3084\u3080")
+                == "\u96e8\u306f\u307e\u3082\u306a\u304f\u3084\u3080\u898b\u8fbc\u307f")
+        assert (_s("continuing", runtime, desc="\u96e8")
+                == "\u96e8\u306f\u4e00\u65e5\u4e2d\u7d9a\u304f\u898b\u8fbc\u307f")
         assert _s("on_day", runtime, day="\u706b") == "\u706b\u66dc\u65e5\u306b"
 
     def test_same_day_forecast_uses_japanese_hour_suffix(self):
