@@ -262,7 +262,10 @@ class SkySearch:
 
     def _move(self, step):
         if self.results:
-            self.sel = (self.sel + step) % len(self.results)
+            selected = (self.sel + step) % len(self.results)
+            if selected != self.sel:
+                self.note, self.jump = "", None
+            self.sel = selected
 
 
 def search_overlay(state, cols, rows, runtime):

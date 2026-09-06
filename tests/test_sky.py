@@ -582,6 +582,28 @@ class TestSearch:
         assert abs(view.az - az) < 1e-9
         assert 18.0 <= search("orion", pool)[0].fov(110.0) <= 120.0
 
+    def test_changing_result_dismisses_the_previous_rising_offer(self):
+        from linecast._sky_live import SkyApp
+        app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
+        try:
+            app.intercept("key:/")
+            for ch in "ori":
+                app.intercept(f"char:{ch}")
+            app.intercept("key:enter")
+            assert app.search.jump[1].label == "Orion"
+
+            app.intercept("back")
+            selected = app.search.results[app.search.sel]
+            assert selected.label == "Orion Nebula · M42"
+            assert app.search.note == "" and app.search.jump is None
+
+            app.intercept("key:enter")
+            assert app.minutes == 0
+            assert app.search.open and app.search.jump[1] is selected
+            assert "Orion Nebula" in app.search.note
+        finally:
+            app.stop()
+
 
 # ---------------------------------------------------------------------------
 # The sky cultures

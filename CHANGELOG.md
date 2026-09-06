@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Sky: Moving to another search result clears the previous object's rising-time offer, so Enter follows the selected result.
+
 - Every live view now has a `?` help panel with its controls in the display language. The list follows the active view and can be paged through in a short window.
 - Sky: The `m` key now turns toward the Moon when it is above the horizon.
 
