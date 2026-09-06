@@ -753,7 +753,7 @@ class TestCultures:
         pool = targets(_runtime(), "hawaiian")
         assert search("hokulei", pool)[0].kind == "star"
         assert search("makali", pool)[0].kind == "constellation"
-        assert search("orion", pool) == []   # the IAU figures are set aside
+        assert all(t.kind == "deep_sky" for t in search("orion", pool))  # Orion Nebula remains
 
     def test_digits_reach_the_view(self):
         from linecast._live import _read_key

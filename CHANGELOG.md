@@ -4,6 +4,9 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Sky: Galaxies, nebulae, and clusters now have positions, names, and search targets. Extended objects such as Andromeda appear as faint glows that grow as you zoom in.
+- Sky: Zooming in reveals fainter stars from a catalog of nearly 117,000, with catalog designations available under the pointer.
+
 - Sky: A new view, `linecast sky`, draws the night sky from where you stand: the stars for the moment, the constellation figures and their names, the planets, the Moon at its phase, the Sun, and the Milky Way once the sky is dark. Drag to look around, zoom with `+` and `-`, scroll through time, and press `p` to watch the night pass. `--json` and `--oneline` say what is up.
 - Sky: `/` searches the sky. Type a star, a planet, or a constellation and the view flies to it; if it is below the horizon the panel says when it rises and where, and Enter again moves the clock to that moment. `--at Orion` opens on one.
 - Sky: `t` opens a list of twenty-two other traditions' constellations and star names, from the Chinese lunar mansions to the Hawaiian star lines and H. A. Rey's figures, and the sky redraws as the highlight moves; `--culture` and `linecast culture` pick one to open on. Chinese comes with the language. See CULTURES.md for the sources.

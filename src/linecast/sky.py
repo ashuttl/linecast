@@ -6,9 +6,9 @@ Usage: sky [--print] [--oneline] [--json] [--location PLACE] [--facing DIR]
 
 You stand at your location and look out: the horizon runs along the
 bottom with the compass points under it, and the sky above holds the
-real stars for the moment — the Yale Bright Star Catalogue to the
-naked-eye limit — with the constellation figures drawn faintly through
-them, the planets marked and named, the Moon at its phase and tilt, the
+real stars for the moment: Yale’s bright stars, with HYG’s fainter stars
+revealed as you zoom in. Constellation figures run faintly through
+them, beside the planets marked and named, the Moon at its phase and tilt, the
 Sun with its glow, and the Milky Way as a pale band once the sky is dark
 enough. By day the sky is blue and holds only the Sun, and perhaps
 Venus; through dusk it goes through the colours the sunshine view
@@ -26,8 +26,9 @@ move through time; `+` and `-` zoom; `p` plays time at an hour a
 second, then a day, then a week; `c` cycles the constellation figures
 and names; `1`–`8` face the compass points in turn and `9` looks
 straight up; `m` faces the Moon; space returns to now. Point at
-anything for its name, or press `/` and type one: a star, a planet, or
-a constellation, and the view flies to it, or says when it will rise.
+anything for its name, or press `/` and type a name or catalogue ID,
+including deep-sky objects such as M31. The view flies to it, or says
+when it will rise.
 `t` opens the traditions: the constellations and star names of
 twenty-two cultures besides the IAU's, from the Chinese lunar mansions
 to the Hawaiian star lines. The sky draws the one highlighted; Enter
@@ -71,6 +72,7 @@ from linecast._sky_catalogue import (
     figures_for, milky_way, names_for, resolve_culture, star_names, star_vectors,
     stars,
 )
+from linecast import _sky_deep, _sky_objects
 from linecast._sky_i18n import NO_CAPITALS, _sk, body_name
 from linecast._sunshine_i18n import sky_phase
 from linecast._textwidth import char_width
@@ -643,17 +645,48 @@ def _paint_sky(fb, scene, cam, f, cx, cy):
     return omega
 
 
-def _star_limit(scene, omega, cells):
+def _view_eye_limit(scene, fov):
+    """Zoom acts like optical magnification at night; daylight stays unchanged.
+
+    Start gaining depth below 60 degrees, reaching five extra magnitudes
+    at the closest (6 degree) view. Twilight reduces the gain smoothly.
+    """
+    gain = max(0.0, 5.0 * math.log10(60.0 / max(fov, FOV_MIN)))
+    return scene.eye_limit + gain * scene.darkness
+
+
+def _star_limit(scene, omega, cells, fov=FOV_DEFAULT):
     """The limiting magnitude for this view: enough stars for the screen's
-    share of the sky at the chosen density, but never more than the eye
-    would see under this sky."""
+    share of the sky at the chosen density, allowing fainter stars as
+    the view magnifies under a dark sky."""
     if omega <= 0.0:
         return -10.0
     wanted = _STAR_DENSITY / 1000.0 * cells * 4.0 * math.pi / omega
     catalogue = stars()
-    rank = min(len(catalogue) - 1, int(wanted))
-    by_zoom = catalogue[rank][2] if rank >= 0 else -10.0
-    return min(by_zoom, scene.eye_limit)
+    eye = _view_eye_limit(scene, fov)
+    if int(wanted) >= len(catalogue) and eye > 6.5:
+        by_zoom = _sky_deep.magnitude_at(int(wanted) - len(catalogue))
+    else:
+        rank = min(len(catalogue) - 1, int(wanted))
+        by_zoom = catalogue[rank][2] if rank >= 0 else -10.0
+    return min(by_zoom, eye)
+
+
+def _star_candidates(frame, f, cx, cy, limit, deep=True):
+    """Bright Yale stars followed by HYG stars in the screen's sky cone.
+
+    Negative indices identify the separate supplement, leaving every
+    existing name/culture index stable. The cone encloses all four corners.
+    """
+    vectors = star_vectors()
+    for i, (_ra, _dec, mag, bv) in enumerate(stars()):
+        if mag > limit:
+            break
+        yield i, mag, bv, vectors[i]
+    if deep:
+        radius = 2.0 * math.atan(math.hypot(cx, cy) / (2.0 * f))
+        for i, mag, bv, vector in _sky_deep.candidates(frame[6:9], radius, limit):
+            yield -i - 1, mag, bv, vector
 
 
 def _label_limit(fov):
@@ -704,10 +737,13 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
 
     fb = Framebuffer(graph_w, graph_h, bg_color=NIGHT_RGB)
     omega = _paint_sky(fb, scene, cam, f, cx, cy)
-    limit = _star_limit(scene, omega, graph_w * graph_h)
+    limit = _star_limit(scene, omega, graph_w * graph_h, view.fov)
+    eye_limit = _view_eye_limit(scene, view.fov)
     overlays = {}
     taken = set()
-    hits = []   # (col, row, kind, payload) for the pointer
+    # Extended light is behind the foreground stars, Moon and planets.
+    object_labels, hits = _sky_objects.paint(
+        fb, scene, cam, frame, f, cx, cy, eye_limit, STAR_RGB)
 
     # --- the Sun ---
     sun_cam = _mat_apply(cam, scene.sun)
@@ -757,21 +793,18 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     # faint stars, then the constellation figures in whatever cells are
     # left, so a name never covers a bright star and a figure never
     # covers a name.
-    catalogue = stars()
-    vectors = star_vectors()
     label_limit = _label_limit(view.fov)
     dim, mid, bright = STAR_DIM_RGB, STAR_RGB, STAR_BRIGHT_RGB
     m0, m1, m2, m3, m4, m5, m6, m7, m8 = frame
     u0, u1, u2 = cam[2], cam[5], cam[8]
     # The stars fade in at the edge of what the eye can see; where the
     # zoom sets the limit there is nothing to fade toward.
-    fading = scene.eye_limit < limit + 0.7
+    fading = eye_limit < limit + 0.7
     gathered = []   # (above, sx, sy, col, row, glyph, color, bold, i, alt, mag)
     seen_cells = set()
-    for i, (_ra, _dec, mag, bv) in enumerate(catalogue):
-        if mag > limit + 0.5:
-            break
-        x, y, z = vectors[i]
+    candidates = _star_candidates(frame, f, cx, cy, limit + 0.5,
+                                  deep=eye_limit > scene.eye_limit)
+    for i, mag, bv, (x, y, z) in candidates:
         cxv = m0 * x + m1 * y + m2 * z
         cyv = m3 * x + m4 * y + m5 * z
         czv = m6 * x + m7 * y + m8 * z
@@ -827,7 +860,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     for key, vec, alt, az, mag in scene.planets:
         if alt < -0.5:
             continue
-        fade = (scene.eye_limit + 0.8 - (mag + _extinction(alt))) / 1.0
+        fade = (eye_limit + 0.8 - (mag + _extinction(alt))) / 1.0
         if fade <= 0.0 or mag > limit + 0.8:
             continue
         p = project(_mat_apply(cam, vec), f, cx, cy)
@@ -876,6 +909,11 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
             break
         if i in names and names[i][0] and (col, row) in taken:
             beside(names[i][0], col, row, lerp(fb.cell_bg(col, row), label_ink, 0.85))
+    for record, col, row, strength in object_labels:
+        if strength < 0.15 or (view.fov > 60 and record['mag'] > 4.5):
+            continue
+        name = (_sky_objects.object_name(record, lang) if view.fov <= 60 else record['id'])
+        beside(name, col, row, lerp(fb.cell_bg(col, row), label_ink, 0.65 * strength))
     if view.figures >= 2 and scene.darkness > 0.25:
         name_ink = lerp(NIGHT_RGB, FIGURE_NAME_RGB, scene.darkness)
         for record in figures:
@@ -1028,7 +1066,8 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
     for sx, sy, kind, payload in hits:
         dc, dr = int(sx) - px, int(sy) // 2 - prow
         if abs(dc) <= 1 and abs(dr) <= 1:
-            score = (abs(dc) + abs(dr), 0 if kind in ("sun", "moon", "planet") else 1)
+            priority = 0 if kind in ("sun", "moon", "planet") else (2 if kind == 'deep_sky' else 1)
+            score = (abs(dc) + abs(dr), priority)
             if best is None or score < best[0]:
                 best = (score, kind, payload)
     if best is None:
@@ -1045,6 +1084,12 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
         title = f"{icon} {body_name('moon', runtime)}"
         detail = f"{_moon_name(idx, runtime)} · {scene.moon_illum * 100:.0f}%"
         alt, az = scene.moon_alt, scene.moon_az
+    elif kind == 'deep_sky':
+        record, alt, az = payload
+        title = _sky_objects.object_name(record, lang_of(runtime))
+        major, minor = record['size']
+        size = f"{major:g}′" if major == minor else f"{major:g}′ × {minor:g}′"
+        detail = f"{record['id']} · mag {record['mag']:.1f} · {size}"
     elif kind == "planet":
         key, alt, az, mag = payload
         title, detail = body_name(key, runtime), f"mag {mag:+.1f}"
@@ -1059,7 +1104,11 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
         if iau_name and iau_name != proper:
             # A culture's name, or the language's own, with the IAU's beside it.
             detail = f"{iau_name} · {detail}"
-        _alt, az = alt_az_of(_mat_apply(scene.horizontal, star_vectors()[i]))
+        if i < 0:
+            _mag, _bv, vector, title = _sky_deep.star(-i - 1)
+        else:
+            vector = star_vectors()[i]
+        _alt, az = alt_az_of(_mat_apply(scene.horizontal, vector))
     where = f"{alt:.0f}° · {compass_point(az, runtime, view.culture)}"
     lines = [f"{tip_bg}{tip_fg} {title} ",
              f"{tip_bg}{tip_dim} {detail} ",

@@ -2,7 +2,8 @@
 
 No network: everything searchable is already in memory, the Sun, the
 Moon, the planets, every named or designated star, and the
-constellations in Latin and in the display language. Typing narrows
+constellations in Latin and in the display language, and extended
+Messier objects by name or catalogue designation. Typing narrows
 the list; Enter flies the camera to the chosen thing. When it is below
 the horizon the panel says when it rises and where, and a second Enter
 moves the clock to that moment, since "when can I see it" is the
@@ -32,7 +33,7 @@ _GREEK = {
 class Target:
     """Something the search can land on.
 
-    `kind` is "sun", "moon", "planet", "star" or "constellation"; `label`
+    `kind` is "sun", "moon", "planet", "star", "deep_sky" or "constellation"; `label`
     is what the panel shows; `key` is the planet's name, the star's index,
     or the constellation record. `spread` is a constellation's angular
     radius in degrees, for the zoom that frames it.
@@ -70,6 +71,8 @@ class Target:
         around it, the Moon close, a star or planet no wider than sixty."""
         if self.kind == "constellation":
             return max(18.0, min(120.0, self.spread * 2.0 * 1.7))
+        if self.kind == "deep_sky":
+            return max(6.0, min(current, max(self.key['size']) / 60.0 * 2.5))
         if self.kind == "moon":
             return min(current, 40.0)
         return min(current, 60.0)
@@ -115,6 +118,15 @@ def targets(runtime, culture=None):
         if i not in star_names() and own:
             out.append(Target("star", f"{own} · {desig}" if desig else own, i,
                               [own, desig], catalogue[i][2]))
+    from linecast._sky_objects import object_name, objects
+    for record in objects():
+        name = object_name(record, lang)
+        ident = record['id']
+        aliases = [name, record['name'], ident, ident.replace('M', 'M '),
+                   f"Messier {ident[1:]}", record['designation'],
+                   record['designation'].replace(' ', ''), *record['aliases']]
+        out.append(Target('deep_sky', f"{name} · {ident}" if name != ident else ident,
+                          record, aliases, record['mag']))
     for record in (figures_for(culture, lang) if culture else constellations()):
         if not record["lines"]:
             continue

@@ -468,8 +468,8 @@ def sky_parser():
                          "or a bearing in degrees (default: the Moon if it "
                          "is up, else a bright planet, else south)")
     p.add_argument("--at", default=None,
-                    help="open on a star, planet, or constellation by name "
-                         "(Vega, Jupiter, Orion), zoomed to frame it")
+                    help="open on a sky object by name or catalog ID "
+                         "(Vega, Jupiter, Orion, M31), zoomed to frame it")
     p.add_argument("--fov", type=float, default=None,
                     help="how many degrees of sky across the screen, 6 to "
                          "236 (default 110; zoom live with + and -)")

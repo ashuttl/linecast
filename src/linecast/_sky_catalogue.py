@@ -3,7 +3,7 @@
 Everything here is read from src/linecast/data, written by
 scripts/build_sky_catalogue.py, and loaded once per process on first
 use. The moon view takes its star field from `star_positions`; the sky
-view takes all of it.
+view takes all of it, plus the faint HYG supplement in `_sky_deep`.
 
 The stars are the Yale Bright Star Catalogue to magnitude 6.5, brightest
 first, so a prefix of the list is the sky to some limiting magnitude.
