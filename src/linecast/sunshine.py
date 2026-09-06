@@ -342,7 +342,14 @@ def solar_times(lat, lng, doy, tz_offset_h=None):
     eot = _equation_of_time(doy)
     noon_utc = 12 - lng / 15 - eot / 60
     tz = _tz_offset_hours() if tz_offset_h is None else tz_offset_h
-    return noon_utc - ha/15 + tz, noon_utc + ha/15 + tz
+    # A zone more than twelve hours from its own solar meridian — the
+    # UTC+13 and +14 zones that sit east of the date line, Samoa, Tonga,
+    # Kiritimati — puts noon_utc + tz outside the day it belongs to.
+    # Solar noon is in the local date by definition, so bring it back.
+    # A rise or set that falls the other side of midnight is real, and
+    # is left where it lands.
+    noon_local = (noon_utc + tz) % 24
+    return noon_local - ha/15, noon_local + ha/15
 
 
 # A day length this close to 0h or 24h means the hour angle above was
