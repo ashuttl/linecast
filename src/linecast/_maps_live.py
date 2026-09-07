@@ -63,7 +63,7 @@ class MapApp(LiveApp):
         self.spin_seq = 0       # last generation ever started
         self.view = view
         self.show_labels = True
-        self.sun = sky          # s: daylight shading + night city lights
+        self.sun = sky          # S: daylight shading + night city lights
         self.clouds = sky       # c: this hour's cloud cover
         self.search = _maps_ui.SearchState()
         self.routes = _maps_ui.RouteState(profile=profile, home=(lat, lon))
@@ -150,6 +150,14 @@ class MapApp(LiveApp):
             _nudge_repaint()
 
     def on_action(self, key):
+        if key in ('w', 'a', 's', 'd'):
+            gw, hc = map_cells()
+            dcol, drow = {'w': (0, hc * 0.1), 'a': (gw * 0.1, 0),
+                         's': (0, -hc * 0.1), 'd': (-gw * 0.1, 0)}[key]
+            # Use the drag projection for flat maps and warm globes alike.
+            self.spinning = 0
+            self.on_drag(dcol, drow, False)
+            return self.on_drag(dcol, drow, True)
         if key == '+':
             return self.zoom_to(self.zoom / ZOOM_STEP)
         if key == '-':
@@ -161,7 +169,7 @@ class MapApp(LiveApp):
         if key == 'l':
             self.show_labels = not self.show_labels
             return True
-        if key == 's':
+        if key == 'S':
             self.sun = not self.sun
             return True
         if key == 'c':
@@ -231,7 +239,7 @@ class MapApp(LiveApp):
         if routes.panel:
             # The directions panel: arrows walk the maneuvers and
             # the map flies along; the field rows name their own
-            # keys, and `d` — its opening job done — edits the
+            # keys, and `D` — its opening job done — edits the
             # destination its row promises.  Everything else
             # (zoom, v, n) still reaches the map underneath.
             if action in ('escape', 'quit'):
@@ -245,13 +253,13 @@ class MapApp(LiveApp):
                 if step is not None:
                     self.fly_to_step(step)
                 return True
-            if action == 'key:d':
+            if action == 'key:D':
                 search.start("route")
                 return True
         if action == 'key:/':
             search.start()
             return True
-        if action == 'key:d':
+        if action == 'key:D':
             if routes.press() == "search":
                 search.start("route")
             return True

@@ -66,7 +66,7 @@ Use Windows Terminal. Git Bash and mintty see a pipe rather than a terminal, so 
 
 ## Using it
 
-Run in a terminal, every command opens live, at the place your IP address suggests until you [save a location](#location). Press `?` in any live view for its controls. `?`, Esc, or `q` closes help; another shortcut closes it and performs that action. In a short window, use the left/right arrows or wheel to page through the list.
+Run in a terminal, every command opens live, at the place your IP address suggests until you [save a location](#location). A small `? keys` hint in each live view points to its controls. Press `?` to open the list; in a tight layout the hint shortens to `?`. `?`, Esc, or `q` closes help; another shortcut closes it and performs that action. In a short window, use the left/right arrows or wheel to page through the list.
 
 ```sh
 linecast weather --location "Québec"
@@ -126,7 +126,7 @@ The moon can also follow a traditional calendar, with that calendar's date besid
 
 `sky` is the night sky from where you stand. The horizon runs along the bottom with the compass points under it, and above it are the real stars for the moment, the constellation figures drawn faintly through them with their names, the planets marked and named, the Moon at its phase and tilt, and the Milky Way once the sky is dark enough. By day the sky is blue and holds only the Sun, and perhaps Venus. Scroll into the evening and the sky goes through its twilight colors while the stars come out one by one, brightest first.
 
-Drag to look around, and let go while moving to coast. `+` and `-` zoom: as the view closes in, fainter stars and more names appear, and the Moon grows into the disc the moon view draws. Zoom all the way out while looking up and the horizon closes into a circle, the whole sky at once, the way the almanacs print it. `p` plays time at an hour a second, then a day, then a week, so you can watch the stars wheel and the Moon run through its phases; space returns to now. `c` cycles the constellation figures and names, `1` to `8` face the compass points, `9` looks straight up, and `m` faces the Moon. Point at anything for its name, and `--facing SW` or `--fov 40` open the view where you want it.
+Drag to look around, and let go while moving to coast. `w` `a` `s` `d` pan up, left, down, and right with a short ease to rest; zooming in makes each step smaller. `+` and `-` zoom: as the view closes in, fainter stars and more names appear, and the Moon grows into the disc the moon view draws. Zoom all the way out while looking up and the horizon closes into a circle, the whole sky at once, the way the almanacs print it. `p` plays time at an hour a second, then a day, then a week, so you can watch the stars wheel and the Moon run through its phases; space returns to now. `c` cycles the constellation figures and names, `1` to `8` face the compass points, `9` looks straight up, and `m` faces the Moon. Point at anything for its name, and `--facing SW` or `--fov 40` open the view where you want it.
 
 Press `/` and type a name, a star, a planet, a constellation, or an asterism like the Big Dipper or the Summer Triangle, and the view flies to it. If it is below the horizon the panel says when it rises and where, and Enter again moves the clock to that moment. `--at Jupiter` opens on it.
 
@@ -141,6 +141,8 @@ Predictions come from national services where they exist (NOAA, the Canadian Hyd
 ![tide chart](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/tides.png)
 
 ### Radar
+
+`w` `a` `s` `d` pan up, left, down, and right. `W` (Shift+W) toggles wind and `S` (Shift+S) switches radar and satellite imagery.
 
 Radar animates the recent observations and an hour of forecast over a braille basemap.
 
@@ -162,27 +164,28 @@ linecast radar --layer satellite
 
 Streets are drawn in braille over water, land, parks, and buildings in solid color. In terrain view the land is shaded by height and lit from one side, like a relief map, with coastlines, borders, water, and cities in braille over it; `l` toggles them and the labels.
 
-Search with `/` and ask for directions with `d`. Directions open as a panel of turn-by-turn steps; arrow or click through them and the map flies along the route.
+Search with `/` and ask for directions with `D` (Shift+D). Directions open as a panel of turn-by-turn steps; arrow or click through them and the map flies along the route.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-street.png" width="49%" alt="street map of Portland, Maine">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-terrain.png" width="49%" alt="terrain map of the Alps around Innsbruck">
 </p>
 
-Zoom all the way out and either view becomes a globe. Drag to rotate it, or press `r` to set it spinning. `s` shades it into the daylight of this moment, with the terminator creeping and cities glowing on the night side, and `c` lays the current cloud cover over it from live satellite imagery. `--view now` opens straight to the full picture.
+Zoom all the way out and either view becomes a globe. Drag to rotate it, or press `r` to set it spinning. `S` shades it into the daylight of this moment, with the terminator creeping and cities glowing on the night side, and `c` lays the current cloud cover over it from live satellite imagery. `--view now` opens straight to the full picture.
 
 ![the globe as it is right now: live daylight and the terminator](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-globe.png)
 
 | Keys | |
 |------|---|
 | drag · wheel · hover | pan, zoom at the pointer, identify what's under the cursor |
+| `w` `a` `s` `d` | pan up, left, down, right |
 | `+` `-` | zoom |
 | `n` | back to the start view |
 | `v` `l` | street ↔ terrain · toggle labels & lines |
-| `s` `c` | daylight and night city lights · live cloud cover |
+| `S` `c` | daylight and night city lights · live cloud cover |
 | `r` | spin the globe |
 | `/` | search places and addresses |
-| `d` `o` `p` | directions · set the origin · cycle travel mode |
+| `D` `o` `p` | directions · set the origin · cycle travel mode |
 | `q` | quit |
 
 ```sh

@@ -720,7 +720,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     cols, rows = get_terminal_size()
     hint = install_banner()
     graph_w = max(20, cols - 2)
-    reserve = 1 + (1 if hint else 0) + (0 if fullscreen else 2)
+    reserve = (1 if hint else 0) + (0 if fullscreen else 3)
     graph_h = max(6, rows - reserve)
     total_spy = graph_h * 2
 
@@ -741,6 +741,20 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     eye_limit = _view_eye_limit(scene, view.fov)
     overlays = {}
     taken = set()
+    status_labels = []
+    if fullscreen:
+        from linecast._help import hint as help_hint, paint_text
+        help_label = help_hint(lang, graph_w)
+        room = max(0, graph_w - visible_len(help_label) - 2)
+        status_labels = _status_line(scene, now_local, runtime, view, room, location_label,
+                                     offset_minutes, speed, today, limit, layout=True)
+        status_labels.append((graph_w - visible_len(help_label), help_label))
+        for x, text in status_labels:
+            paint_text(fb, overlays, text, x, graph_h - 1, TEXT_RGB)
+        taken.update(overlays)
+        # A cell of air beside the labels; the rest of the row remains sky.
+        for x, row in tuple(taken):
+            taken.update((c, row) for c in (x - 1, x + 1) if 0 <= c < graph_w)
     # Extended light is behind the foreground stars, Moon and planets.
     object_labels, hits = _sky_objects.paint(
         fb, scene, cam, frame, f, cx, cy, eye_limit, STAR_RGB)
@@ -975,21 +989,32 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
         floating = _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w,
                          graph_h, view)
 
+    # The Moon and extended objects may have painted under a label after
+    # its space was reserved. Pick its final ink from the finished image.
+    for x, text in status_labels:
+        paint_text(fb, overlays, text, x, graph_h - 1,
+                   None if text == help_label else TEXT_RGB)
     lines = fb.render(overlays=overlays)
-    lines.append(_status_line(scene, now_local, runtime, view, cols, location_label,
-                              offset_minutes, speed, today, limit))
+    if not fullscreen:
+        lines.append(_status_line(scene, now_local, runtime, view, cols, location_label,
+                                  offset_minutes, speed, today, limit))
     if hint:
         lines.append(hint)
     return _live.overlay("\n".join(lines), floating)
 
 
 def _status_line(scene, now_local, runtime, view, width, location_label,
-                 offset_minutes, speed, today, limit):
+                 offset_minutes, speed, today, limit, layout=False):
     """Place and clock; where the view faces and how wide; the sky's name
-    and what is up. Parts drop from the right as the width runs out."""
+    and what is up. Parts drop from the right as the width runs out.
+    With layout=True, return positioned plain labels for the image."""
     from linecast.sunshine import clock_label
     text, dim, amber = fg(*TEXT_RGB), fg(*DIM_RGB), fg(*AMBER_RGB)
     clock = clock_label(now_local, runtime, today)
+    if layout:
+        text = dim = amber = ''
+        if visible_len(location_label) + visible_len(clock) + 3 > max(20, width // 2):
+            location_label = ''
     left = f"{text}{location_label} {dim}· {text}{clock}" if location_label else f"{text}{clock}"
     facing = _sk("facing", runtime, dir=compass_point(view.az, runtime, view.culture,
                                                       quadrant=True))
@@ -1021,14 +1046,21 @@ def _status_line(scene, now_local, runtime, view, width, location_label,
         gap = width - 2 - visible_len(left) - visible_len(mid) - visible_len(right)
         line = (f" {left}{' ' * max(1, gap // 2)}{mid}"
                 f"{' ' * max(1, gap - gap // 2)}{right} ")
+        positions = [(1, left), (1 + visible_len(left) + max(1, gap // 2), mid),
+                     (width - 1 - visible_len(right), right)]
     elif len(candidate) == 2:
         left, mid = candidate
         gap = width - 2 - visible_len(left) - visible_len(mid)
         line = f" {left}{' ' * max(1, gap)}{mid} "
+        positions = [(1, left), (width - 1 - visible_len(mid), mid)]
     elif candidate:
         line = f" {candidate[0]} "
+        positions = [(1, candidate[0])]
     else:
         line = ""
+        positions = []
+    if layout:
+        return positions
     return f"{RESET}{line}{RESET}"
 
 

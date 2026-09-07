@@ -800,21 +800,26 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     # Footer: marine conditions on the left, the data source on the
     # right, one line.  Too narrow for both: marine wins.
     marine_str = ""
+    from linecast import _help
+    from linecast._i18n import lang_of
+    foot_width = cols - visible_len(_help.hint(lang_of(runtime), cols)) - 3 if fullscreen else cols
     if marine_data is not None:
         try:
             marine = parse_marine_current(marine_data, now_local)
-            marine_str = format_marine_line(marine, runtime, width=cols) or ""
+            marine_str = format_marine_line(marine, runtime, width=foot_width) or ""
         except Exception as exc:
             # Marine data is optional; never crash
             log_failure("marine/open-meteo", "marine line", exc, fallback="line omitted")
     dim = fg(*DIM_RGB)
-    pad = cols - 2 - visible_len(marine_str) - visible_len(provider.label)
+    pad = foot_width - 2 - visible_len(marine_str) - visible_len(provider.label)
     if marine_str and pad >= 2:
         lines.append(f" {dim}{marine_str}{' ' * pad}{provider.label}{RESET}")
     elif marine_str:
         lines.append(f" {dim}{marine_str}{RESET}")
     else:
         lines.append(f" {dim}{provider.label}{RESET}")
+    if fullscreen:
+        lines[-1] = _help.footer(lines[-1], cols, lang_of(runtime))
 
     hint = install_banner()
     if hint:

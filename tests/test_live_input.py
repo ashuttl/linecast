@@ -93,6 +93,11 @@ class TestTextMode:
 
 
 class TestNewBindings:
+    @pytest.mark.parametrize('key', 'wasdWSD')
+    def test_pan_keys_and_shifted_actions_preserve_case(self, pipe, key):
+        assert _key(pipe, key.encode()) == 'key:' + key
+        assert _key(pipe, key.encode(), text=True) == 'char:' + key
+
     def test_moon_shortcut_and_question_mark(self, pipe):
         assert _key(pipe, b'm') == 'key:m'
         assert _key(pipe, b'M') == 'key:m'
@@ -102,7 +107,7 @@ class TestNewBindings:
     def test_new_maps_keys(self, pipe):
         for data, action in ((b"v", "key:v"), (b"V", "key:v"),
                              (b"p", "key:p"), (b"P", "key:p"),
-                             (b"d", "key:d"), (b"D", "key:d"),
+                             (b"d", "key:d"), (b"D", "key:D"),
                              (b"l", "key:l"), (b"L", "key:l"),
                              (b"r", "key:r"), (b"R", "key:r"),
                              (b"/", "key:/"), (b"?", "key:?")):
@@ -120,7 +125,7 @@ class TestNewBindings:
     def test_unbound_printables_still_dropped(self, pipe):
         # letters outside the whitelist return None with text off —
         # the pre-existing contract other commands rely on
-        for data in (b"a", b"z", b"x", b"."):
+        for data in (b"z", b"x", b"."):
             os.write(pipe[1], data)
             assert _read_key(pipe[0]) is None
 

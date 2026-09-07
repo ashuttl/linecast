@@ -638,6 +638,9 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     if over > 0 and len(place) > over + 1:
         header = _header(place[:len(place) - over - 1] + "…")
     header += " " * max(0, cols - visible_len(header))
+    from linecast import _help
+    live = bool(getattr(runtime, 'live', False))
+    foot_width = cols - visible_len(_help.hint(lang, cols)) - 3 if live else cols
 
     if err:
         key = 'streets_unavailable' if view == "street" else 'unavailable'
@@ -645,7 +648,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     else:
         # once a route stands, the footer teaches the route keys instead
         hint_key = 'hint_route' if route is not None else 'hint'
-        hint = (f"{fg(*DIM)}{ms(hint_key, lang)}{RESET}"
+        hint = (f"{fg(*DIM)}{ms(hint_key, lang).split(' · ?')[0]}{RESET}"
                 if sys.stdout.isatty() else "")
         # the Köppen credit is owed only where the climate grid is
         # colouring the ground: the terrain register, flat or globe
@@ -691,8 +694,10 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         ladder += [f"{scale}{fg(*DIM)}{attribs[-1]}{RESET}",
                    f"{fg(*DIM)}{attribs[-1]}{RESET}", ""]
         for foot in ladder:
-            if visible_len(foot) <= cols:
+            if visible_len(foot) <= foot_width:
                 break
+    if live:
+        foot = _help.footer(foot, cols, lang)
     foot += " " * max(0, cols - visible_len(foot))
 
     out = "\n".join([header, *map_lines, foot])

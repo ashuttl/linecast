@@ -646,12 +646,12 @@ class TestDirectionsOverlay:
         with _units("--imperial"):
             plain = strip(self._overlay())
         assert re.search(r"o from +Westbrook", plain)
-        assert re.search(r"d to +Portland Head Light", plain)
+        assert re.search(r"D to +Portland Head Light", plain)
         assert re.search(r"p mode +driving · 11.7 mi · 24m", plain)
 
     def test_no_destination_is_a_placeholder_not_a_missing_row(self):
         plain = strip(self._overlay(route=None, dest=None))
-        assert re.search(r"d to +…", plain)
+        assert re.search(r"D to +…", plain)
 
     def test_the_routers_status_stands_in_for_absent_steps(self):
         plain = strip(self._overlay(route=None, status="pending"))

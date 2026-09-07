@@ -430,6 +430,92 @@ class TestStrings:
 # The camera
 # ---------------------------------------------------------------------------
 class TestCamera:
+    @pytest.mark.parametrize('key,daz,dalt', [
+        ('w', 0, 1), ('a', -1, 0), ('s', 0, -1), ('d', 1, 0),
+    ])
+    def test_keyboard_pan_eases_in_the_requested_direction(self, monkeypatch, key, daz, dalt):
+        from linecast import _sky_live as live
+        clock = [0.0]
+        monkeypatch.setattr(live.time, 'monotonic', lambda: clock[0])
+        wakes = []
+        monkeypatch.setattr(live.SkyApp, '_wake', lambda self: wakes.append(True))
+        app = live.SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
+        app.camera = cam = live.Camera(180, 30, 100)
+        assert app.intercept('key:' + key) is False
+        assert app.on_action(key) and wakes
+        assert (cam.az, cam.alt) == (180, 30) and cam.moving()
+        clock[0] = live.PAN_EASE / 2
+        view = cam.view()
+        assert view.az == pytest.approx(180 + daz * 8 * 0.875)
+        assert view.alt == pytest.approx(30 + dalt * 8 * 0.875)
+        clock[0] = live.PAN_EASE
+        view = cam.view()
+        assert view.az == pytest.approx(180 + daz * 8)
+        assert view.alt == pytest.approx(30 + dalt * 8)
+        assert not cam.moving() and app.minutes == 0
+
+    def test_repeats_extend_the_pan_and_reversing_responds_immediately(self, monkeypatch):
+        from linecast import _sky_live as live
+        clock = [0.0]
+        monkeypatch.setattr(live.time, 'monotonic', lambda: clock[0])
+        cam = live.Camera(180, 30, 100)
+        cam.pan(1, 0)
+        clock[0] += live.PAN_EASE / 2
+        before = cam.view().az
+        cam.pan(1, 0)
+        assert cam.az == before  # retargeting must not snap
+        clock[0] += live.PAN_EASE / 2
+        assert cam.view().az > 188
+        before = cam.az
+        cam.pan(-1, 0)
+        clock[0] += live.PAN_EASE / 2
+        assert cam.view().az < before
+        # A burst of repeat bytes cannot leave seconds of motion queued.
+        for _ in range(100):
+            cam.pan(1, 0)
+        before = cam.az
+        clock[0] += live.PAN_EASE + 0.01
+        assert 0 < cam.view().az - before <= 16
+        assert not cam.moving()
+
+    def test_pan_scales_with_zoom_wraps_and_stops_at_the_edges(self, monkeypatch):
+        from linecast import _sky_live as live
+        clock = [0.0]
+        monkeypatch.setattr(live.time, 'monotonic', lambda: clock[0])
+        cam = live.Camera(359, 89, 25)
+        cam.pan(1, 1)
+        clock[0] += live.PAN_EASE + 0.01
+        assert cam.view().az == pytest.approx(1)
+        assert cam.alt == 90
+        cam.alt = 1
+        cam.pan(0, -1)
+        clock[0] += live.PAN_EASE + 0.01
+        assert cam.view().alt == 0 and not cam.moving()
+
+    def test_drag_and_flight_take_over_from_keyboard_motion(self, monkeypatch):
+        from linecast import _sky_live as live
+        clock = [0.0]
+        monkeypatch.setattr(live.time, 'monotonic', lambda: clock[0])
+        cam = live.Camera(180, 30, 100)
+        cam.pan(1, 0)
+        cam.drag(5, 0)
+        az = cam.az
+        clock[0] += 1
+        assert cam.view().az == az and not cam.moving()
+        cam.release()
+        cam.pan(1, 0)
+        cam.fly_to(90, 20)
+        clock[0] += 1
+        assert (cam.view().az, cam.alt) == (90, 20)
+
+    def test_stop_cancels_keyboard_motion(self, monkeypatch):
+        from linecast import _sky_live as live
+        monkeypatch.setattr(live.SkyApp, '_wake', lambda self: None)
+        app = live.SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
+        app.on_action('d')
+        app.stop()
+        assert not app.camera.moving()
+
     def _camera(self):
         from linecast._sky_live import Camera
         cam = Camera(180.0, 30.0, 110.0)

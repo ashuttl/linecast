@@ -4,6 +4,11 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Live views: A quiet, translated `? keys` hint points to the controls, with room at the right edge so its last letter stays visible. Radar help describes warning hover accurately.
+- Sky: The status text sits over the sky instead of a solid footer, with readable ink against both day and night backgrounds.
+
+- Sky, maps, and radar: `w` `a` `s` `d` pan the view. Sky eases each keyboard pan to rest, with smaller steps when zoomed in. Maps moves daylight and directions to `S` and `D`; radar moves wind and satellite to `W` and `S` (Shift plus the letter).
+
 - Sky: `/` finds the asterisms by name, the Big Dipper, the Summer Triangle, Orion's Belt, the Teapot and others, in the display language where it has its own. It also knows the English names of a few constellations, such as the Southern Cross.
 - Sky: Moving to another search result clears the previous object's rising-time offer, so Enter follows the selected result.
 

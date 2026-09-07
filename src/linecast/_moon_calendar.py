@@ -408,6 +408,9 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
             _put(overlays, x0 + cell_w - 1 - visible_len(text),
                  y0 + cell_h - 1, text, F, max_x=graph_w)
 
+    if fullscreen:
+        from linecast._help import paint_hint
+        paint_hint(fb, overlays, lang)
     lines = fb.render(overlays=overlays)
     if hint:
         lines.append(hint)

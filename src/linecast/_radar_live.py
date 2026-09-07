@@ -61,11 +61,17 @@ class RadarApp(LiveApp):
         self.picker = ThemePicker()
 
     def on_action(self, key):
-        if key in ('c', 'w'):
+        if key in ('w', 'a', 's', 'd'):
+            cols, rows = get_terminal_size()
+            gw, hc = max(20, cols), max(8, rows - 2)
+            dcol, drow = {'w': (0, hc * 0.1), 'a': (gw * 0.1, 0),
+                         's': (0, -hc * 0.1), 'd': (-gw * 0.1, 0)}[key]
+            return self.on_drag(dcol, drow, True)
+        if key in ('c', 'W'):
             self.layers.symmetric_difference_update(
                 {'temp' if key == 'c' else 'wind'})
             return True
-        if key == 's':
+        if key == 'S':
             # cycle layers; a no-op on sources without a cloud mosaic
             if not _sat_timeline():
                 return False

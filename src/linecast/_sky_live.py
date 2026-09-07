@@ -40,6 +40,8 @@ COAST_HALF_LIFE = 0.22    # seconds for a flick's speed to halve
 COAST_FLOOR = 2.0         # degrees per second below which a coast stops
 COAST_CEILING = 360.0     # degrees per second a flick may start at
 FLY_EASE = 0.6            # seconds for a key to face somewhere
+PAN_EASE = 0.22           # seconds for a keyboard nudge to land
+PAN_FRACTION = 0.08       # fraction of the field of view per press
 ALT_MIN, ALT_MAX = -12.0, 90.0    # how far a drag may pull past the edges
 SPEEDS = (3600.0, 86400.0, 7 * 86400.0)   # p cycles through, then off
 
@@ -84,14 +86,23 @@ class Camera:
         self._settle = None           # (from_alt, to_alt, started)
         self._zoom = None             # (from_fov, to_fov, started)
         self._fly = None              # (from_az, from_alt, to_az, to_alt, started)
+        self._pan = None              # same endpoints as a flight, shorter ease-out
 
     # -- reading ---------------------------------------------------------
     def moving(self):
-        return any((self._coast, self._settle, self._zoom, self._fly))
+        return any((self._coast, self._settle, self._zoom, self._fly, self._pan))
 
     def view(self):
         """The View for now, motions advanced."""
         now = time.monotonic()
+        if self._pan is not None:
+            az0, alt0, az1, alt1, started = self._pan
+            s = min(1.0, (now - started) / PAN_EASE)
+            e = 1.0 - (1.0 - s) ** 3
+            self.az = _wrap(az0 + _az_delta(az0, az1) * e)
+            self.alt = alt0 + (alt1 - alt0) * e
+            if s >= 1.0:
+                self._pan = None
         if self._fly is not None:
             az0, alt0, az1, alt1, started = self._fly
             s = (now - started) / FLY_EASE
@@ -146,7 +157,7 @@ class Camera:
         if self._drag_base is None:
             self._drag_base = (self.az, self.alt)
             self._drag_trail = []
-            self._coast = self._settle = self._fly = None
+            self._coast = self._settle = self._fly = self._pan = None
         base_az, base_alt = self._drag_base
         rate = self._deg_per_subpixel()
         az = _wrap(base_az - dcol * rate)
@@ -206,8 +217,31 @@ class Camera:
         return True
 
     def fly_to(self, az, alt):
-        self._coast = self._settle = None
+        self._coast = self._settle = self._pan = None
         self._fly = (self.az, self.alt, az, max(0.0, min(90.0, alt)), time.monotonic())
+        return True
+
+    def pan(self, horizontal, vertical):
+        """Nudge the camera; repeats extend the target without a long backlog.
+
+        Terminals send presses and repeats, but no portable key releases.
+        Each press therefore eases to rest on its own. Reversing direction
+        discards the old lead so the camera responds immediately.
+        """
+        self.view()
+        step = self.fov * PAN_FRACTION
+        az, alt = self.az, self.alt
+        if self._pan is not None:
+            daz = _az_delta(self.az, self._pan[2])
+            dalt = self._pan[3] - self.alt
+            az += max(-step, min(step, daz)) if daz * horizontal >= 0 else 0
+            alt += max(-step, min(step, dalt)) if dalt * vertical >= 0 else 0
+        az += horizontal * step
+        alt = max(0.0, min(90.0, alt + vertical * step))
+        self._coast = self._settle = self._fly = None
+        self._drag_base = None
+        self._drag_trail = []
+        self._pan = (self.az, self.alt, az, alt, time.monotonic())
         return True
 
 
@@ -379,7 +413,11 @@ class SkyApp(LiveApp):
 
     def on_action(self, key):
         cam = self.camera
-        if key in ("+", "="):
+        if key in ("w", "a", "s", "d"):
+            horizontal, vertical = {"w": (0, 1), "a": (-1, 0),
+                                    "s": (0, -1), "d": (1, 0)}[key]
+            changed = cam.pan(horizontal, vertical)
+        elif key in ("+", "="):
             changed = cam.zoom(1.0 / ZOOM_STEP)
         elif key == "-":
             changed = cam.zoom(ZOOM_STEP)
@@ -427,6 +465,8 @@ class SkyApp(LiveApp):
 
     def stop(self):
         self.speed = None
+        self.camera._coast = self.camera._settle = None
+        self.camera._fly = self.camera._pan = self.camera._zoom = None
 
 
 def place_name(lat, lng, override):

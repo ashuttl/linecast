@@ -4,6 +4,7 @@ from linecast._i18n import lookup
 
 _STRINGS = {
     'en': {
+        'hint_keys': 'keys',
         'forecast': 'browse forecast',
         'now': 'return to now',
         'alert': 'read an alert',
@@ -34,6 +35,7 @@ _STRINGS = {
         'satellite': 'radar / satellite',
     },
     'fr': {
+        'hint_keys': 'touches',
         'forecast': 'parcourir les prévisions',
         'now': 'revenir à maintenant',
         'alert': 'lire une alerte',
@@ -64,6 +66,7 @@ _STRINGS = {
         'satellite': 'radar / satellite',
     },
     'es': {
+        'hint_keys': 'teclas',
         'forecast': 'recorrer el pronóstico',
         'now': 'volver al presente',
         'alert': 'leer una alerta',
@@ -94,6 +97,7 @@ _STRINGS = {
         'satellite': 'radar / satélite',
     },
     'de': {
+        'hint_keys': 'Tasten',
         'forecast': 'Vorhersage durchsehen',
         'now': 'zur Gegenwart zurück',
         'alert': 'Warnung lesen',
@@ -124,6 +128,7 @@ _STRINGS = {
         'satellite': 'Radar / Satellit',
     },
     'it': {
+        'hint_keys': 'tasti',
         'forecast': 'sfoglia le previsioni',
         'now': 'torna al presente',
         'alert': 'leggi un avviso',
@@ -154,6 +159,7 @@ _STRINGS = {
         'satellite': 'radar / satellite',
     },
     'pt': {
+        'hint_keys': 'teclas',
         'forecast': 'percorrer previsão',
         'now': 'voltar ao presente',
         'alert': 'ler um alerta',
@@ -184,6 +190,7 @@ _STRINGS = {
         'satellite': 'radar / satélite',
     },
     'nl': {
+        'hint_keys': 'toetsen',
         'forecast': 'verwachting doorlopen',
         'now': 'terug naar nu',
         'alert': 'waarschuwing lezen',
@@ -214,6 +221,7 @@ _STRINGS = {
         'satellite': 'radar / satelliet',
     },
     'pl': {
+        'hint_keys': 'klawisze',
         'forecast': 'przeglądaj prognozę',
         'now': 'wróć do teraz',
         'alert': 'czytaj ostrzeżenie',
@@ -244,6 +252,7 @@ _STRINGS = {
         'satellite': 'radar / satelita',
     },
     'no': {
+        'hint_keys': 'taster',
         'forecast': 'bla i varselet',
         'now': 'tilbake til nå',
         'alert': 'les et varsel',
@@ -274,6 +283,7 @@ _STRINGS = {
         'satellite': 'radar / satellitt',
     },
     'sv': {
+        'hint_keys': 'tangenter',
         'forecast': 'bläddra i prognosen',
         'now': 'tillbaka till nu',
         'alert': 'läs en varning',
@@ -304,6 +314,7 @@ _STRINGS = {
         'satellite': 'radar / satellit',
     },
     'is': {
+        'hint_keys': 'lyklar',
         'forecast': 'fletta í spá',
         'now': 'aftur til nútímans',
         'alert': 'lesa viðvörun',
@@ -334,6 +345,7 @@ _STRINGS = {
         'satellite': 'ratsjá / gervitungl',
     },
     'da': {
+        'hint_keys': 'taster',
         'forecast': 'bladre i prognosen',
         'now': 'tilbage til nu',
         'alert': 'læs et varsel',
@@ -364,6 +376,7 @@ _STRINGS = {
         'satellite': 'radar / satellit',
     },
     'fi': {
+        'hint_keys': 'näppäimet',
         'forecast': 'selaa ennustetta',
         'now': 'palaa nykyhetkeen',
         'alert': 'lue varoitus',
@@ -394,6 +407,7 @@ _STRINGS = {
         'satellite': 'tutka / satelliitti',
     },
     'ja': {
+        'hint_keys': 'キー',
         'forecast': '予報を移動',
         'now': '現在に戻る',
         'alert': '警報を読む',
@@ -424,6 +438,7 @@ _STRINGS = {
         'satellite': 'レーダー / 衛星',
     },
     'ko': {
+        'hint_keys': '키',
         'forecast': '예보 탐색',
         'now': '현재로 돌아가기',
         'alert': '경보 읽기',
@@ -454,6 +469,7 @@ _STRINGS = {
         'satellite': '레이더 / 위성',
     },
     'zh': {
+        'hint_keys': '按键',
         'forecast': '浏览预报',
         'now': '返回现在',
         'alert': '阅读预警',
@@ -484,6 +500,7 @@ _STRINGS = {
         'satellite': '雷达 / 卫星',
     },
     'th': {
+        'hint_keys': 'ปุ่มลัด',
         'forecast': 'เลื่อนดูพยากรณ์',
         'now': 'กลับสู่เวลาปัจจุบัน',
         'alert': 'อ่านคำเตือน',
@@ -514,6 +531,7 @@ _STRINGS = {
         'satellite': 'เรดาร์ / ดาวเทียม',
     },
     'id': {
+        'hint_keys': 'tombol',
         'forecast': 'telusuri prakiraan',
         'now': 'kembali ke sekarang',
         'alert': 'baca peringatan',

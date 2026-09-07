@@ -1287,6 +1287,9 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
     paint_disc(fb, cx, cy, radius)
+    if fullscreen:
+        from linecast._help import paint_hint
+        paint_hint(fb, overlays, lang_of(runtime))
     stars = _star_overlays(fb, cx, cy, radius, sky, taken=overlays.keys(),
                            turn=rotation)
     lines = fb.render(overlays={**stars, **overlays})

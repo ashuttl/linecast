@@ -284,9 +284,9 @@ class RouteState:
     """Directions: the two endpoints, how we are travelling, the one
     request allowed to be in flight, and the directions panel.
 
-    One mental model for the `d` key: *directions.*  It opens the
+    One mental model for the `D` key: *directions.*  It opens the
     panel, and the panel's own rows say the rest — `o` edits the
-    origin, `d` the destination, `p` the way of travelling — so the
+    origin, `D` the destination, `p` the way of travelling — so the
     keys are discovered by reading the thing they act on.  The origin
     defaults to the home marker; nothing has to be picked before the
     first route.
@@ -299,7 +299,7 @@ class RouteState:
         self.dest = None        # (lat, lon, label)
         self.route = None
         self.status = ""        # "" | "pending" | "none" | "error"
-        self.panel = False      # the directions panel (the d key)
+        self.panel = False      # the directions panel (the D key)
         self.step = None        # focused step index, or None
         self.panel_rows = None  # (width, {row: action}) of the last draw
         self.gen = 0
@@ -329,7 +329,7 @@ class RouteState:
         self.gen += 1
 
     def press(self):
-        """The `d` key, panel closed: open it, and supply whatever it
+        """The `D` key, panel closed: open it, and supply whatever it
         is missing — a destination ("search"), or a route (request).
         Opening focuses nothing — the first arrow press does, so the
         map never moves on a key that only shows a panel."""
@@ -528,7 +528,7 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
                  f" · {_fmt_duration(route.duration_s)}")
     out = [
         field(2, "o", labels[0], _point_label(state.origin, home_label)),
-        field(3, "d", labels[1], _point_label(state.dest) or "…",
+        field(3, "D", labels[1], _point_label(state.dest) or "…",
               placeholder=state.dest is None),
         field(4, "p", labels[2], mode),
     ]
@@ -571,7 +571,7 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
 # Every key that does something, in the order you learn them. The
 # shared panel adds the way out in its bottom border.
 HELP_KEYS = (
-    ("drag", 'help_pan'),
+    ("drag / wasd", 'help_pan'),
     ("wheel", 'help_zoom_pointer'),
     ("hover", 'help_hover'),
     ("+ -", 'help_zoom'),
@@ -579,10 +579,10 @@ HELP_KEYS = (
     None,
     ("v", 'help_view'),
     ("l", 'help_labels'),
-    ("s c", 'help_sky'),
+    ("S c", 'help_sky'),
     ("r", 'help_spin'),
     ("/", 'help_search'),
-    ("d", 'help_directions'),
+    ("D", 'help_directions'),
     ("o", 'help_origin'),
     ("p", 'help_profile'),
     None,

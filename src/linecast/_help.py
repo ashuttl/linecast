@@ -1,11 +1,76 @@
 """The controls shared by the live views, with one modal and one layout."""
 
 import math
+import re
 
 from linecast import _theme
 from linecast._graphics import RESET, bg, fg, visible_len
 from linecast._help_i18n import hs
 from linecast._maps_i18n import ms
+from linecast._textwidth import char_widths
+
+
+def hint(lang='en', width=80):
+    """A persistent, translated invitation; the key survives tight layouts."""
+    label = f"? {hs('hint_keys', lang)}"
+    return label if visible_len(label) <= width else ('?' if width > 0 else '')
+
+
+def footer(line, width, lang='en'):
+    """Add help in the spare right margin without truncating the readout.
+
+    Callers with a dense footer budget for hint() before choosing their
+    content. Trailing padding is expendable; text and credits are not.
+    """
+    # live_loop clears from the cursor after each row. At the right
+    # margin a terminal can leave that cursor on the last printed cell,
+    # so that cell must be air, never the hint's final letter.
+    width = max(0, width - 1)
+    line = re.sub(r' +(?=(?:\033\[[0-9;]*m)*$)', '', line)
+    used = visible_len(line)
+    label = hint(lang, width - used - 2)
+    if not label:
+        return line
+    ink = _theme.ensure_contrast(_theme.surface_bg(0.55), _theme.theme_bg, 4.5)
+    return f"{line}{RESET}{' ' * (width - used - visible_len(label))}{fg(*ink)}{label}{RESET}"
+
+
+def paint_text(fb, overlays, text, x, row, color=None):
+    """Readable text on the image's own cells, including wide and combining glyphs."""
+    color = color or _theme.surface_bg(0.55)
+    prev = None
+    for ch, width in zip(text, char_widths(text)):
+        if width == 0:
+            if prev is not None:
+                base, ink, bold = overlays[prev]
+                overlays[prev] = (base + ch, ink, bold)
+            continue
+        if x < 0 or x + width > fb.graph_w or not 0 <= row < fb.graph_h:
+            break
+        cell = fb.cell_bg(x, row)
+        ink = _theme.ensure_contrast(color, cell, 4.5)
+        if _theme.contrast_ratio(ink, cell) < 4.5:
+            ink = _theme.best_contrast(((0, 0, 0), (255, 255, 255)), cell, 4.5)
+        overlays[(x, row)] = (ch, ink, False)
+        prev = (x, row)
+        for extra in range(1, width):
+            overlays[(x + extra, row)] = ('', ink, False)
+        x += width
+
+
+def paint_hint(fb, overlays, lang='en', rows=None):
+    """Tuck help into a free image corner, keeping existing labels intact."""
+    rows = (fb.graph_h - 1, 0, fb.graph_h - 2, 1) if rows is None else rows
+    for label in (hint(lang, fb.graph_w - 2), '?'):
+        width = visible_len(label)
+        for row in rows:
+            for x in (fb.graph_w - width - 1, 1):
+                cells = range(x - 1, x + width + 1)
+                if x < 1 or any((c, row) in overlays for c in cells):
+                    continue
+                paint_text(fb, overlays, f' {label} ', x - 1, row)
+                return True
+    return False
 
 # Keys are the spellings a user types, not the live loop's decoded actions.
 CONTROLS = {
@@ -19,13 +84,13 @@ CONTROLS = {
              ('drag', 'turn_moon'), ('v', 'calendar')],
     'moon_calendar': [('wheel / ←→', 'months'), ('space / n', 'now'),
                       ('hover', 'moon_times'), ('click', 'day'), ('v', 'calendar')],
-    'sky': [('drag', 'look'), ('wheel / ←→', 'time15'), ('+ -', 'help_zoom'),
+    'sky': [('drag / wasd', 'look'), ('wheel / ←→', 'time15'), ('+ -', 'help_zoom'),
             ('space / n', 'now'), ('hover', 'help_hover'), ('/', 'help_search'),
             ('enter', 'target'), ('c', 'figures'), ('t', 'cultures'),
             ('p', 'play_time'), ('1–8', 'compass'), ('9', 'zenith'), ('m', 'moon')],
-    'radar': [('drag', 'help_pan'), ('wheel / ←→', 'frames'), ('+ -', 'help_zoom'),
-              ('space / n', 'play'), ('hover', 'help_hover'), ('c', 'temperature'),
-              ('w', 'wind'), ('t', 'theme'), ('s', 'satellite')],
+    'radar': [('drag / wasd', 'help_pan'), ('wheel / ←→', 'frames'), ('+ -', 'help_zoom'),
+              ('space / n', 'play'), ('hover', 'alert'), ('c', 'temperature'),
+              ('W', 'wind'), ('t', 'theme'), ('S', 'satellite')],
 }
 
 

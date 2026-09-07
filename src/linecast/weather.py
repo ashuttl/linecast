@@ -337,6 +337,16 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     hint = install_banner()
     if hint:
         lines.append(hint)
+    if getattr(runtime, 'live', False):
+        from linecast import _help
+        # Prefer the final row's spare margin; otherwise use an existing
+        # blank separator. Neither alerts nor chart rows are displaced.
+        for i in [len(lines) - 1, *(j for j in range(len(lines) - 2, -1, -1)
+                                  if not lines[j].strip())]:
+            candidate = _help.footer(lines[i], cols, runtime.lang)
+            if '?' in candidate:
+                lines[i] = candidate
+                break
 
     output = "\n".join(lines)
 
