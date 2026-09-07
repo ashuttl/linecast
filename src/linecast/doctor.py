@@ -354,7 +354,19 @@ def _collect_terminal():
         "icons": icons,
         "theme": theme,
         "lang": runtime.lang,
+        "glyph_widths": _collect_glyph_widths(),
     }
+
+
+def _collect_glyph_widths():
+    """How wide the terminal draws the glyphs linecast lays its rows out from."""
+    from linecast._textwidth import (calibrate_from_terminal, measured_widths,
+                                     probe_glyphs, visible_len)
+    calibrate_from_terminal()
+    cells = "  ".join(f"{text} {visible_len(text)}" for _name, text in probe_glyphs())
+    if measured_widths():
+        return f"{cells}  (this terminal's own answers)"
+    return f"{cells}  (assumed; the terminal did not answer the probe)"
 
 
 def _is_tty(stream):
@@ -521,6 +533,9 @@ def render(report):
         ("icons", term["icons"]),
         # one glyph from each set; whichever renders as a box is missing
         ("glyph check", "nerd \U000F0599  emoji ☀️  plain ☀"),
+        # the columns each of those takes, which is what rows are laid
+        # out from: a glyph drawn wider than this wraps the row it is on
+        ("glyph width", term.get("glyph_widths", "")),
         ("theme", term["theme"]),
     ]
     out += [""] + _section("terminal", rows)

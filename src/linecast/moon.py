@@ -1367,7 +1367,10 @@ def main():
                       calendar_name=args.calendar, israel=israel, turn=turn)
 
     if not live:
-        print(_render())
+        from linecast._live import print_frame
+        from linecast._textwidth import calibrate_from_terminal
+        calibrate_from_terminal()
+        print_frame(_render())
         return
 
     # A wheel notch or arrow key scrubs 15 minutes of the disc view or a

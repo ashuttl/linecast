@@ -19,7 +19,7 @@ from linecast import (
     _globe, _globe_now, _maps_route, _maps_style, _maps_ui,
 )
 from linecast._geo import wrap_lon
-from linecast._live import LiveApp, nudge as _nudge_repaint
+from linecast._live import LiveApp, nudge as _nudge_repaint, print_frame
 from linecast._location import country_for_defaults, resolve_location
 from linecast._maps_i18n import ms
 from linecast._maps_search import (
@@ -407,6 +407,9 @@ def main():
         _search_locations(args.search, lang=runtime.lang)
         return
 
+    from linecast._textwidth import calibrate_from_terminal
+    calibrate_from_terminal()
+
     # Sweep the tile cache before this session adds to it: dead
     # vector-tile versions first, then back under the size cap. Map tiles
     # never go stale, so nothing here goes by age alone. After --search,
@@ -468,12 +471,12 @@ def main():
                 note = ms('dir_none', runtime.lang)
             except _maps_route.RouteUnavailable:
                 note = ms('dir_unavailable', runtime.lang)
-        print(render_map(lat, lon, location_name, args.zoom,
-                         runtime=runtime, view=args.view, route=found,
-                         dest=(dest.lat, dest.lon) if dest else None,
-                         origin=((origin.lat, origin.lon, origin.name)
-                                 if origin else None),
-                         note=note or "", sun=sky, clouds=sky))
+        print_frame(render_map(lat, lon, location_name, args.zoom,
+                               runtime=runtime, view=args.view, route=found,
+                               dest=(dest.lat, dest.lon) if dest else None,
+                               origin=((origin.lat, origin.lon, origin.name)
+                                       if origin else None),
+                               note=note or "", sun=sky, clouds=sky))
         if found is not None:
             # the turn-by-turn list rides below the map: --print asked
             # for directions, so it gets the directions

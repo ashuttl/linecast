@@ -298,7 +298,8 @@ The six view commands and `linecast doctor` take `--debug`, which prints a line 
 | `NO_COLOR` | Any non-empty value disables ANSI colors |
 | `CLICOLOR` / `CLICOLOR_FORCE` | `CLICOLOR=0` disables color; a non-zero `CLICOLOR_FORCE` keeps it on when output is not a terminal |
 | `LINECAST_THEME` | `auto` (default), or `classic` / `legacy` / `off` for the fixed palette |
-| `LINECAST_THEME_TIMEOUT_MS` | Terminal palette query timeout in milliseconds (default `100`) |
+| `LINECAST_THEME_TIMEOUT_MS` | Terminal palette query timeout in milliseconds (default `100`, or `500` over SSH) |
+| `LINECAST_WIDTH_TIMEOUT_MS` | Timeout in milliseconds for the query that asks the terminal how wide it draws emoji and other glyphs (default `150`, or `600` over SSH) |
 | `LINECAST_THEME_POLL` | Seconds between re-reading the terminal palette in live views, so a theme switch re-inks the view in place (default `2`; `0` disables) |
 | `LINECAST_THEME_WATCH` | A file whose modification marks a desktop theme change, prompting an immediate re-read (default: Omarchy's current-theme marker; empty disables) |
 | `TIDE_STATION` | Default tide station ID |

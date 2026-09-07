@@ -636,7 +636,7 @@ def main():
             historical=historical,
             notice=forecast_notice(data, runtime),
         )
-        print(output)
+        _live.print_frame(output)
 
 
 if __name__ == "__main__":

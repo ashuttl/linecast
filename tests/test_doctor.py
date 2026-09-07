@@ -189,7 +189,7 @@ class TestJson:
             "maps_cache_bytes", "maps_cache_limit"}
         assert set(report["terminal"]) == {
             "term", "colorterm", "color_mode", "columns", "lines", "stdout_tty",
-            "icons", "theme", "lang"}
+            "icons", "theme", "lang", "glyph_widths"}
         assert set(report["preferences"]) == {
             "units", "units_source", "tides_units", "tides_units_source",
             "clock", "clock_source", "location",

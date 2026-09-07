@@ -103,16 +103,107 @@ class TestClusterCappedModel:
         assert visible_len("क्षेत्र") == 4  # same either way: े is nonspacing
 
 
+class TestMeasuredWidths:
+    """What the terminal answers overrides what the table assumes."""
+
+    def _measured(self, **widths):
+        from linecast import _textwidth
+        before = dict(_textwidth._MEASURED)
+        _textwidth._MEASURED.clear()
+        _textwidth._MEASURED.update(widths)
+        return before
+
+    def _restore(self, before):
+        from linecast import _textwidth
+        _textwidth._MEASURED.clear()
+        _textwidth._MEASURED.update(before)
+
+    def test_a_terminal_that_draws_the_selector_its_own_cell(self):
+        # ☁️ is a base and a variation selector; a terminal that gives the
+        # selector a cell of its own draws the pair in three columns, and
+        # a row laid out for two runs off the edge.
+        before = self._measured(bmp_vs16=3, smp_vs16=3)
+        try:
+            assert char_width("\u2601", "\ufe0f") == 3
+            assert visible_len("\u2601\ufe0f") == 3
+            assert visible_len("\U0001f327\ufe0f") == 3
+        finally:
+            self._restore(before)
+
+    def test_a_terminal_that_draws_emoji_in_one_column(self):
+        before = self._measured(smp_bare=1)
+        try:
+            assert visible_len("\U0001f311") == 1
+        finally:
+            self._restore(before)
+
+    def test_a_font_that_draws_nerd_glyphs_double_width(self):
+        before = self._measured(pua=2)
+        try:
+            assert visible_len("\U000f0590") == 2
+        finally:
+            self._restore(before)
+
+    def test_a_measured_emoji_does_not_speak_for_cjk(self):
+        # A terminal that draws emoji in one column still draws an
+        # ideograph in two: the answer covers the emoji blocks, not
+        # everything above the basic plane.
+        before = self._measured(smp_bare=1)
+        try:
+            assert char_width("\U00020000") == 2   # CJK extension B
+            assert char_width("中") == 2
+        finally:
+            self._restore(before)
+
+    def test_nothing_measured_leaves_the_table_alone(self):
+        before = self._measured()
+        try:
+            assert visible_len("\u2601\ufe0f") == 2
+            assert visible_len("\U0001f311") == 2
+            assert visible_len("\U000f0590") == 1
+        finally:
+            self._restore(before)
+
+
+class TestProbeTimeout:
+    """How long to wait for the terminal to answer, and who says so."""
+
+    def _timeout(self, **env):
+        from linecast._runtime import probe_timeout_s
+        return probe_timeout_s("LINECAST_WIDTH_TIMEOUT_MS", 150, ssh_ms=600,
+                               environ=env)
+
+    def test_a_local_terminal_answers_at_once(self):
+        assert self._timeout() == 0.15
+
+    def test_ssh_waits_for_the_link(self):
+        assert self._timeout(SSH_CONNECTION="10.0.0.1 22 10.0.0.2 22") == 0.6
+        assert self._timeout(SSH_TTY="/dev/pts/3") == 0.6
+
+    def test_an_empty_ssh_variable_is_not_ssh(self):
+        assert self._timeout(SSH_CONNECTION="") == 0.15
+
+    def test_the_environment_overrides_both(self):
+        assert self._timeout(LINECAST_WIDTH_TIMEOUT_MS="900") == 0.9
+        assert self._timeout(LINECAST_WIDTH_TIMEOUT_MS="900",
+                             SSH_TTY="/dev/pts/3") == 0.9
+
+    def test_nonsense_falls_back_and_absurd_values_are_capped(self):
+        assert self._timeout(LINECAST_WIDTH_TIMEOUT_MS="soon") == 0.15
+        assert self._timeout(LINECAST_WIDTH_TIMEOUT_MS="99999") == 2.0
+        assert self._timeout(LINECAST_WIDTH_TIMEOUT_MS="1") == 0.01
+
+
 class TestCalibration:
     def test_cpr_parsing(self):
-        from linecast._textwidth import _cpr_width
-        assert _cpr_width("\033[12;3R") == 2
-        assert _cpr_width("\033[1;4R") == 3
-        assert _cpr_width("garbage\033[7;3Rtrailing") == 2
-        assert _cpr_width("\033[12R") is None
-        assert _cpr_width("") is None
+        from linecast._textwidth import _cpr_widths
+        assert _cpr_widths("\033[12;3R") == [2]
+        assert _cpr_widths("garbage\033[7;3Rtrailing\033[7;5R") == [2, 4]
+        assert _cpr_widths("\033[12R") == []
+        assert _cpr_widths("") == []
 
     def test_probe_is_a_noop_without_a_tty(self):
         from linecast import _textwidth
         _textwidth.calibrate_from_terminal(timeout_s=0.01)
         assert _textwidth._CLUSTER_CAPPED is False
+        assert _textwidth.measured_widths() == {}

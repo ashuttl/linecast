@@ -969,6 +969,12 @@ def main():
                          cli_location=args.location)
         return
 
+    # Ask the terminal how wide it draws things before the spinner has
+    # the screen: the probe wants stdin and stdout to itself.
+    if not runtime.json_mode:
+        from linecast._textwidth import calibrate_from_terminal
+        calibrate_from_terminal()
+
     # everything from here to the first paint may block on the network
     # (station lookup, metadata, two weeks of predictions) — spin
     # (suppressed for --json: stdout must carry nothing but the payload)
@@ -1157,7 +1163,7 @@ def main():
                 provider=provider,
             )
             spin.stop()
-            print(out)
+            _live.print_frame(out)
         else:
             out = render(
                 station_id,
@@ -1171,7 +1177,7 @@ def main():
                 provider=provider,
             )
             spin.stop()
-            print(out)
+            _live.print_frame(out)
     finally:
         spin.stop()
 

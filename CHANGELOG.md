@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- A line the terminal draws wider than linecast measured it no longer breaks the view. Views are painted a row at a time with the terminal's line wrapping off, so such a line is cut off at the right edge instead of wrapping and pushing the rest of the view, and the top line, off the screen.
+- linecast asks the terminal how wide it draws emoji, Nerd Font icons and Indic conjuncts rather than assuming, and lays its rows out to the answer. `linecast doctor` shows what the terminal said. The question waits longer for an answer over SSH, as the question about the terminal's palette now does too.
 - Weather: Warnings that share a line of badges now break between badges, instead of a badge splitting across two lines, and a click opens the warning under the pointer.
 - Weather: The dashboard fits the window it is given. In a narrow terminal the prose wraps and the forecast rows give up their detail columns; in a short one the prose goes first and then the days furthest out, so the conditions line no longer scrolls off the top.
 - Weather: The prose under the graph says why the air feels warmer or cooler than the thermometer reads, naming whichever of the humidity, the wind, the dry air or the sun accounts for most of it.

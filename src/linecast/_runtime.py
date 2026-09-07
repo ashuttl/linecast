@@ -148,6 +148,32 @@ def env_truthy(value):
     return str(value).lower() in ("1", "true", "yes")
 
 
+# The terminal answers linecast's probes -- its palette, the width it
+# draws a glyph at -- in microseconds when it is the same machine.  Over
+# SSH the answer waits on the link, and a probe that gives up too early
+# leaves linecast guessing at what it could have known.  Waiting longer
+# there costs nothing when the terminal answers: the answer ends the wait.
+_SSH_ENV = ("SSH_CONNECTION", "SSH_TTY", "SSH_CLIENT")
+
+
+def over_ssh(environ=None):
+    """Whether this session arrived over SSH."""
+    env = _environ(environ)
+    return any(str(env.get(name, "")).strip() for name in _SSH_ENV)
+
+
+def probe_timeout_s(env_var, default_ms, ssh_ms=None, limit_ms=2000, environ=None):
+    """Seconds to wait for the terminal to answer a probe."""
+    env = _environ(environ)
+    default = ssh_ms if (ssh_ms is not None and over_ssh(env)) else default_ms
+    raw = str(env.get(env_var, "")).strip()
+    try:
+        ms = int(raw) if raw else default
+    except ValueError:
+        ms = default
+    return max(10, min(limit_ms, ms)) / 1000.0
+
+
 # ---------------------------------------------------------------------------
 # Units and clock preferences
 # ---------------------------------------------------------------------------

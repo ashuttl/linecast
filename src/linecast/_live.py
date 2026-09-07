@@ -27,6 +27,44 @@ from linecast import _term
 # ---------------------------------------------------------------------------
 # Frames
 # ---------------------------------------------------------------------------
+# A frame is laid out to the terminal's own width, so a row the terminal
+# measures wider than linecast does -- an emoji it draws with a cell for
+# the variation selector, a Nerd Font glyph its font draws double-width --
+# runs past the last column and wraps, and every row below it slides down
+# one and the top row off the screen.  Painting with the terminal's
+# autowrap off makes such a row clip at the margin instead: one row is
+# then wrong where the whole frame used to be.
+_AUTOWRAP_OFF = "\033[?7l"
+_AUTOWRAP_ON = "\033[?7h"
+
+
+def frame_body(text):
+    r"""A frame with every row addressed, so no row can shift the ones below.
+
+    Reaching the next row by newline leaves the terminal to say where it
+    is: a row it draws wider than linecast measured wraps, and the row
+    below lands one line down, taking the whole frame with it.  Addressed
+    rows land where they belong whatever the row above did, and \033[K
+    clears whatever the last frame left on them.
+    """
+    return "".join(f"\033[{row};1H{line}\033[K"
+                   for row, line in enumerate(text.split("\n"), 1))
+
+
+def print_frame(text, stream=None):
+    """Print a rendered frame, clipped at the last column rather than wrapped."""
+    stream = sys.stdout if stream is None else stream
+    try:
+        clip = stream.isatty()
+    except Exception:
+        clip = False
+    if clip:
+        stream.write(f"{_AUTOWRAP_OFF}{text}{_AUTOWRAP_ON}\n")
+    else:
+        stream.write(f"{text}\n")
+    stream.flush()
+
+
 def overlay(body, floating="", motion=None):
     """A frame with something floating over it: a tooltip, a modal, a panel.
 
@@ -554,10 +592,12 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             parts = output.split('\x00', 1)
             main_out = parts[0]
             overlay = parts[1] if len(parts) > 1 else ""
-            # \033[H homes cursor; \033[K clears line remainders;
-            # \033[J clears below; overlay draws on top after clear
-            padded = main_out.replace('\n', '\033[K\n')
-            sys.stdout.write(f"\033[H{padded}\033[K\033[J\033[0m{overlay}\033[0m")
+            # Rows are addressed (frame_body) and drawn with the
+            # terminal's autowrap off (_AUTOWRAP_OFF), so a row drawn
+            # wider than it measured cannot shift the frame.  \033[J
+            # clears below the last row; the overlay draws on top.
+            sys.stdout.write(f"{_AUTOWRAP_OFF}{frame_body(main_out)}"
+                             f"\033[J\033[0m{overlay}\033[0m{_AUTOWRAP_ON}")
             sys.stdout.flush()
 
             # Wait for input, resize, or timeout
@@ -725,7 +765,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                 cleanup += "\033[?1006l\033[?1003l\033[?1002l\033[?1000l"
                 if is_apple_terminal:
                     cleanup += "\033[?1007l"
-            cleanup += "\033[?25h\033[?1049l"
+            cleanup += f"{_AUTOWRAP_ON}\033[?25h\033[?1049l"
             sys.stdout.write(cleanup)
             sys.stdout.flush()
         except Exception:
