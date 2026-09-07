@@ -13,6 +13,7 @@ from linecast._weather_alerts import (
     _severity_rgb,
     build_alert_modal,
     render_alerts,
+    render_alerts_mapped,
 )
 from linecast._weather_daily import render_daily
 from linecast._braille import build_braille_curve as _build_braille_curve
@@ -84,6 +85,7 @@ __all__ = [
     "_severity_rgb",
     "build_alert_modal",
     "render_alerts",
+    "render_alerts_mapped",
     "render_daily",
     "_build_braille_curve",
     "_fmt_hour",

@@ -50,22 +50,25 @@ class TestWrappingRespectsMarks:
     HINDI = "आपके क्षेत्र में बिजली गिरने की संभावना है। सुरक्षित भवनों में शरण लें।"
 
     def test_hindi_wrap_lines_fit(self):
-        from linecast._weather_alerts import _wrap_display_width
+        from linecast._textwidth import wrap_display_width
         for width in (10, 24, 40):
-            for line in _wrap_display_width(self.HINDI, width):
+            for line in wrap_display_width(self.HINDI, width):
                 assert visible_len(line) <= width
 
     def test_hindi_wrap_loses_nothing(self):
-        from linecast._weather_alerts import _wrap_display_width
-        lines = _wrap_display_width(self.HINDI, 24)
+        from linecast._textwidth import wrap_display_width
+        lines = wrap_display_width(self.HINDI, 24)
         assert "".join(lines).replace(" ", "") == self.HINDI.replace(" ", "")
 
     def test_truncation_keeps_trailing_marks_with_their_base(self):
-        from linecast._weather_alerts import _truncate_display_width
-        out = _truncate_display_width("वर्षा" * 4, 10)
+        from linecast._textwidth import truncate_display_width, visible_len
+        out = truncate_display_width("वर्षा" * 4, 11)
         # The cut falls before a column-bearing character, so a virama
         # never strands: the tail keeps its consonant's marks.
         assert out.endswith("र्…")
+        # The ellipsis is part of the width it was given, not an extra
+        # column past the edge of the line.
+        assert visible_len(out) <= 11
 
 
 class TestClusterCappedModel:

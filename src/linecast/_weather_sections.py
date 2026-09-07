@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from linecast import _theme
 from linecast._graphics import RESET, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure, log_skipped
+from linecast._textwidth import wrap_display_width
 from linecast._weather_i18n import (
     DAY_NAMES, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s, _wmo_icons,
 )
@@ -212,7 +213,12 @@ def narrative_lines(data, now, width, runtime=None):
             rows[-1] = joined
         else:
             rows.append(sentence)
-    return [_muted(row + end) for row in rows]
+    # A sentence with nothing to share its line can still outrun a narrow
+    # terminal, and a line the terminal wraps itself pushes the header off
+    # the top of the screen.  Wrap it here instead.
+    return [_muted(line)
+            for row in rows
+            for line in wrap_display_width(row + end, budget)]
 
 
 # ---------------------------------------------------------------------------

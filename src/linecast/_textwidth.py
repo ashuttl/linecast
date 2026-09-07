@@ -7,6 +7,7 @@ _maps_style) can import it without dragging in the renderer.
 """
 
 import re
+import textwrap
 import unicodedata
 
 _OSC = re.compile(r'\033\][^\033]*\033\\')   # OSC sequences (hyperlinks)
@@ -96,6 +97,71 @@ def visible_len(s):
     stripped = _OSC.sub('', s)
     stripped = _SGR.sub('', stripped)
     return sum(char_widths(stripped))
+
+
+def wrap_display_width(text, width):
+    """Wrap plain text to fit within a terminal display width.
+
+    Handles CJK double-width and emoji characters correctly.  Falls back
+    to ``textwrap.wrap`` when every character is a single cell.
+    """
+    if not text:
+        return [""]
+    # Fast path: every char is one cell → stdlib is fine
+    if visible_len(text) == len(text):
+        return textwrap.wrap(text, width) or [""]
+
+    lines = []
+    line = ""
+    line_w = 0
+    last_sp = -1
+
+    widths = char_widths(text)
+    for i, ch in enumerate(text):
+        cw = widths[i]
+        if line_w + cw > width:
+            if ch == " ":
+                lines.append(line)
+                line, line_w, last_sp = "", 0, -1
+                continue
+            if last_sp >= 0:
+                lines.append(line[:last_sp])
+                rest = line[last_sp + 1:]
+                line = rest + ch
+                line_w = visible_len(line)
+                last_sp = -1
+            else:
+                lines.append(line)
+                line, line_w, last_sp = ch, cw, -1
+            continue
+        if ch == " ":
+            last_sp = len(line)
+        line += ch
+        line_w += cw
+
+    if line:
+        lines.append(line)
+    return lines or [""]
+
+
+def truncate_display_width(text, width):
+    """Truncate plain text to a terminal display width, adding \u2026 if needed.
+
+    The ellipsis is counted, so the result is never wider than ``width``:
+    a line built to the last column has no cell to spare, and one column
+    over is a line the terminal wraps."""
+    if width <= 0:
+        return ""
+    widths = char_widths(text)
+    if sum(widths) <= width:
+        return text
+    w, cut = 0, 0
+    for i, cw in enumerate(widths):
+        if w + cw > width - 1:  # a column held back for the ellipsis
+            break
+        w += cw
+        cut = i + 1
+    return (text[:cut] + "\u2026") if cut else "\u2026"
 
 
 # ---------------------------------------------------------------------------

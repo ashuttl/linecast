@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: Warnings that share a line of badges now break between badges, instead of a badge splitting across two lines, and a click opens the warning under the pointer.
+- Weather: The dashboard fits the window it is given. In a narrow terminal the prose wraps and the forecast rows give up their detail columns; in a short one the prose goes first and then the days furthest out, so the conditions line no longer scrolls off the top.
 - Weather: The prose under the graph says why the air feels warmer or cooler than the thermometer reads, naming whichever of the humidity, the wind, the dry air or the sun accounts for most of it.
 - Weather: The prose under the graph reads as prose. The sentences are punctuated and share a line where the terminal is wide enough for them, instead of taking one each.
 - Weather: The rain in the last 24 hours, and the rain named beside a day in the forecast, now appear at the same amount of rain in millimetres as in inches. Small amounts in inches are given to a hundredth rather than a tenth.

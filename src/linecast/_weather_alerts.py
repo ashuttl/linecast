@@ -1,13 +1,12 @@
 """Weather alert rendering."""
 
-import textwrap
 from datetime import datetime
 
 from linecast import _theme
 from linecast._graphics import bg, fg, visible_len, RESET, BOLD
-from linecast._textwidth import char_widths
 from linecast._i18n import lang_of
 from linecast._runtime import log_failure
+from linecast._textwidth import truncate_display_width, wrap_display_width
 from linecast._weather_i18n import DAY_NAMES, _s
 from linecast._weather_style import (
     ALERT_AMBER,
@@ -27,64 +26,6 @@ from linecast._weather_style import (
     WIND_COLOR,
     _knockout_ink,
 )
-
-
-def _wrap_display_width(text, width):
-    """Wrap plain text to fit within a terminal display width.
-
-    Handles CJK double-width and emoji characters correctly.  Falls back
-    to ``textwrap.wrap`` when every character is a single cell.
-    """
-    if not text:
-        return [""]
-    # Fast path: every char is one cell → stdlib is fine
-    if visible_len(text) == len(text):
-        return textwrap.wrap(text, width) or [""]
-
-    lines = []
-    line = ""
-    line_w = 0
-    last_sp = -1
-
-    widths = char_widths(text)
-    for i, ch in enumerate(text):
-        cw = widths[i]
-        if line_w + cw > width:
-            if ch == " ":
-                lines.append(line)
-                line, line_w, last_sp = "", 0, -1
-                continue
-            if last_sp >= 0:
-                lines.append(line[:last_sp])
-                rest = line[last_sp + 1:]
-                line = rest + ch
-                line_w = visible_len(line)
-                last_sp = -1
-            else:
-                lines.append(line)
-                line, line_w, last_sp = ch, cw, -1
-            continue
-        if ch == " ":
-            last_sp = len(line)
-        line += ch
-        line_w += cw
-
-    if line:
-        lines.append(line)
-    return lines or [""]
-
-
-def _truncate_display_width(text, width):
-    """Truncate plain text to fit within a terminal display width, adding \u2026 if needed."""
-    w = 0
-    for i, cw in enumerate(char_widths(text)):
-        if w + cw > width:
-            # Back up for the ellipsis
-            if w > 0:
-                return text[:i] + "\u2026"
-            return "\u2026"
-        w += cw
-    return text
 
 
 def _parse_alert_time(iso_str, runtime=None, tz_name=""):
@@ -128,13 +69,55 @@ def _severity_rgb(severity):
     return ALERT_YELLOW_RGB
 
 
-def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name=""):
-    """Render one alert as a single compact line: pill + date range + truncated body."""
+def _alert_pill(alert, max_width=None):
+    """The severity-coloured badge for one alert, trimmed to fit if need be."""
     severity = alert.get("severity", "")
     r, g, b = _severity_rgb(severity)
     dark_fg = fg(*_knockout_ink((r, g, b)))
     bg_color = bg(r, g, b)
     event = alert.get("event", "Unknown")
+
+    def _pill(label):
+        return f"{bg_color}{dark_fg}{BOLD} \u26a0 {label} {RESET}"
+
+    pill = _pill(event)
+    if max_width is not None and visible_len(pill) > max_width:
+        chrome = visible_len(pill) - visible_len(event)
+        pill = _pill(truncate_display_width(event, max(1, max_width - chrome)))
+    return pill
+
+
+def _pack_pills(pills, width):
+    """Lay badges out over as many lines as they need, breaking between them.
+
+    ``pills`` is a list of (alert index, rendered badge).  Returns
+    ``(lines, spans)``, where ``spans[i]`` lists the (first column, last
+    column, alert index) of each badge on ``lines[i]``, zero-based, so a
+    click can find the badge under the pointer.
+    """
+    lines, spans = [], []
+    row, row_spans, col = [], [], 1  # 1 for the leading space
+
+    def flush():
+        lines.append(" " + " ".join(row))
+        spans.append(row_spans)
+
+    for index, pill in pills:
+        pill_w = visible_len(pill)
+        gap = 1 if row else 0
+        if row and col + gap + pill_w > width:
+            flush()
+            row, row_spans, col, gap = [], [], 1, 0
+        row.append(pill)
+        row_spans.append((col + gap, col + gap + pill_w - 1, index))
+        col += gap + pill_w
+    if row:
+        flush()
+    return lines, spans
+
+
+def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name=""):
+    """Render one alert as a single compact line: pill + date range + truncated body."""
     effective = _parse_alert_time(alert.get("effective", ""), runtime, tz_name)
     expires = _parse_alert_time(alert.get("expires", ""), runtime, tz_name)
     timing = ""
@@ -144,75 +127,84 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name=""):
         until = _s("until", runtime) if runtime else "until"
         timing = f"{until} {expires}"
 
-    pill = f"{bg_color}{dark_fg}{BOLD} \u26a0 {event} {RESET}"
-    pill_vis = visible_len(pill)
+    pill = _alert_pill(alert, max_width=width - 1)
 
     # Build the single line: pill + timing + truncated description
     parts = [f" {pill}"]
-    used = 1 + pill_vis  # leading space + pill
+    used = 1 + visible_len(pill)  # leading space + pill
 
     if timing:
         timing_str = f" {WIND_COLOR}{timing}{RESET}"
-        used += 1 + visible_len(timing_str)
-        parts.append(timing_str)
+        if used + 1 + visible_len(timing_str) <= width:
+            used += 1 + visible_len(timing_str)
+            parts.append(timing_str)
 
     desc = alert.get("description", "").strip()
     if desc:
         flat = " ".join(desc.split())
         remaining = width - used - 2  # 2 for " " prefix and trailing space
         if remaining > 10:
-            truncated = _truncate_display_width(flat, remaining)
+            truncated = truncate_display_width(flat, remaining)
             parts.append(f" {MUTED}{truncated}{RESET}")
 
     return ["".join(parts)]
 
 
 def render_alerts(alerts, width=80, remaining_rows=None, runtime=None, tz_name=""):
-    """NWS/ECCC/JMA alert banners — compact format.
+    """NWS/ECCC/JMA alert banners — compact format."""
+    lines, _spans = render_alerts_mapped(alerts, width, remaining_rows, runtime, tz_name)
+    return lines
 
-    When multiple alerts share the same description, their pills are grouped
-    on one line with the shared description shown once on the next line.
+
+def render_alerts_mapped(alerts, width=80, remaining_rows=None, runtime=None, tz_name=""):
+    """Render the alert banners, with the columns each alert occupies.
+
+    When several alerts share the same description, their pills are grouped
+    onto one line, wrapping onto further lines when they run past the
+    terminal's width, and the shared description follows underneath.
+
+    Returns ``(lines, spans)``; ``spans[i]`` lists the (first column, last
+    column, alert index) of each clickable region on ``lines[i]``.
     """
     if not alerts:
-        return []
+        return [], []
 
     # Group alerts by description text
     from collections import OrderedDict
     groups = OrderedDict()
-    for alert in alerts:
+    for index, alert in enumerate(alerts):
         desc = alert.get("description", "").strip()
         key = desc or id(alert)  # unique key for alerts without description
-        groups.setdefault(key, []).append(alert)
+        groups.setdefault(key, []).append((index, alert))
 
-    lines = []
+    lines, spans = [], []
     for _key, group in groups.items():
+        first_index = group[0][0]
         if len(group) == 1:
             # Single alert — render normally
-            lines.extend(_render_single_alert(group[0], width, runtime=runtime, tz_name=tz_name))
+            for line in _render_single_alert(group[0][1], width, runtime=runtime,
+                                             tz_name=tz_name):
+                lines.append(line)
+                spans.append([(0, width - 1, first_index)])
         else:
-            # Multiple alerts share a description — pills on one line,
-            # shared description on the next
-            pills = []
-            for alert in group:
-                severity = alert.get("severity", "")
-                r, g, b = _severity_rgb(severity)
-                dark_fg = fg(*_knockout_ink((r, g, b)))
-                bg_color = bg(r, g, b)
-                event = alert.get("event", "Unknown")
-                pills.append(f"{bg_color}{dark_fg}{BOLD} \u26a0 {event} {RESET}")
+            # Multiple alerts share a description — pills on one line or
+            # more, shared description underneath
+            pills = [(index, _alert_pill(alert, max_width=width - 1))
+                     for index, alert in group]
+            pill_lines, pill_spans = _pack_pills(pills, width)
+            lines.extend(pill_lines)
+            spans.extend(pill_spans)
 
-            pill_line = " " + " ".join(pills)
-            lines.append(pill_line)
-
-            desc = group[0].get("description", "").strip()
+            desc = group[0][1].get("description", "").strip()
             if desc:
                 flat = " ".join(desc.split())
                 remaining = width - 2  # leading space + margin
                 if remaining > 10:
-                    truncated = _truncate_display_width(flat, remaining)
+                    truncated = truncate_display_width(flat, remaining)
                     lines.append(f" {MUTED}{truncated}{RESET}")
+                    spans.append([(0, width - 1, first_index)])
 
-    return lines
+    return lines, spans
 
 
 # ---------------------------------------------------------------------------
@@ -253,7 +245,7 @@ def _build_modal_content(alert, inner_w, runtime=None, tz_name=""):
     # Headline (if different from event name)
     headline = alert.get("headline", "")
     if headline and headline != event:
-        for wrapped in _wrap_display_width(headline, inner_w):
+        for wrapped in wrap_display_width(headline, inner_w):
             lines.append(f"{MBG}{TFG}{BOLD}{wrapped}{RESET}")
         lines.append("")
 
@@ -267,7 +259,7 @@ def _build_modal_content(alert, inner_w, runtime=None, tz_name=""):
                 lines.append("")  # paragraph break
             # Collapse whitespace within each paragraph, then wrap
             flat = " ".join(para.split())
-            for wrapped in _wrap_display_width(flat, inner_w):
+            for wrapped in wrap_display_width(flat, inner_w):
                 lines.append(f"{MBG}{TFG}{wrapped}{RESET}")
 
     # URL
@@ -275,7 +267,7 @@ def _build_modal_content(alert, inner_w, runtime=None, tz_name=""):
     if url:
         lines.append("")
         link_color = fg(*LINK_RGB)
-        display_url = url if visible_len(url) <= inner_w else _truncate_display_width(url, inner_w)
+        display_url = url if visible_len(url) <= inner_w else truncate_display_width(url, inner_w)
         osc_link = f"\033]8;;{url}\033\\{link_color}{MBG}{display_url}\033]8;;\033\\{RESET}"
         lines.append(osc_link)
 

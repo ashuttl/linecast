@@ -146,24 +146,26 @@ class TestNarrativePacking:
         assert ". " in self._plain(lines)[0]
 
     def test_the_same_two_take_a_line_each_when_narrow(self):
-        lines = narrative_lines(self.DATA, NOON, 40, _runtime())
+        lines = self._plain(narrative_lines(self.DATA, NOON, 40, _runtime()))
 
-        assert len(lines) == 2
-        assert all(". " not in line for line in self._plain(lines))
+        assert all(". " not in line for line in lines)
+        assert " ".join(lines).count(".") == 2
 
-    def test_every_line_is_punctuated_as_a_sentence(self):
+    def test_every_sentence_is_punctuated(self):
         for width in (40, 200):
-            for line in self._plain(narrative_lines(self.DATA, NOON, width,
-                                                    _runtime())):
-                assert line.endswith("."), line
+            prose = " ".join(self._plain(narrative_lines(self.DATA, NOON, width,
+                                                         _runtime())))
+            assert prose.endswith("."), prose
+            assert prose.count(".") == 2, prose
 
-    def test_a_shared_line_never_overruns_the_terminal(self):
+    def test_no_line_ever_overruns_the_terminal(self):
         from linecast._graphics import visible_len
-        for width in range(30, 140, 7):
+        # A sentence with no room to share a line, and none to sit on one
+        # either, wraps here rather than being wrapped by the terminal --
+        # which would push the header off the top of the screen.
+        for width in range(24, 140, 7):
             lines = narrative_lines(self.DATA, NOON, width, _runtime())
-            shared = [line for line, text in zip(lines, self._plain(lines))
-                      if text.count(".") > 1]
-            assert all(visible_len(line) <= width for line in shared)
+            assert all(visible_len(line) <= width for line in lines)
 
     def test_nothing_to_say_renders_nothing(self):
         assert narrative_lines({}, NOON, 100, _runtime()) == []

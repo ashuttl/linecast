@@ -508,7 +508,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     drag_start = None    # (col, row) of left-button press while on_drag is set
     active_alert = None  # index of alert whose modal is open, or None
     modal_scroll = 0     # scroll offset within the modal
-    alert_row_map = {}   # 0-based line index → alert index
+    alert_row_map = {}   # 0-based line index → [(first col, last col, alert index)]
 
     init = "\033[?1049h\033[?25l"
     if mouse:
@@ -682,7 +682,12 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                                 modal_scroll = 0
                                 break
                             elif row_idx in alert_row_map:
-                                active_alert = alert_row_map[row_idx]
+                                spans = alert_row_map[row_idx]
+                                col_idx = cx - 1  # 1-based → 0-based
+                                active_alert = next(
+                                    (i for start, end, i in spans
+                                     if start <= col_idx <= end),
+                                    spans[0][2])
                                 modal_scroll = 0
                                 break
                         if cb & 32:

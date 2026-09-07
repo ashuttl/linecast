@@ -46,7 +46,7 @@ from linecast._weather_render import (
     _prepare_hourly_window,
     build_alert_modal,
     narrative_lines,
-    render_alerts,
+    render_alerts_mapped,
     render_daily,
     render_header,
     render_hourly,
@@ -63,6 +63,12 @@ from linecast._weather_sources import (
     forecast_date,
     forecast_is_todays,
 )
+
+# What the dashboard keeps when the window is too short for all of it:
+# the graph is the view -- its day line, its ticks and two rows of braille
+# -- and three days is still a forecast.
+MIN_HOURLY_ROWS = 4
+MIN_DAILY_ROWS = 3
 
 
 def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, cols, rows,
@@ -199,10 +205,24 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     tz_name = data.get("timezone", "")
 
     # Pre-render fixed-height sections to budget graph rows accurately
-    alert_lines = (render_alerts(alerts, width=cols, runtime=runtime, tz_name=tz_name)
-                   if alerts else [])
+    alert_lines, alert_spans = (
+        render_alerts_mapped(alerts, width=cols, runtime=runtime, tz_name=tz_name)
+        if alerts else ([], []))
     narrative = narrative_lines(data, now_local, cols, runtime)
     daily_lines_rendered = render_daily(data, cols, runtime, now=now_local)
+
+    hint = install_banner()
+
+    hourly = data.get("hourly", {})
+
+    # Check full dataset for optional rows so layout stays stable while scrolling
+    wind_threshold = 25 if runtime.metric else 15
+    all_winds = hourly.get("wind_speed_10m", [])
+    has_wind_row = bool(all_winds) and max(all_winds) > wind_threshold
+    all_uv = hourly.get("uv_index", [])
+    has_uv_row = bool(all_uv) and max(all_uv) >= 6
+    has_precip_graph = (bool(hourly.get("precipitation_probability"))
+                        and max(hourly.get("precipitation_probability", [0])) > 5)
 
     # Count non-hourly lines precisely
     non_hourly = 2  # header + blank
@@ -213,27 +233,43 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     non_hourly += len(daily_lines_rendered)
     if alert_lines:
         non_hourly += 1 + len(alert_lines)  # blank + alerts
+    if hint:
+        non_hourly += 1
+
+    # The shortest the hourly section will render: the day line, the ticks,
+    # two rows of braille, and whichever of the wind, UV and precipitation
+    # rows the data calls for.
+    hourly_floor = MIN_HOURLY_ROWS
+    if has_wind_row:
+        hourly_floor += 1
+    if has_uv_row:
+        hourly_floor += 1
+    if has_precip_graph:
+        hourly_floor += 1
+
+    # A window too short for all of that would push the header off the top
+    # of the screen, so give something up: the prose first, then the days
+    # furthest out.
+    short = hourly_floor - (rows - non_hourly)
+    if short > 0 and narrative:
+        dropped = min(short, len(narrative))
+        narrative = narrative[:len(narrative) - dropped]
+        non_hourly -= dropped
+        short -= dropped
+    if short > 0 and len(daily_lines_rendered) > MIN_DAILY_ROWS:
+        dropped = min(short, len(daily_lines_rendered) - MIN_DAILY_ROWS)
+        daily_lines_rendered = daily_lines_rendered[:-dropped]
+        non_hourly -= dropped
 
     # All remaining rows go to hourly section
     # hourly contains: today_line(1) + tick(1) + braille(N) + wind(0-1) + uv(0-1) + precip(0-P)
-    hourly_budget = max(4, rows - non_hourly)
+    hourly_budget = max(hourly_floor, rows - non_hourly)
     graph_budget = hourly_budget - 2  # today_line + tick_labels
-
-    hourly = data.get("hourly", {})
-
-    # Check full dataset for optional rows so layout stays stable while scrolling
-    wind_threshold = 25 if runtime.metric else 15
-    all_winds = hourly.get("wind_speed_10m", [])
-    has_wind_row = bool(all_winds) and max(all_winds) > wind_threshold
-    all_uv = hourly.get("uv_index", [])
-    has_uv_row = bool(all_uv) and max(all_uv) >= 6
     if has_wind_row:
         graph_budget -= 1
     if has_uv_row:
         graph_budget -= 1
 
-    has_precip_graph = (bool(hourly.get("precipitation_probability"))
-                        and max(hourly.get("precipitation_probability", [0])) > 5)
     if has_precip_graph:
         n_precip_braille = min(3, max(1, graph_budget // 6))
         remaining_for_temp = graph_budget - n_precip_braille
@@ -307,18 +343,24 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     # Daily
     lines.extend(daily_lines_rendered)
 
-    # Alerts — one line per alert
-    alert_row_map = {}  # 0-based line index → alert index
+    # Alerts — badges to a line, wrapping where they run out of room
+    alert_row_map = {}  # 0-based line index → [(first col, last col, alert index)]
     if alerts:
         lines.append("")
         alert_start = len(lines)
         lines.extend(alert_lines)
-        for i in range(len(alert_lines)):
-            alert_row_map[alert_start + i] = i
+        for i, line_spans in enumerate(alert_spans):
+            alert_row_map[alert_start + i] = line_spans
 
-    hint = install_banner()
     if hint:
         lines.append(hint)
+
+    # Shorter still than the trimming above could reach: cut the bottom
+    # rather than let the terminal scroll the header away.
+    if len(lines) > rows:
+        lines = lines[:rows]
+        alert_row_map = {row: spans for row, spans in alert_row_map.items()
+                         if row < rows}
 
     output = "\n".join(lines)
 
