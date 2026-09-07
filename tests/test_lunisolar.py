@@ -6,8 +6,9 @@ solar-term days. The engine derives everything from the ephemeris, so
 these are end-to-end checks of the month, day, and leap arithmetic.
 """
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
+from linecast._ephemeris import next_moon_phase_utc
 from linecast._lunisolar import (
     CALENDAR_MERIDIAN_HOURS,
     CALENDAR_NATIVE_LANG,
@@ -57,6 +58,24 @@ class TestLunisolarDate:
                 assert cur[1] == prev[1] + 1
                 assert (cur[0], cur[2]) == (prev[0], prev[2])
             prev = cur
+
+    def test_every_month_begins_on_the_day_of_a_new_moon(self):
+        # The whole calendar rests on this: a month starts on the civil
+        # day that holds the conjunction at the calendar's own meridian.
+        # The consecutive-days sweep above would not notice a month
+        # starting a day either side of one.
+        for meridian in (8, 9):
+            tz = timezone(timedelta(hours=meridian))
+            first = date(2020, 1, 1)
+            for offset in range(1100):
+                day = first + timedelta(days=offset)
+                if lunisolar_date(day, meridian)[1] != 1:
+                    continue
+                midnight = datetime(day.year, day.month, day.day, tzinfo=tz)
+                new_moon = next_moon_phase_utc(
+                    midnight - timedelta(days=2), 0.0)
+                assert midnight <= new_moon.astimezone(tz) < (
+                    midnight + timedelta(days=1)), (meridian, day)
 
 
 class TestSolarTerms:

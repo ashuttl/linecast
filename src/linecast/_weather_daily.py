@@ -15,6 +15,11 @@ from linecast._weather_style import (
 _USE_BG_FILL = color_mode() != "none"
 
 
+# The temperature bar stops shrinking here; below it the row sheds its
+# detail columns instead.
+MIN_BAR_W = 10
+
+
 def _lpad(s, w):
     """Left-align ``s`` in ``w`` terminal columns."""
     return s + " " * max(0, w - visible_len(s))
@@ -66,6 +71,10 @@ def render_daily(data, width, runtime=None, now=None):
     day_name_list = DAY_NAMES.get(lang, DAY_NAMES["en"])
     day_col_w = max(visible_len(n) for n in day_name_list + [_s("today_short", runtime)])
     left_prefix_w = 1 + day_col_w + 2 + 2 + 2  # " day  ic  "
+    # A window too narrow even for a bare bar has no room for these rows,
+    # and a row wider than the window wraps and shifts the whole dashboard.
+    if width < left_prefix_w + MIN_BAR_W:
+        return lines
     # Compute per-day detail fields in full and compact (no type/wind label) forms.
     # At narrow widths, drop "Snow"/"Rain" prefix and "Wind" label — the
     # colored amount + unit are enough context.
@@ -77,13 +86,18 @@ def render_daily(data, width, runtime=None, now=None):
         wmo_i = wmo_codes[i] if i < len(wmo_codes) else 0
         precip_amt = ""
         ptype = ""
-        if precip_i >= (1 if runtime.metric else 0.05):
+        # 0.04" is 1 mm, so the same rain earns a row in either unit.  A
+        # tenth of an inch is 2.5 mm, too coarse to name amounts that
+        # small honestly, so inches take a second decimal under one.
+        if precip_i >= (1 if runtime.metric else 0.04):
             ptype = _s(_precip_type(wmo_i), runtime)
             if runtime.metric:
                 sep = _s("metric_unit_sep", runtime)
                 precip_amt = f"{precip_i:.0f}{sep}{runtime.precip_unit}"
             else:
-                precip_amt = f"{precip_i:.1f}{_s('precip_inch', runtime)}"
+                unit = _s('precip_inch', runtime)
+                precip_amt = (f"{precip_i:.1f}{unit}" if precip_i >= 1
+                              else f"{precip_i:.2f}{unit}")
         prob_s = f"{prob_i:.0f}%" if prob_i > 25 else ""
         wind_amt = (
             f"{wind_i:.0f}{runtime.wind_unit}"
@@ -92,10 +106,16 @@ def render_daily(data, width, runtime=None, now=None):
         )
         day_raw.append((precip_amt, prob_s, wind_amt, ptype, wmo_i))
 
-    def _measure_details(compact):
+    def _measure_details(compact, dropped=()):
         details = []
         mp, mpr, mw = 0, 0, 0
         for precip_amt, prob_s, wind_amt, ptype, _wmo_i in day_raw:
+            if "precip" in dropped:
+                precip_amt = ""
+            if "prob" in dropped:
+                prob_s = ""
+            if "wind" in dropped:
+                wind_amt = ""
             if compact:
                 precip_s = precip_amt
                 wind_s = wind_amt
@@ -120,10 +140,22 @@ def render_daily(data, width, runtime=None, now=None):
 
     # Try full labels first; switch to compact if bar would be too narrow
     day_details, max_precip_w, max_prob_w, max_wind_w, max_right_w = _measure_details(False)
-    bar_w = max(10, width - left_prefix_w - max_right_w)
+    bar_w = max(MIN_BAR_W, width - left_prefix_w - max_right_w)
     if bar_w < 20:
         day_details, max_precip_w, max_prob_w, max_wind_w, max_right_w = _measure_details(True)
-        bar_w = max(10, width - left_prefix_w - max_right_w)
+        bar_w = max(MIN_BAR_W, width - left_prefix_w - max_right_w)
+
+    # Narrower still: the bar will not shrink past its floor, so the detail
+    # columns go one at a time -- wind, then the odds, then the amount --
+    # rather than have the row run off the edge and wrap onto the next.
+    dropped = []
+    for field in ("wind", "prob", "precip"):
+        if left_prefix_w + MIN_BAR_W + max_right_w <= width:
+            break
+        dropped.append(field)
+        (day_details, max_precip_w, max_prob_w, max_wind_w,
+         max_right_w) = _measure_details(True, dropped)
+    bar_w = max(MIN_BAR_W, width - left_prefix_w - max_right_w)
 
     # Ensure outside labels always fit
     max_lo_label = max(

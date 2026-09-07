@@ -4,6 +4,16 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- A line the terminal draws wider than linecast measured it no longer breaks the view. Views are painted a row at a time with the terminal's line wrapping off, so such a line is cut off at the right edge instead of wrapping and pushing the rest of the view, and the top line, off the screen.
+- linecast asks the terminal how wide it draws emoji, Nerd Font icons and Indic conjuncts rather than assuming, and lays its rows out to the answer. `linecast doctor` shows what the terminal said. The question waits longer for an answer over SSH, as the question about the terminal's palette now does too.
+- Weather: Warnings that share a line of badges now break between badges, instead of a badge splitting across two lines, and a click opens the warning under the pointer.
+- Weather: The dashboard fits the window it is given. In a narrow terminal the prose wraps and the forecast rows give up their detail columns; in a short one the prose goes first and then the days furthest out, so the conditions line no longer scrolls off the top.
+- Weather: The prose under the graph says why the air feels warmer or cooler than the thermometer reads, naming whichever of the humidity, the wind, the dry air or the sun accounts for most of it.
+- Weather: The prose under the graph reads as prose. The sentences are punctuated and share a line where the terminal is wide enough for them, instead of taking one each.
+- Weather: In Japanese, Chinese, Korean and Thai, the prose under the graph speaks of rain still to come as expected rather than certain, and the Japanese line comparing one day with the next reads as a forecast rather than a description.
+- Weather: The rain in the last 24 hours, and the rain named beside a day in the forecast, now appear at the same amount of rain in millimetres as in inches. Small amounts in inches are given to a hundredth rather than a tenth.
+- Sunshine: In the zones east of the date line that keep UTC+13 or +14 — Samoa, Tonga, Kiritimati — `--json` dated sunrise, sunset and solar noon a day late and named the wrong next event. The day and year views there now name sunrise, solar noon and sunset when the moment is one of them, rather than passing over it.
+
 ## 2.3.2 — 2026-09-05
 
 The Moon sits among its real stars, shows earthshine on its night side, and turns when dragged. linecast speaks the terminal's language, and `linecast language` saves one. The help page is sorted by view, and a pinned sunshine location reads as a world clock.

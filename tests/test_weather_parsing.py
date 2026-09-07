@@ -87,12 +87,13 @@ class TestOpenMeteoForecast:
         result = w.render_hourly(self.data, 80, now=now)
         assert isinstance(result, list)
 
-    def test_comparative_line_succeeds(self):
-        """Smoke test: _comparative_line doesn't crash on real data."""
+    def test_narrative_lines_succeeds(self):
+        """Smoke test: narrative_lines doesn't crash on real data."""
         import linecast.weather as w
         now = datetime.fromisoformat(self.data["hourly"]["time"][24])
-        result = w._comparative_line(self.data["daily"], now)
-        assert isinstance(result, str)
+        result = w.narrative_lines(self.data, now, 80)
+        assert isinstance(result, list)
+        assert all(isinstance(line, str) for line in result)
 
 
 # ---------------------------------------------------------------------------

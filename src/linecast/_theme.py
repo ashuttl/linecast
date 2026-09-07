@@ -292,13 +292,9 @@ def _parse_rgb_value(rgb_value: str):
 
 
 def _theme_query_timeout():
-    raw = str(os.environ.get("LINECAST_THEME_TIMEOUT_MS", "100")).strip()
-    try:
-        ms = int(raw)
-    except ValueError:
-        ms = 100
-    ms = max(10, min(1000, ms))
-    return ms / 1000.0
+    from linecast._runtime import probe_timeout_s
+    return probe_timeout_s("LINECAST_THEME_TIMEOUT_MS", 100, ssh_ms=500,
+                           limit_ms=1000)
 
 
 def _argv_requests_legacy_mode():

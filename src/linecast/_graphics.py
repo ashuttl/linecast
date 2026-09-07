@@ -66,8 +66,10 @@ from linecast._live import (  # noqa: F401
     _decode_legacy_mouse,
     _normalize_wheel_cb,
     _read_key,
+    frame_body,
     live_loop,
     overlay,
+    print_frame,
 )
 
 _theme.track_imports(globals(), "linecast._color")

@@ -13,6 +13,7 @@ from linecast._weather_alerts import (
     _severity_rgb,
     build_alert_modal,
     render_alerts,
+    render_alerts_mapped,
 )
 from linecast._weather_daily import render_daily
 from linecast._braille import build_braille_curve as _build_braille_curve
@@ -42,6 +43,11 @@ from linecast._weather_sections import (
     _comparative_line,
     _past_precip_line,
     _precipitation_line,
+    comparative_sentence,
+    feels_sentence,
+    narrative_lines,
+    past_precip_sentence,
+    precipitation_sentence,
     render_header,
 )
 from linecast._weather_style import (
@@ -79,6 +85,7 @@ __all__ = [
     "_severity_rgb",
     "build_alert_modal",
     "render_alerts",
+    "render_alerts_mapped",
     "render_daily",
     "_build_braille_curve",
     "_fmt_hour",
@@ -105,6 +112,11 @@ __all__ = [
     "_comparative_line",
     "_past_precip_line",
     "_precipitation_line",
+    "comparative_sentence",
+    "feels_sentence",
+    "narrative_lines",
+    "past_precip_sentence",
+    "precipitation_sentence",
     "render_header",
     "AQI_COLORS",
     "ALERT_AMBER",
