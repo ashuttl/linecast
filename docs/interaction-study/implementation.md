@@ -25,6 +25,22 @@ Pans follow the sphere; repeated keyboard pans accumulate, while a direction
 change begins from the current displayed position. A drag is immediate and
 uses one cumulative gesture at every scale. Reset actually returns home.
 
+A recent flick now continues into a short coast. Its speed halves every
+180 ms and reaches a finite stop within 911 ms; its launch speed is bounded
+relative to the shorter physical viewport dimension. One rule serves street
+and world views. The existing motion controller integrates decay from the
+release time and fixes the destination once, allowing the worker to prepare
+that destination while the displayed camera follows the spherical path.
+There is no new renderer, ticker, worker, or dependency.
+
+Velocity comes from recent moving samples, expressed in the release camera's
+basis so a pole crossing cannot reverse the coast. Paused releases, stationary
+motion reports, short event bursts, and ambiguous hemisphere-sized jumps do
+not launch it. Grabbing, zooming, keyboard navigation, opening Help or search,
+and resizing stop at the displayed location. Interrupted drags ignore their
+remaining motion and release reports. The shared loop's optional interrupt
+hook distinguishes grabbing and opening Help from an ordinary release.
+
 `PreparedMap` retains immutable color samples, actual braille dots, stroke
 ink ownership, elevation, label runs, and hover data. Movement transforms the
 original prepared scene, avoiding cumulative resampling damage. Text keeps
@@ -89,8 +105,8 @@ indefinitely starve paint, and an ignored event cannot erase an earlier change.
 
 ## Validation
 
-Final full-suite result: **4,053 passed, 1 skipped, 72 deselected, and 263
-subtests passed** in 35.79 seconds. Ruff and whitespace checks on source, tests, and documentation
+Final full-suite result: **4,120 passed, 1 skipped, 72 deselected, and 263
+subtests passed** in 36.01 seconds. Ruff and whitespace checks on source, tests, and documentation
 passed; ANSI text snapshots deliberately retain terminal-cell padding.
 The earlier Sky commit independently passed 3,771 tests and 263 subtests.
 
@@ -195,6 +211,40 @@ and inspected at rest, during a small turn, and on the opposite hemisphere.
 ```sh
 .venv/bin/python docs/interaction-study/maps/live_pty.py --spin --fast-drag --delay .3
 .venv/bin/python docs/interaction-study/maps/live_pty.py --spin --fast-drag --delay .3 --cols 200 --rows 60
+```
+
+### Release coast
+
+Deterministic tests cover speed decay, a fixed endpoint under different frame
+cadences, exact stopping time, viewport scaling, poles and the dateline,
+reversal, pauses with duplicate motion reports, input bursts, and takeover by
+grabbing, zoom, keyboard pan, search, spin, Help, resize, and shutdown. Shared
+loop tests verify that a press stops motion before a queued drag is processed,
+and that opening Help cancels the coast a synthetic release could start.
+Help describes flicking separately from keyboard panning in all 18 languages.
+
+The PTY harness's `--coast` phase sends a flick, a paused release, and a second
+flick caught by a new press. It records actual callback receipt times and
+rendered cameras, checking continued movement toward a fixed target, complete
+settlement, and no movement after a paused release or regrab. All three final
+runs passed across 473 frames:
+
+| Scenario | Terminal | Moving frames after first release | Added travel, fraction of shorter viewport |
+| --- | --- | ---: | ---: |
+| Globe, spin/coverage audit, 300 ms detail delay | 120×40 | 24 | 0.207 |
+| Cached coastal streets | 120×40 | 24 | 0.170 |
+| Globe, 300 ms detail delay | 200×60 | 15 | 0.195 |
+
+The combined globe audit also checked 998,184 Earth samples with no coverage
+gaps. Added travel is measured from the first rendered post-release frame;
+terminal callback timing and the spherical projection affect that fraction.
+These are application/PTY checks, not native display-latency measurements.
+[Raw results](maps/coast-results.json) include render timings and trace paths.
+
+```sh
+.venv/bin/python docs/interaction-study/maps/live_pty.py --coast --spin --fast-drag --delay .3
+.venv/bin/python docs/interaction-study/maps/live_pty.py --coast --view street --zoom .01 --cache-source /path/to/cache
+.venv/bin/python docs/interaction-study/maps/live_pty.py --coast --cols 200 --rows 60 --delay .3
 ```
 
 ## Limits and next measurements

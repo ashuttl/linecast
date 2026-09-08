@@ -58,6 +58,8 @@ class MapApp(LiveApp):
         self.lat, self.lon = lat, lon   # the view centre
         self.zoom = zoom
         self.drag_base = None
+        self._drag_trail = []
+        self._drag_cancelled = False
         self._motion = CameraMotion(self.target_camera())
         self._ticker_lock = threading.Lock()
         self._ticker_running = False
@@ -86,8 +88,35 @@ class MapApp(LiveApp):
         target = self.target_camera()
         # Search, directions and terminal resize may replace the view outright.
         if target.key != self._motion.target.key:
+            previous = self._motion.target
+            if ((target.lat, target.lon, target.zoom) ==
+                    (previous.lat, previous.lon, previous.zoom)):
+                # A resize stops at the displayed position, not the coast's
+                # future destination. Old drag coordinates no longer apply.
+                target = replace(self._motion.sample(now), gw=target.gw, hc=target.hc)
+                self.lat, self.lon, self.zoom = target.lat, target.lon, target.zoom
+                self._cancel_drag()
             self._motion.move(target, animate=False, now=now)
         return self._motion.sample(now)
+
+    def _cancel_drag(self):
+        self._drag_cancelled |= self.drag_base is not None
+        self.drag_base = None
+        self._drag_trail = []
+
+    def _stop_motion(self):
+        camera = self.displayed_camera()
+        changed = self._motion.moving or bool(self.spinning)
+        self._move(camera, animate=False)
+        self.spinning = 0
+        self._cancel_drag()
+        return changed
+
+    def on_interrupt(self):
+        """A new grab or Help catches the camera where it is displayed."""
+        changed = self._stop_motion()
+        self._drag_cancelled = False
+        return changed
 
     def _move(self, camera, *, animate=True, anchor=None, now=None):
         self.lat, self.lon, self.zoom = camera.lat, camera.lon, camera.zoom
@@ -119,6 +148,8 @@ class MapApp(LiveApp):
         gw, hc = map_cells()
         new_zoom = max(MIN_ZOOM_DEG, min(max_zoom(gw, hc), new_zoom))
         if new_zoom == self.zoom:
+            if self._motion.coasting or self.spinning or self.drag_base is not None:
+                return self._stop_motion()
             return False
         now = time.monotonic()
         current = self.displayed_camera(now)
@@ -138,7 +169,7 @@ class MapApp(LiveApp):
                 anchor = None
                 target = current.zoom_at(new_zoom)
         self.spinning = 0
-        self.drag_base = None
+        self._cancel_drag()
         self._move(target, anchor=anchor, now=now)
         return True
 
@@ -172,7 +203,7 @@ class MapApp(LiveApp):
             dcol, drow = {'w': (0, hc * 0.1), 'a': (gw * 0.1, 0),
                          's': (0, -hc * 0.1), 'd': (-gw * 0.1, 0)}[key]
             self.spinning = 0
-            self.drag_base = None
+            self._cancel_drag()
             current = self.displayed_camera()
             base = self.target_camera() if self._pan_key == key else current
             self._move(base.pan(dcol, drow))
@@ -199,10 +230,11 @@ class MapApp(LiveApp):
             if self.spinning:
                 self.spinning = 0
                 return True
+            stopped = self._stop_motion()
             gw, hc = map_cells()
             if (self.target_camera().local_tiles
                     or not _globe.warm(self.zoom, hc * 4)):
-                return False
+                return stopped
             self.spin_seq += 1
             self.spinning = self.spin_seq
             self._spin_mark = time.monotonic()
@@ -222,10 +254,11 @@ class MapApp(LiveApp):
         terrain mode gives terrain at that address.  Predictability
         beats cleverness, and there is nothing to restore.
         """
+        self._stop_motion()
         gw, hc = map_cells()
-        self.lat, self.lon = result.lat, result.lon
-        self.zoom = max(MIN_ZOOM_DEG, min(
+        zoom = max(MIN_ZOOM_DEG, min(
             max_zoom(gw, hc), fly_to_zoom(result, (hc * 2) / gw)))
+        self._move(MapCamera(result.lat, result.lon, zoom, gw, hc), animate=False)
 
     def fly_to_step(self, step):
         """Frame one maneuver: centre on it, zoomed to roughly the
@@ -234,10 +267,11 @@ class MapApp(LiveApp):
         loc = step.get("location")
         if loc is None:
             return
+        self._stop_motion()
         span = max(0.004, step["distance_m"] * 2.4 / 110540.0)
-        self.zoom = max(MIN_ZOOM_DEG, min(max_zoom(*map_cells()), span))
-        self.lat = max(-80.0, min(80.0, loc[1]))
-        self.lon = loc[0]
+        zoom = max(MIN_ZOOM_DEG, min(max_zoom(*map_cells()), span))
+        self._move(MapCamera(max(-80.0, min(80.0, loc[1])), loc[0], zoom,
+                             *map_cells()), animate=False)
 
     def help_panel(self):
         from linecast._help import HelpPanel
@@ -274,17 +308,21 @@ class MapApp(LiveApp):
                     self.fly_to_step(step)
                 return True
             if action == 'key:D':
+                self._stop_motion()
                 search.start("route")
                 return True
         if action == 'key:/':
+            self._stop_motion()
             search.start()
             return True
         if action == 'key:D':
+            self._stop_motion()
             if routes.press() == "search":
                 search.start("route")
             return True
         if action == 'open':
             # o: re-point the origin, panel open or not.
+            self._stop_motion()
             search.start("origin")
             return True
         if action == 'key:p':
@@ -293,7 +331,7 @@ class MapApp(LiveApp):
             # n / space: the one deliberately destructive key.
             routes.clear()
             self.spinning = 0
-            self.drag_base = None
+            self._cancel_drag()
             self._move(MapCamera(*self.home, self.zoom, *map_cells()))
             return True
         return False
@@ -308,6 +346,8 @@ class MapApp(LiveApp):
             return False
         width, acts = routes.panel_rows
         act = acts.get(row) if col <= width else None
+        if act is not None:
+            self._stop_motion()
         if act == 'from':
             search.start("origin")
         elif act == 'to':
@@ -324,17 +364,51 @@ class MapApp(LiveApp):
     def on_drag(self, dcol, drow, done):
         # A drag uses its starting camera and the cumulative cell delta. This
         # is the same spherical motion at street scale and planetary scale.
+        if self._drag_cancelled or self.search.open:
+            if done:
+                self._drag_cancelled = False
+            return False
         had_drag = self.drag_base is not None
         if not had_drag and not (dcol or drow):
             return False
+        now = time.monotonic()
         if self.drag_base is None:
-            self.drag_base = self.displayed_camera()
+            self.drag_base = self.displayed_camera(now)
+            self._drag_trail = []
         camera = self.drag_base.pan(dcol, drow)
         changed = camera.key != self.target_camera().key
         self.spinning = 0
-        self._move(camera, animate=False)
+        self._move(camera, animate=False, now=now)
+        if changed:
+            trail = self._drag_trail
+            if len(trail) >= 2:
+                _, ax, ay = trail[-2]
+                _, bx, by = trail[-1]
+                if (bx - ax) * (dcol - bx) + 4 * (by - ay) * (drow - by) < 0:
+                    trail = trail[-1:]  # a reversal sheds the old direction
+            self._drag_trail = [p for p in trail if now - p[0] <= .15][-7:]
+            self._drag_trail.append((now, dcol, drow))
         if done:
+            base = self.drag_base
             self.drag_base = None
+            trail, self._drag_trail = self._drag_trail, []
+            # Motion reports have processing times, not device timestamps.
+            # Ignore bursts and stale motion; a stationary release is not a
+            # fresh sample and must not turn a pause into a fling.
+            if len(trail) >= 2 and now - trail[-1][0] < .12:
+                t0, x0, y0 = trail[0]
+                t1 = trail[-1][0]
+                previous = base.pan(x0, y0)
+                if t1 - t0 >= .03 and camera.visible(previous.lon, previous.lat):
+                    # A pole crossing changes the north-up screen basis.
+                    # Measure actual movement in the release view, where the
+                    # earlier centre lies opposite the continuing camera turn.
+                    x, y = camera.project(previous.lon, previous.lat, camera.gw, camera.hc)
+                    if self._motion.coast((x - camera.gw / 2) / (t1 - t0),
+                                          (y - camera.hc / 2) / (t1 - t0), now=now):
+                        target = self._motion.target
+                        self.lat, self.lon, self.zoom = target.lat, target.lon, target.zoom
+                        self._wake_animation()
         return changed or (done and had_drag)
 
     def _prepare(self, camera, options, generation):
@@ -426,6 +500,7 @@ class MapApp(LiveApp):
         super().run()
 
     def stop(self):
+        self._stop_motion()
         self._stopped = True
         self.spinning = 0
         if self._worker is not None:

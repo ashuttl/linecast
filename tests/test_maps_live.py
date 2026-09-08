@@ -119,7 +119,7 @@ class TestConstruction:
 
     def test_the_hooks_reach_the_loop(self):
         hooks = make().hooks()
-        assert set(hooks) == {"on_action", "on_drag", "on_wheel",
+        assert set(hooks) == {"on_action", "on_drag", "on_wheel", "on_interrupt",
                               "intercept", "on_click", "text_mode"}
 
 
@@ -340,6 +340,213 @@ class TestDrag:
         assert app.target_camera() == displayed.pan(5, 3)
         assert app.displayed_camera() == app.target_camera()
         assert not app._motion.moving
+
+
+def flick(app, clock):
+    app.on_interrupt()
+    for x in (3, 6, 9):
+        clock[0] += .05
+        app.on_drag(x, 0, False)
+    released = app.displayed_camera()
+    app.on_drag(9, 0, True)
+    return released
+
+
+class TestCoast:
+    @pytest.mark.parametrize('zoom', [.0012, .01, 2, 60, 130])
+    def test_release_continues_toward_one_fixed_target_then_stops(self, zoom, clock):
+        app = make(zoom=zoom)
+        released = flick(app, clock)
+        target = app.target_camera()
+        assert app._motion.coasting and target != released
+        assert app.displayed_camera() == released
+        clock[0] += .1
+        moving = app.displayed_camera()
+        assert moving != released and moving != target
+        assert released._vector(moving.lon, moving.lat)[0] < 0
+        assert app.target_camera() == target
+        clock[0] += 1
+        assert app.displayed_camera() == target
+        assert not app._motion.moving
+        assert [t.target for t in FakeThread.started] == [app._tick]
+        assert app._worker is None  # drag/release only schedule camera repaint
+
+    @pytest.mark.parametrize('duplicates', [False, True])
+    def test_pause_before_release_stays_put_even_with_stationary_reports(self, clock, duplicates):
+        app = make()
+        for x in (3, 6, 9):
+            clock[0] += .05
+            app.on_drag(x, 0, False)
+        held = app.displayed_camera()
+        for _ in range(5):
+            clock[0] += .05
+            if duplicates:
+                app.on_drag(9, 0, False)
+        app.on_drag(9, 0, True)
+        clock[0] += 1
+        assert app.displayed_camera() == held
+        assert not app._motion.moving and FakeThread.started == []
+
+    def test_coalesced_burst_does_not_guess_a_flick_velocity(self, clock):
+        app = make()
+        for x in range(1, 40):
+            app.on_drag(x, 0, False)
+        released = app.displayed_camera()
+        app.on_drag(39, 0, True)
+        clock[0] += 1
+        assert app.displayed_camera() == released and not app._motion.moving
+
+    def test_reversal_coasts_in_the_recent_direction(self, clock):
+        app = make(zoom=130)
+        for x in (3, 6, 9, 6, 3):
+            clock[0] += .04
+            app.on_drag(x, 0, False)
+        released = app.displayed_camera()
+        app.on_drag(3, 0, True)
+        clock[0] += .1
+        moved = app.displayed_camera()
+        assert released._vector(moved.lon, moved.lat)[0] > 0
+
+    @pytest.mark.parametrize('lat,direction', [(89, 1), (-89, -1)])
+    def test_coast_continues_away_from_a_pole_after_crossing_it(self, clock, lat, direction):
+        app = make(zoom=20, lat=lat, lon=0)
+        for y in (3 * direction, 4 * direction):
+            clock[0] += .05
+            app.on_drag(0, y, False)
+        released = app.displayed_camera()
+        app.on_drag(0, 4 * direction, True)
+        clock[0] += .05
+        assert app._motion.coasting
+        assert abs(app.displayed_camera().lat) < abs(released.lat)
+        assert app.displayed_camera().lon == pytest.approx(released.lon)
+
+    def test_a_new_press_catches_the_display_without_waiting_for_motion(self, clock):
+        app = make(zoom=130)
+        flick(app, clock)
+        clock[0] += .1
+        caught = app.displayed_camera()
+        assert app.on_interrupt()
+        clock[0] += .3
+        assert app.displayed_camera() == app.target_camera() == caught
+        assert not app._motion.moving
+        app.on_drag(0, 0, True)  # release a stationary regrab
+        clock[0] += 1
+        assert app.displayed_camera() == caught
+
+    @pytest.mark.parametrize('action', ['key:/', 'key:D', 'open'])
+    def test_opening_an_interaction_panel_stops_at_the_display(self, clock, action):
+        app = make(zoom=130)
+        flick(app, clock)
+        clock[0] += .1
+        caught = app.displayed_camera()
+        assert app.intercept(action)
+        clock[0] += 1
+        assert app.displayed_camera() == caught and not app._motion.moving
+
+    @pytest.mark.parametrize('zoom,key', [(MIN_ZOOM_DEG, '+'), (MAX_ZOOM_DEG, '-')])
+    def test_zoom_at_a_limit_still_stops_coasting(self, clock, zoom, key):
+        app = make(zoom=zoom)
+        flick(app, clock)
+        clock[0] += .1
+        caught = app.displayed_camera()
+        assert app.on_action(key)
+        clock[0] += 1
+        assert app.displayed_camera() == caught and not app._motion.moving
+
+    def test_zoom_takes_over_from_the_current_display(self, clock):
+        app = make(zoom=130)
+        flick(app, clock)
+        clock[0] += .1
+        caught = app.displayed_camera()
+        app.zoom_to(60)
+        assert not app._motion.coasting and app.displayed_camera() == caught
+        clock[0] += 1
+        assert app.displayed_camera().zoom == 60
+        assert app.displayed_camera().lat == caught.lat
+        assert app.displayed_camera().lon == caught.lon
+
+    def test_keyboard_pan_takes_over_from_the_display_without_the_coasts_lead(self, clock):
+        app = make(zoom=130)
+        flick(app, clock)
+        clock[0] += .1
+        caught = app.displayed_camera()
+        app.on_action('d')
+        assert not app._motion.coasting and app.displayed_camera() == caught
+        assert app.target_camera() == caught.pan(-GW * .1, 0)
+
+    def test_a_repeated_zoom_at_the_limit_still_finishes_its_existing_ease(self, clock):
+        app = make(zoom=100)
+        app.zoom_to(MAX_ZOOM_DEG)
+        clock[0] += .1
+        assert app.on_action('-') is False
+        clock[0] += 1
+        assert app.displayed_camera().zoom == MAX_ZOOM_DEG
+
+    @pytest.mark.parametrize('action', ['wheel', 'pan', 'search', 'reset'])
+    def test_interrupted_drag_cannot_resume_on_its_old_release(self, clock, action):
+        app = make(zoom=130)
+        for x in (3, 6, 9):
+            clock[0] += .05
+            app.on_drag(x, 0, False)
+        if action == 'wheel':
+            app.on_wheel(1, 40, 20)
+        elif action == 'pan':
+            app.on_action('d')
+        elif action == 'search':
+            app.intercept('key:/')
+            app.search.close()  # even if dismissed before the button comes up
+        else:
+            app.intercept('reset')
+        target = app.target_camera()
+        assert app.on_drag(12, 0, False) is False
+        assert app.on_drag(12, 0, True) is False
+        clock[0] += 1
+        assert app.displayed_camera() == target and not app._motion.coasting
+        app.on_interrupt()
+        app.on_drag(2, 0, False)
+        assert app.displayed_camera() == target.pan(2, 0)
+
+    def test_resize_keeps_the_displayed_location_instead_of_jumping_ahead(self, clock, monkeypatch):
+        app = make(zoom=130)
+        flick(app, clock)
+        clock[0] += .1
+        caught = app.displayed_camera()
+        monkeypatch.setattr(maps, 'get_terminal_size', lambda: (80, 30))
+        resized = app.displayed_camera()
+        assert (resized.lat, resized.lon, resized.zoom) == (caught.lat, caught.lon, caught.zoom)
+        assert (resized.gw, resized.hc) == (80, 28)
+        assert not app._motion.moving
+        clock[0] += 1
+        assert app.displayed_camera() == resized
+
+    def test_spin_takes_over_without_combining_velocities(self, clock, monkeypatch):
+        app = make(zoom=130)
+        flick(app, clock)
+        clock[0] += .1
+        caught = app.displayed_camera()
+        monkeypatch.setattr(_globe, 'warm', lambda *args: True)
+        assert app.on_action('r')
+        assert app.spinning and not app._motion.moving
+        assert app.displayed_camera() == caught
+
+    def test_search_result_stays_at_its_destination_when_spin_was_running(self, clock):
+        app = make(zoom=130)
+        app.spinning = 1
+        app.fly_to(Result('New York', '', 40.7, -74, 'city'))
+        destination = app.displayed_camera()
+        clock[0] += 1
+        assert app.displayed_camera() == destination
+        assert (destination.lat, destination.lon) == (40.7, -74)
+        assert not app.spinning and not app._motion.moving
+
+    def test_stop_discards_the_remaining_coast(self, clock):
+        app = make(zoom=130)
+        flick(app, clock)
+        clock[0] += .1
+        caught = app.displayed_camera()
+        app.stop()
+        clock[0] += 1
+        assert app.displayed_camera() == caught and not app._motion.moving
 
 
 class TestIntercept:

@@ -67,11 +67,15 @@ class TestHooks:
             def text_mode(self):
                 return True
 
+            def on_interrupt(self):
+                return True
+
         app = App()
         hooks = app.hooks()
-        assert set(hooks) == {"on_wheel", "text_mode"}
+        assert set(hooks) == {"on_wheel", "text_mode", "on_interrupt"}
         assert hooks["on_wheel"](1, 1, 1) is True
         assert hooks["text_mode"].__self__ is app
+        assert hooks["on_interrupt"]() is True
 
     def test_the_defaults_do_nothing(self):
         app = LiveApp()
@@ -80,6 +84,7 @@ class TestHooks:
         assert app.on_wheel(1, 1, 1) is False
         assert app.intercept("quit") is False
         assert app.on_click(1, 1) is False
+        assert app.on_interrupt() is False
         assert app.on_open(0) is None
         assert app.play_gate() is True
         assert app.text_mode() is False

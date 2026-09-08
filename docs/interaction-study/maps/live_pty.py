@@ -5,6 +5,7 @@ tiles drive the real renderers. --delay adds latency only to background detail
 preparation, to check that input and animation continue while it is pending.
 --spin adds a real two-second spin and alternating wheel zooms, auditing complete
 Earth fill coverage; --fast-drag also exposes a previously hidden hemisphere.
+--coast checks a flick, a paused release, and a regrab through real mouse input.
 The default sequence remains the original interaction benchmark. Spin-mode
 render times include coverage-observer overhead.
 This measures application rendering and PTY writes, not native terminal display.
@@ -41,6 +42,7 @@ def main():
     parser.add_argument('--rows', type=int, default=40)
     parser.add_argument('--spin', action='store_true')
     parser.add_argument('--fast-drag', action='store_true')
+    parser.add_argument('--coast', action='store_true')
     args = parser.parse_args()
     if args.fast_drag and not args.spin:
         parser.error('--fast-drag requires --spin')
@@ -60,7 +62,8 @@ def main():
     child = subprocess.Popen(
         [sys.executable, str(Path(__file__).resolve()), '--child', '--work', str(work),
          '--view', args.view, '--zoom', str(args.zoom), '--delay', str(args.delay),
-         *(['--spin'] if args.spin else []), *(['--fast-drag'] if args.fast_drag else [])],
+         *(['--spin'] if args.spin else []), *(['--fast-drag'] if args.fast_drag else []),
+         *(['--coast'] if args.coast else [])],
         stdin=slave, stdout=slave, stderr=slave, env=env, start_new_session=True)
     os.close(slave)
     output, events = bytearray(), []
@@ -84,9 +87,9 @@ def main():
 
     try:
         drain(1.2 + args.delay)
-        if args.spin:
-            # Atlas preparation is background work. Begin the interaction
-            # assertions only after a complete surface has been published.
+        if args.spin or args.coast:
+            # Begin after real detail is published, including a complete
+            # surface when the opening camera uses world sources.
             deadline = time.monotonic() + 15 + args.delay
             while True:
                 log_path = work / 'frames.jsonl'
@@ -95,11 +98,38 @@ def main():
                     latest = json.loads(lines[-1]) if lines else {}
                 except json.JSONDecodeError:  # The child may be writing its newest row.
                     latest = {}
-                if latest.get('motion_ready'):
+                if (latest.get('ready') and
+                        (latest.get('motion_ready') or not latest.get('world'))):
                     break
                 assert child.poll() is None, 'child exited before preparing a motion surface'
                 assert time.monotonic() < deadline, 'motion surface did not become ready'
                 drain(.1)
+        if args.coast:
+            x, y = args.cols // 2, args.rows // 2
+            step = max(1, round(min(args.cols, 2 * (args.rows - 2)) * .035))
+
+            def flick(name, pause=0):
+                send(f'\x1b[<0;{x};{y}M'.encode(), f'coast_{name}_press')
+                drain(.04)
+                for n in range(1, 4):
+                    send(f'\x1b[<32;{x+n*step};{y}M'.encode(), f'coast_{name}_drag')
+                    drain(.045)
+                if pause:
+                    drain(pause)
+                send(f'\x1b[<0;{x+3*step};{y}m'.encode(), f'coast_{name}_release')
+
+            flick('flick')
+            drain(1.15 + args.delay)
+            flick('paused', pause=.3)
+            drain(.4 + args.delay)
+            flick('regrab')
+            drain(.06)
+            send(f'\x1b[<0;{x};{y}M'.encode(), 'coast_hold_press')
+            drain(.45 + args.delay)
+            send(f'\x1b[<0;{x};{y}m'.encode(), 'coast_hold_release')
+            drain(.3)
+            events.append(dict(time=time.monotonic(), event='coast_end'))
+        if args.spin:
             send(b'r', 'spin_start')
             drain(2.3)
             send(b'r', 'spin_stop')
@@ -197,13 +227,63 @@ def main():
                             earth_background_samples=sum(c['background'] for c in coverage),
                             earth_background_gaps=sum(c['background_gaps'] for c in coverage),
                             coverage_observer_included=True)
+    coast_summary = {}
+    if args.coast:
+        callbacks = [json.loads(line) for line in (work / 'input.jsonl').read_text().splitlines()]
+        coast_summary = check_coast(frames, events, callbacks)
     result = dict(work=str(work), view=args.view, size=[args.cols, args.rows],
                   zoom=args.zoom, delay_seconds=args.delay, frames=len(frames),
                   output_bytes=len(output), render_median_ms=statistics.median(durations),
                   render_p95_ms=sorted(durations)[int(.95 * (len(durations) - 1))],
-                  render_max_ms=max(durations), exit_code=code, **spin_summary)
+                  render_max_ms=max(durations), exit_code=code, **spin_summary, **coast_summary)
     (work / 'result.json').write_text(json.dumps(result, indent=2))
     print(json.dumps(result, indent=2))
+
+
+def check_coast(frames, events, callbacks):
+    """Use actual callback receipts and rendered cameras, without sampling motion."""
+    start = next(event['time'] for event in events if event['event'] == 'coast_flick_press')
+    end = next(event['time'] for event in events if event['event'] == 'coast_end')
+    inputs = [event for event in callbacks if start <= event['time'] < end]
+    presses = [event for event in inputs if event['kind'] == 'interrupt']
+    releases = [event for event in inputs if event['kind'] == 'drag' and event['done']]
+    assert len(presses) == len(releases) == 4, 'coast gestures did not reach the input hooks'
+    assert [event['coasting'] for event in releases] == [True, False, True, False], (
+        'flick, paused release, or zero-delta regrab release launched the wrong motion')
+    assert presses[3]['coasting_before'], 'regrab did not interrupt an active coast'
+
+    def interval(begin, finish):
+        rows = [frame for frame in frames if begin <= frame['start'] < finish]
+        assert rows, 'gesture produced no rendered frame'
+        return rows
+
+    def arc(a, b):
+        lat0, lat1 = math.radians(a[0]), math.radians(b[0])
+        dlat, dlon = lat1 - lat0, math.radians(b[1] - a[1])
+        hav = math.sin(dlat / 2) ** 2 + math.cos(lat0) * math.cos(lat1) * math.sin(dlon / 2) ** 2
+        return 2 * math.atan2(math.sqrt(max(0, hav)), math.sqrt(max(0, 1 - hav)))
+
+    flick = interval(releases[0]['end'], presses[1]['time'])
+    moving = [frame for frame in flick if frame['coasting']]
+    assert len(moving) >= 2, 'release did not keep the displayed map moving'
+    target = flick[0]['target']
+    assert all(frame['target'] == target for frame in flick), 'coast target moved between frames'
+    remaining = [arc(frame['display'], target) for frame in flick]
+    assert all(b <= a + 1e-12 for a, b in zip(remaining, remaining[1:])), 'coast reversed direction'
+    assert not flick[-1]['coasting'] and flick[-1]['display'] == target, 'coast did not settle'
+    travel = arc(flick[0]['display'], flick[-1]['display'])
+    w, h = flick[0]['size']
+    fraction = math.degrees(travel) / target[2] * 2 * h / min(w, 2 * h)
+    assert 0 < fraction < .5, 'release travel was absent or exceeded half the viewport'
+
+    paused = interval(releases[1]['end'], presses[2]['time'])
+    grabbed = interval(presses[3]['end'], end)
+    for name, rows in (('paused release', paused), ('regrab', grabbed)):
+        assert all(not frame['coasting'] for frame in rows), f'{name} resumed coasting'
+        assert all(frame['display'] == frame['target'] == rows[0]['display'] for frame in rows), (
+            f'{name} failed to freeze the displayed camera')
+    return dict(coast_frames=len(moving), coast_travel_viewport_fraction=fraction,
+                paused_release_frames=len(paused), regrab_frozen_frames=len(grabbed))
 
 
 def child_run(args):
@@ -230,6 +310,7 @@ def child_run(args):
     render, prepare = app.render, app._prepare
     draw = _maps_live.render_map
     shown = [app.target_camera()]
+    world = [not shown[0].local_tiles]
     motion_ready = [False]
     coverage = [None]
     masks = {}
@@ -271,6 +352,7 @@ def child_run(args):
 
     def measured_draw(camera, prepared, *a, **kw):
         shown[0] = camera
+        world[0] = prepared.world if prepared is not None else not camera.local_tiles
         motion_ready[0] = prepared is not None and prepared.surface is not None
         return draw(camera, prepared, *a, **kw)
 
@@ -278,6 +360,29 @@ def child_run(args):
     snapshots = []
     log = (args.work / 'frames.jsonl').open('w')
     builds = (args.work / 'builds.jsonl').open('w')
+    if args.coast:
+        inputs = (args.work / 'input.jsonl').open('w')
+        drag, interrupt = app.on_drag, app.on_interrupt
+
+        def measured_drag(dcol, drow, done):
+            start = time.monotonic()
+            result = drag(dcol, drow, done)
+            inputs.write(json.dumps(dict(time=start, end=time.monotonic(), kind='drag',
+                                         dcol=dcol, drow=drow, done=done,
+                                         coasting=app._motion.coasting)) + '\n')
+            inputs.flush()
+            return result
+
+        def measured_interrupt():
+            start, before = time.monotonic(), app._motion.coasting
+            result = interrupt()
+            inputs.write(json.dumps(dict(time=start, end=time.monotonic(), kind='interrupt',
+                                         coasting_before=before,
+                                         coasting=app._motion.coasting)) + '\n')
+            inputs.flush()
+            return result
+
+        app.on_drag, app.on_interrupt = measured_drag, measured_interrupt
 
     def measured_render(**kw):
         start = time.monotonic()
@@ -291,8 +396,12 @@ def child_run(args):
                                  target=[app.lat, app.lon, app.zoom],
                                  display=[camera.lat, camera.lon, camera.zoom],
                                  size=[camera.gw, camera.hc], ready=ready,
-                                 **(dict(spinning=app.spinning, motion_ready=motion_ready[0],
-                                         coverage=coverage[0]) if args.spin else {}))) + '\n')
+                                 **(dict(motion_ready=motion_ready[0], world=world[0])
+                                    if args.spin or args.coast else {}),
+                                 **(dict(spinning=app.spinning, coverage=coverage[0])
+                                    if args.spin else {}),
+                                 **(dict(coasting=app._motion.coasting)
+                                    if args.coast else {}))) + '\n')
         log.flush()
         if len(snapshots) % 8 == 0 or not snapshots:
             (args.work / 'latest-frame.ansi').write_text(frame.split('\x00')[0])
@@ -313,6 +422,8 @@ def child_run(args):
     app.run()
     (args.work / 'last-frame.ansi').write_text(snapshots[-1].split('\x00')[0])
     log.close()
+    if args.coast:
+        inputs.close()
     # A daemon build may still finish after stop; keep its diagnostic stream
     # alive until process exit, just as its real network request may finish.
 

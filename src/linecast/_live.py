@@ -439,7 +439,7 @@ def nudge():
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
               intercept=None, play_gate=None, on_wheel=None, text_mode=None,
-              on_click=None, help_panel=None):
+              on_click=None, help_panel=None, on_interrupt=None):
     """Run render_fn() in a loop on the alternate screen buffer.
 
     render_fn: callable(offset_minutes=0) returning (display_string, metadata)
@@ -505,6 +505,10 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     help_panel: optional _help.HelpPanel for the view's controls. It owns
                 `?` and input while open, without changing the view's state.
                 Text fields still receive a literal question mark.
+    on_interrupt: optional callback() when a left-button press starts or Help
+                  opens, allowing the app to stop autonomous motion. Opening
+                  Help finishes any drag before calling this hook. Return
+                  truthy to re-render. Default None preserves existing behavior.
     Re-renders immediately on terminal resize or input.
 
     While idle, re-probes the terminal's colours now and then (see
@@ -662,8 +666,11 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                     if help_panel is not None:
                         was_helping = help_panel.open
                         if help_panel.handle(action):
-                            if not was_helping and help_panel.open and drag_start is not None:
-                                on_drag(*drag_delta, True)
+                            if not was_helping and help_panel.open:
+                                if drag_start is not None:
+                                    on_drag(*drag_delta, True)
+                                if on_interrupt is not None:
+                                    on_interrupt()
                             drag_start = None
                             break
                         help_closed = was_helping and not help_panel.open
@@ -754,6 +761,9 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                             continue
                         if (cb & 0b11) == 0 and not (cb & 0x20):
                             # Left button press (not release, not motion)
+                            if (drag_start is None and on_interrupt is not None
+                                    and on_interrupt()):
+                                _request_repaint()
                             if on_drag is not None:
                                 drag_start = (cx, cy)
                                 drag_delta = (0, 0)
@@ -839,7 +849,7 @@ class LiveApp:
     auto_play = False    # an animation loop rather than a time scrub
     play_interval = 0.6  # seconds per frame while playing
 
-    HOOKS = ("on_action", "on_drag", "on_wheel", "intercept", "on_click",
+    HOOKS = ("on_action", "on_drag", "on_wheel", "intercept", "on_click", "on_interrupt",
              "on_open", "play_gate", "text_mode")
 
     def render(self, **frame):
@@ -870,6 +880,10 @@ class LiveApp:
 
     def on_click(self, col, row):
         """A press and release on one cell; truthy repaints."""
+        return False
+
+    def on_interrupt(self):
+        """A new left-button press or opening Help; stop motion and return truthy to repaint."""
         return False
 
     def on_open(self, index):

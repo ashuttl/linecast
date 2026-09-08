@@ -830,6 +830,14 @@ class TestHelpPanel:
             assert mark in text
             assert _maps_i18n._STRINGS["en"][key] in text
 
+    def test_coasting_is_described_for_dragging_separately_from_keyboard_pan(self):
+        lines = panel_lines(mu.help_overlay(80, 40, "en"))
+        drag = next(line for line in lines if re.search(r"\bdrag\b", line))
+        keyboard = next(line for line in lines if re.search(r"\bwasd\b", line))
+        assert "pan" in drag and "flick to coast" in drag
+        assert "pan" in keyboard and "coast" not in keyboard
+        assert drag != keyboard
+
     def test_the_frame_carries_the_way_out(self):
         lines = panel_lines(mu.help_overlay(80, 40, "en"))
         assert "keys" in lines[0]

@@ -6,6 +6,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 - Maps: Drag and zoom continuously from streets to the whole planet. Zoom steps ease into place, keyboard pans reverse smoothly, and the existing map follows the camera while new detail is prepared. Resizing and fresh cloud imagery retain useful geography; failed views retry automatically.
 - Maps: Spinning and dragging the globe keeps a complete surface beneath newly revealed geography. Its shaded rim stays with the sphere while coastlines and labels refine in the background.
+- Maps: A flick carries the view into a short, slowing coast at every zoom level. Pause before releasing for precise placement; a new grab, zoom, or interaction panel stops the coast immediately.
 - Live views: Sustained mouse motion and rapid key presses yield to repainting, and ignored input no longer loses a pending repaint.
 - Live views: A quiet, translated `? keys` hint points to the controls, with room at the right edge so its last letter stays visible. Radar help describes warning hover accurately.
 - Sky: Zooming in stays responsive by skipping constellation arcs outside the view, preserving the visible lines and their horizon clipping.

@@ -1,0 +1,96 @@
+{
+  "date": "2026-09-08",
+  "branch": "codex/continuous-maps",
+  "previous_commit": "84cc792",
+  "note": "Sequential offline real MapApp/PTY runs. Each --coast phase checks flick continuation to a fixed endpoint, paused-release stillness, and immediate regrab cancellation using actual input receipt and rendered frames. Initial runs use bundled world sources; street run uses a private cached coastal fixture. Render timings exclude terminal writing and native display; the combined --spin run includes coverage-observer overhead. Single sequences, not repeated statistical trials.",
+  "coast": {
+    "half_life_seconds": 0.18,
+    "floor_viewports_per_second": 0.03,
+    "ceiling_viewports_per_second": 1.0,
+    "viewport": "min(columns, twice map rows) in physical fill pixels",
+    "velocity_window_seconds": 0.15,
+    "last_motion_freshness_seconds": 0.12,
+    "minimum_velocity_span_seconds": 0.03
+  },
+  "validation": {
+    "passed": 4120,
+    "skipped": 1,
+    "deselected": 72,
+    "subtests_passed": 263,
+    "seconds": 36.01,
+    "ruff": "passed"
+  },
+  "runs": [
+    {
+      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-qjwrm0v3",
+      "view": "terrain",
+      "size": [
+        120,
+        40
+      ],
+      "zoom": 130,
+      "delay_seconds": 0.3,
+      "frames": 241,
+      "output_bytes": 28981722,
+      "render_median_ms": 18.823667007382028,
+      "render_p95_ms": 42.60666700429283,
+      "render_max_ms": 68.65333300083876,
+      "exit_code": 0,
+      "spin_frames": 63,
+      "spin_seconds": 2.279682458000025,
+      "spin_degrees": 2.279677749989787,
+      "coverage_frames": 240,
+      "unseen_center_frames": 2,
+      "max_source_turn_degrees": 135.33579943428612,
+      "earth_samples": 998184,
+      "earth_missing_samples": 0,
+      "earth_background_samples": 0,
+      "earth_background_gaps": 0,
+      "coverage_observer_included": true,
+      "coast_frames": 24,
+      "coast_travel_viewport_fraction": 0.20715400675618575,
+      "paused_release_frames": 2,
+      "regrab_frozen_frames": 3
+    },
+    {
+      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-kzw2dlqy",
+      "view": "street",
+      "size": [
+        120,
+        40
+      ],
+      "zoom": 0.01,
+      "delay_seconds": 0,
+      "frames": 135,
+      "output_bytes": 12484634,
+      "render_median_ms": 3.5184369917260483,
+      "render_p95_ms": 8.489666972309351,
+      "render_max_ms": 12.002041010418907,
+      "exit_code": 0,
+      "coast_frames": 24,
+      "coast_travel_viewport_fraction": 0.16975534257728725,
+      "paused_release_frames": 1,
+      "regrab_frozen_frames": 3
+    },
+    {
+      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-ojyrv01q",
+      "view": "terrain",
+      "size": [
+        200,
+        60
+      ],
+      "zoom": 130,
+      "delay_seconds": 0.3,
+      "frames": 97,
+      "output_bytes": 28214184,
+      "render_median_ms": 42.54968800523784,
+      "render_p95_ms": 87.33829198172316,
+      "render_max_ms": 148.31250000861473,
+      "exit_code": 0,
+      "coast_frames": 15,
+      "coast_travel_viewport_fraction": 0.19479369957988024,
+      "paused_release_frames": 2,
+      "regrab_frozen_frames": 3
+    }
+  ]
+}

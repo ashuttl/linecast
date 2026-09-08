@@ -141,3 +141,64 @@ def test_frame_scheduling_does_not_use_wall_clock(loop, monkeypatch):
     monkeypatch.setattr(_live._time, 'time', wall_clock)
     loop.run(['key:d', GAP, 'quit'])
     assert loop.frames[-1][1] == 1
+
+
+def test_left_press_interrupts_before_queued_motion_and_paints_the_stop(loop):
+    loop.state = 1  # autonomous motion is active
+    events = []
+
+    def interrupt():
+        events.append('interrupt')
+        loop.state = 0
+        return True
+
+    def drag(dc, dr, done):
+        assert loop.state == 0
+        events.append(('drag', dc, dr, done))
+        return True
+
+    loop.run([('mouse', 35, 1, 1, False),  # hover cannot interrupt
+              ('mouse', 0, 1, 1, False), None,
+              ('mouse', 32, 4, 2, False), ('mouse', 32, 5, 2, False),
+              ('mouse', 0, 5, 2, True), GAP, 'quit'],
+             on_interrupt=interrupt, on_drag=drag)
+    assert [frame[1] for frame in loop.frames[:2]] == [1, 0]
+    assert events == ['interrupt', ('drag', 3, 1, False),
+                      ('drag', 4, 1, False), ('drag', 4, 1, True)]
+
+
+def test_help_interrupts_after_synthetic_release_and_does_not_restart_on_close(loop):
+    from linecast._help import HelpPanel
+
+    help_panel = HelpPanel('sky')
+    events, painted = [], []
+
+    def interrupt():
+        events.append('interrupt')
+        loop.state = 0
+        return True
+
+    def drag(dc, dr, done):
+        events.append(('drag', dc, dr, done))
+        loop.state = int(done)  # releasing starts autonomous motion
+        return True
+
+    loop.on_render = lambda: painted.append((help_panel.open, loop.state))
+    loop.run([('mouse', 0, 1, 1, False), ('mouse', 32, 4, 2, False),
+              'key:?', ('mouse', 35, 9, 9, False), 'escape',
+              ('mouse', 0, 4, 2, True), GAP, 'quit'],
+             on_interrupt=interrupt, on_drag=drag, help_panel=help_panel)
+    assert events == ['interrupt', ('drag', 3, 1, False),
+                      ('drag', 3, 1, True), 'interrupt']
+    assert (True, 0) in painted
+    assert all(state == 0 for _, state in painted)
+    assert not help_panel.open
+
+
+def test_opening_help_interrupts_without_a_drag_callback(loop):
+    from linecast._help import HelpPanel
+
+    interrupts = []
+    loop.run(['key:?', 'key:?', GAP, 'quit'], help_panel=HelpPanel('sky'),
+             on_drag=None, on_interrupt=lambda: interrupts.append(True))
+    assert interrupts == [True]

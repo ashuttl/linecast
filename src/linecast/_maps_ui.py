@@ -571,7 +571,8 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
 # Every key that does something, in the order you learn them. The
 # shared panel adds the way out in its bottom border.
 HELP_KEYS = (
-    ("drag / wasd", 'help_pan'),
+    ("drag", 'help_drag'),
+    ("wasd", 'help_pan'),
     ("wheel", 'help_zoom_pointer'),
     ("hover", 'help_hover'),
     ("+ -", 'help_zoom'),

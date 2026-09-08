@@ -77,6 +77,11 @@ def test_every_glyph_in_the_legend_has_a_name():
         assert key in KEYS
 
 
+def test_every_control_in_the_help_panel_has_a_description():
+    from linecast._maps_ui import HELP_KEYS
+    assert {entry[1] for entry in HELP_KEYS if entry} <= KEYS
+
+
 def test_a_missing_key_falls_back_to_english_per_key(monkeypatch):
     monkeypatch.setitem(TABLE, "xx", {"hint": "local hint"})
     assert ms("hint", "xx") == "local hint"
