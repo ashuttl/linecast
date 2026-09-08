@@ -1,34 +1,150 @@
-"""The scene caches the live map's loaders share (the scaffold itself is
-tested in test_scenes)."""
+"""Map loaders reuse exact scenes synchronously inside their bounded owner."""
 
 import sys
+import threading
+from dataclasses import replace
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _maps_views, maps
-from linecast._scenes import FetchHold, SceneCache
+from linecast import _maps_views
+from linecast._maps_camera import MapCamera
+from linecast._scenes import Memo
 
 
-class TestMapScenes:
-    def test_the_loaders_share_the_scaffold(self):
-        assert isinstance(_maps_views._elev_cache, SceneCache)
-        assert isinstance(_maps_views._street_cache, SceneCache)
-        assert isinstance(_maps_views._globe_cache, SceneCache)
-        assert _maps_views._elev_cache.empty is _maps_views._EMPTY_TERRAIN
-        assert _maps_views._street_cache.empty == (None, None, None)
-        assert _maps_views._globe_cache.empty is None
+@pytest.fixture(params=("elevation", "street", "globe"))
+def loader(request, monkeypatch):
+    """Real loader/memo behavior with tiny deterministic primary sources."""
+    calls, fail = [], [False]
 
-    def test_every_loader_waits_on_the_zoom_hold(self):
-        assert isinstance(_maps_views._zoom_hold, FetchHold)
-        assert _maps_views._zoom_hold.settle == _maps_views.ZOOM_SETTLE
-        for cache in (_maps_views._elev_cache, _maps_views._street_cache,
-                      _maps_views._globe_cache):
-            assert cache.held.__self__ is _maps_views._zoom_hold
+    def fetched():
+        calls.append(threading.get_ident())
+        if fail[0]:
+            raise RuntimeError("primary source offline")
 
-    def test_maps_reaches_the_same_caches(self):
-        # the bench scripts clear them through linecast.maps
-        assert maps._elev_cache is _maps_views._elev_cache
-        assert maps._street_cache is _maps_views._street_cache
-        assert maps._globe_cache is _maps_views._globe_cache
-        assert maps._terrain_cache is _maps_views._terrain_cache
+    kind = request.param
+    cache = Memo(keep=2)
+    cache_name = {"elevation": "_elev_cache", "street": "_street_cache",
+                  "globe": "_globe_cache"}[kind]
+    monkeypatch.setattr(_maps_views, cache_name, cache)
+    if kind == "elevation":
+        def elevation(bbox, w, h, **kwargs):
+            fetched()
+            return [[100.] * w for _ in range(h)]
+
+        monkeypatch.setattr(_maps_views, "elevation_grid", elevation)
+        monkeypatch.setattr(_maps_views, "_tile_water", lambda camera: (None,) * 4)
+        monkeypatch.setattr(_maps_views, "_builtup_layer", lambda camera: None)
+        load = _maps_views._get_elevation
+    elif kind == "street":
+        def tiles(keys):
+            fetched()
+            return {keys[0]: object()}
+
+        monkeypatch.setattr(_maps_views._maps_streets, "view_tiles",
+                            lambda *args, **kwargs: (0, 1, [(1, 0, 0)]))
+        monkeypatch.setattr(_maps_views._maps_streets, "fetch_tiles", tiles)
+        monkeypatch.setattr(_maps_views._maps_streets, "build_street_view",
+                            lambda *args, **kwargs: (object(), object(), {}))
+        load = _maps_views._get_street
+    else:
+        def elevation(lls, zoom, h):
+            fetched()
+            return [[100.] * len(row) for row in lls]
+
+        globe = _maps_views._globe
+        monkeypatch.setattr(globe, "geometry", lambda lat, lon, zoom, w, h:
+                            ([[(lat, lon)] * w for _ in range(h)], None, None))
+        monkeypatch.setattr(globe, "elevation", elevation)
+        for name in ("atmosphere", "lake_mask", "ice_cover", "border_layer", "limb_lls"):
+            monkeypatch.setattr(globe, name, lambda *args: None)
+        load = _maps_views._get_globe
+    return load, cache, calls, fail
+
+
+def test_primary_load_runs_on_the_caller_and_exact_repaints_reuse_it(loader):
+    load, cache, calls, _ = loader
+    camera = MapCamera(40, -73, .01, 4, 2)
+    first = load(camera)
+    assert load(replace(camera)) is first
+    assert calls == [threading.get_ident()]
+    assert len(cache) == 1
+
+
+def test_camera_changes_miss_and_old_geography_is_evicted_within_the_bound(loader):
+    load, cache, calls, _ = loader
+    camera = MapCamera(40, -73, .01, 4, 2)
+    first = load(camera)
+    moved = load(replace(camera, lon=camera.lon + 1e-8))
+    resized = load(replace(camera, gw=6))
+    assert moved is not first and resized is not first
+    assert len(cache) == 2
+    assert load(camera) is not first
+    assert len(calls) == 4 and len(cache) == 2
+
+
+def test_theme_change_misses_prepared_source_colours(loader, monkeypatch):
+    load, _, calls, _ = loader
+    camera = MapCamera(40, -73, .01, 4, 2)
+    first = load(camera)
+    monkeypatch.setattr(_maps_views._theme, "generation", _maps_views._theme.generation + 1)
+    assert load(camera) is not first
+    assert len(calls) == 2
+
+
+def test_primary_failure_propagates_and_is_not_cached(loader):
+    load, cache, calls, fail = loader
+    camera = MapCamera(40, -73, .01, 4, 2)
+    fail[0] = True
+    with pytest.raises(RuntimeError, match="primary source offline"):
+        load(camera)
+    assert not len(cache)
+    fail[0] = False
+    recovered = load(camera)
+    assert load(camera) is recovered
+    assert len(calls) == 2
+
+
+def test_missing_street_tiles_fail_without_poisoning_the_camera_cache(monkeypatch):
+    cache = Memo()
+    camera = MapCamera(40, -73, .01, 4, 2)
+    monkeypatch.setattr(_maps_views, "_street_cache", cache)
+    monkeypatch.setattr(_maps_views._maps_streets, "view_tiles",
+                        lambda *args, **kwargs: (0, 1, [(1, 0, 0)]))
+    monkeypatch.setattr(_maps_views._maps_streets, "fetch_tiles", lambda keys: {keys[0]: None})
+    with pytest.raises(RuntimeError):
+        _maps_views._get_street(camera)
+    assert not len(cache)
+
+
+def test_optional_source_failure_keeps_elevation_available(monkeypatch):
+    camera = MapCamera(40, -73, .01, 4, 2)
+    monkeypatch.setattr(_maps_views, "_elev_cache", Memo())
+    monkeypatch.setattr(_maps_views, "elevation_grid", lambda bbox, w, h, **kwargs:
+                        [[100.] * w for _ in range(h)])
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("optional source offline")
+
+    monkeypatch.setattr(_maps_views._maps_streets, "fetch_view", fail)
+    monkeypatch.setattr(_maps_views._builtup, "enabled", lambda: True)
+    monkeypatch.setattr(_maps_views._builtup, "builtup_grid", fail)
+    view = _maps_views._get_elevation(camera)
+    assert view.elev == [[100.] * 4 for _ in range(4)]
+    assert view.water is None and view.rivers is None and view.cover is None
+
+
+def test_street_label_cache_accounts_for_language_and_reserved_cells(monkeypatch):
+    camera = MapCamera(40, -73, .01, 4, 2)
+    monkeypatch.setattr(_maps_views, "_street_cache", Memo())
+    monkeypatch.setattr(_maps_views._maps_streets, "view_tiles",
+                        lambda *args, **kwargs: (0, 1, [(1, 0, 0)]))
+    monkeypatch.setattr(_maps_views._maps_streets, "fetch_tiles", lambda keys: {keys[0]: object()})
+    monkeypatch.setattr(_maps_views._maps_streets, "build_street_view",
+                        lambda *args, **kwargs: object())
+    first = _maps_views._get_street(camera, "en", ((0, 0), (1, 1)))
+    assert _maps_views._get_street(camera, "en", ((1, 1), (0, 0))) is first
+    assert _maps_views._get_street(camera, "ja", ((0, 0), (1, 1))) is not first
+    assert _maps_views._get_street(camera, "en", ((0, 0),)) is not first

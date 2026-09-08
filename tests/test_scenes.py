@@ -10,7 +10,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast import _scenes
-from linecast._scenes import FetchHold, Memo, SceneCache
+from linecast._scenes import Memo, SceneCache
 
 
 def _settle(cache, key, timeout=2.0):
@@ -57,29 +57,6 @@ class TestMemo:
         assert list(memo._items) == ["b"]
         memo.clear()
         assert len(memo) == 0
-
-
-class TestFetchHold:
-    def test_holds_until_the_deadline(self, monkeypatch):
-        monkeypatch.setattr(_scenes, "nudge", lambda: None)
-        hold = FetchHold(settle=0.05)
-        assert not hold.held()
-        hold.hold()
-        assert hold.held()
-        time.sleep(0.07)
-        assert not hold.held()
-
-    def test_only_the_last_hold_nudges(self, monkeypatch):
-        nudged = []
-        monkeypatch.setattr(_scenes, "nudge", lambda: nudged.append(1))
-        # Taps well inside the settle time: a runner that oversleeps the
-        # gap between them would otherwise make an earlier tap settle.
-        hold = FetchHold(settle=0.2)
-        for _ in range(3):
-            hold.hold()
-            time.sleep(0.01)
-        time.sleep(0.5)
-        assert nudged == [1]
 
 
 class TestSceneCache:
@@ -142,14 +119,6 @@ class TestSceneCache:
         cache.get("k", False, lambda: "view")
         _settle(cache, "k")
         assert nudged == [1]
-
-    def test_no_fetch_starts_while_a_gesture_is_in_flight(self):
-        cache = SceneCache(empty="empty", held=lambda: True)
-        calls = []
-        assert cache.get("k", False, lambda: calls.append(1)) == "empty"
-        assert not calls and not cache._pending
-        # a blocking get is never held: the caller asked to wait
-        assert cache.get("k", True, lambda: "v") == "v"
 
     def test_the_oldest_view_goes_first_past_keep(self):
         cache = SceneCache(keep=3)

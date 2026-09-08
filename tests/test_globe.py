@@ -1,4 +1,4 @@
-"""The orthographic globe: projection math, sampling, and hand-off."""
+"""World map sources: orthographic sampling, styling, and projected geometry."""
 
 import math
 import sys
@@ -42,30 +42,11 @@ class TestProjection:
         assert rhos[0][0] > 1.0
         assert lls[20][20] is not None
 
-    def test_limb_scale_matches_flat_map_at_center(self):
-        # one grid row at the disk centre spans zoom/h degrees of arc —
-        # the hand-off does not change the size of anything on screen
+    def test_disk_center_preserves_the_requested_angular_pixel_scale(self):
+        # One grid row at the disk centre spans zoom/h degrees of arc.
         lls, _zs, _rhos = _globe.geometry(0.0, 0.0, 90.0, 400, 400)
         a, b = lls[199][200], lls[200][200]
         assert abs((a[0] - b[0]) - 90.0 / 400) < 0.01
-
-
-class TestHandOff:
-    def test_equator_hands_off_at_zoom_deg(self):
-        assert not _globe.is_globe(_globe.ZOOM_DEG - 1, 0.0)
-        assert _globe.is_globe(_globe.ZOOM_DEG, 0.0)
-
-    def test_poles_hand_off_by_width(self):
-        # a 21° window at the Ross Sea is 220° of longitude wide — it
-        # ran off the antimeridian as a flat map, so it goes round
-        assert not _globe.is_globe(21.0, 0.0)
-        assert _globe.is_globe(21.0, -78.0)
-        assert not _globe.is_globe(7.0, -78.0)
-
-    def test_reaching_past_the_tiles_hands_off(self):
-        # the Mercator tiles end at the 85th parallel
-        assert _globe.is_globe(3.0, -84.0)
-        assert not _globe.is_globe(3.0, -80.0)
 
 
 class TestGeometryCache:
@@ -471,81 +452,72 @@ class TestLakes:
 class TestLabelToggle:
     def test_globe_render_hides_city_text_when_toggled(self, monkeypatch):
         from linecast import maps
+        from linecast._maps_camera import MapCamera
         gw, hc = 40, 12
+        camera = MapCamera(20, -30, 125, gw, hc)
         lls, zs, rhos = _globe.geometry(20.0, -30.0, 125.0, gw, hc * 2)
-        elev = [[None if ll is None else 500.0 for ll in row]
-                for row in lls]
+        elev = [[None if ll is None else 500.0 for ll in row] for row in lls]
         view = _globe.GlobeView(elev, [[0] * gw for _ in range(hc)], zs,
                                 _globe.atmosphere(rhos, 125.0, hc * 2),
                                 None, None)
-        monkeypatch.setattr(maps, "_get_globe", lambda *a: view)
-        monkeypatch.setattr(maps, "get_terminal_size", lambda: (gw, hc + 2))
-        bbox = (-31.0, -42.5, -29.0, 82.5)  # centre (20, -30), zoom 125
-        args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
-                "en", None)
-        on, *_rest = maps._render_globe(*args, show_labels=True)
-        off, *_rest = maps._render_globe(*args, show_labels=False)
-        assert any("•" in line for line in on)
-        assert not any("•" in line for line in off)
+        monkeypatch.setattr(maps, "_get_globe", lambda camera: view)
+        on = maps.prepare_map(camera, show_labels=True)
+        off = maps.prepare_map(camera, show_labels=False)
+        assert any(entry[0] == "•" for entry in on.overlays.values())
+        assert not off.overlays
+        assert "•" in maps.render_map(camera, on, "Map")
+        assert "•" not in maps.render_map(camera, off, "Map")
 
     def test_globe_render_hides_linework_when_toggled(self, monkeypatch):
         from linecast import maps
+        from linecast._maps_camera import MapCamera
+        from linecast._maps_paint import BORDER_STROKE
+        from linecast._radar_basemap import DotLayer
         gw, hc = 40, 12
+        camera = MapCamera(20, -30, 125, gw, hc)
         lls, zs, rhos = _globe.geometry(20.0, -30.0, 125.0, gw, hc * 2)
-        elev = [[None if ll is None else 500.0 for ll in row]
-                for row in lls]
-        borders = maps.DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
-        # near the disk centre, but clear of the centre crosshair's cell
-        borders._set_dot(gw + 4, hc * 2, maps.BORDER_STROKE)
+        elev = [[None if ll is None else 500.0 for ll in row] for row in lls]
+        borders = DotLayer(camera.bounds, gw, hc, camera=camera)
+        # Near the disk centre, clear of the centre crosshair's cell.
+        borders._set_dot(gw + 4, hc * 2, BORDER_STROKE)
         coast = [[0] * gw for _ in range(hc)]
         coast[hc // 2][gw // 2 - 3] = 0x10
         view = _globe.GlobeView(elev, coast, zs,
                                 _globe.atmosphere(rhos, 125.0, hc * 2),
                                 None, borders)
-        monkeypatch.setattr(maps, "_get_globe", lambda *a: view)
-        monkeypatch.setattr(maps, "get_terminal_size", lambda: (gw, hc + 2))
-        monkeypatch.setattr(_globe, "city_overlays", lambda *a, **k: {})
-        bbox = (-31.0, -42.5, -29.0, 82.5)
-        args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
-                "en", None)
-        on, *_rest = maps._render_globe(*args, show_labels=True)
-        off, *_rest = maps._render_globe(*args, show_labels=False)
+        monkeypatch.setattr(maps, "_get_globe", lambda camera: view)
+        monkeypatch.setattr(maps._globe, "city_overlays", lambda *a, **k: {})
+        on = maps.render_map(camera, maps.prepare_map(camera, show_labels=True), "Map")
+        off = maps.render_map(camera, maps.prepare_map(camera, show_labels=False), "Map")
         border = chr(0x2800 + borders.dots[hc // 2][gw // 2 + 2])
         for stroke in (border, chr(0x2810)):
-            assert any(stroke in line for line in on)
-            assert not any(stroke in line for line in off)
+            assert stroke in on
+            assert stroke not in off
 
     def test_terrain_render_hides_linework_when_toggled(self, monkeypatch):
         from linecast import maps
+        from linecast._maps_camera import MapCamera
+        from linecast._maps_views import TerrainView
+        from linecast._radar_basemap import BORDER, DotLayer
         gw, hc = 40, 12
+        camera = MapCamera(44, -70, 1, gw, hc)
         elev = [[500.0] * gw for _ in range(hc * 2)]
         coast = [[0] * gw for _ in range(hc)]
         coast[hc // 2][gw // 2 - 5] = 0x10
-        rivers = maps.DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
+        rivers = DotLayer(camera.bounds, gw, hc, camera=camera)
         rivers._set_dot((gw // 2 - 8) * 2, hc // 2 * 4 + 1, (0, 0, 255))
-        terrain = maps.TerrainView(elev, coast, None, rivers, None)
-        monkeypatch.setattr(maps, "_get_elevation", lambda *a: terrain)
-
-        class FakeBasemap:
-            dots = [[0] * gw for _ in range(hc)]
-            color = [[None] * gw for _ in range(hc)]
-            # clear of the centre crosshair's cell
-            dots[hc // 2][gw // 2 + 5] = 0x07
-            color[hc // 2][gw // 2 + 5] = maps.BORDER
-
-            def city_overlays(self, lang="en"):
-                return {}
-
-        monkeypatch.setattr(maps, "_get_basemap",
-                            lambda *a: FakeBasemap())
-        bbox = (-70.5, 43.5, -69.5, 44.5)
-        args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
-                "en", None)
-        on, *_rest = maps._render_terrain(*args, show_labels=True)
-        off, *_rest = maps._render_terrain(*args, show_labels=False)
+        terrain = TerrainView(elev, coast, None, rivers, None)
+        monkeypatch.setattr(maps, "_get_elevation", lambda camera: terrain)
+        borders = DotLayer(camera.bounds, gw, hc, camera=camera)
+        borders.dots[hc // 2][gw // 2 + 5] = 0x07
+        borders.color[hc // 2][gw // 2 + 5] = BORDER
+        monkeypatch.setattr(maps, "_camera_borders", lambda camera: borders)
+        monkeypatch.setattr(maps._globe, "city_overlays", lambda *a, **k: {})
+        on = maps.render_map(camera, maps.prepare_map(camera, show_labels=True), "Map")
+        off = maps.render_map(camera, maps.prepare_map(camera, show_labels=False), "Map")
         for stroke in (chr(0x2807), chr(0x2810), chr(0x2802)):
-            assert any(stroke in line for line in on)
-            assert not any(stroke in line for line in off)
+            assert stroke in on
+            assert stroke not in off
 
 
 def _reference_border_layer(lat0, lon0, zoom, gw, hc, color):
@@ -595,69 +567,67 @@ class TestBorders:
 
 
 class TestStreetRegister:
-    """City lights are terrain's, in either projection; and past the
-    hand-off the street register paints its own two fills."""
+    """Terrain owns city lights; street keeps its palette at every scale."""
 
     @staticmethod
     def _view(gw, hc):
         lls, zs, rhos = _globe.geometry(20.0, -30.0, 125.0, gw, hc * 2)
-        elev = [[None if ll is None else 500.0 for ll in row]
-                for row in lls]
+        elev = [[None if ll is None else 500.0 for ll in row] for row in lls]
         return _globe.GlobeView(elev, [[0] * gw for _ in range(hc)], zs,
                                 _globe.atmosphere(rhos, 125.0, hc * 2),
                                 None, None, lls)
 
-    def _render(self, monkeypatch, street):
-        from linecast import _globe_now, maps
+    def _prepare(self, monkeypatch, street):
+        from linecast import maps
+        from linecast._maps_camera import MapCamera
         gw, hc = 40, 12
         asked = []
-        monkeypatch.setattr(maps, "_get_globe",
-                            lambda *a: self._view(gw, hc))
-        monkeypatch.setattr(maps, "get_terminal_size",
-                            lambda: (gw, hc + 2))
-        monkeypatch.setattr(_globe, "city_overlays", lambda *a, **k: {})
+        monkeypatch.setattr(maps, "_get_globe", lambda camera: self._view(gw, hc))
+        monkeypatch.setattr(maps._globe, "city_overlays", lambda *a, **k: {})
 
         def lights(*a, **k):
             asked.append(a)
             return {}
 
-        monkeypatch.setattr(_globe_now, "city_lights_globe", lights)
-        bbox = (-31.0, -42.5, -29.0, 82.5)  # centre (20, -30), zoom 125
-        maps._render_globe(bbox, gw, hc, True, (0, 0), None, None, None,
-                           None, "en", None, street=street, sun=True)
+        monkeypatch.setattr(maps._globe_now, "city_lights_globe", lights)
+        camera = MapCamera(20, -30, 125, gw, hc)
+        maps.prepare_map(camera, view="street" if street else "terrain", sun=True)
         return asked
 
     def test_the_street_planet_asks_for_no_city_lights(self, monkeypatch):
-        assert self._render(monkeypatch, street=True) == []
+        assert self._prepare(monkeypatch, street=True) == []
 
     def test_the_terrain_planet_still_lights_its_cities(self, monkeypatch):
-        assert self._render(monkeypatch, street=False) != []
+        assert self._prepare(monkeypatch, street=False) != []
 
-    def test_the_flat_street_map_asks_for_none_either(self, monkeypatch):
-        from linecast import _globe_now, maps
+    def test_the_local_street_map_keeps_its_brighter_night_floor_without_lights(self,
+                                                                             monkeypatch):
+        from linecast import maps
+        from linecast._maps_camera import MapCamera
+        from linecast._radar_basemap import DotLayer
         gw, hc = 40, 12
+        camera = MapCamera(43.5, -70.5, 1, gw, hc)
         asked, shaded = [], []
 
         def lights(*a, **k):
             asked.append(a)
             return {}
 
-        monkeypatch.setattr(_globe_now, "city_lights_flat", lights)
-        monkeypatch.setattr(maps, "_get_street", lambda *a, **k:
-                            (None, None, None))
+        monkeypatch.setattr(maps._globe_now, "city_lights_globe", lights)
+        fills = [[(100, 100, 100)] * gw for _ in range(hc * 2)]
+        layer = DotLayer(camera.bounds, gw, hc, camera=camera)
+        layer.hover = None
+        monkeypatch.setattr(maps, "_get_street", lambda *a, **k: (fills, layer, {}))
         real = maps._shade_now
         monkeypatch.setattr(maps, "_shade_now", lambda *a, **k:
                             shaded.append((a, k)) or real(*a, **k))
-        maps._render_street((-71.0, 43.0, -70.0, 44.0), gw, hc, False,
-                            (0, 0), None, None, None, None, "en", None,
-                            sun=True)
+        prepared = maps.prepare_map(camera, view="street", sun=True)
+        assert prepared.street and prepared.ink_dusk is not None
         assert asked == []
-        assert shaded[0][0][4] == {}           # the lights argument
-        assert shaded[0][1]["night"] == _globe_now.NIGHT_STREET
+        assert shaded[0][0][4] == {}  # The lights argument.
+        assert shaded[0][1]["night"] == maps._globe_now.NIGHT_STREET
 
     def test_the_street_planet_wears_the_street_map_fills(self):
-        # crossing the hand-off changes the curvature and nothing
-        # else: no separate globe pair in either theme
         from linecast import _maps_style
         for p in (_maps_style.PALETTE_DARK, _maps_style.PALETTE_LIGHT):
             assert "globe_water" not in p and "globe_ground" not in p
@@ -687,3 +657,36 @@ class TestCities:
         near_dots = {p for p, (ch, _c) in near.items() if ch == "•"}
         far_dots = {p for p, (ch, _c) in far.items() if ch == "•"}
         assert near_dots != far_dots
+
+
+class TestTerrainShading:
+    def test_projected_relief_has_the_same_physical_scale_at_equator_and_poles(self,
+                                                                             monkeypatch):
+        from linecast import maps
+        from linecast._maps_camera import MapCamera
+
+        gw, hc, zoom = 40, 12, 125
+        camera = MapCamera(0, 0, zoom, gw, hc)
+        lls, zs, rhos = _globe.geometry(0, 0, zoom, gw, hc * 2)
+        # Hold the projected geography fixed while changing which part of
+        # Earth is at the centre: a sloped plane with the same centre height.
+        sloped = [[None if ll is None else 1500 + 300 * (x - gw // 2) + 150 * (y - hc)
+                   for x, ll in enumerate(row)] for y, row in enumerate(lls)]
+        flat = [[None if ll is None else 1500 for ll in row] for row in lls]
+        atmo = _globe.atmosphere(rhos, zoom, hc * 2)
+        monkeypatch.setattr(maps._climate, 'grid_for_lls', lambda *a: ())
+
+        def prepare(lat, elev):
+            view = _globe.GlobeView(elev, None, zs, atmo, None, None, lls)
+            monkeypatch.setattr(maps, '_get_globe', lambda camera: view)
+            monkeypatch.setattr(maps, '_terrain_cache', Memo(keep=4))
+            return maps.prepare_map(MapCamera(lat, 0, zoom, gw, hc),
+                                    show_labels=False).fills
+
+        equator = prepare(0, sloped)
+        for lat in (-90, 90):
+            assert prepare(lat, sloped) == equator
+        # Equal output must not be achieved by accidentally disabling the
+        # relief shader: at the shared centre elevation its slope still matters.
+        level = prepare(camera.lat, flat)
+        assert equator[hc][gw // 2] != level[hc][gw // 2]

@@ -325,15 +325,16 @@ Reproduction
 ------------
 
 Run Python probes from the repository root using the same interpreter where
-possible. Experimental scripts live in `sky/`, `shared/`, `globe/`, and
+possible. The Maps baseline harness requires a checkout of `93002fc` or
+`a7ecc9b` via `--repo`; use `maps/live_pty.py` for the current implementation. Experimental scripts live in `sky/`, `shared/`, `globe/`, and
 `maps/`; their local notes explain the workloads and validation. Each is
 separate from the installed package. Avoid running timing probes concurrently.
 
 The map baseline can be reproduced with:
 
 ```sh
-.venv/bin/python docs/interaction-study/maps/bench.py --n 40 --out /tmp/maps-globe.jsonl
-.venv/bin/python docs/interaction-study/maps/bench.py --flat-only --cache-source /path/to/linecast-cache --n 40 --out /tmp/maps-street.jsonl
+.venv/bin/python docs/interaction-study/maps/bench.py --repo /path/to/baseline-checkout --n 40 --out /tmp/maps-globe.jsonl
+.venv/bin/python docs/interaction-study/maps/bench.py --repo /path/to/baseline-checkout --flat-only --cache-source /path/to/linecast-cache --n 40 --out /tmp/maps-street.jsonl
 ```
 
 The second command requires the matching cached vector tiles and asserts

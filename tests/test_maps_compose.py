@@ -1,4 +1,4 @@
-"""Tests for compose_map and the zoom-scaled view cache key.
+"""Tests for compose_map and the exact camera view cache key.
 
 compose_map is the street-mode sibling of compose_terrain: area fills
 under one pre-ranked braille layer. The colour mode is patched through
@@ -10,17 +10,20 @@ generation than the function bound at the top of this file.
 import math
 import re
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _color, _globe, _maps_style
+from linecast import _color, _globe, _maps_style, _maps_views
 from linecast._framebuffer import HALF_BLOCK
+from linecast._maps_camera import MapCamera
+from linecast._maps_views import _view_key
 from linecast.maps import (
     LABEL_DARK, LABEL_LIGHT, MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP,
-    _view_key, compose_map, max_zoom,
+    compose_map, max_zoom,
 )
 
 GREEN = (40, 60, 40)
@@ -195,35 +198,22 @@ class TestComposeMapDegradedModes:
 
 
 class TestViewKeyPrecision:
-    def test_wide_views_keep_todays_four_places(self):
-        # Unchanged behaviour for every existing caller: at a degree or
-        # more the key is exactly what it always was.
-        bbox = (-71.123456, 43.123456, -69.123456, 45.123456)
-        assert _view_key(bbox, 80, 22)[:3] == (
-            (-71.1235, 43.1235, -69.1235, 45.1235), 80, 22)
+    def test_the_key_preserves_the_exact_camera_at_every_scale(self):
+        for zoom in (MIN_ZOOM_DEG, 1, 130):
+            camera = MapCamera(43.123456, -71.123456, zoom, 80, 22)
+            assert _view_key(camera) == (camera.key, _maps_views._theme.generation)
 
     def test_a_one_cell_pan_at_the_deepest_zoom_is_a_distinct_key(self):
-        # 0.0012 deg over 22 cells: one cell of pan is ~5.5e-5 deg,
-        # which 4 dp would round away entirely.
-        zoom, hc = MIN_ZOOM_DEG, 22
-        cell = zoom / hc
-        a = (-70.371, 43.677, -70.361, 43.677 + zoom)
-        b = (a[0], a[1] + cell, a[2], a[3] + cell)
-        assert _view_key(a, 80, hc) != _view_key(b, 80, hc)
-        # ...and the min/max latitudes stay distinct within one key
-        key = _view_key(a, 80, hc)[0]
-        assert key[1] != key[3]
+        camera = MapCamera(43.677, -70.371, MIN_ZOOM_DEG, 80, 22)
+        assert _view_key(camera) != _view_key(camera.pan(0, 1))
 
-    def test_precision_tracks_the_span(self):
-        assert _view_key((0, 0, 1, 1), 1, 1)[0] == (0, 0, 1, 1)
-        deep = _view_key((0.1234567, 0.1234567, 0.1244567, 0.1244567), 1, 1)
-        assert deep[0][0] == round(0.1234567, 6)
-        wide = _view_key((0.1234567, 0.0, 10.1234567, 60.0), 1, 1)
-        assert wide[0][0] == round(0.1234567, 4)
-
-    def test_degenerate_span_does_not_explode(self):
-        assert _view_key((1.0, 5.0, 2.0, 5.0), 10, 10)[0] == (1.0, 5.0,
-                                                              2.0, 5.0)
+    def test_resize_zoom_and_theme_each_invalidate_the_view(self, monkeypatch):
+        camera = MapCamera(43.677, -70.371, 1, 80, 22)
+        first = _view_key(camera)
+        assert _view_key(replace(camera, gw=81)) != first
+        assert _view_key(replace(camera, zoom=camera.zoom + 1e-8)) != first
+        monkeypatch.setattr(_maps_views._theme, "generation", _maps_views._theme.generation + 1)
+        assert _view_key(camera) != first
 
 
 class TestZoomRange:
@@ -231,8 +221,7 @@ class TestZoomRange:
         # The old floor of 0.1 topped out at band 3; buildings and POI
         # text live at band 7.
         assert MIN_ZOOM_DEG == 0.0012
-        # the ceiling admits the whole planet: past _globe.ZOOM_DEG the
-        # terrain view is orthographic, and 130 fits the disk with margin
+        # The ceiling fits the whole planet in the continuous camera.
         assert MAX_ZOOM_DEG == 130.0
         hc = 22
         deepest = (-70.0, 43.0, -69.0, 43.0 + MIN_ZOOM_DEG)

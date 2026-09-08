@@ -2,10 +2,10 @@
   "date": "2026-09-08",
   "branch": "codex/continuous-maps",
   "base_commit": "a7ecc9b",
-  "note": "Sequential offline real MapApp/PTY runs. Render wall time excludes terminal writes and native display. Cached street fixture; delayed case sleeps only in background preparation. All assertions passed.",
+  "note": "Sequential offline real MapApp/PTY runs after consolidation of scene preparation and rendering. Render wall time excludes terminal writes and native display. Cached street fixture; delayed case sleeps only in background preparation. All assertions passed.",
   "runs": [
     {
-      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-c9i86n8j",
+      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-js18n6nl",
       "view": "terrain",
       "size": [
         120,
@@ -14,14 +14,14 @@
       "zoom": 130,
       "delay_seconds": 0,
       "frames": 62,
-      "output_bytes": 7645528,
-      "render_median_ms": 19.746125006349757,
-      "render_p95_ms": 56.122834008419886,
-      "render_max_ms": 69.37504198867828,
+      "output_bytes": 7626091,
+      "render_median_ms": 19.64225000119768,
+      "render_p95_ms": 52.23475000821054,
+      "render_max_ms": 60.05875000846572,
       "exit_code": 0
     },
     {
-      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-_ov7c8nx",
+      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-akm_6xc_",
       "view": "terrain",
       "size": [
         120,
@@ -30,14 +30,14 @@
       "zoom": 130,
       "delay_seconds": 0.3,
       "frames": 80,
-      "output_bytes": 9567915,
-      "render_median_ms": 16.22295900597237,
-      "render_p95_ms": 34.396625007502735,
-      "render_max_ms": 59.25629200646654,
+      "output_bytes": 9565722,
+      "render_median_ms": 16.391417011618614,
+      "render_p95_ms": 33.39037499972619,
+      "render_max_ms": 67.60487501742318,
       "exit_code": 0
     },
     {
-      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-2uttc_oa",
+      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-nrlut6ct",
       "view": "street",
       "size": [
         120,
@@ -45,15 +45,15 @@
       ],
       "zoom": 0.01,
       "delay_seconds": 0,
-      "frames": 74,
-      "output_bytes": 6968645,
-      "render_median_ms": 3.5362500057090074,
-      "render_p95_ms": 8.69008299196139,
-      "render_max_ms": 11.58962500630878,
+      "frames": 78,
+      "output_bytes": 7342875,
+      "render_median_ms": 3.404209011932835,
+      "render_p95_ms": 9.974209009669721,
+      "render_max_ms": 11.383125005522743,
       "exit_code": 0
     },
     {
-      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-a0na8ja1",
+      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-1mxj0kap",
       "view": "street",
       "size": [
         200,
@@ -61,11 +61,11 @@
       ],
       "zoom": 0.01,
       "delay_seconds": 0,
-      "frames": 68,
-      "output_bytes": 15289193,
-      "render_median_ms": 7.238874997710809,
-      "render_p95_ms": 15.979332994902506,
-      "render_max_ms": 19.74229101324454,
+      "frames": 74,
+      "output_bytes": 16617172,
+      "render_median_ms": 7.04799999948591,
+      "render_p95_ms": 18.992040975717828,
+      "render_max_ms": 31.271250016288832,
       "exit_code": 0
     }
   ]

@@ -632,11 +632,13 @@ class TestMapsSnapshot:
 
     def _render(self, view, fetch_patch, zoom=0.02):
         from linecast import _color, _maps_style, _theme, maps
+        from linecast._maps_camera import MapCamera
         stack = [
             patch("linecast.maps.get_terminal_size",
                   return_value=(self.COLS, self.ROWS)),
             patch.object(_color, "_COLOR_MODE", "truecolor"),
             patch.object(_maps_style, "color_mode", lambda: "truecolor"),
+            patch.object(_maps_style, "use_metric", lambda: True),
             patch.object(_theme, "theme_bg", (14, 15, 18)),
             patch.dict(maps.compose_map.__globals__,
                        {"color_mode": lambda: "truecolor"}),
@@ -645,9 +647,10 @@ class TestMapsSnapshot:
         for ctx in stack:
             ctx.__enter__()
         try:
-            out = maps.render_map(
-                self.LAT, self.LON, "Portland, Maine", zoom,
-                runtime=self._runtime(), view=view)
+            camera = MapCamera(self.LAT, self.LON, zoom, self.COLS, self.ROWS - 2)
+            prepared = maps.prepare_map(camera, view=view, marker=(self.LAT, self.LON))
+            out = maps.render_map(camera, prepared, "Portland, Maine",
+                                  runtime=self._runtime(), view=view)
         finally:
             for ctx in reversed(stack):
                 ctx.__exit__(None, None, None)
@@ -655,54 +658,57 @@ class TestMapsSnapshot:
 
     def test_maps_terrain_80x24(self):
         # A synthetic shoreline: elevation rises west to east and the
-        # western third is below sea level, so the snapshot carries the
+        # western part is below sea level, so the snapshot carries the
         # bathy ramp, the hypso ramp and a derived coastline.
         from linecast import maps
+        from linecast._maps_views import TerrainView, _coast_dots
 
-        def elevation(bbox, gw, hc, block):
-            fine = [[(x - gw * 1.4) * 2.0 for x in range(gw * 2)]
-                    for _ in range(hc * 4)]
-            grid = [[(x - gw * 0.7) * 4.0 for x in range(gw)]
-                    for _ in range(hc * 2)]
-            # no tile water: the snapshot is the elevation-only map
-            return maps.TerrainView(grid, maps._coast_dots(fine, gw, hc),
-                                    None, None, None)
+        def elevation(camera):
+            gw, hc = camera.gw, camera.hc
+            span = camera.scale_bbox[2] - camera.scale_bbox[0]
+            shore = self.LON + span * .2
+
+            def synth(w, h):
+                return [[(lon - shore) / span * gw * 4 for _lat, lon in row]
+                        for row in camera.lls(w, h)]
+
+            fine, grid = synth(gw * 2, hc * 4), synth(gw, hc * 2)
+            return TerrainView(grid, _coast_dots(fine, gw, hc), None, None, None)
 
         output = self._render(
             "terrain", patch.object(maps, "_get_elevation", elevation))
         _compare_or_create("maps_terrain_80x24.txt", output)
 
     def test_maps_globe_80x24(self):
-        # Planet-scale zoom hands terrain to the orthographic globe.  A
-        # synthetic hemisphere — dry land east of the centre meridian,
-        # deep sea west — pins the disk, the limb falloff, the
+        # A synthetic hemisphere under the continuous camera: dry land
+        # east of the centre meridian and deep sea west pin the limb falloff, the
         # atmosphere rim and the space around the planet, while the
         # vendored city data pins the projected labels.
         from linecast import _globe, maps
+        from linecast._maps_paint import BORDER_STROKE
+        from linecast._maps_views import _coast_dots
 
         def synth(lls):
             return [[None if ll is None
                      else (1200.0 if ll[1] > self.LON else -3200.0)
                      for ll in row] for row in lls]
 
-        def get_globe(lat0, lon0, zoom, gw, hc, block):
+        def get_globe(camera):
+            lat0, lon0, zoom, gw, hc = camera.key
             lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, gw, hc * 2)
-            flls, _fz, _fr = _globe.geometry(lat0, lon0, zoom,
-                                             gw * 2, hc * 4)
+            flls = camera.lls(gw * 2, hc * 4)
             return _globe.GlobeView(
-                synth(lls), maps._coast_dots(synth(flls), gw, hc), zs,
+                synth(lls), _coast_dots(synth(flls), gw, hc), zs,
                 _globe.atmosphere(rhos, zoom, hc * 2), None,
-                _globe.border_layer(lat0, lon0, zoom, gw, hc,
-                                    maps.BORDER_STROKE))
+                _globe.border_layer(lat0, lon0, zoom, gw, hc, BORDER_STROKE))
 
         output = self._render(
             "terrain", patch.object(maps, "_get_globe", get_globe),
             zoom=125.0)
         _compare_or_create("maps_globe_80x24.txt", output)
 
-        # the street register rides the same sphere in the flat street
-        # map's own fills and coast ink, with no borders — pinned
-        # separately
+        # Street uses its usual fills and coast ink on the same camera,
+        # without terrain's borders.
         output = self._render(
             "street", patch.object(maps, "_get_globe", get_globe),
             zoom=125.0)
@@ -727,9 +733,10 @@ class TestMapsSnapshot:
             classed, polyline, rect, tagged_line, tile,
         )
 
-        def street(bbox, gw, hc, block, lang="en", reserved=()):
+        def street(camera, lang="en", reserved=()):
             from linecast import _maps_streets as st
-            band = st.style.band_for(st.style.z_eff(bbox, hc))
+            bbox, gw, hc = camera.bounds, camera.gw, camera.hc
+            band = st.style.band_for(st.style.z_eff(camera.scale_bbox, hc))
             minlon, minlat, maxlon, maxlat = bbox
             midlon = (minlon + maxlon) / 2
             midlat = (minlat + maxlat) / 2
@@ -751,7 +758,7 @@ class TestMapsSnapshot:
                                 {"class": "primary"}),
                 )
             return st.build_street_view(bbox, gw, hc, tiles, band, lang,
-                                        reserved)
+                                        reserved, camera=camera)
 
         output = self._render(
             "street", patch.object(maps, "_get_street", street))

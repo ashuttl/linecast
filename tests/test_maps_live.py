@@ -69,8 +69,9 @@ def clock(monkeypatch):
 def frames(monkeypatch):
     seen = []
 
-    def fake_render_map(lat, lon, name, zoom, **kw):
-        seen.append(dict(kw, lat=lat, lon=lon, name=name, zoom=zoom))
+    def fake_render_map(camera, prepared, name, **kw):
+        seen.append(dict(kw, camera=camera, prepared=prepared, name=name,
+                         lat=camera.lat, lon=camera.lon, zoom=camera.zoom))
         return "frame"
 
     monkeypatch.setattr(_maps_live, "render_map", fake_render_map)
@@ -164,9 +165,9 @@ class TestZoom:
         assert (app.lat, app.lon) == (43.68, -70.37)
 
     def test_the_former_projection_boundary_does_not_change_wheel_behavior(self):
-        app = make(zoom=_globe.ZOOM_DEG / 1.2)
+        app = make(zoom=45.0 / 1.2)
         before = point_under(app.target_camera(), 30, 12)
-        assert app.zoom_to(_globe.ZOOM_DEG * 1.2, at=(30, 12))
+        assert app.zoom_to(45.0 * 1.2, at=(30, 12))
         assert point_under(app.target_camera(), 30, 12) == pytest.approx(before, abs=1e-9)
         assert (app.lat, app.lon) != app.home
 
@@ -264,7 +265,7 @@ class TestKeys:
     def test_r_spins_only_a_warm_globe(self, monkeypatch):
         app = make(zoom=1.0)
         assert app.on_action('r') is False and app.spinning == 0
-        app.zoom = _globe.ZOOM_DEG
+        app.zoom = 45.0
         assert app.on_action('r') is False and app.spinning == 0
         monkeypatch.setattr(_globe, "warm", lambda zoom, h: h == HC * 4)
         assert app.on_action('r') is True
@@ -274,7 +275,7 @@ class TestKeys:
 
     def test_r_parks_a_spin_already_running(self, monkeypatch):
         monkeypatch.setattr(_globe, "warm", lambda zoom, h: True)
-        app = make(zoom=_globe.ZOOM_DEG)
+        app = make(zoom=45.0)
         app.on_action('r')
         assert app.on_action('r') is True
         assert app.spinning == 0 and app.spin_seq == 1
@@ -455,13 +456,12 @@ class TestRender:
         f = frames[-1]
         assert (f["lat"], f["lon"], f["zoom"]) == (43.68, -70.37, 2.0)
         assert f["name"] == "Westbrook" and f["marker"] == (43.68, -70.37)
-        assert f["runtime"] is app.runtime and f["block"] is False
+        assert f["runtime"] is app.runtime
         assert f["mouse_pos"] == (4, 5)
         assert f["camera"] == app.displayed_camera()
-        assert f["preview"] and f["refining"] and f["prepared"] is None
+        assert f["refining"] and f["prepared"] is None
         assert f["view"] == "street" and f["search"] is app.search
         assert f["directions"] is app.routes and f["route"] is None
-        assert f["show_labels"] is True
         assert f["sun"] is True and f["clouds"] is True
 
     @pytest.mark.parametrize("zoom", [0.01, 2, 60, 125])
@@ -472,7 +472,7 @@ class TestRender:
         assert app._worker is None
         for _ in range(3):
             app.render()
-            assert frames[-1]["preview"] and not frames[-1]["block"]
+            assert frames[-1]["prepared"] is None
         assert [t.target for t in FakeThread.started] == [app._worker._run]
 
     def test_spin_uses_elapsed_time_only_when_the_foreground_renders(self, frames,
@@ -514,14 +514,12 @@ class TestRender:
         camera = app.target_camera()
         seen = []
 
-        def prepare(lat, lon, name, zoom, **kw):
-            source = kw["camera"]
-            assert kw["block"] and not kw.get("preview")
+        def prepare(source, **kw):
             seen.append(source)
             fills = [[(0, 0, 0)] * source.gw for _ in range(source.hc * 2)]
-            kw["capture"](PreparedMap(source, fills))
+            return PreparedMap(source, fills)
 
-        monkeypatch.setattr(_maps_live, "render_map", prepare)
+        monkeypatch.setattr(_maps_live, "prepare_map", prepare)
         scene = app._prepare(camera, {}, _theme.generation)
         source, = seen
         full_gw, full_hc = GW + 2 * ((GW + 3) // 4), HC + 2 * ((HC + 3) // 4)
@@ -656,3 +654,47 @@ class TestStartupPrune:
         _maps_live.main()
 
         assert calls == ["search"]
+
+
+@pytest.mark.parametrize('failure', [None, OSError(), RuntimeError('offline\nextra row')])
+def test_print_builds_once_then_uses_the_same_renderer(monkeypatch, capsys, failure):
+    from linecast import _maps_tile_cache
+
+    monkeypatch.setattr(sys, 'argv', ['linecast-maps', '--print', '--view', 'now',
+                                      '--zoom', '130', '--location', '43,-70'])
+    monkeypatch.setattr(_maps_tile_cache, 'prune_maps_cache', lambda: None)
+    monkeypatch.setattr(_maps_live, 'resolve_location', lambda *a, **kw:
+                        (43, -70, None, 'Home'))
+    monkeypatch.setattr(_maps_live, 'country_for_defaults', lambda *a: None)
+    monkeypatch.setattr(maps._climate, 'available', lambda: False)
+    monkeypatch.setattr(maps._globe_now, 'subsolar', lambda: (0, 0))
+    monkeypatch.setattr(maps, '_panned_place', lambda *a: 'Equator')
+    builds, frames = [], []
+    draw = _maps_live.render_map
+
+    def prepare(camera, **options):
+        builds.append((camera, options))
+        if failure is not None:
+            raise failure
+        return PreparedMap(camera, [[(10, 20, 30)] * camera.gw
+                                    for _ in range(camera.hc * 2)], world=True)
+
+    def render(camera, prepared, name, **options):
+        frames.append((camera, prepared, options))
+        return draw(camera, prepared, name, **options)
+
+    monkeypatch.setattr(_maps_live, 'prepare_map', prepare)
+    monkeypatch.setattr(_maps_live, 'render_map', render)
+    _maps_live.main()
+    output = capsys.readouterr().out
+    assert len(builds) == len(frames) == 1
+    assert builds[0][0] == frames[0][0]
+    assert builds[0][1]['wait_for_clouds']
+    assert builds[0][1]['sun'] and builds[0][1]['clouds']
+    assert len(output.splitlines()) == ROWS
+    assert '\x1b[?1003' not in output
+    if failure is not None:
+        assert frames[0][1] is None
+        assert frames[0][2]['error'] == ('offline' if str(failure) else 'OSError')
+        assert frames[0][2]['error'] in output.splitlines()[-1]
+        assert 'extra row' not in output

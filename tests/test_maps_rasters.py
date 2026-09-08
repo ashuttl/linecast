@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from linecast import _builtup, _elevation, _maps_views
 from linecast._maps_camera import MapCamera
 from linecast._radar_tiles import _lonlat_to_world
-from linecast._scenes import Memo, SceneCache
+from linecast._scenes import Memo
 
 
 class SampleCamera:
@@ -148,14 +148,14 @@ def test_builtup_smoothing_does_not_spill_into_space(monkeypatch):
 def test_terrain_loader_passes_one_camera_to_every_source(monkeypatch):
     camera = MapCamera(45, 179.9, 0.01, 2, 1)
     calls = []
-    monkeypatch.setattr(_maps_views, "_elev_cache", SceneCache())
+    monkeypatch.setattr(_maps_views, "_elev_cache", Memo())
 
-    def water(bbox, w, h, camera=None):
-        calls.append(("water", w, h, camera))
+    def water(camera):
+        calls.append(("water", camera.gw, camera.hc, camera))
         return None, None, None, None
 
-    def builtup(bbox, w, h, camera=None):
-        calls.append(("builtup", w, h, camera))
+    def builtup(camera):
+        calls.append(("builtup", camera.gw, camera.hc, camera))
         return None
 
     def elevation(bbox, w, h, camera=None):
@@ -165,7 +165,7 @@ def test_terrain_loader_passes_one_camera_to_every_source(monkeypatch):
     monkeypatch.setattr(_maps_views, "_tile_water", water)
     monkeypatch.setattr(_maps_views, "_builtup_layer", builtup)
     monkeypatch.setattr(_maps_views, "elevation_grid", elevation)
-    terrain = _maps_views._get_elevation(camera.bounds, 2, 1, True, camera=camera)
+    terrain = _maps_views._get_elevation(camera)
     assert terrain.elev == [[100.0, 100.0], [100.0, 100.0]]
     assert {(name, w, h) for name, w, h, _ in calls} == {
         ("water", 2, 1), ("builtup", 2, 1), ("elevation", 4, 4)}
@@ -175,19 +175,17 @@ def test_terrain_loader_passes_one_camera_to_every_source(monkeypatch):
 def test_scene_keys_distinguish_sub_rounding_camera_moves(monkeypatch):
     camera = MapCamera(45, 1.00001, 1.00001, 4, 2)
     moved = replace(camera, lon=camera.lon + 1e-8, zoom=camera.zoom + 1e-8)
-    assert _maps_views._view_key(camera.bounds, 4, 2, camera) != (
-        _maps_views._view_key(camera.bounds, 4, 2, moved))
+    assert _maps_views._view_key(camera) != _maps_views._view_key(moved)
     keys = []
 
     class Cache:
-        def get(self, key, block, load):
+        def get(self, key, load):
             keys.append(key)
             return "kept"
 
     monkeypatch.setattr(_maps_views, "_globe_cache", Cache())
     for cam in (camera, moved):
-        assert _maps_views._get_globe(cam.lat, cam.lon, cam.zoom, 4, 2, True,
-                                     camera=cam) == "kept"
+        assert _maps_views._get_globe(cam) == "kept"
     assert keys[0] != keys[1]
 
 
@@ -202,9 +200,9 @@ def test_terrain_shading_uses_center_scale_and_exact_camera_key(monkeypatch):
     monkeypatch.setattr(_maps_views, "build_terrain_buffer",
                         lambda elev, bbox, *args, **kwargs:
                         calls.append((bbox, kwargs["climate"])) or object())
-    first = _maps_views._terrain_buffer([], camera.bounds, 4, 2, camera=camera)
-    again = _maps_views._terrain_buffer([], camera.bounds, 4, 2, camera=camera)
-    other = _maps_views._terrain_buffer([], camera.bounds, 4, 2, camera=moved)
+    first = _maps_views._terrain_buffer([], camera)
+    again = _maps_views._terrain_buffer([], camera)
+    other = _maps_views._terrain_buffer([], moved)
     assert first is again and first is not other
     assert calls == [(camera.scale_bbox, families), (moved.scale_bbox, families)]
     assert climate_calls == [camera.lls(4, 4), moved.lls(4, 4)]
@@ -217,14 +215,14 @@ def test_missing_camera_climate_disables_flat_bbox_fallback(monkeypatch):
     received = []
     monkeypatch.setattr(_maps_views, "build_terrain_buffer",
                         lambda *args, **kwargs: received.append(kwargs) or object())
-    _maps_views._terrain_buffer([], camera.bounds, 4, 2, camera=camera)
+    _maps_views._terrain_buffer([], camera)
     assert received == [{"climate": ()}]
 
 
 def test_street_loader_passes_the_camera_through_data_and_paint(monkeypatch):
     camera = MapCamera(45, 1, 0.01, 4, 2)
     seen = []
-    monkeypatch.setattr(_maps_views, "_street_cache", SceneCache())
+    monkeypatch.setattr(_maps_views, "_street_cache", Memo())
 
     def tiles(bbox, h, camera=None):
         seen.append(camera)
@@ -234,7 +232,7 @@ def test_street_loader_passes_the_camera_through_data_and_paint(monkeypatch):
         seen.append(camera)
         return "fills", "lines", "labels"
 
-    def builtup(*args, camera=None):
+    def builtup(camera):
         seen.append(camera)
         return None
 
@@ -242,6 +240,6 @@ def test_street_loader_passes_the_camera_through_data_and_paint(monkeypatch):
     monkeypatch.setattr(_maps_views._maps_streets, "fetch_tiles", lambda keys: {keys[0]: object()})
     monkeypatch.setattr(_maps_views._maps_streets, "build_street_view", build)
     monkeypatch.setattr(_maps_views, "_builtup_layer", builtup)
-    assert _maps_views._get_street(camera.bounds, 4, 2, True, camera=camera) == (
+    assert _maps_views._get_street(camera) == (
         "fills", "lines", "labels")
     assert len(seen) == 3 and all(value is camera for value in seen)

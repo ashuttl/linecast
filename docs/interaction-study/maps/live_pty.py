@@ -163,10 +163,9 @@ def child_run(args):
     draw = _maps_live.render_map
     shown = [app.target_camera()]
 
-    def measured_draw(*a, **kw):
-        if kw.get('preview'):
-            shown[0] = kw['camera']
-        return draw(*a, **kw)
+    def measured_draw(camera, *a, **kw):
+        shown[0] = camera
+        return draw(camera, *a, **kw)
 
     _maps_live.render_map = measured_draw
     snapshots = []

@@ -1,4 +1,9 @@
-"""Offline map frame benchmark, using vendored globe and optional copied tile cache."""
+"""Historical Maps baseline benchmark for the renderer at 93002fc / a7ecc9b.
+
+Pass --repo pointing to a checkout of either baseline commit. The current
+continuous-camera pipeline is measured by live_pty.py; this script retains
+its original operations so the recorded baseline remains reproducible.
+"""
 
 import argparse
 import cProfile
@@ -15,7 +20,8 @@ import time
 from pathlib import Path
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[3])
+parser.add_argument("--repo", type=Path, required=True,
+                    help="checkout of baseline commit 93002fc or a7ecc9b")
 parser.add_argument("--cache-source", type=Path)
 parser.add_argument("--n", type=int, default=40)
 parser.add_argument("--profile", action="store_true")

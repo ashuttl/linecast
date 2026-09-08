@@ -1,18 +1,12 @@
-"""Orthographic globe for planet-scale zooms.
+"""World map sources and orthographic disk geometry.
 
-Web Mercator is the right projection for a street you walk and the
-wrong one for a planet you regard: zoomed far enough out, Greenland
-balloons, the poles smear into taffy, and there is an edge of the
-world.  Past ZOOM_DEG the terrain view hands its geometry to this
-module — for each sub-pixel, invert an orthographic projection to a
-latitude and longitude (or to space), sample the same terrarium
-elevation the flat map draws from, and let the existing paint pipeline
-(bathymetry, hypsometry, hillshade, braille coastline) do exactly what
-it always does.  Only the geometry changes; the planet keeps its look.
+Maps uses one spherical camera at every scale. This module supplies
+world elevation canvases, vendored lakes and borders, city labels, and
+sampling helpers under that camera. Local views use more detailed tiles
+without changing their projection.
 
-The disk is shaded twice: hillshade inside the paint pipeline, then a
-limb falloff by viewing angle out here, which is what turns a round
-map into a sphere.  Space gets a one-sub-pixel breath of atmosphere.
+The world terrain is shaded twice: relief inside the paint pipeline,
+then a limb falloff by viewing angle. Space gets a thin atmosphere rim.
 """
 
 import math
@@ -34,28 +28,6 @@ from linecast._radar_tiles import _TILE_SIZE, stitch_xyz
 from linecast._runtime import log_failure
 from linecast._scenes import Memo
 from linecast._theme import themed
-
-# `zoom` (degrees of latitude the screen spans) at which the flat map
-# hands the view to the globe — at the equator.  See is_globe.
-ZOOM_DEG = 45.0
-
-
-def is_globe(zoom, lat):
-    """Whether a view centred at `lat` spanning `zoom` degrees is a globe.
-
-    The flat map is equirectangular about its centre, and its width in
-    longitude grows as 1/cos(lat): a window that is a modest 9° tall
-    at 78°S is as wide as one 45° tall at the equator, and it runs off
-    both edges of the tile world — the antimeridian and the 85th
-    parallel — while stretching the ice five times too wide.  So the
-    hand-off is judged by the window's *widest* extent, and the poles
-    go round at zooms the equator never would.  A window that reaches
-    past the 85th parallel goes round whatever its width: the tiles
-    end there, and the globe has a pole.
-    """
-    cos_lat = max(0.05, math.cos(math.radians(lat)))
-    return (zoom / cos_lat >= ZOOM_DEG
-            or abs(lat) + zoom / 2 > _MERCATOR_LAT)
 
 # Mercator tiles end at the 85th parallel; samples poleward of it clamp
 # to that ring, which reads as polar ocean in the north and the ice
@@ -115,12 +87,10 @@ def ice_cover(lls, elev, ice_id):
 def _radius(zoom, h):
     """Disk radius in grid units for an h-row grid spanning the screen.
 
-    Sized so one row at the *centre* of the disk spans zoom/h degrees
-    of arc — the same scale the flat map draws at — because that is
-    what makes the hand-off seamless: crossing ZOOM_DEG changes the
-    projection, not the size of anything under the cursor.  A plane
-    unit is a radian at the centre (orthographic is sine-compressed
-    toward the limb), hence 180/π rather than 90.
+    One row at the centre spans zoom/h degrees of arc, matching the
+    camera's physical pixel scale. One projection-plane unit is a radian
+    at the centre, hence 180/π rather than 90; orthographic compression
+    increases toward the limb.
     """
     return h * (180.0 / math.pi) / zoom
 
@@ -510,12 +480,9 @@ def gate_glow(buf, atmo, day, bg):
 def fill_buffer(elev, water, ground, bg, wet=None):
     """Street-register fills for the globe: flat sea, flat ground.
 
-    The street map's planet is the street map's idiom — two quiet
-    fills and a braille coastline — bent onto the sphere, in the same
-    water and ground the flat map paints, so the hand-off changes the
-    curvature and nothing else.  A palette that paints no fills (the
-    16-colour line map) gets background, and the coastline carries the
-    geography alone, exactly as it does on the flat map.
+    World and local street sources share the same water and ground
+    palette. A palette that paints no fills (the 16-colour line map)
+    gets background, and the coastline carries the geography alone.
 
     `wet` is the optional sub-pixel inland mask, and it takes the same
     fill the sea does: street mode draws one water, whether it is an
@@ -659,11 +626,10 @@ def lake_mask(lat0, lon0, zoom, dw, dh):
 
     Elevation cannot report a lake: a terrarium sample over Superior
     reads the surface's hundred and eighty metres, which is the meadow
-    beside it too.  So the flat map takes its lakes from the vector
-    tiles, and those stop long before planet scale — the globe carves
-    the same Natural Earth lakes the radar basemap does, projected
-    onto the disk and scanline-filled, even-odd across a polygon's
-    rings so an island in a lake stays dry.
+    beside it too. Local views take lakes from vector tiles; world
+    views use the same Natural Earth lakes as the radar basemap.
+    These are projected onto the disk and scanline-filled, even-odd
+    across a polygon's rings so an island in a lake stays dry.
 
     A lake is drawn only if it lies wholly on the near side of the
     limb and paints more than a dot or two.  A lake on the limb is

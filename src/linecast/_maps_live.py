@@ -29,7 +29,7 @@ from linecast._maps_search import (
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, log_failure, maps_parser, set_current
 from linecast.maps import (
-    MIN_ZOOM_DEG, ZOOM_STEP, map_cells, max_zoom, render_map,
+    MIN_ZOOM_DEG, ZOOM_STEP, map_cells, max_zoom, prepare_map, render_map,
 )
 
 
@@ -354,14 +354,10 @@ class MapApp(LiveApp):
                 <= min(camera.gw / 2, camera.hc)):
             # Padding a complete planet only prepares more empty space.
             source = camera
-        captured = []
-        render_map(source.lat, source.lon, self.location_name, source.zoom,
-                   camera=source, capture=captured.append, block=True, **options)
+        frame = prepare_map(source, **options)
         if generation != _theme.generation:
             return None
-        if not captured:
-            raise RuntimeError(ms('offline', self.runtime.lang))
-        frame = captured[-1].prime()
+        frame.prime()
         return Scene(frame.cropped(camera), frame)
 
     def text_mode(self):
@@ -395,12 +391,11 @@ class MapApp(LiveApp):
             self._worker = SceneWorker(wake=_nudge_repaint, thread_factory=threading.Thread)
         generation = _theme.generation
         group = (self.view, self.show_labels, self.sun, self.clouds,
-                 self.runtime.lang, generation, id(routes.route),
-                 routes.dest, routes.origin)
+                 self.runtime.lang, generation, id(routes.route))
         revision = (self._sky_revision, _globe_now.revision() if self.clouds else None)
-        options = dict(marker=self.home, runtime=self.runtime, view=self.view,
-                       route=routes.route, dest=routes.dest, origin=routes.origin,
-                       show_labels=self.show_labels, sun=self.sun, clouds=self.clouds)
+        options = dict(marker=self.home, lang=self.runtime.lang, view=self.view,
+                       route=routes.route, show_labels=self.show_labels,
+                       sun=self.sun, clouds=self.clouds)
         scene, refining, error = self._worker.request(
             (target.key, group, revision), group,
             lambda: self._prepare(target, options, generation), camera=camera)
@@ -409,11 +404,12 @@ class MapApp(LiveApp):
             prepared = (scene.exact if scene.exact.camera.key == camera.key
                         else scene.overscan)
         return render_map(
-            camera.lat, camera.lon, self.location_name, camera.zoom,
-            camera=camera, prepared=prepared, preview=True, refining=refining,
-            error=error, block=False, mouse_pos=mouse_pos,
-            search=search, directions=routes,
-            note=_maps_ui.route_note(routes, self.runtime.lang), **options)
+            camera, prepared, self.location_name, marker=self.home,
+            runtime=self.runtime, view=self.view, sun=self.sun, clouds=self.clouds,
+            refining=refining, error=error, mouse_pos=mouse_pos,
+            search=search, directions=routes, route=routes.route,
+            dest=routes.dest, origin=routes.origin,
+            note=_maps_ui.route_note(routes, self.runtime.lang))
 
     def run(self):
         if self.routes.dest is not None:
@@ -514,8 +510,16 @@ def main():
                 note = ms('dir_none', runtime.lang)
             except _maps_route.RouteUnavailable:
                 note = ms('dir_unavailable', runtime.lang)
-        print(render_map(lat, lon, location_name, args.zoom,
-                         camera=MapCamera(lat, lon, args.zoom, *map_cells()),
+        camera = MapCamera(lat, lon, args.zoom, *map_cells())
+        prepared, error = None, None
+        try:
+            prepared = prepare_map(camera, view=args.view, lang=runtime.lang,
+                                   route=found, sun=sky, clouds=sky, wait_for_clouds=True)
+        except Exception as exc:
+            log_failure("maps", "prepare print", exc, fallback="unavailable map")
+            lines = str(exc).splitlines()
+            error = (lines[0] if lines else type(exc).__name__)[:120]
+        print(render_map(camera, prepared, location_name, error=error,
                          runtime=runtime, view=args.view, route=found,
                          dest=(dest.lat, dest.lon) if dest else None,
                          origin=((origin.lat, origin.lon, origin.name)

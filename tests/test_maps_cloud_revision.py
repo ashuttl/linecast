@@ -67,8 +67,8 @@ def test_cloud_publication_refreshes_a_stationary_live_scene(source, monkeypatch
     def thread_factory(*, target, daemon):
         return SimpleNamespace(start=lambda: jobs.append(target))
 
-    def render(*args, **kwargs):
-        frames.append(kwargs)
+    def render(camera, prepared, name, **kwargs):
+        frames.append(dict(kwargs, camera=camera, prepared=prepared))
         return "frame"
 
     monkeypatch.setattr(_maps_live, "map_cells", lambda: (40, 20))

@@ -1,13 +1,11 @@
 """What a map view is made of, and how it is fetched and kept.
 
-A view is one camera at one terminal size; callers without a camera retain
-original bbox sampling. The bounded MapApp worker calls these loaders in
-blocking mode, while the foreground paints prepared layers. Legacy callers
-can still use SceneCache's asynchronous loads and FetchHold zoom gating.
-Elevation, street detail and clouds keep their source-specific caches here.
+A view is one camera at one terminal size. These synchronous, bounded memos
+run inside MapApp's single scene worker, or on the caller for static output.
+Independent source fetches overlap within a build; no loader schedules a
+second scene. Clouds retain their separate background weather refresh.
 """
 
-import math
 import threading
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
@@ -23,35 +21,14 @@ from linecast._maps_paint import (
 )
 from linecast._radar_basemap import _edge_dots
 from linecast._runtime import log_failure
-from linecast._scenes import FetchHold, Memo, SceneCache
+from linecast._scenes import Memo
 
-ZOOM_SETTLE = 0.3        # seconds of zoom quiet before a fetch may start
-
-_terrain_cache = Memo(keep=4)  # (bbox, w, h) -> sub-pixel colour buffer
-_zoom_hold = FetchHold(ZOOM_SETTLE)  # live zoom taps push its deadline
+_terrain_cache = Memo(keep=4)  # exact camera and source flags -> colour buffer
 
 
-def _view_key(bbox, gw, hc, camera=None):
-    """Cache key for a view, at a precision that scales with the zoom.
-
-    Camera keys preserve the exact position and scale, shared by every
-    projected layer. The following rounding remains for legacy bbox callers.
-
-    A flat 4 dp is ~11 m: ample at a degree or more, but street mode
-    reaches 0.0012 deg, where a one-cell pan moves the bbox by less than
-    the rounding quantum — every pan would serve the previous grid, and
-    min/max latitude can even round to the same number.  Rounding three
-    places finer than the span keeps the quantum an order of magnitude
-    below a single cell at any zoom, and is exactly today's 4 dp from
-    1 deg up (so existing caches and their tests do not move).
-    """
-    if camera is not None:
-        return (camera.key, gw, hc, _theme.generation)
-    span = bbox[3] - bbox[1]
-    nd = 4 if span <= 0 else max(4, 3 + math.ceil(-math.log10(span)))
-    # the theme generation rides along: a terminal theme change must
-    # miss every buffer that baked the old colours in
-    return (tuple(round(v, nd) for v in bbox), gw, hc, _theme.generation)
+def _view_key(camera):
+    """Every projected layer shares the exact camera and current theme."""
+    return camera.key, _theme.generation
 
 
 def _coast_dots(fine, gw, hc, water=None):
@@ -123,34 +100,32 @@ def _water_subpixels(water, gw, hc):
     return out
 
 
-def _tile_water(bbox, gw, hc, camera=None):
-    """(inland water dot mask, river layer) for the view, or (None, None).
+def _tile_water(camera):
+    """(inland water, rivers, land cover, ocean) for the camera, or Nones.
 
     Terrain mode's one network dependency beyond the elevation tiles,
     and an optional one: every failure degrades to the sea-level-only
     map this used to be, never to an error.
     """
     try:
-        options = {} if camera is None else {"camera": camera}
-        band, tiles = _maps_streets.fetch_view(bbox, hc, **options)
+        band, tiles = _maps_streets.fetch_view(camera.bounds, camera.hc, camera=camera)
         if not any(tiles.values()):
             return None, None, None, None
-        return _maps_streets.build_water_view(bbox, gw, hc, tiles, band,
-                                              RIVER_STROKE, **options)
+        return _maps_streets.build_water_view(camera.bounds, camera.gw, camera.hc, tiles,
+                                              band, RIVER_STROKE, camera=camera)
     except Exception as exc:
         log_failure("maps/vtiles", "inland water", exc, fallback="sea-level-only terrain")
         return None, None, None, None
 
 
-def _builtup_layer(bbox, gw, hc, camera=None):
+def _builtup_layer(camera):
     """The built-up fraction grid for the view, or None when the layer
     is off or could not be read — the same never-an-error contract as
     the tile water."""
     if not _builtup.enabled():
         return None
     try:
-        options = {} if camera is None else {"camera": camera}
-        return _builtup.builtup_grid(bbox, gw, hc * 2, **options)
+        return _builtup.builtup_grid(camera.bounds, camera.gw, camera.hc * 2, camera=camera)
     except Exception as exc:
         log_failure("maps/builtup", "layer", exc, fallback="layer off")
         return None
@@ -167,18 +142,14 @@ class TerrainView(namedtuple("TerrainView", "elev coast water rivers cover")):
     __slots__ = ()
 
 
-_EMPTY_TERRAIN = TerrainView(None, None, None, None, None)
-# the three registers' scenes, all gated by the zoom hold
-_elev_cache = SceneCache(_EMPTY_TERRAIN, held=_zoom_hold.held,
-                         name="terrain")  # -> TerrainView
-_street_cache = SceneCache((None, None, None), held=_zoom_hold.held,
-                           name="street")  # -> (fills, layer, labels)
-_globe_cache = SceneCache(held=_zoom_hold.held,
-                          name="globe")   # (lat, lon, zoom, w, h) -> GlobeView
+_elev_cache = Memo(keep=4)    # -> TerrainView
+_street_cache = Memo(keep=4)  # -> (fills, layer, labels)
+_globe_cache = Memo(keep=4)   # -> GlobeView
 
 
-def _get_elevation(bbox, gw, hc, block, camera=None):
-    """A TerrainView for the view; live mode fetches in the background."""
+def _get_elevation(camera):
+    """Load or reuse this camera's terrain; required source errors propagate."""
+    gw, hc = camera.gw, camera.hc
 
     def load():
         # fetch at 2x and box-average down: point-sampled elevation makes
@@ -188,11 +159,10 @@ def _get_elevation(bbox, gw, hc, block, camera=None):
         # The three sources are independent, so their fetches overlap:
         # the wait is the slowest of them, not the sum.  Only the
         # elevation may fail the view; the other two degrade to None.
-        options = {} if camera is None else {"camera": camera}
         with ThreadPoolExecutor(max_workers=2) as pool:
-            water_job = pool.submit(_tile_water, bbox, gw, hc, **options)
-            builtup_job = pool.submit(_builtup_layer, bbox, gw, hc, **options)
-            fine = elevation_grid(bbox, gw * 2, hc * 4, **options)
+            water_job = pool.submit(_tile_water, camera)
+            builtup_job = pool.submit(_builtup_layer, camera)
+            fine = elevation_grid(camera.bounds, gw * 2, hc * 4, camera=camera)
         water, rivers, cover, ocean = water_job.result()
         bu = builtup_job.result()
         if bu is not None:
@@ -230,21 +200,20 @@ def _get_elevation(bbox, gw, hc, block, camera=None):
             _water_subpixels(water, gw, hc) if water is not None else None,
             rivers, cover)
 
-    return _elev_cache.get(_view_key(bbox, gw, hc, camera), block, load)
+    return _elev_cache.get(_view_key(camera), load)
 
 
-def _get_street(bbox, gw, hc, block, lang="en", reserved=(), camera=None):
-    """(fills, ranked layer, label overlays) for the view; live mode
-    fetches in the background, exactly as the elevation path does."""
+def _get_street(camera, lang="en", reserved=()):
+    """Load or reuse the camera's fills, ranked layer and label overlays."""
+    bbox, gw, hc = camera.bounds, camera.gw, camera.hc
 
     def load():
         # the settlement raster fetches alongside the vector tiles, as
         # the terrain path overlaps its sources; below its debut band
         # the layer is never asked for, so a deep view pays nothing
-        options = {} if camera is None else {"camera": camera}
-        band, _z_src, keys = _maps_streets.view_tiles(bbox, hc, **options)
+        band, _z_src, keys = _maps_streets.view_tiles(bbox, hc, camera=camera)
         with ThreadPoolExecutor(max_workers=1) as pool:
-            bu_job = (pool.submit(_builtup_layer, bbox, gw, hc, **options)
+            bu_job = (pool.submit(_builtup_layer, camera)
                       if band >= _maps_style.FILL_DEBUT["builtup"]
                       else None)
             tiles = _maps_streets.fetch_tiles(keys)
@@ -252,35 +221,31 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=(), camera=None):
             raise RuntimeError(ms('offline', 'en'))
         return _maps_streets.build_street_view(
             bbox, gw, hc, tiles, band, lang, reserved,
-            bu_job.result() if bu_job is not None else None, **options)
+            bu_job.result() if bu_job is not None else None, camera=camera)
 
-    key = _view_key(bbox, gw, hc, camera) + (lang, tuple(sorted(reserved)))
-    return _street_cache.get(key, block, load)
-
-
+    key = _view_key(camera) + (lang, tuple(sorted(reserved)))
+    return _street_cache.get(key, load)
 
 
-def _terrain_buffer(elev, bbox, gw, hc, water=None, cover=None, camera=None):
+def _terrain_buffer(elev, camera, water=None, cover=None):
     # the tile flags are part of the key: the same view rendered once
     # offline and once with tiles is two different pictures
-    key = _view_key(bbox, gw, hc, camera) + (water is not None, cover is not None)
-    detail_bbox = bbox if camera is None else camera.scale_bbox
+    key = _view_key(camera) + (water is not None, cover is not None)
 
     def build():
         # Climate chooses the terrain's colour family, so it must follow
         # the same inverse projection as elevation and land cover. An empty
         # tuple explicitly disables the legacy bbox fallback if unavailable.
-        options = ({} if camera is None else
-                   {"climate": _climate.grid_for_lls(camera.lls(gw, hc * 2)) or ()})
-        return build_terrain_buffer(elev, detail_bbox, gw, hc * 2, water, cover, **options)
+        climate = _climate.grid_for_lls(camera.lls(camera.gw, camera.hc * 2)) or ()
+        return build_terrain_buffer(elev, camera.scale_bbox, camera.gw, camera.hc * 2,
+                                     water, cover, climate=climate)
 
     return _terrain_cache.get(key, build)
 
 
-def _get_globe(lat0, lon0, zoom, gw, hc, block, camera=None):
-    """The coarse world source under the camera; live fetches in the background."""
-    if camera is not None:
-        lat0, lon0, zoom = camera.lat, camera.lon, camera.zoom
+def _get_globe(camera):
+    """Load or reuse the coarse world source under this camera."""
+    lat0, lon0, zoom, gw, hc = camera.lat, camera.lon, camera.zoom, camera.gw, camera.hc
 
     def load():
         # the fine grid feeds the coastline and box-averages into the
@@ -303,9 +268,7 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block, camera=None):
             lls, _globe.limb_lls(lat0, lon0, zoom, gw, hc * 2, atmo),
             _water_subpixels(wet, gw, hc) if wet is not None else None)
 
-    key = ((round(lat0, 2), round(lon0, 2), round(zoom, 1), gw, hc)
-           if camera is None else (camera.key, _theme.generation))
-    return _globe_cache.get(key, block, load)
+    return _globe_cache.get(_view_key(camera), load)
 
 
 _clouds_pending = [False]

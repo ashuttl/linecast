@@ -139,9 +139,11 @@ def test_map_and_radar_footer_hints_end_before_the_erase_column(monkeypatch, vie
     module = maps if view == 'maps' else radar
     monkeypatch.setattr(module, 'get_terminal_size', lambda: (cols, 24))
     if view == 'maps':
-        monkeypatch.setattr(maps, '_render_terrain',
-                            lambda *a, **kw: ([''] * 22, '', '', False, None))
-        output = maps.render_map(43.68, -70.32, 'Westbrook', 1, runtime=runtime)
+        from linecast._maps_camera import MapCamera
+        from linecast._maps_preview import PreparedMap
+        camera = MapCamera(43.68, -70.32, 1, cols, 22)
+        prepared = PreparedMap(camera, [[(30, 40, 50)] * cols for _ in range(44)])
+        output = maps.render_map(camera, prepared, 'Westbrook', runtime=runtime)
     else:
         source = SimpleNamespace(attribution='LibreWXR', current_frames=lambda: [
             SimpleNamespace(time=NOW, future=False)])

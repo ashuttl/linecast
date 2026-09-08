@@ -9,8 +9,8 @@ and alternatives considered. This document describes the implemented path.
 `MapCamera` owns one orthographic projection from the whole planet down to
 street detail. Fills, elevation, land cover, coastlines, roads, labels, route
 strokes, markers, and pointer lookups use its geometry. The old projection
-switch is absent from the live map and `--print`; optional legacy arguments
-remain for shared radar helpers and existing renderer callers.
+switch and its old policy are deleted. Shared radar projection helpers retain
+their own sampling contracts.
 
 The camera's inverse defines the sample centers; its conservative geographic
 bounds choose source tiles, and a separate center-scale footprint chooses
@@ -45,6 +45,17 @@ cannot reduce detail. A complete planet needs no extra empty-space padding.
 Exact integer crops preserve dot geometry, whole labels, and translated
 hover ownership. Expensive preview expansion is primed in the worker.
 
+`prepare_map(camera, ...)` produces a `PreparedMap` directly. It never formats
+terminal output. `render_map(camera, prepared, ...)` only composes that retained
+map and the current UI. Live and `--print` use this same rendering path;
+static output builds first and reports source failures at the CLI boundary.
+The camera-free renderer, capture callback, shifted-drag paths, nested
+`SceneCache` scheduling, and unused zoom hold are deleted. Synchronous bounded
+memos preserve geographic data without introducing another scheduling owner.
+This consolidation removes 387 production lines net from the initial Maps
+implementation, retaining its camera, easing, coverage margin, and preview
+geometry. It adds no dependencies.
+
 One worker prepares detail, with at most one active build and one latest
 pending request. Completion cannot move the camera. A small cache chooses
 retained scenes by displayed-camera coverage and resolution, preventing a
@@ -62,8 +73,9 @@ indefinitely starve paint, and an ignored event cannot erase an earlier change.
 
 ## Validation
 
-Final full-suite result: **4,012 passed, 1 skipped, 72 deselected, and 263
-subtests passed** in 38.04 seconds. Ruff and `git diff --check` passed.
+Final full-suite result: **4,021 passed, 1 skipped, 72 deselected, and 263
+subtests passed** in 35.79 seconds. Ruff and whitespace checks on source, tests, and documentation
+passed; ANSI text snapshots deliberately retain terminal-cell padding.
 The earlier Sky commit independently passed 3,771 tests and 263 subtests.
 
 Regression coverage includes the original Sky raster, polar and dateline
@@ -71,8 +83,13 @@ camera geometry, local vector and raster registration, camera sampling of
 climate, source selection, deepest-zoom cache precision, retained colors and
 braille, overscan hover, wide text, marker placement, late scene selection,
 clock-based retargeting, cloud refresh, failure recovery, and actual shared-loop
-input scheduling. Retained render tests compare complete output across terrain
-and street styles, local and world sources, lighting, and all four color modes.
+input scheduling. Retained render tests compare complete output against 32 frozen hashes from
+the initial Maps commit `d3dfee7`, spanning terrain and street styles, local and
+world sources, lighting, and all four color modes. This keeps the comparison
+independent after deleting the duplicate renderer. Polar hillshade must match
+the same projected relief at the equator and both poles. Only the older terrain
+snapshot fixture changed: its synthetic shoreline now follows geographic sample
+centers under the actual camera. The other three Maps text snapshots match.
 
 The [PTY harness](maps/live_pty.py) runs the real `MapApp` and terminal loop.
 It injects SGR mouse drags, anchored wheel zoom, WASD, help, search, resize,
@@ -82,14 +99,14 @@ Network is disabled, world data is bundled, and street data uses a private
 copy of the same cached coastal fixture as the initial investigation.
 `--delay` adds latency only inside background preparation.
 
-Final sequential live runs on 8 September 2026 all passed, across 284 frames:
+Final sequential live runs on 8 September 2026 all passed, across 294 frames:
 
 | Scenario | Terminal at start | Frames | Render median | Render p95 |
 | --- | --- | ---: | ---: | ---: |
-| Terrain globe | 120×40 | 62 | 19.75 ms | 56.12 ms |
-| Terrain globe, 300 ms added detail delay | 120×40 | 80 | 16.22 ms | 34.40 ms |
-| Cached coastal streets | 120×40 | 74 | 3.54 ms | 8.69 ms |
-| Cached coastal streets | 200×60 | 68 | 7.24 ms | 15.98 ms |
+| Terrain globe | 120×40 | 62 | 19.64 ms | 52.23 ms |
+| Terrain globe, 300 ms added detail delay | 120×40 | 80 | 16.39 ms | 33.39 ms |
+| Cached coastal streets | 120×40 | 78 | 3.40 ms | 9.97 ms |
+| Cached coastal streets | 200×60 | 74 | 7.05 ms | 18.99 ms |
 
 Each sequence includes a resize to 10 fewer columns and 4 more rows. These are
 mixed interaction sequences with background work, not uniform drag benchmarks;
@@ -126,8 +143,11 @@ hemisphere and within Mercator coverage.
 
 Retained viewport data cannot supply an unseen hemisphere. Large rapid turns
 or motion beyond the coverage margin can briefly expose unfilled regions
-until a replacement is prepared. A coarse global color fallback would be a
-separate improvement if native interaction testing makes those gaps distracting.
+until a replacement is prepared. Native interaction testing should establish whether these gaps are distracting
+before adding any fallback layer. The retained braille and whole-label machinery
+has a measured purpose; flattening it to terminal cells would tear wide glyphs
+and lose street detail. Any further simplification should demonstrate the visual
+tradeoff before replacing that machinery.
 
 Background threads still share CPython's GIL. Larger windows and detailed
 scenes can exceed the 30 Hz frame budget while preparation is busy. The
