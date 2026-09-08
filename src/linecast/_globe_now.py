@@ -260,7 +260,7 @@ def flat_lls(bbox, w, h):
 
 _cloud_lock = threading.Lock()
 _cloud = {"stamp": None, "canvas": None, "checked": 0.0, "white": None,
-          "cover": None}
+          "cover": None, "revision": 0}
 
 
 def _mosaic_white(canvas):
@@ -338,6 +338,11 @@ def peek():
     return _cloud["canvas"]
 
 
+def revision():
+    """Version of the published cloud canvas; never reads the network."""
+    return _cloud.get("revision", 0)
+
+
 def stale():
     """True when the index deserves another look."""
     return time.time() - _cloud["checked"] > _REFRESH_S
@@ -384,6 +389,7 @@ def refresh(zoom, h, timeout=15):
         _cloud["canvas"] = canvas
         _cloud["white"] = white
         _cloud["cover"] = cover
+        _cloud["revision"] = revision() + 1
     return True
 
 

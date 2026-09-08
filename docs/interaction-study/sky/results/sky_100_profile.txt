@@ -1,0 +1,38 @@
+         1963233 function calls (1962183 primitive calls) in 0.369 seconds
+
+   Ordered by: cumulative time
+   List reduced from 171 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       10    0.001    0.000    0.369    0.037 <string>:21(fn)
+       10    0.016    0.002    0.368    0.037 sky.py:710(render)
+       10    0.092    0.009    0.187    0.019 sky.py:573(_paint_sky)
+    76642    0.046    0.000    0.077    0.000 _color.py:303(lerp)
+     7400    0.059    0.000    0.070    0.000 sky.py:421(_plot_arc)
+       10    0.015    0.001    0.049    0.005 _framebuffer.py:185(render)
+       10    0.006    0.001    0.032    0.003 sky.py:523(_sky_table)
+   306568    0.024    0.000    0.024    0.000 _color.py:314(<genexpr>)
+    39074    0.008    0.000    0.018    0.000 _framebuffer.py:23(halfblock)
+    14997    0.003    0.000    0.018    0.000 _framebuffer.py:162(cell_bg)
+   260915    0.011    0.000    0.011    0.000 {built-in method math.degrees}
+   228828    0.011    0.000    0.011    0.000 {built-in method builtins.min}
+   174345    0.009    0.000    0.009    0.000 {built-in method math.asin}
+    47200    0.005    0.000    0.009    0.000 _color.py:286(bg)
+   206420    0.008    0.000    0.008    0.000 {built-in method math.sqrt}
+       80    0.001    0.000    0.008    0.000 _help.py:38(paint_text)
+    89981    0.006    0.000    0.006    0.000 {method 'get' of 'dict' objects}
+    87000    0.006    0.000    0.006    0.000 {built-in method math.atan2}
+    25755    0.003    0.000    0.005    0.000 _color.py:272(fg)
+     1880    0.001    0.000    0.005    0.000 _theme.py:117(contrast_ratio)
+   104671    0.005    0.000    0.005    0.000 {built-in method builtins.max}
+    77730    0.004    0.000    0.004    0.000 {method 'append' of 'list' objects}
+       10    0.000    0.000    0.004    0.000 sky.py:325(__init__)
+     3760    0.001    0.000    0.004    0.000 _theme.py:109(luminance)
+      525    0.001    0.000    0.004    0.000 _textwidth.py:67(char_widths)
+       10    0.000    0.000    0.004    0.000 sky.py:1006(_status_line)
+      445    0.000    0.000    0.003    0.000 _textwidth.py:94(visible_len)
+     5368    0.002    0.000    0.003    0.000 _textwidth.py:18(char_width)
+    11280    0.002    0.000    0.003    0.000 _theme.py:102(_to_linear)
+       10    0.001    0.000    0.003    0.000 _sky_objects.py:34(paint)
+
+

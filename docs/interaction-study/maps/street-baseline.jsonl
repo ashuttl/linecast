@@ -1,0 +1,19 @@
+{"python": "3.13.15 (main, Aug 25 2026, 13:50:12) [Clang 22.1.3 ]", "platform": "macOS-27.0-arm64-arm-64bit-Mach-O", "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-map-bench-2whwyesn", "n": 40, "color": "truecolor", "lat": 43.66, "lon": -70.2, "note": "No terminal write; network disabled; copied local tiles if supplied"}
+{"coverage_for": ["flat_street", "preview", [80, 24]], "band": 6, "source_zoom": 14, "tiles": 3, "present": 3}
+{"view": "flat_street", "mode": "preview", "size": [80, 24], "sun": false, "wall_ms": {"median": 0.818, "p95": 1.004, "max": 1.084}, "cpu_ms": {"median": 0.818, "p95": 0.986, "max": 1.045}, "bytes": {"median": 38586.0, "p95": 41280, "max": 41647}}
+{"coverage_for": ["flat_street", "hover", [80, 24]], "band": 6, "source_zoom": 14, "tiles": 3, "present": 3}
+{"view": "flat_street", "mode": "hover", "size": [80, 24], "sun": false, "wall_ms": {"median": 0.833, "p95": 0.995, "max": 1.032}, "cpu_ms": {"median": 0.834, "p95": 0.968, "max": 1.009}, "bytes": {"median": 41769.0, "p95": 41929, "max": 41929}}
+{"coverage_for": ["flat_street", "rebuild", [80, 24]], "band": 6, "source_zoom": 14, "tiles": 3, "present": 3}
+{"view": "flat_street", "mode": "rebuild", "size": [80, 24], "sun": false, "wall_ms": {"median": 18.817, "p95": 21.703, "max": 32.19}, "cpu_ms": {"median": 18.988, "p95": 21.877, "max": 32.403}, "bytes": {"median": 41685.5, "p95": 42380, "max": 42481}}
+{"coverage_for": ["flat_street", "preview", [120, 40]], "band": 6, "source_zoom": 14, "tiles": 3, "present": 3}
+{"view": "flat_street", "mode": "preview", "size": [120, 40], "sun": false, "wall_ms": {"median": 1.658, "p95": 1.853, "max": 2.178}, "cpu_ms": {"median": 1.655, "p95": 1.833, "max": 2.147}, "bytes": {"median": 94293.5, "p95": 98582, "max": 99242}}
+{"coverage_for": ["flat_street", "hover", [120, 40]], "band": 6, "source_zoom": 14, "tiles": 3, "present": 3}
+{"view": "flat_street", "mode": "hover", "size": [120, 40], "sun": false, "wall_ms": {"median": 1.75, "p95": 1.91, "max": 2.001}, "cpu_ms": {"median": 1.75, "p95": 1.881, "max": 2.001}, "bytes": {"median": 100476.0, "p95": 100476, "max": 100476}}
+{"coverage_for": ["flat_street", "rebuild", [120, 40]], "band": 6, "source_zoom": 14, "tiles": 3, "present": 3}
+{"view": "flat_street", "mode": "rebuild", "size": [120, 40], "sun": false, "wall_ms": {"median": 36.058, "p95": 36.82, "max": 37.366}, "cpu_ms": {"median": 36.171, "p95": 36.942, "max": 37.445}, "bytes": {"median": 99445.0, "p95": 100163, "max": 100641}}
+{"coverage_for": ["flat_street", "preview", [200, 60]], "band": 7, "source_zoom": 14, "tiles": 3, "present": 3}
+{"view": "flat_street", "mode": "preview", "size": [200, 60], "sun": false, "wall_ms": {"median": 3.502, "p95": 3.589, "max": 3.928}, "cpu_ms": {"median": 3.492, "p95": 3.569, "max": 3.902}, "bytes": {"median": 223817.0, "p95": 230282, "max": 231246}}
+{"coverage_for": ["flat_street", "hover", [200, 60]], "band": 7, "source_zoom": 14, "tiles": 3, "present": 3}
+{"view": "flat_street", "mode": "hover", "size": [200, 60], "sun": false, "wall_ms": {"median": 3.443, "p95": 3.567, "max": 3.668}, "cpu_ms": {"median": 3.443, "p95": 3.532, "max": 3.668}, "bytes": {"median": 232624.0, "p95": 232624, "max": 232624}}
+{"coverage_for": ["flat_street", "rebuild", [200, 60]], "band": 7, "source_zoom": 14, "tiles": 3, "present": 3}
+{"view": "flat_street", "mode": "rebuild", "size": [200, 60], "sun": false, "wall_ms": {"median": 77.347, "p95": 91.018, "max": 106.451}, "cpu_ms": {"median": 77.463, "p95": 91.07, "max": 106.609}, "bytes": {"median": 232507.0, "p95": 233009, "max": 233091}}

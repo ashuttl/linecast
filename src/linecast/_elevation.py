@@ -76,7 +76,7 @@ def decode_meters(r: int, g: int, b: int) -> float:
 
 
 def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
-                   timeout: float = 15) -> list[list[float | None]]:
+                   timeout: float = 15, camera=None) -> list[list[float | None]]:
     """Elevation in meters resampled to a w×h grid over `bbox`.
 
     Returns rows of floats; None where no tile data arrived.  Samples are
@@ -85,11 +85,15 @@ def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
     channels are not — G wraps — which is why decoding comes first), and
     the nearest-neighbor duplication this replaced stepped the hillshade
     into visible axis-aligned combs wherever the view outresolved a tile.
+    With a camera, its bounds choose the tiles and its inverse projection
+    chooses each sample; bbox sampling remains available to existing callers.
     """
     # one step past the width-matched zoom: the caller's 2x supersample
     # then box-averages real detail down instead of interpolated guesses
-    z = min(MAX_ZOOM, _pick_zoom(bbox, w, MAX_ZOOM) + 1)
-    grid = _resample(bbox, w, h, z, timeout)
+    detail_bbox = bbox if camera is None else camera.scale_bbox
+    z = min(MAX_ZOOM, _pick_zoom(detail_bbox, w, MAX_ZOOM) + 1)
+    options = {} if camera is None else {"camera": camera}
+    grid = _resample(bbox, w, h, z, timeout, **options)
     if z <= BATHY_ZOOM:
         return grid
 
@@ -104,7 +108,7 @@ def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
     # Death Valley) falls back to the z10 data it always rendered from.
     if not any(v is None or v < 1.0 for row in grid for v in row):
         return grid  # nothing near or below sea level: skip the fetch
-    coarse = _resample(bbox, w, h, BATHY_ZOOM, timeout)
+    coarse = _resample(bbox, w, h, BATHY_ZOOM, timeout, **options)
     for row, crow in zip(grid, coarse):
         for x, (v, c) in enumerate(zip(row, crow)):
             if c is not None and (v is None or (c < -1.0 and v < 1.0)):
@@ -112,13 +116,17 @@ def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
     return grid
 
 
-def _resample(bbox, w, h, z, timeout):
+def _resample(bbox, w, h, z, timeout, camera=None):
     """One zoom level's tiles, bilinearly sampled to a w×h meters grid."""
 
     def fetch(z_, x, y):
         return _decoded_tile(z_, x, y, timeout)
 
-    canvas, cw, ch, org_x, org_y, world = stitch_xyz(fetch, bbox, z)
+    coverage = bbox if camera is None else camera.bounds
+    stitched = stitch_xyz(fetch, coverage, z)
+    if camera is not None:
+        return _resample_camera(stitched, camera.lls(w, h), coverage)
+    canvas, cw, ch, org_x, org_y, world = stitched
     minlon, minlat, maxlon, maxlat = bbox
 
     # x depends only on lon, y only on lat, so the resample is separable:
@@ -175,5 +183,54 @@ def _resample(bbox, w, h, z, timeout):
                 row.append(a)
             else:
                 row.append(a + (b - a) * t)
+        grid.append(row)
+    return grid
+
+
+def _canvas_xy(ll, center_lon, org_x, org_y, world):
+    """A geographic point in a local stitch, unwrapped by the whole world.
+
+    A dateline-crossing stitch can start east of 180° while the camera's
+    inverse projection returns a negative longitude. Move the point into
+    the coverage's longitude interval, never modulo the local canvas width:
+    opposite edges of a regional stitch are different places.
+    """
+    lat, lon = ll
+    lon += 360.0 * round((center_lon - lon) / 360.0)
+    wx, wy = _lonlat_to_world(lon, lat)
+    return wx * world - org_x, wy * world - org_y
+
+
+def _resample_camera(stitched, lls, bbox):
+    """Decode and bilinearly sample a local canvas through the map camera."""
+    canvas, cw, ch, org_x, org_y, world = stitched
+    center_lon = (bbox[0] + bbox[2]) * 0.5
+    grid = []
+    for ll_row in lls:
+        row = []
+        for ll in ll_row:
+            if ll is None or cw <= 0 or ch <= 0:
+                row.append(None)
+                continue
+            px, py = _canvas_xy(ll, center_lon, org_x, org_y, world)
+            if not (0.0 <= px <= cw and 0.0 <= py <= ch):
+                row.append(None)
+                continue
+            fx = min(max(px - 0.5, 0.0), cw - 1.0)
+            fy = min(max(py - 0.5, 0.0), ch - 1.0)
+            x0, y0 = int(fx), int(fy)
+            x1, y1 = min(x0 + 1, cw - 1), min(y0 + 1, ch - 1)
+            tx, ty = fx - x0, fy - y0
+            taps = ((y0 * cw + x0) * 4, (y0 * cw + x1) * 4,
+                    (y1 * cw + x0) * 4, (y1 * cw + x1) * 4)
+            a, b, c, d = [decode_meters(canvas[i], canvas[i + 1], canvas[i + 2])
+                          if canvas[i + 3] else None for i in taps]
+            # Match the existing separable sampler's treatment of missing
+            # neighbours: use the available sample without mixing in zero.
+            top = b if a is None else (a if b is None else a + (b - a) * tx)
+            bot = d if c is None else (c if d is None else c + (d - c) * tx)
+            value = bot if top is None else (
+                top if bot is None else top + (bot - top) * ty)
+            row.append(value)
         grid.append(row)
     return grid

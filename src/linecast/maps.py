@@ -70,8 +70,8 @@ from linecast._scenes import Memo
 # (about band 3); street mode's deepest classes — buildings, POI text —
 # need 0.0012, which is roughly two metres per braille dot.
 MIN_ZOOM_DEG = 0.0012
-# past _globe.is_globe the view is an orthographic globe; at
-# the ceiling the whole planet fits the screen's height with a margin
+# The live map is orthographic at every scale. At the ceiling
+# the whole planet fits the screen's height with a margin
 # (the disk's diameter is 2·(180/π) ≈ 114.6 zoom-degrees).  A narrow
 # terminal needs more room than that: see max_zoom.
 MAX_ZOOM_DEG = 130.0
@@ -79,6 +79,7 @@ ZOOM_STEP = 1.5          # matches radar, so the two views feel the same
 
 
 _route_layer_cache = Memo(keep=1)   # one slot: (route id, view key) -> DotLayer
+_projected_borders = Memo(keep=4)
 
 
 def map_cells(size=None):
@@ -101,7 +102,7 @@ def max_zoom(gw, hc):
     return MAX_ZOOM_DEG * max(1.0, hc * 2 / gw)
 
 
-def _get_route_layer(route, bbox, gw, hc):
+def _get_route_layer(route, bbox, gw, hc, camera=None):
     """The route as its own ranked braille layer, memoized per view.
 
     Cool cyan, deliberately not the marker's yellow and never the
@@ -112,14 +113,33 @@ def _get_route_layer(route, bbox, gw, hc):
         return None
 
     def build():
-        layer = DotLayer(bbox, gw, hc)
+        layer = (DotLayer(bbox, gw, hc, camera=camera) if camera is not None
+                 else DotLayer(bbox, gw, hc))
         ink = _maps_style.palette().get("route",
                                         _maps_style.PALETTE_DARK["route"])
         rank = _maps_style.LINE_STYLES["route"][3]
         layer._draw_lines([route.coords], ink, width=2, rank=rank)
         return layer
 
-    return _route_layer_cache.get((id(route), _view_key(bbox, gw, hc)), build)
+    key = camera.key if camera is not None else _view_key(bbox, gw, hc)
+    return _route_layer_cache.get((id(route), key, _theme.generation), build)
+
+
+def _camera_borders(camera):
+    from linecast._radar_basemap import _load_data
+
+    def build():
+        layer = DotLayer(camera.bounds, camera.gw, camera.hc, camera=camera)
+        layer._draw_lines(_load_data()["borders"], BORDER)
+        return layer
+
+    return _projected_borders.get((camera.key, _theme.generation), build)
+
+
+def _capture(capture, camera, fills, **layers):
+    if capture is not None and camera is not None:
+        from linecast._maps_preview import PreparedMap
+        capture(PreparedMap(camera=camera, fills=fills, **layers))
 
 
 def _scale_bar(bbox, graph_w):
@@ -150,7 +170,8 @@ class _ShiftedLayer:
 
 def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
                     mouse_pos, marker_cell, dest_cell, origin_cell, lang,
-                    route_layer, show_labels=True, sun=False, clouds=False):
+                    route_layer, show_labels=True, sun=False, clouds=False,
+                    camera=None, capture=None):
     """(map lines, readout, hover, loading, err) for the hillshaded view.
 
     Terrain's readout is its own probe — the elevation under the pointer
@@ -162,19 +183,20 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     # coastlines and rivers alike, leaving the bare fields.  The
     # basemap's braille here is border strokes only (the coastline
     # comes from the elevation contour), so it isn't fetched.
-    basemap = (_get_basemap(bbox, graph_w, height_cells)
-               if show_labels else None)
+    basemap = ((_camera_borders(camera) if camera is not None else
+                _get_basemap(bbox, graph_w, height_cells)) if show_labels else None)
+    camera_args = {"camera": camera} if camera is not None else {}
     err = None
     loading = False
     view = _EMPTY_TERRAIN
     if block:
         try:
-            view = _get_elevation(bbox, graph_w, height_cells, True)
+            view = _get_elevation(bbox, graph_w, height_cells, True, **camera_args)
         except Exception as exc:
             log_failure("maps/elevation", "terrain load", exc, fallback="empty terrain")
             err = str(exc)
     else:
-        view = _get_elevation(bbox, graph_w, height_cells, False)
+        view = _get_elevation(bbox, graph_w, height_cells, False, **camera_args)
         loading = view.elev is None
 
     elev, coast, rivers = view.elev, view.coast, view.rivers
@@ -182,25 +204,31 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
         coast = rivers = None
     if elev is not None:
         terrain = _terrain_buffer(elev, bbox, graph_w, height_cells,
-                                  view.water, view.cover)
+                                  view.water, view.cover, **camera_args)
         if sun or clouds:
             # the flat earth as it is: same sun, same clouds, same
             # city lights, shaded through the same functions the
             # globe uses — only the projection differs
             terrain = _shade_now(
                 terrain,
-                _globe_now.flat_lls(bbox, graph_w, height_cells * 2), sun,
-                (_get_clouds(bbox[3] - bbox[1], height_cells, block)
+                (camera.lls(graph_w, height_cells * 2) if camera is not None
+                 else _globe_now.flat_lls(bbox, graph_w, height_cells * 2)), sun,
+                (_get_clouds(bbox[3] - bbox[1], height_cells, block and capture is None)
                  if clouds else None),
-                _globe_now.city_lights_flat(bbox, graph_w,
-                                            height_cells * 2)
+                (_globe_now.city_lights_globe(camera.lat, camera.lon, camera.zoom,
+                                              graph_w, height_cells * 2)
+                 if camera is not None else
+                 _globe_now.city_lights_flat(bbox, graph_w, height_cells * 2))
                 if sun else {})
     else:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
 
     overlays = {}
     if show_labels:
-        for pos, (ch, _color) in basemap.city_overlays().items():
+        cities = (_globe.city_overlays(camera.lat, camera.lon, camera.zoom,
+                                       graph_w, height_cells, lang)
+                  if camera is not None else basemap.city_overlays())
+        for pos, (ch, _color) in cities.items():
             overlays[pos] = (ch, None)  # None ink = per-cell contrast pick
 
     dx, dy = pan_offset
@@ -213,6 +241,7 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
             coast = _shift_grid(coast, dx, dy, 0)
         rivers = _shift_layer(rivers, dx, dy)
         route_layer = _shift_layer(route_layer, dx, dy)
+    labels = dict(overlays)
     overlays = _place_marks(overlays, marker_cell, origin_cell, dest_cell,
                             dx, dy, graph_w, height_cells, False)
     readout = _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells,
@@ -221,6 +250,9 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     # rivers under the route, which is the order the strokes list means:
     # a route along a river valley owns the cells it shares.
     strokes = [s for s in (rivers, route_layer) if s is not None] or None
+    if elev is not None:
+        _capture(capture, camera, terrain, layer=basemap, coast=coast,
+                 strokes=tuple(strokes or ()), overlays=labels, elev=elev)
     lines = compose_terrain(basemap, terrain, overlays, graph_w,
                             height_cells, coast=coast, strokes=strokes)
     return lines, readout, "", loading, err
@@ -266,40 +298,30 @@ def _shade_now(buf, lls, sun, canvas, lights, glow=None, night=None):
 def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
                   mouse_pos, marker_cell, dest_cell, origin_cell, lang,
                   route_layer, show_labels=True, street=False, sun=False,
-                  clouds=False):
-    """Either view past the hand-off: the planet, orthographic.
+                  clouds=False, camera=None, capture=None):
+    """World data under the orthographic camera, for either map style.
 
-    Everything downstream of the geometry belongs to the flat views —
-    terrain keeps its shader, street keeps its two quiet fills, both
-    keep the coastline rule, the Natural Earth borders and the city
-    labels with their contrast-picked ink — so crossing the projection
-    boundary changes the shape of the world, not the look of it.
-
-    Street keeps exactly the two fills and the coast ink the flat
-    street map draws with, and draws no borders, because the flat
-    street map draws none: the frame before the hand-off and the frame
-    after it should differ in curvature and nothing else.  The land is
-    the terminal's own background, as it is on the flat map, so the
-    planet reads as lit seas on a dark ground with the atmosphere
-    marking its edge.  City lights it never had: they
-    belong to terrain in either projection (_render_street says why),
-    and the night floor that suits a register without them is the same
-    one the flat street map takes.
+    Vendored lakes, borders and cities accompany the world elevation source.
+    Terrain keeps its hillshade and climate colors; street keeps its quieter
+    land/water palette and brighter night floor. The same camera projects
+    these sources and the local tiles. Legacy bbox callers derive their
+    center and scale from the bbox instead.
     """
-    lat0 = (bbox[1] + bbox[3]) / 2
-    lon0 = (bbox[0] + bbox[2]) / 2
-    zoom = bbox[3] - bbox[1]
+    lat0 = camera.lat if camera is not None else (bbox[1] + bbox[3]) / 2
+    lon0 = camera.lon if camera is not None else (bbox[0] + bbox[2]) / 2
+    zoom = camera.zoom if camera is not None else bbox[3] - bbox[1]
+    camera_args = {"camera": camera} if camera is not None else {}
     err = None
     loading = False
     view = None
     if block:
         try:
-            view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, True)
+            view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, True, **camera_args)
         except Exception as exc:
             log_failure("maps/elevation", "globe load", exc, fallback="empty globe")
             err = str(exc)
     else:
-        view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, False)
+        view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, False, **camera_args)
         loading = view is None
 
     elev = view.elev if view is not None else None
@@ -310,8 +332,9 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
                and not street else None)
     palette = _maps_style.palette()
     if elev is not None:
-        key = (round(lat0, 2), round(lon0, 2), round(zoom, 1),
-               graph_w, height_cells, street)
+        key = ((camera.key, street, _theme.generation) if camera is not None else
+               (round(lat0, 2), round(lon0, 2), round(zoom, 1),
+                graph_w, height_cells, street))
 
         def build():
             if street:
@@ -340,7 +363,7 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
         if (sun or clouds) and view.lls is not None:
             terrain = _shade_now(
                 terrain, view.lls, sun,
-                _get_clouds(zoom, height_cells, block) if clouds else None,
+                _get_clouds(zoom, height_cells, block and capture is None) if clouds else None,
                 _globe_now.city_lights_globe(lat0, lon0, zoom, graph_w,
                                              height_cells * 2)
                 if sun and not street else {},
@@ -366,8 +389,10 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
         if dusk is not None:
             dusk = _shift_grid(dusk, dx, dy, None)
         borders = _shift_layer(borders, dx, dy)
+    labels = dict(overlays)
     overlays = _place_marks(overlays, marker_cell, origin_cell, dest_cell,
-                            dx, dy, graph_w, height_cells, False)
+                            dx, dy, graph_w, height_cells,
+                            street if camera is not None else False)
 
     # the elevation probe is terrain's idiom; the street planet, like
     # the street map, answers with places rather than metres
@@ -375,7 +400,12 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
                _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells,
                              lang, centre=False))
 
-    strokes = [borders] if borders is not None else None
+    strokes = [s for s in (borders, route_layer) if s is not None] or None
+    if elev is not None:
+        _capture(capture, camera, terrain, coast=coast,
+                 strokes=tuple(strokes or ()), overlays=labels,
+                 elev=None if street else elev, street=street, world=True,
+                 coast_ink=palette.get("coast") if street else None, ink_dusk=dusk)
     lines = compose_terrain(None, terrain, overlays, graph_w,
                             height_cells, coast=coast, strokes=strokes,
                             coast_ink=palette.get("coast") if street
@@ -406,25 +436,28 @@ def _hover(layer, mouse_pos, pan_offset, lang):
 
 def _render_street(bbox, graph_w, height_cells, block, pan_offset,
                    mouse_pos, marker_cell, dest_cell, origin_cell, lang,
-                   route_layer, show_labels=True, sun=False, clouds=False):
+                   route_layer, show_labels=True, sun=False, clouds=False,
+                   camera=None, capture=None):
     """(map lines, readout, hover, loading, err) for the vector view."""
     err = None
     loading = False
     fills = layer = labels = None
     centre = (graph_w // 2, height_cells // 2)
     reserved = (marker_cell, centre) if marker_cell else (centre,)
+    camera_args = {"camera": camera} if camera is not None else {}
     if block:
         try:
             fills, layer, labels = _get_street(bbox, graph_w, height_cells,
-                                               True, lang, reserved)
+                                               True, lang, reserved, **camera_args)
         except Exception as exc:
             log_failure("maps/vtiles", "street load", exc, fallback="empty street map")
             err = str(exc)
     else:
         fills, layer, labels = _get_street(bbox, graph_w, height_cells,
-                                           False, lang, reserved)
+                                           False, lang, reserved, **camera_args)
         loading = fills is None
 
+    available = fills is not None
     palette = _maps_style.palette()
     if fills is None:
         ground = palette.get("ground")
@@ -441,10 +474,11 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
         # this map already draws the city itself.  Nothing burns back
         # through the dark here, so the fills keep a higher floor to
         # stay a map at night (see _globe_now.NIGHT_STREET).
-        lls = _globe_now.flat_lls(bbox, graph_w, height_cells * 2)
+        lls = (camera.lls(graph_w, height_cells * 2) if camera is not None else
+               _globe_now.flat_lls(bbox, graph_w, height_cells * 2))
         fills = _shade_now(
             fills, lls, sun,
-            (_get_clouds(bbox[3] - bbox[1], height_cells, block)
+            (_get_clouds(bbox[3] - bbox[1], height_cells, block and capture is None)
              if clouds else None),
             {}, night=_globe_now.NIGHT_STREET)
         dusk = _ink_dusk(lls, sun, graph_w, height_cells)
@@ -466,6 +500,11 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
                             dx, dy, graph_w, height_cells, True)
 
     strokes = [route_layer] if route_layer is not None else None
+    if available:
+        _capture(capture, camera, fills, layer=layer,
+                 overlays=dict(labels) if show_labels else {},
+                 strokes=tuple(strokes or ()), hover=getattr(layer, "hover", None),
+                 street=True, ink_dusk=dusk)
     lines = compose_map(fills, layer, overlays, graph_w, height_cells,
                         strokes=strokes, hot=hot, hot_glyphs=hot_glyphs,
                         ink_dusk=dusk)
@@ -560,20 +599,53 @@ def _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells, lang,
     return f" · {_maps_style.fmt_elev(probe)}"
 
 
+def _render_prepared(prepared, camera, mouse_pos, marker_cell, dest_cell,
+                     origin_cell, lang, sun=False, refining=False, error=None):
+    """Paint retained geography at the displayed camera, without loading data."""
+    gw, hc = camera.gw, camera.hc
+    if prepared is None:
+        fills = [[BG_PRIMARY] * gw for _ in range(hc * 2)]
+        marks = _place_marks({}, marker_cell, origin_cell, dest_cell, 0, 0, gw, hc, False)
+        return compose_terrain(None, fills, marks, gw, hc), "", "", not error, error
+    frame = prepared.transformed(camera)
+    marks = _place_marks(dict(frame.overlays), marker_cell, origin_cell, dest_cell,
+                         0, 0, gw, hc, frame.street)
+    hover, hot, hot_glyphs = _hover(frame, mouse_pos, (0, 0), lang)
+    if frame.street and frame.layer is not None:
+        lines = compose_map(frame.fills, frame.layer, marks, gw, hc,
+                            strokes=frame.strokes, hot=hot, hot_glyphs=hot_glyphs,
+                            ink_dusk=frame.ink_dusk)
+        readout = ""
+    else:
+        lines = compose_terrain(frame.layer, frame.fills, marks, gw, hc,
+                                coast=frame.coast, strokes=frame.strokes,
+                                coast_ink=frame.coast_ink, ink_dusk=frame.ink_dusk)
+        readout = _elev_readout(frame.elev, mouse_pos, 0, 0, gw, hc, lang,
+                                centre=not frame.world and not sun)
+    return lines, readout, hover, refining, error
+
+
 def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                block=True, pan_offset=(0, 0), mouse_pos=None,
                view="terrain", search=None, route=None, dest=None,
                origin=None, directions=None,
                note="", show_labels=True, sun=False,
-               clouds=False, **_):
+               clouds=False, camera=None, capture=None, prepared=None,
+               preview=False, refining=False, error=None, **_):
     lang = runtime.lang if runtime else "en"
     cols, rows = get_terminal_size()
     graph_w, height_cells = map_cells((cols, rows))
-
-    bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
+    if camera is not None:
+        lat, lon, zoom = camera.lat, camera.lon, camera.zoom
+        graph_w, height_cells = camera.gw, camera.hc
+        cols, rows = graph_w, height_cells + 2
+    bbox = camera.bounds if camera is not None else bbox_for(
+        lat, lon, zoom, graph_w, height_cells)
     m_lat, m_lon = marker if marker else (lat, lon)
-    globe = _globe.is_globe(zoom, lat)
-    if globe:
+    globe = not camera.local_tiles if camera is not None else _globe.is_globe(zoom, lat)
+    if preview and prepared is not None:
+        globe = prepared.world
+    if globe or camera is not None:
         # markers live on a sphere now: project them orthographically,
         # and let the far hemisphere hide what it hides
         cell = _globe.marker_cell(lat, lon, zoom, graph_w, height_cells,
@@ -584,7 +656,8 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         origin_cell = (_globe.marker_cell(lat, lon, zoom, graph_w,
                                           height_cells, origin[0], origin[1])
                        if origin is not None else None)
-        route_layer = None
+        route_layer = (_get_route_layer(route, bbox, graph_w, height_cells, camera=camera)
+                       if camera is not None and not preview else None)
         draw = functools.partial(_render_globe, street=(view == "street"),
                                  sun=sun, clouds=clouds)
     else:
@@ -599,10 +672,21 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         draw = functools.partial(
             _render_street if view == "street" else _render_terrain,
             sun=sun, clouds=clouds)
-    map_lines, readout, hover, loading, err = draw(
-        bbox, graph_w, height_cells, block, pan_offset, mouse_pos,
-        cell, dest_cell, origin_cell, lang, route_layer,
-        show_labels=show_labels)
+    if camera is not None:
+        # Source level changes with the visible footprint; projection never does.
+        draw = functools.partial(
+            _render_globe if globe else _render_street if view == "street" else _render_terrain,
+            sun=sun, clouds=clouds, camera=camera, capture=capture,
+            **({"street": view == "street"} if globe else {}))
+    if preview:
+        map_lines, readout, hover, loading, err = _render_prepared(
+            prepared, camera, mouse_pos, cell, dest_cell, origin_cell, lang,
+            sun=sun, refining=refining, error=error)
+    else:
+        map_lines, readout, hover, loading, err = draw(
+            bbox, graph_w, height_cells, block, pan_offset, mouse_pos,
+            cell, dest_cell, origin_cell, lang, route_layer,
+            show_labels=show_labels)
 
     # A note is a reply to something you asked for and outranks
     # everything; hover is what you are pointing at *now*, so it beats
@@ -653,7 +737,8 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         # the Köppen credit is owed only where the climate grid is
         # colouring the ground: the terrain register, flat or globe
         kg = (_climate.ATTRIBUTION
-              if view != "street" and _climate.available() else None)
+              if view != "street" and (not preview or prepared is not None)
+              and _climate.available() else None)
         if globe:
             # either register's globe draws from the elevation tiles
             # (borders and cities are vendored Natural Earth); terrain's
@@ -687,7 +772,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                            ATTRIBUTION)
             else:
                 attribs = (long, both, ATTRIBUTION)
-        scale = (_scale_bar(bbox, graph_w)
+        scale = (_scale_bar(camera.scale_bbox if camera is not None else bbox, graph_w)
                  if view == "street" and not globe else "")
         # first rung that fits wins: long+hint, short+hint, short, bare
         ladder = [f"{scale}{fg(*DIM)}{a}{RESET}  {hint}" for a in attribs]

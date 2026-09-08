@@ -277,7 +277,7 @@ def water_claims(index, regions, seeds, graph_w, height_cells):
     return claims
 
 
-def marine_backdrop(regions, bbox, graph_w, height_cells):
+def marine_backdrop(regions, bbox, graph_w, height_cells, camera=None):
     """{region: vendored marine name} for the largest bodies on screen.
 
     The sea a view opens into, asked once per body at the cell
@@ -300,8 +300,14 @@ def marine_backdrop(regions, bbox, graph_w, height_cells):
     out = {}
     for region in biggest:
         _area, (col, row), _span = regions[region]
-        lon = minlon + (col + 0.5) / graph_w * (maxlon - minlon)
-        lat = maxlat - (row + 0.5) / height_cells * (maxlat - minlat)
+        if camera is not None:
+            ll = camera.unproject(col + 0.5, row + 0.5, graph_w, height_cells)
+            if ll is None:
+                continue
+            lat, lon = ll
+        else:
+            lon = minlon + (col + 0.5) / graph_w * (maxlon - minlon)
+            lat = maxlat - (row + 0.5) / height_cells * (maxlat - minlat)
         name = marine_region(lat, lon)
         if name:
             out[region] = name
@@ -458,7 +464,7 @@ def _rank(props, default=99):
 # ---------------------------------------------------------------------------
 # Candidate collection
 # ---------------------------------------------------------------------------
-def _features(view, bbox, graph_w, height_cells, layer_name, dedupe=True):
+def _features(view, bbox, graph_w, height_cells, layer_name, dedupe=True, camera=None):
     """(props, projected parts) per feature, in tile-then-file order.
 
     Duplicates across a tile seam keep the first occurrence, which is
@@ -468,7 +474,7 @@ def _features(view, bbox, graph_w, height_cells, layer_name, dedupe=True):
     dw, dh = graph_w * 2, height_cells * 4
     seen = set()
     out = []
-    for _name, feat, project in iter_layer(view, layer_name, bbox, dw, dh):
+    for _name, feat, project in iter_layer(view, layer_name, bbox, dw, dh, camera=camera):
         props = feat["tags"]
         key = (layer_name, props.get("name"), props.get("ref"),
                props.get("class"))
@@ -485,7 +491,7 @@ def _in_view(cell, graph_w, height_cells):
             and 0 <= cell[1] < height_cells)
 
 
-def place_candidates(view, bbox, graph_w, height_cells, band, lang):
+def place_candidates(view, bbox, graph_w, height_cells, band, lang, camera=None):
     """Settlements and admin names, already sorted into priority order.
 
     The bundled Natural Earth cities lead below band 3: 5227 of them,
@@ -506,7 +512,7 @@ def place_candidates(view, bbox, graph_w, height_cells, band, lang):
     low = band < style.PLACE_SOURCE_BAND
     capitals = set()
     for props, parts in _features(view, bbox, graph_w, height_cells,
-                                  "place"):
+                                  "place", camera=camera):
         cls = props.get("class")
         rank = style.CLASS_RANK.get(cls)
         if rank is None:                  # an unlisted class is dropped
@@ -531,13 +537,22 @@ def place_candidates(view, bbox, graph_w, height_cells, band, lang):
 
     if low:
         minlon, minlat, maxlon, maxlat = bbox
-        inview = [e for e in _load_data()["cities"]
-                  if minlon <= e[0] <= maxlon and minlat <= e[1] <= maxlat]
+        if camera is not None:
+            inview = [e for e in _load_data()["cities"]
+                      if camera.visible(e[0], e[1])
+                      and _in_view(camera.project(e[0], e[1], graph_w, height_cells),
+                                   graph_w, height_cells)]
+        else:
+            inview = [e for e in _load_data()["cities"]
+                      if minlon <= e[0] <= maxlon and minlat <= e[1] <= maxlat]
         inview.sort(key=lambda e: e[2], reverse=True)
         for i, entry in enumerate(inview):
-            cell = (int((entry[0] - minlon) / (maxlon - minlon) * graph_w),
-                    int((maxlat - entry[1]) / (maxlat - minlat)
-                        * height_cells))
+            if camera is not None:
+                x, y = camera.project(entry[0], entry[1], graph_w, height_cells)
+                cell = int(x), int(y)
+            else:
+                cell = (int((entry[0] - minlon) / (maxlon - minlon) * graph_w),
+                        int((maxlat - entry[1]) / (maxlat - minlat) * height_cells))
             name = _localized(entry, lang)
             if name and _in_view(cell, graph_w, height_cells):
                 kind = ("city_major" if entry[2] >= style.CITY_CAPS_POP
@@ -556,7 +571,7 @@ def place_candidates(view, bbox, graph_w, height_cells, band, lang):
 
 
 def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
-                          water_mask=None, waters=None):
+                          water_mask=None, waters=None, camera=None):
     """Water bodies and park names — they share one ceiling of three.
 
     Below band 3 the names come from the bundled Natural Earth marine
@@ -605,7 +620,7 @@ def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
         elif region not in best or choice < best[region][0]:
             best[region] = (choice, candidate)
 
-    backdrop = (marine_backdrop(regions, bbox, graph_w, height_cells)
+    backdrop = (marine_backdrop(regions, bbox, graph_w, height_cells, camera=camera)
                 if index is not None else {})
     if index is not None and band < style.PLACE_SOURCE_BAND:
         for region, name in backdrop.items():
@@ -614,7 +629,7 @@ def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
                   ((-area, name), "water", name, cell, span))
     else:
         for props, parts in _features(view, bbox, graph_w, height_cells,
-                                      "water_name"):
+                                      "water_name", camera=camera):
             name = _name(props, lang)
             if not name:
                 continue
@@ -677,7 +692,7 @@ def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
                 name = claims.get((col, row)) or backdrop.get(region)
                 if name:
                     waters[(col, row)] = name
-    for props, parts in _features(view, bbox, graph_w, height_cells, "park"):
+    for props, parts in _features(view, bbox, graph_w, height_cells, "park", camera=camera):
         name = _name(props, lang)
         cell = _centroid(parts)
         if name and _in_view(cell, graph_w, height_cells):
@@ -688,7 +703,7 @@ def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
     return water + parks
 
 
-def road_candidates(view, bbox, graph_w, height_cells, band, lang):
+def road_candidates(view, bbox, graph_w, height_cells, band, lang, camera=None):
     """(shields, street names, exits), each sorted into placement order.
 
     Every segment carrying the same name is merged into one candidate:
@@ -712,7 +727,7 @@ def road_candidates(view, bbox, graph_w, height_cells, band, lang):
     """
     refs, names, numbered, exits = {}, {}, set(), {}
     for props, parts in _features(view, bbox, graph_w, height_cells,
-                                  "transportation_name", dedupe=False):
+                                  "transportation_name", dedupe=False, camera=camera):
         cells = [c for part in parts
                  for c in cell_path(part, graph_w, height_cells)]
         if not cells:
@@ -767,7 +782,7 @@ def road_candidates(view, bbox, graph_w, height_cells, band, lang):
     return shields, streets, exits
 
 
-def poi_candidates(view, bbox, graph_w, height_cells, band, lang):
+def poi_candidates(view, bbox, graph_w, height_cells, band, lang, camera=None):
     """Glyph POI, already tiered and sorted.
 
     The hard filters run before tiering and in order: indoor features go
@@ -777,7 +792,7 @@ def poi_candidates(view, bbox, graph_w, height_cells, band, lang):
     hospital still deserves its cross.
     """
     out = []
-    for props, parts in _features(view, bbox, graph_w, height_cells, "poi"):
+    for props, parts in _features(view, bbox, graph_w, height_cells, "poi", camera=camera):
         if props.get("indoor") in (1, True):
             continue
         cls = props.get("class")
@@ -809,7 +824,7 @@ def poi_candidates(view, bbox, graph_w, height_cells, band, lang):
         if band < debut:
             continue
         for props, parts in _features(view, bbox, graph_w, height_cells,
-                                      layer_name):
+                                      layer_name, camera=camera):
             cell = _centroid(parts)
             if not _in_view(cell, graph_w, height_cells):
                 continue
@@ -959,7 +974,7 @@ def _cased(text, case):
 
 def label_overlays(view, bbox, graph_w, height_cells, band, palette,
                    lang="en", reserved=(), water_mask=None, marks=None,
-                   texts=None, waters=None):
+                   texts=None, waters=None, camera=None):
     """{(col, row): (char, ink, bold)} for one view.
 
     Walked in strict priority order — places, water and park names,
@@ -1000,7 +1015,7 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
     # the everyday dot, or the capital's star
     budget = style.place_budget(total)
     for _key, kind, name, cell, star in place_candidates(
-            view, bbox, graph_w, height_cells, band, lang):
+            view, bbox, graph_w, height_cells, band, lang, camera=camera):
         if budget <= 0 or placed >= total:
             break
         ink, case, bold = _style_for(kind, palette)
@@ -1024,7 +1039,7 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
     budget = style.water_park_budget(total)
     for _key, kind, name, cell, span in water_park_candidates(
             view, bbox, graph_w, height_cells, band, lang, water_mask,
-            waters):
+            waters, camera=camera):
         if budget <= 0 or placed >= total:
             break
         ink, case, bold = _style_for(kind, palette)
@@ -1041,7 +1056,7 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
             placed += 1
 
     shields, streets, exits = road_candidates(view, bbox, graph_w,
-                                              height_cells, band, lang)
+                                              height_cells, band, lang, camera=camera)
 
     # 4 — route shields: the network's colour and the bold *are* the
     # shield
@@ -1090,7 +1105,7 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
     glyphs = style.poi_glyph_budget(graph_w, height_cells)
     text_budget = style.poi_text_budget(total)
     for seq, (key, glyph, ink_key, name, cell) in enumerate(poi_candidates(
-            view, bbox, graph_w, height_cells, band, lang)):
+            view, bbox, graph_w, height_cells, band, lang, camera=camera)):
         if glyphs <= 0:
             break
         ink = palette.get(ink_key, style._PALETTE_16_DEFAULT)

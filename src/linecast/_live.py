@@ -24,6 +24,10 @@ import time as _time
 from linecast import _term
 
 
+# Coalesce queued input briefly, then paint even if motion keeps arriving.
+_INPUT_BATCH_SECONDS = 0.004
+
+
 # ---------------------------------------------------------------------------
 # Frames
 # ---------------------------------------------------------------------------
@@ -551,6 +555,15 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             next_probe = now + interval
             _theme.request_probe(sys.stdout.fileno())
 
+    repaint_by = None
+
+    def _request_repaint():
+        nonlocal repaint_by
+        # Keep a requested repaint even if the next event is ignored or
+        # clamped. A sustained motion stream must also yield to painting.
+        if repaint_by is None:
+            repaint_by = _time.monotonic() + _INPUT_BATCH_SECONDS
+
     offset = 0
     playing = auto_play
     play_frame = 0
@@ -621,13 +634,18 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
 
             # Wait for input, resize, or timeout
             wait = play_interval if (auto_play and playing) else interval
-            deadline = _time.time() + wait
+            deadline = _time.monotonic() + wait
+            repaint_by = None
             while True:
-                remaining = deadline - _time.time()
+                now = _time.monotonic()
+                remaining = deadline - now
                 if remaining <= 0:
                     if auto_play and playing and (play_gate is None
                                                   or play_gate()):
                         play_frame += 1  # advance the animation
+                    break
+                if repaint_by is not None and (
+                        now >= repaint_by or not _term.wait_readable(fd, 0)):
                     break
                 event = term.wait(min(0.1, remaining))
                 if event == 'wake':
@@ -676,18 +694,16 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                             play_frame += 1
                         else:
                             offset += scroll_step
-                        if _term.wait_readable(fd, 0):
-                            continue  # coalesce rapid scrolling
-                        break
+                        _request_repaint()
+                        continue  # coalesce rapid scrolling
                     elif action == 'back':
                         if auto_play:
                             playing = False
                             play_frame -= 1
                         else:
                             offset -= scroll_step
-                        if _term.wait_readable(fd, 0):
-                            continue  # coalesce rapid scrolling
-                        break
+                        _request_repaint()
+                        continue  # coalesce rapid scrolling
                     elif action == 'reset':
                         if auto_play:
                             playing = not playing  # space = play/pause
@@ -699,9 +715,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                     elif (on_action is not None and isinstance(action, str)
                           and action.startswith('key:')):
                         if on_action(action[4:]):
-                            if _term.wait_readable(fd, 0):
-                                continue  # coalesce held-down keys (zoom taps)
-                            break
+                            _request_repaint()
+                            continue  # coalesce held-down keys (zoom taps)
                     elif mouse and isinstance(action, tuple) and action[0] == 'mouse':
                         _, cb, cx, cy, is_rel = action
                         wheel_cb = _normalize_wheel_cb(cb)
@@ -711,9 +726,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                                 # panel scroll, …) — no scrub fallback.
                                 if on_wheel(1 if wheel_cb == 64 else -1,
                                             cx, cy):
-                                    if _term.wait_readable(fd, 0):
-                                        continue  # coalesce rapid wheel
-                                    break
+                                    _request_repaint()
+                                    continue  # coalesce rapid wheel
                                 continue
                             if active_alert is not None:
                                 # Scroll the modal
@@ -724,9 +738,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                                 play_frame += 1 if wheel_cb == 64 else -1
                             else:
                                 offset += scroll_step if wheel_cb == 64 else -scroll_step
-                            if _term.wait_readable(fd, 0):
-                                continue  # coalesce rapid scrolling
-                            break
+                            _request_repaint()
+                            continue  # coalesce rapid scrolling
                         if is_rel:
                             # Button release — completes a drag gesture if one
                             # started; otherwise ignore.
@@ -760,15 +773,13 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                                 dcol, drow = cx - drag_start[0], cy - drag_start[1]
                                 drag_delta = (dcol, drow)
                                 if on_drag(dcol, drow, False):
-                                    if _term.wait_readable(fd, 0):
-                                        continue  # coalesce rapid drag motion
-                                    break
+                                    _request_repaint()
+                                    continue  # coalesce rapid drag motion
                                 continue
                             # Hover-capable terminals.
                             mouse_pos = (cx, cy)
-                            if _term.wait_readable(fd, 0):
-                                continue  # coalesce rapid motion: render once at the final position
-                            break
+                            _request_repaint()
+                            continue  # coalesce rapid motion: render once at the final position
                         # Fallback for terminals without motion reporting:
                         # update pointer on press so tooltip can still appear.
                         if (cb & 0b11) in (0, 1, 2):

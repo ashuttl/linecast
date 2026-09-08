@@ -1,0 +1,48 @@
+         4550622 function calls in 0.758 seconds
+
+   Ordered by: cumulative time
+   List reduced from 122 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        5    0.000    0.000    0.757    0.151 linecast_maps_bench.py:57(frame)
+        5    0.000    0.000    0.757    0.151 maps.py:563(render_map)
+        5    0.000    0.000    0.756    0.151 maps.py:266(_render_globe)
+        5    0.000    0.000    0.664    0.133 _maps_views.py:263(_get_globe)
+        5    0.004    0.001    0.664    0.133 _scenes.py:161(get)
+        5    0.000    0.000    0.659    0.132 _maps_views.py:266(load)
+       10    0.015    0.002    0.243    0.024 _globe.py:184(geometry)
+       10    0.134    0.013    0.216    0.022 _globe.py:155(_project)
+        5    0.038    0.008    0.170    0.034 _globe.py:568(border_layer)
+        5    0.046    0.009    0.125    0.025 _globe.py:367(elevation)
+    90377    0.055    0.000    0.121    0.000 _radar_basemap.py:321(_dot_line)
+      760    0.054    0.000    0.073    0.000 _globe.py:306(bilinear_taps)
+  1336310    0.066    0.000    0.066    0.000 {method 'append' of 'list' objects}
+        5    0.047    0.009    0.065    0.013 _globe.py:657(lake_mask)
+        5    0.000    0.000    0.058    0.012 _globe.py:746(city_overlays)
+        5    0.010    0.002    0.057    0.011 _globe.py:768(_place_cities)
+    26140    0.023    0.000    0.039    0.000 _globe.py:128(forward)
+   196405    0.021    0.000    0.027    0.000 _radar_basemap.py:206(_bresenham)
+        5    0.017    0.003    0.021    0.004 _maps_views.py:53(_coast_dots)
+        5    0.009    0.002    0.020    0.004 _maps_paint.py:295(compose_terrain)
+   392015    0.020    0.000    0.020    0.000 {built-in method math.sin}
+   106028    0.020    0.000    0.020    0.000 _radar_basemap.py:287(_set_dot)
+   361604    0.019    0.000    0.019    0.000 {built-in method builtins.round}
+   353365    0.018    0.000    0.018    0.000 {built-in method math.cos}
+        5    0.012    0.002    0.017    0.003 _maps_views.py:77(_box_average)
+   334508    0.016    0.000    0.016    0.000 {built-in method math.sqrt}
+       30    0.000    0.000    0.013    0.000 _scenes.py:44(get)
+        5    0.000    0.000    0.013    0.003 maps.py:316(build)
+        5    0.006    0.001    0.009    0.002 _globe.py:455(limb_lls)
+   181680    0.008    0.000    0.008    0.000 {built-in method math.degrees}
+       20    0.008    0.000    0.008    0.000 _scenes.py:52(put)
+    19960    0.003    0.000    0.007    0.000 _framebuffer.py:23(halfblock)
+        5    0.006    0.001    0.007    0.001 _globe.py:423(shade_buffer)
+   175160    0.007    0.000    0.007    0.000 {built-in method math.radians}
+   123226    0.007    0.000    0.007    0.000 {built-in method builtins.max}
+    90840    0.007    0.000    0.007    0.000 {built-in method math.atan2}
+   181910    0.006    0.000    0.006    0.000 {built-in method builtins.abs}
+    94303    0.006    0.000    0.006    0.000 {built-in method builtins.min}
+        5    0.004    0.001    0.006    0.001 _globe.py:510(fill_buffer)
+    16434    0.003    0.000    0.006    0.000 _radar_basemap.py:52(_localized)
+
+

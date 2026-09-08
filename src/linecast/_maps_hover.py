@@ -135,7 +135,7 @@ def highlight(color):
     return shift_to_pole(color, HOVER_LIFT, lighter=not style._light())
 
 
-def road_names(view, bbox, graph_w, height_cells, band, lang="en"):
+def road_names(view, bbox, graph_w, height_cells, band, lang="en", camera=None):
     """{(col, row): {style key: (name, cells)}} for the named road net.
 
     `transportation_name` carries the names that `transportation` does
@@ -150,7 +150,7 @@ def road_names(view, bbox, graph_w, height_cells, band, lang="en"):
     merged = {}
     for props, parts in _maps_labels._features(
             view, bbox, graph_w, height_cells, "transportation_name",
-            dedupe=False):
+            dedupe=False, camera=camera):
         key = style.OMT_ROAD_CLASS.get(props.get("class"))
         if key is None or not style.LINE_STYLES[key][1][band]:
             continue

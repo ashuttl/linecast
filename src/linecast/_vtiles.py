@@ -162,7 +162,9 @@ def tiles_for_bbox(bbox: tuple[float, float, float, float], z: int) -> list[tupl
     n = 1 << z
     x0, y0 = _lonlat_to_world(minlon, maxlat)  # top-left
     x1, y1 = _lonlat_to_world(maxlon, minlat)  # bottom-right
-    tx0 = int(x0 * n)
+    # A camera centered west of the dateline has negative unwrapped x.
+    # Truncation would drop the western tile instead of wrapping it.
+    tx0 = math.floor(x0 * n)
     # right edge by ceiling so a bbox past the antimeridian (world x > 1)
     # reaches the wrapped tiles instead of clamping at n - 1
     tx1 = math.ceil(x1 * n) - 1
@@ -174,16 +176,38 @@ def tiles_for_bbox(bbox: tuple[float, float, float, float], z: int) -> list[tupl
 
 
 def projector(z: int, tx: int, ty: int, extent: int, bbox: tuple[float, float, float, float],
-              dw: float, dh: float) -> Callable[[float, float], tuple[float, float]]:
+              dw: float, dh: float, camera=None
+              ) -> Callable[[float, float], tuple[float, float]]:
     """Tile-local (x, y) -> dot-space (x, y) for one tile in one view.
 
-    Tile coordinates are web mercator; the view is linear in lon/lat
-    (bbox_for already put the aspect correction in the bbox, which is
-    what makes a braille dot ground-square).  Going through lon/lat
-    rather than staying in mercator keeps street mode registered with
-    the elevation grid and the Natural Earth basemap to the dot.
+    Tile coordinates are web Mercator. With a camera, geographic
+    coordinates are projected onto its sphere; bbox only selects source
+    coverage. Legacy callers retain the linear lon/lat view. Both paths
+    keep vectors registered with their elevation and basemap samplers.
     """
     n = float(1 << z)
+    if camera is not None:
+        # A projected map still reads the same Mercator tiles. Cache the
+        # separable conversion and repeated vertices, but project x/y
+        # together: unlike the old plane, longitude also changes screen y.
+        lons, lats, points = {}, {}, {}
+
+        def sphere_project(px, py):
+            key = (px, py)
+            hit = points.get(key)
+            if hit is None:
+                lon = lons.get(px)
+                if lon is None:
+                    lon = lons[px] = (tx + px / extent) / n * 360.0 - 180.0
+                lat = lats.get(py)
+                if lat is None:
+                    wy = (ty + py / extent) / n
+                    lat = lats[py] = math.degrees(math.atan(math.sinh(
+                        math.pi * (1.0 - 2.0 * wy))))
+                hit = points[key] = camera.project(lon, lat, dw, dh)
+            return hit
+
+        return sphere_project
     minlon, minlat, maxlon, maxlat = bbox
     lon_span = (maxlon - minlon) or 1e-12
     lat_span = (maxlat - minlat) or 1e-12
@@ -223,7 +247,7 @@ DEFAULT_EXTENT = 4096   # the MVT default, when a layer carries none
 def iter_layer(
     view: Iterable[tuple[tuple[int, int, int], dict[str, Any]]],
     names: str | Sequence[str], bbox: tuple[float, float, float, float], dw: float, dh: float,
-    geom: int | None = None,
+    geom: int | None = None, camera=None,
 ) -> Iterator[tuple[str, dict[str, Any], Callable[[float, float], tuple[float, float]]]]:
     """(layer name, feature, project) for every feature of the named
     layers in a decoded view, tile by tile in the view's own order.
@@ -242,7 +266,7 @@ def iter_layer(
             if src is None:
                 continue
             project = projector(z, tx, ty, src.get("extent") or DEFAULT_EXTENT,
-                                bbox, dw, dh)
+                                bbox, dw, dh, camera=camera)
             for feat in src["features"]:
                 if geom is not None and feat["type"] != geom:
                     continue

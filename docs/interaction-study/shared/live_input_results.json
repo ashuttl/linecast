@@ -1,0 +1,16 @@
+{
+  "changed_key_then_ignored_byte": {
+    "frames": [{"ms": 0.0, "state": 0}],
+    "final_state": 1,
+    "handled": 1
+  },
+  "one_second_continuous_drag": {
+    "frames": [
+      {"ms": 0.0, "state": 0},
+      {"ms": 1.0, "state": 0},
+      {"ms": 1001.0, "state": 1000}
+    ],
+    "final_state": 1000,
+    "handled": 1000
+  }
+}

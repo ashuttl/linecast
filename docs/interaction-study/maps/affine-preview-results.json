@@ -1,0 +1,51 @@
+{
+  "python": "3.13.15 (main, Aug 25 2026, 13:50:12) [Clang 22.1.3 ]",
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "note": "Isolated synthetic retained layers; no GIL contention or terminal write",
+  "results": [
+    {
+      "size": [
+        120,
+        40
+      ],
+      "path": "exact",
+      "samples": 40,
+      "median_ms": 17.41593750193715,
+      "p95_ms": 17.746958998031914,
+      "max_ms": 17.970958986552432
+    },
+    {
+      "size": [
+        120,
+        40
+      ],
+      "path": "affine",
+      "samples": 40,
+      "median_ms": 2.5704379950184375,
+      "p95_ms": 2.6725420029833913,
+      "max_ms": 3.2930409943219274
+    },
+    {
+      "size": [
+        200,
+        60
+      ],
+      "path": "exact",
+      "samples": 40,
+      "median_ms": 45.53268749441486,
+      "p95_ms": 46.32324998965487,
+      "max_ms": 47.3437080217991
+    },
+    {
+      "size": [
+        200,
+        60
+      ],
+      "path": "affine",
+      "samples": 40,
+      "median_ms": 6.682271006866358,
+      "p95_ms": 6.9481249956879765,
+      "max_ms": 7.029083004454151
+    }
+  ]
+}

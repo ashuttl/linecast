@@ -1,0 +1,72 @@
+{
+  "date": "2026-09-08",
+  "branch": "codex/continuous-maps",
+  "base_commit": "a7ecc9b",
+  "note": "Sequential offline real MapApp/PTY runs. Render wall time excludes terminal writes and native display. Cached street fixture; delayed case sleeps only in background preparation. All assertions passed.",
+  "runs": [
+    {
+      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-c9i86n8j",
+      "view": "terrain",
+      "size": [
+        120,
+        40
+      ],
+      "zoom": 130,
+      "delay_seconds": 0,
+      "frames": 62,
+      "output_bytes": 7645528,
+      "render_median_ms": 19.746125006349757,
+      "render_p95_ms": 56.122834008419886,
+      "render_max_ms": 69.37504198867828,
+      "exit_code": 0
+    },
+    {
+      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-_ov7c8nx",
+      "view": "terrain",
+      "size": [
+        120,
+        40
+      ],
+      "zoom": 130,
+      "delay_seconds": 0.3,
+      "frames": 80,
+      "output_bytes": 9567915,
+      "render_median_ms": 16.22295900597237,
+      "render_p95_ms": 34.396625007502735,
+      "render_max_ms": 59.25629200646654,
+      "exit_code": 0
+    },
+    {
+      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-2uttc_oa",
+      "view": "street",
+      "size": [
+        120,
+        40
+      ],
+      "zoom": 0.01,
+      "delay_seconds": 0,
+      "frames": 74,
+      "output_bytes": 6968645,
+      "render_median_ms": 3.5362500057090074,
+      "render_p95_ms": 8.69008299196139,
+      "render_max_ms": 11.58962500630878,
+      "exit_code": 0
+    },
+    {
+      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-a0na8ja1",
+      "view": "street",
+      "size": [
+        200,
+        60
+      ],
+      "zoom": 0.01,
+      "delay_seconds": 0,
+      "frames": 68,
+      "output_bytes": 15289193,
+      "render_median_ms": 7.238874997710809,
+      "render_p95_ms": 15.979332994902506,
+      "render_max_ms": 19.74229101324454,
+      "exit_code": 0
+    }
+  ]
+}

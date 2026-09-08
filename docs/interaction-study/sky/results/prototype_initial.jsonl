@@ -1,0 +1,13 @@
+{"exact_frames_matched": 48, "counts": {"calls": 40236, "culled": 32707, "steps_before": 5964446, "steps_after": 77654}}
+{"size": [80, 24], "fov": 6, "mode": "before", "wall_ms": {"median": 51.888, "p95": 52.486, "max": 52.786}}
+{"size": [80, 24], "fov": 6, "mode": "culled", "wall_ms": {"median": 7.623, "p95": 17.222, "max": 30.09}}
+{"size": [80, 24], "fov": 100, "mode": "before", "wall_ms": {"median": 8.9, "p95": 9.239, "max": 11.536}}
+{"size": [80, 24], "fov": 100, "mode": "culled", "wall_ms": {"median": 7.481, "p95": 7.716, "max": 8.003}}
+{"size": [120, 40], "fov": 6, "mode": "before", "wall_ms": {"median": 78.427, "p95": 78.849, "max": 79.47}}
+{"size": [120, 40], "fov": 6, "mode": "culled", "wall_ms": {"median": 10.786, "p95": 10.965, "max": 11.1}}
+{"size": [120, 40], "fov": 100, "mode": "before", "wall_ms": {"median": 15.5, "p95": 15.889, "max": 16.037}}
+{"size": [120, 40], "fov": 100, "mode": "culled", "wall_ms": {"median": 13.005, "p95": 13.53, "max": 14.077}}
+{"size": [200, 60], "fov": 6, "mode": "before", "wall_ms": {"median": 135.114, "p95": 136.865, "max": 139.953}}
+{"size": [200, 60], "fov": 6, "mode": "culled", "wall_ms": {"median": 19.534, "p95": 19.883, "max": 20.012}}
+{"size": [200, 60], "fov": 100, "mode": "before", "wall_ms": {"median": 32.238, "p95": 33.304, "max": 36.291}}
+{"size": [200, 60], "fov": 100, "mode": "culled", "wall_ms": {"median": 27.445, "p95": 28.572, "max": 46.719}}

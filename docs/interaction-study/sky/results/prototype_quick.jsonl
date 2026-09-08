@@ -1,0 +1,2 @@
+{"size": [120, 40], "fov": 6, "mode": "before", "wall_ms": {"median": 78.848, "p95": 80.664, "max": 80.915}}
+{"size": [120, 40], "fov": 6, "mode": "culled", "wall_ms": {"median": 10.612, "p95": 10.719, "max": 10.796}}

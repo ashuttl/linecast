@@ -10,22 +10,22 @@ render_map.  Everything drawn is in maps; everything fetched is in
 _maps_views.
 """
 
-import math
 import sys
 import threading
 import time
 
 from linecast import (
-    _globe, _globe_now, _maps_route, _maps_style, _maps_ui,
+    _globe, _globe_now, _maps_route, _maps_style, _maps_ui, _theme,
 )
-from linecast._geo import wrap_lon
 from linecast._live import LiveApp, nudge as _nudge_repaint
 from linecast._location import country_for_defaults, resolve_location
+from linecast._maps_camera import MapCamera
 from linecast._maps_i18n import ms
+from linecast._maps_motion import CameraMotion
+from linecast._maps_scene import Scene, SceneWorker
 from linecast._maps_search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
 )
-from linecast._maps_views import _zoom_hold
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, log_failure, maps_parser, set_current
 from linecast.maps import (
@@ -41,7 +41,7 @@ class MapApp(LiveApp):
     whether the sky is on, the travel profile and the --from and --to
     endpoints — and starts nothing: no thread, no request.  run() seeds
     the route request, starts the sky's clock and hands the app to the
-    loop; stop() parks the spin.
+    loop; stop() parks animation, pending preparation and retry wakes.
     """
 
     interval = 3600  # elevation doesn't change; repaint on input only
@@ -56,9 +56,15 @@ class MapApp(LiveApp):
         self.location_name = location_name
         self.lat, self.lon = lat, lon   # the view centre
         self.zoom = zoom
-        self.pan_preview = (0, 0)
-        self.drag_base = None   # centre at globe-drag start, or None
-        self.drag_sync = False  # next repaint renders the globe blocking
+        self.drag_base = None
+        self._motion = CameraMotion(self.target_camera())
+        self._ticker_lock = threading.Lock()
+        self._ticker_running = False
+        self._stopped = False
+        self._worker = None
+        self._sky_revision = 0
+        self._spin_mark = None
+        self._pan_key = None
         self.spinning = 0       # active spin generation; 0 = parked
         self.spin_seq = 0       # last generation ever started
         self.view = view
@@ -72,61 +78,68 @@ class MapApp(LiveApp):
         if dest is not None:
             self.routes.select(dest.lat, dest.lon, dest.name)
 
-    def zoom_to(self, new_zoom, at=None):
-        """Apply a clamped zoom, keeping the point under `at` fixed.
+    def target_camera(self):
+        return MapCamera(self.lat, self.lon, self.zoom, *map_cells())
 
-        `at` is a terminal (col, row) in the same 1-based frame as
-        mouse_pos; None zooms about the view centre.  Anchoring is
-        the difference between a wheel that explores and one that
-        makes you chase the thing you were looking at.
-        """
+    def displayed_camera(self, now=None):
+        target = self.target_camera()
+        # Search, directions and terminal resize may replace the view outright.
+        if target.key != self._motion.target.key:
+            self._motion.move(target, animate=False, now=now)
+        return self._motion.sample(now)
+
+    def _move(self, camera, *, animate=True, anchor=None, now=None):
+        self.lat, self.lon, self.zoom = camera.lat, camera.lon, camera.zoom
+        self._pan_key = None
+        self._motion.move(camera, animate=animate, anchor=anchor, now=now)
+        if animate:
+            self._wake_animation()
+
+    def _wake_animation(self):
+        with self._ticker_lock:
+            if self._stopped or self._ticker_running:
+                return
+            self._ticker_running = True
+            threading.Thread(target=self._tick, daemon=True).start()
+
+    def _tick(self):
+        # Only input and render own the camera; the ticker merely asks for
+        # another frame. There is no competing worker writing its position.
+        while True:
+            time.sleep(1 / 30)
+            with self._ticker_lock:
+                if self._stopped or not (self._motion.moving or self.spinning):
+                    self._ticker_running = False
+                    return
+            _nudge_repaint()
+
+    def zoom_to(self, new_zoom, at=None):
+        """Ease logarithmically to a scale, anchored under the wheel pointer."""
         gw, hc = map_cells()
         new_zoom = max(MIN_ZOOM_DEG, min(max_zoom(gw, hc), new_zoom))
         if new_zoom == self.zoom:
             return False
-        pcol, prow = (at[0] - 1, at[1] - 2) if at else (-1, -1)
-        # anchored zoom is a flat-map identity — on either side of
-        # the globe hand-off, zoom about the centre instead
-        if (_globe.is_globe(self.zoom, self.lat)
-                or _globe.is_globe(new_zoom, self.lat)):
-            pcol = -1
-        if 0 <= pcol < gw and 0 <= prow < hc:
-            fx, fy = (pcol + 0.5) / gw, (prow + 0.5) / hc
-            lon_span = (self.zoom * (gw / (hc * 2))
-                        / math.cos(math.radians(self.lat)))
-            plat = self.lat + self.zoom * (0.5 - fy)
-            plon = self.lon + lon_span * (fx - 0.5)
-            lat_c = max(-80.0, min(80.0, plat - new_zoom * (0.5 - fy)))
-            new_span = (new_zoom * (gw / (hc * 2))
-                        / math.cos(math.radians(lat_c)))
-            self.lat = lat_c
-            self.lon = wrap_lon(plon - new_span * (fx - 0.5))
-        self.zoom = new_zoom
-        _zoom_hold.hold()
+        now = time.monotonic()
+        current = self.displayed_camera(now)
+        anchor = None
+        if at is not None and 1 <= at[0] <= gw and 2 <= at[1] < hc + 2:
+            anchor = (at[0] - .5, at[1] - 1.5)
+        target = current.zoom_at(new_zoom, *(anchor or ()))
+        if anchor is not None:
+            before = current.unproject(*anchor, gw, hc)
+            after = target.unproject(*anchor, gw, hc)
+            if before is None or after is None or not (
+                    abs(before[0] - after[0]) < 1e-7
+                    and abs((before[1] - after[1] + 180) % 360 - 180) < 1e-7):
+                # A north-up camera cannot retain every polar/limb anchor.
+                # Use one centre zoom throughout, rather than losing the
+                # anchor partway through an otherwise anchored transition.
+                anchor = None
+                target = current.zoom_at(new_zoom)
+        self.spinning = 0
+        self.drag_base = None
+        self._move(target, anchor=anchor, now=now)
         return True
-
-    def spin(self, gen):
-        """The r screensaver: the planet turns while you watch.
-
-        Each tick walks the centre meridian westward and repaints
-        through the same warm-canvas blocking path a drag uses, so
-        the geography drifts eastward the way it actually does —
-        about a degree a second, six minutes to the revolution.
-        The spin yields to a drag in progress and parks itself the
-        moment a zoom crosses back inside the hand-off.
-        """
-        while self.spinning == gen:
-            time.sleep(0.4)
-            if self.spinning != gen:
-                break
-            if not _globe.is_globe(self.zoom, self.lat):
-                self.spinning = 0
-                break
-            if self.drag_base is not None:
-                continue  # a drag steers; the spin waits its turn
-            self.lon = (self.lon - 0.4 + 180.0) % 360.0 - 180.0
-            self.drag_sync = True
-            _nudge_repaint()
 
     def cloud_tick(self):
         """The sky's slow heartbeat.
@@ -136,8 +149,10 @@ class MapApp(LiveApp):
         is, one repaint.  Never an animation — a view left running
         all evening simply stays true.
         """
-        while True:
+        while not self._stopped:
             time.sleep(1800)
+            if self._stopped:
+                return
             if not (self.sun or self.clouds):
                 continue
             if self.clouds:
@@ -147,6 +162,7 @@ class MapApp(LiveApp):
                 except Exception as exc:
                     log_failure("maps/clouds", "scheduled refresh", exc,
                                 fallback="previous canvas kept")
+            self._sky_revision += 1
             _nudge_repaint()
 
     def on_action(self, key):
@@ -154,10 +170,13 @@ class MapApp(LiveApp):
             gw, hc = map_cells()
             dcol, drow = {'w': (0, hc * 0.1), 'a': (gw * 0.1, 0),
                          's': (0, -hc * 0.1), 'd': (-gw * 0.1, 0)}[key]
-            # Use the drag projection for flat maps and warm globes alike.
             self.spinning = 0
-            self.on_drag(dcol, drow, False)
-            return self.on_drag(dcol, drow, True)
+            self.drag_base = None
+            current = self.displayed_camera()
+            base = self.target_camera() if self._pan_key == key else current
+            self._move(base.pan(dcol, drow))
+            self._pan_key = key
+            return True
         if key == '+':
             return self.zoom_to(self.zoom / ZOOM_STEP)
         if key == '-':
@@ -178,16 +197,16 @@ class MapApp(LiveApp):
         if key == 'r':
             if self.spinning:
                 self.spinning = 0
-                return False
+                return True
             gw, hc = map_cells()
-            if (not _globe.is_globe(self.zoom, self.lat)
+            if (self.target_camera().local_tiles
                     or not _globe.warm(self.zoom, hc * 4)):
-                return False  # only a warm globe spins
+                return False
             self.spin_seq += 1
             self.spinning = self.spin_seq
-            threading.Thread(target=self.spin, args=(self.spinning,),
-                             daemon=True).start()
-            return False  # the first tick is the repaint
+            self._spin_mark = time.monotonic()
+            self._wake_animation()
+            return True
         return False
 
     def on_wheel(self, direction, col, row):
@@ -272,7 +291,10 @@ class MapApp(LiveApp):
         if action == 'reset':
             # n / space: the one deliberately destructive key.
             routes.clear()
-            return False        # and the loop still recentres
+            self.spinning = 0
+            self.drag_base = None
+            self._move(MapCamera(*self.home, self.zoom, *map_cells()))
+            return True
         return False
 
     def on_click(self, col, row):
@@ -299,49 +321,48 @@ class MapApp(LiveApp):
         return True
 
     def on_drag(self, dcol, drow, done):
-        gw, hc = map_cells()
-        # On the globe the disk stays put and the geography turns
-        # under the cursor: every motion event recentres the view
-        # from the drag-start centre and the repaint re-projects the
-        # sphere, so the drag *is* the rotation rather than a
-        # shifted snapshot of it.  Only a warm view rotates live —
-        # until the world canvas is stitched there is nothing to
-        # re-project without blocking on the network — and a drag
-        # keeps whichever idiom it started with.
-        globing = self.drag_base is not None or (
-            not (self.pan_preview[0] or self.pan_preview[1])
-            and _globe.is_globe(self.zoom, self.lat)
-            and _globe.warm(self.zoom, hc * 4))
-        if globing:
-            if self.drag_base is None:
-                if done:
-                    return False  # a click, not a drag
-                self.drag_base = (self.lat, self.lon)
-            base_lat, base_lon = self.drag_base
-            lat = max(-80.0, min(80.0,
-                                 base_lat + drow * self.zoom / hc))
-            lon = base_lon - (dcol * (self.zoom / (hc * 2))
-                              / math.cos(math.radians(base_lat)))
-            lon = (lon + 180.0) % 360.0 - 180.0
-            changed = (self.lat, self.lon) != (lat, lon)
-            self.lat, self.lon = lat, lon
-            self.drag_sync = self.drag_sync or changed
-            if done:
-                self.drag_base = None
-            return changed or done
-        if not done:
-            changed = self.pan_preview != (dcol, drow)
-            self.pan_preview = (dcol, drow)
-            return changed
-        had_preview = self.pan_preview[0] or self.pan_preview[1]
-        self.pan_preview = (0, 0)
-        if not (dcol or drow):
-            return bool(had_preview)
-        lon_span = (self.zoom * (gw / (hc * 2))
-                    / math.cos(math.radians(self.lat)))
-        self.lat = max(-80.0, min(80.0, self.lat + drow * self.zoom / hc))
-        self.lon = wrap_lon(self.lon + -dcol * lon_span / gw)
-        return True
+        # A drag uses its starting camera and the cumulative cell delta. This
+        # is the same spherical motion at street scale and planetary scale.
+        had_drag = self.drag_base is not None
+        if not had_drag and not (dcol or drow):
+            return False
+        if self.drag_base is None:
+            self.drag_base = self.displayed_camera()
+        camera = self.drag_base.pan(dcol, drow)
+        changed = camera.key != self.target_camera().key
+        self.spinning = 0
+        self._move(camera, animate=False)
+        if done:
+            self.drag_base = None
+        return changed or (done and had_drag)
+
+    def _prepare(self, camera, options, generation):
+        # A half-step around the frame covers a full zoom-out step and short
+        # pans while the next scene is being built. Sample density is unchanged.
+        px, py = max(1, (camera.gw + 3) // 4), max(1, (camera.hc + 3) // 4)
+        source = MapCamera(camera.lat, camera.lon,
+                           camera.zoom * (camera.hc + 2 * py) / camera.hc,
+                           camera.gw + 2 * px, camera.hc + 2 * py)
+        while camera.local_tiles and not source.local_tiles:
+            # Extra coverage must not push an otherwise local view onto
+            # coarser world data. Keep as much padding as its sources allow.
+            px, py = px // 2, py // 2
+            source = MapCamera(camera.lat, camera.lon,
+                               camera.zoom * (camera.hc + 2 * py) / camera.hc,
+                               camera.gw + 2 * px, camera.hc + 2 * py)
+        if (_globe._radius(camera.zoom, camera.hc * 2) * 1.08
+                <= min(camera.gw / 2, camera.hc)):
+            # Padding a complete planet only prepares more empty space.
+            source = camera
+        captured = []
+        render_map(source.lat, source.lon, self.location_name, source.zoom,
+                   camera=source, capture=captured.append, block=True, **options)
+        if generation != _theme.generation:
+            return None
+        if not captured:
+            raise RuntimeError(ms('offline', self.runtime.lang))
+        frame = captured[-1].prime()
+        return Scene(frame.cropped(camera), frame)
 
     def text_mode(self):
         return self.search.open
@@ -361,21 +382,38 @@ class MapApp(LiveApp):
                 routes.set_origin(hit.lat, hit.lon, hit.name)
                 if routes.dest is not None:
                     routes.request()
-        # A rotating globe repaints synchronously: its canvas is
-        # warm, so "blocking" is ~a tenth of a second of arithmetic,
-        # and the alternative is a blank disk between frames.
-        sync = self.drag_sync and _globe.is_globe(self.zoom, self.lat)
-        self.drag_sync = False
+        now = time.monotonic()
+        if self.spinning:
+            elapsed = now - (self._spin_mark if self._spin_mark is not None else now)
+            self._spin_mark = now
+            camera = self.displayed_camera(now)
+            self._move(MapCamera(camera.lat, camera.lon - elapsed, camera.zoom,
+                                 camera.gw, camera.hc), animate=False, now=now)
+        camera = self.displayed_camera(now)
+        target = self.target_camera()
+        if self._worker is None:
+            self._worker = SceneWorker(wake=_nudge_repaint, thread_factory=threading.Thread)
+        generation = _theme.generation
+        group = (self.view, self.show_labels, self.sun, self.clouds,
+                 self.runtime.lang, generation, id(routes.route),
+                 routes.dest, routes.origin)
+        revision = (self._sky_revision, _globe_now.revision() if self.clouds else None)
+        options = dict(marker=self.home, runtime=self.runtime, view=self.view,
+                       route=routes.route, dest=routes.dest, origin=routes.origin,
+                       show_labels=self.show_labels, sun=self.sun, clouds=self.clouds)
+        scene, refining, error = self._worker.request(
+            (target.key, group, revision), group,
+            lambda: self._prepare(target, options, generation), camera=camera)
+        prepared = None
+        if scene is not None:
+            prepared = (scene.exact if scene.exact.camera.key == camera.key
+                        else scene.overscan)
         return render_map(
-            self.lat, self.lon, self.location_name, self.zoom,
-            marker=self.home, runtime=self.runtime, block=sync,
-            pan_offset=self.pan_preview,
-            mouse_pos=mouse_pos, view=self.view, search=search,
-            route=routes.route, dest=routes.dest,
-            origin=routes.origin, directions=routes,
-            note=_maps_ui.route_note(routes, self.runtime.lang),
-            show_labels=self.show_labels,
-            sun=self.sun, clouds=self.clouds)
+            camera.lat, camera.lon, self.location_name, camera.zoom,
+            camera=camera, prepared=prepared, preview=True, refining=refining,
+            error=error, block=False, mouse_pos=mouse_pos,
+            search=search, directions=routes,
+            note=_maps_ui.route_note(routes, self.runtime.lang), **options)
 
     def run(self):
         if self.routes.dest is not None:
@@ -384,7 +422,10 @@ class MapApp(LiveApp):
         super().run()
 
     def stop(self):
-        self.spinning = 0  # the loop is over; let the spin thread park
+        self._stopped = True
+        self.spinning = 0
+        if self._worker is not None:
+            self._worker.stop()
 
 
 def main():
@@ -474,6 +515,7 @@ def main():
             except _maps_route.RouteUnavailable:
                 note = ms('dir_unavailable', runtime.lang)
         print(render_map(lat, lon, location_name, args.zoom,
+                         camera=MapCamera(lat, lon, args.zoom, *map_cells()),
                          runtime=runtime, view=args.view, route=found,
                          dest=(dest.lat, dest.lon) if dest else None,
                          origin=((origin.lat, origin.lon, origin.name)

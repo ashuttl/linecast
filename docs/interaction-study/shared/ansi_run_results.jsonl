@@ -1,0 +1,4 @@
+{"view": "uniform_118x30", "before": 60359, "after": 4199, "reduction_pct": 93.04, "removed_sgr": 3510, "same_glyphs_colors_attributes": true}
+{"view": "moon_120x40", "before": 129807, "after": 91355, "reduction_pct": 29.62, "removed_sgr": 2395, "same_glyphs_colors_attributes": true}
+{"view": "sky_120x40", "before": 133484, "after": 87006, "reduction_pct": 34.82, "removed_sgr": 2939, "same_glyphs_colors_attributes": true}
+{"view": "globe_terrain_120x40", "before": 115066, "after": 64442, "reduction_pct": 44.0, "removed_sgr": 3153, "same_glyphs_colors_attributes": true}

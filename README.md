@@ -164,6 +164,8 @@ linecast radar --layer satellite
 
 Streets are drawn in braille over water, land, parks, and buildings in solid color. In terrain view the land is shaded by height and lit from one side, like a relief map, with coastlines, borders, water, and cities in braille over it; `l` toggles them and the labels.
 
+Dragging and zooming move continuously from the streets to the whole planet. Zoom steps ease into place, and the visible map keeps moving while new detail arrives. `w` `a` `s` `d` ease each keyboard pan to rest.
+
 Search with `/` and ask for directions with `D` (Shift+D). Directions open as a panel of turn-by-turn steps; arrow or click through them and the map flies along the route.
 
 <p align="center">

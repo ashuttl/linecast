@@ -1,0 +1,48 @@
+         159269 function calls in 0.027 seconds
+
+   Ordered by: cumulative time
+   List reduced from 215 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        5    0.000    0.000    0.027    0.005 linecast_maps_bench.py:57(frame)
+        5    0.000    0.000    0.027    0.005 maps.py:563(render_map)
+        5    0.000    0.000    0.026    0.005 maps.py:266(_render_globe)
+        5    0.010    0.002    0.022    0.004 _maps_paint.py:295(compose_terrain)
+    18660    0.003    0.000    0.008    0.000 _framebuffer.py:23(halfblock)
+    22800    0.002    0.000    0.004    0.000 _color.py:286(bg)
+    55800    0.004    0.000    0.004    0.000 {method 'get' of 'dict' objects}
+        5    0.000    0.000    0.003    0.001 maps.py:539(_elev_readout)
+        5    0.000    0.000    0.003    0.001 _maps_style.py:1071(fmt_elev)
+        5    0.000    0.000    0.003    0.001 _maps_style.py:1065(use_metric)
+        5    0.000    0.000    0.003    0.001 _runtime.py:291(use_metric)
+        5    0.000    0.000    0.003    0.001 _runtime.py:805(current_runtime)
+        5    0.000    0.000    0.003    0.001 _runtime.py:731(defaults)
+     9925    0.001    0.000    0.002    0.000 _color.py:272(fg)
+        5    0.000    0.000    0.002    0.000 _runtime.py:701(<lambda>)
+        5    0.000    0.000    0.002    0.000 _runtime.py:323(_base_parser)
+    25293    0.001    0.000    0.001    0.000 {method 'append' of 'list' objects}
+       45    0.000    0.000    0.001    0.000 _textwidth.py:94(visible_len)
+       45    0.000    0.000    0.001    0.000 _textwidth.py:67(char_widths)
+        5    0.000    0.000    0.001    0.000 _runtime.py:705(from_sources)
+       55    0.000    0.000    0.001    0.000 argparse.py:1468(add_argument)
+     1633    0.001    0.000    0.001    0.000 _textwidth.py:18(char_width)
+       30    0.000    0.000    0.001    0.000 _config.py:16(read_config)
+        5    0.000    0.000    0.001    0.000 argparse.py:1793(__init__)
+        5    0.000    0.000    0.000    0.000 argparse.py:1925(parse_args)
+        5    0.000    0.000    0.000    0.000 argparse.py:1935(parse_known_args)
+        5    0.000    0.000    0.000    0.000 argparse.py:1938(_parse_known_args2)
+     4140    0.000    0.000    0.000    0.000 _maps_paint.py:283(_cell_avg)
+        5    0.000    0.000    0.000    0.000 _help.py:19(footer)
+       10    0.000    0.000    0.000    0.000 _location.py:85(own_country)
+       55    0.000    0.000    0.000    0.000 argparse.py:2641(_get_formatter)
+        5    0.000    0.000    0.000    0.000 _runtime.py:179(resolve_units)
+       15    0.000    0.000    0.000    0.000 gettext.py:627(gettext)
+       15    0.000    0.000    0.000    0.000 gettext.py:587(dgettext)
+       55    0.000    0.000    0.000    0.000 argparse.py:162(__init__)
+       15    0.000    0.000    0.000    0.000 gettext.py:528(translation)
+       15    0.000    0.000    0.000    0.000 gettext.py:488(find)
+       80    0.000    0.000    0.000    0.000 _local.py:289(drive)
+       30    0.000    0.000    0.000    0.000 _config.py:12(config_file)
+        5    0.000    0.000    0.000    0.000 _runtime.py:210(resolve_clock)
+
+

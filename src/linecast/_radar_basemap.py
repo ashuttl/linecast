@@ -270,8 +270,9 @@ class DotLayer:
     stays full of None.
     """
 
-    def __init__(self, bbox, graph_w, height_cells):
+    def __init__(self, bbox, graph_w, height_cells, camera=None):
         self.bbox = bbox
+        self.camera = camera
         self.graph_w = graph_w
         self.height_cells = height_cells
         self.dw = graph_w * 2      # dot columns
@@ -329,6 +330,8 @@ class DotLayer:
         lo_lon = lo_lat = float("inf")
         hi_lon = hi_lat = float("-inf")
         for lon, lat in points:
+            if self.camera is not None:
+                lon = self.camera.lon + (lon - self.camera.lon + 180.0) % 360.0 - 180.0
             if lon < lo_lon:
                 lo_lon = lon
             if lon > hi_lon:
@@ -347,11 +350,25 @@ class DotLayer:
                 continue
             prev = None
             for lon, lat in coords:
-                p = _project(lon, lat, self.bbox, self.dw, self.dh)
+                if self.camera is not None:
+                    if not self.camera.visible(lon, lat):
+                        prev = None
+                        continue
+                    p = self.camera.project(lon, lat, self.dw, self.dh)
+                else:
+                    p = _project(lon, lat, self.bbox, self.dw, self.dh)
                 if prev is not None:
                     for ox, oy in offsets:
-                        self._dot_line(prev[0] + ox, prev[1] + oy,
-                                       p[0] + ox, p[1] + oy, color, rank)
+                        a, b, c, d = prev[0] + ox, prev[1] + oy, p[0] + ox, p[1] + oy
+                        if self.camera is not None:
+                            # At street scale an off-screen world boundary
+                            # can be millions of dots long. Clip before walking.
+                            from linecast._maps_streets import clip_segment
+                            clip = clip_segment(a, b, c, d, 0, 0, self.dw - 1, self.dh - 1)
+                            if clip is None:
+                                continue
+                            a, b, c, d = clip
+                        self._dot_line(a, b, c, d, color, rank)
                 prev = p
 
 

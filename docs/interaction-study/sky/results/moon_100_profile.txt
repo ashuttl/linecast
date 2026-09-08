@@ -1,0 +1,38 @@
+         4798762 function calls (4664682 primitive calls) in 0.692 seconds
+
+   Ordered by: cumulative time
+   List reduced from 175 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       10    0.001    0.000    0.729    0.073 <string>:21(fn)
+       10    0.001    0.000    0.728    0.073 moon.py:783(render)
+       10    0.000    0.000    0.411    0.041 moon.py:814(paint_disc)
+       10    0.050    0.005    0.307    0.031 moon.py:563(_draw_moon_disc)
+     7880    0.026    0.000    0.173    0.000 _ephemeris.py:122(_moon_ecliptic)
+   180945    0.099    0.000    0.171    0.000 _color.py:303(lerp)
+150470/16390    0.050    0.000    0.126    0.000 {built-in method builtins.sum}
+    15760    0.003    0.000    0.125    0.000 _ephemeris.py:182(total)
+     4920    0.003    0.000    0.125    0.000 _ephemeris.py:196(_moon_ra_dec)
+       30    0.001    0.000    0.109    0.004 _ephemeris.py:322(_moon_events_for_local_date)
+     3790    0.006    0.000    0.108    0.000 _ephemeris.py:226(_moon_altitude_deg)
+       10    0.033    0.003    0.104    0.010 _framebuffer.py:166(draw_radial)
+    36570    0.005    0.000    0.075    0.000 _theme.py:157(darken)
+       30    0.001    0.000    0.074    0.002 _ephemeris.py:516(next_moon_phase_utc)
+     2960    0.001    0.000    0.074    0.000 _ephemeris.py:432(moon_phase_frac)
+       10    0.000    0.000    0.073    0.007 moon.py:197(upcoming_moon_events)
+     2930    0.001    0.000    0.073    0.000 _ephemeris.py:511(_phase_offset)
+    36570    0.005    0.000    0.070    0.000 _theme.py:148(shift_to_pole)
+    36660    0.020    0.000    0.066    0.000 _theme.py:90(lerp_rgb)
+    36570    0.042    0.000    0.061    0.000 moon.py:404(_surface_shade)
+   723780    0.057    0.000    0.057    0.000 _color.py:314(<genexpr>)
+   112149    0.027    0.000    0.044    0.000 _theme.py:78(_clamp_channel)
+    36570    0.008    0.000    0.043    0.000 _framebuffer.py:116(set_pixel)
+       10    0.012    0.001    0.042    0.004 _framebuffer.py:185(render)
+       20    0.000    0.000    0.039    0.002 moon.py:714(_next_phase_local)
+       10    0.009    0.001    0.038    0.004 moon.py:356(_star_overlays)
+       10    0.000    0.000    0.035    0.004 _ephemeris.py:548(moon_age_days)
+   669800    0.030    0.000    0.030    0.000 _ephemeris.py:183(<genexpr>)
+       10    0.000    0.000    0.029    0.003 _ephemeris.py:378(_moon_transits_for_local_date)
+     1070    0.000    0.000    0.029    0.000 _ephemeris.py:394(offset)
+
+
