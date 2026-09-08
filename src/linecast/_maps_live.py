@@ -10,6 +10,7 @@ render_map.  Everything drawn is in maps; everything fetched is in
 _maps_views.
 """
 
+from dataclasses import replace
 import sys
 import threading
 import time
@@ -355,6 +356,13 @@ class MapApp(LiveApp):
             # Padding a complete planet only prepares more empty space.
             source = camera
         frame = prepare_map(source, **options)
+        if frame.world:
+            from linecast._maps_globe import prepare_surface
+            # Full-world coverage is prepared by the same worker. Static
+            # output needs only its exact frame and never builds this texture.
+            frame = replace(frame, surface=prepare_surface(
+                source, street=frame.street, sun=options.get("sun", False),
+                clouds=options.get("clouds", False)))
         if generation != _theme.generation:
             return None
         frame.prime()

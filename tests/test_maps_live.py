@@ -698,3 +698,32 @@ def test_print_builds_once_then_uses_the_same_renderer(monkeypatch, capsys, fail
         assert frames[0][2]['error'] == ('offline' if str(failure) else 'OSError')
         assert frames[0][2]['error'] in output.splitlines()[-1]
         assert 'extra row' not in output
+
+
+def test_live_world_prepares_complete_surface_on_its_existing_worker(monkeypatch):
+    from linecast import _maps_globe
+
+    app = make(zoom=130)
+    camera = app.target_camera()
+    builds = []
+    surface = object()
+
+    def prepare(camera, **options):
+        builds.append(('detail', camera))
+        return PreparedMap(camera, [[(10, 20, 30)] * camera.gw
+                                    for _ in range(camera.hc * 2)], world=True)
+
+    def coverage(camera, **options):
+        builds.append(('surface', camera))
+        return surface
+
+    monkeypatch.setattr(_maps_live, 'prepare_map', prepare)
+    monkeypatch.setattr(_maps_globe, 'prepare_surface', coverage)
+    app.render()
+    assert builds == []
+    assert [thread.target for thread in FakeThread.started] == [app._worker._run]
+    app._worker._run()
+    assert builds == [('detail', camera), ('surface', camera)]
+    scene = next(iter(app._worker._ready.values()))[1]
+    assert scene.exact.surface is scene.overscan.surface is surface
+    app.stop()

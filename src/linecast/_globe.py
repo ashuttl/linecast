@@ -285,7 +285,7 @@ def bilinear_taps(ll_row, canvas):
     of every drag frame.
     """
     _canvas, cw, ch, org_x, org_y, world = canvas
-    log, sin, radians = math.log, math.sin, math.radians
+    log, sin, radians, floor = math.log, math.sin, math.radians, math.floor
     four_pi = 4 * math.pi
     lat_max = _MERCATOR_LAT
     ch1 = ch - 1.0
@@ -310,9 +310,12 @@ def bilinear_taps(ll_row, canvas):
             fy = 0.0
         elif fy > ch1:
             fy = ch1
-        ix = int(fx)
-        x0 = ix % cw
-        x1 = (x0 + 1) % cw  # the antimeridian is a seam only on paper
+        # A full-world stitch may include a repeated edge tile. Longitude
+        # wraps by the world's pixel period, while row strides include that
+        # padding. Floor keeps the western half-pixel's weights positive.
+        ix = floor(fx)
+        x0 = ix % world
+        x1 = (x0 + 1) % world
         y0 = int(fy)
         y1 = y0 + 1
         if y1 >= ch:

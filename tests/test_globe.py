@@ -176,7 +176,7 @@ def _varied_canvas(size=64):
 
 
 def _reference_elevation(lls, canvas):
-    """_globe.elevation as it was before the straight-line rewrite."""
+    """The original weighted sampler, with periodic longitude corrected."""
     from linecast._elevation import decode_meters
     from linecast._radar_tiles import _lonlat_to_world
     canvas, cw, ch, org_x, org_y, world = canvas
@@ -191,11 +191,11 @@ def _reference_elevation(lls, canvas):
             wx, wy = _lonlat_to_world(ll[1], lat)
             fx = wx * world - org_x - 0.5
             fy = min(max(wy * world - org_y - 0.5, 0.0), ch - 1.0)
-            x0 = int(fx) % cw
-            x1 = (x0 + 1) % cw
+            x0 = math.floor(fx) % world
+            x1 = (x0 + 1) % world
             y0 = int(fy)
             y1 = min(y0 + 1, ch - 1)
-            tx, ty = fx - int(fx), fy - y0
+            tx, ty = fx - math.floor(fx), fy - y0
             vals = []
             for yy, wgt_y in ((y0, 1.0 - ty), (y1, ty)):
                 base = yy * cw * 4

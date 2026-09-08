@@ -40,11 +40,14 @@ def _best_scene(scenes, camera):
 
     def score(scene):
         source = scene.overscan.camera
-        covered = 0
-        for lat, lon in points:
-            if source.visible(lon, lat):
-                x, y = source.project(lon, lat, source.gw, source.hc)
-                covered += 0 <= x < source.gw and 0 <= y < source.hc
+        if scene.overscan.surface is not None:
+            covered = len(points)  # the surface includes the unseen hemisphere
+        else:
+            covered = 0
+            for lat, lon in points:
+                if source.visible(lon, lat):
+                    x, y = source.project(lon, lat, source.gw, source.hc)
+                    covered += 0 <= x < source.gw and 0 <= y < source.hc
         # Padding increases zoom and height together. Compare degrees per
         # physical pixel so a padded scene retains its true source resolution.
         resolution = abs(math.log((source.zoom / source.hc) / (camera.zoom / camera.hc)))

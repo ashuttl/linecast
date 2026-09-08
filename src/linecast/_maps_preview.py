@@ -344,6 +344,7 @@ class PreparedMap:
     world: bool = False
     coast_ink: object = None
     ink_dusk: object = None
+    surface: object = None
 
     def __post_init__(self):
         for name in ('fills', 'coast', 'elev', 'ink_dusk'):
@@ -465,6 +466,7 @@ class PreparedMap:
             world=self.world,
             coast_ink=self.coast_ink,
             ink_dusk=_crop(self.ink_dusk, dx, dy, w, h),
+            surface=self.surface,
         )
 
     def transformed(self, camera):
@@ -478,7 +480,11 @@ class PreparedMap:
                                colored=False)
         return PreparedMap(
             camera=camera,
-            fills=warp.sample(self.fills, w, h * 2),
+            # A globe has geography behind its old visible hemisphere. Its
+            # complete surface also keeps limb shading at the displayed camera.
+            fills=(_FrozenGrid(tuple(row) for row in self.surface.render(camera))
+                   if self.surface is not None else
+                   warp.sample(self.fills, w, h * 2)),
             layer=self.layer.transformed(warp, w, h) if self.layer is not None else None,
             coast=coast,
             strokes=tuple(layer.transformed(warp, w, h) for layer in self.strokes),
@@ -489,4 +495,5 @@ class PreparedMap:
             world=self.world,
             coast_ink=self.coast_ink,
             ink_dusk=warp.sample(self.ink_dusk, w, h),
+            surface=self.surface,
         )

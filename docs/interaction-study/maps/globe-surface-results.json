@@ -1,0 +1,210 @@
+{
+  "date": "2026-09-08",
+  "branch": "codex/continuous-maps",
+  "previous_commit": "6c9e92b",
+  "note": "Final fixed720x360 complete-world texture. All runs sequential, offline, using bundled world sources. Clean PTY timings exclude terminal writes and native display; spin audit timings include coverage checks. Single sequences, not repeated statistical trials.",
+  "validation": {
+    "passed": 4053,
+    "skipped": 1,
+    "deselected": 72,
+    "subtests_passed": 263,
+    "seconds": 35.79,
+    "ruff": "passed",
+    "static_frame_hashes": 32
+  },
+  "surface_only": {
+    "python": "/Users/ashuttl/Developer/linecast/.venv/bin/python",
+    "version": "3.13.15 (main, Aug 25 2026, 13:50:12) [Clang 22.1.3 ]",
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "basemap_warm_ms": 132.1340829890687,
+    "limitations": "Surface render only; excludes retained strokes, labels and terminal composition. Synthetic 47% cloud mosaic exercises production alpha/shading arithmetic; no network.",
+    "views": [
+      {
+        "gw": 120,
+        "hc": 38,
+        "zoom": 130,
+        "texture_size": [
+          720,
+          360
+        ],
+        "prepare_ms": 703.1885840115137,
+        "prepare_hit_ms": 0.02954198862425983,
+        "weather_prepare_ms": 197.38166601746343,
+        "weather_prepare_hit_ms": 0.8439169905614108,
+        "render": {
+          "base_yaw": {
+            "median_ms": 3.9836250070948154,
+            "p95_ms": 4.08737498219125
+          },
+          "base_free": {
+            "median_ms": 5.413896011305042,
+            "p95_ms": 5.669042002409697
+          },
+          "sun_cloud_lights_yaw": {
+            "median_ms": 9.301896003307775,
+            "p95_ms": 9.423624986084178
+          },
+          "sun_cloud_lights_free": {
+            "median_ms": 10.766937004518695,
+            "p95_ms": 11.050333007005975
+          }
+        }
+      },
+      {
+        "gw": 120,
+        "hc": 38,
+        "zoom": 45,
+        "texture_size": [
+          720,
+          360
+        ],
+        "prepare_ms": 0.003999972250312567,
+        "prepare_hit_ms": 0.0041669991333037615,
+        "weather_prepare_ms": 0.8838339999783784,
+        "weather_prepare_hit_ms": 0.7450839912053198,
+        "render": {
+          "base_yaw": {
+            "median_ms": 8.681854509632103,
+            "p95_ms": 8.90295801218599
+          },
+          "base_free": {
+            "median_ms": 11.36358299118001,
+            "p95_ms": 11.578625009860843
+          },
+          "sun_cloud_lights_yaw": {
+            "median_ms": 16.443958491436206,
+            "p95_ms": 17.14712497778237
+          },
+          "sun_cloud_lights_free": {
+            "median_ms": 19.02720850193873,
+            "p95_ms": 19.272707984782755
+          }
+        }
+      },
+      {
+        "gw": 200,
+        "hc": 58,
+        "zoom": 130,
+        "texture_size": [
+          720,
+          360
+        ],
+        "prepare_ms": 0.004250003257766366,
+        "prepare_hit_ms": 0.006167014362290502,
+        "weather_prepare_ms": 0.953792012296617,
+        "weather_prepare_hit_ms": 0.748916994780302,
+        "render": {
+          "base_yaw": {
+            "median_ms": 9.462124988203868,
+            "p95_ms": 9.592541988240555
+          },
+          "base_free": {
+            "median_ms": 13.671916502062231,
+            "p95_ms": 14.07241600099951
+          },
+          "sun_cloud_lights_yaw": {
+            "median_ms": 19.574312507756986,
+            "p95_ms": 19.74179199896753
+          },
+          "sun_cloud_lights_free": {
+            "median_ms": 23.418312484864146,
+            "p95_ms": 23.807582998415455
+          }
+        }
+      }
+    ]
+  },
+  "clean_pty_control": {
+    "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-ouq72b3s",
+    "view": "terrain",
+    "size": [
+      120,
+      40
+    ],
+    "zoom": 130,
+    "delay_seconds": 0,
+    "frames": 63,
+    "output_bytes": 7802149,
+    "render_median_ms": 23.33639599964954,
+    "render_p95_ms": 40.71866601589136,
+    "render_max_ms": 60.96637502196245,
+    "exit_code": 0
+  },
+  "clean_pty_final": {
+    "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-bikw3skh",
+    "view": "terrain",
+    "size": [
+      120,
+      40
+    ],
+    "zoom": 130,
+    "delay_seconds": 0,
+    "frames": 58,
+    "output_bytes": 7211304,
+    "render_median_ms": 25.25154099566862,
+    "render_p95_ms": 70.72049999260344,
+    "render_max_ms": 89.84979099477641,
+    "exit_code": 0
+  },
+  "spin_audits": [
+    {
+      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-hut4tkpw",
+      "view": "terrain",
+      "size": [
+        120,
+        40
+      ],
+      "zoom": 130,
+      "delay_seconds": 0.3,
+      "frames": 171,
+      "output_bytes": 20940265,
+      "render_median_ms": 18.998354498762637,
+      "render_p95_ms": 33.82191699347459,
+      "render_max_ms": 70.67141702282242,
+      "exit_code": 0,
+      "spin_frames": 58,
+      "spin_seconds": 2.2932224580144975,
+      "spin_degrees": 2.2932229999860283,
+      "coverage_frames": 170,
+      "unseen_center_frames": 5,
+      "max_source_turn_degrees": 135.3357994342861,
+      "earth_samples": 747160,
+      "earth_missing_samples": 0,
+      "earth_background_samples": 0,
+      "earth_background_gaps": 0,
+      "coverage_observer_included": true
+    },
+    {
+      "work": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-maps-pty-80hc0d2i",
+      "view": "terrain",
+      "size": [
+        200,
+        60
+      ],
+      "zoom": 130,
+      "delay_seconds": 0.3,
+      "frames": 131,
+      "output_bytes": 38445936,
+      "render_median_ms": 44.44168749614619,
+      "render_p95_ms": 97.55591698922217,
+      "render_max_ms": 120.63654098892584,
+      "exit_code": 0,
+      "spin_frames": 46,
+      "spin_seconds": 2.2402797079994343,
+      "spin_degrees": 2.240279499994358,
+      "coverage_frames": 130,
+      "unseen_center_frames": 3,
+      "max_source_turn_degrees": 144.77318600415913,
+      "earth_samples": 1291756,
+      "earth_missing_samples": 0,
+      "earth_background_samples": 0,
+      "earth_background_gaps": 0,
+      "coverage_observer_included": true
+    }
+  ],
+  "visual_inspection": {
+    "source": "Rendered ANSI frames as images; not native terminal screenshots",
+    "frames": "terrain and street: exact, small rotation, opposite hemisphere",
+    "artifacts": "/var/folders/3t/hm9byl0j32sdjj53z236d46r0000gn/T/linecast-globe-visual-mwll3qoc"
+  }
+}

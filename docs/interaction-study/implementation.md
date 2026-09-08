@@ -45,6 +45,22 @@ cannot reduce detail. A complete planet needs no extra empty-space padding.
 Exact integer crops preserve dot geometry, whole labels, and translated
 hover ownership. Expensive preview expansion is primed in the worker.
 
+World scenes also retain a complete 720×360 geographic color texture. This
+fixes the black slivers that appeared when a moving globe sampled space near
+the old limb, or exposed an unseen hemisphere. The same worker prepares the
+texture from bundled elevation, climate, ice, and lake data; a two-entry memo
+holds terrain and street colors. One resolution serves every world zoom, so
+zooming never triggers another texture bake. The packed RGB data occupies
+about 760 KiB per style. No additional worker or dependency is involved.
+
+Moving frames bilinearly sample this surface, then apply the displayed
+camera's limb shading and atmosphere. Longitude wraps at the dateline and
+samples converge at the poles. Daylight and cloud opacity are captured during
+preparation; a single cloud texture refreshes on source publication. Painting
+does no source loading or weather lookup. Coastlines, borders, and labels
+retain their existing transforms until fresh detail arrives. Exact stationary
+frames and static output still use their original rendering.
+
 `prepare_map(camera, ...)` produces a `PreparedMap` directly. It never formats
 terminal output. `render_map(camera, prepared, ...)` only composes that retained
 map and the current UI. Live and `--print` use this same rendering path;
@@ -73,10 +89,18 @@ indefinitely starve paint, and an ignored event cannot erase an earlier change.
 
 ## Validation
 
-Final full-suite result: **4,021 passed, 1 skipped, 72 deselected, and 263
+Final full-suite result: **4,053 passed, 1 skipped, 72 deselected, and 263
 subtests passed** in 35.79 seconds. Ruff and whitespace checks on source, tests, and documentation
 passed; ANSI text snapshots deliberately retain terminal-cell padding.
 The earlier Sky commit independently passed 3,771 tests and 263 subtests.
+
+Complete-surface regressions cover the opposite hemisphere, small turns with
+simultaneous scaling, camera-independent limb lighting on a uniform sphere,
+bilinear seam and polar continuity, lake islands, relief scale, captured cloud
+revisions, reuse across zoom and resize, and worker-only preparation. The
+shared Mercator sampler now wraps by the world's pixel period rather than a
+stitched canvas's padded width; asymmetric height and cloud fixtures exercise
+both sides of the dateline with shifted origins and cropped source rows.
 
 Regression coverage includes the original Sky raster, polar and dateline
 camera geometry, local vector and raster registration, camera sampling of
@@ -99,7 +123,8 @@ Network is disabled, world data is bundled, and street data uses a private
 copy of the same cached coastal fixture as the initial investigation.
 `--delay` adds latency only inside background preparation.
 
-Final sequential live runs on 8 September 2026 all passed, across 294 frames:
+The consolidation's sequential live runs on 8 September 2026 all passed,
+across 294 frames, before the complete globe surface was added:
 
 | Scenario | Terminal at start | Frames | Render median | Render p95 |
 | --- | --- | ---: | ---: | ---: |
@@ -132,6 +157,46 @@ Run the live checks with the repository interpreter:
 .venv/bin/python docs/interaction-study/maps/live_pty.py --view street --zoom .01 --cols 200 --rows 60 --cache-source /path/to/cache
 ```
 
+### Complete globe surface
+
+The texture's first preparation measured 703 ms with bundled source canvases
+already warm. It runs on the scene worker; subsequent zooms and resizes reuse
+it in under 0.04 ms. At 120×40, painting complete globe fills measured 3.98 ms
+for yaw and 5.41 ms when latitude changes too. These are surface-only medians
+over ten measured frames after two warmups, excluding retained cartography
+and terminal composition. Synthetic clouds plus daylight and city lights
+raised those medians to 9.30 and 10.77 ms.
+
+A sequential 120×40 live control at `6c9e92b` measured 23.34 ms median and
+40.72 ms p95; the completed surface measured 25.25 ms median and 70.72 ms p95.
+The first texture build finished before input began. The slower tail frames
+overlapped ordinary zoom-detail preparation, which still competes with surface
+sampling for Python execution time. Complete coverage has a rendering cost;
+these results do not establish a consistent 30 Hz frame rate.
+
+`--spin --fast-drag --delay .3` additionally exercises actual `r` spin,
+alternating anchored zooms, and a turn exposing the old view's far side. The
+coverage audit uses an independent disk mask to find missing samples. A color
+equal to the background counts as a gap only when it disagrees with the
+complete surface: shaded ocean can legitimately have the same RGB as space.
+The uniform-surface regression independently checks that the sphere remains
+opaque and that its limb does not move with latitude or longitude. Coverage
+observer time is included in these spin runs, so they are not clean timing
+benchmarks. [Results](maps/globe-surface-results.json) preserve both kinds of
+measurement separately.
+
+Final 120×40 and 200×60 spin audits passed across 302 frames and 2,038,916
+visible-Earth samples, with no missing or background gaps. Both exposed a
+previously hidden center, reaching turns of 135° and 145° from the retained
+view. Drag, zoom, keyboard pan, overlays, resize, reset, and terminal cleanup
+checks passed. Terrain and street ANSI frames were also rendered to images
+and inspected at rest, during a small turn, and on the opposite hemisphere.
+
+```sh
+.venv/bin/python docs/interaction-study/maps/live_pty.py --spin --fast-drag --delay .3
+.venv/bin/python docs/interaction-study/maps/live_pty.py --spin --fast-drag --delay .3 --cols 200 --rows 60
+```
+
 ## Limits and next measurements
 
 This is one camera with multiple data resolutions. World elevation and
@@ -141,13 +206,13 @@ roads; the camera itself remains in place. The local vector pipeline has a
 conservative footprint limit to keep buffered tile geometry on the visible
 hemisphere and within Mercator coverage.
 
-Retained viewport data cannot supply an unseen hemisphere. Large rapid turns
-or motion beyond the coverage margin can briefly expose unfilled regions
-until a replacement is prepared. Native interaction testing should establish whether these gaps are distracting
-before adding any fallback layer. The retained braille and whole-label machinery
-has a measured purpose; flattening it to terminal cells would tear wide glyphs
-and lose street detail. Any further simplification should demonstrate the visual
-tradeoff before replacing that machinery.
+Complete world surfaces cover unseen hemispheres during rotation. Their
+coastlines and labels can still refine afterward, as can relief when the
+camera settles. Local viewport data remains limited by its coverage margin
+until a replacement is prepared. The retained braille and whole-label
+machinery has a measured purpose; flattening it to terminal cells would tear
+wide glyphs and lose street detail. Any further simplification should
+demonstrate the visual tradeoff before replacing that machinery.
 
 Background threads still share CPython's GIL. Larger windows and detailed
 scenes can exceed the 30 Hz frame budget while preparation is busy. The

@@ -59,8 +59,8 @@ def _scene(key):
     return Scene(exact=key, overscan=(key, "overscan"))
 
 
-def _camera_scene(camera):
-    frame = SimpleNamespace(camera=camera)
+def _camera_scene(camera, surface=None):
+    frame = SimpleNamespace(camera=camera, surface=surface)
     return Scene(frame, frame)
 
 
@@ -229,6 +229,20 @@ def test_equal_coverage_prefers_closest_physical_resolution_over_newest_reply():
     assert worker.request("different style", "street", lambda: None,
                           camera=displayed)[0] is None
     worker.stop()
+
+
+def test_complete_surface_beats_a_local_frame_for_a_broad_antipodal_view():
+    displayed = MapCamera(43, -70, 130, 80, 30)
+    local = _camera_scene(MapCamera(43, -70, .01, 80, 30))
+    world = _camera_scene(MapCamera(-43, 110, 130, 80, 30), surface=object())
+    scenes = [local, world]
+    # The local frame covers the centre probe. The world's old visible
+    # hemisphere covers none, but its prepared surface covers the entire disk.
+    assert _maps_scene._best_scene(scenes, displayed) is world
+    # Full-world coverage does not displace exact or equally complete local
+    # detail when its physical resolution matches the displayed view better.
+    assert _maps_scene._best_scene(scenes, local.exact.camera) is local
+    assert _maps_scene._best_scene(scenes, local.exact.camera.pan(.1, 0)) is local
 
 
 def test_error_backoff_cancels_obsolete_pending_work_and_allows_a_later_retry(monkeypatch):

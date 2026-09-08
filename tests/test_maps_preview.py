@@ -236,3 +236,36 @@ def test_crop_rejects_noninteger_noncentral_or_rescaled_view(changes):
     prepared = source(camera)
     with pytest.raises(ValueError, match='crop requires'):
         prepared.cropped(replace(camera, **changes))
+
+
+@pytest.mark.parametrize('target', [MapCamera(43, -70.1, 130, 40, 12),
+                                     MapCamera(43, -70.1, 127, 40, 12),
+                                     MapCamera(-43, 110, 130, 40, 12)])
+def test_world_surface_covers_rotations_independently_of_retained_hemisphere(target):
+    from linecast._maps_globe import GlobeSurface, _Texture
+
+    camera = MapCamera(43, -70, 130, 40, 12)
+    background = (10, 20, 30)
+    texture = _Texture(4, 2, (bytes([100, 140, 180] * 4),) * 2)
+    surface = GlobeSurface(texture, None, None, (), background, None)
+    # The retained face supplies no usable fill at all. The complete surface
+    # must still paint a solid object, including the opposite hemisphere.
+    prepared = PreparedMap(camera, [[None] * 40 for _ in range(24)],
+                           world=True, surface=surface)
+    actual = prepared.transformed(target)
+    expected = surface.render(replace(target, lat=0, lon=0))
+    assert actual.fills == tuple(tuple(row) for row in expected)
+    for points, colors in zip(target.lls(target.gw, target.hc * 2), actual.fills):
+        assert all(color is not None and color != background
+                   for ll, color in zip(points, colors) if ll is not None)
+    assert actual.surface is surface and actual.camera == target
+    assert prepared.transformed(camera) is prepared  # exact detail stays unchanged
+
+
+def test_world_surface_survives_an_exact_crop():
+    source = MapCamera(43, -70, 130, 40, 12)
+    target = MapCamera(43, -70, 130 * 10 / 12, 36, 10)
+    surface = object()
+    prepared = PreparedMap(source, [[(1, 2, 3)] * 40 for _ in range(24)],
+                           world=True, surface=surface)
+    assert prepared.cropped(target).surface is surface

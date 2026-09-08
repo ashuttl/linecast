@@ -172,7 +172,7 @@ def _rebuild_inks():
 
 
 def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None,
-                         climate=None):
+                         climate=None, pixel_meters=None):
     """Hillshaded hypsometric/bathymetric colours per sub-pixel.
 
     `elev` is meters at w×h (h = 2 rows per cell); None renders as plain
@@ -196,6 +196,10 @@ def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None,
     HYPSO_FAMILIES).  None means "derive it from the bbox", which is
     right for the flat view; the globe's bbox is scale-only, so its
     caller passes a grid sampled from the disk's own lat/lons.
+
+    `pixel_meters`, when supplied, gives (east, north) pixel metres for
+    each row. A complete geographic texture needs latitude-dependent
+    distances; ordinary viewport callers retain the bbox-derived scale.
     """
     minlon, minlat, maxlon, maxlat = bbox
     if climate is None:
@@ -212,6 +216,9 @@ def build_terrain_buffer(elev, bbox, w, h, water=None, cover=None,
     blend = _maps_style.COVER_BLEND
     buf = []
     for y in range(h):
+        if pixel_meters is not None:
+            px_m, py_m = (max(1.0, v) for v in pixel_meters[y])
+            zf = min(24.0, max(2.5, px_m / 150.0))
         row = elev[y]
         up = elev[y - 1] if y > 0 else row
         down = elev[y + 1] if y < h - 1 else row
