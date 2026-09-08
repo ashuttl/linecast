@@ -5,6 +5,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 ## Unreleased
 
 - Live views: A quiet, translated `? keys` hint points to the controls, with room at the right edge so its last letter stays visible. Radar help describes warning hover accurately.
+- Sky: Zooming in stays responsive by skipping constellation arcs outside the view, preserving the visible lines and their horizon clipping.
 - Sky: The status text sits over the sky instead of a solid footer, with readable ink against both day and night backgrounds.
 
 - Sky, maps, and radar: `w` `a` `s` `d` pan the view. Sky eases each keyboard pan to rest, with smaller steps when zoomed in. Maps moves daylight and directions to `S` and `D`; radar moves wind and satellite to `W` and `S` (Shift plus the letter).

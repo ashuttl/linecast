@@ -426,6 +426,33 @@ def _plot_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h):
     The camera matrix's third column gives the altitude of a camera-frame
     direction, which is how the arc knows where the ground cuts it.
     """
+    ax, ay, az = a
+    bx, by, bz = b
+    u0, u1, u2 = cam[2], cam[5], cam[8]
+    # Normalized interpolation preserves the sign of the horizon's linear
+    # dot product. Keep near-tangent arcs: roundoff in the original per-dot
+    # check can put a sample just above the horizon even when both ends are
+    # just below it.
+    if (u0 * ax + u1 * ay + u2 * az < -1e-12
+            and u0 * bx + u1 * by + u2 * bz < -1e-12):
+        return
+
+    # The shorter great-circle arc lies in the spherical cap centered on
+    # normalize(a+b), with half the endpoints' angular separation as its
+    # radius. Reject it if that cap misses the cone enclosing the viewport.
+    # This avoids sampling long offscreen arcs as their projected lengths
+    # grow with zoom. Near-antipodal endpoints keep the original path.
+    mx, my, mz = ax + bx, ay + by, az + bz
+    size = math.sqrt(mx * mx + my * my + mz * mz)
+    if size > 1e-8:
+        half_arc = math.acos(max(-1.0, min(1.0, ax * bx + ay * by + az * bz))) * 0.5
+        # int() rounds slightly negative screen coordinates into the first
+        # cell; a sub-pixel of margin includes those edge samples too.
+        view_radius = 2.0 * math.atan(math.hypot(cx + 1.0, cy + 1.0) / (2.0 * f))
+        separation = math.acos(max(-1.0, min(1.0, mz / size)))
+        if separation > view_radius + half_arc + 1e-8:
+            return
+
     pa, pb = project(a, f, cx, cy), project(b, f, cx, cy)
     if pa is None or pb is None:
         return
@@ -433,9 +460,6 @@ def _plot_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h):
     if length > 6.0 * f:
         return   # an arc thrown across the far side of the view
     steps = max(1, int(length * 2.0))
-    u0, u1, u2 = cam[2], cam[5], cam[8]
-    ax, ay, az = a
-    bx, by, bz = b
     for i in range(steps + 1):
         t = i / steps
         x, y, z = ax + (bx - ax) * t, ay + (by - ay) * t, az + (bz - az) * t
