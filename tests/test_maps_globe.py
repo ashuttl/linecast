@@ -166,7 +166,7 @@ def test_production_texture_has_one_fixed_bundled_resolution():
 def test_street_none_palette_uses_background_and_has_no_city_lights(world, monkeypatch):
     monkeypatch.setattr(globe._maps_style, "palette", lambda: {"water": None, "ground": None})
     surface = globe.prepare_surface(MapCamera(0, 0, 130, 40, 20), street=True, sun=True)
-    assert surface.cities == ()
+    assert surface.lights == ()
     blank = bytes(surface.background * surface.texture.width)
     assert all(row == blank for row in surface.texture.rgb)
 
@@ -203,6 +203,7 @@ def test_render_never_loads_sources_or_reads_live_weather_state(world, monkeypat
     def fail(*args, **kwargs):
         pytest.fail("source loading or mutable weather lookup during surface render")
 
+    monkeypatch.setattr(globe._night_lights, "load", fail)
     monkeypatch.setattr(globe, "_load_data", fail)
     monkeypatch.setattr(globe._globe, "elevation", fail)
     monkeypatch.setattr(globe._globe, "_world_canvas", fail)
@@ -210,3 +211,20 @@ def test_render_never_loads_sources_or_reads_live_weather_state(world, monkeypat
     for name in ("peek", "refresh", "revision", "_noise_grid", "clouds", "subsolar"):
         monkeypatch.setattr(globe._globe_now, name, fail)
     assert surface.render(replace(source, lat=-40, lon=179))
+
+
+@pytest.mark.parametrize("zoom", [115, 6, 2])
+def test_moving_and_settled_views_use_identical_light_masks(world, monkeypatch, zoom):
+    camera = MapCamera(53.35, -2, zoom, 80, 44)
+    surface = globe.prepare_surface(camera, sun=True)
+    captured = []
+    monkeypatch.setattr(globe._globe_now, "apply",
+                        lambda buf, day, clouds, lights, night: captured.append(lights))
+    surface.render(camera)
+    expected = globe._globe_now.city_lights_globe(
+        camera.lat, camera.lon, camera.zoom, camera.gw, camera.hc * 2)
+    assert captured == [expected]
+    if zoom in (115, 6):
+        assert expected
+    if zoom == 2:
+        assert expected == {}

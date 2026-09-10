@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Maps: Night lights follow satellite imagery, with dimmer, more concentrated lighting that stays consistent while the globe moves.
+- Maps: Night lights fade out smoothly at close zooms so their coarse imagery does not obscure detailed terrain.
 - Maps: Drag and zoom continuously from streets to the whole planet. Zoom steps ease into place, keyboard pans reverse smoothly, and the existing map follows the camera while new detail is prepared. Resizing and fresh cloud imagery retain useful geography; failed views retry automatically.
 - Maps: Spinning and dragging the globe keeps a complete surface beneath newly revealed geography. Its shaded rim stays with the sphere while coastlines and labels refine in the background.
 - Maps: A flick carries the view into a short, slowing coast at every zoom level. Pause before releasing for precise placement; a new grab, zoom, or interaction panel stops the coast immediately.

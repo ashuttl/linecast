@@ -125,9 +125,8 @@ class TestMemoRaces:
         self._hammer(lambda rnd: _globe.city_overlays(
             rnd.randint(-80, 80), 0.0, 60.0, 12, 6), rounds=60)
 
-    def test_city_lights(self, monkeypatch):
+    def test_city_lights(self):
         from linecast import _globe_now
-        self._few_cities(monkeypatch, _globe_now)
         self._hammer(lambda rnd: _globe_now.city_lights_globe(
             rnd.randint(-80, 80), 0.0, 60.0, 12, 12), rounds=60)
 

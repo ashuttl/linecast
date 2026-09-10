@@ -17,7 +17,8 @@ set -u
 
 dist=${1:?usage: check_dist.sh <dist-dir>}
 data="basemap.json.gz climate.png globe_canvas_1.bin globe_canvas_2.bin meteoalarm_regions.bin.gz
-stars.bin stars-deep.bin.gz sky-objects.json.gz STARS.md sky.json.gz cultures.json.gz milkyway.bin.gz"
+stars.bin stars-deep.bin.gz sky-objects.json.gz STARS.md sky.json.gz cultures.json.gz milkyway.bin.gz
+night_lights.bin NIGHT_LIGHTS.md"
 status=0
 
 fail() {

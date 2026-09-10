@@ -498,6 +498,8 @@ def render_map(camera, prepared, location_name, *, marker=None, runtime=None,
                            ATTRIBUTION)
             else:
                 attribs = (long, both, ATTRIBUTION)
+        if sun and view != "street" and _globe_now._night_lights.load():
+            attribs = (f"{attribs[0]} · {_globe_now._night_lights.ATTRIBUTION}", *attribs)
         scale = (_scale_bar(camera.scale_bbox, graph_w)
                  if view == "street" and not globe else "")
         # first rung that fits wins: long+hint, short+hint, short, bare

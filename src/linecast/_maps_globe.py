@@ -8,7 +8,7 @@ limb never travels into the planet's middle. Exact detail stays separate.
 from dataclasses import dataclass, field
 import math
 
-from linecast import _climate, _globe, _globe_now, _maps_paint, _maps_style, _theme
+from linecast import _climate, _globe, _globe_now, _maps_paint, _maps_style, _night_lights, _theme
 from linecast._color import color_mode
 from linecast._radar_basemap import Basemap, DotLayer, _load_data
 from linecast._scenes import Memo
@@ -156,7 +156,7 @@ class GlobeSurface:
     texture: _Texture
     sun: tuple | None
     clouds: tuple | None
-    cities: tuple
+    lights: tuple
     background: tuple
     night: tuple
 
@@ -169,14 +169,8 @@ class GlobeSurface:
         _globe.shade_buffer(fills, zs, atmo, self.background)
         if self.sun is not None or clouds is not None:
             day = _globe_now.daylight(lls, self.sun) if self.sun is not None else None
-            lights = {}
-            radius = _globe._radius(camera.zoom, h)
-            for lat, lon, weight in self.cities:
-                x, y, front = _globe.forward(lat, lon, camera.lat, camera.lon)
-                if front > 0:
-                    col, row = int(gw / 2 + x * radius), int(h / 2 - y * radius)
-                    if 0 <= col < gw and 0 <= row < h:
-                        lights[col, row] = max(weight, lights.get((col, row), 0.0))
+            lights = (_night_lights.sample(self.lights, lls, camera.zoom / h, zs)
+                      if self.sun is not None else {})
             _globe_now.apply(fills, day, clouds, lights, self.night)
             if self.sun is not None:
                 limb = _globe.limb_lls(camera.lat, camera.lon, camera.zoom, gw, h, atmo)
@@ -189,11 +183,8 @@ def prepare_surface(camera, *, street=False, sun=False, clouds=False):
     w, h = _SIZE
     texture = _textures.get((w, h, street, color_mode(), _theme.generation),
                             lambda: _build_texture(w, h, street))
-    cities = ()
-    if sun and not street:
-        cities = tuple((entry[1], entry[0], weight) for entry in _load_data()["cities"]
-                       if (weight := _globe_now._light_weight(entry[2])) > 0)
+    lights = _night_lights.load() if sun and not street else ()
     return GlobeSurface(texture, _globe_now.subsolar() if sun else None,
-                        _cloud_texture(w, h) if clouds else None, cities,
+                        _cloud_texture(w, h) if clouds else None, lights,
                         _maps_paint.BG_PRIMARY,
                         _globe_now.NIGHT_STREET if street else _globe_now._NIGHT)
