@@ -135,11 +135,11 @@ The moon can also show the date in a traditional calendar beside the phase, with
 
 `sky` draws the sky from where you stand. The horizon runs along the bottom with the compass points under it, and above it are the real stars for the moment, the constellation figures drawn faintly through them with their names, the planets marked and named, the Moon at its phase and tilt, and the Milky Way once the sky is dark enough. By day the sky is blue and holds only the Sun, and perhaps Venus. Scroll into the evening and the sky goes through its twilight colors while the stars come out one by one, brightest first.
 
-Drag to look around. Zoom in and fainter stars and more names appear, and the Moon grows into the disc the moon view draws. Zoom all the way out while looking up and the horizon closes into a circle, the whole sky at once, the way the almanacs print it. `p` plays time forward, an hour a second, then a day, then a week, so you can watch the stars wheel and the Moon run through its phases. Point at anything for its name. `--facing SW` or `--fov 40` opens the view where you want it.
+Drag to look around. Zoom in and fainter stars and more names appear, and the Moon grows into the disc the moon view draws. Zoom all the way out while looking up and the horizon closes into a circle, the whole sky at once, the way the almanacs print it. Press `p` to play time forward, an hour a second, then a day, then a week, so you can watch the stars wheel and the Moon run through its phases. Point at anything for its name. To open the view where you want it, add `--facing SW` or `--fov 40`.
 
 Press `/` and type the name of a star, a planet, a constellation, or an asterism like the Big Dipper, and the view flies to it. If it is below the horizon the panel says when it rises and where, and Enter moves the clock to that moment. `sky --at Jupiter` opens on it.
 
-The sky has been drawn many ways. `t` opens a list of twenty-two traditions besides the IAU's, each with its own figures and star names, and the sky redraws as you move through the list: the Chinese Three Enclosures and Twenty-Eight Mansions, the Hawaiian star lines, the Boorong sky of Victoria, the Norse, Sami, Māori, Tongan, Mongolian, Romanian, Belarusian, and Indian Vedic skies, H. A. Rey's stick figures, and more. `sky --culture hawaiian` opens on one and `linecast culture` saves one. The Hawaiian sky replaces the compass points with the navigators' star compass, thirty-two houses from Hikina round to Komohana. [CULTURES.md](CULTURES.md) lists them with their sources.
+The sky has been drawn many ways. Press `t` for a list of twenty-two traditions besides the IAU's, each with its own figures and star names, and the sky redraws as you move through the list: the Chinese Three Enclosures and Twenty-Eight Mansions, the Hawaiian star lines, the Boorong sky of Victoria, the Norse, Sami, Māori, Tongan, Mongolian, Romanian, Belarusian, and Indian Vedic skies, H. A. Rey's stick figures, and more. `sky --culture hawaiian` opens on one and `linecast culture` saves one. The Hawaiian sky replaces the compass points with the navigators' star compass, thirty-two houses from Hikina round to Komohana. [CULTURES.md](CULTURES.md) lists them with their sources.
 
 ### Tides
 
@@ -151,7 +151,7 @@ Predictions come from the national tide services in the US, Canada, Queensland, 
 
 ### Radar
 
-`radar` animates the recent observations and an hour of forecast over a braille map, with US weather warnings drawn on top. Temperature and wind layers are there if you want them, and `S` switches to satellite imagery.
+`radar` animates the recent observations and an hour of forecast over a braille map, with US weather warnings drawn on top. Temperature and wind layers are there if you want them, and you can press `S` for satellite imagery.
 
 Real radar is only available where it is published openly: North America, Europe, and parts of East and Southeast Asia. Everywhere else, LibreWXR fills in with a precipitation model, and it looks like one.
 
@@ -169,31 +169,18 @@ linecast radar --layer satellite    # open on satellite imagery
 
 ### Maps
 
-`maps` draws streets in braille over water, land, parks, and buildings in solid color. `maps --view terrain` shades the land by height and lights it from one side, like a relief map, with coastlines, borders, water, and cities in braille over it.
+`maps` draws streets in braille over water, land, parks, and buildings in solid color. `maps --view terrain` shades the land by height and lights it from one side, like a relief map, with coastlines, borders, water, and cities in braille over it. Press `v` to switch between the two.
 
-`/` searches for a place and `D` asks for directions, which open as a panel of turn-by-turn steps. Arrow or click through them and the map flies along the route.
+Press `/` to search for a place, or `D` to ask for directions, which open as a panel of turn-by-turn steps. Arrow or click through them and the map flies along the route.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-street.png" width="49%" alt="street map of Portland, Maine">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-terrain.png" width="49%" alt="terrain map of the Alps around Innsbruck">
 </p>
 
-Zoom all the way out and either view becomes a globe. Drag to rotate it, or press `r` to set it spinning. `S` shades it into the daylight of this moment, with the terminator creeping and cities glowing on the night side, and `c` lays the current cloud cover over it from live satellite imagery. `maps --view now` opens straight to the full picture.
+Zoom all the way out and either view becomes a globe. Drag to rotate it, or press `r` to set it spinning. Press `S` to shade it into the daylight of this moment, with the terminator creeping and cities glowing on the night side, and `c` to lay the current cloud cover over it from live satellite imagery. `maps --view now` opens straight to the full picture.
 
 ![the globe as it is right now: live daylight and the terminator](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/maps-globe.png)
-
-| Keys | |
-|------|---|
-| drag · wheel · hover | pan, zoom at the pointer, identify what's under the cursor |
-| `w` `a` `s` `d` | pan up, left, down, right |
-| `+` `-` | zoom |
-| `n` | back to the start view |
-| `v` `l` | street ↔ terrain · toggle labels & lines |
-| `S` `c` | daylight and night city lights · live cloud cover |
-| `r` | spin the globe |
-| `/` | search places and addresses |
-| `D` `o` `p` | directions · set the origin · cycle travel mode |
-| `q` | quit |
 
 ```sh
 # a street map, zoomed in
@@ -273,7 +260,7 @@ linecast culture auto               # follow the language again
 linecast sky --culture hawaiian     # just this once
 ```
 
-In `sky`, `t` picks one from a list. The names are in [CULTURES.md](CULTURES.md), with the credits for each.
+Use `t` in `sky` to choose one from a list. The names are in [CULTURES.md](CULTURES.md), with the credits for each.
 
 ### Color and icons
 
@@ -285,7 +272,7 @@ Icons come in three sets: [Nerd Font](https://www.nerdfonts.com/) glyphs in term
 linecast icons nerd
 ```
 
-`--icons` and `LINECAST_ICONS` pick a set (`nerd`, `emoji`, or `plain`) for one run, and `linecast doctor` shows a glyph from each set so you can see what your font renders.
+Add `--icons nerd`, `--icons emoji`, or `--icons plain` to pick a set for one run. `linecast doctor` shows a glyph from each set, so you can see which ones your font can draw.
 
 ### Short names and shell completion
 
@@ -335,28 +322,28 @@ Every view command and `linecast doctor` take `--debug`, which prints a line on 
 | `WEATHER_UNITS` | Units for the weather command; overrides `LINECAST_UNITS` |
 | `TIDES_UNITS` | Units for tide heights; overrides `LINECAST_UNITS` |
 | `LINECAST_CLOCK` | `12` or `24`; overrides the saved clock |
-| `LINECAST_LANG` | UI language code: `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`, `pl`, `no`, `sv`, `is`, `da`, `fi`, `ja`, `ko`, `zh`, `th`, or `id`; overrides the saved language and the terminal's locale |
+| `LINECAST_LANG` | One of the language codes under [Language](#language); overrides the saved language and the terminal's locale |
 | `LINECAST_ICONS` | `nerd`, `emoji`, or `plain`; overrides the saved icons |
 | `LINECAST_COLOR` | `auto`, `truecolor`, `256`, `16`, or `none` |
 | `NO_COLOR` | Any non-empty value disables ANSI colors |
 | `CLICOLOR` / `CLICOLOR_FORCE` | `CLICOLOR=0` disables color; a non-zero `CLICOLOR_FORCE` keeps it on when output is not a terminal |
 | `LINECAST_THEME` | `auto` (default), or `classic` / `legacy` / `off` for the fixed palette |
-| `LINECAST_THEME_TIMEOUT_MS` | Terminal palette query timeout in milliseconds (default `100`, or `500` over SSH) |
-| `LINECAST_WIDTH_TIMEOUT_MS` | Timeout in milliseconds for the query that asks the terminal how wide it draws emoji and other glyphs (default `150`, or `600` over SSH) |
+| `LINECAST_THEME_TIMEOUT_MS` | How long, in milliseconds, to wait for the terminal to answer the palette query (default `100`, or `500` over SSH) |
+| `LINECAST_WIDTH_TIMEOUT_MS` | How long, in milliseconds, to wait for the terminal to say how wide it draws emoji and other glyphs (default `150`, or `600` over SSH) |
 | `LINECAST_THEME_POLL` | Seconds between re-reading the terminal palette in live views, so a theme switch re-inks the view in place (default `2`; `0` disables) |
 | `LINECAST_THEME_WATCH` | A file whose modification marks a desktop theme change, prompting an immediate re-read (default: Omarchy's current-theme marker; empty disables) |
 | `TIDE_STATION` | Default tide station ID |
 | `LINECAST_TIDECHECK_KEY` | Optional TideCheck API key for global tide coverage |
-| `LINECAST_TIDECHECK_PAID` | Set to `1` on a paid TideCheck plan; the request tally then drops the 50-a-day free-tier cap |
+| `LINECAST_TIDECHECK_PAID` | Set to `1` on a paid TideCheck plan, and linecast stops holding itself to the free tier's 50 requests a day |
 | `LINECAST_RADAR_THEME` | Default radar color theme |
 | `LINECAST_RADAR_SOURCE` | Pin the radar frame source: `librewxr`, `rainviewer`, or `iem` |
 | `LINECAST_RADAR_LAYER` | `radar` (default) or `satellite`, the imagery `radar` opens with |
-| `LINECAST_RADAR_LAYERS` | Overlays `radar` opens with: `temp`, `wind`, or both comma-separated |
+| `LINECAST_RADAR_LAYERS` | Layers `radar` opens with: `temp`, `wind`, or `temp,wind` |
 | `LINECAST_SUNSHINE_YEAR_PALETTE` | `dial` (default) for the Solar Dial colors in `sunshine --year`, or `graph` for the day view's own sky |
 | `LINECAST_LIBREWXR_URL` | Base URL of a self-hosted LibreWXR instance |
 | `LINECAST_VECTOR_TILES_URL` | TileJSON URL of a self-hosted street tile server, used instead of OpenFreeMap with no fallback |
 | `LINECAST_ELEVATION_URL` | Elevation tile source for `maps`: a bucket root holding `terrarium/{z}/{x}/{y}.png`, or a full tile URL template containing `{z}`, `{x}`, and `{y}` |
-| `LINECAST_MAPS_CACHE_MB` | Size the map tile cache is swept back to when `maps` starts (default `256`) |
+| `LINECAST_MAPS_CACHE_MB` | Size, in megabytes, that `maps` trims its tile cache back to when it starts (default `256`) |
 | `LINECAST_CACHE_DIR` | Directory for cached data, used exactly as given |
 | `LINECAST_CONFIG_DIR` | Directory for `config.json`, used exactly as given |
 
@@ -379,7 +366,14 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 
 ## Contributing
 
-Pull requests are welcome. [ARCHITECTURE.md](ARCHITECTURE.md) is the map of the code. The suite runs with `uv run --with pytest pytest tests -q` and the lint with `uvx ruff check src tests scripts`; both are meant to run without the network and without touching your home directory.
+Pull requests are welcome. [ARCHITECTURE.md](ARCHITECTURE.md) is the map of the code.
+
+```sh
+uv run --with pytest pytest tests -q   # tests
+uvx ruff check src tests scripts       # lint
+```
+
+Both are meant to run without the network and without touching your home directory.
 
 ## Lineage
 
