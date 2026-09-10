@@ -97,6 +97,27 @@ def saved_calendar() -> str | None:
     return None
 
 
+# The sky's cultures, by the short names `linecast culture` and `sky
+# --culture` take; the data behind them is _sky_catalogue's.
+CULTURE_CHOICES = ("anutan", "belarusian", "blackfoot", "boorong", "bugis",
+                   "chinese", "chinese-modern", "hawaiian", "indian", "japanese",
+                   "mandar", "maori", "mongolian", "norse", "romanian", "ruelle",
+                   "sami", "siberian", "tongan", "tukano", "snt", "rey", "none")
+
+
+def saved_culture() -> str | None:
+    """Return the sky culture saved via `linecast culture`, or None.
+
+    A culture name pins that culture's constellations and star names in
+    every language; 'none' keeps the IAU sky even where the language
+    would bring a culture with it.
+    """
+    culture = read_config().get("culture")
+    if isinstance(culture, str) and culture.strip().lower() in CULTURE_CHOICES:
+        return culture.strip().lower()
+    return None
+
+
 def saved_location() -> dict[str, Any] | None:
     """Return the location saved via `linecast location set`, or None.
 

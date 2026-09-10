@@ -43,22 +43,36 @@ def app(monkeypatch):
 
 
 class TestActions:
-    def test_c_and_w_toggle_the_condition_layers(self, app):
+    @pytest.mark.parametrize('key,dlat,dlon', [
+        ('w', 1, 0), ('a', 0, -1), ('s', -1, 0), ('d', 0, 1),
+    ])
+    def test_wasd_pans_without_toggling_layers(self, app, key, dlat, dlon):
+        import math
+        lat, lon = app.home
+        assert app.intercept('key:' + key) is False
+        assert app.on_action(key)
+        assert app.lat == pytest.approx(lat + dlat * app.zoom * 0.1)
+        span = app.zoom * (80 / (24 * 2)) / math.cos(math.radians(lat))
+        assert app.lon == pytest.approx(lon + dlon * span * 0.1)
+        assert app.home == (lat, lon) and app.pan_preview == (0, 0)
+        assert app.layers == set() and app.layer == 'radar'
+
+    def test_c_and_shift_w_toggle_the_condition_layers(self, app):
         assert app.on_action('c') is True
         assert app.layers == {"temp"}
-        assert app.on_action('w') is True
+        assert app.on_action('W') is True
         assert app.layers == {"temp", "wind"}
         assert app.on_action('c') is True
         assert app.layers == {"wind"}
 
-    def test_s_cycles_the_layer_only_with_a_satellite_timeline(
+    def test_shift_s_cycles_the_layer_only_with_a_satellite_timeline(
             self, app, monkeypatch):
-        assert app.on_action('s') is False
+        assert app.on_action('S') is False
         assert app.layer == "radar"
         monkeypatch.setattr(_radar_live, "_sat_timeline", lambda: ["hourly"])
-        assert app.on_action('s') is True
+        assert app.on_action('S') is True
         assert app.layer == "sat"
-        assert app.on_action('s') is True
+        assert app.on_action('S') is True
         assert app.layer == "radar"
 
     def test_zoom_keys_clamp_and_stop_repainting_at_the_limit(self, app):

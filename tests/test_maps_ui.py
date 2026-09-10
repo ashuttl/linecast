@@ -646,12 +646,12 @@ class TestDirectionsOverlay:
         with _units("--imperial"):
             plain = strip(self._overlay())
         assert re.search(r"o from +Westbrook", plain)
-        assert re.search(r"d to +Portland Head Light", plain)
+        assert re.search(r"D to +Portland Head Light", plain)
         assert re.search(r"p mode +driving · 11.7 mi · 24m", plain)
 
     def test_no_destination_is_a_placeholder_not_a_missing_row(self):
         plain = strip(self._overlay(route=None, dest=None))
-        assert re.search(r"d to +…", plain)
+        assert re.search(r"D to +…", plain)
 
     def test_the_routers_status_stands_in_for_absent_steps(self):
         plain = strip(self._overlay(route=None, status="pending"))
@@ -853,14 +853,8 @@ class TestHelpPanel:
     @pytest.mark.parametrize("rows", [12, 14, 20, 24, 40])
     @pytest.mark.parametrize("lang", LANGS)
     def test_it_never_overflows_the_terminal(self, rows, lang):
-        # Degradation is deterministic and never scrolls: a panel that
-        # scrolls is a panel you have to operate.
+        # Short terminals get pages; each page stays inside the window.
         panel = mu.help_overlay(80, rows, lang, route=True)
-        if not panel:
-            # Giving up entirely is a legal rung, but only when the
-            # terminal really is too short for the smallest form.
-            assert rows <= 14, (lang, rows)
-            return
         lines = panel_lines(panel)
         assert len(lines) <= rows - 2, (lang, rows, len(lines))
         for line in lines:
@@ -872,5 +866,7 @@ class TestHelpPanel:
             for line in lines:
                 assert visible_len(line) <= cols
 
-    def test_a_terminal_too_short_for_the_panel_gets_none(self):
-        assert mu.help_overlay(80, 8, "en") == ""
+    def test_a_short_terminal_gets_a_page_of_controls(self):
+        panel = mu.help_overlay(80, 8, "en")
+        assert '←→ 1/' in panel
+        assert len(panel_lines(panel)) <= 8

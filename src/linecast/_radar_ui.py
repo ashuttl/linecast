@@ -26,7 +26,7 @@ from linecast._radar_sources import THEMES, is_local
 from linecast._runtime import log_failure, use_metric
 from linecast._scenes import Memo
 
-MUTED = (150, 155, 170)
+MUTED = _live.MUTED
 DIM = (110, 114, 130)
 FAINT = (70, 74, 88)
 MARKER = (255, 240, 120)
@@ -180,28 +180,19 @@ class ThemePicker:
 
 
 def _theme_menu_overlay(names, sel, current, lang, cols, rows):
-    """Cursor-addressed theme list, drawn over the map via live_loop's \\x00
-    overlay channel. `sel` is the highlighted row, `current` the active id.
+    """The theme list, drawn over the map via live_loop's \\x00 overlay
+    channel. `sel` is the highlighted row, `current` the active id.
     A rule separates the themes coloured here from the server's."""
-    inner = min(cols - 4, max(len(n) for n in names) + 4)
     kinds = [is_local(THEMES.get(n)) for n in names]
-    split = True in kinds and False in kinds
-    top = max(1, (rows - (len(names) + 2 + split)) // 2)
-    left = max(0, (cols - inner - 2) // 2)
-    title = f" {rs('theme', lang)} "
-    lines = [f"┌{title.center(inner, '─')}┐"]
+    lines, rows_of = [], []
     for i, name in enumerate(names):
         if i and kinds[i - 1] and not kinds[i]:
-            lines.append(f"├{'─' * inner}┤")
+            lines.append(None)
         mark = "●" if THEMES.get(name) == current else " "
-        body = f" {mark} {name}"[:inner].ljust(inner)
-        if i == sel:
-            body = f"\033[7m{body}\033[27m"  # reverse-video highlight
-        lines.append(f"│{body}│")
-    lines.append(f"└{'─' * inner}┘")
-    return "".join(
-        f"\033[{top + 1 + i};{left + 1}H{fg(*MUTED)}{line}{RESET}"
-        for i, line in enumerate(lines))
+        rows_of.append(len(lines))
+        lines.append(f" {mark} {name}")
+    return _live.menu_box(lines, cols, rows, title=rs('theme', lang),
+                          sel=rows_of[sel], border=fg(*MUTED))
 
 
 def _fmt_expire(iso, use_24h):

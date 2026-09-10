@@ -354,6 +354,16 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
 
     if hint:
         lines.append(hint)
+    if getattr(runtime, 'live', False):
+        from linecast import _help
+        # Prefer the final row's spare margin; otherwise use an existing
+        # blank separator. Neither alerts nor chart rows are displaced.
+        for i in [len(lines) - 1, *(j for j in range(len(lines) - 2, -1, -1)
+                                  if not lines[j].strip())]:
+            candidate = _help.footer(lines[i], cols, runtime.lang)
+            if '?' in candidate:
+                lines[i] = candidate
+                break
 
     # Shorter still than the trimming above could reach: cut the bottom
     # rather than let the terminal scroll the header away.
@@ -399,6 +409,8 @@ class WeatherApp(_live.LiveApp):
     interval = 300
     scroll_step = 60
     mouse = True
+
+    help_view = 'weather'
 
     def __init__(self, data, alerts, aqi, lat, lng, runtime,
                  location_name="", historical=None, country=""):

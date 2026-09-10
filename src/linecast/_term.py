@@ -290,11 +290,11 @@ class LiveTerminal:
                 return 'input'
             deadline = _time.monotonic() + timeout
             while True:
+                if _ready(self.fd, self._is_console()):
+                    return 'input'
                 if self._event.is_set():
                     self._event.clear()
                     return 'wake'
-                if _ready(self.fd, self._is_console()):
-                    return 'input'
                 size = _terminal_size()
                 if size != self._size:
                     self._size = size
@@ -308,14 +308,18 @@ class LiveTerminal:
                 [self.fd, self._wake_r], [], [], timeout)
         except (InterruptedError, OSError):
             return 'timeout'
+        # Input first: a view animating off a ticker has a wakeup pending
+        # nearly always, and a key must not wait behind them. The wakeup
+        # stays in the pipe for the next wait, or for the drain before
+        # the repaint the key causes.
+        if self.fd in ready:
+            return 'input'
         if self._wake_r in ready:
             try:
                 os.read(self._wake_r, 512)  # coalesce a burst of resizes
             except OSError:
                 pass
             return 'wake'
-        if self.fd in ready:
-            return 'input'
         return 'timeout'
 
     # -- teardown ----------------------------------------------------------

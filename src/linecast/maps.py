@@ -564,7 +564,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                block=True, pan_offset=(0, 0), mouse_pos=None,
                view="terrain", search=None, route=None, dest=None,
                origin=None, directions=None,
-               note="", helping=False, show_labels=True, sun=False,
+               note="", show_labels=True, sun=False,
                clouds=False, **_):
     lang = runtime.lang if runtime else "en"
     cols, rows = get_terminal_size()
@@ -638,6 +638,9 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     if over > 0 and len(place) > over + 1:
         header = _header(place[:len(place) - over - 1] + "…")
     header += " " * max(0, cols - visible_len(header))
+    from linecast import _help
+    live = bool(getattr(runtime, 'live', False))
+    foot_width = cols - visible_len(_help.hint(lang, cols)) - 3 if live else cols
 
     if err:
         key = 'streets_unavailable' if view == "street" else 'unavailable'
@@ -645,7 +648,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     else:
         # once a route stands, the footer teaches the route keys instead
         hint_key = 'hint_route' if route is not None else 'hint'
-        hint = (f"{fg(*DIM)}{ms(hint_key, lang)}{RESET}"
+        hint = (f"{fg(*DIM)}{ms(hint_key, lang).split(' · ?')[0]}{RESET}"
                 if sys.stdout.isatty() else "")
         # the Köppen credit is owed only where the climate grid is
         # colouring the ground: the terrain register, flat or globe
@@ -691,13 +694,15 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         ladder += [f"{scale}{fg(*DIM)}{attribs[-1]}{RESET}",
                    f"{fg(*DIM)}{attribs[-1]}{RESET}", ""]
         for foot in ladder:
-            if visible_len(foot) <= cols:
+            if visible_len(foot) <= foot_width:
                 break
+    if live:
+        foot = _help.footer(foot, cols, lang)
     foot += " " * max(0, cols - visible_len(foot))
 
     out = "\n".join([header, *map_lines, foot])
     # One floating thing at a time, through the one overlay channel;
-    # search beats help beats the steps panel.
+    # Search sits above the steps panel; the live loop owns help.
     if search is not None and search.open:
         # Any-motion mouse reporting is what makes a torn escape
         # sequence likely, and a torn sequence looks like ESC — which is
@@ -705,10 +710,6 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         # long as the field is open, and back on when it closes.
         return overlay(out, _maps_ui.search_overlay(search, cols, rows, lang),
                        motion=False)
-    if helping:
-        floating = _maps_ui.help_overlay(cols, rows, lang, route is not None)
-        if floating:
-            return overlay(out, floating, motion=True)
     if directions is not None and directions.panel:
         floating = _maps_ui.directions_overlay(directions, cols, rows, lang,
                                                home_label=location_name)

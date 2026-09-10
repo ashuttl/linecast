@@ -551,3 +551,38 @@ def moon_age_days(dt_utc):
     if last_new is None:
         return moon_phase_frac(dt_utc) * 29.53058867
     return (dt_utc - last_new).total_seconds() / 86400.0
+
+
+def _lst_deg(dt_utc, lng_deg):
+    """Local mean sidereal time in degrees."""
+    return _norm_deg(_gmst_deg(dt_utc) + lng_deg)
+
+
+def _alt_az_deg(ra_deg, dec_deg, dt_utc, lat_deg, lng_deg):
+    """Altitude and azimuth (degrees east of north) of a point at *ra_deg*,
+    *dec_deg*, for the observer, geocentric (Meeus, ch. 13)."""
+    hour_angle = math.radians((_lst_deg(dt_utc, lng_deg) - ra_deg + 540.0) % 360.0 - 180.0)
+    lat = math.radians(lat_deg)
+    dec = math.radians(dec_deg)
+    sin_alt = (math.sin(lat) * math.sin(dec)
+               + math.cos(lat) * math.cos(dec) * math.cos(hour_angle))
+    alt = math.degrees(math.asin(max(-1.0, min(1.0, sin_alt))))
+    az = math.atan2(
+        math.sin(hour_angle),
+        math.cos(hour_angle) * math.sin(lat) - math.tan(dec) * math.cos(lat),
+    )
+    return alt, (math.degrees(az) + 180.0) % 360.0
+
+
+def sun_alt_az_deg(dt_utc, lat_deg, lng_deg):
+    """The Sun's altitude and azimuth for the observer, in degrees."""
+    ra, dec = _sun_ra_dec(dt_utc)
+    return _alt_az_deg(ra, dec, dt_utc, lat_deg, lng_deg)
+
+
+def moon_horizontal_parallax_deg(dt_utc):
+    """The Moon's horizontal parallax: how far below its geocentric place
+    an observer with the Moon on the horizon sees it, about a degree.
+    The topocentric altitude is the geocentric one less this times the
+    cosine of the altitude."""
+    return math.degrees(math.asin(1.0 / _moon_distance_er(dt_utc)))
