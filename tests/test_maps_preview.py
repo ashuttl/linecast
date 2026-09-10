@@ -21,6 +21,15 @@ def layer(dots, color=(20, 40, 60), ribbon=(), hover=None):
                            ribbon=set(ribbon), hover=hover)
 
 
+@pytest.mark.parametrize('complete', (True, False))
+def test_source_completeness_survives_cropping_and_camera_motion(complete):
+    padded = MapCamera(0, 0, 4, 8, 4)
+    target = MapCamera(0, 0, 2, 4, 2)
+    prepared = source(padded, complete=complete)
+    assert prepared.cropped(target).complete is complete
+    assert prepared.transformed(target.pan(.1, 0)).complete is complete
+
+
 def test_identity_reuses_immutable_snapshot_and_hover():
     camera = MapCamera(0, 0, 100, 4, 2)
     fills = [[(1, 2, 3)] * 4 for _ in range(4)]

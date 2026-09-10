@@ -8,6 +8,7 @@ layers into terminal lines, one composer per register.
 """
 
 import math
+import re
 
 from linecast import _climate, _globe_now, _maps_hover, _maps_style, _theme
 from linecast._color import (
@@ -17,6 +18,40 @@ from linecast._framebuffer import halfblock
 from linecast._radar_basemap import BORDER
 from linecast._theme import lerp_rgb, themed
 from linecast._radar_ui import MARKER
+
+
+_MAP_ESCAPE = re.compile(
+    r'\x00|\x1b(?:\[([34]8);(?:2;[0-9]+;[0-9]+;[0-9]+|5;[0-9]+)m'
+    r'|\[[0-?]*[ -/]*[@-~]|[\s\S]?)')
+
+
+def compact_colors(output):
+    """Omit repeated map colors, with no state shared between frames.
+
+    Only standalone truecolor and indexed-color escapes are shortened.
+    Other CSI escapes stay intact and forget both colors; unfamiliar
+    terminal controls leave the entire output untouched. Rendering and
+    its canonical strings need not change to use this at presentation.
+    """
+    colors = {}
+    unfamiliar = False
+
+    def compact(match):
+        nonlocal unfamiliar
+        code, slot = match[0], match[1]
+        if slot is not None:
+            if colors.get(slot) == code:
+                return ''
+            colors[slot] = code
+        else:
+            colors.clear()
+            # The live loop inserts a reset at the body/overlay separator.
+            unfamiliar |= code != '\x00' and (len(code) < 3 or not code.startswith('\x1b['))
+        return code
+
+    packed = _MAP_ESCAPE.sub(compact, output)
+    return output if unfamiliar else packed
+
 
 # geography over terrain: dark strokes cut into the colour fill (the
 # radar palette's dim-on-dark strokes vanish against light terrain).

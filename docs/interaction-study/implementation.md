@@ -94,6 +94,30 @@ retained scenes by displayed-camera coverage and resolution, preventing a
 late distant result from displacing useful nearby geography. Failed stationary
 views schedule a bounded retry wake. Stopping discards pending publication.
 
+During motion, usable prepared coverage now suppresses redundant detail builds.
+Reuse must cover both the displayed camera and destination, remain within a
+1.5× resolution ratio, and preserve source type, size, style, and data revision.
+Local coverage retains a small edge reserve for starting the next load. The
+globe keeps one cartographic source through small turns and renews it after
+five degrees of center travel, so slow rotation no longer swaps freshly
+rasterized coastlines and borders several times a second. Settling requests
+the exact view. One held scene can survive eviction from the four-entry cache;
+this is bounded to five retained scenes, with no additional worker.
+
+Partial street and elevation results remain visible but are marked incomplete.
+They bypass permanent source and color memos and retry through the existing
+three-second wake until complete. Entirely missing required elevation reports
+an error before ocean masks can disguise the failure. Optional terrain water
+and built-up layers retain their existing degradation behavior. Tile batches
+share one metadata/version snapshot; failed metadata hosts back off for thirty
+seconds while valid cached metadata remains usable.
+
+Live Maps also omits redundant foreground/background color instructions within
+each frame. Glyphs, effective colors, attributes, and controls are preserved;
+resets, other controls, and the body/overlay boundary clear tracked state.
+There is no state carried between frames, no color quantization, and no change
+to canonical static rendering.
+
 Clouds load separately from the initial map. Fresh cloud data invalidates
 detail while the previous map remains usable. Theme, style, language, route,
 and label options have distinct compatibility keys; source revisions trigger
@@ -105,8 +129,8 @@ indefinitely starve paint, and an ignored event cannot erase an earlier change.
 
 ## Validation
 
-Final full-suite result: **4,120 passed, 1 skipped, 72 deselected, and 263
-subtests passed** in 36.01 seconds. Ruff and whitespace checks on source, tests, and documentation
+Final full-suite result: **4,178 passed, 1 skipped, 72 deselected, and 263
+subtests passed** in 37.16 seconds. Ruff and whitespace checks on source, tests, and documentation
 passed; ANSI text snapshots deliberately retain terminal-cell padding.
 The earlier Sky commit independently passed 3,771 tests and 263 subtests.
 
@@ -211,6 +235,74 @@ and inspected at rest, during a small turn, and on the opposite hemisphere.
 ```sh
 .venv/bin/python docs/interaction-study/maps/live_pty.py --spin --fast-drag --delay .3
 .venv/bin/python docs/interaction-study/maps/live_pty.py --spin --fast-drag --delay .3 --cols 200 --rows 60
+```
+
+### Performance and source recovery, 9 September
+
+The [paired results](maps/performance-results.json) compare `dd45817` with this
+pass on the same machine, sequentially, through the real POSIX PTY loop.
+The harness now logs foreground thread CPU, background builds, actual selected
+sources, completeness, refinement state, and write/flush duration separately.
+These are mixed interaction sequences, including resize and overlays. Globe
+timings include the coverage observer. They are not native terminal display
+latency measurements.
+
+| Scenario, 200×60 | Before | After |
+| --- | ---: | ---: |
+| Streets: mean frame size | 225.4 kB | 29.1 kB |
+| Streets: render median / p95 | 10.68 / 19.49 ms | 11.98 / 22.46 ms |
+| Globe: render median / p95 | 78.36 / 145.12 ms | 41.09 / 96.64 ms |
+| Globe: frames during the 2.3-second spin | 19 | 53 |
+| Globe: detail builds during that spin | 16 | 0 |
+| Globe: distinct cartographic sources during that spin | 14 | 1 |
+
+The old globe failed the harness's minimum of twenty spin frames on this
+repeat; its motion/coverage checks passed when examined independently. The
+new version passed the complete harness. An earlier pair produced 21 versus
+54 spin frames, supporting the direction of the result rather than a precise
+universal speedup. Large globe frames still exceed a 30 Hz budget, especially
+while detail builds overlap movement.
+
+The street result is primarily less terminal work, not faster Python rendering:
+color compaction adds roughly one to three milliseconds while eliminating
+87% of mean frame bytes in this sequence. Independent rendition comparisons
+on six captured frames preserve text, color, weight, and controls. Transport
+write times vary and exclude the terminal emulator's later parsing and paint.
+
+The archived coastal fixture contains three missing northern tiles. The old
+version silently classified its partial results as complete; the new version
+correctly keeps trying to recover them. Thus this offline comparison does not
+establish warm, fully loaded street preparation savings. Attempts to fetch
+the missing tiles from that archived source returned HTTP 403. No replacement
+data was fabricated. Deterministic tests establish that complete local
+overscan suppresses nearby drag builds, starts loading at its reserve boundary,
+and refines immediately after settling; separate tests cover partial-to-complete
+recovery without input and failed retries retaining usable pixels.
+
+A small mask probe isolated the reported braille jitter: publishing sources
+every 0.1° changed 83–103 coastline cells and 104–117 border cells at each
+publication, while one retained source changed none over those ten tiny steps.
+Ordinary discrete dot stepping and periodic refinement remain. Labels stay
+enabled by default, including the daylight/cloud view.
+
+Additional 120×40 PTY audits passed with a 300 ms artificial detail delay,
+momentum, paused release, regrabbing, far-hemisphere dragging, and daylight
+enabled. All 1,807,804 sampled Earth pixels in those two audits had complete
+coverage. The offline cloud request supplies no cloud pixels; captured-cloud
+rendering and source revision changes have separate deterministic tests.
+
+Preparing nearby views makes sense within a bounded budget: the existing local
+margin and complete globe texture already supply that coverage. This pass
+uses them before scheduling more work. Preparing a matrix of neighboring
+positions and zoom levels would add source loading and Python contention;
+it also cannot eliminate intermediate camera transforms and terminal painting.
+No speculative preparation queue was added. A slow HTTP read already in
+progress can still delay newer detail; safe cancellation between source stages
+and optional-layer recovery remain future work, rather than another rendering
+lifecycle in this change.
+
+```sh
+.venv/bin/python docs/interaction-study/maps/live_pty.py --sky --spin --fast-drag --delay .3
 ```
 
 ### Release coast

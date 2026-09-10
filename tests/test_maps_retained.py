@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from linecast import _color, _globe, _globe_now, _maps_style, maps
+from linecast import _color, _globe, _globe_now, _maps_style, _maps_views, maps
 from linecast._maps_camera import MapCamera
 from linecast._maps_hover import Hit
 from linecast._runtime import RuntimeConfig
@@ -124,6 +124,24 @@ def forbid_preparation(monkeypatch):
         monkeypatch.setattr(maps, name, unexpected)
     monkeypatch.setattr(_globe, 'city_overlays', unexpected)
     monkeypatch.setattr(_globe_now, 'city_lights_globe', unexpected)
+
+
+@pytest.mark.parametrize('view', ['terrain', 'street'])
+def test_incomplete_source_is_still_composed_and_marked_for_recovery(
+        prepare_frame, monkeypatch, view):
+    _, baseline, output, _ = prepare_frame(view=view, with_route=False)
+    name = '_get_elevation' if view == 'terrain' else '_get_street'
+    load = getattr(maps, name)
+
+    def partial(*args, **kwargs):
+        source = load(*args, **kwargs)
+        return (source._replace(complete=False) if view == 'terrain' else
+                _maps_views.StreetView(*source, complete=False))
+
+    monkeypatch.setattr(maps, name, partial)
+    _, prepared, partial_output, _ = prepare_frame(view=view, with_route=False)
+    assert not prepared.complete
+    assert prepared.fills == baseline.fills and partial_output == output
 
 
 def test_initial_preview_does_not_decode_climate_or_prepare_sources(monkeypatch):

@@ -131,20 +131,37 @@ def _builtup_layer(camera):
         return None
 
 
-class TerrainView(namedtuple("TerrainView", "elev coast water rivers cover")):
+class TerrainView(namedtuple("TerrainView", "elev coast water rivers cover complete",
+                             defaults=(True,))):
     """One view's ground truth: the averaged elevation grid, the braille
     shoreline, the sub-pixel inland water mask, the river layer and the
     sub-pixel land-cover grid.
 
-    The last three are None whenever the vector tiles could not be read;
+    The water, river, and cover fields are None when vector tiles could not be read;
     every consumer treats that as "no inland water or cover known", which
-    is exactly what terrain mode drew before them."""
+    is exactly what terrain mode drew before them. ``complete`` describes
+    required elevation coverage; partial ground stays usable while it retries.
+    """
+    __slots__ = ()
+
+
+class StreetView(namedtuple("StreetView", "fills layer labels complete", defaults=(True,))):
+    """Usable street layers and whether every requested tile arrived."""
     __slots__ = ()
 
 
 _elev_cache = Memo(keep=4)    # -> TerrainView
-_street_cache = Memo(keep=4)  # -> (fills, layer, labels)
+_street_cache = Memo(keep=4)  # -> StreetView
 _globe_cache = Memo(keep=4)   # -> GlobeView
+
+
+def _keep_complete(cache, key, load):
+    view = cache.get(key)
+    if view is None:
+        view = load()
+        if view.complete:
+            cache.put(key, view)
+    return view
 
 
 def _get_elevation(camera):
@@ -163,6 +180,9 @@ def _get_elevation(camera):
             water_job = pool.submit(_tile_water, camera)
             builtup_job = pool.submit(_builtup_layer, camera)
             fine = elevation_grid(camera.bounds, gw * 2, hc * 4, camera=camera)
+        if not any(value is not None for row in fine for value in row):
+            raise RuntimeError(ms('offline', 'en'))
+        complete = all(value is not None for row in fine for value in row)
         water, rivers, cover, ocean = water_job.result()
         bu = builtup_job.result()
         if bu is not None:
@@ -198,9 +218,9 @@ def _get_elevation(camera):
         return TerrainView(
             _box_average(fine, gw, hc), _coast_dots(fine, gw, hc, water),
             _water_subpixels(water, gw, hc) if water is not None else None,
-            rivers, cover)
+            rivers, cover, complete)
 
-    return _elev_cache.get(_view_key(camera), load)
+    return _keep_complete(_elev_cache, _view_key(camera), load)
 
 
 def _get_street(camera, lang="en", reserved=()):
@@ -219,15 +239,16 @@ def _get_street(camera, lang="en", reserved=()):
             tiles = _maps_streets.fetch_tiles(keys)
         if not any(tiles.values()):
             raise RuntimeError(ms('offline', 'en'))
-        return _maps_streets.build_street_view(
+        layers = _maps_streets.build_street_view(
             bbox, gw, hc, tiles, band, lang, reserved,
             bu_job.result() if bu_job is not None else None, camera=camera)
+        return StreetView(*layers, complete=all(tiles.get(key) is not None for key in keys))
 
     key = _view_key(camera) + (lang, tuple(sorted(reserved)))
-    return _street_cache.get(key, load)
+    return _keep_complete(_street_cache, key, load)
 
 
-def _terrain_buffer(elev, camera, water=None, cover=None):
+def _terrain_buffer(elev, camera, water=None, cover=None, *, complete=True):
     # the tile flags are part of the key: the same view rendered once
     # offline and once with tiles is two different pictures
     key = _view_key(camera) + (water is not None, cover is not None)
@@ -240,7 +261,9 @@ def _terrain_buffer(elev, camera, water=None, cover=None):
         return build_terrain_buffer(elev, camera.scale_bbox, camera.gw, camera.hc * 2,
                                      water, cover, climate=climate)
 
-    return _terrain_cache.get(key, build)
+    # A recovered source at this same camera must paint its new pixels,
+    # rather than inheriting the previous attempt's incomplete colour buffer.
+    return _terrain_cache.get(key, build) if complete else build()
 
 
 def _get_globe(camera):

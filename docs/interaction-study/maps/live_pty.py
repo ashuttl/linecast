@@ -43,6 +43,7 @@ def main():
     parser.add_argument('--spin', action='store_true')
     parser.add_argument('--fast-drag', action='store_true')
     parser.add_argument('--coast', action='store_true')
+    parser.add_argument('--sky', action='store_true', help='enable daylight and cloud layers')
     args = parser.parse_args()
     if args.fast_drag and not args.spin:
         parser.error('--fast-drag requires --spin')
@@ -63,6 +64,7 @@ def main():
         [sys.executable, str(Path(__file__).resolve()), '--child', '--work', str(work),
          '--view', args.view, '--zoom', str(args.zoom), '--delay', str(args.delay),
          *(['--spin'] if args.spin else []), *(['--fast-drag'] if args.fast_drag else []),
+         *(['--sky'] if args.sky else []),
          *(['--coast'] if args.coast else [])],
         stdin=slave, stdout=slave, stderr=slave, env=env, start_new_session=True)
     os.close(slave)
@@ -191,6 +193,7 @@ def main():
         (work / 'terminal.ansi').write_bytes(output)
         (work / 'events.json').write_text(json.dumps(events, indent=2))
     frames = [json.loads(line) for line in (work / 'frames.jsonl').read_text().splitlines()]
+    writes = [json.loads(line) for line in (work / 'writes.jsonl').read_text().splitlines()]
     durations = [(f['end'] - f['start']) * 1000 for f in frames[1:]]
     assert code == 0, (code, output[-3000:])
     assert b'Traceback' not in output
@@ -232,10 +235,13 @@ def main():
         callbacks = [json.loads(line) for line in (work / 'input.jsonl').read_text().splitlines()]
         coast_summary = check_coast(frames, events, callbacks)
     result = dict(work=str(work), view=args.view, size=[args.cols, args.rows],
-                  zoom=args.zoom, delay_seconds=args.delay, frames=len(frames),
+                  zoom=args.zoom, sky=args.sky, delay_seconds=args.delay, frames=len(frames),
                   output_bytes=len(output), render_median_ms=statistics.median(durations),
                   render_p95_ms=sorted(durations)[int(.95 * (len(durations) - 1))],
-                  render_max_ms=max(durations), exit_code=code, **spin_summary, **coast_summary)
+                  render_max_ms=max(durations),
+                  write_total_ms=sum(w['seconds'] for w in writes) * 1000,
+                  write_max_ms=max(w['seconds'] for w in writes) * 1000,
+                  exit_code=code, **spin_summary, **coast_summary)
     (work / 'result.json').write_text(json.dumps(result, indent=2))
     print(json.dumps(result, indent=2))
 
@@ -306,12 +312,15 @@ def child_run(args):
     set_current(runtime)
     app = MapApp(runtime,
                  43.66787161011749, -70.191650390625, 'Portland', args.zoom,
-                 args.view, False, 'car')
+                 args.view, args.sky, 'car')
     render, prepare = app.render, app._prepare
     draw = _maps_live.render_map
     shown = [app.target_camera()]
     world = [not shown[0].local_tiles]
     motion_ready = [False]
+    source = [None]
+    complete = [False]
+    refining = [False]
     coverage = [None]
     masks = {}
     if args.spin:
@@ -354,12 +363,42 @@ def child_run(args):
         shown[0] = camera
         world[0] = prepared.world if prepared is not None else not camera.local_tiles
         motion_ready[0] = prepared is not None and prepared.surface is not None
+        source[0] = list(prepared.camera.key) if prepared is not None else None
+        complete[0] = prepared is not None and getattr(prepared, 'complete', True)
+        refining[0] = kw.get('refining', False)
         return draw(camera, prepared, *a, **kw)
 
     _maps_live.render_map = measured_draw
     snapshots = []
     log = (args.work / 'frames.jsonl').open('w')
     builds = (args.work / 'builds.jsonl').open('w')
+    writes = (args.work / 'writes.jsonl').open('w')
+
+    class MeasuredOutput:
+        """Observe transport separately; PTY acceptance is not terminal paint."""
+
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __getattr__(self, name):
+            return getattr(self.stream, name)
+
+        def write(self, value):
+            start = time.monotonic()
+            result = self.stream.write(value)
+            writes.write(json.dumps(dict(start=start, seconds=time.monotonic() - start,
+                                         kind='write', bytes=len(value.encode()))) + '\n')
+            writes.flush()
+            return result
+
+        def flush(self):
+            start = time.monotonic()
+            self.stream.flush()
+            writes.write(json.dumps(dict(start=start, seconds=time.monotonic() - start,
+                                         kind='flush', bytes=0)) + '\n')
+            writes.flush()
+
+    sys.stdout = MeasuredOutput(sys.stdout)
     if args.coast:
         inputs = (args.work / 'input.jsonl').open('w')
         drag, interrupt = app.on_drag, app.on_interrupt
@@ -386,13 +425,16 @@ def child_run(args):
 
     def measured_render(**kw):
         start = time.monotonic()
+        cpu = time.thread_time()
         coverage[0] = None
         frame = render(**kw)
         end = time.monotonic()
         # Observe the actual rendered camera without advancing its clock.
         camera = shown[0]
         ready = bool(app._worker and app._worker._ready)
-        log.write(json.dumps(dict(start=start, end=end, bytes=len(frame.encode()),
+        log.write(json.dumps(dict(start=start, end=end, cpu=time.thread_time() - cpu,
+                                 bytes=len(frame.encode()),
+                                 source=source[0], complete=complete[0], refining=refining[0],
                                  target=[app.lat, app.lon, app.zoom],
                                  display=[camera.lat, camera.lon, camera.zoom],
                                  size=[camera.gw, camera.hc], ready=ready,
@@ -410,10 +452,12 @@ def child_run(args):
 
     def measured_prepare(*a, **kw):
         start = time.monotonic()
+        cpu = time.thread_time()
         if args.delay:
             time.sleep(args.delay)
         result = prepare(*a, **kw)
         builds.write(json.dumps(dict(start=start, end=time.monotonic(),
+                                     cpu=time.thread_time() - cpu,
                                      camera=list(a[0].key), ready=result is not None)) + '\n')
         builds.flush()
         return result

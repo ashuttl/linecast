@@ -240,6 +240,7 @@ def test_street_loader_passes_the_camera_through_data_and_paint(monkeypatch):
     monkeypatch.setattr(_maps_views._maps_streets, "fetch_tiles", lambda keys: {keys[0]: object()})
     monkeypatch.setattr(_maps_views._maps_streets, "build_street_view", build)
     monkeypatch.setattr(_maps_views, "_builtup_layer", builtup)
-    assert _maps_views._get_street(camera) == (
-        "fills", "lines", "labels")
+    street = _maps_views._get_street(camera)
+    assert (street.fills, street.layer, street.labels) == ("fills", "lines", "labels")
+    assert street.complete
     assert len(seen) == 3 and all(value is camera for value in seen)

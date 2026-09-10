@@ -19,6 +19,47 @@ from linecast._runtime import log_failure
 class Scene:
     exact: object
     overscan: object
+    revision: object = None
+
+    @property
+    def complete(self):
+        return getattr(self.exact, 'complete', True)
+
+
+def _can_reuse(scene, camera):
+    """Use prepared coverage during motion; settled views always refine.
+
+    Local scenes have a margin for nearby pans and one zoom-out step. Keep a
+    small reserve so loading starts before the edge enters the viewport.
+    Globe fills cover the Earth, but their annotations need periodic renewal.
+    """
+    if not scene.complete:
+        return False
+    source = scene.overscan.camera
+    exact = scene.exact.camera
+    if (exact.gw, exact.hc) != (camera.gw, camera.hc):
+        return False
+    if source.local_tiles != camera.local_tiles:
+        return False
+    ratio = (source.zoom / source.hc) / (camera.zoom / camera.hc)
+    if not 1 / 1.5 - 1e-9 <= ratio <= 1.5 + 1e-9:
+        return False
+    if scene.overscan.surface is not None:
+        # Five degrees retains stable coast/border dots through slow rotation
+        # while renewing labels for the newly revealed hemisphere.
+        return exact._vector(camera.lon, camera.lat)[2] >= math.cos(math.radians(5))
+    if not source.local_tiles:
+        return False
+    for fy in (0, .5, 1):
+        for fx in (0, .5, 1):
+            point = camera.unproject(camera.gw * fx, camera.hc * fy,
+                                     camera.gw, camera.hc)
+            if point is None or not source.visible(point[1], point[0]):
+                return False
+            x, y = source.project(point[1], point[0], source.gw, source.hc)
+            if not (2 <= x <= source.gw - 2 and 1 <= y <= source.hc - 1):
+                return False
+    return True
 
 
 def _best_scene(scenes, camera):
@@ -73,6 +114,7 @@ class SceneWorker:
         self._latest_token = object()
         self._retry_timer = None
         self._retry_token = None
+        self._shown = None
 
     def _cancel_retry(self):
         if self._retry_timer is not None:
@@ -101,8 +143,13 @@ class SceneWorker:
         # owns a camera or starts a build for an obsolete request.
         self._wake()
 
-    def request(self, key, group, build, *, camera=None):
-        """Request the latest target, returning a compatible retained scene."""
+    def request(self, key, group, build, *, camera=None, target=None,
+                moving=False, revision=None):
+        """Return usable detail and prepare the latest target when needed.
+
+        Motion may reuse a complete scene covering both camera positions;
+        settling or a changed data revision always permits exact refinement.
+        """
         start = False
         timer = None
         with self._lock:
@@ -111,12 +158,32 @@ class SceneWorker:
             if key != self._latest:
                 self._latest, self._latest_token = key, object()
                 self._cancel_retry()
+            candidates = [scene for value_group, scene in reversed(self._ready.values())
+                          if value_group == group]
+            scene = (_best_scene(candidates, camera) if camera is not None
+                     else next(iter(candidates), None))
+            reusable = False
+            if moving and camera is not None:
+                held = self._shown
+                if (held is not None and held[0] == group
+                        and held[1].revision == revision
+                        and _can_reuse(held[1], camera)
+                        and (target is None or _can_reuse(held[1], target))):
+                    scene, reusable = held[1], True
+                elif (scene is not None and scene.revision == revision
+                      and _can_reuse(scene, camera)
+                      and (target is None or _can_reuse(scene, target))):
+                    reusable = True
+            self._shown = (group, scene) if scene is not None else None
             error = self._errors.get(key)
             retry = error is None or time.monotonic() - error[0] >= 3.0
-            if key in self._ready:
+            match = self._ready.get(key)
+            complete = match is not None and match[1].complete
+            if reusable or complete:
                 self._cancel_retry()
                 self._pending = None
-                self._ready.move_to_end(key)
+                if key in self._ready:
+                    self._ready.move_to_end(key)
             elif key != self._active and retry:
                 self._cancel_retry()
                 self._pending = (key, group, build)
@@ -132,14 +199,11 @@ class SceneWorker:
                     self._cancel_retry()
                 elif error is not None:
                     timer = self._schedule_retry(error[0] + 3.0)
-            candidates = [scene for value_group, scene in reversed(self._ready.values())
-                          if value_group == group]
-            match = self._ready.get(key)
-            scene = match[1] if match is not None else next(iter(candidates), None)
-            refining = key not in self._ready and (retry or key == self._active)
+            if camera is None and match is not None:
+                scene = match[1]
             message = error[1] if error is not None else None
-        if camera is not None:
-            scene = _best_scene(candidates, camera)
+            refining = not reusable and not complete and (
+                retry or key == self._active or (match is not None and message is None))
         if start:
             self._thread_factory(target=self._run, daemon=True).start()
         if timer is not None:
@@ -177,8 +241,11 @@ class SceneWorker:
                     self._ready.move_to_end(key)
                     while len(self._ready) > 4:
                         self._ready.popitem(last=False)
-                    self._errors.pop(key, None)
-                else:
+                    if scene.complete:
+                        self._errors.pop(key, None)
+                if scene is None or not scene.complete:
+                    # Partial pixels remain usable while missing required
+                    # tiles retry through the same bounded wake as failures.
                     self._errors[key] = (time.monotonic(), error)
                     while len(self._errors) > 8:
                         self._errors.popitem(last=False)
@@ -195,4 +262,5 @@ class SceneWorker:
             self._stopped = True
             self._pending = None
             self._ready.clear()
+            self._shown = None
             self._cancel_retry()

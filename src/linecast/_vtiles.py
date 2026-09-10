@@ -28,6 +28,9 @@ override is the user's chosen source and gets no fallback.
 
 import math
 import os
+import threading
+import time
+from collections import OrderedDict
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -51,9 +54,12 @@ _CREDITS = {DEFAULT_TILEJSON_URL: "OpenFreeMap",
             FALLBACK_TILEJSON_URL: "Tiles by OSM US"}
 
 _TILEJSON_TTL = 86400  # the planet rebuilds weekly; a day of staleness is fine
+_TILEJSON_RETRY = 30.0  # an unavailable metadata host must not delay every pan
 _MAX_ZOOM_FALLBACK = 14
 
 _active_url: str | None = None  # the source whose TileJSON last answered
+_tilejson_lock = threading.Lock()
+_tilejson_retry = OrderedDict()  # (URL, cache path) -> retry deadline; at most four
 
 
 def tilejson_url() -> str:
@@ -96,21 +102,38 @@ def tilejson() -> dict[str, Any] | None:
     Each source in turn: fresh cache, then the network. Only when every
     source has failed do the stale caches answer, again in source order —
     yesterday's OpenFreeMap template usually still serves, and beats
-    switching sources over a blip."""
+    switching sources over a blip. Failed hosts get a short retry pause,
+    while newly written disk metadata remains available immediately.
+    Concurrent batches share discovery rather than racing the same hosts.
+    """
+    with _tilejson_lock:
+        return _load_tilejson()
+
+
+def _load_tilejson():
     sources = _sources()
     for i, (url, name) in enumerate(sources):
         cache_file = cache_dir("maps", name)
+        key = url, cache_file
         data = read_cache(cache_file, _TILEJSON_TTL)
         if data is not None:
+            _tilejson_retry.pop(key, None)
             debug_log(f"cache hit: {name}")
             return _served(data, url)
+        if time.monotonic() < _tilejson_retry.get(key, 0.0):
+            continue
         try:
             data = fetch_json(url, timeout=10)
         except Exception as exc:
+            _tilejson_retry[key] = time.monotonic() + _TILEJSON_RETRY
+            _tilejson_retry.move_to_end(key)
+            while len(_tilejson_retry) > 4:
+                _tilejson_retry.popitem(last=False)
             log_failure("maps/vtiles", "tilejson fetch", exc, url=url,
                         fallback=(sources[i + 1][0] if i + 1 < len(sources)
                                   else "stale cache"))
             continue
+        _tilejson_retry.pop(key, None)
         write_cache(cache_file, data)
         return _served(data, url)
     for url, name in sources:
@@ -286,6 +309,11 @@ def fetch_tile(z: int, x: int, y: int, timeout: float = 15) -> bytes | None:
     info = tile_info()
     if info is None:
         return None
+    return _fetch_tile(z, x, y, info, timeout)
+
+
+def _fetch_tile(z, x, y, info, timeout):
+    """Read a tile using the batch's fixed source and cache namespace."""
     template, version, _ = info
     path = _cache_path(version, z, x, y)
     try:
@@ -319,9 +347,12 @@ def fetch_tile(z: int, x: int, y: int, timeout: float = 15) -> bytes | None:
 
 def fetch_tiles(keys: list[tuple[int, int, int]], timeout: float = 15
                 ) -> dict[tuple[int, int, int], bytes | None]:
-    """{(z, x, y): bytes|None} for a batch, fetched concurrently."""
+    """Fetch a batch concurrently under one metadata/version snapshot."""
     if not keys:
         return {}
+    info = tile_info()
+    if info is None:
+        return dict.fromkeys(keys)
     with ThreadPoolExecutor(max_workers=6) as pool:
-        results = pool.map(lambda k: fetch_tile(*k, timeout=timeout), keys)
+        results = pool.map(lambda k: _fetch_tile(*k, info, timeout), keys)
     return dict(zip(keys, results))

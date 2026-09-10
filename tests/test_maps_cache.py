@@ -119,6 +119,91 @@ def test_missing_street_tiles_fail_without_poisoning_the_camera_cache(monkeypatc
     assert not len(cache)
 
 
+def test_all_missing_elevation_fails_before_the_ocean_mask_can_hide_it(monkeypatch):
+    camera = MapCamera(40, -73, .01, 4, 2)
+    cache = Memo()
+    monkeypatch.setattr(_maps_views, "_elev_cache", cache)
+    monkeypatch.setattr(_maps_views, "elevation_grid", lambda bbox, w, h, **kwargs:
+                        [[None] * w for _ in range(h)])
+    monkeypatch.setattr(_maps_views, "_tile_water", lambda camera:
+                        (None, None, None, [[1] * 8 for _ in range(8)]))
+    monkeypatch.setattr(_maps_views, "_builtup_layer", lambda camera: None)
+    with pytest.raises(RuntimeError):
+        _maps_views._get_elevation(camera)
+    assert not len(cache)
+
+
+def test_partial_elevation_remains_usable_and_recovers_at_the_same_camera(monkeypatch):
+    camera = MapCamera(40, -73, .01, 4, 2)
+    cache, calls = Memo(), []
+    monkeypatch.setattr(_maps_views, "_elev_cache", cache)
+
+    def elevation(bbox, w, h, **kwargs):
+        calls.append(True)
+        fine = [[100.] * w for _ in range(h)]
+        if len(calls) == 1:
+            for row in fine[:2]:
+                row[:2] = [None, None]
+        return fine
+
+    monkeypatch.setattr(_maps_views, "elevation_grid", elevation)
+    monkeypatch.setattr(_maps_views, "_tile_water", lambda camera: (None,) * 4)
+    monkeypatch.setattr(_maps_views, "_builtup_layer", lambda camera: None)
+    partial = _maps_views._get_elevation(camera)
+    assert not partial.complete and partial.elev[0] == [None, 100., 100., 100.]
+    assert not len(cache)
+    recovered = _maps_views._get_elevation(camera)
+    assert recovered.complete and recovered.elev[0] == [100.] * 4
+    assert _maps_views._get_elevation(camera) is recovered
+    assert len(calls) == 2 and len(cache) == 1
+
+
+def test_partial_street_tiles_remain_usable_and_recover_at_the_same_camera(monkeypatch):
+    camera = MapCamera(40, -73, .01, 4, 2)
+    keys = [(1, 0, 0), (1, 1, 0)]
+    cache, calls, painted = Memo(), [], []
+    monkeypatch.setattr(_maps_views, "_street_cache", cache)
+    monkeypatch.setattr(_maps_views._maps_streets, "view_tiles",
+                        lambda *a, **kw: (0, 1, keys))
+
+    def fetch(keys):
+        calls.append(True)
+        return {keys[0]: b"land", keys[1]: None if len(calls) == 1 else b""}
+
+    def build(bbox, w, h, tiles, *args, **kwargs):
+        painted.append(tiles.copy())
+        return "usable fills", "usable streets", {}
+
+    monkeypatch.setattr(_maps_views._maps_streets, "fetch_tiles", fetch)
+    monkeypatch.setattr(_maps_views._maps_streets, "build_street_view", build)
+    partial = _maps_views._get_street(camera)
+    assert not partial.complete and partial.fills == "usable fills"
+    assert painted == [{keys[0]: b"land", keys[1]: None}] and not len(cache)
+    recovered = _maps_views._get_street(camera)
+    assert recovered.complete  # a fetched empty tile is complete, unlike a failed fetch
+    assert _maps_views._get_street(camera) is recovered
+    assert len(calls) == 2 and len(cache) == 1
+
+
+def test_incomplete_terrain_colours_cannot_poison_a_recovered_camera(monkeypatch):
+    camera = MapCamera(40, -73, .01, 4, 2)
+    cache, colours = Memo(), []
+    monkeypatch.setattr(_maps_views, "_terrain_cache", cache)
+    monkeypatch.setattr(_maps_views._climate, "grid_for_lls", lambda *a: None)
+
+    def paint(elev, *args, **kwargs):
+        colours.append(elev)
+        return object()
+
+    monkeypatch.setattr(_maps_views, "build_terrain_buffer", paint)
+    partial = _maps_views._terrain_buffer([[None, 100.]], camera, complete=False)
+    assert not len(cache)
+    recovered = _maps_views._terrain_buffer([[100., 100.]], camera)
+    assert recovered is not partial
+    assert _maps_views._terrain_buffer([[100., 100.]], camera) is recovered
+    assert colours == [[[None, 100.]], [[100., 100.]]]
+
+
 def test_optional_source_failure_keeps_elevation_available(monkeypatch):
     camera = MapCamera(40, -73, .01, 4, 2)
     monkeypatch.setattr(_maps_views, "_elev_cache", Memo())
@@ -143,7 +228,7 @@ def test_street_label_cache_accounts_for_language_and_reserved_cells(monkeypatch
                         lambda *args, **kwargs: (0, 1, [(1, 0, 0)]))
     monkeypatch.setattr(_maps_views._maps_streets, "fetch_tiles", lambda keys: {keys[0]: object()})
     monkeypatch.setattr(_maps_views._maps_streets, "build_street_view",
-                        lambda *args, **kwargs: object())
+                        lambda *args, **kwargs: (object(), object(), {}))
     first = _maps_views._get_street(camera, "en", ((0, 0), (1, 1)))
     assert _maps_views._get_street(camera, "en", ((1, 1), (0, 0))) is first
     assert _maps_views._get_street(camera, "ja", ((0, 0), (1, 1))) is not first

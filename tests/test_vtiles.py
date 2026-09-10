@@ -6,7 +6,11 @@ temporary directory per test.
 """
 
 import gzip
+import json
+import os
 import sys
+import time
+from collections import OrderedDict
 from pathlib import Path
 
 import pytest
@@ -27,6 +31,7 @@ TILEJSON = {"tiles": [TEMPLATE], "maxzoom": 14}
 @pytest.fixture
 def cache(tmp_path, monkeypatch):
     monkeypatch.setenv("LINECAST_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(vt, "_tilejson_retry", OrderedDict())
     return tmp_path
 
 
@@ -101,9 +106,6 @@ class TestTileInfo:
 
     def test_tilejson_stale_cache_beats_switching_sources(
             self, cache, monkeypatch):
-        import json
-        import os
-        import time
         stale = cache / "maps" / "tilejson.json"
         stale.parent.mkdir(parents=True)
         stale.write_text(json.dumps(TILEJSON))
@@ -116,6 +118,99 @@ class TestTileInfo:
         monkeypatch.setattr(vt, "fetch_json", fake_fetch)
         assert vt.tilejson() == TILEJSON
         assert vt.source_credit() == "OpenFreeMap"
+
+
+class TestMetadataRetry:
+    @pytest.fixture
+    def clock(self, monkeypatch):
+        clock = [100.0]
+        monkeypatch.setattr(vt.time, "monotonic", lambda: clock[0])
+        return clock
+
+    def stale(self, cache):
+        path = cache / "maps" / "tilejson.json"
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps(TILEJSON))
+        old = time.time() - 200000
+        os.utime(path, (old, old))
+
+    def test_failed_refresh_uses_stale_metadata_until_retry_then_recovers(
+            self, cache, monkeypatch, clock):
+        self.stale(cache)
+        calls = []
+
+        def fail(url, **kwargs):
+            calls.append(url)
+            raise OSError("offline")
+
+        monkeypatch.setattr(vt, "fetch_json", fail)
+        for _ in range(20):
+            assert vt.tilejson() == TILEJSON
+        assert calls == [vt.DEFAULT_TILEJSON_URL, vt.FALLBACK_TILEJSON_URL]
+        assert vt.source_credit() == "OpenFreeMap"
+        newer = {**TILEJSON, "tiles": [TEMPLATE.replace("20260802", "20260809")]}
+        monkeypatch.setattr(vt, "fetch_json", lambda url, **kw: calls.append(url) or newer)
+        clock[0] += vt._TILEJSON_RETRY - .01
+        assert vt.tilejson() == TILEJSON
+        clock[0] += .01
+        assert vt.tilejson() == newer
+        assert calls[-1] == vt.DEFAULT_TILEJSON_URL and len(calls) == 3
+        assert json.loads((cache / "maps" / "tilejson.json").read_text()) == newer
+
+    def test_cold_failure_is_also_bounded_and_can_recover(self, cache, monkeypatch, clock):
+        calls = []
+
+        def fail(url, **kwargs):
+            calls.append(url)
+            raise OSError("offline")
+
+        monkeypatch.setattr(vt, "fetch_json", fail)
+        assert vt.tilejson() is None
+        assert vt.tilejson() is None
+        assert len(calls) == 2
+        monkeypatch.setattr(vt, "fetch_json", lambda *a, **kw: TILEJSON)
+        clock[0] += vt._TILEJSON_RETRY
+        assert vt.tilejson() == TILEJSON
+
+    def test_another_process_can_publish_metadata_during_backoff(
+            self, cache, monkeypatch, clock):
+        monkeypatch.setattr(vt, "fetch_json", lambda *a, **kw: (_ for _ in ()).throw(OSError()))
+        assert vt.tilejson() is None
+        vt.write_cache(cache / "maps" / "tilejson.json", TILEJSON)
+        assert vt.tilejson() == TILEJSON  # no clock advance or network retry needed
+
+    def test_fallback_cache_avoids_retrying_primary_on_every_lookup(
+            self, cache, monkeypatch, clock):
+        calls = []
+
+        def fetch(url, **kwargs):
+            calls.append(url)
+            if url == vt.DEFAULT_TILEJSON_URL:
+                raise OSError("primary offline")
+            return TILEJSON
+
+        monkeypatch.setattr(vt, "fetch_json", fetch)
+        for _ in range(20):
+            assert vt.tilejson() == TILEJSON
+        assert calls == [vt.DEFAULT_TILEJSON_URL, vt.FALLBACK_TILEJSON_URL]
+        assert vt.source_credit() == "Tiles by OSM US"
+
+    def test_retry_state_does_not_follow_a_source_or_cache_directory_change(
+            self, cache, monkeypatch, clock):
+        calls = []
+
+        def fail(url, **kwargs):
+            calls.append(url)
+            raise OSError("offline")
+
+        monkeypatch.setattr(vt, "fetch_json", fail)
+        assert vt.tilejson() is None
+        monkeypatch.setenv("LINECAST_VECTOR_TILES_URL", "https://self.example/planet")
+        assert vt.tilejson() is None
+        assert calls[-1] == "https://self.example/planet" and len(calls) == 3
+        monkeypatch.setenv("LINECAST_CACHE_DIR", str(cache / "other"))
+        assert vt.tilejson() is None
+        assert len(calls) == 4
 
 
 class TestAttribution:
@@ -205,3 +300,28 @@ class TestFetchTile:
         keys = [(14, 1, 1), (14, 2, 1)]
         assert vt.fetch_tiles(keys) == {k: b"x" for k in keys}
         assert vt.fetch_tiles([]) == {}
+
+    def test_batch_uses_one_source_version_even_if_metadata_changes(
+            self, cache, monkeypatch):
+        discoveries, urls = [], []
+
+        def discover():
+            discoveries.append(True)
+            date = "20260802" if len(discoveries) == 1 else "20260809"
+            return {**TILEJSON, "tiles": [TEMPLATE.replace("20260802", date)]}
+
+        monkeypatch.setattr(vt, "tilejson", discover)
+        self._stub(monkeypatch, b"tile", urls)
+        keys = [(14, x, 1) for x in range(12)]
+        assert vt.fetch_tiles(keys) == dict.fromkeys(keys, b"tile")
+        assert len(discoveries) == 1 and len(urls) == len(keys)
+        assert all("/20260802_080001_pt/" in url for url in urls)
+
+    def test_missing_metadata_is_looked_up_once_for_the_whole_batch(self, cache, monkeypatch):
+        calls = []
+        monkeypatch.setattr(vt, "tilejson", lambda: calls.append(True))
+        keys = [(14, x, 1) for x in range(12)]
+        assert vt.fetch_tiles(keys) == dict.fromkeys(keys)
+        assert len(calls) == 1
+        assert vt.fetch_tiles([]) == {}
+        assert len(calls) == 1

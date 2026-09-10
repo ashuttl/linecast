@@ -152,7 +152,8 @@ def _prepare_terrain(camera, lang, route_layer, show_labels, sun, clouds,
                      wait_for_clouds):
     gw, hc = camera.gw, camera.hc
     view = _get_elevation(camera)
-    terrain = _terrain_buffer(view.elev, camera, view.water, view.cover)
+    complete = getattr(view, 'complete', True)
+    terrain = _terrain_buffer(view.elev, camera, view.water, view.cover, complete=complete)
     if sun or clouds:
         terrain = _shade_now(
             terrain, camera.lls(gw, hc * 2), sun,
@@ -164,7 +165,8 @@ def _prepare_terrain(camera, lang, route_layer, show_labels, sun, clouds,
         coast=view.coast if show_labels else None,
         strokes=tuple(s for s in (view.rivers if show_labels else None, route_layer)
                       if s is not None),
-        overlays=_city_labels(camera, lang) if show_labels else {}, elev=view.elev)
+        overlays=_city_labels(camera, lang) if show_labels else {}, elev=view.elev,
+        complete=complete)
 
 
 def _city_labels(camera, lang):
@@ -273,7 +275,8 @@ def _hover(frame, mouse_pos, lang):
 def _prepare_street(camera, lang, route_layer, show_labels, sun, clouds,
                     wait_for_clouds, reserved):
     gw, hc = camera.gw, camera.hc
-    fills, layer, labels = _get_street(camera, lang, reserved)
+    view = _get_street(camera, lang, reserved)
+    fills, layer, labels = view[:3]
     dusk = None
     if sun or clouds:
         lls = camera.lls(gw, hc * 2)
@@ -285,7 +288,7 @@ def _prepare_street(camera, lang, route_layer, show_labels, sun, clouds,
     return PreparedMap(
         camera, fills, layer=layer, overlays=dict(labels) if show_labels else {},
         strokes=(route_layer,) if route_layer is not None else (),
-        hover=layer.hover, street=True, ink_dusk=dusk)
+        hover=layer.hover, street=True, ink_dusk=dusk, complete=getattr(view, 'complete', True))
 
 
 def prepare_map(camera, *, view="terrain", lang="en", marker=None, route=None,

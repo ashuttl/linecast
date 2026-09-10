@@ -23,6 +23,7 @@ from linecast._location import country_for_defaults, resolve_location
 from linecast._maps_camera import MapCamera
 from linecast._maps_i18n import ms
 from linecast._maps_motion import CameraMotion
+from linecast._maps_paint import compact_colors
 from linecast._maps_scene import Scene, SceneWorker
 from linecast._maps_search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
@@ -411,7 +412,7 @@ class MapApp(LiveApp):
                         self._wake_animation()
         return changed or (done and had_drag)
 
-    def _prepare(self, camera, options, generation):
+    def _prepare(self, camera, options, generation, revision=None):
         # A half-step around the frame covers a full zoom-out step and short
         # pans while the next scene is being built. Sample density is unchanged.
         px, py = max(1, (camera.gw + 3) // 4), max(1, (camera.hc + 3) // 4)
@@ -440,7 +441,7 @@ class MapApp(LiveApp):
         if generation != _theme.generation:
             return None
         frame.prime()
-        return Scene(frame.cropped(camera), frame)
+        return Scene(frame.cropped(camera), frame, revision)
 
     def text_mode(self):
         return self.search.open
@@ -480,18 +481,20 @@ class MapApp(LiveApp):
                        sun=self.sun, clouds=self.clouds)
         scene, refining, error = self._worker.request(
             (target.key, group, revision), group,
-            lambda: self._prepare(target, options, generation), camera=camera)
+            lambda: self._prepare(target, options, generation, revision), camera=camera,
+            target=target, moving=bool(self.drag_base is not None or self.spinning
+                                       or self._motion.moving), revision=revision)
         prepared = None
         if scene is not None:
             prepared = (scene.exact if scene.exact.camera.key == camera.key
                         else scene.overscan)
-        return render_map(
+        return compact_colors(render_map(
             camera, prepared, self.location_name, marker=self.home,
             runtime=self.runtime, view=self.view, sun=self.sun, clouds=self.clouds,
             refining=refining, error=error, mouse_pos=mouse_pos,
             search=search, directions=routes, route=routes.route,
             dest=routes.dest, origin=routes.origin,
-            note=_maps_ui.route_note(routes, self.runtime.lang))
+            note=_maps_ui.route_note(routes, self.runtime.lang)))
 
     def run(self):
         if self.routes.dest is not None:

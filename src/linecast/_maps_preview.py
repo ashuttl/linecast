@@ -329,7 +329,8 @@ class PreparedMap:
 
     ``overlays`` contains cartographic text only. The caller draws markers and
     interaction chrome fresh after transforming this frame. ``hover`` is coherent
-    only for the original camera and is cleared on transformed frames.
+    only for the original camera and is cleared on transformed frames. A frame
+    with ``complete=False`` remains usable while its missing source tiles retry.
     """
 
     camera: object
@@ -345,6 +346,7 @@ class PreparedMap:
     coast_ink: object = None
     ink_dusk: object = None
     surface: object = None
+    complete: bool = True
 
     def __post_init__(self):
         for name in ('fills', 'coast', 'elev', 'ink_dusk'):
@@ -467,6 +469,7 @@ class PreparedMap:
             coast_ink=self.coast_ink,
             ink_dusk=_crop(self.ink_dusk, dx, dy, w, h),
             surface=self.surface,
+            complete=self.complete,
         )
 
     def transformed(self, camera):
@@ -496,4 +499,5 @@ class PreparedMap:
             coast_ink=self.coast_ink,
             ink_dusk=warp.sample(self.ink_dusk, w, h),
             surface=self.surface,
+            complete=self.complete,
         )

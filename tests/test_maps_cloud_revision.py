@@ -77,9 +77,9 @@ def test_cloud_publication_refreshes_a_stationary_live_scene(source, monkeypatch
                             "terrain", True, "car")
     app._worker = SceneWorker(wake=lambda: None, thread_factory=thread_factory)
 
-    def prepare(camera, options, generation):
+    def prepare(camera, options, generation, revision=None):
         frame = SimpleNamespace(camera=camera, revision=_globe_now.revision())
-        return Scene(frame, frame)
+        return Scene(frame, frame, revision)
 
     monkeypatch.setattr(app, "_prepare", prepare)
     app.render()
