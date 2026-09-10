@@ -322,6 +322,9 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
 
     sun_row = spy_now // 2
     overlays[(x_today, sun_row)] = (icons["sun_char"], sun.SUN_DOT_RGB)
+    if fullscreen:
+        from linecast._help import paint_hint
+        paint_hint(fb, overlays, runtime.lang, rows=(0,))
 
     lines = fb.render(overlays)
 

@@ -5,8 +5,8 @@
 #   scripts/check_dist.sh <dist-dir>
 #
 # The directory must hold exactly one wheel and one sdist. The wheel
-# must carry the five files under linecast/data, and the sdist the same
-# five under src/linecast/data plus the test snapshots. The data files
+# must carry the bundled files under linecast/data, and the sdist the same
+# files under src/linecast/data plus the test snapshots. The data files
 # are what the globe, the climate colours, the radar basemap, and the
 # MeteoAlarm alert regions draw from; a wheel without them installs
 # cleanly and then fails on first use, which is why CI runs this on
@@ -16,7 +16,8 @@
 set -u
 
 dist=${1:?usage: check_dist.sh <dist-dir>}
-data="basemap.json.gz climate.png globe_canvas_1.bin globe_canvas_2.bin meteoalarm_regions.bin.gz"
+data="basemap.json.gz climate.png globe_canvas_1.bin globe_canvas_2.bin meteoalarm_regions.bin.gz
+stars.bin stars-deep.bin.gz sky-objects.json.gz STARS.md sky.json.gz cultures.json.gz milkyway.bin.gz"
 status=0
 
 fail() {

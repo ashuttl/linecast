@@ -90,7 +90,7 @@ class TestConstruction:
         assert (app.lat, app.lon) == app.home == (43.68, -70.37)
         assert app.zoom == 2.0 and app.view == "street"
         assert app.sun and app.clouds and app.show_labels
-        assert not app.helping and app.pan_preview == (0, 0)
+        assert app.pan_preview == (0, 0)
         assert app.drag_base is None and not app.drag_sync
         assert app.spinning == 0 and app.spin_seq == 0
         assert app.interval == 3600 and app.mouse is True
@@ -178,6 +178,31 @@ class TestZoom:
 
 
 class TestKeys:
+    @pytest.mark.parametrize('key,dlat,dlon', [
+        ('w', 1, 0), ('a', 0, -1), ('s', -1, 0), ('d', 0, 1),
+    ])
+    @pytest.mark.parametrize('globe', [False, True])
+    def test_wasd_pans_the_view_and_keeps_the_marker(self, monkeypatch, key, dlat, dlon,
+                                                  globe):
+        monkeypatch.setattr(_globe, 'warm', lambda zoom, h: globe)
+        app = make(zoom=60.0 if globe else 2.0, lat=0, lon=0)
+        app.spinning = 1
+        assert app.intercept('key:' + key) is False
+        assert app.on_action(key)
+        assert app.lat == pytest.approx(dlat * app.zoom * 0.1)
+        assert app.lon == pytest.approx(dlon * app.zoom * (GW / (HC * 2)) * 0.1)
+        assert app.home == (0, 0) and not app.sun and not app.routes.panel
+        assert app.pan_preview == (0, 0) and app.drag_base is None
+        assert app.spinning == 0
+        assert app.drag_sync == globe
+
+    def test_keyboard_pan_wraps_and_clamps(self):
+        app = make(zoom=60, lat=79, lon=179)
+        app.on_action('d')
+        assert -180 <= app.lon < 0
+        app.on_action('w')
+        assert app.lat == 80
+
     def test_plus_and_minus_step_the_zoom(self):
         app = make(zoom=1.0)
         assert app.on_action('+')
@@ -193,7 +218,7 @@ class TestKeys:
     def test_the_toggles(self):
         app = make()
         assert app.on_action('l') and app.show_labels is False
-        assert app.on_action('s') and app.sun is True
+        assert app.on_action('S') and app.sun is True
         assert app.on_action('c') and app.clouds is True
 
     def test_an_unknown_key_does_nothing(self):
@@ -281,19 +306,15 @@ class TestIntercept:
         app = make()
         app.search.start()
         assert app.intercept('key:?') is True
-        assert app.helping is False
         assert app.intercept('char:a') is True
         assert app.search.query == "a"
 
-    def test_help_toggles_and_any_key_closes_it(self):
+    def test_help_uses_the_shared_panel_with_map_credits(self):
         app = make()
-        assert app.intercept('key:?') is True and app.helping
-        assert app.intercept('key:?') is True and not app.helping
-        app.intercept('key:?')
-        assert app.intercept('escape') is True and not app.helping
-        app.intercept('key:?')
-        assert app.intercept('key:/') is True
-        assert not app.helping and app.search.open
+        help_panel = app.help_panel()
+        assert help_panel.handle('key:?') and help_panel.open
+        assert _maps_ui.TILE_ATTRIBUTION in help_panel.render(100, 42)
+        assert help_panel.handle('escape') and not help_panel.open
 
     def test_slash_opens_search_and_o_the_origin(self):
         app = make()
@@ -305,7 +326,7 @@ class TestIntercept:
 
     def test_d_opens_the_panel_and_asks_for_a_destination(self):
         app = make()
-        assert app.intercept('key:d') is True
+        assert app.intercept('key:D') is True
         assert app.routes.panel and app.search.purpose == "route"
 
     def test_the_panel_takes_the_arrows(self):
@@ -322,7 +343,7 @@ class TestIntercept:
         assert app.routes.step == 1 and (app.lat, app.lon) == (3.5, 5.0)
         assert app.zoom == 0.004  # the floor of a short step
         assert app.intercept('fwd') is True and app.routes.step == 0
-        assert app.intercept('key:d') is True
+        assert app.intercept('key:D') is True
         assert app.search.open and app.search.purpose == "route"
         app.search.close()
         assert app.intercept('escape') is True and not app.routes.panel
@@ -392,7 +413,7 @@ class TestRender:
         assert f["pan_offset"] == (3, 1) and f["mouse_pos"] == (4, 5)
         assert f["view"] == "street" and f["search"] is app.search
         assert f["directions"] is app.routes and f["route"] is None
-        assert f["helping"] is False and f["show_labels"] is True
+        assert f["show_labels"] is True
         assert f["sun"] is True and f["clouds"] is True
 
     def test_a_globe_drag_renders_blocking_once(self, frames):

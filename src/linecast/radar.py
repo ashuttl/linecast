@@ -27,7 +27,6 @@ Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--theme NAME]
              [--layers temp,wind] [--source NAME] [--print] [--search CITY]
 """
 
-import sys
 import time as _time
 
 from linecast._color import fg, RESET
@@ -117,6 +116,9 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     use_24h = runtime.use_24h if runtime else False
     source = _radar_frames._source
     cols, rows = get_terminal_size()
+    from linecast import _help
+    live = bool(getattr(runtime, 'live', False))
+    foot_width = cols - visible_len(_help.hint(lang, cols)) - 3 if live else cols
     graph_w = max(20, cols)
     height_cells = max(8, rows - 2)
 
@@ -132,7 +134,8 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
               else source.current_frames())
     if not frames:
         msg = f"{fg(*DIM)}{rs('no_frames', lang)}{RESET}"
-        return "\n".join([msg] + [""] * (height_cells + 1))
+        foot = _help.footer('', cols, lang) if live else ''
+        return "\n".join([msg] + [""] * height_cells + [foot])
 
     # play_frame counts from the "home" frame — the present (newest observed):
     # 0 = now, so pausing (which homes the counter) always lands on now
@@ -310,16 +313,13 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
         if not has_radar(lat, lon):  # model-derived here; say so
             credit = getattr(source, "model_attribution", credit)
         left = f"{fg(*DIM)}{credit}{RESET}"
-        hint = (f"{fg(*DIM)}{rs('hint', lang)}{RESET}"
-                if sys.stdout.isatty() else "")
         bar = _timeline_bar(idx, len(frames), min(28, max(10, cols // 3)),
                             present=present_idx, loaded=mask)
-        for foot in (f"{left}  {bar}  {hint}",
-                     f"{left}  {hint}",
-                     f"{left}  {bar}",
-                     left):
-            if visible_len(foot) <= cols:
+        for foot in (f"{left}  {bar}", left):
+            if visible_len(foot) <= foot_width:
                 break
+    if live:
+        foot = _help.footer(foot, cols, lang)
     foot += " " * max(0, cols - visible_len(foot))
 
     out = "\n".join([header, *map_lines, foot])

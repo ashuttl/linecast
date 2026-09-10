@@ -47,6 +47,8 @@ class MapApp(LiveApp):
     interval = 3600  # elevation doesn't change; repaint on input only
     mouse = True
 
+    help_view = 'maps'
+
     def __init__(self, runtime, lat, lon, location_name, zoom, view, sky,
                  profile, origin=None, dest=None):
         self.runtime = runtime
@@ -61,10 +63,9 @@ class MapApp(LiveApp):
         self.spin_seq = 0       # last generation ever started
         self.view = view
         self.show_labels = True
-        self.sun = sky          # s: daylight shading + night city lights
+        self.sun = sky          # S: daylight shading + night city lights
         self.clouds = sky       # c: this hour's cloud cover
         self.search = _maps_ui.SearchState()
-        self.helping = False
         self.routes = _maps_ui.RouteState(profile=profile, home=(lat, lon))
         if origin is not None:
             self.routes.set_origin(origin.lat, origin.lon, origin.name)
@@ -149,6 +150,14 @@ class MapApp(LiveApp):
             _nudge_repaint()
 
     def on_action(self, key):
+        if key in ('w', 'a', 's', 'd'):
+            gw, hc = map_cells()
+            dcol, drow = {'w': (0, hc * 0.1), 'a': (gw * 0.1, 0),
+                         's': (0, -hc * 0.1), 'd': (-gw * 0.1, 0)}[key]
+            # Use the drag projection for flat maps and warm globes alike.
+            self.spinning = 0
+            self.on_drag(dcol, drow, False)
+            return self.on_drag(dcol, drow, True)
         if key == '+':
             return self.zoom_to(self.zoom / ZOOM_STEP)
         if key == '-':
@@ -160,7 +169,7 @@ class MapApp(LiveApp):
         if key == 'l':
             self.show_labels = not self.show_labels
             return True
-        if key == 's':
+        if key == 'S':
             self.sun = not self.sun
             return True
         if key == 'c':
@@ -210,6 +219,12 @@ class MapApp(LiveApp):
         self.lat = max(-80.0, min(80.0, loc[1]))
         self.lon = loc[0]
 
+    def help_panel(self):
+        from linecast._help import HelpPanel
+        return HelpPanel('maps', self.runtime.lang, content=lambda cols, rows:
+                         _maps_ui.help_rows(cols, rows, self.runtime.lang,
+                                            self.routes.route is not None))
+
     def intercept(self, action):
         """Maps owns dispatch: the search panel eats every key while
         it is open, the directions panel takes the arrows, and
@@ -221,20 +236,10 @@ class MapApp(LiveApp):
             z = int(_maps_style.z_eff(bbox, hc))
             return search.handle(action, self.lat, self.lon, z,
                                  self.runtime.lang)
-        if self.helping:
-            # Any key closes the panel; anything but the three
-            # dismiss keys is then handled as usual, so `/` from
-            # help opens search in one press.
-            self.helping = False
-            if action in ('key:?', 'escape', 'quit'):
-                return True
-        if action == 'key:?':
-            self.helping = True
-            return True
         if routes.panel:
             # The directions panel: arrows walk the maneuvers and
             # the map flies along; the field rows name their own
-            # keys, and `d` — its opening job done — edits the
+            # keys, and `D` — its opening job done — edits the
             # destination its row promises.  Everything else
             # (zoom, v, n) still reaches the map underneath.
             if action in ('escape', 'quit'):
@@ -248,13 +253,13 @@ class MapApp(LiveApp):
                 if step is not None:
                     self.fly_to_step(step)
                 return True
-            if action == 'key:d':
+            if action == 'key:D':
                 search.start("route")
                 return True
         if action == 'key:/':
             search.start()
             return True
-        if action == 'key:d':
+        if action == 'key:D':
             if routes.press() == "search":
                 search.start("route")
             return True
@@ -369,7 +374,7 @@ class MapApp(LiveApp):
             route=routes.route, dest=routes.dest,
             origin=routes.origin, directions=routes,
             note=_maps_ui.route_note(routes, self.runtime.lang),
-            helping=self.helping, show_labels=self.show_labels,
+            show_labels=self.show_labels,
             sun=self.sun, clouds=self.clouds)
 
     def run(self):
