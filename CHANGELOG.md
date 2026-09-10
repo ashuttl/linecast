@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+## 2.4.0 — 2026-09-10
+
 A new view, `linecast sky`, draws the night sky from where you stand and knows the constellations of twenty-two traditions. Every live view now has a `?` help panel, and `w` `a` `s` `d` pan.
 
 New this version:
