@@ -124,7 +124,7 @@ Near the poles the same chart turns into polar night and midnight sun. These are
 
 Press `v` for a calendar of the month, or open on it with `moon --grid`. Each day shows its phase as a small disc, with today, the full and new moons, and the quarters marked. Scroll through the months, hover a day for its phase, moonrise, and moonset, and click one to open the moon on that day.
 
-The moon can also show the date in a traditional calendar beside the phase, with a countdown to its next festival or observance: the Chinese, Japanese, and Korean lunisolar calendars, the Thai lunar calendar, the Hawaiian Kaulana Mahina, the Samoan, Chamorro, and Refaluwasch calendars of the Pacific, the Islamic and Hebrew calendars, and the Old Farmer's Almanac. `--calendar` picks one, and the [Calendar](#calendar) setting saves one. [CALENDARS.md](CALENDARS.md) describes each of them and how it is checked.
+The moon can also show the date in a traditional calendar beside the phase, with a countdown to its next festival or observance: the Chinese, Japanese, and Korean lunisolar calendars, the Thai lunar calendar, the Hawaiian Kaulana Mahina, the Samoan, Chamorro, and Refaluwasch calendars of the Pacific, the Islamic and Hebrew calendars, and the Old Farmer's Almanac. `moon --calendar hebrew` opens on one and `linecast calendar` saves one. [CALENDARS.md](CALENDARS.md) describes each of them and how it is checked.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon-okinawa.png" width="49%" alt="the moon over Okinawa in Japanese: 十六夜, the sixteenth night of the eighth month">
@@ -137,7 +137,7 @@ The moon can also show the date in a traditional calendar beside the phase, with
 
 Drag to look around. Zoom in and fainter stars and more names appear, and the Moon grows into the disc the moon view draws. Zoom all the way out while looking up and the horizon closes into a circle, the whole sky at once, the way the almanacs print it. Press `p` to play time forward, an hour a second, then a day, then a week, so you can watch the stars wheel and the Moon run through its phases. Point at anything for its name. To open the view where you want it, add `--facing SW` or `--fov 40`.
 
-Press `/` and type the name of a star, a planet, a constellation, or an asterism like the Big Dipper, and the view flies to it. If it is below the horizon the panel says when it rises and where, and Enter moves the clock to that moment. `sky --at Jupiter` opens on it.
+Press `/` and type the name of a star, a planet, a constellation, or an asterism like the Big Dipper, and the view flies to it. If it is below the horizon the panel says when it rises and where, and you can press Enter to move the clock to that moment. `sky --at Jupiter` opens on it.
 
 The sky has been drawn many ways. Press `t` for a list of twenty-two traditions besides the IAU's, each with its own figures and star names, and the sky redraws as you move through the list: the Chinese Three Enclosures and Twenty-Eight Mansions, the Hawaiian star lines, the Boorong sky of Victoria, the Norse, Sami, Māori, Tongan, Mongolian, Romanian, Belarusian, and Indian Vedic skies, H. A. Rey's stick figures, and more. `sky --culture hawaiian` opens on one and `linecast culture` saves one. The Hawaiian sky replaces the compass points with the navigators' star compass, thirty-two houses from Hikina round to Komohana. [CULTURES.md](CULTURES.md) lists them with their sources.
 
@@ -163,7 +163,7 @@ linecast radar --layers temp,wind   # add temperature and wind
 linecast radar --layer satellite    # open on satellite imagery
 ```
 
-`--source librewxr`, `--source rainviewer`, or `--source iem` pins the radar to one source, if you want to compare what each shows over the same spot.
+Add `--source librewxr`, `--source rainviewer`, or `--source iem` to pin the radar to one source, if you want to compare what each shows over the same spot.
 
 ![animated radar forecast over Glasgow](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/radar.gif)
 
@@ -199,16 +199,17 @@ Settings are saved in `~/.config/linecast/config.json`. A flag on the command li
 
 ### Location
 
-Save a location once and every command uses it:
+Save a location once and every command uses it, or pass one for a single run:
 
 ```sh
 linecast location set "Portland, Maine"   # by name
 linecast location set 44.54,-68.42        # or by lat,lng
 linecast location search fayette          # list the places a name could mean
 linecast location auto                    # back to guessing from your IP address
+linecast weather --location "Bar Harbor"  # just this once
 ```
 
-A name is looked up once and the first match is saved; `search` shows the other matches if that was the wrong place. `--location` or `WEATHER_LOCATION` wins over the saved location for a run.
+A name is looked up once and the first match is saved; `search` shows the other matches if that was the wrong place.
 
 If you don't save a location or pass one in a flag, linecast asks [ipinfo.io](https://ipinfo.io/) where your network connection is. That is usually the right city, sometimes the wrong one, and far off on a VPN or corporate network. The answer is cached for an hour. Save a location and the request is never made.
 
@@ -225,16 +226,17 @@ Every view command also takes `--metric` and `--imperial` for one run, and the o
 
 ### Language
 
-linecast speaks your terminal's language if it is one of the eighteen it knows, and English otherwise. `linecast language fr` sets a language instead, `--lang` or `LINECAST_LANG` picks one for a run, and `linecast language auto` goes back to following the terminal.
-
-Supported languages: English (`en`), French (`fr`), Spanish (`es`), German (`de`), Italian (`it`), Portuguese (`pt`), Dutch (`nl`), Polish (`pl`), Norwegian (`no`), Swedish (`sv`), Icelandic (`is`), Danish (`da`), Finnish (`fi`), Japanese (`ja`), Korean (`ko`), Chinese (`zh`), Thai (`th`), and Indonesian (`id`).
+linecast speaks your terminal's language if it is one of the eighteen it knows, and English otherwise. To choose one yourself, for every run or for one:
 
 ```sh
-linecast language es      # set linecast to Spanish
-linecast radar --lang zh  # run radar in Chinese this once
+linecast language es        # use Spanish every time
+linecast language auto      # follow the terminal again
+linecast radar --lang zh    # just this once
 ```
 
-In India, many alerts are published in the state language. `--lang hi`, `te`, `mr`, or another Indian language code shows them in that language where it exists; the rest of the app stays in English.
+The languages are English (`en`), French (`fr`), Spanish (`es`), German (`de`), Italian (`it`), Portuguese (`pt`), Dutch (`nl`), Polish (`pl`), Norwegian (`no`), Swedish (`sv`), Icelandic (`is`), Danish (`da`), Finnish (`fi`), Japanese (`ja`), Korean (`ko`), Chinese (`zh`), Thai (`th`), and Indonesian (`id`).
+
+In India, many alerts are published in the state language. Add `--lang hi`, `--lang te`, `--lang mr`, or another Indian language code to `weather` to read them in that language where it exists; the rest of the app stays in English.
 
 ### Calendar
 
@@ -303,12 +305,12 @@ Completion covers the short names too.
 Start here:
 
 ```sh
-linecast doctor
-linecast doctor --offline
-linecast doctor --json
+linecast doctor             # what linecast sees
+linecast doctor --offline   # the same, without the network checks
+linecast doctor --json      # the thing to paste into a bug report
 ```
 
-`linecast doctor` reports the version, the settings and cache paths, what the terminal said about itself, which settings are in force and where each came from, and whether each data provider answered. Secrets show as "(set)", never their value. `--offline` skips the network checks, and `--json` is the thing to paste into a bug report.
+`linecast doctor` reports the version, the settings and cache paths, what the terminal said about itself, which settings are in force and where each came from, and whether each data provider answered. Secrets show as "(set)", never their value.
 
 Every view command and `linecast doctor` take `--debug`, which prints a line on stderr for each fallback taken along the way, such as a provider that did not answer, and what was shown instead.
 
