@@ -50,8 +50,9 @@ class TestStandDown:
             seen = len(loaded)
             time.sleep(0.15)
         # in flight when we stood down: at most the four pool loads, each
-        # 50 ms — the rest of the window never starts
-        assert time.monotonic() - t0 < 0.6
+        # 50 ms — the rest of the window never starts.  The poll above is
+        # quantized to 150 ms, so leave room for a slow runner.
+        assert time.monotonic() - t0 < 1.0
         assert len(loaded) < 40
         assert rf._prefetch_key is None
 
