@@ -29,7 +29,7 @@ from linecast._maps_views import _zoom_hold
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, log_failure, maps_parser, set_current
 from linecast.maps import (
-    MIN_ZOOM_DEG, ZOOM_STEP, map_cells, max_zoom, render_map,
+    MIN_ZOOM_DEG, ZOOM_STEP, fit_view, map_cells, max_zoom, render_map,
 )
 
 
@@ -50,7 +50,7 @@ class MapApp(LiveApp):
     help_view = 'maps'
 
     def __init__(self, runtime, lat, lon, location_name, zoom, view, sky,
-                 profile, origin=None, dest=None):
+                 profile, origin=None, dest=None, fit=False):
         self.runtime = runtime
         self.home = (lat, lon)      # the marker
         self.location_name = location_name
@@ -71,6 +71,15 @@ class MapApp(LiveApp):
             self.routes.set_origin(origin.lat, origin.lon, origin.name)
         if dest is not None:
             self.routes.select(dest.lat, dest.lon, dest.name)
+        # --from and --to without --location: open on the whole route.
+        # The endpoints frame the view now, while the route is still
+        # on its way; the route itself reframes it once, when it
+        # lands, unless the reader has moved in the meantime.
+        self.fit_view = None
+        if fit and origin is not None and dest is not None:
+            self.lat, self.lon, self.zoom = fit_view(
+                [(origin.lat, origin.lon), (dest.lat, dest.lon)], *map_cells())
+            self.fit_view = (self.lat, self.lon, self.zoom)
 
     def zoom_to(self, new_zoom, at=None):
         """Apply a clamped zoom, keeping the point under `at` fixed.
@@ -361,6 +370,13 @@ class MapApp(LiveApp):
                 routes.set_origin(hit.lat, hit.lon, hit.name)
                 if routes.dest is not None:
                     routes.request()
+        # The opening route lands from its worker: frame it, once,
+        # if the view is still where the endpoints put it.
+        if self.fit_view is not None and routes.route is not None:
+            if (self.lat, self.lon, self.zoom) == self.fit_view:
+                self.lat, self.lon, self.zoom = fit_view(
+                    [(la, lo) for lo, la in routes.route.coords], *map_cells())
+            self.fit_view = None
         # A rotating globe repaints synchronously: its canvas is
         # warm, so "blocking" is ~a tenth of a second of arithmetic,
         # and the alternative is a blank disk between frames.
@@ -399,6 +415,10 @@ def main():
         args.view = "terrain"
         if args.zoom is None:
             args.zoom = max_zoom(*map_cells())
+    # a route given by both ends and no --location opens on the whole
+    # route, unless a --zoom (or the planet of --view now) pins the scale
+    fit = (args.location is None and args.zoom is None
+           and args.from_ is not None and args.to is not None)
     if args.zoom is None:
         args.zoom = _maps_style.DEFAULT_ZOOM[args.view]
 
@@ -464,7 +484,7 @@ def main():
 
     if runtime.live:
         MapApp(runtime, lat, lon, location_name, args.zoom, args.view, sky,
-               args.profile, origin=origin, dest=dest).run()
+               args.profile, origin=origin, dest=dest, fit=fit).run()
     else:
         found = note = None
         start = (origin.lat, origin.lon) if origin else (lat, lon)
@@ -476,6 +496,10 @@ def main():
                 note = ms('dir_none', runtime.lang)
             except _maps_route.RouteUnavailable:
                 note = ms('dir_unavailable', runtime.lang)
+        if fit:
+            points = ([(la, lo) for lo, la in found.coords] if found is not None
+                      else [start, (dest.lat, dest.lon)])
+            lat, lon, args.zoom = fit_view(points, *map_cells())
         print_frame(render_map(lat, lon, location_name, args.zoom,
                                runtime=runtime, view=args.view, route=found,
                                dest=(dest.lat, dest.lon) if dest else None,

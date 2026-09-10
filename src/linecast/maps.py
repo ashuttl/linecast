@@ -30,6 +30,7 @@ Usage: maps [--location LAT,LNG | PLACE] [--zoom DEG] [--view MODE]
 """
 
 import functools
+import math
 import sys
 
 from linecast import (
@@ -99,6 +100,26 @@ def max_zoom(gw, hc):
     smaller than the height alone would make it, and whole.
     """
     return MAX_ZOOM_DEG * max(1.0, hc * 2 / gw)
+
+
+def fit_view(points, gw, hc, margin=0.15):
+    """The view that frames `points` on a gw by hc map: (lat, lon, zoom).
+
+    `points` are (lat, lon).  The centre is the middle of their box;
+    the zoom is whichever of the box's height and its width, taken at
+    the map's aspect, asks for more, with `margin` of the window left
+    clear on every side so an endpoint's pin and label sit inside the
+    frame rather than on it.  Clamped to the same range the keys walk.
+    """
+    lats = [p[0] for p in points]
+    lons = [p[1] for p in points]
+    lat_c = max(-80.0, min(80.0, (min(lats) + max(lats)) / 2))
+    lon_c = (min(lons) + max(lons)) / 2
+    lat_span = max(lats) - min(lats)
+    lon_span = ((max(lons) - min(lons)) * math.cos(math.radians(lat_c))
+                * (hc * 2) / gw)
+    zoom = max(lat_span, lon_span) / (1 - 2 * margin)
+    return lat_c, lon_c, max(MIN_ZOOM_DEG, min(max_zoom(gw, hc), zoom))
 
 
 def _get_route_layer(route, bbox, gw, hc):

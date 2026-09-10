@@ -18,9 +18,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast import _color, _globe, _maps_style
 from linecast._framebuffer import HALF_BLOCK
+from linecast._radar_render import bbox_for
 from linecast.maps import (
     LABEL_DARK, LABEL_LIGHT, MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP,
-    _view_key, compose_map, max_zoom,
+    _view_key, compose_map, fit_view, max_zoom,
 )
 
 GREEN = (40, 60, 40)
@@ -256,6 +257,26 @@ class TestZoomRange:
         assert edges(MAX_ZOOM_DEG) == (0, gw - 1)   # clipped, both edges
         left, right = edges(max_zoom(gw, hc))
         assert 0 < left and right < gw - 1
+
+    def test_fit_view_frames_the_points_with_a_margin(self):
+        gw, hc = 100, 40
+        # a tall box: the latitude span decides, plus 15% each side
+        lat, lon, zoom = fit_view([(43.0, -70.0), (44.0, -69.9)], gw, hc)
+        assert (lat, lon) == (43.5, -69.95)
+        assert zoom == pytest.approx(1.0 / 0.7)
+        # a wide box: the longitude span, at the map's aspect
+        lat, lon, zoom = fit_view([(43.5, -71.0), (43.5, -69.0)], gw, hc)
+        need = 2.0 * math.cos(math.radians(43.5)) * (hc * 2) / gw
+        assert zoom == pytest.approx(need / 0.7)
+        # the box's edges sit inside the window
+        west, south, east, north = bbox_for(lat, lon, zoom, gw, hc)
+        assert west < -71.0 and east > -69.0
+        assert south < 43.5 < north
+
+    def test_fit_view_is_clamped_like_the_keys(self):
+        gw, hc = 100, 40
+        assert fit_view([(43.0, -70.0)], gw, hc)[2] == MIN_ZOOM_DEG
+        assert fit_view([(-60.0, -170.0), (60.0, 170.0)], gw, hc)[2] == max_zoom(gw, hc)
 
     def test_the_step_walks_the_whole_range_in_a_sane_number_of_presses(self):
         assert ZOOM_STEP == 1.5

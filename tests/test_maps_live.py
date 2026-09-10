@@ -70,10 +70,10 @@ def frames(monkeypatch):
 
 
 def make(zoom=1.0, view="terrain", sky=False, lat=43.68, lon=-70.37,
-         origin=None, dest=None):
+         origin=None, dest=None, fit=False):
     runtime = types.SimpleNamespace(lang="en", live=True)
     return MapApp(runtime, lat, lon, "Westbrook", zoom, view, sky, "car",
-                  origin=origin, dest=dest)
+                  origin=origin, dest=dest, fit=fit)
 
 
 def point_under(app, col, row):
@@ -103,6 +103,21 @@ class TestConstruction:
         assert app.routes.origin == (1.0, 2.0, "A")
         assert app.routes.dest == (3.0, 4.0, "B")
         assert app.routes.status == "" and FakeThread.started == []
+
+    def test_a_fit_opens_on_both_endpoints(self):
+        origin = Result("A", "", 43.66, -70.26, "city")
+        dest = Result("B", "", 43.62, -70.21, "city")
+        app = make(origin=origin, dest=dest, fit=True)
+        assert (app.lat, app.lon, app.zoom) == maps.fit_view(
+            [(43.66, -70.26), (43.62, -70.21)], GW, HC)
+        assert app.fit_view == (app.lat, app.lon, app.zoom)
+        assert app.home == (43.68, -70.37)   # the marker stays put
+
+    def test_a_fit_needs_both_endpoints(self):
+        app = make(dest=Result("B", "", 3.0, 4.0, "city"), fit=True)
+        assert (app.lat, app.lon, app.zoom) == (43.68, -70.37, 1.0)
+        assert app.fit_view is None
+        assert make(fit=False).fit_view is None
 
     def test_run_requests_the_route_and_starts_the_sky_clock(self, monkeypatch):
         monkeypatch.setattr(_maps_live.LiveApp, "run", lambda self: None)
@@ -429,6 +444,38 @@ class TestRender:
         app.drag_sync = True
         app.render()
         assert frames[-1]["block"] is False and app.drag_sync is False
+
+    def test_the_opening_route_reframes_the_view_once(self, frames):
+        origin = Result("A", "", 43.66, -70.26, "city")
+        dest = Result("B", "", 43.62, -70.21, "city")
+        app = make(origin=origin, dest=dest, fit=True)
+        app.render()                      # still pending: nothing moves
+        assert app.fit_view is not None
+        # the route bulges west of the endpoints' box
+        coords = [(-70.26, 43.66), (-70.30, 43.64), (-70.21, 43.62)]
+        app.routes.route = _maps_route.Route(coords, 9000.0, 1800.0, [], "bike")
+        app.render()
+        assert (app.lat, app.lon, app.zoom) == maps.fit_view(
+            [(43.66, -70.26), (43.64, -70.30), (43.62, -70.21)], GW, HC)
+        assert app.fit_view is None
+        assert (frames[-1]["lat"], frames[-1]["zoom"]) == (app.lat, app.zoom)
+        # a later route leaves the view alone
+        app.routes.route = _maps_route.Route(coords[:1] + coords[2:], 1.0, 1.0, [], "car")
+        app.render()
+        assert app.lon == maps.fit_view(
+            [(43.66, -70.26), (43.64, -70.30), (43.62, -70.21)], GW, HC)[1]
+
+    def test_a_moved_view_is_not_reframed_by_the_route(self, frames):
+        origin = Result("A", "", 43.66, -70.26, "city")
+        dest = Result("B", "", 43.62, -70.21, "city")
+        app = make(origin=origin, dest=dest, fit=True)
+        app.zoom_to(app.zoom * ZOOM_STEP)
+        moved = (app.lat, app.lon, app.zoom)
+        app.routes.route = _maps_route.Route(
+            [(-70.26, 43.66), (-70.30, 43.64), (-70.21, 43.62)], 1.0, 1.0, [], "bike")
+        app.render()
+        assert (app.lat, app.lon, app.zoom) == moved
+        assert app.fit_view is None
 
     def test_a_parked_search_result_is_applied(self, frames):
         app = make(zoom=1.0)
