@@ -24,7 +24,9 @@ _CACHE_MAX_AGE = 7 * 86400  # 7 days — historical data doesn't change
 @dataclass(frozen=True)
 class HistoricalAverages:
     """Historical climate averages for a single calendar date."""
+    high: float       # maximum temperature recorded in sample period (in forecast units)
     avg_high: float   # mean daily high (in forecast units)
+    low: float        # minimum temperature recorded in sample period (in forecast units)
     avg_low: float    # mean daily low  (in forecast units)
     avg_precip: float # mean daily precipitation sum
     years: int        # number of years averaged
@@ -126,7 +128,9 @@ def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages
         return None
 
     return HistoricalAverages(
+        high=max(highs),
         avg_high=round(sum_hi / count, 1),
+        low=min(lows),
         avg_low=round(sum_lo / count, 1),
         avg_precip=round(sum_precip / count, 2),
         years=count,

@@ -19,7 +19,7 @@ def _runtime(lang="en"):
 
 
 def _row(midnight_day_names, sun_labels, lang="en"):
-    line = _render_today_line(_WIDTH, 10, 20, midnight_day_names, sun_labels, _runtime(lang))
+    line = _render_today_line(_WIDTH, (10, 20), midnight_day_names, sun_labels, _runtime(lang))
     return _ANSI.sub("", line)
 
 
