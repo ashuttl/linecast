@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Maps: Street maps open faster, and panning to a new area no longer reconnects to the tile server each time.
+
 ## 2.6.1 — 2026-09-16
 
 - Completion: The bash and zsh completion scripts load again. Both have been failing since 2.5.0 due to flags with hyphens.
