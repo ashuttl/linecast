@@ -91,7 +91,9 @@ def fetch_historical(lat: float, lng: float, target_date: date,
 
 def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages]:
     """Extract matching month-day rows from archive response and average them."""
-    daily = data.get("daily", {})
+    daily = data.get("daily")
+    if not isinstance(daily, dict):
+        return None
     times = daily.get("time", [])
     highs = daily.get("temperature_2m_max", [])
     lows = daily.get("temperature_2m_min", [])
@@ -114,7 +116,7 @@ def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages
         try:
             parts = t.split("-")
             y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
-        except (IndexError, ValueError) as exc:
+        except (AttributeError, IndexError, TypeError, ValueError) as exc:
             dropped += 1
             bad = exc
             continue
