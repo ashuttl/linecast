@@ -71,6 +71,19 @@ class TestComputeAverages:
         assert _compute_averages({}, 3, 27) is None
         assert _compute_averages({"daily": {}}, 3, 27) is None
         assert _compute_averages({"daily": {"time": []}}, 3, 27) is None
+        assert _compute_averages({"daily": None}, 3, 27) is None
+
+    def test_skips_null_archive_dates(self):
+        data = self._make_data([
+            (None, 60.0, 40.0, 0.1),
+            ("2023-03-27", 62.0, 42.0, 0.2),
+        ])
+        result = _compute_averages(data, 3, 27)
+        assert result is not None
+        assert result.years == 1
+        assert result.avg_high == 62.0
+        assert result.avg_low == 42.0
+        assert result.avg_precip == 0.2
 
     def test_handles_none_values(self):
         """Rows with None temps should be skipped."""

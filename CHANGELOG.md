@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: Keep climate comparisons available when the archive returns missing daily data or dates.
+
 ## 2.6.1 — 2026-09-16
 
 - Completion: The bash and zsh completion scripts load again. Both have been failing since 2.5.0 due to flags with hyphens.
