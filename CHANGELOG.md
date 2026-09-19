@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+## 2.7.0 — 2026-09-19
+
 linecast speaks Turkish, Esperanto, Russian, Romanian, Czech, Greek, Swahili, and Chinese in the traditional script, twenty-eight languages in all, and sunshine can read the day in the halachic, Roman, Edo, Islamic, or Swahili hours. Weather lets you change location from inside the view.
 
 New this version:
