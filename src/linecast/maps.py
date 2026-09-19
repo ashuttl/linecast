@@ -55,7 +55,7 @@ from linecast._maps_views import (  # noqa: F401 — the loaders and caches
     _water_subpixels,
 )
 from linecast._radar_basemap import (  # noqa: F401 — _edge_dots is re-exported
-    BORDER, DotLayer, _edge_dots,
+    _BITS, BORDER, DotLayer, _edge_dots,
 )
 from linecast import _theme
 from linecast._radar_i18n import rs
@@ -167,6 +167,98 @@ class _ShiftedLayer:
         self.dots = dots
         self.color = color
         self.ribbon = set(ribbon)
+
+
+# The last street view drawn, as (bbox, graph_w, height_cells, fills,
+# layer): while the next one loads, it stands in, moved and scaled to
+# where the new view is, so a pan or a zoom shows the map it had instead
+# of an empty ground.
+_last_street = [None]
+
+
+def _axis_map(n, lo, span, plo, pspan, sub, flip):
+    """For each of n sub-cells along one axis of the new view, the index
+    of the old view's sub-cell under its centre, or -1 outside it.
+    `flip` counts from the top (latitude), as the rows do."""
+    out = []
+    for i in range(n):
+        f = (i + 0.5) / n
+        v = (lo + span * (1.0 - f)) if flip else (lo + span * f)
+        g = ((plo + pspan - v) if flip else (v - plo)) / pspan
+        j = int(math.floor(g * sub))
+        out.append(j if 0 <= j < sub else -1)
+    return out
+
+
+def _reproject_street(prev, bbox, graph_w, height_cells, ground):
+    """(fills, layer) of `prev` redrawn into `bbox`, or None.
+
+    The view is linear in lon/lat, so each axis maps on its own. Fills
+    sample the old grid under each new sub-cell; dots are carried the
+    other way, old dot to new, when the view grew or stayed put, so a
+    road survives a zoom-out as a line instead of thinning to specks,
+    and sampled when it shrank, so a zoom-in stays solid. Labels and the
+    hover index belong to the old view and are left behind.
+    """
+    pbbox, pw, phc, pfills, player = prev
+    if (pw, phc) != (graph_w, height_cells) or tuple(pbbox) == tuple(bbox):
+        return None
+    minlon, minlat, maxlon, maxlat = bbox
+    pminlon, pminlat, pmaxlon, pmaxlat = pbbox
+    span_x, span_y = maxlon - minlon, maxlat - minlat
+    pspan_x, pspan_y = pmaxlon - pminlon, pmaxlat - pminlat
+    if min(span_x, span_y, pspan_x, pspan_y) <= 0:
+        return None
+    fh = height_cells * 2
+    cols = _axis_map(graph_w, minlon, span_x, pminlon, pspan_x, graph_w, False)
+    rows = _axis_map(fh, minlat, span_y, pminlat, pspan_y, fh, True)
+    fills = [[ground if c < 0 else src[c] for c in cols] if r >= 0
+             else [ground] * graph_w
+             for r in rows for src in (pfills[r] if r >= 0 else None,)]
+
+    dw, dh = graph_w * 2, height_cells * 4
+    dots = [[0] * graph_w for _ in range(height_cells)]
+    color = [[None] * graph_w for _ in range(height_cells)]
+    pdots, pcolor = player.dots, player.color
+    if span_x >= pspan_x:
+        # old dot -> new dot
+        fwd_x = _axis_map(dw, pminlon, pspan_x, minlon, span_x, dw, False)
+        fwd_y = _axis_map(dh, pminlat, pspan_y, minlat, span_y, dh, True)
+        for cy in range(height_cells):
+            prow, pcrow = pdots[cy], pcolor[cy]
+            for cx in range(graph_w):
+                bits = prow[cx]
+                if not bits:
+                    continue
+                for sx in (0, 1):
+                    nx = fwd_x[cx * 2 + sx]
+                    if nx < 0:
+                        continue
+                    for sy in range(4):
+                        if not bits & _BITS[sx][sy]:
+                            continue
+                        ny = fwd_y[cy * 4 + sy]
+                        if ny < 0:
+                            continue
+                        ncx, ncy = nx // 2, ny // 4
+                        dots[ncy][ncx] |= _BITS[nx % 2][ny % 4]
+                        color[ncy][ncx] = pcrow[cx]
+    else:
+        # new dot <- old dot
+        back_x = _axis_map(dw, minlon, span_x, pminlon, pspan_x, dw, False)
+        back_y = _axis_map(dh, minlat, span_y, pminlat, pspan_y, dh, True)
+        for ny, oy in enumerate(back_y):
+            if oy < 0:
+                continue
+            prow, pcrow = pdots[oy // 4], pcolor[oy // 4]
+            row, crow = dots[ny // 4], color[ny // 4]
+            for nx, ox in enumerate(back_x):
+                if ox < 0:
+                    continue
+                if prow[ox // 2] & _BITS[ox % 2][oy % 4]:
+                    row[nx // 2] |= _BITS[nx % 2][ny % 4]
+                    crow[nx // 2] = pcrow[ox // 2]
+    return fills, _ShiftedLayer(dots, color)
 
 
 def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
@@ -449,10 +541,19 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
     palette = _maps_style.palette()
     if fills is None:
         ground = palette.get("ground")
-        fills = [[ground] * graph_w for _ in range(height_cells * 2)]
-        layer = _ShiftedLayer([[0] * graph_w for _ in range(height_cells)],
-                              [[None] * graph_w for _ in range(height_cells)])
+        stand_in = (_reproject_street(_last_street[0], bbox, graph_w,
+                                      height_cells, ground)
+                    if loading and _last_street[0] is not None else None)
+        if stand_in is not None:
+            fills, layer = stand_in
+        else:
+            fills = [[ground] * graph_w for _ in range(height_cells * 2)]
+            layer = _ShiftedLayer(
+                [[0] * graph_w for _ in range(height_cells)],
+                [[None] * graph_w for _ in range(height_cells)])
         labels = {}
+    else:
+        _last_street[0] = (tuple(bbox), graph_w, height_cells, fills, layer)
     dusk = None
     if sun or clouds:
         # the sky over the streets: the fills darken and cloud over,

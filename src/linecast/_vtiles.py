@@ -339,3 +339,15 @@ def fetch_tiles(keys: list[tuple[int, int, int]], timeout: float = 15
     tile_info()  # warm the tilejson memo once, not in every worker
     results = _pool().map(lambda k: fetch_tile(*k, timeout=timeout), keys)
     return dict(zip(keys, results))
+
+
+def prefetch_tiles(keys: Iterable[tuple[int, int, int]]) -> None:
+    """Fetch tiles to the disk cache in the background, and return at once.
+
+    For the views a user is likely to ask for next; tiles already on disk
+    cost a stat. Queued behind whatever the current view is fetching, on
+    the same pool, so it never races the view on screen for a socket.
+    """
+    pool = _pool()
+    for key in keys:
+        pool.submit(fetch_tile, *key)
