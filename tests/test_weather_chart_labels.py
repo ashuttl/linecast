@@ -26,12 +26,21 @@ _T0 = datetime(2026, 3, 1, 0, 0)
 _WIDTH = 100
 
 
-def _forecast():
-    """A week of hourly data with windy spells and high-UV afternoons."""
+def _forecast(night_wind_only=False, afternoon_gust_on_day=None):
+    """A week of hourly data with windy spells and sunny afternoons.
+
+    With night_wind_only the wind drops calm from 5am to 8pm, so no wind
+    label can land beside a UV label; afternoon_gust_on_day adds one
+    windy 3pm back on that day."""
     times = [(_T0 + timedelta(hours=i)).isoformat() for i in range(_HOURS)]
     temps = [10 + 8 * math.sin(i / 24 * 2 * math.pi) for i in range(_HOURS)]
     winds = [18 + 12 * math.sin(i / 17 * 2 * math.pi) + 4 * math.sin(i / 5)
              for i in range(_HOURS)]
+    if night_wind_only:
+        winds = [w if (i % 24) < 5 or (i % 24) >= 20 else 3.0 for i, w in enumerate(winds)]
+    if afternoon_gust_on_day is not None:
+        for h in (14, 15, 16):
+            winds[afternoon_gust_on_day * 24 + h] = 30.0
     uv = [max(0.0, 9 * math.sin((i % 24 - 6) / 12 * math.pi)) for i in range(_HOURS)]
     return {
         "hourly": {
@@ -54,9 +63,9 @@ def _runtime():
     return WeatherRuntime(live=False, icons=True, lang="en", oneline=False, metric=False)
 
 
-def _rows(offset_minutes):
+def _rows(offset_minutes, data=None):
     """Return the plain-text wind and UV rows at a given scroll offset."""
-    lines = render_hourly(_forecast(), _WIDTH, now=_T0 + timedelta(hours=6),
+    lines = render_hourly(data or _forecast(), _WIDTH, now=_T0 + timedelta(hours=6),
                           runtime=_runtime(), offset_minutes=offset_minutes)
     wind = uv = ""
     for line in lines:
@@ -154,7 +163,49 @@ class TestUVLabels:
         for offset in _offsets():
             _, uv = _rows(offset)
             for _, text in _labels(uv, _UV_LABEL):
-                assert 6 <= int(text[2:]) <= 15, f"{text} at offset {offset}"
+                assert 3 <= int(text[2:]) <= 15, f"{text} at offset {offset}"
 
     def test_labels_hold_still_while_scrolling(self):
         _assert_labels_creep(_UV_LABEL, 1)
+
+
+class TestSharedRow:
+    """Wind and UV share a row when no label of one would meet one of the
+    other anywhere in the week; otherwise each keeps its own."""
+
+    def _line_count(self, data, offset=0):
+        return len(render_hourly(data, _WIDTH, now=_T0 + timedelta(hours=6),
+                                 runtime=_runtime(), offset_minutes=offset))
+
+    def test_share_a_row_when_they_never_meet(self):
+        data = _forecast(night_wind_only=True)
+        for offset in _offsets():
+            wind, uv = _rows(offset, data)
+            if wind and uv:
+                assert wind == uv, f"two rows at offset {offset}"
+        assert self._line_count(data) == self._line_count(_forecast()) - 1
+
+    def test_shared_labels_keep_a_gap_between_kinds(self):
+        data = _forecast(night_wind_only=True)
+        for offset in _offsets():
+            row, _ = _rows(offset, data)
+            for run in re.findall(r"[^ │╵]+", row):
+                assert _WIND_LABEL.fullmatch(run) or _UV_LABEL.fullmatch(run), \
+                    f"{run!r} at offset {offset}"
+
+    def test_keep_two_rows_when_they_would_collide(self):
+        for offset in _offsets():
+            wind, uv = _rows(offset)
+            assert wind and uv and wind != uv, f"offset {offset}"
+            assert not _UV_LABEL.search(wind) and not _WIND_LABEL.search(uv)
+
+    def test_the_choice_holds_for_the_whole_forecast(self):
+        # One windy afternoon on day five is enough to keep two rows all
+        # week, so the chart does not change height on the way there.
+        data = _forecast(night_wind_only=True, afternoon_gust_on_day=5)
+        two_rows = self._line_count(_forecast())
+        for offset in _offsets():
+            assert self._line_count(data, offset) == two_rows, f"offset {offset}"
+            wind, uv = _rows(offset, data)
+            assert not _UV_LABEL.search(wind) and not _WIND_LABEL.search(uv)
+

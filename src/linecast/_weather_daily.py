@@ -3,9 +3,10 @@
 from datetime import datetime
 
 from linecast import _theme
+from linecast._i18n import fmt_percent
 from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime, current_runtime
-from linecast._weather_i18n import DAY_NAMES, _s, _wmo_icons
+from linecast._weather_i18n import DAY_NAMES, _s, _wmo_icons, fmt_wind
 from linecast._weather_sources import _local_now_for_data
 from linecast._weather_style import (
     DIM, TEXT, WIND_COLOR, _knockout_ink, _precip_color, _precip_type, _temp_color,
@@ -70,9 +71,13 @@ def render_daily_mapped(data, width, runtime=None, now=None):
     if display_end < 3:
         return lines, spans
 
-    # Common temperature scale across today + all forecast days
-    all_lo = [lo_temps[i] for i in range(1, display_end) if i < len(lo_temps)]
-    all_hi = [hi_temps[i] for i in range(1, display_end) if i < len(hi_temps)]
+    # Common temperature scale across today + all forecast days.  A day
+    # can have a null high or low; it is left out of the scale, and below
+    # it gets no row, there being no bar to draw.
+    all_lo = [lo_temps[i] for i in range(1, display_end)
+              if i < len(lo_temps) and lo_temps[i] is not None]
+    all_hi = [hi_temps[i] for i in range(1, display_end)
+              if i < len(hi_temps) and hi_temps[i] is not None]
     if not all_lo or not all_hi:
         return lines, spans
 
@@ -96,10 +101,11 @@ def render_daily_mapped(data, width, runtime=None, now=None):
     # colored amount + unit are enough context.
     day_raw = []  # (precip_amt, prob_s, wind_amt, ptype, wmo_i) per day
     for i in range(1, display_end):
-        precip_i = precip_sum[i] if i < len(precip_sum) else 0
-        prob_i = precip_prob[i] if i < len(precip_prob) else 0
-        wind_i = wind_max[i] if i < len(wind_max) else 0
-        wmo_i = wmo_codes[i] if i < len(wmo_codes) else 0
+        # a null is a day the model has no figure for: nothing to show
+        precip_i = (precip_sum[i] if i < len(precip_sum) else 0) or 0
+        prob_i = (precip_prob[i] if i < len(precip_prob) else 0) or 0
+        wind_i = (wind_max[i] if i < len(wind_max) else 0) or 0
+        wmo_i = (wmo_codes[i] if i < len(wmo_codes) else 0) or 0
         precip_amt = ""
         ptype = ""
         # 0.04" is 1 mm, so the same rain earns a row in either unit.  A
@@ -109,14 +115,14 @@ def render_daily_mapped(data, width, runtime=None, now=None):
             ptype = _s(_precip_type(wmo_i), runtime)
             if runtime.metric:
                 sep = _s("metric_unit_sep", runtime)
-                precip_amt = f"{precip_i:.0f}{sep}{runtime.precip_unit}"
+                precip_amt = f"{precip_i:.0f}{sep}{runtime.precip_unit_label}"
             else:
                 unit = _s('precip_inch', runtime)
                 precip_amt = (f"{precip_i:.1f}{unit}" if precip_i >= 1
                               else f"{precip_i:.2f}{unit}")
-        prob_s = f"{prob_i:.0f}%" if prob_i > 25 else ""
+        prob_s = fmt_percent(prob_i, runtime) if prob_i > 25 else ""
         wind_amt = (
-            f"{wind_i:.0f}{runtime.wind_unit}"
+            fmt_wind(wind_i, runtime)
             if wind_i > (25 if runtime.metric else 15)
             else ""
         )
@@ -182,12 +188,8 @@ def render_daily_mapped(data, width, runtime=None, now=None):
     bar_w = max(MIN_BAR_W, width - left_prefix_w - max_right_w)
 
     # Ensure outside labels always fit
-    max_lo_label = max(
-        len(f"{lo_temps[i]:.0f}\u00b0") for i in range(1, display_end) if i < len(lo_temps)
-    )
-    max_hi_label = max(
-        len(f"{hi_temps[i]:.0f}\u00b0") for i in range(1, display_end) if i < len(hi_temps)
-    )
+    max_lo_label = max(len(f"{lo:.0f}\u00b0") for lo in all_lo)
+    max_hi_label = max(len(f"{hi:.0f}\u00b0") for hi in all_hi)
     inner_w = bar_w - 1 - max_lo_label - max_hi_label
     if inner_w < 1:
         inner_w = 1
@@ -211,10 +213,12 @@ def render_daily_mapped(data, width, runtime=None, now=None):
                 day_name = "???"
         day_name = day_name + " " * (day_col_w - visible_len(day_name))
 
-        wmo = wmo_codes[i] if i < len(wmo_codes) else 0
+        wmo = (wmo_codes[i] if i < len(wmo_codes) else 0) or 0
         icon = icons.get(wmo, icons[0])
-        hi = hi_temps[i] if i < len(hi_temps) else 0
-        lo = lo_temps[i] if i < len(lo_temps) else 0
+        hi = hi_temps[i] if i < len(hi_temps) else None
+        lo = lo_temps[i] if i < len(lo_temps) else None
+        if hi is None or lo is None:
+            continue
 
         # Temperature range bar with integrated labels
         lo_pos = int((lo - scale_min) / scale_range * (bar_w - 1))
@@ -325,7 +329,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
 def fmt_precip_amount(amount, runtime):
     """An amount of precipitation with its unit, as the daily rows show it."""
     if runtime.metric:
-        return f"{amount:.1f}{_s('metric_unit_sep', runtime)}{runtime.precip_unit}"
+        return f"{amount:.1f}{_s('metric_unit_sep', runtime)}{runtime.precip_unit_label}"
     unit = _s("precip_inch", runtime)
     return f"{amount:.1f}{unit}" if amount >= 1 else f"{amount:.2f}{unit}"
 

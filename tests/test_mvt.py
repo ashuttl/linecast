@@ -170,6 +170,19 @@ class TestWireFormat:
         assert feat["geometry"] == LINE_PARTS
         assert feat["tags"] == {"name": "Main St"}
 
+    def test_a_wrapper_cut_short_is_a_value_error(self):
+        # gzip and zlib raise their own kinds for a body that ends early;
+        # to the caller it is one more corrupt tile
+        tile = make_tile(make_layer(features=[make_feature(geometry=LINE_GEOM)]))
+        for wrapped in (gzip.compress(tile)[:-8], zlib.compress(tile)[:-4],
+                        b"\x1f\x8b\x00\x00", b"\x78\x9c\x00"):
+            try:
+                decode_tile(wrapped)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("cut-short wrapper did not raise")
+
     def test_gzip_and_zlib_framing_sniffed(self):
         tile = make_tile(make_layer(features=[
             make_feature(ftype=2, geometry=LINE_GEOM)]))
@@ -295,6 +308,23 @@ class TestGeometry:
         assert ring_sign(hole) < 0
         polys = assemble_polygons([outer, hole])
         assert polys == [[outer, hole]]
+
+    def test_parameters_cut_short_are_a_value_error(self):
+        # the module promises ValueError for a stream cut short, and
+        # the street decoder skips exactly that; an IndexError from the
+        # middle of a coordinate pair went through it and failed the view
+        for geom in ([cmd(1, 1)],
+                     [cmd(1, 1), zigzag(1)],
+                     [cmd(1, 1), zigzag(1), zigzag(1), cmd(2, 2), zigzag(1), zigzag(1)],
+                     [cmd(2, 1 << 20)]):
+            tile = make_tile(make_layer(features=[
+                make_feature(ftype=2, geometry=geom)]))
+            try:
+                decode_tile(tile)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(f"{geom} did not raise")
 
     def test_degenerate_and_orphan_rings_dropped(self):
         line = [(0, 0), (5, 5)]  # zero area

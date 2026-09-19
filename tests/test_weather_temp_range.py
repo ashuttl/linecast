@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._runtime import WeatherRuntime, weather_parser
@@ -25,16 +27,19 @@ class TestTemperatureScale:
         assert temperature_scale(rt, _archive(91.3, -3.6), (52.0, 75.0)) == (52.0, 75.0)
 
     def test_climate_is_the_typical_years_extremes_unpadded(self):
-        assert temperature_scale(_runtime(), _archive(91.3, -3.6), (52.0, 75.0)) == (-3.6, 91.3)
+        rt = _runtime(["--temp-range", "climate"])
+        assert temperature_scale(rt, _archive(91.3, -3.6), (52.0, 75.0)) == (-3.6, 91.3)
 
     def test_climate_widens_to_a_forecast_past_the_usual_year(self):
         # A heat wave beyond the usual year touches the top, not the ceiling
-        assert temperature_scale(_runtime(), _archive(91.3, -3.6), (70.0, 103.4)) == (-3.6, 103.4)
-        assert temperature_scale(_runtime(), _archive(91.3, -3.6), (-21.0, 10.0)) == (-21.0, 91.3)
+        rt = _runtime(["--temp-range", "climate"])
+        assert temperature_scale(rt, _archive(91.3, -3.6), (70.0, 103.4)) == (-3.6, 103.4)
+        assert temperature_scale(rt, _archive(91.3, -3.6), (-21.0, 10.0)) == (-21.0, 91.3)
 
     def test_climate_without_an_archive_is_the_forecast(self):
-        assert temperature_scale(_runtime(), None, (52.0, 75.0)) == (52.0, 75.0)
-        assert temperature_scale(_runtime(), _archive(None, None), (52.0, 75.0)) == (52.0, 75.0)
+        rt = _runtime(["--temp-range", "climate"])
+        assert temperature_scale(rt, None, (52.0, 75.0)) == (52.0, 75.0)
+        assert temperature_scale(rt, _archive(None, None), (52.0, 75.0)) == (52.0, 75.0)
 
     def test_world_is_the_same_everywhere(self):
         assert temperature_scale(_runtime(["--temp-range", "world", "--fahrenheit"]),
@@ -48,12 +53,54 @@ class TestTemperatureScale:
 
 
 class TestTempRangeFlag:
-    def test_climate_by_default(self):
-        assert _runtime().temp_range == "climate"
+    def test_auto_by_default(self):
+        assert _runtime().temp_range == "auto"
+        assert WeatherRuntime.defaults(environ={}).temp_range == "auto"
+        assert WeatherRuntime(live=False, icons="emoji", lang="en",
+                              oneline=False).temp_range == "auto"
 
     def test_flag_picks_a_scale(self):
+        assert _runtime(["--temp-range=auto"]).temp_range == "auto"
         assert _runtime(["--temp-range", "climate"]).temp_range == "climate"
         assert _runtime(["--temp-range=world"]).temp_range == "world"
+
+
+class TestAutoTemperatureScale:
+    @pytest.mark.parametrize("units,low,high,forecast", [
+        ("--celsius", -10.0, 40.0, (10.0, 20.0)),
+        ("--fahrenheit", 14.0, 104.0, (50.0, 68.0)),
+    ])
+    def test_resolution_boundary_is_the_same_in_both_units(self, units, low, high, forecast):
+        runtime = _runtime([units])
+        archive = _archive(high, low)
+        # The climate span is exactly 5°C / 9°F per row at ten rows.
+        for rows in (2, 9, 10, 11, 20, 2):
+            expected = forecast if rows < 10 else (low, high)
+            assert temperature_scale(runtime, archive, forecast, n_rows=rows) == expected
+
+    def test_a_narrow_climate_fits_even_a_short_graph(self):
+        assert temperature_scale(_runtime(["--celsius"]), _archive(28, 18),
+                                 (22, 25), n_rows=2) == (18, 28)
+
+    def test_resolution_includes_forecast_beyond_the_climate_extremes(self):
+        runtime = _runtime(["--celsius"])
+        archive = _archive(40, -10)
+        for forecast in ((10, 41), (-11, 20)):
+            assert temperature_scale(runtime, archive, forecast, n_rows=10) == forecast
+
+    @pytest.mark.parametrize("archive", [None, _archive(None, None), _archive(40, None)])
+    def test_missing_climate_uses_forecast_at_any_height(self, archive):
+        for rows in (2, 20):
+            assert temperature_scale(_runtime(), archive, (10, 20), n_rows=rows) == (10, 20)
+
+    @pytest.mark.parametrize("mode,expected", [
+        ("climate", (-10, 40)), ("forecast", (10, 20)), ("world", (-40, 50)),
+    ])
+    def test_explicit_scales_do_not_depend_on_height(self, mode, expected):
+        runtime = _runtime(["--temp-range", mode, "--celsius"])
+        for rows in (2, 20):
+            assert temperature_scale(runtime, _archive(40, -10),
+                                     (10, 20), n_rows=rows) == expected
 
 
 class TestFlash:

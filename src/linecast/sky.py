@@ -58,7 +58,7 @@ from linecast._ephemeris import (
     moon_axis_deg, moon_bright_limb_deg, moon_horizontal_parallax_deg,
     moon_illuminated_fraction,
 )
-from linecast._i18n import lang_of
+from linecast._i18n import fmt_percent, lang_of
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
@@ -979,7 +979,8 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
                 continue
             name = record["name"] if view.culture else constellation_name(record, lang)
             if lang not in NO_CAPITALS:
-                name = name.upper()
+                # Turkish capitalises i as İ; str.upper gives the dotless I.
+                name = (name.replace("i", "İ") if lang == "tr" else name).upper()
             col = int(round(px0 - visible_len(name) / 2.0))
             row = int(py0) // 2
             cell = fb.cell_bg(max(0, min(graph_w - 1, col)), max(0, min(graph_h - 1, row)))
@@ -1094,7 +1095,7 @@ def _whats_up(scene, runtime, limit, culture=None):
     parts = []
     if scene.moon_alt > 0.0:
         _idx, _name, icon = moon_phase(scene.moment_utc, runtime)
-        parts.append(f"{icon} {scene.moon_illum * 100:.0f}% "
+        parts.append(f"{icon} {fmt_percent(scene.moon_illum * 100, runtime)} "
                      f"{compass_point(scene.moon_az, runtime, culture)}")
     for key, _vec, alt, az, mag in scene.planets:
         if alt > 0.0 and easily_seen(mag, alt, scene):
@@ -1138,7 +1139,7 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
         idx, _name, icon = moon_phase(scene.moment_utc, runtime)
         from linecast._tides_i18n import _moon_name
         title = f"{icon} {body_name('moon', runtime)}"
-        detail = f"{_moon_name(idx, runtime)} · {scene.moon_illum * 100:.0f}%"
+        detail = f"{_moon_name(idx, runtime)} · {fmt_percent(scene.moon_illum * 100, runtime)}"
         alt, az = scene.moon_alt, scene.moon_az
     elif kind == 'deep_sky':
         record, alt, az = payload
@@ -1274,7 +1275,7 @@ def main():
         return
 
     from linecast._sky_live import SkyApp, place_name
-    label = place_name(lat, lng, args.location)
+    label = place_name(lat, lng, args.location, lang=runtime.lang)
     if not runtime.live:
         now = _now()
         cols, rows = get_terminal_size()

@@ -12,6 +12,7 @@ question a search for something not up is really asking.
 """
 
 import math
+import re
 import threading
 import unicodedata
 from datetime import timedelta, timezone
@@ -211,14 +212,24 @@ def genitive_names(desig, genitives):
 
 
 # Letters no decomposition reduces: the Vietnamese đ, the Polish ł, the
-# Norwegian and Danish ø.
-_BARRED = str.maketrans("đĐłŁøØ", "dDlLoO")
+# Norwegian and Danish ø, the Turkish dotless ı (its capital is a plain I).
+_BARRED = str.maketrans("đĐłŁøØı", "dDlLoOi")
 
 
 def _fold(text):
     """*text* without its accents."""
     return "".join(ch for ch in unicodedata.normalize("NFKD", text)
                    if not unicodedata.combining(ch)).translate(_BARRED)
+
+
+_X_SYSTEM = re.compile(r"([cghjsu])x")
+
+
+def _x_system(text):
+    """*text* with the Esperanto x-system's digraphs reduced to their base
+    letter, "gxemeloj" to "gemeloj", which is how the accent-stripped
+    names read; typed without an Esperanto keyboard, ĝ is gx."""
+    return _X_SYSTEM.sub(r"\1", text)
 
 
 def _score(name, q):
@@ -241,10 +252,12 @@ def search(query, pool, limit=MAX_ROWS):
     contain it; the brightest or grandest first within each. A target's
     `exact` names take only the first two, and a match on a name
     stripped of its accents counts one step behind the same match on
-    the name itself."""
+    the name itself, and a query in the Esperanto x-system matches the
+    accent-stripped names the same way."""
     q = query.strip().lower()
     if not q:
         return []
+    queries = (q,) if _x_system(q) == q else (q, _x_system(q))
     scored = []
     for t in pool:
         best = None
@@ -255,11 +268,12 @@ def search(query, pool, limit=MAX_ROWS):
                 best = 1
         for names, penalty in ((t.names, 0), (t.folded, 1)):
             for name in names:
-                score = _score(name, q)
-                if score is None:
-                    continue
-                score = min(3, score + penalty)
-                best = score if best is None else min(best, score)
+                for text in queries:
+                    score = _score(name, text)
+                    if score is None:
+                        continue
+                    score = min(3, score + penalty)
+                    best = score if best is None else min(best, score)
         if best is not None:
             scored.append((best, t.rank, t.label, t))
     scored.sort(key=lambda s: (s[0], s[1], s[2]))
@@ -326,7 +340,7 @@ class SkySearch:
     def handle(self, action):
         """One key while open. Returns the chosen Target on Enter, the
         string "jump" when Enter takes the offered moment, else None."""
-        if action == "escape":
+        if action in ("escape", "quit"):
             self.close()
         elif action == "key:enter":
             if self.jump is not None:
@@ -429,13 +443,14 @@ def _wrap(text, width):
 def describe_rising(target, rising, runtime, culture=None):
     """'Orion rises at 02:14 in the E', or that it never rises here."""
     from linecast._framebuffer import fmt_time_dt
+    from linecast._i18n import sentence_24h
     from linecast._sky_i18n import _sk
     from linecast.sky import compass_point
     if rising is None:
         return _sk("never_rises", runtime, name=target.label.split(" · ")[0])
     when, az = rising
     return _sk("rises_at", runtime, name=target.label.split(" · ")[0],
-               time=fmt_time_dt(when, use_24h=runtime.use_24h),
+               time=fmt_time_dt(when, use_24h=sentence_24h(runtime)),
                dir=compass_point(az, runtime, culture))
 
 

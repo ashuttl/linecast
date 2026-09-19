@@ -26,7 +26,7 @@ from linecast.sky import (
     focal_length, render,
 )
 from linecast._framebuffer import get_terminal_size
-from linecast._i18n import lang_of
+from linecast._i18n import GEOCODER_UNTRANSLATED, lang_of
 from linecast._sky_picker import CulturePicker, picker_overlay
 from linecast._sky_search import (
     SkySearch, Target, describe_rising, next_rising, search_overlay,
@@ -469,20 +469,21 @@ class SkyApp(LiveApp):
         self.camera._fly = self.camera._pan = self.camera._zoom = None
 
 
-def place_name(lat, lng, override):
+def place_name(lat, lng, override, lang="en"):
     """The place for the status line: the geocoder's label for a place-name
     override, else the (cached) reverse geocoder's, else the coordinates."""
     from linecast._location import resolve_location
     label = ""
     try:
         if override:
-            _lat, _lng, _country, label = resolve_location(override, return_label=True)
+            _lat, _lng, _country, label = resolve_location(
+                override, lang=lang, return_label=True)
     except SystemExit:
         label = ""
-    if not label:
+    if not label or lang in GEOCODER_UNTRANSLATED:
         try:
             from linecast._weather_sources import _reverse_geocode
-            label = _reverse_geocode(lat, lng)[0] or ""
+            label = _reverse_geocode(lat, lng, lang=lang)[0] or label
         except Exception:
-            label = ""
+            pass
     return label.split(",")[0].strip() or f"{lat:.2f},{lng:.2f}"

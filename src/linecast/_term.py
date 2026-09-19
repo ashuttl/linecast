@@ -138,7 +138,7 @@ def mark_answered():
     answered = True
 
 
-def read_until_reply(fd, timeout):
+def read_until_reply(fd, timeout, replies=1):
     """Read input until the terminal answers a cursor position query.
 
     For a probe that has just sent its questions with CPR_QUERY after
@@ -147,6 +147,10 @@ def read_until_reply(fd, timeout):
     answers that preceded the reply.  On a timeout the input queue is
     flushed, so an answer that arrived late does not reach whatever
     reads the terminal next.
+
+    `replies` is how many replies to wait for, when queries sent
+    earlier are still unanswered: the terminal answers them in order,
+    so the last reply is the one that says it has read everything.
     """
     global answered
     buf = bytearray()
@@ -162,8 +166,10 @@ def read_until_reply(fd, timeout):
         if not chunk:
             break
         buf.extend(chunk)
-        if CPR_REPLY.search(buf):
+        seen = len(CPR_REPLY.findall(buf))
+        if seen:
             answered = True
+        if seen >= replies:
             return bytes(buf), True
     if answered is None:
         answered = False
@@ -397,7 +403,7 @@ class LiveTerminal:
         return 'timeout'
 
     # -- teardown ----------------------------------------------------------
-    def settle(self, timeout):
+    def settle(self, timeout, replies=1):
         """Discard what the terminal is still sending, before the tty goes
         back to the shell.
 
@@ -407,12 +413,16 @@ class LiveTerminal:
         read the escape turning them off -- would otherwise land on the
         shell's command line, and on macOS the cooked tty echoes them as
         it goes.  Reads and drops input until the reply or `timeout`
-        seconds, then flushes the queue.
+        seconds, then flushes the queue.  `replies` counts the queries
+        still unanswered, this last one included: a frame's query the
+        terminal had yet to answer when the loop ended is answered
+        first, and stopping at that reply would leave the last one for
+        the shell.
         """
         if self._closed:
             return
         if not WINDOWS and timeout > 0:
-            read_until_reply(self.fd, timeout)
+            read_until_reply(self.fd, timeout, replies=max(1, replies))
         flush_input(self.fd)
 
     def close(self):

@@ -28,7 +28,9 @@ matches Hipparcos stars to ours by HD number for the star names.
   native language, credits and licence, the constellations (english and
   native names, the IAU code where the culture keeps the IAU figures,
   the label position, and the figure as polylines of [ra, dec] in
-  hundredths of a degree) and the star names by index into stars.bin.
+  hundredths of a degree), the star names by index into stars.bin, and
+  the native names again in another script where the culture has one
+  (the Chinese sky in the traditional characters, under "zh-Hant").
 
 Writes three files under src/linecast/data/:
 
@@ -88,16 +90,46 @@ DATA = Path(__file__).resolve().parent.parent / "src/linecast/data"
 
 # The languages linecast speaks that the d3-celestial data names.
 OUR_LANGS = ("fr", "es", "de", "it", "fi", "ja", "ko", "zh")
-# Every language linecast speaks but English, and the Wikidata label
-# language behind each: Norwegian is filed as Bokmål, and linecast's
-# Chinese is the simplified script.
+# Every language linecast speaks but English and Traditional Chinese, and
+# the Wikidata label language behind each: Norwegian is filed as Bokmål,
+# and "zh" is the simplified script. Traditional Chinese is not asked for:
+# Wikidata labels a sixth of the constellations and few of the stars in
+# it, so its names are the simplified ones written in the traditional
+# characters (see TRADITIONAL below), and the constellations an OVERRIDES
+# table checked against the Chinese Wikipedia's zh-tw titles.
 WIKIDATA = "https://query.wikidata.org/sparql"
 WIKIDATA_LANG = {
     "fr": "fr", "es": "es", "de": "de", "it": "it", "pt": "pt", "nl": "nl",
     "pl": "pl", "no": "nb", "sv": "sv", "is": "is", "da": "da", "fi": "fi",
     "ja": "ja", "ko": "ko", "zh": "zh-hans", "th": "th", "id": "id", "uk": "uk",
-    "vi": "vi",
+    "vi": "vi", "eo": "eo", "tr": "tr", "ru": "ru", "ro": "ro", "cs": "cs", "el": "el",
 }
+
+# The traditional form of each simplified character the Chinese names use,
+# as Stellarium's zh_TW translation of the Chinese sky culture and the
+# Chinese Wikipedia's zh-tw titles write them: 鉤 and 衛 in Taiwan's
+# forms, 積屍 as the modern texts have it. 台 is the same character in
+# both scripts in 三台 and its steps but 臺 in the terraces 漸臺 and 靈臺,
+# so those two are whole-word rules; 尸, 斗, 咸, 床, and 杠 in these names
+# are the same character in both scripts, and the 里 of a transliteration
+# (葛羅姆布里吉) stays a 里. The axe 鈇 is 𫓧 in the simplified index. Any
+# other character passes through unchanged.
+TRADITIONAL_WORDS = {"渐台": "漸臺", "灵台": "靈臺", "积尸": "積屍"}
+TRADITIONAL = str.maketrans(
+    "万东乌书云从仓传关内军农刍势华卫厕厨厩参吴园国坟垒夹娄孙宝宫将尔师库廪开异张执摄摇"
+    "晋权极枢枪楼毕渊渎渐灵玑电盖砺禄离积红纪纲纳织罗罚节虚记说诸谒谗贤败贯贲赵车轩轸辅"
+    "辇辐辕辖进郑钤钩钱钺锧键长门闭间阁阙阳阴阵阶陈雳韩顽顿飞马骑鱼鳖鸟鸡鹤齐龟𫓧",
+    "萬東烏書雲從倉傳關內軍農芻勢華衛廁廚廄參吳園國墳壘夾婁孫寶宮將爾師庫廩開異張執攝搖"
+    "晉權極樞槍樓畢淵瀆漸靈璣電蓋礪祿離積紅紀綱納織羅罰節虛記說諸謁讒賢敗貫賁趙車軒軫輔"
+    "輦輻轅轄進鄭鈐鉤錢鉞鑕鍵長門閉間閣闕陽陰陣階陳靂韓頑頓飛馬騎魚鱉鳥雞鶴齊龜鈇",
+)
+
+
+def traditional(text):
+    """`text`, a Chinese name in the simplified script, in the traditional."""
+    for word, hant in TRADITIONAL_WORDS.items():
+        text = text.replace(word, hant)
+    return text.translate(TRADITIONAL)
 
 GREEK = {
     "Alp": "α", "Bet": "β", "Gam": "γ", "Del": "δ", "Eps": "ε", "Zet": "ζ",
@@ -118,8 +150,11 @@ def fetch(name, src):
            "hip_main.dat": HIPPARCOS_URL}.get(name, CELESTIAL + name)
     if name.startswith("sc/"):
         culture, _, filename = name[3:].partition(".")
-        url = (f"{SKYCULTURES}{culture}/"
-               f"{'index.json' if filename == 'json' else 'description.md'}")
+        if filename.endswith(".po"):
+            url = f"{SKYCULTURES}{culture}/po/{filename}"
+        else:
+            url = (f"{SKYCULTURES}{culture}/"
+                   f"{'index.json' if filename == 'json' else 'description.md'}")
     print(f"fetching {url}")
     return urllib.request.urlopen(url).read()
 
@@ -210,6 +245,22 @@ GREEK_WORDS = (
     "альфа", "бета", "гамма", "дельта", "епсилон", "дзета", "зета", "ета", "тета",
     "йота", "каппа", "лямбда", "мю", "ню", "ксі", "омікрон", "пі", "ро", "сигма",
     "тау", "іпсилон", "упсилон", "фі", "хі", "псі", "омега",
+    # The Esperanto spellings, as Esperanto titles its stars ("Gama de
+    # Kruco", "Epsilono de Oriono", "Alfo Karena").
+    "alfo", "beto", "gamo", "gama", "delto", "epsilono", "zeto", "eto", "teto", "teta",
+    "joto", "kapo", "kapa", "lambdo", "muo", "nuo", "ksio", "omikrono", "omikron", "pio",
+    "roo", "sigmo", "taŭo", "taŭ", "upsilono", "fio", "ĥio", "psio", "omego",
+    # The Turkish spellings ("Alfa Centauri", "Gama Crucis").
+    "gama", "epsilon", "teta", "kapa", "mü", "nü", "ksi", "omikron", "ro", "ipsilon",
+    "fi", "ki", "omega",
+    # The Russian spellings, where they differ from the Ukrainian ("эта
+    # Кассиопеи", "эпсилон Эридана", "кси Персея").
+    "эпсилон", "эта", "кси", "омикрон", "пи", "ипсилон", "фи", "хи", "пси",
+    # The Czech spellings ("Mý Cephei", "Éta Ursae Minoris", "Théta Pegasi").
+    "zéta", "éta", "théta", "ióta", "mý", "ný", "ksí", "pí", "ró", "ypsilon", "fí",
+    "chí", "psí",
+    # The Romanian spellings ("Teta Scorpii", "Gama Boötis").
+    "miu", "niu", "csi", "hi",
 )
 GREEK_LETTERS = "αβγδεζηθικλμνξοπρστυφχψωΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ"
 # A variable star's designation: one or two capitals before the genitive.
@@ -231,6 +282,10 @@ def chart_name(label, iau, genitives, component):
     if not text or text == iau or any(ch.isdigit() for ch in text):
         return None
     if any(genitive.lower() in low for genitive in genitives):
+        return None
+    # Turkish Wikidata describes some stars in place of naming them
+    # ("Kuğu takımyıldızında yıldız", a star in Cygnus).
+    if "takımyıldız" in low:
         return None
     if any(low == word or low.startswith(word + " ") for word in GREEK_WORDS):
         return None
@@ -262,7 +317,7 @@ def bake_names(stars, genitives, src):
     for row in rows:
         labels.setdefault(int(row["code"][3:]), {})[row["lang"]] = row["l"]
     names = []
-    counts = {lang: 0 for lang in WIKIDATA_LANG}
+    counts = {lang: 0 for lang in (*WIKIDATA_LANG, "zh-Hant")}
     for i, s in enumerate(stars):
         entry = by_hd.get(s["hd"]) if s["hd"] is not None else None
         proper = entry["name"] if entry else ""
@@ -282,6 +337,13 @@ def bake_names(stars, genitives, src):
                 if text and text != proper:
                     translated[lang] = text
                     counts[lang] += 1
+            # The traditional script writes the same Chinese name.
+            mine = OVERRIDES["stars"]["zh-Hant"]
+            text = mine.get(s["desig"] or "-",
+                            mine.get(proper, traditional(translated.get("zh", ""))))
+            if text and text != proper:
+                translated["zh-Hant"] = text
+                counts["zh-Hant"] += 1
             if translated:
                 record.append(translated)
         names.append(record)
@@ -470,6 +532,45 @@ OVERRIDES = {
             "Polaris": "Sao Bắc Cực", "Sirius": "Sao Thiên Lang",
             "Vega": "Sao Chức Nữ",
         },
+        # Wikidata files Sirius under its A component ("Sirius A") and
+        # has no Esperanto label for Mizar; these two are as Esperanto
+        # Wikipedia titles them.
+        "eo": {
+            "Mizar": "Mizaro", "Sirius": "Siriuso",
+        },
+        # Turkish Wikipedia titles its star articles by the IAU name or
+        # the Bayer letter, and gives a Turkish name to a handful (Ağız,
+        # Elektra, Kutup Yıldızı, Miraç), which come through Wikidata's
+        # labels. These three labels are not how it titles the star.
+        "tr": {
+            "Aldulfin": "", "Capella": "", "Mintaka": "",
+        },
+        # Russian Wikipedia titles most stars by the Bayer letter and the
+        # named ones as Wikidata labels them, with these exceptions:
+        # Wikidata files Sirius and Fomalhaut under their A components,
+        # gives Elnath its other name (Нат), and describes Aludra, Sargas,
+        # and Yildun by their letters where the articles carry the names.
+        # Aspidiske is titled by its letter and named in the first line.
+        "ru": {
+            "Sirius": "Сириус", "Fomalhaut": "Фомальгаут", "Elnath": "Эльнат",
+            "Aludra": "Алудра", "Aspidiske": "Аспидиске", "Sargas": "Саргас",
+            "Yildun": "Йильдун",
+        },
+        # Romanian charts print the IAU names; Wikidata's two Romanian
+        # labels are a French spelling and a variant. Polaris is the one
+        # star with a Romanian name in everyday use.
+        "ro": {
+            "Aldulfin": "", "Merope": "", "Polaris": "Steaua Polară",
+        },
+        # Czech Wikipedia titles these by the IAU name where Wikidata's
+        # label is another spelling or an older name (Deneb Kaitos, Ksora,
+        # Altarf, Turais, Zuben Eschemali, Gemma, Becrux); Almach has no
+        # article to check Alamak against. Schedir, Polárka, Betelgeuze,
+        # Prokyon, Alkor, and Ras Alhague are the titles.
+        "cs": {
+            "Almach": "", "Alphecca": "", "Diphda": "", "Meridiana": "", "Mimosa": "",
+            "Ruchbah": "", "Tarf": "", "Tureis": "", "Zubeneschamali": "",
+        },
         "zh": {
             "Abt's Star": "阿布特星", "Aldhibah": "紫微左垣四", "Alhiba": "天潢五",
             "Almizan": "右旗三", "Alya": "天市左垣七", "Andrews' star": "",
@@ -488,8 +589,43 @@ OVERRIDES = {
             "ζ Per": "卷舌四", "κ Cyg": "奚仲一", "κ Hya": "张宿五", "λ Cet": "天囷三",
             "τ¹ Hya": "星宿二",
         },
+        # The traditional script's exceptions to the character table: the
+        # names that are transliterations, and one that is a description
+        # in either script.
+        "zh-Hant": {
+            "Abt's Star": "阿布特星", "Pearce's Star": "皮爾斯星",
+            "Plaskett's Star": "普拉斯基特星",
+        },
+        # Greek observing names: Eugenides Foundation, "Το βάθος του ουρανού",
+        # https://www.eef.edu.gr/el/arthra/to-bathos-tou-ouranou/
+        # NOA, "Η Μεγάλη Άρκτος και ένας ουρανός που αγνοούμε",
+        # https://magazine.noa.gr/archives/3144
+        # and the Ainos Dark Sky Guide (Kefalonia Geopark, 2021).
+        "el": {
+            'Sirius': 'Σείριος',
+            'Arcturus': 'Αρκτούρος',
+            'Vega': 'Βέγας',
+            'Altair': 'Αλτάιρ',
+            'Deneb': 'Ντένεμπ',
+            'Antares': 'Αντάρης',
+            'Polaris': 'Πολικός Αστέρας',
+            'Rigel': 'Ρίγκελ',
+            'Aldebaran': 'Αλντεμπαράν',
+        },
     },
     "constellations": {
+        # Noorali T. Jiwaji, "Namna Ya Kuelewa Nyota Za Mbinguni":
+        # https://sites.google.com/site/astronomyintanzania/astronomiakwakiswahili
+        # Only these attested Swahili names are included; the rest keep
+        # their Latin names. This is a display language, not a sky culture.
+        "sw": {"Cru": "Msalaba wa Kusini", "Sco": "Ng'e"},
+        # Czech Wikipedia titles the articles "Souhvězdí Velké medvědice",
+        # in the genitive, and Wikidata carries the nominative names the
+        # charts print; two of its labels are the article's phrase, and
+        # Ursa Minor is Malý medvěd, as the article and the charts have it.
+        "cs": {
+            "Car": "Lodní kýl", "Cru": "Jižní kříž", "UMi": "Malý medvěd",
+        },
         "de": {
             "CMa": "Großer Hund", "CMi": "Kleiner Hund", "Car": "Kiel des Schiffs",
             "Com": "Haar der Berenike", "CrA": "Südliche Krone", "CrB": "Nördliche Krone",
@@ -545,6 +681,11 @@ OVERRIDES = {
             "UMa": "Wielka Niedźwiedzica", "UMi": "Mała Niedźwiedzica", "Vel": "Żagiel",
             "Vir": "Panna", "Vol": "Ryba Latająca", "Vul": "Lisek",
         },
+        # Romanian Wikipedia titles Aquila "Vulturul" and Ophiuchus
+        # "Ofiucus"; Wikidata keeps the Latin for both.
+        "ro": {
+            "Aql": "Vulturul", "Oph": "Ofiucus",
+        },
         "pt": {
             "And": "", "Ant": "Máquina Pneumática", "Aps": "Ave-do-Paraíso", "Aql": "Águia",
             "Aqr": "Aquário", "Ara": "Altar", "Ari": "Carneiro", "Aur": "Cocheiro",
@@ -592,6 +733,95 @@ OVERRIDES = {
             "Sgr": "人马座", "Tau": "金牛座", "Tel": "望远镜座", "TrA": "南三角座",
             "Tri": "三角座", "Tuc": "杜鹃座", "UMa": "大熊座", "UMi": "小熊座",
             "Vel": "船帆座", "Vir": "室女座", "Vol": "飞鱼座", "Vul": "狐狸座",
+        },
+        # The same names in the traditional script, as the Chinese
+        # Wikipedia titles the articles for a reader in Taiwan or Hong
+        # Kong (the two variants agree on all eighty-eight).
+        "zh-Hant": {
+            "And": "仙女座", "Ant": "唧筒座", "Aps": "天燕座", "Aql": "天鷹座",
+            "Aqr": "寶瓶座", "Ara": "天壇座", "Ari": "白羊座", "Aur": "御夫座",
+            "Boo": "牧夫座", "CMa": "大犬座", "CMi": "小犬座", "CVn": "獵犬座",
+            "Cae": "雕具座", "Cam": "鹿豹座", "Cap": "摩羯座", "Car": "船底座",
+            "Cas": "仙后座", "Cen": "半人馬座", "Cep": "仙王座", "Cet": "鯨魚座",
+            "Cha": "蝘蜓座", "Cir": "圓規座", "Cnc": "巨蟹座", "Col": "天鴿座",
+            "Com": "后髮座", "CrA": "南冕座", "CrB": "北冕座", "Crt": "巨爵座",
+            "Cru": "南十字座", "Crv": "烏鴉座", "Cyg": "天鵝座", "Del": "海豚座",
+            "Dor": "劍魚座", "Dra": "天龍座", "Equ": "小馬座", "Eri": "波江座",
+            "For": "天爐座", "Gem": "雙子座", "Gru": "天鶴座", "Her": "武仙座",
+            "Hor": "時鐘座", "Hya": "長蛇座", "Hyi": "水蛇座", "Ind": "印第安座",
+            "LMi": "小獅座", "Lac": "蝎虎座", "Leo": "獅子座", "Lep": "天兔座",
+            "Lib": "天秤座", "Lup": "豺狼座", "Lyn": "天貓座", "Lyr": "天琴座",
+            "Men": "山案座", "Mic": "顯微鏡座", "Mon": "麒麟座", "Mus": "蒼蠅座",
+            "Nor": "矩尺座", "Oct": "南極座", "Oph": "蛇夫座", "Ori": "獵戶座",
+            "Pav": "孔雀座", "Peg": "飛馬座", "Per": "英仙座", "Phe": "鳳凰座",
+            "Pic": "繪架座", "PsA": "南魚座", "Psc": "雙魚座", "Pup": "船尾座",
+            "Pyx": "羅盤座", "Ret": "網罟座", "Scl": "玉夫座", "Sco": "天蠍座",
+            "Sct": "盾牌座", "Ser": "巨蛇座", "Sex": "六分儀座", "Sge": "天箭座",
+            "Sgr": "人馬座", "Tau": "金牛座", "Tel": "望遠鏡座", "TrA": "南三角座",
+            "Tri": "三角座", "Tuc": "杜鵑座", "UMa": "大熊座", "UMi": "小熊座",
+            "Vel": "船帆座", "Vir": "室女座", "Vol": "飛魚座", "Vul": "狐狸座",
+        },
+        # Turkish Wikipedia titles the articles by the Latin name, "Ursa
+        # Major (takımyıldız)", and opens each with the Turkish name,
+        # "Büyükayı"; Wikidata carries only two of those as labels. The
+        # Turkish names are these, as the articles give them; Andromeda,
+        # Perseus, and the rest keep the Latin, as Turkish charts print it.
+        "tr": {
+            "Ant": "Pompa", "Aps": "Cennetkuşu", "Aql": "Kartal", "Aqr": "Kova",
+            "Ara": "Sunak", "Ari": "Koç", "Aur": "Arabacı", "Boo": "Çoban",
+            "CMa": "Büyük Köpek", "CMi": "Küçük Köpek", "CVn": "Av Köpekleri",
+            "Cae": "Çelikkalem", "Cam": "Zürafa", "Cap": "Oğlak", "Car": "Karina",
+            "Cas": "Kraliçe", "Cen": "Erboğa", "Cep": "Kral", "Cet": "Balina",
+            "Cha": "Bukalemun", "Cir": "Pergel", "Cnc": "Yengeç", "Col": "Güvercin",
+            "Com": "Berenis'in Saçı", "CrA": "Güneytacı", "CrB": "Kuzeytacı", "Crt": "Kupa",
+            "Cru": "Güneyhaçı", "Crv": "Karga", "Cyg": "Kuğu", "Del": "Yunus",
+            "Dor": "Kılıçbalığı", "Dra": "Ejderha", "Equ": "Tay", "Eri": "Irmak",
+            "For": "Ocak", "Gem": "İkizler", "Gru": "Turna", "Her": "Herkül", "Hor": "Saat",
+            "Hya": "Suyılanı", "Hyi": "Küçüksuyılanı", "Ind": "Hint", "Lac": "Kertenkele",
+            "Leo": "Aslan", "Lep": "Tavşan", "Lib": "Terazi", "Lup": "Kurt", "Lyn": "Vaşak",
+            "Lyr": "Çalgı", "Men": "Masa", "Mic": "Mikroskop", "Mon": "Tekboynuz",
+            "Mus": "Sinek", "Nor": "Cetvel", "Oct": "Sekizlik", "Oph": "Yılancı",
+            "Ori": "Avcı", "Pav": "Tavus", "Phe": "Anka", "Pic": "Ressam",
+            "PsA": "Güneybalığı", "Psc": "Balıklar", "Pup": "Pupa", "Pyx": "Kumpas",
+            "Ret": "Ağcık", "Scl": "Yontar", "Sco": "Akrep", "Sct": "Kalkan", "Ser": "Yılan",
+            "Sex": "Altılık", "Sge": "Okçuk", "Sgr": "Yay", "Tau": "Boğa", "Tel": "Dürbün",
+            "TrA": "Güney Üçgeni", "Tri": "Üçgen", "Tuc": "Tukan", "UMa": "Büyükayı",
+            "UMi": "Küçükayı", "Vel": "Yelken", "Vir": "Başak", "Vol": "Uçanbalık",
+            "Vul": "Tilkicik",
+        },
+        # Greek chart names: https://www.astronomia.gr/wiki/index.php?title=Αστερισμός
+        # Use the IAU codes (the source table has typos for Scl and Hor).
+        "el": {
+            'And': 'Ανδρομέδα', 'Ant': 'Αντλία', 'Aps': 'Πτηνόν',
+            'Aqr': 'Υδροχόος', 'Aql': 'Αετός', 'Ara': 'Βωμός',
+            'Ari': 'Κριός', 'Aur': 'Ηνίοχος', 'Boo': 'Βοώτης',
+            'Cae': 'Γλυφείον', 'Cam': 'Καμηλοπάρδαλις', 'Cnc': 'Καρκίνος',
+            'CVn': 'Θηρευτικοί Κύνες', 'CMa': 'Μέγας Κύων', 'CMi': 'Μικρός Κύων',
+            'Cap': 'Αιγόκερως', 'Car': 'Τρόπις', 'Cas': 'Κασσιόπη',
+            'Cen': 'Κένταυρος', 'Cep': 'Κηφεύς', 'Cet': 'Κήτος',
+            'Cha': 'Χαμαιλέων', 'Cir': 'Διαβήτης', 'Col': 'Περιστερά',
+            'Com': 'Κόμη Βερενίκης', 'CrA': 'Νότιος Στέφανος', 'CrB': 'Βόρειος Στέφανος',
+            'Crv': 'Κόραξ', 'Crt': 'Κρατήρ', 'Cru': 'Νότιος Σταυρός',
+            'Cyg': 'Κύκνος', 'Del': 'Δελφίνι', 'Dor': 'Δοράς',
+            'Dra': 'Δράκων', 'Equ': 'Ιππάριον', 'Eri': 'Ηριδανός',
+            'For': 'Κάμινος', 'Gem': 'Δίδυμοι', 'Gru': 'Γερανός',
+            'Her': 'Ηρακλής', 'Hor': 'Ωρολόγιον', 'Hya': 'Ύδρα',
+            'Hyi': 'Ύδρος', 'Ind': 'Ινδός', 'Lac': 'Σαύρα',
+            'Leo': 'Λέων', 'LMi': 'Μικρός Λέων', 'Lep': 'Λαγωός',
+            'Lib': 'Ζυγός', 'Lup': 'Λύκος', 'Lyn': 'Λυγξ',
+            'Lyr': 'Λύρα', 'Men': 'Τράπεζα', 'Mic': 'Μικροσκόπιον',
+            'Mon': 'Μονόκερως', 'Mus': 'Μυία', 'Nor': 'Γνώμων',
+            'Oct': 'Οκτάς', 'Oph': 'Οφιούχος', 'Ori': 'Ωρίωνας',
+            'Pav': 'Ταώς', 'Peg': 'Πήγασος', 'Per': 'Περσεύς',
+            'Phe': 'Φοίνιξ', 'Pic': 'Οκρίβας', 'Psc': 'Ιχθύες',
+            'PsA': 'Νότιος Ιχθύς', 'Pup': 'Πρύμνη', 'Pyx': 'Πυξίς',
+            'Ret': 'Δίκτυον', 'Sge': 'Βέλος', 'Sgr': 'Τοξότης',
+            'Sco': 'Σκορπιός', 'Scl': 'Γλύπτης', 'Sct': 'Ασπίς',
+            'Ser': 'Όφις', 'Sex': 'Εξάς', 'Tau': 'Ταύρος',
+            'Tel': 'Τηλεσκόπιον', 'Tri': 'Τρίγωνον', 'TrA': 'Νότιον Τρίγωνον',
+            'Tuc': 'Τουκάνα', 'UMa': 'Μεγάλη Άρκτος', 'UMi': 'Μικρή Άρκτος',
+            'Vel': 'Ιστία', 'Vir': 'Παρθένος', 'Vol': 'Ιπτάμενος Ιχθύς',
+            'Vul': 'Αλώπηξ',
         },
     },
 }
@@ -659,7 +889,7 @@ def bake_constellations(src):
     # The data sets its multi-word names with four-per-em spaces, which
     # no one types into a search; every name goes out with plain ones.
     records = []
-    counts = {lang: 0 for lang in WIKIDATA_LANG}
+    counts = {lang: 0 for lang in (*WIKIDATA_LANG, "zh-Hant", "sw")}
     for f in features:
         p = f["properties"]
         # Serpens is one constellation in two parts; the data carries the
@@ -667,7 +897,9 @@ def bake_constellations(src):
         latin = plain(p["la"] or p["name"])
         found = labels.get(latin, {})
         names = {}
-        for lang, wd_lang in WIKIDATA_LANG.items():
+        # Swahili uses only the sourced overrides, not unchecked labels.
+        for lang in (*WIKIDATA_LANG, "sw"):
+            wd_lang = WIKIDATA_LANG.get(lang)
             text = plain(p.get(lang, "")) if lang in OUR_LANGS else ""
             if not text and wd_lang in found:
                 text = constellation_label(found[wd_lang], latin)
@@ -675,6 +907,10 @@ def bake_constellations(src):
             if text and text != latin:
                 names[lang] = text
                 counts[lang] += 1
+        text = OVERRIDES["constellations"]["zh-Hant"].get(f["id"].rstrip("12"))
+        if text:
+            names["zh-Hant"] = text
+            counts["zh-Hant"] += 1
         ra, dec = f["geometry"]["coordinates"]
         records.append({
             "id": f["id"], "name": latin,
@@ -774,6 +1010,65 @@ def section(markdown, heading):
     return " ".join(text.replace("_", "").split())
 
 
+# The Chinese star names in Stellarium's index are English only:
+# "Northern Pole II", "Curved Array Added IV". The Chinese name behind
+# each is systematic, the asterism's name and an ordinal, 北极二, with 增
+# for an added star, 勾陈增四, so the bake derives it from the asterism's
+# native name. The asterisms with no native name in the index, and the
+# stars named for themselves alone ("Crown Prince", 太子), come from the
+# culture's own zh_CN translation. The contemporary culture has the same
+# star names and is given the same language, so a Chinese reader sees
+# them in Chinese there too. The traditional script's names are the same
+# names in the traditional characters, kept as a variant of the culture.
+CHINESE_CULTURES = ("chinese", "chinese_contemporary")
+_CHINESE_DIGITS = "零一二三四五六七八九"
+
+
+def chinese_numeral(n):
+    """1..99 as the numeral a star name carries: 一, 十, 十一, 二十三."""
+    if n < 10:
+        return _CHINESE_DIGITS[n]
+    tens, ones = divmod(n, 10)
+    return ((_CHINESE_DIGITS[tens] if tens > 1 else "") + "十"
+            + (_CHINESE_DIGITS[ones] if ones else ""))
+
+
+def roman_numeral(text):
+    value = {"I": 1, "V": 5, "X": 10, "L": 50}
+    total = 0
+    for i, ch in enumerate(text):
+        if i + 1 < len(text) and value[text[i + 1]] > value[ch]:
+            total -= value[ch]
+        else:
+            total += value[ch]
+    return total
+
+
+def po_translations(name, src):
+    """{msgid: msgstr} from a culture's translation file."""
+    po = fetch(name, src).decode("utf-8")
+    pairs = re.findall(r'msgid "((?:[^"\\]|\\.)*)"\nmsgstr "((?:[^"\\]|\\.)*)"', po)
+    return {a: b for a, b in pairs if a and b}
+
+
+_STAR_NAME = re.compile(r"^(.*?)( Added)? ([IVXL]+)$")
+
+
+def chinese_native(english, asterisms, translated):
+    """The Chinese name behind an English star name, or ''."""
+    m = _STAR_NAME.match(english)
+    if m:
+        asterism = asterisms.get(m.group(1)) or translated.get(m.group(1))
+        if asterism:
+            # An asterism two enclosures keep carries the enclosure in
+            # its name, 三公 (紫微垣); its stars are 三公二 in each, as the
+            # charts have them, and the chip's designation tells which.
+            asterism = re.sub(r"\s*\([^)]*\)", "", asterism)
+            return asterism + ("增" if m.group(2) else "") + chinese_numeral(
+                roman_numeral(m.group(3)))
+    return translated.get(english, "")
+
+
 def bake_cultures(stars, src):
     hip = hipparcos(src)
     by_hd = {s["hd"]: i for i, s in enumerate(stars) if s["hd"] is not None}
@@ -810,6 +1105,14 @@ def bake_cultures(stars, src):
             if record.get("iau"):
                 entry["iau"] = record["iau"]
             constellations.append(entry)
+        native_lang = (index.get("native_lang") or "").split("_")[0]
+        translated = {}
+        if name in CHINESE_CULTURES:
+            native_lang = "zh"
+            translated = po_translations(f"sc/{name}.zh_CN.po", src)
+            for entry in constellations:
+                entry["native"] = entry["native"] or translated.get(entry["english"], "")
+        asterisms = {e["english"]: e["native"] for e in constellations if e["native"]}
         star_names = {}
         for key, entries in index.get("common_names", {}).items():
             try:
@@ -820,14 +1123,24 @@ def bake_cultures(stars, src):
             if hd is None or hd not in by_hd or not entries:
                 continue
             first = entries[0]
-            star_names[str(by_hd[hd])] = [first.get("english", ""), first.get("native", "")]
+            english, native = first.get("english", ""), first.get("native", "")
+            if name in CHINESE_CULTURES and not native:
+                native = chinese_native(english, asterisms, translated)
+            star_names[str(by_hd[hd])] = [english, native]
+        variants = {}
+        if name in CHINESE_CULTURES:
+            variants["zh-Hant"] = {
+                "constellations": [traditional(e["native"]) for e in constellations],
+                "star_names": {k: traditional(n) for k, (_e, n) in star_names.items()},
+            }
         cultures.append({
             "id": name, "title": md.split("\n", 1)[0].strip("# ").strip(),
             "region": index.get("region", ""),
-            "native_lang": (index.get("native_lang") or "").split("_")[0],
+            "native_lang": native_lang,
             "fallback": bool(index.get("fallback_to_international_names")),
             "authors": section(md, "Author"), "license": section(md, "License"),
             "constellations": constellations, "star_names": star_names,
+            "variants": variants,
         })
         print(f"  {name:24} {len(constellations):3} figures, {len(star_names):4} star names"
               f"  [{cultures[-1]['license'][:40]}]")

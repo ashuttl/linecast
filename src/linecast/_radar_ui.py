@@ -74,7 +74,7 @@ def _panned_place(lat, lon, lang):
             return name
         compass = rs("compass", lang).split()
         return rs("near", lang, dist=round(dist),
-                  unit="km" if metric else "mi",
+                  unit=rs("unit_km", lang) if metric else "mi",
                   dir=compass[round(bearing / 45) % 8], name=name)
 
     city = nearest_city(lat, lon, lang)

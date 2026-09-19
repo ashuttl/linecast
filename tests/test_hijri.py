@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from linecast._hijri import (
+from linecast._calendars.hijri import (
     OBSERVANCES,
     RULE_EPOCH,
     _tabular_start,

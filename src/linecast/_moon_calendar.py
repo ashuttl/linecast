@@ -27,23 +27,23 @@ from linecast._graphics import (
     Framebuffer, bg, fg, get_terminal_size, overlay, visible_len,
 )
 from linecast._i18n import lang_of
-from linecast._lunisolar import (
-    CALENDAR_MERIDIAN_HOURS, CALENDAR_NATIVE_LANG, lunisolar_date,
+from linecast._calendars.lunisolar import (
+    CALENDAR_MERIDIAN_HOURS, calendar_is_native, lunisolar_date,
     resolve_calendar,
 )
-from linecast._hebrew import hebrew_date, holiday_key, rosh_chodesh
-from linecast._hijri import hijri_date, observance_key
+from linecast._calendars.hebrew import hebrew_date, holiday_key, rosh_chodesh
+from linecast._calendars.hijri import hijri_date, observance_key
 from linecast._moon_i18n import (
     MONTHS_I18N, _day_abbrev, _fmt_month_day, _moon_name, _ms, _zh_day_name,
-    _ZH_MONTHS, anahulu_name, festival_table, hebrew_date_label,
+    anahulu_name, festival_table, hebrew_date_label,
     hebrew_holiday_name, hebrew_month_name, hijri_date_label,
     hijri_lang, hijri_month_name, hijri_observance_name, ja_night_name, lunar_date_label,
     pacific_night_label, pacific_night_name, rosh_chodesh_label,
     thai_festival_name, thai_lunar_label, thai_month_label,
-    vi_month_label, wan_phra_label,
+    vi_month_label, wan_phra_label, zh_month_label,
 )
-from linecast._pacific import PACIFIC_CALENDARS, pacific_night
-from linecast._thai_lunar import (
+from linecast._calendars.pacific import PACIFIC_CALENDARS, pacific_night
+from linecast._calendars.thai_lunar import (
     _festival_key as thai_festival_key, is_wan_phra, thai_lunar_date,
 )
 from linecast._seasons import full_moon_name
@@ -76,7 +76,7 @@ def _week_start(runtime):
 
 def _month_title(year, month, lang):
     """`Sep 2026`, `2026年9月` — the grid's headline, in the UI language."""
-    if lang in ("ja", "zh"):
+    if lang in ("ja", "zh", "zh-Hant"):
         return f"{year}年{month}月"
     if lang == "ko":
         return f"{year}년 {month}월"
@@ -191,7 +191,7 @@ def _cell_label(day, cal, native, fest, lang="en", israel=False):
         return fest[(m, d)], True
     if cal == "chinese" and native:
         if d == 1:
-            return ("闰" if leap else "") + _ZH_MONTHS[m - 1], False
+            return zh_month_label(m, leap, lang), False
         return _zh_day_name(d), False
     if d == 1:
         if cal == "japanese" and native:
@@ -249,8 +249,8 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
 
     lang = lang_of(runtime)
     cal = resolve_calendar(calendar_name, lang)
-    native = cal is not None and CALENDAR_NATIVE_LANG.get(cal) == lang
-    fest = (festival_table(cal, native)
+    native = cal is not None and calendar_is_native(cal, lang)
+    fest = (festival_table(cal, lang if native else "en")
             if cal in CALENDAR_MERIDIAN_HOURS else {})
     tzinfo = now_local.tzinfo
     today = now_local.date()
@@ -271,8 +271,10 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     graph_h = max(9, rows - chrome - (0 if fullscreen else 2))
 
     # Two header rows (title, weekdays); the weeks split what remains,
-    # and the leftover centres the grid vertically.
-    cell_h = max(2, (graph_h - 2) // weeks)
+    # and the leftover centres the grid vertically. A window too short
+    # for two rows a week gets one, a glyph beside the day number,
+    # rather than a last week drawn off the bottom of the frame.
+    cell_h = max(1, (graph_h - 2) // weeks)
     cell_w = max(4, graph_w // 7)
     grid_w = cell_w * 7
     left = (graph_w - grid_w) // 2
@@ -352,10 +354,13 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                 limb = 360.0 - limb
             _moon._draw_moon_disc(fb, cx, cy, radius, illum, limb, 0.0,
                                   night=_moon.MOON_NIGHT_RGB)
-        else:
+        elif cell_h > 1 or cell_w >= 6:
             # No room to draw: the phase glyph stands in for the disc.
+            # On a one-row cell it sits after the day number, and a
+            # cell too narrow for both keeps the number.
             icon = moon_phase(noon, runtime)[2]
-            _put(overlays, cx, y0 + cell_h // 2, icon, T, max_x=graph_w)
+            gx = cx if cell_h > 1 else x0 + cell_w - 2
+            _put(overlays, gx, y0 + cell_h // 2, icon, T, max_x=graph_w)
 
         # The day number: today bold and bright, a full moon amber, the
         # other principal phases bright, ordinary days dim.

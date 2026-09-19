@@ -17,12 +17,11 @@ import json
 import math
 import os
 import threading
-import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from linecast._cache import write_bytes_atomic
+from linecast._cache import is_fresh, write_bytes_atomic
 from linecast._http import fetch_bytes, fetch_bytes_cached
 from linecast._paths import cache_dir
 from linecast._png import decode_rgba
@@ -128,7 +127,6 @@ def prune_tile_cache(max_age: float = _PRUNE_MAX_AGE) -> None:
     immutable caches (terrain, vector tiles) are someone else's and eternal.
     """
     root = cache_dir("radar")
-    cutoff = time.time() - max_age
     try:
         if not root.is_dir():
             return
@@ -137,7 +135,9 @@ def prune_tile_cache(max_age: float = _PRUNE_MAX_AGE) -> None:
                 continue
             for tile in provider_dir.glob("*.png"):
                 try:
-                    if tile.stat().st_mtime < cutoff:
+                    # A tile stamped in the future never ages past the
+                    # cutoff; it is as wrong as an old one, so it goes too.
+                    if not is_fresh(tile.stat().st_mtime, max_age):
                         tile.unlink()
                 except OSError:
                     pass  # a concurrent radar may have pruned it first
@@ -152,7 +152,7 @@ def fetch_index(provider: Provider, timeout: float = 15) -> dict[str, Any]:
     """
     path = _cache_dir(provider) / "weather-maps.json"
     try:
-        if path.exists() and (time.time() - path.stat().st_mtime) < _INDEX_TTL:
+        if path.exists() and is_fresh(path.stat().st_mtime, _INDEX_TTL):
             return json.loads(path.read_bytes())
     except (OSError, ValueError) as exc:
         log_failure("cache", f"read of {path.name}", exc, fallback="refetching")

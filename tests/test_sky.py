@@ -322,8 +322,24 @@ class TestCatalogue:
         assert sky.star_names("pl")[0] == ("Syriusz", "α CMa")
         assert sky.star_names("uk")[0] == ("Сіріус", "α CMa")
         assert sky.star_names("vi")[0] == ("Sao Thiên Lang", "α CMa")
+        assert sky.star_names("eo")[0] == ("Siriuso", "α CMa")
+        polaris = next(i for i, (n, _d) in sky.star_names().items() if n == "Polaris")
+        assert sky.star_names("tr")[polaris] == ("Kutup Yıldızı", "α UMi")
+        assert sky.star_names("ru")[polaris] == ("Полярная звезда", "α UMi")
+        assert sky.star_names("ro")[polaris] == ("Steaua Polară", "α UMi")
+        assert sky.star_names("cs")[polaris] == ("Polárka", "α UMi")
+        assert sky.star_names("ru")[0] == ("Сириус", "α CMa")
+        assert sky.star_names("cs")[0] == ("Sirius", "α CMa")
         vega = next(i for i, (n, _d) in sky.star_names().items() if n == "Vega")
         assert sky.star_names("zh")[vega] == ("织女一", "α Lyr")
+        assert sky.star_names("zh-Hant")[vega] == ("織女一", "α Lyr")
+        # The traditional script names every star the simplified does, the
+        # steps of 三台 with their 台 and the terrace 漸臺 with its 臺.
+        hant = sky.star_names("zh-Hant")
+        assert all(hant[i][0] for i, (n, _d) in sky.star_names("zh").items() if n)
+        sheliak = next(i for i, (n, _d) in sky.star_names().items() if n == "Sheliak")
+        talitha = next(i for i, (n, _d) in sky.star_names().items() if n == "Talitha")
+        assert hant[sheliak][0] == "漸臺二" and hant[talitha][0] == "上台一"
         assert sky.star_names("en") is sky.star_names()
         assert sky.star_names("xx") == sky.star_names()
         polaris = next(i for i, (n, _d) in sky.star_names().items() if n == "Polaris")
@@ -335,17 +351,36 @@ class TestCatalogue:
             assert set(names) == set(sky.star_names())
             assert all(proper != desig for proper, desig in names.values() if proper)
 
+    def test_swahili_uses_sourced_constellation_names_and_catalogue_fallbacks(self):
+        records = {r["id"]: r for r in sky.constellations()}
+        assert sky.constellation_name(records["Cru"], "sw") == "Msalaba wa Kusini"
+        assert sky.constellation_name(records["Sco"], "sw") == "Ng'e"
+        assert sky.constellation_name(records["UMa"], "sw") == "Ursa Major"
+        assert sky.star_names("sw")[0] == ("Sirius", "α CMa")
+
     def test_the_constellations_have_their_names_in_every_language(self):
         from linecast._i18n import LANGUAGE_CODES
         ursa = next(r for r in sky.constellations() if r["id"] == "UMa")
         assert ursa["name"] == "Ursa Major"
         for code in LANGUAGE_CODES:
             # Indonesian charts print the Latin names, as the IAU does.
-            if code not in ("en", "id"):
+            # Swahili keeps Latin where a local name has not been verified.
+            if code not in ("en", "id", "sw"):
                 assert sky.constellation_name(ursa, code) != ursa["name"], code
         assert sky.constellation_name(ursa, "pl") == "Wielka Niedźwiedzica"
         assert sky.constellation_name(ursa, "uk") == "Велика Ведмедиця"
         assert sky.constellation_name(ursa, "vi") == "Đại Hùng"
+        assert sky.constellation_name(ursa, "eo") == "Granda Ursino"
+        assert sky.constellation_name(ursa, "tr") == "Büyükayı"
+        assert sky.constellation_name(ursa, "ru") == "Большая Медведица"
+        assert sky.constellation_name(ursa, "ro") == "Ursa Mare"
+        assert sky.constellation_name(ursa, "cs") == "Velká medvědice"
+        assert sky.constellation_name(ursa, "zh") == "大熊座"
+        assert sky.constellation_name(ursa, "zh-Hant") == "大熊座"
+        coma = next(r for r in sky.constellations() if r["id"] == "Com")
+        assert sky.constellation_name(coma, "zh") == "后发座"
+        assert sky.constellation_name(coma, "zh-Hant") == "后髮座"
+        assert all(r["names"].get("zh-Hant") for r in sky.constellations())
         assert sky.constellation_name(ursa, "en") == ursa["name"]
 
     def test_the_constellations(self):
@@ -598,6 +633,16 @@ class TestSearch:
         from linecast._sky_search import targets
         return targets(_runtime(lang=lang))
 
+    def test_escape_and_quit_close_the_panel(self):
+        # Ctrl-C on Windows arrives as 'quit'; `q` is a letter here
+        from linecast._sky_search import SkySearch
+        for action in ("escape", "quit"):
+            panel = SkySearch(_runtime(), refresh=lambda: None)
+            panel.start()
+            panel.handle("char:v")
+            assert panel.handle(action) is None
+            assert not panel.open and panel.query == ""
+
     def test_finds_by_name_designation_and_constellation(self):
         from linecast._sky_search import search
         pool = self._pool()
@@ -776,11 +821,44 @@ class TestCultures:
         zh = {f["name"] for f in sky.figures_for("chinese", "zh")}
         en = {f["name"] for f in sky.figures_for("chinese", "en")}
         assert "毕宿" in zh and "Net" in en and "Net" not in zh
-        # The star names are English-only in the data, so they stay out
-        # of the Chinese view rather than mix scripts.
-        assert sky.names_for("chinese", "zh") == {}
+        # The three asterisms the index leaves without a native name
+        # take theirs from the culture's translation.
+        assert {"星宿", "龟", "平"} <= zh
+        assert len(sky.figures_for("chinese", "zh")) == len(sky.figures_for("chinese", "en"))
+        # Stellarium's index names the stars in English only; the bake
+        # derives the Chinese name from the asterism and the ordinal.
+        chinese = sky.names_for("chinese", "zh")
         english = {n for n, _d in sky.names_for("chinese", "en").values()}
         assert len(english) > 2000 and "Northern Pole II" in english
+        # Every named star, in Chinese; an asterism both enclosures
+        # keep, 三公, names its stars alike in each, as the sky does.
+        assert len(chinese) == len(sky.names_for("chinese", "en"))
+        chinese = {n for n, _d in chinese.values()}
+        assert {"北极二", "庶子增二", "太子"} <= chinese
+        assert not any(name.isascii() for name in chinese)
+        modern = {n for n, _d in sky.names_for("chinese-modern", "zh").values()}
+        assert "北极二" in modern
+
+    def test_chinese_speaks_the_traditional_script_to_its_readers(self):
+        # The same names in the traditional characters, for both Chinese
+        # cultures; the English stays where it was, and another language
+        # still gets the English.
+        zh = {f["name"] for f in sky.figures_for("chinese", "zh")}
+        hant = {f["name"] for f in sky.figures_for("chinese", "zh-Hant")}
+        assert "毕宿" in zh and "畢宿" in hant and "毕宿" not in hant and "Net" not in hant
+        assert len(hant) == len(zh)
+        assert {"星宿", "龜", "平"} <= hant
+        names = {n for n, _d in sky.names_for("chinese", "zh-Hant").values()}
+        assert {"北極二", "庶子增二", "太子", "漸臺二", "三台一", "上台增一",
+                "積屍增三", "鈇鉞一"} <= names
+        assert len(names) == len({n for n, _d in sky.names_for("chinese", "zh").values()})
+        assert not any(name.isascii() for name in names)
+        modern = {n for n, _d in sky.names_for("chinese-modern", "zh-Hant").values()}
+        assert "北極二" in modern
+        assert "Net" in {f["name"] for f in sky.figures_for("chinese", "fr")}
+        assert sky.culture_title("chinese", "zh-Hant") == "中國傳統"
+        assert "Northern Pole II" in {
+            n for n, _d in sky.names_for("chinese-modern", "en").values()}
 
     def test_a_culture_keeping_the_iau_figures_keeps_their_names(self):
         rey = sky.figures_for("rey", "fr")
@@ -905,6 +983,38 @@ class TestCultures:
         assert search("thien lang", pool)[0].label == "Sao Thiên Lang · α CMa"
         assert search("đại hùng", pool)[0].kind == "constellation"
         assert search("bắc đẩu", pool)[0].kind == "asterism"
+        pool = targets(_runtime(lang="eo"))
+        assert search("siriuso", pool)[0].label == "Siriuso · α CMa"
+        assert search("ĝemeloj", pool)[0].label == "Ĝemeloj · Gemini"
+        assert search("gxemeloj", pool)[0].label == "Ĝemeloj · Gemini"
+        assert search("granda ĉaro", pool)[0].kind == "asterism"
+        pool = targets(_runtime(lang="tr"))
+        assert search("kutup yıldızı", pool)[0].label == "Kutup Yıldızı · α UMi"
+        assert search("kutup yildizi", pool)[0].label == "Kutup Yıldızı · α UMi"
+        assert search("ikizler", pool)[0].label == "İkizler · Gemini"
+        assert search("buyukayi", pool)[0].label == "Büyükayı · Ursa Major"
+        assert search("büyük kepçe", pool)[0].kind == "asterism"
+        pool = targets(_runtime(lang="ru"))
+        assert search("полярная звезда", pool)[0].label == "Полярная звезда · α UMi"
+        assert search("близнецы", pool)[0].label == "Близнецы · Gemini"
+        assert search("большой ковш", pool)[0].kind == "asterism"
+        pool = targets(_runtime(lang="ro"))
+        assert search("steaua polara", pool)[0].label == "Steaua Polară · α UMi"
+        assert search("gemenii", pool)[0].label == "Gemenii · Gemini"
+        assert search("carul mare", pool)[0].kind == "asterism"
+        pool = targets(_runtime(lang="cs"))
+        assert search("polarka", pool)[0].label == "Polárka · α UMi"
+        assert search("blíženci", pool)[0].label == "Blíženci · Gemini"
+        assert search("velky vuz", pool)[0].kind == "asterism"
+        pool = targets(_runtime(lang="sw"))
+        assert search("msalaba wa kusini", pool)[0].label == "Msalaba wa Kusini · Crux"
+        assert search("crux", pool)[0].label == "Msalaba wa Kusini · Crux"
+        assert search("ng'e", pool)[0].label == "Ng'e · Scorpius"
+        assert search("sirius", pool)[0].label == "Sirius · α CMa"
+        assert search("zuhura", pool)[0].kind == "planet"
+        pool = targets(_runtime(lang="zh-Hant"))
+        assert search("織女一", pool)[0].label == "織女一 · α Lyr"
+        assert search("大熊座", pool)[0].label == "大熊座 · Ursa Major"
         pool = targets(_runtime(lang="ja"))
         assert search("シリウス", pool)[0].key == 0
 

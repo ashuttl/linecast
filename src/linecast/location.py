@@ -18,13 +18,8 @@ from linecast._config import read_config, save_config, saved_location
 
 def _parse_latlng(text):
     """Parse 'lat,lng' into floats, or return None if it isn't one."""
-    parts = text.split(",")
-    if len(parts) != 2:
-        return None
-    try:
-        return float(parts[0]), float(parts[1])
-    except ValueError:
-        return None
+    from linecast._location import parse_latlng
+    return parse_latlng(text)
 
 
 def _cmd_show():

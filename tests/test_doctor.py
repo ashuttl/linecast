@@ -195,7 +195,8 @@ class TestJson:
             "units", "units_source", "tides_units", "tides_units_source",
             "clock", "clock_source", "week", "week_source", "location",
             "location_source", "language", "language_source",
-            "calendar", "calendar_source", "culture", "culture_source"}
+            "calendar", "calendar_source", "culture", "culture_source",
+            "hours", "hours_source"}
         assert isinstance(report["environment"], dict)
         assert report["providers"] is None
         from linecast._paths import cache_root

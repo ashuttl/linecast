@@ -65,6 +65,7 @@ def _location_label(lat, lng):
     Prefers the label saved via `linecast location set`, then the cached
     reverse geocode (same source weather uses), then the address that
     reverse geocode returned beside an empty name, then bare coordinates.
+    The geocoder is asked in the running command's language.
     """
     try:
         from linecast._config import saved_location
@@ -78,8 +79,11 @@ def _location_label(lat, lng):
     except Exception:
         pass
     try:
+        from linecast._i18n import lang_of
+        from linecast._runtime import current_runtime
         from linecast._weather_sources import _reverse_geocode
-        name, _country, addr = _reverse_geocode(lat, lng)
+        name, _country, addr = _reverse_geocode(
+            lat, lng, lang=lang_of(current_runtime()))
         if name:
             return name
         from_address = _address_label(addr)
@@ -107,19 +111,82 @@ def _local_timezone_name():
         return None
 
 
-def build_payload(lat, lng, now=None, location=None):
+def _hours_block(hours, now):
+    """The day in a tradition's hours: the edges, the reading of *now*,
+    and every mark with its name, in order. None with no system on."""
+    if hours is None:
+        return None
+    from linecast._hours import elapsed, fmt_duration, next_mark, reading
+    from linecast._hours.i18n import (
+        mark_name, mark_native, reading_name, variant_name,
+    )
+    from linecast._runtime import RuntimeConfig, current_runtime
+    runtime = current_runtime(RuntimeConfig)
+
+    def local_iso(dt):
+        return _iso(dt.astimezone(now.tzinfo) if now.tzinfo else dt.astimezone())
+
+    r = reading(hours, now)
+    coming = next_mark(hours, now)
+    reading_now = None
+    if r is not None:
+        reading_now = {
+            "label": reading_name(hours.system, r, runtime),
+            "night": r.night,
+            "hour": r.index,
+            "fraction": round(r.fraction, 4),
+            "hour_seconds": int(round(r.hour_seconds)),
+        }
+        # Swahili time, as it is said aloud, for a voice to read.
+        if hours.system == "swahili":
+            from linecast._hours.swahili import moment, spoken
+            reading_now["spoken"] = spoken(moment(r))
+    marks = []
+    for mark in hours.marks:
+        entry = {"key": mark.key,
+                 "name": mark_name(hours.system, mark.key, runtime, hours=hours),
+                 "time": local_iso(mark.at)}
+        native = mark_native(hours.system, mark.key)
+        if native:
+            entry["native"] = native
+        marks.append(entry)
+    return {
+        "system": hours.system,
+        "variant": hours.variant,
+        "variant_name": variant_name(hours.system, hours.variant),
+        "day_start": local_iso(hours.day_start) if hours.day_start else None,
+        "day_end": local_iso(hours.day_end) if hours.day_end else None,
+        "divisions": hours.divisions,
+        "night_divisions": hours.night_divisions,
+        "now": reading_now,
+        "next": None if coming is None else {
+            "key": coming.key,
+            "time": local_iso(coming.at),
+            "in": fmt_duration(elapsed(now, coming.at).total_seconds()),
+        },
+        "fast": None if not hours.fast else {
+            "start": local_iso(hours.fast[0]),
+            "end": local_iso(hours.fast[1]),
+        },
+        "marks": marks,
+    }
+
+
+def build_payload(lat, lng, now=None, location=None, hours=None):
     """Build the `sunshine --json` payload dict for a location.
 
     *now* is a local datetime (defaults to the current machine-local
     moment). A timezone-aware *now* pins the solar math and the payload's
     timezone to its zone — that's how a pinned location in another time
     zone gets that location's local times. *location* overrides the
-    display name (skips the geocode lookup).
+    display name (skips the geocode lookup). *hours* is the day read
+    in a tradition's hours (a _hours.DayHours), for an `hours` block.
     """
     from linecast.sunshine import polar_state, solar_times, sun_elevation
 
     if now is None:
         now = datetime.now()
+    hours_block = _hours_block(hours, now if now.tzinfo else now.astimezone())
     tz_name = None
     tz_offset_h = None
     if now.tzinfo is not None:
@@ -178,4 +245,5 @@ def build_payload(lat, lng, now=None, location=None):
         "next_event": next_event,
         "elevation_deg": round(sun_elevation(lat, lng, now_hour, doy, tz_offset_h), 2),
         "polar": polar,
+        "hours": hours_block,
     }

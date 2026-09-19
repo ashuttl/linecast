@@ -14,6 +14,7 @@ back to the shell.
 import json
 import os
 import select
+import signal
 import subprocess
 import sys
 import threading
@@ -87,6 +88,23 @@ class TestReadUntilReply:
         monkeypatch.setattr(_term, "answered", True)
         r, _w = pipe
         _term.read_until_reply(r, 0.05)
+        assert _term.answered is True
+
+    def test_waits_for_as_many_replies_as_are_owed(self, pipe, fresh_answer):
+        """Two queries out, so the first reply is not the last word."""
+        r, w = pipe
+        os.write(w, b"\033[1;1R")
+        threading.Timer(0.1, os.write, (w, b"\033[<35;3;3M\033[24;1R")).start()
+        buf, answered = _term.read_until_reply(r, 1.0, replies=2)
+        assert answered is True
+        assert buf.endswith(b"\033[24;1R")
+        assert _term.answered is True
+
+    def test_one_reply_of_two_still_marks_the_terminal(self, pipe, fresh_answer):
+        r, w = pipe
+        os.write(w, b"\033[1;1R")
+        _buf, answered = _term.read_until_reply(r, 0.1, replies=2)
+        assert answered is False
         assert _term.answered is True
 
 
@@ -274,16 +292,48 @@ WHEEL_UP = b"\033[<64;5;5M"
 CPR_QUERY = _term.CPR_QUERY
 
 
+# The same loop, run so a signal that escapes it is reported instead of
+# ending the child, along with whether the tty came back as it was.
+_SIGNAL_CHILD = """
+import json, os, signal, sys, termios
+from linecast import _live
+fd = sys.stdin.fileno()
+def settings():
+    # BSD marks a tty put back into canonical mode with PENDIN until the
+    # next read reprocesses its input, and reports the bit through
+    # tcgetattr meanwhile; it says nothing about what was restored.
+    attrs = termios.tcgetattr(fd)
+    attrs[3] &= ~termios.PENDIN
+    return attrs
+before = settings()
+def render(offset_minutes=0, **kw):
+    sys.stderr.write("FRAME %d\\n" % offset_minutes)
+    sys.stderr.flush()
+    return "."
+how = "returned"
+try:
+    _live.live_loop(render, interval=60, mouse=True)
+except KeyboardInterrupt:
+    how = "KeyboardInterrupt"
+except SystemExit as exc:
+    how = "SystemExit %s" % exc.code
+after = settings()
+print(json.dumps({"how": how, "tty_restored": after == before,
+                  "winch_restored": signal.getsignal(signal.SIGWINCH) == signal.SIG_DFL}),
+      file=sys.stderr)
+"""
+
+
 class Child:
     """live_loop in a child on a pty, with the test as its terminal."""
 
-    def __init__(self):
+    def __init__(self, code=_CHILD):
         self.master, slave = os.openpty()
         env = dict(os.environ, LINECAST_THEME="off", LINECAST_THEME_POLL="0",
                    LINECAST_THEME_WATCH="", TERM="xterm-256color",
                    PYTHONPATH=_src)
         self.proc = subprocess.Popen(
-            [sys.executable, "-c", _CHILD], stdin=slave, stdout=slave,
+            [sys.executable, "-c", code], stdin=slave, stdout=slave,
             stderr=subprocess.PIPE, env=env, close_fds=True)
         os.close(slave)
         os.set_blocking(self.proc.stderr.fileno(), False)
@@ -390,3 +440,65 @@ def test_a_terminal_that_never_answers_is_asked_once():
     result = child.finish()
     assert child.queries() == 1   # and not on the way out either
     assert result == {"left": ""}
+
+
+@needs_pty
+def test_a_notch_ahead_of_the_reply_still_paints():
+    """The terminal got a notch before it finished reading the frame, so
+    the notch sits ahead of the frame's reply in the queue.  The notch
+    is held for the input behind it, as any burst is; the reply behind
+    it paints nothing of its own, so the held repaint must follow it,
+    not wait for the idle interval."""
+    child = Child()
+    child.until(lambda: child.frames == [0] and child.queries() == 1)
+    child.type(b"\033[1;1R")
+    child.pump(0.1)
+    child.type(WHEEL_UP)
+    child.until(lambda: child.frames == [0, 15] and child.queries() == 2)
+    child.type(WHEEL_UP + b"\033[1;1R")
+    child.until(lambda: child.frames == [0, 15, 30], seconds=2)
+    child.pump(0.3)
+    assert child.frames == [0, 15, 30], child.err   # and the reply painted nothing
+    child.type(b"\033[1;1R")
+    child.type(b"q")
+    assert child.finish() == {"left": ""}
+
+
+@needs_pty
+def test_quitting_with_a_reply_owed_waits_for_the_last_one():
+    """q arrives while the last frame's query is still unanswered.  A
+    terminal that is behind answers that query first and the exit query
+    after; the drain must wait for the second, or the second is what
+    the shell reads."""
+    child = Child()
+    child.until(lambda: child.frames == [0] and child.queries() == 1)
+    child.type(b"\033[1;1R")
+    child.pump(0.1)
+    child.type(WHEEL_UP)
+    child.until(lambda: child.frames == [0, 15] and child.queries() == 2)
+    child.type(b"q")
+    child.until(lambda: b"\033[?1049l" + CPR_QUERY in child.out)
+    child.type(b"\033[1;1R")
+    child.pump(0.15)
+    child.type(b"\033[24;1R")
+    assert child.finish() == {"left": ""}
+
+
+@needs_pty
+@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM])
+def test_a_second_signal_during_the_drain_still_restores_the_tty(signum):
+    """The first signal ends the loop; the drain then waits on a terminal
+    that is slow to answer.  A second signal cuts the wait short, and
+    the tty and the handlers still go back before the shell gets them."""
+    child = Child(_SIGNAL_CHILD)
+    child.until(lambda: child.frames == [0] and child.queries() == 1)
+    child.type(b"\033[1;1R")     # answered once: the drain will wait for a reply
+    child.pump(0.1)
+    child.proc.send_signal(signum)
+    child.until(lambda: b"\033[?1049l" + CPR_QUERY in child.out)
+    child.pump(0.2)
+    child.proc.send_signal(signum)
+    result = child.finish()
+    assert result["tty_restored"], result
+    assert result["winch_restored"], result
+    assert result["how"] != "returned", result   # the second signal did get through

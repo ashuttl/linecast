@@ -406,7 +406,8 @@ class TestWeatherFetchThread:
     @pytest.fixture
     def stubs(self, monkeypatch):
         weather = _mod("weather")
-        monkeypatch.setattr(weather, "_reverse_geocode", lambda lat, lng: ("Here", "US", {}))
+        monkeypatch.setattr(weather, "_reverse_geocode",
+                            lambda lat, lng, lang=None: ("Here", "US", {}))
         monkeypatch.setattr(weather, "fetch_aqi", lambda lat, lng: None)
         monkeypatch.setattr(weather, "fetch_historical", lambda *a, **kw: None)
         monkeypatch.setattr(weather, "fetch_alerts", lambda *a, **kw: [])
@@ -429,8 +430,7 @@ class TestWeatherFetchThread:
         _run_main(stubs, ["weather", "--print", "--debug", "--location", "43.68,-70.37"],
                   monkeypatch)
         err = capsys.readouterr().err
-        line = ("[linecast] worker: weather fetch failed -- RuntimeError: boom; "
-                "the data in hand\n")
+        line = "[linecast] worker: forecast failed -- RuntimeError: boom; omitted\n"
         assert line in err
         after = err.split(line, 1)[1]
         assert after.startswith("Traceback (most recent call last):\n")

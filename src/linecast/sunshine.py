@@ -316,10 +316,11 @@ def _declination_on(year, doy):
 def _declination(doy):
     """Solar declination in degrees, from the ephemeris.
 
-    doy is a day of the machine's current year; 0 and 367 reach into the
-    neighboring years, as callers' yesterday and tomorrow do.
+    doy is a day of the user's current year; 0 and 367 reach into the
+    neighboring years, as callers' yesterday and tomorrow do. The year
+    is read through _local_today so a test can pin it.
     """
-    return _declination_on(datetime.now().year, doy)
+    return _declination_on(_local_today().year, doy)
 
 def solar_times(lat, lng, doy, tz_offset_h=None):
     """Sunrise/sunset as local decimal hours.
@@ -517,8 +518,9 @@ def corner_label(location_label, clock, graph_w):
     return clock
 
 
-def corner_label_cells(label, graph_w):
-    """(x, char) overlay cells for a label right-aligned in the top row.
+def corner_label_cells(label, graph_w, left=False):
+    """(x, char) overlay cells for a label right-aligned in the top row,
+    or left-aligned with *left*, one cell in from the edge.
 
     Laid out by cell width, so a double-width glyph takes two columns:
     its own, and an empty one after it that the framebuffer skips.
@@ -544,26 +546,30 @@ def corner_label_cells(label, graph_w):
         last_base = len(cells) - 1
         cells.extend((used + k, "") for k in range(1, w))
         used += w
-    x0 = graph_w - used - 1
+    x0 = 1 if left else graph_w - used - 1
     return [(x0 + off, ch) for off, ch in cells if 0 <= x0 + off < graph_w]
 
 
 def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=None,
-           tz_offset_h=None, location_label="", now=None):
+           tz_offset_h=None, location_label="", now=None, hours=None):
     """Build the complete multi-line solar arc display.
 
     `now` is the shown moment as a datetime, scrubbing included; when
     given, the corner names its time beside the place, and its weekday
-    when that is not the user's own.
+    when that is not the user's own. `hours` is the day read in a
+    tradition's hours (a _hours.DayHours) for the top-left corner and
+    the marks line under the chart, which costs the chart a row.
     """
     if runtime is None:
         runtime = current_runtime(RuntimeConfig)
     icons = _icon_set(runtime)
     cols, rows = get_terminal_size()
+    if now is None:
+        hours = None
 
     # --- dimensions: fill the terminal ---
     graph_w = max(30, cols)
-    graph_h = max(6, rows - (1 if fullscreen else 6))
+    graph_h = max(6, rows - ((2 if hours else 1) if fullscreen else 6))
     total_spy = graph_h * 2
 
     # --- elevation curve for today ---
@@ -704,8 +710,29 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     label = location_label
     if now is not None:
         label = corner_label(location_label, clock_label(now, runtime), graph_w)
+    # The tradition's reading of the moment in the other corner, the
+    # same dim ink: the halachic hour, the Roman hora, the Edo koku.
+    # Where the two would meet, or the reading would run past its half
+    # of the row, the place yields first, as it does to a long name,
+    # then the reading's second part, then the reading.
+    left = ""
+    if hours is not None:
+        from linecast._sunshine_hours import corner_reading
+        left = corner_reading(hours, now, runtime)
+        while left and (visible_len(left) > _corner_limit(graph_w)
+                        or visible_len(left) + visible_len(label) + 3 > graph_w):
+            if label != clock_label(now, runtime):
+                label = clock_label(now, runtime)
+            elif " \u00b7 " in left:
+                left = left.split(" \u00b7 ")[0]
+            else:
+                left = ""
     if label:
         for x, ch in corner_label_cells(label, graph_w):
+            cell = fb.cell_bg(x, 0)
+            overlays[(x, 0)] = (ch, corner_label_ink(cell), False)
+    if left:
+        for x, ch in corner_label_cells(left, graph_w, left=True):
             cell = fb.cell_bg(x, 0)
             overlays[(x, 0)] = (ch, corner_label_ink(cell), False)
     sun_cell_row = sun_spy_i // 2
@@ -716,7 +743,10 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     from linecast import _help
     from linecast._i18n import lang_of
     lang = lang_of(runtime)
-    info_width = cols - visible_len(_help.hint(lang, cols)) - 2 if fullscreen else cols
+    # The help hint sits on the last line; with a marks line under the
+    # info line, that is the marks line.
+    hint_w = visible_len(_help.hint(lang, cols)) + 2 if fullscreen else 0
+    info_width = cols if hours else cols - hint_w
     lines.append(
         _info_line(
             lat,
@@ -731,6 +761,9 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
             tz_offset_h,
         )
     )
+    if hours is not None:
+        from linecast._sunshine_hours import hours_line
+        lines.append(hours_line(hours, now, cols - hint_w, runtime))
     if fullscreen:
         lines[-1] = _help.footer(lines[-1], cols, lang)
 
@@ -857,10 +890,36 @@ def main():
         off = dt.utcoffset()
         return None if off is None else off.total_seconds() / 3600
 
+    # The day read in a tradition's hours, from the flag, the saved
+    # setting, or the language; None keeps the civil clock alone. The
+    # table is built for the shown moment's date, cached by date, so
+    # scrubbing pays for it once a day.
+    from linecast._hours import hours_now, resolve_hours
+    hours_system, hours_variant = resolve_hours(args.hours, runtime.lang)
+    # The prayer-time method follows the country of the place shown.
+    # resolve_location leaves the country blank for an override, so
+    # it is reverse geocoded then (cached), as the moon does for the
+    # Hebrew holidays; still blank, the Muslim World League's angles.
+    hours_country = country
+    if hours_system == "islamic" and not hours_country:
+        try:
+            from linecast._weather_sources import _reverse_geocode
+            hours_country = _reverse_geocode(lat, lng)[1]
+        except Exception:
+            hours_country = None
+
+    def _hours(now):
+        if hours_system is None:
+            return None
+        return hours_now(hours_system, now, lat, lng, tz, hours_variant,
+                         country=hours_country)[0]
+
     if runtime.json_mode:
         import json
         from linecast._sunshine_json import build_payload
-        print(json.dumps(build_payload(lat, lng, now=_now()), ensure_ascii=False))
+        now = _now()
+        print(json.dumps(build_payload(lat, lng, now=now, hours=_hours(now)),
+                         ensure_ascii=False))
         return
 
     if runtime.oneline:
@@ -869,7 +928,8 @@ def main():
         doy = now.timetuple().tm_yday
         now_hour = now.hour + now.minute / 60 + now.second / 3600
         print(sunshine_oneline(lat, lng, doy, now_hour, runtime,
-                               tz_offset_h=_offset_hours(now)))
+                               tz_offset_h=_offset_hours(now),
+                               hours=_hours(now), now=now))
         return
 
     live = runtime.live
@@ -923,6 +983,7 @@ def main():
             tz_offset_h=_offset_hours(now),
             location_label=location_label,
             now=now,
+            hours=_hours(now),
         )
 
     if not live:

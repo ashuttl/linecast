@@ -98,7 +98,7 @@ class TestUkrainianWeather:
         now = datetime(2026, 8, 24, 12)
         hourly = {"time": ["2026-08-24T11:00"], "precipitation": [4.0],
                   "snowfall": [0], "weather_code": [63]}
-        assert "4.0 mm дощу за останні 24 год" in _past_precip_line(hourly, now, runtime)
+        assert "4.0 мм дощу за останні 24 год" in _past_precip_line(hourly, now, runtime)
 
     def test_weekdays_use_standard_abbreviations(self):
         assert DAY_NAMES["uk"] == ["пн", "вт", "ср", "чт", "пт", "сб", "нд"]
@@ -137,6 +137,361 @@ class TestVietnameseWeather:
 
     def test_weekdays_are_numbered_from_monday_as_the_second_day(self):
         assert DAY_NAMES["vi"] == ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+
+
+class TestEsperantoWeather:
+    def test_comparative_sentences_are_impersonal(self):
+        """The weather is an adverb in Esperanto: "estas varme", not "varma"."""
+        runtime = SimpleNamespace(lang="eo", celsius=True)
+        now = datetime(2026, 8, 24, 15)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
+        same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
+        assert warmer == "Morgaŭ estos iom pli varme ol hodiaŭ"
+        assert same == "Morgaŭ estos proksimume same varme kiel hodiaŭ"
+
+    def test_precipitation_phrases_read_as_clock_times(self):
+        runtime = SimpleNamespace(lang="eo", use_24h=True)
+        now = datetime(2026, 8, 24, 12, 10)
+        hourly = {
+            "time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
+            "precipitation_probability": [0, 0, 0, 0, 0, 80],
+            "weather_code": [0, 0, 0, 0, 0, 95],
+        }
+        line = _precipitation_line(hourly, now, runtime)
+        assert "Fulmotondro verŝajne komenciĝos ĉirkaŭ 17:00" in line
+
+    def test_past_precipitation_takes_da(self):
+        runtime = SimpleNamespace(lang="eo", metric=True, precip_unit="mm")
+        now = datetime(2026, 8, 24, 12)
+        hourly = {"time": ["2026-08-24T11:00"], "precipitation": [4.0],
+                  "snowfall": [0], "weather_code": [63]}
+        assert "4.0 mm da pluvo en la lastaj 24 h" in _past_precip_line(hourly, now, runtime)
+
+    def test_weekdays_use_standard_abbreviations(self):
+        assert DAY_NAMES["eo"] == ["lun", "mar", "mer", "ĵaŭ", "ven", "sab", "dim"]
+
+
+class TestTurkishWeather:
+    def test_comparative_sentences_carry_the_suffix_in_the_template(self):
+        """The reference day takes a case suffix, "bugünden", "dünle"."""
+        runtime = SimpleNamespace(lang="tr", celsius=True)
+        now = datetime(2026, 8, 24, 15)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
+        same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
+        earlier = comparative_sentence({"temperature_2m_max": [20, 24, 22]},
+                                       datetime(2026, 8, 24, 9), runtime)
+        assert warmer == "Yarın bugünden biraz daha sıcak olacak"
+        assert same == "Yarın bugünle yaklaşık aynı sıcaklıkta olacak"
+        assert earlier == "Bugün dünden daha sıcak olacak"
+
+    def test_precipitation_phrases_read_as_clock_times(self):
+        runtime = SimpleNamespace(lang="tr", use_24h=True)
+        now = datetime(2026, 8, 24, 12, 10)
+        hourly = {
+            "time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
+            "precipitation_probability": [0, 0, 0, 0, 0, 80],
+            "weather_code": [0, 0, 0, 0, 0, 95],
+        }
+        line = _precipitation_line(hourly, now, runtime)
+        assert "Gök gürültülü fırtına muhtemelen 17:00 civarında başlayacak" in line
+
+    def test_past_precipitation_puts_the_span_first(self):
+        runtime = SimpleNamespace(lang="tr", metric=True, precip_unit="mm")
+        now = datetime(2026, 8, 24, 12)
+        hourly = {"time": ["2026-08-24T11:00"], "precipitation": [4.0],
+                  "snowfall": [0], "weather_code": [63]}
+        assert "Son 24 saatte 4.0 mm yağmur" in _past_precip_line(hourly, now, runtime)
+
+    def test_weekdays_use_standard_abbreviations(self):
+        assert DAY_NAMES["tr"] == ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
+
+
+class TestRussianWeather:
+    def test_comparative_sentences_are_idiomatic(self):
+        runtime = SimpleNamespace(lang="ru", celsius=True)
+        now = datetime(2026, 8, 24, 15)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
+        same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
+        assert warmer == "Завтра будет немного теплее, чем сегодня"
+        assert same == "Завтра будет примерно так же тепло, как сегодня"
+
+    def test_precipitation_phrases_read_as_clock_times(self):
+        runtime = SimpleNamespace(lang="ru", use_24h=True)
+        now = datetime(2026, 8, 24, 12, 10)
+        hourly = {
+            "time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
+            "precipitation_probability": [0, 0, 0, 0, 0, 80],
+            "weather_code": [0, 0, 0, 0, 0, 95],
+        }
+        line = _precipitation_line(hourly, now, runtime)
+        assert "Гроза, вероятно, начнётся около 17:00" in line
+
+    def test_the_preposition_changes_shape_before_tuesday(self):
+        """"в пн" but "во вт", as Russian writes it before вт."""
+        from linecast._weather_i18n import ON_DAY_FORMS
+        days = DAY_NAMES["ru"]
+        phrases = [ON_DAY_FORMS["ru"].get(i, _s("on_day", SimpleNamespace(lang="ru")))
+                   .format(day=days[i]) for i in range(7)]
+        assert phrases == ["в пн", "во вт", "в ср", "в чт", "в пт", "в сб", "в вс"]
+
+    def test_past_precipitation_takes_the_genitive(self):
+        runtime = SimpleNamespace(lang="ru", metric=True, precip_unit="mm")
+        now = datetime(2026, 8, 24, 12)
+        hourly = {"time": ["2026-08-24T11:00"], "precipitation": [4.0],
+                  "snowfall": [0], "weather_code": [63]}
+        assert "4.0 мм дождя за последние 24 ч" in _past_precip_line(hourly, now, runtime)
+
+    def test_weekdays_use_standard_abbreviations(self):
+        assert DAY_NAMES["ru"] == ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
+
+
+class TestRomanianWeather:
+    def test_comparative_sentences_are_idiomatic(self):
+        runtime = SimpleNamespace(lang="ro", celsius=True)
+        now = datetime(2026, 8, 24, 15)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
+        same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
+        assert warmer == "Mâine va fi puțin mai cald decât azi"
+        assert same == "Mâine va fi cam la fel de cald ca azi"
+
+    def test_precipitation_phrases_are_notes_on_the_kind(self):
+        """"Ploaie" is indefinite, so the line is a note, not a clause."""
+        runtime = SimpleNamespace(lang="ro", use_24h=True)
+        now = datetime(2026, 8, 24, 12, 10)
+        hourly = {
+            "time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
+            "precipitation_probability": [0, 0, 0, 0, 0, 80],
+            "weather_code": [0, 0, 0, 0, 0, 95],
+        }
+        assert "Furtună probabil în jur de 17:00" in _precipitation_line(hourly, now, runtime)
+        hourly["weather_code"] = [63, 63, 63, 63, 63, 0]
+        hourly["precipitation_probability"] = [80, 80, 80, 80, 80, 0]
+        assert "Ploaie, încetează în jur de 17:00" in _precipitation_line(hourly, now, runtime)
+
+    def test_past_precipitation_takes_de(self):
+        runtime = SimpleNamespace(lang="ro", metric=True, precip_unit="mm")
+        now = datetime(2026, 8, 24, 12)
+        hourly = {"time": ["2026-08-24T11:00"], "precipitation": [4.0],
+                  "snowfall": [0], "weather_code": [63]}
+        assert "4.0 mm de ploaie în ultimele 24 h" in _past_precip_line(hourly, now, runtime)
+
+    def test_weekdays_use_standard_abbreviations(self):
+        assert DAY_NAMES["ro"] == ["lun", "mar", "mie", "joi", "vin", "sâm", "dum"]
+
+
+class TestCzechWeather:
+    def test_comparative_sentences_are_idiomatic(self):
+        runtime = SimpleNamespace(lang="cs", celsius=True)
+        now = datetime(2026, 8, 24, 15)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
+        same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
+        assert warmer == "Zítra bude o něco tepleji než dnes"
+        assert same == "Zítra bude přibližně stejně teplo jako dnes"
+
+    def test_precipitation_phrases_read_as_clock_times(self):
+        runtime = SimpleNamespace(lang="cs", use_24h=True)
+        now = datetime(2026, 8, 24, 12, 10)
+        hourly = {
+            "time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
+            "precipitation_probability": [0, 0, 0, 0, 0, 80],
+            "weather_code": [0, 0, 0, 0, 0, 95],
+        }
+        assert "Bouřka pravděpodobně začne kolem 17:00" in _precipitation_line(hourly, now, runtime)
+
+    def test_the_preposition_changes_shape_before_wednesday_and_thursday(self):
+        """"v po" but "ve st" and "ve čt", as Czech writes it."""
+        from linecast._weather_i18n import ON_DAY_FORMS
+        days = DAY_NAMES["cs"]
+        phrases = [ON_DAY_FORMS["cs"].get(i, _s("on_day", SimpleNamespace(lang="cs")))
+                   .format(day=days[i]) for i in range(7)]
+        assert phrases == ["v po", "v út", "ve st", "ve čt", "v pá", "v so", "v ne"]
+
+    def test_past_precipitation_takes_the_genitive(self):
+        runtime = SimpleNamespace(lang="cs", metric=True, precip_unit="mm")
+        now = datetime(2026, 8, 24, 12)
+        hourly = {"time": ["2026-08-24T11:00"], "precipitation": [4.0],
+                  "snowfall": [0], "weather_code": [63]}
+        assert "4.0 mm deště za posledních 24 h" in _past_precip_line(hourly, now, runtime)
+
+    def test_the_percent_sign_is_set_off_with_a_space(self):
+        from linecast._i18n import fmt_percent
+        assert fmt_percent(40, SimpleNamespace(lang="cs")) == "40 %"
+        assert fmt_percent(40, SimpleNamespace(lang="ru")) == "40%"
+        assert fmt_percent(40, SimpleNamespace(lang="ro")) == "40%"
+
+    def test_weekdays_use_standard_abbreviations(self):
+        assert DAY_NAMES["cs"] == ["po", "út", "st", "čt", "pá", "so", "ne"]
+
+
+class TestSwahili:
+    def test_comparative_sentences_and_precipitation(self):
+        runtime = SimpleNamespace(lang="sw", celsius=True, use_24h=True,
+                                  metric=True, precip_unit="mm")
+        now = datetime(2026, 8, 24, 15)
+        assert comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime) == (
+            "Joto la kesho litakuwa juu kidogo kuliko la leo")
+        assert comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime) == (
+            "Joto la kesho litakuwa karibu sawa na la leo")
+        assert comparative_sentence({"temperature_2m_max": [20, 21, 22]},
+                                    now.replace(hour=9), runtime) == (
+            "Joto la leo litakuwa karibu sawa na la jana")
+        assert comparative_sentence({"temperature_2m_max": [20, 21, 18]}, now, runtime) == (
+            "Joto la kesho litakuwa chini kidogo kuliko la leo")
+        hourly = {"time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
+                  "precipitation_probability": [0, 0, 0, 0, 0, 80],
+                  "weather_code": [0, 0, 0, 0, 0, 95]}
+        assert "Mvua ya radi huenda ikaanza karibu saa 17:00" in _precipitation_line(
+            hourly, now.replace(hour=12, minute=10), runtime)
+        hourly = {"time": ["2026-08-24T14:00"], "precipitation": [4.0],
+                  "snowfall": [0], "weather_code": [63]}
+        assert "Kiasi cha mvua katika saa 24 zilizopita: 4.0 mm" in _past_precip_line(
+            hourly, now, runtime)
+
+    def test_precipitation_verbs_agree_when_starting_ending_or_continuing(self):
+        from linecast._weather_sections import precipitation_sentence
+        runtime = SimpleNamespace(lang="sw", use_24h=True)
+        now = datetime(2026, 8, 24, 12, 10)
+        times = [f"2026-08-24T{h:02d}:00" for h in range(12, 15)]
+        for code in (51, 53, 55, 56, 57, 61, 73, 95):
+            drizzle = code in (51, 53, 55, 56, 57)
+            desc = WMO_NAMES_I18N["sw"][code]
+            for codes, suffix in (
+                ([0, code, code], "huenda yakaanza" if drizzle else "huenda ikaanza"),
+                ([code, 0, 0], "yataisha" if drizzle else "itaisha"),
+                ([code] * 3, "yataendelea" if drizzle else "itaendelea"),
+            ):
+                hourly = {"time": times, "weather_code": codes,
+                          "precipitation_probability": [80 if c else 0 for c in codes]}
+                when = "siku nzima" if codes == [code] * 3 else "hivi karibuni"
+                assert precipitation_sentence(hourly, now, runtime) == f"{desc} {suffix} {when}"
+
+    def test_calendar_labels_remain_distinct_in_narrow_columns(self):
+        from linecast._moon_i18n import _fmt_month_day
+        from linecast._sunshine_i18n import axis_month_labels, relative_day
+        runtime = SimpleNamespace(lang="sw")
+        assert DAY_NAMES["sw"] == ["J3", "J4", "J5", "Alh", "Ij", "J1", "J2"]
+        assert len({name[:2] for name in DAY_NAMES["sw"]}) == 7
+        assert _fmt_month_day(datetime(2026, 8, 24), runtime) == "24 Ago"
+        assert axis_month_labels(runtime)[2] == "Mac"
+        assert relative_day(-1, runtime) == "siku 1 iliyopita"
+        assert relative_day(-2, runtime) == "siku 2 zilizopita"
+
+    def test_season_events_name_the_month_in_both_hemispheres(self):
+        from linecast._moon_i18n import _season_label
+        runtime = SimpleNamespace(lang="sw")
+        for event, month in enumerate(("Machi", "Juni", "Septemba", "Desemba")):
+            assert _season_label(event, -6.8, runtime).endswith(month)
+            assert _season_label(event, 51.5, runtime).endswith(month)
+
+
+class TestTurkishPercentAndUnits:
+    def test_the_percent_sign_leads_in_turkish(self):
+        from linecast._i18n import fmt_percent
+        assert fmt_percent(40, SimpleNamespace(lang="tr")) == "%40"
+        assert fmt_percent(40.4, SimpleNamespace(lang="en")) == "40%"
+        assert fmt_percent(40, None) == "40%"
+
+    def test_the_wind_reads_km_sa_on_screen_and_km_h_in_json(self):
+        from linecast._runtime import WeatherRuntime
+        defaults = dict(live=False, icons="emoji", oneline=False, celsius=True,
+                        metric=True, shading=False)
+        turkish = WeatherRuntime(lang="tr", **defaults)
+        english = WeatherRuntime(lang="en", **defaults)
+        assert turkish.wind_unit_label == "km/sa"
+        assert turkish.wind_unit == "km/h"
+        assert english.wind_unit_label == "km/h"
+        imperial = WeatherRuntime(lang="tr", **{**defaults, "metric": False})
+        assert imperial.wind_unit_label == "mph"
+
+
+class TestTablesComplete:
+    """Every language table carries every English key, so nothing falls
+    back to English unnoticed (issue #111). The exceptions are keys whose
+    English text is the default the other languages share by design."""
+
+    # A unit that reads the same in most languages is written once, in
+    # English, and only the languages that spell it differently carry it.
+    DEFAULTS = {
+        "linecast._weather_i18n": {"unit_kmh", "unit_mm", "unit_cm"},
+        "linecast._radar_i18n": {"unit_km"},
+    }
+    # Keys a language needs that English does not: the Slavic few-form,
+    # Romanian's one and its "de" form for a count of days, and a dawn
+    # and a dusk word where one twilight word will not do, and Swahili
+    # ma-class agreement for drizzle.
+    EXTRAS = {"linecast._sunshine_i18n": {"in_days_few", "days_ago_few"},
+              "linecast._moon_i18n": {"in_days_one", "in_days_many"},
+              "linecast._weather_i18n": {"starting_ma", "ending_ma", "continuing_ma",
+                                        "ending_becoming_ma", "continuing_becoming_ma",
+                                        "starting_becoming_ma"}}
+    VARIANTS = {"linecast._sunshine_i18n": ("_dawn", "_dusk"),
+                "linecast._weather_i18n": ("_one",)}
+
+    def _tables(self):
+        import importlib
+        import pkgutil
+        import linecast
+        for info in pkgutil.walk_packages(linecast.__path__, "linecast."):
+            if "i18n" not in info.name:
+                continue
+            module = importlib.import_module(info.name)
+            for name, obj in vars(module).items():
+                if isinstance(obj, dict) and isinstance(obj.get("en"), dict):
+                    yield info.name, name, obj
+
+    def test_every_language_has_every_english_key(self):
+        from linecast._i18n import LANGUAGE_CODES
+        gaps = []
+        for module, name, table in self._tables():
+            english = set(table["en"]) - self.DEFAULTS.get(module, set())
+            for lang in LANGUAGE_CODES:
+                missing = sorted(english - set(table.get(lang, {})))
+                if missing:
+                    gaps.append(f"{module}.{name} {lang}: {missing}")
+        assert not gaps, "\n".join(gaps)
+
+    def test_no_language_carries_a_key_english_does_not(self):
+        dead = []
+        for module, name, table in self._tables():
+            english = set(table["en"]) | self.EXTRAS.get(module, set())
+            suffixes = self.VARIANTS.get(module, ())
+            for lang, strings in table.items():
+                extra = sorted(
+                    key for key in set(strings) - english
+                    if not any(key.endswith(end) and key[:-len(end)] in table["en"]
+                               for end in suffixes))
+                if extra:
+                    dead.append(f"{module}.{name} {lang}: {extra}")
+        assert not dead, "\n".join(dead)
+
+
+class TestUnitLabels:
+    def _runtime(self, lang, metric=True):
+        from linecast._runtime import WeatherRuntime
+        return WeatherRuntime(live=False, icons="emoji", oneline=False, celsius=metric,
+                              metric=metric, shading=False, lang=lang)
+
+    def test_the_wind_reads_as_the_language_writes_it(self):
+        from linecast._weather_i18n import fmt_wind
+        assert fmt_wind(12, self._runtime("en")) == "12km/h"
+        assert fmt_wind(12, self._runtime("nl")) == "12 km/u"
+        assert fmt_wind(12, self._runtime("da")) == "12 km/t"
+        assert fmt_wind(12, self._runtime("de")) == "12 km/h"
+        assert fmt_wind(12, self._runtime("ja")) == "12km/h"
+        assert fmt_wind(12, self._runtime("tr")) == "12 km/sa"
+        assert fmt_wind(12, self._runtime("eo")) == "12 km/h"
+        assert fmt_wind(12, self._runtime("uk")) == "12 км/год"
+        assert fmt_wind(12, self._runtime("th")) == "12 กม./ชม."
+        assert fmt_wind(12, self._runtime("tr", metric=False)) == "12mph"
+
+    def test_the_rain_and_the_radar_distance_follow(self):
+        from linecast._radar_i18n import rs
+        assert self._runtime("uk").precip_unit_label == "мм"
+        assert self._runtime("uk").precip_unit == "mm"
+        assert self._runtime("fr").precip_unit_label == "mm"
+        assert rs("unit_km", "uk") == "км" and rs("unit_km", "fr") == "km"
+        near = rs("near", "uk", dist=12, unit=rs("unit_km", "uk"), dir="ПнС", name="Київ")
+        assert near == "12 км на ПнС від Київ"
 
 
 class TestWeatherLocaleImprovements:
@@ -256,6 +611,7 @@ class TestTwilightDirection:
             "de": ("bürgerliche Morgendämmerung",
                    "bürgerliche Abenddämmerung"),
             "zh": ("民用晨光", "民用昏影"),
+            "zh-Hant": ("民用晨光", "民用昏影"),
             "uk": ("цивільний світанок", "цивільні сутінки"),
             "vi": ("bình minh dân dụng", "hoàng hôn dân dụng"),
         }
@@ -316,6 +672,44 @@ class TestRelativeDays:
                     -1: "1 день тому", -3: "3 дні тому", -12: "12 днів тому"}
         for diff, text in expected.items():
             assert relative_day(diff, runtime) == text, diff
+
+
+    def test_russian_counts_days_in_three_forms(self):
+        from linecast._sunshine_i18n import relative_day
+        runtime = SimpleNamespace(lang="ru")
+        expected = {1: "через 1 день", 2: "через 2 дня", 5: "через 5 дней",
+                    11: "через 11 дней", 21: "через 21 день", 24: "через 24 дня",
+                    -1: "1 день назад", -3: "3 дня назад", -12: "12 дней назад"}
+        for diff, text in expected.items():
+            assert relative_day(diff, runtime) == text, diff
+
+    def test_czech_counts_one_then_two_to_four_then_the_rest(self):
+        """Unlike Russian, 21 and 22 take the plural of five."""
+        from linecast._sunshine_i18n import relative_day
+        runtime = SimpleNamespace(lang="cs")
+        expected = {1: "za 1 den", 2: "za 2 dny", 4: "za 4 dny", 5: "za 5 dní",
+                    21: "za 21 dní", 22: "za 22 dní",
+                    -1: "před 1 dnem", -3: "před 3 dny", -12: "před 12 dny"}
+        for diff, text in expected.items():
+            assert relative_day(diff, runtime) == text, diff
+
+    def test_romanian_puts_de_before_the_noun_from_twenty(self):
+        from linecast._sunshine_i18n import relative_day
+        runtime = SimpleNamespace(lang="ro")
+        expected = {1: "peste 1 zi", 2: "peste 2 zile", 19: "peste 19 zile",
+                    20: "peste 20 de zile", 21: "peste 21 de zile", 101: "peste 101 zile",
+                    -1: "acum 1 zi", -3: "acum 3 zile", -30: "acum 30 de zile"}
+        for diff, text in expected.items():
+            assert relative_day(diff, runtime) == text, diff
+
+    def test_the_moon_counts_romanian_days_the_same_way(self):
+        from linecast._moon_i18n import _ms
+        runtime = SimpleNamespace(lang="ro")
+        assert _ms("in_days", runtime, days="1") == "peste 1 zi"
+        assert _ms("in_days", runtime, days="3") == "peste 3 zile"
+        assert _ms("in_days", runtime, days="25") == "peste 25 de zile"
+        assert _ms("in_days", runtime, days="3.5") == "peste 3.5 zile"
+        assert _ms("in_days", runtime=SimpleNamespace(lang="ru"), days="25") == "через 25 д"
 
 
 class TestMonthAxisLabels:

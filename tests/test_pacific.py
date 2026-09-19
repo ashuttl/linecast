@@ -29,7 +29,7 @@ from linecast._moon_i18n import (
     po_mahina_name,
     refaluwasch_name,
 )
-from linecast._pacific import (
+from linecast._calendars.pacific import (
     ANAHULU_COUNSEL,
     CALENDARS,
     PACIFIC_CALENDARS,

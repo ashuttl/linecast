@@ -408,7 +408,7 @@ def _collect_preferences():
     from linecast._runtime import resolve_lang
     language, language_source = resolve_lang(None, env)
     from linecast._config import saved_calendar
-    from linecast._lunisolar import CALENDAR_OF_LANG
+    from linecast._calendars.lunisolar import CALENDAR_OF_LANG
     saved_cal = saved_calendar()
     if saved_cal is not None:
         calendar, calendar_source = saved_cal, "config"
@@ -425,6 +425,15 @@ def _collect_preferences():
         native = CULTURE_OF_LANG.get(language)
         culture = native or "none"
         culture_source = f"auto: {language}" if native else "auto"
+    from linecast._config import saved_hours
+    from linecast._hours import HOURS_OF_LANG
+    saved_hours_ = saved_hours()
+    if saved_hours_ is not None:
+        hours, hours_source = saved_hours_, "config"
+    else:
+        native = HOURS_OF_LANG.get(language)
+        hours = native or "none"
+        hours_source = f"auto: {language}" if native else "auto"
     return {
         "units": weather,
         "units_source": weather_source,
@@ -442,6 +451,8 @@ def _collect_preferences():
         "calendar_source": calendar_source,
         "culture": culture,
         "culture_source": culture_source,
+        "hours": hours,
+        "hours_source": hours_source,
     }
 
 
@@ -572,6 +583,7 @@ def render(report):
         ("language", f"{prefs['language']} ({prefs['language_source']})"),
         ("calendar", f"{prefs['calendar']} ({prefs['calendar_source']})"),
         ("culture", f"{prefs['culture']} ({prefs['culture_source']})"),
+        ("hours", f"{prefs['hours']} ({prefs['hours_source']})"),
     ]
     out += [""] + _section("preferences", rows)
 

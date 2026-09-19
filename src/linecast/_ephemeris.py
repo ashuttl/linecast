@@ -586,3 +586,70 @@ def moon_horizontal_parallax_deg(dt_utc):
     The topocentric altitude is the geocentric one less this times the
     cosine of the altitude."""
     return math.degrees(math.asin(1.0 / _moon_distance_er(dt_utc)))
+
+
+# ---------------------------------------------------------------------------
+# The Sun's day: transit, and the moments it reaches a depression
+#
+# The traditional hours (_hours and its tables) want the moment the Sun
+# is a given angle below the horizon, rising or setting, for angles the
+# 0.833° horizon does not cover: 16.1° for alot hashachar, 7°21′40″ for
+# the Edo 明六つ, 18° for Fajr. Each is one root of the altitude on one
+# side of the transit, and the altitude is monotonic on each side, so a
+# bisection over the ephemeris finds it to the second.
+# ---------------------------------------------------------------------------
+
+def _to_utc(dt):
+    """An aware UTC datetime for *dt*; a naive one is machine-local."""
+    if dt.tzinfo is None:
+        dt = dt.astimezone()
+    return dt.astimezone(timezone.utc)
+
+
+def sun_transit_utc(local_date, lng_deg, tzinfo=None):
+    """The Sun's upper transit on the local date, in UTC.
+
+    Solved from the hour angle: at transit the local sidereal time
+    equals the Sun's right ascension. Two corrections from a mean-noon
+    guess bring it within a second; the Sun's RA moves a degree a day.
+    """
+    local_noon = datetime(local_date.year, local_date.month, local_date.day, 12,
+                          tzinfo=tzinfo)
+    t = _to_utc(local_noon)
+    for _ in range(3):
+        ra, _dec = _sun_ra_dec(t)
+        hour_angle = (_lst_deg(t, lng_deg) - ra + 540.0) % 360.0 - 180.0
+        t -= timedelta(hours=hour_angle / 15.0 / 1.0027379)
+    return t
+
+
+def sun_depression_utc(local_date, lat_deg, lng_deg, depression_deg,
+                       evening, tzinfo=None):
+    """When the Sun's centre is *depression_deg* below the horizon on the
+    local date, rising (morning) or setting (*evening*), in UTC; None
+    when it never is: a Nordic June at 16.1°, a polar night at 0.833°.
+
+    The altitude climbs from the lower transit to the upper and falls
+    again, so each half of the day holds one crossing at most.
+    """
+    target = -depression_deg
+    noon = sun_transit_utc(local_date, lng_deg, tzinfo)
+
+    def alt(t):
+        return sun_alt_az_deg(t, lat_deg, lng_deg)[0]
+
+    if alt(noon) < target:
+        return None
+    lo, hi = (noon, noon + timedelta(hours=12)) if evening else (noon - timedelta(hours=12), noon)
+    far = hi if evening else lo
+    if alt(far) > target:
+        return None
+    # Bisection to the second: 2^-17 of twelve hours.
+    for _ in range(17):
+        mid = lo + (hi - lo) / 2
+        above = alt(mid) > target
+        if above == evening:
+            lo = mid
+        else:
+            hi = mid
+    return lo + (hi - lo) / 2

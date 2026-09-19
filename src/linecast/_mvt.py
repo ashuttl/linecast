@@ -89,10 +89,22 @@ def _uint32s(v, wt):
     """
     if wt == 0:
         return [v]
-    out, i = [], 0
-    while i < len(v):
-        n, i = _varint(v, i)
-        out.append(n)
+    # one pass over the bytes instead of a _varint call per value:
+    # geometry blobs are most of a tile, and this loop is most of a decode
+    out = []
+    append = out.append
+    acc = shift = 0
+    for b in v:
+        if b < 0x80:
+            append(acc | (b << shift))
+            acc = shift = 0
+        else:
+            acc |= (b & 0x7F) << shift
+            shift += 7
+            if shift > 63:
+                raise ValueError("varint too long")
+    if shift:
+        raise ValueError("truncated varint")
     return out
 
 
@@ -137,30 +149,35 @@ def _geometry(cmds):
     parts, part, x, y = [], [], 0, 0
     i, n = 0, len(cmds)
     while i < n:
-        cid, count = cmds[i] & 0x7, cmds[i] >> 3
+        c = cmds[i]
+        cid, count = c & 0x7, c >> 3
         i += 1
-        if cid == 1:  # MoveTo; count > 1 means MultiPoint
-            for _ in range(count):
-                x += _unzigzag(cmds[i])
-                y += _unzigzag(cmds[i + 1])
-                i += 2
-                if part:
-                    parts.append(part)
-                part = [(x, y)]
-        elif cid == 2:  # LineTo
-            for _ in range(count):
-                x += _unzigzag(cmds[i])
-                y += _unzigzag(cmds[i + 1])
-                i += 2
-                part.append((x, y))
+        if cid == 1 or cid == 2:
+            end = i + 2 * count
+            if end > n:
+                raise ValueError("truncated geometry")
+            if cid == 1:  # MoveTo; count > 1 means MultiPoint
+                for j in range(i, end, 2):
+                    dx, dy = cmds[j], cmds[j + 1]
+                    x += (dx >> 1) ^ -(dx & 1)
+                    y += (dy >> 1) ^ -(dy & 1)
+                    if part:
+                        parts.append(part)
+                    part = [(x, y)]
+            else:  # LineTo
+                append = part.append
+                for j in range(i, end, 2):
+                    dx, dy = cmds[j], cmds[j + 1]
+                    x += (dx >> 1) ^ -(dx & 1)
+                    y += (dy >> 1) ^ -(dy & 1)
+                    append((x, y))
+            i = end
         elif cid == 7:  # ClosePath
             if part:
                 parts.append(part)
             part = []
         else:
             raise ValueError(f"bad geometry command {cid}")
-        if i > n:
-            raise ValueError("truncated geometry")
     if part:
         parts.append(part)
     return parts
@@ -193,10 +210,15 @@ def decode_tile(data: bytes) -> dict[str, dict[str, Any]]:
 
     Empty input (a 0-byte "empty tile" response) decodes to {}.
     """
-    if data[:2] == b"\x1f\x8b":
-        data = gzip.decompress(data)
-    elif data[:1] == b"\x78":
-        data = zlib.decompress(data)
+    # a wrapper cut short raises its own kinds (EOFError, zlib.error,
+    # gzip's OSError); to the caller it is one more corrupt tile
+    try:
+        if data[:2] == b"\x1f\x8b":
+            data = gzip.decompress(data)
+        elif data[:1] == b"\x78":
+            data = zlib.decompress(data)
+    except (OSError, EOFError, zlib.error) as exc:
+        raise ValueError(f"bad compression: {exc}") from exc
     layers = {}
     for fn, _wt, v in _fields(data):
         if fn != 3:  # Tile.layers

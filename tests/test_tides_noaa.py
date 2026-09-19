@@ -206,6 +206,30 @@ class StationLookupTests(unittest.TestCase):
         write_cache.assert_not_called()
 
 
+class StationListTests(unittest.TestCase):
+    def setUp(self):
+        noaa._stations_memo = None
+
+    def tearDown(self):
+        noaa._stations_memo = None
+
+    def test_an_answer_without_stations_is_not_kept_as_the_list(self):
+        # fetch_json_cached has written the answer to disk by the time
+        # it is looked at; left there, it is fresh for a month and every
+        # lookup in that month finds no station anywhere
+        cache_file = common.cache_dir() / "all_stations.json"
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_text('{"errorMsg": "down"}')
+        with patch.object(noaa, "read_cache", return_value=None), \
+             patch.object(noaa, "fetch_json_cached",
+                          return_value={"errorMsg": "down"}), \
+             patch.object(noaa, "write_cache") as write_cache:
+            self.assertEqual(noaa.fetch_all_stations_noaa(), [])
+        write_cache.assert_not_called()
+        self.assertFalse(cache_file.exists())
+        self.assertIsNone(noaa._stations_memo)
+
+
 class SubordinateStationTests(unittest.TestCase):
     STATIONS = [
         {"id": "8418268", "name": "Fore River", "type": "S"},

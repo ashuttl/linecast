@@ -51,7 +51,8 @@ def read_limited(resp: "http.client.HTTPResponse", limit: int) -> bytes:
 
     An honest oversized response is refused from its Content-Length
     before a byte is read; a lying or chunked one is cut off as soon as
-    the stream crosses the limit.
+    the stream crosses the limit.  An early EOF before Content-Length
+    bytes have arrived is a failed fetch, never a cacheable partial body.
     """
     declared = getattr(resp, "length", None)
     if declared is not None and declared > limit:
@@ -61,6 +62,11 @@ def read_limited(resp: "http.client.HTTPResponse", limit: int) -> bytes:
     while True:
         chunk = resp.read(_CHUNK)
         if not chunk:
+            # HTTPResponse.read(amt) does not raise on a short body as
+            # read() does, so streaming must check the original length.
+            if declared is not None and total < declared:
+                from http.client import IncompleteRead
+                raise IncompleteRead(b"".join(chunks), declared - total)
             return b"".join(chunks)
         total += len(chunk)
         if total > limit:
@@ -69,11 +75,22 @@ def read_limited(resp: "http.client.HTTPResponse", limit: int) -> bytes:
 
 
 def gunzip_limited(data: bytes, limit: int) -> bytes:
-    """Decompress a gzip body, refusing to expand past limit bytes."""
+    """Decode every gzip member, rejecting incomplete or oversized bodies."""
+    import gzip
     import zlib
-    d = zlib.decompressobj(31)
-    out = d.decompress(data, limit)
-    if d.unconsumed_tail:
+    from io import BytesIO
+
+    if limit < 0:
+        raise ValueError("decompressed body limit must be nonnegative")
+    try:
+        with gzip.GzipFile(fileobj=BytesIO(data)) as stream:
+            # One extra byte detects overflow and forces the trailer check
+            # even when the decoded body fits the limit exactly. GzipFile
+            # also handles concatenated members under the same total cap.
+            out = stream.read(limit + 1)
+    except (EOFError, OSError, zlib.error) as exc:
+        raise ValueError(f"invalid gzip body: {exc}") from exc
+    if len(out) > limit:
         raise ValueError(f"decompressed body exceeds cap of {limit} bytes")
     return out
 
@@ -204,7 +221,7 @@ def fetch_bytes(url: str, headers: dict[str, str] | None = None,
 
     Raises HTTPError for a non-2xx status, OSError (timeouts, refused
     connections, TLS failures) on transport trouble, and ValueError for
-    a body past the limit, compressed or inflated.  file:// URLs read
+    invalid gzip or a body past the limit, compressed or inflated. file:// URLs read
     the local file, as they did under urllib.
     """
     if debug_enabled():

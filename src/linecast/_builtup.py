@@ -56,7 +56,6 @@ def _fetch_tile(z, x, y, timeout=15):
     here", yet it is also what a still-uploading or updated tileset
     says, and that kind of wrong answer shouldn't be permanent.
     """
-    import time
     cpath = cache_dir("maps", f"builtup_{z}_{x}_{y}.png")
     try:
         if cpath.exists():
@@ -64,7 +63,8 @@ def _fetch_tile(z, x, y, timeout=15):
             if data:
                 note_tile_use(cpath)  # so the sweep sees a tile still in use
                 return data
-            if time.time() - cpath.stat().st_mtime < 30 * 86400:
+            from linecast._cache import is_fresh
+            if is_fresh(cpath.stat().st_mtime, 30 * 86400):
                 return None  # zero bytes = cached "nothing built here"
     except OSError as exc:
         log_failure("cache", f"read of {cpath.name}", exc, fallback="refetching")

@@ -5,6 +5,7 @@ import math
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # Ensure the worktree src is preferred over any installed version.
 # (No sys.modules purge here: this file is collected after other test
@@ -182,6 +183,22 @@ class TestNoStation:
                           location="Westbrook, Maine")
         assert p["location"] == "Westbrook, Maine"
         assert p["station"] is None
+
+
+class TestNaiveNowAwareData:
+    """A station whose metadata gave no zone hands over a naive now,
+    while CHS and TideCheck data is aware; the payload is built from
+    the same instant read in the data's zone rather than failing."""
+
+    def test_now_is_read_in_the_data_zone(self):
+        tz = ZoneInfo("Europe/Lisbon")
+        preds = [(dt.replace(tzinfo=tz), h) for dt, h in _predictions()]
+        hilo = [(dt.replace(tzinfo=tz), h, k) for dt, h, k in _hilo()]
+        p = build_payload("Cascais", _runtime(), FIXED_NOW, preds, hilo)
+        assert p["fetched_at"] == FIXED_NOW.astimezone(tz).strftime("%Y-%m-%dT%H:%M")
+        assert p["now_height"] is not None
+        assert p["events"]
+        assert json.loads(json.dumps(p, ensure_ascii=False)) == p
 
 
 class TestLiveSuppression:

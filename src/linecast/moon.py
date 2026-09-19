@@ -40,13 +40,13 @@ from linecast._i18n import lang_of
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
-from linecast._lunisolar import (
-    CALENDAR_MERIDIAN_HOURS, CALENDAR_NATIVE_LANG, current_term,
+from linecast._calendars.lunisolar import (
+    CALENDAR_MERIDIAN_HOURS, calendar_is_native, current_term,
     lunisolar_date, next_lunar_event, next_term, resolve_calendar,
 )
-from linecast._hebrew import hebrew_date, next_holiday
-from linecast._hebrew import next_month_start as next_hebrew_month
-from linecast._hijri import (
+from linecast._calendars.hebrew import hebrew_date, next_holiday
+from linecast._calendars.hebrew import next_month_start as next_hebrew_month
+from linecast._calendars.hijri import (
     after_sunset, hijri_date, next_month_start, next_observance,
 )
 from linecast._moon_i18n import (
@@ -57,11 +57,11 @@ from linecast._moon_i18n import (
     pacific_night_label, term_label, thai_festival_name, thai_lunar_label,
     thai_year_label, wan_phra_label,
 )
-from linecast._pacific import (
+from linecast._calendars.pacific import (
     ANAHULU_COUNSEL, COUNSEL_SOURCE_LINE, PACIFIC_CALENDARS, night_note,
     pacific_night,
 )
-from linecast._thai_lunar import (
+from linecast._calendars.thai_lunar import (
     is_wan_phra, next_thai_festival, next_wan_phra, thai_lunar_date,
     year_animal_index,
 )
@@ -869,7 +869,7 @@ def calendar_headline(cal, now_local, lat, lng, runtime, lang):
         label_lang = "th" if lang == "th" else "en"
         t_month, t_day, t_doubled = thai_lunar_date(now_local.date())
         return None, thai_lunar_label(t_month, t_day, t_doubled, label_lang)
-    label_lang = lang if CALENDAR_NATIVE_LANG[cal] == lang else "en"
+    label_lang = lang if calendar_is_native(cal, lang) else "en"
     lunar = lunisolar_date(now_local.date(), CALENDAR_MERIDIAN_HOURS[cal])
     if lunar is None:
         return None, None
@@ -1128,7 +1128,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
             f"({_ms('in_days', runtime, days=str(fest_gap))})")
     elif cal is not None:
         cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
-        label_lang = lang if CALENDAR_NATIVE_LANG[cal] == lang else "en"
+        label_lang = lang if calendar_is_native(cal, lang) else "en"
         cur_k, _cur_start = current_term(moment_utc)
         nxt_k, nxt_start = next_term(moment_utc)
         nxt_local = nxt_start.astimezone(now_local.tzinfo)
@@ -1138,7 +1138,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                     f"{_fmt_month_day(nxt_local, runtime)} "
                     f"({in_days(days_to_term)})")
         fest = next_lunar_event(now_local.date(), cal_tz,
-                                festival_table(cal, label_lang != "en"))
+                                festival_table(cal, label_lang))
         if fest is not None:
             fest_day, fest_name = fest
             fest_short = f"{fest_name} {_fmt_month_day(fest_day, runtime)}"

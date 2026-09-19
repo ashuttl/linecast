@@ -17,7 +17,7 @@ English | [日本語](README.ja.md)
 
 ![linecast weather, radar, the moon, the year, and sunshine at dusk tiled on an Omarchy desktop](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
 
-linecast turns free public data into seven live, mouse-friendly terminal apps for macOS, Linux, and Windows. It is pure Python with no dependencies, takes its colors from your terminal theme, and needs no accounts or API keys.
+linecast turns free public data into seven live, mouse-friendly terminal apps for macOS, Linux, and Windows. It is pure Python with no dependencies, takes its colors from your terminal theme, and needs no accounts or API keys. It runs over SSH, in tmux, and anywhere else a terminal does.
 
 | Command | What it shows |
 | --- | --- |
@@ -72,6 +72,8 @@ Use Windows Terminal. Git Bash and mintty look like a pipe rather than a termina
 
 Every command opens live, at the place your IP address suggests until you [save a location](#location). Press `?` for the keyboard controls.
 
+In `weather`, click the location at the top right (or press `l`) to choose a recent place or **Add location**. Type to search, use ↑/↓ to highlight a suggestion, and press Enter or click to choose it; Escape dismisses the panel. `/` opens the search directly. The ten most recent places are saved between runs; **Clear recent locations** empties that list. Choosing a recent place or search result changes the current weather session. **Save [place] as default** saves the displayed location as the default for all linecast views; it is offered when the place is not already the default.
+
 Try the commands on their own, or with flags:
 
 ```sh
@@ -96,11 +98,11 @@ The frames below show each app once or twice. [GALLERY.md](GALLERY.md) shows the
 
 ### Weather
 
-`weather` shows current conditions, a scrollable chart of hourly temperatures shaded by daylight, precipitation, daily highs and lows, air quality, and a line on how today compares with a normal day. The chart keeps one scale, the range of a typical year where you are, so a hot day reaches the top and a mild one stays in the middle; `--temp-range forecast` fits it to the forecast instead. Official alerts cover 45 countries. Click one to read it in full, or press `o` to open it in your browser. If the forecast service can't be reached, you get the last forecast it fetched, with a line saying how old it is.
+`weather` shows current conditions, a scrollable chart of hourly temperatures shaded by daylight, precipitation, wind, the UV index from 3 up, daily highs and lows, air quality, and a line on how today compares with a normal day. The chart defaults to `--temp-range auto`: it uses the range of a typical year where you are when the curve has enough rows, and fits the forecast when that range would exceed 5°C (9°F) per graph row. It adapts as you resize the terminal. Use `--temp-range climate` to keep the typical-year scale, `--temp-range forecast` to always fit the forecast, or `--temp-range world` for -40 to 50°C everywhere. Official alerts cover 45 countries. Click one to read it in full, or press `o` to open it in your browser. If the forecast service can't be reached, you get the last forecast it fetched, with a line saying how old it is.
 
 ![weather dashboard](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
 
-The dashboard speaks twenty languages, and its units follow the place or your own setting. Reykjavík in Icelandic and Kyoto in Japanese, both metric:
+The dashboard speaks twenty-eight languages, and its units follow the place or your own setting. Reykjavík in Icelandic and Kyoto in Japanese, both metric:
 
 <p>
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather-reykjavik.png" width="49%" alt="the weather in Reykjavík, in Icelandic">
@@ -119,6 +121,8 @@ The dashboard speaks twenty languages, and its units follow the place or your ow
 `sunshine --year` draws the whole year. Each column is a day, midnight to midnight, colored by the sky at each hour. Hover the graph for the sunrise, sunset, and day length of any day. Press `v` to switch between the day and the year. Add `--dst` to keep each day on its own clock, so the daylight saving changes show as a harsh step. This is Reykjavík, in Icelandic, with the pointer on the December solstice.
 
 ![the year view for Reykjavík, in Icelandic, with the pointer on the December solstice](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-year.png)
+
+The day can also be read in a tradition's hours beside the civil clock: the halachic sha'ot zmaniyot, a twelfth of the day from sunrise to sunset, with the day's zmanim from alot hashachar to tzeit listed under the chart and the next one counted down; the twelve horae and four vigiliae of Rome; the six koku of the Edo day and night, 明六つ to 暮六つ, as the bells struck them; the prayer times, Fajr to Isha, by the convention of the country shown, with the fast counted down in Ramadan; or Swahili time, which counts saa moja from seven in the morning and seven at night and comes on by itself in Swahili. `sunshine --hours halachic` reads it so for one run and `linecast hours halachic` saves it. [HOURS.md](HOURS.md) describes each system and how it is checked.
 
 Near the poles the same chart turns into polar night and midnight sun. These are Longyearbyen and Vostok Station, at 78° north and 78° south.
 
@@ -240,7 +244,7 @@ linecast weather --location "Bar Harbor"  # just this once
 
 A name is looked up once and the first match is saved; `search` shows the other matches if that was the wrong place.
 
-If you don't save a location or pass one in a flag, linecast asks [ipinfo.io](https://ipinfo.io/) where your network connection is. That is usually the right city, sometimes the wrong one, and far off on a VPN or corporate network. The answer is cached for an hour. Save a location and the request is never made.
+If you don't save a location or pass one in a flag, linecast asks [ipinfo.io](https://ipinfo.io/) where your network connection is. That is usually the right city, sometimes the wrong one, and far off on a VPN or corporate network. Over SSH the guess is the server's, so save a location there. The answer is cached for an hour. Save a location and the request is never made.
 
 ### Units and clock
 
@@ -257,7 +261,7 @@ The moon's calendar opens the week on Monday, or on Sunday in the United States,
 
 ### Language
 
-linecast speaks your terminal's language if it is one of the twenty it knows, and English otherwise. To choose one yourself, for every run or for one:
+linecast speaks your terminal's language if it is one of the twenty-eight it knows, and English otherwise. To choose one yourself, for every run or for one:
 
 ```sh
 linecast language es        # use Spanish every time
@@ -265,7 +269,7 @@ linecast language auto      # follow the terminal again
 linecast radar --lang zh    # just this once
 ```
 
-The languages are English (`en`), French (`fr`), Spanish (`es`), German (`de`), Italian (`it`), Portuguese (`pt`), Dutch (`nl`), Polish (`pl`), Norwegian (`no`), Swedish (`sv`), Icelandic (`is`), Danish (`da`), Finnish (`fi`), Japanese (`ja`), Korean (`ko`), Chinese (`zh`), Thai (`th`), Indonesian (`id`), Ukrainian (`uk`), and Vietnamese (`vi`).
+The languages are English (`en`), French (`fr`), Spanish (`es`), Portuguese (`pt`), Italian (`it`), Romanian (`ro`), German (`de`), Dutch (`nl`), Danish (`da`), Norwegian (`no`), Swedish (`sv`), Icelandic (`is`), Finnish (`fi`), Czech (`cs`), Polish (`pl`), Russian (`ru`), Ukrainian (`uk`), Greek (`el`), Turkish (`tr`), Swahili (`sw`), Chinese in the simplified script (`zh`) and the traditional (`zh-Hant`), Japanese (`ja`), Korean (`ko`), Thai (`th`), Vietnamese (`vi`), Indonesian (`id`), and Esperanto (`eo`). Swahili sky labels use documented names for Crux and Scorpius; other constellations and stars retain their catalogue names. A Chinese terminal locale picks the script by its region: `zh_TW`, `zh_HK`, and `zh_MO` read the traditional characters, `zh_CN` and `zh_SG` the simplified. A Norwegian locale, `nb_NO` or `nn_NO`, reads Norwegian.
 
 In India, many alerts are published in the state language. Add `--lang hi`, `--lang te`, `--lang mr`, or another Indian language code to `weather` to read them in that language where it exists; the rest of the app stays in English.
 
@@ -294,6 +298,24 @@ linecast sky --culture hawaiian     # just this once
 ```
 
 Use `t` in `sky` to choose one from a list. The names are in [CULTURES.md](CULTURES.md), with the credits for each.
+
+### Hours
+
+`sunshine` can read the day in a tradition's hours beside the civil clock. To choose one, for every run or for one:
+
+```sh
+linecast hours halachic             # the zmanim by the Gr"a, every time
+linecast hours halachic-mga         # by the Magen Avraham
+linecast hours roman                # twelve horae and four vigiliae
+linecast hours japanese             # the six koku of the Edo day and night
+linecast hours islamic              # the prayer times, by the country's convention
+linecast hours islamic-isna         # or by a named one
+linecast hours swahili              # Swahili time, saa 1 asubuhi at seven
+linecast hours none                 # the civil clock alone
+linecast sunshine --hours halachic  # just this once
+```
+
+`auto` clears the setting. In Swahili it reads the day in Swahili time, since that is how the language tells the time; in every other language it means none. There's more about each in [HOURS.md](HOURS.md).
 
 ### Color and icons
 
@@ -401,14 +423,7 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 
 ## Contributing
 
-Questions, requests, and ideas are welcome in [Discussions](https://github.com/ashuttl/linecast/discussions). Pull requests are very welcome for contained changes: a new data provider, an improvement to a view, a bug fix. Larger contributions are welcome too, but for those, start a discussion before you write code. Every view here was found slowly, and a new view or command needs that same care from the start, which is hard to give a pull request that arrives finished. [ARCHITECTURE.md](ARCHITECTURE.md) is the map of the code.
-
-```sh
-uv run --with pytest pytest tests -q   # tests
-uvx ruff check src tests scripts       # lint
-```
-
-Both are meant to run without the network and without touching your home directory.
+Questions, requests, and ideas are welcome in [Discussions](https://github.com/ashuttl/linecast/discussions), and pull requests are welcome too. [CONTRIBUTING.md](CONTRIBUTING.md) says what kinds of change fit, which branch to start from, and how to run the tests.
 
 ## Lineage
 

@@ -8,7 +8,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast import _live
-from linecast._live import LiveApp, overlay
+from linecast._live import LiveApp, menu_box, overlay
 
 
 class TestOverlay:
@@ -53,6 +53,18 @@ class TestPointerChip:
 
     def test_nothing_from_no_lines(self):
         assert _live.pointer_chip([], 10, 5, 80, 24) == ""
+
+
+class TestMenuBox:
+    def test_fits_a_screen_narrower_than_its_frame(self):
+        """A box has nothing inside on three columns, and does not spin
+        forever trimming an empty row to a negative width."""
+        out = menu_box(["abc"], 3, 10)
+        assert "┌┐" in out and "││" in out and "└┘" in out
+
+    def test_trims_rows_to_the_screen(self):
+        out = menu_box(["abcdef"], 8, 10, title="t")
+        assert "│abcd│" in out
 
 
 class TestHooks:
@@ -141,3 +153,55 @@ class TestRun:
         with pytest.raises(SystemExit):
             App().run()
         assert parked == [1]
+
+
+class TestBusyToast:
+    def test_animates_until_dismissed_and_keeps_one_repaint_pending(self, monkeypatch):
+        from unittest.mock import Mock
+        from linecast._spinner import SPINNER_FRAMES
+        timer = Mock()
+        make_timer = Mock(return_value=timer)
+        monkeypatch.setattr(_live.threading, 'Timer', make_timer)
+        clock = [0.0]
+        monkeypatch.setattr(_live._time, 'monotonic', lambda: clock[0])
+        view = LiveApp()
+        view.flash(['Loading Kyoto…'], busy=True)
+        first = view.flash_overlay(80, 24)
+        clock[0] = 0.081
+        second = view.flash_overlay(80, 24)
+        assert SPINNER_FRAMES[0] in first and SPINNER_FRAMES[1] in second
+        assert 'Loading Kyoto…' in second and '╭' in second
+        assert make_timer.call_count == 1
+        # Loading must outlive the ordinary three-second flash lifetime.
+        clock[0] = 60
+        assert view.flash_overlay(80, 24)
+        view.clear_flash()
+        timer.cancel.assert_called_once()
+        assert view.flash_overlay(80, 24) == ''
+
+    def test_repaint_rearms_even_when_render_happens_inside_wakeup(self, monkeypatch):
+        from unittest.mock import Mock
+        make_timer = Mock(side_effect=lambda *args: Mock())
+        monkeypatch.setattr(_live.threading, 'Timer', make_timer)
+        view = LiveApp()
+        monkeypatch.setattr(_live, 'nudge', lambda: view.flash_overlay(80, 24))
+        view.flash(['Loading Paris…'], busy=True)
+        callback = make_timer.call_args.args[1]
+        callback()
+        assert make_timer.call_count == 2
+        # A replaced or cancelled timer cannot resurrect itself.
+        view.clear_flash()
+        callback()
+        assert make_timer.call_count == 2
+
+    @pytest.mark.parametrize('cols,rows', [(1, 1), (7, 3), (8, 4), (20, 8), (80, 24)])
+    def test_toast_fits_small_screens_and_wide_place_names(self, cols, rows):
+        import re
+        from linecast._graphics import visible_len
+        output = _live.toast_box('Loading ' + '京都' * 50, cols, rows, icon='⠋')
+        positions = re.findall(r'\033\[(\d+);(\d+)H(.*?)(?=\033\[\d+;\d+H|$)', output)
+        assert positions
+        for row, col, text in positions:
+            assert 1 <= int(row) <= rows
+            assert 1 <= int(col) <= cols
+            assert int(col) - 1 + visible_len(text) <= cols

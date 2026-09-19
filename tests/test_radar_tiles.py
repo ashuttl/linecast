@@ -358,3 +358,28 @@ class TestTornTile:
         assert cached, "the stub was never reached"
         # a past frame's tiles never expire, so the torn bytes had to go
         assert not any(p.exists() for p in cached)
+
+
+class TestIndexFreshness:
+    def test_an_index_stamped_in_the_future_is_refetched(self, tmp_path, monkeypatch):
+        """A file whose mtime is ahead of the clock never ages, so the
+        old age test served it forever (issue #68); the cache's own rule
+        counts it as expired."""
+        import time
+        from linecast import _http, _radar_tiles as tiles
+        monkeypatch.setenv("LINECAST_CACHE_DIR", str(tmp_path))
+        provider = tiles.Provider("rv", "https://api.example/index.json", 2, "1_1", 10)
+        path = tiles._cache_dir(provider) / "weather-maps.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('{"stale": true}')
+        ahead = time.time() + 10 * 365 * 86400
+        os.utime(path, (ahead, ahead))
+        calls = []
+
+        def fetch(url, timeout=0):
+            calls.append(url)
+            return b'{"fresh": true}'
+        monkeypatch.setattr(_http, "fetch_bytes", fetch)
+        monkeypatch.setattr(tiles, "fetch_bytes", fetch)
+        assert tiles.fetch_index(provider) == {"fresh": True}
+        assert calls

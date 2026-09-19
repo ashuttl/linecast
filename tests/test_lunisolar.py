@@ -9,9 +9,10 @@ these are end-to-end checks of the month, day, and leap arithmetic.
 from datetime import date, datetime, timedelta, timezone
 
 from linecast._ephemeris import next_moon_phase_utc
-from linecast._lunisolar import (
+from linecast._calendars.lunisolar import (
     CALENDAR_MERIDIAN_HOURS,
-    CALENDAR_NATIVE_LANG,
+    CALENDAR_OF_LANG,
+    calendar_is_native,
     _civil,
     current_term,
     lunisolar_date,
@@ -123,34 +124,34 @@ class TestSolarTerms:
 class TestFestivals:
     def test_next_festival_is_mid_autumn(self):
         got = next_lunar_event(date(2026, 9, 1), 8,
-                               festival_table("chinese", native=True))
+                               festival_table("chinese", "zh"))
         assert got == (date(2026, 9, 25), "中秋节")
 
     def test_english_names_for_other_languages(self):
         got = next_lunar_event(date(2026, 9, 1), 8,
-                               festival_table("chinese", native=False))
+                               festival_table("chinese", "en"))
         assert got == (date(2026, 9, 25), "Mid-Autumn Festival")
 
     def test_korean_new_year(self):
         got = next_lunar_event(date(2026, 1, 1), 9,
-                               festival_table("korean", native=True))
+                               festival_table("korean", "ko"))
         assert got == (date(2026, 2, 17), "설날")
 
     def test_vietnamese_festivals(self):
         # A week before Tết the Kitchen Gods leave for heaven.
         got = next_lunar_event(date(2026, 1, 1), 7,
-                               festival_table("vietnamese", native=True))
+                               festival_table("vietnamese", "vi"))
         assert got == (date(2026, 2, 10), "Ông Táo về trời")
         got = next_lunar_event(date(2026, 2, 11), 7,
-                               festival_table("vietnamese", native=True))
+                               festival_table("vietnamese", "vi"))
         assert got == (date(2026, 2, 17), "Tết Nguyên Đán")
         got = next_lunar_event(date(2026, 4, 1), 7,
-                               festival_table("vietnamese", native=False))
+                               festival_table("vietnamese", "en"))
         assert got == (date(2026, 4, 26), "Hùng Kings' Day")
 
     def test_a_festival_today_still_shows(self):
         got = next_lunar_event(date(2026, 9, 25), 8,
-                               festival_table("chinese", native=True))
+                               festival_table("chinese", "zh"))
         assert got == (date(2026, 9, 25), "中秋节")
 
     def test_festivals_skip_the_leap_month(self):
@@ -197,25 +198,44 @@ class TestLabels:
         assert term_label(10, "de") == "End of Heat"
 
     def test_every_calendar_has_names_and_a_meridian(self):
-        # The Thai calendar is arithmetic (see _thai_lunar and
+        # The Thai calendar is arithmetic (see _calendars.thai_lunar and
         # test_thai_lunar), so it carries no meridian or solar terms.
-        for cal, lang in CALENDAR_NATIVE_LANG.items():
+        for lang, cal in CALENDAR_OF_LANG.items():
             if cal == "thai":
                 continue
             assert cal in CALENDAR_MERIDIAN_HOURS
-            assert festival_table(cal, native=True)
-            assert festival_table(cal, native=False)
+            assert calendar_is_native(cal, lang)
+            native = festival_table(cal, lang)
+            english = festival_table(cal, "en")
+            assert native and set(native) == set(english)
+            assert all(not name.isascii() for name in native.values()) or lang == "vi"
             assert term_label(0, lang)
+        assert not calendar_is_native("chinese", "ja")
+        assert not calendar_is_native("japanese", "zh-Hant")
+
+    def test_the_chinese_calendar_reads_in_either_script(self):
+        assert calendar_is_native("chinese", "zh") and calendar_is_native("chinese", "zh-Hant")
+        assert lunar_date_label(1, 1, False, "zh-Hant") == "農曆正月初一"
+        assert lunar_date_label(6, 5, True, "zh-Hant") == "農曆閏六月初五"
+        assert lunar_date_label(12, 21, False, "zh-Hant") == "農曆臘月廿一"
+        assert lunar_date_label(11, 11, False, "zh-Hant") == "農曆冬月十一"
+        assert term_label(2, "zh") == "谷雨" and term_label(2, "zh-Hant") == "穀雨"
+        assert term_label(23, "zh-Hant") == "驚蟄"
+        assert festival_table("chinese", "zh-Hant")[(8, 15)] == "中秋節"
+        assert festival_table("chinese", "zh")[(8, 15)] == "中秋节"
+        assert festival_table("chinese", "en")[(8, 15)] == "Mid-Autumn Festival"
+        assert festival_table("chinese", "fr")[(8, 15)] == "Mid-Autumn Festival"
 
 
 class TestResolveCalendar:
     def test_flag_beats_saved_beats_language(self):
         from linecast._config import read_config, write_config
-        from linecast._lunisolar import resolve_calendar
+        from linecast._calendars.lunisolar import resolve_calendar
         original = read_config()
         try:
             assert resolve_calendar(None, "en") is None
             assert resolve_calendar(None, "zh") == "chinese"
+            assert resolve_calendar(None, "zh-Hant") == "chinese"
             assert resolve_calendar(None, "vi") == "vietnamese"
             assert resolve_calendar("korean", "zh") == "korean"
             assert resolve_calendar("none", "zh") is None

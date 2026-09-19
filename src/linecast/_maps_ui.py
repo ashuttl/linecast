@@ -110,7 +110,7 @@ class SearchState:
     def handle(self, action, lat, lon, zoom, lang="en"):
         """Consume one key.  Always returns True while the panel is open:
         nothing reaches the map behind it."""
-        if action == 'escape':
+        if action in ('escape', 'quit'):
             self.close()
         elif action == 'key:enter':
             self.submit(lang)
@@ -153,8 +153,10 @@ class SearchState:
     # -- the worker --------------------------------------------------------
     def _arm(self, lat, lon, zoom, lang):
         self._cancel()
+        # Suggestions and a pending Enter belong to the previous text.
+        self.results, self.sel, self.submitted = [], 0, False
         if len(self.query.strip()) < MIN_CHARS:
-            self.results, self.status, self.sel = [], "", 0
+            self.status = ""
             return
         self.status = "pending"
         gen, query = self.gen, self.query
@@ -172,7 +174,7 @@ class SearchState:
         except Exception as exc:                # a fetcher must never crash
             log_failure("maps/search", "worker", exc, fallback="panel shows error")
             results, status = [], "error"       # the live loop's worker
-        self._publish(gen, results, status, auto=True)
+        self._publish(gen, results, status, auto=True, lang=lang)
 
     def _ask_once(self, query, lang):
         """The single Nominatim query, on Enter and nowhere else.
@@ -195,11 +197,11 @@ class SearchState:
                 log_failure("maps/search", "one-shot worker", exc,
                             fallback="panel shows error")
                 results, status = [], "error"
-            self._publish(gen, results, status, auto=False)
+            self._publish(gen, results, status, auto=False, lang=lang)
 
         threading.Thread(target=body, daemon=True).start()
 
-    def _publish(self, gen, results, status, auto):
+    def _publish(self, gen, results, status, auto, lang="en"):
         with self._lock:
             if gen != self.gen or not self.open:
                 return                  # superseded, or the panel is gone
@@ -210,7 +212,7 @@ class SearchState:
                     self.chosen = results[0]
                     self.open = False
                 elif status == "error":
-                    self._ask_once(self.query, "en")
+                    self._ask_once(self.query, lang)
         self._refresh()
 
 
@@ -257,7 +259,9 @@ def search_overlay(state, cols, rows, lang="en"):
 
     line = 2
     limit = min(MAX_ROWS, max(0, rows - 3))
-    for i, result in enumerate(state.results[:limit]):
+    # Follow the selection when the terminal cannot fit every suggestion.
+    start = min(max(0, state.sel - limit + 1), max(0, len(state.results) - limit))
+    for i, result in enumerate(state.results[start:start + limit], start):
         body = " " + _fit(_label(result), width - 2)
         body += " " * max(0, width - visible_len(body))
         if i == state.sel:

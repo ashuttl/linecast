@@ -10,10 +10,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast import _weather_sources, weather
 from linecast._weather_sources import forecast_date, forecast_is_todays
+from linecast._weather_sections import comparative_sentence, render_header
+from linecast._weather_historical import HistoricalAverages
 from linecast.weather import WeatherApp, forecast_notice
 
 FIXTURE = json.loads(
@@ -139,6 +143,46 @@ class TestDailyLabels:
     def test_the_first_row_is_its_weekday_on_a_later_day(self):
         # The forecast's days keep their names; none of them is today.
         assert self._rows(LATER)[:3] == ["Thu", "Fri", "Sat"]
+
+
+class TestComparisonDates:
+    @pytest.mark.parametrize("hour", [9, 15])
+    def test_stale_forecast_compares_the_actual_days(self, hour):
+        daily = dict(FIXTURE["daily"], temperature_2m_max=[20, 20, 40, 60, 40, 20, 20, 20])
+        now = LATER.replace(hour=hour)
+        # March 7 is warmer than March 6; March 8 is cooler than March 7.
+        expected = "much warmer" if hour == 9 else "much cooler"
+        assert expected in comparative_sentence(daily, now, weather.WeatherRuntime.defaults())
+
+    @pytest.mark.parametrize("hour", [9, 15])
+    def test_expired_forecast_has_no_comparison(self, hour):
+        assert comparative_sentence(FIXTURE["daily"], datetime(2026, 3, 12, hour),
+                                    weather.WeatherRuntime.defaults()) == ""
+
+    def test_missing_comparison_day_does_not_use_a_neighbour(self):
+        daily = {"time": ["2026-03-05", "2026-03-07", "2026-03-08"],
+                 "temperature_2m_max": [20, 60, 40]}
+        assert comparative_sentence(daily, LATER, weather.WeatherRuntime.defaults()) == ""
+
+
+class TestHistoricalComparisonDates:
+    @pytest.mark.parametrize("now, expected", [
+        (MADE, "20° below avg"),
+        (LATER, "20° above avg"),
+        (datetime(2026, 3, 12, 9), None),
+    ])
+    def test_header_compares_todays_high_or_omits_an_expired_forecast(self, now, expected):
+        daily = dict(FIXTURE["daily"], temperature_2m_max=[20, 20, 40, 60, 40, 20, 20, 20])
+        data = dict(FIXTURE, daily=daily)
+        hist = HistoricalAverages(avg_high=40, avg_low=20, avg_precip=0, years=10)
+        with patch.object(_weather_sources, "datetime") as clock:
+            clock.now.return_value = now
+            header = _strip(render_header(data, 200, runtime=weather.WeatherRuntime.defaults(),
+                                          historical=hist))
+        if expected is None:
+            assert "avg" not in header
+        else:
+            assert expected in header
 
 
 def _app(clock=lambda: 1000.0):

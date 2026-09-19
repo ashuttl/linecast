@@ -18,13 +18,14 @@ Both are OpenStreetMap: attribute "© OpenStreetMap contributors".
 
 import hashlib
 import math
-import time
 import urllib.parse
 
 from linecast import user_agent
 from linecast._cache import read_cache, read_stale, write_cache
 from linecast._http import fetch_json
+from linecast._i18n import accept_language
 from linecast._paths import cache_dir
+from linecast._rate_limit import RateLimit
 from linecast._runtime import debug_log, log_failure
 
 PHOTON_URL = "https://photon.komoot.io/api"
@@ -37,8 +38,7 @@ ATTRIBUTION = "© OpenStreetMap contributors"
 PHOTON_LANGS = ("en", "de", "fr")
 
 _SEARCH_TTL = 7 * 86400
-_NOMINATIM_INTERVAL = 1.0  # seconds between network hits, per policy
-_last_hit = 0.0
+_throttle = RateLimit(1.0, "nominatim")
 
 # Fallback view heights (degrees of latitude) for results that arrive
 # without an extent — roughly "what you'd want to see" per feature class.
@@ -136,7 +136,12 @@ def _photon_result(feature):
         name = f"{house} {street}".strip() if street else ""
     if not name:
         return None
-    lon, lat = (feature.get("geometry") or {})["coordinates"][:2]
+    # a feature with nowhere to go is skipped like a nameless one, rather
+    # than costing the whole answer
+    coords = (feature.get("geometry") or {}).get("coordinates") or []
+    if len(coords) < 2:
+        return None
+    lon, lat = coords[:2]
     locality = (props.get("city") or props.get("locality")
                 or props.get("district") or props.get("county"))
     detail = _detail([locality, props.get("state"), props.get("country")],
@@ -165,18 +170,6 @@ def _cache_path(query, lang):
     return cache_dir("maps", "search", f"{key[:12]}.json")
 
 
-def _throttle():
-    """Hold the line at one request per second, sleeping the remainder."""
-    global _last_hit
-    now = time.monotonic()
-    wait = _NOMINATIM_INTERVAL - (now - _last_hit)
-    if wait > 0:
-        debug_log(f"nominatim: waiting {wait:.2f}s for the rate limit")
-        time.sleep(wait)
-        now += wait
-    _last_hit = now
-
-
 def nominatim_search(query: str, lang: str = "en", limit: int = 8,
                      timeout: float = 10) -> list[Result]:
     """One submitted query, answered from disk when we've asked before."""
@@ -187,7 +180,7 @@ def nominatim_search(query: str, lang: str = "en", limit: int = 8,
         return _nominatim_results(cached)
 
     params = [("q", query), ("format", "jsonv2"), ("limit", int(limit)),
-              ("addressdetails", 1), ("accept-language", lang)]
+              ("addressdetails", 1), ("accept-language", accept_language(lang))]
     url = f"{NOMINATIM_URL}?{urllib.parse.urlencode(params)}"
     headers = {"User-Agent": user_agent()}
     _throttle()

@@ -438,10 +438,15 @@ def _screen_box(parts):
     return width * height, int(width)
 
 
+# The tiles tag a Chinese name by script where the mappers have given
+# both; a traditional-script reader takes the plain Chinese name next.
+_NAME_KEYS = {"zh-Hant": ("name:zh-Hant", "name:zh")}
+
+
 def _name(props, lang):
     """The localised name, or "" — placenames are never machine
     translated, so this only ever picks a name the data already has."""
-    for key in (f"name:{lang}", "name:latin", "name"):
+    for key in (*_NAME_KEYS.get(lang, (f"name:{lang}",)), "name:latin", "name"):
         value = props.get(key)
         if value:
             return str(value)

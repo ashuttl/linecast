@@ -37,7 +37,7 @@ def _icon(code, runtime):
 
 
 def _now_hour_index(times, now):
-    """Index of the hourly entry for the current hour (first dt >= floor(now))."""
+    """First dt >= floor(now), or len(times) when the forecast has expired."""
     if not times:
         return 0
     floor = now.replace(minute=0, second=0, microsecond=0)
@@ -47,7 +47,7 @@ def _now_hour_index(times, now):
                 return i
         except (TypeError, ValueError):
             continue
-    return 0
+    return len(times)
 
 
 def build_payload(data, location_name, country_code, runtime,
@@ -85,10 +85,14 @@ def build_payload(data, location_name, country_code, runtime,
             "cloud_cover": _at(hourly.get("cloud_cover"), i),
         })
 
-    # Daily: index 0 is yesterday, 1 is today — emit 1..7.
+    # A stale cache still carries useful predictions, but its index 1
+    # is the fetch date, not necessarily today.
     d_times = daily.get("time") or []
+    today = now.date().isoformat()
+    start = next((i for i, day in enumerate(d_times) if day >= today), len(d_times))
+    today_index = start if _at(d_times, start) == today else -1
     daily_out = []
-    for i in range(1, min(8, len(d_times))):
+    for i in range(start, min(start + 7, len(d_times))):
         code = _at(daily.get("weather_code"), i)
         daily_out.append({
             "date": _at(d_times, i),
@@ -145,12 +149,13 @@ def build_payload(data, location_name, country_code, runtime,
             "icon": _icon(cur_code, runtime),
         },
         "today": {
-            "high": _at(daily.get("temperature_2m_max"), 1),
-            "low": _at(daily.get("temperature_2m_min"), 1),
-            "sunrise": _at(daily.get("sunrise"), 1),
-            "sunset": _at(daily.get("sunset"), 1),
-            "precipitation_probability": _at(daily.get("precipitation_probability_max"), 1),
-            "precipitation": _at(daily.get("precipitation_sum"), 1),
+            "high": _at(daily.get("temperature_2m_max"), today_index),
+            "low": _at(daily.get("temperature_2m_min"), today_index),
+            "sunrise": _at(daily.get("sunrise"), today_index),
+            "sunset": _at(daily.get("sunset"), today_index),
+            "precipitation_probability": _at(daily.get("precipitation_probability_max"),
+                                             today_index),
+            "precipitation": _at(daily.get("precipitation_sum"), today_index),
         },
         "hourly": hourly_out,
         "daily": daily_out,

@@ -58,6 +58,11 @@ _CPR_QUERY = _term.CPR_QUERY.decode("ascii")
 _ACK_WAIT_S = 1.0
 _ACK_FIRST_WAIT_S = 0.25
 
+# A hover chip goes once the mouse has been still this long, as though the
+# pointer had left the window: a view left open on the desk should not
+# keep a chip up because the pointer came to rest over it.
+_HOVER_IDLE_S = 7.0
+
 
 def frame_body(text):
     r"""A frame with every row addressed, so no row can shift the ones below.
@@ -182,7 +187,7 @@ def menu_box(lines, cols, rows, title="", sel=None, border="", fill="",
     """
     from linecast._graphics import RESET, visible_len
     widths = [visible_len(line) for line in lines if line is not None]
-    inner = min(cols - 4, (max(widths) if widths else 0) + 1)
+    inner = max(0, min(cols - 4, (max(widths) if widths else 0) + 1))
     top = max(1, (rows - (len(lines) + 2)) // 2)
     left = max(0, (cols - inner - 2) // 2)
     head = f" {title} ".center(inner, "─") if title else "─" * inner
@@ -197,7 +202,7 @@ def menu_box(lines, cols, rows, title="", sel=None, border="", fill="",
         if line is None:
             out.append(f"├{'─' * inner}┤")
             continue
-        while visible_len(line) > inner:
+        while line and visible_len(line) > inner:
             line = line[:-1]
         body = line + " " * (inner - visible_len(line))
         if i == sel:
@@ -207,6 +212,31 @@ def menu_box(lines, cols, rows, title="", sel=None, border="", fill="",
     return "".join(
         f"\033[{top + 1 + i};{left + 1}H{border}{fill}{line}{RESET}"
         for i, line in enumerate(out))
+
+
+def toast_box(text, cols, rows, icon=""):
+    """A compact, rounded notification above the bottom-right of the view."""
+    from linecast import _theme
+    from linecast._graphics import RESET, bg, fg, visible_len
+    from linecast._help import fit
+    if cols < 1 or rows < 1:
+        return ""
+    surface = _theme.surface_bg(0.10)
+    ink = fg(*_theme.ensure_contrast(_theme.theme_fg, surface, 4.5))
+    border = fg(*_theme.ensure_contrast(_theme.surface_bg(0.55), surface, 2.2))
+    fill = bg(*surface)
+    label = f"{icon} {text}" if icon else text
+    if cols < 8 or rows < 4:
+        # A tiny terminal still gets the spinner, without an overflowing box.
+        return f"\033[{rows};1H{fill}{ink}{fit(label, cols)}{RESET}"
+    label = fit(label, min(60, cols - 8))
+    inner = visible_len(label) + 2
+    left, top = cols - inner - 3, rows - 3
+    lines = [f"{border}╭{'─' * inner}╮",
+             f"{border}│{ink} {label} {border}│",
+             f"{border}╰{'─' * inner}╯"]
+    return ''.join(f"\033[{top + i};{left}H{fill}{line}{RESET}"
+                   for i, line in enumerate(lines))
 
 
 # ---------------------------------------------------------------------------
@@ -365,6 +395,13 @@ def _read_key(fd, text=False):
                 }.get(b3)
         return 'escape'
 
+    # On Windows cbreak turns off the console's own Ctrl-C handling, so
+    # the keystroke arrives as ETX instead of a KeyboardInterrupt. It is
+    # read ahead of the text field, where `q` is a letter and Ctrl-C is
+    # the only quit there is.
+    if b == b'\x03':
+        return 'quit'
+
     if text:
         # Free-text capture: editing keys first, then any printable
         # character (assembling UTF-8 continuations), control bytes dropped.
@@ -399,10 +436,6 @@ def _read_key(fd, text=False):
             return None
 
     if b in (b'q', b'Q'):
-        return 'quit'
-    # On Windows cbreak turns off the console's own Ctrl-C handling, so
-    # the keystroke arrives as ETX instead of a KeyboardInterrupt.
-    if b == b'\x03':
         return 'quit'
     if b in (b'o', b'O'):
         return 'open'
@@ -523,7 +556,7 @@ def nudge():
 def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               auto_play=False, play_interval=0.6, on_action=None, on_drag=None,
               intercept=None, play_gate=None, on_wheel=None, text_mode=None,
-              on_click=None, help_panel=None):
+              on_click=None, help_panel=None, clamp_offset=None):
     """Run render_fn() in a loop on the alternate screen buffer.
 
     render_fn: callable(offset_minutes=0) returning (display_string, metadata)
@@ -535,6 +568,9 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     mouse: if True, enable SGR mouse tracking and pass mouse_pos to render_fn.
     on_open: optional callback(alert_index) called when user presses 'o' on a modal.
     scroll_step: minutes to advance/retreat per scroll or arrow key event.
+    clamp_offset: optional callable(offset_minutes) returning a bounded offset.
+                  Applied to each time-scrub event, even in a coalesced burst,
+                  and before rendering, so finite views cannot overscroll.
     auto_play: if True, run an animation loop instead of time-scrubbing.
                render_fn also receives play_frame (monotonic frame counter) and
                playing (bool). Space toggles play/pause — pausing homes
@@ -571,7 +607,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               When set it takes the wheel over entirely (no time-scrub,
               no frame-step, no modal scroll — the caller decides, e.g.
               zoom vs panel scroll). Return truthy to re-render; falsy
-              leaves the frame alone (a clamped zoom).
+              leaves the frame alone (a clamped zoom). Return NotImplemented
+              to use the loop's normal forecast/frame/modal scrolling.
               Default None preserves existing behavior exactly.
     text_mode: optional callable() -> bool consulted before each key read.
                While truthy, printable input arrives at intercept as
@@ -589,7 +626,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     help_panel: optional _help.HelpPanel for the view's controls. It owns
                 `?` and input while open, without changing the view's state.
                 Text fields still receive a literal question mark.
-    Re-renders immediately on terminal resize or input.
+    Re-renders immediately on terminal resize or input.  A mouse_pos
+    with no mouse input for _HOVER_IDLE_S seconds goes back to None.
 
     While idle, re-probes the terminal's colours now and then (see
     _theme.poll_interval / watch_path) and repaints when they change,
@@ -643,6 +681,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     playing = auto_play
     play_frame = 0
     mouse_pos = None
+    hover_until = 0.0    # monotonic time mouse_pos is forgotten
     drag_start = None    # (col, row) of left-button press while on_drag is set
     drag_delta = (0, 0)  # last displayed drag, to finish before opening help
     active_alert = None  # index of alert whose modal is open, or None
@@ -661,16 +700,26 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     def _ack_wait():
         return _ACK_WAIT_S if _term.answered else _ACK_FIRST_WAIT_S
 
+    def _coalesce_or_repaint():
+        """The verdict for input that changed the frame: paint now, or
+        hold the paint while more input is waiting."""
+        return 'coalesce' if _term.wait_readable(fd, 0) else 'repaint'
+
     def handle_input():
         """Read one key or mouse event and apply it.
 
         'quit' to leave the loop, 'repaint' when the frame should be drawn
-        again, None when nothing on screen changed -- or when more input
-        is already waiting, so a burst of scrolling paints once at its end.
+        again, 'coalesce' when it should but more input is already waiting
+        -- so a burst of scrolling paints once at its end -- and None when
+        nothing on screen changed.  The caller owes a repaint after a
+        'coalesce' whatever the later input says: the bytes waiting may
+        be the terminal's reply to the last frame, which changes nothing.
         """
         nonlocal offset, playing, play_frame, mouse_pos, drag_start, drag_delta
-        nonlocal active_alert, modal_scroll, acks_owed
+        nonlocal active_alert, modal_scroll, acks_owed, hover_until
         action = _read_key(fd, text=bool(text_mode is not None and text_mode()))
+        if isinstance(action, tuple) and action[0] == 'mouse':
+            hover_until = _time.monotonic() + _HOVER_IDLE_S
         if action == 'ack':
             _term.mark_answered()
             acks_owed = max(0, acks_owed - 1)
@@ -713,10 +762,12 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                 playing = False
                 play_frame += step
             else:
+                if clamp_offset is not None:
+                    offset = clamp_offset(offset)
                 offset += step * scroll_step
-            if _term.wait_readable(fd, 0):
-                return None  # coalesce rapid scrolling
-            return 'repaint'
+                if clamp_offset is not None:
+                    offset = clamp_offset(offset)
+            return _coalesce_or_repaint()  # rapid scrolling
         elif action == 'reset':
             if auto_play:
                 playing = not playing  # space = play/pause
@@ -728,21 +779,17 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         elif (on_action is not None and isinstance(action, str)
               and action.startswith('key:')):
             if on_action(action[4:]):
-                if _term.wait_readable(fd, 0):
-                    return None  # coalesce held-down keys (zoom taps)
-                return 'repaint'
+                return _coalesce_or_repaint()  # held-down keys (zoom taps)
         elif mouse and isinstance(action, tuple) and action[0] == 'mouse':
             _, cb, cx, cy, is_rel = action
             wheel_cb = _normalize_wheel_cb(cb)
             if wheel_cb in (64, 65):
                 if on_wheel is not None:
-                    # Caller owns the wheel outright (zoom, panel scroll,
-                    # …) — no scrub fallback.
-                    if on_wheel(1 if wheel_cb == 64 else -1, cx, cy):
-                        if _term.wait_readable(fd, 0):
-                            return None  # coalesce rapid wheel
-                        return 'repaint'
-                    return None
+                    # A view can own the wheel, or defer to ordinary scrolling
+                    # when its panel is closed.
+                    handled = on_wheel(1 if wheel_cb == 64 else -1, cx, cy)
+                    if handled is not NotImplemented:
+                        return _coalesce_or_repaint() if handled else None
                 if active_alert is not None:
                     # Scroll the modal
                     modal_scroll += 3 if wheel_cb == 65 else -3
@@ -751,10 +798,12 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                     playing = False
                     play_frame += 1 if wheel_cb == 64 else -1
                 else:
+                    if clamp_offset is not None:
+                        offset = clamp_offset(offset)
                     offset += scroll_step if wheel_cb == 64 else -scroll_step
-                if _term.wait_readable(fd, 0):
-                    return None  # coalesce rapid scrolling
-                return 'repaint'
+                    if clamp_offset is not None:
+                        offset = clamp_offset(offset)
+                return _coalesce_or_repaint()  # rapid scrolling
             if is_rel:
                 # Button release — completes a drag gesture if one
                 # started; otherwise ignore.
@@ -793,15 +842,11 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                     dcol, drow = cx - drag_start[0], cy - drag_start[1]
                     drag_delta = (dcol, drow)
                     if on_drag(dcol, drow, False):
-                        if _term.wait_readable(fd, 0):
-                            return None  # coalesce rapid drag motion
-                        return 'repaint'
+                        return _coalesce_or_repaint()  # rapid drag motion
                     return None
-                # Hover-capable terminals.
+                # Hover-capable terminals: render once at the final position.
                 mouse_pos = (cx, cy)
-                if _term.wait_readable(fd, 0):
-                    return None  # coalesce rapid motion: render once at the final position
-                return 'repaint'
+                return _coalesce_or_repaint()
             # Fallback for terminals without motion reporting:
             # update pointer on press so tooltip can still appear.
             if (cb & 0b11) in (0, 1, 2):
@@ -860,6 +905,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                               modal_scroll=modal_scroll)
             if auto_play:
                 kwargs.update(play_frame=play_frame, playing=playing)
+            if clamp_offset is not None:
+                offset = clamp_offset(offset)
             result = render_fn(offset_minutes=offset, **kwargs)
             # render_fn may return (output, metadata) or just output
             if isinstance(result, tuple):
@@ -890,12 +937,23 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             # Wait for input, resize, or timeout
             wait = play_interval if (auto_play and playing) else interval
             deadline = _time.time() + wait
+            owed = False   # a coalesced input is waiting for its repaint
             while True:
+                # A repaint held back for more input is due once the input
+                # has run out.  It cannot wait for the last of that input
+                # to ask: that is often the terminal's reply to the frame
+                # before, and a reply changes nothing on screen.
+                if owed and not _term.wait_readable(fd, 0):
+                    break
                 remaining = deadline - _time.time()
                 if remaining <= 0:
                     if auto_play and playing and (play_gate is None
                                                   or play_gate()):
                         play_frame += 1  # advance the animation
+                    break
+                if (mouse_pos is not None and drag_start is None
+                        and _time.monotonic() >= hover_until):
+                    mouse_pos = None  # the mouse has been still: drop the chip
                     break
                 event = term.wait(min(0.1, remaining))
                 if event == 'wake':
@@ -909,6 +967,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                         return
                     if verdict == 'repaint':
                         break
+                    if verdict == 'coalesce':
+                        owed = True
     except KeyboardInterrupt:
         pass
     # SystemExit is NOT swallowed: a sys.exit(1) from a render callback (or
@@ -932,13 +992,19 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         # What the terminal was still sending -- a colour probe's replies,
         # mouse reports from before it read the escape above -- is read
         # and dropped, up to its reply to the query, so none of it reaches
-        # the shell.  Then the terminal settings, the signal handlers and
+        # the shell.  A frame whose reply was still owed when the loop
+        # ended is answered first, so the drain waits for one reply more
+        # than that.  Then the terminal settings, the signal handlers and
         # the wakeup channel go back, in that order (_term.LiveTerminal).
+        # The drain waits on the terminal, and a second ctrl-C or SIGTERM
+        # meanwhile raises through this block: close() runs regardless,
+        # or the shell would inherit the tty in cbreak.
         try:
-            term.settle(_ack_wait() if sync else 0)
+            term.settle(_ack_wait() if sync else 0, replies=acks_owed + 1)
         except Exception:
             pass
-        term.close()
+        finally:
+            term.close()
         watch.uninstall()
         watch.report()
 
@@ -971,7 +1037,11 @@ class LiveApp:
     play_interval = 0.6  # seconds per frame while playing
 
     HOOKS = ("on_action", "on_drag", "on_wheel", "intercept", "on_click",
-             "on_open", "play_gate", "text_mode")
+             "on_open", "play_gate", "text_mode", "clamp_offset")
+
+    def clamp_offset(self, offset_minutes):
+        """Bound time scrubbing to the view's available data."""
+        return offset_minutes
 
     def render(self, **frame):
         """The frame: a string, or (string, alert_row_map).
@@ -991,7 +1061,7 @@ class LiveApp:
         return False
 
     def on_wheel(self, direction, col, row):
-        """The wheel, owned outright: +1 up / -1 down at (col, row)."""
+        """The wheel: +1 up / -1 down. NotImplemented defers to loop scrolling."""
         return False
 
     def intercept(self, action):
@@ -1018,27 +1088,53 @@ class LiveApp:
     def stop(self):
         """The loop is over; park any thread that was serving it."""
 
-    _flash = None  # (paragraphs, deadline) while a note is up
+    _flash = None  # (paragraphs, deadline, busy) while a note is up
+    _flash_timer = None
 
-    def flash(self, paragraphs, seconds=3.0):
-        """Float a note in the middle of the screen for `seconds`: what a
-        key just changed, say. `paragraphs` are plain text, wrapped to
-        the box at render time. The loop repaints when it is time to
-        take the note down."""
-        self._flash = (list(paragraphs), _time.monotonic() + seconds)
-        timer = threading.Timer(seconds + 0.05, nudge)
+    def clear_flash(self):
+        """Dismiss a note and cancel its next repaint."""
+        self._flash = None
+        if self._flash_timer is not None:
+            self._flash_timer.cancel()
+            self._flash_timer = None
+
+    def _flash_repaint(self, seconds):
+        if self._flash_timer is not None:
+            return
+
+        def repaint():
+            if self._flash_timer is timer:
+                # Clear before waking: the next render may start immediately.
+                self._flash_timer = None
+                nudge()
+
+        timer = threading.Timer(seconds, repaint)
         timer.daemon = True
+        self._flash_timer = timer
         timer.start()
 
+    def flash(self, paragraphs, seconds=3.0, *, busy=False):
+        """Float a brief note, or an animated toast until clear_flash().
+
+        A busy toast stays above the view without moving its rows. Its
+        timer only wakes the live loop; all painting belongs to the loop.
+        """
+        self.clear_flash()
+        self._flash = (list(paragraphs), _time.monotonic() + seconds, busy)
+        self._flash_repaint(0.08 if busy else seconds + 0.05)
+
     def flash_overlay(self, cols, rows):
-        """The note for overlay()'s floating channel, boxed like the help
-        panel and the pickers, or "" once it has expired. A view's render
-        lays it over its own overlay."""
+        """The current note on overlay()'s floating channel."""
         if self._flash is None:
             return ""
-        paragraphs, deadline = self._flash
+        paragraphs, deadline, busy = self._flash
+        if busy:
+            from linecast._spinner import SPINNER_FRAMES
+            spinner = SPINNER_FRAMES[int(_time.monotonic() / 0.08) % len(SPINNER_FRAMES)]
+            self._flash_repaint(0.08)
+            return toast_box(' '.join(paragraphs), cols, rows, icon=spinner)
         if _time.monotonic() >= deadline:
-            self._flash = None
+            self.clear_flash()
             return ""
         from linecast._graphics import fg
         from linecast._help import wrap
@@ -1069,4 +1165,5 @@ class LiveApp:
                       play_interval=self.play_interval, help_panel=self.help_panel(),
                       **self.hooks())
         finally:
+            self.clear_flash()
             self.stop()

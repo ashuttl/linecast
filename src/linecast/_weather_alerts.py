@@ -75,7 +75,7 @@ def _alert_pill(alert, max_width=None):
     r, g, b = _severity_rgb(severity)
     dark_fg = fg(*_knockout_ink((r, g, b)))
     bg_color = bg(r, g, b)
-    event = alert.get("event", "Unknown")
+    event = alert.get("event") or "Unknown"
 
     def _pill(label):
         return f"{bg_color}{dark_fg}{BOLD} \u26a0 {label} {RESET}"
@@ -139,7 +139,7 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name=""):
             used += 1 + visible_len(timing_str)
             parts.append(timing_str)
 
-    desc = alert.get("description", "").strip()
+    desc = (alert.get("description") or "").strip()
     if desc:
         flat = " ".join(desc.split())
         remaining = width - used - 1  # the space before the description
@@ -173,7 +173,7 @@ def render_alerts_mapped(alerts, width=80, remaining_rows=None, runtime=None, tz
     from collections import OrderedDict
     groups = OrderedDict()
     for index, alert in enumerate(alerts):
-        desc = alert.get("description", "").strip()
+        desc = (alert.get("description") or "").strip()
         key = desc or id(alert)  # unique key for alerts without description
         groups.setdefault(key, []).append((index, alert))
 
@@ -195,7 +195,7 @@ def render_alerts_mapped(alerts, width=80, remaining_rows=None, runtime=None, tz
             lines.extend(pill_lines)
             spans.extend(pill_spans)
 
-            desc = group[0][1].get("description", "").strip()
+            desc = (group[0][1].get("description") or "").strip()
             if desc:
                 flat = " ".join(desc.split())
                 remaining = width
@@ -223,7 +223,7 @@ def _build_modal_content(alert, inner_w, runtime=None, tz_name=""):
     r, g, b = _severity_rgb(severity)
     dark_fg = fg(*_knockout_ink((r, g, b)))
     bg_color = bg(r, g, b)
-    event = alert.get("event", "Unknown")
+    event = alert.get("event") or "Unknown"
 
     lines = []
 
@@ -243,14 +243,14 @@ def _build_modal_content(alert, inner_w, runtime=None, tz_name=""):
     lines.append("")  # blank line
 
     # Headline (if different from event name)
-    headline = alert.get("headline", "")
+    headline = alert.get("headline") or ""
     if headline and headline != event:
         for wrapped in wrap_display_width(headline, inner_w):
             lines.append(f"{MBG}{TFG}{BOLD}{wrapped}{RESET}")
         lines.append("")
 
     # Description — preserve paragraph breaks from source
-    desc = alert.get("description", "").strip()
+    desc = (alert.get("description") or "").strip()
     if desc and desc != headline:
         # Split on double newlines for paragraphs
         paragraphs = desc.split("\n\n")
@@ -263,7 +263,7 @@ def _build_modal_content(alert, inner_w, runtime=None, tz_name=""):
                 lines.append(f"{MBG}{TFG}{wrapped}{RESET}")
 
     # URL
-    url = alert.get("url", "")
+    url = alert.get("url") or ""
     if url:
         lines.append("")
         link_color = fg(*LINK_RGB)
@@ -336,7 +336,7 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0, tz_name=""):
 
     # Bottom border with hints
     bot_row = top_row + visible_h + 1
-    url = alert.get("url", "")
+    url = alert.get("url") or ""
     parts = [_s("q_to_close", runtime)]
     if url:
         parts.append(_s("o_to_open", runtime))

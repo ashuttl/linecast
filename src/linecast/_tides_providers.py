@@ -67,6 +67,11 @@ class TideProvider:
         """False when the provider needs something the user has not set up."""
         return True
 
+    def footer_label(self, runtime) -> str:
+        """The label as the footer shows it: the source's own name, which
+        stays as it is in every language."""
+        return self.label
+
     def id_matches(self, text: str) -> bool:
         """True when a --station value looks like one of this provider's IDs."""
         return False
@@ -335,6 +340,11 @@ class _OpenMeteo(TideProvider):
 
     def id_matches(self, text):
         return openmeteo.is_openmeteo_station_id(text)
+
+    def footer_label(self, runtime):
+        # Not a name but a description, so it is translated.
+        from linecast._tides_i18n import _ts
+        return _ts("tide_model", runtime)
 
     def name_for_id(self, station_id):
         return "Tide model"

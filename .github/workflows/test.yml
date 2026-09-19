@@ -55,7 +55,22 @@ jobs:
           pip install -e .
           pip install pytest
 
+      # The completion scripts are run in the shells they are written
+      # for. Those tests skip where a shell is missing, so the Linux
+      # legs install every shell and require them all: a missing shell
+      # fails instead of skipping (2.6.1 shipped a script no shell would
+      # load, through a skip).
+      - name: Install the completion shells
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends zsh fish
+      - uses: hustcer/setup-nu@87630dca608250538b4b3df0c42f83f77b8531e7 # v3.27
+        if: runner.os == 'Linux'
+
       - name: Run tests
+        env:
+          LINECAST_REQUIRE_SHELLS: ${{ runner.os == 'Linux' && 'bash zsh fish nu' || '' }}
         run: pytest tests -q -p no:cacheprovider
 
   hermetic:

@@ -1,6 +1,6 @@
 """The Thai lunar calendar (ปฏิทินจันทรคติไทย), by its own arithmetic.
 
-Unlike the calendars in _lunisolar, which follow the astronomical moon,
+Unlike the calendars in lunisolar, which follow the astronomical moon,
 the Thai calendar is arithmetic: months run on the mean sun and moon of
 the old Suriyayart reckoning, in which 800 solar years are exactly
 292207 days. Odd months hold 29 days and even months 30; a year needing

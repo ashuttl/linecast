@@ -231,6 +231,22 @@ class TestPlayGate:
         assert app.play_gate() is False
 
 
+class TestViewLatitude:
+    """The marker keeps the true location; the view centre stops where
+    the tiles do, as it does for a pan."""
+
+    def test_a_polar_location_centres_the_view_at_the_edge(self, monkeypatch):
+        monkeypatch.setattr(rf, "_source", FakeSource(THEMES, "classic"))
+        app = RadarApp(None, 89.0, 15.0, "Svalbard", 10.0, frozenset(),
+                       "radar", "classic")
+        assert app.lat == 80.0
+        assert app.home == (89.0, 15.0)
+
+    def test_view_lat_is_the_pan_clamp(self):
+        assert _radar_live.view_lat(-89.0) == -80.0
+        assert _radar_live.view_lat(43.7) == 43.7
+
+
 class TestRender:
     def test_passes_the_state_through(self, app, monkeypatch):
         seen = {}

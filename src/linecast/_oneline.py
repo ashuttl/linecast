@@ -5,6 +5,8 @@ embedding in a status bar.  The ``--oneline`` flag in each subcommand triggers
 these renderers instead of the full terminal UI.
 """
 
+from linecast._weather_i18n import fmt_wind
+from linecast._i18n import fmt_percent
 from linecast._graphics import fg, RESET
 from linecast._framebuffer import fmt_time, fmt_time_dt
 
@@ -24,10 +26,12 @@ def weather_oneline(data, location_name, runtime):
     if not data:
         return "No weather data"
 
-    current = data.get("current", {})
-    temp = current.get("temperature_2m", 0)
-    wmo = current.get("weather_code", 0)
-    wind = current.get("wind_speed_10m", 0)
+    # A key present and null is a reading the model has no value for;
+    # the line leaves it out rather than print it as 0
+    current = data.get("current") or {}
+    temp = current.get("temperature_2m")
+    wmo = current.get("weather_code") or 0
+    wind = current.get("wind_speed_10m") or 0
     humidity = current.get("relative_humidity_2m")
 
     icons = _wmo_icons(runtime)
@@ -42,15 +46,16 @@ def weather_oneline(data, location_name, runtime):
         short_name = location_name.split(",")[0].strip()
         parts.append(f"{TEXT}{short_name}")
 
-    parts.append(f"{_colored_temp(temp, runtime, deg)}")
+    if temp is not None:
+        parts.append(f"{_colored_temp(temp, runtime, deg)}")
     parts.append(f"{TEXT}{icon} {desc}")
 
     if wind > 0:
         from linecast._weather_i18n import _s
-        parts.append(f"{WIND_COLOR}{_s('wind', runtime)} {wind:.0f}{runtime.wind_unit}")
+        parts.append(f"{WIND_COLOR}{_s('wind', runtime)} {fmt_wind(wind, runtime)}")
 
     if humidity is not None:
-        parts.append(f"{MUTED}\U0001f4a7{humidity:.0f}%")
+        parts.append(f"{MUTED}\U0001f4a7{fmt_percent(humidity, runtime)}")
 
     return " ".join(parts) + RESET
 
@@ -59,10 +64,15 @@ def weather_oneline(data, location_name, runtime):
 # Sunshine oneline
 # ---------------------------------------------------------------------------
 
-def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None):
+def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None,
+                     hours=None, now=None):
     """Return a compact solar summary line.
 
     Example: ``sunrise 5:42a sunset 7:38p 12h34m +2m waning_crescent_icon``
+
+    With *hours*, the day read in a tradition's hours, the reading of
+    *now* follows: ``4:20 · 1h=57m`` for the halachic hours, ``Dhuhr ·
+    Asr in 41m`` for the prayer times.
     """
     from linecast.sunshine import solar_times, moon_phase
     from datetime import datetime
@@ -103,6 +113,11 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None):
         f"{dim}{delta_str} "
         f"{text}{moon_icon}"
     )
+    if hours is not None and now is not None:
+        from linecast._sunshine_hours import corner_reading
+        tail = corner_reading(hours, now, runtime).replace(" = ", "=")
+        if tail:
+            line += f" {text}{tail}"
     return line + RESET
 
 
@@ -132,7 +147,7 @@ def moon_oneline(now_local, lat, lng, runtime, calendar=None):
         moon_phase, INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_TEXT_RGB,
     )
     from linecast._i18n import lang_of
-    from linecast._lunisolar import resolve_calendar
+    from linecast._calendars.lunisolar import resolve_calendar
     from linecast._tides_i18n import _moon_name
 
     idx, _name, icon = moon_phase(now_local, runtime)
@@ -148,7 +163,7 @@ def moon_oneline(now_local, lat, lng, runtime, calendar=None):
     purple = fg(*INFO_PURPLE_RGB)
     text = fg(*INFO_TEXT_RGB)
 
-    parts = [f"{text}{icon} {name} {illum * 100:.0f}%"]
+    parts = [f"{text}{icon} {name} {fmt_percent(illum * 100, runtime)}"]
 
     rise, sset = upcoming_moon_events(now_local, lat, lng)
     events = sorted(
@@ -247,7 +262,7 @@ def sky_oneline(now_local, lat, lng, runtime):
     parts = []
     if scene.moon_alt > 0.0:
         _idx, _name, icon = moon_phase(scene.moment_utc, runtime)
-        parts.append(f"{text}{icon} {scene.moon_illum * 100:.0f}% "
+        parts.append(f"{text}{icon} {fmt_percent(scene.moon_illum * 100, runtime)} "
                      f"{compass_point(scene.moon_az, runtime, culture)} {scene.moon_alt:.0f}°")
     for key, _vec, alt, az, mag in scene.planets:
         if alt > 0.0 and easily_seen(mag, alt, scene):

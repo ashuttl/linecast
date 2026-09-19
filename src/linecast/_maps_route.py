@@ -18,11 +18,11 @@ differently.
 Directions data © OpenStreetMap contributors.
 """
 
-import time
 from typing import Any
 
 from linecast import user_agent
 from linecast._http import fetch_json
+from linecast._rate_limit import RateLimit
 from linecast._runtime import debug_log, log_failure
 from linecast._scenes import Memo
 
@@ -34,8 +34,7 @@ _PRIMARY = "https://routing.openstreetmap.de/routed-{profile}/route/v1/driving/"
 _FALLBACK = "https://router.project-osrm.org/route/v1/driving/"
 _QUERY = "?overview=full&geometries=geojson&steps=true"
 
-_MIN_INTERVAL = 1.0  # the hosts' published rate limit
-_last_request = 0.0  # monotonic stamp of the last network call
+_throttle = RateLimit(1.0, "routing")
 
 _MAX_CACHED = 8
 _cache = Memo(keep=_MAX_CACHED)  # (profile, olat, olon, dlat, dlon) -> Route | NoRoute
@@ -77,17 +76,6 @@ class Route:
 def _fetch(url, timeout):
     """The raw request: the decoded JSON body, or an exception."""
     return fetch_json(url, headers={"User-Agent": user_agent()}, timeout=timeout)
-
-
-def _throttle():
-    """Sleep out whatever is left of the 1 s gap since the last call."""
-    global _last_request
-    now = time.monotonic()
-    wait = _MIN_INTERVAL - (now - _last_request)
-    if wait > 0:
-        time.sleep(wait)
-        now += wait
-    _last_request = now
 
 
 def _parse(body, profile):

@@ -141,6 +141,15 @@ class TestLifecycle:
         assert st.query == ""
         assert st.chosen is None
 
+    def test_quit_closes_the_panel_like_escape(self):
+        # Ctrl-C on Windows arrives as 'quit'; `q` is a letter here
+        st = state([result()])
+        st.start()
+        typed(st, "por")
+        assert st.handle('quit', 43.6, -70.2, 12) is True
+        assert not st.open
+        assert st.chosen is None
+
     def test_closing_cancels_the_pending_request(self):
         st = state()
         st.start()
@@ -293,6 +302,37 @@ class TestCommit:
         assert st.chosen.name == "First"
         assert not st.open
 
+    @pytest.mark.parametrize('edit', ['char:t', 'key:backspace'])
+    def test_enter_after_editing_waits_for_the_new_query(self, edit):
+        st = self._listed()
+        st.handle('back', 43.6, -70.2, 12)
+        st._fetch = lambda *args: [result("New match")]
+        st.handle(edit, 43.6, -70.2, 12)
+        st.handle('key:enter', 43.6, -70.2, 12)
+        assert st.open
+        assert st.take_chosen() is None
+        FakeTimer.armed[-1].fire()
+        assert st.take_chosen().name == "New match"
+        assert not st.open
+
+    @pytest.mark.parametrize('edit', ['char:t', 'key:backspace', 'key:kill'])
+    def test_editing_cancels_a_pending_enter(self, edit):
+        st = state([result("New match")])
+        st.start()
+        typed(st, "por")
+        st.handle('key:enter', 43.6, -70.2, 12)
+        stale = FakeTimer.armed[-1]
+        st.handle(edit, 43.6, -70.2, 12)
+        if edit == 'key:kill':
+            typed(st, "london")
+        stale.fire()
+        FakeTimer.armed[-1].fire()
+        assert st.open
+        assert st.take_chosen() is None
+        assert [r.name for r in st.results] == ["New match"]
+        st.handle('key:enter', 43.6, -70.2, 12)
+        assert st.take_chosen().name == "New match"
+
     def test_enter_on_an_empty_list_asks_nominatim_once(self):
         seen = []
 
@@ -309,6 +349,29 @@ class TestCommit:
         assert seen == []                       # not yet — it runs off-thread
         FakeThread.started[-1].run_now()
         assert seen == [("obscure", "en")]
+        assert [r.name for r in st.results] == ["Found by name"]
+
+    @pytest.mark.parametrize("lang", ["fr", "ja", "zh-Hant"])
+    @pytest.mark.parametrize("enter_before_reply", [True, False])
+    def test_failed_search_fallback_keeps_the_language(self, lang, enter_before_reply):
+        seen = []
+
+        def one_shot(query, language):
+            seen.append((query, language))
+            return [result("Found by name")]
+
+        st = state(fail=True, one_shot=one_shot)
+        st.start()
+        st.handle('char:Paris', 43.6, -70.2, 12, lang)
+        if enter_before_reply:
+            st.handle('key:enter', 43.6, -70.2, 12, lang)
+        FakeTimer.armed[-1].fire()
+        if not enter_before_reply:
+            st.handle('key:enter', 43.6, -70.2, 12, lang)
+        assert len(FakeThread.started) == 1
+        FakeThread.started[-1].run_now()
+        assert seen == [("Paris", lang)]
+        assert st.open and st.chosen is None
         assert [r.name for r in st.results] == ["Found by name"]
 
     def test_the_one_shot_lists_rather_than_jumping(self):
@@ -401,6 +464,27 @@ class TestOverlay:
         panel = mu.search_overlay(st, 80, 6)
         placed = [int(m) for m in re.findall(r"\033\[(\d+);1H", panel)]
         assert max(placed) <= 6
+
+    @pytest.mark.parametrize('rows', [6, 10, 24])
+    @pytest.mark.parametrize('action', ['back', 'fwd'])
+    def test_arrow_selection_stays_visible_and_enter_chooses_it(self, rows, action):
+        st = self._open([result(f"Place {i}", "") for i in range(8)])
+        for _ in range(9):  # walk the whole list and wrap in either direction
+            st.handle(action, 43.6, -70.2, 12)
+            panel = mu.search_overlay(st, 80, rows)
+            selected = st.results[st.sel]
+            assert f"\033[7m {selected.name} " in panel
+            placed = [int(m) for m in re.findall(r"\033\[(\d+);1H", panel)]
+            assert max(placed) <= rows
+        st.handle('key:enter', 43.6, -70.2, 12)
+        assert st.take_chosen() is selected
+
+    def test_shrinking_the_terminal_keeps_the_selected_result_visible(self):
+        st = self._open([result(f"Place {i}", "") for i in range(8)])
+        st.handle('fwd', 43.6, -70.2, 12)  # wrap to the final suggestion
+        for rows in (24, 6, 24):
+            panel = mu.search_overlay(st, 80, rows)
+            assert "\033[7m Place 7 " in panel
 
     def test_the_empty_and_error_states_each_get_one_row(self):
         for status, text in (("none", "no matches"),

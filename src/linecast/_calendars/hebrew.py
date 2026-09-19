@@ -20,7 +20,7 @@ Adar I is the twelfth and Adar II the thirteenth. Dates are proleptic
 Gregorian, in the reader's own day.
 
 The Hebrew day begins at sunset. The panel turns the date with the
-reader's own sunset (_hijri.after_sunset, shared with the Islamic
+reader's own sunset (hijri.after_sunset, shared with the Islamic
 calendar, which keeps the same evening); the month grid and the
 holiday dates keep civil days, the way printed calendars do. The
 holidays follow the place: outside Israel a second day of Sukkot,

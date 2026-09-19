@@ -1,11 +1,19 @@
 """python -m linecast / linecast CLI entry point."""
 
+import errno
 import os
 import sys
+from textwrap import fill
 from linecast._completion import available_shells, completion_help, render_completion
+from linecast._i18n import LANGUAGE_CODES
 
-HELP = """\
-linecast {version} — weather, sunlight, the moon, the sky, tides, radar, and maps for the terminal
+_LANGUAGE_HELP = fill(
+    ", ".join(LANGUAGE_CODES), width=95,
+    initial_indent="  linecast language    ", subsequent_indent=" " * 23,
+)
+
+HELP = f"""\
+linecast {{version}} — weather, sunlight, the moon, the sky, tides, radar, and maps for the terminal
 
   linecast weather     Conditions now, the day's temperature curve, the forecast, and alerts
   linecast sunshine    The sun's arc across the sky, dawn to dusk, or the whole year
@@ -17,8 +25,7 @@ linecast {version} — weather, sunlight, the moon, the sky, tides, radar, and m
 
 Settings (run alone to show, give a value to set):
   linecast location    A fixed place, instead of the one your IP address suggests
-  linecast language    en, fr, es, de, it, pt, nl, pl, no, sv, is, da, fi, ja, ko, zh, th, id,
-                       uk, or vi
+{_LANGUAGE_HELP}
   linecast units       metric or imperial
   linecast clock       12-hour or 24-hour
   linecast week        The day the moon calendar's week opens on: monday, sunday, or saturday
@@ -27,6 +34,8 @@ Settings (run alone to show, give a value to set):
                        hawaiian, samoan, chamorro, refaluwasch, islamic, hebrew, almanac, or none
   linecast culture     Whose constellations the sky draws: chinese, hawaiian, norse, maori,
                        boorong, and seventeen more, or none for the IAU sky
+  linecast hours       Which hours sunshine reads the day in: halachic, halachic-mga, roman,
+                       japanese, islamic, swahili, or none
   For one run, a flag: --location "Québec" or 41.88,-87.63, --lang fr, --imperial, --24h
 
 Housekeeping:
@@ -80,6 +89,7 @@ COMMANDS = {
     # library module the rest of the code imports.
     "calendar": "linecast.calendar_cmd",
     "culture": "linecast.culture_cmd",
+    "hours": "linecast.hours",
     "link": "linecast.link",
     "doctor": "linecast.doctor",
 }
@@ -103,6 +113,41 @@ def _run(cmd, args):
 
 
 def main():
+    # A reader that closes early -- `linecast weather --print | head` --
+    # ends a run with EPIPE on stdout.  That is the reader's choice, not
+    # a failure: swallow it, and give the interpreter something other
+    # than the broken pipe to flush at exit, or it reports the same
+    # error once more on the way out.  Output shorter than the buffer
+    # reaches the pipe only at that flush, so flush here, where the
+    # error can still be caught.
+    try:
+        try:
+            _main()
+        finally:
+            sys.stdout.flush()
+    except OSError as exc:
+        if not _reader_gone(exc):
+            raise
+        try:
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        except OSError:
+            pass
+        sys.exit(0)
+
+
+def _reader_gone(exc):
+    """Whether an error writing stdout says the reader has closed it.
+
+    POSIX reports it as EPIPE.  Windows has no reader to signal: its C
+    runtime turns the pipe's ERROR_NO_DATA into EINVAL, so on Windows
+    an EINVAL from stdout is taken the same way.
+    """
+    if isinstance(exc, BrokenPipeError):
+        return True
+    return sys.platform == "win32" and exc.errno == errno.EINVAL
+
+
+def _main():
     # A binary named for a command is that command: a symlink or copy
     # of the linecast binary called `weather` runs the weather command,
     # arguments untouched.  Distro packages ship the short commands as

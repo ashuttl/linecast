@@ -21,7 +21,8 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _maps_route as mr
+from linecast import _maps_route as mr, _rate_limit
+from linecast._rate_limit import RateLimit
 from linecast._scenes import Memo
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -45,6 +46,7 @@ class _Clock:
 
     def sleep(self, seconds):
         self.slept.append(seconds)
+        self._readings = [reading + seconds for reading in self._readings]
 
 
 @pytest.fixture(autouse=True)
@@ -52,8 +54,8 @@ def _fresh(monkeypatch):
     """Module state is global; every test starts from an empty cache and
     an open throttle gate."""
     monkeypatch.setattr(mr, "_cache", Memo(keep=mr._MAX_CACHED))
-    monkeypatch.setattr(mr, "_last_request", 0.0)
-    monkeypatch.setattr(mr, "time", _Clock(1000.0))
+    monkeypatch.setattr(mr, "_throttle", RateLimit(1.0, "routing"))
+    monkeypatch.setattr(_rate_limit, "time", _Clock(1000.0))
 
 
 def _stub(monkeypatch, *answers):
@@ -234,7 +236,7 @@ class TestCache:
 class TestThrottle:
     def test_waits_out_the_remainder(self, monkeypatch):
         clock = _Clock(1000.0, 1000.2)
-        monkeypatch.setattr(mr, "time", clock)
+        monkeypatch.setattr(_rate_limit, "time", clock)
         _stub(monkeypatch, BODY)
         mr.route("car", WESTBROOK, PORTLAND)
         mr.route("car", PORTLAND, WESTBROOK)
@@ -243,7 +245,7 @@ class TestThrottle:
 
     def test_no_wait_when_more_than_a_second_apart(self, monkeypatch):
         clock = _Clock(1000.0, 1002.0)
-        monkeypatch.setattr(mr, "time", clock)
+        monkeypatch.setattr(_rate_limit, "time", clock)
         _stub(monkeypatch, BODY)
         mr.route("car", WESTBROOK, PORTLAND)
         mr.route("car", PORTLAND, WESTBROOK)
@@ -251,7 +253,7 @@ class TestThrottle:
 
     def test_cache_hit_does_not_wait(self, monkeypatch):
         clock = _Clock(1000.0, 1000.1)
-        monkeypatch.setattr(mr, "time", clock)
+        monkeypatch.setattr(_rate_limit, "time", clock)
         _stub(monkeypatch, BODY)
         mr.route("car", WESTBROOK, PORTLAND)
         mr.route("car", WESTBROOK, PORTLAND)
@@ -259,7 +261,7 @@ class TestThrottle:
 
     def test_fallback_attempt_is_throttled_too(self, monkeypatch):
         clock = _Clock(1000.0, 1000.0)
-        monkeypatch.setattr(mr, "time", clock)
+        monkeypatch.setattr(_rate_limit, "time", clock)
         _stub(monkeypatch, urllib.error.URLError("down"), BODY)
         mr.route("car", WESTBROOK, PORTLAND)
         assert clock.slept == pytest.approx([1.0])

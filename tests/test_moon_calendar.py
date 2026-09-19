@@ -95,6 +95,17 @@ class TestGrid:
             assert len(body) <= rows
             assert all(visible_len(line) <= cols for line in body)
 
+    def test_a_six_week_month_keeps_its_last_week_on_a_short_window(self):
+        # August 2026 opens on a Saturday, so a Monday week needs six
+        # rows; at two rows a week that is fourteen, and a shorter
+        # window used to draw the last week off the bottom of the frame.
+        for rows in (14, 12, 11, 10, 9):
+            body, _chip = _render(40, rows, month_offset=-1)
+            text = _blocks_to_space("\n".join(body))
+            days = {int(t) for t in re.findall(r"\d+", text) if 1 <= int(t) <= 31}
+            assert days >= set(range(1, 32)), (rows, sorted(set(range(1, 32)) - days))
+            assert len(body) <= rows
+
     def test_tiny_grid_falls_back_to_glyphs(self):
         body, _chip = _render(30, 12)
         assert any("🌒" in line or "🌘" in line for line in body)
@@ -144,6 +155,14 @@ class TestCalendars:
         text = "\n".join(body)
         assert "初二" in text
         assert "中秋节" in text
+
+    def test_traditional_chinese_reads_the_same_grid_in_its_script(self):
+        now = datetime(2026, 9, 1, 14, 30, tzinfo=timezone(timedelta(hours=8)))
+        body, _chip = _render(100, 32, lang="zh-Hant", calendar="chinese", now=now)
+        text = "\n".join(body)
+        assert "2026年9月" in body[0]
+        assert "初二" in text
+        assert "中秋節" in text and "中秋节" not in text
 
     def test_hawaiian_names_the_nights(self):
         body, _chip = _render(120, 34, calendar="hawaiian")

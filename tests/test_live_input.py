@@ -70,6 +70,11 @@ class TestTextMode:
     def test_enter(self, pipe):
         assert _key(pipe, b"\r", text=True) == "key:enter"
 
+    def test_ctrl_c_quits_while_typing(self, pipe):
+        # Windows delivers Ctrl-C as ETX; a text field must not eat it
+        assert _key(pipe, b"\x03", text=True) == "quit"
+        assert _key(pipe, b"\x03") == "quit"
+
     def test_other_control_bytes_dropped(self, pipe):
         assert _key(pipe, b"\x01", text=True) is None  # ctrl-A
 

@@ -4,26 +4,38 @@ import math
 from datetime import datetime, timedelta
 
 from linecast import _theme
+from linecast._i18n import fmt_percent, sentence_24h
 from linecast._graphics import RESET, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure, log_skipped
 from linecast._textwidth import wrap_display_width
 from linecast._weather_i18n import (
-    DAY_NAMES, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s, _wmo_icons,
+    fmt_wind, _precip_s,
+    DAY_NAMES, ON_DAY_FORMS, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s, _wmo_icons,
 )
 from linecast._weather_style import (MUTED, TEXT, WIND_COLOR, _aqi_color,
                                      _colored_temp, _india_aqi_color)
+from linecast._weather_sources import _local_now_for_data
 
 
-def render_header(data, width, location_name="", runtime=None, aqi_data=None, historical=None):
+def location_control(name, width, runtime):
+    from linecast._help import fit
+    from linecast._weather_locations_i18n import ls
+    return fit(name or ls('locations', runtime.lang), max(0, min(width - 2, width // 2))) + ' ▼'
+
+
+def render_header(data, width, location_name="", runtime=None, aqi_data=None, historical=None,
+                  location_menu=False, now=None):
     """Current conditions header line."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
-    current = data.get("current", {})
-    temp = current.get("temperature_2m", 0)
-    feels = current.get("apparent_temperature", 0)
-    wmo = current.get("weather_code", 0)
-    wind = current.get("wind_speed_10m", 0)
-    gusts = current.get("wind_gusts_10m", 0)
+    # A key can be present and null when the model has no value for
+    # the hour; a null reading is left off the line, not printed as 0.
+    current = data.get("current") or {}
+    temp = current.get("temperature_2m")
+    feels = current.get("apparent_temperature")
+    wmo = current.get("weather_code") or 0
+    wind = current.get("wind_speed_10m") or 0
+    gusts = current.get("wind_gusts_10m") or 0
     humidity = current.get("relative_humidity_2m")
     dew_point = current.get("dew_point_2m")
 
@@ -32,21 +44,29 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
     name = WMO_NAMES_I18N.get(runtime.lang, {}).get(wmo) or WMO_NAMES.get(wmo, "")
 
     deg = runtime.temp_unit
-    left_core = f"{TEXT}{icon} {name}  {_colored_temp(temp, runtime, deg)}"
-    left_feels = f"  {MUTED}{_s('feels', runtime)} {_colored_temp(feels, runtime, deg)}"
+    left_core = f"{TEXT}{icon} {name}"
+    if temp is not None:
+        left_core += f"  {_colored_temp(temp, runtime, deg)}"
+    left_feels = ""
+    if feels is not None:
+        left_feels = f"  {MUTED}{_s('feels', runtime)} {_colored_temp(feels, runtime, deg)}"
 
     # Historical comparison — subtle annotation after feels-like
     left_hist = ""
     if historical is not None:
         try:
             from linecast._weather_historical import format_historical_comparison
-            daily = data.get("daily", {})
-            hi_temps = daily.get("temperature_2m_max", [])
-            lo_temps = daily.get("temperature_2m_min", [])
-            # Index 1 = today (with past_days=1)
-            if len(hi_temps) > 1 and len(lo_temps) > 1:
+            daily = data.get("daily") or {}
+            hi_temps = daily.get("temperature_2m_max") or []
+            lo_temps = daily.get("temperature_2m_min") or []
+            # A cached forecast's second entry may no longer be today.
+            today = (now if now is not None else _local_now_for_data(data)).date().isoformat()
+            index = next((i for i, day in enumerate(daily.get("time") or [])
+                          if day == today), -1)
+            if (0 <= index < min(len(hi_temps), len(lo_temps))
+                    and hi_temps[index] is not None and lo_temps[index] is not None):
                 hist_text = format_historical_comparison(
-                    hi_temps[1], lo_temps[1], historical, runtime,
+                    hi_temps[index], lo_temps[index], historical, runtime,
                 )
                 if hist_text:
                     left_hist = f"  {MUTED}({hist_text})"
@@ -63,7 +83,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
             left_humidity = (f"  {MUTED}{_s('dew_pt', runtime)} "
                              f"{_colored_temp(dew_point, runtime, deg)}")
         elif humidity >= 70 or humidity <= 25:
-            left_humidity = f"  {MUTED}{_s('humidity', runtime)} {humidity:.0f}%"
+            left_humidity = f"  {MUTED}{_s('humidity', runtime)} {fmt_percent(humidity, runtime)}"
 
     # AQI — show when data available. India reads its own CPCB scale,
     # attached upstream (apply_india_aqi); the number, its colors, and
@@ -96,11 +116,13 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
     # Right side: wind info + location (progressively droppable)
     wind_part = ""
     if wind > (15 if runtime.metric else 10) or gusts > (30 if runtime.metric else 20):
-        parts = [f"{_s('wind', runtime)} {wind:.0f}{runtime.wind_unit}"]
+        parts = [f"{_s('wind', runtime)} {fmt_wind(wind, runtime)}"]
         if gusts > (30 if runtime.metric else 20):
-            parts.append(f"{_s('gusts', runtime)} {gusts:.0f}{runtime.wind_unit}")
+            parts.append(f"{_s('gusts', runtime)} {fmt_wind(gusts, runtime)}")
         wind_part = f"{WIND_COLOR}{'  '.join(parts)}"
     loc_part = f"{MUTED}{location_name}" if location_name else ""
+    if location_menu:
+        loc_part = f"{MUTED}{location_control(location_name, width, runtime)}"
 
     def _join_right(*parts):
         filled = [p for p in parts if p]
@@ -143,6 +165,20 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
     if result:
         return result
 
+    if location_menu:
+        # The live location is a control: keep it even when conditions are long.
+        for compact in (left_core + left_feels, left_core):
+            result = _assemble(compact, loc_part)
+            if result:
+                return result
+        from linecast._help import fit
+        label = location_control(location_name, width, runtime)
+        room = max(0, width - visible_len(label) - 1)
+        core = f"{icon} {name}" + (f"  {temp:.0f}{deg}" if temp is not None else "")
+        plain = fit(core, room)
+        return f"{TEXT}{plain}{' ' * max(0, width - visible_len(plain) - visible_len(label))}" \
+               f"{MUTED}{label}{RESET}"
+
     # Drop location
     right = _join_right(wind_part)
     result = _assemble(left, right)
@@ -183,11 +219,7 @@ def _prose(sentence):
 
 
 def narrative_lines(data, now, width, runtime=None):
-    """The prose under the graph, packed into as few lines as it fits on.
-
-    A sentence per line leaves most of a wide terminal empty and takes
-    rows the graph wants on a narrow one, so sentences share a line while
-    there is room and only spill onto another when there is not."""
+    """The prose under the graph, wrapped as one continuous paragraph."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
     daily = data.get("daily", {})
@@ -210,25 +242,22 @@ def narrative_lines(data, now, width, runtime=None):
         return []
 
     # Read as prose, so the sentences are punctuated as prose: a full stop
-    # between two sharing a line and at the end of every one.  Which mark
+    # between sentences and at the end of the paragraph.  Which mark
     # that is, and whether a space follows it, is the language's business.
     join = _s("sentence_join", runtime)
     end = _s("sentence_end", runtime)
 
     budget = max(1, width)
-    rows = [sentences[0]]
-    for sentence in sentences[1:]:
-        joined = rows[-1] + join + sentence
-        if visible_len(joined + end) <= budget:
-            rows[-1] = joined
-        else:
-            rows.append(sentence)
-    # A sentence with nothing to share its line can still outrun a narrow
-    # terminal, and a line the terminal wraps itself pushes the header off
-    # the top of the screen.  Wrap it here instead.
-    return [_prose(line)
-            for row in rows
-            for line in wrap_display_width(row + end, budget)]
+    rows = wrap_display_width(join.join(sentences) + end, budget)
+    # Give a lone final word some company when it fits, without adding a
+    # row or leaving another lone word behind.  Languages without spaces
+    # keep the display-width wrapper's natural breaks.
+    if len(rows) > 1 and len(rows[-1].split()) == 1:
+        before, space, word = rows[-2].rpartition(" ")
+        last = word + " " + rows[-1]
+        if space and len(before.split()) > 1 and visible_len(last) <= budget:
+            rows[-2:] = [before, last]
+    return [_prose(line) for line in rows]
 
 
 # ---------------------------------------------------------------------------
@@ -329,18 +358,27 @@ def comparative_sentence(daily, now, runtime=None):
         runtime = current_runtime(WeatherRuntime)
     hi_temps = daily.get("temperature_2m_max", [])
 
-    # With past_days=1: index 0=yesterday, 1=today, 2=tomorrow
+    # Resolve the dates in cached forecasts too: index 1 only means
+    # today on the day of the fetch. Undated series use past_days=1.
+    if daily.get("time") is not None:
+        by_date = dict(zip(daily["time"], hi_temps))
+        hi_temps = [by_date.get((now.date() + timedelta(days=offset)).isoformat())
+                    for offset in (-1, 0, 1)]
     if len(hi_temps) < 3:
         return ""
 
     if now.hour < _COMPARISON_TURNS_TO_TOMORROW:
-        diff = hi_temps[1] - hi_temps[0]
+        a, b = hi_temps[0], hi_temps[1]
         ref_day = _s("yesterday", runtime)
         subject = _s("today_subj", runtime)
     else:
-        diff = hi_temps[2] - hi_temps[1]
+        a, b = hi_temps[1], hi_temps[2]
         ref_day = _s("today_ref", runtime)
         subject = _s("tomorrow_subj", runtime)
+    # Either day's high can be null; there is then nothing to compare.
+    if a is None or b is None:
+        return ""
+    diff = b - a
 
     abs_diff = abs(diff)
     # Thresholds in degrees (smaller for Celsius since 1°C ≈ 1.8°F)
@@ -385,6 +423,46 @@ _PRECIP_DESCS = {
     95: "thunderstorms", 96: "thunderstorms", 99: "thunderstorms",
 }
 
+# How hard each precipitation code falls, one step at a time, so a run
+# of rain can say when it turns heavy without calling a let-up a turn.
+_PRECIP_RANK = {
+    51: 1, 53: 2, 55: 3, 56: 2, 57: 3,
+    61: 2, 63: 3, 65: 4, 66: 3, 67: 4,
+    71: 2, 73: 3, 75: 4, 77: 1,
+    80: 2, 81: 3, 82: 4, 85: 3, 86: 4,
+    95: 4, 96: 5, 99: 5,
+}
+
+
+def _peak_hour(run, amounts, codes):
+    """The hour in a run of precipitation worth naming on its own, or None.
+
+    The peak is the hour with the most forecast, the tallest column of
+    the bar under the chart; with no amounts it is the hour of the
+    heaviest code.  It is named only when its code is a step up from
+    the current hour's, so "rain becoming light rain" is never said,
+    and a run that keeps its name says nothing more.
+    """
+    def amount(idx):
+        return (amounts[idx] if idx < len(amounts) else 0) or 0
+
+    def rank(idx):
+        return _PRECIP_RANK.get(codes[idx] if idx < len(codes) else 0, 0)
+
+    first = run[0][0]
+    later = run[1:]
+    if not later:
+        return None
+    if any(amount(i) for i, _ in run):
+        i, dt = max(later, key=lambda h: amount(h[0]))
+        if amount(i) <= amount(first):
+            return None
+    else:
+        i, dt = max(later, key=lambda h: rank(h[0]))
+    if rank(i) <= rank(first):
+        return None
+    return i, dt
+
 
 def precipitation_sentence(hourly, now, runtime=None):
     """Plain-text description of upcoming precipitation."""
@@ -394,6 +472,7 @@ def precipitation_sentence(hourly, now, runtime=None):
     times = hourly.get("time", [])
     precip_prob = hourly.get("precipitation_probability", [])
     codes = hourly.get("weather_code", [])
+    amounts = hourly.get("precipitation") or []
 
     if not times or not precip_prob or not codes:
         return ""
@@ -419,7 +498,8 @@ def precipitation_sentence(hourly, now, runtime=None):
         return ""
 
     def is_precip(idx):
-        p = precip_prob[idx] if idx < len(precip_prob) else 0
+        # A null probability or code is an hour that says nothing
+        p = (precip_prob[idx] if idx < len(precip_prob) else 0) or 0
         c = codes[idx] if idx < len(codes) else 0
         return c in _PRECIP_CODES and p > 30
 
@@ -439,7 +519,7 @@ def precipitation_sentence(hourly, now, runtime=None):
         if dt.date() == now.date():
             from linecast._framebuffer import fmt_hour_phrase
             return _s("around", runtime,
-                      time=fmt_hour_phrase(dt.hour, runtime.use_24h, lang))
+                      time=fmt_hour_phrase(dt.hour, sentence_24h(runtime), lang))
         if dt.date() == (now + timedelta(days=1)).date():
             if dt.hour < 5:
                 return _s("overnight", runtime)
@@ -451,21 +531,42 @@ def precipitation_sentence(hourly, now, runtime=None):
                 return _s("tomorrow_afternoon", runtime)
             return _s("tomorrow_evening", runtime)
         day_names = DAY_NAMES.get(lang, DAY_NAMES["en"])
+        form = ON_DAY_FORMS.get(lang, {}).get(dt.weekday())
+        if form:
+            return form.format(day=day_names[dt.weekday()])
         return _s("on_day", runtime, day=day_names[dt.weekday()])
+
+    def run_from(n):
+        """The wet hours from window[n] on, and the first dry hour after them."""
+        run = [window[n]]
+        for i, dt in window[n + 1:]:
+            if not is_precip(i):
+                return run, dt
+            run.append((i, dt))
+        return run, None
+
+    def sentence(key, run, **words):
+        """The template for `key`, or its "becoming" form when the run
+        has an hour heavier than its first worth naming."""
+        peak = _peak_hour(run, amounts, codes)
+        if peak:
+            key += "_becoming"
+            words.update(peak=desc(peak[0]), peak_time=time_phrase(peak[1]))
+        return _precip_s(key, codes[run[0][0]], runtime, **words)
 
     first_idx = window[0][0]
 
     if is_precip(first_idx):
-        current_desc = desc(first_idx)
-        for i, dt in window[1:]:
-            if not is_precip(i):
-                return _s("ending", runtime, desc=_ucfirst(current_desc),
-                          time=time_phrase(dt))
-        return _s("continuing", runtime, desc=_ucfirst(current_desc))
+        run, end = run_from(0)
+        if end:
+            return sentence("ending", run, desc=_ucfirst(desc(first_idx)),
+                            time=time_phrase(end))
+        return sentence("continuing", run, desc=_ucfirst(desc(first_idx)))
 
-    for i, dt in window[1:]:
+    for n, (i, dt) in enumerate(window[1:], 1):
         if is_precip(i):
-            return _s("starting", runtime, desc=_ucfirst(desc(i)), time=time_phrase(dt))
+            run, _ = run_from(n)
+            return sentence("starting", run, desc=_ucfirst(desc(i)), time=time_phrase(dt))
     return ""
 
 
@@ -504,8 +605,9 @@ def past_precip_sentence(hourly, now, runtime):
             continue
         if dt < past_start or dt > current_hour:
             continue
-        p = precip[i] if i < len(precip) else 0
-        s = snowfall[i] if i < len(snowfall) else 0
+        # A null hour holds no measurable precipitation
+        p = (precip[i] if i < len(precip) else 0) or 0
+        s = (snowfall[i] if i < len(snowfall) else 0) or 0
         c = codes[i] if i < len(codes) else 0
         if p > 0 or s > 0:
             total_precip += p
@@ -528,7 +630,7 @@ def past_precip_sentence(hourly, now, runtime):
     if snow_hours >= rain_hours and snow_hours >= mix_hours:
         # Show snow accumulation (Open-Meteo snowfall is in cm)
         if runtime.metric:
-            amt = f"{total_snow_cm:.1f}{metric_sep}cm"
+            amt = f"{total_snow_cm:.1f}{metric_sep}{_s('unit_cm', runtime)}"
         else:
             inches = total_snow_cm / 2.54
             unit = _s("precip_inch", runtime)
@@ -536,13 +638,13 @@ def past_precip_sentence(hourly, now, runtime):
         ptype = _s("snow", runtime)
     elif mix_hours >= rain_hours:
         if runtime.metric:
-            amt = f"{total_precip:.1f}{metric_sep}mm"
+            amt = f"{total_precip:.1f}{metric_sep}{_s('unit_mm', runtime)}"
         else:
             amt = f"{total_precip:.2f}{_s('precip_inch', runtime)}"
         ptype = _s("mixed_precip", runtime)
     else:
         if runtime.metric:
-            amt = f"{total_precip:.1f}{metric_sep}mm"
+            amt = f"{total_precip:.1f}{metric_sep}{_s('unit_mm', runtime)}"
         else:
             amt = f"{total_precip:.2f}{_s('precip_inch', runtime)}"
         ptype = _s("rain", runtime)

@@ -12,7 +12,7 @@ Attribution: Iowa Environmental Mesonet, Iowa State University.
 
 import datetime
 
-from linecast._cache import write_bytes_atomic
+from linecast._cache import _FUTURE_SLACK, write_bytes_atomic
 from linecast._http import fetch_bytes
 from linecast._paths import cache_dir
 from linecast._runtime import debug_log, log_failure
@@ -106,5 +106,9 @@ def fetch_frame(bbox: tuple[float, float, float, float], w: int, h: int,
 
 
 def _time_since(path):
+    """Seconds since *path* was written; a file stamped in the future
+    counts as infinitely old, as the cache's own freshness test has it,
+    so a wrong clock cannot make a stale frame look fresh forever."""
     import time
-    return time.time() - path.stat().st_mtime
+    age = time.time() - path.stat().st_mtime
+    return age if age >= -_FUTURE_SLACK else float("inf")

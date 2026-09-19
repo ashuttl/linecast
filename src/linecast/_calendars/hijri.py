@@ -42,7 +42,7 @@ from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
 
 from linecast._ephemeris import _moon_altitude_deg, next_moon_phase_utc
-from linecast._pacific import _Observer, _setting_instant, _sun_alt_az_deg
+from linecast._calendars.pacific import _Observer, _setting_instant, _sun_alt_az_deg
 
 _SYNODIC_DAYS = 29.530589
 # The Great Mosque, Mecca; UTC+3 is Saudi Arabia's one time zone.
@@ -171,7 +171,7 @@ def after_sunset(now_local, lat, lng):
     The day begins at sunset, so an evening reader is already in the
     next one: the Sun is down and it is evening rather than the small
     hours. Where the Sun does not set the day keeps to the civil date.
-    The Hebrew day begins at the same sunset, and _hebrew shares this.
+    The Hebrew day begins at the same sunset, and hebrew shares this.
     """
     if lat is None or lng is None:
         return False

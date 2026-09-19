@@ -86,6 +86,68 @@ class TestStandDown:
         assert elapsed < 2.0, elapsed
 
 
+class TestRetryHold:
+    """A window none of whose frames arrive is asked for again, but
+    not on the next repaint: every repaint calls _ensure_prefetch, and
+    a worker whose fetches all fail at once was replaced the moment it
+    finished — hundreds of workers a second against a dead network."""
+
+    def _dead(self, monkeypatch):
+        attempts, nudges = [], []
+        monkeypatch.setattr(rf, "_safe_load",
+                            lambda bbox, gw, hc, f, layer="radar":
+                            attempts.append(f.token) or False)
+        monkeypatch.setattr(rf, "_nudge", lambda: nudges.append(1))
+        monkeypatch.setattr(rf._radar_warnings, "covers", lambda bbox: False)
+        monkeypatch.setattr(rf, "_fell_back", True)  # the chain is spent
+        monkeypatch.setattr(rf, "_prefetch_key", None)
+        monkeypatch.setattr(rf, "_retry_key", None)
+        monkeypatch.setattr(rf, "_retry_at", 0.0)
+        return attempts, nudges
+
+    @staticmethod
+    def _settle(attempts, n):
+        t0 = time.monotonic()
+        while len(attempts) < n and time.monotonic() - t0 < 2.0:
+            time.sleep(0.01)
+        time.sleep(0.05)  # let the worker's closing bookkeeping run
+
+    def test_a_repaint_inside_the_hold_starts_no_worker(self, monkeypatch):
+        attempts, nudges = self._dead(monkeypatch)
+        frames = _frames(5)
+        bbox = (0, 0, 1, 1)
+        rf._ensure_prefetch(bbox, 80, 20, frames)
+        self._settle(attempts, len(frames))
+        assert len(attempts) == len(frames)
+
+        # a third of a second of repaints, as fast as the loop can turn
+        t0 = time.monotonic()
+        while time.monotonic() - t0 < 0.3:
+            rf._ensure_prefetch(bbox, 80, 20, frames)
+        time.sleep(0.05)
+        assert len(attempts) == len(frames)
+        assert nudges == []  # nothing landed, nothing to repaint
+        assert rf._retry_key is not None
+
+        # the hold passes: one more worker, not one per repaint
+        monkeypatch.setattr(rf, "_retry_at", 0.0)
+        rf._ensure_prefetch(bbox, 80, 20, frames)
+        self._settle(attempts, 2 * len(frames))
+        rf._ensure_prefetch(bbox, 80, 20, frames)
+        time.sleep(0.05)
+        assert len(attempts) == 2 * len(frames)
+
+    def test_another_view_is_not_held(self, monkeypatch):
+        """The hold is for the window that failed; a pan asks at once."""
+        attempts, _nudges = self._dead(monkeypatch)
+        frames = _frames(3)
+        rf._ensure_prefetch((0, 0, 1, 1), 80, 20, frames)
+        self._settle(attempts, len(frames))
+        rf._ensure_prefetch((1, 1, 2, 2), 80, 20, frames)
+        self._settle(attempts, 2 * len(frames))
+        assert len(attempts) == 2 * len(frames)
+
+
 class TestStaticRender:
     """A one-shot render shows one frame; it must not warm the window."""
 

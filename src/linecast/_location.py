@@ -1,5 +1,6 @@
 """IP geolocation with caching and country detection."""
 
+import math
 import os
 import sys
 from datetime import tzinfo
@@ -163,10 +164,10 @@ def resolve_location(
 
     country = ""
     label = ""
-    try:
-        parts = override.split(",")
-        lat, lng = float(parts[0]), float(parts[1])
-    except (ValueError, IndexError):
+    latlng = parse_latlng(override)
+    if latlng is not None:
+        lat, lng = latlng
+    else:
         from linecast._weather_sources import geocode_first
         hit = geocode_first(override, lang=lang)
         if hit is None:
@@ -179,6 +180,29 @@ def resolve_location(
         from linecast._weather_sources import _reverse_geocode
         _name, country, _addr = _reverse_geocode(lat, lng)
     return (lat, lng, country, label) if return_label else (lat, lng, country)
+
+
+def parse_latlng(text: str) -> tuple[float, float] | None:
+    """'lat,lng' as two floats, or None for anything else.
+
+    Two parts, both finite and on the planet: "91,0" and "1,2,3" are
+    not coordinates, and are left for the geocoder to refuse by name
+    rather than sent on as a place that does not exist. A third part
+    would be silently dropped otherwise, which is how "48,85,2,35" from
+    a decimal-comma locale read as 48°N 85°E.
+    """
+    parts = text.split(",")
+    if len(parts) != 2:
+        return None
+    try:
+        lat, lng = float(parts[0]), float(parts[1])
+    except ValueError:
+        return None
+    if not (math.isfinite(lat) and math.isfinite(lng)):
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return None
+    return lat, lng
 
 
 def location_is_pinned(cli_location: str | None = None) -> bool:

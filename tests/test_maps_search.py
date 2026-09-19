@@ -24,7 +24,8 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _maps_search as ms
+from linecast import _maps_search as ms, _rate_limit
+from linecast._rate_limit import RateLimit
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PHOTON = json.loads((FIXTURES / "photon_search.json").read_text(encoding="utf-8"))
@@ -61,8 +62,7 @@ def cache(tmp_path, monkeypatch):
 @pytest.fixture
 def no_throttle(monkeypatch):
     """Neutralize the rate-limit gate so tests never really sleep."""
-    monkeypatch.setattr(ms, "_last_hit", 0.0)
-    monkeypatch.setattr(ms.time, "sleep", lambda s: None)
+    monkeypatch.setattr(ms, "_throttle", lambda: None)
 
 
 def _stub(monkeypatch, payload=None, error=None):
@@ -140,6 +140,22 @@ class TestPhotonParse:
     def test_empty_feature_list(self, monkeypatch):
         _stub(monkeypatch, {"type": "FeatureCollection", "features": []})
         assert ms.photon_search("qqqqzz", 43.659, -70.257, 12) == []
+
+    def test_a_feature_without_coordinates_is_skipped_not_fatal(
+            self, monkeypatch):
+        # one feature with nowhere to go must not cost the whole answer:
+        # it is left out, as a nameless one is
+        payload = {"type": "FeatureCollection", "features": [
+            {"properties": {"type": "city", "name": "Nowhere"}},
+            {"properties": {"type": "city", "name": "Nowhere Either"},
+             "geometry": {"coordinates": []}},
+            {"properties": {"type": "city", "name": "Portland",
+                            "state": "Maine"},
+             "geometry": {"coordinates": [-70.27, 43.67]}},
+        ]}
+        _stub(monkeypatch, payload)
+        results = ms.photon_search("nowhere", 43.659, -70.257, 12)
+        assert [r.name for r in results] == ["Portland"]
 
 
 class TestPhotonRequest:
@@ -309,9 +325,10 @@ class TestNominatimThrottle:
             state["slept"].append(secs)
             state["now"] += secs
 
-        monkeypatch.setattr(ms.time, "monotonic", lambda: state["now"])
-        monkeypatch.setattr(ms.time, "sleep", sleep)
-        monkeypatch.setattr(ms, "_last_hit", 0.0)
+        from types import SimpleNamespace
+        monkeypatch.setattr(_rate_limit, "time", SimpleNamespace(
+            monotonic=lambda: state["now"], sleep=sleep))
+        monkeypatch.setattr(ms, "_throttle", RateLimit(1.0, "nominatim"))
         return state
 
     def test_back_to_back_queries_sleep_the_remainder(self, cache, clock,

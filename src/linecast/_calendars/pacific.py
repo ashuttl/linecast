@@ -66,7 +66,7 @@ from linecast._ephemeris import (
     _sun_ra_dec,
     next_moon_phase_utc,
 )
-from linecast._lunisolar import _civil, _day_start_utc
+from linecast._calendars.lunisolar import _civil, _day_start_utc
 
 
 class _Observer(NamedTuple):

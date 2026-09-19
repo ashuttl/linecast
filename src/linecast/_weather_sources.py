@@ -7,6 +7,7 @@ from typing import Any
 
 from linecast._cache import read_cache, write_cache, location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
+from linecast._i18n import accept_language, geocoder_language
 from linecast._paths import cache_dir
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure
 
@@ -38,7 +39,9 @@ _ALERT_SOURCE_NAMES = {
     ("NO", "no"): "Meteorologisk institutt",
     ("JP", "ja"): "気象庁",
     ("HK", "zh"): "香港天文台",
+    ("HK", "zh-Hant"): "香港天文台",
     ("CN", "zh"): "中国气象局",
+    ("CN", "zh-Hant"): "中國氣象局",
 }
 
 
@@ -104,9 +107,12 @@ def _reverse_geocode(lat, lng, lang=None):
     """Reverse geocode coordinates to a display name via Nominatim. Cached.
 
     Returns (display_name, country_code, address) tuple. `lang` localizes
-    the returned names (Nominatim accept-language); cached per language.
+    the returned names (Nominatim accept-language); without one they come
+    in the country's own language, which is what the alert feeds' area
+    names are matched against. Each language keeps its own cache file, so
+    a command that asks both ways finds both the next time.
     """
-    cache_file = cache_dir("weather") / "location.json"
+    cache_file = cache_dir("weather") / (f"location_{lang}.json" if lang else "location.json")
     cached = read_cache(cache_file, 86400)  # 24h cache
     if (cached and cached.get("lat") == round(lat, 4)
             and cached.get("lng") == round(lng, 4)
@@ -119,7 +125,9 @@ def _reverse_geocode(lat, lng, lang=None):
             f"?lat={lat}&lon={lng}&format=json&zoom=10"
         )
         if lang:
-            url += f"&accept-language={lang}"
+            url += f"&accept-language={accept_language(lang)}"
+        from linecast._maps_search import _throttle
+        _throttle()
         data = fetch_json(url, timeout=10)
         addr = data.get("address", {})
         # Nominatim files small places under keys all the way down to
@@ -171,6 +179,55 @@ def forecast_is_todays(data) -> bool:
     return made is not None and made == _local_now_for_data(data).date()
 
 
+def wall_clock(data):
+    """The forecast's timestamps as the clock on the wall reads them.
+
+    Open-Meteo stamps a whole response with the zone's UTC offset at the
+    moment of the request, so a forecast that spans a clock change
+    labels every hour after it in the offset of the day it was fetched:
+    an hour late once the clocks have gone back, an hour early once they
+    have gone forward, and the sunrise and sunset beside them the same.
+    Read back through the zone, the day of the change has 23 or 25
+    hours and every label agrees with the wall clock (issue #110).  The
+    series is left as it came without a zone, or with one the machine
+    does not know, when _local_now_for_data reads by the same offset.
+    """
+    tz_name = (data or {}).get("timezone")
+    if not tz_name:
+        return data
+    try:
+        from zoneinfo import ZoneInfo
+        zone = ZoneInfo(tz_name)
+        offset = timedelta(seconds=int(data.get("utc_offset_seconds", 0)))
+    except Exception as exc:
+        log_failure("tz", f"lookup of {tz_name}", exc, fallback="timestamps left as stamped")
+        return data
+
+    def local(text):
+        try:
+            stamped = datetime.fromisoformat(text)
+        except (TypeError, ValueError):
+            return text
+        if stamped.tzinfo is not None:
+            return text
+        wall = ((stamped - offset).replace(tzinfo=timezone.utc)
+                .astimezone(zone).replace(tzinfo=None))
+        return text if wall == stamped else wall.isoformat(timespec="minutes")
+
+    for block, keys in (("hourly", ("time",)), ("daily", ("sunrise", "sunset"))):
+        series = data.get(block)
+        if not isinstance(series, dict):
+            continue
+        for key in keys:
+            values = series.get(key)
+            if isinstance(values, list):
+                series[key] = [local(v) for v in values]
+    current = data.get("current")
+    if isinstance(current, dict) and current.get("time"):
+        current["time"] = local(current["time"])
+    return data
+
+
 def fetch_forecast(lat: float, lng: float,
                    runtime: WeatherRuntime | None = None) -> dict[str, Any] | None:
     """Fetch hourly + daily forecast from Open-Meteo. Cached 1h, and
@@ -197,14 +254,14 @@ def fetch_forecast(lat: float, lng: float,
         "&current=temperature_2m,apparent_temperature,weather_code,"
         "wind_speed_10m,wind_gusts_10m,relative_humidity_2m,dew_point_2m"
     )
-    return fetch_json_cached(
+    return wall_clock(fetch_json_cached(
         cache_file,
         3600,
         url,
         timeout=10,
         fallback=None,
         fresh=forecast_is_todays,
-    )
+    ))
 
 
 def fetch_aqi(lat: float, lng: float) -> dict[str, Any] | None:
@@ -417,7 +474,7 @@ def _fetch_alerts_routed(lat, lng, country_code, lang, address):
     if country_code == "JP":
         return _fetch_alerts_jma(lat, lng, lang=lang)
     if country_code == "HK":
-        return _fetch_alerts_hko()
+        return _fetch_alerts_hko(lang=lang)
     if country_code == "CN":
         return _fetch_alerts_cma(lat, lng, lang=lang)
     if country_code == "IN":
@@ -448,7 +505,7 @@ def _fetch_alerts_nws(lat, lng):
     features = data.get("features", [])
     alerts = []
     for feature in features:
-        props = feature.get("properties", {})
+        props = feature.get("properties") or {}
         if props.get("status") != "Actual":
             continue
         alerts.append({
@@ -498,11 +555,12 @@ def _fetch_alerts_eccc(lat, lng, lang="en"):
     alerts = []
     seen_events = set()  # deduplicate by event name
     for feature in features:
-        props = feature.get("properties", {})
+        props = feature.get("properties") or {}
+        # a name the feed has no translation for comes back null
         event = (
-            props.get(name_key, "").capitalize()
-            or props.get(short_name_key, "")
-            or props.get(name_fallback, "").capitalize()
+            (props.get(name_key) or "").capitalize()
+            or (props.get(short_name_key) or "")
+            or (props.get(name_fallback) or "").capitalize()
         )
         severity = _eccc_severity(props)
         desc = props.get(text_key) or props.get(text_fallback) or ""
@@ -601,16 +659,16 @@ def _fetch_alerts_metno(lat, lng):
     alerts = []
     seen = set()
     for feature in data.get("features", []):
-        props = feature.get("properties", {})
+        props = feature.get("properties") or {}
         event = (props.get("event") or "").capitalize()
-        severity = props.get("severity", "")
+        severity = props.get("severity") or ""
         if not event:
             continue
         dedup_key = (event, severity)
         if dedup_key in seen:
             continue
         seen.add(dedup_key)
-        when = feature.get("when", {}).get("interval", ["", ""])
+        when = (feature.get("when") or {}).get("interval") or ["", ""]
         effective = when[0] if len(when) > 0 else ""
         expires = when[1] if len(when) > 1 else ""
         web = (props.get("web") or "").strip()
@@ -640,11 +698,12 @@ def _fetch_alerts_meteireann(lat, lng):
     if isinstance(data, list):
         return data
 
-    warnings_data = data.get("warnings", {})
+    warnings_data = data.get("warnings") or {}
     alerts = []
     seen = set()
     for category in ("national", "marine", "environmental"):
-        for w in warnings_data.get(category, []):
+        # a category with nothing in force can be null rather than empty
+        for w in warnings_data.get(category) or []:
             headline = w.get("headline") or ""
             if not headline:
                 continue
@@ -714,7 +773,7 @@ def _parse_meteireann_dt(s):
 
 
 # ---------------------------------------------------------------------------
-# MeteoAlarm (pan-European, 32 countries)
+# MeteoAlarm (pan-European, 35 countries)
 # ---------------------------------------------------------------------------
 
 # ISO 3166-1 alpha-2 -> MeteoAlarm feed slug
@@ -762,9 +821,9 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
 
     warnings = data.get("warnings", [])
     per_warning_descs = [
-        [area.get("areaDesc", "")
-         for info in w.get("alert", {}).get("info", [])
-         for area in info.get("area", [])]
+        [area.get("areaDesc") or ""
+         for info in (w.get("alert") or {}).get("info") or []
+         for area in info.get("area") or []]
         for w in warnings
     ]
     location_words = _drop_feed_wide_words(
@@ -775,8 +834,8 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
     national = []
     national_seen = set()
     for w in warnings:
-        alert_obj = w.get("alert", {})
-        infos = alert_obj.get("info", [])
+        alert_obj = w.get("alert") or {}
+        infos = alert_obj.get("info") or []
         # Prefer user's language, fall back to English, then first available
         preferred_info = None
         en_info = None
@@ -784,22 +843,23 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
         area_descs = []
         areas = []
         for info in infos:
-            info_lang = info.get("language", "")
+            # an info block with no language tag is one in the feed's own
+            info_lang = info.get("language") or ""
             if info_lang.startswith(lang):
                 preferred_info = info
             elif info_lang.startswith("en"):
                 en_info = info
             elif other_info is None:
                 other_info = info
-            for area in info.get("area", []):
-                area_descs.append(area.get("areaDesc", ""))
+            for area in info.get("area") or []:
+                area_descs.append(area.get("areaDesc") or "")
                 areas.append(area)
         info = preferred_info or en_info or other_info
         if not info:
             continue
         codes = _region_keys(areas)
 
-        severity = info.get("severity", "")
+        severity = info.get("severity") or ""
         if severity == "Minor":
             continue
 
@@ -1002,8 +1062,8 @@ def _regions_here(lat, lng, warnings):
     """The region keys covering the point, looked up only if a warning could use them."""
     from linecast._meteoalarm_regions import regions_at
     for w in warnings:
-        for info in w.get("alert", {}).get("info", []):
-            if _region_keys(info.get("area", [])):
+        for info in (w.get("alert") or {}).get("info") or []:
+            if _region_keys(info.get("area") or []):
                 return regions_at(lat, lng)
     return set()
 
@@ -1180,15 +1240,16 @@ def _fetch_alerts_jma(lat, lng, lang="en"):
     if isinstance(data, list):
         return data
 
-    headline = data.get("headlineText", "")
-    report_dt = data.get("reportDatetime", "")
+    # both are null, not absent, when the office has nothing to say
+    headline = data.get("headlineText") or ""
+    report_dt = data.get("reportDatetime") or ""
     use_ja = lang == "ja"
 
     # Collect all active warning codes across all areas
     active_codes = set()
-    for area_type in data.get("areaTypes", []):
-        for area in area_type.get("areas", []):
-            for w in area.get("warnings", []):
+    for area_type in data.get("areaTypes") or []:
+        for area in area_type.get("areas") or []:
+            for w in area.get("warnings") or []:
                 if w.get("status", "") in _JMA_ACTIVE:
                     active_codes.add(w.get("code", ""))
 
@@ -1226,9 +1287,11 @@ def _fetch_alerts_jma(lat, lng, lang="en"):
 
 # The warnsum feed is a dict keyed by warning type; each entry names the
 # warning and carries a code, which for rainstorms and tropical cyclones
-# says how bad (amber/red/black; signal 1/3/8/9/10).
+# says how bad (amber/red/black; signal 1/3/8/9/10). The Observatory
+# publishes it in English and in both Chinese scripts.
 HKO_WARNINGS_URL = ("https://data.weather.gov.hk/weatherAPI/opendata/"
-                    "weather.php?dataType=warnsum&lang=en")
+                    "weather.php?dataType=warnsum&lang={lang}")
+_HKO_LANG = {"zh": "sc", "zh-Hant": "tc"}
 
 _HKO_WARNING_INFO = {
     "WFIRE": ("Fire Danger Warning", "Moderate"),
@@ -1254,8 +1317,9 @@ _HKO_CODE_SEV = {
 }
 
 
-def _parse_hko_warnsum(data):
+def _parse_hko_warnsum(data, lang="en"):
     """Parse HKO warnsum JSON dict into normalised alert list."""
+    site = _HKO_LANG.get(lang, "en")
     alerts = []
     for key, info in _HKO_WARNING_INFO.items():
         entry = data.get(key)
@@ -1275,7 +1339,7 @@ def _parse_hko_warnsum(data):
             "effective": entry.get("issueTime", ""),
             "expires": entry.get("expireTime", ""),
             "severity": severity,
-            "url": "https://www.hko.gov.hk/en/detail.htm",
+            "url": f"https://www.hko.gov.hk/{site}/detail.htm",
         })
 
     severity_order = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
@@ -1283,15 +1347,17 @@ def _parse_hko_warnsum(data):
     return alerts
 
 
-def _fetch_alerts_hko():
-    """Fetch active HKO weather warnings (Hong Kong). Cached 10min."""
-    cache_file = cache_dir("weather") / "alerts_hk.json"
-    url = HKO_WARNINGS_URL
+def _fetch_alerts_hko(lang="en"):
+    """Fetch active HKO weather warnings (Hong Kong), in the reader's
+    language where the Observatory speaks it. Cached 10min."""
+    feed = _HKO_LANG.get(lang, "en")
+    cache_file = cache_dir("weather") / f"alerts_hk_{feed}.json"
+    url = HKO_WARNINGS_URL.format(lang=feed)
     data = fetch_json_cached(cache_file, 600, url, timeout=10, fallback=[])
     if isinstance(data, list):
         return data
 
-    alerts = _parse_hko_warnsum(data)
+    alerts = _parse_hko_warnsum(data, lang)
     write_cache(cache_file, alerts)
     return alerts
 
@@ -1435,24 +1501,27 @@ def _parse_cma_data(data, provinces, lang="en"):
 
     prefixes = tuple(provinces) if isinstance(provinces, list) else (provinces,)
 
-    page = data.get("data", {}).get("page", {})
-    entries = page.get("list", [])
-    province_alarms = data.get("data", {}).get("provinceAlarms", [])
+    body = data.get("data") or {}
+    page = body.get("page") or {}
+    entries = page.get("list") or []
+    province_alarms = body.get("provinceAlarms") or []
 
-    use_zh = lang == "zh"
+    # The titles are in the simplified script; a traditional-script
+    # reader gets them rather than the English.
+    use_zh = lang in ("zh", "zh-Hant")
     alerts = []
     seen = set()
 
     # Province-level alarms first (most important), then county-level
     for entry in province_alarms + entries:
-        alertid = entry.get("alertid", "")
+        alertid = entry.get("alertid") or ""
         if alertid[:2] not in prefixes:
             continue
 
-        title = entry.get("title", "")
-        pic = entry.get("pic", "")
-        issuetime = entry.get("issuetime", "")
-        detail_url = entry.get("url", "")
+        title = entry.get("title") or ""
+        pic = entry.get("pic") or ""
+        issuetime = entry.get("issuetime") or ""
+        detail_url = entry.get("url") or ""
 
         # Extract warning type and color from title
         tm = re.search(r'\u53d1\u5e03(.+?)(\u7ea2|\u6a59|\u9ec4|\u84dd)\u8272\u9884\u8b66', title)
@@ -1971,7 +2040,7 @@ def _geocode_query(query, lang="en"):
 
     url = (
         "https://geocoding-api.open-meteo.com/v1/search"
-        f"?name={urllib.parse.quote(query)}&count=10&language={lang}"
+        f"?name={urllib.parse.quote(query)}&count=10&language={geocoder_language(lang)}"
     )
     try:
         data = fetch_json(url, timeout=10)
@@ -1996,14 +2065,27 @@ def geocode_first(query: str, lang: str = "en") -> tuple[float, float, str] | No
     if not results:
         return None
     r = results[0]
-    lat = r.get("latitude", 0)
-    lng = r.get("longitude", 0)
-    parts = [r.get("name", "")]
-    if r.get("admin1"):
-        parts.append(r["admin1"])
-    if r.get("country"):
-        parts.append(r["country"])
-    return lat, lng, ", ".join(parts)
+    return r.get("latitude", 0), r.get("longitude", 0), result_label(r)
+
+
+def result_label(result) -> str:
+    """A geocoder result as "name, admin1, country". A region named for
+    its city is left out: "Busan, South Korea", not "Busan, Busan"."""
+    name = result.get("name", "")
+    parts = [name]
+    admin1 = result.get("admin1", "")
+    if admin1 and admin1.casefold() != name.casefold():
+        parts.append(admin1)
+    if result.get("country"):
+        parts.append(result["country"])
+    return ", ".join(parts)
+
+
+def without_country(label: str) -> str:
+    """A result_label without its country, for a header with less room
+    than the tides pill: "Osaka, préfecture d'Osaka"."""
+    parts = label.split(", ")
+    return ", ".join(parts[:2]) if len(parts) == 3 else label
 
 
 def _search_locations(query, lang="en"):
@@ -2014,17 +2096,9 @@ def _search_locations(query, lang="en"):
         return
 
     for result in results:
-        name = result.get("name", "")
-        admin1 = result.get("admin1", "")
-        country = result.get("country", "")
         lat = result.get("latitude", 0)
         lng = result.get("longitude", 0)
-        label = name
-        if admin1:
-            label += f", {admin1}"
-        if country:
-            label += f", {country}"
-        print(f"  {lat:.4f},{lng:.4f}  {label}")
+        print(f"  {lat:.4f},{lng:.4f}  {result_label(result)}")
 
     print("\nUsage: weather --location LAT,LNG")
     print("   or: linecast location set LAT,LNG")

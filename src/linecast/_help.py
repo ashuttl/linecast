@@ -12,7 +12,7 @@ from linecast._textwidth import char_widths
 
 def hint(lang='en', width=80):
     """A persistent, translated invitation; the key survives tight layouts."""
-    label = f"? {hs('hint_keys', lang)}"
+    label = f"? {hs('hint_help', lang)}"
     return label if visible_len(label) <= width else ('?' if width > 0 else '')
 
 

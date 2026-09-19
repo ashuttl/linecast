@@ -13,6 +13,7 @@ here too, since every fetch goes through it; radar.main() installs it.
 import atexit
 import math
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from linecast import _theme
@@ -43,11 +44,17 @@ def source_tag():
 # in-memory cache of decoded frames: key -> (radar_buffer, echo_pct)
 _frame_cache = {}
 _frame_lock = threading.Lock()
-_prefetch_lock = threading.Lock()  # guards the three prefetch globals below
+_prefetch_lock = threading.Lock()  # guards the prefetch globals below
 _prefetch_key = None  # (bbox, w, h) currently being prefetched
 _prefetch_gen = 0     # bumped when the view changes; stale workers stand down
 _prefetch_done = False  # current window's prefetch worker has finished
 _buffering = False    # auto-play is held while the frame window buffers
+# A window none of whose frames arrived is asked for again, but not on
+# the next repaint: the key it failed under and the monotonic time
+# before which no new worker starts for it.
+RETRY_HOLD = 30.0
+_retry_key = None
+_retry_at = 0.0
 
 
 def _view_key(bbox, gw, hc, src=None):
@@ -160,12 +167,21 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
     session re-warms whenever the index publishes a new frame (or
     re-predicts a nowcast) — cached frames hit instantly, only the new
     images fetch.
+
+    A window that came back empty (offline, or a source with nothing
+    for this view once the chain is spent) is tried again, but only
+    after RETRY_HOLD: every repaint calls this, and a worker whose
+    fetches all fail at once would otherwise be replaced the moment it
+    finished, which is a few hundred requests a second against a host
+    that is not answering.
     """
     global _prefetch_key, _prefetch_gen, _prefetch_done
     key = (_view_key(bbox, gw, hc), layer,
            tuple((f.time, str(f.token)) for f in frames))
     with _prefetch_lock:
         if _prefetch_key == key:
+            return
+        if key == _retry_key and time.monotonic() < _retry_at:
             return
         _prefetch_key = key
         _prefetch_done = False
@@ -201,15 +217,20 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
         with ThreadPoolExecutor(max_workers=4) as pool:
             list(pool.map(load, ordered[1:]))
         with _prefetch_lock:
-            global _prefetch_key, _prefetch_done
+            global _prefetch_key, _prefetch_done, _retry_key, _retry_at
             current = gen == _prefetch_gen
             if current:
                 _prefetch_done = True  # opens the auto-play gate
                 if loaded == 0:
-                    # nothing arrived (offline?) — allow a later render
-                    # to retry
+                    # nothing arrived (offline?) — a later render may
+                    # retry, once the hold has passed
                     _prefetch_key = None
-        if current:
+                    _retry_key = key
+                    _retry_at = time.monotonic() + RETRY_HOLD
+        if current and loaded:
+            # a frame landed nudges as it lands; this one is for the
+            # gate opening.  Nothing landed, nothing to repaint — and a
+            # repaint here is what started the next worker at once.
             _nudge()
         if want_warnings:
             # the rest of the window's warning polygons, one fetch at a
@@ -235,10 +256,11 @@ def stand_down():
     with threading's own exit hooks rather than atexit: those run before
     the executor threads are joined, atexit only after.
     """
-    global _prefetch_gen, _prefetch_key
+    global _prefetch_gen, _prefetch_key, _retry_key
     with _prefetch_lock:
         _prefetch_gen += 1
         _prefetch_key = None
+        _retry_key = None
 
 
 getattr(threading, "_register_atexit", atexit.register)(stand_down)

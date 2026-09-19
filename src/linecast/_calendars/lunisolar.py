@@ -33,12 +33,19 @@ from linecast._ephemeris import _sun_ecliptic, next_moon_phase_utc
 # calendar at UTC+7 since 1968 (the whole country since 1975); the
 # years before that were reckoned at UTC+8. The Thai calendar is also
 # native to its language but is arithmetic, not astronomical — it
-# lives in _thai_lunar and needs no meridian.
+# lives in thai_lunar and needs no meridian.
 CALENDAR_MERIDIAN_HOURS = {"chinese": 8, "japanese": 9, "korean": 9,
                            "vietnamese": 7}
-CALENDAR_OF_LANG = {"zh": "chinese", "ja": "japanese", "ko": "korean",
-                    "vi": "vietnamese", "th": "thai"}
-CALENDAR_NATIVE_LANG = {cal: lang for lang, cal in CALENDAR_OF_LANG.items()}
+CALENDAR_OF_LANG = {"zh": "chinese", "zh-Hant": "chinese", "ja": "japanese",
+                    "ko": "korean", "vi": "vietnamese", "th": "thai"}
+
+
+def calendar_is_native(cal, lang):
+    """Whether *cal* is the calendar *lang* lives on, so its dates and
+    festivals read in that language's own script rather than in the
+    customary English. Chinese is two scripts, and the calendar is
+    native to both."""
+    return CALENDAR_OF_LANG.get(lang) == cal
 
 
 def resolve_calendar(flag, lang):

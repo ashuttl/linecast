@@ -16,14 +16,32 @@ from linecast._runtime import TidesRuntime
 MARINE_CACHE_MAX_AGE = 3600  # 1 hour
 
 
-def _compass_direction(degrees):
-    """Convert degrees (0-360) to a compass abbreviation."""
+# Languages that do not write the sixteen points by joining a cardinal to
+# its neighbour ("N" + "NE"): their points are words, not initials.
+_EIGHT_POINT_LANGS = ("fi", "th", "sw", "uk")
+
+
+def _compass_direction(degrees, lang="en"):
+    """Convert degrees (0-360) to a compass abbreviation in *lang*.
+
+    Sixteen points, built from the eight the radar and sky views share:
+    a point between two of them is the cardinal followed by the
+    intercardinal (NNE, ONO, 北北東).  Where a language has no such
+    form, the nearest of the eight.
+    """
     if degrees is None:
         return ""
-    directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-                  "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+    from linecast._radar_i18n import rs
+    points = rs("compass", lang).split()
+    if lang in _EIGHT_POINT_LANGS:
+        return points[int((degrees + 22.5) / 45) % 8]
     idx = int((degrees + 11.25) / 22.5) % 16
-    return directions[idx]
+    if idx % 2 == 0:
+        return points[idx // 2]
+    # The cardinal is the even one of the two neighbours in the eight.
+    lo, hi = idx // 2, (idx // 2 + 1) % 8
+    cardinal, inter = (lo, hi) if lo % 2 == 0 else (hi, lo)
+    return points[cardinal] + points[inter]
 
 
 def fetch_marine(lat: float, lng: float) -> dict[str, Any] | None:
@@ -132,8 +150,10 @@ def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
     if not marine:
         return ""
 
+    from linecast._i18n import lang_of
     from linecast._tides_i18n import _ts
 
+    lang = lang_of(runtime)
     parts = []
 
     # Wave info
@@ -146,7 +166,7 @@ def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
         if wp is not None:
             segment += f" @ {wp:.0f}s"
         if wd is not None:
-            segment += f" {_compass_direction(wd)}"
+            segment += f" {_compass_direction(wd, lang)}"
         parts.append(segment)
 
     # Swell info
@@ -159,7 +179,7 @@ def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
         if sp is not None:
             segment += f" @ {sp:.0f}s"
         if sd is not None:
-            segment += f" {_compass_direction(sd)}"
+            segment += f" {_compass_direction(sd, lang)}"
         parts.append(segment)
 
     if not parts:

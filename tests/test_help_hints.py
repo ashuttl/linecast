@@ -19,9 +19,9 @@ def plain(text):
 
 
 def test_help_invitation_is_not_the_panels_self_reference():
-    assert _help.hint('en') == '? keys'
-    assert _help.hint('fr') == '? touches'
-    assert _help.hint('ja') == '? キー'
+    assert _help.hint('en') == '? help'
+    assert _help.hint('fr') == '? aide'
+    assert _help.hint('ja') == '? ヘルプ'
     assert _help.hint('en', 1) == '?'
 
 
@@ -42,7 +42,7 @@ def test_full_footer_never_erases_a_credit_to_add_help():
 
 
 @pytest.mark.parametrize('background', [(12, 16, 25), (128, 140, 150), (230, 235, 245)])
-@pytest.mark.parametrize('text', ['? keys', '? キー', '? ปุ่มลัด', 'e\u0301'])
+@pytest.mark.parametrize('text', ['? help', '? ヘルプ', '? วิธีใช้', 'e\u0301'])
 def test_image_text_preserves_pixels_and_has_readable_ink(background, text):
     fb = Framebuffer(30, 4, background)
     original = [row[:] for row in fb.fb]
@@ -59,7 +59,7 @@ def test_corner_hint_does_not_overwrite_an_existing_label():
     overlays = {(26, 3): ('X', (255, 255, 255), False)}
     assert _help.paint_hint(fb, overlays)
     assert overlays[(26, 3)][0] == 'X'
-    assert '? keys' in plain('\n'.join(fb.render(overlays)))
+    assert '? help' in plain('\n'.join(fb.render(overlays)))
 
 
 @pytest.mark.parametrize('view', ['sky', 'sunshine', 'sunshine_year', 'moon', 'moon_calendar'])
@@ -110,11 +110,11 @@ def test_sky_status_uses_the_finished_image_background(monkeypatch, hour):
     fb, overlays = captures[-1]
     row = fb.graph_h - 1
     footer = plain(output).splitlines()[-1]
-    assert 'Westbrook' in footer and '? keys' in footer
+    assert 'Westbrook' in footer and '? help' in footer
     assert fb.graph_h == 30
     # The help text is readable over the actual final image, and gaps
     # between the status groups remain image cells rather than a bar.
-    start = fb.graph_w - len('? keys')
+    start = fb.graph_w - len('? help')
     for x in range(start, fb.graph_w):
         assert _theme.contrast_ratio(overlays[(x, row)][1], fb.cell_bg(x, row)) >= 4.5
     assert any((x, row) not in overlays for x in range(20, start))
@@ -126,7 +126,7 @@ def test_static_sky_does_not_advertise_inactive_controls(monkeypatch):
     runtime = RuntimeConfig(live=False, icons='plain', lang='en', oneline=False)
     output = sky.render(NOW, 43.68, -70.32, runtime,
                         sky.View(180, 30, 110, 2), location_label='Westbrook')
-    assert '? keys' not in plain(output)
+    assert '? help' not in plain(output)
 
 
 @pytest.mark.parametrize('view', ['maps', 'radar'])

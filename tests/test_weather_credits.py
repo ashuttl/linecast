@@ -77,21 +77,21 @@ class TestCreditRow:
     def test_credit_left_and_hint_right(self):
         out = plain(weather.credit_row(120, 'en', 'IE'))
         assert out.startswith(self.LONG)
-        assert out.endswith('  ? keys') and visible_len(out) == 120
+        assert out.endswith('  ? help') and visible_len(out) == 120
 
     def test_a_narrower_window_keeps_the_short_credit(self):
         out = plain(weather.credit_row(50, 'en', 'IE'))
         assert out.startswith('Weather data by Open-Meteo') and 'Alerts' not in out
-        assert out.endswith('  ? keys') and visible_len(out) == 50
+        assert out.endswith('  ? help') and visible_len(out) == 50
 
     def test_a_narrow_window_keeps_the_hint_alone(self):
         out = plain(weather.credit_row(30, 'en', 'IE'))
-        assert 'Open-Meteo' not in out and out.strip() == '? keys'
+        assert 'Open-Meteo' not in out and out.strip() == '? help'
 
     def test_the_credit_never_shortens_the_hint(self):
         # room for the credit and a clipped hint, but not the whole one
         out = plain(weather.credit_row(33, 'en', ''))
-        assert 'Open-Meteo' not in out and out.endswith('? keys')
+        assert 'Open-Meteo' not in out and out.endswith('? help')
 
     def test_the_credit_is_fainter_than_the_prose(self):
         from linecast._weather_style import DIM_RGB, MUTED_RGB
@@ -159,8 +159,8 @@ class TestLiveView:
     def test_the_last_row_credits_the_data_and_offers_help(self):
         lines = _render(160, 40)
         assert lines[-1].startswith('Weather data by Open-Meteo · Alerts by Met Éireann')
-        assert lines[-1].endswith('  ? keys') and visible_len(lines[-1]) == 160
-        assert sum('? keys' in line for line in lines) == 1
+        assert lines[-1].endswith('  ? help') and visible_len(lines[-1]) == 160
+        assert sum('? help' in line for line in lines) == 1
         assert len(lines) == 40
 
     def test_no_alerts_feed_credits_the_forecast_alone(self):
@@ -171,7 +171,7 @@ class TestLiveView:
     def test_a_narrow_window_keeps_only_the_hint(self):
         lines = _render(30, 24)
         assert not any('Open-Meteo' in line for line in lines)
-        assert lines[-1].strip() == '? keys' and len(lines) == 24
+        assert lines[-1].strip() == '? help' and len(lines) == 24
 
     def test_the_row_is_in_the_display_language(self):
         data = json.loads((FIXTURES / "open_meteo_forecast.json").read_text(encoding="utf-8"))
@@ -184,11 +184,11 @@ class TestLiveView:
                                                  location_name="新宿区", country_code="JP")
         last = plain(output).split("\n")[-1]
         assert last.startswith('気象データ提供: Open-Meteo · 警報: 気象庁')
-        assert last.endswith('  ? キー')
+        assert last.endswith('  ? ヘルプ')
 
     def test_print_output_has_no_credit_row(self):
         lines = _render(160, 40, live=False)
-        assert not any('Open-Meteo' in line or '? keys' in line for line in lines)
+        assert not any('Open-Meteo' in line or '? help' in line for line in lines)
 
 
 class TestJson:

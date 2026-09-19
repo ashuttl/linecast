@@ -32,6 +32,16 @@ def build_payload(station_name, runtime, now_local, predictions, hilo,
     hilo = hilo or []
     convert = runtime.convert_height
 
+    # A naive now beside aware data (a station whose metadata gave no
+    # zone, with predictions that carry one) cannot be compared with it.
+    # The naive now is machine time, so the same instant read in the
+    # data's zone is the honest fix.
+    if now_local.tzinfo is None:
+        for dt, *_rest in (*predictions[:1], *hilo[:1]):
+            if dt.tzinfo is not None:
+                now_local = now_local.astimezone(dt.tzinfo)
+                break
+
     events = []
     for dt, height, typ in sorted(hilo):
         if dt >= now_local and len(events) < MAX_EVENTS:

@@ -10,33 +10,12 @@ subcommands, and the value lists for flags whose parsers accept free text.
 
 from __future__ import annotations
 
-from linecast._config import CALENDAR_CHOICES, CULTURE_CHOICES
+from linecast._config import CALENDAR_CHOICES, CULTURE_CHOICES, HOURS_CHOICES
 from linecast._i18n import LANGUAGE_CODES
 
 # --lang accepts any code; the parser lists these in its help text but
 # has no `choices`, so the completion offers them from here.
-LANG_CODES = (
-    "en",
-    "fr",
-    "es",
-    "de",
-    "it",
-    "pt",
-    "nl",
-    "pl",
-    "no",
-    "sv",
-    "is",
-    "da",
-    "fi",
-    "ja",
-    "ko",
-    "zh",
-    "th",
-    "id",
-    "uk",
-    "vi",
-)
+LANG_CODES = LANGUAGE_CODES
 
 SHELLS = ("bash", "zsh", "fish", "nu", "nushell")
 
@@ -47,7 +26,7 @@ GLOBAL_FLAGS = ("--help", "-h", "--version", "-v")
 TOP_LEVEL_COMMANDS = ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps",
                       "location", "language", "units", "clock", "week", "icons",
                       "calendar",
-                      "culture", "link", "doctor",
+                      "culture", "hours", "link", "doctor",
                       "completion")
 LOCATION_SUBCOMMANDS = ("show", "set", "auto", "search")
 LOCATION_FLAGS = ("--help", "-h", "--version")
@@ -71,6 +50,10 @@ CALENDAR_FLAGS = ("--help", "-h", "--version")
 # and auto; the list is _config's so the two cannot drift.
 CULTURE_SUBCOMMANDS = ("show", *CULTURE_CHOICES, "auto")
 CULTURE_FLAGS = ("--help", "-h", "--version")
+# `linecast hours` takes the same names as sunshine's --hours, plus show
+# and auto; the list is _runtime's so the two cannot drift.
+HOURS_SUBCOMMANDS = ("show", *HOURS_CHOICES, "auto")
+HOURS_FLAGS = ("--help", "-h", "--version")
 DOCTOR_FLAGS = ("--help", "-h", "--version", "--offline", "--json", "--debug")
 COMPLETION_FLAGS = ("--help", "-h")
 
@@ -229,6 +212,8 @@ def _bash_script(flags_by_command):
     calendar_sub = _SPACE.join(CALENDAR_SUBCOMMANDS)
     culture = _SPACE.join(CULTURE_FLAGS)
     culture_sub = _SPACE.join(CULTURE_SUBCOMMANDS)
+    hours = _SPACE.join(HOURS_FLAGS)
+    hours_sub = _SPACE.join(HOURS_SUBCOMMANDS)
     doctor = _SPACE.join(DOCTOR_FLAGS)
     link = _words(link_flags)
     shells = _SPACE.join(SHELLS)
@@ -280,8 +265,15 @@ def _bash_script(flags_by_command):
 
 _linecast_seen_flag() {{
   local needle="$1"
-  local token
-  for token in "${{COMP_WORDS[@]}}"; do
+  local i token
+  for i in "${{!COMP_WORDS[@]}}"; do
+    # The word being completed is not a flag already given: it is the
+    # one being offered, so `--lay` must still reach --layer beside
+    # --layers, and a flag typed in full still gets its space.
+    if (( i == COMP_CWORD )); then
+      continue
+    fi
+    token="${{COMP_WORDS[i]}}"
     if [[ "$token" == "$needle" || "$token" == "$needle="* ]]; then
       return 0
     fi
@@ -310,6 +302,20 @@ _linecast_complete_value_list() {{
 }}
 
 _linecast_complete_common_values() {{
+  # bash's default COMP_WORDBREAKS has = in it, so `--lang=f` arrives as
+  # three words, --lang, = and f, and `--lang=` as two, with = the word
+  # being completed. Readline puts a bare value back after the =, so the
+  # flag is the word before it and the values are offered as they are.
+  # The --flag=value arms below still serve a user who has taken = out
+  # of COMP_WORDBREAKS, where the flag and value arrive as one word.
+  local cur="$cur"
+  local prev="$prev"
+  if [[ "$cur" == "=" ]]; then
+    cur=""
+  elif [[ "$prev" == "=" ]] && (( COMP_CWORD >= 2 )); then
+    prev="${{COMP_WORDS[COMP_CWORD-2]}}"
+  fi
+
   case "$prev" in
 {prev_arms}
     {free})
@@ -366,6 +372,10 @@ _linecast_complete_command() {{
       _linecast_complete_flags {culture}
       COMPREPLY+=( $(compgen -W "{culture_sub}" -- "$cur") )
       ;;
+    hours)
+      _linecast_complete_flags {hours}
+      COMPREPLY+=( $(compgen -W "{hours_sub}" -- "$cur") )
+      ;;
     doctor)
       _linecast_complete_flags {doctor}
       ;;
@@ -395,7 +405,7 @@ _linecast_complete() {{
 
   cmd="${{COMP_WORDS[1]}}"
   case "$cmd" in
-    weather|tides|sunshine|moon|sky|radar|maps|location|language|units|clock|week|icons|calendar|culture|link|doctor|completion)
+    weather|tides|sunshine|moon|sky|radar|maps|location|language|units|clock|week|icons|calendar|culture|hours|link|doctor|completion)
       _linecast_complete_command "$cmd"
       ;;
   esac
@@ -430,13 +440,19 @@ def _zsh_script(flags_by_command):
     calendar_sub = _SPACE.join(CALENDAR_SUBCOMMANDS)
     culture = _SPACE.join(CULTURE_FLAGS)
     culture_sub = _SPACE.join(CULTURE_SUBCOMMANDS)
+    hours = _SPACE.join(HOURS_FLAGS)
+    hours_sub = _SPACE.join(HOURS_SUBCOMMANDS)
     doctor = _SPACE.join(DOCTOR_FLAGS)
     link = _words(link_flags)
     shells = _SPACE.join(SHELLS)
     standalone = _SPACE.join(flags_by_command)
 
+    # -g: dropped into fpath as _linecast, this whole file is the body
+    # of the autoloaded function, and a plain typeset there would make
+    # the lists locals of its first call, gone by the time completion
+    # asks for them.
     declarations = "\n".join(
-        f"typeset -a {_var(name)}\n"
+        f"typeset -ga {_var(name)}\n"
         f"{_var(name)}=({_SPACE.join(values)})"
         for name, values in value_lists.items()
     )
@@ -467,8 +483,15 @@ def _zsh_script(flags_by_command):
 
 _linecast_seen_flag() {{
   local needle="$1"
-  local token
-  for token in "${{words[@]}}"; do
+  local i token
+  for (( i = 1; i <= ${{#words[@]}}; i++ )); do
+    # The word being completed is not a flag already given: it is the
+    # one being offered, so `--lay` must still reach --layer beside
+    # --layers, and a flag typed in full still gets its space.
+    if (( i == CURRENT )); then
+      continue
+    fi
+    token="${{words[i]}}"
     if [[ "$token" == "$needle" || "$token" == ${{needle}}=* ]]; then
       return 0
     fi
@@ -564,6 +587,10 @@ _linecast_complete_command() {{
       _linecast_add_flags {culture}
       compadd -- {culture_sub}
       ;;
+    hours)
+      _linecast_add_flags {hours}
+      compadd -- {hours_sub}
+      ;;
     doctor)
       _linecast_add_flags {doctor}
       ;;
@@ -588,7 +615,7 @@ _linecast() {{
     fi
     cmd="${{words[2]}}"
     case "$cmd" in
-      weather|tides|sunshine|moon|sky|radar|maps|location|language|units|clock|week|icons|calendar|culture|link|doctor|completion)
+      weather|tides|sunshine|moon|sky|radar|maps|location|language|units|clock|week|icons|calendar|culture|hours|link|doctor|completion)
         _linecast_complete_command "$cmd"
         ;;
     esac
@@ -599,7 +626,14 @@ _linecast() {{
   return 0
 }}
 
-compdef _linecast linecast {standalone}
+# Autoloaded from fpath, this file runs as _linecast itself and must
+# complete the line it was called for; sourced from the README's
+# `source <(linecast completion zsh)`, it only has to register.
+if [[ "${{funcstack[1]}}" == "_linecast" ]]; then
+  _linecast "$@"
+else
+  compdef _linecast linecast {standalone}
+fi
 """
 
 
@@ -634,6 +668,7 @@ def _fish_script(flags_by_command):
     icons_sub = _SPACE.join(ICONS_SUBCOMMANDS)
     calendar_sub = _SPACE.join(CALENDAR_SUBCOMMANDS)
     culture_sub = _SPACE.join(CULTURE_SUBCOMMANDS)
+    hours_sub = _SPACE.join(HOURS_SUBCOMMANDS)
     lines = [
         "# fish completion for linecast",
         f"complete -c linecast -f -n '__fish_use_subcommand' -a '{commands}'",
@@ -657,6 +692,8 @@ def _fish_script(flags_by_command):
         "complete -c linecast -f -n '__fish_seen_subcommand_from calendar' -l help -s h",
         f"complete -c linecast -f -n '__fish_seen_subcommand_from culture' -a '{culture_sub}'",
         "complete -c linecast -f -n '__fish_seen_subcommand_from culture' -l help -s h",
+        f"complete -c linecast -f -n '__fish_seen_subcommand_from hours' -a '{hours_sub}'",
+        "complete -c linecast -f -n '__fish_seen_subcommand_from hours' -l help -s h",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l help -s h",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l version",
         "complete -c linecast -f -n '__fish_seen_subcommand_from doctor' -l offline",
@@ -741,6 +778,8 @@ def _nu_script(flags_by_command):
                                 CALENDAR_SUBCOMMANDS))
     lines.extend(_nu_value_list("linecast-culture-subcommands",
                                 CULTURE_SUBCOMMANDS))
+    lines.extend(_nu_value_list("linecast-hours-subcommands",
+                                HOURS_SUBCOMMANDS))
     lines.extend([
         'export extern "linecast" [',
         "    --version(-v) # Show version",
@@ -752,11 +791,10 @@ def _nu_script(flags_by_command):
                 for cmd, flags in flags_by_command.items()}
     version_only = ["    --version # Show version"]
 
-    def dispatcher(prefix):
-        # linecast's own subcommands, and the same commands standalone
-        for cmd in TOP_LEVEL_COMMANDS:
-            if cmd in nu_flags:
-                lines.extend(_nu_extern(f"{prefix}{cmd}", nu_flags[cmd]))
+    for cmd in COMMANDS:
+        lines.extend(_nu_extern(f"linecast {cmd}", nu_flags[cmd]))
+
+    def settings(prefix):
         lines.extend(_nu_extern(
             f"{prefix}location",
             version_only,
@@ -815,16 +853,30 @@ def _nu_script(flags_by_command):
         ))
         for sub in CULTURE_SUBCOMMANDS:
             lines.extend(_nu_extern(f"{prefix}culture {sub}", version_only))
+        lines.extend(_nu_extern(
+            f"{prefix}hours",
+            version_only,
+            ['subcommand?: string@"nu-complete linecast-hours-subcommands"'],
+        ))
+        for sub in HOURS_SUBCOMMANDS:
+            lines.extend(_nu_extern(f"{prefix}hours {sub}", version_only))
         lines.extend(_nu_extern(f"{prefix}doctor", [
             *version_only, "    --offline", "    --json", "    --debug"]))
 
-    dispatcher("linecast ")
+    settings("linecast ")
     lines.extend(_nu_extern("linecast link", _nu_flags(_link_flags())))
     lines.extend(_nu_extern(
         "linecast completion",
         [],
         ['shell?: string@"nu-complete linecast-shells"'],
     ))
-    dispatcher("")
+
+    # The seven view commands again under their short names, as the
+    # other shells register them. Only those answer to their own name
+    # (__main__.STANDALONE); a bare `units` or `calendar` is some other
+    # program's, and an extern by that name would have nushell parse
+    # that program's arguments by linecast's signature and refuse them.
+    for cmd in COMMANDS:
+        lines.extend(_nu_extern(cmd, nu_flags[cmd]))
 
     return "\n".join(lines) + "\n"

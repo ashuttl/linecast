@@ -75,7 +75,10 @@ notes = open(notes_path).read().strip()
 today = datetime.date.today().isoformat()
 
 section = f"## Unreleased\n\n## {version} — {today}\n\n{notes}\n\n"
-text, n = re.subn(r"## Unreleased\n(.*?)(?=^## |\Z)", section,
+# A function, not a string: a backslash in the notes (a Windows path,
+# say) would otherwise be read as a regex escape and end the release
+# half done, with pyproject.toml already bumped.
+text, n = re.subn(r"## Unreleased\n(.*?)(?=^## |\Z)", lambda _m: section,
                   text, count=1, flags=re.S | re.M)
 if n != 1:
     sys.exit("No '## Unreleased' heading in CHANGELOG.md")

@@ -71,6 +71,22 @@ class UnitsPrefTests(ConfigDirMixin):
         self.assertEqual(units_pref("WEATHER_UNITS", env), "imperial")
         self.assertEqual(units_pref("TIDES_UNITS", env), "imperial")
 
+    def test_weather_units_does_not_reach_the_other_commands(self):
+        # README: WEATHER_UNITS is for the weather command, LINECAST_UNITS
+        # for every command.  moon, sky and the rest build a plain
+        # RuntimeConfig, which has no env var of its own.
+        env = {"WEATHER_UNITS": "imperial", "LINECAST_UNITS": "metric"}
+        self.assertEqual(
+            resolve_units(None, env, RuntimeConfig._legacy_units_env, country="US"),
+            ("metric", "LINECAST_UNITS"))
+        self.assertEqual(
+            resolve_units(None, env, WeatherRuntime._legacy_units_env, country="US"),
+            ("imperial", "WEATHER_UNITS"))
+        self.assertEqual(
+            resolve_units(None, {"WEATHER_UNITS": "imperial"},
+                          RuntimeConfig._legacy_units_env, country="FR"),
+            ("metric", "auto"))
+
     def test_command_env_var_overrides_linecast_units(self):
         env = {"WEATHER_UNITS": "metric", "LINECAST_UNITS": "imperial"}
         self.assertEqual(units_pref("WEATHER_UNITS", env), "metric")

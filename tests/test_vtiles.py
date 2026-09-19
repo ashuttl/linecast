@@ -86,6 +86,23 @@ class TestTileInfo:
         assert vt.source_credit() == "Tiles by OSM US"
         assert (cache / "maps" / "tilejson_fallback.json").exists()
 
+    def test_tilejson_memo_skips_disk_and_keeps_credit(
+            self, cache, monkeypatch):
+        def fake_fetch(url, timeout=0):
+            if url == vt.DEFAULT_TILEJSON_URL:
+                raise OSError("down")
+            return dict(TILEJSON)
+
+        monkeypatch.setattr(vt, "fetch_json", fake_fetch)
+        assert vt.tilejson() == TILEJSON
+        # with the disk cache gone and the network down, the memo answers,
+        # still naming the source that served it
+        (cache / "maps" / "tilejson_fallback.json").unlink()
+        monkeypatch.setattr(vt, "fetch_json", lambda url, timeout=0: 1 / 0)
+        vt._active_url = None
+        assert vt.tilejson() == TILEJSON
+        assert vt.source_credit() == "Tiles by OSM US"
+
     def test_tilejson_override_stands_alone(self, cache, monkeypatch):
         monkeypatch.setenv("LINECAST_VECTOR_TILES_URL",
                            "https://self.example/planet")
@@ -174,6 +191,16 @@ class TestFetchTile:
         vt.fetch_tile(14, 4994, 5978)
         assert vt.fetch_tile(14, 4994, 5978) == b"tilebytes"
         assert len(calls) == 1
+
+    def test_incomplete_gzip_is_not_cached(self, cache, canned_tilejson, monkeypatch):
+        calls = []
+        self._stub(monkeypatch, gzip.compress(b"tilebytes")[:-8], calls)
+        assert vt.fetch_tile(14, 4994, 5978) is None
+        cached = cache / "maps" / "vt" / "20260802_080001_pt" / "14_4994_5978.pbf"
+        assert not cached.exists()
+        self._stub(monkeypatch, gzip.compress(b"complete tile"), calls)
+        assert vt.fetch_tile(14, 4994, 5978) == b"complete tile"
+        assert len(calls) == 2
 
     def test_empty_tile_cached_and_not_refetched(
             self, cache, canned_tilejson, monkeypatch):

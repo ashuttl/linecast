@@ -23,6 +23,18 @@ class CompassDirectionTests(unittest.TestCase):
     def test_none_returns_empty(self):
         self.assertEqual(marine._compass_direction(None), "")
 
+    def test_sixteen_points_in_the_language(self):
+        self.assertEqual(marine._compass_direction(202.5), "SSW")
+        self.assertEqual(marine._compass_direction(67.5, "de"), "ONO")
+        self.assertEqual(marine._compass_direction(157.5, "nl"), "ZZO")
+        self.assertEqual(marine._compass_direction(337.5, "fr"), "NNO")
+        self.assertEqual(marine._compass_direction(22.5, "ja"), "\u5317\u5317\u6771")
+        self.assertEqual(marine._compass_direction(292.5, "ru"), "\u0417\u0421\u0417")
+
+    def test_eight_points_where_the_sixteen_are_not_joined(self):
+        self.assertEqual(marine._compass_direction(200, "th"), "\u0e43\u0e15\u0e49")
+        self.assertEqual(marine._compass_direction(60, "sw"), "Kas-Mas")
+
 
 class FetchMarineTests(unittest.TestCase):
     def test_fetch_marine_calls_fetch_json_cached(self):
@@ -163,6 +175,11 @@ class FormatMarineLineTests(unittest.TestCase):
         }
         line = marine.format_marine_line(marine_info, self._runtime(lang="fr", metric=True))
         self.assertIn("Vagues", line)
+
+        marine_info["wave_direction"] = 250
+        line = marine.format_marine_line(marine_info, self._runtime(lang="fr", metric=True))
+        self.assertIn("OSO", line)
+        marine_info["wave_direction"] = 180
 
         line = marine.format_marine_line(marine_info, self._runtime(lang="ja", metric=True))
         self.assertIn("\u6ce2", line)

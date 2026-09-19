@@ -29,6 +29,17 @@ from linecast._spinner import Spinner
 from linecast.radar import LAYERS, parse_layers, render_radar
 
 
+def view_lat(lat):
+    """The latitude a view may centre on.
+
+    The tile sources are web mercator, which runs out a little past 85
+    degrees; a window whose bottom edge is above that has no tile rows
+    and stitching it fails.  The marker keeps the true location; the
+    view stops where the map does, as it does for a pan and in maps.
+    """
+    return max(-80.0, min(80.0, lat))
+
+
 class RadarApp(LiveApp):
     """The live radar's state and keys, run under live_loop.
 
@@ -52,7 +63,7 @@ class RadarApp(LiveApp):
         self.home = (lat, lon)         # the marker stays at the true location
         self.location_name = location_name
         self.zoom = zoom
-        self.lat, self.lon = lat, lon  # the view centre; pans
+        self.lat, self.lon = view_lat(lat), lon  # the view centre; pans
         self.region = _in_conus(lat, lon)
         self.layers = set(layers)
         self.layer = layer
@@ -118,7 +129,7 @@ class RadarApp(LiveApp):
         gw, hc = max(20, cols), max(8, rows - 2)
         minlon, _, maxlon, _ = bbox_for(self.lat, self.lon, self.zoom, gw, hc)
         lon_span = maxlon - minlon
-        self.lat = max(-80.0, min(80.0, self.lat + drow * self.zoom / hc))
+        self.lat = view_lat(self.lat + drow * self.zoom / hc)
         self.lon = wrap_lon(self.lon + -dcol * lon_span / gw)
         # crossing the CONUS boundary re-picks the source when the one in
         # hand isn't LibreWXR: the natural moment to retry it after a
@@ -230,10 +241,10 @@ def main():
         if not runtime.live:
             # static: play_frame 0 is the present (newest observed) frame
             def render_once():
-                return render_radar(lat, lon, location_name, args.zoom,
-                                    play_frame=0, playing=False,
-                                    runtime=runtime, layers=layers,
-                                    layer=layer)
+                return render_radar(view_lat(lat), lon, location_name,
+                                    args.zoom, play_frame=0, playing=False,
+                                    marker=(lat, lon), runtime=runtime,
+                                    layers=layers, layer=layer)
 
             static_out = render_once()
             if _radar_frames.frame_load_failed and _radar_frames._fall_back():

@@ -6,6 +6,8 @@ import os
 import re
 import sys
 
+from linecast._i18n import LANGUAGE_CODES
+
 
 # ---------------------------------------------------------------------------
 # Debug logging
@@ -208,6 +210,24 @@ def default_clock(country=None):
 # where their calendars mostly are whatever CLDR says.
 WEEK_STARTS = ("monday", "sunday", "saturday")
 WEEK_START_WEEKDAY = {"monday": 0, "saturday": 5, "sunday": 6}  # date.weekday()
+
+# The systems of hours sunshine can read the day in, by the names
+# `linecast hours` and `sunshine --hours` take. A hyphen separates a
+# tradition from an opinion or method within it: halachic-mga is the
+# Magen Avraham's day, alot to tzeit, where halachic is the Gr"a's.
+# islamic-<method> pins a prayer-time convention where the place's
+# country would pick one, and islamic-hanafi or -shafii the school
+# whose Asr is listed. swahili is the one a language brings: `auto`
+# reads the day in it with --lang sw.
+HOURS_CHOICES = ("halachic", "halachic-mga", "roman", "japanese", "islamic",
+                 "swahili",
+                 "islamic-mwl", "islamic-isna", "islamic-egypt", "islamic-makkah",
+                 "islamic-karachi", "islamic-tehran", "islamic-turkey",
+                 "islamic-singapore", "islamic-jakim", "islamic-kemenag",
+                 "islamic-france", "islamic-russia", "islamic-kuwait",
+                 "islamic-qatar", "islamic-dubai", "islamic-jordan",
+                 "islamic-morocco", "islamic-algeria", "islamic-tunisia",
+                 "islamic-oman", "islamic-hanafi", "islamic-shafii", "none")
 SUNDAY_FIRST_COUNTRIES = frozenset((
     "US", "CA", "BR", "MX", "IL", "IN", "JP", "KR", "PH", "SA", "TW", "HK", "ZA",
 ))
@@ -244,6 +264,8 @@ def resolve_units(namespace=None, environ=None, legacy_env="WEATHER_UNITS",
         if getattr(namespace, "metric", False):
             return "metric", "flag"
     for name in (legacy_env, "LINECAST_UNITS"):
+        if name is None:
+            continue
         value = env.get(name, "").strip().lower()
         if value in ("metric", "imperial"):
             return value, name
@@ -312,14 +334,27 @@ LOCALE_VARS = ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG")
 
 
 def language_of(value):
-    """The two-letter language a locale-style value names, or None.
+    """The language a locale-style value names, as the tables know it, or
+    None.
 
     "fr", "fr-FR", "de_DE.UTF-8", and "EN_us" name their language in the
-    leading letters.  "C", "POSIX", "C.UTF-8", and three-letter codes such
+    leading letters; "nb_NO" and "nn_NO" name Norwegian.  Chinese is two
+    scripts, told apart by the subtags: "zh_TW", "zh_HK", "zh_MO", and
+    "zh-Hant" name the traditional, "zh", "zh_CN", "zh_SG", and "zh-Hans"
+    the simplified.  "C", "POSIX", "C.UTF-8", and three-letter codes such
     as "fil_PH" name none linecast could act on, and neither does junk.
     """
-    letters = re.match(r"[a-z]*", (value or "").strip().lower()).group()
-    return letters if len(letters) == 2 else None
+    from linecast._i18n import LANGUAGE_ALIASES, canonical_language
+    m = re.match(r"([a-z]+)((?:[-_][a-z0-9]+)*)", (value or "").strip().lower())
+    if m is None or len(m.group(1)) != 2:
+        return None
+    parts = [m.group(1), *re.findall(r"[-_]([a-z0-9]+)", m.group(2))]
+    # The longest prefix the aliases know, else the language alone.
+    for n in range(len(parts), 1, -1):
+        tag = "-".join(parts[:n])
+        if tag in LANGUAGE_ALIASES:
+            return canonical_language(tag)
+    return canonical_language(parts[0])
 
 
 def resolve_lang(namespace=None, environ=None):
@@ -329,7 +364,7 @@ def resolve_lang(namespace=None, environ=None):
     the name of the locale variable that decided it (one of LOCALE_VARS),
     or "default".  Precedence: --lang, LINECAST_LANG, the `language` key
     in config.json (`linecast language fr`), the terminal's locale, then
-    English.  A value that does not name a two-letter language is ignored.
+    English.  A value that does not name a language is ignored.
     """
     env = _environ(environ)
     candidates = (
@@ -413,8 +448,7 @@ def _base_parser(prog, description):
     p.add_argument("--emoji", action="store_true",
                     help="use standard emoji icons (same as --icons emoji)")
     p.add_argument("--lang", default=None,
-                    help="language code (en, fr, es, de, it, pt, nl, pl, "
-                         "no, sv, is, da, fi, ja, ko, zh, th, id, uk, or vi); "
+                    help=f"language code ({', '.join(LANGUAGE_CODES)}); "
                          "'linecast language' saves one")
     p.add_argument("--classic-colors", action="store_true",
                     help="use pre-theme fixed color palette")
@@ -441,7 +475,7 @@ def _add_clock_flags(p):
 
 
 # What the weather temperature graph spans; the first is the default.
-TEMP_RANGES = ("climate", "forecast", "world")
+TEMP_RANGES = ("auto", "climate", "forecast", "world")
 
 
 def weather_parser():
@@ -461,9 +495,10 @@ def weather_parser():
                     help="fahrenheit temperatures")
     p.add_argument("--temp-range", dest="temp_range",
                     choices=TEMP_RANGES, default=TEMP_RANGES[0],
-                    help="what the temperature graph spans: the location's "
-                         "climate over the past ten years, this forecast, or "
-                         "-40 to 50°C for the whole world")
+                    help="what the temperature graph spans: auto (default) uses "
+                         "climate unless it exceeds 5°C (9°F) per graph row; "
+                         "climate spans the past ten years, forecast fits this "
+                         "forecast, world spans -40 to 50°C")
     p.add_argument("--no-shading", action="store_true",
                     help="disable daylight shading on hourly chart")
     p.add_argument("--json", dest="json_mode", action="store_true",
@@ -504,6 +539,23 @@ def sunshine_parser():
                     help="in the year view, plot each day in its own UTC "
                          "offset so clock changes show as steps (default: "
                          "the location's current offset all year)")
+    p.add_argument("--hours", choices=HOURS_CHOICES, default=None,
+                    help="read the day in a tradition's hours: the zmanim "
+                         "by the Gr\"a (halachic) or the Magen Avraham "
+                         "(halachic-mga), the twelve horae and four "
+                         "vigiliae (roman), the Edo six koku of day and "
+                         "night (japanese), or the prayer times by the "
+                         "country's convention (islamic), by a named one "
+                         "(islamic-mwl, -isna, -egypt, -makkah, -karachi, "
+                         "-tehran, -turkey, -singapore, -jakim, -kemenag, "
+                         "-france, -russia, -kuwait, -qatar, -dubai, "
+                         "-jordan, -morocco, -algeria, -tunisia, -oman), or "
+                         "with "
+                         "a school's Asr "
+                         "(islamic-hanafi, -shafii), or Swahili time, "
+                         "saa 1 at seven (swahili). Default: the "
+                         "`linecast hours` setting, else swahili with "
+                         "--lang sw, else none")
     _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")
@@ -536,7 +588,7 @@ def moon_parser():
                          "month, and holiday (hebrew); or the Old Farmer's "
                          "gardening rule and solunar periods (almanac). "
                          "Default: the calendar native to "
-                         "--lang zh, ja, ko, vi, or th; none otherwise")
+                         "--lang zh, zh-Hant, ja, ko, vi, or th; none otherwise")
     _add_clock_flags(p)
     p.add_argument("--week-start", choices=WEEK_STARTS, default=None,
                     help="the day the calendar's week opens on (default: "
@@ -570,7 +622,7 @@ def sky_parser():
                     help="draw another tradition's constellations and star "
                          "names in place of the IAU's (t steps through them "
                          "live; 'linecast culture' saves one). Default: "
-                         "chinese with --lang zh; the IAU sky otherwise")
+                         "chinese with --lang zh or zh-Hant; the IAU sky otherwise")
     _add_clock_flags(p)
     p.add_argument("--json", dest="json_mode", action="store_true",
                     help="machine-readable JSON output (implies --print)")
@@ -791,8 +843,9 @@ class RuntimeConfig:
 
     # the parser whose defaults stand in before a main() has run
     _parser = staticmethod(lambda: _base_parser("linecast", ""))
-    # the command's own units env var, before LINECAST_UNITS
-    _legacy_units_env = "WEATHER_UNITS"
+    # the command's own units env var, before LINECAST_UNITS; the
+    # weather and tides runtimes name theirs, the rest have none
+    _legacy_units_env = None
 
     @classmethod
     def from_sources(cls, namespace, environ=None, country=_UNSET):
@@ -830,9 +883,10 @@ class RuntimeConfig:
 
 @dataclass(frozen=True)
 class WeatherRuntime(RuntimeConfig):
+    _legacy_units_env = "WEATHER_UNITS"
     # Defaults required: the base class ends in defaulted fields.
     celsius: bool = True
-    temp_range: str = "climate"
+    temp_range: str = "auto"
     shading: bool = True
 
     _parser = staticmethod(weather_parser)
@@ -840,7 +894,7 @@ class WeatherRuntime(RuntimeConfig):
     @classmethod
     def from_sources(cls, namespace, environ=None, country=_UNSET):
         env = _environ(environ)
-        base = RuntimeConfig.from_sources(namespace, env, country)
+        base = super().from_sources(namespace, env, country)
         # --celsius / --fahrenheit override temperature independently
         if namespace.fahrenheit:
             celsius = False
@@ -868,6 +922,24 @@ class WeatherRuntime(RuntimeConfig):
     @property
     def wind_unit(self):
         return "km/h" if self.metric else "mph"
+
+    @property
+    def wind_unit_label(self):
+        """The wind unit as the display language writes it (Turkish reads
+        km/sa); `wind_unit` is the JSON's and stays km/h."""
+        if not self.metric:
+            return "mph"
+        from linecast._weather_i18n import _s
+        return _s("unit_kmh", self)
+
+    @property
+    def precip_unit_label(self):
+        """The precipitation unit as the display language writes it
+        (Ukrainian reads мм); `precip_unit` is the JSON's and stays mm."""
+        if not self.metric:
+            return "\u2033"
+        from linecast._weather_i18n import _s
+        return _s("unit_mm", self)
 
     @property
     def precip_unit(self):

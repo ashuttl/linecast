@@ -46,7 +46,7 @@ EXPECTED_TOP_KEYS = {
     "schema", "location", "timezone", "fetched_at", "sunrise", "sunset",
     "tomorrow_sunrise", "tomorrow_sunset", "solar_noon",
     "day_length_seconds", "day_length_delta_seconds", "next_event",
-    "elevation_deg", "polar",
+    "elevation_deg", "polar", "hours",
 }
 
 
@@ -259,3 +259,39 @@ class TestLiveSuppression:
         args = sunshine_parser().parse_args(["--print"])
         runtime = RuntimeConfig.from_sources(namespace=args)
         assert runtime.json_mode is False
+
+
+class TestHoursBlock:
+    """The `hours` block: the day read in a tradition's hours."""
+
+    def test_null_with_no_system(self):
+        assert _payload()["hours"] is None
+
+    def test_halachic_block_lists_the_marks_in_order(self):
+        from zoneinfo import ZoneInfo
+        from linecast._hours import hours_now
+        tz = ZoneInfo("Asia/Jerusalem")
+        now = datetime(2026, 9, 15, 14, 30, tzinfo=tz)
+        hours, now = hours_now("halachic", now, 31.778, 35.235, tz)
+        block = build_payload(31.778, 35.235, now=now, location="Jerusalem",
+                              hours=hours)["hours"]
+        assert block["system"] == "halachic"
+        assert block["variant"] == "gra"
+        assert block["variant_name"] == 'Gr"a'
+        assert block["divisions"] == 12
+        assert block["day_start"] == "2026-09-15T06:22"
+        assert block["day_end"] == "2026-09-15T18:45"
+        keys = [m["key"] for m in block["marks"]]
+        assert keys == ["chatzot_halayla", "alot", "misheyakir", "sunrise",
+                        "shema", "tefillah", "chatzot", "mincha_gedola",
+                        "mincha_ketana", "plag", "sunset", "tzeit"]
+        times = [m["time"] for m in block["marks"]]
+        assert times == sorted(times)
+        alot = block["marks"][1]
+        assert alot == {"key": "alot", "name": "alot hashachar",
+                        "native": "עלות השחר", "time": "2026-09-15T05:10"}
+        assert block["now"]["night"] is False
+        assert block["now"]["hour"] == 7
+        assert block["now"]["label"] == "7:52"
+        assert block["next"]["key"] == "mincha_ketana"
+        assert block["next"]["in"] == "1h 41m"

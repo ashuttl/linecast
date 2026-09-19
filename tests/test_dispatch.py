@@ -130,6 +130,29 @@ if __name__ == "__main__":
 
 
 class ScriptModeStdlibShadowTests(unittest.TestCase):
+    def test_a_reader_that_closes_early_is_not_an_error(self):
+        """`linecast ... | head` ends with EPIPE on stdout; the run exits
+        quietly, with nothing on stderr, and not a second time from the
+        interpreter flushing the same broken pipe on its way out."""
+        import os
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        src = Path(__file__).resolve().parent.parent / "src"
+        read_end, write_end = os.pipe()
+        os.close(read_end)   # the reader is gone before a byte is written
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "linecast", "--help"],
+                stdin=subprocess.DEVNULL, stdout=write_end, stderr=subprocess.PIPE,
+                text=True, env=dict(os.environ, PYTHONPATH=str(src)), timeout=60,
+            )
+        finally:
+            os.close(write_end)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stderr, "")
+
     def test_running_a_command_file_directly_keeps_the_stdlib_calendar(self):
         """python src/linecast/moon.py must not shadow stdlib modules.
 

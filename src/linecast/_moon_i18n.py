@@ -5,7 +5,7 @@ chart's moon labels); this module holds the strings specific to the ``moon``
 command plus month names for the full/new moon dates.
 """
 
-from linecast._i18n import lang_of, lookup
+from linecast._i18n import lang_of, lookup, plural_category
 from linecast._tides_i18n import MOON_NAMES_I18N, _moon_name  # noqa: F401 — re-export
 from linecast._weather_i18n import DAY_NAMES  # re-export for convenience
 
@@ -51,6 +51,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "commence au coucher du soleil",
         "in_time": "dans {dur}",
         "year_day": "Jour {n} sur {total}",
+        "light_of_moon": "lune croissante",
+        "dark_of_moon": "lune décroissante",
+        "good_for": "Bon pour {things}",
+        "hold_off": "À éviter : {things}",
+        "light_good": "semer les cultures aériennes, greffer, repiquer",
+        "light_hold": "les légumes-racines",
+        "dark_good": "les légumes-racines, tailler, désherber",
+        "dark_hold": "semer les cultures aériennes",
+        "solunar_major": "Solunaire majeure",
+        "solunar_minor": "mineure",
         "spring_equinox": "Équinoxe de printemps",
         "summer_solstice": "Solstice d'été",
         "autumn_equinox": "Équinoxe d'automne",
@@ -69,6 +79,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "comienza al atardecer",
         "in_time": "en {dur}",
         "year_day": "Día {n} de {total}",
+        "light_of_moon": "luna creciente",
+        "dark_of_moon": "luna menguante",
+        "good_for": "Bueno para {things}",
+        "hold_off": "Evitar {things}",
+        "light_good": "sembrar cultivos aéreos, injertar, trasplantar",
+        "light_hold": "cultivos de raíz",
+        "dark_good": "cultivos de raíz, podar, desherbar",
+        "dark_hold": "sembrar cultivos aéreos",
+        "solunar_major": "Solunar mayor",
+        "solunar_minor": "menor",
         "spring_equinox": "Equinoccio de primavera",
         "summer_solstice": "Solsticio de verano",
         "autumn_equinox": "Equinoccio de otoño",
@@ -87,6 +107,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "beginnt bei Sonnenuntergang",
         "in_time": "in {dur}",
         "year_day": "Tag {n} von {total}",
+        "light_of_moon": "zunehmender Mond",
+        "dark_of_moon": "abnehmender Mond",
+        "good_for": "Gut für {things}",
+        "hold_off": "Abwarten mit {things}",
+        "light_good": "Aussaat oberirdischer Kulturen, Veredeln, Umpflanzen",
+        "light_hold": "Wurzelgemüse",
+        "dark_good": "Wurzelgemüse, Schneiden, Jäten",
+        "dark_hold": "Aussaat oberirdischer Kulturen",
+        "solunar_major": "Solunar-Hauptzeit",
+        "solunar_minor": "Nebenzeit",
         "spring_equinox": "Frühlingsanfang",
         "summer_solstice": "Sommeranfang",
         "autumn_equinox": "Herbstanfang",
@@ -105,6 +135,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "inizia al tramonto",
         "in_time": "tra {dur}",
         "year_day": "Giorno {n} di {total}",
+        "light_of_moon": "luna crescente",
+        "dark_of_moon": "luna calante",
+        "good_for": "Adatto per {things}",
+        "hold_off": "Rimandare {things}",
+        "light_good": "seminare colture aeree, innestare, trapiantare",
+        "light_hold": "ortaggi da radice",
+        "dark_good": "ortaggi da radice, potare, diserbare",
+        "dark_hold": "seminare colture aeree",
+        "solunar_major": "Solunare maggiore",
+        "solunar_minor": "minore",
         "spring_equinox": "Equinozio di primavera",
         "summer_solstice": "Solstizio d'estate",
         "autumn_equinox": "Equinozio d'autunno",
@@ -123,6 +163,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "começa ao pôr do sol",
         "in_time": "em {dur}",
         "year_day": "Dia {n} de {total}",
+        "light_of_moon": "lua crescente",
+        "dark_of_moon": "lua minguante",
+        "good_for": "Bom para {things}",
+        "hold_off": "Adiar {things}",
+        "light_good": "semear culturas aéreas, enxertar, transplantar",
+        "light_hold": "culturas de raiz",
+        "dark_good": "culturas de raiz, podar, mondar",
+        "dark_hold": "semear culturas aéreas",
+        "solunar_major": "Solunar maior",
+        "solunar_minor": "menor",
         "spring_equinox": "Equinócio de primavera",
         "summer_solstice": "Solstício de verão",
         "autumn_equinox": "Equinócio de outono",
@@ -141,6 +191,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "begint bij zonsondergang",
         "in_time": "over {dur}",
         "year_day": "Dag {n} van {total}",
+        "light_of_moon": "wassende maan",
+        "dark_of_moon": "afnemende maan",
+        "good_for": "Goed voor {things}",
+        "hold_off": "Wacht met {things}",
+        "light_good": "bovengrondse gewassen zaaien, enten, verplanten",
+        "light_hold": "wortelgewassen",
+        "dark_good": "wortelgewassen, snoeien, wieden",
+        "dark_hold": "bovengrondse gewassen zaaien",
+        "solunar_major": "Solunaire hoofdperiode",
+        "solunar_minor": "bijperiode",
         "spring_equinox": "Lente-equinox",
         "summer_solstice": "Zomerzonnewende",
         "autumn_equinox": "Herfstequinox",
@@ -159,6 +219,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "zaczyna się o zachodzie słońca",
         "in_time": "za {dur}",
         "year_day": "Dzień {n} z {total}",
+        "light_of_moon": "Księżyc przybywający",
+        "dark_of_moon": "Księżyc ubywający",
+        "good_for": "Dobry czas na {things}",
+        "hold_off": "Lepiej odłożyć: {things}",
+        "light_good": "siew roślin nadziemnych, szczepienie, przesadzanie",
+        "light_hold": "rośliny korzeniowe",
+        "dark_good": "rośliny korzeniowe, przycinanie, pielenie",
+        "dark_hold": "siew roślin nadziemnych",
+        "solunar_major": "Solunar główny",
+        "solunar_minor": "poboczny",
         "spring_equinox": "Równonoc wiosenna",
         "summer_solstice": "Przesilenie letnie",
         "autumn_equinox": "Równonoc jesienna",
@@ -177,6 +247,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "begynner ved solnedgang",
         "in_time": "om {dur}",
         "year_day": "Dag {n} av {total}",
+        "light_of_moon": "voksende måne",
+        "dark_of_moon": "minkende måne",
+        "good_for": "Godt for {things}",
+        "hold_off": "Vent med {things}",
+        "light_good": "såing av vekster over jorden, poding, omplanting",
+        "light_hold": "rotvekster",
+        "dark_good": "rotvekster, beskjæring, luking",
+        "dark_hold": "såing av vekster over jorden",
+        "solunar_major": "Solunar hovedperiode",
+        "solunar_minor": "biperiode",
         "spring_equinox": "Vårjevndøgn",
         "summer_solstice": "Sommersolverv",
         "autumn_equinox": "Høstjevndøgn",
@@ -195,6 +275,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "börjar vid solnedgången",
         "in_time": "om {dur}",
         "year_day": "Dag {n} av {total}",
+        "light_of_moon": "växande måne",
+        "dark_of_moon": "avtagande måne",
+        "good_for": "Bra för {things}",
+        "hold_off": "Vänta med {things}",
+        "light_good": "sådd av ovanjordiska grödor, ympning, omplantering",
+        "light_hold": "rotfrukter",
+        "dark_good": "rotfrukter, beskärning, rensning",
+        "dark_hold": "sådd av ovanjordiska grödor",
+        "solunar_major": "Solunar huvudperiod",
+        "solunar_minor": "biperiod",
         "spring_equinox": "Vårdagjämning",
         "summer_solstice": "Sommarsolstånd",
         "autumn_equinox": "Höstdagjämning",
@@ -213,6 +303,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "begynder ved solnedgang",
         "in_time": "om {dur}",
         "year_day": "Dag {n} af {total}",
+        "light_of_moon": "tiltagende måne",
+        "dark_of_moon": "aftagende måne",
+        "good_for": "Godt for {things}",
+        "hold_off": "Vent med {things}",
+        "light_good": "såning af afgrøder over jorden, podning, omplantning",
+        "light_hold": "rodfrugter",
+        "dark_good": "rodfrugter, beskæring, lugning",
+        "dark_hold": "såning af afgrøder over jorden",
+        "solunar_major": "Solunar hovedperiode",
+        "solunar_minor": "biperiode",
         "spring_equinox": "Forårsjævndøgn",
         "summer_solstice": "Sommersolhverv",
         "autumn_equinox": "Efterårsjævndøgn",
@@ -231,6 +331,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "hefst við sólsetur",
         "in_time": "eftir {dur}",
         "year_day": "Dagur {n} af {total}",
+        "light_of_moon": "vaxandi tungl",
+        "dark_of_moon": "minnkandi tungl",
+        "good_for": "Gott fyrir {things}",
+        "hold_off": "Bíddu með {things}",
+        "light_good": "sáningu ofanjarðarplantna, ágræðslu, umplöntun",
+        "light_hold": "rótargrænmeti",
+        "dark_good": "rótargrænmeti, klippingu, illgresishreinsun",
+        "dark_hold": "sáningu ofanjarðarplantna",
+        "solunar_major": "Solunar aðaltími",
+        "solunar_minor": "aukatími",
         "spring_equinox": "Vorjafndægur",
         "summer_solstice": "Sumarsólstöður",
         "autumn_equinox": "Haustjafndægur",
@@ -249,6 +359,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "alkaa auringonlaskusta",
         "in_time": "{dur} kuluttua",
         "year_day": "Päivä {n} / {total}",
+        "light_of_moon": "kasvava kuu",
+        "dark_of_moon": "vähenevä kuu",
+        "good_for": "Hyvä aika: {things}",
+        "hold_off": "Odota vielä: {things}",
+        "light_good": "maanpäällisten kasvien kylvö, varttaminen, koulinta",
+        "light_hold": "juurikasvit",
+        "dark_good": "juurikasvit, leikkaus, kitkeminen",
+        "dark_hold": "maanpäällisten kasvien kylvö",
+        "solunar_major": "Solunar pääjakso",
+        "solunar_minor": "sivujakso",
         "spring_equinox": "Kevätpäiväntasaus",
         "summer_solstice": "Kesäpäivänseisaus",
         "autumn_equinox": "Syyspäiväntasaus",
@@ -267,6 +387,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "日没に始まる",
         "in_time": "{dur}後",
         "year_day": "今年 {n} 日目 / {total} 日",
+        "light_of_moon": "満ちゆく月",
+        "dark_of_moon": "欠けゆく月",
+        "good_for": "{things}に向く",
+        "hold_off": "{things}は控える",
+        "light_good": "地上作物の播種、接ぎ木、移植",
+        "light_hold": "根菜",
+        "dark_good": "根菜、剪定、除草",
+        "dark_hold": "地上作物の播種",
+        "solunar_major": "ソルナー主要",
+        "solunar_minor": "副次",
         "spring_equinox": "春分",
         "summer_solstice": "夏至",
         "autumn_equinox": "秋分",
@@ -285,6 +415,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "일몰에 시작",
         "in_time": "{dur} 후",
         "year_day": "올해 {n}일째 / {total}일",
+        "light_of_moon": "차오르는 달",
+        "dark_of_moon": "기우는 달",
+        "good_for": "{things}에 좋음",
+        "hold_off": "{things}은 보류",
+        "light_good": "지상 작물 파종, 접목, 이식",
+        "light_hold": "뿌리 작물",
+        "dark_good": "뿌리 작물, 가지치기, 김매기",
+        "dark_hold": "지상 작물 파종",
+        "solunar_major": "솔루나 주요",
+        "solunar_minor": "보조",
         "spring_equinox": "춘분",
         "summer_solstice": "하지",
         "autumn_equinox": "추분",
@@ -303,6 +443,44 @@ _MOON_STRINGS = {
         "begins_at_sunset": "日落开始",
         "in_time": "{dur}后",
         "year_day": "今年第 {n} 天 / {total} 天",
+        "light_of_moon": "月盈期",
+        "dark_of_moon": "月亏期",
+        "good_for": "宜{things}",
+        "hold_off": "忌{things}",
+        "light_good": "播种地上作物、嫁接、移栽",
+        "light_hold": "根菜",
+        "dark_good": "根菜、修剪、除草",
+        "dark_hold": "播种地上作物",
+        "solunar_major": "日月主时段",
+        "solunar_minor": "次时段",
+        "spring_equinox": "春分",
+        "summer_solstice": "夏至",
+        "autumn_equinox": "秋分",
+        "winter_solstice": "冬至",
+    },
+    "zh-Hant": {
+        "illuminated": "亮面 {pct}%",
+        "age": "月齡 {age} / {total}",
+        "lunar_age": "月齡 {age}",
+        "up_now": "現在已升起",
+        "above_horizon": "高度 {alt}°",
+        "below_horizon": "在地平線下",
+        "moonrise": "月出",
+        "moonset": "月落",
+        "in_days": "{days}天後",
+        "begins_at_sunset": "日落開始",
+        "in_time": "{dur}後",
+        "year_day": "今年第 {n} 天 / {total} 天",
+        "light_of_moon": "月盈期",
+        "dark_of_moon": "月虧期",
+        "good_for": "宜{things}",
+        "hold_off": "忌{things}",
+        "light_good": "播種地上作物、嫁接、移栽",
+        "light_hold": "根菜",
+        "dark_good": "根菜、修剪、除草",
+        "dark_hold": "播種地上作物",
+        "solunar_major": "日月主時段",
+        "solunar_minor": "次時段",
         "spring_equinox": "春分",
         "summer_solstice": "夏至",
         "autumn_equinox": "秋分",
@@ -321,6 +499,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "เริ่มเมื่อพระอาทิตย์ตก",
         "in_time": "อีก {dur}",
         "year_day": "วันที่ {n} จาก {total} ของปี",
+        "light_of_moon": "ข้างขึ้น",
+        "dark_of_moon": "ข้างแรม",
+        "good_for": "เหมาะสำหรับ{things}",
+        "hold_off": "งดเว้น{things}",
+        "light_good": "หว่านพืชเหนือดิน ต่อกิ่ง ย้ายปลูก",
+        "light_hold": "พืชหัว",
+        "dark_good": "พืชหัว ตัดแต่งกิ่ง ถอนวัชพืช",
+        "dark_hold": "หว่านพืชเหนือดิน",
+        "solunar_major": "โซลูนาร์ช่วงหลัก",
+        "solunar_minor": "ช่วงรอง",
         "spring_equinox": "วสันตวิษุวัต",
         "summer_solstice": "ครีษมายัน",
         "autumn_equinox": "ศารทวิษุวัต",
@@ -339,6 +527,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "mulai saat matahari terbenam",
         "in_time": "dalam {dur}",
         "year_day": "Hari ke-{n} dari {total}",
+        "light_of_moon": "bulan membesar",
+        "dark_of_moon": "bulan mengecil",
+        "good_for": "Baik untuk {things}",
+        "hold_off": "Tunda {things}",
+        "light_good": "menyemai tanaman di atas tanah, menyambung, memindahkan tanam",
+        "light_hold": "tanaman umbi",
+        "dark_good": "tanaman umbi, memangkas, menyiangi",
+        "dark_hold": "menyemai tanaman di atas tanah",
+        "solunar_major": "Solunar utama",
+        "solunar_minor": "minor",
         "spring_equinox": "Ekuinoks musim semi",
         "summer_solstice": "Solstis musim panas",
         "autumn_equinox": "Ekuinoks musim gugur",
@@ -357,6 +555,16 @@ _MOON_STRINGS = {
         "begins_at_sunset": "починається із заходом сонця",
         "in_time": "через {dur}",
         "year_day": "День {n} з {total}",
+        "light_of_moon": "Місяць росте",
+        "dark_of_moon": "Місяць спадає",
+        "good_for": "Сприятливо: {things}",
+        "hold_off": "Зачекайте: {things}",
+        "light_good": "сівба надземних культур, щеплення, пересаджування",
+        "light_hold": "коренеплоди",
+        "dark_good": "коренеплоди, обрізання, прополювання",
+        "dark_hold": "сівба надземних культур",
+        "solunar_major": "Солунар головний",
+        "solunar_minor": "другорядний",
         "spring_equinox": "Весняне рівнодення",
         "summer_solstice": "Літнє сонцестояння",
         "autumn_equinox": "Осіннє рівнодення",
@@ -375,10 +583,221 @@ _MOON_STRINGS = {
         "begins_at_sunset": "bắt đầu lúc mặt trời lặn",
         "in_time": "còn {dur}",
         "year_day": "Ngày {n} trên {total}",
+        "light_of_moon": "trăng tròn dần",
+        "dark_of_moon": "trăng khuyết dần",
+        "good_for": "Tốt cho {things}",
+        "hold_off": "Hoãn {things}",
+        "light_good": "gieo cây trồng trên mặt đất, ghép cành, trồng lại",
+        "light_hold": "cây lấy củ",
+        "dark_good": "cây lấy củ, tỉa cành, làm cỏ",
+        "dark_hold": "gieo cây trồng trên mặt đất",
+        "solunar_major": "Solunar chính",
+        "solunar_minor": "phụ",
         "spring_equinox": "Xuân phân",
         "summer_solstice": "Hạ chí",
         "autumn_equinox": "Thu phân",
         "winter_solstice": "Đông chí",
+    },
+    "eo": {
+        "illuminated": "{pct}% lumigita",
+        "age": "tago {age} el {total}",
+        "lunar_age": "luna aĝo {age} t",
+        "up_now": "Nun supre",
+        "above_horizon": "{alt}° super la horizonto",
+        "below_horizon": "Sub la horizonto",
+        "moonrise": "Lunleviĝo",
+        "moonset": "Lunsubiro",
+        "in_days": "post {days} t",
+        "begins_at_sunset": "komenciĝas ĉe sunsubiro",
+        "in_time": "post {dur}",
+        "year_day": "Tago {n} el {total}",
+        "light_of_moon": "kreskanta luno",
+        "dark_of_moon": "malkreskanta luno",
+        "good_for": "Bona por {things}",
+        "hold_off": "Ne nun: {things}",
+        "light_good": "semi surterajn kulturojn, grefti, transplanti",
+        "light_hold": "radikaj kulturoj",
+        "dark_good": "radikaj kulturoj, pritondado, sarkado",
+        "dark_hold": "semi surterajn kulturojn",
+        "solunar_major": "Solunara ĉefa",
+        "solunar_minor": "kroma",
+        "spring_equinox": "Printempa ekvinokso",
+        "summer_solstice": "Somera solstico",
+        "autumn_equinox": "Aŭtuna ekvinokso",
+        "winter_solstice": "Vintra solstico",
+    },
+    "tr": {
+        "illuminated": "%{pct} aydınlık",
+        "age": "gün {age} / {total}",
+        "lunar_age": "Ay yaşı {age} g",
+        "up_now": "Şu an gökte",
+        "above_horizon": "ufkun {alt}° üzerinde",
+        "below_horizon": "Ufkun altında",
+        "moonrise": "Ay doğuşu",
+        "moonset": "Ay batışı",
+        "in_days": "{days} g sonra",
+        "begins_at_sunset": "gün batımında başlar",
+        "in_time": "{dur} sonra",
+        "year_day": "{n}. gün / {total}",
+        "light_of_moon": "büyüyen ay",
+        "dark_of_moon": "küçülen ay",
+        "good_for": "{things} için uygun",
+        "hold_off": "{things} için bekleyin",
+        "light_good": "toprak üstü bitkileri ekmek, aşılamak, fide dikmek",
+        "light_hold": "kök bitkileri",
+        "dark_good": "kök bitkileri, budama, yabani ot temizliği",
+        "dark_hold": "toprak üstü bitkileri ekmek",
+        "solunar_major": "Solunar ana",
+        "solunar_minor": "ikincil",
+        "spring_equinox": "İlkbahar ekinoksu",
+        "summer_solstice": "Yaz gündönümü",
+        "autumn_equinox": "Sonbahar ekinoksu",
+        "winter_solstice": "Kış gündönümü",
+    },
+    "ru": {
+        "illuminated": "освещено {pct}%",
+        "age": "день {age} из {total}",
+        "lunar_age": "возраст Луны {age} д",
+        "up_now": "Над горизонтом",
+        "above_horizon": "{alt}° над горизонтом",
+        "below_horizon": "Под горизонтом",
+        "moonrise": "Восход Луны",
+        "moonset": "Заход Луны",
+        "in_days": "через {days} д",
+        "begins_at_sunset": "начинается с заходом солнца",
+        "in_time": "через {dur}",
+        "year_day": "День {n} из {total}",
+        "light_of_moon": "Луна растёт",
+        "dark_of_moon": "Луна убывает",
+        "good_for": "Благоприятно: {things}",
+        "hold_off": "Подождите: {things}",
+        "light_good": "посев надземных культур, прививка, пересадка",
+        "light_hold": "корнеплоды",
+        "dark_good": "корнеплоды, обрезка, прополка",
+        "dark_hold": "посев надземных культур",
+        "solunar_major": "Солунар главный",
+        "solunar_minor": "второстепенный",
+        "spring_equinox": "Весеннее равноденствие",
+        "summer_solstice": "Летнее солнцестояние",
+        "autumn_equinox": "Осеннее равноденствие",
+        "winter_solstice": "Зимнее солнцестояние",
+    },
+    "ro": {
+        "illuminated": "{pct}% iluminată",
+        "age": "ziua {age} din {total}",
+        "lunar_age": "vârsta Lunii {age} zile",
+        "up_now": "Pe cer acum",
+        "above_horizon": "{alt}° deasupra orizontului",
+        "below_horizon": "Sub orizont",
+        "moonrise": "Răsăritul Lunii",
+        "moonset": "Apusul Lunii",
+        # A count of twenty or more takes "de" before its noun: "peste
+        # 3 zile", "peste 21 de zile"; one is "peste 1 zi".
+        "in_days": "peste {days} zile",
+        "in_days_one": "peste {days} zi",
+        "in_days_many": "peste {days} de zile",
+        "begins_at_sunset": "începe la apus",
+        "in_time": "peste {dur}",
+        "year_day": "Ziua {n} din {total}",
+        "light_of_moon": "Lună în creștere",
+        "dark_of_moon": "Lună în descreștere",
+        "good_for": "Prielnic: {things}",
+        "hold_off": "Amână: {things}",
+        "light_good": "semănatul culturilor de suprafață, altoit, transplantat",
+        "light_hold": "rădăcinoase",
+        "dark_good": "rădăcinoase, tăieri, plivit",
+        "dark_hold": "semănatul culturilor de suprafață",
+        "solunar_major": "Solunar major",
+        "solunar_minor": "minor",
+        "spring_equinox": "Echinocțiul de primăvară",
+        "summer_solstice": "Solstițiul de vară",
+        "autumn_equinox": "Echinocțiul de toamnă",
+        "winter_solstice": "Solstițiul de iarnă",
+    },
+    "cs": {
+        "illuminated": "osvětleno {pct} %",
+        "age": "den {age} z {total}",
+        "lunar_age": "stáří Měsíce {age} d",
+        "up_now": "Nad obzorem",
+        "above_horizon": "{alt}° nad obzorem",
+        "below_horizon": "Pod obzorem",
+        "moonrise": "Východ Měsíce",
+        "moonset": "Západ Měsíce",
+        "in_days": "za {days} d",
+        "begins_at_sunset": "začíná západem slunce",
+        "in_time": "za {dur}",
+        "year_day": "Den {n} z {total}",
+        "light_of_moon": "Měsíc dorůstá",
+        "dark_of_moon": "Měsíc couvá",
+        "good_for": "Vhodné: {things}",
+        "hold_off": "Počkejte: {things}",
+        "light_good": "setí nadzemních plodin, roubování, přesazování",
+        "light_hold": "kořenová zelenina",
+        "dark_good": "kořenová zelenina, řez, pletí",
+        "dark_hold": "setí nadzemních plodin",
+        "solunar_major": "Solunární hlavní",
+        "solunar_minor": "vedlejší",
+        "spring_equinox": "Jarní rovnodennost",
+        "summer_solstice": "Letní slunovrat",
+        "autumn_equinox": "Podzimní rovnodennost",
+        "winter_solstice": "Zimní slunovrat",
+    },
+    "sw": {
+        "illuminated": "{pct}% imeangazwa",
+        "age": "siku ya {age} kati ya {total}",
+        "lunar_age": "umri wa mwezi siku {age}",
+        "up_now": "Uko juu sasa",
+        "above_horizon": "{alt}° juu ya upeo wa macho",
+        "below_horizon": "Chini ya upeo wa macho",
+        "moonrise": "Mwezi kuchomoza",
+        "moonset": "Mwezi kutua",
+        "in_days": "baada ya siku {days}",
+        "begins_at_sunset": "huanza jua linapotua",
+        "in_time": "baada ya {dur}",
+        "year_day": "Siku ya {n} kati ya {total}",
+        "light_of_moon": "mwezi unaoongezeka",
+        "dark_of_moon": "mwezi unaopungua",
+        "good_for": "Wakati mzuri wa {things}",
+        "hold_off": "Subiri kabla ya {things}",
+        "light_good": "kupanda mazao ya juu ya ardhi, kuunganisha miche, kupandikiza",
+        "light_hold": "kupanda mazao ya mizizi",
+        "dark_good": "kupanda mazao ya mizizi, kupogoa, kupalilia",
+        "dark_hold": "kupanda mazao ya juu ya ardhi",
+        "solunar_major": "Kipindi kikuu cha jua na mwezi",
+        "solunar_minor": "kipindi kidogo",
+        "spring_equinox": "Ikwinoksi ya Machi",
+        "summer_solstice": "Solstisi ya Juni",
+        "autumn_equinox": "Ikwinoksi ya Septemba",
+        "winter_solstice": "Solstisi ya Desemba",
+    },
+    "el": {
+        'illuminated': 'φωτισμός {pct}%',
+        'age': 'ημέρα {age} από {total}',
+        'lunar_age': 'ηλικία Σελήνης: {age} ημ.',
+        'up_now': 'Πάνω από τον ορίζοντα',
+        'above_horizon': '{alt}° πάνω από τον ορίζοντα',
+        'below_horizon': 'Κάτω από τον ορίζοντα',
+        'moonrise': 'Ανατολή Σελήνης',
+        'moonset': 'Δύση Σελήνης',
+        'in_days': 'σε {days} ημέρες',
+        'in_days_one': 'σε {days} ημέρα',
+        'begins_at_sunset': 'αρχίζει με τη δύση του ήλιου',
+        'in_time': 'σε {dur}',
+        'year_day': 'Ημέρα {n} από {total}',
+        'light_of_moon': 'γέμισμα του φεγγαριού',
+        'dark_of_moon': 'χάση του φεγγαριού',
+        'good_for': 'Ευνοούνται: {things}',
+        'hold_off': 'Αναβάλετε: {things}',
+        'light_good': 'σπορά υπέργειων καλλιεργειών, εμβολιασμοί, μεταφυτεύσεις',
+        'light_hold': 'καλλιέργειες ριζών',
+        'dark_good': 'καλλιέργειες ριζών, κλάδεμα, βοτάνισμα',
+        'dark_hold': 'σπορά υπέργειων καλλιεργειών',
+        'solunar_major': 'Κύρια ηλιοσεληνιακή περίοδος',
+        'solunar_minor': 'δευτερεύουσα',
+        'spring_equinox': 'Εαρινή ισημερία',
+        'summer_solstice': 'Θερινό ηλιοστάσιο',
+        'autumn_equinox': 'Φθινοπωρινή ισημερία',
+        'winter_solstice': 'Χειμερινό ηλιοστάσιο',
     },
 }
 
@@ -418,6 +837,18 @@ MONTHS_I18N = {
            "лип", "сер", "вер", "жов", "лис", "гру"],
     # Vietnamese months are numbered; CLDR's short form.
     "vi": [f"thg {m}" for m in range(1, 13)],
+    "eo": ["jan", "feb", "mar", "apr", "maj", "jun",
+           "jul", "aŭg", "sep", "okt", "nov", "dec"],
+    "tr": ["Oca", "Şub", "Mar", "Nis", "May", "Haz",
+           "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"],
+    "ru": ["янв", "фев", "мар", "апр", "май", "июн",
+           "июл", "авг", "сен", "окт", "ноя", "дек"],
+    "ro": ["ian", "feb", "mar", "apr", "mai", "iun",
+           "iul", "aug", "sep", "oct", "noi", "dec"],
+    "cs": ["led", "úno", "bře", "dub", "kvě", "čvn",
+           "čvc", "srp", "zář", "říj", "lis", "pro"],
+    "sw": ["Jan", "Feb", "Mac", "Apr", "Mei", "Jun", "Jul", "Ago", "Sep", "Okt", "Nov", "Des"],
+    "el": ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαΐ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ'],
 }
 
 # Date order/format per language: {month} = abbreviated name from
@@ -425,17 +856,26 @@ MONTHS_I18N = {
 _DATE_MD = {
     "en": "{month} {day}",
     "de": "{day}. {month}",
+    "cs": "{day}. {month}",
     "fi": "{day}.{mnum}.",
     "ja": "{mnum}月{day}日",
     "zh": "{mnum}月{day}日",
+    "zh-Hant": "{mnum}月{day}日",
     "ko": "{mnum}월 {day}일",
 }
 _DATE_MD_DEFAULT = "{day} {month}"
 
 
 def _ms(key, runtime, **kwargs):
-    """Look up a moon-specific localized string."""
-    return lookup(_MOON_STRINGS, key, lang_of(runtime), **kwargs)
+    """Look up a moon-specific localized string. A count of days takes
+    the form the language gives that count where the table has one
+    (Romanian's "peste 1 zi", "peste 21 de zile")."""
+    lang = lang_of(runtime)
+    if key == "in_days" and "days" in kwargs:
+        variant = f"in_days_{plural_category(lang, float(kwargs['days']))}"
+        if variant in _MOON_STRINGS.get(lang, {}):
+            key = variant
+    return lookup(_MOON_STRINGS, key, lang, **kwargs)
 
 
 # Season names for the four events (March equinox, June solstice,
@@ -443,12 +883,13 @@ def _ms(key, runtime, **kwargs):
 # solar terms (春分, 夏至, …) name the event itself, not the local
 # season — Vietnamese Xuân phân and Hạ chí are the same terms — and
 # Thai's Sanskrit terms (วสันตวิษุวัต, …) likewise, so those languages
-# keep the northern mapping everywhere.
+# keep the northern mapping everywhere. Swahili names the months of
+# the events, so its labels also stay the same in either hemisphere.
 _SEASON_KEYS_NORTH = ("spring_equinox", "summer_solstice",
                       "autumn_equinox", "winter_solstice")
 _SEASON_KEYS_SOUTH = ("autumn_equinox", "winter_solstice",
                       "spring_equinox", "summer_solstice")
-_SEASON_ABSOLUTE_LANGS = frozenset({"ja", "ko", "zh", "vi", "th"})
+_SEASON_ABSOLUTE_LANGS = frozenset({"ja", "ko", "zh", "zh-Hant", "vi", "th", "sw"})
 
 
 def _season_label(event, lat, runtime):
@@ -473,7 +914,7 @@ def _day_abbrev(dt, runtime):
 
 
 # ---------------------------------------------------------------------------
-# The lunisolar calendar's names (see _lunisolar.py for the calendar
+# The lunisolar calendar's names (see _calendars/lunisolar.py for the calendar
 # itself). Each calendar reads in its own script for its own language;
 # every other UI language gets the customary English renderings, the
 # same fallback the string tables use.
@@ -495,6 +936,10 @@ SOLAR_TERMS_I18N = {
            "夏至", "小暑", "大暑", "立秋", "处暑", "白露",
            "秋分", "寒露", "霜降", "立冬", "小雪", "大雪",
            "冬至", "小寒", "大寒", "立春", "雨水", "惊蛰"],
+    "zh-Hant": ["春分", "清明", "穀雨", "立夏", "小滿", "芒種",
+                "夏至", "小暑", "大暑", "立秋", "處暑", "白露",
+                "秋分", "寒露", "霜降", "立冬", "小雪", "大雪",
+                "冬至", "小寒", "大寒", "立春", "雨水", "驚蟄"],
     "ja": ["春分", "清明", "穀雨", "立夏", "小満", "芒種",
            "夏至", "小暑", "大暑", "立秋", "処暑", "白露",
            "秋分", "寒露", "霜降", "立冬", "小雪", "大雪",
@@ -509,58 +954,64 @@ SOLAR_TERMS_I18N = {
            "Đông chí", "Tiểu hàn", "Đại hàn", "Lập xuân", "Vũ thủy", "Kinh trập"],
 }
 
-# Festivals dated by the lunar calendar, (month, day) → (native name,
-# English name), per calendar. Japan moved its festivals to Gregorian
-# dates in 1873; the two moon-viewing nights are what remains on the
-# old calendar. Vietnam's are the public holidays and the days every
-# household keeps: the Hùng Kings' day is a holiday by law, and the
+# Festivals dated by the lunar calendar, (month, day) → {lang: name}, per
+# calendar: the name in the calendar's own language (Chinese in both its
+# scripts) and the customary English one. Japan moved its festivals to
+# Gregorian dates in 1873; the two moon-viewing nights are what remains
+# on the old calendar. Vietnam's are the public holidays and the days
+# every household keeps: the Hùng Kings' day is a holiday by law, and the
 # Kitchen Gods' departure a week before Tết opens the new year's rites.
 _FESTIVALS = {
     "chinese": {
-        (1, 1): ("春节", "Chinese New Year"),
-        (1, 15): ("元宵节", "Lantern Festival"),
-        (5, 5): ("端午节", "Dragon Boat Festival"),
-        (7, 7): ("七夕", "Qixi"),
-        (8, 15): ("中秋节", "Mid-Autumn Festival"),
-        (9, 9): ("重阳节", "Double Ninth"),
+        (1, 1): {"zh": "春节", "zh-Hant": "春節", "en": "Chinese New Year"},
+        (1, 15): {"zh": "元宵节", "zh-Hant": "元宵節", "en": "Lantern Festival"},
+        (5, 5): {"zh": "端午节", "zh-Hant": "端午節", "en": "Dragon Boat Festival"},
+        (7, 7): {"zh": "七夕", "zh-Hant": "七夕", "en": "Qixi"},
+        (8, 15): {"zh": "中秋节", "zh-Hant": "中秋節", "en": "Mid-Autumn Festival"},
+        (9, 9): {"zh": "重阳节", "zh-Hant": "重陽節", "en": "Double Ninth"},
     },
     "japanese": {
-        (8, 15): ("十五夜", "Tsukimi"),
-        (9, 13): ("十三夜", "Jūsan'ya"),
+        (8, 15): {"ja": "十五夜", "en": "Tsukimi"},
+        (9, 13): {"ja": "十三夜", "en": "Jūsan'ya"},
     },
     "korean": {
-        (1, 1): ("설날", "Seollal"),
-        (1, 15): ("정월대보름", "Daeboreum"),
-        (5, 5): ("단오", "Dano"),
-        (8, 15): ("추석", "Chuseok"),
+        (1, 1): {"ko": "설날", "en": "Seollal"},
+        (1, 15): {"ko": "정월대보름", "en": "Daeboreum"},
+        (5, 5): {"ko": "단오", "en": "Dano"},
+        (8, 15): {"ko": "추석", "en": "Chuseok"},
     },
     "vietnamese": {
-        (1, 1): ("Tết Nguyên Đán", "Tết"),
-        (1, 15): ("Rằm tháng Giêng", "Tết Nguyên Tiêu"),
-        (3, 10): ("Giỗ Tổ Hùng Vương", "Hùng Kings' Day"),
-        (5, 5): ("Tết Đoan Ngọ", "Tết Đoan Ngọ"),
-        (7, 15): ("Lễ Vu Lan", "Vu Lan"),
-        (8, 15): ("Tết Trung Thu", "Mid-Autumn Festival"),
-        (12, 23): ("Ông Táo về trời", "Kitchen Gods' Day"),
+        (1, 1): {"vi": "Tết Nguyên Đán", "en": "Tết"},
+        (1, 15): {"vi": "Rằm tháng Giêng", "en": "Tết Nguyên Tiêu"},
+        (3, 10): {"vi": "Giỗ Tổ Hùng Vương", "en": "Hùng Kings' Day"},
+        (5, 5): {"vi": "Tết Đoan Ngọ", "en": "Tết Đoan Ngọ"},
+        (7, 15): {"vi": "Lễ Vu Lan", "en": "Vu Lan"},
+        (8, 15): {"vi": "Tết Trung Thu", "en": "Mid-Autumn Festival"},
+        (12, 23): {"vi": "Ông Táo về trời", "en": "Kitchen Gods' Day"},
     },
 }
 
 
-def festival_table(calendar, native):
-    """(month, day) → name for a calendar's festivals.
-
-    *native* picks the calendar's own script; otherwise the customary
-    English names.
-    """
-    return {md: names[0] if native else names[1]
+def festival_table(calendar, lang):
+    """(month, day) → name for a calendar's festivals, in *lang* where
+    that is the calendar's own language, else the customary English."""
+    return {md: names.get(lang, names["en"])
             for md, names in _FESTIVALS[calendar].items()}
 
 # Chinese months and days have names, not numbers: the eleventh and
 # twelfth months are 冬月 and 腊月, the first ten days take 初, the
-# twenties 廿.
+# twenties 廿. The traditional script writes 臘月 and 閏 for a leap month.
 _ZH_MONTHS = ["正月", "二月", "三月", "四月", "五月", "六月",
               "七月", "八月", "九月", "十月", "冬月", "腊月"]
+_ZH_MONTHS_HANT = [*_ZH_MONTHS[:11], "臘月"]
 _ZH_DIGITS = "一二三四五六七八九十"
+
+
+def zh_month_label(month, leap, lang):
+    """The Chinese month's name, 正月, 闰六月, 臘月, in either script."""
+    if lang == "zh-Hant":
+        return ("閏" if leap else "") + _ZH_MONTHS_HANT[month - 1]
+    return ("闰" if leap else "") + _ZH_MONTHS[month - 1]
 
 
 def _zh_day_name(day):
@@ -601,8 +1052,9 @@ def lunar_date_label(month, day, leap, lang):
             day_name = f"ngày {day}"
         return f"{day_name} {vi_month_label(month, leap)} âm lịch"
     if lang == "zh":
-        leap_mark = "闰" if leap else ""
-        return f"农历{leap_mark}{_ZH_MONTHS[month - 1]}{_zh_day_name(day)}"
+        return f"农历{zh_month_label(month, leap, lang)}{_zh_day_name(day)}"
+    if lang == "zh-Hant":
+        return f"農曆{zh_month_label(month, leap, lang)}{_zh_day_name(day)}"
     if lang == "ja":
         leap_mark = "閏" if leap else ""
         return f"旧暦{leap_mark}{month}月{day}日"
@@ -638,7 +1090,7 @@ def ja_night_name(day):
 
 
 # ---------------------------------------------------------------------------
-# The Thai calendar's names (see _thai_lunar.py for the calendar
+# The Thai calendar's names (see _calendars/thai_lunar.py for the calendar
 # itself). Thai lunar dates are traditionally printed in Thai numerals
 # — ขึ้น ๘ ค่ำ เดือน ๓ — so the native labels keep them; the rest of
 # the UI stays with Arabic digits, as modern Thai print does.
@@ -697,7 +1149,7 @@ def wan_phra_label(today, lang):
     return "Wan Phra today" if today else "Wan Phra"
 
 
-# Festival names by the keys _thai_lunar's next_thai_festival returns,
+# Festival names by the keys thai_lunar's next_thai_festival returns,
 # (native, customary English).
 _TH_FESTIVALS = {
     "makha": ("มาฆบูชา", "Makha Bucha"),
@@ -829,7 +1281,7 @@ def anahulu_name(night):
 
 
 # ---------------------------------------------------------------------------
-# The Islamic calendar's names (see _hijri.py for the calendar itself).
+# The Islamic calendar's names (see _calendars/hijri.py for the calendar itself).
 # Arabic is not a UI language, so the months are transliterated for
 # every reader; Indonesian, the one UI language of a Muslim-majority
 # country, gets the spellings its dictionary standardizes.
@@ -844,7 +1296,7 @@ _HIJRI_MONTHS = {
            "Ramadan", "Syawal", "Zulkaidah", "Zulhijah"),
 }
 
-# Observance names by the keys _hijri's next_observance returns.
+# Observance names by the keys hijri's next_observance returns.
 _HIJRI_OBSERVANCES = {
     "new_year": ("Islamic New Year", "Tahun Baru Islam"),
     "ashura": ("Ashura", "Asyura"),
@@ -878,7 +1330,7 @@ def hijri_observance_name(key, lang):
 
 
 # ---------------------------------------------------------------------------
-# The Hebrew calendar's names (see _hebrew.py for the calendar itself).
+# The Hebrew calendar's names (see _calendars/hebrew.py for the calendar itself).
 # Hebrew is not a UI language and terminals lay its script out
 # unreliably, so the months and holidays are transliterated, one
 # spelling for every reader: Tishrei, Cheshvan, Pesach.
@@ -901,7 +1353,7 @@ _GEMATRIA = ((400, "ת"), (300, "ש"), (200, "ר"), (100, "ק"), (90, "צ"),
              (2, "ב"), (1, "א"))
 _GERESH, _GERSHAYIM = "\u05f3", "\u05f4"
 
-# Holiday names by the keys _hebrew's next_holiday returns.
+# Holiday names by the keys hebrew's next_holiday returns.
 _HEBREW_HOLIDAYS = {
     "rosh_hashanah": "Rosh Hashanah",
     "yom_kippur": "Yom Kippur",
@@ -921,7 +1373,7 @@ _HEBREW_HOLIDAYS = {
 
 def hebrew_month_name(year, month):
     """The month's name; the twelfth is Adar I in a year with two Adars."""
-    from linecast._hebrew import is_leap_year
+    from linecast._calendars.hebrew import is_leap_year
     if month == 12 and is_leap_year(year):
         return "Adar I"
     return _HEBREW_MONTHS[month - 1]
@@ -963,7 +1415,7 @@ def hebrew_year_numeral(year):
 
 def hebrew_date_hebrew(year, month, day):
     """כ״ג תשרי תשפ״ז — the date in Hebrew letters, for --json."""
-    from linecast._hebrew import is_leap_year
+    from linecast._calendars.hebrew import is_leap_year
     name = _HEBREW_MONTHS_HE[month - 1]
     if month == 12 and is_leap_year(year):
         name = "אדר א׳"

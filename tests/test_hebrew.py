@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from linecast._hebrew import (
+from linecast._calendars.hebrew import (
     HOLIDAYS,
     days_in_month,
     days_in_year,
@@ -26,7 +26,7 @@ from linecast._hebrew import (
     next_month_start,
     rosh_chodesh,
 )
-from linecast._hijri import after_sunset
+from linecast._calendars.hijri import after_sunset
 from linecast._moon_i18n import (
     hebrew_date_hebrew, hebrew_date_label, hebrew_holiday_name,
     hebrew_month_name, hebrew_numeral, hebrew_year_numeral,
@@ -475,7 +475,7 @@ class TestKeepsIsraelDays:
 
 class TestAfterSunset:
     # The Hebrew day turns at the same sunset the Hijri day does; the
-    # helper is _hijri's, and its own tests cover the edges.
+    # helper is hijri's, and its own tests cover the edges.
     def test_an_evening_in_maine(self):
         eastern = timezone(timedelta(hours=-4))
         assert after_sunset(datetime(2026, 9, 11, 20, 30, tzinfo=eastern),

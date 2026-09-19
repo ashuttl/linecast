@@ -159,7 +159,7 @@ CULTURES = {
     "snt": "western_SnT", "rey": "western_rey",
 }
 # The culture a language brings with it, as the moon's calendars do.
-CULTURE_OF_LANG = {"zh": "chinese"}
+CULTURE_OF_LANG = {"zh": "chinese", "zh-Hant": "chinese"}
 
 
 def resolve_culture(flag, lang):
@@ -190,8 +190,11 @@ def culture(short):
     """A culture prepared for drawing: its title, region, credits, and
     `figures` as constellation records (english and native names, an
     `iau` code where the culture keeps the IAU figure, the label point
-    and the lines as equatorial unit vectors), and `star_names` as
-    {index: (english, native)}. None for a name the data lacks."""
+    and the lines as equatorial unit vectors), `star_names` as
+    {index: (english, native)}, and `variants`, the native names again
+    in another script where the data carries them ({lang: {"figures":
+    [name, …], "star_names": {index: name}}}). None for a name the data
+    lacks."""
     if short in _culture_cache:
         return _culture_cache[short]
     raw = _load_cultures().get(CULTURES.get(short, short))
@@ -212,9 +215,33 @@ def culture(short):
             "lines": [[vec(p) for p in line] for line in c["lines"]],
         } for i, c in enumerate(raw["constellations"])],
         "star_names": {int(k): tuple(v) for k, v in raw["star_names"].items()},
+        "variants": {lang: {"figures": v["constellations"],
+                            "star_names": {int(k): n for k, n in v["star_names"].items()}}
+                     for lang, v in raw.get("variants", {}).items()},
     }
     _culture_cache[short] = prepared
     return prepared
+
+
+def culture_for(short, lang):
+    """The culture as *lang* reads it: with the native names in that
+    language's script where the data has them (the Chinese sky in the
+    traditional characters), so the picking below sees one native form
+    and one native language; the culture as prepared otherwise."""
+    prepared = culture(short)
+    if prepared is None or lang not in prepared["variants"]:
+        return prepared
+    key = (short, lang)
+    if key not in _culture_cache:
+        variant = prepared["variants"][lang]
+        _culture_cache[key] = {
+            **prepared, "native_lang": lang,
+            "figures": [{**fig, "native": name or fig["native"]}
+                        for fig, name in zip(prepared["figures"], variant["figures"])],
+            "star_names": {i: (english, variant["star_names"].get(i) or native)
+                           for i, (english, native) in prepared["star_names"].items()},
+        }
+    return _culture_cache[key]
 
 
 def culture_title(short, lang="en"):
@@ -232,10 +259,11 @@ def _pick(english, native, native_lang, lang):
     """Which of a culture's two names to show: the native one where the
     display language is the culture's own, or where there is no English;
     the English one otherwise, and where the culture has no language of
-    its own and no native form."""
+    its own and no native form. A name the culture never gave a native
+    form falls back to the English one either way."""
     if native_lang:
         if lang == native_lang:
-            return native
+            return native or english
         return english or native
     return native or english
 
@@ -244,7 +272,7 @@ def figures_for(short, lang):
     """The constellation records to draw for a culture, in the shape of
     `constellations()` plus the label text in `name` and the other form of
     the name in `detail`: an IAU figure keeps its localized name."""
-    prepared = culture(short)
+    prepared = culture_for(short, lang)
     if prepared is None:
         return []
     iau = {r["id"]: r for r in constellations()}
@@ -271,7 +299,7 @@ def names_for(short, lang):
     with the IAU names behind them where the culture asks for that
     fallback. The designation stays the IAU one, so the chip can say
     which star a name belongs to."""
-    prepared = culture(short)
+    prepared = culture_for(short, lang)
     if prepared is None:
         return star_names()
     iau = star_names()

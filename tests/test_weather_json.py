@@ -125,6 +125,9 @@ class TestCurrent:
 
 
 class TestHourly:
+    def test_expired_forecast_has_no_upcoming_hours(self):
+        assert _payload(now=datetime(2026, 3, 12, 9))["hourly"] == []
+
     def test_hourly_starts_at_current_hour(self):
         data = _load_fixture()
         hourly = _payload()["hourly"]
@@ -165,6 +168,23 @@ class TestHourly:
 
 
 class TestDaily:
+    def test_stale_forecast_starts_on_the_actual_today(self):
+        data = _load_fixture()
+        p = _payload(now=datetime(2026, 3, 7, 9))
+        assert [day["date"] for day in p["daily"]] == data["daily"]["time"][3:]
+        for output, source in (("high", "temperature_2m_max"),
+                               ("low", "temperature_2m_min"),
+                               ("sunrise", "sunrise"), ("sunset", "sunset"),
+                               ("precipitation", "precipitation_sum"),
+                               ("precipitation_probability", "precipitation_probability_max")):
+            assert p["today"][output] == data["daily"][source][3]
+
+    def test_expired_forecast_has_no_today_or_upcoming_days(self):
+        p = _payload(now=datetime(2026, 3, 12, 9))
+        assert p["daily"] == []
+        assert all(value is None for value in p["today"].values())
+        assert p["summary"] is None
+
     def test_daily_starts_today_not_yesterday(self):
         daily = _payload()["daily"]
         assert daily[0]["date"] == "2026-03-05"

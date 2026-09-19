@@ -185,3 +185,14 @@ def test_wrapping_preserves_unspaced_and_combining_text():
         wrapped = _help.wrap(text, 4)
         assert ''.join(wrapped) == text
         assert all(visible_len(row) <= 4 for row in wrapped)
+
+
+def test_wheel_hook_can_defer_to_forecast_and_alert_scrolling(monkeypatch):
+    frames, _output, _modes = run_loop(monkeypatch, [
+        ('mouse', 64, 10, 10, False),
+        ('mouse', 0, 4, 4, False),  # open the alert row
+        ('mouse', 65, 4, 4, False),
+        'quit', 'quit',
+    ], on_wheel=lambda *args: NotImplemented)
+    assert any(f['offset_minutes'] == 15 for f in frames)
+    assert any(f['active_alert'] == 0 and f['modal_scroll'] == 3 for f in frames)

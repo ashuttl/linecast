@@ -81,7 +81,7 @@ class TestFramePaint:
     def test_the_clear_below_comes_before_the_body(self):
         # A row that reaches the last column leaves the cursor on that
         # cell, and a clear-to-end-of-screen from there would take the
-        # cell's glyph: the last letter of "? keys".  So the space below
+        # cell's glyph: the last letter of "? help".  So the space below
         # the frame is cleared first, from the row after the last, and
         # the body is drawn after it.
         out = frame_paint("a\nb\nc")

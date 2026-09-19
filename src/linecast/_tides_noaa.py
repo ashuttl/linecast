@@ -248,7 +248,17 @@ def fetch_all_stations_noaa() -> list[dict[str, Any]]:
         stations = data
     else:
         stations = data.get("stations", [])
-        write_cache(cache_file, stations)
+        if stations:
+            write_cache(cache_file, stations)
+        else:
+            # An answer with no stations in it is not the list, and
+            # fetch_json_cached has just written it to disk: served as
+            # fresh, it would say "no station anywhere" for a month.
+            try:
+                cache_file.unlink(missing_ok=True)
+            except OSError as exc:
+                log_failure("cache", f"delete of {cache_file.name}", exc,
+                            fallback="empty station list may be served as fresh")
     if stations:
         _stations_memo = stations
     return stations

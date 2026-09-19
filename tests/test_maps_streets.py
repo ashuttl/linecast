@@ -12,6 +12,7 @@ view is therefore the whole world (the z0 tile), and every assertion is
 about columns.
 """
 
+import gzip
 import sys
 from pathlib import Path
 
@@ -363,6 +364,17 @@ class TestDecodeMemo:
     def test_an_undecodable_tile_is_skipped_and_not_remembered(self):
         assert st.decode_view({Z0: b"\x1a\xff\xff\xff\xff\xff"}) == []
         assert Z0 not in st._decoded._hits
+
+    def test_a_tile_cut_short_is_skipped_like_any_corrupt_one(self):
+        # a geometry whose parameters end early, and a gzip body that
+        # does: both used to raise past the decoder's ValueError catch
+        # and fail the whole view, from a tile the disk keeps forever
+        short = tile(layer("water", [feature(
+            b"".join(varint(n) for n in (cmd(1, 1), zigzag(0))))]))
+        cut = gzip.compress(tile(classed("water", LEFT_HALF, "lake")))[:-8]
+        for data in (short, cut):
+            assert st.decode_view({Z0: data}) == []
+            assert Z0 not in st._decoded._hits
 
 
 # ---------------------------------------------------------------------------

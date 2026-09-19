@@ -264,6 +264,60 @@ class LocationCommandTests(unittest.TestCase):
         self.assertEqual(_config.read_config(), {})
         self.assertIsNone(_config.saved_location())
 
+    def test_config_that_is_not_an_object_reads_as_empty(self):
+        # A hand edit can leave a list or a bare string; every reader
+        # calls .get on the result.
+        path = _config.config_file()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        for text in ("[]", '"metric"', "null", "42"):
+            path.write_text(text)
+            self.assertEqual(_config.read_config(), {}, text)
+            self.assertIsNone(_config.saved_location(), text)
+
+    def test_config_that_is_not_utf8_reads_as_empty(self):
+        path = _config.config_file()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'{"units": "\xff"}')
+        self.assertEqual(_config.read_config(), {})
+
+    def test_saved_location_needs_numeric_coordinates_in_range(self):
+        for loc in ({"lat": "abc", "lng": 2.0}, {"lat": 1.0, "lng": None},
+                    {"lat": True, "lng": 2.0}, {"lat": 91.0, "lng": 0.0},
+                    {"lat": 0.0, "lng": -181.0}, {"lat": 1.0}):
+            _config.write_config({"location": loc})
+            self.assertIsNone(_config.saved_location(), loc)
+        _config.write_config({"location": {"lat": 51, "lng": -0.1}})
+        self.assertEqual(_config.saved_location()["lat"], 51)
+
+
+class ParseLatLngTests(unittest.TestCase):
+    def test_two_finite_numbers_on_the_planet(self):
+        self.assertEqual(_location.parse_latlng("51.5,-0.1"), (51.5, -0.1))
+        self.assertEqual(_location.parse_latlng(" -90 , 180 "), (-90.0, 180.0))
+
+    def test_anything_else_is_not_coordinates(self):
+        for text in ("91,0", "0,181", "1,2,3", "nan,0", "1e999,0", "Paris, TX",
+                     "51.5", "", "abc,def", "inf,-inf"):
+            self.assertIsNone(_location.parse_latlng(text), text)
+
+    def test_an_override_off_the_planet_goes_to_the_geocoder(self):
+        with patch("linecast._weather_sources.geocode_first", return_value=None):
+            with self.assertRaises(SystemExit):
+                _location.resolve_location("91,0")
+
+    def test_a_third_number_is_not_dropped(self):
+        with patch("linecast._weather_sources.geocode_first",
+                   return_value=(1.0, 2.0, "Somewhere")) as geo:
+            self.assertEqual(_location.resolve_location("1,2,3")[:2], (1.0, 2.0))
+            geo.assert_called_once()
+
+    def test_the_settings_command_refuses_coordinates_off_the_planet(self):
+        with patch("linecast._weather_sources._geocode_query", return_value=[]), \
+             patch("linecast._weather_sources._reverse_geocode",
+                   side_effect=AssertionError("not coordinates")):
+            with self.assertRaises(SystemExit):
+                location._cmd_set("91,0")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,7 +1,7 @@
 """Tests for historical weather comparison feature."""
 
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -111,6 +111,47 @@ class TestComputeAverages:
         result = _compute_averages(data, 3, 27)
         assert result.year_high == 95.0
         assert result.year_low == 40.0
+
+    def test_a_null_block_yields_nothing(self):
+        """daily: null, or a null time series, is an archive with no days."""
+        assert _compute_averages({"daily": None}, 3, 27) is None
+        assert _compute_averages({"daily": {"time": None}}, 3, 27) is None
+
+    def test_a_null_day_is_dropped_and_the_rest_are_kept(self):
+        """A null in daily.time is one day the archive could not date; the
+        years around it still count (issue #112)."""
+        data = {
+            "daily": {
+                "time": ["2020-03-27", None, "2021-03-27"],
+                "temperature_2m_max": [60.0, None, 70.0],
+                "temperature_2m_min": [40.0, None, 50.0],
+                "precipitation_sum": [0.1, None, 0.3],
+            }
+        }
+        result = _compute_averages(data, 3, 27)
+        assert result is not None
+        assert result.years == 2
+        assert result.avg_high == 65.0
+        assert result.avg_precip == 0.2
+
+    def test_a_null_variable_reads_as_absent(self):
+        """A whole variable the archive could not produce is null, not a
+        list of nulls; the days still average what they have."""
+        data = {
+            "daily": {
+                "time": ["2020-03-27", "2021-03-27"],
+                "temperature_2m_max": [60.0, 70.0],
+                "temperature_2m_min": [40.0, 50.0],
+                "precipitation_sum": None,
+            }
+        }
+        result = _compute_averages(data, 3, 27)
+        assert result is not None
+        assert result.years == 2
+        assert result.avg_precip == 0.0
+        assert _compute_averages({"daily": {"time": ["2020-03-27"],
+                                            "temperature_2m_max": None,
+                                            "temperature_2m_min": None}}, 3, 27) is None
 
     def test_feb_29_leap_day(self):
         """Leap day (Feb 29) should match only years that have it."""
@@ -311,7 +352,8 @@ class TestHeaderIntegration:
         runtime = WeatherRuntime(live=False, icons="nerd", lang="en",
                                  celsius=False, metric=False, shading=True,
                                  oneline=False)
-        result = render_header(data, 120, "Test City", runtime=runtime, historical=hist)
+        result = render_header(data, 120, "Test City", runtime=runtime, historical=hist,
+                               now=datetime(2026, 3, 27, 12))
         assert isinstance(result, str)
         assert len(result) > 0
         # The annotation should appear somewhere in the header
