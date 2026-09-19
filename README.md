@@ -72,7 +72,7 @@ Use Windows Terminal. Git Bash and mintty look like a pipe rather than a termina
 
 Every command opens live, at the place your IP address suggests until you [save a location](#location). Press `?` for the keyboard controls.
 
-In `weather`, click the location at the top right (or press `l`) to choose a recent place or **Add location**. Type to search, use ↑/↓ to highlight a suggestion, and press Enter or click to choose it; Escape dismisses the panel. `/` opens the search directly. The ten most recent places are saved between runs; **Clear recent locations** empties that list. Choosing a recent place or search result changes the current weather session. **Save [place] as default** saves the displayed location as the default for all linecast views.
+In `weather`, click the location at the top right (or press `l`) to choose a recent place or **Add location**. Type to search, use ↑/↓ to highlight a suggestion, and press Enter or click to choose it; Escape dismisses the panel. `/` opens the search directly. The ten most recent places are saved between runs; **Clear recent locations** empties that list. Choosing a recent place or search result changes the current weather session. **Save [place] as default** saves the displayed location as the default for all linecast views; it is offered when the place is not already the default.
 
 Try the commands on their own, or with flags:
 
@@ -98,7 +98,7 @@ The frames below show each app once or twice. [GALLERY.md](GALLERY.md) shows the
 
 ### Weather
 
-`weather` shows current conditions, a scrollable chart of hourly temperatures shaded by daylight, precipitation, daily highs and lows, air quality, and a line on how today compares with a normal day. The chart defaults to `--temp-range auto`: it uses the range of a typical year where you are when the curve has enough rows, and fits the forecast when that range would exceed 5°C (9°F) per graph row. It adapts as you resize the terminal. Use `--temp-range climate` to keep the typical-year scale, `--temp-range forecast` to always fit the forecast, or `--temp-range world` for -40 to 50°C everywhere. Official alerts cover 45 countries. Click one to read it in full, or press `o` to open it in your browser. If the forecast service can't be reached, you get the last forecast it fetched, with a line saying how old it is.
+`weather` shows current conditions, a scrollable chart of hourly temperatures shaded by daylight, precipitation, wind, the UV index from 3 up, daily highs and lows, air quality, and a line on how today compares with a normal day. The chart defaults to `--temp-range auto`: it uses the range of a typical year where you are when the curve has enough rows, and fits the forecast when that range would exceed 5°C (9°F) per graph row. It adapts as you resize the terminal. Use `--temp-range climate` to keep the typical-year scale, `--temp-range forecast` to always fit the forecast, or `--temp-range world` for -40 to 50°C everywhere. Official alerts cover 45 countries. Click one to read it in full, or press `o` to open it in your browser. If the forecast service can't be reached, you get the last forecast it fetched, with a line saying how old it is.
 
 ![weather dashboard](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
 
@@ -261,7 +261,7 @@ The moon's calendar opens the week on Monday, or on Sunday in the United States,
 
 ### Language
 
-linecast speaks your terminal's language if it is one of the twenty-six it knows, and English otherwise. To choose one yourself, for every run or for one:
+linecast speaks your terminal's language if it is one of the twenty-eight it knows, and English otherwise. To choose one yourself, for every run or for one:
 
 ```sh
 linecast language es        # use Spanish every time
@@ -269,7 +269,7 @@ linecast language auto      # follow the terminal again
 linecast radar --lang zh    # just this once
 ```
 
-The languages are English (`en`), French (`fr`), Spanish (`es`), Portuguese (`pt`), Italian (`it`), Romanian (`ro`), German (`de`), Dutch (`nl`), Danish (`da`), Norwegian (`no`), Swedish (`sv`), Icelandic (`is`), Finnish (`fi`), Czech (`cs`), Polish (`pl`), Russian (`ru`), Ukrainian (`uk`), Greek (`el`), Turkish (`tr`), Swahili (`sw`), Chinese in the simplified script (`zh`) and the traditional (`zh-Hant`), Japanese (`ja`), Korean (`ko`), Thai (`th`), Vietnamese (`vi`), Indonesian (`id`), and Esperanto (`eo`). Swahili sky labels use documented names for Crux and Scorpius; other constellations and stars retain their catalogue names. A Chinese terminal locale picks the script by its region: `zh_TW`, `zh_HK`, and `zh_MO` read the traditional characters, `zh_CN` and `zh_SG` the simplified.
+The languages are English (`en`), French (`fr`), Spanish (`es`), Portuguese (`pt`), Italian (`it`), Romanian (`ro`), German (`de`), Dutch (`nl`), Danish (`da`), Norwegian (`no`), Swedish (`sv`), Icelandic (`is`), Finnish (`fi`), Czech (`cs`), Polish (`pl`), Russian (`ru`), Ukrainian (`uk`), Greek (`el`), Turkish (`tr`), Swahili (`sw`), Chinese in the simplified script (`zh`) and the traditional (`zh-Hant`), Japanese (`ja`), Korean (`ko`), Thai (`th`), Vietnamese (`vi`), Indonesian (`id`), and Esperanto (`eo`). Swahili sky labels use documented names for Crux and Scorpius; other constellations and stars retain their catalogue names. A Chinese terminal locale picks the script by its region: `zh_TW`, `zh_HK`, and `zh_MO` read the traditional characters, `zh_CN` and `zh_SG` the simplified. A Norwegian locale, `nb_NO` or `nn_NO`, reads Norwegian.
 
 In India, many alerts are published in the state language. Add `--lang hi`, `--lang te`, `--lang mr`, or another Indian language code to `weather` to read them in that language where it exists; the rest of the app stays in English.
 

@@ -4,66 +4,48 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-linecast speaks Turkish, Esperanto, Russian, Romanian, Czech, Greek, Swahili, and Chinese in the traditional script, twenty-eight languages in all, and sunshine can read the day in the halachic, Roman, Edo, Islamic, or Swahili hours.
+linecast speaks Turkish, Esperanto, Russian, Romanian, Czech, Greek, Swahili, and Chinese in the traditional script, twenty-eight languages in all, and sunshine can read the day in the halachic, Roman, Edo, Islamic, or Swahili hours. Weather lets you change location from inside the view.
 
 New this version:
 
-- Maps: Street maps open faster, and panning to a new area no longer reconnects to the tile server each time. Contributed by [@N30Yang](https://github.com/N30Yang) in [#117](https://github.com/ashuttl/linecast/pull/117).
-- Weather: The UV index appears under the hourly chart from UV 3, where sun protection is advised, rather than from UV 6. Suggested by [@GigaHanBaoBao](https://github.com/GigaHanBaoBao) in [#115](https://github.com/ashuttl/linecast/issues/115).
-- Weather: The wind and UV readings under the hourly chart share a line when none of them would overlap, so the chart takes one row less.
-- Weather: In a short window the cloud strip outlasts the UV and wind rows under the hourly chart. The UV labels go first, then the wind row, then the strip, and the chart fills the window it is given.
-- Weather: Scrolling back from either end of the hourly chart responds immediately, even after extra wheel or arrow-key input at the limit.
-- Weather: The hourly graph's climate scale arrives reliably after a change of location. A scale that was missing when the forecast appeared is filled in afterwards rather than left off until the next change.
-- Language: Added Greek (`el`) across the views, with Greek weather forecast prose, dates, and controls. Use `linecast language el` or `--lang el`.
-- Weather: Change location from the top-right menu, with search suggestions and the ten most recent locations. Recent locations are saved between runs and can be cleared from the menu. A loading toast with an animated spinner appears while the new forecast loads. The menu sizes itself to its contents, separates places from its actions, and can save the displayed place as the default for all views.
-- Language: linecast speaks Turkish, Esperanto, Russian, Romanian, Czech, and Swahili. `linecast language tr`, `eo`, `ru`, `ro`, `cs`, or `sw`, or a terminal locale in one of them, puts every view in that language, and the sky names its constellations in each and its brightest stars where the language has its own names. Turkish search takes a dotless ı or a dotted i alike, so `yildiz` finds Yıldız, and Esperanto search takes the x-system, so `gxemeloj` finds Ĝemeloj. (If you have your terminal set to the `eo` locale, please [reach out](https://github.com/ashuttl/linecast/discussions). I want to hear about it.)
+- Language: linecast speaks Turkish, Esperanto, Russian, Romanian, Czech, Greek, and Swahili. `linecast language tr`, `eo`, `ru`, `ro`, `cs`, `el`, or `sw`, or a terminal locale in one of them, puts every view in that language, and the sky names its constellations in each and its brightest stars where the language has its own names. Turkish search takes a dotless ı or a dotted i alike, so `yildiz` finds Yıldız, and Esperanto search takes the x-system, so `gxemeloj` finds Ĝemeloj. (If your terminal is set to the `eo` locale, please [reach out](https://github.com/ashuttl/linecast/discussions). I want to hear about it.)
 - Language: linecast speaks Chinese in the traditional script. `linecast language zh-Hant`, or a Taiwan, Hong Kong, or Macau terminal locale, puts every view in traditional characters, with the Chinese calendar and the Chinese sky as `zh` has them. `zh` is the simplified script, as before.
-- Language: Language lists follow a consistent regional order, with Chinese, Japanese, and Korean together and Esperanto last.
-- Language: The Moon's almanac counsel and solunar periods, and the inch mark on rain, read in every language.
-- Language: A Norwegian terminal locale, nb_NO or nn_NO, puts linecast in Norwegian.
-- Language: The footer of the tides view reads in every language: the wave and swell directions, and the name of the Open-Meteo tide model.
-- Language: Place names read in the language linecast is running in, in weather, sky, and the JSON of sunshine, moon, and sky, as they already did in tides, radar, and maps. In traditional Chinese a typed place is named from OpenStreetMap, which has the characters that the Open-Meteo index lacks.
-- Weather: The rain sentence says when the rain turns heavier: "Light drizzle becoming heavy rain around 23h, ending overnight", not just "Light drizzle ending overnight", and "Light rain likely starting around 21h, becoming heavy rain overnight".
-- Weather: A typed place is named as the geocoder found it, such as "Tobermory, Ontario", rather than by the district around the point.
-- Location: A region named for its city is no longer repeated: "Busan, South Korea", not "Busan, Busan, South Korea".
-- Tides: A place name in the header keeps the capitals its language gives it, such as "préfecture d'Osaka".
+- Language: More of each view reads in the display language: place names in weather and sky, units written as the language writes them, the Moon's almanac counsel, the tides footer, and Hong Kong's weather warnings in Chinese.
 - Sunshine: The day can be read in a tradition's hours beside the civil clock. `linecast hours` saves a choice and `sunshine --hours` sets it for one run. HOURS.md describes each system and what it is checked against. Suggested by [@ylub](https://github.com/ylub) in [#95](https://github.com/ashuttl/linecast/discussions/95).
   - `halachic` reads the sha'ot zmaniyot and the zmanim from alot hashachar to tzeit, and `halachic-mga` reads them by the Magen Avraham.
   - `roman` reads the twelve horae and four vigiliae of Rome.
   - `japanese` reads the six koku of the Edo day and night, 明六つ to 暮六つ.
   - `islamic` reads the prayer times, Fajr to Isha, by the convention of the country shown or a named one, and counts down the fast in Ramadan. In Turkish the prayers are named as the Diyanet prints them, İmsak to Yatsı.
   - `swahili` reads Swahili time, saa moja at seven in the morning and seven at night, and is on by default in Swahili.
-- Sky: The Chinese sky names its brightest stars in Chinese, such as 北极二, and names 星宿, 龟 and 平 among the asterisms.
-- Weather: The hourly graph now defaults to `--temp-range auto`: it keeps the typical-year climate scale when there is room, and fits the forecast when that scale would exceed 5°C (9°F) per graph row. Resizing the terminal reconsiders the scale; explicit `climate`, `forecast`, and `world` choices keep their behavior.
-- Weather: Units are written as each language writes them.
-- Weather: Hong Kong's warnings read in Chinese when linecast does.
-- Weather: The prose forecast has more natural line wrapping.
-- Live views: The hint that points to the `?` panel reads `? help` rather than `? keys`, in every language.
+- Weather: Change location from the top-right menu, with search suggestions and the ten most recent places. Recent places are kept between runs and can be cleared, and the displayed place can be saved as the default for every view.
+- Weather: The hourly graph defaults to `--temp-range auto`: the typical-year climate scale when there is room for it, and the forecast's own range when that scale would exceed 5°C (9°F) per row. Resizing the terminal reconsiders; `climate`, `forecast`, and `world` behave as before.
+- Weather: The UV index appears under the hourly chart from UV 3, where sun protection is advised, rather than from UV 6. Suggested by [@GigaHanBaoBao](https://github.com/GigaHanBaoBao) in [#115](https://github.com/ashuttl/linecast/issues/115).
+- Weather: The wind and UV readings under the hourly chart share a line when they would not overlap, so the chart gets a row more. In a short window the UV labels go first, then the wind row, then the cloud strip.
+- Weather: The rain sentence says when the rain turns heavier: "Light drizzle becoming heavy rain around 23h, ending overnight", not just "Light drizzle ending overnight".
+- Location: A typed place is named as the geocoder found it, such as "Tobermory, Ontario", rather than by the district around the point, and a region named for its city is no longer repeated: "Busan, South Korea", not "Busan, Busan, South Korea".
+- Sky: The Chinese sky names its brightest stars in Chinese, such as 北极二, and names 星宿, 龟, and 平 among the asterisms.
+- Maps: Street maps open faster, and panning to a new area no longer reconnects to the tile server each time. Contributed by [@N30Yang](https://github.com/N30Yang) in [#117](https://github.com/ashuttl/linecast/pull/117).
+- Live views: The hint that points to the `?` panel reads `? help` rather than `? keys`, in every language. A hover chip goes away once the mouse has been still for a few seconds.
+- Docs: The README is available in [Japanese](README.ja.md), and CONTRIBUTING.md says how a change gets into a release.
 
 Fixes:
 
-- Maps: Overlapping search and directions requests keep their rate limits, including after the computer wakes from sleep.
-- Downloads: Incomplete compressed responses no longer replace cached data, and responses containing multiple gzip members are read in full. Maps can retry an incomplete tile download instead of keeping it indefinitely.
-- Weather: The header's historical average comparison uses today's temperature from cached forecasts and is omitted when the forecast no longer covers today.
-- Weather: Cached forecasts use the current date for temperature comparisons and the JSON output's today and upcoming forecasts. Expired forecasts no longer return old hours as upcoming weather.
-- Maps: Editing a search clears the old suggestions and cancels any pending Enter, so a changed query cannot send the map to an unintended place.
-- Weather: Startup waits at most 30 seconds for data providers and keeps completed results; Ctrl-C exits cleanly while loading.
-- Weather: The hours after a clock change read by the clock there. The day after the clocks changed ran an hour off, sunrise and sunset with it.
-- Weather: The day and night tint of the hourly chart no longer shifts by an hour on the night the machine's clocks change.
-- Weather: A gap in the forecast or an unexpected answer from a warning feed no longer ends the view in an error. A missing current temperature is left off rather than shown as 0°.
-- Live views: A scroll, key, or mouse movement made while the terminal is busy drawing is no longer left unpainted until the next input.
-- Live views: Quitting with ctrl-C no longer leaves the shell without echo or stray text on the command line.
-- Live views: A hover chip goes away once the mouse has been still for a few seconds.
-- Radar: With the network down, the live radar waits before trying again.
-- Radar: A location near the poles no longer fails to open.
-- Radar, maps, tides: Stale or damaged cached data is fetched again rather than kept, and a damaged street tile is skipped rather than failing the whole view.
-- Maps: A search result without coordinates no longer makes the whole search unavailable.
+- Weather: A forecast from an earlier day is no longer read as today's. The historical comparison in the header, and the JSON's today and upcoming forecasts, use the current date, and the comparison is left off when the cached forecast no longer covers today.
+- Weather: The day after the clocks change reads by the clock there. Sunrise, sunset, the hours, and the day and night tint of the hourly chart all ran an hour off.
+- Weather: Startup waits at most 30 seconds for data providers and keeps whatever has arrived, and Ctrl-C exits cleanly while loading. A gap in the forecast or an odd answer from a warning feed no longer ends the view in an error, and a missing current temperature is left off rather than shown as 0°.
+- Weather: The hourly graph's climate scale arrives reliably after a change of location, and scrolling back from either end of the chart responds immediately, even after extra wheel or arrow-key input at the limit.
+- Weather: The prose forecast wraps its lines more naturally.
+- Live views: Input that arrives while the terminal is busy drawing is painted once it is free, rather than waiting for the next input. Quitting with Ctrl-C no longer leaves the shell without echo or with stray text on the command line.
 - Sky, maps: On Windows, Ctrl-C closes an open search field, and a second quits. It did nothing before. Found by [@cygnostik](https://github.com/cygnostik) in [#114](https://github.com/ashuttl/linecast/issues/114).
-- Tides: The header shows the range only when the window holds both a high and a low. A station with one low a day printed a negative range.
-- Tides: A Canadian or TideCheck station whose details could not be fetched no longer ends the view in an error.
+- Maps: Editing a search clears the old suggestions and cancels a pending Enter, so a changed query cannot send the map to an unintended place, and a result without coordinates no longer makes the whole search unavailable. Search remembers the selected language when a provider fails.
+- Maps: Overlapping search and directions requests keep their rate limits, including after the computer wakes from sleep.
+- Downloads: An incomplete compressed response no longer replaces cached data, and a response in several gzip members is read in full.
+- Radar, maps, tides: A stale or damaged cache file is fetched again rather than kept, a damaged street tile is skipped rather than failing the view, and a failed prefetch waits before trying again.
+- Radar: A location near the poles no longer fails to open.
+- Tides: The header shows the range only when the window holds both a high and a low; a station with one low a day printed a negative range. A Canadian or TideCheck station whose details could not be fetched no longer ends the view in an error, and a place name in the header keeps the capitals its language gives it, such as "préfecture d'Osaka".
 - Moon: On a short window, the month grid is no longer cut off.
-- Location: `--location` and `linecast location set` refuse coordinates that are out of range, such as 91,0.
-- Settings: A hand-edited config.json that is not valid is ignored rather than breaking every command.
+- Settings: A hand-edited config.json that is not valid is ignored rather than breaking every command, and `--location` and `linecast location set` refuse coordinates that are out of range, such as 91,0.
+- Language: A Norwegian terminal locale, nb_NO or nn_NO, puts linecast in Norwegian.
 - Units: `WEATHER_UNITS` applies to the weather command alone, as the README says.
 - Completion: Fixes to completion in bash, zsh, and nushell.
 - Print: Piping `--print` into `head` ends quietly.

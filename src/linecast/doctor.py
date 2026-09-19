@@ -426,11 +426,14 @@ def _collect_preferences():
         culture = native or "none"
         culture_source = f"auto: {language}" if native else "auto"
     from linecast._config import saved_hours
+    from linecast._hours import HOURS_OF_LANG
     saved_hours_ = saved_hours()
     if saved_hours_ is not None:
         hours, hours_source = saved_hours_, "config"
     else:
-        hours, hours_source = "none", "auto"
+        native = HOURS_OF_LANG.get(language)
+        hours = native or "none"
+        hours_source = f"auto: {language}" if native else "auto"
     return {
         "units": weather,
         "units_source": weather_source,

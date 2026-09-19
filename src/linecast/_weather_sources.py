@@ -773,7 +773,7 @@ def _parse_meteireann_dt(s):
 
 
 # ---------------------------------------------------------------------------
-# MeteoAlarm (pan-European, 32 countries)
+# MeteoAlarm (pan-European, 35 countries)
 # ---------------------------------------------------------------------------
 
 # ISO 3166-1 alpha-2 -> MeteoAlarm feed slug
