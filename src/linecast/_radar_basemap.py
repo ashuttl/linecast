@@ -92,7 +92,8 @@ def _load_marshalled(path):
         f"basemap_{sys.implementation.cache_tag}_{st.st_mtime_ns}.marshal")
     try:
         with open(cached, "rb") as fh:
-            return marshal.load(fh)
+            # loads(read()): load(fh) pulls the file in tiny reads, ~5x slower
+            return marshal.loads(fh.read())
     except FileNotFoundError:
         pass  # first run: not marshalled yet
     except Exception as exc:
@@ -390,7 +391,7 @@ class Basemap(DotLayer):
         import marshal
         try:
             with open(self._built_path(), "rb") as fh:
-                fmt, sea, dots, classes = marshal.load(fh)
+                fmt, sea, dots, classes = marshal.loads(fh.read())
             if fmt != self._CACHE_FMT:
                 return False
         except FileNotFoundError:

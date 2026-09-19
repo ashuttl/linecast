@@ -242,6 +242,12 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
             tiles = _maps_streets.fetch_tiles(keys)
         if not any(tiles.values()):
             raise RuntimeError(ms('offline', 'en'))
+        if not block:
+            # live: the next pan or zoom-out should find its tiles on disk
+            try:
+                _maps_streets.prefetch_around(bbox, hc, keys)
+            except Exception as exc:
+                log_failure("maps/vtiles", "prefetch", exc, fallback="none")
         return _maps_streets.build_street_view(
             bbox, gw, hc, tiles, band, lang, reserved,
             bu_job.result() if bu_job is not None else None)

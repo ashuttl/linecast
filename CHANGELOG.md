@@ -4,6 +4,9 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Maps: Street maps open faster, and panning to a new area no longer reconnects to the tile server each time.
+- Maps: Panning or zooming out in street mode keeps showing the map while the new area loads, instead of a blank screen, and the tiles around the view and one zoom out are fetched ahead of time.
+
 ## 2.6.1 — 2026-09-16
 
 - Completion: The bash and zsh completion scripts load again. Both have been failing since 2.5.0 due to flags with hyphens.

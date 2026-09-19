@@ -86,6 +86,23 @@ class TestTileInfo:
         assert vt.source_credit() == "Tiles by OSM US"
         assert (cache / "maps" / "tilejson_fallback.json").exists()
 
+    def test_tilejson_memo_skips_disk_and_keeps_credit(
+            self, cache, monkeypatch):
+        def fake_fetch(url, timeout=0):
+            if url == vt.DEFAULT_TILEJSON_URL:
+                raise OSError("down")
+            return dict(TILEJSON)
+
+        monkeypatch.setattr(vt, "fetch_json", fake_fetch)
+        assert vt.tilejson() == TILEJSON
+        # with the disk cache gone and the network down, the memo answers,
+        # still naming the source that served it
+        (cache / "maps" / "tilejson_fallback.json").unlink()
+        monkeypatch.setattr(vt, "fetch_json", lambda url, timeout=0: 1 / 0)
+        vt._active_url = None
+        assert vt.tilejson() == TILEJSON
+        assert vt.source_credit() == "Tiles by OSM US"
+
     def test_tilejson_override_stands_alone(self, cache, monkeypatch):
         monkeypatch.setenv("LINECAST_VECTOR_TILES_URL",
                            "https://self.example/planet")

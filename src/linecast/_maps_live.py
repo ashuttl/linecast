@@ -404,6 +404,12 @@ class MapApp(LiveApp):
 
 
 def main():
+    # A view allocates a few hundred thousand tuples (tile vertices,
+    # projected points) and frees nothing cyclic; the default gen-0
+    # threshold of 2000 runs the collector hundreds of times per view
+    # for ~30% of the decode. A roomier threshold keeps it out of the way.
+    import gc
+    gc.set_threshold(50_000, 20, 20)
     args = maps_parser().parse_args()
     runtime = RuntimeConfig.from_sources(args)
     set_current(runtime)

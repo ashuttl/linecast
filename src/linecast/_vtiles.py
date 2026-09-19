@@ -28,6 +28,8 @@ override is the user's chosen source and gets no fallback.
 
 import math
 import os
+import threading
+import time
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -54,6 +56,12 @@ _TILEJSON_TTL = 86400  # the planet rebuilds weekly; a day of staleness is fine
 _MAX_ZOOM_FALLBACK = 14
 
 _active_url: str | None = None  # the source whose TileJSON last answered
+
+# The TileJSON as last read, so a view's dozen fetch_tile calls don't each
+# re-read and re-parse it from disk. Keyed by the override and the cache
+# dir it was read from; holds the source that served it and when.
+_MEMO_TTL = 300
+_memo: tuple[tuple[str | None, str], float, str, dict[str, Any]] | None = None
 
 
 def tilejson_url() -> str:
@@ -97,6 +105,20 @@ def tilejson() -> dict[str, Any] | None:
     source has failed do the stale caches answer, again in source order —
     yesterday's OpenFreeMap template usually still serves, and beats
     switching sources over a blip."""
+    global _memo
+    key = (os.environ.get("LINECAST_VECTOR_TILES_URL"),
+           str(cache_dir("maps")))
+    memo = _memo
+    if (memo is not None and memo[0] == key
+            and time.monotonic() - memo[1] < _MEMO_TTL):
+        return _served(memo[3], memo[2])
+    data = _tilejson_uncached()
+    if data is not None:
+        _memo = (key, time.monotonic(), _active_url, data)
+    return data
+
+
+def _tilejson_uncached() -> dict[str, Any] | None:
     sources = _sources()
     for i, (url, name) in enumerate(sources):
         cache_file = cache_dir("maps", name)
@@ -293,11 +315,39 @@ def fetch_tile(z: int, x: int, y: int, timeout: float = 15) -> bytes | None:
     return data
 
 
+# One pool for the whole session: _http keeps its keep-alive connections
+# per thread, so a pool built per view threw its sockets away with its
+# threads and every pan paid a fresh TCP + TLS handshake per worker.
+_POOL: ThreadPoolExecutor | None = None
+_POOL_LOCK = threading.Lock()
+
+
+def _pool() -> ThreadPoolExecutor:
+    global _POOL
+    with _POOL_LOCK:
+        if _POOL is None:
+            _POOL = ThreadPoolExecutor(max_workers=8,
+                                       thread_name_prefix="vtiles")
+        return _POOL
+
+
 def fetch_tiles(keys: list[tuple[int, int, int]], timeout: float = 15
                 ) -> dict[tuple[int, int, int], bytes | None]:
     """{(z, x, y): bytes|None} for a batch, fetched concurrently."""
     if not keys:
         return {}
-    with ThreadPoolExecutor(max_workers=6) as pool:
-        results = pool.map(lambda k: fetch_tile(*k, timeout=timeout), keys)
+    tile_info()  # warm the tilejson memo once, not in every worker
+    results = _pool().map(lambda k: fetch_tile(*k, timeout=timeout), keys)
     return dict(zip(keys, results))
+
+
+def prefetch_tiles(keys: Iterable[tuple[int, int, int]]) -> None:
+    """Fetch tiles to the disk cache in the background, and return at once.
+
+    For the views a user is likely to ask for next; tiles already on disk
+    cost a stat. Queued behind whatever the current view is fetching, on
+    the same pool, so it never races the view on screen for a socket.
+    """
+    pool = _pool()
+    for key in keys:
+        pool.submit(fetch_tile, *key)

@@ -27,7 +27,8 @@ from linecast._png import DecodeMemo
 from linecast._radar_basemap import DotLayer, _bresenham, _edge_dots
 from linecast._runtime import debug_log, log_failure
 from linecast._theme import lerp_rgb
-from linecast._vtiles import fetch_tiles, iter_layer, tile_info, tiles_for_bbox
+from linecast._vtiles import (fetch_tiles, iter_layer, prefetch_tiles,
+                              tile_info, tiles_for_bbox)
 
 # Fill ids double as indices into style.FILL_ORDER, so the id order *is*
 # the stacking order: water over park (a pond in a park), park over
@@ -82,6 +83,41 @@ def view_tiles(bbox, height_cells):
         z_src -= 1
         keys = tiles_for_bbox(bbox, z_src)
     return band, z_src, keys
+
+
+def prefetch_around(bbox, height_cells, keys, zoom_step=1.5):
+    """Queue the tiles a pan or a zoom-out from this view will want.
+
+    One ring of tiles around `keys` (the view's own) covers a pan of up
+    to a tile in any direction; the view zoomed out one step covers the
+    `-` key. Zooming out is the slow one to arrive cold: its source zoom
+    drops, so none of its tiles are the ones already on disk.
+    """
+    if not keys:
+        return
+    z = keys[0][0]
+    n = 1 << z
+    xs = [k[1] for k in keys]
+    ys = [k[2] for k in keys]
+    x0, x1 = min(xs), max(xs)
+    if x1 - x0 > n // 2:  # the view straddles the antimeridian
+        x0, x1 = 0, n - 1
+    ring = {(z, x % n, y)
+            for x in range(x0 - 1, x1 + 2)
+            for y in range(max(0, min(ys) - 1), min(n - 1, max(ys) + 1) + 1)}
+    minlon, minlat, maxlon, maxlat = bbox
+    cx, cy = (minlon + maxlon) / 2, (minlat + maxlat) / 2
+    hx = (maxlon - minlon) * zoom_step / 2
+    hy = (maxlat - minlat) * zoom_step / 2
+    if hy < 85:
+        _band, _z, out_keys = view_tiles(
+            (cx - hx, max(-85.0, cy - hy), cx + hx, min(85.0, cy + hy)),
+            height_cells)
+    else:
+        out_keys = []
+    want = set(keys)
+    prefetch_tiles([k for k in out_keys if k not in want]
+                   + sorted(ring - want))
 
 
 def fetch_view(bbox, height_cells):
