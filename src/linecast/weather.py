@@ -70,7 +70,8 @@ from linecast._weather_sources import (
     _reverse_geocode,
     _search_locations,
     alert_attribution,
-    apply_india_aqi,
+    apply_national_index,
+    fetch_canada_aqhi,
     fetch_aqi,
     fetch_alerts,
     fetch_forecast,
@@ -714,8 +715,7 @@ class WeatherApp(_live.LiveApp):
         try:
             data = fetch_forecast(lat, lng, self.runtime)
             alerts = fetch_alerts(lat, lng, country, lang=self.runtime.lang)
-            aqi = fetch_aqi(lat, lng)
-            apply_india_aqi(aqi, country)
+            aqi = apply_national_index(fetch_aqi(lat, lng), country, lat, lng)
         except Exception as exc:
             log_failure("weather", "live refresh", exc, fallback="view stays stale")
         finally:
@@ -868,7 +868,8 @@ class WeatherApp(_live.LiveApp):
         self.country = result.get('country_code', '')
         self.location_name = result.get('name') or place.name
         self._update_location_picker()
-        apply_india_aqi(self.aqi, self.country)
+        self.aqi = apply_national_index(self.aqi, self.country, self.lat, self.lng,
+                                        canada=result.get('aqhi'))
         self.fetched, self.attempted = _t.monotonic(), None
         self.locations.recent.remember(place)
         self._start_climate(delay=_CLIMATE_RETRY_DELAY)
@@ -1074,12 +1075,16 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
         fetch_alerts, lat, lng, cc or country_code,
         lang=runtime.lang, address=addr,
     )
+    # Canada publishes the air quality index it reports; fetched beside
+    # the rest, and computed from the pollutants when it does not come.
+    fut_aqhi = _submit(fetch_canada_aqhi, lat, lng) if (cc or country_code) == "CA" else None
 
     localized = _settle(fut_name, "place name", ("", "", {}))[0] if fut_name else ""
     result["name"] = localized or without_country(geo_label) or name
     result["country_code"] = cc or country_code
     result["data"] = _settle(fut_forecast, "forecast", None)
     result["aqi"] = _settle(fut_aqi, "air quality", None)
+    result["aqhi"] = _settle(fut_aqhi, "Canada's AQHI", None) if fut_aqhi else None
     # The live view can fill the climate scale in later, so it does not
     # keep the forecast waiting on a hung archive; a one-shot run has no
     # later, and waits out the deadline.
@@ -1154,8 +1159,8 @@ def _main():
     final_country = result.get("country_code", "")
     data = result.get("data")
     alerts = result.get("alerts", [])
-    aqi_data = result.get("aqi")
-    apply_india_aqi(aqi_data, final_country)
+    aqi_data = apply_national_index(result.get("aqi"), final_country, lat, lng,
+                                    canada=result.get("aqhi"))
     historical = result.get("historical")
 
     if data is None:

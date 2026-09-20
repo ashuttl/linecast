@@ -242,6 +242,15 @@ class TestOptionalSections:
         assert out["india_aqi"] == 367
         assert out["india_aqi_category"] == "Very Poor"
 
+    def test_canada_aqhi_included_when_attached(self):
+        aqi = {"current": {"us_aqi": 30, "european_aqi": 20, "pm2_5": 6.0, "pm10": 9.0,
+                           "aqhi": 4, "aqhi_source": "observed", "aqhi_place": "Toronto"}}
+        out = _payload(country_code="CA", aqi_data=aqi)["aqi"]
+        assert out["aqhi"] == 4 and out["aqhi_category"] == "Moderate risk"
+        assert out["aqhi_source"] == "Environment Canada"
+        aqi["current"]["aqhi_source"] = "computed"
+        assert _payload(country_code="CA", aqi_data=aqi)["aqi"]["aqhi_source"] == "Open-Meteo"
+
     def test_historical_asdict(self):
         hist = HistoricalAverages(avg_high=41.2, avg_low=26.7,
                                   avg_precip=0.11, years=10,

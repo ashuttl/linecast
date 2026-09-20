@@ -123,6 +123,13 @@ def build_payload(data, location_name, country_code, runtime,
             from linecast._weather_sources import india_aqi_category
             aqi_out["india_aqi"] = round(india_value)
             aqi_out["india_aqi_category"] = india_aqi_category(india_value)
+        aqhi = aqi_current.get("aqhi")
+        if aqhi is not None:
+            from linecast._weather_sources import aqhi_category
+            aqi_out["aqhi"] = aqhi
+            aqi_out["aqhi_category"] = aqhi_category(aqhi)
+            computed = aqi_current.get("aqhi_source") == "computed"
+            aqi_out["aqhi_source"] = FORECAST_SOURCE if computed else alert_source("CA")
 
     return {
         "schema": SCHEMA_VERSION,

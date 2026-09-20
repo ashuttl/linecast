@@ -150,7 +150,7 @@ def _precip_type(wmo_code):
 
 
 def _rebuild_scales():
-    global UV_COLORS, AQI_COLORS, INDIA_AQI_COLORS, UV_COLOR
+    global UV_COLORS, AQI_COLORS, INDIA_AQI_COLORS, AQHI_COLORS, UV_COLOR
     UV_COLORS = [
         (0, GREEN_RGB),
         (3, YELLOW_RGB),
@@ -176,6 +176,14 @@ def _rebuild_scales():
         (301, RED_RGB),
         (401, MAGENTA_RGB),
     ]
+    # Canada's AQHI: low risk to 3, moderate to 6, high to 10, very
+    # high past it.
+    AQHI_COLORS = [
+        (1, GREEN_RGB),
+        (4, YELLOW_RGB),
+        (7, RED_RGB),
+        (11, MAGENTA_RGB),
+    ]
     UV_COLOR = fg(*ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.30), _theme.theme_bg,
                                    minimum=2.5))
 
@@ -197,6 +205,11 @@ def _aqi_color(aqi):
 def _india_aqi_color(aqi):
     """ANSI fg escape for a CPCB National AQI value."""
     return fg(*interp_stops(INDIA_AQI_COLORS, aqi))
+
+
+def _aqhi_color(aqhi):
+    """ANSI fg escape for a Canadian AQHI value."""
+    return fg(*interp_stops(AQHI_COLORS, aqhi))
 
 
 def _precip_rgb(wmo_code):

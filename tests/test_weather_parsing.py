@@ -1485,6 +1485,155 @@ def _india_aqi_response(current_time="2026-01-02T05:00", **series):
     return {"current": {"time": current_time, "us_aqi": 150}, "hourly": hourly}
 
 
+def _feature(lng, lat, **props):
+    return {"geometry": {"type": "Point", "coordinates": [lng, lat]}, "properties": props}
+
+
+class TestCanadaAqhi:
+    """Health Canada's index: the formula, the AQHI-Plus override, the
+    published rounding, the words, and the choice among the feeds."""
+
+    def test_formula_and_rounding(self):
+        from linecast._weather_sources import aqhi_published, canada_aqhi
+        assert canada_aqhi(0, 0, 0) == 0
+        assert aqhi_published(canada_aqhi(0, 0, 0)) == 1
+        # 20 ppb NO2, 30 ppb O3, 10 µg/m³ PM2.5: 3.72 on the scale
+        assert round(canada_aqhi(20, 30, 10), 2) == 3.72
+        assert aqhi_published(3.72) == 4
+        assert aqhi_published(3.49) == 3 and aqhi_published(3.5) == 4
+        assert aqhi_published(12.3) == 12
+
+    def test_computed_from_three_hour_means_in_ppb(self):
+        from linecast._weather_sources import canada_aqhi_computed
+        # 40 µg/m³ NO2 is 21.3 ppb, 50 µg/m³ O3 is 25.5 ppb: with 5 µg/m³
+        # of PM2.5 the index is 3.36, published 3.
+        assert canada_aqhi_computed(_india_aqi_response(pm2_5=5.0)) == 3
+        # The mean is over the last three hours only: the current hour
+        # is index 29 of the fixture's two days.
+        series = [5.0] * 27 + [40.0, 40.0, 40.0] + [5.0] * 18
+        assert canada_aqhi_computed(_india_aqi_response(pm2_5=series)) == 5
+
+    def test_aqhi_plus_takes_the_hour_s_pm25_over_ten_when_greater(self):
+        from linecast._weather_sources import canada_aqhi_computed
+        # Two clean hours then a smoke plume: the three-hour mean gives
+        # 5, the hour's 85 µg/m³ over ten rounded up gives 9.
+        series = [5.0] * 29 + [85.0] + [5.0] * 18
+        assert canada_aqhi_computed(_india_aqi_response(pm2_5=series)) == 9
+        # A plume of 101 is 11: printed "10+".
+        series = [5.0] * 29 + [101.0] + [5.0] * 18
+        assert canada_aqhi_computed(_india_aqi_response(pm2_5=series)) == 11
+
+    def test_no_index_without_the_pollutants_for_the_hour(self):
+        from linecast._weather_sources import canada_aqhi_computed
+        assert canada_aqhi_computed(None) is None
+        assert canada_aqhi_computed({"current": {"time": "2026-01-02T05:00"}}) is None
+        assert canada_aqhi_computed(_india_aqi_response(current_time="2027-01-01T00:00")) is None
+        series = [5.0] * 29 + [None] + [5.0] * 18
+        assert canada_aqhi_computed(_india_aqi_response(pm2_5=series)) is None
+
+    def test_words_and_printing(self):
+        from linecast._weather_sources import aqhi_category, fmt_aqhi
+        assert [aqhi_category(v) for v in (1, 3, 4, 6, 7, 10, 11)] == [
+            "Low risk", "Low risk", "Moderate risk", "Moderate risk",
+            "High risk", "High risk", "Very high risk"]
+        assert aqhi_category(4, "fr") == "Risque modéré"
+        assert aqhi_category(4, "fr-CA") == "Risque modéré"
+        assert aqhi_category(11, "fr") == "Risque très élevé"
+        assert aqhi_category(4, "de") == "Moderate risk"
+        assert fmt_aqhi(4) == "4" and fmt_aqhi(10) == "10" and fmt_aqhi(11) == "10+"
+
+    NOW = datetime(2026, 9, 20, 18, 30, tzinfo=timezone.utc)
+
+    def test_the_nearest_community_s_fresh_observation_wins(self):
+        from linecast._weather_sources import pick_aqhi
+        far = _feature(-79.38, 43.65, aqhi_type="AQHI-Observation", aqhi=6.4,
+                       location_name_en="Toronto", observation_datetime="2026-09-20T18:00:00Z")
+        near = _feature(-79.87, 43.26, aqhi_type="AQHI-Observation", aqhi=2.6,
+                        location_name_en="Hamilton", observation_datetime="2026-09-20T18:00:00Z")
+        report = pick_aqhi([far, near], [], 43.30, -79.80, self.NOW)
+        assert report == {"aqhi": 3, "place": "Hamilton", "kind": "observed",
+                          "time": "2026-09-20T18:00:00+00:00"}
+
+    def test_a_stale_or_distant_observation_is_passed_over(self):
+        from linecast._weather_sources import pick_aqhi
+        stale = _feature(-79.87, 43.26, aqhi_type="AQHI-Observation", aqhi=9.0,
+                         location_name_en="Hamilton", observation_datetime="2026-09-20T15:00:00Z")
+        fresh = _feature(-79.38, 43.65, aqhi_type="AQHI-Observation", aqhi=2.0,
+                         location_name_en="Toronto", observation_datetime="2026-09-20T18:00:00Z")
+        assert pick_aqhi([stale, fresh], [], 43.30, -79.80, self.NOW)["place"] == "Toronto"
+        distant = _feature(-75.70, 45.42, aqhi_type="AQHI-Observation", aqhi=2.0,
+                           location_name_en="Ottawa", observation_datetime="2026-09-20T18:00:00Z")
+        assert pick_aqhi([stale, distant], [], 43.30, -79.80, self.NOW) is None
+
+    def test_the_latest_forecast_for_the_nearest_hour_stands_in(self):
+        from linecast._weather_sources import pick_aqhi
+        def fc(published, hour, value):
+            return _feature(-73.57, 45.50, aqhi_type="AQHI-Forecast", aqhi=value,
+                            location_id="EHHUN", location_name_en="Montréal",
+                            publication_datetime=published,
+                            forecast_datetime=f"2026-09-20T{hour:02d}:00:00Z")
+        period = {"geometry": {"type": "Point", "coordinates": [-73.57, 45.50]},
+                  "properties": {"aqhi_type": "AQHI-Forecast-Period", "location_id": "EHHUN",
+                                 "publication_datetime": "2026-09-20T10:00:00Z"}}
+        feats = [fc("2026-09-19T21:00:00Z", 18, 7), fc("2026-09-20T10:00:00Z", 17, 2),
+                 fc("2026-09-20T10:00:00Z", 19, 3), fc("2026-09-20T10:00:00Z", 12, 1), period]
+        # 19:00 is the hour nearest 18:30, from the latest issue only.
+        report = pick_aqhi([], feats, 45.52, -73.60, self.NOW)
+        assert report == {"aqhi": 3, "place": "Montréal", "kind": "forecast",
+                          "time": "2026-09-20T19:00:00+00:00"}
+        # Hours away from now are no answer.
+        assert pick_aqhi([], [fc("2026-09-20T10:00:00Z", 10, 5)], 45.52, -73.60, self.NOW) is None
+
+    def test_apply_attaches_the_report_or_computes(self):
+        from linecast._weather_sources import apply_national_index
+        data = _india_aqi_response(pm2_5=5.0)
+        out = apply_national_index(data, "CA", 45.5, -73.6,
+                                   canada={"aqhi": 4, "kind": "observed", "place": "Montréal"})
+        assert out is data
+        assert out["current"]["aqhi"] == 4 and out["current"]["aqhi_source"] == "observed"
+        assert out["current"]["aqhi_place"] == "Montréal"
+        out = apply_national_index(_india_aqi_response(pm2_5=5.0), "CA", 45.5, -73.6, canada=None)
+        assert out["current"]["aqhi"] == 3 and out["current"]["aqhi_source"] == "computed"
+        # The report stands on its own when Open-Meteo gave nothing.
+        out = apply_national_index(None, "CA", 45.5, -73.6,
+                                   canada={"aqhi": 2, "kind": "forecast", "place": "Montréal"})
+        assert out == {"current": {"aqhi": 2, "aqhi_source": "forecast", "aqhi_place": "Montréal"}}
+        assert apply_national_index(None, "CA", 45.5, -73.6, canada=None) is None
+        # Elsewhere the response passes through; India keeps its scale.
+        assert apply_national_index(None, "US", 40.0, -74.0) is None
+        data = _india_aqi_response()
+        assert apply_national_index(data, "IN", 28.6, 77.2) is data
+        assert data["current"]["india_aqi"] == 100 and "aqhi" not in data["current"]
+
+    def test_apply_fetches_when_the_caller_did_not(self, monkeypatch):
+        from linecast import _weather_sources
+        calls = []
+        monkeypatch.setattr(_weather_sources, "fetch_canada_aqhi",
+                            lambda lat, lng, now=None: calls.append((lat, lng)) or
+                            {"aqhi": 5, "kind": "observed", "place": "Calgary"})
+        out = _weather_sources.apply_national_index(None, "CA", 51.05, -114.07)
+        assert calls == [(51.05, -114.07)] and out["current"]["aqhi"] == 5
+
+    def test_header_prints_the_index_with_its_words(self):
+        import re
+        from linecast._runtime import WeatherRuntime
+        from linecast._weather_sections import render_header
+        data = _india_aqi_response(pm2_5=5.0)
+        data["current"].update({"aqhi": 4, "aqhi_source": "observed"})
+        forecast = {"current": {"temperature_2m": 20.0, "apparent_temperature": 20.0,
+                                "weather_code": 1, "relative_humidity_2m": 50,
+                                "wind_speed_10m": 5.0, "wind_gusts_10m": 8.0,
+                                "time": "2026-09-20T14:00"},
+                    "hourly": {"time": [], "temperature_2m": []}, "daily": {}}
+        for lang, words in (("en", "AQHI 4 Moderate risk"), ("fr", "CAS 4 Risque modéré"),
+                            ("fr-CA", "CAS 4 Risque modéré"), ("de", "AQHI 4 Moderate risk")):
+            runtime = WeatherRuntime(live=False, icons="plain", lang=lang, celsius=True,
+                                     metric=True, shading=True, oneline=False)
+            header = render_header(forecast, 120, "Montréal", runtime, aqi_data=data)
+            text = re.sub(r"\x1b\[[0-9;]*m", "", header)
+            assert words in text, (lang, text)
+
+
 class TestIndiaAqi:
     def test_sub_index_band_edges(self):
         from linecast._weather_sources import _india_sub_index

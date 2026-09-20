@@ -411,8 +411,10 @@ class TestTablesComplete:
 
     # A unit that reads the same in most languages is written once, in
     # English, and only the languages that spell it differently carry it.
+    # The Canadian index is named AQHI in English and CAS (cote air
+    # santé) in French, and by its English name elsewhere.
     DEFAULTS = {
-        "linecast._weather_i18n": {"unit_kmh", "unit_mm", "unit_cm"},
+        "linecast._weather_i18n": {"unit_kmh", "unit_mm", "unit_cm", "aqhi"},
         "linecast._radar_i18n": {"unit_km"},
     }
     # Keys a language needs that English does not: the Slavic few-form,

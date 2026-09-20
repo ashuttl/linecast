@@ -871,6 +871,7 @@ _STRINGS = {
         "dew_pt": "Dew pt",
         "uv": "UV",
         "aqi": "AQI",
+        "aqhi": "AQHI",
         "precip_inch": "\u2033",
         "until": "until",
         # Sentence punctuation for the prose lines
@@ -998,6 +999,7 @@ _STRINGS = {
         "dew_pt": "Pt ros\u00e9e",
         "uv": "UV",
         "aqi": "IQA",
+        "aqhi": "CAS",
         "until": "jusqu'\u00e0",
         # Sentence punctuation for the prose lines
         "sentence_end": ".",

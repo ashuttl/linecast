@@ -16,7 +16,7 @@ from linecast._weather_i18n import (
     DAY_NAMES, FULL_DAY_NAMES, ON_DAY_FORMS, ON_FULL_DAY_FORMS, wmo_label,
     _PRECIP_DESCS_I18N, _STRINGS, _s, _wmo_icons,
 )
-from linecast._weather_style import (MUTED, TEXT, WIND_COLOR, _aqi_color,
+from linecast._weather_style import (MUTED, TEXT, WIND_COLOR, _aqhi_color, _aqi_color,
                                      _colored_temp, _india_aqi_color)
 from linecast._weather_sources import _local_now_for_data
 
@@ -89,33 +89,42 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
         elif humidity >= 70 or humidity <= 25:
             left_humidity = f"  {MUTED}{_s('humidity', runtime)} {fmt_percent(humidity, runtime)}"
 
-    # AQI — show when data available. India reads its own CPCB scale,
-    # attached upstream (apply_india_aqi); the number, its colors, and
-    # the category word follow that scale there. The category ("Very
-    # Poor") is how CPCB bulletins print the index, and it is what tells
-    # a reader which of the two scales the number is on.
+    # AQI — show when data available. India reads its own CPCB scale
+    # and Canada its AQHI, attached upstream (apply_national_index); the
+    # number, its colors, and the category word follow that scale
+    # there. The category ("Very Poor", "Moderate risk") is how the
+    # bulletins print the index, and it is what tells a reader which
+    # scale the number is on.
     aqi_value = None
     india_scale = False
+    aqhi = None
     if aqi_data and isinstance(aqi_data, dict):
         aqi_current = aqi_data.get("current", {})
         india_value = aqi_current.get("india_aqi")
+        aqhi = aqi_current.get("aqhi")
         if india_value is not None:
             aqi_value = india_value
             india_scale = True
         else:
             aqi_value = aqi_current.get("us_aqi")
 
-    left_aqi = ""
-    if aqi_value is not None:
+    # The number alone (left_aqi_bare) is the next thing tried when the
+    # category word costs the line its fit.
+    left_aqi = left_aqi_bare = ""
+    if aqhi is not None:
+        from linecast._weather_sources import aqhi_category, fmt_aqhi
+        left_aqi_bare = f"  {MUTED}{_s('aqhi', runtime)} {_aqhi_color(aqhi)}{fmt_aqhi(aqhi)}"
+        left_aqi = f"{left_aqi_bare} {aqhi_category(aqhi, lang_of(runtime))}"
+    elif aqi_value is not None:
         if india_scale:
             from linecast._weather_sources import india_aqi_category
             color = _india_aqi_color(aqi_value)
             category = india_aqi_category(aqi_value)
-            left_aqi = (f"  {MUTED}{_s('aqi', runtime)} "
-                        f"{color}{aqi_value:.0f} {category}")
+            left_aqi_bare = f"  {MUTED}{_s('aqi', runtime)} {color}{aqi_value:.0f}"
+            left_aqi = f"{left_aqi_bare} {category}"
         else:
-            left_aqi = (f"  {MUTED}{_s('aqi', runtime)} "
-                        f"{_aqi_color(aqi_value)}{aqi_value:.0f}")
+            left_aqi = left_aqi_bare = (f"  {MUTED}{_s('aqi', runtime)} "
+                                        f"{_aqi_color(aqi_value)}{aqi_value:.0f}")
 
     # Right side: wind info + location (progressively droppable)
     wind_part = ""
@@ -154,6 +163,13 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
     result = _assemble(left, right)
     if result:
         return result
+
+    # Drop the air quality category word, keeping the number
+    if left_aqi_bare != left_aqi:
+        left = left_core + left_feels + left_hist + left_aqi_bare
+        result = _assemble(left, right)
+        if result:
+            return result
 
     # Drop AQI
     left = left_core + left_feels + left_hist
