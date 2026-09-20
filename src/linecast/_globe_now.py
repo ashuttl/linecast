@@ -32,7 +32,7 @@ import time
 
 from linecast import _radar_tiles as tiles
 from linecast._geo import wrap_lon
-from linecast._globe import _radius, _source_zoom, bilinear_taps, forward
+from linecast._globe import _aspect, _radius, _source_zoom, bilinear_taps, forward
 from linecast._png import decode_rgba
 from linecast._radar_basemap import _load_data
 from linecast._runtime import log_failure
@@ -485,7 +485,7 @@ def city_lights_globe(lat0, lon0, zoom, gw, h):
     Memoised per view: the dict is shared between calls, so read it.
     """
     cities = _load_data()["cities"]
-    key = (lat0, lon0, zoom, gw, h, id(cities))
+    key = (lat0, lon0, zoom, gw, h, id(cities), _aspect())
     with _lights_lock:
         hit = _lights_cache.get(key)
     if hit is not None:
@@ -498,6 +498,7 @@ def city_lights_globe(lat0, lon0, zoom, gw, h):
 
 def _light_cities(cities, lat0, lon0, zoom, gw, h):
     r = _radius(zoom, h)
+    rx = r * _aspect()
     out = {}
     for entry in cities:
         w = _light_weight(entry[2])
@@ -506,7 +507,7 @@ def _light_cities(cities, lat0, lon0, zoom, gw, h):
         ux, uy, cos_c = forward(entry[1], entry[0], lat0, lon0)
         if cos_c <= 0.0:
             continue
-        x = int(gw / 2.0 + ux * r)
+        x = int(gw / 2.0 + ux * rx)
         y = int(h / 2.0 - uy * r)
         if 0 <= x < gw and 0 <= y < h:
             out[(x, y)] = max(out.get((x, y), 0.0), w)

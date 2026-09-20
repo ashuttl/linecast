@@ -24,6 +24,7 @@ from pathlib import Path
 
 from linecast import _cache
 from linecast._elevation import _fetch_tile, decode_meters
+from linecast._framebuffer import cell_aspect
 from linecast._geo import wrap_lon
 from linecast._paths import cache_dir
 from linecast._png import decode_rgba
@@ -125,6 +126,20 @@ def _radius(zoom, h):
     return h * (180.0 / math.pi) / zoom
 
 
+def _aspect():
+    """A grid row's height in column widths, as the screen has it.
+
+    Every grid here is cut from the terminal's cells the same way -- a
+    column is a cell wide and a row half a cell tall, or half and a
+    quarter for dots -- so one number serves them all: 1.0 on the 2:1
+    cell that makes a half-block's two sub-pixels square, and read
+    from the terminal's font where it can be.  _radius is rows per
+    plane unit; columns per plane unit are _radius times this, and
+    the disk is round on the screen rather than on the grid.
+    """
+    return cell_aspect() / 2.0
+
+
 def forward(lat, lon, lat0, lon0):
     """(ux, uy, cos_c) on the unit projection plane; visible if cos_c > 0."""
     phi, lam = math.radians(lat), math.radians(lon)
@@ -152,9 +167,10 @@ _geometry_cache = Memo(keep=_GEOMETRY_KEEP)
 _memo_lock = threading.Lock()
 
 
-def _project(lat0, zoom, w, h):
+def _project(lat0, zoom, w, h, aspect=1.0):
     """The w×h grid inverted about longitude 0: (base, zs, rhos)."""
     r = _radius(zoom, h)
+    rx = r * aspect
     sin0, cos0 = (math.sin(math.radians(lat0)),
                   math.cos(math.radians(lat0)))
     base, zs, rhos = [], [], []
@@ -162,7 +178,7 @@ def _project(lat0, zoom, w, h):
         uy = (h / 2.0 - y - 0.5) / r
         b_row, z_row, rho_row = [], [], []
         for x in range(w):
-            ux = (x + 0.5 - w / 2.0) / r
+            ux = (x + 0.5 - w / 2.0) / rx
             rho2 = ux * ux + uy * uy
             rho_row.append(math.sqrt(rho2))
             if rho2 > 1.0:
@@ -193,11 +209,12 @@ def geometry(lat0, lon0, zoom, w, h):
     shared with other calls for the same view — read them, don't
     write them.
     """
-    key = (lat0, zoom, w, h)
+    aspect = _aspect()
+    key = (lat0, zoom, w, h, aspect)
     with _memo_lock:
         hit = _geometry_cache.get(key)
     if hit is None:
-        hit = _project(lat0, zoom, w, h)
+        hit = _project(lat0, zoom, w, h, aspect)
         with _memo_lock:
             _geometry_cache.put(key, hit)
     base, zs, rhos = hit
@@ -461,6 +478,7 @@ def limb_lls(lat0, lon0, zoom, w, h, atmo):
     can reach the sample at all.
     """
     r = _radius(zoom, h)
+    rx = r * _aspect()
     sin0 = math.sin(math.radians(lat0))
     cos0 = math.cos(math.radians(lat0))
     out = []
@@ -471,7 +489,7 @@ def limb_lls(lat0, lon0, zoom, w, h, atmo):
             if a <= 0.0:
                 row.append(None)
                 continue
-            ux = (x + 0.5 - w / 2.0) / r
+            ux = (x + 0.5 - w / 2.0) / rx
             rho = math.hypot(ux, uy)
             nx, ny = ux / rho, uy / rho
             lat = math.degrees(math.asin(max(-1.0, min(1.0, ny * cos0))))
@@ -577,6 +595,7 @@ def border_layer(lat0, lon0, zoom, gw, hc, color):
     layer = DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
     dot_line = layer._dot_line
     r = _radius(zoom, hc * 4)
+    rx = r * _aspect()
     cx, cy = gw * 2 / 2.0, hc * 4 / 2.0
     phi0, lam0 = math.radians(lat0), math.radians(lon0)
     sin0, cos0 = math.sin(phi0), math.cos(phi0)
@@ -592,7 +611,7 @@ def border_layer(lat0, lon0, zoom, gw, hc, color):
                 continue
             ux = cos_phi * sin(d)
             uy = cos0 * sin_phi - sin0 * cos_phi * cos_d
-            p = (cx + ux * r, cy - uy * r, ux, uy, cos_c)
+            p = (cx + ux * rx, cy - uy * r, ux, uy, cos_c)
             if prev is not None:
                 arc = prev[2] * ux + prev[3] * uy + prev[4] * cos_c
                 if arc > 0.34:
@@ -671,6 +690,7 @@ def lake_mask(lat0, lon0, zoom, dw, dh):
     cell could resolve.
     """
     r = _radius(zoom, dh)
+    rx = r * _aspect()
     ox, oy = dw / 2.0, dh / 2.0
     phi0, lam0 = math.radians(lat0), math.radians(lon0)
     sin0, cos0 = math.sin(phi0), math.cos(phi0)
@@ -691,7 +711,7 @@ def lake_mask(lat0, lon0, zoom, dw, dh):
                 delta = lam - lam0
                 ux = cos_phi * sin(delta)
                 uy = cos0 * sin_phi - sin0 * cos_phi * cos(delta)
-                projected.append((ox + ux * r, oy - uy * r))
+                projected.append((ox + ux * rx, oy - uy * r))
             prings.append(projected)
         ys = [p[1] for ring in prings for p in ring]
         y0 = max(0, int(min(ys)))
@@ -729,7 +749,7 @@ def marker_cell(lat0, lon0, zoom, gw, hc, m_lat, m_lon):
     if cos_c <= 0.0:
         return None  # the far hemisphere
     r = _radius(zoom, hc * 2)
-    col = int(gw / 2.0 + ux * r)
+    col = int(gw / 2.0 + ux * r * _aspect())
     row = int((hc * 2 / 2.0 - uy * r) / 2.0)
     if 0 <= col < gw and 0 <= row < hc:
         return (col, row)
@@ -754,7 +774,7 @@ def city_overlays(lat0, lon0, zoom, gw, hc, lang="en"):
     Memoised per view: the dict is shared between calls, so read it.
     """
     cities = _load_data()["cities"]
-    key = (lat0, lon0, zoom, gw, hc, lang, id(cities))
+    key = (lat0, lon0, zoom, gw, hc, lang, id(cities), _aspect())
     with _memo_lock:
         hit = _overlay_cache.get(key)
     if hit is not None:
@@ -768,13 +788,14 @@ def city_overlays(lat0, lon0, zoom, gw, hc, lang="en"):
 def _place_cities(cities, lat0, lon0, zoom, gw, hc, lang):
     max_cities = max(6, min(24, (gw * hc) // 400))
     r = _radius(zoom, hc * 2)
+    rx = r * _aspect()
     ranked = []
     for entry in cities:
         lon, lat, pop = entry[0], entry[1], entry[2]
         ux, uy, cos_c = forward(lat, lon, lat0, lon0)
         if cos_c < 0.2:
             continue
-        col = int(gw / 2.0 + ux * r)
+        col = int(gw / 2.0 + ux * rx)
         row = int((hc * 2 / 2.0 - uy * r) / 2.0)
         if 0 <= col < gw and 0 <= row < hc:
             ranked.append((pop, _localized(entry, lang), col, row))

@@ -25,7 +25,7 @@ from linecast.sky import (
     FIGURES_DEFAULT, FOV_DEFAULT, FOV_MAX, FOV_MIN, Scene, View, default_view,
     focal_length, render,
 )
-from linecast._framebuffer import get_terminal_size
+from linecast._framebuffer import cell_aspect, get_terminal_size
 from linecast._i18n import GEOCODER_UNTRANSLATED, lang_of
 from linecast._sky_picker import CulturePicker, picker_overlay
 from linecast._sky_search import (
@@ -79,6 +79,7 @@ class Camera:
         self.az, self.alt, self.fov = az, alt, fov
         self.figures = figures
         self.focal = 40.0             # sub-pixels per unit, from the last frame
+        self.aspect = 1.0             # a sub-pixel's height in cell widths, likewise
         self.graph_w = 80
         self._drag_base = None        # (az, alt) at the press
         self._drag_trail = []         # (time, az, alt) through the drag
@@ -161,7 +162,7 @@ class Camera:
         base_az, base_alt = self._drag_base
         rate = self._deg_per_subpixel()
         az = _wrap(base_az - dcol * rate)
-        alt = base_alt + drow * 2.0 * rate
+        alt = base_alt + drow * 2.0 * self.aspect * rate   # a row is two sub-pixels
         # Past the edges the sky resists: the overshoot is a fraction of
         # the pull, and bounded.
         if alt > 90.0:
@@ -354,6 +355,7 @@ class SkyApp(LiveApp):
         cols, rows = get_terminal_size()
         self.camera.graph_w = max(20, cols)
         self.camera.focal = focal_length(self.camera.graph_w, view.fov)
+        self.camera.aspect = cell_aspect() / 2.0
         panel = self.search.open or self.picker.open
         frame = render(now, self.lat, self.lng, self.runtime, view, fullscreen=True,
                        offset_minutes=self.offset_minutes(),

@@ -4,7 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-- Moon: The Moon is drawn round on wide and narrow terminal fonts alike. The view reads the font's cell shape from the terminal where it can; `LINECAST_CELL_ASPECT` overrides it.
+- Moon, sky, maps, radar: Round things are drawn round, and square ground stays square, on wide and narrow terminal fonts alike. linecast reads the font's cell shape from the terminal where it can; `LINECAST_CELL_ASPECT` overrides it.
 
 ## 2.7.0 — 2026-09-19
 

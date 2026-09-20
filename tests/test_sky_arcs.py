@@ -15,13 +15,13 @@ from linecast import _color, sky
 from linecast._runtime import RuntimeConfig
 
 
-def _unculled_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h):
+def _unculled_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h, aspect=1.0):
     """Freeze the pre-culling rasterizer to check complete output equivalence.
 
     Keep this independent of the production culling and sampling code: a
     skipped visible sample, changed step count, or changed rounding must fail.
     """
-    pa, pb = sky.project(a, f, cx, cy), sky.project(b, f, cx, cy)
+    pa, pb = sky.project(a, f, cx, cy, aspect), sky.project(b, f, cx, cy, aspect)
     if pa is None or pb is None:
         return
     length = math.hypot(pb[0] - pa[0], pb[1] - pa[1])
@@ -42,7 +42,7 @@ def _unculled_arc(dots, a, b, cam, f, cx, cy, graph_w, graph_h):
         if u0 * x + u1 * y + u2 * z < 0.0:
             continue
         k = 2.0 * f / (1.0 + z)
-        sx, sy = cx + x * k, cy - y * k
+        sx, sy = cx + x * k, cy - y * k / aspect
         dx, dy = int(sx * 2.0), int(sy * 2.0)
         col, row = dx >> 1, dy >> 2
         if 0 <= col < graph_w and 0 <= row < graph_h:

@@ -39,7 +39,7 @@ from linecast import (
 )
 from linecast._color import fg, RESET, color_mode, BG_PRIMARY
 from linecast._elevation import ATTRIBUTION
-from linecast._framebuffer import get_terminal_size
+from linecast._framebuffer import cell_aspect, get_terminal_size
 from linecast._graphics import visible_len
 from linecast._live import overlay
 from linecast._maps_i18n import ms
@@ -99,7 +99,8 @@ def max_zoom(gw, hc):
     same zoom, so the ceiling rises in proportion: the planet ends up
     smaller than the height alone would make it, and whole.
     """
-    return MAX_ZOOM_DEG * max(1.0, hc * 2 / gw)
+    # The map's height in cell widths: hc*2 sub-pixels, each cell_aspect/2.
+    return MAX_ZOOM_DEG * max(1.0, hc * 2 * (cell_aspect() / 2.0) / gw)
 
 
 def fit_view(points, gw, hc, margin=0.15):
@@ -116,8 +117,10 @@ def fit_view(points, gw, hc, margin=0.15):
     lat_c = max(-80.0, min(80.0, (min(lats) + max(lats)) / 2))
     lon_c = (min(lons) + max(lons)) / 2
     lat_span = max(lats) - min(lats)
+    # The width in the zoom's own unit, degrees of latitude down the
+    # screen: hc*2 sub-pixels tall, each cell_aspect/2 cell widths.
     lon_span = ((max(lons) - min(lons)) * math.cos(math.radians(lat_c))
-                * (hc * 2) / gw)
+                * (hc * 2) * (cell_aspect() / 2.0) / gw)
     zoom = max(lat_span, lon_span) / (1 - 2 * margin)
     return lat_c, lon_c, max(MIN_ZOOM_DEG, min(max_zoom(gw, hc), zoom))
 
