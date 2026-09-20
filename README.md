@@ -7,11 +7,11 @@
 [![Tests](https://github.com/ashuttl/linecast/actions/workflows/test.yml/badge.svg)](https://github.com/ashuttl/linecast/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/linecast)](https://pypi.org/project/linecast/)
 [![Python](https://img.shields.io/pypi/pyversions/linecast)](https://pypi.org/project/linecast/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ashuttl/linecast/blob/main/LICENSE)
 
 <a href="https://terminaltrove.com/linecast/" title="linecast on Terminal Trove, the $HOME of all things in the terminal"><img src="https://cdn.terminaltrove.com/media/badges/tool_of_the_week/svg/terminal_trove_tool_of_the_week_green_on_dark_grey_bg.svg" alt="Terminal Trove Tool of The Week" height="36"></a>
 
-English | [日本語](README.ja.md)
+English | [日本語](https://github.com/ashuttl/linecast/blob/main/README.ja.md)
 
 </div>
 
@@ -53,7 +53,7 @@ To try it without installing anything:
 uvx linecast weather
 ```
 
-Or with nothing but curl. [`get.sh`](get.sh) finds whatever Python the machine has and runs linecast with it:
+Or with nothing but curl. [`get.sh`](https://github.com/ashuttl/linecast/blob/main/get.sh) finds whatever Python the machine has and runs linecast with it:
 
 ```sh
 curl -sL https://raw.githubusercontent.com/ashuttl/linecast/main/get.sh | sh
@@ -94,7 +94,7 @@ Add `--print` for one static frame instead of a live view. Weather, sunshine, mo
 
 ## A closer look
 
-The frames below show each app once or twice. [docs/gallery.md](docs/gallery.md) shows them in more of their states: a whole day of sunshine, other languages and traditions, the radar's themes and layers, a short window, a walking route, and the globe and the sky turned by hand.
+The frames below show each app once or twice. [docs/gallery.md](https://github.com/ashuttl/linecast/blob/main/docs/gallery.md) shows them in more of their states: a whole day of sunshine, other languages and traditions, the radar's themes and layers, a short window, a walking route, and the globe and the sky turned by hand.
 
 ### Weather
 
@@ -122,7 +122,7 @@ The dashboard speaks twenty-eight languages, and its units follow the place or y
 
 ![the year view for Reykjavík, in Icelandic, with the pointer on the December solstice](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sunshine-year.png)
 
-The day can also be read in a tradition's hours beside the civil clock: the halachic sha'ot zmaniyot, a twelfth of the day from sunrise to sunset, with the day's zmanim from alot hashachar to tzeit listed under the chart and the next one counted down; the twelve horae and four vigiliae of Rome; the six koku of the Edo day and night, 明六つ to 暮六つ, as the bells struck them; the prayer times, Fajr to Isha, by the convention of the country shown, with the fast counted down in Ramadan; or Swahili time, which counts saa moja from seven in the morning and seven at night and comes on by itself in Swahili. `sunshine --hours halachic` reads it so for one run and `linecast hours halachic` saves it. [docs/hours.md](docs/hours.md) describes each system and how it is checked.
+The day can also be read in a tradition's hours beside the civil clock: the halachic sha'ot zmaniyot, a twelfth of the day from sunrise to sunset, with the day's zmanim from alot hashachar to tzeit listed under the chart and the next one counted down; the twelve horae and four vigiliae of Rome; the six koku of the Edo day and night, 明六つ to 暮六つ, as the bells struck them; the prayer times, Fajr to Isha, by the convention of the country shown, with the fast counted down in Ramadan; or Swahili time, which counts saa moja from seven in the morning and seven at night and comes on by itself in Swahili. `sunshine --hours halachic` reads it so for one run and `linecast hours halachic` saves it. [docs/hours.md](https://github.com/ashuttl/linecast/blob/main/docs/hours.md) describes each system and how it is checked.
 
 Near the poles the same chart turns into polar night and midnight sun. These are Longyearbyen and Vostok Station, at 78° north and 78° south.
 
@@ -139,7 +139,7 @@ Near the poles the same chart turns into polar night and midnight sun. These are
 
 Press `v` for a calendar of the month, or open on it with `moon --grid`. Each day shows its phase as a small disc, with today, the full and new moons, and the quarters marked. Scroll through the months, hover a day for its phase, moonrise, and moonset, and click one to open the moon on that day.
 
-The moon can also show the date in a traditional calendar beside the phase, with a countdown to its next festival or observance: the Chinese, Japanese, Korean, and Vietnamese lunisolar calendars, the Thai lunar calendar, the Hawaiian Kaulana Mahina, the Samoan, Chamorro, and Refaluwasch calendars of the Pacific, the Islamic and Hebrew calendars, and the Old Farmer's Almanac. `moon --calendar hebrew` opens on one and `linecast calendar` saves one. [docs/calendars.md](docs/calendars.md) describes each of them and how it is checked. Here it is over Okinawa the evening after the mid-autumn full moon, in Japanese, and the month around it, with 十五夜 on the 25th.
+The moon can also show the date in a traditional calendar beside the phase, with a countdown to its next festival or observance: the Chinese, Japanese, Korean, and Vietnamese lunisolar calendars, the Thai lunar calendar, the Hawaiian Kaulana Mahina, the Samoan, Chamorro, and Refaluwasch calendars of the Pacific, the Islamic and Hebrew calendars, and the Old Farmer's Almanac. `moon --calendar hebrew` opens on one and `linecast calendar` saves one. [docs/calendars.md](https://github.com/ashuttl/linecast/blob/main/docs/calendars.md) describes each of them and how it is checked. Here it is over Okinawa the evening after the mid-autumn full moon, in Japanese, and the month around it, with 十五夜 on the 25th.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon-okinawa.png" width="49%" alt="the moon over Okinawa in Japanese: 十六夜, the sixteenth night of the eighth month">
@@ -156,7 +156,7 @@ Drag to look around. The sky opens with the 8,404 stars the naked eye can see. Z
 
 Press `/` and type the name of a star, a planet, a constellation, or an asterism like the Big Dipper, and the view flies to it. If it is below the horizon the panel says when it rises and where, and you can press Enter to move the clock to that moment. `sky --at Jupiter` opens on it.
 
-The sky has been drawn many ways. Press `t` for a list of twenty-two traditions besides the IAU's, each with its own figures and star names, and the sky redraws as you move through the list: the Chinese Three Enclosures and Twenty-Eight Mansions, the Hawaiian star lines, the Boorong sky of Victoria, the Norse, Sami, Māori, Tongan, Mongolian, Romanian, Belarusian, and Indian Vedic skies, H. A. Rey's stick figures, and more. `sky --culture hawaiian` opens on one and `linecast culture` saves one. The Hawaiian sky replaces the compass points with the navigators' star compass, thirty-two houses from Hikina round to Komohana. [docs/cultures.md](docs/cultures.md) lists them with their sources. The whole August sky at once, and the same January evening drawn the Hawaiian way:
+The sky has been drawn many ways. Press `t` for a list of twenty-two traditions besides the IAU's, each with its own figures and star names, and the sky redraws as you move through the list: the Chinese Three Enclosures and Twenty-Eight Mansions, the Hawaiian star lines, the Boorong sky of Victoria, the Norse, Sami, Māori, Tongan, Mongolian, Romanian, Belarusian, and Indian Vedic skies, H. A. Rey's stick figures, and more. `sky --culture hawaiian` opens on one and `linecast culture` saves one. The Hawaiian sky replaces the compass points with the navigators' star compass, thirty-two houses from Hikina round to Komohana. [docs/cultures.md](https://github.com/ashuttl/linecast/blob/main/docs/cultures.md) lists them with their sources. The whole August sky at once, and the same January evening drawn the Hawaiian way:
 
 <p>
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/sky-allsky.png" width="49%" alt="the whole August sky at once, the horizon closed into a circle, the Milky Way across it">
@@ -284,7 +284,7 @@ linecast calendar auto              # follow the language again
 linecast moon --calendar hawaiian   # just this once
 ```
 
-The calendars are `chinese`, `japanese`, `korean`, `vietnamese`, `thai`, `hawaiian`, `samoan`, `chamorro`, `refaluwasch`, `islamic`, `hebrew`, and `almanac`. There's more about each in [docs/calendars.md](docs/calendars.md).
+The calendars are `chinese`, `japanese`, `korean`, `vietnamese`, `thai`, `hawaiian`, `samoan`, `chamorro`, `refaluwasch`, `islamic`, `hebrew`, and `almanac`. There's more about each in [docs/calendars.md](https://github.com/ashuttl/linecast/blob/main/docs/calendars.md).
 
 ### Culture
 
@@ -297,7 +297,7 @@ linecast culture auto               # follow the language again
 linecast sky --culture hawaiian     # just this once
 ```
 
-Use `t` in `sky` to choose one from a list. The names are in [docs/cultures.md](docs/cultures.md), with the credits for each.
+Use `t` in `sky` to choose one from a list. The names are in [docs/cultures.md](https://github.com/ashuttl/linecast/blob/main/docs/cultures.md), with the credits for each.
 
 ### Hours
 
@@ -315,7 +315,7 @@ linecast hours none                 # the civil clock alone
 linecast sunshine --hours halachic  # just this once
 ```
 
-`auto` clears the setting. In Swahili it reads the day in Swahili time, since that is how the language tells the time; in every other language it means none. There's more about each in [docs/hours.md](docs/hours.md).
+`auto` clears the setting. In Swahili it reads the day in Swahili time, since that is how the language tells the time; in every other language it means none. There's more about each in [docs/hours.md](https://github.com/ashuttl/linecast/blob/main/docs/hours.md).
 
 ### Color and icons
 
@@ -411,12 +411,12 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 <details>
 <summary><strong>Data sources and coverage</strong></summary>
 
-[docs/sources.md](docs/sources.md) says, for each kind of data, what is asked first, what stands in, what linecast computes itself, and what that was checked against.
+[docs/sources.md](https://github.com/ashuttl/linecast/blob/main/docs/sources.md) says, for each kind of data, what is asked first, what stands in, what linecast computes itself, and what that was checked against.
 
 - **Location** — [ipinfo.io](https://ipinfo.io/) for IP geolocation when no location is saved or passed, with [ipwho.is](https://ipwho.is/) and [GeoJS](https://www.geojs.io/) as fallbacks; place names are geocoded by Open-Meteo, with Photon as a fallback.
 - **Weather** — [Open-Meteo](https://open-meteo.com/) for forecasts, geocoding, and air quality (in India on the CPCB's National AQI scale; in Canada the AQHI is Environment Canada's own reported number for the nearest community, or computed from the pollutants with the AQHI-Plus rule where none is near). Alerts come from the US National Weather Service, Environment Canada, China Meteorological Administration, DWD via Bright Sky, Hong Kong Observatory, Met Éireann, Japan Meteorological Agency, MET Norway, MetService New Zealand, MeteoAlarm (with its warning-region geometry vendored, © EUMETNET, CC BY 4.0, the NUTS regions some feeds file from [Eurostat GISCO](https://ec.europa.eu/eurostat/web/gisco), © EuroGeographics for the administrative boundaries, and Czechia's ORP boundaries from [ČÚZK RÚIAN](https://www.cuzk.gov.cz/) with the [Czech Statistical Office](https://csu.gov.cz/)'s code list, both open data), and SACHET (India's national alert aggregator).
 - **Sunshine and Moon** — computed on your device from the astronomical equations; the Moon's face is a vendored grayscale of NASA SVS's [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720) (Lunar Reconnaissance Orbiter, public domain), and the stars around it are the [Yale Bright Star Catalogue](http://tdc-www.harvard.edu/catalogs/bsc5.html) (Hoffleit & Warren, 1991) to magnitude 6.5. The Pacific calendars are checked against the [Western Pacific Regional Fishery Management Council](https://www.wpcouncil.org/educational-resources/lunar-calendars/)'s published calendars and quote its educational materials.
-- **Sky** — computed on your device: the bright stars are the same Yale Bright Star Catalogue, with 108,520 fainter stars from David Nash's [HYG v4.1](https://github.com/astronexus/HYG-Database) (CC BY-SA 4.0) revealed as you zoom in; [star data credits](src/linecast/data/STARS.md) describe the bundled supplement. The 107 Messier galaxies, nebulae and clusters, the constellation figures, their names, and the IAU star names are Olaf Frohn's [d3-celestial](https://github.com/ofrohn/d3-celestial) data (BSD), the names in the other languages linecast speaks are [Wikidata](https://www.wikidata.org/)'s labels (CC0), the planets follow Paul Schlyter's equations, and the Milky Way is the diffuse layer of NASA SVS's [Deep Star Maps 2020](https://svs.gsfc.nasa.gov/4851) (public domain). The sky cultures are [Stellarium's collection](https://github.com/Stellarium/stellarium-skycultures), placed from the Hipparcos catalogue; [docs/cultures.md](docs/cultures.md) has the credits.
+- **Sky** — computed on your device: the bright stars are the same Yale Bright Star Catalogue, with 108,520 fainter stars from David Nash's [HYG v4.1](https://github.com/astronexus/HYG-Database) (CC BY-SA 4.0) revealed as you zoom in; [star data credits](https://github.com/ashuttl/linecast/blob/main/src/linecast/data/STARS.md) describe the bundled supplement. The 107 Messier galaxies, nebulae and clusters, the constellation figures, their names, and the IAU star names are Olaf Frohn's [d3-celestial](https://github.com/ofrohn/d3-celestial) data (BSD), the names in the other languages linecast speaks are [Wikidata](https://www.wikidata.org/)'s labels (CC0), the planets follow Paul Schlyter's equations, and the Milky Way is the diffuse layer of NASA SVS's [Deep Star Maps 2020](https://svs.gsfc.nasa.gov/4851) (public domain). The sky cultures are [Stellarium's collection](https://github.com/Stellarium/stellarium-skycultures), placed from the Hipparcos catalogue; [docs/cultures.md](https://github.com/ashuttl/linecast/blob/main/docs/cultures.md) has the credits.
 - **Tides** — NOAA CO-OPS, Canadian Hydrographic Service, Queensland Open Data, Hong Kong Observatory, Open-Meteo's tide model as a global fallback, and optionally TideCheck.
 - **Radar** — [LibreWXR](https://librewxr.net/), with NEXRAD via Iowa Environmental Mesonet and RainViewer as fallbacks; warning polygons come from the US National Weather Service via IEM. The basemap is derived from Natural Earth.
 - **Maps** — terrain from AWS/Mapzen elevation tiles; streets and inland water from [OpenFreeMap](https://openfreemap.org/) vector tiles (© OpenMapTiles © OpenStreetMap contributors), with the [OpenStreetMap US Tileservice](https://tiles.openstreetmap.us/) as a fallback (Tiles by OSM US); search from Photon and Nominatim; directions from FOSSGIS OSRM (© OpenStreetMap contributors); globe cloud cover from [LibreWXR](https://librewxr.net/) (CC BY 4.0) satellite imagery; terrain color picks its ramp from a vendored [Köppen-Geiger climate grid](https://doi.org/10.6084/m9.figshare.21789074) (Beck et al. 2023, CC BY 4.0); built-up ground is the [Global Human Settlement Layer](https://human-settlement.emergency.copernicus.eu/) (GHSL © European Commission JRC, CC BY 4.0), tiled and served by linecast.
@@ -425,7 +425,7 @@ Cached data lives in `~/Library/Caches/linecast` on macOS and `~/.cache/linecast
 
 ## Contributing
 
-Questions, requests, and ideas are welcome in [Discussions](https://github.com/ashuttl/linecast/discussions), and pull requests are welcome too. [CONTRIBUTING.md](CONTRIBUTING.md) says what kinds of change fit, which branch to start from, and how to run the tests.
+Questions, requests, and ideas are welcome in [Discussions](https://github.com/ashuttl/linecast/discussions), and pull requests are welcome too. [CONTRIBUTING.md](https://github.com/ashuttl/linecast/blob/main/CONTRIBUTING.md) says what kinds of change fit, which branch to start from, and how to run the tests.
 
 ## Lineage
 
@@ -439,4 +439,4 @@ A Telic-Alcatel videotex terminal draws the weather, circa 1990. Photograph from
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/ashuttl/linecast/blob/main/LICENSE)
