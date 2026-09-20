@@ -230,6 +230,7 @@ def test_refresh_from_departure_cannot_overwrite_new_location():
     with patch.object(weather, 'fetch_forecast', side_effect=forecast), \
          patch.object(weather, 'fetch_alerts', return_value=[{'wrong': 1}]), \
          patch.object(weather, 'fetch_aqi', return_value={'wrong': 1}), \
+         patch.object(weather, '_reverse_geocode', return_value=('', 'FR', {})), \
          patch.object(weather, 'gather', return_value=dict(data={'new': 1}, country_code='FR')):
         view._start_refresh()
         old = view._worker

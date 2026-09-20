@@ -196,6 +196,7 @@ class TestRetryKey:
         app = _app()
         with patch.object(weather, "fetch_forecast", return_value={"v": 2}) as forecast, \
              patch.object(weather, "fetch_alerts", return_value=[]), \
+             patch.object(weather, "_reverse_geocode", return_value=("", "US", {})), \
              patch.object(weather, "fetch_aqi", return_value=None), \
              patch("time.monotonic", return_value=1001.0):
             assert app.on_action("r")     # well inside the interval
@@ -207,6 +208,7 @@ class TestRetryKey:
         app = _app()
         with patch.object(weather, "fetch_forecast", return_value=FIXTURE), \
              patch.object(weather, "fetch_alerts", return_value=[]), \
+             patch.object(weather, "_reverse_geocode", return_value=("", "US", {})), \
              patch.object(weather, "fetch_aqi", return_value=None), \
              patch.object(_weather_sources, "datetime") as dt:
             dt.now.return_value = LATER
@@ -220,6 +222,7 @@ class TestRetryKey:
         app = _app()
         with patch.object(weather, "fetch_forecast", return_value=FIXTURE), \
              patch.object(weather, "fetch_alerts", return_value=[]), \
+             patch.object(weather, "_reverse_geocode", return_value=("", "US", {})), \
              patch.object(weather, "fetch_aqi", return_value=None), \
              patch.object(_weather_sources, "datetime") as dt:
             dt.now.return_value = MADE
@@ -242,6 +245,7 @@ class TestRetryKey:
 
         with patch.object(weather, "fetch_forecast", side_effect=slow_forecast), \
              patch.object(weather, "fetch_alerts", return_value=[]), \
+             patch.object(weather, "_reverse_geocode", return_value=("", "US", {})), \
              patch.object(weather, "fetch_aqi", return_value=None):
             app.on_action("r")
             worker = app._worker

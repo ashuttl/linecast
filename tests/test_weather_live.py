@@ -55,6 +55,8 @@ class TestRender:
              patch.object(weather, "fetch_alerts",
                           return_value=[{"url": "u"}]) as alerts, \
              patch.object(weather, "fetch_aqi", return_value={"aqi": 2}) as aqi, \
+             patch.object(weather, "_reverse_geocode",
+                          return_value=("Westbrook", "US", {"state": "Maine"})), \
              patch.object(weather, "render_from_data",
                           return_value=("out", {})) as render, \
              patch("time.monotonic", return_value=1300.0):
@@ -64,7 +66,8 @@ class TestRender:
             release.set()
             app._worker.join(1.0)
         forecast.assert_called_once_with(43.0, -70.0, app.runtime)
-        alerts.assert_called_once_with(43.0, -70.0, "US", lang="en")
+        alerts.assert_called_once_with(43.0, -70.0, "US", lang="en",
+                                       address={"state": "Maine"})
         aqi.assert_called_once_with(43.0, -70.0)
         assert app.data == {"v": 2}
         assert app.alerts == [{"url": "u"}]
@@ -83,6 +86,7 @@ class TestRender:
         with patch.object(weather, "fetch_forecast", side_effect=slow_forecast), \
              patch.object(weather, "fetch_alerts", return_value=[]), \
              patch.object(weather, "fetch_aqi", return_value=None), \
+             patch.object(weather, "_reverse_geocode", return_value=("", "US", {})), \
              patch.object(weather, "render_from_data",
                           return_value=("out", {})), \
              patch("time.monotonic", return_value=1300.0):
@@ -99,6 +103,7 @@ class TestRender:
         with patch.object(weather, "fetch_forecast", return_value=None), \
              patch.object(weather, "fetch_alerts", return_value=[]), \
              patch.object(weather, "fetch_aqi", return_value=None), \
+             patch.object(weather, "_reverse_geocode", return_value=("", "US", {})), \
              patch.object(weather, "render_from_data",
                           return_value=("out", {})) as render, \
              patch("time.monotonic", return_value=2000.0):
@@ -107,6 +112,59 @@ class TestRender:
         assert app.data == {"v": 1}
         assert app.fetched == 2000.0   # a dead network waits out the interval
         assert render.call_args[0][0] == {"v": 1}
+
+
+class TestRefreshAddress:
+    """The live refresh matches alerts against an address, as the
+    one-shot path does; without one every text-only warning in the
+    country is the reader's (issue: MeteoAlarm tier three)."""
+
+    def _refresh(self, geocode, country="NL", lat=52.1, lng=5.2):
+        app = _app(lambda: 0.0)
+        app.lat, app.lng, app.country = lat, lng, country
+        with patch.object(weather, "fetch_forecast", return_value={"v": 2}), \
+             patch.object(weather, "fetch_alerts", return_value=[]) as alerts, \
+             patch.object(weather, "fetch_aqi", return_value=None), \
+             patch.object(weather, "_reverse_geocode", **geocode) as geocoded:
+            app._refresh(app._generation, app.lat, app.lng, app.country)
+        return app, alerts, geocoded
+
+    def test_the_refresh_passes_the_address_it_geocoded(self):
+        address = {"state": "Utrecht", "country_code": "nl"}
+        app, alerts, geocoded = self._refresh(
+            dict(return_value=("Utrecht", "NL", address)))
+        # No language: the address comes in the country's own, which is
+        # what the feeds' area names are matched against.
+        geocoded.assert_called_once_with(52.1, 5.2)
+        alerts.assert_called_once_with(52.1, 5.2, "NL", lang="en", address=address)
+        assert app.data == {"v": 2}
+
+    def test_the_geocoded_country_wins_over_the_stale_one(self):
+        _app_, alerts, _ = self._refresh(
+            dict(return_value=("Utrecht", "NL", {"state": "Utrecht"})), country="")
+        assert alerts.call_args[0][2] == "NL"
+
+    def test_a_geocoder_that_answers_with_nothing_still_refreshes(self):
+        app, alerts, _ = self._refresh(dict(return_value=("", "", {})))
+        assert alerts.call_args == ((52.1, 5.2, "NL"), {"lang": "en", "address": {}})
+        assert app.data == {"v": 2}
+
+    def test_a_geocoder_that_raises_still_refreshes(self):
+        app, alerts, _ = self._refresh(dict(side_effect=OSError("network down")))
+        assert alerts.call_args == ((52.1, 5.2, "NL"), {"lang": "en", "address": {}})
+        assert app.data == {"v": 2}
+
+    def test_the_address_follows_the_location_the_refresh_was_given(self):
+        seen = {}
+
+        def geocode(lat, lng):
+            seen[(lat, lng)] = {"state": "Friesland"}
+            return "Leeuwarden", "NL", seen[(lat, lng)]
+
+        _app_, alerts, _ = self._refresh(dict(side_effect=geocode),
+                                         lat=53.2, lng=5.8)
+        assert list(seen) == [(53.2, 5.8)]
+        assert alerts.call_args[1]["address"] == {"state": "Friesland"}
 
 
 class TestOpen:

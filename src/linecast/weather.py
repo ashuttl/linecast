@@ -712,9 +712,21 @@ class WeatherApp(_live.LiveApp):
     def _refresh(self, generation, lat, lng, country):
         """Refresh a snapshot of the location; discard it if the user moved."""
         data, alerts, aqi = None, self.alerts, self.aqi
+        # The address the alert matching needs, in the country's own
+        # language, as the feeds' area names are; cached a day per
+        # location, so only a place the reader has just moved to pays
+        # for the call. Without it every text-only warning in the
+        # country matches.
+        try:
+            _name, cc, addr = _reverse_geocode(lat, lng)
+        except Exception as exc:
+            log_failure("weather", "live refresh address", exc,
+                        fallback="alerts matched on geometry alone")
+            cc, addr = "", {}
         try:
             data = fetch_forecast(lat, lng, self.runtime)
-            alerts = fetch_alerts(lat, lng, country, lang=self.runtime.lang)
+            alerts = fetch_alerts(lat, lng, cc or country,
+                                  lang=self.runtime.lang, address=addr)
             aqi = apply_national_index(fetch_aqi(lat, lng), country, lat, lng)
         except Exception as exc:
             log_failure("weather", "live refresh", exc, fallback="view stays stale")

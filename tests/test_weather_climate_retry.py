@@ -280,6 +280,7 @@ def test_the_refresh_asks_again_until_the_climate_arrives(no_sleep):
     with patch.object(weather, "fetch_forecast", return_value={"v": 2}), \
          patch.object(weather, "fetch_alerts", return_value=[]), \
          patch.object(weather, "fetch_aqi", return_value=None), \
+         patch.object(weather, "_reverse_geocode", return_value=("", "US", {})), \
          patch.object(weather, "forecast_is_todays", return_value=True), \
          patch.object(weather, "_local_now_for_data", return_value=datetime(2026, 9, 18)), \
          patch.object(weather, "fetch_historical", return_value="at last"):
