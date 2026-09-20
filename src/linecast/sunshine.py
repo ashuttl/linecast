@@ -738,15 +738,20 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
             overlays[(x, 0)] = (ch, corner_label_ink(cell), False)
     sun_cell_row = sun_spy_i // 2
     overlays[(now_x, sun_cell_row)] = (icons["sun_char"], SUN_DOT_RGB)
-    lines = fb.render(overlays)
-
-    # --- info line ---
+    # The help hint takes the top-left corner, as in the year view, so
+    # the info line stays balanced: sunrise at one end, sunset at the
+    # other. With a tradition's reading in that corner, or the sun
+    # itself, it falls back to the last line instead.
     from linecast import _help
     from linecast._i18n import lang_of
     lang = lang_of(runtime)
-    # The help hint sits on the last line; with a marks line under the
-    # info line, that is the marks line.
-    hint_w = visible_len(_help.hint(lang, cols)) + 2 if fullscreen else 0
+    painted = fullscreen and _help.paint_hint(fb, overlays, lang, rows=(0,))
+    lines = fb.render(overlays)
+
+    # --- info line ---
+    # With a marks line under the info line, the last line is the marks
+    # line.
+    hint_w = visible_len(_help.hint(lang, cols)) + 2 if fullscreen and not painted else 0
     info_width = cols if hours else cols - hint_w
     lines.append(
         _info_line(
@@ -765,7 +770,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     if hours is not None:
         from linecast._sunshine_hours import hours_line
         lines.append(hours_line(hours, now, cols - hint_w, runtime))
-    if fullscreen:
+    if fullscreen and not painted:
         lines[-1] = _help.footer(lines[-1], cols, lang)
 
     hint = install_banner()
