@@ -94,7 +94,7 @@ linecast maps --view now
 
 ![ヒーロー画像のアニメーション版。気象レーダーが動いている](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.gif)
 
-各アプリの詳しい説明とスクリーンショットは[英語版README](README.md#a-closer-look)に、それぞれのアプリのさまざまな状態は[GALLERY.md](GALLERY.md)にあります。
+各アプリの詳しい説明とスクリーンショットは[英語版README](README.md#a-closer-look)に、それぞれのアプリのさまざまな状態は[docs/gallery.md](docs/gallery.md)にあります。
 
 ## 日本語で
 
@@ -171,7 +171,7 @@ linecast calendar auto              # 言語に従う
 linecast moon --calendar hawaiian   # 今回だけ
 ```
 
-暦は `chinese`、`japanese`、`korean`、`vietnamese`、`thai`、`hawaiian`、`samoan`、`chamorro`、`refaluwasch`、`islamic`、`hebrew`、`almanac` です。それぞれの説明は[CALENDARS.md](CALENDARS.md)にあります。
+暦は `chinese`、`japanese`、`korean`、`vietnamese`、`thai`、`hawaiian`、`samoan`、`chamorro`、`refaluwasch`、`islamic`、`hebrew`、`almanac` です。それぞれの説明は[docs/calendars.md](docs/calendars.md)にあります。
 
 ### 時刻法
 
@@ -189,11 +189,11 @@ linecast hours none                 # 常用時のみ
 linecast sunshine --hours japanese  # 今回だけ
 ```
 
-`auto` で設定を消します。スワヒリ語ではスワヒリ時間で読みます。それがこの言語の時刻の言い方だからです。ほかの言語では none と同じです。それぞれの説明は[HOURS.md](HOURS.md)にあります。
+`auto` で設定を消します。スワヒリ語ではスワヒリ時間で読みます。それがこの言語の時刻の言い方だからです。ほかの言語では none と同じです。それぞれの説明は[docs/hours.md](docs/hours.md)にあります。
 
 ### 星空の伝統
 
-`sky` は中国語では中国の星空を描き、他の言語ではIAUの星座を描きます。22の伝統から選ぶには `linecast culture` と `sky --culture` を使います。`sky` の中では `t` を押して一覧から選べます。名前と出典は[CULTURES.md](CULTURES.md)にまとめています。
+`sky` は中国語では中国の星空を描き、他の言語ではIAUの星座を描きます。22の伝統から選ぶには `linecast culture` と `sky --culture` を使います。`sky` の中では `t` を押して一覧から選べます。名前と出典は[docs/cultures.md](docs/cultures.md)にまとめています。
 
 ### そのほかの設定
 

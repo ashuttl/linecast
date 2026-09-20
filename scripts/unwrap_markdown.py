@@ -1,6 +1,6 @@
 """Join hard-wrapped prose in a markdown file back into one line per paragraph.
 
-    python3 scripts/unwrap_markdown.py CHANGELOG.md ARCHITECTURE.md
+    python3 scripts/unwrap_markdown.py CHANGELOG.md docs/architecture.md
 
 The docs are soft-wrapped by the editor and by GitHub, so a hard break
 inside a paragraph buys nothing and costs plenty: an edit anywhere in a

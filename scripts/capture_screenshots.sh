@@ -62,7 +62,7 @@ Targets:
              zoom series maps-zoom-blocks/streets/city/region/state.png
   globe      maps-globe.png, the planet in this hour's daylight, and
              maps-globe-clouds.png with this hour's clouds (differ every run)
-  gallery    the frames GALLERY.md shows and the README does not, into
+  gallery    the frames docs/gallery.md shows and the README does not, into
              screenshots/gallery: the radar in its fixed themes and its
              other layers, the sky in more traditions, the weather in a
              short window, the moon's month grid, a walking route

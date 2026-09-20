@@ -1,6 +1,6 @@
 # Contributing
 
-Questions, requests, and ideas are welcome in [Discussions](https://github.com/ashuttl/linecast/discussions). Pull requests are very welcome for contained changes: a new data provider, an improvement to a view, a bug fix. Larger contributions are welcome too, but for those, start a discussion before you write code. Every view here was found slowly, and a new view or command needs that same care from the start, which is hard to give a pull request that arrives finished. [ARCHITECTURE.md](ARCHITECTURE.md) is the map of the code.
+Questions, requests, and ideas are welcome in [Discussions](https://github.com/ashuttl/linecast/discussions). Pull requests are very welcome for contained changes: a new data provider, an improvement to a view, a bug fix. Larger contributions are welcome too, but for those, start a discussion before you write code. Every view here was found slowly, and a new view or command needs that same care from the start, which is hard to give a pull request that arrives finished. [docs/architecture.md](docs/architecture.md) is the map of the code.
 
 ## Branches
 
