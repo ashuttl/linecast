@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Sky, moon: The stars, the constellations, and the Milky Way now line up with the Moon and the planets. They were drawn about a third of a degree away from them, which showed at the closest zoom.
 - Weather: Fixed a bug in the countries on MeteoAlarm where, after the live view's first refresh, every warning in the country without a map of its own was shown. They are matched to your address, as they are when the view opens.
 - Tides: With a TideCheck key on the free plan, linecast now stops at the fifty requests a day the plan allows and shows cached tides until the day turns, as the README said it did.
 - Radar: Cached NEXRAD frames are cleared after a day, as the other sources' tiles already were, so the cache stops growing.

@@ -11,6 +11,7 @@ Source: https://stjarnhimlen.se/comp/ppcomp.html
 
 import math
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 
 
 def _julian_day(dt_utc):
@@ -56,6 +57,93 @@ def _to_equatorial(lon, lat, radius, obliq):
     z_eq = y * math.sin(obliq) + z * math.cos(obliq)
     return (_norm_deg(math.degrees(math.atan2(y_eq, x))),
             math.degrees(math.atan2(z_eq, math.hypot(x, y_eq))))
+
+
+# ---------------------------------------------------------------------------
+# Precession
+#
+# The bundled catalogue — the stars, the constellation figures, the
+# Milky Way raster, the Messier objects — is in J2000 coordinates, while
+# the Sun, the Moon and the planets here are computed for the equinox of
+# date, as is the sidereal time that turns either to the horizon. The
+# two frames meet whenever a planet is drawn among the stars, so the
+# catalogue is turned forward to the equinox of date first: one rotation
+# per frame, built from the IAU 1976 angles (Meeus, ch. 21).
+# ---------------------------------------------------------------------------
+_ARCSEC = math.radians(1.0 / 3600.0)
+
+
+def precession_angles(centuries):
+    """The angles zeta, z and theta, in radians, from the J2000 mean
+    equinox to the mean equinox *centuries* Julian centuries later
+    (Meeus, eq. 21.2, with the J2000 starting epoch)."""
+    t = centuries
+    return ((2306.2181 + (0.30188 + 0.017998 * t) * t) * t * _ARCSEC,
+            (2306.2181 + (1.09468 + 0.018203 * t) * t) * t * _ARCSEC,
+            (2004.3109 - (0.42665 + 0.041833 * t) * t) * t * _ARCSEC)
+
+
+def precession_matrix(centuries):
+    """The rotation from J2000 equatorial coordinates to the mean equinox
+    of *centuries* Julian centuries after J2000, as a row-major 3x3
+    tuple (Meeus, eq. 21.4). The identity at zero."""
+    zeta, z, theta = precession_angles(centuries)
+    c1, s1 = math.cos(zeta), math.sin(zeta)
+    c2, s2 = math.cos(z), math.sin(z)
+    c3, s3 = math.cos(theta), math.sin(theta)
+    return (c1 * c3 * c2 - s1 * s2, -s1 * c3 * c2 - c1 * s2, -s3 * c2,
+            c1 * c3 * s2 + s1 * c2, -s1 * c3 * s2 + c1 * c2, -s3 * s2,
+            c1 * s3, -s1 * s3, c3)
+
+
+@lru_cache(maxsize=8)
+def _precession_for_day(day):
+    return precession_matrix(day / 36525.0)
+
+
+def precession_at(dt_utc):
+    """The J2000-to-date rotation for a moment, to the nearest day.
+
+    Precession moves a star about 0.0014 degrees a day, a fiftieth of a
+    cell at the closest zoom, so the day is resolution enough and a live
+    view that ticks by seconds reuses the same matrix all evening.
+    """
+    return _precession_for_day(math.floor(_julian_day(dt_utc) - 2451545.0))
+
+
+def _rotate(m, v, back=False):
+    x, y, z = v
+    if back:
+        return (m[0] * x + m[3] * y + m[6] * z,
+                m[1] * x + m[4] * y + m[7] * z,
+                m[2] * x + m[5] * y + m[8] * z)
+    return (m[0] * x + m[1] * y + m[2] * z,
+            m[3] * x + m[4] * y + m[5] * z,
+            m[6] * x + m[7] * y + m[8] * z)
+
+
+def _vector_of(ra_deg, dec_deg):
+    ra, dec = math.radians(ra_deg), math.radians(dec_deg)
+    c = math.cos(dec)
+    return (c * math.cos(ra), c * math.sin(ra), math.sin(dec))
+
+
+def _ra_dec_of(v):
+    x, y, z = v
+    return (_norm_deg(math.degrees(math.atan2(y, x))),
+            math.degrees(math.asin(max(-1.0, min(1.0, z)))))
+
+
+def precess_from_j2000(ra_deg, dec_deg, dt_utc):
+    """A J2000 right ascension and declination at the mean equinox of date."""
+    return _ra_dec_of(_rotate(precession_at(dt_utc), _vector_of(ra_deg, dec_deg)))
+
+
+def precess_to_j2000(ra_deg, dec_deg, dt_utc):
+    """An of-date right ascension and declination back in the J2000 frame,
+    for comparing a body with the catalogue on the catalogue's terms."""
+    return _ra_dec_of(_rotate(precession_at(dt_utc), _vector_of(ra_deg, dec_deg),
+                              back=True))
 
 
 def _sun_ecliptic(dt_utc):

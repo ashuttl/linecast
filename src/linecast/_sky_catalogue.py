@@ -7,8 +7,11 @@ view takes all of it, plus the faint HYG supplement in `_sky_deep`.
 
 The stars are the Yale Bright Star Catalogue to magnitude 6.5, brightest
 first, so a prefix of the list is the sky to some limiting magnitude.
-Positions are J2000; at a terminal cell's resolution precession since
-then does not show.
+Positions are J2000 in the file, here, and in everything built from
+them — the constellation figures, the Milky Way raster, the Messier
+objects beside them — and are precessed to the equinox of date at render
+time, since the Sun, the Moon and the planets they are drawn among are
+computed there (`_ephemeris.precession_at`, `sky.Scene.catalogue`).
 """
 
 import gzip

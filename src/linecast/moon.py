@@ -88,7 +88,7 @@ from linecast._ephemeris import (
     _moon_parallactic_deg, _moon_ra_dec, _moon_transits_for_local_date,
     moon_age_days,
     moon_axis_deg, moon_bright_limb_deg, moon_illuminated_fraction,
-    next_moon_phase_utc,
+    next_moon_phase_utc, precess_to_j2000,
 )
 from linecast.sunshine import (
     INFO_AMBER_RGB,
@@ -298,7 +298,10 @@ def _star_color(t):
 # placed about the Moon's true position for the moment, with celestial
 # north turned by the parallactic angle the disc already follows. So
 # scrolling through time wheels the sky with the night and walks the
-# Moon through its constellations. The disc is drawn far larger than
+# Moon through its constellations. The catalogue is J2000 and the Moon
+# is of date, so the Moon's place is turned back into the catalogue's
+# frame before the distances and position angles are taken: one vector
+# rotated rather than every star. The disc is drawn far larger than
 # scale; the sky is projected as an equidistant fisheye, screen centre
 # looking away from the viewer, whose focal length is the disc's radius
 # and a half — the screen's corner is about ninety degrees from the
@@ -926,7 +929,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     parallactic = _moon_parallactic_deg(moment_utc, lat, lng)
     limb = parallactic - moon_bright_limb_deg(moment_utc)
     axis = parallactic - moon_axis_deg(moment_utc)
-    sky = (*_moon_ra_dec(moment_utc), parallactic)   # the stars about the Moon
+    # The stars about the Moon, the Moon put in the catalogue's J2000 frame.
+    sky = (*precess_to_j2000(*_moon_ra_dec(moment_utc), moment_utc), parallactic)
     rise, sset = upcoming_moon_events(now_local, lat, lng)
 
     rotation = turn.matrix() if turn is not None else None

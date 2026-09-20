@@ -3,6 +3,10 @@
 A snapshot of the sky over the location at the moment: the Sun and the
 Moon, every planet, and the brightest stars up, each with its altitude
 and azimuth. Times are minute-precision local ISO strings.
+
+Altitudes and azimuths are for the moment and the place. No right
+ascension or declination is reported: the payload names each star, and
+the catalogue's own J2000 coordinates stay in the catalogue.
 """
 
 from datetime import timezone
@@ -14,14 +18,13 @@ SCHEMA_VERSION = 1
 
 def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
                   fov=None):
-    from linecast._sky_catalogue import star_names, stars
-    from linecast._ephemeris import _alt_az_deg
+    from linecast._sky_catalogue import star_names, star_vectors, stars
     from linecast._sunshine_i18n import sky_phase
     from linecast.sky import (
-        FOV_DEFAULT, Scene, compass_point, default_view, easily_seen,
+        FOV_DEFAULT, Scene, _mat_apply, alt_az_of, compass_point, default_view,
+        easily_seen,
     )
     from linecast.sunshine import moon_phase
-    import math
 
     scene = Scene(now_local.astimezone(timezone.utc), lat, lng)
     view = default_view(scene, 80, 24, facing, fov or FOV_DEFAULT)
@@ -39,11 +42,12 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
 
     bright = []
     names = star_names()
-    for i, (ra, dec, mag, _bv) in enumerate(stars()):
+    vectors = star_vectors()
+    for i, (_ra, _dec, mag, _bv) in enumerate(stars()):
         if mag > 1.6 or len(bright) >= 12:
             break
-        alt, az = _alt_az_deg(math.degrees(ra), math.degrees(dec), scene.moment_utc,
-                              lat, lng)
+        # The catalogue is J2000; the scene's frame precesses it to date.
+        alt, az = alt_az_of(_mat_apply(scene.catalogue, vectors[i]))
         if alt > 0.0:
             proper, desig = names.get(i, ("", ""))
             bright.append({"name": proper or None, "designation": desig or None,

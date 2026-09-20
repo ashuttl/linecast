@@ -56,7 +56,7 @@ from linecast._theme import (
 from linecast._ephemeris import (
     _alt_az_deg, _gmst_deg, _moon_parallactic_deg, _moon_ra_dec, _sun_ra_dec,
     moon_axis_deg, moon_bright_limb_deg, moon_horizontal_parallax_deg,
-    moon_illuminated_fraction,
+    moon_illuminated_fraction, precession_at,
 )
 from linecast._i18n import fmt_percent, lang_of
 from linecast._location import (
@@ -323,10 +323,17 @@ def compass_points(runtime):
 class Scene:
     """Where everything is at one moment, for one observer.
 
-    Built once per frame and handed to the drawing passes: the frame
-    matrix, the Sun, the Moon and the planets as observer-frame vectors
+    Built once per frame and handed to the drawing passes: the two frame
+    matrices, the Sun, the Moon and the planets as observer-frame vectors
     with their altitudes and azimuths, and the limiting magnitude the
     sky's brightness allows.
+
+    `horizontal` turns the equinox of date to the observer's frame, for
+    the Sun, the Moon and the planets, which are computed there.
+    `catalogue` turns the bundled J2000 sky to the same place, precession
+    folded in, for the stars, the figures, the Milky Way and the Messier
+    objects. Anything drawn from the catalogue goes through `catalogue`,
+    or it lands a third of a degree off the bodies beside it.
     """
 
     def __init__(self, moment_utc, lat, lng):
@@ -334,6 +341,7 @@ class Scene:
         self.lat, self.lng = lat, lng
         lst = (_gmst_deg(moment_utc) + lng) % 360.0
         self.horizontal = horizontal_matrix(lst, lat)
+        self.catalogue = _mat_mul(self.horizontal, precession_at(moment_utc))
 
         sun_ra, sun_dec = _sun_ra_dec(moment_utc)
         self.sun_alt, self.sun_az = _alt_az_deg(sun_ra, sun_dec, moment_utc, lat, lng)
@@ -617,8 +625,9 @@ def _paint_sky(fb, scene, cam, f, cx, cy, aspect):
     # Toward the Sun along the horizon: the glow follows its azimuth.
     se, sn = math.sin(math.radians(scene.sun_az)), math.cos(math.radians(scene.sun_az))
     twilight = scene.sun_alt > -18.0
-    # Camera to equatorial, for the Milky Way raster: the frame's transpose.
-    g0, g1, g2, g3, g4, g5, g6, g7, g8 = _mat_transpose(_mat_mul(cam, scene.horizontal))
+    # Camera to the J2000 catalogue frame, for the Milky Way raster:
+    # the frame's transpose.
+    g0, g1, g2, g3, g4, g5, g6, g7, g8 = _mat_transpose(_mat_mul(cam, scene.catalogue))
     milk = milky_way() if scene.darkness > 0.0 else b""
     milk_alpha = 0.48 * scene.darkness
     milky = MILKY_RGB
@@ -712,7 +721,9 @@ def _star_candidates(frame, f, cx, cy, aspect, limit, deep=True):
     """Bright Yale stars followed by HYG stars in the screen's sky cone.
 
     Negative indices identify the separate supplement, leaving every
-    existing name/culture index stable. The cone encloses all four corners.
+    existing name/culture index stable. The cone encloses all four
+    corners; *frame* carries the catalogue's own J2000 frame, which is
+    the frame the supplement's zones are divided in.
     """
     vectors = star_vectors()
     for i, (_ra, _dec, mag, bv) in enumerate(stars()):
@@ -771,7 +782,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     # really has where the terminal says.  The field of view is set
     # across the width; the height follows the screen's true shape.
     aspect = cell_aspect() / 2.0
-    frame = _mat_mul(cam, scene.horizontal)   # equatorial to camera
+    frame = _mat_mul(cam, scene.catalogue)   # the J2000 catalogue to camera
     lang = lang_of(runtime)
 
     figures = figures_for(view.culture, lang) if view.culture else constellations()
@@ -1184,7 +1195,7 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
             _mag, _bv, vector, title = _sky_deep.star(-i - 1)
         else:
             vector = star_vectors()[i]
-        _alt, az = alt_az_of(_mat_apply(scene.horizontal, vector))
+        _alt, az = alt_az_of(_mat_apply(scene.catalogue, vector))
     where = f"{alt:.0f}° · {compass_point(az, runtime, view.culture)}"
     lines = [f"{tip_bg}{tip_fg} {title} ",
              f"{tip_bg}{tip_dim} {detail} ",

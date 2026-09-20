@@ -156,6 +156,118 @@ class TestGeometry:
 
 
 # ---------------------------------------------------------------------------
+# Precession
+# ---------------------------------------------------------------------------
+def _angle_between(a, b):
+    """Arcseconds between two (ra, dec) pairs in degrees."""
+    def vec(ra, dec):
+        ra, dec = math.radians(ra), math.radians(dec)
+        c = math.cos(dec)
+        return (c * math.cos(ra), c * math.sin(ra), math.sin(dec))
+    dot = sum(p * q for p, q in zip(vec(*a), vec(*b)))
+    return math.degrees(math.acos(max(-1.0, min(1.0, dot)))) * 3600.0
+
+
+def _precessed(ra, dec, centuries):
+    from linecast._ephemeris import precession_matrix
+    m = precession_matrix(centuries)
+    x, y, z = (math.cos(math.radians(dec)) * math.cos(math.radians(ra)),
+               math.cos(math.radians(dec)) * math.sin(math.radians(ra)),
+               math.sin(math.radians(dec)))
+    v = (m[0] * x + m[1] * y + m[2] * z,
+         m[3] * x + m[4] * y + m[5] * z,
+         m[6] * x + m[7] * y + m[8] * z)
+    return (math.degrees(math.atan2(v[1], v[0])) % 360.0,
+            math.degrees(math.asin(max(-1.0, min(1.0, v[2])))))
+
+
+class TestPrecession:
+    """The catalogue is J2000; the sky it is drawn against is of date."""
+
+    def test_the_matrix_is_the_identity_at_the_epoch(self):
+        from linecast._ephemeris import precession_matrix
+        assert precession_matrix(0.0) == pytest.approx(
+            (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0), abs=1e-15)
+
+    def test_sirius_and_polaris_land_where_pyephem_puts_them(self):
+        # Reference places for the mean equinox of 2026 January 1.5 TD
+        # (JD 2461042.0), from pyephem 4.2.1: ephem.Equatorial of the
+        # J2000 place converted to that epoch, which is precession alone,
+        # without nutation or aberration. A minute of arc is the
+        # tolerance; the two agree to hundredths of a second.
+        centuries = (2461042.0 - 2451545.0) / 36525.0
+        cases = [
+            ("Sirius", 101.2872, -16.7161, 101.577715, -16.744792),
+            ("Polaris", 37.9546, 89.2641, 46.462694, 89.371594),
+        ]
+        for name, ra, dec, want_ra, want_dec in cases:
+            got = _precessed(ra, dec, centuries)
+            off = _angle_between(got, (want_ra, want_dec))
+            assert off < 60.0, f"{name}: off by {off:.1f} arcsec"
+            # And it has actually moved. How far depends on where a star
+            # stands: the rotation is about the pole of the ecliptic, so
+            # Sirius, well away from it, goes further than Polaris.
+            moved = _angle_between((ra, dec), got)
+            assert moved > 500.0, f"{name}: moved only {moved:.0f} arcsec"
+
+    def test_meeus_worked_example(self):
+        """Theta Persei to 2028 November 13.19 TD, Meeus example 21.b.
+
+        The book's starting place is the J2000 one already carried
+        forward by proper motion, which precession knows nothing about,
+        so that is where this starts too.
+        """
+        centuries = (2462088.69 - 2451545.0) / 36525.0
+        ra = (2.0 + 44.0 / 60.0 + 12.975 / 3600.0) * 15.0
+        dec = 49.0 + 13.0 / 60.0 + 39.90 / 3600.0
+        want = ((2.0 + 46.0 / 60.0 + 11.331 / 3600.0) * 15.0,
+                49.0 + 20.0 / 60.0 + 54.54 / 3600.0)
+        assert _angle_between(_precessed(ra, dec, centuries), want) < 1.0
+
+    def test_the_round_trip_returns_the_star(self):
+        from linecast._ephemeris import precess_from_j2000, precess_to_j2000
+        moment = NIGHT.astimezone(timezone.utc)
+        ra, dec = precess_from_j2000(101.2872, -16.7161, moment)
+        assert _angle_between(precess_to_j2000(ra, dec, moment),
+                              (101.2872, -16.7161)) < 0.01
+
+    def test_the_scene_draws_the_catalogue_where_it_belongs(self):
+        """Wired in: a star's place in the scene's frame differs from the
+        same star read as if its J2000 coordinates were of date.
+
+        Precession turns the sky about the pole of the ecliptic, so a
+        star that many degrees from that pole moves by the turn times the
+        sine of the angle: a third of a degree along the ecliptic in
+        2026, less near its pole. Every bright star must be off by its
+        own share of it, which is what says the matrix is in the frame
+        and not something else.
+        """
+        from linecast._ephemeris import _alt_az_deg
+        from linecast._sky_catalogue import equatorial_vector, star_vectors, stars
+        from linecast.sky import _mat_apply
+        moment = NIGHT.astimezone(timezone.utc)
+        scene = Scene(moment, LAT, LNG)
+        # The J2000 pole of the ecliptic, and the general precession in
+        # longitude over the 26.7 centuries-hundredths since (Meeus, 21.1).
+        pole = equatorial_vector(math.radians(270.0), math.radians(90.0 - 23.4393))
+        turn = 5029.0966 * 0.26678 + 1.11113 * 0.26678 ** 2
+        offsets = []
+        for i, (ra, dec, _mag, _bv) in enumerate(stars()[:40]):
+            vector = star_vectors()[i]
+            alt, az = alt_az_of(_mat_apply(scene.catalogue, vector))
+            was_alt, was_az = _alt_az_deg(math.degrees(ra), math.degrees(dec),
+                                          moment, LAT, LNG)
+            moved = _angle_between((az, alt), (was_az, was_alt))
+            beta = math.acos(max(-1.0, min(1.0, sum(p * q for p, q
+                                                    in zip(vector, pole)))))
+            assert abs(moved - turn * math.sin(beta)) < 5.0, (i, moved)
+            offsets.append(moved / 3600.0)
+        # And the largest of them is the whole of it, a third of a degree:
+        # several cells at the closest zoom, a quarter of one at the widest.
+        assert 0.36 < max(offsets) < 0.38, max(offsets)
+
+
+# ---------------------------------------------------------------------------
 # The scene
 # ---------------------------------------------------------------------------
 class TestScene:

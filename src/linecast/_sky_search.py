@@ -70,9 +70,14 @@ class Target:
         self.spread = spread
 
     def place(self, scene):
-        """(alt, az) in degrees at the scene's moment."""
-        from linecast._ephemeris import _alt_az_deg
-        from linecast._sky_catalogue import stars
+        """(alt, az) in degrees at the scene's moment.
+
+        A star, a constellation, an asterism and a Messier object all
+        come from the J2000 catalogue, so they go through the scene's
+        precessed frame; the Sun, the Moon and the planets are already
+        placed for the moment.
+        """
+        from linecast._sky_catalogue import star_vectors
         from linecast.sky import alt_az_of, _mat_apply
         if self.kind == "sun":
             return scene.sun_alt, scene.sun_az
@@ -82,11 +87,8 @@ class Target:
             for key, _vec, alt, az, _mag in scene.planets:
                 if key == self.key:
                     return alt, az
-        if self.kind == "star":
-            ra, dec, _mag, _bv = stars()[self.key]
-            return _alt_az_deg(math.degrees(ra), math.degrees(dec), scene.moment_utc,
-                               scene.lat, scene.lng)
-        return alt_az_of(_mat_apply(scene.horizontal, self.key["at"]))
+        at = star_vectors()[self.key] if self.kind == "star" else self.key["at"]
+        return alt_az_of(_mat_apply(scene.catalogue, at))
 
     def fov(self, current):
         """A field that shows the thing: a constellation framed with air

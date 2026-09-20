@@ -32,14 +32,18 @@ def object_name(record, lang):
 
 
 def paint(fb, scene, cam, frame, f, cx, cy, eye_limit, color, aspect=1.0):
-    """Paint under stars and bodies; return label anchors and hover targets."""
+    """Paint under stars and bodies; return label anchors and hover targets.
+
+    The catalogue positions are J2000, so they reach the horizon and the
+    screen through the scene's precessed frames, as the stars do.
+    """
     from linecast.sky import _extinction, _mat_apply, alt_az_of, project, unproject
     labels, hits = [], []
     if scene.darkness <= 0:
         return labels, hits
     for record in objects():
         vec = record['at']
-        alt, az = alt_az_of(_mat_apply(scene.horizontal, vec))
+        alt, az = alt_az_of(_mat_apply(scene.catalogue, vec))
         if alt <= 0:
             continue
         visibility = min(1.0, max(0.0, (eye_limit - record['mag']
