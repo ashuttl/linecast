@@ -1098,6 +1098,15 @@ _STRINGS = {
         "warmer_by_then": "{diff} de plus qu'{ref_day}",
         "cooler_by_then": "{diff} de moins qu'{ref_day}",
     },
+    "fr-CA": {  # Canadian French: only what differs from France's
+        "forecast_stale": "Cette prévision date de {day}; impossible d'en obtenir une plus récente.",
+        "forecast_stale_at": "Cette prévision date de {day}; impossible d'en obtenir une plus récente à {time}.",
+        "then_morning": "en matinée",
+        "then_later_morning": "plus tard en matinée",
+        "then_afternoon": "en après-midi",
+        "then_evening": "en soirée",
+        "freeze_tonight": "gel {time}, jusqu'à {temp}",
+    },
     "es": {
         "today": "hoy",
         "today_short": "hoy",

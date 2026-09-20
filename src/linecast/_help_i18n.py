@@ -77,6 +77,9 @@ _STRINGS = {
         'theme': 'choisir le thème',
         'satellite': 'radar / satellite',
     },
+    "fr-CA": {  # Canadian French: only what differs from France's
+        "target": "aller à l’objet; puis à son lever",
+    },
     'es': {
         'hint_help': 'ayuda',
         'key_wheel': 'rueda',
