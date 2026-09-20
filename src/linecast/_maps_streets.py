@@ -85,7 +85,7 @@ def view_tiles(bbox, height_cells):
     return band, z_src, keys
 
 
-_last_span = [None]   # the last view's height, for which way a zoom went
+_last_span = None   # the last view's height, for which way a zoom went
 
 
 def prefetch_around(bbox, height_cells, keys):
@@ -95,22 +95,26 @@ def prefetch_around(bbox, height_cells, keys):
     one cold, since a change of source zoom means nothing on disk is
     theirs, but guessing both ways is most of the tiles asked for in a
     session, so only the way the reader just went is guessed.
+
+    The ring is each tile's own eight neighbours, with x wrapped one
+    tile at a time, so a view across the antimeridian asks for nine
+    times itself like every other view and not for every tile at its
+    zoom.  Three times _MAX_TILES caps a call whatever the geometry,
+    which no view reaches today; the guess gives way first, because
+    the ring is a pan's tiles and a pan is mostly on disk already.
     """
+    global _last_span
     if not keys:
         return
     z = keys[0][0]
     n = 1 << z
-    xs = [k[1] for k in keys]
-    ys = [k[2] for k in keys]
-    x0, x1 = min(xs), max(xs)
-    if x1 - x0 > n // 2:  # the view straddles the antimeridian, so take the lot
-        x0, x1 = 0, n - 1
-    ring = {(z, x % n, y)
-            for x in range(x0 - 1, x1 + 2)
-            for y in range(max(0, min(ys) - 1), min(n - 1, max(ys) + 1) + 1)}
+    ring = {(z, (x + dx) % n, min(n - 1, max(0, y + dy)))
+            for _z, x, y in keys
+            for dx in (-1, 0, 1)
+            for dy in (-1, 0, 1)}
     minlon, minlat, maxlon, maxlat = bbox
     span = maxlat - minlat
-    last, _last_span[0] = _last_span[0], span
+    last, _last_span = _last_span, span
     zoomed = []
     # a pan leaves the span alone; a rounding-sized change is a pan too
     if last is not None and abs(span - last) > last * 0.01:
@@ -123,9 +127,13 @@ def prefetch_around(bbox, height_cells, keys):
                 (cx - hx, max(-85.0, cy - hy), cx + hx, min(85.0, cy + hy)),
                 height_cells)
     want = set(keys)
+    pan = sorted(ring - want)
+    guess = [k for k in zoomed if k not in want]
+    cap = 3 * _MAX_TILES
+    if len(guess) + len(pan) > cap:
+        guess = []
     # the zoom first: a pan can lean on the ring, a zoom has nothing
-    prefetch_tiles([k for k in zoomed if k not in want]
-                   + sorted(ring - want))
+    prefetch_tiles((guess + pan)[:cap])
 
 
 def fetch_view(bbox, height_cells):

@@ -5,6 +5,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 ## Unreleased
 
 - Weather: In Croatia, warnings filed by county are matched to your address by the county's boundary. They had been matched on the county's name.
+- Maps: While a street view loads after a pan or a zoom, the last view stays on screen, moved and scaled to where the new one will be, instead of bare ground. The tiles around the view, and one zoom step in the direction you last went, are fetched ahead while you read. Contributed by [@N30Yang](https://github.com/N30Yang) in [#117](https://github.com/ashuttl/linecast/pull/117).
 - Sunshine: The help hint has moved to the top-left corner of the graph, where the year view keeps it, so the sunrise and sunset times sit at the two ends of the line below.
 - Docs: The pages on sources, calendars, hours, cultures, the gallery, and the architecture have moved from the top of the repository into a `docs/` folder. Links to their old paths on GitHub no longer resolve.
 - Sky, moon: The stars, the constellations, and the Milky Way now line up with the Moon and the planets. They were drawn about a third of a degree away from them, which showed at the closest zoom.

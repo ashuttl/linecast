@@ -9,6 +9,7 @@ if _src not in sys.path:
 
 from linecast import maps
 from linecast._radar_basemap import _BITS
+from linecast._radar_render import bbox_for
 
 GW, HC = 8, 4
 BBOX = (0.0, 0.0, 8.0, 8.0)  # one degree per cell column, two per row
@@ -66,15 +67,18 @@ class TestPrefetchAround:
     """What a landed view asks for next."""
 
     def _asked(self, monkeypatch, spans):
+        return self._views(monkeypatch,
+                           [(0.0, 0.0, span * 2, span) for span in spans])
+
+    def _views(self, monkeypatch, bboxes, height_cells=8):
         from linecast import _maps_streets as ms
         asked = []
         monkeypatch.setattr(ms, "prefetch_tiles", lambda keys: asked.append(list(keys)))
         monkeypatch.setattr(ms, "tile_info", lambda: ("t", "v", 14))
-        monkeypatch.setattr(ms, "_last_span", [None])
-        for span in spans:
-            bbox = (0.0, 0.0, span * 2, span)
-            _band, _z, keys = ms.view_tiles(bbox, 8)
-            ms.prefetch_around(bbox, 8, keys)
+        monkeypatch.setattr(ms, "_last_span", None)
+        for bbox in bboxes:
+            _band, _z, keys = ms.view_tiles(bbox, height_cells)
+            ms.prefetch_around(bbox, height_cells, keys)
         return asked[-1], keys
 
     def test_a_pan_asks_only_for_the_ring(self, monkeypatch):
@@ -88,3 +92,34 @@ class TestPrefetchAround:
         assert not any(k[0] > keys[0][0] for k in out)  # and nothing finer
         into, keys = self._asked(monkeypatch, [1.5, 1.0])
         assert not any(k[0] < keys[0][0] for k in into)
+
+    def test_a_view_across_the_seam_rings_like_any_other(self, monkeypatch):
+        # Fiji on a 160x45 terminal: eight tiles at z13, and a ring
+        # around them rather than every tile at that zoom
+        gw, hc = maps.map_cells((160, 45))
+        asked, keys = self._views(
+            monkeypatch, [bbox_for(-17.0, 179.999, 0.05, gw, hc)], hc)
+        assert len(asked) <= 9 * len(keys)
+        xs = {k[1] for k in asked}
+        assert 0 in xs and (1 << keys[0][0]) - 1 in xs  # both sides of it
+
+    def test_a_zoom_on_a_wide_terminal_keeps_its_guess(self, monkeypatch):
+        # London at 160x45: twelve tiles, a ring of eighteen and a
+        # guess of fifteen at the next zoom, all inside the cap
+        from linecast import _maps_streets as ms
+        gw, hc = maps.map_cells((160, 45))
+        asked, keys = self._views(
+            monkeypatch, [bbox_for(51.5, -0.12, 0.075, gw, hc),
+                          bbox_for(51.5, -0.12, 0.05, gw, hc)], hc)
+        assert 0 < len(asked) <= 3 * ms._MAX_TILES
+        assert any(k[0] > keys[0][0] for k in asked)  # the guess survives
+
+    def test_the_guess_gives_way_to_the_cap(self, monkeypatch):
+        from linecast import _maps_streets as ms
+        monkeypatch.setattr(ms, "_MAX_TILES", 4)
+        gw, hc = maps.map_cells((160, 45))
+        asked, keys = self._views(
+            monkeypatch, [bbox_for(51.5, -0.12, 0.075, gw, hc),
+                          bbox_for(51.5, -0.12, 0.05, gw, hc)], hc)
+        assert 0 < len(asked) <= 3 * ms._MAX_TILES
+        assert all(k[0] == keys[0][0] for k in asked)  # the ring alone
