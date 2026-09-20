@@ -130,10 +130,16 @@ def prune_tile_cache(max_age: float = _PRUNE_MAX_AGE) -> None:
     try:
         if not root.is_dir():
             return
-        for provider_dir in root.iterdir():
-            if not provider_dir.is_dir():
+        for entry in root.iterdir():
+            # Tile sources keep a directory each; the IEM frames sit as
+            # files at the root, and age the same way.
+            if entry.is_dir():
+                tiles = entry.glob("*.png")
+            elif entry.suffix == ".png":
+                tiles = [entry]
+            else:
                 continue
-            for tile in provider_dir.glob("*.png"):
+            for tile in tiles:
                 try:
                     # A tile stamped in the future never ages past the
                     # cutoff; it is as wrong as an old one, so it goes too.

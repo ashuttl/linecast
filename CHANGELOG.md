@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Radar: Cached NEXRAD frames are cleared after a day, as the other sources' tiles already were, so the cache stops growing.
 - Weather: In Canada the air quality shows the AQHI, the number on Environment Canada's own scale, with its risk level. It is Environment Canada's reported value for the nearest community, and is computed from the pollutants, including the AQHI-Plus rule for smoke, where no community is near. The label reads CAS in French.
 - Language: Portuguese, Spanish, and French each have a second regional form. `pt-PT`, `es-ES`, and `fr-CA` read the words that differ in Portugal, Spain, and Canada, and a terminal set to one of those countries picks it by itself. Spanish is Latin American throughout now; the maps had used Spain's words.
 - Weather: The prose under the graph says more, in the order things will happen. It now mentions the sky clearing or clouding over, gusts, a freeze overnight, how much snow will be on the ground by morning, a felt temperature ahead that is extreme for the place, the next rain worth planning for later in the week, and a second bout of rain after a break. The comparison with yesterday or tomorrow gives the number of degrees, "likely" is only said of rain that is likely, and shades of the same rain are no longer called a change. Rain in the last day is mentioned from a tenth of an inch, and temperatures below zero carry a proper minus sign. In all twenty-eight languages.

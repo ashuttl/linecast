@@ -2227,8 +2227,8 @@ def _photon_query(query, lang="en", timeout=10):
     from linecast._maps_search import PHOTON_LANGS, PHOTON_URL
 
     params = [("q", query), ("limit", 10)]
-    if lang in PHOTON_LANGS:
-        params.append(("lang", lang))
+    if base_language(lang) in PHOTON_LANGS:
+        params.append(("lang", base_language(lang)))
     url = f"{PHOTON_URL}?{urllib.parse.urlencode(params)}"
     data = fetch_json(url, headers={"User-Agent": user_agent()}, timeout=timeout)
     results = []
