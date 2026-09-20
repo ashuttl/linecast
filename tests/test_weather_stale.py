@@ -151,7 +151,7 @@ class TestComparisonDates:
         daily = dict(FIXTURE["daily"], temperature_2m_max=[20, 20, 40, 60, 40, 20, 20, 20])
         now = LATER.replace(hour=hour)
         # March 7 is warmer than March 6; March 8 is cooler than March 7.
-        expected = "much warmer" if hour == 9 else "much cooler"
+        expected = "20° warmer" if hour == 9 else "20° cooler"
         assert expected in comparative_sentence(daily, now, weather.WeatherRuntime.defaults())
 
     @pytest.mark.parametrize("hour", [9, 15])

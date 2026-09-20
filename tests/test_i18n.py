@@ -79,7 +79,7 @@ class TestUkrainianWeather:
         now = datetime(2026, 8, 24, 15)
         warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
-        assert warmer == "Завтра буде трохи тепліше, ніж сьогодні"
+        assert warmer == "Завтра буде на 3 градуси тепліше, ніж сьогодні"
         assert same == "Завтра буде приблизно так само тепло, як сьогодні"
 
     def test_precipitation_phrases_read_as_clock_times(self):
@@ -87,7 +87,7 @@ class TestUkrainianWeather:
         now = datetime(2026, 8, 24, 12, 10)
         hourly = {
             "time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
-            "precipitation_probability": [0, 0, 0, 0, 0, 80],
+            "precipitation_probability": [0, 0, 0, 0, 0, 70],
             "weather_code": [0, 0, 0, 0, 0, 95],
         }
         line = _precipitation_line(hourly, now, runtime)
@@ -114,7 +114,7 @@ class TestVietnameseWeather:
         now = datetime(2026, 8, 24, 15)
         warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
-        assert warmer == "Ngày mai sẽ ấm hơn hôm nay một chút"
+        assert warmer == "Ngày mai sẽ ấm hơn hôm nay 3 độ"
         assert same == "Ngày mai sẽ có nhiệt độ gần bằng hôm nay"
 
     def test_precipitation_phrases_read_as_vietnamese_clock_times(self):
@@ -123,7 +123,7 @@ class TestVietnameseWeather:
         now = datetime(2026, 8, 24, 12, 10)
         hourly = {
             "time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
-            "precipitation_probability": [0, 0, 0, 0, 0, 80],
+            "precipitation_probability": [0, 0, 0, 0, 0, 70],
             "weather_code": [0, 0, 0, 0, 0, 95],
         }
         assert "Mưa dông có thể bắt đầu vào khoảng 17h" in _precipitation_line(hourly, now, runtime)
@@ -146,7 +146,7 @@ class TestEsperantoWeather:
         now = datetime(2026, 8, 24, 15)
         warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
-        assert warmer == "Morgaŭ estos iom pli varme ol hodiaŭ"
+        assert warmer == "Morgaŭ estos je 3 gradoj pli varme ol hodiaŭ"
         assert same == "Morgaŭ estos proksimume same varme kiel hodiaŭ"
 
     def test_precipitation_phrases_read_as_clock_times(self):
@@ -154,7 +154,7 @@ class TestEsperantoWeather:
         now = datetime(2026, 8, 24, 12, 10)
         hourly = {
             "time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
-            "precipitation_probability": [0, 0, 0, 0, 0, 80],
+            "precipitation_probability": [0, 0, 0, 0, 0, 70],
             "weather_code": [0, 0, 0, 0, 0, 95],
         }
         line = _precipitation_line(hourly, now, runtime)
@@ -180,16 +180,16 @@ class TestTurkishWeather:
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
         earlier = comparative_sentence({"temperature_2m_max": [20, 24, 22]},
                                        datetime(2026, 8, 24, 9), runtime)
-        assert warmer == "Yarın bugünden biraz daha sıcak olacak"
+        assert warmer == "Yarın bugünden 3 derece daha sıcak olacak"
         assert same == "Yarın bugünle yaklaşık aynı sıcaklıkta olacak"
-        assert earlier == "Bugün dünden daha sıcak olacak"
+        assert earlier == "Bugün dünden 4 derece daha sıcak olacak"
 
     def test_precipitation_phrases_read_as_clock_times(self):
         runtime = SimpleNamespace(lang="tr", use_24h=True)
         now = datetime(2026, 8, 24, 12, 10)
         hourly = {
             "time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
-            "precipitation_probability": [0, 0, 0, 0, 0, 80],
+            "precipitation_probability": [0, 0, 0, 0, 0, 70],
             "weather_code": [0, 0, 0, 0, 0, 95],
         }
         line = _precipitation_line(hourly, now, runtime)
@@ -212,7 +212,7 @@ class TestRussianWeather:
         now = datetime(2026, 8, 24, 15)
         warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
-        assert warmer == "Завтра будет немного теплее, чем сегодня"
+        assert warmer == "Завтра будет на 3 градуса теплее, чем сегодня"
         assert same == "Завтра будет примерно так же тепло, как сегодня"
 
     def test_precipitation_phrases_read_as_clock_times(self):
@@ -220,7 +220,7 @@ class TestRussianWeather:
         now = datetime(2026, 8, 24, 12, 10)
         hourly = {
             "time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
-            "precipitation_probability": [0, 0, 0, 0, 0, 80],
+            "precipitation_probability": [0, 0, 0, 0, 0, 70],
             "weather_code": [0, 0, 0, 0, 0, 95],
         }
         line = _precipitation_line(hourly, now, runtime)
@@ -251,7 +251,7 @@ class TestRomanianWeather:
         now = datetime(2026, 8, 24, 15)
         warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
-        assert warmer == "Mâine va fi puțin mai cald decât azi"
+        assert warmer == "Mâine va fi cu 3 grade mai cald decât azi"
         assert same == "Mâine va fi cam la fel de cald ca azi"
 
     def test_precipitation_phrases_are_notes_on_the_kind(self):
@@ -260,7 +260,7 @@ class TestRomanianWeather:
         now = datetime(2026, 8, 24, 12, 10)
         hourly = {
             "time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
-            "precipitation_probability": [0, 0, 0, 0, 0, 80],
+            "precipitation_probability": [0, 0, 0, 0, 0, 70],
             "weather_code": [0, 0, 0, 0, 0, 95],
         }
         assert "Furtună probabil în jur de 17:00" in _precipitation_line(hourly, now, runtime)
@@ -285,7 +285,7 @@ class TestCzechWeather:
         now = datetime(2026, 8, 24, 15)
         warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
-        assert warmer == "Zítra bude o něco tepleji než dnes"
+        assert warmer == "Zítra bude o 3 stupně tepleji než dnes"
         assert same == "Zítra bude přibližně stejně teplo jako dnes"
 
     def test_precipitation_phrases_read_as_clock_times(self):
@@ -293,7 +293,7 @@ class TestCzechWeather:
         now = datetime(2026, 8, 24, 12, 10)
         hourly = {
             "time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
-            "precipitation_probability": [0, 0, 0, 0, 0, 80],
+            "precipitation_probability": [0, 0, 0, 0, 0, 70],
             "weather_code": [0, 0, 0, 0, 0, 95],
         }
         assert "Bouřka pravděpodobně začne kolem 17:00" in _precipitation_line(hourly, now, runtime)
@@ -329,16 +329,16 @@ class TestSwahili:
                                   metric=True, precip_unit="mm")
         now = datetime(2026, 8, 24, 15)
         assert comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime) == (
-            "Joto la kesho litakuwa juu kidogo kuliko la leo")
+            "Joto la kesho litakuwa nyuzi 3 juu kuliko la leo")
         assert comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime) == (
             "Joto la kesho litakuwa karibu sawa na la leo")
         assert comparative_sentence({"temperature_2m_max": [20, 21, 22]},
                                     now.replace(hour=9), runtime) == (
             "Joto la leo litakuwa karibu sawa na la jana")
         assert comparative_sentence({"temperature_2m_max": [20, 21, 18]}, now, runtime) == (
-            "Joto la kesho litakuwa chini kidogo kuliko la leo")
+            "Joto la kesho litakuwa nyuzi 3 chini kuliko la leo")
         hourly = {"time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
-                  "precipitation_probability": [0, 0, 0, 0, 0, 80],
+                  "precipitation_probability": [0, 0, 0, 0, 0, 70],
                   "weather_code": [0, 0, 0, 0, 0, 95]}
         assert "Mvua ya radi huenda ikaanza karibu saa 17:00" in _precipitation_line(
             hourly, now.replace(hour=12, minute=10), runtime)
@@ -361,7 +361,7 @@ class TestSwahili:
                 ([code] * 3, "yataendelea" if drizzle else "itaendelea"),
             ):
                 hourly = {"time": times, "weather_code": codes,
-                          "precipitation_probability": [80 if c else 0 for c in codes]}
+                          "precipitation_probability": [70 if c else 0 for c in codes]}
                 when = "siku nzima" if codes == [code] * 3 else "hivi karibuni"
                 assert precipitation_sentence(hourly, now, runtime) == f"{desc} {suffix} {when}"
 
@@ -417,15 +417,15 @@ class TestTablesComplete:
     }
     # Keys a language needs that English does not: the Slavic few-form,
     # Romanian's one and its "de" form for a count of days, and a dawn
-    # and a dusk word where one twilight word will not do, and Swahili
-    # ma-class agreement for drizzle.
+    # and a dusk word where one twilight word will not do.
     EXTRAS = {"linecast._sunshine_i18n": {"in_days_few", "days_ago_few"},
-              "linecast._moon_i18n": {"in_days_one", "in_days_many"},
-              "linecast._weather_i18n": {"starting_ma", "ending_ma", "continuing_ma",
-                                        "ending_becoming_ma", "continuing_becoming_ma",
-                                        "starting_becoming_ma"}}
+              "linecast._moon_i18n": {"in_days_one", "in_days_many"}}
+    # Variants of an English key: Greek's one o'clock, the precipitation
+    # noun classes (Swahili ma-, the French, Finnish and Czech plurals),
+    # and the dative "by" a time of day in Russian and Ukrainian.
     VARIANTS = {"linecast._sunshine_i18n": ("_dawn", "_dusk"),
-                "linecast._weather_i18n": ("_one",)}
+                "linecast._weather_i18n": ("_one", "_ma", "_pl", "_by", "_few", "_many", "_diff",
+                                           "_diff_one", "_diff_few", "_then")}
 
     def _tables(self):
         import importlib
@@ -443,7 +443,11 @@ class TestTablesComplete:
         from linecast._i18n import LANGUAGE_CODES
         gaps = []
         for module, name, table in self._tables():
-            english = set(table["en"]) - self.DEFAULTS.get(module, set())
+            # A variant English happens to carry is optional elsewhere too
+            suffixes = self.VARIANTS.get(module, ())
+            english = {key for key in table["en"]
+                       if not any(key.endswith(end) and key[:-len(end)] in table["en"]
+                                  for end in suffixes)} - self.DEFAULTS.get(module, set())
             for lang in LANGUAGE_CODES:
                 missing = sorted(english - set(table.get(lang, {})))
                 if missing:
@@ -525,9 +529,9 @@ class TestWeatherLocaleImprovements:
             {"temperature_2m_max": [20, 21, 18]}, now, runtime
         )
 
-        assert warmer == ("Huomenna on hieman l\u00e4mpim\u00e4mp\u00e4\u00e4 "
+        assert warmer == ("Huomenna on 3 astetta l\u00e4mpim\u00e4mp\u00e4\u00e4 "
                           "kuin t\u00e4n\u00e4\u00e4n")
-        assert cooler == "Huomenna on hieman viile\u00e4mp\u00e4\u00e4 kuin t\u00e4n\u00e4\u00e4n"
+        assert cooler == "Huomenna on 3 astetta viile\u00e4mp\u00e4\u00e4 kuin t\u00e4n\u00e4\u00e4n"
 
     def test_standard_german_and_dutch_weekday_abbreviations(self):
         assert DAY_NAMES["de"] == ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
@@ -547,8 +551,7 @@ class TestJapaneseWeather:
 
         sentence = comparative_sentence(daily, datetime(2026, 8, 24, 10), runtime)
 
-        assert sentence == ("\u4eca\u65e5\u306f\u6628\u65e5\u3088\u308a"
-                            "\u6696\u304b\u304f\u306a\u308b")
+        assert sentence == "今日は昨日より10度暖かくなる"
 
     def test_partly_cloudy_is_idiomatic(self):
         assert WMO_NAMES_I18N["ja"][2] == "\u6674\u308c\u6642\u3005\u66c7\u308a"
@@ -573,28 +576,28 @@ class TestJapaneseWeather:
                 "2026-08-24T16:00",
                 "2026-08-24T17:00",
             ],
-            "precipitation_probability": [0, 0, 0, 0, 0, 80],
+            "precipitation_probability": [0, 0, 0, 0, 0, 70],
             "weather_code": [0, 0, 0, 0, 0, 63],
         }
 
         line = _precipitation_line(hourly, now, runtime)
 
-        assert "17\u6642\u9803\u306b\u96e8\u306e\u898b\u8fbc\u307f" in line
+        # Seventy percent is "likely"; eighty and up would drop the hedge
+        assert "17時頃に雨の見込み" in line
 
     def test_past_rain_uses_quantity_term_and_localized_unit(self):
         runtime = SimpleNamespace(lang="ja", metric=False)
         now = datetime(2026, 8, 24, 12)
         hourly = {
             "time": ["2026-08-24T11:00"],
-            "precipitation": [0.02],
+            "precipitation": [0.22],
             "snowfall": [0],
             "weather_code": [63],
         }
 
         line = _past_precip_line(hourly, now, runtime)
 
-        assert ("\u904e\u53bb24\u6642\u9593\u306e\u964d\u6c34\u91cf\uff1a"
-                "0.02\u30a4\u30f3\u30c1") in line
+        assert "過去24時間の降水量：0.22インチ" in line
 
 
 class TestTwilightDirection:

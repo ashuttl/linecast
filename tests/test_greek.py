@@ -32,7 +32,7 @@ def runtime(**overrides):
 def hourly(codes, start=NOW):
     return {"time": [(start + timedelta(hours=i)).isoformat() for i in range(len(codes))],
             "weather_code": codes,
-            "precipitation_probability": [80 if c else 0 for c in codes]}
+            "precipitation_probability": [70 if c else 0 for c in codes]}
 
 
 @pytest.mark.parametrize("locale", ["el_GR.UTF-8", "el_CY.UTF-8", "el-GR", "el"])
@@ -60,9 +60,9 @@ def test_greek_tables_keep_format_fields_and_weather_codes():
 
 
 @pytest.mark.parametrize("diff,comparison", [
-    (0, "περίπου στα ίδια επίπεδα με"), (2, "λίγο υψηλότερη από"),
-    (-2, "λίγο χαμηλότερη από"), (4, "υψηλότερη από"), (-4, "χαμηλότερη από"),
-    (8, "πολύ υψηλότερη από"), (-8, "πολύ χαμηλότερη από"),
+    (0, "περίπου στα ίδια επίπεδα με"), (2, "κατά 2 βαθμούς υψηλότερη από"),
+    (-2, "κατά 2 βαθμούς χαμηλότερη από"), (4, "κατά 4 βαθμούς υψηλότερη από"), (-4, "κατά 4 βαθμούς χαμηλότερη από"),
+    (8, "κατά 8 βαθμούς υψηλότερη από"), (-8, "κατά 8 βαθμούς χαμηλότερη από"),
 ])
 @pytest.mark.parametrize("hour,subject,reference", [(9, "Σήμερα", "χθες"), (15, "Αύριο", "σήμερα")])
 def test_temperature_comparisons_agree_with_temperature(diff, comparison, hour, subject, reference):
@@ -92,9 +92,9 @@ def test_intensifying_rain_crosses_midnight_without_losing_agreement():
     assert precipitation_sentence(hourly([61, 61, 65], now), now, runtime()) == (
         "Ασθενείς βροχές θα εξελιχθούν σε ισχυρές βροχές σε περίπου μία ώρα "
         "και τα φαινόμενα θα συνεχιστούν όλη την ημέρα")
+    # An hour of light rain at the edge of heavy rain is the heavy rain
     assert precipitation_sentence(hourly([0, 61, 65], now), now, runtime()) == (
-        "Ασθενείς βροχές πιθανότατα θα αρχίσουν σύντομα "
-        "και θα εξελιχθούν σε ισχυρές βροχές σε περίπου μία ώρα")
+        "Ισχυρές βροχές πιθανότατα θα αρχίσουν σε περίπου μία ώρα")
 
 
 @pytest.mark.parametrize("hour,phrase", [
@@ -156,7 +156,7 @@ def test_complete_paragraph_wraps_without_losing_text_or_doubling_punctuation(wi
     rows = [re.sub(r"\x1b\[[0-9;]*m", "", row)
             for row in narrative_lines(data, NOW, width, rt)]
     expected = (
-        "Σήμερα η θερμοκρασία θα είναι λίγο υψηλότερη από χθες. "
+        "Σήμερα η θερμοκρασία θα είναι κατά 2 βαθμούς υψηλότερη από χθες. "
         "Η υψηλή υγρασία αυξάνει την αισθητή θερμοκρασία. "
         "Βροχές πιθανότατα θα αρχίσουν γύρω στις "
         + ("17:00" if use_24h else "5 το απόγευμα") + ".")

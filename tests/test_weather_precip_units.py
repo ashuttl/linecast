@@ -51,15 +51,16 @@ def _today_row(mm, metric):
 
 
 class TestPastPrecipThreshold:
-    """The "rain in the last 24 hours" line, above and below 0.01"."""
+    """The "rain in the last 24 hours" line, above and below a tenth of
+    an inch, which is 2.5 mm."""
 
-    def test_a_trace_goes_unreported_in_either_unit(self):
-        assert _past_line(0.2, metric=True) == ""
-        assert _past_line(0.2, metric=False) == ""
+    def test_a_damp_pavement_goes_unreported_in_either_unit(self):
+        assert _past_line(2.0, metric=True) == ""
+        assert _past_line(2.0, metric=False) == ""
 
-    def test_a_measurable_amount_is_reported_in_either_unit(self):
-        assert _past_line(0.3, metric=True) != ""
-        assert _past_line(0.3, metric=False) != ""
+    def test_an_amount_worth_a_sentence_is_reported_in_either_unit(self):
+        assert _past_line(3.0, metric=True) != ""
+        assert _past_line(3.0, metric=False) != ""
 
 
 class TestDailyPrecipThreshold:

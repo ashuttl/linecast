@@ -95,17 +95,22 @@ def lang_of(runtime):
     return getattr(runtime, "lang", "en") if runtime else "en"
 
 
-# Languages whose sentences read a 12-hour time as another hour. Swahili
-# counts the hours from dawn, so "saa 1pm" reads as seven in the
-# morning; its screens write 24-hour digits (CLDR's HH:mm, AccuWeather's
-# 07:06), which no reader takes for Swahili time.
-SENTENCE_24H = frozenset({"sw"})
+# Languages whose sentences can carry a 12-hour time in their own words:
+# English's "6pm", Greek's "6 το απόγευμα".  Every other language writes
+# the 24-hour clock in running text whatever the country's habit -- a
+# French reader looking at Montréal gets "vers 18h", as Environment
+# Canada writes it, not an English "6pm".  Swahili has a further reason:
+# it counts the hours from dawn, so "saa 1pm" would read as seven in the
+# morning, and its 24-hour digits no reader takes for Swahili time.
+SENTENCE_12H = frozenset({"en", "el"})
 
 
 def sentence_24h(runtime):
     """Whether a time inside a sentence takes the 24-hour clock: the
-    user's choice, or always in a language of SENTENCE_24H."""
-    return bool(getattr(runtime, "use_24h", False)) or lang_of(runtime) in SENTENCE_24H
+    user's choice in a language of SENTENCE_12H, and always elsewhere."""
+    if lang_of(runtime) not in SENTENCE_12H:
+        return True
+    return bool(getattr(runtime, "use_24h", False))
 
 
 # Languages that write the percent sign before the number: %40.

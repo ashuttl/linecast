@@ -52,19 +52,25 @@ def fmt_hour(h, use_24h=False):
     return f"{h - 12}p"
 
 
+# The 24-hour hour as each language writes it in running text: "around
+# 15:00", "gegen 15 Uhr", "omkring kl. 15", "noin klo 15", "verso le 15",
+# "15시경", "15时左右".  French, Portuguese and Vietnamese write "15h".
+_HOUR_24 = {
+    "en": "{h:02d}:00", "es": "{h:02d}:00", "nl": "{h:02d}:00", "pl": "{h:02d}:00",
+    "uk": "{h:02d}:00", "eo": "{h:02d}:00", "tr": "{h:02d}:00", "ru": "{h:02d}:00",
+    "ro": "{h:02d}:00", "cs": "{h:02d}:00", "sw": "{h:02d}:00", "el": "{h:02d}:00",
+    "de": "{h} Uhr", "it": "{h}", "da": "kl. {h}", "no": "kl. {h}", "sv": "kl. {h}",
+    "is": "kl. {h}", "fi": "klo {h}", "id": "pukul {h}.00",
+    "ja": "{h}時", "ko": "{h}시", "zh": "{h}时", "zh-Hant": "{h}時", "th": "{h:02d} น.",
+}
+
+
 def fmt_hour_phrase(hour, use_24h=False, lang="en"):
-    """Conversational hour: '3pm' (12h), '15h' (24h), '15時' (Japanese),
-    '15 น.' (Thai), '15:00' (Ukrainian, Esperanto, Turkish, Russian,
-    Romanian, Czech, Greek, and Swahili)."""
+    """Conversational hour: '3pm' (12h), or the 24-hour form the language
+    writes in a sentence: '15:00', '15 Uhr', 'kl. 15', '15時'."""
     hour = hour % 24
     if use_24h:
-        if lang == "ja":
-            return f"{hour}時"
-        if lang == "th":
-            return f"{hour:02d} น."
-        if lang in ("uk", "eo", "tr", "ru", "ro", "cs", "sw", "el"):
-            return f"{hour:02d}:00"
-        return f"{hour:02d}h"
+        return _HOUR_24.get(lang, "{h:02d}h").format(h=hour)
     h12 = hour % 12 or 12
     if lang == "el":
         # Words fit running prose and avoid a full stop after an am/pm

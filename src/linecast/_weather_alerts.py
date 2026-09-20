@@ -4,7 +4,7 @@ from datetime import datetime
 
 from linecast import _theme
 from linecast._graphics import bg, fg, visible_len, RESET, BOLD
-from linecast._i18n import lang_of
+from linecast._i18n import lang_of, sentence_24h
 from linecast._runtime import log_failure
 from linecast._textwidth import truncate_display_width, wrap_display_width
 from linecast._weather_i18n import DAY_NAMES, _s
@@ -37,7 +37,9 @@ def _parse_alert_time(iso_str, runtime=None, tz_name=""):
         if tz_name and dt.tzinfo is not None:
             from zoneinfo import ZoneInfo
             dt = dt.astimezone(ZoneInfo(tz_name))
-        use_24h = runtime.use_24h if runtime else False
+        # A time in words, so it follows the sentence clock: English and
+        # Greek keep the user's 12-hour choice, the others write 18:00
+        use_24h = sentence_24h(runtime)
         day_names = DAY_NAMES.get(lang_of(runtime), DAY_NAMES["en"])
         day = day_names[dt.weekday()]
         if use_24h:
