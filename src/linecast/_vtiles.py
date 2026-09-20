@@ -26,6 +26,7 @@ Set LINECAST_VECTOR_TILES_URL to point at a self-hosted TileJSON; an
 override is the user's chosen source and gets no fallback.
 """
 
+import atexit
 import math
 import os
 import threading
@@ -315,20 +316,24 @@ def fetch_tile(z: int, x: int, y: int, timeout: float = 15) -> bytes | None:
     return data
 
 
-# One pool for the whole session: _http keeps its keep-alive connections
-# per thread, so a pool built per view threw its sockets away with its
-# threads and every pan paid a fresh TCP + TLS handshake per worker.
-_POOL: ThreadPoolExecutor | None = None
+# Two pools: one for the view on screen, a smaller one for guesses.
+# They stay separate because prefetch queues 20-odd tiles at a time, and
+# a view sharing that queue waits behind all of them.
+_POOLS: dict[str, ThreadPoolExecutor] = {}
 _POOL_LOCK = threading.Lock()
+_closed = False        # no pool after shutdown(); fetches run on the caller
+_prefetch_gen = 0      # bumped when the view moves; stale guesses stand down
 
 
-def _pool() -> ThreadPoolExecutor:
-    global _POOL
+def _pool(name: str = "view", workers: int = 8) -> ThreadPoolExecutor | None:
     with _POOL_LOCK:
-        if _POOL is None:
-            _POOL = ThreadPoolExecutor(max_workers=8,
-                                       thread_name_prefix="vtiles")
-        return _POOL
+        if _closed:
+            return None
+        pool = _POOLS.get(name)
+        if pool is None:
+            pool = _POOLS[name] = ThreadPoolExecutor(
+                max_workers=workers, thread_name_prefix=f"vtiles-{name}")
+        return pool
 
 
 def fetch_tiles(keys: list[tuple[int, int, int]], timeout: float = 15
@@ -336,6 +341,67 @@ def fetch_tiles(keys: list[tuple[int, int, int]], timeout: float = 15
     """{(z, x, y): bytes|None} for a batch, fetched concurrently."""
     if not keys:
         return {}
-    tile_info()  # warm the tilejson memo once, not in every worker
-    results = _pool().map(lambda k: fetch_tile(*k, timeout=timeout), keys)
+    tile_info()  # read the tilejson here rather than in every worker
+    stand_down()  # the view moved, so the old guesses are moot
+
+    def one(key):
+        return fetch_tile(*key, timeout=timeout)
+
+    pool = _pool()
+    results = map(one, keys) if pool is None else pool.map(one, keys)
     return dict(zip(keys, results))
+
+
+def _prefetch_one(gen: int, key: tuple[int, int, int]) -> None:
+    if gen != _prefetch_gen:
+        return  # the view moved on; nobody wants this tile now
+    fetch_tile(*key)
+
+
+def prefetch_tiles(keys: Iterable[tuple[int, int, int]]) -> None:
+    """Fetch tiles to the disk cache in the background, and return at once.
+
+    For the views a reader is likely to ask for next; a tile already on
+    disk costs a stat. Each tile checks the generation it was queued
+    under before it fetches, so once the view moves the rest cost
+    nothing. Nothing is asked for at all while the fallback is serving.
+    """
+    global _prefetch_gen
+    if _active_url == FALLBACK_TILEJSON_URL:
+        return  # OSM US rate-limits anonymous use; don't spend it on guesses
+    pool = _pool("prefetch", 2)
+    if pool is None:
+        return
+    with _POOL_LOCK:
+        _prefetch_gen += 1
+        gen = _prefetch_gen
+    for key in keys:
+        pool.submit(_prefetch_one, gen, key)
+
+
+def stand_down() -> None:
+    """Skip every prefetched tile that has not started yet."""
+    global _prefetch_gen
+    with _POOL_LOCK:
+        _prefetch_gen += 1
+
+
+def shutdown() -> None:
+    """Drop the pools without waiting on what is still queued.
+
+    Pool threads are not daemons, so the interpreter joins them on the
+    way out and a queue of guesses becomes a wait at the door. The live
+    map calls this as it quits; threading's exit hook catches every
+    other way out, and it runs before the join, where atexit runs after.
+    """
+    global _closed
+    stand_down()
+    with _POOL_LOCK:
+        _closed = True
+        pools = list(_POOLS.values())
+        _POOLS.clear()
+    for pool in pools:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+
+getattr(threading, "_register_atexit", atexit.register)(shutdown)

@@ -27,7 +27,8 @@ from linecast._png import DecodeMemo
 from linecast._radar_basemap import DotLayer, _bresenham, _edge_dots
 from linecast._runtime import debug_log, log_failure
 from linecast._theme import lerp_rgb
-from linecast._vtiles import fetch_tiles, iter_layer, tile_info, tiles_for_bbox
+from linecast._vtiles import (fetch_tiles, iter_layer, prefetch_tiles,
+                              tile_info, tiles_for_bbox)
 
 # Fill ids double as indices into style.FILL_ORDER, so the id order *is*
 # the stacking order: water over park (a pond in a park), park over
@@ -82,6 +83,49 @@ def view_tiles(bbox, height_cells):
         z_src -= 1
         keys = tiles_for_bbox(bbox, z_src)
     return band, z_src, keys
+
+
+_last_span = [None]   # the last view's height, for which way a zoom went
+
+
+def prefetch_around(bbox, height_cells, keys):
+    """Queue the tiles a pan or another zoom the same way will want.
+
+    A ring around the view's own tiles covers a pan. A zoom is the slow
+    one cold, since a change of source zoom means nothing on disk is
+    theirs, but guessing both ways is most of the tiles asked for in a
+    session, so only the way the reader just went is guessed.
+    """
+    if not keys:
+        return
+    z = keys[0][0]
+    n = 1 << z
+    xs = [k[1] for k in keys]
+    ys = [k[2] for k in keys]
+    x0, x1 = min(xs), max(xs)
+    if x1 - x0 > n // 2:  # the view straddles the antimeridian, so take the lot
+        x0, x1 = 0, n - 1
+    ring = {(z, x % n, y)
+            for x in range(x0 - 1, x1 + 2)
+            for y in range(max(0, min(ys) - 1), min(n - 1, max(ys) + 1) + 1)}
+    minlon, minlat, maxlon, maxlat = bbox
+    span = maxlat - minlat
+    last, _last_span[0] = _last_span[0], span
+    zoomed = []
+    # a pan leaves the span alone; a rounding-sized change is a pan too
+    if last is not None and abs(span - last) > last * 0.01:
+        step = style.ZOOM_STEP if span > last else 1.0 / style.ZOOM_STEP
+        cx, cy = (minlon + maxlon) / 2, (minlat + maxlat) / 2
+        hx = (maxlon - minlon) * step / 2
+        hy = span * step / 2
+        if hy < 85:
+            _band, _z, zoomed = view_tiles(
+                (cx - hx, max(-85.0, cy - hy), cx + hx, min(85.0, cy + hy)),
+                height_cells)
+    want = set(keys)
+    # the zoom first: a pan can lean on the ring, a zoom has nothing
+    prefetch_tiles([k for k in zoomed if k not in want]
+                   + sorted(ring - want))
 
 
 def fetch_view(bbox, height_cells):

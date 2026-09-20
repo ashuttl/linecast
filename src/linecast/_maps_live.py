@@ -25,6 +25,7 @@ from linecast._maps_i18n import ms
 from linecast._maps_search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
 )
+from linecast import _vtiles
 from linecast._maps_views import _zoom_hold
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, log_failure, maps_parser, set_current
@@ -401,6 +402,9 @@ class MapApp(LiveApp):
 
     def stop(self):
         self.spinning = 0  # the loop is over; let the spin thread park
+        # tile workers are not daemons, so a queue of prefetched tiles
+        # would be a wait between q and the shell
+        _vtiles.shutdown()
 
 
 def main():

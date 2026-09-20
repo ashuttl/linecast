@@ -293,6 +293,11 @@ BAND_EDGES = (4.0, 6.0, 8.0, 10.5, 11.5, 13.0, 14.5)   # 7 cuts -> B0..B7
 # have names.  Terrain opens wide, which is where relief reads.
 DEFAULT_ZOOM = {"street": 0.05, "terrain": 4.0}
 
+# What one + or - press does to the zoom. Matches radar, so the two
+# views feel the same. Prefetch guesses the next view with it too, so
+# it lives here rather than in either caller.
+ZOOM_STEP = 1.5
+
 
 def band_for(z):
     return sum(z >= e for e in BAND_EDGES)

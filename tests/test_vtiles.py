@@ -232,3 +232,68 @@ class TestFetchTile:
         keys = [(14, 1, 1), (14, 2, 1)]
         assert vt.fetch_tiles(keys) == {k: b"x" for k in keys}
         assert vt.fetch_tiles([]) == {}
+
+
+class TestPrefetch:
+    """Speculative tiles must never delay the view, or the way out."""
+
+    @pytest.fixture(autouse=True)
+    def pools(self):
+        """Each test gets its own pools, and leaves none behind."""
+        vt._POOLS.clear()
+        vt._closed = False
+        yield
+        vt.shutdown()
+        vt._POOLS.clear()
+        vt._closed = False
+
+    def test_a_view_does_not_queue_behind_prefetched_tiles(self, monkeypatch):
+        import threading
+        import time
+
+        started = threading.Event()
+        release = threading.Event()
+        fetched = []
+
+        def slow_fetch(z, x, y, timeout=15):
+            fetched.append((z, x, y))
+            if z == 13:                 # a prefetched tile: hold the worker
+                started.set()
+                release.wait(5)
+            return b""
+
+        monkeypatch.setattr(vt, "fetch_tile", slow_fetch)
+        monkeypatch.setattr(vt, "tile_info", lambda: (TEMPLATE, "v", 14))
+        vt.prefetch_tiles([(13, x, 0) for x in range(40)])
+        assert started.wait(5)
+        try:
+            start = time.monotonic()
+            assert vt.fetch_tiles([(14, 1, 1)]) == {(14, 1, 1): b""}
+            assert time.monotonic() - start < 2  # not waiting on the prefetch
+        finally:
+            release.set()
+        # the view moved, so the tiles still queued for the old one are
+        # dropped rather than fetched: only the held workers got that far
+        vt.shutdown()
+        assert len([k for k in fetched if k[0] == 13]) <= 2
+
+    def test_nothing_speculative_while_the_fallback_serves(self, monkeypatch):
+        fetched = []
+        monkeypatch.setattr(vt, "fetch_tile",
+                            lambda z, x, y, timeout=15: fetched.append(z))
+        monkeypatch.setattr(vt, "tile_info", lambda: (TEMPLATE, "v", 14))
+        monkeypatch.setattr(vt, "_active_url", vt.FALLBACK_TILEJSON_URL)
+        vt.prefetch_tiles([(13, x, 0) for x in range(8)])
+        vt.shutdown()
+        assert not fetched   # OSM US rate-limits; the view needs that budget
+
+    def test_shutdown_leaves_the_queue_where_it_is(self, monkeypatch):
+        fetched = []
+        monkeypatch.setattr(vt, "fetch_tile",
+                            lambda z, x, y, timeout=15: fetched.append(z))
+        monkeypatch.setattr(vt, "tile_info", lambda: (TEMPLATE, "v", 14))
+        vt.shutdown()
+        vt.prefetch_tiles([(13, x, 0) for x in range(8)])
+        assert not fetched
+        # and a view still renders, on the caller's own thread
+        assert vt.fetch_tiles([(14, 1, 1)]) == {(14, 1, 1): None}
