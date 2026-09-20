@@ -14,6 +14,7 @@ elsewhere).
 import argparse
 import os
 
+from linecast._commands import formatter_class
 from linecast._runtime import VersionAction, resolve_clock
 from linecast._config import read_config, save_config, saved_clock
 
@@ -54,7 +55,9 @@ def _cmd_auto():
 def main():
     parser = argparse.ArgumentParser(
         prog="linecast clock",
+        usage="%(prog)s [show | 12 | 24 | auto]",
         description="Show or set the preferred clock style (12-hour or 24-hour)",
+        formatter_class=formatter_class(),
     )
     parser.add_argument("--version", action=VersionAction)
     sub = parser.add_subparsers(dest="action")

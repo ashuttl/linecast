@@ -15,6 +15,7 @@ import os
 from linecast._i18n import (
     LANGUAGES, LANGUAGE_NAMES, VARIANT_NAMES, VARIANTS, canonical_language, is_language_code,
 )
+from linecast._commands import formatter_class
 from linecast._runtime import LOCALE_VARS, VersionAction, resolve_lang
 from linecast._config import read_config, save_config, saved_language
 
@@ -76,7 +77,9 @@ def main():
     variants = ", ".join(VARIANTS)
     parser = argparse.ArgumentParser(
         prog="linecast language",
+        usage="%(prog)s [show | <code> | auto]",
         description="Show or set the language linecast speaks",
+        formatter_class=formatter_class(),
         epilog=f"Languages: {codes}; the regional variants {variants}. A "
                "locale's name works too (zh-TW is zh-Hant, pt_BR is pt), and "
                "another two-letter code is kept for the providers that "
@@ -85,7 +88,7 @@ def main():
     )
     parser.add_argument("--version", action=VersionAction)
     parser.add_argument("action", nargs="?", default="show",
-                        metavar="show|<code>|auto",
+                        metavar="show | <code> | auto",
                         help="show the current language (default), save a "
                              "language code, or auto to follow the "
                              "terminal's language")

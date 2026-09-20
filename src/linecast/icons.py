@@ -14,6 +14,7 @@ Unicode when piped).
 
 import argparse
 
+from linecast._commands import formatter_class
 from linecast._runtime import ICON_SETS, VersionAction
 from linecast._config import read_config, save_config, saved_icons
 
@@ -60,7 +61,9 @@ def _cmd_auto():
 def main():
     parser = argparse.ArgumentParser(
         prog="linecast icons",
+        usage="%(prog)s [show | nerd | emoji | plain | auto]",
         description="Show or set the preferred icon set",
+        formatter_class=formatter_class(),
     )
     parser.add_argument("--version", action=VersionAction)
     sub = parser.add_subparsers(dest="action")

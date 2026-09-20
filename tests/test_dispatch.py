@@ -66,7 +66,7 @@ class Argv0DispatchTests(unittest.TestCase):
         ran = self._dispatch("/usr/bin/linecast", "clock", "12")
         self.assertEqual(ran["module"], "linecast.clock")
         self.assertEqual(ran["argv"], ["linecast clock", "12"])
-        self.assertIn("linecast clock", cli.HELP)
+        self.assertIn("linecast clock", self._help_output("/usr/bin/linecast"))
 
     def test_every_standalone_name_is_a_command(self):
         for name in cli.STANDALONE:
@@ -87,6 +87,11 @@ class Argv0DispatchTests(unittest.TestCase):
         self.assertEqual(exc.exception.code, 0)
         return out.getvalue()
 
+    def _unwrapped_help(self, argv0):
+        # argparse wraps the page to the terminal; a sentence is compared
+        # on one line
+        return " ".join(self._help_output(argv0).split())
+
     def _expect_help(self, argv0):
         self.assertIn("linecast weather", self._help_output(argv0))
 
@@ -101,17 +106,33 @@ class Argv0DispatchTests(unittest.TestCase):
     def test_python_m_linecast_is_not_dispatched(self):
         self._expect_help("/somewhere/linecast/__main__.py")
 
+    def test_help_names_every_command(self):
+        out = self._help_output("/usr/bin/linecast")
+        for name in (*cli.COMMANDS, "completion"):
+            with self.subTest(name=name):
+                self.assertIn(f"  linecast {name} ", out)
+
     def test_help_names_every_language(self):
         from linecast._i18n import LANGUAGE_CODES
+        out = self._help_output("/usr/bin/linecast")
         for code in LANGUAGE_CODES:
             with self.subTest(code=code):
-                self.assertRegex(cli.HELP, rf"\b{code}\b")
+                self.assertRegex(out, rf"\b{code}\b")
 
     def test_help_names_every_calendar(self):
         from linecast._config import CALENDAR_CHOICES
+        out = self._help_output("/usr/bin/linecast")
         for name in CALENDAR_CHOICES:
             with self.subTest(name=name):
-                self.assertRegex(cli.HELP, rf"\b{name}\b")
+                self.assertRegex(out, rf"\b{name}\b")
+
+    def test_help_shares_the_commands_own_blurbs(self):
+        # `linecast --help` and `linecast weather --help` open with the
+        # same line, so the two pages cannot drift
+        from linecast._runtime import weather_parser, maps_parser
+        for parser in (weather_parser(), maps_parser()):
+            with self.subTest(prog=parser.prog):
+                self.assertIn(parser.description, self._unwrapped_help("/usr/bin/linecast"))
 
     def test_help_ends_with_the_moon_tonight(self):
         # The one thing the help page can say about the sky without a
@@ -121,8 +142,8 @@ class Argv0DispatchTests(unittest.TestCase):
 
     def test_help_survives_the_moon_going_wrong(self):
         with mock.patch("linecast.sunshine.moon_phase", side_effect=RuntimeError("no sky")):
-            out = self._help_output("/usr/bin/linecast")
-        self.assertTrue(out.rstrip().endswith("Run any command with --help for options."))
+            out = self._unwrapped_help("/usr/bin/linecast")
+        self.assertTrue(out.endswith("Run any command with --help for options."))
 
 
 if __name__ == "__main__":

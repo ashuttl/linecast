@@ -6,6 +6,7 @@ import os
 import re
 import sys
 
+from linecast._commands import BLURB, formatter_class
 from linecast._i18n import LANGUAGE_CODES, VARIANTS
 
 
@@ -427,49 +428,77 @@ class VersionAction(argparse.Action):
         parser.exit()
 
 
-def _base_parser(prog, description):
-    p = argparse.ArgumentParser(prog=prog, description=description,
+def _base_parser(prog, description, units=None, clock=False, json=False,
+                 temperature_scale=False):
+    """A view command's parser, with its help page in sections.
+
+    The command adds its own flags straight to the parser, and they
+    print first, under "options".  The flags every view shares follow
+    in sections of their own, made here because argparse prints
+    sections in the order they are made.  *units* is the pair of help
+    strings for --metric and --imperial; *temperature_scale* adds
+    --celsius and --fahrenheit beside them; *clock* adds --24h and
+    --12h; *json* adds --json to the output section.
+    """
+    p = argparse.ArgumentParser(prog=prog, usage="%(prog)s [options]",
+                                description=description, add_help=False,
+                                formatter_class=formatter_class(),
                                 epilog="In a live view, press ? for controls; Esc closes help.")
-    p.add_argument("--version", action=VersionAction)
-    p.add_argument("--print", dest="print_mode", action="store_true",
-                    help="single static snapshot (no live mode)")
-    p.add_argument("--live", action="store_true",
-                    help="force live mode (default when interactive)")
-    p.add_argument("--oneline", action="store_true",
-                    help="compact single-line output")
-    p.add_argument("--icons", choices=("nerd", "emoji", "plain"), default=None,
-                    help="icon set: Nerd Font glyphs, standard emoji, or "
-                         "plain Unicode (default: nerd where the terminal "
-                         "bundles the glyphs, emoji on other interactive "
-                         "terminals, plain when piped or redirected)")
-    p.add_argument("--emoji", action="store_true",
-                    help="use standard emoji icons (same as --icons emoji)")
-    p.add_argument("--lang", default=None,
-                    help=f"language code ({', '.join(LANGUAGE_CODES)}; "
-                         f"{', '.join(VARIANTS)} for the regional variants); "
-                         "'linecast language' saves one")
-    p.add_argument("--classic-colors", action="store_true",
-                    help="use pre-theme fixed color palette")
-    p.add_argument("--legacy-colors", action="store_true",
-                    help="alias for --classic-colors")
-    p.add_argument("--debug", action="store_true",
-                    help="show diagnostic info on stderr")
+    title = {(True, True): "units, clock, and language",
+             (True, False): "units and language",
+             (False, True): "clock and language",
+             (False, False): "language"}[(bool(units), clock)]
+    locale = p.add_argument_group(title)
+    if units:
+        metric_help, imperial_help = units
+        g = locale.add_mutually_exclusive_group()
+        g.add_argument("--metric", action="store_true", help=metric_help)
+        g.add_argument("--imperial", action="store_true", help=imperial_help)
+    if temperature_scale:
+        locale.add_argument("--celsius", action="store_true",
+                            help="celsius temperatures only")
+        locale.add_argument("--fahrenheit", action="store_true",
+                            help="fahrenheit temperatures")
+    if clock:
+        # explicit dest: "12h" is not a Python identifier
+        g = locale.add_mutually_exclusive_group()
+        g.add_argument("--24h", dest="clock", action="store_const", const="24",
+                       default=None, help="24-hour clock")
+        g.add_argument("--12h", dest="clock", action="store_const", const="12",
+                       help="12-hour clock")
+    locale.add_argument("--lang", metavar="CODE", default=None,
+                        help=f"language code ({', '.join(LANGUAGE_CODES)}; "
+                             f"{', '.join(VARIANTS)} for the regional variants); "
+                             "'linecast language' saves one")
+    looks = p.add_argument_group("icons and colours")
+    looks.add_argument("--icons", choices=("nerd", "emoji", "plain"), default=None,
+                       help="icon set: Nerd Font glyphs, standard emoji, or "
+                            "plain Unicode (default: nerd where the terminal "
+                            "bundles the glyphs, emoji on other interactive "
+                            "terminals, plain when piped or redirected)")
+    looks.add_argument("--emoji", action="store_true",
+                       help="use standard emoji icons (same as --icons emoji)")
+    looks.add_argument("--classic-colors", action="store_true",
+                       help="use pre-theme fixed color palette")
+    looks.add_argument("--legacy-colors", action="store_true",
+                       help="alias for --classic-colors")
+    output = p.add_argument_group("output")
+    output.add_argument("--print", dest="print_mode", action="store_true",
+                        help="single static snapshot (no live mode)")
+    output.add_argument("--live", action="store_true",
+                        help="force live mode (default when interactive)")
+    output.add_argument("--oneline", action="store_true",
+                        help="compact single-line output")
+    if json:
+        output.add_argument("--json", dest="json_mode", action="store_true",
+                            help="machine-readable JSON output (implies --print)")
+    other = p.add_argument_group("other")
+    other.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS,
+                       help="show this help message and exit")
+    other.add_argument("--version", action=VersionAction)
+    other.add_argument("--debug", action="store_true",
+                       help="show diagnostic info on stderr")
     return p
-
-
-def _add_units_flags(p, metric_help, imperial_help):
-    g = p.add_mutually_exclusive_group()
-    g.add_argument("--metric", action="store_true", help=metric_help)
-    g.add_argument("--imperial", action="store_true", help=imperial_help)
-
-
-def _add_clock_flags(p):
-    # explicit dest: "12h" is not a Python identifier
-    g = p.add_mutually_exclusive_group()
-    g.add_argument("--24h", dest="clock", action="store_const", const="24",
-                    default=None, help="24-hour clock")
-    g.add_argument("--12h", dest="clock", action="store_const", const="12",
-                    help="12-hour clock")
 
 
 # What the weather temperature graph spans; the first is the default.
@@ -477,20 +506,14 @@ TEMP_RANGES = ("auto", "climate", "forecast", "world")
 
 
 def weather_parser():
-    p = _base_parser("linecast weather",
-                      "Terminal weather dashboard with braille temperature "
-                      "curve and alerts")
-    p.add_argument("--location", default=None,
+    p = _base_parser("linecast weather", BLURB["weather"],
+                      units=("metric units: celsius, km/h, mm",
+                             "imperial units: fahrenheit, mph, inches"),
+                      temperature_scale=True, clock=True, json=True)
+    p.add_argument("--location", metavar="PLACE", default=None,
                     help="location as 'lat,lng' or place name")
-    p.add_argument("--search", default=None,
+    p.add_argument("--search", metavar="QUERY", default=None,
                     help="search for a location and exit")
-    _add_units_flags(p, "metric units: celsius, km/h, mm",
-                     "imperial units: fahrenheit, mph, inches")
-    _add_clock_flags(p)
-    p.add_argument("--celsius", action="store_true",
-                    help="celsius temperatures only")
-    p.add_argument("--fahrenheit", action="store_true",
-                    help="fahrenheit temperatures")
     p.add_argument("--temp-range", dest="temp_range",
                     choices=TEMP_RANGES, default=TEMP_RANGES[0],
                     help="what the temperature graph spans: auto (default) uses "
@@ -499,36 +522,29 @@ def weather_parser():
                          "forecast, world spans -40 to 50°C")
     p.add_argument("--no-shading", action="store_true",
                     help="disable daylight shading on hourly chart")
-    p.add_argument("--json", dest="json_mode", action="store_true",
-                    help="machine-readable JSON output (implies --print)")
     return p
 
 
 def tides_parser():
-    p = _base_parser("linecast tides",
-                      "Terminal tide chart with braille rendering")
-    p.add_argument("--location", default=None,
+    p = _base_parser("linecast tides", BLURB["tides"],
+                      units=("heights in meters", "heights in feet"),
+                      clock=True, json=True)
+    p.add_argument("--location", metavar="PLACE", default=None,
                     help="find the nearest station to 'lat,lng' or a "
                          "place name instead of your location")
     p.add_argument("--station", default=None,
                     help="station ID or name (any provider)")
-    p.add_argument("--search", nargs="?", const="", default=None,
+    p.add_argument("--search", metavar="QUERY", nargs="?", const="", default=None,
                     help="search for a station and exit "
                          "(no query: list nearest stations)")
     p.add_argument("--nearby", action="store_true",
                     help="list the nearest tide stations and exit")
-    _add_units_flags(p, "heights in meters",
-                     "heights in feet")
-    _add_clock_flags(p)
-    p.add_argument("--json", dest="json_mode", action="store_true",
-                    help="machine-readable JSON output (implies --print)")
     return p
 
 
 def sunshine_parser():
-    p = _base_parser("linecast sunshine",
-                      "Solar arc inspired by the Apple Watch Solar face")
-    p.add_argument("--location", default=None,
+    p = _base_parser("linecast sunshine", BLURB["sunshine"], clock=True, json=True)
+    p.add_argument("--location", metavar="PLACE", default=None,
                     help="location as 'lat,lng' or place name")
     p.add_argument("--year", action="store_true",
                     help="year view: a column of sky for each day, with "
@@ -537,7 +553,7 @@ def sunshine_parser():
                     help="in the year view, plot each day in its own UTC "
                          "offset so clock changes show as steps (default: "
                          "the location's current offset all year)")
-    p.add_argument("--hours", choices=HOURS_CHOICES, default=None,
+    p.add_argument("--hours", metavar="SYSTEM", choices=HOURS_CHOICES, default=None,
                     help="read the day in a tradition's hours: the zmanim "
                          "by the Gr\"a (halachic) or the Magen Avraham "
                          "(halachic-mga), the twelve horae and four "
@@ -554,21 +570,17 @@ def sunshine_parser():
                          "saa 1 at seven (swahili). Default: the "
                          "`linecast hours` setting, else swahili with "
                          "--lang sw, else none")
-    _add_clock_flags(p)
-    p.add_argument("--json", dest="json_mode", action="store_true",
-                    help="machine-readable JSON output (implies --print)")
     return p
 
 
 def moon_parser():
-    p = _base_parser("linecast moon",
-                      "Moon phase, illumination, and rise/set times")
-    p.add_argument("--location", default=None,
+    p = _base_parser("linecast moon", BLURB["moon"], clock=True, json=True)
+    p.add_argument("--location", metavar="PLACE", default=None,
                     help="location as 'lat,lng' or place name")
     p.add_argument("--grid", action="store_true",
                     help="open on the month view: a calendar of the "
                          "month's phases (v flips between the views)")
-    p.add_argument("--calendar",
+    p.add_argument("--calendar", metavar="NAME",
                     choices=("chinese", "japanese", "korean", "vietnamese",
                              "thai", "hawaiian", "samoan", "chamorro",
                              "refaluwasch", "islamic", "hebrew", "almanac",
@@ -587,56 +599,50 @@ def moon_parser():
                          "gardening rule and solunar periods (almanac). "
                          "Default: the calendar native to "
                          "--lang zh, zh-Hant, ja, ko, vi, or th; none otherwise")
-    _add_clock_flags(p)
     p.add_argument("--week-start", choices=WEEK_STARTS, default=None,
                     help="the day the calendar's week opens on (default: "
                          "sunday in the United States, Canada, Japan, "
                          "Korea, and the other countries whose printed "
                          "calendars do; saturday in Egypt and the Gulf; "
                          "monday elsewhere)")
-    p.add_argument("--json", dest="json_mode", action="store_true",
-                    help="machine-readable JSON output (implies --print)")
     return p
 
 
 def sky_parser():
-    p = _base_parser("linecast sky",
-                      "The night sky from where you stand: stars, planets, "
-                      "the Moon, and the Milky Way")
-    p.add_argument("--location", default=None,
+    p = _base_parser("linecast sky", BLURB["sky"], clock=True, json=True)
+    p.add_argument("--location", metavar="PLACE", default=None,
                     help="location as 'lat,lng' or place name")
-    p.add_argument("--facing", default=None,
+    p.add_argument("--facing", metavar="DIRECTION", default=None,
                     help="which way to look: a compass point (N, NE, E, …) "
                          "or a bearing in degrees (default: the Moon if it "
                          "is up, else a bright planet, else south)")
-    p.add_argument("--at", default=None,
+    p.add_argument("--at", metavar="OBJECT", default=None,
                     help="open on a sky object by name or catalog ID "
                          "(Vega, Jupiter, Orion, M31), zoomed to frame it")
-    p.add_argument("--fov", type=float, default=None,
+    p.add_argument("--fov", metavar="DEGREES", type=float, default=None,
                     help="how many degrees of sky across the screen, 6 to "
                          "236 (default 110; zoom live with + and -)")
     from linecast._config import CULTURE_CHOICES
-    p.add_argument("--culture", choices=CULTURE_CHOICES, default=None,
+    p.add_argument("--culture", metavar="NAME", choices=CULTURE_CHOICES, default=None,
                     help="draw another tradition's constellations and star "
                          "names in place of the IAU's (t steps through them "
                          "live; 'linecast culture' saves one). Default: "
                          "chinese with --lang zh or zh-Hant; the IAU sky otherwise")
-    _add_clock_flags(p)
-    p.add_argument("--json", dest="json_mode", action="store_true",
-                    help="machine-readable JSON output (implies --print)")
     return p
 
 
 def radar_parser():
-    p = _base_parser("linecast radar",
-                      "Terminal weather radar over a braille basemap (US + global)")
-    p.add_argument("--location", default=None,
+    p = _base_parser("linecast radar", BLURB["radar"],
+                      units=("metric units: celsius, kilometres",
+                             "imperial units: fahrenheit, miles"),
+                      clock=True)
+    p.add_argument("--location", metavar="PLACE", default=None,
                     help="location as 'lat,lng' or place name")
-    p.add_argument("--search", default=None,
+    p.add_argument("--search", metavar="QUERY", default=None,
                     help="search for a location and exit")
-    p.add_argument("--zoom", type=float, default=6.0,
+    p.add_argument("--zoom", metavar="DEGREES", type=float, default=6.0,
                     help="degrees of latitude shown top-to-bottom (default 6)")
-    p.add_argument("--theme", default=None,
+    p.add_argument("--theme", metavar="NAME", default=None,
                     help="radar colour theme. Drawn in the terminal: "
                          "terminal (default; your own palette), dusk, "
                          "ember, ink, marangai. Rendered by LibreWXR: dark-sky, "
@@ -652,28 +658,25 @@ def radar_parser():
                     help="condition layers to show, comma-separated: "
                          "temp (temperature tint), wind (speed/direction "
                          "arrows); press c/w in live mode to toggle")
-    p.add_argument("--source", default=None,
+    p.add_argument("--source", metavar="NAME", default=None,
                     help="pin the frame source instead of routing by "
                          "location: librewxr, rainviewer, or iem "
                          "(NEXRAD, US only); for comparing what each "
                          "shows over the same spot")
-    _add_units_flags(p, "metric units: celsius, kilometres",
-                     "imperial units: fahrenheit, miles")
-    _add_clock_flags(p)
     return p
 
 
 def maps_parser():
-    p = _base_parser("linecast maps",
-                      "Street map and terrain map: vector streets, or "
-                      "hillshaded elevation under braille coastlines")
-    p.add_argument("--location", default=None,
+    p = _base_parser("linecast maps", BLURB["maps"],
+                      units=("metric units: kilometres and metres",
+                             "imperial units: miles and feet"))
+    p.add_argument("--location", metavar="PLACE", default=None,
                     help="location as 'lat,lng' or place name")
-    p.add_argument("--search", default=None,
+    p.add_argument("--search", metavar="QUERY", default=None,
                     help="search for a location and exit")
     # the default is per view and resolved in maps.main(): a street map
     # opens on a neighbourhood, terrain on a region
-    p.add_argument("--zoom", type=float, default=None,
+    p.add_argument("--zoom", metavar="DEGREES", type=float, default=None,
                     help="degrees of latitude shown top-to-bottom "
                          "(default 0.05 in street view, 4 in terrain)")
     p.add_argument("--view", choices=("street", "terrain", "now"),
@@ -681,15 +684,13 @@ def maps_parser():
                     help="vector street map or terrain relief (default "
                          "street); now opens the terrain planet with "
                          "daylight and clouds switched on")
-    p.add_argument("--to", default=None,
+    p.add_argument("--to", metavar="PLACE", default=None,
                     help="route to a place or 'lat,lng' from the origin")
-    p.add_argument("--from", dest="from_", metavar="FROM", default=None,
+    p.add_argument("--from", dest="from_", metavar="PLACE", default=None,
                     help="route from a place or 'lat,lng' "
                          "(default: your location)")
-    p.add_argument("--profile", default="car",
+    p.add_argument("--profile", metavar="MODE", default="car",
                     help="how to travel: car, bike or foot (default car)")
-    _add_units_flags(p, "metric units: kilometres and metres",
-                     "imperial units: miles and feet")
     return p
 
 
@@ -709,7 +710,7 @@ def doctor_parser():
     """`linecast doctor` has none of the view flags, so it is not a
     _base_parser; --version is the same action."""
     p = argparse.ArgumentParser(
-        prog="linecast doctor",
+        prog="linecast doctor", formatter_class=formatter_class(),
         description="Show where linecast keeps its files, what it sees of "
                     "the terminal, and which providers answer")
     p.add_argument("--version", action=VersionAction)

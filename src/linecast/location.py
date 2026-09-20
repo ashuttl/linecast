@@ -12,6 +12,7 @@ saved location (this command) > IP geolocation.
 import argparse
 import sys
 
+from linecast._commands import formatter_class
 from linecast._runtime import VersionAction
 from linecast._config import read_config, save_config, saved_location
 
@@ -77,16 +78,18 @@ def _cmd_search(query):
 def main():
     parser = argparse.ArgumentParser(
         prog="linecast location",
+        usage="%(prog)s [show | set PLACE | auto | search QUERY]",
         description="Show or set a fixed location that overrides IP geolocation",
+        formatter_class=formatter_class(),
     )
     parser.add_argument("--version", action=VersionAction)
     sub = parser.add_subparsers(dest="action")
     sub.add_parser("show", help="show the current location setting (default)")
     p_set = sub.add_parser("set", help="save a fixed location")
-    p_set.add_argument("query", help="place name or 'lat,lng'")
+    p_set.add_argument("query", metavar="PLACE", help="place name or 'lat,lng'")
     sub.add_parser("auto", help="clear the fixed location and use IP geolocation")
     p_search = sub.add_parser("search", help="list places matching a query")
-    p_search.add_argument("query")
+    p_search.add_argument("query", metavar="QUERY", help="part of a place name")
     args = parser.parse_args()
 
     if args.action == "set":

@@ -16,6 +16,7 @@ own (swahili with --lang sw) > none.
 import argparse
 
 from linecast._config import read_config, save_config, saved_hours
+from linecast._commands import formatter_class
 from linecast._runtime import HOURS_CHOICES, VersionAction
 
 _SET = {
@@ -83,10 +84,12 @@ def _cmd_auto():
 def main():
     parser = argparse.ArgumentParser(
         prog="linecast hours",
+        usage="%(prog)s [show | <hours> | auto]",
         description="Show or set the system of hours sunshine reads the day in",
+        formatter_class=formatter_class(),
     )
     parser.add_argument("--version", action=VersionAction)
-    sub = parser.add_subparsers(dest="action")
+    sub = parser.add_subparsers(dest="action", metavar="<hours>")
     sub.add_parser("show", help="show the current hours setting (default)")
     sub.add_parser("halachic",
                    help="the zmanim by the Gr\"a: sunrise to sunset in "

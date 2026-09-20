@@ -14,6 +14,7 @@ import argparse
 from linecast._config import (
     CULTURE_CHOICES, read_config, save_config, saved_culture,
 )
+from linecast._commands import formatter_class
 from linecast._runtime import VersionAction
 
 _NATURAL = "chinese with --lang zh; the IAU sky otherwise"
@@ -60,11 +61,13 @@ def main():
     lang = resolve_lang()[0]
     parser = argparse.ArgumentParser(
         prog="linecast culture",
+        usage="%(prog)s [show | <culture> | auto]",
         description="Show or set the sky culture the sky command draws: whose "
                     "constellations and star names it uses",
+        formatter_class=formatter_class(),
     )
     parser.add_argument("--version", action=VersionAction)
-    sub = parser.add_subparsers(dest="action")
+    sub = parser.add_subparsers(dest="action", metavar="<culture>")
     sub.add_parser("show", help="show the current culture setting (default)")
     for choice in CULTURE_CHOICES:
         if choice != "none":

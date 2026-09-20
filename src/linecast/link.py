@@ -17,6 +17,7 @@ import os
 import sys
 
 from linecast import _runtime
+from linecast._commands import formatter_class
 from linecast._runtime import VersionAction
 
 SHORT_NAMES = ("weather", "sunshine", "moon", "sky", "tides", "radar", "maps")
@@ -103,6 +104,7 @@ def link_parser():
     parser = argparse.ArgumentParser(
         prog="linecast link",
         description="Make (or remove) the short commands as links to linecast",
+        formatter_class=formatter_class(),
     )
     parser.add_argument("--version", action=VersionAction)
     parser.add_argument("--dir", default=None,

@@ -21,6 +21,7 @@ import argparse
 from linecast._config import (
     CALENDAR_CHOICES, read_config, save_config, saved_calendar,
 )
+from linecast._commands import formatter_class
 from linecast._runtime import VersionAction
 
 _NATURAL = ("chinese with --lang zh, japanese with ja, "
@@ -95,10 +96,12 @@ def _cmd_auto():
 def main():
     parser = argparse.ArgumentParser(
         prog="linecast calendar",
+        usage="%(prog)s [show | <calendar> | auto]",
         description="Show or set the traditional calendar the moon follows",
+        formatter_class=formatter_class(),
     )
     parser.add_argument("--version", action=VersionAction)
-    sub = parser.add_subparsers(dest="action")
+    sub = parser.add_subparsers(dest="action", metavar="<calendar>")
     sub.add_parser("show", help="show the current calendar setting (default)")
     sub.add_parser("chinese", help="农历 — months from new moons at UTC+8")
     sub.add_parser("japanese", help="旧暦 — the same rules at UTC+9")

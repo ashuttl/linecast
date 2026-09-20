@@ -3,48 +3,8 @@
 import errno
 import os
 import sys
-from textwrap import fill
+from linecast._commands import help_text
 from linecast._completion import available_shells, completion_help, render_completion
-from linecast._i18n import LANGUAGE_CODES
-
-_LANGUAGE_HELP = fill(
-    ", ".join(LANGUAGE_CODES), width=95,
-    initial_indent="  linecast language    ", subsequent_indent=" " * 23,
-)
-
-HELP = f"""\
-linecast {{version}} — weather, sunlight, the moon, the sky, tides, radar, and maps for the terminal
-
-  linecast weather     Conditions now, the day's temperature curve, the forecast, and alerts
-  linecast sunshine    The sun's arc across the sky, dawn to dusk, or the whole year
-  linecast moon        The moon as it looks tonight, its rise and set, and a month calendar
-  linecast sky         The stars, planets, and Milky Way over you, as you would see them
-  linecast tides       Tide chart from the nearest station, or a global model where there is none
-  linecast radar       Weather radar over a map, the last hour and the next
-  linecast maps        Street maps, hillshaded terrain, and routes
-
-Settings (run alone to show, give a value to set):
-  linecast location    A fixed place, instead of the one your IP address suggests
-{_LANGUAGE_HELP}
-  linecast units       metric or imperial
-  linecast clock       12-hour or 24-hour
-  linecast week        The day the moon calendar's week opens on: monday, sunday, or saturday
-  linecast icons       nerd, emoji, or plain
-  linecast calendar    Which calendar the moon follows: chinese, japanese, korean, vietnamese, thai,
-                       hawaiian, samoan, chamorro, refaluwasch, islamic, hebrew, almanac, or none
-  linecast culture     Whose constellations the sky draws: chinese, hawaiian, norse, maori,
-                       boorong, and seventeen more, or none for the IAU sky
-  linecast hours       Which hours sunshine reads the day in: halachic, halachic-mga, roman,
-                       japanese, islamic, swahili, or none
-  For one run, a flag: --location "Québec" or 41.88,-87.63, --lang fr, --imperial, --24h
-
-Housekeeping:
-  linecast link        Make weather, moon, … short commands beside linecast
-  linecast doctor      Where files live, what the terminal supports, which providers answer
-  linecast completion  Shell completion script for bash, zsh, fish, or nushell
-
-Run any command with --help for options.
-"""
 
 
 def sky_now():
@@ -166,7 +126,7 @@ def _main():
     # print it look it up.
     if not args or args[0] in ("-h", "--help"):
         from linecast import __version__
-        print(HELP.format(version=__version__).rstrip())
+        print(help_text(__version__))
         sky = sky_now()
         if sky:
             print()

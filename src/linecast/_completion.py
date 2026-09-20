@@ -65,8 +65,21 @@ def available_shells():
 
 
 def completion_help():
-    shell_list = ", ".join(SHELLS)
-    return f"Usage: linecast completion <shell>\nShells: {shell_list}"
+    """The --help page; argparse is imported here alone, so the script
+    a shell evaluates at startup is printed without it."""
+    import argparse
+    from linecast._commands import formatter_class
+    parser = argparse.ArgumentParser(
+        prog="linecast completion", usage="%(prog)s <shell>",
+        description="Print a completion script for the shell, covering every "
+                    "command, flag, and the short names",
+        epilog="Bash and zsh: source <(linecast completion bash). Fish: "
+               "linecast completion fish | source. Nushell: save the script "
+               "under ~/.config/nushell/completions and `use` it from config.nu.",
+        formatter_class=formatter_class())
+    parser.add_argument("shell", metavar="<shell>", choices=SHELLS,
+                        help="bash, zsh, fish, or nu (nushell)")
+    return parser.format_help().rstrip()
 
 
 def _value_hints():

@@ -371,4 +371,5 @@ class TestFlags:
     def test_the_dispatcher_lists_it(self, monkeypatch):
         cli = importlib.import_module("linecast.__main__")
         assert cli.COMMANDS["doctor"] == "linecast.doctor"
-        assert "  linecast doctor " in cli.HELP
+        from linecast._commands import help_text
+        assert "  linecast doctor " in help_text("0")

@@ -15,6 +15,7 @@ machine's IP).
 import argparse
 import os
 
+from linecast._commands import formatter_class
 from linecast._runtime import VersionAction, resolve_units
 from linecast._config import read_config, save_config, saved_units
 
@@ -59,7 +60,9 @@ def _cmd_auto():
 def main():
     parser = argparse.ArgumentParser(
         prog="linecast units",
+        usage="%(prog)s [show | metric | imperial | auto]",
         description="Show or set the preferred measurement units",
+        formatter_class=formatter_class(),
     )
     parser.add_argument("--version", action=VersionAction)
     sub = parser.add_subparsers(dest="action")

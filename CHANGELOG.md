@@ -5,6 +5,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 ## Unreleased
 
 - Weather: In Croatia, warnings filed by county are matched to your address by the county's boundary. They had been matched on the county's name.
+- Help: `linecast --help` is laid out and coloured like the commands' own pages, and wraps to the terminal. Each command's `--help` opens with a short usage line and lists its flags in sections, its own first, instead of one long list under a usage line that named every flag.
 - Maps: Each frame sent to the terminal is about half the size it was, since the map no longer repeats a colour the terminal is already using. Panning and rotating feel smoother on a slow terminal or over ssh.
 - Maps: The lights on the night side of the globe, and on the shaded terrain map, now come from NASA's Black Marble picture of the Earth at night, bundled with linecast, instead of one glow per city. They fade out as you zoom in to where the terrain has the detail.
 - Maps: While a street view loads after a pan or a zoom, the last view stays on screen, moved and scaled to where the new one will be, instead of bare ground. The tiles around the view, and one zoom step in the direction you last went, are fetched ahead while you read. Contributed by [@N30Yang](https://github.com/N30Yang) in [#117](https://github.com/ashuttl/linecast/pull/117).

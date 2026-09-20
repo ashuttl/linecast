@@ -580,7 +580,8 @@ class CompletionCommandTests(unittest.TestCase):
     def test_completion_subcommand_help(self):
         code, out, err = self._run_main("completion", "--help")
         self.assertEqual(code, 0)
-        self.assertIn("Usage: linecast completion <shell>", out)
+        self.assertIn("usage: linecast completion <shell>", out)
+        self.assertIn("nushell", out)
         self.assertEqual(err, "")
 
     def test_completion_subcommand_unknown_shell(self):

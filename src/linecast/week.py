@@ -15,6 +15,7 @@ everywhere else; judged by the saved location or the machine's IP).
 import argparse
 import os
 
+from linecast._commands import formatter_class
 from linecast._runtime import WEEK_STARTS, VersionAction, resolve_week_start
 from linecast._config import read_config, save_config, saved_week_start
 
@@ -56,7 +57,9 @@ def _cmd_auto():
 def main():
     parser = argparse.ArgumentParser(
         prog="linecast week",
+        usage="%(prog)s [show | monday | sunday | saturday | auto]",
         description="Show or set the day the moon calendar's week opens on",
+        formatter_class=formatter_class(),
     )
     parser.add_argument("--version", action=VersionAction)
     sub = parser.add_subparsers(dest="action")
