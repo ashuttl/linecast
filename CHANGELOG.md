@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Moon: The Moon is drawn round on wide and narrow terminal fonts alike. The view reads the font's cell shape from the terminal where it can; `LINECAST_CELL_ASPECT` overrides it.
+
 ## 2.7.0 — 2026-09-19
 
 linecast speaks Turkish, Esperanto, Russian, Romanian, Czech, Greek, Swahili, and Chinese in the traditional script, twenty-eight languages in all, and sunshine can read the day in the halachic, Roman, Edo, Islamic, or Swahili hours. Weather lets you change location from inside the view.

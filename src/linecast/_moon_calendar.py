@@ -24,7 +24,7 @@ from linecast import _live, _theme
 from linecast._ephemeris import _moon_events_for_local_date, next_moon_phase_utc
 from linecast._framebuffer import fmt_time_dt
 from linecast._graphics import (
-    Framebuffer, bg, fg, get_terminal_size, overlay, visible_len,
+    Framebuffer, bg, cell_aspect, fg, get_terminal_size, overlay, visible_len,
 )
 from linecast._i18n import lang_of
 from linecast._calendars.lunisolar import (
@@ -279,7 +279,8 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     grid_w = cell_w * 7
     left = (graph_w - grid_w) // 2
     row0 = 2 + max(0, (graph_h - 2 - cell_h * weeks) // 2)
-    radius = min(cell_h - 1.0, (cell_w - 2) / 2)
+    aspect = cell_aspect() / 2.0   # a sub-pixel's height in cell widths
+    radius = min((cell_h - 1.0) * aspect, (cell_w - 2) / 2)
 
     # The frame on screen is the one clicks and hovers land on, so its
     # geometry is kept for clicked_day() rather than recomputed.
@@ -353,7 +354,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
             if lat is not None and lat < 0:
                 limb = 360.0 - limb
             _moon._draw_moon_disc(fb, cx, cy, radius, illum, limb, 0.0,
-                                  night=_moon.MOON_NIGHT_RGB)
+                                  night=_moon.MOON_NIGHT_RGB, aspect=aspect)
         elif cell_h > 1 or cell_w >= 6:
             # No room to draw: the phase glyph stands in for the disc.
             # On a one-row cell it sits after the day number, and a

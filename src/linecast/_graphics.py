@@ -50,6 +50,7 @@ from linecast._framebuffer import (  # noqa: F401
     fmt_hour,
     fmt_time_dt,
     get_terminal_size,
+    cell_aspect,
     Framebuffer,
 )
 

@@ -34,7 +34,7 @@ from pathlib import Path
 
 from linecast._framebuffer import fmt_time_dt
 from linecast._graphics import (
-    lerp, visible_len, get_terminal_size, Framebuffer, live_loop,
+    lerp, visible_len, get_terminal_size, cell_aspect, Framebuffer, live_loop,
 )
 from linecast._i18n import lang_of
 from linecast._location import (
@@ -337,9 +337,10 @@ def _star_direction(ra, dec, sky):
     return (sin_rho * math.sin(bearing), -sin_rho * math.cos(bearing), -cos_rho)
 
 
-def _project_star(d, turn, cx, cy, radius):
+def _project_star(d, turn, cx, cy, radius, aspect=1.0):
     """The cell a star in direction *d* lands on, or None if it is behind
-    the viewer. *turn* is the disc's rotation, or None at rest."""
+    the viewer. *turn* is the disc's rotation, or None at rest; *aspect*
+    is a sub-pixel's height in cell widths (see render)."""
     if turn is not None:
         d = _mat_apply(turn, d)
     x, y, z = d
@@ -351,10 +352,10 @@ def _project_star(d, turn, cx, cy, radius):
     else:
         t = math.atan2(sin_t, -z) * _STAR_FOCAL * radius / sin_t
         dx, dy = x * t, y * t
-    return int(round(cx + dx)), int((cy + dy) // 2)
+    return int(round(cx + dx)), int((cy + dy / aspect) // 2)
 
 
-def _star_overlays(fb, cx, cy, radius, sky, taken=(), turn=None):
+def _star_overlays(fb, cx, cy, radius, sky, taken=(), turn=None, aspect=1.0):
     """The stars as character overlays, clear of the Moon.
 
     Returns {(col, row): (glyph, rgb, bold)}.  Stars are drawn as glyphs
@@ -369,7 +370,7 @@ def _star_overlays(fb, cx, cy, radius, sky, taken=(), turn=None):
     focal = _STAR_FOCAL * radius
     seen = 0.0
     for row in range(fb.graph_h):
-        dy = (row * 2 + 0.5) - cy
+        dy = ((row * 2 + 0.5) - cy) * aspect
         for x in range(fb.graph_w):
             dx = x - cx
             t = math.hypot(dx, dy) / focal
@@ -383,13 +384,14 @@ def _star_overlays(fb, cx, cy, radius, sky, taken=(), turn=None):
     keep_out = (radius + 3.0) ** 2
     stars = {}
     for i, (ra, dec) in enumerate(catalogue[:count]):
-        cell = _project_star(_star_direction(ra, dec, sky), turn, cx, cy, radius)
+        cell = _project_star(_star_direction(ra, dec, sky), turn, cx, cy, radius,
+                             aspect)
         if cell is None:
             continue
         x, row = cell
         if not (0 <= x < fb.graph_w and 0 <= row < fb.graph_h) or (x, row) in taken:
             continue
-        dx, dy = x - cx, (row * 2 + 0.5) - cy
+        dx, dy = x - cx, ((row * 2 + 0.5) - cy) * aspect
         if dx * dx + dy * dy < keep_out:
             continue
         # The glyph goes by rank among those shown, so the brightest few
@@ -492,7 +494,8 @@ class Turn:
     TICK = 1 / 30  # wakeups per second while settling
 
     def __init__(self):
-        self.radius = 40.0    # the disc's radius in sub-pixels, from the last render
+        self.radius = 40.0    # the disc's radius in cells, from the last render
+        self.aspect = 1.0     # a sub-pixel's height in cell widths, likewise
         self._base = None     # orientation when the drag began
         self._held = None     # orientation under the pointer, mid-drag
         self._settle = None   # (axis, angle, started) after a release
@@ -503,7 +506,7 @@ class Turn:
         if self._base is None:
             self._base = self.matrix() or _IDENTITY  # mid-settle: pick it up
             self._settle = None
-        dx, dy = float(dcol), 2.0 * drow   # a cell is two sub-pixels tall
+        dx, dy = float(dcol), 2.0 * drow * self.aspect   # a cell is two sub-pixels tall
         dist = math.hypot(dx, dy)
         if dist == 0.0:
             self._held = self._base
@@ -649,8 +652,12 @@ def _radial_lit(a, b, lo, hi):
 
 def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
                     turn=None, night=None, lit=None, contrast=1.0,
-                    earthshine=1.0, dusk=0.0):
+                    earthshine=1.0, dusk=0.0, aspect=1.0):
     """Draw the phase-shaded lunar disc centered at (cx, cy) sub-pixels.
+
+    *radius* is in cells across; *aspect* is a sub-pixel's height in cell
+    widths, so the disc stands radius/aspect sub-pixels tall and comes
+    out round on the screen rather than on the grid (see render).
 
     Two angles set the picture, both screen bearings with 0 straight up
     and 90 to the right. *limb_deg* points at the bright limb, so the
@@ -702,6 +709,7 @@ def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
     band = (1.0 - 1.5 / radius) ** 2 if radius > 1.5 else 0.0
     earthshine = 0.20 * (1.0 - illum) * earthshine  # night-side lift, facing Earth square on
     scan = int(radius + 2)
+    scan_y = int(radius / aspect + 2)
     albedo = _load_albedo()
 
     # The Sun's direction, from the phase: behind the viewer at full,
@@ -726,8 +734,8 @@ def _draw_moon_disc(fb, cx, cy, radius, illum, limb_deg, axis_deg,
     m = _mat_mul(tilt, _mat_transpose(turn)) if turn is not None else tilt
     m00, m01, m02, m10, m11, m12, m20, m21, m22 = m
 
-    for dy in range(-scan, scan + 1):
-        uy = dy / radius
+    for dy in range(-scan_y, scan_y + 1):
+        uy = dy * aspect / radius
         for dx in range(-scan, scan + 1):
             ux = dx / radius
             rr = ux * ux + uy * uy
@@ -923,13 +931,14 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     rotation = turn.matrix() if turn is not None else None
 
-    def paint_disc(fb, cx, cy, radius):
+    def paint_disc(fb, cx, cy, radius, aspect):
         if turn is not None:
             turn.radius = radius   # so a drag knows how far a radian is
-        fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=1.0,
+            turn.aspect = aspect
+        fb.draw_radial(cx, cy, MOON_GLOW_RGB, int(radius * 1.7), aspect=aspect,
                        peak_alpha=0.10 + 0.20 * illum)
         _draw_moon_disc(fb, cx, cy, radius, illum, limb, axis, rotation,
-                        night=MOON_NIGHT_RGB)
+                        night=MOON_NIGHT_RGB, aspect=aspect)
 
     full_dt = _next_phase_local(moment_utc, 0.5, now_local)
     new_dt = _next_phase_local(moment_utc, 0.0, now_local)
@@ -1360,8 +1369,14 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # bottom, so the sky beside a full-height disc wins well before
     # the terminal is truly wide.
     stacked_h = max(6, graph_h - top_rows - len(bottom))
-    wide_radius = min(graph_h * 2 * 0.41, region_w * 0.5 - 3.0)
-    stacked_radius = min(stacked_h * 2 * 0.41, graph_w * 0.5 - 3.0)
+    # The disc's radius is measured in cells across.  A sub-pixel is
+    # half a cell tall, which is a cell width only when the font's cell
+    # is twice as tall as it is wide; on the cell it really has, a
+    # sub-pixel stands *aspect* cell widths, and the disc's height in
+    # sub-pixels is its radius over that.
+    aspect = cell_aspect() / 2.0
+    wide_radius = min(graph_h * 2 * 0.41 * aspect, region_w * 0.5 - 3.0)
+    stacked_radius = min(stacked_h * 2 * 0.41 * aspect, graph_w * 0.5 - 3.0)
     if wide_radius >= stacked_radius and panel_h + 2 <= graph_h:
         total_spy = graph_h * 2
         radius = max(4.0, wide_radius)
@@ -1376,11 +1391,10 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
             bottom.pop()
         band_h = max(1, graph_h - top_rows - len(bottom))
         band_spy = band_h * 2
-        # Half-block sub-pixels are roughly square, so one radius
-        # serves both axes; the vertical extent is what binds on normal
-        # terminals.  The disc takes ~82% of the band between the top
-        # row and the bottom lines, leaving sky above and below.
-        radius = max(4.0, min(band_spy * 0.41, graph_w * 0.5 - 3.0))
+        # The vertical extent is what binds on normal terminals.  The
+        # disc takes ~82% of the band between the top row and the
+        # bottom lines, leaving sky above and below.
+        radius = max(4.0, min(band_spy * 0.41 * aspect, graph_w * 0.5 - 3.0))
         cx = graph_w // 2
         cy = top_rows * 2 + band_spy // 2
         overlays = {}
@@ -1398,12 +1412,12 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                 graph_h - len(bottom) + i, graph_w))
 
     fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
-    paint_disc(fb, cx, cy, radius)
+    paint_disc(fb, cx, cy, radius, aspect)
     if fullscreen:
         from linecast._help import paint_hint
         paint_hint(fb, overlays, lang_of(runtime))
     stars = _star_overlays(fb, cx, cy, radius, sky, taken=overlays.keys(),
-                           turn=rotation)
+                           turn=rotation, aspect=aspect)
     lines = fb.render(overlays={**stars, **overlays})
     if hint:
         lines.append(hint)

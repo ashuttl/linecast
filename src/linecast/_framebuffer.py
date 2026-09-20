@@ -8,6 +8,7 @@ formatting helpers used across the UI.
 import math
 import os
 import shutil
+import sys
 
 from linecast import _theme
 from linecast._color import RESET, BOLD, BG_PRIMARY, fg, bg, lerp
@@ -100,6 +101,53 @@ def get_terminal_size(fallback=(80, 24)):
         return shutil.get_terminal_size(fallback)
     except (OSError, ValueError):
         return os.terminal_size(fallback)
+
+
+def cell_aspect(fallback=2.0):
+    """How many times taller than wide a cell of the terminal's font is.
+
+    The same ioctl that reports the terminal's size in cells reports it
+    in pixels, in two fields Python's get_terminal_size drops; the ratio
+    of the two is the cell.  Half-block graphics take a cell for two
+    square sub-pixels, which is only so when it is twice as tall as it
+    is wide, and a real font is nearer 1.6 to 1.7: a disc drawn on the
+    assumption comes out that much wider than it is tall.  The fallback
+    is the assumption, for terminals that leave the pixel fields at
+    zero, for pipes, and for Windows.  $LINECAST_CELL_ASPECT overrides
+    the measurement, as a ratio (1.67) or a cell in pixels (9x15), for
+    captures and for terminals that report a wrong size.
+    """
+    override = os.environ.get("LINECAST_CELL_ASPECT", "").strip().lower()
+    if override:
+        try:
+            if "x" in override:
+                w, h = override.split("x", 1)
+                ratio = float(h) / float(w)
+            else:
+                ratio = float(override)
+            if 1.0 <= ratio <= 4.0:
+                return ratio
+        except (ValueError, ZeroDivisionError):
+            pass
+        return fallback
+    try:
+        import fcntl
+        import struct
+        import termios
+    except ImportError:
+        return fallback
+    for stream in (sys.__stdout__, sys.__stdin__, sys.__stderr__):
+        try:
+            packed = fcntl.ioctl(stream.fileno(), termios.TIOCGWINSZ, b"\0" * 8)
+            rows, cols, xpx, ypx = struct.unpack("HHHH", packed)
+        except (OSError, ValueError, AttributeError):
+            continue
+        if not (rows and cols and xpx and ypx):
+            continue
+        ratio = (ypx / rows) / (xpx / cols)
+        if 1.0 <= ratio <= 4.0:
+            return ratio
+    return fallback
 
 
 # ---------------------------------------------------------------------------
