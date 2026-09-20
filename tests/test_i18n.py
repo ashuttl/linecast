@@ -469,6 +469,83 @@ class TestTablesComplete:
         assert not dead, "\n".join(dead)
 
 
+
+class TestRegionalVariants:
+    """pt-PT, es-ES, and fr-CA are overlays: a block holds only the keys
+    it changes, and a lookup reads through to the base, then English."""
+
+    def _tables(self):
+        return TestTablesComplete()._tables()
+
+    def test_a_variant_changes_only_keys_its_base_has(self):
+        import re
+        from linecast._i18n import VARIANTS
+        wrong = []
+        for module, name, table in self._tables():
+            for variant, base in VARIANTS.items():
+                for key, text in table.get(variant, {}).items():
+                    if key not in table.get(base, {}):
+                        wrong.append(f"{module}.{name} {variant}: {key} is not in {base}")
+                        continue
+                    if text == table[base][key]:
+                        wrong.append(f"{module}.{name} {variant}: {key} is the same as {base}")
+                    fields = set(re.findall(r"{\w+}", text))
+                    if fields != set(re.findall(r"{\w+}", table[base][key])):
+                        wrong.append(f"{module}.{name} {variant}: {key} placeholders differ")
+        assert not wrong, "\n".join(wrong)
+
+    def test_a_lookup_reads_the_variant_then_the_base_then_english(self):
+        from linecast._i18n import lookup, table_for, has_text
+        table = {"en": {"a": "A", "b": "B", "c": "C"}, "pt": {"a": "pt a", "b": "pt b"},
+                 "pt-PT": {"a": "PT a"}}
+        assert lookup(table, "a", "pt-PT") == "PT a"
+        assert lookup(table, "b", "pt-PT") == "pt b"
+        assert lookup(table, "c", "pt-PT") == "C"
+        assert lookup(table, "d", "pt-PT") == "d"
+        assert lookup(table, "a", "pt") == "pt a"
+        assert lookup(table, "a", "xx") == "A"
+        assert table_for({"en": [1], "pt": [2]}, "pt-PT") == [2]
+        assert table_for({"en": [1], "pt": [2], "pt-PT": [3]}, "pt-PT") == [3]
+        assert table_for({"en": [1]}, "pt-PT") == [1]
+        assert has_text(table, "a", "pt-PT") and has_text(table, "b", "pt-PT")
+        assert not has_text(table, "c", "pt-PT") and not has_text(table, "c", "pt")
+        assert has_text(table, "c", "en") and has_text(table, "c", "xx")
+
+    def test_the_words_that_differ(self):
+        from linecast._weather_i18n import _s, wmo_label
+        from linecast._maps_i18n import ms
+        from linecast._weather_sections import _precip_descs
+        from types import SimpleNamespace as runtime
+        pt, pt_pt = runtime(lang="pt"), runtime(lang="pt-PT")
+        assert _s("humidity", pt) == "Umidade" and _s("humidity", pt_pt) == "Humidade"
+        assert _s("ending", pt, desc="chuva", time="logo") == "chuva terminando logo"
+        assert _s("ending", pt_pt, desc="chuva", time="logo") == "chuva a terminar logo"
+        assert _s("rain", pt_pt) == "chuva"
+        assert wmo_label(81, "pt") == "Pancadas de chuva" and wmo_label(81, "pt-PT") == "Aguaceiros"
+        assert wmo_label(63, "pt-PT") == "Chuva"
+        assert _precip_descs("pt-PT")[81] == "aguaceiros" and _precip_descs("pt-PT")[63] == "chuva"
+        assert _s("retry_key", runtime(lang="es")).startswith("Presione")
+        assert _s("retry_key", runtime(lang="es-ES")).startswith("Pulse")
+        assert wmo_label(3, "es") == "Nublado" and wmo_label(3, "es-ES") == "Cubierto"
+        assert ms("hov_ferry", "fr") == "ferry" and ms("hov_ferry", "fr-CA") == "traversier"
+        assert ms("hov_river", "fr-CA") == "rivière"
+
+    def test_canada_spaces_the_hour(self):
+        from linecast._framebuffer import fmt_hour_phrase
+        assert fmt_hour_phrase(18, True, "fr") == "18h"
+        assert fmt_hour_phrase(18, True, "fr-CA") == "18 h"
+        assert fmt_hour_phrase(18, True, "es-ES") == "18:00"
+        assert fmt_hour_phrase(18, True, "pt-PT") == "18h"
+
+    def test_providers_take_the_base_language(self):
+        from linecast._i18n import accept_language, base_language, geocoder_language
+        from linecast._weather_sources import alert_source
+        assert base_language("pt-PT") == "pt" and base_language("pt") == "pt"
+        assert geocoder_language("pt-PT") == "pt" and geocoder_language("es") == "es"
+        assert accept_language("fr-CA") == "fr-CA,fr" and accept_language("fr") == "fr"
+        assert alert_source("CA", "fr-CA") == alert_source("CA", "fr") == "Environnement Canada"
+
+
 class TestUnitLabels:
     def _runtime(self, lang, metric=True):
         from linecast._runtime import WeatherRuntime

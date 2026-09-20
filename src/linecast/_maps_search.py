@@ -23,7 +23,7 @@ import urllib.parse
 from linecast import user_agent
 from linecast._cache import read_cache, read_stale, write_cache
 from linecast._http import fetch_json
-from linecast._i18n import accept_language
+from linecast._i18n import accept_language, base_language
 from linecast._paths import cache_dir
 from linecast._rate_limit import RateLimit
 from linecast._runtime import debug_log, log_failure
@@ -107,8 +107,8 @@ def photon_search(query: str, lat: float, lon: float, zoom: float, lang: str = "
     """Biased type-ahead results near (lat, lon) at the current zoom."""
     params = [("q", query), ("lat", lat), ("lon", lon), ("zoom", int(zoom)),
               ("location_bias_scale", "0.5"), ("limit", int(limit))]
-    if lang in PHOTON_LANGS:
-        params.append(("lang", lang))
+    if base_language(lang) in PHOTON_LANGS:
+        params.append(("lang", base_language(lang)))
     url = f"{PHOTON_URL}?{urllib.parse.urlencode(params)}"
     try:
         data = _get_json(url, headers={"User-Agent": user_agent()},

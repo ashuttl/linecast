@@ -43,6 +43,9 @@ _STRINGS = {
         "radar_unavailable": "radar no disponible ({err})",
         "no_frames": "no hay imágenes de radar",
     },
+    "es-ES": {  # European Spanish: only what differs from Latin America's
+        "forecast": "previsión",
+    },
     "de": {
         "loading": "lädt…",
         "hint": "Leertaste Play/Pause · scrollen/←→ Schritt · +/- Zoom · Ziehen verschiebt / wasd · c Temp · W Wind · t Thema · S Satellit · q beenden",
@@ -81,6 +84,10 @@ _STRINGS = {
         "cloud_pct": "{pct}% nuvens",
         "radar_unavailable": "radar indisponível ({err})",
         "no_frames": "sem imagens de radar",
+    },
+    "pt-PT": {  # European Portuguese: only what differs from Brazil's
+        "loading": "a carregar…",
+        "hint": "espaço reproduzir/pausar · deslocar/←→ passo · +/- zoom · arrastar para mover / wasd · c temp · W vento · t tema · S satélite · q sair",
     },
     "nl": {
         "loading": "laden…",

@@ -18,6 +18,7 @@ import struct
 from pathlib import Path
 
 from linecast._runtime import log_failure
+from linecast._i18n import base_language
 
 _DATA = Path(__file__).parent / "data"
 
@@ -105,7 +106,9 @@ def star_names(lang=None):
     if lang is None or lang == "en":
         return _names
     if lang not in _by_lang:
-        _by_lang[lang] = {i: (_translated.get(i, {}).get(lang) or proper, desig)
+        base = base_language(lang)
+        _by_lang[lang] = {i: (_translated.get(i, {}).get(lang)
+                              or _translated.get(i, {}).get(base) or proper, desig)
                           for i, (proper, desig) in _names.items()}
     return _by_lang[lang]
 
@@ -120,7 +123,8 @@ def constellations():
 
 def constellation_name(record, lang):
     """The constellation's name in *lang*, or the Latin one."""
-    return record["names"].get(lang, record["name"])
+    names = record["names"]
+    return names.get(lang) or names.get(base_language(lang)) or record["name"]
 
 
 MILKY_WAY_W, MILKY_WAY_H = 1080, 540

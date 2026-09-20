@@ -58,8 +58,11 @@ _SKY_STRINGS = {
         "search_none": 'nada con ese nombre',
         "rises_at": '{name} sale a las {time} por el {dir}',
         "never_rises": '{name} nunca sale desde aquí',
-        "search_jump": 'intro de nuevo para ir a ese momento',
+        "search_jump": 'enter de nuevo para ir a ese momento',
         "tradition": "tradición",
+    },
+    "es-ES": {  # European Spanish: only what differs from Latin America's
+        "search_jump": "intro de nuevo para ir a ese momento",
     },
     "de": {
         "sun": "Sonne", "moon": "Mond",
@@ -111,6 +114,11 @@ _SKY_STRINGS = {
         "never_rises": '{name} nunca nasce daqui',
         "search_jump": 'enter de novo para ir a esse momento',
         "tradition": "tradição",
+    },
+    "pt-PT": {  # European Portuguese: only what differs from Brazil's
+        "venus": "Vénus",
+        "neptune": "Neptuno",
+        "overhead": "no zénite",
     },
     "nl": {
         "sun": "Zon", "moon": "Maan",

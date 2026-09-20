@@ -5,7 +5,7 @@ module holds the year view's relative-day phrases and the numeric month
 labels for the languages whose month names don't abbreviate.
 """
 
-from linecast._i18n import lang_of, lookup, plural_category
+from linecast._i18n import base_language, has_text, lang_of, lookup, plural_category, table_for
 from linecast._moon_i18n import MONTHS_I18N, _fmt_month_day  # noqa: F401 — re-export
 
 _SUNSHINE_STRINGS = {
@@ -128,6 +128,10 @@ _SUNSHINE_STRINGS = {
         "solar_noon": "meio-dia solar",
         "sunrise": "nascer do sol",
         "sunset": "pôr do sol",
+    },
+    "pt-PT": {  # European Portuguese: only what differs from Brazil's
+        "sky_astronomical": "crepúsculo astronómico",
+        "sky_astronomical_dawn": "crepúsculo astronómico matutino",
     },
     "nl": {
         "today": "vandaag",
@@ -594,6 +598,13 @@ _AXIS_MONTHS = {
 _NUMERIC_AXIS_LANGS = frozenset({"ja", "ko", "zh", "zh-Hant", "vi", "el"})
 
 
+def _axis_months(lang):
+    """The month names the axis abbreviates: a language's own axis set
+    where it has one, else its months, read through a variant's base."""
+    return (_AXIS_MONTHS.get(lang) or _AXIS_MONTHS.get(base_language(lang))
+            or table_for(MONTHS_I18N, lang))
+
+
 def _ss(key, runtime, **kwargs):
     """Look up a sunshine-specific localized string."""
     return lookup(_SUNSHINE_STRINGS, key, lang_of(runtime), **kwargs)
@@ -620,9 +631,8 @@ def sky_phase(elev, runtime, morning=None):
     else:
         key = "sky_night"
     if morning is not None and key not in ("sky_day", "sky_night"):
-        table = _SUNSHINE_STRINGS.get(lang_of(runtime), {})
         variant = key + ("_dawn" if morning else "_dusk")
-        if variant in table:
+        if has_text(_SUNSHINE_STRINGS, variant, lang_of(runtime)):
             key = variant
     return _ss(key, runtime)
 
@@ -659,7 +669,7 @@ def relative_day(diff, runtime):
     n = abs(diff)
     lang = lang_of(runtime)
     one, many = ("in_day", "in_days") if diff > 0 else ("day_ago", "days_ago")
-    if many + "_few" in _SUNSHINE_STRINGS.get(lang, {}):
+    if has_text(_SUNSHINE_STRINGS, many + "_few", lang):
         form = plural_category(lang, n)
         key = one if form == "one" else many + "_few" if form == "few" else many
         return _ss(key, runtime, n=n)
@@ -677,7 +687,7 @@ def axis_month_labels(runtime, narrow=False):
     if narrow:
         if lang in _NUMERIC_AXIS_LANGS:
             return [str(m) for m in range(1, 13)]
-        names = _AXIS_MONTHS.get(lang) or MONTHS_I18N.get(lang, MONTHS_I18N["en"])
+        names = _axis_months(lang)
         return [name[:1].upper() for name in names]
-    names = _AXIS_MONTHS.get(lang) or MONTHS_I18N.get(lang, MONTHS_I18N["en"])
+    names = _axis_months(lang)
     return [name[:3] for name in names]

@@ -20,19 +20,30 @@ if _src not in sys.path:
 from linecast import _maps_i18n
 from linecast._completion import LANG_CODES
 from linecast._framebuffer import visible_len
+from linecast._i18n import VARIANTS
 from linecast._maps_i18n import ms
 
 TABLE = _maps_i18n._STRINGS
 KEYS = set(TABLE["en"])
+# A regional variant's block holds only the keys it changes from its base.
+LANGUAGES = sorted(set(TABLE) - set(VARIANTS))
 
 
 def test_every_language_the_cli_offers_has_a_table():
     assert set(LANG_CODES) == set(TABLE)
 
 
-@pytest.mark.parametrize("lang", sorted(TABLE))
+@pytest.mark.parametrize("lang", LANGUAGES)
 def test_every_language_carries_every_key(lang):
     assert set(TABLE[lang]) == KEYS, sorted(set(TABLE[lang]) ^ KEYS)
+
+
+@pytest.mark.parametrize("lang", sorted(VARIANTS))
+def test_a_variant_changes_only_words_its_base_has(lang):
+    base = TABLE[VARIANTS[lang]]
+    assert set(TABLE[lang]) <= set(base), sorted(set(TABLE[lang]) - set(base))
+    for key, value in TABLE[lang].items():
+        assert value != base[key], (lang, key)
 
 
 @pytest.mark.parametrize("lang", sorted(TABLE))
@@ -46,10 +57,9 @@ def test_no_value_is_empty_or_padded(lang):
 def test_placeholders_survive_translation(lang):
     # A dropped {err} is a KeyError at the worst possible moment; an
     # invented one is a KeyError in every language but English.
-    for key, english in TABLE["en"].items():
-        wanted = set(re.findall(r"{\w+}", english))
-        assert set(re.findall(r"{\w+}", TABLE[lang][key])) == wanted, \
-            (lang, key)
+    for key, value in TABLE[lang].items():
+        wanted = set(re.findall(r"{\w+}", TABLE["en"][key]))
+        assert set(re.findall(r"{\w+}", value)) == wanted, (lang, key)
 
 
 @pytest.mark.parametrize("lang", sorted(TABLE))
@@ -57,7 +67,8 @@ def test_the_hints_fit_a_narrow_terminal(lang):
     # The footer hint shares 80 columns with a scale bar and an
     # attribution line; a hint that overflows costs the bar.
     for key in ("hint", "hint_route", "search_hint", "steps_hint"):
-        assert visible_len(TABLE[lang][key]) <= 44, (lang, key)
+        if key in TABLE[lang]:
+            assert visible_len(TABLE[lang][key]) <= 44, (lang, key)
 
 
 @pytest.mark.parametrize("lang", sorted(TABLE))

@@ -9,7 +9,7 @@ None rather than raising.
 from dataclasses import asdict
 from datetime import datetime
 
-from linecast._weather_i18n import WMO_NAMES, WMO_NAMES_I18N, _wmo_icons
+from linecast._weather_i18n import _wmo_icons, wmo_label
 from linecast._weather_sections import comparative_sentence
 from linecast._weather_sources import FORECAST_SOURCE, _local_now_for_data, alert_source
 
@@ -26,7 +26,7 @@ def _at(seq, i):
 def _condition_name(code, runtime):
     if code is None:
         return None
-    return WMO_NAMES_I18N.get(runtime.lang, {}).get(code) or WMO_NAMES.get(code)
+    return wmo_label(code, runtime.lang, default=None)
 
 
 def _icon(code, runtime):

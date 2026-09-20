@@ -27,15 +27,33 @@ LANGUAGES = (
 LANGUAGE_CODES = tuple(code for code, _name in LANGUAGES)
 LANGUAGE_NAMES = dict(LANGUAGES)
 
+# Regional variants: a code whose strings are a base language's with the
+# words that differ by country changed.  The base is what most readers of
+# the language get: Portuguese is Brazilian, Spanish is Latin American,
+# French is the French of France.  A variant's table holds only the keys
+# it changes; `lookup` reads through to the base and then to English.
+VARIANTS = {"pt-PT": "pt", "es-ES": "es", "fr-CA": "fr"}
+VARIANT_NAMES = {
+    "pt-PT": "European Portuguese",
+    "es-ES": "European Spanish",
+    "fr-CA": "Canadian French",
+}
+
 # Codes that name a language above by another name, lower-cased.  A
 # Norwegian machine's locale is nb_NO or nn_NO (glibc has no no_NO), and
 # the strings are Bokmål, so both read as "no".  Chinese is two scripts:
 # Taiwan, Hong Kong, and Macau write the traditional characters, so their
 # locales name zh-Hant, and the mainland's and Singapore's the simplified.
+# A region tag names its variant where there is one (pt_PT, es_ES, fr_CA);
+# any other region falls to the base language, so pt_BR, es_AR, fr_BE,
+# and fr_CH need no entry.  Where the variant has a fuller country list
+# (Spain's Spanish is Spain's alone, Canada's French is Canada's alone),
+# the base is what the rest of the world gets.
 LANGUAGE_ALIASES = {
     "nb": "no", "nn": "no",
     "zh-hant": "zh-Hant", "zh-tw": "zh-Hant", "zh-hk": "zh-Hant", "zh-mo": "zh-Hant",
     "zh-hans": "zh", "zh-cn": "zh", "zh-sg": "zh",
+    "pt-pt": "pt-PT", "es-es": "es-ES", "fr-ca": "fr-CA",
 }
 
 # A language whose strings are another's in a different script: the moon's
@@ -44,18 +62,65 @@ SCRIPT_OF = {"zh-Hant": "zh"}
 
 
 def canonical_language(code):
-    """`code` as the tables know it: an alias resolved, else unchanged."""
-    return LANGUAGE_ALIASES.get(code.lower(), code)
+    """`code` as the tables know it: "pt", "pt_BR", "pt-br", and
+    "pt_BR.UTF-8" are "pt"; "pt-PT" and "pt_pt" are "pt-PT"; "zh_TW" is
+    "zh-Hant".  The longest prefix of the subtags the aliases know wins,
+    else the language alone; a bare code with no alias is unchanged."""
+    parts = re.split(r"[-_]", code.strip().split(".")[0].split("@")[0].lower())
+    for n in range(len(parts), 1, -1):
+        tag = "-".join(parts[:n])
+        if tag in LANGUAGE_ALIASES:
+            return LANGUAGE_ALIASES[tag]
+    return LANGUAGE_ALIASES.get(parts[0], parts[0])
+
+
+def base_language(lang):
+    """The language a code's strings are grounded in: "pt" for "pt-PT",
+    and `lang` itself elsewhere.  Providers and data keyed by language
+    alone (a geocoder's parameter, a tile's name:xx) take this."""
+    return VARIANTS.get(lang, lang)
+
+
+def fallbacks(lang):
+    """The codes to read a table by for `lang`, most specific first: the
+    code, its base where it is a regional variant, then English."""
+    chain = [lang]
+    if lang in VARIANTS:
+        chain.append(VARIANTS[lang])
+    if "en" not in chain:
+        chain.append("en")
+    return chain
+
+
+def table_for(table, lang):
+    """The whole entry for `lang` in a table whose values are not string
+    dicts (a list of day names, a tuple of words): the variant's own
+    where it has one, else its base's, else English's."""
+    for code in fallbacks(lang):
+        if code in table:
+            return table[code]
+    return table["en"]
+
+
+def has_text(table, key, lang):
+    """Whether `lang` has its own text for `key`: in its table, or its
+    base's for a regional variant.  English's counts only for a language
+    with no table at all, which reads English throughout.  The check for
+    an optional sibling key (a plural, a dative, a "_then" form) that a
+    language may carry and English may not."""
+    codes = [code for code in fallbacks(lang) if code in table]
+    own = [code for code in codes if code != "en"] or codes
+    return any(key in table[code] for code in own)
 
 
 def is_language_code(value):
     """A language code linecast could act on, whether or not it has strings
-    for it: two letters, two letters and a script (zh-Hant), or an alias
-    of one.  An unlisted code leaves the app in English and still reaches
-    the providers that publish in it, as India's alerts do."""
+    for it: two letters, a script (zh-Hant), a region (pt-PT, es_MX), or
+    an alias of one.  An unlisted code leaves the app in English and still
+    reaches the providers that publish in it, as India's alerts do."""
     if not isinstance(value, str) or not value.isascii():
         return False
-    return (re.fullmatch(r"[A-Za-z]{2}(-[A-Za-z]{4})?", value) is not None
+    return (re.fullmatch(r"[A-Za-z]{2}(-[A-Za-z]{4})?([-_][A-Za-z]{2})?", value) is not None
             or value.lower() in LANGUAGE_ALIASES)
 
 
@@ -75,13 +140,18 @@ GEOCODER_UNTRANSLATED = frozenset({"zh-Hant"})
 
 
 def geocoder_language(lang):
-    """`lang` as the Open-Meteo geocoder's `language` parameter."""
-    return _GEOCODER_LANG.get(lang, lang)
+    """`lang` as the Open-Meteo geocoder's `language` parameter, which
+    takes a language alone: a regional variant asks in its base."""
+    return _GEOCODER_LANG.get(lang, base_language(lang))
 
 
 def accept_language(lang):
-    """`lang` as an Accept-Language value for Nominatim."""
-    return _ACCEPT_LANGUAGE.get(lang, lang)
+    """`lang` as an Accept-Language value for Nominatim: a regional
+    variant asks for its own names first (OSM carries some as name:pt-PT
+    or name:fr-CA), then the language's."""
+    if lang in _ACCEPT_LANGUAGE:
+        return _ACCEPT_LANGUAGE[lang]
+    return f"{lang},{VARIANTS[lang]}" if lang in VARIANTS else lang
 
 
 def same_language(lang, other):
@@ -169,9 +239,15 @@ def plural_category(lang, n):
 
 
 def lookup(table, key, lang, **kwargs):
-    """The text for `key` in `lang`, falling back to English and then to
-    the key itself.  Formatted with kwargs only when some are given, so a
-    text with literal braces survives a plain lookup."""
-    english = table["en"]
-    text = table.get(lang, english).get(key, english.get(key, key))
+    """The text for `key` in `lang`, falling back to the base language of
+    a regional variant, then to English, then to the key itself.
+    Formatted with kwargs only when some are given, so a text with
+    literal braces survives a plain lookup."""
+    for code in fallbacks(lang):
+        strings = table.get(code)
+        if strings is not None and key in strings:
+            text = strings[key]
+            break
+    else:
+        text = key
     return text.format(**kwargs) if kwargs else text

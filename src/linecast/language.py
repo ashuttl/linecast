@@ -12,12 +12,16 @@ LC_MESSAGES, LANG) > English.
 import argparse
 import os
 
-from linecast._i18n import LANGUAGES, LANGUAGE_NAMES, canonical_language, is_language_code
+from linecast._i18n import (
+    LANGUAGES, LANGUAGE_NAMES, VARIANT_NAMES, VARIANTS, canonical_language, is_language_code,
+)
 from linecast._runtime import LOCALE_VARS, VersionAction, resolve_lang
 from linecast._config import read_config, save_config, saved_language
 
 
 def _describe(code):
+    if code in VARIANT_NAMES:
+        return VARIANT_NAMES[code]
     return LANGUAGE_NAMES.get(code, "not one linecast speaks, so English "
                                     "except where a provider has it")
 
@@ -25,6 +29,8 @@ def _describe(code):
 def _list_languages():
     print("Run 'linecast language <code>' to pick one of:")
     print("  " + ", ".join(f"{code} {name}" for code, name in LANGUAGES))
+    print("  or a regional variant: "
+          + ", ".join(f"{code} {name}" for code, name in VARIANT_NAMES.items()))
 
 
 def _cmd_show():
@@ -67,13 +73,15 @@ def _cmd_auto():
 
 def main():
     codes = ", ".join(code for code, _name in LANGUAGES)
+    variants = ", ".join(VARIANTS)
     parser = argparse.ArgumentParser(
         prog="linecast language",
         description="Show or set the language linecast speaks",
-        epilog=f"Languages: {codes}. A locale's name works too (zh-TW is "
-               "zh-Hant), and another two-letter code is kept for the "
-               "providers that publish in it (India's alerts, for one) while "
-               "the rest stays in English.",
+        epilog=f"Languages: {codes}; the regional variants {variants}. A "
+               "locale's name works too (zh-TW is zh-Hant, pt_BR is pt), and "
+               "another two-letter code is kept for the providers that "
+               "publish in it (India's alerts, for one) while the rest stays "
+               "in English.",
     )
     parser.add_argument("--version", action=VersionAction)
     parser.add_argument("action", nargs="?", default="show",

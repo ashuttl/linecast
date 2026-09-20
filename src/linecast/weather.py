@@ -34,8 +34,7 @@ from linecast._runtime import (
 from linecast._weather_i18n import (
     fmt_wind,
     FULL_DAY_NAMES,
-    WMO_NAMES,
-    WMO_NAMES_I18N,
+    wmo_label,
     _s,
     _wmo_icons,
     has_string,
@@ -177,7 +176,7 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     lines.append(temp_line)
 
     # Weather description
-    wmo_name = WMO_NAMES_I18N.get(runtime.lang, {}).get(code) or WMO_NAMES.get(code, "")
+    wmo_name = wmo_label(code, runtime.lang)
     if wmo_name:
         lines.append(f"{TBG}{_conditions_ink(code, TFG)} {wmo_name} ")
 
@@ -313,7 +312,7 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
     lines = [f"{TBG}{DIM} {name} "]
 
     if field == "day":
-        wmo_name = WMO_NAMES_I18N.get(runtime.lang, {}).get(code) or WMO_NAMES.get(code, "")
+        wmo_name = wmo_label(code, runtime.lang)
         if wmo_name:
             icons = _wmo_icons(runtime)
             ink = _conditions_ink(code, TFG)

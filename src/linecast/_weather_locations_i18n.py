@@ -8,7 +8,7 @@ _WORDS = {
            'Could not load weather for {name}. Please try again.'),
     'fr': ('Lieux', 'Ajouter un lieu', 'Effacer les lieux récents', 'Chargement de {name}…',
            'Impossible de charger la météo pour {name}. Réessayez.'),
-    'es': ('Ubicaciones', 'Añadir ubicación', 'Borrar ubicaciones recientes', 'Cargando {name}…',
+    'es': ('Ubicaciones', 'Agregar ubicación', 'Borrar ubicaciones recientes', 'Cargando {name}…',
            'No se pudo cargar el tiempo de {name}. Inténtalo de nuevo.'),
     'de': ('Orte', 'Ort hinzufügen', 'Letzte Orte löschen', '{name} wird geladen…',
            'Wetter für {name} konnte nicht geladen werden. Bitte erneut versuchen.'),
@@ -131,3 +131,11 @@ _DEFAULT_WORDS = {
 }
 for _lang, _words in _DEFAULT_WORDS.items():
     _STRINGS[_lang].update(zip(('save', 'saved', 'save_failed'), _words))
+# The regional variants: only the words that differ from the base.
+_STRINGS['pt-PT'] = {
+    'loading': 'A carregar {name}…',
+    'save': 'Usar {name} como predefinição',
+    'saved': '{name} é o local predefinido para todas as vistas.',
+    'save_failed': 'Não foi possível guardar o local predefinido. Tente novamente.',
+}
+_STRINGS['es-ES'] = {'add': 'Añadir ubicación'}

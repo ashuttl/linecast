@@ -200,7 +200,7 @@ class CompletionScriptTests(unittest.TestCase):
             'source "$1" && COMP_WORDS=(linecast weather --lang = f) '
             '&& COMP_CWORD=4 && _linecast_complete '
             '&& printf "%s\\n" "${COMPREPLY[@]}"')
-        self.assertEqual(out.split(), ["fr", "fi"])
+        self.assertEqual(out.split(), ["fr", "fi", "fr-CA"])
         out = self._run_in_shell(
             "bash", render_completion("bash"),
             'source "$1" && COMP_WORDS=(linecast moon --week-start =) '
@@ -214,7 +214,7 @@ class CompletionScriptTests(unittest.TestCase):
             'source "$1" && COMP_WORDS=(linecast weather --lang=f) '
             '&& COMP_CWORD=2 && _linecast_complete '
             '&& printf "%s\\n" "${COMPREPLY[@]}"')
-        self.assertEqual(out.split(), ["--lang=fr", "--lang=fi"])
+        self.assertEqual(out.split(), ["--lang=fr", "--lang=fi", "--lang=fr-CA"])
 
     def test_bash_offers_the_flag_being_typed(self):
         """The word under the cursor is not a flag already given: --lay
@@ -415,8 +415,9 @@ class CompletionScriptTests(unittest.TestCase):
         """`linecast language` takes every code linecast has strings for,
         plus show and auto; every shell offers them all."""
         from linecast._completion import LANGUAGE_SUBCOMMANDS
-        from linecast._i18n import LANGUAGE_CODES
-        self.assertEqual(set(LANGUAGE_SUBCOMMANDS), set(LANGUAGE_CODES) | {"show", "auto"})
+        from linecast._i18n import LANGUAGE_CODES, VARIANTS
+        self.assertEqual(set(LANGUAGE_SUBCOMMANDS),
+                         set(LANGUAGE_CODES) | set(VARIANTS) | {"show", "auto"})
         bash = render_completion("bash")
         zsh = render_completion("zsh")
         fish = render_completion("fish")

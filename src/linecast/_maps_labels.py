@@ -48,6 +48,7 @@ from linecast._radar_basemap import (
 )
 from linecast._textwidth import char_width, visible_len
 from linecast._vtiles import iter_layer
+from linecast._i18n import base_language
 
 LABEL_LAYERS = ("place", "water_name", "park", "transportation_name",
                 "poi", "mountain_peak", "aerodrome_label")
@@ -446,7 +447,8 @@ _NAME_KEYS = {"zh-Hant": ("name:zh-Hant", "name:zh")}
 def _name(props, lang):
     """The localised name, or "" — placenames are never machine
     translated, so this only ever picks a name the data already has."""
-    for key in (*_NAME_KEYS.get(lang, (f"name:{lang}",)), "name:latin", "name"):
+    own = _NAME_KEYS.get(lang, (f"name:{lang}", f"name:{base_language(lang)}"))
+    for key in (*own, "name:latin", "name"):
         value = props.get(key)
         if value:
             return str(value)

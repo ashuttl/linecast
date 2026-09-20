@@ -5,7 +5,7 @@ chart's moon labels); this module holds the strings specific to the ``moon``
 command plus month names for the full/new moon dates.
 """
 
-from linecast._i18n import lang_of, lookup, plural_category
+from linecast._i18n import base_language, has_text, lang_of, lookup, plural_category, table_for
 from linecast._tides_i18n import MOON_NAMES_I18N, _moon_name  # noqa: F401 — re-export
 from linecast._weather_i18n import DAY_NAMES  # re-export for convenience
 
@@ -169,7 +169,7 @@ _MOON_STRINGS = {
         "hold_off": "Adiar {things}",
         "light_good": "semear culturas aéreas, enxertar, transplantar",
         "light_hold": "culturas de raiz",
-        "dark_good": "culturas de raiz, podar, mondar",
+        "dark_good": "culturas de raiz, podar, capinar",
         "dark_hold": "semear culturas aéreas",
         "solunar_major": "Solunar maior",
         "solunar_minor": "menor",
@@ -177,6 +177,9 @@ _MOON_STRINGS = {
         "summer_solstice": "Solstício de verão",
         "autumn_equinox": "Equinócio de outono",
         "winter_solstice": "Solstício de inverno",
+    },
+    "pt-PT": {  # European Portuguese: only what differs from Brazil's
+        "dark_good": "culturas de raiz, podar, mondar",
     },
     "nl": {
         "illuminated": "{pct}% verlicht",
@@ -873,7 +876,7 @@ def _ms(key, runtime, **kwargs):
     lang = lang_of(runtime)
     if key == "in_days" and "days" in kwargs:
         variant = f"in_days_{plural_category(lang, float(kwargs['days']))}"
-        if variant in _MOON_STRINGS.get(lang, {}):
+        if has_text(_MOON_STRINGS, variant, lang):
             key = variant
     return lookup(_MOON_STRINGS, key, lang, **kwargs)
 
@@ -903,14 +906,14 @@ def _season_label(event, lat, runtime):
 def _fmt_month_day(dt, runtime):
     """Format a month + day date in the runtime language's convention."""
     lang = lang_of(runtime)
-    fmt = _DATE_MD.get(lang, _DATE_MD_DEFAULT)
-    months = MONTHS_I18N.get(lang, MONTHS_I18N["en"])
+    fmt = _DATE_MD.get(lang, _DATE_MD.get(base_language(lang), _DATE_MD_DEFAULT))
+    months = table_for(MONTHS_I18N, lang)
     return fmt.format(month=months[dt.month - 1], mnum=dt.month, day=dt.day)
 
 
 def _day_abbrev(dt, runtime):
     """Localized three-letter-ish weekday abbreviation."""
-    return DAY_NAMES.get(lang_of(runtime), DAY_NAMES["en"])[dt.weekday()]
+    return table_for(DAY_NAMES, lang_of(runtime))[dt.weekday()]
 
 
 # ---------------------------------------------------------------------------
@@ -1067,7 +1070,7 @@ def lunar_date_label(month, day, leap, lang):
 
 def term_label(index, lang):
     """The name of solar term *index* (0 = March equinox)."""
-    return SOLAR_TERMS_I18N.get(lang, SOLAR_TERMS_I18N["en"])[index]
+    return table_for(SOLAR_TERMS_I18N, lang)[index]
 
 
 # Japan names the nights, not just the phases: after the full moon the

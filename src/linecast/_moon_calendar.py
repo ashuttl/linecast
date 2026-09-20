@@ -26,7 +26,7 @@ from linecast._framebuffer import fmt_time_dt
 from linecast._graphics import (
     Framebuffer, bg, cell_aspect, fg, get_terminal_size, overlay, visible_len,
 )
-from linecast._i18n import lang_of
+from linecast._i18n import lang_of, table_for
 from linecast._calendars.lunisolar import (
     CALENDAR_MERIDIAN_HOURS, calendar_is_native, lunisolar_date,
     resolve_calendar,
@@ -84,7 +84,7 @@ def _month_title(year, month, lang):
         return f"{month}/{year}"
     if lang == "vi":
         return f"Tháng {month} năm {year}"
-    months = MONTHS_I18N.get(lang, MONTHS_I18N["en"])
+    months = table_for(MONTHS_I18N, lang)
     if lang == "th":
         # Thai calendars year themselves in the Buddhist Era.
         return f"{months[month - 1]} {year + 543}"
@@ -320,7 +320,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         _put(overlays, tx, 0, aside, D, max_x=graph_w)
 
     # Weekday header, dim, one label over each column of numbers.
-    day_names = DAY_NAMES.get(lang, DAY_NAMES["en"])
+    day_names = table_for(DAY_NAMES, lang)
     for c in range(7):
         label = _clip(day_names[(start + c) % 7], cell_w - 2)
         _put(overlays, left + c * cell_w + 1, 1, label, F, max_x=graph_w)

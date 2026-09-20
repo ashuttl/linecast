@@ -9,6 +9,7 @@ through it.
 
 import math
 
+from linecast._i18n import base_language
 from linecast._sky_catalogue import star_names, star_vectors
 
 # "stars" are designations, the constellation last. A star the catalogue
@@ -186,7 +187,8 @@ def asterisms():
 
 def asterism_name(record, lang):
     """The asterism's name in *lang*, or the English one."""
-    return record["names"].get(lang, record["name"])
+    names = record["names"]
+    return names.get(lang) or names.get(base_language(lang)) or record["name"]
 
 
 def _by_designation():

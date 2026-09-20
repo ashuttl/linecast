@@ -7,7 +7,7 @@ from linecast import _theme
 from linecast._braille import build_braille_curve, interpolate
 from linecast._graphics import bg, color_mode, fg, fmt_hour, fmt_time_dt, RESET, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime, log_skipped
-from linecast._i18n import lang_of
+from linecast._i18n import lang_of, table_for
 from linecast._weather_historical import temperature_scale
 from linecast._weather_i18n import FULL_DAY_NAMES, _s
 from linecast._weather_sources import _local_now_for_data
@@ -467,7 +467,7 @@ def _compute_time_markers(window_dts, total_hours, graph_w, runtime=None):
                 continue
             if dt.hour == 0:
                 midnight_cols.add(x)
-                midnight_day_names[x] = FULL_DAY_NAMES.get(lang, FULL_DAY_NAMES["en"])[dt.weekday()]
+                midnight_day_names[x] = table_for(FULL_DAY_NAMES, lang)[dt.weekday()]
             elif dt.hour == 12:
                 noon_cols.add(x)
     return midnight_cols, noon_cols, midnight_day_names
@@ -655,7 +655,7 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
     # otherwise show the actual day name so scrolled views make sense.
     lang = lang_of(runtime)
     if window_dts and now and window_dts[0].date() != now.date():
-        day_name = FULL_DAY_NAMES.get(lang, FULL_DAY_NAMES["en"])[window_dts[0].weekday()]
+        day_name = table_for(FULL_DAY_NAMES, lang)[window_dts[0].weekday()]
         today_left = f"{TEXT}{day_name}"
     else:
         today_left = f"{TEXT}{_s('today', runtime)}"

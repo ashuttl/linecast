@@ -21,6 +21,7 @@ from linecast import _theme
 from linecast._runtime import log_failure
 from linecast._textwidth import char_width
 from linecast._theme import is_light_theme, lerp_rgb
+from linecast._i18n import base_language
 
 # braille dot bit for (col, row) within a 2x4 cell — matches _braille.py
 _BITS = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
@@ -58,7 +59,7 @@ def _localized(entry, lang):
     """Resolve a city entry's display name for ``lang``, falling back to the
     default Latin name when no translation is stored."""
     if len(entry) > 4 and entry[4]:
-        for key in _NAME_KEYS.get(lang, (lang,)):
+        for key in _NAME_KEYS.get(lang, (base_language(lang),)):
             localized = entry[4].get(key)
             if localized:
                 return localized

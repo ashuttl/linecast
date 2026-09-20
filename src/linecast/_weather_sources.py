@@ -7,7 +7,7 @@ from typing import Any
 
 from linecast._cache import read_cache, write_cache, location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
-from linecast._i18n import accept_language, geocoder_language
+from linecast._i18n import accept_language, base_language, geocoder_language
 from linecast._paths import cache_dir
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure
 
@@ -51,7 +51,8 @@ def alert_source(country_code: str, lang: str = "en") -> str | None:
     Mirrors _fetch_alerts_routed, which decides where the fetch goes."""
     country_code = (country_code or "").upper()
     if country_code in _ALERT_SOURCES:
-        return _ALERT_SOURCE_NAMES.get((country_code, lang), _ALERT_SOURCES[country_code])
+        return _ALERT_SOURCE_NAMES.get((country_code, base_language(lang)),
+                                       _ALERT_SOURCES[country_code])
     if country_code in _METEOALARM_SLUGS:
         return "MeteoAlarm"
     return None
@@ -464,7 +465,7 @@ def _fetch_alerts_routed(lat, lng, country_code, lang, address):
     if country_code == "US":
         return _fetch_alerts_nws(lat, lng)
     if country_code == "CA":
-        return _fetch_alerts_eccc(lat, lng, lang=lang)
+        return _fetch_alerts_eccc(lat, lng, lang=base_language(lang))
     if country_code == "DE":
         return _fetch_alerts_brightsky(lat, lng, lang=lang)
     if country_code == "NO":

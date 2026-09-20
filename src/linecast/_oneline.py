@@ -20,7 +20,7 @@ def weather_oneline(data, location_name, runtime):
 
     Example: ``Portland 58°F Partly Cloudy Wind 8mph 💧32%``
     """
-    from linecast._weather_i18n import WMO_NAMES, WMO_NAMES_I18N, _wmo_icons
+    from linecast._weather_i18n import _wmo_icons, wmo_label
     from linecast._weather_style import _colored_temp, TEXT, MUTED, WIND_COLOR
 
     if not data:
@@ -36,7 +36,7 @@ def weather_oneline(data, location_name, runtime):
 
     icons = _wmo_icons(runtime)
     icon = icons.get(wmo, icons[0])
-    desc = WMO_NAMES_I18N.get(runtime.lang, {}).get(wmo) or WMO_NAMES.get(wmo, "")
+    desc = wmo_label(wmo, runtime.lang)
 
     deg = runtime.temp_unit
     parts = []

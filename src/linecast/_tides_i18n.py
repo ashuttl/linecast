@@ -1,6 +1,6 @@
 """Tides localization strings."""
 
-from linecast._i18n import lang_of, lookup
+from linecast._i18n import lang_of, lookup, table_for
 
 _TIDES_STRINGS = {
     "en": {
@@ -234,7 +234,7 @@ MOON_NAMES_I18N = {
 
 def _moon_name(idx, runtime):
     """Return a localized moon phase name for the given index (0-7)."""
-    names = MOON_NAMES_I18N.get(lang_of(runtime), MOON_NAMES_I18N["en"])
+    names = table_for(MOON_NAMES_I18N, lang_of(runtime))
     return names[idx]
 
 

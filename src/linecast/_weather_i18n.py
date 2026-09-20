@@ -1,7 +1,7 @@
 """Localized strings and weather code labels for the weather dashboard."""
 
 import re
-from linecast._i18n import lang_of, lookup
+from linecast._i18n import base_language, fallbacks, has_text, lang_of, lookup
 
 # Nerd Font WMO icons
 _WMO_ICONS_NERD = {
@@ -143,6 +143,10 @@ WMO_NAMES_I18N = {
         85: "Averses de neige", 86: "Fortes averses de neige",
         95: "Orage", 96: "Orage", 99: "Orage",
     },
+    "fr-CA": {  # Canadian French: only what differs from France's
+        1: "Généralement dégagé",
+        3: "Nuageux",
+    },
     "es": {
         0: "Despejado", 1: "Mayormente despejado", 2: "Parcialmente nublado", 3: "Nublado",
         45: "Niebla", 48: "Niebla helada",
@@ -154,6 +158,10 @@ WMO_NAMES_I18N = {
         80: "Chubascos ligeros", 81: "Chubascos", 82: "Chubascos intensos",
         85: "Chubascos de nieve", 86: "Chubascos de nieve intensos",
         95: "Tormenta", 96: "Tormenta", 99: "Tormenta",
+    },
+    "es-ES": {  # European Spanish: only what differs from Latin America's
+        1: "Poco nuboso",
+        3: "Cubierto",
     },
     "de": {
         0: "Klar", 1: "\u00dcberwiegend klar", 2: "Teilweise bew\u00f6lkt", 3: "Bedeckt",
@@ -250,6 +258,13 @@ WMO_NAMES_I18N = {
         80: "Pancadas de chuva fracas", 81: "Pancadas de chuva", 82: "Pancadas de chuva fortes",
         85: "Pancadas de neve", 86: "Pancadas de neve fortes",
         95: "Trovoada", 96: "Trovoada", 99: "Trovoada",
+    },
+    "pt-PT": {  # European Portuguese: only what differs from Brazil's
+        80: "Aguaceiros fracos",
+        81: "Aguaceiros",
+        82: "Aguaceiros fortes",
+        85: "Aguaceiros de neve",
+        86: "Aguaceiros de neve fortes",
     },
     "sv": {
         0: "Klart", 1: "Mestadels klart", 2: "Halvklart", 3: "Mulet",
@@ -593,6 +608,13 @@ _PRECIP_DESCS_I18N = {
         80: "pancadas de chuva fracas", 81: "pancadas de chuva", 82: "pancadas de chuva fortes",
         85: "pancadas de neve", 86: "pancadas de neve fortes",
         95: "trovoadas", 96: "trovoadas", 99: "trovoadas",
+    },
+    "pt-PT": {  # European Portuguese: only what differs from Brazil's
+        80: "aguaceiros fracos",
+        81: "aguaceiros",
+        82: "aguaceiros fortes",
+        85: "aguaceiros de neve",
+        86: "aguaceiros de neve fortes",
     },
     "sv": {
         51: "l\u00e4tt duggregn", 53: "duggregn", 55: "kraftigt duggregn",
@@ -1197,6 +1219,15 @@ _STRINGS = {
         "starting_becoming_pl": "{desc} probables {time}, pasando a {peak} {peak_time}",
         "rain_next_likely_pl": "{desc} probables {time}",
         "will_be_then": "Hará {comparison}",
+    },
+    "es-ES": {  # European Spanish: only what differs from Latin America's
+        "forecast_stale": "Esta previsión es del {day}; no se pudo obtener una más reciente.",
+        "forecast_stale_at": "Esta previsión es del {day}; no se pudo obtener una más reciente a las {time}.",
+        "forecast_fetching": "Obteniendo una previsión más reciente…",
+        "retry_key": "Pulse r para reintentar.",
+        "hist_near_avg": "cerca de la media",
+        "hist_above_avg": "{diff} por encima de la media",
+        "hist_below_avg": "{diff} por debajo de la media",
     },
     "de": {
         "today": "Heute",
@@ -2168,6 +2199,37 @@ _STRINGS = {
         "starting_becoming_pl": "{desc} prováveis {time}, passando a {peak} {peak_time}",
         "rain_next_likely_pl": "{desc} prováveis {time}",
         "will_be_then": "Estará {comparison}",
+    },
+    "pt-PT": {  # European Portuguese: only what differs from Brazil's
+        "forecast_fetching": "A obter uma previsão mais recente…",
+        "retry_run": "Volte a executar para tentar de novo.",
+        "retry_key": "Prima r para tentar de novo.",
+        "humidity": "Humidade",
+        "aqi": "IQAr",
+        "feels_humid": "A humidade alta faz parecer mais quente",
+        "same_temp": "aproximadamente tão quente como {ref_day}",
+        "bit_warmer": "um pouco mais quente do que {ref_day}",
+        "bit_cooler": "um pouco mais fresco do que {ref_day}",
+        "warmer": "mais quente do que {ref_day}",
+        "cooler": "mais fresco do que {ref_day}",
+        "much_warmer": "muito mais quente do que {ref_day}",
+        "much_cooler": "muito mais fresco do que {ref_day}",
+        "ending": "{desc} a terminar {time}",
+        "ending_becoming": "{desc} a passar a {peak} {peak_time}, a terminar {time}",
+        "continuing_becoming": "{desc} durante todo o dia, a passar a {peak} {peak_time}",
+        "starting_becoming": "{desc} provável {time}, a passar a {peak} {peak_time}",
+        "scroll": "deslocar",
+        "warmer_by": "{diff} mais quente do que {ref_day}",
+        "cooler_by": "{diff} mais frio do que {ref_day}",
+        "starting_chance_becoming": "possibilidade de {desc} {time}, a passar a {peak} {peak_time}",
+        "starting_sure": "{desc} a começar {time}",
+        "starting_sure_becoming": "{desc} a começar {time}, a passar a {peak} {peak_time}",
+        "continuing_night_becoming": "{desc} durante toda a noite, a passar a {peak} {peak_time}",
+        "sky_clearing": "céu a limpar {time}",
+        "sky_clouding": "céu a ficar nublado {time}",
+        "freeze_tonight": "geada {time}, a chegar a {temp}",
+        "feels_ahead_hot_humid": "a humidade alta fará a sensação térmica chegar a {temp} {time}",
+        "starting_becoming_pl": "{desc} prováveis {time}, a passar a {peak} {peak_time}",
     },
     "sv": {
         "today": "i dag",
@@ -4210,6 +4272,18 @@ _STRINGS = {
 }
 
 
+def wmo_label(code, lang, default=""):
+    """The WMO weather code's name in `lang`, read through a regional
+    variant's base, else the English one, else `default`."""
+    for lang_code in fallbacks(lang):
+        if lang_code == "en":
+            break
+        name = WMO_NAMES_I18N.get(lang_code, {}).get(code)
+        if name:
+            return name
+    return WMO_NAMES.get(code, default)
+
+
 def fmt_wind(speed, runtime):
     """A wind speed with its unit as the display language writes it:
     "12km/h", "12 km/sa", "12mph"."""
@@ -4255,8 +4329,9 @@ def _precip_s(key, code, runtime, **kwargs):
     variant for the noun's class where the language has one, else the
     plain template.  French elides its "de" afterwards."""
     lang = lang_of(runtime)
-    for suffix, codes in _PRECIP_CLASSES.get(lang, {}).items():
-        if code in codes and key + suffix in _STRINGS.get(lang, {}):
+    classes = _PRECIP_CLASSES.get(lang, _PRECIP_CLASSES.get(base_language(lang), {}))
+    for suffix, codes in classes.items():
+        if code in codes and has_text(_STRINGS, key + suffix, lang):
             key += suffix
             break
     text = lookup(_STRINGS, key, lang, **kwargs)

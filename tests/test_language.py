@@ -8,7 +8,7 @@ from contextlib import redirect_stdout
 from unittest.mock import patch
 
 from linecast import _config, language
-from linecast._i18n import LANGUAGE_CODES
+from linecast._i18n import LANGUAGE_CODES, VARIANTS
 from linecast._runtime import RuntimeConfig, resolve_lang, weather_parser
 
 
@@ -148,9 +148,26 @@ class ResolveLangTests(ConfigDirMixin):
 
     def test_a_code_may_carry_a_script_or_be_a_locale_s_name(self):
         from linecast._i18n import is_language_code
-        for value in ("zh-Hant", "zh-hant", "zh-TW", "zh-tw", "zh-HK", "zh-MO"):
+        for value in ("zh-Hant", "zh-hant", "zh-TW", "zh-tw", "zh-HK", "zh-MO",
+                      "fr-CA", "pt_PT", "es-AR", "zh-Hant-TW"):
             self.assertTrue(is_language_code(value), value)
-        self.assertFalse(is_language_code("fr-CA"))
+        self.assertFalse(is_language_code("fr-CAN"))
+        self.assertFalse(is_language_code("fr-"))
+
+    def test_a_region_names_its_variant_and_any_other_the_base(self):
+        # Portugal, Spain, and Canada have their own words; every other
+        # region of the language reads the base.
+        for value, code in (("pt_PT.UTF-8", "pt-PT"), ("pt-pt", "pt-PT"), ("PT_pt", "pt-PT"),
+                            ("pt_BR.UTF-8", "pt"), ("pt-BR", "pt"), ("pt", "pt"),
+                            ("es_ES", "es-ES"), ("es_MX.UTF-8", "es"), ("es-419", "es"),
+                            ("es_AR", "es"), ("fr_CA.UTF-8", "fr-CA"), ("fr-ca", "fr-CA"),
+                            ("fr_FR.UTF-8", "fr"), ("fr_BE", "fr"), ("fr_CH", "fr"),
+                            ("de_AT", "de"), ("en_GB.UTF-8", "en")):
+            self.assertEqual(resolve_lang(None, {"LANG": value}), (code, "LANG"), value)
+        for code in VARIANTS:
+            self.assertEqual(resolve_lang(None, {"LINECAST_LANG": code}), (code, "LINECAST_LANG"))
+            self.assertEqual(resolve_lang(None, {"LINECAST_LANG": code.lower()}),
+                             (code, "LINECAST_LANG"))
 
     def test_chinese_locales_name_their_script(self):
         # Taiwan, Hong Kong, and Macau write the traditional characters;
@@ -241,9 +258,9 @@ class LanguageListTests(unittest.TestCase):
         found = set()
         for path in glob.glob(os.path.join(here, "src", "linecast", "_*_i18n.py")):
             with open(path, encoding="utf-8") as f:
-                found.update(re.findall(r'^    "([a-z]{2}(?:-[A-Z][a-z]{3})?)": \{',
+                found.update(re.findall(r'^    "([a-z]{2}(?:-[A-Z][a-z]{3}|-[A-Z]{2})?)": \{',
                                         f.read(), re.M))
-        self.assertEqual(found, set(LANGUAGE_CODES))
+        self.assertEqual(found, set(LANGUAGE_CODES) | set(VARIANTS))
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ import os
 import re
 import sys
 
-from linecast._i18n import LANGUAGE_CODES
+from linecast._i18n import LANGUAGE_CODES, VARIANTS
 
 
 # ---------------------------------------------------------------------------
@@ -338,23 +338,20 @@ def language_of(value):
     None.
 
     "fr", "fr-FR", "de_DE.UTF-8", and "EN_us" name their language in the
-    leading letters; "nb_NO" and "nn_NO" name Norwegian.  Chinese is two
-    scripts, told apart by the subtags: "zh_TW", "zh_HK", "zh_MO", and
-    "zh-Hant" name the traditional, "zh", "zh_CN", "zh_SG", and "zh-Hans"
-    the simplified.  "C", "POSIX", "C.UTF-8", and three-letter codes such
-    as "fil_PH" name none linecast could act on, and neither does junk.
+    leading letters; "nb_NO" and "nn_NO" name Norwegian.  A region names
+    its variant where linecast has one: "pt_PT" is "pt-PT" and "fr_CA"
+    is "fr-CA", while "pt_BR" and "fr_BE" are the base "pt" and "fr".
+    Chinese is two scripts, told apart by the subtags: "zh_TW", "zh_HK",
+    "zh_MO", and "zh-Hant" name the traditional, "zh", "zh_CN", "zh_SG",
+    and "zh-Hans" the simplified.  "C", "POSIX", "C.UTF-8", and
+    three-letter codes such as "fil_PH" name none linecast could act on,
+    and neither does junk.
     """
-    from linecast._i18n import LANGUAGE_ALIASES, canonical_language
+    from linecast._i18n import canonical_language
     m = re.match(r"([a-z]+)((?:[-_][a-z0-9]+)*)", (value or "").strip().lower())
     if m is None or len(m.group(1)) != 2:
         return None
-    parts = [m.group(1), *re.findall(r"[-_]([a-z0-9]+)", m.group(2))]
-    # The longest prefix the aliases know, else the language alone.
-    for n in range(len(parts), 1, -1):
-        tag = "-".join(parts[:n])
-        if tag in LANGUAGE_ALIASES:
-            return canonical_language(tag)
-    return canonical_language(parts[0])
+    return canonical_language(m.group(0))
 
 
 def resolve_lang(namespace=None, environ=None):
@@ -448,7 +445,8 @@ def _base_parser(prog, description):
     p.add_argument("--emoji", action="store_true",
                     help="use standard emoji icons (same as --icons emoji)")
     p.add_argument("--lang", default=None,
-                    help=f"language code ({', '.join(LANGUAGE_CODES)}); "
+                    help=f"language code ({', '.join(LANGUAGE_CODES)}; "
+                         f"{', '.join(VARIANTS)} for the regional variants); "
                          "'linecast language' saves one")
     p.add_argument("--classic-colors", action="store_true",
                     help="use pre-theme fixed color palette")

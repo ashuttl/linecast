@@ -38,6 +38,7 @@ from linecast._theme import (
     neutral_tone,
     theme_legacy_mode,
 )
+from linecast._i18n import table_for
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
@@ -501,7 +502,7 @@ def clock_label(now, runtime, today=None):
     clock = fmt_time_dt(now, runtime.use_24h)
     if now.date() == today:
         return clock
-    day = DAY_NAMES.get(lang_of(runtime), DAY_NAMES["en"])[now.weekday()]
+    day = table_for(DAY_NAMES, lang_of(runtime))[now.weekday()]
     return f"{day} {clock}"
 
 

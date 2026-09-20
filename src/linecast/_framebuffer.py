@@ -13,6 +13,7 @@ import sys
 from linecast import _theme
 from linecast._color import RESET, BOLD, BG_PRIMARY, fg, bg, lerp
 from linecast._textwidth import char_width, visible_len  # noqa: F401
+from linecast._i18n import base_language
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +63,8 @@ _HOUR_24 = {
     "de": "{h} Uhr", "it": "{h}", "da": "kl. {h}", "no": "kl. {h}", "sv": "kl. {h}",
     "is": "kl. {h}", "fi": "klo {h}", "id": "pukul {h}.00",
     "ja": "{h}時", "ko": "{h}시", "zh": "{h}时", "zh-Hant": "{h}時", "th": "{h:02d} น.",
+    # Canada spaces the h, as Environment Canada writes it: "18 h".
+    "fr-CA": "{h} h",
 }
 
 
@@ -70,7 +73,8 @@ def fmt_hour_phrase(hour, use_24h=False, lang="en"):
     writes in a sentence: '15:00', '15 Uhr', 'kl. 15', '15時'."""
     hour = hour % 24
     if use_24h:
-        return _HOUR_24.get(lang, "{h:02d}h").format(h=hour)
+        form = _HOUR_24.get(lang, _HOUR_24.get(base_language(lang), "{h:02d}h"))
+        return form.format(h=hour)
     h12 = hour % 12 or 12
     if lang == "el":
         # Words fit running prose and avoid a full stop after an am/pm

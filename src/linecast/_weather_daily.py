@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from linecast import _theme
-from linecast._i18n import fmt_percent
+from linecast._i18n import fmt_percent, table_for
 from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast._weather_i18n import DAY_NAMES, _s, _wmo_icons, fmt_wind
@@ -89,7 +89,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
 
     # Measure widest right-side detail columns across all days for alignment
     lang = runtime.lang
-    day_name_list = DAY_NAMES.get(lang, DAY_NAMES["en"])
+    day_name_list = table_for(DAY_NAMES, lang)
     day_col_w = max(visible_len(n) for n in day_name_list + [_s("today_short", runtime)])
     left_prefix_w = day_col_w + 2 + 2 + 2  # "day  ic  "
     # A window too narrow even for a bare bar has no room for these rows,

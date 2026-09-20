@@ -6,6 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from linecast._i18n import VARIANTS
 from linecast._runtime import WeatherRuntime
 from linecast._weather_i18n import _STRINGS, _s
 from linecast._weather_sections import feels_sentence, narrative_lines
@@ -224,6 +225,8 @@ class TestNarrativePacking:
 class TestFeelsStringsAreTranslated:
     def test_every_language_punctuates_its_own_sentences(self):
         for lang, table in _STRINGS.items():
+            if lang in VARIANTS:  # a regional variant reads its base's
+                continue
             assert "sentence_end" in table, f"{lang} has no sentence_end"
             assert "sentence_join" in table, f"{lang} has no sentence_join"
             # The joiner carries the terminator, whatever mark that is.
@@ -232,6 +235,8 @@ class TestFeelsStringsAreTranslated:
     def test_every_language_has_its_own_feels_phrases(self):
         keys = ("feels_humid", "feels_sun", "feels_wind", "feels_dry")
         for lang, table in _STRINGS.items():
+            if lang in VARIANTS:
+                continue
             for key in keys:
                 assert key in table, f"{lang} is missing {key}"
                 if lang != "en":

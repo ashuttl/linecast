@@ -11,11 +11,11 @@ subcommands, and the value lists for flags whose parsers accept free text.
 from __future__ import annotations
 
 from linecast._config import CALENDAR_CHOICES, CULTURE_CHOICES, HOURS_CHOICES
-from linecast._i18n import LANGUAGE_CODES
+from linecast._i18n import LANGUAGE_CODES, VARIANTS
 
 # --lang accepts any code; the parser lists these in its help text but
 # has no `choices`, so the completion offers them from here.
-LANG_CODES = LANGUAGE_CODES
+LANG_CODES = (*LANGUAGE_CODES, *VARIANTS)
 
 SHELLS = ("bash", "zsh", "fish", "nu", "nushell")
 
@@ -32,7 +32,7 @@ LOCATION_SUBCOMMANDS = ("show", "set", "auto", "search")
 LOCATION_FLAGS = ("--help", "-h", "--version")
 # `linecast language` takes the codes linecast has strings for; the
 # list is _i18n's so the two cannot drift.
-LANGUAGE_SUBCOMMANDS = ("show", *LANGUAGE_CODES, "auto")
+LANGUAGE_SUBCOMMANDS = ("show", *LANGUAGE_CODES, *VARIANTS, "auto")
 LANGUAGE_FLAGS = ("--help", "-h", "--version")
 UNITS_SUBCOMMANDS = ("show", "metric", "imperial", "auto")
 UNITS_FLAGS = ("--help", "-h", "--version")

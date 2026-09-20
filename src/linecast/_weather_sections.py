@@ -1,16 +1,19 @@
 """Header and narrative weather text sections."""
 
+import functools
 import math
 from datetime import datetime, timedelta
 
 from linecast import _theme
-from linecast._i18n import fmt_percent, lang_of, sentence_24h
+from linecast._i18n import (
+    base_language, fallbacks, fmt_percent, has_text, lang_of, sentence_24h, table_for,
+)
 from linecast._graphics import RESET, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure, log_skipped
 from linecast._textwidth import wrap_display_width
 from linecast._weather_i18n import (
     fmt_wind, _precip_s,
-    DAY_NAMES, FULL_DAY_NAMES, ON_DAY_FORMS, ON_FULL_DAY_FORMS, WMO_NAMES, WMO_NAMES_I18N,
+    DAY_NAMES, FULL_DAY_NAMES, ON_DAY_FORMS, ON_FULL_DAY_FORMS, wmo_label,
     _PRECIP_DESCS_I18N, _STRINGS, _s, _wmo_icons,
 )
 from linecast._weather_style import (MUTED, TEXT, WIND_COLOR, _aqi_color,
@@ -42,7 +45,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
 
     icons = _wmo_icons(runtime)
     icon = icons.get(wmo, icons[0])
-    name = WMO_NAMES_I18N.get(runtime.lang, {}).get(wmo) or WMO_NAMES.get(wmo, "")
+    name = wmo_label(wmo, runtime.lang)
 
     deg = runtime.temp_unit
     left_core = f"{TEXT}{icon} {name}"
@@ -226,7 +229,7 @@ def _has(key, runtime):
     than said in English: the paragraph is prose, and a line of another
     language in it would read as a mistake.  The English table is the
     reference, so English has everything."""
-    return key in _STRINGS.get(lang_of(runtime), _STRINGS["en"])
+    return has_text(_STRINGS, key, lang_of(runtime))
 
 
 def _degrees(n, runtime, signed=False):
@@ -485,8 +488,9 @@ def _time_phrase(dt, now, runtime, after=None):
         if said_tomorrow and _has(again, runtime):
             key = again
         return _s(key, runtime)
-    day_names = DAY_NAMES.get(lang, DAY_NAMES["en"])
-    form = ON_DAY_FORMS.get(lang, {}).get(dt.weekday())
+    day_names = table_for(DAY_NAMES, lang)
+    forms = ON_DAY_FORMS.get(lang, ON_DAY_FORMS.get(base_language(lang), {}))
+    form = forms.get(dt.weekday())
     if form:
         return form.format(day=day_names[dt.weekday()])
     return _s("on_day", runtime, day=day_names[dt.weekday()])
@@ -848,6 +852,16 @@ _PRECIP_CHANCE_BELOW = 60
 _PRECIP_LIKELY_BELOW = 80
 
 
+@functools.lru_cache(maxsize=None)
+def _precip_descs(lang):
+    """The precipitation nouns by WMO code in `lang`: English under the
+    language's own, and a regional variant's few under its base's."""
+    descs = dict(_PRECIP_DESCS)
+    for code in reversed(fallbacks(lang)):
+        descs.update(_PRECIP_DESCS_I18N.get(code, {}))
+    return descs
+
+
 def _peak_hour(run, amounts, codes, desc=None, open_ended=False):
     """The hour in a run of precipitation worth naming on its own, or None.
 
@@ -929,7 +943,7 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None):
 
     def desc(idx):
         c = codes[idx] if idx < len(codes) else 0
-        descs = _PRECIP_DESCS_I18N.get(lang, _PRECIP_DESCS)
+        descs = _precip_descs(lang)
         return descs.get(c, _PRECIP_DESCS.get(c, "precipitation"))
 
     parts["desc"] = desc
@@ -1232,10 +1246,10 @@ def _next_rain(daily, now, runtime, hourly=None, after=None):
         if offset == 1:
             return "", None
         lang = runtime.lang
-        desc = _PRECIP_DESCS_I18N.get(lang, _PRECIP_DESCS).get(code)
+        desc = _precip_descs(lang).get(code)
         when = _on_full_day(day, runtime)
         if not desc:
-            code, desc = 63, _PRECIP_DESCS_I18N.get(lang, _PRECIP_DESCS).get(63, "rain")
+            code, desc = 63, _precip_descs(lang).get(63, "rain")
         key = ("rain_next_chance" if p < _PRECIP_CHANCE_BELOW
                else "rain_next_likely" if p < _PRECIP_LIKELY_BELOW else "rain_next")
         return _ucfirst(_precip_s(key, code, runtime, desc=desc, time=when)), at
@@ -1246,8 +1260,9 @@ def _on_full_day(day, runtime):
     """"on Friday", with the day's full name, declined where the language
     declines it."""
     lang = runtime.lang
-    name = FULL_DAY_NAMES.get(lang, FULL_DAY_NAMES["en"])[day.weekday()]
-    form = ON_FULL_DAY_FORMS.get(lang, {}).get(day.weekday())
+    name = table_for(FULL_DAY_NAMES, lang)[day.weekday()]
+    forms = ON_FULL_DAY_FORMS.get(lang, ON_FULL_DAY_FORMS.get(base_language(lang), {}))
+    form = forms.get(day.weekday())
     if form:
         return form.format(day=name)
     return _s("on_full_day", runtime, day=name)
@@ -1283,7 +1298,7 @@ def _next_rain_near(hourly, now, day, runtime, far=False, after=None):
     if far and _PRECIP_KIND.get(codes[i]) == "drizzle":
         return ""
     lang = runtime.lang
-    desc = _PRECIP_DESCS_I18N.get(lang, _PRECIP_DESCS).get(
+    desc = _precip_descs(lang).get(
         codes[i], _PRECIP_DESCS.get(codes[i], "rain"))
     if dt.date() == (now + timedelta(days=1)).date():
         when = _time_phrase(dt, now, runtime, after=after)

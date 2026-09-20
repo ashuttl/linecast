@@ -17,6 +17,7 @@ from linecast._runtime import log_failure
 from linecast._weather_i18n import FULL_DAY_NAMES
 from linecast._ephemeris import _moon_events_for_local_date
 from linecast.sunshine import daylight_factor as solar_daylight_factor, moon_phase
+from linecast._i18n import table_for
 
 def _rebuild():
     global DIM_RGB, MUTED_RGB, MOON_RISE_RGB, MOON_SET_RGB, TIP_BG_RGB
@@ -123,7 +124,7 @@ def compute_time_markers(window_start, total_hours, graph_w, runtime):
         x = int(offset_secs / window_secs * (graph_w - 1))
         if 0 < x < graph_w - 1:
             midnight_cols.add(x)
-            day_names = FULL_DAY_NAMES.get(lang, FULL_DAY_NAMES["en"])
+            day_names = table_for(FULL_DAY_NAMES, lang)
             midnight_day_names[x] = day_names[dt.weekday()]
         dt += timedelta(days=1)
 
