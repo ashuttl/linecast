@@ -670,7 +670,10 @@ class TestMoreToSay:
         hourly.update(relative_humidity_2m=[70] * 7, wind_speed_10m=[3] * 7)
         assert feels_ahead_sentence(hourly, NOON, _runtime()) == \
             "High humidity will make it feel as high as 98° this afternoon"
-        to_c = lambda t: (t - 32) * 5 / 9
+
+        def to_c(t):
+            return (t - 32) * 5 / 9
+
         hourly.update(temperature_2m=[to_c(t) for t in temps],
                       apparent_temperature=[to_c(t) for t in feels])
         assert feels_ahead_sentence(hourly, NOON, _runtime(lang="ja", celsius=True)) == \

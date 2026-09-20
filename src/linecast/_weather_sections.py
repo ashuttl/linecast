@@ -320,8 +320,9 @@ def narrative_lines(data, now, width, runtime=None):
             and _period_phrase(gust_at, now, runtime) == _period_phrase(anchor, now, runtime)):
         # Wind in the same part of the day rides on the rain's sentence
         add(max(precip["salience"], 5 if gale else 3), at, anchor,
-            lambda after: _s("with_gusts", runtime, speed=gust_speed,
-                             sentence=_precip_parts(hourly, now, runtime, daily, after)["sentence"]),
+            lambda after: _s(
+                "with_gusts", runtime, speed=gust_speed,
+                sentence=_precip_parts(hourly, now, runtime, daily, after)["sentence"]),
             leaves=precip["last_named"])
     else:
         add(precip["salience"], at, anchor,
@@ -467,7 +468,8 @@ def _time_phrase(dt, now, runtime, after=None):
             if now.hour < 5 and _has("tomorrow_night", runtime):
                 return _s("tomorrow_night", runtime)
             return _s("overnight", runtime)
-        said_tomorrow = after is not None and after.date() == tomorrow and _names_the_day(after, now)
+        said_tomorrow = (after is not None and after.date() == tomorrow
+                         and _names_the_day(after, now))
         if dt.hour < 8:
             key = "early_tomorrow_morning"
         elif dt.hour < 12:

@@ -531,7 +531,8 @@ class TestWeatherLocaleImprovements:
 
         assert warmer == ("Huomenna on 3 astetta l\u00e4mpim\u00e4mp\u00e4\u00e4 "
                           "kuin t\u00e4n\u00e4\u00e4n")
-        assert cooler == "Huomenna on 3 astetta viile\u00e4mp\u00e4\u00e4 kuin t\u00e4n\u00e4\u00e4n"
+        assert cooler == ("Huomenna on 3 astetta viile\u00e4mp\u00e4\u00e4 "
+                          "kuin t\u00e4n\u00e4\u00e4n")
 
     def test_standard_german_and_dutch_weekday_abbreviations(self):
         assert DAY_NAMES["de"] == ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
