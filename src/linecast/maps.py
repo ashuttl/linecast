@@ -46,7 +46,7 @@ from linecast._maps_i18n import ms
 from linecast._maps_paint import (  # noqa: F401 — the inks and composers
     BATHY_STOPS, BORDER_STROKE, COAST_STROKE, HYPSO_FAMILIES, LABEL_DARK,
     LABEL_LIGHT, LAKE_FILL, MARKER, build_terrain_buffer,
-    compose_map, compose_terrain,
+    compact_colors, compose_map, compose_terrain,
 )
 from linecast._maps_views import (  # noqa: F401 — the loaders and caches
     TerrainView, _EMPTY_TERRAIN, _coast_dots, _elev_cache,
@@ -831,6 +831,12 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     foot += " " * max(0, cols - visible_len(foot))
 
     out = "\n".join([header, *map_lines, foot])
+    # A cell's two halves each carry a colour, and neighbouring cells
+    # are often the same colour: compact_colors drops the escapes that
+    # ask for the colour already in effect.  It runs here, before the
+    # overlay channel, so the body it reads is the body and nothing
+    # else -- and so --print sends the shorter frame too.
+    out = compact_colors(out)
     # One floating thing at a time, through the one overlay channel;
     # Search sits above the steps panel; the live loop owns help.
     if search is not None and search.open:

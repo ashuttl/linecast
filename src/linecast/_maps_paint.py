@@ -8,6 +8,7 @@ layers into terminal lines, one composer per register.
 """
 
 import math
+import re
 
 from linecast import _climate, _globe_now, _maps_hover, _maps_style, _theme
 from linecast._color import (
@@ -17,6 +18,57 @@ from linecast._framebuffer import halfblock
 from linecast._radar_basemap import BORDER
 from linecast._theme import lerp_rgb, themed
 from linecast._radar_ui import MARKER
+
+
+# A colour setter we can compare, or any other escape, taken whole: the
+# second group is "38" or "48" only for a standalone foreground or
+# background, which is the shape both halves of every half-block cell
+# come in.  Anything else falls through to the third alternative, which
+# takes a complete CSI, or the fourth, which takes ESC and one byte of
+# whatever came after it.
+_MAP_ESCAPE = re.compile(
+    r'\x1b(?:\[([34]8);(?:2;[0-9]+;[0-9]+;[0-9]+|5;[0-9]+)m'
+    r'|\[[0-?]*[ -/]*[@-~]|[\s\S]?)')
+
+
+def compact_colors(output):
+    """Omit repeated map colours, with no state shared between frames.
+
+    The half-block fills set a foreground and a background on nearly
+    every cell, and a run of ground the same colour sets each of them to
+    what it already is.  Dropping the repeats leaves the frame painting
+    exactly as it did: the rendered string stays canonical, and this is
+    a pass over it on the way to the terminal.
+
+    Only standalone truecolor and indexed-colour escapes are shortened.
+    Every other CSI -- a reset, a bold, a cursor move, an erase -- stays
+    intact and forgets both colours, since it may have changed either;
+    an unfamiliar terminal control leaves the whole output untouched.
+    A newline is not a barrier: the live loop reaches the next row with
+    a cursor address and an erase, neither of which resets the
+    rendition, and it resets only after the last row.  Anything past a
+    NUL is the overlay channel (see _live.overlay), which is addressed
+    over the body and is copied through as it stands.
+    """
+    body, sep, floating = output.partition('\x00')
+    colors = {}
+    unfamiliar = False
+
+    def compact(match):
+        nonlocal unfamiliar
+        code, slot = match[0], match[1]
+        if slot is not None:
+            if colors.get(slot) == code:
+                return ''
+            colors[slot] = code
+        else:
+            colors.clear()
+            unfamiliar |= len(code) < 3 or not code.startswith('\x1b[')
+        return code
+
+    packed = _MAP_ESCAPE.sub(compact, body)
+    return output if unfamiliar else f'{packed}{sep}{floating}'
+
 
 # geography over terrain: dark strokes cut into the colour fill (the
 # radar palette's dim-on-dark strokes vanish against light terrain).
