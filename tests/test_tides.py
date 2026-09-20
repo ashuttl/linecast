@@ -414,6 +414,27 @@ class LocationRoutingTests(unittest.TestCase):
         picked, _asked = self._route(39.0, -98.0, "US", key=True)
         self.assertEqual(picked, (None, None, None))
 
+    def test_a_spent_tidecheck_budget_falls_through_to_openmeteo(self):
+        # The day's 50 free-tier requests are gone and nothing is cached,
+        # so TideCheck cannot name a station and Open-Meteo answers.
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_PAID": ""}), \
+             patch.object(_tides_tidecheck, "is_available", return_value=True), \
+             patch.object(_tides_tidecheck, "requests_today",
+                          return_value=_tides_tidecheck.FREE_TIER_LIMIT), \
+             patch.object(_tides_tidecheck, "read_cache", return_value=None), \
+             patch.object(_tides_tidecheck, "read_stale", return_value=None), \
+             patch.object(_tides_tidecheck, "fetch_json") as fetch, \
+             patch.object(_tides_noaa, "find_nearest_station",
+                          return_value=(None, None)), \
+             patch.object(_tides_openmeteo, "find_nearest_openmeteo",
+                          return_value=("om:38.7200,-9.1400", None)), \
+             patch("linecast._sunshine_json._location_label",
+                   return_value="Lisbon"):
+            picked = tides._station_for_location(38.72, -9.14, "PT")
+
+        fetch.assert_not_called()
+        self.assertEqual(picked, (OPENMETEO, "om:38.7200,-9.1400", "Lisbon"))
+
 
 class LocationLabelTests(unittest.TestCase):
     """Coordinates are the last resort, not the second."""

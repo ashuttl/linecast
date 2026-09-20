@@ -13,7 +13,10 @@ sorted by relevance/distance.
 
 API docs: https://tidecheck.com/developers
 Auth:     X-API-Key header
-Free tier: 50 requests/day (no credit card required)
+Free tier: 50 requests/day (no credit card required).  linecast counts
+          what it sends and stops at the cap, serving cached copies
+          until the day turns, unless LINECAST_TIDECHECK_PAID says a
+          paid plan is in force.
 """
 
 import os
@@ -60,6 +63,15 @@ def _headers():
 FREE_TIER_LIMIT = 50
 
 
+class BudgetExhausted(Exception):
+    """Raised in place of a request the free tier has no room for.
+
+    Every caller already absorbs a failed fetch, so this needs no
+    handling of its own: the cached copy stands in where there is one,
+    and the station falls to the next provider where there is not.
+    """
+
+
 def _tally_file(day: date | None = None) -> Any:
     day = day or datetime.now(timezone.utc).date()
     return cache_dir() / f"tc_requests_{day.isoformat()}.json"
@@ -82,16 +94,25 @@ def _count_request() -> None:
     write_cache(path, {"count": requests_today() + 1})
 
 
-def _fetch(url, timeout=10):
-    """fetch_json with the API key, counted against today's budget."""
-    _count_request()
-    return fetch_json(url, headers=_headers(), timeout=timeout)
-
-
 def paid_tier() -> bool:
     """LINECAST_TIDECHECK_PAID=1 says the 50-a-day cap does not apply."""
     return os.environ.get("LINECAST_TIDECHECK_PAID", "").strip().lower() in (
         "1", "true", "yes")
+
+
+def _fetch(url, timeout=10):
+    """fetch_json with the API key, counted against today's budget.
+
+    The request the tally says would be the 51st of the day is not sent:
+    the server would refuse it, and a cached copy is a better answer
+    than a wasted round trip.  The 50th is sent, and counted.  A cache
+    hit never reaches here, so it never counts.
+    """
+    if not paid_tier() and requests_today() >= FREE_TIER_LIMIT:
+        raise BudgetExhausted(
+            f"all {FREE_TIER_LIMIT} free-tier requests used today (UTC)")
+    _count_request()
+    return fetch_json(url, headers=_headers(), timeout=timeout)
 
 
 def budget_line() -> str | None:

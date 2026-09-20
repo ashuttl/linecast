@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Tides: With a TideCheck key on the free plan, linecast now stops at the fifty requests a day the plan allows and shows cached tides until the day turns, as the README said it did.
 - Radar: Cached NEXRAD frames are cleared after a day, as the other sources' tiles already were, so the cache stops growing.
 - Weather: In Canada the air quality shows the AQHI, the number on Environment Canada's own scale, with its risk level. It is Environment Canada's reported value for the nearest community, and is computed from the pollutants, including the AQHI-Plus rule for smoke, where no community is near. The label reads CAS in French.
 - Language: Portuguese, Spanish, and French each have a second regional form. `pt-PT`, `es-ES`, and `fr-CA` read the words that differ in Portugal, Spain, and Canada, and a terminal set to one of those countries picks it by itself. Spanish is Latin American throughout now; the maps had used Spain's words.

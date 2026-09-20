@@ -409,3 +409,62 @@ class BudgetTests(unittest.TestCase):
     def test_a_garbled_tally_reads_as_zero(self):
         self.tally[tc._tally_file().name] = "junk"
         self.assertEqual(tc.requests_today(), 0)
+
+    def test_the_fifty_first_request_is_never_sent(self):
+        self.tally[tc._tally_file().name] = {"count": 50}
+        with patch.object(tc, "read_cache", return_value=None), \
+             patch.object(tc, "fetch_json") as fetch, \
+             patch.object(tc, "log_failure") as logged:
+            sid, name = tc.find_nearest_station_tidecheck(38.72, -9.14)
+
+        fetch.assert_not_called()
+        self.assertIsNone(sid)
+        self.assertIsNone(name)
+        # a refused request costs nothing, so the tally does not move
+        self.assertEqual(tc.requests_today(), 50)
+        # and --debug says why the station is missing
+        logged.assert_called_once()
+        self.assertIsInstance(logged.call_args.args[2], tc.BudgetExhausted)
+        self.assertEqual(logged.call_args.kwargs["fallback"], "no station")
+
+    def test_a_refused_request_serves_the_station_it_has(self):
+        self.tally[tc._tally_file().name] = {"count": 50}
+        cache_name = f"tc_station_{tc.location_cache_key(38.72, -9.14)}.json"
+        self.tally[cache_name] = {"id": "fes2022-lisbon", "name": "Lisbon"}
+        with patch.object(tc, "read_cache", return_value=None), \
+             patch.object(tc, "fetch_json") as fetch:
+            sid, name = tc.find_nearest_station_tidecheck(38.72, -9.14)
+
+        fetch.assert_not_called()
+        self.assertEqual(sid, "fes2022-lisbon")
+        self.assertEqual(name, "Lisbon")
+
+    def test_a_refused_tides_fetch_serves_the_cached_copy(self):
+        self.tally[tc._tally_file().name] = {"count": 50}
+        payload = {"station": {"id": "fes2022-lisbon"}, "extremes": []}
+        with patch.object(tc, "fetch_json") as fetch, \
+             patch("linecast._http.read_cache", return_value=None), \
+             patch("linecast._http.read_stale", return_value=payload):
+            self.assertEqual(tc._fetch_tides_raw("fes2022-lisbon"), payload)
+        fetch.assert_not_called()
+
+    def test_the_fiftieth_request_still_goes_out(self):
+        self.tally[tc._tally_file().name] = {"count": 49}
+        with patch.object(tc, "fetch_json", return_value=[]) as fetch:
+            tc._fetch("https://example.invalid/x")
+        fetch.assert_called_once()
+        self.assertEqual(tc.requests_today(), 50)
+
+        with patch.object(tc, "fetch_json") as fetch:
+            with self.assertRaises(tc.BudgetExhausted):
+                tc._fetch("https://example.invalid/y")
+        fetch.assert_not_called()
+        self.assertEqual(tc.requests_today(), 50)
+
+    def test_a_paid_plan_is_not_held_to_the_cap(self):
+        self.tally[tc._tally_file().name] = {"count": 50}
+        with patch.dict("os.environ", {"LINECAST_TIDECHECK_PAID": "1"}), \
+             patch.object(tc, "fetch_json", return_value=[]) as fetch:
+            tc._fetch("https://example.invalid/x")
+        fetch.assert_called_once()
+        self.assertEqual(tc.requests_today(), 51)
