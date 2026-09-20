@@ -22,19 +22,19 @@ planet, and a cap that belongs to the picture beats a truthful hole
 in it.  Daylight is astronomy — the subsolar
 point from the clock and a civil-twilight ramp — and night dims to a
 readable blue rather than black, because a map you cannot read is not
-a map.  Cities burn through the dark side, graded by population: the
-basemap's own registry doing its best Black Marble.
+a map.  Night lights follow the bundled NASA Black Marble 2016 raster,
+filtered to the screen resolution rather than inferred from population.
 """
 
 import math
 import threading
 import time
 
+from linecast import _night_lights
 from linecast import _radar_tiles as tiles
 from linecast._geo import wrap_lon
-from linecast._globe import _aspect, _radius, _source_zoom, bilinear_taps, forward
+from linecast._globe import _aspect, _source_zoom, bilinear_taps, geometry
 from linecast._png import decode_rgba
-from linecast._radar_basemap import _load_data
 from linecast._runtime import log_failure
 from linecast._scenes import Memo
 from linecast._theme import themed
@@ -466,14 +466,11 @@ def clouds(lls, canvas):
     return out
 
 
-def _light_weight(pop):
-    """Population → glow 0..1: a town glimmers, a megacity blazes."""
-    return max(0.0, min(1.0, (math.log10(max(pop, 1.0)) - 4.0) / 3.5))
-
-
-# city_lights_globe() memo: the lights depend only on the view, but the
-# sun toggle asks for them on every repaint.  Keyed with the cities
-# list's identity so swapped-in test data misses.
+# The immutable pyramid and the view decide the light mask; daylight
+# and theme are applied later.  Memoised per view because the sun
+# toggle asks for the lights on every repaint, and keyed with the
+# pyramid's identity so swapped-in test data misses, and with the cell
+# aspect because that is what the geometry is cut to.
 _LIGHTS_KEEP = 4
 _lights_cache = Memo(keep=_LIGHTS_KEEP)
 _lights_lock = threading.Lock()  # view workers ask concurrently
@@ -484,50 +481,24 @@ def city_lights_globe(lat0, lon0, zoom, gw, h):
 
     Memoised per view: the dict is shared between calls, so read it.
     """
-    cities = _load_data()["cities"]
-    key = (lat0, lon0, zoom, gw, h, id(cities), _aspect())
+    levels = _night_lights.load()
+    key = (lat0, lon0, zoom, gw, h, id(levels), _aspect())
     with _lights_lock:
         hit = _lights_cache.get(key)
     if hit is not None:
         return hit
-    hit = _light_cities(cities, lat0, lon0, zoom, gw, h)
+    lls, zs, _rhos = geometry(lat0, lon0, zoom, gw, h)
+    hit = _night_lights.sample(levels, lls, zoom / h, zs)
     with _lights_lock:
         _lights_cache.put(key, hit)
     return hit
 
 
-def _light_cities(cities, lat0, lon0, zoom, gw, h):
-    r = _radius(zoom, h)
-    rx = r * _aspect()
-    out = {}
-    for entry in cities:
-        w = _light_weight(entry[2])
-        if w <= 0.0:
-            continue
-        ux, uy, cos_c = forward(entry[1], entry[0], lat0, lon0)
-        if cos_c <= 0.0:
-            continue
-        x = int(gw / 2.0 + ux * rx)
-        y = int(h / 2.0 - uy * r)
-        if 0 <= x < gw and 0 <= y < h:
-            out[(x, y)] = max(out.get((x, y), 0.0), w)
-    return out
-
-
 def city_lights_flat(bbox, gw, h):
     """{(x, y): glow} on the gw×h sub-pixel grid, equirectangular."""
-    minlon, minlat, maxlon, maxlat = bbox
-    lon_span, lat_span = maxlon - minlon, maxlat - minlat
-    out = {}
-    for entry in _load_data()["cities"]:
-        w = _light_weight(entry[2])
-        if w <= 0.0:
-            continue
-        x = int((entry[0] - minlon) / lon_span * gw)
-        y = int((maxlat - entry[1]) / lat_span * h)
-        if 0 <= x < gw and 0 <= y < h:
-            out[(x, y)] = max(out.get((x, y), 0.0), w)
-    return out
+    return _night_lights.sample(_night_lights.load(),
+                                flat_lls(bbox, gw, h),
+                                (bbox[3] - bbox[1]) / h)
 
 
 def apply(buf, day, cloud, lights, night=None):

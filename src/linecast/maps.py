@@ -35,7 +35,7 @@ import sys
 
 from linecast import (
     _builtup, _climate, _globe, _globe_now, _maps_hover, _maps_style,
-    _maps_ui,
+    _maps_ui, _night_lights,
 )
 from linecast._color import fg, RESET, color_mode, BG_PRIMARY
 from linecast._elevation import ATTRIBUTION
@@ -811,6 +811,12 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                            ATTRIBUTION)
             else:
                 attribs = (long, both, ATTRIBUTION)
+        # the night lights are terrain's, flat or globe, and only the
+        # sun puts them on screen; the rung above the ladder credits
+        # them and every shorter rung stays as it was
+        if sun and view != "street" and _night_lights.load():
+            attribs = (f"{attribs[0]} · {_night_lights.ATTRIBUTION}",
+                       *attribs)
         scale = (_scale_bar(bbox, graph_w)
                  if view == "street" and not globe else "")
         # first rung that fits wins: long+hint, short+hint, short, bare
