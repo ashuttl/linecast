@@ -72,7 +72,7 @@ Use Windows Terminal. Git Bash and mintty look like a pipe rather than a termina
 
 Every command opens live, at the place your IP address suggests until you [save a location](#location). Press `?` for the keyboard controls.
 
-In `weather`, click the location at the top right (or press `l`) to choose a recent place or **Add location**. Type to search, use ↑/↓ to highlight a suggestion, and press Enter or click to choose it; Escape dismisses the panel. `/` opens the search directly. The ten most recent places are saved between runs; **Clear recent locations** empties that list. Choosing a recent place or search result changes the current weather session. **Save [place] as default** saves the displayed location as the default for all linecast views; it is offered when the place is not already the default.
+In `weather`, click the location at the top right (or press `l`) to choose a recent place or **Add location**. Type to search, use ↑/↓ to highlight a suggestion, and press Enter or click to choose it; Escape dismisses the panel. `/` opens the search directly. The ten most recent places are saved between runs; **Clear recent locations** empties that list. Choosing a recent place or search result changes the current weather session. **Save [place] as default** saves the displayed location as the default for all linecast views; it is offered when the place is not already the default. `tides` has the same menu under the station name at the top left: it switches to the station nearest the place you choose, and shares its recent places with `weather`.
 
 Try the commands on their own, or with flags:
 

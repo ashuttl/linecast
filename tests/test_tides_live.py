@@ -1,4 +1,4 @@
-"""TidesApp: the live tide view's window expansion."""
+"""TidesApp: the live tide view's window expansion and location menu."""
 
 import sys
 import threading
@@ -37,7 +37,7 @@ def _app():
     provider = FakeProvider()
     app = TidesApp(
         provider, "8418150", "Portland, ME", {"name": "Portland"}, "tz",
-        SimpleNamespace(), [("p", 0.0)], [("h", "L")],
+        SimpleNamespace(lang="en"), [("p", 0.0)], [("h", "L")],
         TODAY - timedelta(days=7), TODAY + timedelta(days=7),
         y_range=(0, 4), marine_data={"m": 1},
     )
@@ -121,9 +121,56 @@ class TestRender:
             offset_minutes=6 * 24 * 60, mouse_pos=(4, 5),
             predictions=old_predictions, hilo=old_hilo,
             y_range=(0, 4), marine_data={"m": 1}, provider=app.provider,
+            location_menu=True,
         )
         assert provider.calls           # the expansion still ran
         assert app.predictions != old_predictions  # and landed for the next frame
+
+
+class TestLocations:
+    def _place(self, name="Sydney"):
+        from linecast._maps_search import Result
+        return Result(name, "", -33.87, 151.21, "point")
+
+    def test_a_chosen_place_brings_its_station(self):
+        app, _provider = _app()
+        app.lat, app.lng, app.place_label = 43.66, -70.25, "Portland, Maine"
+        other = FakeProvider()
+        fetched = (TODAY, TODAY, (0, 2), None, [("q", 1.0)], [("h", "H")])
+        loaded = dict(provider=other, station_id="om:1", station_name="Sydney",
+                      station_meta={"name": "Sydney"}, station_tz="tz2", country="AU",
+                      fetched=fetched)
+        app._location_result = (self._place(), loaded)
+        app._finish_location()
+        assert (app.provider, app.station_id, app.station_name) == (other, "om:1", "Sydney")
+        assert app.predictions == [("q", 1.0)] and app.y_range == (0, 2)
+        names = [p.name for p in app.locations.recent.places]
+        assert names == ["Sydney", "Portland, Maine"]  # and the way back
+
+    def test_a_place_without_tides_keeps_the_station_and_says_so(self):
+        app, provider = _app()
+        app._location_result = (self._place("Denver"), None)
+        with patch.object(app, "flash") as flash:
+            app._finish_location()
+        flash.assert_called_once_with(["No tide predictions for Denver."], seconds=5)
+        assert app.station_id == "8418150" and app.provider is provider
+
+    def test_an_expansion_for_the_station_left_behind_is_dropped(self):
+        app, provider = _app()
+        provider.gate = threading.Event()
+        old = app.predictions
+        with patch.object(tides, "_station_now", return_value=NOW):
+            app.expand_for(6 * 24 * 60)
+            app.station_id = "om:1"
+            provider.gate.set()
+            app._worker.join(1.0)
+        assert app.predictions is old
+
+    def test_the_station_pill_opens_the_menu(self):
+        app, _provider = _app()
+        width = len("Portland, ME \u25bc") + 4
+        assert not app.on_click(width + 1, 1)
+        assert app.on_click(width, 1) and app.locations.active
 
 
 class TestTuning:
@@ -131,4 +178,6 @@ class TestTuning:
         assert TidesApp.interval == 60
         assert TidesApp.scroll_step == 30
         assert TidesApp.mouse is True
-        assert _app()[0].hooks() == {}
+        # The location menu's hooks; the wheel still scrubs time while it is shut.
+        assert set(_app()[0].hooks()) == {
+            "on_action", "on_drag", "on_wheel", "intercept", "on_click", "text_mode"}

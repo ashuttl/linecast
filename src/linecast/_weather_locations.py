@@ -1,4 +1,4 @@
-"""Weather's recent places and the location menu above the forecast."""
+"""Recent places and the location menu, for weather and tides."""
 
 from linecast import _theme
 from linecast._cache import read_stale, write_cache
@@ -61,8 +61,9 @@ class LocationSearch(SearchState):
 
 
 class LocationPicker:
-    def __init__(self, lang, location_name=""):
+    def __init__(self, lang, location_name="", align='right'):
         self.lang = lang
+        self.align = align  # the side of the screen its control is on
         self.location_name = location_name
         self.is_default = False
         self.recent = RecentLocations()
@@ -135,7 +136,7 @@ class LocationPicker:
         return None
 
     def overlay(self, cols, rows, current):
-        """Right-aligned dropdown; the search uses the same field/list shape as maps."""
+        """A dropdown under its control; the search uses the same field/list shape as maps."""
         self.hits = {}
         self.dividers = set()
         if cols < 1 or rows < 2:
@@ -149,8 +150,8 @@ class LocationPicker:
                        if isinstance(item, Result) and place_key(item) == current]
             labels.append(ms('search_hint', self.lang))
             width = min(width, max(visible_len(label) for label in labels) + 2)
-        col = cols - width + 1
-        self.bounds = (col, cols)
+        col = 1 if self.align == 'left' else cols - width + 1
+        self.bounds = (col, col + width - 1)
         surface = _theme.surface_bg(0.10)
         ink = _theme.ensure_contrast(_theme.theme_fg, surface, 4.0)
         dim = _theme.ensure_contrast(_theme.surface_bg(0.55), surface, 2.2)

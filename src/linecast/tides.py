@@ -156,6 +156,60 @@ def _station_for_location(lat, lng, country_code, label=""):
     return None, None, None
 
 
+def _station_details(provider, station_id, station_name):
+    """The station's metadata, its display name, and its time zone."""
+    station_meta = provider.station_metadata(station_id)
+    if station_meta:
+        meta_name = station_meta.get("name", "")
+        meta_state = station_meta.get("state", "")
+        if meta_name:
+            station_name = f"{meta_name}, {meta_state}" if meta_state else meta_name
+    return station_meta, station_name, _station_tzinfo(station_meta)
+
+
+def _fetch_station(provider, station_id, station_meta, station_tz, live):
+    """Everything the view draws for a station, fetched side by side:
+    (fetch_start, fetch_end, y_range, marine_data, predictions, hilo).
+
+    Live mode pre-fetches ~7 days in each direction; the static view
+    needs today and its neighbours. Only the metadata was a dependency;
+    the y-axis range (fixed from historical hilo data), the marine
+    conditions, and the predictions themselves are independent, so a
+    cold start costs one round trip.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    def fetch_marine_data():
+        # Marine/wave conditions are optional; never crash the tides view
+        try:
+            lat = station_meta.get("lat") if station_meta else None
+            lng = station_meta.get("lng") if station_meta else None
+            if lat is not None and lng is not None:
+                return fetch_marine(float(lat), float(lng))
+        except Exception as exc:
+            log_failure("marine/open-meteo", "marine fetch", exc,
+                        fallback="no marine line")
+        return None
+
+    today = _station_now(station_meta).date()
+    days = 7 if live else 1
+    fetch_start = today - timedelta(days=days)
+    fetch_end = today + timedelta(days=days)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        fut_y_range = pool.submit(provider.y_range, station_id, today, station_tz)
+        fut_marine = pool.submit(fetch_marine_data)
+        fut_preds = pool.submit(provider.tides_range, station_id,
+                                fetch_start, fetch_end, station_tz)
+        fut_hilo = pool.submit(provider.hilo_range, station_id,
+                               fetch_start, fetch_end, station_tz)
+        tag = _provider_tag(provider)
+        y_range = _settled(fut_y_range, tag, "y-range", "auto-scaled axis")
+        marine_data = _settled(fut_marine, tag, "marine", "no marine line")
+        preds = _settled(fut_preds, tag, "predictions", "no tide data")
+        hilo = _settled(fut_hilo, tag, "hi/lo", "no high/low markers")
+    return fetch_start, fetch_end, y_range, marine_data, preds, hilo
+
+
 def _station_tzinfo(meta):
     """Resolve a station timezone to tzinfo using metadata and safe fallbacks."""
     if not meta:
@@ -540,8 +594,8 @@ def _render_tide_braille_rows(braille_rows, col_daylight, midnight_cols,
 # ---------------------------------------------------------------------------
 # Header line (day names at midnight boundaries)
 # ---------------------------------------------------------------------------
-def _render_header_line(cols, station_name, runtime, offset_minutes=0):
-    """Render the top line with pill-styled station name."""
+def _pill_label(station_name, location_menu=False):
+    """The station pill's text; the live view's pill is a menu too."""
     # Title-case a station list's capitals but preserve short uppercase
     # tokens (state/province codes). A name that arrives in mixed case is
     # a geocoder's, and already written as its language writes it:
@@ -553,6 +607,12 @@ def _render_header_line(cols, station_name, runtime, offset_minutes=0):
         name = ", ".join(parts)
     else:
         name = ""
+    return f"{name} \u25bc" if name and location_menu else name
+
+
+def _render_header_line(cols, station_name, runtime, offset_minutes=0, location_menu=False):
+    """Render the top line with pill-styled station name."""
+    name = _pill_label(station_name, location_menu)
 
     # Station name pill (left)
     if name:
@@ -681,7 +741,7 @@ def _info_line(window, now_height, now_dt, width, offset_minutes, rising, runtim
 def render(station_id, station_name, station_meta=None, runtime=None,
            fullscreen=False, offset_minutes=0, mouse_pos=None,
            predictions=None, hilo=None, y_range=None, marine_data=None,
-           provider=None):
+           provider=None, location_menu=False):
     """Build the complete multi-line tide display.
 
     When predictions/hilo are provided (live mode), renders a sliding 24h
@@ -799,6 +859,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     # Header with pill-styled station name
     lines.append(_render_header_line(
         cols, station_name, runtime, offset_minutes=offset_minutes,
+        location_menu=location_menu,
     ))
 
     # Day labels on their own row
@@ -887,7 +948,7 @@ class TidesApp(_live.LiveApp):
 
     def __init__(self, provider, station_id, station_name, station_meta,
                  station_tz, runtime, predictions, hilo, fetched_start,
-                 fetched_end, y_range=None, marine_data=None):
+                 fetched_end, y_range=None, marine_data=None, place=None, country=""):
         self.provider = provider
         self.station_id = station_id
         self.station_name = station_name
@@ -902,6 +963,191 @@ class TidesApp(_live.LiveApp):
         self.marine_data = marine_data
         self._worker = None
         self._retry_at = 0.0   # monotonic; no expansion before this
+        # The place the reader asked for, which the station is nearest
+        # to: (lat, lng, label). A named station stands for itself.
+        if place is None:
+            meta = station_meta or {}
+            place = (meta.get("lat"), meta.get("lng"), "")
+        self.lat, self.lng, self.place_label = place
+        self._country = country
+        from linecast._weather_locations import LocationPicker
+        self.locations = LocationPicker(runtime.lang, align='left')
+        self._update_location_picker()
+        self._state_lock = threading.RLock()
+        self._generation = 0
+        self._loading = None
+        self._location_result = None
+
+    # --- the location menu, as weather has it -------------------------
+    def _here(self):
+        try:
+            return float(self.lat), float(self.lng)
+        except (TypeError, ValueError):
+            return 0.0, 0.0
+
+    def _label(self):
+        lat, lng = self._here()
+        return self.place_label or self.station_name or f"{lat:.2f}, {lng:.2f}"
+
+    def _update_location_picker(self):
+        from linecast._config import saved_location
+        saved = saved_location()
+        here = tuple(round(v, 4) for v in self._here())
+        self.locations.location_name = self._label()
+        self.locations.is_default = bool(
+            saved and (round(saved['lat'], 4), round(saved['lng'], 4)) == here)
+        self.locations.sel = 0
+
+    def _save_default_location(self):
+        """Persist the displayed place using the CLI's shared location setting."""
+        from linecast._config import read_config, write_config
+        from linecast._weather_locations_i18n import ls
+        lat, lng = self._here()
+        label = self._label()
+        try:
+            config = read_config()
+            config['location'] = dict(lat=lat, lng=lng, label=label,
+                                      country=self._country or "")
+            write_config(config)
+        except OSError as exc:
+            log_failure('tides', 'save default location', exc, fallback='keep previous default')
+            self.flash([ls('save_failed', self.runtime.lang)], seconds=5)
+            return
+        self._update_location_picker()
+        self.flash([ls('saved', self.runtime.lang, name=label)])
+
+    def _choose_location(self, place):
+        from linecast._weather_locations_i18n import ls
+        if place is None:
+            return
+        if place == 'save':
+            self._save_default_location()
+            return
+        with self._state_lock:
+            self._generation += 1
+            generation = self._generation
+            self._location_result = None
+            self._loading = place
+            self.flash([ls('loading', self.runtime.lang, name=place.name)], busy=True)
+
+        def fetch():
+            result = None
+            try:
+                result = self._load_place(place)
+            except Exception as exc:
+                log_failure("tides", "change location", exc, fallback="keep current station")
+                result = "failed"
+            with self._state_lock:
+                if generation == self._generation:
+                    self._location_result = (place, result)
+            _live.nudge()
+
+        threading.Thread(target=fetch, daemon=True).start()
+
+    def _load_place(self, place):
+        """The nearest station to *place* and its data, as main() finds
+        them: None when nothing covers it, "failed" when it would not load."""
+        from linecast._weather_sources import _reverse_geocode
+        try:
+            country = _reverse_geocode(place.lat, place.lon, lang=self.runtime.lang)[1]
+        except Exception as exc:
+            log_failure("tides", "place country", exc, fallback="no regional provider")
+            country = ""
+        provider, station_id, station_name = _station_for_location(
+            place.lat, place.lon, country, label=place.name)
+        if station_id is None:
+            return None
+        station_meta, station_name, station_tz = _station_details(
+            provider, station_id, station_name)
+        fetched = _fetch_station(provider, station_id, station_meta, station_tz, live=True)
+        if not fetched[4]:
+            return "failed"
+        return dict(provider=provider, station_id=station_id, station_name=station_name,
+                    station_meta=station_meta, station_tz=station_tz, country=country,
+                    fetched=fetched)
+
+    def _finish_location(self):
+        """Commit on the UI thread, so recents and the view never change mid-input."""
+        from linecast._maps_search import Result
+        if self._location_result is None:
+            return
+        place, result = self._location_result
+        self._location_result = self._loading = None
+        self.clear_flash()
+        if not isinstance(result, dict):
+            key = "no_tides" if result is None else "load_failed"
+            self.flash([_ts(key, self.runtime, name=place.name)], seconds=5)
+            return
+        # Keep the departure point too, so the first trip has a way back.
+        lat, lng = self._here()
+        if self.lat is not None and not any(
+                round(p.lat, 4) == round(lat, 4) and round(p.lon, 4) == round(lng, 4)
+                for p in self.locations.recent.places):
+            self.locations.recent.remember(Result(self._label(), '', lat, lng, 'point'))
+        (self.fetched_start, self.fetched_end, self.y_range, self.marine_data,
+         self.predictions, self.hilo) = result["fetched"]
+        self.provider = result["provider"]
+        self.station_id = result["station_id"]
+        self.station_name = result["station_name"]
+        self.station_meta = result["station_meta"]
+        self.station_tz = result["station_tz"]
+        self._country = result["country"]
+        self.lat, self.lng, self.place_label = place.lat, place.lon, place.name
+        self._retry_at = 0.0
+        self.locations.recent.remember(place)
+        self._update_location_picker()
+
+    def text_mode(self):
+        return self.locations.search.open
+
+    def intercept(self, action):
+        if self.locations.active:
+            self._choose_location(self.locations.handle(action, *self._here()))
+            return True
+        return False
+
+    def on_wheel(self, direction, col, row):
+        if not self.locations.active:
+            return NotImplemented  # keep the wheel scrubbing time
+        self.locations.handle('fwd' if direction > 0 else 'back', *self._here())
+        return True
+
+    def on_drag(self, dcol, drow, done):
+        # Opt in to live_loop's press/release tracking for clicks.
+        return False
+
+    def on_click(self, col, row):
+        if self.locations.active:
+            self._choose_location(self.locations.click(col, row))
+            return True
+        name = _pill_label(self.station_name, location_menu=True)
+        if row == 1 and name and col <= visible_len(name) + 4:
+            self.locations.start()
+            return True
+        return False
+
+    def on_action(self, key):
+        if key == "l":
+            self.locations.start()
+            return True
+        if key == "/":
+            self.locations.choose('add')
+            return True
+        return False
+
+    def stop(self):
+        self.clear_flash()
+        self.locations.close()
+        with self._state_lock:
+            self._generation += 1
+
+    def help_panel(self):
+        from linecast._help import HelpPanel, entries
+        from linecast._weather_locations_i18n import ls
+        lang = self.runtime.lang
+        return HelpPanel('tides', lang, content=lambda cols, rows:
+                         [('l', ls('locations', lang)), ('/', ls('add', lang))]
+                         + entries('tides', lang))
 
     def expand_for(self, offset_minutes):
         """Widen the fetched range when the user scrolls near an edge.
@@ -937,16 +1183,20 @@ class TidesApp(_live.LiveApp):
                 or (self._worker and self._worker.is_alive())):
             return
 
+        provider, station_id, station_tz = self.provider, self.station_id, self.station_tz
+
         def worker():
             try:
-                predictions = self.provider.tides_range(
-                    self.station_id, new_start, new_end, self.station_tz)
-                hilo = self.provider.hilo_range(
-                    self.station_id, new_start, new_end, self.station_tz)
+                predictions = provider.tides_range(
+                    station_id, new_start, new_end, station_tz)
+                hilo = provider.hilo_range(
+                    station_id, new_start, new_end, station_tz)
             except Exception as exc:
                 log_failure("tides", "range expansion", exc,
                             fallback="edge stays put")
                 predictions = None
+            if station_id != self.station_id:
+                return  # the reader has moved to another station
             if predictions:
                 self.predictions = predictions
                 self.hilo = hilo
@@ -961,21 +1211,33 @@ class TidesApp(_live.LiveApp):
 
     def render(self, offset_minutes=0, mouse_pos=None, active_alert=None,
                modal_scroll=0):
+        with self._state_lock:
+            self._finish_location()
+        panel = self.locations.active
         self.expand_for(offset_minutes)
-        return render(
+        output = render(
             self.station_id,
             self.station_name,
             station_meta=self.station_meta,
             runtime=self.runtime,
             fullscreen=True,
             offset_minutes=offset_minutes,
-            mouse_pos=mouse_pos,
             predictions=self.predictions,
             hilo=self.hilo,
             y_range=self.y_range,
             marine_data=self.marine_data,
             provider=self.provider,
-        ), {}
+            mouse_pos=None if panel else mouse_pos,
+            location_menu=True,
+        )
+        cols, rows = get_terminal_size()
+        floating = self.flash_overlay(cols, rows)
+        if panel:
+            floating += self.locations.overlay(cols, rows, tuple(round(v, 4) for v in self._here()))
+        if floating:
+            body, _, previous = output.partition("\x00")
+            output = _live.overlay(body, previous + floating)
+        return output, {}
 
 
 # ---------------------------------------------------------------------------
@@ -1011,6 +1273,7 @@ def main():
     try:
         # Station: --station flag > TIDE_STATION env var > geolocation
         override = args.station or os.environ.get("TIDE_STATION", "").strip()
+        place, country = None, ""  # what the station was found for
 
         if override:
             provider = provider_for_id(override)
@@ -1071,6 +1334,7 @@ def main():
 
             provider, station_id, station_name = _station_for_location(
                 lat, lng, country_code, label=resolved_label)
+            place, country = (lat, lng, resolved_label or ""), country_code or ""
 
             if station_id is None and runtime.json_mode:
                 # No station in range: emit the payload shape anyway, with
@@ -1096,14 +1360,8 @@ def main():
                 print(hint, file=sys.stderr)
                 sys.exit(1)
 
-        station_meta = provider.station_metadata(station_id)
-        if station_meta:
-            meta_name = station_meta.get("name", "")
-            meta_state = station_meta.get("state", "")
-            if meta_name:
-                station_name = f"{meta_name}, {meta_state}" if meta_state else meta_name
-
-        station_tz = _station_tzinfo(station_meta)
+        station_meta, station_name, station_tz = _station_details(
+            provider, station_id, station_name)
         now_local = _station_now(station_meta)
         today = now_local.date()
 
@@ -1138,44 +1396,8 @@ def main():
             print(line)
             return
 
-        def _fetch_marine_data():
-            # Marine/wave conditions are optional; never crash the tides view
-            try:
-                _marine_lat = station_meta.get("lat") if station_meta else None
-                _marine_lng = station_meta.get("lng") if station_meta else None
-                if _marine_lat is not None and _marine_lng is not None:
-                    return fetch_marine(float(_marine_lat), float(_marine_lng))
-            except Exception as exc:
-                log_failure("marine/open-meteo", "marine fetch", exc,
-                            fallback="no marine line")
-            return None
-
-        # Live mode pre-fetches ~7 days in each direction; the static view
-        # needs today and its neighbours.
-        if runtime.live:
-            fetch_start = today - timedelta(days=7)
-            fetch_end = today + timedelta(days=7)
-        else:
-            fetch_start = today - timedelta(days=1)
-            fetch_end = today + timedelta(days=1)
-
-        # Only the metadata was a dependency; the y-axis range (fixed from
-        # historical hilo data), the marine conditions, and the predictions
-        # themselves are independent, so fetch them side by side and a cold
-        # start costs one round trip.
-        from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            fut_y_range = pool.submit(provider.y_range, station_id, today, station_tz)
-            fut_marine = pool.submit(_fetch_marine_data)
-            fut_preds = pool.submit(provider.tides_range, station_id,
-                                    fetch_start, fetch_end, station_tz)
-            fut_hilo = pool.submit(provider.hilo_range, station_id,
-                                   fetch_start, fetch_end, station_tz)
-            tag = _provider_tag(provider)
-            y_range = _settled(fut_y_range, tag, "y-range", "auto-scaled axis")
-            marine_data = _settled(fut_marine, tag, "marine", "no marine line")
-            preds = _settled(fut_preds, tag, "predictions", "no tide data")
-            hilo_data = _settled(fut_hilo, tag, "hi/lo", "no high/low markers")
+        fetch_start, fetch_end, y_range, marine_data, preds, hilo_data = _fetch_station(
+            provider, station_id, station_meta, station_tz, runtime.live)
 
         if not preds:
             print(f"Could not fetch tide data for station {station_id}.", file=sys.stderr)
@@ -1186,7 +1408,7 @@ def main():
             TidesApp(
                 provider, station_id, station_name, station_meta,
                 station_tz, runtime, preds, hilo_data, fetch_start, fetch_end,
-                y_range=y_range, marine_data=marine_data,
+                y_range=y_range, marine_data=marine_data, place=place, country=country,
             ).run()
         elif provider is NOAA:
             # NOAA's static view is the calendar day, which render fetches
