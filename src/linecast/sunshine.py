@@ -718,7 +718,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     # then the reading's second part, then the reading.
     left = ""
     if hours is not None:
-        from linecast._sunshine_hours import corner_reading
+        from linecast._sunshine.hours import corner_reading
         left = corner_reading(hours, now, runtime)
         while left and (visible_len(left) > _corner_limit(graph_w)
                         or visible_len(left) + visible_len(label) + 3 > graph_w):
@@ -768,7 +768,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
         )
     )
     if hours is not None:
-        from linecast._sunshine_hours import hours_line
+        from linecast._sunshine.hours import hours_line
         lines.append(hours_line(hours, now, cols - hint_w, runtime))
     if fullscreen and not painted:
         lines[-1] = _help.footer(lines[-1], cols, lang)
@@ -782,7 +782,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
 def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, offset_minutes=0,
                tz_offset_h=None):
     """Sunrise — day length (delta) — sunset."""
-    from linecast._sunshine_i18n import polar_name
+    from linecast._sunshine.i18n import polar_name
 
     icons = _icon_set(runtime)
     day_len = sunset - sunrise
@@ -842,7 +842,7 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
 
 def _sky_name(lat, lng, doy, hour, sunrise, sunset, tz_offset_h, runtime):
     """Name the sky at a moment: an event within five minutes, else the phase."""
-    from linecast._sunshine_i18n import sky_event, sky_phase
+    from linecast._sunshine.i18n import sky_event, sky_phase
     events = [("solar_noon", (sunrise + sunset) / 2)]
     if 0.05 < sunset - sunrise < 23.95:
         events += [("sunrise", sunrise), ("sunset", sunset)]
@@ -922,7 +922,7 @@ def main():
 
     if runtime.json_mode:
         import json
-        from linecast._sunshine_json import build_payload
+        from linecast._sunshine.json import build_payload
         now = _now()
         print(json.dumps(build_payload(lat, lng, now=now, hours=_hours(now)),
                          ensure_ascii=False))
@@ -966,7 +966,7 @@ def main():
         # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
         # is handled here (day view only) rather than by live_loop.
         if state["year"]:
-            from linecast._sunshine_year import render_year
+            from linecast._sunshine.year import render_year
             return render_year(
                 lat, lng, _now(), runtime, tz=tz, fullscreen=live,
                 dst=dst, location_label=location_label,

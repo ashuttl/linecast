@@ -99,8 +99,8 @@ class TestHeaderInTheViews:
         assert "Toronto" in top and ":" not in top
 
     def test_year_view_names_the_time_beside_the_place(self):
-        from linecast._sunshine_year import render_year
-        with patch("linecast._sunshine_year.get_terminal_size", return_value=(80, 24)), \
+        from linecast._sunshine.year import render_year
+        with patch("linecast._sunshine.year.get_terminal_size", return_value=(80, 24)), \
              patch("linecast.sunshine._local_today", return_value=TODAY):
             out = render_year(43.7, -79.4, NOW, _runtime(), tz=TORONTO,
                               location_label="Toronto")
@@ -108,10 +108,10 @@ class TestHeaderInTheViews:
 
     def test_year_view_across_the_date_line_names_the_day(self):
         """Auckland, from a machine still on the previous day."""
-        from linecast._sunshine_year import render_year
+        from linecast._sunshine.year import render_year
         auckland = ZoneInfo("Pacific/Auckland")
         now = datetime(2026, 3, 6, 8, 30, tzinfo=auckland)  # Friday morning there
-        with patch("linecast._sunshine_year.get_terminal_size", return_value=(80, 24)), \
+        with patch("linecast._sunshine.year.get_terminal_size", return_value=(80, 24)), \
              patch("linecast.sunshine._local_today", return_value=date(2026, 3, 5)):
             out = render_year(-36.85, 174.76, now, _runtime(), tz=auckland,
                               location_label="Auckland")

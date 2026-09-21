@@ -75,7 +75,7 @@ from linecast._sky.catalogue import (
 from linecast._sky import deep as _sky_deep
 from linecast._sky import objects as _sky_objects
 from linecast._sky.i18n import NO_CAPITALS, _sk, body_name
-from linecast._sunshine_i18n import sky_phase
+from linecast._sunshine.i18n import sky_phase
 from linecast._textwidth import char_width
 from linecast._tides.i18n import _ts  # shared "space to return to now" hint
 from linecast.moon import _draw_moon_disc

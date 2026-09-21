@@ -12,7 +12,7 @@ from calendar import isleap
 from datetime import timedelta, timezone
 
 from linecast._seasons import full_moon_name, next_season_event
-from linecast._sunshine_json import _iso, _local_timezone_name, _location_label
+from linecast._sunshine.json import _iso, _local_timezone_name, _location_label
 
 SCHEMA_VERSION = 1
 

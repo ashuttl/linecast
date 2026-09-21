@@ -367,7 +367,7 @@ class TestSwahili:
 
     def test_calendar_labels_remain_distinct_in_narrow_columns(self):
         from linecast._moon_i18n import _fmt_month_day
-        from linecast._sunshine_i18n import axis_month_labels, relative_day
+        from linecast._sunshine.i18n import axis_month_labels, relative_day
         runtime = SimpleNamespace(lang="sw")
         assert DAY_NAMES["sw"] == ["J3", "J4", "J5", "Alh", "Ij", "J1", "J2"]
         assert len({name[:2] for name in DAY_NAMES["sw"]}) == 7
@@ -436,12 +436,12 @@ class TestTablesComplete:
     # Keys a language needs that English does not: the Slavic few-form,
     # Romanian's one and its "de" form for a count of days, and a dawn
     # and a dusk word where one twilight word will not do.
-    EXTRAS = {"linecast._sunshine_i18n": {"in_days_few", "days_ago_few"},
+    EXTRAS = {"linecast._sunshine.i18n": {"in_days_few", "days_ago_few"},
               "linecast._moon_i18n": {"in_days_one", "in_days_many"}}
     # Variants of an English key: Greek's one o'clock, the precipitation
     # noun classes (Swahili ma-, the French, Finnish and Czech plurals),
     # and the dative "by" a time of day in Russian and Ukrainian.
-    VARIANTS = {"linecast._sunshine_i18n": ("_dawn", "_dusk"),
+    VARIANTS = {"linecast._sunshine.i18n": ("_dawn", "_dusk"),
                 "linecast._weather.i18n": ("_one", "_ma", "_pl", "_by", "_few", "_many", "_diff",
                                            "_diff_one", "_diff_few", "_then", "_heavier")}
 
@@ -702,7 +702,7 @@ class TestTwilightDirection:
     """Languages with separate dawn and dusk words get the right one."""
 
     def test_dawn_and_dusk_words_differ_where_the_language_splits(self):
-        from linecast._sunshine_i18n import sky_phase
+        from linecast._sunshine.i18n import sky_phase
         expected = {
             "pl": ("świt cywilny", "zmierzch cywilny"),
             "id": ("fajar sipil", "senja sipil"),
@@ -722,7 +722,7 @@ class TestTwilightDirection:
             assert sky_phase(-4, runtime, morning=False) == dusk
 
     def test_generic_words_stay_put_where_the_language_does_not_split(self):
-        from linecast._sunshine_i18n import sky_phase
+        from linecast._sunshine.i18n import sky_phase
         for lang in ("en", "fi", "ja", "ko", "no", "da", "is"):
             runtime = SimpleNamespace(lang=lang)
             generic = sky_phase(-4, runtime)
@@ -730,19 +730,19 @@ class TestTwilightDirection:
             assert sky_phase(-4, runtime, morning=False) == generic
 
     def test_no_direction_keeps_the_generic_name(self):
-        from linecast._sunshine_i18n import sky_phase
+        from linecast._sunshine.i18n import sky_phase
         assert sky_phase(-4, SimpleNamespace(lang="pl")) == "zmierzch cywilny"
         assert sky_phase(-10, SimpleNamespace(lang="pl"),
                          morning=True) == "świt żeglarski"
 
     def test_day_and_night_ignore_the_direction(self):
-        from linecast._sunshine_i18n import sky_phase
+        from linecast._sunshine.i18n import sky_phase
         runtime = SimpleNamespace(lang="pl")
         assert sky_phase(10, runtime, morning=True) == sky_phase(10, runtime)
         assert sky_phase(-30, runtime, morning=False) == sky_phase(-30, runtime)
 
     def test_polish_and_finnish_nautical_terms_are_standard(self):
-        from linecast._sunshine_i18n import sky_phase
+        from linecast._sunshine.i18n import sky_phase
         assert (sky_phase(-10, SimpleNamespace(lang="pl"), morning=False)
                 == "zmierzch żeglarski")
         assert (sky_phase(-10, SimpleNamespace(lang="fi"))
@@ -752,7 +752,7 @@ class TestTwilightDirection:
 class TestRelativeDays:
     def test_scandinavian_ago_keeps_its_preposition(self):
         """'för … sedan' and 'for … siden' wrap the count on both sides."""
-        from linecast._sunshine_i18n import relative_day
+        from linecast._sunshine.i18n import relative_day
         expected = {
             "sv": ("för 1 dag sedan", "för 3 dagar sedan"),
             "da": ("for 1 dag siden", "for 3 dage siden"),
@@ -766,7 +766,7 @@ class TestRelativeDays:
 
     def test_ukrainian_counts_days_in_three_forms(self):
         """1, 21 take one form; 2–4, 22–24 another; 5–20 and 11–14 a third."""
-        from linecast._sunshine_i18n import relative_day
+        from linecast._sunshine.i18n import relative_day
         runtime = SimpleNamespace(lang="uk")
         expected = {1: "через 1 день", 2: "через 2 дні", 5: "через 5 днів",
                     11: "через 11 днів", 21: "через 21 день", 24: "через 24 дні",
@@ -776,7 +776,7 @@ class TestRelativeDays:
 
 
     def test_russian_counts_days_in_three_forms(self):
-        from linecast._sunshine_i18n import relative_day
+        from linecast._sunshine.i18n import relative_day
         runtime = SimpleNamespace(lang="ru")
         expected = {1: "через 1 день", 2: "через 2 дня", 5: "через 5 дней",
                     11: "через 11 дней", 21: "через 21 день", 24: "через 24 дня",
@@ -786,7 +786,7 @@ class TestRelativeDays:
 
     def test_czech_counts_one_then_two_to_four_then_the_rest(self):
         """Unlike Russian, 21 and 22 take the plural of five."""
-        from linecast._sunshine_i18n import relative_day
+        from linecast._sunshine.i18n import relative_day
         runtime = SimpleNamespace(lang="cs")
         expected = {1: "za 1 den", 2: "za 2 dny", 4: "za 4 dny", 5: "za 5 dní",
                     21: "za 21 dní", 22: "za 22 dní",
@@ -795,7 +795,7 @@ class TestRelativeDays:
             assert relative_day(diff, runtime) == text, diff
 
     def test_romanian_puts_de_before_the_noun_from_twenty(self):
-        from linecast._sunshine_i18n import relative_day
+        from linecast._sunshine.i18n import relative_day
         runtime = SimpleNamespace(lang="ro")
         expected = {1: "peste 1 zi", 2: "peste 2 zile", 19: "peste 19 zile",
                     20: "peste 20 de zile", 21: "peste 21 de zile", 101: "peste 101 zile",
@@ -815,7 +815,7 @@ class TestRelativeDays:
 
 class TestMonthAxisLabels:
     def test_french_june_and_july_are_distinct(self):
-        from linecast._sunshine_i18n import axis_month_labels
+        from linecast._sunshine.i18n import axis_month_labels
         labels = axis_month_labels(SimpleNamespace(lang="fr"))
         assert labels[5] == "jun"
         assert labels[6] == "jul"
@@ -823,7 +823,7 @@ class TestMonthAxisLabels:
     def test_wide_labels_are_distinct_in_every_language(self):
         """No two months may truncate to the same axis label."""
         from linecast._moon_i18n import MONTHS_I18N
-        from linecast._sunshine_i18n import _AXIS_MONTHS, axis_month_labels
+        from linecast._sunshine.i18n import _AXIS_MONTHS, axis_month_labels
         for lang in set(MONTHS_I18N) | set(_AXIS_MONTHS):
             labels = axis_month_labels(SimpleNamespace(lang=lang))
             assert len(set(labels)) == 12, lang

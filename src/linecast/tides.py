@@ -1340,7 +1340,7 @@ def main():
                 # No station in range: emit the payload shape anyway, with
                 # station/events/series empty-or-null, and exit cleanly.
                 import json as _json
-                from linecast._sunshine_json import _location_label
+                from linecast._sunshine.json import _location_label
                 from linecast._tides.json import build_payload
                 payload = build_payload(
                     None, runtime, datetime.now().astimezone(), [], [],

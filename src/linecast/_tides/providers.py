@@ -359,7 +359,7 @@ class _OpenMeteo(TideProvider):
             # into a worse version of it helps nobody.
             return station_id, label
         try:
-            from linecast._sunshine_json import _location_label
+            from linecast._sunshine.json import _location_label
             return station_id, _location_label(lat, lng)
         except Exception as exc:
             log_failure("tides/open-meteo", "location label", exc,

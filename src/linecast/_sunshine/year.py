@@ -22,7 +22,7 @@ from linecast._graphics import (
     fg, bg, interp_stops, lerp, fmt_time,
     get_terminal_size, Framebuffer, overlay,
 )
-from linecast._sunshine_i18n import (
+from linecast._sunshine.i18n import (
     _fmt_month_day, axis_month_labels, polar_name, relative_day, sky_event,
     sky_phase,
 )

@@ -115,7 +115,7 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None,
         f"{text}{moon_icon}"
     )
     if hours is not None and now is not None:
-        from linecast._sunshine_hours import corner_reading
+        from linecast._sunshine.hours import corner_reading
         tail = corner_reading(hours, now, runtime).replace(" = ", "=")
         if tail:
             line += f" {text}{tail}"
@@ -254,7 +254,7 @@ def sky_oneline(now_local, lat, lng, runtime):
     from linecast._i18n import lang_of
     from linecast._sky.catalogue import resolve_culture
     from linecast._sky.i18n import _sk, body_name
-    from linecast._sunshine_i18n import sky_phase
+    from linecast._sunshine.i18n import sky_phase
     from linecast.sunshine import moon_phase
 
     scene = Scene(now_local.astimezone(timezone.utc), lat, lng)

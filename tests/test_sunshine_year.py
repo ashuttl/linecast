@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _sunshine_year as year
+from linecast._sunshine import year
 from linecast import sunshine as sun
 from linecast._runtime import RuntimeConfig
 

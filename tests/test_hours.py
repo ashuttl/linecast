@@ -585,7 +585,7 @@ class TestPainting:
         return zmanim(date(2026, 9, 15), 31.778, 35.235, self.TZ, opinion)
 
     def test_corner_reads_the_hour_and_its_length(self):
-        from linecast._sunshine_hours import corner_reading
+        from linecast._sunshine.hours import corner_reading
         now = datetime(2026, 9, 15, 14, 30, tzinfo=self.TZ)
         assert corner_reading(self._hours(), now, _runtime()) == "7:52 · 1h = 62m"
         night = datetime(2026, 9, 15, 23, 12, tzinfo=self.TZ)
@@ -593,7 +593,7 @@ class TestPainting:
         assert corner_reading(self._hours(), night, _runtime(lang="fr")).startswith("nuit ")
 
     def test_line_keeps_the_next_mark_and_fills_in_order(self):
-        from linecast._sunshine_hours import hours_line
+        from linecast._sunshine.hours import hours_line
         now = datetime(2026, 9, 15, 14, 30, tzinfo=self.TZ)
         wide = _plain(hours_line(self._hours(), now, 300, _runtime()))
         assert wide.startswith(
@@ -610,14 +610,14 @@ class TestPainting:
 
     def test_sunrise_and_sunset_yield_to_the_marks(self):
         """The line above names them, so they are the first dropped."""
-        from linecast._sunshine_hours import hours_line
+        from linecast._sunshine.hours import hours_line
         now = datetime(2026, 9, 15, 14, 30, tzinfo=self.TZ)
         line = _plain(hours_line(self._hours(), now, 110, _runtime()))
         assert "sunrise" not in line and "sunset" not in line
         assert "chatzot 12:34p" in line
 
     def test_the_opinion_is_named_when_it_fits(self):
-        from linecast._sunshine_hours import hours_line
+        from linecast._sunshine.hours import hours_line
         now = datetime(2026, 9, 15, 14, 30, tzinfo=self.TZ)
         assert _plain(hours_line(self._hours("mga"), now, 300, _runtime())).endswith(
             "Magen Avraham")
@@ -672,7 +672,7 @@ class TestPainting:
 
     def test_a_marks_only_day_reads_the_interval(self):
         """With no divisions the corner names the marks either side."""
-        from linecast._sunshine_hours import corner_reading
+        from linecast._sunshine.hours import corner_reading
         marks = [Mark("sunrise", datetime(2026, 9, 15, 6, 22, tzinfo=self.TZ)),
                  Mark("sunset", datetime(2026, 9, 15, 18, 45, tzinfo=self.TZ))]
         hours = DayHours("halachic", date(2026, 9, 15), None, None, None, None,
@@ -702,7 +702,7 @@ class TestRoman:
         assert abs(r.hour_seconds - (hours.next_day_start - hours.day_end).total_seconds() / 4) < 1
 
     def test_names_and_marks(self):
-        from linecast._sunshine_hours import corner_reading, hours_line
+        from linecast._sunshine.hours import corner_reading, hours_line
         hours = roman_hours(date(2026, 6, 21), 41.9, 12.5, self.ROME)
         day = datetime(2026, 6, 21, 14, 30, tzinfo=self.ROME)
         assert corner_reading(hours, day, _runtime()) == "hora octava · 1h = 76m"
@@ -757,7 +757,7 @@ class TestWadokei:
         assert abs(marks["hiru_kokonotsu"] - noon) < timedelta(seconds=1)
 
     def test_the_corner_in_japanese_and_english(self):
-        from linecast._sunshine_hours import corner_reading
+        from linecast._sunshine.hours import corner_reading
         hours = wadokei(date(2026, 6, 21), self.LAT, self.LNG, self.TOKYO)
         now = datetime(2026, 6, 21, 10, 40, tzinfo=self.TOKYO)
         assert corner_reading(hours, now, _runtime(lang="ja")) == "朝四つ半 · 1刻 = 159m"
@@ -768,7 +768,7 @@ class TestWadokei:
         assert corner_reading(hours, night, _runtime(lang="ja")).startswith("夜九つ")
 
     def test_the_line_keeps_kanji_in_japanese_and_words_elsewhere(self):
-        from linecast._sunshine_hours import hours_line
+        from linecast._sunshine.hours import hours_line
         hours = wadokei(date(2026, 6, 21), self.LAT, self.LNG, self.TOKYO)
         now = datetime(2026, 6, 21, 10, 40, tzinfo=self.TOKYO)
         ja = _plain(hours_line(hours, now, 300, _runtime(lang="ja", use_24h=True)))
@@ -779,7 +779,7 @@ class TestWadokei:
         assert en.endswith("midnight nine 11:43p")
 
     def test_json_carries_the_kanji_beside_the_english(self):
-        from linecast._sunshine_json import build_payload
+        from linecast._sunshine.json import build_payload
         hours = wadokei(date(2026, 6, 21), self.LAT, self.LNG, self.TOKYO)
         now = datetime(2026, 6, 21, 10, 40, tzinfo=self.TOKYO)
         block = build_payload(self.LAT, self.LNG, now=now, location="Tokyo", hours=hours)["hours"]
@@ -1174,7 +1174,7 @@ class TestPrayerTimes:
         assert marks["isha"].date() == date(2026, 6, 22)
 
     def test_names_and_the_corner(self):
-        from linecast._sunshine_hours import corner_reading, hours_line
+        from linecast._sunshine.hours import corner_reading, hours_line
         from linecast._hours.i18n import mark_name, mark_native, variant_name
         tz = ZoneInfo("Asia/Riyadh")
         hours = prayer_times(date(2026, 3, 5), 21.4225, 39.8262, tz, None, "SA")
@@ -1208,7 +1208,7 @@ class TestPrayerTimes:
         """İmsak, Güneş, Öğle, İkindi, Akşam, Yatsı: the Diyanet's
         İmsak is the Fajr time, and Fajr reads as Sabah only where a
         separate Imsak is listed before it."""
-        from linecast._sunshine_hours import hours_line
+        from linecast._sunshine.hours import hours_line
         tz = ZoneInfo("Europe/Istanbul")
         hours = prayer_times(date(2026, 3, 5), 41.01, 28.98, tz, None, "TR")   # Ramadan
         noon = datetime(2026, 3, 5, 12, 0, tzinfo=tz)
@@ -1251,7 +1251,7 @@ class TestPrayerTimes:
         """Once the day's marks are past, the next day's first is the
         one to come: Fajr, or Imsak in Ramadan, on the corner and at
         the end of the line."""
-        from linecast._sunshine_hours import corner_reading, hours_line
+        from linecast._sunshine.hours import corner_reading, hours_line
         tz = ZoneInfo("Asia/Riyadh")
         night = datetime(2026, 9, 16, 23, 30, tzinfo=tz)
         hours, now = hours_now("islamic", night, 21.4225, 39.8262, tz, None, "SA")
@@ -1271,7 +1271,7 @@ class TestPrayerTimes:
         the 22nd. The 21st lists it as its own, and the 22nd lists it
         first, so at 00:05 the countdown is seven minutes, not two
         hours to Fajr."""
-        from linecast._sunshine_hours import corner_reading
+        from linecast._sunshine.hours import corner_reading
         tz = ZoneInfo("Europe/Oslo")
         hours, now = hours_now("islamic", datetime(2026, 6, 22, 0, 5, tzinfo=tz),
                                59.91, 10.75, tz, "mwl", None)
@@ -1301,7 +1301,7 @@ class TestPrayerTimes:
         assert marks["maghrib"] - sunset == timedelta(minutes=5)
 
     def test_json_carries_the_fast_and_the_arabic(self):
-        from linecast._sunshine_json import build_payload
+        from linecast._sunshine.json import build_payload
         tz = ZoneInfo("Asia/Riyadh")
         hours = prayer_times(date(2026, 3, 5), 21.4225, 39.8262, tz, None, "SA")
         now = datetime(2026, 3, 5, 12, 0, tzinfo=tz)
@@ -1398,7 +1398,7 @@ class TestSwahili:
     DAR = ZoneInfo("Africa/Dar_es_Salaam")
 
     def _corner(self, now, lat=-6.792, lng=39.208, lang="sw"):
-        from linecast._sunshine_hours import corner_reading
+        from linecast._sunshine.hours import corner_reading
         hours, now = hours_now("swahili", now, lat, lng, now.tzinfo)
         return corner_reading(hours, now, _runtime(lang=lang, use_24h=True))
 
@@ -1436,13 +1436,13 @@ class TestSwahili:
         assert self._corner(now, lang="en") == "saa 3:05 asubuhi"
 
     def test_there_is_no_marks_line(self):
-        from linecast._sunshine_hours import hours_line
+        from linecast._sunshine.hours import hours_line
         now = datetime(2026, 9, 17, 9, 5, tzinfo=self.DAR)
         hours, now = hours_now("swahili", now, -6.792, 39.208, self.DAR)
         assert hours_line(hours, now, 120, _runtime(lang="sw")) == ""
 
     def test_json_says_the_time_as_it_is_spoken(self):
-        from linecast._sunshine_json import _hours_block
+        from linecast._sunshine.json import _hours_block
         expected = {
             (3, 0): "saa tisa usiku",
             (10, 15): "saa nne na robo asubuhi",
