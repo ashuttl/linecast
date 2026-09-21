@@ -26,7 +26,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     geocode lookup). *calendar* is the --calendar flag, resolved against
     the saved setting and language the same way the panel resolves it.
     """
-    from linecast._moon_i18n import _moon_name
+    from linecast._moon.i18n import _moon_name
     from linecast._ephemeris import (
         _moon_altitude_deg, _moon_azimuth_deg, moon_age_days,
     )
@@ -72,7 +72,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         CALENDAR_MERIDIAN_HOURS, calendar_is_native, current_term,
         lunisolar_date, next_lunar_event, next_term, resolve_calendar,
     )
-    from linecast._moon_i18n import (
+    from linecast._moon.i18n import (
         festival_table, ja_night_name, lunar_date_label, term_label,
     )
     from linecast._calendars.pacific import PACIFIC_CALENDARS
@@ -84,7 +84,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         # or festivals; the block carries the night. The Kaulana
         # Mahina adds its anahulu and counsel, the CNMI calendar the
         # night's Refaluwasch name.
-        from linecast._moon_i18n import (
+        from linecast._moon.i18n import (
             anahulu_name, pacific_night_name, refaluwasch_name,
         )
         from linecast._calendars.pacific import (
@@ -136,7 +136,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
             after_sunset, days_in_month, hijri_date, next_month_start,
             next_observance,
         )
-        from linecast._moon_i18n import (
+        from linecast._moon.i18n import (
             hijri_date_label, hijri_month_name, hijri_observance_name,
         )
         evening = after_sunset(now_local, lat, lng)
@@ -175,7 +175,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         )
         from linecast._calendars.hebrew import next_month_start as next_hebrew_month
         from linecast._calendars.hijri import after_sunset
-        from linecast._moon_i18n import (
+        from linecast._moon.i18n import (
             hebrew_date_hebrew, hebrew_date_label, hebrew_holiday_name,
             hebrew_month_name,
         )
@@ -210,7 +210,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     elif cal == "thai":
         # The Thai calendar: the waxing/waning day, the year's animal,
         # the วันพระ, and the coming festival. No solar terms.
-        from linecast._moon_i18n import (
+        from linecast._moon.i18n import (
             thai_festival_name, thai_lunar_label, thai_year_label,
         )
         from linecast._calendars.thai_lunar import (

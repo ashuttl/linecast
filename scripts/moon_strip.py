@@ -40,7 +40,7 @@ from datetime import datetime, timedelta
 sys.path.insert(0, "src")
 
 from linecast._color import RESET, fg
-from linecast._moon_i18n import _fmt_month_day
+from linecast._moon.i18n import _fmt_month_day
 from linecast._runtime import RuntimeConfig
 from linecast._textwidth import char_width, visible_len
 from linecast.sunshine import (

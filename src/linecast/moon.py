@@ -19,7 +19,7 @@ of arcminutes: the principal phases land within a quarter of an hour of
 the published ones, which is the accuracy an almanac is read at.
 
 In live mode `v` flips to a month-calendar view of the phases (see
-`_moon_calendar.py`); the wheel or arrows page months there, space
+`_moon/calendar.py`); the wheel or arrows page months there, space
 returns to this month, and clicking a day opens it in the disc view.
 """
 
@@ -49,7 +49,7 @@ from linecast._calendars.hebrew import next_month_start as next_hebrew_month
 from linecast._calendars.hijri import (
     after_sunset, hijri_date, next_month_start, next_observance,
 )
-from linecast._moon_i18n import (
+from linecast._moon.i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
     anahulu_name, festival_table, hebrew_date_label, hebrew_holiday_name,
     hebrew_month_name, hijri_date_label, hijri_month_name,
@@ -1467,7 +1467,7 @@ def main():
 
     if runtime.json_mode:
         import json
-        from linecast._moon_json import build_payload
+        from linecast._moon.json import build_payload
         payload = build_payload(_now(), lat, lng, runtime,
                                 calendar=args.calendar, israel=israel)
         print(json.dumps(payload, ensure_ascii=False))
@@ -1491,7 +1491,7 @@ def main():
         # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
         # is handled here (per view) rather than by live_loop.
         if state["cal"]:
-            from linecast._moon_calendar import render_calendar
+            from linecast._moon.calendar import render_calendar
             return render_calendar(_now(), lat, lng, runtime,
                                    month_offset=state["months"],
                                    fullscreen=live, mouse_pos=mouse_pos,
@@ -1551,7 +1551,7 @@ def main():
         # on that day, at this hour, with space the way back to now.
         if not state["cal"]:
             return False
-        from linecast._moon_calendar import clicked_day
+        from linecast._moon.calendar import clicked_day
         target = clicked_day(col, row)
         if target is None:
             return False

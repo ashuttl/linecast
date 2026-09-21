@@ -33,7 +33,7 @@ from linecast._calendars.lunisolar import (
 )
 from linecast._calendars.hebrew import hebrew_date, holiday_key, rosh_chodesh
 from linecast._calendars.hijri import hijri_date, observance_key
-from linecast._moon_i18n import (
+from linecast._moon.i18n import (
     MONTHS_I18N, _day_abbrev, _fmt_month_day, _moon_name, _ms, _zh_day_name,
     anahulu_name, festival_table, hebrew_date_label,
     hebrew_holiday_name, hebrew_month_name, hijri_date_label,

@@ -28,7 +28,7 @@ from linecast._calendars.hijri import (
     next_observance,
     observance_key,
 )
-from linecast._moon_i18n import (
+from linecast._moon.i18n import (
     hijri_date_label, hijri_month_name, hijri_observance_name,
 )
 

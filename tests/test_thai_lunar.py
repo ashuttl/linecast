@@ -9,7 +9,7 @@ the waxing/waning day count.
 
 from datetime import date
 
-from linecast._moon_i18n import (
+from linecast._moon.i18n import (
     thai_festival_name, thai_lunar_label, thai_year_label, wan_phra_label,
 )
 from linecast._calendars.thai_lunar import (

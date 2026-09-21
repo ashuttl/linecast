@@ -66,11 +66,12 @@ def test_corner_hint_does_not_overwrite_an_existing_label():
 @pytest.mark.parametrize('lang', ['en', 'ja', 'th'])
 @pytest.mark.parametrize('size', [(40, 18), (80, 24), (140, 40)])
 def test_live_image_views_offer_help_without_adding_rows(monkeypatch, view, lang, size):
-    from linecast import sky, sunshine, moon, _moon_calendar
+    from linecast import sky, sunshine, moon
+    from linecast._moon import calendar
     from linecast._sunshine import year
     cols, rows = size
     runtime = RuntimeConfig(live=True, icons='plain', lang=lang, oneline=False)
-    for module in (sky, sunshine, moon, year, _moon_calendar):
+    for module in (sky, sunshine, moon, year, calendar):
         monkeypatch.setattr(module, 'get_terminal_size', lambda: size)
     if view == 'sky':
         output = sky.render(NOW, 43.68, -70.32, runtime, sky.View(180, 90, 145, 2),
@@ -82,7 +83,7 @@ def test_live_image_views_offer_help_without_adding_rows(monkeypatch, view, lang
     elif view == 'moon':
         output = moon.render(NOW, 43.68, -70.32, runtime, fullscreen=True)
     else:
-        output = _moon_calendar.render_calendar(NOW, 43.68, -70.32, runtime, fullscreen=True)
+        output = calendar.render_calendar(NOW, 43.68, -70.32, runtime, fullscreen=True)
     body = plain(output)
     assert '?' in body
     assert len(body.splitlines()) == rows

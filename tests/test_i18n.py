@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from linecast._i18n import lang_of, lookup
 from linecast._maps.i18n import ms
-from linecast._moon_i18n import _ms
+from linecast._moon.i18n import _ms
 from linecast._radar.i18n import rs
 from linecast._tides.i18n import _ts
 from linecast._weather.i18n import DAY_NAMES, WMO_NAMES_I18N, _s
@@ -366,7 +366,7 @@ class TestSwahili:
                 assert precipitation_sentence(hourly, now, runtime) == f"{desc} {suffix} {when}"
 
     def test_calendar_labels_remain_distinct_in_narrow_columns(self):
-        from linecast._moon_i18n import _fmt_month_day
+        from linecast._moon.i18n import _fmt_month_day
         from linecast._sunshine.i18n import axis_month_labels, relative_day
         runtime = SimpleNamespace(lang="sw")
         assert DAY_NAMES["sw"] == ["J3", "J4", "J5", "Alh", "Ij", "J1", "J2"]
@@ -377,7 +377,7 @@ class TestSwahili:
         assert relative_day(-2, runtime) == "siku 2 zilizopita"
 
     def test_season_events_name_the_month_in_both_hemispheres(self):
-        from linecast._moon_i18n import _season_label
+        from linecast._moon.i18n import _season_label
         runtime = SimpleNamespace(lang="sw")
         for event, month in enumerate(("Machi", "Juni", "Septemba", "Desemba")):
             assert _season_label(event, -6.8, runtime).endswith(month)
@@ -437,7 +437,7 @@ class TestTablesComplete:
     # Romanian's one and its "de" form for a count of days, and a dawn
     # and a dusk word where one twilight word will not do.
     EXTRAS = {"linecast._sunshine.i18n": {"in_days_few", "days_ago_few"},
-              "linecast._moon_i18n": {"in_days_one", "in_days_many"}}
+              "linecast._moon.i18n": {"in_days_one", "in_days_many"}}
     # Variants of an English key: Greek's one o'clock, the precipitation
     # noun classes (Swahili ma-, the French, Finnish and Czech plurals),
     # and the dative "by" a time of day in Russian and Ukrainian.
@@ -804,7 +804,7 @@ class TestRelativeDays:
             assert relative_day(diff, runtime) == text, diff
 
     def test_the_moon_counts_romanian_days_the_same_way(self):
-        from linecast._moon_i18n import _ms
+        from linecast._moon.i18n import _ms
         runtime = SimpleNamespace(lang="ro")
         assert _ms("in_days", runtime, days="1") == "peste 1 zi"
         assert _ms("in_days", runtime, days="3") == "peste 3 zile"
@@ -822,7 +822,7 @@ class TestMonthAxisLabels:
 
     def test_wide_labels_are_distinct_in_every_language(self):
         """No two months may truncate to the same axis label."""
-        from linecast._moon_i18n import MONTHS_I18N
+        from linecast._moon.i18n import MONTHS_I18N
         from linecast._sunshine.i18n import _AXIS_MONTHS, axis_month_labels
         for lang in set(MONTHS_I18N) | set(_AXIS_MONTHS):
             labels = axis_month_labels(SimpleNamespace(lang=lang))

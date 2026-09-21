@@ -27,7 +27,7 @@ from linecast._calendars.hebrew import (
     rosh_chodesh,
 )
 from linecast._calendars.hijri import after_sunset
-from linecast._moon_i18n import (
+from linecast._moon.i18n import (
     hebrew_date_hebrew, hebrew_date_label, hebrew_holiday_name,
     hebrew_month_name, hebrew_numeral, hebrew_year_numeral,
     rosh_chodesh_label,

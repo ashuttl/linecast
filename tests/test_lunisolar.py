@@ -20,7 +20,7 @@ from linecast._calendars.lunisolar import (
     next_term,
     sun_crossing_utc,
 )
-from linecast._moon_i18n import (
+from linecast._moon.i18n import (
     festival_table,
     lunar_date_label,
     term_label,
@@ -185,7 +185,7 @@ class TestLabels:
         assert lunar_date_label(12, 23, False, "vi") == "ngày 23 tháng Chạp âm lịch"
 
     def test_vietnamese_month_marks_for_the_grid(self):
-        from linecast._moon_i18n import vi_month_label
+        from linecast._moon.i18n import vi_month_label
         assert vi_month_label(1, False, short=True) == "Giêng"
         assert vi_month_label(8, False, short=True) == "thg 8"
         assert vi_month_label(6, True, short=True) == "thg 6 nhuận"
@@ -254,7 +254,7 @@ class TestResolveCalendar:
 
 class TestJapaneseNightNames:
     def test_the_named_nights(self):
-        from linecast._moon_i18n import ja_night_name
+        from linecast._moon.i18n import ja_night_name
         assert ja_night_name(3) == "三日月"
         assert ja_night_name(13) == "十三夜"
         assert ja_night_name(15) == "十五夜"
@@ -266,6 +266,6 @@ class TestJapaneseNightNames:
         assert ja_night_name(30) == "三十日月"
 
     def test_every_night_of_a_long_month_has_a_name(self):
-        from linecast._moon_i18n import ja_night_name
+        from linecast._moon.i18n import ja_night_name
         names = [ja_night_name(d) for d in range(1, 31)]
         assert len(set(names)) == 30

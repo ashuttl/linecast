@@ -17,7 +17,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from linecast._moon_i18n import (
+from linecast._moon.i18n import (
     _ANAHULU,
     _MASINA,
     _PO_MAHINA,

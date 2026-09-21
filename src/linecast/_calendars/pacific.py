@@ -209,7 +209,7 @@ COUNSEL_SOURCE_LINE = "Source: wpcouncil.org"
 COUNSEL_URL = "https://www.wpcouncil.org/educational-resources/lunar-calendars/"
 
 # Per-anahulu fishing counsel, keyed by the anahulu names in
-# _moon_i18n. Each line leads with the anahulu it speaks for, so it
+# _moon.i18n. Each line leads with the anahulu it speaks for, so it
 # reads as the tradition's counsel and not as a weather forecast.
 ANAHULU_COUNSEL = {
     "hoʻonui": ("Hoʻonui nights — good lamalama (torching) and net "
