@@ -16,6 +16,7 @@ from linecast._weather_i18n import (
     DAY_NAMES, FULL_DAY_NAMES, ON_DAY_FORMS, ON_FULL_DAY_FORMS, wmo_label,
     _PRECIP_DESCS_I18N, _STRINGS, _s, _wmo_icons,
 )
+from linecast import _weather_style
 from linecast._weather_style import (MUTED, TEXT, WIND_COLOR, _aqhi_color, _aqi_color,
                                      _colored_temp, _india_aqi_color)
 from linecast._weather_sources import _local_now_for_data
@@ -24,7 +25,16 @@ from linecast._weather_sources import _local_now_for_data
 def location_control(name, width, runtime):
     from linecast._help import fit
     from linecast._weather_locations_i18n import ls
-    return fit(name or ls('locations', runtime.lang), max(0, min(width - 2, width // 2))) + ' ▼'
+    return fit(name or ls('locations', runtime.lang), max(0, min(width - 6, width // 2))) + ' ▼'
+
+
+def location_chip(label):
+    """The place as a chip, like the tides station pill: half blocks
+    round the ends of a lifted surface, the name in the full text color."""
+    edge, surface, ink = _weather_style.CHIP
+    if not surface:  # no color: half blocks alone would read as stray marks
+        return f"{TEXT}{label}"
+    return f"{edge}\u2590{surface}{ink} {label} {RESET}{edge}\u258c"
 
 
 def render_header(data, width, location_name="", runtime=None, aqi_data=None, historical=None,
@@ -50,10 +60,10 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
     deg = runtime.temp_unit
     left_core = f"{TEXT}{icon} {name}"
     if temp is not None:
-        left_core += f"  {_colored_temp(temp, runtime, deg)}"
+        left_core += f" {_colored_temp(temp, runtime, deg)}"
     left_feels = ""
     if feels is not None:
-        left_feels = f"  {MUTED}{_s('feels', runtime)} {_colored_temp(feels, runtime, deg)}"
+        left_feels = f" {MUTED}{_s('feels', runtime)} {_colored_temp(feels, runtime, deg)}"
 
     # Historical comparison — subtle annotation after feels-like
     left_hist = ""
@@ -73,7 +83,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
                     hi_temps[index], lo_temps[index], historical, runtime,
                 )
                 if hist_text:
-                    left_hist = f"  {MUTED}({hist_text})"
+                    left_hist = f" {MUTED}({hist_text})"
         except Exception as exc:
             log_failure("weather/climate", "historical comparison", exc,
                         fallback="annotation omitted")
@@ -133,9 +143,12 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
         if runtime.wind_kmh(gusts) > 30:
             parts.append(f"{_s('gusts', runtime)} {fmt_wind(gusts, runtime)}")
         wind_part = f"{WIND_COLOR}{'  '.join(parts)}"
-    loc_part = f"{MUTED}{location_name}" if location_name else ""
+    loc_part = ""
     if location_menu:
-        loc_part = f"{MUTED}{location_control(location_name, width, runtime)}"
+        loc_part = location_chip(location_control(location_name, width, runtime))
+    elif location_name:
+        from linecast._help import fit
+        loc_part = location_chip(fit(location_name, max(0, min(width - 4, width // 2))))
 
     def _join_right(*parts):
         filled = [p for p in parts if p]
@@ -145,7 +158,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
         if not right:
             return f"{left}{RESET}"
         pad = width - visible_len(left) - visible_len(right)
-        if pad >= 1:
+        if pad >= 2:  # the two halves keep the gap the parts within them do
             return f"{left}{' ' * pad}{right}{RESET}"
         return None  # doesn't fit
 
@@ -192,12 +205,11 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
             if result:
                 return result
         from linecast._help import fit
-        label = location_control(location_name, width, runtime)
-        room = max(0, width - visible_len(label) - 1)
-        core = f"{icon} {name}" + (f"  {temp:.0f}{deg}" if temp is not None else "")
+        room = max(0, width - visible_len(loc_part) - 1)
+        core = f"{icon} {name}" + (f" {temp:.0f}{deg}" if temp is not None else "")
         plain = fit(core, room)
-        return f"{TEXT}{plain}{' ' * max(0, width - visible_len(plain) - visible_len(label))}" \
-               f"{MUTED}{label}{RESET}"
+        return f"{TEXT}{plain}{' ' * max(0, width - visible_len(plain) - visible_len(loc_part))}" \
+               f"{loc_part}{RESET}"
 
     # Drop location
     right = _join_right(wind_part)

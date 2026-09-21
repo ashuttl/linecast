@@ -1,6 +1,6 @@
 """Shared weather rendering palette and low-level color/format helpers."""
 
-from linecast._graphics import fg, interp_stops
+from linecast._graphics import bg, fg, interp_stops
 from linecast import _theme
 from linecast._theme import (
     best_contrast,
@@ -27,6 +27,7 @@ def _rebuild():
     global MODAL_BORDER_RGB, LINK_RGB, TEXT, DIM, MUTED, PRECIP, PRECIP_RAIN
     global PRECIP_SNOW, PRECIP_MIX, PRECIP_STORM, ALERT_RED, ALERT_AMBER
     global ALERT_YELLOW, ALERT_BLUE, WIND_COLOR, WIND_ARROWS, SEP, CLOUD_RGB
+    global CHIP_BG_RGB, CHIP_FG_RGB, CHIP
     TEXT_RGB = ensure_contrast(_theme.theme_fg, _theme.theme_bg, minimum=4.5)
     DIM_RGB = ensure_contrast(neutral_tone(0.32), _theme.theme_bg, minimum=2.0)
     MUTED_RGB = ensure_contrast(neutral_tone(0.48), _theme.theme_bg, minimum=2.5)
@@ -90,6 +91,10 @@ def _rebuild():
                           0.10 if not is_light_theme() else 0.06)
     MODAL_BORDER_RGB = ensure_contrast(DIM_RGB, MODAL_BG_RGB, minimum=2.2)
     LINK_RGB = ensure_contrast(_theme.theme_ansi[4], MODAL_BG_RGB, minimum=3.0)
+    # The location chip in the header: the tides station pill's surface,
+    # with the full text color so the place is the brightest thing there.
+    CHIP_BG_RGB = surface_bg(0.08)
+    CHIP_FG_RGB = ensure_contrast(TEXT_RGB, CHIP_BG_RGB, minimum=4.5)
 
     TEXT = fg(*TEXT_RGB)
     DIM = fg(*DIM_RGB)
@@ -110,6 +115,7 @@ def _rebuild():
     WIND_ARROWS = "↓↙←↖↑↗→↘"  # N wind blows south, NE blows southwest, etc.
 
     SEP = f"{MUTED} \u00b7 "
+    CHIP = (fg(*CHIP_BG_RGB), bg(*CHIP_BG_RGB), fg(*CHIP_FG_RGB))
 
 
 _rebuild()

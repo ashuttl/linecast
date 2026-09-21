@@ -967,8 +967,8 @@ class WeatherApp(_live.LiveApp):
         )
         cols, rows = get_terminal_size()
         # The live header always reserves space for its location control.
-        from linecast._weather_sections import location_control
-        label = location_control(self.location_name, cols, self.runtime)
+        from linecast._weather_sections import location_chip, location_control
+        label = location_chip(location_control(self.location_name, cols, self.runtime))
         self._location_hit = (cols - visible_len(label) + 1, cols)
         floating = self.flash_overlay(cols, rows)
         if panel:

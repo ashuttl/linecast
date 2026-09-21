@@ -5,6 +5,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 ## Unreleased
 
 - Weather: In Croatia, warnings filed by county are matched to your address by the county's boundary. They had been matched on the county's name.
+- Weather: The place name in the header sits in a chip, as it does in tides, and is the brightest thing on the line. The conditions, temperature, and feels-like read closer together, with the wider gaps kept for what follows.
 - Maps: A flat map that has been flicked no longer waits until it stops to fill in. The place it will come to rest is fetched the moment the map is let go, and the new ground appears while it is still gliding.
 - Weather: In Japanese, rain that turns heavy is said to strengthen (雨が強まり) instead of becoming heavy rain. A turn to another kind of precipitation reads as before.
 - Weather: Wind speeds are in metres per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, and Czech, as the forecasts in those countries give them. Other languages keep km/h, and imperial units keep mph. `--json` names the unit as before.
