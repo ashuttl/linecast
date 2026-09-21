@@ -2,12 +2,13 @@
 
 main() settles the arguments, resolves the location and the --to and
 --from endpoints, then puts a MapApp on screen.  --print renders once
-and exits.  MapApp is the view's hands: its state is the centre, the
-zoom, the mode and the toggles, plus the search and directions panels;
-its methods are the hooks live_loop calls — zoom, drag, wheel, the
-keys, the clicks — and render, which draws the frame through
-render_map.  Everything drawn is in maps; everything fetched is in
-_maps_views.
+and exits.  MapApp is the view's hands: its state is the camera — the
+centre, the zoom and whatever motion they are in — plus the mode, the
+toggles and the search and directions panels; its methods are the
+hooks live_loop calls — zoom, drag, wheel, the keys, the clicks — and
+render, which draws the frame through render_map.  Everything drawn is
+in maps; everything fetched is in _maps_views; the easing and the
+flight path are in _maps_motion.
 """
 
 import math
@@ -16,12 +17,13 @@ import threading
 import time
 
 from linecast import (
-    _globe, _globe_now, _maps_route, _maps_style, _maps_ui,
+    _globe, _globe_now, _maps_route, _maps_style, _maps_ui, _maps_views,
 )
 from linecast._geo import wrap_lon
 from linecast._live import LiveApp, nudge as _nudge_repaint, print_frame
 from linecast._location import country_for_defaults, resolve_location
 from linecast._maps_i18n import ms
+from linecast._maps_motion import Flight, ease_in_out, lon_delta, lon_span
 from linecast._maps_search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
 )
@@ -30,8 +32,329 @@ from linecast._maps_views import _zoom_hold, globe_warm
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, log_failure, maps_parser, set_current
 from linecast.maps import (
-    MIN_ZOOM_DEG, ZOOM_STEP, fit_view, map_cells, max_zoom, render_map,
+    MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP, fit_view, map_cells, max_zoom,
+    prefetch_view, render_map,
 )
+
+
+TICK = 1 / 30             # seconds between the ticker's nudges
+ZOOM_EASE = 0.28          # seconds for a zoom step or a key pan to land
+COAST_HALF_LIFE = 0.22    # seconds for a flick's speed to halve
+COAST_FLOOR = 0.5         # cells a second below which a coast stops
+COAST_CEILING = 4.0       # screens a second a flick may start at
+COAST_GRACE = 0.12        # how stale the last motion may be and still coast
+TRAIL = 0.25              # seconds of drag the flick's speed is read from
+SPIN_RATE = 1.0           # degrees of longitude a second, r
+LAT_LIMIT = 80.0          # how far toward a pole the centre may go
+PAN_STEP = 0.1            # of the map, per w/a/s/d press
+
+
+class Camera:
+    """Where the map looks, and how it is getting there.
+
+    The centre and the zoom used to be three numbers a key or a drag
+    assigned to, and every gesture arrived as a cut.  Here they are the
+    state of something in motion: a zoom easing toward its target, a
+    coast running out after a flick, a keyboard pan on its way, a
+    flight to a searched place, the planet turning.  `view()` gives the
+    (lat, lon, zoom) for this instant and advances every motion to it;
+    `moving()` says whether the ticker should keep waking the loop.
+    Nothing here paints or fetches, and nothing here reads the
+    terminal.  The clock is an attribute so a test can turn it by hand.
+
+    The ground the camera moves over is the renderer's: a column is
+    `lon_span`'s share of the window, which asks bbox_for rather than
+    assuming a cell twice as tall as it is wide, and the zoom is
+    clamped to the same ceiling the keys walk to.
+    """
+
+    def __init__(self, lat, lon, zoom, clock=time.monotonic):
+        self.lat, self.lon, self.zoom = lat, lon, zoom
+        self.clock = clock
+        self.gw, self.hc = 80, 22         # the map's cells, from the app
+        self.zoom_min, self.zoom_max = MIN_ZOOM_DEG, MAX_ZOOM_DEG
+        self.spinning = False
+        self._drag_base = None            # (lat, lon) at the press
+        self._trail = []                  # (time, lat, lon) through the drag
+        self._coast = None                # (vlat, vlon, last time)
+        self._zoom = None                 # (from, to, anchor, started)
+        self._pan = None                  # (from, to, started)
+        self._flight = None               # (Flight, started)
+        self._spin_mark = None            # clock at the last spin step
+
+    # -- reading ---------------------------------------------------------
+    def moving(self):
+        """Whether the view is still changing of its own accord."""
+        return bool(self._coast or self._zoom or self._pan or self._flight
+                    or self.spinning)
+
+    def dragging(self):
+        return self._drag_base is not None
+
+    def _span(self, zoom, lat):
+        return lon_span(lat, zoom, self.gw, self.hc)
+
+    def _clamp_zoom(self, zoom):
+        return max(self.zoom_min, min(self.zoom_max, zoom))
+
+    def _clamp_lat(self, lat):
+        return max(-LAT_LIMIT, min(LAT_LIMIT, lat))
+
+    def view(self):
+        """(lat, lon, zoom) for now, every motion advanced to it.
+
+        The order is the one a reader would compose them in: a flight
+        overrides everything, a coast and a keyed pan move the centre,
+        an anchored zoom has the last word on where the centre must be
+        for the ground under the pointer to stay put, and the spin adds
+        its degree a second on top of whatever is left.
+        """
+        now = self.clock()
+        if self._flight is not None:
+            flight, started = self._flight
+            t = now - started
+            self.lat, self.lon, zoom = flight.at(t)
+            self.zoom = self._clamp_zoom(zoom)
+            if t >= flight.duration:
+                self._flight = None
+        if self._coast is not None:
+            self._advance_coast(now)
+        if self._pan is not None:
+            (from_lat, from_lon), (to_lat, to_lon), started = self._pan
+            s = (now - started) / ZOOM_EASE
+            if s >= 1.0:
+                self.lat, self.lon = to_lat, to_lon
+                self._pan = None
+            else:
+                e = ease_in_out(s)
+                self.lat = from_lat + (to_lat - from_lat) * e
+                self.lon = wrap_lon(from_lon + lon_delta(from_lon, to_lon) * e)
+        if self._zoom is not None:
+            from_zoom, to_zoom, anchor, started = self._zoom
+            s = (now - started) / ZOOM_EASE
+            if s >= 1.0:
+                zoom = to_zoom
+                self._zoom = None
+            else:
+                # eased in log space: a step from 8° to 4° and one from
+                # 4° to 2° are the same gesture, and should look it
+                e = ease_in_out(s)
+                zoom = math.exp(math.log(from_zoom)
+                                + (math.log(to_zoom) - math.log(from_zoom)) * e)
+            self._apply_zoom(zoom, anchor)
+        if self.spinning:
+            if not _globe.is_globe(self.zoom, self.lat):
+                # a zoom has crossed back inside the hand-off, and
+                # there is no planet left to turn
+                self.spinning = False
+                self._spin_mark = None
+            else:
+                if self._spin_mark is not None and self._drag_base is None:
+                    self.lon = wrap_lon(
+                        self.lon - SPIN_RATE * (now - self._spin_mark))
+                self._spin_mark = now
+        return self.lat, self.lon, self.zoom
+
+    def _advance_coast(self, now):
+        """Carry the flick's speed forward, and let it run out."""
+        vlat, vlon, last = self._coast
+        dt = now - last
+        decay = 0.5 ** (dt / COAST_HALF_LIFE)
+        # the integral of the decaying speed across the step, so the
+        # ground covered is the same however often the camera is asked
+        step = COAST_HALF_LIFE / math.log(2.0) * (1.0 - decay)
+        self.lat = self._clamp_lat(self.lat + vlat * step)
+        self.lon = wrap_lon(self.lon + vlon * step)
+        vlat, vlon = vlat * decay, vlon * decay
+        floor = COAST_FLOOR * self.zoom / self.hc
+        if (math.hypot(vlat, vlon * math.cos(math.radians(self.lat))) < floor
+                or abs(self.lat) >= LAT_LIMIT):
+            self._coast = None   # slower than the eye follows, or ashore
+        else:
+            self._coast = (vlat, vlon, now)
+
+    def _apply_zoom(self, zoom, anchor):
+        """Set the zoom, keeping the anchored ground under its cell."""
+        if anchor is not None:
+            plat, plon, fx, fy = anchor
+            lat_c = self._clamp_lat(plat - zoom * (0.5 - fy))
+            self.lat = lat_c
+            self.lon = wrap_lon(plon - self._span(zoom, lat_c) * (fx - 0.5))
+        self.zoom = zoom
+
+    # -- the hand --------------------------------------------------------
+    def press(self):
+        """A hand on the map: whatever it was doing stops, and every
+        motion from here is measured from where it now is."""
+        self._drag_base = (self.lat, self.lon)
+        self._trail = []
+        self._coast = self._zoom = self._pan = self._flight = None
+
+    def _centre_at(self, dcol, drow):
+        base_lat, base_lon = self._drag_base
+        lat = self._clamp_lat(base_lat + drow * self.zoom / self.hc)
+        lon = wrap_lon(base_lon
+                       - dcol * self._span(self.zoom, base_lat) / self.gw)
+        return lat, lon
+
+    def _mark(self, lat, lon):
+        now = self.clock()
+        self._trail.append((now, lat, lon))
+        self._trail = [p for p in self._trail if now - p[0] < TRAIL]
+
+    def drag(self, dcol, drow):
+        """The pointer is this far from the press, in cells: be there
+        now.  The globe's idiom — the geography turns under the hand."""
+        lat, lon = self._centre_at(dcol, drow)
+        changed = (self.lat, self.lon) != (lat, lon)
+        self.lat, self.lon = lat, lon
+        self._mark(lat, lon)
+        return changed
+
+    def track(self, dcol, drow):
+        """The same motion noted but not taken: the flat map shows the
+        last frame shifted while the hand is down and moves its centre
+        on the release, but the flick that may follow needs the speed,
+        so the trail is kept either way."""
+        self._mark(*self._centre_at(dcol, drow))
+
+    def settle(self, dcol, drow):
+        """Where the hand let go, taken as the centre.  Not marked: a
+        release is not a motion, and counting it would read a hand
+        that had already come to rest as a flick."""
+        lat, lon = self._centre_at(dcol, drow)
+        changed = (self.lat, self.lon) != (lat, lon)
+        self.lat, self.lon = lat, lon
+        return changed
+
+    def release(self):
+        """The button is up; a flick coasts, a hand at rest stops dead."""
+        if self._drag_base is None:
+            return False
+        self._drag_base = None
+        trail, self._trail = self._trail, []
+        now = self.clock()
+        if len(trail) >= 2 and now - trail[-1][0] < COAST_GRACE:
+            (t0, lat0, lon0), (t1, lat1, lon1) = trail[0], trail[-1]
+            dt = t1 - t0
+            if dt >= 0.03:
+                vlat = (lat1 - lat0) / dt
+                vlon = lon_delta(lon0, lon1) / dt
+                cos_lat = math.cos(math.radians(self.lat))
+                speed = math.hypot(vlat, vlon * cos_lat)
+                # a hand leaves the trackpad faster than any map should
+                # move; past a few screens a second it reads as a fault
+                ceiling = COAST_CEILING * self.zoom
+                if speed > ceiling:
+                    vlat, vlon = vlat * ceiling / speed, vlon * ceiling / speed
+                    speed = ceiling
+                if speed >= COAST_FLOOR * self.zoom / self.hc:
+                    self._coast = (vlat, vlon, now)
+        return True
+
+    # -- the keys and the panels -----------------------------------------
+    def zoom_to(self, target, at=None):
+        """Ease the zoom to `target`, about the ground fraction `at`
+        ((fx, fy) of the map, or None for the centre).  Truthy when
+        anything will move."""
+        target = self._clamp_zoom(target)
+        if abs(target - self.zoom_heading()) < 1e-12:
+            return False
+        anchor = None
+        lat_end = self.lat
+        # anchored zoom is a flat-map identity; on the globe, zoom
+        # about the centre instead
+        if at is not None and not _globe.is_globe(self.zoom, self.lat):
+            fx, fy = at
+            plat = self.lat + self.zoom * (0.5 - fy)
+            plon = self.lon + self._span(self.zoom, self.lat) * (fx - 0.5)
+            anchor = (plat, plon, fx, fy)
+            lat_end = self._clamp_lat(plat - target * (0.5 - fy))
+        self._coast = self._flight = None
+        if (_globe.is_globe(self.zoom, self.lat)
+                != _globe.is_globe(target, lat_end)):
+            # The hand-off is crossed in one cut.  Neither side can
+            # stand in for the other — a globe cannot be re-projected
+            # into a flat window, nor a flat view onto the sphere — so
+            # every frame of an ease across it would be blank.  About
+            # the centre, as the anchor is a flat-map identity.
+            self._zoom = self._pan = None
+            self.zoom = target
+            return True
+        if anchor is not None:
+            self._pan = None      # an anchored zoom owns the centre
+        self._zoom = (self.zoom, target, anchor, self.clock())
+        return True
+
+    def zoom_heading(self):
+        """Where the zoom is going: a run of taps compounds rather than
+        each restarting from wherever the last one had got to."""
+        return self._zoom[1] if self._zoom is not None else self.zoom
+
+    def pan_by(self, dcol, drow):
+        """Ease the centre by a number of cells.  Pressed again before
+        the last one lands the steps add up, so holding `d` walks east
+        instead of shuffling in place."""
+        self._coast = self._flight = None
+        self.spinning = False
+        from_lat, from_lon = self.lat, self.lon
+        base_lat, base_lon = (self._pan[1] if self._pan is not None
+                              else (from_lat, from_lon))
+        to_lat = self._clamp_lat(base_lat + drow * self.zoom / self.hc)
+        to_lon = wrap_lon(base_lon
+                          - dcol * self._span(self.zoom, base_lat) / self.gw)
+        self._pan = ((from_lat, from_lon), (to_lat, to_lon), self.clock())
+        return True
+
+    def fly_to(self, lat, lon, zoom):
+        """Fly to a view: out, across and in, along van Wijk's path."""
+        zoom = self._clamp_zoom(zoom)
+        lat = self._clamp_lat(lat)
+        lon = wrap_lon(lon)
+        self._coast = self._zoom = self._pan = None
+        self.spinning = False
+        if (abs(lat - self.lat) < 1e-9 and abs(lon_delta(self.lon, lon)) < 1e-9
+                and abs(zoom - self.zoom) < 1e-12):
+            return False
+        self._flight = (Flight(self.lat, self.lon, self.zoom, lat, lon, zoom),
+                        self.clock())
+        return True
+
+    def flying(self):
+        return self._flight is not None
+
+    def destination(self):
+        """Where the flight will land, or None when not flying."""
+        if self._flight is None:
+            return None
+        flight = self._flight[0]
+        return flight.lat1, flight.lon1, flight.w1
+
+    def flight_progress(self):
+        """How far through the flight, 0 to 1; 1 when not flying."""
+        if self._flight is None:
+            return 1.0
+        flight, started = self._flight
+        return min(1.0, (self.clock() - started) / flight.duration)
+
+    def jump_to(self, lat, lon, zoom):
+        """Be there now, no motion: an opening frame has nowhere to
+        come from."""
+        self.halt()
+        self.lat = self._clamp_lat(lat)
+        self.lon = wrap_lon(lon)
+        self.zoom = self._clamp_zoom(zoom)
+
+    def halt(self):
+        """Stop everything the camera is doing of its own accord: a
+        panel opening in front of the map ends the motion behind it."""
+        self._coast = self._zoom = self._pan = self._flight = None
+        self.spinning = False
+        self._spin_mark = None
+
+    def spin(self, on):
+        self.spinning = bool(on)
+        self._spin_mark = self.clock() if on else None
 
 
 class MapApp(LiveApp):
@@ -42,7 +365,14 @@ class MapApp(LiveApp):
     whether the sky is on, the travel profile and the --from and --to
     endpoints — and starts nothing: no thread, no request.  run() seeds
     the route request, starts the sky's clock and hands the app to the
-    loop; stop() parks the spin.
+    loop; stop() parks the camera.
+
+    The centre and the zoom live in the camera, and `lat`, `lon` and
+    `zoom` here read and write it.  One ticker thread wakes the loop at
+    30 Hz for as long as anything is in motion and exits when the
+    camera comes to rest — the loop paces itself to the terminal's
+    acknowledgements, so the nudges coalesce and a slow terminal is
+    never handed more frames than it can take.
     """
 
     interval = 3600  # elevation doesn't change; repaint on input only
@@ -55,13 +385,9 @@ class MapApp(LiveApp):
         self.runtime = runtime
         self.home = (lat, lon)      # the marker
         self.location_name = location_name
-        self.lat, self.lon = lat, lon   # the view centre
-        self.zoom = zoom
+        self.camera = Camera(lat, lon, zoom)
         self.pan_preview = (0, 0)
-        self.drag_base = None   # centre at globe-drag start, or None
-        self.drag_sync = False  # next repaint renders the globe blocking
-        self.spinning = 0       # active spin generation; 0 = parked
-        self.spin_seq = 0       # last generation ever started
+        self._drag_globe = False    # which idiom this drag started with
         self.view = view
         self.show_labels = True
         self.sun = sky          # S: daylight shading + night city lights
@@ -72,71 +398,76 @@ class MapApp(LiveApp):
             self.routes.set_origin(origin.lat, origin.lon, origin.name)
         if dest is not None:
             self.routes.select(dest.lat, dest.lon, dest.name)
+        self._ticker = None
+        self._lock = threading.Lock()
+        self._running = True
+        self._help = None          # the loop's help panel, once it is made
+        self._destination = None   # a flight's end, until it is asked for
+        self._fit()
         # --from and --to without --location: open on the whole route.
         # The endpoints frame the view now, while the route is still
         # on its way; the route itself reframes it once, when it
         # lands, unless the reader has moved in the meantime.
         self.fit_view = None
         if fit and origin is not None and dest is not None:
-            self.lat, self.lon, self.zoom = fit_view(
-                [(origin.lat, origin.lon), (dest.lat, dest.lon)], *map_cells())
+            self.camera.jump_to(*fit_view(
+                [(origin.lat, origin.lon), (dest.lat, dest.lon)], *map_cells()))
             self.fit_view = (self.lat, self.lon, self.zoom)
 
-    def zoom_to(self, new_zoom, at=None):
-        """Apply a clamped zoom, keeping the point under `at` fixed.
+    # -- the view centre and zoom, on the camera -------------------------
+    @property
+    def lat(self):
+        return self.camera.lat
 
-        `at` is a terminal (col, row) in the same 1-based frame as
-        mouse_pos; None zooms about the view centre.  Anchoring is
-        the difference between a wheel that explores and one that
-        makes you chase the thing you were looking at.
-        """
+    @lat.setter
+    def lat(self, value):
+        self.camera.lat = value
+
+    @property
+    def lon(self):
+        return self.camera.lon
+
+    @lon.setter
+    def lon(self, value):
+        self.camera.lon = value
+
+    @property
+    def zoom(self):
+        return self.camera.zoom
+
+    @zoom.setter
+    def zoom(self, value):
+        self.camera.zoom = value
+
+    def _fit(self):
+        """Tell the camera the map's size and the zoom ceiling it sets."""
         gw, hc = map_cells()
-        new_zoom = max(MIN_ZOOM_DEG, min(max_zoom(gw, hc), new_zoom))
-        if new_zoom == self.zoom:
-            return False
-        pcol, prow = (at[0] - 1, at[1] - 2) if at else (-1, -1)
-        # anchored zoom is a flat-map identity — on either side of
-        # the globe hand-off, zoom about the centre instead
-        if (_globe.is_globe(self.zoom, self.lat)
-                or _globe.is_globe(new_zoom, self.lat)):
-            pcol = -1
-        if 0 <= pcol < gw and 0 <= prow < hc:
-            fx, fy = (pcol + 0.5) / gw, (prow + 0.5) / hc
-            lon_span = (self.zoom * (gw / (hc * 2))
-                        / math.cos(math.radians(self.lat)))
-            plat = self.lat + self.zoom * (0.5 - fy)
-            plon = self.lon + lon_span * (fx - 0.5)
-            lat_c = max(-80.0, min(80.0, plat - new_zoom * (0.5 - fy)))
-            new_span = (new_zoom * (gw / (hc * 2))
-                        / math.cos(math.radians(lat_c)))
-            self.lat = lat_c
-            self.lon = wrap_lon(plon - new_span * (fx - 0.5))
-        self.zoom = new_zoom
-        _zoom_hold.hold()
-        return True
+        cam = self.camera
+        cam.gw, cam.hc = gw, hc
+        cam.zoom_max = max_zoom(gw, hc)
+        return gw, hc
 
-    def spin(self, gen):
-        """The r screensaver: the planet turns while you watch.
+    # -- the ticker ------------------------------------------------------
+    def _wake(self):
+        """Start the ticker, if something is moving and it is not up."""
+        with self._lock:
+            if self._ticker is None or not self._ticker.is_alive():
+                self._ticker = threading.Thread(target=self._tick, daemon=True)
+                self._ticker.start()
 
-        Each tick walks the centre meridian westward and repaints
-        through the same warm-canvas blocking path a drag uses, so
-        the geography drifts eastward the way it actually does —
-        about a degree a second, six minutes to the revolution.
-        The spin yields to a drag in progress and parks itself the
-        moment a zoom crosses back inside the hand-off.
+    def _tick(self):
+        """Wake the loop thirty times a second while the camera moves.
+
+        It asks for frames rather than making them: the loop holds each
+        one until the terminal says it read the last, so a terminal
+        that cannot keep up simply gets fewer, and a nudge that arrives
+        during the wait is absorbed into the frame already coming.
         """
-        while self.spinning == gen:
-            time.sleep(0.4)
-            if self.spinning != gen:
-                break
-            if not _globe.is_globe(self.zoom, self.lat):
-                self.spinning = 0
-                break
-            if self.drag_base is not None:
-                continue  # a drag steers; the spin waits its turn
-            self.lon = (self.lon - 0.4 + 180.0) % 360.0 - 180.0
-            self.drag_sync = True
+        while self._running:
+            time.sleep(TICK)
             _nudge_repaint()
+            if not self.camera.moving():
+                return
 
     def cloud_tick(self):
         """The sky's slow heartbeat.
@@ -159,19 +490,41 @@ class MapApp(LiveApp):
                                 fallback="previous canvas kept")
             _nudge_repaint()
 
+    # -- the keys --------------------------------------------------------
+    def zoom_to(self, new_zoom, at=None):
+        """Ease to a clamped zoom, keeping the point under `at` fixed.
+
+        `at` is a terminal (col, row) in the same 1-based frame as
+        mouse_pos; None zooms about the view centre.  Anchoring is
+        the difference between a wheel that explores and one that
+        makes you chase the thing you were looking at.
+        """
+        gw, hc = self._fit()
+        frac = None
+        if at is not None:
+            pcol, prow = at[0] - 1, at[1] - 2
+            if 0 <= pcol < gw and 0 <= prow < hc:
+                frac = ((pcol + 0.5) / gw, (prow + 0.5) / hc)
+        if not self.camera.zoom_to(new_zoom, frac):
+            return False
+        _zoom_hold.hold()
+        if self.camera.moving():
+            self._wake()
+        return True
+
     def on_action(self, key):
         if key in ('w', 'a', 's', 'd'):
-            gw, hc = map_cells()
-            dcol, drow = {'w': (0, hc * 0.1), 'a': (gw * 0.1, 0),
-                         's': (0, -hc * 0.1), 'd': (-gw * 0.1, 0)}[key]
-            # Use the drag projection for flat maps and warm globes alike.
-            self.spinning = 0
-            self.on_drag(dcol, drow, False)
-            return self.on_drag(dcol, drow, True)
+            gw, hc = self._fit()
+            dcol, drow = {'w': (0, hc * PAN_STEP), 'a': (gw * PAN_STEP, 0),
+                          's': (0, -hc * PAN_STEP),
+                          'd': (-gw * PAN_STEP, 0)}[key]
+            self.camera.pan_by(dcol, drow)
+            self._wake()
+            return True
         if key == '+':
-            return self.zoom_to(self.zoom / ZOOM_STEP)
+            return self.zoom_to(self.camera.zoom_heading() / ZOOM_STEP)
         if key == '-':
-            return self.zoom_to(self.zoom * ZOOM_STEP)
+            return self.zoom_to(self.camera.zoom_heading() * ZOOM_STEP)
         if key == 'v':
             nxt = _maps_style.MODES.index(self.view) + 1
             self.view = _maps_style.MODES[nxt % len(_maps_style.MODES)]
@@ -186,36 +539,43 @@ class MapApp(LiveApp):
             self.clouds = not self.clouds
             return True
         if key == 'r':
-            if self.spinning:
-                self.spinning = 0
+            # The screensaver: the planet turns while you watch, about
+            # a degree a second, six minutes to the revolution, riding
+            # the same clock every other motion does.  Only a warm
+            # globe spins — until the planet is warm there is nothing
+            # to re-project without blocking on the network.
+            if self.camera.spinning:
+                self.camera.spin(False)
                 return False
-            gw, hc = map_cells()
+            gw, hc = self._fit()
             if (not _globe.is_globe(self.zoom, self.lat)
                     or not globe_warm(self.zoom, hc, self.view == "street")):
-                return False  # only a warm globe spins
-            self.spin_seq += 1
-            self.spinning = self.spin_seq
-            threading.Thread(target=self.spin, args=(self.spinning,),
-                             daemon=True).start()
+                return False
+            self.camera.spin(True)
+            self._wake()
             return False  # the first tick is the repaint
         return False
 
     def on_wheel(self, direction, col, row):
-        return self.zoom_to(self.zoom * (ZOOM_STEP if direction < 0
-                                         else 1.0 / ZOOM_STEP),
+        heading = self.camera.zoom_heading()
+        return self.zoom_to(heading * (ZOOM_STEP if direction < 0
+                                       else 1.0 / ZOOM_STEP),
                             at=(col, row))
 
+    # -- flights ---------------------------------------------------------
     def fly_to(self, result):
-        """Jump to a search result and frame it, instantly.
+        """Fly to a search result and frame it.
 
-        No animation and no mode change: searching an address in
-        terrain mode gives terrain at that address.  Predictability
-        beats cleverness, and there is nothing to restore.
+        No mode change: searching an address in terrain mode gives
+        terrain at that address.  The flight is what keeps the reader
+        oriented — a cut to somewhere else is a reader who has to work
+        out where they now are — and the destination starts loading
+        from the descent, so the landing is usually on the real map.
         """
-        gw, hc = map_cells()
-        self.lat, self.lon = result.lat, result.lon
-        self.zoom = max(MIN_ZOOM_DEG, min(
-            max_zoom(gw, hc), fly_to_zoom(result, (hc * 2) / gw)))
+        gw, hc = self._fit()
+        self._fly(result.lat, result.lon,
+                  max(MIN_ZOOM_DEG,
+                      min(max_zoom(gw, hc), fly_to_zoom(result, (hc * 2) / gw))))
 
     def fly_to_step(self, step):
         """Frame one maneuver: centre on it, zoomed to roughly the
@@ -225,15 +585,46 @@ class MapApp(LiveApp):
         if loc is None:
             return
         span = max(0.004, step["distance_m"] * 2.4 / 110540.0)
-        self.zoom = max(MIN_ZOOM_DEG, min(max_zoom(*map_cells()), span))
-        self.lat = max(-80.0, min(80.0, loc[1]))
-        self.lon = loc[0]
+        gw, hc = self._fit()
+        self._fly(loc[1], loc[0],
+                  max(MIN_ZOOM_DEG, min(max_zoom(gw, hc), span)))
+
+    def _fly(self, lat, lon, zoom):
+        if self.camera.fly_to(lat, lon, zoom):
+            self._destination = self.camera.destination()
+            self._wake()
+
+    def _prefetch_if_descending(self):
+        """Ask for the destination once the flight is over the top.
+
+        Not at take-off: the loaders are pure Python for seconds at a
+        time, and with the interpreter lock to share they would take
+        the frames' turn through the whole climb — the part of the
+        flight where the picture is at its best.
+        """
+        if self._destination is None:
+            return
+        if not self.camera.flying():
+            # cut short by a key, a press or a panel, or already landed
+            # before a frame saw the descent: the view at rest fetches
+            # for itself, and a view nobody is going to is not fetched
+            self._destination = None
+            return
+        if self.camera.flight_progress() < 0.5:
+            return
+        lat, lon, zoom = self._destination
+        self._destination = None
+        gw, hc = map_cells()
+        prefetch_view(lat, lon, zoom, self.view, gw, hc, self.runtime.lang,
+                      marker=self.home)
 
     def help_panel(self):
         from linecast._help import HelpPanel
-        return HelpPanel('maps', self.runtime.lang, content=lambda cols, rows:
-                         _maps_ui.help_rows(cols, rows, self.runtime.lang,
-                                            self.routes.route is not None))
+        self._help = HelpPanel(
+            'maps', self.runtime.lang, content=lambda cols, rows:
+            _maps_ui.help_rows(cols, rows, self.runtime.lang,
+                               self.routes.route is not None))
+        return self._help
 
     def intercept(self, action):
         """Maps owns dispatch: the search panel eats every key while
@@ -309,55 +700,62 @@ class MapApp(LiveApp):
         return True
 
     def on_drag(self, dcol, drow, done):
-        gw, hc = map_cells()
-        # On the globe the disk stays put and the geography turns
-        # under the cursor: every motion event recentres the view
-        # from the drag-start centre and the repaint re-projects the
-        # sphere, so the drag *is* the rotation rather than a
-        # shifted snapshot of it.  Only a warm view rotates live —
-        # until the planet is warm — its canvas stitched or its texture
-        # baked — there is nothing to re-project without blocking on
-        # the network, and a drag keeps whichever idiom it started with.
-        globing = self.drag_base is not None or (
-            not (self.pan_preview[0] or self.pan_preview[1])
-            and _globe.is_globe(self.zoom, self.lat)
-            and globe_warm(self.zoom, hc, self.view == "street"))
-        if globing:
-            if self.drag_base is None:
-                if done:
-                    return False  # a click, not a drag
-                self.drag_base = (self.lat, self.lon)
-            base_lat, base_lon = self.drag_base
-            lat = max(-80.0, min(80.0,
-                                 base_lat + drow * self.zoom / hc))
-            lon = base_lon - (dcol * (self.zoom / (hc * 2))
-                              / math.cos(math.radians(base_lat)))
-            lon = (lon + 180.0) % 360.0 - 180.0
-            changed = (self.lat, self.lon) != (lat, lon)
-            self.lat, self.lon = lat, lon
-            self.drag_sync = self.drag_sync or changed
+        """The ground follows the hand; let go moving and it coasts.
+
+        Which idiom a drag uses is settled at the press and kept for
+        its whole length.  On a warm globe the disk stays put and the
+        geography turns under the cursor: every motion event recentres
+        the view from the drag-start centre and the repaint
+        re-projects the sphere, so the drag *is* the rotation rather
+        than a shifted snapshot of it.  On a flat map — or a globe not
+        yet warm — a new centre is a fetch, so the picture is the last
+        frame shifted and the centre moves when the hand lets go.
+        """
+        gw, hc = self._fit()
+        cam = self.camera
+        if not cam.dragging():
+            globing = (not (self.pan_preview[0] or self.pan_preview[1])
+                       and _globe.is_globe(cam.zoom, cam.lat)
+                       and globe_warm(cam.zoom, hc, self.view == "street"))
+            if done and globing:
+                return False  # a click, not a drag
+            self._drag_globe = globing
+            cam.press()
+        if self._drag_globe:
             if done:
-                self.drag_base = None
-            return changed or done
+                cam.settle(dcol, drow)
+                cam.release()
+                if cam.moving():
+                    self._wake()
+                return True
+            return cam.drag(dcol, drow)
         if not done:
+            cam.track(dcol, drow)
             changed = self.pan_preview != (dcol, drow)
             self.pan_preview = (dcol, drow)
             return changed
         had_preview = self.pan_preview[0] or self.pan_preview[1]
         self.pan_preview = (0, 0)
-        if not (dcol or drow):
-            return bool(had_preview)
-        lon_span = (self.zoom * (gw / (hc * 2))
-                    / math.cos(math.radians(self.lat)))
-        self.lat = max(-80.0, min(80.0, self.lat + drow * self.zoom / hc))
-        self.lon = wrap_lon(self.lon + -dcol * lon_span / gw)
-        return True
+        changed = cam.settle(dcol, drow)
+        cam.release()
+        if cam.moving():
+            self._wake()
+        return bool(changed or had_preview)
 
     def text_mode(self):
         return self.search.open
 
     def render(self, mouse_pos=None, **_):
         search, routes = self.search, self.routes
+        if search.open or (self._help is not None and self._help.open):
+            # something is in front of the map now; a view still
+            # coasting behind a field you are typing into is noise
+            self.camera.halt()
+        # The motions are advanced first, so everything below reads the
+        # view as this frame will draw it rather than as the last one
+        # left it.
+        gw, hc = self._fit()
+        self.camera.view()
         # A search committed from a background reply lands here: the
         # worker cannot move the view itself, so it parks the result
         # and the next repaint applies it.
@@ -372,22 +770,33 @@ class MapApp(LiveApp):
                 if routes.dest is not None:
                     routes.request()
         # The opening route lands from its worker: frame it, once,
-        # if the view is still where the endpoints put it.
+        # if the view is still where the endpoints put it.  A jump,
+        # not a flight — this is still the opening frame.
         if self.fit_view is not None and routes.route is not None:
             if (self.lat, self.lon, self.zoom) == self.fit_view:
-                self.lat, self.lon, self.zoom = fit_view(
-                    [(la, lo) for lo, la in routes.route.coords], *map_cells())
+                self.camera.jump_to(*fit_view(
+                    [(la, lo) for lo, la in routes.route.coords],
+                    *map_cells()))
             self.fit_view = None
-        # A rotating globe repaints synchronously: its canvas is
-        # warm, so "blocking" is ~a tenth of a second of arithmetic,
-        # and the alternative is a blank disk between frames.
-        sync = self.drag_sync and _globe.is_globe(self.zoom, self.lat)
-        self.drag_sync = False
+        lat, lon, zoom = self.camera.lat, self.camera.lon, self.camera.zoom
+        self._prefetch_if_descending()
+        moving = self.camera.moving() or self.camera.dragging()
+        # Nothing reaches the network while the view is passing
+        # through; the frames in between are cut from the last real
+        # one (maps._reproject_street, maps._reproject_terrain).
+        _maps_views.hold_motion(moving)
+        # A globe in motion repaints synchronously: its canvas is
+        # warm, so "blocking" is a few hundredths of a second of
+        # arithmetic, and the alternative is a blank disk between
+        # frames rather than a planet that turns.
+        sync = (moving and _globe.is_globe(zoom, lat)
+                and globe_warm(zoom, hc, self.view == "street"))
         return render_map(
-            self.lat, self.lon, self.location_name, self.zoom,
+            lat, lon, self.location_name, zoom,
             marker=self.home, runtime=self.runtime, block=sync,
             pan_offset=self.pan_preview,
-            mouse_pos=mouse_pos, view=self.view, search=search,
+            mouse_pos=None if moving else mouse_pos,
+            view=self.view, search=search,
             route=routes.route, dest=routes.dest,
             origin=routes.origin, directions=routes,
             note=_maps_ui.route_note(routes, self.runtime.lang),
@@ -401,7 +810,9 @@ class MapApp(LiveApp):
         super().run()
 
     def stop(self):
-        self.spinning = 0  # the loop is over; let the spin thread park
+        self._running = False   # the loop is over; let the ticker park
+        self.camera.halt()
+        _maps_views.hold_motion(False)
         # tile workers are not daemons, so a queue of prefetched tiles
         # would be a wait between q and the shell
         _vtiles.shutdown()

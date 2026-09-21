@@ -143,6 +143,49 @@ class TestSceneCache:
         _settle(cache, "k")
         assert nudged == [1]
 
+    def test_a_blocking_load_counts_as_pending_and_nudges(self, monkeypatch):
+        # a view fetched off the loop for a flight's landing: the frame
+        # that misses it meanwhile waits rather than starting a twin
+        nudged = []
+        monkeypatch.setattr(_scenes, "nudge", lambda: nudged.append(1))
+        cache = SceneCache(empty="empty")
+        calls = []
+        started, go = threading.Event(), threading.Event()
+
+        def slow():
+            calls.append("block")
+            started.set()
+            go.wait(1.0)
+            return "view"
+
+        t = threading.Thread(target=cache.get, args=("k", True, slow))
+        t.start()
+        assert started.wait(1.0)
+        assert cache.get("k", False, lambda: calls.append("live")) == "empty"
+        go.set()
+        t.join(1.0)
+        assert calls == ["block"] and nudged == [1]
+        assert cache.get("k", False, lambda: calls.append("live")) == "view"
+
+    def test_a_blocking_load_nobody_waited_for_nudges_nothing(self, monkeypatch):
+        # the warm globe's frames load blocking on the loop's thread;
+        # a nudge for each would be a second frame for every frame
+        nudged = []
+        monkeypatch.setattr(_scenes, "nudge", lambda: nudged.append(1))
+        cache = SceneCache(empty="empty")
+        assert cache.get("k", True, lambda: "view") == "view"
+        assert nudged == [] and not cache._awaited
+
+    def test_a_blocking_load_that_raises_leaves_nothing_pending(self):
+        cache = SceneCache()
+
+        def boom():
+            raise RuntimeError("offline")
+
+        with pytest.raises(RuntimeError):
+            cache.get("k", True, boom)
+        assert not cache._pending
+
     def test_no_fetch_starts_while_a_gesture_is_in_flight(self):
         cache = SceneCache(empty="empty", held=lambda: True)
         calls = []

@@ -32,6 +32,7 @@ Usage: maps [--location LAT,LNG | PLACE] [--zoom DEG] [--view MODE]
 import functools
 import math
 import sys
+import threading
 
 from linecast import (
     _builtup, _climate, _globe, _globe_now, _maps_hover, _maps_style,
@@ -172,10 +173,15 @@ class _ShiftedLayer:
         self.ribbon = set(ribbon)
 
 
-# The last street view drawn: (bbox, graph_w, height_cells, fills, layer).
-# While the next one loads it stands in, moved and scaled to where the
-# new view is, so a pan or a zoom keeps a map on screen.
+# The last real view drawn in each flat register, kept so the next one
+# has something to stand in for it: street as (bbox, graph_w,
+# height_cells, fills, layer), terrain as (bbox, graph_w, height_cells,
+# fill buffer, coast, rivers).  A flat view at a new window is a
+# network fetch, so between a gesture and the data there is nothing
+# else to draw — moved and scaled, the last one keeps a map on screen
+# where a blank would lose the reader's place entirely.
 _last_street = [None]
+_last_terrain = [None]
 
 
 def _axis_map(n, lo, span, plo, pspan, sub, flip):
@@ -192,17 +198,95 @@ def _axis_map(n, lo, span, plo, pspan, sub, flip):
     return out
 
 
-def _reproject_street(prev, bbox, graph_w, height_cells, ground):
-    """(fills, layer) of `prev` redrawn into `bbox`, or None.
+class _Reprojection:
+    """One flat window resampled into another, axis by axis.
 
-    The view is linear in lon/lat, so each axis maps on its own. Fills
-    sample the old grid under each new sub-cell. Dots go the other way,
-    old to new, when the view grew: sampling a zoom-out thins a road to
-    specks, where carrying each dot across keeps the line. Zooming in
-    samples, which keeps it solid. Labels and hover stay behind — they
-    belong to the old view.
+    The view is linear in lon/lat, so each axis maps on its own and a
+    pan, a zoom or any mixture of the two is two lists of indices
+    rather than a per-cell projection. Fills sample the old grid under
+    each new sub-cell. Dots go the other way, old to new, when the view
+    grew: sampling a zoom-out thins a road to specks, where carrying
+    each dot across keeps the line. Zooming in samples, which keeps it
+    solid.
     """
-    pbbox, pw, phc, pfills, player = prev
+    __slots__ = ("gw", "hc", "cols", "rows", "grow", "xs", "ys")
+
+    def __init__(self, gw, hc, cols, rows, grow, xs, ys):
+        self.gw, self.hc = gw, hc
+        self.cols, self.rows = cols, rows
+        self.grow = grow      # the new window is the wider one
+        self.xs, self.ys = xs, ys   # dot maps, whichever way they run
+
+    def fills(self, pfills, ground):
+        """The old sub-pixel colour grid under the new one's cells."""
+        cols, gw = self.cols, self.gw
+        blank = [ground] * gw
+        out = []
+        for r in self.rows:
+            if r < 0:
+                out.append(blank[:])
+                continue
+            src = pfills[r]
+            out.append([ground if c < 0 else src[c] for c in cols])
+        return out
+
+    def dots(self, pdots, pcolor=None):
+        """(dots, color) braille grids carried into the new window.
+
+        `pcolor` is None for a layer that has no ink of its own — the
+        coastline, whose colour the composer decides.
+        """
+        gw, hc = self.gw, self.hc
+        dots = [[0] * gw for _ in range(hc)]
+        color = [[None] * gw for _ in range(hc)]
+        if self.grow:
+            # old dot -> new dot
+            fwd_x, fwd_y = self.xs, self.ys
+            for cy in range(hc):
+                prow = pdots[cy]
+                pcrow = pcolor[cy] if pcolor is not None else None
+                for cx in range(gw):
+                    bits = prow[cx]
+                    if not bits:
+                        continue
+                    for sx in (0, 1):
+                        nx = fwd_x[cx * 2 + sx]
+                        if nx < 0:
+                            continue
+                        for sy in range(4):
+                            if not bits & _BITS[sx][sy]:
+                                continue
+                            ny = fwd_y[cy * 4 + sy]
+                            if ny < 0:
+                                continue
+                            ncx, ncy = nx // 2, ny // 4
+                            dots[ncy][ncx] |= _BITS[nx % 2][ny % 4]
+                            if pcrow is not None:
+                                color[ncy][ncx] = pcrow[cx]
+            return dots, color
+        # new dot <- old dot
+        back_x, back_y = self.xs, self.ys
+        for ny, oy in enumerate(back_y):
+            if oy < 0:
+                continue
+            prow = pdots[oy // 4]
+            pcrow = pcolor[oy // 4] if pcolor is not None else None
+            row, crow = dots[ny // 4], color[ny // 4]
+            for nx, ox in enumerate(back_x):
+                if ox < 0:
+                    continue
+                if prow[ox // 2] & _BITS[ox % 2][oy % 4]:
+                    row[nx // 2] |= _BITS[nx % 2][ny % 4]
+                    if pcrow is not None:
+                        crow[nx // 2] = pcrow[ox // 2]
+        return dots, color
+
+
+def _reprojection(prev, bbox, graph_w, height_cells):
+    """The map from `prev`'s window into `bbox`, or None when there is
+    none to make: another terminal size, the very same window, or a
+    degenerate one."""
+    pbbox, pw, phc = prev[0], prev[1], prev[2]
     if (pw, phc) != (graph_w, height_cells) or tuple(pbbox) == tuple(bbox):
         return None
     minlon, minlat, maxlon, maxlat = bbox
@@ -214,53 +298,51 @@ def _reproject_street(prev, bbox, graph_w, height_cells, ground):
     fh = height_cells * 2
     cols = _axis_map(graph_w, minlon, span_x, pminlon, pspan_x, graph_w, False)
     rows = _axis_map(fh, minlat, span_y, pminlat, pspan_y, fh, True)
-    fills = [[ground if c < 0 else src[c] for c in cols] if r >= 0
-             else [ground] * graph_w
-             for r in rows for src in (pfills[r] if r >= 0 else None,)]
-
     dw, dh = graph_w * 2, height_cells * 4
-    dots = [[0] * graph_w for _ in range(height_cells)]
-    color = [[None] * graph_w for _ in range(height_cells)]
-    pdots, pcolor = player.dots, player.color
-    if span_x >= pspan_x:
-        # old dot -> new dot
-        fwd_x = _axis_map(dw, pminlon, pspan_x, minlon, span_x, dw, False)
-        fwd_y = _axis_map(dh, pminlat, pspan_y, minlat, span_y, dh, True)
-        for cy in range(height_cells):
-            prow, pcrow = pdots[cy], pcolor[cy]
-            for cx in range(graph_w):
-                bits = prow[cx]
-                if not bits:
-                    continue
-                for sx in (0, 1):
-                    nx = fwd_x[cx * 2 + sx]
-                    if nx < 0:
-                        continue
-                    for sy in range(4):
-                        if not bits & _BITS[sx][sy]:
-                            continue
-                        ny = fwd_y[cy * 4 + sy]
-                        if ny < 0:
-                            continue
-                        ncx, ncy = nx // 2, ny // 4
-                        dots[ncy][ncx] |= _BITS[nx % 2][ny % 4]
-                        color[ncy][ncx] = pcrow[cx]
+    grow = span_x >= pspan_x
+    if grow:
+        xs = _axis_map(dw, pminlon, pspan_x, minlon, span_x, dw, False)
+        ys = _axis_map(dh, pminlat, pspan_y, minlat, span_y, dh, True)
     else:
-        # new dot <- old dot
-        back_x = _axis_map(dw, minlon, span_x, pminlon, pspan_x, dw, False)
-        back_y = _axis_map(dh, minlat, span_y, pminlat, pspan_y, dh, True)
-        for ny, oy in enumerate(back_y):
-            if oy < 0:
-                continue
-            prow, pcrow = pdots[oy // 4], pcolor[oy // 4]
-            row, crow = dots[ny // 4], color[ny // 4]
-            for nx, ox in enumerate(back_x):
-                if ox < 0:
-                    continue
-                if prow[ox // 2] & _BITS[ox % 2][oy % 4]:
-                    row[nx // 2] |= _BITS[nx % 2][ny % 4]
-                    crow[nx // 2] = pcrow[ox // 2]
-    return fills, _ShiftedLayer(dots, color)
+        xs = _axis_map(dw, minlon, span_x, pminlon, pspan_x, dw, False)
+        ys = _axis_map(dh, minlat, span_y, pminlat, pspan_y, dh, True)
+    return _Reprojection(graph_w, height_cells, cols, rows, grow, xs, ys)
+
+
+def _reproject_street(prev, bbox, graph_w, height_cells, ground):
+    """(fills, layer) of `prev` redrawn into `bbox`, or None.
+
+    Labels and hover stay behind — they belong to the old view, and a
+    name under the wrong street is worse than no name at all.
+    """
+    m = _reprojection(prev, bbox, graph_w, height_cells)
+    if m is None:
+        return None
+    player = prev[4]
+    dots, color = m.dots(player.dots, player.color)
+    return m.fills(prev[3], ground), _ShiftedLayer(dots, color)
+
+
+def _reproject_terrain(prev, bbox, graph_w, height_cells):
+    """(fill buffer, coast, rivers) of `prev` redrawn into `bbox`, or None.
+
+    Terrain's stand-in is the street one's twin: the shaded ground
+    moves and scales, the shoreline and the rivers go with it, and the
+    elevation readout waits — a probe answered from the old grid would
+    name the height of somewhere else.  The fill carried across is the
+    bare terrain, before the sun and the clouds, so the stand-in is
+    shaded where it now is rather than dragging an old terminator
+    across the screen.
+    """
+    m = _reprojection(prev, bbox, graph_w, height_cells)
+    if m is None:
+        return None
+    _pbbox, _pw, _phc, pfill, pcoast, privers = prev
+    coast = m.dots(pcoast)[0] if pcoast is not None else None
+    rivers = None
+    if privers is not None:
+        rivers = _ShiftedLayer(*m.dots(privers.dots, privers.color))
+    return m.fills(pfill, BG_PRIMARY), coast, rivers
 
 
 def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
@@ -273,12 +355,7 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     than a network of named things, and "coastline" under the cursor
     would tell a reader less than the metres already there.
     """
-    # `l` off means no ink on the planet at all: labels, borders,
-    # coastlines and rivers alike, leaving the bare fields.  The
-    # basemap's braille here is border strokes only (the coastline
-    # comes from the elevation contour), so it isn't fetched.
-    basemap = (_get_basemap(bbox, graph_w, height_cells)
-               if show_labels else None)
+    basemap = None
     err = None
     loading = False
     view = _EMPTY_TERRAIN
@@ -293,28 +370,47 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
         loading = view.elev is None
 
     elev, coast, rivers = view.elev, view.coast, view.rivers
-    if not show_labels:
-        coast = rivers = None
+    terrain = None
     if elev is not None:
         terrain = _terrain_buffer(elev, bbox, graph_w, height_cells,
                                   view.water, view.cover)
-        if sun or clouds:
-            # the flat earth as it is: same sun, same clouds, same
-            # city lights, shaded through the same functions the
-            # globe uses — only the projection differs
-            terrain = _shade_now(
-                terrain,
-                _globe_now.flat_lls(bbox, graph_w, height_cells * 2), sun,
-                (_get_clouds(bbox[3] - bbox[1], height_cells, block)
-                 if clouds else None),
-                _globe_now.city_lights_flat(bbox, graph_w,
-                                            height_cells * 2)
-                if sun else {})
-    else:
+        _last_terrain[0] = (tuple(bbox), graph_w, height_cells, terrain,
+                            coast, rivers)
+    elif loading and _last_terrain[0] is not None:
+        stand_in = _reproject_terrain(_last_terrain[0], bbox, graph_w,
+                                      height_cells)
+        if stand_in is not None:
+            terrain, coast, rivers = stand_in
+    # `l` off means no ink on the planet at all: labels, borders,
+    # coastlines and rivers alike, leaving the bare fields.  The
+    # basemap's braille here is border strokes only (the coastline
+    # comes from the elevation contour), so it isn't fetched.  Nor is
+    # it built for a stand-in: the borders and the city names are cut
+    # for each new window on this thread, a third of a second of
+    # polygon filling, and a view in motion is a new window thirty
+    # times a second.  They wait for the real view, as the labels do.
+    if show_labels and (elev is not None or not loading):
+        basemap = _get_basemap(bbox, graph_w, height_cells)
+    if terrain is None:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
+    elif sun or clouds:
+        # the flat earth as it is: same sun, same clouds, same
+        # city lights, shaded through the same functions the
+        # globe uses — only the projection differs.  The stand-in
+        # is shaded where it now is, not where it was drawn.
+        terrain = _shade_now(
+            terrain,
+            _globe_now.flat_lls(bbox, graph_w, height_cells * 2), sun,
+            (_get_clouds(bbox[3] - bbox[1], height_cells, block)
+             if clouds else None),
+            _globe_now.city_lights_flat(bbox, graph_w,
+                                        height_cells * 2)
+            if sun else {})
+    if not show_labels:
+        coast = rivers = None
 
     overlays = {}
-    if show_labels:
+    if basemap is not None:
         for pos, (ch, _color) in basemap.city_overlays().items():
             overlays[pos] = (ch, None)  # None ink = per-cell contrast pick
 
@@ -692,6 +788,40 @@ def _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells, lang,
     if probe is None:
         return ""
     return f" · {_maps_style.fmt_elev(probe)}"
+
+
+def prefetch_view(lat, lon, zoom, view, graph_w, height_cells, lang,
+                  marker=None):
+    """Start loading the view a flight is heading for, off the frame's thread.
+
+    The motion gate keeps every other fetch off the network while the
+    camera moves, and rightly: those views are passed through.  The
+    destination is not — it is the one the reader asked for, and it is
+    known the moment the flight begins.  Asked for from the descent it
+    has a second or so to land, so the flight often ends on the real
+    map rather than on a stand-in waiting to be replaced.  The keys
+    are composed exactly as the renderer will compose them, or the
+    work would warm a view nobody asks for.
+    """
+    def work():
+        try:
+            bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
+            if _globe.is_globe(zoom, lat):
+                _get_globe(lat, lon, zoom, graph_w, height_cells, True,
+                           street=(view == "street"))
+            elif view == "street":
+                m_lat, m_lon = marker if marker else (lat, lon)
+                cell = _marker_cell(bbox, graph_w, height_cells, m_lat, m_lon)
+                centre = (graph_w // 2, height_cells // 2)
+                _get_street(bbox, graph_w, height_cells, True, lang,
+                            (cell, centre) if cell else (centre,))
+            else:
+                _get_elevation(bbox, graph_w, height_cells, True)
+        except Exception as exc:
+            log_failure("maps/prefetch", "flight destination", exc,
+                        fallback="the view loads on arrival")
+
+    threading.Thread(target=work, daemon=True).start()
 
 
 def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,

@@ -2,7 +2,8 @@
 
 The terminal is a fixed 100 by 42, the globe canvas is never warm
 unless a test says so, render_map only records its keyword arguments,
-and no thread or request ever starts.
+nothing is prefetched, and no thread or request ever starts.  The
+camera's clock is a number the tests turn by hand.
 """
 
 import math
@@ -15,8 +16,14 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _globe, _maps_live, _maps_route, _maps_ui, maps
-from linecast._maps_live import MapApp
+from linecast import (
+    _globe, _globe_texture, _maps_live, _maps_route, _maps_ui, _maps_views,
+    maps,
+)
+from linecast._maps_live import (
+    COAST_CEILING, Camera, MapApp, ZOOM_EASE,
+)
+from linecast._maps_motion import lon_span
 from linecast._maps_search import Result
 from linecast._radar_render import bbox_for
 from linecast.maps import MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP
@@ -35,6 +42,9 @@ class FakeThread:
     def start(self):
         pass
 
+    def is_alive(self):
+        return False
+
 
 class FakeTimer(FakeThread):
     def __init__(self, delay, fn, args=()):
@@ -42,6 +52,19 @@ class FakeTimer(FakeThread):
 
     def cancel(self):
         pass
+
+
+class Clock:
+    """The camera's clock, turned by hand."""
+
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
 
 
 @pytest.fixture(autouse=True)
@@ -53,8 +76,12 @@ def _quiet(monkeypatch):
     monkeypatch.setattr(_maps_ui, "threading", fake)
     monkeypatch.setattr(maps, "get_terminal_size", lambda: (COLS, ROWS))
     monkeypatch.setattr(_globe, "warm", lambda zoom, h: False)
+    monkeypatch.setattr(_globe_texture, "ready", lambda *a, **k: False)
     monkeypatch.setattr(_maps_live, "_zoom_hold",
                         types.SimpleNamespace(hold=lambda: None))
+    monkeypatch.setattr(_maps_live, "prefetch_view", lambda *a, **k: None)
+    yield
+    _maps_views.hold_motion(False)
 
 
 @pytest.fixture
@@ -72,16 +99,24 @@ def frames(monkeypatch):
 def make(zoom=1.0, view="terrain", sky=False, lat=43.68, lon=-70.37,
          origin=None, dest=None, fit=False):
     runtime = types.SimpleNamespace(lang="en", live=True)
-    return MapApp(runtime, lat, lon, "Westbrook", zoom, view, sky, "car",
-                  origin=origin, dest=dest, fit=fit)
+    app = MapApp(runtime, lat, lon, "Westbrook", zoom, view, sky, "car",
+                 origin=origin, dest=dest, fit=fit)
+    app.camera.clock = Clock()
+    return app
+
+
+def settle(app, seconds=5.0):
+    """Let every motion run out, and read the view."""
+    app.camera.clock.advance(seconds)
+    return app.camera.view()
 
 
 def point_under(app, col, row):
     """The geographic point under a 1-based terminal cell, by the
     flat map's own projection."""
     fx, fy = (col - 1 + 0.5) / GW, (row - 2 + 0.5) / HC
-    lon_span = app.zoom * (GW / (HC * 2)) / math.cos(math.radians(app.lat))
-    return (app.lat + app.zoom * (0.5 - fy), app.lon + lon_span * (fx - 0.5))
+    span = lon_span(app.lat, app.zoom, GW, HC)
+    return (app.lat + app.zoom * (0.5 - fy), app.lon + span * (fx - 0.5))
 
 
 class TestConstruction:
@@ -91,10 +126,15 @@ class TestConstruction:
         assert app.zoom == 2.0 and app.view == "street"
         assert app.sun and app.clouds and app.show_labels
         assert app.pan_preview == (0, 0)
-        assert app.drag_base is None and not app.drag_sync
-        assert app.spinning == 0 and app.spin_seq == 0
+        assert not app.camera.moving() and not app.camera.dragging()
+        assert not app.camera.spinning
         assert app.interval == 3600 and app.mouse is True
         assert FakeThread.started == []
+
+    def test_the_camera_knows_the_maps_size_and_ceiling(self):
+        app = make()
+        assert (app.camera.gw, app.camera.hc) == (GW, HC)
+        assert app.camera.zoom_max == maps.max_zoom(GW, HC)
 
     def test_endpoints_seed_the_routes_without_a_request(self):
         origin = Result("A", "", 1.0, 2.0, "city")
@@ -133,49 +173,116 @@ class TestConstruction:
 
 
 class TestZoom:
-    def test_zoom_clamps_to_the_limits(self):
+    """The zoom eases now, so every landing is read after the clock has
+    been turned past the ease."""
+
+    def test_zoom_eases_to_the_clamped_limits(self):
         app = make(zoom=1.0)
         assert app.zoom_to(0.0)
-        assert app.zoom == MIN_ZOOM_DEG
+        assert app.camera.moving()
+        assert settle(app)[2] == MIN_ZOOM_DEG
+        assert not app.camera.moving()
         assert app.zoom_to(1e9)
-        assert app.zoom == MAX_ZOOM_DEG
+        assert settle(app)[2] == MAX_ZOOM_DEG
+
+    def test_the_zoom_moves_in_log_space(self):
+        app = make(zoom=1.0)
+        app.zoom_to(4.0)
+        app.camera.clock.advance(ZOOM_EASE / 2)
+        assert app.camera.view()[2] == pytest.approx(2.0)
 
     def test_a_zoom_that_changes_nothing_says_so(self):
         app = make(zoom=MAX_ZOOM_DEG)
         assert app.zoom_to(MAX_ZOOM_DEG * 2) is False
         assert app.zoom_to(MAX_ZOOM_DEG) is False
+        assert not app.camera.moving()
 
     def test_the_ceiling_opens_up_on_a_narrow_terminal(self, monkeypatch):
         app = make(zoom=MAX_ZOOM_DEG)
         monkeypatch.setattr(maps, "get_terminal_size", lambda: (54, 47))
         assert app.zoom_to(1e9)
-        assert app.zoom == maps.max_zoom(*maps.map_cells())
+        assert settle(app)[2] == maps.max_zoom(*maps.map_cells())
         assert app.zoom > MAX_ZOOM_DEG
 
     def test_an_anchored_zoom_keeps_the_point_under_the_pointer(self):
         app = make(zoom=2.0)
         before = point_under(app, 30, 12)
         assert app.zoom_to(1.0, at=(30, 12))
-        after = point_under(app, 30, 12)
-        assert after == pytest.approx(before, abs=1e-9)
+        # the anchor holds through the ease, not only at the end
+        app.camera.clock.advance(ZOOM_EASE / 3)
+        app.camera.view()
+        assert point_under(app, 30, 12) == pytest.approx(before, abs=1e-9)
+        settle(app)
+        assert app.zoom == 1.0
+        assert point_under(app, 30, 12) == pytest.approx(before, abs=1e-9)
         assert (app.lat, app.lon) != (43.68, -70.37)
 
     def test_a_zoom_about_the_centre_keeps_it(self):
         app = make(zoom=2.0)
         assert app.zoom_to(1.0)
+        settle(app)
         assert (app.lat, app.lon) == (43.68, -70.37)
 
     def test_a_zoom_across_the_hand_off_keeps_the_centre(self):
         app = make(zoom=_globe.ZOOM_DEG / 1.2)
         assert app.zoom_to(_globe.ZOOM_DEG * 1.2, at=(30, 12))
+        settle(app)
         assert (app.lat, app.lon) == (43.68, -70.37)
+
+    def test_a_zoom_across_the_hand_off_cuts_rather_than_eases(self):
+        # neither side can stand in for the other, so every frame of
+        # an ease across the hand-off would be blank: it snaps, as it
+        # did before the camera, and the ticker is not started
+        flat = _globe.ZOOM_DEG / 2
+        app = make(zoom=flat, lat=0.0)
+        assert app.zoom_to(flat * 4)
+        assert app.zoom == flat * 4 and not app.camera.moving()
+        assert FakeThread.started == []
+        assert app.zoom_to(flat)
+        assert app.zoom == flat and not app.camera.moving()
+        # on one side it eases, whichever side that is
+        assert app.zoom_to(flat / 2)
+        assert app.zoom == flat and app.camera.moving()
+        settle(app)
+        app.zoom_to(flat * 4)
+        assert app.zoom_to(flat * 8)
+        assert app.zoom == flat * 4 and app.camera.moving()
+        assert [t.target for t in FakeThread.started] == [app._tick, app._tick]
+
+    def test_an_anchored_zoom_that_would_land_on_the_globe_cuts(self):
+        # anchored at the bottom row, a zoom out carries the centre
+        # toward the pole, and the hand-off is judged where the ease
+        # would end rather than where it starts
+        app = make(zoom=30.0, lat=20.0)
+        assert not _globe.is_globe(30.0 * 1.4, 20.0)
+        assert app.zoom_to(30.0 * 1.4, at=(50, ROWS - 1))
+        assert not app.camera.moving()
+        # and the cut is about the centre, as it is on the globe
+        assert app.zoom == 30.0 * 1.4 and (app.lat, app.lon) == (20.0, -70.37)
 
     def test_an_anchored_zoom_wraps_the_longitude(self):
         app = make(zoom=20.0, lat=0.0, lon=179.9)
         assert app.zoom_to(10.0, at=(2, 20))
+        settle(app)
         assert -180.0 <= app.lon <= 180.0
 
-    def test_a_zoom_holds_the_fetches(self, monkeypatch):
+    def test_a_run_of_taps_compounds_before_the_first_lands(self):
+        app = make(zoom=1.0)
+        app.on_action('+')
+        app.camera.clock.advance(ZOOM_EASE / 4)
+        app.on_action('+')
+        assert settle(app)[2] == pytest.approx(1.0 / ZOOM_STEP ** 2)
+
+    def test_a_zoom_retargets_from_where_it_has_got_to(self):
+        app = make(zoom=1.0)
+        app.zoom_to(4.0)
+        app.camera.clock.advance(ZOOM_EASE / 2)
+        assert app.camera.view()[2] == pytest.approx(2.0)
+        app.zoom_to(2.0)          # back from mid-way
+        app.camera.clock.advance(ZOOM_EASE)
+        assert app.camera.view()[2] == pytest.approx(2.0)
+
+    def test_a_zoom_holds_the_fetches_and_wakes_the_ticker(self, monkeypatch):
         held = []
         monkeypatch.setattr(_maps_live, "_zoom_hold",
                             types.SimpleNamespace(hold=lambda: held.append(1)))
@@ -183,13 +290,14 @@ class TestZoom:
         app.zoom_to(2.0)
         app.zoom_to(2.0)
         assert held == [1]
+        assert [t.target for t in FakeThread.started] == [app._tick]
 
     def test_the_wheel_zooms_in_going_up(self):
         app = make(zoom=1.0)
         assert app.on_wheel(1, 50, 20)
-        assert app.zoom == pytest.approx(1.0 / ZOOM_STEP)
+        assert settle(app)[2] == pytest.approx(1.0 / ZOOM_STEP)
         assert app.on_wheel(-1, 50, 20)
-        assert app.zoom == pytest.approx(1.0)
+        assert settle(app)[2] == pytest.approx(1.0)
 
 
 class TestKeys:
@@ -197,33 +305,49 @@ class TestKeys:
         ('w', 1, 0), ('a', 0, -1), ('s', -1, 0), ('d', 0, 1),
     ])
     @pytest.mark.parametrize('globe', [False, True])
-    def test_wasd_pans_the_view_and_keeps_the_marker(self, monkeypatch, key, dlat, dlon,
-                                                  globe):
+    def test_wasd_pans_the_view_and_keeps_the_marker(self, monkeypatch, key,
+                                                     dlat, dlon, globe):
+        # the pan eases now, so the landing is read after the clock
+        # has been turned past it; the projection is the drag's, on a
+        # warm globe and a flat map alike
         monkeypatch.setattr(_globe, 'warm', lambda zoom, h: globe)
         app = make(zoom=60.0 if globe else 2.0, lat=0, lon=0)
-        app.spinning = 1
+        app.camera.spin(True)
         assert app.intercept('key:' + key) is False
         assert app.on_action(key)
+        assert app.camera.moving()
+        settle(app)
         assert app.lat == pytest.approx(dlat * app.zoom * 0.1)
-        assert app.lon == pytest.approx(dlon * app.zoom * (GW / (HC * 2)) * 0.1)
+        assert app.lon == pytest.approx(
+            dlon * lon_span(0.0, app.zoom, GW, HC) * 0.1)
         assert app.home == (0, 0) and not app.sun and not app.routes.panel
-        assert app.pan_preview == (0, 0) and app.drag_base is None
-        assert app.spinning == 0
-        assert app.drag_sync == globe
+        assert app.pan_preview == (0, 0) and not app.camera.dragging()
+        assert not app.camera.spinning
+
+    def test_a_keyed_pan_compounds_when_it_is_repeated(self):
+        app = make(zoom=2.0, lat=0, lon=0)
+        app.on_action('d')
+        app.camera.clock.advance(ZOOM_EASE / 4)
+        app.on_action('d')
+        settle(app)
+        assert app.lon == pytest.approx(
+            2 * lon_span(0.0, 2.0, GW, HC) * 0.1)
 
     def test_keyboard_pan_wraps_and_clamps(self):
         app = make(zoom=60, lat=79, lon=179)
         app.on_action('d')
+        settle(app)
         assert -180 <= app.lon < 0
         app.on_action('w')
+        settle(app)
         assert app.lat == 80
 
     def test_plus_and_minus_step_the_zoom(self):
         app = make(zoom=1.0)
         assert app.on_action('+')
-        assert app.zoom == pytest.approx(1.0 / ZOOM_STEP)
+        assert settle(app)[2] == pytest.approx(1.0 / ZOOM_STEP)
         assert app.on_action('-')
-        assert app.zoom == pytest.approx(1.0)
+        assert settle(app)[2] == pytest.approx(1.0)
 
     def test_v_cycles_the_view(self):
         app = make(view="street")
@@ -240,30 +364,58 @@ class TestKeys:
         assert make().on_action('x') is False
 
     def test_r_spins_only_a_warm_globe(self, monkeypatch):
+        # the spin rides the camera's clock now, so what r starts is
+        # the ticker rather than a thread of its own
         app = make(zoom=1.0)
-        assert app.on_action('r') is False and app.spinning == 0
+        assert app.on_action('r') is False and not app.camera.spinning
         app.zoom = _globe.ZOOM_DEG
-        assert app.on_action('r') is False and app.spinning == 0
+        assert app.on_action('r') is False and not app.camera.spinning
         monkeypatch.setattr(_globe, "warm", lambda zoom, h: h == HC * 4)
         assert app.on_action('r') is False
-        assert app.spinning == app.spin_seq == 1
-        assert FakeThread.started[-1].target == app.spin
-        assert FakeThread.started[-1].args == (1,)
+        assert app.camera.spinning and app.camera.moving()
+        assert FakeThread.started[-1].target == app._tick
+
+    def test_the_spin_turns_the_planet_a_degree_a_second(self, monkeypatch):
+        monkeypatch.setattr(_globe, "warm", lambda zoom, h: True)
+        app = make(zoom=_globe.ZOOM_DEG, lon=0.0)
+        app.on_action('r')
+        app.camera.clock.advance(2.0)
+        assert app.camera.view()[1] == pytest.approx(-2.0)
+
+    def test_the_spin_waits_while_a_drag_is_in_hand(self, monkeypatch):
+        monkeypatch.setattr(_globe, "warm", lambda zoom, h: True)
+        app = make(zoom=60.0, lat=0.0, lon=0.0)
+        app.on_action('r')
+        app.on_drag(0, 0, False)
+        app.camera.clock.advance(1.0)
+        assert app.camera.view()[1] == 0.0
+        app.on_drag(0, 0, True)
+        app.camera.clock.advance(1.0)
+        assert app.camera.view()[1] == pytest.approx(-1.0)
+
+    def test_a_zoom_back_inside_the_hand_off_parks_the_spin(self, monkeypatch):
+        monkeypatch.setattr(_globe, "warm", lambda zoom, h: True)
+        app = make(zoom=_globe.ZOOM_DEG)
+        app.on_action('r')
+        assert app.camera.spinning
+        app.zoom_to(1.0)
+        settle(app)
+        assert not app.camera.spinning and not app.camera.moving()
 
     def test_r_parks_a_spin_already_running(self, monkeypatch):
         monkeypatch.setattr(_globe, "warm", lambda zoom, h: True)
         app = make(zoom=_globe.ZOOM_DEG)
         app.on_action('r')
         assert app.on_action('r') is False
-        assert app.spinning == 0 and app.spin_seq == 1
+        assert not app.camera.spinning and not app.camera.moving()
         app.on_action('r')
-        assert app.spinning == app.spin_seq == 2
+        assert app.camera.spinning
 
-    def test_stop_parks_the_spin(self):
+    def test_stop_parks_the_camera(self):
         app = make()
-        app.spinning = 3
+        app.camera.spin(True)
         app.stop()
-        assert app.spinning == 0
+        assert not app.camera.spinning and not app.camera.moving()
 
     def test_text_mode_is_the_search_field(self):
         app = make()
@@ -280,9 +432,9 @@ class TestDrag:
         assert app.on_drag(10, 5, False) is False  # nothing new
         assert app.on_drag(10, 5, True)
         assert app.pan_preview == (0, 0)
-        lon_span = 2.0 * (GW / (HC * 2)) / math.cos(math.radians(43.68))
+        span = lon_span(43.68, 2.0, GW, HC)
         assert app.lat == pytest.approx(43.68 + 5 * 2.0 / HC)
-        assert app.lon == pytest.approx(-70.37 - 10 * lon_span / GW)
+        assert app.lon == pytest.approx(-70.37 - 10 * span / GW)
 
     def test_a_commit_wraps_the_longitude(self):
         app = make(zoom=2.0, lat=0.0, lon=-179.99)
@@ -299,21 +451,86 @@ class TestDrag:
     def test_a_cold_globe_pans_like_the_flat_map(self):
         app = make(zoom=_globe.ZOOM_DEG)
         assert app.on_drag(4, 0, False)
-        assert app.pan_preview == (4, 0) and app.drag_base is None
+        assert app.pan_preview == (4, 0) and not app._drag_globe
 
     def test_a_warm_globe_rotates_under_the_cursor(self, monkeypatch):
         monkeypatch.setattr(_globe, "warm", lambda zoom, h: True)
         app = make(zoom=60.0, lat=70.0, lon=0.0)
         assert app.on_drag(0, 0, True) is False  # a click, not a drag
         assert app.on_drag(10, 20, False)
-        assert app.drag_base == (70.0, 0.0)
-        assert app.drag_sync is True
+        assert app._drag_globe and app.camera.dragging()
         assert app.lat == 80.0  # clamped
         assert app.lon == pytest.approx(
-            -(10 * (60.0 / (HC * 2)) / math.cos(math.radians(70.0))))
+            -(10 * lon_span(70.0, 60.0, GW, HC) / GW))
         assert app.on_drag(10, 20, False) is False  # nothing moved
         assert app.on_drag(10, 20, True) is True
-        assert app.drag_base is None
+        assert not app.camera.dragging()
+
+    def test_a_flick_coasts_and_stops_for_good(self):
+        app = make(zoom=2.0)
+        clock = app.camera.clock
+        app.on_drag(0, 0, False)
+        clock.advance(0.05)
+        app.on_drag(-10, 0, False)
+        assert app.on_drag(-10, 0, True)
+        lon_at_release = app.lon
+        assert app.camera.moving()
+        assert [t.target for t in FakeThread.started] == [app._tick]
+        clock.advance(0.1)
+        _lat, lon_soon, _zoom = app.camera.view()
+        assert lon_soon > lon_at_release
+        clock.advance(3.0)
+        _lat, lon_rest, _zoom = app.camera.view()
+        assert lon_rest > lon_soon
+        assert not app.camera.moving()
+        clock.advance(3.0)
+        assert app.camera.view()[1] == lon_rest   # at rest for good
+
+    def test_a_slow_release_does_not_coast(self):
+        app = make(zoom=2.0)
+        app.on_drag(0, 0, False)
+        app.camera.clock.advance(0.5)
+        app.on_drag(10, 0, False)
+        app.camera.clock.advance(0.5)
+        app.on_drag(10, 0, True)
+        assert not app.camera.moving()
+
+    def test_a_hand_that_pauses_before_letting_go_does_not_coast(self):
+        # the release is not a motion, so a hand brought to rest and
+        # then lifted stops where it is
+        app = make(zoom=2.0)
+        app.on_drag(0, 0, False)
+        app.camera.clock.advance(0.05)
+        app.on_drag(-10, 0, False)
+        app.camera.clock.advance(0.4)
+        app.on_drag(-10, 0, True)
+        assert not app.camera.moving()
+
+    def test_a_flick_on_a_warm_globe_coasts_too(self, monkeypatch):
+        monkeypatch.setattr(_globe, "warm", lambda zoom, h: True)
+        app = make(zoom=60.0, lat=0.0, lon=0.0)
+        app.on_drag(0, 0, False)
+        app.camera.clock.advance(0.05)
+        app.on_drag(-10, 0, False)
+        app.on_drag(-10, 0, True)
+        assert app.camera.moving()
+
+    def test_a_press_stops_a_coast_and_a_flight(self):
+        app = make(zoom=2.0)
+        app.camera.fly_to(44.0, -71.0, 1.0)
+        assert app.camera.moving()
+        app.on_drag(1, 0, False)
+        assert not app.camera.moving()
+
+    def test_a_key_a_zoom_and_a_panel_all_stop_a_coast(self, frames):
+        for stop in (lambda a: a.on_action('d'),
+                     lambda a: a.zoom_to(1.0),
+                     lambda a: (a.search.start(), a.render())):
+            app = make(zoom=2.0)
+            app.camera.fly_to(44.0, -71.0, 1.0)
+            assert app.camera.moving()
+            stop(app)
+            assert not app.camera._flight and not app.camera._coast
 
 
 class TestIntercept:
@@ -344,7 +561,9 @@ class TestIntercept:
         assert app.intercept('key:D') is True
         assert app.routes.panel and app.search.purpose == "route"
 
-    def test_the_panel_takes_the_arrows(self):
+    def test_the_panel_takes_the_arrows_and_the_map_flies_along(self):
+        # a step is flown to rather than cut to, so the view is read
+        # once the flight has run out
         app = make(dest=Result("B", "", 3.0, 4.0, "city"))
         steps = [{"location": (4.0, 3.0), "distance_m": 11054.0},
                  {"location": (5.0, 3.5), "distance_m": 100.0}]
@@ -352,9 +571,12 @@ class TestIntercept:
         app.routes.panel = True
         assert app.intercept('back') is True
         assert app.routes.step == 0
+        assert app.camera.moving()
+        settle(app)
         assert (app.lat, app.lon) == (3.0, 4.0)
         assert app.zoom == pytest.approx(11054.0 * 2.4 / 110540.0)
         assert app.intercept('key:enter') is True
+        settle(app)
         assert app.routes.step == 1 and (app.lat, app.lon) == (3.5, 5.0)
         assert app.zoom == 0.004  # the floor of a short step
         assert app.intercept('fwd') is True and app.routes.step == 0
@@ -403,6 +625,8 @@ class TestClick:
         app = self.make_panel()
         assert app.on_click(5, 8) is True
         assert app.routes.step == 0
+        assert app.camera.moving()
+        settle(app)
         assert (app.lat, app.lon) == (3.0, 4.0)
 
     def test_clicks_elsewhere_are_nothing(self):
@@ -431,19 +655,51 @@ class TestRender:
         assert f["show_labels"] is True
         assert f["sun"] is True and f["clouds"] is True
 
-    def test_a_globe_drag_renders_blocking_once(self, frames):
+    def test_a_warm_globe_in_motion_renders_blocking(self, frames,
+                                                     monkeypatch):
+        # the blocking repaint is no longer a one-shot flag: a warm
+        # globe blocks for as long as the camera is moving, and stops
+        # the moment it rests
+        monkeypatch.setattr(_globe, "warm", lambda zoom, h: True)
         app = make(zoom=_globe.ZOOM_DEG)
-        app.drag_sync = True
+        app.on_drag(4, 0, False)
         app.render()
-        assert frames[-1]["block"] is True and app.drag_sync is False
+        assert frames[-1]["block"] is True
+        app.on_drag(4, 0, True)
         app.render()
         assert frames[-1]["block"] is False
 
-    def test_a_flat_drag_sync_never_blocks(self, frames):
-        app = make(zoom=1.0)
-        app.drag_sync = True
+    def test_a_cold_globe_never_blocks(self, frames):
+        app = make(zoom=_globe.ZOOM_DEG)
+        app.on_drag(4, 0, False)
         app.render()
-        assert frames[-1]["block"] is False and app.drag_sync is False
+        assert frames[-1]["block"] is False
+
+    def test_a_flat_view_never_blocks(self, frames):
+        app = make(zoom=1.0)
+        app.on_drag(4, 0, False)
+        app.render()
+        assert frames[-1]["block"] is False
+
+    def test_a_frame_in_motion_holds_the_fetches_and_drops_the_pointer(
+            self, frames):
+        app = make(zoom=1.0)
+        app.zoom_to(2.0)
+        app.render(mouse_pos=(4, 5))
+        assert _maps_views._in_motion[0] is True
+        assert frames[-1]["mouse_pos"] is None
+        settle(app, ZOOM_EASE + 0.01)
+        app.render(mouse_pos=(4, 5))
+        assert _maps_views._in_motion[0] is False
+        assert frames[-1]["mouse_pos"] == (4, 5)
+
+    def test_a_frame_advances_the_motion(self, frames):
+        app = make(zoom=1.0)
+        app.zoom_to(2.0)
+        app.camera.clock.advance(ZOOM_EASE + 0.01)
+        app.render()
+        assert frames[-1]["zoom"] == 2.0
+        assert not app.camera.moving()
 
     def test_the_opening_route_reframes_the_view_once(self, frames):
         origin = Result("A", "", 43.66, -70.26, "city")
@@ -470,6 +726,7 @@ class TestRender:
         dest = Result("B", "", 43.62, -70.21, "city")
         app = make(origin=origin, dest=dest, fit=True)
         app.zoom_to(app.zoom * ZOOM_STEP)
+        settle(app)
         moved = (app.lat, app.lon, app.zoom)
         app.routes.route = _maps_route.Route(
             [(-70.26, 43.66), (-70.30, 43.64), (-70.21, 43.62)], 1.0, 1.0, [], "bike")
@@ -477,11 +734,15 @@ class TestRender:
         assert (app.lat, app.lon, app.zoom) == moved
         assert app.fit_view is None
 
-    def test_a_parked_search_result_is_applied(self, frames):
+    def test_a_parked_search_result_is_flown_to(self, frames):
+        # a result is flown to rather than jumped to, so the view
+        # arrives once the flight has run out
         app = make(zoom=1.0)
         app.search.start()
         app.search.chosen = Result("Portland", "", 43.66, -70.25, "city")
         app.render()
+        assert app.camera.moving()
+        settle(app)
         assert (app.lat, app.lon) == (43.66, -70.25)
         assert app.zoom != 1.0
         assert app.search.take_chosen() is None
@@ -506,6 +767,216 @@ class TestRender:
         app.search.chosen = Result("A2", "", 1.5, 2.5, "city")
         app.render()
         assert app.routes.status == "pending"
+
+
+class TestFlights:
+    def test_a_search_result_is_prefetched_from_the_descent(self, frames,
+                                                            monkeypatch):
+        asked = []
+        monkeypatch.setattr(_maps_live, "prefetch_view",
+                            lambda *a, **k: asked.append((a, k)))
+        app = make(zoom=1.0)
+        app.search.start()
+        # the commit path parks the result and closes the field
+        app.search.chosen = Result("Portland", "", 43.66, -70.25, "city")
+        app.search.open = False
+        app.render()
+        assert app.camera.moving()
+        # the destination is asked for from the descent, not at take-off
+        assert asked == []
+        duration = app.camera._flight[0].duration
+        app.camera.clock.advance(duration * 0.4)
+        app.render()
+        assert asked == []
+        app.camera.clock.advance(duration * 0.2)
+        app.render()
+        (lat, lon, zoom, view, gw, hc, lang), kw = asked[0]
+        assert (lat, lon, view, gw, hc, lang) == (43.66, -70.25, "terrain",
+                                                  GW, HC, "en")
+        assert zoom != 1.0 and kw == {"marker": (43.68, -70.37)}
+        settle(app)
+        app.render()
+        assert len(asked) == 1          # asked for once, not every frame
+        assert (app.lat, app.lon) == (43.66, -70.25) and app.zoom == zoom
+
+    def test_a_flight_to_where_you_already_are_is_nothing(self, frames,
+                                                          monkeypatch):
+        asked = []
+        monkeypatch.setattr(_maps_live, "prefetch_view",
+                            lambda *a, **k: asked.append(a))
+        app = make(zoom=1.0)
+        app.fly_to(Result("Here", "", 43.68, -70.37, "city"))
+        assert app.camera.moving()   # the zoom differs, so it flies
+        app.camera.clock.advance(app.camera._flight[0].duration * 0.6)
+        app.render()
+        settle(app)
+        app.render()
+        app.fly_to(Result("Here", "", 43.68, -70.37, "city"))
+        assert not app.camera.moving() and len(asked) == 1
+
+    def test_a_flight_cut_short_does_not_fetch_where_it_was_going(
+            self, frames, monkeypatch):
+        asked = []
+        monkeypatch.setattr(_maps_live, "prefetch_view",
+                            lambda *a, **k: asked.append(a))
+        app = make(zoom=1.0)
+        app.fly_to(Result("Portland", "", 43.66, -70.25, "city"))
+        app.camera.clock.advance(0.1)
+        app.on_drag(1, 0, False)          # a hand on the map ends it
+        app.render()
+        assert asked == [] and app._destination is None
+        app.on_drag(1, 0, True)
+        app.fly_to(Result("Portland", "", 43.66, -70.25, "city"))
+        app.camera.clock.advance(0.1)
+        app.on_action('+')                # so does a zoom tap
+        app.render()
+        assert asked == [] and app._destination is None
+
+    def test_a_flight_that_lands_unseen_leaves_the_fetch_to_the_frame(
+            self, frames, monkeypatch):
+        # a slow terminal may paint no frame between the top of the
+        # flight and its end; the resting frame then fetches for itself
+        asked = []
+        monkeypatch.setattr(_maps_live, "prefetch_view",
+                            lambda *a, **k: asked.append(a))
+        app = make(zoom=1.0)
+        app.fly_to(Result("Portland", "", 43.66, -70.25, "city"))
+        settle(app)
+        app.render()
+        assert asked == [] and app._destination is None
+        assert _maps_views._in_motion[0] is False
+
+    def test_the_destination_fetched_is_the_one_the_flight_lands_on(
+            self, monkeypatch):
+        asked = []
+        monkeypatch.setattr(_maps_live, "prefetch_view",
+                            lambda *a, **k: asked.append(a))
+        app = make(zoom=1.0)
+        app.fly_to(Result("Alert", "", 82.5, 190.0, "city"))
+        assert app._destination[:2] == (80.0, -170.0)
+        settle(app)
+        assert (app.lat, app.lon, app.zoom) == app._destination
+
+    def test_the_opening_fit_still_jumps(self):
+        origin = Result("A", "", 43.66, -70.26, "city")
+        dest = Result("B", "", 43.62, -70.21, "city")
+        app = make(origin=origin, dest=dest, fit=True)
+        assert not app.camera.moving()
+
+
+class TestCamera:
+    """The camera on its own, at the map's 100 by 40."""
+
+    def _camera(self, lat=43.68, lon=-70.37, zoom=2.0):
+        cam = Camera(lat, lon, zoom, clock=Clock())
+        cam.gw, cam.hc = GW, HC
+        cam.zoom_max = maps.max_zoom(GW, HC)
+        return cam
+
+    def test_a_flight_ends_where_it_was_sent(self):
+        cam = self._camera()
+        assert cam.fly_to(44.0, -71.0, 0.5)
+        assert cam.moving()
+        cam.clock.advance(0.1)
+        lat, _lon, zoom = cam.view()
+        assert lat != 43.68 or zoom != 2.0
+        cam.clock.advance(5.0)
+        assert cam.view() == (44.0, -71.0, 0.5)
+        assert not cam.moving()
+
+    def test_a_flight_keeps_inside_the_zoom_limits(self):
+        cam = self._camera(zoom=0.05)
+        cam.zoom_max = 10.0
+        cam.fly_to(35.7, 139.7, 0.05)
+        zooms = []
+        for _ in range(40):
+            cam.clock.advance(0.1)
+            zooms.append(cam.view()[2])
+        assert max(zooms) == 10.0
+        assert min(zooms) >= cam.zoom_min
+
+    def test_a_jump_is_immediate_and_clamped(self):
+        cam = self._camera()
+        cam.zoom_to(1.0)
+        cam.jump_to(89.0, 200.0, 1e9)
+        assert not cam.moving()
+        assert cam.view() == (80.0, -160.0, cam.zoom_max)
+
+    def test_a_coast_stops_at_the_polar_limit(self):
+        cam = self._camera(lat=79.0, zoom=10.0)
+        cam.press()
+        cam.drag(0, 0)
+        cam.clock.advance(0.05)
+        cam.drag(0, 40)
+        cam.release()
+        cam.clock.advance(3.0)
+        assert cam.view()[0] == 80.0
+        assert not cam.moving()
+
+    def test_a_flick_is_capped_however_fast_the_hand(self):
+        def flick(cols):
+            cam = self._camera(lon=0.0)
+            cam.press()
+            cam.drag(0, 0)
+            cam.clock.advance(0.05)
+            cam.drag(-cols, 0)
+            cam.release()
+            return cam, abs(cam._coast[1]) * math.cos(math.radians(cam.lat))
+
+        gentle, gentle_speed = flick(8)
+        hurled, hurled_speed = flick(4000)
+        ceiling = COAST_CEILING * gentle.zoom
+        assert gentle_speed < ceiling          # under the cap, untouched
+        assert hurled_speed == pytest.approx(ceiling)
+
+    def test_halt_stops_everything_but_keeps_the_view(self):
+        cam = self._camera()
+        cam.fly_to(44.0, -71.0, 0.5)
+        cam.clock.advance(0.1)
+        lat, lon, zoom = cam.view()
+        cam.halt()
+        assert not cam.moving()
+        assert cam.view() == (lat, lon, zoom)
+
+
+class TestTicker:
+    def test_the_ticker_wakes_the_loop_and_stops_at_rest(self, monkeypatch):
+        woke = []
+        monkeypatch.setattr(_maps_live, "_nudge_repaint",
+                            lambda: woke.append(1))
+        monkeypatch.setattr(_maps_live.time, "sleep", lambda s: None)
+        app = make(zoom=1.0)
+        app.zoom_to(2.0)
+        # the camera is moving, so the ticker keeps asking; once a
+        # frame has advanced it past the ease, the next tick returns
+        app.camera.clock.advance(ZOOM_EASE + 0.01)
+        app.camera.view()
+        app._tick()
+        assert woke == [1] and not app.camera.moving()
+
+    def test_the_ticker_parks_when_a_hand_takes_the_map(self, monkeypatch):
+        # a drag repaints on its own events; the ticker would only
+        # send the same frame again between them
+        woke = []
+        monkeypatch.setattr(_maps_live, "_nudge_repaint",
+                            lambda: woke.append(1))
+        monkeypatch.setattr(_maps_live.time, "sleep", lambda s: None)
+        app = make(zoom=1.0)
+        app.zoom_to(2.0)
+        app.on_drag(1, 0, False)
+        app._tick()
+        assert woke == [1] and app.camera.dragging()
+
+    def test_the_ticker_is_started_once_while_it_lives(self, monkeypatch):
+        app = make(zoom=1.0)
+        live = [True]
+        monkeypatch.setattr(app, "_ticker",
+                            types.SimpleNamespace(is_alive=lambda: live[0]))
+        app.zoom_to(2.0)
+        assert FakeThread.started == []     # one is already up
+        live[0] = False
+        app.zoom_to(4.0)
+        assert [t.target for t in FakeThread.started] == [app._tick]
 
 
 class TestMapCells:

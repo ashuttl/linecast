@@ -1,4 +1,7 @@
-"""The last street view standing in, moved and scaled, while the next loads."""
+"""The last real view standing in, moved and scaled, while the next loads.
+
+Street and terrain go through the same reprojection; what differs is
+what each register carries across."""
 
 import sys
 from pathlib import Path
@@ -8,6 +11,7 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast import maps
+from linecast._color import BG_PRIMARY
 from linecast._radar_basemap import _BITS
 from linecast._radar_render import bbox_for
 
@@ -61,6 +65,88 @@ class TestReprojectStreet:
             _prev(_full()), (2.0, 2.0, 6.0, 6.0), GW, HC, "g")
         assert _count(layer.dots) == GW * HC * 8
         assert all(f != "g" for row in fills for f in row)
+
+
+class TestReprojectTerrain:
+    """Terrain's stand-in is the street one's twin: the shaded ground,
+    the shoreline and the rivers all move and scale together."""
+
+    def _prev(self, dots=None):
+        fill = [[(x, y) for x in range(GW)] for y in range(HC * 2)]
+        coast = [[0] * GW for _ in range(HC)]
+        coast[1][3] = _BITS[0][0]
+        rdots = dots or [[0] * GW for _ in range(HC)]
+        rivers = maps._ShiftedLayer(
+            rdots, [["ink" if d else None for d in row] for row in rdots])
+        return (BBOX, GW, HC, fill, coast, rivers)
+
+    def test_same_view_or_other_size_does_not_stand_in(self):
+        assert maps._reproject_terrain(self._prev(), BBOX, GW, HC) is None
+        assert maps._reproject_terrain(self._prev(), (1.0, 0.0, 9.0, 8.0),
+                                       GW + 1, HC) is None
+
+    def test_a_pan_moves_the_fill_the_coast_and_the_rivers_together(self):
+        rdots = [[0] * GW for _ in range(HC)]
+        rdots[2][5] = _BITS[0][0]
+        fill, coast, rivers = maps._reproject_terrain(
+            self._prev(rdots), (1.0, 0.0, 9.0, 8.0), GW, HC)
+        # one degree east: everything moves one cell left
+        assert fill[0][0] == (1, 0)
+        assert fill[0][GW - 1] == BG_PRIMARY
+        assert coast[1][2] == _BITS[0][0] and _count(coast) == 1
+        assert rivers.dots[2][4] == _BITS[0][0]
+        assert rivers.color[2][4] == "ink"
+
+    def test_a_view_without_tiles_carries_no_rivers(self):
+        prev = (BBOX, GW, HC, [[(x, y) for x in range(GW)]
+                               for y in range(HC * 2)], None, None)
+        fill, coast, rivers = maps._reproject_terrain(
+            prev, (1.0, 0.0, 9.0, 8.0), GW, HC)
+        assert coast is None and rivers is None
+        assert fill[0][0] == (1, 0)
+
+    def test_it_reprojects_exactly_as_the_street_one_does(self):
+        # the same window, the same grids: the two registers must not
+        # drift apart
+        dots = _full()
+        bbox = (2.0, 2.0, 6.0, 6.0)
+        street_fills, street_layer = maps._reproject_street(
+            _prev(dots), bbox, GW, HC, BG_PRIMARY)
+        fill, _coast, rivers = maps._reproject_terrain(
+            self._prev(dots), bbox, GW, HC)
+        assert fill == street_fills
+        assert rivers.dots == street_layer.dots
+        assert rivers.color == street_layer.color
+
+
+class TestTerrainStandInFrame:
+    def test_a_stand_in_frame_does_not_cut_a_basemap(self, monkeypatch):
+        # the borders and city names are a third of a second of
+        # polygon filling per window; a frame in motion goes without
+        # them, as it goes without labels, until the real view lands
+        cut = []
+        monkeypatch.setattr(maps, "_get_basemap",
+                            lambda *a: cut.append(a) or None)
+        monkeypatch.setattr(maps, "_get_elevation",
+                            lambda *a: maps._EMPTY_TERRAIN)
+        fill = [[(1, 2, 3)] * GW for _ in range(HC * 2)]
+        monkeypatch.setattr(maps, "_last_terrain", [(BBOX, GW, HC, fill, None, None)])
+        lines, _r, _h, loading, err = maps._render_terrain(
+            (1.0, 0.0, 9.0, 8.0), GW, HC, False, (0, 0), None, None, None,
+            None, "en", None)
+        assert loading and err is None and cut == []
+        assert len(lines) == HC
+        # a frame that is not waiting on a view still gets its borders,
+        # even one whose view failed to load
+
+        def offline(*a):
+            raise RuntimeError("offline")
+
+        monkeypatch.setattr(maps, "_get_elevation", offline)
+        _l, _r, _h, loading, err = maps._render_terrain(
+            (1.0, 0.0, 9.0, 8.0), GW, HC, True, (0, 0), None, None, None,
+            None, "en", None)
+        assert not loading and err == "offline" and len(cut) == 1
 
 
 class TestPrefetchAround:

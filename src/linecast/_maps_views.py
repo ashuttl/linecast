@@ -5,7 +5,8 @@ A view is one bbox at one terminal size.  Each register has a loader
 sky — that answers from a small cache and, live, fetches in the
 background and nudges a repaint when the data lands (the scaffold is
 _scenes.SceneCache).  A zoom run holds every fetch until the last tap
-settles, so only the view you stop on reaches the network.
+settles, and so does a camera in motion, so only the view you stop on
+reaches the network.
 """
 
 import math
@@ -31,6 +32,23 @@ ZOOM_SETTLE = 0.3        # seconds of zoom quiet before a fetch may start
 
 _terrain_cache = Memo(keep=4)  # (bbox, w, h) -> sub-pixel colour buffer
 _zoom_hold = FetchHold(ZOOM_SETTLE)  # live zoom taps push its deadline
+
+# Raised while the camera is easing, coasting, flying or turning.  A
+# view in motion is a different bbox every frame, and each would be its
+# own fetch — thirty a second, every one of them stale before it
+# landed, all of them competing for the network with the only view the
+# reader will actually stop on.  So nothing fetches until the motion
+# ends; what is on screen meanwhile is the last real view, re-projected.
+_in_motion = [False]
+
+
+def hold_motion(moving):
+    """Gate every loader while the camera is moving, or let it go."""
+    _in_motion[0] = bool(moving)
+
+
+def _held():
+    return _in_motion[0] or _zoom_hold.held()
 
 
 def _view_key(bbox, gw, hc):
@@ -163,12 +181,12 @@ class TerrainView(namedtuple("TerrainView", "elev coast water rivers cover")):
 
 
 _EMPTY_TERRAIN = TerrainView(None, None, None, None, None)
-# the three registers' scenes, all gated by the zoom hold
-_elev_cache = SceneCache(_EMPTY_TERRAIN, held=_zoom_hold.held,
+# the three registers' scenes, all gated by the zoom hold and by motion
+_elev_cache = SceneCache(_EMPTY_TERRAIN, held=_held,
                          name="terrain")  # -> TerrainView
-_street_cache = SceneCache((None, None, None), held=_zoom_hold.held,
+_street_cache = SceneCache((None, None, None), held=_held,
                            name="street")  # -> (fills, layer, labels)
-_globe_cache = SceneCache(held=_zoom_hold.held,
+_globe_cache = SceneCache(held=_held,
                           name="globe")   # (lat, lon, zoom, w, h) -> GlobeView
 
 
@@ -354,13 +372,16 @@ _clouds_lock = threading.Lock()
 def _get_clouds(zoom, hc, block):
     """The stitched cloud canvas for the now register, or None.
 
-    Blocking mode fetches only when no canvas exists at all — a
-    drag-synchronous repaint must never wait on the network, and a
-    stale canvas is still this hour's weather.  Freshening always
-    happens in the background, nudging a repaint when it lands.
+    Blocking mode fetches only when no canvas exists at all, and never
+    while the camera is moving: a frame drawn mid-gesture must not wait
+    on the network, and the whole view would stop dead in the middle
+    of a turn for a layer that is only the weather over it.  A stale
+    canvas is still this hour's, and a missing one is a planet without
+    cloud for a few frames.  Freshening always happens in the
+    background, nudging a repaint when it lands.
     """
     canvas = _globe_now.peek()
-    if block and canvas is None:
+    if block and canvas is None and not _in_motion[0]:
         try:
             _globe_now.refresh(zoom, hc * 4)
         except Exception as exc:

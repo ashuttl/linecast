@@ -112,7 +112,13 @@ class SceneCache:
     a miss starts one daemon worker per key — none while `held()` says a
     gesture is still in flight — and answers `empty` until the worker's
     view lands and nudges a repaint; a worker that fails leaves nothing
-    behind, so the next repaint asks again.  With `max_age`, a view
+    behind, so the next repaint asks again.  A blocking load counts as
+    pending while it runs: a live frame that misses the same key
+    meanwhile — the landing of a flight whose destination is being
+    fetched off the loop — waits for it rather than starting a twin,
+    and is repainted when it lands.  Only then: a warm globe loads
+    blocking on the loop's own thread thirty times a second, and a
+    nudge for each of those would be a second frame for every frame.  With `max_age`, a view
     older than that many seconds of wall-clock time is a miss — wall
     clock, not monotonic, so a laptop that slept through the age wakes
     to a miss.  The cache keeps `keep` views, oldest out first: a pan
@@ -128,6 +134,7 @@ class SceneCache:
         self.name = name
         self._views = {}      # key -> (time.time() stamp, view)
         self._pending = set()
+        self._awaited = set()  # pending keys a live frame went without
         self._lock = threading.Lock()
 
     def clear(self):
@@ -164,15 +171,25 @@ class SceneCache:
             if hit is not None:
                 return hit
             if not block:
-                if key in self._pending or (self.held is not None
-                                            and self.held()):
+                if key in self._pending:
+                    self._awaited.add(key)
                     return self.empty
-                self._pending.add(key)
+                if self.held is not None and self.held():
+                    return self.empty
+            self._pending.add(key)
 
         if block:
-            hit = load()
+            try:
+                hit = load()
+            finally:
+                with self._lock:
+                    self._pending.discard(key)
+                    awaited = key in self._awaited
+                    self._awaited.discard(key)
             with self._lock:
                 self._put(key, hit)
+            if awaited:
+                nudge()
             return hit
 
         def worker():
@@ -183,6 +200,7 @@ class SceneCache:
                 hit = None
             with self._lock:
                 self._pending.discard(key)
+                self._awaited.discard(key)
                 if hit is not None:
                     self._put(key, hit)
             if hit is not None:
