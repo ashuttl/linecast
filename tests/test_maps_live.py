@@ -443,40 +443,62 @@ class TestKeys:
 
 
 class TestDrag:
-    def test_a_flat_drag_previews_then_commits(self):
+    def test_a_flat_drag_follows_the_hand(self):
+        # A flat view is built a margin wider than the window, so the
+        # window at the dragged centre is a crop of what is already in
+        # hand: the drag moves the camera on every motion event, as a
+        # warm globe's does, instead of shifting the last frame and
+        # taking its centre at the release.
         app = make(zoom=2.0)
         assert app.on_drag(10, 5, False)
-        assert app.pan_preview == (10, 5)
-        assert app.on_drag(10, 5, False) is False  # nothing new
-        assert app.on_drag(10, 5, True)
         assert app.pan_preview == (0, 0)
         span = lon_span(43.68, 2.0, GW, HC)
         assert app.lat == pytest.approx(43.68 + 5 * 2.0 / HC)
         assert app.lon == pytest.approx(-70.37 - 10 * span / GW)
+        assert app.on_drag(10, 5, False) is False  # nothing new
+        assert app.on_drag(10, 5, True)
+        assert app.pan_preview == (0, 0) and not app.camera.dragging()
+        assert app.lat == pytest.approx(43.68 + 5 * 2.0 / HC)
+        assert app.lon == pytest.approx(-70.37 - 10 * span / GW)
+
+    def test_a_flat_drag_says_which_way_it_is_going(self):
+        # the margin is built deep where the reader is heading: a hand
+        # moving right carries the ground west, and a hand moving down
+        # carries it north
+        app = make(zoom=2.0)
+        app.on_drag(0, 0, False)
+        app.camera.clock.advance(0.05)
+        app.on_drag(12, 6, False)
+        assert app.camera.heading() == (-1, -1)
 
     def test_a_commit_wraps_the_longitude(self):
         app = make(zoom=2.0, lat=0.0, lon=-179.99)
         app.on_drag(60, 0, True)
         assert app.lon > 0
 
-    def test_a_release_with_no_delta_repaints_only_after_a_preview(self):
+    def test_a_release_after_a_drag_back_to_the_press_repaints(self):
+        # a press and a release with nothing in between is a click; a
+        # drag that comes back to where it started has still moved the
+        # camera away and back, and the release commits it
         app = make(zoom=2.0)
         assert app.on_drag(0, 0, True) is False
         app.on_drag(3, 0, False)
         assert app.on_drag(0, 0, True) is True
         assert (app.lat, app.lon) == (43.68, -70.37)
 
-    def test_a_cold_globe_pans_like_the_flat_map(self):
+    def test_a_cold_globe_shifts_its_last_frame(self):
+        # the one idiom left that cannot follow the hand: a sphere has
+        # no re-projection about a moved centre
         app = make(zoom=_globe.ZOOM_DEG)
         assert app.on_drag(4, 0, False)
-        assert app.pan_preview == (4, 0) and not app._drag_globe
+        assert app.pan_preview == (4, 0) and app._drag_shift
 
     def test_a_warm_globe_rotates_under_the_cursor(self, monkeypatch):
         monkeypatch.setattr(_globe, "warm", lambda zoom, h: True)
         app = make(zoom=60.0, lat=70.0, lon=0.0)
         assert app.on_drag(0, 0, True) is False  # a click, not a drag
         assert app.on_drag(10, 20, False)
-        assert app._drag_globe and app.camera.dragging()
+        assert not app._drag_shift and app.camera.dragging()
         assert app.lat == 80.0  # clamped
         assert app.lon == pytest.approx(
             -(10 * lon_span(70.0, 60.0, GW, HC) / GW))

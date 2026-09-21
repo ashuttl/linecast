@@ -707,7 +707,9 @@ class TestMapsSnapshot:
         # bathy ramp, the hypso ramp and a derived coastline.
         from linecast import maps
 
-        def elevation(bbox, gw, hc, block):
+        # the loaders take the window an overscan is built for; a
+        # window build passes None
+        def elevation(bbox, gw, hc, block, window=None):
             fine = [[(x - gw * 1.4) * 2.0 for x in range(gw * 2)]
                     for _ in range(hc * 4)]
             grid = [[(x - gw * 0.7) * 4.0 for x in range(gw)]
@@ -775,7 +777,8 @@ class TestMapsSnapshot:
             classed, polyline, rect, tagged_line, tile,
         )
 
-        def street(bbox, gw, hc, block, lang="en", reserved=()):
+        def street(bbox, gw, hc, block, lang="en", reserved=(),
+                   window=None):
             from linecast import _maps_streets as st
             band = st.style.band_for(st.style.z_eff(bbox, hc))
             minlon, minlat, maxlon, maxlat = bbox

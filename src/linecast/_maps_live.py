@@ -110,6 +110,36 @@ class Camera:
         return (self._clamp_lat(self.lat + vlat * COAST_REACH),
                 wrap_lon(self.lon + vlon * COAST_REACH))
 
+    def heading(self):
+        """(east, south) the view is travelling, each -1, 0 or 1.
+
+        Which side of the next view is built deep and which shallow: a
+        view is built a margin wider than the window shows, and the
+        margin is worth most where the reader is going
+        (_maps_overscan.plan).  A drag reads its own trail, a coast
+        what is left of its velocity, a keyed pan the ground it has
+        still to cover; a view at rest is going nowhere and takes its
+        margin evenly.  Under a cell either way is a hand shaking
+        rather than a view moving, and reads as still.
+        """
+        if self._coast is not None:
+            vlat, vlon, _last = self._coast
+        elif self._drag_base is not None and len(self._trail) >= 2:
+            (_t0, lat0, lon0), (_t1, lat1, lon1) = self._trail[0], self._trail[-1]
+            vlat, vlon = lat1 - lat0, lon_delta(lon0, lon1)
+        elif self._pan is not None:
+            _from, (to_lat, to_lon), _started = self._pan
+            vlat, vlon = to_lat - self.lat, lon_delta(self.lon, to_lon)
+        else:
+            return (0, 0)
+        cell_lat = self.zoom / self.hc
+        cell_lon = self._span(self.zoom, self.lat) / self.gw
+        east = 0 if abs(vlon) < cell_lon else (1 if vlon > 0 else -1)
+        # a rising latitude is the view climbing the screen, which is
+        # north, which is up
+        south = 0 if abs(vlat) < cell_lat else (-1 if vlat > 0 else 1)
+        return (east, south)
+
     def _span(self, zoom, lat):
         return lon_span(lat, zoom, self.gw, self.hc)
 
@@ -416,7 +446,10 @@ class MapApp(LiveApp):
         self.location_name = location_name
         self.camera = Camera(lat, lon, zoom)
         self.pan_preview = (0, 0)
-        self._drag_globe = False    # which idiom this drag started with
+        # whether this drag shows the last frame shifted rather than
+        # moving the camera: a globe that is not warm, and nothing else
+        self._drag_shift = False
+        self._dragged = False      # whether this gesture has moved at all
         self.view = view
         self.show_labels = True
         self.sun = sky          # S: daylight shading + night city lights
@@ -753,31 +786,46 @@ class MapApp(LiveApp):
         """The ground follows the hand; let go moving and it coasts.
 
         Which idiom a drag uses is settled at the press and kept for
-        its whole length.  On a warm globe the disk stays put and the
-        geography turns under the cursor: every motion event recentres
-        the view from the drag-start centre and the repaint
-        re-projects the sphere, so the drag *is* the rotation rather
-        than a shifted snapshot of it.  On a flat map — or a globe not
-        yet warm — a new centre is a fetch, so the picture is the last
-        frame shifted and the centre moves when the hand lets go.
+        its whole length.  Nearly every drag now recentres the view
+        from the drag-start centre on every motion event, so the drag
+        *is* the pan rather than a shifted snapshot of one: a warm
+        globe turns the geography under the cursor, and a flat view is
+        built a margin wider than the window, so the window at the new
+        centre is a crop of what is already in hand — the real map,
+        painted to every edge, rather than the last one dragged clear
+        of its own picture.
+
+        The one idiom left that cannot is a globe not yet warm: there
+        is no re-projection of a sphere about a moved centre, so it
+        shows the last frame shifted and takes its centre when the hand
+        lets go.
         """
         gw, hc = self._fit()
         cam = self.camera
         if not cam.dragging():
-            globing = (not (self.pan_preview[0] or self.pan_preview[1])
-                       and _globe.is_globe(cam.zoom, cam.lat)
-                       and globe_warm(cam.zoom, hc, self.view == "street"))
-            if done and globing:
+            warm = (_globe.is_globe(cam.zoom, cam.lat)
+                    and globe_warm(cam.zoom, hc, self.view == "street"))
+            if done and warm and not (self.pan_preview[0]
+                                      or self.pan_preview[1]):
                 return False  # a click, not a drag
-            self._drag_globe = globing
+            self._drag_shift = (_globe.is_globe(cam.zoom, cam.lat)
+                                and not warm)
+            self._dragged = False
             cam.press()
-        if self._drag_globe:
+        if not self._drag_shift:
             if done:
-                cam.settle(dcol, drow)
+                # a release repaints when this gesture was a drag at
+                # all, even one that came back to where it started: the
+                # camera has moved away and back, and the frame under
+                # it is not the frame the press began on
+                moved = cam.settle(dcol, drow) or self._dragged
+                self._dragged = False
                 cam.release()
                 if cam.moving():
+                    self._prefetch_coast()
                     self._wake()
-                return True
+                return bool(moved)
+            self._dragged = True
             return cam.drag(dcol, drow)
         if not done:
             cam.track(dcol, drow)
@@ -837,8 +885,18 @@ class MapApp(LiveApp):
         # one (maps._reproject_street, maps._reproject_terrain), and
         # one window at a time is still built behind them — except
         # under a flight, whose frames are the picture and whose
-        # destination is already on its way.
-        _maps_views.hold_motion(moving, passing=not self.camera.flying())
+        # destination is already on its way, and under a hand.
+        #
+        # A hand for the same reason as a flight, and a better one: the
+        # frames are what the reader is steering, and a build is a
+        # second of pure Python holding the interpreter lock, which
+        # measured at 160x45 takes a drag from thirty frames a second
+        # to three.  A drag has the margin to pan inside and nothing to
+        # wait for — it ends either at a stop, which fetches its own
+        # view, or in a coast, whose destination goes to the network at
+        # the release.
+        _maps_views.hold_motion(moving, passing=not (self.camera.flying()
+                                                     or self.camera.dragging()))
         # A warm globe repaints synchronously, moving or at rest: the
         # frame is a few hundredths of a second of arithmetic, and the
         # alternative is a blank disk — between frames while it turns,
@@ -856,7 +914,8 @@ class MapApp(LiveApp):
             origin=routes.origin, directions=routes,
             note=_maps_ui.route_note(routes, self.runtime.lang),
             show_labels=self.show_labels,
-            sun=self.sun, clouds=self.clouds)
+            sun=self.sun, clouds=self.clouds,
+            motion=self.camera.heading())
 
     def run(self):
         if self.routes.dest is not None:

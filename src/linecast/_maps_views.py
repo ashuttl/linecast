@@ -1,5 +1,11 @@
 """What a map view is made of, and how it is fetched and kept.
 
+A flat view is built for a bbox a margin wider than the window that
+asked for it, and the frame is a crop (_maps_overscan): the band and
+the source zoom still come from the window, so the crop is the map the
+window itself would draw, and only the tile list follows the wider
+bbox.
+
 A view is one bbox at one terminal size.  Each register has a loader
 — _get_elevation, _get_street, _get_globe, and _get_clouds for the
 sky — that answers from a small cache and, live, fetches in the
@@ -32,7 +38,10 @@ from linecast._scenes import FetchHold, Memo, SceneCache
 
 ZOOM_SETTLE = 0.3        # seconds of zoom quiet before a fetch may start
 
-_terrain_cache = Memo(keep=4)  # (bbox, w, h) -> sub-pixel colour buffer
+# (bbox, w, h) -> sub-pixel colour buffer.  Three rather than four: a
+# flat buffer is built at the overscan's size now, half again the
+# window's area, and a slot holds the frame's whole picture.
+_terrain_cache = Memo(keep=3)
 _zoom_hold = FetchHold(ZOOM_SETTLE)  # live zoom taps push its deadline
 
 # Raised while the camera is easing, coasting, flying or turning.  A
@@ -151,11 +160,13 @@ def _start_motion_build(cache, key, load):
 
 
 # The newest real view each flat register has *landed*, as
-# (bbox, gw, hc, ...), whether or not any frame has drawn it.  A view
-# fetched while the camera moves is never rendered — the frame that
-# asked for it had moved on before it arrived — but it is a far truer
-# stand-in source than the view the motion started from, so the
-# renderer takes it as one (maps._last_street, maps._last_terrain).
+# (bbox, gw, hc, ...), whether or not any frame has drawn it.  The bbox
+# is the overscan's, not the window's: a landed view covers a margin
+# beyond the frame that asked for it, and the frames after it are crops
+# of that (maps._last_street, maps._last_terrain).  A view fetched while
+# the camera moves is never rendered by the frame that asked for it —
+# that frame had moved on before it arrived — but it is a far truer
+# source for the ones that follow than the view the motion started from.
 _street_landed = [None]
 _terrain_landed = [None]
 
@@ -270,7 +281,7 @@ def _water_subpixels(water, gw, hc):
     return out
 
 
-def _tile_water(bbox, gw, hc):
+def _tile_water(bbox, gw, hc, window=None):
     """(inland water dot mask, river layer) for the view, or (None, None).
 
     Terrain mode's one network dependency beyond the elevation tiles,
@@ -278,7 +289,7 @@ def _tile_water(bbox, gw, hc):
     map this used to be, never to an error.
     """
     try:
-        band, tiles = _maps_streets.fetch_view(bbox, hc)
+        band, tiles = _maps_streets.fetch_view(bbox, hc, window)
         if not any(tiles.values()):
             return None, None, None, None
         return _maps_streets.build_water_view(bbox, gw, hc, tiles, band,
@@ -313,16 +324,20 @@ class TerrainView(namedtuple("TerrainView", "elev coast water rivers cover")):
 
 
 _EMPTY_TERRAIN = TerrainView(None, None, None, None, None)
-# the three registers' scenes, all gated by the zoom hold and by motion
-_elev_cache = SceneCache(_EMPTY_TERRAIN, held=_held,
+# The three registers' scenes, all gated by the zoom hold and by motion.
+# The flat two keep three views rather than four: each is an overscan
+# now, half again the window's area, and a pan that stays inside one of
+# them never asks for another — so the neighbours a fourth slot used to
+# hold are ground this view already covers.
+_elev_cache = SceneCache(_EMPTY_TERRAIN, keep=3, held=_held,
                          name="terrain")  # -> TerrainView
-_street_cache = SceneCache((None, None, None), held=_held,
+_street_cache = SceneCache((None, None, None), keep=3, held=_held,
                            name="street")  # -> (fills, layer, labels)
 _globe_cache = SceneCache(held=_held,
                           name="globe")   # (lat, lon, zoom, w, h) -> GlobeView
 
 
-def _get_elevation(bbox, gw, hc, block):
+def _get_elevation(bbox, gw, hc, block, window=None):
     """A TerrainView for the view; live mode fetches in the background."""
 
     def load():
@@ -334,7 +349,7 @@ def _get_elevation(bbox, gw, hc, block):
         # the wait is the slowest of them, not the sum.  Only the
         # elevation may fail the view; the other two degrade to None.
         with ThreadPoolExecutor(max_workers=2) as pool:
-            water_job = pool.submit(_tile_water, bbox, gw, hc)
+            water_job = pool.submit(_tile_water, bbox, gw, hc, window)
             builtup_job = pool.submit(_builtup_layer, bbox, gw, hc)
             fine = elevation_grid(bbox, gw * 2, hc * 4)
         water, rivers, cover, ocean = water_job.result()
@@ -383,7 +398,8 @@ def _get_elevation(bbox, gw, hc, block):
     return view
 
 
-def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
+def _get_street(bbox, gw, hc, block, lang="en", reserved=(),
+                window=None):
     """(fills, ranked layer, label overlays) for the view; live mode
     fetches in the background, exactly as the elevation path does."""
 
@@ -391,7 +407,7 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
         # the settlement raster fetches alongside the vector tiles, as
         # the terrain path overlaps its sources; below its debut band
         # the layer is never asked for, so a deep view pays nothing
-        band, _z_src, keys = _maps_streets.view_tiles(bbox, hc)
+        band, _z_src, keys = _maps_streets.view_tiles(bbox, hc, window)
         with ThreadPoolExecutor(max_workers=1) as pool:
             bu_job = (pool.submit(_builtup_layer, bbox, gw, hc)
                       if band >= _maps_style.FILL_DEBUT["builtup"]
@@ -402,15 +418,17 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
         if not block:
             # live: give the next pan or zoom a head start
             try:
-                _maps_streets.prefetch_around(bbox, hc, keys)
+                _maps_streets.prefetch_around(bbox, hc, keys, window)
             except Exception as exc:
                 log_failure("maps/vtiles", "prefetch", exc, fallback="none")
         view = _maps_streets.build_street_view(
             bbox, gw, hc, tiles, band, lang, reserved,
             bu_job.result() if bu_job is not None else None)
-        # the fills and the layer are what a stand-in is cut from; the
-        # labels stay behind, as they do in every reprojection
-        _street_landed[0] = (tuple(bbox), gw, hc, view[0], view[1])
+        # the whole view, labels and all: a window inside this one's
+        # margin is an exact crop of it, which is a picture with its
+        # names on.  A window outside it is reprojected instead, and
+        # that path leaves the labels behind as it always has.
+        _street_landed[0] = (tuple(bbox), gw, hc, view[0], view[1], view[2])
         return view
 
     key = _view_key(bbox, gw, hc) + (lang, tuple(sorted(reserved)))

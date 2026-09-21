@@ -42,10 +42,17 @@ def _count(dots):
 
 
 class TestReprojectStreet:
-    def test_same_view_or_other_size_does_not_stand_in(self):
+    def test_the_very_same_window_does_not_stand_in(self):
         assert maps._reproject_street(_prev(), BBOX, GW, HC, "g") is None
-        assert maps._reproject_street(_prev(), (1.0, 0.0, 9.0, 8.0),
-                                      GW + 1, HC, "g") is None
+
+    def test_a_source_of_another_size_does_stand_in(self):
+        # a view is built a margin wider than the window it is for, so
+        # a source larger than the target is the ordinary case now and
+        # no longer a reason to refuse — the axis maps count the
+        # source's own sub-cells
+        fills, _layer = maps._reproject_street(
+            _prev(), (1.0, 0.0, 9.0, 8.0), GW + 1, HC, "g")
+        assert len(fills[0]) == GW + 1
 
     def test_pan_shifts_fills_and_dots(self):
         dots = [[0] * GW for _ in range(HC)]
@@ -58,6 +65,19 @@ class TestReprojectStreet:
         assert layer.dots[1][2] == _BITS[0][0]
         assert layer.color[1][2] == "ink"
         assert _count(layer.dots) == 1
+
+    def test_a_pan_is_sliced_and_says_what_resampling_would_have(self):
+        # A pan at the same scale is a translation, so the stand-in is
+        # the old grid sliced across and padded, which is a great deal
+        # cheaper than a sub-cell-by-sub-cell resample against a build
+        # holding the interpreter lock.  It has to be the same picture.
+        prev = _prev(_full())
+        moved = (3.0, -2.0, 11.0, 6.0)
+        fills, layer = maps._reproject_street(prev, moved, GW, HC, "g")
+        m = maps._reprojection(prev, moved, GW, HC)
+        want_dots, want_color = m.dots(prev[4].dots, prev[4].color)
+        assert fills == m.fills(prev[3], "g")
+        assert layer.dots == want_dots and layer.color == want_color
 
     def test_zoom_out_keeps_ink_inside_and_leaves_the_edge_blank(self):
         # twice the span, centred on the old view
@@ -87,10 +107,14 @@ class TestReprojectTerrain:
             rdots, [["ink" if d else None for d in row] for row in rdots])
         return (BBOX, GW, HC, fill, coast, rivers)
 
-    def test_same_view_or_other_size_does_not_stand_in(self):
+    def test_the_very_same_window_does_not_stand_in(self):
         assert maps._reproject_terrain(self._prev(), BBOX, GW, HC) is None
-        assert maps._reproject_terrain(self._prev(), (1.0, 0.0, 9.0, 8.0),
-                                       GW + 1, HC) is None
+
+    def test_a_source_of_another_size_does_stand_in(self):
+        # the street register's reason, for the same reason
+        fill, _coast, _rivers = maps._reproject_terrain(
+            self._prev(), (1.0, 0.0, 9.0, 8.0), GW + 1, HC)
+        assert len(fill[0]) == GW + 1
 
     def test_a_pan_moves_the_fill_the_coast_and_the_rivers_together(self):
         rdots = [[0] * GW for _ in range(HC)]
@@ -135,9 +159,12 @@ class TestTerrainStandInFrame:
         monkeypatch.setattr(maps, "_get_basemap",
                             lambda *a: cut.append(a) or None)
         monkeypatch.setattr(maps, "_get_elevation",
-                            lambda *a: maps._EMPTY_TERRAIN)
+                            lambda *a, **k: maps._EMPTY_TERRAIN)
         fill = [[(1, 2, 3)] * GW for _ in range(HC * 2)]
-        monkeypatch.setattr(maps, "_last_terrain", [(BBOX, GW, HC, fill, None, None)])
+        # the record carries the elevation grid now, for the frames
+        # that crop it rather than reproject it
+        monkeypatch.setattr(maps, "_last_terrain",
+                            [(BBOX, GW, HC, fill, None, None, None)])
         lines, _r, _h, loading, err = maps._render_terrain(
             (1.0, 0.0, 9.0, 8.0), GW, HC, False, (0, 0), None, None, None,
             None, "en", None)
@@ -146,7 +173,7 @@ class TestTerrainStandInFrame:
         # a frame that is not waiting on a view still gets its borders,
         # even one whose view failed to load
 
-        def offline(*a):
+        def offline(*a, **k):
             raise RuntimeError("offline")
 
         monkeypatch.setattr(maps, "_get_elevation", offline)
@@ -195,6 +222,33 @@ class TestPrefetchAround:
         assert len(asked) <= 9 * len(keys)
         xs = {k[1] for k in asked}
         assert 0 in xs and (1 << keys[0][0]) - 1 in xs  # both sides of it
+
+    def test_the_zoom_guess_settles_its_source_zoom_from_the_window(
+            self, monkeypatch):
+        # New York at 160x45, zooming in: the next view is built as an
+        # overscan whose window wants z14, while the overscan's own bbox
+        # left to itself would be coarsened to z13 — so the guess has to
+        # be scaled and settled the way view_tiles settles the view
+        from linecast import _maps_overscan as over
+        from linecast import _maps_streets as ms
+        gw, hc = maps.map_cells((160, 45))
+        asked = []
+        monkeypatch.setattr(ms, "prefetch_tiles", lambda keys: asked.extend(keys))
+        monkeypatch.setattr(ms, "tile_info", lambda: ("t", "v", 14))
+        monkeypatch.setattr(ms, "_last_span", None)
+        step = ms.style.ZOOM_STEP
+        for zoom in (0.05 * step, 0.05):
+            frame, _at = over.plan(bbox_for(40.7, -74.0, zoom, gw, hc), gw, hc)
+            window = over.window_hint(frame, gw, hc)
+            _band, _z, keys = ms.view_tiles(frame.bbox, frame.hc, window)
+            asked.clear()
+            ms.prefetch_around(frame.bbox, frame.hc, keys, window)
+        nxt, _at = over.plan(bbox_for(40.7, -74.0, 0.05 / step, gw, hc),
+                             gw, hc)
+        _band, z_next, need = ms.view_tiles(nxt.bbox, nxt.hc,
+                                            over.window_hint(nxt, gw, hc))
+        assert z_next == 14 and set(need) <= set(asked)
+        assert len(asked) <= 3 * ms._MAX_TILES
 
     def test_a_zoom_on_a_wide_terminal_keeps_its_guess(self, monkeypatch):
         # London at 160x45: twelve tiles, a ring of eighteen and a

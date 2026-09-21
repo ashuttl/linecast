@@ -60,7 +60,7 @@ _MIN_BUILDING_DOTS = 4.0  # one sub-pixel is 2x2 dots
 # ---------------------------------------------------------------------------
 # Which tiles a view needs
 # ---------------------------------------------------------------------------
-def view_tiles(bbox, height_cells):
+def view_tiles(bbox, height_cells, window=None):
     """(band, z_src, [(z, x, y), ...]) for a view.
 
     The source zoom comes from the style model, which runs ahead of the
@@ -74,17 +74,31 @@ def view_tiles(bbox, height_cells):
     debug log.  That is a guard against pathological windows and not the
     routine arbiter of the lookahead: measured across every street view
     size, the lookahead lands on 8-12 tiles and never wakes it.
+
+    `window` is (bbox, height_cells) of the frame a *wider* view is
+    being built for — the overscan a flat view is built with.  The band,
+    the source zoom and the coarsening are all settled by the window,
+    and only the tile list follows the wider bbox, because a crop out of
+    the margin has to be the map the window itself would draw.  Without
+    that, the margin can lift the whole view onto a finer source zoom:
+    measured over New York at 160x45, the window is coarsened from z14
+    to z13 and eight tiles, where the padded bbox at z14 sits under the
+    guard's own ceiling and asks for thirty-two — four times the tiles
+    and a build seven times as long, for a picture the crop must not be.
     """
-    z = style.z_eff(bbox, height_cells)
+    wbbox, whc = window if window is not None else (bbox, height_cells)
+    z = style.z_eff(wbbox, whc)
     band = style.band_for(z)
     info = tile_info()
     maxzoom = info[2] if info else 14
     z_src = min(style.z_src(z, band), maxzoom)
-    keys = tiles_for_bbox(bbox, z_src)
+    keys = tiles_for_bbox(wbbox, z_src)
     while len(keys) > _MAX_TILES and z_src > 0:
         debug_log(f"street view needs {len(keys)} tiles at z{z_src}; "
                   f"coarsening to z{z_src - 1}")
         z_src -= 1
+        keys = tiles_for_bbox(wbbox, z_src)
+    if window is not None:
         keys = tiles_for_bbox(bbox, z_src)
     return band, z_src, keys
 
@@ -92,7 +106,15 @@ def view_tiles(bbox, height_cells):
 _last_span = None   # the last view's height, for which way a zoom went
 
 
-def prefetch_around(bbox, height_cells, keys):
+def _scaled(bbox, step):
+    """`bbox` scaled by `step` about its own centre, held inside the tiles."""
+    minlon, minlat, maxlon, maxlat = bbox
+    cx, cy = (minlon + maxlon) / 2, (minlat + maxlat) / 2
+    hx, hy = (maxlon - minlon) * step / 2, (maxlat - minlat) * step / 2
+    return (cx - hx, max(-85.0, cy - hy), cx + hx, min(85.0, cy + hy))
+
+
+def prefetch_around(bbox, height_cells, keys, window=None):
     """Queue the tiles a pan or another zoom the same way will want.
 
     A ring around the view's own tiles covers a pan. A zoom is the slow
@@ -106,6 +128,10 @@ def prefetch_around(bbox, height_cells, keys):
     zoom.  Three times _MAX_TILES caps a call whatever the geometry,
     which no view reaches today; the guess gives way first, because
     the ring is a pan's tiles and a pan is mostly on disk already.
+
+    `window` is the one view_tiles takes: the guess is scaled the same
+    way as the view, so it settles its source zoom as the next view
+    will and not as the wider bbox would on its own.
     """
     global _last_span
     if not keys:
@@ -116,20 +142,17 @@ def prefetch_around(bbox, height_cells, keys):
             for _z, x, y in keys
             for dx in (-1, 0, 1)
             for dy in (-1, 0, 1)}
-    minlon, minlat, maxlon, maxlat = bbox
-    span = maxlat - minlat
+    span = bbox[3] - bbox[1]
     last, _last_span = _last_span, span
     zoomed = []
     # a pan leaves the span alone; a rounding-sized change is a pan too
     if last is not None and abs(span - last) > last * 0.01:
         step = style.ZOOM_STEP if span > last else 1.0 / style.ZOOM_STEP
-        cx, cy = (minlon + maxlon) / 2, (minlat + maxlat) / 2
-        hx = (maxlon - minlon) * step / 2
-        hy = span * step / 2
-        if hy < 85:
+        guess = _scaled(bbox, step)
+        if guess[3] - guess[1] < 170:
             _band, _z, zoomed = view_tiles(
-                (cx - hx, max(-85.0, cy - hy), cx + hx, min(85.0, cy + hy)),
-                height_cells)
+                guess, height_cells,
+                (_scaled(window[0], step), window[1]) if window else None)
     want = set(keys)
     pan = sorted(ring - want)
     guess = [k for k in zoomed if k not in want]
@@ -140,9 +163,9 @@ def prefetch_around(bbox, height_cells, keys):
     prefetch_tiles((guess + pan)[:cap])
 
 
-def fetch_view(bbox, height_cells):
+def fetch_view(bbox, height_cells, window=None):
     """(band, {(z, x, y): bytes|None}) — the network half of a view."""
-    band, _z_src, keys = view_tiles(bbox, height_cells)
+    band, _z_src, keys = view_tiles(bbox, height_cells, window)
     return band, fetch_tiles(keys)
 
 
