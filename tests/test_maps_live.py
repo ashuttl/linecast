@@ -292,6 +292,24 @@ class TestZoom:
         assert held == [1]
         assert [t.target for t in FakeThread.started] == [app._tick]
 
+    def test_a_globe_zoom_asks_for_the_level_it_is_heading_for(self,
+                                                              monkeypatch):
+        # the texture is a file on disk or a bake of a canvas already
+        # in hand, so it need not wait behind the motion gate: asked
+        # for at the tap it is usually there before the ease ends
+        asked = []
+        monkeypatch.setattr(_maps_live, "warm_globe_texture",
+                            lambda *a: asked.append(a))
+        app = make(zoom=1.0)
+        app.zoom_to(2.0)
+        assert asked == []                      # a flat zoom asks for nothing
+        app = make(zoom=120.0)
+        app.zoom_to(120.0 / ZOOM_STEP)
+        assert asked == [(120.0 / ZOOM_STEP, HC, False)]
+        app.view = "street"
+        app.zoom_to(120.0 / ZOOM_STEP / ZOOM_STEP)
+        assert asked[-1][2] is True             # the other register's texture
+
     def test_the_wheel_zooms_in_going_up(self):
         app = make(zoom=1.0)
         assert app.on_wheel(1, 50, 20)

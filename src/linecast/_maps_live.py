@@ -28,7 +28,7 @@ from linecast._maps_search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
 )
 from linecast import _vtiles
-from linecast._maps_views import _zoom_hold, globe_warm
+from linecast._maps_views import _zoom_hold, globe_warm, warm_globe_texture
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, log_failure, maps_parser, set_current
 from linecast.maps import (
@@ -508,6 +508,9 @@ class MapApp(LiveApp):
         if not self.camera.zoom_to(new_zoom, frac):
             return False
         _zoom_hold.hold()
+        heading = self.camera.zoom_heading()
+        if _globe.is_globe(heading, self.camera.lat):
+            warm_globe_texture(heading, hc, self.view == "street")
         if self.camera.moving():
             self._wake()
         return True

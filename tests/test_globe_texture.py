@@ -480,3 +480,31 @@ class TestThroughTheView:
         warm = _maps_views._get_globe(*self.ARGS, True)
         assert warm.fill is not None and warm.wet is not None
         assert warm.elev is not None and warm.coast is not None
+
+
+class TestWarmingEarly:
+    """`_maps_views.warm_globe_texture`: the one thing the motion gate
+    lets through, because it is a disk read or a bake, never a fetch."""
+
+    def test_a_texture_in_hand_starts_nothing(self, tiny, monkeypatch):
+        tex, _holes = _globe_texture.bake(1, "terrain")
+        _globe_texture._finish(_globe_texture._key(1, "terrain"), tex)
+        monkeypatch.setattr(_maps_views.threading, "Thread",
+                            lambda *a, **k: _Dead())
+        _maps_views.warm_globe_texture(130.0, 12, False)
+
+    def test_a_level_not_in_memory_is_asked_for_off_the_loop(self, tiny,
+                                                             monkeypatch):
+        started = []
+
+        class Caught:
+            def __init__(self, *a, **kw):
+                started.append(kw)
+
+            def start(self):
+                pass
+
+        monkeypatch.setattr(_maps_views.threading, "Thread", Caught)
+        _maps_views.warm_globe_texture(130.0, 12, True)
+        assert [kw["args"] for kw in started] == [(130.0, 48, "street", False)]
+        assert all(kw["daemon"] for kw in started)

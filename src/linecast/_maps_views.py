@@ -286,6 +286,27 @@ def _terrain_buffer(elev, bbox, gw, hc, water=None, cover=None):
         elev, bbox, gw, hc * 2, water, cover))
 
 
+def warm_globe_texture(zoom, hc, street=False):
+    """Start the texture a globe zoom is heading for, moving or not.
+
+    The loaders are gated while the camera moves because a view in
+    flight is a new window every frame and each would be its own
+    fetch.  A texture is not a fetch: it is a file on disk, or a bake
+    of a canvas that ships with the program.  Held back with the rest
+    it lands only once the ease and the zoom hold have both settled,
+    so a zoom that crosses a terrarium level draws the level it left,
+    scaled, for the whole ease.  Asked for at the tap — the
+    destination zoom is known then — it is usually in memory before
+    the ease ends, and the globe crosses the level warm.  Nothing else
+    is let through the gate.
+    """
+    register = "street" if street else "terrain"
+    if _globe_texture.ready(zoom, hc * 4, register):
+        return
+    threading.Thread(target=_globe_texture.for_view, daemon=True,
+                     args=(zoom, hc * 4, register, False)).start()
+
+
 def globe_warm(zoom, hc, street=False):
     """Whether a globe view can be recentred without touching the network.
 

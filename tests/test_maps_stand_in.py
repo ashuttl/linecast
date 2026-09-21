@@ -1,8 +1,9 @@
 """The last real view standing in, moved and scaled, while the next loads.
 
-Street and terrain go through the same reprojection; what differs is
-what each register carries across."""
+Street, terrain and the globe go through the same reprojection; what
+differs is what each register carries across."""
 
+import re
 import sys
 from pathlib import Path
 
@@ -10,9 +11,10 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import maps
+from linecast import _globe, maps
 from linecast._color import BG_PRIMARY
 from linecast._radar_basemap import _BITS
+from linecast._radar_i18n import rs
 from linecast._radar_render import bbox_for
 
 GW, HC = 8, 4
@@ -209,3 +211,160 @@ class TestPrefetchAround:
                           bbox_for(51.5, -0.12, 0.05, gw, hc)], hc)
         assert 0 < len(asked) <= 3 * ms._MAX_TILES
         assert all(k[0] == keys[0][0] for k in asked)  # the ring alone
+
+
+class TestReprojectGlobe:
+    """Zoomed about its centre, the disk is the old disk scaled — so the
+    globe borrows the flat map's axis map whole."""
+
+    def _prev(self, bbox=BBOX):
+        fill = [[(x, y) for x in range(GW)] for y in range(HC * 2)]
+        coast = [[0] * GW for _ in range(HC)]
+        coast[1][3] = _BITS[0][0]
+        dots = [[0] * GW for _ in range(HC)]
+        dots[2][5] = _BITS[0][0]
+        borders = maps._ShiftedLayer(
+            dots, [["ink" if d else None for d in row] for row in dots])
+        return (bbox, GW, HC, fill, coast, borders)
+
+    def test_nothing_to_carry_the_same_window_or_another_size(self):
+        assert maps._reproject_globe(None, BBOX, GW, HC) is None
+        assert maps._reproject_globe(self._prev(), BBOX, GW, HC) is None
+        assert maps._reproject_globe(self._prev(), (2.0, 2.0, 6.0, 6.0),
+                                     GW + 1, HC) is None
+
+    def test_a_moved_centre_is_a_turn_and_gets_no_stand_in(self):
+        # a drag or a spin turns the geography under a disk the size it
+        # was; scaling the old picture says nothing true about that
+        assert maps._reproject_globe(self._prev(), (1.0, 0.0, 9.0, 8.0),
+                                     GW, HC) is None
+        # nor does a zoom that drifts off centre with it
+        assert maps._reproject_globe(self._prev(), (2.5, 2.0, 6.5, 6.0),
+                                     GW, HC) is None
+
+    def test_a_zoom_scales_it_exactly_as_the_flat_registers_do(self):
+        # half the span about the same centre: the fill, the shoreline
+        # and the borders must land where terrain's twin lands them
+        bbox = (2.0, 2.0, 6.0, 6.0)
+        prev = self._prev()
+        fill, coast, borders = maps._reproject_globe(prev, bbox, GW, HC)
+        t_fill, t_coast, t_rivers = maps._reproject_terrain(prev, bbox, GW, HC)
+        assert fill == t_fill and coast == t_coast
+        assert borders.dots == t_rivers.dots
+        assert borders.color == t_rivers.color
+        assert _count(coast) and all(f != BG_PRIMARY for row in fill
+                                     for f in row)
+
+    def test_a_disk_without_borders_carries_none(self):
+        prev = (BBOX, GW, HC, [[(x, y) for x in range(GW)]
+                               for y in range(HC * 2)], None, None)
+        fill, coast, borders = maps._reproject_globe(
+            prev, (2.0, 2.0, 6.0, 6.0), GW, HC)
+        assert coast is None and borders is None and fill[0][0] == (2, 2)
+
+
+def _body(frame):
+    """The map's own lines, stripped of colour: header and footer out."""
+    plain = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", frame)
+    return "\n".join(plain.split("\n")[1:-1])
+
+
+def _ink(frame):
+    return sum(1 for ch in _body(frame) if ch not in " \n")
+
+
+def _braille(frame):
+    return sum(1 for ch in _body(frame) if 0x2800 <= ord(ch) <= 0x28FF)
+
+
+class _Runtime:
+    lang = "en"
+    live = True
+
+
+class TestGlobeStandInFrame:
+    """A zoom step that crosses a terrarium level, frame by frame.
+
+    The level the zoom lands on has no texture in memory, so the globe
+    stops being warm and the view goes through the non-blocking loader,
+    which misses.  What used to be painted then was a blank disk.
+    """
+
+    COLS, ROWS = 40, 14
+    LAT, LON = 40.7, -74.0
+
+    def _view(self, gw, hc):
+        spy = hc * 2
+        return _globe.GlobeView(
+            [[100.0] * gw for _ in range(spy)],          # elev
+            [[0xFF] * gw for _ in range(hc)],            # coast
+            [[1.0] * gw for _ in range(spy)],            # shade
+            [[0.0] * gw for _ in range(spy)],            # atmo
+            None, None,                                  # cover, borders
+            fill=[[(180, 90, 40)] * gw for _ in range(spy)])
+
+    def _frame(self, monkeypatch, zoom, view, register="terrain", **kw):
+        monkeypatch.setattr(maps, "get_terminal_size",
+                            lambda: (self.COLS, self.ROWS))
+        monkeypatch.setattr(maps, "_get_globe", lambda *a, **k: view)
+        return maps.render_map(self.LAT, self.LON, "Somewhere", zoom,
+                               runtime=_Runtime(), block=False,
+                               view=register, **kw)
+
+    def test_a_level_crossing_draws_the_scaled_disk(self, monkeypatch):
+        gw, hc = maps.map_cells((self.COLS, self.ROWS))
+        maps._last_globe.clear()
+        real = self._frame(monkeypatch, 120.0, self._view(gw, hc))
+        stand = self._frame(monkeypatch, 80.0, None)
+        maps._last_globe.clear()
+        blank = self._frame(monkeypatch, 80.0, None)
+        assert _braille(real) and _braille(stand) and not _braille(blank)
+        assert _ink(stand) > 4 * _ink(blank)
+
+    def test_a_moved_centre_keeps_the_loading_frame(self, monkeypatch):
+        gw, hc = maps.map_cells((self.COLS, self.ROWS))
+        maps._last_globe.clear()
+        self._frame(monkeypatch, 120.0, self._view(gw, hc))
+        monkeypatch.setattr(self, "LON", self.LON + 20.0, raising=False)
+        spun = self._frame(monkeypatch, 80.0, None)
+        assert not _braille(spun)
+
+    def test_another_terminal_keeps_the_loading_frame(self, monkeypatch):
+        gw, hc = maps.map_cells((self.COLS, self.ROWS))
+        maps._last_globe.clear()
+        self._frame(monkeypatch, 120.0, self._view(gw, hc))
+        monkeypatch.setattr(self, "COLS", self.COLS + 6, raising=False)
+        resized = self._frame(monkeypatch, 80.0, None)
+        assert not _braille(resized)
+
+    def test_the_real_view_wins_as_soon_as_it_lands(self, monkeypatch):
+        gw, hc = maps.map_cells((self.COLS, self.ROWS))
+        maps._last_globe.clear()
+        self._frame(monkeypatch, 120.0, self._view(gw, hc))
+        tag = rs("loading", "en")
+        stand = self._frame(monkeypatch, 80.0, None)
+        landed = self._frame(monkeypatch, 80.0, self._view(gw, hc))
+        # the stand-in says so, the way the flat registers' does; the
+        # real view drops the tag and is the one drawn
+        assert tag in stand and tag not in landed
+        assert _braille(landed) >= _braille(stand)
+
+    def test_each_register_carries_its_own_disk(self, monkeypatch):
+        # the street planet draws no borders and strokes its shore in
+        # the street map's ink; it must not be handed terrain's disk
+        gw, hc = maps.map_cells((self.COLS, self.ROWS))
+        maps._last_globe.clear()
+        self._frame(monkeypatch, 120.0, self._view(gw, hc))
+        assert not _braille(self._frame(monkeypatch, 80.0, None, "street"))
+        self._frame(monkeypatch, 120.0, self._view(gw, hc), "street")
+        assert _braille(self._frame(monkeypatch, 80.0, None, "street"))
+
+    def test_the_sky_shades_the_stand_in_where_it_now_is(self, monkeypatch):
+        # sun and clouds are applied to the carried disk on the sphere
+        # it now sits on, as the flat terrain stand-in is shaded
+        gw, hc = maps.map_cells((self.COLS, self.ROWS))
+        maps._last_globe.clear()
+        self._frame(monkeypatch, 120.0, self._view(gw, hc))
+        lit = self._frame(monkeypatch, 80.0, None, sun=True)
+        plain = self._frame(monkeypatch, 80.0, None)
+        assert _braille(lit) and lit != plain

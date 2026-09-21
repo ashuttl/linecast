@@ -52,7 +52,7 @@ from linecast._maps_paint import (  # noqa: F401 — the inks and composers
 from linecast._maps_views import (  # noqa: F401 — the loaders and caches
     TerrainView, _EMPTY_TERRAIN, _coast_dots, _elev_cache,
     _get_clouds, _get_elevation, _get_globe, _get_street, _globe_cache,
-    _street_cache, _terrain_buffer, _terrain_cache, _view_key,
+    _sphere, _street_cache, _terrain_buffer, _terrain_cache, _view_key,
     _water_subpixels,
 )
 from linecast._radar_basemap import (  # noqa: F401 — _edge_dots is re-exported
@@ -182,6 +182,14 @@ class _ShiftedLayer:
 # where a blank would lose the reader's place entirely.
 _last_street = [None]
 _last_terrain = [None]
+# And the last real globe in each register, kept for the same reason:
+# (bbox, graph_w, height_cells, sub-pixel fill, coast mask, border
+# layer), the fill as the geometry left it — limb falloff and
+# atmosphere already in, this hour's sun and cloud still out, so the
+# stand-in is shaded where it now is like every other.  The centre is
+# read back off the bbox rather than carried: a globe's stand-in only
+# ever answers a zoom.
+_last_globe = {}
 
 
 def _axis_map(n, lo, span, plo, pspan, sub, flip):
@@ -345,6 +353,39 @@ def _reproject_terrain(prev, bbox, graph_w, height_cells):
     return m.fills(pfill, BG_PRIMARY), coast, rivers
 
 
+def _disk_centre(bbox):
+    """The globe centre a bbox stands for, at _get_globe's own rounding:
+    two windows that share a view key share a centre."""
+    return (round((bbox[1] + bbox[3]) / 2, 2),
+            round((bbox[0] + bbox[2]) / 2, 2))
+
+
+def _reproject_globe(prev, bbox, graph_w, height_cells):
+    """(fill, coast, borders) of `prev`'s disk scaled into `bbox`, or None.
+
+    Orthographic about the centre, a zoom is a uniform scaling of the
+    disk — which is exactly the map the two bboxes already describe, so
+    the planet borrows the flat views' axis map whole rather than
+    growing one of its own.  The limb falloff and the atmosphere ring
+    ride along inside the fill, and both belong to the disk's radius,
+    which scales by the same factor.
+
+    A zoom and nothing else.  A drag or a spin turns the geography
+    under a disk that stays the size it was, and no scaling of the old
+    picture is honest about that, so a moved centre gets no stand-in.
+    """
+    if prev is None or _disk_centre(prev[0]) != _disk_centre(bbox):
+        return None
+    m = _reprojection(prev, bbox, graph_w, height_cells)
+    if m is None:
+        return None
+    _pbbox, _pw, _phc, pfill, pcoast, pborders = prev
+    coast = m.dots(pcoast)[0] if pcoast is not None else None
+    borders = (_ShiftedLayer(*m.dots(pborders.dots, pborders.color))
+               if pborders is not None else None)
+    return m.fills(pfill, BG_PRIMARY), coast, borders
+
+
 def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
                     mouse_pos, marker_cell, dest_cell, origin_cell, lang,
                     route_layer, show_labels=True, sun=False, clouds=False):
@@ -500,6 +541,7 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
     lat0 = (bbox[1] + bbox[3]) / 2
     lon0 = (bbox[0] + bbox[2]) / 2
     zoom = bbox[3] - bbox[1]
+    register = "street" if street else "terrain"
     err = None
     loading = False
     view = None
@@ -522,6 +564,8 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
     borders = (view.borders if view is not None and show_labels
                and not street else None)
     palette = _maps_style.palette()
+    terrain = None
+    lls = atmo = glow_lls = None
     if elev is not None:
         # the theme generation rides along, as it does on the flat
         # views: a terminal that changes theme must miss a buffer with
@@ -558,20 +602,42 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
             return terrain
 
         terrain = _terrain_cache.get(key, build)
-        if (sun or clouds) and view.lls is not None:
-            terrain = _shade_now(
-                terrain, view.lls, sun,
-                _get_clouds(zoom, height_cells, block) if clouds else None,
-                _globe_now.city_lights_globe(lat0, lon0, zoom, graph_w,
-                                             height_cells * 2)
-                if sun and not street else {},
-                glow=(view.atmo, view.glow_lls)
-                if view.glow_lls is not None else None,
-                night=_globe_now.NIGHT_STREET if street else None)
-            if street:
-                dusk = _ink_dusk(view.lls, sun, graph_w, height_cells)
-    else:
+        lls, atmo, glow_lls = view.lls, view.atmo, view.glow_lls
+        _last_globe[register] = (tuple(bbox), graph_w, height_cells,
+                                 terrain, view.coast, view.borders)
+    elif loading:
+        # A zoom that crosses into a terrarium level still on disk, or
+        # not yet baked at all, is a warm globe one frame and a cold
+        # one the next, and the frames in between used to be a blank
+        # disk — the black flash of a step that crossed a level.  The
+        # disk it was is the disk it is, scaled: draw that until the
+        # real one lands.
+        carried = _reproject_globe(_last_globe.get(register), bbox,
+                                   graph_w, height_cells)
+        if carried is not None:
+            terrain, pcoast, pborders = carried
+            if show_labels:
+                coast = pcoast
+                borders = None if street else pborders
+            if sun or clouds:
+                # the sphere the stand-in now sits on: the scaled ring
+                # is the ring at the new radius, so the glow it gates
+                # is worked out for the disk as it is this frame
+                lls, _zs, atmo, glow_lls = _sphere(zoom, graph_w,
+                                                   height_cells, lat0, lon0)
+    if terrain is None:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
+    elif (sun or clouds) and lls is not None:
+        terrain = _shade_now(
+            terrain, lls, sun,
+            _get_clouds(zoom, height_cells, block) if clouds else None,
+            _globe_now.city_lights_globe(lat0, lon0, zoom, graph_w,
+                                         height_cells * 2)
+            if sun and not street else {},
+            glow=(atmo, glow_lls) if glow_lls is not None else None,
+            night=_globe_now.NIGHT_STREET if street else None)
+        if street:
+            dusk = _ink_dusk(lls, sun, graph_w, height_cells)
 
     overlays = {}
     if show_labels:
