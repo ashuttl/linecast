@@ -1,5 +1,7 @@
 """Recent places and the location menu, for weather and tides."""
 
+import os
+
 from linecast import _theme
 from linecast._cache import read_stale, write_cache
 from linecast._graphics import RESET, bg, fg, visible_len
@@ -8,6 +10,7 @@ from linecast._maps_i18n import ms
 from linecast._maps_search import ATTRIBUTION, Result
 from linecast._maps_ui import SearchState
 from linecast._paths import config_root
+from linecast._runtime import log_failure
 from linecast._weather_locations_i18n import ls
 
 LIMIT = 10
@@ -19,9 +22,9 @@ def place_key(place):
 
 class RecentLocations:
     def __init__(self):
-        self.path = config_root() / 'weather-locations.json'
+        self.path = config_root() / 'locations.json'
         self.places = []
-        saved = read_stale(self.path)
+        saved = read_stale(self._migrate())
         for item in saved if isinstance(saved, list) else []:
             try:
                 name, detail = item['name'], item.get('detail', '')
@@ -37,6 +40,21 @@ class RecentLocations:
                 self.places.append(place)
             if len(self.places) == LIMIT:
                 break
+
+    def _migrate(self):
+        """The list was weather's alone and named for it; tides shares it
+        now. Move the old file to the new name, or read it where it is
+        when it cannot be moved."""
+        old = self.path.with_name('weather-locations.json')
+        if self.path.exists() or not old.exists():
+            return self.path
+        try:
+            os.replace(old, self.path)
+        except OSError as exc:
+            log_failure('locations', 'rename of weather-locations.json', exc,
+                        fallback='read in place')
+            return old
+        return self.path
 
     def remember(self, place):
         self.places = [place] + [p for p in self.places if place_key(p) != place_key(place)]

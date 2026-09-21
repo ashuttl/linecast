@@ -45,6 +45,35 @@ def test_recent_locations_survive_restart_deduplicate_and_cap_at_ten():
     assert not RecentLocations().places
 
 
+def test_the_old_weather_only_list_moves_to_the_shared_name():
+    recent = RecentLocations()
+    old = recent.path.with_name('weather-locations.json')
+    old.parent.mkdir(parents=True, exist_ok=True)
+    old.write_text(json.dumps([{'name': 'Paris', 'lat': 48.86, 'lon': 2.35}]))
+    loaded = RecentLocations()
+    assert [p.name for p in loaded.places] == ['Paris']
+    assert loaded.path.name == 'locations.json' and loaded.path.exists()
+    assert not old.exists()
+
+
+def test_the_shared_list_wins_over_a_leftover_old_one():
+    recent = RecentLocations()
+    recent.remember(place('Portland', 43.66, -70.25))
+    old = recent.path.with_name('weather-locations.json')
+    old.write_text(json.dumps([{'name': 'Paris', 'lat': 48.86, 'lon': 2.35}]))
+    assert [p.name for p in RecentLocations().places] == ['Portland']
+
+
+def test_an_old_list_that_cannot_move_is_read_in_place():
+    recent = RecentLocations()
+    old = recent.path.with_name('weather-locations.json')
+    old.parent.mkdir(parents=True, exist_ok=True)
+    old.write_text(json.dumps([{'name': 'Paris', 'lat': 48.86, 'lon': 2.35}]))
+    with patch('linecast._weather_locations.os.replace', side_effect=OSError('read-only')):
+        assert [p.name for p in RecentLocations().places] == ['Paris']
+    assert old.exists()
+
+
 def test_malformed_history_and_bad_entries_are_ignored():
     recent = RecentLocations()
     recent.path.parent.mkdir(parents=True, exist_ok=True)
