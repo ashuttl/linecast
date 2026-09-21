@@ -11,6 +11,7 @@ from linecast._i18n import (
 from linecast._graphics import RESET, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure, log_skipped
 from linecast._textwidth import wrap_display_width
+from linecast._weather_cover import sky_condition
 from linecast._weather_i18n import (
     fmt_wind, _precip_s,
     DAY_NAMES, FULL_DAY_NAMES, ON_DAY_FORMS, ON_FULL_DAY_FORMS, wmo_label,
@@ -47,7 +48,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
     current = data.get("current") or {}
     temp = current.get("temperature_2m")
     feels = current.get("apparent_temperature")
-    wmo = current.get("weather_code") or 0
+    wmo = sky_condition(current.get("weather_code") or 0, current.get("cloud_cover"))
     wind = current.get("wind_speed_10m") or 0
     gusts = current.get("wind_gusts_10m") or 0
     humidity = current.get("relative_humidity_2m")

@@ -83,6 +83,7 @@ from linecast._weather_sources import (
     observation_source,
     without_country,
 )
+from linecast._weather_cover import sky_condition
 from linecast._weather_observed import apply_observation, fetch_observation
 
 # What the dashboard keeps when the window is too short for all of it:
@@ -196,9 +197,10 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     lines.append(temp_line)
 
     # Weather description
-    wmo_name = wmo_label(code, runtime.lang)
+    condition = sky_condition(code, cloud)
+    wmo_name = wmo_label(condition, runtime.lang)
     if wmo_name:
-        lines.append(f"{TBG}{_conditions_ink(code, TFG)} {wmo_name} ")
+        lines.append(f"{TBG}{_conditions_ink(condition, TFG)} {wmo_name} ")
 
     # Humidity / dew point (when notable)
     if humidity is not None and dew is not None:
@@ -331,11 +333,12 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
     lines = [f"{TBG}{DIM} {name} "]
 
     if field == "day":
-        wmo_name = wmo_label(code, runtime.lang)
+        condition = sky_condition(code, day_value("cloud_cover_mean"))
+        wmo_name = wmo_label(condition, runtime.lang)
         if wmo_name:
             icons = _wmo_icons(runtime)
-            ink = _conditions_ink(code, TFG)
-            lines.append(f"{TBG}{ink} {icons.get(code, icons[0])}{ink} {wmo_name} ")
+            ink = _conditions_ink(condition, TFG)
+            lines.append(f"{TBG}{ink} {icons.get(condition, icons[0])}{ink} {wmo_name} ")
 
     elif field == "bar":
         temps = hour_values("temperature_2m")

@@ -2,10 +2,12 @@
 
 import re
 from linecast._i18n import base_language, fallbacks, has_text, lang_of, lookup
+from linecast._weather_cover import MOSTLY_CLOUDY
 
 # Nerd Font WMO icons
 _WMO_ICONS_NERD = {
     0: "\U000F0599", 1: "\U000F0599", 2: "\U000F0595", 3: "\U000F0590",
+    MOSTLY_CLOUDY: "\U000F0590",
     45: "\U000F0591", 48: "\U000F0591",
     51: "\U000F0597", 53: "\U000F0597", 55: "\U000F0597",
     56: "\U000F0597", 57: "\U000F0597",
@@ -20,6 +22,7 @@ _WMO_ICONS_NERD = {
 # Emoji fallback WMO icons (no Nerd Font required)
 _WMO_ICONS_EMOJI = {
     0: "\u2600\ufe0f",  1: "\U0001f324\ufe0f",  2: "\u26c5", 3: "\u2601\ufe0f",
+    MOSTLY_CLOUDY: "\U0001f325\ufe0f",
     45: "\U0001f32b\ufe0f", 48: "\U0001f32b\ufe0f",
     51: "\U0001f326\ufe0f", 53: "\U0001f326\ufe0f", 55: "\U0001f326\ufe0f",
     56: "\U0001f327\ufe0f", 57: "\U0001f327\ufe0f",
@@ -33,10 +36,10 @@ _WMO_ICONS_EMOJI = {
 
 
 # Plain Unicode WMO icons: text-presentation glyphs with wide font
-# coverage, single-cell everywhere.  Partly cloudy and overcast share a
-# cloud; the label beside the icon keeps them apart.
+# coverage, single-cell everywhere.  Partly cloudy, mostly cloudy and
+# overcast share a cloud; the label beside the icon keeps them apart.
 _WMO_ICONS_PLAIN = {
-    0: "☀", 1: "☀", 2: "☁", 3: "☁",
+    0: "☀", 1: "☀", 2: "☁", 3: "☁", MOSTLY_CLOUDY: "☁",
     45: "≡", 48: "≡",
     51: "☂", 53: "☂", 55: "☂",
     56: "☂", 57: "☂",
@@ -56,6 +59,7 @@ def _wmo_icons(runtime):
 
 WMO_NAMES = {
     0: "Clear", 1: "Mostly Clear", 2: "Partly Cloudy", 3: "Overcast",
+    MOSTLY_CLOUDY: "Mostly Cloudy",
     45: "Fog", 48: "Rime Fog",
     51: "Light Drizzle", 53: "Drizzle", 55: "Heavy Drizzle",
     56: "Freezing Drizzle", 57: "Freezing Drizzle",
@@ -142,10 +146,12 @@ WMO_NAMES_I18N = {
         80: "Averses l\u00e9g\u00e8res", 81: "Averses", 82: "Fortes averses",
         85: "Averses de neige", 86: "Fortes averses de neige",
         95: "Orage", 96: "Orage", 99: "Orage",
+        MOSTLY_CLOUDY: "Très nuageux",
     },
     "fr-CA": {  # Canadian French: only what differs from France's
         1: "Généralement dégagé",
         3: "Nuageux",
+        MOSTLY_CLOUDY: "Généralement nuageux",
     },
     "es": {
         0: "Despejado", 1: "Mayormente despejado", 2: "Parcialmente nublado", 3: "Nublado",
@@ -158,13 +164,16 @@ WMO_NAMES_I18N = {
         80: "Chubascos ligeros", 81: "Chubascos", 82: "Chubascos intensos",
         85: "Chubascos de nieve", 86: "Chubascos de nieve intensos",
         95: "Tormenta", 96: "Tormenta", 99: "Tormenta",
+        MOSTLY_CLOUDY: "Mayormente nublado",
     },
     "es-ES": {  # European Spanish: only what differs from Latin America's
+        2: "Intervalos nubosos",
         1: "Poco nuboso",
         3: "Cubierto",
+        MOSTLY_CLOUDY: "Nuboso",
     },
     "de": {
-        0: "Klar", 1: "\u00dcberwiegend klar", 2: "Teilweise bew\u00f6lkt", 3: "Bedeckt",
+        0: "Wolkenlos", 1: "Heiter", 2: "Wolkig", 3: "Bedeckt",
         45: "Nebel", 48: "Gefrierender Nebel",
         51: "Leichter Nieselregen", 53: "Nieselregen", 55: "Starker Nieselregen",
         56: "Gefrierender Nieselregen", 57: "Gefrierender Nieselregen",
@@ -174,9 +183,10 @@ WMO_NAMES_I18N = {
         80: "Leichte Schauer", 81: "Schauer", 82: "Starke Schauer",
         85: "Schneeschauer", 86: "Starke Schneeschauer",
         95: "Gewitter", 96: "Gewitter", 99: "Gewitter",
+        MOSTLY_CLOUDY: "Stark bewölkt",
     },
     "no": {
-        0: "Klart", 1: "Mest klart", 2: "Delvis skyet", 3: "Overskyet",
+        0: "Klart", 1: "Lettskyet", 2: "Delvis skyet", 3: "Overskyet",
         45: "T\u00e5ke", 48: "Rimt\u00e5ke",
         51: "Lett yr", 53: "Yr", 55: "Kraftig yr",
         56: "Underkj\u00f8lt yr", 57: "Underkj\u00f8lt yr",
@@ -186,9 +196,10 @@ WMO_NAMES_I18N = {
         80: "Lette byger", 81: "Byger", 82: "Kraftige byger",
         85: "Sn\u00f8byger", 86: "Kraftige sn\u00f8byger",
         95: "Tordenv\u00e6r", 96: "Tordenv\u00e6r", 99: "Tordenv\u00e6r",
+        MOSTLY_CLOUDY: "Skyet",
     },
     "is": {
-        0: "Hei\u00f0sk\u00edrt", 1: "Hei\u00f0sk\u00edrt a\u00f0 mestu", 2: "Sk\u00fdja\u00f0 a\u00f0 hluta", 3: "Alsk\u00fdja\u00f0",
+        0: "Hei\u00f0sk\u00edrt", 1: "Léttskýjað", 2: "Hálfskýjað", 3: "Alsk\u00fdja\u00f0",
         45: "\u00deoka", 48: "Hr\u00edm\u00feoka",
         51: "L\u00e9ttur \u00fa\u00f0i", 53: "\u00da\u00f0i", 55: "Mikill \u00fa\u00f0i",
         56: "Frystandi \u00fa\u00f0i", 57: "Frystandi \u00fa\u00f0i",
@@ -198,9 +209,10 @@ WMO_NAMES_I18N = {
         80: "L\u00e9ttar sk\u00farir", 81: "Sk\u00farir", 82: "Miklar sk\u00farir",
         85: "Snj\u00f3sk\u00farir", 86: "Miklar snj\u00f3sk\u00farir",
         95: "\u00derumuve\u00f0ur", 96: "\u00derumuve\u00f0ur", 99: "\u00derumuve\u00f0ur",
+        MOSTLY_CLOUDY: "Skýjað",
     },
     "da": {
-        0: "Klart", 1: "Overvejende klart", 2: "Delvist skyet", 3: "Overskyet",
+        0: "Klart", 1: "Let skyet", 2: "Halvskyet", 3: "Overskyet",
         45: "T\u00e5ge", 48: "Rimt\u00e5ge",
         51: "Let st\u00f8vregn", 53: "St\u00f8vregn", 55: "Kraftig st\u00f8vregn",
         56: "Underk\u00f8let st\u00f8vregn", 57: "Underk\u00f8let st\u00f8vregn",
@@ -210,9 +222,10 @@ WMO_NAMES_I18N = {
         80: "Lette byger", 81: "Byger", 82: "Kraftige byger",
         85: "Snebyger", 86: "Kraftige snebyger",
         95: "Tordenvejr", 96: "Tordenvejr", 99: "Tordenvejr",
+        MOSTLY_CLOUDY: "Skyet",
     },
     "it": {
-        0: "Sereno", 1: "Prevalentemente sereno", 2: "Parzialmente nuvoloso", 3: "Coperto",
+        0: "Sereno", 1: "Poco nuvoloso", 2: "Parzialmente nuvoloso", 3: "Coperto",
         45: "Nebbia", 48: "Nebbia con brina",
         51: "Pioviggine leggera", 53: "Pioviggine", 55: "Pioviggine intensa",
         56: "Pioviggine gelata", 57: "Pioviggine gelata",
@@ -222,9 +235,10 @@ WMO_NAMES_I18N = {
         80: "Rovesci leggeri", 81: "Rovesci", 82: "Rovesci intensi",
         85: "Rovesci di neve", 86: "Rovesci di neve intensi",
         95: "Temporale", 96: "Temporale", 99: "Temporale",
+        MOSTLY_CLOUDY: "Molto nuvoloso",
     },
     "pl": {
-        0: "Bezchmurnie", 1: "Przewa\u017cnie bezchmurnie", 2: "Cz\u0119\u015bciowe zachmurzenie", 3: "Pochmurno",
+        0: "Bezchmurnie", 1: "Małe zachmurzenie", 2: "Umiarkowane zachmurzenie", 3: "Całkowite zachmurzenie",
         45: "Mg\u0142a", 48: "Szad\u017a",
         51: "Lekka m\u017cawka", 53: "M\u017cawka", 55: "Silna m\u017cawka",
         56: "Marzn\u0105ca m\u017cawka", 57: "Marzn\u0105ca m\u017cawka",
@@ -234,9 +248,10 @@ WMO_NAMES_I18N = {
         80: "Lekkie przelotne opady", 81: "Przelotne opady", 82: "Silne przelotne opady",
         85: "Przelotne opady \u015bniegu", 86: "Silne przelotne opady \u015bniegu",
         95: "Burza", 96: "Burza", 99: "Burza",
+        MOSTLY_CLOUDY: "Duże zachmurzenie",
     },
     "nl": {
-        0: "Helder", 1: "Overwegend helder", 2: "Halfbewolkt", 3: "Bewolkt",
+        0: "Helder", 1: "Licht bewolkt", 2: "Half bewolkt", 3: "Geheel bewolkt",
         45: "Mist", 48: "Rijpmist",
         51: "Lichte motregen", 53: "Motregen", 55: "Zware motregen",
         56: "Aanvriezende motregen", 57: "Aanvriezende motregen",
@@ -246,9 +261,10 @@ WMO_NAMES_I18N = {
         80: "Lichte buien", 81: "Buien", 82: "Zware buien",
         85: "Sneeuwbuien", 86: "Zware sneeuwbuien",
         95: "Onweer", 96: "Onweer", 99: "Onweer",
+        MOSTLY_CLOUDY: "Zwaar bewolkt",
     },
     "pt": {
-        0: "C\u00e9u limpo", 1: "Quase limpo", 2: "Parcialmente nublado", 3: "Encoberto",
+        0: "C\u00e9u limpo", 1: "Poucas nuvens", 2: "Parcialmente nublado", 3: "Encoberto",
         45: "Nevoeiro", 48: "Nevoeiro gelado",
         51: "Chuvisco fraco", 53: "Chuvisco", 55: "Chuvisco forte",
         56: "Chuvisco gelado", 57: "Chuvisco gelado",
@@ -258,16 +274,19 @@ WMO_NAMES_I18N = {
         80: "Pancadas de chuva fracas", 81: "Pancadas de chuva", 82: "Pancadas de chuva fortes",
         85: "Pancadas de neve", 86: "Pancadas de neve fortes",
         95: "Trovoada", 96: "Trovoada", 99: "Trovoada",
+        MOSTLY_CLOUDY: "Nublado",
     },
     "pt-PT": {  # European Portuguese: only what differs from Brazil's
+        1: "Pouco nublado",
         80: "Aguaceiros fracos",
         81: "Aguaceiros",
         82: "Aguaceiros fortes",
         85: "Aguaceiros de neve",
         86: "Aguaceiros de neve fortes",
+        MOSTLY_CLOUDY: "Muito nublado",
     },
     "sv": {
-        0: "Klart", 1: "Mestadels klart", 2: "Halvklart", 3: "Mulet",
+        0: "Klart", 1: "Lätt molnighet", 2: "Halvklart", 3: "Mulet",
         45: "Dimma", 48: "Rimfrost",
         51: "L\u00e4tt duggregn", 53: "Duggregn", 55: "Kraftigt duggregn",
         56: "Underkylt duggregn", 57: "Underkylt duggregn",
@@ -277,9 +296,10 @@ WMO_NAMES_I18N = {
         80: "L\u00e4tta skurar", 81: "Skurar", 82: "Kraftiga skurar",
         85: "Sn\u00f6byar", 86: "Kraftiga sn\u00f6byar",
         95: "\u00c5skv\u00e4der", 96: "\u00c5skv\u00e4der", 99: "\u00c5skv\u00e4der",
+        MOSTLY_CLOUDY: "Molnigt",
     },
     "fi": {
-        0: "Selke\u00e4", 1: "Enimm\u00e4kseen selke\u00e4", 2: "Puolipilvinen", 3: "Pilvinen",
+        0: "Selkeää", 1: "Melko selkeää", 2: "Puolipilvistä", 3: "Pilvistä",
         45: "Sumu", 48: "H\u00e4rm\u00e4sumu",
         51: "Kevyt tihku", 53: "Tihku", 55: "Voimakas tihku",
         56: "J\u00e4\u00e4t\u00e4v\u00e4 tihku", 57: "J\u00e4\u00e4t\u00e4v\u00e4 tihku",
@@ -289,6 +309,7 @@ WMO_NAMES_I18N = {
         80: "Kevyet kuurot", 81: "Kuurot", 82: "Voimakkaat kuurot",
         85: "Lumikuurot", 86: "Voimakkaat lumikuurot",
         95: "Ukkonen", 96: "Ukkonen", 99: "Ukkonen",
+        MOSTLY_CLOUDY: "Melko pilvistä",
     },
     "ja": {
         0: "\u5feb\u6674", 1: "\u304a\u304a\u3080\u306d\u6674\u308c", 2: "\u6674\u308c\u6642\u3005\u66c7\u308a", 3: "\u66c7\u308a",
@@ -301,6 +322,7 @@ WMO_NAMES_I18N = {
         80: "\u5f31\u3044\u306b\u308f\u304b\u96e8", 81: "\u306b\u308f\u304b\u96e8", 82: "\u5f37\u3044\u306b\u308f\u304b\u96e8",
         85: "\u306b\u308f\u304b\u96ea", 86: "\u5f37\u3044\u306b\u308f\u304b\u96ea",
         95: "\u96f7\u96e8", 96: "\u96f7\u96e8", 99: "\u96f7\u96e8",
+        MOSTLY_CLOUDY: "おおむね曇り",
     },
     "ko": {
         0: "\ub9d1\uc74c", 1: "\ub300\uccb4\ub85c \ub9d1\uc74c", 2: "\uad6c\ub984 \uc870\uae08", 3: "\ud750\ub9bc",
@@ -313,9 +335,10 @@ WMO_NAMES_I18N = {
         80: "\uc57d\ud55c \uc18c\ub098\uae30", 81: "\uc18c\ub098\uae30", 82: "\uac15\ud55c \uc18c\ub098\uae30",
         85: "\ub208 \uc18c\ub098\uae30", 86: "\uac15\ud55c \ub208 \uc18c\ub098\uae30",
         95: "\ub1cc\uc6b0", 96: "\ub1cc\uc6b0", 99: "\ub1cc\uc6b0",
+        MOSTLY_CLOUDY: "구름 많음",
     },
     "zh": {
-        0: "\u6674\u6717", 1: "\u5927\u90e8\u6674\u6717", 2: "\u5c40\u90e8\u591a\u4e91", 3: "\u9634\u5929",
+        0: "\u6674\u6717", 1: "少云", 2: "\u5c40\u90e8\u591a\u4e91", 3: "\u9634\u5929",
         45: "\u96fe", 48: "\u51bb\u96fe",
         51: "\u5c0f\u6bdb\u6bdb\u96e8", 53: "\u6bdb\u6bdb\u96e8", 55: "\u5927\u6bdb\u6bdb\u96e8",
         56: "\u51bb\u6bdb\u6bdb\u96e8", 57: "\u51bb\u6bdb\u6bdb\u96e8",
@@ -325,9 +348,10 @@ WMO_NAMES_I18N = {
         80: "\u5c0f\u9635\u96e8", 81: "\u9635\u96e8", 82: "\u5927\u9635\u96e8",
         85: "\u9635\u96ea", 86: "\u5927\u9635\u96ea",
         95: "\u96f7\u66b4\u96e8", 96: "\u96f7\u66b4\u96e8", 99: "\u96f7\u66b4\u96e8",
+        MOSTLY_CLOUDY: "多云",
     },
     "zh-Hant": {
-        0: "晴朗", 1: "大部晴朗", 2: "局部多雲", 3: "陰天",
+        0: "晴朗", 1: "晴時多雲", 2: "多雲時晴", 3: "陰天",
         45: "霧", 48: "凍霧",
         51: "小毛毛雨", 53: "毛毛雨", 55: "大毛毛雨",
         56: "凍毛毛雨", 57: "凍毛毛雨",
@@ -337,6 +361,7 @@ WMO_NAMES_I18N = {
         80: "小陣雨", 81: "陣雨", 82: "大陣雨",
         85: "陣雪", 86: "大陣雪",
         95: "雷雨", 96: "雷雨", 99: "雷雨",
+        MOSTLY_CLOUDY: "多雲",
     },
     "th": {
         0: "ท้องฟ้าแจ่มใส", 1: "ท้องฟ้าโปร่ง", 2: "มีเมฆบางส่วน", 3: "เมฆเต็มท้องฟ้า",
@@ -349,6 +374,7 @@ WMO_NAMES_I18N = {
         80: "ฝนซู่เล็กน้อย", 81: "ฝนซู่", 82: "ฝนซู่หนัก",
         85: "หิมะโปรยปราย", 86: "หิมะตกหนักเป็นช่วง",
         95: "ฝนฟ้าคะนอง", 96: "ฝนฟ้าคะนอง", 99: "ฝนฟ้าคะนอง",
+        MOSTLY_CLOUDY: "มีเมฆเป็นส่วนมาก",
     },
     "id": {
         0: "Cerah", 1: "Cerah Berawan", 2: "Berawan Sebagian", 3: "Mendung",
@@ -361,6 +387,7 @@ WMO_NAMES_I18N = {
         80: "Hujan Rintik", 81: "Hujan Singkat", 82: "Hujan Deras Singkat",
         85: "Hujan Salju Singkat", 86: "Hujan Salju Deras",
         95: "Badai Petir", 96: "Badai Petir", 99: "Badai Petir",
+        MOSTLY_CLOUDY: "Berawan",
     },
     "uk": {
         0: "Ясно", 1: "Переважно ясно", 2: "Мінлива хмарність", 3: "Похмуро",
@@ -373,9 +400,10 @@ WMO_NAMES_I18N = {
         80: "Невелика злива", 81: "Злива", 82: "Сильна злива",
         85: "Сніговий заряд", 86: "Сильний сніговий заряд",
         95: "Гроза", 96: "Гроза", 99: "Гроза",
+        MOSTLY_CLOUDY: "Хмарно з проясненнями",
     },
     "vi": {
-        0: "Trời quang", 1: "Ít mây", 2: "Có mây", 3: "Nhiều mây",
+        0: "Trời quang", 1: "Ít mây", 2: "Có mây", 3: "Âm u",
         45: "Sương mù", 48: "Sương mù đóng băng",
         51: "Mưa phùn nhẹ", 53: "Mưa phùn", 55: "Mưa phùn dày",
         56: "Mưa phùn đóng băng", 57: "Mưa phùn đóng băng",
@@ -385,6 +413,7 @@ WMO_NAMES_I18N = {
         80: "Mưa rào nhẹ", 81: "Mưa rào", 82: "Mưa rào to",
         85: "Mưa tuyết nhẹ", 86: "Mưa tuyết to",
         95: "Mưa dông", 96: "Mưa dông", 99: "Mưa dông",
+        MOSTLY_CLOUDY: "Nhiều mây",
     },
     "eo": {
         0: "Klara ĉielo", 1: "Plejparte klara", 2: "Parte nuba", 3: "Tute nuba",
@@ -397,6 +426,7 @@ WMO_NAMES_I18N = {
         80: "Malfortaj pluvoj", 81: "Pluvoj", 82: "Pluvego",
         85: "Malforta neĝado", 86: "Forta neĝado",
         95: "Fulmotondro", 96: "Fulmotondro", 99: "Fulmotondro",
+        MOSTLY_CLOUDY: "Plejparte nuba",
     },
     "tr": {
         0: "Açık", 1: "Az bulutlu", 2: "Parçalı bulutlu", 3: "Kapalı",
@@ -409,6 +439,7 @@ WMO_NAMES_I18N = {
         80: "Hafif sağanak", 81: "Sağanak", 82: "Kuvvetli sağanak",
         85: "Kar sağanağı", 86: "Kuvvetli kar sağanağı",
         95: "Gök gürültülü fırtına", 96: "Gök gürültülü fırtına", 99: "Gök gürültülü fırtına",
+        MOSTLY_CLOUDY: "Çok bulutlu",
     },
     "ru": {
         0: "Ясно", 1: "Малооблачно", 2: "Переменная облачность", 3: "Пасмурно",
@@ -421,9 +452,10 @@ WMO_NAMES_I18N = {
         80: "Небольшой ливень", 81: "Ливень", 82: "Сильный ливень",
         85: "Снежный заряд", 86: "Сильный снежный заряд",
         95: "Гроза", 96: "Гроза", 99: "Гроза",
+        MOSTLY_CLOUDY: "Облачно с прояснениями",
     },
     "ro": {
-        0: "Senin", 1: "Predominant senin", 2: "Parțial noros", 3: "Înnorat",
+        0: "Senin", 1: "Mai mult senin", 2: "Cer variabil", 3: "Cer acoperit",
         45: "Ceață", 48: "Ceață cu chiciură",
         51: "Burniță slabă", 53: "Burniță", 55: "Burniță puternică",
         56: "Burniță înghețată", 57: "Burniță înghețată",
@@ -433,6 +465,7 @@ WMO_NAMES_I18N = {
         80: "Averse slabe", 81: "Averse", 82: "Averse puternice",
         85: "Averse de ninsoare", 86: "Averse puternice de ninsoare",
         95: "Furtună", 96: "Furtună", 99: "Furtună",
+        MOSTLY_CLOUDY: "Mai mult noros",
     },
     "cs": {
         0: "Jasno", 1: "Skoro jasno", 2: "Polojasno", 3: "Zataženo",
@@ -445,12 +478,13 @@ WMO_NAMES_I18N = {
         80: "Slabé přeháňky", 81: "Přeháňky", 82: "Silné přeháňky",
         85: "Sněhové přeháňky", 86: "Silné sněhové přeháňky",
         95: "Bouřka", 96: "Bouřka", 99: "Bouřka",
+        MOSTLY_CLOUDY: "Oblačno",
     },
     "sw": {
         0: "Anga safi",
         1: "Mawingu machache",
         2: "Mawingu kiasi",
-        3: "Mawingu mengi",
+        3: "Mawingu mazito",
         45: "Ukungu",
         48: "Ukungu unaoganda",
         51: "Manyunyu mepesi",
@@ -475,12 +509,13 @@ WMO_NAMES_I18N = {
         95: "Mvua ya radi",
         96: "Mvua ya radi",
         99: "Mvua ya radi",
+        MOSTLY_CLOUDY: "Mawingu mengi",
     },
     "el": {
         0: 'Αίθριος καιρός',
         1: 'Γενικά αίθριος',
-        2: 'Λίγες νεφώσεις',
-        3: 'Νεφελώδης καιρός',
+        2: 'Αραιές νεφώσεις',
+        3: 'Νεφοσκεπής καιρός',
         45: 'Ομίχλη',
         48: 'Ομίχλη με απόθεση πάχνης',
         51: 'Ασθενές ψιλόβροχο',
@@ -505,6 +540,7 @@ WMO_NAMES_I18N = {
         95: 'Καταιγίδα',
         96: 'Καταιγίδα με χαλάζι',
         99: 'Καταιγίδα με ισχυρή χαλαζόπτωση',
+        MOSTLY_CLOUDY: 'Αυξημένες νεφώσεις',
     },
 }
 

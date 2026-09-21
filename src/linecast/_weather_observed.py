@@ -5,8 +5,9 @@ and a model can keep a fog deck or a shower for hours after the sky
 has cleared. Airports report what is overhead at least hourly, in
 METARs, and the Aviation Weather Center serves the world's as JSON
 without a key. Where a station is close and its report recent, its
-sky stands in for the model's weather code; the temperature, wind and
-the rest stay the model's, which the graph and the prose agree with.
+sky stands in for the model's weather code and cloud cover; the
+temperature, wind and the rest stay the model's, which the graph and
+the prose agree with.
 """
 
 import json
@@ -18,6 +19,7 @@ from linecast._cache import location_cache_key
 from linecast._http import fetch_bytes, fetch_json_cached
 from linecast._paths import cache_dir
 from linecast._runtime import log_failure
+from linecast._weather_cover import REPORT_COVER
 
 _METAR_URL = ("https://aviationweather.gov/api/data/metar"
               "?bbox={south:.3f},{west:.3f},{north:.3f},{east:.3f}&format=json")
@@ -29,16 +31,12 @@ MAX_DISTANCE_KM = 25.0
 # older than this has missed at least one.
 MAX_AGE_S = 90 * 60
 
-# Cloud amounts in eighths of the sky, as a weather code: FEW is one or
-# two oktas, SCT three or four, BKN five to seven, OVC all eight. The
-# codes have no "mostly cloudy", so BKN is taken as partly cloudy rather
-# than claim a sky with gaps in it is overcast.
-_COVER_CODES = {
-    "SKC": 0, "CLR": 0, "NSC": 0, "NCD": 0, "CAVOK": 0,
-    "FEW": 1, "SCT": 2, "BKN": 2, "OVC": 3,
-    # The sky hidden by fog or the like, seen only as far up as given.
-    "VV": 45, "OVX": 45,
-}
+# A report's cloud amounts, in eighths of the sky: FEW is one or two,
+# SCT three or four, BKN five to seven, OVC all eight (REPORT_COVER).
+# These say there is none, or none the report speaks for.
+_CLEAR = {"SKC", "CLR", "NSC", "NCD", "CAVOK"}
+# The sky hidden by fog or the like, seen only as far up as given.
+_OBSCURED = {"VV", "OVX"}
 
 
 # Reports that cannot speak for high cloud. CAVOK and NSC say nothing of
@@ -58,8 +56,10 @@ def _sees_high_cloud(metar):
 
 
 def _cover_code(percent):
-    """Cloud cover as the model labels it: under a fifth clear, under
-    half mostly clear, under four fifths partly cloudy, else overcast."""
+    """A cloud cover as the weather code Open-Meteo gives it: under a
+    fifth clear, under half mostly clear, under four fifths partly
+    cloudy, else overcast. The code stays in Open-Meteo's terms; the
+    name shown is the cover's (_weather_cover)."""
     return 0 if percent < 20 else 1 if percent < 50 else 2 if percent < 80 else 3
 
 
@@ -104,21 +104,26 @@ _SEVERITY = [45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77,
              80, 81, 82, 85, 86, 95, 96, 99]
 
 
-def metar_weather_code(metar: dict[str, Any]) -> int | None:
-    """A METAR, as the Aviation Weather Center's JSON gives it, as a
-    WMO weather code: its present weather where it has any, else its
-    sky cover. None when it reports neither."""
+def metar_sky(metar: dict[str, Any]) -> tuple[int, float | None] | None:
+    """A METAR, as the Aviation Weather Center's JSON gives it, as a WMO
+    weather code and a cloud cover in percent: the code its present
+    weather where it has any, else its sky's. None when it reports
+    neither."""
+    covers = [layer.get("cover") for layer in metar.get("clouds") or []]
+    covers.append(metar.get("cover"))
+    amounts = [REPORT_COVER[c] for c in covers if c in REPORT_COVER]
+    cover = (100 if _OBSCURED & set(covers) else max(amounts) if amounts
+             else 0 if _CLEAR & set(covers) else None)
     codes = [c for c in (_weather_token_code(t)
                          for t in (metar.get("wxString") or "").split())
              if c is not None]
     if codes:
-        return max(codes, key=_SEVERITY.index)
-    covers = [layer.get("cover") for layer in metar.get("clouds") or []]
-    covers.append(metar.get("cover"))
-    known = [_COVER_CODES[c] for c in covers if c in _COVER_CODES]
-    if not known:
+        return max(codes, key=_SEVERITY.index), cover
+    if _OBSCURED & set(covers):
+        return 45, cover
+    if cover is None:
         return None
-    return 45 if 45 in known else max(known)
+    return _cover_code(cover), cover
 
 
 def _distance_km(lat1, lng1, lat2, lng2):
@@ -150,7 +155,7 @@ def fetch_metars(lat: float, lng: float) -> list[dict[str, Any]]:
 def nearest_observation(lat: float, lng: float, reports: list[dict[str, Any]],
                         now: float | None = None) -> dict[str, Any] | None:
     """The closest recent report that says what the sky is doing, as
-    {code, station, name, distance_km, time, sees_high_cloud}; None where there is none
+    {code, cover, station, name, distance_km, time, sees_high_cloud}; None where there is none
     within MAX_DISTANCE_KM and MAX_AGE_S."""
     now = time.time() if now is None else now
     best = None
@@ -162,11 +167,12 @@ def nearest_observation(lat: float, lng: float, reports: list[dict[str, Any]],
             continue
         if distance > MAX_DISTANCE_KM or not -600 <= age <= MAX_AGE_S:
             continue
-        code = metar_weather_code(metar)
-        if code is None:
+        sky = metar_sky(metar)
+        if sky is None:
             continue
         if best is None or distance < best["distance_km"]:
-            best = {"code": code, "station": metar.get("icaoId") or "",
+            best = {"code": sky[0], "cover": sky[1],
+                    "station": metar.get("icaoId") or "",
                     "name": metar.get("name") or "",
                     "distance_km": round(distance, 1),
                     "time": int(metar["obsTime"]),
@@ -187,18 +193,22 @@ def fetch_observation(lat: float, lng: float) -> dict[str, Any] | None:
 def apply_observation(data: dict[str, Any] | None,
                       observation: dict[str, Any] | None) -> dict[str, Any] | None:
     """The forecast with a station's sky in place of the model's current
-    weather code, and the station noted beside it."""
+    weather code and cloud cover, and the station noted beside it."""
     if not data or not observation:
         return data
     current = data.get("current")
     if not isinstance(current, dict):
         return data
-    code = observation["code"]
+    code, cover = observation["code"], observation.get("cover")
     high = current.get("cloud_cover_high")
-    if code <= 3 and not observation.get("sees_high_cloud") and high is not None:
-        code = max(code, _cover_code(high))
+    if (code <= 3 and cover is not None and high is not None
+            and not observation.get("sees_high_cloud") and high > cover):
+        code, cover = _cover_code(high), high
     current.setdefault("model_weather_code", current.get("weather_code"))
+    current.setdefault("model_cloud_cover", current.get("cloud_cover"))
     current["weather_code"] = code
+    if cover is not None:
+        current["cloud_cover"] = cover
     current["observed"] = {k: observation[k]
                            for k in ("station", "name", "distance_km", "time")}
     return data

@@ -20,6 +20,7 @@ def weather_oneline(data, location_name, runtime):
 
     Example: ``Portland 58°F Partly Cloudy Wind 8mph 💧32%``
     """
+    from linecast._weather_cover import sky_condition
     from linecast._weather_i18n import _wmo_icons, wmo_label
     from linecast._weather_style import _colored_temp, TEXT, MUTED, WIND_COLOR
 
@@ -30,7 +31,7 @@ def weather_oneline(data, location_name, runtime):
     # the line leaves it out rather than print it as 0
     current = data.get("current") or {}
     temp = current.get("temperature_2m")
-    wmo = current.get("weather_code") or 0
+    wmo = sky_condition(current.get("weather_code") or 0, current.get("cloud_cover"))
     wind = current.get("wind_speed_10m") or 0
     humidity = current.get("relative_humidity_2m")
 

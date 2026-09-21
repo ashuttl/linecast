@@ -6,6 +6,7 @@ from linecast import _theme
 from linecast._i18n import fmt_percent, table_for
 from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime, current_runtime
+from linecast._weather_cover import sky_condition
 from linecast._weather_i18n import DAY_NAMES, _s, _wmo_icons, fmt_wind
 from linecast._weather_sources import _local_now_for_data
 from linecast._weather_style import (
@@ -60,6 +61,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
     precip_sum = daily.get("precipitation_sum", [])
     precip_prob = daily.get("precipitation_probability_max", [])
     wmo_codes = daily.get("weather_code", [])
+    cover_means = daily.get("cloud_cover_mean") or []
     wind_max = daily.get("wind_speed_10m_max", [])
 
     lines = []
@@ -214,7 +216,8 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         day_name = day_name + " " * (day_col_w - visible_len(day_name))
 
         wmo = (wmo_codes[i] if i < len(wmo_codes) else 0) or 0
-        icon = icons.get(wmo, icons[0])
+        icon = icons.get(sky_condition(wmo, cover_means[i] if i < len(cover_means) else None),
+                         icons[0])
         hi = hi_temps[i] if i < len(hi_temps) else None
         lo = lo_temps[i] if i < len(lo_temps) else None
         if hi is None or lo is None:

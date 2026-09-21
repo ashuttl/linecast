@@ -9,6 +9,7 @@ None rather than raising.
 from dataclasses import asdict
 from datetime import datetime
 
+from linecast._weather_cover import sky_condition
 from linecast._weather_i18n import _wmo_icons, wmo_label
 from linecast._weather_sections import comparative_sentence
 from linecast._weather_sources import FORECAST_SOURCE, _local_now_for_data, alert_source
@@ -59,6 +60,7 @@ def build_payload(data, location_name, country_code, runtime,
 
     current = data.get("current") or {}
     cur_code = current.get("weather_code")
+    cur_condition = sky_condition(cur_code, current.get("cloud_cover"))
     hourly = data.get("hourly") or {}
     daily = data.get("daily") or {}
 
@@ -70,6 +72,7 @@ def build_payload(data, location_name, country_code, runtime,
     hourly_out = []
     for i in range(start, len(h_times)):
         code = _at(hourly.get("weather_code"), i)
+        condition = sky_condition(code, _at(hourly.get("cloud_cover"), i))
         hourly_out.append({
             "time": _at(h_times, i),
             "temperature": _at(hourly.get("temperature_2m"), i),
@@ -77,8 +80,8 @@ def build_payload(data, location_name, country_code, runtime,
             "precipitation_probability": _at(hourly.get("precipitation_probability"), i),
             "precipitation": _at(hourly.get("precipitation"), i),
             "weather_code": code,
-            "icon": _icon(code, runtime),
-            "condition": _condition_name(code, runtime),
+            "icon": _icon(condition, runtime),
+            "condition": _condition_name(condition, runtime),
             "wind_speed": _at(hourly.get("wind_speed_10m"), i),
             "wind_direction": _at(hourly.get("wind_direction_10m"), i),
             "uv_index": _at(hourly.get("uv_index"), i),
@@ -94,6 +97,7 @@ def build_payload(data, location_name, country_code, runtime,
     daily_out = []
     for i in range(start, min(start + 7, len(d_times))):
         code = _at(daily.get("weather_code"), i)
+        condition = sky_condition(code, _at(daily.get("cloud_cover_mean"), i))
         daily_out.append({
             "date": _at(d_times, i),
             "high": _at(daily.get("temperature_2m_max"), i),
@@ -101,8 +105,8 @@ def build_payload(data, location_name, country_code, runtime,
             "precipitation_probability": _at(daily.get("precipitation_probability_max"), i),
             "precipitation": _at(daily.get("precipitation_sum"), i),
             "weather_code": code,
-            "icon": _icon(code, runtime),
-            "condition": _condition_name(code, runtime),
+            "icon": _icon(condition, runtime),
+            "condition": _condition_name(condition, runtime),
             "sunrise": _at(daily.get("sunrise"), i),
             "sunset": _at(daily.get("sunset"), i),
             "wind_speed": _at(daily.get("wind_speed_10m_max"), i),
@@ -152,8 +156,8 @@ def build_payload(data, location_name, country_code, runtime,
             "wind_speed": current.get("wind_speed_10m"),
             "wind_gusts": current.get("wind_gusts_10m"),
             "weather_code": cur_code,
-            "condition": _condition_name(cur_code, runtime),
-            "icon": _icon(cur_code, runtime),
+            "condition": _condition_name(cur_condition, runtime),
+            "icon": _icon(cur_condition, runtime),
             "observed": current.get("observed"),
         },
         "today": {

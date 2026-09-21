@@ -1,8 +1,9 @@
 """The current sky from a nearby station's METAR."""
 
+from linecast._weather_cover import MOSTLY_CLOUDY, sky_condition
 from linecast._weather_observed import (
     apply_observation,
-    metar_weather_code,
+    metar_sky,
     nearest_observation,
 )
 from linecast.weather import data_credits
@@ -16,14 +17,40 @@ def metar(raw, cover=None, clouds=(), wx=None, lat=43.64, lon=-70.30, age=600, i
             "clouds": [{"cover": c, "base": b} for c, b in clouds]}
 
 
+def metar_weather_code(report):
+    sky = metar_sky(report)
+    return sky and sky[0]
+
+
+def named(report):
+    """The condition a report is shown as."""
+    return sky_condition(*metar_sky(report))
+
+
+class TestScale:
+    def test_the_nws_steps(self):
+        assert [sky_condition(0, c) for c in (0, 12.5, 13, 37.5, 38, 62.5, 63, 87.5, 88, 100)] \
+            == [0, 0, 1, 1, 2, 2, MOSTLY_CLOUDY, MOSTLY_CLOUDY, 3, 3]
+
+    def test_the_code_decides_without_a_cover(self):
+        assert sky_condition(3, None) == 3
+
+    def test_weather_is_not_a_sky(self):
+        assert sky_condition(61, 100) == 61
+        assert sky_condition(45, 100) == 45
+
+
 class TestWeatherCode:
     def test_sky_cover(self):
-        assert metar_weather_code(metar("", "CLR")) == 0
-        assert metar_weather_code(metar("", "CAVOK")) == 0
-        assert metar_weather_code(metar("", "FEW", [("FEW", 15000)])) == 1
-        assert metar_weather_code(metar("", "SCT", [("FEW", 15000), ("SCT", 25000)])) == 2
-        assert metar_weather_code(metar("", "BKN", [("BKN", 1800)])) == 2
-        assert metar_weather_code(metar("", "OVC", [("OVC", 500)])) == 3
+        assert named(metar("", "CLR")) == 0
+        assert named(metar("", "CAVOK")) == 0
+        assert named(metar("", "FEW", [("FEW", 15000)])) == 1
+        assert named(metar("", "SCT", [("FEW", 15000), ("SCT", 25000)])) == 2
+        assert named(metar("", "BKN", [("BKN", 1800)])) == MOSTLY_CLOUDY
+        assert named(metar("", "OVC", [("OVC", 500)])) == 3
+
+    def test_the_code_stays_in_open_meteos_terms(self):
+        assert metar_sky(metar("", "BKN", [("BKN", 1800)])) == (2, 75)
 
     def test_an_obscured_sky_is_fog(self):
         assert metar_weather_code(metar("", "OVX", [("OVX", 0)], wx="BR")) == 45
@@ -42,9 +69,9 @@ class TestWeatherCode:
         assert metar_weather_code(metar("", "OVC", wx="-DZ TSRA")) == 95
 
     def test_weather_nearby_or_past_is_not_overhead(self):
-        assert metar_weather_code(metar("", "SCT", wx="VCSH")) == 2
-        assert metar_weather_code(metar("", "SCT", wx="RESHRA")) == 2
-        assert metar_weather_code(metar("", "FEW", wx="BCFG")) == 1
+        assert named(metar("", "SCT", wx="VCSH")) == 2
+        assert named(metar("", "SCT", wx="RESHRA")) == 2
+        assert named(metar("", "FEW", wx="BCFG")) == 1
 
     def test_nothing_to_go_on(self):
         assert metar_weather_code(metar("", None)) is None
@@ -75,14 +102,17 @@ class TestNearest:
 
 
 class TestApply:
-    def observation(self, code, sees_high_cloud=True):
-        return {"code": code, "station": "KPWM", "name": "Portland Intl, ME, US",
+    def observation(self, code, sees_high_cloud=True, cover=None):
+        if cover is None:
+            cover = {0: 0, 1: 25, 2: 50, 3: 100}.get(code)
+        return {"code": code, "cover": cover, "station": "KPWM", "name": "Portland Intl, ME, US",
                 "distance_km": 6.6, "time": NOW, "sees_high_cloud": sees_high_cloud}
 
     def test_the_station_replaces_the_models_code(self):
         data = {"current": {"weather_code": 45, "cloud_cover_high": 0}}
-        apply_observation(data, self.observation(2))
+        apply_observation(data, self.observation(2, cover=75))
         assert data["current"]["weather_code"] == 2
+        assert data["current"]["cloud_cover"] == 75
         assert data["current"]["model_weather_code"] == 45
         assert data["current"]["observed"]["station"] == "KPWM"
 
