@@ -686,3 +686,94 @@ class TestCities:
         near_dots = {p for p, (ch, _c) in near.items() if ch == "•"}
         far_dots = {p for p, (ch, _c) in far.items() if ch == "•"}
         assert near_dots != far_dots
+
+
+# _place_cities as it stood before the trig hoist and the biggest-first
+# walk: the reference the fast path has to agree with, exactly.
+def _place_cities_longhand(cities, lat0, lon0, zoom, gw, hc, lang):
+    from linecast._radar_basemap import CITY, CITY_LABEL, _localized
+    from linecast._textwidth import char_width
+    max_cities = max(6, min(24, (gw * hc) // 400))
+    r = _globe._radius(zoom, hc * 2)
+    rx = r * _globe._aspect()
+    ranked = []
+    for entry in cities:
+        lon, lat, pop = entry[0], entry[1], entry[2]
+        ux, uy, cos_c = _globe.forward(lat, lon, lat0, lon0)
+        if cos_c < 0.2:
+            continue
+        col = int(gw / 2.0 + ux * rx)
+        row = int((hc * 2 / 2.0 - uy * r) / 2.0)
+        if 0 <= col < gw and 0 <= row < hc:
+            ranked.append((pop, _localized(entry, lang), col, row))
+    ranked.sort(key=lambda c: c[0], reverse=True)
+
+    overlays = {}
+    placed = []
+    for _pop, name, col, row in ranked:
+        if len(placed) >= max_cities:
+            break
+        if (col, row) in overlays:
+            continue
+        if any(abs(col - pc) < 16 and abs(row - pr) < 3 for pc, pr in placed):
+            continue
+        placed.append((col, row))
+        overlays[(col, row)] = ("•", CITY)
+        c = col + 1
+        prev = None
+        for ch in name:
+            w = char_width(ch)
+            if w == 0 and prev is not None:
+                kept, ink = overlays[prev]
+                overlays[prev] = (kept + ch, ink)
+                continue
+            if c + w > gw:
+                break
+            if (c, row) in overlays or (w == 2 and (c + 1, row) in overlays):
+                break
+            overlays[(c, row)] = (ch, CITY_LABEL)
+            prev = (c, row)
+            if w == 2:
+                overlays[(c + 1, row)] = ("", None)
+            c += w
+    return overlays
+
+
+class TestCityPlacementIsUnchanged:
+    # the vendored cities, projected the long way and the quick way
+    VIEWS = [
+        (20.0, -30.0, 125.0, 80, 22, "en"),    # the Atlantic
+        (0.0, 0.0, 45.0, 160, 45, "en"),       # the hand-off zoom
+        (35.0, 139.0, 130.0, 160, 45, "zh"),   # a dense hemisphere
+        (-33.0, 151.0, 90.0, 100, 30, "fr"),   # the other one
+        (89.0, 0.0, 130.0, 160, 45, "en"),     # over the pole
+        (0.0, 180.0, 130.0, 60, 16, "de"),     # over the antimeridian
+        (48.0, 2.0, 60.0, 200, 60, "zh-Hant"),  # a tall, wide terminal
+    ]
+
+    def test_every_label_lands_where_it_always_did(self):
+        cities = _globe._load_data()["cities"]
+        for lat0, lon0, zoom, gw, hc, lang in self.VIEWS:
+            assert (_globe._place_cities(cities, lat0, lon0, zoom, gw, hc,
+                                         lang)
+                    == _place_cities_longhand(cities, lat0, lon0, zoom, gw,
+                                              hc, lang))
+
+    def test_a_spin_of_the_planet_never_drifts(self):
+        cities = _globe._load_data()["cities"]
+        for i in range(24):
+            lon0 = -180.0 + i * 15.0
+            assert (_globe._place_cities(cities, 20.0, lon0, 125.0, 80, 22,
+                                         "en")
+                    == _place_cities_longhand(cities, 20.0, lon0, 125.0, 80,
+                                              22, "en"))
+
+    def test_swapped_in_data_gets_its_own_trig(self, monkeypatch):
+        # the memo is keyed to the list object, not to its contents
+        small = dict(_globe._load_data())
+        small["cities"] = small["cities"][:40]
+        monkeypatch.setattr(_globe, "_load_data", lambda: small)
+        assert (_globe._place_cities(small["cities"], 20.0, -30.0, 125.0,
+                                     80, 22, "en")
+                == _place_cities_longhand(small["cities"], 20.0, -30.0,
+                                          125.0, 80, 22, "en"))

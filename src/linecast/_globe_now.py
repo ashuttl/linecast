@@ -188,28 +188,58 @@ def subsolar(t=None):
     return _declination(tm.tm_yday), wrap_lon(lon)
 
 
+# the ramp's two ends as sines of the solar altitude.  Whole night and
+# whole day are a comparison each; only the band between them — a few
+# hundred of a frame's ten thousand samples — is worth an arcsine.
+_RAMP_DARK = math.sin(math.radians(-9.0))
+_RAMP_LIT = math.sin(math.radians(3.0))
+
+
 def daylight(lls, sun):
     """Per-sample day factor: 1 in sunshine, 0 at night, None in space.
 
     The ramp runs from civil twilight's far edge (sun 9° down) to a few
     degrees of morning, smoothstepped — the terminator is a band, not
     a line, and the band is what makes the sphere read as lit.
+
+    Written out like _globe.elevation's inner loop, for the same
+    reason: every sub-pixel of every repaint with the sun on comes
+    through here, and the arithmetic was mostly call overhead.  The
+    sun's trig is a constant per frame, a sample's latitude serves the
+    one after it whenever the row holds a parallel (the flat map's
+    rows all do), and the sine of the solar altitude answers the ramp
+    without the arcsine everywhere but in the band itself.
     """
-    sin_d = math.sin(math.radians(sun[0]))
-    cos_d = math.cos(math.radians(sun[0]))
+    rad = math.pi / 180.0
+    sin, cos, asin, degrees = math.sin, math.cos, math.asin, math.degrees
+    dark, lit = _RAMP_DARK, _RAMP_LIT
+    sin_d = sin(sun[0] * rad)
+    cos_d = cos(sun[0] * rad)
+    sun_lon = sun[1]
     out = []
     for row in lls:
         o = []
+        app = o.append
+        last_lat = None
+        a = b = 0.0
         for ll in row:
             if ll is None:
-                o.append(None)
+                app(None)
                 continue
-            phi = math.radians(ll[0])
-            cos_z = (math.sin(phi) * sin_d + math.cos(phi) * cos_d
-                     * math.cos(math.radians(ll[1] - sun[1])))
-            elev = math.degrees(math.asin(max(-1.0, min(1.0, cos_z))))
-            t = max(0.0, min(1.0, (elev + 9.0) / 12.0))
-            o.append(t * t * (3.0 - 2.0 * t))
+            lat = ll[0]
+            if lat != last_lat:
+                last_lat = lat
+                phi = lat * rad
+                a = sin(phi) * sin_d
+                b = cos(phi) * cos_d
+            cos_z = a + b * cos((ll[1] - sun_lon) * rad)
+            if cos_z <= dark:
+                app(0.0)
+            elif cos_z >= lit:
+                app(1.0)
+            else:
+                t = (degrees(asin(cos_z)) + 9.0) / 12.0
+                app(t * t * (3.0 - 2.0 * t))
         out.append(o)
     return out
 

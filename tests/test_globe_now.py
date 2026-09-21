@@ -297,3 +297,62 @@ class TestInkDusk:
         assert _globe_now.dim_ink((100, 140, 180), None) == (100, 140, 180)
         assert _globe_now.dim_ink(None, dusk[1][1]) is None
 
+
+
+# daylight() as it stood before its inner loop was written out: the
+# reference the fast ramp has to agree with.
+def _daylight_longhand(lls, sun):
+    import math
+    sin_d = math.sin(math.radians(sun[0]))
+    cos_d = math.cos(math.radians(sun[0]))
+    out = []
+    for row in lls:
+        o = []
+        for ll in row:
+            if ll is None:
+                o.append(None)
+                continue
+            phi = math.radians(ll[0])
+            cos_z = (math.sin(phi) * sin_d + math.cos(phi) * cos_d
+                     * math.cos(math.radians(ll[1] - sun[1])))
+            elev = math.degrees(math.asin(max(-1.0, min(1.0, cos_z))))
+            t = max(0.0, min(1.0, (elev + 9.0) / 12.0))
+            o.append(t * t * (3.0 - 2.0 * t))
+        out.append(o)
+    return out
+
+
+class TestDaylightIsUnchanged:
+    SUNS = [(0.0, 0.0), (23.44, 120.0), (-23.44, -75.0), (10.0, 179.5),
+            (0.0, -180.0)]
+
+    @staticmethod
+    def _same(lls, sun):
+        for want, got in zip(_daylight_longhand(lls, sun),
+                             _globe_now.daylight(lls, sun)):
+            for a, b in zip(want, got):
+                assert (a is None) == (b is None)
+                if a is not None:
+                    assert abs(a - b) < 1e-9
+
+    def test_the_globe_grid_matches_the_long_way(self):
+        from linecast import _globe
+        for lat0, lon0 in ((20.0, -30.0), (-60.0, 140.0), (89.0, 0.0)):
+            lls, _zs, _rhos = _globe.geometry(lat0, lon0, 125.0, 60, 40)
+            for sun in self.SUNS:
+                self._same(lls, sun)
+
+    def test_the_flat_grid_matches_the_long_way(self):
+        lls = _globe_now.flat_lls((-40.0, -20.0, 60.0, 55.0), 60, 40)
+        for sun in self.SUNS:
+            self._same(lls, sun)
+
+    def test_the_whole_ramp_is_walked_end_to_end(self):
+        # a meridian of samples through the terminator: night, the
+        # twilight band itself, and full day, at a tenth of a degree
+        sun = (0.0, 0.0)
+        lls = [[(0.0, 80.0 + k * 0.1) for k in range(300)]]
+        self._same(lls, sun)
+        (day,) = _globe_now.daylight(lls, sun)
+        assert day[0] == 1.0 and day[-1] == 0.0
+        assert any(0.0 < d < 1.0 for d in day)

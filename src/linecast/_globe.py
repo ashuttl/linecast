@@ -804,33 +804,80 @@ def city_overlays(lat0, lon0, zoom, gw, hc, lang="en"):
     return hit
 
 
+# _city_trig() memo: (cities list identity, its trig form).  Keyed to
+# the list object itself so a test swapping the basemap data gets
+# fresh trig.
+_CITY_TRIG = (None, None)
+
+
+def _city_trig(cities):
+    """Every city as (entry, sin lat, cos lat, lon, x, y), biggest first.
+
+    The per-vertex hoist _border_trig() gets, and two additions.  The
+    city's place in space, so one dot product against the view centre
+    drops the far hemisphere before any trig is spent on it — the cap
+    test lake_mask() makes, one city wide.  And the whole list ordered
+    by population once, so placement can walk it biggest-first and
+    stop the moment the screen is full: a frame then looks at a few
+    hundred cities rather than at every one of the five thousand.  The
+    unit vector's third component is sin lat, already there.
+    """
+    global _CITY_TRIG
+    if _CITY_TRIG[0] is not cities:
+        radians, sin, cos = math.radians, math.sin, math.cos
+        out = []
+        for entry in cities:
+            phi, lam = radians(entry[1]), radians(entry[0])
+            cos_phi = cos(phi)
+            out.append((entry, sin(phi), cos_phi, lam,
+                        cos_phi * cos(lam), cos_phi * sin(lam)))
+        # stable, so this order restricted to the cities in view is the
+        # order the in-view list would sort itself into
+        out.sort(key=lambda c: c[0][2], reverse=True)
+        _CITY_TRIG = (cities, out)
+    return _CITY_TRIG[1]
+
+
 def _place_cities(cities, lat0, lon0, zoom, gw, hc, lang):
     max_cities = max(6, min(24, (gw * hc) // 400))
     r = _radius(zoom, hc * 2)
     rx = r * _aspect()
-    ranked = []
-    for entry in cities:
-        lon, lat, pop = entry[0], entry[1], entry[2]
-        ux, uy, cos_c = forward(lat, lon, lat0, lon0)
-        if cos_c < 0.2:
-            continue
-        col = int(gw / 2.0 + ux * rx)
-        row = int((hc * 2 / 2.0 - uy * r) / 2.0)
-        if 0 <= col < gw and 0 <= row < hc:
-            ranked.append((pop, _localized(entry, lang), col, row))
-    ranked.sort(key=lambda c: c[0], reverse=True)
+    phi0, lam0 = math.radians(lat0), math.radians(lon0)
+    sin0, cos0 = math.sin(phi0), math.cos(phi0)
+    vx, vy, vz = cos0 * math.cos(lam0), cos0 * math.sin(lam0), sin0
+    # The farthest from the view centre a placed city can lie: the
+    # screen's own corner, or the visibility gate below, whichever
+    # binds first.  A cell over-generous on purpose — the cap only has
+    # to pass a city on, never to decide about one.
+    rho2 = ((gw / 2.0 + 1.0) / rx) ** 2 + ((hc + 2.0) / r) ** 2
+    cap = (math.sqrt(1.0 - rho2) if rho2 < 0.96 else 0.2) - 1e-9
+    sin, cos = math.sin, math.cos
+    half_w, half_h = gw / 2.0, hc * 2 / 2.0
 
     overlays = {}
     placed = []
-    for _pop, name, col, row in ranked:
+    for entry, sin_phi, cos_phi, lam, px, py in _city_trig(cities):
         if len(placed) >= max_cities:
             break
+        if px * vx + py * vy + sin_phi * vz < cap:
+            continue  # nowhere the screen reaches
+        d = lam - lam0
+        cos_d = cos(d)
+        if sin0 * sin_phi + cos0 * cos_phi * cos_d < 0.2:
+            continue  # forward()'s cos_c, with the trig hoisted
+        ux = cos_phi * sin(d)
+        uy = cos0 * sin_phi - sin0 * cos_phi * cos_d
+        col = int(half_w + ux * rx)
+        row = int((half_h - uy * r) / 2.0)
+        if not (0 <= col < gw and 0 <= row < hc):
+            continue
         if (col, row) in overlays:
             continue
         if any(abs(col - pc) < 16 and abs(row - pr) < 3 for pc, pr in placed):
             continue
         placed.append((col, row))
         overlays[(col, row)] = ("•", CITY)
+        name = _localized(entry, lang)
         c = col + 1
         prev = None
         for ch in name:
