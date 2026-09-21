@@ -68,11 +68,19 @@ def forecast_attribution(lang: str = "en") -> str:
     return lookup(_STRINGS, "credit_forecast", lang, source=FORECAST_SOURCE)
 
 
-def observation_attribution(lang: str = "en") -> str:
+def observation_source(station: str = "") -> str:
+    """The current conditions' source, with the station whose report it
+    is by its ICAO code: the one name for it that reads the same in
+    every language, where the station names the reports carry are
+    clipped, and in English."""
+    return f"{OBSERVATION_SOURCE} ({station})" if station else OBSERVATION_SOURCE
+
+
+def observation_attribution(lang: str = "en", station: str = "") -> str:
     """The current conditions credit in the display language."""
     from linecast._weather_i18n import _STRINGS
     from linecast._i18n import lookup
-    return lookup(_STRINGS, "credit_current", lang, source=OBSERVATION_SOURCE)
+    return lookup(_STRINGS, "credit_current", lang, source=observation_source(station))
 
 
 def alert_attribution(country_code: str, lang: str = "en") -> str | None:

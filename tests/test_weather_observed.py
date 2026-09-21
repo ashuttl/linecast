@@ -109,11 +109,12 @@ class TestApply:
 
 class TestCredits:
     def test_explanations_go_before_sources(self):
-        assert data_credits("US", "en", observed=True) == (
-            "Weather data by Open-Meteo · Current conditions by Aviation Weather Center"
+        assert data_credits("US", "en", observed={"station": "KPWM"}) == (
+            "Weather data by Open-Meteo · Current conditions by Aviation Weather Center (KPWM)"
             " · Alerts by US National Weather Service",
-            "Weather data by Open-Meteo · Aviation Weather Center · US National Weather Service",
-            "Weather data by Open-Meteo · Aviation Weather Center",
+            "Weather data by Open-Meteo · Aviation Weather Center (KPWM)"
+            " · US National Weather Service",
+            "Weather data by Open-Meteo · Aviation Weather Center (KPWM)",
             "Weather data by Open-Meteo",
         )
 

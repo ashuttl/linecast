@@ -69,7 +69,6 @@ from linecast._weather_sources import (
     _local_now_for_data,
     _reverse_geocode,
     _search_locations,
-    OBSERVATION_SOURCE,
     alert_attribution,
     alert_source,
     apply_national_index,
@@ -81,6 +80,7 @@ from linecast._weather_sources import (
     forecast_date,
     forecast_is_todays,
     observation_attribution,
+    observation_source,
     without_country,
 )
 from linecast._weather_observed import apply_observation, fetch_observation
@@ -97,7 +97,7 @@ CURVE_ROWS_COMFORTABLE = 5     # the spacing rows stay while the curve keeps thi
 MAX_PRECIP_ROWS = 3            # the precipitation bar at its tallest
 
 
-def data_credits(country_code="", lang="en", observed=False):
+def data_credits(country_code="", lang="en", observed=None):
     """The data credits, longest first. The forecast's comes first,
     then the current conditions' where a station's report was used,
     then the alerts' where a service supplies them. Short of room, the
@@ -106,10 +106,11 @@ def data_credits(country_code="", lang="en", observed=False):
     asks, and last of all stands alone."""
     forecast = forecast_attribution(lang)
     alerts = alert_attribution(country_code, lang)
-    current = observation_attribution(lang) if observed else None
+    station = (observed or {}).get("station", "")
+    current = observation_attribution(lang, station) if observed else None
     alerts_name = alert_source(country_code, lang)
     full = [forecast, current, alerts]
-    named = [forecast, OBSERVATION_SOURCE if observed else None, alerts_name]
+    named = [forecast, observation_source(station) if observed else None, alerts_name]
     rungs = [full, named, named[:2], [forecast]]
     credits = []
     for rung in rungs:
@@ -119,7 +120,7 @@ def data_credits(country_code="", lang="en", observed=False):
     return tuple(credits)
 
 
-def credit_row(cols, lang, country_code="", observed=False):
+def credit_row(cols, lang, country_code="", observed=None):
     """The live view's last row: the data credit at the left, in ink
     fainter than the prose above it, and the help hint at the right.
     The longest credit that leaves the whole hint its room wins; a
@@ -649,7 +650,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     if live:
         if blank_before_credit:
             lines.append("")
-        observed = bool((data.get("current") or {}).get("observed"))
+        observed = (data.get("current") or {}).get("observed")
         lines.append(credit_row(cols, runtime.lang, country_code, observed))
 
     # Shorter still than the trimming above could reach: cut the bottom
@@ -1009,7 +1010,8 @@ class WeatherApp(_live.LiveApp):
                           ('/', ls('add', self.runtime.lang))] +
                          entries('weather', self.runtime.lang,
                                  credits=(forecast_attribution(self.runtime.lang),
-                                          observation_attribution(self.runtime.lang)
+                                          observation_attribution(self.runtime.lang,
+                                                                  observed["station"])
                                           if observed else None,
                                           alert_attribution(self.country, self.runtime.lang),
                                           ATTRIBUTION)))
