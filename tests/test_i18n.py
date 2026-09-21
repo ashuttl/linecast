@@ -443,7 +443,7 @@ class TestTablesComplete:
     # and the dative "by" a time of day in Russian and Ukrainian.
     VARIANTS = {"linecast._sunshine_i18n": ("_dawn", "_dusk"),
                 "linecast._weather_i18n": ("_one", "_ma", "_pl", "_by", "_few", "_many", "_diff",
-                                           "_diff_one", "_diff_few", "_then")}
+                                           "_diff_one", "_diff_few", "_then", "_heavier")}
 
     def _tables(self):
         import importlib

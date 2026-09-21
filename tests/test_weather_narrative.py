@@ -273,6 +273,19 @@ class TestPrecipitationPeak:
         assert self._sentence(self._hourly(codes, amounts), use_24h=False) == \
             "Light drizzle becoming heavy rain around 11pm, ending overnight"
 
+    def test_japanese_says_the_same_rain_gets_harder_and_another_kind_turns(self):
+        # Rain at 18:00 turning heavy at 21:00 and over by 02:00 is the
+        # rain strengthening, not "rain becoming heavy rain"; drizzle
+        # turning to rain is still a turn
+        codes = [63, 63, 63, 65, 65, 65, 63, 61, 0, 0]
+        amounts = [0.1, 0.1, 0.1, 0.3, 0.34, 0.3, 0.2, 0.05, 0, 0]
+        assert self._sentence(self._hourly(codes, amounts), lang="ja") == \
+            "数時間後に雨が強まり、夜のうちにやむ見込み"
+        codes = [51, 51, 53, 61, 63, 65, 63, 61, 0, 0]
+        amounts = [0.01, 0.01, 0.02, 0.1, 0.2, 0.34, 0.2, 0.05, 0, 0]
+        assert self._sentence(self._hourly(codes, amounts), lang="ja") == \
+            "霧雨が23時頃に強い雨となり、夜のうちにやむ見込み"
+
     def test_a_run_that_keeps_its_name_reads_as_before(self):
         codes = [61, 61, 61, 61, 0]
         amounts = [0.05, 0.08, 0.06, 0.04, 0]
@@ -454,8 +467,10 @@ class TestTheClockInTheSentence:
         hourly = self._hourly(codes, late)
         assert precipitation_sentence(hourly, late, _runtime()) == \
             "Light rain starting tomorrow afternoon, becoming heavy rain in the evening"
+        # The same rain, harder, is said as such in Japanese; a turn to
+        # another kind (drizzle to rain, below) keeps "となり"
         assert precipitation_sentence(hourly, late, _runtime(lang="ja")) == \
-            "明日の午後に弱い雨、夕方に強い雨となる"
+            "明日の午後に弱い雨、夕方に強まる"
 
     def test_early_tomorrow_morning_is_followed_by_later_in_the_morning(self):
         # Chicago at nine at night: drizzle turning to rain before dawn,
@@ -467,8 +482,6 @@ class TestTheClockInTheSentence:
         hourly["precipitation"] = [0.01] * 9 + [0.1, 0.15, 0.15, 0.1, 0, 0]
         assert precipitation_sentence(hourly, night, _runtime()) == \
             "Light drizzle becoming rain early tomorrow morning, ending later in the morning"
-        # The same rain, harder, is said as such in Japanese; a turn to
-        # another kind (drizzle to rain, below) keeps "となり"
         assert precipitation_sentence(hourly, night, _runtime(lang="ja")) == \
             "霧雨が明日の早朝に雨となり、午前中にやむ見込み"
 
@@ -634,6 +647,10 @@ class TestMoreToSay:
         hourly = self._hourly(NOON, len(gusts), wind_gusts_10m=gusts)
         assert gusts_sentence(hourly, NOON, _runtime()) == "Gusts to 45mph this afternoon"
         hourly = self._hourly(NOON, len(gusts), wind_gusts_10m=[g * 1.6 for g in gusts])
+        assert gusts_sentence(hourly, NOON, _runtime(lang="de", metric=True)) == \
+            "Böen bis 72 km/h heute Nachmittag"
+        # Japanese reads the wind in m/s, and the data comes that way too
+        hourly = self._hourly(NOON, len(gusts), wind_gusts_10m=[g * 1.6 / 3.6 for g in gusts])
         assert gusts_sentence(hourly, NOON, _runtime(lang="ja", metric=True)) == \
             "午後に最大20m/sの突風の見込み"
 
@@ -647,10 +664,6 @@ class TestMoreToSay:
         temps = [40, 38, 36, 35, 34, 33, 32, 31, 29, 28, 28, 30, 34, 38]
         hourly = self._hourly(datetime(2026, 7, 15, 20), len(temps), temperature_2m=temps)
         now = datetime(2026, 7, 15, 20, 10)
-        assert gusts_sentence(hourly, NOON, _runtime(lang="de", metric=True)) == \
-            "Böen bis 72 km/h heute Nachmittag"
-        # Japanese reads the wind in m/s, and the data comes that way too
-        hourly = self._hourly(NOON, len(gusts), wind_gusts_10m=[g * 1.6 / 3.6 for g in gusts])
         assert freeze_sentence(hourly, {"temperature_2m": 41}, now, _runtime()) == \
             "Below freezing early tomorrow morning, down to 28°"
         # A proper minus sign, not a hyphen

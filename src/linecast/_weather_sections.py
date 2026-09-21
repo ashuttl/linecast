@@ -1011,7 +1011,16 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None):
         if start is not None:
             words["time"] = _time_phrase(start, now, runtime, after=after)
         if peak:
-            key += "_becoming"
+            # Rain that turns heavy is the same rain, harder: a language
+            # that says so in its own way ("雨が強まり", not "雨が強い雨と
+            # なり") carries a "_heavier" form of the template, and the
+            # "_becoming" form is kept for a turn to another kind
+            same_kind = (_PRECIP_KIND.get(codes[peak[0]])
+                         == _PRECIP_KIND.get(codes[run[0][0]]))
+            if same_kind and _has(key + "_heavier", runtime):
+                key += "_heavier"
+            else:
+                key += "_becoming"
             words.update(peak=desc(peak[0]),
                          peak_time=_time_phrase(peak[1], now, runtime, after=start))
         if end is not None:

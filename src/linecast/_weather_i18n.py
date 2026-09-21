@@ -2549,6 +2549,15 @@ _STRINGS = {
         "starting_sure_becoming": "{time}{desc}、{peak_time}{peak}となる",
         "continuing_night": "{desc}が夜通し続く見込み",
         "continuing_night_becoming": "{desc}が{peak_time}{peak}となり、夜通し続く見込み",
+        # The same rain, harder: "雨が強まり", where "becoming" would say
+        # "雨が強い雨となり".  The "_becoming" forms keep a turn to another
+        # kind, drizzle to rain or rain to snow.
+        "ending_heavier": "{peak_time}{desc}が強まり、{time}やむ見込み",
+        "continuing_heavier": "{peak_time}{desc}が強まり、一日中続く見込み",
+        "starting_heavier": "{time}{desc}、{peak_time}強まる見込み",
+        "starting_chance_heavier": "{time}{desc}、{peak_time}強まる可能性",
+        "starting_sure_heavier": "{time}{desc}、{peak_time}強まる",
+        "continuing_night_heavier": "{peak_time}{desc}が強まり、夜通し続く見込み",
         "more_later": "{time}再び{desc}の見込み",
         "snow_total": "{time}は約{amt}の積雪の見込み",
         "shortly": "\u307e\u3082\u306a\u304f",
@@ -3217,6 +3226,7 @@ _STRINGS = {
         "precip_inch": "″",
         "metric_unit_sep": " ",
         "unit_kmh": "км/год",
+        "unit_ms": "м/с",
         "unit_mm": "мм",
         "unit_cm": "см",
         "feels": "відч.",
@@ -3226,7 +3236,6 @@ _STRINGS = {
         "chance": "ймовірність {p}",
         "chance_of": "ймовірність {what} {p}",
         "amount_between": "{amount} між {a} та {b}",
-        "unit_ms": "м/с",
         "amount_all_day": "{amount} протягом дня",
         "cloud": "Хмарність {p}",
         "heaviest_around": "найсильніше близько {time}",
@@ -3691,6 +3700,7 @@ _STRINGS = {
         "precip_inch": "″",
         "metric_unit_sep": " ",
         "unit_kmh": "км/ч",
+        "unit_ms": "м/с",
         "unit_mm": "мм",
         "unit_cm": "см",
         "feels": "ощущ.",
@@ -3700,7 +3710,6 @@ _STRINGS = {
         "chance": "вероятность {p}",
         # The kind of precipitation takes the genitive after
         # "вероятность" and after an amount alike: дождя, снега.
-        "unit_ms": "м/с",
         "chance_of": "вероятность {what} {p}",
         "amount_between": "{amount} между {a} и {b}",
         "amount_all_day": "{amount} в течение дня",
