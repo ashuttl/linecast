@@ -69,7 +69,9 @@ from linecast._weather_sources import (
     _local_now_for_data,
     _reverse_geocode,
     _search_locations,
+    OBSERVATION_SOURCE,
     alert_attribution,
+    alert_source,
     apply_national_index,
     fetch_canada_aqhi,
     fetch_aqi,
@@ -78,8 +80,10 @@ from linecast._weather_sources import (
     forecast_attribution,
     forecast_date,
     forecast_is_todays,
+    observation_attribution,
     without_country,
 )
+from linecast._weather_observed import apply_observation, fetch_observation
 
 # What the dashboard keeps when the window is too short for all of it:
 # the graph is the view -- its day line, its ticks and two rows of braille
@@ -93,15 +97,29 @@ CURVE_ROWS_COMFORTABLE = 5     # the spacing rows stay while the curve keeps thi
 MAX_PRECIP_ROWS = 3            # the precipitation bar at its tallest
 
 
-def data_credits(country_code="", lang="en"):
-    """The data credits, longest first: the forecast's with the alerts'
-    when a service supplies them, then the forecast's alone."""
+def data_credits(country_code="", lang="en", observed=False):
+    """The data credits, longest first. The forecast's comes first,
+    then the current conditions' where a station's report was used,
+    then the alerts' where a service supplies them. Short of room, the
+    others give up saying what they are credited for, then the alerts
+    go, then the station; the forecast's stays whole, as its licence
+    asks, and last of all stands alone."""
     forecast = forecast_attribution(lang)
     alerts = alert_attribution(country_code, lang)
-    return (f"{forecast} · {alerts}", forecast) if alerts else (forecast,)
+    current = observation_attribution(lang) if observed else None
+    alerts_name = alert_source(country_code, lang)
+    full = [forecast, current, alerts]
+    named = [forecast, OBSERVATION_SOURCE if observed else None, alerts_name]
+    rungs = [full, named, named[:2], [forecast]]
+    credits = []
+    for rung in rungs:
+        credit = " · ".join(part for part in rung if part)
+        if credit not in credits:
+            credits.append(credit)
+    return tuple(credits)
 
 
-def credit_row(cols, lang, country_code=""):
+def credit_row(cols, lang, country_code="", observed=False):
     """The live view's last row: the data credit at the left, in ink
     fainter than the prose above it, and the help hint at the right.
     The longest credit that leaves the whole hint its room wins; a
@@ -109,7 +127,7 @@ def credit_row(cols, lang, country_code=""):
     from linecast import _help
     from linecast._graphics import visible_len
     hint = _help.hint(lang)
-    for credit in data_credits(country_code, lang):
+    for credit in data_credits(country_code, lang, observed):
         if visible_len(credit) + 2 + visible_len(hint) <= cols:
             return _help.footer(f"{DIM}{credit}{RESET}", cols, lang)
     return _help.footer("", cols, lang)
@@ -631,7 +649,8 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     if live:
         if blank_before_credit:
             lines.append("")
-        lines.append(credit_row(cols, runtime.lang, country_code))
+        observed = bool((data.get("current") or {}).get("observed"))
+        lines.append(credit_row(cols, runtime.lang, country_code, observed))
 
     # Shorter still than the trimming above could reach: cut the bottom
     # rather than let the terminal scroll the header away.
@@ -723,7 +742,8 @@ class WeatherApp(_live.LiveApp):
                         fallback="alerts matched on geometry alone")
             cc, addr = "", {}
         try:
-            data = fetch_forecast(lat, lng, self.runtime)
+            data = apply_observation(fetch_forecast(lat, lng, self.runtime),
+                                     fetch_observation(lat, lng))
             alerts = fetch_alerts(lat, lng, cc or country,
                                   lang=self.runtime.lang, address=addr)
             aqi = apply_national_index(fetch_aqi(lat, lng), country, lat, lng)
@@ -983,11 +1003,14 @@ class WeatherApp(_live.LiveApp):
         from linecast._help import HelpPanel, entries
         from linecast._maps_search import ATTRIBUTION
         from linecast._weather_locations_i18n import ls
+        observed = ((self.data or {}).get("current") or {}).get("observed")
         return HelpPanel('weather', self.runtime.lang, content=lambda cols, rows:
                          [('l', ls('locations', self.runtime.lang)),
                           ('/', ls('add', self.runtime.lang))] +
                          entries('weather', self.runtime.lang,
                                  credits=(forecast_attribution(self.runtime.lang),
+                                          observation_attribution(self.runtime.lang)
+                                          if observed else None,
                                           alert_attribution(self.country, self.runtime.lang),
                                           ATTRIBUTION)))
 
@@ -1068,6 +1091,7 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
     fut_geocode = _submit(_reverse_geocode, lat, lng)
     fut_forecast = _submit(fetch_forecast, lat, lng, runtime)
     fut_aqi = _submit(fetch_aqi, lat, lng)
+    fut_observed = _submit(fetch_observation, lat, lng)
     today = date.today()
     fut_hist = _submit(fetch_historical, lat, lng, today,
                        celsius=runtime.celsius, metric=runtime.metric, stale=stale)
@@ -1093,7 +1117,8 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
     localized = _settle(fut_name, "place name", ("", "", {}))[0] if fut_name else ""
     result["name"] = localized or without_country(geo_label) or name
     result["country_code"] = cc or country_code
-    result["data"] = _settle(fut_forecast, "forecast", None)
+    result["data"] = apply_observation(_settle(fut_forecast, "forecast", None),
+                                       _settle(fut_observed, "station observation", None))
     result["aqi"] = _settle(fut_aqi, "air quality", None)
     result["aqhi"] = _settle(fut_aqhi, "Canada's AQHI", None) if fut_aqhi else None
     # The live view can fill the climate scale in later, so it does not

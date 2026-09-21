@@ -18,6 +18,9 @@ from linecast._runtime import WeatherRuntime, current_runtime, log_failure
 # language it has one in; the phrase around them is translated.
 ATTRIBUTION = "Weather data by Open-Meteo"
 FORECAST_SOURCE = "Open-Meteo"
+# The current sky, where a nearby airport's report stands in for the
+# model's (_weather_observed).
+OBSERVATION_SOURCE = "Aviation Weather Center"
 
 _ALERT_SOURCES = {
     "US": "US National Weather Service",
@@ -63,6 +66,13 @@ def forecast_attribution(lang: str = "en") -> str:
     from linecast._weather_i18n import _STRINGS
     from linecast._i18n import lookup
     return lookup(_STRINGS, "credit_forecast", lang, source=FORECAST_SOURCE)
+
+
+def observation_attribution(lang: str = "en") -> str:
+    """The current conditions credit in the display language."""
+    from linecast._weather_i18n import _STRINGS
+    from linecast._i18n import lookup
+    return lookup(_STRINGS, "credit_current", lang, source=OBSERVATION_SOURCE)
 
 
 def alert_attribution(country_code: str, lang: str = "en") -> str | None:
@@ -253,7 +263,7 @@ def fetch_forecast(lat: float, lng: float,
         f"&precipitation_unit={'mm' if runtime.metric else 'inch'}"
         "&timezone=auto&forecast_days=7&past_days=1"
         "&current=temperature_2m,apparent_temperature,weather_code,"
-        "wind_speed_10m,wind_gusts_10m,relative_humidity_2m,dew_point_2m"
+        "wind_speed_10m,wind_gusts_10m,relative_humidity_2m,dew_point_2m,cloud_cover_high"
     )
     return wall_clock(fetch_json_cached(
         cache_file,

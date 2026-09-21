@@ -154,6 +154,7 @@ def build_payload(data, location_name, country_code, runtime,
             "weather_code": cur_code,
             "condition": _condition_name(cur_code, runtime),
             "icon": _icon(cur_code, runtime),
+            "observed": current.get("observed"),
         },
         "today": {
             "high": _at(daily.get("temperature_2m_max"), today_index),
