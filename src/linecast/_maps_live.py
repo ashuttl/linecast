@@ -785,11 +785,12 @@ class MapApp(LiveApp):
         # through; the frames in between are cut from the last real
         # one (maps._reproject_street, maps._reproject_terrain).
         _maps_views.hold_motion(moving)
-        # A globe in motion repaints synchronously: its canvas is
-        # warm, so "blocking" is a few hundredths of a second of
-        # arithmetic, and the alternative is a blank disk between
-        # frames rather than a planet that turns.
-        sync = (moving and _globe.is_globe(zoom, lat)
+        # A warm globe repaints synchronously, moving or at rest: the
+        # frame is a few hundredths of a second of arithmetic, and the
+        # alternative is a blank disk — between frames while it turns,
+        # and once more where a coast runs out, since the resting
+        # centre is never quite the last moving one.
+        sync = (_globe.is_globe(zoom, lat)
                 and globe_warm(zoom, hc, self.view == "street"))
         return render_map(
             lat, lon, self.location_name, zoom,

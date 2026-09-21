@@ -655,19 +655,22 @@ class TestRender:
         assert f["show_labels"] is True
         assert f["sun"] is True and f["clouds"] is True
 
-    def test_a_warm_globe_in_motion_renders_blocking(self, frames,
-                                                     monkeypatch):
-        # the blocking repaint is no longer a one-shot flag: a warm
-        # globe blocks for as long as the camera is moving, and stops
-        # the moment it rests
+    def test_a_warm_globe_renders_blocking_moving_or_at_rest(self, frames,
+                                                            monkeypatch):
+        # a warm globe frame is cheap, and the frame where a coast runs
+        # out is at a centre the moving frames never drew: rendered
+        # through the cache it would be a blank disk before the planet
+        # settles
         monkeypatch.setattr(_globe, "warm", lambda zoom, h: True)
         app = make(zoom=_globe.ZOOM_DEG)
         app.on_drag(4, 0, False)
         app.render()
         assert frames[-1]["block"] is True
         app.on_drag(4, 0, True)
+        settle(app)
         app.render()
-        assert frames[-1]["block"] is False
+        assert not app.camera.moving()
+        assert frames[-1]["block"] is True
 
     def test_a_cold_globe_never_blocks(self, frames):
         app = make(zoom=_globe.ZOOM_DEG)

@@ -19,6 +19,7 @@ from linecast import (
     _theme,
 )
 from linecast._elevation import elevation_grid
+from linecast import _live
 from linecast._live import nudge as _nudge_repaint
 from linecast._maps_i18n import ms
 from linecast._maps_paint import (
@@ -373,15 +374,15 @@ def _get_clouds(zoom, hc, block):
     """The stitched cloud canvas for the now register, or None.
 
     Blocking mode fetches only when no canvas exists at all, and never
-    while the camera is moving: a frame drawn mid-gesture must not wait
-    on the network, and the whole view would stop dead in the middle
-    of a turn for a layer that is only the weather over it.  A stale
-    canvas is still this hour's, and a missing one is a planet without
-    cloud for a few frames.  Freshening always happens in the
-    background, nudging a repaint when it lands.
+    on the live loop, where every warm globe frame blocks: a frame must
+    not wait on the network, and the whole view would stop dead for a
+    layer that is only the weather over it.  A stale canvas is still
+    this hour's, and a missing one is a planet without cloud for a few
+    frames.  Live, freshening happens in the background and nudges a
+    repaint when it lands.
     """
     canvas = _globe_now.peek()
-    if block and canvas is None and not _in_motion[0]:
+    if block and canvas is None and not _live._running:
         try:
             _globe_now.refresh(zoom, hc * 4)
         except Exception as exc:
