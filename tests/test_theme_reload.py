@@ -20,9 +20,9 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast import (
-    _color, _framebuffer, _maps_style, _radar_basemap, _radar_render, _theme, moon, sunshine,
-    tides,
+    _color, _framebuffer, _radar_basemap, _radar_render, _theme, moon, sunshine, tides,
 )
+from linecast._maps import style as _maps_style
 from linecast._weather import alerts
 from linecast._weather import render as _weather_render
 from linecast._weather import style

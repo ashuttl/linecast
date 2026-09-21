@@ -16,7 +16,9 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _globe, _maps_views, maps
+from linecast import maps
+from linecast._maps import globe as _globe
+from linecast._maps import views
 from linecast._color import BG_PRIMARY
 from linecast._radar_basemap import _BITS
 from linecast._radar_i18n import rs
@@ -191,7 +193,7 @@ class TestPrefetchAround:
                            [(0.0, 0.0, span * 2, span) for span in spans])
 
     def _views(self, monkeypatch, bboxes, height_cells=8):
-        from linecast import _maps_streets as ms
+        from linecast._maps import streets as ms
         asked = []
         monkeypatch.setattr(ms, "prefetch_tiles", lambda keys: asked.append(list(keys)))
         monkeypatch.setattr(ms, "tile_info", lambda: ("t", "v", 14))
@@ -229,8 +231,8 @@ class TestPrefetchAround:
         # overscan whose window wants z14, while the overscan's own bbox
         # left to itself would be coarsened to z13 — so the guess has to
         # be scaled and settled the way view_tiles settles the view
-        from linecast import _maps_overscan as over
-        from linecast import _maps_streets as ms
+        from linecast._maps import overscan as over
+        from linecast._maps import streets as ms
         gw, hc = maps.map_cells((160, 45))
         asked = []
         monkeypatch.setattr(ms, "prefetch_tiles", lambda keys: asked.extend(keys))
@@ -253,7 +255,7 @@ class TestPrefetchAround:
     def test_a_zoom_on_a_wide_terminal_keeps_its_guess(self, monkeypatch):
         # London at 160x45: twelve tiles, a ring of eighteen and a
         # guess of fifteen at the next zoom, all inside the cap
-        from linecast import _maps_streets as ms
+        from linecast._maps import streets as ms
         gw, hc = maps.map_cells((160, 45))
         asked, keys = self._views(
             monkeypatch, [bbox_for(51.5, -0.12, 0.075, gw, hc),
@@ -262,7 +264,7 @@ class TestPrefetchAround:
         assert any(k[0] > keys[0][0] for k in asked)  # the guess survives
 
     def test_the_guess_gives_way_to_the_cap(self, monkeypatch):
-        from linecast import _maps_streets as ms
+        from linecast._maps import streets as ms
         monkeypatch.setattr(ms, "_MAX_TILES", 4)
         gw, hc = maps.map_cells((160, 45))
         asked, keys = self._views(
@@ -452,11 +454,11 @@ class TestTheNewestViewStandsIn:
     @pytest.fixture(autouse=True)
     def _quiet(self, monkeypatch):
         monkeypatch.setattr(maps, "get_terminal_size", lambda: (COLS, ROWS))
-        _maps_views._street_landed[0] = None
-        _maps_views._terrain_landed[0] = None
+        views._street_landed[0] = None
+        views._terrain_landed[0] = None
         yield
-        _maps_views._street_landed[0] = None
-        _maps_views._terrain_landed[0] = None
+        views._street_landed[0] = None
+        views._terrain_landed[0] = None
         maps._last_street[0] = maps._last_terrain[0] = None
 
     def _windows(self, gw, hc):
@@ -488,11 +490,11 @@ class TestTheNewestViewStandsIn:
         assert _braille_between(before, 0, gw // 4) > 0
         assert _braille_between(before, gw - gw // 4, gw) == 0
         # the view the pan is heading for lands between the frames
-        _maps_views._street_landed[0] = (east, gw, hc, fills, layer)
+        views._street_landed[0] = (east, gw, hc, fills, layer)
         after = self._frame("street")
         assert _braille_between(after, gw - gw // 4, gw) > 0
         assert _braille_between(after, 0, gw // 4) == 0
-        assert _maps_views.take_street() is None     # taken once
+        assert views.take_street() is None     # taken once
         assert maps._last_street[0][0] == east
 
     def test_a_terrain_view_that_lands_mid_pan_does_the_same(
@@ -510,11 +512,11 @@ class TestTheNewestViewStandsIn:
         before = self._frame("terrain")
         assert _braille_between(before, 0, gw // 4) > 0
         assert _braille_between(before, gw - gw // 4, gw) == 0
-        _maps_views._terrain_landed[0] = (east, gw, hc, landed)
+        views._terrain_landed[0] = (east, gw, hc, landed)
         after = self._frame("terrain")
         assert _braille_between(after, gw - gw // 4, gw) > 0
         assert _braille_between(after, 0, gw // 4) == 0
-        assert _maps_views.take_terrain() is None
+        assert views.take_terrain() is None
         assert maps._last_terrain[0][0] == east
 
     def test_a_landing_at_another_terminal_size_is_left_alone(
@@ -528,7 +530,7 @@ class TestTheNewestViewStandsIn:
         layer = maps._ShiftedLayer([[0xFF] * gw for _ in range(hc)],
                                    [[ink] * gw for _ in range(hc)])
         maps._last_street[0] = (west, gw, hc, fills, layer)
-        _maps_views._street_landed[0] = (east, gw + 1, hc, fills, layer)
+        views._street_landed[0] = (east, gw + 1, hc, fills, layer)
         maps._render_street(bbox_for(self.LAT, self.LON, self.ZOOM, gw, hc),
                             gw, hc, False, (0, 0), None, None, None, None,
                             "en", None)

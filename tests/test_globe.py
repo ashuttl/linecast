@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _globe
+from linecast._maps import globe as _globe
 from linecast._scenes import Memo
 
 
@@ -145,8 +145,8 @@ class TestMemoRaces:
             rnd.randint(-80, 80), 0.0, 60.0, 12, 6), rounds=60)
 
     def test_city_lights(self):
-        from linecast import _globe_now
-        self._hammer(lambda rnd: _globe_now.city_lights_globe(
+        from linecast._maps import globe_now
+        self._hammer(lambda rnd: globe_now.city_lights_globe(
             rnd.randint(-80, 80), 0.0, 60.0, 12, 12), rounds=60)
 
 
@@ -353,7 +353,7 @@ class TestAtmosphere:
         assert seen > 0
 
     def test_gate_glow_keeps_day_dims_night(self):
-        from linecast import _globe_now
+        from linecast._maps import globe_now
         # sun over 90E, view centred on 0: east limb noon, west midnight
         lat0, lon0, zoom, w, h = 0.0, 0.0, 125.0, 80, 48
         _lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, w, h)
@@ -363,7 +363,7 @@ class TestAtmosphere:
         buf = [[bg] * w for _ in range(h)]
         _globe.shade_buffer(buf, zs, atmo, bg)
         before = [row[:] for row in buf]
-        day = _globe_now.daylight(glow, (0.0, 90.0))
+        day = globe_now.daylight(glow, (0.0, 90.0))
         _globe.gate_glow(buf, atmo, day, bg)
         y = h // 2
         east = max(x for x in range(w) if atmo[y][x] > 0.5)
@@ -607,7 +607,8 @@ class TestStreetRegister:
                                 None, None, lls)
 
     def _render(self, monkeypatch, street):
-        from linecast import _globe_now, maps
+        from linecast import maps
+        from linecast._maps import globe_now
         gw, hc = 40, 12
         asked = []
         monkeypatch.setattr(maps, "_get_globe",
@@ -620,7 +621,7 @@ class TestStreetRegister:
             asked.append(a)
             return {}
 
-        monkeypatch.setattr(_globe_now, "city_lights_globe", lights)
+        monkeypatch.setattr(globe_now, "city_lights_globe", lights)
         bbox = (-31.0, -42.5, -29.0, 82.5)  # centre (20, -30), zoom 125
         maps._render_globe(bbox, gw, hc, True, (0, 0), None, None, None,
                            None, "en", None, street=street, sun=True)
@@ -633,7 +634,8 @@ class TestStreetRegister:
         assert self._render(monkeypatch, street=False) != []
 
     def test_the_flat_street_map_asks_for_none_either(self, monkeypatch):
-        from linecast import _globe_now, maps
+        from linecast import maps
+        from linecast._maps import globe_now
         gw, hc = 40, 12
         asked, shaded = [], []
 
@@ -641,7 +643,7 @@ class TestStreetRegister:
             asked.append(a)
             return {}
 
-        monkeypatch.setattr(_globe_now, "city_lights_flat", lights)
+        monkeypatch.setattr(globe_now, "city_lights_flat", lights)
         monkeypatch.setattr(maps, "_get_street", lambda *a, **k:
                             (None, None, None))
         real = maps._shade_now
@@ -652,13 +654,13 @@ class TestStreetRegister:
                             sun=True)
         assert asked == []
         assert shaded[0][0][4] == {}           # the lights argument
-        assert shaded[0][1]["night"] == _globe_now.NIGHT_STREET
+        assert shaded[0][1]["night"] == globe_now.NIGHT_STREET
 
     def test_the_street_planet_wears_the_street_map_fills(self):
         # crossing the hand-off changes the curvature and nothing
         # else: no separate globe pair in either theme
-        from linecast import _maps_style
-        for p in (_maps_style.PALETTE_DARK, _maps_style.PALETTE_LIGHT):
+        from linecast._maps import style
+        for p in (style.PALETTE_DARK, style.PALETTE_LIGHT):
             assert "globe_water" not in p and "globe_ground" not in p
             assert p["water"] and p["ground"]
 

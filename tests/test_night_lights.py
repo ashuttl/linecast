@@ -4,7 +4,9 @@ import math
 
 import pytest
 
-from linecast import _globe, _globe_now, _night_lights
+from linecast import _night_lights
+from linecast._maps import globe as _globe
+from linecast._maps import globe_now
 
 
 def test_bundled_raster_locates_cities_and_keeps_remote_ground_dark():
@@ -58,8 +60,8 @@ def test_unavailable_asset_stays_off_without_fetching(monkeypatch, tmp_path, con
 def test_globe_and_flat_sample_the_same_geographic_source():
     # Odd dimensions put a pixel exactly on the view centre.
     lat, lon, zoom, w, h = 40.7, -74, 10, 21, 21
-    globe = _globe_now.city_lights_globe(lat, lon, zoom, w, h)
-    flat = _globe_now.city_lights_flat((lon-5, lat-5, lon+5, lat+5), w, h)
+    globe = globe_now.city_lights_globe(lat, lon, zoom, w, h)
+    flat = globe_now.city_lights_flat((lon-5, lat-5, lon+5, lat+5), w, h)
     assert globe[10, 10] == pytest.approx(flat[10, 10])
     points, _, _ = _globe.geometry(lat, lon, zoom, w, h)
     assert all(points[y][x] is not None and math.isfinite(v) for (x, y), v in globe.items())
@@ -85,5 +87,5 @@ def test_resolution_fade_has_no_step_at_either_boundary():
 
 
 def test_close_zoom_lights_disappear_in_flat_and_globe_views():
-    assert _globe_now.city_lights_globe(53.35, -2, 2.6, 160, 110) == {}
-    assert _globe_now.city_lights_flat((-3.3, 52.05, -.7, 54.65), 110, 110) == {}
+    assert globe_now.city_lights_globe(53.35, -2, 2.6, 160, 110) == {}
+    assert globe_now.city_lights_flat((-3.3, 52.05, -.7, 54.65), 110, 110) == {}

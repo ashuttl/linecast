@@ -3,7 +3,7 @@
 One rule set for how many columns a character occupies: VS16 emoji
 presentation, Private Use Area glyphs (Nerd Font icons), CJK wide/full
 forms, and the emoji planes.  Stdlib only, so pure-data modules (like
-_maps_style) can import it without dragging in the renderer.
+_maps.style) can import it without dragging in the renderer.
 """
 
 import re

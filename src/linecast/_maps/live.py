@@ -7,7 +7,7 @@ centre, the zoom and whatever motion they are in — plus the mode, the
 toggles and the search and directions panels; its methods are the
 hooks live_loop calls — zoom, drag, wheel, the keys, the clicks — and
 render, which draws the frame through render_map.  Everything drawn is
-in maps; everything fetched is in _maps_views; the easing and the
+in maps; everything fetched is in views; the easing and the
 flight path are in _maps_motion.
 """
 
@@ -16,19 +16,22 @@ import sys
 import threading
 import time
 
-from linecast import (
-    _globe, _globe_now, _maps_route, _maps_style, _maps_ui, _maps_views,
-)
+from linecast._maps import globe as _globe
+from linecast._maps import globe_now
+from linecast._maps import route as _maps_route
+from linecast._maps import style
+from linecast._maps import ui
+from linecast._maps import views as _maps_views
 from linecast._geo import wrap_lon
 from linecast._live import LiveApp, nudge as _nudge_repaint, print_frame
 from linecast._location import country_for_defaults, resolve_location
-from linecast._maps_i18n import ms
-from linecast._maps_motion import Flight, ease_in_out, lon_delta, lon_span
-from linecast._maps_search import (
+from linecast._maps.i18n import ms
+from linecast._maps.motion import Flight, ease_in_out, lon_delta, lon_span
+from linecast._maps.search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
 )
 from linecast import _vtiles
-from linecast._maps_views import _zoom_hold, globe_warm, warm_globe_texture
+from linecast._maps.views import _zoom_hold, globe_warm, warm_globe_texture
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, log_failure, maps_parser, set_current
 from linecast.maps import (
@@ -454,8 +457,8 @@ class MapApp(LiveApp):
         self.show_labels = True
         self.sun = sky          # S: daylight shading + night city lights
         self.clouds = sky       # c: this hour's cloud cover
-        self.search = _maps_ui.SearchState()
-        self.routes = _maps_ui.RouteState(profile=profile, home=(lat, lon))
+        self.search = ui.SearchState()
+        self.routes = ui.RouteState(profile=profile, home=(lat, lon))
         if origin is not None:
             self.routes.set_origin(origin.lat, origin.lon, origin.name)
         if dest is not None:
@@ -546,7 +549,7 @@ class MapApp(LiveApp):
             if self.clouds:
                 gw, hc = map_cells()
                 try:
-                    _globe_now.refresh(self.zoom, hc * 4)
+                    globe_now.refresh(self.zoom, hc * 4)
                 except Exception as exc:
                     log_failure("maps/clouds", "scheduled refresh", exc,
                                 fallback="previous canvas kept")
@@ -591,8 +594,8 @@ class MapApp(LiveApp):
         if key == '-':
             return self.zoom_to(self.camera.zoom_heading() * ZOOM_STEP)
         if key == 'v':
-            nxt = _maps_style.MODES.index(self.view) + 1
-            self.view = _maps_style.MODES[nxt % len(_maps_style.MODES)]
+            nxt = style.MODES.index(self.view) + 1
+            self.view = style.MODES[nxt % len(style.MODES)]
             return True
         if key == 'l':
             self.show_labels = not self.show_labels
@@ -705,7 +708,7 @@ class MapApp(LiveApp):
         from linecast._help import HelpPanel
         self._help = HelpPanel(
             'maps', self.runtime.lang, content=lambda cols, rows:
-            _maps_ui.help_rows(cols, rows, self.runtime.lang,
+            ui.help_rows(cols, rows, self.runtime.lang,
                                self.routes.route is not None))
         return self._help
 
@@ -717,7 +720,7 @@ class MapApp(LiveApp):
         if search.open:
             gw, hc = map_cells()
             bbox = bbox_for(self.lat, self.lon, self.zoom, gw, hc)
-            z = int(_maps_style.z_eff(bbox, hc))
+            z = int(style.z_eff(bbox, hc))
             return search.handle(action, self.lat, self.lon, z,
                                  self.runtime.lang)
         if routes.panel:
@@ -912,7 +915,7 @@ class MapApp(LiveApp):
             view=self.view, search=search,
             route=routes.route, dest=routes.dest,
             origin=routes.origin, directions=routes,
-            note=_maps_ui.route_note(routes, self.runtime.lang),
+            note=ui.route_note(routes, self.runtime.lang),
             show_labels=self.show_labels,
             sun=self.sun, clouds=self.clouds,
             motion=self.camera.heading())
@@ -949,7 +952,7 @@ def main():
     fit = (args.location is None and args.zoom is None
            and args.from_ is not None and args.to is not None)
     if args.zoom is None:
-        args.zoom = _maps_style.DEFAULT_ZOOM[args.view]
+        args.zoom = style.DEFAULT_ZOOM[args.view]
 
     if args.profile not in _maps_route.PROFILES:
         print(f"maps: invalid profile '{args.profile}' — choose "
@@ -968,7 +971,7 @@ def main():
     # vector-tile versions first, then back under the size cap. Map tiles
     # never go stale, so nothing here goes by age alone. After --search,
     # which adds no tiles and should not wait on a tilejson fetch.
-    from linecast._maps_tile_cache import prune_maps_cache
+    from linecast._maps.tile_cache import prune_maps_cache
     prune_maps_cache()
 
     lat, lon, country, location_name = resolve_location(
@@ -1039,7 +1042,7 @@ def main():
             # the turn-by-turn list rides below the map: --print asked
             # for directions, so it gets the directions
             print()
-            for line in _maps_ui.steps_text(
+            for line in ui.steps_text(
                     found, runtime.lang,
                     origin_label=origin.name if origin else location_name,
                     dest_label=dest.name):

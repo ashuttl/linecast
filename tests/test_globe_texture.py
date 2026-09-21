@@ -22,9 +22,11 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import (  # noqa: E402
-    _globe, _globe_texture, _maps_paint, _maps_views, _theme,
-)
+from linecast import _theme
+from linecast._maps import globe as _globe
+from linecast._maps import globe_texture
+from linecast._maps import paint
+from linecast._maps import views
 
 SMALL = (32, 16)    # mask texels: a planet small enough to bake in a blink
 
@@ -56,12 +58,12 @@ def _land_east(x, y):
 def tiny(monkeypatch, tmp_path):
     """Bake the whole planet into 32x16 texels from a stub canvas."""
     monkeypatch.setenv("LINECAST_CACHE_DIR", str(tmp_path / "cache"))
-    monkeypatch.setattr(_globe_texture, "_mask_dims", lambda z: SMALL)
+    monkeypatch.setattr(globe_texture, "_mask_dims", lambda z: SMALL)
     monkeypatch.setattr(_globe, "_world_canvas",
                         lambda z, t: _canvas(16, _land_east))
-    _globe_texture.clear()
+    globe_texture.clear()
     yield
-    _globe_texture.clear()
+    globe_texture.clear()
 
 
 def _planes(tex, level=0):
@@ -71,51 +73,51 @@ def _planes(tex, level=0):
 
 class TestBake:
     def test_is_the_same_planet_every_time(self, tiny):
-        one, _holes = _globe_texture.bake(1, "terrain")
-        two, _holes = _globe_texture.bake(1, "terrain")
+        one, _holes = globe_texture.bake(1, "terrain")
+        two, _holes = globe_texture.bake(1, "terrain")
         assert one.mask.at(0) == two.mask.at(0)
         assert _planes(one) == _planes(two)
         assert one.levels[0].elev.at(0) == two.levels[0].elev.at(0)
 
     def test_carries_the_canvas_as_water_and_land(self, tiny):
-        tex, _holes = _globe_texture.bake(1, "terrain")
+        tex, _holes = globe_texture.bake(1, "terrain")
         mask = tex.mask.at(0)
         mw, mh = SMALL
         row = mask[(mh // 2) * mw:(mh // 2 + 1) * mw]
         # the canvas is dry from its column 8 on, which is longitude 0;
         # the two texels either side of a shore blend across it
-        assert all(b & _globe_texture.WATER for b in row[1:mw // 2])
-        assert not any(b & _globe_texture.WATER
+        assert all(b & globe_texture.WATER for b in row[1:mw // 2])
+        assert not any(b & globe_texture.WATER
                        for b in row[mw // 2 + 1:mw - 1])
-        assert all(b & _globe_texture.SAMPLED for b in row)
+        assert all(b & globe_texture.SAMPLED for b in row)
 
     def test_levels_halve_and_keep_the_metres(self, tiny):
-        tex, _holes = _globe_texture.bake(1, "terrain")
+        tex, _holes = globe_texture.bake(1, "terrain")
         assert [(lv.w, lv.h) for lv in tex.levels] == [(16, 8), (8, 4)]
         deep = tex.levels[0].elev.at(0)
         assert min(deep) <= -3000 and max(deep) >= 900
 
     def test_street_bakes_no_colour(self, tiny):
-        tex, _holes = _globe_texture.bake(1, "street")
+        tex, _holes = globe_texture.bake(1, "street")
         assert all(lv.r is None for lv in tex.levels)
         assert len(tex.levels[0].elev.at(0)) == 16 * 8
 
     def test_a_hole_in_the_canvas_is_never_cached(self, monkeypatch):
-        monkeypatch.setattr(_globe_texture, "_mask_dims", lambda z: SMALL)
+        monkeypatch.setattr(globe_texture, "_mask_dims", lambda z: SMALL)
         canvas = _canvas(16, _land_east)
         canvas[0][:4] = _pixel(0.0, alpha=0)
         monkeypatch.setattr(_globe, "_world_canvas", lambda z, t: canvas)
-        _tex, holes = _globe_texture.bake(1, "terrain")
+        _tex, holes = globe_texture.bake(1, "terrain")
         assert holes
 
 
 class TestLevelChoice:
     def test_takes_the_coarsest_that_still_fits_a_sub_pixel(self, tiny):
-        tex, _holes = _globe_texture.bake(1, "terrain")
+        tex, _holes = globe_texture.bake(1, "terrain")
         # levels span 180/8 = 22.5 and 180/4 = 45 degrees a texel
-        assert _globe_texture.level_for(tex, 100.0, 1) == 1   # 50 a sub-pixel
-        assert _globe_texture.level_for(tex, 60.0, 1) == 0    # 30 a sub-pixel
-        assert _globe_texture.level_for(tex, 20.0, 1) == 0    # finer than both
+        assert globe_texture.level_for(tex, 100.0, 1) == 1   # 50 a sub-pixel
+        assert globe_texture.level_for(tex, 60.0, 1) == 0    # 30 a sub-pixel
+        assert globe_texture.level_for(tex, 20.0, 1) == 0    # finer than both
 
 
 def _texture(fw, fh, painted, borders=()):
@@ -123,8 +125,8 @@ def _texture(fw, fh, painted, borders=()):
 
     `borders` are texel indices of the level's own border plane.
     """
-    mask = _globe_texture._BytePlane(
-        [bytes([_globe_texture.SAMPLED] * (fw * 2)) for _ in range(fh * 2)])
+    mask = globe_texture._BytePlane(
+        [bytes([globe_texture.SAMPLED] * (fw * 2)) for _ in range(fh * 2)])
     planes = []
     for channel in range(3):
         rows = []
@@ -135,8 +137,8 @@ def _texture(fw, fh, painted, borders=()):
                 if hit is not None:
                     row[x] = hit[channel]
             rows.append(bytes(row))
-        planes.append(_globe_texture._BytePlane(rows))
-    elev = _globe_texture._ShortPlane([array("h", [100] * fw)
+        planes.append(globe_texture._BytePlane(rows))
+    elev = globe_texture._ShortPlane([array("h", [100] * fw)
                                        for _ in range(fh)])
     edge = []
     for y in range(fh):
@@ -145,10 +147,10 @@ def _texture(fw, fh, painted, borders=()):
             if y * fw + x in borders:
                 row[x] = 1
         edge.append(bytes(row))
-    return _globe_texture.Texture(
+    return globe_texture.Texture(
         1, "terrain", mask, fw * 2, fh * 2,
-        (_globe_texture.Level(fw, fh, *planes, elev,
-                              _globe_texture._BytePlane(edge)),))
+        (globe_texture.Level(fw, fh, *planes, elev,
+                              globe_texture._BytePlane(edge)),))
 
 
 class TestSampling:
@@ -166,7 +168,7 @@ class TestSampling:
                 * self.FW + int((lon + 180.0) / 360.0 * self.FW) % self.FW)
         ink = (11, 22, 33)
         tex = _texture(self.FW, self.FH, {want: ink})
-        shot = _globe_texture.sample(tex, lat0, lon0, self.ZOOM,
+        shot = globe_texture.sample(tex, lat0, lon0, self.ZOOM,
                                      self.GW, self.HC, (0, 0, 0))
         assert shot.fill[row][col] == ink
 
@@ -200,7 +202,7 @@ class TestSampling:
             tex = _texture(self.FW, self.FH,
                            {ty * self.FW + (tx + d) % self.FW: ink
                             for d in offsets})
-            return _globe_texture.sample(tex, lat0, lon0, self.ZOOM,
+            return globe_texture.sample(tex, lat0, lon0, self.ZOOM,
                                          self.GW, self.HC, (0, 0, 0))
 
         assert shot_at((-1, 0, 1)).fill[row][col] == ink
@@ -208,7 +210,7 @@ class TestSampling:
 
     def test_space_stays_off_the_planet(self):
         tex = _texture(self.FW, self.FH, {})
-        shot = _globe_texture.sample(tex, 20.0, 0.0, self.ZOOM,
+        shot = globe_texture.sample(tex, 20.0, 0.0, self.ZOOM,
                                      self.GW, self.HC, (0, 0, 0))
         assert shot.elev[0][0] is None
         assert not shot.land[0][0] and not shot.water[0][0]
@@ -222,7 +224,7 @@ def _dots(layer):
         for cx, mask in enumerate(row):
             for dx in range(2):
                 for dy in range(4):
-                    if mask & _globe_texture._BITS[dx][dy]:
+                    if mask & globe_texture._BITS[dx][dy]:
                         out.add((cy * 4 + dy, cx * 2 + dx))
     return out
 
@@ -262,23 +264,23 @@ class TestBorders:
     @pytest.fixture
     def slanted(self, monkeypatch):
         data = {"borders": [self.LINE], "lakes": ()}
-        monkeypatch.setattr(_globe_texture, "_load_data", lambda: data)
+        monkeypatch.setattr(globe_texture, "_load_data", lambda: data)
         monkeypatch.setattr(_globe, "_load_data", lambda: data)
-        monkeypatch.setattr(_globe_texture, "_mask_dims",
+        monkeypatch.setattr(globe_texture, "_mask_dims",
                             lambda z: (1024, 512))
         monkeypatch.setattr(_globe, "_world_canvas",
                             lambda z, t: _flat_canvas(512, 500.0))
-        return _globe_texture.bake(1, "street")[0]
+        return globe_texture.bake(1, "street")[0]
 
     def test_a_slanted_border_resamples_without_gaps(self, slanted):
         for hc, zoom, plane, ratio in self.CASES:
             where = f"hc={hc} zoom={zoom}"
-            assert _globe_texture.border_level_for(
+            assert globe_texture.border_level_for(
                 slanted, zoom, hc) == plane, where
-            pitch = 180.0 / _globe_texture._border_planes(slanted)[plane][1]
+            pitch = 180.0 / globe_texture._border_planes(slanted)[plane][1]
             assert abs(zoom / (hc * 4.0) / pitch - ratio) < 0.05, where
             by_column = {}
-            for dy, dx in _dots(_globe_texture.sample(
+            for dy, dx in _dots(globe_texture.sample(
                     slanted, 20.0, 0.0, zoom, hc * 3, hc, (0, 0, 0)).borders):
                 by_column.setdefault(dx, []).append(dy)
             columns = sorted(by_column)
@@ -298,9 +300,9 @@ class TestBorders:
         # forty dots across there; what it costs is a dot here and
         # there on a disk that has few to begin with.
         hc, gw, zoom = 8, 24, 130.0
-        pitch = 180.0 / _globe_texture._border_planes(slanted)[2][1]
+        pitch = 180.0 / globe_texture._border_planes(slanted)[2][1]
         assert abs(zoom / (hc * 4.0) / pitch - 2.89) < 0.05
-        textured = _dots(_globe_texture.sample(slanted, 20.0, 0.0, zoom,
+        textured = _dots(globe_texture.sample(slanted, 20.0, 0.0, zoom,
                                                gw, hc, (0, 0, 0)).borders)
         built = _dots(_globe.border_layer(20.0, 0.0, zoom, gw, hc, (0, 0, 0)))
         assert 0.5 < len(textured) / len(built) < 1.2
@@ -308,9 +310,9 @@ class TestBorders:
 
 class TestDiskCache:
     def test_round_trips(self, tiny):
-        tex, _holes = _globe_texture.bake(1, "terrain")
-        _globe_texture._store(1, "terrain", tex)
-        back = _globe_texture._load(1, "terrain")
+        tex, _holes = globe_texture.bake(1, "terrain")
+        globe_texture._store(1, "terrain", tex)
+        back = globe_texture._load(1, "terrain")
         assert back is not None
         assert back.mask.at(0) == tex.mask.at(0)
         assert back.mask_w == tex.mask_w and back.mask_h == tex.mask_h
@@ -318,38 +320,38 @@ class TestDiskCache:
         assert back.levels[0].elev.at(0) == tex.levels[0].elev.at(0)
 
     def test_a_new_theme_misses_it(self, tiny, monkeypatch):
-        tex, _holes = _globe_texture.bake(1, "terrain")
-        _globe_texture._store(1, "terrain", tex)
-        assert _globe_texture._load(1, "terrain") is not None
+        tex, _holes = globe_texture.bake(1, "terrain")
+        globe_texture._store(1, "terrain", tex)
+        assert globe_texture._load(1, "terrain") is not None
         # a theme change re-inks every ramp the bake was shaded with
-        monkeypatch.setattr(_maps_paint, "HYPSO_FAMILIES",
+        monkeypatch.setattr(paint, "HYPSO_FAMILIES",
                             [[(0, (1, 2, 3))]] * 4)
-        assert _globe_texture._load(1, "terrain") is None
+        assert globe_texture._load(1, "terrain") is None
 
     def test_a_short_file_is_rebaked_not_sampled(self, tiny):
         # a plane that came up short would not fail on load but on the
         # first frame that samples it, and on every frame after
-        tex, _holes = _globe_texture.bake(1, "terrain")
-        path = _globe_texture._path(1, "terrain")
-        blob = zlib.decompress(_globe_texture._dump(tex))
+        tex, _holes = globe_texture.bake(1, "terrain")
+        path = globe_texture._path(1, "terrain")
+        blob = zlib.decompress(globe_texture._dump(tex))
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(zlib.compress(blob[:-100]))
-        assert _globe_texture._load(1, "terrain") is None
+        assert globe_texture._load(1, "terrain") is None
 
     def test_generation_misses_the_memo(self):
-        before = _globe_texture._key(1, "terrain")
+        before = globe_texture._key(1, "terrain")
         gen = _theme.generation
         try:
             _theme.generation = gen + 1
-            assert _globe_texture._key(1, "terrain") != before
+            assert globe_texture._key(1, "terrain") != before
         finally:
             _theme.generation = gen
 
     def test_the_street_name_ignores_the_inks(self, tiny, monkeypatch):
-        before = _globe_texture._path(1, "street")
-        monkeypatch.setattr(_maps_paint, "HYPSO_FAMILIES",
+        before = globe_texture._path(1, "street")
+        monkeypatch.setattr(paint, "HYPSO_FAMILIES",
                             [[(0, (1, 2, 3))]] * 4)
-        assert _globe_texture._path(1, "street") == before
+        assert globe_texture._path(1, "street") == before
 
 
 class _Dead:
@@ -369,18 +371,18 @@ class TestFirstFrame:
             held.wait(5)
             return _texture(8, 4, {}), False
 
-        monkeypatch.setattr(_globe_texture, "bake", slow_bake)
+        monkeypatch.setattr(globe_texture, "bake", slow_bake)
         try:
             for _ in range(5):
-                assert _globe_texture.for_view(130.0, 120, "terrain",
+                assert globe_texture.for_view(130.0, 120, "terrain",
                                                False) is None
-            assert not _globe_texture.ready(130.0, 120, "terrain")
+            assert not globe_texture.ready(130.0, 120, "terrain")
             held.set()
             for _ in range(50):
-                if _globe_texture.ready(130.0, 120, "terrain"):
+                if globe_texture.ready(130.0, 120, "terrain"):
                     break
                 threading.Event().wait(0.02)
-            assert _globe_texture.ready(130.0, 120, "terrain")
+            assert globe_texture.ready(130.0, 120, "terrain")
             assert calls == [(1, "terrain")]
         finally:
             held.set()
@@ -390,23 +392,23 @@ class TestFirstFrame:
         # nothing to bake, so nothing goes to a thread: the first live
         # miss comes back with the texture, and the old path never runs
         tex = _texture(8, 4, {})
-        monkeypatch.setattr(_globe_texture, "_load",
+        monkeypatch.setattr(globe_texture, "_load",
                             lambda z, register: tex)
-        monkeypatch.setattr(_globe_texture, "bake",
+        monkeypatch.setattr(globe_texture, "bake",
                             lambda *a, **k: pytest.fail("baked"))
         started = []
         monkeypatch.setattr(threading, "Thread",
                             lambda *a, **k: started.append(k) or _Dead())
-        assert _globe_texture.for_view(130.0, 120, "terrain", False) is tex
+        assert globe_texture.for_view(130.0, 120, "terrain", False) is tex
         assert not started
-        assert _globe_texture.ready(130.0, 120, "terrain")
+        assert globe_texture.ready(130.0, 120, "terrain")
 
     def test_a_theme_change_under_the_bake_throws_it_away(self, tiny,
                                                           monkeypatch):
         # bands shaded before the change carry the old inks; the result
         # must reach neither the memo nor the disk
         stored = []
-        monkeypatch.setattr(_globe_texture, "_store",
+        monkeypatch.setattr(globe_texture, "_store",
                             lambda z, r, t: stored.append(z))
         gen = _theme.generation
 
@@ -414,13 +416,13 @@ class TestFirstFrame:
             _theme.generation += 1
             return _texture(8, 4, {}), False
 
-        monkeypatch.setattr(_globe_texture, "bake", bake_under_a_new_theme)
+        monkeypatch.setattr(globe_texture, "bake", bake_under_a_new_theme)
         try:
-            assert _globe_texture.for_view(130.0, 120, "terrain",
+            assert globe_texture.for_view(130.0, 120, "terrain",
                                            True) is None
             assert not stored
-            assert not _globe_texture.ready(130.0, 120, "terrain")
-            assert not _globe_texture._pending
+            assert not globe_texture.ready(130.0, 120, "terrain")
+            assert not globe_texture._pending
         finally:
             _theme.generation = gen
 
@@ -435,20 +437,20 @@ class TestFirstFrame:
             calls.append(z)
             raise OSError("no tiles")
 
-        monkeypatch.setattr(_globe_texture, "bake", angry_bake)
+        monkeypatch.setattr(globe_texture, "bake", angry_bake)
         for _ in range(5):
-            assert _globe_texture.for_view(130.0, 120, "terrain",
+            assert globe_texture.for_view(130.0, 120, "terrain",
                                            True) is None
         assert calls == [1]
-        assert not _globe_texture._pending
-        key = _globe_texture._key(1, "terrain")
-        _globe_texture._held[key] -= _globe_texture._BAKE_HOLD_S + 1
-        assert _globe_texture.for_view(130.0, 120, "terrain", True) is None
+        assert not globe_texture._pending
+        key = globe_texture._key(1, "terrain")
+        globe_texture._held[key] -= globe_texture._BAKE_HOLD_S + 1
+        assert globe_texture.for_view(130.0, 120, "terrain", True) is None
         assert calls == [1, 1]
 
 
 class TestThroughTheView:
-    """What `_maps_views._get_globe` hands back, baked and unbaked."""
+    """What `views._get_globe` hands back, baked and unbaked."""
     ARGS = (20.0, 10.0, 130.0, 30, 12)
 
     def test_the_view_falls_back_to_elevation(self, tiny, monkeypatch):
@@ -457,8 +459,8 @@ class TestThroughTheView:
         def angry_bake(z, register, timeout=15):
             raise OSError("no tiles")
 
-        monkeypatch.setattr(_globe_texture, "bake", angry_bake)
-        view = _maps_views._get_globe(*self.ARGS, True)
+        monkeypatch.setattr(globe_texture, "bake", angry_bake)
+        view = views._get_globe(*self.ARGS, True)
         assert view.fill is None and view.wet is None
         assert view.elev is not None and view.coast is not None
         assert view.borders is not None
@@ -467,31 +469,31 @@ class TestThroughTheView:
         # the view drawn the long way while the planet baked must not
         # be the one still on screen after the bake lands
         baked = []
-        monkeypatch.setattr(_globe_texture, "for_view",
+        monkeypatch.setattr(globe_texture, "for_view",
                             lambda *a, **k: baked[0] if baked else None)
-        cold = _maps_views._get_globe(*self.ARGS, True)
+        cold = views._get_globe(*self.ARGS, True)
         assert cold.fill is None
 
-        tex, _holes = _globe_texture.bake(1, "terrain")
-        _globe_texture._finish(_globe_texture._key(1, "terrain"), tex)
+        tex, _holes = globe_texture.bake(1, "terrain")
+        globe_texture._finish(globe_texture._key(1, "terrain"), tex)
         baked.append(tex)
-        assert _globe_texture.ready(130.0, 48, "terrain")
+        assert globe_texture.ready(130.0, 48, "terrain")
 
-        warm = _maps_views._get_globe(*self.ARGS, True)
+        warm = views._get_globe(*self.ARGS, True)
         assert warm.fill is not None and warm.wet is not None
         assert warm.elev is not None and warm.coast is not None
 
 
 class TestWarmingEarly:
-    """`_maps_views.warm_globe_texture`: the one thing the motion gate
+    """`views.warm_globe_texture`: the one thing the motion gate
     lets through, because it is a disk read or a bake, never a fetch."""
 
     def test_a_texture_in_hand_starts_nothing(self, tiny, monkeypatch):
-        tex, _holes = _globe_texture.bake(1, "terrain")
-        _globe_texture._finish(_globe_texture._key(1, "terrain"), tex)
-        monkeypatch.setattr(_maps_views.threading, "Thread",
+        tex, _holes = globe_texture.bake(1, "terrain")
+        globe_texture._finish(globe_texture._key(1, "terrain"), tex)
+        monkeypatch.setattr(views.threading, "Thread",
                             lambda *a, **k: _Dead())
-        _maps_views.warm_globe_texture(130.0, 12, False)
+        views.warm_globe_texture(130.0, 12, False)
 
     def test_a_level_not_in_memory_is_asked_for_off_the_loop(self, tiny,
                                                              monkeypatch):
@@ -504,7 +506,7 @@ class TestWarmingEarly:
             def start(self):
                 pass
 
-        monkeypatch.setattr(_maps_views.threading, "Thread", Caught)
-        _maps_views.warm_globe_texture(130.0, 12, True)
+        monkeypatch.setattr(views.threading, "Thread", Caught)
+        views.warm_globe_texture(130.0, 12, True)
         assert [kw["args"] for kw in started] == [(130.0, 48, "street", False)]
         assert all(kw["daemon"] for kw in started)

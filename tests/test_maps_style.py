@@ -1,6 +1,6 @@
 """Tests for the street-mode style tables.
 
-_maps_style is pure data plus pure functions, so everything here is
+_maps.style is pure data plus pure functions, so everything here is
 exact: the colour assertions run the real _color ladder rather than
 trusting the table comments, and the zoom/scale assertions carry their
 derivations.
@@ -21,7 +21,7 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _maps_style as ms
+from linecast._maps import style as ms
 from linecast import _theme
 from linecast._color import _CUBE_LEVELS, _rgb_to_ansi16, _rgb_to_xterm256
 from linecast._framebuffer import visible_len

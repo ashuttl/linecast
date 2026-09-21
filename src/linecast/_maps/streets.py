@@ -19,11 +19,13 @@ a pond too small to be a lake keeps its fill and goes without a shore
 is a speckle and not a map.
 
 Style decisions (which classes, which colours, which bands) all live in
-_maps_style; this module only asks it questions.
+style; this module only asks it questions.
 """
 
 
-from linecast import _maps_hover, _maps_labels, _maps_style as style
+from linecast._maps import hover as _maps_hover
+from linecast._maps import labels as _maps_labels
+from linecast._maps import style
 from linecast._mvt import (
     LINESTRING, POLYGON, assemble_polygons, decode_tile,
 )
@@ -767,7 +769,7 @@ def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
     hovering any reach of a river lights the river rather than the
     segment the tile happened to cut.  Only `waterway` carries names at
     all in these layers — the road net's are in a different layer
-    entirely, and _maps_hover joins them back by cell.
+    entirely, and hover joins them back by cell.
 
     Nameless geometry is owned one *part* at a time, and that is not a
     detail.  A vector tile is not a list of roads: the encoder merges

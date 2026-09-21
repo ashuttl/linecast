@@ -20,9 +20,9 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _maps_labels as lb
-from linecast import _maps_streets as st
-from linecast import _maps_style
+from linecast._maps import labels as lb
+from linecast._maps import streets as st
+from linecast._maps import style as _maps_style
 from linecast import _theme
 from linecast._radar_basemap import _load_data
 

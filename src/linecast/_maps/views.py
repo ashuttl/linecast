@@ -1,7 +1,7 @@
 """What a map view is made of, and how it is fetched and kept.
 
 A flat view is built for a bbox a margin wider than the window that
-asked for it, and the frame is a crop (_maps_overscan): the band and
+asked for it, and the frame is a crop (overscan): the band and
 the source zoom still come from the window, so the crop is the map the
 window itself would draw, and only the tile list follows the wider
 bbox.
@@ -21,15 +21,17 @@ import threading
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 
-from linecast import (
-    _builtup, _globe, _globe_now, _globe_texture, _maps_streets, _maps_style,
-    _theme,
-)
+from linecast import _builtup, _theme
+from linecast._maps import globe as _globe
+from linecast._maps import globe_now
+from linecast._maps import globe_texture
+from linecast._maps import streets
+from linecast._maps import style as _maps_style
 from linecast._elevation import elevation_grid
 from linecast import _live
 from linecast._live import nudge as _nudge_repaint
-from linecast._maps_i18n import ms
-from linecast._maps_paint import (
+from linecast._maps.i18n import ms
+from linecast._maps.paint import (
     BORDER_STROKE, RIVER_STROKE, build_terrain_buffer,
 )
 from linecast._radar_basemap import _edge_dots
@@ -215,7 +217,7 @@ def _coast_dots(fine, gw, hc, water=None, min_dots=None):
     the rule that draws a sea shore and the two can never disagree where
     a river meets the sea.  What joins is the *stroked* half of it: the
     bodies holding at least `min_dots` dots on screen
-    (style.SHORE_MIN_DOTS by default, and `_maps_streets.stroked_water`
+    (style.SHORE_MIN_DOTS by default, and `streets.stroked_water`
     for the rule, the window's edge included).  The fill still takes the
     whole mask, so a pond keeps its water and loses only its ring.  The
     sea is never weighed — it arrives from the elevation, not the tiles.
@@ -225,7 +227,7 @@ def _coast_dots(fine, gw, hc, water=None, min_dots=None):
     are carved, by the same reasoning one resolution up.
     """
     if water is not None and min_dots != 0:
-        water = _maps_streets.stroked_water(water, min_dots)
+        water = streets.stroked_water(water, min_dots)
     is_land, is_water = [], []
     for dy, row in enumerate(fine):
         wet = water[dy] if water is not None else None
@@ -289,10 +291,10 @@ def _tile_water(bbox, gw, hc, window=None):
     map this used to be, never to an error.
     """
     try:
-        band, tiles = _maps_streets.fetch_view(bbox, hc, window)
+        band, tiles = streets.fetch_view(bbox, hc, window)
         if not any(tiles.values()):
             return None, None, None, None
-        return _maps_streets.build_water_view(bbox, gw, hc, tiles, band,
+        return streets.build_water_view(bbox, gw, hc, tiles, band,
                                               RIVER_STROKE)
     except Exception as exc:
         log_failure("maps/vtiles", "inland water", exc, fallback="sea-level-only terrain")
@@ -407,21 +409,21 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=(),
         # the settlement raster fetches alongside the vector tiles, as
         # the terrain path overlaps its sources; below its debut band
         # the layer is never asked for, so a deep view pays nothing
-        band, _z_src, keys = _maps_streets.view_tiles(bbox, hc, window)
+        band, _z_src, keys = streets.view_tiles(bbox, hc, window)
         with ThreadPoolExecutor(max_workers=1) as pool:
             bu_job = (pool.submit(_builtup_layer, bbox, gw, hc)
                       if band >= _maps_style.FILL_DEBUT["builtup"]
                       else None)
-            tiles = _maps_streets.fetch_tiles(keys)
+            tiles = streets.fetch_tiles(keys)
         if not any(tiles.values()):
             raise RuntimeError(ms('offline', 'en'))
         if not block:
             # live: give the next pan or zoom a head start
             try:
-                _maps_streets.prefetch_around(bbox, hc, keys, window)
+                streets.prefetch_around(bbox, hc, keys, window)
             except Exception as exc:
                 log_failure("maps/vtiles", "prefetch", exc, fallback="none")
-        view = _maps_streets.build_street_view(
+        view = streets.build_street_view(
             bbox, gw, hc, tiles, band, lang, reserved,
             bu_job.result() if bu_job is not None else None)
         # the whole view, labels and all: a window inside this one's
@@ -463,9 +465,9 @@ def warm_globe_texture(zoom, hc, street=False):
     is let through the gate.
     """
     register = "street" if street else "terrain"
-    if _globe_texture.ready(zoom, hc * 4, register):
+    if globe_texture.ready(zoom, hc * 4, register):
         return
-    threading.Thread(target=_globe_texture.for_view, daemon=True,
+    threading.Thread(target=globe_texture.for_view, daemon=True,
                      args=(zoom, hc * 4, register, False)).start()
 
 
@@ -478,7 +480,7 @@ def globe_warm(zoom, hc, street=False):
     never read at all.
     """
     return (_globe.warm(zoom, hc * 4)
-            or _globe_texture.ready(zoom, hc * 4,
+            or globe_texture.ready(zoom, hc * 4,
                                     "street" if street else "terrain"))
 
 
@@ -497,7 +499,7 @@ def _textured_globe(tex, lat0, lon0, zoom, gw, hc):
     the fill is a lookup now rather than a planet rebuilt from
     elevation, and the borders arrive as bits already stroked.
     """
-    shot = _globe_texture.sample(tex, lat0, lon0, zoom, gw, hc, BORDER_STROKE)
+    shot = globe_texture.sample(tex, lat0, lon0, zoom, gw, hc, BORDER_STROKE)
     lls, zs, atmo, glow = _sphere(zoom, gw, hc, lat0, lon0)
     return _globe.GlobeView(
         shot.elev, _edge_dots(shot.land, shot.water, gw, hc), zs, atmo,
@@ -536,7 +538,7 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block, street=False):
     register = "street" if street else "terrain"
 
     def load():
-        tex = _globe_texture.for_view(zoom, hc * 4, register, block)
+        tex = globe_texture.for_view(zoom, hc * 4, register, block)
         if tex is None:
             return _built_globe(lat0, lon0, zoom, gw, hc)
         return _textured_globe(tex, lat0, lon0, zoom, gw, hc)
@@ -544,7 +546,7 @@ def _get_globe(lat0, lon0, zoom, gw, hc, block, street=False):
     # the texture's readiness is part of the key: the view drawn the
     # long way while the planet baked must not outlive the bake, but
     # it stays on screen until its textured successor has landed
-    ready = _globe_texture.ready(zoom, hc * 4, register)
+    ready = globe_texture.ready(zoom, hc * 4, register)
     key = (round(lat0, 2), round(lon0, 2), round(zoom, 1), gw, hc, register,
            _theme.generation, ready)
     view = _globe_cache.get(key, block, load)
@@ -568,14 +570,14 @@ def _get_clouds(zoom, hc, block):
     frames.  Live, freshening happens in the background and nudges a
     repaint when it lands.
     """
-    canvas = _globe_now.peek()
+    canvas = globe_now.peek()
     if block and canvas is None and not _live._running:
         try:
-            _globe_now.refresh(zoom, hc * 4)
+            globe_now.refresh(zoom, hc * 4)
         except Exception as exc:
             log_failure("maps/clouds", "refresh", exc, fallback="no cloud layer")
-        return _globe_now.peek()
-    if canvas is not None and not _globe_now.stale():
+        return globe_now.peek()
+    if canvas is not None and not globe_now.stale():
         return canvas
     with _clouds_lock:
         if _clouds_pending[0]:
@@ -584,7 +586,7 @@ def _get_clouds(zoom, hc, block):
 
     def worker():
         try:
-            changed = _globe_now.refresh(zoom, hc * 4)
+            changed = globe_now.refresh(zoom, hc * 4)
         except Exception as exc:
             log_failure("maps/clouds", "background refresh", exc,
                         fallback="previous canvas kept")
@@ -598,4 +600,4 @@ def _get_clouds(zoom, hc, block):
     return canvas
 
 
-_theme.track_imports(globals(), "linecast._maps_paint")
+_theme.track_imports(globals(), "linecast._maps.paint")

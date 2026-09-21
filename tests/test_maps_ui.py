@@ -20,11 +20,12 @@ if _src not in sys.path:
 
 from contextlib import contextmanager
 
-from linecast import _color, _maps_i18n
-from linecast import _maps_ui as mu
+from linecast import _color
+from linecast._maps import i18n
+from linecast._maps import ui as mu
 from linecast._framebuffer import visible_len
-from linecast._maps_route import NoRoute, Route, RouteUnavailable
-from linecast._maps_search import Result, SearchUnavailable
+from linecast._maps.route import NoRoute, Route, RouteUnavailable
+from linecast._maps.search import Result, SearchUnavailable
 @contextmanager
 def _units(flag):
     """Pin the running command's units; distances follow the setting,
@@ -899,7 +900,7 @@ class TestRouteSummary:
 # ---------------------------------------------------------------------------
 # The `?` panel
 # ---------------------------------------------------------------------------
-LANGS = sorted(_maps_i18n._STRINGS)
+LANGS = sorted(i18n._STRINGS)
 
 
 def panel_lines(panel):
@@ -912,7 +913,7 @@ class TestHelpPanel:
         text = "".join(panel_lines(mu.help_overlay(80, 40, "en")))
         for mark, key in [e for e in mu.HELP_KEYS if e]:
             assert mark in text
-            assert _maps_i18n._STRINGS["en"][key] in text
+            assert i18n._STRINGS["en"][key] in text
 
     def test_the_frame_carries_the_way_out(self):
         lines = panel_lines(mu.help_overlay(80, 40, "en"))

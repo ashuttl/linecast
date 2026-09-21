@@ -10,11 +10,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _maps_route, _maps_search, _rate_limit
+from linecast import _rate_limit
+from linecast._maps import route
+from linecast._maps import search
 from linecast._rate_limit import RateLimit
 
 
-@pytest.mark.parametrize("module", [_maps_route, _maps_search])
+@pytest.mark.parametrize("module", [route, search])
 def test_delayed_wakeup_starts_a_full_interval(module, monkeypatch):
     now = [1000.0]
     slept = []

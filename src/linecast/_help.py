@@ -6,7 +6,7 @@ import re
 from linecast import _theme
 from linecast._graphics import RESET, bg, fg, visible_len
 from linecast._help_i18n import hs
-from linecast._maps_i18n import ms
+from linecast._maps.i18n import ms
 from linecast._textwidth import char_widths
 
 

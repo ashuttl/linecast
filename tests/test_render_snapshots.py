@@ -679,7 +679,8 @@ class TestMapsSnapshot:
                              oneline=False)
 
     def _render(self, view, fetch_patch, zoom=0.02):
-        from linecast import _color, _maps_style, _theme, maps
+        from linecast import _color, _theme, maps
+        from linecast._maps import style as _maps_style
         stack = [
             patch("linecast.maps.get_terminal_size",
                   return_value=(self.COLS, self.ROWS)),
@@ -728,7 +729,8 @@ class TestMapsSnapshot:
         # deep sea west — pins the disk, the limb falloff, the
         # atmosphere rim and the space around the planet, while the
         # vendored city data pins the projected labels.
-        from linecast import _globe, maps
+        from linecast import maps
+        from linecast._maps import globe as _globe
 
         def synth(lls):
             return [[None if ll is None
@@ -779,7 +781,7 @@ class TestMapsSnapshot:
 
         def street(bbox, gw, hc, block, lang="en", reserved=(),
                    window=None):
-            from linecast import _maps_streets as st
+            from linecast._maps import streets as st
             band = st.style.band_for(st.style.z_eff(bbox, hc))
             minlon, minlat, maxlon, maxlat = bbox
             midlon = (minlon + maxlon) / 2

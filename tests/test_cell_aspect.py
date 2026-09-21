@@ -12,7 +12,8 @@ import math
 
 import pytest
 
-from linecast import _globe, sky
+from linecast import sky
+from linecast._maps import globe
 from linecast._framebuffer import Framebuffer, cell_aspect
 from linecast._radar_render import bbox_for
 from linecast.moon import _draw_moon_disc
@@ -60,14 +61,14 @@ class TestTheMoon:
 class TestTheGlobe:
     def test_disk_is_taller_in_rows_on_a_short_cell(self, monkeypatch):
         monkeypatch.setenv("LINECAST_CELL_ASPECT", "9x15")
-        _lls, _zs, rhos = _globe.geometry(0.0, 0.0, 180.0, 200, 100)
+        _lls, _zs, rhos = globe.geometry(0.0, 0.0, 180.0, 200, 100)
         cols = max(sum(1 for r in row if r <= 1.0) for row in rhos)
         rows = sum(1 for row in rhos if any(r <= 1.0 for r in row))
         assert math.isclose(rows / cols, 1.2, abs_tol=0.05)
 
     def test_default_cell_keeps_the_grid_disk_round(self, monkeypatch):
         monkeypatch.setenv("LINECAST_CELL_ASPECT", "2.0")
-        _lls, _zs, rhos = _globe.geometry(0.0, 0.0, 180.0, 200, 100)
+        _lls, _zs, rhos = globe.geometry(0.0, 0.0, 180.0, 200, 100)
         cols = max(sum(1 for r in row if r <= 1.0) for row in rhos)
         rows = sum(1 for row in rhos if any(r <= 1.0 for r in row))
         assert math.isclose(cols / rows, 1.0, abs_tol=0.05)

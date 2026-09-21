@@ -10,7 +10,10 @@ layers into terminal lines, one composer per register.
 import math
 import re
 
-from linecast import _climate, _globe_now, _maps_hover, _maps_style, _theme
+from linecast import _climate, _theme
+from linecast._maps import globe_now
+from linecast._maps import hover
+from linecast._maps import style as _maps_style
 from linecast._color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
 )
@@ -358,7 +361,7 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
 
     `coast_ink` overrides the terrain coastline colour — the street
     globe strokes its shore in the street map's own ink.  `ink_dusk`
-    is a per-cell grid of RGB multipliers (_globe_now.ink_dusk) that
+    is a per-cell grid of RGB multipliers (globe_now.ink_dusk) that
     dims braille strokes with the night; glyphs keep their ink.
 
     `strokes` is an ordered list of extra braille layers (anything with
@@ -406,7 +409,7 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
                     else:
                         stroke = coast_stroke if cmask else BORDER_STROKE
                     if ink_dusk is not None:
-                        stroke = _globe_now.dim_ink(stroke,
+                        stroke = globe_now.dim_ink(stroke,
                                                     ink_dusk[cy][cx])
                     parts.append(f"{cell_bg}{fg(*stroke)}"
                                  f"{chr(0x2800 + (bmask | cmask | smask))}")
@@ -504,19 +507,19 @@ def compose_map(fills, layer, overlays, graph_w, height_cells,
                 if ink is None:                 # contrast-picked label ink
                     ink = _contrast_ink(avg)
                 if lit:
-                    ink = _maps_hover.highlight(ink)
+                    ink = hover.highlight(ink)
                 if lit or (len(ov) > 2 and ov[2]):
                     parts.append(f"{cell_bg}{fg(*ink)}{BOLD}{ch}{RESET}")
                 else:
                     parts.append(f"{cell_bg}{fg(*ink)}{ch}")
                 continue
             if lit:
-                lift = _maps_hover.highlight(stroke)
+                lift = hover.highlight(stroke)
                 parts.append(f"{cell_bg}{fg(*lift) if lift else ''}{BOLD}"
                              f"{chr(0x2800 + mask)}{RESET}")
                 continue
             if ink_dusk is not None:
-                stroke = _globe_now.dim_ink(stroke, ink_dusk[cy][cx])
+                stroke = globe_now.dim_ink(stroke, ink_dusk[cy][cx])
             stroke_fg = fg(*stroke) if stroke is not None else ""
             parts.append(f"{cell_bg}{stroke_fg}{chr(0x2800 + mask)}")
         parts.append(RESET)

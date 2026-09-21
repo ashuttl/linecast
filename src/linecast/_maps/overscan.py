@@ -28,7 +28,7 @@ the hover index read through the offset.
 
 from collections import namedtuple
 
-from linecast._maps_hover import HoverIndex
+from linecast._maps.hover import HoverIndex
 
 # The margin is a MARGIN'th of the window on each side.  Measured at
 # 160x45 with tiles on disk: an eighth each side (1.25x in each

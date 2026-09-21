@@ -4,7 +4,7 @@ from datetime import datetime
 from types import SimpleNamespace
 
 from linecast._i18n import lang_of, lookup
-from linecast._maps_i18n import ms
+from linecast._maps.i18n import ms
 from linecast._moon_i18n import _ms
 from linecast._radar_i18n import rs
 from linecast._tides_i18n import _ts
@@ -531,7 +531,7 @@ class TestRegionalVariants:
 
     def test_the_words_that_differ(self):
         from linecast._weather.i18n import _s, wmo_label
-        from linecast._maps_i18n import ms
+        from linecast._maps.i18n import ms
         from linecast._weather.sections import _precip_descs
         from types import SimpleNamespace as runtime
         pt, pt_pt = runtime(lang="pt"), runtime(lang="pt-PT")

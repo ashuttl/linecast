@@ -19,8 +19,11 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _color, _maps_hover as hv, _maps_i18n, _maps_style as style
-from linecast import _maps_streets as st
+from linecast import _color
+from linecast._maps import hover as hv
+from linecast._maps import i18n
+from linecast._maps import style
+from linecast._maps import streets as st
 from linecast import _theme
 from linecast.maps import compose_map
 
@@ -30,7 +33,7 @@ from test_maps_streets import (  # the tile-fixture writer, reused wholesale
 )
 from test_maps_labels import points
 
-ENGLISH = set(_maps_i18n._STRINGS["en"])
+ENGLISH = set(i18n._STRINGS["en"])
 
 RED = (200, 60, 60)
 GREY = (132, 136, 150)

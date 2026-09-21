@@ -17,7 +17,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _color, _maps_paint
+from linecast import _color
+from linecast._maps import paint
 from linecast._live import frame_body, frame_paint
 
 
@@ -137,10 +138,10 @@ def painted(text, cols=80, rows=24):
 def test_repeated_colors_shorten_without_rewriting_text_or_sharing_frame_state(color):
     code = f'\x1b[{color}m'
     original = f'{code}京{code}é{code} ⣷▄\x1b[0m'
-    packed = _maps_paint.compact_colors(original)
+    packed = paint.compact_colors(original)
     assert len(packed) < len(original)
     assert rendition_signature(packed) == rendition_signature(original)
-    assert _maps_paint.compact_colors(original) == packed
+    assert paint.compact_colors(original) == packed
 
 
 @pytest.mark.parametrize('barrier', ['\x1b[0m', '\x1b[m', '\x1b[39m', '\x1b[49m',
@@ -149,7 +150,7 @@ def test_repeated_colors_shorten_without_rewriting_text_or_sharing_frame_state(c
 def test_resets_attributes_and_cursor_controls_preserve_effective_colors(barrier):
     colors = '\x1b[38;2;12;34;56m\x1b[48;2;78;90;12m'
     original = f'{colors}a{colors}b{barrier}{colors}c{colors}d\x1b[0m'
-    packed = _maps_paint.compact_colors(original)
+    packed = paint.compact_colors(original)
     assert barrier + colors in packed
     assert rendition_signature(packed) == rendition_signature(original)
 
@@ -159,7 +160,7 @@ def test_resets_attributes_and_cursor_controls_preserve_effective_colors(barrier
 def test_unfamiliar_controls_leave_the_whole_frame_untouched(control):
     colors = '\x1b[38;2;12;34;56m'
     original = f'{colors}a{colors}b{control}{colors}c{colors}d'
-    assert _maps_paint.compact_colors(original) == original
+    assert paint.compact_colors(original) == original
 
 
 def test_a_newline_is_not_a_barrier():
@@ -168,7 +169,7 @@ def test_a_newline_is_not_a_barrier():
     # the row break is still the colour in effect.
     colors = '\x1b[38;2;12;34;56m\x1b[48;2;78;90;12m'
     original = f'{colors}a\n{colors}b'
-    packed = _maps_paint.compact_colors(original)
+    packed = paint.compact_colors(original)
     assert packed == f'{colors}a\nb'
     assert rendition_signature(packed) == rendition_signature(original)
 
@@ -187,7 +188,7 @@ def test_the_overlay_channel_is_copied_through_untouched():
     colors = '\x1b[38;2;12;34;56m'
     floating = f'\x1b[2;3H{colors}hover{colors}!\x1b[0m'
     original = f'{colors}a{colors}b\x00{floating}'
-    packed = _maps_paint.compact_colors(original)
+    packed = paint.compact_colors(original)
     assert len(packed) < len(original)
     assert packed.split('\x00')[1] == floating
     assert rendition_signature(packed) == rendition_signature(original)
@@ -198,8 +199,8 @@ def test_the_overlay_channel_is_copied_through_untouched():
 def test_actual_map_composers_keep_their_rendition_in_every_color_mode(
         monkeypatch, mode, street):
     monkeypatch.setattr(_color, '_COLOR_MODE', mode)
-    monkeypatch.setattr(_maps_paint, 'BOLD', '\x1b[1m' if mode != 'none' else '')
-    monkeypatch.setattr(_maps_paint, 'RESET', '\x1b[0m' if mode != 'none' else '')
+    monkeypatch.setattr(paint, 'BOLD', '\x1b[1m' if mode != 'none' else '')
+    monkeypatch.setattr(paint, 'RESET', '\x1b[0m' if mode != 'none' else '')
     fills = [[(24, 36, 48)] * 10 for _ in range(4)]
     layer = SimpleNamespace(dots=[[0, 0, 1, 1, 0, 0, 0, 0, 0, 0]] * 2,
                             color=[[(96, 128, 160)] * 10] * 2, ribbon=set())
@@ -207,13 +208,13 @@ def test_actual_map_composers_keep_their_rendition_in_every_color_mode(
               (5, 0): ('', (200, 210, 220), False),
               (7, 0): ('é', (200, 210, 220), False)}
     if street:
-        lines = _maps_paint.compose_map(fills, layer, labels, 10, 2,
+        lines = paint.compose_map(fills, layer, labels, 10, 2,
                                         hot={(2, 0)}, hot_glyphs={(7, 0)})
     else:
-        lines = _maps_paint.compose_terrain(None, fills, labels, 10, 2,
+        lines = paint.compose_terrain(None, fills, labels, 10, 2,
                                             strokes=[layer])
     original = '\n'.join(lines) + '\x00\x1b[2;3H\x1b[1mhover\x1b[0m'
-    packed = _maps_paint.compact_colors(original)
+    packed = paint.compact_colors(original)
     assert rendition_signature(packed) == rendition_signature(original)
     assert packed.split('\x00')[1] == original.split('\x00')[1]
     if mode in ('truecolor', '256'):
@@ -264,7 +265,7 @@ def frames():
                                   'maps_globe_80x24.txt'])
 def test_a_real_frame_paints_the_same_cells_after_compaction(frames, name):
     raw, compacted = (side[name] for side in frames)
-    assert compacted == _maps_paint.compact_colors(raw), 'render_map compacts'
+    assert compacted == paint.compact_colors(raw), 'render_map compacts'
     assert len(compacted) < len(raw)
     assert rendition_signature(compacted) == rendition_signature(raw)
     # and through the live loop, which addresses and clears every row
@@ -275,4 +276,4 @@ def test_a_real_frame_paints_the_same_cells_after_compaction(frames, name):
 def test_a_compacted_frame_is_already_compact(frames):
     _raw, compacted = frames
     for frame in compacted.values():
-        assert _maps_paint.compact_colors(frame) == frame
+        assert paint.compact_colors(frame) == frame

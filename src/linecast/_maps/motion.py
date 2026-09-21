@@ -1,6 +1,6 @@
 """The arithmetic of a map in motion: easing, and the flight path.
 
-The camera in _maps_live is the thing that moves; this is what it moves
+The camera in live is the thing that moves; this is what it moves
 along.  Two ideas and no state.
 
 `ease_in_out` is the shape every short motion takes — a zoom step, a

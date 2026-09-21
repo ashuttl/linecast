@@ -26,6 +26,16 @@ from collections.abc import Mapping
 from pathlib import Path
 
 
+def data_path(name):
+    """A file bundled with the package, under src/linecast/data.
+
+    The modules that read the bundled data sit in subpackages, so
+    they ask here rather than each counting the parents of their own
+    __file__.
+    """
+    return Path(__file__).parent / "data" / name
+
+
 def _override(env, name):
     """An explicit LINECAST_*_DIR, expanded, or None when unset or blank."""
     value = env.get(name, "").strip()

@@ -5,8 +5,8 @@ import time
 
 import pytest
 
-from linecast import _maps_tile_cache
-from linecast._maps_tile_cache import (DEFAULT_CACHE_MB, cache_limit_bytes,
+from linecast._maps import tile_cache as _maps_tile_cache
+from linecast._maps.tile_cache import (DEFAULT_CACHE_MB, cache_limit_bytes,
                                   note_tile_use, prune_maps_cache)
 
 MB = 1_000_000  # decimal, as _maps_cache and doctor both count it

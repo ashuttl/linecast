@@ -43,16 +43,16 @@ import zlib
 from array import array
 from collections import namedtuple
 from operator import itemgetter
-from pathlib import Path
 
-from linecast import (
-    _cache, _climate, _globe, _live, _maps_paint, _maps_style, _theme,
-)
+from linecast import _cache, _climate, _live, _theme
+from linecast._maps import globe as _globe
+from linecast._maps import paint
+from linecast._maps import style
 from linecast._color import BG_PRIMARY, color_mode
 from linecast._live import nudge as _nudge_repaint
-from linecast._paths import cache_dir
-from linecast._radar_basemap import _BITS, DotLayer, _bresenham, _load_data
-from linecast._radar_tiles import _TILE_SIZE
+from linecast._paths import cache_dir, data_path
+from linecast._radar.basemap import _BITS, DotLayer, _bresenham, _load_data
+from linecast._radar.tiles import _TILE_SIZE
 from linecast._runtime import log_failure
 from linecast._scenes import Memo
 
@@ -593,7 +593,7 @@ def _shade(elev, lakes, w, h):
     byte rows before the next is shaded: the tuples are the bake's
     largest transient, and only ever one band of them exists.
     """
-    ice_id = _maps_style.COVER_ORDER.index("ice") + 1
+    ice_id = style.COVER_ORDER.index("ice") + 1
     planes = ([], [], [])
     for y0 in range(0, h, _BAND):
         _breathe(y0)
@@ -609,7 +609,7 @@ def _shade(elev, lakes, w, h):
         # — the ice sheets come out salt-and-pepper, because a slope
         # taken over a fifth of the distance is five times the slope,
         # while the old disk was shaded by one figure throughout.
-        buf = _maps_paint.build_terrain_buffer(
+        buf = paint.build_terrain_buffer(
             band, (0.0, -(hi - lo) * 90.0 / h, 360.0, (hi - lo) * 90.0 / h),
             w, hi - lo, water=lakes[lo:hi],
             cover=_globe.ice_cover(lls, band, ice_id),
@@ -669,14 +669,13 @@ def _digest(z, register):
     changes its theme misses the texture shaded for the old one
     instead of painting last night's palette.
     """
-    data = Path(__file__).parent / "data"
     parts = [_FORMAT, z, register,
-             _stat_key(data / f"globe_canvas_{z}.bin"),
-             _stat_key(data / "basemap.json.gz")]
+             _stat_key(data_path(f"globe_canvas_{z}.bin")),
+             _stat_key(data_path("basemap.json.gz"))]
     if register != "street":
-        parts += [color_mode(), _maps_paint.HYPSO_FAMILIES,
-                  _maps_paint.BATHY_STOPS, _maps_paint.LAKE_FILL,
-                  _maps_style.COVER_COLOR, _maps_style.COVER_BLEND,
+        parts += [color_mode(), paint.HYPSO_FAMILIES,
+                  paint.BATHY_STOPS, paint.LAKE_FILL,
+                  style.COVER_COLOR, style.COVER_BLEND,
                   BG_PRIMARY]
     return zlib.crc32(repr(parts).encode()) & 0xFFFFFFFF
 

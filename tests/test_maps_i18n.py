@@ -17,11 +17,11 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _maps_i18n
+from linecast._maps import i18n as _maps_i18n
 from linecast._completion import LANG_CODES
 from linecast._framebuffer import visible_len
 from linecast._i18n import VARIANTS
-from linecast._maps_i18n import ms
+from linecast._maps.i18n import ms
 
 TABLE = _maps_i18n._STRINGS
 KEYS = set(TABLE["en"])
@@ -80,8 +80,8 @@ def test_the_help_panel_entries_fit_their_column(lang):
 
 
 def test_every_glyph_in_the_legend_has_a_name():
-    from linecast import _maps_style as style
-    from linecast._maps_ui import HELP_GLYPHS
+    from linecast._maps import style
+    from linecast._maps.ui import HELP_GLYPHS
     assert {g for g, _k in HELP_GLYPHS} == set(style.GLYPH_INK)
     for _glyph, key in HELP_GLYPHS:
         assert key in KEYS

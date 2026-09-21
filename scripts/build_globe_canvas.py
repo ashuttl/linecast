@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from linecast._elevation import _fetch_tile
-from linecast._globe import _MERCATOR_LAT
+from linecast._maps.globe import _MERCATOR_LAT
 from linecast._png import decode_rgba
 from linecast._radar_tiles import stitch_xyz
 

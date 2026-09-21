@@ -16,7 +16,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _color, _globe, _maps_style
+from linecast import _color
+from linecast._maps import globe
+from linecast._maps import style
 from linecast._framebuffer import HALF_BLOCK
 from linecast._radar_render import bbox_for
 from linecast.maps import (
@@ -128,22 +130,22 @@ class TestComposeMapPriority:
 
 class TestComposeMapRibbon:
     def test_ribbon_blends_toward_the_motorway_ink(self):
-        motorway = _maps_style.PALETTE_DARK["motorway"]
+        motorway = style.PALETTE_DARK["motorway"]
         layer = FakeLayer(dots=[[0, 0]], color=[[None, None]],
                           ribbon=[(0, 0)])
         fills = _fills([(GREEN, GREEN), (GREEN, GREEN)])
         line = compose_map(fills, layer, {}, 2, 1)[0]
-        blend = tuple(round(a + (b - a) * _maps_style.RIBBON_BLEND)
+        blend = tuple(round(a + (b - a) * style.RIBBON_BLEND)
                       for a, b in zip(GREEN, motorway))
         assert f"48;2;{blend[0]};{blend[1]};{blend[2]}" in line
         assert f"48;2;{GREEN[0]};{GREEN[1]};{GREEN[2]}" in line  # cell 1
 
     def test_ribbon_ignores_the_cells_own_stroke_colour(self):
         # A rank-90 route crossing the ribbon must not tint it cyan.
-        motorway = _maps_style.PALETTE_DARK["motorway"]
+        motorway = style.PALETTE_DARK["motorway"]
         layer = FakeLayer(dots=[[0x01]], color=[[ROUTE]], ribbon=[(0, 0)])
         line = compose_map(_fills([(GREEN, GREEN)]), layer, {}, 1, 1)[0]
-        blend = tuple(round(a + (b - a) * _maps_style.RIBBON_BLEND)
+        blend = tuple(round(a + (b - a) * style.RIBBON_BLEND)
                       for a, b in zip(GREEN, motorway))
         assert f"48;2;{blend[0]};{blend[1]};{blend[2]}" in line
         assert "38;2;120;210;255" in line       # the route still owns the ink
@@ -232,14 +234,14 @@ class TestZoomRange:
         # The old floor of 0.1 topped out at band 3; buildings and POI
         # text live at band 7.
         assert MIN_ZOOM_DEG == 0.0012
-        # the ceiling admits the whole planet: past _globe.ZOOM_DEG the
+        # the ceiling admits the whole planet: past globe.ZOOM_DEG the
         # terrain view is orthographic, and 130 fits the disk with margin
         assert MAX_ZOOM_DEG == 130.0
         hc = 22
         deepest = (-70.0, 43.0, -69.0, 43.0 + MIN_ZOOM_DEG)
-        assert _maps_style.band_for(_maps_style.z_eff(deepest, hc)) == 7
+        assert style.band_for(style.z_eff(deepest, hc)) == 7
         old_floor = (-70.0, 43.0, -69.0, 43.1)
-        assert _maps_style.band_for(_maps_style.z_eff(old_floor, hc)) == 3
+        assert style.band_for(style.z_eff(old_floor, hc)) == 3
 
     def test_a_narrow_terminal_gets_a_higher_ceiling(self):
         # The disk is as wide as it is tall, and a cell is two grid
@@ -250,7 +252,7 @@ class TestZoomRange:
         assert max_zoom(gw, hc) > MAX_ZOOM_DEG
 
         def edges(zoom):
-            _lls, _zs, rhos = _globe.geometry(0.0, 0.0, zoom, gw, hc * 2)
+            _lls, _zs, rhos = globe.geometry(0.0, 0.0, zoom, gw, hc * 2)
             on = [x for row in rhos for x, rho in enumerate(row) if rho <= 1.0]
             return min(on), max(on)
 

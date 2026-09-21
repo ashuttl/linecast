@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Maps — a street map and a terrain map in the terminal.
 
-`--view street` (the default) is in _maps_streets and friends: vector
+`--view street` (the default) is in _maps.streets and friends: vector
 tiles rasterised into fills, braille strokes and labels.  Only a handful
 of things on it can afford a label, so the pointer is the other half of
 reading it: hover names whatever owns the ink under it and lights that
-whole feature up (_maps_hover).
+whole feature up (_maps.hover).
 
 `--view terrain` lives here, drawn in a schematic register: colour is
 categorical (flat land-cover fields, flat hypsometric bands climbing
@@ -22,11 +22,11 @@ sea-level contour of the elevation data itself (so it always matches
 the fill), borders are Natural Earth braille strokes, cities are
 labelled dots.  Drag to pan, +/- to zoom, and hover to read the
 elevation under the pointer.  The inks, the palette and the composers
-are in _maps_paint; the loaders and their caches are in _maps_views;
+are in _maps.paint; the loaders and their caches are in _maps.views;
 the live loop and its keys are in _maps_live.
 
 Either flat view is built a margin wider than the window and the frame
-is a crop of it (_maps_overscan), so a pan inside that margin is the
+is a crop of it (_maps.overscan), so a pan inside that margin is the
 real map at the new centre and costs nothing: no fetch, no reprojection,
 the same data cut at another offset.  `--print` builds the window's own
 bbox and nothing beyond it.
@@ -39,22 +39,25 @@ import functools
 import math
 import sys
 
-from linecast import (
-    _builtup, _climate, _globe, _globe_now, _maps_hover, _maps_overscan,
-    _maps_style, _maps_ui, _night_lights,
-)
+from linecast import _builtup, _climate, _night_lights
+from linecast._maps import globe as _globe
+from linecast._maps import globe_now
+from linecast._maps import hover as _maps_hover
+from linecast._maps import overscan as _maps_overscan
+from linecast._maps import style
+from linecast._maps import ui
 from linecast._color import fg, RESET, color_mode, BG_PRIMARY
 from linecast._elevation import ATTRIBUTION
 from linecast._framebuffer import cell_aspect, get_terminal_size
 from linecast._graphics import visible_len
 from linecast._live import overlay
-from linecast._maps_i18n import ms
-from linecast._maps_paint import (  # noqa: F401 — the inks and composers
+from linecast._maps.i18n import ms
+from linecast._maps.paint import (  # noqa: F401 — the inks and composers
     BATHY_STOPS, BORDER_STROKE, COAST_STROKE, HYPSO_FAMILIES, LABEL_DARK,
     LABEL_LIGHT, LAKE_FILL, MARKER, build_terrain_buffer,
     compact_colors, compose_map, compose_terrain,
 )
-from linecast._maps_views import (  # noqa: F401 — the loaders and caches
+from linecast._maps.views import (  # noqa: F401 — the loaders and caches
     TerrainView, _EMPTY_TERRAIN, _coast_dots, _elev_cache,
     _get_clouds, _get_elevation, _get_globe, _get_street, _globe_cache,
     _sphere, _street_cache, _terrain_buffer, _terrain_cache, _view_key,
@@ -82,7 +85,7 @@ MIN_ZOOM_DEG = 0.0012
 # (the disk's diameter is 2·(180/π) ≈ 114.6 zoom-degrees).  A narrow
 # terminal needs more room than that: see max_zoom.
 MAX_ZOOM_DEG = 130.0
-ZOOM_STEP = _maps_style.ZOOM_STEP
+ZOOM_STEP = style.ZOOM_STEP
 
 
 _route_layer_cache = Memo(keep=1)   # one slot: (route id, view key) -> DotLayer
@@ -143,9 +146,9 @@ def _get_route_layer(route, bbox, gw, hc):
 
     def build():
         layer = DotLayer(bbox, gw, hc)
-        ink = _maps_style.palette().get("route",
-                                        _maps_style.PALETTE_DARK["route"])
-        rank = _maps_style.LINE_STYLES["route"][3]
+        ink = style.palette().get("route",
+                                        style.PALETTE_DARK["route"])
+        rank = style.LINE_STYLES["route"][3]
         layer._draw_lines([route.coords], ink, width=2, rank=rank)
         return layer
 
@@ -159,8 +162,8 @@ def _scale_bar(bbox, graph_w):
     one piece of furniture that tells you what the map *means*, and it
     is cheaper than a grid.
     """
-    best = _maps_style.scale_bar(bbox, graph_w,
-                                 _maps_style.use_metric())
+    best = style.scale_bar(bbox, graph_w,
+                                 style.use_metric())
     if best is None:
         return ""
     cells, label = best
@@ -621,10 +624,10 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
         # is shaded where it now is, not where it was drawn.
         terrain = _shade_now(
             terrain,
-            _globe_now.flat_lls(bbox, graph_w, height_cells * 2), sun,
+            globe_now.flat_lls(bbox, graph_w, height_cells * 2), sun,
             (_get_clouds(bbox[3] - bbox[1], height_cells, block)
              if clouds else None),
-            _globe_now.city_lights_flat(bbox, graph_w,
+            globe_now.city_lights_flat(bbox, graph_w,
                                         height_cells * 2)
             if sun else {})
     if not show_labels:
@@ -664,12 +667,12 @@ def _ink_dusk(lls, sun, graph_w, height_cells):
 
     The street map's strokes are its geography, and a coastline drawn
     at noon brightness across a darkened sea reads as a wire.  The
-    inks fade by the fills' own night factor (see _globe_now.ink_dusk).
+    inks fade by the fills' own night factor (see globe_now.ink_dusk).
     """
     if not sun or lls is None:
         return None
-    return _globe_now.ink_dusk(lls, _globe_now.subsolar(),
-                               _globe_now.NIGHT_STREET, graph_w,
+    return globe_now.ink_dusk(lls, globe_now.subsolar(),
+                               globe_now.NIGHT_STREET, graph_w,
                                height_cells)
 
 
@@ -683,13 +686,13 @@ def _shade_now(buf, lls, sun, canvas, lights, glow=None, night=None):
     own night floor, where the default would leave nothing to see.
     """
     buf = [row[:] for row in buf]
-    sub = _globe_now.subsolar() if sun else None
-    day = _globe_now.daylight(lls, sub) if sun else None
-    cloud = _globe_now.clouds(lls, canvas) if canvas is not None else None
-    _globe_now.apply(buf, day, cloud, lights if sun else {}, night)
+    sub = globe_now.subsolar() if sun else None
+    day = globe_now.daylight(lls, sub) if sun else None
+    cloud = globe_now.clouds(lls, canvas) if canvas is not None else None
+    globe_now.apply(buf, day, cloud, lights if sun else {}, night)
     if sun and glow is not None:
         atmo, glow_lls = glow
-        _globe.gate_glow(buf, atmo, _globe_now.daylight(glow_lls, sub),
+        _globe.gate_glow(buf, atmo, globe_now.daylight(glow_lls, sub),
                          BG_PRIMARY)
     return buf
 
@@ -742,7 +745,7 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
              else None)
     borders = (view.borders if view is not None and show_labels
                and not street else None)
-    palette = _maps_style.palette()
+    palette = style.palette()
     terrain = None
     lls = atmo = glow_lls = None
     if elev is not None:
@@ -810,11 +813,11 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
         terrain = _shade_now(
             terrain, lls, sun,
             _get_clouds(zoom, height_cells, block) if clouds else None,
-            _globe_now.city_lights_globe(lat0, lon0, zoom, graph_w,
+            globe_now.city_lights_globe(lat0, lon0, zoom, graph_w,
                                          height_cells * 2)
             if sun and not street else {},
             glow=(atmo, glow_lls) if glow_lls is not None else None,
-            night=_globe_now.NIGHT_STREET if street else None)
+            night=globe_now.NIGHT_STREET if street else None)
         if street:
             dusk = _ink_dusk(lls, sun, graph_w, height_cells)
 
@@ -906,7 +909,7 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
             _maps_overscan.window_hint(frame, graph_w, height_cells))
         loading = fills is None
 
-    palette = _maps_style.palette()
+    palette = style.palette()
     if fills is not None and source is None:
         _last_street[0] = (tuple(obbox), ogw, ohc, fills, layer, labels)
     if fills is not None and cropping:
@@ -945,13 +948,13 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
         # terrain's, a picture of where the ground is built up, and
         # this map already draws the city itself.  Nothing burns back
         # through the dark here, so the fills keep a higher floor to
-        # stay a map at night (see _globe_now.NIGHT_STREET).
-        lls = _globe_now.flat_lls(bbox, graph_w, height_cells * 2)
+        # stay a map at night (see globe_now.NIGHT_STREET).
+        lls = globe_now.flat_lls(bbox, graph_w, height_cells * 2)
         fills = _shade_now(
             fills, lls, sun,
             (_get_clouds(bbox[3] - bbox[1], height_cells, block)
              if clouds else None),
-            {}, night=_globe_now.NIGHT_STREET)
+            {}, night=globe_now.NIGHT_STREET)
         dusk = _ink_dusk(lls, sun, graph_w, height_cells)
 
     hover, hot, hot_glyphs = _hover(layer, mouse_pos, pan_offset, lang)
@@ -1000,7 +1003,7 @@ def _marker_ink(ink, street):
     """Street mode's motorway takes ANSI 3, leaving bright yellow as the
     only yellow for the marker; terrain mode's inks are unchanged."""
     if street and color_mode() in ("16", "none"):
-        return _maps_style.MARKER_16
+        return style.MARKER_16
     return ink
 
 
@@ -1062,7 +1065,7 @@ def _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells, lang,
         probe = elev[height_cells][graph_w // 2]  # centre sub-pixel row
     if probe is None:
         return ""
-    return f" · {_maps_style.fmt_elev(probe)}"
+    return f" · {style.fmt_elev(probe)}"
 
 
 def prefetch_view(lat, lon, zoom, view, graph_w, height_cells, lang,
@@ -1183,12 +1186,12 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     elif hover:
         readout = hover
     elif route is not None:
-        readout = f" · {_maps_ui.route_summary(route, lang)}"
+        readout = f" · {ui.route_summary(route, lang)}"
     elif sun and not readout:
         # with daylight on the fact of interest is the sun, not the
         # centre pixel: name what it stands over, from the same offline
         # gazetteer that names a panned view
-        s_lat, s_lon = _globe_now.subsolar()
+        s_lat, s_lon = globe_now.subsolar()
         under = _panned_place(s_lat, s_lon, lang)
         readout = f" · {ms('sun_over', lang, place=under)}"
 
@@ -1230,7 +1233,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
             # (borders and cities are vendored Natural Earth); terrain's
             # adds the climate grid, this hour's clouds add theirs
             base = f"{ATTRIBUTION} · {kg}" if kg else ATTRIBUTION
-            attribs = ((f"{base} · {_globe_now.ATTRIBUTION}",
+            attribs = ((f"{base} · {globe_now.ATTRIBUTION}",
                         base, ATTRIBUTION) if clouds
                        else (base, ATTRIBUTION))
         elif view == "street":
@@ -1240,18 +1243,18 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                 # the settlement raster tints street ground too, and its
                 # CC-BY credit rides the long rung as it does on terrain
                 tiles_long = f"{tiles_long} · {_builtup.ATTRIBUTION}"
-            attribs = ((f"{tiles_long} · {_globe_now.ATTRIBUTION}",
+            attribs = ((f"{tiles_long} · {globe_now.ATTRIBUTION}",
                         tiles_long,
-                        _maps_style.ATTRIB_TILES_SHORT) if clouds
-                       else (tiles_long, _maps_style.ATTRIB_TILES_SHORT))
+                        style.ATTRIB_TILES_SHORT) if clouds
+                       else (tiles_long, style.ATTRIB_TILES_SHORT))
         else:
             # terrain's lakes and rivers come from the tiles too, so the
             # first rung credits both sources and the fallbacks shorten;
             # the settlement raster earns its CC-BY credit when in use
-            both = f"{ATTRIBUTION} · {_maps_style.ATTRIB_TILES_SHORT}"
+            both = f"{ATTRIBUTION} · {style.ATTRIB_TILES_SHORT}"
             long = f"{both} · {kg}" if kg else both
             if clouds:
-                attribs = (f"{long} · {_globe_now.ATTRIBUTION}", both,
+                attribs = (f"{long} · {globe_now.ATTRIBUTION}", both,
                            ATTRIBUTION)
             elif _builtup.enabled():
                 attribs = (f"{long} · {_builtup.ATTRIBUTION}", both,
@@ -1291,10 +1294,10 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
         # sequence likely, and a torn sequence looks like ESC — which is
         # exactly the key guarding a text buffer.  Turn 1003 off for as
         # long as the field is open, and back on when it closes.
-        return overlay(out, _maps_ui.search_overlay(search, cols, rows, lang),
+        return overlay(out, ui.search_overlay(search, cols, rows, lang),
                        motion=False)
     if directions is not None and directions.panel:
-        floating = _maps_ui.directions_overlay(directions, cols, rows, lang,
+        floating = ui.directions_overlay(directions, cols, rows, lang,
                                                home_label=location_name)
         if floating:
             return overlay(out, floating, motion=True)
@@ -1304,14 +1307,14 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
 
 
 def main():
-    # the live loop draws through render_map, so _maps_live imports this
+    # the live loop draws through render_map, so _maps.live imports this
     # module; importing it here, at the call, keeps that one-way at load
-    from linecast._maps_live import main as live_main
+    from linecast._maps.live import main as live_main
     live_main()
 
 
 _theme.track_imports(globals(), "linecast._color")
-_theme.track_imports(globals(), "linecast._maps_paint")
+_theme.track_imports(globals(), "linecast._maps.paint")
 
 
 if __name__ == "__main__":

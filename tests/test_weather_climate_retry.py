@@ -11,7 +11,7 @@ import pytest
 from linecast._weather import historical as hist
 from linecast import weather
 from linecast._http import HTTPError
-from linecast._maps_search import Result
+from linecast._maps.search import Result
 from linecast._weather.historical import Superseded, _fetch_archive
 
 URL = "https://archive-api.open-meteo.com/v1/archive?x=1"

@@ -20,18 +20,17 @@ import struct
 import threading
 import zlib
 from collections import namedtuple
-from pathlib import Path
 
 from linecast import _cache
 from linecast._elevation import _fetch_tile, decode_meters
 from linecast._framebuffer import cell_aspect
 from linecast._geo import wrap_lon
-from linecast._paths import cache_dir
+from linecast._paths import cache_dir, data_path
 from linecast._png import decode_rgba
-from linecast._radar_basemap import (
+from linecast._radar.basemap import (
     CITY, CITY_LABEL, DotLayer, _load_data, _localized)
 from linecast._textwidth import char_width
-from linecast._radar_tiles import _TILE_SIZE, stitch_xyz
+from linecast._radar.tiles import _TILE_SIZE, stitch_xyz
 from linecast._runtime import log_failure
 from linecast._scenes import Memo
 from linecast._theme import themed
@@ -83,7 +82,7 @@ _theme.on_reload(_rebuild)
 # sub-pixel inland mask the elevation data cannot report.  fill and wet
 # are the baked texture's answers — the shaded sub-pixel colour and the
 # sub-pixel water of both kinds — and are None whenever the view was
-# built the long way, from elevation, instead (see _globe_texture).
+# built the long way, from elevation, instead (see globe_texture).
 GlobeView = namedtuple("GlobeView",
                        "elev coast shade atmo cover borders lls glow_lls "
                        "water fill wet",
@@ -290,7 +289,7 @@ def _canvas_load(z):
     globes need no network at all; z3 — very tall terminals only — is
     stitched once on this machine and cached.
     """
-    vendored = Path(__file__).parent / "data" / f"globe_canvas_{z}.bin"
+    vendored = data_path(f"globe_canvas_{z}.bin")
     return _canvas_read(vendored) or _canvas_read(_canvas_path(z))
 
 

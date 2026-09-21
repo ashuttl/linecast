@@ -53,8 +53,9 @@ lifting them says the road is called "ll".
 
 from collections import namedtuple
 
-from linecast import _maps_labels, _maps_style as style
-from linecast._maps_i18n import ms
+from linecast._maps import labels
+from linecast._maps import style
+from linecast._maps.i18n import ms
 from linecast._theme import shift_to_pole
 
 # How far a hovered ink travels toward the pole.  Enough that a whole
@@ -148,19 +149,19 @@ def road_names(view, bbox, graph_w, height_cells, band, lang="en"):
     business claiming a cell where its road is not on screen.
     """
     merged = {}
-    for props, parts in _maps_labels._features(
+    for props, parts in labels._features(
             view, bbox, graph_w, height_cells, "transportation_name",
             dedupe=False):
         key = style.OMT_ROAD_CLASS.get(props.get("class"))
         if key is None or not style.LINE_STYLES[key][1][band]:
             continue
-        name = (_maps_labels._name(props, lang)
+        name = (labels._name(props, lang)
                 or str(props.get("ref") or "").strip())
         if not name:
             continue
         cells = merged.setdefault((key, name), [])
         for part in parts:
-            cells.extend(_maps_labels.cell_path(part, graph_w, height_cells))
+            cells.extend(labels.cell_path(part, graph_w, height_cells))
 
     index = {}
     for (key, name), cells in merged.items():

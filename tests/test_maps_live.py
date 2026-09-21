@@ -16,15 +16,18 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import (
-    _globe, _globe_texture, _maps_live, _maps_route, _maps_ui, _maps_views,
-    maps,
-)
-from linecast._maps_live import (
+from linecast import maps
+from linecast._maps import globe as _globe
+from linecast._maps import globe_texture
+from linecast._maps import live as _maps_live
+from linecast._maps import route as _maps_route
+from linecast._maps import ui
+from linecast._maps import views
+from linecast._maps.live import (
     COAST_CEILING, Camera, MapApp, ZOOM_EASE,
 )
-from linecast._maps_motion import lon_span
-from linecast._maps_search import Result
+from linecast._maps.motion import lon_span
+from linecast._maps.search import Result
 from linecast._radar_render import bbox_for
 from linecast.maps import MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP
 
@@ -73,15 +76,15 @@ def _quiet(monkeypatch):
     fake = types.SimpleNamespace(Thread=FakeThread, Timer=FakeTimer,
                                  Lock=threading.Lock)
     monkeypatch.setattr(_maps_live, "threading", fake)
-    monkeypatch.setattr(_maps_ui, "threading", fake)
+    monkeypatch.setattr(ui, "threading", fake)
     monkeypatch.setattr(maps, "get_terminal_size", lambda: (COLS, ROWS))
     monkeypatch.setattr(_globe, "warm", lambda zoom, h: False)
-    monkeypatch.setattr(_globe_texture, "ready", lambda *a, **k: False)
+    monkeypatch.setattr(globe_texture, "ready", lambda *a, **k: False)
     monkeypatch.setattr(_maps_live, "_zoom_hold",
                         types.SimpleNamespace(hold=lambda: None))
     monkeypatch.setattr(_maps_live, "prefetch_view", lambda *a, **k: None)
     yield
-    _maps_views.hold_motion(False)
+    views.hold_motion(False)
 
 
 @pytest.fixture
@@ -612,13 +615,13 @@ class TestDrag:
         app.on_drag(-10, 0, False)
         app.on_drag(-10, 0, True)
         app.render()
-        assert _maps_views._in_motion[0] and _maps_views._build_passing[0]
+        assert views._in_motion[0] and views._build_passing[0]
         app.camera.fly_to(44.0, -71.0, 0.5)
         app.render()
-        assert _maps_views._in_motion[0] and not _maps_views._build_passing[0]
+        assert views._in_motion[0] and not views._build_passing[0]
         settle(app)
         app.render()
-        assert not _maps_views._in_motion[0] and _maps_views._build_passing[0]
+        assert not views._in_motion[0] and views._build_passing[0]
 
     def test_a_press_stops_a_coast_and_a_flight(self):
         app = make(zoom=2.0)
@@ -650,7 +653,7 @@ class TestIntercept:
         app = make()
         help_panel = app.help_panel()
         assert help_panel.handle('key:?') and help_panel.open
-        assert _maps_ui.TILE_ATTRIBUTION in help_panel.render(100, 42)
+        assert ui.TILE_ATTRIBUTION in help_panel.render(100, 42)
         assert help_panel.handle('escape') and not help_panel.open
 
     def test_slash_opens_search_and_o_the_origin(self):
@@ -794,11 +797,11 @@ class TestRender:
         app = make(zoom=1.0)
         app.zoom_to(2.0)
         app.render(mouse_pos=(4, 5))
-        assert _maps_views._in_motion[0] is True
+        assert views._in_motion[0] is True
         assert frames[-1]["mouse_pos"] is None
         settle(app, ZOOM_EASE + 0.01)
         app.render(mouse_pos=(4, 5))
-        assert _maps_views._in_motion[0] is False
+        assert views._in_motion[0] is False
         assert frames[-1]["mouse_pos"] == (4, 5)
 
     def test_a_frame_advances_the_motion(self, frames):
@@ -952,7 +955,7 @@ class TestFlights:
         settle(app)
         app.render()
         assert asked == [] and app._destination is None
-        assert _maps_views._in_motion[0] is False
+        assert views._in_motion[0] is False
 
     def test_the_destination_fetched_is_the_one_the_flight_lands_on(
             self, monkeypatch):
@@ -1151,7 +1154,7 @@ class TestMapCells:
         monkeypatch.setattr(app.search, "handle", handle)
         assert app.intercept('char:a') is True
         bbox = bbox_for(43.68, -70.37, 1.0, GW, HC)
-        from linecast._maps_style import z_eff
+        from linecast._maps.style import z_eff
         assert seen == dict(lat=43.68, lon=-70.37, z=int(z_eff(bbox, HC)),
                             lang="en")
 
@@ -1163,7 +1166,7 @@ class TestStartupPrune:
         monkeypatch.setattr(sys, "argv", ["linecast-maps", *args])
 
     def test_the_sweep_runs_before_anything_is_fetched(self, monkeypatch):
-        from linecast import _maps_tile_cache
+        from linecast._maps import tile_cache
 
         calls = []
 
@@ -1175,7 +1178,7 @@ class TestStartupPrune:
             raise Bail
 
         self._argv(monkeypatch)
-        monkeypatch.setattr(_maps_tile_cache, "prune_maps_cache",
+        monkeypatch.setattr(tile_cache, "prune_maps_cache",
                             lambda *a, **k: calls.append("prune"))
         monkeypatch.setattr(_maps_live, "resolve_location", bail)
 
@@ -1185,12 +1188,12 @@ class TestStartupPrune:
         assert calls == ["prune", "resolve"]
 
     def test_search_adds_no_tiles_so_it_does_not_wait(self, monkeypatch):
-        from linecast import _maps_tile_cache
+        from linecast._maps import tile_cache
         from linecast._weather import sources
 
         calls = []
         self._argv(monkeypatch, "--search", "leith")
-        monkeypatch.setattr(_maps_tile_cache, "prune_maps_cache",
+        monkeypatch.setattr(tile_cache, "prune_maps_cache",
                             lambda *a, **k: calls.append("prune"))
         monkeypatch.setattr(sources, "_search_locations",
                             lambda *a, **k: calls.append("search"))

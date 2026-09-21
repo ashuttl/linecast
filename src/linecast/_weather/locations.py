@@ -6,9 +6,9 @@ from linecast import _theme
 from linecast._cache import read_stale, write_cache
 from linecast._graphics import RESET, bg, fg, visible_len
 from linecast._help import fit
-from linecast._maps_i18n import ms
-from linecast._maps_search import ATTRIBUTION, Result
-from linecast._maps_ui import SearchState
+from linecast._maps.i18n import ms
+from linecast._maps.search import ATTRIBUTION, Result
+from linecast._maps.ui import SearchState
 from linecast._paths import config_root
 from linecast._runtime import log_failure
 from linecast._weather.locations_i18n import ls

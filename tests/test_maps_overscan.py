@@ -18,9 +18,10 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _maps_overscan as over
-from linecast import _maps_views, maps
-from linecast._maps_hover import HoverIndex
+from linecast._maps import overscan as over
+from linecast import maps
+from linecast._maps import views
+from linecast._maps.hover import HoverIndex
 from linecast._radar_basemap import DotLayer
 from linecast._radar_render import bbox_for
 
@@ -198,12 +199,12 @@ class _Loader:
 @pytest.fixture
 def quiet(monkeypatch):
     monkeypatch.setattr(maps, "get_terminal_size", lambda: (COLS, ROWS))
-    _maps_views._street_landed[0] = None
-    _maps_views._terrain_landed[0] = None
+    views._street_landed[0] = None
+    views._terrain_landed[0] = None
     maps._last_street[0] = maps._last_terrain[0] = None
     yield
-    _maps_views._street_landed[0] = None
-    _maps_views._terrain_landed[0] = None
+    views._street_landed[0] = None
+    views._terrain_landed[0] = None
     maps._last_street[0] = maps._last_terrain[0] = None
 
 
@@ -266,13 +267,13 @@ class TestAWindowInsideTheMargin:
         assert len(loader.calls) == 1
         # the loader lands it under its own key, as _get_street does
         frame, _at = over.plan(here, gw, hc)
-        _maps_views._street_landed[0] = (frame.bbox, frame.gw, frame.hc,
+        views._street_landed[0] = (frame.bbox, frame.gw, frame.hc,
                                          *loader.view(frame.gw, frame.hc))
         after = maps.render_map(LAT, LON, "New York", ZOOM, block=False,
                                 view="street")
         assert len(loader.calls) == 1          # nothing more was asked
         assert _braille_between(after, 0, gw) > 0
-        assert _maps_views.take_street() is None   # taken once
+        assert views.take_street() is None   # taken once
 
     def test_a_pan_past_the_margin_asks_for_one_centred_ahead(
             self, quiet, monkeypatch):

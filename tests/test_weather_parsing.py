@@ -909,7 +909,7 @@ class TestReverseGeocodeName:
         from linecast._weather import sources as ws
         with patch.object(ws, "read_cache", return_value=None), \
                 patch.object(ws, "write_cache", lambda *a, **k: None), \
-                patch("linecast._maps_search._throttle", lambda: None), \
+                patch("linecast._maps.search._throttle", lambda: None), \
                 patch.object(ws, "fetch_json", return_value={"address": address}):
             name, _cc, _addr = ws._reverse_geocode(44.4, -70.0)
         return name
@@ -960,7 +960,7 @@ class TestReverseGeocodeLanguage:
 
         with patch.object(ws, "read_cache", return_value=None) as read, \
                 patch.object(ws, "write_cache", lambda *a, **k: None), \
-                patch("linecast._maps_search._throttle", lambda: None), \
+                patch("linecast._maps.search._throttle", lambda: None), \
                 patch.object(ws, "fetch_json", fetch):
             ws._reverse_geocode(34.69, 135.50, lang=lang)
         return seen["url"], read.call_args[0][0].name
