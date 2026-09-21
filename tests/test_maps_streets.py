@@ -158,8 +158,8 @@ def _truecolor(monkeypatch):
     monkeypatch.setattr(_theme, "theme_bg", DARK_BG)
 
 
-def build(*layers, band=7):
-    return st.build_street_view(WORLD, GW, HC, {Z0: tile(*layers)}, band)
+def build(*layers, band=7, hc=HC):
+    return st.build_street_view(WORLD, GW, hc, {Z0: tile(*layers)}, band)
 
 
 def ink(key):
@@ -265,31 +265,47 @@ class TestBandGates:
 # The coast
 # ---------------------------------------------------------------------------
 class TestCoast:
+    """The shoreline street mode strokes.
+
+    Two cells tall rather than one: a lake has to hold
+    style.SHORE_MIN_DOTS dots before it is given a shore, and the left
+    half of a 4x1 view is sixteen — a pond by that rule, and deliberately
+    so.  At 4x2 the same half is thirty-two, which clears it, and every
+    expectation below is still derivable by hand.  What the threshold
+    itself does is tests/test_maps_water.py.
+    """
+
+    HC = 2
+
     def test_the_coast_traces_the_water_fill(self):
         # Water covers dot columns 0-3 of 8, so the stroked dots are the
         # land column that touches it — dot column 4, which is the left
         # sub-column of cell 2: bits 0x01|0x02|0x04|0x40.
-        _fills, layer_, _labels = build(classed("water", LEFT_HALF, "lake"))
+        _fills, layer_, _labels = build(classed("water", LEFT_HALF, "lake"),
+                                        hc=self.HC)
         assert layer_.dots[0] == [0, 0, 0x47, 0]
         assert layer_.color[0][2] == ink("coast")
         assert layer_.rank[0][2] == _maps_style.LINE_STYLES["coast"][3]
 
     def test_no_water_means_no_coast(self):
-        _fills, layer_, _labels = build(classed("park", WHOLE, "public_park"))
+        _fills, layer_, _labels = build(classed("park", WHOLE, "public_park"),
+                                        hc=self.HC)
         assert layer_.dots[0] == [0, 0, 0, 0]
 
     def test_a_building_over_water_does_not_erase_the_coast(self):
         # The water mask is snapshotted before buildings are painted, so
         # a pier or a boathouse cannot punch a hole in the shoreline.
         fills, layer_, _labels = build(classed("water", LEFT_HALF, "lake"),
-                              layer("building", [feature(LEFT_HALF)]))
+                                       layer("building", [feature(LEFT_HALF)]),
+                                       hc=self.HC)
         assert fills[0][0] == ink("building")
         assert layer_.dots[0] == [0, 0, 0x47, 0]
 
     def test_the_stroke_and_the_fill_agree_cell_for_cell(self):
         # Every stroked cell must border the painted water; this is the
         # invariant the whole _edge_dots exercise exists to guarantee.
-        fills, layer_, _labels = build(classed("water", LEFT_HALF, "lake"))
+        fills, layer_, _labels = build(classed("water", LEFT_HALF, "lake"),
+                                       hc=self.HC)
         for cx, mask in enumerate(layer_.dots[0]):
             if mask:
                 neighbours = {fills[0][max(0, cx - 1)],

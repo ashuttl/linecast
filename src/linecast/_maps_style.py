@@ -464,6 +464,18 @@ WATERWAY_KEYS = ("waterway_major", "waterway_minor")
 # or it is nothing.
 WATERWAY_HIDE_DOTS = 3
 
+# How much of a body of inland water has to be on screen, in dots,
+# before a shoreline is stroked round it.  The fill is painted for
+# every pond at every zoom; the stroke is the part that says "lake",
+# and a braille ring round each of the thousand unnamed ponds in the
+# Maine woods is a field of rings and no lakes at all.  Three cells'
+# worth of dots is where that speckle goes quiet and the named water —
+# Sebago, Champlain, Great Pond — still keeps its shore everywhere it
+# is more than a few cells across.  The threshold is in screen dots and
+# not in hectares, so a pond earns its own shore on the way in, at the
+# zoom where the reader has come looking for it.
+SHORE_MIN_DOTS = 24
+
 
 def waterway_style(props):
     """`waterway` feature -> LINE_STYLES key, or None if dropped."""

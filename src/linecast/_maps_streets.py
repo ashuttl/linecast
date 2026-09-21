@@ -12,7 +12,11 @@ exactly one foreground colour — a stipple fill and a road stroke in the
 same cell would have to fight for the ink, and that failure is total
 rather than cosmetic.  And **the coastline is the boundary of the fill
 mask that produced it**, never a second dataset, so the stroke and the
-colour edge cannot disagree at any zoom.
+colour edge cannot disagree at any zoom.  The one thing that mask is
+asked before it is stroked is how big each body of water is on screen:
+a pond too small to be a lake keeps its fill and goes without a shore
+(`stroked_water`), because a ring round every farm pond in the county
+is a speckle and not a map.
 
 Style decisions (which classes, which colours, which bands) all live in
 _maps_style; this module only asks it questions.
@@ -317,6 +321,89 @@ def inland_water_mask(view, bbox, graph_w, height_cells):
     """
     return _water_class_mask(view, bbox, graph_w, height_cells,
                              INLAND_WATER_CLASS)
+
+
+def stroked_water(water, min_dots=None):
+    """The water mask with the bodies too small to earn a shore removed.
+
+    Inland water is filled wherever it is, but a shoreline is drawn
+    only round a body that holds at least `min_dots` dots on screen
+    (style.SHORE_MIN_DOTS).  The fill and the hover keep the whole
+    mask; only the stroke reads this one, so a pond is still water and
+    still named — it just does not get a braille ring of its own until
+    a zoom makes it big enough for the ring to mean something.
+
+    A body is its 4-connected component, the same connectivity
+    `_edge_dots` strokes with, so no dot of an unstroked pond can ever
+    be adjacent to the water of a body that is stroked: the two would
+    be one component.  A component cut by the window is judged by the
+    area still visible, which is all the view has — half a lake at the
+    edge is half a lake's worth of shore to draw, and a lake leaving
+    the screen loses its shore at the same size a pond arriving gains
+    one.
+
+    The labelling is run-length: a row's water becomes spans, each span
+    joins the spans it overlaps in the row above, and a union-find
+    carries the totals.  A dot-by-dot flood fill of a 320x180 grid is
+    the whole frame's budget; the spans number in the hundreds.
+    """
+    if min_dots is None:
+        min_dots = style.SHORE_MIN_DOTS
+    if min_dots <= 1:
+        return water
+    dh = len(water)
+    dw = len(water[0]) if dh else 0
+    parent, size = [], []
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra == rb:
+            return
+        if size[ra] < size[rb]:
+            ra, rb = rb, ra
+        parent[rb] = ra
+        size[ra] += size[rb]
+
+    rows, prev = [], []
+    for row in water:
+        spans, x, j = [], 0, 0
+        while x < dw:
+            if not row[x]:
+                x += 1
+                continue
+            x0 = x
+            while x < dw and row[x]:
+                x += 1
+            label = len(parent)
+            parent.append(label)
+            size.append(x - x0)
+            spans.append((x0, x, label))
+            # both lists run left to right, so a span of the row above
+            # that ended before this one began cannot meet any later
+            # one either: the cursor only ever moves forward
+            while j < len(prev) and prev[j][1] <= x0:
+                j += 1
+            k = j
+            while k < len(prev) and prev[k][0] < x:
+                union(label, prev[k][2])
+                k += 1
+        rows.append(spans)
+        prev = spans
+
+    out = [bytearray(dw) for _ in range(dh)]
+    for y, spans in enumerate(rows):
+        orow = out[y]
+        for x0, x1, label in spans:
+            if size[find(label)] >= min_dots:
+                for x in range(x0, x1):
+                    orow[x] = 1
+    return out
 
 
 def water_cells(water, graph_w, height_cells):
@@ -950,15 +1037,19 @@ def water_owners(coast, wet, waters, feats, graph_w, height_cells):
     """(coast owner grid, per-cell shore owner for water cells).
 
     The coastline is one mask and many things.  Drawn, it is the
-    boundary of the whole water mask; read, each stretch of it is the
-    rim of *this* lake, and a reader pointing at the edge of Graham Lake
-    means Graham Lake and not every shore in the county.  So the mask is
-    split by the connected components of the water it goes round — the
-    same components the labels named — and each becomes its own feature.
+    boundary of the water big enough to be stroked; read, each stretch
+    of it is the rim of *this* lake, and a reader pointing at the edge
+    of Graham Lake means Graham Lake and not every shore in the county.
+    So the mask is split by the connected components of the water it
+    goes round — the same components the labels named — and each becomes
+    its own feature.
 
     Both grids point at the same features, which is what lets the middle
     of a lake and its rim answer identically: the fill has no ink of its
     own, so a water cell is filed against the shore that encloses it.
+    `wet` is every water cell and not only the stroked ones, so a pond
+    that went without a shoreline is still a body with a name on it when
+    the reader points at its water.
 
     A component is not always one body, though, and on a coast it
     almost never is: Casco Bay, Back Cove, the harbour and the Fore
@@ -1033,8 +1124,12 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
         wet, marks, texts, waters)
 
     layer = DotLayer(bbox, graph_w, height_cells)
-    land = [bytearray(1 - v for v in row) for row in water]
-    coast = _edge_dots(land, water, graph_w, height_cells)
+    # the fill is every pond; the stroke is the water big enough on
+    # screen to be worth a shoreline.  The sea is a component like any
+    # other here and is never the small one.
+    shores = stroked_water(water)
+    land = [bytearray(1 - v for v in row) for row in shores]
+    coast = _edge_dots(land, shores, graph_w, height_cells)
     ink = palette.get("coast", style._PALETTE_16_DEFAULT)
     feats = [("coast", "")]
     coast_owners, shore = water_owners(coast, wet, waters, feats,

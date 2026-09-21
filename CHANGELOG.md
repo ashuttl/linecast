@@ -5,6 +5,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 ## Unreleased
 
 - Weather: In Croatia, warnings filed by county are matched to your address by the county's boundary. They had been matched on the county's name.
+- Maps: Small ponds no longer get a shoreline of their own on the street and terrain maps. They are still drawn as water; a lake is given a shore once it is a few cells across, so a view of lake country is no longer a field of little rings.
 - Tides: The live view has the location menu weather has. Click the station name, or press `l`, to choose a recent place or search for one, and the tides switch to the station nearest it. The recent places are shared with weather.
 - Weather: The place name in the header sits in a chip, as it does in tides, and is the brightest thing on the line. The conditions, temperature, and feels-like read closer together, with the wider gaps kept for what follows.
 - Maps: A flat map that has been flicked no longer waits until it stops to fill in. The place it will come to rest is fetched the moment the map is let go, and the new ground appears while it is still gliding.

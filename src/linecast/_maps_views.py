@@ -190,7 +190,7 @@ def _view_key(bbox, gw, hc):
     return (tuple(round(v, nd) for v in bbox), gw, hc, _theme.generation)
 
 
-def _coast_dots(fine, gw, hc, water=None):
+def _coast_dots(fine, gw, hc, water=None, min_dots=None):
     """Braille masks stroking the shoreline of the elevation data.
 
     The coastline is *derived from the fill*: land is a sample above sea
@@ -202,8 +202,19 @@ def _coast_dots(fine, gw, hc, water=None):
     joins the same two masks rather than getting a stroke pass of its
     own — one union, one boundary, so a lake shore is drawn by exactly
     the rule that draws a sea shore and the two can never disagree where
-    a river meets the sea.
+    a river meets the sea.  What joins is the *stroked* half of it: the
+    bodies holding at least `min_dots` dots on screen
+    (style.SHORE_MIN_DOTS by default, and `_maps_streets.stroked_water`
+    for the rule, the window's edge included).  The fill still takes the
+    whole mask, so a pond keeps its water and loses only its ring.  The
+    sea is never weighed — it arrives from the elevation, not the tiles.
+
+    `min_dots=0` turns the rule off, which is how the globe asks for it:
+    its lakes come from vendored polygons and are already sieved as they
+    are carved, by the same reasoning one resolution up.
     """
+    if water is not None and min_dots != 0:
+        water = _maps_streets.stroked_water(water, min_dots)
     is_land, is_water = [], []
     for dy, row in enumerate(fine):
         wet = water[dy] if water is not None else None
@@ -487,10 +498,14 @@ def _built_globe(lat0, lon0, zoom, gw, hc):
     grid = _box_average(fine, gw, hc)
     # the lakes come from the vendored polygons rather than the
     # tiles, but they join the fill and the shoreline by exactly
-    # the flat view's rule: one mask, one union, one boundary
+    # the flat view's rule: one mask, one union, one boundary.  Not
+    # its screen-area rule, though: lake_mask has already dropped
+    # what is too small to draw (_LAKE_MIN_DOTS) and the baked
+    # texture sieves at the same size, so sieving again here would
+    # thin the built globe and not the textured one
     wet = _globe.lake_mask(lat0, lon0, zoom, gw * 2, hc * 4)
     return _globe.GlobeView(
-        grid, _coast_dots(fine, gw, hc, wet), zs, atmo,
+        grid, _coast_dots(fine, gw, hc, wet, min_dots=0), zs, atmo,
         _globe.ice_cover(lls, grid,
                          _maps_style.COVER_ORDER.index("ice") + 1),
         _globe.border_layer(lat0, lon0, zoom, gw, hc, BORDER_STROKE),

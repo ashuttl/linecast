@@ -190,19 +190,42 @@ class TestCoastDots:
         assert _coast_dots(fine, 1, 1) == [[0]]
 
     def test_a_lake_shore_is_stroked_exactly_like_a_sea_shore(self):
-        # the same cell, once as sea and once as a lake the elevation
-        # data cannot see: one union, one boundary, one rule
-        sea = _coast_dots([[-5.0, 10.0] for _ in range(4)], 1, 1)
-        lake = _coast_dots([[80.0, 80.0] for _ in range(4)], 1, 1,
-                           water=[bytearray((1, 0)) for _ in range(4)])
+        # The same view, once as sea and once as a lake the elevation
+        # data cannot see: one union, one boundary, one rule.  Four
+        # cells by two, because a lake earns a shore only once it holds
+        # style.SHORE_MIN_DOTS dots and a single cell cannot hold that
+        # many — the left half here is thirty-two.
+        sea = _coast_dots([[-5.0] * 4 + [10.0] * 4 for _ in range(8)], 4, 2)
+        lake = _coast_dots([[80.0] * 8 for _ in range(8)], 4, 2,
+                           water=[bytearray((1, 1, 1, 1, 0, 0, 0, 0))
+                                  for _ in range(8)])
         assert lake == sea
+        assert any(any(row) for row in sea)
 
     def test_tile_water_over_land_is_water_and_not_both(self):
         # a dot in both masks would be stroked from its own side; the
         # union rule means the tile wins and nothing self-strokes
-        water = [bytearray((1, 1)) for _ in range(4)]
-        assert _coast_dots([[80.0, 80.0] for _ in range(4)], 1, 1,
-                           water=water) == [[0]]
+        water = [bytearray((1, 1, 1, 1)) for _ in range(8)]
+        assert _coast_dots([[80.0] * 4 for _ in range(8)], 2, 2,
+                           water=water) == [[0, 0], [0, 0]]
+
+    def test_a_pond_too_small_to_be_a_lake_gets_no_shore(self):
+        # The mask still paints it — this is only the stroke — but a
+        # body under style.SHORE_MIN_DOTS dots is left as a fill.  The
+        # same water at the size that clears the bar is stroked, which
+        # is the whole rule: a pond earns its shore by getting bigger
+        # on screen.
+        land = [[80.0] * 8 for _ in range(8)]
+        pond = [bytearray(8) for _ in range(8)]
+        for y in range(2):
+            for x in range(2):
+                pond[y][x] = 1                      # 4 dots
+        assert _coast_dots(land, 4, 2, water=pond) == [[0] * 4] * 2
+        lake = [bytearray(8) for _ in range(8)]
+        for y in range(6):
+            for x in range(5):
+                lake[y][x] = 1                      # 30 dots
+        assert any(any(row) for row in _coast_dots(land, 4, 2, water=lake))
 
 
 class TestEdgeDots:

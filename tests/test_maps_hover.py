@@ -404,9 +404,12 @@ class TestEndToEnd:
         # whatever that thing turns out to be called.  (This one is out
         # in the South Pacific, so the vendored marine list has a name
         # for it — see test_the_open_sea_takes_the_name_of_its_sea.)
-        idx = _hover_at(tile(classed("water", LEFT_HALF, "lake")))
+        # Twice as wide as the other fixtures: a body is stroked only
+        # once it holds style.SHORE_MIN_DOTS dots, and half of a 4x1
+        # view is sixteen of them — a pond by that rule.
+        idx = _hover_at(tile(classed("water", LEFT_HALF, "lake")), gw=8)
         rim = [h for h in (idx.at(c, r) for r in range(HC)
-                           for c in range(GW))
+                           for c in range(8))
                if h and h.kind in ("hov_coast", "hov_water")]
         assert rim, "the lake drew no shore"
         assert len({h.cells for h in rim}) == 1
@@ -438,8 +441,10 @@ class TestEndToEnd:
     def test_a_named_lake_names_itself_from_the_middle_and_the_rim(self):
         # One thing cannot have two readouts: pointing at the water and
         # pointing at the edge of it are the same question.
-        idx = _hover_at(_lake_tile("Graham Lake"))
-        middle, rim = idx.at(0, 0), idx.at(2, 0)
+        # gw=8, so the lake clears style.SHORE_MIN_DOTS and has a rim;
+        # its water is dot columns 0-7, so the shore is cell 4
+        idx = _hover_at(_lake_tile("Graham Lake"), gw=8)
+        middle, rim = idx.at(0, 0), idx.at(4, 0)
         assert middle.name == rim.name == "Graham Lake"
         assert middle.kind == rim.kind == "hov_water"
         assert middle.cells == rim.cells        # both light the rim
@@ -448,7 +453,8 @@ class TestEndToEnd:
     def test_a_lake_lights_its_rim_and_never_its_fill(self):
         # The fill is painted behind everything; lifting it would light
         # the ground rather than a thing standing on it.
-        idx = _hover_at(_lake_tile("Graham Lake"))
+        # gw=8, so the lake clears style.SHORE_MIN_DOTS and has a rim
+        idx = _hover_at(_lake_tile("Graham Lake"), gw=8)
         hit = idx.at(0, 0)
         assert hit.cells, "the lake drew no shore to light"
         assert all(_hover_owner(idx, c) is not None for c in hit.cells)
@@ -474,13 +480,15 @@ class TestEndToEnd:
     def test_two_ponds_stay_apart_even_unnamed(self):
         # The tile names neither, and "water" is all either can say —
         # but it can say it about one pond instead of about every pond.
+        # Four times the usual width, so each quarter-width pond holds
+        # the style.SHORE_MIN_DOTS dots a shoreline is drawn round.
         west = rect(0, -EXTENT, EXTENT // 4, 2 * EXTENT)
         east = rect(EXTENT * 3 // 4, -EXTENT, EXTENT, 2 * EXTENT)
         idx = _hover_at(tile(layer(
             "water",
             [feature(west, tags=(0, 0)), feature(east, tags=(0, 0))],
-            keys=("class",), values=(vstr("lake"),))))
-        left, right = idx.at(0, 0), idx.at(GW - 1, 0)
+            keys=("class",), values=(vstr("lake"),))), gw=16)
+        left, right = idx.at(0, 0), idx.at(15, 0)
         assert left.kind == right.kind == "hov_water"
         assert left.cells and right.cells
         assert set(left.cells).isdisjoint(right.cells)
