@@ -484,7 +484,7 @@ WMO_NAMES_I18N = {
         0: "Anga safi",
         1: "Mawingu machache",
         2: "Mawingu kiasi",
-        3: "Mawingu mazito",
+        3: "Mawingu yametanda",
         45: "Ukungu",
         48: "Ukungu unaoganda",
         51: "Manyunyu mepesi",
