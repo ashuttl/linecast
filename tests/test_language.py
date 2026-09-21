@@ -170,20 +170,29 @@ class ResolveLangTests(ConfigDirMixin):
                              (code, "LINECAST_LANG"))
 
     def test_chinese_locales_name_their_script(self):
-        # Taiwan, Hong Kong, and Macau write the traditional characters;
-        # the mainland and Singapore the simplified.
-        for value in ("zh_TW.UTF-8", "zh_HK", "zh_MO.UTF-8", "zh-Hant", "zh_Hant_TW", "ZH-tw"):
+        # Taiwan, Hong Kong, and Macau write the traditional characters,
+        # Hong Kong and Macau with their own words; the mainland and
+        # Singapore the simplified.
+        for value in ("zh_TW.UTF-8", "zh-Hant", "zh_Hant_TW", "ZH-tw"):
             self.assertEqual(resolve_lang(None, {"LANG": value}), ("zh-Hant", "LANG"), value)
+        for value in ("zh_HK", "zh_MO.UTF-8", "zh_Hant_HK", "zh-hk"):
+            self.assertEqual(resolve_lang(None, {"LANG": value}), ("zh-HK", "LANG"), value)
         for value in ("zh_CN.UTF-8", "zh_SG", "zh-Hans", "zh"):
             self.assertEqual(resolve_lang(None, {"LANG": value}), ("zh", "LANG"), value)
-        self.assertEqual(resolve_lang(None, {"LANGUAGE": "zh_HK:en_US"}), ("zh-Hant", "LANGUAGE"))
+        self.assertEqual(resolve_lang(None, {"LANGUAGE": "zh_HK:en_US"}), ("zh-HK", "LANGUAGE"))
         self.assertEqual(resolve_lang(None, {"LANG": "fil_PH.UTF-8"}), ("en", "default"))
 
     def test_setting_traditional_chinese_by_any_of_its_names(self):
-        for value in ("zh-hant", "zh-tw", "zh-hk"):
+        for value in ("zh-hant", "zh-tw"):
             with redirect_stdout(io.StringIO()):
                 language._cmd_set(value)
             self.assertEqual(_config.saved_language(), "zh-Hant", value)
+        for value in ("zh-hk", "zh-mo", "zh_Hant_HK"):
+            with redirect_stdout(io.StringIO()):
+                language._cmd_set(value)
+            self.assertEqual(_config.saved_language(), "zh-HK", value)
+        with redirect_stdout(io.StringIO()):
+            language._cmd_set("zh-tw")
         out = io.StringIO()
         with redirect_stdout(out):
             language._cmd_show()

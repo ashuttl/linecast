@@ -898,7 +898,7 @@ _SEASON_ABSOLUTE_LANGS = frozenset({"ja", "ko", "zh", "zh-Hant", "vi", "th", "sw
 def _season_label(event, lat, runtime):
     """Localized name for a season event index, seen from latitude *lat*."""
     south = lat is not None and lat < 0
-    if south and lang_of(runtime) not in _SEASON_ABSOLUTE_LANGS:
+    if south and base_language(lang_of(runtime)) not in _SEASON_ABSOLUTE_LANGS:
         return _ms(_SEASON_KEYS_SOUTH[event], runtime)
     return _ms(_SEASON_KEYS_NORTH[event], runtime)
 
@@ -966,7 +966,7 @@ SOLAR_TERMS_I18N = {
 # Kitchen Gods' departure a week before Tết opens the new year's rites.
 _FESTIVALS = {
     "chinese": {
-        (1, 1): {"zh": "春节", "zh-Hant": "春節", "en": "Chinese New Year"},
+        (1, 1): {"zh": "春节", "zh-Hant": "春節", "zh-HK": "農曆新年", "en": "Chinese New Year"},
         (1, 15): {"zh": "元宵节", "zh-Hant": "元宵節", "en": "Lantern Festival"},
         (5, 5): {"zh": "端午节", "zh-Hant": "端午節", "en": "Dragon Boat Festival"},
         (7, 7): {"zh": "七夕", "zh-Hant": "七夕", "en": "Qixi"},
@@ -998,7 +998,7 @@ _FESTIVALS = {
 def festival_table(calendar, lang):
     """(month, day) → name for a calendar's festivals, in *lang* where
     that is the calendar's own language, else the customary English."""
-    return {md: names.get(lang, names["en"])
+    return {md: names.get(lang) or names.get(base_language(lang), names["en"])
             for md, names in _FESTIVALS[calendar].items()}
 
 # Chinese months and days have names, not numbers: the eleventh and
@@ -1012,7 +1012,7 @@ _ZH_DIGITS = "一二三四五六七八九十"
 
 def zh_month_label(month, leap, lang):
     """The Chinese month's name, 正月, 闰六月, 臘月, in either script."""
-    if lang == "zh-Hant":
+    if base_language(lang) == "zh-Hant":
         return ("閏" if leap else "") + _ZH_MONTHS_HANT[month - 1]
     return ("闰" if leap else "") + _ZH_MONTHS[month - 1]
 
@@ -1056,7 +1056,7 @@ def lunar_date_label(month, day, leap, lang):
         return f"{day_name} {vi_month_label(month, leap)} âm lịch"
     if lang == "zh":
         return f"农历{zh_month_label(month, leap, lang)}{_zh_day_name(day)}"
-    if lang == "zh-Hant":
+    if base_language(lang) == "zh-Hant":
         return f"農曆{zh_month_label(month, leap, lang)}{_zh_day_name(day)}"
     if lang == "ja":
         leap_mark = "閏" if leap else ""

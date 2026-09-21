@@ -409,11 +409,12 @@ def _collect_preferences():
     language, language_source = resolve_lang(None, env)
     from linecast._config import saved_calendar
     from linecast._calendars.lunisolar import CALENDAR_OF_LANG
+    from linecast._i18n import base_language
     saved_cal = saved_calendar()
     if saved_cal is not None:
         calendar, calendar_source = saved_cal, "config"
     else:
-        native = CALENDAR_OF_LANG.get(language)
+        native = CALENDAR_OF_LANG.get(base_language(language))
         calendar = native or "none"
         calendar_source = f"auto: {language}" if native else "auto"
     from linecast._config import saved_culture
@@ -422,7 +423,7 @@ def _collect_preferences():
     if saved_culture_ is not None:
         culture, culture_source = saved_culture_, "config"
     else:
-        native = CULTURE_OF_LANG.get(language)
+        native = CULTURE_OF_LANG.get(base_language(language))
         culture = native or "none"
         culture_source = f"auto: {language}" if native else "auto"
     from linecast._config import saved_hours

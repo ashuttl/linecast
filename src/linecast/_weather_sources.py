@@ -1682,7 +1682,7 @@ _HKO_CODE_SEV = {
 
 def _parse_hko_warnsum(data, lang="en"):
     """Parse HKO warnsum JSON dict into normalised alert list."""
-    site = _HKO_LANG.get(lang, "en")
+    site = _HKO_LANG.get(base_language(lang), "en")
     alerts = []
     for key, info in _HKO_WARNING_INFO.items():
         entry = data.get(key)
@@ -1713,7 +1713,7 @@ def _parse_hko_warnsum(data, lang="en"):
 def _fetch_alerts_hko(lang="en"):
     """Fetch active HKO weather warnings (Hong Kong), in the reader's
     language where the Observatory speaks it. Cached 10min."""
-    feed = _HKO_LANG.get(lang, "en")
+    feed = _HKO_LANG.get(base_language(lang), "en")
     cache_file = cache_dir("weather") / f"alerts_hk_{feed}.json"
     url = HKO_WARNINGS_URL.format(lang=feed)
     data = fetch_json_cached(cache_file, 600, url, timeout=10, fallback=[])
@@ -1871,7 +1871,7 @@ def _parse_cma_data(data, provinces, lang="en"):
 
     # The titles are in the simplified script; a traditional-script
     # reader gets them rather than the English.
-    use_zh = lang in ("zh", "zh-Hant")
+    use_zh = base_language(lang) in ("zh", "zh-Hant")
     alerts = []
     seen = set()
 

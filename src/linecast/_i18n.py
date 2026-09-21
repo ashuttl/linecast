@@ -37,20 +37,23 @@ WIND_MS_LANGUAGES = frozenset({"ja", "ko", "da", "no", "sv", "is", "fi", "cs", "
 # Regional variants: a code whose strings are a base language's with the
 # words that differ by country changed.  The base is what most readers of
 # the language get: Portuguese is Brazilian, Spanish is Latin American,
-# French is the French of France.  A variant's table holds only the keys
+# French is the French of France, and Traditional Chinese is Taiwan's;
+# Hong Kong's is the variant, and Macau reads it too.  A variant's table holds only the keys
 # it changes; `lookup` reads through to the base and then to English.
-VARIANTS = {"pt-PT": "pt", "es-ES": "es", "fr-CA": "fr"}
+VARIANTS = {"pt-PT": "pt", "es-ES": "es", "fr-CA": "fr", "zh-HK": "zh-Hant"}
 VARIANT_NAMES = {
     "pt-PT": "European Portuguese",
     "es-ES": "European Spanish",
     "fr-CA": "Canadian French",
+    "zh-HK": "Hong Kong Chinese",
 }
 
 # Codes that name a language above by another name, lower-cased.  A
 # Norwegian machine's locale is nb_NO or nn_NO (glibc has no no_NO), and
 # the strings are Bokmål, so both read as "no".  Chinese is two scripts:
 # Taiwan, Hong Kong, and Macau write the traditional characters, so their
-# locales name zh-Hant, and the mainland's and Singapore's the simplified.
+# locales name zh-Hant (Hong Kong's and Macau's its zh-HK variant), and
+# the mainland's and Singapore's the simplified.
 # A region tag names its variant where there is one (pt_PT, es_ES, fr_CA);
 # any other region falls to the base language, so pt_BR, es_AR, fr_BE,
 # and fr_CH need no entry.  Where the variant has a fuller country list
@@ -58,7 +61,8 @@ VARIANT_NAMES = {
 # the base is what the rest of the world gets.
 LANGUAGE_ALIASES = {
     "nb": "no", "nn": "no",
-    "zh-hant": "zh-Hant", "zh-tw": "zh-Hant", "zh-hk": "zh-Hant", "zh-mo": "zh-Hant",
+    "zh-hant": "zh-Hant", "zh-tw": "zh-Hant",
+    "zh-hk": "zh-HK", "zh-mo": "zh-HK", "zh-hant-hk": "zh-HK", "zh-hant-mo": "zh-HK",
     "zh-hans": "zh", "zh-cn": "zh", "zh-sg": "zh",
     "pt-pt": "pt-PT", "es-es": "es-ES", "fr-ca": "fr-CA",
 }
@@ -135,15 +139,15 @@ def is_language_code(value):
 # Open-Meteo's index knows the traditional script by Taiwan's tag and
 # answers "zh-Hant" in English; Nominatim reads an Accept-Language list,
 # so it gets the script, the regions that write it, and Chinese at all.
-_GEOCODER_LANG = {"zh-Hant": "zh-TW"}
-_ACCEPT_LANGUAGE = {"zh-Hant": "zh-Hant,zh-TW,zh-HK,zh"}
+_GEOCODER_LANG = {"zh-Hant": "zh-TW", "zh-HK": "zh-TW"}
+_ACCEPT_LANGUAGE = {"zh-Hant": "zh-Hant,zh-TW,zh-HK,zh", "zh-HK": "zh-HK,zh-Hant,zh-TW,zh"}
 
 # Languages Open-Meteo's index has no names in, so a typed place's label
 # comes back in English. A view shows a typed place by that label, since
 # it names what was asked for where reverse geocoding names whichever
 # boundary encloses the point; in these languages Nominatim's name is
 # better when it has one, and the label stays the fallback.
-GEOCODER_UNTRANSLATED = frozenset({"zh-Hant"})
+GEOCODER_UNTRANSLATED = frozenset({"zh-Hant", "zh-HK"})
 
 
 def geocoder_language(lang):
@@ -164,6 +168,7 @@ def accept_language(lang):
 def same_language(lang, other):
     """Whether `lang` is `other` or `other` in another script: zh-Hant
     reads as Chinese wherever the code, not the strings, decides."""
+    lang = base_language(lang)
     return lang == other or SCRIPT_OF.get(lang) == other
 
 

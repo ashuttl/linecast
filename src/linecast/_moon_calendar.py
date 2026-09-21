@@ -26,7 +26,7 @@ from linecast._framebuffer import fmt_time_dt
 from linecast._graphics import (
     Framebuffer, bg, cell_aspect, fg, get_terminal_size, overlay, visible_len,
 )
-from linecast._i18n import lang_of, table_for
+from linecast._i18n import base_language, lang_of, table_for
 from linecast._calendars.lunisolar import (
     CALENDAR_MERIDIAN_HOURS, calendar_is_native, lunisolar_date,
     resolve_calendar,
@@ -76,7 +76,7 @@ def _week_start(runtime):
 
 def _month_title(year, month, lang):
     """`Sep 2026`, `2026年9月` — the grid's headline, in the UI language."""
-    if lang in ("ja", "zh", "zh-Hant"):
+    if base_language(lang) in ("ja", "zh", "zh-Hant"):
         return f"{year}年{month}月"
     if lang == "ko":
         return f"{year}년 {month}월"

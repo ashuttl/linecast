@@ -619,8 +619,8 @@ _STRINGS = {
         'key_enter': 'Enter',
         'forecast': '瀏覽預報',
         'now': '回到現在',
-        'alert': '閱讀警告',
-        'browser': '在瀏覽器中開啟警告',
+        'alert': '閱讀警報',
+        'browser': '在瀏覽器中開啟警報',
         'refresh': '重新整理預報',
         'time30': '時間移動30分鐘',
         'time15': '時間移動15分鐘',
@@ -645,6 +645,11 @@ _STRINGS = {
         'wind': '風圖層',
         'theme': '選擇主題',
         'satellite': '雷達 / 衛星',
+    },
+    "zh-HK": {  # Hong Kong: only what differs from Taiwan's
+        "key_space": "空格鍵",
+        "alert": "閱讀警告",
+        "browser": "在瀏覽器中開啟警告",
     },
     'th': {
         'hint_help': 'วิธีใช้',

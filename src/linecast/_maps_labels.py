@@ -441,7 +441,8 @@ def _screen_box(parts):
 
 # The tiles tag a Chinese name by script where the mappers have given
 # both; a traditional-script reader takes the plain Chinese name next.
-_NAME_KEYS = {"zh-Hant": ("name:zh-Hant", "name:zh")}
+_NAME_KEYS = {"zh-Hant": ("name:zh-Hant", "name:zh"),
+              "zh-HK": ("name:zh-HK", "name:zh-Hant", "name:zh")}
 
 
 def _name(props, lang):

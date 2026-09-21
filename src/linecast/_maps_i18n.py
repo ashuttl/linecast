@@ -1313,6 +1313,16 @@ _STRINGS = {
         "hov_building": "建築",
         "hov_urban": "市區",
     },
+    "zh-HK": {  # Hong Kong: only what differs from Taiwan's
+        "hov_transit": "公共交通路線",
+        "hov_ramp": "支路",
+        "hov_trunk": "主幹道",
+        "profile_car": "駕車",
+        "profile_bike": "單車",
+        "poi_ferry": "渡輪 · 碼頭",
+        "streets_unavailable": "地圖圖塊不可用 ({err})",
+        "offline": "無地圖圖塊",
+    },
     "th": {
         "hint": "wasd · v มุมมอง · / ค้นหา · ? วิธีใช้",
         "hint_route": "D เส้นทาง · n ล้าง",

@@ -105,6 +105,10 @@ _TIDES_STRINGS = {
         "swell": "長浪",
         "tide_model": "Open-Meteo 潮汐模式",
     },
+    "zh-HK": {  # Hong Kong: only what differs from Taiwan's
+        "space_to_now": "按空格鍵回到現在",
+        "swell": "湧浪",
+    },
     "th": {
         "space_to_now": "space กลับสู่ปัจจุบัน",
         "waves": "คลื่น",

@@ -232,6 +232,10 @@ _STRINGS = {
         "radar_unavailable": "雷達不可用 ({err})",
         "no_frames": "無雷達影像",
     },
+    "zh-HK": {  # Hong Kong: only what differs from Taiwan's
+        "hint": "空格鍵 播放/暫停 · 捲動/←→ 逐格 · +/- 縮放 · 拖曳平移 / wasd · c 氣溫 · W 風 · t 主題 · S 衛星 · q 離開",
+        "no_frames": "無雷達圖像",
+    },
     "th": {
         "loading": "กำลังโหลด…",
         "hint": "space เล่น/หยุด · เลื่อน/←→ ทีละภาพ · +/- ซูม · ลากเพื่อเลื่อน / wasd · c อุณหภูมิ · W ลม · t ธีม · S ดาวเทียม · q ออก",

@@ -344,6 +344,9 @@ _SUNSHINE_STRINGS = {
         "sunrise": "日出",
         "sunset": "日落",
     },
+    "zh-HK": {  # Hong Kong: only what differs from Taiwan's
+        "solar_noon": "日中天",
+    },
     "th": {
         "today": "วันนี้",
         "in_day": "อีก {n} วัน",
@@ -685,7 +688,7 @@ def axis_month_labels(runtime, narrow=False):
     """
     lang = lang_of(runtime)
     if narrow:
-        if lang in _NUMERIC_AXIS_LANGS:
+        if base_language(lang) in _NUMERIC_AXIS_LANGS:
             return [str(m) for m in range(1, 13)]
         names = _axis_months(lang)
         return [name[:1].upper() for name in names]

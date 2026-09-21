@@ -7,7 +7,7 @@ is left is the Sun, the Moon, the planets, the cultures' titles, and a
 few phrases.
 """
 
-from linecast._i18n import lang_of, lookup
+from linecast._i18n import base_language, lang_of, lookup
 
 _SKY_STRINGS = {
     "en": {
@@ -1078,6 +1078,7 @@ CULTURE_TITLES = {
         "ko": "통가",
         "zh": "汤加",
         "zh-Hant": "東加",
+        "zh-HK": "湯加",
         "th": "ตองกา",
         "id": "Tonga",
         "uk": "тонганська",
@@ -1189,7 +1190,7 @@ def culture_title_text(short, lang):
     titles = CULTURE_TITLES.get(short)
     if not titles:
         return None
-    return titles.get(lang) or titles.get("en")
+    return titles.get(lang) or titles.get(base_language(lang)) or titles.get("en")
 
 
 def _sk(key, runtime, **kwargs):

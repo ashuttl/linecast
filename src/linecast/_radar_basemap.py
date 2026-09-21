@@ -53,7 +53,7 @@ _DATA = None
 
 # The vendored names are keyed by Natural Earth's suffixes; its traditional
 # Chinese is "zht", kept only where it differs from the simplified "zh".
-_NAME_KEYS = {"zh-Hant": ("zht", "zh")}
+_NAME_KEYS = {"zh-Hant": ("zht", "zh"), "zh-HK": ("zht", "zh")}
 
 
 def _localized(entry, lang):

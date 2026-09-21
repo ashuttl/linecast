@@ -25,6 +25,7 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
 from linecast._ephemeris import _sun_ecliptic, next_moon_phase_utc
+from linecast._i18n import base_language
 
 # The four calendars, each computed at its own meridian (hours east
 # of UTC), and the language each is native to. Any UI language can ask
@@ -45,7 +46,7 @@ def calendar_is_native(cal, lang):
     festivals read in that language's own script rather than in the
     customary English. Chinese is two scripts, and the calendar is
     native to both."""
-    return CALENDAR_OF_LANG.get(lang) == cal
+    return CALENDAR_OF_LANG.get(base_language(lang)) == cal
 
 
 def resolve_calendar(flag, lang):
@@ -56,7 +57,7 @@ def resolve_calendar(flag, lang):
     that chain stops it.
     """
     from linecast._config import saved_calendar
-    choice = flag or saved_calendar() or CALENDAR_OF_LANG.get(lang)
+    choice = flag or saved_calendar() or CALENDAR_OF_LANG.get(base_language(lang))
     return None if choice in (None, "none") else choice
 
 _MEAN_DEG_PER_DAY = 360.0 / 365.2422

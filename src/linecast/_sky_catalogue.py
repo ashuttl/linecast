@@ -177,7 +177,7 @@ def resolve_culture(flag, lang):
     chain stops it.
     """
     from linecast._config import saved_culture
-    choice = flag or saved_culture() or CULTURE_OF_LANG.get(lang)
+    choice = flag or saved_culture() or CULTURE_OF_LANG.get(base_language(lang))
     return None if choice in (None, "none", "iau") else choice
 
 
@@ -236,11 +236,12 @@ def culture_for(short, lang):
     traditional characters), so the picking below sees one native form
     and one native language; the culture as prepared otherwise."""
     prepared = culture(short)
-    if prepared is None or lang not in prepared["variants"]:
+    script = lang if prepared is None or lang in prepared["variants"] else base_language(lang)
+    if prepared is None or script not in prepared["variants"]:
         return prepared
     key = (short, lang)
     if key not in _culture_cache:
-        variant = prepared["variants"][lang]
+        variant = prepared["variants"][script]
         _culture_cache[key] = {
             **prepared, "native_lang": lang,
             "figures": [{**fig, "native": name or fig["native"]}

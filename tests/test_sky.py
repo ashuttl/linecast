@@ -538,12 +538,16 @@ class TestStrings:
             assert set(_SKY_STRINGS[code]) == keys, code
 
     def test_every_culture_has_a_title_in_every_language(self):
-        from linecast._i18n import LANGUAGE_CODES
+        from linecast._i18n import LANGUAGE_CODES, VARIANTS
         from linecast._sky_catalogue import CULTURES
         from linecast._sky_i18n import CULTURE_TITLES
         assert set(CULTURE_TITLES) == set(CULTURES)
         for short, titles in CULTURE_TITLES.items():
-            assert set(titles) == set(LANGUAGE_CODES), short
+            # A regional variant names a culture only where its base does not
+            # say it the same way (Hong Kong's 湯加 for Taiwan's 東加).
+            assert set(LANGUAGE_CODES) <= set(titles) <= set(LANGUAGE_CODES) | set(VARIANTS), short
+            for variant in set(titles) & set(VARIANTS):
+                assert titles[variant] != titles[VARIANTS[variant]], (short, variant)
             for code, title in titles.items():
                 assert title.strip() == title and 0 < len(title) <= 30, (short, code)
 
