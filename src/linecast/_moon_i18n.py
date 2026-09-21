@@ -1,12 +1,12 @@
 """Moon command localization strings.
 
-Phase names live in MOON_NAMES_I18N (in _tides_i18n, shared with the tides
+Phase names live in MOON_NAMES_I18N (in _tides.i18n, shared with the tides
 chart's moon labels); this module holds the strings specific to the ``moon``
 command plus month names for the full/new moon dates.
 """
 
 from linecast._i18n import base_language, has_text, lang_of, lookup, plural_category, table_for
-from linecast._tides_i18n import MOON_NAMES_I18N, _moon_name  # noqa: F401 — re-export
+from linecast._tides.i18n import MOON_NAMES_I18N, _moon_name  # noqa: F401 — re-export
 from linecast._weather.i18n import DAY_NAMES  # re-export for convenience
 
 _MOON_STRINGS = {

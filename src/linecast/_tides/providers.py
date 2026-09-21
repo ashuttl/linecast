@@ -9,12 +9,12 @@ do something, its record says so in the method rather than by a flag.
 from datetime import date, datetime, tzinfo
 from typing import Any
 
-from linecast import _tides_chs as chs
-from linecast import _tides_hko as hko
-from linecast import _tides_noaa as noaa
-from linecast import _tides_openmeteo as openmeteo
-from linecast import _tides_qld as qld
-from linecast import _tides_tidecheck as tidecheck
+from linecast._tides import chs
+from linecast._tides import hko
+from linecast._tides import noaa
+from linecast._tides import openmeteo
+from linecast._tides import qld
+from linecast._tides import tidecheck
 from linecast._runtime import log_failure
 
 # Full names for the state/territory abbreviations NOAA stations carry, so
@@ -343,7 +343,7 @@ class _OpenMeteo(TideProvider):
 
     def footer_label(self, runtime):
         # Not a name but a description, so it is translated.
-        from linecast._tides_i18n import _ts
+        from linecast._tides.i18n import _ts
         return _ts("tide_model", runtime)
 
     def name_for_id(self, station_id):

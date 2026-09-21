@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-from linecast import _tides_common as common
+from linecast._tides import common
 
 AEST = timezone(timedelta(hours=10))
 

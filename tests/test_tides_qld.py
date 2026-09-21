@@ -16,9 +16,9 @@ from unittest.mock import patch
 FIXTURES = Path(__file__).parent / "fixtures"
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _tides_common as common
-from linecast import _tides_qld as qld
-from linecast._tides_providers import QLD as QLD_PROVIDER
+from linecast._tides import common
+from linecast._tides import qld
+from linecast._tides.providers import QLD as QLD_PROVIDER
 
 
 def _load(name):
@@ -399,7 +399,7 @@ class FindExtremaTest(unittest.TestCase):
 
     def test_staircase_yields_alternating_extrema(self):
         from datetime import datetime, timedelta
-        from linecast._tides_qld import _find_extrema
+        from linecast._tides.qld import _find_extrema
         heights = [1.70, 1.68, 1.66, 1.65, 1.65, 1.65, 1.66, 1.66, 1.65,
                    1.65, 1.64, 1.64, 1.64, 1.65, 1.67, 1.70]
         t0 = datetime(2026, 9, 3, 22, 0)

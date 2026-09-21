@@ -2,8 +2,8 @@ import unittest
 from datetime import date
 from unittest.mock import patch
 
-from linecast import _tides_chs as chs
-from linecast import _tides_common as common
+from linecast._tides import chs
+from linecast._tides import common
 
 
 class YRangeTests(unittest.TestCase):

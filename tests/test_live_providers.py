@@ -105,7 +105,7 @@ def test_open_meteo_archive(failures):
 
 
 def test_open_meteo_tides(failures):
-    from linecast._tides_openmeteo import (fetch_hilo_range_openmeteo,
+    from linecast._tides.openmeteo import (fetch_hilo_range_openmeteo,
                                            fetch_station_metadata_openmeteo,
                                            make_station_id)
     station = make_station_id(*PORTLAND)
@@ -235,7 +235,7 @@ def _check_hilo(hilo):
 
 
 def test_noaa_tides(failures):
-    from linecast._tides_noaa import fetch_hilo_range, fetch_station_metadata_noaa
+    from linecast._tides.noaa import fetch_hilo_range, fetch_station_metadata_noaa
     meta = fetch_station_metadata_noaa("8418150")
     hilo = fetch_hilo_range("8418150", *_today_span(), timezone.utc)
     assert failures() == []
@@ -244,7 +244,7 @@ def test_noaa_tides(failures):
 
 
 def test_chs_tides(failures):
-    from linecast._tides_chs import (fetch_hilo_range_chs, fetch_station_metadata_chs,
+    from linecast._tides.chs import (fetch_hilo_range_chs, fetch_station_metadata_chs,
                                      find_nearest_station_chs)
     station, _name = find_nearest_station_chs(*HALIFAX)
     assert station, "no CHS station near Halifax"
@@ -256,7 +256,7 @@ def test_chs_tides(failures):
 
 
 def test_queensland_tides(failures):
-    from linecast._tides_qld import (fetch_hilo_range_qld, fetch_station_metadata_qld,
+    from linecast._tides.qld import (fetch_hilo_range_qld, fetch_station_metadata_qld,
                                      find_nearest_station_qld)
     station, _name = find_nearest_station_qld(*BRISBANE)
     assert station, "no Queensland station near Brisbane"
@@ -268,7 +268,7 @@ def test_queensland_tides(failures):
 
 
 def test_hko_tides(failures):
-    from linecast._tides_hko import (fetch_hilo_range_hko, fetch_station_metadata_hko,
+    from linecast._tides.hko import (fetch_hilo_range_hko, fetch_station_metadata_hko,
                                      find_nearest_station_hko)
     station, _name = find_nearest_station_hko(*HONG_KONG)
     assert station, "no HKO station near Hong Kong"
@@ -284,7 +284,7 @@ def test_tidecheck_tides(failures, monkeypatch):
     if not key:
         pytest.skip("LINECAST_LIVE_TIDECHECK_KEY is not set")
     monkeypatch.setenv("LINECAST_TIDECHECK_KEY", key)
-    from linecast._tides_tidecheck import (fetch_hilo_range_tidecheck,
+    from linecast._tides.tidecheck import (fetch_hilo_range_tidecheck,
                                            find_nearest_station_tidecheck)
     station, _name = find_nearest_station_tidecheck(*PORTLAND)
     assert station, "no TideCheck station near Portland"

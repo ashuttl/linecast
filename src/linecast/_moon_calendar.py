@@ -49,7 +49,7 @@ from linecast._calendars.thai_lunar import (
 from linecast._seasons import full_moon_name
 from linecast._textwidth import char_width
 from linecast._theme import darken, ensure_contrast, is_light_theme, surface_bg
-from linecast._tides_i18n import _ts
+from linecast._tides.i18n import _ts
 from linecast._weather.i18n import DAY_NAMES
 
 _theme.track_imports(globals(), "linecast._color")

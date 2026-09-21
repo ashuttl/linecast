@@ -76,7 +76,7 @@ from linecast import _sky_deep, _sky_objects
 from linecast._sky_i18n import NO_CAPITALS, _sk, body_name
 from linecast._sunshine_i18n import sky_phase
 from linecast._textwidth import char_width
-from linecast._tides_i18n import _ts  # shared "space to return to now" hint
+from linecast._tides.i18n import _ts  # shared "space to return to now" hint
 from linecast.moon import _draw_moon_disc
 from linecast.sunshine import (
     INFO_AMBER_RGB, INFO_DIM_RGB, INFO_TEXT_RGB, SKY_FAR_HORIZON,
@@ -1167,7 +1167,7 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
         alt, az = scene.sun_alt, scene.sun_az
     elif kind == "moon":
         idx, _name, icon = moon_phase(scene.moment_utc, runtime)
-        from linecast._tides_i18n import _moon_name
+        from linecast._tides.i18n import _moon_name
         title = f"{icon} {body_name('moon', runtime)}"
         detail = f"{_moon_name(idx, runtime)} · {fmt_percent(scene.moon_illum * 100, runtime)}"
         alt, az = scene.moon_alt, scene.moon_az

@@ -26,7 +26,7 @@ def build_payload(station_name, runtime, now_local, predictions, hilo,
     predictions: [(dt, height_ft)] sorted; hilo: [(dt, height_ft, "H"|"L")].
     Either may be None/empty — the payload degrades to nulls and [].
     """
-    from linecast._tides_render import interp_height
+    from linecast._tides.render import interp_height
 
     predictions = predictions or []
     hilo = hilo or []

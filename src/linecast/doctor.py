@@ -62,10 +62,10 @@ def providers():
     from linecast._maps.route import _FALLBACK as OSRM_FALLBACK, _PRIMARY as OSRM_PRIMARY
     from linecast._maps.search import NOMINATIM_URL, PHOTON_URL
     from linecast._radar.tiles import LIBREWXR_DEFAULT_URL
-    from linecast._tides_chs import CHS_BASE
-    from linecast._tides_hko import HKO_BASE
-    from linecast._tides_qld import QLD_BASE
-    from linecast._tides_tidecheck import TIDECHECK_BASE, is_available
+    from linecast._tides.chs import CHS_BASE
+    from linecast._tides.hko import HKO_BASE
+    from linecast._tides.qld import QLD_BASE
+    from linecast._tides.tidecheck import TIDECHECK_BASE, is_available
     from linecast._vtiles import DEFAULT_TILEJSON_URL, FALLBACK_TILEJSON_URL
     env = os.environ
     return [
@@ -106,7 +106,7 @@ def providers():
 
 def _tidecheck_budget():
     """Where today's TideCheck requests stand, or None without a key."""
-    from linecast._tides_tidecheck import budget_line
+    from linecast._tides.tidecheck import budget_line
     return budget_line()
 
 

@@ -2,8 +2,8 @@ import unittest
 from datetime import date, datetime
 from unittest.mock import patch
 
-from linecast import _tides_common as common
-from linecast import _tides_noaa as noaa
+from linecast._tides import common
+from linecast._tides import noaa
 from linecast._cache import location_cache_key
 
 

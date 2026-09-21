@@ -1,4 +1,4 @@
-"""Regenerate GAUGE_COORDS in src/linecast/_tides_qld.py.
+"""Regenerate GAUGE_COORDS in src/linecast/_tides/qld.py.
 
 The Queensland portal's "predicted interval data" gauge packages carry
 no coordinates.  Where a package has a description file (the standard
@@ -11,7 +11,7 @@ reachable by name, just never offered as the nearest station.
     python3 scripts/build_qld_tide_stations.py
 
 Prints the GAUGE_COORDS dict to stdout with a source comment per line;
-paste it over the one in _tides_qld.py after eyeballing the geocoded
+paste it over the one in _tides/qld.py after eyeballing the geocoded
 entries against a map.  Rerun only when the portal adds gauges.
 """
 
