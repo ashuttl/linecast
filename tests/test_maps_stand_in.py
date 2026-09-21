@@ -1,17 +1,22 @@
-"""The last real view standing in, moved and scaled, while the next loads.
+"""The newest real view standing in, moved and scaled, while the next loads.
 
 Street, terrain and the globe go through the same reprojection; what
-differs is what each register carries across."""
+differs is what each register carries across.  The newest view is not
+always one that was drawn: a view fetched while the camera was moving
+lands between frames, and the frames after it are cut from that.
+"""
 
 import re
 import sys
 from pathlib import Path
 
+import pytest
+
 _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _globe, maps
+from linecast import _globe, _maps_views, maps
 from linecast._color import BG_PRIMARY
 from linecast._radar_basemap import _BITS
 from linecast._radar_i18n import rs
@@ -368,3 +373,109 @@ class TestGlobeStandInFrame:
         lit = self._frame(monkeypatch, 80.0, None, sun=True)
         plain = self._frame(monkeypatch, 80.0, None)
         assert _braille(lit) and lit != plain
+
+
+ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07")
+COLS, ROWS = 60, 20
+
+
+def _braille_between(frame, lo, hi):
+    """Braille cells in columns [lo, hi) of a frame's map rows."""
+    rows = [ANSI.sub("", line) for line in frame.split("\n")[1:-1]]
+    return sum(1 for row in rows for ch in row[lo:hi]
+               if 0x2800 <= ord(ch) <= 0x28FF)
+
+
+class TestTheNewestViewStandsIn:
+    """A view that lands while the camera is still moving is never
+    drawn by the frame that asked for it — that frame is long gone —
+    but every frame after it is cut from it, so the ground the window
+    has moved onto fills in during the glide instead of at the stop.
+    """
+
+    LAT, LON, ZOOM = 40.7, -74.0, 0.05
+
+    @pytest.fixture(autouse=True)
+    def _quiet(self, monkeypatch):
+        monkeypatch.setattr(maps, "get_terminal_size", lambda: (COLS, ROWS))
+        _maps_views._street_landed[0] = None
+        _maps_views._terrain_landed[0] = None
+        yield
+        _maps_views._street_landed[0] = None
+        _maps_views._terrain_landed[0] = None
+        maps._last_street[0] = maps._last_terrain[0] = None
+
+    def _windows(self, gw, hc):
+        """(here, the view west of it, the view east of it)."""
+        here = bbox_for(self.LAT, self.LON, self.ZOOM, gw, hc)
+        span = here[2] - here[0]
+        return (here,
+                (here[0] - span * .6, here[1], here[2] - span * .6, here[3]),
+                (here[0] + span * .6, here[1], here[2] + span * .6, here[3]))
+
+    def _frame(self, view):
+        return maps.render_map(self.LAT, self.LON, "New York", self.ZOOM,
+                               block=False, view=view)
+
+    def test_a_street_view_that_lands_mid_pan_paints_the_incoming_edge(
+            self, monkeypatch):
+        monkeypatch.setattr(maps, "_get_street",
+                            lambda *a, **k: (None, None, None))
+        gw, hc = maps.map_cells((COLS, ROWS))
+        _here, west, east = self._windows(gw, hc)
+        ink = (255, 0, 0)
+        fills = [[ink] * gw for _ in range(hc * 2)]
+        layer = maps._ShiftedLayer([[0xFF] * gw for _ in range(hc)],
+                                   [[ink] * gw for _ in range(hc)])
+        # the view the pan started from lies west: the window's east
+        # edge is ground it has moved onto, and nothing is drawn there
+        maps._last_street[0] = (west, gw, hc, fills, layer)
+        before = self._frame("street")
+        assert _braille_between(before, 0, gw // 4) > 0
+        assert _braille_between(before, gw - gw // 4, gw) == 0
+        # the view the pan is heading for lands between the frames
+        _maps_views._street_landed[0] = (east, gw, hc, fills, layer)
+        after = self._frame("street")
+        assert _braille_between(after, gw - gw // 4, gw) > 0
+        assert _braille_between(after, 0, gw // 4) == 0
+        assert _maps_views.take_street() is None     # taken once
+        assert maps._last_street[0][0] == east
+
+    def test_a_terrain_view_that_lands_mid_pan_does_the_same(
+            self, monkeypatch):
+        monkeypatch.setattr(maps, "_get_elevation",
+                            lambda *a, **k: maps._EMPTY_TERRAIN)
+        gw, hc = maps.map_cells((COLS, ROWS))
+        _here, west, east = self._windows(gw, hc)
+        elev = [[120.0] * gw for _ in range(hc * 2)]
+        coast = [[0xFF] * gw for _ in range(hc)]
+        landed = maps.TerrainView(elev, coast, None, None, None)
+        maps._last_terrain[0] = (
+            west, gw, hc,
+            maps._terrain_buffer(elev, west, gw, hc), coast, None)
+        before = self._frame("terrain")
+        assert _braille_between(before, 0, gw // 4) > 0
+        assert _braille_between(before, gw - gw // 4, gw) == 0
+        _maps_views._terrain_landed[0] = (east, gw, hc, landed)
+        after = self._frame("terrain")
+        assert _braille_between(after, gw - gw // 4, gw) > 0
+        assert _braille_between(after, 0, gw // 4) == 0
+        assert _maps_views.take_terrain() is None
+        assert maps._last_terrain[0][0] == east
+
+    def test_a_landing_at_another_terminal_size_is_left_alone(
+            self, monkeypatch):
+        monkeypatch.setattr(maps, "_get_street",
+                            lambda *a, **k: (None, None, None))
+        gw, hc = maps.map_cells((COLS, ROWS))
+        _here, west, east = self._windows(gw, hc)
+        ink = (255, 0, 0)
+        fills = [[ink] * gw for _ in range(hc * 2)]
+        layer = maps._ShiftedLayer([[0xFF] * gw for _ in range(hc)],
+                                   [[ink] * gw for _ in range(hc)])
+        maps._last_street[0] = (west, gw, hc, fills, layer)
+        _maps_views._street_landed[0] = (east, gw + 1, hc, fills, layer)
+        maps._render_street(bbox_for(self.LAT, self.LON, self.ZOOM, gw, hc),
+                            gw, hc, False, (0, 0), None, None, None, None,
+                            "en", None)
+        assert maps._last_street[0][0] == west   # the usable one is kept

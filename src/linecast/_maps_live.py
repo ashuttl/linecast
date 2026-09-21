@@ -40,6 +40,8 @@ from linecast.maps import (
 TICK = 1 / 30             # seconds between the ticker's nudges
 ZOOM_EASE = 0.28          # seconds for a zoom step or a key pan to land
 COAST_HALF_LIFE = 0.22    # seconds for a flick's speed to halve
+COAST_REACH = COAST_HALF_LIFE / math.log(2.0)   # a coast's whole run, in
+# seconds of its starting speed: the integral of the halving decay
 COAST_FLOOR = 0.5         # cells a second below which a coast stops
 COAST_CEILING = 4.0       # screens a second a flick may start at
 COAST_GRACE = 0.12        # how stale the last motion may be and still coast
@@ -90,6 +92,23 @@ class Camera:
 
     def dragging(self):
         return self._drag_base is not None
+
+    def coast_destination(self):
+        """(lat, lon) a running coast will come to rest at, or None.
+
+        The speed halves on a fixed clock, so the ground still to cover
+        is the integral of that decay — a finite distance, known the
+        moment the flick leaves the hand.  _advance_coast takes exactly
+        this much and no more, the tail included, so the view named
+        here is the view the coast stops on and can be fetched now.
+        A coast cut short — by a hand, a key, a panel — never reaches
+        it, and what was fetched is simply a view nobody asked for.
+        """
+        if self._coast is None:
+            return None
+        vlat, vlon, _last = self._coast
+        return (self._clamp_lat(self.lat + vlat * COAST_REACH),
+                wrap_lon(self.lon + vlon * COAST_REACH))
 
     def _span(self, zoom, lat):
         return lon_span(lat, zoom, self.gw, self.hc)
@@ -162,14 +181,24 @@ class Camera:
         decay = 0.5 ** (dt / COAST_HALF_LIFE)
         # the integral of the decaying speed across the step, so the
         # ground covered is the same however often the camera is asked
-        step = COAST_HALF_LIFE / math.log(2.0) * (1.0 - decay)
+        step = COAST_REACH * (1.0 - decay)
         self.lat = self._clamp_lat(self.lat + vlat * step)
         self.lon = wrap_lon(self.lon + vlon * step)
         vlat, vlon = vlat * decay, vlon * decay
         floor = COAST_FLOOR * self.zoom / self.hc
-        if (math.hypot(vlat, vlon * math.cos(math.radians(self.lat))) < floor
-                or abs(self.lat) >= LAT_LIMIT):
-            self._coast = None   # slower than the eye follows, or ashore
+        if math.hypot(vlat, vlon * math.cos(math.radians(self.lat))) < floor:
+            # Slower than the eye follows.  What is left of the decay
+            # is a fraction of a cell, and the coast takes it now
+            # rather than dropping it: it lands on the centre
+            # coast_destination() named at the release, which is the
+            # view already fetched for it, rather than a hair short of
+            # it — which at street zoom is another window, and another
+            # fetch, for a stop the reader cannot see.
+            self.lat = self._clamp_lat(self.lat + vlat * COAST_REACH)
+            self.lon = wrap_lon(self.lon + vlon * COAST_REACH)
+            self._coast = None
+        elif abs(self.lat) >= LAT_LIMIT:
+            self._coast = None   # ashore
         else:
             self._coast = (vlat, vlon, now)
 
@@ -621,6 +650,24 @@ class MapApp(LiveApp):
         prefetch_view(lat, lon, zoom, self.view, gw, hc, self.runtime.lang,
                       marker=self.home)
 
+    def _prefetch_coast(self):
+        """Ask for where a flick will stop, the moment it is let go.
+
+        A coast's end is a destination like a flight's, and known
+        earlier: at the release, not over the top.  It is the one view
+        in the whole glide the reader will actually stop on, so it
+        goes to the network at once, past the motion gate, and the
+        frames in between are free to ask for their own.  A coast the
+        hand interrupts leaves the fetch running; it lands in the
+        cache, where the next view of that window will find it.
+        """
+        dest = self.camera.coast_destination()
+        if dest is None or _globe.is_globe(self.zoom, dest[0]):
+            return   # the globe paints every frame from a warm planet
+        gw, hc = map_cells()
+        prefetch_view(dest[0], dest[1], self.zoom, self.view, gw, hc,
+                      self.runtime.lang, marker=self.home)
+
     def help_panel(self):
         from linecast._help import HelpPanel
         self._help = HelpPanel(
@@ -742,6 +789,7 @@ class MapApp(LiveApp):
         changed = cam.settle(dcol, drow)
         cam.release()
         if cam.moving():
+            self._prefetch_coast()
             self._wake()
         return bool(changed or had_preview)
 
@@ -784,10 +832,13 @@ class MapApp(LiveApp):
         lat, lon, zoom = self.camera.lat, self.camera.lon, self.camera.zoom
         self._prefetch_if_descending()
         moving = self.camera.moving() or self.camera.dragging()
-        # Nothing reaches the network while the view is passing
-        # through; the frames in between are cut from the last real
-        # one (maps._reproject_street, maps._reproject_terrain).
-        _maps_views.hold_motion(moving)
+        # The loaders' own path is closed while the view is passing
+        # through; the frames in between are cut from the newest real
+        # one (maps._reproject_street, maps._reproject_terrain), and
+        # one window at a time is still built behind them — except
+        # under a flight, whose frames are the picture and whose
+        # destination is already on its way.
+        _maps_views.hold_motion(moving, passing=not self.camera.flying())
         # A warm globe repaints synchronously, moving or at rest: the
         # frame is a few hundredths of a second of arithmetic, and the
         # alternative is a blank disk — between frames while it turns,

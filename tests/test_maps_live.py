@@ -533,6 +533,71 @@ class TestDrag:
         app.on_drag(-10, 0, True)
         assert app.camera.moving()
 
+    def test_a_flick_asks_for_where_it_will_stop(self, frames, monkeypatch):
+        asked = []
+        monkeypatch.setattr(_maps_live, "prefetch_view",
+                            lambda *a, **k: asked.append((a, k)))
+        app = make(zoom=2.0, view="street")
+        clock = app.camera.clock
+        app.on_drag(0, 0, False)
+        clock.advance(0.05)
+        app.on_drag(-10, 0, False)
+        app.on_drag(-10, 0, True)
+        assert app.camera.moving() and len(asked) == 1
+        (lat, lon, zoom, view, gw, hc, lang), kw = asked[0]
+        assert (zoom, view, gw, hc, lang) == (2.0, "street", GW, HC, "en")
+        assert kw == {"marker": (43.68, -70.37)}
+        assert lon > app.lon                     # east, where the flick went
+        # and it is where the coast actually comes to rest, so the
+        # frame at rest draws what is already on its way
+        app.render()
+        settle(app)
+        app.render()
+        assert app.lat == pytest.approx(lat, abs=1e-9)
+        assert app.lon == pytest.approx(lon, abs=1e-9)
+        assert len(asked) == 1                   # at the release, once
+
+    def test_a_hand_brought_to_rest_asks_for_nothing(self, monkeypatch):
+        asked = []
+        monkeypatch.setattr(_maps_live, "prefetch_view",
+                            lambda *a, **k: asked.append(a))
+        app = make(zoom=2.0, view="street")
+        app.on_drag(0, 0, False)
+        app.camera.clock.advance(0.5)
+        app.on_drag(-10, 0, False)
+        app.camera.clock.advance(0.5)
+        app.on_drag(-10, 0, True)
+        assert not app.camera.moving() and asked == []
+
+    def test_a_flick_on_a_globe_asks_for_nothing(self, monkeypatch):
+        # a cold globe pans with the flat idiom, but its view is still
+        # a planet: nothing here fetches a window
+        asked = []
+        monkeypatch.setattr(_maps_live, "prefetch_view",
+                            lambda *a, **k: asked.append(a))
+        app = make(zoom=_globe.ZOOM_DEG)
+        app.on_drag(0, 0, False)
+        app.camera.clock.advance(0.05)
+        app.on_drag(-10, 0, False)
+        app.on_drag(-10, 0, True)
+        assert app.camera.moving() and asked == []
+
+    def test_a_coast_builds_what_it_passes_over_and_a_flight_does_not(
+            self, frames):
+        app = make(zoom=2.0, view="street")
+        app.on_drag(0, 0, False)
+        app.camera.clock.advance(0.05)
+        app.on_drag(-10, 0, False)
+        app.on_drag(-10, 0, True)
+        app.render()
+        assert _maps_views._in_motion[0] and _maps_views._build_passing[0]
+        app.camera.fly_to(44.0, -71.0, 0.5)
+        app.render()
+        assert _maps_views._in_motion[0] and not _maps_views._build_passing[0]
+        settle(app)
+        app.render()
+        assert not _maps_views._in_motion[0] and _maps_views._build_passing[0]
+
     def test_a_press_stops_a_coast_and_a_flight(self):
         app = make(zoom=2.0)
         app.camera.fly_to(44.0, -71.0, 1.0)
@@ -933,6 +998,51 @@ class TestCamera:
         cam.clock.advance(3.0)
         assert cam.view()[0] == 80.0
         assert not cam.moving()
+
+    def _flick(self, cam, dcol, drow):
+        cam.press()
+        cam.drag(0, 0)
+        cam.clock.advance(0.05)
+        cam.drag(dcol, drow)
+        cam.release()
+        assert cam._coast is not None
+        return cam.coast_destination()
+
+    def test_the_destination_is_where_a_flick_east_stops(self):
+        cam = self._camera(lat=0.0, lon=0.0)
+        lat, lon = self._flick(cam, -20, 0)
+        cam.clock.advance(5.0)
+        rest_lat, rest_lon, _zoom = cam.view()
+        assert not cam.moving()
+        assert rest_lat == pytest.approx(lat, abs=1e-6)
+        assert rest_lon == pytest.approx(lon, abs=1e-6)
+        assert lon > 0                    # the ground came west, the view east
+
+    def test_the_destination_is_clamped_at_the_polar_limit(self):
+        cam = self._camera(lat=79.0, lon=0.0, zoom=10.0)
+        lat, lon = self._flick(cam, -6, 40)
+        cam.clock.advance(5.0)
+        rest_lat, rest_lon, _zoom = cam.view()
+        assert not cam.moving()
+        assert lat == 80.0                # clamped, as the coast clamps
+        assert rest_lat == pytest.approx(lat, abs=1e-6)
+        assert rest_lon == pytest.approx(lon, abs=1e-6)
+
+    def test_the_destination_wraps_across_the_antimeridian(self):
+        cam = self._camera(lat=0.0, lon=179.9, zoom=2.0)
+        lat, lon = self._flick(cam, -40, 0)
+        cam.clock.advance(5.0)
+        rest_lat, rest_lon, _zoom = cam.view()
+        assert not cam.moving()
+        assert lon < 0                    # over the seam
+        assert rest_lat == pytest.approx(lat, abs=1e-6)
+        assert rest_lon == pytest.approx(lon, abs=1e-6)
+
+    def test_a_coast_stopped_by_hand_has_no_destination(self):
+        cam = self._camera()
+        self._flick(cam, -20, 0)
+        cam.halt()
+        assert cam.coast_destination() is None
 
     def test_a_flick_is_capped_however_fast_the_hand(self):
         def flick(cols):

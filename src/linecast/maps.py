@@ -32,7 +32,6 @@ Usage: maps [--location LAT,LNG | PLACE] [--zoom DEG] [--view MODE]
 import functools
 import math
 import sys
-import threading
 
 from linecast import (
     _builtup, _climate, _globe, _globe_now, _maps_hover, _maps_style,
@@ -53,7 +52,7 @@ from linecast._maps_views import (  # noqa: F401 — the loaders and caches
     TerrainView, _EMPTY_TERRAIN, _coast_dots, _elev_cache,
     _get_clouds, _get_elevation, _get_globe, _get_street, _globe_cache,
     _sphere, _street_cache, _terrain_buffer, _terrain_cache, _view_key,
-    _water_subpixels,
+    _water_subpixels, fetch_destination, take_street, take_terrain,
 )
 from linecast._radar_basemap import (  # noqa: F401 — _edge_dots is re-exported
     _BITS, BORDER, DotLayer, _edge_dots,
@@ -173,13 +172,19 @@ class _ShiftedLayer:
         self.ribbon = set(ribbon)
 
 
-# The last real view drawn in each flat register, kept so the next one
-# has something to stand in for it: street as (bbox, graph_w,
-# height_cells, fills, layer), terrain as (bbox, graph_w, height_cells,
-# fill buffer, coast, rivers).  A flat view at a new window is a
-# network fetch, so between a gesture and the data there is nothing
-# else to draw — moved and scaled, the last one keeps a map on screen
-# where a blank would lose the reader's place entirely.
+# The newest real view in each flat register, kept so the next one has
+# something to stand in for it: street as (bbox, graph_w, height_cells,
+# fills, layer), terrain as (bbox, graph_w, height_cells, fill buffer,
+# coast, rivers).  A flat view at a new window is a network fetch, so
+# between a gesture and the data there is nothing else to draw — moved
+# and scaled, the newest one keeps a map on screen where a blank would
+# lose the reader's place entirely.
+#
+# Newest, not last drawn: a view fetched while the camera was moving is
+# never drawn, because the frame that asked for it had moved on by the
+# time it arrived.  It is still the truer picture of where the reader
+# now is, so each renderer takes what has landed since its last frame
+# (_maps_views.take_street, take_terrain) before cutting a stand-in.
 _last_street = [None]
 _last_terrain = [None]
 # And the last real globe in each register, kept for the same reason:
@@ -400,6 +405,17 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     err = None
     loading = False
     view = _EMPTY_TERRAIN
+    landed = take_terrain()
+    if landed is not None and landed[1:3] == (graph_w, height_cells):
+        # a view that arrived between frames: the shaded buffer it
+        # stands in through is the one its own frame would have built,
+        # and the memo hands that frame back this very grid
+        lbbox, _lw, _lh, lview = landed
+        _last_terrain[0] = (
+            lbbox, graph_w, height_cells,
+            _terrain_buffer(lview.elev, lbbox, graph_w, height_cells,
+                            lview.water, lview.cover),
+            lview.coast, lview.rivers)
     if block:
         try:
             view = _get_elevation(bbox, graph_w, height_cells, True)
@@ -700,6 +716,9 @@ def _render_street(bbox, graph_w, height_cells, block, pan_offset,
     fills = layer = labels = None
     centre = (graph_w // 2, height_cells // 2)
     reserved = (marker_cell, centre) if marker_cell else (centre,)
+    landed = take_street()
+    if landed is not None and landed[1:3] == (graph_w, height_cells):
+        _last_street[0] = landed   # a view that arrived between frames
     if block:
         try:
             fills, layer, labels = _get_street(bbox, graph_w, height_cells,
@@ -858,16 +877,18 @@ def _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells, lang,
 
 def prefetch_view(lat, lon, zoom, view, graph_w, height_cells, lang,
                   marker=None):
-    """Start loading the view a flight is heading for, off the frame's thread.
+    """Start loading the view a motion is heading for, off the frame's thread.
 
     The motion gate keeps every other fetch off the network while the
     camera moves, and rightly: those views are passed through.  The
     destination is not — it is the one the reader asked for, and it is
-    known the moment the flight begins.  Asked for from the descent it
-    has a second or so to land, so the flight often ends on the real
-    map rather than on a stand-in waiting to be replaced.  The keys
-    are composed exactly as the renderer will compose them, or the
-    work would warm a view nobody asks for.
+    known before they get there: a flight's from the descent, a
+    flick's from the release.  Asked for early it has a second or so
+    to land, so the motion often ends on the real map rather than on a
+    stand-in waiting to be replaced.  The keys are composed exactly as
+    the renderer will compose them, or the work would warm a view
+    nobody asks for.  While it runs, no window the view is merely
+    passing over is built (_maps_views.fetch_destination).
     """
     def work():
         try:
@@ -884,10 +905,10 @@ def prefetch_view(lat, lon, zoom, view, graph_w, height_cells, lang,
             else:
                 _get_elevation(bbox, graph_w, height_cells, True)
         except Exception as exc:
-            log_failure("maps/prefetch", "flight destination", exc,
+            log_failure("maps/prefetch", "destination", exc,
                         fallback="the view loads on arrival")
 
-    threading.Thread(target=work, daemon=True).start()
+    fetch_destination(work)
 
 
 def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,

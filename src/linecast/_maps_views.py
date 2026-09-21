@@ -5,8 +5,9 @@ A view is one bbox at one terminal size.  Each register has a loader
 sky — that answers from a small cache and, live, fetches in the
 background and nudges a repaint when the data lands (the scaffold is
 _scenes.SceneCache).  A zoom run holds every fetch until the last tap
-settles, and so does a camera in motion, so only the view you stop on
-reaches the network.
+settles, and so does a camera in motion — but a flat view in motion
+still builds one window at a time behind the frames, so what the view
+has moved onto can be painted before it stops.
 """
 
 import math
@@ -38,18 +39,137 @@ _zoom_hold = FetchHold(ZOOM_SETTLE)  # live zoom taps push its deadline
 # view in motion is a different bbox every frame, and each would be its
 # own fetch — thirty a second, every one of them stale before it
 # landed, all of them competing for the network with the only view the
-# reader will actually stop on.  So nothing fetches until the motion
-# ends; what is on screen meanwhile is the last real view, re-projected.
+# reader will actually stop on.  So the loaders' own path is closed
+# while the motion runs; what is on screen meanwhile is the last real
+# view, re-projected — and _motion_build keeps one of those frames'
+# views building all the same, so the glide is not a picture that
+# never changes until it stops.
 _in_motion = [False]
 
 
-def hold_motion(moving):
-    """Gate every loader while the camera is moving, or let it go."""
+def hold_motion(moving, passing=True):
+    """Gate every loader while the camera is moving, or let it go.
+
+    `passing` is whether a window the view is merely passing through
+    may still be built (_motion_build).  A flight says no: its loaders
+    would take the frames' turn through the climb, which is the part
+    of the flight where the picture is at its best, and it has a
+    destination of its own on the way.
+    """
     _in_motion[0] = bool(moving)
+    _build_passing[0] = bool(passing)
 
 
 def _held():
     return _in_motion[0] or _zoom_hold.held()
+
+
+# One build at a time for a view the camera is passing through: a
+# single slot, not one per key.  A frame that asks while the slot is
+# full is remembered rather than started, and the newest request wins
+# when it frees — the older ones are windows the view has already left.
+# Nothing here is timed: the next build is paced by the last one's
+# landing, which on a wide terminal is a second and more away.
+_motion_lock = threading.Lock()
+_motion_out = [False]     # a build for a moving view is in flight
+_motion_next = [None]     # the newest (cache, key, load) asked for meanwhile
+_build_passing = [True]   # whether this motion builds what it passes over
+_dest_out = [0]           # destination fetches in flight (maps.prefetch_view)
+
+
+def fetch_destination(work):
+    """Run `work` — a view a motion is *heading for* — off the loop.
+
+    A loader is pure Python for a second and more at a time, and two
+    of them do not take half as long each: they take twice, and the
+    frames in between wait on the same interpreter lock.  So a window
+    the view is only passing over stands aside while the window it is
+    going to is on its way — the one the reader will stop on is worth
+    more than any of the ones they will not — and the counting starts
+    here, on the caller's thread, so the next frame already sees it.
+    """
+    with _motion_lock:
+        _dest_out[0] += 1
+
+    def counted():
+        try:
+            work()
+        finally:
+            with _motion_lock:
+                _dest_out[0] -= 1
+
+    threading.Thread(target=counted, daemon=True).start()
+
+
+def _motion_build(cache, key, load):
+    """Ask for `key` while the camera moves, if the slot is free.
+
+    Zoom taps keep their hold: a run of them is a view a fetch behind
+    at every step, which is what the hold is for.  Nor does anything
+    start while the view this motion is heading for is itself being
+    fetched, or while a flight is in the air.
+    """
+    if not (_in_motion[0] and _build_passing[0]) or _zoom_hold.held():
+        return
+    if _dest_out[0]:
+        return
+    if cache.peek(key) is not None or cache.pending(key):
+        return
+    with _motion_lock:
+        if _motion_out[0]:
+            _motion_next[0] = (cache, key, load)
+            return
+        _motion_out[0] = True
+    _start_motion_build(cache, key, load)
+
+
+def _start_motion_build(cache, key, load):
+    """Build one moving view off the frame's thread, then take the next."""
+
+    def worker():
+        try:
+            cache.get(key, True, load)
+        except Exception as exc:
+            log_failure("worker", f"{cache.name} in motion", exc,
+                        fallback="the frame keeps its stand-in")
+        finally:
+            with _motion_lock:
+                # a view asked for by a camera that has since stopped is
+                # a window nobody is looking at; the resting frame asks
+                # for its own
+                nxt = _motion_next[0] if _in_motion[0] else None
+                _motion_next[0] = None
+                _motion_out[0] = nxt is not None
+        # the view landed under its own key, and the frames are cut
+        # from the newest one that has: a moving loop would repaint
+        # anyway, but one that has come to rest needs waking
+        _nudge_repaint()
+        if nxt is not None:
+            _start_motion_build(*nxt)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+
+# The newest real view each flat register has *landed*, as
+# (bbox, gw, hc, ...), whether or not any frame has drawn it.  A view
+# fetched while the camera moves is never rendered — the frame that
+# asked for it had moved on before it arrived — but it is a far truer
+# stand-in source than the view the motion started from, so the
+# renderer takes it as one (maps._last_street, maps._last_terrain).
+_street_landed = [None]
+_terrain_landed = [None]
+
+
+def take_street():
+    """The newest street view to have landed, once, or None."""
+    landed, _street_landed[0] = _street_landed[0], None
+    return landed
+
+
+def take_terrain():
+    """The newest terrain view to have landed, once, or None."""
+    landed, _terrain_landed[0] = _terrain_landed[0], None
+    return landed
 
 
 def _view_key(bbox, gw, hc):
@@ -238,12 +358,18 @@ def _get_elevation(bbox, gw, hc, block):
                     if o:
                         e = frow[dx]
                         frow[dx] = -0.5 if e is None else min(e, -0.5)
-        return TerrainView(
+        view = TerrainView(
             _box_average(fine, gw, hc), _coast_dots(fine, gw, hc, water),
             _water_subpixels(water, gw, hc) if water is not None else None,
             rivers, cover)
+        _terrain_landed[0] = (tuple(bbox), gw, hc, view)
+        return view
 
-    return _elev_cache.get(_view_key(bbox, gw, hc), block, load)
+    key = _view_key(bbox, gw, hc)
+    view = _elev_cache.get(key, block, load)
+    if not block and view is _elev_cache.empty:
+        _motion_build(_elev_cache, key, load)
+    return view
 
 
 def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
@@ -268,12 +394,19 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=()):
                 _maps_streets.prefetch_around(bbox, hc, keys)
             except Exception as exc:
                 log_failure("maps/vtiles", "prefetch", exc, fallback="none")
-        return _maps_streets.build_street_view(
+        view = _maps_streets.build_street_view(
             bbox, gw, hc, tiles, band, lang, reserved,
             bu_job.result() if bu_job is not None else None)
+        # the fills and the layer are what a stand-in is cut from; the
+        # labels stay behind, as they do in every reprojection
+        _street_landed[0] = (tuple(bbox), gw, hc, view[0], view[1])
+        return view
 
     key = _view_key(bbox, gw, hc) + (lang, tuple(sorted(reserved)))
-    return _street_cache.get(key, block, load)
+    view = _street_cache.get(key, block, load)
+    if not block and view is _street_cache.empty:
+        _motion_build(_street_cache, key, load)
+    return view
 
 
 

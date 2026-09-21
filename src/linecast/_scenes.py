@@ -165,6 +165,11 @@ class SceneCache:
         with self._lock:
             return self._fresh(key)
 
+    def pending(self, key):
+        """Whether a load for `key` is already out, blocking or not."""
+        with self._lock:
+            return key in self._pending
+
     def get(self, key, block, load):
         with self._lock:
             hit = self._fresh(key)
