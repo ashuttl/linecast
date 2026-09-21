@@ -85,7 +85,7 @@ def completion_help():
 def _value_hints():
     """Completion values for flags whose parser has no `choices`."""
     from linecast._maps.route import PROFILES
-    from linecast._radar_sources import THEMES
+    from linecast._radar.sources import THEMES
     return {
         "--lang": LANG_CODES,
         "--theme": tuple(THEMES),

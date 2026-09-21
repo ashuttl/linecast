@@ -63,7 +63,7 @@ from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
 from linecast._planets import planet_positions
-from linecast._radar_i18n import rs
+from linecast._radar.i18n import rs
 from linecast._runtime import (
     RuntimeConfig, install_banner, set_current, sky_parser,
 )

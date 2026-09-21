@@ -15,7 +15,7 @@ world to RainViewer, with IEM as the last resort.  A host that answers
 its index and then stalls on the tiles is stepped over the same way, once
 a frame has come back short (see demote).  RainViewer keeps the
 locally-coloured themes, its Universal Blue tiles decoded back to
-reflectivity first (_radar_ub); of the server schemes it can only ever
+reflectivity first (ub); of the server schemes it can only ever
 show universal-blue.
 
 (RainViewer also composites IMD's Indian radar, which LibreWXR lacks, and
@@ -31,10 +31,10 @@ import time
 from typing import Any
 
 from linecast._png import decode_rgba
-from linecast._radar_source import fetch_frame, frame_times
-from linecast import _radar_tiles as tiles
-from linecast import _radar_palettes as palettes
-from linecast import _radar_ub
+from linecast._radar.source import fetch_frame, frame_times
+from linecast._radar import tiles
+from linecast._radar import palettes
+from linecast._radar import ub
 from linecast._runtime import log_failure
 
 # rough lower-48 bounding box; IEM/NEXRAD coverage
@@ -81,7 +81,7 @@ def is_local(theme: str | int) -> bool:
 
 # RainViewer's free tier serves Universal Blue whatever colour id the URL
 # asks for, so its picker offers our own palettes — decoded from those
-# tiles, see _radar_ub — and universal-blue itself.
+# tiles, see ub — and universal-blue itself.
 RV_THEMES: dict[str, str | int] = {
     name: v for name, v in THEMES.items() if is_local(v)}
 RV_THEMES["universal-blue"] = THEMES["universal-blue"]
@@ -284,7 +284,7 @@ class RainViewerSource(_TileSource):
         self.smooth = self.palette is not None
         # a local palette wants the exact table colours to decode; a
         # server theme can only ever be Universal Blue here, smoothed
-        self.transform = _radar_ub.to_gray if self.palette is not None else None
+        self.transform = ub.to_gray if self.palette is not None else None
         super().__init__(tiles.rainviewer_provider(smooth=self.palette is None),
                          index_from=index_from)
 

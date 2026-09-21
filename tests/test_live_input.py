@@ -174,8 +174,9 @@ class TestNudge:
             os.close(w)
 
     def test_radar_frames_nudge_is_the_live_one(self):
-        from linecast import _live, _radar_frames
-        assert _radar_frames._nudge is _live.nudge
+        from linecast import _live
+        from linecast._radar import frames
+        assert frames._nudge is _live.nudge
 
 
 _LOOP_EXIT_CHILD = """

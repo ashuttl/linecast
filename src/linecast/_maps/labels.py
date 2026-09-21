@@ -43,7 +43,7 @@ see rather than the point the data hands you.
 import heapq
 
 from linecast._maps import style
-from linecast._radar_basemap import (
+from linecast._radar.basemap import (
     _bresenham, _load_data, _localized, marine_region,
 )
 from linecast._textwidth import char_width, visible_len

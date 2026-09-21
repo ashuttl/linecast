@@ -40,7 +40,7 @@ from linecast._cache import (read_cache, read_stale, write_bytes_atomic,
 from linecast._http import MAX_BODY_BYTES, fetch_bytes, fetch_json, gunzip_limited
 from linecast._maps.tile_cache import note_tile_use
 from linecast._paths import cache_dir
-from linecast._radar_tiles import _lonlat_to_world
+from linecast._radar.tiles import _lonlat_to_world
 from linecast._runtime import debug_log, log_failure
 
 DEFAULT_TILEJSON_URL = "https://tiles.openfreemap.org/planet"

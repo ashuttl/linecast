@@ -6,7 +6,7 @@ _ShiftedBasemap stands in for a Basemap while a drag preview slides the
 already-composed layers, _panned_place names a view centre from the
 offline basemap data, and the theme picker, warning tooltip and timeline
 scrubber are the chrome the live loop draws around the map.  ThemePicker
-is the picker's state; _radar_live routes the keys to it.
+is the picker's state; live routes the keys to it.
 """
 
 import datetime as _dt
@@ -17,12 +17,12 @@ from linecast._color import fg, bg, RESET
 from linecast._framebuffer import fmt_time_dt
 from linecast._theme import ensure_contrast
 from linecast._weather.style import TOOLTIP_BG_RGB
-from linecast._radar_basemap import (
+from linecast._radar.basemap import (
     Basemap, _point_in_rings, marine_region, nearest_city,
 )
-from linecast._radar_i18n import rs
-from linecast._radar_render import _bbox_key
-from linecast._radar_sources import THEMES, is_local
+from linecast._radar.i18n import rs
+from linecast._radar.render import _bbox_key
+from linecast._radar.sources import THEMES, is_local
 from linecast._runtime import log_failure, use_metric
 from linecast._scenes import Memo
 

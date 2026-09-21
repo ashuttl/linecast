@@ -297,7 +297,7 @@ def test_tidecheck_tides(failures, monkeypatch):
 # Radar and clouds
 # ---------------------------------------------------------------------------
 def test_librewxr_radar_index(failures):
-    from linecast._radar_tiles import fetch_index, librewxr_provider
+    from linecast._radar.tiles import fetch_index, librewxr_provider
     index = fetch_index(librewxr_provider(0))
     assert failures() == []
     assert index.get("host")
@@ -306,7 +306,7 @@ def test_librewxr_radar_index(failures):
 
 def test_librewxr_clouds(failures):
     from linecast._maps import globe_now
-    from linecast._radar_tiles import fetch_index
+    from linecast._radar.tiles import fetch_index
     index = fetch_index(globe_now._provider())
     assert failures() == []
     frames = (index.get("satellite") or {}).get("infrared") or []
@@ -315,7 +315,7 @@ def test_librewxr_clouds(failures):
 
 
 def test_rainviewer_radar_index(failures):
-    from linecast._radar_tiles import fetch_index, rainviewer_provider
+    from linecast._radar.tiles import fetch_index, rainviewer_provider
     index = fetch_index(rainviewer_provider())
     assert failures() == []
     assert index.get("host")
@@ -323,7 +323,7 @@ def test_rainviewer_radar_index(failures):
 
 
 def test_iem_radar_frame(failures):
-    from linecast._radar_sources import IEMSource
+    from linecast._radar.sources import IEMSource
     source = IEMSource(3)
     frames = source.current_frames()
     assert frames
@@ -334,7 +334,7 @@ def test_iem_radar_frame(failures):
 
 
 def test_iem_warnings(failures):
-    from linecast._radar_warnings import warnings_at
+    from linecast._radar.warnings import warnings_at
     warnings = warnings_at(datetime.now(timezone.utc))
     assert failures() == []
     assert isinstance(warnings, list)

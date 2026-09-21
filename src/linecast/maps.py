@@ -63,13 +63,13 @@ from linecast._maps.views import (  # noqa: F401 — the loaders and caches
     _sphere, _street_cache, _terrain_buffer, _terrain_cache, _view_key,
     _water_subpixels, fetch_destination, take_street, take_terrain,
 )
-from linecast._radar_basemap import (  # noqa: F401 — _edge_dots is re-exported
+from linecast._radar.basemap import (  # noqa: F401 — _edge_dots is re-exported
     _BITS, BORDER, DotLayer, _edge_dots,
 )
 from linecast import _theme
-from linecast._radar_i18n import rs
-from linecast._radar_render import bbox_for
-from linecast._radar_ui import (
+from linecast._radar.i18n import rs
+from linecast._radar.render import bbox_for
+from linecast._radar.ui import (
     CROSSHAIR, DIM, MUTED,
     _ShiftedBasemap, _get_basemap, _panned_place, _shift_grid,
 )

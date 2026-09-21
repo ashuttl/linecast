@@ -57,7 +57,7 @@ class IncompleteFrame(Exception):
 
 LIBREWXR_DEFAULT_URL = "https://api.librewxr.net"
 # The grayscale scheme: gray = dBZ + 32 (+128 for snow).  Fetched unsmoothed
-# it is reflectivity data we can colour ourselves (see _radar_palettes).
+# it is reflectivity data we can colour ourselves (see palettes).
 RAW_COLOR = 0
 
 
@@ -89,7 +89,7 @@ _TAGS = {"rv": "radar/rainviewer", "lwxr": "radar/librewxr"}
 def rainviewer_provider(smooth: bool = True) -> Provider:
     # Free/personal tier: Universal Blue only (the colour id in the URL is
     # ignored), max zoom 7.  Unsmoothed tiles keep the published table's
-    # exact colours, which is what lets _radar_ub decode them.
+    # exact colours, which is what lets ub decode them.
     return Provider("rv", "https://api.rainviewer.com/public/weather-maps.json",
                     color=2, options=f"{int(smooth)}_1", max_zoom=7)
 
@@ -255,7 +255,7 @@ def reproject(provider: Provider, host: str, path: str, bbox: tuple[float, float
     Returns (w, h, bytearray) — same shape decode_rgba yields, so it drops
     straight into build_radar_buffer.  `smooth` asks for the bilinear pass
     meant for raw grayscale (reflectivity) tiles; `transform` rewrites each
-    decoded tile in place first (see _radar_ub), so the disk cache keeps
+    decoded tile in place first (see ub), so the disk cache keeps
     the bytes as served.
 
     A tile that does not arrive is asked for once more before the frame is

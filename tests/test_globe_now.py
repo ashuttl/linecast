@@ -156,7 +156,7 @@ class TestRefresh:
 
     def test_new_frame_stitches_and_repeat_is_free(self, monkeypatch):
         # patch tiles *through* globe_now: after the test_oneline
-        # sys.modules purge, a fresh `from linecast import _radar_tiles`
+        # sys.modules purge, a fresh `from linecast._radar import tiles`
         # here would be a different module than the one it calls
         tiles = globe_now.tiles
         monkeypatch.setattr(globe_now, "_cloud",

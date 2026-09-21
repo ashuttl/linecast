@@ -102,7 +102,7 @@ class CompletionScriptTests(unittest.TestCase):
         )
 
     def test_radar_theme_values_track_source_themes(self):
-        from linecast._radar_sources import THEMES
+        from linecast._radar.sources import THEMES
         themes = " ".join(THEMES)
         self.assertIn(f"complete -c radar -f -l theme -r -a '{themes}'",
                       render_completion("fish"))

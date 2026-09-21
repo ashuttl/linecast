@@ -24,7 +24,7 @@ from linecast._maps import labels as lb
 from linecast._maps import streets as st
 from linecast._maps import style as _maps_style
 from linecast import _theme
-from linecast._radar_basemap import _load_data
+from linecast._radar.basemap import _load_data
 
 from test_maps_streets import (
     EXTENT, WORLD, feature, field, layer, line_feature, polyline, rect,

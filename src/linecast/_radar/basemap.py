@@ -19,6 +19,7 @@ import math
 import os
 
 from linecast import _theme
+from linecast._paths import data_path
 from linecast._runtime import log_failure
 from linecast._textwidth import char_width
 from linecast._theme import is_light_theme, lerp_rgb
@@ -75,8 +76,7 @@ _VENDORED_DATA = None  # what _load_data read from disk, as distinct from
 def _load_data():
     global _DATA, _VENDORED_DATA
     if _DATA is None:
-        path = os.path.join(os.path.dirname(__file__), "data",
-                            "basemap.json.gz")
+        path = str(data_path("basemap.json.gz"))
         _DATA = _VENDORED_DATA = _load_marshalled(path)
     return _DATA
 
@@ -387,8 +387,7 @@ class Basemap(DotLayer):
     def _built_path(self):
         import hashlib
         from linecast._paths import cache_dir
-        src = os.path.join(os.path.dirname(__file__), "data",
-                           "basemap.json.gz")
+        src = str(data_path("basemap.json.gz"))
         key = (self._CACHE_FMT, os.stat(src).st_mtime_ns,
                tuple(round(v, 6) for v in self.bbox),
                self.graph_w, self.height_cells)

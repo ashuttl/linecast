@@ -1,7 +1,7 @@
 """Build the vendored global basemap data file from Natural Earth GeoJSON.
 
 Simplifies with Douglas-Peucker, rounds coordinates, and writes a compact
-gzipped JSON consumed at runtime by linecast._radar_basemap.  Run once at
+gzipped JSON consumed at runtime by linecast._radar.basemap.  Run once at
 authoring time:
 
     NE_DIR=/path/to/geojson python3 scripts/build_basemap_data.py

@@ -1,9 +1,9 @@
 from unittest.mock import patch
 
-from linecast import _radar_palettes as pal
-from linecast import _radar_sources as sources
-from linecast import _radar_tiles as tiles
-from linecast import _radar_ub as ub
+from linecast._radar import palettes as pal
+from linecast._radar import sources
+from linecast._radar import tiles
+from linecast._radar import ub
 
 
 class TestDecode:

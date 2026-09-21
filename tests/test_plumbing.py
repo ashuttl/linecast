@@ -36,7 +36,7 @@ class AtomicWriteTests(unittest.TestCase):
 
 class RadarPruneTests(unittest.TestCase):
     def test_prunes_only_old_tiles(self):
-        from linecast import _radar_tiles
+        from linecast._radar import tiles
         with tempfile.TemporaryDirectory() as tmpdir:
             pdir = Path(tmpdir) / "radar" / "lwxr"
             pdir.mkdir(parents=True)
@@ -48,17 +48,17 @@ class RadarPruneTests(unittest.TestCase):
             stale_at = 0  # epoch: comfortably past any cutoff
             os.utime(old, (stale_at, stale_at))
             with patch.dict(os.environ, {"LINECAST_CACHE_DIR": tmpdir}):
-                _radar_tiles.prune_tile_cache()
+                tiles.prune_tile_cache()
             self.assertFalse(old.exists())
             self.assertTrue(fresh.exists())
             self.assertTrue(index.exists())  # index is TTL-managed, not swept
 
     def test_missing_cache_dir_is_fine(self):
-        from linecast import _radar_tiles
+        from linecast._radar import tiles
         with tempfile.TemporaryDirectory() as tmpdir:
             missing = os.path.join(tmpdir, "nope")
             with patch.dict(os.environ, {"LINECAST_CACHE_DIR": missing}):
-                _radar_tiles.prune_tile_cache()  # must not raise
+                tiles.prune_tile_cache()  # must not raise
 
 
 class TerminalSizeTests(unittest.TestCase):

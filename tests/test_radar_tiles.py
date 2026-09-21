@@ -17,8 +17,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _radar_tiles as tiles
-from linecast._radar_tiles import (
+from linecast._radar import tiles
+from linecast._radar.tiles import (
     _lonlat_to_world, _pick_zoom, _tile_url, reproject, _TILE_SIZE,
     librewxr_provider, rainviewer_provider,
 )
@@ -240,7 +240,7 @@ class TestSmoothGray:
         # world = canvas size so 1 canvas px == 1/world of the world; bbox
         # covering exactly the canvas in lon (lat is mercator, keep it tiny
         # and symmetric so rows map ~linearly)
-        from linecast._radar_tiles import _smooth_gray
+        from linecast._radar.tiles import _smooth_gray
         return _smooth_gray(canvas, w, h, 0, 0, w, (-180, -0.5, 180, 0.5),
                             out_w, out_h)
 
@@ -267,7 +267,7 @@ class TestSmoothGray:
         # neighbourhoods; it must stay byte-identical to the plain
         # weighted sum, edge clamping and snow majority included
         import random
-        from linecast._radar_tiles import _smooth_gray
+        from linecast._radar.tiles import _smooth_gray
         rng = random.Random(7)
         cw, ch = 16, 8
         pixels = {}
@@ -366,7 +366,8 @@ class TestIndexFreshness:
         old age test served it forever (issue #68); the cache's own rule
         counts it as expired."""
         import time
-        from linecast import _http, _radar_tiles as tiles
+        from linecast import _http
+        from linecast._radar import tiles
         monkeypatch.setenv("LINECAST_CACHE_DIR", str(tmp_path))
         provider = tiles.Provider("rv", "https://api.example/index.json", 2, "1_1", 10)
         path = tiles._cache_dir(provider) / "weather-maps.json"

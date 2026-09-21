@@ -18,9 +18,9 @@ from linecast._color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
 )
 from linecast._framebuffer import halfblock
-from linecast._radar_basemap import BORDER
+from linecast._radar.basemap import BORDER
 from linecast._theme import lerp_rgb, themed
-from linecast._radar_ui import MARKER
+from linecast._radar.ui import MARKER
 
 
 # A colour setter we can compare, or any other escape, taken whole: the

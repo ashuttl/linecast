@@ -19,9 +19,9 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import (
-    _color, _framebuffer, _radar_basemap, _radar_render, _theme, moon, sunshine, tides,
-)
+from linecast import _color, _framebuffer, _theme, moon, sunshine, tides
+from linecast._radar import basemap
+from linecast._radar import render as _radar_render
 from linecast._maps import style as _maps_style
 from linecast._weather import alerts
 from linecast._weather import render as _weather_render
@@ -60,10 +60,10 @@ class TestApply:
     def test_import_time_palettes_follow(self, restore_theme):
         _theme._apply(*DARK)
         dark = (style.TEXT_RGB, sunshine.INFO_TEXT_RGB,
-                tides.TEXT_RGB, moon.MOON_SHADOW_RGB, _radar_basemap.SEA_FILL)
+                tides.TEXT_RGB, moon.MOON_SHADOW_RGB, basemap.SEA_FILL)
         _theme._apply(*LIGHT)
         light = (style.TEXT_RGB, sunshine.INFO_TEXT_RGB,
-                 tides.TEXT_RGB, moon.MOON_SHADOW_RGB, _radar_basemap.SEA_FILL)
+                 tides.TEXT_RGB, moon.MOON_SHADOW_RGB, basemap.SEA_FILL)
         for d, lt in zip(dark, light):
             assert d != lt
         # text is ink on the new background, not the old one
@@ -117,7 +117,7 @@ class TestApply:
         assert _weather_render.TEXT == style.TEXT
         assert _weather_render.TOOLTIP_BG_RGB == style.TOOLTIP_BG_RGB
         assert moon.INFO_TEXT_RGB == sunshine.INFO_TEXT_RGB
-        assert _radar_render.SEA_FILL == _radar_basemap.SEA_FILL
+        assert _radar_render.SEA_FILL == basemap.SEA_FILL
 
 
 class TestLightThemeInk:

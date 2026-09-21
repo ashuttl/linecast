@@ -11,8 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-import linecast._radar_basemap as basemap_mod
-from linecast._radar_basemap import (
+import linecast._radar.basemap as basemap_mod
+from linecast._radar.basemap import (
     Basemap, DotLayer, _project, marine_region, nearest_city,
     COAST, CITY, CITY_LABEL,
 )
@@ -240,7 +240,7 @@ class TestCityLocalization:
         assert ov[(9, 2)] == ("", None)   # sentinel: covered by 京
 
     def test_cjk_rows_stay_column_aligned(self):
-        from linecast._radar_render import compose
+        from linecast._radar.render import compose
         from linecast._framebuffer import visible_len
         bm = self._build()
         ov = bm.city_overlays(max_cities=1, lang="zh")
@@ -367,7 +367,7 @@ class TestVendoredDataLookups:
         # shorelines read crisp next to a blocky sea coast.  Guard that the
         # Gulf of Maine coastline now carries 1:10m detail (it collapsed to
         # ~100 vertices at 1:50m; 1:10m gives several hundred).
-        import linecast._radar_basemap as bm
+        import linecast._radar.basemap as bm
         gom = (-71.5, 42.5, -66.5, 45.5)
         minlon, minlat, maxlon, maxlat = gom
         n = sum(1 for rings in bm._load_data()["land"]

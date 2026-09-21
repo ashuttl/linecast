@@ -34,7 +34,7 @@ from linecast._maps.i18n import ms
 from linecast._maps.paint import (
     BORDER_STROKE, RIVER_STROKE, build_terrain_buffer,
 )
-from linecast._radar_basemap import _edge_dots
+from linecast._radar.basemap import _edge_dots
 from linecast._runtime import log_failure
 from linecast._scenes import FetchHold, Memo, SceneCache
 

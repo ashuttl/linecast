@@ -22,8 +22,8 @@ from linecast._maps import overscan as over
 from linecast import maps
 from linecast._maps import views
 from linecast._maps.hover import HoverIndex
-from linecast._radar_basemap import DotLayer
-from linecast._radar_render import bbox_for
+from linecast._radar.basemap import DotLayer
+from linecast._radar.render import bbox_for
 
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07")
 COLS, ROWS = 60, 20

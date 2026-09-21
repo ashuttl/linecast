@@ -6,7 +6,7 @@ colour it here.  In that scheme a pixel's gray level is the reflectivity:
 gray = dBZ + 32, and +128 flags snow.  Unsmoothed tiles keep those values
 exact; the smoothed variant blurs across the snow bit.  RainViewer serves
 no grayscale, so its tiles reach the same encoding by inverting the one
-scheme it does serve (see _radar_ub).
+scheme it does serve (see ub).
 
 Colouring locally is what lets a theme draw the weather in the terminal's
 own colours: ``terminal`` takes the ``dusk`` ladder and re-inks each step

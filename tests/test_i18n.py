@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from linecast._i18n import lang_of, lookup
 from linecast._maps.i18n import ms
 from linecast._moon_i18n import _ms
-from linecast._radar_i18n import rs
+from linecast._radar.i18n import rs
 from linecast._tides_i18n import _ts
 from linecast._weather.i18n import DAY_NAMES, WMO_NAMES_I18N, _s
 from linecast._weather.sections import (
@@ -431,7 +431,7 @@ class TestTablesComplete:
     # santé) in French, and by its English name elsewhere.
     DEFAULTS = {
         "linecast._weather.i18n": {"unit_kmh", "unit_ms", "unit_mm", "unit_cm", "aqhi"},
-        "linecast._radar_i18n": {"unit_km"},
+        "linecast._radar.i18n": {"unit_km"},
     }
     # Keys a language needs that English does not: the Slavic few-form,
     # Romanian's one and its "de" form for a count of days, and a dawn
@@ -586,7 +586,7 @@ class TestUnitLabels:
         assert fmt_wind(12, self._runtime("tr", metric=False)) == "12mph"
 
     def test_the_rain_and_the_radar_distance_follow(self):
-        from linecast._radar_i18n import rs
+        from linecast._radar.i18n import rs
         assert self._runtime("uk").precip_unit_label == "мм"
         assert self._runtime("uk").precip_unit == "mm"
         assert self._runtime("fr").precip_unit_label == "mm"

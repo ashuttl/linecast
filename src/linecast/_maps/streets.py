@@ -30,7 +30,7 @@ from linecast._mvt import (
     LINESTRING, POLYGON, assemble_polygons, decode_tile,
 )
 from linecast._png import DecodeMemo
-from linecast._radar_basemap import DotLayer, _bresenham, _edge_dots
+from linecast._radar.basemap import DotLayer, _bresenham, _edge_dots
 from linecast._runtime import debug_log, log_failure
 from linecast._theme import lerp_rgb
 from linecast._vtiles import (fetch_tiles, iter_layer, prefetch_tiles,

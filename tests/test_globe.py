@@ -196,7 +196,7 @@ def _varied_canvas(size=64):
 def _reference_elevation(lls, canvas):
     """_globe.elevation as it was before the straight-line rewrite."""
     from linecast._elevation import decode_meters
-    from linecast._radar_tiles import _lonlat_to_world
+    from linecast._radar.tiles import _lonlat_to_world
     canvas, cw, ch, org_x, org_y, world = canvas
     grid = []
     for ll_row in lls:
@@ -549,7 +549,7 @@ class TestLabelToggle:
 
 def _reference_border_layer(lat0, lon0, zoom, gw, hc, color):
     """border_layer as it was before the trig was hoisted."""
-    from linecast._radar_basemap import DotLayer, _load_data
+    from linecast._radar.basemap import DotLayer, _load_data
     layer = DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
     r = _globe._radius(zoom, hc * 4)
     cx, cy = gw * 2 / 2.0, hc * 4 / 2.0
@@ -693,7 +693,7 @@ class TestCities:
 # _place_cities as it stood before the trig hoist and the biggest-first
 # walk: the reference the fast path has to agree with, exactly.
 def _place_cities_longhand(cities, lat0, lon0, zoom, gw, hc, lang):
-    from linecast._radar_basemap import CITY, CITY_LABEL, _localized
+    from linecast._radar.basemap import CITY, CITY_LABEL, _localized
     from linecast._textwidth import char_width
     max_cities = max(6, min(24, (gw * hc) // 400))
     r = _globe._radius(zoom, hc * 2)

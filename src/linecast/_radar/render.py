@@ -26,7 +26,7 @@ from linecast import _theme
 from linecast._color import fg, bg, lerp, RESET, BG_PRIMARY
 from linecast._framebuffer import halfblock
 from linecast._framebuffer import cell_aspect
-from linecast._radar_basemap import COAST, SEA_FILL
+from linecast._radar.basemap import COAST, SEA_FILL
 from linecast._theme import ensure_contrast
 
 
@@ -157,5 +157,5 @@ def compose(basemap, radar, overlays, graph_w, height_cells, warnings=None,
         lines.append("".join(parts))
     return lines
 
-_theme.track_imports(globals(), "linecast._radar_basemap")
+_theme.track_imports(globals(), "linecast._radar.basemap")
 _theme.track_imports(globals(), "linecast._color")

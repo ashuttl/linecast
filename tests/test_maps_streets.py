@@ -26,7 +26,7 @@ if _src not in sys.path:
 from linecast._maps import streets as st
 from linecast._maps import style as _maps_style
 from linecast import _theme
-from linecast._radar_basemap import DotLayer
+from linecast._radar.basemap import DotLayer
 from linecast._vtiles import projector
 
 WORLD = (-180.0, -85.0511287798066, 180.0, 85.0511287798066)

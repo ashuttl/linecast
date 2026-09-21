@@ -10,11 +10,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast import _color
 from linecast._color import BG_PRIMARY, lerp
-from linecast._radar_layers import (
+from linecast._radar.layers import (
     Field, TEMP_STOPS, build_temp_buffer, field_key, wind_color,
     wind_overlays,
 )
-from linecast._radar_render import compose
+from linecast._radar.render import compose
 from linecast.radar import parse_layers
 
 _ANSI_RE = re.compile(r"\033\[[^m]*m")

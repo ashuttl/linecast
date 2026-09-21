@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from linecast._elevation import _fetch_tile
 from linecast._maps.globe import _MERCATOR_LAT
 from linecast._png import decode_rgba
-from linecast._radar_tiles import stitch_xyz
+from linecast._radar.tiles import stitch_xyz
 
 ZOOMS = (1, 2)
 OUT_DIR = Path(__file__).resolve().parent.parent / "src/linecast/data"
