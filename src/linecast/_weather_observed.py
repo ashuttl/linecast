@@ -9,12 +9,13 @@ sky stands in for the model's weather code; the temperature, wind and
 the rest stay the model's, which the graph and the prose agree with.
 """
 
+import json
 import math
 import time
 from typing import Any
 
 from linecast._cache import location_cache_key
-from linecast._http import fetch_json_cached
+from linecast._http import fetch_bytes, fetch_json_cached
 from linecast._paths import cache_dir
 from linecast._runtime import log_failure
 
@@ -127,6 +128,13 @@ def _distance_km(lat1, lng1, lat2, lng2):
     return 6371.0 * 2 * math.asin(math.sqrt(a))
 
 
+def _fetch_reports(url, timeout):
+    # Where there is no station in the box the service answers 204 with
+    # no body: no reports, and worth caching as such.
+    body = fetch_bytes(url, timeout=timeout)
+    return json.loads(body) if body.strip() else []
+
+
 def fetch_metars(lat: float, lng: float) -> list[dict[str, Any]]:
     """The latest METAR from each station within reach. Cached 10 min."""
     span = MAX_DISTANCE_KM / 111.0
@@ -134,7 +142,8 @@ def fetch_metars(lat: float, lng: float) -> list[dict[str, Any]]:
     url = _METAR_URL.format(south=lat - span, north=lat + span,
                             west=lng - lng_span, east=lng + lng_span)
     cache_file = cache_dir("weather", f"metar_{location_cache_key(lat, lng)}.json")
-    reports = fetch_json_cached(cache_file, 600, url, timeout=6, fallback=[])
+    reports = fetch_json_cached(cache_file, 600, url, timeout=6, fallback=[],
+                                fetch=_fetch_reports)
     return reports if isinstance(reports, list) else []
 
 

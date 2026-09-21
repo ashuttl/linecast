@@ -1030,6 +1030,9 @@ _FETCH_CEILING = 30  # shared wall-clock budget for the dashboard providers
 # the forecast without it. The archive answers in a few seconds when it
 # answers; when it hangs, the view fills the scale in afterwards.
 _CLIMATE_PATIENCE = 10
+# The station's sky is a correction to the forecast, not worth holding
+# the view for: once the forecast is in, it has this long to follow.
+_OBSERVATION_PATIENCE = 2
 # How long the live view waits before asking again for a climate scale
 # that did not arrive with the forecast. Long enough for a request the
 # dashboard stopped waiting for to finish and leave its answer in the
@@ -1118,7 +1121,8 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
     result["name"] = localized or without_country(geo_label) or name
     result["country_code"] = cc or country_code
     result["data"] = apply_observation(_settle(fut_forecast, "forecast", None),
-                                       _settle(fut_observed, "station observation", None))
+                                       _settle(fut_observed, "station observation", None,
+                                               _OBSERVATION_PATIENCE))
     result["aqi"] = _settle(fut_aqi, "air quality", None)
     result["aqhi"] = _settle(fut_aqhi, "Canada's AQHI", None) if fut_aqhi else None
     # The live view can fill the climate scale in later, so it does not
