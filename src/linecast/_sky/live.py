@@ -27,8 +27,8 @@ from linecast.sky import (
 )
 from linecast._framebuffer import cell_aspect, get_terminal_size
 from linecast._i18n import GEOCODER_UNTRANSLATED, lang_of
-from linecast._sky_picker import CulturePicker, picker_overlay
-from linecast._sky_search import (
+from linecast._sky.picker import CulturePicker, picker_overlay
+from linecast._sky.search import (
     SkySearch, Target, describe_rising, next_rising, search_overlay,
 )
 

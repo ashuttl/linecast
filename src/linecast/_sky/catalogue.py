@@ -3,7 +3,7 @@
 Everything here is read from src/linecast/data, written by
 scripts/build_sky_catalogue.py, and loaded once per process on first
 use. The moon view takes its star field from `star_positions`; the sky
-view takes all of it, plus the faint HYG supplement in `_sky_deep`.
+view takes all of it, plus the faint HYG supplement in `deep`.
 
 The stars are the Yale Bright Star Catalogue to magnitude 6.5, brightest
 first, so a prefix of the list is the sky to some limiting magnitude.
@@ -18,12 +18,11 @@ import gzip
 import json
 import math
 import struct
-from pathlib import Path
-
+from linecast._paths import data_path
 from linecast._runtime import log_failure
 from linecast._i18n import base_language
 
-_DATA = Path(__file__).parent / "data"
+_DATA = data_path()
 
 _stars = None       # [(ra_rad, dec_rad, vmag, b_v)] brightest first
 _vectors = None     # [(x, y, z)] unit vectors, equatorial frame, parallel
@@ -255,7 +254,7 @@ def culture_for(short, lang):
 def culture_title(short, lang="en"):
     """The culture's name in the display language: the translation table's
     where it has one, else the English title from the data."""
-    from linecast._sky_i18n import culture_title_text
+    from linecast._sky.i18n import culture_title_text
     text = culture_title_text(short, lang)
     if text:
         return text

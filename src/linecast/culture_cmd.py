@@ -36,7 +36,7 @@ def _cmd_show():
 
 def _cmd_set(choice):
     from linecast._runtime import resolve_lang
-    from linecast._sky_catalogue import culture_title
+    from linecast._sky.catalogue import culture_title
     lang = resolve_lang()[0]
     config = read_config()
     config["culture"] = choice
@@ -57,7 +57,7 @@ def _cmd_auto():
 
 def main():
     from linecast._runtime import resolve_lang
-    from linecast._sky_catalogue import culture_title
+    from linecast._sky.catalogue import culture_title
     lang = resolve_lang()[0]
     parser = argparse.ArgumentParser(
         prog="linecast culture",

@@ -418,7 +418,7 @@ def _collect_preferences():
         calendar = native or "none"
         calendar_source = f"auto: {language}" if native else "auto"
     from linecast._config import saved_culture
-    from linecast._sky_catalogue import CULTURE_OF_LANG
+    from linecast._sky.catalogue import CULTURE_OF_LANG
     saved_culture_ = saved_culture()
     if saved_culture_ is not None:
         culture, culture_source = saved_culture_, "config"

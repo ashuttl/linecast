@@ -252,8 +252,8 @@ def sky_oneline(now_local, lat, lng, runtime):
     from datetime import timezone
     from linecast.sky import Scene, compass_point, easily_seen, TEXT_RGB, DIM_RGB
     from linecast._i18n import lang_of
-    from linecast._sky_catalogue import resolve_culture
-    from linecast._sky_i18n import _sk, body_name
+    from linecast._sky.catalogue import resolve_culture
+    from linecast._sky.i18n import _sk, body_name
     from linecast._sunshine_i18n import sky_phase
     from linecast.sunshine import moon_phase
 

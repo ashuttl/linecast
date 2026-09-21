@@ -294,7 +294,7 @@ def _star_color(t):
 
 
 # The stars are the real sky around the Moon: the Yale Bright Star
-# Catalogue (see scripts/build_sky_catalogue.py and _sky_catalogue),
+# Catalogue (see scripts/build_sky_catalogue.py and _sky.catalogue),
 # placed about the Moon's true position for the moment, with celestial
 # north turned by the parallactic angle the disc already follows. So
 # scrolling through time wheels the sky with the night and walks the
@@ -313,7 +313,7 @@ _STAR_FOCAL = 1.5
 
 def _load_stars():
     """[(ra_rad, dec_rad)] brightest first, from the bundled catalogue."""
-    from linecast._sky_catalogue import star_positions
+    from linecast._sky.catalogue import star_positions
     return star_positions()
 
 

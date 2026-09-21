@@ -10,7 +10,7 @@ through it.
 import math
 
 from linecast._i18n import base_language
-from linecast._sky_catalogue import star_names, star_vectors
+from linecast._sky.catalogue import star_names, star_vectors
 
 # "stars" are designations, the constellation last. A star the catalogue
 # gives a superscript (α¹ Cen) is matched by the bare letter, the

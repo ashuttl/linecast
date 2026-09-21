@@ -19,7 +19,7 @@ IAU = None   # the culture value for the IAU sky
 def choices(lang):
     """The rows, as (culture, title): the IAU sky first, then the cultures
     in the order their titles sort in the display language."""
-    from linecast._sky_catalogue import culture_title
+    from linecast._sky.catalogue import culture_title
     titled = [(culture_title(c, lang), c) for c in CULTURE_CHOICES if c != "none"]
     titled.sort(key=lambda row: row[0].casefold())
     return [(IAU, "IAU")] + [(c, t) for t, c in titled]
@@ -88,7 +88,7 @@ def picker_overlay(state, cols, rows, runtime):
     the list in a box with a rule after the IAU row. A list taller than
     the terminal scrolls about the highlight, with ▲ and ▼ in the
     borders where there is more."""
-    from linecast._sky_i18n import _sk
+    from linecast._sky.i18n import _sk
     # The lines of the list: a row index, or None for the rule.
     entries = []
     for i, (culture, _title) in enumerate(state.rows):

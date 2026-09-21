@@ -26,14 +26,15 @@ from collections.abc import Mapping
 from pathlib import Path
 
 
-def data_path(name):
-    """A file bundled with the package, under src/linecast/data.
+def data_path(*parts):
+    """A file bundled with the package, under src/linecast/data; the
+    directory itself when called with nothing.
 
     The modules that read the bundled data sit in subpackages, so
     they ask here rather than each counting the parents of their own
     __file__.
     """
-    return Path(__file__).parent / "data" / name
+    return Path(__file__).parent.joinpath("data", *parts)
 
 
 def _override(env, name):

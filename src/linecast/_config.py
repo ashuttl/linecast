@@ -131,7 +131,7 @@ def saved_hours() -> str | None:
 
 
 # The sky's cultures, by the short names `linecast culture` and `sky
-# --culture` take; the data behind them is _sky_catalogue's.
+# --culture` take; the data behind them is _sky.catalogue's.
 CULTURE_CHOICES = ("anutan", "belarusian", "blackfoot", "boorong", "bugis",
                    "chinese", "chinese-modern", "hawaiian", "indian", "japanese",
                    "mandar", "maori", "mongolian", "norse", "romanian", "ruelle",

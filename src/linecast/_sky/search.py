@@ -77,7 +77,7 @@ class Target:
         precessed frame; the Sun, the Moon and the planets are already
         placed for the moment.
         """
-        from linecast._sky_catalogue import star_vectors
+        from linecast._sky.catalogue import star_vectors
         from linecast.sky import alt_az_of, _mat_apply
         if self.kind == "sun":
             return scene.sun_alt, scene.sun_az
@@ -109,10 +109,10 @@ def targets(runtime, culture=None):
     IAU's and its star names join theirs."""
     from linecast._i18n import lang_of
     from linecast._planets import PLANETS
-    from linecast._sky_catalogue import (
+    from linecast._sky.catalogue import (
         constellation_name, constellations, figures_for, names_for, star_names, stars,
     )
-    from linecast._sky_i18n import body_name
+    from linecast._sky.i18n import body_name
     lang = lang_of(runtime)
     out = [Target("sun", body_name("sun", runtime), None,
                   [body_name("sun", runtime), "sun", "sol"], -30.0),
@@ -138,7 +138,7 @@ def targets(runtime, culture=None):
             out.append(Target("star", f"{own} · {desig}" if desig else own, i,
                               [own, *designation_names(desig)], catalogue[i][2],
                               exact=genitive_names(desig, genitives)))
-    from linecast._sky_objects import object_name, objects
+    from linecast._sky.objects import object_name, objects
     for record in objects():
         name = object_name(record, lang)
         ident = record['id']
@@ -147,7 +147,7 @@ def targets(runtime, culture=None):
                    record['designation'].replace(' ', ''), *record['aliases']]
         out.append(Target('deep_sky', f"{name} · {ident}" if name != ident else ident,
                           record, aliases, record['mag']))
-    from linecast._sky_asterisms import asterism_name, asterisms
+    from linecast._sky.asterisms import asterism_name, asterisms
     for record in asterisms():
         name = asterism_name(record, lang)
         names = {record["name"], name, *record["aliases"], *record["names"].values()}
@@ -380,7 +380,7 @@ class SkySearch:
 def search_overlay(state, cols, rows, runtime):
     """The panel, as cursor-addressed escapes for the floating channel:
     the field on the top row, the matches under it, then the note."""
-    from linecast._sky_i18n import _sk
+    from linecast._sky.i18n import _sk
     surface = surface_bg(0.10)
     ink = ensure_contrast(_theme.theme_fg, surface, 4.0)
     dim = ensure_contrast(surface_bg(0.55), surface, 2.2)
@@ -446,7 +446,7 @@ def describe_rising(target, rising, runtime, culture=None):
     """'Orion rises at 02:14 in the E', or that it never rises here."""
     from linecast._framebuffer import fmt_time_dt
     from linecast._i18n import sentence_24h
-    from linecast._sky_i18n import _sk
+    from linecast._sky.i18n import _sk
     from linecast.sky import compass_point
     if rising is None:
         return _sk("never_rises", runtime, name=target.label.split(" · ")[0])

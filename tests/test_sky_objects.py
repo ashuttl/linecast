@@ -4,9 +4,10 @@ import math
 from unittest.mock import patch
 
 from test_sky import LAT, LNG, NIGHT, NOON, _frame, _runtime
-from linecast import _sky_objects, sky
+from linecast import sky
+from linecast._sky import objects as _sky_objects
 from linecast._graphics import Framebuffer
-from linecast._sky_search import search, targets
+from linecast._sky.search import search, targets
 
 
 def _object(ident):
