@@ -5,6 +5,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 ## Unreleased
 
 - Weather: In Croatia, warnings filed by county are matched to your address by the county's boundary. They had been matched on the county's name.
+- Weather: In Japan, the warnings shown are the ones for the reader's own city, town, or ward, not every one the prefecture has out. A reader in Shinagawa no longer sees a high-wave advisory for the Izu islands, which are Tokyo too.
 - Maps: The view moves instead of jumping: a zoom eases to its new scale, a drag let go while moving coasts to a stop, `w a s d` slide the view along, and a searched place or a directions step is flown to. Terrain keeps the last map on screen while the next one loads, as the street map already did.
 - Maps: Zooming the globe no longer flashes a blank disk. The planet stays on screen, scaled to where the zoom is going, until the sharper one arrives, and the sharper one starts loading at the keypress rather than after the zoom settles.
 - Maps: The globe turns about twice as fast under a drag, since the planet is no longer rebuilt for every frame. Its shading is worked out once, in the background the first time a globe opens, and kept in the cache; that first globe draws the old way for a second or two while it happens.

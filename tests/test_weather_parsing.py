@@ -385,6 +385,120 @@ class TestJMAAlerts:
         assert alerts[0]["description"] == self.data["headlineText"]
 
 
+class TestJMAAreaFilter:
+    """A reader hears their own municipality's warnings, not the prefecture's.
+
+    The feed is Tokyo's on a day the Izu islands had wind, wave, thunder
+    and fog watches and the mainland had nothing; the table is JMA's area
+    list cut down to Tokyo, plus Hiroshima's 府中市 as a namesake.
+    """
+
+    IZU_SOUTH = "伊豆諸島南部では、強風や高波に注意してください。"
+    IZU_BOTH = ("伊豆諸島北部、伊豆諸島南部では、"
+                "急な強い雨や落雷、濃霧による視程障害に注意してください。")
+
+    def setup_method(self):
+        self.feed = _load("jma_warning_izu.json")
+        self.table = _load("jma_area_tokyo.json")
+
+    def _alerts(self, address, lang="ja", table=None):
+        from linecast import _weather_sources as ws
+        urls = []
+
+        def cached(cache_file, max_age, url, **kwargs):
+            urls.append(url)
+            if url.endswith("area.json"):
+                return self.table if table is None else table
+            return self.feed
+
+        with patch.object(ws, "fetch_json_cached", side_effect=cached), \
+                patch.object(ws, "write_cache"):
+            alerts = ws._fetch_alerts_jma(35.61, 139.73, lang=lang, address=address)
+        return alerts, urls
+
+    def test_shinagawa_hears_nothing_of_the_izu_islands(self):
+        alerts, _urls = self._alerts({"city": "品川区", "ISO3166-2-lvl4": "JP-13"})
+        assert alerts == []
+
+    def test_hachijo_gets_the_southern_islands_watches(self):
+        alerts, _urls = self._alerts({"town": "八丈町", "ISO3166-2-lvl4": "JP-13"})
+        assert {a["event"] for a in alerts} == {
+            "雷注意報", "強風注意報", "波浪注意報", "濃霧注意報"}
+        assert alerts[0]["description"] == self.IZU_SOUTH + self.IZU_BOTH
+
+    def test_oshima_keeps_only_the_sentence_that_names_it(self):
+        # Nominatim files the island town under `town`, with the prefecture as `city`
+        address = {"town": "大島町", "county": "大島支庁", "city": "東京都",
+                   "ISO3166-2-lvl4": "JP-13"}
+        alerts, _urls = self._alerts(address)
+        assert {a["event"] for a in alerts} == {"雷注意報", "濃霧注意報"}
+        assert alerts[0]["headline"] == self.IZU_BOTH
+        assert alerts[0]["description"] == self.IZU_BOTH
+
+    def test_the_english_description_is_filtered_too(self):
+        alerts, _urls = self._alerts({"town": "大島町", "ISO3166-2-lvl4": "JP-13"}, lang="en")
+        assert {a["event"] for a in alerts} == {"Thunderstorm Watch", "Dense Fog Watch"}
+        assert alerts[0]["headline"] == alerts[0]["event"]
+        assert alerts[0]["description"] == self.IZU_BOTH
+
+    def test_no_address_pools_the_whole_office(self):
+        alerts, urls = self._alerts(None)
+        assert len(alerts) == 4
+        assert alerts[0]["description"] == self.feed["headlineText"]
+        assert not any(u.endswith("area.json") for u in urls)
+
+    def test_an_unlisted_municipality_pools_the_whole_office(self):
+        alerts, _urls = self._alerts({"city": "架空市", "ISO3166-2-lvl4": "JP-13"})
+        assert len(alerts) == 4
+
+    def test_a_table_that_cannot_be_read_pools_the_whole_office(self):
+        alerts, _urls = self._alerts({"city": "品川区", "ISO3166-2-lvl4": "JP-13"}, table=[])
+        assert len(alerts) == 4
+
+    def test_the_prefecture_keeps_a_namesake_out(self):
+        # Tokyo and Hiroshima each have a 府中市; the address says which
+        _alerts, urls = self._alerts({"city": "府中市", "ISO3166-2-lvl4": "JP-34"})
+        assert urls[-1].endswith("/340000.json")
+        _alerts, urls = self._alerts({"city": "府中市", "ISO3166-2-lvl4": "JP-13"})
+        assert urls[-1].endswith("/130000.json")
+
+    def test_without_a_prefecture_the_nearest_office_decides(self):
+        from linecast._weather_sources import _jma_area_for_address
+        with patch("linecast._weather_sources.fetch_json_cached", return_value=self.table):
+            tokyo = _jma_area_for_address({"city": "府中市"}, "130000")
+            hiroshima = _jma_area_for_address({"city": "府中市"}, "340000")
+        assert tokyo["codes"] == ["1320600"]
+        assert hiroshima["codes"] == ["3420800"]
+
+    def test_a_city_split_into_parts_pools_them(self):
+        from linecast._weather_sources import _jma_area_for_address
+        table = {
+            "offices": {"140000": {"name": "神奈川県"}},
+            "class10s": {"140010": {"name": "東部", "parent": "140000"}},
+            "class15s": {"140011": {"name": "横浜・川崎", "parent": "140010"}},
+            "class20s": {"1410011": {"name": "横浜市北部", "parent": "140011"},
+                         "1410012": {"name": "横浜市南部", "parent": "140011"},
+                         "1413000": {"name": "川崎市", "parent": "140011"}},
+        }
+        with patch("linecast._weather_sources.fetch_json_cached", return_value=table):
+            area = _jma_area_for_address({"city": "横浜市", "ISO3166-2-lvl4": "JP-14"}, "140000")
+        assert area["office"] == "140000"
+        assert sorted(area["codes"]) == ["1410011", "1410012"]
+        assert area["names"] == {"横浜市北部", "横浜市南部", "横浜・川崎", "東部", "神奈川県"}
+
+    def test_a_headline_that_excepts_an_area_counts_its_reader_out(self):
+        from linecast._weather_sources import _jma_headline_for
+        headline = "小笠原諸島を除く東京都では、乾燥に注意してください。"
+        mainland = {"品川区", "２３区西部", "東京地方", "東京都"}
+        assert _jma_headline_for(headline, mainland) == headline
+        assert _jma_headline_for(headline, {"小笠原村", "小笠原諸島", "東京都"}) == ""
+
+    def test_a_sentence_that_names_no_area_is_for_everyone(self):
+        from linecast._weather_sources import _jma_headline_for
+        headline = "落雷に注意してください。伊豆諸島南部では、高波に注意してください。"
+        assert _jma_headline_for(headline, {"品川区"}) == "落雷に注意してください。"
+
+
 # ---------------------------------------------------------------------------
 # Alert expiry (issue #70)
 # ---------------------------------------------------------------------------
@@ -514,7 +628,7 @@ class TestAlertProviderRouting:
         with patch("linecast._weather_sources._fetch_alerts_jma",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(35.68, 139.76, country_code="JP", lang="ja")
-        mock_fn.assert_called_once_with(35.68, 139.76, lang="ja")
+        mock_fn.assert_called_once_with(35.68, 139.76, lang="ja", address=None)
         assert result == [{"event": "x"}]
 
     def test_routes_meteoalarm_country(self):

@@ -688,7 +688,7 @@ def _fetch_alerts_routed(lat, lng, country_code, lang, address):
     if country_code == "IE":
         return _fetch_alerts_meteireann(lat, lng)
     if country_code == "JP":
-        return _fetch_alerts_jma(lat, lng, lang=lang)
+        return _fetch_alerts_jma(lat, lng, lang=lang, address=address)
     if country_code == "HK":
         return _fetch_alerts_hko(lang=lang)
     if country_code == "CN":
@@ -1427,6 +1427,15 @@ _JMA_WARNING_NAMES = {
 
 _JMA_ACTIVE = {"\u767a\u8868", "\u7d99\u7d9a"}
 
+# Every JMA area, from the centers down to the municipalities: a name, an
+# English name, and a parent. A municipality's code is its JIS code with
+# two zeros after it; a big city split for warning purposes gets a part
+# each (1410011 横浜市北部, 1410012 横浜市南部; Kobe and Hiroshima a ward
+# each). Municipalities merge now and then, so the table is fetched and
+# kept a month rather than baked.
+_JMA_AREA_URL = "https://www.jma.go.jp/bosai/common/const/area.json"
+_JMA_AREA_MAX_AGE = 30 * 86400
+
 
 def _jma_office_for_coords(lat, lng):
     """Find the nearest JMA office code for given coordinates."""
@@ -1444,10 +1453,125 @@ def _jma_office_for_coords(lat, lng):
     return best_code
 
 
-def _fetch_alerts_jma(lat, lng, lang="en"):
-    """Fetch active JMA weather warnings (Japan). Cached 15min."""
+def _jma_area_for_address(address, office_code):
+    """The JMA areas a Nominatim address falls in, or None.
+
+    The warning file for an office lists every municipality in it with
+    its own warnings, so a reader in Shinagawa need not hear about high
+    waves in the Izu islands, which are Tokyo too. The reverse geocoder,
+    asked in the country's own language, names the municipality as JMA
+    spells it (品川区, 大島町), so an exact name is the match; a city JMA
+    splits into parts (横浜市北部, 横浜市南部) or wards (神戸市中央区) is
+    matched by prefix and the parts pooled. The prefecture in the address
+    (JP-13) keeps a namesake in another prefecture out (府中市 is in Tokyo
+    and Hiroshima); without one, the nearest office stands in for it.
+
+    Returns {"office": code, "codes": [municipality codes], "names":
+    {every name from the municipality up to the office}}, or None when
+    the address names nothing, the table is unavailable, or no municipality
+    matches; the caller then reads the whole office, as before.
+    """
+    if not address:
+        return None
+    names = [address.get(k) for k in ("city", "town", "village", "municipality")]
+    names = [n for n in names if isinstance(n, str) and n]
+    if not names:
+        return None
+    region = str(address.get("ISO3166-2-lvl4", ""))
+    prefecture = region[3:] if region.startswith("JP-") and region[3:].isdigit() else ""
+
+    table = fetch_json_cached(
+        cache_dir("weather") / "jma_areas.json", _JMA_AREA_MAX_AGE, _JMA_AREA_URL,
+        timeout=10, fallback=None,
+    )
+    if not isinstance(table, dict):
+        return None
+    class20s = table.get("class20s") or {}
+    class15s = table.get("class15s") or {}
+    class10s = table.get("class10s") or {}
+    offices = table.get("offices") or {}
+
+    def chain(code):
+        """(office, [(level, code, name), ...]) up from a municipality, or None."""
+        c20 = class20s.get(code) or {}
+        c15 = class15s.get(c20.get("parent")) or {}
+        c10 = class10s.get(c15.get("parent")) or {}
+        office = c10.get("parent")
+        if not office:
+            return None
+        return office, [c20.get("name"), c15.get("name"), c10.get("name"),
+                        (offices.get(office) or {}).get("name")]
+
+    for exact in (True, False):
+        codes, names_seen, office = [], set(), None
+        for code, entry in class20s.items():
+            name = entry.get("name") or ""
+            if exact:
+                hit = name in names
+            else:
+                hit = any(name.startswith(n) for n in names)
+            if not hit:
+                continue
+            if prefecture and not code.startswith(prefecture):
+                continue
+            found = chain(code)
+            if found is None:
+                continue
+            if not prefecture and found[0] != office_code:
+                continue
+            if office is None:
+                office = found[0]
+            elif found[0] != office:
+                continue
+            codes.append(code)
+            names_seen.update(n for n in found[1] if n)
+        if codes:
+            return {"office": office, "codes": codes, "names": names_seen}
+    return None
+
+
+def _jma_headline_for(headline, names):
+    """The sentences of a JMA headline that speak to the reader's area.
+
+    The office writes one headline for the prefecture, a sentence per
+    concern, each opening with the areas it is for: "伊豆諸島南部では、
+    強風や高波に注意してください。伊豆諸島北部、伊豆諸島南部では、…".
+    A sentence that opens with areas keeps only if one of them is the
+    reader's; one that opens with none is for everyone. "Xを除くYでは"
+    (Y except X) counts the reader out when they are in X.
+    """
+    kept = []
+    for sentence in (headline or "").split("\u3002"):
+        if not sentence:
+            continue
+        areas, spoke, _rest = sentence.partition("\u3067\u306f")
+        if spoke:
+            excluded, minus, remainder = areas.partition("\u3092\u9664\u304f")
+            if minus:
+                if any(n in excluded for n in names):
+                    continue
+                areas = remainder
+            if not any(n in areas for n in names):
+                continue
+        kept.append(sentence + "\u3002")
+    return "".join(kept)
+
+
+def _fetch_alerts_jma(lat, lng, lang="en", address=None):
+    """Fetch active JMA weather warnings (Japan). Cached 15min.
+
+    The warnings are the reader's municipality's when the address names
+    one the office's file lists; otherwise the whole office's, every
+    area's warnings pooled.
+    """
     office_code = _jma_office_for_coords(lat, lng)
-    cache_file = cache_dir("weather") / f"alerts_jp_{office_code}_{lang}.json"
+    area = _jma_area_for_address(address, office_code)
+    if area:
+        office_code = area["office"]
+        key = "-".join(area["codes"])
+    else:
+        key = office_code
+    cache_file = cache_dir("weather") / f"alerts_jp_{key}_{lang}.json"
     url = f"https://www.jma.go.jp/bosai/warning/data/warning/{office_code}.json"
     data = fetch_json_cached(
         cache_file, 900, url,
@@ -1461,13 +1585,18 @@ def _fetch_alerts_jma(lat, lng, lang="en"):
     report_dt = data.get("reportDatetime") or ""
     use_ja = lang == "ja"
 
-    # Collect all active warning codes across all areas
+    rows = [a for t in data.get("areaTypes") or [] for a in t.get("areas") or []]
+    if area:
+        mine = [r for r in rows if r.get("code") in area["codes"]]
+        if mine:
+            rows = mine
+            headline = _jma_headline_for(headline, area["names"])
+
     active_codes = set()
-    for area_type in data.get("areaTypes") or []:
-        for area in area_type.get("areas") or []:
-            for w in area.get("warnings") or []:
-                if w.get("status", "") in _JMA_ACTIVE:
-                    active_codes.add(w.get("code", ""))
+    for row in rows:
+        for w in row.get("warnings") or []:
+            if w.get("status", "") in _JMA_ACTIVE:
+                active_codes.add(w.get("code", ""))
 
     severity_order = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
     alerts = []

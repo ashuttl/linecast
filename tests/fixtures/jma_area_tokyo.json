@@ -1,0 +1,604 @@
+{
+ "centers": {},
+ "offices": {
+  "130000": {
+   "name": "東京都",
+   "enName": "Tokyo",
+   "officeName": "気象庁",
+   "parent": "010300",
+   "children": [
+    "130010",
+    "130020",
+    "130030",
+    "130040"
+   ]
+  },
+  "340000": {
+   "name": "広島県",
+   "enName": "Hiroshima",
+   "officeName": "広島地方気象台",
+   "parent": "010700",
+   "children": [
+    "340010",
+    "340020"
+   ]
+  }
+ },
+ "class10s": {
+  "130010": {
+   "name": "東京地方",
+   "enName": "Tokyo Region",
+   "parent": "130000",
+   "children": [
+    "130011",
+    "130012",
+    "130013",
+    "130014",
+    "130015"
+   ]
+  },
+  "130020": {
+   "name": "伊豆諸島北部",
+   "enName": "Northern Izu Islands",
+   "parent": "130000",
+   "children": [
+    "130021",
+    "130022"
+   ]
+  },
+  "130030": {
+   "name": "伊豆諸島南部",
+   "enName": "Southern Izu Islands",
+   "parent": "130000",
+   "children": [
+    "130031",
+    "130032"
+   ]
+  },
+  "130040": {
+   "name": "小笠原諸島",
+   "enName": "Ogasawara Islands",
+   "parent": "130000",
+   "children": [
+    "130040"
+   ]
+  },
+  "340010": {
+   "name": "南部",
+   "enName": "Southern Region",
+   "parent": "340000",
+   "children": [
+    "340011",
+    "340012",
+    "340013"
+   ]
+  }
+ },
+ "class15s": {
+  "130011": {
+   "name": "２３区西部",
+   "enName": "Western Region of 23 wards",
+   "parent": "130010",
+   "children": [
+    "1310100",
+    "1310200",
+    "1310300",
+    "1310400",
+    "1310500",
+    "1310900",
+    "1311000",
+    "1311100",
+    "1311200",
+    "1311300",
+    "1311400",
+    "1311500",
+    "1311600",
+    "1311700",
+    "1311900",
+    "1312000"
+   ]
+  },
+  "130012": {
+   "name": "２３区東部",
+   "enName": "Eastern Region of 23 wards",
+   "parent": "130010",
+   "children": [
+    "1310600",
+    "1310700",
+    "1310800",
+    "1311800",
+    "1312100",
+    "1312200",
+    "1312300"
+   ]
+  },
+  "130013": {
+   "name": "多摩北部",
+   "enName": "Northern Tama",
+   "parent": "130010",
+   "children": [
+    "1320200",
+    "1320300",
+    "1320400",
+    "1320600",
+    "1320700",
+    "1320800",
+    "1321000",
+    "1321100",
+    "1321300",
+    "1321400",
+    "1321500",
+    "1321900",
+    "1322000",
+    "1322100",
+    "1322200",
+    "1322300",
+    "1322900"
+   ]
+  },
+  "130014": {
+   "name": "多摩西部",
+   "enName": "Western Tama",
+   "parent": "130010",
+   "children": [
+    "1320500",
+    "1321800",
+    "1322700",
+    "1322800",
+    "1330300",
+    "1330500",
+    "1330700",
+    "1330800"
+   ]
+  },
+  "130015": {
+   "name": "多摩南部",
+   "enName": "Southern Tama",
+   "parent": "130010",
+   "children": [
+    "1320100",
+    "1320900",
+    "1321200",
+    "1322400",
+    "1322500"
+   ]
+  },
+  "130021": {
+   "name": "大島",
+   "enName": "Oshima Island",
+   "parent": "130020",
+   "children": [
+    "1336100"
+   ]
+  },
+  "130022": {
+   "name": "新島",
+   "enName": "Niijima Island",
+   "parent": "130020",
+   "children": [
+    "1336200",
+    "1336300",
+    "1336400"
+   ]
+  },
+  "130031": {
+   "name": "八丈島",
+   "enName": "Hachijojima Island",
+   "parent": "130030",
+   "children": [
+    "1340100",
+    "1340200"
+   ]
+  },
+  "130032": {
+   "name": "三宅島",
+   "enName": "Miyakejima Island",
+   "parent": "130030",
+   "children": [
+    "1338100",
+    "1338200"
+   ]
+  },
+  "130040": {
+   "name": "小笠原諸島",
+   "enName": "Ogasawara Islands",
+   "parent": "130040",
+   "children": [
+    "1342100"
+   ]
+  },
+  "340012": {
+   "name": "福山・尾三",
+   "enName": "Fukuyama Bisan",
+   "parent": "340010",
+   "children": [
+    "3420400",
+    "3420500",
+    "3420700",
+    "3420800",
+    "3446200",
+    "3454500"
+   ]
+  }
+ },
+ "class20s": {
+  "1310100": {
+   "name": "千代田区",
+   "enName": "Chiyoda City",
+   "kana": "ちよだく",
+   "parent": "130011"
+  },
+  "1310200": {
+   "name": "中央区",
+   "enName": "Chuo City",
+   "kana": "ちゅうおうく",
+   "parent": "130011"
+  },
+  "1310300": {
+   "name": "港区",
+   "enName": "Minato City",
+   "kana": "みなとく",
+   "parent": "130011"
+  },
+  "1310400": {
+   "name": "新宿区",
+   "enName": "Shinjuku City",
+   "kana": "しんじゅくく",
+   "parent": "130011"
+  },
+  "1310500": {
+   "name": "文京区",
+   "enName": "Bunkyo City",
+   "kana": "ぶんきょうく",
+   "parent": "130011"
+  },
+  "1310900": {
+   "name": "品川区",
+   "enName": "Shinagawa City",
+   "kana": "しながわく",
+   "parent": "130011"
+  },
+  "1311000": {
+   "name": "目黒区",
+   "enName": "Meguro City",
+   "kana": "めぐろく",
+   "parent": "130011"
+  },
+  "1311100": {
+   "name": "大田区",
+   "enName": "Ota City",
+   "kana": "おおたく",
+   "parent": "130011"
+  },
+  "1311200": {
+   "name": "世田谷区",
+   "enName": "Setagaya City",
+   "kana": "せたがやく",
+   "parent": "130011"
+  },
+  "1311300": {
+   "name": "渋谷区",
+   "enName": "Shibuya City",
+   "kana": "しぶやく",
+   "parent": "130011"
+  },
+  "1311400": {
+   "name": "中野区",
+   "enName": "Nakano City",
+   "kana": "なかのく",
+   "parent": "130011"
+  },
+  "1311500": {
+   "name": "杉並区",
+   "enName": "Suginami City",
+   "kana": "すぎなみく",
+   "parent": "130011"
+  },
+  "1311600": {
+   "name": "豊島区",
+   "enName": "Toshima City",
+   "kana": "としまく",
+   "parent": "130011"
+  },
+  "1311700": {
+   "name": "北区",
+   "enName": "Kita City",
+   "kana": "きたく",
+   "parent": "130011"
+  },
+  "1311900": {
+   "name": "板橋区",
+   "enName": "Itabashi City",
+   "kana": "いたばしく",
+   "parent": "130011"
+  },
+  "1312000": {
+   "name": "練馬区",
+   "enName": "Nerima City",
+   "kana": "ねりまく",
+   "parent": "130011"
+  },
+  "1310600": {
+   "name": "台東区",
+   "enName": "Taito City",
+   "kana": "たいとうく",
+   "parent": "130012"
+  },
+  "1310700": {
+   "name": "墨田区",
+   "enName": "Sumida City",
+   "kana": "すみだく",
+   "parent": "130012"
+  },
+  "1310800": {
+   "name": "江東区",
+   "enName": "Koto City",
+   "kana": "こうとうく",
+   "parent": "130012"
+  },
+  "1311800": {
+   "name": "荒川区",
+   "enName": "Arakawa City",
+   "kana": "あらかわく",
+   "parent": "130012"
+  },
+  "1312100": {
+   "name": "足立区",
+   "enName": "Adachi City",
+   "kana": "あだちく",
+   "parent": "130012"
+  },
+  "1312200": {
+   "name": "葛飾区",
+   "enName": "Katsushika City",
+   "kana": "かつしかく",
+   "parent": "130012"
+  },
+  "1312300": {
+   "name": "江戸川区",
+   "enName": "Edogawa City",
+   "kana": "えどがわく",
+   "parent": "130012"
+  },
+  "1320200": {
+   "name": "立川市",
+   "enName": "Tachikawa City",
+   "kana": "たちかわし",
+   "parent": "130013"
+  },
+  "1320300": {
+   "name": "武蔵野市",
+   "enName": "Musashino City",
+   "kana": "むさしのし",
+   "parent": "130013"
+  },
+  "1320400": {
+   "name": "三鷹市",
+   "enName": "Mitaka City",
+   "kana": "みたかし",
+   "parent": "130013"
+  },
+  "1320600": {
+   "name": "府中市",
+   "enName": "Fuchu City",
+   "kana": "ふちゅうし",
+   "parent": "130013"
+  },
+  "1320700": {
+   "name": "昭島市",
+   "enName": "Akishima City",
+   "kana": "あきしまし",
+   "parent": "130013"
+  },
+  "1320800": {
+   "name": "調布市",
+   "enName": "Chofu City",
+   "kana": "ちょうふし",
+   "parent": "130013"
+  },
+  "1321000": {
+   "name": "小金井市",
+   "enName": "Koganei City",
+   "kana": "こがねいし",
+   "parent": "130013"
+  },
+  "1321100": {
+   "name": "小平市",
+   "enName": "Kodaira City",
+   "kana": "こだいらし",
+   "parent": "130013"
+  },
+  "1321300": {
+   "name": "東村山市",
+   "enName": "Higashimurayama City",
+   "kana": "ひがしむらやまし",
+   "parent": "130013"
+  },
+  "1321400": {
+   "name": "国分寺市",
+   "enName": "Kokubunji City",
+   "kana": "こくぶんじし",
+   "parent": "130013"
+  },
+  "1321500": {
+   "name": "国立市",
+   "enName": "Kunitachi City",
+   "kana": "くにたちし",
+   "parent": "130013"
+  },
+  "1321900": {
+   "name": "狛江市",
+   "enName": "Komae City",
+   "kana": "こまえし",
+   "parent": "130013"
+  },
+  "1322000": {
+   "name": "東大和市",
+   "enName": "Higashiyamato City",
+   "kana": "ひがしやまとし",
+   "parent": "130013"
+  },
+  "1322100": {
+   "name": "清瀬市",
+   "enName": "Kiyose City",
+   "kana": "きよせし",
+   "parent": "130013"
+  },
+  "1322200": {
+   "name": "東久留米市",
+   "enName": "Higashikurume City",
+   "kana": "ひがしくるめし",
+   "parent": "130013"
+  },
+  "1322300": {
+   "name": "武蔵村山市",
+   "enName": "Musashimurayama City",
+   "kana": "むさしむらやまし",
+   "parent": "130013"
+  },
+  "1322900": {
+   "name": "西東京市",
+   "enName": "Nishitokyo City",
+   "kana": "にしとうきょうし",
+   "parent": "130013"
+  },
+  "1320500": {
+   "name": "青梅市",
+   "enName": "Ome City",
+   "kana": "おうめし",
+   "parent": "130014"
+  },
+  "1321800": {
+   "name": "福生市",
+   "enName": "Fussa City",
+   "kana": "ふっさし",
+   "parent": "130014"
+  },
+  "1322700": {
+   "name": "羽村市",
+   "enName": "Hamura City",
+   "kana": "はむらし",
+   "parent": "130014"
+  },
+  "1322800": {
+   "name": "あきる野市",
+   "enName": "Akiruno City",
+   "kana": "あきるのし",
+   "parent": "130014"
+  },
+  "1330300": {
+   "name": "瑞穂町",
+   "enName": "Mizuho Town",
+   "kana": "みずほまち",
+   "parent": "130014"
+  },
+  "1330500": {
+   "name": "日の出町",
+   "enName": "Hinode Town",
+   "kana": "ひのでまち",
+   "parent": "130014"
+  },
+  "1330700": {
+   "name": "檜原村",
+   "enName": "Hinohara Village",
+   "kana": "ひのはらむら",
+   "parent": "130014"
+  },
+  "1330800": {
+   "name": "奥多摩町",
+   "enName": "Okutama Town",
+   "kana": "おくたままち",
+   "parent": "130014"
+  },
+  "1320100": {
+   "name": "八王子市",
+   "enName": "Hachioji City",
+   "kana": "はちおうじし",
+   "parent": "130015"
+  },
+  "1320900": {
+   "name": "町田市",
+   "enName": "Machida City",
+   "kana": "まちだし",
+   "parent": "130015"
+  },
+  "1321200": {
+   "name": "日野市",
+   "enName": "Hino City",
+   "kana": "ひのし",
+   "parent": "130015"
+  },
+  "1322400": {
+   "name": "多摩市",
+   "enName": "Tama City",
+   "kana": "たまし",
+   "parent": "130015"
+  },
+  "1322500": {
+   "name": "稲城市",
+   "enName": "Inagi City",
+   "kana": "いなぎし",
+   "parent": "130015"
+  },
+  "1336100": {
+   "name": "大島町",
+   "enName": "Oshima Town",
+   "kana": "おおしままち",
+   "parent": "130021"
+  },
+  "1336200": {
+   "name": "利島村",
+   "enName": "Toshima Village",
+   "kana": "としまむら",
+   "parent": "130022"
+  },
+  "1336300": {
+   "name": "新島村",
+   "enName": "Niijima Village",
+   "kana": "にいじまむら",
+   "parent": "130022"
+  },
+  "1336400": {
+   "name": "神津島村",
+   "enName": "Kouzushima Village",
+   "kana": "こうづしまむら",
+   "parent": "130022"
+  },
+  "1340100": {
+   "name": "八丈町",
+   "enName": "Hachijo Town",
+   "kana": "はちじょうまち",
+   "parent": "130031"
+  },
+  "1340200": {
+   "name": "青ヶ島村",
+   "enName": "Aogashima Village",
+   "kana": "あおがしまむら",
+   "parent": "130031"
+  },
+  "1338100": {
+   "name": "三宅村",
+   "enName": "Miyake Village",
+   "kana": "みやけむら",
+   "parent": "130032"
+  },
+  "1338200": {
+   "name": "御蔵島村",
+   "enName": "Mikurashima Village",
+   "kana": "みくらじまむら",
+   "parent": "130032"
+  },
+  "1342100": {
+   "name": "小笠原村",
+   "enName": "Ogasawara Village",
+   "kana": "おがさわらむら",
+   "parent": "130040"
+  },
+  "3420800": {
+   "name": "府中市",
+   "enName": "Fuchu City",
+   "kana": "ふちゅうし",
+   "parent": "340012"
+  }
+ }
+}
