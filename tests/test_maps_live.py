@@ -1185,13 +1185,14 @@ class TestStartupPrune:
         assert calls == ["prune", "resolve"]
 
     def test_search_adds_no_tiles_so_it_does_not_wait(self, monkeypatch):
-        from linecast import _maps_tile_cache, _weather_sources
+        from linecast import _maps_tile_cache
+        from linecast._weather import sources
 
         calls = []
         self._argv(monkeypatch, "--search", "leith")
         monkeypatch.setattr(_maps_tile_cache, "prune_maps_cache",
                             lambda *a, **k: calls.append("prune"))
-        monkeypatch.setattr(_weather_sources, "_search_locations",
+        monkeypatch.setattr(sources, "_search_locations",
                             lambda *a, **k: calls.append("search"))
 
         _maps_live.main()

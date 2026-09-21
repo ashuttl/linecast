@@ -31,7 +31,7 @@ from linecast._location import country_for_defaults, resolve_location
 from linecast._runtime import (
     WeatherRuntime, install_banner, log_failure, set_current, weather_parser,
 )
-from linecast._weather_i18n import (
+from linecast._weather.i18n import (
     fmt_wind,
     FULL_DAY_NAMES,
     wmo_label,
@@ -39,8 +39,8 @@ from linecast._weather_i18n import (
     _wmo_icons,
     has_string,
 )
-from linecast._weather_hourly import _precip_bar_full, _present, label_rows
-from linecast._weather_render import (
+from linecast._weather.hourly import _precip_bar_full, _present, label_rows
+from linecast._weather.render import (
     ALERT_AMBER,
     CLOUD_RGB,
     DIM,
@@ -64,8 +64,8 @@ from linecast._weather_render import (
     render_header,
     render_hourly,
 )
-from linecast._weather_historical import fetch_historical
-from linecast._weather_sources import (
+from linecast._weather.historical import fetch_historical
+from linecast._weather.sources import (
     _local_now_for_data,
     _reverse_geocode,
     _search_locations,
@@ -83,8 +83,8 @@ from linecast._weather_sources import (
     observation_source,
     without_country,
 )
-from linecast._weather_cover import sky_condition
-from linecast._weather_observed import apply_observation, fetch_observation
+from linecast._weather.cover import sky_condition
+from linecast._weather.observed import apply_observation, fetch_observation
 
 # What the dashboard keeps when the window is too short for all of it:
 # the graph is the view -- its day line, its ticks and two rows of braille
@@ -717,7 +717,7 @@ class WeatherApp(_live.LiveApp):
         self.location_name = location_name
         self.historical = historical
         self.country = country
-        from linecast._weather_locations import LocationPicker
+        from linecast._weather.locations import LocationPicker
         self.locations = LocationPicker(runtime.lang)
         self._update_location_picker()
         self._state_lock = threading.RLock()
@@ -824,7 +824,7 @@ class WeatherApp(_live.LiveApp):
             self._worker.start()
 
     def _choose_location(self, place):
-        from linecast._weather_locations_i18n import ls
+        from linecast._weather.locations_i18n import ls
         if place is None:
             return
         if place == 'save':
@@ -865,7 +865,7 @@ class WeatherApp(_live.LiveApp):
     def _save_default_location(self):
         """Persist the displayed place using the CLI's shared location setting."""
         from linecast._config import read_config, write_config
-        from linecast._weather_locations_i18n import ls
+        from linecast._weather.locations_i18n import ls
         label = self.location_name or f"{self.lat:.2f}, {self.lng:.2f}"
         try:
             config = read_config()
@@ -881,7 +881,7 @@ class WeatherApp(_live.LiveApp):
     def _finish_location(self):
         """Commit on the UI thread, so recents and panels never change mid-input."""
         from linecast._maps_search import Result
-        from linecast._weather_locations_i18n import ls
+        from linecast._weather.locations_i18n import ls
         if self._location_result is None:
             return
         place, result = self._location_result
@@ -991,7 +991,7 @@ class WeatherApp(_live.LiveApp):
         )
         cols, rows = get_terminal_size()
         # The live header always reserves space for its location control.
-        from linecast._weather_sections import location_chip, location_control
+        from linecast._weather.sections import location_chip, location_control
         label = location_chip(location_control(self.location_name, cols, self.runtime))
         self._location_hit = (cols - visible_len(label) + 1, cols)
         floating = self.flash_overlay(cols, rows)
@@ -1006,7 +1006,7 @@ class WeatherApp(_live.LiveApp):
     def help_panel(self):
         from linecast._help import HelpPanel, entries
         from linecast._maps_search import ATTRIBUTION
-        from linecast._weather_locations_i18n import ls
+        from linecast._weather.locations_i18n import ls
         observed = ((self.data or {}).get("current") or {}).get("observed")
         return HelpPanel('weather', self.runtime.lang, content=lambda cols, rows:
                          [('l', ls('locations', self.runtime.lang)),
@@ -1214,7 +1214,7 @@ def _main():
 
     if runtime.json_mode:
         import json
-        from linecast._weather_json import build_payload
+        from linecast._weather.json import build_payload
         payload = build_payload(
             data, location_name, final_country, runtime,
             alerts=alerts, aqi_data=aqi_data, historical=historical,

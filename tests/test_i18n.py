@@ -8,8 +8,8 @@ from linecast._maps_i18n import ms
 from linecast._moon_i18n import _ms
 from linecast._radar_i18n import rs
 from linecast._tides_i18n import _ts
-from linecast._weather_i18n import DAY_NAMES, WMO_NAMES_I18N, _s
-from linecast._weather_sections import (
+from linecast._weather.i18n import DAY_NAMES, WMO_NAMES_I18N, _s
+from linecast._weather.sections import (
     _past_precip_line,
     _precipitation_line,
     comparative_sentence,
@@ -228,7 +228,7 @@ class TestRussianWeather:
 
     def test_the_preposition_changes_shape_before_tuesday(self):
         """"в пн" but "во вт", as Russian writes it before вт."""
-        from linecast._weather_i18n import ON_DAY_FORMS
+        from linecast._weather.i18n import ON_DAY_FORMS
         days = DAY_NAMES["ru"]
         phrases = [ON_DAY_FORMS["ru"].get(i, _s("on_day", SimpleNamespace(lang="ru")))
                    .format(day=days[i]) for i in range(7)]
@@ -300,7 +300,7 @@ class TestCzechWeather:
 
     def test_the_preposition_changes_shape_before_wednesday_and_thursday(self):
         """"v po" but "ve st" and "ve čt", as Czech writes it."""
-        from linecast._weather_i18n import ON_DAY_FORMS
+        from linecast._weather.i18n import ON_DAY_FORMS
         days = DAY_NAMES["cs"]
         phrases = [ON_DAY_FORMS["cs"].get(i, _s("on_day", SimpleNamespace(lang="cs")))
                    .format(day=days[i]) for i in range(7)]
@@ -348,7 +348,7 @@ class TestSwahili:
             hourly, now, runtime)
 
     def test_precipitation_verbs_agree_when_starting_ending_or_continuing(self):
-        from linecast._weather_sections import precipitation_sentence
+        from linecast._weather.sections import precipitation_sentence
         runtime = SimpleNamespace(lang="sw", use_24h=True)
         now = datetime(2026, 8, 24, 12, 10)
         times = [f"2026-08-24T{h:02d}:00" for h in range(12, 15)]
@@ -430,7 +430,7 @@ class TestTablesComplete:
     # The Canadian index is named AQHI in English and CAS (cote air
     # santé) in French, and by its English name elsewhere.
     DEFAULTS = {
-        "linecast._weather_i18n": {"unit_kmh", "unit_ms", "unit_mm", "unit_cm", "aqhi"},
+        "linecast._weather.i18n": {"unit_kmh", "unit_ms", "unit_mm", "unit_cm", "aqhi"},
         "linecast._radar_i18n": {"unit_km"},
     }
     # Keys a language needs that English does not: the Slavic few-form,
@@ -442,7 +442,7 @@ class TestTablesComplete:
     # noun classes (Swahili ma-, the French, Finnish and Czech plurals),
     # and the dative "by" a time of day in Russian and Ukrainian.
     VARIANTS = {"linecast._sunshine_i18n": ("_dawn", "_dusk"),
-                "linecast._weather_i18n": ("_one", "_ma", "_pl", "_by", "_few", "_many", "_diff",
+                "linecast._weather.i18n": ("_one", "_ma", "_pl", "_by", "_few", "_many", "_diff",
                                            "_diff_one", "_diff_few", "_then", "_heavier")}
 
     def _tables(self):
@@ -530,9 +530,9 @@ class TestRegionalVariants:
         assert has_text(table, "c", "en") and has_text(table, "c", "xx")
 
     def test_the_words_that_differ(self):
-        from linecast._weather_i18n import _s, wmo_label
+        from linecast._weather.i18n import _s, wmo_label
         from linecast._maps_i18n import ms
-        from linecast._weather_sections import _precip_descs
+        from linecast._weather.sections import _precip_descs
         from types import SimpleNamespace as runtime
         pt, pt_pt = runtime(lang="pt"), runtime(lang="pt-PT")
         assert _s("humidity", pt) == "Umidade" and _s("humidity", pt_pt) == "Humidade"
@@ -557,7 +557,7 @@ class TestRegionalVariants:
 
     def test_providers_take_the_base_language(self):
         from linecast._i18n import accept_language, base_language, geocoder_language
-        from linecast._weather_sources import alert_source
+        from linecast._weather.sources import alert_source
         assert base_language("pt-PT") == "pt" and base_language("pt") == "pt"
         assert geocoder_language("pt-PT") == "pt" and geocoder_language("es") == "es"
         assert accept_language("fr-CA") == "fr-CA,fr" and accept_language("fr") == "fr"
@@ -571,7 +571,7 @@ class TestUnitLabels:
                               metric=metric, shading=False, lang=lang)
 
     def test_the_wind_reads_as_the_language_writes_it(self):
-        from linecast._weather_i18n import fmt_wind
+        from linecast._weather.i18n import fmt_wind
         assert fmt_wind(12, self._runtime("en")) == "12km/h"
         assert fmt_wind(12, self._runtime("nl")) == "12 km/u"
         assert fmt_wind(12, self._runtime("da")) == "12 m/s"

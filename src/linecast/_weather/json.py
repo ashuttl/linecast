@@ -9,10 +9,10 @@ None rather than raising.
 from dataclasses import asdict
 from datetime import datetime
 
-from linecast._weather_cover import sky_condition
-from linecast._weather_i18n import _wmo_icons, wmo_label
-from linecast._weather_sections import comparative_sentence
-from linecast._weather_sources import FORECAST_SOURCE, _local_now_for_data, alert_source
+from linecast._weather.cover import sky_condition
+from linecast._weather.i18n import _wmo_icons, wmo_label
+from linecast._weather.sections import comparative_sentence
+from linecast._weather.sources import FORECAST_SOURCE, _local_now_for_data, alert_source
 
 SCHEMA_VERSION = 1
 
@@ -124,12 +124,12 @@ def build_payload(data, location_name, country_code, runtime,
         }
         india_value = aqi_current.get("india_aqi")
         if india_value is not None:
-            from linecast._weather_sources import india_aqi_category
+            from linecast._weather.sources import india_aqi_category
             aqi_out["india_aqi"] = round(india_value)
             aqi_out["india_aqi_category"] = india_aqi_category(india_value)
         aqhi = aqi_current.get("aqhi")
         if aqhi is not None:
-            from linecast._weather_sources import aqhi_category
+            from linecast._weather.sources import aqhi_category
             aqi_out["aqhi"] = aqhi
             aqi_out["aqhi_category"] = aqhi_category(aqhi)
             computed = aqi_current.get("aqhi_source") == "computed"

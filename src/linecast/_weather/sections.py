@@ -11,21 +11,21 @@ from linecast._i18n import (
 from linecast._graphics import RESET, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure, log_skipped
 from linecast._textwidth import wrap_display_width
-from linecast._weather_cover import sky_condition
-from linecast._weather_i18n import (
+from linecast._weather.cover import sky_condition
+from linecast._weather.i18n import (
     fmt_wind, _precip_s,
     DAY_NAMES, FULL_DAY_NAMES, ON_DAY_FORMS, ON_FULL_DAY_FORMS, wmo_label,
     _PRECIP_DESCS_I18N, _STRINGS, _s, _wmo_icons,
 )
-from linecast import _weather_style
-from linecast._weather_style import (MUTED, TEXT, WIND_COLOR, _aqhi_color, _aqi_color,
+from linecast._weather import style as _weather_style
+from linecast._weather.style import (MUTED, TEXT, WIND_COLOR, _aqhi_color, _aqi_color,
                                      _colored_temp, _india_aqi_color)
-from linecast._weather_sources import _local_now_for_data
+from linecast._weather.sources import _local_now_for_data
 
 
 def location_control(name, width, runtime):
     from linecast._help import fit
-    from linecast._weather_locations_i18n import ls
+    from linecast._weather.locations_i18n import ls
     return fit(name or ls('locations', runtime.lang), max(0, min(width - 6, width // 2))) + ' ▼'
 
 
@@ -70,7 +70,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
     left_hist = ""
     if historical is not None:
         try:
-            from linecast._weather_historical import format_historical_comparison
+            from linecast._weather.historical import format_historical_comparison
             daily = data.get("daily") or {}
             hi_temps = daily.get("temperature_2m_max") or []
             lo_temps = daily.get("temperature_2m_min") or []
@@ -123,12 +123,12 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
     # category word costs the line its fit.
     left_aqi = left_aqi_bare = ""
     if aqhi is not None:
-        from linecast._weather_sources import aqhi_category, fmt_aqhi
+        from linecast._weather.sources import aqhi_category, fmt_aqhi
         left_aqi_bare = f"  {MUTED}{_s('aqhi', runtime)} {_aqhi_color(aqhi)}{fmt_aqhi(aqhi)}"
         left_aqi = f"{left_aqi_bare} {aqhi_category(aqhi, lang_of(runtime))}"
     elif aqi_value is not None:
         if india_scale:
-            from linecast._weather_sources import india_aqi_category
+            from linecast._weather.sources import india_aqi_category
             color = _india_aqi_color(aqi_value)
             category = india_aqi_category(aqi_value)
             left_aqi_bare = f"  {MUTED}{_s('aqi', runtime)} {color}{aqi_value:.0f}"
@@ -562,7 +562,7 @@ def _is_night(daily, now):
     """Whether `now` is after dark: past sunset with the evening under
     way, or before four in the morning.  Without sun events, the hours
     from eight to four."""
-    from linecast._weather_hourly import _parse_sun_events
+    from linecast._weather.hourly import _parse_sun_events
     for rise, sunset in _parse_sun_events(daily):
         if rise is not None and rise.date() == now.date():
             if sunset is None:
@@ -599,7 +599,7 @@ def _feels_terms(temp_c, humidity, wind_ms, gap_c):
 def _is_daylight(daily, now):
     """Whether `now` falls between today's sunrise and sunset.  False when
     the day has no sunrise -- a polar winter, or a forecast that omits it."""
-    from linecast._weather_hourly import _parse_sun_events
+    from linecast._weather.hourly import _parse_sun_events
     for rise, sunset in _parse_sun_events(daily):
         if rise is not None and rise.date() == now.date():
             return sunset is not None and rise <= now <= sunset
@@ -1376,7 +1376,7 @@ def _sky(hourly, daily, now, runtime, precip_kind="", precip_end=None, after=Non
     if not _has("sky_clearing", runtime) or precip_kind in ("starting", "continuing"):
         return "", None
     cover = hourly.get("cloud_cover") or []
-    from linecast._weather_hourly import _parse_sun_events
+    from linecast._weather.hourly import _parse_sun_events
     suns = [(r, s) for r, s in _parse_sun_events(daily or {}) if r and s]
 
     def daylight(dt):
@@ -1488,4 +1488,4 @@ def _freeze(hourly, current, now, runtime, after=None):
                         time=_period_phrase(dt, now, runtime, after=after))), dt)
 
 
-_theme.track_imports(globals(), "linecast._weather_style")
+_theme.track_imports(globals(), "linecast._weather.style")

@@ -16,7 +16,8 @@ from pathlib import Path
 import pytest
 from conftest import SESSION_ROOT, readonly
 
-from linecast import _cache, _config, _http, _location, _paths, _runtime, _weather_sources
+from linecast import _cache, _config, _http, _location, _paths, _runtime
+from linecast._weather import sources
 from linecast import location, units
 from linecast._paths import cache_dir, cache_root, config_root
 
@@ -186,9 +187,9 @@ class TestUnwritableCache:
     def test_reverse_geocode_still_answers(self, readonly_cache, monkeypatch):
         payload = {"address": {"city": "Westbrook", "state": "Maine",
                                "country_code": "us"}}
-        monkeypatch.setattr(_weather_sources, "fetch_json",
+        monkeypatch.setattr(sources, "fetch_json",
                             lambda url, timeout=10: payload)
-        name, country, addr = _weather_sources._reverse_geocode(43.7, -70.3)
+        name, country, addr = sources._reverse_geocode(43.7, -70.3)
         assert (name, country) == ("Westbrook, Maine", "US")
         assert addr == payload["address"]
 
@@ -197,7 +198,7 @@ class TestUnwritableCache:
         payload = json.loads(fixture.read_text(encoding="utf-8"))
         monkeypatch.setattr(_http, "fetch_json",
                             lambda url, headers=None, timeout=10: payload)
-        alerts = _weather_sources._fetch_alerts_nws(40.7, -74.0)
+        alerts = sources._fetch_alerts_nws(40.7, -74.0)
         assert [a["event"] for a in alerts] == ["Heat Advisory"]
 
 
@@ -239,7 +240,7 @@ class TestUnwritableConfig:
         assert "\n" not in str(exc.value.code)
 
     def test_location_command_ends_with_one_line(self, readonly_config, monkeypatch):
-        monkeypatch.setattr(_weather_sources, "_reverse_geocode",
+        monkeypatch.setattr(sources, "_reverse_geocode",
                             lambda lat, lng: ("Westbrook", "US", {}))
         with pytest.raises(SystemExit) as exc:
             location._cmd_set("43.7,-70.3")

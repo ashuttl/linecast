@@ -265,7 +265,11 @@ class LanguageListTests(unittest.TestCase):
         # show, so a language with strings must not be missing from it.
         here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         found = set()
-        for path in glob.glob(os.path.join(here, "src", "linecast", "_*_i18n.py")):
+        package = os.path.join(here, "src", "linecast")
+        tables = (glob.glob(os.path.join(package, "_*_i18n.py"))
+                  + glob.glob(os.path.join(package, "_*", "i18n.py"))
+                  + glob.glob(os.path.join(package, "_*", "*_i18n.py")))
+        for path in tables:
             with open(path, encoding="utf-8") as f:
                 found.update(re.findall(r'^    "([a-z]{2}(?:-[A-Z][a-z]{3}|-[A-Z]{2})?)": \{',
                                         f.read(), re.M))

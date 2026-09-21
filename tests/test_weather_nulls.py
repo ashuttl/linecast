@@ -19,14 +19,14 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _weather_sources as sources
+from linecast._weather import sources
 from linecast import weather
 from linecast._oneline import weather_oneline
 from linecast._runtime import WeatherRuntime, weather_parser
-from linecast._weather_alerts import build_alert_modal, render_alerts_mapped
-from linecast._weather_historical import HistoricalAverages
-from linecast._weather_json import build_payload
-from linecast._weather_sections import comparative_sentence
+from linecast._weather.alerts import build_alert_modal, render_alerts_mapped
+from linecast._weather.historical import HistoricalAverages
+from linecast._weather.json import build_payload
+from linecast._weather.sections import comparative_sentence
 
 FIXTURES = Path(__file__).parent / "fixtures"
 NOW = datetime(2026, 3, 5, 14, 30)
@@ -98,8 +98,8 @@ MUTATIONS = list(_mutations())
 def _render(data, cols, rows, runtime, mouse_pos=None):
     with patch("linecast.weather.get_terminal_size", return_value=(cols, rows)), \
          patch("linecast.weather._local_now_for_data", return_value=NOW), \
-         patch("linecast._weather_hourly._local_now_for_data", return_value=NOW), \
-         patch("linecast._weather_daily._local_now_for_data", return_value=NOW):
+         patch("linecast._weather.hourly._local_now_for_data", return_value=NOW), \
+         patch("linecast._weather.daily._local_now_for_data", return_value=NOW):
         output, _ = weather.render_from_data(
             data, [], runtime, location_name="Toronto", historical=HIST,
             mouse_pos=mouse_pos)
@@ -152,7 +152,7 @@ class TestWhatANullBecomes:
         assert "0°F" not in header
 
     def test_a_day_with_no_temperatures_gets_no_row(self):
-        from linecast._weather_daily import render_daily_mapped
+        from linecast._weather.daily import render_daily_mapped
         data = _fixture()
         data["daily"]["temperature_2m_max"][3] = None
         lines, spans = render_daily_mapped(data, 100, _runtime(), now=NOW)
@@ -160,7 +160,7 @@ class TestWhatANullBecomes:
         assert len(lines) == 6
 
     def test_a_null_hour_in_the_curve_carries_its_neighbour(self):
-        from linecast._weather_hourly import _filled, _present
+        from linecast._weather.hourly import _filled, _present
         assert _filled([None, 3.0, None, None, 5.0, None]) == [3.0, 3.0, 3.0, 3.0, 5.0, 5.0]
         assert _filled([None, None]) == []
         assert _filled([None, 0.2, None], fill=0) == [0, 0.2, 0]
@@ -171,7 +171,7 @@ class TestWhatANullBecomes:
         # keeps its hours: the round trip through a timestamp used to
         # move 02:00 to 03:00 in a zone that springs forward then.
         from datetime import timedelta
-        from linecast._weather_hourly import _compute_daylight_columns, _daylight_factor
+        from linecast._weather.hourly import _compute_daylight_columns, _daylight_factor
         dts = [datetime(2026, 3, 8, 0, 0) + timedelta(hours=h) for h in range(25)]
         events = [(datetime(2026, 3, 8, 2, 0), datetime(2026, 3, 8, 2, 30))]
         cols = _compute_daylight_columns(dts, events, 25)

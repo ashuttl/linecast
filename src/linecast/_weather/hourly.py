@@ -8,10 +8,10 @@ from linecast._braille import build_braille_curve, interpolate
 from linecast._graphics import bg, color_mode, fg, fmt_hour, fmt_time_dt, RESET, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime, log_skipped
 from linecast._i18n import lang_of, table_for
-from linecast._weather_historical import temperature_scale
-from linecast._weather_i18n import FULL_DAY_NAMES, _s
-from linecast._weather_sources import _local_now_for_data
-from linecast._weather_style import (
+from linecast._weather.historical import temperature_scale
+from linecast._weather.i18n import FULL_DAY_NAMES, _s
+from linecast._weather.sources import _local_now_for_data
+from linecast._weather.style import (
     CHART_BG_DAY_RGB,
     CHART_BG_NIGHT_RGB,
     CHART_HOVER_RGB,
@@ -1445,4 +1445,4 @@ def render_hourly(data, width, n_braille_rows=2, n_precip_rows=0, now=None, runt
         lines.extend([_indicator_row(graph_w, indicators)] * n_precip_rows)
     return lines
 
-_theme.track_imports(globals(), "linecast._weather_style")
+_theme.track_imports(globals(), "linecast._weather.style")

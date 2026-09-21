@@ -898,7 +898,7 @@ def keeps_israel_days(country, lat, lng):
     a cold cache, stays diaspora.
     """
     if not country:
-        from linecast._weather_sources import _reverse_geocode
+        from linecast._weather.sources import _reverse_geocode
         _name, country, _addr = _reverse_geocode(lat, lng)
     return (country or "").upper() == "IL"
 

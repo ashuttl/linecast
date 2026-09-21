@@ -7,7 +7,7 @@ import pytest
 
 from test_live_hover import run_loop
 from linecast import weather
-from linecast._weather_hourly import _prepare_hourly_window
+from linecast._weather.hourly import _prepare_hourly_window
 
 
 def make_app(monkeypatch, count=120, width=80):

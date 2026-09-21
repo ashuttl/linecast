@@ -16,7 +16,7 @@ from linecast import _live, _theme
 from linecast._color import fg, bg, RESET
 from linecast._framebuffer import fmt_time_dt
 from linecast._theme import ensure_contrast
-from linecast._weather_style import TOOLTIP_BG_RGB
+from linecast._weather.style import TOOLTIP_BG_RGB
 from linecast._radar_basemap import (
     Basemap, _point_in_rings, marine_region, nearest_city,
 )
@@ -276,4 +276,4 @@ def _timeline_bar(idx, n, width, present=None, loaded=None):
     return "".join(cell(i) for i in range(width)) + RESET
 
 
-_theme.track_imports(globals(), "linecast._weather_style")
+_theme.track_imports(globals(), "linecast._weather.style")

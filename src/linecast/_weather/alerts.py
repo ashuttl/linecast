@@ -7,8 +7,8 @@ from linecast._graphics import bg, fg, visible_len, RESET, BOLD
 from linecast._i18n import lang_of, sentence_24h, table_for
 from linecast._runtime import log_failure
 from linecast._textwidth import truncate_display_width, wrap_display_width
-from linecast._weather_i18n import DAY_NAMES, _s
-from linecast._weather_style import (
+from linecast._weather.i18n import DAY_NAMES, _s
+from linecast._weather.style import (
     ALERT_AMBER,
     ALERT_AMBER_RGB,
     ALERT_BLUE,
@@ -358,4 +358,4 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0, tz_name=""):
 
     return result, max_scroll
 
-_theme.track_imports(globals(), "linecast._weather_style")
+_theme.track_imports(globals(), "linecast._weather.style")

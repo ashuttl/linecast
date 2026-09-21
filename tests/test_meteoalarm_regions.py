@@ -167,7 +167,7 @@ def _coded_feed(area_desc, code):
 
 
 def _alerts(data, lat, lng, address):
-    from linecast import _weather_sources as ws
+    from linecast._weather import sources as ws
     with patch.object(ws, "fetch_json_cached", return_value=data), \
             patch.object(ws, "write_cache", lambda *a, **k: None):
         return ws._fetch_alerts_meteoalarm(lat, lng, "poland", address=address)
@@ -253,7 +253,7 @@ class TestShippedFile:
         # polygon on every warning and publish no EMMA regions; Estonia,
         # Israel, Luxembourg and Sweden file polygons too, and their
         # regions left MeteoAlarm's list in its 2026 editions.
-        from linecast._weather_sources import _METEOALARM_SLUGS
+        from linecast._weather.sources import _METEOALARM_SLUGS
         emma_countries = {key[:2] for key, _, _ in self.regions if "/" not in key}
         assert (set(_METEOALARM_SLUGS) - emma_countries
                 == {"CH", "EE", "GB", "IL", "LU", "SE", "UA"})

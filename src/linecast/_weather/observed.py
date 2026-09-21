@@ -19,7 +19,7 @@ from linecast._cache import location_cache_key
 from linecast._http import fetch_bytes, fetch_json_cached
 from linecast._paths import cache_dir
 from linecast._runtime import log_failure
-from linecast._weather_cover import REPORT_COVER
+from linecast._weather.cover import REPORT_COVER
 
 _METAR_URL = ("https://aviationweather.gov/api/data/metar"
               "?bbox={south:.3f},{west:.3f},{north:.3f},{east:.3f}&format=json")
@@ -59,7 +59,7 @@ def _cover_code(percent):
     """A cloud cover as the weather code Open-Meteo gives it: under a
     fifth clear, under half mostly clear, under four fifths partly
     cloudy, else overcast. The code stays in Open-Meteo's terms; the
-    name shown is the cover's (_weather_cover)."""
+    name shown is the cover's (cover.py)."""
     return 0 if percent < 20 else 1 if percent < 50 else 2 if percent < 80 else 3
 
 

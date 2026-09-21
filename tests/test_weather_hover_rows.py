@@ -9,12 +9,12 @@ from unittest.mock import patch
 from linecast import _color, _theme
 from linecast._graphics import visible_len
 from linecast._runtime import WeatherRuntime
-from linecast._weather_daily import render_daily_mapped
-from linecast._weather_hourly import (
+from linecast._weather.daily import render_daily_mapped
+from linecast._weather.hourly import (
     _build_precip_blocks, _indicator_row, _render_cloud_row, render_hourly,
 )
-from linecast._weather_sections import _prose
-from linecast._weather_style import CLOUD_RGB, PRECIP_RAIN_RGB, TEXT
+from linecast._weather.sections import _prose
+from linecast._weather.style import CLOUD_RGB, PRECIP_RAIN_RGB, TEXT
 from linecast.weather import _build_daily_tooltip, _build_hover_tooltip
 
 _FG = re.compile(r"\x1b\[38;2;(\d+);(\d+);(\d+)m")

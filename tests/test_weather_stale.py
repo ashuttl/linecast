@@ -14,10 +14,11 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _weather_sources, weather
-from linecast._weather_sources import forecast_date, forecast_is_todays
-from linecast._weather_sections import comparative_sentence, render_header
-from linecast._weather_historical import HistoricalAverages
+from linecast import weather
+from linecast._weather import sources as _weather_sources
+from linecast._weather.sources import forecast_date, forecast_is_todays
+from linecast._weather.sections import comparative_sentence, render_header
+from linecast._weather.historical import HistoricalAverages
 from linecast.weather import WeatherApp, forecast_notice
 
 FIXTURE = json.loads(
@@ -122,7 +123,7 @@ class TestForecastNotice:
         runtime = weather.WeatherRuntime.defaults()
         with patch("linecast.weather.get_terminal_size", return_value=(100, 30)), \
              patch("linecast.weather._local_now_for_data", return_value=LATER), \
-             patch("linecast._weather_hourly._local_now_for_data", return_value=LATER):
+             patch("linecast._weather.hourly._local_now_for_data", return_value=LATER):
             notice = forecast_notice(FIXTURE, runtime)
             output, _ = weather.render_from_data(FIXTURE, [], runtime,
                                                  location_name="Toronto", notice=notice)
@@ -133,7 +134,7 @@ class TestForecastNotice:
 
 class TestDailyLabels:
     def _rows(self, now):
-        from linecast._weather_daily import render_daily
+        from linecast._weather.daily import render_daily
         runtime = weather.WeatherRuntime.defaults()
         lines = render_daily(FIXTURE, 100, runtime, now=now)
         return [_strip(line).split()[0] for line in lines]

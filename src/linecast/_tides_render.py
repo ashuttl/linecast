@@ -14,7 +14,7 @@ from linecast._theme import (
     surface_bg,
 )
 from linecast._runtime import log_failure
-from linecast._weather_i18n import FULL_DAY_NAMES
+from linecast._weather.i18n import FULL_DAY_NAMES
 from linecast._ephemeris import _moon_events_for_local_date
 from linecast.sunshine import daylight_factor as solar_daylight_factor, moon_phase
 from linecast._i18n import table_for

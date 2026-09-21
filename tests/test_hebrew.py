@@ -453,7 +453,7 @@ class TestKeepsIsraelDays:
 
     def test_a_known_country_is_not_geocoded(self, monkeypatch):
         from linecast import moon
-        monkeypatch.setattr("linecast._weather_sources._reverse_geocode",
+        monkeypatch.setattr("linecast._weather.sources._reverse_geocode",
                             lambda *a, **k: pytest.fail("geocoded"))
         assert moon.keeps_israel_days("IL", 31.8, 35.2)
         assert moon.keeps_israel_days("il", 31.8, 35.2)
@@ -461,14 +461,14 @@ class TestKeepsIsraelDays:
 
     def test_an_override_is_reverse_geocoded(self, monkeypatch):
         from linecast import moon
-        monkeypatch.setattr("linecast._weather_sources._reverse_geocode",
+        monkeypatch.setattr("linecast._weather.sources._reverse_geocode",
                             lambda lat, lng, lang=None: ("Jerusalem", "IL", {}))
         assert moon.keeps_israel_days("", 31.8, 35.2)
         assert moon.keeps_israel_days(None, 31.8, 35.2)
 
     def test_offline_stays_diaspora(self, monkeypatch):
         from linecast import moon
-        monkeypatch.setattr("linecast._weather_sources._reverse_geocode",
+        monkeypatch.setattr("linecast._weather.sources._reverse_geocode",
                             lambda lat, lng, lang=None: ("", "", {}))
         assert not moon.keeps_israel_days("", 31.8, 35.2)
 

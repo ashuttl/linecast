@@ -19,10 +19,13 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import (  # noqa: E402
-    _color, _framebuffer, _maps_style, _radar_basemap, _radar_render,
-    _theme, _weather_alerts, _weather_render, _weather_style, moon, sunshine, tides,
+from linecast import (
+    _color, _framebuffer, _maps_style, _radar_basemap, _radar_render, _theme, moon, sunshine,
+    tides,
 )
+from linecast._weather import alerts
+from linecast._weather import render as _weather_render
+from linecast._weather import style
 from linecast._live import _read_key  # noqa: E402
 
 
@@ -56,15 +59,15 @@ class TestApply:
 
     def test_import_time_palettes_follow(self, restore_theme):
         _theme._apply(*DARK)
-        dark = (_weather_style.TEXT_RGB, sunshine.INFO_TEXT_RGB,
+        dark = (style.TEXT_RGB, sunshine.INFO_TEXT_RGB,
                 tides.TEXT_RGB, moon.MOON_SHADOW_RGB, _radar_basemap.SEA_FILL)
         _theme._apply(*LIGHT)
-        light = (_weather_style.TEXT_RGB, sunshine.INFO_TEXT_RGB,
+        light = (style.TEXT_RGB, sunshine.INFO_TEXT_RGB,
                  tides.TEXT_RGB, moon.MOON_SHADOW_RGB, _radar_basemap.SEA_FILL)
         for d, lt in zip(dark, light):
             assert d != lt
         # text is ink on the new background, not the old one
-        assert _theme.contrast_ratio(_weather_style.TEXT_RGB, (250, 250, 248)) >= 4.5
+        assert _theme.contrast_ratio(style.TEXT_RGB, (250, 250, 248)) >= 4.5
         assert _theme.contrast_ratio(tides.TEXT_RGB, (250, 250, 248)) >= 4.5
         # the ground follows the background; the inks keep the theme's hues
         assert _maps_style._light()
@@ -111,8 +114,8 @@ class TestApply:
         assert _color.BG_PRIMARY == (250, 250, 248)
         assert _radar_render.BG_PRIMARY == (250, 250, 248)
         assert _framebuffer.Framebuffer(2, 1).bg == (250, 250, 248)
-        assert _weather_render.TEXT == _weather_style.TEXT
-        assert _weather_render.TOOLTIP_BG_RGB == _weather_style.TOOLTIP_BG_RGB
+        assert _weather_render.TEXT == style.TEXT
+        assert _weather_render.TOOLTIP_BG_RGB == style.TOOLTIP_BG_RGB
         assert moon.INFO_TEXT_RGB == sunshine.INFO_TEXT_RGB
         assert _radar_render.SEA_FILL == _radar_basemap.SEA_FILL
 
@@ -135,25 +138,25 @@ class TestLightThemeInk:
 
     def test_a_bar_label_takes_its_ink_from_the_bar(self, restore_theme):
         _theme._apply(*LIGHT)
-        cold = _weather_style.TEMP_COLORS[0][1]   # the coldest fill: deep blue
-        ink = _weather_style._knockout_ink(cold)
+        cold = style.TEMP_COLORS[0][1]   # the coldest fill: deep blue
+        ink = style._knockout_ink(cold)
         assert _theme.luminance(ink) > 0.5        # white, not the page's ink
         assert _theme.contrast_ratio(ink, cold) >= 4.5
-        pale = _weather_style._knockout_ink((250, 204, 21))
+        pale = style._knockout_ink((250, 204, 21))
         assert _theme.luminance(pale) < 0.5
 
     def test_alert_modal_background_follows_the_theme(self, restore_theme, monkeypatch):
         monkeypatch.setattr(_color, "_COLOR_MODE", "truecolor")
         _theme._apply(*DARK)
-        old_bg = _weather_alerts.bg(*_weather_alerts.MODAL_BG_RGB)
+        old_bg = alerts.bg(*alerts.MODAL_BG_RGB)
         _theme._apply(*LIGHT)
-        new_bg = _weather_alerts.bg(*_weather_alerts.MODAL_BG_RGB)
-        modal, _max_scroll = _weather_alerts.build_alert_modal(
+        new_bg = alerts.bg(*alerts.MODAL_BG_RGB)
+        modal, _max_scroll = alerts.build_alert_modal(
             {"event": "Fog", "description": "Visibility is low."}, 80, 24)
         assert new_bg in modal
         assert old_bg not in modal
         assert _theme.contrast_ratio(
-            _weather_alerts.TEXT_RGB, _weather_alerts.MODAL_BG_RGB) >= 4.5
+            alerts.TEXT_RGB, alerts.MODAL_BG_RGB) >= 4.5
 
 
 @pytest.fixture

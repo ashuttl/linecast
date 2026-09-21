@@ -6,10 +6,10 @@ from linecast import _theme
 from linecast._i18n import fmt_percent, table_for
 from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime, current_runtime
-from linecast._weather_cover import sky_condition
-from linecast._weather_i18n import DAY_NAMES, _s, _wmo_icons, fmt_wind
-from linecast._weather_sources import _local_now_for_data
-from linecast._weather_style import (
+from linecast._weather.cover import sky_condition
+from linecast._weather.i18n import DAY_NAMES, _s, _wmo_icons, fmt_wind
+from linecast._weather.sources import _local_now_for_data
+from linecast._weather.style import (
     DIM, TEXT, WIND_COLOR, _knockout_ink, _precip_color, _precip_type, _temp_color,
 )
 
@@ -336,4 +336,4 @@ def fmt_precip_amount(amount, runtime):
     unit = _s("precip_inch", runtime)
     return f"{amount:.1f}{unit}" if amount >= 1 else f"{amount:.2f}{unit}"
 
-_theme.track_imports(globals(), "linecast._weather_style")
+_theme.track_imports(globals(), "linecast._weather.style")

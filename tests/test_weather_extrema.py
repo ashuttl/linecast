@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._braille import interpolate
-from linecast._weather_hourly import _find_temperature_extrema
+from linecast._weather.hourly import _find_temperature_extrema
 
 # A ~48h temperature curve shaped like a real two-day forecast:
 #   Sun: rise to a broad ~85 peak, decline overnight to the 59 global min

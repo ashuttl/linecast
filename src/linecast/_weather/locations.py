@@ -11,7 +11,7 @@ from linecast._maps_search import ATTRIBUTION, Result
 from linecast._maps_ui import SearchState
 from linecast._paths import config_root
 from linecast._runtime import log_failure
-from linecast._weather_locations_i18n import ls
+from linecast._weather.locations_i18n import ls
 
 LIMIT = 10
 

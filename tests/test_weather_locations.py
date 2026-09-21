@@ -12,8 +12,8 @@ from linecast import weather
 from linecast._graphics import visible_len
 from linecast._maps_search import Result
 from linecast._runtime import WeatherRuntime
-from linecast._weather_locations import LocationPicker, LocationSearch, RecentLocations
-from linecast._weather_sections import render_header
+from linecast._weather.locations import LocationPicker, LocationSearch, RecentLocations
+from linecast._weather.sections import render_header
 
 
 def place(name='Paris', lat=48.85, lon=2.35):
@@ -69,7 +69,7 @@ def test_an_old_list_that_cannot_move_is_read_in_place():
     old = recent.path.with_name('weather-locations.json')
     old.parent.mkdir(parents=True, exist_ok=True)
     old.write_text(json.dumps([{'name': 'Paris', 'lat': 48.86, 'lon': 2.35}]))
-    with patch('linecast._weather_locations.os.replace', side_effect=OSError('read-only')):
+    with patch('linecast._weather.locations.os.replace', side_effect=OSError('read-only')):
         assert [p.name for p in RecentLocations().places] == ['Paris']
     assert old.exists()
 

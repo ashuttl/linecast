@@ -7,7 +7,7 @@ command plus month names for the full/new moon dates.
 
 from linecast._i18n import base_language, has_text, lang_of, lookup, plural_category, table_for
 from linecast._tides_i18n import MOON_NAMES_I18N, _moon_name  # noqa: F401 — re-export
-from linecast._weather_i18n import DAY_NAMES  # re-export for convenience
+from linecast._weather.i18n import DAY_NAMES  # re-export for convenience
 
 _MOON_STRINGS = {
     "en": {

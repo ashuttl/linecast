@@ -484,7 +484,7 @@ def place_name(lat, lng, override, lang="en"):
         label = ""
     if not label or lang in GEOCODER_UNTRANSLATED:
         try:
-            from linecast._weather_sources import _reverse_geocode
+            from linecast._weather.sources import _reverse_geocode
             label = _reverse_geocode(lat, lng, lang=lang)[0] or label
         except Exception:
             pass

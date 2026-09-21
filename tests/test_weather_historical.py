@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._weather_historical import (
+from linecast._weather.historical import (
     HistoricalAverages,
     _compute_averages,
     fetch_historical,
@@ -236,39 +236,39 @@ class TestFetchHistorical:
                 "precipitation_sum": [0.1 * i for i in range(10)],
             }
         }
-        with patch("linecast._weather_historical.fetch_json_cached", return_value=mock_data):
+        with patch("linecast._weather.historical.fetch_json_cached", return_value=mock_data):
             result = fetch_historical(40.7, -74.0, date(2026, 3, 27))
         assert result is not None
         assert result.years == 10
         assert result.avg_high == round(sum(60 + i for i in range(10)) / 10, 1)
 
     def test_returns_none_on_failure(self):
-        with patch("linecast._weather_historical.fetch_json_cached", return_value=None):
+        with patch("linecast._weather.historical.fetch_json_cached", return_value=None):
             result = fetch_historical(40.7, -74.0, date(2026, 3, 27))
         assert result is None
 
     def test_returns_none_on_empty_data(self):
-        with patch("linecast._weather_historical.fetch_json_cached",
+        with patch("linecast._weather.historical.fetch_json_cached",
                    return_value={"daily": {"time": []}}):
             result = fetch_historical(40.7, -74.0, date(2026, 3, 27))
         assert result is None
 
     def test_celsius_flag_passed_to_url(self):
         """Verify that celsius=True uses celsius in the API URL."""
-        with patch("linecast._weather_historical.fetch_json_cached", return_value=None) as mock:
+        with patch("linecast._weather.historical.fetch_json_cached", return_value=None) as mock:
             fetch_historical(40.7, -74.0, date(2026, 3, 27), celsius=True)
         url = mock.call_args[0][2]  # positional arg: url
         assert "temperature_unit=celsius" in url
 
     def test_fahrenheit_default(self):
         """Verify that celsius=False uses fahrenheit in the API URL."""
-        with patch("linecast._weather_historical.fetch_json_cached", return_value=None) as mock:
+        with patch("linecast._weather.historical.fetch_json_cached", return_value=None) as mock:
             fetch_historical(40.7, -74.0, date(2026, 3, 27), celsius=False)
         url = mock.call_args[0][2]
         assert "temperature_unit=fahrenheit" in url
 
     def _call_args(self, target_date, **kw):
-        with patch("linecast._weather_historical.fetch_json_cached", return_value=None) as mock:
+        with patch("linecast._weather.historical.fetch_json_cached", return_value=None) as mock:
             fetch_historical(40.7, -74.0, target_date, **kw)
         cache_file, _max_age, url = mock.call_args[0][:3]
         return str(cache_file), url
@@ -309,7 +309,7 @@ class TestFetchHistorical:
                 "precipitation_sum": [0.0, 1.0, 0.0, 1.0],
             }
         }
-        with patch("linecast._weather_historical.fetch_json_cached", return_value=mock_data):
+        with patch("linecast._weather.historical.fetch_json_cached", return_value=mock_data):
             march_27 = fetch_historical(40.7, -74.0, date(2026, 3, 27))
             march_28 = fetch_historical(40.7, -74.0, date(2026, 3, 28))
         assert march_27.years == 2 and march_27.avg_high == 61.0
@@ -317,7 +317,7 @@ class TestFetchHistorical:
 
     def test_cache_max_age_is_long(self):
         """Historical data doesn't change — cache should be at least 24h."""
-        with patch("linecast._weather_historical.fetch_json_cached", return_value=None) as mock:
+        with patch("linecast._weather.historical.fetch_json_cached", return_value=None) as mock:
             fetch_historical(40.7, -74.0, date(2026, 3, 27))
         max_age = mock.call_args[0][1]
         assert max_age >= 86400
@@ -331,7 +331,7 @@ class TestHeaderIntegration:
     """Verify render_header doesn't crash when given historical data."""
 
     def test_render_header_with_historical(self):
-        from linecast._weather_sections import render_header
+        from linecast._weather.sections import render_header
         data = {
             "current": {
                 "temperature_2m": 65.0,
@@ -361,7 +361,7 @@ class TestHeaderIntegration:
 
     def test_render_header_without_historical(self):
         """Header works fine with historical=None."""
-        from linecast._weather_sections import render_header
+        from linecast._weather.sections import render_header
         data = {
             "current": {
                 "temperature_2m": 65.0,

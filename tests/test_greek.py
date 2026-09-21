@@ -11,10 +11,10 @@ from linecast._moon_i18n import _ms, _fmt_month_day
 from linecast._runtime import WeatherRuntime, language_of, resolve_lang
 from linecast._sunshine_i18n import axis_month_labels, relative_day, sky_phase
 from linecast._textwidth import visible_len
-from linecast._weather_i18n import (
+from linecast._weather.i18n import (
     DAY_NAMES, ON_DAY_FORMS, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s,
 )
-from linecast._weather_sections import (
+from linecast._weather.sections import (
     _PRECIP_DESCS, comparative_sentence, narrative_lines, past_precip_sentence,
     precipitation_sentence,
 )

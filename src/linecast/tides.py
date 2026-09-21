@@ -970,7 +970,7 @@ class TidesApp(_live.LiveApp):
             place = (meta.get("lat"), meta.get("lng"), "")
         self.lat, self.lng, self.place_label = place
         self._country = country
-        from linecast._weather_locations import LocationPicker
+        from linecast._weather.locations import LocationPicker
         self.locations = LocationPicker(runtime.lang, align='left')
         self._update_location_picker()
         self._state_lock = threading.RLock()
@@ -1001,7 +1001,7 @@ class TidesApp(_live.LiveApp):
     def _save_default_location(self):
         """Persist the displayed place using the CLI's shared location setting."""
         from linecast._config import read_config, write_config
-        from linecast._weather_locations_i18n import ls
+        from linecast._weather.locations_i18n import ls
         lat, lng = self._here()
         label = self._label()
         try:
@@ -1017,7 +1017,7 @@ class TidesApp(_live.LiveApp):
         self.flash([ls('saved', self.runtime.lang, name=label)])
 
     def _choose_location(self, place):
-        from linecast._weather_locations_i18n import ls
+        from linecast._weather.locations_i18n import ls
         if place is None:
             return
         if place == 'save':
@@ -1047,7 +1047,7 @@ class TidesApp(_live.LiveApp):
     def _load_place(self, place):
         """The nearest station to *place* and its data, as main() finds
         them: None when nothing covers it, "failed" when it would not load."""
-        from linecast._weather_sources import _reverse_geocode
+        from linecast._weather.sources import _reverse_geocode
         try:
             country = _reverse_geocode(place.lat, place.lon, lang=self.runtime.lang)[1]
         except Exception as exc:
@@ -1143,7 +1143,7 @@ class TidesApp(_live.LiveApp):
 
     def help_panel(self):
         from linecast._help import HelpPanel, entries
-        from linecast._weather_locations_i18n import ls
+        from linecast._weather.locations_i18n import ls
         lang = self.runtime.lang
         return HelpPanel('tides', lang, content=lambda cols, rows:
                          [('l', ls('locations', lang)), ('/', ls('add', lang))]
@@ -1319,7 +1319,7 @@ def main():
                 # The label is English there; Nominatim's name, when it
                 # has one, reads better.
                 try:
-                    from linecast._weather_sources import _reverse_geocode
+                    from linecast._weather.sources import _reverse_geocode
                     resolved_label = (_reverse_geocode(lat, lng, lang=runtime.lang)[0]
                                       or resolved_label)
                 except Exception as exc:
