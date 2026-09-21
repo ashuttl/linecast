@@ -25,7 +25,7 @@ import time as _t
 from datetime import datetime
 
 from linecast import _live, _theme
-from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_percent, sentence_24h
+from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_percent, sentence_24h, table_for
 from linecast._graphics import bg, fg, get_terminal_size, visible_len
 from linecast._location import country_for_defaults, resolve_location
 from linecast._runtime import (
@@ -326,7 +326,7 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
         name = _s("today", runtime)
     else:
         try:
-            names = FULL_DAY_NAMES.get(runtime.lang, FULL_DAY_NAMES["en"])
+            names = table_for(FULL_DAY_NAMES, runtime.lang)
             name = names[datetime.fromisoformat(date).weekday()]
         except (TypeError, ValueError):
             name = str(date)
@@ -426,7 +426,7 @@ def forecast_notice(data, runtime, live=False, fetching=False, failed_at=None):
         return f"{MUTED}{_s('forecast_fetching', runtime)}{RESET}"
     days_ago = (now_local.date() - made).days
     if 1 <= days_ago <= 6:
-        names = FULL_DAY_NAMES.get(runtime.lang, FULL_DAY_NAMES["en"])
+        names = table_for(FULL_DAY_NAMES, runtime.lang)
         day = names[made.weekday()]
     else:
         day = made.isoformat()
