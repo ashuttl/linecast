@@ -55,7 +55,7 @@ class TestSources:
         assert alert_attribution("") is None
 
     def test_a_service_is_named_as_it_names_itself(self):
-        assert alert_attribution("JP", "ja") == "警報: 気象庁"
+        assert alert_attribution("JP", "ja") == "警報：気象庁"
         assert alert_attribution("JP", "fr") == "Alertes par Japan Meteorological Agency"
         assert alert_attribution("DE", "de") == "Warnungen: Deutscher Wetterdienst"
         assert alert_attribution("CA", "fr") == "Alertes par Environnement Canada"
@@ -128,8 +128,8 @@ class TestPanel:
         assert any(row.startswith('│ ホイール / ←→  ') for row in rows)
         assert any('クリック' in row for row in rows)
         assert not any('wheel' in row or 'click' in row for row in rows)
-        assert any('気象データ提供: Open-Meteo' in row for row in rows)
-        assert any('警報: 気象庁' in row for row in rows)
+        assert any('気象データ提供：Open-Meteo' in row for row in rows)
+        assert any('警報：気象庁' in row for row in rows)
 
     @pytest.mark.parametrize("lang", LANGUAGE_CODES)
     def test_the_key_column_fits_its_widest_gesture(self, lang):
@@ -183,7 +183,7 @@ class TestLiveView:
             output, _ = weather.render_from_data(data, alerts=[], runtime=runtime,
                                                  location_name="新宿区", country_code="JP")
         last = plain(output).split("\n")[-1]
-        assert last.startswith('気象データ提供: Open-Meteo · 警報: 気象庁')
+        assert last.startswith('気象データ提供：Open-Meteo · 警報：気象庁')
         assert last.endswith('  ? ヘルプ')
 
     def test_print_output_has_no_credit_row(self):
