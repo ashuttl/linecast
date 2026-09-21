@@ -5,6 +5,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 ## Unreleased
 
 - Weather: In Croatia, warnings filed by county are matched to your address by the county's boundary. They had been matched on the county's name.
+- Maps: The globe turns about twice as fast under a drag, since the planet is no longer rebuilt for every frame. Its shading is worked out once, in the background the first time a globe opens, and kept in the cache; that first globe draws the old way for a second or two while it happens.
 - Help: `linecast --help` is laid out and coloured like the commands' own pages, and wraps to the terminal. Each command's `--help` opens with a short usage line and lists its flags in sections, its own first, instead of one long list under a usage line that named every flag.
 - Maps: Each frame sent to the terminal is about half the size it was, since the map no longer repeats a colour the terminal is already using. Panning and rotating feel smoother on a slow terminal or over ssh.
 - Maps: The lights on the night side of the globe, and on the shaded terrain map, now come from NASA's Black Marble picture of the Earth at night, bundled with linecast, instead of one glow per city. They fade out as you zoom in to where the terrain has the detail.

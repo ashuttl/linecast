@@ -26,7 +26,7 @@ from linecast._maps_search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
 )
 from linecast import _vtiles
-from linecast._maps_views import _zoom_hold
+from linecast._maps_views import _zoom_hold, globe_warm
 from linecast._radar_render import bbox_for
 from linecast._runtime import RuntimeConfig, log_failure, maps_parser, set_current
 from linecast.maps import (
@@ -191,7 +191,7 @@ class MapApp(LiveApp):
                 return False
             gw, hc = map_cells()
             if (not _globe.is_globe(self.zoom, self.lat)
-                    or not _globe.warm(self.zoom, hc * 4)):
+                    or not globe_warm(self.zoom, hc, self.view == "street")):
                 return False  # only a warm globe spins
             self.spin_seq += 1
             self.spinning = self.spin_seq
@@ -315,13 +315,13 @@ class MapApp(LiveApp):
         # from the drag-start centre and the repaint re-projects the
         # sphere, so the drag *is* the rotation rather than a
         # shifted snapshot of it.  Only a warm view rotates live —
-        # until the world canvas is stitched there is nothing to
-        # re-project without blocking on the network — and a drag
-        # keeps whichever idiom it started with.
+        # until the planet is warm — its canvas stitched or its texture
+        # baked — there is nothing to re-project without blocking on
+        # the network, and a drag keeps whichever idiom it started with.
         globing = self.drag_base is not None or (
             not (self.pan_preview[0] or self.pan_preview[1])
             and _globe.is_globe(self.zoom, self.lat)
-            and _globe.warm(self.zoom, hc * 4))
+            and globe_warm(self.zoom, hc, self.view == "street"))
         if globing:
             if self.drag_base is None:
                 if done:

@@ -733,7 +733,7 @@ class TestMapsSnapshot:
                      else (1200.0 if ll[1] > self.LON else -3200.0)
                      for ll in row] for row in lls]
 
-        def get_globe(lat0, lon0, zoom, gw, hc, block):
+        def get_globe(lat0, lon0, zoom, gw, hc, block, street=False):
             lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, gw, hc * 2)
             flls, _fz, _fr = _globe.geometry(lat0, lon0, zoom,
                                              gw * 2, hc * 4)

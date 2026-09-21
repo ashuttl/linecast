@@ -409,12 +409,14 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
     view = None
     if block:
         try:
-            view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, True)
+            view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, True,
+                              street)
         except Exception as exc:
             log_failure("maps/elevation", "globe load", exc, fallback="empty globe")
             err = str(exc)
     else:
-        view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, False)
+        view = _get_globe(lat0, lon0, zoom, graph_w, height_cells, False,
+                          street)
         loading = view is None
 
     elev = view.elev if view is not None else None
@@ -425,16 +427,24 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
                and not street else None)
     palette = _maps_style.palette()
     if elev is not None:
+        # the theme generation rides along, as it does on the flat
+        # views: a terminal that changes theme must miss a buffer with
+        # the old inks shaded into it
         key = (round(lat0, 2), round(lon0, 2), round(zoom, 1),
-               graph_w, height_cells, street)
+               graph_w, height_cells, street, view.fill is not None,
+               _theme.generation)
 
         def build():
-            if street:
+            if view.fill is not None:
+                # the baked planet: the shader has already run, once
+                terrain = [list(row) for row in view.fill]
+            elif street:
                 # the flat street map's own two fills; the 16-colour
                 # table paints none, and the coastline carries it
                 terrain = _globe.fill_buffer(
                     elev, palette.get("water"), palette.get("ground"),
-                    BG_PRIMARY, view.water)
+                    BG_PRIMARY, view.wet if view.wet is not None
+                    else view.water)
             else:
                 # a scale-only bbox: the shader needs metres per
                 # sub-pixel, which on the disk is the hand-off zoom's

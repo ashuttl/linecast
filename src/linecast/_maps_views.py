@@ -14,7 +14,8 @@ from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 
 from linecast import (
-    _builtup, _globe, _globe_now, _maps_streets, _maps_style, _theme,
+    _builtup, _globe, _globe_now, _globe_texture, _maps_streets, _maps_style,
+    _theme,
 )
 from linecast._elevation import elevation_grid
 from linecast._live import nudge as _nudge_repaint
@@ -266,32 +267,84 @@ def _terrain_buffer(elev, bbox, gw, hc, water=None, cover=None):
         elev, bbox, gw, hc * 2, water, cover))
 
 
-def _get_globe(lat0, lon0, zoom, gw, hc, block):
+def globe_warm(zoom, hc, street=False):
+    """Whether a globe view can be recentred without touching the network.
+
+    A warm globe is what makes live rotation possible, and there are
+    two ways to be warm now: the world canvas this zoom samples is
+    stitched, or its texture is baked — in which case the canvas is
+    never read at all.
+    """
+    return (_globe.warm(zoom, hc * 4)
+            or _globe_texture.ready(zoom, hc * 4,
+                                    "street" if street else "terrain"))
+
+
+def _sphere(zoom, gw, hc, lat0, lon0):
+    """The geometry every globe view has, whichever way it is painted."""
+    lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, gw, hc * 2)
+    atmo = _globe.atmosphere(rhos, zoom, hc * 2)
+    return lls, zs, atmo, _globe.limb_lls(lat0, lon0, zoom, gw, hc * 2, atmo)
+
+
+def _textured_globe(tex, lat0, lon0, zoom, gw, hc):
+    """A GlobeView read out of the baked texture.
+
+    The coastline is still cut from the fill and the lakes still join
+    it — one mask, one union, one boundary, the flat view's rule — but
+    the fill is a lookup now rather than a planet rebuilt from
+    elevation, and the borders arrive as bits already stroked.
+    """
+    shot = _globe_texture.sample(tex, lat0, lon0, zoom, gw, hc, BORDER_STROKE)
+    lls, zs, atmo, glow = _sphere(zoom, gw, hc, lat0, lon0)
+    return _globe.GlobeView(
+        shot.elev, _edge_dots(shot.land, shot.water, gw, hc), zs, atmo,
+        None, shot.borders, lls, glow, None, shot.fill,
+        _water_subpixels(shot.water, gw, hc))
+
+
+def _built_globe(lat0, lon0, zoom, gw, hc):
+    """A GlobeView rebuilt from elevation, for a planet not yet baked."""
+    # the fine grid feeds the coastline and box-averages into the
+    # fill, exactly as the flat view does; the sub-pixel geometry
+    # adds what only a sphere has — a viewing angle and a limb
+    flls, _zs, _rhos = _globe.geometry(lat0, lon0, zoom, gw * 2, hc * 4)
+    fine = _globe.elevation(flls, zoom, hc * 4)
+    lls, zs, atmo, glow = _sphere(zoom, gw, hc, lat0, lon0)
+    grid = _box_average(fine, gw, hc)
+    # the lakes come from the vendored polygons rather than the
+    # tiles, but they join the fill and the shoreline by exactly
+    # the flat view's rule: one mask, one union, one boundary
+    wet = _globe.lake_mask(lat0, lon0, zoom, gw * 2, hc * 4)
+    return _globe.GlobeView(
+        grid, _coast_dots(fine, gw, hc, wet), zs, atmo,
+        _globe.ice_cover(lls, grid,
+                         _maps_style.COVER_ORDER.index("ice") + 1),
+        _globe.border_layer(lat0, lon0, zoom, gw, hc, BORDER_STROKE),
+        lls, glow,
+        _water_subpixels(wet, gw, hc) if wet is not None else None)
+
+
+def _get_globe(lat0, lon0, zoom, gw, hc, block, street=False):
     """A GlobeView for the view; live mode fetches in the background."""
+    register = "street" if street else "terrain"
 
     def load():
-        # the fine grid feeds the coastline and box-averages into the
-        # fill, exactly as the flat view does; the sub-pixel geometry
-        # adds what only a sphere has — a viewing angle and a limb
-        flls, _zs, _rhos = _globe.geometry(lat0, lon0, zoom, gw * 2, hc * 4)
-        fine = _globe.elevation(flls, zoom, hc * 4)
-        lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, gw, hc * 2)
-        grid = _box_average(fine, gw, hc)
-        atmo = _globe.atmosphere(rhos, zoom, hc * 2)
-        # the lakes come from the vendored polygons rather than the
-        # tiles, but they join the fill and the shoreline by exactly
-        # the flat view's rule: one mask, one union, one boundary
-        wet = _globe.lake_mask(lat0, lon0, zoom, gw * 2, hc * 4)
-        return _globe.GlobeView(
-            grid, _coast_dots(fine, gw, hc, wet), zs, atmo,
-            _globe.ice_cover(lls, grid,
-                             _maps_style.COVER_ORDER.index("ice") + 1),
-            _globe.border_layer(lat0, lon0, zoom, gw, hc, BORDER_STROKE),
-            lls, _globe.limb_lls(lat0, lon0, zoom, gw, hc * 2, atmo),
-            _water_subpixels(wet, gw, hc) if wet is not None else None)
+        tex = _globe_texture.for_view(zoom, hc * 4, register, block)
+        if tex is None:
+            return _built_globe(lat0, lon0, zoom, gw, hc)
+        return _textured_globe(tex, lat0, lon0, zoom, gw, hc)
 
-    key = (round(lat0, 2), round(lon0, 2), round(zoom, 1), gw, hc)
-    return _globe_cache.get(key, block, load)
+    # the texture's readiness is part of the key: the view drawn the
+    # long way while the planet baked must not outlive the bake, but
+    # it stays on screen until its textured successor has landed
+    ready = _globe_texture.ready(zoom, hc * 4, register)
+    key = (round(lat0, 2), round(lon0, 2), round(zoom, 1), gw, hc, register,
+           _theme.generation, ready)
+    view = _globe_cache.get(key, block, load)
+    if view is None and ready:
+        view = _globe_cache.peek(key[:-1] + (False,))
+    return view
 
 
 _clouds_pending = [False]

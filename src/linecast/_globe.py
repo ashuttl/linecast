@@ -80,11 +80,14 @@ _theme.on_reload(_rebuild)
 # lls (the coarse per-sample lat/lon grid) and glow_lls (the limb
 # point each rim-glow sample grazes) ride along for the now register,
 # which re-shades a cached view into the current moment; water is the
-# sub-pixel inland mask the elevation data cannot report
+# sub-pixel inland mask the elevation data cannot report.  fill and wet
+# are the baked texture's answers — the shaded sub-pixel colour and the
+# sub-pixel water of both kinds — and are None whenever the view was
+# built the long way, from elevation, instead (see _globe_texture).
 GlobeView = namedtuple("GlobeView",
                        "elev coast shade atmo cover borders lls glow_lls "
-                       "water",
-                       defaults=(None, None, None))
+                       "water fill wet",
+                       defaults=(None, None, None, None, None))
 
 
 def ice_cover(lls, elev, ice_id):
@@ -197,6 +200,30 @@ def _project(lat0, zoom, w, h, aspect=1.0):
     return base, zs, rhos
 
 
+def _memo_project(lat0, zoom, w, h):
+    aspect = _aspect()
+    key = (lat0, zoom, w, h, aspect)
+    with _memo_lock:
+        hit = _geometry_cache.get(key)
+    if hit is None:
+        hit = _project(lat0, zoom, w, h, aspect)
+        with _memo_lock:
+            _geometry_cache.put(key, hit)
+    return hit
+
+
+def relative(lat0, zoom, w, h):
+    """Each sample's (lat, longitude east of the view centre), or None.
+
+    geometry() without its one moving part.  What a spin or a sideways
+    drag changes is lon0, and lon0 is a constant offset on this grid —
+    so anything keyed to the geography rather than to the meridian can
+    be worked out once and kept.  Shared between callers: read it,
+    don't write it.
+    """
+    return _memo_project(lat0, zoom, w, h)[0]
+
+
 def geometry(lat0, lon0, zoom, w, h):
     """Inverse projection for every sample of a w×h grid over the screen.
 
@@ -209,15 +236,7 @@ def geometry(lat0, lon0, zoom, w, h):
     shared with other calls for the same view — read them, don't
     write them.
     """
-    aspect = _aspect()
-    key = (lat0, zoom, w, h, aspect)
-    with _memo_lock:
-        hit = _geometry_cache.get(key)
-    if hit is None:
-        hit = _project(lat0, zoom, w, h, aspect)
-        with _memo_lock:
-            _geometry_cache.put(key, hit)
-    base, zs, rhos = hit
+    base, zs, rhos = _memo_project(lat0, zoom, w, h)
     lls = [[None if b is None else (b[0], wrap_lon(lon0 + b[1]))
             for b in b_row] for b_row in base]
     return lls, zs, rhos
