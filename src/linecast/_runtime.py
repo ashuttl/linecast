@@ -507,7 +507,8 @@ TEMP_RANGES = ("auto", "climate", "forecast", "world")
 
 def weather_parser():
     p = _base_parser("linecast weather", BLURB["weather"],
-                      units=("metric units: celsius, km/h, mm",
+                      units=("metric units: celsius, km/h (m/s in the languages "
+                             "that use it), mm",
                              "imperial units: fahrenheit, mph, inches"),
                       temperature_scale=True, clock=True, json=True)
     p.add_argument("--location", metavar="PLACE", default=None,
@@ -920,16 +921,34 @@ class WeatherRuntime(RuntimeConfig):
 
     @property
     def wind_unit(self):
-        return "km/h" if self.metric else "mph"
+        """The unit wind speeds are fetched and shown in: mph with
+        imperial units, else m/s in the languages whose forecasts give
+        wind that way (Japanese, Korean, the Nordic languages, Russian,
+        Ukrainian, Czech), else km/h."""
+        if not self.metric:
+            return "mph"
+        from linecast._i18n import WIND_MS_LANGUAGES, base_language
+        return "m/s" if base_language(self.lang) in WIND_MS_LANGUAGES else "km/h"
+
+    @property
+    def wind_unit_param(self):
+        """`wind_unit` as Open-Meteo's wind_speed_unit parameter names it."""
+        return {"km/h": "kmh", "m/s": "ms", "mph": "mph"}[self.wind_unit]
+
+    def wind_kmh(self, speed):
+        """A speed in the runtime's wind unit, in km/h: the thresholds
+        that decide what is worth showing are written in km/h."""
+        return speed * {"km/h": 1.0, "m/s": 3.6, "mph": 1.609344}[self.wind_unit]
 
     @property
     def wind_unit_label(self):
         """The wind unit as the display language writes it (Turkish reads
-        km/sa); `wind_unit` is the JSON's and stays km/h."""
+        km/sa, Russian м/с); `wind_unit` is the JSON's and stays km/h
+        or m/s."""
         if not self.metric:
             return "mph"
         from linecast._weather_i18n import _s
-        return _s("unit_kmh", self)
+        return _s("unit_ms" if self.wind_unit == "m/s" else "unit_kmh", self)
 
     @property
     def precip_unit_label(self):

@@ -27,6 +27,13 @@ LANGUAGES = (
 LANGUAGE_CODES = tuple(code for code, _name in LANGUAGES)
 LANGUAGE_NAMES = dict(LANGUAGES)
 
+# The languages whose weather services and forecasts give wind speeds in
+# metres per second: Japan, Korea, the Nordic countries, Russia, Ukraine,
+# and the Czech Republic.  The rest of the metric world reads km/h.  The
+# Chinese, Greek, and Vietnamese services use the Beaufort scale, which
+# is a different thing altogether, so those stay on km/h.
+WIND_MS_LANGUAGES = frozenset({"ja", "ko", "da", "no", "sv", "is", "fi", "cs", "ru", "uk"})
+
 # Regional variants: a code whose strings are a base language's with the
 # words that differ by country changed.  The base is what most readers of
 # the language get: Portuguese is Brazilian, Spanish is Latin American,

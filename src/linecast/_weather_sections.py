@@ -128,9 +128,9 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
 
     # Right side: wind info + location (progressively droppable)
     wind_part = ""
-    if wind > (15 if runtime.metric else 10) or gusts > (30 if runtime.metric else 20):
+    if runtime.wind_kmh(wind) > 15 or runtime.wind_kmh(gusts) > 30:
         parts = [f"{_s('wind', runtime)} {fmt_wind(wind, runtime)}"]
-        if gusts > (30 if runtime.metric else 20):
+        if runtime.wind_kmh(gusts) > 30:
             parts.append(f"{_s('gusts', runtime)} {fmt_wind(gusts, runtime)}")
         wind_part = f"{WIND_COLOR}{'  '.join(parts)}"
     loc_part = f"{MUTED}{location_name}" if location_name else ""
@@ -624,7 +624,7 @@ def _feels(current, daily, now, runtime):
     to_c = (lambda t: t) if runtime.celsius else (lambda t: (t - 32) * 5 / 9)
     terms = _feels_terms(
         to_c(temp), humidity,
-        wind / 3.6 if runtime.metric else wind * 0.44704,
+        runtime.wind_kmh(wind) / 3.6,
         gap if runtime.celsius else gap * 5 / 9,
     )
 
@@ -722,7 +722,7 @@ def _feels_ahead(hourly, now, runtime, after=None):
     cause = None
     if i < len(humidity) and i < len(wind) and humidity[i] is not None and wind[i] is not None:
         terms = _feels_terms(to_c(temps[i]), humidity[i],
-                             wind[i] / 3.6 if runtime.metric else wind[i] * 0.44704, gap)
+                             runtime.wind_kmh(wind[i]) / 3.6, gap)
         pushing = sorted(((abs(size), name) for name, size in terms.items()
                           if (size > 0) == (gap > 0)), reverse=True)
         if pushing and pushing[0][0] >= _FEELS_FLOOR_C:
@@ -1417,7 +1417,7 @@ def _gusts(hourly, now, runtime, after=None):
     if not hours:
         return nothing
     i, dt = max(hours, key=lambda h: gusts[h[0]])
-    kmh = gusts[i] if runtime.metric else gusts[i] * 1.609344
+    kmh = runtime.wind_kmh(gusts[i])
     if kmh < _GUSTS_NOTABLE_KMH:
         return nothing
     speed = fmt_wind(gusts[i], runtime)

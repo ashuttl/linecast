@@ -45,7 +45,7 @@ def _cmd_set(units):
     config["units"] = units
     save_config(config)
     if units == "metric":
-        print("Units set to metric (celsius, km/h, mm, metres)")
+        print("Units set to metric (celsius, km/h or m/s, mm, metres)")
     else:
         print("Units set to imperial (fahrenheit, mph, inches, feet)")
 
@@ -67,7 +67,8 @@ def main():
     parser.add_argument("--version", action=VersionAction)
     sub = parser.add_subparsers(dest="action")
     sub.add_parser("show", help="show the current units setting (default)")
-    sub.add_parser("metric", help="celsius, km/h, mm, and metres everywhere")
+    sub.add_parser("metric", help="celsius, km/h (m/s in some languages), mm, "
+                                  "and metres everywhere")
     sub.add_parser("imperial", help="fahrenheit, mph, inches, and feet everywhere")
     sub.add_parser("auto", help="clear the saved units and use the default")
     args = parser.parse_args()

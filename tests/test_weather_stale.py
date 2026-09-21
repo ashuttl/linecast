@@ -63,7 +63,8 @@ class TestForecastIsTodays:
         assert not forecast_is_todays({"timezone": "UTC"})
 
     def test_is_the_cache_test_for_the_forecast(self):
-        runtime = SimpleNamespace(celsius=True, metric=True)
+        runtime = SimpleNamespace(celsius=True, metric=True, wind_unit="km/h",
+                                  wind_unit_param="kmh")
         with patch.object(_weather_sources, "fetch_json_cached",
                           return_value={"ok": 1}) as cached:
             assert _weather_sources.fetch_forecast(43.0, -70.0, runtime) == {"ok": 1}

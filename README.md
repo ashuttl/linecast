@@ -255,7 +255,7 @@ linecast units metric
 linecast clock 24
 ```
 
-Every view command also takes `--metric` and `--imperial` for one run, and the ones that show times take `--12h` and `--24h`. `weather` adds `--celsius` and `--fahrenheit` for the temperature alone, so you can have miles and Celsius, say.
+Every view command also takes `--metric` and `--imperial` for one run, and the ones that show times take `--12h` and `--24h`. `weather` adds `--celsius` and `--fahrenheit` for the temperature alone, so you can have miles and Celsius, say. With metric units, wind speeds follow the language: metres per second in Japanese, Korean, the Nordic languages, Russian, Ukrainian, and Czech, as those countries' forecasts give them, and km/h elsewhere.
 
 The moon's calendar opens the week on Monday, or on Sunday in the United States, Canada, Japan, Korea, Brazil, Mexico, and the other countries whose printed calendars do, or on Saturday in Egypt and the Gulf. `linecast week sunday` fixes it (`monday` and `saturday` too), and `moon --week-start sunday` does it for one run.
 

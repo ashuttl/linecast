@@ -467,6 +467,8 @@ class TestTheClockInTheSentence:
         hourly["precipitation"] = [0.01] * 9 + [0.1, 0.15, 0.15, 0.1, 0, 0]
         assert precipitation_sentence(hourly, night, _runtime()) == \
             "Light drizzle becoming rain early tomorrow morning, ending later in the morning"
+        # The same rain, harder, is said as such in Japanese; a turn to
+        # another kind (drizzle to rain, below) keeps "となり"
         assert precipitation_sentence(hourly, night, _runtime(lang="ja")) == \
             "霧雨が明日の早朝に雨となり、午前中にやむ見込み"
 
@@ -633,7 +635,7 @@ class TestMoreToSay:
         assert gusts_sentence(hourly, NOON, _runtime()) == "Gusts to 45mph this afternoon"
         hourly = self._hourly(NOON, len(gusts), wind_gusts_10m=[g * 1.6 for g in gusts])
         assert gusts_sentence(hourly, NOON, _runtime(lang="ja", metric=True)) == \
-            "午後に最大72km/hの突風の見込み"
+            "午後に最大20m/sの突風の見込み"
 
     def test_a_breeze_is_not_worth_a_sentence(self):
         from linecast._weather_sections import gusts_sentence
@@ -645,6 +647,10 @@ class TestMoreToSay:
         temps = [40, 38, 36, 35, 34, 33, 32, 31, 29, 28, 28, 30, 34, 38]
         hourly = self._hourly(datetime(2026, 7, 15, 20), len(temps), temperature_2m=temps)
         now = datetime(2026, 7, 15, 20, 10)
+        assert gusts_sentence(hourly, NOON, _runtime(lang="de", metric=True)) == \
+            "Böen bis 72 km/h heute Nachmittag"
+        # Japanese reads the wind in m/s, and the data comes that way too
+        hourly = self._hourly(NOON, len(gusts), wind_gusts_10m=[g * 1.6 / 3.6 for g in gusts])
         assert freeze_sentence(hourly, {"temperature_2m": 41}, now, _runtime()) == \
             "Below freezing early tomorrow morning, down to 28°"
         # A proper minus sign, not a hyphen

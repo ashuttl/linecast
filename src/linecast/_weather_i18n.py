@@ -856,6 +856,7 @@ _STRINGS = {
         "credit_alerts": 'Alerts by {source}',
         "metric_unit_sep": "",
         "unit_kmh": "km/h",
+        "unit_ms": "m/s",
         "unit_mm": "mm",
         "unit_cm": "cm",
         "feels": "feels",
@@ -3225,6 +3226,7 @@ _STRINGS = {
         "chance": "ймовірність {p}",
         "chance_of": "ймовірність {what} {p}",
         "amount_between": "{amount} між {a} та {b}",
+        "unit_ms": "м/с",
         "amount_all_day": "{amount} протягом дня",
         "cloud": "Хмарність {p}",
         "heaviest_around": "найсильніше близько {time}",
@@ -3698,6 +3700,7 @@ _STRINGS = {
         "chance": "вероятность {p}",
         # The kind of precipitation takes the genitive after
         # "вероятность" and after an amount alike: дождя, снега.
+        "unit_ms": "м/с",
         "chance_of": "вероятность {what} {p}",
         "amount_between": "{amount} между {a} и {b}",
         "amount_all_day": "{amount} в течение дня",
@@ -4297,7 +4300,7 @@ def wmo_label(code, lang, default=""):
 
 def fmt_wind(speed, runtime):
     """A wind speed with its unit as the display language writes it:
-    "12km/h", "12 km/sa", "12mph"."""
+    "12km/h", "12 km/sa", "12m/s", "12 м/с", "12mph"."""
     sep = _s("metric_unit_sep", runtime) if runtime.metric else ""
     return f"{speed:.0f}{sep}{runtime.wind_unit_label}"
 

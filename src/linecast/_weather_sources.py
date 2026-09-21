@@ -236,7 +236,7 @@ def fetch_forecast(lat: float, lng: float,
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
     temp_tag = "C" if runtime.celsius else "F"
-    wind_tag = "m" if runtime.metric else "i"
+    wind_tag = {"km/h": "m", "mph": "i", "m/s": "s"}[runtime.wind_unit]
     cache_file = cache_dir(
         "weather", f"forecast_{location_cache_key(lat, lng)}_{temp_tag}{wind_tag}.json")
     url = (
@@ -249,7 +249,7 @@ def fetch_forecast(lat: float, lng: float,
         "precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max,"
         "sunrise,sunset"
         f"&temperature_unit={'celsius' if runtime.celsius else 'fahrenheit'}"
-        f"&wind_speed_unit={'kmh' if runtime.metric else 'mph'}"
+        f"&wind_speed_unit={runtime.wind_unit_param}"
         f"&precipitation_unit={'mm' if runtime.metric else 'inch'}"
         "&timezone=auto&forecast_days=7&past_days=1"
         "&current=temperature_2m,apparent_temperature,weather_code,"

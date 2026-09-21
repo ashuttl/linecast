@@ -403,6 +403,22 @@ class TestTurkishPercentAndUnits:
         imperial = WeatherRuntime(lang="tr", **{**defaults, "metric": False})
         assert imperial.wind_unit_label == "mph"
 
+    def test_the_wind_is_in_metres_per_second_where_the_forecasts_are(self):
+        from linecast._runtime import WeatherRuntime
+        defaults = dict(live=False, icons="emoji", oneline=False, celsius=True,
+                        metric=True, shading=False)
+        japanese = WeatherRuntime(lang="ja", **defaults)
+        assert japanese.wind_unit == japanese.wind_unit_label == "m/s"
+        assert japanese.wind_unit_param == "ms"
+        assert japanese.wind_kmh(10) == 36
+        russian = WeatherRuntime(lang="ru", **defaults)
+        assert russian.wind_unit == "m/s" and russian.wind_unit_label == "м/с"
+        for lang in ("en", "de", "zh", "pt-PT", "el"):
+            assert WeatherRuntime(lang=lang, **defaults).wind_unit == "km/h", lang
+        imperial = WeatherRuntime(lang="ja", **{**defaults, "metric": False})
+        assert imperial.wind_unit == "mph" and imperial.wind_unit_param == "mph"
+        assert round(imperial.wind_kmh(10), 3) == 16.093
+
 
 class TestTablesComplete:
     """Every language table carries every English key, so nothing falls
@@ -414,7 +430,7 @@ class TestTablesComplete:
     # The Canadian index is named AQHI in English and CAS (cote air
     # santé) in French, and by its English name elsewhere.
     DEFAULTS = {
-        "linecast._weather_i18n": {"unit_kmh", "unit_mm", "unit_cm", "aqhi"},
+        "linecast._weather_i18n": {"unit_kmh", "unit_ms", "unit_mm", "unit_cm", "aqhi"},
         "linecast._radar_i18n": {"unit_km"},
     }
     # Keys a language needs that English does not: the Slavic few-form,
@@ -558,12 +574,14 @@ class TestUnitLabels:
         from linecast._weather_i18n import fmt_wind
         assert fmt_wind(12, self._runtime("en")) == "12km/h"
         assert fmt_wind(12, self._runtime("nl")) == "12 km/u"
-        assert fmt_wind(12, self._runtime("da")) == "12 km/t"
+        assert fmt_wind(12, self._runtime("da")) == "12 m/s"
         assert fmt_wind(12, self._runtime("de")) == "12 km/h"
-        assert fmt_wind(12, self._runtime("ja")) == "12km/h"
+        assert fmt_wind(12, self._runtime("ja")) == "12m/s"
+        assert fmt_wind(12, self._runtime("ru")) == "12 м/с"
+        assert fmt_wind(12, self._runtime("sv")) == "12 m/s"
         assert fmt_wind(12, self._runtime("tr")) == "12 km/sa"
         assert fmt_wind(12, self._runtime("eo")) == "12 km/h"
-        assert fmt_wind(12, self._runtime("uk")) == "12 км/год"
+        assert fmt_wind(12, self._runtime("uk")) == "12 м/с"
         assert fmt_wind(12, self._runtime("th")) == "12 กม./ชม."
         assert fmt_wind(12, self._runtime("tr", metric=False)) == "12mph"
 

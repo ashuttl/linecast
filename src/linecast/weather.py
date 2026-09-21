@@ -208,8 +208,7 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
         lines.append(f"{TBG}{TFG} {_s('cloud', runtime, p=shaded)} ")
 
     # Wind (if notable)
-    wind_threshold = 25 if runtime.metric else 15
-    if wind > wind_threshold:
+    if runtime.wind_kmh(wind) > 25:
         sector = int((wind_dir + 22.5) / 45) % 8
         arrow = WIND_ARROWS[sector]
         lines.append(f"{TBG}{TFG} {arrow} {fmt_wind(wind, runtime)} ")

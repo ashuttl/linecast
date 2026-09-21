@@ -45,8 +45,9 @@ def _uv_label_value(uv):
 
 
 def _wind_threshold(runtime):
-    """The wind speed above which the chart labels the wind."""
-    return 25 if runtime.metric else 15
+    """The wind speed, in the runtime's unit, above which the chart
+    labels the wind: 25 km/h."""
+    return 25 / runtime.wind_kmh(1)
 
 
 def _daylight_factor(col_dt, sun_events):

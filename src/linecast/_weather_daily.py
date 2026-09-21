@@ -123,7 +123,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         prob_s = fmt_percent(prob_i, runtime) if prob_i > 25 else ""
         wind_amt = (
             fmt_wind(wind_i, runtime)
-            if wind_i > (25 if runtime.metric else 15)
+            if runtime.wind_kmh(wind_i) > 25
             else ""
         )
         day_raw.append((precip_amt, prob_s, wind_amt, ptype, wmo_i))
