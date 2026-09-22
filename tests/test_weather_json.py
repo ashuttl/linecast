@@ -74,13 +74,13 @@ class TestPayloadShape:
         # FIXED_NOW is 14:30, so the sentence looks ahead: tomorrow vs today.
         summary = _payload()["summary"]
         assert isinstance(summary, str) and summary
-        assert "Tomorrow will be" in summary
+        assert "Tomorrow's high will be" in summary
         assert "today" in summary
 
     def test_summary_compares_yesterday_before_2pm(self):
         summary = _payload(now=FIXED_NOW.replace(hour=9))["summary"]
         assert isinstance(summary, str) and summary
-        assert "Today will be" in summary
+        assert "Today's high will be" in summary
         assert "yesterday" in summary
 
     def test_summary_null_without_daily_history(self):

@@ -60,16 +60,17 @@ def test_greek_tables_keep_format_fields_and_weather_codes():
 
 
 @pytest.mark.parametrize("diff,comparison", [
-    (0, "περίπου στα ίδια επίπεδα με"), (2, "κατά 2 βαθμούς υψηλότερη από"),
-    (-2, "κατά 2 βαθμούς χαμηλότερη από"), (4, "κατά 4 βαθμούς υψηλότερη από"),
-    (-4, "κατά 4 βαθμούς χαμηλότερη από"),
-    (8, "κατά 8 βαθμούς υψηλότερη από"), (-8, "κατά 8 βαθμούς χαμηλότερη από"),
+    (0, "περίπου στα ίδια επίπεδα με"), (2, "κατά 2\u00a0βαθμούς υψηλότερη από"),
+    (-2, "κατά 2\u00a0βαθμούς χαμηλότερη από"), (4, "κατά 4\u00a0βαθμούς υψηλότερη από"),
+    (-4, "κατά 4\u00a0βαθμούς χαμηλότερη από"),
+    (8, "κατά 8\u00a0βαθμούς υψηλότερη από"), (-8, "κατά 8\u00a0βαθμούς χαμηλότερη από"),
 ])
-@pytest.mark.parametrize("hour,subject,reference", [(9, "Σήμερα", "χθες"), (15, "Αύριο", "σήμερα")])
+@pytest.mark.parametrize("hour,subject,reference",
+                         [(9, "Σήμερα", "τη χθεσινή"), (15, "Αύριο", "τη σημερινή")])
 def test_temperature_comparisons_agree_with_temperature(diff, comparison, hour, subject, reference):
     temps = [20, 20 + diff, 20] if hour == 9 else [20, 20, 20 + diff]
     actual = comparative_sentence({"temperature_2m_max": temps}, NOW.replace(hour=hour), runtime())
-    assert actual == f"{subject} η θερμοκρασία θα είναι {comparison} {reference}"
+    assert actual == f"{subject} η μέγιστη θερμοκρασία θα είναι {comparison} {reference}"
 
 
 @pytest.mark.parametrize("code", sorted(_PRECIP_DESCS))
@@ -119,8 +120,8 @@ def test_one_oclock_takes_the_singular_article(time, preposition):
 
 
 @pytest.mark.parametrize("code,snow,expected", [
-    (63, 0, "4.0 mm βροχής"), (73, 2, "2.0 cm χιονιού"),
-    (66, 0, "4.0 mm μεικτών κατακρημνισμάτων"),
+    (63, 0, "4,0\u00a0mm βροχής"), (73, 2, "2,0\u00a0cm χιονιού"),
+    (66, 0, "4,0\u00a0mm μεικτών κατακρημνισμάτων"),
 ])
 def test_amounts_and_probability_take_the_genitive(code, snow, expected):
     data = hourly([code], NOW - timedelta(hours=1))
@@ -129,7 +130,7 @@ def test_amounts_and_probability_take_the_genitive(code, snow, expected):
         f"Το τελευταίο 24ωρο καταγράφηκαν {expected}")
     kind = _precip_kind_lower(code, runtime())
     assert _s("chance_of", runtime(), p="80%", what=kind) == (
-        "πιθανότητα " + expected.split(" ", 2)[2] + " 80%")
+        "πιθανότητα " + expected.split(" ", 1)[1] + " 80%")
 
 
 def test_dates_day_counts_and_dawn_are_greek():
@@ -157,7 +158,7 @@ def test_complete_paragraph_wraps_without_losing_text_or_doubling_punctuation(wi
     rows = [re.sub(r"\x1b\[[0-9;]*m", "", row)
             for row in narrative_lines(data, NOW, width, rt)]
     expected = (
-        "Σήμερα η θερμοκρασία θα είναι κατά 2 βαθμούς υψηλότερη από χθες. "
+        "Σήμερα η μέγιστη θερμοκρασία θα είναι κατά 2\u00a0βαθμούς υψηλότερη από τη χθεσινή. "
         "Η υψηλή υγρασία αυξάνει την αισθητή θερμοκρασία. "
         "Βροχές πιθανότατα θα αρχίσουν γύρω στις "
         + ("17:00" if use_24h else "5 το απόγευμα") + ".")

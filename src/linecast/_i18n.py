@@ -202,6 +202,22 @@ PERCENT_FIRST = frozenset({"tr"})
 PERCENT_SPACED = frozenset({"cs"})
 
 
+# Languages that write a decimal comma: 11,3 mm.  Latin American Spanish,
+# the base "es", keeps the point, as Mexico and most of the region do;
+# Spain's variant takes the comma.
+DECIMAL_COMMA = frozenset({
+    "fr", "fr-CA", "es-ES", "pt", "pt-PT", "it", "ro", "de", "nl", "da", "no",
+    "sv", "is", "fi", "cs", "pl", "ru", "uk", "el", "tr", "id", "vi", "eo",
+})
+
+
+def fmt_decimal(value, places, runtime):
+    """`value` to `places` decimals with the display language's decimal
+    mark: "11.3", "11,3"."""
+    text = f"{value:.{places}f}"
+    return text.replace(".", ",") if lang_of(runtime) in DECIMAL_COMMA else text
+
+
 def fmt_percent(value, runtime):
     """`value` as a whole-number percentage the display language's way:
     "40%", "%40" in Turkish, "40 %" in Czech."""

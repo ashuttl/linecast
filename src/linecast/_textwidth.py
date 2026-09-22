@@ -111,11 +111,36 @@ def visible_len(s):
     return sum(char_widths(stripped))
 
 
+# Where a line without spaces may not break (kinsoku shori): no line
+# opens on closing punctuation or a small kana, and none ends on an
+# opening bracket.
+_NO_LINE_START = frozenset(
+    "、。，．,.）)］]｝}」』】〕〉》”’！!？?：:；;・ー～…‥%％"
+    "ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ々〻")
+_NO_LINE_END = frozenset("（(［[｛{「『【〔〈《“‘")
+
+
+def _can_break(before, after, before_w, after_w):
+    """Whether a line with no spaces may break between two characters:
+    not before closing punctuation, not after an opening bracket, not
+    after a digit, which keeps its counter or unit ("13時", "40度"), and
+    not inside a run of narrow characters, which is a word, a number or
+    a unit ("12m/s", "−2", "mm")."""
+    if after in _NO_LINE_START or before in _NO_LINE_END:
+        return False
+    if before.isascii() and before.isdigit():
+        return False
+    return not (before_w == 1 and after_w == 1)
+
+
 def wrap_display_width(text, width):
     """Wrap plain text to fit within a terminal display width.
 
     Handles CJK double-width and emoji characters correctly.  Falls back
-    to ``textwrap.wrap`` when every character is a single cell.
+    to ``textwrap.wrap`` when every character is a single cell.  A line
+    with no space to break at breaks where the language allows: Japanese
+    and Chinese punctuation stays with the text before it, and a number
+    stays with its unit.
     """
     if not text:
         return [""]
@@ -129,26 +154,38 @@ def wrap_display_width(text, width):
     last_sp = -1
 
     widths = char_widths(text)
+    line_ws = []     # the width of each character on the line
     for i, ch in enumerate(text):
         cw = widths[i]
         if line_w + cw > width:
             if ch == " ":
                 lines.append(line)
-                line, line_w, last_sp = "", 0, -1
+                line, line_w, last_sp, line_ws = "", 0, -1, []
                 continue
             if last_sp >= 0:
                 lines.append(line[:last_sp])
-                rest = line[last_sp + 1:]
-                line = rest + ch
-                line_w = visible_len(line)
+                line = line[last_sp + 1:] + ch
+                line_ws = line_ws[last_sp + 1:] + [cw]
+                line_w = sum(line_ws)
                 last_sp = -1
             else:
-                lines.append(line)
-                line, line_w, last_sp = ch, cw, -1
+                # The latest break the line allows, with `ch` after it
+                chars, ws = line + ch, line_ws + [cw]
+                cut = next((k for k in range(len(line), 0, -1)
+                            if _can_break(chars[k - 1], chars[k], ws[k - 1], ws[k])),
+                           len(line))
+                lines.append(line[:cut])
+                line, line_ws = chars[cut:], ws[cut:]
+                line_w = sum(line_ws)
+                if line_w > width:
+                    # Nowhere to break but mid-word: the old hard break
+                    lines.append(line[:-1])
+                    line, line_ws, line_w = ch, [cw], cw
             continue
         if ch == " ":
             last_sp = len(line)
         line += ch
+        line_ws.append(cw)
         line_w += cw
 
     if line:

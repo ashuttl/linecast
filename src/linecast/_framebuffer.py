@@ -60,11 +60,13 @@ _HOUR_24 = {
     "en": "{h:02d}:00", "es": "{h:02d}:00", "nl": "{h:02d}:00", "pl": "{h:02d}:00",
     "uk": "{h:02d}:00", "eo": "{h:02d}:00", "tr": "{h:02d}:00", "ru": "{h:02d}:00",
     "ro": "{h:02d}:00", "cs": "{h:02d}:00", "sw": "{h:02d}:00", "el": "{h:02d}:00",
-    "de": "{h} Uhr", "it": "{h}", "da": "kl. {h}", "no": "kl. {h}", "sv": "kl. {h}",
-    "is": "kl. {h}", "fi": "klo {h}", "id": "pukul {h}.00",
-    "ja": "{h}時", "ko": "{h}시", "zh": "{h}时", "zh-Hant": "{h}時", "th": "{h:02d} น.",
-    # Canada spaces the h, as Environment Canada writes it: "18 h".
-    "fr-CA": "{h} h",
+    "de": "{h}\u00a0Uhr", "it": "{h}", "da": "kl.\u00a0{h}", "no": "kl.\u00a0{h}",
+    "sv": "kl.\u00a0{h}", "is": "kl.\u00a0{h}", "fi": "klo\u00a0{h}", "id": "pukul\u00a0{h}.00",
+    "ja": "{h}時", "ko": "{h}시", "zh": "{h}时", "zh-Hant": "{h}時", "th": "{h:02d}\u00a0น.",
+    # Canada spaces the h, as Environment Canada writes it: "18 h".  The
+    # spaces are unbreakable, so a paragraph never parts an hour from its
+    # word for it.
+    "fr-CA": "{h}\u00a0h",
 }
 
 

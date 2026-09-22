@@ -207,3 +207,28 @@ class TestCalibration:
         _textwidth.calibrate_from_terminal(timeout_s=0.01)
         assert _textwidth._CLUSTER_CAPPED is False
         assert _textwidth.measured_widths() == {}
+
+
+class TestLineBreaksWithoutSpaces:
+    """Japanese and Chinese break between characters, but not everywhere."""
+
+    TEXT = ("今日は昨日とほぼ同じ気温になる。湿度が高く、体感温度も高め。9時頃に霧雨、"
+            "13時頃に弱いにわか雨となる。午後に最大12m/sの突風の見込み。"
+            "今夜氷点下となり、最低−2度の見込み。")
+
+    def test_no_line_opens_on_closing_punctuation(self):
+        from linecast._textwidth import wrap_display_width
+        for width in range(12, 80):
+            rows = wrap_display_width(self.TEXT, width)
+            assert "".join(rows) == self.TEXT
+            assert all(visible_len(row) <= width for row in rows), width
+            assert not any(row[0] in "、。" for row in rows[1:]), (width, rows)
+
+    def test_a_number_keeps_its_unit_and_its_sign(self):
+        from linecast._textwidth import wrap_display_width
+        for width in range(12, 80):
+            rows = wrap_display_width(self.TEXT, width)
+            for before, after in zip(rows, rows[1:]):
+                for kept in ("12m/s", "−2", "13時"):
+                    assert not any(before.endswith(kept[:k]) and after.startswith(kept[k:])
+                                   for k in range(1, len(kept))), (width, before, after)

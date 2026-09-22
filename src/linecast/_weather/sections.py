@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 
 from linecast import _theme
 from linecast._i18n import (
-    base_language, fallbacks, fmt_percent, has_text, lang_of, sentence_24h, table_for,
+    base_language, fallbacks, fmt_decimal, fmt_percent, has_text, lang_of, sentence_24h,
+    table_for,
 )
 from linecast._graphics import RESET, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure, log_skipped
@@ -15,7 +16,7 @@ from linecast._weather.cover import sky_condition
 from linecast._weather.i18n import (
     fmt_wind, _precip_s,
     DAY_NAMES, FULL_DAY_NAMES, ON_DAY_FORMS, ON_FULL_DAY_FORMS, wmo_label,
-    _PRECIP_DESCS_I18N, _STRINGS, _s, _wmo_icons,
+    _PRECIP_DESCS_I18N, _PRECIP_PARTITIVES_I18N, _STRINGS, _s, _wmo_icons,
 )
 from linecast._weather import style as _weather_style
 from linecast._weather.style import (MUTED, TEXT, WIND_COLOR, _aqhi_color, _aqi_color,
@@ -283,6 +284,11 @@ def _number_form(count, runtime, base):
     """The variant suffix a count takes in the display language, among
     the variants the language has for `base`."""
     lang = runtime.lang
+    if lang == "is":
+        # Icelandic: one for every number ending in 1 but 11
+        if count % 10 == 1 and count % 100 != 11 and _has(base + "_one", runtime):
+            return "_one"
+        return ""
     if lang in ("ru", "uk", "pl"):
         # Slavic: one for 1, 21, 31 (not 11; and in Polish only 1); few
         # for 2 to 4, 22 to 24 (not 12 to 14), where the base has a few
@@ -853,12 +859,14 @@ def _comparison(daily, now, runtime, inherited=False):
 
     if now.hour < _COMPARISON_TURNS_TO_TOMORROW:
         a, b = hi_temps[0], hi_temps[1]
-        ref_day = _s("yesterday", runtime)
-        subject = _s("today_subj", runtime)
+        ref_key, subject = "yesterday", _s("today_subj", runtime)
     else:
         a, b = hi_temps[1], hi_temps[2]
-        ref_day = _s("today_ref", runtime)
-        subject = _s("tomorrow_subj", runtime)
+        ref_key, subject = "today_ref", _s("tomorrow_subj", runtime)
+    ref_day = _s(ref_key, runtime)
+    # The reference day with "and", "with", for a language whose word
+    # for it depends on the day: Korean 어제와, 오늘과
+    ref_day_with = _s(ref_key + "_with", runtime) if _has(ref_key + "_with", runtime) else ref_day
     # Either day's high can be null; there is then nothing to compare.
     if a is None or b is None:
         return "", 0
@@ -887,8 +895,8 @@ def _comparison(daily, now, runtime, inherited=False):
             # French keeps the subject inside the comparison; the
             # inherited form has one without it
             key += "_then"
-    comparison = _s(key, runtime, ref_day=ref_day, subject=subject.lower(),
-                    diff=_degrees(diff, runtime))
+    comparison = _s(key, runtime, ref_day=ref_day, ref_day_with=ref_day_with,
+                    subject=subject.lower(), diff=_degrees(diff, runtime))
     return _s(form, runtime, subject=subject, comparison=comparison), salience
 
 
@@ -963,6 +971,16 @@ def _precip_descs(lang):
     for code in reversed(fallbacks(lang)):
         descs.update(_PRECIP_DESCS_I18N.get(code, {}))
     return descs
+
+
+@functools.lru_cache(maxsize=None)
+def _precip_partitives(lang):
+    """The precipitation nouns with their article, by WMO code, where the
+    language has them: a regional variant's under its base's."""
+    forms = {}
+    for code in reversed(fallbacks(lang)):
+        forms.update(_PRECIP_PARTITIVES_I18N.get(code, {}))
+    return forms
 
 
 def _peak_hour(run, amounts, codes, desc=None, open_ended=False):
@@ -1122,17 +1140,21 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None, current=None):
         The last hour named is left in parts["last_named"] for the
         sentence that follows."""
         peak = _peak_hour(run, amounts, codes, desc, open_ended)
+        # The hour whose noun the sentence opens with, for agreement
+        noun = run[0][0]
         if peak and (peak[1] - now).total_seconds() < 1.5 * 3600:
             # A turn that is all but here is what is falling: "showers
             # ending in a couple hours", not "drizzle becoming showers
             # shortly"
             words["desc"] = desc(peak[0])
+            noun = peak[0]
             peak = None
         if peak and start is not None and (peak[1] - start).total_seconds() <= 2 * 3600:
             # An hour of drizzle at the edge of a storm is the storm:
             # "thunderstorms starting around noon", not "drizzle at
             # eleven becoming thunderstorms at noon"
             words["desc"] = desc(peak[0])
+            noun = peak[0]
             start = peak[1]
             peak = None
         if start is not None:
@@ -1148,14 +1170,17 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None, current=None):
                 key += "_heavier"
             else:
                 key += "_becoming"
+            peak_code = codes[peak[0]] if peak[0] < len(codes) else 0
             words.update(peak=desc(peak[0]),
+                         peak_art=_precip_partitives(lang).get(peak_code, desc(peak[0])),
                          peak_time=_time_phrase(peak[1], now, runtime, after=start,
                                                 same_sentence=True))
         if end is not None:
             words["time"] = _time_phrase(end, now, runtime, after=peak[1] if peak else None,
                                          same_sentence=True)
         parts["last_named"] = end or (peak[1] if peak else None) or start
-        return _ucfirst(_precip_s(key, codes[run[0][0]], runtime, **words))
+        return _ucfirst(_precip_s(key, codes[noun] if noun < len(codes) else 0, runtime,
+                                  **words))
 
     if is_precip(first_idx):
         run, end_n = run_from(0)
@@ -1268,7 +1293,7 @@ def _snow_sentence(parts, hourly, now, runtime):
         amt = f"{total_cm:.0f}{_s('metric_unit_sep', runtime)}{_s('unit_cm', runtime)}"
     else:
         inches = total_cm / 2.54
-        n = f"{inches:.0f}" if inches >= 2 else f"{inches:.1f}"
+        n = f"{inches:.0f}" if inches >= 2 else fmt_decimal(inches, 1, runtime)
         amt = f"{n}{_s('precip_inch', runtime)}"
     end = parts["end"] or run[-1][1]
     return (_ucfirst(_s("snow_total", runtime, amt=amt,
@@ -1304,7 +1329,9 @@ def past_precip_sentence(hourly, now, runtime):
             dropped += 1
             bad = exc
             continue
-        if dt < past_start or dt > current_hour:
+        # Each hour's figure is what fell in the hour before its stamp,
+        # so the last day is the 24 stamps after the start, up to this hour
+        if dt <= past_start or dt > current_hour:
             continue
         # A null hour holds no measurable precipitation
         p = (precip[i] if i < len(precip) else 0) or 0
@@ -1332,23 +1359,23 @@ def past_precip_sentence(hourly, now, runtime):
     if snow_hours >= rain_hours and snow_hours >= mix_hours:
         # Show snow accumulation (Open-Meteo snowfall is in cm)
         if runtime.metric:
-            amt = f"{total_snow_cm:.1f}{metric_sep}{_s('unit_cm', runtime)}"
+            amt = f"{fmt_decimal(total_snow_cm, 1, runtime)}{metric_sep}{_s('unit_cm', runtime)}"
         else:
             inches = total_snow_cm / 2.54
             unit = _s("precip_inch", runtime)
-            amt = f"{inches:.1f}{unit}" if inches >= 1 else f"{inches:.2f}{unit}"
+            amt = fmt_decimal(inches, 1 if inches >= 1 else 2, runtime) + unit
         ptype = _s("snow", runtime)
     elif mix_hours >= rain_hours:
         if runtime.metric:
-            amt = f"{total_precip:.1f}{metric_sep}{_s('unit_mm', runtime)}"
+            amt = f"{fmt_decimal(total_precip, 1, runtime)}{metric_sep}{_s('unit_mm', runtime)}"
         else:
-            amt = f"{total_precip:.2f}{_s('precip_inch', runtime)}"
+            amt = f"{fmt_decimal(total_precip, 2, runtime)}{_s('precip_inch', runtime)}"
         ptype = _s("mixed_precip", runtime)
     else:
         if runtime.metric:
-            amt = f"{total_precip:.1f}{metric_sep}{_s('unit_mm', runtime)}"
+            amt = f"{fmt_decimal(total_precip, 1, runtime)}{metric_sep}{_s('unit_mm', runtime)}"
         else:
-            amt = f"{total_precip:.2f}{_s('precip_inch', runtime)}"
+            amt = f"{fmt_decimal(total_precip, 2, runtime)}{_s('precip_inch', runtime)}"
         ptype = _s("rain", runtime)
 
     return _s("past_precip", runtime, amt=amt, ptype=ptype)

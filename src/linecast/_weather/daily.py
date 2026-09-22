@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from linecast import _theme
-from linecast._i18n import fmt_percent, table_for
+from linecast._i18n import fmt_decimal, fmt_percent, table_for
 from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast._weather.cover import sky_condition
@@ -120,8 +120,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
                 precip_amt = f"{precip_i:.0f}{sep}{runtime.precip_unit_label}"
             else:
                 unit = _s('precip_inch', runtime)
-                precip_amt = (f"{precip_i:.1f}{unit}" if precip_i >= 1
-                              else f"{precip_i:.2f}{unit}")
+                precip_amt = fmt_decimal(precip_i, 1 if precip_i >= 1 else 2, runtime) + unit
         prob_s = fmt_percent(prob_i, runtime) if prob_i > 25 else ""
         wind_amt = (
             fmt_wind(wind_i, runtime)
@@ -332,8 +331,9 @@ def render_daily_mapped(data, width, runtime=None, now=None):
 def fmt_precip_amount(amount, runtime):
     """An amount of precipitation with its unit, as the daily rows show it."""
     if runtime.metric:
-        return f"{amount:.1f}{_s('metric_unit_sep', runtime)}{runtime.precip_unit_label}"
+        return (f"{fmt_decimal(amount, 1, runtime)}{_s('metric_unit_sep', runtime)}"
+                f"{runtime.precip_unit_label}")
     unit = _s("precip_inch", runtime)
-    return f"{amount:.1f}{unit}" if amount >= 1 else f"{amount:.2f}{unit}"
+    return fmt_decimal(amount, 1 if amount >= 1 else 2, runtime) + unit
 
 _theme.track_imports(globals(), "linecast._weather.style")

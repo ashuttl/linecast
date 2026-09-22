@@ -46,7 +46,7 @@ class TestTrace:
         said = prose._ANSI.sub("", " ".join(rows))
 
         assert [t["text"] for t in trace if t["chosen"]] == [
-            "Today will be about the same temperature as yesterday",
+            "Today's high will be about the same as yesterday's",
             "The wind is making it feel cooler",
         ]
         for entry in trace:
@@ -92,7 +92,7 @@ class TestShow:
         text = out.getvalue()
 
         assert "Testville   Wed 12:00   Overcast 40°F, feels 30°F" in text
-        assert "    en  Today will be about the same temperature as yesterday." in text
+        assert "    en  Today's high will be about the same as yesterday's." in text
         assert "    ja  " in text
         assert set(said["testville"]) == {"en", "ja"}
         assert said["testville"]["en"].endswith("feel cooler.")
