@@ -1290,3 +1290,128 @@ class TestTomorrowIsSaidOnce:
         assert self._prose(data, late) == (
             "Thunderstorms likely starting in about an hour. "
             "Tomorrow will be about the same temperature as today.")
+
+
+class TestFog:
+    """Fog is worth saying whenever there is fog: when it lifts if it is
+    already out there, and when it closes in if it is not."""
+
+    @staticmethod
+    def _hourly(start, codes):
+        hours = [start + timedelta(hours=k) for k in range(len(codes))]
+        return {"time": [h.isoformat(timespec="minutes") for h in hours],
+                "weather_code": codes}
+
+    def _sentence(self, hourly, now=NOON, current=None, **overrides):
+        from linecast._weather.sections import fog_sentence
+        return fog_sentence(hourly, current or {}, now, _runtime(**overrides), daily=DAILY)
+
+    def _prose(self, data, now=NOON, **overrides):
+        import re
+        return " ".join(re.sub(r"\x1b\[[0-9;]*m", "", row)
+                        for row in narrative_lines(data, now, 400, _runtime(**overrides)))
+
+    def test_fog_now_says_when_it_lifts(self):
+        hourly = self._hourly(NOON, [45, 45, 45, 45, 3, 3, 3, 3])
+        assert self._sentence(hourly) == "Fog clearing around 16:00"
+        # Freezing fog is fog; the rime it leaves is the icon's business
+        hourly = self._hourly(NOON, [48, 48, 48, 3, 3, 3])
+        assert self._sentence(hourly) == "Fog clearing in a couple hours"
+
+    def test_the_reading_on_the_screen_wins(self):
+        # The header says fog and the model's hour says cloud: the
+        # paragraph may not read as though the air were clear
+        hourly = self._hourly(NOON, [3, 3, 3, 3, 3, 3])
+        assert self._sentence(hourly) == ""
+        assert self._sentence(hourly, current={"weather_code": 45}) == \
+            "Fog clearing shortly"
+        # The hour the model disagrees about is read as a thinning
+        hourly = self._hourly(NOON, [3, 45, 3, 3, 3, 3])
+        assert self._sentence(hourly) == ""
+        assert self._sentence(hourly, current={"weather_code": 45}) == \
+            "Fog clearing in about an hour"
+
+    def test_fog_that_outlasts_the_day_holds_through_it(self):
+        assert self._sentence(self._hourly(NOON, [45] * 26)) == "Fog through the day"
+        late = datetime(2026, 7, 15, 22, 5)
+        hourly = self._hourly(late.replace(minute=0), [45] * 26)
+        assert self._sentence(hourly, late) == "Fog through the night"
+
+    def test_fog_later_names_the_night_and_the_morning_after_it(self):
+        # Fog forming after midnight and burning off by nine: "tomorrow"
+        # belongs to the morning, and is said once
+        night = datetime(2026, 7, 15, 21, 0)
+        codes = [3] * 4 + [45] * 7 + [3] * 15
+        assert self._sentence(self._hourly(night, codes), night) == \
+            "Fog overnight, clearing tomorrow morning"
+        codes = [3] * 12 + [45] * 5 + [3] * 8
+        assert self._sentence(self._hourly(night, codes), night) == \
+            "Fog tomorrow morning, clearing in the afternoon"
+
+    def test_an_hour_of_fog_is_a_patch_and_not_a_sentence(self):
+        assert self._sentence(self._hourly(NOON, [3, 3, 45, 3, 3, 3])) == ""
+        # ...and fog further on is still found
+        assert self._sentence(self._hourly(NOON, [3, 3, 45, 3, 3, 45, 45, 45, 3, 3])) == \
+            "Fog this evening"
+
+    def test_a_clear_hour_inside_fog_is_a_thinning(self):
+        hourly = self._hourly(NOON, [3, 3, 45, 45, 3, 45, 45, 3, 3, 3])
+        assert self._sentence(hourly) == "Fog this afternoon, clearing around 19:00"
+        # Without the thinning the fog would read as over at four
+        hourly = self._hourly(NOON, [3, 3, 45, 45, 3, 3, 3, 3, 3, 3])
+        assert self._sentence(hourly) == "Fog this afternoon"
+
+    def test_fog_inside_one_stretch_of_the_day_names_the_stretch(self):
+        # Fog that comes and goes inside the one evening is the evening's
+        # fog; "clearing overnight" after "fog tonight" says it worse
+        evening = datetime(2026, 7, 15, 17, 0)
+        codes = [3] * 5 + [45] * 4 + [3] * 16
+        assert self._sentence(self._hourly(evening, codes), evening) == "Fog tonight"
+
+    def test_the_fog_reads_in_the_words_a_language_names_the_day_in(self):
+        # The phrase for a stretch of the day carries its own case or
+        # particle -- the Russian instrumental, the Finnish essive, the
+        # Japanese に, the Icelandic dative -- so it reads in the fog
+        # sentence as it does in the gusty afternoon and the freezing night.
+        evening = datetime(2026, 7, 15, 20, 0)
+        clearing = self._hourly(NOON, [45, 45, 45, 45, 3, 3, 3, 3])
+        tonight = self._hourly(evening, [3, 3] + [45] * 11 + [3] * 12)
+        for lang, lifting, coming in (
+            ("ja", "16時頃に霧が晴れる見込み", "今夜霧、明日の朝に晴れる見込み"),
+            ("ko", "안개 16시경 걷힘 예상", "오늘 밤 안개, 내일 아침 걷힘 예상"),
+            ("ru", "Туман рассеется около 16:00",
+             "Сегодня ночью туман, рассеется завтра утром"),
+            ("fi", "Sumu hälvenee noin klo 16",
+             "Sumua tänä yönä, hälvenee huomenna aamulla"),
+            ("el", "Η ομίχλη θα διαλυθεί γύρω στις 16:00",
+             "Ομίχλη απόψε, θα διαλυθεί αύριο το πρωί"),
+            ("tr", "Sis 16:00 civarında dağılacak",
+             "Bu gece sis bekleniyor, yarın sabah dağılacak"),
+            ("is", "Þokunni léttir um kl. 16",
+             "Þoka í nótt, léttir til á morgun fyrir hádegi"),
+            ("zh", "雾16时左右消散", "今晚有雾，明天早上消散"),
+        ):
+            assert self._sentence(clearing, lang=lang) == lifting, lang
+            assert self._sentence(tonight, evening, lang=lang) == coming, lang
+
+    def test_a_language_without_the_words_says_nothing(self, monkeypatch):
+        # A language whose table has not been given the fog sentences
+        # leaves them unsaid rather than saying them in English
+        import linecast._weather.i18n as i18n
+        bare = {k: v for k, v in _STRINGS["sw"].items() if not k.startswith("fog_")}
+        monkeypatch.setitem(i18n._STRINGS, "sw", bare)
+        assert self._sentence(self._hourly(NOON, [45, 45, 3, 3]), lang="sw") == ""
+        assert self._sentence(self._hourly(NOON, [45] * 26), lang="sw") == ""
+        assert self._sentence(self._hourly(NOON, [3, 3, 45, 45, 3, 3]), lang="sw") == ""
+
+    def test_the_sky_does_not_lift_the_fog_a_second_time(self):
+        from linecast._weather.sections import sky_sentence
+        codes = [45] * 5 + [0] * 20
+        hourly = dict(self._hourly(NOON, codes), cloud_cover=[100] * 5 + [10] * 20)
+        # The cloud clears when the fog does, and the sky sentence says
+        # so on its own
+        assert sky_sentence(hourly, DAILY, NOON, _runtime()) == "Clearing around 17:00"
+        data = {"daily": dict(DAILY, temperature_2m_max=[70, 75, 67]), "hourly": hourly,
+                "current": {"weather_code": 45}}
+        assert self._prose(data) == (
+            "Today will be 5° warmer than yesterday. Fog clearing around 17:00.")

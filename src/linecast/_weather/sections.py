@@ -395,8 +395,16 @@ def narrative_lines(data, now, width, runtime=None, trace=None):
         add(big, hours(noon_tomorrow), noon_tomorrow,
             lambda after: _comparison(daily, now, runtime, after is not None)[0])
 
+    fog, fog_at, fog_end = _fog(hourly, current, now, runtime, daily=daily)
+    if fog:
+        add(4, hours(fog_at), fog_at,
+            lambda after: _fog(hourly, current, now, runtime, after, daily)[0],
+            leaves=fog_end)
     sky, sky_at = _sky(hourly, daily, now, runtime, kind, precip["end"])
-    if sky:
+    # Fog is the sky.  Once the fog sentence has spoken, a sentence about
+    # the cloud would say the same change over again -- the fog closing
+    # in, or lifting -- in words that read as though it were something else.
+    if sky and not fog:
         add(3, hours(sky_at), sky_at,
             lambda after: _sky(hourly, daily, now, runtime, kind, precip["end"], after)[0])
     freeze, freeze_at = _freeze(hourly, current, now, runtime)
@@ -1555,6 +1563,130 @@ def _sky(hourly, daily, now, runtime, precip_kind="", precip_end=None, after=Non
         return _ucfirst(_s("sky_clouding", runtime,
                            time=_time_phrase(dt, now, runtime, after=after))), dt
     return "", None
+
+
+# ---------------------------------------------------------------------------
+# Fog
+# ---------------------------------------------------------------------------
+# The two codes the model has for fog: fog, and the freezing fog that
+# leaves rime on whatever it touches.  A person says "fog" for both and
+# the prose does too; which of the two it is, the header's label says.
+_FOG_CODES = (45, 48)
+
+
+def fog_sentence(hourly, current, now, runtime=None, daily=None):
+    """"Fog overnight, clearing tomorrow morning": when there is fog in
+    the day ahead, when it closes in, and when it lifts.
+
+    Fog is worth a sentence whatever else the weather is doing, so it is
+    said alongside the rain rather than instead of it.  Fog already out
+    there is said as what it does next, since the header has shown it and
+    the paragraph must not read as though the air were clear.  An hour of
+    it later on is a patch the model happens to have put on the hour and
+    goes unsaid; a clear hour with fog on both sides is a thinning, not a
+    lifting, as with rain."""
+    if runtime is None:
+        runtime = current_runtime(WeatherRuntime)
+    return _fog(hourly, current, now, runtime, daily=daily)[0]
+
+
+def _fog(hourly, current, now, runtime, after=None, daily=None):
+    """The fog sentence, the hour it is anchored at, and the hour it names
+    as the end, when it names one."""
+    nothing = ("", None, None)
+    codes = hourly.get("weather_code") or []
+    window = [(i, dt) for i, dt in _hours_ahead(hourly, now) if i < len(codes)]
+    if len(window) < 2:
+        return nothing
+
+    def is_fog(n):
+        return codes[window[n][0]] in _FOG_CODES
+
+    def part_of_day(dt):
+        """The stretch of the day an hour belongs to, by the parts the
+        prose names: the night runs past midnight, so two in the morning
+        and the evening before it are the one stretch."""
+        if dt.hour >= 21:
+            return dt.date(), "night"
+        if dt.hour < 5:
+            return dt.date() - timedelta(days=1), "night"
+        if dt.hour < 12:
+            return dt.date(), "morning"
+        if dt.hour < 17:
+            return dt.date(), "afternoon"
+        return dt.date(), "evening"
+
+    def run_from(n):
+        """The foggy hours from window[n] on, and the first clear hour
+        after them, or None when the fog outlasts the window."""
+        run = [window[n]]
+        k = n + 1
+        while k < len(window):
+            if not is_fog(k):
+                if k + 1 < len(window) and is_fog(k + 1):
+                    run.append(window[k])
+                    k += 1
+                    continue
+                return run, k
+            run.append(window[k])
+            k += 1
+        return run, None
+
+    if is_fog(0) or (current or {}).get("weather_code") in _FOG_CODES:
+        # Fog the header is already showing.  The reading on the screen
+        # wins over the model's first hour where the two disagree, and
+        # that hour is read as a thinning inside the fog.
+        _, end_n = run_from(0)
+        if end_n is not None:
+            if not _has("fog_ending", runtime):
+                return nothing
+            end = window[end_n][1]
+            return (_ucfirst(_s("fog_ending", runtime,
+                                time=_time_phrase(end, now, runtime, after=after))),
+                    now, end)
+        # Fog with no end in the day ahead: how long it holds is all
+        # there is to say, and that is the day or the night, not an hour.
+        key = "fog_continuing"
+        if _is_night(daily or {}, now) and _has("fog_continuing_night", runtime):
+            key = "fog_continuing_night"
+        if not _has(key, runtime):
+            return nothing
+        return _ucfirst(_s(key, runtime)), now, None
+
+    n = 1
+    while n < len(window):
+        if not is_fog(n):
+            n += 1
+            continue
+        run, end_n = run_from(n)
+        if sum(1 for i, _ in run if codes[i] in _FOG_CODES) > 1:
+            # Fog fills a part of the day rather than arriving at an
+            # hour, so it is named the way the gusty afternoon and the
+            # freezing night are: "fog tonight", not "fog at eleven".
+            # The lifting is an hour, and is named as one.
+            start = run[0][1]
+            time = _period_phrase(start, now, runtime, after=after)
+            end = window[end_n][1] if end_n is not None else None
+            # The lifting is worth naming when it falls in another
+            # stretch of the day than the fog came in on; inside the one
+            # stretch, "fog tonight" has said it, and "fog tonight,
+            # clearing overnight" would only say it again, worse.
+            if (end is not None and part_of_day(end) != part_of_day(start)
+                    and _has("fog_starting_ending", runtime)):
+                # The end is phrased after the start, so a night that
+                # runs into the morning says "tomorrow" once
+                ending = _time_phrase(end, now, runtime, after=start)
+                return (_ucfirst(_s("fog_starting_ending", runtime,
+                                    time=time, end=ending)), start, end)
+            if not _has("fog_starting", runtime):
+                return nothing
+            return _ucfirst(_s("fog_starting", runtime, time=time)), start, None
+        # A single foggy hour is not worth a sentence; there may be fog
+        # that is further on.
+        if end_n is None:
+            break
+        n = end_n + 1
+    return nothing
 
 
 # ---------------------------------------------------------------------------
