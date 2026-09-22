@@ -100,42 +100,54 @@ class TestReprojectTerrain:
     """Terrain's stand-in is the street one's twin: the shaded ground,
     the shoreline and the rivers all move and scale together."""
 
-    def _prev(self, dots=None):
+    def _prev(self, dots=None, borders=None):
         fill = [[(x, y) for x in range(GW)] for y in range(HC * 2)]
         coast = [[0] * GW for _ in range(HC)]
         coast[1][3] = _BITS[0][0]
         rdots = dots or [[0] * GW for _ in range(HC)]
         rivers = maps._ShiftedLayer(
             rdots, [["ink" if d else None for d in row] for row in rdots])
-        return (BBOX, GW, HC, fill, coast, rivers)
+        bdots = borders or [[0] * GW for _ in range(HC)]
+        border_layer = maps._ShiftedLayer(
+            bdots, [["edge" if d else None for d in row] for row in bdots])
+        # the record carries the elevation, the border stroke and the
+        # land/water bits too: the borders are the camera's now, so
+        # they move with the rest, and the bits are what a resting
+        # window cuts its own shoreline from
+        return (BBOX, GW, HC, fill, coast, rivers, None, border_layer, None)
 
     def test_the_very_same_window_does_not_stand_in(self):
         assert maps._reproject_terrain(self._prev(), BBOX, GW, HC) is None
 
     def test_a_source_of_another_size_does_stand_in(self):
         # the street register's reason, for the same reason
-        fill, _coast, _rivers = maps._reproject_terrain(
+        fill, _coast, _rivers, _borders = maps._reproject_terrain(
             self._prev(), (1.0, 0.0, 9.0, 8.0), GW + 1, HC)
         assert len(fill[0]) == GW + 1
 
-    def test_a_pan_moves_the_fill_the_coast_and_the_rivers_together(self):
+    def test_a_pan_moves_the_fill_the_coast_and_the_linework_together(self):
         rdots = [[0] * GW for _ in range(HC)]
         rdots[2][5] = _BITS[0][0]
-        fill, coast, rivers = maps._reproject_terrain(
-            self._prev(rdots), (1.0, 0.0, 9.0, 8.0), GW, HC)
+        bdots = [[0] * GW for _ in range(HC)]
+        bdots[3][6] = _BITS[0][0]
+        fill, coast, rivers, borders = maps._reproject_terrain(
+            self._prev(rdots, bdots), (1.0, 0.0, 9.0, 8.0), GW, HC)
         # one degree east: everything moves one cell left
         assert fill[0][0] == (1, 0)
         assert fill[0][GW - 1] == BG_PRIMARY
         assert coast[1][2] == _BITS[0][0] and _count(coast) == 1
         assert rivers.dots[2][4] == _BITS[0][0]
         assert rivers.color[2][4] == "ink"
+        assert borders.dots[3][5] == _BITS[0][0]
+        assert borders.color[3][5] == "edge"
 
     def test_a_view_without_tiles_carries_no_rivers(self):
         prev = (BBOX, GW, HC, [[(x, y) for x in range(GW)]
-                               for y in range(HC * 2)], None, None)
-        fill, coast, rivers = maps._reproject_terrain(
+                               for y in range(HC * 2)],
+                None, None, None, None)
+        fill, coast, rivers, borders = maps._reproject_terrain(
             prev, (1.0, 0.0, 9.0, 8.0), GW, HC)
-        assert coast is None and rivers is None
+        assert coast is None and rivers is None and borders is None
         assert fill[0][0] == (1, 0)
 
     def test_it_reprojects_exactly_as_the_street_one_does(self):
@@ -145,7 +157,7 @@ class TestReprojectTerrain:
         bbox = (2.0, 2.0, 6.0, 6.0)
         street_fills, street_layer = maps._reproject_street(
             _prev(dots), bbox, GW, HC, BG_PRIMARY)
-        fill, _coast, rivers = maps._reproject_terrain(
+        fill, _coast, rivers, _borders = maps._reproject_terrain(
             self._prev(dots), bbox, GW, HC)
         assert fill == street_fills
         assert rivers.dots == street_layer.dots
@@ -166,7 +178,7 @@ class TestTerrainStandInFrame:
         # the record carries the elevation grid now, for the frames
         # that crop it rather than reproject it
         monkeypatch.setattr(maps, "_last_terrain",
-                            [(BBOX, GW, HC, fill, None, None, None)])
+                            [(BBOX, GW, HC, fill, None, None, None, None)])
         lines, _r, _h, loading, err = maps._render_terrain(
             (1.0, 0.0, 9.0, 8.0), GW, HC, False, (0, 0), None, None, None,
             None, "en", None)
@@ -309,7 +321,8 @@ class TestReprojectGlobe:
         bbox = (2.0, 2.0, 6.0, 6.0)
         prev = self._prev()
         fill, coast, borders = maps._reproject_globe(prev, bbox, GW, HC)
-        t_fill, t_coast, t_rivers = maps._reproject_terrain(prev, bbox, GW, HC)
+        t_fill, t_coast, t_rivers, _b = maps._reproject_terrain(
+            prev + (None, None), bbox, GW, HC)
         assert fill == t_fill and coast == t_coast
         assert borders.dots == t_rivers.dots
         assert borders.color == t_rivers.color
@@ -354,6 +367,17 @@ class TestGlobeStandInFrame:
     COLS, ROWS = 40, 14
     LAT, LON = 40.7, -74.0
 
+    @pytest.fixture(autouse=True)
+    def _forget(self):
+        # terrain is one camera at every zoom now, so its planet is
+        # carried in the same slot its valleys are; street's is still
+        # its own
+        maps._last_globe.clear()
+        maps._last_terrain[0] = None
+        yield
+        maps._last_globe.clear()
+        maps._last_terrain[0] = None
+
     def _view(self, gw, hc):
         spy = hc * 2
         return _globe.GlobeView(
@@ -374,10 +398,10 @@ class TestGlobeStandInFrame:
 
     def test_a_level_crossing_draws_the_scaled_disk(self, monkeypatch):
         gw, hc = maps.map_cells((self.COLS, self.ROWS))
-        maps._last_globe.clear()
         real = self._frame(monkeypatch, 120.0, self._view(gw, hc))
         stand = self._frame(monkeypatch, 80.0, None)
         maps._last_globe.clear()
+        maps._last_terrain[0] = None
         blank = self._frame(monkeypatch, 80.0, None)
         assert _braille(real) and _braille(stand) and not _braille(blank)
         assert _ink(stand) > 4 * _ink(blank)
@@ -507,8 +531,8 @@ class TestTheNewestViewStandsIn:
         coast = [[0xFF] * gw for _ in range(hc)]
         landed = maps.TerrainView(elev, coast, None, None, None)
         maps._last_terrain[0] = (
-            west, gw, hc,
-            maps._terrain_buffer(elev, west, gw, hc), coast, None)
+            west, gw, hc, maps._terrain_buffer(landed, west, gw, hc),
+            coast, None, elev, None, None)
         before = self._frame("terrain")
         assert _braille_between(before, 0, gw // 4) > 0
         assert _braille_between(before, gw - gw // 4, gw) == 0

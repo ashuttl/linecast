@@ -6,6 +6,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 - Weather: In Croatia, warnings filed by county are matched to your address by the county's boundary. They had been matched on the county's name.
 - Weather: The current conditions come from the nearest airport's latest report, where one is close by and recent, instead of from the forecast model alone. A morning fog the model is slow to clear no longer lingers in the header after the sky has cleared. The credit line names the Aviation Weather Center when its report is used.
+- Maps: The terrain map is drawn on the globe's geometry at every zoom. A regional view, a few degrees wide and up, now curves as the globe does instead of lying flat, with its borders, rivers and city dots curving with it, and zooming out no longer cuts from a flat map to a planet. Street mode is unchanged.
 - Weather: The forecast paragraph mentions fog: when it closes in, and when it lifts. Fog already out there is said as when it clears, or as holding through the day or the night.
 - Weather: The forecast paragraph leads with the rain worth planning for rather than an early chance of a few drops, names a turn to thunder or snow, agrees with the header about what is falling now, and names a wet day later in the week by its heaviest hour.
 - Weather: A forecast read in the small hours calls the coming night "tonight" rather than "tomorrow night". Rain that turns to something else within one part of the day is said to do so later in it, instead of naming the same morning twice.

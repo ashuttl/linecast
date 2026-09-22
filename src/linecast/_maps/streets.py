@@ -62,7 +62,7 @@ _MIN_BUILDING_DOTS = 4.0  # one sub-pixel is 2x2 dots
 # ---------------------------------------------------------------------------
 # Which tiles a view needs
 # ---------------------------------------------------------------------------
-def view_tiles(bbox, height_cells, window=None):
+def view_tiles(bbox, height_cells, window=None, coverage=None):
     """(band, z_src, [(z, x, y), ...]) for a view.
 
     The source zoom comes from the style model, which runs ahead of the
@@ -87,6 +87,11 @@ def view_tiles(bbox, height_cells, window=None):
     to z13 and eight tiles, where the padded bbox at z14 sits under the
     guard's own ceiling and asks for thirty-two — four times the tiles
     and a build seven times as long, for a picture the crop must not be.
+
+    `coverage` is the ground the tiles must actually cover, when that is
+    not the bbox: a camera's window is a patch of a sphere, and the bbox
+    it hands over is the scale it is drawn at rather than the footprint
+    it sits on.  The band and the source zoom still follow the bbox.
     """
     wbbox, whc = window if window is not None else (bbox, height_cells)
     z = style.z_eff(wbbox, whc)
@@ -100,7 +105,11 @@ def view_tiles(bbox, height_cells, window=None):
                   f"coarsening to z{z_src - 1}")
         z_src -= 1
         keys = tiles_for_bbox(wbbox, z_src)
-    if window is not None:
+    # the source zoom is settled by the window, whatever ground the
+    # tiles have to cover; only the list follows the wider footprint
+    if coverage is not None:
+        keys = tiles_for_bbox(coverage, z_src)
+    elif window is not None:
         keys = tiles_for_bbox(bbox, z_src)
     return band, z_src, keys
 
@@ -165,9 +174,9 @@ def prefetch_around(bbox, height_cells, keys, window=None):
     prefetch_tiles((guess + pan)[:cap])
 
 
-def fetch_view(bbox, height_cells, window=None):
+def fetch_view(bbox, height_cells, window=None, coverage=None):
     """(band, {(z, x, y): bytes|None}) — the network half of a view."""
-    band, _z_src, keys = view_tiles(bbox, height_cells, window)
+    band, _z_src, keys = view_tiles(bbox, height_cells, window, coverage)
     return band, fetch_tiles(keys)
 
 
@@ -323,12 +332,13 @@ OCEAN_TRUST_ZOOM = 11
 OCEAN_CLASS = ("ocean", "dock")
 
 
-def _water_class_mask(view, bbox, graph_w, height_cells, classes):
+def _water_class_mask(view, bbox, graph_w, height_cells, classes,
+                      camera=None):
     """(hc*4) x (gw*2) 1/0 mask of the tiles' water polygons in `classes`."""
     dw, dh = graph_w * 2, height_cells * 4
     grid = [bytearray(dw) for _ in range(dh)]
     for _name, feat, project in iter_layer(view, "water", bbox, dw, dh,
-                                           POLYGON):
+                                           POLYGON, camera):
         if feat["tags"].get("class") not in classes:
             continue
         for rings in assemble_polygons(feat["geometry"]):
@@ -337,7 +347,7 @@ def _water_class_mask(view, bbox, graph_w, height_cells, classes):
     return grid
 
 
-def inland_water_mask(view, bbox, graph_w, height_cells):
+def inland_water_mask(view, bbox, graph_w, height_cells, camera=None):
     """(hc*4) x (gw*2) 1/0 mask of the tiles' inland water polygons.
 
     The same polygons, the same scanline fill and the same dot grid
@@ -345,7 +355,7 @@ def inland_water_mask(view, bbox, graph_w, height_cells):
     other fill classes, and without the ocean.
     """
     return _water_class_mask(view, bbox, graph_w, height_cells,
-                             INLAND_WATER_CLASS)
+                             INLAND_WATER_CLASS, camera)
 
 
 def stroked_water(water, min_dots=None):
@@ -846,7 +856,8 @@ def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
     return feats
 
 
-def water_lines(view, bbox, graph_w, height_cells, band, color, water=None):
+def water_lines(view, bbox, graph_w, height_cells, band, color, water=None,
+                camera=None):
     """The tiles' waterways as their own braille layer.
 
     A river narrower than a dot has no polygon at any zoom — it is a
@@ -865,7 +876,7 @@ def water_lines(view, bbox, graph_w, height_cells, band, color, water=None):
     hide = open_water(water) if water is not None else None
     dw, dh = graph_w * 2, height_cells * 4
     for _name, feat, project in iter_layer(view, "waterway", bbox, dw, dh,
-                                           LINESTRING):
+                                           LINESTRING, camera):
         key = style.waterway_style(feat["tags"])
         if key is None:
             continue
@@ -895,14 +906,15 @@ def _stamp_line(grid, pts, value, dw, dh, thick=1):
                         row[xx] = value
 
 
-def _stamp_aeroways(grid, view, bbox, dw, dh, value):
+def _stamp_aeroways(grid, view, bbox, dw, dh, value, camera=None):
     """Runways, taxiways and aprons take the urban tint, over anything.
 
     OSM maps an airfield as a grass polygon with paved geometry on top;
     without this pass the whole airport reads as meadow.  Runway lines
     stamp two sub-pixels wide — a runway's width is its identity.
     """
-    for _name, feat, project in iter_layer(view, "aeroway", bbox, dw, dh):
+    for _name, feat, project in iter_layer(view, "aeroway", bbox, dw, dh,
+                                           None, camera):
         cls = feat["tags"].get("class")
         if cls not in style.AEROWAY_COVER:
             continue
@@ -918,7 +930,7 @@ def _stamp_aeroways(grid, view, bbox, dw, dh, value):
                             thick=2 if cls == "runway" else 1)
 
 
-def _street_density_urban(grid, view, bbox, dw, dh, value):
+def _street_density_urban(grid, view, bbox, dw, dh, value, camera=None):
     """Dense minor-street fabric takes the urban tint where nothing
     else claimed the ground.
 
@@ -931,7 +943,7 @@ def _street_density_urban(grid, view, bbox, dw, dh, value):
     """
     dots = [bytearray(dw) for _ in range(dh)]
     for _name, feat, project in iter_layer(view, "transportation", bbox,
-                                           dw, dh, LINESTRING):
+                                           dw, dh, LINESTRING, camera):
         if feat["tags"].get("class") not in style.URBAN_STREET_CLASS:
             continue
         for part in feat["geometry"]:
@@ -988,7 +1000,7 @@ def _despeckle_cover(grid, dw, dh):
     return out
 
 
-def land_cover_grid(view, bbox, graph_w, height_cells):
+def land_cover_grid(view, bbox, graph_w, height_cells, camera=None):
     """Sub-pixel land-cover classes — terrain mode's colour story.
 
     (hc*2) x gw of indices into style.COVER_ORDER (0 = no cover),
@@ -1001,7 +1013,7 @@ def land_cover_grid(view, bbox, graph_w, height_cells):
     grid = [bytearray(dw) for _ in range(dh)]
     groups = {}
     for name, feat, project in iter_layer(view, ("landcover", "landuse"),
-                                          bbox, dw, dh, POLYGON):
+                                          bbox, dw, dh, POLYGON, camera):
         cls = feat["tags"].get("class")
         if name == "landcover":
             key = style.COVER_LANDCOVER.get(cls)
@@ -1018,12 +1030,13 @@ def land_cover_grid(view, bbox, graph_w, height_cells):
         for rings in groups.get(key, ()):
             _fill_rings(grid, rings, i + 1, dw, dh)
     urban = style.COVER_ORDER.index("urban") + 1
-    _street_density_urban(grid, view, bbox, dw, dh, urban)
-    _stamp_aeroways(grid, view, bbox, dw, dh, urban)
+    _street_density_urban(grid, view, bbox, dw, dh, urban, camera)
+    _stamp_aeroways(grid, view, bbox, dw, dh, urban, camera)
     return _despeckle_cover(grid, dw, dh)
 
 
-def build_water_view(bbox, graph_w, height_cells, tiles, band, color):
+def build_water_view(bbox, graph_w, height_cells, tiles, band, color,
+                     camera=None):
     """(inland water dot mask, waterway layer, land cover grid, ocean
     dot mask) — terrain mode's half.
 
@@ -1038,14 +1051,15 @@ def build_water_view(bbox, graph_w, height_cells, tiles, band, color):
     elevation data's noisy idea of the shore.
     """
     view = decode_view(tiles)
-    water = inland_water_mask(view, bbox, graph_w, height_cells)
+    water = inland_water_mask(view, bbox, graph_w, height_cells, camera)
     z_src = next(iter(tiles))[0] if tiles else 0
-    ocean = (_water_class_mask(view, bbox, graph_w, height_cells, OCEAN_CLASS)
+    ocean = (_water_class_mask(view, bbox, graph_w, height_cells, OCEAN_CLASS,
+                               camera)
              if z_src >= OCEAN_TRUST_ZOOM else None)
     return (water,
             water_lines(view, bbox, graph_w, height_cells, band, color,
-                        water),
-            land_cover_grid(view, bbox, graph_w, height_cells),
+                        water, camera),
+            land_cover_grid(view, bbox, graph_w, height_cells, camera),
             ocean)
 
 

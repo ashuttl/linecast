@@ -349,7 +349,7 @@ def _contrast_ink(cell_bg):
 
 def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
                     coast=None, strokes=None, coast_ink=None,
-                    ink_dusk=None):
+                    ink_dusk=None, borders=None):
     """Terrain fill with braille geography *on top* (inverse of radar).
 
     The coastline comes from `coast` — sea-level contour masks derived
@@ -369,6 +369,12 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
     first: dot masks OR together, and the last layer with dots in a cell
     owns its ink — the same one-ink-per-cell rule the layers themselves
     resolve by draw order.
+
+    `borders` is the Natural Earth stroke as its own braille layer, and
+    it takes the place the basemap's border cells hold — under the
+    coastline and under everything in `strokes`.  A border is the one
+    line on this map that is a convention rather than a thing on the
+    ground, and it yields to anything that is.
     """
     coast_stroke = coast_ink if coast_ink is not None else COAST_STROKE
     lines = []
@@ -382,6 +388,8 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
             ov = overlays.get((cx, cy))
             bmask = (basemap.dots[cy][cx] if basemap is not None
                      and basemap.color[cy][cx] == BORDER else 0)
+            if borders is not None:
+                bmask |= borders.dots[cy][cx]
             cmask = coast[cy][cx] if coast is not None else 0
             smask, sink = 0, None
             if strokes is not None:

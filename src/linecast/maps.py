@@ -58,10 +58,12 @@ from linecast._maps.paint import (  # noqa: F401 — the inks and composers
     compact_colors, compose_map, compose_terrain,
 )
 from linecast._maps.views import (  # noqa: F401 — the loaders and caches
+    SHORE_LAND, SHORE_WATER,
     TerrainView, _EMPTY_TERRAIN, _coast_dots, _elev_cache,
-    _get_clouds, _get_elevation, _get_globe, _get_street, _globe_cache,
-    _sphere, _street_cache, _terrain_buffer, _terrain_cache, _view_key,
-    _water_subpixels, fetch_destination, take_street, take_terrain,
+    _get_clouds, _get_elevation, _get_globe, _get_street,
+    _globe_cache, _sphere, _street_cache, _terrain_buffer, _terrain_cache,
+    _view_key, _water_subpixels, fetch_destination, take_street,
+    take_terrain,
 )
 from linecast._radar.basemap import (  # noqa: F401 — _edge_dots is re-exported
     _BITS, BORDER, DotLayer, _edge_dots,
@@ -70,8 +72,7 @@ from linecast import _theme
 from linecast._radar.i18n import rs
 from linecast._radar.render import bbox_for
 from linecast._radar.ui import (
-    CROSSHAIR, DIM, MUTED,
-    _ShiftedBasemap, _get_basemap, _panned_place, _shift_grid,
+    CROSSHAIR, DIM, MUTED, _get_basemap, _panned_place, _shift_grid,
 )
 from linecast._runtime import log_failure
 from linecast._scenes import Memo
@@ -112,6 +113,21 @@ def max_zoom(gw, hc):
     return MAX_ZOOM_DEG * max(1.0, hc * 2 * (cell_aspect() / 2.0) / gw)
 
 
+def wide_source(view, lat, zoom, gw, hc):
+    """Whether this register draws the window from the world's sources.
+
+    Terrain is one camera from the valley to the planet, so what is
+    left to ask is only where the ground comes from: the terrarium
+    tiles and the vector polygons while the window is a patch of
+    Mercator, the baked planet beyond (`_globe.local_tiles`).  Street
+    still crosses a projection at `_globe.ZOOM_DEG`, and keeps its own
+    question until stage two.
+    """
+    if view == "street":
+        return _globe.is_globe(zoom, lat)
+    return not _globe.local_tiles(lat, zoom, gw, hc)
+
+
 def fit_view(points, gw, hc, margin=0.15):
     """The view that frames `points` on a gw by hc map: (lat, lon, zoom).
 
@@ -134,12 +150,17 @@ def fit_view(points, gw, hc, margin=0.15):
     return lat_c, lon_c, max(MIN_ZOOM_DEG, min(max_zoom(gw, hc), zoom))
 
 
-def _get_route_layer(route, bbox, gw, hc):
+def _get_route_layer(route, bbox, gw, hc, project=None):
     """The route as its own ranked braille layer, memoized per view.
 
     Cool cyan, deliberately not the marker's yellow and never the
     motorway's amber: two UI accents in total, yellow for your points
     and cyan for your route, so a route can never read as a road.
+
+    `project` is the view's own placement of a (lon, lat) on the dot
+    grid, for a terrain view the camera draws: the line has to run
+    along the valley the hillshade puts under it, not the one the bbox
+    would.
     """
     if route is None:
         return None
@@ -149,7 +170,8 @@ def _get_route_layer(route, bbox, gw, hc):
         ink = style.palette().get("route",
                                         style.PALETTE_DARK["route"])
         rank = style.LINE_STYLES["route"][3]
-        layer._draw_lines([route.coords], ink, width=2, rank=rank)
+        layer._draw_lines([route.coords], ink, width=2, rank=rank,
+                          project=project)
         return layer
 
     return _route_layer_cache.get((id(route), _view_key(bbox, gw, hc)), build)
@@ -181,13 +203,14 @@ class _ShiftedLayer:
         self.ribbon = set(ribbon)
 
 
-# The newest real view in each flat register, and the ground every
-# frame is cut from: street as (bbox, graph_w, height_cells, fills,
-# layer, labels), terrain as (bbox, graph_w, height_cells, fill buffer,
-# coast, rivers, elevation).  The bbox and the size are the *overscan's*
-# — a view is built a margin wider than the window that asked for it —
-# so a frame whose window falls inside one of these is an exact crop of
-# it and needs nothing fetched at all.
+# The newest real view in each register, and the ground every frame is
+# cut from: street as (bbox, graph_w, height_cells, fills, layer,
+# labels), terrain as (bbox, graph_w, height_cells, fill buffer, coast,
+# rivers, elevation, borders, the land and water bits).  The bbox and
+# the size are the *overscan's* — a view is built a margin wider than
+# the window that asked for it — so a frame whose window falls inside
+# one of these needs nothing fetched at all: at the built view's own
+# centre it is a crop of it, and off that centre a resample of it.
 #
 # A window that has moved past the margin is still drawn from here,
 # moved and scaled, while the next view builds: a flat view at a new
@@ -353,12 +376,19 @@ def _reprojection(prev, bbox, graph_w, height_cells):
 def _translation(prev, bbox, graph_w, height_cells):
     """(dx, dy) of the window inside `prev`'s grid, or None.
 
-    A pan is a translation: the two windows are the same scale and
-    differ only in where they start, so a stand-in is `prev` sliced and
-    padded rather than resampled sub-cell by sub-cell.  Only a zoom, a
-    resize or a rounding that does not line up needs the axis maps.
-    The very same window at the very same size is nobody's stand-in and
-    comes back None, as it always has.
+    A pan is taken as a translation: the two windows are the same
+    scale and differ in where they start, so a stand-in is `prev`
+    sliced and padded rather than resampled sub-cell by sub-cell.
+    Only a zoom, a resize or a rounding that does not line up needs
+    the axis maps.  The very same window at the very same size is
+    nobody's stand-in and comes back None, as it always has.
+
+    A translation is what the flat register's ground *is*, and only
+    what the camera's ground looks like from nearby: two orthographic
+    views at different centres turn against one another
+    (`_globe.crop_dots`).  This is a stand-in, drawn while the real
+    view is on its way, and a slice is what it can afford; the frame
+    that replaces it is the one that has to be right.
     """
     at = _maps_overscan.locate(_maps_overscan.Frame(prev[0], prev[1],
                                                     prev[2]),
@@ -391,18 +421,36 @@ def _reproject_street(prev, bbox, graph_w, height_cells, ground):
     return m.fills(prev[3], ground), _ShiftedLayer(dots, color)
 
 
+def _shift_cut(layer, dx, dy, graph_w, height_cells):
+    """A braille layer sliced into a window that has outrun the margin."""
+    if layer is None:
+        return None
+    cut = _maps_overscan.shift_crop
+    return _ShiftedLayer(
+        cut(layer.dots, dx, dy, graph_w, height_cells, 0),
+        cut(layer.color, dx, dy, graph_w, height_cells, None))
+
+
 def _reproject_terrain(prev, bbox, graph_w, height_cells):
-    """(fill buffer, coast, rivers) of `prev` redrawn into `bbox`, or None.
+    """(fill, coast, rivers, borders) of `prev` in `bbox`, or None.
 
     Terrain's stand-in is the street one's twin: the shaded ground
-    moves and scales, the shoreline and the rivers go with it, and the
-    elevation readout waits — a probe answered from the old grid would
-    name the height of somewhere else.  The fill carried across is the
-    bare terrain, before the sun and the clouds, so the stand-in is
-    shaded where it now is rather than dragging an old terminator
-    across the screen.
+    moves and scales, the shoreline, the rivers and the borders go with
+    it, and the elevation readout waits — a probe answered from the old
+    grid would name the height of somewhere else.  The fill carried
+    across is the bare terrain, before the sun and the clouds, so the
+    stand-in is shaded where it now is rather than dragging an old
+    terminator across the screen.
+
+    Twin in its arithmetic and not in its claim.  The street register
+    is drawn on a box that is linear in longitude and latitude, where
+    a pan really is a translation; terrain is drawn by the camera,
+    where it is one only near the centre.  So this picture is out of
+    register by `_globe.crop_dots` and is only ever the one on screen
+    while the view it stands in for is being fetched.
     """
     pfill, pcoast, privers = prev[3], prev[4], prev[5]
+    pborders = prev[7]
     at = _translation(prev, bbox, graph_w, height_cells)
     if at is not None:
         dx, dy = at
@@ -410,10 +458,8 @@ def _reproject_terrain(prev, bbox, graph_w, height_cells):
         return (cut(pfill, dx, dy * 2, graph_w, height_cells * 2,
                     BG_PRIMARY),
                 cut(pcoast, dx, dy, graph_w, height_cells, 0),
-                (_ShiftedLayer(
-                    cut(privers.dots, dx, dy, graph_w, height_cells, 0),
-                    cut(privers.color, dx, dy, graph_w, height_cells, None))
-                 if privers is not None else None))
+                _shift_cut(privers, dx, dy, graph_w, height_cells),
+                _shift_cut(pborders, dx, dy, graph_w, height_cells))
     m = _reprojection(prev, bbox, graph_w, height_cells)
     if m is None:
         return None
@@ -421,7 +467,10 @@ def _reproject_terrain(prev, bbox, graph_w, height_cells):
     rivers = None
     if privers is not None:
         rivers = _ShiftedLayer(*m.dots(privers.dots, privers.color))
-    return m.fills(pfill, BG_PRIMARY), coast, rivers
+    borders = None
+    if pborders is not None:
+        borders = _ShiftedLayer(*m.dots(pborders.dots, pborders.color))
+    return m.fills(pfill, BG_PRIMARY), coast, rivers, borders
 
 
 def _disk_centre(bbox):
@@ -495,22 +544,32 @@ def _take_landing(view, graph_w, height_cells):
     # would have built, and the memo hands that frame back this very grid
     lbbox, lgw, lhc, lview = landed
     _last_terrain[0] = (
-        lbbox, lgw, lhc,
-        _terrain_buffer(lview.elev, lbbox, lgw, lhc, lview.water,
-                        lview.cover),
-        lview.coast, lview.rivers, lview.elev)
+        lbbox, lgw, lhc, _terrain_buffer(lview, lbbox, lgw, lhc),
+        lview.coast, lview.rivers, lview.elev, lview.borders, lview.shore)
 
 
-def _flat_frame(view, bbox, graph_w, height_cells, block, motion):
+def _flat_frame(view, bbox, graph_w, height_cells, block, motion, cap=None):
     """(the view to build, where the window sits in it, what is in hand).
 
     A blocking frame — `--print` — builds the window's own bbox and
     nothing beyond it, so a printed map is the bytes it has always been.
     Live, the window is a crop: of the view already in hand when that
-    one reaches this far, and otherwise of a fresh overscan centred
-    ahead of wherever the view is going.  The third value is the built
-    view itself when it is the one in hand, which is what keeps a pan
-    inside the margin from asking the loader anything at all.
+    one reaches this far, and otherwise of a fresh overscan.  The third
+    value is the built view itself when it is the one in hand, which is
+    what keeps a pan inside the margin from asking the loader anything
+    at all.
+
+    Terrain's margin sits evenly on every side and its `motion` is
+    ignored: under one camera an overscan is the same centre with more
+    cells, so a window at that centre samples the very same plane
+    points and its crop is exact.  A window that has since panned off
+    it is a crop of the same *ground*, which is not the same thing:
+    the built view has turned with the meridians, and the samples are
+    there at somewhere other than the offset.  A frame at rest goes
+    and gets them (_maps_overscan.Resample); a frame in motion slices,
+    and `cap` is what stops the slice being taken so far off the built
+    view's centre that a reader can see it swim
+    (_maps_overscan.locate).
     """
     if block:
         return (_maps_overscan.window_frame(bbox, graph_w, height_cells),
@@ -518,25 +577,126 @@ def _flat_frame(view, bbox, graph_w, height_cells, block, motion):
     last = (_last_street if view == "street" else _last_terrain)[0]
     if last is not None:
         frame = _maps_overscan.Frame(last[0], last[1], last[2])
-        at = _maps_overscan.locate(frame, bbox, graph_w, height_cells)
+        at = _maps_overscan.locate(frame, bbox, graph_w, height_cells,
+                                   cap=cap)
         if at is not None:
             return frame, at, last
     frame, at = _maps_overscan.plan(bbox, graph_w, height_cells, motion)
+    if cap is not None and not _margin_is_local(frame):
+        return (_maps_overscan.window_frame(bbox, graph_w, height_cells),
+                (0, 0), None)
     return frame, at, None
+
+
+def _margin_is_local(frame):
+    """Whether a terrain overscan can be stitched from the tiles.
+
+    Asked of a margin round a window already within their reach, so
+    the hand-off itself is not the question (`_globe.local_tiles`);
+    what is left is whether the margin's corners stay on the disk and
+    off the Mercator edge.  Where they do not — a window a degree or
+    two short of the hand-off on a wide terminal — the window is
+    built alone and does without its margin.
+    """
+    cam = _globe.Camera.for_bbox(frame.bbox, frame.gw, frame.hc)
+    return _globe.local_tiles(cam.lat, cam.zoom, frame.gw, frame.hc,
+                              margin=True)
+
+
+def _get_terrain(bbox, gw, hc, block, window=None):
+    """The terrain register's one loader, whatever the zoom.
+
+    The footprint picks the source and nothing else does: within the
+    Mercator sources' reach the view is stitched from terrarium tiles
+    and vector polygons, and beyond it from the planet baked once into
+    a texture.  Both arrive through the same camera, so the two meet
+    without a seam — the detail changes at the hand-off, the shape does
+    not.
+
+    The footprint is the *window's*, when `window` says the bbox is
+    its overscan: the margin is a quarter again as wide, and a crop
+    has to be the map the window itself would draw.
+    """
+    cam = _globe.Camera.for_bbox(bbox, gw, hc)
+    if window is not None:
+        wcam = _globe.Camera.for_bbox(window[0], gw, window[1])
+        local = wcam.local_tiles
+    else:
+        local = cam.local_tiles
+    if local:
+        return _get_elevation(bbox, gw, hc, block, window)
+    view = _get_globe(cam.lat, cam.lon, cam.zoom, gw, hc, block)
+    if view is None:
+        return _EMPTY_TERRAIN
+    return TerrainView(
+        view.elev, view.coast,
+        view.water if view.water is not None else view.wet,
+        None, view.cover, view.borders, view.fill, view.shade, view.atmo,
+        view.lls, view.glow_lls)
+
+
+# How far out of register a slice may be before the resample is worth
+# taking, in braille dots: a quarter of one, which is the same drift
+# _maps_overscan.SLACK already lets a crop's own cell boundaries have
+# and is well under the width of anything drawn.
+_SLICE_DOTS = 0.25
+
+
+def _exact_crop(frame, bbox, graph_w, height_cells, at, moving):
+    """The resample to take a resting window out of `frame` with, or None.
+
+    None while the view is moving: at 160x45 a slice is under a
+    millisecond and a resample is ten, or thirty-five the first time
+    at a new offset, and thirty frames a second against a build
+    holding the interpreter lock is not where that goes.  The frames
+    under a hand are a preview of the one about to land anyway.
+
+    None, too, wherever the slice already *is* the resample — a window
+    at the built view's own centre, a window whose shear is under a
+    quarter of a dot, and the whole of street scale, where the ground
+    was rasterised onto a box linear in longitude and latitude and a
+    crop of that box is the window's own picture (`_globe.affine_ok`).
+    """
+    if moving:
+        return None
+    cam = _globe.Camera.for_bbox(frame.bbox, frame.gw, frame.hc)
+    if _globe.affine_ok(cam.lat, cam.zoom, frame.gw, frame.hc):
+        return None
+    zoom = height_cells * frame.cell[1]
+    shear = _globe.crop_dots(
+        cam.lat, _globe.cap(zoom, graph_w, height_cells),
+        graph_w, height_cells,
+        at[0] + graph_w / 2 - frame.gw / 2,
+        at[1] + height_cells / 2 - frame.hc / 2)
+    if shear < _SLICE_DOTS:
+        return None
+    return _maps_overscan.resample(frame, bbox, graph_w, height_cells)
 
 
 def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
                     mouse_pos, marker_cell, dest_cell, origin_cell, lang,
                     route_layer, show_labels=True, sun=False, clouds=False,
-                    frame=None, at=(0, 0), source=None):
+                    frame=None, at=(0, 0), source=None, moving=False):
     """(map lines, readout, hover, loading, err) for the hillshaded view.
+
+    The terrain register at every zoom.  There is one geometry now —
+    the orthographic camera `_globe.geometry` inverts, whose disk at a
+    close zoom is thousands of rows across and whose window is a small
+    patch of it — so a zoom out of a valley and on past the hand-off
+    changes the scale of the picture and never its projection.  What
+    the footprint still decides is where the ground comes from: the
+    terrarium tiles and the vector polygons while they can be asked,
+    the planet's own baked texture beyond them.
 
     Terrain's readout is its own probe — the elevation under the pointer
     — and it carries no hover slot: the braille here is geography rather
     than a network of named things, and "coastline" under the cursor
     would tell a reader less than the metres already there.
     """
-    basemap = None
+    lat0 = (bbox[1] + bbox[3]) / 2
+    lon0 = (bbox[0] + bbox[2]) / 2
+    zoom = bbox[3] - bbox[1]
+    wide = not _globe.local_tiles(lat0, zoom, graph_w, height_cells)
     err = None
     loading = False
     view = _EMPTY_TERRAIN
@@ -552,86 +712,136 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
         pass
     elif block:
         try:
-            view = _get_elevation(obbox, ogw, ohc, True,
-                                  _maps_overscan.window_hint(
-                                      frame, graph_w, height_cells))
+            view = _get_terrain(obbox, ogw, ohc, True,
+                                _maps_overscan.window_hint(
+                                    frame, graph_w, height_cells))
         except Exception as exc:
             log_failure("maps/elevation", "terrain load", exc, fallback="empty terrain")
             err = str(exc)
     else:
-        view = _get_elevation(obbox, ogw, ohc, False,
-                              _maps_overscan.window_hint(
-                                  frame, graph_w, height_cells))
+        view = _get_terrain(obbox, ogw, ohc, False,
+                            _maps_overscan.window_hint(
+                                frame, graph_w, height_cells))
         loading = view.elev is None
 
     elev, coast, rivers = view.elev, view.coast, view.rivers
+    borders, shore = view.borders, view.shore
     terrain = None
     if source is not None:
-        _obbox, _ogw, _ohc, terrain, coast, rivers, elev = source
+        (_obbox, _ogw, _ohc, terrain, coast, rivers, elev, borders,
+         shore) = source
     elif elev is not None:
-        terrain = _terrain_buffer(elev, obbox, ogw, ohc, view.water,
-                                  view.cover)
+        terrain = _terrain_buffer(view, obbox, ogw, ohc, wide)
         _last_terrain[0] = (tuple(obbox), ogw, ohc, terrain, coast, rivers,
-                            elev)
+                            elev, borders, shore)
+    exact = None
     if terrain is not None and cropping:
-        # the window out of the margin: exactly the sub-cells the built
-        # view already holds, at the offset the frame was planned for
-        terrain = _maps_overscan.crop_grid(terrain, dx0, dy0 * 2, graph_w,
-                                           height_cells * 2)
-        elev = _maps_overscan.crop_grid(elev, dx0, dy0 * 2, graph_w,
-                                        height_cells * 2)
-        coast = _maps_overscan.crop_grid(coast, dx0, dy0, graph_w,
-                                         height_cells)
-        rivers = _maps_overscan.crop_layer(rivers, dx0, dy0, graph_w,
-                                           height_cells)
+        # The window out of the margin.  At the built view's own centre
+        # that is the sub-cells it already holds at the planned offset,
+        # and nothing more is needed: an orthographic view about the
+        # same centre with more cells around the same middle samples
+        # the very same plane points.  Panned off that centre it is
+        # the same ground somewhere other than the offset, because the
+        # built view has turned with the meridians — so a frame at rest
+        # gathers the samples the window would have taken, and a frame
+        # in motion takes the slice and is briefly out of register.
+        exact = _exact_crop(frame, bbox, graph_w, height_cells, at, moving)
+        if exact is not None:
+            terrain = exact.grid(terrain, BG_PRIMARY)
+            elev = exact.grid(elev, None)
+            if shore is not None:
+                # the shore is cut again rather than carried: the flat
+                # rule, that the coastline is the boundary of the fill,
+                # holds for the window's fill as it did for the built
+                # view's (_maps_views.shore_bits)
+                coast = _edge_dots(exact.bits(shore, SHORE_LAND),
+                                   exact.bits(shore, SHORE_WATER),
+                                   graph_w, height_cells)
+            else:
+                coast = exact.dots(coast)
+            rivers = exact.layer(rivers)
+            borders = exact.layer(borders)
+        else:
+            terrain = _maps_overscan.crop_grid(terrain, dx0, dy0 * 2, graph_w,
+                                               height_cells * 2)
+            elev = _maps_overscan.crop_grid(elev, dx0, dy0 * 2, graph_w,
+                                            height_cells * 2)
+            coast = _maps_overscan.crop_grid(coast, dx0, dy0, graph_w,
+                                             height_cells)
+            rivers = _maps_overscan.crop_layer(rivers, dx0, dy0, graph_w,
+                                               height_cells)
+            borders = _maps_overscan.crop_layer(borders, dx0, dy0, graph_w,
+                                                height_cells)
     if terrain is None and loading and _last_terrain[0] is not None:
-        stand_in = _reproject_terrain(_last_terrain[0], bbox, graph_w,
-                                      height_cells)
+        stand_in = _terrain_stand_in(_last_terrain[0], bbox, graph_w,
+                                     height_cells, wide)
         if stand_in is not None:
-            terrain, coast, rivers = stand_in
-    # `l` off means no ink on the planet at all: labels, borders,
-    # coastlines and rivers alike, leaving the bare fields.  The
-    # basemap's braille here is border strokes only (the coastline
-    # comes from the elevation contour), so it isn't fetched.  Nor is
-    # it built for a stand-in: the borders and the city names are cut
-    # for each new window on this thread, a third of a second of
-    # polygon filling, and a view in motion is a new window thirty
-    # times a second.  They wait for the real view, as the labels do.
-    #
-    # It is cut for the overscan rather than the window, and cropped
-    # with everything else.  A pan inside the margin is a new window
-    # every frame but the same built view, so the polygons are filled
-    # once for the whole of it instead of once a frame.
+            terrain, coast, rivers, borders = stand_in
+    # Which list the names come from, and how they are chosen, still
+    # flips at the old hand-off — that is stage three's to unify, and
+    # it is the one flip this stage leaves.  *Where* a name lands is
+    # this view's own geometry either way, so a dot and the ground it
+    # points at cannot drift apart.
     cities = {}
-    if show_labels and (elev is not None or not loading):
+    if show_labels and wide:
+        # the planet's own placement is a memoised walk of the vendored
+        # list, so a stand-in keeps its names
+        cities = _globe.city_overlays(lat0, lon0, zoom, graph_w,
+                                      height_cells, lang)
+    elif show_labels and (elev is not None or not loading):
+        # The basemap is fetched for its city names alone now; the
+        # border strokes come from the camera, so they curve with
+        # everything else.  It is not built for a stand-in: the names
+        # are cut for each new window on this thread, a third of a
+        # second of polygon filling, and a view in motion is a new
+        # window thirty times a second.  They wait for the real view,
+        # as the labels do — and they are cut for the overscan and
+        # cropped with it, so a pan inside the margin fills the
+        # polygons once for the whole of it instead of once a frame.
         basemap = _get_basemap(obbox, ogw, ohc)
-    if basemap is not None:
-        cities = basemap.city_overlays()
-        if cropping:
-            cities = _maps_overscan.crop_overlays(cities, dx0, dy0, graph_w,
-                                                  height_cells)
-            basemap = _ShiftedBasemap(
-                _maps_overscan.crop_grid(basemap.dots, dx0, dy0, graph_w,
-                                         height_cells),
-                _maps_overscan.crop_grid(basemap.color, dx0, dy0, graph_w,
-                                         height_cells))
+        if basemap is not None:
+            cam = _globe.Camera.for_bbox(obbox, ogw, ohc)
+            if exact is not None:
+                # the same names, placed by the window's own camera
+                # rather than carried across from the built view's:
+                # the ground under them has been, and a dot beside a
+                # name that is not on the city is worse than either
+                project = exact.place(dx0, dy0)
+            elif _globe.affine_ok(cam.lat, cam.zoom, ogw, ohc):
+                project = None
+            else:
+                project = cam.cell
+            cities = basemap.city_overlays(project=project)
+            if cropping:
+                cities = _maps_overscan.crop_overlays(cities, dx0, dy0,
+                                                      graph_w, height_cells)
     if terrain is None:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
-    elif sun or clouds:
-        # the flat earth as it is: same sun, same clouds, same
-        # city lights, shaded through the same functions the
-        # globe uses — only the projection differs.  The stand-in
-        # is shaded where it now is, not where it was drawn.
+    if sun or clouds:
+        # the ground as it is: same sun, same clouds, same city lights,
+        # shaded through the same functions at every zoom, because
+        # there is only one geometry left to shade.  The stand-in is
+        # shaded where it now is, not where it was drawn.
+        atmo = glow_lls = None
+        if not wide:
+            lls = _globe.geometry(lat0, lon0, zoom, graph_w,
+                                  height_cells * 2)[0]
+        elif view.lls is not None and source is None and not cropping:
+            lls, atmo, glow_lls = view.lls, view.atmo, view.glow
+        else:
+            # a stand-in sits on a sphere of its own: the scaled ring
+            # is the ring at the new radius, so the glow it gates is
+            # worked out for the disk as it is this frame
+            lls, _zs, atmo, glow_lls = _sphere(zoom, graph_w, height_cells,
+                                               lat0, lon0)
         terrain = _shade_now(
-            terrain,
-            globe_now.flat_lls(bbox, graph_w, height_cells * 2), sun,
-            (_get_clouds(bbox[3] - bbox[1], height_cells, block)
-             if clouds else None),
-            globe_now.city_lights_flat(bbox, graph_w,
-                                        height_cells * 2)
-            if sun else {})
+            terrain, lls, sun,
+            (_get_clouds(zoom, height_cells, block) if clouds else None),
+            globe_now.city_lights_globe(lat0, lon0, zoom, graph_w,
+                                        height_cells * 2) if sun else {},
+            glow=(atmo, glow_lls) if glow_lls is not None else None)
     if not show_labels:
-        coast = rivers = None
+        coast = rivers = borders = None
 
     overlays = {}
     for pos, (ch, _color) in cities.items():
@@ -639,27 +849,59 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
 
     dx, dy = pan_offset
     if dx or dy:
-        if basemap is not None:
-            basemap = _ShiftedBasemap(_shift_grid(basemap.dots, dx, dy, 0),
-                                      _shift_grid(basemap.color, dx, dy, None))
         terrain = _shift_grid(terrain, dx, dy * 2, None)
         if coast is not None:
             coast = _shift_grid(coast, dx, dy, 0)
         rivers = _shift_layer(rivers, dx, dy)
+        borders = _shift_layer(borders, dx, dy)
         route_layer = _shift_layer(route_layer, dx, dy)
     overlays = _place_marks(overlays, marker_cell, origin_cell, dest_cell,
                             dx, dy, graph_w, height_cells, False)
     readout = _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells,
-                            lang, centre=not sun)
+                            lang, centre=not (sun or wide))
 
     # rivers under the route, which is the order the strokes list means:
     # a route along a river valley owns the cells it shares.
     strokes = [s for s in (rivers, route_layer) if s is not None] or None
-    lines = compose_terrain(basemap, terrain, overlays, graph_w,
-                            height_cells, coast=coast, strokes=strokes)
+    lines = compose_terrain(None, terrain, overlays, graph_w,
+                            height_cells, coast=coast, strokes=strokes,
+                            borders=borders)
     return lines, readout, "", loading, err
 
 
+def _terrain_stand_in(prev, bbox, graph_w, height_cells, wide):
+    """The last terrain view carried into this window, or None.
+
+    Which carriage the footprint decides.  A window the size of a
+    valley is the one before it translated and scaled to well under a
+    dot, so a pan or a zoom borrows the picture whole through the axis
+    maps the flat views have always used.  A window the size of a
+    planet has a limb in it, and no scaling of a disk is honest about
+    a centre that has moved: there the stand-in answers a zoom and
+    nothing else, which is exactly what it always did.  A zoom about
+    the centre is a uniform scaling under this projection at *any*
+    zoom, so the two paths agree about the one motion they share.
+    """
+    if not wide:
+        return _reproject_terrain(prev, bbox, graph_w, height_cells)
+    # A resized terminal gets no stand-in: the disk's radius is set by
+    # the window's own cells, so rescaling one grid into another of a
+    # different shape would not be the planet it was.  An overscan is
+    # not that — it is this window's own camera with a margin round it,
+    # and a zoom out of the last close view is cut from exactly that.
+    if not _usable_landing(prev, graph_w, height_cells):
+        return None
+    if _disk_centre(prev[0]) != _disk_centre(bbox):
+        return None
+    m = _reprojection(prev, bbox, graph_w, height_cells)
+    if m is None:
+        return None
+    (_pbbox, _pgw, _phc, pfill, pcoast, privers, _pelev, pborders,
+     _pshore) = prev
+    coast = m.dots(pcoast)[0] if pcoast is not None else None
+    borders = (_ShiftedLayer(*m.dots(pborders.dots, pborders.color))
+               if pborders is not None else None)
+    return m.fills(pfill, BG_PRIMARY), coast, None, borders
 
 
 def _ink_dusk(lls, sun, graph_w, height_cells):
@@ -701,7 +943,12 @@ def _render_globe(bbox, graph_w, height_cells, block, pan_offset,
                   mouse_pos, marker_cell, dest_cell, origin_cell, lang,
                   route_layer, show_labels=True, street=False, sun=False,
                   clouds=False):
-    """Either view past the hand-off: the planet, orthographic.
+    """The street register past the hand-off: the planet, orthographic.
+
+    Terrain no longer arrives here — it is one camera at every zoom
+    and is drawn by `_render_terrain` whatever the footprint — but the
+    register is still a parameter, because street joins the camera in
+    stage two and this is the half that will move.
 
     Everything downstream of the geometry belongs to the flat views —
     terrain keeps its shader, street keeps its two quiet fills, both
@@ -1086,21 +1333,26 @@ def prefetch_view(lat, lon, zoom, view, graph_w, height_cells, lang,
     def work():
         try:
             bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
-            if _globe.is_globe(zoom, lat):
+            if wide_source(view, lat, zoom, graph_w, height_cells):
                 _get_globe(lat, lon, zoom, graph_w, height_cells, True,
                            street=(view == "street"))
                 return
             # the overscan *around* the resting centre, not ahead of it:
             # the motion ends here, so the margin the reader will pan
-            # into next is as likely to be one way as the other
+            # into next is as likely to be one way as the other — and
+            # for terrain that is the only overscan there is, because a
+            # margin off centre would not be an exact crop
             frame, _at = _maps_overscan.plan(bbox, graph_w, height_cells)
+            if view != "street" and not _margin_is_local(frame):
+                frame = _maps_overscan.window_frame(bbox, graph_w,
+                                                    height_cells)
             hint = _maps_overscan.window_hint(frame, graph_w, height_cells)
             if view == "street":
                 m_lat, m_lon = marker if marker else (lat, lon)
                 _get_street(frame.bbox, frame.gw, frame.hc, True, lang,
                             _street_reserved(frame, m_lat, m_lon), hint)
             else:
-                _get_elevation(frame.bbox, frame.gw, frame.hc, True, hint)
+                _get_terrain(frame.bbox, frame.gw, frame.hc, True, hint)
         except Exception as exc:
             log_failure("maps/prefetch", "destination", exc,
                         fallback="the view loads on arrival")
@@ -1123,47 +1375,66 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                view="terrain", search=None, route=None, dest=None,
                origin=None, directions=None,
                note="", show_labels=True, sun=False,
-               clouds=False, motion=(0, 0), **_):
+               clouds=False, motion=(0, 0), moving=False, **_):
     lang = runtime.lang if runtime else "en"
     cols, rows = get_terminal_size()
     graph_w, height_cells = map_cells((cols, rows))
 
     bbox = bbox_for(lat, lon, zoom, graph_w, height_cells)
     m_lat, m_lon = marker if marker else (lat, lon)
-    globe = _globe.is_globe(zoom, lat)
-    if globe:
-        # markers live on a sphere now: project them orthographically,
-        # and let the far hemisphere hide what it hides
-        cell = _globe.marker_cell(lat, lon, zoom, graph_w, height_cells,
-                                  m_lat, m_lon)
-        dest_cell = (_globe.marker_cell(lat, lon, zoom, graph_w,
-                                        height_cells, dest[0], dest[1])
-                     if dest is not None else None)
-        origin_cell = (_globe.marker_cell(lat, lon, zoom, graph_w,
-                                          height_cells, origin[0], origin[1])
-                       if origin is not None else None)
+    globe = wide_source(view, lat, zoom, graph_w, height_cells)
+    # A mark is placed by whichever projection the ground under it was
+    # drawn by.  Terrain is on the camera at every zoom, so it is the
+    # camera's forward projection — except where the box rasteriser is
+    # still the picture, and there the two are a twentieth of a dot
+    # apart and the flat placement is the one the caches were built
+    # with.  Street keeps its own hand-off until stage two.
+    on_sphere = (globe if view == "street"
+                 else not _globe.affine_ok(lat, zoom, graph_w, height_cells))
+    if on_sphere:
+        # markers live on a sphere: project them orthographically, and
+        # let the far hemisphere hide what it hides
+        def _cell_for(m):
+            return _globe.marker_cell(lat, lon, zoom, graph_w, height_cells,
+                                      m[0], m[1])
+    else:
+        def _cell_for(m):
+            return _marker_cell(bbox, graph_w, height_cells, m[0], m[1])
+    cell = _cell_for((m_lat, m_lon))
+    dest_cell = _cell_for(dest) if dest is not None else None
+    origin_cell = _cell_for(origin) if origin is not None else None
+    if globe and view == "street":
         route_layer = None
-        draw = functools.partial(_render_globe, street=(view == "street"),
+        draw = functools.partial(_render_globe, street=True,
                                  sun=sun, clouds=clouds)
+    elif globe:
+        # terrain past the tiles: the same camera, filled from the
+        # planet's own texture.  No overscan — the window is the view
+        route_layer = None
+        draw = functools.partial(_render_terrain, sun=sun, clouds=clouds)
     else:
         # what landed between frames first, because it decides whether
         # this window is a crop of a view already built or the start of
         # another one (_flat_frame)
         _take_landing(view, graph_w, height_cells)
-        frame, at, source = _flat_frame(view, bbox, graph_w, height_cells,
-                                        block, motion)
-        cell = _marker_cell(bbox, graph_w, height_cells, m_lat, m_lon)
-        dest_cell = (_marker_cell(bbox, graph_w, height_cells,
-                                  dest[0], dest[1])
-                     if dest is not None else None)
-        origin_cell = (_marker_cell(bbox, graph_w, height_cells,
-                                    origin[0], origin[1])
-                       if origin is not None else None)
+        frame, at, source = _flat_frame(
+            view, bbox, graph_w, height_cells, block,
+            motion if view == "street" else (0, 0),
+            cap=None if view == "street"
+            else _globe.cap(zoom, graph_w, height_cells))
         # the route is drawn into the built view and cropped with it: a
         # pan inside the margin is a new window every frame and the same
         # built view, and redrawing the whole line thirty times a second
         # for a picture that has not changed is work for nothing
-        route_layer = _get_route_layer(route, frame.bbox, frame.gw, frame.hc)
+        project = None
+        if view != "street" and route is not None:
+            fcam = _globe.Camera.for_bbox(frame.bbox, frame.gw, frame.hc)
+            if not _globe.affine_ok(fcam.lat, fcam.zoom, frame.gw, frame.hc):
+                def project(lon, lat, _cam=fcam, _dw=frame.gw * 2,
+                            _dh=frame.hc * 4):
+                    return _cam.project(lon, lat, _dw, _dh)
+        route_layer = _get_route_layer(route, frame.bbox, frame.gw, frame.hc,
+                                       project)
         if route_layer is not None and (frame.gw, frame.hc) != (graph_w,
                                                                 height_cells):
             route_layer = _maps_overscan.crop_layer(
@@ -1172,7 +1443,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
             _render_street if view == "street" else _render_terrain,
             sun=sun, clouds=clouds, frame=frame, at=at, source=source,
             **({"reserved": _street_reserved(frame, m_lat, m_lon)}
-               if view == "street" else {}))
+               if view == "street" else {"moving": moving}))
     map_lines, readout, hover, loading, err = draw(
         bbox, graph_w, height_cells, block, pan_offset, mouse_pos,
         cell, dest_cell, origin_cell, lang, route_layer,

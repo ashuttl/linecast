@@ -76,7 +76,7 @@ def decode_meters(r: int, g: int, b: int) -> float:
 
 
 def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
-                   timeout: float = 15) -> list[list[float | None]]:
+                   timeout: float = 15, camera=None) -> list[list[float | None]]:
     """Elevation in meters resampled to a w×h grid over `bbox`.
 
     Returns rows of floats; None where no tile data arrived.  Samples are
@@ -85,11 +85,18 @@ def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
     channels are not — G wraps — which is why decoding comes first), and
     the nearest-neighbor duplication this replaced stepped the hillshade
     into visible axis-aligned combs wherever the view outresolved a tile.
+
+    With a `camera` the grid is the camera's own: its bounds choose the
+    tiles, its scale chooses the zoom, and each sample is taken at the
+    (lat, lon) its inverse projection puts under it, so the elevation
+    lands on the sphere the rest of the view is drawn on.  Without one
+    the bbox is the grid, exactly as it has always been.
     """
     # one step past the width-matched zoom: the caller's 2x supersample
     # then box-averages real detail down instead of interpolated guesses
-    z = min(MAX_ZOOM, _pick_zoom(bbox, w, MAX_ZOOM) + 1)
-    grid = _resample(bbox, w, h, z, timeout)
+    detail = bbox if camera is None else camera.scale_bbox
+    z = min(MAX_ZOOM, _pick_zoom(detail, w, MAX_ZOOM) + 1)
+    grid = _resample(bbox, w, h, z, timeout, camera)
     if z <= BATHY_ZOOM:
         return grid
 
@@ -104,7 +111,7 @@ def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
     # Death Valley) falls back to the z10 data it always rendered from.
     if not any(v is None or v < 1.0 for row in grid for v in row):
         return grid  # nothing near or below sea level: skip the fetch
-    coarse = _resample(bbox, w, h, BATHY_ZOOM, timeout)
+    coarse = _resample(bbox, w, h, BATHY_ZOOM, timeout, camera)
     for row, crow in zip(grid, coarse):
         for x, (v, c) in enumerate(zip(row, crow)):
             if c is not None and (v is None or (c < -1.0 and v < 1.0)):
@@ -112,13 +119,18 @@ def elevation_grid(bbox: tuple[float, float, float, float], w: int, h: int,
     return grid
 
 
-def _resample(bbox, w, h, z, timeout):
+def _resample(bbox, w, h, z, timeout, camera=None):
     """One zoom level's tiles, bilinearly sampled to a w×h meters grid."""
 
     def fetch(z_, x, y):
         return _decoded_tile(z_, x, y, timeout)
 
-    canvas, cw, ch, org_x, org_y, world = stitch_xyz(fetch, bbox, z)
+    coverage = bbox if camera is None else camera.bounds
+    stitched = stitch_xyz(fetch, coverage, z)
+    if camera is not None:
+        return _resample_camera(stitched, camera.base(w, h), camera.lon,
+                                coverage)
+    canvas, cw, ch, org_x, org_y, world = stitched
     minlon, minlat, maxlon, maxlat = bbox
 
     # x depends only on lon, y only on lat, so the resample is separable:
@@ -175,5 +187,121 @@ def _resample(bbox, w, h, z, timeout):
                 row.append(a)
             else:
                 row.append(a + (b - a) * t)
+        grid.append(row)
+    return grid
+
+
+# The latitude table the camera sampler reads its Mercator row from.
+# A sample's world y needs a logarithm, and a camera grid has a
+# different latitude under every one of its fifty-odd thousand samples
+# — where the separable path had one per row.  The function is smooth
+# and the window is narrow, so a table across the coverage's own
+# latitudes, read linearly, is accurate to far under a millionth of a
+# tile pixel and costs a multiply.
+_MERCATOR_BINS = 2048
+# Mercator's own limit, where the world becomes square.  The table is
+# clamped to it so a sample over a pole reads its last row rather than
+# running off the end of the logarithm.
+_MERCATOR_LAT = 85.051128779806604
+
+
+def _mercator_table(minlat, maxlat, bins=_MERCATOR_BINS):
+    """(lowest latitude, bins per degree, world-y fractions) for a span."""
+    lo = max(-_MERCATOR_LAT, min(_MERCATOR_LAT, minlat))
+    hi = max(-_MERCATOR_LAT, min(_MERCATOR_LAT, maxlat))
+    if hi - lo < 1e-9:
+        hi = lo + 1e-9
+    step = (hi - lo) / bins
+    vals = [_lonlat_to_world(0.0, lo + i * step)[1] for i in range(bins + 1)]
+    return lo, 1.0 / step, vals
+
+
+def _resample_camera(stitched, base, lon0, coverage):
+    """A stitched canvas sampled bilinearly through the camera's grid.
+
+    `base` is `_globe.relative`'s grid — each sample's latitude and its
+    longitude *east of the view centre* — rather than a grid of absolute
+    (lat, lon).  Two reasons, and both are the difference between a
+    camera a close view can afford and one it cannot: the grid is
+    memoised and shared, so no fifty thousand tuples are allocated per
+    build, and a longitude measured from the centre is already
+    unwrapped for a stitch that crosses the dateline, where an absolute
+    one would have to be folded back per sample.
+
+    Everything inside the loop is written out: this runs for every
+    braille dot of every terrain view, and the arithmetic was mostly
+    call overhead.
+    """
+    canvas, cw, ch, org_x, org_y, world = stitched
+    lo, inv, vals = _mercator_table(coverage[1], coverage[3])
+    last = len(vals) - 2
+    kx = world / 360.0
+    x_off = (lon0 + 180.0) * kx - org_x
+    lat_max = _MERCATOR_LAT
+    cwm1, chm1 = cw - 1.0, ch - 1.0
+    grid = []
+    for b_row in base:
+        row = []
+        app = row.append
+        for b in b_row:
+            if b is None or cw <= 0 or ch <= 0:
+                app(None)
+                continue
+            lat = b[0]
+            if lat > lat_max:
+                lat = lat_max
+            elif lat < -lat_max:
+                lat = -lat_max
+            t = (lat - lo) * inv
+            i = int(t)
+            if i < 0:
+                i, t = 0, 0.0
+            elif i > last:
+                i, t = last, 1.0
+            else:
+                t -= i
+            v = vals[i]
+            py = (v + (vals[i + 1] - v) * t) * world - org_y
+            px = b[1] * kx + x_off
+            if not (0.0 <= px <= cw and 0.0 <= py <= ch):
+                app(None)
+                continue
+            fx = px - 0.5
+            if fx < 0.0:
+                fx = 0.0
+            elif fx > cwm1:
+                fx = cwm1
+            fy = py - 0.5
+            if fy < 0.0:
+                fy = 0.0
+            elif fy > chm1:
+                fy = chm1
+            x0, y0 = int(fx), int(fy)
+            x1 = x0 + 1
+            if x1 > cw - 1:
+                x1 = cw - 1
+            y1 = y0 + 1
+            if y1 > ch - 1:
+                y1 = ch - 1
+            tx, ty = fx - x0, fy - y0
+            b0, b1 = y0 * cw, y1 * cw
+            j = (b0 + x0) * 4
+            a = (canvas[j] * 256 + canvas[j + 1] + canvas[j + 2] / 256.0
+                 - 32768.0) if canvas[j + 3] else None
+            j = (b0 + x1) * 4
+            bb = (canvas[j] * 256 + canvas[j + 1] + canvas[j + 2] / 256.0
+                  - 32768.0) if canvas[j + 3] else None
+            j = (b1 + x0) * 4
+            c = (canvas[j] * 256 + canvas[j + 1] + canvas[j + 2] / 256.0
+                 - 32768.0) if canvas[j + 3] else None
+            j = (b1 + x1) * 4
+            d = (canvas[j] * 256 + canvas[j + 1] + canvas[j + 2] / 256.0
+                 - 32768.0) if canvas[j + 3] else None
+            # the separable sampler's rule for a missing neighbour: use
+            # what is there rather than blending a zero in
+            top = bb if a is None else (a if bb is None else a + (bb - a) * tx)
+            bot = d if c is None else (c if d is None else c + (d - c) * tx)
+            app(bot if top is None
+                else (top if bot is None else top + (bot - top) * ty))
         grid.append(row)
     return grid

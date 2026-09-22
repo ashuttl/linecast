@@ -27,8 +27,12 @@ the hover index read through the offset.
 """
 
 from collections import namedtuple
+from operator import itemgetter, or_
 
+from linecast._maps import globe as _globe
 from linecast._maps.hover import HoverIndex
+from linecast._radar.basemap import _BITS
+from linecast._scenes import Memo
 
 # The margin is a MARGIN'th of the window on each side.  Measured at
 # 160x45 with tiles on disk: an eighth each side (1.25x in each
@@ -42,6 +46,19 @@ MARGIN = 8
 # How far from a cell boundary a window may sit and still be a crop: an
 # eighth of a cell is a quarter of a braille dot, under anything drawn.
 SLACK = 0.125
+
+# How far out of register a *slice* of a built view may be and still be
+# taken, in braille dots (`_globe.crop_dots`).  A window at rest is
+# resampled and is out by nothing whatever its offset, so what this
+# bounds is the frames in between, where the crop is sliced and the
+# picture swims against the ground it is cut from.  A cell and a half:
+# measured at 160x45 with real tiles, a twenty column pan at the Alps
+# is 1.6 dots out at 2 degrees and 8.5 at 10, and the second is where
+# a reader can see a coastline sitting off its own shore.  The
+# alternative to taking it is not a better picture but a build of
+# several seconds, with the last view translated — by more — until it
+# lands, so the bound is deliberately loose.
+MAX_SHEAR = 6.0
 
 
 def padding(gw, hc):
@@ -103,7 +120,7 @@ def plan(bbox, gw, hc, ahead=(0, 0), pad=None):
             (left, top))
 
 
-def locate(frame, bbox, gw, hc, inside=True):
+def locate(frame, bbox, gw, hc, inside=True, cap=None):
     """Where a gw by hc window at `bbox` sits in `frame`, or None.
 
     (column, row) of the window's top-left cell, and None whenever the
@@ -127,6 +144,19 @@ def locate(frame, bbox, gw, hc, inside=True):
     window reach past the frame's edges: a pan at the same scale is a
     translation whether or not the margin covers all of it, and
     `shift_crop` fills in what it does not.
+
+    `cap` is the window's reach over the sphere in radians, for a
+    register drawn by the camera.  Two orthographic views of the same
+    ground at the same scale and different centres are not a
+    translation of one another at all: shift the centre east and the
+    picture turns with the meridians, by an angle that depends on the
+    offset and the latitude (`_globe.crop_dots`).  A window at the
+    built view's own centre is a crop exactly; one off it is a crop of
+    the same *ground* — the samples are there, at somewhere other than
+    the offset — and `Resample` is how a frame at rest takes them.
+    What is decided here is only the far end of that: a window so far
+    off the built view's centre that the slice a moving frame takes
+    would visibly swim is left to be built for itself.
     """
     fminlon, fminlat, fmaxlon, fmaxlat = frame.bbox
     minlon, minlat, maxlon, maxlat = bbox
@@ -142,6 +172,14 @@ def locate(frame, bbox, gw, hc, inside=True):
     dx, dy = int(round(fx)), int(round(fy))
     if abs(fx - dx) > SLACK or abs(fy - dy) > SLACK:
         return None
+    if cap is not None:
+        # the window's own reach and the window's own corner, measured
+        # about the built view's centre latitude
+        off = _globe.crop_dots((fminlat + fmaxlat) / 2, cap, gw, hc,
+                               dx + gw / 2 - frame.gw / 2,
+                               dy + hc / 2 - frame.hc / 2)
+        if off > MAX_SHEAR:
+            return None
     if inside and not (0 <= dx and dx + gw <= frame.gw
                        and 0 <= dy and dy + hc <= frame.hc):
         return None
@@ -230,6 +268,258 @@ def crop_layer(layer, dx, dy, w, h, hover=None):
               if dx <= c < dx + w and dy <= r < dy + h}
     return CroppedLayer(crop_grid(layer.dots, dx, dy, w, h),
                         crop_grid(layer.color, dx, dy, w, h), ribbon, hover)
+
+
+# A braille cell's eight dots, one byte each, by sub-row: unpacking a
+# grid is then a table lookup a cell and a join a dot row.
+_DOT_TABLE = tuple(
+    tuple(bytes(1 if v & _BITS[sx][sy] else 0 for sx in (0, 1))
+          for v in range(256))
+    for sy in range(4))
+
+
+# 1 -> the braille bit, and a packed land/water byte -> one of its two
+# bits: a pass of C over a whole grid where a comprehension would be a
+# pass of Python.
+_WEIGHTS = {bit: bytes((0, bit)) + bytes(254)
+            for col in _BITS for bit in col}
+_MASKS = {}
+
+
+def _mask_table(mask):
+    table = _MASKS.get(mask)
+    if table is None:
+        table = _MASKS[mask] = bytes(1 if v & mask else 0
+                                     for v in range(256))
+    return table
+
+
+def _dot_bytes(rows):
+    """A braille grid as one byte a dot, row after row, and a blank.
+
+    The blank is the last byte, so index -1 — what `crop_index` gives
+    for a sample the built view does not hold — reads as no dot.
+    """
+    out = bytearray()
+    for row in rows:
+        for table in _DOT_TABLE:
+            out += b"".join([table[v] for v in row])
+    out.append(0)
+    return bytes(out)
+
+
+class Resample:
+    """The crop's exact cousin, for a window off the built view's centre.
+
+    A crop takes the samples the built view holds at an offset, which
+    is the window's own picture only when the two share a centre.  Off
+    it, under one camera, the built view has turned with the meridians
+    (`_globe.crop_dots`), and the samples the window wants are there
+    but not at the offset.  So they are fetched rather than sliced:
+    every sample of the window is placed in the built view's grid by
+    the rotation between the two cameras, once per pair, and each
+    frame after that is a gather.
+
+    Nearest sample, as every crop here has been.  The fill and the
+    elevation are taken at sub-pixel pitch, the land and water at dot
+    pitch, and a layer's ink at cell pitch, because that is the grid
+    each of them is written on.
+
+    Not cheap enough for a frame in motion, and not needed there: a
+    moving picture is a preview of the one it stands in for, which
+    lands at rest.  Measured at 160x45 nine columns off the built
+    view's centre: a slice is under a millisecond, the first resample
+    is 35 and most of that is the index maps, and every resting frame
+    after it is 10, because the maps are kept (`resample`).
+    """
+
+    __slots__ = ("frame", "gw", "hc", "src", "dst", "_sub", "_dot", "_cell",
+                 "_planes", "_bits")
+
+    def __init__(self, frame, bbox, gw, hc):
+        self.frame, self.gw, self.hc = frame, gw, hc
+        self.src = _globe.Camera.for_bbox(frame.bbox, frame.gw, frame.hc)
+        self.dst = _globe.Camera.for_bbox(bbox, gw, hc)
+        self._sub = self._dot = self._cell = self._planes = None
+        # unpacked dot grids, held by the grid they came from so the
+        # identity they are keyed on cannot be reused under them
+        self._bits = {}
+
+    # -- the index maps, each built on the first ask ---------------------
+    def _sub_index(self):
+        if self._sub is None:
+            self._sub = _globe.crop_index(
+                self.src, self.dst, self.gw, self.hc * 2,
+                self.frame.gw, self.frame.hc * 2)
+        return self._sub
+
+    def _cell_index(self):
+        if self._cell is None:
+            self._cell = _globe.crop_index(
+                self.src, self.dst, self.gw, self.hc,
+                self.frame.gw, self.frame.hc)
+        return self._cell
+
+    def _dot_index(self):
+        """Each window dot's source dot — for the masks, which are areas."""
+        if self._dot is None:
+            self._dot = _globe.crop_index(
+                self.src, self.dst, self.gw * 2, self.hc * 4,
+                self.frame.gw * 2, self.frame.hc * 4)
+        return self._dot
+
+    def _dot_planes(self):
+        """[(bit, [source dot per window cell])] — a cell's eight dots.
+
+        The dot index regrouped by where a dot sits inside its cell, so
+        a whole plane of the window comes back from one gather and the
+        eight are or-ed together — rather than a bit being tested and
+        set a dot at a time, which is the one place this would cost
+        more than the crop it replaces.
+        """
+        if self._planes is None:
+            flat = self._dot_index()
+            dw, hc = self.gw * 2, self.hc
+            planes = []
+            for sy in range(4):
+                for sx in (0, 1):
+                    idx = []
+                    for cy in range(hc):
+                        base = (4 * cy + sy) * dw
+                        idx.extend(flat[base + sx:base + dw:2])
+                    planes.append((_BITS[sx][sy], idx))
+            self._planes = planes
+        return self._planes
+
+    # -- the gathers -----------------------------------------------------
+    def _gather(self, rows, index, w, fill):
+        flat = [v for row in rows for v in row]
+        flat.append(fill)
+        return [list(itemgetter(*index[i:i + w])(flat))
+                for i in range(0, len(index), w)]
+
+    def grid(self, rows, fill):
+        """A sub-pixel grid — the shaded fill, the elevation — or None."""
+        if rows is None:
+            return None
+        return self._gather(rows, self._sub_index(), self.gw, fill)
+
+    def cells(self, rows, fill):
+        """A grid of whole cells — a layer's ink — or None."""
+        if rows is None:
+            return None
+        return self._gather(rows, self._cell_index(), self.gw, fill)
+
+    def bits(self, rows, mask):
+        """One mask of a dot-pitch packed grid, gathered into the window.
+
+        The land and the water the shoreline is cut from
+        (`_maps_views.shore_bits`), which are areas: nearest sampling
+        moves an area only at its own edge, and cutting the stroke
+        again from what comes back gives the shore the window would
+        have drawn.
+        """
+        if rows is None:
+            return None
+        flat = b"".join(rows).translate(_mask_table(mask)) + b"\x00"
+        index, dw = self._dot_index(), self.gw * 2
+        return [list(itemgetter(*index[i:i + dw])(flat))
+                for i in range(0, len(index), dw)]
+
+    def dots(self, rows):
+        """A braille dot grid carried into the window, or None.
+
+        The rivers and the borders, which are strokes: lines one dot
+        wide, where nearest sampling is usually the wrong tool — ask a
+        line what is under each new dot and most new dots have nothing
+        under them, and the line comes back as specks.  It is the right
+        tool here because the two grids are the same pitch and the
+        turn between them is under a degree, so the map from one to the
+        other is very nearly a bijection and the line very nearly
+        survives it dot for dot.  Measured on the Natural Earth borders
+        of a 160x45 window nine columns off the built view's centre at
+        ten degrees: 1729 dots against 1728 for the map taken the other
+        way round, and one isolated dot either way, which is what the
+        view built fresh at that centre has too.
+
+        The shoreline is not carried this way, because a shore has to
+        agree with the fill beside it: it is cut again from the land
+        and water instead (`bits`).
+        """
+        if rows is None:
+            return None
+        raw = self._raw(rows)
+        acc = None
+        for bit, index in self._dot_planes():
+            # 0 or the bit, in one pass of C over the whole grid
+            plane = itemgetter(*index)(raw.translate(_WEIGHTS[bit]))
+            acc = plane if acc is None else bytes(map(or_, acc, plane))
+        gw = self.gw
+        return [list(acc[y * gw:(y + 1) * gw]) for y in range(self.hc)]
+
+    def _raw(self, rows):
+        """A braille grid unpacked to a byte a dot, kept while it is used."""
+        held = self._bits.get(id(rows))
+        if held is None:
+            if len(self._bits) > 8:
+                # a view that landed replaced every grid at once; the
+                # old ones are held only to keep their ids from coming
+                # back under this dict, and that is over
+                self._bits.clear()
+            held = (rows, _dot_bytes(rows))
+            self._bits[id(rows)] = held
+        return held[1]
+
+    def layer(self, layer, hover=None):
+        """A ranked braille layer through the resample, or None."""
+        if layer is None:
+            return None
+        ribbon = ()
+        source = getattr(layer, "ribbon", ())
+        if source:
+            sgw, gw = self.frame.gw, self.gw
+            want = {r * sgw + c for c, r in source}
+            ribbon = {(i % gw, i // gw)
+                      for i, at in enumerate(self._cell_index())
+                      if at in want}
+        return CroppedLayer(self.dots(layer.dots),
+                            self.cells(layer.color, None), ribbon, hover)
+
+    def place(self, dx, dy):
+        """(lon, lat) -> the built view's cells, by the window's own camera.
+
+        For the names, which are placed rather than resampled: a glyph
+        carried across from the built view's own placement would sit
+        where that view put it, and a dot beside a name that is not on
+        the city is worse than either.  The answer is offset into the
+        built view's grid so the placement can go through
+        `Basemap.city_overlays` and come back through `crop_overlays`
+        as it always has — the run kept or dropped whole, the budget
+        and the crowding rule the built view's.
+        """
+        cam, gw, hc = self.dst, self.gw, self.hc
+
+        def project(lon, lat):
+            x, y = cam.project(lon, lat, gw, hc * 2)
+            return x + dx, y / 2.0 + dy
+
+        return project
+
+
+# Two: the window in hand and the one a pan is coming back from.
+_resample_cache = Memo(keep=2)
+
+
+def resample(frame, bbox, gw, hc):
+    """The Resample for a window in a built view, kept between frames.
+
+    A view at rest repaints for a pointer, a clock or a cloud without
+    moving at all, and the index maps are the whole of the cost — so
+    the first resting frame pays for them and the ones after it do
+    not.
+    """
+    key = (frame, tuple(bbox), gw, hc)
+    return _resample_cache.get(key, lambda: Resample(frame, bbox, gw, hc))
 
 
 def label_runs(overlays):

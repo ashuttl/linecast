@@ -21,7 +21,7 @@ import threading
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 
-from linecast import _builtup, _theme
+from linecast import _builtup, _climate, _theme
 from linecast._maps import globe as _globe
 from linecast._maps import globe_now
 from linecast._maps import globe_texture
@@ -30,6 +30,7 @@ from linecast._maps import style as _maps_style
 from linecast._elevation import elevation_grid
 from linecast import _live
 from linecast._live import nudge as _nudge_repaint
+from linecast._color import BG_PRIMARY
 from linecast._maps.i18n import ms
 from linecast._maps.paint import (
     BORDER_STROKE, RIVER_STROKE, build_terrain_buffer,
@@ -226,16 +227,53 @@ def _coast_dots(fine, gw, hc, water=None, min_dots=None):
     its lakes come from vendored polygons and are already sieved as they
     are carved, by the same reasoning one resolution up.
     """
+    return shore_edges(shore_bits(fine, water, min_dots), gw, hc)
+
+
+# The two bits a dot can carry: land, water, both (never), or neither —
+# a hole in the elevation data, which is stroked from no side.
+SHORE_LAND, SHORE_WATER = 1, 2
+
+
+def shore_bits(fine, water=None, min_dots=None):
+    """The land and water masks packed a byte a dot, row after row.
+
+    What `_coast_dots` cuts the shoreline out of, kept rather than
+    thrown away once the stroke is drawn.  A window cropped off the
+    built view's centre has to cut its own, because a shore is not
+    only a line: it is the boundary of the fill beside it, and the
+    whole point of deriving one from the other is that the two cannot
+    disagree.  Carry the stroke across and it lands where resampling
+    rounds it, which is not always where the resampled fill puts the
+    water's edge.  Carry the land and the water instead — areas, which
+    nearest sampling moves only at their own edge — and cutting the
+    stroke again by the same rule gives a shore that is still on its
+    own shore (`_maps_overscan.Resample.bits`).
+
+    `bytes` rather than two grids of booleans: it is a sixth of the
+    memory to carry with a view, and the masks come back out of it
+    with a translation table, which is a pass of C rather than of
+    Python.
+    """
     if water is not None and min_dots != 0:
         water = streets.stroked_water(water, min_dots)
-    is_land, is_water = [], []
+    rows = []
     for dy, row in enumerate(fine):
         wet = water[dy] if water is not None else None
-        is_land.append([v is not None and v > 0 and not (wet and wet[dx])
-                        for dx, v in enumerate(row)])
-        is_water.append([(v is not None and v <= 0) or bool(wet and wet[dx])
-                         for dx, v in enumerate(row)])
-    return _edge_dots(is_land, is_water, gw, hc)
+        rows.append(bytes(
+            (SHORE_LAND if v is not None and v > 0 and not (wet and wet[dx])
+             else 0)
+            | (SHORE_WATER if (v is not None and v <= 0)
+               or (wet and wet[dx]) else 0)
+            for dx, v in enumerate(row)))
+    return rows
+
+
+def shore_edges(shore, gw, hc):
+    """The braille shoreline of packed land/water bits."""
+    return _edge_dots([[v & SHORE_LAND for v in row] for row in shore],
+                      [[v & SHORE_WATER for v in row] for row in shore],
+                      gw, hc)
 
 
 def _box_average(fine, gw, hc):
@@ -283,45 +321,66 @@ def _water_subpixels(water, gw, hc):
     return out
 
 
-def _tile_water(bbox, gw, hc, window=None):
+def _tile_water(bbox, gw, hc, window=None, camera=None):
     """(inland water dot mask, river layer) for the view, or (None, None).
 
     Terrain mode's one network dependency beyond the elevation tiles,
     and an optional one: every failure degrades to the sea-level-only
     map this used to be, never to an error.
+
+    With a camera the tiles are chosen by its footprint and the
+    polygons are rasterised onto its sphere; the bbox still says what
+    scale the view is drawn at, which is what picks the band.
     """
     try:
-        band, tiles = streets.fetch_view(bbox, hc, window)
+        band, tiles = streets.fetch_view(
+            bbox, hc, window, None if camera is None else camera.bounds)
         if not any(tiles.values()):
             return None, None, None, None
         return streets.build_water_view(bbox, gw, hc, tiles, band,
-                                              RIVER_STROKE)
+                                              RIVER_STROKE, camera)
     except Exception as exc:
         log_failure("maps/vtiles", "inland water", exc, fallback="sea-level-only terrain")
         return None, None, None, None
 
 
-def _builtup_layer(bbox, gw, hc):
+def _builtup_layer(bbox, gw, hc, camera=None):
     """The built-up fraction grid for the view, or None when the layer
     is off or could not be read — the same never-an-error contract as
     the tile water."""
     if not _builtup.enabled():
         return None
     try:
-        return _builtup.builtup_grid(bbox, gw, hc * 2)
+        return _builtup.builtup_grid(bbox, gw, hc * 2, camera=camera)
     except Exception as exc:
         log_failure("maps/builtup", "layer", exc, fallback="layer off")
         return None
 
 
-class TerrainView(namedtuple("TerrainView", "elev coast water rivers cover")):
+class TerrainView(namedtuple("TerrainView",
+                            "elev coast water rivers cover "
+                            "borders fill shade atmo lls glow shore",
+                            defaults=(None,) * 7)):
     """One view's ground truth: the averaged elevation grid, the braille
     shoreline, the sub-pixel inland water mask, the river layer and the
     sub-pixel land-cover grid.
 
-    The last three are None whenever the vector tiles could not be read;
+    Three of those are None whenever the vector tiles could not be read;
     every consumer treats that as "no inland water or cover known", which
-    is exactly what terrain mode drew before them."""
+    is exactly what terrain mode drew before them.
+
+    The rest are what the register gained when it took the camera at
+    every zoom.  `borders` is the Natural Earth stroke, projected onto
+    the same sphere the fill is, at any zoom.  `fill` is the baked
+    planet's own shaded sub-pixels, and is set only when the view came
+    from the texture rather than from elevation.  `shade`, `atmo`,
+    `lls` and `glow` are the sphere's: the viewing cosine the limb
+    falls off by, the rim, the geography under each sub-pixel and the
+    limb point each rim sample grazes.  `shade` arrives once the
+    falloff can move a sub-pixel at all, a few degrees of zoom out;
+    the other three only once the limb is on the screen.  `shore` is
+    the land and water the coastline was cut from, at dot pitch, for a
+    window that has to cut its own (`shore_bits`)."""
     __slots__ = ()
 
 
@@ -340,7 +399,18 @@ _globe_cache = SceneCache(held=_held,
 
 
 def _get_elevation(bbox, gw, hc, block, window=None):
-    """A TerrainView for the view; live mode fetches in the background."""
+    """A TerrainView for the view; live mode fetches in the background.
+
+    The window is a patch of the sphere at every zoom now.  Where the
+    box rasteriser is still the camera's own picture — a twentieth of a
+    braille dot apart, which is the whole of street scale and a little
+    above it — it is the one that runs, because it is separable, it is
+    what the caches already hold, and it is the same map.  Past that
+    the camera samples every source: the elevation through its inverse
+    projection, the vector polygons through its forward one.
+    """
+    cam = _globe.Camera.for_bbox(bbox, gw, hc)
+    camera = None if _globe.affine_ok(cam.lat, cam.zoom, gw, hc) else cam
 
     def load():
         # fetch at 2x and box-average down: point-sampled elevation makes
@@ -351,9 +421,9 @@ def _get_elevation(bbox, gw, hc, block, window=None):
         # the wait is the slowest of them, not the sum.  Only the
         # elevation may fail the view; the other two degrade to None.
         with ThreadPoolExecutor(max_workers=2) as pool:
-            water_job = pool.submit(_tile_water, bbox, gw, hc, window)
-            builtup_job = pool.submit(_builtup_layer, bbox, gw, hc)
-            fine = elevation_grid(bbox, gw * 2, hc * 4)
+            water_job = pool.submit(_tile_water, bbox, gw, hc, window, camera)
+            builtup_job = pool.submit(_builtup_layer, bbox, gw, hc, camera)
+            fine = elevation_grid(bbox, gw * 2, hc * 4, camera=camera)
         water, rivers, cover, ocean = water_job.result()
         bu = builtup_job.result()
         if bu is not None:
@@ -386,10 +456,16 @@ def _get_elevation(bbox, gw, hc, block, window=None):
                     if o:
                         e = frow[dx]
                         frow[dx] = -0.5 if e is None else min(e, -0.5)
+        shore = shore_bits(fine, water)
         view = TerrainView(
-            _box_average(fine, gw, hc), _coast_dots(fine, gw, hc, water),
+            _box_average(fine, gw, hc), shore_edges(shore, gw, hc),
             _water_subpixels(water, gw, hc) if water is not None else None,
-            rivers, cover)
+            rivers, cover, shore=shore,
+            borders=_globe.border_layer(cam.lat, cam.lon, cam.zoom, gw, hc,
+                                        BORDER_STROKE),
+            shade=(_globe.geometry(cam.lat, cam.lon, cam.zoom,
+                                   gw, hc * 2)[1]
+                   if _globe.limb_shading(cam.zoom, gw, hc) else None))
         _terrain_landed[0] = (tuple(bbox), gw, hc, view)
         return view
 
@@ -442,12 +518,63 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=(),
 
 
 
-def _terrain_buffer(elev, bbox, gw, hc, water=None, cover=None):
+def _terrain_buffer(view, bbox, gw, hc, wide=False):
+    """The view's sub-pixel colour: hillshade, then the limb, memoised.
+
+    One builder for the whole register.  A view filled from the baked
+    planet already has its colour and only needs copying; one built
+    from elevation goes through the shader, with a scale-only bbox and
+    a climate grid sampled from the sphere where the window is wide
+    enough that its own bbox is a scale and not a footprint.  Either
+    way the limb falloff goes on last and inside the memo, because it
+    belongs to the picture and not to the moment.
+
+    It is applied to the *built* view and cropped with everything else.
+    That is exact: a crop is the same plane points at another offset,
+    and the viewing cosine is a property of the point.
+    """
     # the tile flags are part of the key: the same view rendered once
     # offline and once with tiles is two different pictures
-    key = _view_key(bbox, gw, hc) + (water is not None, cover is not None)
-    return _terrain_cache.get(key, lambda: build_terrain_buffer(
-        elev, bbox, gw, hc * 2, water, cover))
+    key = _view_key(bbox, gw, hc) + (view.water is not None,
+                                     view.cover is not None,
+                                     view.fill is not None, wide)
+
+    def build():
+        if view.fill is not None:
+            buf = [list(row) for row in view.fill]
+        elif wide:
+            # the planet rebuilt from elevation: a scale-only bbox,
+            # because the shader wants metres per sub-pixel and on a
+            # disk that is the hand-off zoom's scale everywhere (the
+            # limb compresses beyond it, and the falloff owns that).
+            # The empty-tuple fallback means "no climate known" — never
+            # "derive from bbox", because this bbox is scale-only
+            zoom = bbox[3] - bbox[1]
+            spy_h = hc * 2
+            sbbox = (0.0, -zoom / 2, zoom * gw / spy_h, zoom / 2)
+            buf = build_terrain_buffer(
+                view.elev, sbbox, gw, spy_h, water=view.water,
+                cover=view.cover,
+                climate=_climate.grid_for_lls(view.lls) or ())
+        else:
+            # the climate families are looked up by latitude, and where
+            # the elevation came through the camera the bbox's rows are
+            # not its latitudes: a boundary read off the bbox would sit
+            # rows from the ground it colours at the window's edges
+            cam = _globe.Camera.for_bbox(bbox, gw, hc)
+            climate = None
+            if not _globe.affine_ok(cam.lat, cam.zoom, gw, hc):
+                climate = _climate.grid_for_lls(
+                    _globe.geometry(cam.lat, cam.lon, cam.zoom,
+                                    gw, hc * 2)[0]) or ()
+            buf = build_terrain_buffer(view.elev, bbox, gw, hc * 2,
+                                       view.water, view.cover,
+                                       climate=climate)
+        if view.shade is not None:
+            _globe.shade_buffer(buf, view.shade, view.atmo, BG_PRIMARY)
+        return buf
+
+    return _terrain_cache.get(key, build)
 
 
 def warm_globe_texture(zoom, hc, street=False):
@@ -469,6 +596,17 @@ def warm_globe_texture(zoom, hc, street=False):
         return
     threading.Thread(target=globe_texture.for_view, daemon=True,
                      args=(zoom, hc * 4, register, False)).start()
+
+
+def terrain_recentres(lat, zoom, gw, hc):
+    """Whether a terrain drag can turn the ground under the hand.
+
+    Within the tile sources' reach it always can: the view is built a
+    margin wider than the window, so the window at the new centre is a
+    crop of what is already in hand.  Beyond them it is the planet, and
+    the planet has to be warm.
+    """
+    return _globe.local_tiles(lat, zoom, gw, hc) or globe_warm(zoom, hc)
 
 
 def globe_warm(zoom, hc, street=False):

@@ -522,17 +522,16 @@ class TestLabelToggle:
         coast[hc // 2][gw // 2 - 5] = 0x10
         rivers = maps.DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
         rivers._set_dot((gw // 2 - 8) * 2, hc // 2 * 4 + 1, (0, 0, 255))
-        terrain = maps.TerrainView(elev, coast, None, rivers, None)
+        # the borders ride on the view now, stroked by the camera, not
+        # cut out of the basemap's cells
+        borders = maps.DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
+        borders.dots[hc // 2][gw // 2 + 5] = 0x07
+        terrain = maps.TerrainView(elev, coast, None, rivers, None,
+                                   borders=borders)
         monkeypatch.setattr(maps, "_get_elevation", lambda *a: terrain)
 
         class FakeBasemap:
-            dots = [[0] * gw for _ in range(hc)]
-            color = [[None] * gw for _ in range(hc)]
-            # clear of the centre crosshair's cell
-            dots[hc // 2][gw // 2 + 5] = 0x07
-            color[hc // 2][gw // 2 + 5] = maps.BORDER
-
-            def city_overlays(self, lang="en"):
+            def city_overlays(self, lang="en", project=None):
                 return {}
 
         monkeypatch.setattr(maps, "_get_basemap",

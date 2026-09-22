@@ -17,11 +17,12 @@ the sparse tileset is the compression.
 import os
 
 from linecast._cache import write_bytes_atomic
+from linecast._elevation import _mercator_table
 from linecast._http import fetch_bytes
 from linecast._maps.tile_cache import note_tile_use
 from linecast._paths import cache_dir
 from linecast._png import DecodeMemo, decode_rgba
-from linecast._radar.tiles import _pick_zoom, reproject_xyz
+from linecast._radar.tiles import _pick_zoom, reproject_xyz, stitch_xyz
 from linecast._runtime import log_failure
 
 MAX_ZOOM = 9  # the published pyramid's floor: ~300 m per pixel, plenty for a tint
@@ -88,14 +89,19 @@ def _fetch_tile(z, x, y, timeout=15):
 
 
 def builtup_grid(bbox: tuple[float, float, float, float], w: int, h: int,
-                 timeout: float = 15) -> list[list[int]]:
+                 timeout: float = 15, camera=None) -> list[list[int]]:
     """Built fraction 0-255 resampled to a w×h grid over `bbox`.
 
     Rows of ints; 0 where nothing is built or no tile answered.
     Nearest-neighbour is right here: the value is a fraction for a
     tint threshold, not a field to differentiate.
+
+    A `camera` supplies the source bounds and the sample points, as it
+    does for the elevation: the tint has to land on the same ground the
+    hillshade under it does.
     """
-    z = _pick_zoom(bbox, w, MAX_ZOOM)
+    detail = bbox if camera is None else camera.scale_bbox
+    z = _pick_zoom(detail, w, MAX_ZOOM)
 
     def fetch(z_, x, y):
         data = _fetch_tile(z_, x, y, timeout)
@@ -108,9 +114,42 @@ def builtup_grid(bbox: tuple[float, float, float, float], w: int, h: int,
                         fallback="tile left empty")
             return None
 
-    _, _, rgba = reproject_xyz(fetch, bbox, w, h, z)
-    grid = [[rgba[(row * w + col) * 4] if rgba[(row * w + col) * 4 + 3]
-             else 0 for col in range(w)] for row in range(h)]
+    base = None
+    if camera is None:
+        _, _, rgba = reproject_xyz(fetch, bbox, w, h, z)
+        grid = [[rgba[(row * w + col) * 4] if rgba[(row * w + col) * 4 + 3]
+                 else 0 for col in range(w)] for row in range(h)]
+    else:
+        coverage = camera.bounds
+        canvas, cw, ch, org_x, org_y, world = stitch_xyz(fetch, coverage, z)
+        lo, inv, vals = _mercator_table(coverage[1], coverage[3])
+        last = len(vals) - 2
+        kx = world / 360.0
+        x_off = (camera.lon + 180.0) * kx - org_x
+        base = camera.base(w, h)
+        grid = []
+        for b_row in base:
+            row = []
+            for b in b_row:
+                value = 0
+                if b is not None:
+                    t = (b[0] - lo) * inv
+                    i = int(t)
+                    if i < 0:
+                        i, t = 0, 0.0
+                    elif i > last:
+                        i, t = last, 1.0
+                    else:
+                        t -= i
+                    v = vals[i]
+                    py = (v + (vals[i + 1] - v) * t) * world - org_y
+                    px = b[1] * kx + x_off
+                    if 0.0 <= px < cw and 0.0 <= py < ch:
+                        at = (int(py) * cw + int(px)) * 4
+                        if canvas[at + 3]:
+                            value = canvas[at]
+                row.append(value)
+            grid.append(row)
     # a light 3x3 mean before anyone thresholds it: the raw cells grade-
     # dither at settlement edges, and the smoothed field breaks into the
     # chunkier bounded regions a schematic map wants
@@ -119,6 +158,9 @@ def builtup_grid(bbox: tuple[float, float, float, float], w: int, h: int,
         y0, y1 = max(0, y - 1), min(h - 1, y + 1) + 1
         row = []
         for x in range(w):
+            if base is not None and base[y][x] is None:
+                row.append(0)   # space: nothing is built there
+                continue
             x0, x1 = max(0, x - 1), min(w - 1, x + 1) + 1
             n = s = 0
             for yy in range(y0, y1):

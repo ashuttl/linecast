@@ -232,12 +232,26 @@ class TestZoom:
         settle(app)
         assert (app.lat, app.lon) == (43.68, -70.37)
 
-    def test_a_zoom_across_the_hand_off_cuts_rather_than_eases(self):
-        # neither side can stand in for the other, so every frame of
-        # an ease across the hand-off would be blank: it snaps, as it
-        # did before the camera, and the ticker is not started
+    def test_a_terrain_zoom_through_the_hand_off_eases(self):
+        # Terrain is one camera from the valley to the planet now, so
+        # there is nothing to cross: a zoom out through 45 deg is a
+        # uniform scaling of the picture like any other, and it eases.
         flat = _globe.ZOOM_DEG / 2
         app = make(zoom=flat, lat=0.0)
+        assert app.zoom_to(flat * 4)
+        assert app.zoom == flat and app.camera.moving()
+        assert settle(app)[2] == flat * 4
+        assert app.zoom_to(flat)
+        assert app.zoom == flat * 4 and app.camera.moving()
+        assert settle(app)[2] == flat
+
+    def test_a_street_zoom_across_the_hand_off_still_cuts(self):
+        # street has not joined the camera yet (stage two): neither
+        # side can stand in for the other, so every frame of an ease
+        # across the hand-off would be blank.  It snaps, as it did
+        # before the camera, and the ticker is not started
+        flat = _globe.ZOOM_DEG / 2
+        app = make(zoom=flat, lat=0.0, view="street")
         assert app.zoom_to(flat * 4)
         assert app.zoom == flat * 4 and not app.camera.moving()
         assert FakeThread.started == []
@@ -252,11 +266,11 @@ class TestZoom:
         assert app.zoom == flat * 4 and app.camera.moving()
         assert [t.target for t in FakeThread.started] == [app._tick, app._tick]
 
-    def test_an_anchored_zoom_that_would_land_on_the_globe_cuts(self):
+    def test_an_anchored_street_zoom_that_would_land_on_the_globe_cuts(self):
         # anchored at the bottom row, a zoom out carries the centre
         # toward the pole, and the hand-off is judged where the ease
         # would end rather than where it starts
-        app = make(zoom=30.0, lat=20.0)
+        app = make(zoom=30.0, lat=20.0, view="street")
         assert not _globe.is_globe(30.0 * 1.4, 20.0)
         assert app.zoom_to(30.0 * 1.4, at=(50, ROWS - 1))
         assert not app.camera.moving()

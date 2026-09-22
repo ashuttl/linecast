@@ -31,12 +31,14 @@ from linecast._maps.search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
 )
 from linecast import _vtiles
-from linecast._maps.views import _zoom_hold, globe_warm, warm_globe_texture
+from linecast._maps.views import (
+    _zoom_hold, globe_warm, terrain_recentres, warm_globe_texture,
+)
 from linecast._radar.render import bbox_for
 from linecast._runtime import RuntimeConfig, log_failure, maps_parser, set_current
 from linecast.maps import (
     MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP, fit_view, map_cells, max_zoom,
-    prefetch_view, render_map,
+    prefetch_view, render_map, wide_source,
 )
 
 
@@ -86,6 +88,9 @@ class Camera:
         self._pan = None                  # (from, to, started)
         self._flight = None               # (Flight, started)
         self._spin_mark = None            # clock at the last spin step
+        # whether this register still cuts across the hand-off rather
+        # than eases through it; the app sets it from the view
+        self.snap_handoff = True
 
     # -- reading ---------------------------------------------------------
     def moving(self):
@@ -333,13 +338,21 @@ class Camera:
             anchor = (plat, plon, fx, fy)
             lat_end = self._clamp_lat(plat - target * (0.5 - fy))
         self._coast = self._flight = None
-        if (_globe.is_globe(self.zoom, self.lat)
+        if (self.snap_handoff
+                and _globe.is_globe(self.zoom, self.lat)
                 != _globe.is_globe(target, lat_end)):
             # The hand-off is crossed in one cut.  Neither side can
             # stand in for the other — a globe cannot be re-projected
             # into a flat window, nor a flat view onto the sphere — so
             # every frame of an ease across it would be blank.  About
             # the centre, as the anchor is a flat-map identity.
+            #
+            # Terrain no longer crosses anything: it is one camera from
+            # the valley to the planet, a zoom about the centre is a
+            # uniform scaling of the picture at every zoom, and the
+            # frames between the tap and the data are that scaling.  So
+            # it eases straight through, and only the street register
+            # still snaps (stage two).
             self._zoom = self._pan = None
             self.zoom = target
             return True
@@ -510,6 +523,7 @@ class MapApp(LiveApp):
         cam = self.camera
         cam.gw, cam.hc = gw, hc
         cam.zoom_max = max_zoom(gw, hc)
+        cam.snap_handoff = self.view == "street"
         return gw, hc
 
     # -- the ticker ------------------------------------------------------
@@ -574,7 +588,7 @@ class MapApp(LiveApp):
             return False
         _zoom_hold.hold()
         heading = self.camera.zoom_heading()
-        if _globe.is_globe(heading, self.camera.lat):
+        if wide_source(self.view, self.camera.lat, heading, gw, hc):
             warm_globe_texture(heading, hc, self.view == "street")
         if self.camera.moving():
             self._wake()
@@ -698,9 +712,9 @@ class MapApp(LiveApp):
         cache, where the next view of that window will find it.
         """
         dest = self.camera.coast_destination()
-        if dest is None or _globe.is_globe(self.zoom, dest[0]):
-            return   # the globe paints every frame from a warm planet
         gw, hc = map_cells()
+        if dest is None or wide_source(self.view, dest[0], self.zoom, gw, hc):
+            return   # the planet paints every frame from a warm texture
         prefetch_view(dest[0], dest[1], self.zoom, self.view, gw, hc,
                       self.runtime.lang, marker=self.home)
 
@@ -806,13 +820,16 @@ class MapApp(LiveApp):
         gw, hc = self._fit()
         cam = self.camera
         if not cam.dragging():
-            warm = (_globe.is_globe(cam.zoom, cam.lat)
-                    and globe_warm(cam.zoom, hc, self.view == "street"))
+            if self.view == "street":
+                shift = (_globe.is_globe(cam.zoom, cam.lat)
+                         and not globe_warm(cam.zoom, hc, True))
+            else:
+                shift = not terrain_recentres(cam.lat, cam.zoom, gw, hc)
+            warm = not shift and _globe.is_globe(cam.zoom, cam.lat)
             if done and warm and not (self.pan_preview[0]
                                       or self.pan_preview[1]):
                 return False  # a click, not a drag
-            self._drag_shift = (_globe.is_globe(cam.zoom, cam.lat)
-                                and not warm)
+            self._drag_shift = shift
             self._dragged = False
             cam.press()
         if not self._drag_shift:
@@ -900,12 +917,16 @@ class MapApp(LiveApp):
         # the release.
         _maps_views.hold_motion(moving, passing=not (self.camera.flying()
                                                      or self.camera.dragging()))
-        # A warm globe repaints synchronously, moving or at rest: the
-        # frame is a few hundredths of a second of arithmetic, and the
-        # alternative is a blank disk — between frames while it turns,
-        # and once more where a coast runs out, since the resting
-        # centre is never quite the last moving one.
-        sync = (_globe.is_globe(zoom, lat)
+        # A view drawn from the world's own sources repaints
+        # synchronously once they are warm: the frame is a few
+        # hundredths of a second of arithmetic, and the alternative is
+        # a blank disk — between frames while it turns, and once more
+        # where a coast runs out, since the resting centre is never
+        # quite the last moving one.  Within the tile sources' reach
+        # the answer is the overscan instead: the window is a crop of a
+        # view already in hand, and asking a loader to block there
+        # would put the network in front of a frame.
+        sync = (wide_source(self.view, lat, zoom, gw, hc)
                 and globe_warm(zoom, hc, self.view == "street"))
         return render_map(
             lat, lon, self.location_name, zoom,
@@ -918,7 +939,7 @@ class MapApp(LiveApp):
             note=ui.route_note(routes, self.runtime.lang),
             show_labels=self.show_labels,
             sun=self.sun, clouds=self.clouds,
-            motion=self.camera.heading())
+            motion=self.camera.heading(), moving=moving)
 
     def run(self):
         if self.routes.dest is not None:

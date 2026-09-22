@@ -185,7 +185,11 @@ def tiles_for_bbox(bbox: tuple[float, float, float, float], z: int) -> list[tupl
     n = 1 << z
     x0, y0 = _lonlat_to_world(minlon, maxlat)  # top-left
     x1, y1 = _lonlat_to_world(maxlon, minlat)  # bottom-right
-    tx0 = int(x0 * n)
+    # floor, not truncation: a camera centred just west of the
+    # antimeridian unwraps its bounds to a negative world x, and
+    # truncating toward zero would drop the westernmost tile instead
+    # of wrapping to it
+    tx0 = math.floor(x0 * n)
     # right edge by ceiling so a bbox past the antimeridian (world x > 1)
     # reaches the wrapped tiles instead of clamping at n - 1
     tx1 = math.ceil(x1 * n) - 1
@@ -197,7 +201,8 @@ def tiles_for_bbox(bbox: tuple[float, float, float, float], z: int) -> list[tupl
 
 
 def projector(z: int, tx: int, ty: int, extent: int, bbox: tuple[float, float, float, float],
-              dw: float, dh: float) -> Callable[[float, float], tuple[float, float]]:
+              dw: float, dh: float, camera=None
+              ) -> Callable[[float, float], tuple[float, float]]:
     """Tile-local (x, y) -> dot-space (x, y) for one tile in one view.
 
     Tile coordinates are web mercator; the view is linear in lon/lat
@@ -205,8 +210,42 @@ def projector(z: int, tx: int, ty: int, extent: int, bbox: tuple[float, float, f
     what makes a braille dot ground-square).  Going through lon/lat
     rather than staying in mercator keeps street mode registered with
     the elevation grid and the Natural Earth basemap to the dot.
+
+    With a `camera` the destination is the sphere instead, and the
+    bbox only chose which tiles to read.  Longitude then moves a point
+    up the screen as well as across it, so the axes are not separable —
+    but the projection is *bilinear* in their trigonometry, so each
+    tile column and row is still turned once and a vertex costs four
+    multiplies and two dict reads.  A terrain view projects a quarter
+    of a million vertices; that is the difference between a camera you
+    can afford at every zoom and one you cannot.
     """
     n = float(1 << z)
+    if camera is not None:
+        rx, r, sin0, cos0, half_w, half_h = camera.plane(dw, dh)
+        lam0 = math.radians(camera.lon)
+        turns: dict[float, tuple[float, float]] = {}
+        lats: dict[float, tuple[float, float, float]] = {}
+
+        def project_sphere(px, py):
+            t = turns.get(px)
+            if t is None:
+                lon = (tx + px / extent) / n * 360.0 - 180.0
+                d = math.radians(lon) - lam0
+                t = turns[px] = (math.sin(d), math.cos(d))
+            u = lats.get(py)
+            if u is None:
+                wy = (ty + py / extent) / n
+                phi = math.atan(math.sinh(math.pi * (1.0 - 2.0 * wy)))
+                cos_p, sin_p = math.cos(phi), math.sin(phi)
+                u = lats[py] = (rx * cos_p,
+                                half_h - r * cos0 * sin_p,
+                                r * sin0 * cos_p)
+            sin_d, cos_d = t
+            kx, y0, ky = u
+            return (half_w + kx * sin_d, y0 + ky * cos_d)
+
+        return project_sphere
     minlon, minlat, maxlon, maxlat = bbox
     lon_span = (maxlon - minlon) or 1e-12
     lat_span = (maxlat - minlat) or 1e-12
@@ -246,7 +285,7 @@ DEFAULT_EXTENT = 4096   # the MVT default, when a layer carries none
 def iter_layer(
     view: Iterable[tuple[tuple[int, int, int], dict[str, Any]]],
     names: str | Sequence[str], bbox: tuple[float, float, float, float], dw: float, dh: float,
-    geom: int | None = None,
+    geom: int | None = None, camera=None,
 ) -> Iterator[tuple[str, dict[str, Any], Callable[[float, float], tuple[float, float]]]]:
     """(layer name, feature, project) for every feature of the named
     layers in a decoded view, tile by tile in the view's own order.
@@ -265,7 +304,7 @@ def iter_layer(
             if src is None:
                 continue
             project = projector(z, tx, ty, src.get("extent") or DEFAULT_EXTENT,
-                                bbox, dw, dh)
+                                bbox, dw, dh, camera)
             for feat in src["features"]:
                 if geom is not None and feat["type"] != geom:
                     continue

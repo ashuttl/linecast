@@ -349,14 +349,17 @@ class DotLayer:
         return not (hi_lon < minlon or lo_lon > maxlon
                     or hi_lat < minlat or lo_lat > maxlat)
 
-    def _draw_lines(self, lines, color, width=1, rank=0):
+    def _draw_lines(self, lines, color, width=1, rank=0, project=None):
+        # `project` places a (lon, lat) on the dot grid for a caller
+        # whose map is not the bbox's own — the terrain camera
         offsets = ((0, 0),) if width <= 1 else ((0, 0), (1, 0), (0, 1))
         for coords in lines:
             if not self._in_view(coords):
                 continue
             prev = None
             for lon, lat in coords:
-                p = _project(lon, lat, self.bbox, self.dw, self.dh)
+                p = (project(lon, lat) if project is not None
+                     else _project(lon, lat, self.bbox, self.dw, self.dh))
                 if prev is not None:
                     for ox, oy in offsets:
                         self._dot_line(prev[0] + ox, prev[1] + oy,
@@ -516,7 +519,7 @@ class Basemap(DotLayer):
         self._draw_lines(data["borders"], BORDER)
 
     # -- city labels ----------------------------------------------------------
-    def city_overlays(self, max_cities=None, lang="en"):
+    def city_overlays(self, max_cities=None, lang="en", project=None):
         """{(col,row): (char, color)} for the biggest cities in view + labels.
 
         The label budget scales with the visible area, and biggest-first
@@ -524,6 +527,12 @@ class Basemap(DotLayer):
         wide views show the majors and close views fill in the local towns.
         ``lang`` selects localized placenames where the vendored data has
         them, falling back to the default Latin name.
+
+        ``project`` places a (lon, lat) in cells, for a caller whose map is
+        not linear in longitude and latitude — the terrain register's
+        camera.  The bbox still chooses which cities are candidates; where
+        they land is the caller's own geometry, so a dot and the ground it
+        names cannot drift apart.
 
         Labels are placed one terminal *column* at a time: CJK and other
         double-width glyphs consume two columns, with the trailing column
@@ -545,7 +554,9 @@ class Basemap(DotLayer):
         for _pop, name, lon, lat in inview:
             if len(placed) >= max_cities:
                 break
-            x, y = _project(lon, lat, self.bbox, self.graph_w, self.height_cells)
+            x, y = (project(lon, lat) if project is not None else
+                    _project(lon, lat, self.bbox, self.graph_w,
+                             self.height_cells))
             col, row = int(x), int(y)
             if not (0 <= col < self.graph_w and 0 <= row < self.height_cells):
                 continue
