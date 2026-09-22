@@ -54,6 +54,12 @@ COMMANDS = {
     "doctor": "linecast.doctor",
 }
 
+# Commands for working on linecast itself: they dispatch, but the help
+# page and the completions do not mention them.
+HIDDEN = {
+    "prose": "linecast.prose",
+}
+
 # The commands that answer to their own name as argv[0], for users and
 # distro packages that link or copy the binary under a short name. Only
 # these dispatch: the utility commands (location, units, doctor) have no
@@ -68,7 +74,7 @@ def _run(cmd, args):
     _runtime.INVOKED_AS = sys.argv[0]
     sys.argv = [f"linecast {cmd}"] + list(args)
     import importlib
-    mod = importlib.import_module(COMMANDS[cmd])
+    mod = importlib.import_module(COMMANDS.get(cmd) or HIDDEN[cmd])
     mod.main()
 
 
@@ -152,7 +158,7 @@ def _main():
         sys.exit(0)
 
     cmd = args[0]
-    if cmd not in COMMANDS:
+    if cmd not in COMMANDS and cmd not in HIDDEN:
         print(f"linecast: unknown command '{cmd}'", file=sys.stderr)
         print("Run 'linecast --help' for usage.", file=sys.stderr)
         sys.exit(1)

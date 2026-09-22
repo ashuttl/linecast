@@ -320,8 +320,12 @@ def _number_form(count, runtime, base):
 _MAX_SENTENCES = 4
 
 
-def narrative_lines(data, now, width, runtime=None):
-    """The prose under the graph, wrapped as one continuous paragraph."""
+def narrative_lines(data, now, width, runtime=None, trace=None):
+    """The prose under the graph, wrapped as one continuous paragraph.
+
+    `trace`, a list, collects every candidate sentence as a dict of its
+    salience, hours from now, text, and whether it was chosen: how
+    `linecast prose` shows why a paragraph says what it says."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
     daily = data.get("daily", {})
@@ -339,9 +343,13 @@ def narrative_lines(data, now, width, runtime=None):
     def add(salience, at, anchor, build, leaves=None):
         # `leaves` is the last time the sentence names, the frame the
         # next sentence can inherit; by default the anchor itself
-        if build(None):
+        text = build(None)
+        if text:
             candidates.append((salience, at, anchor, build, len(candidates),
                                leaves or anchor))
+            if trace is not None:
+                trace.append({"salience": salience, "at": at, "text": _ucfirst(text),
+                              "chosen": False})
 
     precip = _precip_parts(hourly, now, runtime, daily)
     kind = precip["kind"]
@@ -408,6 +416,9 @@ def narrative_lines(data, now, width, runtime=None):
 
     chosen = sorted(candidates, key=lambda c: (-c[0], c[1], c[4]))[:_MAX_SENTENCES]
     chosen.sort(key=lambda c: (c[1], c[4]))
+    if trace is not None:
+        for _, _, _, _, rank, _ in chosen:
+            trace[rank]["chosen"] = True
 
     # A sentence about the same later day as the one before it inherits
     # that day: "Gusts to 40 km/h tomorrow morning.  It will be 3° cooler
