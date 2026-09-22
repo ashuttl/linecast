@@ -358,6 +358,31 @@ class TestPrecipitationPeak:
         assert self._sentence(self._hourly(codes, amounts)) == \
             "Rain ending around 23:00"
 
+    def test_thunder_behind_a_wetter_hour_of_showers_is_still_named(self):
+        # Athens: showers from 20:00 with thunder at 23:00, and the
+        # wettest hour of the lot a plain shower after midnight
+        codes = [0, 0, 80, 80, 80, 95, 80, 95, 0]
+        amounts = [0, 0, 0.1, 0.8, 0.6, 1.2, 2.1, 1.2, 0]
+        assert self._sentence(self._hourly(codes, amounts)) == \
+            "Light showers starting in about an hour, becoming thunderstorms around 23:00"
+        assert self._sentence(self._hourly(codes, amounts), lang="ja") == \
+            "約1時間後に弱いにわか雨、23時頃に雷雨となる"
+
+    def test_thunder_at_the_end_of_a_long_rain_is_named(self):
+        # Moscow: light rain all evening, 4.2mm of plain rain at 23:00 --
+        # the same rain, harder, and so no turn -- and thunder behind it
+        codes = [0, 61, 61, 61, 61, 63, 61, 95, 61, 0]
+        amounts = [0, 0.1, 0.1, 0.3, 0.8, 4.2, 2.2, 2.7, 0.8, 0]
+        assert self._sentence(self._hourly(codes, amounts)) == \
+            "Light rain starting shortly, becoming thunderstorms overnight"
+
+    def test_drizzle_behind_showers_is_a_let_up_not_a_turn(self):
+        # Mumbai: showers now, heavy drizzle after them.  Drizzle ranks
+        # a step above a light shower and is still the weather easing.
+        codes = [80, 81, 55, 53, 55, 51, 0, 0]
+        amounts = [1.8, 2.5, 1.1, 0.7, 1.1, 0.1, 0, 0]
+        assert self._sentence(self._hourly(codes, amounts)) == "Light showers ending overnight"
+
     def test_a_run_through_the_day_can_still_turn_heavy(self):
         codes = [61] * 10 + [65] * 10 + [61] * 6
         assert self._sentence(self._hourly(codes)) == \
@@ -457,6 +482,92 @@ class TestHedges:
         }
         assert precipitation_sentence(hourly, self.EVENING, _runtime()) == \
             "Light rain starting in a couple hours"
+
+
+class TestWhichRunLeads:
+    """Only rain worth planning for leads: an early chance waits its turn."""
+
+    MORNING = datetime(2026, 9, 22, 9, 26)
+
+    # Bangkok: one 44% hour of drizzle before lunch, and the storm the
+    # day is really about at five
+    CHANCE_THEN_STORM = ([3, 3, 51, 3, 3, 3, 3, 3, 95, 95, 95, 3],
+                         [10, 10, 44, 10, 10, 10, 10, 10, 84, 84, 82, 10])
+
+    def _sentence(self, codes, probs, **overrides):
+        from linecast._weather.sections import precipitation_sentence
+        hours = [self.MORNING.replace(minute=0) + timedelta(hours=k)
+                 for k in range(len(codes))]
+        hourly = {"time": [h.isoformat(timespec="minutes") for h in hours],
+                  "weather_code": codes, "precipitation_probability": probs}
+        return precipitation_sentence(hourly, self.MORNING, _runtime(**overrides))
+
+    def test_a_chance_waits_when_the_real_weather_comes_later(self):
+        codes, probs = self.CHANCE_THEN_STORM
+        assert self._sentence(codes, probs) == "Thunderstorms starting around 17:00"
+        assert self._sentence(codes, probs, lang="ja") == "17時頃に雷雨となる"
+
+    def test_a_chance_leads_when_nothing_surer_follows_it(self):
+        codes, probs = self.CHANCE_THEN_STORM
+        assert self._sentence(codes, probs[:8] + [50, 50, 50, 10]) == \
+            "A chance of light drizzle in about an hour"
+
+    def test_the_first_run_worth_planning_for_leads(self):
+        # Not the wettest, not the surest: the first one a person would
+        # take an umbrella for
+        codes = [3, 3, 61, 61, 3, 3, 3, 3, 63, 63, 63, 3]
+        probs = [10, 10, 65, 65, 10, 10, 10, 10, 90, 90, 90, 10]
+        assert self._sentence(codes, probs) == "Light rain likely starting in about an hour"
+
+
+class TestWhatIsFallingNow:
+    """The prose cannot say rain has yet to start when the header says it has."""
+
+    HONG_KONG = datetime(2026, 9, 22, 10, 26)
+    # Drizzle into the afternoon, at odds that open at exactly thirty percent
+    CODES = [51, 51, 51, 51, 51, 51, 51, 2, 2]
+    PROBS = [30, 35, 47, 63, 71, 64, 50, 35, 22]
+
+    def _hourly(self, codes, probs, start=None):
+        start = start or self.HONG_KONG.replace(minute=0)
+        hours = [start + timedelta(hours=k) for k in range(len(codes))]
+        return {"time": [h.isoformat(timespec="minutes") for h in hours],
+                "weather_code": codes, "precipitation_probability": probs}
+
+    def _sentence(self, hourly, now=None, current=None, **overrides):
+        from linecast._weather.sections import precipitation_sentence
+        return precipitation_sentence(hourly, now or self.HONG_KONG,
+                                      _runtime(**overrides), current=current)
+
+    def test_drizzle_falling_now_is_drizzle_ending(self):
+        hourly = self._hourly(self.CODES, self.PROBS)
+        assert self._sentence(hourly, current={"weather_code": 51}) == \
+            "Light drizzle ending around 17:00"
+        assert self._sentence(hourly, current={"weather_code": 51}, lang="ja") == \
+            "霧雨が17時頃にやむ見込み"
+
+    def test_the_hours_own_odds_rule_when_nothing_is_falling(self):
+        hourly = self._hourly(self.CODES, self.PROBS)
+        assert self._sentence(hourly) == "Light drizzle likely starting shortly"
+        assert self._sentence(hourly, current={"weather_code": 3}) == \
+            "Light drizzle likely starting shortly"
+
+    def test_drizzle_the_hours_have_all_but_given_up_on(self):
+        # Cape Town before dawn: five percent, and it is falling
+        cape_town = datetime(2026, 9, 22, 4, 26)
+        hourly = self._hourly([51, 51, 1, 1, 0, 0], [5, 6, 5, 2, 0, 0],
+                              start=cape_town.replace(minute=0))
+        assert self._sentence(hourly, now=cape_town, current={"weather_code": 51}) == \
+            "Light drizzle ending shortly"
+        assert self._sentence(hourly, now=cape_town) == ""
+
+    def test_the_paragraph_is_told_what_is_falling(self):
+        import re
+        hourly = self._hourly(self.CODES + [2] * 16, self.PROBS + [0] * 16)
+        data = {"hourly": hourly, "daily": DAILY, "current": {"weather_code": 51}}
+        prose = " ".join(re.sub(r"\x1b\[[0-9;]*m", "", row)
+                         for row in narrative_lines(data, self.HONG_KONG, 200, _runtime()))
+        assert prose == "Light drizzle ending around 17:00."
 
 
 class TestTheClockInTheSentence:
@@ -715,6 +826,39 @@ class TestMoreToSay:
         hourly = self._day_of(sunday.date() + timedelta(days=2), [0] * 9 + [61] * 8 + [0] * 7, 74)
         assert next_rain_sentence(daily, sunday, _runtime(), hourly) == \
             "Light rain likely on Tuesday"
+
+    def test_the_day_is_named_by_the_hour_that_holds_most_of_its_rain(self):
+        # Helsinki: Thursday opens with an hour of drizzle and holds
+        # 12mm of rain
+        from linecast._weather.sections import next_rain_sentence
+        sunday = datetime(2026, 9, 20, 5, 30)
+        daily = self._week(sunday, [0, 0, 0, 12.2, 0, 0, 0, 0], [0, 0, 5, 81, 0, 0, 0, 0])
+        codes = [0] * 7 + [51, 53, 61, 61, 61, 61, 51] + [0] * 10
+        hourly = self._day_of(sunday.date() + timedelta(days=2), codes, 81)
+        hourly["precipitation"] = [0] * 7 + [0.2, 0.6, 1.47, 1.65, 1.5, 2.4, 0.1] + [0] * 10
+        assert next_rain_sentence(daily, sunday, _runtime(celsius=True, metric=True),
+                                  hourly) == "Light rain on Tuesday"
+        assert next_rain_sentence(daily, sunday, _runtime(lang="ja", celsius=True, metric=True),
+                                  hourly) == "火曜日に弱い雨となる"
+
+    def test_without_amounts_the_heaviest_hour_names_the_day(self):
+        from linecast._weather.sections import next_rain_sentence
+        sunday = datetime(2026, 9, 20, 5, 30)
+        daily = self._week(sunday, [0, 0, 0, 12.2, 0, 0, 0, 0], [0, 0, 5, 81, 0, 0, 0, 0])
+        codes = [0] * 7 + [51, 53, 61, 63, 61, 61, 51] + [0] * 10
+        hourly = self._day_of(sunday.date() + timedelta(days=2), codes, 81)
+        assert next_rain_sentence(daily, sunday, _runtime(celsius=True, metric=True),
+                                  hourly) == "Rain on Tuesday"
+
+    def test_a_far_off_day_of_drizzle_is_not_news_whatever_it_opens_with(self):
+        # An hour of light rain at dawn does not make a drizzly Sunday
+        # worth a sentence four days out
+        from linecast._weather.sections import next_rain_sentence
+        daily = self._week(NOON, [0, 0, 0, 0, 0, 5.0, 0, 0], [0, 0, 0, 0, 0, 90, 0, 0])
+        codes = [0] * 6 + [61] + [53] * 11 + [0] * 6
+        hourly = self._day_of(NOON.date() + timedelta(days=4), codes, 90)
+        hourly["precipitation"] = [0] * 6 + [0.1] + [0.4] * 11 + [0] * 6
+        assert next_rain_sentence(daily, NOON, _runtime(), hourly) == ""
 
     def test_the_further_off_the_surer_and_the_wetter_it_must_be(self):
         # Without the hours, the day's own code and odds name it

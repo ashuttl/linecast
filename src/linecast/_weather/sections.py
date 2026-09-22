@@ -351,7 +351,7 @@ def narrative_lines(data, now, width, runtime=None, trace=None):
                 trace.append({"salience": salience, "at": at, "text": _ucfirst(text),
                               "chosen": False})
 
-    precip = _precip_parts(hourly, now, runtime, daily)
+    precip = _precip_parts(hourly, now, runtime, daily, current=current)
     kind = precip["kind"]
     anchor = precip["run"][0][1] if kind == "starting" else now
     at = hours(anchor) if kind == "starting" else -1.0
@@ -362,11 +362,13 @@ def narrative_lines(data, now, width, runtime=None, trace=None):
         add(max(precip["salience"], 5 if gale else 3), at, anchor,
             lambda after: _s(
                 "with_gusts", runtime, speed=gust_speed,
-                sentence=_precip_parts(hourly, now, runtime, daily, after)["sentence"]),
+                sentence=_precip_parts(hourly, now, runtime, daily, after,
+                                       current)["sentence"]),
             leaves=precip["last_named"])
     else:
         add(precip["salience"], at, anchor,
-            lambda after: _precip_parts(hourly, now, runtime, daily, after)["sentence"],
+            lambda after: _precip_parts(hourly, now, runtime, daily, after,
+                                        current)["sentence"],
             leaves=precip["last_named"])
         if gusts:
             add(5 if gale else 3, hours(gust_at), gust_at,
@@ -965,6 +967,12 @@ def _peak_hour(run, amounts, codes, desc=None, open_ended=False):
     keeps its name says nothing more, and neither does one whose turn
     the language has no separate word for.  The hour returned is the
     first at which the run reads as the peak does.
+
+    A turn can be hiding behind the peak: the thunder at eight after a
+    wetter hour of plain rain at seven.  When the peak is not a turn,
+    the run's first hour of thunder, snow or ice is named instead --
+    weather a person would change their plans for, rather than the same
+    water in another size, which the peak already speaks for.
     """
     def amount(idx):
         return (amounts[idx] if idx < len(amounts) else 0) or 0
@@ -975,23 +983,48 @@ def _peak_hour(run, amounts, codes, desc=None, open_ended=False):
     def code(idx):
         return codes[idx] if idx < len(codes) else 0
 
+    def kind(idx):
+        return _PRECIP_KIND.get(code(idx))
+
     first = run[0][0]
     later = run[1:]
     if not later:
         return None
+
+    def worth_naming(idx):
+        """Whether an hour is a turn a person would mention: to another
+        kind of precipitation, or to heavy, and one the language has a
+        separate word for."""
+        if rank(idx) <= rank(first):
+            return False
+        if kind(idx) == kind(first) and rank(idx) < _HEAVY_RANK:
+            return False
+        return desc is None or desc(idx) != desc(first)
+
+    def another_thing(idx):
+        """Thunder, snow or ice where the run began as something else.
+        Drizzle after showers is the same water in another size, and a
+        let-up rather than a turn, whatever its rank."""
+        if code(idx) in _FREEZING_CODES and code(first) not in _FREEZING_CODES:
+            return True
+        return kind(idx) in ("snow", "thunder") and kind(idx) != kind(first)
+
+    peak = None
     if any(amount(i) for i, _ in run):
         i, dt = max(later, key=lambda h: amount(h[0]))
-        if amount(i) <= amount(first):
-            return None
+        if amount(i) > amount(first):
+            peak = (i, dt)
     else:
-        i, dt = max(later, key=lambda h: rank(h[0]))
-    if rank(i) <= rank(first):
-        return None
-    same_kind = _PRECIP_KIND.get(code(i)) == _PRECIP_KIND.get(code(first))
-    if same_kind and rank(i) < _HEAVY_RANK:
-        return None
-    if desc is not None and desc(i) == desc(first):
-        return None
+        peak = max(later, key=lambda h: rank(h[0]))
+    if peak is None or not worth_naming(peak[0]):
+        # The wettest hour of the run is no turn, but one can be hiding
+        # behind it: an hour of thunder carries less water than the hour
+        # of rain before it and is still what a person would be told.
+        peak = next(((j, when) for j, when in later
+                     if another_thing(j) and worth_naming(j)), None)
+        if peak is None:
+            return None
+    i, dt = peak
     # The peak says what it turns into; the turn is when the run first
     # reaches that.  Drizzle now with rain from two and the most of it
     # after midnight becomes rain in a couple of hours, not overnight.
@@ -1006,7 +1039,7 @@ def _peak_hour(run, amounts, codes, desc=None, open_ended=False):
     return i, dt
 
 
-def _precip_parts(hourly, now, runtime, daily=None, after=None):
+def _precip_parts(hourly, now, runtime, daily=None, after=None, current=None):
     """The precipitation sentence for the next 24 hours, and what it was
     built from, for the sentences that follow it: the run of wet hours,
     when it ends, the next run after that, and the hour window."""
@@ -1030,9 +1063,18 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None):
         # A null probability or code is an hour that says nothing
         return (precip_prob[idx] if idx < len(precip_prob) else 0) or 0
 
+    # The header prints what is falling now, so the prose cannot say it
+    # has not started: when the current conditions are wet, the hour we
+    # are in is wet too, whatever its own odds.  Hong Kong's drizzle at
+    # exactly thirty percent is drizzle.
+    current_wet = (current or {}).get("weather_code") in _PRECIP_CODES
+    first_idx = window[0][0]
+
     def is_precip(idx):
         c = codes[idx] if idx < len(codes) else 0
-        return c in _PRECIP_CODES and prob(idx) > 30
+        if c not in _PRECIP_CODES:
+            return False
+        return prob(idx) > 30 or (idx == first_idx and current_wet)
 
     def desc(idx):
         c = codes[idx] if idx < len(codes) else 0
@@ -1107,8 +1149,6 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None):
         parts["last_named"] = end or (peak[1] if peak else None) or start
         return _ucfirst(_precip_s(key, codes[run[0][0]], runtime, **words))
 
-    first_idx = window[0][0]
-
     if is_precip(first_idx):
         run, end_n = run_from(0)
         parts["run"] = run
@@ -1130,31 +1170,49 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None):
             parts["sentence"] = sentence(key, run, desc=desc(first_idx), open_ended=True)
         return parts
 
-    for n, (i, dt) in enumerate(window[1:], 1):
-        if is_precip(i):
-            run, end_n = run_from(n)
-            parts["run"] = run
-            parts["kind"] = "starting"
-            parts["salience"] = salience(run)
-            # The hedge follows the best hour of the run: how likely it is
-            # to rain at all, not how sure the first drop's hour is.
-            best = max(prob(j) for j, _ in run)
-            key = "starting"
-            if best < _PRECIP_CHANCE_BELOW and _has("starting_chance", runtime):
-                key = "starting_chance"
-            elif best >= _PRECIP_LIKELY_BELOW and _has("starting_sure", runtime):
-                key = "starting_sure"
-            parts["sentence"] = sentence(key, run, start=dt, desc=desc(i),
-                                         open_ended=end_n is None)
-            return parts
+    # Only rain worth planning for leads.  A single forty-percent hour
+    # before lunch is not what a person wants to hear about a day with
+    # an evening thunderstorm in it, so a run that is no more than a
+    # chance leads only when nothing surer follows it inside the day.
+    # The chance then goes unsaid: the paragraph has better to say.
+    leading = None
+    n = 1
+    while n < len(window):
+        i, dt = window[n]
+        if not is_precip(i):
+            n += 1
+            continue
+        run, end_n = run_from(n)
+        best = max(prob(j) for j, _ in run)
+        if leading is None or best >= _PRECIP_CHANCE_BELOW:
+            leading = (i, dt, run, end_n, best)
+        if best >= _PRECIP_CHANCE_BELOW:
+            break
+        n = len(window) if end_n is None else end_n
+    if leading is None:
+        return parts
+
+    i, dt, run, end_n, best = leading
+    parts["run"] = run
+    parts["kind"] = "starting"
+    parts["salience"] = salience(run)
+    # The hedge follows the best hour of the run: how likely it is to
+    # rain at all, not how sure the first drop's hour is.
+    key = "starting"
+    if best < _PRECIP_CHANCE_BELOW and _has("starting_chance", runtime):
+        key = "starting_chance"
+    elif best >= _PRECIP_LIKELY_BELOW and _has("starting_sure", runtime):
+        key = "starting_sure"
+    parts["sentence"] = sentence(key, run, start=dt, desc=desc(i),
+                                 open_ended=end_n is None)
     return parts
 
 
-def precipitation_sentence(hourly, now, runtime=None, daily=None):
+def precipitation_sentence(hourly, now, runtime=None, daily=None, current=None):
     """Plain-text description of upcoming precipitation."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
-    return _precip_parts(hourly, now, runtime, daily)["sentence"]
+    return _precip_parts(hourly, now, runtime, daily, current=current)["sentence"]
 
 
 def _precipitation_line(hourly, now, runtime=None):
@@ -1177,11 +1235,11 @@ def more_later_sentence(parts, now, runtime, after=None):
                               time=_time_phrase(dt, now, runtime, after=after)))
 
 
-def snow_total_sentence(hourly, now, runtime=None, daily=None):
+def snow_total_sentence(hourly, now, runtime=None, daily=None, current=None):
     """Plain-text snow accumulation over the coming run of snow."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
-    parts = _precip_parts(hourly, now, runtime, daily)
+    parts = _precip_parts(hourly, now, runtime, daily, current=current)
     return _snow_sentence(parts, hourly, now, runtime)[0]
 
 
@@ -1373,13 +1431,15 @@ def _on_full_day(day, runtime):
 
 
 def _next_rain_near(hourly, now, day, runtime, far=False, after=None):
-    """"Light rain likely on Monday": the first wet hour of `day` in the
-    hourly series, named as the day's sentence would name it, hedged by
-    the wettest hour's odds.  Nothing without the hours, nothing that is
-    only a chance, and nothing for drizzle on a day that is far off."""
+    """"Light rain likely on Monday": `day`'s rain in the hourly series,
+    starting at its first wet hour, named by the hour that holds most of
+    it and hedged by the wettest hour's odds.  Nothing without the
+    hours, nothing that is only a chance, and nothing for drizzle on a
+    day that is far off."""
     times = hourly.get("time") or []
     codes = hourly.get("weather_code") or []
     probs = hourly.get("precipitation_probability") or []
+    amounts = hourly.get("precipitation") or []
     wet = []
     for i, t in enumerate(times):
         if i >= len(codes) or i >= len(probs):
@@ -1392,13 +1452,21 @@ def _next_rain_near(hourly, now, day, runtime, far=False, after=None):
             continue
         p = probs[i] or 0
         if codes[i] in _PRECIP_CODES and p > 30:
-            wet.append((i, dt, p))
+            wet.append((i, dt, p, (amounts[i] if i < len(amounts) else 0) or 0))
     if not wet:
         return ""
-    i, dt, _ = wet[0]
-    best = max(p for _, _, p in wet)
+    _, dt, _, _ = wet[0]
+    best = max(w[2] for w in wet)
     if best < _PRECIP_CHANCE_BELOW:
         return ""
+    # A wet day that opens with a drizzly hour is not a day of drizzle.
+    # The hour carrying most of the water says what falls, and the first
+    # wet hour still says when; with no amounts to weigh, the heaviest
+    # code stands in.
+    if any(w[3] for w in wet):
+        i = max(wet, key=lambda w: w[3])[0]
+    else:
+        i = max(wet, key=lambda w: _PRECIP_RANK.get(codes[w[0]], 0))[0]
     if far and _PRECIP_KIND.get(codes[i]) == "drizzle":
         return ""
     lang = runtime.lang
