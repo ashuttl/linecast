@@ -468,6 +468,10 @@ class TestLakes:
 
 
 class TestLabelToggle:
+    """Both registers are drawn by their own painter at every zoom now,
+    so the planet's label toggle is tested through the painter that
+    actually draws it rather than through a globe renderer of its own."""
+
     def test_globe_render_hides_city_text_when_toggled(self, monkeypatch):
         from linecast import maps
         gw, hc = 40, 12
@@ -477,13 +481,15 @@ class TestLabelToggle:
         view = _globe.GlobeView(elev, [[0] * gw for _ in range(hc)], zs,
                                 _globe.atmosphere(rhos, 125.0, hc * 2),
                                 None, None)
-        monkeypatch.setattr(maps, "_get_globe", lambda *a: view)
+        monkeypatch.setattr(maps, "_get_globe", lambda *a, **k: view)
         monkeypatch.setattr(maps, "get_terminal_size", lambda: (gw, hc + 2))
         bbox = (-31.0, -42.5, -29.0, 82.5)  # centre (20, -30), zoom 125
         args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
                 "en", None)
-        on, *_rest = maps._render_globe(*args, show_labels=True)
-        off, *_rest = maps._render_globe(*args, show_labels=False)
+        maps._last_terrain[0] = None
+        on, *_rest = maps._render_terrain(*args, show_labels=True)
+        off, *_rest = maps._render_terrain(*args, show_labels=False)
+        maps._last_terrain[0] = None
         assert any("•" in line for line in on)
         assert not any("•" in line for line in off)
 
@@ -501,14 +507,16 @@ class TestLabelToggle:
         view = _globe.GlobeView(elev, coast, zs,
                                 _globe.atmosphere(rhos, 125.0, hc * 2),
                                 None, borders)
-        monkeypatch.setattr(maps, "_get_globe", lambda *a: view)
+        monkeypatch.setattr(maps, "_get_globe", lambda *a, **k: view)
         monkeypatch.setattr(maps, "get_terminal_size", lambda: (gw, hc + 2))
         monkeypatch.setattr(_globe, "city_overlays", lambda *a, **k: {})
         bbox = (-31.0, -42.5, -29.0, 82.5)
         args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
                 "en", None)
-        on, *_rest = maps._render_globe(*args, show_labels=True)
-        off, *_rest = maps._render_globe(*args, show_labels=False)
+        maps._last_terrain[0] = None
+        on, *_rest = maps._render_terrain(*args, show_labels=True)
+        off, *_rest = maps._render_terrain(*args, show_labels=False)
+        maps._last_terrain[0] = None
         border = chr(0x2800 + borders.dots[hc // 2][gw // 2 + 2])
         for stroke in (border, chr(0x2810)):
             assert any(stroke in line for line in on)
@@ -611,7 +619,7 @@ class TestStreetRegister:
         gw, hc = 40, 12
         asked = []
         monkeypatch.setattr(maps, "_get_globe",
-                            lambda *a: self._view(gw, hc))
+                            lambda *a, **k: self._view(gw, hc))
         monkeypatch.setattr(maps, "get_terminal_size",
                             lambda: (gw, hc + 2))
         monkeypatch.setattr(_globe, "city_overlays", lambda *a, **k: {})
@@ -622,8 +630,11 @@ class TestStreetRegister:
 
         monkeypatch.setattr(globe_now, "city_lights_globe", lights)
         bbox = (-31.0, -42.5, -29.0, 82.5)  # centre (20, -30), zoom 125
-        maps._render_globe(bbox, gw, hc, True, (0, 0), None, None, None,
-                           None, "en", None, street=street, sun=True)
+        paint = maps._render_street if street else maps._render_terrain
+        maps._last_street[0] = maps._last_terrain[0] = None
+        paint(bbox, gw, hc, True, (0, 0), None, None, None,
+              None, "en", None, sun=True)
+        maps._last_street[0] = maps._last_terrain[0] = None
         return asked
 
     def test_the_street_planet_asks_for_no_city_lights(self, monkeypatch):

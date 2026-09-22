@@ -285,18 +285,21 @@ def decode_view(tiles):
     return view
 
 
-def class_grid(view, bbox, graph_w, height_cells, band):
+def class_grid(view, bbox, graph_w, height_cells, band, camera=None):
     """(fill class grid, water mask) at dot resolution.
 
     Both are (hc*4) x (gw*2).  The water mask is snapshotted before
     buildings are painted, so the coastline still traces the water
     polygon where a pier or a boathouse sits on top of it.
+
+    With a `camera` the polygons are filled onto its sphere and the
+    bbox only says what scale the view is drawn at.
     """
     dw, dh = graph_w * 2, height_cells * 4
     grid = [bytearray(dw) for _ in range(dh)]
     groups = {URBAN: [], PARK: [], WATER: [], BUILDING: []}
     for name, feat, project in iter_layer(view, FILL_LAYERS, bbox, dw, dh,
-                                          POLYGON):
+                                          POLYGON, camera):
         cls = fill_class(name, feat["tags"], band)
         if cls is None:
             continue
@@ -767,7 +770,7 @@ def stroke_ink(key, props, palette):
 
 
 def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
-               lang="en", feats=None, water=None):
+               lang="en", feats=None, water=None, camera=None):
     """Walk every admitted line feature into the view's one DotLayer.
 
     Feature order is irrelevant here — each stroke carries its class
@@ -790,6 +793,11 @@ def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
     whole town.  A part is the honest unit — one continuous run of the
     line, which is as much of a street as the tile is willing to say.
 
+    `camera` projects every stroke onto the sphere instead of onto the
+    bbox's box, for a window wide enough that the two are no longer the
+    same picture.  The bbox stays the scale — the path shadow's radius
+    and the band's weights are read off it — so only the placement moves.
+
     `water` is the view's dot mask of the water fills.  Given it, a river
     centreline is suppressed wherever the polygon around it is wide
     enough to draw itself — see `open_water`.  The eroded mask is derived
@@ -809,7 +817,7 @@ def draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
     roads = [bytearray(dw) for _ in range(dh)]
     deferred = []
     for name, feat, project in iter_layer(view, LINE_LAYERS, bbox, dw, dh,
-                                          LINESTRING):
+                                          LINESTRING, camera):
         props = feat["tags"]
         key = line_style(name, props)
         if key is None:
@@ -1131,7 +1139,7 @@ def water_owners(coast, wet, waters, feats, graph_w, height_cells):
 
 
 def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
-                      reserved=(), builtup=None):
+                      reserved=(), builtup=None, camera=None):
     """(fills, layer, overlays) for one view — the pure half, no network.
 
     `tiles` maps (z, x, y) to raw MVT bytes, or to None for a tile that
@@ -1142,14 +1150,26 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     caller because this half takes no network; the band gate is still
     applied here, with the other fill debuts.
 
+    `camera` is the window as a patch of the sphere, for a view the
+    bbox's box is no longer a picture of (`_maps.globe.affine_ok`).
+    Every layer this draws goes through it — the fills, the buildings,
+    the roads and their casings, the aeroways, the urban density stamp,
+    the water and the names — so the street picture curves with the
+    ground rather than half of it curving and half not.  Where the
+    bound holds the camera is None and the box rasteriser runs
+    unchanged, which is what keeps a street-scale view the bytes it has
+    always been.
+
     The layer comes back carrying `.hover`, the index that answers what
     is under a pointer.  It is built here rather than on demand because
     it is a property of the view, and the view is what gets cached: a
     pointer crossing a static map must cost a lookup, not a rebuild.
+    The index is a map of the cells the raster drew, so it follows the
+    camera for free.
     """
     palette = style.palette()
     view = decode_view(tiles)
-    grid, water = class_grid(view, bbox, graph_w, height_cells, band)
+    grid, water = class_grid(view, bbox, graph_w, height_cells, band, camera)
     if band < style.FILL_DEBUT["builtup"]:
         builtup = None
     fills = fill_colors(grid, graph_w, height_cells, palette, builtup)
@@ -1160,7 +1180,7 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     marks, texts, waters = {}, {}, {}
     overlays = _maps_labels.label_overlays(
         view, bbox, graph_w, height_cells, band, palette, lang, reserved,
-        wet, marks, texts, waters)
+        wet, marks, texts, waters, camera)
 
     layer = DotLayer(bbox, graph_w, height_cells)
     # the fill is every pond; the stroke is the water big enough on
@@ -1176,10 +1196,10 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     layer.or_mask(coast, ink, style.LINE_STYLES["coast"][3], owner=0,
                   owners=coast_owners)
     draw_lines(layer, view, bbox, graph_w, height_cells, band, palette,
-               lang, feats, water)
+               lang, feats, water, camera)
     layer.hover = _maps_hover.HoverIndex(
         layer.owner, feats,
         _maps_hover.road_names(view, bbox, graph_w, height_cells, band,
-                               lang),
+                               lang, camera),
         marks, fill_cells(grid, graph_w, height_cells), texts, shore)
     return fills, layer, overlays

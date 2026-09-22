@@ -348,8 +348,7 @@ def _contrast_ink(cell_bg):
 
 
 def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
-                    coast=None, strokes=None, coast_ink=None,
-                    ink_dusk=None, borders=None):
+                    coast=None, strokes=None, borders=None):
     """Terrain fill with braille geography *on top* (inverse of radar).
 
     The coastline comes from `coast` — sea-level contour masks derived
@@ -358,11 +357,6 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
     Natural Earth still supplies the border strokes.  Overlay glyphs pick
     a light or dark ink per cell for contrast; a truthy third tuple
     element renders the glyph bold.
-
-    `coast_ink` overrides the terrain coastline colour — the street
-    globe strokes its shore in the street map's own ink.  `ink_dusk`
-    is a per-cell grid of RGB multipliers (globe_now.ink_dusk) that
-    dims braille strokes with the night; glyphs keep their ink.
 
     `strokes` is an ordered list of extra braille layers (anything with
     .dots and .color cell grids, e.g. streets, a route), lowest priority
@@ -376,7 +370,6 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
     line on this map that is a convention rather than a thing on the
     ground, and it yields to anything that is.
     """
-    coast_stroke = coast_ink if coast_ink is not None else COAST_STROKE
     lines = []
     for cy in range(height_cells):
         top_row = terrain[cy * 2]
@@ -415,10 +408,7 @@ def compose_terrain(basemap, terrain, overlays, graph_w, height_cells,
                     if sink is not None:
                         stroke = sink
                     else:
-                        stroke = coast_stroke if cmask else BORDER_STROKE
-                    if ink_dusk is not None:
-                        stroke = globe_now.dim_ink(stroke,
-                                                    ink_dusk[cy][cx])
+                        stroke = COAST_STROKE if cmask else BORDER_STROKE
                     parts.append(f"{cell_bg}{fg(*stroke)}"
                                  f"{chr(0x2800 + (bmask | cmask | smask))}")
                 continue

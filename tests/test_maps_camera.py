@@ -170,10 +170,14 @@ class TestLocalTiles:
         assert _globe.local_tiles(0.0, 40.0, 160, 45)
 
     def test_the_register_predicate_follows_it(self):
-        assert not maps.wide_source("terrain", 0.0, 44.0, GW, HC)
-        assert maps.wide_source("terrain", 0.0, 46.0, GW, HC)
-        # street still crosses the projection at ZOOM_DEG
-        assert not maps.wide_source("street", 0.0, 40.0, 40, 8)
+        # One question now, asked the same way of both registers: where
+        # the ground comes from.  Street used to answer `is_globe`
+        # instead, which is a projection boundary, and it has none left.
+        assert not maps.wide_source(0.0, 44.0, GW, HC)
+        assert maps.wide_source(0.0, 46.0, GW, HC)
+        # a dot coarser than the vector source's own detail is the
+        # planet's whatever the zoom says
+        assert maps.wide_source(0.0, 40.0, 40, 8)
 
 
 class TestOneGeometryAcrossTheHandOff:
@@ -195,19 +199,36 @@ class TestOneGeometryAcrossTheHandOff:
                 (by - dh / 2) / ratio, abs=1e-9)
 
     def test_both_sides_are_drawn_by_the_one_renderer(self, monkeypatch):
-        def refuse(*a, **k):
-            raise AssertionError("terrain must not reach the globe renderer")
+        # The globe renderer is retired: each register has one painter
+        # at every zoom, and a frame either side of the old hand-off
+        # goes through it.  Street reached it until this stage.
+        assert not hasattr(maps, "_render_globe")
+        seen = []
+        real_terrain, real_street = maps._render_terrain, maps._render_street
 
-        monkeypatch.setattr(maps, "_render_globe", refuse)
+        def terrain(*a, **k):
+            seen.append("terrain")
+            return real_terrain(*a, **k)
+
+        def street(*a, **k):
+            seen.append("street")
+            return real_street(*a, **k)
+
+        monkeypatch.setattr(maps, "_render_terrain", terrain)
+        monkeypatch.setattr(maps, "_render_street", street)
         monkeypatch.setattr(maps, "get_terminal_size", lambda: (60, 20))
         monkeypatch.setattr(maps, "_get_elevation",
                             lambda *a, **k: maps._EMPTY_TERRAIN)
+        monkeypatch.setattr(maps, "_get_street_tiles",
+                            lambda *a, **k: (None, None, None))
         monkeypatch.setattr(maps, "_get_globe", lambda *a, **k: None)
-        maps._last_terrain[0] = None
-        for zoom in (44.9, 45.1):
-            assert maps.render_map(46.8, 8.2, "Alps", zoom, block=False,
-                                   view="terrain")
-        maps._last_terrain[0] = None
+        maps._last_terrain[0] = maps._last_street[0] = None
+        for view in ("terrain", "street"):
+            for zoom in (44.9, 45.1):
+                assert maps.render_map(46.8, 8.2, "Alps", zoom, block=False,
+                                       view=view)
+        assert seen == ["terrain", "terrain", "street", "street"]
+        maps._last_terrain[0] = maps._last_street[0] = None
 
     def test_the_crop_out_of_an_overscan_is_the_window_exactly(self):
         # the terrain margin sits evenly on every side, so the wider

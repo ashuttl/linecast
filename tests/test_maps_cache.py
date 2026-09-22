@@ -198,7 +198,7 @@ class TestTheLoadersInMotion:
         try:
             assert views._get_elevation(bbox, gw, hc, False) is (
                 views._EMPTY_TERRAIN)
-            assert views._get_street(bbox, gw, hc, False) == (
+            assert views._get_street_tiles(bbox, gw, hc, False) == (
                 None, None, None)
         finally:
             views.hold_motion(False)

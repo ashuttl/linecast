@@ -330,20 +330,24 @@ class Resample:
     lands at rest.  Measured at 160x45 nine columns off the built
     view's centre: a slice is under a millisecond, the first resample
     is 35 and most of that is the index maps, and every resting frame
-    after it is 10, because the maps are kept (`resample`).
+    after it is 10, because the maps are kept (`resample`).  The
+    street register's own grids come to 29 and 3 at the same size,
+    the whole of the 3 being its one dense braille layer.
     """
 
     __slots__ = ("frame", "gw", "hc", "src", "dst", "_sub", "_dot", "_cell",
-                 "_planes", "_bits")
+                 "_planes", "_bits", "_ink")
 
     def __init__(self, frame, bbox, gw, hc):
         self.frame, self.gw, self.hc = frame, gw, hc
         self.src = _globe.Camera.for_bbox(frame.bbox, frame.gw, frame.hc)
         self.dst = _globe.Camera.for_bbox(bbox, gw, hc)
         self._sub = self._dot = self._cell = self._planes = None
-        # unpacked dot grids, held by the grid they came from so the
-        # identity they are keyed on cannot be reused under them
+        # unpacked dot grids and the ink maps taken from them, held by
+        # the grid they came from so the identity they are keyed on
+        # cannot be reused under them
         self._bits = {}
+        self._ink = {}
 
     # -- the index maps, each built on the first ask ---------------------
     def _sub_index(self):
@@ -404,12 +408,6 @@ class Resample:
             return None
         return self._gather(rows, self._sub_index(), self.gw, fill)
 
-    def cells(self, rows, fill):
-        """A grid of whole cells — a layer's ink — or None."""
-        if rows is None:
-            return None
-        return self._gather(rows, self._cell_index(), self.gw, fill)
-
     def bits(self, rows, mask):
         """One mask of a dot-pitch packed grid, gathered into the window.
 
@@ -425,6 +423,58 @@ class Resample:
         index, dw = self._dot_index(), self.gw * 2
         return [list(itemgetter(*index[i:i + dw])(flat))
                 for i in range(0, len(index), dw)]
+
+    def _dot_acc(self, rows):
+        """The window's braille, a byte a cell, flat: the eight planes
+        gathered and or-ed together."""
+        raw = self._raw(rows)
+        acc = None
+        for bit, index in self._dot_planes():
+            # 0 or the bit, in one pass of C over the whole grid
+            plane = itemgetter(*index)(raw.translate(_WEIGHTS[bit]))
+            acc = plane if acc is None else bytes(map(or_, acc, plane))
+        return acc
+
+    def ink_source(self, rows):
+        """Per window cell, the built cell whose ink its braille is.
+
+        A cell's ink belongs to the dot drawn in it.  Taken from the
+        cell index instead it answers what is under the middle of the
+        cell, and a line one dot wide crosses into a cell well before
+        the ground under that cell's middle does: measured on a road
+        net seven columns off the built view's centre at ten degrees,
+        a quarter of the cells holding road dots were inked from the
+        empty cell beside them, which in a composer is no ink at all.
+        So a lit cell takes the ink of its first lit dot's own cell,
+        and only a cell with nothing drawn in it falls back to the
+        index.
+
+        Kept while the grid it was taken from is, as the unpacked
+        dots are: a window at rest repaints without moving.
+        """
+        held = self._ink.get(id(rows))
+        if held is None:
+            if len(self._ink) > 8:
+                self._ink.clear()
+            held = (rows, self._ink_source(rows))
+            self._ink[id(rows)] = held
+        return held[1]
+
+    def _ink_source(self, rows):
+        acc = self._dot_acc(rows)
+        planes = self._dot_planes()
+        sgw = self.frame.gw
+        sdw = sgw * 2
+        src = list(self._cell_index())
+        for i, bits in enumerate(acc):
+            if not bits:
+                continue
+            for bit, index in planes:
+                if bits & bit:
+                    at = index[i]
+                    src[i] = (at // sdw) // 4 * sgw + (at % sdw) // 2
+                    break
+        return src
 
     def dots(self, rows):
         """A braille dot grid carried into the window, or None.
@@ -448,12 +498,7 @@ class Resample:
         """
         if rows is None:
             return None
-        raw = self._raw(rows)
-        acc = None
-        for bit, index in self._dot_planes():
-            # 0 or the bit, in one pass of C over the whole grid
-            plane = itemgetter(*index)(raw.translate(_WEIGHTS[bit]))
-            acc = plane if acc is None else bytes(map(or_, acc, plane))
+        acc = self._dot_acc(rows)
         gw = self.gw
         return [list(acc[y * gw:(y + 1) * gw]) for y in range(self.hc)]
 
@@ -471,19 +516,77 @@ class Resample:
         return held[1]
 
     def layer(self, layer, hover=None):
-        """A ranked braille layer through the resample, or None."""
+        """A ranked braille layer through the resample, or None.
+
+        The ink and the ribbon follow the dots rather than the cell
+        index (`ink_source`), so a cell showing a road shows it in the
+        road's own colour and a cell the motorway ribbon tints is one
+        the motorway is drawn in.
+        """
         if layer is None:
             return None
+        src = self.ink_source(layer.dots)
+        gw = self.gw
         ribbon = ()
         source = getattr(layer, "ribbon", ())
         if source:
-            sgw, gw = self.frame.gw, self.gw
+            sgw = self.frame.gw
             want = {r * sgw + c for c, r in source}
-            ribbon = {(i % gw, i // gw)
-                      for i, at in enumerate(self._cell_index())
+            ribbon = {(i % gw, i // gw) for i, at in enumerate(src)
                       if at in want}
-        return CroppedLayer(self.dots(layer.dots),
-                            self.cells(layer.color, None), ribbon, hover)
+        flat = [v for row in layer.color for v in row]
+        flat.append(None)
+        color = [list(itemgetter(*src[i:i + gw])(flat))
+                 for i in range(0, len(src), gw)]
+        return CroppedLayer(self.dots(layer.dots), color, ribbon, hover)
+
+    # -- the placements ---------------------------------------------------
+    def relocate(self, col, row):
+        """The window cell a built view's cell lands on, or None.
+
+        The index maps every window sample to a source; this maps a
+        source the other way, to wherever the window's own camera puts
+        the ground under it.  Taken through the sphere rather than by
+        inverting the index, so it can never come back empty —
+        inverting a gather leaves holes wherever two window cells
+        landed on one source, and a name or a lit road with holes in
+        it is worse than either.
+        """
+        at = self.src.ground(col, row)
+        if at is None:
+            return None
+        return self.dst.screen_cell(at[1], at[0])
+
+    def overlays(self, labels):
+        """(the window's label runs, where each kept cell of writing went).
+
+        `crop_overlays` through the resample.  A name is written across
+        the very feature it names, and the built view has turned with
+        the meridians since — so a run is moved by where its own ground
+        now is rather than by the crop's offset, and laid out from
+        there the way it was written, horizontally.  Kept or dropped
+        whole, as a crop keeps it: half a name at an edge is a
+        different word — and so is a name another run has since been
+        written over, so a run whose cells are already taken is dropped
+        whole too, rather than overwriting the letters under it.
+
+        The second value is what the hover index needs: for each of the
+        built view's cells that still has its writing on screen, the
+        window cell that writing is in now.
+        """
+        kept, moved = {}, {}
+        for col, row, entries in label_runs(labels):
+            at = self.relocate(col, row)
+            if at is None:
+                continue
+            c0, r0 = at
+            if any(not (0 <= c0 + off < self.gw) or (c0 + off, r0) in kept
+                   for off, _e in entries):
+                continue
+            for off, entry in entries:
+                kept[(c0 + off, r0)] = entry
+                moved[(col + off, row)] = (c0 + off, r0)
+        return kept, moved
 
     def place(self, dx, dy):
         """(lon, lat) -> the built view's cells, by the window's own camera.
@@ -580,6 +683,23 @@ def crop_overlays(overlays, dx, dy, w, h):
     return kept
 
 
+def _without_dropped_labels(index, kept):
+    """`index` with the writing the window did not keep taken out.
+
+    A label the window dropped must not answer for the ground it was
+    covering, and a feature whose name went with it must not light
+    letters that are no longer on the page.  Both halves are a filter
+    on the built view's own index, by the built view's own cells —
+    which is the same filter however the window was taken out of it.
+    """
+    return HoverIndex(
+        index.owner, index.feats, index.names,
+        {p: v for p, v in index.marks.items() if p in kept},
+        index.area,
+        texts={p: t for p, t in index.texts.items() if p in kept},
+        shore=index.shore)
+
+
 class CroppedHover:
     """A hover index read through the crop.
 
@@ -601,18 +721,10 @@ class CroppedHover:
         self._filtered = None
 
     def _view(self):
-        index = self._filtered
-        if index is None:
-            kept = self._glyphs
-            index = HoverIndex(
-                self._index.owner, self._index.feats, self._index.names,
-                {p: v for p, v in self._index.marks.items() if p in kept},
-                self._index.area,
-                texts={p: t for p, t in self._index.texts.items()
-                       if p in kept},
-                shore=self._index.shore)
-            self._filtered = index
-        return index
+        if self._filtered is None:
+            self._filtered = _without_dropped_labels(self._index,
+                                                     self._glyphs)
+        return self._filtered
 
     def at(self, col, row):
         if not (0 <= col < self._w and 0 <= row < self._h):
@@ -626,3 +738,90 @@ class CroppedHover:
         glyphs = tuple((c - dx, r - dy) for c, r in hit.glyphs
                        if (c, r) in self._glyphs)
         return hit._replace(cells=cells, glyphs=glyphs)
+
+
+class ResampledHover:
+    """A hover index read through the resample.
+
+    `CroppedHover`'s twin for a window off the built view's centre.
+    What is under a pointer is whatever the window *drew* there, and
+    the window drew two kinds of thing by two different maps: the ink,
+    gathered a cell at a time by the resample's index (`ink_source`),
+    and the writing, moved a run at a time by where its ground went
+    (`overlays`).  So a mark or a name is looked up by the window cell
+    its letters are in now, and a stroke by the built cell its ink was
+    taken from — and what lights comes back the same two ways, the
+    letters by where they were written and the stroke's cells as the
+    window cells drawn from that stroke.  A road named after a
+    resampled crop is therefore the road under the pointer and not the
+    one an offset would have named, which at ten degrees is a cell and
+    a half away.
+    """
+
+    __slots__ = ("_index", "_cut", "_moved", "_source", "_dots", "_ground",
+                 "_written", "_drawn")
+
+    def __init__(self, index, cut, moved, source, dots):
+        self._index = index
+        self._cut = cut
+        # built cell -> window cell, for the writing the window kept
+        # (`Resample.overlays`)
+        self._moved = dict(moved)
+        # the same map the ink came off (`Resample.ink_source`), so the
+        # feature a cell names is the feature the cell is drawn in
+        self._source = source
+        # the window's own dots: a cell with nothing drawn in it took
+        # its ink from the ground under its middle, and lights nothing
+        self._dots = dots
+        self._ground = self._written = self._drawn = None
+
+    def _views(self):
+        """(the strokes and fills by built cell, the writing by window cell).
+
+        Both filtered to the writing the window kept, and the strokes'
+        index keeps that writing under the window's cells too, so a
+        feature can find its own label where it is now written.
+        """
+        if self._ground is None:
+            index, moved = self._index, self._moved
+            marks = {moved[p]: v for p, v in index.marks.items()
+                     if p in moved}
+            texts = {moved[p]: t for p, t in index.texts.items()
+                     if p in moved}
+            self._ground = HoverIndex(index.owner, index.feats, index.names,
+                                      {}, index.area, texts=texts,
+                                      shore=index.shore)
+            cut = self._cut
+            blank = [[None] * cut.gw for _ in range(cut.hc)]
+            self._written = HoverIndex(blank, index.feats, {}, marks, blank,
+                                       texts=texts)
+        return self._ground, self._written
+
+    def _cells_drawn_from(self, cells):
+        """The window cells whose ink came from these built cells."""
+        if self._drawn is None:
+            drawn = {}
+            gw, dots = self._cut.gw, self._dots
+            for i, at in enumerate(self._source):
+                if at >= 0 and dots[i // gw][i % gw]:
+                    drawn.setdefault(at, []).append((i % gw, i // gw))
+            self._drawn = drawn
+        sgw = self._cut.frame.gw
+        return tuple(p for c, r in cells
+                     for p in self._drawn.get(r * sgw + c, ()))
+
+    def at(self, col, row):
+        cut = self._cut
+        if not (0 <= col < cut.gw and 0 <= row < cut.hc):
+            return None
+        ground, written = self._views()
+        hit = written.at(col, row)
+        if hit is not None:
+            return hit   # a mark: its cells are the letters, already here
+        at = self._source[row * cut.gw + col]
+        if at < 0:
+            return None
+        hit = ground.at(at % cut.frame.gw, at // cut.frame.gw)
+        if hit is None:
+            return None
+        return hit._replace(cells=self._cells_drawn_from(hit.cells))

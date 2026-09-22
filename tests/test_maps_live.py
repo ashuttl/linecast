@@ -232,50 +232,34 @@ class TestZoom:
         settle(app)
         assert (app.lat, app.lon) == (43.68, -70.37)
 
-    def test_a_terrain_zoom_through_the_hand_off_eases(self):
-        # Terrain is one camera from the valley to the planet now, so
-        # there is nothing to cross: a zoom out through 45 deg is a
-        # uniform scaling of the picture like any other, and it eases.
+    @pytest.mark.parametrize("view", ["terrain", "street"])
+    def test_a_zoom_through_the_hand_off_eases(self, view):
+        # Both registers are one camera from the street to the planet
+        # now, so there is nothing to cross: a zoom out through 45 deg
+        # is a uniform scaling of the picture like any other, and it
+        # eases.  Street snapped until this stage.
         flat = _globe.ZOOM_DEG / 2
-        app = make(zoom=flat, lat=0.0)
+        app = make(zoom=flat, lat=0.0, view=view)
         assert app.zoom_to(flat * 4)
         assert app.zoom == flat and app.camera.moving()
         assert settle(app)[2] == flat * 4
         assert app.zoom_to(flat)
         assert app.zoom == flat * 4 and app.camera.moving()
         assert settle(app)[2] == flat
+        assert [t.target for t in FakeThread.started] == [app._tick,
+                                                          app._tick]
 
-    def test_a_street_zoom_across_the_hand_off_still_cuts(self):
-        # street has not joined the camera yet (stage two): neither
-        # side can stand in for the other, so every frame of an ease
-        # across the hand-off would be blank.  It snaps, as it did
-        # before the camera, and the ticker is not started
-        flat = _globe.ZOOM_DEG / 2
-        app = make(zoom=flat, lat=0.0, view="street")
-        assert app.zoom_to(flat * 4)
-        assert app.zoom == flat * 4 and not app.camera.moving()
-        assert FakeThread.started == []
-        assert app.zoom_to(flat)
-        assert app.zoom == flat and not app.camera.moving()
-        # on one side it eases, whichever side that is
-        assert app.zoom_to(flat / 2)
-        assert app.zoom == flat and app.camera.moving()
-        settle(app)
-        app.zoom_to(flat * 4)
-        assert app.zoom_to(flat * 8)
-        assert app.zoom == flat * 4 and app.camera.moving()
-        assert [t.target for t in FakeThread.started] == [app._tick, app._tick]
-
-    def test_an_anchored_street_zoom_that_would_land_on_the_globe_cuts(self):
+    def test_an_anchored_street_zoom_toward_the_globe_eases_too(self):
         # anchored at the bottom row, a zoom out carries the centre
-        # toward the pole, and the hand-off is judged where the ease
-        # would end rather than where it starts
+        # toward the pole.  It used to be the one case where the
+        # hand-off had to be judged where the ease would end; there is
+        # no hand-off to judge any more, and the anchor is kept
         app = make(zoom=30.0, lat=20.0, view="street")
-        assert not _globe.is_globe(30.0 * 1.4, 20.0)
         assert app.zoom_to(30.0 * 1.4, at=(50, ROWS - 1))
-        assert not app.camera.moving()
-        # and the cut is about the centre, as it is on the globe
-        assert app.zoom == 30.0 * 1.4 and (app.lat, app.lon) == (20.0, -70.37)
+        assert app.camera.moving()
+        assert settle(app)[2] == 30.0 * 1.4
+        # the anchored ground stays under its cell, so the centre moves
+        assert app.lat != 20.0
 
     def test_an_anchored_zoom_wraps_the_longitude(self):
         app = make(zoom=20.0, lat=0.0, lon=179.9)

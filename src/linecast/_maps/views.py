@@ -7,7 +7,7 @@ window itself would draw, and only the tile list follows the wider
 bbox.
 
 A view is one bbox at one terminal size.  Each register has a loader
-— _get_elevation, _get_street, _get_globe, and _get_clouds for the
+— _get_elevation, _get_street_tiles, _get_globe, and _get_clouds for the
 sky — that answers from a small cache and, live, fetches in the
 background and nudges a repaint when the data lands (the scaffold is
 _scenes.SceneCache).  A zoom run holds every fetch until the last tap
@@ -334,7 +334,7 @@ def _tile_water(bbox, gw, hc, window=None, camera=None):
     """
     try:
         band, tiles = streets.fetch_view(
-            bbox, hc, window, None if camera is None else camera.bounds)
+            bbox, hc, window, None if camera is None else camera.footprint)
         if not any(tiles.values()):
             return None, None, None, None
         return streets.build_water_view(bbox, gw, hc, tiles, band,
@@ -476,18 +476,30 @@ def _get_elevation(bbox, gw, hc, block, window=None):
     return view
 
 
-def _get_street(bbox, gw, hc, block, lang="en", reserved=(),
-                window=None):
+def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
+                      window=None):
     """(fills, ranked layer, label overlays) for the view; live mode
-    fetches in the background, exactly as the elevation path does."""
+    fetches in the background, exactly as the elevation path does.
+
+    The window is a patch of the sphere at every zoom now.  Where the
+    box rasteriser is still the camera's own picture — a twentieth of a
+    braille dot apart, which is the whole of street scale and a little
+    above it — it is the one that runs, because it is what the caches
+    already hold and it is the same map.  Past that the camera chooses
+    the tiles by its own footprint and every layer of the build is
+    rasterised through its forward projection.
+    """
+    cam = _globe.Camera.for_bbox(bbox, gw, hc)
+    camera = None if _globe.affine_ok(cam.lat, cam.zoom, gw, hc) else cam
 
     def load():
         # the settlement raster fetches alongside the vector tiles, as
         # the terrain path overlaps its sources; below its debut band
         # the layer is never asked for, so a deep view pays nothing
-        band, _z_src, keys = streets.view_tiles(bbox, hc, window)
+        band, _z_src, keys = streets.view_tiles(
+            bbox, hc, window, None if camera is None else camera.footprint)
         with ThreadPoolExecutor(max_workers=1) as pool:
-            bu_job = (pool.submit(_builtup_layer, bbox, gw, hc)
+            bu_job = (pool.submit(_builtup_layer, bbox, gw, hc, camera)
                       if band >= _maps_style.FILL_DEBUT["builtup"]
                       else None)
             tiles = streets.fetch_tiles(keys)
@@ -501,7 +513,7 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=(),
                 log_failure("maps/vtiles", "prefetch", exc, fallback="none")
         view = streets.build_street_view(
             bbox, gw, hc, tiles, band, lang, reserved,
-            bu_job.result() if bu_job is not None else None)
+            bu_job.result() if bu_job is not None else None, camera)
         # the whole view, labels and all: a window inside this one's
         # margin is an exact crop of it, which is a picture with its
         # names on.  A window outside it is reprojected instead, and
@@ -598,15 +610,18 @@ def warm_globe_texture(zoom, hc, street=False):
                      args=(zoom, hc * 4, register, False)).start()
 
 
-def terrain_recentres(lat, zoom, gw, hc):
-    """Whether a terrain drag can turn the ground under the hand.
+def recentres(lat, zoom, gw, hc, street=False):
+    """Whether a drag can turn the ground under the hand.
 
     Within the tile sources' reach it always can: the view is built a
     margin wider than the window, so the window at the new centre is a
     crop of what is already in hand.  Beyond them it is the planet, and
-    the planet has to be warm.
+    the planet has to be warm.  One rule for both registers now, since
+    both are drawn by one camera and both hand their ground over at
+    `local_tiles`.
     """
-    return _globe.local_tiles(lat, zoom, gw, hc) or globe_warm(zoom, hc)
+    return (_globe.local_tiles(lat, zoom, gw, hc)
+            or globe_warm(zoom, hc, street))
 
 
 def globe_warm(zoom, hc, street=False):

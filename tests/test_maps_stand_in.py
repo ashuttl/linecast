@@ -286,55 +286,73 @@ class TestPrefetchAround:
         assert all(k[0] == keys[0][0] for k in asked)  # the ring alone
 
 
-class TestReprojectGlobe:
-    """Zoomed about its centre, the disk is the old disk scaled — so the
-    globe borrows the flat map's axis map whole."""
+class TestThePlanetStandsIn:
+    """Zoomed about its centre, the disk is the old disk scaled — so
+    either register's planet borrows the flat map's axis map whole.
+
+    The street planet used to be carried by a stand-in of its own
+    (`maps._reproject_globe`, and a slot of its own to carry it in).
+    It is one of the register's own views now, kept beside its streets
+    and carried by the same `_street_stand_in` that carries them, which
+    is where terrain's planet already was.
+    """
 
     def _prev(self, bbox=BBOX):
-        fill = [[(x, y) for x in range(GW)] for y in range(HC * 2)]
-        coast = [[0] * GW for _ in range(HC)]
-        coast[1][3] = _BITS[0][0]
+        fills = [[(x, y) for x in range(GW)] for y in range(HC * 2)]
         dots = [[0] * GW for _ in range(HC)]
         dots[2][5] = _BITS[0][0]
-        borders = maps._ShiftedLayer(
+        layer = maps._ShiftedLayer(
             dots, [["ink" if d else None for d in row] for row in dots])
-        return (bbox, GW, HC, fill, coast, borders)
+        return (bbox, GW, HC, fills, layer, {})
+
+    def _carry(self, prev, bbox, gw=GW, hc=HC):
+        return maps._street_stand_in(prev, bbox, gw, hc, True, "g")
 
     def test_nothing_to_carry_the_same_window_or_another_size(self):
-        assert maps._reproject_globe(None, BBOX, GW, HC) is None
-        assert maps._reproject_globe(self._prev(), BBOX, GW, HC) is None
-        assert maps._reproject_globe(self._prev(), (2.0, 2.0, 6.0, 6.0),
-                                     GW + 1, HC) is None
+        assert self._carry(self._prev(), BBOX) is None
+        assert self._carry(self._prev(), (2.0, 2.0, 6.0, 6.0),
+                           GW + 1) is None
 
     def test_a_moved_centre_is_a_turn_and_gets_no_stand_in(self):
         # a drag or a spin turns the geography under a disk the size it
-        # was; scaling the old picture says nothing true about that
-        assert maps._reproject_globe(self._prev(), (1.0, 0.0, 9.0, 8.0),
-                                     GW, HC) is None
+        # was; scaling the old picture says nothing true about that.
+        # The disk: a view with the limb in it (`maps._limb_in`)
+        disk = (-65.0, -65.0, 65.0, 65.0)
+        assert maps._limb_in((disk, GW, HC))
+        assert self._carry(self._prev(disk), (1.0, 0.0, 9.0, 8.0)) is None
         # nor does a zoom that drifts off centre with it
-        assert maps._reproject_globe(self._prev(), (2.5, 2.0, 6.5, 6.0),
-                                     GW, HC) is None
+        assert self._carry(self._prev(disk), (2.5, 2.0, 6.5, 6.0)) is None
+        # a patch of the sphere with no limb in it is another matter: a
+        # window a column over is that patch translated, and a zoom out
+        # from a window panned inside its margin is carried rather than
+        # left blank
+        assert not maps._limb_in((BBOX, GW, HC))
+        assert self._carry(self._prev(), (1.0, 0.0, 9.0, 8.0)) is not None
 
     def test_a_zoom_scales_it_exactly_as_the_flat_registers_do(self):
-        # half the span about the same centre: the fill, the shoreline
-        # and the borders must land where terrain's twin lands them
+        # half the span about the same centre: the fills and the
+        # coastline must land where the axis maps put them
         bbox = (2.0, 2.0, 6.0, 6.0)
         prev = self._prev()
-        fill, coast, borders = maps._reproject_globe(prev, bbox, GW, HC)
-        t_fill, t_coast, t_rivers, _b = maps._reproject_terrain(
-            prev + (None, None), bbox, GW, HC)
-        assert fill == t_fill and coast == t_coast
-        assert borders.dots == t_rivers.dots
-        assert borders.color == t_rivers.color
-        assert _count(coast) and all(f != BG_PRIMARY for row in fill
-                                     for f in row)
+        fills, layer = self._carry(prev, bbox)
+        m = maps._reprojection(prev, bbox, GW, HC)
+        want_dots, want_color = m.dots(prev[4].dots, prev[4].color)
+        assert fills == m.fills(prev[3], "g")
+        assert layer.dots == want_dots and layer.color == want_color
+        assert _count(layer.dots)
+        assert all(f != "g" for row in fills for f in row)
 
-    def test_a_disk_without_borders_carries_none(self):
-        prev = (BBOX, GW, HC, [[(x, y) for x in range(GW)]
-                               for y in range(HC * 2)], None, None)
-        fill, coast, borders = maps._reproject_globe(
-            prev, (2.0, 2.0, 6.0, 6.0), GW, HC)
-        assert coast is None and borders is None and fill[0][0] == (2, 2)
+    def test_the_terrain_planet_answers_the_same_zoom_the_same_way(self):
+        # one rule for both registers: the terrain twin scales its fill
+        # by the very same axis map
+        bbox = (2.0, 2.0, 6.0, 6.0)
+        prev = self._prev()
+        fills, _layer = self._carry(prev, bbox)
+        terrain = (BBOX, GW, HC, prev[3], None, None, None, None, None)
+        t_fill, t_coast, t_rivers, t_borders = maps._terrain_stand_in(
+            terrain, bbox, GW, HC, True)
+        assert fills == t_fill
+        assert t_coast is None and t_rivers is None and t_borders is None
 
 
 def _body(frame):
@@ -369,14 +387,12 @@ class TestGlobeStandInFrame:
 
     @pytest.fixture(autouse=True)
     def _forget(self):
-        # terrain is one camera at every zoom now, so its planet is
-        # carried in the same slot its valleys are; street's is still
-        # its own
-        maps._last_globe.clear()
-        maps._last_terrain[0] = None
+        # both registers are one camera at every zoom now, so each
+        # carries its planet in the same slot it carries its valleys
+        # and its streets
+        maps._last_street[0] = maps._last_terrain[0] = None
         yield
-        maps._last_globe.clear()
-        maps._last_terrain[0] = None
+        maps._last_street[0] = maps._last_terrain[0] = None
 
     def _view(self, gw, hc):
         spy = hc * 2
@@ -400,15 +416,14 @@ class TestGlobeStandInFrame:
         gw, hc = maps.map_cells((self.COLS, self.ROWS))
         real = self._frame(monkeypatch, 120.0, self._view(gw, hc))
         stand = self._frame(monkeypatch, 80.0, None)
-        maps._last_globe.clear()
-        maps._last_terrain[0] = None
+        maps._last_street[0] = maps._last_terrain[0] = None
         blank = self._frame(monkeypatch, 80.0, None)
         assert _braille(real) and _braille(stand) and not _braille(blank)
         assert _ink(stand) > 4 * _ink(blank)
 
     def test_a_moved_centre_keeps_the_loading_frame(self, monkeypatch):
         gw, hc = maps.map_cells((self.COLS, self.ROWS))
-        maps._last_globe.clear()
+        maps._last_street[0] = maps._last_terrain[0] = None
         self._frame(monkeypatch, 120.0, self._view(gw, hc))
         monkeypatch.setattr(self, "LON", self.LON + 20.0, raising=False)
         spun = self._frame(monkeypatch, 80.0, None)
@@ -416,7 +431,7 @@ class TestGlobeStandInFrame:
 
     def test_another_terminal_keeps_the_loading_frame(self, monkeypatch):
         gw, hc = maps.map_cells((self.COLS, self.ROWS))
-        maps._last_globe.clear()
+        maps._last_street[0] = maps._last_terrain[0] = None
         self._frame(monkeypatch, 120.0, self._view(gw, hc))
         monkeypatch.setattr(self, "COLS", self.COLS + 6, raising=False)
         resized = self._frame(monkeypatch, 80.0, None)
@@ -424,7 +439,7 @@ class TestGlobeStandInFrame:
 
     def test_the_real_view_wins_as_soon_as_it_lands(self, monkeypatch):
         gw, hc = maps.map_cells((self.COLS, self.ROWS))
-        maps._last_globe.clear()
+        maps._last_street[0] = maps._last_terrain[0] = None
         self._frame(monkeypatch, 120.0, self._view(gw, hc))
         tag = rs("loading", "en")
         stand = self._frame(monkeypatch, 80.0, None)
@@ -438,7 +453,7 @@ class TestGlobeStandInFrame:
         # the street planet draws no borders and strokes its shore in
         # the street map's ink; it must not be handed terrain's disk
         gw, hc = maps.map_cells((self.COLS, self.ROWS))
-        maps._last_globe.clear()
+        maps._last_street[0] = maps._last_terrain[0] = None
         self._frame(monkeypatch, 120.0, self._view(gw, hc))
         assert not _braille(self._frame(monkeypatch, 80.0, None, "street"))
         self._frame(monkeypatch, 120.0, self._view(gw, hc), "street")
@@ -448,7 +463,7 @@ class TestGlobeStandInFrame:
         # sun and clouds are applied to the carried disk on the sphere
         # it now sits on, as the flat terrain stand-in is shaded
         gw, hc = maps.map_cells((self.COLS, self.ROWS))
-        maps._last_globe.clear()
+        maps._last_street[0] = maps._last_terrain[0] = None
         self._frame(monkeypatch, 120.0, self._view(gw, hc))
         lit = self._frame(monkeypatch, 80.0, None, sun=True)
         plain = self._frame(monkeypatch, 80.0, None)

@@ -327,7 +327,7 @@ def scale_bbox(lat0, lon0, zoom, gw, hc):
     return (lon0 - span / 2, lat0 - half_lat, lon0 + span / 2, lat0 + half_lat)
 
 
-def bounds(lat0, lon0, zoom, gw, hc, steps=32):
+def bounds(lat0, lon0, zoom, gw, hc, steps=32, pad=True):
     """A source bbox holding every sample of the window, and a margin.
 
     Longitude is unwrapped about the centre rather than wrapped into
@@ -342,6 +342,13 @@ def bounds(lat0, lon0, zoom, gw, hc, steps=32):
     reason.  A window that reaches off the disk, or over a pole, has
     its extremes on the limb instead; there the enclosing spherical cap
     is the honest answer, and at a pole that is every longitude.
+
+    The margin is a cell on every side, for a sampler whose bilinear
+    tap wants the sample beyond the last one.  `pad` off leaves it
+    out, for a source that cuts its features to tiles and taps
+    nothing: the walk itself misses no extreme, because the extremes
+    sit on the corners and the centre lines, which are lattice points
+    of any even number of steps.
     """
     rad = math.radians(zoom)
     ux_max = rad * gw / (4.0 * hc * _aspect())
@@ -365,8 +372,9 @@ def bounds(lat0, lon0, zoom, gw, hc, steps=32):
             lat, dlon = _unproject(ux, uy, sin0, cos0)
             lats.append(lat)
             lons.append(dlon)
-    # a cell of margin on every side: the border was walked at a finite
-    # step, and a bilinear tap wants the sample beyond the last one
+    if not pad:
+        return (lon0 + min(lons), min(lats), lon0 + max(lons), max(lats))
+    # a cell of margin on every side, for the bilinear tap
     pad_lat = zoom / hc
     pad_lon = (max(lons) - min(lons) + 1e-12) / gw
     return (lon0 + min(lons) - pad_lon, max(-90.0, min(lats) - pad_lat),
@@ -646,13 +654,13 @@ class Camera:
     """
 
     __slots__ = ("lat", "lon", "zoom", "gw", "hc", "aspect",
-                 "_bounds", "_scale", "_local")
+                 "_bounds", "_footprint", "_scale", "_local")
 
     def __init__(self, lat, lon, zoom, gw, hc):
         self.lat, self.lon, self.zoom = lat, lon, zoom
         self.gw, self.hc = gw, hc
         self.aspect = _aspect()
-        self._bounds = self._scale = self._local = None
+        self._bounds = self._footprint = self._scale = self._local = None
 
     @classmethod
     def for_bbox(cls, bbox, gw, hc):
@@ -672,6 +680,24 @@ class Camera:
             self._bounds = bounds(self.lat, self.lon, self.zoom,
                                   self.gw, self.hc)
         return self._bounds
+
+    @property
+    def footprint(self):
+        """`bounds` without its cell of margin: the ground the window
+        shows and nothing beyond it, for the vector tiles.
+
+        A tile carries every feature that touches it, so the tiles
+        under the window's own ground are the tiles its picture is cut
+        from — which is what the box rasteriser has always asked for.
+        The margin exists for the bilinear tap, and asked of the vector
+        sources it reaches a tile ring further in one view in nine:
+        the default street view's overscan on a 160x45 terminal at New
+        York asks twelve tiles with it and eight without.
+        """
+        if self._footprint is None:
+            self._footprint = bounds(self.lat, self.lon, self.zoom,
+                                     self.gw, self.hc, pad=False)
+        return self._footprint
 
     @property
     def scale_bbox(self):
@@ -725,6 +751,35 @@ class Camera:
         """
         x, y = self.project(lon, lat, self.gw, self.hc * 2)
         return x, y / 2.0
+
+    def screen_cell(self, lon, lat):
+        """(column, row) of a point, or None hidden or off the window.
+
+        `cell` with the two rejections a placement needs: the far
+        hemisphere, which no window reaches, and the cells outside the
+        window, which the flat rasteriser rejects by its bbox.
+        """
+        return marker_cell(self.lat, self.lon, self.zoom, self.gw, self.hc,
+                           lat, lon)
+
+    def ground(self, col, row):
+        """(lat, lon) under the middle of a cell, or None off the disk.
+
+        `cell` run backwards, for the two questions a rasteriser cannot
+        answer from a bbox once the window is a patch of a sphere: what
+        sea a body of water opens into, and which of a world list's
+        places are on the screen at all.  A cell's middle is its own
+        column's middle and the boundary between its two sub-pixels,
+        which is where `cell` puts a point it rounds into that cell.
+        """
+        r = _radius(self.zoom, self.hc * 2)
+        ux = (col + 0.5 - self.gw / 2.0) / (r * self.aspect)
+        uy = (self.hc - (row + 0.5) * 2.0) / r
+        at = _unproject(ux, uy, math.sin(math.radians(self.lat)),
+                        math.cos(math.radians(self.lat)))
+        if at is None:
+            return None
+        return (at[0], wrap_lon(self.lon + at[1]))
 
     def plane(self, dw, dh):
         """(rx, r, sin lat0, cos lat0, half width, half height) for a grid.
