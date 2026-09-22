@@ -29,12 +29,13 @@ from linecast import _elevation
 from linecast import maps
 from linecast._maps import globe as _globe
 from linecast._maps import overscan as over
+from linecast._maps import places as _places
+from linecast._maps import style as _maps_style
 from linecast._maps import views as _views
 from linecast._maps.route import Route
 from linecast._radar import basemap as _basemap
 from linecast._radar.basemap import _BITS, _edge_dots
 from linecast._radar.render import bbox_for
-from linecast._radar.ui import _get_basemap
 
 GW, HC = 160, 45
 
@@ -769,26 +770,37 @@ class TestTheRestingCropIsTheWindow:
                                (cat[0] + 20, cat[1]), False) is None
 
     def test_a_name_in_the_resting_crop_sits_on_its_city(self, monkeypatch):
+        # The street register's names are built for the whole margin
+        # and resampled into the window, and the run has to arrive
+        # whole and on the ground it names.  Terrain places its own for
+        # the window and never cuts them (`_maps.places`), so this is
+        # the register that still asks the question.
         self._patch(monkeypatch)
         gw, hc = self.GW, self.HC
-        _built, frame, (dx, dy), window, _real = self._pan(46.8, 8.2, 10.0,
-                                                           9)
+        _built, frame, (_dx, _dy), window, _real = self._pan(46.8, 8.2,
+                                                             10.0, 9)
+        wide = _globe.Camera.for_bbox(frame.bbox, frame.gw, frame.hc)
+        band = _maps_style.band_for(_maps_style.z_eff(frame.bbox, frame.hc))
+        labels = _places.street_overlays(wide, band,
+                                         _maps_style.palette(), "en")
         cut = over.Resample(frame, window, gw, hc)
-        basemap = _get_basemap(frame.bbox, frame.gw, frame.hc)
-        kept = over.crop_overlays(
-            basemap.city_overlays(project=cut.place(dx, dy)), dx, dy, gw, hc)
-        marks = [cell for cell, (ch, _ink) in kept.items() if ch == "•"]
+        kept, _moved = cut.overlays(labels)
+        marks = [cell for cell, entry in kept.items()
+                 if entry[0] == _maps_style.GLYPH_GENERIC]
         assert marks
-        # every dot is on a city, by the window's own camera
+        # every dot is on a city, by the window's own camera — within
+        # the cell the resample rounds to, which is as close as moving
+        # a run by the ground under its own cell can promise
         cam = _globe.Camera.for_bbox(window, gw, hc)
         here = {(int(x), int(y)) for x, y in
                 (cam.cell(e[0], e[1])
                  for e in _globe._load_data()["cities"])}
-        assert all(cell in here for cell in marks)
-        # and the built view's own placement is not the same answer:
-        # that is the drift the names would have had
-        wide = _globe.Camera.for_bbox(frame.bbox, frame.gw, frame.hc)
-        moved = over.crop_overlays(
-            basemap.city_overlays(project=wide.cell), dx, dy, gw, hc)
-        assert [cell for cell, (ch, _i) in moved.items()
-                if ch == "•"] != marks
+        assert all(any(abs(col - x) <= 1 and abs(row - y) <= 1
+                       for x, y in here) for col, row in marks)
+        # and every name that survived came across whole, letter for
+        # letter, rather than half a word at an edge
+        was = {run[:2]: "".join(e[0] for _o, e in run[2])
+               for run in over.label_runs(labels)}
+        now = {"".join(e[0] for _o, e in run[2])
+               for run in over.label_runs(kept)}
+        assert now and now <= set(was.values())

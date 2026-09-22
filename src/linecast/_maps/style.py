@@ -694,6 +694,15 @@ WATER_RANK = {"ocean": 0, "sea": 1, "bay": 2, "lake": 3}    # .get(cls, 4)
 WATER_BANDS = {"ocean": 0, "sea": 0, "bay": 1, "lake": 3}
 WATER_BAND_DEFAULT = 6
 
+# Below this band a body of water is named from the bundled Natural
+# Earth marine list rather than from the tile's own `water_name` layer:
+# the list is area-ranked and generalised for this scale, so a
+# three-county view is told it is looking at the Gulf of Maine rather
+# than at three of its guts.  Three because that is where the tile's
+# inverted generalisation stops hurting, which is a measurement about
+# water and not the one `GAZETTEER_BAND` makes about settlements.
+MARINE_SOURCE_BAND = 3
+
 # How far a water name reaches from its own point, as a multiple of the
 # half-width of the water it stands in.  The tile hands over one *point*
 # per body and no extent at all — measured over Casco Bay, every name
@@ -732,12 +741,23 @@ MARINE_BACKDROP_REGIONS = 4
 CLASS_BANDS = {"country": (0, 2), "state": (1, 3),
                "suburb": (5, 7), "neighbourhood": (5, 7)}
 
-# Below this band the bundled Natural Earth cities lead — they carry
-# localised names in 17 languages — and the tile's own places fill in
-# underneath them.  Natural Earth is a *world* list: over a
-# three-county view of Maine it holds exactly one city, so it cannot be
-# the only source at any band anyone actually looks at.
-PLACE_SOURCE_BAND = 3
+# Below this band the bundled Natural Earth gazetteer is the *only*
+# source of settlement names (`_maps.places`); from it up the tile's
+# place layer is, and the gazetteer is not consulted at all.  One
+# source per band rather than two stacked, because past
+# `globe.local_tiles` there are no tiles and the gazetteer is all there
+# is — so the set of city names can only be the same either side of
+# that hand-off if the band below it is already drawing the gazetteer
+# alone.  Every hand-off a terminal can reach sits at band 0 or 1.
+#
+# Two is where the two lists cross.  Counting the distinct named
+# settlements each offers over the same window at 160x43: over the
+# Alps the tiles carry 269 at band 2 against the gazetteer's 14, and 52
+# at band 1 against 92; over New York 173 against 6, and 41 against 60.
+# At band 0 it is not close — 82 tile settlements against 723.  So band
+# 2 is the last band where the tiles say more about where the towns
+# are, and it is the first band that keeps them.
+GAZETTEER_BAND = 2
 
 SHIELD_MAX_REF = 6           # ref_length above this is not a shield
 SHIELD_CLASSES = ("motorway", "trunk")

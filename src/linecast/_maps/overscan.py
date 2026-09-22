@@ -588,26 +588,6 @@ class Resample:
                 moved[(col + off, row)] = (c0 + off, r0)
         return kept, moved
 
-    def place(self, dx, dy):
-        """(lon, lat) -> the built view's cells, by the window's own camera.
-
-        For the names, which are placed rather than resampled: a glyph
-        carried across from the built view's own placement would sit
-        where that view put it, and a dot beside a name that is not on
-        the city is worse than either.  The answer is offset into the
-        built view's grid so the placement can go through
-        `Basemap.city_overlays` and come back through `crop_overlays`
-        as it always has — the run kept or dropped whole, the budget
-        and the crowding rule the built view's.
-        """
-        cam, gw, hc = self.dst, self.gw, self.hc
-
-        def project(lon, lat):
-            x, y = cam.project(lon, lat, gw, hc * 2)
-            return x + dx, y / 2.0 + dy
-
-        return project
-
 
 # Two: the window in hand and the one a pan is coming back from.
 _resample_cache = Memo(keep=2)

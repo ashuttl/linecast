@@ -251,17 +251,23 @@ class TestPlaceHierarchy:
         assert _maps_style.GLYPH_GENERIC in text_at(ov, HC // 2)
         assert _maps_style.GLYPH_CAPITAL not in text_at(ov, HC // 2)
 
-    def test_the_tile_lends_its_capital_flag_to_natural_earth(self):
-        # Below the source switch the vendored list leads, and it knows
-        # nothing of capitals; the tile place of the same name does.
-        biggest = max(_load_data()["cities"], key=lambda e: e[2])
+    def test_the_capital_star_stops_where_the_tiles_do(self):
+        # The star is the tile's fact and the tiles end at
+        # `local_tiles`, so below GAZETTEER_BAND — where the gazetteer
+        # is the only settlement source on either side of that
+        # hand-off, and knows nothing of capitals — no settlement is a
+        # candidate at all.  A star that appeared and vanished as a
+        # reader zoomed out is exactly the flip this band removes.
         flagged = place_layer(2048, 2048,
-                              {"class": "city", "name": biggest[3],
+                              {"class": "city", "name": "Capitalia",
                                "capital": 2})
         view = st.decode_view({(0, 0, 0): tile(flagged)})
-        cands = lb.place_candidates(view, WORLD, 200, 40, 0, "en")
-        starred = {c[2] for c in cands if c[4]}
-        assert biggest[3] in starred
+        low = _maps_style.GAZETTEER_BAND - 1
+        assert lb.place_candidates(view, WORLD, 200, 40, low, "en") == []
+        high = _maps_style.GAZETTEER_BAND
+        starred = {c[2] for c in lb.place_candidates(view, WORLD, 200, 40,
+                                                     high, "en") if c[4]}
+        assert "Capitalia" in starred
 
 
 class TestIslandNames:
@@ -329,32 +335,25 @@ class TestIslandNames:
 
 
 class TestPlaceSourceSwitch:
-    """Natural Earth leads below band 3 and the tile's own places fill
-    in underneath; from band 3 up the tile is the sole source."""
+    """One settlement source per band.  Below `GAZETTEER_BAND` it is the
+    bundled gazetteer, which is also all there is past the tiles; from
+    that band up it is the tile's own place layer, which by then
+    carries more settlements than the gazetteer does."""
 
     def _cands(self, layers, band):
         view = st.decode_view({(0, 0, 0): tile(*layers)})
         return lb.place_candidates(view, WORLD, GW, HC, band, "en")
 
-    def test_low_bands_still_take_tile_settlements(self):
-        # Natural Earth is a world list — over three counties of Maine
-        # it holds one city — so it cannot be the only source.
+    def test_the_tile_owns_the_settlements_from_the_switch_up(self):
         town = place_layer(2048, 2048, {"class": "town", "name": "Tileton"})
-        assert "Tileton" in [c[2] for c in self._cands([town], 2)]
-        assert "Tileton" in text_at(overlays(town, band=3), HC // 2)
+        band = _maps_style.GAZETTEER_BAND
+        assert "Tileton" in [c[2] for c in self._cands([town], band)]
+        assert "Tileton" in text_at(overlays(town, band=band), HC // 2)
 
-    def test_the_vendored_majors_still_lead_below_the_switch(self):
+    def test_below_the_switch_no_tile_settlement_is_a_candidate(self):
         town = place_layer(2048, 2048, {"class": "town", "name": "Tileton"})
-        names = [c[2] for c in self._cands([town], 2)]
-        biggest = max(_load_data()["cities"], key=lambda e: e[2])[3]
-        assert names[0] == biggest
-        assert names.index("Tileton") > 100
-
-    def test_a_place_named_by_both_sources_appears_once(self):
-        biggest = max(_load_data()["cities"], key=lambda e: e[2])[3]
-        town = place_layer(2048, 2048, {"class": "city", "name": biggest})
-        names = [c[2] for c in self._cands([town], 2)]
-        assert names.count(biggest) == 1
+        for band in range(_maps_style.GAZETTEER_BAND):
+            assert [c[2] for c in self._cands([town], band)] == []
 
     def test_the_tile_rank_orders_the_towns(self):
         many = points("place", *[
@@ -367,19 +366,20 @@ class TestPlaceSourceSwitch:
     def test_low_bands_keep_tile_country_and_state_names(self):
         state = place_layer(2048, 2048,
                             {"class": "state", "name": "Maine"})
-        assert overlays(state, band=2) != {}
+        assert overlays(state, band=0) != {}
 
-    def test_low_bands_take_settlements_from_natural_earth(self):
-        # The whole world at band 0: the vendored cities are the source,
-        # and the biggest of them must be among the survivors.
+    def test_low_bands_take_settlements_from_the_gazetteer(self):
+        # A window over the biggest city there is, and an empty place
+        # layer: everything named here came from the gazetteer, and the
+        # biggest of them must be among the survivors.  A megacity
+        # takes the caps register.
+        biggest = max(_load_data()["cities"], key=lambda e: e[2])
+        lon, lat = biggest[0], biggest[1]
+        bbox = (lon - 20.0, lat - 10.0, lon + 20.0, lat + 10.0)
         view = st.decode_view({(0, 0, 0): tile(layer("place", []))})
-        ov = lb.label_overlays(view, WORLD, 200, 40, 0,
+        ov = lb.label_overlays(view, bbox, 200, 40, 0,
                                _maps_style.palette(), "en")
-        placed = "".join(ch for _pos, (ch, *_r) in sorted(ov.items()))
-        assert placed
-        biggest = max(_load_data()["cities"], key=lambda e: e[2])[3]
-        # A megacity takes the caps register.
-        assert biggest[:4].upper() in placed
+        assert any(biggest[3].upper() in text_at(ov, r) for r in range(40))
 
 
 class TestRoadLabels:

@@ -42,16 +42,20 @@ see rather than the point the data hands you.
 
 import heapq
 
-from linecast._maps import style
-from linecast._radar.basemap import (
-    _bresenham, _load_data, _localized, marine_region,
-)
+from linecast._maps import globe as _globe
+from linecast._maps import places, style
+from linecast._radar.basemap import _bresenham, marine_region
 from linecast._textwidth import char_width, visible_len
 from linecast._vtiles import iter_layer
 from linecast._i18n import base_language
 
 LABEL_LAYERS = ("place", "water_name", "park", "transportation_name",
                 "poi", "mountain_peak", "aerodrome_label")
+
+# The tile place classes that are a settlement rather than an area: the
+# ones the gazetteer also knows about, and so the ones that change
+# hands at `style.GAZETTEER_BAND`.
+SETTLEMENT_CLASSES = ("city", "town", "village", "hamlet")
 
 
 # ---------------------------------------------------------------------------
@@ -508,72 +512,42 @@ def _in_view(cell, graph_w, height_cells):
 
 def place_candidates(view, bbox, graph_w, height_cells, band, lang,
                      camera=None):
-    """Settlements and admin names, already sorted into priority order.
+    """Admin names, and settlements from `style.GAZETTEER_BAND` up.
 
-    The bundled Natural Earth cities lead below band 3: 5227 of them,
-    population-sorted, with localised names in seventeen languages that
-    the tiles do not match.  But that is a *world* list — over a
-    three-county view of Maine it contains exactly one city — so the
-    tile's own `place` layer fills in underneath it, ranked by the rank
-    the tile carries for the purpose.  Names seen twice keep the first,
-    which is the Natural Earth one and therefore the localised one.
+    Below that band the settlements are not here at all: they come from
+    the bundled gazetteer through `_maps.places`, which is the one list
+    both registers name a city from out there and the only one that
+    survives past the tiles (`label_overlays` places them first).  What
+    this collects below the band is the admin names — the countries and
+    the states — which are area labels rather than settlements and have
+    no gazetteer to come from.
 
-    Each candidate carries its LABEL_STYLES kind — a major city takes
-    the caps register, everything else its class — and whether it is a
-    capital, which trades the settlement dot for a star.  The vendored
-    list knows nothing of capitals, so a tile place that is one lends
-    the flag to the Natural Earth entry of the same name.
+    From the band up the tile's own `place` layer carries more
+    settlements than the gazetteer does, and it carries them alone.
+    Each candidate takes its LABEL_STYLES kind — a major city the caps
+    register, everything else its class — and its capital flag, which
+    trades the settlement dot for a star.
     """
     out = []
-    low = band < style.PLACE_SOURCE_BAND
-    capitals = set()
+    settlements = band >= style.GAZETTEER_BAND
     for props, parts in _features(view, bbox, graph_w, height_cells,
                                   "place", camera=camera):
         cls = props.get("class")
         rank = style.CLASS_RANK.get(cls)
         if rank is None:                  # an unlisted class is dropped
             continue
-        star = (cls in ("city", "town", "village", "hamlet")
-                and style.is_capital(props))
-        if star:
-            capitals.add(_name(props, lang))
-            capitals.add(str(props.get("name") or ""))
+        if cls in SETTLEMENT_CLASSES and not settlements:
+            continue
         lo, hi = style.CLASS_BANDS.get(cls, (0, 99))
         if not lo <= band <= hi:
             continue
         name = _name(props, lang)
         cell = _centroid(parts)
         if name and _in_view(cell, graph_w, height_cells):
-            # Below the switch the tile's settlements sort after the
-            # vendored ones, which take ranks 1..n among themselves.
-            tile_rank = _rank(props) + (1000 if low else 0)
-            out.append(((rank, tile_rank, name),
+            star = (cls in SETTLEMENT_CLASSES and style.is_capital(props))
+            out.append(((rank, _rank(props), name),
                         style.place_kind(cls, _rank(props)), name, cell,
                         star))
-
-    if low:
-        minlon, minlat, maxlon, maxlat = bbox
-        cities = _load_data()["cities"]
-        if camera is not None:
-            # the vendored list is the world's, so which of it is on the
-            # screen is a question for whatever projected the screen
-            placed = [(e, camera.screen_cell(e[0], e[1])) for e in cities]
-            inview = [(e, at) for e, at in placed if at is not None]
-        else:
-            inview = [(e, (int((e[0] - minlon) / (maxlon - minlon) * graph_w),
-                           int((maxlat - e[1]) / (maxlat - minlat)
-                               * height_cells)))
-                      for e in cities
-                      if minlon <= e[0] <= maxlon and minlat <= e[1] <= maxlat]
-        inview.sort(key=lambda p: p[0][2], reverse=True)
-        for i, (entry, cell) in enumerate(inview):
-            name = _localized(entry, lang)
-            if name and _in_view(cell, graph_w, height_cells):
-                kind = ("city_major" if entry[2] >= style.CITY_CAPS_POP
-                        else "city")
-                out.append(((style.CLASS_RANK["city"], i + 1, name),
-                            kind, name, cell,
-                            name in capitals or entry[3] in capitals))
     out.sort(key=lambda c: c[0])
     seen, unique = set(), []
     for cand in out:
@@ -588,11 +562,12 @@ def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
                           water_mask=None, waters=None, camera=None):
     """Water bodies and park names — they share one ceiling of three.
 
-    Below band 3 the names come from the bundled Natural Earth marine
-    list, exactly as settlements do: it is area-ranked and generalised
-    for this scale, so a three-county view is told it is looking at the
-    Gulf of Maine rather than at three of its guts.  From band 3 up the
-    tile layer takes over, class-gated.
+    Below `style.MARINE_SOURCE_BAND` the names come from the bundled
+    Natural Earth marine list, in the same spirit as the settlements:
+    it is area-ranked and generalised for this scale, so a three-county
+    view is told it is looking at the Gulf of Maine rather than at
+    three of its guts.  From that band up the tile layer takes over,
+    class-gated.
 
     A `waters` dict, if given, collects {cell: name} for every cell of
     every *named* body on screen, whether or not its name won a place on
@@ -636,7 +611,7 @@ def water_park_candidates(view, bbox, graph_w, height_cells, band, lang,
 
     backdrop = (marine_backdrop(regions, bbox, graph_w, height_cells, camera)
                 if index is not None else {})
-    if index is not None and band < style.PLACE_SOURCE_BAND:
+    if index is not None and band < style.MARINE_SOURCE_BAND:
         for region, name in backdrop.items():
             area, cell, span = regions[region]
             claim(region, (0, 0, name),
@@ -993,7 +968,7 @@ def _cased(text, case):
 
 def label_overlays(view, bbox, graph_w, height_cells, band, palette,
                    lang="en", reserved=(), water_mask=None, marks=None,
-                   texts=None, waters=None, camera=None):
+                   texts=None, waters=None, camera=None, window=None):
     """{(col, row): (char, ink, bold)} for one view.
 
     Walked in strict priority order — places, water and park names,
@@ -1020,12 +995,35 @@ def label_overlays(view, bbox, graph_w, height_cells, band, palette,
     A `waters` dict collects {cell: name} for the named bodies of water,
     filled whether or not their names won a place on the page — the
     naming itself happens in water_park_candidates.
+
+    `window` is (gw, hc) of the window this view is the overscan of,
+    at its middle, and only the gazetteer's cities read it: the window
+    has to crop the set it would carry built alone (`places.layout`).
     """
     occ = Occupancy(graph_w, height_cells)
+    overlays = {}
+
+    # 1 — the gazetteer's cities, where they are this register's
+    # settlements (`style.GAZETTEER_BAND`).  First, against nothing,
+    # and outside every budget on this page: past `globe.local_tiles`
+    # there are no tiles and these names are all the street map has, so
+    # the set can only be the same either side of that hand-off if
+    # nothing the tiles happen to carry is allowed to change it.  They
+    # ignore `reserved` for the same reason — the planet's placement
+    # has never heard of a crosshair, and the mark is drawn over the
+    # one letter afterwards.  Their cells are claimed, so everything
+    # below routes around them.
+    if band < style.GAZETTEER_BAND:
+        cam = camera if camera is not None else _globe.Camera.for_bbox(
+            bbox, graph_w, height_cells)
+        cities = places.street_overlays(cam, band, palette, lang, window)
+        overlays.update(cities)
+        for col, row in cities:
+            occ.claim(row, col, 1)
+
     for col, row in reserved:
         if 0 <= row < height_cells and 0 <= col < graph_w:
             occ.claim(row, col, 1)
-    overlays = {}
 
     total = style.label_budget(graph_w, height_cells)
     placed = 0

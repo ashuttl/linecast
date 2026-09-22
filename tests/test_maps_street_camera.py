@@ -183,7 +183,7 @@ class TestTheBuildFollowsTheCamera:
         seen = []
 
         def build(bbox, gw, hc, tiles, band, lang="en", reserved=(),
-                  builtup=None, camera=None):
+                  builtup=None, camera=None, window=None):
             seen.append(camera)
             return None, None, None
 
@@ -262,12 +262,17 @@ class TestTheBuildFollowsTheCamera:
         here = {cam.screen_cell(e[0], e[1])
                 for e in _globe._load_data()["cities"]}
         assert all(cell in here for cell in marks)
-        # the box rasteriser would have put them somewhere else
+        # A settlement below GAZETTEER_BAND comes from the world
+        # gazetteer, and only a camera can say which of a world list is
+        # on the screen — so these marks are the camera's cells whether
+        # or not one was passed in, and that is the point: they are the
+        # cells the planet puts them in on the far side of the
+        # hand-off.  What the camera moves here is the tile's own work.
         flat = st.build_street_view(bbox, GW, HC, tiles, band)[2]
         flat_marks = [cell for cell, entry in flat.items()
                       if entry[0] in (_maps_style.GLYPH_GENERIC,
                                       _maps_style.GLYPH_CAPITAL)]
-        assert sorted(flat_marks) != sorted(marks)
+        assert sorted(flat_marks) == sorted(marks)
 
 
 class TestHoverFollowsTheProjection:

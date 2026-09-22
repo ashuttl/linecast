@@ -27,9 +27,7 @@ from linecast._framebuffer import cell_aspect
 from linecast._geo import wrap_lon
 from linecast._paths import cache_dir, data_path
 from linecast._png import decode_rgba
-from linecast._radar.basemap import (
-    CITY, CITY_LABEL, DotLayer, _load_data, _localized)
-from linecast._textwidth import char_width
+from linecast._radar.basemap import DotLayer, _load_data
 from linecast._radar.tiles import _TILE_SIZE, stitch_xyz
 from linecast._runtime import log_failure
 from linecast._scenes import Memo
@@ -166,10 +164,11 @@ def forward(lat, lon, lat0, lon0):
 # leaving still on screen while the one it is going to is built.
 _GEOMETRY_KEEP = 6
 _geometry_cache = Memo(keep=_GEOMETRY_KEEP)
-# the view workers run geometry() and city_overlays() side by side (a
-# drag starts one per key), so the memos' lookup and evict-then-insert
-# happen under a lock; a miss computes outside it, and two workers
-# computing the same key is fine where an exception is not
+# the view workers run geometry() and the border and lake trig side by
+# side (a drag starts one per key), so the memos' lookup and
+# evict-then-insert happen under a lock; a miss computes outside it,
+# and two workers computing the same key is fine where an exception is
+# not
 _memo_lock = threading.Lock()
 
 
@@ -1430,127 +1429,3 @@ def marker_cell(lat0, lon0, zoom, gw, hc, m_lat, m_lon):
     if 0 <= col < gw and 0 <= row < hc:
         return (col, row)
     return None
-
-
-# city_overlays() memo: the placement depends only on the view and the
-# language, but every repaint asks for it — hover included.  Keyed
-# with the cities list's identity so swapped-in test data misses.
-_OVERLAY_KEEP = 4
-_overlay_cache = Memo(keep=_OVERLAY_KEEP)
-
-
-def city_overlays(lat0, lon0, zoom, gw, hc, lang="en"):
-    """{(col,row): (char, color)} for the biggest visible cities + labels.
-
-    The same biggest-first greedy placement as the flat basemap's, with
-    one extra gate: nothing lands within the outer tenth of the disk,
-    where orthographic compression stacks a continent into a cell and a
-    label would point at geography it half covers.
-
-    Memoised per view: the dict is shared between calls, so read it.
-    """
-    cities = _load_data()["cities"]
-    key = (lat0, lon0, zoom, gw, hc, lang, id(cities), _aspect())
-    with _memo_lock:
-        hit = _overlay_cache.get(key)
-    if hit is not None:
-        return hit
-    hit = _place_cities(cities, lat0, lon0, zoom, gw, hc, lang)
-    with _memo_lock:
-        _overlay_cache.put(key, hit)
-    return hit
-
-
-# _city_trig() memo: (cities list identity, its trig form).  Keyed to
-# the list object itself so a test swapping the basemap data gets
-# fresh trig.
-_CITY_TRIG = (None, None)
-
-
-def _city_trig(cities):
-    """Every city as (entry, sin lat, cos lat, lon, x, y), biggest first.
-
-    The per-vertex hoist _border_trig() gets, and two additions.  The
-    city's place in space, so one dot product against the view centre
-    drops the far hemisphere before any trig is spent on it — the cap
-    test lake_mask() makes, one city wide.  And the whole list ordered
-    by population once, so placement can walk it biggest-first and
-    stop the moment the screen is full: a frame then looks at a few
-    hundred cities rather than at every one of the five thousand.  The
-    unit vector's third component is sin lat, already there.
-    """
-    global _CITY_TRIG
-    if _CITY_TRIG[0] is not cities:
-        radians, sin, cos = math.radians, math.sin, math.cos
-        out = []
-        for entry in cities:
-            phi, lam = radians(entry[1]), radians(entry[0])
-            cos_phi = cos(phi)
-            out.append((entry, sin(phi), cos_phi, lam,
-                        cos_phi * cos(lam), cos_phi * sin(lam)))
-        # stable, so this order restricted to the cities in view is the
-        # order the in-view list would sort itself into
-        out.sort(key=lambda c: c[0][2], reverse=True)
-        _CITY_TRIG = (cities, out)
-    return _CITY_TRIG[1]
-
-
-def _place_cities(cities, lat0, lon0, zoom, gw, hc, lang):
-    max_cities = max(6, min(24, (gw * hc) // 400))
-    r = _radius(zoom, hc * 2)
-    rx = r * _aspect()
-    phi0, lam0 = math.radians(lat0), math.radians(lon0)
-    sin0, cos0 = math.sin(phi0), math.cos(phi0)
-    vx, vy, vz = cos0 * math.cos(lam0), cos0 * math.sin(lam0), sin0
-    # The farthest from the view centre a placed city can lie: the
-    # screen's own corner, or the visibility gate below, whichever
-    # binds first.  A cell over-generous on purpose — the cap only has
-    # to pass a city on, never to decide about one.
-    rho2 = ((gw / 2.0 + 1.0) / rx) ** 2 + ((hc + 2.0) / r) ** 2
-    cap = (math.sqrt(1.0 - rho2) if rho2 < 0.96 else 0.2) - 1e-9
-    sin, cos = math.sin, math.cos
-    half_w, half_h = gw / 2.0, hc * 2 / 2.0
-
-    overlays = {}
-    placed = []
-    for entry, sin_phi, cos_phi, lam, px, py in _city_trig(cities):
-        if len(placed) >= max_cities:
-            break
-        if px * vx + py * vy + sin_phi * vz < cap:
-            continue  # nowhere the screen reaches
-        d = lam - lam0
-        cos_d = cos(d)
-        if sin0 * sin_phi + cos0 * cos_phi * cos_d < 0.2:
-            continue  # forward()'s cos_c, with the trig hoisted
-        ux = cos_phi * sin(d)
-        uy = cos0 * sin_phi - sin0 * cos_phi * cos_d
-        col = int(half_w + ux * rx)
-        row = int((half_h - uy * r) / 2.0)
-        if not (0 <= col < gw and 0 <= row < hc):
-            continue
-        if (col, row) in overlays:
-            continue
-        if any(abs(col - pc) < 16 and abs(row - pr) < 3 for pc, pr in placed):
-            continue
-        placed.append((col, row))
-        overlays[(col, row)] = ("•", CITY)
-        name = _localized(entry, lang)
-        c = col + 1
-        prev = None
-        for ch in name:
-            w = char_width(ch)
-            if w == 0 and prev is not None:
-                # A combining mark rides in its base's cell.
-                kept, ink = overlays[prev]
-                overlays[prev] = (kept + ch, ink)
-                continue
-            if c + w > gw:
-                break
-            if (c, row) in overlays or (w == 2 and (c + 1, row) in overlays):
-                break
-            overlays[(c, row)] = (ch, CITY_LABEL)
-            prev = (c, row)
-            if w == 2:
-                overlays[(c + 1, row)] = ("", None)
-            c += w
-    return overlays

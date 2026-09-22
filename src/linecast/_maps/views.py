@@ -511,9 +511,16 @@ def _get_street_tiles(bbox, gw, hc, block, lang="en", reserved=(),
                 streets.prefetch_around(bbox, hc, keys, window)
             except Exception as exc:
                 log_failure("maps/vtiles", "prefetch", exc, fallback="none")
+        # the window's size in cells, off the hint's bbox: the hint is
+        # the frame's own middle, whole cells in from every edge
+        cells = None
+        if window is not None:
+            wbbox, whc = window
+            cells = (round((wbbox[2] - wbbox[0]) / ((bbox[2] - bbox[0]) / gw)),
+                     whc)
         view = streets.build_street_view(
             bbox, gw, hc, tiles, band, lang, reserved,
-            bu_job.result() if bu_job is not None else None, camera)
+            bu_job.result() if bu_job is not None else None, camera, cells)
         # the whole view, labels and all: a window inside this one's
         # margin is an exact crop of it, which is a picture with its
         # names on.  A window outside it is reprojected instead, and

@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._maps import globe as _globe
+from linecast._maps import places as _places
 from linecast._scenes import Memo
 
 
@@ -140,9 +141,10 @@ class TestMemoRaces:
         monkeypatch.setattr(module, "_load_data", lambda: small)
 
     def test_city_overlays(self, monkeypatch):
-        self._few_cities(monkeypatch, _globe)
-        self._hammer(lambda rnd: _globe.city_overlays(
-            rnd.randint(-80, 80), 0.0, 60.0, 12, 6), rounds=60)
+        self._few_cities(monkeypatch, _places)
+        self._hammer(lambda rnd: _places.terrain_overlays(
+            _globe.Camera(rnd.randint(-80, 80), 0.0, 60.0, 12, 6), 0),
+            rounds=60)
 
     def test_city_lights(self):
         from linecast._maps import globe_now
@@ -509,7 +511,8 @@ class TestLabelToggle:
                                 None, borders)
         monkeypatch.setattr(maps, "_get_globe", lambda *a, **k: view)
         monkeypatch.setattr(maps, "get_terminal_size", lambda: (gw, hc + 2))
-        monkeypatch.setattr(_globe, "city_overlays", lambda *a, **k: {})
+        monkeypatch.setattr(maps._maps_places, "terrain_overlays",
+                            lambda *a, **k: {})
         bbox = (-31.0, -42.5, -29.0, 82.5)
         args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
                 "en", None)
@@ -537,13 +540,10 @@ class TestLabelToggle:
         terrain = maps.TerrainView(elev, coast, None, rivers, None,
                                    borders=borders)
         monkeypatch.setattr(maps, "_get_elevation", lambda *a: terrain)
-
-        class FakeBasemap:
-            def city_overlays(self, lang="en", project=None):
-                return {}
-
-        monkeypatch.setattr(maps, "_get_basemap",
-                            lambda *a: FakeBasemap())
+        # the names are the gazetteer's at every zoom now, and there is
+        # no basemap left to cut for them
+        monkeypatch.setattr(maps._maps_places, "terrain_overlays",
+                            lambda *a, **k: {})
         bbox = (-70.5, 43.5, -69.5, 44.5)
         args = (bbox, gw, hc, True, (0, 0), None, None, None, None,
                 "en", None)
@@ -622,7 +622,10 @@ class TestStreetRegister:
                             lambda *a, **k: self._view(gw, hc))
         monkeypatch.setattr(maps, "get_terminal_size",
                             lambda: (gw, hc + 2))
-        monkeypatch.setattr(_globe, "city_overlays", lambda *a, **k: {})
+        monkeypatch.setattr(maps._maps_places, "terrain_overlays",
+                            lambda *a, **k: {})
+        monkeypatch.setattr(maps._maps_places, "street_overlays",
+                            lambda *a, **k: {})
 
         def lights(*a, **k):
             asked.append(a)
@@ -676,36 +679,57 @@ class TestStreetRegister:
 
 
 class TestCities:
+    @staticmethod
+    def _cam(lat=20.0, lon=-30.0, zoom=125.0, gw=80, hc=22):
+        return _globe.Camera(lat, lon, zoom, gw, hc)
+
     def test_labels_stay_on_screen_and_visible_side(self):
-        overlays = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22)
+        overlays = _places.terrain_overlays(self._cam(), 0)
         assert overlays  # the Atlantic hemisphere has cities
         for (col, row) in overlays:
             assert 0 <= col < 80 and 0 <= row < 22
 
     def test_same_view_is_served_from_the_memo(self, monkeypatch):
-        monkeypatch.setattr(_globe, "_overlay_cache", Memo(keep=_globe._OVERLAY_KEEP))
-        first = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22)
-        assert _globe.city_overlays(20.0, -30.0, 125.0, 80, 22) is first
-        other = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22, lang="fr")
-        assert other is not first
+        monkeypatch.setattr(_places, "_layout_cache", Memo(keep=4))
+        first = _places.layout(self._cam(), 0)
+        assert _places.layout(self._cam(), 0) is first
+        assert _places.layout(self._cam(), 0, lang="fr") is not first
         for lon0 in (-31.0, -32.0, -33.0, -34.0):
-            _globe.city_overlays(20.0, lon0, 125.0, 80, 22)
-        assert len(_globe._overlay_cache) == _globe._OVERLAY_KEEP
+            _places.layout(self._cam(lon=lon0), 0)
+        assert len(_places._layout_cache) == 4
 
     def test_hidden_hemisphere_has_different_cities(self):
-        near = _globe.city_overlays(20.0, -30.0, 125.0, 80, 22)
-        far = _globe.city_overlays(-20.0, 150.0, 125.0, 80, 22)
-        near_dots = {p for p, (ch, _c) in near.items() if ch == "•"}
-        far_dots = {p for p, (ch, _c) in far.items() if ch == "•"}
+        near = _places.terrain_overlays(self._cam(), 0)
+        far = _places.terrain_overlays(self._cam(-20.0, 150.0), 0)
+        near_dots = {p for p, (ch, *_r) in near.items() if ch == "•"}
+        far_dots = {p for p, (ch, *_r) in far.items() if ch == "•"}
         assert near_dots != far_dots
 
+    def test_the_budget_follows_the_area_and_the_band(self):
+        # Band 0 is the planet's own rule to the number, because band 0
+        # is where every tile-to-planet hand-off sits.  Deeper in, a
+        # name is given less of the screen and the clamp rises with it.
+        assert _places.budget(160, 43, 0) == max(6, min(24, 160 * 43 // 400))
+        assert _places.budget(80, 22, 0) == 6
+        assert [_places.budget(160, 43, b) for b in range(4)] \
+            == [17, 21, 25, 30]
+        assert [_places.budget(80, 22, b) for b in range(4)] == [6, 8, 10, 12]
+        for gw, hc in ((160, 43), (80, 22), (20, 8)):
+            counts = [_places.budget(gw, hc, b) for b in range(8)]
+            assert counts == sorted(counts)
 
-# _place_cities as it stood before the trig hoist and the biggest-first
-# walk: the reference the fast path has to agree with, exactly.
-def _place_cities_longhand(cities, lat0, lon0, zoom, gw, hc, lang):
-    from linecast._radar.basemap import CITY, CITY_LABEL, _localized
+
+# The city placement as it stood before the trig hoist and the
+# biggest-first walk: the reference the fast path has to agree with,
+# exactly.  It moved from _maps.globe to _maps.places in the stage that
+# made one label system of the two registers' city names; the arithmetic
+# did not, so this reference did not either.  The inks are the caller's
+# now — terrain's contrast pick — so the longhand writes the same.
+def _place_cities_longhand(cities, lat0, lon0, zoom, gw, hc, lang,
+                           band=0):
+    from linecast._radar.basemap import _localized
     from linecast._textwidth import char_width
-    max_cities = max(6, min(24, (gw * hc) // 400))
+    max_cities = _places.budget(gw, hc, band)
     r = _globe._radius(zoom, hc * 2)
     rx = r * _globe._aspect()
     ranked = []
@@ -730,23 +754,23 @@ def _place_cities_longhand(cities, lat0, lon0, zoom, gw, hc, lang):
         if any(abs(col - pc) < 16 and abs(row - pr) < 3 for pc, pr in placed):
             continue
         placed.append((col, row))
-        overlays[(col, row)] = ("•", CITY)
+        overlays[(col, row)] = ("•", None, False)
         c = col + 1
         prev = None
         for ch in name:
             w = char_width(ch)
             if w == 0 and prev is not None:
-                kept, ink = overlays[prev]
-                overlays[prev] = (kept + ch, ink)
+                kept, ink, bold = overlays[prev]
+                overlays[prev] = (kept + ch, ink, bold)
                 continue
             if c + w > gw:
                 break
             if (c, row) in overlays or (w == 2 and (c + 1, row) in overlays):
                 break
-            overlays[(c, row)] = (ch, CITY_LABEL)
+            overlays[(c, row)] = (ch, None, False)
             prev = (c, row)
             if w == 2:
-                overlays[(c + 1, row)] = ("", None)
+                overlays[(c + 1, row)] = ("", None, False)
             c += w
     return overlays
 
@@ -763,29 +787,41 @@ class TestCityPlacementIsUnchanged:
         (48.0, 2.0, 60.0, 200, 60, "zh-Hant"),  # a tall, wide terminal
     ]
 
+    @staticmethod
+    def _fast(lat0, lon0, zoom, gw, hc, lang, band=0):
+        return _places.terrain_overlays(
+            _globe.Camera(lat0, lon0, zoom, gw, hc), band, lang)
+
     def test_every_label_lands_where_it_always_did(self):
-        cities = _globe._load_data()["cities"]
+        cities = _places._load_data()["cities"]
         for lat0, lon0, zoom, gw, hc, lang in self.VIEWS:
-            assert (_globe._place_cities(cities, lat0, lon0, zoom, gw, hc,
-                                         lang)
+            assert (self._fast(lat0, lon0, zoom, gw, hc, lang)
                     == _place_cities_longhand(cities, lat0, lon0, zoom, gw,
                                               hc, lang))
 
     def test_a_spin_of_the_planet_never_drifts(self):
-        cities = _globe._load_data()["cities"]
+        cities = _places._load_data()["cities"]
         for i in range(24):
             lon0 = -180.0 + i * 15.0
-            assert (_globe._place_cities(cities, 20.0, lon0, 125.0, 80, 22,
-                                         "en")
+            assert (self._fast(20.0, lon0, 125.0, 80, 22, "en")
                     == _place_cities_longhand(cities, 20.0, lon0, 125.0, 80,
                                               22, "en"))
 
+    def test_the_band_only_moves_the_budget(self):
+        # A deeper band spends more of the screen on names and changes
+        # nothing else about where they go: the longhand, given the
+        # same budget, still agrees cell for cell.
+        cities = _places._load_data()["cities"]
+        for band in range(1, 5):
+            assert (self._fast(48.0, 2.0, 8.0, 160, 45, "en", band)
+                    == _place_cities_longhand(cities, 48.0, 2.0, 8.0, 160,
+                                              45, "en", band))
+
     def test_swapped_in_data_gets_its_own_trig(self, monkeypatch):
         # the memo is keyed to the list object, not to its contents
-        small = dict(_globe._load_data())
+        small = dict(_places._load_data())
         small["cities"] = small["cities"][:40]
-        monkeypatch.setattr(_globe, "_load_data", lambda: small)
-        assert (_globe._place_cities(small["cities"], 20.0, -30.0, 125.0,
-                                     80, 22, "en")
+        monkeypatch.setattr(_places, "_load_data", lambda: small)
+        assert (self._fast(20.0, -30.0, 125.0, 80, 22, "en")
                 == _place_cities_longhand(small["cities"], 20.0, -30.0,
                                           125.0, 80, 22, "en"))

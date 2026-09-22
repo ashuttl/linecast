@@ -44,6 +44,7 @@ from linecast._maps import globe as _globe
 from linecast._maps import globe_now
 from linecast._maps import hover as _maps_hover
 from linecast._maps import overscan as _maps_overscan
+from linecast._maps import places as _maps_places
 from linecast._maps import style
 from linecast._maps import ui
 from linecast._color import fg, RESET, color_mode, BG_PRIMARY
@@ -72,7 +73,7 @@ from linecast import _theme
 from linecast._radar.i18n import rs
 from linecast._radar.render import bbox_for
 from linecast._radar.ui import (
-    CROSSHAIR, DIM, MUTED, _get_basemap, _panned_place, _shift_grid,
+    CROSSHAIR, DIM, MUTED, _panned_place, _shift_grid,
 )
 from linecast._runtime import log_failure
 from linecast._scenes import Memo
@@ -638,10 +639,15 @@ def _get_street(bbox, gw, hc, block, lang="en", reserved=(), window=None):
     view = _get_globe(cam.lat, cam.lon, cam.zoom, gw, hc, block, street=True)
     if view is None or view.elev is None:
         return None, None, None
-    return _street_planet(view, cam, gw, hc, lang)
+    # the band the tiled view would have been cut at, read the way
+    # `streets.view_tiles` reads it — off the window a crop is for,
+    # never off the margin around it
+    wbbox, whc = window if window is not None else (bbox, hc)
+    band = style.band_for(style.z_eff(wbbox, whc))
+    return _street_planet(view, cam, gw, hc, lang, band)
 
 
-def _street_planet(view, cam, gw, hc, lang):
+def _street_planet(view, cam, gw, hc, lang, band):
     """(fills, layer, overlays) for the street register past the tiles.
 
     The street map's idiom — two quiet fills and a braille coastline —
@@ -653,9 +659,13 @@ def _street_planet(view, cam, gw, hc, lang):
 
     No borders, because the flat street map draws none, and no city
     lights, because those belong to terrain in either projection.  The
-    names are the vendored gazetteer's rather than the tiles' — the one
-    thing that still changes at the hand-off, and stage three's to
-    unify.
+    names are the vendored gazetteer's, placed and inked by exactly the
+    call the tiled view makes below `style.GAZETTEER_BAND`
+    (`_maps.places.street_overlays`) — so crossing the hand-off changes
+    what the ground is drawn from and leaves the cities where they
+    were, spelled and emphasised as they were.  The tiles' own country
+    and water names stop here, as the roads and the POIs do, because
+    nothing out here carries them.
     """
     palette = style.palette()
     # the theme generation rides along, as it does on the flat views: a
@@ -678,9 +688,7 @@ def _street_planet(view, cam, gw, hc, lang):
     coast = (view.coast if view.coast is not None
              else [[0] * gw for _ in range(hc)])
     layer = _ShiftedLayer(coast, [[ink] * gw for _ in range(hc)])
-    overlays = {pos: (ch, None)   # None ink = per-cell contrast pick
-                for pos, (ch, _color) in _globe.city_overlays(
-                    cam.lat, cam.lon, cam.zoom, gw, hc, lang).items()}
+    overlays = _maps_places.street_overlays(cam, band, palette, lang)
     return fills, layer, overlays
 
 
@@ -826,44 +834,21 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
                                      height_cells, wide)
         if stand_in is not None:
             terrain, coast, rivers, borders = stand_in
-    # Which list the names come from, and how they are chosen, still
-    # flips at the old hand-off — that is stage three's to unify, and
-    # it is the one flip this stage leaves.  *Where* a name lands is
-    # this view's own geometry either way, so a dot and the ground it
-    # points at cannot drift apart.
+    # One list, one placement, at every zoom: the vendored gazetteer
+    # through the window's own camera (`_maps.places`).  It used to be
+    # the flat basemap's rectangle of candidates below the hand-off and
+    # the planet's walk of the world above it, which meant the set, the
+    # count and even the language changed as a reader zoomed past a
+    # line nothing else moved at.  Placing it costs a walk of a
+    # population-sorted list that stops when the screen is full, so
+    # there is nothing left to build for the overscan and crop out of:
+    # the names are cut for the window, and a stand-in keeps them at
+    # every zoom rather than only past the tiles.
     cities = {}
-    if show_labels and wide:
-        # the planet's own placement is a memoised walk of the vendored
-        # list, so a stand-in keeps its names
-        cities = _globe.city_overlays(lat0, lon0, zoom, graph_w,
-                                      height_cells, lang)
-    elif show_labels and (elev is not None or not loading):
-        # The basemap is fetched for its city names alone now; the
-        # border strokes come from the camera, so they curve with
-        # everything else.  It is not built for a stand-in: the names
-        # are cut for each new window on this thread, a third of a
-        # second of polygon filling, and a view in motion is a new
-        # window thirty times a second.  They wait for the real view,
-        # as the labels do — and they are cut for the overscan and
-        # cropped with it, so a pan inside the margin fills the
-        # polygons once for the whole of it instead of once a frame.
-        basemap = _get_basemap(obbox, ogw, ohc)
-        if basemap is not None:
-            cam = _globe.Camera.for_bbox(obbox, ogw, ohc)
-            if exact is not None:
-                # the same names, placed by the window's own camera
-                # rather than carried across from the built view's:
-                # the ground under them has been, and a dot beside a
-                # name that is not on the city is worse than either
-                project = exact.place(dx0, dy0)
-            elif _globe.affine_ok(cam.lat, cam.zoom, ogw, ohc):
-                project = None
-            else:
-                project = cam.cell
-            cities = basemap.city_overlays(project=project)
-            if cropping:
-                cities = _maps_overscan.crop_overlays(cities, dx0, dy0,
-                                                      graph_w, height_cells)
+    if show_labels:
+        cities = _maps_places.terrain_overlays(
+            _globe.Camera.for_bbox(bbox, graph_w, height_cells),
+            style.band_for(style.z_eff(bbox, height_cells)), lang)
     if terrain is None:
         terrain = [[BG_PRIMARY] * graph_w for _ in range(height_cells * 2)]
     if sun or clouds:
@@ -892,9 +877,7 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
     if not show_labels:
         coast = rivers = borders = None
 
-    overlays = {}
-    for pos, (ch, _color) in cities.items():
-        overlays[pos] = (ch, None)  # None ink = per-cell contrast pick
+    overlays = dict(cities)
 
     dx, dy = pan_offset
     if dx or dy:

@@ -1139,7 +1139,7 @@ def water_owners(coast, wet, waters, feats, graph_w, height_cells):
 
 
 def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
-                      reserved=(), builtup=None, camera=None):
+                      reserved=(), builtup=None, camera=None, window=None):
     """(fills, layer, overlays) for one view — the pure half, no network.
 
     `tiles` maps (z, x, y) to raw MVT bytes, or to None for a tile that
@@ -1159,6 +1159,11 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     bound holds the camera is None and the box rasteriser runs
     unchanged, which is what keeps a street-scale view the bytes it has
     always been.
+
+    `window` is (gw, hc) of the window this build is the overscan of,
+    sitting at its middle; the gazetteer's city names are laid out for
+    that window first, so a crop of this view carries the set the
+    window would carry built alone (`_maps.places.layout`).
 
     The layer comes back carrying `.hover`, the index that answers what
     is under a pointer.  It is built here rather than on demand because
@@ -1180,7 +1185,7 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     marks, texts, waters = {}, {}, {}
     overlays = _maps_labels.label_overlays(
         view, bbox, graph_w, height_cells, band, palette, lang, reserved,
-        wet, marks, texts, waters, camera)
+        wet, marks, texts, waters, camera, window)
 
     layer = DotLayer(bbox, graph_w, height_cells)
     # the fill is every pond; the stroke is the water big enough on

@@ -165,13 +165,14 @@ class TestReprojectTerrain:
 
 
 class TestTerrainStandInFrame:
-    def test_a_stand_in_frame_does_not_cut_a_basemap(self, monkeypatch):
-        # the borders and city names are a third of a second of
-        # polygon filling per window; a frame in motion goes without
-        # them, as it goes without labels, until the real view lands
-        cut = []
-        monkeypatch.setattr(maps, "_get_basemap",
-                            lambda *a: cut.append(a) or None)
+    def test_a_stand_in_frame_keeps_its_names(self, monkeypatch):
+        # The names used to wait for the real view: they were cut from
+        # the flat basemap, a third of a second of polygon filling per
+        # window, and a view in motion is a new window thirty times a
+        # second.  They are the gazetteer's now — a walk of a
+        # population-sorted list that stops when the screen is full —
+        # so a stand-in is named at every zoom, as the planet's always
+        # was, and a frame whose view failed to load is named too.
         monkeypatch.setattr(maps, "_get_elevation",
                             lambda *a, **k: maps._EMPTY_TERRAIN)
         fill = [[(1, 2, 3)] * GW for _ in range(HC * 2)]
@@ -179,13 +180,17 @@ class TestTerrainStandInFrame:
         # that crop it rather than reproject it
         monkeypatch.setattr(maps, "_last_terrain",
                             [(BBOX, GW, HC, fill, None, None, None, None)])
+        named = []
+        real = maps._maps_places.terrain_overlays
+        monkeypatch.setattr(
+            maps._maps_places, "terrain_overlays",
+            lambda cam, band, lang="en": named.append(cam) or real(
+                cam, band, lang))
         lines, _r, _h, loading, err = maps._render_terrain(
             (1.0, 0.0, 9.0, 8.0), GW, HC, False, (0, 0), None, None, None,
             None, "en", None)
-        assert loading and err is None and cut == []
+        assert loading and err is None and len(named) == 1
         assert len(lines) == HC
-        # a frame that is not waiting on a view still gets its borders,
-        # even one whose view failed to load
 
         def offline(*a, **k):
             raise RuntimeError("offline")
@@ -194,7 +199,10 @@ class TestTerrainStandInFrame:
         _l, _r, _h, loading, err = maps._render_terrain(
             (1.0, 0.0, 9.0, 8.0), GW, HC, True, (0, 0), None, None, None,
             None, "en", None)
-        assert not loading and err == "offline" and len(cut) == 1
+        assert not loading and err == "offline" and len(named) == 2
+        # and the window's own camera every time, never the margin's
+        for cam in named:
+            assert (cam.lat, cam.lon, cam.zoom) == (4.0, 5.0, 8.0)
 
 
 class TestPrefetchAround:
