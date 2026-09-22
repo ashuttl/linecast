@@ -1222,9 +1222,9 @@ class TestAgreementAndTheClock:
                                                              **overrides))
 
     def test_romance_plurals_and_french_elision(self):
-        assert self._later("fr", 81) == "Averses probables vers 16h"
-        assert self._later("fr", 81, 40) == "Risque d'averses vers 16h"
-        assert self._later("fr", 61, 40) == "Risque de pluie légère vers 16h"
+        assert self._later("fr", 81) == "Averses probables vers 16\u00a0h"
+        assert self._later("fr", 81, 40) == "Risque d'averses vers 16\u00a0h"
+        assert self._later("fr", 61, 40) == "Risque de pluie légère vers 16\u00a0h"
         assert self._later("es", 95) == "Tormentas probables hacia las 16:00"
         assert self._later("es", 63) == "Lluvia probable hacia las 16:00"
         assert self._later("pt", 81) == "Pancadas de chuva prováveis por volta das 16h"
@@ -1276,15 +1276,15 @@ class TestAgreementAndTheClock:
             return precipitation_sentence(hourly, NOON, _runtime(lang="fr", metric=True))
 
         assert sentence([51, 51, 51, 51, 95, 95, 0]) == (
-            "Bruine légère, puis des orages vers 16h, avant de cesser vers 18h")
+            "Bruine légère, puis des orages vers 16\u00a0h, avant de cesser vers 18\u00a0h")
         assert sentence([51] * 4 + [95] * 22) == (
-            "Bruine légère toute la journée, avec des orages vers 16h")
+            "Bruine légère toute la journée, avec des orages vers 16\u00a0h")
         assert sentence([51, 51, 51, 51, 65, 65, 0]) == (
-            "Bruine légère, puis de fortes pluies vers 16h, avant de cesser vers 18h")
+            "Bruine légère, puis de fortes pluies vers 16\u00a0h, avant de cesser vers 18\u00a0h")
 
     def test_only_english_and_greek_take_the_twelve_hour_clock_in_a_sentence(self):
         # A French reader looking at Montréal, where the clock is 12-hour
-        assert self._later("fr", 63, 90, use_24h=False) == "Pluie vers 16h"
+        assert self._later("fr", 63, 90, use_24h=False) == "Pluie vers 16\u00a0h"
         assert self._later("en", 63, 90, use_24h=False) == "Rain starting around 4pm"
         assert self._later("el", 63, 90, use_24h=False) == \
             "Βροχές θα αρχίσουν γύρω στις 4 το απόγευμα"

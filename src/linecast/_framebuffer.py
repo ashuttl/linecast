@@ -63,10 +63,10 @@ _HOUR_24 = {
     "de": "{h}\u00a0Uhr", "it": "{h}", "da": "kl.\u00a0{h}", "no": "kl.\u00a0{h}",
     "sv": "kl.\u00a0{h}", "is": "kl.\u00a0{h}", "fi": "klo\u00a0{h}", "id": "pukul\u00a0{h}.00",
     "ja": "{h}時", "ko": "{h}시", "zh": "{h}时", "zh-Hant": "{h}時", "th": "{h:02d}\u00a0น.",
-    # Canada spaces the h, as Environment Canada writes it: "18 h".  The
-    # spaces are unbreakable, so a paragraph never parts an hour from its
-    # word for it.
-    "fr-CA": "{h}\u00a0h",
+    # French spaces the h, as Météo-France and Environment Canada write
+    # it: "18 h".  The spaces are unbreakable, so a paragraph never parts
+    # an hour from its word for it.
+    "fr": "{h}\u00a0h",
 }
 
 

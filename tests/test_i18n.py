@@ -555,9 +555,9 @@ class TestRegionalVariants:
         assert ms("hov_ferry", "fr") == "ferry" and ms("hov_ferry", "fr-CA") == "traversier"
         assert ms("hov_river", "fr-CA") == "rivière"
 
-    def test_canada_spaces_the_hour(self):
+    def test_french_spaces_the_hour(self):
         from linecast._framebuffer import fmt_hour_phrase
-        assert fmt_hour_phrase(18, True, "fr") == "18h"
+        assert fmt_hour_phrase(18, True, "fr") == "18\u00a0h"
         assert fmt_hour_phrase(18, True, "fr-CA") == "18\u00a0h"
         assert fmt_hour_phrase(18, True, "es-ES") == "18:00"
         assert fmt_hour_phrase(18, True, "pt-PT") == "18h"
