@@ -586,6 +586,11 @@ def _is_night(daily, now):
 #
 # A term has to be worth a degree Celsius before it is worth a sentence.
 _FEELS_FLOOR_C = 1.0
+# The humidity term is zero at a dew point near 10 C, so cold air always
+# reads as dry to the formula whatever its relative humidity: Longyearbyen
+# at 91% is not "dry air".  The term is only named as dryness when the
+# air is dry in the sense a person means.
+_FEELS_DRY_RH = 40
 
 
 def _feels_terms(temp_c, humidity, wind_ms, gap_c):
@@ -640,6 +645,9 @@ def _feels(current, daily, now, runtime):
         runtime.wind_kmh(wind) / 3.6,
         gap if runtime.celsius else gap * 5 / 9,
     )
+
+    if gap < 0 and humidity >= _FEELS_DRY_RH:
+        del terms["humid"]
 
     # Of the terms pushing the way the reading went, the largest one.
     pushing = sorted(((abs(size), name) for name, size in terms.items()

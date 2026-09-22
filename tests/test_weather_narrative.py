@@ -80,6 +80,28 @@ class TestFeelsSentence:
         assert feels_sentence(current, DAILY, NOON, _runtime()) == \
             _s("feels_wind", _runtime())
 
+    def test_cold_damp_air_is_not_called_dry(self):
+        # Longyearbyen at 1 C and 91% humidity: the formula's humidity term
+        # is negative in any cold air, but no one there calls it dry.  The
+        # 10 km/h wind is what there is to say.
+        current = {"temperature_2m": 1.0, "apparent_temperature": -2.7,
+                   "relative_humidity_2m": 91, "dew_point_2m": -0.4,
+                   "wind_speed_10m": 10.0, "weather_code": 3}
+
+        assert feels_sentence(current, DAILY, NOON,
+                              _runtime(celsius=True, metric=True)) == \
+            _s("feels_wind", _runtime())
+
+    def test_cold_damp_still_air_says_nothing(self):
+        # The same air without the wind: nothing is holding a degree of the
+        # gap that a person would name.
+        current = {"temperature_2m": 1.0, "apparent_temperature": -2.3,
+                   "relative_humidity_2m": 91, "dew_point_2m": -0.4,
+                   "wind_speed_10m": 2.0, "weather_code": 3}
+
+        assert feels_sentence(current, DAILY, NOON,
+                              _runtime(celsius=True, metric=True)) == ""
+
     def test_a_small_gap_says_nothing(self):
         # Five degrees is a difference on paper, not one you would feel.
         current = {"temperature_2m": 70, "apparent_temperature": 65,
