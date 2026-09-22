@@ -477,20 +477,34 @@ def _hours_ahead(hourly, now, span=24):
 
 def _names_the_day(dt, now):
     """Whether the phrase for `dt` says which day it is: "tomorrow
-    afternoon" does, "in about an hour" and "overnight" do not, even
-    when the hour they name falls after midnight."""
+    afternoon" does, "in about an hour", "overnight" and "tonight" do
+    not, even when the hour they name falls after midnight."""
     if (dt - now).total_seconds() < 4 * 3600 or dt.date() == now.date():
         return False
     if dt.date() == (now + timedelta(days=1)).date():
-        return dt.hour >= 5 or now.hour < 5
+        return dt.hour >= 5
     return True
 
 
-def _time_phrase(dt, now, runtime, after=None):
+# Where one part of tomorrow ends and the next begins: the small hours
+# before the morning proper, then morning, afternoon, evening.  The
+# small hours and the morning are one morning for saying "later in" it.
+_DAY_PARTS = (8, 12, 17)
+_LATER_IN = ("morning", "morning", "afternoon", "evening")
+
+
+def _day_part(hour):
+    """Which part of the day an hour falls in, as an index into the
+    parts the phrases for tomorrow name."""
+    return sum(hour >= edge for edge in _DAY_PARTS)
+
+
+def _time_phrase(dt, now, runtime, after=None, same_sentence=False):
     """When something happens, as a person would say it: "shortly", "around
     3pm", "tomorrow afternoon".  With `after`, the hour named just before
-    in the same sentence, a second "tomorrow" is left out: "starting
-    tomorrow afternoon, becoming rain in the evening"."""
+    -- in this sentence when `same_sentence`, otherwise in the one before
+    it -- a second "tomorrow" is left out: "starting tomorrow afternoon,
+    becoming rain in the evening"."""
     lang = runtime.lang
     delta = (dt - now).total_seconds() / 3600
     if delta < 1.5:
@@ -506,10 +520,13 @@ def _time_phrase(dt, now, runtime, after=None):
     tomorrow = (now + timedelta(days=1)).date()
     if dt.date() == tomorrow:
         if dt.hour < 5:
-            # Read at two in the morning, "overnight" means the night
-            # under way; the next one is tomorrow night
-            if now.hour < 5 and _has("tomorrow_night", runtime):
-                return _s("tomorrow_night", runtime)
+            # Read before dawn, the hours after midnight tomorrow belong
+            # to the night this evening leads into, the one the rest of
+            # the paragraph is already calling tonight.  A forecast
+            # issued at four says "tonight"; "tomorrow night" would be
+            # the night after, a day late.
+            if now.hour < 5 and _has("tonight", runtime):
+                return _s("tonight", runtime)
             return _s("overnight", runtime)
         said_tomorrow = (after is not None and after.date() == tomorrow
                          and _names_the_day(after, now))
@@ -522,11 +539,23 @@ def _time_phrase(dt, now, runtime, after=None):
         else:
             key = "tomorrow_evening"
         again = "then_" + key.replace("tomorrow_", "")
-        if (again == "then_morning" and said_tomorrow and after.hour < 8
-                and _has("then_later_morning", runtime)):
-            again = "then_later_morning"
-        if said_tomorrow and _has(again, runtime):
-            key = again
+        if said_tomorrow:
+            # A second hour in the part of the day this sentence has
+            # already named is later in it, not that part over again: "a
+            # chance of drizzle tomorrow morning, becoming showers later
+            # in the morning".  What one sentence hands the next is the
+            # day and not an hour to be later than -- the comparison
+            # names no hour at all -- so between sentences only the turn
+            # out of the small hours reads that way.  A language without
+            # the words for the turn names the part again rather than
+            # the day twice.
+            here, there = _day_part(dt.hour), _day_part(after.hour)
+            later = "then_later_" + _LATER_IN[here]
+            if (_LATER_IN[there] == _LATER_IN[here] and (there < here or same_sentence)
+                    and _has(later, runtime)):
+                again = later
+            if _has(again, runtime):
+                key = again
         return _s(key, runtime)
     day_names = table_for(DAY_NAMES, lang)
     forms = ON_DAY_FORMS.get(lang, ON_DAY_FORMS.get(base_language(lang), {}))
@@ -1070,9 +1099,11 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None):
             else:
                 key += "_becoming"
             words.update(peak=desc(peak[0]),
-                         peak_time=_time_phrase(peak[1], now, runtime, after=start))
+                         peak_time=_time_phrase(peak[1], now, runtime, after=start,
+                                                same_sentence=True))
         if end is not None:
-            words["time"] = _time_phrase(end, now, runtime, after=peak[1] if peak else None)
+            words["time"] = _time_phrase(end, now, runtime, after=peak[1] if peak else None,
+                                         same_sentence=True)
         parts["last_named"] = end or (peak[1] if peak else None) or start
         return _ucfirst(_precip_s(key, codes[run[0][0]], runtime, **words))
 

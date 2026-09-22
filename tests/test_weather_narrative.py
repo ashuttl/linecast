@@ -507,15 +507,61 @@ class TestTheClockInTheSentence:
         assert precipitation_sentence(hourly, night, _runtime(lang="ja")) == \
             "霧雨が明日の早朝に雨となり、午前中にやむ見込み"
 
-    def test_in_the_small_hours_the_next_small_hours_are_tomorrow_night(self):
-        # Reykjavík at two in the morning: drizzle due at one the next night
+    def test_a_turn_inside_the_morning_is_later_in_the_morning(self):
+        # Miami at half past ten at night: drizzle at eight tomorrow,
+        # showers from eleven.  Both are before noon, so the turn is
+        # later in that morning, not the morning over again.
+        from linecast._weather.sections import precipitation_sentence
+        night = datetime(2026, 7, 15, 22, 26)
+        codes = [0] * 10 + [51, 51, 51, 80, 80, 80, 0]
+        hourly = self._hourly(codes, night.replace(minute=0))
+        hourly["precipitation"] = [0] * 10 + [0.01, 0.01, 0.01, 0.2, 0.25, 0.15, 0]
+        assert precipitation_sentence(hourly, night, _runtime()) == \
+            "Light drizzle starting tomorrow morning, becoming light showers later in the morning"
+        assert precipitation_sentence(hourly, night, _runtime(lang="ja")) == \
+            "明日の朝に霧雨、午前中に弱いにわか雨となる"
+
+    def test_a_turn_inside_the_afternoon_is_later_in_the_afternoon(self):
+        # The same again after noon: drizzle at one tomorrow, rain from
+        # four
+        from linecast._weather.sections import precipitation_sentence
+        night = datetime(2026, 7, 15, 22, 26)
+        codes = [0] * 15 + [51, 51, 51, 63, 63, 0]
+        hourly = self._hourly(codes, night.replace(minute=0))
+        hourly["precipitation"] = [0] * 15 + [0.01, 0.01, 0.01, 0.2, 0.25, 0]
+        assert precipitation_sentence(hourly, night, _runtime()) == \
+            "Light drizzle starting tomorrow afternoon, becoming rain later in the afternoon"
+        assert precipitation_sentence(hourly, night, _runtime(lang="de")) == \
+            "Leichter Nieselregen morgen Nachmittag, im Laufe des Nachmittags Regen"
+
+    def test_in_the_small_hours_the_coming_night_is_tonight(self):
+        # Reykjavík at two in the morning: drizzle due at one the next
+        # night.  A forecast read before dawn calls the night this
+        # evening leads into "tonight", the way one issued at four does;
+        # "tomorrow night" would be the night after it, a day late.
         from linecast._weather.sections import precipitation_sentence
         small = datetime(2026, 7, 15, 2, 30)
         codes = [0] * 23 + [51, 51]
         assert precipitation_sentence(self._hourly(codes, small), small, _runtime()) == \
-            "Light drizzle starting tomorrow night"
+            "Light drizzle starting tonight"
         assert precipitation_sentence(self._hourly(codes, small), small, _runtime(lang="ja")) == \
-            "明日の夜に霧雨となる"
+            "今夜霧雨となる"
+
+    def test_the_freeze_and_the_snow_are_one_night(self):
+        # Longyearbyen at half past four in the morning: the freeze at
+        # ten tonight and the snow at one are three hours of the same
+        # night, and the paragraph calls them by the same name
+        import re
+        dawn = datetime(2026, 9, 22, 4, 26)
+        codes = [0] * 21 + [71, 71, 71, 0]
+        hourly = self._hourly(codes, dawn.replace(minute=0))
+        hourly["temperature_2m"] = [35] * 16 + [33] * 2 + [30] * 2 + [31] * 5
+        data = {"hourly": hourly, "current": {"temperature_2m": 36},
+                "daily": {"sunrise": ["2026-09-22T05:40"], "sunset": ["2026-09-22T19:55"],
+                          "temperature_2m_max": [40]}}
+        prose = " ".join(re.sub(r"\x1b\[[0-9;]*m", "", row)
+                         for row in narrative_lines(data, dawn, 200, _runtime()))
+        assert prose == "Below freezing tonight, down to 30°. Light snow starting tonight."
 
     def test_a_dry_hour_inside_rain_is_a_lull(self):
         from linecast._weather.sections import precipitation_sentence
