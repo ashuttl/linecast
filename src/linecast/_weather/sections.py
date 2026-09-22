@@ -379,7 +379,7 @@ def narrative_lines(data, now, width, runtime=None, trace=None):
 
     comparison, big = _comparison(daily, now, runtime)
     feels, feels_cause = _feels(current, daily, now, runtime)
-    ahead, ahead_at, ahead_cause = _feels_ahead(hourly, now, runtime)
+    ahead, ahead_at, ahead_cause = _feels_ahead(hourly, now, runtime, current=current)
     if ahead and ahead_cause == feels_cause:
         # One sentence about the felt temperature: the one that looks ahead
         feels = ""
@@ -403,7 +403,7 @@ def narrative_lines(data, now, width, runtime=None, trace=None):
             lambda after: _freeze(hourly, current, now, runtime, after)[0])
     if ahead:
         add(4, hours(ahead_at), ahead_at,
-            lambda after: _feels_ahead(hourly, now, runtime, after)[0])
+            lambda after: _feels_ahead(hourly, now, runtime, after, current)[0])
     if not kind:
         week, week_at = _next_rain(daily, now, runtime, hourly)
         if week:
@@ -685,25 +685,32 @@ def _feels(current, daily, now, runtime):
 # off the rest of the forecast week; a gap between felt and thermometer
 # that every day has is the climate, not news.  Past the danger marks it
 # is said regardless.
+#
+# And it has to be news against the hour the reader is in.  Promising 34°
+# when the header already says it feels 34° says nothing, and costs the
+# present-tense sentence that would have said why, so the hour ahead has
+# to be a couple of degrees past the one at hand before it is named.
 _FEELS_AHEAD_HOT_C = 33
 _FEELS_AHEAD_COLD_C = -15
 _FEELS_AHEAD_DANGER_HOT_C = 40
 _FEELS_AHEAD_DANGER_COLD_C = -25
 _FEELS_AHEAD_UNUSUAL_C = 2.0
+_FEELS_AHEAD_BEYOND_NOW_C = 2.0
 
 
-def feels_ahead_sentence(hourly, now, runtime=None, daily=None):
+def feels_ahead_sentence(hourly, now, runtime=None, daily=None, current=None):
     """"High humidity will make it feel as high as 36° this afternoon":
     the felt temperature at the hottest or coldest hour of the day
-    ahead, when it is extreme and the air temperature does not say so
-    on its own, with what is behind it when one thing is.  The current
-    hour is the feels-like sentence's; this looks past it."""
+    ahead, when it is extreme, the air temperature does not say so on
+    its own, and it is a couple of degrees past what it feels like now,
+    with what is behind it when one thing is.  The current hour is the
+    feels-like sentence's; this looks past it."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
-    return _feels_ahead(hourly, now, runtime)[0]
+    return _feels_ahead(hourly, now, runtime, current=current)[0]
 
 
-def _feels_ahead(hourly, now, runtime, after=None):
+def _feels_ahead(hourly, now, runtime, after=None, current=None):
     """The feels-ahead sentence, the hour it is about, and its cause."""
     nothing = ("", None, None)
     if not _has("feels_ahead_hot", runtime):
@@ -730,6 +737,15 @@ def _feels_ahead(hourly, now, runtime, after=None):
                 and to_c(temps[i]) - to_c(feels[i]) >= gap_c):
             return nothing
     gap = to_c(feels[i]) - to_c(temps[i])
+
+    # Is it anything the reader does not already have?  A sentence about
+    # an extreme is for planning, and there is nothing to plan for in a
+    # temperature it feels like right now.
+    felt_now = (current or {}).get("apparent_temperature")
+    if felt_now is not None:
+        beyond = to_c(feels[i]) - to_c(felt_now)
+        if (beyond if hot else -beyond) < _FEELS_AHEAD_BEYOND_NOW_C:
+            return nothing
 
     # Is this what the place is used to?  The same gap on the other days
     # of the forecast says yes, unless the reading is dangerous anyway.
@@ -1377,14 +1393,19 @@ _SKY_CLEAR = 35
 
 def sky_sentence(hourly, daily, now, runtime=None, precip_kind="", precip_end=None):
     """"Clearing around 2pm", "Clouding over tomorrow morning": the first
-    lasting change in the daytime sky over the next day, when the sky is
-    plainly one thing now and plainly the other later.
+    lasting change in the sky over the next day, when the sky is plainly
+    one thing now and plainly the other later.
 
     Lasting means the old sky does not come back within the day: a clear
     hour or two before the marine layer rolls in again is not clearing.
-    Rain that is starting or continuing already says the sky is clouding
-    over, so nothing is said then; after rain that is ending, only a
-    clearing after the end."""
+    The hour named is the hour the change arrives, after dark as much as
+    in the daylight: someone reading at seven in the evening, hoping to
+    see stars, is owed the hour the cloud comes in and not the first
+    hour of the morning that shows it.  Because the old sky has to stay
+    away for the rest of the window, a change in the night is one that
+    still holds when the sun comes up.  Rain that is starting or
+    continuing already says the sky is clouding over, so nothing is said
+    then; after rain that is ending, only a clearing after the end."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
     return _sky(hourly, daily, now, runtime, precip_kind, precip_end)[0]
@@ -1395,37 +1416,36 @@ def _sky(hourly, daily, now, runtime, precip_kind="", precip_end=None, after=Non
     if not _has("sky_clearing", runtime) or precip_kind in ("starting", "continuing"):
         return "", None
     cover = hourly.get("cloud_cover") or []
-    from linecast._weather.hourly import _parse_sun_events
-    suns = [(r, s) for r, s in _parse_sun_events(daily or {}) if r and s]
-
-    def daylight(dt):
-        if suns:
-            return any(r <= dt <= s for r, s in suns)
-        return 7 <= dt.hour <= 19
-
     hours = [(i, dt) for i, dt in _hours_ahead(hourly, now)
              if i < len(cover) and cover[i] is not None]
     if len(hours) < 4:
         return "", None
     values = [cover[i] for i, _ in hours]
 
+    def sky(percent):
+        return ("cloudy" if percent >= _SKY_CLOUDY
+                else "clear" if percent <= _SKY_CLEAR else None)
+
     def state(k):
         span = values[k:k + 3]
-        mean = sum(span) / len(span)
-        return "cloudy" if mean >= _SKY_CLOUDY else "clear" if mean <= _SKY_CLEAR else None
+        return sky(sum(span) / len(span))
 
     start = state(0)
     if start is None:
         return "", None
     for k in range(1, len(hours) - 2):
         new = state(k)
-        if new is None or new == start or not daylight(hours[k][1]):
+        if new is None or new == start:
             continue
         # A change that holds: the old sky does not return in the hours
         # left in the day
         if any(state(m) == start for m in range(k, len(hours))):
             return "", None
-        dt = hours[k][1]
+        # The three-hour mean turns as soon as the change is within
+        # sight of it, up to two hours before the sky itself does; the
+        # hour to name is the first one whose own cover is the new sky.
+        dt = next(hours[m][1] for m in range(k, min(k + 3, len(values)))
+                  if sky(values[m]) == new)
         if new == "clear":
             if precip_end is not None and dt < precip_end:
                 return "", None

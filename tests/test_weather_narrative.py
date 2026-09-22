@@ -600,6 +600,33 @@ class TestMoreToSay:
         hourly = self._hourly(NOON, len(cover), cloud_cover=cover)
         assert sky_sentence(hourly, DAILY, NOON, _runtime()) == ""
 
+    def test_a_change_after_dark_is_named_at_the_hour_it_happens(self):
+        # Seattle at five: a clear evening, and the sky shuts at ten.
+        # Someone hoping to see stars is owed that hour, not the morning.
+        from linecast._weather.sections import sky_sentence
+        evening = datetime(2026, 7, 15, 17, 0)
+        cover = [0, 0, 0, 0, 20] + [100] * 20
+        hourly = self._hourly(evening, len(cover), cloud_cover=cover)
+        assert sky_sentence(hourly, DAILY, evening, _runtime()) == "Clouding over around 22:00"
+
+    def test_a_night_change_that_is_gone_by_morning_says_nothing(self):
+        # Cloud that rolls in after dark and burns off at breakfast is
+        # not clouding over: the lasting rule catches it.
+        from linecast._weather.sections import sky_sentence
+        evening = datetime(2026, 7, 15, 17, 0)
+        cover = [0] * 5 + [100] * 8 + [0] * 12
+        hourly = self._hourly(evening, len(cover), cloud_cover=cover)
+        assert sky_sentence(hourly, DAILY, evening, _runtime()) == ""
+
+    def test_the_hour_named_is_the_hour_the_sky_turns(self):
+        # Rome at dusk: half cloud at six, the sky properly open at
+        # seven.  The three-hour mean has turned by six; the sky has not.
+        from linecast._weather.sections import sky_sentence
+        afternoon = datetime(2026, 7, 15, 14, 0)
+        cover = [100, 100, 100, 100, 52, 11, 36, 13, 19] + [10] * 16
+        hourly = self._hourly(afternoon, len(cover), cloud_cover=cover)
+        assert sky_sentence(hourly, DAILY, afternoon, _runtime()) == "Clearing around 19:00"
+
     def _week(self, now, sums, probs, codes=None):
         days = [(now + timedelta(days=k)).date().isoformat() for k in range(-1, 7)]
         daily = {"time": days, "precipitation_sum": sums, "precipitation_probability_max": probs}
@@ -759,6 +786,44 @@ class TestMoreToSay:
                               apparent_temperature=[84, 88, 88, 84])
         assert feels_ahead_sentence(hourly, NOON, _runtime()) == ""
 
+    def test_heat_that_is_already_here_is_not_news(self):
+        # Singapore at half past ten: it feels 34° now and the hottest
+        # hour ahead feels 34° too, so there is nothing to plan around
+        from linecast._weather.sections import feels_ahead_sentence
+        hourly = self._hourly(NOON, 6, temperature_2m=[29.5] * 6,
+                              apparent_temperature=[33.5, 33.6, 34.1, 33.8, 33.6, 33.4],
+                              relative_humidity_2m=[67] * 6, wind_speed_10m=[8] * 6)
+        metric = _runtime(celsius=True, metric=True)
+        assert feels_ahead_sentence(hourly, NOON, metric,
+                                    current={"apparent_temperature": 33.7}) == ""
+        # ...but a morning that has a long way to climb keeps its sentence
+        assert feels_ahead_sentence(hourly, NOON, metric,
+                                    current={"apparent_temperature": 25.0}) == \
+            "High humidity will make it feel as high as 34° this afternoon"
+
+    def test_a_wind_chill_no_worse_than_the_present_one_says_nothing(self):
+        from linecast._weather.sections import feels_ahead_sentence
+        hourly = self._hourly(NOON, 6, temperature_2m=[-5, -6, -8, -9, -9, -8],
+                              apparent_temperature=[-12, -14, -17, -19, -18, -16],
+                              relative_humidity_2m=[70] * 6, wind_speed_10m=[35] * 6)
+        metric = _runtime(celsius=True, metric=True)
+        assert feels_ahead_sentence(hourly, NOON, metric,
+                                    current={"apparent_temperature": -18}) == ""
+        assert feels_ahead_sentence(hourly, NOON, metric,
+                                    current={"apparent_temperature": -12}) == \
+            "The wind will make it feel as low as −19° this afternoon"
+
+    def test_the_margin_over_the_present_follows_the_unit(self):
+        # Three degrees Fahrenheit is not the two Celsius the sentence asks for
+        from linecast._weather.sections import feels_ahead_sentence
+        hourly = self._hourly(NOON, 6, temperature_2m=[85] * 6,
+                              apparent_temperature=[92, 93, 95, 94, 93, 92])
+        assert feels_ahead_sentence(hourly, NOON, _runtime(),
+                                    current={"apparent_temperature": 92}) == ""
+        assert feels_ahead_sentence(hourly, NOON, _runtime(),
+                                    current={"apparent_temperature": 91}) == \
+            "It will feel as high as 95° this afternoon"
+
     def test_the_comparison_carries_the_number(self):
         from linecast._weather.sections import comparative_sentence
         daily = {"temperature_2m_max": [60, 68, 55]}
@@ -853,6 +918,28 @@ class TestWhatIsSaidAndInWhatOrder:
         assert self._prose(data, night) == (
             "Tomorrow will be about the same temperature as today. "
             "High humidity will make it feel as high as 96° in the afternoon.")
+
+    def test_the_sentence_that_looks_ahead_gives_way_when_it_says_nothing_new(self):
+        # The same night, but it already feels 95°: the sentence about
+        # tomorrow has nothing to add, so the one that says why comes back
+        night = datetime(2026, 7, 15, 22, 0)
+        hours = [night + timedelta(hours=k) for k in range(26)]
+        temps = [76] * 10 + [78, 80, 83, 85, 86, 86, 85, 84] + [80] * 8
+        feels = [79] * 10 + [86, 88, 92, 95, 96, 96, 94, 92] + [83] * 8
+        data = {
+            "current": {"temperature_2m": 87, "apparent_temperature": 95,
+                        "relative_humidity_2m": 90, "wind_speed_10m": 3,
+                        "weather_code": 3},
+            "daily": {"sunrise": ["2026-07-15T07:08", "2026-07-16T07:09"],
+                      "sunset": ["2026-07-15T19:19", "2026-07-16T19:19"],
+                      "temperature_2m_max": [84, 84, 83]},
+            "hourly": {"time": [h.isoformat(timespec="minutes") for h in hours],
+                       "temperature_2m": temps, "apparent_temperature": feels,
+                       "relative_humidity_2m": [85] * 26, "wind_speed_10m": [3] * 26},
+        }
+        assert self._prose(data, night) == (
+            "High humidity is making it feel warmer. "
+            "Tomorrow will be about the same temperature as today.")
 
     def test_wind_in_the_same_part_of_the_day_rides_on_the_rain(self):
         # Quito: drizzle and a stiff wind, both tomorrow afternoon
