@@ -157,13 +157,17 @@ def wrap_display_width(text, width):
     line_ws = []     # the width of each character on the line
     for i, ch in enumerate(text):
         cw = widths[i]
+        if ch == " " and not line and lines:
+            # A break between sentences Thai spaces twice leaves no
+            # space at the head of the next line
+            continue
         if line_w + cw > width:
             if ch == " ":
-                lines.append(line)
+                lines.append(line.rstrip(" "))
                 line, line_w, last_sp, line_ws = "", 0, -1, []
                 continue
             if last_sp >= 0:
-                lines.append(line[:last_sp])
+                lines.append(line[:last_sp].rstrip(" "))
                 line = line[last_sp + 1:] + ch
                 line_ws = line_ws[last_sp + 1:] + [cw]
                 line_w = sum(line_ws)

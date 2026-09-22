@@ -23,7 +23,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 
-from linecast._i18n import LANGUAGE_CODES
+from linecast._i18n import LANGUAGE_CODES, VARIANTS, canonical_language
 from linecast._paths import cache_dir
 from linecast._commands import formatter_class
 from linecast._runtime import VersionAction, WeatherRuntime, resolve_lang
@@ -167,16 +167,29 @@ def paragraph(record, lang, trace=None):
     return " ".join(_ANSI.sub("", row) for row in rows)
 
 
+def _every_language():
+    """Every language and regional variant, each variant after its base."""
+    codes = []
+    for code in LANGUAGE_CODES:
+        codes.append(code)
+        codes.extend(v for v, base in VARIANTS.items() if base == code)
+    return codes
+
+
 def languages(spec):
-    """The languages a --lang value names, in the table's order."""
+    """The languages a --lang value names, in the order given.  "all" is
+    every language with its regional variants; a code may be written as a
+    locale is ("pt_pt", "es-es")."""
+    known = _every_language()
     if spec == "all":
-        return list(LANGUAGE_CODES)
+        return known
     if spec:
-        codes = [c.strip() for c in spec.split(",") if c.strip()]
-        unknown = [c for c in codes if c not in LANGUAGE_CODES]
+        given = [c.strip() for c in spec.split(",") if c.strip()]
+        codes = [canonical_language(c) for c in given]
+        unknown = [g for g, c in zip(given, codes) if c not in known]
         if unknown:
             raise SystemExit(f"linecast prose: unknown language {', '.join(unknown)}; "
-                             f"one of {', '.join(LANGUAGE_CODES)}")
+                             f"one of {', '.join(known)}")
         return codes
     configured, _source = resolve_lang()
     return ["en"] if configured == "en" else ["en", configured]
@@ -321,8 +334,9 @@ def prose_parser():
     s.add_argument("--set", dest="set_name", metavar="NAME", default=None,
                    help="which set (default: the latest)")
     s.add_argument("--lang", metavar="CODES", default=None,
-                   help="comma-separated language codes, or all "
-                        "(default: English and the configured language)")
+                   help="comma-separated language codes, regional variants "
+                        "such as fr-CA included, or all (default: English "
+                        "and the configured language)")
     s.add_argument("--place", metavar="NAME", action="append", default=[],
                    help="only places whose name contains NAME; repeatable")
     s.add_argument("--data", action="store_true", help="the hours and days under each place")

@@ -1,5 +1,6 @@
 """Header and narrative weather text sections."""
 
+import contextvars
 import functools
 import math
 from datetime import datetime, timedelta
@@ -308,6 +309,24 @@ def _number_form(count, runtime, base):
     return ""
 
 
+def _prose_sep(runtime):
+    """The space between a number and its unit in a sentence: the
+    language's "metric_unit_sep_prose" where running text spaces a unit
+    that the compact figures elsewhere do not ("12 mm of rain", but
+    "12mm" under the chart), and its "metric_unit_sep" otherwise."""
+    if _has("metric_unit_sep_prose", runtime):
+        return _s("metric_unit_sep_prose", runtime)
+    return _s("metric_unit_sep", runtime)
+
+
+def _prose_inches(n, runtime):
+    """A number of inches as a sentence writes it: "3 inches" where the
+    language spells the unit out, "3″" where it keeps the mark."""
+    if _has("precip_inch_prose", runtime):
+        return _s("precip_inch_prose", runtime, n=n)
+    return f"{n}{_s('precip_inch', runtime)}"
+
+
 # How many sentences the paragraph will carry, and which.  Each candidate
 # sentence comes with a salience, for choosing, and a time, for reading.
 #
@@ -441,12 +460,13 @@ def narrative_lines(data, now, width, runtime=None, trace=None):
     # than today."  Today needs no such care; its phrases do not name it.
     sentences = []
     previous = None
+    said = set()
     for _, _, anchor, build, _, leaves in chosen:
         after = None
         if (previous is not None and anchor is not None
                 and anchor.date() == previous.date() and _names_the_day(previous, now)):
             after = previous
-        sentences.append(_ucfirst(build(after)))
+        said = _said_in(functools.partial(build, after), said, sentences)
         previous = leaves if leaves is not None else previous
 
     # Read as prose, so the sentences are punctuated as prose: a full stop
@@ -466,6 +486,18 @@ def narrative_lines(data, now, width, runtime=None, trace=None):
         if space and len(before.split()) > 1 and visible_len(last) <= budget:
             rows[-2:] = [before, last]
     return [_prose(line) for line in rows]
+
+
+def _said_in(build, before, sentences):
+    """Build a sentence onto `sentences`, knowing which parts of today the
+    one before it named; return the parts this one names."""
+    now_said = set()
+    token = _SAID.set((before, now_said))
+    try:
+        sentences.append(_ucfirst(build()))
+    finally:
+        _SAID.reset(token)
+    return now_said
 
 
 # ---------------------------------------------------------------------------
@@ -530,6 +562,8 @@ def _time_phrase(dt, now, runtime, after=None, same_sentence=False):
     if delta < 4:
         return _s("in_a_couple_hours", runtime)
     if dt.date() == now.date():
+        if dt.hour == 12 and _has("around_noon", runtime):
+            return _s("around_noon", runtime)
         from linecast._framebuffer import fmt_hour_phrase
         return _s("around", runtime,
                   time=fmt_hour_phrase(dt.hour, sentence_24h(runtime), lang))
@@ -542,8 +576,8 @@ def _time_phrase(dt, now, runtime, after=None, same_sentence=False):
             # issued at four says "tonight"; "tomorrow night" would be
             # the night after, a day late.
             if now.hour < 5 and _has("tonight", runtime):
-                return _s("tonight", runtime)
-            return _s("overnight", runtime)
+                return _part_of_day("tonight", runtime)
+            return _part_of_day("overnight", runtime)
         said_tomorrow = (after is not None and after.date() == tomorrow
                          and _names_the_day(after, now))
         if dt.hour < 8:
@@ -581,6 +615,43 @@ def _time_phrase(dt, now, runtime, after=None, same_sentence=False):
     return _s("on_day", runtime, day=day_names[dt.weekday()])
 
 
+def _names_an_hour(dt, now):
+    """Whether _time_phrase names `dt` as a moment -- "soon", "in a
+    couple hours", "around 3pm" -- rather than a part of a day."""
+    return (dt - now).total_seconds() < 4 * 3600 or dt.date() == now.date()
+
+
+# The parts of today the paragraph has named, while it is being written:
+# (those the sentence before named, those this one has).  A sentence about
+# the same part of today as the one before it says so in the language's
+# own word, "too", rather than naming it again: "Below freezing tonight,
+# down to −2°.  Light snow likely too."  Tomorrow is carried the same way
+# by `after`; today's parts need this instead, because "tonight" names no
+# day for `after` to compare.
+_SAID = contextvars.ContextVar("parts_of_today_said", default=None)
+
+
+def _part_of_day(key, runtime, form=None):
+    """The phrase for a part of today, `key`, in `form` (a declined form
+    of it) where given: or the language's "same_time" word when the
+    sentence before named the same part.  The word is said once in a
+    sentence; a second phrase in it names the part as usual, not "light
+    snow starting too, turning heavy too"."""
+    said = _SAID.get()
+    if said is not None:
+        before, now_said = said
+        now_said.add(key)
+        if (key in before and _SAME_SAID not in now_said
+                and _has("same_time", runtime)):
+            now_said.add(_SAME_SAID)
+            return _s("same_time", runtime)
+    return _s(form or key, runtime)
+
+
+# Marks a sentence that has already said its "same_time" word
+_SAME_SAID = object()
+
+
 def _period_phrase(dt, now, runtime, by=False, after=None):
     """The part of the day an hour falls in: "this afternoon", "tonight",
     "tomorrow morning".  For things that are not on the hour -- a gusty
@@ -594,8 +665,8 @@ def _period_phrase(dt, now, runtime, by=False, after=None):
     def phrase(key):
         # "By" a time takes its own form where the language declines it
         if by and _has(key + "_by", runtime):
-            key += "_by"
-        return _s(key, runtime)
+            return _part_of_day(key, runtime, key + "_by")
+        return _part_of_day(key, runtime)
 
     if dt.date() == now.date():
         if dt.hour < 12:
@@ -1164,8 +1235,12 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None, current=None):
             # that says so in its own way ("雨が強まり", not "雨が強い雨と
             # なり") carries a "_heavier" form of the template, and the
             # "_becoming" form is kept for a turn to another kind
+            # Rain that freezes is not the rain turned heavy, whatever
+            # its rank: it is another thing, and says so
             same_kind = (_PRECIP_KIND.get(codes[peak[0]])
-                         == _PRECIP_KIND.get(codes[run[0][0]]))
+                         == _PRECIP_KIND.get(codes[run[0][0]])
+                         and (codes[peak[0]] in _FREEZING_CODES)
+                         == (codes[run[0][0]] in _FREEZING_CODES))
             if same_kind and _has(key + "_heavier", runtime):
                 key += "_heavier"
             else:
@@ -1236,6 +1311,11 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None, current=None):
         key = "starting_chance"
     elif best >= _PRECIP_LIKELY_BELOW and _has("starting_sure", runtime):
         key = "starting_sure"
+    elif not _names_an_hour(dt, now) and _has("starting_span", runtime):
+        # Likely in a part of the day needs no "starting": "light
+        # drizzle likely in the evening".  Before an hour it does, or
+        # the rain would seem to fall in that hour alone
+        key = "starting_span"
     parts["sentence"] = sentence(key, run, start=dt, desc=desc(i),
                                  open_ended=end_n is None)
     return parts
@@ -1290,11 +1370,11 @@ def _snow_sentence(parts, hourly, now, runtime):
         return "", False
     if runtime.metric:
         # "About" and a decimal do not go together; whole centimetres
-        amt = f"{total_cm:.0f}{_s('metric_unit_sep', runtime)}{_s('unit_cm', runtime)}"
+        amt = f"{total_cm:.0f}{_prose_sep(runtime)}{_s('unit_cm', runtime)}"
     else:
         inches = total_cm / 2.54
         n = f"{inches:.0f}" if inches >= 2 else fmt_decimal(inches, 1, runtime)
-        amt = f"{n}{_s('precip_inch', runtime)}"
+        amt = _prose_inches(n, runtime)
     end = parts["end"] or run[-1][1]
     return (_ucfirst(_s("snow_total", runtime, amt=amt,
                         time=_period_phrase(end, now, runtime, by=True))),
@@ -1355,27 +1435,26 @@ def past_precip_sentence(hourly, now, runtime):
         return ""
 
     # Determine dominant type and format amount
-    metric_sep = _s("metric_unit_sep", runtime)
+    metric_sep = _prose_sep(runtime)
     if snow_hours >= rain_hours and snow_hours >= mix_hours:
         # Show snow accumulation (Open-Meteo snowfall is in cm)
         if runtime.metric:
             amt = f"{fmt_decimal(total_snow_cm, 1, runtime)}{metric_sep}{_s('unit_cm', runtime)}"
         else:
             inches = total_snow_cm / 2.54
-            unit = _s("precip_inch", runtime)
-            amt = fmt_decimal(inches, 1 if inches >= 1 else 2, runtime) + unit
+            amt = _prose_inches(fmt_decimal(inches, 1 if inches >= 1 else 2, runtime), runtime)
         ptype = _s("snow", runtime)
     elif mix_hours >= rain_hours:
         if runtime.metric:
             amt = f"{fmt_decimal(total_precip, 1, runtime)}{metric_sep}{_s('unit_mm', runtime)}"
         else:
-            amt = f"{fmt_decimal(total_precip, 2, runtime)}{_s('precip_inch', runtime)}"
+            amt = _prose_inches(fmt_decimal(total_precip, 2, runtime), runtime)
         ptype = _s("mixed_precip", runtime)
     else:
         if runtime.metric:
             amt = f"{fmt_decimal(total_precip, 1, runtime)}{metric_sep}{_s('unit_mm', runtime)}"
         else:
-            amt = f"{fmt_decimal(total_precip, 2, runtime)}{_s('precip_inch', runtime)}"
+            amt = _prose_inches(fmt_decimal(total_precip, 2, runtime), runtime)
         ptype = _s("rain", runtime)
 
     return _s("past_precip", runtime, amt=amt, ptype=ptype)
@@ -1739,7 +1818,7 @@ def _gusts(hourly, now, runtime, after=None):
     kmh = runtime.wind_kmh(gusts[i])
     if kmh < _GUSTS_NOTABLE_KMH:
         return nothing
-    speed = fmt_wind(gusts[i], runtime)
+    speed = f"{gusts[i]:.0f}{_prose_sep(runtime)}{runtime.wind_unit_label}"
     return (_ucfirst(_s("gusts_to", runtime, speed=speed,
                         time=_period_phrase(dt, now, runtime, after=after))),
             kmh >= _GUSTS_GALE_KMH, dt, speed)

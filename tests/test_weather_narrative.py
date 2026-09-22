@@ -212,16 +212,17 @@ class TestNarrativePacking:
         }
         expected = (
             "Kiwango cha juu cha joto leo kitakuwa karibu sawa na cha jana. "
-            "Manyunyu mepesi huenda yakaanza hivi karibuni. "
-            "Kiasi cha mvua katika saa 24\u00a0zilizopita: 0.30″."
+            "Manyunyu mepesi yanatarajiwa kuanza baada ya muda mfupi. "
+            "Katika saa 24\u00a0zilizopita kumenyesha 0.30″ za mvua."
         )
         for width in (40, 80, 160):
             lines = narrative_lines(data, NOON, width, _runtime(lang="sw"))
             assert " ".join(self._plain(lines)) == expected
             assert all(visible_len(line) <= width for line in lines)
 
-    def test_swahili_sentences_keep_the_24_hour_clock_on_a_12_hour_setting(self):
-        # "saa 5pm" would read as eleven in the morning in Swahili time.
+    def test_swahili_sentences_tell_the_hour_in_swahili_time(self):
+        # "saa 5pm" would read as eleven in the morning in Swahili time;
+        # five in the afternoon is the eleventh hour of the day.
         from linecast._weather.sections import precipitation_sentence
         hours = range(12, 19)
         hourly = {
@@ -231,7 +232,7 @@ class TestNarrativePacking:
         }
         runtime = _runtime(lang="sw", use_24h=False)
         assert precipitation_sentence(hourly, NOON, runtime) == (
-            "Mvua nyepesi itaisha karibu saa 17:00")
+            "Mvua nyepesi itaisha karibu saa kumi na moja jioni")
         prose = self._plain(narrative_lines(self.DATA, NOON, 200, _runtime()))[0]
 
         assert prose.startswith("Today's high will be"), prose
@@ -291,9 +292,9 @@ class TestPrecipitationPeak:
         codes = [51, 51, 53, 61, 63, 65, 63, 61, 0, 0]
         amounts = [0.01, 0.01, 0.02, 0.1, 0.2, 0.34, 0.2, 0.05, 0, 0]
         assert self._sentence(self._hourly(codes, amounts)) == \
-            "Light drizzle becoming heavy rain around 23:00, ending overnight"
+            "Light drizzle turning to heavy rain around 23:00 and ending overnight"
         assert self._sentence(self._hourly(codes, amounts), use_24h=False) == \
-            "Light drizzle becoming heavy rain around 11pm, ending overnight"
+            "Light drizzle turning to heavy rain around 11pm and ending overnight"
 
     def test_japanese_says_the_same_rain_gets_harder_and_another_kind_turns(self):
         # Rain at 18:00 turning heavy at 21:00 and over by 02:00 is the
@@ -302,11 +303,24 @@ class TestPrecipitationPeak:
         codes = [63, 63, 63, 65, 65, 65, 63, 61, 0, 0]
         amounts = [0.1, 0.1, 0.1, 0.3, 0.34, 0.3, 0.2, 0.05, 0, 0]
         assert self._sentence(self._hourly(codes, amounts), lang="ja") == \
-            "数時間後に雨が強まり、夜のうちにやむ見込み"
+            "雨は数時間後に強まり、夜のうちにやむでしょう"
         codes = [51, 51, 53, 61, 63, 65, 63, 61, 0, 0]
         amounts = [0.01, 0.01, 0.02, 0.1, 0.2, 0.34, 0.2, 0.05, 0, 0]
         assert self._sentence(self._hourly(codes, amounts), lang="ja") == \
-            "霧雨が23時頃に強い雨となり、夜のうちにやむ見込み"
+            "霧雨は23時頃に強い雨に変わり、夜のうちにやむでしょう"
+
+    def test_rain_that_freezes_has_not_just_turned_heavy(self):
+        codes = [61, 61, 61, 67, 67, 67, 61, 61, 0, 0]
+        amounts = [0.1, 0.1, 0.1, 0.3, 0.34, 0.3, 0.2, 0.05, 0, 0]
+        assert self._sentence(self._hourly(codes, amounts)) == \
+            "Light rain turning to freezing rain in a couple hours and ending overnight"
+
+    def test_midday_is_noon(self):
+        codes = [0, 0, 0, 0, 0, 61, 61, 61, 0]
+        hourly = self._hourly(codes, start=7)
+        from linecast._weather.sections import precipitation_sentence
+        assert precipitation_sentence(hourly, datetime(2026, 9, 17, 7, 10), _runtime()) == \
+            "Light rain starting around noon"
 
     def test_a_run_that_keeps_its_name_reads_as_before(self):
         codes = [61, 61, 61, 61, 0]
@@ -319,7 +333,7 @@ class TestPrecipitationPeak:
         codes = [61, 61, 61, 61, 82, 65, 63, 0]
         amounts = [0.05, 0.05, 0.05, 0.05, 0.1, 0.4, 0.2, 0]
         assert self._sentence(self._hourly(codes, amounts)) == \
-            "Light rain becoming heavy rain around 23:00, ending overnight"
+            "Light rain turning heavy around 23:00 and ending overnight"
 
     def test_a_shade_of_the_same_thing_is_not_a_turn(self):
         # Light rain to rain, light drizzle to drizzle: nobody says it
@@ -335,13 +349,13 @@ class TestPrecipitationPeak:
         # Drizzle to light rain is only one step up, but it is a change
         codes = [51, 51, 61, 61, 61, 0]
         assert self._sentence(self._hourly(codes)) == \
-            "Light drizzle becoming light rain in about an hour, ending around 23:00"
+            "Light drizzle turning to light rain in about an hour and ending around 23:00"
 
     def test_a_turn_the_language_cannot_name_is_not_said(self):
         # Japanese calls every drizzle 霧雨, and thunder is thunder
         codes = [51, 51, 55, 55, 55, 0]
         assert self._sentence(self._hourly(codes), lang="ja") == \
-            "霧雨が23時頃にやむ見込み"
+            "霧雨は23時頃にやむでしょう"
         codes = [95, 95, 99, 99, 99, 0]
         assert self._sentence(self._hourly(codes)) == \
             "Thunderstorms ending around 23:00"
@@ -349,7 +363,7 @@ class TestPrecipitationPeak:
     def test_without_amounts_the_heaviest_code_is_the_peak(self):
         codes = [51, 53, 63, 65, 63, 0]
         assert self._sentence(self._hourly(codes)) == \
-            "Light drizzle becoming heavy rain in a couple hours, ending around 23:00"
+            "Light drizzle turning to heavy rain in a couple hours and ending around 23:00"
 
     def test_a_let_up_is_not_called_a_turn(self):
         # More water later, but a lighter code: the run stays "rain"
@@ -364,9 +378,9 @@ class TestPrecipitationPeak:
         codes = [0, 0, 80, 80, 80, 95, 80, 95, 0]
         amounts = [0, 0, 0.1, 0.8, 0.6, 1.2, 2.1, 1.2, 0]
         assert self._sentence(self._hourly(codes, amounts)) == \
-            "Light showers starting in about an hour, becoming thunderstorms around 23:00"
+            "Light showers starting in about an hour, then thunderstorms around 23:00"
         assert self._sentence(self._hourly(codes, amounts), lang="ja") == \
-            "約1時間後に弱いにわか雨、23時頃に雷雨となる"
+            "約1時間後に弱いにわか雨、23時頃に雷雨となるでしょう"
 
     def test_thunder_at_the_end_of_a_long_rain_is_named(self):
         # Moscow: light rain all evening, 4.2mm of plain rain at 23:00 --
@@ -374,7 +388,7 @@ class TestPrecipitationPeak:
         codes = [0, 61, 61, 61, 61, 63, 61, 95, 61, 0]
         amounts = [0, 0.1, 0.1, 0.3, 0.8, 4.2, 2.2, 2.7, 0.8, 0]
         assert self._sentence(self._hourly(codes, amounts)) == \
-            "Light rain starting shortly, becoming thunderstorms overnight"
+            "Light rain starting soon, then thunderstorms overnight"
 
     def test_drizzle_behind_showers_is_a_let_up_not_a_turn(self):
         # Mumbai: showers now, heavy drizzle after them.  Drizzle ranks
@@ -386,20 +400,20 @@ class TestPrecipitationPeak:
     def test_a_run_through_the_day_can_still_turn_heavy(self):
         codes = [61] * 10 + [65] * 10 + [61] * 6
         assert self._sentence(self._hourly(codes)) == \
-            "Light rain becoming heavy rain overnight, continuing through the day"
+            "Light rain turning heavy overnight and lasting through the day"
 
     def test_swahili_drizzle_keeps_its_noun_class_when_it_turns_to_rain(self):
         codes = [51, 53, 63, 65, 63, 0]
         assert self._sentence(self._hourly(codes), lang="sw", use_24h=True) == (
-            "Manyunyu mepesi yatageuka kuwa mvua kubwa baada ya muda wa masaa mawili hivi, "
-            "yataisha karibu saa 23:00")
+            "Manyunyu mepesi yatageuka kuwa mvua kubwa baada ya muda wa saa mbili au tatu "
+            "na kuisha karibu saa tano usiku")
 
     def test_rain_that_starts_light_says_when_it_turns_heavy(self):
         # Dry now, light rain from 21:00 building to heavy rain at 02:00
         codes = [0, 0, 0, 61, 61, 63, 63, 65, 65, 63, 0]
         amounts = [0, 0, 0, 0.02, 0.05, 0.1, 0.15, 0.3, 0.25, 0.1, 0]
         assert self._sentence(self._hourly(codes, amounts)) == \
-            "Light rain starting in a couple hours, becoming heavy rain overnight"
+            "Light rain starting in a couple hours, turning heavy overnight"
 
     def test_rain_that_starts_and_stays_light_reads_as_before(self):
         codes = [0, 0, 0, 0, 61, 61, 61, 0]
@@ -412,7 +426,7 @@ class TestPrecipitationPeak:
         # One hour of heavy rain at the end of the run is not a turn, and
         # eighty percent needs no "huenda"
         assert self._sentence(self._hourly(codes), lang="sw", use_24h=True) == (
-            "Manyunyu mepesi yataanza baada ya muda wa masaa mawili hivi")
+            "Manyunyu mepesi yataanza baada ya muda wa saa mbili au tatu")
 
     def test_a_turn_needs_two_hours_unless_the_day_cuts_it_off(self):
         # Heavy rain for the run's last hour goes unmentioned...
@@ -421,7 +435,7 @@ class TestPrecipitationPeak:
         # ...unless the run only ends because the window does
         codes = [61] * 23 + [65]
         assert self._sentence(self._hourly(codes)) == \
-            "Light rain becoming heavy rain tomorrow evening, continuing through the day"
+            "Light rain turning heavy tomorrow evening and lasting through the day"
 
     def test_a_turn_already_here_is_what_is_falling(self):
         # Santiago: drizzle now, showers from the next hour, dry by three
@@ -432,7 +446,7 @@ class TestPrecipitationPeak:
         # Lagos: drizzle at eleven, thunder from noon
         codes = [0, 0, 0, 0, 51, 95, 95, 95, 0]
         assert self._sentence(self._hourly(codes)) == "Thunderstorms starting around 23:00"
-        assert self._sentence(self._hourly(codes), lang="ja") == "23時頃に雷雨となる"
+        assert self._sentence(self._hourly(codes), lang="ja") == "23時頃に雷雨になるでしょう"
 
 
 class TestHedges:
@@ -452,15 +466,16 @@ class TestHedges:
 
     def test_a_chance_is_a_chance(self):
         assert self._sentence(40) == "A chance of light rain in a couple hours"
-        assert self._sentence(40, lang="ja", use_24h=True) == "数時間後に弱い雨の可能性"
+        assert (self._sentence(40, lang="ja", use_24h=True)
+                == "数時間後に弱い雨になる可能性があります")
 
     def test_likely_is_likely(self):
         assert self._sentence(70) == "Light rain likely starting in a couple hours"
-        assert self._sentence(70, lang="ja", use_24h=True) == "数時間後に弱い雨の見込み"
+        assert self._sentence(70, lang="ja", use_24h=True) == "数時間後に弱い雨になりそうです"
 
     def test_eighty_percent_needs_no_hedge(self):
         assert self._sentence(90) == "Light rain starting in a couple hours"
-        assert self._sentence(90, lang="ja", use_24h=True) == "数時間後に弱い雨となる"
+        assert self._sentence(90, lang="ja", use_24h=True) == "数時間後に弱い雨になるでしょう"
 
     def test_a_language_without_the_forms_keeps_its_one_hedge(self, monkeypatch):
         # A language whose table has not been given the graded forms
@@ -471,7 +486,7 @@ class TestHedges:
         monkeypatch.setitem(i18n._STRINGS, "sw", bare)
         for prob in (40, 70, 90):
             assert self._sentence(prob, lang="sw", use_24h=True) == \
-                "Mvua nyepesi huenda ikaanza baada ya muda wa masaa mawili hivi"
+                "Mvua nyepesi inatarajiwa kuanza baada ya muda wa saa mbili au tatu"
 
     def test_the_hedge_follows_the_best_hour_of_the_run(self):
         from linecast._weather.sections import precipitation_sentence
@@ -505,7 +520,7 @@ class TestWhichRunLeads:
     def test_a_chance_waits_when_the_real_weather_comes_later(self):
         codes, probs = self.CHANCE_THEN_STORM
         assert self._sentence(codes, probs) == "Thunderstorms starting around 17:00"
-        assert self._sentence(codes, probs, lang="ja") == "17時頃に雷雨となる"
+        assert self._sentence(codes, probs, lang="ja") == "17時頃に雷雨になるでしょう"
 
     def test_a_chance_leads_when_nothing_surer_follows_it(self):
         codes, probs = self.CHANCE_THEN_STORM
@@ -544,13 +559,13 @@ class TestWhatIsFallingNow:
         assert self._sentence(hourly, current={"weather_code": 51}) == \
             "Light drizzle ending around 17:00"
         assert self._sentence(hourly, current={"weather_code": 51}, lang="ja") == \
-            "霧雨が17時頃にやむ見込み"
+            "霧雨は17時頃にやむでしょう"
 
     def test_the_hours_own_odds_rule_when_nothing_is_falling(self):
         hourly = self._hourly(self.CODES, self.PROBS)
-        assert self._sentence(hourly) == "Light drizzle likely starting shortly"
+        assert self._sentence(hourly) == "Light drizzle likely starting soon"
         assert self._sentence(hourly, current={"weather_code": 3}) == \
-            "Light drizzle likely starting shortly"
+            "Light drizzle likely starting soon"
 
     def test_drizzle_the_hours_have_all_but_given_up_on(self):
         # Cape Town before dawn: five percent, and it is falling
@@ -558,7 +573,7 @@ class TestWhatIsFallingNow:
         hourly = self._hourly([51, 51, 1, 1, 0, 0], [5, 6, 5, 2, 0, 0],
                               start=cape_town.replace(minute=0))
         assert self._sentence(hourly, now=cape_town, current={"weather_code": 51}) == \
-            "Light drizzle ending shortly"
+            "Light drizzle ending soon"
         assert self._sentence(hourly, now=cape_town) == ""
 
     def test_the_paragraph_is_told_what_is_falling(self):
@@ -588,7 +603,7 @@ class TestTheClockInTheSentence:
         assert precipitation_sentence(hourly, late, _runtime(), daily=DAILY) == \
             "Rain continuing through the night"
         assert precipitation_sentence(hourly, late, _runtime(lang="ja"), daily=DAILY) == \
-            "雨が夜通し続く見込み"
+            "雨は一晩中続くでしょう"
         hourly = self._hourly([63] * 26, NOON)
         assert precipitation_sentence(hourly, NOON, _runtime(), daily=DAILY) == \
             "Rain continuing through the day"
@@ -599,11 +614,11 @@ class TestTheClockInTheSentence:
         codes = [0] * 17 + [61, 61, 61, 61, 65, 65, 65, 0]
         hourly = self._hourly(codes, late)
         assert precipitation_sentence(hourly, late, _runtime()) == \
-            "Light rain starting tomorrow afternoon, becoming heavy rain in the evening"
+            "Light rain starting tomorrow afternoon, turning heavy in the evening"
         # The same rain, harder, is said as such in Japanese; a turn to
         # another kind (drizzle to rain, below) keeps "となり"
         assert precipitation_sentence(hourly, late, _runtime(lang="ja")) == \
-            "明日の午後に弱い雨、夕方に強まる"
+            "明日の午後に弱い雨になり、夕方に強まるでしょう"
 
     def test_early_tomorrow_morning_is_followed_by_later_in_the_morning(self):
         # Chicago at nine at night: drizzle turning to rain before dawn,
@@ -614,9 +629,9 @@ class TestTheClockInTheSentence:
         hourly = self._hourly(codes, night)
         hourly["precipitation"] = [0.01] * 9 + [0.1, 0.15, 0.15, 0.1, 0, 0]
         assert precipitation_sentence(hourly, night, _runtime()) == \
-            "Light drizzle becoming rain early tomorrow morning, ending later in the morning"
+            "Light drizzle turning to rain early tomorrow morning and ending later in the morning"
         assert precipitation_sentence(hourly, night, _runtime(lang="ja")) == \
-            "霧雨が明日の早朝に雨となり、午前中にやむ見込み"
+            "霧雨は明日の早朝に雨に変わり、午前中にやむでしょう"
 
     def test_a_turn_inside_the_morning_is_later_in_the_morning(self):
         # Miami at half past ten at night: drizzle at eight tomorrow,
@@ -628,9 +643,9 @@ class TestTheClockInTheSentence:
         hourly = self._hourly(codes, night.replace(minute=0))
         hourly["precipitation"] = [0] * 10 + [0.01, 0.01, 0.01, 0.2, 0.25, 0.15, 0]
         assert precipitation_sentence(hourly, night, _runtime()) == \
-            "Light drizzle starting tomorrow morning, becoming light showers later in the morning"
+            "Light drizzle starting tomorrow morning, then light showers later in the morning"
         assert precipitation_sentence(hourly, night, _runtime(lang="ja")) == \
-            "明日の朝に霧雨、午前中に弱いにわか雨となる"
+            "明日の朝に霧雨、午前中に弱いにわか雨となるでしょう"
 
     def test_a_turn_inside_the_afternoon_is_later_in_the_afternoon(self):
         # The same again after noon: drizzle at one tomorrow, rain from
@@ -641,9 +656,9 @@ class TestTheClockInTheSentence:
         hourly = self._hourly(codes, night.replace(minute=0))
         hourly["precipitation"] = [0] * 15 + [0.01, 0.01, 0.01, 0.2, 0.25, 0]
         assert precipitation_sentence(hourly, night, _runtime()) == \
-            "Light drizzle starting tomorrow afternoon, becoming rain later in the afternoon"
+            "Light drizzle starting tomorrow afternoon, then rain later in the afternoon"
         assert precipitation_sentence(hourly, night, _runtime(lang="de")) == \
-            "Leichter Nieselregen morgen Nachmittag, im Laufe des Nachmittags Regen"
+            "Morgen Nachmittag leichter Nieselregen, im Laufe des Nachmittags Regen"
 
     def test_in_the_small_hours_the_coming_night_is_tonight(self):
         # Reykjavík at two in the morning: drizzle due at one the next
@@ -656,7 +671,7 @@ class TestTheClockInTheSentence:
         assert precipitation_sentence(self._hourly(codes, small), small, _runtime()) == \
             "Light drizzle starting tonight"
         assert precipitation_sentence(self._hourly(codes, small), small, _runtime(lang="ja")) == \
-            "今夜霧雨となる"
+            "今夜霧雨になるでしょう"
 
     def test_the_freeze_and_the_snow_are_one_night(self):
         # Longyearbyen at half past four in the morning: the freeze at
@@ -672,7 +687,51 @@ class TestTheClockInTheSentence:
                           "temperature_2m_max": [40]}}
         prose = " ".join(re.sub(r"\x1b\[[0-9;]*m", "", row)
                          for row in narrative_lines(data, dawn, 200, _runtime()))
-        assert prose == "Below freezing tonight, down to 30°. Light snow starting tonight."
+        assert prose == "Below freezing tonight, down to 30°. Light snow starting too."
+
+    def test_the_second_sentence_about_the_night_says_so_in_its_own_words(self):
+        # The same night again, in languages that put the time in
+        # different places: first in German and Polish, after the verb in
+        # Russian, last in French, before the verb in Japanese.  Each
+        # says "at that time" its own way rather than "tonight" twice.
+        import re
+        dawn = datetime(2026, 9, 22, 4, 26)
+        codes = [0] * 21 + [71, 71, 71, 0]
+        hourly = self._hourly(codes, dawn.replace(minute=0))
+        hourly["temperature_2m"] = [2] * 16 + [1] * 2 + [-2] * 2 + [-1] * 5
+        hourly["precipitation_probability"] = [70 if c else 0 for c in codes]
+        data = {"hourly": hourly, "current": {"temperature_2m": 2},
+                "daily": {"sunrise": ["2026-09-22T05:40"], "sunset": ["2026-09-22T19:55"],
+                          "temperature_2m_max": [4]}}
+
+        def prose(lang):
+            rt = _runtime(lang=lang, celsius=True, metric=True)
+            return " ".join(re.sub(r"\x1b\[[0-9;]*m", "", row)
+                            for row in narrative_lines(data, dawn, 400, rt))
+
+        assert prose("en") == "Below freezing tonight, down to −2°. Light snow likely too."
+        assert prose("de") == ("Heute Nacht Frost bis −2\u00a0Grad. "
+                               "Dabei wahrscheinlich leichter Schneefall.")
+        assert prose("pl") == ("Dziś w nocy temperatura spadnie poniżej zera, do −2\u00a0stopni. "
+                               "Wtedy też prawdopodobnie pojawi się słaby śnieg.")
+        assert prose("ru") == ("Сегодня ночью температура опустится ниже нуля, "
+                               "до −2\u00a0градусов. "
+                               "Небольшой снег, вероятно, начнётся тогда же.")
+        assert prose("fr") == "Gelées cette nuit, jusqu'à −2°. Neige légère probable également."
+        assert prose("ja") == ("今夜は氷点下まで冷え込み、最低−2度の見込みです。"
+                               "同じ頃弱い雪になりそうです。")
+        # A language without the word names the night again
+        assert "คืนนี้" in prose("th").rsplit("คาดว่า", 1)[-1]
+
+        # Snow that turns heavy later in the same night says the word once
+        codes[21:25] = [71, 71, 71, 75]
+        hourly["weather_code"] = codes + [0]
+        hourly["time"].append((dawn.replace(minute=0) + timedelta(hours=25))
+                              .isoformat(timespec="minutes"))
+        hourly["precipitation_probability"] = [70 if c else 0 for c in hourly["weather_code"]]
+        assert prose("en") == ("Below freezing tonight, down to −2°. "
+                               "Light snow likely too, turning heavy tonight.")
+        assert prose("de").count("abei") == 1, prose("de")
 
     def test_a_dry_hour_inside_rain_is_a_lull(self):
         from linecast._weather.sections import precipitation_sentence
@@ -689,7 +748,7 @@ class TestTheClockInTheSentence:
         assert prose == "Rain ending in about an hour. More rain around 19:00."
         prose = " ".join(re.sub(r"\x1b\[[0-9;]*m", "", row)
                          for row in narrative_lines(data, NOON, 200, _runtime(lang="ja")))
-        assert prose == "雨が約1時間後にやむ見込み。19時頃に再び雨の見込み。"
+        assert prose == "雨は約1時間後にやむでしょう。19時頃には再び雨となる見込みです。"
 
 
 class TestMoreToSay:
@@ -712,15 +771,15 @@ class TestMoreToSay:
                               precipitation_probability=[90 if c else 0 for c in codes],
                               snowfall=[0, 0, 1.0, 2.0, 2.5, 1.5, 0.6, 0, 0])
         assert snow_total_sentence(hourly, evening, _runtime()) == \
-            "About 3″ of snow by tomorrow morning"
+            "About 3\u00a0inches of snow by tomorrow morning"
         assert snow_total_sentence(hourly, evening, _runtime(metric=True, celsius=True)) == \
-            "About 8cm of snow by tomorrow morning"
+            "About 8\u00a0cm of snow by tomorrow morning"
         assert snow_total_sentence(hourly, evening, _runtime(lang="ja", metric=True)) == \
-            "明日の朝には約8cmの積雪の見込み"
+            "明日の朝には約8cmの積雪となる見込みです"
         hourly["snowfall"] = [0, 0, 0.3, 0.4, 0.3, 0.2, 0.1, 0, 0]
         # "About" and a decimal do not go together
         assert snow_total_sentence(hourly, evening, _runtime(metric=True, celsius=True)) == \
-            "About 1cm of snow by tomorrow morning"
+            "About 1\u00a0cm of snow by tomorrow morning"
 
     def test_a_dusting_is_not_worth_a_sentence(self):
         from linecast._weather.sections import snow_total_sentence
@@ -734,7 +793,8 @@ class TestMoreToSay:
         cover = [90, 90, 90, 90, 10, 10, 10, 10, 10, 10, 10, 10]
         hourly = self._hourly(NOON, len(cover), cloud_cover=cover)
         assert sky_sentence(hourly, DAILY, NOON, _runtime()) == "Clearing around 16:00"
-        assert sky_sentence(hourly, DAILY, NOON, _runtime(lang="ja")) == "16時頃に晴れてくる見込み"
+        assert (sky_sentence(hourly, DAILY, NOON, _runtime(lang="ja"))
+                == "16時頃に晴れてくる見込みです")
 
     def test_a_brief_clearing_is_not_clearing(self):
         # Los Angeles: the marine layer lifts for the evening and rolls
@@ -807,7 +867,7 @@ class TestMoreToSay:
         assert next_rain_sentence(daily, sunday, _runtime(celsius=True, metric=True), hourly) == \
             "Light rain likely on Tuesday"
         assert next_rain_sentence(daily, sunday, _runtime(lang="ja", celsius=True, metric=True),
-                                  hourly) == "火曜日に弱い雨の見込み"
+                                  hourly) == "火曜日は弱い雨になりそうです"
 
     def test_a_chance_of_rain_is_not_worth_the_week_sentence(self):
         from linecast._weather.sections import next_rain_sentence
@@ -839,7 +899,7 @@ class TestMoreToSay:
         assert next_rain_sentence(daily, sunday, _runtime(celsius=True, metric=True),
                                   hourly) == "Light rain on Tuesday"
         assert next_rain_sentence(daily, sunday, _runtime(lang="ja", celsius=True, metric=True),
-                                  hourly) == "火曜日に弱い雨となる"
+                                  hourly) == "火曜日は弱い雨になるでしょう"
 
     def test_without_amounts_the_heaviest_hour_names_the_day(self):
         from linecast._weather.sections import next_rain_sentence
@@ -884,14 +944,14 @@ class TestMoreToSay:
         from linecast._weather.sections import gusts_sentence
         gusts = [20, 25, 30, 45, 40, 30, 20, 15]
         hourly = self._hourly(NOON, len(gusts), wind_gusts_10m=gusts)
-        assert gusts_sentence(hourly, NOON, _runtime()) == "Gusts to 45mph this afternoon"
+        assert gusts_sentence(hourly, NOON, _runtime()) == "Gusts to 45\u00a0mph this afternoon"
         hourly = self._hourly(NOON, len(gusts), wind_gusts_10m=[g * 1.6 for g in gusts])
         assert gusts_sentence(hourly, NOON, _runtime(lang="de", metric=True)) == \
-            "Böen bis 72\u00a0km/h heute Nachmittag"
+            "Heute Nachmittag Böen bis 72\u00a0km/h"
         # Japanese reads the wind in m/s, and the data comes that way too
         hourly = self._hourly(NOON, len(gusts), wind_gusts_10m=[g * 1.6 / 3.6 for g in gusts])
         assert gusts_sentence(hourly, NOON, _runtime(lang="ja", metric=True)) == \
-            "午後に最大20m/sの突風の見込み"
+            "午後に最大20m/sの突風が吹く見込みです"
 
     def test_a_breeze_is_not_worth_a_sentence(self):
         from linecast._weather.sections import gusts_sentence
@@ -915,7 +975,7 @@ class TestMoreToSay:
         hourly = self._hourly(datetime(2026, 7, 15, 20), len(temps), temperature_2m=celsius)
         assert freeze_sentence(hourly, {"temperature_2m": 5}, now,
                                _runtime(lang="ja", celsius=True, metric=True)) == \
-            "明日の早朝に氷点下となり、最低−2度の見込み"
+            "明日の早朝には氷点下まで冷え込み、最低−2度の見込みです"
 
     def test_already_freezing_says_nothing(self):
         from linecast._weather.sections import freeze_sentence
@@ -929,10 +989,10 @@ class TestMoreToSay:
         # 98°F feels like 36.7°C: past the mark; 89 and 95 are not
         hourly = self._hourly(NOON, len(temps), temperature_2m=temps, apparent_temperature=feels)
         assert feels_ahead_sentence(hourly, NOON, _runtime()) == \
-            "It will feel as high as 98° this afternoon"
+            "It will feel as hot as 98° this afternoon"
         hourly.update(relative_humidity_2m=[70] * 7, wind_speed_10m=[3] * 7)
         assert feels_ahead_sentence(hourly, NOON, _runtime()) == \
-            "High humidity will make it feel as high as 98° this afternoon"
+            "The humidity will make it feel as hot as 98° this afternoon"
 
         def to_c(t):
             return (t - 32) * 5 / 9
@@ -940,7 +1000,7 @@ class TestMoreToSay:
         hourly.update(temperature_2m=[to_c(t) for t in temps],
                       apparent_temperature=[to_c(t) for t in feels])
         assert feels_ahead_sentence(hourly, NOON, _runtime(lang="ja", celsius=True)) == \
-            "湿度が高く、午後には体感温度が37度まで上がる見込み"
+            "湿度が高く、午後には体感温度が37度まで上がる見込みです"
 
     def test_the_cold_ahead_names_the_wind(self):
         from linecast._weather.sections import feels_ahead_sentence
@@ -948,7 +1008,7 @@ class TestMoreToSay:
                               apparent_temperature=[-12, -14, -17, -19, -18, -16],
                               relative_humidity_2m=[70] * 6, wind_speed_10m=[35] * 6)
         assert feels_ahead_sentence(hourly, NOON, _runtime(celsius=True, metric=True)) == \
-            "The wind will make it feel as low as −19° this afternoon"
+            "The wind will make it feel as cold as −19° this afternoon"
 
     def test_what_the_place_is_used_to_is_not_news(self):
         # Hong Kong in September: every afternoon feels five degrees hotter
@@ -960,7 +1020,7 @@ class TestMoreToSay:
         # ...until a day stands out from the others
         hourly["apparent_temperature"] = felt[:4] + [40, 36, 33] + [31] * 17 + felt * 3
         assert feels_ahead_sentence(hourly, NOON, _runtime(celsius=True, metric=True)) == \
-            "It will feel as high as 40° this afternoon"
+            "It will feel as hot as 40° this afternoon"
 
     def test_dangerous_heat_is_said_regardless(self):
         from linecast._weather.sections import feels_ahead_sentence
@@ -968,7 +1028,7 @@ class TestMoreToSay:
         felt = [42, 44, 46, 47, 47, 46, 44] + [39] * 17
         hourly = self._hourly(NOON, 24 * 4, temperature_2m=day * 4, apparent_temperature=felt * 4)
         assert feels_ahead_sentence(hourly, NOON, _runtime(celsius=True, metric=True)) == \
-            "It will feel as high as 47° this afternoon"
+            "It will feel as hot as 47° this afternoon"
 
     def test_warm_but_not_extreme_says_nothing(self):
         from linecast._weather.sections import feels_ahead_sentence
@@ -989,7 +1049,7 @@ class TestMoreToSay:
         # ...but a morning that has a long way to climb keeps its sentence
         assert feels_ahead_sentence(hourly, NOON, metric,
                                     current={"apparent_temperature": 25.0}) == \
-            "High humidity will make it feel as high as 34° this afternoon"
+            "The humidity will make it feel as hot as 34° this afternoon"
 
     def test_a_wind_chill_no_worse_than_the_present_one_says_nothing(self):
         from linecast._weather.sections import feels_ahead_sentence
@@ -1001,7 +1061,7 @@ class TestMoreToSay:
                                     current={"apparent_temperature": -18}) == ""
         assert feels_ahead_sentence(hourly, NOON, metric,
                                     current={"apparent_temperature": -12}) == \
-            "The wind will make it feel as low as −19° this afternoon"
+            "The wind will make it feel as cold as −19° this afternoon"
 
     def test_the_margin_over_the_present_follows_the_unit(self):
         # Three degrees Fahrenheit is not the two Celsius the sentence asks for
@@ -1012,7 +1072,7 @@ class TestMoreToSay:
                                     current={"apparent_temperature": 92}) == ""
         assert feels_ahead_sentence(hourly, NOON, _runtime(),
                                     current={"apparent_temperature": 91}) == \
-            "It will feel as high as 95° this afternoon"
+            "It will feel as hot as 95° this afternoon"
 
     def test_the_comparison_carries_the_number(self):
         from linecast._weather.sections import comparative_sentence
@@ -1022,7 +1082,7 @@ class TestMoreToSay:
         assert comparative_sentence(daily, NOON.replace(hour=16), _runtime()) == \
             "Tomorrow's high will be 13° lower than today's"
         assert comparative_sentence(daily, NOON, _runtime(lang="ja")) == \
-            "今日の最高気温は昨日より8度高くなる見込み"
+            "今日の最高気温は昨日より8度高いでしょう"
         assert comparative_sentence({"temperature_2m_max": [60, 61, 55]}, NOON, _runtime()) == \
             "Today's high will be about the same as yesterday's"
 
@@ -1061,8 +1121,8 @@ class TestWhatIsSaidAndInWhatOrder:
         assert self._prose(self._busy_day()) == (
             "Today's high will be about the same as yesterday's. "
             "The wind is making it feel cooler. "
-            "Rain starting in a couple hours, with gusts to 30mph. "
-            "1.50″ of rain in the last 24h.")
+            "Rain starting in a couple hours, with gusts to 30\u00a0mph. "
+            "1.50\u00a0inches of rain in the last 24 hours.")
 
     def test_the_comparison_is_what_people_open_the_app_for(self):
         # Five things to say and room for four: "about the same" stays
@@ -1076,8 +1136,8 @@ class TestWhatIsSaidAndInWhatOrder:
         data["hourly"]["precipitation_probability"] = [90 if c else 0 for c in codes]
         data["hourly"]["wind_gusts_10m"] = [20] * 6 + [20, 45, 40] + [20] * 23
         prose = self._prose(data)
-        assert "Rain ending shortly." in prose
-        assert "Gusts to 45mph this afternoon." in prose
+        assert "Rain ending soon." in prose
+        assert "Gusts to 45\u00a0mph this afternoon." in prose
         assert "with gusts" not in prose
 
     def test_a_quiet_day_keeps_the_old_order(self):
@@ -1107,7 +1167,7 @@ class TestWhatIsSaidAndInWhatOrder:
         # One sentence about the felt temperature, the one that looks ahead
         assert self._prose(data, night) == (
             "Tomorrow's high will be about the same as today's. "
-            "High humidity will make it feel as high as 96° in the afternoon.")
+            "The humidity will make it feel as hot as 96° in the afternoon.")
 
     def test_the_sentence_that_looks_ahead_gives_way_when_it_says_nothing_new(self):
         # The same night, but it already feels 95°: the sentence about
@@ -1128,7 +1188,7 @@ class TestWhatIsSaidAndInWhatOrder:
                        "relative_humidity_2m": [85] * 26, "wind_speed_10m": [3] * 26},
         }
         assert self._prose(data, night) == (
-            "High humidity is making it feel warmer. "
+            "The humidity is making it feel warmer. "
             "Tomorrow's high will be about the same as today's.")
 
     def test_wind_in_the_same_part_of_the_day_rides_on_the_rain(self):
@@ -1145,11 +1205,10 @@ class TestWhatIsSaidAndInWhatOrder:
         }
         assert self._prose(data, night) == (
             "Tomorrow's high will be about the same as today's. "
-            "Drizzle starting in the afternoon, with gusts to 26mph.")
+            "Drizzle starting in the afternoon, with gusts to 26\u00a0mph.")
         assert self._prose(data, night, lang="ja") == (
-            "明日の最高気温は今日並みの見込み。"
-            "午後に霧雨となる。風も強まり、最大26mphの突風。")
-
+            "明日の最高気温は今日と同じくらいでしょう。"
+            "午後に霧雨になるでしょう。風も強まり、最大26mphの突風が吹く見込みです。")
 
 class TestDegreesAsWords:
     """Where the language counts its degrees in words, the word agrees
@@ -1185,11 +1244,15 @@ class TestDegreesAsWords:
             "Dnešní nejvyšší teplota bude o 5\u00a0stupňů vyšší než včerejší")
 
     def test_slavic_genitive_after_down_to(self):
-        assert self._low("ru", -2) == "Сегодня днём мороз, до −2\u00a0градусов"
-        assert self._low("ru", -1) == "Сегодня днём мороз, до −1\u00a0градуса"
-        assert self._low("uk", -2) == "Сьогодні вдень мороз, до −2\u00a0градусів"
-        assert self._low("pl", -2) == "Mróz dziś po południu, do −2\u00a0stopni"
-        assert self._low("pl", -1) == "Mróz dziś po południu, do −1\u00a0stopnia"
+        # "Down to" takes the genitive: one degree, and two and up
+        assert self._low("ru", -2).endswith(", до −2\u00a0градусов")
+        assert self._low("ru", -1) == (
+            "Сегодня днём температура опустится ниже нуля, до −1\u00a0градуса")
+        assert self._low("uk", -2) == (
+            "Сьогодні вдень температура опуститься нижче нуля, до −2\u00a0градусів")
+        assert self._low("pl", -2).endswith(", do −2\u00a0stopni")
+        assert self._low("pl", -1) == (
+            "Dziś po południu temperatura spadnie poniżej zera, do −1\u00a0stopnia")
 
     def test_icelandic_dative_for_the_difference_only(self):
         assert self._diff("is", 3) == "Í dag verður hámarkshitinn 3\u00a0stigum hærri en í gær"
@@ -1199,7 +1262,7 @@ class TestDegreesAsWords:
         assert self._low("is", -2) == "Frost í dag eftir hádegi, niður í −2\u00a0stig"
 
     def test_one_degree_and_twenty_degrees(self):
-        assert self._low("fi", -1) == "Pakkasta tänä iltapäivänä, alimmillaan −1\u00a0aste"
+        assert self._low("fi", -1) == "Tänä iltapäivänä pakkasta, alimmillaan −1\u00a0aste"
         assert self._low("da", -1) == "Frost i eftermiddag, ned til −1\u00a0grad"
         assert self._diff("ro", 20) == (
             "Maxima de azi va fi cu 20\u00a0de grade mai ridicată decât cea de ieri")
@@ -1225,12 +1288,29 @@ class TestAgreementAndTheClock:
         assert self._later("fr", 81) == "Averses probables vers 16\u00a0h"
         assert self._later("fr", 81, 40) == "Risque d'averses vers 16\u00a0h"
         assert self._later("fr", 61, 40) == "Risque de pluie légère vers 16\u00a0h"
-        assert self._later("es", 95) == "Tormentas probables hacia las 16:00"
-        assert self._later("es", 63) == "Lluvia probable hacia las 16:00"
-        assert self._later("pt", 81) == "Pancadas de chuva prováveis por volta das 16h"
-        assert self._later("it", 81) == "Rovesci probabili verso le 16"
-        assert self._later("ro", 81, 90) == "Averse, încep în jur de 16:00"
-        assert self._later("ro", 63, 90) == "Ploaie, începe în jur de 16:00"
+        assert self._later("es", 95) == "Probables tormentas hacia las 16:00"
+        assert self._later("es", 63) == "Probable lluvia hacia las 16:00"
+        assert self._later("pt", 81) == "Deve haver pancadas de chuva por volta das 16h"
+        assert self._later("it", 81) == "Probabili rovesci verso le 16"
+        assert self._later("it", 63, 40) == "Possibile pioggia verso le 16"
+        assert self._later("ro", 81, 90) == "Averse în jurul orei 16:00"
+        assert self._later("ro", 63, 90) == "Ploaie în jurul orei 16:00"
+
+    def test_french_takes_the_article_and_canada_elides_too(self):
+        from linecast._weather.sections import precipitation_sentence
+        codes = [81, 81, 81, 0]
+        hourly = {"time": [(NOON + timedelta(hours=k)).isoformat(timespec="minutes")
+                           for k in range(len(codes))],
+                  "weather_code": codes, "precipitation_probability": [90, 90, 90, 0]}
+
+        def ending(lang):
+            return precipitation_sentence(hourly, NOON, _runtime(lang=lang, metric=True))
+
+        assert ending("fr") == "Les averses cesseront dans quelques heures"
+        assert ending("fr-CA") == "Averses se terminant dans quelques heures"
+        assert ending("ro") == "Aversele încetează peste câteva ore"
+        assert self._later("fr-CA", 81, 40) == "Risque d'averses vers 16\u00a0h"
+        assert self._later("fr-CA", 81, 90) == "Averses débutant vers 16\u00a0h"
 
     def test_finnish_and_czech_plural_verbs(self):
         from linecast._weather.sections import precipitation_sentence
@@ -1239,14 +1319,28 @@ class TestAgreementAndTheClock:
                            for k in range(len(codes))],
                   "weather_code": codes, "precipitation_probability": [90, 90, 90, 0]}
         assert precipitation_sentence(hourly, NOON, _runtime(lang="fi", metric=True)) == \
-            "Kuurot loppuvat parin tunnin kuluttua"
+            "Sadekuurot loppuvat parin tunnin kuluttua"
         assert precipitation_sentence(hourly, NOON, _runtime(lang="cs", metric=True)) == \
             "Přeháňky skončí za pár hodin"
         assert self._later("cs", 81) == "Přeháňky pravděpodobně začnou kolem 16:00"
         assert self._later("cs", 63) == "Déšť pravděpodobně začne kolem 16:00"
         assert self._later("da", 81) == "Sandsynligvis byger omkring kl.\u00a016"
 
-    def test_german_showers_and_thunderstorms_take_the_plural(self):
+    def test_likely_starts_at_an_hour_and_falls_in_a_part_of_the_day(self):
+        # Before an hour, "likely" keeps "starting", or the rain would seem
+        # to fall in that hour alone; a part of the day needs no "starting"
+        assert self._later("en", 63) == "Rain likely starting around 16:00"
+        from linecast._weather.sections import precipitation_sentence
+        evening = NOON.replace(hour=20)
+        codes = [0] * 20 + [63] * 3 + [0]
+        hourly = {"time": [(evening + timedelta(hours=k)).isoformat(timespec="minutes")
+                           for k in range(len(codes))],
+                  "weather_code": codes,
+                  "precipitation_probability": [70 if c else 0 for c in codes]}
+        assert precipitation_sentence(hourly, evening, _runtime(use_24h=True)) == (
+            "Rain likely tomorrow afternoon")
+
+    def test_german_rain_that_is_ending_dies_away(self):
         from linecast._weather.sections import precipitation_sentence
 
         def ending(codes):
@@ -1256,14 +1350,21 @@ class TestAgreementAndTheClock:
                       "precipitation_probability": [90 if c else 0 for c in codes]}
             return precipitation_sentence(hourly, NOON, _runtime(lang="de", metric=True))
 
-        assert ending([80, 80, 80, 0]) == "Leichte Schauer enden in ein paar Stunden"
-        assert ending([95, 95, 95, 0]) == "Gewitter enden in ein paar Stunden"
-        assert ending([63, 63, 63, 0]) == "Regen endet in ein paar Stunden"
-        # Drizzle that is all but showers already is said as the showers,
-        # and the verb agrees with the noun the sentence names
-        assert ending([51, 80, 80, 0]) == "Leichte Schauer enden in ein paar Stunden"
+        # As the DWD writes it, "abklingend": no verb to agree with
+        # Schauer and Gewitter, and no "bis es aufhört"
+        assert ending([80, 80, 80, 0]) == "Leichte Schauer, in ein paar Stunden abklingend"
+        assert ending([95, 95, 95, 0]) == "Gewitter, in ein paar Stunden abklingend"
+        assert ending([63, 63, 63, 0]) == "Regen, in ein paar Stunden abklingend"
+        # Drizzle that is all but showers already is said as the showers
+        assert ending([51, 80, 80, 0]) == "Leichte Schauer, in ein paar Stunden abklingend"
         assert ending([51, 51, 51, 51, 95, 95, 0]) == (
-            "Leichter Nieselregen, gegen 16\u00a0Uhr Gewitter, bis es gegen 18\u00a0Uhr aufhört")
+            "Leichter Nieselregen, gegen 16\u00a0Uhr Gewitter, gegen 18\u00a0Uhr abklingend")
+        # Rain that only turns heavier is the same rain, harder
+        assert ending([61, 61, 61, 61, 65, 65, 0]) == (
+            "Leichter Regen, gegen 16\u00a0Uhr stärker, gegen 18\u00a0Uhr abklingend")
+        # but rain that turns to ice is named as ice
+        assert ending([61, 61, 61, 61, 67, 67, 0]) == (
+            "Leichter Regen, gegen 16\u00a0Uhr gefrierender Regen, gegen 18\u00a0Uhr abklingend")
 
     def test_french_turns_take_then_and_an_article(self):
         from linecast._weather.sections import precipitation_sentence
@@ -1287,8 +1388,8 @@ class TestAgreementAndTheClock:
         assert self._later("fr", 63, 90, use_24h=False) == "Pluie vers 16\u00a0h"
         assert self._later("en", 63, 90, use_24h=False) == "Rain starting around 4pm"
         assert self._later("el", 63, 90, use_24h=False) == \
-            "Βροχές θα αρχίσουν γύρω στις 4 το απόγευμα"
-        assert self._later("es", 63, 90, use_24h=False) == "Lluvia comenzando hacia las 16:00"
+            "Γύρω στις 4 το απόγευμα θα αρχίσουν βροχές"
+        assert self._later("es", 63, 90, use_24h=False) == "Lluvia hacia las 16:00"
 
 
 class TestTomorrowIsSaidOnce:
@@ -1307,9 +1408,9 @@ class TestTomorrowIsSaidOnce:
                 "hourly": {"time": [h.isoformat(timespec="minutes") for h in hours],
                            "wind_gusts_10m": [10] * 11 + [40, 42, 38] + [10] * 12}}
         assert self._prose(data, night) == (
-            "Gusts to 42mph tomorrow morning. The high will be 5° lower than today's.")
+            "Gusts to 42\u00a0mph tomorrow morning. The high will be 5° lower than today's.")
         assert self._prose(data, night, lang="ja") == (
-            "明日の朝に最大42mphの突風の見込み。最高気温は今日より5度低くなる見込み。")
+            "明日の朝に最大42mphの突風が吹く見込みです。最高気温は今日より5度低いでしょう。")
 
     def test_rain_after_the_comparison_inherits_tomorrow(self):
         night = datetime(2026, 7, 15, 21, 0)
@@ -1372,7 +1473,7 @@ class TestFog:
         hourly = self._hourly(NOON, [3, 3, 3, 3, 3, 3])
         assert self._sentence(hourly) == ""
         assert self._sentence(hourly, current={"weather_code": 45}) == \
-            "Fog clearing shortly"
+            "Fog clearing soon"
         # The hour the model disagrees about is read as a thinning
         hourly = self._hourly(NOON, [3, 45, 3, 3, 3, 3])
         assert self._sentence(hourly) == ""
@@ -1425,15 +1526,15 @@ class TestFog:
         clearing = self._hourly(NOON, [45, 45, 45, 45, 3, 3, 3, 3])
         tonight = self._hourly(evening, [3, 3] + [45] * 11 + [3] * 12)
         for lang, lifting, coming in (
-            ("ja", "16時頃に霧が晴れる見込み", "今夜霧、明日の朝に晴れる見込み"),
-            ("ko", "안개 16시경 걷힘 예상", "오늘 밤 안개, 내일 아침 걷힘 예상"),
+            ("ja", "霧は16時頃に晴れる見込みです", "今夜霧が出て、明日の朝に晴れる見込みです"),
+            ("ko", "안개는 16시경 걷히겠습니다", "오늘 밤 안개가 끼었다가 내일 아침 걷히겠습니다"),
             ("ru", "Туман рассеется около 16:00",
-             "Сегодня ночью туман, рассеется завтра утром"),
+             "Сегодня ночью туман, завтра утром рассеется"),
             ("fi", "Sumu hälvenee noin klo\u00a016",
-             "Sumua tänä yönä, hälvenee huomenna aamulla"),
+             "Tänä yönä sumua, joka hälvenee huomenna aamulla"),
             ("el", "Η ομίχλη θα διαλυθεί γύρω στις 16:00",
-             "Ομίχλη απόψε, θα διαλυθεί αύριο το πρωί"),
-            ("tr", "Sis 16:00 civarında dağılacak",
+             "Ομίχλη απόψε, που θα διαλυθεί αύριο το πρωί"),
+            ("tr", "Sis saat 16:00 civarında dağılacak",
              "Bu gece sis bekleniyor, yarın sabah dağılacak"),
             ("is", "Þokunni léttir um kl.\u00a016",
              "Þoka í nótt, léttir til á morgun fyrir hádegi"),
@@ -1476,11 +1577,11 @@ class TestPastPrecipitation:
         def said(lang):
             return past_precip_sentence(hourly, NOON, _runtime(lang=lang, metric=True))
 
-        assert said("de") == "4,0\u00a0mm Regen in den letzten 24\u00a0h"
+        assert said("de") == "In den letzten 24\u00a0Stunden fielen 4,0\u00a0mm Regen"
         # Latin American Spanish writes a point, Spain a comma
         assert said("es") == "4.0\u00a0mm de lluvia en las últimas 24\u00a0h"
         assert said("es-ES") == "4,0\u00a0mm de lluvia en las últimas 24\u00a0h"
-        assert said("ja") == "過去24時間の降水量：4.0mm"
+        assert said("ja") == "過去24時間の降水量は4.0mmでした"
 
     def test_the_last_day_is_twenty_four_hours(self):
         from linecast._weather.sections import past_precip_sentence
@@ -1493,4 +1594,4 @@ class TestPastPrecipitation:
                   "weather_code": [61] * 25}
         runtime = _runtime(celsius=True, metric=True)
         assert past_precip_sentence(hourly, NOON + timedelta(minutes=26), runtime) == (
-            "24.0mm of rain in the last 24h")
+            "24.0\u00a0mm of rain in the last 24 hours")

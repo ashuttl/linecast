@@ -183,7 +183,7 @@ def lang_of(runtime):
 # French reader looking at Montréal gets "vers 18h", as Environment
 # Canada writes it, not an English "6pm".  Swahili has a further reason:
 # it counts the hours from dawn, so "saa 1pm" would read as seven in the
-# morning, and its 24-hour digits no reader takes for Swahili time.
+# morning; its sentences tell the hour that way, "saa saba mchana".
 SENTENCE_12H = frozenset({"en", "el"})
 
 

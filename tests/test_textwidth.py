@@ -60,6 +60,17 @@ class TestWrappingRespectsMarks:
         lines = wrap_display_width(self.HINDI, 24)
         assert "".join(lines).replace(" ", "") == self.HINDI.replace(" ", "")
 
+    def test_thai_sentence_space_never_opens_or_closes_a_line(self):
+        # Thai sets its sentences apart with two spaces; a line break
+        # falling on them takes both
+        from linecast._textwidth import wrap_display_width
+        text = ("อุณหภูมิสูงสุดวันนี้จะใกล้เคียงกับเมื่อวาน  ความชื้นสูงทำให้รู้สึกอุ่นขึ้น  "
+                "จะมีฝนละอองราว 09.00 น. และเปลี่ยนเป็นฝนซู่เล็กน้อยราว 13.00 น.  "
+                "ในช่วง 24 ชั่วโมงที่ผ่านมามีฝนตก 11.6 มม.")
+        for width in range(20, 70):
+            for line in wrap_display_width(text, width):
+                assert line == line.strip(" "), (width, line)
+
     def test_truncation_keeps_trailing_marks_with_their_base(self):
         from linecast._textwidth import truncate_display_width, visible_len
         out = truncate_display_width("वर्षा" * 4, 11)

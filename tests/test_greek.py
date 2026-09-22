@@ -75,28 +75,28 @@ def test_temperature_comparisons_agree_with_temperature(diff, comparison, hour, 
 
 @pytest.mark.parametrize("code", sorted(_PRECIP_DESCS))
 def test_precipitation_subjects_work_in_all_three_forecast_branches(code):
+    # Rain already falling takes the article; rain to come follows its verb
     desc = _PRECIP_DESCS_I18N["el"][code]
-    desc = desc[0].upper() + desc[1:]
     assert precipitation_sentence(hourly([code, 0]), NOW, runtime()) == (
-        f"{desc} θα σταματήσουν σύντομα")
+        f"Οι {desc} θα σταματήσουν σύντομα")
     assert precipitation_sentence(hourly([code, code]), NOW, runtime()) == (
-        f"{desc} θα συνεχιστούν όλη την ημέρα")
+        f"Οι {desc} θα συνεχιστούν όλη την ημέρα")
     assert precipitation_sentence(hourly([0, code]), NOW, runtime()) == (
-        f"{desc} πιθανότατα θα αρχίσουν σύντομα")
+        f"Σύντομα πιθανότατα θα αρχίσουν {desc}")
 
 
 def test_intensifying_rain_crosses_midnight_without_losing_agreement():
     now = NOW.replace(hour=19)
     ending = hourly([61, 61, 61, 61, 65, 65, 0], now)
     assert precipitation_sentence(ending, now, runtime()) == (
-        "Ασθενείς βροχές θα εξελιχθούν σε ισχυρές βροχές γύρω στις 23:00 "
-        "και τα φαινόμενα θα σταματήσουν μέσα στη νύχτα")
+        "Οι ασθενείς βροχές θα ενταθούν γύρω στις 23:00 "
+        "και θα σταματήσουν μέσα στη νύχτα")
     assert precipitation_sentence(hourly([61, 61, 65], now), now, runtime()) == (
-        "Ασθενείς βροχές θα εξελιχθούν σε ισχυρές βροχές σε περίπου μία ώρα "
-        "και τα φαινόμενα θα συνεχιστούν όλη την ημέρα")
+        "Οι ασθενείς βροχές θα ενταθούν σε μία ώρα περίπου "
+        "και θα συνεχιστούν όλη την ημέρα")
     # An hour of light rain at the edge of heavy rain is the heavy rain
     assert precipitation_sentence(hourly([0, 61, 65], now), now, runtime()) == (
-        "Ισχυρές βροχές πιθανότατα θα αρχίσουν σε περίπου μία ώρα")
+        "Σε μία ώρα περίπου πιθανότατα θα αρχίσουν ισχυρές βροχές")
 
 
 @pytest.mark.parametrize("hour,phrase", [
@@ -106,7 +106,7 @@ def test_intensifying_rain_crosses_midnight_without_losing_agreement():
 ])
 def test_clock_phrases_honor_both_clock_formats(hour, phrase):
     assert fmt_hour_phrase(hour, False, "el") == phrase
-    assert fmt_hour_phrase(hour, True, "el") == f"{hour:02d}:00"
+    assert fmt_hour_phrase(hour, True, "el") == f"{hour}:00"
 
 
 @pytest.mark.parametrize("time,preposition", [
@@ -160,8 +160,8 @@ def test_complete_paragraph_wraps_without_losing_text_or_doubling_punctuation(wi
     expected = (
         "Σήμερα η μέγιστη θερμοκρασία θα είναι κατά 2\u00a0βαθμούς υψηλότερη από τη χθεσινή. "
         "Η υψηλή υγρασία αυξάνει την αισθητή θερμοκρασία. "
-        "Βροχές πιθανότατα θα αρχίσουν γύρω στις "
-        + ("17:00" if use_24h else "5 το απόγευμα") + ".")
+        "Γύρω στις " + ("17:00" if use_24h else "5 το απόγευμα")
+        + " πιθανότατα θα αρχίσουν βροχές.")
     assert " ".join(rows) == expected
     assert all(visible_len(row) <= width for row in rows)
 

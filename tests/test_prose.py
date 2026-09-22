@@ -131,8 +131,14 @@ class TestDiff:
 
 
 class TestLanguages:
-    def test_all_is_every_language(self):
-        assert prose.languages("all") == list(prose.LANGUAGE_CODES)
+    def test_all_is_every_language_with_its_variants(self):
+        every = prose.languages("all")
+        assert set(prose.LANGUAGE_CODES) <= set(every)
+        assert every.index("pt-PT") == every.index("pt") + 1
+        assert every.index("zh-HK") == every.index("zh-Hant") + 1
+
+    def test_a_regional_variant_is_a_language(self):
+        assert prose.languages("fr-CA,es_es,pt-pt") == ["fr-CA", "es-ES", "pt-PT"]
 
     def test_a_list_keeps_its_order(self):
         assert prose.languages("ja,en") == ["ja", "en"]
