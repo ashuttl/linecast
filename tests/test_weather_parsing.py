@@ -1258,6 +1258,12 @@ class TestMeteoAlarmRegionsData:
         from linecast._meteoalarm_regions import regions_at
         assert regions_at(41.9973, 21.4280) == {"MK008", "NUTS3/MK008"}
 
+    def test_split_is_in_its_county_beside_its_region(self):
+        # Croatia files a county warning under an EMMA_ID no geocodes
+        # edition carries, with the 2013 NUTS3 code beside it (#127).
+        from linecast._meteoalarm_regions import regions_at
+        assert regions_at(43.508, 16.44) == {"HR008", "NUTS3/HR035"}
+
     def test_prague_is_its_own_orp_by_both_spellings(self):
         # The statistical office codes Prague 1000; the feed files 1100.
         from linecast._meteoalarm_regions import regions_at

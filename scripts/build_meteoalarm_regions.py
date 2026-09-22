@@ -17,14 +17,17 @@ Two kinds of geocode are placed:
             feeds no longer file, so a bake from it can lose regions
             as well as gain them.
   NUTS2/3   Eurostat's statistical regions, for the feeds that file
-            those instead (Bulgaria, Romania, and France at level 3;
-            Hungary and Belgium at level 2), from GISCO's 2013 edition
-            -- France and Hungary still file 2013 codes -- at 1:3M,
+            those instead (Bulgaria, Romania, France, and Croatia at
+            level 3; Hungary and Belgium at level 2), from GISCO's 2013
+            edition -- France, Hungary, and Croatia still file 2013
+            codes -- at 1:3M,
             which holds a departement's edge within a few hundred
             metres for half the bytes of the 1:1M file. Keyed by type
             and code, NUTS3/FR101, so a NUTS code and an EMMA_ID that
             share a spelling can never cross. © EuroGeographics for the
-            administrative boundaries.
+            administrative boundaries. Croatia files a county as an
+            EMMA_ID no geocodes edition yet carries, with the NUTS3
+            code beside it (#127); the NUTS3 is what places it.
 
   CISORP    Czechia's municipalities with extended powers (ORP), 206 of
             them, finer than any region MeteoAlarm publishes. Geometry
@@ -93,7 +96,7 @@ GISCO = ("https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/"
 
 # Which countries' NUTS regions to carry, by level: the feeds that file
 # NUTS codes, at the level they file them.
-NUTS = {"NUTS3": ("BG", "RO", "FR"), "NUTS2": ("HU", "BE")}
+NUTS = {"NUTS3": ("BG", "RO", "FR", "HR"), "NUTS2": ("HU", "BE")}
 
 # Feeds whose geocodes are EMMA_IDs under another type name.
 ALIASES = {"MK": "NUTS3"}
