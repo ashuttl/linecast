@@ -4,7 +4,7 @@
 
 ## Choosing one
 
-In Chinese, Japanese, Korean, Vietnamese, and Thai the calendar follows the language. You can choose any calendar in any language: `linecast moon --calendar hebrew` for one run, or `linecast calendar hebrew` to save it for every run. `linecast calendar none` turns it off, and `linecast calendar auto` goes back to following the language. The names are `chinese`, `japanese`, `korean`, `vietnamese`, `thai`, `hawaiian`, `samoan`, `chamorro`, `refaluwasch`, `islamic`, `hebrew`, and `almanac`.
+In Chinese, Japanese, Korean, Vietnamese, Thai, and Persian the calendar follows the language; Persian's is the Islamic. You can choose any calendar in any language: `linecast moon --calendar hebrew` for one run, or `linecast calendar hebrew` to save it for every run. `linecast calendar none` turns it off, and `linecast calendar auto` goes back to following the language. The names are `chinese`, `japanese`, `korean`, `vietnamese`, `thai`, `hawaiian`, `samoan`, `chamorro`, `refaluwasch`, `islamic`, `hebrew`, and `almanac`.
 
 Whichever calendar is active, the month grid (press `v`, or open on it with `linecast moon --grid`) uses it too: the calendar's months in the title, each day's date in the corner of its cell, the month starts and observances marked, and the full date in the hover chip. Click a day and the disc view opens on it.
 
@@ -40,6 +40,8 @@ The Hijri date is shown beside the phase (23 Ramadan 1447 AH) and changes at sun
 
 Most countries begin Ramadan and the Eids on a sighting of the crescent, so a country's announced dates may differ from these by a day. Saudi Arabia's own announcements sometimes do.
 
+In Persian the months are named as Iranian calendars print them (محرم، صفر، ربیع‌الاول) with the era ق, and the Islamic date is the moon's calendar by default, since Iranian calendars print it beside the solar date. Iran fixes its lunar months by its own sighting, so its dates can differ by a day from these; the grid's hover says so. Iran also keeps some observances on other days than Umm al-Qura's tradition, Mawlid on 17 Rabi' al-Awwal and the nights of Qadr on the 19th, 21st, and 23rd of Ramadan; linecast does not yet follow them.
+
 ## Hebrew
 
 `hebrew` follows the Hebrew calendar, which has been pure arithmetic since the fourth century: the year begins at the mean new moon of Tishrei, moved by the four postponement rules, and a thirteenth month, Adar I, comes seven times in nineteen years. linecast computes it from those rules, with Dershowitz and Reingold's *Calendrical Calculations* as the reference. The tests check every month of 5780 through 5790 and every holiday of 2023 through 2026 against Hebcal.
@@ -49,6 +51,18 @@ The date is shown beside the phase (20 Elul 5786) and changes at sunset where yo
 The holidays follow the place shown, the way a calendar printed in Jerusalem differs from one printed in Brooklyn. Outside Israel there is a second day of Sukkot and Shavuot and of Pesach's first and last days, and Simchat Torah falls the day after Shemini Atzeret. In Israel each is one day, with Simchat Torah on Shemini Atzeret itself.
 
 Hebrew is not one of the app's languages, so the months and holidays are transliterated in every language. The month grid names each holiday's days, and the hover chip notes each Rosh Chodesh. `--json` adds the date in Hebrew letters as well, כ׳ אלול תשפ״ו, for a program that can display Hebrew.
+
+## Solar Hijri, the civil date in Persian
+
+The Solar Hijri calendar is Iran's civil calendar, and in Persian it is the date linecast writes everywhere: the moon panel, the month grid, the sunshine year, and every date in between (۱ مهر ۱۴۰۵). The Gregorian date stays in the hover chips. `linecast dates gregorian` or `solar-hijri` fixes the choice in every language, `LINECAST_DATES` sets it for one run, and `linecast dates auto` follows the language again. `--json` keeps ISO Gregorian dates whatever the setting.
+
+The months are fixed, six of 31 days, five of 30, and Esfand of 29 or 30, so only the first day of the year needs astronomy. The University of Tehran's Calendar Center begins the year on the day of the March equinox if the equinox falls before true noon at the 52.5° E meridian, and on the next day if not. linecast computes it the same way, from the equinox of the app's ephemeris less ΔT, and the true noon of the same. Other statements of the rule differ slightly: Borkowski's uses mean noon at Tehran, and the two first part in 2124 (1503 SH), whose equinox falls two minutes before one noon and half a minute after the other. The 2820-year arithmetic calendar often printed in software is not the official one and differs in 1403, 1436, and 1469, where it makes the following year the leap year.
+
+The month grid in Persian is a Solar Hijri month laid out from its 1st, with the week opening on Saturday in Iran. Each cell carries the Gregorian day small in a corner, and the Islamic day in the other; the title names the Gregorian and Hijri months the Solar Hijri month spans. The sunshine year marks the Solar Hijri months, which begin near the 21st of the Gregorian ones, by name where they fit and by number (1405/7/1) where they do not.
+
+The panel counts down to the year's observances: Chaharshanbe Suri, the eve of the year's last Wednesday; Nowruz; Sizdah Bedar (13 Farvardin); Tirgan (13 Tir); Mehregan (10 Mehr, as the official calendar prints it); Yalda, the night of 30 Azar; and Sadeh (10 Bahman). In the month before Nowruz the turn of the year (تحویل سال) gets a line of its own, counted down to the equinox itself, to the second on its last day. On Yalda the sunshine line names the night.
+
+**Checked against:** Wikipedia's table of Nowruz dates and leap years for 1354–1419 SH, Borkowski's leap years for 1300–1501 SH (every year agrees), and the Calendar Center's announced instants of the equinox for 1396–1405 SH, which the computed ones match within 26 seconds. The closest year to the noon line between 1300 and 1500 SH is 1470 (2091), whose equinox falls four minutes after true noon.
 
 ## The Old Farmer's Almanac
 

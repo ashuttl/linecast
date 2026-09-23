@@ -102,7 +102,7 @@ The frames below show each app once or twice. [docs/gallery.md](https://github.c
 
 ![weather dashboard](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
 
-The dashboard speaks twenty-eight languages, and its units follow the place or your own setting. Reykjavík in Icelandic and Kyoto in Japanese, both metric:
+The dashboard speaks twenty-nine languages, and its units follow the place or your own setting. Reykjavík in Icelandic and Kyoto in Japanese, both metric:
 
 <p>
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather-reykjavik.png" width="49%" alt="the weather in Reykjavík, in Icelandic">
@@ -261,7 +261,7 @@ The moon's calendar opens the week on Monday, or on Sunday in the United States,
 
 ### Language
 
-linecast speaks your terminal's language if it is one of the twenty-eight it knows, and English otherwise. To choose one yourself, for every run or for one:
+linecast speaks your terminal's language if it is one of the twenty-nine it knows, and English otherwise. To choose one yourself, for every run or for one:
 
 ```sh
 linecast language es        # use Spanish every time
@@ -269,7 +269,9 @@ linecast language auto      # follow the terminal again
 linecast radar --lang zh    # just this once
 ```
 
-The languages are English (`en`), French (`fr`), Spanish (`es`), Portuguese (`pt`), Italian (`it`), Romanian (`ro`), German (`de`), Dutch (`nl`), Danish (`da`), Norwegian (`no`), Swedish (`sv`), Icelandic (`is`), Finnish (`fi`), Czech (`cs`), Polish (`pl`), Russian (`ru`), Ukrainian (`uk`), Greek (`el`), Turkish (`tr`), Swahili (`sw`), Chinese in the simplified script (`zh`) and the traditional (`zh-Hant`), Japanese (`ja`), Korean (`ko`), Thai (`th`), Vietnamese (`vi`), Indonesian (`id`), and Esperanto (`eo`). Swahili sky labels use documented names for Crux and Scorpius; other constellations and stars retain their catalogue names. A Chinese terminal locale picks the script by its region: `zh_TW`, `zh_HK`, and `zh_MO` read the traditional characters, `zh_CN` and `zh_SG` the simplified. A Norwegian locale, `nb_NO` or `nn_NO`, reads Norwegian. Portuguese is Brazilian, Spanish is Latin American, and French is that of France; Portugal, Spain, and Canada read the words that differ in their own country with `pt-PT`, `es-ES`, and `fr-CA`, and a terminal locale of `pt_PT`, `es_ES`, or `fr_CA` chooses them by itself.
+The languages are English (`en`), French (`fr`), Spanish (`es`), Portuguese (`pt`), Italian (`it`), Romanian (`ro`), German (`de`), Dutch (`nl`), Danish (`da`), Norwegian (`no`), Swedish (`sv`), Icelandic (`is`), Finnish (`fi`), Czech (`cs`), Polish (`pl`), Russian (`ru`), Ukrainian (`uk`), Greek (`el`), Turkish (`tr`), Persian (`fa`), Swahili (`sw`), Chinese in the simplified script (`zh`) and the traditional (`zh-Hant`), Japanese (`ja`), Korean (`ko`), Thai (`th`), Vietnamese (`vi`), Indonesian (`id`), and Esperanto (`eo`). Swahili sky labels use documented names for Crux and Scorpius; other constellations and stars retain their catalogue names. A Chinese terminal locale picks the script by its region: `zh_TW`, `zh_HK`, and `zh_MO` read the traditional characters, `zh_CN` and `zh_SG` the simplified. A Norwegian locale, `nb_NO` or `nn_NO`, reads Norwegian. Portuguese is Brazilian, Spanish is Latin American, and French is that of France; Portugal, Spain, and Canada read the words that differ in their own country with `pt-PT`, `es-ES`, and `fr-CA`, and a terminal locale of `pt_PT`, `es_ES`, or `fr_CA` chooses them by itself.
+
+Persian reads from the right: the dashboard, the tides, the Moon's month grid, and the sunshine year are laid out from the right edge, with now at the right, and dates are in the Solar Hijri calendar. `linecast dates gregorian` fixes the calendar (`solar-hijri` too, in any language). Numbers are written in Persian digits; `linecast digits latin` keeps 0–9 (`native` goes back to Persian digits). Most terminals draw right-to-left text backwards and leave Arabic letters unjoined, so linecast orders and joins the letters itself and asks the terminal to draw them as sent. The letters join cleanly in a monospace font with Arabic letters, such as [Vazir Code](https://github.com/rastikerdar/vazir-code-font). A terminal that orders the text itself and ignores that request would reverse it again; `LINECAST_BIDI=terminal` leaves the ordering to it.
 
 In India, many alerts are published in the state language. Add `--lang hi`, `--lang te`, `--lang mr`, or another Indian language code to `weather` to read them in that language where it exists; the rest of the app stays in English.
 
@@ -378,6 +380,8 @@ Every view command and `linecast doctor` take `--debug`, which prints a line on 
 | `TIDES_UNITS` | Units for tide heights; overrides `LINECAST_UNITS` |
 | `LINECAST_CLOCK` | `12` or `24`; overrides the saved clock |
 | `LINECAST_WEEK_START` | `monday`, `sunday`, or `saturday`; overrides the saved week |
+| `LINECAST_DATES` | `gregorian` or `solar-hijri`; overrides the saved dates |
+| `LINECAST_DIGITS` | `latin` or `native`; overrides the saved digits |
 | `LINECAST_LANG` | One of the language codes under [Language](#language); overrides the saved language and the terminal's locale |
 | `LINECAST_ICONS` | `nerd`, `emoji`, or `plain`; overrides the saved icons |
 | `LINECAST_COLOR` | `auto`, `truecolor`, `256`, `16`, or `none` |
