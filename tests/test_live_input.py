@@ -175,7 +175,7 @@ class TestNudge:
 
     def test_radar_frames_nudge_is_the_live_one(self):
         from linecast import _live
-        from linecast._radar import frames
+        from linecast.radar import frames
         assert frames._nudge is _live.nudge
 
 

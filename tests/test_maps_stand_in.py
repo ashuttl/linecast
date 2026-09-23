@@ -20,9 +20,9 @@ from linecast import maps
 from linecast._maps import globe as _globe
 from linecast._maps import views
 from linecast._color import BG_PRIMARY
-from linecast._radar.basemap import _BITS
-from linecast._radar.i18n import rs
-from linecast._radar.render import bbox_for
+from linecast.radar.basemap import _BITS
+from linecast.radar.i18n import rs
+from linecast.radar.render import bbox_for
 
 GW, HC = 8, 4
 BBOX = (0.0, 0.0, 8.0, 8.0)  # one degree per cell column, two per row

@@ -27,8 +27,8 @@ from linecast._framebuffer import cell_aspect
 from linecast._geo import wrap_lon
 from linecast._paths import cache_dir, data_path
 from linecast._png import decode_rgba
-from linecast._radar.basemap import DotLayer, _load_data
-from linecast._radar.tiles import _TILE_SIZE, stitch_xyz
+from linecast.radar.basemap import DotLayer, _load_data
+from linecast.radar.tiles import _TILE_SIZE, stitch_xyz
 from linecast._runtime import log_failure
 from linecast._scenes import Memo
 from linecast._theme import themed

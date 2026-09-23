@@ -33,9 +33,9 @@ from linecast._maps import places as _places
 from linecast._maps import style as _maps_style
 from linecast._maps import views as _views
 from linecast._maps.route import Route
-from linecast._radar import basemap as _basemap
-from linecast._radar.basemap import _BITS, _edge_dots
-from linecast._radar.render import bbox_for
+from linecast.radar import basemap as _basemap
+from linecast.radar.basemap import _BITS, _edge_dots
+from linecast.radar.render import bbox_for
 
 GW, HC = 160, 45
 

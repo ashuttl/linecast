@@ -9,8 +9,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._color import BG_PRIMARY, bg, lerp
 from linecast._framebuffer import HALF_BLOCK
-from linecast._radar.basemap import SEA_FILL
-from linecast._radar.render import bbox_for, build_radar_buffer, compose
+from linecast.radar.basemap import SEA_FILL
+from linecast.radar.render import bbox_for, build_radar_buffer, compose
 
 _ANSI_RE = re.compile(r"\033\[[^m]*m")
 

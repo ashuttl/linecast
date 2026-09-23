@@ -10,7 +10,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._maps import motion as mm
-from linecast._radar.render import bbox_for
+from linecast.radar.render import bbox_for
 
 GW, HC = 40, 12
 

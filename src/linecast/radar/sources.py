@@ -31,10 +31,10 @@ import time
 from typing import Any
 
 from linecast._png import decode_rgba
-from linecast._radar.source import fetch_frame, frame_times
-from linecast._radar import tiles
-from linecast._radar import palettes
-from linecast._radar import ub
+from linecast.radar.source import fetch_frame, frame_times
+from linecast.radar import tiles
+from linecast.radar import palettes
+from linecast.radar import ub
 from linecast._runtime import log_failure
 
 # rough lower-48 bounding box; IEM/NEXRAD coverage

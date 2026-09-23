@@ -31,7 +31,7 @@ from operator import itemgetter, or_
 
 from linecast._maps import globe as _globe
 from linecast._maps.hover import HoverIndex
-from linecast._radar.basemap import _BITS
+from linecast.radar.basemap import _BITS
 from linecast._scenes import Memo
 
 # The margin is a MARGIN'th of the window on each side.  Measured at

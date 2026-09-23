@@ -17,12 +17,12 @@ from linecast._color import fg, bg, RESET
 from linecast._framebuffer import fmt_time_dt
 from linecast._theme import ensure_contrast
 from linecast.weather.style import TOOLTIP_BG_RGB
-from linecast._radar.basemap import (
+from linecast.radar.basemap import (
     Basemap, _point_in_rings, marine_region, nearest_city,
 )
-from linecast._radar.i18n import rs
-from linecast._radar.render import _bbox_key
-from linecast._radar.sources import THEMES, is_local
+from linecast.radar.i18n import rs
+from linecast.radar.render import _bbox_key
+from linecast.radar.sources import THEMES, is_local
 from linecast._runtime import log_failure, use_metric
 from linecast._scenes import Memo
 

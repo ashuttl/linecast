@@ -198,7 +198,7 @@ def _varied_canvas(size=64):
 def _reference_elevation(lls, canvas):
     """_globe.elevation as it was before the straight-line rewrite."""
     from linecast._elevation import decode_meters
-    from linecast._radar.tiles import _lonlat_to_world
+    from linecast.radar.tiles import _lonlat_to_world
     canvas, cw, ch, org_x, org_y, world = canvas
     grid = []
     for ll_row in lls:
@@ -556,7 +556,7 @@ class TestLabelToggle:
 
 def _reference_border_layer(lat0, lon0, zoom, gw, hc, color):
     """border_layer as it was before the trig was hoisted."""
-    from linecast._radar.basemap import DotLayer, _load_data
+    from linecast.radar.basemap import DotLayer, _load_data
     layer = DotLayer((0.0, 0.0, 1.0, 1.0), gw, hc)
     r = _globe._radius(zoom, hc * 4)
     cx, cy = gw * 2 / 2.0, hc * 4 / 2.0
@@ -727,7 +727,7 @@ class TestCities:
 # now — terrain's contrast pick — so the longhand writes the same.
 def _place_cities_longhand(cities, lat0, lon0, zoom, gw, hc, lang,
                            band=0):
-    from linecast._radar.basemap import _localized
+    from linecast.radar.basemap import _localized
     from linecast._textwidth import char_width
     max_cities = _places.budget(gw, hc, band)
     r = _globe._radius(zoom, hc * 2)

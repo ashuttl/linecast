@@ -416,7 +416,7 @@ class TestVersion:
         # version lookup or urllib.request unless a request is made
         for code in ("import linecast.weather.view, linecast._runtime; "
                      "linecast._runtime.weather_parser()",
-                     "import linecast.radar",
+                     "import linecast.radar.view",
                      "import linecast.maps",
                      "import linecast.sunshine",
                      "import linecast.moon",

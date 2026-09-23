@@ -32,23 +32,23 @@ import time as _time
 from linecast._color import fg, RESET
 from linecast._framebuffer import get_terminal_size
 from linecast import _theme
-from linecast._radar import frames as _radar_frames
-from linecast._radar import layers as _radar_layers
-from linecast._radar import warnings as _radar_warnings
+from linecast.radar import frames as _radar_frames
+from linecast.radar import layers as _radar_layers
+from linecast.radar import warnings as _radar_warnings
 from linecast._live import overlay
-from linecast._radar.basemap import DotLayer, _point_in_rings  # noqa: F401 — re-exported
-from linecast._radar.i18n import rs
-from linecast._radar.render import bbox_for, _bbox_key, compose
+from linecast.radar.basemap import DotLayer, _point_in_rings  # noqa: F401 — re-exported
+from linecast.radar.i18n import rs
+from linecast.radar.render import bbox_for, _bbox_key, compose
 # the frame cache and prefetcher; the benches reach the rest through here too
-from linecast._radar.frames import (  # noqa: F401
+from linecast.radar.frames import (  # noqa: F401
     MAX_REWIND_MIN, N_FRAMES, PLAY_READY, _cached_frame, _ensure_prefetch,
     _frame_cache, _frame_key, _load_frame, _loaded_mask, _nearest_cached,
     _nudge, _play_gate, _safe_load, _sat_timeline, _view_key,
 )
-from linecast._radar.sources import has_radar
+from linecast.radar.sources import has_radar
 from linecast._scenes import Memo, SceneCache
 # the tests reach the view helpers through this module
-from linecast._radar.ui import (  # noqa: F401
+from linecast.radar.ui import (  # noqa: F401
     CROSSHAIR, DIM, MARKER, MUTED, _ShiftedBasemap, _build_warning_tooltip,
     _fmt_expire, _fmt_local, _get_basemap, _panned_place, _shift_grid,
     _theme_menu_overlay, _timeline_bar,
@@ -340,9 +340,6 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
 def main():
     # the live loop draws through render_radar, so _radar.live imports this
     # module; importing it here, at the call, keeps that one-way at load
-    from linecast._radar.live import main as live_main
+    from linecast.radar.live import main as live_main
     live_main()
 
-
-if __name__ == "__main__":
-    main()

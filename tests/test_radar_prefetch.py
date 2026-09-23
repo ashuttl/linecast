@@ -15,9 +15,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._radar import frames as rf
-from linecast._radar import tiles
-from linecast._radar.sources import Frame
+from linecast.radar import frames as rf
+from linecast.radar import tiles
+from linecast.radar.sources import Frame
 
 _src = str(Path(__file__).resolve().parent.parent / "src")
 
@@ -68,8 +68,8 @@ class TestStandDown:
         drain; the process must not wait for it."""
         child = textwrap.dedent("""
             import datetime, time
-            from linecast._radar import frames as rf
-            from linecast._radar.sources import Frame
+            from linecast.radar import frames as rf
+            from linecast.radar.sources import Frame
             rf._safe_load = lambda *a, **k: time.sleep(0.3) or True
             rf._radar_warnings.covers = lambda bbox: False
             t0 = datetime.datetime(2026, 8, 23, tzinfo=datetime.timezone.utc)
@@ -152,7 +152,7 @@ class TestStaticRender:
     """A one-shot render shows one frame; it must not warm the window."""
 
     def test_static_mode_does_not_prefetch(self, monkeypatch):
-        from linecast import radar
+        from linecast.radar import view as radar
 
         class Src:
             theme = None

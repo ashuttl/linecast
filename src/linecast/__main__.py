@@ -35,7 +35,7 @@ COMMANDS = {
     "moon": "linecast.moon",
     "sky": "linecast.sky",
     "tides": "linecast.tides",
-    "radar": "linecast.radar",
+    "radar": "linecast.radar.view",
     "maps": "linecast.maps",
     "location": "linecast.location",
     "language": "linecast.language",

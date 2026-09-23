@@ -10,23 +10,23 @@ is in radar; the frames and their prefetcher are in _radar_frames.
 import os
 import sys
 
-from linecast._radar import frames as _radar_frames
-from linecast._radar import sources as _radar_sources
+from linecast.radar import frames as _radar_frames
+from linecast.radar import sources as _radar_sources
 from linecast._framebuffer import get_terminal_size
 from linecast._geo import wrap_lon
 from linecast._live import LiveApp
 from linecast._location import country_for_defaults, resolve_location
-from linecast._radar.frames import N_FRAMES, _nudge, _sat_timeline
-from linecast._radar.i18n import rs
-from linecast._radar.render import bbox_for
-from linecast._radar.source import FRAME_STEP
-from linecast._radar.sources import (
+from linecast.radar.frames import N_FRAMES, _nudge, _sat_timeline
+from linecast.radar.i18n import rs
+from linecast.radar.render import bbox_for
+from linecast.radar.source import FRAME_STEP
+from linecast.radar.sources import (
     DEFAULT_THEME, THEMES, _in_conus, get_source, theme_id,
 )
-from linecast._radar.ui import ThemePicker
+from linecast.radar.ui import ThemePicker
 from linecast._runtime import RuntimeConfig, radar_parser, set_current
 from linecast._spinner import Spinner
-from linecast.radar import LAYERS, parse_layers, render_radar
+from linecast.radar.view import LAYERS, parse_layers, render_radar
 
 
 def view_lat(lat):
@@ -166,7 +166,7 @@ def main():
 
     # Sweep day-old frame tiles before fetching new ones — they're keyed by
     # frame timestamp and will never be asked for again.
-    from linecast._radar.tiles import prune_tile_cache
+    from linecast.radar.tiles import prune_tile_cache
     prune_tile_cache()
 
     if args.search:

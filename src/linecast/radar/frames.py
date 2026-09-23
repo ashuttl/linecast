@@ -17,11 +17,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from linecast import _theme
-from linecast._radar import sources as _radar_sources
-from linecast._radar import warnings as _radar_warnings
+from linecast.radar import sources as _radar_sources
+from linecast.radar import warnings as _radar_warnings
 from linecast._live import nudge as _nudge  # a landed frame repaints the live view
-from linecast._radar.render import _bbox_key, build_radar_buffer
-from linecast._radar.ui import _get_basemap
+from linecast.radar.render import _bbox_key, build_radar_buffer
+from linecast.radar.ui import _get_basemap
 from linecast._runtime import debug_log, log_failure
 
 MAX_REWIND_MIN = 180  # how far back scrubbing can go (IEM; tile sources

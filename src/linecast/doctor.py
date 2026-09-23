@@ -61,7 +61,7 @@ def providers():
     from linecast._elevation import tile_url as elevation_tile_url
     from linecast._maps.route import _FALLBACK as OSRM_FALLBACK, _PRIMARY as OSRM_PRIMARY
     from linecast._maps.search import NOMINATIM_URL, PHOTON_URL
-    from linecast._radar.tiles import LIBREWXR_DEFAULT_URL
+    from linecast.radar.tiles import LIBREWXR_DEFAULT_URL
     from linecast._tides.chs import CHS_BASE
     from linecast._tides.hko import HKO_BASE
     from linecast._tides.qld import QLD_BASE

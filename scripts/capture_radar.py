@@ -7,7 +7,7 @@ terminal frames.  Slowing the live loop here lets ``capture_screenshots.sh``
 sample every downloaded weather frame before re-encoding at the README speed.
 """
 
-from linecast._radar import live as _radar_live
+from linecast.radar import live as _radar_live
 
 _radar_live.RadarApp.play_interval = 0.5
 

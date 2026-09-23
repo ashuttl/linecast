@@ -12,10 +12,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._radar import sources
-from linecast._radar import tiles
-from linecast._radar.source import _floor_step, frame_times
-from linecast._radar.sources import (
+from linecast.radar import sources
+from linecast.radar import tiles
+from linecast.radar.source import _floor_step, frame_times
+from linecast.radar.sources import (
     DEFAULT_THEME, Frame, IEMSource, LibreWXRSource, RainViewerSource,
     RV_THEMES, THEMES, _in_conus, get_source, has_radar, theme_id,
 )

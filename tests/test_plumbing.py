@@ -36,7 +36,7 @@ class AtomicWriteTests(unittest.TestCase):
 
 class RadarPruneTests(unittest.TestCase):
     def test_prunes_only_old_tiles(self):
-        from linecast._radar import tiles
+        from linecast.radar import tiles
         with tempfile.TemporaryDirectory() as tmpdir:
             pdir = Path(tmpdir) / "radar" / "lwxr"
             pdir.mkdir(parents=True)
@@ -54,7 +54,7 @@ class RadarPruneTests(unittest.TestCase):
             self.assertTrue(index.exists())  # index is TTL-managed, not swept
 
     def test_missing_cache_dir_is_fine(self):
-        from linecast._radar import tiles
+        from linecast.radar import tiles
         with tempfile.TemporaryDirectory() as tmpdir:
             missing = os.path.join(tmpdir, "nope")
             with patch.dict(os.environ, {"LINECAST_CACHE_DIR": missing}):

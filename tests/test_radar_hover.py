@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast.radar import (
+from linecast.radar.view import (
     _point_in_rings, _fmt_expire, _build_warning_tooltip,
 )
 

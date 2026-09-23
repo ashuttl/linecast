@@ -136,7 +136,8 @@ def test_static_sky_does_not_advertise_inactive_controls(monkeypatch):
 @pytest.mark.parametrize('cols', [40, 80, 140])
 def test_map_and_radar_footer_hints_reach_the_last_column(monkeypatch, view, lang, cols):
     from types import SimpleNamespace
-    from linecast import maps, radar
+    from linecast import maps
+    from linecast.radar import view as radar
     runtime = RuntimeConfig(live=True, icons='plain', lang=lang, oneline=False)
     module = maps if view == 'maps' else radar
     monkeypatch.setattr(module, 'get_terminal_size', lambda: (cols, 24))

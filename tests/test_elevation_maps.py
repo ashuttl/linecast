@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from linecast import _color, _elevation
 from linecast._color import BG_PRIMARY
 from linecast._elevation import decode_meters, elevation_grid
-from linecast._radar.basemap import BORDER, COAST
+from linecast.radar.basemap import BORDER, COAST
 from linecast.maps import (
     COAST_STROKE, BORDER_STROKE, LAKE_FILL,
     _coast_dots, _edge_dots, _water_subpixels, build_terrain_buffer,

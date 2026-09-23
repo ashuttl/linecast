@@ -6,12 +6,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-import linecast._radar.warnings as warn_mod
-from linecast._radar.warnings import (
+import linecast.radar.warnings as warn_mod
+from linecast.radar.warnings import (
     covers, cached_at, warnings_at, WARNING_COLORS, EMERGENCY, _parse,
 )
-from linecast._radar.basemap import DotLayer
-from linecast._radar.render import compose
+from linecast.radar.basemap import DotLayer
+from linecast.radar.render import compose
 from linecast._scenes import Memo
 
 

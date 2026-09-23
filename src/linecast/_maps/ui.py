@@ -41,7 +41,7 @@ from linecast._maps.route import ATTRIBUTION as ROUTE_ATTRIBUTION
 from linecast import _theme
 from linecast._theme import ensure_contrast, surface_bg
 from linecast._vtiles import ATTRIBUTION as TILE_ATTRIBUTION
-from linecast._radar.ui import CROSSHAIR, DIM, MUTED
+from linecast.radar.ui import CROSSHAIR, DIM, MUTED
 from linecast._runtime import log_failure
 
 MIN_CHARS = 2          # below this, asking is noise for both of us

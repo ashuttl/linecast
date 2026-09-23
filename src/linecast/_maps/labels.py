@@ -44,7 +44,7 @@ import heapq
 
 from linecast._maps import globe as _globe
 from linecast._maps import places, style
-from linecast._radar.basemap import _bresenham, marine_region
+from linecast.radar.basemap import _bresenham, marine_region
 from linecast._textwidth import char_width, visible_len
 from linecast._vtiles import iter_layer
 from linecast._i18n import base_language

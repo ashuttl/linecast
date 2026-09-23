@@ -8,10 +8,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._radar import frames as rf
-from linecast._radar import live as _radar_live
-from linecast._radar.live import RadarApp
-from linecast._radar.ui import ThemePicker
+from linecast.radar import frames as rf
+from linecast.radar import live as _radar_live
+from linecast.radar.live import RadarApp
+from linecast.radar.ui import ThemePicker
 
 
 class FakeSource:

@@ -82,7 +82,7 @@ from linecast._theme import (
     surface_bg,
     theme_legacy_mode,
 )
-from linecast._radar.i18n import rs
+from linecast.radar.i18n import rs
 from linecast._ephemeris import (
     _moon_altitude_deg, _moon_azimuth_deg, _moon_events_for_local_date,
     _moon_parallactic_deg, _moon_ra_dec, _moon_transits_for_local_date,

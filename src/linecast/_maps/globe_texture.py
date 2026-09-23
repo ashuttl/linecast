@@ -51,8 +51,8 @@ from linecast._maps import style
 from linecast._color import BG_PRIMARY, color_mode
 from linecast._live import nudge as _nudge_repaint
 from linecast._paths import cache_dir, data_path
-from linecast._radar.basemap import _BITS, DotLayer, _bresenham, _load_data
-from linecast._radar.tiles import _TILE_SIZE
+from linecast.radar.basemap import _BITS, DotLayer, _bresenham, _load_data
+from linecast.radar.tiles import _TILE_SIZE
 from linecast._runtime import log_failure
 from linecast._scenes import Memo
 

@@ -20,7 +20,7 @@ from linecast import _color
 from linecast._maps import globe
 from linecast._maps import style
 from linecast._framebuffer import HALF_BLOCK
-from linecast._radar.render import bbox_for
+from linecast.radar.render import bbox_for
 from linecast.maps import (
     LABEL_DARK, LABEL_LIGHT, MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP,
     _view_key, compose_map, fit_view, max_zoom,
