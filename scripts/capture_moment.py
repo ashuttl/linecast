@@ -51,7 +51,7 @@ def main() -> None:
                 return cls.fromtimestamp(moment.timestamp())
             return cls.fromtimestamp(moment.timestamp(), tz)
 
-    module = importlib.import_module(f"linecast.{args.app}")
+    module = importlib.import_module(f"linecast.{args.app}.view")
     module.datetime = FixedDateTime
     lat, lng = args.location
     module.get_location = lambda: (lat, lng, "US")

@@ -175,7 +175,7 @@ class ScriptModeStdlibShadowTests(unittest.TestCase):
         self.assertEqual(result.stderr, "")
 
     def test_running_a_command_file_directly_keeps_the_stdlib_calendar(self):
-        """python src/linecast/moon.py must not shadow stdlib modules.
+        """python src/linecast/__main__.py must not shadow stdlib modules.
 
         Running a file inside the package as a script puts the package
         directory itself first on sys.path, so a module named after a

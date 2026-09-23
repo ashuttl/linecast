@@ -1,4 +1,4 @@
-"""Regenerate GAUGE_COORDS in src/linecast/_tides/qld.py.
+"""Regenerate GAUGE_COORDS in src/linecast/tides/qld.py.
 
 The Queensland portal's "predicted interval data" gauge packages carry
 no coordinates.  Where a package has a description file (the standard
