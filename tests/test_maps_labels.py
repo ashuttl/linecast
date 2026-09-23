@@ -1059,3 +1059,19 @@ class TestWaterNames:
         big = layer("park", [feature(WHOLE, tags=(0, 0))],
                     keys=("name",), values=(vstr("City Park"),))
         assert "C I T Y   P A R K" in all_text(overlays(big, band=7))
+
+
+class TestNameInTheReadersScript:
+    def test_a_local_name_in_the_readers_script_beats_the_transliteration(self):
+        from linecast.maps.labels import _name
+        props = {"name": "خیابان فردوسی", "name:latin": "Ferdosi Street"}
+        assert _name(props, "fa") == "خیابان فردوسی"
+        assert _name(props, "en") == "Ferdosi Street"
+        kyiv = {"name": "Хрещатик", "name:latin": "Khreshchatyk"}
+        assert _name(kyiv, "ru") == "Хрещатик"
+        assert _name(kyiv, "fa") == "Khreshchatyk"
+
+    def test_the_readers_own_language_still_comes_first(self):
+        from linecast.maps.labels import _name
+        props = {"name": "Тбилиси", "name:fa": "تفلیس", "name:latin": "Tbilisi"}
+        assert _name(props, "fa") == "تفلیس"

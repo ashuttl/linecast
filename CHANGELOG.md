@@ -19,6 +19,7 @@ New this version:
   - Wind speeds are in metres per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, and Czech, as local forecasts give them.
   - The place name in the header sits in a chip, as it does in tides, and the rest of the header is spaced more evenly.
 - Maps:
+  - Where a street or place has no name in the display language, its local name comes before the Latin transliteration when it is in the reader's script: خیابان فردوسی, not Ferdosi Street, for a Persian reader in Tehran; Хрещатик for a Russian reader in Kyiv.
   - The street and terrain maps curve like the globe once a view is a few degrees wide, so zooming out to the planet is smooth instead of a sudden switch. Close street views are unchanged.
   - City names stay the same when zooming out to the globe, and regional views name more towns.
   - The view moves smoothly: zooming eases, a drag coasts to a stop, `w a s d` slide the view, and searching or following directions flies to the place. Terrain keeps the last map on screen while the next one loads.
@@ -31,7 +32,7 @@ New this version:
   - City lights on the night side of the globe and the terrain map come from NASA's Black Marble image of the Earth at night, bundled with linecast. They fade out as you zoom in.
   - Only lakes at least a few cells across get a braille coastline, so lake country no longer looks like a field of little rings. Smaller ponds are still drawn as water.
 - Language:
-  - linecast speaks Persian (`fa`), used automatically by a Persian terminal locale. The forecast is written the way Iran's meteorological service writes it, numbers are in Persian digits (`LINECAST_DIGITS=latin` for 0–9), and the sky names its constellations and many of its stars in Persian. A native reader has not checked it yet; if something reads oddly, please open an [issue](https://github.com/ashuttl/linecast/issues).
+  - linecast speaks Persian (`fa`), used automatically by a Persian terminal locale. The forecast is written the way Iran's meteorological service writes it, numbers are in Persian digits (`linecast digits latin` for 0–9), dates are in the Solar Hijri calendar (`linecast dates gregorian` for the Gregorian), and the sky names its constellations and many of its stars in Persian. A native reader has not checked it yet; if something reads oddly, please open an [issue](https://github.com/ashuttl/linecast/issues).
   - In Persian, weather, tides, the Moon, and sunshine read from the right: text is anchored to the right edge, and the graphs run right to left, with now at the right. `←` moves forward in time. Maps, radar, the sky, and the Moon itself are not mirrored.
   - In Persian, durations are written in words (۶ ساعت و ۷ دقیقه) rather than with English unit letters.
   - linecast speaks Hong Kong Chinese (`zh-HK`), used automatically by a Hong Kong or Macau terminal locale. It uses the Hong Kong Observatory's words for the weather (天晴, 大致多雲, 密雲, 驟雨, 雷暴, 警告) and Hong Kong's everyday words. Traditional Chinese otherwise follows Taiwan, as before.

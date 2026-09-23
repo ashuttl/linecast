@@ -455,11 +455,38 @@ _NAME_KEYS = {"zh-Hant": ("name:zh-Hant", "name:zh"),
               "zh-HK": ("name:zh-HK", "name:zh-Hant", "name:zh")}
 
 
+# The script each language that is not written in Latin letters reads,
+# as the first word of a letter's Unicode name.
+_SCRIPT_OF = {"fa": "ARABIC", "ru": "CYRILLIC", "uk": "CYRILLIC", "el": "GREEK",
+              "th": "THAI", "ko": "HANGUL", "ja": "CJK", "zh": "CJK", "zh-Hant": "CJK"}
+
+
+def _script_of(text):
+    """The first word of the Unicode name of the first letter of
+    `text`, which names its script: ARABIC, CYRILLIC, GREEK."""
+    import unicodedata
+    for ch in text:
+        if ch.isalpha():
+            return unicodedata.name(ch, "").split(" ")[0]
+    return ""
+
+
 def _name(props, lang):
     """The localised name, or "" — placenames are never machine
-    translated, so this only ever picks a name the data already has."""
+    translated, so this only ever picks a name the data already has.
+    With no name in the reader's language, a local name in the reader's
+    own script comes before the Latin transliteration: خیابان فردوسی,
+    not Ferdosi Street, for a Persian reader in Tehran."""
     own = _NAME_KEYS.get(lang, (f"name:{lang}", f"name:{base_language(lang)}"))
-    for key in (*own, "name:latin", "name"):
+    for key in own:
+        value = props.get(key)
+        if value:
+            return str(value)
+    local = props.get("name")
+    script = _SCRIPT_OF.get(base_language(lang))
+    if local and script and _script_of(str(local)) == script:
+        return str(local)
+    for key in ("name:latin", "name"):
         value = props.get(key)
         if value:
             return str(value)
