@@ -24,8 +24,8 @@ def _utc(*args):
 
 
 class TestSeasonEvents:
-    # Published almanac times (UTC); the series should land within a few
-    # minutes, which the display rounds away entirely.
+    # Published almanac times (UTC), to the minute.  The series less ΔT
+    # lands within a minute of them; without ΔT it was a minute late.
     KNOWN = [
         (2000, MARCH_EQUINOX, _utc(2000, 3, 20, 7, 35)),
         (2000, JUNE_SOLSTICE, _utc(2000, 6, 21, 1, 48)),
@@ -41,7 +41,7 @@ class TestSeasonEvents:
         for year, event, expected in self.KNOWN:
             with subtests.test(year=year, event=event):
                 got = season_event_utc(year, event)
-                assert abs((got - expected).total_seconds()) < 15 * 60
+                assert abs((got - expected).total_seconds()) < 60
 
     def test_next_event_walks_the_year(self):
         event, when = next_season_event(_utc(2026, 8, 25))

@@ -2,9 +2,9 @@
 
 The equinox and solstice instants come from the series in Meeus,
 *Astronomical Algorithms*, chapter 27 — valid 1000–3000 CE and good to
-a minute or so.  The result is nominally Terrestrial Time; the ~minute
-of offset from UTC is ignored, consistent with the moon command's
-mean-synodic phase math.
+a minute or so.  The series gives Terrestrial Time, which runs about 69
+seconds ahead of UTC today; ΔT is taken off, so the instants are UTC,
+as Nowruz's moment of تحویل سال must be (_calendars.solar_hijri).
 
 Full moon names follow the Old Farmer's Almanac: one traditional name
 per month, except that the full moon nearest the September equinox is
@@ -46,6 +46,42 @@ _PERIODIC = (
 
 _UNIX_EPOCH_JD = 2440587.5
 
+# ΔT = TT − UT in seconds, at the start of each fifth year, from the
+# IERS and Meeus's table 10.A; linear between them.
+_DELTA_T = (
+    (1900, -2.7), (1905, 3.9), (1910, 10.5), (1915, 17.2), (1920, 21.2),
+    (1925, 23.6), (1930, 24.0), (1935, 23.9), (1940, 24.3), (1945, 26.8),
+    (1950, 29.2), (1955, 31.1), (1960, 33.2), (1965, 35.7), (1970, 40.2),
+    (1975, 45.5), (1980, 50.5), (1985, 54.3), (1990, 56.9), (1995, 60.8),
+    (2000, 63.8), (2005, 64.7), (2010, 66.1), (2015, 67.6), (2020, 69.4),
+    (2025, 69.2),
+)
+
+
+def _parabola(year):
+    """Morrison and Stephenson's long-term ΔT, in seconds."""
+    u = (year - 1820) / 100.0
+    return -20.0 + 32.0 * u * u
+
+
+def delta_t(year):
+    """ΔT in seconds at a fractional *year*.
+
+    Past the table the parabola carries the trend, anchored to the
+    table's ends so the two meet; ΔT a century out is uncertain by
+    minutes, which is the limit on how far ahead a year near the noon
+    line can be called.
+    """
+    first, last = _DELTA_T[0], _DELTA_T[-1]
+    if year <= first[0]:
+        return first[1] + _parabola(year) - _parabola(first[0])
+    if year >= last[0]:
+        return last[1] + _parabola(year) - _parabola(last[0])
+    for (y0, v0), (y1, v1) in zip(_DELTA_T, _DELTA_T[1:]):
+        if year <= y1:
+            return v0 + (v1 - v0) * (year - y0) / (y1 - y0)
+    raise AssertionError("unreachable")
+
 
 def season_event_utc(year, event):
     """The UTC instant of an equinox or solstice in the given year."""
@@ -58,7 +94,8 @@ def season_event_utc(year, event):
     s = sum(pa * math.cos(math.radians(pb + pc * t)) for pa, pb, pc in _PERIODIC)
     jde = jde0 + 0.00001 * s / dlam
     return (datetime(1970, 1, 1, tzinfo=timezone.utc)
-            + timedelta(days=jde - _UNIX_EPOCH_JD))
+            + timedelta(days=jde - _UNIX_EPOCH_JD)
+            - timedelta(seconds=delta_t(year + 0.21 + 0.25 * event)))
 
 
 def next_season_event(dt):
