@@ -377,8 +377,12 @@ def _collect_bidi(env):
     if mode == "terminal":
         known = None if env.get("LINECAST_BIDI") else _bidi.orders_text_itself(env)
         who = known or "the terminal (LINECAST_BIDI=terminal)"
-        return (f"{who} orders each piece and joins the letters, where linecast "
-                "lays it out; if Persian, Arabic, or Hebrew reads backwards, the "
+        text = f"{who} orders each piece and joins the letters, where linecast lays it out"
+        if known in _bidi.MISPLACES_TEXT:
+            return (text + f"; {known} draws what follows right-to-left text too far "
+                    "right, which linecast cannot correct: for Persian, Arabic, or "
+                    "Hebrew, use another terminal")
+        return (text + "; if Persian, Arabic, or Hebrew reads backwards, the "
                 "terminal's own bidi rendering is off: set LINECAST_BIDI=linecast")
     text = "linecast orders and joins the letters, and asks the terminal to draw them as sent"
     if env.get("TMUX"):

@@ -420,6 +420,12 @@ class TestKnownTerminals:
         assert _bidi.orders_text_itself({"KONSOLE_VERSION": "260801"}) == "Konsole"
         assert _bidi.orders_text_itself({}) is None
 
+    def test_apple_terminal_by_its_variable(self):
+        # It gives no name when asked
+        assert _bidi.orders_text_itself({"TERM_PROGRAM": "Apple_Terminal"}) == "Terminal.app"
+        assert _bidi.bidi_mode({"TERM_PROGRAM": "Apple_Terminal"}) == "terminal"
+        assert _bidi.orders_text_itself({"TERM_PROGRAM": "iTerm.app"}) is None
+
     def test_the_setting_beats_the_name(self, monkeypatch):
         self._named(monkeypatch, "Konsole 26.08.1")
         assert _bidi.bidi_mode({"LINECAST_BIDI": "linecast"}) == "linecast"

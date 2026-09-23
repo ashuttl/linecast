@@ -411,3 +411,9 @@ class TestRightToLeft:
         assert _collect_bidi({"KONSOLE_VERSION": "250401"}).startswith("Konsole orders")
         assert "LINECAST_BIDI=linecast" in _collect_bidi({"KONSOLE_VERSION": "250401"})
         assert "allow-passthrough" in _collect_bidi({"TMUX": "/tmp/tmux-1000/default,1,0"})
+
+    def test_says_apple_terminal_misplaces_the_text(self):
+        from linecast.doctor import _collect_bidi
+        text = _collect_bidi({"TERM_PROGRAM": "Apple_Terminal"})
+        assert text.startswith("Terminal.app orders")
+        assert "another terminal" in text

@@ -164,9 +164,19 @@ def bidi_mode(environ=None):
 # are logical.  Nor do marks around display-ordered text serve both: in
 # Konsole LRM or LRO keeps the order but the letters are reshaped wrongly,
 # and Alacritty draws the marks.  So a terminal is recognized by name.
+# Each entry: the name, the variable, and the value it must have (None
+# for any).  Apple's Terminal gives no name when asked, and orders each
+# line itself; it also draws whatever follows a run of right-to-left text
+# too far right, n - 1 columns for a run of n cells and one for each
+# zero-width mark on the line, with the backgrounds left in place.  Its
+# words read right in the isolates; that drift stays.
 _ORDERS_TEXT_ITSELF = (
-    ("Konsole", "KONSOLE_VERSION"),
+    ("Konsole", "KONSOLE_VERSION", None),
+    ("Terminal.app", "TERM_PROGRAM", "Apple_Terminal"),
 )
+# The ones among them that draw right-to-left text out of place, which
+# doctor says plainly
+MISPLACES_TEXT = ("Terminal.app",)
 # Multiplexers answer XTVERSION themselves; the terminal around them is
 # the one that draws, known only by the variables it left behind.
 _MULTIPLEXERS = ("tmux", "screen", "zellij")
@@ -181,13 +191,14 @@ def orders_text_itself(environ=None):
     from linecast import _term
     env = os.environ if environ is None else environ
     said = (_term.terminal_name or "").lower()
-    for name, _variable in _ORDERS_TEXT_ITSELF:
+    for name, _variable, _value in _ORDERS_TEXT_ITSELF:
         if said.startswith(name.lower()):
             return name
     if said and not said.startswith(_MULTIPLEXERS):
         return None
-    for name, variable in _ORDERS_TEXT_ITSELF:
-        if env.get(variable):
+    for name, variable, value in _ORDERS_TEXT_ITSELF:
+        have = env.get(variable)
+        if have and (value is None or have == value):
             return name
     return None
 
