@@ -401,8 +401,9 @@ class TestJMAAlerts:
             for key in ("event", "headline", "description", "severity", "effective", "expires",
                         "url"):
                 assert key in a, f"Missing normalized key: {key}"
-        # Active warning codes should be deduped across areas.
-        assert len(alerts) == 3
+        # Tokyo's own area only: its lifted dry-air watch is not active,
+        # and Kanagawa's high-wind watch is another prefecture's.
+        assert [a["event"] for a in alerts] == ["Heavy Rain Warning", "Heavy Rain Watch"]
         assert alerts[0]["severity"] == "Severe"
         assert alerts[0]["event"] == "Heavy Rain Warning"
         assert alerts[0]["headline"] == "Heavy Rain Warning"
@@ -415,11 +416,45 @@ class TestJMAAlerts:
         with patch("linecast.weather.sources.fetch_json_cached", return_value=self.data):
             alerts = _fetch_alerts_jma(35.6764, 139.6500, lang="ja")
         assert isinstance(alerts, list)
-        assert len(alerts) == 3
+        assert len(alerts) == 2
         # In Japanese mode, event names are localized and headline uses JMA headline text.
         assert alerts[0]["event"] == "大雨警報"
         assert alerts[0]["headline"] == self.data["headlineText"]
         assert alerts[0]["description"] == self.data["headlineText"]
+
+    def _alerts_with_urls(self, lat, lng, address=None, data=None):
+        from linecast.weather import sources as ws
+        urls = []
+
+        def cached(cache_file, max_age, url, **kwargs):
+            urls.append(url)
+            return None if url.endswith("area.json") else (data or self.data)
+
+        with patch.object(ws, "fetch_json_cached", side_effect=cached), \
+                patch.object(ws, "write_cache"):
+            alerts = ws._fetch_alerts_jma(lat, lng, lang="en", address=address)
+        return alerts, urls
+
+    def test_the_address_prefecture_picks_the_office_and_its_areas(self):
+        # Tokyo's coordinates, but the address says Kanagawa
+        alerts, urls = self._alerts_with_urls(
+            35.6764, 139.6500, {"city": "架空市", "ISO3166-2-lvl4": "JP-14"})
+        assert urls[-1].endswith("/140000.json")
+        assert [a["event"] for a in alerts] == ["Heavy Rain Warning", "High Wind Watch"]
+
+    def test_a_file_with_no_area_in_the_prefecture_is_read_whole(self):
+        data = dict(self.data, areaTypes=[{"areas": [
+            a for t in self.data["areaTypes"] for a in t["areas"] if a["code"] == "140000"]}])
+        alerts, _urls = self._alerts_with_urls(35.6764, 139.6500, data=data)
+        assert [a["event"] for a in alerts] == ["Heavy Rain Warning", "High Wind Watch"]
+
+    def test_the_prefecture_overrides_a_nearer_neighbouring_office(self):
+        from linecast.weather.sources import _jma_office_for_coords
+        # Kawaguchi, Saitama, is nearer Tokyo's office than Saitama's
+        assert _jma_office_for_coords(35.81, 139.72) == "130000"
+        assert _jma_office_for_coords(35.81, 139.72, "11") == "110000"
+        # Hokkaido has eight offices; the nearest of them is Sapporo's
+        assert _jma_office_for_coords(43.06, 141.35, "01") == "016000"
 
 
 class TestJMAAreaFilter:

@@ -1531,13 +1531,29 @@ _JMA_AREA_URL = "https://www.jma.go.jp/bosai/common/const/area.json"
 _JMA_AREA_MAX_AGE = 30 * 86400
 
 
-def _jma_office_for_coords(lat, lng):
-    """Find the nearest JMA office code for given coordinates."""
+def _jma_prefecture(address):
+    """The two-digit prefecture code of a Nominatim address (JP-13 is
+    Tokyo), which JMA's area codes begin with, or ""."""
+    region = str((address or {}).get("ISO3166-2-lvl4", ""))
+    code = region[3:]
+    if region.startswith("JP-") and len(code) == 2 and code.isdigit():
+        return code
+    return ""
+
+
+def _jma_office_for_coords(lat, lng, prefecture=""):
+    """Find the nearest JMA office code for given coordinates.
+
+    With a prefecture, the nearest of that prefecture's offices: the
+    nearest office overall can be the neighbour's for a reader near a
+    border (Kawaguchi, in Saitama, is nearer Tokyo's office than its own).
+    """
     import math
     cos_lat = math.cos(math.radians(lat))
+    offices = [o for o in _JMA_OFFICES if o[2].startswith(prefecture)] or _JMA_OFFICES
     best_code = "130000"
     best_dist = float("inf")
-    for olat, olng, code in _JMA_OFFICES:
+    for olat, olng, code in offices:
         dlat = lat - olat
         dlng = (lng - olng) * cos_lat
         dist = dlat * dlat + dlng * dlng
@@ -1571,8 +1587,7 @@ def _jma_area_for_address(address, office_code):
     names = [n for n in names if isinstance(n, str) and n]
     if not names:
         return None
-    region = str(address.get("ISO3166-2-lvl4", ""))
-    prefecture = region[3:] if region.startswith("JP-") and region[3:].isdigit() else ""
+    prefecture = _jma_prefecture(address)
 
     table = fetch_json_cached(
         cache_dir("weather") / "jma_areas.json", _JMA_AREA_MAX_AGE, _JMA_AREA_URL,
@@ -1654,11 +1669,13 @@ def _jma_headline_for(headline, names):
 def _fetch_alerts_jma(lat, lng, lang="en", address=None):
     """Fetch active JMA weather warnings (Japan). Cached 15min.
 
-    The warnings are the reader's municipality's when the address names
-    one the office's file lists; otherwise the whole office's, every
-    area's warnings pooled.
+    The office is the nearest in the address's prefecture, or the
+    nearest outright without one. The warnings are the reader's
+    municipality's when the address names one the office's file lists;
+    otherwise every area's in the office's prefecture, pooled, or every
+    area's in the file when none of its codes carry the prefecture.
     """
-    office_code = _jma_office_for_coords(lat, lng)
+    office_code = _jma_office_for_coords(lat, lng, _jma_prefecture(address))
     area = _jma_area_for_address(address, office_code)
     if area:
         office_code = area["office"]
@@ -1680,11 +1697,15 @@ def _fetch_alerts_jma(lat, lng, lang="en", address=None):
     use_ja = lang == "ja"
 
     rows = [a for t in data.get("areaTypes") or [] for a in t.get("areas") or []]
+    mine = []
     if area:
         mine = [r for r in rows if r.get("code") in area["codes"]]
         if mine:
-            rows = mine
             headline = _jma_headline_for(headline, area["names"])
+    if not mine:
+        # an area code's first two digits are its prefecture
+        mine = [r for r in rows if str(r.get("code", "")).startswith(office_code[:2])]
+    rows = mine or rows
 
     active_codes = set()
     for row in rows:
