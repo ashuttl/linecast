@@ -17,7 +17,7 @@ from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import (
     fmt_wind, _precip_s,
     DAY_NAMES, DAY_SPAN_FORMS, FULL_DAY_NAMES, ON_DAY_FORMS, ON_FULL_DAY_FORMS,
-    wmo_label,
+    PRECIP_RUN_DESCS_I18N, wmo_label,
     _PRECIP_DESCS_I18N, _PRECIP_PARTITIVES_I18N, _STRINGS, _s, _wmo_icons,
 )
 from linecast.weather import style as _weather_style
@@ -1516,8 +1516,7 @@ _HEAVY_DAY_MM = 25.0
 _HEAVIER = {61: 65, 63: 65, 80: 82, 81: 82, 71: 75, 73: 75, 85: 86}
 
 # A run of wet days is named by what falls, not how hard, since the days
-# differ; its wettest day is named apart.  Rain and showers over the same
-# days are rain.
+# differ; its wettest day is named apart.
 _KIND_NOUN = {
     51: 53, 53: 53, 55: 53, 56: 56, 57: 56,
     61: 63, 63: 63, 65: 63, 66: 66, 67: 66,
@@ -1525,7 +1524,10 @@ _KIND_NOUN = {
     71: 73, 73: 73, 75: 73, 77: 77, 85: 85, 86: 85,
     95: 95, 96: 95, 99: 95,
 }
-_KIND_MIXES = {frozenset({63, 81}): 63, frozenset({73, 85}): 73}
+# Kinds that are shades of another in the same run, in the order they
+# fold: drizzle days in a run of rain or showers, shower days in a run of
+# rain, snow showers and grains in a run of snow.
+_KIND_FOLDS = ((53, (63, 81)), (81, (63,)), (85, (73,)), (77, (73,)))
 
 # The wettest day of a run is named when it holds half again what any
 # other day does and is heavy by its hours or its total.
@@ -1572,9 +1574,8 @@ def _next_rain(daily, now, runtime, hourly=None, after=None):
             wet = _wet_day(hourly or {}, day, floor, far=offset > 2)
             if wet is None:
                 # Without the hours, the day's own code says what falls.
-                # A wet tomorrow has no time of day to give it then, and
-                # no language has a bare "tomorrow" to say instead, so it
-                # goes unsaid.
+                # A wet tomorrow has no time of day to give it then, so
+                # it goes unsaid.
                 if offset == 1:
                     return "", None
                 noon = datetime.combine(day, now.time().replace(
@@ -1592,29 +1593,116 @@ def _next_rain(daily, now, runtime, hourly=None, after=None):
         return "", None
     at = datetime.combine(run[0][0], now.time().replace(hour=12, minute=0, second=0,
                                                          microsecond=0))
-    lang = runtime.lang
     if len(run) == 1:
         _, first, code, best, _, _ = run[0]
         if first.date() == (now + timedelta(days=1)).date():
             when = _time_phrase(first, now, runtime, after=after)
         else:
             when = _on_full_day(first, runtime)
-    else:
-        nouns = {_KIND_NOUN.get(r[2], r[2]) for r in run}
-        wettest = max(run, key=lambda r: r[4])
-        code = (nouns.pop() if len(nouns) == 1
-                else _KIND_MIXES.get(frozenset(nouns), _KIND_NOUN.get(wettest[2], wettest[2])))
-        best = min(r[3] for r in run)
-        when = _day_span([r[0] for r in run], runtime)
-    desc = _precip_descs(lang).get(code, _PRECIP_DESCS.get(code, "rain"))
+        desc = _run_desc(code, 1, runtime)
+        key = ("rain_next_chance" if best < _PRECIP_CHANCE_BELOW
+               else "rain_next_likely" if best < _PRECIP_LIKELY_BELOW else "rain_next")
+        return _ucfirst(_precip_s(key, code, runtime, desc=desc, time=when)), at
+    return _ucfirst(_run_sentence(run, now, runtime)), at
+
+
+def _run_kinds(run):
+    """The kind each day of a run is named by: a shade of another kind in
+    the run folds into it, so rain and showers over the same days are
+    rain, and drizzle among them is too."""
+    kinds = [_KIND_NOUN.get(r[2], r[2]) for r in run]
+    for kind, into in _KIND_FOLDS:
+        present = [k for k in into if k in kinds]
+        if kind in kinds and present:
+            kinds = [present[0] if k == kind else k for k in kinds]
+    return kinds
+
+
+def _run_sentence(run, now, runtime):
+    """"Rain likely from Friday to Sunday, heaviest on Sunday with
+    thunderstorms", "Rain on Friday, then snow on Saturday and Sunday":
+    a run of wet days named by what falls, hedged by the least certain
+    day, turning where what falls turns, with its wettest day named
+    after.  Thunder comes with the rain around it, so it is said of its
+    own days, and names the run only when every day has it."""
+    kinds = _run_kinds(run)
+    days = [r[0] for r in run]
+    thunder = []
+    if any(k != 95 for k in kinds):
+        thunder = [d for d, k in zip(days, kinds) if k == 95]
+        # A day of thunder falls in with the rain before it, or after it
+        # when it leads
+        for i in range(len(kinds)):
+            if kinds[i] == 95:
+                kinds[i] = next((k for k in kinds[i::-1] if k != 95), None) \
+                    or next(k for k in kinds[i:] if k != 95)
+    blocks = []
+    for day, kind in zip(days, kinds):
+        if blocks and blocks[-1][0] == kind:
+            blocks[-1][1].append(day)
+        else:
+            blocks.append((kind, [day]))
+
+    code, first = blocks[0]
+    best = min(r[3] for r in run)
+    desc = _run_desc(code, len(first), runtime)
     key = ("rain_next_chance" if best < _PRECIP_CHANCE_BELOW
            else "rain_next_likely" if best < _PRECIP_LIKELY_BELOW else "rain_next")
-    sentence = _precip_s(key, code, runtime, desc=desc, time=when)
-    if len(run) > 1 and wettest[5] and all(
-            wettest[4] >= _HEAVIEST_BY * r[4] for r in run if r is not wettest):
-        sentence = _precip_s("rain_run_heaviest", code, runtime, desc=desc,
-                             sentence=sentence, day=_on_full_day(wettest[0], runtime))
-    return _ucfirst(sentence), at
+    sentence = _precip_s(key, code, runtime, desc=desc, time=_days_phrase(first, now, runtime))
+    for kind, block in blocks[1:]:
+        sentence = _precip_s("rain_run_then", code, runtime, desc=desc, sentence=sentence,
+                             day=_days_phrase(block, now, runtime),
+                             **_with(kind, len(block), runtime))
+
+    wettest = max(run, key=lambda r: r[4])
+    heaviest = wettest[5] and all(
+        wettest[4] >= _HEAVIEST_BY * r[4] for r in run if r is not wettest)
+    if heaviest and thunder == [wettest[0]]:
+        # The wettest day is the day of thunder: said together
+        return _precip_s("rain_run_heaviest_with", code, runtime, desc=desc,
+                         sentence=sentence, day=_on_day(wettest[0], now, runtime),
+                         **_with(95, 2, runtime))
+    if heaviest:
+        sentence = _precip_s("rain_run_heaviest", code, runtime, desc=desc, sentence=sentence,
+                             day=_on_day(wettest[0], now, runtime))
+    if thunder:
+        sentence = _precip_s("rain_run_with", code, runtime, desc=desc, sentence=sentence,
+                             day=_days_phrase(thunder, now, runtime), **_with(95, 2, runtime))
+    return sentence
+
+
+def _days_phrase(days, now, runtime):
+    """One day as "on Friday" or "tomorrow", several as a span."""
+    if len(days) == 1:
+        return _on_day(days[0], now, runtime)
+    return _day_span(days, now, runtime)
+
+
+def _run_desc(code, days, runtime):
+    """The noun for `code` in the week sentence, counted where the
+    language counts it over several days."""
+    lang = runtime.lang
+    if days > 1:
+        for tag in fallbacks(lang):
+            plural = PRECIP_RUN_DESCS_I18N.get(tag, {}).get(code)
+            if plural:
+                return plural
+    return _precip_descs(lang).get(code, _PRECIP_DESCS.get(code, "rain"))
+
+
+def _with(code, days, runtime):
+    """The nouns a clause after the run names, "with thunderstorms",
+    "then snow": bare as {with}, and as {with_art} in the form its
+    language takes there."""
+    desc = _run_desc(code, days, runtime)
+    return {"with": desc, "with_art": _precip_partitives(runtime.lang).get(code, desc)}
+
+
+def _on_day(day, now, runtime):
+    """"on Friday", or "tomorrow" when it is."""
+    if day == (now + timedelta(days=1)).date():
+        return _s("on_tomorrow", runtime)
+    return _on_full_day(day, runtime)
 
 
 def _on_full_day(day, runtime):
@@ -1629,10 +1717,12 @@ def _on_full_day(day, runtime):
     return _s("on_full_day", runtime, day=name)
 
 
-def _day_span(days, runtime):
+def _day_span(days, now, runtime):
     """A run of days by name: "on Thursday and Friday" for two, "from
-    Saturday to Monday" for more.  Each day takes the form its place in
-    the phrase asks of it where the language declines the days."""
+    Saturday to Monday" for more, and "tomorrow and Friday", "from
+    tomorrow to Saturday" when it starts tomorrow.  Each day takes the
+    form its place in the phrase asks of it where the language declines
+    the days."""
     lang = runtime.lang
     names = table_for(FULL_DAY_NAMES, lang)
     forms = {}
@@ -1643,6 +1733,11 @@ def _day_span(days, runtime):
     def form(day, role):
         return forms.get(role, {}).get(day.weekday(), names[day.weekday()])
 
+    if days[0] == (now + timedelta(days=1)).date():
+        # After "tomorrow" the day stands as it would first in a pair
+        if len(days) == 2:
+            return _s("tomorrow_and_day", runtime, second=form(days[1], "and_first"))
+        return _s("from_tomorrow_to_day", runtime, last=form(days[-1], "to"))
     if len(days) == 2:
         return _s("on_two_days", runtime, first=form(days[0], "and_first"),
                   second=form(days[1], "and_second"))
@@ -1652,7 +1747,8 @@ def _day_span(days, runtime):
 
 def _wet_day(hourly, day, floor, far=False):
     """What falls on `day` by its hours: (its first wet hour, the code
-    of the hour carrying most of it, the wettest hour's odds).  None
+    of the hour carrying most of it or of its thunder, the wettest
+    hour's odds).  None
     when the hours do not reach the day; False when they find nothing
     worth saying -- nothing at `floor` odds, or only drizzle on a day
     that is far off."""
@@ -1691,6 +1787,11 @@ def _wet_day(hourly, day, floor, far=False):
         i = max(wet, key=lambda w: w[3])[0]
     else:
         i = max(wet, key=lambda w: _PRECIP_RANK.get(codes[w[0]], 0))[0]
+    # Thunder at the day's odds names the day, though a shower hour holds
+    # more of the water: it is the thing to plan for.
+    thunder = [w for w in wet if _PRECIP_KIND.get(codes[w[0]]) == "thunder" and w[2] >= floor]
+    if thunder:
+        i = max(thunder, key=lambda w: _PRECIP_RANK.get(codes[w[0]], 0))[0]
     if far and _PRECIP_KIND.get(codes[i]) == "drizzle":
         return False
     return dt, codes[i], best

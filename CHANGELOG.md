@@ -11,7 +11,7 @@ New this version:
 - Weather:
   - The prose forecast under the graph contains more detail about the weather, when it will change, and what's unusual about it, if anything.
   - The prose forecast should read more naturally in every language. This is an improvement, but there is farther yet to go. If it reads oddly in yours, please open an [issue](https://github.com/ashuttl/linecast/issues) or start a [discussion](https://github.com/ashuttl/linecast/discussions).
-  - The prose forecast names a stretch of wet days together ("Rain likely from Saturday to Monday"), and a day of heavy rain later in the week at lower odds than a lighter one.
+  - The prose forecast names a stretch of wet days together ("Rain likely from Saturday to Monday"), says which of them has thunder or turns to snow, and names a day of heavy rain later in the week at lower odds than a lighter one.
   - Numbers in the prose forecast (such as 11,3 mm in French and German) are written as each language writes them.
   - Current conditions come from the nearest airport's latest report when one is close and recent, so they should match what's outside more closely. The credit line names the station.
   - Cloud cover is described on the National Weather Service's five-step scale, which adds Mostly Cloudy. Each day in the daily list is described by its average cloud cover, so one grey hour no longer makes a day overcast. Most languages use their national weather service's terms.
