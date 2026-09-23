@@ -261,7 +261,7 @@ def format_historical_comparison(current_high: float, current_low: float,
 
     Returns an empty string if the difference is negligible.
     """
-    from linecast._weather.i18n import _s
+    from linecast.weather.i18n import _s
 
     diff = current_high - hist.avg_high
     abs_diff = abs(diff)

@@ -76,13 +76,13 @@ def _compare_or_create(snapshot_name, actual):
 def _weather_render(cols, rows, runtime, fixture="open_meteo_forecast.json",
                      location_name="Toronto, Ontario", historical=None):
     """Render weather dashboard with mocked terminal size and clock."""
-    from linecast.weather import render_from_data
+    from linecast.weather.view import render_from_data
 
     data = _load_fixture(fixture)
 
-    with patch("linecast.weather.get_terminal_size", return_value=(cols, rows)), \
-         patch("linecast.weather._local_now_for_data", return_value=FIXED_NOW), \
-         patch("linecast._weather.hourly._local_now_for_data", return_value=FIXED_NOW):
+    with patch("linecast.weather.view.get_terminal_size", return_value=(cols, rows)), \
+         patch("linecast.weather.view._local_now_for_data", return_value=FIXED_NOW), \
+         patch("linecast.weather.hourly._local_now_for_data", return_value=FIXED_NOW):
         output, _ = render_from_data(
             data, alerts=[], runtime=runtime,
             location_name=location_name, historical=historical,
@@ -115,7 +115,7 @@ class TestWeatherSnapshot:
 
     def _toronto_archive(self):
         # A typical Toronto year's extremes, in the fixture's units.
-        from linecast._weather.historical import HistoricalAverages
+        from linecast.weather.historical import HistoricalAverages
         return HistoricalAverages(avg_high=41.2, avg_low=26.7, avg_precip=0.11,
                                   years=10, year_high=91.3, year_low=-3.6)
 

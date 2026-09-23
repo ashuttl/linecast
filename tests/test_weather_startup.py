@@ -12,7 +12,7 @@ import pytest
 SETUP = """
 import threading
 from datetime import datetime
-from linecast import weather
+from linecast.weather import view as weather
 
 weather._FETCH_CEILING = 0.2
 weather._reverse_geocode = lambda *a, **k: ("Delhi", "IN", {})

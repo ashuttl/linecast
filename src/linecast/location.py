@@ -34,7 +34,7 @@ def _cmd_show():
 
 
 def _cmd_set(query):
-    from linecast._weather.sources import _geocode_query, _reverse_geocode
+    from linecast.weather.sources import _geocode_query, _reverse_geocode
 
     latlng = _parse_latlng(query)
     if latlng is not None:
@@ -70,7 +70,7 @@ def _cmd_auto():
 
 
 def _cmd_search(query):
-    from linecast._weather.sources import _search_locations
+    from linecast.weather.sources import _search_locations
 
     _search_locations(query)
 

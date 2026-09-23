@@ -414,7 +414,7 @@ class TestVersion:
     def test_help_does_not_import_metadata_or_urllib(self):
         # every command builds a parser; none of them should pay for the
         # version lookup or urllib.request unless a request is made
-        for code in ("import linecast.weather, linecast._runtime; "
+        for code in ("import linecast.weather.view, linecast._runtime; "
                      "linecast._runtime.weather_parser()",
                      "import linecast.radar",
                      "import linecast.maps",

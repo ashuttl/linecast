@@ -8,8 +8,8 @@ from linecast._maps.i18n import ms
 from linecast._moon.i18n import _ms
 from linecast._radar.i18n import rs
 from linecast._tides.i18n import _ts
-from linecast._weather.i18n import DAY_NAMES, WMO_NAMES_I18N, _s
-from linecast._weather.sections import (
+from linecast.weather.i18n import DAY_NAMES, WMO_NAMES_I18N, _s
+from linecast.weather.sections import (
     _past_precip_line,
     _precipitation_line,
     comparative_sentence,
@@ -233,7 +233,7 @@ class TestRussianWeather:
 
     def test_the_preposition_changes_shape_before_tuesday(self):
         """"в пн" but "во вт", as Russian writes it before вт."""
-        from linecast._weather.i18n import ON_DAY_FORMS
+        from linecast.weather.i18n import ON_DAY_FORMS
         days = DAY_NAMES["ru"]
         phrases = [ON_DAY_FORMS["ru"].get(i, _s("on_day", SimpleNamespace(lang="ru")))
                    .format(day=days[i]) for i in range(7)]
@@ -306,7 +306,7 @@ class TestCzechWeather:
 
     def test_the_preposition_changes_shape_before_wednesday_and_thursday(self):
         """"v po" but "ve st" and "ve čt", as Czech writes it."""
-        from linecast._weather.i18n import ON_DAY_FORMS
+        from linecast.weather.i18n import ON_DAY_FORMS
         days = DAY_NAMES["cs"]
         phrases = [ON_DAY_FORMS["cs"].get(i, _s("on_day", SimpleNamespace(lang="cs")))
                    .format(day=days[i]) for i in range(7)]
@@ -355,7 +355,7 @@ class TestSwahili:
             hourly, now, runtime)
 
     def test_precipitation_verbs_agree_when_starting_ending_or_continuing(self):
-        from linecast._weather.sections import precipitation_sentence
+        from linecast.weather.sections import precipitation_sentence
         runtime = SimpleNamespace(lang="sw", use_24h=True)
         now = datetime(2026, 8, 24, 12, 10)
         times = [f"2026-08-24T{h:02d}:00" for h in range(12, 15)]
@@ -373,7 +373,7 @@ class TestSwahili:
                 assert precipitation_sentence(hourly, now, runtime) == f"{desc} {suffix} {when}"
 
     def test_showers_are_spells_of_rain_and_take_ki_vi_agreement(self):
-        from linecast._weather.sections import precipitation_sentence
+        from linecast.weather.sections import precipitation_sentence
         runtime = SimpleNamespace(lang="sw", use_24h=True)
         now = datetime(2026, 8, 24, 12, 10)
         times = [f"2026-08-24T{h:02d}:00" for h in range(12, 15)]
@@ -460,7 +460,7 @@ class TestTablesComplete:
     # The Canadian index is named AQHI in English and CAS (cote air
     # santé) in French, and by its English name elsewhere.
     DEFAULTS = {
-        "linecast._weather.i18n": {"unit_kmh", "unit_ms", "unit_mm", "unit_cm", "aqhi"},
+        "linecast.weather.i18n": {"unit_kmh", "unit_ms", "unit_mm", "unit_cm", "aqhi"},
         "linecast._radar.i18n": {"unit_km"},
     }
     # Keys a language needs that English does not: the Slavic few-form,
@@ -478,7 +478,7 @@ class TestTablesComplete:
     # rain", "3 inches of snow"), and rain likely in a part of the day
     # rather than from an hour.
     VARIANTS = {"linecast._sunshine.i18n": ("_dawn", "_dusk"),
-                "linecast._weather.i18n": ("_one", "_ma", "_vi", "_pl", "_by", "_few", "_many",
+                "linecast.weather.i18n": ("_one", "_ma", "_vi", "_pl", "_by", "_few", "_many",
                                            "_diff", "_diff_one", "_diff_few", "_then",
                                            "_heavier", "_with", "_noon", "_prose", "_span",
                                            "_span_becoming", "_span_heavier", "_heavier_pl",
@@ -489,8 +489,8 @@ class TestTablesComplete:
     # (not "ลมจะทำให้…รู้สึกหนาว"), so it names the part again; and a
     # language without "later" for a part named twice in one sentence
     # names it twice ("*" is every language).
-    OPTIONAL = {("linecast._weather.i18n", "th"): {"same_time"},
-                ("linecast._weather.i18n", "*"): {"same_part_later"}}
+    OPTIONAL = {("linecast.weather.i18n", "th"): {"same_time"},
+                ("linecast.weather.i18n", "*"): {"same_part_later"}}
 
     def _tables(self):
         import importlib
@@ -588,9 +588,9 @@ class TestRegionalVariants:
         assert has_text(table, "c", "en") and has_text(table, "c", "xx")
 
     def test_the_words_that_differ(self):
-        from linecast._weather.i18n import _s, wmo_label
+        from linecast.weather.i18n import _s, wmo_label
         from linecast._maps.i18n import ms
-        from linecast._weather.sections import _precip_descs
+        from linecast.weather.sections import _precip_descs
         from types import SimpleNamespace as runtime
         pt, pt_pt = runtime(lang="pt"), runtime(lang="pt-PT")
         assert _s("humidity", pt) == "Umidade" and _s("humidity", pt_pt) == "Humidade"
@@ -627,7 +627,7 @@ class TestRegionalVariants:
         """No leading zero in running text, and one o'clock takes the
         singular article, as Greek's does."""
         from linecast._framebuffer import fmt_hour_phrase
-        from linecast._weather.i18n import _s
+        from linecast.weather.i18n import _s
         from types import SimpleNamespace as runtime
         assert fmt_hour_phrase(9, True, "es") == "9:00"
         assert fmt_hour_phrase(9, True, "pt") == "9h"
@@ -642,7 +642,7 @@ class TestRegionalVariants:
 
     def test_providers_take_the_base_language(self):
         from linecast._i18n import accept_language, base_language, geocoder_language
-        from linecast._weather.sources import alert_source
+        from linecast.weather.sources import alert_source
         assert base_language("pt-PT") == "pt" and base_language("pt") == "pt"
         assert geocoder_language("pt-PT") == "pt" and geocoder_language("es") == "es"
         assert accept_language("fr-CA") == "fr-CA,fr" and accept_language("fr") == "fr"
@@ -656,7 +656,7 @@ class TestUnitLabels:
                               metric=metric, shading=False, lang=lang)
 
     def test_the_wind_reads_as_the_language_writes_it(self):
-        from linecast._weather.i18n import fmt_wind
+        from linecast.weather.i18n import fmt_wind
         assert fmt_wind(12, self._runtime("en")) == "12km/h"
         assert fmt_wind(12, self._runtime("nl")) == "12\u00a0km/u"
         assert fmt_wind(12, self._runtime("da")) == "12\u00a0m/s"

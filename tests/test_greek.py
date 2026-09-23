@@ -11,14 +11,14 @@ from linecast._moon.i18n import _ms, _fmt_month_day
 from linecast._runtime import WeatherRuntime, language_of, resolve_lang
 from linecast._sunshine.i18n import axis_month_labels, relative_day, sky_phase
 from linecast._textwidth import visible_len
-from linecast._weather.i18n import (
+from linecast.weather.i18n import (
     DAY_NAMES, ON_DAY_FORMS, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s,
 )
-from linecast._weather.sections import (
+from linecast.weather.sections import (
     _PRECIP_DESCS, comparative_sentence, narrative_lines, past_precip_sentence,
     precipitation_sentence,
 )
-from linecast.weather import _precip_kind_lower
+from linecast.weather.view import _precip_kind_lower
 
 NOW = datetime(2026, 9, 17, 12)
 

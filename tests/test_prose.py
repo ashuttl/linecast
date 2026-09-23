@@ -11,7 +11,7 @@ import pytest
 
 from linecast import prose
 from linecast import __main__ as cli
-from linecast._weather.sections import narrative_lines
+from linecast.weather.sections import narrative_lines
 
 
 def _record(**overrides):

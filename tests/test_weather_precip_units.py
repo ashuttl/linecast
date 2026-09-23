@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._weather.daily import render_daily
-from linecast._weather.sections import _past_precip_line
+from linecast.weather.daily import render_daily
+from linecast.weather.sections import _past_precip_line
 
 _MM_PER_INCH = 25.4
 

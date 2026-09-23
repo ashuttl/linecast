@@ -496,7 +496,7 @@ def clock_label(now, runtime, today=None):
     machine's by default.
     """
     from linecast._i18n import lang_of
-    from linecast._weather.i18n import DAY_NAMES
+    from linecast.weather.i18n import DAY_NAMES
     if today is None:
         today = _local_today()
     clock = fmt_time_dt(now, runtime.use_24h)
@@ -909,7 +909,7 @@ def main():
     hours_country = country
     if hours_system == "islamic" and not hours_country:
         try:
-            from linecast._weather.sources import _reverse_geocode
+            from linecast.weather.sources import _reverse_geocode
             hours_country = _reverse_geocode(lat, lng)[1]
         except Exception:
             hours_country = None
@@ -948,7 +948,7 @@ def main():
     location_label = label
     if not location_label:
         try:
-            from linecast._weather.sources import _reverse_geocode
+            from linecast.weather.sources import _reverse_geocode
             location_label = _reverse_geocode(
                 lat, lng, lang=runtime.lang)[0] or ""
         except Exception:

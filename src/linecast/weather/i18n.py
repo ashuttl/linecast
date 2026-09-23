@@ -2,7 +2,7 @@
 
 import re
 from linecast._i18n import base_language, fallbacks, has_text, lang_of, lookup
-from linecast._weather.cover import MOSTLY_CLOUDY
+from linecast.weather.cover import MOSTLY_CLOUDY
 
 # Nerd Font WMO icons
 _WMO_ICONS_NERD = {

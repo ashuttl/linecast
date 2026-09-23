@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import weather
-from linecast.weather import WeatherApp
+from linecast.weather import view as weather
+from linecast.weather.view import WeatherApp
 
 
 def _app(clock, alerts=None):

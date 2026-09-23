@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._graphics import visible_len
 from linecast._runtime import WeatherRuntime
-from linecast._weather.alerts import render_alerts, render_alerts_mapped
+from linecast.weather.alerts import render_alerts, render_alerts_mapped
 
 FIXTURES = Path(__file__).parent / "fixtures"
 NOW = datetime(2026, 3, 5, 14, 30)
@@ -98,12 +98,12 @@ class TestDashboardFits:
     """A frame taller or wider than the window scrolls the header away."""
 
     def _render(self, cols, rows, alerts, lang="en"):
-        from linecast.weather import render_from_data
+        from linecast.weather.view import render_from_data
 
         data = json.loads((FIXTURES / "open_meteo_forecast.json").read_text())
-        with patch("linecast.weather.get_terminal_size", return_value=(cols, rows)), \
-             patch("linecast.weather._local_now_for_data", return_value=NOW), \
-             patch("linecast._weather.hourly._local_now_for_data", return_value=NOW):
+        with patch("linecast.weather.view.get_terminal_size", return_value=(cols, rows)), \
+             patch("linecast.weather.view._local_now_for_data", return_value=NOW), \
+             patch("linecast.weather.hourly._local_now_for_data", return_value=NOW):
             output, row_map = render_from_data(
                 data, alerts=alerts, runtime=_runtime(lang=lang),
                 location_name="Hachijojima, Tokyo",

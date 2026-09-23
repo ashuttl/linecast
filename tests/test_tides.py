@@ -442,7 +442,7 @@ class LocationLabelTests(unittest.TestCase):
     def _label(self, name, address, saved=None):
         from linecast._sunshine.json import _location_label
         with patch("linecast._config.saved_location", return_value=saved), \
-             patch("linecast._weather.sources._reverse_geocode",
+             patch("linecast.weather.sources._reverse_geocode",
                    return_value=(name, "AU", address)):
             return _location_label(-41.1576, 146.2589)
 

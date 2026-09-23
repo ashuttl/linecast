@@ -13,13 +13,15 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _help, weather
-from linecast._weather import sources as _weather_sources
+from linecast import _help
+
+from linecast.weather import view as weather
+from linecast.weather import sources as _weather_sources
 from linecast._graphics import visible_len
 from linecast._runtime import WeatherRuntime
-from linecast._weather.json import build_payload
+from linecast.weather.json import build_payload
 from linecast._i18n import LANGUAGE_CODES
-from linecast._weather.sources import (
+from linecast.weather.sources import (
     ATTRIBUTION, alert_attribution, alert_source, forecast_attribution,
     _METEOALARM_SLUGS)
 
@@ -95,7 +97,7 @@ class TestCreditRow:
         assert 'Open-Meteo' not in out and out.endswith('? help')
 
     def test_the_credit_is_fainter_than_the_prose(self):
-        from linecast._weather.style import DIM_RGB, MUTED_RGB
+        from linecast.weather.style import DIM_RGB, MUTED_RGB
         from linecast import _theme
         assert (_theme.contrast_ratio(DIM_RGB, _theme.theme_bg)
                 <= _theme.contrast_ratio(MUTED_RGB, _theme.theme_bg))
@@ -147,9 +149,9 @@ def _render(cols, rows, live=True, country_code="IE"):
     data = json.loads((FIXTURES / "open_meteo_forecast.json").read_text(encoding="utf-8"))
     runtime = WeatherRuntime(live=live, icons="emoji", lang="en", oneline=False,
                              celsius=False, metric=False)
-    with patch("linecast.weather.get_terminal_size", return_value=(cols, rows)), \
-         patch("linecast.weather._local_now_for_data", return_value=FIXED_NOW), \
-         patch("linecast._weather.hourly._local_now_for_data", return_value=FIXED_NOW):
+    with patch("linecast.weather.view.get_terminal_size", return_value=(cols, rows)), \
+         patch("linecast.weather.view._local_now_for_data", return_value=FIXED_NOW), \
+         patch("linecast.weather.hourly._local_now_for_data", return_value=FIXED_NOW):
         output, _ = weather.render_from_data(data, alerts=[], runtime=runtime,
                                              location_name="Dublin",
                                              country_code=country_code)
@@ -178,9 +180,9 @@ class TestLiveView:
         data = json.loads((FIXTURES / "open_meteo_forecast.json").read_text(encoding="utf-8"))
         runtime = WeatherRuntime(live=True, icons="emoji", lang="ja", oneline=False,
                                  celsius=True, metric=True)
-        with patch("linecast.weather.get_terminal_size", return_value=(120, 40)), \
-             patch("linecast.weather._local_now_for_data", return_value=FIXED_NOW), \
-             patch("linecast._weather.hourly._local_now_for_data", return_value=FIXED_NOW):
+        with patch("linecast.weather.view.get_terminal_size", return_value=(120, 40)), \
+             patch("linecast.weather.view._local_now_for_data", return_value=FIXED_NOW), \
+             patch("linecast.weather.hourly._local_now_for_data", return_value=FIXED_NOW):
             output, _ = weather.render_from_data(data, alerts=[], runtime=runtime,
                                                  location_name="新宿区", country_code="JP")
         last = plain(output).split("\n")[-1]

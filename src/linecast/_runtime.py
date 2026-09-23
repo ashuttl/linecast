@@ -947,7 +947,7 @@ class WeatherRuntime(RuntimeConfig):
         or m/s."""
         if not self.metric:
             return "mph"
-        from linecast._weather.i18n import _s
+        from linecast.weather.i18n import _s
         return _s("unit_ms" if self.wind_unit == "m/s" else "unit_kmh", self)
 
     @property
@@ -956,7 +956,7 @@ class WeatherRuntime(RuntimeConfig):
         (Ukrainian reads мм); `precip_unit` is the JSON's and stays mm."""
         if not self.metric:
             return "″"
-        from linecast._weather.i18n import _s
+        from linecast.weather.i18n import _s
         return _s("unit_mm", self)
 
     @property

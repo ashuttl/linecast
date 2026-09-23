@@ -63,7 +63,7 @@ def alert_source(country_code: str, lang: str = "en") -> str | None:
 
 def forecast_attribution(lang: str = "en") -> str:
     """The forecast credit in the display language."""
-    from linecast._weather.i18n import _STRINGS
+    from linecast.weather.i18n import _STRINGS
     from linecast._i18n import lookup
     return lookup(_STRINGS, "credit_forecast", lang, source=FORECAST_SOURCE)
 
@@ -78,7 +78,7 @@ def observation_source(station: str = "") -> str:
 
 def observation_attribution(lang: str = "en", station: str = "") -> str:
     """The current conditions credit in the display language."""
-    from linecast._weather.i18n import _STRINGS
+    from linecast.weather.i18n import _STRINGS
     from linecast._i18n import lookup
     return lookup(_STRINGS, "credit_current", lang, source=observation_source(station))
 
@@ -86,7 +86,7 @@ def observation_attribution(lang: str = "en", station: str = "") -> str:
 def alert_attribution(country_code: str, lang: str = "en") -> str | None:
     """The alerts credit in the display language, or None where none
     are fetched."""
-    from linecast._weather.i18n import _STRINGS
+    from linecast.weather.i18n import _STRINGS
     from linecast._i18n import lookup
     source = alert_source(country_code, lang)
     return lookup(_STRINGS, "credit_alerts", lang, source=source) if source else None

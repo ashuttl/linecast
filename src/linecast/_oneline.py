@@ -5,7 +5,7 @@ embedding in a status bar.  The ``--oneline`` flag in each subcommand triggers
 these renderers instead of the full terminal UI.
 """
 
-from linecast._weather.i18n import fmt_wind
+from linecast.weather.i18n import fmt_wind
 from linecast._i18n import fmt_percent
 from linecast._graphics import fg, RESET
 from linecast._framebuffer import fmt_time, fmt_time_dt
@@ -20,9 +20,9 @@ def weather_oneline(data, location_name, runtime):
 
     Example: ``Portland 58°F Partly Cloudy Wind 8mph 💧32%``
     """
-    from linecast._weather.cover import sky_condition
-    from linecast._weather.i18n import _wmo_icons, wmo_label
-    from linecast._weather.style import _colored_temp, TEXT, MUTED, WIND_COLOR
+    from linecast.weather.cover import sky_condition
+    from linecast.weather.i18n import _wmo_icons, wmo_label
+    from linecast.weather.style import _colored_temp, TEXT, MUTED, WIND_COLOR
 
     if not data:
         return "No weather data"
@@ -52,7 +52,7 @@ def weather_oneline(data, location_name, runtime):
     parts.append(f"{TEXT}{icon} {desc}")
 
     if wind > 0:
-        from linecast._weather.i18n import _s
+        from linecast.weather.i18n import _s
         parts.append(f"{WIND_COLOR}{_s('wind', runtime)} {fmt_wind(wind, runtime)}")
 
     if humidity is not None:

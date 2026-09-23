@@ -1,12 +1,12 @@
 """The current sky from a nearby station's METAR."""
 
-from linecast._weather.cover import MOSTLY_CLOUDY, sky_condition
-from linecast._weather.observed import (
+from linecast.weather.cover import MOSTLY_CLOUDY, sky_condition
+from linecast.weather.observed import (
     apply_observation,
     metar_sky,
     nearest_observation,
 )
-from linecast.weather import data_credits
+from linecast.weather.view import data_credits
 
 NOW = 1_790_000_000
 
@@ -156,12 +156,12 @@ class TestFallback:
     """Wherever the station cannot answer, the model's condition stands."""
 
     def test_no_station_in_the_box(self, monkeypatch):
-        from linecast._weather import observed as obs
+        from linecast.weather import observed as obs
         monkeypatch.setattr(obs, "fetch_bytes", lambda url, timeout: b"")
         assert obs._fetch_reports("https://example.invalid", 6) == []
 
     def test_a_failed_fetch(self, monkeypatch):
-        from linecast._weather import observed as obs
+        from linecast.weather import observed as obs
 
         def fail(lat, lng):
             raise OSError("network down")
@@ -171,6 +171,6 @@ class TestFallback:
         assert obs.apply_observation(data, None)["current"]["weather_code"] == 45
 
     def test_a_malformed_answer(self, monkeypatch):
-        from linecast._weather import observed as obs
+        from linecast.weather import observed as obs
         monkeypatch.setattr(obs, "fetch_metars", lambda lat, lng: ["junk", {"lat": "x"}, None])
         assert obs.fetch_observation(43.677, -70.371) is None

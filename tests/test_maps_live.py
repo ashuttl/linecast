@@ -1187,7 +1187,7 @@ class TestStartupPrune:
 
     def test_search_adds_no_tiles_so_it_does_not_wait(self, monkeypatch):
         from linecast._maps import tile_cache
-        from linecast._weather import sources
+        from linecast.weather import sources
 
         calls = []
         self._argv(monkeypatch, "--search", "leith")

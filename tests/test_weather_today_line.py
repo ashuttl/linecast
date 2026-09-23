@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._runtime import WeatherRuntime
-from linecast._weather.hourly import _render_today_line
+from linecast.weather.hourly import _render_today_line
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 _WIDTH = 60

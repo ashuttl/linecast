@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 from linecast import _color, _theme
 from linecast._runtime import WeatherRuntime
-from linecast._weather.hourly import _build_precip_blocks, _precip_bar_full
-from linecast._weather.style import PRECIP_RAIN_RGB
+from linecast.weather.hourly import _build_precip_blocks, _precip_bar_full
+from linecast.weather.style import PRECIP_RAIN_RGB
 
 _FG = re.compile(r"\x1b\[38;2;(\d+);(\d+);(\d+)m")
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")

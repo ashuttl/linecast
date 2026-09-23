@@ -40,7 +40,7 @@ class Argv0DispatchTests(unittest.TestCase):
 
     def test_symlink_name_with_no_arguments(self):
         ran = self._dispatch("/usr/local/bin/weather")
-        self.assertEqual(ran["module"], "linecast.weather")
+        self.assertEqual(ran["module"], "linecast.weather.view")
         self.assertEqual(ran["argv"], ["linecast weather"])
 
     def test_windows_copy_with_exe_suffix(self):
@@ -54,7 +54,7 @@ class Argv0DispatchTests(unittest.TestCase):
         # `weather --help` is the weather command's help, not the
         # dispatcher's: the name decides before the arguments do.
         ran = self._dispatch("/usr/bin/weather", "--help")
-        self.assertEqual(ran["module"], "linecast.weather")
+        self.assertEqual(ran["module"], "linecast.weather.view")
         self.assertEqual(ran["argv"], ["linecast weather", "--help"])
 
     def test_subcommand_still_dispatches(self):

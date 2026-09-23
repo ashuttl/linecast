@@ -113,7 +113,7 @@ def runtime_for(lang, metric):
 
 def fetch_set(name, places=PLACES, out=None):
     """Fetch every place in km/h and freeze it under `name`."""
-    from linecast._weather import sources
+    from linecast.weather import sources
     root = sets_root() / name
     root.mkdir(parents=True, exist_ok=True)
     out = out or sys.stdout
@@ -160,7 +160,7 @@ def wind_for(data, runtime):
 
 def paragraph(record, lang, trace=None):
     """The prose for one place in one language, as one string."""
-    from linecast._weather.sections import narrative_lines
+    from linecast.weather.sections import narrative_lines
     runtime = runtime_for(lang, record["metric"])
     now = datetime.fromisoformat(record["now"])
     rows = narrative_lines(wind_for(record["data"], runtime), now, 10_000, runtime, trace=trace)
@@ -197,7 +197,7 @@ def languages(spec):
 
 def heading(record):
     """"Reykjavík   Tue 02:26   Light Drizzle 10°C, feels 6°C"."""
-    from linecast._weather.i18n import wmo_label
+    from linecast.weather.i18n import wmo_label
     current = record["data"].get("current", {})
     now = datetime.fromisoformat(record["now"])
     unit = "°C" if record["metric"] else "°F"

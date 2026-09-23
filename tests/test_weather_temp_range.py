@@ -8,7 +8,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._runtime import WeatherRuntime, weather_parser
-from linecast._weather.historical import HistoricalAverages, temperature_scale
+from linecast.weather.historical import HistoricalAverages, temperature_scale
 
 
 def _archive(year_high, year_low):
@@ -106,7 +106,7 @@ class TestAutoTemperatureScale:
 class TestFlash:
     def test_a_note_comes_down_when_its_time_is_up(self, monkeypatch):
         from linecast import _live
-        from linecast.weather import WeatherApp
+        from linecast.weather.view import WeatherApp
         view = WeatherApp({}, [], None, 43.7, -79.4, _runtime())
         view.flash(["hello"], seconds=0.0)
         monkeypatch.setattr(_live._time, "monotonic", lambda: 10 ** 9)
@@ -114,7 +114,7 @@ class TestFlash:
         assert view._flash is None
 
     def test_a_note_is_boxed_while_it_is_up(self):
-        from linecast.weather import WeatherApp
+        from linecast.weather.view import WeatherApp
         view = WeatherApp({}, [], None, 43.7, -79.4, _runtime())
         view.flash(["hello there"], seconds=60.0)
         box = view.flash_overlay(80, 24)
@@ -126,27 +126,27 @@ class TestAxisLabels:
         return [[("\u2800", 0.0)] * graph_w for _ in range(n_rows)]
 
     def test_labels_the_two_ends_at_the_left_edge(self):
-        from linecast._weather.hourly import _compute_axis_overlays
+        from linecast.weather.hourly import _compute_axis_overlays
         overlays = {}
         _compute_axis_overlays((-15, 100), self._blank_rows(8, 80), 8, 80, overlays)
         assert overlays == {0: [(1, "100°", overlays[0][0][2])],
                             7: [(1, "-15°", overlays[7][0][2])]}
 
     def test_forecast_bounds_are_rounded_to_whole_degrees(self):
-        from linecast._weather.hourly import _compute_axis_overlays
+        from linecast.weather.hourly import _compute_axis_overlays
         overlays = {}
         _compute_axis_overlays((26.4, 63.6), self._blank_rows(2, 40), 2, 40, overlays)
         assert [items[0][1] for _r, items in sorted(overlays.items())] == ["64°", "26°"]
 
     def test_sits_just_past_the_now_line(self):
-        from linecast._weather.hourly import _compute_axis_overlays
+        from linecast.weather.hourly import _compute_axis_overlays
         overlays = {}
         _compute_axis_overlays((58.0, 75.0), self._blank_rows(8, 120), 8, 120, overlays,
                                now_col=2)
         assert all(items[0][0] == 3 for items in overlays.values())
 
     def test_moves_to_the_right_edge_when_the_curve_is_in_the_way(self):
-        from linecast._weather.hourly import _compute_axis_overlays
+        from linecast.weather.hourly import _compute_axis_overlays
         rows = self._blank_rows(2, 40)
         rows[0][1] = ("\u2847", 20.0)  # dots under the left label's first cell
         overlays = {}
@@ -154,7 +154,7 @@ class TestAxisLabels:
         assert overlays[0] == [(40 - 4, "20°", overlays[0][0][2])]
 
     def test_skips_an_end_whose_edges_are_both_taken(self):
-        from linecast._weather.hourly import _compute_axis_overlays
+        from linecast.weather.hourly import _compute_axis_overlays
         rows = self._blank_rows(2, 40)
         overlays = {0: [(0, "20°", (1, 2, 3)), (36, "20°", (1, 2, 3))]}
         _compute_axis_overlays((10.0, 20.0), rows, 2, 40, overlays)

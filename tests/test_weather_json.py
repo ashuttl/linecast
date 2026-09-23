@@ -13,8 +13,8 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast._runtime import WeatherRuntime, weather_parser
-from linecast._weather.historical import HistoricalAverages
-from linecast._weather.json import build_payload
+from linecast.weather.historical import HistoricalAverages
+from linecast.weather.json import build_payload
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

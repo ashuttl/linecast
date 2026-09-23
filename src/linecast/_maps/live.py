@@ -960,7 +960,7 @@ def main():
         sys.exit(2)
 
     if args.search:
-        from linecast._weather.sources import _search_locations
+        from linecast.weather.sources import _search_locations
         _search_locations(args.search, lang=runtime.lang)
         return
 
@@ -990,7 +990,7 @@ def main():
 
     if not location_name:
         try:
-            from linecast._weather.sources import _reverse_geocode
+            from linecast.weather.sources import _reverse_geocode
             location_name = _reverse_geocode(lat, lon, lang=runtime.lang)[0] or ""
         except Exception:
             location_name = ""

@@ -59,7 +59,7 @@ def _today_span():
 # Open-Meteo
 # ---------------------------------------------------------------------------
 def test_open_meteo_forecast(failures):
-    from linecast._weather.sources import fetch_forecast
+    from linecast.weather.sources import fetch_forecast
     data = fetch_forecast(*PORTLAND)
     assert failures() == []
     assert data is not None
@@ -69,7 +69,7 @@ def test_open_meteo_forecast(failures):
 
 
 def test_open_meteo_geocoder(failures):
-    from linecast._weather.sources import geocode_first
+    from linecast.weather.sources import geocode_first
     hit = geocode_first("Westbrook, Maine")
     assert failures() == []
     assert hit is not None
@@ -79,7 +79,7 @@ def test_open_meteo_geocoder(failures):
 
 
 def test_open_meteo_air_quality(failures):
-    from linecast._weather.sources import fetch_aqi
+    from linecast.weather.sources import fetch_aqi
     data = fetch_aqi(*PORTLAND)
     assert failures() == []
     assert data is not None
@@ -96,7 +96,7 @@ def test_open_meteo_marine(failures):
 
 
 def test_open_meteo_archive(failures):
-    from linecast._weather.historical import fetch_historical
+    from linecast.weather.historical import fetch_historical
     averages = fetch_historical(*PORTLAND, date.today())
     assert failures() == []
     assert averages is not None
@@ -145,7 +145,7 @@ def test_geolocation_fallbacks(failures, provider):
 def test_photon_geocoder_fallback(failures):
     # the geocoder's second source, asked directly: _geocode_query would
     # only reach it with Open-Meteo down
-    from linecast._weather.sources import _photon_query
+    from linecast.weather.sources import _photon_query
     results = _photon_query("Westbrook, Maine")
     assert failures() == []
     assert any(r["admin1"] == "Maine" and r["country_code"] == "US"
@@ -153,7 +153,7 @@ def test_photon_geocoder_fallback(failures):
 
 
 def test_nominatim_reverse(failures):
-    from linecast._weather.sources import _reverse_geocode
+    from linecast.weather.sources import _reverse_geocode
     name, country, address = _reverse_geocode(*PORTLAND)
     assert failures() == []
     assert country == "US"
@@ -180,7 +180,7 @@ ALERT_FEEDS = [
 @pytest.mark.parametrize("country, point, provider", ALERT_FEEDS,
                          ids=[f[2] for f in ALERT_FEEDS])
 def test_alerts(failures, country, point, provider):
-    from linecast._weather.sources import fetch_alerts
+    from linecast.weather.sources import fetch_alerts
     alerts = fetch_alerts(*point, country_code=country, address={})
     assert failures() == [], provider
     assert isinstance(alerts, list)
@@ -197,14 +197,14 @@ def test_alerts(failures, country, point, provider):
 # edition, or starts filing a code type the file lacks, would fall back
 # to matching on the area name without a word; this asks every feed,
 # every day, whether the file still places all of it.
-from linecast._weather.sources import _METEOALARM_SLUGS  # noqa: E402
+from linecast.weather.sources import _METEOALARM_SLUGS  # noqa: E402
 
 
 @pytest.mark.parametrize("country, slug", sorted(_METEOALARM_SLUGS.items()),
                          ids=sorted(_METEOALARM_SLUGS))
 def test_meteoalarm_feed_is_placed(failures, country, slug):
     from linecast._http import fetch_json
-    from linecast._weather.sources import (_METEOALARM_FEED_BYTES, _cap_polygons,
+    from linecast.weather.sources import (_METEOALARM_FEED_BYTES, _cap_polygons,
                                            _region_keys)
     # under the runtime's own cap, so a feed outgrowing it fails here too
     feed = fetch_json(f"https://feeds.meteoalarm.org/api/v1/warnings/feeds-{slug}",

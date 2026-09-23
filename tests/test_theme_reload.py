@@ -23,9 +23,9 @@ from linecast import _color, _framebuffer, _theme, moon, sunshine, tides
 from linecast._radar import basemap
 from linecast._radar import render as _radar_render
 from linecast._maps import style as _maps_style
-from linecast._weather import alerts
-from linecast._weather import render as _weather_render
-from linecast._weather import style
+from linecast.weather import alerts
+from linecast.weather import render as _weather_render
+from linecast.weather import style
 from linecast._live import _read_key  # noqa: E402
 
 

@@ -17,18 +17,18 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import weather
+from linecast.weather import view as weather
 from linecast._graphics import fmt_hour
 from linecast._runtime import WeatherRuntime
-from linecast._weather.historical import HistoricalAverages
-from linecast._weather.hourly import (
+from linecast.weather.historical import HistoricalAverages
+from linecast.weather.hourly import (
     _column_of,
     _compute_sun_labels,
     _compute_time_markers,
     _prepare_hourly_window,
     render_hourly,
 )
-from linecast._weather.sources import wall_clock
+from linecast.weather.sources import wall_clock
 
 TORONTO = ZoneInfo("America/Toronto")
 WIDTH = 97  # 48 hours shown

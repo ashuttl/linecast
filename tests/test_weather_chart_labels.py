@@ -15,8 +15,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast._runtime import WeatherRuntime
-from linecast._weather.hourly import render_hourly
-from linecast._weather.style import WIND_ARROWS
+from linecast.weather.hourly import render_hourly
+from linecast.weather.style import WIND_ARROWS
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 _WIND_LABEL = re.compile(f"[{WIND_ARROWS}]" + r"\d+")

@@ -17,7 +17,7 @@ import pytest
 from conftest import SESSION_ROOT, readonly
 
 from linecast import _cache, _config, _http, _location, _paths, _runtime
-from linecast._weather import sources
+from linecast.weather import sources
 from linecast import location, units
 from linecast._paths import cache_dir, cache_root, config_root
 

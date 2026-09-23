@@ -6,7 +6,7 @@ smaller focused modules.
 
 from linecast import _theme
 from linecast._graphics import RESET
-from linecast._weather.alerts import (
+from linecast.weather.alerts import (
     _parse_alert_time,
     _render_single_alert,
     _severity_color,
@@ -15,10 +15,10 @@ from linecast._weather.alerts import (
     render_alerts,
     render_alerts_mapped,
 )
-from linecast._weather.daily import fmt_precip_amount, render_daily, render_daily_mapped
+from linecast.weather.daily import fmt_precip_amount, render_daily, render_daily_mapped
 from linecast._braille import build_braille_curve as _build_braille_curve
 from linecast._graphics import fmt_hour as _fmt_hour, fmt_time_dt as _fmt_time
-from linecast._weather.hourly import (
+from linecast.weather.hourly import (
     _build_precip_blocks,
     _compute_daylight_columns,
     _compute_sun_labels,
@@ -37,7 +37,7 @@ from linecast._weather.hourly import (
     _render_wind_row,
     render_hourly,
 )
-from linecast._weather.sections import (
+from linecast.weather.sections import (
     _PRECIP_CODES,
     _PRECIP_DESCS,
     _comparative_line,
@@ -50,7 +50,7 @@ from linecast._weather.sections import (
     precipitation_sentence,
     render_header,
 )
-from linecast._weather.style import (
+from linecast.weather.style import (
     AQI_COLORS,
     ALERT_AMBER,
     ALERT_RED,
@@ -150,4 +150,4 @@ __all__ = [
     "_temp_color",
 ]
 
-_theme.track_imports(globals(), "linecast._weather.style")
+_theme.track_imports(globals(), "linecast.weather.style")

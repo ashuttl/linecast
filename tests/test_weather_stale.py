@@ -14,12 +14,12 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import weather
-from linecast._weather import sources as _weather_sources
-from linecast._weather.sources import forecast_date, forecast_is_todays
-from linecast._weather.sections import comparative_sentence, render_header
-from linecast._weather.historical import HistoricalAverages
-from linecast.weather import WeatherApp, forecast_notice
+from linecast.weather import view as weather
+from linecast.weather import sources as _weather_sources
+from linecast.weather.sources import forecast_date, forecast_is_todays
+from linecast.weather.sections import comparative_sentence, render_header
+from linecast.weather.historical import HistoricalAverages
+from linecast.weather.view import WeatherApp, forecast_notice
 
 FIXTURE = json.loads(
     (Path(__file__).parent / "fixtures" / "open_meteo_forecast.json").read_text())
@@ -121,9 +121,9 @@ class TestForecastNotice:
 
     def test_the_line_sits_under_the_header(self):
         runtime = weather.WeatherRuntime.defaults()
-        with patch("linecast.weather.get_terminal_size", return_value=(100, 30)), \
-             patch("linecast.weather._local_now_for_data", return_value=LATER), \
-             patch("linecast._weather.hourly._local_now_for_data", return_value=LATER):
+        with patch("linecast.weather.view.get_terminal_size", return_value=(100, 30)), \
+             patch("linecast.weather.view._local_now_for_data", return_value=LATER), \
+             patch("linecast.weather.hourly._local_now_for_data", return_value=LATER):
             notice = forecast_notice(FIXTURE, runtime)
             output, _ = weather.render_from_data(FIXTURE, [], runtime,
                                                  location_name="Toronto", notice=notice)
@@ -134,7 +134,7 @@ class TestForecastNotice:
 
 class TestDailyLabels:
     def _rows(self, now):
-        from linecast._weather.daily import render_daily
+        from linecast.weather.daily import render_daily
         runtime = weather.WeatherRuntime.defaults()
         lines = render_daily(FIXTURE, 100, runtime, now=now)
         return [_strip(line).split()[0] for line in lines]
