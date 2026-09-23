@@ -59,7 +59,7 @@ class Argv0DispatchTests(unittest.TestCase):
 
     def test_subcommand_still_dispatches(self):
         ran = self._dispatch("/usr/bin/linecast", "moon", "--oneline")
-        self.assertEqual(ran["module"], "linecast.moon")
+        self.assertEqual(ran["module"], "linecast.moon.view")
         self.assertEqual(ran["argv"], ["linecast moon", "--oneline"])
 
     def test_clock_dispatches_and_is_listed_in_help(self):

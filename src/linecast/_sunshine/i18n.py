@@ -6,7 +6,7 @@ labels for the languages whose month names don't abbreviate.
 """
 
 from linecast._i18n import base_language, has_text, lang_of, lookup, plural_category, table_for
-from linecast._moon.i18n import MONTHS_I18N, _fmt_month_day  # noqa: F401 — re-export
+from linecast.moon.i18n import MONTHS_I18N, _fmt_month_day  # noqa: F401 — re-export
 
 _SUNSHINE_STRINGS = {
     "en": {

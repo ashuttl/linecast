@@ -28,7 +28,7 @@ from linecast._calendars.hijri import (
     next_observance,
     observance_key,
 )
-from linecast._moon.i18n import (
+from linecast.moon.i18n import (
     hijri_date_label, hijri_month_name, hijri_observance_name,
 )
 
@@ -309,10 +309,10 @@ class TestPanel:
         from unittest.mock import patch
 
         from linecast._runtime import RuntimeConfig
-        from linecast.moon import render
+        from linecast.moon.view import render
         runtime = RuntimeConfig(live=False, icons="emoji", lang="en",
                                 oneline=False)
-        with patch("linecast.moon.get_terminal_size",
+        with patch("linecast.moon.view.get_terminal_size",
                    return_value=(100, 30)):
             out = render(now, 43.68, -70.37, runtime, fullscreen=True,
                          calendar_name="islamic")

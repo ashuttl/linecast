@@ -40,7 +40,7 @@ from datetime import datetime, timedelta
 sys.path.insert(0, "src")
 
 from linecast._color import RESET, fg
-from linecast._moon.i18n import _fmt_month_day
+from linecast.moon.i18n import _fmt_month_day
 from linecast._runtime import RuntimeConfig
 from linecast._textwidth import char_width, visible_len
 from linecast.sunshine import (
@@ -128,7 +128,7 @@ def ramp(now, rt, width):
 def curve(now, rt, width):
     """C: illuminated fraction as a braille curve, the app's chart idiom."""
     from linecast._braille import build_braille_curve
-    from linecast.moon import moon_illumination
+    from linecast.moon.view import moon_illumination
 
     last_new, _next_new, _full, t = _lunation(now)
     vals = [moon_illumination(last_new + timedelta(days=SYNODIC_MONTH * i
@@ -146,7 +146,7 @@ def curve(now, rt, width):
 
 def bars(now, rt, width):
     """D: illuminated fraction as a block ramp."""
-    from linecast.moon import moon_illumination
+    from linecast.moon.view import moon_illumination
 
     last_new, _next_new, _full, t = _lunation(now)
     blocks = " ▁▂▃▄▅▆▇█"
@@ -199,7 +199,7 @@ def in_situ(now, rt, which, lat, lng):
     disc gives up is what you see.
     """
     from linecast._graphics import get_terminal_size
-    from linecast import moon as moon_view
+    from linecast.moon import view as moon_view
 
     fn = dict(CANDIDATES_BY_KEY)[which]
     cols, rows = get_terminal_size()

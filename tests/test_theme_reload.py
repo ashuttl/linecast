@@ -19,7 +19,9 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _color, _framebuffer, _theme, moon, sunshine, tides
+from linecast import _color, _framebuffer, _theme, sunshine, tides
+
+from linecast.moon import view as moon
 from linecast.radar import basemap
 from linecast.radar import render as _radar_render
 from linecast.maps import style as _maps_style

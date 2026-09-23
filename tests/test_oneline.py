@@ -168,7 +168,7 @@ class TestMoonOneline:
         assert pct >= 98
 
     def test_events_are_upcoming_and_chronological(self):
-        from linecast.moon import upcoming_moon_events
+        from linecast.moon.view import upcoming_moon_events
         now = self._now()
         rise, sset = upcoming_moon_events(now, 43.66, -70.26)
         assert rise is not None and rise > now

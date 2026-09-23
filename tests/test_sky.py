@@ -522,7 +522,7 @@ class TestCatalogue:
         assert at(305.0, 40.0) < at(310.0, 45.0)
 
     def test_the_moon_view_shares_the_stars(self):
-        from linecast.moon import _load_stars
+        from linecast.moon.view import _load_stars
         assert _load_stars()[0] == sky.stars()[0][:2]
 
 

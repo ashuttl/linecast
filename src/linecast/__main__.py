@@ -32,7 +32,7 @@ def sky_now():
 COMMANDS = {
     "weather": "linecast.weather.view",
     "sunshine": "linecast.sunshine",
-    "moon": "linecast.moon",
+    "moon": "linecast.moon.view",
     "sky": "linecast.sky.view",
     "tides": "linecast.tides",
     "radar": "linecast.radar.view",

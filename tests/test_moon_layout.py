@@ -27,12 +27,12 @@ def _strip_ansi(text):
 
 
 def _render(cols, rows, lang="en", fullscreen=False, offset_minutes=0):
-    from linecast.moon import render
+    from linecast.moon.view import render
     from linecast._runtime import RuntimeConfig
 
     runtime = RuntimeConfig(live=False, icons="emoji", lang=lang,
                             oneline=False)
-    with patch("linecast.moon.get_terminal_size", return_value=(cols, rows)):
+    with patch("linecast.moon.view.get_terminal_size", return_value=(cols, rows)):
         output = render(NOW, 43.7, -79.4, runtime, fullscreen=fullscreen,
                         offset_minutes=offset_minutes)
     return _strip_ansi(output).split("\n")
@@ -139,7 +139,7 @@ class TestCountdownAndCompass:
         assert re.search(r"Moonrise in \d+[dhm][^()]*\(\d", row), row
 
     def test_countdown_formats_by_magnitude(self):
-        from linecast.moon import _fmt_countdown
+        from linecast.moon.view import _fmt_countdown
 
         assert _fmt_countdown(timedelta(minutes=48)) == "48m"
         assert _fmt_countdown(timedelta(hours=6, minutes=56)) == "6h 56m"
@@ -156,13 +156,13 @@ class TestCountdownAndCompass:
 
     def test_compass_point_appears_when_the_moon_is_up(self):
         # 2026-03-06 02:00 local: the Moon is up and near culmination.
-        from linecast.moon import render
+        from linecast.moon.view import render
         from linecast._runtime import RuntimeConfig
 
         runtime = RuntimeConfig(live=False, icons="emoji", lang="en",
                                 oneline=False)
         moment = NOW.replace(day=6, hour=2, minute=0)
-        with patch("linecast.moon.get_terminal_size", return_value=(140, 40)):
+        with patch("linecast.moon.view.get_terminal_size", return_value=(140, 40)):
             out = _strip_ansi(render(moment, 43.7, -79.4, runtime,
                                      fullscreen=True))
         row = [line for line in out.split("\n") if "Up now" in line]
@@ -172,7 +172,7 @@ class TestCountdownAndCompass:
 
     def test_compass_point_is_localised(self):
         """French names the western points with O, not W."""
-        from linecast.moon import _compass_point
+        from linecast.moon.view import _compass_point
         from linecast._runtime import RuntimeConfig
 
         fr = RuntimeConfig(live=False, icons="emoji", lang="fr", oneline=False)

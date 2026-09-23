@@ -32,12 +32,12 @@ def _strip_ansi(text):
 def _render(cols, rows, lang="en", calendar=None, mouse_pos=None,
             month_offset=0, now=NOW, lat=43.7, lng=-70.3, israel=False,
             week_start="monday"):
-    from linecast._moon.calendar import render_calendar
+    from linecast.moon.calendar import render_calendar
     from linecast._runtime import RuntimeConfig
 
     runtime = RuntimeConfig(live=False, icons="emoji", lang=lang,
                             oneline=False, week_start=week_start)
-    with patch("linecast._moon.calendar.get_terminal_size",
+    with patch("linecast.moon.calendar.get_terminal_size",
                return_value=(cols, rows)):
         out = render_calendar(now, lat, lng, runtime, fullscreen=True,
                               mouse_pos=mouse_pos, month_offset=month_offset,
@@ -118,7 +118,7 @@ class TestGrid:
 
 class TestPhaseDays:
     def test_september_2026_principal_phases(self):
-        from linecast._moon.calendar import principal_phase_days
+        from linecast.moon.calendar import principal_phase_days
         found = {d.day: idx
                  for d, (idx, _at) in principal_phase_days(2026, 9, ET).items()}
         # Last quarter the 4th, new the 10th, first quarter the 18th,
@@ -126,7 +126,7 @@ class TestPhaseDays:
         assert found == {4: 6, 10: 0, 18: 2, 26: 4}
 
     def test_meridian_moves_the_day(self):
-        from linecast._moon.calendar import principal_phase_days
+        from linecast.moon.calendar import principal_phase_days
         found = {d.day: idx
                  for d, (idx, _at) in principal_phase_days(2026, 9, JST).items()}
         assert found[11] == 0 and found[27] == 4
@@ -234,7 +234,7 @@ class TestCalendars:
     def test_hebrew_day_in_the_corner(self):
         # Each cell's bottom-right corner carries the Hebrew day, faint:
         # 1 September 2026 is 19 Elul, and the 12th is 1 Tishrei.
-        from linecast._moon import calendar as _moon_calendar
+        from linecast.moon import calendar as _moon_calendar
         now = datetime(2026, 9, 2, 14, 30, tzinfo=ET)
         body, _chip = _render(120, 34, calendar="hebrew", now=now)
         left, row0, cell_w, cell_h, _w, lead, _n, _y, _m = \
@@ -253,7 +253,7 @@ class TestCalendars:
         assert corner(12).endswith("Tishrei 1")
 
     def test_hijri_day_in_the_corner(self):
-        from linecast._moon import calendar as _moon_calendar
+        from linecast.moon import calendar as _moon_calendar
         now = datetime(2026, 9, 2, 14, 30, tzinfo=ET)
         body, _chip = _render(120, 34, calendar="islamic", now=now)
         left, row0, cell_w, cell_h, _w, lead, _n, _y, _m = \
@@ -360,26 +360,26 @@ class TestHoverChip:
 class TestClickedDay:
     def test_maps_a_cell_to_its_day(self):
         from datetime import date
-        from linecast._moon.calendar import clicked_day
+        from linecast.moon.calendar import clicked_day
         _render(100, 32, week_start="sunday")
         # Same geometry as TestHoverChip: day 16 sits in week 2, col 3.
         assert clicked_day(1 + 3 * 14 + 3, 3 + 2 * 6 + 2) == date(2026, 9, 16)
 
     def test_matches_the_hover_chip(self):
-        from linecast._moon.calendar import clicked_day
+        from linecast.moon.calendar import clicked_day
         pos = (1 + 3 * 14 + 3, 3 + 2 * 6 + 2)
         _body, chip = _render(100, 32, mouse_pos=pos, week_start="sunday")
         d = clicked_day(*pos)
         assert f"Sep {d.day}" in chip
 
     def test_off_grid_is_none(self):
-        from linecast._moon.calendar import clicked_day
+        from linecast.moon.calendar import clicked_day
         _render(100, 32)
         assert clicked_day(1, 1) is None
         assert clicked_day(1000, 1000) is None
 
     def test_leading_blank_cell_is_none(self):
-        from linecast._moon.calendar import clicked_day
+        from linecast.moon.calendar import clicked_day
         _render(100, 32)
         # Sep 2026 leads with two empty cells (Sun, Mon of week one).
         assert clicked_day(1 + 3, 3 + 2) is None

@@ -33,7 +33,7 @@ from linecast._calendars.lunisolar import (
 )
 from linecast._calendars.hebrew import hebrew_date, holiday_key, rosh_chodesh
 from linecast._calendars.hijri import hijri_date, observance_key
-from linecast._moon.i18n import (
+from linecast.moon.i18n import (
     MONTHS_I18N, _day_abbrev, _fmt_month_day, _moon_name, _ms, _zh_day_name,
     anahulu_name, festival_table, hebrew_date_label,
     hebrew_holiday_name, hebrew_month_name, hijri_date_label,
@@ -243,7 +243,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                     fullscreen=False, mouse_pos=None, calendar_name=None,
                     israel=False):
     """Build the calendar view: a month grid of shaded phase discs."""
-    from linecast import moon as _moon  # palettes, rebuilt on theme reload
+    from linecast.moon import view as _moon  # palettes, rebuilt on theme reload
     from linecast.sunshine import moon_cycle_frac, moon_phase, SYNODIC_MONTH
     from linecast._runtime import install_banner
 
@@ -462,7 +462,7 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
                 phase_days, mouse_pos, cols, rows,
                 moon_phase, moon_cycle_frac, SYNODIC_MONTH, israel=False):
     """The hovered day, read in full: date, phase, rise and set, calendar."""
-    from linecast import moon as _moon
+    from linecast.moon import view as _moon
 
     tzinfo = now_local.tzinfo
     noon = datetime.combine(d, time(12), tzinfo=tzinfo)

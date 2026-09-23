@@ -27,7 +27,7 @@ from linecast._calendars.hebrew import (
     rosh_chodesh,
 )
 from linecast._calendars.hijri import after_sunset
-from linecast._moon.i18n import (
+from linecast.moon.i18n import (
     hebrew_date_hebrew, hebrew_date_label, hebrew_holiday_name,
     hebrew_month_name, hebrew_numeral, hebrew_year_numeral,
     rosh_chodesh_label,
@@ -452,7 +452,7 @@ class TestKeepsIsraelDays:
     """The scheme follows the country of the place shown."""
 
     def test_a_known_country_is_not_geocoded(self, monkeypatch):
-        from linecast import moon
+        from linecast.moon import view as moon
         monkeypatch.setattr("linecast.weather.sources._reverse_geocode",
                             lambda *a, **k: pytest.fail("geocoded"))
         assert moon.keeps_israel_days("IL", 31.8, 35.2)
@@ -460,14 +460,14 @@ class TestKeepsIsraelDays:
         assert not moon.keeps_israel_days("US", 43.7, -70.3)
 
     def test_an_override_is_reverse_geocoded(self, monkeypatch):
-        from linecast import moon
+        from linecast.moon import view as moon
         monkeypatch.setattr("linecast.weather.sources._reverse_geocode",
                             lambda lat, lng, lang=None: ("Jerusalem", "IL", {}))
         assert moon.keeps_israel_days("", 31.8, 35.2)
         assert moon.keeps_israel_days(None, 31.8, 35.2)
 
     def test_offline_stays_diaspora(self, monkeypatch):
-        from linecast import moon
+        from linecast.moon import view as moon
         monkeypatch.setattr("linecast.weather.sources._reverse_geocode",
                             lambda lat, lng, lang=None: ("", "", {}))
         assert not moon.keeps_israel_days("", 31.8, 35.2)
@@ -491,10 +491,10 @@ class TestPanel:
         from unittest.mock import patch
 
         from linecast._runtime import RuntimeConfig
-        from linecast.moon import render
+        from linecast.moon.view import render
         runtime = RuntimeConfig(live=False, icons="emoji", lang="en",
                                 oneline=False)
-        with patch("linecast.moon.get_terminal_size",
+        with patch("linecast.moon.view.get_terminal_size",
                    return_value=(100, 30)):
             out = render(now, 43.68, -70.37, runtime, fullscreen=True,
                          calendar_name="hebrew")

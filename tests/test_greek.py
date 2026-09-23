@@ -7,7 +7,7 @@ import pytest
 
 from linecast._framebuffer import fmt_hour_phrase
 from linecast._i18n import LANGUAGE_CODES
-from linecast._moon.i18n import _ms, _fmt_month_day
+from linecast.moon.i18n import _ms, _fmt_month_day
 from linecast._runtime import WeatherRuntime, language_of, resolve_lang
 from linecast._sunshine.i18n import axis_month_labels, relative_day, sky_phase
 from linecast._textwidth import visible_len

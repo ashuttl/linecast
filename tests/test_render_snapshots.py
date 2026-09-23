@@ -242,11 +242,11 @@ class TestMoonSnapshot:
                         tzinfo=timezone(timedelta(hours=-5)))
 
     def _render(self, lang):
-        from linecast.moon import render
+        from linecast.moon.view import render
         from linecast._runtime import RuntimeConfig
 
         runtime = RuntimeConfig(live=False, icons="emoji", lang=lang, oneline=False)
-        with patch("linecast.moon.get_terminal_size", return_value=(80, 24)):
+        with patch("linecast.moon.view.get_terminal_size", return_value=(80, 24)):
             output = render(self._now(), 43.7, -79.4, runtime)
         return _strip_ansi(output)
 
@@ -258,11 +258,11 @@ class TestMoonSnapshot:
 
     def test_moon_scrubbed_shows_simulated_time(self):
         """Scrubbing must label the simulated moment and the way back."""
-        from linecast.moon import render
+        from linecast.moon.view import render
         from linecast._runtime import RuntimeConfig
 
         runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
-        with patch("linecast.moon.get_terminal_size", return_value=(80, 24)):
+        with patch("linecast.moon.view.get_terminal_size", return_value=(80, 24)):
             output = _strip_ansi(
                 render(self._now(), 43.7, -79.4, runtime, offset_minutes=2880)
             )
@@ -273,7 +273,7 @@ class TestMoonSnapshot:
     def test_terminator_squares_up_to_the_bright_limb(self):
         """The lit half sits where the bright limb points."""
         from linecast._framebuffer import Framebuffer
-        from linecast.moon import _draw_moon_disc
+        from linecast.moon.view import _draw_moon_disc
 
         def sides(limb_deg, axis_deg=0.0, illum=0.5):
             fb = Framebuffer(40, 20)
@@ -291,7 +291,7 @@ class TestMoonSnapshot:
         """The two angles are independent: the Sun lights one side of the
         Moon whichever way the Moon's own pole happens to be leaning."""
         from linecast._framebuffer import Framebuffer
-        from linecast.moon import _draw_moon_disc
+        from linecast.moon.view import _draw_moon_disc
 
         def render(axis_deg):
             fb = Framebuffer(40, 20)
@@ -308,7 +308,7 @@ class TestMoonSnapshot:
     def test_lit_fraction_drives_the_terminator(self):
         """Full fills the disc, new empties it."""
         from linecast._framebuffer import Framebuffer
-        from linecast.moon import _draw_moon_disc
+        from linecast.moon.view import _draw_moon_disc
 
         def brightness(illum):
             fb = Framebuffer(40, 20)
@@ -357,7 +357,7 @@ class TestMoonSnapshot:
 
     def test_map_covers_the_whole_moon(self):
         """The albedo map runs the full 360°, near side in the middle."""
-        from linecast.moon import _load_albedo, _surface_shade
+        from linecast.moon.view import _load_albedo, _surface_shade
 
         w, h, _px = _load_albedo()
         assert (w, h) == (512, 256)
@@ -374,7 +374,7 @@ class TestMoonSnapshot:
     def test_no_turn_is_the_identity(self):
         """A disc drawn through an identity turn is the disc drawn without."""
         from linecast._framebuffer import Framebuffer
-        from linecast.moon import _IDENTITY, _draw_moon_disc
+        from linecast.moon.view import _IDENTITY, _draw_moon_disc
 
         plain = Framebuffer(40, 20)
         _draw_moon_disc(plain, 20, 20, 15, 0.7, 110.0, 25.0)
@@ -385,7 +385,7 @@ class TestMoonSnapshot:
     def test_a_turn_carries_the_light_round_with_the_surface(self):
         """Dragging turns the whole Moon: the lit half goes with it."""
         from linecast._framebuffer import Framebuffer
-        from linecast.moon import _draw_moon_disc, _rotation
+        from linecast.moon.view import _draw_moon_disc, _rotation
 
         def render(turn, illum=0.5):
             fb = Framebuffer(40, 20)
@@ -416,7 +416,7 @@ class TestMoonSnapshot:
         """A thin crescent's night carries a ghost of the surface; the far
         side's night, turned toward us, is flat shadow."""
         from linecast._framebuffer import Framebuffer
-        from linecast.moon import MOON_SHADOW_RGB, _draw_moon_disc, _rotation
+        from linecast.moon.view import MOON_SHADOW_RGB, _draw_moon_disc, _rotation
 
         def night_row(illum, turn=None):
             fb = Framebuffer(60, 30)
@@ -433,7 +433,7 @@ class TestMoonSnapshot:
 
     def test_the_disc_view_night_is_darker_than_the_sky(self):
         from linecast._framebuffer import Framebuffer
-        from linecast.moon import (
+        from linecast.moon.view import (
             MOON_NIGHT_RGB, MOON_SHADOW_RGB, SKY_RGB, _draw_moon_disc, _rotation,
         )
 
@@ -449,7 +449,7 @@ class TestMoonSnapshot:
 
     def test_stars_are_sown_evenly_and_keep_off_the_moon(self):
         from linecast._framebuffer import Framebuffer
-        from linecast.moon import _STAR_DENSITY, _star_overlays
+        from linecast.moon.view import _STAR_DENSITY, _star_overlays
 
         fb = Framebuffer(120, 40)
         cx, cy, radius = 60, 40, 30
@@ -472,7 +472,7 @@ class TestMoonSnapshot:
         """Sirius sits where it should about the Moon, and turns with the
         parallactic angle as the night goes on."""
         from linecast._framebuffer import Framebuffer
-        from linecast.moon import _load_stars, _star_overlays
+        from linecast.moon.view import _load_stars, _star_overlays
 
         stars = _load_stars()
         assert len(stars) > 2000
@@ -500,7 +500,7 @@ class TestMoonSnapshot:
     def test_turning_the_disc_sweeps_the_stars_the_other_way(self):
         """Roll the surface right and the sky behind it goes left, as the
         background does when you walk round a statue."""
-        from linecast.moon import (
+        from linecast.moon.view import (
             _load_stars, _project_star, _rotation, _star_direction,
         )
 
@@ -520,7 +520,7 @@ class TestMoonSnapshot:
     def test_drag_rolls_the_surface_with_the_pointer(self):
         """Dragging right brings the left limb toward the centre, dragging
         down brings the top; a drag the length of the radius is a radian."""
-        from linecast.moon import Turn, _axis_angle, _mat_transpose
+        from linecast.moon.view import Turn, _axis_angle, _mat_transpose
 
         def centre_after(dcol, drow):
             turn = Turn()
@@ -536,7 +536,7 @@ class TestMoonSnapshot:
 
     def test_release_settles_back_to_rest(self):
         """Let go and the turn eases to nothing, on the clock."""
-        from linecast.moon import Turn, _axis_angle
+        from linecast.moon.view import Turn, _axis_angle
 
         turn = Turn()
         turn.radius = 40.0
@@ -545,23 +545,23 @@ class TestMoonSnapshot:
         turn.drag(30, 5)
         held = _axis_angle(turn.matrix())[1]
         assert turn.release() is True
-        with patch("linecast.moon.time.monotonic",
+        with patch("linecast.moon.view.time.monotonic",
                    return_value=turn._settle[2] + Turn.SETTLE * 0.5):
             assert 0.0 < _axis_angle(turn.matrix())[1] < held
-        with patch("linecast.moon.time.monotonic",
+        with patch("linecast.moon.view.time.monotonic",
                    return_value=turn._settle[2] + Turn.SETTLE * 1.01):
             assert turn.matrix() is None
         turn._ticker.join(timeout=2.0)
         assert not turn._ticker.is_alive()
 
     def test_a_drag_mid_settle_picks_the_disc_up_where_it_is(self):
-        from linecast.moon import Turn, _axis_angle
+        from linecast.moon.view import Turn, _axis_angle
 
         turn = Turn()
         turn.radius = 40.0
         turn.drag(40, 0)
         turn.release()
-        with patch("linecast.moon.time.monotonic",
+        with patch("linecast.moon.view.time.monotonic",
                    return_value=turn._settle[2] + Turn.SETTLE * 0.5):
             partway = _axis_angle(turn.matrix())[1]
             turn.drag(0, 0)

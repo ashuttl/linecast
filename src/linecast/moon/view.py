@@ -30,7 +30,6 @@ import textwrap
 import threading
 import time
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from linecast._framebuffer import fmt_time_dt
 from linecast._graphics import (
@@ -49,7 +48,7 @@ from linecast._calendars.hebrew import next_month_start as next_hebrew_month
 from linecast._calendars.hijri import (
     after_sunset, hijri_date, next_month_start, next_observance,
 )
-from linecast._moon.i18n import (
+from linecast.moon.i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
     anahulu_name, festival_table, hebrew_date_label, hebrew_holiday_name,
     hebrew_month_name, hijri_date_label, hijri_month_name,
@@ -178,8 +177,9 @@ def _load_albedo():
         return _albedo
     _albedo_tried = True
     try:
+        from linecast._paths import data_path
         from linecast._png import decode_rgba
-        data = (Path(__file__).parent / "data" / "moon_albedo.png").read_bytes()
+        data = data_path("moon_albedo.png").read_bytes()
         w, h, rgba = decode_rgba(data)
         _albedo = (w, h, bytes(rgba[::4]))
     except Exception as exc:
@@ -1467,7 +1467,7 @@ def main():
 
     if runtime.json_mode:
         import json
-        from linecast._moon.json import build_payload
+        from linecast.moon.json import build_payload
         payload = build_payload(_now(), lat, lng, runtime,
                                 calendar=args.calendar, israel=israel)
         print(json.dumps(payload, ensure_ascii=False))
@@ -1491,7 +1491,7 @@ def main():
         # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
         # is handled here (per view) rather than by live_loop.
         if state["cal"]:
-            from linecast._moon.calendar import render_calendar
+            from linecast.moon.calendar import render_calendar
             return render_calendar(_now(), lat, lng, runtime,
                                    month_offset=state["months"],
                                    fullscreen=live, mouse_pos=mouse_pos,
@@ -1551,7 +1551,7 @@ def main():
         # on that day, at this hour, with space the way back to now.
         if not state["cal"]:
             return False
-        from linecast._moon.calendar import clicked_day
+        from linecast.moon.calendar import clicked_day
         target = clicked_day(col, row)
         if target is None:
             return False
@@ -1566,6 +1566,3 @@ def main():
               on_wheel=_on_wheel, on_action=_on_key,
               on_drag=_on_drag, on_click=_on_click)
 
-
-if __name__ == "__main__":
-    main()

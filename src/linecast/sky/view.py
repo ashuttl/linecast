@@ -78,7 +78,7 @@ from linecast.sky.i18n import NO_CAPITALS, _sk, body_name
 from linecast._sunshine.i18n import sky_phase
 from linecast._textwidth import char_width
 from linecast._tides.i18n import _ts  # shared "space to return to now" hint
-from linecast.moon import _draw_moon_disc
+from linecast.moon.view import _draw_moon_disc
 from linecast.sunshine import (
     INFO_AMBER_RGB, INFO_DIM_RGB, INFO_TEXT_RGB, SKY_FAR_HORIZON,
     SKY_NEAR_HORIZON, SKY_NIGHT, SKY_ZENITH, SUN_DOT_RGB, SUN_GLOW_RGB,
