@@ -1313,7 +1313,8 @@ def main():
         cols, rows = get_terminal_size()
         view = default_view(Scene(now.astimezone(timezone.utc), lat, lng),
                             cols, rows, facing, fov, aim=aim)._replace(culture=culture)
-        print(render(now, lat, lng, runtime, view, location_label=label))
+        from linecast._live import print_frame
+        print_frame(render(now, lat, lng, runtime, view, location_label=label))
         return
     SkyApp(_now, lat, lng, runtime, facing=facing, fov=fov, location_label=label,
            aim=aim, culture=culture).run()
