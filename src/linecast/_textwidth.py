@@ -18,6 +18,10 @@ _VS16 = '\ufe0f'                        # emoji presentation selector
 # which are wide because they are ideographs, not because the
 # terminal draws emoji wide.
 _EMOJI_PLANE = (0x1F000, 0x1FAFF)
+# Format characters a terminal does draw: the soft hyphen, and the
+# Arabic and Syriac signs that sit before a number.
+_VISIBLE_FORMAT = frozenset('\u00ad\u0600\u0601\u0602\u0603\u0604\u0605'
+                            '\u06dd\u070f\u0890\u0891\u08e2\U000110bd\U000110cd')
 
 
 def char_width(ch, next_ch=""):
@@ -39,6 +43,11 @@ def char_width(ch, next_ch=""):
         return 0
     if ch in '\u200b\u200c\u200d\u2060\ufeff':
         return 0        # zero-width space and joiners (ZWNJ/ZWJ in Indic text)
+    if unicodedata.category(ch) == 'Cf' and ch not in _VISIBLE_FORMAT:
+        # Format characters draw nothing: the bidi marks and isolates
+        # (LRM, RLM, ALM, U+2066-2069) that OSM names carry, and that the
+        # right-to-left pass (_bidi) places and then removes.
+        return 0
     if next_ch == _VS16:
         # base + VS16 → emoji presentation → double-width.  Asked before
         # the East Asian width: the selector is what settles how the

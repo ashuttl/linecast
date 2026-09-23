@@ -251,3 +251,12 @@ def test_a_hyphenated_word_is_not_broken_at_its_hyphen():
     for width in range(6, len(text)):
         assert not any(row.endswith("-") for row in wrap_display_width(text, width)), width
 
+
+class TestFormatCharacters:
+    def test_bidi_marks_and_isolates_take_no_cells(self):
+        # OSM names carry them; the right-to-left pass places and drops them
+        for ch in "\u200e\u200f\u061c\u2066\u2067\u2068\u2069\u202a\u202e":
+            assert visible_len(ch) == 0, hex(ord(ch))
+
+    def test_the_soft_hyphen_is_drawn(self):
+        assert visible_len("\u00ad") == 1
