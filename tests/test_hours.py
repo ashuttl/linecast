@@ -1248,6 +1248,116 @@ class TestPrayerTimes:
                     f"{day} {key}: {marks[key]:%H:%M} against the Diyanet's {text}")
         assert default_school("TR") == "shafii"
 
+    # Tehran's اوقات شرعی on four dates of 2026, as bahesab.ir serves
+    # them for the city (its /mdn/time/Dazanv1/ endpoint, read on 23
+    # September 2026) by the Institute of Geophysics, University of
+    # Tehran's rules: اذان صبح, طلوع آفتاب, اذان ظهر, غروب آفتاب,
+    # اذان مغرب, and the midnight, نیمه\u200cشب شرعی. 1 March is 11
+    # Ramadan 1447.
+    TEHRAN = {
+        "2026-03-01": ("05:11", "06:35", "12:17", "17:59", "18:17", "23:35"),
+        "2026-06-21": ("03:02", "04:49", "12:06", "19:23", "19:45", "23:13"),
+        "2026-09-23": ("04:29", "05:53", "11:57", "18:00", "18:18", "23:14"),
+        "2026-12-22": ("05:41", "07:11", "12:03", "16:55", "17:15", "23:18"),
+    }
+
+    def test_tehran_prints_the_iranian_table(self):
+        """Sunset beside Maghrib, the Ja'fari midnight, and no Asr, Isha,
+        or separate Imsak, even in Ramadan, where the fast still runs
+        from اذان صبح to اذان مغرب. Within a minute and a quarter: the
+        site's coordinates for the city are its own."""
+        tz = ZoneInfo("Asia/Tehran")
+        keys = ("fajr", "sunrise", "dhuhr", "sunset", "maghrib", "midnight")
+        for day, times in self.TEHRAN.items():
+            hours = prayer_times(date.fromisoformat(day), 35.6892, 51.3890, tz, None, "IR")
+            assert hours.variant == "tehran"
+            assert [m.key for m in hours.marks] == list(keys)
+            marks = {m.key: m.at for m in hours.marks}
+            for key, text in zip(keys, times):
+                h, m = (int(x) for x in text.split(":"))
+                expected = datetime.fromisoformat(day).replace(hour=h, minute=m, tzinfo=tz)
+                assert abs(marks[key] - expected) < timedelta(seconds=75), (
+                    f"{day} {key}: {marks[key]:%H:%M:%S} against {text}")
+            assert hours.after.key == "fajr"
+        ramadan = prayer_times(date(2026, 3, 1), 35.6892, 51.3890, tz, None, "IR")
+        marks = {m.key: m.at for m in ramadan.marks}
+        assert ramadan.fast == (marks["fajr"], marks["maghrib"])
+
+    def test_the_jafari_midnight_is_halfway_from_sunset_to_fajr(self):
+        """Not to sunrise: on 21 June in Tehran that would be 00:06, and
+        the table prints 23:13."""
+        tz = ZoneInfo("Asia/Tehran")
+        hours = prayer_times(date(2026, 6, 21), 35.6892, 51.3890, tz, None, "IR")
+        marks = {m.key: m.at for m in hours.marks}
+        next_fajr = hours.after.at
+        assert abs((marks["midnight"] - marks["sunset"]) - (next_fajr - marks["midnight"])
+                   ) < timedelta(seconds=1)
+        by_sunrise = marks["sunset"] + (hours.next_day_start - marks["sunset"]) / 2
+        assert by_sunrise - marks["midnight"] > timedelta(minutes=45)
+
+    def test_the_iranian_set_follows_the_method(self):
+        """The Tehran method prints the Iranian set wherever it is read;
+        another method in Iran prints the five prayers, and so does
+        Afghanistan, Hanafi and on the Karachi method, whatever the
+        language. A school asked for by name brings Asr and Isha back."""
+        iranian = ["fajr", "sunrise", "dhuhr", "sunset", "maghrib", "midnight"]
+        standard = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"]
+        day = date(2026, 9, 23)
+        tehran = ZoneInfo("Asia/Tehran")
+        london = ZoneInfo("Europe/London")
+        kabul = ZoneInfo("Asia/Kabul")
+
+        def keys(*args):
+            return [m.key for m in prayer_times(day, *args).marks]
+
+        assert keys(35.6892, 51.3890, tehran, None, "IR") == iranian
+        assert keys(51.5074, -0.1278, london, "tehran", "GB") == iranian
+        assert keys(35.6892, 51.3890, tehran, "mwl", "IR") == standard
+        assert keys(34.53, 69.17, kabul, None, "AF") == standard
+        hanafi = prayer_times(day, 35.6892, 51.3890, tehran, "hanafi", "IR")
+        assert hanafi.variant == "tehran-hanafi"
+        assert [m.key for m in hanafi.marks] == standard
+
+    def test_a_jafari_midnight_past_twelve_is_listed_on_the_date_it_falls_on(self):
+        """Oslo, 21 June by the Tehran method: the Ja'fari midnight is
+        at 00:33 on the 22nd, and the 22nd lists it first, as it does a
+        late Isha."""
+        tz = ZoneInfo("Europe/Oslo")
+        hours, now = hours_now("islamic", datetime(2026, 6, 22, 0, 5, tzinfo=tz),
+                               59.91, 10.75, tz, "tehran", None)
+        assert hours.date == date(2026, 6, 22)
+        assert hours.marks[0].key == "midnight"
+        assert hours.marks[0].at.date() == date(2026, 6, 22)
+        assert next_mark(hours, now) is hours.marks[0]
+        assert [m.key for m in hours.marks].count("midnight") == 2
+
+    def test_the_iranian_marks_are_named(self):
+        """Persian reads the Iranian timetable's own names; Turkish and
+        Indonesian have their own words; elsewhere sunset and midnight
+        read in the language's own word, as sunrise does."""
+        from linecast._hours.i18n import mark_name, mark_native
+        from linecast.sunshine.hours import hours_line
+        fa, en, fr = _runtime(lang="fa"), _runtime(), _runtime(lang="fr")
+        assert mark_name("islamic", "sunset", fa) == "غروب آفتاب"
+        assert mark_name("islamic", "midnight", fa) == "نیمه\u200cشب شرعی"
+        assert mark_name("islamic", "sunset", en) == "sunset"
+        assert mark_name("islamic", "midnight", en) == "midnight"
+        assert mark_name("islamic", "sunset", fr) == "coucher du soleil"
+        assert mark_name("islamic", "midnight", fr) == "minuit"
+        assert mark_name("islamic", "midnight", _runtime(lang="tr")) == "Gece yarısı"
+        assert mark_name("islamic", "sunset", _runtime(lang="id")) == "Terbenam"
+        assert mark_name("islamic", "midnight", _runtime(lang="pt-PT")) == "meia-noite"
+        assert mark_native("islamic", "midnight") == "منتصف الليل"
+        assert mark_native("islamic", "sunset") == "الغروب"
+        # The halachic chatzot halayla is its own mark, and unchanged
+        assert mark_name("halachic", "chatzot_halayla", fr) == "chatzot halayla"
+        tz = ZoneInfo("Asia/Tehran")
+        hours = prayer_times(date(2026, 9, 23), 35.6892, 51.3890, tz, None, "IR")
+        noon = datetime(2026, 9, 23, 12, 0, tzinfo=tz)
+        line = _plain(hours_line(hours, noon, 300, _runtime(use_24h=True)))
+        assert "Asr" not in line and "Isha" not in line
+        assert " · Maghrib 18:18 · midnight 23:15 " in line
+
     def test_the_night_after_isha_counts_down_to_fajr(self):
         """Once the day's marks are past, the next day's first is the
         one to come: Fajr, or Imsak in Ramadan, on the corner and at

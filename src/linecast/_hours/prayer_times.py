@@ -24,19 +24,30 @@ separate one. Ramadan is read from the Umm al-Qura calendar the moon
 keeps, so a country that begins it a day later by sighting is a day
 off here.
 
-The day's table carries two moments beyond its own date. An Isha that
-falls after midnight, a Nordic June by an angle, is listed on the
-date it falls on as well as its own, so the small hours still count
-down to it. And the first mark of the next day, Fajr or Imsak in
-Ramadan, stands after the last of this one, so the night after Isha
-counts down to the dawn.
+Iran's timetables print a different day, the Shia one, and the
+Tehran method prints it too: اذان صبح, sunrise, اذان ظهر, sunset,
+اذان مغرب, and the Ja'fari midnight, نیمه\u200cشب شرعی, halfway from
+sunset to the next Fajr; no Asr and no Isha, which are joined to the
+prayers before them, and no Imsak apart from Fajr. The set follows
+the method rather than the country or the language, so an Iranian
+table read abroad keeps it and a Persian reader in Afghanistan, on
+the Karachi method, keeps Asr and Isha; a school asked for by name
+brings Asr back.
+
+The day's table carries two moments beyond its own date. An Isha or a
+Ja'fari midnight that falls after the clock's midnight, a Nordic June
+by an angle, is listed on the date it falls on as well as its own, so
+the small hours still count down to it. And the first mark of the
+next day, Fajr or Imsak in Ramadan, stands after the last of this
+one, so the night after Isha counts down to the dawn.
 
 The tests check eight places on four dates against the Aladhan API
-with the matching method, to the minute, and Istanbul against the
-Diyanet's own table; the Umm al-Qura method against its own Makkah
-timetable is the check still to add. A mosque's card can differ by a
-minute or two: many publishers round Fajr down and Maghrib up for
-caution.
+with the matching method, to the minute, Istanbul against the
+Diyanet's own table, and Tehran against the Institute of Geophysics'
+times as bahesab.ir serves them; the Umm al-Qura method against its
+own Makkah timetable is the check still to add. A mosque's card can
+differ by a minute or two: many publishers round Fajr down and
+Maghrib up for caution.
 """
 
 import math
@@ -97,8 +108,20 @@ _OFFSETS = {
 }
 
 # Minutes before Fajr the convention's Imsak falls, where it prints
-# one apart from Fajr; the Diyanet's İmsak is the Fajr time itself.
-_IMSAK = {"turkey": 0}
+# one apart from Fajr; the Diyanet's İmsak is the Fajr time itself,
+# and so is Iran's: the fast begins at اذان صبح, and the Ramadan
+# tables print no Imsak before it.
+_IMSAK = {"turkey": 0, "tehran": 0}
+
+# The marks a convention's timetable prints, in the day's order. Most
+# print the five prayers and sunrise. The Institute of Geophysics
+# prints the Shia day: sunset beside Maghrib, which Shia practice
+# waits for until the eastern redness has gone, and the Ja'fari
+# midnight, the end of the time for Isha; and no Asr or Isha, which
+# Shia practice joins to Dhuhr and to Maghrib.
+STANDARD_MARKS = ("imsak", "fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha")
+JAFARI_MARKS = ("imsak", "fajr", "sunrise", "dhuhr", "sunset", "maghrib", "midnight")
+_MARKS = {"tehran": JAFARI_MARKS}
 
 # The method a country's own authority publishes, or the one its
 # mosques mostly print; the Muslim World League's angles elsewhere.
@@ -140,6 +163,12 @@ def default_school(country):
     return "hanafi" if (country or "").upper() in _HANAFI_COUNTRIES else "shafii"
 
 
+def marks_of(method, school_asked=False):
+    """The keys the method's timetable prints. A school asked for by
+    name is a question about Asr, so it keeps the five prayers."""
+    return STANDARD_MARKS if school_asked else _MARKS.get(method, STANDARD_MARKS)
+
+
 def imsak_minutes(method):
     """Minutes before Fajr the method's Imsak falls; 0 where the Fajr
     time is the Imsak and no separate mark is listed."""
@@ -177,10 +206,11 @@ def is_ramadan(local_date):
 
 
 @lru_cache(maxsize=128)
-def _day(local_date, lat, lng, tzinfo, method, school):
-    """One date's own times by *method* and *school*: the marks in
-    order, with the method's minutes of caution applied, and the plain
-    sunrise, sunset, Fajr, and Maghrib the frame and the fast use."""
+def _day(local_date, lat, lng, tzinfo, method, school, keys=STANDARD_MARKS):
+    """One date's own times by *method* and *school*: the marks named
+    in *keys*, in order, with the method's minutes of caution applied,
+    and the plain sunrise, sunset, Fajr, and Maghrib the frame and the
+    fast use."""
     _name, fajr_deg, isha_rule, maghrib_deg = METHODS[method]
     day = timedelta(days=1)
 
@@ -211,14 +241,26 @@ def _day(local_date, lat, lng, tzinfo, method, school):
     asr = depression(local_date, -_asr_altitude_deg(lat, decl, 2 if school == "hanafi" else 1),
                      True)
 
+    # The Ja'fari midnight: halfway from sunset to the next Fajr, the
+    # night as the Shia jurists count it. The Sunni midnight, halfway
+    # to sunrise, is later; no timetable here prints it.
+    midnight = None
+    if "midnight" in keys and sunset:
+        next_fajr = _angle_based(depression(local_date + day, fajr_deg, False), next_sunrise,
+                                 fajr_deg, night_after, before=True)
+        if next_fajr:
+            midnight = shift(sunset, elapsed(sunset, next_fajr) / 2)
+
     offsets = _OFFSETS.get(method, {})
     before_fajr = imsak_minutes(method)
     imsak = (shift(fajr, -timedelta(minutes=before_fajr))
              if fajr and ramadan and before_fajr else None)
+    moments = {"imsak": imsak, "fajr": fajr, "sunrise": sunrise, "dhuhr": dhuhr,
+               "asr": asr, "sunset": sunset, "maghrib": maghrib, "isha": isha,
+               "midnight": midnight}
     marks = []
-    for key, at in (("imsak", imsak), ("fajr", fajr), ("sunrise", sunrise),
-                    ("dhuhr", dhuhr), ("asr", asr), ("maghrib", maghrib),
-                    ("isha", isha)):
+    for key in keys:
+        at = moments[key]
         if at is not None:
             marks.append(Mark(key, shift(at, timedelta(minutes=offsets.get(key, 0)))))
     if "maghrib" in offsets and maghrib:
@@ -236,16 +278,20 @@ def prayer_times(local_date, lat, lng, tzinfo=None, method=None, country=None):
     keep the country's method and change the Asr; None takes both from
     the country.
     """
-    school = method if method in SCHOOLS else default_school(country)
+    school_asked = method in SCHOOLS
+    school = method if school_asked else default_school(country)
     method = method if method in METHODS else default_method(country)
+    keys = marks_of(method, school_asked)
     day = timedelta(days=1)
-    today = _day(local_date, lat, lng, tzinfo, method, school)
-    yesterday = _day(local_date - day, lat, lng, tzinfo, method, school)
-    tomorrow = _day(local_date + day, lat, lng, tzinfo, method, school)
+    today = _day(local_date, lat, lng, tzinfo, method, school, keys)
+    yesterday = _day(local_date - day, lat, lng, tzinfo, method, school, keys)
+    tomorrow = _day(local_date + day, lat, lng, tzinfo, method, school, keys)
 
     marks = list(today["marks"])
-    # Yesterday's Isha, where it fell after midnight into this date.
-    late = [m for m in yesterday["marks"] if m.key == "isha" and m.at.date() == local_date]
+    # Yesterday's Isha or midnight, where it fell after the clock's
+    # midnight into this date.
+    late = [m for m in yesterday["marks"]
+            if m.key in ("isha", "midnight") and m.at.date() == local_date]
     marks = late + marks
     after = tomorrow["marks"][0] if tomorrow["marks"] else None
 

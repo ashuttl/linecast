@@ -6,9 +6,10 @@ everywhere. The Edo hours keep their kanji in Japanese and take the
 bell count and the animal's hour elsewhere. The prayer names are
 transliterated, with Indonesian's own spellings, as the Hijri months
 have theirs, Turkish's own names, İmsak to Yatsı, as the Diyanet
-prints them, and Persian's, اذان صبح to اذان مغرب, as Iranian
-timetables print them; sunrise reads in each language's own word. Swahili time
-reads in Swahili everywhere, as Latin does.
+prints them, and Persian's, امساک to نیمه\u200cشب شرعی, as Iranian
+timetables print them; sunrise, sunset, and the Ja'fari midnight read
+in each language's own word. Swahili time reads in Swahili
+everywhere, as Latin does.
 
 Each mark has a short name for the line under the chart and a full
 name for `--json` and the help. Names that are the same in every
@@ -81,52 +82,86 @@ _PRAYERS = {
     "asr": ("Asr", "Asar", "İkindi", "عصر", "العصر"),
     "maghrib": ("Maghrib", "Magrib", "Akşam", "اذان مغرب", "المغرب"),
     "isha": ("Isha", "Isya", "Yatsı", "عشا", "العشاء"),
+    # The Iranian table's two: sunset, and the Ja'fari midnight.
+    "sunset": ("Sunset", "Terbenam", "Gün batımı", "غروب آفتاب", "الغروب"),
+    "midnight": ("Midnight", "Tengah malam", "Gece yarısı", "نیمه\u200cشب شرعی", "منتصف الليل"),
 }
 _PRAYER_COLUMN = {"id": 1, "tr": 2, "fa": 3}
 
 # The strings the hours line and the corner need beyond the names:
 # "night" for the night hours, "in {dur}" for the countdown, and the
 # unit the corner measures, "1h = 62m", where a system has its own,
-# and "fast" for the corner's count of a day of fasting.
+# "fast" for the corner's count of a day of fasting, and "midnight",
+# the Ja'fari midnight of the Iranian prayer table, in the language's
+# own word where the prayers have no column of their own.
 _HOURS_STRINGS = {
-    "en": {"night": "night", "in_time": "in {dur}", "koku": "1 koku", "fast": "fast"},
-    "fr": {"night": "nuit", "in_time": "dans {dur}", "koku": "1 koku", "fast": "jeûne"},
-    "es": {"night": "noche", "in_time": "en {dur}", "koku": "1 koku", "fast": "ayuno"},
-    "de": {"night": "Nacht", "in_time": "in {dur}", "koku": "1 koku", "fast": "Fasten"},
-    "it": {"night": "notte", "in_time": "tra {dur}", "koku": "1 koku", "fast": "digiuno"},
-    "pt": {"night": "noite", "in_time": "em {dur}", "koku": "1 koku", "fast": "jejum"},
-    "nl": {"night": "nacht", "in_time": "over {dur}", "koku": "1 koku", "fast": "vasten"},
-    "pl": {"night": "noc", "in_time": "za {dur}", "koku": "1 koku", "fast": "post"},
-    "no": {"night": "natt", "in_time": "om {dur}", "koku": "1 koku", "fast": "faste"},
-    "sv": {"night": "natt", "in_time": "om {dur}", "koku": "1 koku", "fast": "fasta"},
-    "is": {"night": "nótt", "in_time": "eftir {dur}", "koku": "1 koku", "fast": "fasta"},
-    "da": {"night": "nat", "in_time": "om {dur}", "koku": "1 koku", "fast": "faste"},
-    "fi": {"night": "yö", "in_time": "{dur} kuluttua", "koku": "1 koku", "fast": "paasto"},
-    "ja": {"night": "夜", "in_time": "{dur}後", "koku": "1刻", "fast": "断食"},
-    "ko": {"night": "밤", "in_time": "{dur} 후", "koku": "1코쿠", "fast": "금식"},
-    "zh": {"night": "夜", "in_time": "{dur}后", "koku": "1刻", "fast": "斋戒"},
-    "zh-Hant": {"night": "夜", "in_time": "{dur}後", "koku": "1刻", "fast": "齋戒"},
-    "th": {"night": "กลางคืน", "in_time": "อีก {dur}", "koku": "1 โคกุ", "fast": "ถือศีลอด"},
-    "id": {"night": "malam", "in_time": "dalam {dur}", "koku": "1 koku", "fast": "puasa"},
-    "uk": {"night": "ніч", "in_time": "через {dur}", "koku": "1 коку", "fast": "піст"},
-    "vi": {"night": "đêm", "in_time": "còn {dur}", "koku": "1 koku", "fast": "nhịn chay"},
-    "eo": {"night": "nokto", "in_time": "post {dur}", "koku": "1 koku", "fast": "fasto"},
-    "tr": {"night": "gece", "in_time": "{dur} sonra", "koku": "1 koku", "fast": "oruç"},
-    "fa": {"night": "شب", "in_time": "{dur} دیگر", "koku": "۱ کوکو", "fast": "روزه"},
-    "ru": {"night": "ночь", "in_time": "через {dur}", "koku": "1 коку", "fast": "пост"},
-    "ro": {"night": "noapte", "in_time": "peste {dur}", "koku": "1 koku", "fast": "post"},
-    "cs": {"night": "noc", "in_time": "za {dur}", "koku": "1 koku", "fast": "půst"},
+    "en": {"night": "night", "in_time": "in {dur}", "koku": "1 koku", "fast": "fast",
+           "midnight": "midnight"},
+    "fr": {"night": "nuit", "in_time": "dans {dur}", "koku": "1 koku", "fast": "jeûne",
+           "midnight": "minuit"},
+    "es": {"night": "noche", "in_time": "en {dur}", "koku": "1 koku", "fast": "ayuno",
+           "midnight": "medianoche"},
+    "de": {"night": "Nacht", "in_time": "in {dur}", "koku": "1 koku", "fast": "Fasten",
+           "midnight": "Mitternacht"},
+    "it": {"night": "notte", "in_time": "tra {dur}", "koku": "1 koku", "fast": "digiuno",
+           "midnight": "mezzanotte"},
+    "pt": {"night": "noite", "in_time": "em {dur}", "koku": "1 koku", "fast": "jejum",
+           "midnight": "meia-noite"},
+    "nl": {"night": "nacht", "in_time": "over {dur}", "koku": "1 koku", "fast": "vasten",
+           "midnight": "middernacht"},
+    "pl": {"night": "noc", "in_time": "za {dur}", "koku": "1 koku", "fast": "post",
+           "midnight": "północ"},
+    "no": {"night": "natt", "in_time": "om {dur}", "koku": "1 koku", "fast": "faste",
+           "midnight": "midnatt"},
+    "sv": {"night": "natt", "in_time": "om {dur}", "koku": "1 koku", "fast": "fasta",
+           "midnight": "midnatt"},
+    "is": {"night": "nótt", "in_time": "eftir {dur}", "koku": "1 koku", "fast": "fasta",
+           "midnight": "miðnætti"},
+    "da": {"night": "nat", "in_time": "om {dur}", "koku": "1 koku", "fast": "faste",
+           "midnight": "midnat"},
+    "fi": {"night": "yö", "in_time": "{dur} kuluttua", "koku": "1 koku", "fast": "paasto",
+           "midnight": "keskiyö"},
+    "ja": {"night": "夜", "in_time": "{dur}後", "koku": "1刻", "fast": "断食",
+           "midnight": "夜半"},
+    "ko": {"night": "밤", "in_time": "{dur} 후", "koku": "1코쿠", "fast": "금식",
+           "midnight": "자정"},
+    "zh": {"night": "夜", "in_time": "{dur}后", "koku": "1刻", "fast": "斋戒",
+           "midnight": "子夜"},
+    "zh-Hant": {"night": "夜", "in_time": "{dur}後", "koku": "1刻", "fast": "齋戒",
+           "midnight": "子夜"},
+    "th": {"night": "กลางคืน", "in_time": "อีก {dur}", "koku": "1 โคกุ", "fast": "ถือศีลอด",
+           "midnight": "เที่ยงคืน"},
+    "id": {"night": "malam", "in_time": "dalam {dur}", "koku": "1 koku", "fast": "puasa",
+           "midnight": "tengah malam"},
+    "uk": {"night": "ніч", "in_time": "через {dur}", "koku": "1 коку", "fast": "піст",
+           "midnight": "північ"},
+    "vi": {"night": "đêm", "in_time": "còn {dur}", "koku": "1 koku", "fast": "nhịn chay",
+           "midnight": "nửa đêm"},
+    "eo": {"night": "nokto", "in_time": "post {dur}", "koku": "1 koku", "fast": "fasto",
+           "midnight": "noktomezo"},
+    "tr": {"night": "gece", "in_time": "{dur} sonra", "koku": "1 koku", "fast": "oruç",
+           "midnight": "gece yarısı"},
+    "fa": {"night": "شب", "in_time": "{dur} دیگر", "koku": "۱ کوکو", "fast": "روزه",
+           "midnight": "نیمه\u200cشب شرعی"},
+    "ru": {"night": "ночь", "in_time": "через {dur}", "koku": "1 коку", "fast": "пост",
+           "midnight": "полночь"},
+    "ro": {"night": "noapte", "in_time": "peste {dur}", "koku": "1 koku", "fast": "post",
+           "midnight": "miezul nopții"},
+    "cs": {"night": "noc", "in_time": "za {dur}", "koku": "1 koku", "fast": "půst",
+           "midnight": "půlnoc"},
     "sw": {
         "night": "usiku",
         "in_time": "baada ya {dur}",
         "koku": "koku 1",
         "fast": "mfungo",
+        "midnight": "usiku wa manane",
     },
     "el": {
         'night': 'νύχτα',
         'in_time': 'σε {dur}',
         'koku': '1 koku',
         'fast': 'νηστεία',
+        'midnight': 'μεσάνυχτα',
     },
 }
 
@@ -147,6 +182,8 @@ def mark_name(system, key, runtime, short=False, hours=None):
     if key in _SUN_KEYS and (system != "islamic" or lang not in _PRAYER_COLUMN):
         from linecast.sunshine.i18n import sky_event
         return sky_event(_SUN_KEYS[key], runtime)
+    if system == "islamic" and key == "midnight" and lang not in _PRAYER_COLUMN:
+        return hs("midnight", runtime)
     if system == "halachic":
         short_name, full, _hebrew = _ZMANIM[key]
         return short_name if short else full
