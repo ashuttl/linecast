@@ -243,3 +243,11 @@ class TestLineBreaksWithoutSpaces:
                 for kept in ("12m/s", "−2", "13時"):
                     assert not any(before.endswith(kept[:k]) and after.startswith(kept[k:])
                                    for k in range(1, len(kept))), (width, before, after)
+
+
+def test_a_hyphenated_word_is_not_broken_at_its_hyphen():
+    from linecast._textwidth import wrap_display_width
+    text = "Из-за высокой влажности ощущается теплее"
+    for width in range(6, len(text)):
+        assert not any(row.endswith("-") for row in wrap_display_width(text, width)), width
+

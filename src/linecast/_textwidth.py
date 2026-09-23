@@ -144,9 +144,11 @@ def wrap_display_width(text, width):
     """
     if not text:
         return [""]
-    # Fast path: every char is one cell → stdlib is fine
+    # Fast path: every char is one cell → stdlib is fine.  A hyphenated
+    # word stays whole ("из-за", "ĉi-posttagmeze"), as the slow path
+    # keeps it: only a space is a place to break.
     if visible_len(text) == len(text):
-        return textwrap.wrap(text, width) or [""]
+        return textwrap.wrap(text, width, break_on_hyphens=False) or [""]
 
     lines = []
     line = ""

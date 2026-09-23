@@ -213,7 +213,7 @@ class TestNarrativePacking:
         expected = (
             "Kiwango cha juu cha joto leo kitakuwa karibu sawa na cha jana. "
             "Manyunyu mepesi yanatarajiwa kuanza baada ya muda mfupi. "
-            "Katika saa 24\u00a0zilizopita kumenyesha 0.30″ za mvua."
+            "Katika saa 24\u00a0zilizopita kumenyesha mvua ya 0.30″."
         )
         for width in (40, 80, 160):
             lines = narrative_lines(data, NOON, width, _runtime(lang="sw"))
@@ -471,7 +471,7 @@ class TestHedges:
 
     def test_likely_is_likely(self):
         assert self._sentence(70) == "Light rain likely starting in a couple hours"
-        assert self._sentence(70, lang="ja", use_24h=True) == "数時間後に弱い雨になりそうです"
+        assert self._sentence(70, lang="ja", use_24h=True) == "数時間後に弱い雨となる見込みです"
 
     def test_eighty_percent_needs_no_hedge(self):
         assert self._sentence(90) == "Light rain starting in a couple hours"
@@ -687,7 +687,7 @@ class TestTheClockInTheSentence:
                           "temperature_2m_max": [40]}}
         prose = " ".join(re.sub(r"\x1b\[[0-9;]*m", "", row)
                          for row in narrative_lines(data, dawn, 200, _runtime()))
-        assert prose == "Below freezing tonight, down to 30°. Light snow starting too."
+        assert prose == "Below freezing tonight, down to 30°. Light snow starting then."
 
     def test_the_second_sentence_about_the_night_says_so_in_its_own_words(self):
         # The same night again, in languages that put the time in
@@ -709,7 +709,7 @@ class TestTheClockInTheSentence:
             return " ".join(re.sub(r"\x1b\[[0-9;]*m", "", row)
                             for row in narrative_lines(data, dawn, 400, rt))
 
-        assert prose("en") == "Below freezing tonight, down to −2°. Light snow likely too."
+        assert prose("en") == "Below freezing tonight, down to −2°. Light snow likely then."
         assert prose("de") == ("Heute Nacht Frost bis −2\u00a0Grad. "
                                "Dabei wahrscheinlich leichter Schneefall.")
         assert prose("pl") == ("Dziś w nocy temperatura spadnie poniżej zera, do −2\u00a0stopni. "
@@ -719,7 +719,7 @@ class TestTheClockInTheSentence:
                                "Небольшой снег, вероятно, начнётся тогда же.")
         assert prose("fr") == "Gelées cette nuit, jusqu'à −2°. Neige légère probable également."
         assert prose("ja") == ("今夜は氷点下まで冷え込み、最低−2度の見込みです。"
-                               "同じ頃弱い雪になりそうです。")
+                               "同じ頃弱い雪となる見込みです。")
         # A language without the word names the night again
         assert "คืนนี้" in prose("th").rsplit("คาดว่า", 1)[-1]
 
@@ -730,7 +730,7 @@ class TestTheClockInTheSentence:
                               .isoformat(timespec="minutes"))
         hourly["precipitation_probability"] = [70 if c else 0 for c in hourly["weather_code"]]
         assert prose("en") == ("Below freezing tonight, down to −2°. "
-                               "Light snow likely too, turning heavy tonight.")
+                               "Light snow likely then, turning heavy later.")
         assert prose("de").count("abei") == 1, prose("de")
 
     def test_a_dry_hour_inside_rain_is_a_lull(self):
@@ -867,7 +867,7 @@ class TestMoreToSay:
         assert next_rain_sentence(daily, sunday, _runtime(celsius=True, metric=True), hourly) == \
             "Light rain likely on Tuesday"
         assert next_rain_sentence(daily, sunday, _runtime(lang="ja", celsius=True, metric=True),
-                                  hourly) == "火曜日は弱い雨になりそうです"
+                                  hourly) == "火曜日は弱い雨となる見込みです"
 
     def test_a_chance_of_rain_is_not_worth_the_week_sentence(self):
         from linecast._weather.sections import next_rain_sentence
@@ -1307,7 +1307,7 @@ class TestAgreementAndTheClock:
             return precipitation_sentence(hourly, NOON, _runtime(lang=lang, metric=True))
 
         assert ending("fr") == "Les averses cesseront dans quelques heures"
-        assert ending("fr-CA") == "Averses se terminant dans quelques heures"
+        assert ending("fr-CA") == "Averses cessant dans quelques heures"
         assert ending("ro") == "Aversele încetează peste câteva ore"
         assert self._later("fr-CA", 81, 40) == "Risque d'averses vers 16\u00a0h"
         assert self._later("fr-CA", 81, 90) == "Averses débutant vers 16\u00a0h"

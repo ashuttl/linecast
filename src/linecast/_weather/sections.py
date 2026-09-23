@@ -624,8 +624,8 @@ def _names_an_hour(dt, now):
 # The parts of today the paragraph has named, while it is being written:
 # (those the sentence before named, those this one has).  A sentence about
 # the same part of today as the one before it says so in the language's
-# own word, "too", rather than naming it again: "Below freezing tonight,
-# down to −2°.  Light snow likely too."  Tomorrow is carried the same way
+# own word, "then", rather than naming it again: "Below freezing tonight,
+# down to −2°.  Light snow likely then."  Tomorrow is carried the same way
 # by `after`; today's parts need this instead, because "tonight" names no
 # day for `after` to compare.
 _SAID = contextvars.ContextVar("parts_of_today_said", default=None)
@@ -635,11 +635,16 @@ def _part_of_day(key, runtime, form=None):
     """The phrase for a part of today, `key`, in `form` (a declined form
     of it) where given: or the language's "same_time" word when the
     sentence before named the same part.  The word is said once in a
-    sentence; a second phrase in it names the part as usual, not "light
-    snow starting too, turning heavy too"."""
+    sentence.  A second phrase for the same part in one sentence is the
+    language's "same_part_later", "light snow likely then, turning heavy
+    later", where it has one, and names the part again where it does
+    not."""
     said = _SAID.get()
     if said is not None:
         before, now_said = said
+        if key in now_said and _has("same_part_later", runtime):
+            # Named already in this sentence: later in the same part
+            return _s("same_part_later", runtime)
         now_said.add(key)
         if (key in before and _SAME_SAID not in now_said
                 and _has("same_time", runtime)):

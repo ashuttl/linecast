@@ -351,7 +351,7 @@ class TestSwahili:
             _precipitation_line(hourly, now.replace(hour=12, minute=10), runtime))
         hourly = {"time": ["2026-08-24T14:00"], "precipitation": [4.0],
                   "snowfall": [0], "weather_code": [63]}
-        assert "Katika saa 24\u00a0zilizopita kumenyesha 4.0\u00a0mm za mvua" in _past_precip_line(
+        assert "Katika saa 24\u00a0zilizopita kumenyesha mvua ya 4.0\u00a0mm" in _past_precip_line(
             hourly, now, runtime)
 
     def test_precipitation_verbs_agree_when_starting_ending_or_continuing(self):
@@ -477,16 +477,20 @@ class TestTablesComplete:
     # name, a unit spaced or spelled out in a sentence ("12 mm of
     # rain", "3 inches of snow"), and rain likely in a part of the day
     # rather than from an hour.
-    # Keys a language may leave out, and goes without: Thai has no
-    # "at that time" that sits in every slot a part of the day takes
-    # (not "ลมจะทำให้…รู้สึกหนาว"), so it names the part again.
-    OPTIONAL = {("linecast._weather.i18n", "th"): {"same_time"}}
     VARIANTS = {"linecast._sunshine.i18n": ("_dawn", "_dusk"),
                 "linecast._weather.i18n": ("_one", "_ma", "_vi", "_pl", "_by", "_few", "_many",
                                            "_diff", "_diff_one", "_diff_few", "_then",
                                            "_heavier", "_with", "_noon", "_prose", "_span",
                                            "_span_becoming", "_span_heavier", "_heavier_pl",
                                            "_batchim", "_heavier_batchim")}
+
+    # Keys a language may leave out, and goes without: Thai has no
+    # "at that time" that sits in every slot a part of the day takes
+    # (not "ลมจะทำให้…รู้สึกหนาว"), so it names the part again; and a
+    # language without "later" for a part named twice in one sentence
+    # names it twice ("*" is every language).
+    OPTIONAL = {("linecast._weather.i18n", "th"): {"same_time"},
+                ("linecast._weather.i18n", "*"): {"same_part_later"}}
 
     def _tables(self):
         import importlib
@@ -511,7 +515,8 @@ class TestTablesComplete:
                                   for end in suffixes)} - self.DEFAULTS.get(module, set())
             for lang in LANGUAGE_CODES:
                 missing = sorted(english - set(table.get(lang, {}))
-                                 - self.OPTIONAL.get((module, lang), set()))
+                                 - self.OPTIONAL.get((module, lang), set())
+                                 - self.OPTIONAL.get((module, "*"), set()))
                 if missing:
                     gaps.append(f"{module}.{name} {lang}: {missing}")
         assert not gaps, "\n".join(gaps)
@@ -759,7 +764,7 @@ class TestJapaneseWeather:
         line = _precipitation_line(hourly, now, runtime)
 
         # Seventy percent is "likely"; eighty and up would drop the hedge
-        assert "17時頃に雨になりそうです" in line
+        assert "17時頃に雨となる見込みです" in line
 
     def test_past_rain_uses_quantity_term_and_localized_unit(self):
         runtime = SimpleNamespace(lang="ja", metric=False)
