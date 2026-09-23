@@ -9,7 +9,7 @@ null/empty fields rather than an error.
 
 from datetime import timedelta
 
-from linecast._sunshine.json import _iso
+from linecast.sunshine.json import _iso
 
 SCHEMA_VERSION = 1
 

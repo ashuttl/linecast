@@ -167,7 +167,7 @@ class TestWeatherSnapshot:
 # -----------------------------------------------------------------------
 class TestSunshineSnapshot:
     def test_sunshine_80x24(self):
-        from linecast.sunshine import render
+        from linecast.sunshine.view import render
         from linecast._runtime import RuntimeConfig
 
         runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
@@ -178,9 +178,9 @@ class TestSunshineSnapshot:
         # The arc is drawn for the machine's year, which the declination
         # reads through _local_today; pin that too, or the glyphs drift
         # by a cell or two from one year to the next.
-        with patch("linecast.sunshine.get_terminal_size", return_value=(80, 24)), \
-             patch("linecast.sunshine._tz_offset_hours", return_value=-5), \
-             patch("linecast.sunshine._local_today",
+        with patch("linecast.sunshine.view.get_terminal_size", return_value=(80, 24)), \
+             patch("linecast.sunshine.view._tz_offset_hours", return_value=-5), \
+             patch("linecast.sunshine.view._local_today",
                    return_value=datetime(2026, 3, 5).date()):
             output = render(
                 lat=43.7, lng=-79.4, doy=64,
@@ -194,7 +194,7 @@ class TestSunshineSnapshot:
         from datetime import datetime
         from zoneinfo import ZoneInfo
 
-        from linecast._sunshine.year import render_year
+        from linecast.sunshine.year import render_year
         from linecast._runtime import RuntimeConfig
 
         runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
@@ -204,9 +204,9 @@ class TestSunshineSnapshot:
         now = datetime(2026, 3, 5, 14, 30, tzinfo=tz)
         # The corner clock names the weekday only on a day that is not
         # the user's; pin the user's day to the rendered one.
-        with patch("linecast._sunshine.year.get_terminal_size",
+        with patch("linecast.sunshine.year.get_terminal_size",
                    return_value=(80, 24)), \
-             patch("linecast.sunshine._local_today", return_value=now.date()):
+             patch("linecast.sunshine.view._local_today", return_value=now.date()):
             output = render_year(43.7, -79.4, now, runtime, tz=tz,
                                  location_label="Toronto")
         _compare_or_create("sunshine_year_80x24.txt", _strip_ansi(output))
@@ -216,15 +216,15 @@ class TestSunshineSnapshot:
         from datetime import datetime
         from zoneinfo import ZoneInfo
 
-        from linecast._sunshine.year import render_year
+        from linecast.sunshine.year import render_year
         from linecast._runtime import RuntimeConfig
 
         runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
         tz = ZoneInfo("Europe/Oslo")
         now = datetime(2026, 3, 5, 14, 30, tzinfo=tz)
-        with patch("linecast._sunshine.year.get_terminal_size",
+        with patch("linecast.sunshine.year.get_terminal_size",
                    return_value=(80, 24)), \
-             patch("linecast.sunshine._local_today", return_value=now.date()):
+             patch("linecast.sunshine.view._local_today", return_value=now.date()):
             output = render_year(78.22, 15.65, now, runtime, tz=tz,
                                  location_label="Longyearbyen")
         _compare_or_create("sunshine_year_polar_80x24.txt", _strip_ansi(output))

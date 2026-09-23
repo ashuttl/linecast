@@ -418,7 +418,7 @@ class TestVersion:
                      "linecast._runtime.weather_parser()",
                      "import linecast.radar.view",
                      "import linecast.maps.view",
-                     "import linecast.sunshine",
+                     "import linecast.sunshine.view",
                      "import linecast.moon.view",
                      "import linecast.tides"):
             out = subprocess.run(

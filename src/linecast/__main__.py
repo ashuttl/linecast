@@ -20,7 +20,7 @@ def sky_now():
         from types import SimpleNamespace
         from linecast._runtime import resolve_icons
         from linecast._ephemeris import moon_illuminated_fraction
-        from linecast.sunshine import moon_phase
+        from linecast.sunshine.view import moon_phase
         now = datetime.now(timezone.utc)
         icons, _source = resolve_icons()
         _idx, name, icon = moon_phase(now, SimpleNamespace(icons=icons))
@@ -31,7 +31,7 @@ def sky_now():
 
 COMMANDS = {
     "weather": "linecast.weather.view",
-    "sunshine": "linecast.sunshine",
+    "sunshine": "linecast.sunshine.view",
     "moon": "linecast.moon.view",
     "sky": "linecast.sky.view",
     "tides": "linecast.tides",

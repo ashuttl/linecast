@@ -9,7 +9,7 @@ from linecast._framebuffer import fmt_hour_phrase
 from linecast._i18n import LANGUAGE_CODES
 from linecast.moon.i18n import _ms, _fmt_month_day
 from linecast._runtime import WeatherRuntime, language_of, resolve_lang
-from linecast._sunshine.i18n import axis_month_labels, relative_day, sky_phase
+from linecast.sunshine.i18n import axis_month_labels, relative_day, sky_phase
 from linecast._textwidth import visible_len
 from linecast.weather.i18n import (
     DAY_NAMES, ON_DAY_FORMS, WMO_NAMES, WMO_NAMES_I18N, _PRECIP_DESCS_I18N, _s,

@@ -13,9 +13,9 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast._runtime import RuntimeConfig, sunshine_parser
-from linecast._sunshine.json import build_payload
-from linecast.sunshine import polar_state
-from linecast.sunshine import _tz_offset_hours, solar_times
+from linecast.sunshine.json import build_payload
+from linecast.sunshine.view import polar_state
+from linecast.sunshine.view import _tz_offset_hours, solar_times
 
 
 class TestTzOffsetThreading:

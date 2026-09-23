@@ -15,7 +15,7 @@ if _src not in sys.path:
 from linecast.moon.json import build_payload
 from linecast._runtime import RuntimeConfig, moon_parser
 from linecast.moon.view import moon_illumination, upcoming_moon_events
-from linecast.sunshine import (
+from linecast.sunshine.view import (
     _EMOJI_ICONS,
     _NERD_ICONS,
     SYNODIC_MONTH,

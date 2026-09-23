@@ -69,7 +69,7 @@ from linecast._tides.render import (
     render_day_label_line as _render_day_label_line,
     render_tide_ticks as _render_tide_ticks,
 )
-from linecast.sunshine import moon_phase
+from linecast.sunshine.view import moon_phase
 
 # ---------------------------------------------------------------------------
 # Ocean palette
@@ -1340,7 +1340,7 @@ def main():
                 # No station in range: emit the payload shape anyway, with
                 # station/events/series empty-or-null, and exit cleanly.
                 import json as _json
-                from linecast._sunshine.json import _location_label
+                from linecast.sunshine.json import _location_label
                 from linecast._tides.json import build_payload
                 payload = build_payload(
                     None, runtime, datetime.now().astimezone(), [], [],

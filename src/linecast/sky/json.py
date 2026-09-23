@@ -11,7 +11,7 @@ the catalogue's own J2000 coordinates stay in the catalogue.
 
 from datetime import timezone
 
-from linecast._sunshine.json import _iso, _local_timezone_name, _location_label
+from linecast.sunshine.json import _iso, _local_timezone_name, _location_label
 
 SCHEMA_VERSION = 1
 
@@ -19,12 +19,12 @@ SCHEMA_VERSION = 1
 def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
                   fov=None):
     from linecast.sky.catalogue import star_names, star_vectors, stars
-    from linecast._sunshine.i18n import sky_phase
+    from linecast.sunshine.i18n import sky_phase
     from linecast.sky.view import (
         FOV_DEFAULT, Scene, _mat_apply, alt_az_of, compass_point, default_view,
         easily_seen,
     )
-    from linecast.sunshine import moon_phase
+    from linecast.sunshine.view import moon_phase
 
     scene = Scene(now_local.astimezone(timezone.utc), lat, lng)
     view = default_view(scene, 80, 24, facing, fov or FOV_DEFAULT)

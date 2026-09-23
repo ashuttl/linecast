@@ -75,7 +75,7 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None,
     *now* follows: ``4:20 · 1h=57m`` for the halachic hours, ``Dhuhr ·
     Asr in 41m`` for the prayer times.
     """
-    from linecast.sunshine import solar_times, moon_phase
+    from linecast.sunshine.view import solar_times, moon_phase
     from datetime import datetime
 
     sunrise, sunset = solar_times(lat, lng, doy, tz_offset_h)
@@ -101,7 +101,7 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None,
 
     delta_str = f"{d_sign}{d_m}m{d_s}s" if d_s else f"{d_sign}{d_m}m"
 
-    from linecast.sunshine import INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_TEXT_RGB, INFO_DIM_RGB
+    from linecast.sunshine.view import INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_TEXT_RGB, INFO_DIM_RGB
     amber = fg(*INFO_AMBER_RGB)
     purple = fg(*INFO_PURPLE_RGB)
     text = fg(*INFO_TEXT_RGB)
@@ -115,7 +115,7 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None,
         f"{text}{moon_icon}"
     )
     if hours is not None and now is not None:
-        from linecast._sunshine.hours import corner_reading
+        from linecast.sunshine.hours import corner_reading
         tail = corner_reading(hours, now, runtime).replace(" = ", "=")
         if tail:
             line += f" {text}{tail}"
@@ -144,7 +144,7 @@ def moon_oneline(now_local, lat, lng, runtime, calendar=None):
     from linecast.moon.view import (
         calendar_headline, moon_illumination, upcoming_moon_events,
     )
-    from linecast.sunshine import (
+    from linecast.sunshine.view import (
         moon_phase, INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_TEXT_RGB,
     )
     from linecast._i18n import lang_of
@@ -254,8 +254,8 @@ def sky_oneline(now_local, lat, lng, runtime):
     from linecast._i18n import lang_of
     from linecast.sky.catalogue import resolve_culture
     from linecast.sky.i18n import _sk, body_name
-    from linecast._sunshine.i18n import sky_phase
-    from linecast.sunshine import moon_phase
+    from linecast.sunshine.i18n import sky_phase
+    from linecast.sunshine.view import moon_phase
 
     scene = Scene(now_local.astimezone(timezone.utc), lat, lng)
     culture = resolve_culture(None, lang_of(runtime))

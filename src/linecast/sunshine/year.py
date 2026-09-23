@@ -22,7 +22,7 @@ from linecast._graphics import (
     fg, bg, interp_stops, lerp, fmt_time,
     get_terminal_size, Framebuffer, overlay,
 )
-from linecast._sunshine.i18n import (
+from linecast.sunshine.i18n import (
     _fmt_month_day, axis_month_labels, polar_name, relative_day, sky_event,
     sky_phase,
 )
@@ -237,7 +237,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
                 dst=False, location_label="", mouse_pos=None,
                 palette=None):
     """Build the year-scale sky field display."""
-    from linecast import sunshine as sun  # palettes, rebuilt on theme reload
+    from linecast.sunshine import view as sun  # palettes, rebuilt on theme reload
 
     icons = sun._icon_set(runtime)
     cols, rows = get_terminal_size()

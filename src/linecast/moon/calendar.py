@@ -244,7 +244,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                     israel=False):
     """Build the calendar view: a month grid of shaded phase discs."""
     from linecast.moon import view as _moon  # palettes, rebuilt on theme reload
-    from linecast.sunshine import moon_cycle_frac, moon_phase, SYNODIC_MONTH
+    from linecast.sunshine.view import moon_cycle_frac, moon_phase, SYNODIC_MONTH
     from linecast._runtime import install_banner
 
     lang = lang_of(runtime)

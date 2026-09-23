@@ -16,8 +16,8 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._sunshine import year
-from linecast import sunshine as sun
+from linecast.sunshine import year
+from linecast.sunshine import view as sun
 from linecast._runtime import RuntimeConfig
 
 TORONTO = ZoneInfo("America/Toronto")
@@ -297,7 +297,7 @@ class TestDayViewInfoLine:
     """The same polar rule, in the view the year view toggles with."""
 
     def _line(self, lat, lng, doy, tz_off):
-        with patch("linecast.sunshine.get_terminal_size", return_value=(100, 30)):
+        with patch("linecast.sunshine.view.get_terminal_size", return_value=(100, 30)):
             out = sun.render(lat, lng, doy, 12.0, runtime=_runtime(),
                              tz_offset_h=tz_off)
         return _strip(out).rstrip("\n").split("\n")[-1]

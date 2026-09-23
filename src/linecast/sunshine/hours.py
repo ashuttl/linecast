@@ -20,7 +20,7 @@ _SEP = " · "
 
 
 def _inks():
-    from linecast import sunshine
+    from linecast.sunshine import view as sunshine
     return (fg(*sunshine.INFO_TEXT_RGB), fg(*sunshine.INFO_MUTED_RGB),
             fg(*sunshine.INFO_DIM_RGB))
 

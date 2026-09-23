@@ -47,7 +47,7 @@ class Argv0DispatchTests(unittest.TestCase):
         # os.path splits the directories per-platform; the case and the
         # extension are what the dispatcher itself must absorb.
         ran = self._dispatch("Sunshine.EXE", "--json")
-        self.assertEqual(ran["module"], "linecast.sunshine")
+        self.assertEqual(ran["module"], "linecast.sunshine.view")
         self.assertEqual(ran["argv"], ["linecast sunshine", "--json"])
 
     def test_flags_pass_through_untouched(self):
@@ -141,7 +141,7 @@ class Argv0DispatchTests(unittest.TestCase):
         self.assertRegex(out.rstrip().splitlines()[-1], r"^\S+ \w[\w ]+, \d+% lit$")
 
     def test_help_survives_the_moon_going_wrong(self):
-        with mock.patch("linecast.sunshine.moon_phase", side_effect=RuntimeError("no sky")):
+        with mock.patch("linecast.sunshine.view.moon_phase", side_effect=RuntimeError("no sky")):
             out = self._unwrapped_help("/usr/bin/linecast")
         self.assertTrue(out.endswith("Run any command with --help for options."))
 

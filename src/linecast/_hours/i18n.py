@@ -141,7 +141,7 @@ def mark_name(system, key, runtime, short=False, hours=None):
     table the mark is from, where the name depends on its company."""
     lang = lang_of(runtime)
     if key in _SUN_KEYS and (system != "islamic" or lang not in _PRAYER_COLUMN):
-        from linecast._sunshine.i18n import sky_event
+        from linecast.sunshine.i18n import sky_event
         return sky_event(_SUN_KEYS[key], runtime)
     if system == "halachic":
         short_name, full, _hebrew = _ZMANIM[key]

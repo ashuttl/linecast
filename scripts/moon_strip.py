@@ -43,7 +43,7 @@ from linecast._color import RESET, fg
 from linecast.moon.i18n import _fmt_month_day
 from linecast._runtime import RuntimeConfig
 from linecast._textwidth import char_width, visible_len
-from linecast.sunshine import (
+from linecast.sunshine.view import (
     INFO_AMBER_RGB, INFO_DIM_RGB, INFO_TEXT_RGB, SYNODIC_MONTH,
     _icon_set, moon_cycle_frac,
 )

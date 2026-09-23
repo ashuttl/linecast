@@ -12,7 +12,7 @@ from calendar import isleap
 from datetime import timedelta, timezone
 
 from linecast._seasons import full_moon_name, next_season_event
-from linecast._sunshine.json import _iso, _local_timezone_name, _location_label
+from linecast.sunshine.json import _iso, _local_timezone_name, _location_label
 
 SCHEMA_VERSION = 1
 
@@ -36,7 +36,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         moon_illumination,
         upcoming_moon_events,
     )
-    from linecast.sunshine import SYNODIC_MONTH, moon_cycle_frac, moon_phase
+    from linecast.sunshine.view import SYNODIC_MONTH, moon_cycle_frac, moon_phase
 
     idx, _name, icon = moon_phase(now_local, runtime)
     frac = moon_cycle_frac(now_local)

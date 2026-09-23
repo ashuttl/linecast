@@ -75,17 +75,17 @@ from linecast.sky.catalogue import (
 from linecast.sky import deep as _sky_deep
 from linecast.sky import objects as _sky_objects
 from linecast.sky.i18n import NO_CAPITALS, _sk, body_name
-from linecast._sunshine.i18n import sky_phase
+from linecast.sunshine.i18n import sky_phase
 from linecast._textwidth import char_width
 from linecast._tides.i18n import _ts  # shared "space to return to now" hint
 from linecast.moon.view import _draw_moon_disc
-from linecast.sunshine import (
+from linecast.sunshine.view import (
     INFO_AMBER_RGB, INFO_DIM_RGB, INFO_TEXT_RGB, SKY_FAR_HORIZON,
     SKY_NEAR_HORIZON, SKY_NIGHT, SKY_ZENITH, SUN_DOT_RGB, SUN_GLOW_RGB,
     moon_phase,
 )
 
-_theme.track_imports(globals(), "linecast.sunshine")
+_theme.track_imports(globals(), "linecast.sunshine.view")
 
 # ---------------------------------------------------------------------------
 # Palette
@@ -1064,7 +1064,7 @@ def _status_line(scene, now_local, runtime, view, width, location_label,
     """Place and clock; where the view faces and how wide; the sky's name
     and what is up. Parts drop from the right as the width runs out.
     With layout=True, return positioned plain labels for the image."""
-    from linecast.sunshine import clock_label
+    from linecast.sunshine.view import clock_label
     text, dim, amber = fg(*TEXT_RGB), fg(*DIM_RGB), fg(*AMBER_RGB)
     clock = clock_label(now_local, runtime, today)
     if layout:

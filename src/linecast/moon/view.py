@@ -89,7 +89,7 @@ from linecast._ephemeris import (
     moon_axis_deg, moon_bright_limb_deg, moon_illuminated_fraction,
     next_moon_phase_utc, precess_to_j2000,
 )
-from linecast.sunshine import (
+from linecast.sunshine.view import (
     INFO_AMBER_RGB,
     INFO_DIM_RGB,
     INFO_PURPLE_RGB,
@@ -103,7 +103,7 @@ from linecast.sunshine import (
 # of refraction and lunar parallax puts the geometric event at +0.125°.
 HORIZON_THRESHOLD_DEG = 0.125
 
-_theme.track_imports(globals(), "linecast.sunshine")
+_theme.track_imports(globals(), "linecast.sunshine.view")
 
 # ---------------------------------------------------------------------------
 # Palette
