@@ -135,6 +135,72 @@ class TestNewBindings:
             assert _read_key(pipe[0]) is None
 
 
+class TestNonLatinLayouts:
+    """Outside a text field, a letter from a non-Latin layout acts as the
+    Latin key it sits on."""
+
+    @pytest.fixture(autouse=True)
+    def english_locale(self, monkeypatch):
+        for var in ("LANGUAGE", "LC_ALL", "LC_MESSAGES"):
+            monkeypatch.delenv(var, raising=False)
+        monkeypatch.setenv("LANG", "en_US.UTF-8")
+
+    @pytest.mark.parametrize("ch, action", [
+        ("ض", "quit"),       # Persian and Arabic, on q
+        ("م", "key:l"),      # Persian, on l: the location
+        ("ر", "key:v"),      # Persian, on v
+        ("ف", "key:t"),      # Persian, on t
+        ("۲", "key:2"),      # Persian digit, on 2
+        ("؟", "key:?"),      # Persian, shifted /
+        ("й", "quit"),       # Russian and Ukrainian, on q
+        ("д", "key:l"),      # Russian, on l
+        ("т", "reset"),      # Russian, on n
+        ("ς", "key:w"),      # Greek final sigma, on w
+        ("ρ", "key:r"),      # Greek, on r
+        ("ר", "key:r"),      # Hebrew, on r
+        ("ה", "key:v"),      # Hebrew, on v
+        ("ㅂ", "quit"),      # Korean Dubeolsik, on q
+        ("ๆ", "quit"),       # Thai Kedmanee, on q
+        ("ქ", "quit"),       # Georgian, on q
+        ("ճ", "quit"),       # Armenian, on q
+    ])
+    def test_letters_act_as_their_latin_key(self, pipe, ch, action):
+        assert _key(pipe, ch.encode()) == action
+
+    @pytest.mark.parametrize("ch, action", [
+        ("Й", "quit"),       # Russian shifted q
+        ("Ц", "key:W"),      # Russian shifted w keeps its capital
+        ("Ы", "key:S"),      # Russian shifted s
+        ("\u064b", "key:W"),  # Arabic fathatan, shifted w
+        ("ㅃ", "quit"),      # Korean shifted q
+    ])
+    def test_shifted_positions(self, pipe, ch, action):
+        assert _key(pipe, ch.encode()) == action
+
+    def test_unbound_and_unknown_characters_still_dropped(self, pipe):
+        for ch in ("ק", "é", "東", "🌍"):  # Hebrew e; no layout here has the others
+            os.write(pipe[1], ch.encode())
+            assert _read_key(pipe[0]) is None
+
+    def test_broken_utf8_dropped(self, pipe):
+        assert _key(pipe, b"\x80") is None
+        assert _key(pipe, b"\xd8") is None  # lead byte, continuation never comes
+
+    def test_the_locale_settles_a_conflict(self, pipe, monkeypatch):
+        # Russian puts т on n, Serbian on t; ظ is / in Arabic, z in Persian
+        assert _key(pipe, "ظ".encode()) == "key:/"
+        monkeypatch.setenv("LANG", "sr_RS.UTF-8")
+        assert _key(pipe, "т".encode()) == "key:t"
+        monkeypatch.setenv("LANG", "fa_IR.UTF-8")
+        assert _key(pipe, "ظ".encode()) is None  # z, unbound
+
+    def test_text_mode_keeps_the_characters(self, pipe):
+        assert _key(pipe, "ض".encode(), text=True) == "char:ض"
+        for ch in "تهران":
+            os.write(pipe[1], ch.encode())
+            assert _read_key(pipe[0], text=True) == "char:" + ch
+
+
 class TestNudge:
     """_live.nudge repaints a running live loop and is a no-op otherwise."""
 

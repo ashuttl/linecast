@@ -326,6 +326,9 @@ def _read_key(fd, text=False):
     continuation bytes — plus 'key:backspace' / 'key:kill' (ctrl-U) /
     'key:enter' for editing. Escape sequences (arrows, mouse) decode
     exactly as before, so list navigation keeps working while typing.
+
+    Without it, a letter typed under a non-Latin layout acts as the Latin
+    key it sits on (see _keylayouts): Persian ض and Russian й are q.
     """
     def _read_byte():
         return _term.read_byte(fd)
@@ -334,6 +337,28 @@ def _read_key(fd, text=False):
         if _term.wait_readable(fd, timeout):
             return _term.read_byte(fd)
         return None
+
+    def _read_utf8(lead):
+        """The character a UTF-8 lead byte starts, or None if it is broken."""
+        o = lead[0]
+        if 0xC0 <= o < 0xE0:
+            extra = 1
+        elif 0xE0 <= o < 0xF0:
+            extra = 2
+        elif 0xF0 <= o < 0xF8:
+            extra = 3
+        else:
+            return None  # stray continuation byte or invalid lead
+        buf = bytearray(lead)
+        for _ in range(extra):
+            c = _read_byte_timeout(0.05)
+            if c is None:
+                return None
+            buf.extend(c)
+        try:
+            return buf.decode('utf-8')
+        except UnicodeDecodeError:
+            return None
 
     b = _read_byte()
     if b is None:
@@ -436,24 +461,18 @@ def _read_key(fd, text=False):
             return None
         if o < 0x80:
             return 'char:' + chr(o)
-        if 0xC0 <= o < 0xE0:
-            extra = 1
-        elif 0xE0 <= o < 0xF0:
-            extra = 2
-        elif 0xF0 <= o < 0xF8:
-            extra = 3
-        else:
-            return None  # stray continuation byte or invalid lead
-        buf = bytearray(b)
-        for _ in range(extra):
-            c = _read_byte_timeout(0.05)
-            if c is None:
-                return None
-            buf.extend(c)
-        try:
-            return 'char:' + buf.decode('utf-8')
-        except UnicodeDecodeError:
+        ch = _read_utf8(b)
+        return 'char:' + ch if ch is not None else None
+
+    if b[0] >= 0x80:
+        # A letter from a non-Latin layout (ض, й, ㅂ): read it as the
+        # Latin key it sits on, so q still quits under Persian or Russian.
+        from linecast._keylayouts import latin_key
+        ch = _read_utf8(b)
+        latin = latin_key(ch) if ch is not None else None
+        if latin is None:
             return None
+        b = latin.encode()
 
     if b in (b'q', b'Q'):
         return 'quit'

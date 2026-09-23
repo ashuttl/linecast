@@ -35,6 +35,7 @@ New this version:
   - Portuguese, Spanish, and French each have a regional variant, `pt-PT`, `es-ES`, and `fr-CA`, used automatically by a terminal locale in Portugal, Spain, or Canada. Spanish is now Latin American throughout; the maps had used Spain's words.
 - Tides: The location menu from weather is in tides too. Click the station name or press `l` to pick a recent place or search for one. Recent places are shared with weather.
 - Moon, sky, maps, radar: Circles look round and squares look square on both wide and narrow terminal fonts. linecast asks the terminal for the font's cell shape where it can; `LINECAST_CELL_ASPECT` overrides it.
+- Live views: Single-letter keys work with a non-Latin keyboard layout switched on, such as Persian, Arabic, Russian, Ukrainian, Greek, Hebrew, Korean, or Thai. Pressing the key labelled q quits whatever letter the layout types there.
 - Help: `linecast --help` looks like each command's own help and fits the terminal's width. Each command's `--help` starts with a short usage line and groups its flags into sections.
 - Sunshine: The help hint is in the top-left corner of the graph, as in the year view, so the sunrise and sunset times sit at either end of the line below.
 - Docs: The pages on sources, calendars, hours, cultures, the gallery, and the architecture are in a `docs/` folder now. Old GitHub links to them no longer work.
