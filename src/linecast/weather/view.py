@@ -1172,6 +1172,10 @@ def _main():
     args = weather_parser().parse_args()
     runtime = WeatherRuntime.from_sources(args)
     set_current(runtime)
+    # In a right-to-left language the whole dashboard reads from the
+    # right, the hourly graph included: now is at the right edge
+    from linecast import _bidi
+    _bidi.set_mirror(True)
 
     # --search: geocode cities and exit
     if args.search:

@@ -72,6 +72,7 @@ _ui_rtl = False
 _digits = None        # the digits to write, or None to leave them be
 _to_latin = False     # write native digits back as ASCII (LINECAST_DIGITS=latin)
 _reorder = True       # False: the terminal orders the text itself
+_mirror_request = False
 
 
 def configure(lang="en", environ=None):
@@ -107,6 +108,21 @@ def bidi_mode(environ=None):
     if value in ("terminal", "off", "0", "no", "false"):
         return "terminal"
     return "linecast"
+
+
+def set_mirror(on):
+    """Whether the view on screen lays out from the right in a
+    right-to-left language: a view calls this as it renders, True for
+    its text and its charts whose axis is time, False for a picture of
+    the world (a map, the sky, the Moon's disc), whose east stays east."""
+    global _mirror_request
+    _mirror_request = bool(on)
+
+
+def mirrored():
+    """Whether rows go out mirrored: the view asked, the interface reads
+    right to left, and this pass is ordering the text."""
+    return _mirror_request and _ui_rtl and _reorder
 
 
 def reorders():
@@ -153,6 +169,13 @@ def identifier(text):
     return isolate(text, "ltr") if text else text
 
 
+def picture(text):
+    """A picture of the world inside a mirrored view -- a Moon in the
+    month grid -- kept as drawn: not reversed, not flipped.  Unchanged
+    when nothing is mirrored."""
+    return isolate(text, "ltr") if text and mirrored() else text
+
+
 # ---------------------------------------------------------------------------
 # Character data
 # ---------------------------------------------------------------------------
@@ -188,6 +211,39 @@ for _i in range(0, len(_MIRROR_PAIRS), 2):
     _a, _b = _MIRROR_PAIRS[_i], _MIRROR_PAIRS[_i + 1]
     _MIRROR[_a], _MIRROR[_b] = _b, _a
 del _i, _a, _b
+
+def _build_picture_mirror():
+    """Each glyph a mirrored row draws flipped left for right: box
+    drawing, block elements and triangles, the legacy computing blocks,
+    found by trading LEFT for RIGHT in the character's name;
+    braille, by trading the dot columns."""
+    table = {}
+    # Not the arrows: a wind arrow points at the world, not along the row
+    ranges = ((0x2500, 0x25FF), (0x1FB00, 0x1FBFF))
+    for lo, hi in ranges:
+        for o in range(lo, hi + 1):
+            ch = chr(o)
+            name = unicodedata.name(ch, "")
+            if "LEFT" not in name and "RIGHT" not in name:
+                continue
+            other = re.sub("LEFT|RIGHT",
+                           lambda m: "RIGHT" if m.group() == "LEFT" else "LEFT", name)
+            try:
+                table[ch] = unicodedata.lookup(other)
+            except KeyError:
+                pass
+    # The quadrants whose names list three corners in a fixed order
+    for a, b in ("▙▟", "▛▜", "▚▞"):
+        table[a], table[b] = b, a
+    for bits in range(256):
+        left = bits & 0x07 | (bits & 0x40) >> 6 << 3
+        right = (bits & 0x38) >> 3 | (bits & 0x80) >> 7 << 3
+        flipped = (right & 0x07) | (left & 0x07) << 3 | (right & 0x08) << 3 | (left & 0x08) << 4
+        table[chr(0x2800 + bits)] = chr(0x2800 + flipped)
+    return table
+
+
+_PICTURE_MIRROR = _build_picture_mirror()
 
 _STRONG_R = frozenset(("R", "AL"))
 _ISOLATE_INITIATORS = frozenset(("LRI", "RLI", "FSI"))
@@ -597,6 +653,7 @@ def _build_forms():
 _build_forms()
 
 _ZWNJ, _ZWJ, _TATWEEL = "\u200c", "\u200d", "\u0640"
+_HEH_HAMZA = "\u0647\u0654"
 
 
 def joining_type(ch):
@@ -674,25 +731,39 @@ def _rides(ch):
             or ch in "\u200c\u200d\ufe0e\ufe0f")
 
 
-def display(text):
+_CUP = re.compile(r"\033\[(\d*);(\d*)H\Z")
+
+
+def display(text, width=None):
     """`text` -- one row, or a floating overlay of cursor-addressed
-    pieces -- as it should be sent to the terminal."""
-    if not text or not active():
+    pieces -- as it should be sent to the terminal.  With `width`, the
+    terminal's columns, and a view that has asked for it (set_mirror),
+    each row is laid out from the right: the pieces of the row trade
+    sides, pictures are drawn flipped, and text still reads its own way."""
+    mirror = width if (width and mirrored()) else None
+    if not text or not (active() or mirror):
         return text
-    needs_order = _reorder and _RTL_OR_CONTROL.search(text) is not None
-    needs_digits = (_digits is not None or _to_latin) and _DIGIT.search(text) is not None
-    if not needs_order and not needs_digits:
-        return text
+    if not mirror:
+        needs_order = _reorder and _RTL_OR_CONTROL.search(text) is not None
+        needs_digits = ((_digits is not None or _to_latin)
+                        and _DIGIT.search(text) is not None)
+        if not needs_order and not needs_digits:
+            return text
+        if not needs_order:
+            if "\n" in text:
+                return "\n".join(_digits_only(line) for line in text.split("\n"))
+            return _digits_only(text)
     if "\n" in text:
-        return "\n".join(display(line) for line in text.split("\n"))
-    if not needs_order:
-        return _digits_only(text)
+        return "\n".join(display(line, width) for line in text.split("\n"))
     # Cut at the escapes that move the cursor: each piece is ordered on
-    # its own, starting in the SGR state the piece before left.
+    # its own, starting in the SGR state the piece before left.  A row
+    # is a piece that starts at the first column; a piece of an overlay
+    # starts where the cursor was sent.
     out = []
     tokens = []
     pos = 0
     state = ("", "")
+    col = 1                     # where the piece starts, if known
     for m in _ESCAPE.finditer(text):
         if m.start() > pos:
             tokens.append(("t", text[pos:m.start()]))
@@ -700,15 +771,32 @@ def display(text):
         if _SGR.match(seq) or seq.startswith("\033]8;"):
             tokens.append(("e", seq))
         else:
-            piece, state = _order_piece(tokens, state)
+            piece, state, cols = _order_piece(tokens, state, mirror, col)
+            if mirror and col is not None and out and cols:
+                out[-1] = _moved(out[-1], mirror, col, cols)
             out.append(piece)
             out.append(seq)
             tokens = []
+            cup = _CUP.match(seq)
+            col = int(cup.group(2) or 1) if cup else None
         pos = m.end()
     if pos < len(text):
         tokens.append(("t", text[pos:]))
-    out.append(_order_piece(tokens, state)[0])
+    piece, _state, cols = _order_piece(tokens, state, mirror, col)
+    if mirror and col is not None and out and cols:
+        out[-1] = _moved(out[-1], mirror, col, cols)
+    out.append(piece)
     return "".join(out)
+
+
+def _moved(cup, width, col, cols):
+    """The cursor escape `cup` sending a piece `cols` wide, which the
+    view put at `col`, to where the mirrored layout has it."""
+    m = _CUP.match(cup)
+    if not m:
+        return cup
+    new = max(1, width - (col - 1) - cols + 1)
+    return f"\033[{m.group(1)};{new}H"
 
 
 def _next_state(state, seq):
@@ -829,16 +917,62 @@ def _is_digit(c):
     return bool(c) and ("0" <= c[0] <= "9" or "۰" <= c[0] <= "۹")
 
 
-def _order_piece(tokens, state):
+def _is_arabic_letter(ch):
+    return ch in _FORMS or "\u0620" <= ch <= "\u064a" or "\u066e" <= ch <= "\u06d3"
+
+
+def _arabic_commas(cells):
+    """A comma between two words in Arabic script is the Arabic comma,
+    ، -- "تهران، استان تهران", however the parts were joined."""
+    n = len(cells)
+    for k in range(n):
+        if cells[k][0] != ",":
+            continue
+        p = k - 1
+        while p >= 0 and cells[p][0] == " ":
+            p -= 1
+        q = k + 1
+        while q < n and cells[q][0] == " ":
+            q += 1
+        if (p >= 0 and q < n and _is_arabic_letter(cells[p][0][0])
+                and _is_arabic_letter(cells[q][0][0])):
+            cells[k][0] = "\u060c"
+
+
+_MINUS = frozenset("-\u2212")
+_UNIT_LETTERS = frozenset("CFK")
+
+
+def _number_classes(cells, classes):
+    """Two readings the algorithm leaves to the program, made the way a
+    number is read: a minus sign that begins a number belongs to it, so
+    "−۳°" never comes apart; and a degree sign before a unit letter is
+    part of the unit, so "°C" reads as one Latin token and not "C°"."""
+    n = len(cells)
+    for k in range(n):
+        ch = cells[k][0][0]
+        if ch in _MINUS and k + 1 < n and classes[k + 1] in ("EN", "AN"):
+            if k == 0 or classes[k - 1] not in ("EN", "AN", "L", "R", "AL"):
+                classes[k] = classes[k + 1]
+        elif ch == "°" and k + 1 < n and cells[k + 1][0][0] in _UNIT_LETTERS:
+            classes[k] = "L"
+
+
+def _order_piece(tokens, state, mirror=None, col=None):
     """One piece of a row in display order, from ("t", text) and
-    ("e", escape) tokens, starting in `state`.  Returns the piece and
-    the state it leaves the terminal in."""
-    if not any(kind == "t" and _RTL_OR_CONTROL.search(s) for kind, s in tokens):
+    ("e", escape) tokens, starting in `state`.  With `mirror`, the
+    terminal's width, the piece is laid out from the right; `col` is
+    where the view started it (1 for a row), None when unknown.  Returns
+    the piece, the state it leaves the terminal in, and its width in
+    cells when it was mirrored (else 0)."""
+    flip = bool(mirror) and col is not None
+    if not flip and not any(kind == "t" and _RTL_OR_CONTROL.search(s)
+                            for kind, s in tokens):
         for kind, s in tokens:
             if kind == "e":
                 state = _next_state(state, s)
         return ("".join(_digits_only(s) if kind == "t" else s
-                        for kind, s in tokens), state)
+                        for kind, s in tokens), state, 0)
 
     # Cells, each with the state it is drawn in and the escapes that
     # come before it
@@ -862,22 +996,31 @@ def _order_piece(tokens, state):
     final_state = state
     n = len(cells)
     if not n:
-        return "".join(s for _kind, s in tokens), final_state
+        return "".join(s for _kind, s in tokens), final_state, 0
 
+    _arabic_commas(cells)
+    for cell in cells:
+        if cell[0].startswith(_HEH_HAMZA):
+            # The ezafe after a silent he, as the Academy spells it, is
+            # drawn as the one letter that has forms of its own: a mark
+            # over a presentation form sits badly in a terminal's cell
+            cell[0] = "\u06c0" + cell[0][2:]
     _shape(cells)
     classes = ["S" if _is_graphic(c[0][0]) else bidi_class(c[0][0]) for c in cells]
+    _number_classes(cells, classes)
 
+    # Inside an LRI: an identifier, which keeps its ASCII digits, or a
+    # picture, which a mirrored row leaves as drawn
+    protected = []
+    depth = []
+    for cell in cells:
+        ch = cell[0][0]
+        if ch in (LRI, RLI, FSI):
+            depth.append(ch)
+        elif ch == PDI and depth:
+            depth.pop()
+        protected.append(LRI in depth)
     if _digits is not None or _to_latin:
-        # Identifiers, inside an LRI, keep their ASCII digits
-        protected = []
-        depth = []
-        for cell in cells:
-            ch = cell[0][0]
-            if ch in (LRI, RLI, FSI):
-                depth.append(ch)
-            elif ch == PDI and depth:
-                depth.pop()
-            protected.append(LRI in depth)
         texts = [c[0] for c in cells]
         _convert_digits(texts, protected)
         for c, t in zip(cells, texts):
@@ -922,12 +1065,12 @@ def _order_piece(tokens, state):
         trimmed.extend(reversed(tail_spaces))
     segments = trimmed
 
-    order = []
+    seg_orders = []
     mirrored = [False] * n
     for a, b in segments:
         types = classes[a:b]
         if b - a == 1 or not any(t in _MOVES for t in types):
-            order.extend(range(a, b))
+            seg_orders.append(range(a, b))
             continue
         base = 1 if _ui_rtl and any(t in _STRONG_R for t in types) else None
         brackets = [bracket_info(cells[i][0][0]) for i in range(a, b)]
@@ -938,11 +1081,23 @@ def _order_piece(tokens, state):
         # The characters X9 removes are controls this pass drops; they
         # keep a place in the order so nothing is lost
         visual = visual_order([para if lv is None else lv for lv in levels])
-        order.extend(a + j for j in visual)
+        seg_orders.append([a + j for j in visual])
 
     out = []
     have = start_state
     prev = -1
+    cols = 0
+    if flip:
+        # Laid out from the right: the segments trade sides, and a row
+        # shorter than the screen is padded on the left
+        seg_orders.reverse()
+        from linecast._textwidth import visible_len
+        cols = sum(visible_len(c[0]) for c in cells if c[0][0] not in _CONTROLS)
+        if col == 1 and cols < mirror:
+            out.append(_set_state(have, ("", "")) + " " * (mirror - cols))
+            have = ("", "")
+            prev = -2          # the row's own escapes no longer apply
+    order = [k for seg in seg_orders for k in seg]
     for k in order:
         text, want = cells[k]
         ch = text[0]
@@ -952,6 +1107,8 @@ def _order_piece(tokens, state):
             text = text.replace(_ZWNJ, "").replace(_ZWJ, "")
         if mirrored[k] and ch in _MIRROR:
             text = _MIRROR[ch] + text[1:]
+        elif flip and ch in _PICTURE_MIRROR and not protected[k]:
+            text = _PICTURE_MIRROR[ch] + text[1:]
         if k == prev + 1:
             out.extend(lead[k])      # the row's own escapes, in their order
         else:
@@ -963,7 +1120,7 @@ def _order_piece(tokens, state):
         out.extend(tail)
     else:
         out.append(_set_state(have, final_state))
-    return "".join(out), final_state
+    return "".join(out), final_state, cols
 
 
 _MOVES = frozenset(("R", "AL", "AN", "RLE", "RLO", "RLI", "FSI"))

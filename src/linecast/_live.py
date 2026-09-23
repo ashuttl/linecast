@@ -98,9 +98,19 @@ def frame_paint(body, floating=""):
     clear empties and the body then draws.
     """
     rows = body.count("\n") + 1
-    body, floating = _bidi.display(body), _bidi.display(floating)
+    width = _mirror_width()
+    body, floating = _bidi.display(body, width), _bidi.display(floating, width)
     return (f"{_SYNC_BEGIN}{_AUTOWRAP_OFF}\033[{rows + 1};1H\033[J{frame_body(body)}"
             f"\033[0m{floating}\033[0m{_AUTOWRAP_ON}{_SYNC_END}")
+
+
+def _mirror_width():
+    """The terminal's width when the view on screen is laid out from the
+    right (a right-to-left language), for _bidi.display; else None."""
+    if not _bidi.mirrored():
+        return None
+    from linecast._framebuffer import get_terminal_size
+    return get_terminal_size()[0]
 
 
 def print_frame(text, stream=None):
@@ -110,7 +120,7 @@ def print_frame(text, stream=None):
         clip = stream.isatty()
     except Exception:
         clip = False
-    text = _bidi.display(text)
+    text = _bidi.display(text, _mirror_width())
     if clip:
         explicit, implicit = bidi_modes()
         stream.write(f"{explicit}{_AUTOWRAP_OFF}{text}{_AUTOWRAP_ON}{implicit}\n")
@@ -314,6 +324,15 @@ def _normalize_wheel_cb(cb):
     return None
 
 
+def _arrow(final):
+    """An arrow key's action: up and right go forward, down and left
+    back -- left and right the other way round in a view laid out from
+    the right, where time runs leftward."""
+    if _bidi.mirrored():
+        return {b'A': 'fwd', b'B': 'back', b'C': 'back', b'D': 'fwd'}.get(final)
+    return {b'A': 'fwd', b'B': 'back', b'C': 'fwd', b'D': 'back'}.get(final)
+
+
 def _read_key(fd, text=False):
     """Read a keypress from stdin in cbreak mode. Returns action string or None.
 
@@ -421,23 +440,13 @@ def _read_key(fd, text=False):
                 # A cursor position report: the terminal has reached the
                 # query the loop sent after its last frame (or a probe's).
                 return 'ack'
-            return {
-                b'A': 'fwd',
-                b'B': 'back',
-                b'C': 'fwd',
-                b'D': 'back',
-            }.get(final)
+            return _arrow(final)
 
         if b2 == b'O':
             # SS3 sequence (some terminals use for arrows)
             b3 = _read_byte_timeout(0.15)
             if b3 is not None:
-                return {
-                    b'A': 'fwd',
-                    b'B': 'back',
-                    b'C': 'fwd',
-                    b'D': 'back',
-                }.get(b3)
+                return _arrow(b3)
         return 'escape'
 
     # On Windows cbreak turns off the console's own Ctrl-C handling, so
@@ -757,6 +766,12 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         nonlocal offset, playing, play_frame, mouse_pos, drag_start, drag_delta
         nonlocal active_alert, modal_scroll, acks_owed, hover_until
         action = _read_key(fd, text=bool(text_mode is not None and text_mode()))
+        if isinstance(action, tuple) and action[0] == 'mouse' and _bidi.mirrored():
+            # The view laid this frame out from the left and the pass
+            # drew it from the right: the pointer goes back the same way
+            from linecast._framebuffer import get_terminal_size
+            _, cb, cx, cy, is_rel = action
+            action = ('mouse', cb, get_terminal_size()[0] + 1 - cx, cy, is_rel)
         if isinstance(action, tuple) and action[0] == 'mouse':
             hover_until = _time.monotonic() + _HOVER_IDLE_S
         if action == 'ack':

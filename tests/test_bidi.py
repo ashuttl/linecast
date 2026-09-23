@@ -230,3 +230,67 @@ class TestTerminal:
         from linecast._live import frame_paint
         out = frame_paint("שלום", "\033[2;1Hאב")
         assert "םולש" in out and "בא" in out
+
+
+class TestMirroring:
+    @pytest.fixture(autouse=True)
+    def _mirrored(self):
+        _bidi.configure("fa", {})
+        _bidi.set_mirror(True)
+        yield
+        _bidi.set_mirror(False)
+        _bidi.configure("en", {})
+
+    def test_a_row_is_laid_out_from_the_right(self):
+        # A label at the left edge and a bar after it: the label goes
+        # to the right edge, the bar to its left, flipped
+        out = display("ab ▌▗⠁", 10)
+        assert _plain(out) == "    ⠈▖▐ ab"
+
+    def test_text_still_reads_its_own_way(self):
+        out = _plain(display("امروز  12:30", 14))
+        assert out.endswith("ﺯﻭﺮﻣﺍ") and "۱۲:۳۰" in out
+
+    def test_an_overlay_piece_moves_to_the_mirrored_column(self):
+        assert display("\033[2;3Hxy", 10) == "\033[2;7Hxy"
+
+    def test_box_corners_trade_sides(self):
+        assert _plain(display("\033[1;1H┌─┐x", 4)) == "\033[1;1Hx┌─┐"
+
+    def test_nothing_is_mirrored_in_a_left_to_right_language(self):
+        _bidi.configure("en", {})
+        assert display("ab ▌", 10) == "ab ▌"
+
+    def test_nothing_is_mirrored_without_a_width(self):
+        assert _plain(display("ab ▌")) == "ab ▌"
+
+    def test_arrows_follow_the_mirrored_axis(self):
+        from linecast._live import _arrow
+        # The _bidi _live reads: test_oneline re-imports linecast
+        bidi = _arrow.__globals__["_bidi"]
+        bidi.configure("fa", {})
+        bidi.set_mirror(True)
+        try:
+            assert (_arrow(b"C"), _arrow(b"D")) == ("back", "fwd")
+            assert (_arrow(b"A"), _arrow(b"B")) == ("fwd", "back")
+        finally:
+            bidi.set_mirror(False)
+            bidi.configure("en", {})
+
+    def test_a_picture_arrow_is_left_alone(self):
+        # wind arrows point at the compass, not along the row
+        assert "↗" in display("↗ 12", 6)
+
+
+class TestPersianDrawing:
+    def test_ezafe_is_drawn_as_its_own_letter(self, persian):
+        out = _plain(display("بیشینهٔ"))
+        assert unicodedata.name(out[0]) == "ARABIC LETTER HEH WITH YEH ABOVE FINAL FORM"
+
+    def test_a_comma_between_persian_words_is_persian(self, persian):
+        assert "،" in _plain(display("تهران, استان تهران"))
+        assert "," in _plain(display("Paris, France"))
+
+    def test_units_and_minus_stay_with_their_numbers(self, persian):
+        assert "۳۶°C" in _plain(display("دما 36°C"))
+        assert "−۳" in _plain(display("دما −3°"))

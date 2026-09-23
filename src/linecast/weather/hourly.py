@@ -7,7 +7,7 @@ from linecast import _theme
 from linecast._braille import build_braille_curve, interpolate
 from linecast._graphics import bg, color_mode, fg, fmt_hour, fmt_time_dt, RESET, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime, log_skipped
-from linecast._i18n import lang_of, table_for
+from linecast._i18n import is_rtl, lang_of, table_for
 from linecast.weather.historical import temperature_scale
 from linecast.weather.i18n import FULL_DAY_NAMES, _s
 from linecast.weather.sources import _local_now_for_data
@@ -663,6 +663,13 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
     if offset_minutes:
         hint_text = _s("space_to_now", runtime)
         today_right = f"{DIM}{hint_text}"
+    elif is_rtl(lang):
+        # Read from the right, low to high: the arrow points the way
+        # the eye moves
+        today_right = (
+            f"{_colored_temp(chart_hi, runtime, runtime.temp_unit)} "
+            f"{TEXT}← {_colored_temp(chart_lo, runtime, '°')}"
+        )
     else:
         today_right = (
             f"{_colored_temp(chart_lo, runtime, '°')} "

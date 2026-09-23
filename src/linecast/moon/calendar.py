@@ -291,6 +291,8 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                   year, month)
 
     phase_days = principal_phase_days(year, month, tzinfo)
+    from linecast import _bidi
+    mirrored = _bidi.mirrored()
 
     T, D, A, P = (moon_palette.PANEL_TEXT_RGB, moon_palette.PANEL_DIM_RGB,
                   moon_palette.PANEL_AMBER_RGB, moon_palette.PANEL_PURPLE_RGB)
@@ -357,6 +359,10 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                 limb = 360.0 - limb
             disc._draw_moon_disc(fb, cx, cy, radius, illum, limb, 0.0,
                                  night=moon_palette.MOON_NIGHT_RGB, aspect=aspect)
+            if mirrored:
+                # The grid reads from the right; the Moon is still the
+                # Moon, so it is drawn flipped for the row's flip to undo
+                fb.flip_columns(x0, x0 + cell_w, y0 * 2, (y0 + cell_h) * 2)
         elif cell_h > 1 or cell_w >= 6:
             # No room to draw: the phase glyph stands in for the disc.
             # On a one-row cell it sits after the day number, and a

@@ -538,6 +538,11 @@ def main():
                      modal_scroll=0):
         # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
         # is handled here (day view only) rather than by live_loop.
+        # The year runs from the right in a right-to-left language; the
+        # day's arc is the sky facing the equator, and keeps east where
+        # it is.
+        from linecast import _bidi
+        _bidi.set_mirror(state["year"])
         if state["year"]:
             from linecast.sunshine.year import render_year
             return render_year(

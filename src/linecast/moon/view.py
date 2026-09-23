@@ -1012,6 +1012,10 @@ def main():
     def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
         # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
         # is handled here (per view) rather than by live_loop.
+        # The month grid reads from the right in a right-to-left
+        # language; the disc is the Moon as it looks, and is never flipped.
+        from linecast import _bidi
+        _bidi.set_mirror(state["cal"])
         if state["cal"]:
             from linecast.moon.calendar import render_calendar
             return render_calendar(_now(), lat, lng, runtime,

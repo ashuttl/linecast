@@ -1247,6 +1247,10 @@ def main():
     args = tides_parser().parse_args()
     runtime = TidesRuntime.from_sources(args)
     set_current(runtime)
+    # The tide curve is time, so in a right-to-left language the whole
+    # view reads from the right, the next tide at the right edge
+    from linecast import _bidi
+    _bidi.set_mirror(True)
     sweep_legacy_cache()
 
     # --search / --nearby: list stations and exit.  A bare `--search`

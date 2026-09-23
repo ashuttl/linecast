@@ -231,6 +231,15 @@ class Framebuffer:
         for x in range(self.graph_w):
             self.fb[spy][x] = color
 
+    def flip_columns(self, x0, x1, spy0, spy1):
+        """Mirror the sub-pixels in columns x0..x1-1 of rows spy0..spy1-1
+        left for right: a picture drawn ahead of a view that is laid
+        out from the right (_bidi), which flips it back."""
+        x0, x1 = max(0, x0), min(self.graph_w, x1)
+        for spy in range(max(0, spy0), min(self.total_spy, spy1)):
+            row = self.fb[spy]
+            row[x0:x1] = row[x0:x1][::-1]
+
     def set_pixel(self, x, spy, color, alpha=1.0):
         """Blend a single sub-pixel."""
         if x < 0 or x >= self.graph_w or spy < 0 or spy >= self.total_spy:

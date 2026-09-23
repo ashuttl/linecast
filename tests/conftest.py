@@ -117,6 +117,7 @@ def _private_home(monkeypatch, tmp_path):
     # test that ran a Persian command must not leave it Persian.
     from linecast import _bidi
     _bidi.configure("en", {})
+    _bidi.set_mirror(False)
 
 
 # ---------------------------------------------------------------------------
