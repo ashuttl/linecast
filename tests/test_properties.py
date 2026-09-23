@@ -24,7 +24,7 @@ from linecast._ephemeris import (  # noqa: E402
     moon_phase_frac,
     next_moon_phase_utc,
 )
-from linecast.sunshine.view import polar_state, solar_times  # noqa: E402
+from linecast.sunshine.solar import polar_state, solar_times  # noqa: E402
 
 UTC = timezone.utc
 

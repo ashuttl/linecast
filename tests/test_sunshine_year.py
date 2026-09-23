@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.sunshine import year
 from linecast.sunshine import view as sun
+from linecast.sunshine import solar
 from linecast._runtime import RuntimeConfig
 
 TORONTO = ZoneInfo("America/Toronto")
@@ -104,8 +105,8 @@ class TestFieldCache:
     def test_a_hover_does_not_rebuild_the_field(self):
         now = datetime(2026, 3, 5, 14, 30, tzinfo=TORONTO)
         _render(*TORONTO_LL, now, tz=TORONTO)
-        with patch.object(sun, "sun_elevation",
-                          wraps=sun.sun_elevation) as elev:
+        with patch.object(solar, "sun_elevation",
+                          wraps=solar.sun_elevation) as elev:
             _render(*TORONTO_LL, now, tz=TORONTO, mouse_pos=(40, 10))
             _render(*TORONTO_LL, now, tz=TORONTO, mouse_pos=(41, 10))
         # Only the sun's own elevation and the hovered moments, never the
@@ -115,8 +116,8 @@ class TestFieldCache:
     def test_a_resize_rebuilds_the_field(self):
         now = datetime(2026, 3, 5, 14, 30, tzinfo=TORONTO)
         _render(*TORONTO_LL, now, tz=TORONTO, size=(100, 30))
-        with patch.object(sun, "sun_elevation",
-                          wraps=sun.sun_elevation) as elev:
+        with patch.object(solar, "sun_elevation",
+                          wraps=solar.sun_elevation) as elev:
             _render(*TORONTO_LL, now, tz=TORONTO, size=(120, 30))
         assert elev.call_count > 1000
 
@@ -161,7 +162,7 @@ class TestChartClock:
 class TestHoverMoment:
     def _moment(self, lat, lng, doy, row, graph_h=28, **kw):
         return year._hover_moment(lat, lng, doy, -5.0, row, graph_h,
-                                  sun, _runtime(), **kw)
+                                  _runtime(), **kw)
 
     def test_a_row_reads_as_its_middle(self):
         hour, _ = self._moment(*TORONTO_LL, 64, 1, graph_h=24)
@@ -169,7 +170,7 @@ class TestHoverMoment:
 
     def test_it_snaps_to_sunrise(self):
         doy = 64
-        sunrise, _ = sun.solar_times(*TORONTO_LL, doy, -5.0)
+        sunrise, _ = solar.solar_times(*TORONTO_LL, doy, -5.0)
         graph_h = 28
         row = int(sunrise / 24 * graph_h) + 1
         hour, label = self._moment(*TORONTO_LL, doy, row, graph_h)
@@ -218,15 +219,15 @@ class TestMorningIsSolarNoon:
         runtime = _runtime(lang="sv")
         # graph_h 24: a mouse row reads as the middle of its hour.
         _, before = year._hover_moment(lat, lng, self.DOY, tz_off, 13, 24,
-                                       sun, runtime)  # 12:30
+                                       runtime)  # 12:30
         _, after = year._hover_moment(lat, lng, self.DOY, tz_off, 15, 24,
-                                      sun, runtime)   # 14:30
+                                      runtime)   # 14:30
         assert before == "borgerlig gryning"
         assert after == "borgerlig skymning"
 
     def test_the_day_views_sky_name_agrees(self):
         lat, lng, tz_off = self.UTQIAGVIK
-        sunrise, sunset = sun.solar_times(lat, lng, self.DOY, tz_off)
+        sunrise, sunset = solar.solar_times(lat, lng, self.DOY, tz_off)
         label = sun._sky_name(lat, lng, self.DOY, 12.5, sunrise, sunset,
                               tz_off, _runtime(lang="sv"))
         assert label == "borgerlig gryning"
@@ -320,14 +321,14 @@ class TestDayViewInfoLine:
 
 class TestPolarState:
     def test_a_midlatitude_day_is_not_polar(self):
-        rise, set_ = sun.solar_times(*TORONTO_LL, 64, -5.0)
-        assert sun.polar_state(set_ - rise) is None
+        rise, set_ = solar.solar_times(*TORONTO_LL, 64, -5.0)
+        assert solar.polar_state(set_ - rise) is None
 
     def test_a_clamped_long_day_is_polar_day(self):
-        assert sun.polar_state(24.0) == "day"
+        assert solar.polar_state(24.0) == "day"
 
     def test_a_clamped_short_day_is_polar_night(self):
-        assert sun.polar_state(0.0) == "night"
+        assert solar.polar_state(0.0) == "night"
 
 
 # ---------------------------------------------------------------------------

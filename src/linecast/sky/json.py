@@ -24,7 +24,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
         FOV_DEFAULT, Scene, _mat_apply, alt_az_of, compass_point, default_view,
         easily_seen,
     )
-    from linecast.sunshine.view import moon_phase
+    from linecast.moon.phase import moon_phase
 
     scene = Scene(now_local.astimezone(timezone.utc), lat, lng)
     view = default_view(scene, 80, 24, facing, fov or FOV_DEFAULT)

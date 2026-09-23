@@ -36,7 +36,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         moon_illumination,
         upcoming_moon_events,
     )
-    from linecast.sunshine.view import SYNODIC_MONTH, moon_cycle_frac, moon_phase
+    from linecast.moon.phase import SYNODIC_MONTH, moon_cycle_frac, moon_phase
 
     idx, _name, icon = moon_phase(now_local, runtime)
     frac = moon_cycle_frac(now_local)

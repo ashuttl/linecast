@@ -89,21 +89,14 @@ from linecast._ephemeris import (
     moon_axis_deg, moon_bright_limb_deg, moon_illuminated_fraction,
     next_moon_phase_utc, precess_to_j2000,
 )
-from linecast.sunshine.view import (
-    INFO_AMBER_RGB,
-    INFO_DIM_RGB,
-    INFO_PURPLE_RGB,
-    INFO_TEXT_RGB,
-    SYNODIC_MONTH,
-    moon_cycle_frac,
-    moon_phase,
-)
+from linecast.sunshine.palette import INFO_AMBER_RGB, INFO_DIM_RGB, INFO_PURPLE_RGB, INFO_TEXT_RGB
+from linecast.moon.phase import SYNODIC_MONTH, moon_cycle_frac, moon_phase
 
 # Matches the rise/set threshold in _moon_events_for_local_date: net effect
 # of refraction and lunar parallax puts the geometric event at +0.125°.
 HORIZON_THRESHOLD_DEG = 0.125
 
-_theme.track_imports(globals(), "linecast.sunshine.view")
+_theme.track_imports(globals(), "linecast.sunshine.palette")
 
 # ---------------------------------------------------------------------------
 # Palette

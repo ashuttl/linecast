@@ -53,9 +53,9 @@ class TestClockLabel:
 
     def test_the_users_day_is_the_machines_by_default(self):
         from linecast.sunshine.view import clock_label
-        with patch("linecast.sunshine.view._local_today", return_value=TODAY):
+        with patch("linecast.sunshine.solar._local_today", return_value=TODAY):
             assert clock_label(NOW, _runtime()) == "2:30p"
-        with patch("linecast.sunshine.view._local_today", return_value=YESTERDAY):
+        with patch("linecast.sunshine.solar._local_today", return_value=YESTERDAY):
             assert clock_label(NOW, _runtime()) == "Thu 2:30p"
 
 
@@ -84,13 +84,13 @@ def _day_view(at, **kw):
 
 class TestHeaderInTheViews:
     def test_day_view_names_the_time_beside_the_place(self):
-        with patch("linecast.sunshine.view._local_today", return_value=TODAY):
+        with patch("linecast.sunshine.solar._local_today", return_value=TODAY):
             top = _day_view(NOW, now=NOW)
         assert "Toronto · 2:30p" in top and "Thu" not in top
 
     def test_day_view_scrubbed_past_midnight_names_the_next_day(self):
         later = NOW + timedelta(hours=10)  # Friday, 00:30
-        with patch("linecast.sunshine.view._local_today", return_value=TODAY):
+        with patch("linecast.sunshine.solar._local_today", return_value=TODAY):
             top = _day_view(later, now=later, offset_minutes=600)
         assert "Toronto · Fri 12:30a" in top
 
@@ -101,7 +101,7 @@ class TestHeaderInTheViews:
     def test_year_view_names_the_time_beside_the_place(self):
         from linecast.sunshine.year import render_year
         with patch("linecast.sunshine.year.get_terminal_size", return_value=(80, 24)), \
-             patch("linecast.sunshine.view._local_today", return_value=TODAY):
+             patch("linecast.sunshine.solar._local_today", return_value=TODAY):
             out = render_year(43.7, -79.4, NOW, _runtime(), tz=TORONTO,
                               location_label="Toronto")
         assert "Toronto · 2:30p" in _plain(out).split("\n")[0]
@@ -112,7 +112,7 @@ class TestHeaderInTheViews:
         auckland = ZoneInfo("Pacific/Auckland")
         now = datetime(2026, 3, 6, 8, 30, tzinfo=auckland)  # Friday morning there
         with patch("linecast.sunshine.year.get_terminal_size", return_value=(80, 24)), \
-             patch("linecast.sunshine.view._local_today", return_value=date(2026, 3, 5)):
+             patch("linecast.sunshine.solar._local_today", return_value=date(2026, 3, 5)):
             out = render_year(-36.85, 174.76, now, _runtime(), tz=auckland,
                               location_label="Auckland")
         assert "Auckland · Fri 8:30a" in _plain(out).split("\n")[0]

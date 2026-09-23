@@ -16,7 +16,7 @@ from linecast._seasons import (  # noqa: E402
     season_event_utc,
 )
 
-SYNODIC = 29.530588  # matches linecast.sunshine.view.SYNODIC_MONTH closely enough
+SYNODIC = 29.530588  # matches linecast.moon.phase.SYNODIC_MONTH closely enough
 
 
 def _utc(*args):

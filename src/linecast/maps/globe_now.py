@@ -38,7 +38,7 @@ from linecast._png import decode_rgba
 from linecast._runtime import log_failure
 from linecast._scenes import Memo
 from linecast._theme import themed
-from linecast.sunshine.view import _declination
+from linecast.sunshine.solar import _declination
 
 ATTRIBUTION = "Clouds: LibreWXR · CC BY 4.0"
 

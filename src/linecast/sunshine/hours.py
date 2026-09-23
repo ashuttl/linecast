@@ -20,9 +20,9 @@ _SEP = " · "
 
 
 def _inks():
-    from linecast.sunshine import view as sunshine
-    return (fg(*sunshine.INFO_TEXT_RGB), fg(*sunshine.INFO_MUTED_RGB),
-            fg(*sunshine.INFO_DIM_RGB))
+    from linecast.sunshine import palette
+    return (fg(*palette.INFO_TEXT_RGB), fg(*palette.INFO_MUTED_RGB),
+            fg(*palette.INFO_DIM_RGB))
 
 
 def corner_reading(hours, now, runtime):

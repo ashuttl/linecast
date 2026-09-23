@@ -26,11 +26,14 @@ from linecast.sunshine.i18n import (
     _fmt_month_day, axis_month_labels, polar_name, relative_day, sky_event,
     sky_phase,
 )
+from linecast._glyphs import _icon_set
 from linecast._textwidth import char_width
 from linecast._theme import (
     best_contrast, darken, ensure_contrast, is_light_theme, lerp_rgb,
     surface_bg,
 )
+from linecast.sunshine import palette as inks
+from linecast.sunshine import solar
 
 _theme.track_imports(globals(), "linecast._color")
 
@@ -78,20 +81,20 @@ def _day_tz_offsets(year, days, tz):
     return offsets
 
 
-def _sky_color(elev, sun):
+def _sky_color(elev):
     """The day view's own sky, keyed by elevation alone.
 
     Low sun keeps the near-horizon palette (the warm sunrise band paints
     itself); high sun blends toward the zenith blue so midday doesn't
     wash out to the near-white the horizon table ends in.
     """
-    near = interp_stops(sun.SKY_NEAR_HORIZON, elev)
-    zen = interp_stops(sun.SKY_ZENITH, elev)
+    near = interp_stops(inks.SKY_NEAR_HORIZON, elev)
+    zen = interp_stops(inks.SKY_ZENITH, elev)
     w = max(0.0, min(0.85, (elev - 3) / 30))
     return lerp(near, zen, w)
 
 
-def _dial_stops(sun):
+def _dial_stops():
     """A ramp after the Apple Watch Solar Dial face.
 
     The day view's sky is built around a warm horizon; here the warm
@@ -100,7 +103,7 @@ def _dial_stops(sun):
     day settles on a mid sky blue that never reaches white, so a long
     polar summer reads as a calm field rather than a glare.
     """
-    if sun.theme_legacy_mode:
+    if inks.theme_legacy_mode:
         return [
             (-18, (12, 16, 40)),
             (-12, (22, 30, 68)),
@@ -119,12 +122,12 @@ def _dial_stops(sun):
     # The day view's blue may settle on ANSI cyan; the dial wants a blue.
     sky = best_contrast((_theme.theme_ansi[4], _theme.theme_ansi[12]),
                         minimum=1.8)
-    red, magenta, yellow = sun._SKY_RED, sun._SKY_MAGENTA, sun._SKY_YELLOW
-    white = sun._SKY_WHITE
+    red, magenta, yellow = inks._SKY_RED, inks._SKY_MAGENTA, inks._SKY_YELLOW
+    white = inks._SKY_WHITE
     if is_light_theme():
         # Night dark and day light whatever the page: the night is the
         # day view's navy, the day the theme's blue lifted toward white.
-        night = sun.SKY_NIGHT
+        night = inks.SKY_NIGHT
         day = lerp_rgb(sky, white, 0.50)
     else:
         night = lerp_rgb(_theme.theme_bg, sky, 0.10)
@@ -154,20 +157,20 @@ def _dial_stops(sun):
 
 
 def _stops_shader(build):
-    def shader(sun):
-        stops = build(sun)
+    def shader():
+        stops = build()
         return lambda elev: interp_stops(stops, elev)
     return shader
 
 
-# Named year palettes: each entry takes the sunshine module (whose colors
-# are rebuilt on theme reload) and returns elevation → RGB. "dial" is the
+# Named year palettes: each entry builds, from the inks as they stand
+# after the last theme reload, a function from elevation to RGB. "dial" is the
 # Solar Dial ramp the view is drawn for; "graph" is the day view's own
 # sky folded onto elevation, kept because it is the honest answer to
 # "what does the day view look like all year". LINECAST_SUNSHINE_YEAR_PALETTE
 # picks one.
 PALETTES = {
-    "graph": lambda sun: (lambda elev: _sky_color(elev, sun)),
+    "graph": lambda: _sky_color,
     "dial": _stops_shader(_dial_stops),
 }
 DEFAULT_PALETTE = "dial"
@@ -180,9 +183,9 @@ def palette_name(name=None):
     return name if name in PALETTES else DEFAULT_PALETTE
 
 
-def _day_facts(lat, lng, doy, tz_off, sun):
+def _day_facts(lat, lng, doy, tz_off):
     """(sunrise, sunset, day length in hours) for one day."""
-    sunrise, sunset = sun.solar_times(lat, lng, doy, tz_off)
+    sunrise, sunset = solar.solar_times(lat, lng, doy, tz_off)
     return sunrise, sunset, sunset - sunrise
 
 
@@ -201,7 +204,7 @@ def _fmt_len_delta(delta_hours):
     return f"{sign}{m}m"
 
 
-def _sky_field(lat, lng, graph_w, graph_h, days, tz_offs, palette, sun):
+def _sky_field(lat, lng, graph_w, graph_h, days, tz_offs, palette):
     """Sub-pixel sky rows for the whole year, [spy][x], memoized.
 
     The field depends on the place, the size, the palette and each day's
@@ -212,7 +215,7 @@ def _sky_field(lat, lng, graph_w, graph_h, days, tz_offs, palette, sun):
     key = (lat, lng, graph_w, graph_h, days, palette, tuple(tz_offs))
     rows = _FIELD_CACHE.get(key)
     if rows is None:
-        shader = PALETTES[palette](sun)
+        shader = PALETTES[palette]()
         total_spy = graph_h * 2
         rows = [[None] * graph_w for _ in range(total_spy)]
         shade = {}
@@ -223,7 +226,7 @@ def _sky_field(lat, lng, graph_w, graph_h, days, tz_offs, palette, sun):
             for spy in range(total_spy):
                 hour = (spy + 0.5) / total_spy * 24
                 # Color depends only on elevation; quantize to 0.25° and memo.
-                e = round(sun.sun_elevation(lat, lng, hour, doy, tzoff) * 4) / 4
+                e = round(solar.sun_elevation(lat, lng, hour, doy, tzoff) * 4) / 4
                 c = shade.get(e)
                 if c is None:
                     c = shade[e] = shader(e)
@@ -237,9 +240,9 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
                 dst=False, location_label="", mouse_pos=None,
                 palette=None):
     """Build the year-scale sky field display."""
-    from linecast.sunshine import view as sun  # palettes, rebuilt on theme reload
+    from linecast.sunshine import view as sun
 
-    icons = sun._icon_set(runtime)
+    icons = _icon_set(runtime)
     cols, rows = get_terminal_size()
 
     # The field fills the window; the month labels overlay its bottom
@@ -269,16 +272,16 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     # --- the sky field ---
     fb = Framebuffer(graph_w, graph_h)
     fb.fb = _sky_field(lat, lng, graph_w, graph_h, days, tz_offs,
-                       palette_name(palette), sun)
+                       palette_name(palette))
 
     # --- today's sun: a point on both axes ---
     x_today = max(0, min(graph_w - 1, int((today_doy - 0.5) / days * graph_w)))
     # The glyph and its glow share a sub-pixel, so the glow cannot round
     # into the cell below the dot.
     spy_now = min(total_spy - 1, int(now_hour / 24 * total_spy))
-    e_now = sun.sun_elevation(lat, lng, now_hour, today_doy,
+    e_now = solar.sun_elevation(lat, lng, now_hour, today_doy,
                               tz_offs[today_doy - 1])
-    sun_warm = sun.SUN_GLOW_RGB if e_now > -2 else sun.SUN_GLOW_TWILIGHT_RGB
+    sun_warm = inks.SUN_GLOW_RGB if e_now > -2 else inks.SUN_GLOW_TWILIGHT_RGB
     fb.draw_radial(x_today, spy_now, sun_warm, 5, peak_alpha=0.85)
 
     # --- hover: which day is the mouse over? ---
@@ -321,7 +324,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
             ch, sun.corner_label_ink(fb.cell_bg(x, graph_h - 1)), False)
 
     sun_row = spy_now // 2
-    overlays[(x_today, sun_row)] = (icons["sun_char"], sun.SUN_DOT_RGB)
+    overlays[(x_today, sun_row)] = (icons["sun_char"], inks.SUN_DOT_RGB)
     if fullscreen:
         from linecast._help import paint_hint
         paint_hint(fb, overlays, runtime.lang, rows=(0,))
@@ -336,7 +339,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     if hover_x is not None:
         tooltip = _hover_tooltip(lat, lng, hover_x, mouse_pos[1], graph_w,
                                  graph_h, cols, rows, year, days, tz_offs,
-                                 today_doy, runtime, sun, icons,
+                                 today_doy, runtime, icons,
                                  today=(x_today, now_hour),
                                  day_offs=day_offs, tz=tz)
     # overlay() keeps the cursor-addressed tooltip apart from the body so
@@ -344,7 +347,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     return overlay("\n".join(lines), tooltip)
 
 
-def _hover_moment(lat, lng, doy, tz_off, mouse_row, graph_h, sun, runtime,
+def _hover_moment(lat, lng, doy, tz_off, mouse_row, graph_h, runtime,
                   now_hour=None, shift=0.0):
     """(hour, label) for the hovered row of a day.
 
@@ -362,7 +365,7 @@ def _hover_moment(lat, lng, doy, tz_off, mouse_row, graph_h, sun, runtime,
         hour = now_hour
     # The axis is the chart's clock; shift moves it into the day's own.
     hour += shift
-    sunrise, sunset = sun.solar_times(lat, lng, doy, tz_off)
+    sunrise, sunset = solar.solar_times(lat, lng, doy, tz_off)
     noon = (sunrise + sunset) / 2
     events = [("solar_noon", noon)]
     if 0.05 < sunset - sunrise < 23.95:   # the sun does rise and set
@@ -370,7 +373,7 @@ def _hover_moment(lat, lng, doy, tz_off, mouse_row, graph_h, sun, runtime,
     for key, at in events:
         if abs(hour - at) <= reach and 0 <= at < 24:
             return at, sky_event(key, runtime)
-    elev = sun.sun_elevation(lat, lng, hour, doy, tz_off)
+    elev = solar.sun_elevation(lat, lng, hour, doy, tz_off)
     return hour, sky_phase(elev, runtime, morning=hour < noon)
 
 
@@ -387,7 +390,7 @@ def _zone_name(date, tz):
 
 
 def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
-                   year, days, tz_offs, today_doy, runtime, sun, icons,
+                   year, days, tz_offs, today_doy, runtime, icons,
                    today=None, day_offs=None, tz=None):
     """Cursor-positioned tooltip for the hovered day and time, tides-style.
 
@@ -404,14 +407,14 @@ def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
     date = datetime(year, 1, 1) + timedelta(days=doy - 1)
     day_off = (day_offs or tz_offs)[doy - 1]
     shift = day_off - tz_offs[doy - 1]
-    sunrise, sunset, day_len = _day_facts(lat, lng, doy, day_off, sun)
+    sunrise, sunset, day_len = _day_facts(lat, lng, doy, day_off)
     hour, sky = _hover_moment(lat, lng, doy, day_off, mouse_row,
-                              graph_h, sun, runtime, now_hour, shift)
+                              graph_h, runtime, now_hour, shift)
     zone = ""
     if day_offs and day_off != day_offs[today_doy - 1]:
         zone = _zone_name(date, tz)
     _, _, today_len = _day_facts(lat, lng, today_doy,
-                                 tz_offs[today_doy - 1], sun)
+                                 tz_offs[today_doy - 1])
 
     rel = relative_day(doy - today_doy, runtime)
 
@@ -423,7 +426,7 @@ def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
     # solar_times() gives solar noon twice — so the phrase stands in its
     # place. The length and its delta from today stay: they are what
     # makes a polar day worth pointing at.
-    polar = sun.polar_state(day_len)
+    polar = solar.polar_state(day_len)
     if polar:
         times = f"{tip_bg}{tip_fg} {polar_name(polar, runtime)} "
     else:

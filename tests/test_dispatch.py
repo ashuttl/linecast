@@ -141,7 +141,7 @@ class Argv0DispatchTests(unittest.TestCase):
         self.assertRegex(out.rstrip().splitlines()[-1], r"^\S+ \w[\w ]+, \d+% lit$")
 
     def test_help_survives_the_moon_going_wrong(self):
-        with mock.patch("linecast.sunshine.view.moon_phase", side_effect=RuntimeError("no sky")):
+        with mock.patch("linecast.moon.phase.moon_phase", side_effect=RuntimeError("no sky")):
             out = self._unwrapped_help("/usr/bin/linecast")
         self.assertTrue(out.endswith("Run any command with --help for options."))
 

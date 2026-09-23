@@ -79,13 +79,13 @@ from linecast.sunshine.i18n import sky_phase
 from linecast._textwidth import char_width
 from linecast.tides.i18n import _ts  # shared "space to return to now" hint
 from linecast.moon.view import _draw_moon_disc
-from linecast.sunshine.view import (
-    INFO_AMBER_RGB, INFO_DIM_RGB, INFO_TEXT_RGB, SKY_FAR_HORIZON,
-    SKY_NEAR_HORIZON, SKY_NIGHT, SKY_ZENITH, SUN_DOT_RGB, SUN_GLOW_RGB,
-    moon_phase,
+from linecast.sunshine.palette import (
+    INFO_AMBER_RGB, INFO_DIM_RGB, INFO_TEXT_RGB, SKY_FAR_HORIZON, SKY_NEAR_HORIZON,
+    SKY_NIGHT, SKY_ZENITH, SUN_DOT_RGB, SUN_GLOW_RGB,
 )
+from linecast.moon.phase import moon_phase
 
-_theme.track_imports(globals(), "linecast.sunshine.view")
+_theme.track_imports(globals(), "linecast.sunshine.palette")
 
 # ---------------------------------------------------------------------------
 # Palette

@@ -17,27 +17,15 @@ Usage: sunshine [--print] [--oneline] [--json] [--year] [--location PLACE]
 
 import math
 import sys
-import time as _time
-from datetime import datetime, timedelta, timezone
-from functools import lru_cache
+from datetime import datetime
 
 from linecast._braille import braille_rows_from_ys
-from linecast._ephemeris import moon_phase_frac, sun_declination
 from linecast._graphics import (
-    fg, RESET, BG_PRIMARY, color_mode, lerp, interp_stops, visible_len,
+    fg, RESET, lerp, interp_stops, visible_len,
     fmt_time, fmt_time_dt, get_terminal_size, Framebuffer, live_loop,
 )
 from linecast import _theme
-from linecast._theme import (
-    best_contrast,
-    darken,
-    ensure_contrast,
-    is_light_theme,
-    lerp_rgb,
-    lighten,
-    neutral_tone,
-    theme_legacy_mode,
-)
+from linecast._theme import darken, lighten
 from linecast._i18n import table_for
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
@@ -45,428 +33,18 @@ from linecast._location import (
 from linecast._runtime import (
     RuntimeConfig, current_runtime, install_banner, set_current, sunshine_parser,
 )
+from linecast._glyphs import _icon_set
+from linecast.sunshine import solar
+from linecast.sunshine.palette import (
+    CURVE_COLOR, HORIZON_COLOR, INFO_AMBER_RGB, INFO_DIM_RGB, INFO_PURPLE_RGB,
+    INFO_TEXT_RGB, SKY_FAR_HORIZON, SKY_NEAR_HORIZON, SKY_NIGHT, SKY_ZENITH,
+    SUN_DOT_RGB, SUN_GLOW_RGB, SUN_GLOW_TWILIGHT_RGB,
+)
+from linecast.sunshine.solar import polar_state, solar_times, sun_elevation
 
 _theme.track_imports(globals(), "linecast._color")
+_theme.track_imports(globals(), "linecast.sunshine.palette")
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-# The sun is drawn, not typeset: a white dot in a gold halo on every
-# theme. Theme-derived inks are contrast-checked against the page, which
-# greys the dot and buries the glow in a light theme's day. Shared with
-# the year view.
-SUN_DOT_RGB = (255, 255, 255)
-SUN_GLOW_RGB = (255, 214, 120)
-
-
-def _rebuild():
-    global HORIZON_COLOR, CURVE_COLOR, SUN_GLOW_TWILIGHT_RGB
-    global INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_MUTED_RGB
-    global INFO_DIM_RGB, INFO_TEXT_RGB, _SKY_BLUE, _SKY_CYAN, _SKY_MAGENTA
-    global _SKY_RED, _SKY_YELLOW, _SKY_WHITE, SKY_NIGHT
-    SKY_NIGHT = BG_PRIMARY
-    if theme_legacy_mode:
-        # Original pre-theme palette (classic mode).
-        HORIZON_COLOR = (90, 98, 125)
-        CURVE_COLOR = (160, 168, 195)
-        SUN_GLOW_TWILIGHT_RGB = (180, 195, 225)
-        INFO_AMBER_RGB = (251, 191, 36)
-        INFO_PURPLE_RGB = (167, 139, 250)
-        INFO_MUTED_RGB = (100, 110, 130)
-        INFO_DIM_RGB = (70, 80, 100)
-        INFO_TEXT_RGB = (200, 205, 215)
-    else:
-        _SKY_BLUE = best_contrast(
-            (_theme.theme_ansi[4], _theme.theme_ansi[12], _theme.theme_ansi[6]), minimum=1.8)
-        _SKY_CYAN = best_contrast(
-            (_theme.theme_ansi[6], _theme.theme_ansi[14], _theme.theme_fg), minimum=1.8)
-        _SKY_MAGENTA = best_contrast((_theme.theme_ansi[5], _theme.theme_ansi[13]), minimum=1.8)
-        _SKY_RED = best_contrast((_theme.theme_ansi[1], _theme.theme_ansi[9]), minimum=1.8)
-        _SKY_YELLOW = best_contrast((_theme.theme_ansi[3], _theme.theme_ansi[11]), minimum=1.8)
-        _SKY_WHITE = best_contrast((_theme.theme_ansi[15], _theme.theme_fg), minimum=2.0)
-
-        # Night is dark whatever the terminal. On a light theme the sky
-        # sits on a navy from the theme's blue, not the page, and the
-        # inks drawn over the sky contrast with that.
-        if is_light_theme():
-            SKY_NIGHT = darken(_SKY_BLUE, 0.80)
-            _SKY_WHITE = (250, 252, 255)
-
-        # hairline divider
-        HORIZON_COLOR = ensure_contrast(neutral_tone(0.45), SKY_NIGHT, minimum=1.7)
-        # neutral arc
-        CURVE_COLOR = ensure_contrast(neutral_tone(0.74), SKY_NIGHT, minimum=2.4)
-        SUN_GLOW_TWILIGHT_RGB = ensure_contrast(
-            lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.45), SKY_NIGHT, minimum=1.6)
-        INFO_AMBER_RGB = ensure_contrast(_SKY_YELLOW, _theme.theme_bg, minimum=2.3)
-        INFO_PURPLE_RGB = ensure_contrast(_SKY_MAGENTA, _theme.theme_bg, minimum=2.3)
-        INFO_MUTED_RGB = ensure_contrast(neutral_tone(0.48), _theme.theme_bg, minimum=2.4)
-        INFO_DIM_RGB = ensure_contrast(neutral_tone(0.32), _theme.theme_bg, minimum=2.0)
-        INFO_TEXT_RGB = ensure_contrast(_theme.theme_fg, _theme.theme_bg, minimum=4.5)
-
-
-_EMOJI_ICONS = {
-    "sun_char": "\u25cf",         # ●
-    "sun_icon": "\U0001f305",     # 🌅
-    "sunset_icon": "\U0001f307",  # 🌇
-    "moon_icons": [
-        "\U0001f311",  # 🌑 New Moon
-        "\U0001f312",  # 🌒 Waxing Crescent
-        "\U0001f313",  # 🌓 First Quarter
-        "\U0001f314",  # 🌔 Waxing Gibbous
-        "\U0001f315",  # 🌕 Full Moon
-        "\U0001f316",  # 🌖 Waning Gibbous
-        "\U0001f317",  # 🌗 Last Quarter
-        "\U0001f318",  # 🌘 Waning Crescent
-    ],
-}
-
-_NERD_ICONS = {
-    "sun_char": "\U000F0F62",      # 󰽢
-    "sun_icon": "\U000F059C",      # 󰖜
-    "sunset_icon": "\U000F059B",   # 󰖛
-    "moon_icons": [
-        "\U000F0F64",  # New Moon
-        "\U000F0F67",  # Waxing Crescent
-        "\U000F0F61",  # First Quarter
-        "\U000F0F68",  # Waxing Gibbous
-        "\U000F0F62",  # Full Moon
-        "\U000F0F66",  # Waning Gibbous
-        "\U000F0F63",  # Last Quarter
-        "\U000F0F65",  # Waning Crescent
-    ],
-}
-
-
-# Text-presentation glyphs only: the phase dial ○ ◔ ◑ ◕ ● loses the
-# waxing/waning mirror, but every font can draw it.
-_PLAIN_ICONS = {
-    "sun_char": "●",
-    "sun_icon": "↑",
-    "sunset_icon": "↓",
-    "moon_icons": [
-        "○",  # New Moon
-        "◔",  # Waxing Crescent
-        "◑",  # First Quarter
-        "◕",  # Waxing Gibbous
-        "●",  # Full Moon
-        "◕",  # Waning Gibbous
-        "◑",  # Last Quarter
-        "◔",  # Waning Crescent
-    ],
-}
-
-
-def _icon_set(runtime):
-    return {"nerd": _NERD_ICONS, "emoji": _EMOJI_ICONS,
-            "plain": _PLAIN_ICONS}[runtime.icons]
-
-
-MOON_NAMES = [
-    "New Moon", "Waxing Crescent", "First Quarter", "Waxing Gibbous",
-    "Full Moon", "Waning Gibbous", "Last Quarter", "Waning Crescent",
-]
-
-def _rebuild_sky():
-    global SKY_NEAR_HORIZON, SKY_FAR_HORIZON, SKY_ZENITH
-    # Sky palette: sun elevation → colors at horizon (near/far from sun) and zenith
-    if theme_legacy_mode:
-        SKY_NEAR_HORIZON = [   # warm side — sky color near the sun at the horizon
-            (-18, BG_PRIMARY),
-            (-12, (35, 18, 58)),
-            ( -6, (115, 55, 75)),
-            ( -3, (185, 80, 60)),
-            (  0, (245, 135, 40)),
-            (  3, (248, 175, 55)),
-            (  8, (230, 195, 85)),
-            ( 15, (195, 215, 242)),
-            ( 30, (208, 228, 255)),
-            ( 90, (218, 238, 255)),
-        ]
-
-        SKY_FAR_HORIZON = [    # cool side — sky color far from the sun at the horizon
-            (-18, BG_PRIMARY),
-            (-12, (28, 15, 52)),
-            ( -6, (90, 40, 98)),
-            ( -3, (160, 55, 108)),
-            (  0, (205, 85, 110)),
-            (  3, (190, 105, 125)),
-            (  8, (168, 135, 160)),
-            ( 15, (182, 208, 238)),
-            ( 30, (202, 224, 252)),
-            ( 90, (214, 234, 254)),
-        ]
-
-        SKY_ZENITH = [         # sky color at the top of the display
-            (-18, BG_PRIMARY),
-            (-12, (18, 14, 38)),
-            ( -6, (30, 20, 55)),
-            ( -3, (48, 28, 72)),
-            (  0, (70, 38, 95)),
-            (  3, (62, 55, 128)),
-            (  8, (52, 82, 158)),
-            ( 15, (78, 132, 208)),
-            ( 30, (112, 170, 240)),
-            ( 90, (132, 188, 250)),
-        ]
-    else:
-        night = SKY_NIGHT
-        SKY_NEAR_HORIZON = [   # warm side — sky color near the sun at the horizon
-            (-18, night),
-            (-12, darken(lerp_rgb(night, _SKY_MAGENTA, 0.18), 0.10)),
-            ( -6, lerp_rgb(night, _SKY_RED, 0.35)),
-            ( -3, lerp_rgb(_SKY_RED, _SKY_MAGENTA, 0.20)),
-            (  0, lerp_rgb(_SKY_YELLOW, _SKY_RED, 0.28)),
-            (  3, lerp_rgb(_SKY_YELLOW, _SKY_WHITE, 0.20)),
-            (  8, lerp_rgb(_SKY_YELLOW, _SKY_CYAN, 0.35)),
-            ( 15, lerp_rgb(_SKY_CYAN, _SKY_WHITE, 0.55)),
-            ( 30, lerp_rgb(_SKY_CYAN, _SKY_WHITE, 0.72)),
-            ( 90, lerp_rgb(_SKY_CYAN, _SKY_WHITE, 0.82)),
-        ]
-
-        SKY_FAR_HORIZON = [    # cool side — sky color far from the sun at the horizon
-            (-18, night),
-            (-12, darken(lerp_rgb(night, _SKY_MAGENTA, 0.14), 0.12)),
-            ( -6, lerp_rgb(night, _SKY_MAGENTA, 0.30)),
-            ( -3, lerp_rgb(_SKY_MAGENTA, _SKY_RED, 0.30)),
-            (  0, lerp_rgb(_SKY_RED, _SKY_MAGENTA, 0.30)),
-            (  3, lerp_rgb(_SKY_RED, _SKY_CYAN, 0.25)),
-            (  8, lerp_rgb(_SKY_MAGENTA, _SKY_CYAN, 0.40)),
-            ( 15, lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.52)),
-            ( 30, lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.70)),
-            ( 90, lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.80)),
-        ]
-
-        SKY_ZENITH = [         # sky color at the top of the display
-            (-18, night),
-            (-12, darken(lerp_rgb(night, _SKY_BLUE, 0.10), 0.14)),
-            ( -6, darken(lerp_rgb(night, _SKY_BLUE, 0.18), 0.08)),
-            ( -3, lerp_rgb(night, _SKY_MAGENTA, 0.22)),
-            (  0, lerp_rgb(_SKY_MAGENTA, _SKY_BLUE, 0.32)),
-            (  3, lerp_rgb(_SKY_MAGENTA, _SKY_BLUE, 0.48)),
-            (  8, lerp_rgb(_SKY_BLUE, _SKY_CYAN, 0.22)),
-            ( 15, lerp_rgb(_SKY_BLUE, _SKY_CYAN, 0.45)),
-            ( 30, lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.48)),
-            ( 90, lerp_rgb(_SKY_BLUE, _SKY_WHITE, 0.62)),
-        ]
-
-
-def _tame_for_mode():
-    """Below truecolor, pull the sky toward gray.
-
-    The 6-level xterm cube has no entry that keeps a muted blue-cyan's
-    hue: adjacent gradient blends snap to purple, teal and lavender in
-    turn, and the smooth sky renders as rainbow rings.  Near gray the
-    quantizer uses the 24-step ramp instead, which stays smooth, so
-    trade the chroma away.  Saturated stops (the sunset band) keep most
-    of their colour; the muted mid-sky gives up the most.
-    """
-    global SKY_NEAR_HORIZON, SKY_FAR_HORIZON, SKY_ZENITH
-    global SUN_GLOW_TWILIGHT_RGB
-    if color_mode() not in ("256", "16"):
-        return
-
-    def tamed(rgb):
-        r, g, b = rgb
-        luma = int(0.30 * r + 0.59 * g + 0.11 * b)
-        return lerp((r, g, b), (luma, luma, luma), 0.55)
-
-    SKY_NEAR_HORIZON = [(e, tamed(c)) for e, c in SKY_NEAR_HORIZON]
-    SKY_FAR_HORIZON = [(e, tamed(c)) for e, c in SKY_FAR_HORIZON]
-    SKY_ZENITH = [(e, tamed(c)) for e, c in SKY_ZENITH]
-    SUN_GLOW_TWILIGHT_RGB = tamed(SUN_GLOW_TWILIGHT_RGB)
-
-
-def _rebuild_all():
-    _rebuild()
-    _rebuild_sky()
-    _tame_for_mode()
-
-
-_rebuild_all()
-_theme.on_reload(_rebuild_all)
-
-# ---------------------------------------------------------------------------
-# Solar math
-#
-# Based on the simplified NOAA Solar Calculator equations, which are
-# themselves derived from Meeus, "Astronomical Algorithms" (2nd ed.).
-# See: https://gml.noaa.gov/grad/solcalc/solareqns.PDF
-#
-# Accuracy: ~1 minute for sunrise/sunset, ~0.3° for elevation.
-# ---------------------------------------------------------------------------
-
-def _tz_offset_hours():
-    return _time.localtime().tm_gmtoff / 3600
-
-def _equation_of_time(doy):
-    """Equation of time in minutes (Spencer, 1971 / NOAA simplified form).
-
-    B is the fractional year angle offset from the vernal equinox.
-    """
-    B = math.radians(360 / 365 * (doy - 81))
-    return 9.87 * math.sin(2*B) - 7.53 * math.cos(B) - 1.5 * math.sin(B)
-
-@lru_cache(maxsize=1024)
-def _declination_on(year, doy):
-    """Solar declination in degrees at UTC noon on a day of *year*."""
-    noon = datetime(year, 1, 1, 12, tzinfo=timezone.utc) + timedelta(days=doy - 1)
-    return sun_declination(noon)
-
-
-def _declination(doy):
-    """Solar declination in degrees, from the ephemeris.
-
-    doy is a day of the user's current year; 0 and 367 reach into the
-    neighboring years, as callers' yesterday and tomorrow do. The year
-    is read through _local_today so a test can pin it.
-    """
-    return _declination_on(_local_today().year, doy)
-
-def solar_times(lat, lng, doy, tz_offset_h=None):
-    """Sunrise/sunset as local decimal hours.
-
-    Uses the standard hour angle formula with a zenith of 90.833° to
-    account for atmospheric refraction (~0.833° at the horizon).
-    Reference: NOAA Solar Calculator, https://gml.noaa.gov/grad/solcalc/
-
-    tz_offset_h is the UTC offset the "local" hours are expressed in;
-    it defaults to the machine's, which is only right when the machine
-    is at the location.
-    """
-    decl = _declination(doy)
-    lat_r, dec_r = math.radians(lat), math.radians(decl)
-    cos_ha = ((math.cos(math.radians(90.833)) -
-               math.sin(lat_r) * math.sin(dec_r)) /
-              (math.cos(lat_r) * math.cos(dec_r)))
-    cos_ha = max(-1.0, min(1.0, cos_ha))
-    ha = math.degrees(math.acos(cos_ha))
-    eot = _equation_of_time(doy)
-    noon_utc = 12 - lng / 15 - eot / 60
-    tz = _tz_offset_hours() if tz_offset_h is None else tz_offset_h
-    # A zone more than twelve hours from its own solar meridian — the
-    # UTC+13 and +14 zones that sit east of the date line, Samoa, Tonga,
-    # Kiritimati — puts noon_utc + tz outside the day it belongs to.
-    # Solar noon is in the local date by definition, so bring it back.
-    # A rise or set that falls the other side of midnight is real, and
-    # is left where it lands.
-    noon_local = (noon_utc + tz) % 24
-    return noon_local - ha/15, noon_local + ha/15
-
-
-# A day length this close to 0h or 24h means the hour angle above was
-# clamped: the sun does not cross the horizon at this latitude today, and
-# solar_times() returned noon twice rather than a rise and a set.
-POLAR_EPSILON_HOURS = 0.01
-
-
-def polar_state(day_len_h):
-    """"night", "day", or None — whether the sun crosses the horizon."""
-    if day_len_h <= POLAR_EPSILON_HOURS:
-        return "night"
-    if day_len_h >= 24 - POLAR_EPSILON_HOURS:
-        return "day"
-    return None
-
-
-def sun_elevation(lat, lng, local_hour, doy, tz_offset_h=None):
-    """Sun elevation angle in degrees at a given local hour."""
-    decl = _declination(doy)
-    eot = _equation_of_time(doy)
-    noon_utc = 12 - lng / 15 - eot / 60
-    tz = _tz_offset_hours() if tz_offset_h is None else tz_offset_h
-    ha = 15 * (local_hour - tz - noon_utc)
-    lat_r = math.radians(lat)
-    dec_r = math.radians(decl)
-    ha_r  = math.radians(ha)
-    sin_e = (math.sin(lat_r) * math.sin(dec_r) +
-             math.cos(lat_r) * math.cos(dec_r) * math.cos(ha_r))
-    return math.degrees(math.asin(max(-1.0, min(1.0, sin_e))))
-
-
-def daylight_factor(local_hour, doy, lat, lng, tz_offset_h):
-    """Compute a smooth day/night brightness factor for a local clock hour.
-
-    Uses a slightly different declination formula (cosine form, with
-    23.44° tilt and day offset +10 for the winter solstice epoch) for
-    the day/night shading of the tides chart background.
-    """
-    decl = -23.44 * math.cos(math.radians(360 / 365 * (doy + 10)))
-    lat_rad = math.radians(lat)
-    decl_rad = math.radians(decl)
-
-    cos_ha = -math.tan(lat_rad) * math.tan(decl_rad)
-    if cos_ha <= -1:
-        return 1.0  # midnight sun
-    if cos_ha >= 1:
-        return 0.0  # polar night
-
-    ha = math.degrees(math.acos(cos_ha))
-
-    solar_noon = 12.0
-    if lng is not None:
-        tz_meridian = tz_offset_h * 15
-        solar_noon += (tz_meridian - lng) / 15
-
-    sunrise = solar_noon - ha / 15
-    sunset = solar_noon + ha / 15
-    transition = 40 / 60  # 40 minutes
-
-    if local_hour < sunrise - transition or local_hour > sunset + transition:
-        return 0.0
-    if sunrise + transition <= local_hour <= sunset - transition:
-        return 1.0
-    if local_hour < sunrise + transition:
-        return (local_hour - sunrise + transition) / (2 * transition)
-    return (sunset + transition - local_hour) / (2 * transition)
-
-# ---------------------------------------------------------------------------
-# Moon phase
-#
-# Reference: Meeus, "Astronomical Algorithms" (2nd ed.), ch. 49.
-# ---------------------------------------------------------------------------
-
-# Mean length of the synodic month (new moon to new moon) in days.
-# Value from the Explanatory Supplement to the Astronomical Almanac (3rd ed.).
-SYNODIC_MONTH = 29.53058867
-
-def moon_cycle_frac(dt):
-    """Fraction of the synodic cycle elapsed since New Moon, in [0, 1)."""
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return moon_phase_frac(dt.astimezone(timezone.utc))
-
-def moon_phase(dt, runtime=None):
-    """Returns (index 0-7, name, nerd_font_icon).
-
-    Uses narrow ~24h windows for principal phases (New, Full, Quarters)
-    and wider bins for transitional phases, matching almanac conventions.
-    """
-    frac = moon_cycle_frac(dt)
-
-    # ±0.017 of the synodic cycle ≈ ±12 hours around each principal phase.
-    # This window width was chosen to match the ~1-day labeling convention
-    # used in printed almanacs (e.g. the USNO Astronomical Almanac).
-    T = 0.017
-    if frac < T or frac > 1 - T:
-        idx = 0   # New Moon
-    elif abs(frac - 0.25) < T:
-        idx = 2   # First Quarter
-    elif abs(frac - 0.5) < T:
-        idx = 4   # Full Moon
-    elif abs(frac - 0.75) < T:
-        idx = 6   # Last Quarter
-    elif frac < 0.25:
-        idx = 1   # Waxing Crescent
-    elif frac < 0.5:
-        idx = 3   # Waxing Gibbous
-    elif frac < 0.75:
-        idx = 5   # Waning Gibbous
-    else:
-        idx = 7   # Waning Crescent
-    if runtime is None:
-        runtime = current_runtime(RuntimeConfig)
-    return idx, MOON_NAMES[idx], _icon_set(runtime)["moon_icons"][idx]
 
 # ---------------------------------------------------------------------------
 # Rendering
@@ -482,11 +60,6 @@ def _corner_limit(graph_w):
     return max(0, graph_w // 2)
 
 
-def _local_today():
-    """The user's own date, on the machine's clock."""
-    return datetime.now().date()
-
-
 def clock_label(now, runtime, today=None):
     """'2:14p': the time of the shown moment on the location's own clock,
     so a pinned place reads as a world clock. The weekday is added only
@@ -498,7 +71,7 @@ def clock_label(now, runtime, today=None):
     from linecast._i18n import lang_of
     from linecast.weather.i18n import DAY_NAMES
     if today is None:
-        today = _local_today()
+        today = solar._local_today()
     clock = fmt_time_dt(now, runtime.use_24h)
     if now.date() == today:
         return clock

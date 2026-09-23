@@ -182,7 +182,7 @@ def build_payload(lat, lng, now=None, location=None, hours=None):
     display name (skips the geocode lookup). *hours* is the day read
     in a tradition's hours (a _hours.DayHours), for an `hours` block.
     """
-    from linecast.sunshine.view import polar_state, solar_times, sun_elevation
+    from linecast.sunshine.solar import polar_state, solar_times, sun_elevation
 
     if now is None:
         now = datetime.now()

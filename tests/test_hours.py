@@ -627,7 +627,7 @@ class TestPainting:
         from linecast.sunshine.view import render
         now = datetime(2026, 9, 15, 14, 30, tzinfo=self.TZ)
         with patch("linecast.sunshine.view.get_terminal_size", return_value=(80, 24)), \
-             patch("linecast.sunshine.view._local_today", return_value=now.date()):
+             patch("linecast.sunshine.solar._local_today", return_value=now.date()):
             out = _plain(render(31.778, 35.235, now.timetuple().tm_yday, 14.5,
                                 fullscreen=True, runtime=_runtime(), tz_offset_h=3,
                                 location_label="Jerusalem", now=now,
@@ -646,11 +646,12 @@ class TestPainting:
         would meet: the place goes first, then the reading's second
         part, and nothing is cut mid-word."""
         from linecast.sunshine import view as sunshine
+        from linecast.sunshine import solar
         from linecast.sunshine.view import render
         tz = ZoneInfo("Asia/Riyadh")
         now = datetime(2026, 3, 5, 12, 0, tzinfo=tz)
         hours, now = hours_now("islamic", now, 21.4225, 39.8262, tz, None, "SA")
-        monkeypatch.setattr(sunshine, "_local_today", lambda: date(2026, 3, 5))
+        monkeypatch.setattr(solar, "_local_today", lambda: date(2026, 3, 5))
         for cols, expect_place in ((44, False), (80, True)):
             monkeypatch.setattr(sunshine, "get_terminal_size", lambda c=cols: (c, 14))
             out = render(21.4225, 39.8262, 64, 12.0, fullscreen=True,

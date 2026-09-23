@@ -23,7 +23,7 @@ from linecast import _color, _framebuffer, _theme
 
 from linecast.tides import view as tides
 
-from linecast.sunshine import view as sunshine
+from linecast.sunshine import palette
 
 from linecast.moon import view as moon
 from linecast.radar import basemap
@@ -65,10 +65,10 @@ class TestApply:
 
     def test_import_time_palettes_follow(self, restore_theme):
         _theme._apply(*DARK)
-        dark = (style.TEXT_RGB, sunshine.INFO_TEXT_RGB,
+        dark = (style.TEXT_RGB, palette.INFO_TEXT_RGB,
                 tides.TEXT_RGB, moon.MOON_SHADOW_RGB, basemap.SEA_FILL)
         _theme._apply(*LIGHT)
-        light = (style.TEXT_RGB, sunshine.INFO_TEXT_RGB,
+        light = (style.TEXT_RGB, palette.INFO_TEXT_RGB,
                  tides.TEXT_RGB, moon.MOON_SHADOW_RGB, basemap.SEA_FILL)
         for d, lt in zip(dark, light):
             assert d != lt
@@ -122,7 +122,7 @@ class TestApply:
         assert _framebuffer.Framebuffer(2, 1).bg == (250, 250, 248)
         assert _weather_render.TEXT == style.TEXT
         assert _weather_render.TOOLTIP_BG_RGB == style.TOOLTIP_BG_RGB
-        assert moon.INFO_TEXT_RGB == sunshine.INFO_TEXT_RGB
+        assert moon.INFO_TEXT_RGB == palette.INFO_TEXT_RGB
         assert _radar_render.SEA_FILL == basemap.SEA_FILL
 
 
@@ -136,9 +136,9 @@ class TestLightThemeInk:
 
     def test_the_sun_keeps_its_colours_on_every_theme(self, restore_theme):
         _theme._apply(*DARK)
-        drawn = (sunshine.SUN_DOT_RGB, sunshine.SUN_GLOW_RGB)
+        drawn = (palette.SUN_DOT_RGB, palette.SUN_GLOW_RGB)
         _theme._apply(*LIGHT)
-        assert (sunshine.SUN_DOT_RGB, sunshine.SUN_GLOW_RGB) == drawn
+        assert (palette.SUN_DOT_RGB, palette.SUN_GLOW_RGB) == drawn
         for ink in drawn:
             assert _theme.luminance(ink) > 0.5
 

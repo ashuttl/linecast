@@ -14,8 +14,8 @@ if _src not in sys.path:
 
 from linecast._runtime import RuntimeConfig, sunshine_parser
 from linecast.sunshine.json import build_payload
-from linecast.sunshine.view import polar_state
-from linecast.sunshine.view import _tz_offset_hours, solar_times
+from linecast.sunshine.solar import polar_state
+from linecast.sunshine.solar import _tz_offset_hours, solar_times
 
 
 class TestTzOffsetThreading:

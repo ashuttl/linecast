@@ -15,12 +15,8 @@ if _src not in sys.path:
 from linecast.moon.json import build_payload
 from linecast._runtime import RuntimeConfig, moon_parser
 from linecast.moon.view import moon_illumination, upcoming_moon_events
-from linecast.sunshine.view import (
-    _EMOJI_ICONS,
-    _NERD_ICONS,
-    SYNODIC_MONTH,
-    moon_cycle_frac,
-)
+from linecast._glyphs import _EMOJI_ICONS, _NERD_ICONS
+from linecast.moon.phase import SYNODIC_MONTH, moon_cycle_frac
 
 LAT, LNG = 43.68, -70.35  # Portland, Maine-ish
 FIXED_NOW = datetime(2026, 8, 14, 12, 0, tzinfo=timezone.utc)

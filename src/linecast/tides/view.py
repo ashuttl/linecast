@@ -69,7 +69,7 @@ from linecast.tides.render import (
     render_day_label_line as _render_day_label_line,
     render_tide_ticks as _render_tide_ticks,
 )
-from linecast.sunshine.view import moon_phase
+from linecast.moon.phase import moon_phase
 
 # ---------------------------------------------------------------------------
 # Ocean palette
