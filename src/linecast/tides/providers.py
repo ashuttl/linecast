@@ -1,4 +1,4 @@
-"""The tide providers, one record each, and the registry tides.py uses.
+"""The tide providers, one record each, and the registry tides/view.py uses.
 
 Each provider is a small class whose methods call its module's functions
 at call time rather than capturing them at import, so patching a module
@@ -46,7 +46,7 @@ def _matches(haystack, tokens):
 
 
 class TideProvider:
-    """What tides.py asks of a source.
+    """What tides/view.py asks of a source.
 
     Station IDs are strings the provider recognises: NOAA's digits, CHS's
     24-hex ObjectIds, QLD's station names, HKO's three-letter codes,

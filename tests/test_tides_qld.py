@@ -295,7 +295,7 @@ class TestLegacyMigration(unittest.TestCase):
 
 class TestStationMetadata(unittest.TestCase):
     def test_metadata_shape(self):
-        """Metadata should match the normalized shape expected by tides.py."""
+        """Metadata should match the normalized shape expected by tides/view.py."""
         with patch.object(qld, "read_cache", return_value=None), \
              patch.object(qld, "fetch_all_stations_qld", return_value=STATIONS), \
              patch.object(qld, "write_cache"):
@@ -368,7 +368,7 @@ class TestYRange(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# QLD geo-detection helper (in tides.py)
+# QLD geo-detection helper (in tides/view.py)
 # ---------------------------------------------------------------------------
 
 class TestQLDBoundaryDetection(unittest.TestCase):

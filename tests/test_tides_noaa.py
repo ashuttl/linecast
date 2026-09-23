@@ -102,7 +102,7 @@ class MonthChunkTests(unittest.TestCase):
 
     def test_two_threads_asking_for_one_month_make_one_request(self):
         # a subordinate station's curve and its extremes both want the
-        # hi/lo month, and tides.py asks for them on two threads at once
+        # hi/lo month, and tides/view.py asks for them on two threads at once
         import os
         import tempfile
         import threading

@@ -4,7 +4,7 @@ Two independent facts, two independent toggles — `s` shades the map
 into tonight's darkness and lights its cities, `c` lays this hour's
 clouds over it — and both compose with either register, flat or globe.
 Nothing here animates: every repaint draws the newest satellite mosaic
-and the sun's actual position, and a slow nudge in maps.py (every half
+and the sun's actual position, and a slow nudge in maps/view.py (every half
 hour) keeps a long-running view honest without ever playing frames.
 
 Clouds ride the LibreWXR global infrared mosaic that already feeds the

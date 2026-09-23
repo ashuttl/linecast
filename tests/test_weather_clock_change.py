@@ -203,7 +203,7 @@ class TestMarkersFollowTheSamples:
         now = datetime(2026, 3, 8, 5, 0)
         window = self._window(dts, now)
         col = int(_column_of(now, window["dts"], WIDTH))
-        # The hover chip's column-to-sample formula, from weather.py
+        # The hover chip's column-to-sample formula, from weather/view.py
         idx = int(col / (WIDTH - 1) * window["total_hours"] + 0.5)
         assert window["dts"][idx] == now
 

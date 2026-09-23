@@ -11,7 +11,7 @@ reachable by name, just never offered as the nearest station.
     python3 scripts/build_qld_tide_stations.py
 
 Prints the GAUGE_COORDS dict to stdout with a source comment per line;
-paste it over the one in _tides/qld.py after eyeballing the geocoded
+paste it over the one in tides/qld.py after eyeballing the geocoded
 entries against a map.  Rerun only when the portal adds gauges.
 """
 
