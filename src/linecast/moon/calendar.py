@@ -8,7 +8,7 @@ own reading in the cells: the 农历 day names, the lunar month starts, the
 festivals, the pō mahina. The wheel or arrows page months; space returns
 to this month. Hovering a day raises a chip with the day's phase,
 moonrise and moonset, and the calendar's line for it, tides-style; a
-click hands the day to the disc view (moon.py's `_on_click`, through
+click hands the day to the disc view (moon/view.py's `_on_click`, through
 `clicked_day` below).
 
 The discs are drawn icon-fashion — north up, the waxing moon lit on the
@@ -243,7 +243,9 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                     fullscreen=False, mouse_pos=None, calendar_name=None,
                     israel=False):
     """Build the calendar view: a month grid of shaded phase discs."""
-    from linecast.moon import view as _moon  # palettes, rebuilt on theme reload
+    from linecast.moon import view as _moon
+    from linecast.moon import disc
+    from linecast.moon import palette as moon_palette  # rebuilt on theme reload
     from linecast.moon.phase import moon_cycle_frac, moon_phase, SYNODIC_MONTH
     from linecast._runtime import install_banner
 
@@ -290,11 +292,11 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
 
     phase_days = principal_phase_days(year, month, tzinfo)
 
-    T, D, A, P = (_moon.PANEL_TEXT_RGB, _moon.PANEL_DIM_RGB,
-                  _moon.PANEL_AMBER_RGB, _moon.PANEL_PURPLE_RGB)
-    F = _moon.PANEL_FAINT_RGB
+    T, D, A, P = (moon_palette.PANEL_TEXT_RGB, moon_palette.PANEL_DIM_RGB,
+                  moon_palette.PANEL_AMBER_RGB, moon_palette.PANEL_PURPLE_RGB)
+    F = moon_palette.PANEL_FAINT_RGB
 
-    fb = Framebuffer(graph_w, graph_h, bg_color=_moon.SKY_RGB)
+    fb = Framebuffer(graph_w, graph_h, bg_color=moon_palette.SKY_RGB)
     overlays = {}
 
     # Title, centred over the grid. A calendar with months of its own
@@ -342,7 +344,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         if d == today:
             for spy in range(y0 * 2, (y0 + cell_h) * 2):
                 for x in range(x0, x0 + cell_w):
-                    fb.set_pixel(x, spy, _moon.MOON_GLOW_RGB, 0.16)
+                    fb.set_pixel(x, spy, moon_palette.MOON_GLOW_RGB, 0.16)
 
         # The disc: an icon of the day's phase, waxing lit on the right
         # (mirrored south of the equator).
@@ -353,8 +355,8 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
             limb = 90.0 if waxing else 270.0
             if lat is not None and lat < 0:
                 limb = 360.0 - limb
-            _moon._draw_moon_disc(fb, cx, cy, radius, illum, limb, 0.0,
-                                  night=_moon.MOON_NIGHT_RGB, aspect=aspect)
+            disc._draw_moon_disc(fb, cx, cy, radius, illum, limb, 0.0,
+                                 night=moon_palette.MOON_NIGHT_RGB, aspect=aspect)
         elif cell_h > 1 or cell_w >= 6:
             # No room to draw: the phase glyph stands in for the disc.
             # On a one-row cell it sits after the day number, and a

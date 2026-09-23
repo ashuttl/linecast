@@ -1,7 +1,7 @@
 """Machine-readable JSON payload for `moon --json`.
 
 Builds a plain-dict snapshot of the moon display's astronomy for external
-consumers (e.g. a desktop widget). Reuses moon.py's mean-synodic phase math
+consumers (e.g. a desktop widget). Reuses moon/phase.py's mean-synodic phase math
 and low-precision rise/set ephemeris; times are minute-precision local ISO
 strings and missing values become None rather than raising.
 """

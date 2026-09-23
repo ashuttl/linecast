@@ -26,6 +26,7 @@ from linecast.tides import view as tides
 from linecast.sunshine import palette
 
 from linecast.moon import view as moon
+from linecast.moon import palette as moon_palette
 from linecast.radar import basemap
 from linecast.radar import render as _radar_render
 from linecast.maps import style as _maps_style
@@ -66,10 +67,10 @@ class TestApply:
     def test_import_time_palettes_follow(self, restore_theme):
         _theme._apply(*DARK)
         dark = (style.TEXT_RGB, palette.INFO_TEXT_RGB,
-                tides.TEXT_RGB, moon.MOON_SHADOW_RGB, basemap.SEA_FILL)
+                tides.TEXT_RGB, moon_palette.MOON_SHADOW_RGB, basemap.SEA_FILL)
         _theme._apply(*LIGHT)
         light = (style.TEXT_RGB, palette.INFO_TEXT_RGB,
-                 tides.TEXT_RGB, moon.MOON_SHADOW_RGB, basemap.SEA_FILL)
+                 tides.TEXT_RGB, moon_palette.MOON_SHADOW_RGB, basemap.SEA_FILL)
         for d, lt in zip(dark, light):
             assert d != lt
         # text is ink on the new background, not the old one
@@ -122,7 +123,8 @@ class TestApply:
         assert _framebuffer.Framebuffer(2, 1).bg == (250, 250, 248)
         assert _weather_render.TEXT == style.TEXT
         assert _weather_render.TOOLTIP_BG_RGB == style.TOOLTIP_BG_RGB
-        assert moon.INFO_TEXT_RGB == palette.INFO_TEXT_RGB
+        assert moon_palette.INFO_TEXT_RGB == palette.INFO_TEXT_RGB
+        assert moon.PANEL_TEXT_RGB == moon_palette.PANEL_TEXT_RGB
         assert _radar_render.SEA_FILL == basemap.SEA_FILL
 
 
