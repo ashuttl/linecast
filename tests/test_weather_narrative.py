@@ -190,9 +190,9 @@ class TestNarrativePacking:
         lines = self._plain(narrative_lines(self.DATA, NOON, 40, _runtime()))
 
         assert lines == [
-            "Today's high will be about the same as",
-            "yesterday's. The wind is making it",
-            "feel colder.",
+            "The wind is making it feel colder.",
+            "Today's high will be about the same",
+            "as yesterday's.",
         ]
 
     def test_every_sentence_is_punctuated(self):
@@ -249,9 +249,13 @@ class TestNarrativePacking:
         runtime = _runtime(lang="sw", use_24h=False)
         assert precipitation_sentence(hourly, NOON, runtime) == (
             "Mvua nyepesi itaisha karibu saa kumi na moja jioni")
+
+    def test_the_present_tense_opens_the_morning(self):
+        # After "Today's high", "the wind is making it feel colder" would
+        # read as though it were about the high
         prose = self._plain(narrative_lines(self.DATA, NOON, 200, _runtime()))[0]
 
-        assert prose.startswith("Today's high will be"), prose
+        assert prose.startswith(_s("feels_wind_cold", _runtime())), prose
 
     def test_a_comparison_about_tomorrow_follows_the_present_tense(self):
         evening = datetime(2026, 7, 15, 18, 0)
@@ -860,6 +864,21 @@ class TestMoreToSay:
         hourly = self._hourly(afternoon, len(cover), cloud_cover=cover)
         assert sky_sentence(hourly, DAILY, afternoon, _runtime()) == "Clearing around 19:00"
 
+    def test_noon_is_named_in_words(self):
+        # London at eight: the sky shuts at twelve, which every language
+        # says as noon rather than as a time on the clock
+        from linecast._weather.sections import sky_sentence
+        morning = datetime(2026, 7, 15, 8, 0)
+        cover = [10] * 4 + [90] * 12
+        hourly = self._hourly(morning, len(cover), cloud_cover=cover)
+        for lang, said in (("en", "Clouding over around noon"),
+                           ("de", "Es zieht gegen Mittag zu"),
+                           ("fr", "Le ciel se couvrira vers midi"),
+                           ("ja", "昼頃に曇ってくる見込みです"),
+                           ("uk", "Близько полудня стане похмуро"),
+                           ("tr", "Öğle saatlerinde hava kapanacak")):
+            assert sky_sentence(hourly, DAILY, morning, _runtime(lang=lang)) == said, lang
+
     def _week(self, now, sums, probs, codes=None):
         days = [(now + timedelta(days=k)).date().isoformat() for k in range(-1, 7)]
         daily = {"time": days, "precipitation_sum": sums, "precipitation_probability_max": probs}
@@ -973,6 +992,27 @@ class TestMoreToSay:
         from linecast._weather.sections import gusts_sentence
         hourly = self._hourly(NOON, 6, wind_gusts_10m=[10, 12, 15, 20, 18, 10])
         assert gusts_sentence(hourly, NOON, _runtime()) == ""
+
+    def test_gusts_the_place_is_used_to_are_not_worth_a_sentence(self):
+        # Honolulu: the same afternoon trade wind every day of the week
+        from linecast._weather.sections import gusts_sentence
+        hourly = self._hourly(NOON, 6, wind_gusts_10m=[20, 25, 30, 32, 28, 20])
+        days = [(NOON.date() + timedelta(days=d)).isoformat() for d in range(-1, 7)]
+
+        def week(maxima):
+            return {"time": days, "wind_gusts_10m_max": maxima}
+
+        usual = week([31, 32, 30, 33, 29, 31, 32, 30])
+        assert gusts_sentence(hourly, NOON, _runtime(), daily=usual) == ""
+        # The same wind after a calm week is news
+        calm = week([15, 32, 14, 16, 12, 15, 13, 17])
+        assert gusts_sentence(hourly, NOON, _runtime(), daily=calm) == \
+            "Gusts to 32 mph this afternoon"
+        # And a gale is news in any week
+        gale = [g * 1.5 for g in [20, 25, 30, 32, 28, 20]]
+        hourly = self._hourly(NOON, 6, wind_gusts_10m=gale)
+        assert gusts_sentence(hourly, NOON, _runtime(), daily=week([50] * 8)) == \
+            "Gusts to 48 mph this afternoon"
 
     def test_below_freezing_tonight(self):
         from linecast._weather.sections import freeze_sentence
@@ -1135,8 +1175,8 @@ class TestWhatIsSaidAndInWhatOrder:
 
     def test_now_comes_before_later_and_the_past_comes_last(self):
         assert self._prose(self._busy_day()) == (
-            "Today's high will be about the same as yesterday's. "
             "The wind is making it feel colder. "
+            "Today's high will be about the same as yesterday's. "
             "Rain starting in a couple hours, with gusts to 30\u00a0mph. "
             "1.50\u00a0inches of rain in the last 24 hours.")
 
@@ -1160,8 +1200,8 @@ class TestWhatIsSaidAndInWhatOrder:
         data = {"current": self._busy_day()["current"],
                 "daily": dict(DAILY, temperature_2m_max=[60, 61, 63]), "hourly": {}}
         assert self._prose(data) == (
-            "Today's high will be about the same as yesterday's. "
-            "The wind is making it feel colder.")
+            "The wind is making it feel colder. "
+            "Today's high will be about the same as yesterday's.")
 
     def test_tomorrow_follows_now(self):
         # Miami at ten at night: muggy now, hotter tomorrow afternoon
@@ -1579,7 +1619,7 @@ class TestFog:
         data = {"daily": dict(DAILY, temperature_2m_max=[70, 75, 67]), "hourly": hourly,
                 "current": {"weather_code": 45}}
         assert self._prose(data) == (
-            "Today's high will be 5° warmer than yesterday's. Fog clearing around 17:00.")
+            "Fog clearing around 17:00. Today's high will be 5° warmer than yesterday's.")
 
 
 class TestPastPrecipitation:

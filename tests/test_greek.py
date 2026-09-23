@@ -158,8 +158,8 @@ def test_complete_paragraph_wraps_without_losing_text_or_doubling_punctuation(wi
     rows = [re.sub(r"\x1b\[[0-9;]*m", "", row)
             for row in narrative_lines(data, NOW, width, rt)]
     expected = (
-        "Σήμερα η μέγιστη θερμοκρασία θα είναι κατά 2\u00a0βαθμούς υψηλότερη από τη χθεσινή. "
         "Η υψηλή υγρασία αυξάνει την αισθητή θερμοκρασία. "
+        "Σήμερα η μέγιστη θερμοκρασία θα είναι κατά 2\u00a0βαθμούς υψηλότερη από τη χθεσινή. "
         "Γύρω στις " + ("17:00" if use_24h else "5 το απόγευμα")
         + " πιθανότατα θα αρχίσουν βροχές.")
     assert " ".join(rows) == expected

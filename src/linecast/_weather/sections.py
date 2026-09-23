@@ -339,9 +339,10 @@ def _prose_inches(n, runtime):
 #
 # The sentences then read in the order of the things they describe: now,
 # later today, tonight, tomorrow, the week.  What fell in the last day
-# is a footnote at the end.  The comparison about today opens the
-# morning's paragraph with the feels-like sentence after it, since one
-# explains the other; the comparison about tomorrow takes tomorrow's place.
+# is a footnote at the end.  The feels-like sentence is about this hour,
+# so it goes ahead of the comparison about today: after "Today's high",
+# "the humidity is making it feel warmer" reads as though it were about
+# the high.  The comparison about tomorrow takes tomorrow's place.
 _MAX_SENTENCES = 4
 
 
@@ -380,7 +381,7 @@ def narrative_lines(data, now, width, runtime=None, trace=None):
     kind = precip["kind"]
     anchor = precip["run"][0][1] if kind == "starting" else now
     at = hours(anchor) if kind == "starting" else -1.0
-    gusts, gale, gust_at, gust_speed = _gusts(hourly, now, runtime)
+    gusts, gale, gust_at, gust_speed = _gusts(hourly, now, runtime, daily=daily)
     if (gusts and precip["sentence"] and kind != "ending" and _has("with_gusts", runtime)
             and _period_phrase(gust_at, now, runtime) == _period_phrase(anchor, now, runtime)):
         # Wind in the same part of the day rides on the rain's sentence
@@ -397,7 +398,7 @@ def narrative_lines(data, now, width, runtime=None, trace=None):
             leaves=precip["last_named"])
         if gusts:
             add(5 if gale else 3, hours(gust_at), gust_at,
-                lambda after: _gusts(hourly, now, runtime, after)[0])
+                lambda after: _gusts(hourly, now, runtime, after, daily)[0])
     if precip["next"]:
         add(3, hours(precip["next"][1]), precip["next"][1],
             lambda after: more_later_sentence(precip, now, runtime, after))
@@ -410,11 +411,10 @@ def narrative_lines(data, now, width, runtime=None, trace=None):
     if ahead and ahead_cause == feels_cause:
         # One sentence about the felt temperature: the one that looks ahead
         feels = ""
+    add(3, 0.0, now, lambda after: feels)
     if now.hour < _COMPARISON_TURNS_TO_TOMORROW:
-        add(big, 0.0, now, lambda after: comparison)
-        add(3, 0.01, now, lambda after: feels)
+        add(big, 0.01, now, lambda after: comparison)
     else:
-        add(3, 0.0, now, lambda after: feels)
         noon_tomorrow = (now + timedelta(days=1)).replace(hour=12, minute=0, second=0,
                                                           microsecond=0)
         add(big, hours(noon_tomorrow), noon_tomorrow,
@@ -1816,12 +1816,29 @@ def _fog(hourly, current, now, runtime, after=None, daily=None):
 # ---------------------------------------------------------------------------
 # Wind, and the cold
 # ---------------------------------------------------------------------------
-# Gusts worth a sentence, and gusts worth leading with, in km/h.
+# Gusts worth a sentence, and gusts worth leading with, in km/h.  Short
+# of a gale, gusts are news only when they are more than the place is
+# used to, read off the rest of the forecast week the way the felt
+# temperature is: Honolulu's afternoon trade wind every day is the
+# climate, and the same speed after a calm week is worth a word.
 _GUSTS_NOTABLE_KMH = 40
 _GUSTS_GALE_KMH = 60
+_GUSTS_BEYOND_USUAL_KMH = 10
 
 
-def _gusts(hourly, now, runtime, after=None):
+def _gusts_usual(daily, day, runtime):
+    """The week's typical strongest gust, in km/h, leaving out `day`:
+    the middle of the other days' maxima, or None without them."""
+    days = daily.get("time") or []
+    maxima = daily.get("wind_gusts_10m_max") or []
+    others = sorted(runtime.wind_kmh(g) for d, g in zip(days, maxima)
+                    if g is not None and d != day)
+    if not others:
+        return None
+    return others[len(others) // 2]
+
+
+def _gusts(hourly, now, runtime, after=None, daily=None):
     """"Gusts to 45 mph this afternoon", whether that is a gale, the
     hour of the peak, and the speed as written."""
     nothing = ("", False, None, "")
@@ -1836,17 +1853,21 @@ def _gusts(hourly, now, runtime, after=None):
     kmh = runtime.wind_kmh(gusts[i])
     if kmh < _GUSTS_NOTABLE_KMH:
         return nothing
+    if kmh < _GUSTS_GALE_KMH:
+        usual = _gusts_usual(daily or {}, dt.date().isoformat(), runtime)
+        if usual is not None and kmh - usual < _GUSTS_BEYOND_USUAL_KMH:
+            return nothing
     speed = f"{gusts[i]:.0f}{_prose_sep(runtime)}{runtime.wind_unit_label}"
     return (_ucfirst(_s("gusts_to", runtime, speed=speed,
                         time=_period_phrase(dt, now, runtime, after=after))),
             kmh >= _GUSTS_GALE_KMH, dt, speed)
 
 
-def gusts_sentence(hourly, now, runtime=None):
+def gusts_sentence(hourly, now, runtime=None, daily=None):
     """Plain-text sentence for the strongest gusts of the day ahead."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
-    return _gusts(hourly, now, runtime)[0]
+    return _gusts(hourly, now, runtime, daily=daily)[0]
 
 
 def freeze_sentence(hourly, current, now, runtime=None):

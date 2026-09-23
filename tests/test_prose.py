@@ -46,8 +46,8 @@ class TestTrace:
         said = prose._ANSI.sub("", " ".join(rows))
 
         assert [t["text"] for t in trace if t["chosen"]] == [
-            "Today's high will be about the same as yesterday's",
             "The wind is making it feel colder",
+            "Today's high will be about the same as yesterday's",
         ]
         for entry in trace:
             assert set(entry) == {"salience", "at", "text", "chosen"}
@@ -92,10 +92,10 @@ class TestShow:
         text = out.getvalue()
 
         assert "Testville   Wed 12:00   Overcast 40°F, feels 30°F" in text
-        assert "    en  Today's high will be about the same as yesterday's." in text
+        assert "    en  The wind is making it feel colder." in text
         assert "    ja  " in text
         assert set(said["testville"]) == {"en", "ja"}
-        assert said["testville"]["en"].endswith("feel colder.")
+        assert said["testville"]["en"].endswith("as yesterday's.")
 
     def test_continuation_lines_sit_under_the_first(self):
         out = StringIO()
