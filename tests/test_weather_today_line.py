@@ -25,23 +25,23 @@ def _row(midnight_day_names, sun_labels, lang="en"):
 
 class TestTodayLine:
     def test_a_sun_time_at_the_start_keeps_a_space_after_today(self):
-        row = _row({}, {5: ("\u219318:11", False)})
-        assert row.startswith("Today \u2193")
+        row = _row({}, {5: ("↓18:11", False)})
+        assert row.startswith("Today ↓")
         assert len(row) == _WIDTH
 
     def test_a_sun_time_at_the_end_keeps_a_space_before_the_range(self):
         # The sunrise falls on the columns the range occupies; it moves
         # nowhere, so it is left out rather than run into the range.
-        row = _row({}, {50: ("\u219106:45", True)})
+        row = _row({}, {50: ("↑06:45", True)})
         assert "06:45" not in row
-        row = _row({}, {43: ("\u219106:45", True)})
-        assert row.endswith("\u219106:45 10\u00b0 \u2192 20\u00b0C")
+        row = _row({}, {43: ("↑06:45", True)})
+        assert row.endswith("↑06:45 10° → 20°C")
 
     def test_a_day_name_at_the_end_keeps_a_space_before_the_range(self):
         row = _row({42: "Saturday"}, {})
         assert "Saturday" not in row
         row = _row({41: "Saturday"}, {})
-        assert row.endswith("Saturday 10\u00b0 \u2192 20\u00b0C")
+        assert row.endswith("Saturday 10° → 20°C")
 
     def test_a_day_name_never_touches_today(self):
         row = _row({6: "Friday"}, {})

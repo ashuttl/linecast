@@ -135,8 +135,8 @@ class TestMeasuredWidths:
         # a row laid out for two runs off the edge.
         before = self._measured(bmp_vs16=3, smp_vs16=3)
         try:
-            assert char_width("\u2601", "\ufe0f") == 3
-            assert visible_len("\u2601\ufe0f") == 3
+            assert char_width("☁", "\ufe0f") == 3
+            assert visible_len("☁\ufe0f") == 3
             assert visible_len("\U0001f327\ufe0f") == 3
         finally:
             self._restore(before)
@@ -169,7 +169,7 @@ class TestMeasuredWidths:
     def test_nothing_measured_leaves_the_table_alone(self):
         before = self._measured()
         try:
-            assert visible_len("\u2601\ufe0f") == 2
+            assert visible_len("☁\ufe0f") == 2
             assert visible_len("\U0001f311") == 2
             assert visible_len("\U000f0590") == 1
         finally:

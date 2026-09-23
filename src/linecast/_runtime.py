@@ -139,7 +139,7 @@ def install_banner():
     from linecast._theme import ensure_contrast, neutral_tone, theme_bg, theme_fg
     text = fg(*ensure_contrast(theme_fg, theme_bg, minimum=4.5))
     muted = fg(*ensure_contrast(neutral_tone(0.48), theme_bg, minimum=2.5))
-    sep = f"{muted} \u00b7 "
+    sep = f"{muted} · "
     return f" {text}linecast{sep}{muted}pip install linecast{sep}github.com/ashuttl/linecast{RESET}"
 
 
@@ -917,7 +917,7 @@ class WeatherRuntime(RuntimeConfig):
 
     @property
     def temp_unit(self):
-        return "\u00b0C" if self.celsius else "\u00b0F"
+        return "°C" if self.celsius else "°F"
 
     @property
     def wind_unit(self):
@@ -955,13 +955,13 @@ class WeatherRuntime(RuntimeConfig):
         """The precipitation unit as the display language writes it
         (Ukrainian reads мм); `precip_unit` is the JSON's and stays mm."""
         if not self.metric:
-            return "\u2033"
+            return "″"
         from linecast._weather.i18n import _s
         return _s("unit_mm", self)
 
     @property
     def precip_unit(self):
-        return "mm" if self.metric else "\u2033"
+        return "mm" if self.metric else "″"
 
 
 @dataclass(frozen=True)
@@ -971,7 +971,7 @@ class TidesRuntime(RuntimeConfig):
 
     @property
     def height_unit(self):
-        return "m" if self.metric else "\u2032"
+        return "m" if self.metric else "′"
 
     def convert_height(self, ft):
         return ft * 0.3048 if self.metric else ft

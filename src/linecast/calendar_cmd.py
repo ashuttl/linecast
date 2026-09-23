@@ -75,7 +75,7 @@ def _cmd_set(choice):
               "the coming month, and the next holiday in every language")
     elif choice == "thai":
         print("Calendar set to thai: the moon shows its lunar date, "
-              "the coming \u0e27\u0e31\u0e19\u0e1e\u0e23\u0e30, and the next festival in every "
+              "the coming วันพระ, and the next festival in every "
               "language")
     elif choice == "almanac":
         print("Calendar set to almanac: the moon shows the Old Farmer's "

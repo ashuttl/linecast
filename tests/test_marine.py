@@ -28,11 +28,11 @@ class CompassDirectionTests(unittest.TestCase):
         self.assertEqual(marine._compass_direction(67.5, "de"), "ONO")
         self.assertEqual(marine._compass_direction(157.5, "nl"), "ZZO")
         self.assertEqual(marine._compass_direction(337.5, "fr"), "NNO")
-        self.assertEqual(marine._compass_direction(22.5, "ja"), "\u5317\u5317\u6771")
-        self.assertEqual(marine._compass_direction(292.5, "ru"), "\u0417\u0421\u0417")
+        self.assertEqual(marine._compass_direction(22.5, "ja"), "北北東")
+        self.assertEqual(marine._compass_direction(292.5, "ru"), "ЗСЗ")
 
     def test_eight_points_where_the_sixteen_are_not_joined(self):
-        self.assertEqual(marine._compass_direction(200, "th"), "\u0e43\u0e15\u0e49")
+        self.assertEqual(marine._compass_direction(200, "th"), "ใต้")
         self.assertEqual(marine._compass_direction(60, "sw"), "Kas-Mas")
 
 
@@ -158,7 +158,7 @@ class FormatMarineLineTests(unittest.TestCase):
         line = marine.format_marine_line(marine_info, self._runtime(metric=False))
         self.assertIn("Waves", line)
         # 1.0m = 3.3ft
-        self.assertIn("\u2032", line)  # prime (foot symbol)
+        self.assertIn("′", line)  # prime (foot symbol)
         self.assertNotIn("Swell", line)
 
     def test_format_returns_empty_for_none(self):
@@ -182,7 +182,7 @@ class FormatMarineLineTests(unittest.TestCase):
         marine_info["wave_direction"] = 180
 
         line = marine.format_marine_line(marine_info, self._runtime(lang="ja", metric=True))
-        self.assertIn("\u6ce2", line)
+        self.assertIn("波", line)
 
     def test_zero_swell_height_omitted(self):
         marine_info = {
@@ -207,7 +207,7 @@ class FormatHeightTests(unittest.TestCase):
     def test_imperial_height(self):
         result = marine._format_height(1.0, self._runtime(metric=False))
         self.assertIn("3.3", result)
-        self.assertIn("\u2032", result)
+        self.assertIn("′", result)
 
 
 if __name__ == "__main__":

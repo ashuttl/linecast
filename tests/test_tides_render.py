@@ -82,15 +82,15 @@ def test_render_day_label_line_with_moon_labels():
         {10: "Friday"},
         graph_w=64,
         moon_labels={
-            24: ("\u263D\u21916:30a", True),   # ☽↑6:30a
-            42: ("\u263E\u21937:10p", False),  # ☾↓7:10p
+            24: ("☽↑6:30a", True),   # ☽↑6:30a
+            42: ("☾↓7:10p", False),  # ☾↓7:10p
         },
     )
     canvas = _canvas(line)
 
     assert "Friday" in canvas
-    assert "\u263D\u21916:30a" in canvas
-    assert "\u263E\u21937:10p" in canvas
+    assert "☽↑6:30a" in canvas
+    assert "☾↓7:10p" in canvas
 
 
 def test_render_day_label_line_shifts_moon_label_when_overlapping_day_name():
@@ -98,11 +98,11 @@ def test_render_day_label_line_shifts_moon_label_when_overlapping_day_name():
         {10: "Friday"},
         graph_w=48,
         moon_labels={
-            10: ("\u263D\u21916:30a", True),  # preferred start collides with "Friday"
+            10: ("☽↑6:30a", True),  # preferred start collides with "Friday"
         },
     )
     canvas = _canvas(line)
 
     day_start = canvas.index("Friday")
-    moon_start = canvas.index("\u263D\u21916:30a")
+    moon_start = canvas.index("☽↑6:30a")
     assert moon_start >= day_start + len("Friday") + 1

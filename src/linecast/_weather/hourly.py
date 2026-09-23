@@ -481,8 +481,8 @@ def _compute_sun_labels(window_dts, sun_events, total_hours, graph_w, runtime):
     # Sunrise and sunset are marked with up and down arrows in every
     # icon set: they say rise and set more plainly than any sun glyph,
     # match the oneline view, and stay one cell wide.
-    sunrise_icon = "\u2191"
-    sunset_icon = "\u2193"
+    sunrise_icon = "↑"
+    sunset_icon = "↓"
     if window_dts and sun_events:
         for rise, sset in sun_events:
             for moment, icon, is_rise in ((rise, sunrise_icon, True),
@@ -666,7 +666,7 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
     else:
         today_right = (
             f"{_colored_temp(chart_lo, runtime, '°')} "
-            f"{TEXT}\u2192 {_colored_temp(chart_hi, runtime, runtime.temp_unit)}"
+            f"{TEXT}→ {_colored_temp(chart_hi, runtime, runtime.temp_unit)}"
         )
     if not (midnight_day_names or sun_labels):
         pad = width - visible_len(today_left) - visible_len(today_right)
@@ -763,7 +763,7 @@ def _render_extrema_line(extrema, graph_w, runtime, is_peak):
 
     segments, cursor = [], 0
     for x, temp in points:
-        label = f"{temp:.0f}\u00b0"
+        label = f"{temp:.0f}°"
         pos = max(cursor, x - len(label) // 2)
         if pos + len(label) > graph_w:
             continue
@@ -811,7 +811,7 @@ def _compute_extrema_overlays(extrema, col_temps, n_rows, graph_w, runtime, valu
         else:
             label_row = min(n_rows - 1, curve_row + 1)
 
-        label = f"{temp:.0f}\u00b0"
+        label = f"{temp:.0f}°"
         start = max(0, min(graph_w - len(label), x - len(label) // 2))
 
         if label_row not in occupied_by_row:
@@ -841,7 +841,7 @@ def _compute_axis_overlays(value_range, braille_rows, n_rows, graph_w, overlays,
         for start, label, _color in items:
             occupied.setdefault(row, set()).update(range(start, start + len(label)))
     for row, value in ((0, hi), (n_rows - 1, lo)):
-        label = f"{value:.0f}\u00b0"
+        label = f"{value:.0f}°"
         left = 1
         if now_col is not None and now_col < left + len(label):
             left = now_col + 1

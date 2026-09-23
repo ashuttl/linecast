@@ -62,12 +62,12 @@ class TestPolishWeather:
 
     def test_weekdays_use_standard_abbreviations(self):
         assert DAY_NAMES["pl"] == [
-            "pon.", "wt.", "\u015br.", "czw.", "pt.", "sob.", "niedz.",
+            "pon.", "wt.", "śr.", "czw.", "pt.", "sob.", "niedz.",
         ]
 
     def test_historical_comparison_spells_out_average(self):
         runtime = SimpleNamespace(lang="pl")
-        assert _s("hist_below_avg", runtime, diff="3\u00b0") == "3\u00b0 poni\u017cej \u015bredniej"
+        assert _s("hist_below_avg", runtime, diff="3°") == "3° poniżej średniej"
 
     def test_metric_units_are_separated(self):
         runtime = SimpleNamespace(lang="pl")
@@ -716,8 +716,8 @@ class TestWeatherLocaleImprovements:
     def test_indonesian_historical_comparison_no_longer_falls_back_to_english(self):
         runtime = SimpleNamespace(lang="id")
         assert _s("hist_near_avg", runtime) == "mendekati rata-rata"
-        assert _s("hist_above_avg", runtime, diff="3\u00b0") == "3\u00b0 di atas rata-rata"
-        assert _s("hist_below_avg", runtime, diff="3\u00b0") == "3\u00b0 di bawah rata-rata"
+        assert _s("hist_above_avg", runtime, diff="3°") == "3° di atas rata-rata"
+        assert _s("hist_below_avg", runtime, diff="3°") == "3° di bawah rata-rata"
 
 
 class TestJapaneseWeather:
@@ -730,15 +730,15 @@ class TestJapaneseWeather:
         assert sentence == "今日の最高気温は昨日より10度高いでしょう"
 
     def test_partly_cloudy_is_idiomatic(self):
-        assert WMO_NAMES_I18N["ja"][2] == "\u6674\u308c\u6642\u3005\u66c7\u308a"
+        assert WMO_NAMES_I18N["ja"][2] == "晴れ時々曇り"
 
     def test_forecast_phrases_use_japanese_grammar(self):
         runtime = SimpleNamespace(lang="ja")
-        assert (_s("ending", runtime, desc="\u96e8", time="\u307e\u3082\u306a\u304f")
+        assert (_s("ending", runtime, desc="雨", time="まもなく")
                 == "雨はまもなくやむでしょう")
-        assert (_s("continuing", runtime, desc="\u96e8")
+        assert (_s("continuing", runtime, desc="雨")
                 == "雨は一日中続くでしょう")
-        assert _s("on_day", runtime, day="\u706b") == "\u706b\u66dc\u65e5\u306b"
+        assert _s("on_day", runtime, day="火") == "火曜日に"
 
     def test_same_day_forecast_uses_japanese_hour_suffix(self):
         runtime = SimpleNamespace(lang="ja", use_24h=True)

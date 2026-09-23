@@ -1409,41 +1409,41 @@ _JMA_OFFICES = [
 # JMA warning code -> (English name, Japanese name, severity)
 _JMA_WARNING_NAMES = {
     # Special Warnings (\u7279\u5225\u8b66\u5831)
-    "32": ("Special Blizzard Warning", "\u66b4\u98a8\u96ea\u7279\u5225\u8b66\u5831", "Extreme"),
-    "33": ("Special Heavy Rain Warning", "\u5927\u96e8\u7279\u5225\u8b66\u5831", "Extreme"),
-    "35": ("Special Storm Warning", "\u66b4\u98a8\u7279\u5225\u8b66\u5831", "Extreme"),
-    "36": ("Special Heavy Snow Warning", "\u5927\u96ea\u7279\u5225\u8b66\u5831", "Extreme"),
-    "37": ("Special High Wave Warning", "\u6ce2\u6d6a\u7279\u5225\u8b66\u5831", "Extreme"),
-    "38": ("Special Storm Surge Warning", "\u9ad8\u6f6e\u7279\u5225\u8b66\u5831", "Extreme"),
+    "32": ("Special Blizzard Warning", "暴風雪特別警報", "Extreme"),
+    "33": ("Special Heavy Rain Warning", "大雨特別警報", "Extreme"),
+    "35": ("Special Storm Warning", "暴風特別警報", "Extreme"),
+    "36": ("Special Heavy Snow Warning", "大雪特別警報", "Extreme"),
+    "37": ("Special High Wave Warning", "波浪特別警報", "Extreme"),
+    "38": ("Special Storm Surge Warning", "高潮特別警報", "Extreme"),
     # Warnings (\u8b66\u5831)
-    "02": ("Blizzard Warning", "\u66b4\u98a8\u96ea\u8b66\u5831", "Severe"),
-    "03": ("Heavy Rain Warning", "\u5927\u96e8\u8b66\u5831", "Severe"),
-    "04": ("Flood Warning", "\u6d2a\u6c34\u8b66\u5831", "Severe"),
-    "05": ("Storm Warning", "\u66b4\u98a8\u8b66\u5831", "Severe"),
-    "06": ("Heavy Snow Warning", "\u5927\u96ea\u8b66\u5831", "Severe"),
-    "07": ("High Wave Warning", "\u6ce2\u6d6a\u8b66\u5831", "Severe"),
-    "08": ("Storm Surge Warning", "\u9ad8\u6f6e\u8b66\u5831", "Severe"),
+    "02": ("Blizzard Warning", "暴風雪警報", "Severe"),
+    "03": ("Heavy Rain Warning", "大雨警報", "Severe"),
+    "04": ("Flood Warning", "洪水警報", "Severe"),
+    "05": ("Storm Warning", "暴風警報", "Severe"),
+    "06": ("Heavy Snow Warning", "大雪警報", "Severe"),
+    "07": ("High Wave Warning", "波浪警報", "Severe"),
+    "08": ("Storm Surge Warning", "高潮警報", "Severe"),
     # Watches (\u6ce8\u610f\u5831)
-    "10": ("Heavy Rain Watch", "\u5927\u96e8\u6ce8\u610f\u5831", "Moderate"),
-    "12": ("Heavy Snow Watch", "\u5927\u96ea\u6ce8\u610f\u5831", "Moderate"),
-    "13": ("Wind Snow Watch", "\u98a8\u96ea\u6ce8\u610f\u5831", "Moderate"),
-    "14": ("Thunderstorm Watch", "\u96f7\u6ce8\u610f\u5831", "Moderate"),
-    "15": ("High Wind Watch", "\u5f37\u98a8\u6ce8\u610f\u5831", "Moderate"),
-    "16": ("High Wave Watch", "\u6ce2\u6d6a\u6ce8\u610f\u5831", "Moderate"),
-    "17": ("Snowmelt Watch", "\u878d\u96ea\u6ce8\u610f\u5831", "Moderate"),
-    "18": ("Flood Watch", "\u6d2a\u6c34\u6ce8\u610f\u5831", "Moderate"),
-    "19": ("Storm Surge Watch", "\u9ad8\u6f6e\u6ce8\u610f\u5831", "Moderate"),
-    "20": ("Dense Fog Watch", "\u6fc3\u9727\u6ce8\u610f\u5831", "Moderate"),
-    "21": ("Dry Air Watch", "\u4e7e\u71e5\u6ce8\u610f\u5831", "Minor"),
-    "22": ("Avalanche Watch", "\u306a\u3060\u308c\u6ce8\u610f\u5831", "Moderate"),
-    "23": ("Low Temperature Watch", "\u4f4e\u6e29\u6ce8\u610f\u5831", "Minor"),
-    "24": ("Frost Watch", "\u971c\u6ce8\u610f\u5831", "Minor"),
-    "25": ("Icing Watch", "\u7740\u6c37\u6ce8\u610f\u5831", "Moderate"),
-    "26": ("Snow Accretion Watch", "\u7740\u96ea\u6ce8\u610f\u5831", "Moderate"),
-    "27": ("Other Watch", "\u305d\u306e\u4ed6\u306e\u6ce8\u610f\u5831", "Minor"),
+    "10": ("Heavy Rain Watch", "大雨注意報", "Moderate"),
+    "12": ("Heavy Snow Watch", "大雪注意報", "Moderate"),
+    "13": ("Wind Snow Watch", "風雪注意報", "Moderate"),
+    "14": ("Thunderstorm Watch", "雷注意報", "Moderate"),
+    "15": ("High Wind Watch", "強風注意報", "Moderate"),
+    "16": ("High Wave Watch", "波浪注意報", "Moderate"),
+    "17": ("Snowmelt Watch", "融雪注意報", "Moderate"),
+    "18": ("Flood Watch", "洪水注意報", "Moderate"),
+    "19": ("Storm Surge Watch", "高潮注意報", "Moderate"),
+    "20": ("Dense Fog Watch", "濃霧注意報", "Moderate"),
+    "21": ("Dry Air Watch", "乾燥注意報", "Minor"),
+    "22": ("Avalanche Watch", "なだれ注意報", "Moderate"),
+    "23": ("Low Temperature Watch", "低温注意報", "Minor"),
+    "24": ("Frost Watch", "霜注意報", "Minor"),
+    "25": ("Icing Watch", "着氷注意報", "Moderate"),
+    "26": ("Snow Accretion Watch", "着雪注意報", "Moderate"),
+    "27": ("Other Watch", "その他の注意報", "Minor"),
 }
 
-_JMA_ACTIVE = {"\u767a\u8868", "\u7d99\u7d9a"}
+_JMA_ACTIVE = {"発表", "継続"}
 
 # Every JMA area, from the centers down to the municipalities: a name, an
 # English name, and a parent. A municipality's code is its JIS code with
@@ -1559,19 +1559,19 @@ def _jma_headline_for(headline, names):
     (Y except X) counts the reader out when they are in X.
     """
     kept = []
-    for sentence in (headline or "").split("\u3002"):
+    for sentence in (headline or "").split("。"):
         if not sentence:
             continue
-        areas, spoke, _rest = sentence.partition("\u3067\u306f")
+        areas, spoke, _rest = sentence.partition("では")
         if spoke:
-            excluded, minus, remainder = areas.partition("\u3092\u9664\u304f")
+            excluded, minus, remainder = areas.partition("を除く")
             if minus:
                 if any(n in excluded for n in names):
                     continue
                 areas = remainder
             if not any(n in areas for n in names):
                 continue
-        kept.append(sentence + "\u3002")
+        kept.append(sentence + "。")
     return "".join(kept)
 
 
@@ -1731,39 +1731,39 @@ def _fetch_alerts_hko(lang="en"):
 
 # Warning type names parsed from titles: Chinese -> English
 _CMA_WARNING_NAMES = {
-    "\u53f0\u98ce": "Typhoon",
-    "\u66b4\u96e8": "Rainstorm",
-    "\u66b4\u96ea": "Blizzard",
-    "\u5bd2\u6f6e": "Cold Wave",
-    "\u5927\u98ce": "Strong Wind",
-    "\u6c99\u5c18\u66b4": "Sandstorm",
-    "\u9ad8\u6e29": "Heat Wave",
-    "\u5e72\u65f1": "Drought",
-    "\u96f7\u7535": "Thunderstorm",
-    "\u51b0\u96b9": "Hail",
-    "\u971c\u51bb": "Frost",
-    "\u5927\u96fe": "Dense Fog",
-    "\u973e": "Haze",
-    "\u9053\u8def\u7ed3\u51b0": "Road Icing",
-    "\u68ee\u6797\u706b\u9669": "Forest Fire Risk",
-    "\u96f7\u96e8\u5927\u98ce": "Thunderstorm Gale",
-    "\u5f3a\u5bf9\u6d41": "Severe Convection",
+    "台风": "Typhoon",
+    "暴雨": "Rainstorm",
+    "暴雪": "Blizzard",
+    "寒潮": "Cold Wave",
+    "大风": "Strong Wind",
+    "沙尘暴": "Sandstorm",
+    "高温": "Heat Wave",
+    "干旱": "Drought",
+    "雷电": "Thunderstorm",
+    "冰隹": "Hail",
+    "霜冻": "Frost",
+    "大雾": "Dense Fog",
+    "霾": "Haze",
+    "道路结冰": "Road Icing",
+    "森林火险": "Forest Fire Risk",
+    "雷雨大风": "Thunderstorm Gale",
+    "强对流": "Severe Convection",
 }
 
 # CMA color -> severity
 _CMA_COLORS = {
-    "\u7ea2": "Extreme",   # red
-    "\u6a59": "Severe",    # orange
-    "\u9ec4": "Moderate",  # yellow
-    "\u84dd": "Minor",     # blue
+    "红": "Extreme",   # red
+    "橙": "Severe",    # orange
+    "黄": "Moderate",  # yellow
+    "蓝": "Minor",     # blue
 }
 
 # CMA color -> English name
 _CMA_COLOR_EN = {
-    "\u7ea2": "Red",
-    "\u6a59": "Orange",
-    "\u9ec4": "Yellow",
-    "\u84dd": "Blue",
+    "红": "Red",
+    "橙": "Orange",
+    "黄": "Yellow",
+    "蓝": "Blue",
 }
 
 # Pic URL level code -> severity
@@ -1899,7 +1899,7 @@ def _parse_cma_data(data, provinces, lang="en"):
 
         # Build event name — deduplicate by warning type + severity
         if use_zh:
-            event = title.split("\u53d1\u5e03")[-1] if "\u53d1\u5e03" in title else title
+            event = title.split("发布")[-1] if "发布" in title else title
         else:
             en_name = _CMA_WARNING_NAMES.get(zh_type, "") if zh_type else ""
             if en_name:

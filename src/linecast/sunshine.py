@@ -513,7 +513,7 @@ def corner_label(location_label, clock, graph_w):
     """
     if not location_label:
         return clock
-    joined = f"{location_label} \u00b7 {clock}"
+    joined = f"{location_label} · {clock}"
     if visible_len(joined) <= _corner_limit(graph_w):
         return joined
     return clock
@@ -724,8 +724,8 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
                         or visible_len(left) + visible_len(label) + 3 > graph_w):
             if label != clock_label(now, runtime):
                 label = clock_label(now, runtime)
-            elif " \u00b7 " in left:
-                left = left.split(" \u00b7 ")[0]
+            elif " · " in left:
+                left = left.split(" · ")[0]
             else:
                 left = ""
     if label:
@@ -791,7 +791,7 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
 
     y_rise, y_set = solar_times(lat, lng, doy - 1, tz_offset_h)
     delta_sec = (day_len - (y_set - y_rise)) * 3600
-    d_sign = "+" if delta_sec >= 0 else "\u2212"
+    d_sign = "+" if delta_sec >= 0 else "−"
     d_abs = abs(delta_sec)
     d_m = int(d_abs) // 60
     d_s = int(d_abs) % 60
@@ -807,15 +807,15 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
     # dashes stand where the times would, and the phrase takes the place
     # of a day-length delta that is zero every day of it.
     polar = polar_state(day_len)
-    rise_txt = "\u2014" if polar else fmt_time(sunrise, runtime.use_24h)
-    set_txt = "\u2014" if polar else fmt_time(sunset, runtime.use_24h)
+    rise_txt = "—" if polar else fmt_time(sunrise, runtime.use_24h)
+    set_txt = "—" if polar else fmt_time(sunset, runtime.use_24h)
 
     left = f"{amber}{icons['sun_icon']} {text}{rise_txt}"
     if offset_minutes:
         center = f"{text}{fmt_time(now_hour, runtime.use_24h)}"
     elif polar:
         center = (f"{text}{dl_h}h {dl_m:02d}m "
-                  f"{dim}\u00b7 {polar_name(polar, runtime)}")
+                  f"{dim}· {polar_name(polar, runtime)}")
     else:
         center = f"{text}{dl_h}h {dl_m:02d}m {dim}({delta_str})"
     right = f"{text}{set_txt} {purple}{icons['sunset_icon']}"

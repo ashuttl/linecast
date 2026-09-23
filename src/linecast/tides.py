@@ -657,7 +657,7 @@ def _info_line(window, now_height, now_dt, width, offset_minutes, rising, runtim
     now_rgb = NOW_PILL_RGB
     now_text = fg(*NOW_PILL_TEXT_RGB)
 
-    arrow = "\u2197" if rising else "\u2198"
+    arrow = "↗" if rising else "↘"
     if runtime.icons == "nerd":
         icon_hi = "\U000F0799"   # 󰞙
         icon_lo = "\U000F0796"   # 󰞖
@@ -701,7 +701,7 @@ def _info_line(window, now_height, now_dt, width, offset_minutes, rising, runtim
             h_max = max(v for _, v in highs)
             h_min = min(v for _, v in lows)
             tide_range = runtime.convert_height(h_max - h_min)
-            rest_parts.append(f"{text}\u0394{tide_range:.1f}{unit}")
+            rest_parts.append(f"{text}Δ{tide_range:.1f}{unit}")
 
     # --- "Space to return" hint ---
     if offset_minutes:

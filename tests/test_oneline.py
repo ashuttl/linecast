@@ -72,14 +72,14 @@ class TestWeatherOneline:
         line = weather_oneline(data, "Berlin", rt)
         plain = _strip_ansi(line)
         assert "km/h" in plain
-        assert "\u00b0C" in plain
+        assert "°C" in plain
 
     def test_imperial_units(self):
         rt = self._runtime(celsius=False, metric=False)
         line = weather_oneline(self._sample_data(), "Portland", rt)
         plain = _strip_ansi(line)
         assert "mph" in plain
-        assert "\u00b0F" in plain
+        assert "°F" in plain
 
     def test_humidity_shown(self):
         rt = self._runtime()
@@ -125,8 +125,8 @@ class TestSunshineOneline:
         line = sunshine_oneline(43.66, -70.26, 172, 12.0, rt)
         plain = _strip_ansi(line)
         # Should contain up/down arrows and time-like patterns
-        assert "\u2191" in plain  # sunrise arrow
-        assert "\u2193" in plain  # sunset arrow
+        assert "↑" in plain  # sunrise arrow
+        assert "↓" in plain  # sunset arrow
         assert "h" in plain       # day length hours
 
     def test_contains_delta(self):

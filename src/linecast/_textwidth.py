@@ -198,7 +198,7 @@ def wrap_display_width(text, width):
 
 
 def truncate_display_width(text, width):
-    """Truncate plain text to a terminal display width, adding \u2026 if needed.
+    """Truncate plain text to a terminal display width, adding … if needed.
 
     The ellipsis is counted, so the result is never wider than ``width``:
     a line built to the last column has no cell to spare, and one column
@@ -214,7 +214,7 @@ def truncate_display_width(text, width):
             break
         w += cw
         cut = i + 1
-    return (text[:cut] + "\u2026") if cut else "\u2026"
+    return (text[:cut] + "…") if cut else "…"
 
 
 # ---------------------------------------------------------------------------
@@ -229,8 +229,8 @@ def truncate_display_width(text, width):
 # than guess at which terminal does what, ask this one.
 _PROBES = (
     ("ascii", "x"),                            # the canary: one cell everywhere
-    ("cluster", "\u0930\u094d\u0937\u093e"),   # र्षा, a conjunct and its marks
-    ("bmp_vs16", "\u2601\ufe0f"),              # ☁️, a text emoji VS16 promotes
+    ("cluster", "र\u094dष\u093e"),   # र्षा, a conjunct and its marks
+    ("bmp_vs16", "☁\ufe0f"),              # ☁️, a text emoji VS16 promotes
     ("smp_vs16", "\U0001f327\ufe0f"),          # 🌧️, the weather icons' own class
     ("smp_bare", "\U0001f311"),                # 🌑, an emoji that needs no VS16
     ("pua", "\U000f0590"),                     # a Nerd Font weather glyph

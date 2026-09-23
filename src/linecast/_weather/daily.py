@@ -189,8 +189,8 @@ def render_daily_mapped(data, width, runtime=None, now=None):
     bar_w = max(MIN_BAR_W, width - left_prefix_w - max_right_w)
 
     # Ensure outside labels always fit
-    max_lo_label = max(len(f"{lo:.0f}\u00b0") for lo in all_lo)
-    max_hi_label = max(len(f"{hi:.0f}\u00b0") for hi in all_hi)
+    max_lo_label = max(len(f"{lo:.0f}°") for lo in all_lo)
+    max_hi_label = max(len(f"{hi:.0f}°") for hi in all_hi)
     inner_w = bar_w - 1 - max_lo_label - max_hi_label
     if inner_w < 1:
         inner_w = 1
@@ -227,8 +227,8 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         hi_pos = int((hi - scale_min) / scale_range * (bar_w - 1))
         hi_pos = max(hi_pos, lo_pos + 1)  # at least 1 char wide
 
-        lo_label = f"{lo:.0f}\u00b0"
-        hi_label = f"{hi:.0f}\u00b0"
+        lo_label = f"{lo:.0f}°"
+        hi_label = f"{hi:.0f}°"
         lo_len = len(lo_label)
         hi_len = len(hi_label)
         filled_w = hi_pos - lo_pos + 1

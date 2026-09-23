@@ -6,7 +6,7 @@ curve, daily range bars, a line or two of prose, and weather alerts.
 Temperature-driven color palette, Nerd Font icons, clean column alignment.
 
 Alerts sourced from NWS (US), Environment Canada (CA), Bright Sky/DWD (DE),
-MET Norway (NO), Met \u00c9ireann (IE), JMA (Japan), CMA (China),
+MET Norway (NO), Met Éireann (IE), JMA (Japan), CMA (China),
 MetService (NZ), and MeteoAlarm (34 European countries).
 
 Languages: see `linecast language` for the full list.
@@ -189,7 +189,7 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
         lines.append(f"{TBG}{TFG} {time_str} ")
 
     # Temperature + feels like
-    deg = "\u00b0"
+    deg = "°"
     temp_line = f"{TBG} {_colored_temp(temp, runtime, deg)}"
     if apparent is not None and abs(apparent - temp) >= 3:
         temp_line += f" {TFG}{_s('feels', runtime)} {_colored_temp(apparent, runtime, deg)}"
@@ -317,7 +317,7 @@ def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, c
 
     TBG = bg(*TOOLTIP_BG_RGB)
     TFG = fg(*TOOLTIP_TEXT_RGB)
-    deg = "\u00b0"
+    deg = "°"
     code = day_value("weather_code", 0) or 0
 
     # Every chip opens with the day it speaks for, in dim type.

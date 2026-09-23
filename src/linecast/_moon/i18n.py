@@ -1354,7 +1354,7 @@ _GEMATRIA = ((400, "ת"), (300, "ש"), (200, "ר"), (100, "ק"), (90, "צ"),
              (30, "ל"), (20, "כ"), (10, "י"), (9, "ט"), (8, "ח"),
              (7, "ז"), (6, "ו"), (5, "ה"), (4, "ד"), (3, "ג"),
              (2, "ב"), (1, "א"))
-_GERESH, _GERSHAYIM = "\u05f3", "\u05f4"
+_GERESH, _GERSHAYIM = "׳", "״"
 
 # Holiday names by the keys hebrew's next_holiday returns.
 _HEBREW_HOLIDAYS = {

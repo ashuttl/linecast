@@ -292,9 +292,9 @@ def main():
     window = f"{opened} to {date_label(end, True)} {end.year}"
     if cutoff:
         unit = "day" if days == 1 else "days"
-        window = f"+{gained} in the last {days} {unit} \u00b7 {window}"
+        window = f"+{gained} in the last {days} {unit} · {window}"
     if smooth and not as_total and span <= width:
-        window = f"{SMOOTH_DAYS}-day average \u00b7 {window}"
+        window = f"{SMOOTH_DAYS}-day average · {window}"
     print()
     print(f"  {repo} — {total} stars  {muted}{window}{RESET}")
     print()

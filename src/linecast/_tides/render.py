@@ -173,7 +173,7 @@ def compute_moon_labels(window_start, total_hours, graph_w, station_meta, runtim
                         event_dt.astimezone(timezone.utc),
                         runtime,
                     )
-                    arrow = "\u2191" if is_rise else "\u2193"
+                    arrow = "↑" if is_rise else "↓"
                     labels[col] = (
                         f"{phase_icon}{arrow}{fmt_time_dt(event_dt, use_24h=use_24h)}",
                         is_rise,

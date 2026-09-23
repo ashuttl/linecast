@@ -797,7 +797,7 @@ class TestCMAAlerts:
         assert len(alerts) == 2
         # Events should be in Chinese
         events = " ".join(a["event"] for a in alerts)
-        assert "\u5927\u96fe" in events or "\u9053\u8def\u7ed3\u51b0" in events
+        assert "大雾" in events or "道路结冰" in events
 
     def test_parse_beijing_en(self):
         """Parse alerts for Beijing (11) — red fog warning."""

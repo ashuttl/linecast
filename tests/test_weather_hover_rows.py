@@ -165,7 +165,7 @@ def test_daily_spans_cover_the_parts_they_name():
         plain = _plain(line)
         if "rain" in span["cols"]:
             a, b = span["cols"]["rain"]
-            for mark in ("%", "\u2033"):
+            for mark in ("%", "″"):
                 if mark in plain:
                     assert a <= visible_len(plain[:plain.rindex(mark)]) < b
         a, b = span["cols"]["bar"]
@@ -177,7 +177,7 @@ def test_daily_chips_answer_for_each_part():
     runtime = _runtime()
     lines, spans = render_daily_mapped(data, 100, runtime)
     wet = next((k for k, s in enumerate(spans)
-                if "rain" in s["cols"] and "\u2033" in _plain(lines[k])), None)
+                if "rain" in s["cols"] and "″" in _plain(lines[k])), None)
     assert wet is not None, "the fixture should have a rainy day"
     daily_start = 20
     row = daily_start + wet + 1
@@ -198,7 +198,7 @@ def test_daily_chips_answer_for_each_part():
     assert re.search(r"\d+% chance of (rain|snow)", texts["rain"])
     assert re.search(r"\d\S*\u2033 between \d\d:\d\d and \d\d:\d\d", texts["rain"])
     assert re.search(r"heaviest around \d\d:\d\d", texts["rain"])
-    assert texts["bar"].count("\u00b0") == 2
+    assert texts["bar"].count("°") == 2
     assert "around" in texts["bar"]
     assert re.search(r"[A-Z][a-z]+", texts["day"].replace(day, ""))  # the conditions
     # The chip's left edge is at the pointer column, two rows below it.
@@ -229,7 +229,7 @@ def test_daily_rain_chip_says_through_the_day_for_all_day_rain():
     with patch.object(_color, "_COLOR_MODE", "truecolor"):
         text = _plain(_build_daily_tooltip(data, a + 1, 21 + k, 20, spans, 100, 40, runtime))
     assert "90% chance of rain" in text
-    assert "0.48\u2033 through the day" in text
+    assert "0.48″ through the day" in text
     assert "between" not in text
 
 
@@ -238,7 +238,7 @@ def test_hourly_chip_leaves_off_a_slim_chance():
     data["hourly"]["precipitation_probability"] = [15] * len(data["hourly"]["time"])
     with patch.object(_color, "_COLOR_MODE", "truecolor"):
         text = _plain(_build_hover_tooltip(data, 30, 5, 2, 12, 100, 40, _runtime()))
-    assert "0.05\u2033" in text
+    assert "0.05″" in text
     assert "chance" not in text
 
 

@@ -86,7 +86,7 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None,
     # Yesterday's day length for delta
     y_rise, y_set = solar_times(lat, lng, doy - 1, tz_offset_h)
     delta_sec = (day_len - (y_set - y_rise)) * 3600
-    d_sign = "+" if delta_sec >= 0 else "\u2212"
+    d_sign = "+" if delta_sec >= 0 else "−"
     d_abs = abs(delta_sec)
     d_m = int(d_abs) // 60
     d_s = int(d_abs) % 60
@@ -108,8 +108,8 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None,
     dim = fg(*INFO_DIM_RGB)
 
     line = (
-        f"{amber}\u2191{text}{_fmt(sunrise)} "
-        f"{purple}\u2193{text}{_fmt(sunset)} "
+        f"{amber}↑{text}{_fmt(sunrise)} "
+        f"{purple}↓{text}{_fmt(sunset)} "
         f"{text}{dl_h}h{dl_m:02d}m "
         f"{dim}{delta_str} "
         f"{text}{moon_icon}"

@@ -143,7 +143,7 @@ class ResolveLangTests(ConfigDirMixin):
     def test_a_code_is_two_ascii_letters(self):
         from linecast._i18n import is_language_code
         self.assertTrue(is_language_code("eo"))
-        for value in ("\u011d\u011d", "e", "eng", "e1", 7, None):
+        for value in ("ĝĝ", "e", "eng", "e1", 7, None):
             self.assertFalse(is_language_code(value), repr(value))
 
     def test_a_code_may_carry_a_script_or_be_a_locale_s_name(self):

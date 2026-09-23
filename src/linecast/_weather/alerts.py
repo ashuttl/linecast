@@ -80,7 +80,7 @@ def _alert_pill(alert, max_width=None):
     event = alert.get("event") or "Unknown"
 
     def _pill(label):
-        return f"{bg_color}{dark_fg}{BOLD} \u26a0 {label} {RESET}"
+        return f"{bg_color}{dark_fg}{BOLD} ⚠ {label} {RESET}"
 
     pill = _pill(event)
     if max_width is not None and visible_len(pill) > max_width:
@@ -124,7 +124,7 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name=""):
     expires = _parse_alert_time(alert.get("expires", ""), runtime, tz_name)
     timing = ""
     if effective and expires:
-        timing = f"{effective} \u2013 {expires}"
+        timing = f"{effective} – {expires}"
     elif expires:
         until = _s("until", runtime) if runtime else "until"
         timing = f"{until} {expires}"
@@ -230,14 +230,14 @@ def _build_modal_content(alert, inner_w, runtime=None, tz_name=""):
     lines = []
 
     # Title pill — pad remainder with modal bg
-    pill = f"{bg_color}{dark_fg}{BOLD} \u26a0 {event} {RESET}"
+    pill = f"{bg_color}{dark_fg}{BOLD} ⚠ {event} {RESET}"
     lines.append(pill)
 
     # Timing
     effective = _parse_alert_time(alert.get("effective", ""), runtime, tz_name)
     expires = _parse_alert_time(alert.get("expires", ""), runtime, tz_name)
     if effective and expires:
-        lines.append(f"{MBG}{WIND_COLOR}{effective} \u2013 {expires}{RESET}")
+        lines.append(f"{MBG}{WIND_COLOR}{effective} – {expires}{RESET}")
     elif expires:
         until = _s("until", runtime) if runtime else "until"
         lines.append(f"{MBG}{WIND_COLOR}{until} {expires}{RESET}")
@@ -344,7 +344,7 @@ def build_alert_modal(alert, cols, rows, runtime=None, scroll=0, tz_name=""):
         parts.append(_s("o_to_open", runtime))
     if can_scroll_down:
         parts.append("\u25bc " + _s("scroll", runtime))
-    sep = " \u00b7 "
+    sep = " · "
     hint = f" {sep.join(parts)} "
     hint_len = visible_len(hint)
     if hint_len + 2 < modal_w - 2:

@@ -273,7 +273,7 @@ def _degrees(n, runtime, signed=False):
     "_diff" (with its own "_one") for a difference, which Icelandic puts
     in the dative."""
     value = round(n) if signed else round(abs(n))
-    digits = f"{value}".replace("-", "\u2212")
+    digits = f"{value}".replace("-", "−")
     if not _has("degrees", runtime):
         return digits + "°"
     base = "degrees_diff" if not signed and _has("degrees_diff", runtime) else "degrees"

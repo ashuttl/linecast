@@ -272,7 +272,7 @@ def format_historical_comparison(current_high: float, current_low: float,
         return _s("hist_near_avg", runtime)
 
     rounded = round(abs_diff)
-    deg = "\u00b0"
+    deg = "°"
     if diff > 0:
         return _s("hist_above_avg", runtime, diff=f"{rounded}{deg}")
     else:

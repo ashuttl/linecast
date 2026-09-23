@@ -114,7 +114,7 @@ def _rebuild():
     # Arrow points in the direction the wind is blowing FROM (meteorological convention)
     WIND_ARROWS = "↓↙←↖↑↗→↘"  # N wind blows south, NE blows southwest, etc.
 
-    SEP = f"{MUTED} \u00b7 "
+    SEP = f"{MUTED} · "
     CHIP = (fg(*CHIP_BG_RGB), bg(*CHIP_BG_RGB), fg(*CHIP_FG_RGB))
 
 
