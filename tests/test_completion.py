@@ -200,7 +200,7 @@ class CompletionScriptTests(unittest.TestCase):
             'source "$1" && COMP_WORDS=(linecast weather --lang = f) '
             '&& COMP_CWORD=4 && _linecast_complete '
             '&& printf "%s\\n" "${COMPREPLY[@]}"')
-        self.assertEqual(out.split(), ["fr", "fi", "fr-CA"])
+        self.assertEqual(out.split(), ["fr", "fi", "fa", "fr-CA"])
         out = self._run_in_shell(
             "bash", render_completion("bash"),
             'source "$1" && COMP_WORDS=(linecast moon --week-start =) '
@@ -214,7 +214,7 @@ class CompletionScriptTests(unittest.TestCase):
             'source "$1" && COMP_WORDS=(linecast weather --lang=f) '
             '&& COMP_CWORD=2 && _linecast_complete '
             '&& printf "%s\\n" "${COMPREPLY[@]}"')
-        self.assertEqual(out.split(), ["--lang=fr", "--lang=fi", "--lang=fr-CA"])
+        self.assertEqual(out.split(), ["--lang=fr", "--lang=fi", "--lang=fa", "--lang=fr-CA"])
 
     def test_bash_offers_the_flag_being_typed(self):
         """The word under the cursor is not a flag already given: --lay

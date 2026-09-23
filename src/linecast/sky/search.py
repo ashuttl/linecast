@@ -64,7 +64,13 @@ class Target:
         # Each name without its accents too, so "thien lang" finds Sao
         # Thiên Lang and "etoile polaire" the Étoile polaire: a terminal
         # search is typed faster than an accent is.
-        self.folded = [f for f in map(_fold, self.names) if f not in self.names]
+        # A Persian name folds twice, its zero-width non-joiners once as
+        # spaces and once as nothing, since a query may type either.
+        self.folded = []
+        for name in self.names:
+            for f in (_fold(name), _fold(name.replace("\u200c", ""))):
+                if f not in self.names and f not in self.folded:
+                    self.folded.append(f)
         self.exact = [n.lower() for n in exact if n]
         self.rank = rank            # brighter or grander first, on ties
         self.spread = spread
@@ -215,7 +221,10 @@ def genitive_names(desig, genitives):
 
 # Letters no decomposition reduces: the Vietnamese đ, the Polish ł, the
 # Norwegian and Danish ø, the Turkish dotless ı (its capital is a plain I).
-_BARRED = str.maketrans("đĐłŁøØı", "dDlLoOi")
+# The Arabic kaf and yeh, which an Arabic keyboard types and some labels
+# carry, read as the Persian ک and ی, and the zero-width non-joiner as a
+# space, since a Persian query may leave it out (هفت اورنگ).
+_BARRED = str.maketrans("đĐłŁøØıكيى\u200c", "dDlLoOiکیی ")
 
 
 def _fold(text):
@@ -260,6 +269,9 @@ def search(query, pool, limit=MAX_ROWS):
     if not q:
         return []
     queries = (q,) if _x_system(q) == q else (q, _x_system(q))
+    # A query typed with the Arabic kaf and yeh finds the Persian names.
+    if _fold(q) not in queries:
+        queries += (_fold(q),)
     scored = []
     for t in pool:
         best = None

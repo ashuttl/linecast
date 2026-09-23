@@ -31,6 +31,7 @@ New this version:
   - City lights on the night side of the globe and the terrain map come from NASA's Black Marble image of the Earth at night, bundled with linecast. They fade out as you zoom in.
   - Only lakes at least a few cells across get a braille coastline, so lake country no longer looks like a field of little rings. Smaller ponds are still drawn as water.
 - Language:
+  - linecast speaks Persian (`fa`), used automatically by a Persian terminal locale. The forecast is written the way Iran's meteorological service writes it, numbers are in Persian digits (`LINECAST_DIGITS=latin` for 0–9), and the sky names its constellations and many of its stars in Persian. A native reader has not checked it yet; if something reads oddly, please open an [issue](https://github.com/ashuttl/linecast/issues).
   - linecast speaks Hong Kong Chinese (`zh-HK`), used automatically by a Hong Kong or Macau terminal locale. It uses the Hong Kong Observatory's words for the weather (天晴, 大致多雲, 密雲, 驟雨, 雷暴, 警告) and Hong Kong's everyday words. Traditional Chinese otherwise follows Taiwan, as before.
   - Portuguese, Spanish, and French each have a regional variant, `pt-PT`, `es-ES`, and `fr-CA`, used automatically by a terminal locale in Portugal, Spain, or Canada. Spanish is now Latin American throughout; the maps had used Spain's words.
 - Tides: The location menu from weather is in tides too. Click the station name or press `l` to pick a recent place or search for one. Recent places are shared with weather.

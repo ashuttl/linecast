@@ -37,7 +37,7 @@ from linecast.moon.i18n import (
     MONTHS_I18N, _day_abbrev, _fmt_month_day, _moon_name, _ms, _zh_day_name,
     anahulu_name, festival_table, hebrew_date_label,
     hebrew_holiday_name, hebrew_month_name, hijri_date_label,
-    hijri_lang, hijri_month_name, hijri_observance_name, ja_night_name, lunar_date_label,
+    hijri_era, hijri_month_name, hijri_observance_name, ja_night_name, lunar_date_label,
     pacific_night_label, pacific_night_name, rosh_chodesh_label,
     thai_festival_name, thai_lunar_label, thai_month_label,
     vi_month_label, wan_phra_label, zh_month_label,
@@ -109,7 +109,7 @@ def _calendar_span(cal, year, month, days_in, lang):
         y1, m1, _ = hijri_date(date(year, month, 1))
         y2, m2, _ = hijri_date(date(year, month, days_in))
         n1, n2 = hijri_month_name(m1, lang), hijri_month_name(m2, lang)
-        era = " H" if hijri_lang(lang) == "id" else " AH"
+        era = f" {hijri_era(lang)}"
     else:
         return None
     if (y1, m1) == (y2, m2):

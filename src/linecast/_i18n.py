@@ -8,7 +8,7 @@ import re
 
 # The display order shared by help, `linecast language`, and completions;
 # keep both READMEs in step. English first, then loose regional clusters:
-# Romance, German/Dutch, Nordic, Slavic, Greek, Turkish, Swahili, East Asian,
+# Romance, German/Dutch, Nordic, Slavic, Greek, Turkish, Persian, Swahili, East Asian,
 # Southeast Asian, and Esperanto last. Keep both Chinese scripts together.
 LANGUAGES = (
     ("en", "English"),
@@ -18,7 +18,7 @@ LANGUAGES = (
     ("da", "Danish"), ("no", "Norwegian"), ("sv", "Swedish"),
     ("is", "Icelandic"), ("fi", "Finnish"),
     ("cs", "Czech"), ("pl", "Polish"), ("ru", "Russian"), ("uk", "Ukrainian"),
-    ("el", "Greek"), ("tr", "Turkish"), ("sw", "Swahili"),
+    ("el", "Greek"), ("tr", "Turkish"), ("fa", "Persian"), ("sw", "Swahili"),
     ("zh", "Simplified Chinese"), ("zh-Hant", "Traditional Chinese"),
     ("ja", "Japanese"), ("ko", "Korean"),
     ("th", "Thai"), ("vi", "Vietnamese"), ("id", "Indonesian"),

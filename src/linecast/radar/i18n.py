@@ -10,6 +10,7 @@ _STRINGS = {
         "now": "now",
         "near": "{dist} {unit} {dir} of {name}",
         "unit_km": "km",
+        "unit_mi": "mi",
         "compass": "N NE E SE S SW W NW",
         "forecast": "forecast",
         "echo_pct": "{pct}% echo",
@@ -317,6 +318,23 @@ _STRINGS = {
         "cloud_pct": "%{pct} bulut",
         "radar_unavailable": "radar kullanılamıyor ({err})",
         "no_frames": "radar karesi yok",
+    },
+    "fa": {
+        "loading": "در حال بارگیری…",
+        "hint": "فاصله پخش/توقف · چرخ ماوس/←→ فریم · +/- بزرگ\u200cنمایی · کشیدن / wasd جابه\u200cجایی · c دما · W باد · t پوسته · S ماهواره · q خروج",
+        "theme": "پوسته",
+        "now": "اکنون",
+        # "۱۲ کیلومتری شمال\u200cشرق تهران": the distance takes the -ی of
+        # an adverb of place, so the unit is written into the phrase.
+        "near": "{dist} {unit}ی {dir} {name}",
+        "unit_km": "کیلومتر",
+        "unit_mi": "مایل",
+        "compass": "شمال شمال\u200cشرق شرق جنوب\u200cشرق جنوب جنوب\u200cغرب غرب شمال\u200cغرب",
+        "forecast": "پیش\u200cبینی",
+        "echo_pct": "بازتاب {pct}٪",
+        "cloud_pct": "ابر {pct}٪",
+        "radar_unavailable": "رادار در دسترس نیست ({err})",
+        "no_frames": "هیچ فریم راداری در دسترس نیست",
     },
     "ru": {
         "loading": "загрузка…",

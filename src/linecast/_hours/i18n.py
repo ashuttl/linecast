@@ -5,8 +5,9 @@ are, with the Hebrew itself kept for `--json`. Latin is Latin
 everywhere. The Edo hours keep their kanji in Japanese and take the
 bell count and the animal's hour elsewhere. The prayer names are
 transliterated, with Indonesian's own spellings, as the Hijri months
-have theirs, and Turkish's own names, İmsak to Yatsı, as the Diyanet
-prints them; sunrise reads in each language's own word. Swahili time
+have theirs, Turkish's own names, İmsak to Yatsı, as the Diyanet
+prints them, and Persian's, اذان صبح to اذان مغرب, as Iranian
+timetables print them; sunrise reads in each language's own word. Swahili time
 reads in Swahili everywhere, as Latin does.
 
 Each mark has a short name for the line under the chart and a full
@@ -62,24 +63,26 @@ _EDO = {
     "akatsuki_nanatsu": ("暁七つ", "daybreak seven", "daybreak seven, the hour of the Tiger"),
 }
 
-# The prayers: key → (English, Indonesian, Turkish, Arabic). The
-# English transliterations stand in every language but Indonesian,
-# which has its own spellings, as it has for the Hijri months, and
-# Turkish, whose cards read İmsak, Güneş, Öğle, İkindi, Akşam, Yatsı.
+# The prayers: key → (English, Indonesian, Turkish, Persian, Arabic).
+# The English transliterations stand in every language but Indonesian,
+# which has its own spellings, as it has for the Hijri months, Turkish,
+# whose cards read İmsak, Güneş, Öğle, İkindi, Akşam, Yatsı, and
+# Persian, whose timetables (اوقات شرعی) name the calls to prayer:
+# اذان صبح, اذان ظهر, اذان مغرب.
 # The Diyanet's İmsak is the Fajr time, so Turkish reads Fajr as İmsak
 # unless the table lists a separate Imsak before it, when Fajr is
 # Sabah, the morning prayer. Sunrise reads in each language's own word
 # but where the card has one.
 _PRAYERS = {
-    "imsak": ("Imsak", "Imsak", "İmsak", "الإمساك"),
-    "fajr": ("Fajr", "Subuh", "İmsak", "الفجر"),
-    "sunrise": ("Sunrise", "Terbit", "Güneş", "الشروق"),
-    "dhuhr": ("Dhuhr", "Zuhur", "Öğle", "الظهر"),
-    "asr": ("Asr", "Asar", "İkindi", "العصر"),
-    "maghrib": ("Maghrib", "Magrib", "Akşam", "المغرب"),
-    "isha": ("Isha", "Isya", "Yatsı", "العشاء"),
+    "imsak": ("Imsak", "Imsak", "İmsak", "امساک", "الإمساك"),
+    "fajr": ("Fajr", "Subuh", "İmsak", "اذان صبح", "الفجر"),
+    "sunrise": ("Sunrise", "Terbit", "Güneş", "طلوع آفتاب", "الشروق"),
+    "dhuhr": ("Dhuhr", "Zuhur", "Öğle", "اذان ظهر", "الظهر"),
+    "asr": ("Asr", "Asar", "İkindi", "عصر", "العصر"),
+    "maghrib": ("Maghrib", "Magrib", "Akşam", "اذان مغرب", "المغرب"),
+    "isha": ("Isha", "Isya", "Yatsı", "عشا", "العشاء"),
 }
-_PRAYER_COLUMN = {"id": 1, "tr": 2}
+_PRAYER_COLUMN = {"id": 1, "tr": 2, "fa": 3}
 
 # The strings the hours line and the corner need beyond the names:
 # "night" for the night hours, "in {dur}" for the countdown, and the
@@ -109,6 +112,7 @@ _HOURS_STRINGS = {
     "vi": {"night": "đêm", "in_time": "còn {dur}", "koku": "1 koku", "fast": "nhịn chay"},
     "eo": {"night": "nokto", "in_time": "post {dur}", "koku": "1 koku", "fast": "fasto"},
     "tr": {"night": "gece", "in_time": "{dur} sonra", "koku": "1 koku", "fast": "oruç"},
+    "fa": {"night": "شب", "in_time": "{dur} دیگر", "koku": "۱ کوکو", "fast": "روزه"},
     "ru": {"night": "ночь", "in_time": "через {dur}", "koku": "1 коку", "fast": "пост"},
     "ro": {"night": "noapte", "in_time": "peste {dur}", "koku": "1 koku", "fast": "post"},
     "cs": {"night": "noc", "in_time": "za {dur}", "koku": "1 koku", "fast": "půst"},
@@ -171,7 +175,7 @@ def mark_native(system, key):
     if system == "japanese":
         return _EDO[key][0]
     if system == "islamic":
-        return _PRAYERS[key][3]
+        return _PRAYERS[key][4]
     return None
 
 

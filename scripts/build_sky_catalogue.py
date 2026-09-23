@@ -103,6 +103,7 @@ WIKIDATA_LANG = {
     "pl": "pl", "no": "nb", "sv": "sv", "is": "is", "da": "da", "fi": "fi",
     "ja": "ja", "ko": "ko", "zh": "zh-hans", "th": "th", "id": "id", "uk": "uk",
     "vi": "vi", "eo": "eo", "tr": "tr", "ru": "ru", "ro": "ro", "cs": "cs", "el": "el",
+    "fa": "fa",
 }
 
 # The traditional form of each simplified character the Chinese names use,
@@ -261,6 +262,13 @@ GREEK_WORDS = (
     "chí", "psí",
     # The Romanian spellings ("Teta Scorpii", "Gama Boötis").
     "miu", "niu", "csi", "hi",
+    # The Persian spellings ("آلفا طاووس", "لاندا کژدم", "امیکرون شیر"),
+    # with the Latin letters of a variable star's designation as Persian
+    # spells them ("آر تاج شمالی", "دبلیو کمان").
+    "آلفا", "بتا", "گاما", "دلتا", "اپسیلون", "زتا", "اتا", "تتا", "یوتا", "آیوتا",
+    "کاپا", "لاندا", "لامبدا", "مو", "نو", "کسی", "امیکرون", "اومیکرون", "پی", "رو",
+    "سیگما", "تاو", "اوپسیلون", "فی", "خی", "پسی", "سای", "امگا",
+    "آر", "جی", "کا", "دبلیو",
 )
 GREEK_LETTERS = "αβγδεζηθικλμνξοπρστυφχψωΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ"
 # A variable star's designation: one or two capitals before the genitive.
@@ -612,6 +620,41 @@ OVERRIDES = {
             'Rigel': 'Ρίγκελ',
             'Aldebaran': 'Αλντεμπαράν',
         },
+        # Persian: the name fa.wikipedia titles the star's article with,
+        # or where the title is a designation, the traditional name its
+        # first sentence gives (Hadar, حضار; Saiph, سیف‌الجبار). Labels
+        # that describe the star ("ستاره کربن") or name another (Mimosa's
+        # بکروکس is Becrux) are dropped, and so is Pleione's پروین, the
+        # Persian name of the whole cluster. The query service drops the
+        # zero-width non-joiner from every label (ابط‌الجوزا comes back
+        # ابطالجوزا), so the names that write one are here.
+        "fa": {
+            "Sirius": "شباهنگ", "Arcturus": "ژوبین\u200cدار", "Rigil Kentaurus": "رجل قنطورس",
+            "Vega": "کرکس نشسته", "Betelgeuse": "ابط\u200cالجوزا", "Hadar": "حضار",
+            "Altair": "کرکس پرنده", "Antares": "قلب\u200cالعقرب", "Spica": "بی\u200cژوبین",
+            "Pollux": "سرپسین", "Fomalhaut": "فم\u200cالحوت", "Mimosa": "",
+            "Regulus": "قلب\u200cالاسد", "Adhara": "عذارا", "Miaplacidus": "میاه\u200cپلاسیدوس",
+            "α Gru": "بطن\u200cالنایر", "Regor": "سهیل\u200cالمحلف",
+            "Mirfak": "مرفق\u200cالثریا", "Menkalinan": "منکب ذی\u200cالعنان",
+            "Castor": "سرپیشین", "Alphard": "قلب\u200cالفرد", "Hamal": "حمل", "Alnitak": "نطاق",
+            "Mirach": "جنب\u200cالمسلسله", "Saiph": "سیف\u200cالجبار", "Kochab": "کوکب شمالی",
+            "Algol": "رأس\u200cالغول", "Denebola": "ذنب\u200cالاسد", "Shedar": "صدر",
+            "Almach": "عناق\u200cالارض", "Caph": "کف\u200cالخضیب", "Mizar": "مئزر",
+            "Larawag": "", "Ankaa": "عنقا", "Enif": "انف", "α Peg": "مرکب\u200cالفرس",
+            "Ascella": "نعائم", "Algieba": "جبهه", "Unukalhai": "عنق\u200cالحیه",
+            "Ruchbah": "رکبةذات\u200cالکرسی", "Alcyone": "نیرثریا",
+            "Deneb Algedi": "ذنب\u200cالجدی", "Tejat": "پس\u200cپای", "Cor Caroli": "کبدالاسد",
+            "Okab": "ذنب\u200cالعقاب", "Furud": "فرد", "Mira": "شگفت\u200cاختر",
+            "Albireo": "منقار ماکیان", "Alfirk": "کوکب\u200cالفرق", "η Gem": "پیش\u200cپای",
+            "Mothallah": "راس\u200cالمثلث", "Rasalgethi": "رأس\u200cالجاثی",
+            "Wasat": "وسط\u200cالسماء", "Meissa": "هقعه", "Alahakan": "بطن\u200cالثعبان شمالی",
+            "Atlas": "اطلس", "Electra": "الکترا", "Marfik": "مرفق\u200cالحوا", "Maia": "مایا",
+            "Asellus Primus": "خرک یکم", "The Garnet Star": "ستارهٔ نارسنگ", "Merope": "میروپ",
+            "Aldhiba": "بطن\u200cالثعبان جنوبی", "Alsciaukat": "شوکه", "Taygeta": "تحیه",
+            "Akfa Farkadain": "اخفی\u200cالفرقدین", "θ Cas": "مرفق ذات\u200cالکرسی",
+            "Fumalsamakah": "فم\u200cالسمکه", "Azelfafage": "ظلف\u200cالفرس",
+            "La Superba": "لا سوپربا", "Pleione": "", "Pearce's Star": "",
+        },
     },
     "constellations": {
         # Noorali T. Jiwaji, "Namna Ya Kuelewa Nyota Za Mbinguni":
@@ -822,6 +865,16 @@ OVERRIDES = {
             'Tuc': 'Τουκάνα', 'UMa': 'Μεγάλη Άρκτος', 'UMi': 'Μικρή Άρκτος',
             'Vel': 'Ιστία', 'Vir': 'Παρθένος', 'Vol': 'Ιπτάμενος Ιχθύς',
             'Vul': 'Αλώπηξ',
+        },
+        # Persian: the names fa.wikipedia titles the articles with (دب اکبر,
+        # سدس), which Wikidata's labels mostly are; the labels lose their
+        # zero-width non-joiners to the query service (ذات\u200cالکرسی).
+        "fa": {
+            "And": "آندرومدا", "Aur": "ارابه\u200cران", "CVn": "تازی\u200cها",
+            "Car": "شاه\u200cتخته", "Cas": "ذات\u200cالکرسی", "Cha": "آفتاب\u200cپرست",
+            "Lyn": "سیاه\u200cگوش", "Mon": "تک\u200cشاخ", "Peg": "اسب بزرگ", "Per": "برساوش",
+            "Pic": "سه\u200cپایه", "Pup": "کشتی\u200cدم", "Pyx": "قطب\u200cنما", "Sex": "سدس",
+            "Tri": "سه\u200cسو", "UMa": "دب اکبر", "UMi": "دب اصغر",
         },
     },
 }

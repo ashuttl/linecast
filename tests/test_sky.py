@@ -442,6 +442,12 @@ class TestCatalogue:
         assert sky.star_names("cs")[polaris] == ("Polárka", "α UMi")
         assert sky.star_names("ru")[0] == ("Сириус", "α CMa")
         assert sky.star_names("cs")[0] == ("Sirius", "α CMa")
+        # Persian names the stars as fa.wikipedia titles them, and writes
+        # the zero-width non-joiner the query service drops.
+        assert sky.star_names("fa")[0] == ("شباهنگ", "α CMa")
+        assert sky.star_names("fa")[polaris] == ("جدی", "α UMi")
+        betelgeuse = next(i for i, (n, _d) in sky.star_names().items() if n == "Betelgeuse")
+        assert sky.star_names("fa")[betelgeuse] == ("ابط\u200cالجوزا", "α Ori")
         vega = next(i for i, (n, _d) in sky.star_names().items() if n == "Vega")
         assert sky.star_names("zh")[vega] == ("织女一", "α Lyr")
         assert sky.star_names("zh-Hant")[vega] == ("織女一", "α Lyr")
@@ -487,6 +493,9 @@ class TestCatalogue:
         assert sky.constellation_name(ursa, "ru") == "Большая Медведица"
         assert sky.constellation_name(ursa, "ro") == "Ursa Mare"
         assert sky.constellation_name(ursa, "cs") == "Velká medvědice"
+        assert sky.constellation_name(ursa, "fa") == "دب اکبر"
+        cassiopeia = next(r for r in sky.constellations() if r["id"] == "Cas")
+        assert sky.constellation_name(cassiopeia, "fa") == "ذات\u200cالکرسی"
         assert sky.constellation_name(ursa, "zh") == "大熊座"
         assert sky.constellation_name(ursa, "zh-Hant") == "大熊座"
         coma = next(r for r in sky.constellations() if r["id"] == "Com")
@@ -1128,6 +1137,14 @@ class TestCultures:
         assert search("ng'e", pool)[0].label == "Ng'e · Scorpius"
         assert search("sirius", pool)[0].label == "Sirius · α CMa"
         assert search("zuhura", pool)[0].kind == "planet"
+        pool = targets(_runtime(lang="fa"))
+        assert search("شباهنگ", pool)[0].label == "شباهنگ · α CMa"
+        assert search("sirius", pool)[0].label == "شباهنگ · α CMa"
+        assert search("دب اکبر", pool)[0].label == "دب اکبر · Ursa Major"
+        # With the non-joiner, a space, or nothing, and on an Arabic keyboard.
+        cassiopeia = "ذات\u200cالکرسی · Cassiopeia"
+        for query in ("ذات\u200cالکرسی", "ذات الکرسی", "ذاتالکرسی", "ذات الكرسي"):
+            assert search(query, pool)[0].label == cassiopeia, query
         pool = targets(_runtime(lang="zh-Hant"))
         assert search("織女一", pool)[0].label == "織女一 · α Lyr"
         assert search("大熊座", pool)[0].label == "大熊座 · Ursa Major"

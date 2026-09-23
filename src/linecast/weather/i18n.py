@@ -95,6 +95,10 @@ DAY_NAMES = {
     "vi": ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
     "eo": ["lun", "mar", "mer", "ĵaŭ", "ven", "sab", "dim"],
     "tr": ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"],
+    # CLDR's short forms, as Iranian calendars head their columns: the
+    # days counted from Saturday, "۲ش" the second after it.  A sentence
+    # names the day in full, by ON_DAY_FORMS.
+    "fa": ["۲ش", "۳ش", "۴ش", "۵ش", "ج", "ش", "۱ش"],
     "ru": ["пн", "вт", "ср", "чт", "пт", "сб", "вс"],
     "ro": ["lun", "mar", "mie", "joi", "vin", "sâm", "dum"],
     "cs": ["po", "út", "st", "čt", "pá", "so", "ne"],
@@ -127,12 +131,18 @@ FULL_DAY_NAMES = {
     "vi": ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"],
     "eo": ["lundo", "mardo", "merkredo", "ĵaŭdo", "vendredo", "sabato", "dimanĉo"],
     "tr": ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"],
+    "fa": ["دوشنبه", "سه\u200cشنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه", "یکشنبه"],
     "ru": ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"],
     "ro": ["luni", "marți", "miercuri", "joi", "vineri", "sâmbătă", "duminică"],
     "cs": ["pondělí", "úterý", "středa", "čtvrtek", "pátek", "sobota", "neděle"],
     "sw": ["Jumatatu", "Jumanne", "Jumatano", "Alhamisi", "Ijumaa", "Jumamosi", "Jumapili"],
     "el": ['Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο', 'Κυριακή'],
 }
+
+# Languages whose daily list names each day in full: Persian's short
+# forms (۲ش for دوشنبه) are a calendar grid's, not a list's, and the
+# full names are at most eight cells.
+LIST_FULL_DAY_NAMES = frozenset({"fa"})
 
 WMO_NAMES_I18N = {
     "fr": {
@@ -454,6 +464,22 @@ WMO_NAMES_I18N = {
         85: "Kar sağanağı", 86: "Kuvvetli kar sağanağı",
         95: "Gök gürültülü fırtına", 96: "Gök gürültülü fırtına", 99: "Gök gürültülü fırtına",
         MOSTLY_CLOUDY: "Çok bulutlu",
+    },
+    # The sky as IRIMO grades it: صاف، کمی ابری، نیمه\u200cابری، ابری،
+    # تمام\u200cابری.  Drizzle is نم\u200cنم باران, and a thunderstorm what
+    # people call it, رعد و برق.
+    "fa": {
+        0: "صاف", 1: "کمی ابری", 2: "نیمه\u200cابری", 3: "تمام\u200cابری",
+        45: "مه", 48: "مه یخ\u200cزده",
+        51: "نم\u200cنم باران", 53: "نم\u200cنم باران", 55: "نم\u200cنم باران شدید",
+        56: "نم\u200cنم باران یخ\u200cزده", 57: "نم\u200cنم باران یخ\u200cزده",
+        61: "باران خفیف", 63: "باران", 65: "باران شدید",
+        66: "باران یخ\u200cزده", 67: "باران یخ\u200cزده",
+        71: "برف خفیف", 73: "برف", 75: "برف شدید", 77: "برف دانه\u200cای",
+        80: "رگبار خفیف", 81: "رگبار", 82: "رگبار شدید",
+        85: "رگبار برف", 86: "رگبار شدید برف",
+        95: "رعد و برق", 96: "رعد و برق", 99: "رعد و برق",
+        MOSTLY_CLOUDY: "ابری",
     },
     "ru": {
         0: "Ясно", 1: "Малооблачно", 2: "Переменная облачность", 3: "Пасмурно",
@@ -811,6 +837,19 @@ _PRECIP_DESCS_I18N = {
         # is a gale.
         95: "gök gürültülü sağanak", 96: "gök gürültülü sağanak", 99: "gök gürültülü sağanak",
     },
+    # IRIMO names a thunderstorm by what comes with it, "رگبار و رعد و
+    # برق".  The templates' verbs (آغاز می\u200cشود، قطع می\u200cشود، ادامه
+    # دارد) fit every noun here, so no code needs a variant.
+    "fa": {
+        51: "نم\u200cنم باران", 53: "نم\u200cنم باران", 55: "نم\u200cنم باران شدید",
+        56: "نم\u200cنم باران یخ\u200cزده", 57: "نم\u200cنم باران یخ\u200cزده",
+        61: "باران خفیف", 63: "باران", 65: "باران شدید",
+        66: "باران یخ\u200cزده", 67: "باران یخ\u200cزده",
+        71: "برف خفیف", 73: "برف", 75: "برف شدید", 77: "برف دانه\u200cای",
+        80: "رگبار خفیف", 81: "رگبار", 82: "رگبار شدید",
+        85: "رگبار برف", 86: "رگبار شدید برف",
+        95: "رگبار و رعد و برق", 96: "رگبار و رعد و برق", 99: "رگبار و رعد و برق",
+    },
     "ru": {
         51: "слабая морось", 53: "морось", 55: "сильная морось",
         56: "ледяная морось", 57: "ледяная морось",
@@ -1048,6 +1087,10 @@ ON_DAY_FORMS = {
     # the sentence names the day in full
     "th": {0: "ในวันจันทร์", 1: "ในวันอังคาร", 2: "ในวันพุธ", 3: "ในวันพฤหัสบดี",
            4: "ในวันศุกร์", 5: "ในวันเสาร์", 6: "ในวันอาทิตย์"},
+    # Persian abbreviates the days by number ("۲ش"), which running text
+    # does not; the sentence names the day in full
+    "fa": {0: "روز دوشنبه", 1: "روز سه\u200cشنبه", 2: "روز چهارشنبه", 3: "روز پنجشنبه",
+           4: "روز جمعه", 5: "روز شنبه", 6: "روز یکشنبه"},
 }
 
 # The same for a full day name, "on Friday" in the week sentence, where a
@@ -1080,6 +1123,7 @@ _STRINGS = {
         "metric_unit_sep": "",
         "unit_kmh": "km/h",
         "unit_ms": "m/s",
+        "unit_mph": "mph",
         "unit_mm": "mm",
         "unit_cm": "cm",
         "feels": "feels",
@@ -4373,6 +4417,171 @@ _STRINGS = {
         "tomorrow_morning_by": "yarın sabaha kadar",
         "tomorrow_afternoon_by": "yarın öğleden sonraya kadar",
         "tomorrow_evening_by": "yarın akşama kadar",
+    },
+    # Standard written Persian, as IRIMO's bulletins and the news sites
+    # write a forecast: the subject first, the verb last, and the future
+    # in the present tense (آغاز می\u200cشود).  Numbers in the tables are
+    # Persian digits; the placeholders are localised on output.
+    "fa": {
+        "today": "امروز",
+        "today_short": "امروز",
+        "forecast_stale": "این پیش\u200cبینی مربوط به {day} است؛ پیش\u200cبینی تازه\u200cتری دریافت نشد.",
+        "forecast_stale_at": ("این پیش\u200cبینی مربوط به {day} است؛ دریافت پیش\u200cبینی تازه\u200cتر "
+                              "در ساعت {time} ناموفق بود."),
+        "forecast_fetching": "در حال دریافت پیش\u200cبینی تازه\u200cتر…",
+        "retry_run": "برای تلاش دوباره، برنامه را دوباره اجرا کنید.",
+        "retry_key": "برای تلاش دوباره، کلید r را فشار دهید.",
+        "credit_forecast": "داده\u200cهای هواشناسی: {source}",
+        "credit_alerts": "هشدارها: {source}",
+        "credit_current": "وضعیت کنونی: {source}",
+        # Units as CLDR's short Persian forms have them: the wind in Latin
+        # letters, km/h, as Persian technical text writes it, and the
+        # lengths in words, "۱۲ میلی\u200cمتر", which have no Persian
+        # abbreviation.  A space sets each off.
+        "metric_unit_sep": "\u00a0",
+        "unit_mm": "میلی\u200cمتر",
+        "unit_cm": "سانتی\u200cمتر",
+        "feels": "دمای احساسی",
+        "wind": "باد",
+        "gusts": "تندباد",
+        "humidity": "رطوبت",
+        "chance": "احتمال {p}",
+        "chance_of": "احتمال {what} {p}",
+        "amount_between": "{amount} از {a} تا {b}",
+        "amount_all_day": "{amount} در طول روز",
+        "cloud": "پوشش ابر {p}",
+        "heaviest_around": "بیشترین شدت حدود {time}",
+        "dew_pt": "نقطهٔ شبنم",
+        "uv": "UV",
+        "aqi": "AQI",
+        "precip_inch": "″",
+        "metric_unit_sep_prose": "\u00a0",
+        "precip_inch_prose": "{n}\u00a0اینچ",
+        # A sentence spells the wind's unit out, as the forecasts do:
+        # "۵۰ کیلومتر بر ساعت"
+        "unit_kmh_prose": "کیلومتر بر ساعت",
+        "unit_ms_prose": "متر بر ثانیه",
+        "unit_mph_prose": "مایل بر ساعت",
+        "until": "تا",
+        "sentence_end": ".",
+        "sentence_join": ". ",
+        "feels_humid": "به دلیل رطوبت بالا، هوا گرم\u200cتر احساس می\u200cشود",
+        "feels_sun": "به دلیل تابش آفتاب، هوا گرم\u200cتر احساس می\u200cشود",
+        "feels_wind": "به دلیل وزش باد، هوا خنک\u200cتر احساس می\u200cشود",
+        "feels_dry": "به دلیل خشکی هوا، خنک\u200cتر احساس می\u200cشود",
+        "feels_wind_cold": "به دلیل وزش باد، هوا سردتر احساس می\u200cشود",
+        "feels_dry_cold": "به دلیل خشکی هوا، سردتر احساس می\u200cشود",
+        # The high is a temperature, so it is higher or lower (بالاتر،
+        # پایین\u200cتر), not warmer; the verb is in "will_be".
+        "degrees": "{n}\u00a0درجه",
+        "same_temp": "تقریباً برابر با {ref_day}",
+        "bit_warmer": "کمی بالاتر از {ref_day}",
+        "bit_cooler": "کمی پایین\u200cتر از {ref_day}",
+        "warmer": "بالاتر از {ref_day}",
+        "cooler": "پایین\u200cتر از {ref_day}",
+        "much_warmer": "بسیار بالاتر از {ref_day}",
+        "much_cooler": "بسیار پایین\u200cتر از {ref_day}",
+        "warmer_by": "{diff} بالاتر از {ref_day}",
+        "cooler_by": "{diff} پایین\u200cتر از {ref_day}",
+        "today_subj": "دمای بیشینهٔ امروز",
+        "tomorrow_subj": "دمای بیشینهٔ فردا",
+        "yesterday": "دیروز",
+        "today_ref": "امروز",
+        "will_be": "{subject} {comparison} خواهد بود",
+        "will_be_then": "دمای بیشینه {comparison} خواهد بود",
+        # Precipitation: a turn to another kind is "تبدیل می\u200cشود", and the
+        # same rain harder "شدت می\u200cگیرد"
+        "ending": "{desc} {time} قطع می\u200cشود",
+        "continuing": "{desc} در تمام طول روز ادامه دارد",
+        "ending_becoming": "{desc} {peak_time} به {peak} تبدیل می\u200cشود و {time} قطع می\u200cشود",
+        "continuing_becoming": "{desc} {peak_time} به {peak} تبدیل می\u200cشود و تا پایان روز ادامه دارد",
+        "starting": "{desc} احتمالاً {time} آغاز می\u200cشود",
+        "starting_becoming": "{desc} احتمالاً {time} آغاز می\u200cشود و {peak_time} به {peak} تبدیل می\u200cشود",
+        # A chance takes the subjunctive: "احتمال دارد باران … آغاز شود"
+        "starting_chance": "احتمال دارد {desc} {time} آغاز شود",
+        "starting_chance_becoming": "احتمال دارد {desc} {time} آغاز شود و {peak_time} به {peak} تبدیل شود",
+        "starting_sure": "{desc} {time} آغاز می\u200cشود",
+        "starting_sure_becoming": "{desc} {time} آغاز می\u200cشود و {peak_time} به {peak} تبدیل می\u200cشود",
+        "continuing_night": "{desc} در تمام طول شب ادامه دارد",
+        "continuing_night_becoming": "{desc} {peak_time} به {peak} تبدیل می\u200cشود و تا پایان شب ادامه دارد",
+        "ending_heavier": "{desc} {peak_time} شدت می\u200cگیرد و {time} قطع می\u200cشود",
+        "continuing_heavier": "{desc} {peak_time} شدت می\u200cگیرد و تا پایان روز ادامه دارد",
+        "continuing_night_heavier": "{desc} {peak_time} شدت می\u200cگیرد و تا پایان شب ادامه دارد",
+        "starting_heavier": "{desc} احتمالاً {time} آغاز می\u200cشود و {peak_time} شدت می\u200cگیرد",
+        "starting_chance_heavier": "احتمال دارد {desc} {time} آغاز شود و {peak_time} شدت بگیرد",
+        "starting_sure_heavier": "{desc} {time} آغاز می\u200cشود و {peak_time} شدت می\u200cگیرد",
+        "more_later": "{time} دوباره {desc} پیش\u200cبینی می\u200cشود",
+        # "By" a time is "تا": the "_by" forms carry it, so the "same_time"
+        # word can stand in the slot without it
+        "snow_total": "{time} حدود {amt} برف می\u200cبارد",
+        "fog_ending": "مه {time} برطرف می\u200cشود",
+        "fog_continuing": "مه در تمام طول روز ادامه دارد",
+        "fog_continuing_night": "مه در تمام طول شب ادامه دارد",
+        "fog_starting": "{time} مه تشکیل می\u200cشود",
+        "fog_starting_ending": "{time} مه تشکیل می\u200cشود و {end} برطرف می\u200cشود",
+        "shortly": "به\u200cزودی",
+        "in_about_an_hour": "حدود یک ساعت دیگر",
+        "in_a_couple_hours": "تا چند ساعت دیگر",
+        "around": "حدود {time}",
+        "around_noon": "حدود ظهر",
+        "same_time": "در همان ساعات",
+        "same_part_later": "کمی بعد",
+        # The small hours are "پس از نیمه\u200cشب"; the evening is "عصر", and
+        # later in it the night, "شب"
+        "overnight": "پس از نیمه\u200cشب",
+        "early_tomorrow_morning": "فردا صبح زود",
+        "tomorrow_morning": "فردا صبح",
+        "tomorrow_afternoon": "فردا بعدازظهر",
+        "tomorrow_evening": "فردا عصر",
+        "on_day": "روز {day}",
+        "then_early_morning": "صبح زود",
+        "then_morning": "صبح",
+        "then_later_morning": "اواخر صبح",
+        "then_afternoon": "بعدازظهر",
+        "then_later_afternoon": "اواخر بعدازظهر",
+        "then_evening": "عصر",
+        "then_later_evening": "شب",
+        "this_morning": "امروز صبح",
+        "this_afternoon": "امروز بعدازظهر",
+        "this_evening": "امروز عصر",
+        "tonight": "امشب",
+        "this_morning_by": "تا امروز صبح",
+        "this_afternoon_by": "تا امروز بعدازظهر",
+        "this_evening_by": "تا امروز عصر",
+        "tonight_by": "تا امشب",
+        "tomorrow_morning_by": "تا فردا صبح",
+        "tomorrow_afternoon_by": "تا فردا بعدازظهر",
+        "tomorrow_evening_by": "تا فردا عصر",
+        "sky_clearing": "آسمان {time} صاف می\u200cشود",
+        "sky_clouding": "آسمان {time} ابری می\u200cشود",
+        "on_full_day": "روز {day}",
+        "rain_next_chance": "{time} احتمال {desc} وجود دارد",
+        "rain_next_likely": "{time} احتمال {desc} زیاد است",
+        "rain_next": "{time} {desc} پیش\u200cبینی می\u200cشود",
+        "gusts_to": "{time} سرعت تندباد به {speed} می\u200cرسد",
+        # A clause of its own, so it reads whole after a subjunctive chance
+        "with_gusts": "{sentence}؛ سرعت تندباد نیز به {speed} می\u200cرسد",
+        "freeze_tonight": "{time} دمای هوا به زیر صفر می\u200cرسد و تا {temp} پایین می\u200cآید",
+        "feels_ahead_hot": "{time} دمای احساسی تا {temp} بالا می\u200cرود",
+        "feels_ahead_hot_humid": "{time} به دلیل رطوبت بالا، دمای احساسی تا {temp} بالا می\u200cرود",
+        "feels_ahead_hot_sun": "{time} به دلیل تابش آفتاب، دمای احساسی تا {temp} بالا می\u200cرود",
+        "feels_ahead_cold": "{time} دمای احساسی تا {temp} پایین می\u200cآید",
+        "feels_ahead_cold_wind": "{time} به دلیل وزش باد، دمای احساسی تا {temp} پایین می\u200cآید",
+        "past_precip": "در ۲۴ ساعت گذشته {amt} {ptype} باریده است",
+        "snow": "برف",
+        "rain": "باران",
+        "mixed_precip": "برف و باران",
+        "Snow": "برف",
+        "Rain": "باران",
+        "Mix": "برف و باران",
+        # Key legends in the noun form Persian interfaces use
+        "q_to_close": "بستن با q",
+        "o_to_open": "باز کردن در مرورگر با o",
+        "scroll": "پیمایش",
+        "space_to_now": "بازگشت به اکنون با فاصله",
+        "hist_near_avg": "نزدیک به میانگین",
+        "hist_above_avg": "{diff} بالاتر از میانگین",
+        "hist_below_avg": "{diff} پایین\u200cتر از میانگین",
     },
     "ru": {
         "today": "Сегодня",

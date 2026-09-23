@@ -460,8 +460,10 @@ class TestTablesComplete:
     # The Canadian index is named AQHI in English and CAS (cote air
     # santé) in French, and by its English name elsewhere.
     DEFAULTS = {
-        "linecast.weather.i18n": {"unit_kmh", "unit_ms", "unit_mm", "unit_cm", "aqhi"},
-        "linecast.radar.i18n": {"unit_km"},
+        "linecast.weather.i18n": {"unit_kmh", "unit_ms", "unit_mph", "unit_mm", "unit_cm",
+                                  "aqhi"},
+        "linecast.tides.i18n": {"period"},
+        "linecast.radar.i18n": {"unit_km", "unit_mi"},
     }
     # Keys a language needs that English does not: the Slavic few-form,
     # Romanian's one and its "de" form for a count of days, and a dawn
@@ -540,6 +542,45 @@ class TestTablesComplete:
                     dead.append(f"{module}.{name} {lang}: {extra}")
         assert not dead, "\n".join(dead)
 
+
+
+class TestPersianOrthography:
+    """Persian writes its own kaf and yeh (ک ی), never the Arabic ones
+    (ك ي ى) that an Arabic keyboard or a careless paste leaves behind.
+    They look alike, but they sort, search and join differently."""
+
+    ARABIC = {"ك": "ARABIC LETTER KAF", "ي": "ARABIC LETTER YEH",
+              "ى": "ARABIC LETTER ALEF MAKSURA"}
+
+    def _strings(self, value, path):
+        if isinstance(value, str):
+            yield path, value
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                yield from self._strings(item, f"{path}[{key!r}]")
+        elif isinstance(value, (list, tuple)):
+            for n, item in enumerate(value):
+                yield from self._strings(item, f"{path}[{n}]")
+
+    def _persian(self):
+        import importlib
+        import pkgutil
+        import linecast
+        from linecast import _framebuffer
+        yield "linecast._framebuffer._HOUR_24['fa']", _framebuffer._HOUR_24.get("fa", "")
+        for info in pkgutil.walk_packages(linecast.__path__, "linecast."):
+            if "i18n" not in info.name:
+                continue
+            module = importlib.import_module(info.name)
+            for name, obj in vars(module).items():
+                if isinstance(obj, dict) and "fa" in obj:
+                    yield from self._strings(obj["fa"], f"{info.name}.{name}['fa']")
+
+    def test_no_arabic_kaf_or_yeh_in_persian(self):
+        found = [f"{path}: {self.ARABIC[ch]} in {text!r}"
+                 for path, text in self._persian()
+                 for ch in self.ARABIC if ch in text]
+        assert not found, "\n".join(found)
 
 
 class TestRegionalVariants:

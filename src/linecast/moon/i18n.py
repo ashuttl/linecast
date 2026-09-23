@@ -657,6 +657,34 @@ _MOON_STRINGS = {
         "autumn_equinox": "Sonbahar ekinoksu",
         "winter_solstice": "Kış gündönümü",
     },
+    "fa": {
+        "illuminated": "روشنایی {pct}٪",
+        "age": "روز {age} از {total}",
+        "lunar_age": "سن ماه {age} روز",
+        "up_now": "اکنون در آسمان",
+        "above_horizon": "{alt}° بالای افق",
+        "below_horizon": "زیر افق",
+        "moonrise": "طلوع ماه",
+        "moonset": "غروب ماه",
+        "in_days": "{days} روز دیگر",
+        "begins_at_sunset": "از غروب آفتاب آغاز می\u200cشود",
+        "in_time": "{dur} دیگر",
+        "year_day": "روز {n} از {total}",
+        "light_of_moon": "ماه افزاینده",
+        "dark_of_moon": "ماه کاهنده",
+        "good_for": "مناسب برای {things}",
+        "hold_off": "{things} را به بعد موکول کنید",
+        "light_good": "کاشت محصولات روی\u200cزمینی، پیوند زدن، نشاکاری",
+        "light_hold": "کاشت محصولات ریشه\u200cای",
+        "dark_good": "کاشت محصولات ریشه\u200cای، هرس، وجین",
+        "dark_hold": "کاشت محصولات روی\u200cزمینی",
+        "solunar_major": "دورهٔ اصلی سولونار",
+        "solunar_minor": "فرعی",
+        "spring_equinox": "اعتدال بهاری",
+        "summer_solstice": "انقلاب تابستانی",
+        "autumn_equinox": "اعتدال پاییزی",
+        "winter_solstice": "انقلاب زمستانی",
+    },
     "ru": {
         "illuminated": "освещено {pct}%",
         "age": "день {age} из {total}",
@@ -844,6 +872,9 @@ MONTHS_I18N = {
            "jul", "aŭg", "sep", "okt", "nov", "dec"],
     "tr": ["Oca", "Şub", "Mar", "Nis", "May", "Haz",
            "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"],
+    # Persian does not abbreviate the months: ۲۱ مارس.
+    "fa": ["ژانویه", "فوریه", "مارس", "آوریل", "مه", "ژوئن",
+           "ژوئیه", "اوت", "سپتامبر", "اکتبر", "نوامبر", "دسامبر"],
     "ru": ["янв", "фев", "мар", "апр", "май", "июн",
            "июл", "авг", "сен", "окт", "ноя", "дек"],
     "ro": ["ian", "feb", "mar", "apr", "mai", "iun",
@@ -1286,8 +1317,9 @@ def anahulu_name(night):
 # ---------------------------------------------------------------------------
 # The Islamic calendar's names (see _calendars/hijri.py for the calendar itself).
 # Arabic is not a UI language, so the months are transliterated for
-# every reader; Indonesian, the one UI language of a Muslim-majority
-# country, gets the spellings its dictionary standardizes.
+# most readers; Indonesian gets the spellings its dictionary
+# standardizes, and Persian the names Iranian calendars print, with the
+# era as ق (qamari, lunar).
 # ---------------------------------------------------------------------------
 
 _HIJRI_MONTHS = {
@@ -1297,24 +1329,35 @@ _HIJRI_MONTHS = {
     "id": ("Muharam", "Safar", "Rabiulawal", "Rabiulakhir",
            "Jumadilawal", "Jumadilakhir", "Rajab", "Syakban",
            "Ramadan", "Syawal", "Zulkaidah", "Zulhijah"),
+    "fa": ("محرم", "صفر", "ربیع\u200cالاول", "ربیع\u200cالثانی",
+           "جمادی\u200cالاول", "جمادی\u200cالثانی", "رجب", "شعبان",
+           "رمضان", "شوال", "ذی\u200cالقعده", "ذی\u200cالحجه"),
 }
+
+_HIJRI_ERA = {"en": "AH", "id": "H", "fa": "ق"}
 
 # Observance names by the keys hijri's next_observance returns.
 _HIJRI_OBSERVANCES = {
-    "new_year": ("Islamic New Year", "Tahun Baru Islam"),
-    "ashura": ("Ashura", "Asyura"),
-    "mawlid": ("Mawlid", "Maulid Nabi"),
-    "ramadan": ("Ramadan begins", "Awal Ramadan"),
-    "qadr": ("Laylat al-Qadr", "Lailatulqadar"),
-    "eid_fitr": ("Eid al-Fitr", "Idulfitri"),
-    "arafah": ("Day of Arafah", "Hari Arafah"),
-    "eid_adha": ("Eid al-Adha", "Iduladha"),
+    "new_year": {"en": "Islamic New Year", "id": "Tahun Baru Islam", "fa": "آغاز سال قمری"},
+    "ashura": {"en": "Ashura", "id": "Asyura", "fa": "عاشورا"},
+    "mawlid": {"en": "Mawlid", "id": "Maulid Nabi", "fa": "میلاد پیامبر"},
+    "ramadan": {"en": "Ramadan begins", "id": "Awal Ramadan", "fa": "آغاز ماه رمضان"},
+    "qadr": {"en": "Laylat al-Qadr", "id": "Lailatulqadar", "fa": "شب قدر"},
+    "eid_fitr": {"en": "Eid al-Fitr", "id": "Idulfitri", "fa": "عید فطر"},
+    "arafah": {"en": "Day of Arafah", "id": "Hari Arafah", "fa": "روز عرفه"},
+    "eid_adha": {"en": "Eid al-Adha", "id": "Iduladha", "fa": "عید قربان"},
 }
 
 
 def hijri_lang(lang):
     """The language the Islamic calendar's names are written in."""
-    return "id" if lang == "id" else "en"
+    base = base_language(lang)
+    return base if base in _HIJRI_MONTHS else "en"
+
+
+def hijri_era(lang):
+    """The era the Hijri year is written with: AH, H, ق."""
+    return _HIJRI_ERA[hijri_lang(lang)]
 
 
 def hijri_month_name(month, lang):
@@ -1323,13 +1366,11 @@ def hijri_month_name(month, lang):
 
 def hijri_date_label(year, month, day, lang):
     """23 Ramadan 1447 AH — the Hijri date as it is customarily written."""
-    era = "H" if hijri_lang(lang) == "id" else "AH"
-    return f"{day} {hijri_month_name(month, lang)} {year} {era}"
+    return f"{day} {hijri_month_name(month, lang)} {year} {hijri_era(lang)}"
 
 
 def hijri_observance_name(key, lang):
-    english, indonesian = _HIJRI_OBSERVANCES[key]
-    return indonesian if hijri_lang(lang) == "id" else english
+    return _HIJRI_OBSERVANCES[key][hijri_lang(lang)]
 
 
 # ---------------------------------------------------------------------------

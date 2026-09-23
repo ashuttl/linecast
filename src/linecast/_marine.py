@@ -18,7 +18,7 @@ MARINE_CACHE_MAX_AGE = 3600  # 1 hour
 
 # Languages that do not write the sixteen points by joining a cardinal to
 # its neighbour ("N" + "NE"): their points are words, not initials.
-_EIGHT_POINT_LANGS = ("fi", "th", "sw", "uk")
+_EIGHT_POINT_LANGS = ("fi", "th", "sw", "uk", "fa")
 
 
 def _compass_direction(degrees, lang="en"):
@@ -164,7 +164,7 @@ def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
         h_str = _format_height(wh, runtime)
         segment = f"{_ts('waves', runtime)} {h_str}"
         if wp is not None:
-            segment += f" @ {wp:.0f}s"
+            segment += _ts("period", runtime, s=f"{wp:.0f}")
         if wd is not None:
             segment += f" {_compass_direction(wd, lang)}"
         parts.append(segment)
@@ -177,7 +177,7 @@ def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
         h_str = _format_height(sh, runtime)
         segment = f"{_ts('swell', runtime)} {h_str}"
         if sp is not None:
-            segment += f" @ {sp:.0f}s"
+            segment += _ts("period", runtime, s=f"{sp:.0f}")
         if sd is not None:
             segment += f" {_compass_direction(sd, lang)}"
         parts.append(segment)

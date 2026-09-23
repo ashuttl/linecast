@@ -411,6 +411,23 @@ _SKY_STRINGS = {
         "search_jump": 'o ana gitmek için tekrar enter',
         "tradition": "gelenek",
     },
+    "fa": {
+        "sun": "خورشید", "moon": "ماه",
+        "mercury": "عطارد", "venus": "زهره", "mars": "مریخ",
+        "jupiter": "مشتری", "saturn": "زحل", "uranus": "اورانوس",
+        "neptune": "نپتون",
+        "facing": "رو به {dir}",
+        "field_of_view": "میدان دید {deg}°",
+        "overhead": "در سمت\u200cالرأس",
+        "planets_none": "هیچ سیاره\u200cای بالای افق نیست",
+        "star": "ستاره",
+        "search_prompt": 'نام یا شمارهٔ کاتالوگ',
+        "search_none": 'چیزی با این نام پیدا نشد',
+        "rises_at": '{name} ساعت {time} از {dir} طلوع می\u200cکند',
+        "never_rises": '{name} از اینجا هرگز طلوع نمی\u200cکند',
+        "search_jump": 'برای رفتن به آن لحظه، دوباره enter',
+        "tradition": "سنت",
+    },
     "ru": {
         "sun": "Солнце", "moon": "Луна",
         "mercury": "Меркурий", "venus": "Венера", "mars": "Марс",
@@ -509,13 +526,14 @@ _SKY_STRINGS = {
 }
 
 # The scripts whose constellation names are not set in capitals on the
-# chart: capitals are a Latin-alphabet convention.
-NO_CAPITALS = frozenset({"ja", "ko", "zh", "zh-Hant", "th"})
+# chart: capitals are a Latin-alphabet convention, and the Arabic script
+# has none.
+NO_CAPITALS = frozenset({"ja", "ko", "zh", "zh-Hant", "th", "fa"})
 
 
 # The cultures' titles, for the status line, the culture command, and the
 # search panel. Stellarium's data gives each culture an English title;
-# this table gives the other twenty-six languages, keyed by the short name
+# this table gives the other twenty-eight languages, keyed by the short name
 # `linecast culture` takes. A proper name (Boorong, Tukano) stays as it is
 # in the Latin-script languages and is transliterated in the others; a
 # name that is an adjective (Chinese, Norse) takes the language's own word.
@@ -544,6 +562,7 @@ CULTURE_TITLES = {
         "vi": "Anuta",
         "eo": "Anuta",
         "tr": "Anuta",
+        "fa": "آنوتا",
         "ru": "Анута",
         "ro": "Anuta",
         "cs": "Anuta",
@@ -574,6 +593,7 @@ CULTURE_TITLES = {
         "vi": "Belarus",
         "eo": "belorusa",
         "tr": "Belarus",
+        "fa": "بلاروسی",
         "ru": "белорусская",
         "ro": "belarusă",
         "cs": "běloruská",
@@ -604,6 +624,7 @@ CULTURE_TITLES = {
         "vi": "Blackfoot",
         "eo": "Blackfoot",
         "tr": "Blackfoot",
+        "fa": "بلک\u200cفوت",
         "ru": "Черноногие",
         "ro": "Blackfoot",
         "cs": "Blackfoot",
@@ -634,6 +655,7 @@ CULTURE_TITLES = {
         "vi": "Boorong",
         "eo": "Boorong",
         "tr": "Boorong",
+        "fa": "بورونگ",
         "ru": "Бурунг",
         "ro": "Boorong",
         "cs": "Boorong",
@@ -664,6 +686,7 @@ CULTURE_TITLES = {
         "vi": "Bugis",
         "eo": "Bugis",
         "tr": "Bugis",
+        "fa": "بوگیس",
         "ru": "Бугис",
         "ro": "Bugis",
         "cs": "Bugis",
@@ -694,6 +717,7 @@ CULTURE_TITLES = {
         "vi": "Trung Hoa",
         "eo": "ĉina",
         "tr": "Çin",
+        "fa": "چینی",
         "ru": "китайская",
         "ro": "chineză",
         "cs": "čínská",
@@ -724,6 +748,7 @@ CULTURE_TITLES = {
         "vi": "Trung Quốc hiện đại",
         "eo": "ĉina nuntempa",
         "tr": "çağdaş Çin",
+        "fa": "چینی معاصر",
         "ru": "китайская современная",
         "ro": "chineză contemporană",
         "cs": "čínská současná",
@@ -754,6 +779,7 @@ CULTURE_TITLES = {
         "vi": "Hawaii",
         "eo": "havaja",
         "tr": "Hawaii",
+        "fa": "هاوایی",
         "ru": "гавайская",
         "ro": "hawaiiană",
         "cs": "havajská",
@@ -784,6 +810,7 @@ CULTURE_TITLES = {
         "vi": "Vệ Đà Ấn Độ",
         "eo": "veda",
         "tr": "Vedik Hint",
+        "fa": "ودایی هند",
         "ru": "ведическая (Индия)",
         "ro": "vedică (India)",
         "cs": "védská (Indie)",
@@ -814,6 +841,7 @@ CULTURE_TITLES = {
         "vi": "Nhị thập bát tú Nhật Bản",
         "eo": "japanaj lunaj domoj",
         "tr": "Japon ay durakları",
+        "fa": "منازل قمر ژاپنی",
         "ru": "японские лунные стоянки",
         "ro": "stațiile lunare japoneze",
         "cs": "japonské lunární domy",
@@ -844,6 +872,7 @@ CULTURE_TITLES = {
         "vi": "Mandar",
         "eo": "Mandar",
         "tr": "Mandar",
+        "fa": "ماندار",
         "ru": "Мандар",
         "ro": "Mandar",
         "cs": "Mandar",
@@ -874,6 +903,7 @@ CULTURE_TITLES = {
         "vi": "Māori",
         "eo": "maoria",
         "tr": "Maori",
+        "fa": "مائوری",
         "ru": "маори",
         "ro": "maori",
         "cs": "maorská",
@@ -904,6 +934,7 @@ CULTURE_TITLES = {
         "vi": "Mông Cổ",
         "eo": "mongola",
         "tr": "Moğol",
+        "fa": "مغولی",
         "ru": "монгольская",
         "ro": "mongolă",
         "cs": "mongolská",
@@ -934,6 +965,7 @@ CULTURE_TITLES = {
         "vi": "Bắc Âu",
         "eo": "norena",
         "tr": "İskandinav",
+        "fa": "اسکاندیناویایی",
         "ru": "скандинавская",
         "ro": "nordică",
         "cs": "severská",
@@ -964,6 +996,7 @@ CULTURE_TITLES = {
         "vi": "Romania",
         "eo": "rumana",
         "tr": "Rumen",
+        "fa": "رومانیایی",
         "ru": "румынская",
         "ro": "românească",
         "cs": "rumunská",
@@ -994,6 +1027,7 @@ CULTURE_TITLES = {
         "vi": "Ruelle",
         "eo": "Ruelle",
         "tr": "Ruelle",
+        "fa": "روئل",
         "ru": "Рюэль",
         "ro": "Ruelle",
         "cs": "Ruelle",
@@ -1024,6 +1058,7 @@ CULTURE_TITLES = {
         "vi": "Sami",
         "eo": "samea",
         "tr": "Sami",
+        "fa": "سامی",
         "ru": "саамская",
         "ro": "sami",
         "cs": "sámská",
@@ -1054,6 +1089,7 @@ CULTURE_TITLES = {
         "vi": "Siberia",
         "eo": "siberia",
         "tr": "Sibirya",
+        "fa": "سیبریایی",
         "ru": "сибирская",
         "ro": "siberiană",
         "cs": "sibiřská",
@@ -1085,6 +1121,7 @@ CULTURE_TITLES = {
         "vi": "Tonga",
         "eo": "tonga",
         "tr": "Tonga",
+        "fa": "تونگایی",
         "ru": "тонганская",
         "ro": "tongană",
         "cs": "tonžská",
@@ -1115,6 +1152,7 @@ CULTURE_TITLES = {
         "vi": "Tukano",
         "eo": "Tukano",
         "tr": "Tukano",
+        "fa": "توکانو",
         "ru": "Тукано",
         "ro": "Tukano",
         "cs": "Tukano",
@@ -1145,6 +1183,7 @@ CULTURE_TITLES = {
         "vi": "Phương Tây (Sky & Telescope)",
         "eo": "okcidenta (Sky & Telescope)",
         "tr": "Batı (Sky & Telescope)",
+        "fa": "غربی (Sky & Telescope)",
         "ru": "западная (Sky & Telescope)",
         "ro": "occidentală (Sky & Telescope)",
         "cs": "západní (Sky & Telescope)",
@@ -1175,6 +1214,7 @@ CULTURE_TITLES = {
         "vi": "Phương Tây (H.A.Rey)",
         "eo": "okcidenta (H.A.Rey)",
         "tr": "Batı (H.A.Rey)",
+        "fa": "غربی (H.A.Rey)",
         "ru": "западная (H.A.Rey)",
         "ro": "occidentală (H.A.Rey)",
         "cs": "západní (H.A.Rey)",

@@ -8,6 +8,8 @@ _TIDES_STRINGS = {
         "waves": "Waves",
         "swell": "Swell",
         "tide_model": "Open-Meteo tide model",
+        # A wave's period, after its height: "Waves 0.4m @ 3s"
+        "period": " @ {s}s",
     },
     "fr": {
         "space_to_now": "espace pour revenir",
@@ -145,6 +147,13 @@ _TIDES_STRINGS = {
         "swell": "Soluğan",
         "tide_model": "Open-Meteo gelgit modeli",
     },
+    "fa": {
+        "space_to_now": "فاصله برای بازگشت به اکنون",
+        "waves": "امواج",
+        "swell": "خیزاب",
+        "tide_model": "مدل جزر و مد Open-Meteo",
+        "period": " ({s} ثانیه)",
+    },
     "ru": {
         "space_to_now": "пробел — вернуться к настоящему",
         "waves": "Волны",
@@ -226,6 +235,8 @@ for _lang, (_none, _failed) in {
            'Ne eblis ŝargi la tajdojn por {name}. Bonvolu reprovi.'),
     'tr': ('{name} için gelgit tahmini yok.',
            '{name} için gelgit bilgisi yüklenemedi. Lütfen tekrar deneyin.'),
+    'fa': ('پیش\u200cبینی جزر و مد برای {name} در دسترس نیست.',
+           'بارگیری جزر و مد {name} ممکن نشد. لطفاً دوباره امتحان کنید.'),
     'ru': ('Нет прогноза приливов для {name}.',
            'Не удалось загрузить приливы для {name}. Попробуйте ещё раз.'),
     'ro': ('Nu există prognoză de maree pentru {name}.',
@@ -287,6 +298,11 @@ MOON_NAMES_I18N = {
            "Plenluno", "Malkreskanta ĝiba luno", "Lasta kvarono", "Malkreskanta lunarko"],
     "tr": ["Yeni Ay", "Büyüyen hilal", "İlk dördün", "Büyüyen şişkin Ay",
            "Dolunay", "Küçülen şişkin Ay", "Son dördün", "Küçülen hilal"],
+    # After fa.wikipedia's گام\u200cهای ماه: ماه نو, تربیع اول, تربیع دوم, and
+    # افزاینده and کاهنده for waxing and waning; کوژ for gibbous, and
+    # ماه کامل, the everyday name for بدر.
+    "fa": ["ماه نو", "هلال افزاینده", "تربیع اول", "کوژ افزاینده",
+           "ماه کامل", "کوژ کاهنده", "تربیع دوم", "هلال کاهنده"],
     "ru": ["Новолуние", "Растущий серп", "Первая четверть", "Растущая Луна",
            "Полнолуние", "Убывающая Луна", "Последняя четверть", "Убывающий серп"],
     "ro": ["Lună nouă", "Semilună crescătoare", "Primul pătrar", "Lună gibboasă crescătoare",

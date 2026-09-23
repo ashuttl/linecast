@@ -3,11 +3,12 @@
 from datetime import datetime
 
 from linecast import _theme
-from linecast._i18n import fmt_decimal, fmt_percent, table_for
+from linecast._i18n import base_language, fmt_decimal, fmt_percent, table_for
 from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast.weather.cover import sky_condition
-from linecast.weather.i18n import DAY_NAMES, _s, _wmo_icons, fmt_wind
+from linecast.weather.i18n import (DAY_NAMES, FULL_DAY_NAMES, LIST_FULL_DAY_NAMES, _s,
+                                   _wmo_icons, fmt_wind)
 from linecast.weather.sources import _local_now_for_data
 from linecast.weather.style import (
     DIM, TEXT, WIND_COLOR, _knockout_ink, _precip_color, _precip_type, _temp_color,
@@ -91,7 +92,8 @@ def render_daily_mapped(data, width, runtime=None, now=None):
 
     # Measure widest right-side detail columns across all days for alignment
     lang = runtime.lang
-    day_name_list = table_for(DAY_NAMES, lang)
+    day_name_list = table_for(FULL_DAY_NAMES if base_language(lang) in LIST_FULL_DAY_NAMES
+                              else DAY_NAMES, lang)
     day_col_w = max(visible_len(n) for n in day_name_list + [_s("today_short", runtime)])
     left_prefix_w = day_col_w + 2 + 2 + 2  # "day  ic  "
     # A window too narrow even for a bare bar has no room for these rows,

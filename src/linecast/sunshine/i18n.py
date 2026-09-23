@@ -463,6 +463,25 @@ _SUNSHINE_STRINGS = {
         "sunrise": "gün doğumu",
         "sunset": "gün batımı",
     },
+    # The twilights as fa.wikipedia's شفق names them; شفق is the
+    # twilight at either end of the night, so one word serves both.
+    "fa": {
+        "today": "امروز",
+        "in_day": "{n} روز دیگر",
+        "in_days": "{n} روز دیگر",
+        "day_ago": "{n} روز پیش",
+        "days_ago": "{n} روز پیش",
+        "sky_night": "شب",
+        "sky_astronomical": "شفق اخترشناختی",
+        "sky_nautical": "شفق دریایی",
+        "sky_civil": "شفق مدنی",
+        "sky_day": "روز",
+        "midnight_sun": "خورشید نیمه\u200cشب",
+        "polar_night": "شب قطبی",
+        "solar_noon": "ظهر خورشیدی",
+        "sunrise": "طلوع آفتاب",
+        "sunset": "غروب آفتاب",
+    },
     "ru": {
         "today": "сегодня",
         "in_day": "через {n} день",
@@ -597,8 +616,11 @@ _AXIS_MONTHS = {
            "กค", "สค", "กย", "ตค", "พย", "ธค"],
     # T1 … T12, as Vietnamese charts letter their months.
     "vi": [f"T{m}" for m in range(1, 13)],
+    # ژوئن and ژوئیه share their first letters, and the rest are too
+    # long to cut; month numbers, as for Greek.
+    "fa": [str(m) for m in range(1, 13)],
 }
-_NUMERIC_AXIS_LANGS = frozenset({"ja", "ko", "zh", "zh-Hant", "vi", "el"})
+_NUMERIC_AXIS_LANGS = frozenset({"ja", "ko", "zh", "zh-Hant", "vi", "el", "fa"})
 
 
 def _axis_months(lang):

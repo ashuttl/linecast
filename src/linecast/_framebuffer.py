@@ -76,6 +76,9 @@ _HOUR_24 = {
     "es": "{h}:00", "pt": "{h}h",
     # Vietnamese writes the hour without a leading zero: "kho\u1ea3ng 9h".
     "vi": "{h}h",
+    # Persian names the hour with its word, as IRIMO and the news do:
+    # "حدود ساعت ۱۵", "از ساعت ۱۵"
+    "fa": "ساعت\u00a0{h}",
 }
 
 

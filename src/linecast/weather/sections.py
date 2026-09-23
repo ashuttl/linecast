@@ -1838,6 +1838,18 @@ def _gusts_usual(daily, day, runtime):
     return others[len(others) // 2]
 
 
+_WIND_PROSE_KEYS = {"km/h": "unit_kmh_prose", "m/s": "unit_ms_prose", "mph": "unit_mph_prose"}
+
+
+def _prose_wind_unit(runtime):
+    """The wind unit as a sentence writes it: spelled out where the
+    language does ("کیلومتر بر ساعت"), else the label the graph uses."""
+    key = _WIND_PROSE_KEYS.get(runtime.wind_unit)
+    if key and _has(key, runtime):
+        return _s(key, runtime)
+    return runtime.wind_unit_label
+
+
 def _gusts(hourly, now, runtime, after=None, daily=None):
     """"Gusts to 45 mph this afternoon", whether that is a gale, the
     hour of the peak, and the speed as written."""
@@ -1857,7 +1869,7 @@ def _gusts(hourly, now, runtime, after=None, daily=None):
         usual = _gusts_usual(daily or {}, dt.date().isoformat(), runtime)
         if usual is not None and kmh - usual < _GUSTS_BEYOND_USUAL_KMH:
             return nothing
-    speed = f"{gusts[i]:.0f}{_prose_sep(runtime)}{runtime.wind_unit_label}"
+    speed = f"{gusts[i]:.0f}{_prose_sep(runtime)}{_prose_wind_unit(runtime)}"
     return (_ucfirst(_s("gusts_to", runtime, speed=speed,
                         time=_period_phrase(dt, now, runtime, after=after))),
             kmh >= _GUSTS_GALE_KMH, dt, speed)
