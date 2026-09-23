@@ -47,7 +47,7 @@ class TestTrace:
 
         assert [t["text"] for t in trace if t["chosen"]] == [
             "Today's high will be about the same as yesterday's",
-            "The wind is making it feel cooler",
+            "The wind is making it feel colder",
         ]
         for entry in trace:
             assert set(entry) == {"salience", "at", "text", "chosen"}
@@ -95,7 +95,7 @@ class TestShow:
         assert "    en  Today's high will be about the same as yesterday's." in text
         assert "    ja  " in text
         assert set(said["testville"]) == {"en", "ja"}
-        assert said["testville"]["en"].endswith("feel cooler.")
+        assert said["testville"]["en"].endswith("feel colder.")
 
     def test_continuation_lines_sit_under_the_first(self):
         out = StringIO()
@@ -116,7 +116,7 @@ class TestShow:
         out = StringIO()
         prose.show([_record()], ["en"], 200, trace=True, out=out)
         assert "[en]" in out.getvalue()
-        assert "* 3   +0.0h  The wind is making it feel cooler" in out.getvalue()
+        assert "* 3   +0.0h  The wind is making it feel colder" in out.getvalue()
 
 
 class TestDiff:

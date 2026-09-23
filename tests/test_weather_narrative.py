@@ -37,7 +37,7 @@ class TestFeelsSentence:
                    "weather_code": 3}
 
         assert feels_sentence(current, DAILY, NOON, _runtime()) == \
-            _s("feels_wind", _runtime())
+            _s("feels_wind_cold", _runtime())
 
     def test_muggy_air_explains_a_warmer_apparent_temperature(self):
         current = {"temperature_2m": 88, "apparent_temperature": 96,
@@ -80,6 +80,15 @@ class TestFeelsSentence:
         assert feels_sentence(current, DAILY, NOON, _runtime()) == \
             _s("feels_wind", _runtime())
 
+    def test_cold_air_feels_colder_and_mild_air_cooler(self):
+        wind = {"relative_humidity_2m": 70, "wind_speed_10m": 18, "weather_code": 3}
+        cold = dict(wind, temperature_2m=40, apparent_temperature=30)
+        mild = dict(wind, temperature_2m=62, apparent_temperature=55)
+        assert feels_sentence(cold, DAILY, NOON, _runtime()) == \
+            "The wind is making it feel colder"
+        assert feels_sentence(mild, DAILY, NOON, _runtime()) == \
+            "The wind is making it feel cooler"
+
     def test_cold_damp_air_is_not_called_dry(self):
         # Longyearbyen at 1 C and 91% humidity: the formula's humidity term
         # is negative in any cold air, but no one there calls it dry.  The
@@ -90,7 +99,7 @@ class TestFeelsSentence:
 
         assert feels_sentence(current, DAILY, NOON,
                               _runtime(celsius=True, metric=True)) == \
-            _s("feels_wind", _runtime())
+            _s("feels_wind_cold", _runtime())
 
     def test_cold_damp_still_air_says_nothing(self):
         # The same air without the wind: nothing is holding a degree of the
@@ -176,7 +185,7 @@ class TestNarrativePacking:
         assert lines == [
             "Today's high will be about the same as",
             "yesterday's. The wind is making it",
-            "feel cooler.",
+            "feel colder.",
         ]
 
     def test_every_sentence_is_punctuated(self):
@@ -241,7 +250,7 @@ class TestNarrativePacking:
         evening = datetime(2026, 7, 15, 18, 0)
         prose = self._plain(narrative_lines(self.DATA, evening, 200, _runtime()))[0]
 
-        assert prose.startswith(_s("feels_wind", _runtime())), prose
+        assert prose.startswith(_s("feels_wind_cold", _runtime())), prose
         assert "Tomorrow's high will be" in prose
 
 
@@ -718,7 +727,7 @@ class TestTheClockInTheSentence:
                                "до −2\u00a0градусов. "
                                "Небольшой снег, вероятно, начнётся тогда же.")
         assert prose("fr") == "Gelées cette nuit, jusqu'à −2°. Neige légère probable également."
-        assert prose("ja") == ("今夜は氷点下まで冷え込み、最低−2度の見込みです。"
+        assert prose("ja") == ("今夜は氷点下まで冷え込み、最低−2度となるでしょう。"
                                "同じ頃弱い雪となる見込みです。")
         # A language without the word names the night again
         assert "คืนนี้" in prose("th").rsplit("คาดว่า", 1)[-1]
@@ -951,7 +960,7 @@ class TestMoreToSay:
         # Japanese reads the wind in m/s, and the data comes that way too
         hourly = self._hourly(NOON, len(gusts), wind_gusts_10m=[g * 1.6 / 3.6 for g in gusts])
         assert gusts_sentence(hourly, NOON, _runtime(lang="ja", metric=True)) == \
-            "午後に最大20m/sの突風が吹く見込みです"
+            "午後に最大20m/sの突風が吹くでしょう"
 
     def test_a_breeze_is_not_worth_a_sentence(self):
         from linecast._weather.sections import gusts_sentence
@@ -975,7 +984,7 @@ class TestMoreToSay:
         hourly = self._hourly(datetime(2026, 7, 15, 20), len(temps), temperature_2m=celsius)
         assert freeze_sentence(hourly, {"temperature_2m": 5}, now,
                                _runtime(lang="ja", celsius=True, metric=True)) == \
-            "明日の早朝には氷点下まで冷え込み、最低−2度の見込みです"
+            "明日の早朝には氷点下まで冷え込み、最低−2度となるでしょう"
 
     def test_already_freezing_says_nothing(self):
         from linecast._weather.sections import freeze_sentence
@@ -1078,9 +1087,9 @@ class TestMoreToSay:
         from linecast._weather.sections import comparative_sentence
         daily = {"temperature_2m_max": [60, 68, 55]}
         assert comparative_sentence(daily, NOON, _runtime()) == \
-            "Today's high will be 8° higher than yesterday's"
+            "Today's high will be 8° warmer than yesterday's"
         assert comparative_sentence(daily, NOON.replace(hour=16), _runtime()) == \
-            "Tomorrow's high will be 13° lower than today's"
+            "Tomorrow's high will be 13° cooler than today's"
         assert comparative_sentence(daily, NOON, _runtime(lang="ja")) == \
             "今日の最高気温は昨日より8度高いでしょう"
         assert comparative_sentence({"temperature_2m_max": [60, 61, 55]}, NOON, _runtime()) == \
@@ -1120,7 +1129,7 @@ class TestWhatIsSaidAndInWhatOrder:
     def test_now_comes_before_later_and_the_past_comes_last(self):
         assert self._prose(self._busy_day()) == (
             "Today's high will be about the same as yesterday's. "
-            "The wind is making it feel cooler. "
+            "The wind is making it feel colder. "
             "Rain starting in a couple hours, with gusts to 30\u00a0mph. "
             "1.50\u00a0inches of rain in the last 24 hours.")
 
@@ -1145,7 +1154,7 @@ class TestWhatIsSaidAndInWhatOrder:
                 "daily": dict(DAILY, temperature_2m_max=[60, 61, 63]), "hourly": {}}
         assert self._prose(data) == (
             "Today's high will be about the same as yesterday's. "
-            "The wind is making it feel cooler.")
+            "The wind is making it feel colder.")
 
     def test_tomorrow_follows_now(self):
         # Miami at ten at night: muggy now, hotter tomorrow afternoon
@@ -1208,7 +1217,7 @@ class TestWhatIsSaidAndInWhatOrder:
             "Drizzle starting in the afternoon, with gusts to 26\u00a0mph.")
         assert self._prose(data, night, lang="ja") == (
             "明日の最高気温は今日と同じくらいでしょう。"
-            "午後に霧雨になるでしょう。風も強まり、最大26mphの突風が吹く見込みです。")
+            "午後に霧雨になるでしょう。風も強まり、最大26mphの突風が吹くでしょう。")
 
 class TestDegreesAsWords:
     """Where the language counts its degrees in words, the word agrees
@@ -1408,9 +1417,9 @@ class TestTomorrowIsSaidOnce:
                 "hourly": {"time": [h.isoformat(timespec="minutes") for h in hours],
                            "wind_gusts_10m": [10] * 11 + [40, 42, 38] + [10] * 12}}
         assert self._prose(data, night) == (
-            "Gusts to 42\u00a0mph tomorrow morning. The high will be 5° lower than today's.")
+            "Gusts to 42\u00a0mph tomorrow morning. The high will be 5° cooler than today's.")
         assert self._prose(data, night, lang="ja") == (
-            "明日の朝に最大42mphの突風が吹く見込みです。最高気温は今日より5度低いでしょう。")
+            "明日の朝に最大42mphの突風が吹くでしょう。最高気温は今日より5度低いでしょう。")
 
     def test_rain_after_the_comparison_inherits_tomorrow(self):
         night = datetime(2026, 7, 15, 21, 0)
@@ -1421,11 +1430,11 @@ class TestTomorrowIsSaidOnce:
                            "weather_code": codes,
                            "precipitation_probability": [90 if c else 0 for c in codes]}}
         assert self._prose(data, night) == (
-            "Tomorrow's high will be 5° lower than today's. Light rain starting in the afternoon.")
+            "Tomorrow's high will be 5° cooler than today's. Light rain starting in the afternoon.")
 
     def test_today_is_never_repeated_so_never_elided(self):
         data = {"daily": dict(DAILY, temperature_2m_max=[70, 75, 67]), "hourly": {}}
-        assert self._prose(data, NOON) == "Today's high will be 5° higher than yesterday's."
+        assert self._prose(data, NOON) == "Today's high will be 5° warmer than yesterday's."
 
     def test_an_hour_after_midnight_does_not_establish_tomorrow(self):
         # Havana at half past ten: thunder in about an hour is not "tomorrow"
@@ -1563,7 +1572,7 @@ class TestFog:
         data = {"daily": dict(DAILY, temperature_2m_max=[70, 75, 67]), "hourly": hourly,
                 "current": {"weather_code": 45}}
         assert self._prose(data) == (
-            "Today's high will be 5° higher than yesterday's. Fog clearing around 17:00.")
+            "Today's high will be 5° warmer than yesterday's. Fog clearing around 17:00.")
 
 
 class TestPastPrecipitation:

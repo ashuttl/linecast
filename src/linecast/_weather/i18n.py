@@ -1110,19 +1110,25 @@ _STRINGS = {
         "feels_sun": "The sun is making it feel warmer",
         "feels_wind": "The wind is making it feel cooler",
         "feels_dry": "The dry air is making it feel cooler",
-        # Comparative line: the day's high against the other day's.
+        # In cold air the same push is "colder": a person says cooler of
+        # a warm day
+        "feels_wind_cold": "The wind is making it feel colder",
+        "feels_dry_cold": "The dry air is making it feel colder",
+        # Comparative line: the day's high against the other day's,
+        # "warmer" and "cooler" as a forecaster says it, not the "high …
+        # higher" of the literal.
         # Where the language has the "by" forms, the number stands in
         # for "a bit" and "much".
         "degrees": "{n}°",
         "same_temp": "about the same as {ref_day}",
-        "bit_warmer": "a bit higher than {ref_day}",
-        "bit_cooler": "a bit lower than {ref_day}",
-        "warmer": "higher than {ref_day}",
-        "cooler": "lower than {ref_day}",
-        "much_warmer": "much higher than {ref_day}",
-        "much_cooler": "much lower than {ref_day}",
-        "warmer_by": "{diff} higher than {ref_day}",
-        "cooler_by": "{diff} lower than {ref_day}",
+        "bit_warmer": "a bit warmer than {ref_day}",
+        "bit_cooler": "a bit cooler than {ref_day}",
+        "warmer": "warmer than {ref_day}",
+        "cooler": "cooler than {ref_day}",
+        "much_warmer": "much warmer than {ref_day}",
+        "much_cooler": "much cooler than {ref_day}",
+        "warmer_by": "{diff} warmer than {ref_day}",
+        "cooler_by": "{diff} cooler than {ref_day}",
         "today_subj": "Today's high",
         "tomorrow_subj": "Tomorrow's high",
         "yesterday": "yesterday's",
@@ -3082,9 +3088,9 @@ _STRINGS = {
         "rain_next_chance": "{time}{desc}になる可能性があります",
         "rain_next_likely": "{time}{desc}となる見込みです",
         "rain_next": "{time}{desc}になるでしょう",
-        "gusts_to": "{time}最大{speed}の突風が吹く見込みです",
-        "with_gusts": "{sentence}。風も強まり、最大{speed}の突風が吹く見込みです",
-        "freeze_tonight": "{time}は氷点下まで冷え込み、最低{temp}の見込みです",
+        "gusts_to": "{time}最大{speed}の突風が吹くでしょう",
+        "with_gusts": "{sentence}。風も強まり、最大{speed}の突風が吹くでしょう",
+        "freeze_tonight": "{time}は氷点下まで冷え込み、最低{temp}となるでしょう",
         "feels_ahead_hot": "{time}は体感温度が{temp}まで上がる見込みです",
         "feels_ahead_hot_humid": "湿度が高く、{time}は体感温度が{temp}まで上がる見込みです",
         "feels_ahead_hot_sun": "日差しが強く、{time}は体感温度が{temp}まで上がる見込みです",

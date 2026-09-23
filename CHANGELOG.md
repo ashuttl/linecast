@@ -8,13 +8,14 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: The current conditions come from the nearest airport's latest report, where one is close by and recent, instead of from the forecast model alone. A morning fog the model is slow to clear no longer lingers in the header after the sky has cleared. The credit line names the Aviation Weather Center when its report is used.
 - Maps: The terrain map is drawn on the globe's geometry at every zoom. A regional view, a few degrees wide and up, now curves as the globe does instead of lying flat, with its borders, rivers and city dots curving with it, and zooming out no longer cuts from a flat map to a planet. Street mode is unchanged.
 - Weather: The temperature comparison says what it compares, the day's high: "Today's high will be 14° lower than yesterday's."
+- Weather: The temperature comparison says what it compares, the day's high: "Today's high will be 14° cooler than yesterday's."
 - Weather: The rain total for the last 24 hours counts 24 hours of rain, not 25.
 - Weather: In German, showers and thunderstorms take the plural ("Leichte Schauer enden gegen 13 Uhr"). In French, a turn in the rain reads "Bruine légère demain matin, puis des orages dans l'après-midi."
 - Weather: Amounts use the language's decimal mark (11,3 mm in French and German), mph is spaced as km/h is, and a number stays on the same line as its unit.
 - Weather: Japanese and Chinese prose no longer starts a line with a comma or full stop, or splits a number from its unit.
 - Weather: French writes clock times as "vers 9 h", as Météo-France does, instead of "vers 09h".
 - Weather: The forecast paragraph reads more naturally in every language. Each language's sentences follow its national weather service's style, instead of constructions carried over from English, and several wrong words are fixed along the way.
-- Weather: In English, a turn in the rain reads "Light showers starting around 15:00, then thunderstorms around 18:00", amounts are spelled out ("9.5 mm of rain in the last 24 hours", "0.30 inches"), and midday is "noon".
+- Weather: In English, a turn in the rain reads "Light showers starting around 15:00, then thunderstorms around 18:00", amounts are spelled out ("9.5 mm of rain in the last 24 hours", "0.30 inches"), midday is "noon", and a wind on a cold day makes it feel colder rather than cooler.
 - Weather: A sentence about the same part of today as the one before it says so, instead of naming it twice: "Below freezing tonight, down to −2°. Light snow likely then."
 - Weather: Hong Kong Chinese gives times as the Observatory writes them (下午3時), and Swahili tells the hour in Swahili time (saa saba mchana).
 - Weather: Icelandic, Russian, Ukrainian, Canadian French, Japanese, and Chinese use their weather service's own words, checked against its published forecasts: Icelandic súld for drizzle, Russian and Ukrainian кратковременный and короткочасний for showers instead of words for a downpour or a snow squall, Environment Canada's "cessant", and the Japan Meteorological Agency's 見込みです.

@@ -756,6 +756,11 @@ def feels_sentence(current, daily, now, runtime=None):
     return _feels(current, daily, now, runtime)[0]
 
 
+# Below this the air is cold, and a wind makes it feel colder rather
+# than cooler.
+_FEELS_COLD_C = 10
+
+
 def _feels(current, daily, now, runtime):
     """The feels-like sentence and the cause it names."""
     temp = current.get("temperature_2m")
@@ -788,10 +793,18 @@ def _feels(current, daily, now, runtime):
         return "", None
 
     holding = pushing[0][1]
+
+    def said(key):
+        # Air that is cold already feels colder, not cooler, where the
+        # language tells the two apart
+        if to_c(temp) < _FEELS_COLD_C and _has(key + "_cold", runtime):
+            key += "_cold"
+        return _s(key, runtime)
+
     if holding == "wind":
-        return _s("feels_wind", runtime), "wind"
+        return said("feels_wind"), "wind"
     if holding == "humid":
-        return _s("feels_humid" if gap > 0 else "feels_dry", runtime), "humid"
+        return (_s("feels_humid", runtime) if gap > 0 else said("feels_dry")), "humid"
     # Sunshine is the leftover, so it carries whatever the formula and the
     # API disagree about.  Claim it only when it warms, and only with the
     # sun actually up.

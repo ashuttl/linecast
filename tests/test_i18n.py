@@ -482,7 +482,7 @@ class TestTablesComplete:
                                            "_diff", "_diff_one", "_diff_few", "_then",
                                            "_heavier", "_with", "_noon", "_prose", "_span",
                                            "_span_becoming", "_span_heavier", "_heavier_pl",
-                                           "_batchim", "_heavier_batchim")}
+                                           "_batchim", "_heavier_batchim", "_cold")}
 
     # Keys a language may leave out, and goes without: Thai has no
     # "at that time" that sits in every slot a part of the day takes
