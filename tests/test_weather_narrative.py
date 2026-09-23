@@ -1284,18 +1284,18 @@ class TestDegreesAsWords:
         return freeze_sentence(hourly, {"temperature_2m": 3}, NOON, rt)
 
     def test_slavic_counting_forms_after_the_difference(self):
-        assert self._diff("ru", 3) == (
-            "Сегодня максимальная температура будет на 3\u00a0градуса выше, чем вчера")
+        assert self._diff("ru", 4) == (
+            "Сегодня максимальная температура будет на 4\u00a0градуса выше, чем вчера")
         assert self._diff("ru", 5) == (
             "Сегодня максимальная температура будет на 5\u00a0градусов выше, чем вчера")
         assert self._diff("ru", 21) == (
             "Сегодня максимальная температура будет на 21\u00a0градус выше, чем вчера")
-        assert self._diff("pl", 3) == (
-            "Dzisiejsza temperatura maksymalna będzie o 3\u00a0stopnie wyższa niż wczorajsza")
+        assert self._diff("pl", 4) == (
+            "Dzisiejsza temperatura maksymalna będzie o 4\u00a0stopnie wyższa niż wczorajsza")
         assert self._diff("pl", 5) == (
             "Dzisiejsza temperatura maksymalna będzie o 5\u00a0stopni wyższa niż wczorajsza")
-        assert self._diff("cs", 3) == (
-            "Dnešní nejvyšší teplota bude o 3\u00a0stupně vyšší než včerejší")
+        assert self._diff("cs", 4) == (
+            "Dnešní nejvyšší teplota bude o 4\u00a0stupně vyšší než včerejší")
         assert self._diff("cs", 5) == (
             "Dnešní nejvyšší teplota bude o 5\u00a0stupňů vyšší než včerejší")
 
@@ -1311,7 +1311,7 @@ class TestDegreesAsWords:
             "Dziś po południu temperatura spadnie poniżej zera, do −1\u00a0stopnia")
 
     def test_icelandic_dative_for_the_difference_only(self):
-        assert self._diff("is", 3) == "Í dag verður hámarkshitinn 3\u00a0stigum hærri en í gær"
+        assert self._diff("is", 4) == "Í dag verður hámarkshitinn 4\u00a0stigum hærri en í gær"
         # Every number ending in 1 but 11 takes the singular
         assert self._diff("is", 21) == "Í dag verður hámarkshitinn 21\u00a0stigi hærri en í gær"
         assert self._diff("is", 11) == "Í dag verður hámarkshitinn 11\u00a0stigum hærri en í gær"
@@ -1322,8 +1322,8 @@ class TestDegreesAsWords:
         assert self._low("da", -1) == "Frost i eftermiddag, ned til −1\u00a0grad"
         assert self._diff("ro", 20) == (
             "Maxima de azi va fi cu 20\u00a0de grade mai ridicată decât cea de ieri")
-        assert self._diff("ro", 3) == (
-            "Maxima de azi va fi cu 3\u00a0grade mai ridicată decât cea de ieri")
+        assert self._diff("ro", 4) == (
+            "Maxima de azi va fi cu 4\u00a0grade mai ridicată decât cea de ieri")
 
 
 class TestAgreementAndTheClock:
@@ -1464,9 +1464,9 @@ class TestTomorrowIsSaidOnce:
                 "hourly": {"time": [h.isoformat(timespec="minutes") for h in hours],
                            "wind_gusts_10m": [10] * 11 + [40, 42, 38] + [10] * 12}}
         assert self._prose(data, night) == (
-            "Gusts to 42\u00a0mph tomorrow morning. The high will be 5° cooler than today's.")
+            "Gusts to 42\u00a0mph tomorrow morning. The high will be a bit cooler than today's.")
         assert self._prose(data, night, lang="ja") == (
-            "明日の朝に最大42mphの突風が吹くでしょう。最高気温は今日より5度低いでしょう。")
+            "明日の朝に最大42mphの突風が吹くでしょう。最高気温は今日よりやや低いでしょう。")
 
     def test_rain_after_the_comparison_inherits_tomorrow(self):
         night = datetime(2026, 7, 15, 21, 0)
@@ -1477,11 +1477,11 @@ class TestTomorrowIsSaidOnce:
                            "weather_code": codes,
                            "precipitation_probability": [90 if c else 0 for c in codes]}}
         assert self._prose(data, night) == (
-            "Tomorrow's high will be 5° cooler than today's. Light rain starting in the afternoon.")
+            "Tomorrow's high will be a bit cooler than today's. Light rain starting in the afternoon.")
 
     def test_today_is_never_repeated_so_never_elided(self):
         data = {"daily": dict(DAILY, temperature_2m_max=[70, 75, 67]), "hourly": {}}
-        assert self._prose(data, NOON) == "Today's high will be 5° warmer than yesterday's."
+        assert self._prose(data, NOON) == "Today's high will be a bit warmer than yesterday's."
 
     def test_an_hour_after_midnight_does_not_establish_tomorrow(self):
         # Havana at half past ten: thunder in about an hour is not "tomorrow"
@@ -1619,7 +1619,7 @@ class TestFog:
         data = {"daily": dict(DAILY, temperature_2m_max=[70, 75, 67]), "hourly": hourly,
                 "current": {"weather_code": 45}}
         assert self._prose(data) == (
-            "Fog clearing around 17:00. Today's high will be 5° warmer than yesterday's.")
+            "Fog clearing around 17:00. Today's high will be a bit warmer than yesterday's.")
 
 
 class TestPastPrecipitation:

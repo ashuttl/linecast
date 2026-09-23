@@ -1162,7 +1162,8 @@ _STRINGS = {
         # "warmer" and "cooler" as a forecaster says it, not the "high …
         # higher" of the literal.
         # Where the language has the "by" forms, the number stands in
-        # for "a bit" and "much".
+        # for "much" and the plain comparison; a small change stays "a
+        # bit".
         "degrees": "{n}°",
         "same_temp": "about the same as {ref_day}",
         "bit_warmer": "a bit warmer than {ref_day}",

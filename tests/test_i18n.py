@@ -78,9 +78,9 @@ class TestUkrainianWeather:
     def test_comparative_sentences_are_idiomatic(self):
         runtime = SimpleNamespace(lang="uk", celsius=True)
         now = datetime(2026, 8, 24, 15)
-        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 25]}, now, runtime)
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
-        assert warmer == "Завтра максимальна температура буде на 3\u00a0градуси вищою, ніж сьогодні"
+        assert warmer == "Завтра максимальна температура буде на 4\u00a0градуси вищою, ніж сьогодні"
         assert same == "Завтра максимальна температура буде приблизно такою ж, як сьогодні"
 
     def test_precipitation_phrases_read_as_clock_times(self):
@@ -113,9 +113,9 @@ class TestVietnameseWeather:
     def test_comparative_sentences_are_idiomatic(self):
         runtime = SimpleNamespace(lang="vi", celsius=True)
         now = datetime(2026, 8, 24, 15)
-        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 25]}, now, runtime)
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
-        assert warmer == "Nhiệt độ cao nhất ngày mai sẽ cao hơn hôm nay 3\u00a0độ"
+        assert warmer == "Nhiệt độ cao nhất ngày mai sẽ cao hơn hôm nay 4\u00a0độ"
         assert same == "Nhiệt độ cao nhất ngày mai sẽ gần bằng hôm nay"
 
     def test_precipitation_phrases_read_as_vietnamese_clock_times(self):
@@ -147,10 +147,10 @@ class TestEsperantoWeather:
         """The weather is an adverb in Esperanto: "estas varme", not "varma"."""
         runtime = SimpleNamespace(lang="eo", celsius=True)
         now = datetime(2026, 8, 24, 15)
-        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 25]}, now, runtime)
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
         assert warmer == (
-            "La morgaŭa maksimuma temperaturo estos je 3\u00a0gradoj pli alta ol la hodiaŭa")
+            "La morgaŭa maksimuma temperaturo estos je 4\u00a0gradoj pli alta ol la hodiaŭa")
         assert same == "La morgaŭa maksimuma temperaturo estos proksimume la sama kiel la hodiaŭa"
 
     def test_precipitation_phrases_read_as_clock_times(self):
@@ -181,11 +181,11 @@ class TestTurkishWeather:
         """The reference day takes a case suffix, "bugünden", "dünle"."""
         runtime = SimpleNamespace(lang="tr", celsius=True)
         now = datetime(2026, 8, 24, 15)
-        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 25]}, now, runtime)
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
         earlier = comparative_sentence({"temperature_2m_max": [20, 24, 22]},
                                        datetime(2026, 8, 24, 9), runtime)
-        assert warmer == "Yarın en yüksek sıcaklık bugünkünden 3\u00a0derece daha yüksek olacak"
+        assert warmer == "Yarın en yüksek sıcaklık bugünkünden 4\u00a0derece daha yüksek olacak"
         assert same == "Yarın en yüksek sıcaklık bugünküyle hemen hemen aynı olacak"
         assert earlier == "Bugün en yüksek sıcaklık dünkünden 4\u00a0derece daha yüksek olacak"
 
@@ -215,9 +215,9 @@ class TestRussianWeather:
     def test_comparative_sentences_are_idiomatic(self):
         runtime = SimpleNamespace(lang="ru", celsius=True)
         now = datetime(2026, 8, 24, 15)
-        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 25]}, now, runtime)
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
-        assert warmer == "Завтра максимальная температура будет на 3\u00a0градуса выше, чем сегодня"
+        assert warmer == "Завтра максимальная температура будет на 4\u00a0градуса выше, чем сегодня"
         assert same == "Завтра максимальная температура будет примерно такой же, как сегодня"
 
     def test_precipitation_phrases_read_as_clock_times(self):
@@ -254,9 +254,9 @@ class TestRomanianWeather:
     def test_comparative_sentences_are_idiomatic(self):
         runtime = SimpleNamespace(lang="ro", celsius=True)
         now = datetime(2026, 8, 24, 15)
-        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 25]}, now, runtime)
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
-        assert warmer == "Maxima de mâine va fi cu 3\u00a0grade mai ridicată decât cea de azi"
+        assert warmer == "Maxima de mâine va fi cu 4\u00a0grade mai ridicată decât cea de azi"
         assert same == "Maxima de mâine va fi apropiată de cea de azi"
 
     def test_precipitation_takes_the_article_with_a_verb(self):
@@ -289,9 +289,9 @@ class TestCzechWeather:
     def test_comparative_sentences_are_idiomatic(self):
         runtime = SimpleNamespace(lang="cs", celsius=True)
         now = datetime(2026, 8, 24, 15)
-        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 25]}, now, runtime)
         same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
-        assert warmer == "Zítřejší nejvyšší teplota bude o 3\u00a0stupně vyšší než dnešní"
+        assert warmer == "Zítřejší nejvyšší teplota bude o 4\u00a0stupně vyšší než dnešní"
         assert same == "Zítřejší nejvyšší teplota bude přibližně stejná jako dnešní"
 
     def test_precipitation_phrases_read_as_clock_times(self):
@@ -335,15 +335,15 @@ class TestSwahili:
         runtime = SimpleNamespace(lang="sw", celsius=True, use_24h=True,
                                   metric=True, precip_unit="mm")
         now = datetime(2026, 8, 24, 15)
-        assert comparative_sentence({"temperature_2m_max": [20, 21, 24]}, now, runtime) == (
-            "Kiwango cha juu cha joto kesho kitakuwa juu kwa nyuzi\u00a03 kuliko cha leo")
+        assert comparative_sentence({"temperature_2m_max": [20, 21, 25]}, now, runtime) == (
+            "Kiwango cha juu cha joto kesho kitakuwa juu kwa nyuzi\u00a04 kuliko cha leo")
         assert comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime) == (
             "Kiwango cha juu cha joto kesho kitakuwa karibu sawa na cha leo")
         assert comparative_sentence({"temperature_2m_max": [20, 21, 22]},
                                     now.replace(hour=9), runtime) == (
             "Kiwango cha juu cha joto leo kitakuwa karibu sawa na cha jana")
-        assert comparative_sentence({"temperature_2m_max": [20, 21, 18]}, now, runtime) == (
-            "Kiwango cha juu cha joto kesho kitakuwa chini kwa nyuzi\u00a03 kuliko cha leo")
+        assert comparative_sentence({"temperature_2m_max": [20, 21, 17]}, now, runtime) == (
+            "Kiwango cha juu cha joto kesho kitakuwa chini kwa nyuzi\u00a04 kuliko cha leo")
         hourly = {"time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
                   "precipitation_probability": [0, 0, 0, 0, 0, 70],
                   "weather_code": [0, 0, 0, 0, 0, 95]}
@@ -746,14 +746,14 @@ class TestWeatherLocaleImprovements:
         now = datetime(2026, 8, 24, 15)
 
         warmer = comparative_sentence(
-            {"temperature_2m_max": [20, 21, 24]}, now, runtime
+            {"temperature_2m_max": [20, 21, 25]}, now, runtime
         )
         cooler = comparative_sentence(
-            {"temperature_2m_max": [20, 21, 18]}, now, runtime
+            {"temperature_2m_max": [20, 21, 17]}, now, runtime
         )
 
-        assert warmer == "Huomenna ylin lämpötila on 3\u00a0astetta korkeampi kuin tänään"
-        assert cooler == "Huomenna ylin lämpötila on 3\u00a0astetta alempi kuin tänään"
+        assert warmer == "Huomenna ylin lämpötila on 4\u00a0astetta korkeampi kuin tänään"
+        assert cooler == "Huomenna ylin lämpötila on 4\u00a0astetta alempi kuin tänään"
 
     def test_standard_german_and_dutch_weekday_abbreviations(self):
         assert DAY_NAMES["de"] == ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]

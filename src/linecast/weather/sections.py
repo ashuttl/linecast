@@ -973,9 +973,11 @@ def _comparison(daily, now, runtime, inherited=False):
     else:
         key, salience = ("much_warmer" if diff > 0 else "much_cooler"), 3
 
-    # The number stands in for "a bit" and "much" where the language has
-    # the form for it; the others keep their words.
-    if key != "same_temp" and _has("warmer_by", runtime) and _has("degrees", runtime):
+    # Past "a bit", the number stands in for the words where the language
+    # has the form for it; the others keep their words.  A small change
+    # stays "a bit": 3° is a precision the reader has no use for.
+    if (key not in ("same_temp", "bit_warmer", "bit_cooler")
+            and _has("warmer_by", runtime) and _has("degrees", runtime)):
         key = "warmer_by" if diff > 0 else "cooler_by"
     form = "will_be"
     if inherited and _has("will_be_then", runtime):
