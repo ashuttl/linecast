@@ -29,7 +29,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
     scene = Scene(now_local.astimezone(timezone.utc), lat, lng)
     view = default_view(scene, 80, 24, facing, fov or FOV_DEFAULT)
     idx, _name, _icon = moon_phase(scene.moment_utc, runtime)
-    from linecast._tides.i18n import _moon_name
+    from linecast.tides.i18n import _moon_name
 
     def place(alt, az):
         return {"altitude": round(alt, 1), "azimuth": round(az, 1),

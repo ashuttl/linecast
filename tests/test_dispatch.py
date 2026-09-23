@@ -35,7 +35,7 @@ class Argv0DispatchTests(unittest.TestCase):
 
     def test_symlink_name_runs_the_command(self):
         ran = self._dispatch("/usr/bin/tides", "--print")
-        self.assertEqual(ran["module"], "linecast.tides")
+        self.assertEqual(ran["module"], "linecast.tides.view")
         self.assertEqual(ran["argv"], ["linecast tides", "--print"])
 
     def test_symlink_name_with_no_arguments(self):

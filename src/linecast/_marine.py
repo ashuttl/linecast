@@ -151,7 +151,7 @@ def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
         return ""
 
     from linecast._i18n import lang_of
-    from linecast._tides.i18n import _ts
+    from linecast.tides.i18n import _ts
 
     lang = lang_of(runtime)
     parts = []

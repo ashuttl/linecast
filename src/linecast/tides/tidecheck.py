@@ -27,7 +27,7 @@ from typing import Any
 from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._runtime import log_failure, log_skipped
-from linecast._tides.common import (
+from linecast.tides.common import (
     M_TO_FT, NEAREST_STATION_CACHE_MAX_AGE, cache_dir, cached_y_range,
     iana_to_abbr, parse_cached_dt, parse_utc_iso, tz_offset_hours,
     y_range_window,
@@ -310,7 +310,7 @@ def fetch_tides_range_tidecheck(
     cached (24h, inside fetch_hilo_range_tidecheck's fetch).  Returns
     sorted (datetime, height_ft) tuples.
     """
-    from linecast._tides.noaa import synthesize_tides_from_hilo
+    from linecast.tides.noaa import synthesize_tides_from_hilo
     labeled = fetch_hilo_range_tidecheck(station_id, start_date, end_date,
                                          station_tz)
     return synthesize_tides_from_hilo(labeled)

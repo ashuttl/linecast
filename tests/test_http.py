@@ -420,7 +420,7 @@ class TestVersion:
                      "import linecast.maps.view",
                      "import linecast.sunshine.view",
                      "import linecast.moon.view",
-                     "import linecast.tides"):
+                     "import linecast.tides.view"):
             out = subprocess.run(
                 [sys.executable, "-X", "importtime", "-c", code],
                 capture_output=True, text=True, cwd=_src).stderr

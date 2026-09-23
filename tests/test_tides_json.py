@@ -15,8 +15,8 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast._runtime import TidesRuntime, tides_parser
-from linecast._tides.json import build_payload
-from linecast._tides.render import interp_height
+from linecast.tides.json import build_payload
+from linecast.tides.render import interp_height
 
 FIXED_NOW = datetime(2026, 8, 14, 12, 0)
 

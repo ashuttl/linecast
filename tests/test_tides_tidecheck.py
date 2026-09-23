@@ -4,8 +4,8 @@ import unittest
 from datetime import date, timezone
 from unittest.mock import patch
 
-from linecast._tides import common
-from linecast._tides import tidecheck as tc
+from linecast.tides import common
+from linecast.tides import tidecheck as tc
 
 
 class AvailabilityTests(unittest.TestCase):

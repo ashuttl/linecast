@@ -4,16 +4,16 @@ from datetime import date, datetime, timedelta
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-from linecast import tides
-from linecast._tides import chs as _tides_chs
-from linecast._tides import hko as _tides_hko
-from linecast._tides import noaa as _tides_noaa
-from linecast._tides import openmeteo as _tides_openmeteo
-from linecast._tides import qld as _tides_qld
-from linecast._tides import tidecheck as _tides_tidecheck
+from linecast.tides import view as tides
+from linecast.tides import chs as _tides_chs
+from linecast.tides import hko as _tides_hko
+from linecast.tides import noaa as _tides_noaa
+from linecast.tides import openmeteo as _tides_openmeteo
+from linecast.tides import qld as _tides_qld
+from linecast.tides import tidecheck as _tides_tidecheck
 from linecast._runtime import TidesRuntime
-from linecast._tides.render import prepare_tide_window
-from linecast._tides.providers import (
+from linecast.tides.render import prepare_tide_window
+from linecast.tides.providers import (
     CHS, HKO, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK, provider_for_id,
 )
 
@@ -260,9 +260,9 @@ class ProviderRegistryTests(unittest.TestCase):
         self.assertIsNone(provider_for_id("Brisbane Bar"))
 
     def test_provider_for_id_tidecheck_slug_needs_a_key(self):
-        with patch("linecast._tides.tidecheck.is_available", return_value=False):
+        with patch("linecast.tides.tidecheck.is_available", return_value=False):
             self.assertIsNone(provider_for_id("fes2022-lisbon"))
-        with patch("linecast._tides.tidecheck.is_available", return_value=True):
+        with patch("linecast.tides.tidecheck.is_available", return_value=True):
             self.assertIs(provider_for_id("fes2022-lisbon"), TIDECHECK)
             self.assertIsNone(provider_for_id("lisbon"))
             self.assertIsNone(provider_for_id("Fes2022-Lisbon"))

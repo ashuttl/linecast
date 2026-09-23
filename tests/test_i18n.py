@@ -7,7 +7,7 @@ from linecast._i18n import lang_of, lookup
 from linecast.maps.i18n import ms
 from linecast.moon.i18n import _ms
 from linecast.radar.i18n import rs
-from linecast._tides.i18n import _ts
+from linecast.tides.i18n import _ts
 from linecast.weather.i18n import DAY_NAMES, WMO_NAMES_I18N, _s
 from linecast.weather.sections import (
     _past_precip_line,
@@ -914,7 +914,7 @@ class TestMonthAxisLabels:
 
 class TestKoreanMoonNames:
     def test_everyday_phase_words(self):
-        from linecast._tides.i18n import MOON_NAMES_I18N
+        from linecast.tides.i18n import MOON_NAMES_I18N
         assert MOON_NAMES_I18N["ko"] == [
             "삭", "초승달", "상현달",
             "차오르는 달", "보름달",

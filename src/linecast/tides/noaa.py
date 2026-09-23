@@ -12,7 +12,7 @@ from typing import Any
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._runtime import log_failure, log_skipped
-from linecast._tides.common import (
+from linecast.tides.common import (
     cache_dir, cached_y_range, month_after, month_start, nearest_station,
     station_coords, y_range_window,
 )

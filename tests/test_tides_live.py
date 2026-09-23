@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import tides
-from linecast.tides import TidesApp
+from linecast.tides import view as tides
+from linecast.tides.view import TidesApp
 
 NOW = datetime(2026, 3, 5, 12, 0, 0)
 TODAY = NOW.date()

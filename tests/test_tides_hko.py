@@ -12,9 +12,9 @@ from unittest.mock import patch
 
 import pytest
 
-from linecast._tides import hko
-from linecast._tides.common import M_TO_FT
-from linecast._tides.hko import HKT
+from linecast.tides import hko
+from linecast.tides.common import M_TO_FT
+from linecast.tides.hko import HKT
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

@@ -52,13 +52,13 @@ from linecast._runtime import (
 )
 from linecast._spinner import Spinner
 from linecast._marine import fetch_marine, parse_marine_current, format_marine_line
-from linecast._tides.common import sweep_legacy_cache
-from linecast._tides.i18n import _moon_name, _ts
-from linecast._tides.tidecheck import budget_line as tidecheck_budget_line
-from linecast._tides.providers import (
+from linecast.tides.common import sweep_legacy_cache
+from linecast.tides.i18n import _moon_name, _ts
+from linecast.tides.tidecheck import budget_line as tidecheck_budget_line
+from linecast.tides.providers import (
     CHS, HKO, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK, provider_for_id,
 )
-from linecast._tides.render import (
+from linecast.tides.render import (
     build_now_tooltip as _build_now_tooltip,
     build_tide_hover_tooltip as _build_tide_hover_tooltip,
     compute_daylight_window as _compute_daylight_window,
@@ -1341,7 +1341,7 @@ def main():
                 # station/events/series empty-or-null, and exit cleanly.
                 import json as _json
                 from linecast.sunshine.json import _location_label
-                from linecast._tides.json import build_payload
+                from linecast.tides.json import build_payload
                 payload = build_payload(
                     None, runtime, datetime.now().astimezone(), [], [],
                     location=resolved_label or _location_label(lat, lng),
@@ -1367,7 +1367,7 @@ def main():
 
         if runtime.json_mode:
             import json as _json
-            from linecast._tides.json import build_payload
+            from linecast.tides.json import build_payload
             preds = provider.tides_range(
                 station_id, today - timedelta(days=1),
                 today + timedelta(days=2), station_tz)
@@ -1442,6 +1442,3 @@ def main():
     finally:
         spin.stop()
 
-
-if __name__ == "__main__":
-    main()

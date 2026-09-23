@@ -6,8 +6,8 @@ from datetime import date, datetime, timedelta
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-from linecast._tides import common
-from linecast._tides import openmeteo as om
+from linecast.tides import common
+from linecast.tides import openmeteo as om
 
 
 def _payload(times, heights, tz="America/New_York", lat=43.625, lng=-70.208):

@@ -19,7 +19,9 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _color, _framebuffer, _theme, tides
+from linecast import _color, _framebuffer, _theme
+
+from linecast.tides import view as tides
 
 from linecast.sunshine import view as sunshine
 

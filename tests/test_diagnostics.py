@@ -441,7 +441,7 @@ class TestWeatherFetchThread:
 class TestTidesPool:
     def test_settled_returns_none_with_one_line_and_the_traceback(self, debug, capsys):
         from concurrent.futures import Future
-        tides = _mod("tides")
+        tides = _mod("tides.view")
         future = Future()
         try:
             raise KeyError("v")
@@ -458,14 +458,14 @@ class TestTidesPool:
         assert capsys.readouterr().err == ""
 
     def test_provider_tags(self):
-        tides = _mod("tides")
+        tides = _mod("tides.view")
         assert tides._provider_tag(tides.NOAA) == "tides/noaa"
         assert tides._provider_tag(tides.CHS) == "tides/chs"
         assert tides._provider_tag(tides.OPENMETEO) == "tides/open-meteo"
 
     def test_a_provider_that_raises_does_not_take_the_command_down(
             self, quiet, monkeypatch, capsys):
-        tides = _mod("tides")
+        tides = _mod("tides.view")
         monkeypatch.setattr(tides.NOAA, "station_metadata", lambda station_id: None)
 
         def broken(*args):
@@ -480,7 +480,7 @@ class TestTidesPool:
 
     def test_debug_names_the_provider_request_and_shows_the_traceback(
             self, quiet, monkeypatch, capsys):
-        tides = _mod("tides")
+        tides = _mod("tides.view")
         monkeypatch.setattr(tides.NOAA, "station_metadata", lambda station_id: None)
 
         def broken(*args):

@@ -149,7 +149,7 @@ def moon_oneline(now_local, lat, lng, runtime, calendar=None):
     )
     from linecast._i18n import lang_of
     from linecast._calendars.lunisolar import resolve_calendar
-    from linecast._tides.i18n import _moon_name
+    from linecast.tides.i18n import _moon_name
 
     idx, _name, icon = moon_phase(now_local, runtime)
     name = _moon_name(idx, runtime)

@@ -16,9 +16,9 @@ from unittest.mock import patch
 FIXTURES = Path(__file__).parent / "fixtures"
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._tides import common
-from linecast._tides import qld
-from linecast._tides.providers import QLD as QLD_PROVIDER
+from linecast.tides import common
+from linecast.tides import qld
+from linecast.tides.providers import QLD as QLD_PROVIDER
 
 
 def _load(name):
@@ -373,19 +373,19 @@ class TestYRange(unittest.TestCase):
 
 class TestQLDBoundaryDetection(unittest.TestCase):
     def test_cairns_is_qld(self):
-        from linecast.tides import _is_qld_lat_lng
+        from linecast.tides.view import _is_qld_lat_lng
         self.assertTrue(_is_qld_lat_lng(-16.92, 145.78))
 
     def test_sydney_is_not_qld(self):
-        from linecast.tides import _is_qld_lat_lng
+        from linecast.tides.view import _is_qld_lat_lng
         self.assertFalse(_is_qld_lat_lng(-33.87, 151.21))
 
     def test_brisbane_is_qld(self):
-        from linecast.tides import _is_qld_lat_lng
+        from linecast.tides.view import _is_qld_lat_lng
         self.assertTrue(_is_qld_lat_lng(-27.47, 153.03))
 
     def test_darwin_is_not_qld(self):
-        from linecast.tides import _is_qld_lat_lng
+        from linecast.tides.view import _is_qld_lat_lng
         self.assertFalse(_is_qld_lat_lng(-12.46, 130.84))
 
 
@@ -399,7 +399,7 @@ class FindExtremaTest(unittest.TestCase):
 
     def test_staircase_yields_alternating_extrema(self):
         from datetime import datetime, timedelta
-        from linecast._tides.qld import _find_extrema
+        from linecast.tides.qld import _find_extrema
         heights = [1.70, 1.68, 1.66, 1.65, 1.65, 1.65, 1.66, 1.66, 1.65,
                    1.65, 1.64, 1.64, 1.64, 1.65, 1.67, 1.70]
         t0 = datetime(2026, 9, 3, 22, 0)

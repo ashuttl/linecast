@@ -66,7 +66,7 @@ from linecast._calendars.thai_lunar import (
 )
 from linecast._seasons import full_moon_name, next_season_event
 from linecast._textwidth import char_width
-from linecast._tides.i18n import _ts  # shared "space to return to now" hint
+from linecast.tides.i18n import _ts  # shared "space to return to now" hint
 from linecast._runtime import (
     RuntimeConfig, install_banner, log_failure, moon_parser, set_current,
 )

@@ -11,7 +11,7 @@ from typing import Any
 from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._runtime import log_failure, log_skipped
-from linecast._tides.common import (
+from linecast.tides.common import (
     M_TO_FT, cache_dir, cached_y_range, dedup_sorted, iana_to_abbr,
     label_hilo, local_day_bounds, nearest_station, parse_cached_dt,
     parse_utc_iso, station_coords, tz_offset_hours, y_range_window,
