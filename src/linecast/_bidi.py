@@ -923,7 +923,9 @@ def _is_arabic_letter(ch):
 
 def _arabic_commas(cells):
     """A comma between two words in Arabic script is the Arabic comma,
-    ، -- "تهران، استان تهران", however the parts were joined."""
+    ، -- "تهران، استان تهران", however the parts were joined -- and in a
+    right-to-left interface, one beside a word in Arabic script is too:
+    "South Khorasan، ایران" is a Persian list with a Latin name in it."""
     n = len(cells)
     for k in range(n):
         if cells[k][0] != ",":
@@ -934,8 +936,11 @@ def _arabic_commas(cells):
         q = k + 1
         while q < n and cells[q][0] == " ":
             q += 1
-        if (p >= 0 and q < n and _is_arabic_letter(cells[p][0][0])
-                and _is_arabic_letter(cells[q][0][0])):
+        if p < 0 or q >= n:
+            continue
+        before = _is_arabic_letter(cells[p][0][0])
+        after = _is_arabic_letter(cells[q][0][0])
+        if (before and after) or (_ui_rtl and (before or after)):
             cells[k][0] = "\u060c"
 
 
