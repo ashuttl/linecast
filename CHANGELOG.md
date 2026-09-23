@@ -16,6 +16,7 @@ New this version:
   - Cloud cover is described on the National Weather Service's five-step scale, which adds Mostly Cloudy. Each day in the daily list is described by its average cloud cover, so one grey hour no longer makes a day overcast. Most languages use their national weather service's terms.
   - In Canada, air quality is shown on Environment Canada's AQHI scale, with its risk level. The value is Environment Canada's own for the nearest community, or is calculated from pollutant levels where there isn't one nearby, including the AQHI-Plus rule for wildfire smoke. In French the label is CAS.
   - In Japan, only the warnings for your own city, town, or ward are shown, not every warning in the prefecture. A reader in Shinagawa no longer sees a high-wave advisory for the Izu islands, which are also part of Tokyo.
+  - In Ireland, a national warning is shown only in the counties it is for. Marine and environmental warnings are still shown everywhere.
   - Wind speeds are in metres per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, and Czech, as local forecasts give them.
   - The place name in the header sits in a chip, as it does in tides, and the rest of the header is spaced more evenly.
 - Maps:

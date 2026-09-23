@@ -265,6 +265,43 @@ class TestMetEireannAlerts:
             for key in ("event", "headline", "severity", "effective", "expires"):
                 assert key in a, f"Missing normalized key: {key}"
 
+    def _national(self, *warnings):
+        """The fixture's marine warnings, with national ones filed for `regions`."""
+        data = json.loads(json.dumps(self.data))
+        template = data["warnings"]["marine"][0]
+        data["warnings"]["national"] = [
+            dict(template, headline=headline, level="Orange", regions=regions)
+            for headline, regions in warnings
+        ]
+        return data
+
+    def _events(self, data, address):
+        from linecast.weather import sources as ws
+        with patch.object(ws, "fetch_json_cached", return_value=data), \
+                patch.object(ws, "write_cache"):
+            return [a["event"] for a in ws._fetch_alerts_meteireann(53.35, -6.26, address)]
+
+    def test_national_warnings_are_matched_to_the_county(self):
+        data = self._national(("Wind Warning for Galway, Mayo", ["EI10", "EI20"]),
+                              ("Rain Warning for Dublin", ["EI07"]))
+        dublin = {"city": "Dublin", "county": "County Dublin", "ISO3166-2-lvl6": "IE-D"}
+        assert self._events(data, dublin) == [
+            "Rain Warning for Dublin", "Gale Warning", "Small Craft Warning"]
+        # an island code of Galway's, and a county named without an ISO code
+        data = self._national(("Wind Warning for the Aran Islands", ["EI031"]))
+        aran = "Wind Warning for the Aran Islands"
+        assert aran in self._events(data, {"county": "County Galway"})
+        assert aran not in self._events(data, {"county": "County Clare"})
+
+    def test_warnings_are_kept_when_the_match_is_uncertain(self):
+        data = self._national(("Wind Warning", ["EI10"]), ("Rain Warning", ["EI10", "XX99"]))
+        # no county known: everything
+        assert len(self._events(data, None)) == 4
+        assert len(self._events(data, {"county": "Somewhere"})) == 4
+        # a code the table does not know keeps the warning
+        dublin = {"ISO3166-2-lvl6": "IE-D"}
+        assert self._events(data, dublin) == ["Rain Warning", "Gale Warning", "Small Craft Warning"]
+
 
 # ---------------------------------------------------------------------------
 # MeteoAlarm (pan-European) alerts parsing
@@ -620,7 +657,7 @@ class TestAlertProviderRouting:
         with patch("linecast.weather.sources._fetch_alerts_meteireann",
                    return_value=[{"event": "x"}]) as mock_fn:
             result = fetch_alerts(53.35, -6.26, country_code="IE")
-        mock_fn.assert_called_once_with(53.35, -6.26)
+        mock_fn.assert_called_once_with(53.35, -6.26, address=None)
         assert result == [{"event": "x"}]
 
     def test_routes_jp_to_jma(self):

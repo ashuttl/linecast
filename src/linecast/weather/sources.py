@@ -704,7 +704,7 @@ def _fetch_alerts_routed(lat, lng, country_code, lang, address):
     if country_code == "NO":
         return _fetch_alerts_metno(lat, lng)
     if country_code == "IE":
-        return _fetch_alerts_meteireann(lat, lng)
+        return _fetch_alerts_meteireann(lat, lng, address=address)
     if country_code == "JP":
         return _fetch_alerts_jma(lat, lng, lang=lang, address=address)
     if country_code == "HK":
@@ -919,9 +919,83 @@ def _fetch_alerts_metno(lat, lng):
     return alerts
 
 
-def _fetch_alerts_meteireann(lat, lng):
-    """Fetch active warnings from Met Éireann (Ireland). Cached 15min."""
+# Met Éireann files a national warning under county codes, the FIPS
+# codes (EI07 is Dublin), with a code of a digit more for some islands
+# (EI101 off Galway; EI031, though it starts like Clare's, is the Aran
+# Islands, so Galway's too). Keyed by the county's ISO 3166-2 code,
+# which Nominatim gives as ISO3166-2-lvl6 (IE-D), with the English
+# name for an address that carries only "County Dublin".
+_METEIREANN_COUNTIES = {
+    "CW": ("Carlow", ("EI01",)),
+    "CN": ("Cavan", ("EI02",)),
+    "CE": ("Clare", ("EI03",)),
+    "CO": ("Cork", ("EI04", "EI041", "EI042", "EI043")),
+    "DL": ("Donegal", ("EI06", "EI061")),
+    "D": ("Dublin", ("EI07",)),
+    "G": ("Galway", ("EI10", "EI101", "EI102", "EI103", "EI031", "EI032", "EI033")),
+    "KY": ("Kerry", ("EI11", "EI111", "EI112")),
+    "KE": ("Kildare", ("EI12",)),
+    "KK": ("Kilkenny", ("EI13",)),
+    "LM": ("Leitrim", ("EI14",)),
+    "LS": ("Laois", ("EI15",)),
+    "LK": ("Limerick", ("EI16",)),
+    "LD": ("Longford", ("EI18",)),
+    "LH": ("Louth", ("EI19",)),
+    "MO": ("Mayo", ("EI20", "EI201", "EI202", "EI203", "EI204")),
+    "MH": ("Meath", ("EI21",)),
+    "MN": ("Monaghan", ("EI22",)),
+    "OY": ("Offaly", ("EI23",)),
+    "RN": ("Roscommon", ("EI24",)),
+    "SO": ("Sligo", ("EI25",)),
+    "TA": ("Tipperary", ("EI26",)),
+    "WD": ("Waterford", ("EI27",)),
+    "WH": ("Westmeath", ("EI29",)),
+    "WX": ("Wexford", ("EI30",)),
+    "WW": ("Wicklow", ("EI31",)),
+}
+_METEIREANN_CODES = {c for _name, codes in _METEIREANN_COUNTIES.values() for c in codes}
 
+
+def _meteireann_county(address):
+    """The ISO code (D, CO, ...) of the county a Nominatim address is in, or ""."""
+    if not address:
+        return ""
+    region = str(address.get("ISO3166-2-lvl6", ""))
+    if region.startswith("IE-") and region[3:] in _METEIREANN_COUNTIES:
+        return region[3:]
+    county = str(address.get("county", "")).lower()
+    if county.startswith("county "):
+        county = county[len("county "):]
+    for iso, (name, _codes) in _METEIREANN_COUNTIES.items():
+        if county == name.lower():
+            return iso
+    return ""
+
+
+def _meteireann_warning_applies(regions, county):
+    """Whether a warning filed for `regions` is for the reader's county.
+
+    A warning with no regions (a gale at sea, most environmental ones)
+    is for everyone, as is one whose regions are not all county codes
+    this table knows: a code it has never seen should show a warning,
+    not hide it. When the county is unknown, every warning applies.
+    """
+    if not county or not isinstance(regions, list) or not regions:
+        return True
+    codes = [r.strip().upper() for r in regions if isinstance(r, str)]
+    if len(codes) != len(regions) or not all(c in _METEIREANN_CODES for c in codes):
+        return True
+    return any(c in _METEIREANN_COUNTIES[county][1] for c in codes)
+
+
+def _fetch_alerts_meteireann(lat, lng, address=None):
+    """Fetch active warnings from Met Éireann (Ireland). Cached 15min.
+
+    The feed is the whole country's. A national warning names the
+    counties it is for, and is shown only in those when the address
+    says which county the reader is in.
+    """
+    county = _meteireann_county(address)
     cache_file = cache_dir("weather") / f"alerts_ie_{location_cache_key(lat, lng)}.json"
     url = "https://prodapi.metweb.ie/warnings/active"
     data = fetch_json_cached(
@@ -944,6 +1018,8 @@ def _fetch_alerts_meteireann(lat, lng):
             desc = w.get("description") or w.get("text") or ""
             if desc.lower() in ("nil", ""):
                 desc = ""
+            if not _meteireann_warning_applies(w.get("regions"), county):
+                continue
             level = (w.get("level") or "").lower()
             severity = _meteireann_severity(level)
 
