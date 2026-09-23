@@ -664,11 +664,12 @@ def _render_today_line(width, chart_lo, chart_hi, midnight_day_names, sun_labels
         hint_text = _s("space_to_now", runtime)
         today_right = f"{DIM}{hint_text}"
     elif is_rtl(lang):
-        # Read from the right, low to high: the arrow points the way
-        # the eye moves
+        # Read from the right, low to high: written in reading order, with
+        # the arrow pointing the way the eye moves (the row reads as a
+        # right-to-left paragraph, which puts the low on the right)
         today_right = (
-            f"{_colored_temp(chart_hi, runtime, runtime.temp_unit)} "
-            f"{TEXT}← {_colored_temp(chart_lo, runtime, '°')}"
+            f"{_colored_temp(chart_lo, runtime, '°')} "
+            f"{TEXT}← {_colored_temp(chart_hi, runtime, runtime.temp_unit)}"
         )
     else:
         today_right = (

@@ -404,9 +404,10 @@ class TestRightToLeft:
     def test_says_who_orders_the_text(self):
         from linecast.doctor import _collect_bidi
         assert _collect_bidi({}).startswith("linecast orders")
-        assert "terminal" in _collect_bidi({"LINECAST_BIDI": "terminal"})
+        assert "LINECAST_BIDI=terminal" in _collect_bidi({"LINECAST_BIDI": "terminal"})
 
     def test_names_what_to_change_in_konsole_and_tmux(self):
         from linecast.doctor import _collect_bidi
-        assert "LINECAST_BIDI=terminal" in _collect_bidi({"KONSOLE_VERSION": "250401"})
+        assert _collect_bidi({"KONSOLE_VERSION": "250401"}).startswith("Konsole orders")
+        assert "LINECAST_BIDI=linecast" in _collect_bidi({"KONSOLE_VERSION": "250401"})
         assert "allow-passthrough" in _collect_bidi({"TMUX": "/tmp/tmux-1000/default,1,0"})

@@ -48,7 +48,7 @@ New this version:
 
 Fixes:
 
-- Maps, weather, sky, radar: Names in Hebrew, Arabic, Persian, and Urdu read right to left, with Arabic letters joined. They had been drawn backwards, each letter on its own. `LINECAST_BIDI=terminal` leaves the ordering to a terminal that does it itself.
+- Maps, weather, sky, radar: Names in Hebrew, Arabic, Persian, and Urdu read right to left, with Arabic letters joined. They had been drawn backwards, each letter on its own. In Konsole, which orders text itself, linecast lays out the rows and leaves the ordering to Konsole; `LINECAST_BIDI=terminal` does the same in another such terminal.
 - Moon: Equinox and solstice times are given in UTC, as almanacs give them. They had been about a minute late.
 - Weather: The rain total for the last 24 hours no longer counts an extra hour.
 - Weather: In European Portuguese, European Spanish, and Canadian French, day names are no longer shown in English.

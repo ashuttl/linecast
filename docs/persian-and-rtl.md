@@ -157,12 +157,11 @@ Where the build differs from the plan above:
 - Mehregan is on 10 Mehr, as the official calendar prints it, not 16. The equinox instants now take off ΔT, which fixed the moon's season countdowns for every language.
 - Iranian timetables print no separate imsak, so the Tehran method lost its ten-minute one.
 
-Terminals: foot and Alacritty draw it correctly, checked with Vazir Code and without. With a proportional fallback font the letters are the right forms but do not touch. VTE, Konsole, WezTerm, kitty, Ghostty, tmux inside VTE, and the Mac terminals are unchecked. Doctor names what to change in Konsole and tmux.
+Terminals: foot and Alacritty draw it correctly, checked with Vazir Code and without. Konsole (26.08) ignores `CSI 8 l` and reorders every line itself, which reversed each word a second time; linecast now recognizes it by `KONSOLE_VERSION` and hands each piece of right-to-left text over in logical order inside an isolate, which Konsole honours, checked in a live Konsole. The general alternatives were tested and fail: marking display-ordered text with LRM or LRO makes Konsole keep the order but it reshapes the letters wrongly, and Alacritty draws the marks as visible glyphs; Konsole drops a zero-width character sent at column 1; and no query tells a terminal that reorders from one that does not (neither Konsole nor foot answers DECRQM for mode 8; XTVERSION names both). With a proportional fallback font the letters are the right forms but do not touch. VTE, WezTerm, kitty, Ghostty, tmux inside VTE, and the Mac terminals are unchecked. Doctor says which mode is in use and what to change.
 
 Still open:
 
 - A native Persian reader, for the strings (the list of doubts is in each translation commit and the agents' notes: عصر for evening, تندباد, the day abbreviations in the moon grid, the sky's title-versus-traditional star names), and for how the mirrored layout feels.
-- Konsole: detect it and hand it the ordering, or not, once someone has seen it.
 - Iran's own dates for Mawlid (17 Rabi' al-Awwal) and the nights of Qadr (19, 21, 23 Ramadan), which differ from Umm al-Qura's tradition.
 - A Persian frame in the gallery, which needs a choice of font: the gallery's MonaspiceNe has no Arabic.
 - Hebrew, Arabic, and Urdu, which the pass, the mirroring, and the keys already serve; each needs its strings and the questions under "Toward Hebrew, Arabic, and Urdu".

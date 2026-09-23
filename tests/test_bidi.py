@@ -42,7 +42,12 @@ def _cells(out):
     for m in re.finditer(r"\033\[([0-9;]*)m|(.)", out, re.S):
         if m.group(2) is None:
             params = m.group(1)
-            state = "" if params in ("", "0") else state + ";" + params
+            if params in ("", "0"):
+                state = ""
+            elif params.startswith("0;"):
+                state = ";" + params[2:]      # a reset, then these
+            else:
+                state = state + ";" + params
             continue
         ch = m.group(2)
         if cells and (unicodedata.category(ch) in ("Mn", "Me") or ch in "\u200c\u200d"):
@@ -204,11 +209,48 @@ class TestPersian:
         finally:
             _bidi.configure("en", {})
 
-    def test_terminal_mode_leaves_the_order_alone(self):
+    def test_terminal_mode_hands_each_piece_over_in_an_isolate(self):
         _bidi.configure("en", {"LINECAST_BIDI": "terminal"})
+        try:
+            # logical order, where it stands, for the terminal to order
+            # one piece, left to right by its first strong letter
+            assert display("abc שלום") == f"{LRI}abc שלום{PDI}"
+            assert display("  תל אביב     חיפה  ") == (
+                f"  {RLI}תל אביב{PDI}     {RLI}חיפה{PDI}  ")
+            assert display("abc") == "abc"
+        finally:
+            _bidi.configure("en", {})
+
+    def test_off_leaves_the_text_alone(self):
+        _bidi.configure("en", {"LINECAST_BIDI": "off"})
         try:
             assert display("abc שלום") == "abc שלום"
         finally:
+            _bidi.configure("en", {})
+
+    def test_terminal_mode_draws_brackets_the_same_in_every_terminal(self):
+        # Konsole mirrors no brackets and VTE mirrors those at an odd
+        # level: pre-mirrored, each in an isolate at an even level, a
+        # bracket reads the same in both
+        _bidi.configure("fa", {"LINECAST_BIDI": "terminal"})
+        try:
+            assert not _bidi.reorders()          # no explicit mode asked for
+            out = display("دما −3° و (لا) 36°C")
+            assert out.startswith(RLI) and out.endswith(PDI)
+            assert f"{LRI}){PDI}لا{LRI}({PDI}" in out
+            assert f"{LRI}−۳°{PDI}" in out and f"{LRI}۳۶°C{PDI}" in out
+            assert "ﻻ" not in out and "ﺩ" not in out    # the terminal shapes the letters
+        finally:
+            _bidi.configure("en", {})
+
+    def test_a_mirrored_row_is_still_laid_out_in_konsole(self):
+        _bidi.configure("fa", {"KONSOLE_VERSION": "260801"})
+        _bidi.set_mirror(True)
+        try:
+            out = display("امروز  12", 12)
+            assert out == f"   ۱۲  {RLI}امروز{PDI}"
+        finally:
+            _bidi.set_mirror(False)
             _bidi.configure("en", {})
 
     def test_a_pipe_gets_logical_text(self, persian):
@@ -294,3 +336,47 @@ class TestPersianDrawing:
     def test_units_and_minus_stay_with_their_numbers(self, persian):
         assert "۳۶°C" in _plain(display("دما 36°C"))
         assert "−۳" in _plain(display("دما −3°"))
+
+
+class TestFlippedPictures:
+    @pytest.fixture(autouse=True)
+    def _mirrored(self):
+        _bidi.configure("fa", {})
+        _bidi.set_mirror(True)
+        yield
+        _bidi.set_mirror(False)
+        _bidi.configure("en", {})
+
+    @staticmethod
+    def _bg(out):
+        """(character, background) per cell, from a structured reading."""
+        cells, state = [], _bidi._EMPTY
+        for m in re.finditer(r"\033\[[0-9;]*m|(.)", out, re.S):
+            if m.group(1) is None:
+                state = _bidi._next_state(state, m.group(0))
+            else:
+                cells.append((m.group(1), state[2]))
+        return cells
+
+    def test_a_label_on_a_gradient_sits_on_the_gradient_as_it_runs(self):
+        # "41°" at the start of a bar whose background brightens
+        # rightward: flipped, the bar brightens leftward, and so does the
+        # background under the label, whose text keeps its order
+        row = ("\033[48;5;1m4\033[48;5;2m1\033[48;5;3m°"
+               "\033[48;5;4m \033[48;5;5m \033[0m")
+        cells = self._bg(display(row, 5))
+        assert [c for c, _ in cells] == [" ", " ", "۴", "۱", "°"]
+        assert [b for _, b in cells] == ["48;5;5", "48;5;4", "48;5;3", "48;5;2", "48;5;1"]
+
+    def test_two_labels_a_cell_apart_trade_places(self):
+        # a low label outside a one-cell bar and a high one inside it
+        row = "55° \033[48;5;2m58°\033[0m"
+        cells = self._bg(display(row, 7))
+        assert "".join(c for c, _ in cells) == "۵۸° ۵۵°"
+
+    def test_terminal_mode_sends_numbers_in_display_order(self):
+        _bidi.configure("fa", {"LINECAST_BIDI": "terminal"})
+        out = display("71° ← 97°F", 10)
+        # nothing for the terminal to order: no isolate, the high first
+        assert RLI not in out and _plain(out) == "۹۷°F ← ۷۱°"
+

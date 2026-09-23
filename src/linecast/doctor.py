@@ -371,12 +371,16 @@ def _collect_bidi(env):
     """Who puts right-to-left text in order, and what to change if it
     reads backwards in this terminal."""
     from linecast import _bidi
-    if _bidi.bidi_mode(env) == "terminal":
-        return "left to the terminal (LINECAST_BIDI=terminal)"
+    mode = _bidi.bidi_mode(env)
+    if mode == "off":
+        return "not ordered (LINECAST_BIDI=off)"
+    if mode == "terminal":
+        who = ("Konsole" if env.get("KONSOLE_VERSION") and not env.get("LINECAST_BIDI")
+               else "the terminal (LINECAST_BIDI=terminal)")
+        return (f"{who} orders each piece and joins the letters, where linecast "
+                "lays it out; if Persian, Arabic, or Hebrew reads backwards, the "
+                "terminal's own bidi rendering is off: set LINECAST_BIDI=linecast")
     text = "linecast orders and joins the letters, and asks the terminal to draw them as sent"
-    if env.get("KONSOLE_VERSION"):
-        text += ("; Konsole orders text itself and may not honour the request: "
-                 "if Persian, Arabic, or Hebrew reads backwards, set LINECAST_BIDI=terminal")
     if env.get("TMUX"):
         text += ("; inside tmux the request reaches the outer terminal only with "
                  "'set -g allow-passthrough on'")
