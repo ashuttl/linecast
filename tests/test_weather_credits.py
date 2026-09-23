@@ -136,13 +136,17 @@ class TestPanel:
 
     @pytest.mark.parametrize("lang", LANGUAGE_CODES)
     def test_the_key_column_fits_its_widest_gesture(self, lang):
-        # the key and its description never run together
+        # the key and its description never run together; read from the
+        # right, the description comes first and the key after it
+        from linecast._i18n import is_rtl
         for view in _help.CONTROLS:
-            rows = lines_of(_help.HelpPanel(view, lang).render(160, 50))
+            rows = [re.sub("[\u2066-\u2069]", "", row)
+                    for row in lines_of(_help.HelpPanel(view, lang).render(160, 50))]
             for key, text in _help.entries(view, lang):
                 shown = _help.mark(key, lang)
                 row = next(r for r in rows if shown in r and text in r)
-                assert re.search(re.escape(shown) + r' {2,}' + re.escape(text), row), row
+                first, second = (text, shown) if is_rtl(lang) else (shown, text)
+                assert re.search(re.escape(first) + r' {2,}' + re.escape(second), row), row
 
 
 def _render(cols, rows, live=True, country_code="IE"):
