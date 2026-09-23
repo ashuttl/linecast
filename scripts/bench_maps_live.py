@@ -31,7 +31,9 @@ SYNC_END = b"\x1b[?2026l"
 CPR = b"\x1b[6n"
 HOME = b"\x1b[H"
 ROW_RE = re.compile(rb"\x1b\[\d+;1H")
-ANSI_RE = re.compile(rb"\x1b\[[0-9;?<>=]*[A-Za-z~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[()][A-Z0-9]|\x1b[=>]")
+ANSI_RE = re.compile(rb"\x1b\[[0-9;?<>=]*[A-Za-z~]"
+                     rb"|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)"
+                     rb"|\x1b[()][A-Z0-9]|\x1b[=>]")
 
 
 class Session:

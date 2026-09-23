@@ -1477,7 +1477,8 @@ class TestTomorrowIsSaidOnce:
                            "weather_code": codes,
                            "precipitation_probability": [90 if c else 0 for c in codes]}}
         assert self._prose(data, night) == (
-            "Tomorrow's high will be a bit cooler than today's. Light rain starting in the afternoon.")
+            "Tomorrow's high will be a bit cooler than today's. "
+            "Light rain starting in the afternoon.")
 
     def test_today_is_never_repeated_so_never_elided(self):
         data = {"daily": dict(DAILY, temperature_2m_max=[70, 75, 67]), "hourly": {}}
