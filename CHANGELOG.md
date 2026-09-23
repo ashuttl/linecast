@@ -4,60 +4,50 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+The street and terrain maps curve like the globe as you zoom out, and glide as you pan and zoom. The prose forecast says more, and should read more naturally in every language. linecast speaks Hong Kong Chinese, and has regional forms of Portuguese, Spanish, and French.
+
+New this version:
+
+- Weather:
+  - The prose forecast under the graph contains more detail about the weather, when it will change, and what's unusual about it, if anything.
+  - The prose forecast should read more naturally in every language. This is an improvement, but there is farther yet to go. If it reads oddly in yours, please open an [issue](https://github.com/ashuttl/linecast/issues) or start a [discussion](https://github.com/ashuttl/linecast/discussions).
+  - Numbers in the prose forecast (such as 11,3 mm in French and German) are written as each language writes them.
+  - Current conditions come from the nearest airport's latest report when one is close and recent, so they should match what's outside more closely. The credit line names the station.
+  - Cloud cover is described on the National Weather Service's five-step scale, which adds Mostly Cloudy. Each day in the daily list is described by its average cloud cover, so one grey hour no longer makes a day overcast. Most languages use their national weather service's terms.
+  - In Canada, air quality is shown on Environment Canada's AQHI scale, with its risk level. The value is Environment Canada's own for the nearest community, or is calculated from pollutant levels where there isn't one nearby, including the AQHI-Plus rule for wildfire smoke. In French the label is CAS.
+  - In Japan, only the warnings for your own city, town, or ward are shown, not every warning in the prefecture. A reader in Shinagawa no longer sees a high-wave advisory for the Izu islands, which are also part of Tokyo.
+  - Wind speeds are in metres per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, and Czech, as local forecasts give them.
+  - The place name in the header sits in a chip, as it does in tides, and the rest of the header is spaced more evenly.
+- Maps:
+  - The street and terrain maps curve like the globe once a view is a few degrees wide, so zooming out to the planet is smooth instead of a sudden switch. Close street views are unchanged.
+  - City names stay the same when zooming out to the globe, and regional views name more towns.
+  - The view moves smoothly: zooming eases, a drag coasts to a stop, `w a s d` slide the view, and searching or following directions flies to the place. Terrain keeps the last map on screen while the next one loads.
+  - Dragging the street or terrain map shows the map at the new position right away, and a short pan doesn't need the network.
+  - A flicked map starts loading where it will stop as soon as you let go, so it fills in while still moving.
+  - While a street view loads, the previous one stays on screen, moved and scaled to fit, and nearby tiles are fetched ahead of time. Contributed by [@N30Yang](https://github.com/N30Yang) in [#117](https://github.com/ashuttl/linecast/pull/117).
+  - Zooming the globe no longer flashes a blank disk, and the sharper globe starts loading right away.
+  - The globe turns about twice as fast when dragged. Its shading is prepared once, in the background, the first time a globe opens, and kept after that. That first globe is drawn the slower way for a second or two while this happens.
+  - Frames sent to the terminal are about half the size, so panning and rotating are smoother on a slow terminal or over ssh.
+  - City lights on the night side of the globe and the terrain map come from NASA's Black Marble image of the Earth at night, bundled with linecast. They fade out as you zoom in.
+  - Only lakes at least a few cells across get a braille coastline, so lake country no longer looks like a field of little rings. Smaller ponds are still drawn as water.
+- Language:
+  - linecast speaks Hong Kong Chinese (`zh-HK`), used automatically by a Hong Kong or Macau terminal locale. It uses the Hong Kong Observatory's words for the weather (天晴, 大致多雲, 密雲, 驟雨, 雷暴, 警告) and Hong Kong's everyday words. Traditional Chinese otherwise follows Taiwan, as before.
+  - Portuguese, Spanish, and French each have a regional variant, `pt-PT`, `es-ES`, and `fr-CA`, used automatically by a terminal locale in Portugal, Spain, or Canada. Spanish is now Latin American throughout; the maps had used Spain's words.
+- Tides: The location menu from weather is in tides too. Click the station name or press `l` to pick a recent place or search for one. Recent places are shared with weather.
+- Moon, sky, maps, radar: Circles look round and squares look square on both wide and narrow terminal fonts. linecast asks the terminal for the font's cell shape where it can; `LINECAST_CELL_ASPECT` overrides it.
+- Help: `linecast --help` looks like each command's own help and fits the terminal's width. Each command's `--help` starts with a short usage line and groups its flags into sections.
+- Sunshine: The help hint is in the top-left corner of the graph, as in the year view, so the sunrise and sunset times sit at either end of the line below.
+- Docs: The pages on sources, calendars, hours, cultures, the gallery, and the architecture are in a `docs/` folder now. Old GitHub links to them no longer work.
+
+Fixes:
+
+- Weather: The rain total for the last 24 hours no longer counts an extra hour.
+- Weather: In European Portuguese, European Spanish, and Canadian French, day names are no longer shown in English.
+- Weather: Fixed a bug in MeteoAlarm countries where warnings from elsewhere in the country could appear after the first refresh.
 - Weather: In Croatia, warnings filed by county are matched to your address by the county's boundary. They had been matched on the county's name.
-- Weather: The current conditions come from the nearest airport's latest report, where one is close by and recent, instead of from the forecast model alone. A morning fog the model is slow to clear no longer lingers in the header after the sky has cleared. The credit line names the Aviation Weather Center when its report is used.
-- Maps: The terrain map is drawn on the globe's geometry at every zoom. A regional view, a few degrees wide and up, now curves as the globe does instead of lying flat, with its borders, rivers and city dots curving with it, and zooming out no longer cuts from a flat map to a planet. Street mode is unchanged.
-- Weather: The temperature comparison says what it compares, the day's high: "Today's high will be 14° lower than yesterday's."
-- Weather: The temperature comparison says what it compares, the day's high: "Today's high will be 14° cooler than yesterday's."
-- Weather: The rain total for the last 24 hours counts 24 hours of rain, not 25.
-- Weather: In German, showers and thunderstorms take the plural ("Leichte Schauer enden gegen 13 Uhr"). In French, a turn in the rain reads "Bruine légère demain matin, puis des orages dans l'après-midi."
-- Weather: Amounts use the language's decimal mark (11,3 mm in French and German), mph is spaced as km/h is, and a number stays on the same line as its unit.
-- Weather: Japanese and Chinese prose no longer starts a line with a comma or full stop, or splits a number from its unit.
-- Weather: French writes clock times as "vers 9 h", as Météo-France does, instead of "vers 09h".
-- Weather: The forecast paragraph reads more naturally in every language. Each language's sentences follow its national weather service's style, instead of constructions carried over from English, and several wrong words are fixed along the way.
-- Weather: In English, a turn in the rain reads "Light showers starting around 15:00, then thunderstorms around 18:00", amounts are spelled out ("9.5 mm of rain in the last 24 hours", "0.30 inches"), midday is "noon", and a wind on a cold day makes it feel colder rather than cooler.
-- Weather: A sentence about the same part of today as the one before it says so, instead of naming it twice: "Below freezing tonight, down to −2°. Light snow likely then."
-- Weather: Hong Kong Chinese gives times as the Observatory writes them (下午3時), and Swahili tells the hour in Swahili time (saa saba mchana).
-- Weather: Icelandic, Russian, Ukrainian, Canadian French, Japanese, and Chinese use their weather service's own words, checked against its published forecasts: Icelandic súld for drizzle, Russian and Ukrainian кратковременный and короткочасний for showers instead of words for a downpour or a snow squall, Environment Canada's "cessant", and the Japan Meteorological Agency's 見込みです.
-- Weather: A hyphenated word is no longer split across two lines of the forecast paragraph.
-- Weather: How it feels now comes before the comparison with yesterday. Gusts are mentioned only when they are stronger than the place is used to, or a gale. Every language says noon in words: "vers midi", "gegen Mittag", "昼頃".
-- Maps: The terrain map is drawn on the globe's geometry at every zoom. A regional view, a few degrees wide and up, now curves as the globe does instead of lying flat, with its borders, rivers and city dots curving with it, and zooming out no longer cuts from a flat map to a planet.
-- Maps: The street map is drawn on the globe's geometry too. A view a few degrees wide and up curves as the globe does, with its roads, water, buildings and names curving with it, and zooming out to the planet eases through instead of cutting to it. A close street view is unchanged.
-- Maps: Zooming out to the planet no longer changes the city names, in either the terrain or the street map: the same cities, spelled and drawn the same way, either side of it. A regional view names more of the towns around it, and the street map at road-atlas zooms names cities as well as countries. The capital's star stays with the closer views.
-- Weather: The forecast paragraph mentions fog: when it closes in, and when it lifts. Fog already out there is said as when it clears, or as holding through the day or the night.
-- Weather: The forecast paragraph leads with the rain worth planning for rather than an early chance of a few drops, names a turn to thunder or snow, agrees with the header about what is falling now, and names a wet day later in the week by its heaviest hour.
-- Weather: A forecast read in the small hours calls the coming night "tonight" rather than "tomorrow night". Rain that turns to something else within one part of the day is said to do so later in it, instead of naming the same morning twice.
-- Weather: The prose names the hour the sky clears or clouds over, after dark as well as by day, instead of the first morning hour that showed it. A felt temperature the header already shows is no longer promised for later.
-- Weather: The felt-temperature sentence no longer blames dry air for cold, damp weather. Below-freezing readings on a humid day name the wind, or say nothing, instead.
-- Language: Hong Kong Chinese (`zh-HK`) is a regional variant of Traditional Chinese, and a Hong Kong or Macau locale chooses it. It uses the Hong Kong Observatory's words for the weather (天晴, 大致多雲, 密雲, 驟雨, 雷暴, 警告) and Hong Kong's for everyday things (空格鍵, 公共交通, 駕車, 單車, 農曆新年); Traditional Chinese otherwise follows Taiwan, as before.
-- Weather: In European Portuguese, European Spanish and Canadian French, the day chip and the stale-forecast notice name the day in the reader's language instead of English.
-- Weather: The sky is named on the National Weather Service's five-step scale, which adds Mostly Cloudy between Partly Cloudy and Overcast. Each day in the daily list is named by its average cloud cover rather than its cloudiest hour, so a day with one grey hour no longer reads as overcast. In most languages, the steps now use the national weather service's own terms.
-- Weather: The current conditions come from the nearest airport's latest report, where one is close by and recent, instead of from the forecast model alone. A morning fog the model is slow to clear no longer lingers in the header after the sky has cleared. When a report is used, the credit line names the Aviation Weather Center and the station, by its airport code.
-- Maps: Dragging the street or terrain map now shows the real map at the new position, painted to every edge, instead of the last one slid across bare ground. A short pan needs nothing from the network at all, and neither does the frame it comes to rest on.
-- Maps: Small ponds no longer get a shoreline of their own on the street and terrain maps. They are still drawn as water; a lake is given a shore once it is a few cells across, so a view of lake country is no longer a field of little rings.
-- Tides: The live view has the location menu weather has. Click the station name, or press `l`, to choose a recent place or search for one, and the tides switch to the station nearest it. The recent places are shared with weather.
-- Weather: The place name in the header sits in a chip, as it does in tides, and is the brightest thing on the line. The conditions, temperature, and feels-like read closer together, with the wider gaps kept for what follows.
-- Maps: A flat map that has been flicked no longer waits until it stops to fill in. The place it will come to rest is fetched the moment the map is let go, and the new ground appears while it is still gliding.
-- Weather: In Japanese, rain that turns heavy is said to strengthen (雨が強まり) instead of becoming heavy rain. A turn to another kind of precipitation reads as before.
-- Weather: Wind speeds are in metres per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, and Czech, as the forecasts in those countries give them. Other languages keep km/h, and imperial units keep mph. `--json` names the unit as before.
-- Weather: In Japan, the warnings shown are the ones for the reader's own city, town, or ward, not every one the prefecture has out. A reader in Shinagawa no longer sees a high-wave advisory for the Izu islands, which are Tokyo too.
-- Maps: The view moves instead of jumping: a zoom eases to its new scale, a drag let go while moving coasts to a stop, `w a s d` slide the view along, and a searched place or a directions step is flown to. Terrain keeps the last map on screen while the next one loads, as the street map already did.
-- Maps: Zooming the globe no longer flashes a blank disk. The planet stays on screen, scaled to where the zoom is going, until the sharper one arrives, and the sharper one starts loading at the keypress rather than after the zoom settles.
-- Maps: The globe turns about twice as fast under a drag, since the planet is no longer rebuilt for every frame. Its shading is worked out once, in the background the first time a globe opens, and kept in the cache; that first globe draws the old way for a second or two while it happens.
-- Help: `linecast --help` is laid out and coloured like the commands' own pages, and wraps to the terminal. Each command's `--help` opens with a short usage line and lists its flags in sections, its own first, instead of one long list under a usage line that named every flag.
-- Maps: Each frame sent to the terminal is about half the size it was, since the map no longer repeats a colour the terminal is already using. Panning and rotating feel smoother on a slow terminal or over ssh.
-- Maps: The lights on the night side of the globe, and on the shaded terrain map, now come from NASA's Black Marble picture of the Earth at night, bundled with linecast, instead of one glow per city. They fade out as you zoom in to where the terrain has the detail.
-- Maps: While a street view loads after a pan or a zoom, the last view stays on screen, moved and scaled to where the new one will be, instead of bare ground. The tiles around the view, and one zoom step in the direction you last went, are fetched ahead while you read. Contributed by [@N30Yang](https://github.com/N30Yang) in [#117](https://github.com/ashuttl/linecast/pull/117).
-- Sunshine: The help hint has moved to the top-left corner of the graph, where the year view keeps it, so the sunrise and sunset times sit at the two ends of the line below.
-- Docs: The pages on sources, calendars, hours, cultures, the gallery, and the architecture have moved from the top of the repository into a `docs/` folder. Links to their old paths on GitHub no longer resolve.
-- Sky, moon: The stars, the constellations, and the Milky Way now line up with the Moon and the planets. They were drawn about a third of a degree away from them, which showed at the closest zoom.
-- Weather: Fixed a bug in the countries on MeteoAlarm where, after the live view's first refresh, every warning in the country without a map of its own was shown. They are matched to your address, as they are when the view opens.
-- Tides: With a TideCheck key on the free plan, linecast now stops at the fifty requests a day the plan allows and shows cached tides until the day turns, as the README said it did.
-- Radar: Cached NEXRAD frames are cleared after a day, as the other sources' tiles already were, so the cache stops growing.
-- Weather: In Canada the air quality shows the AQHI, the number on Environment Canada's own scale, with its risk level. It is Environment Canada's reported value for the nearest community, and is computed from the pollutants, including the AQHI-Plus rule for smoke, where no community is near. The label reads CAS in French.
-- Language: Portuguese, Spanish, and French each have a second regional form. `pt-PT`, `es-ES`, and `fr-CA` read the words that differ in Portugal, Spain, and Canada, and a terminal set to one of those countries picks it by itself. Spanish is Latin American throughout now; the maps had used Spain's words.
-- Weather: The prose under the graph says more, in the order things will happen. It now mentions the sky clearing or clouding over, gusts, a freeze overnight, how much snow will be on the ground by morning, a felt temperature ahead that is extreme for the place, the next rain worth planning for later in the week, and a second bout of rain after a break. The comparison with yesterday or tomorrow gives the number of degrees, "likely" is only said of rain that is likely, and shades of the same rain are no longer called a change. Rain in the last day is mentioned from a tenth of an inch, and temperatures below zero carry a proper minus sign. In all twenty-eight languages.
-- Moon, sky, maps, radar: Round things are drawn round, and square ground stays square, on wide and narrow terminal fonts alike. linecast reads the font's cell shape from the terminal where it can; `LINECAST_CELL_ASPECT` overrides it.
+- Sky, moon: Stars, constellations, and the Milky Way line up with the Moon and planets. They were about a third of a degree off, which showed at the closest zoom.
+- Tides: With a free TideCheck key, linecast stays within the plan's fifty requests a day and shows cached tides until the next day, as the README said it did.
+- Radar: Cached NEXRAD frames are cleared after a day, like other sources' tiles, so the cache no longer grows without limit.
 
 ## 2.7.0 — 2026-09-19
 
