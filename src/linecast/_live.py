@@ -612,7 +612,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                If mouse=True, also receives mouse_pos=(col, row) or None
                and active_alert=int_or_None.
                Scroll/arrow keys adjust offset_minutes to scrub through time.
-    interval: seconds between refreshes.
+    interval: seconds between refreshes, or a callable asked for them
+              before each wait.
     mouse: if True, enable SGR mouse tracking and pass mouse_pos to render_fn.
     on_open: optional callback(alert_index) called when user presses 'o' on a modal.
     scroll_step: minutes to advance/retreat per scroll or arrow key event.
@@ -990,7 +991,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             sys.stdout.flush()
 
             # Wait for input, resize, or timeout
-            wait = play_interval if (auto_play and playing) else interval
+            wait = (play_interval if (auto_play and playing)
+                    else interval() if callable(interval) else interval)
             deadline = _time.time() + wait
             owed = False   # a coalesced input is waiting for its repaint
             while True:

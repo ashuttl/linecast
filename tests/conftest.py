@@ -71,8 +71,8 @@ SCRUBBED = (
     # icon-set detection: a dev running tests inside WezTerm or kitty
     # must see the same "plain" default CI sees
     "TERM_PROGRAM", "KITTY_WINDOW_ID",
-    # who orders right-to-left text, and in which digits
-    "LINECAST_BIDI", "LINECAST_DIGITS", "TMUX",
+    # who orders right-to-left text, in which digits, and which calendar
+    "LINECAST_BIDI", "LINECAST_DIGITS", "LINECAST_DATES", "TMUX",
 )
 for _name in SCRUBBED:
     os.environ.pop(_name, None)

@@ -70,9 +70,47 @@ _PERCENT_SIGN = "٪"
 
 _ui_rtl = False
 _digits = None        # the digits to write, or None to leave them be
-_to_latin = False     # write native digits back as ASCII (LINECAST_DIGITS=latin)
+_to_latin = False     # write native digits back as ASCII (digits: latin)
 _reorder = True       # False: the terminal orders the text itself
 _mirror_request = False
+
+
+# The settings' spellings, as `linecast digits` and LINECAST_DIGITS take
+# them: "native" is the language's own digits where it has them,
+# "latin" 0-9 in every language.
+DIGITS_CHOICES = ("latin", "native")
+
+
+def digits_choice(value):
+    """A setting's value as DIGITS_CHOICES spells it, or None."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip().lower()
+    return value if value in DIGITS_CHOICES else None
+
+
+def resolve_digits(lang, environ=None):
+    """(choice, source) for *lang*: "native" or "latin", and
+    "LINECAST_DIGITS", "config", or "auto".
+
+    Precedence: LINECAST_DIGITS > the `digits` key in config.json
+    (`linecast digits latin|native`) > the language's own digits where
+    it has them, which is Persian today.  Never raises: a config that
+    cannot be read counts as no saved setting."""
+    env = os.environ if environ is None else environ
+    choice = digits_choice(env.get("LINECAST_DIGITS", ""))
+    if choice:
+        return choice, "LINECAST_DIGITS"
+    try:
+        from linecast._config import saved_digits
+        choice = saved_digits()
+    except Exception:
+        choice = None
+    if choice:
+        return choice, "config"
+    from linecast._i18n import base_language
+    native = base_language(lang or "en") in _DIGIT_SETS
+    return ("native" if native else "latin"), "auto"
 
 
 def configure(lang="en", environ=None):
@@ -80,22 +118,18 @@ def configure(lang="en", environ=None):
 
     LINECAST_BIDI=terminal leaves the text in logical order for a
     terminal that reorders and shapes by itself and cannot be told not
-    to; LINECAST_DIGITS=latin keeps ASCII digits in a language that has
-    its own."""
+    to; LINECAST_DIGITS=latin, or `linecast digits latin`, keeps ASCII
+    digits in a language that has its own."""
     global _ui_rtl, _digits, _to_latin, _reorder
     from linecast._i18n import base_language, is_rtl
     env = os.environ if environ is None else environ
     lang = base_language(lang or "en")
     _ui_rtl = is_rtl(lang)
-    choice = str(env.get("LINECAST_DIGITS", "")).strip().lower()
-    if not choice:
-        try:
-            from linecast._config import load_config
-            choice = str(load_config().get("digits", "")).strip().lower()
-        except Exception:
-            choice = ""
+    choice, source = resolve_digits(lang, env)
     native = _DIGIT_SETS.get(lang)
-    _to_latin = choice == "latin"
+    # Only a latin that was asked for writes other scripts' digits back
+    # as ASCII; auto in a language without its own leaves them be.
+    _to_latin = choice == "latin" and source != "auto"
     _digits = None if (_to_latin or native is None) else native
     _reorder = bidi_mode(env) == "linecast"
 

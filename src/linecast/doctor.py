@@ -256,8 +256,9 @@ def _human(n):
 # ---------------------------------------------------------------------------
 def _collect_paths():
     from linecast._config import (
-        config_file, read_config, saved_clock, saved_icons, saved_language,
-        saved_location, saved_units, saved_week_start,
+        config_file, read_config, saved_clock, saved_dates, saved_digits,
+        saved_icons, saved_language, saved_location, saved_units,
+        saved_week_start,
     )
     from linecast._paths import cache_root
     settings = config_file()
@@ -279,11 +280,16 @@ def _collect_paths():
             keys.append("clock")
         if saved_week_start() is not None:
             keys.append("week")
+        if saved_dates() is not None:
+            keys.append("dates")
+        if saved_digits() is not None:
+            keys.append("digits")
         if saved_icons() is not None:
             keys.append("icons")
         keys.extend(sorted(k for k in config
                            if k not in ("location", "language", "units",
-                                        "clock", "week", "icons")))
+                                        "clock", "week", "dates", "digits",
+                                        "icons")))
     root = cache_root()
     exists = os.path.isdir(root)
     writable, reason = cache_writable(root)
@@ -452,6 +458,11 @@ def _collect_preferences():
         native = HOURS_OF_LANG.get(language)
         hours = native or "none"
         hours_source = f"auto: {language}" if native else "auto"
+    from linecast._bidi import resolve_digits
+    from linecast._calendars.civil import SOLAR_HIJRI, resolve_dates
+    dates, dates_source = resolve_dates(language, env)
+    dates = "solar-hijri" if dates == SOLAR_HIJRI else "gregorian"
+    digits, digits_source = resolve_digits(language, env)
     return {
         "units": weather,
         "units_source": weather_source,
@@ -471,6 +482,10 @@ def _collect_preferences():
         "culture_source": culture_source,
         "hours": hours,
         "hours_source": hours_source,
+        "dates": dates,
+        "dates_source": dates_source,
+        "digits": digits,
+        "digits_source": digits_source,
     }
 
 
@@ -599,6 +614,8 @@ def render(report):
         ("units", units),
         ("clock", f"{prefs['clock']} ({prefs['clock_source']})"),
         ("week", f"{prefs['week']} ({prefs['week_source']})"),
+        ("dates", f"{prefs['dates']} ({prefs['dates_source']})"),
+        ("digits", f"{prefs['digits']} ({prefs['digits_source']})"),
         ("location", prefs["location"]
          + ("" if prefs["location_source"] == "auto"
             else f" ({prefs['location_source']})")),

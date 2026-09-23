@@ -599,7 +599,8 @@ def moon_parser():
                          "month, and holiday (hebrew); or the Old Farmer's "
                          "gardening rule and solunar periods (almanac). "
                          "Default: the calendar native to "
-                         "--lang zh, zh-Hant, ja, ko, vi, or th; none otherwise")
+                         "--lang zh, zh-Hant, ja, ko, vi, th, or fa "
+                         "(islamic); none otherwise")
     p.add_argument("--week-start", choices=WEEK_STARTS, default=None,
                     help="the day the calendar's week opens on (default: "
                          "sunday in the United States, Canada, Japan, "

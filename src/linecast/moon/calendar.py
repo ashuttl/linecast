@@ -1,11 +1,14 @@
 """Moon calendar view — a month of phases, one small disc per day.
 
 In live mode `v` flips the moon between the disc and this grid: the
-Gregorian month laid out week by week, each day carrying its phase drawn
-with the same shading as the big disc, the principal phases and today
-called out, and — when a traditional calendar is active — the calendar's
-own reading in the cells: the 农历 day names, the lunar month starts, the
-festivals, the pō mahina. The wheel or arrows page months; space returns
+civil month laid out week by week — the Gregorian month, or where the
+dates are Solar Hijri (_calendars.civil) a Solar Hijri month such as
+مهر ۱۴۰۵, each cell carrying its Gregorian day small in the corner.
+Each day carries its phase drawn with the same shading as the big
+disc, the principal phases and today called out, and — when a
+traditional calendar is active — the calendar's own reading in the
+cells: the 农历 day names, the lunar month starts, the festivals, the pō
+mahina. The wheel or arrows page months; space returns
 to this month. Hovering a day raises a chip with the day's phase,
 moonrise and moonset, and the calendar's line for it, tides-style; a
 click hands the day to the disc view (moon/view.py's `_on_click`, through
@@ -33,9 +36,14 @@ from linecast._calendars.lunisolar import (
 )
 from linecast._calendars.hebrew import hebrew_date, holiday_key, rosh_chodesh
 from linecast._calendars.hijri import hijri_date, observance_key
+from linecast._calendars import solar_hijri
+from linecast._calendars.civil import (
+    SOLAR_HIJRI, civil_calendar, shift_month, solar_hijri_month_title,
+)
 from linecast.moon.i18n import (
     MONTHS_I18N, _day_abbrev, _fmt_month_day, _moon_name, _ms, _zh_day_name,
-    anahulu_name, festival_table, hebrew_date_label,
+    anahulu_name, festival_table, gregorian_date_label, hebrew_date_label,
+    hijri_sighting_note,
     hebrew_holiday_name, hebrew_month_name, hijri_date_label,
     hijri_era, hijri_month_name, hijri_observance_name, ja_night_name, lunar_date_label,
     pacific_night_label, pacific_night_name, rosh_chodesh_label,
@@ -91,7 +99,17 @@ def _month_title(year, month, lang):
     return f"{months[month - 1]} {year}"
 
 
-def _calendar_span(cal, year, month, days_in, lang):
+def _gregorian_span(first, last, lang):
+    """The Gregorian months a Solar Hijri month runs through, for the
+    title: `سپتامبر – اکتبر 2026`, or `دسامبر 2026 – ژانویه 2027`."""
+    months = table_for(MONTHS_I18N, lang)
+    n1, n2 = months[first.month - 1], months[last.month - 1]
+    if first.year == last.year:
+        return f"{n1} – {n2} {first.year}"
+    return f"{n1} {first.year} – {n2} {last.year}"
+
+
+def _calendar_span(cal, first, last, lang):
     """The Hebrew or Hijri months a civil month runs through, for the title.
 
     `Elul 5786 – Tishrei 5787`, `Tishrei – Cheshvan 5787`, or a lone
@@ -101,13 +119,13 @@ def _calendar_span(cal, year, month, days_in, lang):
     Muharram both open on a holiday that takes the cell.
     """
     if cal == "hebrew":
-        y1, m1, _ = hebrew_date(date(year, month, 1))
-        y2, m2, _ = hebrew_date(date(year, month, days_in))
+        y1, m1, _ = hebrew_date(first)
+        y2, m2, _ = hebrew_date(last)
         n1, n2 = hebrew_month_name(y1, m1), hebrew_month_name(y2, m2)
         era = ""
     elif cal == "islamic":
-        y1, m1, _ = hijri_date(date(year, month, 1))
-        y2, m2, _ = hijri_date(date(year, month, days_in))
+        y1, m1, _ = hijri_date(first)
+        y2, m2, _ = hijri_date(last)
         n1, n2 = hijri_month_name(m1, lang), hijri_month_name(m2, lang)
         era = f" {hijri_era(lang)}"
     else:
@@ -125,8 +143,14 @@ def principal_phase_days(year, month, tzinfo):
     Phase index follows moon_phase(): 0 new, 2 first quarter, 4 full,
     6 last quarter. A 31-day month can hold the same phase twice.
     """
-    start_local = datetime(year, month, 1, tzinfo=tzinfo)
-    days_in = calendar.monthrange(year, month)[1]
+    return _phase_days(date(year, month, 1), calendar.monthrange(year, month)[1],
+                       tzinfo)
+
+
+def _phase_days(first, days_in, tzinfo):
+    """principal_phase_days for the *days_in* days from *first*, which
+    need not be a Gregorian month."""
+    start_local = datetime(first.year, first.month, first.day, tzinfo=tzinfo)
     end_local = start_local + timedelta(days=days_in)
     out = {}
     for target, idx in ((0.0, 0), (0.25, 2), (0.5, 4), (0.75, 6)):
@@ -257,11 +281,23 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     tzinfo = now_local.tzinfo
     today = now_local.date()
 
-    month0 = now_local.year * 12 + (now_local.month - 1) + month_offset
-    year, month = divmod(month0, 12)
-    month += 1
-    first = date(year, month, 1)
-    days_in = calendar.monthrange(year, month)[1]
+    # The month is the civil calendar's: paging steps through Solar
+    # Hijri months where the dates are Solar Hijri.
+    civil = civil_calendar(lang)
+    if civil == SOLAR_HIJRI:
+        sh_year, sh_month, _day = solar_hijri.solar_hijri_date(today)
+        year, month = shift_month(sh_year, sh_month, month_offset)
+        first = solar_hijri.month_start(year, month)
+        days_in = solar_hijri.days_in_month(year, month)
+        title = solar_hijri_month_title(year, month, lang)
+    else:
+        month0 = now_local.year * 12 + (now_local.month - 1) + month_offset
+        year, month = divmod(month0, 12)
+        month += 1
+        first = date(year, month, 1)
+        days_in = calendar.monthrange(year, month)[1]
+        title = _month_title(year, month, lang)
+    last = first + timedelta(days=days_in - 1)
     start = _week_start(runtime)
     lead = (first.weekday() - start) % 7
     weeks = -(-(lead + days_in) // 7)
@@ -288,9 +324,9 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     # geometry is kept for clicked_day() rather than recomputed.
     global _last_grid
     _last_grid = (left, row0, cell_w, cell_h, weeks, lead, days_in,
-                  year, month)
+                  first, civil)
 
-    phase_days = principal_phase_days(year, month, tzinfo)
+    phase_days = _phase_days(first, days_in, tzinfo)
     from linecast import _bidi
     mirrored = _bidi.mirrored()
 
@@ -305,16 +341,18 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     # sets them beside the civil month, as the wall calendars do, in the
     # text ink so they read as part of the title; paged away, the way
     # back rides at the end, dim. The span is the first to go when the
-    # row runs short.
-    title = _month_title(year, month, lang)
-    span = _calendar_span(cal, year, month, days_in, lang)
-    span = f" · {span}" if span else ""
+    # row runs short. A Solar Hijri month names the Gregorian months its
+    # corner days belong to first, and keeps them longest.
+    spans = [_gregorian_span(first, last, lang)] if civil == SOLAR_HIJRI else []
+    spans.append(_calendar_span(cal, first, last, lang))
+    spans = [sp for sp in spans if sp]
     aside = f" · {_ts('space_to_now', runtime)}" if month_offset else ""
     t_w = visible_len(title)
-    s_w = visible_len(span)
     a_w = visible_len(aside)
-    if t_w + s_w + a_w > grid_w:
-        span, s_w = "", 0
+    while spans and t_w + visible_len(" · ".join(spans)) + 3 + a_w > grid_w:
+        spans.pop()
+    span = "".join(f" · {sp}" for sp in spans)
+    s_w = visible_len(span)
     tx = left + max(0, (grid_w - t_w - s_w - a_w) // 2)
     tx = _put(overlays, tx, 0, title, A if month_offset else T, bold=True,
               max_x=graph_w)
@@ -331,7 +369,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
 
     # The days.
     for day in range(1, days_in + 1):
-        d = date(year, month, day)
+        d = first + timedelta(days=day - 1)
         slot = lead + day - 1
         wk, c = divmod(slot, 7)
         x0 = left + c * cell_w
@@ -410,6 +448,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         # month's opening day carries the month's name in front of its
         # 1, so the count and the name change together; the title says
         # which months the numbers belong to.
+        right_w = 0
         if cal in ("hebrew", "islamic") and cell_h >= 3 and cell_w >= 6:
             if cal == "hebrew":
                 oy, om, od = hebrew_date(d)
@@ -417,13 +456,24 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
             else:
                 _oy, om, od = hijri_date(d)
                 name = hijri_month_name(om, lang)
-            text = str(od)
-            if od == 1:
-                room = cell_w - 2 - len(text) - 1
-                if room >= 3:
-                    text = f"{_clip(name, room)} {text}"
-            _put(overlays, x0 + cell_w - 1 - visible_len(text),
+            text = _corner_text(od, name, cell_w - 2)
+            right_w = visible_len(text)
+            _put(overlays, x0 + cell_w - 1 - right_w,
                  y0 + cell_h - 1, text, F, max_x=graph_w)
+
+        # A Solar Hijri month sets the Gregorian day in the other
+        # corner, the way Iran's wall calendars print it small beside
+        # the solar one, the month's name with its 1. A calendar that
+        # labels every day along the bottom edge keeps that edge, and
+        # the Gregorian date waits in the hover.
+        if (civil == SOLAR_HIJRI and cell_h >= 3 and cell_w >= 6
+                and not (cal in PACIFIC_CALENDARS
+                         or (cal == "chinese" and native))):
+            room = cell_w - 2 - (right_w + 1 if right_w else 0)
+            text = _corner_text(d.day, table_for(MONTHS_I18N, lang)[d.month - 1],
+                                room)
+            if visible_len(text) <= room:
+                _put(overlays, x0 + 1, y0 + cell_h - 1, text, F, max_x=graph_w)
 
     if fullscreen:
         from linecast._help import paint_hint
@@ -444,6 +494,17 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     return overlay("\n".join(lines), chip)
 
 
+def _corner_text(day, month_name, room):
+    """A corner's day number, with its month's name in front on the 1st
+    when at least three letters of it fit in *room* cells."""
+    text = str(day)
+    if day == 1:
+        name_room = room - len(text) - 1
+        if name_room >= 3:
+            text = f"{_clip(month_name, name_room)} {text}"
+    return text
+
+
 _last_grid = None   # geometry of the last rendered grid, for clicked_day
 
 
@@ -456,13 +517,13 @@ def clicked_day(col, row):
     """
     if _last_grid is None:
         return None
-    left, row0, cell_w, cell_h, weeks, lead, days_in, year, month = _last_grid
+    left, row0, cell_w, cell_h, weeks, lead, days_in, first, _civil = _last_grid
     gx, gy = col - 1 - left, row - 1 - row0
     if not (0 <= gx < cell_w * 7 and 0 <= gy < cell_h * weeks):
         return None
     day = (gy // cell_h) * 7 + gx // cell_w - lead + 1
     if 1 <= day <= days_in:
-        return date(year, month, day)
+        return first + timedelta(days=day - 1)
     return None
 
 
@@ -490,6 +551,9 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
     ahead = (d - now_local.date()).days
     if ahead > 0:
         head += f" · {_ms('in_days', runtime, days=str(ahead))}"
+    # Solar Hijri dates keep the Gregorian date a line below, dim.
+    gregorian = (gregorian_date_label(d, lang)
+                 if civil_calendar(lang) == SOLAR_HIJRI else None)
 
     if principal:
         idx, at = principal
@@ -559,13 +623,18 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
                     parts.append(night)
             cal_line = " · ".join([*parts, cal_line])
 
-    tip_lines = [
-        f"{tip_bg}{tip_fg} {head} ",
+    tip_lines = [f"{tip_bg}{tip_fg} {head} "]
+    if gregorian:
+        tip_lines.append(f"{tip_bg}{tip_dim} {gregorian} ")
+    tip_lines += [
         f"{tip_bg}{tip_fg} {phase_line} ",
         f"{tip_bg}{tip_dim} {events} ",
     ]
     if cal_line:
         tip_lines.append(f"{tip_bg}{tip_fg} {cal_line} ")
+        note = hijri_sighting_note(lang) if cal == "islamic" else None
+        if note:
+            tip_lines.append(f"{tip_bg}{tip_dim} {note} ")
 
     return _live.pointer_chip(tip_lines, mouse_pos[0] + 2, mouse_pos[1],
                               cols, rows, pad_bg=tip_bg)

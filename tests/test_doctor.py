@@ -78,6 +78,30 @@ class TestOffline:
         assert "  location  (set) (config)" in out
         assert "Westbrook" not in out and "43.6800" not in out
 
+    def test_dates_and_digits_name_their_source(self, monkeypatch):
+        from linecast import _config
+        _config.write_config({"digits": "latin", "dates": "gregorian",
+                              "zzz": 1})
+        monkeypatch.setenv("LINECAST_LANG", "fa")
+        _, out, _ = _run("--offline", monkeypatch=monkeypatch)
+        assert "(exists; dates, digits, zzz)" in out
+        assert "  dates     gregorian (config)" in out
+        assert "  digits    latin (config)" in out
+        monkeypatch.setenv("LINECAST_DIGITS", "native")
+        monkeypatch.setenv("LINECAST_DATES", "solar-hijri")
+        _, out, _ = _run("--offline", "--json", monkeypatch=monkeypatch)
+        prefs = json.loads(out)["preferences"]
+        assert (prefs["dates"], prefs["dates_source"]) == (
+            "solar-hijri", "LINECAST_DATES")
+        assert (prefs["digits"], prefs["digits_source"]) == (
+            "native", "LINECAST_DIGITS")
+
+    def test_dates_and_digits_follow_the_language(self, monkeypatch):
+        _, out, _ = _run("--offline", "--json", monkeypatch=monkeypatch)
+        prefs = json.loads(out)["preferences"]
+        assert (prefs["dates"], prefs["dates_source"]) == ("gregorian", "auto")
+        assert (prefs["digits"], prefs["digits_source"]) == ("latin", "auto")
+
     def test_env_overrides_name_their_source(self, monkeypatch):
         monkeypatch.setenv("WEATHER_UNITS", "metric")
         monkeypatch.setenv("TIDES_UNITS", "imperial")
@@ -196,7 +220,8 @@ class TestJson:
             "clock", "clock_source", "week", "week_source", "location",
             "location_source", "language", "language_source",
             "calendar", "calendar_source", "culture", "culture_source",
-            "hours", "hours_source"}
+            "hours", "hours_source", "dates", "dates_source",
+            "digits", "digits_source"}
         assert isinstance(report["environment"], dict)
         assert report["providers"] is None
         from linecast._paths import cache_root

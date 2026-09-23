@@ -25,6 +25,10 @@ SETTINGS = (
     ("units", "metric or imperial"),
     ("clock", "12-hour or 24-hour"),
     ("week", "The day the moon calendar's week opens on: monday, sunday, or saturday"),
+    ("dates", "The calendar dates are written in: gregorian, or solar-hijri "
+              "(the default in Persian)"),
+    ("digits", "The digits numbers are written in: latin (0-9), or native "
+               "(Persian ۰-۹ in Persian, the default)"),
     ("icons", "nerd, emoji, or plain"),
     ("calendar", "Which calendar the moon follows: chinese, japanese, korean, vietnamese, "
                  "thai, hawaiian, samoan, chamorro, refaluwasch, islamic, hebrew, almanac, "

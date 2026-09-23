@@ -51,8 +51,12 @@ from linecast.moon.i18n import (
     anahulu_name, festival_table, hebrew_date_label, hebrew_holiday_name,
     hebrew_month_name, hijri_date_label, hijri_month_name,
     hijri_observance_name, ja_night_name, lunar_date_label,
-    pacific_night_label, term_label, thai_festival_name, thai_lunar_label,
-    thai_year_label, wan_phra_label,
+    pacific_night_label, solar_hijri_observance_name, term_label,
+    thai_festival_name, thai_lunar_label, thai_year_label, wan_phra_label,
+    year_turn_label,
+)
+from linecast._calendars.civil import (
+    SOLAR_HIJRI, civil_calendar, solar_hijri_day_of_year,
 )
 from linecast._calendars.pacific import (
     ANAHULU_COUNSEL, COUNSEL_SOURCE_LINE, PACIFIC_CALENDARS, night_note,
@@ -141,6 +145,70 @@ def _fmt_countdown(delta, lang="en"):
     if minutes < 60 * 24:
         return fmt_duration_parts(lang, ("h", minutes // 60), ("m", minutes % 60))
     return fmt_duration_parts(lang, ("d", minutes // 1440), ("h", (minutes % 1440) // 60))
+
+
+# How far ahead the turn of the Solar Hijri year is counted down: the
+# month before Nowruz, when the preparations begin (خانه‌تکانی, the
+# sabzeh set to sprout), and Chaharshanbe Suri falls.
+YEAR_TURN_WINDOW = timedelta(days=30)
+
+
+def next_year_turn(now_local):
+    """(Solar Hijri year, UTC instant) of the next تحویل سال after
+    *now_local*: the March equinox that begins the year."""
+    from linecast._calendars import solar_hijri
+    now_utc = now_local.astimezone(timezone.utc)
+    year = solar_hijri.solar_hijri_date(now_local.date())[0]
+    for yy in (year, year + 1):
+        moment = solar_hijri.nowruz_utc(yy)
+        if moment > now_utc:
+            return yy, moment
+    return year + 2, solar_hijri.nowruz_utc(year + 2)
+
+
+def _fmt_clock(delta):
+    """`5:12:08` — hours, minutes, and seconds until an event."""
+    seconds = max(0, int(delta.total_seconds()))
+    return f"{seconds // 3600}:{seconds // 60 % 60:02d}:{seconds % 60:02d}"
+
+
+def solar_hijri_lines(now_local, runtime):
+    """(festival, festival short, year turn) for the panel where the
+    dates are Solar Hijri; any may be None.
+
+    The festival is the next of the year's observances — Mehregan,
+    Yalda, Sadeh, Chaharshanbe Suri, Sizdah Bedar, Tirgan — counted in
+    days like the other calendars' festivals, and named alone on its
+    day. Within YEAR_TURN_WINDOW of Nowruz the year's turn gets its own
+    line, counted down to the equinox itself, to the second on its last
+    day, and Nowruz's day-count line gives way to it.
+    """
+    from linecast._calendars import solar_hijri
+    lang = lang_of(runtime)
+    today = now_local.date()
+    turn_txt = None
+    turn_year, turn_utc = next_year_turn(now_local)
+    left = turn_utc - now_local.astimezone(timezone.utc)
+    if left <= YEAR_TURN_WINDOW:
+        at = turn_utc.astimezone(now_local.tzinfo)
+        clock = (at.strftime("%H:%M:%S") if runtime.use_24h
+                 else fmt_time_dt(at, use_24h=False))
+        when = clock if at.date() == today else f"{_fmt_month_day(at, runtime)} {clock}"
+        if left < timedelta(days=1):
+            wait = _ms('in_time', runtime, dur=_fmt_clock(left))
+        else:
+            wait = _ms('in_days', runtime, days=str((at.date() - today).days))
+        turn_txt = f"{year_turn_label(turn_year, lang)} · {when} ({wait})"
+
+    day, key = solar_hijri.next_observance(today)
+    if key == "nowruz" and turn_txt:
+        return None, None, turn_txt
+    name = solar_hijri_observance_name(key, lang)
+    gap = (day - today).days
+    if gap == 0:
+        return name, name, turn_txt
+    short = f"{name} {_fmt_month_day(day, runtime)}"
+    return f"{short} ({_ms('in_days', runtime, days=str(gap))})", short, turn_txt
 
 
 def _event_phrase(label, dt, now_local, runtime):
@@ -470,6 +538,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     event_local = event_utc.astimezone(now_local.tzinfo)
     days_to_event = (event_utc - now_local).total_seconds() / 86400.0
     year_len = 366 if calendar.isleap(now_local.year) else 365
+    year_n = now_local.timetuple().tm_yday
 
     # The Old Farmer's Almanac names for the full moon are an English-
     # language tradition: they show in English by default and with the
@@ -478,6 +547,13 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # is the almanac's name, not the Kaulana Mahina's or the 农历's.
     lang = lang_of(runtime)
     cal = resolve_calendar(calendar_name, lang)
+    # Where the dates are Solar Hijri the day of the year is too, and the
+    # year's own observances get a line beside the moon's calendar.
+    civil_fest_txt = civil_fest_short = turn_txt = None
+    if civil_calendar(lang) == SOLAR_HIJRI:
+        year_n, year_len = solar_hijri_day_of_year(now_local)
+        civil_fest_txt, civil_fest_short, turn_txt = solar_hijri_lines(
+            now_local, runtime)
     # The headline is the calendar's: the night's name where the
     # calendar names nights, and the lunar date or the almanac's half
     # of the month as an aside. The one-line summary shows the same.
@@ -512,8 +588,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     new_label = _moon_name(0, runtime)
     new_txt = (f"{new_label} {_fmt_month_day(new_dt, runtime)} "
                f"({in_days(days_to_new)})")
-    year_txt = _ms('year_day', runtime,
-                   n=now_local.timetuple().tm_yday, total=year_len)
+    year_txt = _ms('year_day', runtime, n=year_n, total=year_len)
     season_short = (f"{_season_label(event, lat, runtime)} "
                     f"{_fmt_month_day(event_local, runtime)}")
     season_txt = f"{season_short} ({in_days(days_to_event)})"
@@ -724,6 +799,12 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         [(new_txt, D, False)],
         [],
     ]
+    if turn_txt:
+        panel.append([(turn_txt, A, False)])
+    if civil_fest_txt:
+        panel.append([(civil_fest_txt, T, False)])
+    if turn_txt or civil_fest_txt:
+        panel.append([])
     if term_txt:
         panel.append([(term_txt, D, False)])
     if fest_txt:
@@ -827,6 +908,11 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         [("↑", A, False), (f"{rise_when}  ", T, False),
          ("↓", P, False), (set_when, T, False)],
     ))
+    if turn_txt:
+        candidates.append(([(turn_txt, A, False)],))
+    if civil_fest_txt:
+        candidates.append(([(civil_fest_txt, T, False)],
+                           [(civil_fest_short, T, False)]))
     if term_txt:
         # The calendar line, the festival leading since it is the one
         # people wait for.
@@ -1095,10 +1181,22 @@ def main():
         state["cal"] = False
         return True
 
+    # The panel repaints once a minute, except in the last day before the
+    # Solar Hijri year turns, when it counts down to the second. Asked
+    # at every repaint, so a view left open reaches the last day too.
+    solar = civil_calendar(lang_of(runtime)) == SOLAR_HIJRI
+
+    def interval():
+        if solar:
+            now = _now()
+            if next_year_turn(now)[1] - now.astimezone(timezone.utc) < timedelta(days=1):
+                return 1
+        return 60
+
     from linecast._help import HelpPanel
     help_panel = HelpPanel(lambda: 'moon_calendar' if state['cal'] else 'moon',
                            runtime.lang)
-    live_loop(_render, mouse=True, intercept=_intercept, help_panel=help_panel,
-              on_wheel=_on_wheel, on_action=_on_key,
+    live_loop(_render, interval=interval, mouse=True, intercept=_intercept,
+              help_panel=help_panel, on_wheel=_on_wheel, on_action=_on_key,
               on_drag=_on_drag, on_click=_on_click)
 

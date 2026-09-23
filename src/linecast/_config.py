@@ -81,6 +81,18 @@ def saved_week_start() -> str | None:
     return None
 
 
+def saved_dates() -> str | None:
+    """Return 'gregorian' or 'solar-hijri' saved via `linecast dates`, or None."""
+    from linecast._calendars.civil import dates_choice
+    return dates_choice(read_config().get("dates"))
+
+
+def saved_digits() -> str | None:
+    """Return 'latin' or 'native' saved via `linecast digits`, or None."""
+    from linecast._bidi import digits_choice
+    return digits_choice(read_config().get("digits"))
+
+
 def saved_icons() -> str | None:
     """Return 'nerd', 'emoji' or 'plain' saved via `linecast icons`, or None."""
     icons = read_config().get("icons")

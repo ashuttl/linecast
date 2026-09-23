@@ -935,11 +935,36 @@ def _season_label(event, lat, runtime):
 
 
 def _fmt_month_day(dt, runtime):
-    """Format a month + day date in the runtime language's convention."""
+    """Format a month + day date in the runtime language's convention,
+    in the civil calendar (_calendars.civil): `23 Sep`, or `1 مهر` where
+    the dates are Solar Hijri."""
+    from linecast._calendars.civil import SOLAR_HIJRI, civil_calendar, solar_hijri_day_month
     lang = lang_of(runtime)
+    if civil_calendar(lang) == SOLAR_HIJRI:
+        return solar_hijri_day_month(dt, lang)
+    return gregorian_month_day(dt, lang)
+
+
+def gregorian_month_day(dt, lang):
+    """`Sep 23`, `23. Sep`, `9月23日`: the Gregorian month and day, whatever
+    the civil calendar."""
     fmt = _DATE_MD.get(lang, _DATE_MD.get(base_language(lang), _DATE_MD_DEFAULT))
     months = table_for(MONTHS_I18N, lang)
     return fmt.format(month=months[dt.month - 1], mnum=dt.month, day=dt.day)
+
+
+def gregorian_date_label(dt, lang):
+    """The Gregorian date with its year, for the hovers that set it beside
+    a Solar Hijri one: `Sep 23, 2026`, `23 سپتامبر 2026`, `2026年9月23日`."""
+    md = gregorian_month_day(dt, lang)
+    base = base_language(lang)
+    if base in ("ja", "zh", "zh-Hant"):
+        return f"{dt.year}年{md}"
+    if base == "ko":
+        return f"{dt.year}년 {md}"
+    if base == "en":
+        return f"{md}, {dt.year}"
+    return f"{md} {dt.year}"
 
 
 def _day_abbrev(dt, runtime):
@@ -1371,6 +1396,52 @@ def hijri_date_label(year, month, day, lang):
 
 def hijri_observance_name(key, lang):
     return _HIJRI_OBSERVANCES[key][hijri_lang(lang)]
+
+
+# Iran fixes the lunar months by its own sighting of the crescent, so its
+# Hijri dates can sit a day from Umm al-Qura's. Said once, in the grid's
+# hover, where the reader is looking at a single day.
+_HIJRI_SIGHTING_NOTE = {
+    "fa": "به تقویم ام\u200cالقری؛ در ایران ممکن است یک روز فرق کند",
+}
+
+
+def hijri_sighting_note(lang):
+    """The caveat the grid's hover sets under a Hijri date, or None."""
+    return _HIJRI_SIGHTING_NOTE.get(base_language(lang))
+
+
+# ---------------------------------------------------------------------------
+# The Solar Hijri observances (see _calendars/solar_hijri.py), by the keys
+# its next_observance returns: Persian names for Persian, the customary
+# English transliterations for everyone else. Nowruz is also counted
+# down to the moment of the equinox, تحویل سال, the turn of the year.
+# ---------------------------------------------------------------------------
+
+_SOLAR_HIJRI_OBSERVANCES = {
+    "nowruz": {"fa": "نوروز", "en": "Nowruz"},
+    "sizdah_bedar": {"fa": "سیزده‌بدر", "en": "Sizdah Bedar"},
+    "tirgan": {"fa": "جشن تیرگان", "en": "Tirgan"},
+    "mehregan": {"fa": "جشن مهرگان", "en": "Mehregan"},
+    "yalda": {"fa": "شب یلدا", "en": "Yalda Night"},
+    "sadeh": {"fa": "جشن سده", "en": "Sadeh"},
+    "chaharshanbe_suri": {"fa": "چهارشنبه‌سوری", "en": "Chaharshanbe Suri"},
+}
+
+_YEAR_TURN = {"fa": "تحویل سال {year}", "en": "Nowruz {year}"}
+
+
+def _solar_hijri_lang(lang):
+    return "fa" if base_language(lang) == "fa" else "en"
+
+
+def solar_hijri_observance_name(key, lang):
+    return _SOLAR_HIJRI_OBSERVANCES[key][_solar_hijri_lang(lang)]
+
+
+def year_turn_label(year, lang):
+    """`تحویل سال 1406`: the moment Nowruz is counted down to."""
+    return _YEAR_TURN[_solar_hijri_lang(lang)].format(year=year)
 
 
 # ---------------------------------------------------------------------------

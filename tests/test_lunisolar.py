@@ -199,9 +199,10 @@ class TestLabels:
 
     def test_every_calendar_has_names_and_a_meridian(self):
         # The Thai calendar is arithmetic (see _calendars.thai_lunar and
-        # test_thai_lunar), so it carries no meridian or solar terms.
+        # test_thai_lunar), and the Islamic one is lunar (Persian's; see
+        # test_hijri), so neither carries a meridian or solar terms.
         for lang, cal in CALENDAR_OF_LANG.items():
-            if cal == "thai":
+            if cal in ("thai", "islamic"):
                 continue
             assert cal in CALENDAR_MERIDIAN_HOURS
             assert calendar_is_native(cal, lang)

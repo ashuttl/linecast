@@ -13,7 +13,7 @@ Usage: linecast calendar [show]
        linecast calendar auto
 
 Precedence: moon's --calendar flag > this setting > the calendar
-native to the UI language (--lang zh, ja, ko, vi, or th) > none.
+native to the UI language (--lang zh, ja, ko, vi, th, or fa) > none.
 """
 
 import argparse
@@ -25,7 +25,8 @@ from linecast._commands import formatter_class
 from linecast._runtime import VersionAction
 
 _NATURAL = ("chinese with --lang zh, japanese with ja, "
-            "korean with ko, vietnamese with vi, thai with th; none otherwise")
+            "korean with ko, vietnamese with vi, thai with th, islamic "
+            "with fa; none otherwise")
 
 
 def _cmd_show():

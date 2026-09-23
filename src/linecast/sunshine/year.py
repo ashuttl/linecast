@@ -15,7 +15,7 @@ a tooltip with that day's sunrise, sunset, and day length, tides-style.
 """
 
 import calendar
-from datetime import datetime, timedelta
+from datetime import date as _date, datetime, timedelta
 
 from linecast._i18n import fmt_duration_parts, lang_of
 from linecast import _live, _theme
@@ -436,9 +436,15 @@ def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
                  f"{fmt_time(sunset, runtime.use_24h)} "
                  f"{icons['sunset_icon']} ")
 
+    # Where the dates are Solar Hijri, the Gregorian date rides beside.
+    from linecast._calendars.civil import SOLAR_HIJRI, civil_calendar
+    from linecast.moon.i18n import gregorian_month_day
+    lang = runtime.lang
+    gregorian = (f"{gregorian_month_day(date, lang)} · "
+                 if civil_calendar(lang) == SOLAR_HIJRI else "")
     tip_lines = [
         f"{tip_bg}{tip_fg} {_fmt_month_day(date, runtime)} "
-        f"{tip_dim}· {rel} ",
+        f"{tip_dim}· {gregorian}{rel} ",
         f"{tip_bg}{tip_fg} {fmt_time(hour % 24, runtime.use_24h)}"
         f"{tip_dim}{' ' + zone if zone else ''} · {sky} ",
         times,
@@ -457,13 +463,11 @@ def _month_axis_cells(year, days, graph_w, runtime):
     Cells, not characters: a wide (CJK) glyph takes two columns — its
     own, and an empty slot after it that the framebuffer skips.
     """
-    labels = axis_month_labels(runtime, narrow=graph_w < 72)
+    ticks = _month_ticks(year, days, graph_w, runtime)
     cells = []
-    doy = 0
-    for m in range(12):
-        x = int(doy / days * graph_w)
+    for x, label in ticks:
         last_base = None
-        for ch in labels[m]:
+        for ch in label:
             w = char_width(ch)
             if w == 0:
                 # A combining mark (a Thai vowel sign, say) rides in
@@ -478,5 +482,59 @@ def _month_axis_cells(year, days, graph_w, runtime):
             last_base = len(cells) - 1
             cells.extend((x + k, "") for k in range(1, w))
             x += w
-        doy += calendar.monthrange(year, m + 1)[1]
     return cells
+
+
+def _month_ticks(year, days, graph_w, runtime):
+    """[(x, label)] for the month axis: the Gregorian months' starts, or
+    where the dates are Solar Hijri, the Solar Hijri months' starts,
+    which fall near the 21st of the Gregorian months across the year.
+
+    The Solar Hijri months are named in full where every name fits the
+    month it heads (Persian does not abbreviate its months), and
+    numbered otherwise, as Iranian dates number them (1405/7/1). The
+    month running on 1 January is labelled at the edge only when its
+    label fits before the next month's."""
+    from linecast._calendars import solar_hijri
+    from linecast._calendars.civil import (
+        SOLAR_HIJRI, civil_calendar, solar_hijri_month_name,
+    )
+    lang = runtime.lang
+    if civil_calendar(lang) != SOLAR_HIJRI:
+        labels = axis_month_labels(runtime, narrow=graph_w < 72)
+        ticks = []
+        doy = 0
+        for m in range(12):
+            ticks.append((int(doy / days * graph_w), labels[m]))
+            doy += calendar.monthrange(year, m + 1)[1]
+        return ticks
+
+    jan1 = _date(year, 1, 1)
+    sh_year, sh_month, sh_day = solar_hijri.solar_hijri_date(jan1)
+    starts = []                      # (day of the year from 0, month)
+    if sh_day != 1:
+        starts.append((0, sh_month))
+    y, m = sh_year, sh_month
+    while True:
+        first, (y, m) = solar_hijri.next_month_start(
+            solar_hijri.month_start(y, m))
+        doy = (first - jan1).days
+        if doy >= days:
+            break
+        starts.append((doy, m))
+    xs = [int(doy / days * graph_w) for doy, _m in starts]
+    ends = xs[1:] + [graph_w]
+    names = [solar_hijri_month_name(m, lang) for _doy, m in starts]
+    # A name must leave a cell of air before the next month's label; the
+    # partial month at the left edge is not held to it, and is dropped
+    # instead when it will not fit.
+    full = [i for i in range(len(starts)) if not (i == 0 and sh_day != 1)]
+    use_names = graph_w >= 72 and all(
+        len(names[i]) + 1 <= ends[i] - xs[i] for i in full)
+    ticks = []
+    for i, (_doy, m) in enumerate(starts):
+        label = names[i] if use_names else str(m)
+        if i == 0 and sh_day != 1 and len(label) + 1 > ends[i] - xs[i]:
+            continue
+        ticks.append((xs[i], label))
+    return ticks

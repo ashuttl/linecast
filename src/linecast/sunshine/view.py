@@ -338,6 +338,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
             now_hour,
             offset_minutes,
             tz_offset_h,
+            day=now.date() if now is not None else None,
         )
     )
     if hours is not None:
@@ -353,8 +354,11 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     return "\n".join(lines)
 
 def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, offset_minutes=0,
-               tz_offset_h=None):
-    """Sunrise — day length (delta) — sunset."""
+               tz_offset_h=None, day=None):
+    """Sunrise — day length (delta) — sunset.
+
+    *day*, the shown date, lets a day with a name say it: Yalda, the
+    longest night, where the dates are Solar Hijri."""
     from linecast.sunshine.i18n import polar_name
 
     icons = _icon_set(runtime)
@@ -400,6 +404,13 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
     cw = visible_len(center)
     rw = visible_len(right)
 
+    # Yalda, the night of 30 Azar that closes the year's shortest day,
+    # is named after the day length: it is the day this line is about.
+    night_name = _named_night(day, runtime)
+    if night_name and lw + cw + visible_len(night_name) + 3 + rw + 2 <= width:
+        center += f" {dim}· {text}{night_name}"
+        cw = visible_len(center)
+
     # The sky at the shown moment, dim, after the center — when it fits.
     # A polar center already names the sky for the whole day.
     if now_hour is not None and not polar:
@@ -415,6 +426,21 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
     line = f"{left}{' ' * left_gap}{center}{' ' * right_gap}{right}"
 
     return f"{RESET}{line}{RESET}"
+
+def _named_night(day, runtime):
+    """شب یلدا on 30 Azar where the dates are Solar Hijri, else None."""
+    if day is None:
+        return None
+    from linecast._calendars.civil import SOLAR_HIJRI, civil_calendar
+    lang = lang_of(runtime)
+    if civil_calendar(lang) != SOLAR_HIJRI:
+        return None
+    from linecast._calendars.solar_hijri import observance_key
+    if observance_key(day) != "yalda":
+        return None
+    from linecast.moon.i18n import solar_hijri_observance_name
+    return solar_hijri_observance_name("yalda", lang)
+
 
 def _sky_name(lat, lng, doy, hour, sunrise, sunset, tz_offset_h, runtime):
     """Name the sky at a moment: an event within five minutes, else the phase."""

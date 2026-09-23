@@ -37,8 +37,12 @@ from linecast._i18n import base_language
 # lives in thai_lunar and needs no meridian.
 CALENDAR_MERIDIAN_HOURS = {"chinese": 8, "japanese": 9, "korean": 9,
                            "vietnamese": 7}
+# Persian takes the Islamic calendar: Iran's calendars print the lunar
+# Hijri date beside the solar one, whose dates are the civil ones
+# (_calendars.civil), and its religious holidays fall by it.
 CALENDAR_OF_LANG = {"zh": "chinese", "zh-Hant": "chinese", "ja": "japanese",
-                    "ko": "korean", "vi": "vietnamese", "th": "thai"}
+                    "ko": "korean", "vi": "vietnamese", "th": "thai",
+                    "fa": "islamic"}
 
 
 def calendar_is_native(cal, lang):
