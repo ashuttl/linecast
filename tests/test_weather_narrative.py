@@ -88,6 +88,13 @@ class TestFeelsSentence:
             "The wind is making it feel colder"
         assert feels_sentence(mild, DAILY, NOON, _runtime()) == \
             "The wind is making it feel cooler"
+        # Languages whose word for it means cool say cold in cold air too
+        assert feels_sentence(cold, DAILY, NOON, _runtime(lang="de")) == \
+            "Durch den Wind fühlt es sich kälter an"
+        assert feels_sentence(cold, DAILY, NOON, _runtime(lang="ru")) == \
+            "Из-за ветра ощущается холоднее"
+        assert feels_sentence(mild, DAILY, NOON, _runtime(lang="ru")) == \
+            "Из-за ветра ощущается прохладнее"
 
     def test_cold_damp_air_is_not_called_dry(self):
         # Longyearbyen at 1 C and 91% humidity: the formula's humidity term

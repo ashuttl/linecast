@@ -1589,6 +1589,8 @@ _STRINGS = {
         "feels_sun": "In der Sonne fühlt es sich wärmer an",
         "feels_wind": "Durch den Wind fühlt es sich kühler an",
         "feels_dry": "Durch die trockene Luft fühlt es sich kühler an",
+        "feels_wind_cold": "Durch den Wind fühlt es sich kälter an",
+        "feels_dry_cold": "Durch die trockene Luft fühlt es sich kälter an",
         # Comparative line
         "same_temp": "etwa so hoch wie {ref_day}",
         "bit_warmer": "etwas höher als {ref_day}",
@@ -1882,7 +1884,7 @@ _STRINGS = {
         "in_about_an_hour": "eftir um klukkustund",
         "in_a_couple_hours": "eftir nokkrar klukkustundir",
         "around": "um {time}",
-        "same_time": "einnig",
+        "same_time": "um sama leyti",
         "overnight": "í nótt",
         "early_tomorrow_morning": "snemma í fyrramálið",
         "tomorrow_morning": "á morgun fyrir hádegi",
@@ -2420,6 +2422,7 @@ _STRINGS = {
         "feels_sun": "In de zon voelt het warmer aan",
         "feels_wind": "Door de wind voelt het kouder aan",
         "feels_dry": "Door de droge lucht voelt het koeler aan",
+        "feels_dry_cold": "Door de droge lucht voelt het kouder aan",
         # Comparative line
         "same_temp": "ongeveer even hoog als {ref_day}",
         "bit_warmer": "iets hoger dan {ref_day}",
@@ -3307,6 +3310,8 @@ _STRINGS = {
         "feels_sun": "受阳光影响，体感偏暖",
         "feels_wind": "受风影响，体感偏凉",
         "feels_dry": "空气干燥，体感偏凉",
+        "feels_wind_cold": "受风影响，体感偏冷",
+        "feels_dry_cold": "空气干燥，体感偏冷",
         # Comparative line
         "same_temp": "与{ref_day}相近",
         "bit_warmer": "比{ref_day}略高",
@@ -3436,6 +3441,8 @@ _STRINGS = {
         "feels_sun": "受陽光影響，體感偏暖",
         "feels_wind": "受風影響，體感偏涼",
         "feels_dry": "空氣乾燥，體感偏涼",
+        "feels_wind_cold": "受風影響，體感偏冷",
+        "feels_dry_cold": "空氣乾燥，體感偏冷",
         # Comparative line
         "same_temp": "與{ref_day}相近",
         "bit_warmer": "比{ref_day}略高",
@@ -3586,6 +3593,8 @@ _STRINGS = {
         "feels_sun": "แดดทำให้รู้สึกอุ่นขึ้น",
         "feels_wind": "ลมทำให้รู้สึกเย็นลง",
         "feels_dry": "อากาศแห้งทำให้รู้สึกเย็นลง",
+        "feels_wind_cold": "ลมทำให้รู้สึกหนาวขึ้น",
+        "feels_dry_cold": "อากาศแห้งทำให้รู้สึกหนาวขึ้น",
         # Comparative line
         "same_temp": "ใกล้เคียงกับ{ref_day}",
         "bit_warmer": "สูงกว่า{ref_day}เล็กน้อย",
@@ -3713,6 +3722,7 @@ _STRINGS = {
         "feels_sun": "Sinar matahari membuat udara terasa lebih panas",
         "feels_wind": "Angin membuat udara terasa lebih dingin",
         "feels_dry": "Udara kering membuat suhu terasa lebih sejuk",
+        "feels_dry_cold": "Udara kering membuat suhu terasa lebih dingin",
         # Comparative line
         "same_temp": "hampir sama dengan {ref_day}",
         "bit_warmer": "sedikit lebih tinggi daripada {ref_day}",
@@ -3842,6 +3852,8 @@ _STRINGS = {
         "feels_sun": "Через сонце відчувається тепліше",
         "feels_wind": "Через вітер відчувається прохолодніше",
         "feels_dry": "Через сухе повітря відчувається прохолодніше",
+        "feels_wind_cold": "Через вітер відчувається холодніше",
+        "feels_dry_cold": "Через сухе повітря відчувається холодніше",
         "same_temp": "приблизно такою ж, як {ref_day}",
         "bit_warmer": "трохи вищою, ніж {ref_day}",
         "bit_cooler": "трохи нижчою, ніж {ref_day}",
@@ -4235,6 +4247,8 @@ _STRINGS = {
         "feels_sun": "Güneş nedeniyle hava olduğundan daha sıcak hissediliyor",
         "feels_wind": "Rüzgar nedeniyle hava olduğundan daha serin hissediliyor",
         "feels_dry": "Kuru hava nedeniyle olduğundan daha serin hissediliyor",
+        "feels_wind_cold": "Rüzgar nedeniyle hava olduğundan daha soğuk hissediliyor",
+        "feels_dry_cold": "Kuru hava nedeniyle olduğundan daha soğuk hissediliyor",
         # The reference day takes a case suffix, "bugünden", "dünle"; both
         # words end in ü, so one spelling of each suffix serves.
         "same_temp": "{ref_day}yle hemen hemen aynı",
@@ -4377,6 +4391,8 @@ _STRINGS = {
         "feels_sun": "Из-за солнца ощущается теплее",
         "feels_wind": "Из-за ветра ощущается прохладнее",
         "feels_dry": "Из-за сухого воздуха ощущается прохладнее",
+        "feels_wind_cold": "Из-за ветра ощущается холоднее",
+        "feels_dry_cold": "Из-за сухого воздуха ощущается холоднее",
         "same_temp": "примерно такой же, как {ref_day}",
         "bit_warmer": "немного выше, чем {ref_day}",
         "bit_cooler": "немного ниже, чем {ref_day}",
