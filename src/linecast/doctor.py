@@ -357,7 +357,24 @@ def _collect_terminal():
         "theme": theme,
         "lang": runtime.lang,
         "glyph_widths": _collect_glyph_widths(),
+        "bidi": _collect_bidi(env),
     }
+
+
+def _collect_bidi(env):
+    """Who puts right-to-left text in order, and what to change if it
+    reads backwards in this terminal."""
+    from linecast import _bidi
+    if _bidi.bidi_mode(env) == "terminal":
+        return "left to the terminal (LINECAST_BIDI=terminal)"
+    text = "linecast orders and joins the letters, and asks the terminal to draw them as sent"
+    if env.get("KONSOLE_VERSION"):
+        text += ("; Konsole orders text itself and may not honour the request: "
+                 "if Persian, Arabic, or Hebrew reads backwards, set LINECAST_BIDI=terminal")
+    if env.get("TMUX"):
+        text += ("; inside tmux the request reaches the outer terminal only with "
+                 "'set -g allow-passthrough on'")
+    return text
 
 
 def _collect_glyph_widths():
@@ -567,6 +584,10 @@ def render(report):
         # out from: a glyph drawn wider than this wraps the row it is on
         ("glyph width", term.get("glyph_widths", "")),
         ("theme", term["theme"]),
+        ("right to left", term.get("bidi", "")),
+        # joined letters read from the right; boxes mean the font has no
+        # Arabic or Hebrew, and a monospace one such as Vazir Code does
+        ("script check", "سلام · שלום"),
     ]
     out += [""] + _section("terminal", rows)
 
@@ -617,7 +638,8 @@ def main():
     if args.json_mode:
         print(json.dumps(report, ensure_ascii=False, indent=2))
     else:
-        print(render(report))
+        from linecast._bidi import for_stream
+        print(for_stream(render(report)))
 
 
 if __name__ == "__main__":
