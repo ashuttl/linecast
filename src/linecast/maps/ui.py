@@ -414,13 +414,14 @@ def _fmt_distance(metres):
     return f"{feet / 5280:.1f} mi"
 
 
-def _fmt_duration(seconds):
-    """`13m`, `1h 22m`.  The unit letters stay untranslated, matching
-    the elevation readout."""
+def _fmt_duration(seconds, lang="en"):
+    """`13m`, `1h 22m`, in the language's own form
+    (_i18n.fmt_duration_parts)."""
+    from linecast._i18n import fmt_duration_parts
     minutes = int(round(seconds / 60.0))
     if minutes < 60:
-        return f"{minutes}m"
-    return f"{minutes // 60}h {minutes % 60:02d}m"
+        return fmt_duration_parts(lang, ("m", minutes))
+    return fmt_duration_parts(lang, ("h", minutes // 60), ("m", minutes % 60))
 
 
 def route_summary(route, lang="en"):
@@ -428,7 +429,7 @@ def route_summary(route, lang="en"):
     if route is None:
         return ""
     return (f"{_fmt_distance(route.distance_m)}"
-            f" · {_fmt_duration(route.duration_s)}"
+            f" · {_fmt_duration(route.duration_s, lang)}"
             f" · {ms('profile_' + route.profile, lang)}")
 
 
@@ -529,7 +530,7 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
     mode = ms('profile_' + state.profile, lang)
     if route is not None:
         mode += (f" · {_fmt_distance(route.distance_m)}"
-                 f" · {_fmt_duration(route.duration_s)}")
+                 f" · {_fmt_duration(route.duration_s, lang)}")
     out = [
         field(2, "o", labels[0], _point_label(state.origin, home_label)),
         field(3, "D", labels[1], _point_label(state.dest) or "…",

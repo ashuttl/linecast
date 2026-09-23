@@ -236,15 +236,17 @@ def next_mark(hours, now):
     return None
 
 
-def fmt_duration(seconds):
-    """'1h 12m', '22m', '1h': the plain form the countdowns use."""
+def fmt_duration(seconds, lang="en"):
+    """'1h 12m', '22m', '1h': the plain form the countdowns use, in the
+    language's own form (_i18n.fmt_duration_parts)."""
+    from linecast._i18n import fmt_duration_parts
     minutes = int(round(seconds / 60))
     h, m = divmod(minutes, 60)
     if h and m:
-        return f"{h}h {m:02d}m"
+        return fmt_duration_parts(lang, ("h", h), ("m", m))
     if h:
-        return f"{h}h"
-    return f"{m}m"
+        return fmt_duration_parts(lang, ("h", h))
+    return fmt_duration_parts(lang, ("m", m))
 
 
 def last_mark(hours, now):

@@ -1182,7 +1182,7 @@ class TestPrayerTimes:
         noon = datetime(2026, 3, 5, 12, 0, tzinfo=tz)
         assert corner_reading(hours, noon, _runtime()) == "fast 6h 38m · iftar in 6h 26m"
         assert (corner_reading(hours, noon, _runtime(lang="id"))
-                == "puasa 6h 38m · iftar dalam 6h 26m")
+                == "puasa 6h 38m · berbuka dalam 6h 26m")
         evening = datetime(2026, 3, 5, 19, 0, tzinfo=tz)
         assert corner_reading(hours, evening, _runtime()) == "Maghrib · Isha in 1h 26m"
         assert corner_reading(hours, evening, _runtime(lang="id")) == "Magrib · Isya dalam 1h 26m"

@@ -239,6 +239,40 @@ def fmt_percent(value, runtime):
     return f"{text} %" if lang in PERCENT_SPACED else f"{text}%"
 
 
+# How a language writes a duration from its parts. English keeps the
+# unit letters, which read as symbols and fit any layout ("6h 07m",
+# "2d 4h", "−2m 14s"); a language whose readers would not read h and m
+# as its own writes the words, joined as it joins them ("۶ ساعت و ۷
+# دقیقه"). "pad" zero-pads the minutes after an hour.
+# Each is (day, hour, minute, second, join, pad).
+_DURATION = {
+    "en": ("{v}d", "{v}h", "{v}m", "{v}s", " ", True),
+    "fa": ("{v} روز", "{v} ساعت", "{v} دقیقه", "{v} ثانیه", " و ", False),
+}
+
+
+def has_duration_words(lang):
+    """Whether `lang` writes durations in words of its own rather than
+    English's unit letters."""
+    return base_language(lang) in _DURATION and base_language(lang) != "en"
+
+
+def fmt_duration_parts(lang, *parts, sign=""):
+    """A duration from (unit, value) parts, units "d", "h", "m", "s", in
+    the order given: fmt_duration_parts("en", ("h", 6), ("m", 7)) is
+    "6h 07m", and in Persian "۶ ساعت و ۷ دقیقه" once the digits are
+    drawn.  `sign` goes in front."""
+    *forms, join, pad = table_for(_DURATION, lang)
+    forms = dict(zip("dhms", forms))
+    out = []
+    prev = None
+    for unit, value in parts:
+        text = f"{value:02d}" if (pad and unit == "m" and prev == "h") else str(value)
+        out.append(forms[unit].format(v=text))
+        prev = unit
+    return sign + join.join(out)
+
+
 def plural_category(lang, n):
     """Which form a count takes in `lang`: "one", "few", or "many", as
     CLDR draws the lines. Russian and Ukrainian count 1, 21, 31 as one,

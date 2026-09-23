@@ -17,6 +17,7 @@ a tooltip with that day's sunrise, sunset, and day length, tides-style.
 import calendar
 from datetime import datetime, timedelta
 
+from linecast._i18n import fmt_duration_parts, lang_of
 from linecast import _live, _theme
 from linecast._graphics import (
     fg, bg, interp_stops, lerp, fmt_time,
@@ -189,19 +190,19 @@ def _day_facts(lat, lng, doy, tz_off):
     return sunrise, sunset, sunset - sunrise
 
 
-def _fmt_len(hours):
+def _fmt_len(hours, lang="en"):
     h = int(hours)
     m = int((hours - h) * 60)
-    return f"{h}h {m:02d}m"
+    return fmt_duration_parts(lang, ("h", h), ("m", m))
 
 
-def _fmt_len_delta(delta_hours):
+def _fmt_len_delta(delta_hours, lang="en"):
     sign = "+" if delta_hours >= 0 else "−"
     total_m = int(round(abs(delta_hours) * 60))
     h, m = divmod(total_m, 60)
     if h:
-        return f"{sign}{h}h {m:02d}m"
-    return f"{sign}{m}m"
+        return fmt_duration_parts(lang, ("h", h), ("m", m), sign=sign)
+    return fmt_duration_parts(lang, ("m", m), sign=sign)
 
 
 def _sky_field(lat, lng, graph_w, graph_h, days, tz_offs, palette):
@@ -441,8 +442,8 @@ def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
         f"{tip_bg}{tip_fg} {fmt_time(hour % 24, runtime.use_24h)}"
         f"{tip_dim}{' ' + zone if zone else ''} · {sky} ",
         times,
-        f"{tip_bg}{tip_fg} {_fmt_len(day_len)} "
-        f"{tip_dim}({_fmt_len_delta(day_len - today_len)}) ",
+        f"{tip_bg}{tip_fg} {_fmt_len(day_len, lang_of(runtime))} "
+        f"{tip_dim}({_fmt_len_delta(day_len - today_len, lang_of(runtime))}) ",
     ]
 
     # right of the hover hairline, or ending just left of it at the edge

@@ -32,7 +32,8 @@ New this version:
   - Only lakes at least a few cells across get a braille coastline, so lake country no longer looks like a field of little rings. Smaller ponds are still drawn as water.
 - Language:
   - linecast speaks Persian (`fa`), used automatically by a Persian terminal locale. The forecast is written the way Iran's meteorological service writes it, numbers are in Persian digits (`LINECAST_DIGITS=latin` for 0–9), and the sky names its constellations and many of its stars in Persian. A native reader has not checked it yet; if something reads oddly, please open an [issue](https://github.com/ashuttl/linecast/issues).
-  - In Persian, weather, tides, the Moon's month grid, and the sunshine year read from the right: text is anchored to the right edge, and the graphs run right to left, with now at the right. `←` moves forward in time. Maps, radar, the sky, and the Moon itself are not mirrored.
+  - In Persian, weather, tides, the Moon, and sunshine read from the right: text is anchored to the right edge, and the graphs run right to left, with now at the right. `←` moves forward in time. Maps, radar, the sky, and the Moon itself are not mirrored.
+  - In Persian, durations are written in words (۶ ساعت و ۷ دقیقه) rather than with English unit letters.
   - linecast speaks Hong Kong Chinese (`zh-HK`), used automatically by a Hong Kong or Macau terminal locale. It uses the Hong Kong Observatory's words for the weather (天晴, 大致多雲, 密雲, 驟雨, 雷暴, 警告) and Hong Kong's everyday words. Traditional Chinese otherwise follows Taiwan, as before.
   - Portuguese, Spanish, and French each have a regional variant, `pt-PT`, `es-ES`, and `fr-CA`, used automatically by a terminal locale in Portugal, Spain, or Canada. Spanish is now Latin American throughout; the maps had used Spain's words.
 - Tides: The location menu from weather is in tides too. Click the station name or press `l` to pick a recent place or search for one. Recent places are shared with weather.

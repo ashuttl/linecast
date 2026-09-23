@@ -6,7 +6,7 @@ these renderers instead of the full terminal UI.
 """
 
 from linecast.weather.i18n import fmt_wind
-from linecast._i18n import fmt_percent
+from linecast._i18n import fmt_duration_parts, fmt_percent, has_duration_words, lang_of
 from linecast._graphics import fg, RESET
 from linecast._framebuffer import fmt_time, fmt_time_dt
 
@@ -109,7 +109,11 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None,
     def _fmt(h):
         return fmt_time(h, use_24h=runtime.use_24h)
 
-    delta_str = f"{d_sign}{d_m}m{d_s}s" if d_s else f"{d_sign}{d_m}m"
+    if not has_duration_words(lang_of(runtime)):
+        delta_str = f"{d_sign}{d_m}m{d_s}s" if d_s else f"{d_sign}{d_m}m"
+    else:
+        parts = [("m", d_m), ("s", d_s)] if d_s else [("m", d_m)]
+        delta_str = fmt_duration_parts(lang_of(runtime), *parts, sign=d_sign)
 
     from linecast.sunshine.palette import (
         INFO_AMBER_RGB, INFO_PURPLE_RGB, INFO_TEXT_RGB, INFO_DIM_RGB,

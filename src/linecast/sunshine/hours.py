@@ -13,6 +13,7 @@ sunrise and sunset go last, since the line above names them already.
 """
 
 from linecast._graphics import RESET, fg, fmt_time_dt, visible_len
+from linecast._i18n import lang_of
 from linecast._hours import elapsed, fmt_duration, last_mark, next_mark, reading, utc
 from linecast._hours.i18n import hs, mark_name, reading_name, unit_name, variant_name
 
@@ -46,9 +47,11 @@ def corner_reading(hours, now, runtime):
         start, end = hours.fast
         at = _aware_like(now, start)
         if utc(start) <= utc(at) < utc(end):
-            left = hs('in_time', runtime, dur=fmt_duration(elapsed(at, end).total_seconds()))
-            return (f"{hs('fast', runtime)} {fmt_duration(elapsed(start, at).total_seconds())}"
-                    f"{_SEP}iftar {left}")
+            lang = lang_of(runtime)
+            left = hs('in_time', runtime,
+                      dur=fmt_duration(elapsed(at, end).total_seconds(), lang))
+            fasted = fmt_duration(elapsed(start, at).total_seconds(), lang)
+            return f"{hs('fast', runtime)} {fasted}{_SEP}{hs('iftar', runtime)} {left}"
     # A system of marks alone, or a day the Sun never made the edges
     # of: the interval the moment falls in, and how long it has left.
     before, after = last_mark(hours, now), next_mark(hours, now)
@@ -56,7 +59,8 @@ def corner_reading(hours, now, runtime):
     if before is not None:
         parts.append(mark_name(hours.system, before.key, runtime, short=True, hours=hours))
     if after is not None:
-        left = fmt_duration(elapsed(_aware_like(now, after.at), after.at).total_seconds())
+        left = fmt_duration(elapsed(_aware_like(now, after.at), after.at).total_seconds(),
+                            lang_of(runtime))
         parts.append(f"{mark_name(hours.system, after.key, runtime, short=True, hours=hours)} "
                      f"{hs('in_time', runtime, dur=left)}")
     return _SEP.join(parts)
@@ -86,7 +90,7 @@ def hours_line(hours, now, width, runtime):
         label = (f"{mark_name(hours.system, mark.key, runtime, short=True, hours=hours)} "
                  f"{fmt_time_dt(mark.at, runtime.use_24h)}")
         if mark is coming:
-            left = fmt_duration(elapsed(now, mark.at).total_seconds())
+            left = fmt_duration(elapsed(now, mark.at).total_seconds(), lang_of(runtime))
             label += f" {dim}({hs('in_time', runtime, dur=left)})"
             ink = text
         elif utc(mark.at) <= utc(now):

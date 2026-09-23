@@ -33,7 +33,7 @@ from linecast._framebuffer import fmt_time_dt
 from linecast._graphics import (
     lerp, visible_len, get_terminal_size, cell_aspect, Framebuffer, live_loop,
 )
-from linecast._i18n import lang_of
+from linecast._i18n import fmt_duration_parts, lang_of
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
@@ -132,19 +132,15 @@ def _fmt_event(dt, now_local, runtime):
     return time_str
 
 
-def _fmt_countdown(delta):
-    """`48m`, `6h 56m`, `2d 4h` — how long until an event.
-
-    The unit letters are left untranslated, as _fmt_duration does for the
-    route readout: they read as symbols rather than words, and a number
-    beside a letter survives every layout this has to fit.
-    """
+def _fmt_countdown(delta, lang="en"):
+    """`48m`, `6h 56m`, `2d 4h` — how long until an event, in the
+    language's own form (_i18n.fmt_duration_parts)."""
     minutes = max(0, int(delta.total_seconds() // 60))
     if minutes < 60:
-        return f"{minutes}m"
+        return fmt_duration_parts(lang, ("m", minutes))
     if minutes < 60 * 24:
-        return f"{minutes // 60}h {minutes % 60:02d}m"
-    return f"{minutes // 1440}d {(minutes % 1440) // 60}h"
+        return fmt_duration_parts(lang, ("h", minutes // 60), ("m", minutes % 60))
+    return fmt_duration_parts(lang, ("d", minutes // 1440), ("h", (minutes % 1440) // 60))
 
 
 def _event_phrase(label, dt, now_local, runtime):
@@ -160,7 +156,7 @@ def _event_phrase(label, dt, now_local, runtime):
     days_ahead = (dt.date() - now_local.date()).days
     if days_ahead >= 1:
         when = f"{when} {_day_abbrev(dt, runtime)}"
-    ahead = _ms('in_time', runtime, dur=_fmt_countdown(dt - now_local))
+    ahead = _ms('in_time', runtime, dur=_fmt_countdown(dt - now_local, lang_of(runtime)))
     return f"{label} {ahead} ({when})"
 
 
@@ -944,6 +940,15 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         paint_hint(fb, overlays, lang_of(runtime))
     stars = _star_overlays(fb, cx, cy, radius, sky, taken=overlays.keys(),
                            turn=rotation, aspect=aspect)
+    from linecast import _bidi
+    if _bidi.mirrored():
+        # The view reads from the right, the panel on the left; the Moon
+        # and its stars are a picture, drawn flipped about the disc's
+        # centre for the row's flip to undo.
+        span = min(cx, graph_w - 1 - cx)
+        fb.flip_columns(cx - span, cx + span + 1, 0, fb.total_spy)
+        stars = {(2 * cx - x, row): star for (x, row), star in stars.items()
+                 if 0 <= 2 * cx - x < graph_w and (2 * cx - x, row) not in overlays}
     lines = fb.render(overlays={**stars, **overlays})
     if hint:
         lines.append(hint)
@@ -1012,10 +1017,10 @@ def main():
     def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
         # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
         # is handled here (per view) rather than by live_loop.
-        # The month grid reads from the right in a right-to-left
-        # language; the disc is the Moon as it looks, and is never flipped.
+        # Both views read from the right in a right-to-left language;
+        # the Moon itself, on the disc and in the grid, is never flipped.
         from linecast import _bidi
-        _bidi.set_mirror(state["cal"])
+        _bidi.set_mirror(True)
         if state["cal"]:
             from linecast.moon.calendar import render_calendar
             return render_calendar(_now(), lat, lng, runtime,
@@ -1070,6 +1075,11 @@ def main():
         # clicks while a drag callback is set, so it answers here too.
         if state["cal"]:
             return False
+        # The disc is never mirrored, so a drag turns it the way the
+        # hand moved even when the view reads from the right
+        from linecast import _bidi
+        if _bidi.mirrored():
+            dcol = -dcol
         return turn.release() if done else turn.drag(dcol, drow)
 
     def _on_click(col, row):

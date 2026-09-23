@@ -26,7 +26,7 @@ from linecast._graphics import (
 )
 from linecast import _theme
 from linecast._theme import darken, lighten
-from linecast._i18n import table_for
+from linecast._i18n import fmt_duration_parts, lang_of, table_for
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
@@ -374,7 +374,10 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
     dim = fg(*INFO_DIM_RGB)
     text = fg(*INFO_TEXT_RGB)
 
-    delta_str = f"{d_sign}{d_m}m {d_s}s" if d_s > 0 else f"{d_sign}{d_m}m"
+    lang = lang_of(runtime)
+    delta_str = (fmt_duration_parts(lang, ("m", d_m), ("s", d_s), sign=d_sign) if d_s > 0
+                 else fmt_duration_parts(lang, ("m", d_m), sign=d_sign))
+    day_len_str = fmt_duration_parts(lang, ("h", dl_h), ("m", dl_m))
 
     # Through a polar season there is no sunrise or sunset to print: the
     # dashes stand where the times would, and the phrase takes the place
@@ -387,10 +390,10 @@ def _info_line(lat, lng, doy, sunrise, sunset, width, runtime, now_hour=None, of
     if offset_minutes:
         center = f"{text}{fmt_time(now_hour, runtime.use_24h)}"
     elif polar:
-        center = (f"{text}{dl_h}h {dl_m:02d}m "
+        center = (f"{text}{day_len_str} "
                   f"{dim}· {polar_name(polar, runtime)}")
     else:
-        center = f"{text}{dl_h}h {dl_m:02d}m {dim}({delta_str})"
+        center = f"{text}{day_len_str} {dim}({delta_str})"
     right = f"{text}{set_txt} {purple}{icons['sunset_icon']}"
 
     lw = visible_len(left)
@@ -538,11 +541,11 @@ def main():
                      modal_scroll=0):
         # offset_minutes/active_alert/modal_scroll are ignored; scrubbing
         # is handled here (day view only) rather than by live_loop.
-        # The year runs from the right in a right-to-left language; the
-        # day's arc is the sky facing the equator, and keeps east where
-        # it is.
+        # Both views read from the right in a right-to-left language:
+        # the day's arc is plotted by the hour, midnight to midnight,
+        # and the year by the date, so both are time running leftward.
         from linecast import _bidi
-        _bidi.set_mirror(state["year"])
+        _bidi.set_mirror(True)
         if state["year"]:
             from linecast.sunshine.year import render_year
             return render_year(
