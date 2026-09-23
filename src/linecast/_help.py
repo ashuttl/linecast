@@ -148,12 +148,28 @@ def wrap(text, width):
     return out
 
 
+def _key_digits(key, lang):
+    """A key's label with its digits kept as printed on the keyboard, in
+    a language with digits of its own: "1-8", "9"."""
+    from linecast._bidi import identifier
+    from linecast._i18n import is_rtl
+    if not is_rtl(lang):
+        return key
+    return re.sub(r"[0-9]+(?:[-–][0-9]+)?", lambda m: identifier(m.group()), key)
+
+
 def panel(content, cols, rows, lang='en', page=0):
     """A centered panel and its page count. Short windows retain every key."""
     if cols < 16 or rows < 5:
         note = fit('? / esc', cols)
         return f'\033[1;1H{RESET}{note}', 1
-    content = [entry if entry is None else (mark(entry[0], lang), entry[1])
+    from linecast import _bidi
+    from linecast._i18n import is_rtl
+    # Read from the right: the keys go in a column on the right, the
+    # descriptions against it. A view laid out from the right (weather,
+    # tides) gets this from its flip; the others (maps, the sky) here.
+    rtl = is_rtl(lang) and not _bidi.mirrored()
+    content = [entry if entry is None else (_key_digits(mark(entry[0], lang), lang), entry[1])
                for entry in content]
     label_width = max((visible_len(entry[1]) for entry in content if entry), default=0)
     # the key column is as wide as its widest entry: a translated
@@ -202,11 +218,20 @@ def panel(content, cols, rows, lang='en', page=0):
             body = ' ' * width
         else:
             key, text = entry
-            if key:
+            if key and rtl:
+                key = fit(key, key_width - 1)
+                label = fit(text, width - key_width - 4)
+                pad = width - 4 - visible_len(label) - key_width
+                body = (' ' * (1 + pad) + f'{fg(*ink)}{label}  '
+                        + ' ' * (key_width - visible_len(key)) + f'{fg(*key_ink)}{key}')
+            elif key:
                 key = fit(key, key_width)
                 label = fit(text, width - key_width - 3)
                 body = (f' {fg(*key_ink)}{key}' + ' ' * (key_width - visible_len(key))
                         + f' {fg(*ink)}{label}')
+            elif rtl:
+                line = fit(text, width - 2)
+                body = ' ' * (width - 1 - visible_len(line)) + f'{fg(*dim)}{line}'
             else:
                 body = f' {fg(*dim)}{fit(text, width - 2)}'
             body += ' ' * (width - visible_len(body))

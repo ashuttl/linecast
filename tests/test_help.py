@@ -196,3 +196,22 @@ def test_wheel_hook_can_defer_to_forecast_and_alert_scrolling(monkeypatch):
     ], on_wheel=lambda *args: NotImplemented)
     assert any(f['offset_minutes'] == 15 for f in frames)
     assert any(f['active_alert'] == 0 and f['modal_scroll'] == 3 for f in frames)
+
+
+class TestRightToLeftPanel:
+    def test_keys_go_on_the_right_in_persian(self):
+        import re
+        from linecast._help import entries, panel
+        out, _pages = panel(entries("sky", "fa"), 100, 30, "fa")
+        rows = [re.sub(r"\033\[[0-9;]*[mH]", "", row) for row in out.split("\033[")[1:]]
+        row = next(r for r in (re.sub(r"\033\[[0-9;]*[mH]", "", "\033[" + x) for x in rows)
+                   if "خروج" in r)
+        # the description, then the key, at the right edge of the box
+        assert row.rstrip("│ ").endswith("q")
+        assert row.index("خروج") < row.index("q")
+
+    def test_key_digits_stay_as_printed(self):
+        from linecast._bidi import LRI
+        from linecast._help import _key_digits
+        assert _key_digits("1–8", "fa").startswith(LRI)
+        assert _key_digits("1–8", "en") == "1–8"
