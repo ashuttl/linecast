@@ -16,9 +16,9 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import maps
-from linecast._maps import globe as _globe
-from linecast._maps import views
+from linecast.maps import view as maps
+from linecast.maps import globe as _globe
+from linecast.maps import views
 from linecast._color import BG_PRIMARY
 from linecast.radar.basemap import _BITS
 from linecast.radar.i18n import rs
@@ -213,7 +213,7 @@ class TestPrefetchAround:
                            [(0.0, 0.0, span * 2, span) for span in spans])
 
     def _views(self, monkeypatch, bboxes, height_cells=8):
-        from linecast._maps import streets as ms
+        from linecast.maps import streets as ms
         asked = []
         monkeypatch.setattr(ms, "prefetch_tiles", lambda keys: asked.append(list(keys)))
         monkeypatch.setattr(ms, "tile_info", lambda: ("t", "v", 14))
@@ -251,8 +251,8 @@ class TestPrefetchAround:
         # overscan whose window wants z14, while the overscan's own bbox
         # left to itself would be coarsened to z13 — so the guess has to
         # be scaled and settled the way view_tiles settles the view
-        from linecast._maps import overscan as over
-        from linecast._maps import streets as ms
+        from linecast.maps import overscan as over
+        from linecast.maps import streets as ms
         gw, hc = maps.map_cells((160, 45))
         asked = []
         monkeypatch.setattr(ms, "prefetch_tiles", lambda keys: asked.extend(keys))
@@ -275,7 +275,7 @@ class TestPrefetchAround:
     def test_a_zoom_on_a_wide_terminal_keeps_its_guess(self, monkeypatch):
         # London at 160x45: twelve tiles, a ring of eighteen and a
         # guess of fifteen at the next zoom, all inside the cap
-        from linecast._maps import streets as ms
+        from linecast.maps import streets as ms
         gw, hc = maps.map_cells((160, 45))
         asked, keys = self._views(
             monkeypatch, [bbox_for(51.5, -0.12, 0.075, gw, hc),
@@ -284,7 +284,7 @@ class TestPrefetchAround:
         assert any(k[0] > keys[0][0] for k in asked)  # the guess survives
 
     def test_the_guess_gives_way_to_the_cap(self, monkeypatch):
-        from linecast._maps import streets as ms
+        from linecast.maps import streets as ms
         monkeypatch.setattr(ms, "_MAX_TILES", 4)
         gw, hc = maps.map_cells((160, 45))
         asked, keys = self._views(

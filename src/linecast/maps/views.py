@@ -22,17 +22,17 @@ from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 
 from linecast import _builtup, _climate, _theme
-from linecast._maps import globe as _globe
-from linecast._maps import globe_now
-from linecast._maps import globe_texture
-from linecast._maps import streets
-from linecast._maps import style as _maps_style
+from linecast.maps import globe as _globe
+from linecast.maps import globe_now
+from linecast.maps import globe_texture
+from linecast.maps import streets
+from linecast.maps import style as _maps_style
 from linecast._elevation import elevation_grid
 from linecast import _live
 from linecast._live import nudge as _nudge_repaint
 from linecast._color import BG_PRIMARY
-from linecast._maps.i18n import ms
-from linecast._maps.paint import (
+from linecast.maps.i18n import ms
+from linecast.maps.paint import (
     BORDER_STROKE, RIVER_STROKE, build_terrain_buffer,
 )
 from linecast.radar.basemap import _edge_dots
@@ -760,4 +760,4 @@ def _get_clouds(zoom, hc, block):
     return canvas
 
 
-_theme.track_imports(globals(), "linecast._maps.paint")
+_theme.track_imports(globals(), "linecast.maps.paint")

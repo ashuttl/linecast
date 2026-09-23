@@ -880,7 +880,7 @@ class WeatherApp(_live.LiveApp):
 
     def _finish_location(self):
         """Commit on the UI thread, so recents and panels never change mid-input."""
-        from linecast._maps.search import Result
+        from linecast.maps.search import Result
         from linecast.weather.locations_i18n import ls
         if self._location_result is None:
             return
@@ -1005,7 +1005,7 @@ class WeatherApp(_live.LiveApp):
 
     def help_panel(self):
         from linecast._help import HelpPanel, entries
-        from linecast._maps.search import ATTRIBUTION
+        from linecast.maps.search import ATTRIBUTION
         from linecast.weather.locations_i18n import ls
         observed = ((self.data or {}).get("current") or {}).get("observed")
         return HelpPanel('weather', self.runtime.lang, content=lambda cols, rows:

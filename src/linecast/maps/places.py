@@ -37,8 +37,8 @@ rule to the number, which is where every hand-off sits.
 import math
 import threading
 
-from linecast._maps import globe as _globe
-from linecast._maps import style
+from linecast.maps import globe as _globe
+from linecast.maps import style
 from linecast.radar.basemap import _load_data, _localized
 from linecast._scenes import Memo
 from linecast._textwidth import char_width

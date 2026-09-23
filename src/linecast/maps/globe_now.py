@@ -33,7 +33,7 @@ import time
 from linecast import _night_lights
 from linecast.radar import tiles
 from linecast._geo import wrap_lon
-from linecast._maps.globe import _aspect, _source_zoom, bilinear_taps, geometry
+from linecast.maps.globe import _aspect, _source_zoom, bilinear_taps, geometry
 from linecast._png import decode_rgba
 from linecast._runtime import log_failure
 from linecast._scenes import Memo

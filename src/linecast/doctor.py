@@ -59,8 +59,8 @@ def providers():
     A 4xx from a host root is still a host that answers."""
     from linecast._builtup import DEFAULT_URL as BUILTUP_URL
     from linecast._elevation import tile_url as elevation_tile_url
-    from linecast._maps.route import _FALLBACK as OSRM_FALLBACK, _PRIMARY as OSRM_PRIMARY
-    from linecast._maps.search import NOMINATIM_URL, PHOTON_URL
+    from linecast.maps.route import _FALLBACK as OSRM_FALLBACK, _PRIMARY as OSRM_PRIMARY
+    from linecast.maps.search import NOMINATIM_URL, PHOTON_URL
     from linecast.radar.tiles import LIBREWXR_DEFAULT_URL
     from linecast._tides.chs import CHS_BASE
     from linecast._tides.hko import HKO_BASE
@@ -290,7 +290,7 @@ def _collect_paths():
     files, size, complete = cache_usage(root) if exists else (0, 0, True)
     # Map tiles are the part that grows without being asked to, and the
     # only part under a cap, so doctor reports it separately.
-    from linecast._maps.tile_cache import cache_limit_bytes
+    from linecast.maps.tile_cache import cache_limit_bytes
     maps_root = root / "maps"
     _mfiles, maps_size, _mcomplete = (
         cache_usage(maps_root) if os.path.isdir(maps_root) else (0, 0, True))

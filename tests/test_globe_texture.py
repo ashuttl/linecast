@@ -23,10 +23,10 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast import _theme
-from linecast._maps import globe as _globe
-from linecast._maps import globe_texture
-from linecast._maps import paint
-from linecast._maps import views
+from linecast.maps import globe as _globe
+from linecast.maps import globe_texture
+from linecast.maps import paint
+from linecast.maps import views
 
 SMALL = (32, 16)    # mask texels: a planet small enough to bake in a blink
 

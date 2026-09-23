@@ -38,7 +38,7 @@ from typing import Any
 from linecast._cache import (read_cache, read_stale, write_bytes_atomic,
                              write_cache)
 from linecast._http import MAX_BODY_BYTES, fetch_bytes, fetch_json, gunzip_limited
-from linecast._maps.tile_cache import note_tile_use
+from linecast.maps.tile_cache import note_tile_use
 from linecast._paths import cache_dir
 from linecast.radar.tiles import _lonlat_to_world
 from linecast._runtime import debug_log, log_failure

@@ -145,7 +145,7 @@ def _reverse_geocode(lat, lng, lang=None):
         )
         if lang:
             url += f"&accept-language={accept_language(lang)}"
-        from linecast._maps.search import _throttle
+        from linecast.maps.search import _throttle
         _throttle()
         data = fetch_json(url, timeout=10)
         addr = data.get("address", {})
@@ -2371,7 +2371,7 @@ def _photon_query(query, lang="en", timeout=10):
     import urllib.parse
 
     from linecast import user_agent
-    from linecast._maps.search import PHOTON_LANGS, PHOTON_URL
+    from linecast.maps.search import PHOTON_LANGS, PHOTON_URL
 
     params = [("q", query), ("limit", 10)]
     if base_language(lang) in PHOTON_LANGS:

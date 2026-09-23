@@ -417,7 +417,7 @@ class TestVersion:
         for code in ("import linecast.weather.view, linecast._runtime; "
                      "linecast._runtime.weather_parser()",
                      "import linecast.radar.view",
-                     "import linecast.maps",
+                     "import linecast.maps.view",
                      "import linecast.sunshine",
                      "import linecast.moon",
                      "import linecast.tides"):

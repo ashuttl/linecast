@@ -20,12 +20,12 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast import _color
-from linecast._maps import hover as hv
-from linecast._maps import i18n
-from linecast._maps import style
-from linecast._maps import streets as st
+from linecast.maps import hover as hv
+from linecast.maps import i18n
+from linecast.maps import style
+from linecast.maps import streets as st
 from linecast import _theme
-from linecast.maps import compose_map
+from linecast.maps.view import compose_map
 
 from test_maps_streets import (  # the tile-fixture writer, reused wholesale
     DARK_BG, EXTENT, GW, HC, LEFT_HALF, WHOLE, WORLD, Z0, classed, cmd, layer,

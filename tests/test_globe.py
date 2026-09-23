@@ -6,8 +6,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._maps import globe as _globe
-from linecast._maps import places as _places
+from linecast.maps import globe as _globe
+from linecast.maps import places as _places
 from linecast._scenes import Memo
 
 
@@ -147,7 +147,7 @@ class TestMemoRaces:
             rounds=60)
 
     def test_city_lights(self):
-        from linecast._maps import globe_now
+        from linecast.maps import globe_now
         self._hammer(lambda rnd: globe_now.city_lights_globe(
             rnd.randint(-80, 80), 0.0, 60.0, 12, 12), rounds=60)
 
@@ -355,7 +355,7 @@ class TestAtmosphere:
         assert seen > 0
 
     def test_gate_glow_keeps_day_dims_night(self):
-        from linecast._maps import globe_now
+        from linecast.maps import globe_now
         # sun over 90E, view centred on 0: east limb noon, west midnight
         lat0, lon0, zoom, w, h = 0.0, 0.0, 125.0, 80, 48
         _lls, zs, rhos = _globe.geometry(lat0, lon0, zoom, w, h)
@@ -475,7 +475,7 @@ class TestLabelToggle:
     actually draws it rather than through a globe renderer of its own."""
 
     def test_globe_render_hides_city_text_when_toggled(self, monkeypatch):
-        from linecast import maps
+        from linecast.maps import view as maps
         gw, hc = 40, 12
         lls, zs, rhos = _globe.geometry(20.0, -30.0, 125.0, gw, hc * 2)
         elev = [[None if ll is None else 500.0 for ll in row]
@@ -496,7 +496,7 @@ class TestLabelToggle:
         assert not any("•" in line for line in off)
 
     def test_globe_render_hides_linework_when_toggled(self, monkeypatch):
-        from linecast import maps
+        from linecast.maps import view as maps
         gw, hc = 40, 12
         lls, zs, rhos = _globe.geometry(20.0, -30.0, 125.0, gw, hc * 2)
         elev = [[None if ll is None else 500.0 for ll in row]
@@ -526,7 +526,7 @@ class TestLabelToggle:
             assert not any(stroke in line for line in off)
 
     def test_terrain_render_hides_linework_when_toggled(self, monkeypatch):
-        from linecast import maps
+        from linecast.maps import view as maps
         gw, hc = 40, 12
         elev = [[500.0] * gw for _ in range(hc * 2)]
         coast = [[0] * gw for _ in range(hc)]
@@ -614,8 +614,8 @@ class TestStreetRegister:
                                 None, None, lls)
 
     def _render(self, monkeypatch, street):
-        from linecast import maps
-        from linecast._maps import globe_now
+        from linecast.maps import view as maps
+        from linecast.maps import globe_now
         gw, hc = 40, 12
         asked = []
         monkeypatch.setattr(maps, "_get_globe",
@@ -647,8 +647,8 @@ class TestStreetRegister:
         assert self._render(monkeypatch, street=False) != []
 
     def test_the_flat_street_map_asks_for_none_either(self, monkeypatch):
-        from linecast import maps
-        from linecast._maps import globe_now
+        from linecast.maps import view as maps
+        from linecast.maps import globe_now
         gw, hc = 40, 12
         asked, shaded = [], []
 
@@ -672,7 +672,7 @@ class TestStreetRegister:
     def test_the_street_planet_wears_the_street_map_fills(self):
         # crossing the hand-off changes the curvature and nothing
         # else: no separate globe pair in either theme
-        from linecast._maps import style
+        from linecast.maps import style
         for p in (style.PALETTE_DARK, style.PALETTE_LIGHT):
             assert "globe_water" not in p and "globe_ground" not in p
             assert p["water"] and p["ground"]

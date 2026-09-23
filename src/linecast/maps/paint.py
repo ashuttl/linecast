@@ -11,9 +11,9 @@ import math
 import re
 
 from linecast import _climate, _theme
-from linecast._maps import globe_now
-from linecast._maps import hover
-from linecast._maps import style as _maps_style
+from linecast.maps import globe_now
+from linecast.maps import hover
+from linecast.maps import style as _maps_style
 from linecast._color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
 )

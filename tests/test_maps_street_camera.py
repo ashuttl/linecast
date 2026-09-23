@@ -25,12 +25,12 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import maps
-from linecast._maps import globe as _globe
-from linecast._maps import overscan as over
-from linecast._maps import streets as st
-from linecast._maps import style as _maps_style
-from linecast._maps import views as _views
+from linecast.maps import view as maps
+from linecast.maps import globe as _globe
+from linecast.maps import overscan as over
+from linecast.maps import streets as st
+from linecast.maps import style as _maps_style
+from linecast.maps import views as _views
 from linecast.radar.basemap import _BITS
 from linecast.radar.render import bbox_for
 from test_maps_streets import EXTENT, field, layer, line_feature, vstr

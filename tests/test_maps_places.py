@@ -21,12 +21,12 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast import _theme
-from linecast import maps
-from linecast._maps import globe as _globe
-from linecast._maps import labels as lb
-from linecast._maps import places as _places
-from linecast._maps import streets as st
-from linecast._maps import style as _maps_style
+from linecast.maps import view as maps
+from linecast.maps import globe as _globe
+from linecast.maps import labels as lb
+from linecast.maps import places as _places
+from linecast.maps import streets as st
+from linecast.maps import style as _maps_style
 
 from test_maps_streets import layer, tile
 
@@ -148,7 +148,7 @@ class TestTheNamesDoNotMoveAtTheHandOff:
 
     @staticmethod
     def _names(overlays):
-        from linecast._maps.overscan import label_runs
+        from linecast.maps.overscan import label_runs
         return {"".join(e[0] for _off, e in run[2]).lstrip(
             _maps_style.GLYPH_GENERIC).strip()
             for run in label_runs(overlays)}
@@ -280,7 +280,7 @@ class TestTheWindowOfAnOverscanIsThePlanetsOwnSet:
 
     @staticmethod
     def _built(lat, lon, zoom, gw, hc, window):
-        from linecast._maps import overscan as o
+        from linecast.maps import overscan as o
         from linecast.radar.render import bbox_for
         bbox = bbox_for(lat, lon, zoom, gw, hc)
         frame, at = o.plan(bbox, gw, hc)
@@ -293,7 +293,7 @@ class TestTheWindowOfAnOverscanIsThePlanetsOwnSet:
         return wide, alone, at
 
     def test_the_crop_is_the_window_built_alone(self):
-        from linecast._maps import overscan as o
+        from linecast.maps import overscan as o
         for gw, hc in SIZES[:2]:
             for lat, lon in PLACES:
                 zoom = hand_off(lat, gw, hc)[0]
@@ -309,7 +309,7 @@ class TestTheWindowOfAnOverscanIsThePlanetsOwnSet:
     def test_without_the_window_the_overscan_places_for_itself(self):
         # which is the crop that differed: the margin's cities took the
         # overscan's budget and crowded the window's
-        from linecast._maps import overscan as o
+        from linecast.maps import overscan as o
         gw, hc = 80, 22
         lat, lon = 40.7, -74.0
         zoom = hand_off(lat, gw, hc)[0]

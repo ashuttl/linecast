@@ -19,7 +19,7 @@ import os
 from linecast._cache import write_bytes_atomic
 from linecast._elevation import _mercator_table
 from linecast._http import fetch_bytes
-from linecast._maps.tile_cache import note_tile_use
+from linecast.maps.tile_cache import note_tile_use
 from linecast._paths import cache_dir
 from linecast._png import DecodeMemo, decode_rgba
 from linecast.radar.tiles import _pick_zoom, reproject_xyz, stitch_xyz

@@ -11,8 +11,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast import _rate_limit
-from linecast._maps import route
-from linecast._maps import search
+from linecast.maps import route
+from linecast.maps import search
 from linecast._rate_limit import RateLimit
 
 

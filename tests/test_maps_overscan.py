@@ -18,10 +18,10 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast._maps import overscan as over
-from linecast import maps
-from linecast._maps import views
-from linecast._maps.hover import HoverIndex
+from linecast.maps import overscan as over
+from linecast.maps import view as maps
+from linecast.maps import views
+from linecast.maps.hover import HoverIndex
 from linecast.radar.basemap import DotLayer
 from linecast.radar.render import bbox_for
 

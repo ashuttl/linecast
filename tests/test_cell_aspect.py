@@ -13,7 +13,7 @@ import math
 import pytest
 
 from linecast import sky
-from linecast._maps import globe
+from linecast.maps import globe
 from linecast._framebuffer import Framebuffer, cell_aspect
 from linecast.radar.render import bbox_for
 from linecast.moon import _draw_moon_disc

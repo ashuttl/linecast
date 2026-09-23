@@ -129,7 +129,7 @@ class TestRender:
 
 class TestLocations:
     def _place(self, name="Sydney"):
-        from linecast._maps.search import Result
+        from linecast.maps.search import Result
         return Result(name, "", -33.87, 151.21, "point")
 
     def test_a_chosen_place_brings_its_station(self):

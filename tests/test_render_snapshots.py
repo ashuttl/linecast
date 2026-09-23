@@ -679,10 +679,11 @@ class TestMapsSnapshot:
                              oneline=False)
 
     def _render(self, view, fetch_patch, zoom=0.02):
-        from linecast import _color, _theme, maps
-        from linecast._maps import style as _maps_style
+        from linecast import _color, _theme
+        from linecast.maps import view as maps
+        from linecast.maps import style as _maps_style
         stack = [
-            patch("linecast.maps.get_terminal_size",
+            patch("linecast.maps.view.get_terminal_size",
                   return_value=(self.COLS, self.ROWS)),
             patch.object(_color, "_COLOR_MODE", "truecolor"),
             patch.object(_maps_style, "color_mode", lambda: "truecolor"),
@@ -706,7 +707,7 @@ class TestMapsSnapshot:
         # A synthetic shoreline: elevation rises west to east and the
         # western third is below sea level, so the snapshot carries the
         # bathy ramp, the hypso ramp and a derived coastline.
-        from linecast import maps
+        from linecast.maps import view as maps
 
         # the loaders take the window an overscan is built for; a
         # window build passes None
@@ -729,8 +730,8 @@ class TestMapsSnapshot:
         # deep sea west — pins the disk, the limb falloff, the
         # atmosphere rim and the space around the planet, while the
         # vendored city data pins the projected labels.
-        from linecast import maps
-        from linecast._maps import globe as _globe
+        from linecast.maps import view as maps
+        from linecast.maps import globe as _globe
 
         def synth(lls):
             return [[None if ll is None
@@ -774,14 +775,14 @@ class TestMapsSnapshot:
         # Hand-encoded tiles placed against the actual view: water over
         # its western half (so the coastline runs down the middle) and a
         # primary road straight across it.
-        from linecast import maps
+        from linecast.maps import view as maps
         from test_maps_streets import (
             classed, polyline, rect, tagged_line, tile,
         )
 
         def street(bbox, gw, hc, block, lang="en", reserved=(),
                    window=None):
-            from linecast._maps import streets as st
+            from linecast.maps import streets as st
             band = st.style.band_for(st.style.z_eff(bbox, hc))
             minlon, minlat, maxlon, maxlat = bbox
             midlon = (minlon + maxlon) / 2

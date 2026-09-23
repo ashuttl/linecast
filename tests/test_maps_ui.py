@@ -21,11 +21,11 @@ if _src not in sys.path:
 from contextlib import contextmanager
 
 from linecast import _color
-from linecast._maps import i18n
-from linecast._maps import ui as mu
+from linecast.maps import i18n
+from linecast.maps import ui as mu
 from linecast._framebuffer import visible_len
-from linecast._maps.route import NoRoute, Route, RouteUnavailable
-from linecast._maps.search import Result, SearchUnavailable
+from linecast.maps.route import NoRoute, Route, RouteUnavailable
+from linecast.maps.search import Result, SearchUnavailable
 @contextmanager
 def _units(flag):
     """Pin the running command's units; distances follow the setting,

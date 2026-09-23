@@ -23,9 +23,9 @@ style; this module only asks it questions.
 """
 
 
-from linecast._maps import hover as _maps_hover
-from linecast._maps import labels as _maps_labels
-from linecast._maps import style
+from linecast.maps import hover as _maps_hover
+from linecast.maps import labels as _maps_labels
+from linecast.maps import style
 from linecast._mvt import (
     LINESTRING, POLYGON, assemble_polygons, decode_tile,
 )

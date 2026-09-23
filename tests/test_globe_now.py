@@ -1,6 +1,6 @@
 """Tests for the sky overlays: subsolar point, daylight, clouds, lights."""
 
-from linecast._maps import globe_now
+from linecast.maps import globe_now
 from linecast._scenes import Memo
 
 
@@ -336,7 +336,7 @@ class TestDaylightIsUnchanged:
                     assert abs(a - b) < 1e-9
 
     def test_the_globe_grid_matches_the_long_way(self):
-        from linecast._maps import globe
+        from linecast.maps import globe
         for lat0, lon0 in ((20.0, -30.0), (-60.0, 140.0), (89.0, 0.0)):
             lls, _zs, _rhos = globe.geometry(lat0, lon0, 125.0, 60, 40)
             for sun in self.SUNS:

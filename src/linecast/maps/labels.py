@@ -42,8 +42,8 @@ see rather than the point the data hands you.
 
 import heapq
 
-from linecast._maps import globe as _globe
-from linecast._maps import places, style
+from linecast.maps import globe as _globe
+from linecast.maps import places, style
 from linecast.radar.basemap import _bresenham, marine_region
 from linecast._textwidth import char_width, visible_len
 from linecast._vtiles import iter_layer

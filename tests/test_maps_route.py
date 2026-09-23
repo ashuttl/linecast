@@ -22,7 +22,7 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast import _rate_limit
-from linecast._maps import route as mr
+from linecast.maps import route as mr
 from linecast._rate_limit import RateLimit
 from linecast._scenes import Memo
 

@@ -16,27 +16,27 @@ import sys
 import threading
 import time
 
-from linecast._maps import globe as _globe
-from linecast._maps import globe_now
-from linecast._maps import route as _maps_route
-from linecast._maps import style
-from linecast._maps import ui
-from linecast._maps import views as _maps_views
+from linecast.maps import globe as _globe
+from linecast.maps import globe_now
+from linecast.maps import route as _maps_route
+from linecast.maps import style
+from linecast.maps import ui
+from linecast.maps import views as _maps_views
 from linecast._geo import wrap_lon
 from linecast._live import LiveApp, nudge as _nudge_repaint, print_frame
 from linecast._location import country_for_defaults, resolve_location
-from linecast._maps.i18n import ms
-from linecast._maps.motion import Flight, ease_in_out, lon_delta, lon_span
-from linecast._maps.search import (
+from linecast.maps.i18n import ms
+from linecast.maps.motion import Flight, ease_in_out, lon_delta, lon_span
+from linecast.maps.search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
 )
 from linecast import _vtiles
-from linecast._maps.views import (
+from linecast.maps.views import (
     _zoom_hold, globe_warm, recentres, warm_globe_texture,
 )
 from linecast.radar.render import bbox_for
 from linecast._runtime import RuntimeConfig, log_failure, maps_parser, set_current
-from linecast.maps import (
+from linecast.maps.view import (
     MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP, fit_view, map_cells, max_zoom,
     prefetch_view, render_map, wide_source,
 )
@@ -971,7 +971,7 @@ def main():
     # vector-tile versions first, then back under the size cap. Map tiles
     # never go stale, so nothing here goes by age alone. After --search,
     # which adds no tiles and should not wait on a tilejson fetch.
-    from linecast._maps.tile_cache import prune_maps_cache
+    from linecast.maps.tile_cache import prune_maps_cache
     prune_maps_cache()
 
     lat, lon, country, location_name = resolve_location(

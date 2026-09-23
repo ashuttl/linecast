@@ -11,8 +11,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import maps
-from linecast._maps import views
+from linecast.maps import view as maps
+from linecast.maps import views
 from linecast._scenes import FetchHold, SceneCache
 
 
@@ -49,7 +49,7 @@ class TestMapScenes:
             views._zoom_hold._deadline = 0.0
 
     def test_maps_reaches_the_same_caches(self):
-        # the bench scripts clear them through linecast.maps
+        # the bench scripts clear them through linecast.maps.view
         assert maps._elev_cache is views._elev_cache
         assert maps._street_cache is views._street_cache
         assert maps._globe_cache is views._globe_cache

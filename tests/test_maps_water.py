@@ -24,10 +24,10 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast._maps import streets as st
-from linecast._maps import style
+from linecast.maps import streets as st
+from linecast.maps import style
 from linecast import _theme
-from linecast._maps.views import _coast_dots
+from linecast.maps.views import _coast_dots
 
 from test_maps_streets import (  # the tile-fixture writer, reused wholesale
     DARK_BG, EXTENT, WORLD, Z0, as_text, classed, dot_mask, feature, layer,

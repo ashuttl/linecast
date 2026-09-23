@@ -26,13 +26,13 @@ if _src not in sys.path:
 # above already closed over
 from linecast import _climate
 from linecast import _elevation
-from linecast import maps
-from linecast._maps import globe as _globe
-from linecast._maps import overscan as over
-from linecast._maps import places as _places
-from linecast._maps import style as _maps_style
-from linecast._maps import views as _views
-from linecast._maps.route import Route
+from linecast.maps import view as maps
+from linecast.maps import globe as _globe
+from linecast.maps import overscan as over
+from linecast.maps import places as _places
+from linecast.maps import style as _maps_style
+from linecast.maps import views as _views
+from linecast.maps.route import Route
 from linecast.radar import basemap as _basemap
 from linecast.radar.basemap import _BITS, _edge_dots
 from linecast.radar.render import bbox_for

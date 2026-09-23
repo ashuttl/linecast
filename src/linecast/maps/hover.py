@@ -53,9 +53,9 @@ lifting them says the road is called "ll".
 
 from collections import namedtuple
 
-from linecast._maps import labels
-from linecast._maps import style
-from linecast._maps.i18n import ms
+from linecast.maps import labels
+from linecast.maps import style
+from linecast.maps.i18n import ms
 from linecast._theme import shift_to_pole
 
 # How far a hovered ink travels toward the pole.  Enough that a whole

@@ -40,25 +40,25 @@ import math
 import sys
 
 from linecast import _builtup, _climate, _night_lights
-from linecast._maps import globe as _globe
-from linecast._maps import globe_now
-from linecast._maps import hover as _maps_hover
-from linecast._maps import overscan as _maps_overscan
-from linecast._maps import places as _maps_places
-from linecast._maps import style
-from linecast._maps import ui
+from linecast.maps import globe as _globe
+from linecast.maps import globe_now
+from linecast.maps import hover as _maps_hover
+from linecast.maps import overscan as _maps_overscan
+from linecast.maps import places as _maps_places
+from linecast.maps import style
+from linecast.maps import ui
 from linecast._color import fg, RESET, color_mode, BG_PRIMARY
 from linecast._elevation import ATTRIBUTION
 from linecast._framebuffer import cell_aspect, get_terminal_size
 from linecast._graphics import visible_len
 from linecast._live import overlay
-from linecast._maps.i18n import ms
-from linecast._maps.paint import (  # noqa: F401 — the inks and composers
+from linecast.maps.i18n import ms
+from linecast.maps.paint import (  # noqa: F401 — the inks and composers
     BATHY_STOPS, BORDER_STROKE, COAST_STROKE, HYPSO_FAMILIES, LABEL_DARK,
     LABEL_LIGHT, LAKE_FILL, MARKER, build_terrain_buffer,
     compact_colors, compose_map, compose_terrain,
 )
-from linecast._maps.views import (  # noqa: F401 — the loaders and caches
+from linecast.maps.views import (  # noqa: F401 — the loaders and caches
     SHORE_LAND, SHORE_WATER,
     TerrainView, _EMPTY_TERRAIN, _coast_dots, _elev_cache,
     _get_clouds, _get_elevation, _get_globe, _get_street_tiles,
@@ -1543,13 +1543,10 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
 def main():
     # the live loop draws through render_map, so _maps.live imports this
     # module; importing it here, at the call, keeps that one-way at load
-    from linecast._maps.live import main as live_main
+    from linecast.maps.live import main as live_main
     live_main()
 
 
 _theme.track_imports(globals(), "linecast._color")
-_theme.track_imports(globals(), "linecast._maps.paint")
+_theme.track_imports(globals(), "linecast.maps.paint")
 
-
-if __name__ == "__main__":
-    main()

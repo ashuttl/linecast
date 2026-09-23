@@ -1068,7 +1068,7 @@ class TidesApp(_live.LiveApp):
 
     def _finish_location(self):
         """Commit on the UI thread, so recents and the view never change mid-input."""
-        from linecast._maps.search import Result
+        from linecast.maps.search import Result
         if self._location_result is None:
             return
         place, result = self._location_result

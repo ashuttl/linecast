@@ -10,7 +10,7 @@ import pytest
 
 from linecast.weather import view as weather
 from linecast._graphics import visible_len
-from linecast._maps.search import Result
+from linecast.maps.search import Result
 from linecast._runtime import WeatherRuntime
 from linecast.weather.locations import LocationPicker, LocationSearch, RecentLocations
 from linecast.weather.sections import render_header
@@ -137,7 +137,7 @@ def test_typing_cannot_select_old_suggestions_or_commit_unseen_results():
     search = LocationSearch(refresh=lambda: None)
     search.start()
     search.query, search.results = 'Pa', [place()]
-    with patch('linecast._maps.ui.threading.Timer'):
+    with patch('linecast.maps.ui.threading.Timer'):
         search.handle('char:r', 0, 0, 7)
     assert not search.results and search.status == 'pending'
     search.handle('key:enter', 0, 0, 7)

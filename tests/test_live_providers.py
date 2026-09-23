@@ -305,7 +305,7 @@ def test_librewxr_radar_index(failures):
 
 
 def test_librewxr_clouds(failures):
-    from linecast._maps import globe_now
+    from linecast.maps import globe_now
     from linecast.radar.tiles import fetch_index
     index = fetch_index(globe_now._provider())
     assert failures() == []
@@ -396,7 +396,7 @@ def test_builtup_raster(failures):
 
 
 def test_photon_search(failures):
-    from linecast._maps.search import photon_search
+    from linecast.maps.search import photon_search
     results = photon_search("Westbrook", *PORTLAND, zoom=10)
     assert failures() == []
     assert results
@@ -404,7 +404,7 @@ def test_photon_search(failures):
 
 
 def test_nominatim_search(failures):
-    from linecast._maps.search import nominatim_search
+    from linecast.maps.search import nominatim_search
     results = nominatim_search("Westbrook, Maine")
     assert failures() == []
     assert results
@@ -412,7 +412,7 @@ def test_nominatim_search(failures):
 
 
 def test_osrm_route(failures):
-    from linecast._maps.route import route
+    from linecast.maps.route import route
     found = route("car", PORTLAND, (43.677, -70.371))   # to Westbrook
     assert failures() == []
     assert len(found.coords) > 10

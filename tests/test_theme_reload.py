@@ -22,7 +22,7 @@ if _src not in sys.path:
 from linecast import _color, _framebuffer, _theme, moon, sunshine, tides
 from linecast.radar import basemap
 from linecast.radar import render as _radar_render
-from linecast._maps import style as _maps_style
+from linecast.maps import style as _maps_style
 from linecast.weather import alerts
 from linecast.weather import render as _weather_render
 from linecast.weather import style

@@ -45,9 +45,9 @@ from collections import namedtuple
 from operator import itemgetter
 
 from linecast import _cache, _climate, _live, _theme
-from linecast._maps import globe as _globe
-from linecast._maps import paint
-from linecast._maps import style
+from linecast.maps import globe as _globe
+from linecast.maps import paint
+from linecast.maps import style
 from linecast._color import BG_PRIMARY, color_mode
 from linecast._live import nudge as _nudge_repaint
 from linecast._paths import cache_dir, data_path

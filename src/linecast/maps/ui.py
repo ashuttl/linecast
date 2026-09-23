@@ -24,20 +24,20 @@ Enter, when Photon has come back empty.
 
 import threading
 
-from linecast._maps import style
+from linecast.maps import style
 from linecast._color import RESET, bg, fg
 from linecast._framebuffer import visible_len
 from linecast._live import nudge
-from linecast._maps.i18n import ms
-from linecast._maps.route import (
+from linecast.maps.i18n import ms
+from linecast.maps.route import (
     NoRoute, PROFILES, RouteUnavailable, maneuver_glyph,
     route as route_client,
 )
-from linecast._maps.search import (
+from linecast.maps.search import (
     SearchUnavailable, nominatim_search, photon_search,
 )
 from linecast._elevation import ATTRIBUTION as ELEV_ATTRIBUTION
-from linecast._maps.route import ATTRIBUTION as ROUTE_ATTRIBUTION
+from linecast.maps.route import ATTRIBUTION as ROUTE_ATTRIBUTION
 from linecast import _theme
 from linecast._theme import ensure_contrast, surface_bg
 from linecast._vtiles import ATTRIBUTION as TILE_ATTRIBUTION

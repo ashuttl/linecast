@@ -18,7 +18,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast import _color
-from linecast._maps import paint
+from linecast.maps import paint
 from linecast._live import frame_body, frame_paint
 
 
@@ -235,7 +235,7 @@ def _snapshot_frames(monkeypatch, compact):
     renders the frame as it was before this pass existed.
     """
     import test_render_snapshots as snapshots
-    from linecast import maps
+    from linecast.maps import view as maps
 
     if not compact:
         monkeypatch.setattr(maps, 'compact_colors', lambda out: out)

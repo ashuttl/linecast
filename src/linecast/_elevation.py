@@ -15,7 +15,7 @@ import os
 
 from linecast._paths import cache_dir
 from linecast._http import fetch_bytes_cached
-from linecast._maps.tile_cache import note_tile_use
+from linecast.maps.tile_cache import note_tile_use
 from linecast._png import DecodeMemo, decode_rgba
 from linecast.radar.tiles import _lonlat_to_world, _pick_zoom, stitch_xyz
 from linecast._runtime import log_failure

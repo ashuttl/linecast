@@ -29,8 +29,8 @@ the hover index read through the offset.
 from collections import namedtuple
 from operator import itemgetter, or_
 
-from linecast._maps import globe as _globe
-from linecast._maps.hover import HoverIndex
+from linecast.maps import globe as _globe
+from linecast.maps.hover import HoverIndex
 from linecast.radar.basemap import _BITS
 from linecast._scenes import Memo
 

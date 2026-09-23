@@ -21,7 +21,7 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast._maps import style as ms
+from linecast.maps import style as ms
 from linecast import _theme
 from linecast._color import _CUBE_LEVELS, _rgb_to_ansi16, _rgb_to_xterm256
 from linecast._framebuffer import visible_len

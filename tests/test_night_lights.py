@@ -5,8 +5,8 @@ import math
 import pytest
 
 from linecast import _night_lights
-from linecast._maps import globe as _globe
-from linecast._maps import globe_now
+from linecast.maps import globe as _globe
+from linecast.maps import globe_now
 
 
 def test_bundled_raster_locates_cities_and_keeps_remote_ground_dark():

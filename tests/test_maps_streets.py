@@ -23,8 +23,8 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast._maps import streets as st
-from linecast._maps import style as _maps_style
+from linecast.maps import streets as st
+from linecast.maps import style as _maps_style
 from linecast import _theme
 from linecast.radar.basemap import DotLayer
 from linecast._vtiles import projector

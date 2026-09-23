@@ -16,20 +16,20 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import maps
-from linecast._maps import globe as _globe
-from linecast._maps import globe_texture
-from linecast._maps import live as _maps_live
-from linecast._maps import route as _maps_route
-from linecast._maps import ui
-from linecast._maps import views
-from linecast._maps.live import (
+from linecast.maps import view as maps
+from linecast.maps import globe as _globe
+from linecast.maps import globe_texture
+from linecast.maps import live as _maps_live
+from linecast.maps import route as _maps_route
+from linecast.maps import ui
+from linecast.maps import views
+from linecast.maps.live import (
     COAST_CEILING, Camera, MapApp, ZOOM_EASE,
 )
-from linecast._maps.motion import lon_span
-from linecast._maps.search import Result
+from linecast.maps.motion import lon_span
+from linecast.maps.search import Result
 from linecast.radar.render import bbox_for
-from linecast.maps import MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP
+from linecast.maps.view import MAX_ZOOM_DEG, MIN_ZOOM_DEG, ZOOM_STEP
 
 COLS, ROWS = 100, 42
 GW, HC = COLS, ROWS - 2
@@ -1152,7 +1152,7 @@ class TestMapCells:
         monkeypatch.setattr(app.search, "handle", handle)
         assert app.intercept('char:a') is True
         bbox = bbox_for(43.68, -70.37, 1.0, GW, HC)
-        from linecast._maps.style import z_eff
+        from linecast.maps.style import z_eff
         assert seen == dict(lat=43.68, lon=-70.37, z=int(z_eff(bbox, HC)),
                             lang="en")
 
@@ -1164,7 +1164,7 @@ class TestStartupPrune:
         monkeypatch.setattr(sys, "argv", ["linecast-maps", *args])
 
     def test_the_sweep_runs_before_anything_is_fetched(self, monkeypatch):
-        from linecast._maps import tile_cache
+        from linecast.maps import tile_cache
 
         calls = []
 
@@ -1186,7 +1186,7 @@ class TestStartupPrune:
         assert calls == ["prune", "resolve"]
 
     def test_search_adds_no_tiles_so_it_does_not_wait(self, monkeypatch):
-        from linecast._maps import tile_cache
+        from linecast.maps import tile_cache
         from linecast.weather import sources
 
         calls = []

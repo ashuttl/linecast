@@ -36,7 +36,7 @@ COMMANDS = {
     "sky": "linecast.sky",
     "tides": "linecast.tides",
     "radar": "linecast.radar.view",
-    "maps": "linecast.maps",
+    "maps": "linecast.maps.view",
     "location": "linecast.location",
     "language": "linecast.language",
     "units": "linecast.units",

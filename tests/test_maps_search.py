@@ -25,7 +25,7 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast import _rate_limit
-from linecast._maps import search as ms
+from linecast.maps import search as ms
 from linecast._rate_limit import RateLimit
 
 FIXTURES = Path(__file__).parent / "fixtures"
