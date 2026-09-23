@@ -16,7 +16,8 @@ from linecast._textwidth import wrap_display_width
 from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import (
     fmt_wind, _precip_s,
-    DAY_NAMES, FULL_DAY_NAMES, ON_DAY_FORMS, ON_FULL_DAY_FORMS, wmo_label,
+    DAY_NAMES, DAY_SPAN_FORMS, FULL_DAY_NAMES, ON_DAY_FORMS, ON_FULL_DAY_FORMS,
+    wmo_label,
     _PRECIP_DESCS_I18N, _PRECIP_PARTITIVES_I18N, _STRINGS, _s, _wmo_icons,
 )
 from linecast.weather import style as _weather_style
@@ -1490,21 +1491,60 @@ def _past_precip_line(hourly, now, runtime):
 # ---------------------------------------------------------------------------
 def next_rain_sentence(daily, now, runtime=None, hourly=None):
     """The next rain in the week, when nothing falls in the next day and
-    the rain is worth mentioning: "Rain likely on Friday".  A chance of
-    drizzle in six days is not; the further off, the surer and the wetter
-    it has to be.  Dry spells go unremarked."""
+    the rain is worth mentioning: "Rain likely on Friday", "Rain likely
+    on Thursday and Friday".  A chance of drizzle in six days is not; the
+    further off, the surer or the wetter it has to be.  Dry spells go
+    unremarked."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
     return _next_rain(daily, now, runtime, hourly)[0]
 
 
 # What a day has to hold to be the next rain worth a sentence, by how
-# far off it is: (days from now, least chance, least amount in mm).
-_NEXT_RAIN_WORTH = ((2, 60, 2.0), (7, 70, 5.0))
+# far off it is: (days from now, ((least chance, least amount in mm), ...)).
+# A day meeting any pair is worth it, so the wetter the day the less sure
+# it has to be: an inch of rain at a coin-toss is worth a word where a
+# shower is not.
+_NEXT_RAIN_WORTH = (
+    (2, ((60, 2.0), (50, 25.0))),
+    (7, ((70, 5.0), (60, 10.0), (50, 25.0))),
+)
+
+# A day holding this much is heavy whatever its wettest hour is called:
+# an inch of steady rain is a heavy day of rain.
+_HEAVY_DAY_MM = 25.0
+_HEAVIER = {61: 65, 63: 65, 80: 82, 81: 82, 71: 75, 73: 75, 85: 86}
+
+# A run of wet days is named by what falls, not how hard, since the days
+# differ; its wettest day is named apart.  Rain and showers over the same
+# days are rain.
+_KIND_NOUN = {
+    51: 53, 53: 53, 55: 53, 56: 56, 57: 56,
+    61: 63, 63: 63, 65: 63, 66: 66, 67: 66,
+    80: 81, 81: 81, 82: 81,
+    71: 73, 73: 73, 75: 73, 77: 77, 85: 85, 86: 85,
+    95: 95, 96: 95, 99: 95,
+}
+_KIND_MIXES = {frozenset({63, 81}): 63, frozenset({73, 85}): 73}
+
+# The wettest day of a run is named when it holds half again what any
+# other day does and is heavy by its hours or its total.
+_HEAVIEST_BY = 1.5
+
+
+def _worth_floor(offset, p, amount):
+    """The least chance the day was worth a sentence at, or None."""
+    pairs = next(w[1] for w in _NEXT_RAIN_WORTH if offset <= w[0])
+    met = [chance for chance, least in pairs if p >= chance and amount >= least]
+    return min(met) if met else None
 
 
 def _next_rain(daily, now, runtime, hourly=None, after=None):
-    """The next-rain sentence and the day it is about."""
+    """The next-rain sentence and the day it is about: the first day
+    worth a sentence, and the days after it that are too, as one run.
+    "Heavy rain likely on Saturday", "Rain likely on Thursday and
+    Friday", "Rain likely from Saturday to Monday, heaviest on
+    Saturday"."""
     if not _has("rain_next", runtime):
         return "", None
     times = daily.get("time") or []
@@ -1519,37 +1559,62 @@ def _next_rain(daily, now, runtime, hourly=None, after=None):
         amount = ((sums[k] if k < len(sums) else 0) or 0) * mm
         p = (probs[k] if k < len(probs) else 0) or 0
         by_date[t] = (amount, p, codes[k] if k < len(codes) else 0)
+    run = []    # (day, first wet hour, code, odds, amount, heavy hours)
     for offset in range(1, 8):
         day = now.date() + timedelta(days=offset)
         row = by_date.get(day.isoformat())
         if row is None:
             break
         amount, p, code = row
-        within, chance, least = next(w for w in _NEXT_RAIN_WORTH if offset <= w[0])
-        if p < chance or amount < least:
-            continue
-        at = datetime.combine(day, now.time().replace(hour=12, minute=0, second=0,
-                                                       microsecond=0))
-        near = _next_rain_near(hourly or {}, now, day, runtime, far=offset > 2, after=after)
-        if near:
-            return near, at
-        if hourly and near == "":
-            # The hours know the day and found nothing worth saying
-            continue
-        # Without the hours, the day's own code says what falls.  A wet
-        # tomorrow has no time of day to give it then, and no language
-        # has a bare "tomorrow" to say instead, so it goes unsaid.
-        if offset == 1:
-            return "", None
-        lang = runtime.lang
-        desc = _precip_descs(lang).get(code)
-        when = _on_full_day(day, runtime)
-        if not desc:
-            code, desc = 63, _precip_descs(lang).get(63, "rain")
-        key = ("rain_next_chance" if p < _PRECIP_CHANCE_BELOW
-               else "rain_next_likely" if p < _PRECIP_LIKELY_BELOW else "rain_next")
-        return _ucfirst(_precip_s(key, code, runtime, desc=desc, time=when)), at
-    return "", None
+        floor = _worth_floor(offset, p, amount)
+        wet = None
+        if floor is not None:
+            wet = _wet_day(hourly or {}, day, floor, far=offset > 2)
+            if wet is None:
+                # Without the hours, the day's own code says what falls.
+                # A wet tomorrow has no time of day to give it then, and
+                # no language has a bare "tomorrow" to say instead, so it
+                # goes unsaid.
+                if offset == 1:
+                    return "", None
+                noon = datetime.combine(day, now.time().replace(
+                    hour=12, minute=0, second=0, microsecond=0))
+                wet = (noon, code if code in _PRECIP_CODES else 63, p)
+        if wet:
+            first, code, best = wet
+            heavy = _PRECIP_RANK.get(code, 0) >= _HEAVY_RANK
+            if amount >= _HEAVY_DAY_MM:
+                code = _HEAVIER.get(code, code)
+            run.append((day, first, code, best, amount, heavy or amount >= _HEAVY_DAY_MM))
+        elif run:
+            break
+    if not run:
+        return "", None
+    at = datetime.combine(run[0][0], now.time().replace(hour=12, minute=0, second=0,
+                                                         microsecond=0))
+    lang = runtime.lang
+    if len(run) == 1:
+        _, first, code, best, _, _ = run[0]
+        if first.date() == (now + timedelta(days=1)).date():
+            when = _time_phrase(first, now, runtime, after=after)
+        else:
+            when = _on_full_day(first, runtime)
+    else:
+        nouns = {_KIND_NOUN.get(r[2], r[2]) for r in run}
+        wettest = max(run, key=lambda r: r[4])
+        code = (nouns.pop() if len(nouns) == 1
+                else _KIND_MIXES.get(frozenset(nouns), _KIND_NOUN.get(wettest[2], wettest[2])))
+        best = min(r[3] for r in run)
+        when = _day_span([r[0] for r in run], runtime)
+    desc = _precip_descs(lang).get(code, _PRECIP_DESCS.get(code, "rain"))
+    key = ("rain_next_chance" if best < _PRECIP_CHANCE_BELOW
+           else "rain_next_likely" if best < _PRECIP_LIKELY_BELOW else "rain_next")
+    sentence = _precip_s(key, code, runtime, desc=desc, time=when)
+    if len(run) > 1 and wettest[5] and all(
+            wettest[4] >= _HEAVIEST_BY * r[4] for r in run if r is not wettest):
+        sentence = _precip_s("rain_run_heaviest", code, runtime, desc=desc,
+                             sentence=sentence, day=_on_full_day(wettest[0], runtime))
+    return _ucfirst(sentence), at
 
 
 def _on_full_day(day, runtime):
@@ -1564,17 +1629,39 @@ def _on_full_day(day, runtime):
     return _s("on_full_day", runtime, day=name)
 
 
-def _next_rain_near(hourly, now, day, runtime, far=False, after=None):
-    """"Light rain likely on Monday": `day`'s rain in the hourly series,
-    starting at its first wet hour, named by the hour that holds most of
-    it and hedged by the wettest hour's odds.  Nothing without the
-    hours, nothing that is only a chance, and nothing for drizzle on a
-    day that is far off."""
+def _day_span(days, runtime):
+    """A run of days by name: "on Thursday and Friday" for two, "from
+    Saturday to Monday" for more.  Each day takes the form its place in
+    the phrase asks of it where the language declines the days."""
+    lang = runtime.lang
+    names = table_for(FULL_DAY_NAMES, lang)
+    forms = {}
+    for code in reversed(fallbacks(lang)):
+        for role, table in DAY_SPAN_FORMS.get(code, {}).items():
+            forms.setdefault(role, {}).update(table)
+
+    def form(day, role):
+        return forms.get(role, {}).get(day.weekday(), names[day.weekday()])
+
+    if len(days) == 2:
+        return _s("on_two_days", runtime, first=form(days[0], "and_first"),
+                  second=form(days[1], "and_second"))
+    return _s("from_day_to_day", runtime, first=form(days[0], "from"),
+              last=form(days[-1], "to"))
+
+
+def _wet_day(hourly, day, floor, far=False):
+    """What falls on `day` by its hours: (its first wet hour, the code
+    of the hour carrying most of it, the wettest hour's odds).  None
+    when the hours do not reach the day; False when they find nothing
+    worth saying -- nothing at `floor` odds, or only drizzle on a day
+    that is far off."""
     times = hourly.get("time") or []
     codes = hourly.get("weather_code") or []
     probs = hourly.get("precipitation_probability") or []
     amounts = hourly.get("precipitation") or []
     wet = []
+    seen = False
     for i, t in enumerate(times):
         if i >= len(codes) or i >= len(probs):
             break
@@ -1584,15 +1671,18 @@ def _next_rain_near(hourly, now, day, runtime, far=False, after=None):
             continue
         if dt.date() != day:
             continue
+        seen = True
         p = probs[i] or 0
         if codes[i] in _PRECIP_CODES and p > 30:
             wet.append((i, dt, p, (amounts[i] if i < len(amounts) else 0) or 0))
+    if not seen:
+        return None
     if not wet:
-        return ""
+        return False
     _, dt, _, _ = wet[0]
     best = max(w[2] for w in wet)
-    if best < _PRECIP_CHANCE_BELOW:
-        return ""
+    if best < floor:
+        return False
     # A wet day that opens with a drizzly hour is not a day of drizzle.
     # The hour carrying most of the water says what falls, and the first
     # wet hour still says when; with no amounts to weigh, the heaviest
@@ -1602,17 +1692,8 @@ def _next_rain_near(hourly, now, day, runtime, far=False, after=None):
     else:
         i = max(wet, key=lambda w: _PRECIP_RANK.get(codes[w[0]], 0))[0]
     if far and _PRECIP_KIND.get(codes[i]) == "drizzle":
-        return ""
-    lang = runtime.lang
-    desc = _precip_descs(lang).get(
-        codes[i], _PRECIP_DESCS.get(codes[i], "rain"))
-    if dt.date() == (now + timedelta(days=1)).date():
-        when = _time_phrase(dt, now, runtime, after=after)
-    else:
-        when = _on_full_day(dt, runtime)
-    key = ("rain_next_chance" if best < _PRECIP_CHANCE_BELOW
-           else "rain_next_likely" if best < _PRECIP_LIKELY_BELOW else "rain_next")
-    return _ucfirst(_precip_s(key, codes[i], runtime, desc=desc, time=when))
+        return False
+    return dt, codes[i], best
 
 
 # ---------------------------------------------------------------------------

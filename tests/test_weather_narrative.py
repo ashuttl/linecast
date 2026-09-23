@@ -975,6 +975,59 @@ class TestMoreToSay:
         daily = self._week(NOON, [0] * 8, [0, 0, 0, 20, 0, 0, 0, 0])
         assert next_rain_sentence(daily, NOON, _runtime()) == ""
 
+    def _days_of(self, first, days):
+        """Hours over consecutive days from `first`: (codes, prob, mm) each."""
+        hourly = {"time": [], "weather_code": [], "precipitation_probability": [],
+                  "precipitation": []}
+        for k, (codes, prob, mm) in enumerate(days):
+            day = self._day_of(first + timedelta(days=k), codes, prob)
+            hourly["time"] += day["time"]
+            hourly["weather_code"] += codes
+            hourly["precipitation_probability"] += day["precipitation_probability"]
+            hourly["precipitation"] += [mm if c else 0 for c in codes]
+        return hourly
+
+    def test_a_wet_day_is_worth_a_word_at_lower_odds(self):
+        # Westbrook, Maine, on a Wednesday: three inches of a nor'easter
+        # on Saturday at 68%, light rain on Monday at 72%
+        from linecast.weather.sections import next_rain_sentence
+        wednesday = datetime(2026, 9, 23, 18, 30)
+        daily = self._week(wednesday, [0, 0, 0, 0, 3.7, 0, 0.6, 0],
+                           [0, 0, 0, 21, 68, 0, 72, 21])
+        rain = [0] * 3 + [63] * 20 + [0]
+        hourly = self._days_of(wednesday.date() + timedelta(days=3),
+                               [(rain, 68, 0.18), ([0] * 24, 0, 0),
+                                ([61] * 12 + [0] * 12, 72, 0.05)])
+        assert next_rain_sentence(daily, wednesday, _runtime(), hourly) == \
+            "Heavy rain likely on Saturday"
+
+    def test_an_inch_at_a_coin_toss_is_a_chance(self):
+        from linecast.weather.sections import next_rain_sentence
+        daily = self._week(NOON, [0, 0, 0, 0, 30.0, 0, 0, 0], [0, 0, 0, 0, 52, 0, 0, 0])
+        hourly = self._day_of(NOON.date() + timedelta(days=3), [0] * 6 + [63] * 12 + [0] * 6, 52)
+        assert next_rain_sentence(daily, NOON, _runtime(celsius=True, metric=True), hourly) == \
+            "A chance of heavy rain on Saturday"
+
+    def test_wet_days_in_a_row_are_one_run(self):
+        # Seattle: rain on Thursday, an inch of showers on Friday
+        from linecast.weather.sections import next_rain_sentence
+        tuesday = datetime(2026, 9, 22, 18, 30)
+        daily = self._week(tuesday, [0, 0, 0, 0.3, 1.1, 0, 0, 0], [0, 0, 7, 72, 82, 7, 0, 0])
+        hourly = self._days_of(tuesday.date() + timedelta(days=2),
+                               [([0] * 6 + [63] * 12 + [0] * 6, 72, 0.025),
+                                ([81] * 18 + [0] * 6, 82, 0.06)])
+        assert next_rain_sentence(daily, tuesday, _runtime(), hourly) == \
+            "Rain likely on Thursday and Friday, heaviest on Friday"
+
+    def test_three_days_and_more_are_a_span(self):
+        from linecast.weather.sections import next_rain_sentence
+        daily = self._week(NOON, [0, 0, 0, 8.0, 9.0, 8.5, 0, 0], [0, 0, 0, 85, 90, 88, 0, 0])
+        rain = [0] * 6 + [63] * 12 + [0] * 6
+        hourly = self._days_of(NOON.date() + timedelta(days=2),
+                               [(rain, 85, 0.7), (rain, 90, 0.75), (rain, 88, 0.7)])
+        assert next_rain_sentence(daily, NOON, _runtime(celsius=True, metric=True), hourly) == \
+            "Rain from Friday to Sunday"
+
     def test_gusts_this_afternoon(self):
         from linecast.weather.sections import gusts_sentence
         gusts = [20, 25, 30, 45, 40, 30, 20, 15]
