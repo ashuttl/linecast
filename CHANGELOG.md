@@ -41,6 +41,7 @@ New this version:
 
 Fixes:
 
+- Maps, weather, sky, radar: Names in Hebrew, Arabic, Persian, and Urdu read right to left, with Arabic letters joined. They had been drawn backwards, each letter on its own. `LINECAST_BIDI=terminal` leaves the ordering to a terminal that does it itself.
 - Weather: The rain total for the last 24 hours no longer counts an extra hour.
 - Weather: In European Portuguese, European Spanish, and Canadian French, day names are no longer shown in English.
 - Weather: Fixed a bug in MeteoAlarm countries where warnings from elsewhere in the country could appear after the first refresh.

@@ -42,8 +42,20 @@ class TestFrameBody:
 
 class TestPrintFrame:
     def test_a_terminal_gets_the_frame_with_autowrap_off(self):
+        # and in bidi explicit mode, so it draws cells as linecast ordered them
         out = _Stream(tty=True)
         print_frame("frame", stream=out)
+        assert out.getvalue() == f"\033[8l{_AUTOWRAP_OFF}frame{_AUTOWRAP_ON}\033[8h\n"
+
+    def test_a_terminal_that_orders_text_itself_is_not_told_how(self):
+        # The _bidi print_frame reads: test_oneline re-imports linecast
+        _bidi = print_frame.__globals__["_bidi"]
+        _bidi.configure("en", {"LINECAST_BIDI": "terminal"})
+        try:
+            out = _Stream(tty=True)
+            print_frame("frame", stream=out)
+        finally:
+            _bidi.configure("en", {})
         assert out.getvalue() == f"{_AUTOWRAP_OFF}frame{_AUTOWRAP_ON}\n"
 
     def test_a_pipe_gets_the_frame_and_nothing_else(self):

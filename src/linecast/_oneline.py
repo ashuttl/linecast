@@ -11,6 +11,15 @@ from linecast._graphics import fg, RESET
 from linecast._framebuffer import fmt_time, fmt_time_dt
 
 
+def emit(line, stream=None):
+    """Print a one-line summary: in display order on a terminal, in
+    logical order for a status bar, which orders it itself."""
+    import sys
+    from linecast._bidi import for_stream
+    stream = sys.stdout if stream is None else stream
+    print(for_stream(line, stream), file=stream)
+
+
 # ---------------------------------------------------------------------------
 # Weather oneline
 # ---------------------------------------------------------------------------

@@ -1302,8 +1302,8 @@ def main():
                                        fov=fov), ensure_ascii=False))
         return
     if runtime.oneline:
-        from linecast._oneline import sky_oneline
-        print(sky_oneline(_now(), lat, lng, runtime))
+        from linecast._oneline import emit, sky_oneline
+        emit(sky_oneline(_now(), lat, lng, runtime))
         return
 
     from linecast.sky.live import SkyApp, place_name

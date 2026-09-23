@@ -34,6 +34,17 @@ LANGUAGE_NAMES = dict(LANGUAGES)
 # is a different thing altogether, so those stay on km/h.
 WIND_MS_LANGUAGES = frozenset({"ja", "ko", "da", "no", "sv", "is", "fi", "cs", "ru", "uk"})
 
+# Languages written right to left.  Their strings stay in logical order
+# in the tables; the output pass (_bidi) puts each row in display order,
+# and the views anchor text and run time charts from the right edge.
+RTL_LANGUAGES = frozenset({"fa"})
+
+
+def is_rtl(lang):
+    """Whether `lang` is written right to left."""
+    return base_language(lang) in RTL_LANGUAGES
+
+
 # Regional variants: a code whose strings are a base language's with the
 # words that differ by country changed.  The base is what most readers of
 # the language get: Portuguese is Brazilian, Spanish is Latin American,

@@ -1385,7 +1385,7 @@ def main():
             return
 
         if runtime.oneline:
-            from linecast._oneline import tides_oneline
+            from linecast._oneline import emit, tides_oneline
             hilo_data = provider.hilo_range(
                 station_id, today - timedelta(days=1),
                 today + timedelta(days=1), station_tz)
@@ -1393,7 +1393,7 @@ def main():
                                  _station_now(station_meta, hilo_data),
                                  runtime)
             spin.stop()
-            print(line)
+            emit(line)
             return
 
         fetch_start, fetch_end, y_range, marine_data, preds, hilo_data = _fetch_station(

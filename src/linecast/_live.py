@@ -23,7 +23,7 @@ import sys
 import threading
 import time as _time
 
-from linecast import _term
+from linecast import _bidi, _term
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +98,7 @@ def frame_paint(body, floating=""):
     clear empties and the body then draws.
     """
     rows = body.count("\n") + 1
+    body, floating = _bidi.display(body), _bidi.display(floating)
     return (f"{_SYNC_BEGIN}{_AUTOWRAP_OFF}\033[{rows + 1};1H\033[J{frame_body(body)}"
             f"\033[0m{floating}\033[0m{_AUTOWRAP_ON}{_SYNC_END}")
 
@@ -109,11 +110,30 @@ def print_frame(text, stream=None):
         clip = stream.isatty()
     except Exception:
         clip = False
+    text = _bidi.display(text)
     if clip:
-        stream.write(f"{_AUTOWRAP_OFF}{text}{_AUTOWRAP_ON}\n")
+        explicit, implicit = bidi_modes()
+        stream.write(f"{explicit}{_AUTOWRAP_OFF}{text}{_AUTOWRAP_ON}{implicit}\n")
     else:
         stream.write(f"{text}\n")
     stream.flush()
+
+
+def bidi_modes():
+    """The escapes that put the terminal in bidi explicit mode, where it
+    draws cells as linecast ordered them, and that take it back out; both
+    empty when the terminal is left to order the text itself.  Inside
+    tmux the mode goes to the outer terminal too, through tmux's
+    passthrough (allow-passthrough on): tmux keeps cells as sent, and a
+    VTE terminal around it would otherwise reorder them again."""
+    if not _bidi.reorders():
+        return "", ""
+    explicit, implicit = _bidi.TERMINAL_EXPLICIT, _bidi.TERMINAL_IMPLICIT
+    if os.environ.get("TMUX"):
+        wrap = "\033Ptmux;\033{}\033\\"
+        explicit += wrap.format(explicit)
+        implicit += wrap.format(implicit)
+    return explicit, implicit
 
 
 def overlay(body, floating="", motion=None):
@@ -856,7 +876,8 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             return 'repaint'  # even an unbound key must erase the panel
         return None
 
-    init = "\033[?1049h\033[?25l"
+    bidi_on, bidi_off = bidi_modes()
+    init = f"\033[?1049h\033[?25l{bidi_on}"
     if mouse:
         # Enable both legacy and SGR mouse reporting for broad compatibility.
         init += "\033[?1000h\033[?1002h\033[?1003h\033[?1006h"
@@ -982,7 +1003,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
                 cleanup += "\033[?1006l\033[?1003l\033[?1002l\033[?1000l"
                 if is_apple_terminal:
                     cleanup += "\033[?1007l"
-            cleanup += f"{_AUTOWRAP_ON}\033[?25h\033[?1049l"
+            cleanup += f"{_AUTOWRAP_ON}{bidi_off}\033[?25h\033[?1049l"
             if sync:
                 cleanup += _CPR_QUERY
             sys.stdout.write(cleanup)

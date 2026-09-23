@@ -1223,8 +1223,8 @@ def _main():
         return
 
     if runtime.oneline:
-        from linecast._oneline import weather_oneline
-        print(weather_oneline(data, location_name, runtime))
+        from linecast._oneline import emit, weather_oneline
+        emit(weather_oneline(data, location_name, runtime))
         return
 
     if runtime.live:

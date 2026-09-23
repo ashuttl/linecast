@@ -987,6 +987,8 @@ def set_current(runtime):
     """Record the runtime main() resolved, for current_runtime()."""
     global _current
     _current = runtime
+    from linecast import _bidi
+    _bidi.configure(getattr(runtime, "lang", "en"))
 
 
 def current_runtime(cls=RuntimeConfig):

@@ -502,13 +502,13 @@ def main():
         return
 
     if runtime.oneline:
-        from linecast._oneline import sunshine_oneline
+        from linecast._oneline import emit, sunshine_oneline
         now = _now()
         doy = now.timetuple().tm_yday
         now_hour = now.hour + now.minute / 60 + now.second / 3600
-        print(sunshine_oneline(lat, lng, doy, now_hour, runtime,
-                               tz_offset_h=_offset_hours(now),
-                               hours=_hours(now), now=now))
+        emit(sunshine_oneline(lat, lng, doy, now_hour, runtime,
+                              tz_offset_h=_offset_hours(now),
+                              hours=_hours(now), now=now))
         return
 
     live = runtime.live

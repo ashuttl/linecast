@@ -71,6 +71,8 @@ SCRUBBED = (
     # icon-set detection: a dev running tests inside WezTerm or kitty
     # must see the same "plain" default CI sees
     "TERM_PROGRAM", "KITTY_WINDOW_ID",
+    # who orders right-to-left text, and in which digits
+    "LINECAST_BIDI", "LINECAST_DIGITS", "TMUX",
 )
 for _name in SCRUBBED:
     os.environ.pop(_name, None)
@@ -111,6 +113,10 @@ def _private_home(monkeypatch, tmp_path):
     for name in (*SCRUBBED, *_proxy_names()):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: HOME))
+    # The right-to-left pass is set up per language by set_current; a
+    # test that ran a Persian command must not leave it Persian.
+    from linecast import _bidi
+    _bidi.configure("en", {})
 
 
 # ---------------------------------------------------------------------------
