@@ -36,6 +36,23 @@ WINDOWS = sys.platform == "win32"
 CPR_QUERY = b"\033[6n"
 CPR_REPLY = re.compile(rb"\033\[\d+;\d+R")
 
+# The name the terminal gives for itself when asked (XTVERSION, CSI > 0 q:
+# "Konsole 26.08.1", "foot(1.28.0)", "tmux 3.5a"), or None before the
+# width probe has asked or when it does not say.
+XTVERSION_QUERY = b"\033[>0q"
+XTVERSION_REPLY = re.compile(r"\033P>\|([^\033\a]*)")
+terminal_name = None
+
+
+def note_terminal_name(buf):
+    """Take the terminal's name from a probe's replies, if it gave one."""
+    global terminal_name
+    match = XTVERSION_REPLY.search(buf)
+    if match:
+        terminal_name = match.group(1).strip()
+    return terminal_name
+
+
 # Whether this terminal has answered a cursor query: None until one is
 # sent, False after one went unanswered, True once any comes back.
 answered = None

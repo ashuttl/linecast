@@ -153,7 +153,51 @@ def bidi_mode(environ=None):
         return value
     if value in ("off", "0", "no", "false"):
         return "off"
-    return "terminal" if env.get("KONSOLE_VERSION") else "linecast"
+    return "terminal" if orders_text_itself(env) else "linecast"
+
+
+# Terminals known to order right-to-left text themselves and to ignore
+# the request not to (CSI 8 l): the name each gives for itself when asked
+# (XTVERSION), and the variable it sets in its sessions.  There is no
+# query for the behaviour itself: neither Konsole nor foot, which does
+# not order text, answers the mode request for BDSM, and cursor reports
+# are logical.  Nor do marks around display-ordered text serve both: in
+# Konsole LRM or LRO keeps the order but the letters are reshaped wrongly,
+# and Alacritty draws the marks.  So a terminal is recognized by name.
+_ORDERS_TEXT_ITSELF = (
+    ("Konsole", "KONSOLE_VERSION"),
+)
+# Multiplexers answer XTVERSION themselves; the terminal around them is
+# the one that draws, known only by the variables it left behind.
+_MULTIPLEXERS = ("tmux", "screen", "zellij")
+
+
+def orders_text_itself(environ=None):
+    """The name of the terminal on screen when it is one known to order
+    right-to-left text itself, else None.  The name it gives when asked
+    decides; the variables it sets are asked only when it has not said,
+    or a multiplexer answered for it, since a terminal started from a
+    Konsole shell inherits KONSOLE_VERSION without being Konsole."""
+    from linecast import _term
+    env = os.environ if environ is None else environ
+    said = (_term.terminal_name or "").lower()
+    for name, _variable in _ORDERS_TEXT_ITSELF:
+        if said.startswith(name.lower()):
+            return name
+    if said and not said.startswith(_MULTIPLEXERS):
+        return None
+    for name, variable in _ORDERS_TEXT_ITSELF:
+        if env.get(variable):
+            return name
+    return None
+
+
+def refresh_mode(environ=None):
+    """Choose the mode again, once the terminal has said who it is."""
+    global _reorder, _visual
+    mode = bidi_mode(os.environ if environ is None else environ)
+    _reorder = mode != "off"
+    _visual = mode == "linecast"
 
 
 def set_mirror(on):

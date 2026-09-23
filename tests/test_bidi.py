@@ -380,3 +380,46 @@ class TestFlippedPictures:
         # nothing for the terminal to order: no isolate, the high first
         assert RLI not in out and _plain(out) == "۹۷°F ← ۷۱°"
 
+
+
+class TestKnownTerminals:
+    """A terminal that orders text itself is recognized by the name it
+    gives (XTVERSION), or by its variables when it gives none."""
+
+    @pytest.fixture(autouse=True)
+    def _no_name(self, monkeypatch):
+        from linecast import _term
+        monkeypatch.setattr(_term, "terminal_name", None)
+
+    def _named(self, monkeypatch, name):
+        from linecast import _term
+        monkeypatch.setattr(_term, "terminal_name", name)
+
+    def test_the_reply_names_the_terminal(self):
+        from linecast import _term
+        reply = "\033P>|Konsole 26.08.1\033\\\033[1;2R"
+        assert _term.note_terminal_name(reply) == "Konsole 26.08.1"
+
+    def test_konsole_by_its_name(self, monkeypatch):
+        self._named(monkeypatch, "Konsole 26.08.1")
+        assert _bidi.orders_text_itself({}) == "Konsole"
+        assert _bidi.bidi_mode({}) == "terminal"
+
+    def test_konsole_by_its_variable_when_it_gives_no_name(self):
+        assert _bidi.orders_text_itself({"KONSOLE_VERSION": "260801"}) == "Konsole"
+        assert _bidi.orders_text_itself({}) is None
+
+    def test_a_terminal_started_from_konsole_is_not_konsole(self, monkeypatch):
+        # foot launched from a Konsole shell inherits KONSOLE_VERSION
+        self._named(monkeypatch, "foot(1.28.0)")
+        assert _bidi.orders_text_itself({"KONSOLE_VERSION": "260801"}) is None
+        assert _bidi.bidi_mode({"KONSOLE_VERSION": "260801"}) == "linecast"
+
+    def test_inside_tmux_the_variables_tell(self, monkeypatch):
+        self._named(monkeypatch, "tmux 3.5a")
+        assert _bidi.orders_text_itself({"KONSOLE_VERSION": "260801"}) == "Konsole"
+        assert _bidi.orders_text_itself({}) is None
+
+    def test_the_setting_beats_the_name(self, monkeypatch):
+        self._named(monkeypatch, "Konsole 26.08.1")
+        assert _bidi.bidi_mode({"LINECAST_BIDI": "linecast"}) == "linecast"

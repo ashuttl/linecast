@@ -375,8 +375,8 @@ def _collect_bidi(env):
     if mode == "off":
         return "not ordered (LINECAST_BIDI=off)"
     if mode == "terminal":
-        who = ("Konsole" if env.get("KONSOLE_VERSION") and not env.get("LINECAST_BIDI")
-               else "the terminal (LINECAST_BIDI=terminal)")
+        known = None if env.get("LINECAST_BIDI") else _bidi.orders_text_itself(env)
+        who = known or "the terminal (LINECAST_BIDI=terminal)"
         return (f"{who} orders each piece and joins the letters, where linecast "
                 "lays it out; if Persian, Arabic, or Hebrew reads backwards, the "
                 "terminal's own bidi rendering is off: set LINECAST_BIDI=linecast")

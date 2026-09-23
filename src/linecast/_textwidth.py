@@ -315,7 +315,11 @@ def calibrate_from_terminal(timeout_s=None):
         # A round trip is instant on this machine and a link away over SSH.
         timeout_s = probe_timeout_s("LINECAST_WIDTH_TIMEOUT_MS", 150, ssh_ms=600)
 
-    payload = b"".join(b"\r" + text.encode() + b"\033[6n" for _name, text in _PROBES)
+    # The terminal's name rides along: it answers before the first cursor
+    # report, or not at all, and the right-to-left pass wants to know it
+    # (_bidi.orders_text_itself)
+    payload = _term.XTVERSION_QUERY + b"".join(
+        b"\r" + text.encode() + b"\033[6n" for _name, text in _PROBES)
     widths = []
     buf = ""
     deadline = time.monotonic() + timeout_s
@@ -343,6 +347,9 @@ def calibrate_from_terminal(timeout_s=None):
     finally:
         if widths:
             _term.mark_answered()
+        if _term.note_terminal_name(buf):
+            from linecast import _bidi
+            _bidi.refresh_mode()
         if len(widths) < len(_PROBES):
             # An answer that comes after this would reach the shell.
             _term.flush_input(fd_in)
