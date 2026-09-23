@@ -9,9 +9,9 @@ from unittest.mock import patch
 import pytest
 
 from test_sky import LAT, LNG, NIGHT, NOON, _frame
-from linecast import sky
-from linecast._sky import deep as _sky_deep
-from linecast._sky.catalogue import equatorial_vector
+from linecast.sky import view as sky
+from linecast.sky import deep as _sky_deep
+from linecast.sky.catalogue import equatorial_vector
 
 
 def test_catalogue_is_compact_and_identifies_its_sources():

@@ -313,7 +313,7 @@ _STAR_FOCAL = 1.5
 
 def _load_stars():
     """[(ra_rad, dec_rad)] brightest first, from the bundled catalogue."""
-    from linecast._sky.catalogue import star_positions
+    from linecast.sky.catalogue import star_positions
     return star_positions()
 
 

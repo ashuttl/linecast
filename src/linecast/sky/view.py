@@ -67,14 +67,14 @@ from linecast.radar.i18n import rs
 from linecast._runtime import (
     RuntimeConfig, install_banner, set_current, sky_parser,
 )
-from linecast._sky.catalogue import (
+from linecast.sky.catalogue import (
     MILKY_WAY_H, MILKY_WAY_W, constellation_name, constellations, culture_title,
     figures_for, milky_way, names_for, resolve_culture, star_names, star_vectors,
     stars,
 )
-from linecast._sky import deep as _sky_deep
-from linecast._sky import objects as _sky_objects
-from linecast._sky.i18n import NO_CAPITALS, _sk, body_name
+from linecast.sky import deep as _sky_deep
+from linecast.sky import objects as _sky_objects
+from linecast.sky.i18n import NO_CAPITALS, _sk, body_name
 from linecast._sunshine.i18n import sky_phase
 from linecast._textwidth import char_width
 from linecast._tides.i18n import _ts  # shared "space to return to now" hint
@@ -1286,7 +1286,7 @@ def main():
     culture = resolve_culture(args.culture, lang_of(runtime))
     aim = None
     if args.at:
-        from linecast._sky.search import search, targets
+        from linecast.sky.search import search, targets
         found = search(args.at, targets(runtime, culture), limit=1)
         if not found:
             parser.error(f"nothing in the sky called {args.at!r}")
@@ -1297,7 +1297,7 @@ def main():
 
     if runtime.json_mode:
         import json
-        from linecast._sky.json import build_payload
+        from linecast.sky.json import build_payload
         print(json.dumps(build_payload(_now(), lat, lng, runtime, facing=facing,
                                        fov=fov), ensure_ascii=False))
         return
@@ -1306,7 +1306,7 @@ def main():
         print(sky_oneline(_now(), lat, lng, runtime))
         return
 
-    from linecast._sky.live import SkyApp, place_name
+    from linecast.sky.live import SkyApp, place_name
     label = place_name(lat, lng, args.location, lang=runtime.lang)
     if not runtime.live:
         now = _now()
@@ -1318,6 +1318,3 @@ def main():
     SkyApp(_now, lat, lng, runtime, facing=facing, fov=fov, location_label=label,
            aim=aim, culture=culture).run()
 
-
-if __name__ == "__main__":
-    main()

@@ -11,7 +11,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _color, sky
+from linecast import _color
+
+from linecast.sky import view as sky
 from linecast._runtime import RuntimeConfig
 
 

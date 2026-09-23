@@ -12,7 +12,7 @@ import math
 
 import pytest
 
-from linecast import sky
+from linecast.sky import view as sky
 from linecast.maps import globe
 from linecast._framebuffer import Framebuffer, cell_aspect
 from linecast.radar.render import bbox_for

@@ -11,10 +11,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import sky  # noqa: E402
+from linecast.sky import view as sky  # noqa: E402
 from linecast._planets import PLANETS, planet_position  # noqa: E402
 from linecast._runtime import RuntimeConfig  # noqa: E402
-from linecast.sky import (  # noqa: E402
+from linecast.sky.view import (  # noqa: E402
     Scene, View, alt_az_of, camera_matrix, default_view, focal_length,
     horizontal_matrix, horizontal_vector, parse_facing, project, render, unproject,
 )
@@ -243,8 +243,8 @@ class TestPrecession:
         and not something else.
         """
         from linecast._ephemeris import _alt_az_deg
-        from linecast._sky.catalogue import equatorial_vector, star_vectors, stars
-        from linecast.sky import _mat_apply
+        from linecast.sky.catalogue import equatorial_vector, star_vectors, stars
+        from linecast.sky.view import _mat_apply
         moment = NIGHT.astimezone(timezone.utc)
         scene = Scene(moment, LAT, LNG)
         # The J2000 pole of the ecliptic, and the general precession in
@@ -322,7 +322,7 @@ def _frame(now, cols, rows, lang="en", **kwargs):
     runtime = _runtime(lang=lang)
     scene = Scene(now.astimezone(timezone.utc), LAT, LNG)
     view = kwargs.pop("view", None) or default_view(scene, cols, rows, 103.0, 110.0)
-    with patch("linecast.sky.get_terminal_size", return_value=(cols, rows)):
+    with patch("linecast.sky.view.get_terminal_size", return_value=(cols, rows)):
         out = render(now, LAT, LNG, runtime, view, location_label="Westbrook",
                      today=now.date(), **kwargs)
     return out
@@ -532,15 +532,15 @@ class TestCatalogue:
 class TestStrings:
     def test_every_language_has_every_key(self):
         from linecast._i18n import LANGUAGE_CODES
-        from linecast._sky.i18n import _SKY_STRINGS
+        from linecast.sky.i18n import _SKY_STRINGS
         keys = set(_SKY_STRINGS["en"])
         for code in LANGUAGE_CODES:
             assert set(_SKY_STRINGS[code]) == keys, code
 
     def test_every_culture_has_a_title_in_every_language(self):
         from linecast._i18n import LANGUAGE_CODES, VARIANTS
-        from linecast._sky.catalogue import CULTURES
-        from linecast._sky.i18n import CULTURE_TITLES
+        from linecast.sky.catalogue import CULTURES
+        from linecast.sky.i18n import CULTURE_TITLES
         assert set(CULTURE_TITLES) == set(CULTURES)
         for short, titles in CULTURE_TITLES.items():
             # A regional variant names a culture only where its base does not
@@ -566,7 +566,7 @@ class TestStrings:
 
     def test_json(self):
         import json
-        from linecast._sky.json import build_payload
+        from linecast.sky.json import build_payload
         payload = build_payload(NIGHT, LAT, LNG, _runtime(), location="Westbrook")
         json.dumps(payload)
         assert set(payload) == {
@@ -589,7 +589,7 @@ class TestCamera:
         ('w', 0, 1), ('a', -1, 0), ('s', 0, -1), ('d', 1, 0),
     ])
     def test_keyboard_pan_eases_in_the_requested_direction(self, monkeypatch, key, daz, dalt):
-        from linecast._sky import live
+        from linecast.sky import live
         clock = [0.0]
         monkeypatch.setattr(live.time, 'monotonic', lambda: clock[0])
         wakes = []
@@ -610,7 +610,7 @@ class TestCamera:
         assert not cam.moving() and app.minutes == 0
 
     def test_repeats_extend_the_pan_and_reversing_responds_immediately(self, monkeypatch):
-        from linecast._sky import live
+        from linecast.sky import live
         clock = [0.0]
         monkeypatch.setattr(live.time, 'monotonic', lambda: clock[0])
         cam = live.Camera(180, 30, 100)
@@ -634,7 +634,7 @@ class TestCamera:
         assert not cam.moving()
 
     def test_pan_scales_with_zoom_wraps_and_stops_at_the_edges(self, monkeypatch):
-        from linecast._sky import live
+        from linecast.sky import live
         clock = [0.0]
         monkeypatch.setattr(live.time, 'monotonic', lambda: clock[0])
         cam = live.Camera(359, 89, 25)
@@ -648,7 +648,7 @@ class TestCamera:
         assert cam.view().alt == 0 and not cam.moving()
 
     def test_drag_and_flight_take_over_from_keyboard_motion(self, monkeypatch):
-        from linecast._sky import live
+        from linecast.sky import live
         clock = [0.0]
         monkeypatch.setattr(live.time, 'monotonic', lambda: clock[0])
         cam = live.Camera(180, 30, 100)
@@ -664,7 +664,7 @@ class TestCamera:
         assert (cam.view().az, cam.alt) == (90, 20)
 
     def test_stop_cancels_keyboard_motion(self, monkeypatch):
-        from linecast._sky import live
+        from linecast.sky import live
         monkeypatch.setattr(live.SkyApp, '_wake', lambda self: None)
         app = live.SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
         app.on_action('d')
@@ -672,7 +672,7 @@ class TestCamera:
         assert not app.camera.moving()
 
     def _camera(self):
-        from linecast._sky.live import Camera
+        from linecast.sky.live import Camera
         cam = Camera(180.0, 30.0, 110.0)
         cam.focal = focal_length(98.0, 110.0)
         return cam
@@ -719,7 +719,7 @@ class TestCamera:
         assert cam.view().alt == 90.0
 
     def test_play_cycles_the_speeds(self):
-        from linecast._sky.live import SPEEDS, SkyApp
+        from linecast.sky.live import SPEEDS, SkyApp
         app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
         seen = []
         for _ in range(len(SPEEDS) + 1):
@@ -732,7 +732,7 @@ class TestCamera:
         app.stop()
 
     def test_the_wheel_scrubs_time(self):
-        from linecast._sky.live import SkyApp
+        from linecast.sky.live import SkyApp
         app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
         app.on_wheel(1, 10, 10)
         app.on_wheel(1, 10, 10)
@@ -746,12 +746,12 @@ class TestCamera:
 # ---------------------------------------------------------------------------
 class TestSearch:
     def _pool(self, lang="en"):
-        from linecast._sky.search import targets
+        from linecast.sky.search import targets
         return targets(_runtime(lang=lang))
 
     def test_escape_and_quit_close_the_panel(self):
         # Ctrl-C on Windows arrives as 'quit'; `q` is a letter here
-        from linecast._sky.search import SkySearch
+        from linecast.sky.search import SkySearch
         for action in ("escape", "quit"):
             panel = SkySearch(_runtime(), refresh=lambda: None)
             panel.start()
@@ -760,7 +760,7 @@ class TestSearch:
             assert not panel.open and panel.query == ""
 
     def test_finds_by_name_designation_and_constellation(self):
-        from linecast._sky.search import search
+        from linecast.sky.search import search
         pool = self._pool()
         assert search("vega", pool)[0].label == "Vega · α Lyr"
         assert search("alpha lyr", pool)[0].label == "Vega · α Lyr"
@@ -770,7 +770,7 @@ class TestSearch:
         assert search("xyzzy", pool) == []
 
     def test_finds_a_star_by_the_designation_as_it_is_typed(self):
-        from linecast._sky.search import search
+        from linecast.sky.search import search
         pool = self._pool()
         # The component superscript is not on a keyboard, and the genitive
         # is how a chart names a star.
@@ -783,8 +783,8 @@ class TestSearch:
 
     def test_finds_asterisms_and_english_constellation_names(self):
         import math
-        from linecast._sky.search import search
-        from linecast._sky.catalogue import star_names, star_vectors
+        from linecast.sky.search import search
+        from linecast.sky.catalogue import star_names, star_vectors
         pool = self._pool()
         dipper = search("big dipper", pool)[0]
         assert dipper.kind == "asterism" and dipper.label == "Big Dipper"
@@ -814,7 +814,7 @@ class TestSearch:
         assert search("big dipper", pool_fr)[0] is french
 
     def test_asterisms_and_iau_english_names_follow_the_tradition(self):
-        from linecast._sky.search import search, targets
+        from linecast.sky.search import search, targets
         norse = targets(_runtime(), "norse")
         assert search("big dipper", norse)[0].kind == "asterism"
         assert search("southern cross", norse) == []
@@ -822,19 +822,19 @@ class TestSearch:
         assert search("southern cross", snt)[0].kind == "constellation"
 
     def test_whole_names_beat_prefixes_and_bright_beats_faint(self):
-        from linecast._sky.search import search
+        from linecast.sky.search import search
         labels = [t.label for t in search("ori", self._pool())]
         assert labels[0] == "Orion"
         assert labels.index("Rigel · β Ori") < labels.index("Bellatrix · γ Ori")
 
     def test_the_display_language_names_work(self):
-        from linecast._sky.search import search
+        from linecast.sky.search import search
         hits = search("Poissons", self._pool("fr"))
         assert hits and hits[0].key["id"] == "Psc"
         assert hits[0].label == "Poissons · Pisces"
 
     def test_a_thing_not_up_gets_its_rising(self):
-        from linecast._sky.search import describe_rising, next_rising, search
+        from linecast.sky.search import describe_rising, next_rising, search
         pool = self._pool()
 
         def scene_at(dt):
@@ -853,7 +853,7 @@ class TestSearch:
         assert "never rises" in describe_rising(canopus, None, _runtime())
 
     def test_the_panel_flies_or_offers_the_moment(self):
-        from linecast._sky.live import SkyApp
+        from linecast.sky.live import SkyApp
         app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
         assert app.intercept("key:/") and app.search.open and app.text_mode()
         for ch in "orion":
@@ -876,7 +876,7 @@ class TestSearch:
         app.stop()
 
     def test_at_flag_frames_the_target(self):
-        from linecast._sky.search import search
+        from linecast.sky.search import search
         pool = self._pool()
         scene = Scene(NIGHT.astimezone(timezone.utc), LAT, LNG)
         saturn = search("saturn", pool)[0]
@@ -886,7 +886,7 @@ class TestSearch:
         assert 18.0 <= search("orion", pool)[0].fov(110.0) <= 120.0
 
     def test_changing_result_dismisses_the_previous_rising_offer(self):
-        from linecast._sky.live import SkyApp
+        from linecast.sky.live import SkyApp
         app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
         try:
             app.intercept("key:/")
@@ -914,7 +914,7 @@ class TestSearch:
 class TestCultures:
     def test_every_choice_has_data_with_a_licence_and_credits(self):
         from linecast._config import CULTURE_CHOICES
-        from linecast._sky.catalogue import culture
+        from linecast.sky.catalogue import culture
         for short in CULTURE_CHOICES:
             if short == "none":
                 continue
@@ -1008,7 +1008,7 @@ class TestCultures:
         assert sky.culture_title("chinese", "zh") in out
 
     def test_t_opens_the_traditions_on_the_current_one(self):
-        from linecast._sky.live import SkyApp
+        from linecast.sky.live import SkyApp
         app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True), culture="norse")
         assert app.intercept("key:t") is True
         assert app.picker.open
@@ -1020,7 +1020,7 @@ class TestCultures:
         app.stop()
 
     def test_the_highlight_previews_and_enter_keeps_it(self):
-        from linecast._sky.live import SkyApp
+        from linecast.sky.live import SkyApp
         app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
         app.intercept("key:t")
         assert app.picker.sel == 0 and app.culture is None
@@ -1039,7 +1039,7 @@ class TestCultures:
         app.stop()
 
     def test_escape_puts_the_sky_back_and_t_keeps_what_is_shown(self):
-        from linecast._sky.live import SkyApp
+        from linecast.sky.live import SkyApp
         app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True), culture="maori")
         app.intercept("key:t")
         app.intercept("back")
@@ -1055,7 +1055,7 @@ class TestCultures:
         app.stop()
 
     def test_the_open_panel_takes_every_key_and_the_drag(self):
-        from linecast._sky.live import SkyApp
+        from linecast.sky.live import SkyApp
         app = SkyApp(lambda: NIGHT, LAT, LNG, _runtime(live=True))
         app.intercept("key:t")
         assert app.intercept("key:/") is True and not app.search.open
@@ -1065,7 +1065,7 @@ class TestCultures:
         app.stop()
 
     def test_the_panel_draws_and_scrolls_on_a_short_terminal(self):
-        from linecast._sky.picker import CulturePicker, picker_overlay
+        from linecast.sky.picker import CulturePicker, picker_overlay
         picker = CulturePicker("en")
         picker.start("tukano")
         tall = _strip(picker_overlay(picker, 100, 40, _runtime()))
@@ -1078,7 +1078,7 @@ class TestCultures:
         assert "IAU" in top and "▲" not in top and "▼" in top
 
     def test_the_panel_names_the_traditions_in_the_language(self):
-        from linecast._sky.picker import CulturePicker, picker_overlay
+        from linecast.sky.picker import CulturePicker, picker_overlay
         picker = CulturePicker("fr")
         picker.start("chinese")
         out = _strip(picker_overlay(picker, 100, 40, _runtime(lang="fr")))
@@ -1086,7 +1086,7 @@ class TestCultures:
         assert "Chinese" not in out
 
     def test_search_finds_a_star_by_the_language_s_name_or_the_iau_s(self):
-        from linecast._sky.search import search, targets
+        from linecast.sky.search import search, targets
         pool = targets(_runtime(lang="pl"))
         assert search("syriusz", pool)[0].label == "Syriusz · α CMa"
         assert search("sirius", pool)[0].label == "Syriusz · α CMa"
@@ -1147,7 +1147,7 @@ class TestCultures:
             assert own[iau] in japanese and iau not in japanese
 
     def test_search_knows_the_culture(self):
-        from linecast._sky.search import search, targets
+        from linecast.sky.search import search, targets
         pool = targets(_runtime(), "hawaiian")
         assert search("hokulei", pool)[0].kind == "star"
         assert search("makali", pool)[0].kind == "constellation"

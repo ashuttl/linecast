@@ -18,9 +18,9 @@ SCHEMA_VERSION = 1
 
 def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
                   fov=None):
-    from linecast._sky.catalogue import star_names, star_vectors, stars
+    from linecast.sky.catalogue import star_names, star_vectors, stars
     from linecast._sunshine.i18n import sky_phase
-    from linecast.sky import (
+    from linecast.sky.view import (
         FOV_DEFAULT, Scene, _mat_apply, alt_az_of, compass_point, default_view,
         easily_seen,
     )

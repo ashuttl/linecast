@@ -12,7 +12,7 @@ import math
 from functools import lru_cache
 
 from linecast._runtime import log_failure
-from linecast._sky.catalogue import _DATA, equatorial_vector
+from linecast.sky.catalogue import _DATA, equatorial_vector
 
 
 @lru_cache(maxsize=1)
@@ -37,7 +37,7 @@ def paint(fb, scene, cam, frame, f, cx, cy, eye_limit, color, aspect=1.0):
     The catalogue positions are J2000, so they reach the horizon and the
     screen through the scene's precessed frames, as the stars do.
     """
-    from linecast.sky import _extinction, _mat_apply, alt_az_of, project, unproject
+    from linecast.sky.view import _extinction, _mat_apply, alt_az_of, project, unproject
     labels, hits = [], []
     if scene.darkness <= 0:
         return labels, hits

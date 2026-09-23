@@ -254,7 +254,7 @@ def culture_for(short, lang):
 def culture_title(short, lang="en"):
     """The culture's name in the display language: the translation table's
     where it has one, else the English title from the data."""
-    from linecast._sky.i18n import culture_title_text
+    from linecast.sky.i18n import culture_title_text
     text = culture_title_text(short, lang)
     if text:
         return text

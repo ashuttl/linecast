@@ -66,7 +66,8 @@ def test_corner_hint_does_not_overwrite_an_existing_label():
 @pytest.mark.parametrize('lang', ['en', 'ja', 'th'])
 @pytest.mark.parametrize('size', [(40, 18), (80, 24), (140, 40)])
 def test_live_image_views_offer_help_without_adding_rows(monkeypatch, view, lang, size):
-    from linecast import sky, sunshine, moon
+    from linecast import sunshine, moon
+    from linecast.sky import view as sky
     from linecast._moon import calendar
     from linecast._sunshine import year
     cols, rows = size
@@ -92,7 +93,7 @@ def test_live_image_views_offer_help_without_adding_rows(monkeypatch, view, lang
 
 @pytest.mark.parametrize('hour', [1, 13, 21])
 def test_sky_status_uses_the_finished_image_background(monkeypatch, hour):
-    from linecast import sky
+    from linecast.sky import view as sky
     monkeypatch.setattr(sky, 'get_terminal_size', lambda: (100, 30))
     # Other tests reload linecast modules; patch the class this renderer
     # actually owns rather than a previous import's Framebuffer.
@@ -123,7 +124,7 @@ def test_sky_status_uses_the_finished_image_background(monkeypatch, hour):
 
 
 def test_static_sky_does_not_advertise_inactive_controls(monkeypatch):
-    from linecast import sky
+    from linecast.sky import view as sky
     monkeypatch.setattr(sky, 'get_terminal_size', lambda: (80, 24))
     runtime = RuntimeConfig(live=False, icons='plain', lang='en', oneline=False)
     output = sky.render(NOW, 43.68, -70.32, runtime,

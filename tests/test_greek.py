@@ -167,7 +167,7 @@ def test_complete_paragraph_wraps_without_losing_text_or_doubling_punctuation(wi
 
 
 def test_sky_names_and_defaults_are_localization_only():
-    from linecast import sky
+    from linecast.sky import view as sky
     from linecast._calendars.lunisolar import resolve_calendar
     from linecast._hours import resolve_hours
     records = sky.constellations()
