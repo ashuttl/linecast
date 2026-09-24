@@ -19,6 +19,7 @@ New this version:
   - In Japan, only the warnings for your own city, town, or ward are shown, not every warning in the prefecture. A reader in Shinagawa no longer sees a high-wave advisory for the Izu islands, which are also part of Tokyo.
   - Wind speeds are in metres per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, and Czech, as local forecasts give them.
   - The place name in the header sits in a chip, as it does in tides, and the rest of the header is spaced more evenly.
+  - When the alert service can't be reached, a line says the alerts could not be checked, instead of showing nothing as on a day without alerts. When an earlier copy stands in, the line says when it is from. `--json` reports the same as `alerts_status`.
 - Maps:
   - Where a street or place has no name in the display language, its local name comes before the Latin transliteration when it is in the reader's script: خیابان فردوسی, not Ferdosi Street, for a Persian reader in Tehran; Хрещатик for a Russian reader in Kyiv.
   - The street and terrain maps curve like the globe once a view is a few degrees wide, so zooming out to the planet is smooth instead of a sudden switch. Close street views are unchanged.

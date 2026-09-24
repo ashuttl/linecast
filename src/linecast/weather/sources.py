@@ -2,10 +2,11 @@
 
 import re
 import sys
+from contextvars import ContextVar
 from datetime import date, datetime, timezone, timedelta
 from typing import Any
 
-from linecast._cache import read_cache, write_cache, location_cache_key
+from linecast._cache import is_fresh, read_cache, write_cache, location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._i18n import accept_language, base_language, geocoder_language
 from linecast._paths import cache_dir
@@ -628,6 +629,76 @@ MAX_ALERTS = 8
 
 _SEVERITY_RANK = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
 
+# How a fetch_alerts answer came to be (issue #122). An empty list is
+# either a service saying nothing is in force or a service that could
+# not be asked, and the reader must be able to tell the two apart.
+ALERTS_OK = "ok"                    # the provider answered, now or within its cache time
+ALERTS_STALE = "stale"              # it did not; an older copy stands in
+ALERTS_UNAVAILABLE = "unavailable"  # it did not, and there is no copy
+ALERTS_UNSUPPORTED = "unsupported"  # linecast has no feed for the country
+
+
+class AlertList(list):
+    """The alerts, a list like any other, carrying how they were got.
+
+    `status` is one of the ALERTS_* values; `fetched_at` is when the
+    provider last answered, ISO 8601 in UTC, or None when that is not
+    known. A caller that only wants the alerts can ignore both.
+    """
+
+    def __init__(self, alerts=(), status=ALERTS_OK, fetched_at=None):
+        super().__init__(alerts)
+        self.status = status
+        self.fetched_at = fetched_at
+
+
+def alerts_status(alerts) -> dict[str, Any]:
+    """The status of a fetch_alerts answer, as `--json` gives it. A
+    plain list, from before there was a status, reads as a good one."""
+    return {
+        "status": getattr(alerts, "status", ALERTS_OK),
+        "fetched_at": getattr(alerts, "fetched_at", None),
+    }
+
+
+# The record the provider in hand leaves for fetch_alerts, by thread:
+# the dashboard fetches the alerts on a worker of its own.
+_ALERT_CHECK: "ContextVar[dict[str, Any] | None]" = ContextVar(
+    "linecast_alert_check", default=None)
+
+
+def _utc_iso(timestamp):
+    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat(timespec="seconds")
+
+
+def _note_alert_cache(cache_file, max_age, data):
+    """Record how a provider's feed came, for fetch_alerts to report.
+
+    Called just after the feed's cached fetch. The cache file's age says
+    it: a fetch that succeeds writes the file, so a file within
+    `max_age` is an answer from the provider, now or lately; an older
+    one is the stale copy fetch_json_cached stood in with; no file is a
+    failure with nothing to stand in, unless the fetch brought data and
+    only the cache could not be written.
+    """
+    check = _ALERT_CHECK.get()
+    if check is None:
+        return
+    try:
+        mtime = cache_file.stat().st_mtime
+    except OSError:
+        mtime = None
+    if mtime is None:
+        if data is None or (isinstance(data, (list, bytes)) and not data):
+            check.update(status=ALERTS_UNAVAILABLE, fetched_at=None)
+        else:
+            check.update(status=ALERTS_OK,
+                         fetched_at=_utc_iso(datetime.now(timezone.utc).timestamp()))
+    elif is_fresh(mtime, max_age):
+        check.update(status=ALERTS_OK, fetched_at=_utc_iso(mtime))
+    else:
+        check.update(status=ALERTS_STALE, fetched_at=_utc_iso(mtime))
+
 
 def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en",
                  address: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -644,9 +715,21 @@ def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en
     stands in for as long as the provider is unreachable, so without
     this a wind advisory fetched on Tuesday could still be listed on
     Thursday (issue #70).
+
+    The answer is an AlertList, which says besides whether the provider
+    answered, a stale copy stood in, or neither (issue #122): an empty
+    list alone cannot tell "no warnings" from "could not check".
     """
-    alerts = _fetch_alerts_routed(lat, lng, country_code, lang, address)
-    return _trim_alerts(_drop_expired(alerts))
+    country_code = (country_code or "").upper()
+    if alert_source(country_code) is None:
+        return AlertList(status=ALERTS_UNSUPPORTED)
+    check = {"status": ALERTS_OK, "fetched_at": None}
+    token = _ALERT_CHECK.set(check)
+    try:
+        alerts = _fetch_alerts_routed(lat, lng, country_code, lang, address)
+    finally:
+        _ALERT_CHECK.reset(token)
+    return AlertList(_trim_alerts(_drop_expired(alerts)), **check)
 
 
 def _alert_expiry(alert):
@@ -694,6 +777,7 @@ def _trim_alerts(alerts):
     return ranked[:MAX_ALERTS]
 
 
+
 def _fetch_alerts_routed(lat, lng, country_code, lang, address):
     if country_code == "US":
         return _fetch_alerts_nws(lat, lng)
@@ -733,6 +817,7 @@ def _fetch_alerts_nws(lat, lng):
         timeout=10,
         fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -775,6 +860,7 @@ def _fetch_alerts_eccc(lat, lng, lang="en"):
         timeout=10,
         fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -844,6 +930,7 @@ def _fetch_alerts_brightsky(lat, lng, lang="en"):
         cache_file, 900, url,
         timeout=10, fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -887,6 +974,7 @@ def _fetch_alerts_metno(lat, lng):
         cache_file, 900, url,
         timeout=10, fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -929,6 +1017,7 @@ def _fetch_alerts_meteireann(lat, lng):
         headers={"Accept": "application/json"},
         timeout=10, fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -1050,6 +1139,7 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
             url, headers={"Accept": "application/json"}, timeout=timeout,
             limit=_METEOALARM_FEED_BYTES),
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -1595,6 +1685,7 @@ def _fetch_alerts_jma(lat, lng, lang="en", address=None):
         cache_file, 900, url,
         timeout=10, fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -1717,6 +1808,7 @@ def _fetch_alerts_hko(lang="en"):
     cache_file = cache_dir("weather") / f"alerts_hk_{feed}.json"
     url = HKO_WARNINGS_URL.format(lang=feed)
     data = fetch_json_cached(cache_file, 600, url, timeout=10, fallback=[])
+    _note_alert_cache(cache_file, 600, data)
     if isinstance(data, list):
         return data
 
@@ -1843,6 +1935,7 @@ def _fetch_alerts_cma(lat, lng, lang="en"):
         "http://www.nmc.cn/rest/findAlarm?pageNo=1&pageSize=500",
         timeout=10, fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -1987,10 +2080,12 @@ def _fetch_alerts_sachet(lat, lng, lang="en"):
     """
     import math
 
+    feed_file = cache_dir("weather") / "alerts_in_feed.json"
     feed = fetch_json_cached(
-        cache_dir("weather") / "alerts_in_feed.json", 900,
+        feed_file, 900,
         _SACHET_FEED_URL, timeout=15, fallback=None,
     )
+    _note_alert_cache(feed_file, 900, feed)
     if not isinstance(feed, list):
         return []
 
@@ -2231,9 +2326,9 @@ def _fetch_alerts_metservice(lat, lng):
 
     from linecast._http import fetch_bytes_cached
 
-    raw = fetch_bytes_cached(
-        cache_dir("weather") / "alerts_nz_feed.xml", 900,
-        _METSERVICE_FEED_URL, timeout=15)
+    feed_file = cache_dir("weather") / "alerts_nz_feed.xml"
+    raw = fetch_bytes_cached(feed_file, 900, _METSERVICE_FEED_URL, timeout=15)
+    _note_alert_cache(feed_file, 900, raw)
     if not raw:
         return []
     try:

@@ -8,6 +8,7 @@ from linecast._i18n import lang_of, sentence_24h, table_for
 from linecast._runtime import log_failure
 from linecast._textwidth import truncate_display_width, wrap_display_width
 from linecast.weather.i18n import DAY_NAMES, _s
+from linecast.weather.sources import ALERTS_OK, ALERTS_STALE, ALERTS_UNAVAILABLE
 from linecast.weather.style import (
     ALERT_AMBER,
     ALERT_AMBER_RGB,
@@ -49,6 +50,28 @@ def _parse_alert_time(iso_str, runtime=None, tz_name=""):
     except Exception as exc:
         log_failure("weather/alerts", "alert time", exc, fallback="time omitted")
         return ""
+
+
+def alerts_notice(alerts, width, runtime=None, tz_name=""):
+    """One muted line for where the alert band goes, when the alerts on
+    screen are not the provider's latest word, or None when they are.
+
+    An alert service that could not be reached and had no copy to stand
+    in says so, rather than look like a quiet day; one whose older copy
+    stands in says when that copy is from (issue #122). A country with
+    no alert feed says nothing: there is nothing it could have shown.
+    """
+    status = getattr(alerts, "status", ALERTS_OK)
+    if status == ALERTS_UNAVAILABLE:
+        text = _s("alerts_unavailable", runtime)
+    elif status == ALERTS_STALE:
+        when = _parse_alert_time(getattr(alerts, "fetched_at", None) or "", runtime, tz_name)
+        if not when:
+            return None
+        text = _s("alerts_stale", runtime, when=when)
+    else:
+        return None
+    return f"{MUTED}{truncate_display_width(text, max(1, width))}{RESET}"
 
 
 def _severity_color(severity):
