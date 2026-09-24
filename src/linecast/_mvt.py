@@ -24,7 +24,6 @@ where each feature is {"id", "type", "tags", "geometry"}:
   into exterior/hole sets with assemble_polygons()
 """
 
-import gzip
 import struct
 import zlib
 from typing import Any
@@ -205,20 +204,38 @@ def _feature(buf, keys, values):
             "geometry": _geometry(geom)}
 
 
+# A wrapped tile inflates no further than an unwrapped one could arrive:
+# the HTTP layer takes a body of up to 16 MiB (_http.MAX_BODY_BYTES).
+# Real vector tiles decode to a few MB at most.
+MAX_DECODED_BYTES = 16 * 1024 * 1024
+
+
+def _inflate(data: bytes, wbits: int) -> bytes:
+    """Inflate a gzip or zlib wrapper within MAX_DECODED_BYTES."""
+    inflater = zlib.decompressobj(wbits)
+    # a wrapper cut short or mangled is one more corrupt tile to the
+    # caller, as is one that inflates past the budget
+    try:
+        out = inflater.decompress(data, MAX_DECODED_BYTES + 1)
+    except zlib.error as exc:
+        raise ValueError(f"bad compression: {exc}") from exc
+    if len(out) > MAX_DECODED_BYTES:
+        raise ValueError("bad compression: tile inflates past "
+                         f"{MAX_DECODED_BYTES} bytes")
+    if not inflater.eof:
+        raise ValueError("bad compression: stream cut short")
+    return out
+
+
 def decode_tile(data: bytes) -> dict[str, dict[str, Any]]:
     """MVT bytes (raw, gzip-, or zlib-wrapped) -> {layer_name: layer}.
 
     Empty input (a 0-byte "empty tile" response) decodes to {}.
     """
-    # a wrapper cut short raises its own kinds (EOFError, zlib.error,
-    # gzip's OSError); to the caller it is one more corrupt tile
-    try:
-        if data[:2] == b"\x1f\x8b":
-            data = gzip.decompress(data)
-        elif data[:1] == b"\x78":
-            data = zlib.decompress(data)
-    except (OSError, EOFError, zlib.error) as exc:
-        raise ValueError(f"bad compression: {exc}") from exc
+    if data[:2] == b"\x1f\x8b":
+        data = _inflate(data, 16 + zlib.MAX_WBITS)
+    elif data[:1] == b"\x78":
+        data = _inflate(data, zlib.MAX_WBITS)
     layers = {}
     for fn, _wt, v in _fields(data):
         if fn != 3:  # Tile.layers
