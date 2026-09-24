@@ -10,6 +10,7 @@ from linecast._cache import is_fresh, read_cache, write_cache, location_cache_ke
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._i18n import accept_language, base_language, geocoder_language
 from linecast._paths import cache_dir
+from linecast._plaintext import plain_text
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure
 
 # The forecast, the air quality, and the geocoder are Open-Meteo's, and
@@ -137,7 +138,8 @@ def _reverse_geocode(lat, lng, lang=None):
     if (cached and cached.get("lat") == round(lat, 4)
             and cached.get("lng") == round(lng, 4)
             and cached.get("lang", None) == lang):
-        return cached.get("name", ""), cached.get("country_code", ""), cached.get("address", {})
+        return (plain_text(cached.get("name", "")), cached.get("country_code", ""),
+                _plain_values(cached.get("address", {})))
 
     try:
         url = (
@@ -149,7 +151,7 @@ def _reverse_geocode(lat, lng, lang=None):
         from linecast.maps.search import _throttle
         _throttle()
         data = fetch_json(url, timeout=10)
-        addr = data.get("address", {})
+        addr = _plain_values(data.get("address", {}))
         # Nominatim files small places under keys all the way down to
         # hamlet (Fayette, Maine is one); without them the name comes back
         # empty and the caller falls back to the timezone city (issue #50).
@@ -175,6 +177,13 @@ def _reverse_geocode(lat, lng, lang=None):
         "address": addr,
     })
     return display, country_code, addr
+
+
+def _plain_values(mapping):
+    """A geocoder's dict with the terminal controls out of its strings."""
+    if not isinstance(mapping, dict):
+        return mapping
+    return {key: plain_text(value) for key, value in mapping.items()}
 
 
 def forecast_date(data) -> "date | None":
@@ -774,8 +783,18 @@ def _trim_alerts(alerts):
     severity; an unknown severity sorts last.
     """
     ranked = sorted(alerts, key=lambda a: _SEVERITY_RANK.get(a.get("severity"), 9))
-    return ranked[:MAX_ALERTS]
+    return [_plain_alert(alert) for alert in ranked[:MAX_ALERTS]]
 
+
+def _plain_alert(alert):
+    """An alert with a feed's terminal controls taken out of its text.
+
+    Done here, where every provider's list passes on its way out, so a
+    list read back from a provider's cache is cleaned too.  The
+    description keeps its line breaks, which mark its paragraphs.
+    """
+    return {key: plain_text(value, lines=key == "description")
+            for key, value in alert.items()}
 
 
 def _fetch_alerts_routed(lat, lng, country_code, lang, address):
@@ -2476,7 +2495,7 @@ def _photon_query(query, lang="en", timeout=10):
     results = []
     for feature in data.get("features") or []:
         props = feature.get("properties") or {}
-        name = (props.get("name") or "").strip()
+        name = plain_text(props.get("name") or "").strip()
         coords = (feature.get("geometry") or {}).get("coordinates") or []
         if not name or len(coords) < 2:
             continue
@@ -2484,8 +2503,8 @@ def _photon_query(query, lang="en", timeout=10):
             "name": name,
             "latitude": float(coords[1]),
             "longitude": float(coords[0]),
-            "admin1": props.get("state", ""),
-            "country": props.get("country", ""),
+            "admin1": plain_text(props.get("state", "")),
+            "country": plain_text(props.get("country", "")),
             "country_code": props.get("countrycode", ""),
         })
     return results
@@ -2511,7 +2530,7 @@ def _geocode_query(query, lang="en"):
                         fallback="exiting")
             print(f"Search failed: {exc}", file=sys.stderr)
             sys.exit(1)
-    return data.get("results", [])
+    return [_plain_values(r) for r in data.get("results") or []]
 
 
 def geocode_first(query: str, lang: str = "en") -> tuple[float, float, str] | None:

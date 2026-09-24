@@ -13,6 +13,7 @@ per frame timestamp and rasterised per view by the renderer.
 import threading
 
 from linecast._http import fetch_json
+from linecast._plaintext import plain_text
 from linecast._scenes import Memo
 
 _URL = "https://mesonet.agron.iastate.edu/geojson/sbw.geojson"
@@ -95,14 +96,15 @@ def _parse(feature_collection):
             # emergencies above their base phenomena, severe above the rest
             sev = _SEVERITY[phen] + (10 if emergency else 0)
             info = {
-                "name": props.get("ps") or _NAMES.get(phen, phen),
+                # the feed's words, never its escape sequences
+                "name": plain_text(props.get("ps")) or _NAMES.get(phen, phen),
                 "expire": props.get("expire"),
                 "emergency": emergency,
                 "pds": bool(props.get("is_pds")),
-                "wind": props.get("windtag") or props.get("max_windtag"),
-                "hail": props.get("hailtag") or props.get("max_hailtag"),
-                "damage": (props.get("damagetag")
-                           or props.get("floodtag_damage")),
+                "wind": plain_text(props.get("windtag") or props.get("max_windtag")),
+                "hail": plain_text(props.get("hailtag") or props.get("max_hailtag")),
+                "damage": plain_text(props.get("damagetag")
+                                     or props.get("floodtag_damage")),
             }
             out.append((sev, color, rings, info))
     out.sort(key=lambda w: w[0])

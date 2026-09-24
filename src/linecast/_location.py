@@ -9,6 +9,7 @@ from linecast._cache import location_cache_key, read_cache, write_cache
 from linecast._config import saved_location
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._paths import cache_dir
+from linecast._plaintext import plain_text
 from linecast._runtime import log_failure
 
 _MAX_AGE = 3600  # 1 hour; implicit IP geolocation should refresh as users move.
@@ -69,6 +70,7 @@ def get_location() -> tuple[float | None, float | None, str | None]:
             data = fetch_json(url, headers={"Accept": "application/json"},
                               timeout=3)
             lat, lng, country = parse(data)
+            country = plain_text(country)
             break
         except Exception as exc:
             last = i == len(PROVIDERS) - 1

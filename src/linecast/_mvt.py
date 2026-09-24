@@ -7,7 +7,8 @@ project's no-dependency ethos (cf. the PNG decoder in _png.py).
 The decoder is deliberately tolerant of real-world tiles: unknown fields
 (vendor extensions) are skipped by wire type, tag indices that fall
 outside a layer's key/value tables drop that tag rather than raising,
-strings decode with errors="replace", and layers with an unsupported
+strings decode with errors="replace" and lose any terminal controls
+(see _plaintext), and layers with an unsupported
 version are ignored.  Truncated or structurally invalid input raises
 ValueError — callers treat a bad tile as missing and move on.
 
@@ -27,6 +28,8 @@ where each feature is {"id", "type", "tags", "geometry"}:
 import struct
 import zlib
 from typing import Any
+
+from linecast._plaintext import plain_text
 
 # vector_tile.GeomType
 POINT, LINESTRING, POLYGON = 1, 2, 3
@@ -120,7 +123,8 @@ def _value(buf):
     """
     for fn, _wt, v in _fields(buf):
         if fn == 1:
-            return v.decode("utf-8", errors="replace")
+            # names are drawn straight into the frame: text, not commands
+            return plain_text(v.decode("utf-8", errors="replace"))
         if fn == 2:
             return struct.unpack("<f", v)[0]
         if fn == 3:

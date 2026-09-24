@@ -46,6 +46,7 @@ from linecast._theme import (
 from linecast._geo import haversine_nm
 from linecast._i18n import GEOCODER_UNTRANSLATED
 from linecast._location import country_for_defaults, resolve_location
+from linecast._plaintext import plain_text
 from linecast._runtime import (
     TidesRuntime, current_runtime, install_banner, log_failure, set_current,
     tides_parser,
@@ -152,7 +153,7 @@ def _station_for_location(lat, lng, country_code, label=""):
         else:
             station_id, station_name = provider.nearest(lat, lng)
         if station_id is not None:
-            return provider, station_id, station_name
+            return provider, station_id, plain_text(station_name)
     return None, None, None
 
 
@@ -160,6 +161,8 @@ def _station_details(provider, station_id, station_name):
     """The station's metadata, its display name, and its time zone."""
     station_meta = provider.station_metadata(station_id)
     if station_meta:
+        # a station's name is the provider's text, never its escape sequences
+        station_meta = {key: plain_text(value) for key, value in station_meta.items()}
         meta_name = station_meta.get("name", "")
         meta_state = station_meta.get("state", "")
         if meta_name:
@@ -337,6 +340,7 @@ def _find_matching_stations(query, cli_location=None):
 
     here_lat, here_lng, _country = resolve_location(cli_location)
     for c in candidates:
+        c["name"] = plain_text(c.get("name", ""))
         try:
             c["dist_nm"] = haversine_nm(
                 here_lat, here_lng, float(c.pop("lat")), float(c.pop("lng")))
@@ -1283,7 +1287,7 @@ def main():
             provider = provider_for_id(override)
             if provider is not None:
                 station_id = override
-                station_name = provider.name_for_id(override)
+                station_name = plain_text(provider.name_for_id(override))
             else:
                 # Text query — pick the closest matching station (first match
                 # when the current location is unknown)

@@ -62,6 +62,7 @@ Fixes:
 - Install: The curl quick-start opens the sky with `sh -s sky`. It had turned the command away.
 - Maps, radar: A damaged or malformed map tile is skipped, as a missing one is, instead of using far more memory than its size.
 - Tides: A TideCheck API key is sent only to TideCheck. If a request were redirected to another server, the key would no longer go with it.
+- Maps, weather, tides, radar: Text from a map, search, route, or weather service is shown as text. A control sequence in a place name or an alert can no longer reach the terminal.
 
 ## 2.7.0 — 2026-09-19
 

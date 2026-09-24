@@ -22,6 +22,7 @@ from typing import Any
 
 from linecast import user_agent
 from linecast._http import fetch_json
+from linecast._plaintext import plain_text
 from linecast._rate_limit import RateLimit
 from linecast._runtime import debug_log, log_failure
 from linecast._scenes import Memo
@@ -97,8 +98,9 @@ def _parse(body, profile):
             loc = man.get("location")
             steps.append({
                 "distance_m": float(step.get("distance") or 0.0),
-                "name": step.get("name") or "",  # often "" on ramps
-                "ref": step.get("ref"),
+                # the router's words, never its escape sequences
+                "name": plain_text(step.get("name") or ""),  # often "" on ramps
+                "ref": plain_text(step.get("ref")),
                 "type": man.get("type") or "",
                 "modifier": man.get("modifier"),
                 # (lon, lat) like coords, so a step can be flown to

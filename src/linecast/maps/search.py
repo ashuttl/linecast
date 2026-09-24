@@ -25,6 +25,7 @@ from linecast._cache import read_cache, read_stale, write_cache
 from linecast._http import fetch_json
 from linecast._i18n import accept_language, base_language
 from linecast._paths import cache_dir
+from linecast._plaintext import plain_text
 from linecast._rate_limit import RateLimit
 from linecast._runtime import debug_log, log_failure
 
@@ -70,11 +71,12 @@ class Result:
 
     def __init__(self, name: str, detail: str, lat: float, lon: float, kind: str,
                  extent: tuple[float, float, float, float] | None = None) -> None:
-        self.name = name
-        self.detail = detail
+        # the geocoder's words, never its escape sequences
+        self.name = plain_text(name)
+        self.detail = plain_text(detail)
         self.lat = lat
         self.lon = lon
-        self.kind = kind
+        self.kind = plain_text(kind)
         self.extent = extent  # (minlon, minlat, maxlon, maxlat) or None
 
     def __repr__(self) -> str:
@@ -129,7 +131,9 @@ def photon_search(query: str, lat: float, lon: float, zoom: float, lang: str = "
 def _photon_result(feature):
     """One GeoJSON feature → Result, or None when it has no name."""
     props = feature.get("properties") or {}
-    name = (props.get("name") or "").strip()
+    # cleaned before the test for a name, so a name that was nothing
+    # but an escape sequence is no name
+    name = plain_text(props.get("name") or "").strip()
     if not name:
         street = (props.get("street") or "").strip()
         house = (props.get("housenumber") or "").strip()
@@ -208,9 +212,9 @@ def _nominatim_results(data):
 
 
 def _nominatim_result(item):
-    name = (item.get("name") or "").strip()
+    name = plain_text(item.get("name") or "").strip()
     if not name:
-        name = (item.get("display_name") or "").split(",")[0].strip()
+        name = plain_text(item.get("display_name") or "").split(",")[0].strip()
     if not name:
         return None
     addr = item.get("address") or {}
