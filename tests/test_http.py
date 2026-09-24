@@ -94,6 +94,31 @@ class _FakeConn:
         self.sock = None
 
 
+class _UrllibResponse(_Response):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _fake_opener(monkeypatch, open_):
+    """Replace urllib's opener with one whose open() is open_, and keep
+    the handlers fetch_bytes asked for, so a test can check them."""
+    import urllib.request
+    built = []
+
+    class _Opener:
+        def __init__(self, *handlers):
+            built.extend(handlers)
+
+        def open(self, req, timeout=None):
+            return open_(req, timeout=timeout)
+
+    monkeypatch.setattr(urllib.request, "build_opener", _Opener)
+    return built
+
+
 @pytest.fixture
 def conns(monkeypatch):
     _FakeConn.script = []
@@ -152,23 +177,15 @@ class TestFetchBytes:
         assert _http.fetch_bytes("https://h.example/") == b"not gzip"
 
     def test_proxied_path_inflates_too(self, monkeypatch):
-        import urllib.request
         seen = {}
 
-        class _Resp(_Response):
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *exc):
-                return False
-
-        def fake_urlopen(req, timeout=None):
+        def fake_open(req, timeout=None):
             seen["headers"] = {k.lower(): v for k, v in req.header_items()}
-            return _Resp(body=gzip.compress(b"via proxy"),
-                         headers={"Content-Encoding": "gzip"})
+            return _UrllibResponse(body=gzip.compress(b"via proxy"),
+                                   headers={"Content-Encoding": "gzip"})
 
+        _fake_opener(monkeypatch, fake_open)
         monkeypatch.setattr(_http, "_proxied", lambda: True)
-        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
         assert _http.fetch_bytes("https://h.example/") == b"via proxy"
         assert seen["headers"]["accept-encoding"] == "gzip"
 
@@ -263,9 +280,9 @@ class TestFetchBytes:
 
         def fake(url, headers, timeout, limit):
             seen.update(url=url, headers=headers, timeout=timeout)
-            return b"via proxy"
+            return 200, "OK", {}, b"via proxy"
 
-        monkeypatch.setattr(_http, "_fetch_bytes_urllib", fake)
+        monkeypatch.setattr(_http, "_request_urllib", fake)
         assert _http.fetch_bytes("https://h.example/", timeout=4) == b"via proxy"
         assert seen["timeout"] == 4 and "User-Agent" in seen["headers"]
         assert conns.instances == []
@@ -283,6 +300,181 @@ class TestFetchBytes:
     def test_fetch_json_decodes(self, conns):
         conns.script = [_Response(body=b'{"a": [1, 2]}')]
         assert _http.fetch_json("https://h.example/j") == {"a": [1, 2]}
+
+
+class TestRedirectCredentials:
+    """Issue #121: credentials stay on the origin they were sent to."""
+
+    @staticmethod
+    def _run(monkeypatch, url, responses, headers, proxied=False):
+        sent = []
+
+        def request(url, headers, timeout, limit):
+            sent.append((url, dict(headers)))
+            status, location = responses[len(sent) - 1]
+            return status, "Found", _Headers(
+                {"Location": location} if location else {}), b""
+
+        monkeypatch.setattr(_http, "_proxied", lambda: proxied)
+        monkeypatch.setattr(_http, "_request", request)
+        _http.fetch_bytes(url, headers=headers)
+        return sent
+
+    @staticmethod
+    def _keys(headers):
+        return {k.lower() for k in headers}
+
+    @pytest.mark.parametrize("target", [
+        "https://different.example/tides",       # host
+        "https://tides.example:8443/tides",      # port
+        "https://TIDES.example.evil/tides",      # a longer host
+    ])
+    @pytest.mark.parametrize("name", ["X-API-Key", "x-api-key",
+                                      "Authorization", "authorization"])
+    def test_cross_origin_redirect_drops_the_credential(self, monkeypatch,
+                                                        target, name):
+        sent = self._run(monkeypatch, "https://tides.example/v1",
+                         [(302, target), (200, None)],
+                         {name: "secret", "Accept": "application/json"})
+        assert sent[1][0] == target
+        assert name.lower() not in self._keys(sent[1][1])
+        assert sent[1][1]["Accept"] == "application/json"
+        assert sent[1][1]["User-Agent"].startswith("linecast/")
+        assert sent[1][1]["Accept-Encoding"] == "gzip"
+
+    def test_cross_scheme_upgrade_drops_the_credential(self, monkeypatch):
+        sent = self._run(monkeypatch, "http://tides.example/v1",
+                         [(301, "https://tides.example/v1"), (200, None)],
+                         {"X-API-Key": "secret"})
+        assert "x-api-key" not in self._keys(sent[1][1])
+
+    def test_every_credential_header_is_dropped(self, monkeypatch):
+        sent = self._run(monkeypatch, "https://tides.example/v1",
+                         [(302, "https://other.example/"), (200, None)],
+                         {"Authorization": "a", "Proxy-Authorization": "b",
+                          "COOKIE": "c", "X-Api-Key": "d"})
+        assert not self._keys(sent[1][1]) & _http._SENSITIVE_HEADERS
+
+    def test_dropped_credentials_do_not_come_back(self, monkeypatch):
+        sent = self._run(monkeypatch, "https://tides.example/v1",
+                         [(302, "https://other.example/"),
+                          (302, "https://tides.example/v2"), (200, None)],
+                         {"X-API-Key": "secret"})
+        assert sent[2][0] == "https://tides.example/v2"
+        assert "x-api-key" not in self._keys(sent[2][1])
+
+    @pytest.mark.parametrize("name", ["X-API-Key", "authorization"])
+    def test_keyed_https_to_http_downgrade_raises(self, monkeypatch, name):
+        with pytest.raises(_http.HTTPError) as info:
+            self._run(monkeypatch, "https://tides.example/v1",
+                      [(302, "http://tides.example/v1"), (200, None)],
+                      {name: "secret"})
+        assert info.value.code == 302
+        assert "HTTPS to HTTP" in str(info.value)
+
+    def test_unkeyed_https_to_http_downgrade_is_followed(self, monkeypatch):
+        sent = self._run(monkeypatch, "https://tiles.example/1.png",
+                         [(302, "http://tiles.example/1.png"), (200, None)],
+                         {"Accept": "image/png"})
+        assert sent[1] == ("http://tiles.example/1.png", sent[0][1])
+
+    def test_downgrade_after_the_key_was_dropped_is_followed(self, monkeypatch):
+        sent = self._run(monkeypatch, "https://tides.example/v1",
+                         [(302, "https://cdn.example/v1"),
+                          (302, "http://cdn.example/v1"), (200, None)],
+                         {"X-API-Key": "secret"})
+        assert sent[2][0] == "http://cdn.example/v1"
+
+    @pytest.mark.parametrize("target", [
+        "https://tides.example/v2",
+        "https://TIDES.Example:443/v2",   # default port, other case
+        "/v2",                            # relative
+        "v2",
+        "?page=2",
+    ])
+    def test_same_origin_redirect_keeps_the_credential(self, monkeypatch,
+                                                       target):
+        sent = self._run(monkeypatch, "https://tides.example/v1",
+                         [(307, target), (200, None)],
+                         {"X-API-Key": "secret"})
+        assert sent[1][1]["X-API-Key"] == "secret"
+
+    def test_protocol_relative_location_is_another_origin(self, monkeypatch):
+        sent = self._run(monkeypatch, "https://tides.example/v1",
+                         [(302, "//other.example/v1"), (200, None)],
+                         {"X-API-Key": "secret"})
+        assert sent[1][0] == "https://other.example/v1"
+        assert "x-api-key" not in self._keys(sent[1][1])
+
+    def test_proxied_path_drops_the_key_across_origins(self, monkeypatch):
+        import urllib.error
+        seen = []
+
+        def fake_open(req, timeout=None):
+            seen.append((req.full_url, {k.lower(): v
+                                        for k, v in req.header_items()}))
+            if len(seen) == 1:
+                raise urllib.error.HTTPError(
+                    req.full_url, 302, "Found",
+                    _Headers({"Location": "https://different.example/tides"}),
+                    BytesIO(b""))
+            return _UrllibResponse(body=b"{}")
+
+        built = _fake_opener(monkeypatch, fake_open)
+        monkeypatch.setattr(_http, "_proxied", lambda: True)
+        assert _http.fetch_bytes("https://original.example/tides",
+                                 headers={"X-API-Key": "k"}) == b"{}"
+        assert seen[0][1]["x-api-key"] == "k"
+        assert seen[1][0] == "https://different.example/tides"
+        assert "x-api-key" not in seen[1][1]
+        assert "user-agent" in seen[1][1]
+        # urllib must not follow redirects itself behind our back
+        import urllib.request
+        assert built and all(
+            issubclass(h, urllib.request.HTTPRedirectHandler) for h in built)
+        assert built[0]().redirect_request(None, None, 302, "Found", {},
+                                           "https://x.example/") is None
+
+    def test_proxied_path_refuses_a_keyed_downgrade(self, monkeypatch):
+        import urllib.error
+
+        def fake_open(req, timeout=None):
+            raise urllib.error.HTTPError(
+                req.full_url, 301, "Moved",
+                _Headers({"Location": "http://original.example/tides"}),
+                BytesIO(b""))
+
+        _fake_opener(monkeypatch, fake_open)
+        monkeypatch.setattr(_http, "_proxied", lambda: True)
+        with pytest.raises(_http.HTTPError):
+            _http.fetch_bytes("https://original.example/tides",
+                              headers={"Authorization": "Bearer k"})
+
+    def test_proxied_path_refuses_a_file_redirect(self, monkeypatch):
+        import urllib.error
+
+        def fake_open(req, timeout=None):
+            raise urllib.error.HTTPError(
+                req.full_url, 302, "Found",
+                _Headers({"Location": "file:///etc/passwd"}), BytesIO(b""))
+
+        _fake_opener(monkeypatch, fake_open)
+        monkeypatch.setattr(_http, "_proxied", lambda: True)
+        with pytest.raises(ValueError):
+            _http.fetch_bytes("https://original.example/tides")
+
+    def test_proxied_non_2xx_is_our_http_error(self, monkeypatch):
+        import urllib.error
+
+        def fake_open(req, timeout=None):
+            raise urllib.error.HTTPError(req.full_url, 404, "Not Found",
+                                         _Headers(), BytesIO(b"nope"))
+
+        _fake_opener(monkeypatch, fake_open)
+        monkeypatch.setattr(_http, "_proxied", lambda: True)
+        with pytest.raises(_http.HTTPError) as info:
+            _http.fetch_bytes("https://h.example/missing")
+        assert info.value.code == 404 and info.value.body == b"nope"
 
 
 class TestFetchBytesCached:

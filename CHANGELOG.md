@@ -60,6 +60,7 @@ Fixes:
 - Radar: Cached NEXRAD frames are cleared after a day, like other sources' tiles, so the cache no longer grows without limit.
 - Install: The curl quick-start opens the sky with `sh -s sky`. It had turned the command away.
 - Maps, radar: A damaged or malformed map tile is skipped, as a missing one is, instead of using far more memory than its size.
+- Tides: A TideCheck API key is sent only to TideCheck. If a request were redirected to another server, the key would no longer go with it.
 
 ## 2.7.0 — 2026-09-19
 
