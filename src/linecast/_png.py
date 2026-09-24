@@ -15,6 +15,13 @@ from collections import OrderedDict
 _SIG = b"\x89PNG\r\n\x1a\n"
 _CHANNELS = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}  # channels by colour type at 8-bit
 
+# Checked against IHDR before anything is inflated or allocated.  Map
+# tiles are 256 or 512 square and the largest bundled image (the climate
+# grid) is 3600x1800, 6.5 Mpx; 16 Mpx is 64 MiB of RGBA out, well clear
+# of both and far short of what a lying header could ask for.
+_MAX_SIDE = 16384
+_MAX_PIXELS = 1 << 24
+
 
 class PNGError(Exception):
     pass
@@ -105,6 +112,8 @@ def decode_rgba(data):
         pos += 12 + length  # length + type + data + CRC
 
         if ctype == b"IHDR":
+            if len(body) != 13:
+                raise PNGError("bad IHDR")
             (width, height, depth, color_type, _c, _f, interlace) = struct.unpack(
                 ">IIBBBBB", body)
         elif ctype == b"PLTE":
@@ -116,6 +125,11 @@ def decode_rgba(data):
         elif ctype == b"IEND":
             break
 
+    if width is None:
+        raise PNGError("no IHDR")
+    if not (0 < width <= _MAX_SIDE and 0 < height <= _MAX_SIDE
+            and width * height <= _MAX_PIXELS):
+        raise PNGError(f"unreasonable size {width}x{height}")
     if depth != 8 and not (depth in (1, 2, 4) and color_type in (0, 3)):
         raise PNGError(f"unsupported bit depth {depth}")
     if interlace:
@@ -125,7 +139,19 @@ def decode_rgba(data):
 
     channels = _CHANNELS[color_type]
     stride = (width * channels * depth + 7) // 8
-    raw = zlib.decompress(bytes(idat))
+    # the declared size fixes the inflated length exactly — a filter
+    # byte and a stride per row — so inflate no further than one byte
+    # past it: a small IDAT can't expand beyond the image it claims
+    expected = height * (1 + stride)
+    inflater = zlib.decompressobj()
+    try:
+        raw = inflater.decompress(bytes(idat), expected + 1)
+    except zlib.error as exc:
+        raise PNGError(f"bad image data: {exc}") from exc
+    if len(raw) > expected:
+        raise PNGError("more image data than the header declares")
+    if len(raw) < expected or not inflater.eof:
+        raise PNGError("image data cut short")
 
     # unfilter scanlines — the hot loop of every map the terminal draws,
     # so the two filters with no left-neighbour dependency (None, Up)

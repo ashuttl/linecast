@@ -64,8 +64,11 @@ from linecast.weather.render import (
     render_header,
     render_hourly,
 )
+from linecast.weather.alerts import alerts_notice
 from linecast.weather.historical import fetch_historical
 from linecast.weather.sources import (
+    ALERTS_UNAVAILABLE,
+    AlertList,
     _local_now_for_data,
     _reverse_geocode,
     _search_locations,
@@ -458,6 +461,11 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
     alert_lines, alert_spans = (
         render_alerts_mapped(alerts, width=cols, runtime=runtime, tz_name=tz_name)
         if alerts else ([], []))
+    # Under the badges, or alone where they would be: a word when the
+    # alert service could not be asked. Never a click target.
+    alert_note = alerts_notice(alerts, cols, runtime=runtime, tz_name=tz_name)
+    if alert_note:
+        alert_lines = [*alert_lines, alert_note]
     narrative = narrative_lines(data, now_local, cols, runtime)
     daily_lines_rendered, daily_spans = render_daily_mapped(data, cols, runtime, now=now_local)
 
@@ -641,7 +649,7 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
 
     # Alerts — badges to a line, wrapping where they run out of room
     alert_row_map = {}  # 0-based line index → [(first col, last col, alert index)]
-    if alerts:
+    if alert_lines:
         lines.append("")
         alert_start = len(lines)
         lines.extend(alert_lines)
@@ -897,7 +905,7 @@ class WeatherApp(_live.LiveApp):
                 Result(self.location_name, '', self.lat, self.lng, 'point'))
         self.lat, self.lng = place.lat, place.lon
         self.data = result['data']
-        self.alerts = result.get('alerts') or []
+        self.alerts = result.get('alerts', [])
         self.aqi = result.get('aqi')
         self.historical = result.get('historical')
         self.country = result.get('country_code', '')
@@ -1151,7 +1159,8 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
                 "historical averages", None, patience)
             if again is not None:
                 result["historical"] = again
-    result["alerts"] = _settle(fut_alerts, "alerts", [])
+    # A feed that raised or ran out the deadline was not heard from.
+    result["alerts"] = _settle(fut_alerts, "alerts", AlertList(status=ALERTS_UNAVAILABLE))
 
     # A place no geocoder can name shows its coordinates, as radar and
     # maps do — never the timezone city, which can be a continent away

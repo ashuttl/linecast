@@ -2,13 +2,15 @@
 
 import re
 import sys
+from contextvars import ContextVar
 from datetime import date, datetime, timezone, timedelta
 from typing import Any
 
-from linecast._cache import read_cache, write_cache, location_cache_key
+from linecast._cache import is_fresh, read_cache, write_cache, location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._i18n import accept_language, base_language, geocoder_language
 from linecast._paths import cache_dir
+from linecast._plaintext import plain_text
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure
 
 # The forecast, the air quality, and the geocoder are Open-Meteo's, and
@@ -136,7 +138,8 @@ def _reverse_geocode(lat, lng, lang=None):
     if (cached and cached.get("lat") == round(lat, 4)
             and cached.get("lng") == round(lng, 4)
             and cached.get("lang", None) == lang):
-        return cached.get("name", ""), cached.get("country_code", ""), cached.get("address", {})
+        return (plain_text(cached.get("name", "")), cached.get("country_code", ""),
+                _plain_values(cached.get("address", {})))
 
     try:
         url = (
@@ -148,7 +151,7 @@ def _reverse_geocode(lat, lng, lang=None):
         from linecast.maps.search import _throttle
         _throttle()
         data = fetch_json(url, timeout=10)
-        addr = data.get("address", {})
+        addr = _plain_values(data.get("address", {}))
         # Nominatim files small places under keys all the way down to
         # hamlet (Fayette, Maine is one); without them the name comes back
         # empty and the caller falls back to the timezone city (issue #50).
@@ -174,6 +177,13 @@ def _reverse_geocode(lat, lng, lang=None):
         "address": addr,
     })
     return display, country_code, addr
+
+
+def _plain_values(mapping):
+    """A geocoder's dict with the terminal controls out of its strings."""
+    if not isinstance(mapping, dict):
+        return mapping
+    return {key: plain_text(value) for key, value in mapping.items()}
 
 
 def forecast_date(data) -> "date | None":
@@ -628,6 +638,76 @@ MAX_ALERTS = 8
 
 _SEVERITY_RANK = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
 
+# How a fetch_alerts answer came to be (issue #122). An empty list is
+# either a service saying nothing is in force or a service that could
+# not be asked, and the reader must be able to tell the two apart.
+ALERTS_OK = "ok"                    # the provider answered, now or within its cache time
+ALERTS_STALE = "stale"              # it did not; an older copy stands in
+ALERTS_UNAVAILABLE = "unavailable"  # it did not, and there is no copy
+ALERTS_UNSUPPORTED = "unsupported"  # linecast has no feed for the country
+
+
+class AlertList(list):
+    """The alerts, a list like any other, carrying how they were got.
+
+    `status` is one of the ALERTS_* values; `fetched_at` is when the
+    provider last answered, ISO 8601 in UTC, or None when that is not
+    known. A caller that only wants the alerts can ignore both.
+    """
+
+    def __init__(self, alerts=(), status=ALERTS_OK, fetched_at=None):
+        super().__init__(alerts)
+        self.status = status
+        self.fetched_at = fetched_at
+
+
+def alerts_status(alerts) -> dict[str, Any]:
+    """The status of a fetch_alerts answer, as `--json` gives it. A
+    plain list, from before there was a status, reads as a good one."""
+    return {
+        "status": getattr(alerts, "status", ALERTS_OK),
+        "fetched_at": getattr(alerts, "fetched_at", None),
+    }
+
+
+# The record the provider in hand leaves for fetch_alerts, by thread:
+# the dashboard fetches the alerts on a worker of its own.
+_ALERT_CHECK: "ContextVar[dict[str, Any] | None]" = ContextVar(
+    "linecast_alert_check", default=None)
+
+
+def _utc_iso(timestamp):
+    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat(timespec="seconds")
+
+
+def _note_alert_cache(cache_file, max_age, data):
+    """Record how a provider's feed came, for fetch_alerts to report.
+
+    Called just after the feed's cached fetch. The cache file's age says
+    it: a fetch that succeeds writes the file, so a file within
+    `max_age` is an answer from the provider, now or lately; an older
+    one is the stale copy fetch_json_cached stood in with; no file is a
+    failure with nothing to stand in, unless the fetch brought data and
+    only the cache could not be written.
+    """
+    check = _ALERT_CHECK.get()
+    if check is None:
+        return
+    try:
+        mtime = cache_file.stat().st_mtime
+    except OSError:
+        mtime = None
+    if mtime is None:
+        if data is None or (isinstance(data, (list, bytes)) and not data):
+            check.update(status=ALERTS_UNAVAILABLE, fetched_at=None)
+        else:
+            check.update(status=ALERTS_OK,
+                         fetched_at=_utc_iso(datetime.now(timezone.utc).timestamp()))
+    elif is_fresh(mtime, max_age):
+        check.update(status=ALERTS_OK, fetched_at=_utc_iso(mtime))
+    else:
+        check.update(status=ALERTS_STALE, fetched_at=_utc_iso(mtime))
+
 
 def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en",
                  address: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -644,9 +724,21 @@ def fetch_alerts(lat: float, lng: float, country_code: str = "", lang: str = "en
     stands in for as long as the provider is unreachable, so without
     this a wind advisory fetched on Tuesday could still be listed on
     Thursday (issue #70).
+
+    The answer is an AlertList, which says besides whether the provider
+    answered, a stale copy stood in, or neither (issue #122): an empty
+    list alone cannot tell "no warnings" from "could not check".
     """
-    alerts = _fetch_alerts_routed(lat, lng, country_code, lang, address)
-    return _trim_alerts(_drop_expired(alerts))
+    country_code = (country_code or "").upper()
+    if alert_source(country_code) is None:
+        return AlertList(status=ALERTS_UNSUPPORTED)
+    check = {"status": ALERTS_OK, "fetched_at": None}
+    token = _ALERT_CHECK.set(check)
+    try:
+        alerts = _fetch_alerts_routed(lat, lng, country_code, lang, address)
+    finally:
+        _ALERT_CHECK.reset(token)
+    return AlertList(_trim_alerts(_drop_expired(alerts)), **check)
 
 
 def _alert_expiry(alert):
@@ -691,7 +783,18 @@ def _trim_alerts(alerts):
     severity; an unknown severity sorts last.
     """
     ranked = sorted(alerts, key=lambda a: _SEVERITY_RANK.get(a.get("severity"), 9))
-    return ranked[:MAX_ALERTS]
+    return [_plain_alert(alert) for alert in ranked[:MAX_ALERTS]]
+
+
+def _plain_alert(alert):
+    """An alert with a feed's terminal controls taken out of its text.
+
+    Done here, where every provider's list passes on its way out, so a
+    list read back from a provider's cache is cleaned too.  The
+    description keeps its line breaks, which mark its paragraphs.
+    """
+    return {key: plain_text(value, lines=key == "description")
+            for key, value in alert.items()}
 
 
 def _fetch_alerts_routed(lat, lng, country_code, lang, address):
@@ -733,6 +836,7 @@ def _fetch_alerts_nws(lat, lng):
         timeout=10,
         fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -746,13 +850,32 @@ def _fetch_alerts_nws(lat, lng):
             "event": props.get("event", ""),
             "headline": props.get("headline", ""),
             "description": props.get("description", ""),
-            "effective": props.get("effective", ""),
-            "expires": props.get("expires", ""),
+            **_nws_window(props),
             "severity": props.get("severity", ""),
             "url": props.get("web", ""),
         })
     write_cache(cache_file, alerts)
     return alerts
+
+
+def _nws_window(props):
+    """The effective and expires of a normalized alert from NWS alert
+    properties: when the hazard begins and ends.
+
+    NWS's own effective and expires are the bulletin's: issued now, good
+    until the next update. A High Wind Watch for Saturday is issued on
+    Wednesday and expires Thursday morning, to be reissued. The event
+    runs from onset to ends. ends is null when there is no set end, and
+    then expires stands in, unless it falls before the onset, which says
+    nothing about the event at all.
+    """
+    start = props.get("onset") or props.get("effective") or ""
+    end = props.get("ends") or props.get("expires") or ""
+    if not props.get("ends"):
+        onset, expires = _parse_iso_aware(start), _parse_iso_aware(end)
+        if onset and expires and expires <= onset:
+            end = ""
+    return {"effective": start, "expires": end}
 
 
 def _fetch_alerts_eccc(lat, lng, lang="en"):
@@ -775,6 +898,7 @@ def _fetch_alerts_eccc(lat, lng, lang="en"):
         timeout=10,
         fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -844,6 +968,7 @@ def _fetch_alerts_brightsky(lat, lng, lang="en"):
         cache_file, 900, url,
         timeout=10, fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -864,7 +989,7 @@ def _fetch_alerts_brightsky(lat, lng, lang="en"):
             "event": event.capitalize() if event else "",
             "headline": headline,
             "description": description,
-            "effective": a.get("effective", ""),
+            "effective": a.get("onset") or a.get("effective") or "",
             "expires": a.get("expires", ""),
             "severity": severity,
             "url": "",
@@ -887,6 +1012,7 @@ def _fetch_alerts_metno(lat, lng):
         cache_file, 900, url,
         timeout=10, fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -1003,6 +1129,7 @@ def _fetch_alerts_meteireann(lat, lng, address=None):
         headers={"Accept": "application/json"},
         timeout=10, fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -1126,6 +1253,7 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
             url, headers={"Accept": "application/json"}, timeout=timeout,
             limit=_METEOALARM_FEED_BYTES),
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -1216,7 +1344,7 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
             "event": event,
             "headline": info.get("headline") or event,
             "description": info.get("description") or "",
-            "effective": info.get("effective") or info.get("onset") or "",
+            "effective": info.get("onset") or info.get("effective") or "",
             "expires": info.get("expires") or "",
             "severity": severity,
             "url": info.get("web") or "",
@@ -1688,6 +1816,7 @@ def _fetch_alerts_jma(lat, lng, lang="en", address=None):
         cache_file, 900, url,
         timeout=10, fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -1814,6 +1943,7 @@ def _fetch_alerts_hko(lang="en"):
     cache_file = cache_dir("weather") / f"alerts_hk_{feed}.json"
     url = HKO_WARNINGS_URL.format(lang=feed)
     data = fetch_json_cached(cache_file, 600, url, timeout=10, fallback=[])
+    _note_alert_cache(cache_file, 600, data)
     if isinstance(data, list):
         return data
 
@@ -1940,6 +2070,7 @@ def _fetch_alerts_cma(lat, lng, lang="en"):
         "http://www.nmc.cn/rest/findAlarm?pageNo=1&pageSize=500",
         timeout=10, fallback=[],
     )
+    _note_alert_cache(cache_file, 900, data)
     if isinstance(data, list):
         return data
 
@@ -2084,10 +2215,12 @@ def _fetch_alerts_sachet(lat, lng, lang="en"):
     """
     import math
 
+    feed_file = cache_dir("weather") / "alerts_in_feed.json"
     feed = fetch_json_cached(
-        cache_dir("weather") / "alerts_in_feed.json", 900,
+        feed_file, 900,
         _SACHET_FEED_URL, timeout=15, fallback=None,
     )
+    _note_alert_cache(feed_file, 900, feed)
     if not isinstance(feed, list):
         return []
 
@@ -2294,7 +2427,7 @@ def _sachet_alert_from_cap(entry, lang):
         "event": event or "Alert",
         "headline": headline or event,
         "description": description or headline,
-        "effective": info.get("effective") or info.get("onset") or "",
+        "effective": info.get("onset") or info.get("effective") or "",
         "expires": info.get("expires", ""),
         "severity": severity,
         "url": "https://sachet.ndma.gov.in/",
@@ -2328,9 +2461,9 @@ def _fetch_alerts_metservice(lat, lng):
 
     from linecast._http import fetch_bytes_cached
 
-    raw = fetch_bytes_cached(
-        cache_dir("weather") / "alerts_nz_feed.xml", 900,
-        _METSERVICE_FEED_URL, timeout=15)
+    feed_file = cache_dir("weather") / "alerts_nz_feed.xml"
+    raw = fetch_bytes_cached(feed_file, 900, _METSERVICE_FEED_URL, timeout=15)
+    _note_alert_cache(feed_file, 900, raw)
     if not raw:
         return []
     try:
@@ -2453,7 +2586,7 @@ def _metservice_alert_from_cap(identifier, lat, lng):
         "event": event,
         "headline": headline or event,
         "description": " ".join(info.get("description", "").split()),
-        "effective": info.get("effective") or info.get("onset") or "",
+        "effective": info.get("onset") or info.get("effective") or "",
         "expires": info.get("expires", ""),
         "severity": severity,
         "url": info.get("web") or "https://www.metservice.com/warnings/home",
@@ -2478,7 +2611,7 @@ def _photon_query(query, lang="en", timeout=10):
     results = []
     for feature in data.get("features") or []:
         props = feature.get("properties") or {}
-        name = (props.get("name") or "").strip()
+        name = plain_text(props.get("name") or "").strip()
         coords = (feature.get("geometry") or {}).get("coordinates") or []
         if not name or len(coords) < 2:
             continue
@@ -2486,8 +2619,8 @@ def _photon_query(query, lang="en", timeout=10):
             "name": name,
             "latitude": float(coords[1]),
             "longitude": float(coords[0]),
-            "admin1": props.get("state", ""),
-            "country": props.get("country", ""),
+            "admin1": plain_text(props.get("state", "")),
+            "country": plain_text(props.get("country", "")),
             "country_code": props.get("countrycode", ""),
         })
     return results
@@ -2513,7 +2646,7 @@ def _geocode_query(query, lang="en"):
                         fallback="exiting")
             print(f"Search failed: {exc}", file=sys.stderr)
             sys.exit(1)
-    return data.get("results", [])
+    return [_plain_values(r) for r in data.get("results") or []]
 
 
 def geocode_first(query: str, lang: str = "en") -> tuple[float, float, str] | None:

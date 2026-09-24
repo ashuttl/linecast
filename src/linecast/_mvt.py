@@ -7,7 +7,8 @@ project's no-dependency ethos (cf. the PNG decoder in _png.py).
 The decoder is deliberately tolerant of real-world tiles: unknown fields
 (vendor extensions) are skipped by wire type, tag indices that fall
 outside a layer's key/value tables drop that tag rather than raising,
-strings decode with errors="replace", and layers with an unsupported
+strings decode with errors="replace" and lose any terminal controls
+(see _plaintext), and layers with an unsupported
 version are ignored.  Truncated or structurally invalid input raises
 ValueError — callers treat a bad tile as missing and move on.
 
@@ -24,10 +25,11 @@ where each feature is {"id", "type", "tags", "geometry"}:
   into exterior/hole sets with assemble_polygons()
 """
 
-import gzip
 import struct
 import zlib
 from typing import Any
+
+from linecast._plaintext import plain_text
 
 # vector_tile.GeomType
 POINT, LINESTRING, POLYGON = 1, 2, 3
@@ -121,7 +123,8 @@ def _value(buf):
     """
     for fn, _wt, v in _fields(buf):
         if fn == 1:
-            return v.decode("utf-8", errors="replace")
+            # names are drawn straight into the frame: text, not commands
+            return plain_text(v.decode("utf-8", errors="replace"))
         if fn == 2:
             return struct.unpack("<f", v)[0]
         if fn == 3:
@@ -205,20 +208,38 @@ def _feature(buf, keys, values):
             "geometry": _geometry(geom)}
 
 
+# A wrapped tile inflates no further than an unwrapped one could arrive:
+# the HTTP layer takes a body of up to 16 MiB (_http.MAX_BODY_BYTES).
+# Real vector tiles decode to a few MB at most.
+MAX_DECODED_BYTES = 16 * 1024 * 1024
+
+
+def _inflate(data: bytes, wbits: int) -> bytes:
+    """Inflate a gzip or zlib wrapper within MAX_DECODED_BYTES."""
+    inflater = zlib.decompressobj(wbits)
+    # a wrapper cut short or mangled is one more corrupt tile to the
+    # caller, as is one that inflates past the budget
+    try:
+        out = inflater.decompress(data, MAX_DECODED_BYTES + 1)
+    except zlib.error as exc:
+        raise ValueError(f"bad compression: {exc}") from exc
+    if len(out) > MAX_DECODED_BYTES:
+        raise ValueError("bad compression: tile inflates past "
+                         f"{MAX_DECODED_BYTES} bytes")
+    if not inflater.eof:
+        raise ValueError("bad compression: stream cut short")
+    return out
+
+
 def decode_tile(data: bytes) -> dict[str, dict[str, Any]]:
     """MVT bytes (raw, gzip-, or zlib-wrapped) -> {layer_name: layer}.
 
     Empty input (a 0-byte "empty tile" response) decodes to {}.
     """
-    # a wrapper cut short raises its own kinds (EOFError, zlib.error,
-    # gzip's OSError); to the caller it is one more corrupt tile
-    try:
-        if data[:2] == b"\x1f\x8b":
-            data = gzip.decompress(data)
-        elif data[:1] == b"\x78":
-            data = zlib.decompress(data)
-    except (OSError, EOFError, zlib.error) as exc:
-        raise ValueError(f"bad compression: {exc}") from exc
+    if data[:2] == b"\x1f\x8b":
+        data = _inflate(data, 16 + zlib.MAX_WBITS)
+    elif data[:1] == b"\x78":
+        data = _inflate(data, zlib.MAX_WBITS)
     layers = {}
     for fn, _wt, v in _fields(data):
         if fn != 3:  # Tile.layers

@@ -14,6 +14,12 @@ body the server declares gzipped comes back inflated, under the same
 byte cap as a plain one; Open-Meteo's ten-year archive is a quarter of
 the size on the wire that way.  A pre-gzipped body a static host serves
 without declaring it is left alone, for the caller to sniff.
+
+Redirects are followed here too, on both paths, and credentials do not
+follow them off their origin: once a hop leaves the (scheme, host, port)
+the request started on, Authorization, Cookie, X-API-Key and kin are
+dropped for the rest of the chain, and a keyed request redirected from
+HTTPS to plain HTTP fails rather than going out in the clear.
 """
 
 import json
@@ -33,6 +39,12 @@ if TYPE_CHECKING:
 
 _REDIRECTS = (301, 302, 303, 307, 308)
 _MAX_REDIRECTS = 5
+
+# Headers that carry a credential, lowercased.  They go only to the
+# origin they were meant for; see _redirect_headers.
+_SENSITIVE_HEADERS = frozenset(
+    ("authorization", "proxy-authorization", "cookie", "x-api-key"))
+_DEFAULT_PORTS = {"http": 80, "https": 443}
 
 # Hard ceilings on how much of a response body we will hold.  Real
 # payloads run a few hundred KB at most; anything bigger is a broken or
@@ -136,11 +148,73 @@ def _proxied():
     return False
 
 
-def _fetch_bytes_urllib(url, headers, timeout, limit):
+def _check_scheme(parts):
+    scheme = parts.scheme.lower()
+    if scheme not in ("http", "https"):
+        raise ValueError(f"unsupported URL scheme {scheme or '(none)'!r} "
+                         f"for host {parts.hostname or '(none)'!r}")
+    return scheme
+
+
+def _request_urllib(url, headers, timeout, limit):
+    """One GET through urllib, which honours the proxy environment.
+
+    Same contract as _request.  urllib's own redirect handling is
+    switched off, so a 3xx comes back here and fetch_bytes follows it
+    under the same credential policy as the direct path; left to itself,
+    urllib would carry every header to wherever the Location pointed.
+    """
+    import urllib.error
     import urllib.request
+
+    class _NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *args, **kwargs):
+            return None  # the 3xx surfaces as an HTTPError below
+
+    _check_scheme(urllib.parse.urlsplit(url))
+    opener = urllib.request.build_opener(_NoRedirect)
     req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return _inflate(resp.headers, read_limited(resp, limit), limit)
+    try:
+        with opener.open(req, timeout=timeout) as resp:
+            body = _inflate(resp.headers, read_limited(resp, limit), limit)
+            return resp.status, resp.reason, resp.headers, body
+    except urllib.error.HTTPError as exc:
+        with exc:
+            body = read_limited(exc, limit) if exc.fp is not None else b""
+        return exc.code, exc.reason, exc.headers, body
+
+
+def _origin(url):
+    """(scheme, host, port) with the scheme's default port filled in, so
+    https://h.example and https://h.example:443 are the same origin."""
+    parts = urllib.parse.urlsplit(url)
+    scheme = parts.scheme.lower()
+    host = (parts.hostname or "").lower()
+    return scheme, host, parts.port or _DEFAULT_PORTS.get(scheme)
+
+
+def _redirect_headers(origin, url, target, headers, status, reason,
+                      resp_headers):
+    """The headers to send to a redirect target.
+
+    Same origin keeps them all.  A different origin gets them without
+    the credentials, and since the caller carries the result forward,
+    a later hop back to the first origin does not get them back either.
+    A request still carrying a credential that is sent from HTTPS to
+    HTTP raises instead: the server asked for the key in the clear.
+    """
+    sensitive = [k for k in headers if k.lower() in _SENSITIVE_HEADERS]
+    if not sensitive or _origin(target) == origin:
+        return headers
+    if (urllib.parse.urlsplit(url).scheme.lower() == "https"
+            and urllib.parse.urlsplit(target).scheme.lower() == "http"):
+        raise HTTPError(url, status,
+                        f"{reason}: refusing to follow an authenticated "
+                        f"redirect from HTTPS to HTTP", resp_headers)
+    if debug_enabled():
+        debug_log(f"redirect leaves the origin; dropping {', '.join(sensitive)}")
+    return {k: v for k, v in headers.items()
+            if k.lower() not in _SENSITIVE_HEADERS}
 
 
 def _connection(key, timeout):
@@ -188,10 +262,7 @@ def _request(url, headers, timeout, limit):
     brand-new connection that fails is not retried.
     """
     parts = urllib.parse.urlsplit(url)
-    scheme = parts.scheme.lower()
-    if scheme not in ("http", "https"):
-        raise ValueError(f"unsupported URL scheme {scheme or '(none)'!r} "
-                         f"for host {parts.hostname or '(none)'!r}")
+    scheme = _check_scheme(parts)
     key = (scheme, parts.hostname, parts.port)
     selector = parts.path or "/"
     if parts.query:
@@ -222,7 +293,8 @@ def fetch_bytes(url: str, headers: dict[str, str] | None = None,
     Raises HTTPError for a non-2xx status, OSError (timeouts, refused
     connections, TLS failures) on transport trouble, and ValueError for
     invalid gzip or a body past the limit, compressed or inflated. file:// URLs read
-    the local file, as they did under urllib.
+    the local file, as they did under urllib.  Redirects are followed,
+    with credentials kept to the starting origin (see _redirect_headers).
     """
     if debug_enabled():
         debug_log(f"fetch {redact_url(url)}")
@@ -237,16 +309,19 @@ def fetch_bytes(url: str, headers: dict[str, str] | None = None,
         path = url2pathname(urllib.parse.urlsplit(url).path)
         with open(path, "rb") as fh:
             return fh.read()
-    if _proxied():
-        return _fetch_bytes_urllib(url, hdrs, timeout, limit)
+    request = _request_urllib if _proxied() else _request
+    origin = _origin(url)
     for _ in range(_MAX_REDIRECTS + 1):
-        status, reason, resp_headers, body = _request(url, hdrs, timeout, limit)
+        status, reason, resp_headers, body = request(url, hdrs, timeout, limit)
         if 200 <= status < 300:
             return body
         target = resp_headers.get("Location") if status in _REDIRECTS else None
         if not target:
             raise HTTPError(url, status, reason, resp_headers, body)
-        url = urllib.parse.urljoin(url, target)
+        target = urllib.parse.urljoin(url, target)
+        hdrs = _redirect_headers(origin, url, target, hdrs, status, reason,
+                                 resp_headers)
+        url = target
         if debug_enabled():
             debug_log(f"redirect -> {redact_url(url)}")
     raise HTTPError(url, status, "too many redirects", resp_headers, body)

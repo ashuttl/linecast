@@ -316,6 +316,25 @@ class TestPrecipitationPeak:
         assert self._sentence(self._hourly(codes, amounts), use_24h=False) == \
             "Light drizzle turning to heavy rain around 11pm and ending overnight"
 
+    def test_a_turn_to_rain_is_when_the_rain_begins(self):
+        # Kathmandu: light drizzle now, light rain from 21:00, and the
+        # most of it, plain rain, from 23:00 on.  The turn is at nine,
+        # named by the rain it becomes.
+        codes = [51, 51, 53, 61, 61, 63, 63, 63, 63, 63]
+        amounts = [0.01, 0.01, 0.02, 0.05, 0.06, 0.12, 0.14, 0.12, 0.1, 0.1]
+        assert self._sentence(self._hourly(codes, amounts)) == \
+            "Light drizzle turning to rain in a couple hours and lasting through the day"
+
+    def test_a_turn_two_hours_off_is_not_what_is_falling_now(self):
+        # Tokyo: drizzle now, rain from the hour after next.  The header
+        # says drizzle, so the prose does too.
+        codes = [51, 53, 61, 63, 63, 63, 63, 63]
+        amounts = [0.01, 0.03, 0.06, 0.15, 0.12, 0.12, 0.1, 0.1]
+        hourly = self._hourly(codes, amounts)
+        from linecast.weather.sections import precipitation_sentence
+        now = datetime(2026, 9, 17, 18, 36)
+        assert precipitation_sentence(hourly, now, _runtime()).startswith("Light drizzle turning")
+
     def test_japanese_says_the_same_rain_gets_harder_and_another_kind_turns(self):
         # Rain at 18:00 turning heavy at 21:00 and over by 02:00 is the
         # rain strengthening, not "rain becoming heavy rain"; drizzle
@@ -964,6 +983,17 @@ class TestMoreToSay:
         daily["precipitation_sum"][5] = 0.3
         assert next_rain_sentence(daily, NOON, _runtime()) == "Rain on Sunday"
 
+    def test_a_day_of_drizzle_is_not_graded(self):
+        # Edinburgh: an hour of dense drizzle carries Friday's 3 mm, and
+        # "heavy drizzle on Friday" would read as a wet day
+        from linecast.weather.sections import next_rain_sentence
+        daily = self._week(NOON, [0, 0, 0, 3.2, 0, 0, 0, 0], [0, 0, 0, 73, 0, 0, 0, 0])
+        codes = [0] * 8 + [51, 53, 55, 55, 53, 51] + [0] * 10
+        hourly = self._day_of(NOON.date() + timedelta(days=2), codes, 73)
+        hourly["precipitation"] = [0] * 8 + [0.1, 0.4, 0.9, 0.9, 0.5, 0.1] + [0] * 10
+        assert next_rain_sentence(daily, NOON, _runtime(celsius=True, metric=True),
+                                  hourly) == "Drizzle likely on Friday"
+
     def test_drizzle_far_off_is_not_news(self):
         from linecast.weather.sections import next_rain_sentence
         daily = self._week(NOON, [0, 0, 0, 0, 0, 0.3, 0, 0], [0, 0, 0, 0, 0, 90, 0, 0])
@@ -974,6 +1004,126 @@ class TestMoreToSay:
         from linecast.weather.sections import next_rain_sentence
         daily = self._week(NOON, [0] * 8, [0, 0, 0, 20, 0, 0, 0, 0])
         assert next_rain_sentence(daily, NOON, _runtime()) == ""
+
+    def _days_of(self, first, days):
+        """Hours over consecutive days from `first`: (codes, prob, mm) each."""
+        hourly = {"time": [], "weather_code": [], "precipitation_probability": [],
+                  "precipitation": []}
+        for k, (codes, prob, mm) in enumerate(days):
+            day = self._day_of(first + timedelta(days=k), codes, prob)
+            hourly["time"] += day["time"]
+            hourly["weather_code"] += codes
+            hourly["precipitation_probability"] += day["precipitation_probability"]
+            hourly["precipitation"] += [mm if c else 0 for c in codes]
+        return hourly
+
+    def test_a_wet_day_is_worth_a_word_at_lower_odds(self):
+        # Westbrook, Maine, on a Wednesday: three inches of a nor'easter
+        # on Saturday at 68%, light rain on Monday at 72%
+        from linecast.weather.sections import next_rain_sentence
+        wednesday = datetime(2026, 9, 23, 18, 30)
+        daily = self._week(wednesday, [0, 0, 0, 0, 3.7, 0, 0.6, 0],
+                           [0, 0, 0, 21, 68, 0, 72, 21])
+        rain = [0] * 3 + [63] * 20 + [0]
+        hourly = self._days_of(wednesday.date() + timedelta(days=3),
+                               [(rain, 68, 0.18), ([0] * 24, 0, 0),
+                                ([61] * 12 + [0] * 12, 72, 0.05)])
+        assert next_rain_sentence(daily, wednesday, _runtime(), hourly) == \
+            "Heavy rain likely on Saturday"
+
+    def test_an_inch_at_a_coin_toss_is_a_chance(self):
+        from linecast.weather.sections import next_rain_sentence
+        daily = self._week(NOON, [0, 0, 0, 0, 30.0, 0, 0, 0], [0, 0, 0, 0, 52, 0, 0, 0])
+        hourly = self._day_of(NOON.date() + timedelta(days=3), [0] * 6 + [63] * 12 + [0] * 6, 52)
+        assert next_rain_sentence(daily, NOON, _runtime(celsius=True, metric=True), hourly) == \
+            "A chance of heavy rain on Saturday"
+
+    def test_wet_days_in_a_row_are_one_run(self):
+        # Seattle: rain on Thursday, an inch of showers on Friday
+        from linecast.weather.sections import next_rain_sentence
+        tuesday = datetime(2026, 9, 22, 18, 30)
+        daily = self._week(tuesday, [0, 0, 0, 0.3, 1.1, 0, 0, 0], [0, 0, 7, 72, 82, 7, 0, 0])
+        hourly = self._days_of(tuesday.date() + timedelta(days=2),
+                               [([0] * 6 + [63] * 12 + [0] * 6, 72, 0.025),
+                                ([81] * 18 + [0] * 6, 82, 0.06)])
+        assert next_rain_sentence(daily, tuesday, _runtime(), hourly) == \
+            "Rain likely on Thursday and Friday, heaviest on Friday"
+
+    def test_three_days_and_more_are_a_span(self):
+        from linecast.weather.sections import next_rain_sentence
+        daily = self._week(NOON, [0, 0, 0, 8.0, 9.0, 8.5, 0, 0], [0, 0, 0, 85, 90, 88, 0, 0])
+        rain = [0] * 6 + [63] * 12 + [0] * 6
+        hourly = self._days_of(NOON.date() + timedelta(days=2),
+                               [(rain, 85, 0.7), (rain, 90, 0.75), (rain, 88, 0.7)])
+        assert next_rain_sentence(daily, NOON, _runtime(celsius=True, metric=True), hourly) == \
+            "Rain from Friday to Sunday"
+
+    def test_a_run_that_starts_tomorrow_says_tomorrow(self):
+        # Vancouver on a Wednesday: rain on Thursday and Friday
+        from linecast.weather.sections import next_rain_sentence
+        rain = [0] * 6 + [63] * 12 + [0] * 6
+        daily = self._week(NOON, [0, 0, 9.0, 8.0, 0, 0, 0, 0], [0, 0, 85, 88, 0, 0, 0, 0])
+        hourly = self._days_of(NOON.date() + timedelta(days=1), [(rain, 85, 0.7), (rain, 88, 0.7)])
+        metric = dict(celsius=True, metric=True)
+        assert next_rain_sentence(daily, NOON, _runtime(**metric), hourly) == \
+            "Rain tomorrow and Friday"
+        assert next_rain_sentence(daily, NOON, _runtime(lang="ru", **metric), hourly) == \
+            "Завтра и в пятницу дождь"
+        daily = self._week(NOON, [0, 0, 30.0, 8.0, 9.0, 0, 0, 0], [0, 0, 85, 88, 90, 0, 0, 0])
+        hourly = self._days_of(NOON.date() + timedelta(days=1),
+                               [(rain, 85, 2.5), (rain, 88, 0.7), (rain, 90, 0.75)])
+        assert next_rain_sentence(daily, NOON, _runtime(**metric), hourly) == \
+            "Rain from tomorrow to Saturday, heaviest tomorrow"
+        assert next_rain_sentence(daily, NOON, _runtime(lang="pl", **metric), hourly) == \
+            "Od jutra do soboty deszcz, najsilniej jutro"
+
+    def test_thunder_in_a_run_of_rain_is_said_of_its_own_day(self):
+        from linecast.weather.sections import next_rain_sentence
+        rain = [0] * 6 + [63] * 12 + [0] * 6
+        storm = [0] * 6 + [95] * 12 + [0] * 6
+        metric = dict(celsius=True, metric=True)
+        daily = self._week(NOON, [0, 0, 0, 9.0, 9.0, 9.0, 0, 0], [0, 0, 0, 85, 90, 88, 0, 0])
+        hourly = self._days_of(NOON.date() + timedelta(days=2),
+                               [(rain, 85, 0.75), (rain, 90, 0.75), (storm, 88, 0.75)])
+        assert next_rain_sentence(daily, NOON, _runtime(**metric), hourly) == \
+            "Rain from Friday to Sunday, with thunderstorms on Sunday"
+        assert next_rain_sentence(daily, NOON, _runtime(lang="ru", **metric), hourly) == \
+            "С пятницы по воскресенье дождь, в воскресенье с грозой"
+        # The wettest day is the day of thunder
+        daily = self._week(NOON, [0, 0, 0, 8.0, 9.0, 30.0, 0, 0], [0, 0, 0, 85, 90, 88, 0, 0])
+        hourly = self._days_of(NOON.date() + timedelta(days=2),
+                               [(rain, 85, 0.7), (rain, 90, 0.75), (storm, 88, 2.5)])
+        assert next_rain_sentence(daily, NOON, _runtime(**metric), hourly) == \
+            "Rain from Friday to Sunday, heaviest on Sunday with thunderstorms"
+        # Thunder every day names the run, counted where the language counts
+        hourly = self._days_of(NOON.date() + timedelta(days=2),
+                               [(storm, 85, 0.7), (storm, 90, 0.75), (storm, 88, 0.7)])
+        daily = self._week(NOON, [0, 0, 0, 8.0, 9.0, 8.5, 0, 0], [0, 0, 0, 85, 90, 88, 0, 0])
+        assert next_rain_sentence(daily, NOON, _runtime(lang="cs", **metric), hourly) == \
+            "Od pátku do neděle bouřky"
+
+    def test_a_run_that_turns_to_snow_says_so(self):
+        from linecast.weather.sections import next_rain_sentence
+        rain = [0] * 6 + [63] * 12 + [0] * 6
+        snow = [0] * 6 + [73] * 12 + [0] * 6
+        metric = dict(celsius=True, metric=True)
+        daily = self._week(NOON, [0, 0, 0, 9.0, 9.0, 9.0, 0, 0], [0, 0, 0, 85, 90, 88, 0, 0])
+        hourly = self._days_of(NOON.date() + timedelta(days=2),
+                               [(rain, 85, 0.75), (snow, 90, 0.75), (snow, 88, 0.75)])
+        assert next_rain_sentence(daily, NOON, _runtime(**metric), hourly) == \
+            "Rain on Friday, then snow on Saturday and Sunday"
+        assert next_rain_sentence(daily, NOON, _runtime(lang="de", **metric), hourly) == \
+            "Am Freitag Regen, am Samstag und Sonntag dann Schneefall"
+
+    def test_thunder_names_the_day_though_a_shower_hour_is_wetter(self):
+        # Buenos Aires: Sunday's wettest hours are showers, its midday thunder
+        from linecast.weather.sections import next_rain_sentence
+        codes = [0] * 7 + [81] * 5 + [95] * 4 + [0] * 8
+        daily = self._week(NOON, [0, 0, 0, 0, 0, 39.0, 0, 0], [0, 0, 0, 0, 0, 68, 0, 0])
+        hourly = self._days_of(NOON.date() + timedelta(days=4), [(codes, 68, 0)])
+        hourly["precipitation"] = [0] * 7 + [5.5] * 5 + [2.7] * 4 + [0] * 8
+        assert next_rain_sentence(daily, NOON, _runtime(celsius=True, metric=True), hourly) == \
+            "Thunderstorms likely on Sunday"
 
     def test_gusts_this_afternoon(self):
         from linecast.weather.sections import gusts_sentence
@@ -1435,7 +1585,7 @@ class TestAgreementAndTheClock:
         assert sentence([51, 51, 51, 51, 95, 95, 0]) == (
             "Bruine légère, puis des orages vers 16\u00a0h, avant de cesser vers 18\u00a0h")
         assert sentence([51] * 4 + [95] * 22) == (
-            "Bruine légère toute la journée, avec des orages vers 16\u00a0h")
+            "Bruine légère, puis des orages vers 16\u00a0h pour le reste de la journée")
         assert sentence([51, 51, 51, 51, 65, 65, 0]) == (
             "Bruine légère, puis de fortes pluies vers 16\u00a0h, avant de cesser vers 18\u00a0h")
 

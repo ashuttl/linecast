@@ -12,7 +12,9 @@ from datetime import datetime
 from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import _wmo_icons, wmo_label
 from linecast.weather.sections import comparative_sentence
-from linecast.weather.sources import FORECAST_SOURCE, _local_now_for_data, alert_source
+from linecast.weather.sources import (
+    FORECAST_SOURCE, _local_now_for_data, alert_source, alerts_status,
+)
 
 SCHEMA_VERSION = 1
 
@@ -172,6 +174,11 @@ def build_payload(data, location_name, country_code, runtime,
         "hourly": hourly_out,
         "daily": daily_out,
         "alerts": list(alerts or []),
+        # Whether that list is the provider's answer: "ok" (it answered,
+        # empty or not), "stale" (it did not; the copy from fetched_at
+        # stands in), "unavailable" (it did not, and there is no copy),
+        # or "unsupported" (no feed for the country).
+        "alerts_status": alerts_status(alerts),
         "aqi": aqi_out,
         "historical": asdict(historical) if historical is not None else None,
         "sources": {

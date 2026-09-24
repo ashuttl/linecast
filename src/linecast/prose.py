@@ -9,6 +9,10 @@ against the same data as before.
 
     linecast prose fetch                 freeze today's forecasts as a set
     linecast prose                       the latest set, in English
+    linecast prose 2026-09-21            another set, by name or part of one
+    linecast prose sets                  every set, when it was fetched
+    linecast prose mv 2026-09-23 storm   rename a set
+    linecast prose rm westbrook          delete a set
     linecast prose --lang en,ja --data   with the hours and days underneath
     linecast prose --trace               every candidate sentence, chosen or not
     linecast prose --save before.json    keep the paragraphs; change the code;
@@ -19,9 +23,10 @@ import argparse
 import copy
 import json
 import re
+import shutil
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from linecast._i18n import LANGUAGE_CODES, VARIANTS, canonical_language
 from linecast._paths import cache_dir
@@ -92,11 +97,83 @@ def slug_of(name):
 
 
 def list_sets():
-    """Set names, oldest first."""
+    """Set names, oldest fetch first."""
     root = sets_root()
     if not root.is_dir():
         return []
-    return sorted(p.name for p in root.iterdir() if (p / "index.json").is_file())
+    names = [p.name for p in root.iterdir() if (p / "index.json").is_file()]
+    never = datetime.min.replace(tzinfo=timezone.utc)
+    return sorted(names, key=lambda name: (fetched_at(name) or never, name))
+
+
+def set_places(name):
+    return json.loads((sets_root() / name / "index.json").read_text())
+
+
+def fetched_at(name):
+    """When a set was fetched, in UTC, from its first place's local time
+    and offset.  A directory's times change when a set is copied in, so
+    they are not used."""
+    try:
+        first = set_places(name)[0]
+        record = json.loads((sets_root() / name / f"{first}.json").read_text())
+        local = datetime.fromisoformat(record["now"])
+        offset = record["data"].get("utc_offset_seconds") or 0
+    except (OSError, ValueError, IndexError, KeyError, TypeError):
+        return None
+    return (local - timedelta(seconds=offset)).replace(tzinfo=timezone.utc)
+
+
+def find_set(given, names=None):
+    """The set a name picks: itself, or the one set whose name contains it."""
+    names = list_sets() if names is None else names
+    if not names:
+        raise SystemExit("linecast prose: no sets yet; run `linecast prose fetch`")
+    if given is None:
+        return names[-1]
+    if given in names:
+        return given
+    matches = [n for n in names if given.lower() in n.lower()]
+    if len(matches) == 1:
+        return matches[0]
+    if matches:
+        raise SystemExit(f"linecast prose: {given} could be {', '.join(matches)}")
+    raise SystemExit(f"linecast prose: no set named {given}; have {', '.join(names)}")
+
+
+def check_name(name):
+    """A set name is a directory under the cache and must not read as an
+    action, since `linecast prose NAME` shows the set."""
+    if not name or name.startswith(".") or "/" in name or "\\" in name:
+        raise SystemExit(f"linecast prose: {name!r} can't name a set")
+    if name in ACTIONS:
+        raise SystemExit(f"linecast prose: {name} is an action, not a set name")
+    return name
+
+
+def sets_lines(names):
+    """One line per set: name, places, when fetched; the latest marked."""
+    width = max(len(n) for n in names)
+    lines = []
+    for name in names:
+        count = len(set_places(name))
+        when = fetched_at(name)
+        stamp = when.strftime("%Y-%m-%d %H:%M UTC") if when else "unknown"
+        mark = "  latest" if name == names[-1] else ""
+        lines.append(f"{name:<{width}}  {count:>3} {'place ' if count == 1 else 'places'}  "
+                     f"{stamp}{mark}")
+    return lines
+
+
+def remove_set(name):
+    shutil.rmtree(sets_root() / name)
+
+
+def rename_set(old, new):
+    target = sets_root() / new
+    if target.exists():
+        raise SystemExit(f"linecast prose: a set named {new} already exists")
+    (sets_root() / old).rename(target)
 
 
 def load_set(name):
@@ -318,6 +395,9 @@ def diff_lines(before, after):
 # The command
 # ---------------------------------------------------------------------------
 
+ACTIONS = ("fetch", "sets", "show", "mv", "rm")
+
+
 def prose_parser():
     p = argparse.ArgumentParser(
         prog="linecast prose", formatter_class=formatter_class(),
@@ -328,11 +408,20 @@ def prose_parser():
                        formatter_class=formatter_class())
     f.add_argument("--set", dest="set_name", metavar="NAME", default=None,
                    help="name the set (default: today's date)")
-    sub.add_parser("sets", help="list the frozen sets", formatter_class=formatter_class())
+    sub.add_parser("sets", help="list the frozen sets, oldest first",
+                   formatter_class=formatter_class())
+    m = sub.add_parser("mv", help="rename a set", formatter_class=formatter_class())
+    m.add_argument("old", metavar="SET")
+    m.add_argument("new", metavar="NAME")
+    r = sub.add_parser("rm", help="delete sets", formatter_class=formatter_class())
+    r.add_argument("names", metavar="SET", nargs="+")
+    r.add_argument("-y", "--yes", action="store_true", help="don't ask first")
     s = sub.add_parser("show", help="print the prose for a set (the default)",
                        formatter_class=formatter_class())
+    s.add_argument("set_arg", metavar="SET", nargs="?", default=None,
+                   help="the set's name, or part of it (default: the latest fetched)")
     s.add_argument("--set", dest="set_name", metavar="NAME", default=None,
-                   help="which set (default: the latest)")
+                   help=argparse.SUPPRESS)
     s.add_argument("--lang", metavar="CODES", default=None,
                    help="comma-separated language codes, regional variants "
                         "such as fr-CA included, or all (default: English "
@@ -351,26 +440,40 @@ def prose_parser():
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    if not argv or argv[0].startswith("-") and argv[0] not in ("-h", "--help", "--version"):
+    if not argv or argv[0] not in ACTIONS and argv[0] not in ("-h", "--help", "--version"):
         argv.insert(0, "show")
     args = prose_parser().parse_args(argv)
 
     if args.action == "fetch":
-        name = args.set_name or datetime.now().strftime("%Y-%m-%d")
+        name = check_name(args.set_name or datetime.now().strftime("%Y-%m-%d"))
         count = fetch_set(name)
         print(f"{count} places frozen as {name} in {sets_root() / name}")
         return
     if args.action == "sets":
-        for name in list_sets():
-            print(name)
+        names = list_sets()
+        print("\n".join(sets_lines(names)) if names else "no sets yet; run `linecast prose fetch`")
+        return
+    if args.action == "mv":
+        old = find_set(args.old)
+        new = check_name(args.new)
+        rename_set(old, new)
+        print(f"{old} is now {new}")
+        return
+    if args.action == "rm":
+        names = list_sets()
+        doomed = list(dict.fromkeys(find_set(given, names) for given in args.names))
+        if not args.yes and sys.stdin.isatty():
+            answer = input(f"delete {', '.join(doomed)}? [y/N] ")
+            if answer.strip().lower() not in ("y", "yes"):
+                return
+        for name in doomed:
+            remove_set(name)
+            print(f"deleted {name}")
         return
 
-    names = list_sets()
-    if not names:
-        raise SystemExit("linecast prose: no sets yet; run `linecast prose fetch`")
-    name = args.set_name or names[-1]
-    if name not in names:
-        raise SystemExit(f"linecast prose: no set named {name}; have {', '.join(names)}")
+    if args.set_arg and args.set_name:
+        raise SystemExit("linecast prose: name the set once")
+    name = find_set(args.set_arg or args.set_name)
     records = load_set(name)
     if args.place:
         wanted = [p.lower() for p in args.place]

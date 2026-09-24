@@ -11,6 +11,7 @@ New this version:
 - Weather:
   - The prose forecast under the graph contains more detail about the weather, when it will change, and what's unusual about it, if anything.
   - The prose forecast should read more naturally in every language. This is an improvement, but there is farther yet to go. If it reads oddly in yours, please open an [issue](https://github.com/ashuttl/linecast/issues) or start a [discussion](https://github.com/ashuttl/linecast/discussions).
+  - The prose forecast names a stretch of wet days together ("Rain likely from Saturday to Monday"), says which of them has thunder or turns to snow, and names a day of heavy rain later in the week at lower odds than a lighter one.
   - Numbers in the prose forecast (such as 11,3 mm in French and German) are written as each language writes them.
   - Current conditions come from the nearest airport's latest report when one is close and recent, so they should match what's outside more closely. The credit line names the station.
   - Cloud cover is described on the National Weather Service's five-step scale, which adds Mostly Cloudy. Each day in the daily list is described by its average cloud cover, so one grey hour no longer makes a day overcast. Most languages use their national weather service's terms.
@@ -20,6 +21,7 @@ New this version:
   - In Ireland, a national warning is shown only in the counties it is for. Marine and environmental warnings are still shown everywhere.
   - Wind speeds are in metres per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, and Czech, as local forecasts give them.
   - The place name in the header sits in a chip, as it does in tides, and the rest of the header is spaced more evenly.
+  - When the alert service can't be reached, a line says the alerts could not be checked, instead of showing nothing as on a day without alerts. When an earlier copy stands in, the line says when it is from. `--json` reports the same as `alerts_status`.
 - Maps:
   - Where a street or place has no name in the display language, its local name comes before the Latin transliteration when it is in the reader's script: خیابان فردوسی, not Ferdosi Street, for a Persian reader in Tehran; Хрещатик for a Russian reader in Kyiv.
   - The street and terrain maps curve like the globe once a view is a few degrees wide, so zooming out to the planet is smooth instead of a sudden switch. Close street views are unchanged.
@@ -55,10 +57,16 @@ Fixes:
 - Weather: The rain total for the last 24 hours no longer counts an extra hour.
 - Weather: In European Portuguese, European Spanish, and Canadian French, day names are no longer shown in English.
 - Weather: Fixed a bug in MeteoAlarm countries where warnings from elsewhere in the country could appear after the first refresh.
+- Weather: An alert's times are when the weather it warns of begins and ends. In the US they had been when the bulletin was issued and when it was due to be reissued, so a watch for the weekend could look as if it ended on Thursday morning. Alerts in Germany and MeteoAlarm countries, India, and New Zealand start when the weather does, not when the warning was issued.
+- Weather: The one-line preview of a US alert starts with what it says, without the "* WHAT..." label.
 - Weather: In Croatia, warnings filed by county are matched to your address by the county's boundary. They had been matched on the county's name.
 - Sky, moon: Stars, constellations, and the Milky Way line up with the Moon and planets. They were about a third of a degree off, which showed at the closest zoom.
 - Tides: With a free TideCheck key, linecast stays within the plan's fifty requests a day and shows cached tides until the next day, as the README said it did.
 - Radar: Cached NEXRAD frames are cleared after a day, like other sources' tiles, so the cache no longer grows without limit.
+- Install: The curl quick-start opens the sky with `sh -s sky`. It had turned the command away.
+- Maps, radar: A damaged or malformed map tile is skipped, as a missing one is, instead of using far more memory than its size.
+- Tides: A TideCheck API key is sent only to TideCheck. If a request were redirected to another server, the key would no longer go with it.
+- Maps, weather, tides, radar: Text from a map, search, route, or weather service is shown as text. A control sequence in a place name or an alert can no longer reach the terminal.
 
 ## 2.7.0 — 2026-09-19
 

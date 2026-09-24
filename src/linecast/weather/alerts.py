@@ -1,5 +1,6 @@
 """Weather alert rendering."""
 
+import re
 from datetime import datetime
 
 from linecast import _theme
@@ -8,6 +9,7 @@ from linecast._i18n import lang_of, sentence_24h, table_for
 from linecast._runtime import log_failure
 from linecast._textwidth import truncate_display_width, wrap_display_width
 from linecast.weather.i18n import DAY_NAMES, _s
+from linecast.weather.sources import ALERTS_OK, ALERTS_STALE, ALERTS_UNAVAILABLE
 from linecast.weather.style import (
     ALERT_AMBER,
     ALERT_AMBER_RGB,
@@ -49,6 +51,28 @@ def _parse_alert_time(iso_str, runtime=None, tz_name=""):
     except Exception as exc:
         log_failure("weather/alerts", "alert time", exc, fallback="time omitted")
         return ""
+
+
+def alerts_notice(alerts, width, runtime=None, tz_name=""):
+    """One muted line for where the alert band goes, when the alerts on
+    screen are not the provider's latest word, or None when they are.
+
+    An alert service that could not be reached and had no copy to stand
+    in says so, rather than look like a quiet day; one whose older copy
+    stands in says when that copy is from (issue #122). A country with
+    no alert feed says nothing: there is nothing it could have shown.
+    """
+    status = getattr(alerts, "status", ALERTS_OK)
+    if status == ALERTS_UNAVAILABLE:
+        text = _s("alerts_unavailable", runtime)
+    elif status == ALERTS_STALE:
+        when = _parse_alert_time(getattr(alerts, "fetched_at", None) or "", runtime, tz_name)
+        if not when:
+            return None
+        text = _s("alerts_stale", runtime, when=when)
+    else:
+        return None
+    return f"{MUTED}{truncate_display_width(text, max(1, width))}{RESET}"
 
 
 def _severity_color(severity):
@@ -118,6 +142,16 @@ def _pack_pills(pills, width):
     return lines, spans
 
 
+# NWS writes its descriptions as "* WHAT...", "* WHERE...", and so on;
+# the preview line has room only for the first, which needs no label.
+_NWS_WHAT = re.compile(r"^\*\s*WHAT\.\.\.\s*")
+
+
+def _preview_text(desc):
+    """An alert's description as one line for the preview under a badge."""
+    return _NWS_WHAT.sub("", " ".join(desc.split()))
+
+
 def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name=""):
     """Render one alert as a single compact line: pill + date range + truncated body."""
     effective = _parse_alert_time(alert.get("effective", ""), runtime, tz_name)
@@ -143,7 +177,7 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name=""):
 
     desc = (alert.get("description") or "").strip()
     if desc:
-        flat = " ".join(desc.split())
+        flat = _preview_text(desc)
         remaining = width - used - 1  # the space before the description
         if remaining > 10:
             truncated = truncate_display_width(flat, remaining)
@@ -199,7 +233,7 @@ def render_alerts_mapped(alerts, width=80, remaining_rows=None, runtime=None, tz
 
             desc = (group[0][1].get("description") or "").strip()
             if desc:
-                flat = " ".join(desc.split())
+                flat = _preview_text(desc)
                 remaining = width
                 if remaining > 10:
                     truncated = truncate_display_width(flat, remaining)

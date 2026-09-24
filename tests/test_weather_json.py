@@ -23,7 +23,7 @@ FIXED_NOW = datetime(2026, 3, 5, 14, 30)
 
 EXPECTED_TOP_KEYS = {
     "schema", "location", "country_code", "timezone", "fetched_at", "summary",
-    "units", "current", "today", "hourly", "daily", "alerts", "aqi",
+    "units", "current", "today", "hourly", "daily", "alerts", "alerts_status", "aqi",
     "historical", "sources",
 }
 

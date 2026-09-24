@@ -128,3 +128,24 @@ class TestDashboardFits:
         assert row_map
         for row in row_map:
             assert 0 <= row < len(lines)
+
+
+class TestPreviewText:
+    _NWS = ("* WHAT...North winds 25 to 35 mph with gusts up to 55 mph.\n\n"
+            "* WHERE...Barnstable County.")
+
+    def test_the_nws_what_label_is_dropped(self):
+        alerts = [{"event": "High Wind Watch", "severity": "Moderate",
+                   "description": self._NWS, "effective": "", "expires": ""}]
+        line = render_alerts(alerts, width=100)[0]
+
+        assert "WHAT" not in line
+        assert "North winds 25 to 35 mph" in line
+        assert "* WHERE...Barnstable" in line
+
+    def test_a_shared_description_drops_it_too(self):
+        lines = render_alerts(_alerts(["High Wind Watch", "Gale Watch"],
+                                      description=self._NWS), width=100)
+
+        assert "WHAT" not in lines[-1]
+        assert "North winds" in lines[-1]

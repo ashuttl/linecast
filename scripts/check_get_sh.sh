@@ -140,6 +140,12 @@ piped() { reset; without_tty env PATH="$P" GET_SH="$GET_SH" sh "$work/piped.sh" 
 
 piped; is "no arguments runs weather" "linecast [weather] [--print] stdin=notty" "$(last_call)"
 piped sunshine; is "named command" "linecast [sunshine] [--print] stdin=notty" "$(last_call)"
+# Every view command in _commands.VIEWS, so the two lists cannot drift.
+views=$(sed -n '/^VIEWS = (/,/^)/s/^    ("\([a-z]*\)",.*/\1/p' "$here/../src/linecast/_commands.py")
+[ -n "$views" ] || fail "view commands read from _commands.py" "none found"
+for view in $views; do
+    piped "$view" --metric; is "view command: $view" "linecast [$view] [--metric] [--print] stdin=notty" "$(last_call)"
+done
 piped -- --metric; is "bare flag maps to weather" "linecast [weather] [--metric] [--print] stdin=notty" "$(last_call)"
 piped tides --station 8418150; is "arguments pass through" "linecast [tides] [--station] [8418150] [--print] stdin=notty" "$(last_call)"
 piped -- --location "Westbrook, Maine"; is "arguments keep their spaces" "linecast [weather] [--location] [Westbrook, Maine] [--print] stdin=notty" "$(last_call)"

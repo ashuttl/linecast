@@ -18,6 +18,7 @@ from typing import Any
 from linecast._cache import location_cache_key
 from linecast._http import fetch_bytes, fetch_json_cached
 from linecast._paths import cache_dir
+from linecast._plaintext import plain_text
 from linecast._runtime import log_failure
 from linecast.weather.cover import REPORT_COVER
 
@@ -172,8 +173,8 @@ def nearest_observation(lat: float, lng: float, reports: list[dict[str, Any]],
             continue
         if best is None or distance < best["distance_km"]:
             best = {"code": sky[0], "cover": sky[1],
-                    "station": metar.get("icaoId") or "",
-                    "name": metar.get("name") or "",
+                    "station": plain_text(metar.get("icaoId") or ""),
+                    "name": plain_text(metar.get("name") or ""),
                     "distance_km": round(distance, 1),
                     "time": int(metar["obsTime"]),
                     "sees_high_cloud": _sees_high_cloud(metar)}

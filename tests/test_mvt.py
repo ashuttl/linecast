@@ -190,6 +190,28 @@ class TestWireFormat:
             out = decode_tile(wrapped)
             assert out["test"]["features"][0]["geometry"] == LINE_PARTS
 
+    def test_a_wrapper_past_the_budget_is_a_value_error(self, monkeypatch):
+        # a small budget stands in for the real one, so the bomb stays small;
+        # set in decode_tile's own globals, since another test may reload
+        # the module after this one imported it
+        budget = decode_tile.__globals__
+        monkeypatch.setitem(budget, "MAX_DECODED_BYTES", 1024)
+        bomb = bytes(4096)
+        for wrapped in (gzip.compress(bomb), zlib.compress(bomb)):
+            try:
+                decode_tile(wrapped)
+            except ValueError as exc:
+                assert "1024" in str(exc)
+            else:
+                raise AssertionError("wrapper past the budget did not raise")
+        # a tile right at the budget still decodes
+        tile = make_tile(make_layer(features=[
+            make_feature(ftype=2, geometry=LINE_GEOM)]))
+        monkeypatch.setitem(budget, "MAX_DECODED_BYTES", len(tile))
+        for wrapped in (gzip.compress(tile), zlib.compress(tile), tile):
+            out = decode_tile(wrapped)
+            assert out["test"]["features"][0]["geometry"] == LINE_PARTS
+
     def test_truncated_input_raises(self):
         tile = make_tile(make_layer(features=[
             make_feature(ftype=2, geometry=LINE_GEOM)]))
