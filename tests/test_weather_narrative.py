@@ -316,6 +316,25 @@ class TestPrecipitationPeak:
         assert self._sentence(self._hourly(codes, amounts), use_24h=False) == \
             "Light drizzle turning to heavy rain around 11pm and ending overnight"
 
+    def test_a_turn_to_rain_is_when_the_rain_begins(self):
+        # Kathmandu: light drizzle now, light rain from 21:00, and the
+        # most of it, plain rain, from 23:00 on.  The turn is at nine,
+        # named by the rain it becomes.
+        codes = [51, 51, 53, 61, 61, 63, 63, 63, 63, 63]
+        amounts = [0.01, 0.01, 0.02, 0.05, 0.06, 0.12, 0.14, 0.12, 0.1, 0.1]
+        assert self._sentence(self._hourly(codes, amounts)) == \
+            "Light drizzle turning to rain in a couple hours and lasting through the day"
+
+    def test_a_turn_two_hours_off_is_not_what_is_falling_now(self):
+        # Tokyo: drizzle now, rain from the hour after next.  The header
+        # says drizzle, so the prose does too.
+        codes = [51, 53, 61, 63, 63, 63, 63, 63]
+        amounts = [0.01, 0.03, 0.06, 0.15, 0.12, 0.12, 0.1, 0.1]
+        hourly = self._hourly(codes, amounts)
+        from linecast.weather.sections import precipitation_sentence
+        now = datetime(2026, 9, 17, 18, 36)
+        assert precipitation_sentence(hourly, now, _runtime()).startswith("Light drizzle turning")
+
     def test_japanese_says_the_same_rain_gets_harder_and_another_kind_turns(self):
         # Rain at 18:00 turning heavy at 21:00 and over by 02:00 is the
         # rain strengthening, not "rain becoming heavy rain"; drizzle
@@ -964,6 +983,17 @@ class TestMoreToSay:
         daily["precipitation_sum"][5] = 0.3
         assert next_rain_sentence(daily, NOON, _runtime()) == "Rain on Sunday"
 
+    def test_a_day_of_drizzle_is_not_graded(self):
+        # Edinburgh: an hour of dense drizzle carries Friday's 3 mm, and
+        # "heavy drizzle on Friday" would read as a wet day
+        from linecast.weather.sections import next_rain_sentence
+        daily = self._week(NOON, [0, 0, 0, 3.2, 0, 0, 0, 0], [0, 0, 0, 73, 0, 0, 0, 0])
+        codes = [0] * 8 + [51, 53, 55, 55, 53, 51] + [0] * 10
+        hourly = self._day_of(NOON.date() + timedelta(days=2), codes, 73)
+        hourly["precipitation"] = [0] * 8 + [0.1, 0.4, 0.9, 0.9, 0.5, 0.1] + [0] * 10
+        assert next_rain_sentence(daily, NOON, _runtime(celsius=True, metric=True),
+                                  hourly) == "Drizzle likely on Friday"
+
     def test_drizzle_far_off_is_not_news(self):
         from linecast.weather.sections import next_rain_sentence
         daily = self._week(NOON, [0, 0, 0, 0, 0, 0.3, 0, 0], [0, 0, 0, 0, 0, 90, 0, 0])
@@ -1555,7 +1585,7 @@ class TestAgreementAndTheClock:
         assert sentence([51, 51, 51, 51, 95, 95, 0]) == (
             "Bruine légère, puis des orages vers 16\u00a0h, avant de cesser vers 18\u00a0h")
         assert sentence([51] * 4 + [95] * 22) == (
-            "Bruine légère toute la journée, avec des orages vers 16\u00a0h")
+            "Bruine légère, puis des orages vers 16\u00a0h pour le reste de la journée")
         assert sentence([51, 51, 51, 51, 65, 65, 0]) == (
             "Bruine légère, puis de fortes pluies vers 16\u00a0h, avant de cesser vers 18\u00a0h")
 

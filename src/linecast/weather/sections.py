@@ -1146,14 +1146,25 @@ def _peak_hour(run, amounts, codes, desc=None, open_ended=False):
     # The peak says what it turns into; the turn is when the run first
     # reaches that.  Drizzle now with rain from two and the most of it
     # after midnight becomes rain in a couple of hours, not overnight.
+    # A turn to another kind is when that kind begins, though its first
+    # hours are lighter than the peak: drizzle with light rain from
+    # seven and rain from one turns to rain at seven.  The peak still
+    # names it.  A heavy peak is its own news, and turns when it comes.
+    new_kind = kind(i) != kind(first) and rank(i) < _HEAVY_RANK
     for n, (j, when) in enumerate(run):
-        if (desc(j) == desc(i)) if desc is not None else (code(j) == code(i)):
+        if new_kind:
+            reached = kind(j) == kind(i) and code(j) in _PRECIP_CODES
+        elif desc is not None:
+            reached = desc(j) == desc(i)
+        else:
+            reached = code(j) == code(i)
+        if reached:
             # A turn needs two hours of the new weather to be worth its
             # own clause, unless the run is cut off by the end of the
             # day's window rather than by dry weather
             if not open_ended and n > len(run) - 2:
                 return None
-            return j, when
+            return (i if new_kind else j), when
     return i, dt
 
 
@@ -1234,7 +1245,7 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None, current=None):
         peak = _peak_hour(run, amounts, codes, desc, open_ended)
         # The hour whose noun the sentence opens with, for agreement
         noun = run[0][0]
-        if peak and (peak[1] - now).total_seconds() < 1.5 * 3600:
+        if peak and (peak[1] - now).total_seconds() <= 3600:
             # A turn that is all but here is what is falling: "showers
             # ending in a couple hours", not "drizzle becoming showers
             # shortly"
@@ -1595,6 +1606,10 @@ def _next_rain(daily, now, runtime, hourly=None, after=None):
                                                          microsecond=0))
     if len(run) == 1:
         _, first, code, best, _, _ = run[0]
+        # A day is drizzly, not heavily drizzly: the grades of drizzle
+        # are an hour's, and "heavy drizzle on Friday" reads as a wet day
+        if code in (51, 55):
+            code = 53
         if first.date() == (now + timedelta(days=1)).date():
             when = _time_phrase(first, now, runtime, after=after)
         else:
