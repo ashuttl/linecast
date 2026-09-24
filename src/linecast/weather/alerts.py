@@ -1,5 +1,6 @@
 """Weather alert rendering."""
 
+import re
 from datetime import datetime
 
 from linecast import _theme
@@ -141,6 +142,16 @@ def _pack_pills(pills, width):
     return lines, spans
 
 
+# NWS writes its descriptions as "* WHAT...", "* WHERE...", and so on;
+# the preview line has room only for the first, which needs no label.
+_NWS_WHAT = re.compile(r"^\*\s*WHAT\.\.\.\s*")
+
+
+def _preview_text(desc):
+    """An alert's description as one line for the preview under a badge."""
+    return _NWS_WHAT.sub("", " ".join(desc.split()))
+
+
 def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name=""):
     """Render one alert as a single compact line: pill + date range + truncated body."""
     effective = _parse_alert_time(alert.get("effective", ""), runtime, tz_name)
@@ -166,7 +177,7 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name=""):
 
     desc = (alert.get("description") or "").strip()
     if desc:
-        flat = " ".join(desc.split())
+        flat = _preview_text(desc)
         remaining = width - used - 1  # the space before the description
         if remaining > 10:
             truncated = truncate_display_width(flat, remaining)
@@ -222,7 +233,7 @@ def render_alerts_mapped(alerts, width=80, remaining_rows=None, runtime=None, tz
 
             desc = (group[0][1].get("description") or "").strip()
             if desc:
-                flat = " ".join(desc.split())
+                flat = _preview_text(desc)
                 remaining = width
                 if remaining > 10:
                     truncated = truncate_display_width(flat, remaining)
