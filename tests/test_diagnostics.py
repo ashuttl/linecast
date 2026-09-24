@@ -411,6 +411,7 @@ class TestWeatherFetchThread:
         monkeypatch.setattr(weather, "fetch_aqi", lambda lat, lng: None)
         monkeypatch.setattr(weather, "fetch_historical", lambda *a, **kw: None)
         monkeypatch.setattr(weather, "fetch_alerts", lambda *a, **kw: [])
+        monkeypatch.setattr(weather, "fetch_observation", lambda lat, lng: None)
 
         def broken(lat, lng, runtime):
             raise RuntimeError("boom")
