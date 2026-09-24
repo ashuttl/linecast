@@ -154,6 +154,67 @@ class TestLanguages:
             assert prose.languages(None) == ["en"]
 
 
+def _store(root, name, now="2026-07-15T12:00:00", offset=0):
+    """A one-place set named `name` under `root`, fetched at `now` local."""
+    folder = root / name
+    folder.mkdir(parents=True)
+    record = _record(now=now)
+    record["data"]["utc_offset_seconds"] = offset
+    (folder / "testville.json").write_text(json.dumps(record))
+    (folder / "index.json").write_text(json.dumps(["testville"]))
+
+
+class TestSets:
+    @pytest.fixture
+    def root(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(prose, "sets_root", lambda: tmp_path / "prose")
+        return tmp_path / "prose"
+
+    def test_the_latest_is_the_last_fetched_not_the_last_by_name(self, root):
+        _store(root, "2026-07-15", now="2026-07-15T12:00:00")
+        _store(root, "storm", now="2026-07-14T20:00:00", offset=-4 * 3600)
+        # storm was fetched at 00:00 UTC on the 15th, before 12:00 UTC
+        assert prose.list_sets() == ["storm", "2026-07-15"]
+        assert prose.find_set(None) == "2026-07-15"
+
+    def test_sets_lines_show_places_and_fetch_time(self, root):
+        _store(root, "storm", now="2026-07-14T20:00:00", offset=-4 * 3600)
+        assert prose.sets_lines(["storm"]) == ["storm    1 place   2026-07-15 00:00 UTC  latest"]
+
+    def test_a_set_is_found_by_part_of_its_name(self, root):
+        _store(root, "2026-07-14")
+        _store(root, "2026-07-15", now="2026-07-15T13:00:00")
+        assert prose.find_set("07-14") == "2026-07-14"
+        assert prose.find_set("2026-07-15") == "2026-07-15"
+        with pytest.raises(SystemExit, match="could be"):
+            prose.find_set("2026")
+        with pytest.raises(SystemExit, match="no set named"):
+            prose.find_set("storm")
+
+    def test_a_set_name_alone_shows_that_set(self, root, capsys):
+        _store(root, "storm")
+        _store(root, "calm", now="2026-07-15T13:00:00")
+        prose.main(["storm", "--lang", "en", "--save", str(root / "s.json")])
+        assert json.loads((root / "s.json").read_text())["set"] == "storm"
+
+    def test_mv_renames_and_rm_deletes(self, root, capsys):
+        _store(root, "2026-07-15")
+        prose.main(["mv", "07-15", "storm"])
+        assert prose.list_sets() == ["storm"]
+        prose.main(["rm", "-y", "storm"])
+        assert prose.list_sets() == []
+
+    def test_mv_will_not_overwrite_or_take_an_action_name(self, root):
+        _store(root, "a")
+        _store(root, "b")
+        with pytest.raises(SystemExit, match="already exists"):
+            prose.main(["mv", "a", "b"])
+        with pytest.raises(SystemExit, match="is an action"):
+            prose.main(["mv", "a", "sets"])
+        with pytest.raises(SystemExit, match="can't name a set"):
+            prose.main(["mv", "a", "../elsewhere"])
+
+
 class TestTheCommand:
     def test_save_then_diff_round_trip(self, tmp_path, monkeypatch, capsys):
         root = tmp_path / "prose" / "2026-07-15"
