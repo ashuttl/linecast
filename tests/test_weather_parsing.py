@@ -148,6 +148,40 @@ class TestNWSAlertsFilterTestMessages:
         assert len(alerts) == 0
 
 
+class TestNWSAlertWindow:
+    """An NWS alert shows when the hazard is, not when the bulletin is."""
+
+    @staticmethod
+    def _parse(**times):
+        from linecast.weather.sources import _fetch_alerts_nws
+        props = {"status": "Actual", "event": "High Wind Watch",
+                 "effective": "2026-09-23T15:33:00-04:00",
+                 "expires": "2026-09-24T05:00:00-04:00", **times}
+        data = {"features": [{"properties": props}]}
+        with patch("linecast.weather.sources.fetch_json_cached", return_value=data):
+            return _fetch_alerts_nws(42.05, -70.19)[0]
+
+    def test_onset_and_ends_over_the_bulletin(self):
+        alert = self._parse(onset="2026-09-25T20:00:00-04:00",
+                            ends="2026-09-27T08:00:00-04:00")
+        assert alert["effective"] == "2026-09-25T20:00:00-04:00"
+        assert alert["expires"] == "2026-09-27T08:00:00-04:00"
+
+    def test_no_ends_keeps_an_expiry_after_the_onset(self):
+        alert = self._parse(onset="2026-09-23T15:33:00-04:00", ends=None)
+        assert alert["expires"] == "2026-09-24T05:00:00-04:00"
+
+    def test_no_ends_drops_an_expiry_before_the_onset(self):
+        alert = self._parse(onset="2026-09-25T20:00:00-04:00", ends=None)
+        assert alert["effective"] == "2026-09-25T20:00:00-04:00"
+        assert alert["expires"] == ""
+
+    def test_no_onset_falls_back_to_effective(self):
+        alert = self._parse()
+        assert alert["effective"] == "2026-09-23T15:33:00-04:00"
+        assert alert["expires"] == "2026-09-24T05:00:00-04:00"
+
+
 # ---------------------------------------------------------------------------
 # ECCC alerts parsing
 # ---------------------------------------------------------------------------
@@ -199,6 +233,13 @@ class TestBrightSkyAlerts:
             for key in ("event", "headline", "description", "severity", "effective", "expires",
                         "url"):
                 assert key in a, f"Missing normalized key: {key}"
+
+    def test_starts_at_the_onset(self):
+        """The frost begins at midnight, not when DWD issued the warning."""
+        from linecast.weather.sources import _fetch_alerts_brightsky
+        with patch("linecast.weather.sources.fetch_json_cached", return_value=self.data):
+            alerts = _fetch_alerts_brightsky(52.52, 13.405)
+        assert alerts[0]["effective"] == "2026-03-07T00:00:00+00:00"
 
 
 # ---------------------------------------------------------------------------

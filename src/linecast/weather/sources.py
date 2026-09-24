@@ -850,13 +850,32 @@ def _fetch_alerts_nws(lat, lng):
             "event": props.get("event", ""),
             "headline": props.get("headline", ""),
             "description": props.get("description", ""),
-            "effective": props.get("effective", ""),
-            "expires": props.get("expires", ""),
+            **_nws_window(props),
             "severity": props.get("severity", ""),
             "url": props.get("web", ""),
         })
     write_cache(cache_file, alerts)
     return alerts
+
+
+def _nws_window(props):
+    """The effective and expires of a normalized alert from NWS alert
+    properties: when the hazard begins and ends.
+
+    NWS's own effective and expires are the bulletin's: issued now, good
+    until the next update. A High Wind Watch for Saturday is issued on
+    Wednesday and expires Thursday morning, to be reissued. The event
+    runs from onset to ends. ends is null when there is no set end, and
+    then expires stands in, unless it falls before the onset, which says
+    nothing about the event at all.
+    """
+    start = props.get("onset") or props.get("effective") or ""
+    end = props.get("ends") or props.get("expires") or ""
+    if not props.get("ends"):
+        onset, expires = _parse_iso_aware(start), _parse_iso_aware(end)
+        if onset and expires and expires <= onset:
+            end = ""
+    return {"effective": start, "expires": end}
 
 
 def _fetch_alerts_eccc(lat, lng, lang="en"):
@@ -970,7 +989,7 @@ def _fetch_alerts_brightsky(lat, lng, lang="en"):
             "event": event.capitalize() if event else "",
             "headline": headline,
             "description": description,
-            "effective": a.get("effective", ""),
+            "effective": a.get("onset") or a.get("effective") or "",
             "expires": a.get("expires", ""),
             "severity": severity,
             "url": "",
@@ -1249,7 +1268,7 @@ def _fetch_alerts_meteoalarm(lat, lng, slug, lang="en", address=None):
             "event": event,
             "headline": info.get("headline") or event,
             "description": info.get("description") or "",
-            "effective": info.get("effective") or info.get("onset") or "",
+            "effective": info.get("onset") or info.get("effective") or "",
             "expires": info.get("expires") or "",
             "severity": severity,
             "url": info.get("web") or "",
@@ -2311,7 +2330,7 @@ def _sachet_alert_from_cap(entry, lang):
         "event": event or "Alert",
         "headline": headline or event,
         "description": description or headline,
-        "effective": info.get("effective") or info.get("onset") or "",
+        "effective": info.get("onset") or info.get("effective") or "",
         "expires": info.get("expires", ""),
         "severity": severity,
         "url": "https://sachet.ndma.gov.in/",
@@ -2470,7 +2489,7 @@ def _metservice_alert_from_cap(identifier, lat, lng):
         "event": event,
         "headline": headline or event,
         "description": " ".join(info.get("description", "").split()),
-        "effective": info.get("effective") or info.get("onset") or "",
+        "effective": info.get("onset") or info.get("effective") or "",
         "expires": info.get("expires", ""),
         "severity": severity,
         "url": info.get("web") or "https://www.metservice.com/warnings/home",
