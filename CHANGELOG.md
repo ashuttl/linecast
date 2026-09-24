@@ -58,6 +58,7 @@ Fixes:
 - Sky, moon: Stars, constellations, and the Milky Way line up with the Moon and planets. They were about a third of a degree off, which showed at the closest zoom.
 - Tides: With a free TideCheck key, linecast stays within the plan's fifty requests a day and shows cached tides until the next day, as the README said it did.
 - Radar: Cached NEXRAD frames are cleared after a day, like other sources' tiles, so the cache no longer grows without limit.
+- Install: The curl quick-start opens the sky with `sh -s sky`. It had turned the command away.
 
 ## 2.7.0 — 2026-09-19
 

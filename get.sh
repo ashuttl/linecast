@@ -131,9 +131,9 @@ main() {
     if [ "$#" -gt 0 ]; then shift; fi   # a bare shift is fatal in dash
 
     case "$cmd" in
-        weather|sunshine|moon|tides|radar|maps|linecast) ;;
+        weather|sunshine|moon|sky|tides|radar|maps|linecast) ;;
         -*) set -- "$cmd" "$@"; cmd=weather ;;  # bare flags like --metric
-        *) die "unknown command: $cmd (try weather, sunshine, moon, tides, radar, or maps)" ;;
+        *) die "unknown command: $cmd (try weather, sunshine, moon, sky, tides, radar, or maps)" ;;
     esac
 
     # Every command is a subcommand of the one linecast binary;
