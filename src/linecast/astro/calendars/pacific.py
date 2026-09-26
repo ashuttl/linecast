@@ -56,7 +56,7 @@ from datetime import timedelta
 from functools import lru_cache
 from typing import NamedTuple
 
-from linecast._ephemeris import (
+from linecast.astro.ephemeris import (
     _angular_separation,
     _gmst_deg,
     _moon_altitude_deg,
@@ -66,7 +66,7 @@ from linecast._ephemeris import (
     _sun_ra_dec,
     next_moon_phase_utc,
 )
-from linecast._calendars.lunisolar import _civil, _day_start_utc
+from linecast.astro.calendars.lunisolar import _civil, _day_start_utc
 
 
 class _Observer(NamedTuple):

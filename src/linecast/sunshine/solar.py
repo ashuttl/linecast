@@ -9,7 +9,7 @@ import time as _time
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
-from linecast._ephemeris import sun_declination
+from linecast.astro.ephemeris import sun_declination
 
 
 # ---------------------------------------------------------------------------

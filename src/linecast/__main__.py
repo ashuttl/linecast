@@ -19,7 +19,7 @@ def sky_now():
         from datetime import datetime, timezone
         from types import SimpleNamespace
         from linecast._runtime import resolve_icons
-        from linecast._ephemeris import moon_illuminated_fraction
+        from linecast.astro.ephemeris import moon_illuminated_fraction
         from linecast.moon.phase import moon_phase
         now = datetime.now(timezone.utc)
         icons, _source = resolve_icons()

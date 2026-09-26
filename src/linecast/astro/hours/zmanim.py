@@ -25,8 +25,8 @@ keep them; the Hijri module uses the same horizon at Mecca.
 from datetime import timedelta
 from functools import lru_cache
 
-from linecast._ephemeris import sun_depression_utc
-from linecast._hours import DayHours, Mark, elapsed, shift, utc
+from linecast.astro.ephemeris import sun_depression_utc
+from linecast.astro.hours import DayHours, Mark, elapsed, shift, utc
 
 OPINIONS = ("gra", "mga")
 OPINION_NAMES = {"gra": "Gr\"a", "mga": "Magen Avraham"}

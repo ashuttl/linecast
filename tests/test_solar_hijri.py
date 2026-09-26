@@ -14,7 +14,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from linecast._calendars.solar_hijri import (
+from linecast.astro.calendars.solar_hijri import (
     CHAHARSHANBE_SURI,
     IRST,
     MONTH_NAMES_EN,

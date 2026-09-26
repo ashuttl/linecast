@@ -59,9 +59,9 @@ def _season_label(event, lat, runtime):
 
 def _fmt_month_day(dt, runtime):
     """Format a month + day date in the runtime language's convention,
-    in the civil calendar (_calendars.civil): `23 Sep`, or `1 مهر` where
+    in the civil calendar (astro.calendars.civil): `23 Sep`, or `1 مهر` where
     the dates are Solar Hijri."""
-    from linecast._calendars.civil import SOLAR_HIJRI, civil_calendar, solar_hijri_day_month
+    from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar, solar_hijri_day_month
     lang = lang_of(runtime)
     if civil_calendar(lang) == SOLAR_HIJRI:
         return solar_hijri_day_month(dt, lang)
@@ -96,7 +96,7 @@ def _day_abbrev(dt, runtime):
 
 
 # ---------------------------------------------------------------------------
-# The lunisolar calendar's names (see _calendars/lunisolar.py for the calendar
+# The lunisolar calendar's names (see astro/calendars/lunisolar.py for the calendar
 # itself). Each calendar reads in its own script for its own language;
 # every other UI language gets the customary English renderings, the
 # same fallback the string tables use.
@@ -243,7 +243,7 @@ def ja_night_name(day):
 
 
 # ---------------------------------------------------------------------------
-# The Thai calendar's names (see _calendars/thai_lunar.py for the calendar
+# The Thai calendar's names (see astro/calendars/thai_lunar.py for the calendar
 # itself). Thai lunar dates are traditionally printed in Thai numerals
 # — ขึ้น ๘ ค่ำ เดือน ๓ — so the native labels keep them; the rest of
 # the UI stays with Arabic digits, as modern Thai print does.
@@ -434,7 +434,7 @@ def anahulu_name(night):
 
 
 # ---------------------------------------------------------------------------
-# The Islamic calendar's names (see _calendars/hijri.py for the calendar itself).
+# The Islamic calendar's names (see astro/calendars/hijri.py for the calendar itself).
 # Arabic is not a UI language, so the months are transliterated for
 # most readers; Indonesian gets the spellings its dictionary
 # standardizes, and Persian the names Iranian calendars print, with the
@@ -494,7 +494,7 @@ def hijri_sighting_note(lang):
 
 
 # ---------------------------------------------------------------------------
-# The Solar Hijri observances (see _calendars/solar_hijri.py), by the keys
+# The Solar Hijri observances (see astro/calendars/solar_hijri.py), by the keys
 # its next_observance returns: Persian names for Persian, the customary
 # English transliterations for everyone else. Nowruz is also counted
 # down to the moment of the equinox, تحویل سال, the turn of the year.
@@ -527,7 +527,7 @@ def year_turn_label(year, lang):
 
 
 # ---------------------------------------------------------------------------
-# The Hebrew calendar's names (see _calendars/hebrew.py for the calendar itself).
+# The Hebrew calendar's names (see astro/calendars/hebrew.py for the calendar itself).
 # Hebrew is not a UI language and terminals lay its script out
 # unreliably, so the months and holidays are transliterated, one
 # spelling for every reader: Tishrei, Cheshvan, Pesach.
@@ -570,7 +570,7 @@ _HEBREW_HOLIDAYS = {
 
 def hebrew_month_name(year, month):
     """The month's name; the twelfth is Adar I in a year with two Adars."""
-    from linecast._calendars.hebrew import is_leap_year
+    from linecast.astro.calendars.hebrew import is_leap_year
     if month == 12 and is_leap_year(year):
         return "Adar I"
     return _HEBREW_MONTHS[month - 1]
@@ -612,7 +612,7 @@ def hebrew_year_numeral(year):
 
 def hebrew_date_hebrew(year, month, day):
     """כ״ג תשרי תשפ״ז — the date in Hebrew letters, for --json."""
-    from linecast._calendars.hebrew import is_leap_year
+    from linecast.astro.calendars.hebrew import is_leap_year
     name = _HEBREW_MONTHS_HE[month - 1]
     if month == 12 and is_leap_year(year):
         name = "אדר א׳"

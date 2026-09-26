@@ -74,7 +74,7 @@ class TestPlanets:
         assert abs(mag - 7.8) < 0.2
 
     def test_venus_at_greatest_elongation(self):
-        from linecast._ephemeris import _sun_ra_dec
+        from linecast.astro.ephemeris import _sun_ra_dec
         when = _utc(2025, 6, 1)
         ra, dec, mag, _dist = planet_position("venus", when)
         sun_ra, sun_dec = _sun_ra_dec(when)
@@ -169,7 +169,7 @@ def _angle_between(a, b):
 
 
 def _precessed(ra, dec, centuries):
-    from linecast._ephemeris import precession_matrix
+    from linecast.astro.ephemeris import precession_matrix
     m = precession_matrix(centuries)
     x, y, z = (math.cos(math.radians(dec)) * math.cos(math.radians(ra)),
                math.cos(math.radians(dec)) * math.sin(math.radians(ra)),
@@ -185,7 +185,7 @@ class TestPrecession:
     """The catalogue is J2000; the sky it is drawn against is of date."""
 
     def test_the_matrix_is_the_identity_at_the_epoch(self):
-        from linecast._ephemeris import precession_matrix
+        from linecast.astro.ephemeris import precession_matrix
         assert precession_matrix(0.0) == pytest.approx(
             (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0), abs=1e-15)
 
@@ -225,7 +225,7 @@ class TestPrecession:
         assert _angle_between(_precessed(ra, dec, centuries), want) < 1.0
 
     def test_the_round_trip_returns_the_star(self):
-        from linecast._ephemeris import precess_from_j2000, precess_to_j2000
+        from linecast.astro.ephemeris import precess_from_j2000, precess_to_j2000
         moment = NIGHT.astimezone(timezone.utc)
         ra, dec = precess_from_j2000(101.2872, -16.7161, moment)
         assert _angle_between(precess_to_j2000(ra, dec, moment),
@@ -242,7 +242,7 @@ class TestPrecession:
         own share of it, which is what says the matrix is in the frame
         and not something else.
         """
-        from linecast._ephemeris import _alt_az_deg
+        from linecast.astro.ephemeris import _alt_az_deg
         from linecast.sky.catalogue import equatorial_vector, star_vectors, stars
         from linecast.sky.view import _mat_apply
         moment = NIGHT.astimezone(timezone.utc)
@@ -272,7 +272,7 @@ class TestPrecession:
 # ---------------------------------------------------------------------------
 class TestScene:
     def test_sun_and_moon_agree_with_the_ephemeris(self):
-        from linecast._ephemeris import (
+        from linecast.astro.ephemeris import (
             _moon_altitude_deg, _moon_azimuth_deg, sun_alt_az_deg,
         )
         moment = NIGHT.astimezone(timezone.utc)

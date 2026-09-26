@@ -11,7 +11,7 @@ Positions are J2000 in the file, here, and in everything built from
 them — the constellation figures, the Milky Way raster, the Messier
 objects beside them — and are precessed to the equinox of date at render
 time, since the Sun, the Moon and the planets they are drawn among are
-computed there (`_ephemeris.precession_at`, `sky.Scene.catalogue`).
+computed there (`astro.ephemeris.precession_at`, `sky.Scene.catalogue`).
 """
 
 import gzip

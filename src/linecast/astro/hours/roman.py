@@ -16,8 +16,8 @@ fourth watches. Latin is Latin in every language.
 
 from functools import lru_cache
 
-from linecast._ephemeris import sun_depression_utc
-from linecast._hours import DayHours, Mark, elapsed, shift
+from linecast.astro.ephemeris import sun_depression_utc
+from linecast.astro.hours import DayHours, Mark, elapsed, shift
 
 HORIZON_DEG = 0.833
 

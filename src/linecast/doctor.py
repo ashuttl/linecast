@@ -464,7 +464,7 @@ def _collect_preferences():
         hours = native or "none"
         hours_source = f"auto: {language}" if native else "auto"
     from linecast._bidi import resolve_digits
-    from linecast._calendars.civil import SOLAR_HIJRI, resolve_dates
+    from linecast.astro.calendars.civil import SOLAR_HIJRI, resolve_dates
     dates, dates_source = resolve_dates(language, env)
     dates = "solar-hijri" if dates == SOLAR_HIJRI else "gregorian"
     digits, digits_source = resolve_digits(language, env)

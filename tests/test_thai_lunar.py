@@ -12,7 +12,7 @@ from datetime import date
 from linecast.moon.i18n import (
     thai_festival_name, thai_lunar_label, thai_year_label, wan_phra_label,
 )
-from linecast._calendars.thai_lunar import (
+from linecast.astro.calendars.thai_lunar import (
     _festival_key, cs_year, is_wan_phra, next_thai_festival, next_wan_phra,
     thai_lunar_date, year_animal_index,
 )

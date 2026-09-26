@@ -1,7 +1,7 @@
 """Where the planets are: positions and brightness, for the sky view.
 
 Low-precision ephemeris after Paul Schlyter, the companion to the Sun
-and Moon in `_ephemeris.py`: Keplerian elements for each planet at a
+and Moon in `astro/ephemeris.py`: Keplerian elements for each planet at a
 2000 epoch and their rates, one Kepler solve, and the few perturbation
 terms that matter at arcminute precision — Jupiter and Saturn on each
 other, both on Uranus. Positions come out within a couple of arcminutes
@@ -17,7 +17,7 @@ Source: https://stjarnhimlen.se/comp/ppcomp.html
 
 import math
 
-from linecast._ephemeris import _julian_day, _obliquity, _sun_ecliptic
+from linecast.astro.ephemeris import _julian_day, _obliquity, _sun_ecliptic
 
 PLANETS = ("mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune")
 

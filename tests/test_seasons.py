@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._seasons import (  # noqa: E402
+from linecast.astro.seasons import (  # noqa: E402
     DECEMBER_SOLSTICE,
     JUNE_SOLSTICE,
     MARCH_EQUINOX,

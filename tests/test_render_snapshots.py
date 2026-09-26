@@ -325,7 +325,7 @@ class TestMoonSnapshot:
         hemisphere test drew.
         """
         from datetime import timezone
-        from linecast._ephemeris import _moon_parallactic_deg
+        from linecast.astro.ephemeris import _moon_parallactic_deg
 
         moment = datetime(2026, 3, 5, 4, 0, tzinfo=timezone.utc)
         north = _moon_parallactic_deg(moment, 0.5, 36.8)
@@ -340,7 +340,7 @@ class TestMoonSnapshot:
         setting the tilt sweeps most of the way in between.
         """
         from datetime import timedelta, timezone
-        from linecast._ephemeris import (
+        from linecast.astro.ephemeris import (
             _moon_altitude_deg, _moon_parallactic_deg,
         )
 
@@ -590,7 +590,7 @@ class TestEphemerisAccuracy:
 
     def test_principal_phases_land_within_a_quarter_hour(self):
         from datetime import timedelta, timezone
-        from linecast._ephemeris import next_moon_phase_utc
+        from linecast.astro.ephemeris import next_moon_phase_utc
 
         for target, stamp in self.PHASES:
             want = datetime.strptime(stamp, "%Y-%m-%d %H:%M").replace(
@@ -602,7 +602,7 @@ class TestEphemerisAccuracy:
 
     def test_disc_is_full_when_the_almanac_says_full(self):
         from datetime import timezone
-        from linecast._ephemeris import moon_illuminated_fraction
+        from linecast.astro.ephemeris import moon_illuminated_fraction
 
         full = datetime(2026, 3, 3, 11, 37, tzinfo=timezone.utc)
         new = datetime(2026, 3, 19, 1, 23, tzinfo=timezone.utc)
@@ -612,7 +612,7 @@ class TestEphemerisAccuracy:
     def test_moon_position_within_a_tenth_of_a_degree(self):
         """Geocentric RA/dec against pyephem, which uses ELP2000."""
         from datetime import timezone
-        from linecast._ephemeris import _moon_ra_dec
+        from linecast.astro.ephemeris import _moon_ra_dec
 
         # (UTC, RA deg, dec deg)
         known = [
@@ -632,7 +632,7 @@ class TestEphemerisAccuracy:
     def test_bright_limb_points_at_the_sun(self):
         """The lit edge must face the Sun, wherever both happen to be."""
         from datetime import timezone
-        from linecast._ephemeris import (
+        from linecast.astro.ephemeris import (
             _moon_altitude_deg, _moon_parallactic_deg, moon_bright_limb_deg,
         )
 

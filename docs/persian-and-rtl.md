@@ -97,7 +97,7 @@ The pass alone gives correct text in left-to-right positions. That is a large st
 
 ### The language
 
-The tables: a block in every `*i18n*.py` table and in `_hours/i18n.py`, plus everything the adding-a-language checklist names (in Claude's project memory; it belongs in CONTRIBUTING.md) (`LANGUAGES`, `LANG_CODES`, the `--lang` help, the README count and language paragraphs, `fmt_hour_phrase`, `CULTURE_TITLES`, the asterisms, `WIKIDATA_LANG`). Roughly 500 strings, most of them the weather prose. Translate as earlier languages were: agents working from a written brief, one JSON file per table, merged by script, then read against real forecasts with `linecast prose --lang fa`.
+The tables: a block in every `*i18n*.py` table and in `astro/hours/i18n.py`, plus everything the adding-a-language checklist names (in Claude's project memory; it belongs in CONTRIBUTING.md) (`LANGUAGES`, `LANG_CODES`, the `--lang` help, the README count and language paragraphs, `fmt_hour_phrase`, `CULTURE_TITLES`, the asterisms, `WIKIDATA_LANG`). Roughly 500 strings, most of them the weather prose. Translate as earlier languages were: agents working from a written brief, one JSON file per table, merged by script, then read against real forecasts with `linecast prose --lang fa`.
 
 Guidance for the translators:
 
@@ -114,11 +114,11 @@ Data sources:
 - Maps: tiles carry `name:fa`, and `maps/labels.py` already builds `name:{lang}`. Check that the Natural Earth basemap in `radar/basemap.py` has a Persian key.
 - Sky: add `"fa": "fa"` to `WIKIDATA_LANG` and rebake as that checklist describes. Wikidata labels 86 constellations in Persian; checked this session, and the same count holds for Hebrew, Arabic, and Urdu (Urdu's might be transliterations; check). Check the star labels against fa.wikipedia's first sentences, since many labels will be transliterations of the IAU names. Persian has its own traditional star names through al-Sufi (عبدالرحمن صوفی رازی), whose *Book of Fixed Stars* is behind many IAU names. A Persian or Arabic sky culture could be added later; Stellarium has Arabic cultures to start from.
 - Alerts: Iran is not among the 45 alert countries, and IRIMO does not appear to publish a CAP feed. Leave it, and say so in SOURCES.md.
-- Prayer times: the Tehran method is already the default for Iran (`_hours/prayer_times.py`, `"IR": "tehran"`), and Saturday is already Iran's first day of the week (`SATURDAY_FIRST_COUNTRIES`). Name the times as Iranian timetables (اوقات شرعی) do: اذان صبح، طلوع آفتاب، اذان ظهر، غروب آفتاب، اذان مغرب، نیمه‌شب شرعی. Check whether the module gives the Shia midnight.
+- Prayer times: the Tehran method is already the default for Iran (`astro/hours/prayer_times.py`, `"IR": "tehran"`), and Saturday is already Iran's first day of the week (`SATURDAY_FIRST_COUNTRIES`). Name the times as Iranian timetables (اوقات شرعی) do: اذان صبح، طلوع آفتاب، اذان ظهر، غروب آفتاب، اذان مغرب، نیمه‌شب شرعی. Check whether the module gives the Shia midnight.
 
 ### Calendars
 
-A new `_calendars/solar_hijri.py`. The months are fixed: six of 31 days, five of 30, and Esfand of 29 or 30. Only the first day of the year needs astronomy: 1 Farvardin is the day of the March equinox if the equinox falls before noon at 52.5° E (Iran Standard Time, UTC+3:30), and the day after if it falls later. The app's ephemeris already computes the equinox. Test cases: the 2025 equinox at 09:01 UTC is 12:31 IRST, after noon, so 1 Farvardin 1404 is 21 March 2025; the 2026 equinox at 14:46 UTC puts 1 Farvardin 1405 on 21 March 2026. Check a span of years against the tables of the Calendar Center of the University of Tehran's Institute of Geophysics, as the Hijri module was checked against Umm al-Qura's.
+A new `astro/calendars/solar_hijri.py`. The months are fixed: six of 31 days, five of 30, and Esfand of 29 or 30. Only the first day of the year needs astronomy: 1 Farvardin is the day of the March equinox if the equinox falls before noon at 52.5° E (Iran Standard Time, UTC+3:30), and the day after if it falls later. The app's ephemeris already computes the equinox. Test cases: the 2025 equinox at 09:01 UTC is 12:31 IRST, after noon, so 1 Farvardin 1404 is 21 March 2025; the 2026 equinox at 14:46 UTC puts 1 Farvardin 1405 on 21 March 2026. Check a span of years against the tables of the Calendar Center of the University of Tehran's Institute of Geophysics, as the Hijri module was checked against Umm al-Qura's.
 
 Where it shows:
 
@@ -143,7 +143,7 @@ Each has its own questions:
 
 ## What was built
 
-All of Stages 0 to 6 are on `next`, each in its own commits: the output pass (`_bidi.py`), keys under non-Latin layouts (`_keylayouts.py`), the Solar Hijri calendar and the civil-date hook (`_calendars/solar_hijri.py`, `_calendars/civil.py`), the Persian strings and the sky names, the right-to-left layout, the Iranian prayer timetable, `linecast dates` and `linecast digits`, the doctor rows, and these docs.
+All of Stages 0 to 6 are on `next`, each in its own commits: the output pass (`_bidi.py`), keys under non-Latin layouts (`_keylayouts.py`), the Solar Hijri calendar and the civil-date hook (`astro/calendars/solar_hijri.py`, `astro/calendars/civil.py`), the Persian strings and the sky names, the right-to-left layout, the Iranian prayer timetable, `linecast dates` and `linecast digits`, the doctor rows, and these docs.
 
 Andrew's decisions: time charts are mirrored; Persian digits by default; Solar Hijri as the date throughout; لا in two joined cells; no native reader yet.
 

@@ -35,7 +35,7 @@ to the Hawaiian star lines. The sky draws the one highlighted; Enter
 keeps it, Escape puts the sky back. `--culture` or `linecast culture`
 picks one to open on, and Chinese brings its own with the language.
 
-Positions come from `_ephemeris.py` and `sky/planets.py`, good to a few
+Positions come from `astro/ephemeris.py` and `sky/planets.py`, good to a few
 arcminutes, which is finer than a cell at the closest zoom.
 """
 
@@ -53,7 +53,7 @@ from linecast._theme import (
     best_contrast, darken, ensure_contrast, is_light_theme, lerp_rgb, lighten,
     neutral_tone, surface_bg, theme_legacy_mode,
 )
-from linecast._ephemeris import (
+from linecast.astro.ephemeris import (
     _alt_az_deg, _gmst_deg, _moon_parallactic_deg, _moon_ra_dec, _sun_ra_dec,
     moon_axis_deg, moon_bright_limb_deg, moon_horizontal_parallax_deg,
     moon_illuminated_fraction, precession_at,

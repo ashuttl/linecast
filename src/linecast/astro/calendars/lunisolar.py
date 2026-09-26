@@ -24,7 +24,7 @@ import math
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
-from linecast._ephemeris import _sun_ecliptic, next_moon_phase_utc
+from linecast.astro.ephemeris import _sun_ecliptic, next_moon_phase_utc
 from linecast._i18n import setting
 
 # The four calendars, each computed at its own meridian (hours east

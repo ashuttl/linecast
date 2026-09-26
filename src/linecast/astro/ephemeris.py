@@ -679,7 +679,7 @@ def moon_horizontal_parallax_deg(dt_utc):
 # ---------------------------------------------------------------------------
 # The Sun's day: transit, and the moments it reaches a depression
 #
-# The traditional hours (_hours and its tables) want the moment the Sun
+# The traditional hours (astro.hours and its tables) want the moment the Sun
 # is a given angle below the horizon, rising or setting, for angles the
 # 0.833° horizon does not cover: 16.1° for alot hashachar, 7°21′40″ for
 # the Edo 明六つ, 18° for Fajr. Each is one root of the altitude on one

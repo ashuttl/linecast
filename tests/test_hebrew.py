@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from linecast._calendars.hebrew import (
+from linecast.astro.calendars.hebrew import (
     HOLIDAYS,
     days_in_month,
     days_in_year,
@@ -26,7 +26,7 @@ from linecast._calendars.hebrew import (
     next_month_start,
     rosh_chodesh,
 )
-from linecast._calendars.hijri import after_sunset
+from linecast.astro.calendars.hijri import after_sunset
 from linecast.moon.i18n import (
     hebrew_date_hebrew, hebrew_date_label, hebrew_holiday_name,
     hebrew_month_name, hebrew_numeral, hebrew_year_numeral,

@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
-from linecast._calendars.civil import (
+from linecast.astro.calendars.civil import (
     GREGORIAN, SOLAR_HIJRI, civil_calendar, dates_choice, resolve_dates,
     shift_month, solar_hijri_date_label, solar_hijri_day_month,
     solar_hijri_day_of_year, solar_hijri_month_title,

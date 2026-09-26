@@ -144,20 +144,20 @@ def day_hours(system, local_date, lat, lng, tzinfo=None, variant=None,
     """The table's answer for a civil date at a place, or None for a
     system this build does not know."""
     if system == "halachic":
-        from linecast._hours.zmanim import zmanim
+        from linecast.astro.hours.zmanim import zmanim
         return zmanim(local_date, lat, lng, tzinfo, opinion=variant)
     if system == "roman":
-        from linecast._hours.roman import roman_hours
+        from linecast.astro.hours.roman import roman_hours
         return roman_hours(local_date, lat, lng, tzinfo)
     if system == "japanese":
-        from linecast._hours.wadokei import wadokei
+        from linecast.astro.hours.wadokei import wadokei
         return wadokei(local_date, lat, lng, tzinfo)
     if system == "islamic":
-        from linecast._hours.prayer_times import prayer_times
+        from linecast.astro.hours.prayer_times import prayer_times
         return prayer_times(local_date, lat, lng, tzinfo, method=variant,
                             country=country)
     if system == "swahili":
-        from linecast._hours.swahili import swahili_hours
+        from linecast.astro.hours.swahili import swahili_hours
         return swahili_hours(local_date, tzinfo)
     return None
 

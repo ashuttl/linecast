@@ -21,15 +21,15 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from linecast._hours import (
+from linecast.astro.hours import (
     DayHours, Mark, day_hours, hours_now, last_mark, next_mark, reading, resolve_hours,
 )
-from linecast._hours.prayer_times import (
+from linecast.astro.hours.prayer_times import (
     METHODS, default_method, default_school, prayer_times,
 )
-from linecast._hours.roman import roman_hours
-from linecast._hours.wadokei import wadokei
-from linecast._hours.zmanim import zmanim
+from linecast.astro.hours.roman import roman_hours
+from linecast.astro.hours.wadokei import wadokei
+from linecast.astro.hours.zmanim import zmanim
 from linecast._runtime import RuntimeConfig
 
 PLACES = {
@@ -447,7 +447,7 @@ def test_candle_lighting_on_friday_only():
 def test_jerusalem_lights_candles_forty_minutes_before_sunset():
     """The city's custom, and Hebcal's default for it; Tel Aviv and
     Beit Shemesh keep eighteen."""
-    from linecast._hours.zmanim import candles_minutes
+    from linecast.astro.hours.zmanim import candles_minutes
     tz = ZoneInfo("Asia/Jerusalem")
     friday = zmanim(date(2026, 9, 18), 31.778, 35.235, tz)
     marks = {m.key: m.at for m in friday.marks}
@@ -1176,7 +1176,7 @@ class TestPrayerTimes:
 
     def test_names_and_the_corner(self):
         from linecast.sunshine.hours import corner_reading, hours_line
-        from linecast._hours.i18n import mark_name, mark_native, variant_name
+        from linecast.astro.hours.i18n import mark_name, mark_native, variant_name
         tz = ZoneInfo("Asia/Riyadh")
         hours = prayer_times(date(2026, 3, 5), 21.4225, 39.8262, tz, None, "SA")
         noon = datetime(2026, 3, 5, 12, 0, tzinfo=tz)
@@ -1198,7 +1198,7 @@ class TestPrayerTimes:
         """The prayer names are transliterated but sunrise is not a
         name: French reads it as the line above does. Indonesian and
         Turkish cards have a word of their own for it."""
-        from linecast._hours.i18n import mark_name
+        from linecast.astro.hours.i18n import mark_name
         assert mark_name("islamic", "sunrise", _runtime(lang="fr")) == "lever du soleil"
         assert mark_name("islamic", "sunrise", _runtime(lang="de")) == "Sonnenaufgang"
         assert mark_name("islamic", "sunrise", _runtime(lang="id")) == "Terbit"
@@ -1335,7 +1335,7 @@ class TestPrayerTimes:
         """Persian reads the Iranian timetable's own names; Turkish and
         Indonesian have their own words; elsewhere sunset and midnight
         read in the language's own word, as sunrise does."""
-        from linecast._hours.i18n import mark_name, mark_native
+        from linecast.astro.hours.i18n import mark_name, mark_native
         from linecast.sunshine.hours import hours_line
         fa, en, fr = _runtime(lang="fa"), _runtime(), _runtime(lang="fr")
         assert mark_name("islamic", "sunset", fa) == "غروب آفتاب"
@@ -1435,7 +1435,7 @@ class TestClockChanges:
 
     def test_the_night_of_the_fall_back_is_an_hour_longer_than_the_clock_says(self):
         hours = zmanim(date(2026, 11, 1), *self.BROOKLYN, self.NY)
-        from linecast._hours import elapsed
+        from linecast.astro.hours import elapsed
         night = elapsed(hours.prev_day_end, hours.day_start)
         assert timedelta(hours=13, minutes=32) < night < timedelta(hours=13, minutes=34)
         chatzot = [m.at for m in hours.marks if m.key == "chatzot_halayla"][0]
@@ -1451,7 +1451,7 @@ class TestClockChanges:
         now = datetime(2026, 11, 1, 1, 0, tzinfo=self.NY, fold=0)
         coming = next_mark(hours, now)
         assert coming.key == "alot"
-        from linecast._hours import elapsed
+        from linecast.astro.hours import elapsed
         left = elapsed(now, coming.at)
         assert timedelta(hours=5, minutes=3) < left < timedelta(hours=5, minutes=4)
 
@@ -1461,9 +1461,9 @@ class TestClockChanges:
         assert 3720 < r.hour_seconds < 3730
 
     def test_every_system_places_its_night_marks_by_real_time(self):
-        from linecast._hours import elapsed
-        from linecast._hours.roman import roman_hours
-        from linecast._hours.wadokei import wadokei
+        from linecast.astro.hours import elapsed
+        from linecast.astro.hours.roman import roman_hours
+        from linecast.astro.hours.wadokei import wadokei
         for build in (roman_hours, wadokei):
             hours = build(date(2026, 11, 1), *self.BROOKLYN, self.NY)
             night = elapsed(hours.prev_day_end, hours.day_start)

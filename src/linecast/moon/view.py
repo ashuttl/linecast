@@ -14,7 +14,7 @@ Moon's parallactic angle — near pole-up from the north, close to "upside
 down" from the south, and turning steadily between moonrise and moonset —
 and the terminator lies square to the bright limb, which points at the Sun.
 
-Times and positions come from `_ephemeris.py`, which is good to a couple
+Times and positions come from `astro/ephemeris.py`, which is good to a couple
 of arcminutes: the principal phases land within a quarter of an hour of
 the published ones, which is the accuracy an almanac is read at.
 
@@ -37,13 +37,13 @@ from linecast._i18n import fmt_decimal, fmt_duration_parts, lang_of
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
-from linecast._calendars.lunisolar import (
+from linecast.astro.calendars.lunisolar import (
     CALENDAR_MERIDIAN_HOURS, calendar_is_native, current_term,
     lunisolar_date, next_lunar_event, next_term, resolve_calendar,
 )
-from linecast._calendars.hebrew import hebrew_date, next_holiday
-from linecast._calendars.hebrew import next_month_start as next_hebrew_month
-from linecast._calendars.hijri import (
+from linecast.astro.calendars.hebrew import hebrew_date, next_holiday
+from linecast.astro.calendars.hebrew import next_month_start as next_hebrew_month
+from linecast.astro.calendars.hijri import (
     after_sunset, hijri_date, next_month_start, next_observance,
 )
 from linecast.moon.i18n import (
@@ -55,18 +55,18 @@ from linecast.moon.i18n import (
     thai_festival_name, thai_lunar_label, thai_year_label, wan_phra_label,
     year_turn_label,
 )
-from linecast._calendars.civil import (
+from linecast.astro.calendars.civil import (
     SOLAR_HIJRI, civil_calendar, solar_hijri_day_of_year,
 )
-from linecast._calendars.pacific import (
+from linecast.astro.calendars.pacific import (
     ANAHULU_COUNSEL, COUNSEL_SOURCE_LINE, PACIFIC_CALENDARS, night_note,
     pacific_night,
 )
-from linecast._calendars.thai_lunar import (
+from linecast.astro.calendars.thai_lunar import (
     is_wan_phra, next_thai_festival, next_wan_phra, thai_lunar_date,
     year_animal_index,
 )
-from linecast._seasons import full_moon_name, next_season_event
+from linecast.astro.seasons import full_moon_name, next_season_event
 from linecast._textwidth import char_width
 from linecast.tides.i18n import _ts  # shared "space to return to now" hint
 from linecast._runtime import (
@@ -74,7 +74,7 @@ from linecast._runtime import (
 )
 from linecast import _theme
 from linecast.radar.i18n import rs
-from linecast._ephemeris import (
+from linecast.astro.ephemeris import (
     _moon_altitude_deg, _moon_azimuth_deg, _moon_events_for_local_date,
     _moon_parallactic_deg, _moon_ra_dec, _moon_transits_for_local_date,
     moon_age_days,
@@ -156,7 +156,7 @@ YEAR_TURN_WINDOW = timedelta(days=30)
 def next_year_turn(now_local):
     """(Solar Hijri year, UTC instant) of the next تحویل سال after
     *now_local*: the March equinox that begins the year."""
-    from linecast._calendars import solar_hijri
+    from linecast.astro.calendars import solar_hijri
     now_utc = now_local.astimezone(timezone.utc)
     year = solar_hijri.solar_hijri_date(now_local.date())[0]
     for yy in (year, year + 1):
@@ -183,7 +183,7 @@ def solar_hijri_lines(now_local, runtime):
     line, counted down to the equinox itself, to the second on its last
     day, and Nowruz's day-count line gives way to it.
     """
-    from linecast._calendars import solar_hijri
+    from linecast.astro.calendars import solar_hijri
     lang = lang_of(runtime)
     today = now_local.date()
     turn_txt = None

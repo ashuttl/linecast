@@ -2,7 +2,7 @@
 
 In live mode `v` flips the moon between the disc and this grid: the
 civil month laid out week by week — the Gregorian month, or where the
-dates are Solar Hijri (_calendars.civil) a Solar Hijri month such as
+dates are Solar Hijri (astro.calendars.civil) a Solar Hijri month such as
 مهر ۱۴۰۵, each cell carrying its Gregorian day small in the corner.
 Each day carries its phase drawn with the same shading as the big
 disc, the principal phases and today called out, and — when a
@@ -24,20 +24,20 @@ import calendar
 from datetime import date, datetime, time, timedelta, timezone
 
 from linecast import _live, _theme
-from linecast._ephemeris import _moon_events_for_local_date, next_moon_phase_utc
+from linecast.astro.ephemeris import _moon_events_for_local_date, next_moon_phase_utc
 from linecast._framebuffer import fmt_time_dt
 from linecast._graphics import (
     Framebuffer, bg, cell_aspect, fg, get_terminal_size, overlay, visible_len,
 )
 from linecast._i18n import base_language, lang_of, table_for
-from linecast._calendars.lunisolar import (
+from linecast.astro.calendars.lunisolar import (
     CALENDAR_MERIDIAN_HOURS, calendar_is_native, lunisolar_date,
     resolve_calendar,
 )
-from linecast._calendars.hebrew import hebrew_date, holiday_key, rosh_chodesh
-from linecast._calendars.hijri import hijri_date, observance_key
-from linecast._calendars import solar_hijri
-from linecast._calendars.civil import (
+from linecast.astro.calendars.hebrew import hebrew_date, holiday_key, rosh_chodesh
+from linecast.astro.calendars.hijri import hijri_date, observance_key
+from linecast.astro.calendars import solar_hijri
+from linecast.astro.calendars.civil import (
     SOLAR_HIJRI, civil_calendar, shift_month, solar_hijri_month_title,
 )
 from linecast.moon.i18n import (
@@ -50,11 +50,11 @@ from linecast.moon.i18n import (
     thai_festival_name, thai_lunar_label, thai_month_label,
     vi_month_label, wan_phra_label, zh_month_label,
 )
-from linecast._calendars.pacific import PACIFIC_CALENDARS, pacific_night
-from linecast._calendars.thai_lunar import (
+from linecast.astro.calendars.pacific import PACIFIC_CALENDARS, pacific_night
+from linecast.astro.calendars.thai_lunar import (
     _festival_key as thai_festival_key, is_wan_phra, thai_lunar_date,
 )
-from linecast._seasons import full_moon_name
+from linecast.astro.seasons import full_moon_name
 from linecast._textwidth import char_width
 from linecast._theme import darken, ensure_contrast, is_light_theme, surface_bg
 from linecast.tides.i18n import _ts

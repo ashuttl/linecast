@@ -41,8 +41,8 @@ country's announced dates may differ from these by a day.
 from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
 
-from linecast._ephemeris import _moon_altitude_deg, next_moon_phase_utc
-from linecast._calendars.pacific import _Observer, _setting_instant, _sun_alt_az_deg
+from linecast.astro.ephemeris import _moon_altitude_deg, next_moon_phase_utc
+from linecast.astro.calendars.pacific import _Observer, _setting_instant, _sun_alt_az_deg
 
 _SYNODIC_DAYS = 29.530589
 # The Great Mosque, Mecca; UTC+3 is Saudi Arabia's one time zone.

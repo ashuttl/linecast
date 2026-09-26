@@ -27,7 +27,7 @@ from 1925 to 2123, and they first part in 2124 (1503 SH), whose
 equinox falls two minutes before true noon at 52.5° E and half a
 minute after mean noon at Tehran.
 
-The equinox is _seasons.season_event_utc, Meeus's series less ΔT (the
+The equinox is astro.seasons.season_event_utc, Meeus's series less ΔT (the
 IERS values to 2025, the Morrison–Stephenson parabola beyond). Against the
 Calendar Center's published instants for 1396–1405 SH it is within
 half a minute. The closest year to the line between 1925 and 2123 is
@@ -51,8 +51,8 @@ its date here is the Tuesday, whose evening it is.
 from datetime import timedelta, timezone
 from functools import lru_cache
 
-from linecast._ephemeris import sun_transit_utc
-from linecast._seasons import MARCH_EQUINOX, season_event_utc
+from linecast.astro.ephemeris import sun_transit_utc
+from linecast.astro.seasons import MARCH_EQUINOX, season_event_utc
 
 # Iran Standard Time, the mean time of the 52.5° E meridian.
 IRST = timezone(timedelta(hours=3, minutes=30))

@@ -29,7 +29,7 @@ the part of the day.
 
 from datetime import datetime, time, timedelta
 
-from linecast._hours import DayHours
+from linecast.astro.hours import DayHours
 
 # (from hour, name), in order through the civil day: CLDR's dayPeriods
 # for sw, which the University of Kansas lesson on saa agrees with hour

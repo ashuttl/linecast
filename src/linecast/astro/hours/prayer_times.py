@@ -54,8 +54,8 @@ import math
 from datetime import timedelta
 from functools import lru_cache
 
-from linecast._ephemeris import sun_declination, sun_depression_utc, sun_transit_utc
-from linecast._hours import DayHours, Mark, elapsed, shift
+from linecast.astro.ephemeris import sun_declination, sun_depression_utc, sun_transit_utc
+from linecast.astro.hours import DayHours, Mark, elapsed, shift
 
 HORIZON_DEG = 0.833
 IMSAK_MINUTES = 10
@@ -201,7 +201,7 @@ def _angle_based(at, base, angle, night, before):
 
 
 def is_ramadan(local_date):
-    from linecast._calendars.hijri import hijri_date
+    from linecast.astro.calendars.hijri import hijri_date
     return hijri_date(local_date)[1] == RAMADAN
 
 

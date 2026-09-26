@@ -269,7 +269,7 @@ class TestHoursBlock:
 
     def test_halachic_block_lists_the_marks_in_order(self):
         from zoneinfo import ZoneInfo
-        from linecast._hours import hours_now
+        from linecast.astro.hours import hours_now
         tz = ZoneInfo("Asia/Jerusalem")
         now = datetime(2026, 9, 15, 14, 30, tzinfo=tz)
         hours, now = hours_now("halachic", now, 31.778, 35.235, tz)

@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._ephemeris import (  # noqa: E402
+from linecast.astro.ephemeris import (  # noqa: E402
     moon_illuminated_fraction,
     moon_phase_frac,
     next_moon_phase_utc,

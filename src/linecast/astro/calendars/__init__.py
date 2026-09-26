@@ -8,5 +8,5 @@ Samoa, and the Marianas, from the first visible crescent), hijri (the
 Umm al-Qura rule, from the ephemeris at Mecca), and hebrew (the fixed
 arithmetic). lunisolar.resolve_calendar picks which one the moon
 shows, from the flag, the saved setting, or the language. The sun's
-hours are the same shape in _hours.
+hours are the same shape in astro.hours.
 """

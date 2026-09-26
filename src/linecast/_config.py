@@ -83,7 +83,7 @@ def saved_week_start() -> str | None:
 
 def saved_dates() -> str | None:
     """Return 'gregorian' or 'solar-hijri' saved via `linecast dates`, or None."""
-    from linecast._calendars.civil import dates_choice
+    from linecast.astro.calendars.civil import dates_choice
     return dates_choice(read_config().get("dates"))
 
 

@@ -131,7 +131,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     `now` is the shown moment as a datetime, scrubbing included; when
     given, the corner names its time beside the place, and its weekday
     when that is not the user's own. `hours` is the day read in a
-    tradition's hours (a _hours.DayHours) for the top-left corner and
+    tradition's hours (an astro.hours.DayHours) for the top-left corner and
     the marks line under the chart, which costs the chart a row.
     """
     if runtime is None:
@@ -431,11 +431,11 @@ def _named_night(day, runtime):
     """شب یلدا on 30 Azar where the dates are Solar Hijri, else None."""
     if day is None:
         return None
-    from linecast._calendars.civil import SOLAR_HIJRI, civil_calendar
+    from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar
     lang = lang_of(runtime)
     if civil_calendar(lang) != SOLAR_HIJRI:
         return None
-    from linecast._calendars.solar_hijri import observance_key
+    from linecast.astro.calendars.solar_hijri import observance_key
     if observance_key(day) != "yalda":
         return None
     from linecast.moon.i18n import solar_hijri_observance_name
@@ -502,7 +502,7 @@ def main():
     # setting, or the language; None keeps the civil clock alone. The
     # table is built for the shown moment's date, cached by date, so
     # scrubbing pays for it once a day.
-    from linecast._hours import hours_now, resolve_hours
+    from linecast.astro.hours import hours_now, resolve_hours
     hours_system, hours_variant = resolve_hours(args.hours, runtime.lang)
     # The prayer-time method follows the country of the place shown.
     # resolve_location leaves the country blank for an override, so

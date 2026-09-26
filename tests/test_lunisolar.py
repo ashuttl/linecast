@@ -8,9 +8,9 @@ these are end-to-end checks of the month, day, and leap arithmetic.
 
 from datetime import date, datetime, timedelta, timezone
 
-from linecast._ephemeris import next_moon_phase_utc
+from linecast.astro.ephemeris import next_moon_phase_utc
 from linecast._i18n import LOCALE_CODES, setting
-from linecast._calendars.lunisolar import (
+from linecast.astro.calendars.lunisolar import (
     CALENDAR_MERIDIAN_HOURS,
     calendar_is_native,
     _civil,
@@ -198,7 +198,7 @@ class TestLabels:
         assert term_label(10, "de") == "End of Heat"
 
     def test_every_calendar_has_names_and_a_meridian(self):
-        # The Thai calendar is arithmetic (see _calendars.thai_lunar and
+        # The Thai calendar is arithmetic (see astro.calendars.thai_lunar and
         # test_thai_lunar), and the Islamic one is lunar (Persian's; see
         # test_hijri), so neither carries a meridian or solar terms.
         for lang in LOCALE_CODES:
@@ -232,7 +232,7 @@ class TestLabels:
 class TestResolveCalendar:
     def test_flag_beats_saved_beats_language(self):
         from linecast._config import read_config, write_config
-        from linecast._calendars.lunisolar import resolve_calendar
+        from linecast.astro.calendars.lunisolar import resolve_calendar
         original = read_config()
         try:
             assert resolve_calendar(None, "en") is None

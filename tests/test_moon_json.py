@@ -74,7 +74,7 @@ class TestPhase:
         assert abs(p["age_days"] - frac * SYNODIC_MONTH) < 1.0
 
     def test_age_is_measured_from_the_last_new_moon(self):
-        from linecast._ephemeris import next_moon_phase_utc
+        from linecast.astro.ephemeris import next_moon_phase_utc
 
         last_new = next_moon_phase_utc(FIXED_NOW, 0.0, backwards=True)
         elapsed = (FIXED_NOW - last_new).total_seconds() / 86400.0
@@ -157,7 +157,7 @@ class TestHemisphereAndAltitude:
         due south (northern hemisphere) with the bearing increasing
         through it, which is the property a compass hint depends on.
         """
-        from linecast._ephemeris import _moon_altitude_deg, _moon_azimuth_deg
+        from linecast.astro.ephemeris import _moon_altitude_deg, _moon_azimuth_deg
 
         samples = []
         for hour in range(24):
@@ -236,7 +236,7 @@ class TestAlmanacCalendarBlock:
 
 class TestMoonTransits:
     def test_upper_transit_crosses_the_meridian(self):
-        from linecast._ephemeris import (
+        from linecast.astro.ephemeris import (
             _moon_azimuth_deg, _moon_altitude_deg,
             _moon_transits_for_local_date,
         )

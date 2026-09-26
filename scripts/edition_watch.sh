@@ -50,7 +50,7 @@ body_file=$(mktemp)
 {
     echo "The council has published its $newest lunar calendars: $page"
     echo
-    echo "The Pacific calendars derive each first night from crescent visibility, and the tests check them against every month the council prints. The new edition's months belong in \`tests/test_pacific.py\`: \`PUBLISHED_MONTHS\` from the Hawaiʻi classroom PDF, \`SAMOAN_MONTHS\` from the American Samoa one, and \`MARIANAS_MONTHS\` from the Guam or CNMI one (they print the same dates); then bump \`LATEST_EDITION\` there. If a month disagrees with the engine, the cutoff is what to recalibrate — the docstring of \`src/linecast/_calendars/pacific.py\` says how."
+    echo "The Pacific calendars derive each first night from crescent visibility, and the tests check them against every month the council prints. The new edition's months belong in \`tests/test_pacific.py\`: \`PUBLISHED_MONTHS\` from the Hawaiʻi classroom PDF, \`SAMOAN_MONTHS\` from the American Samoa one, and \`MARIANAS_MONTHS\` from the Guam or CNMI one (they print the same dates); then bump \`LATEST_EDITION\` there. If a month disagrees with the engine, the cutoff is what to recalibrate — the docstring of \`src/linecast/astro/calendars/pacific.py\` says how."
     echo
     echo "Opened by the scheduled edition watch. It will not open another issue for $newest."
 } > "$body_file"

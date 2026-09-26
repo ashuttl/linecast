@@ -5,7 +5,7 @@ Reference: Meeus, "Astronomical Algorithms" (2nd ed.), ch. 49.
 
 from datetime import timezone
 
-from linecast._ephemeris import moon_phase_frac
+from linecast.astro.ephemeris import moon_phase_frac
 from linecast._glyphs import _icon_set
 from linecast._runtime import RuntimeConfig, current_runtime
 

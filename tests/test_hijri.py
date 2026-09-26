@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from linecast._calendars.hijri import (
+from linecast.astro.calendars.hijri import (
     OBSERVANCES,
     RULE_EPOCH,
     _tabular_start,

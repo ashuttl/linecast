@@ -27,8 +27,8 @@ count and the time of day, 'morning four', and the animal's hour.
 
 from functools import lru_cache
 
-from linecast._ephemeris import sun_depression_utc
-from linecast._hours import DayHours, Mark, elapsed, shift
+from linecast.astro.ephemeris import sun_depression_utc
+from linecast.astro.hours import DayHours, Mark, elapsed, shift
 
 # 7°21′40″: the Sun's centre, below the horizon, at 明六つ and 暮六つ.
 DAWN_DEG = 7 + 21 / 60 + 40 / 3600
@@ -97,7 +97,7 @@ def wadokei(local_date, lat, lng, tzinfo=None):
 def koku_name(r, runtime):
     """The koku a moment falls in, with 半 for its second half: 昼四つ半
     in Japanese, 'morning four ½' elsewhere."""
-    from linecast._hours.i18n import mark_name
+    from linecast.astro.hours.i18n import mark_name
     key = (NIGHT_KOKU if r.night else DAY_KOKU)[r.index][0]
     name = mark_name("japanese", key, runtime, short=True)
     if r.fraction < 0.5:

@@ -116,8 +116,8 @@ def _hours_block(hours, now):
     and every mark with its name, in order. None with no system on."""
     if hours is None:
         return None
-    from linecast._hours import elapsed, fmt_duration, next_mark, reading
-    from linecast._hours.i18n import (
+    from linecast.astro.hours import elapsed, fmt_duration, next_mark, reading
+    from linecast.astro.hours.i18n import (
         mark_name, mark_native, reading_name, variant_name,
     )
     from linecast._runtime import RuntimeConfig, current_runtime
@@ -139,7 +139,7 @@ def _hours_block(hours, now):
         }
         # Swahili time, as it is said aloud, for a voice to read.
         if hours.system == "swahili":
-            from linecast._hours.swahili import moment, spoken
+            from linecast.astro.hours.swahili import moment, spoken
             reading_now["spoken"] = spoken(moment(r))
     marks = []
     for mark in hours.marks:
@@ -180,7 +180,7 @@ def build_payload(lat, lng, now=None, location=None, hours=None):
     timezone to its zone — that's how a pinned location in another time
     zone gets that location's local times. *location* overrides the
     display name (skips the geocode lookup). *hours* is the day read
-    in a tradition's hours (a _hours.DayHours), for an `hours` block.
+    in a tradition's hours (an astro.hours.DayHours), for an `hours` block.
     """
     from linecast.sunshine.solar import polar_state, solar_times, sun_elevation
 

@@ -17,7 +17,7 @@ in the reader's digits.
 import os
 from datetime import datetime
 
-from linecast._calendars import solar_hijri
+from linecast.astro.calendars import solar_hijri
 from linecast._i18n import base_language, setting
 
 GREGORIAN = "gregorian"

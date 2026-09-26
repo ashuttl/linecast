@@ -162,13 +162,13 @@ def reading_name(system, r, runtime):
     """The reading of a moment in the system's own terms: '4:20' of the
     halachic hours, 'night 4:20' after sunset; 'hora quarta'; '昼四つ半'."""
     if system == "roman":
-        from linecast._hours.roman import hour_name
+        from linecast.astro.hours.roman import hour_name
         return hour_name(r, runtime)
     if system == "japanese":
-        from linecast._hours.wadokei import koku_name
+        from linecast.astro.hours.wadokei import koku_name
         return koku_name(r, runtime)
     if system == "swahili":
-        from linecast._hours.swahili import moment, saa
+        from linecast.astro.hours.swahili import moment, saa
         return saa(moment(r))
     clock = f"{r.index}:{int(r.fraction * 60):02d}"
     return f"{hs('night', runtime)} {clock}" if r.night else clock
@@ -177,10 +177,10 @@ def reading_name(system, r, runtime):
 def variant_name(system, variant):
     """What the table's opinion or method is called."""
     if system == "halachic":
-        from linecast._hours.zmanim import OPINION_NAMES
+        from linecast.astro.hours.zmanim import OPINION_NAMES
         return OPINION_NAMES.get(variant)
     if system == "islamic" and variant:
-        from linecast._hours.prayer_times import METHOD_SHORT
+        from linecast.astro.hours.prayer_times import METHOD_SHORT
         method, _hyphen, school = variant.partition("-")
         name = METHOD_SHORT.get(method, method)
         return f"{name} · {school.capitalize()}" if school else name

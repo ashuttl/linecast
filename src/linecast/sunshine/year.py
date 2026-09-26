@@ -437,7 +437,7 @@ def _hover_tooltip(lat, lng, hover_x, mouse_row, graph_w, graph_h, cols, rows,
                  f"{icons['sunset_icon']} ")
 
     # Where the dates are Solar Hijri, the Gregorian date rides beside.
-    from linecast._calendars.civil import SOLAR_HIJRI, civil_calendar
+    from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar
     from linecast.moon.i18n import gregorian_month_day
     lang = runtime.lang
     gregorian = (f"{gregorian_month_day(date, lang)} · "
@@ -495,8 +495,8 @@ def _month_ticks(year, days, graph_w, runtime):
     numbered otherwise, as Iranian dates number them (1405/7/1). The
     month running on 1 January is labelled at the edge only when its
     label fits before the next month's."""
-    from linecast._calendars import solar_hijri
-    from linecast._calendars.civil import (
+    from linecast.astro.calendars import solar_hijri
+    from linecast.astro.calendars.civil import (
         SOLAR_HIJRI, civil_calendar, solar_hijri_month_name,
     )
     lang = runtime.lang

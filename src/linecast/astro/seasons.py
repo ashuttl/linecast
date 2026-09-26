@@ -4,7 +4,7 @@ The equinox and solstice instants come from the series in Meeus,
 *Astronomical Algorithms*, chapter 27 — valid 1000–3000 CE and good to
 a minute or so.  The series gives Terrestrial Time, which runs about 69
 seconds ahead of UTC today; ΔT is taken off, so the instants are UTC,
-as Nowruz's moment of تحویل سال must be (_calendars.solar_hijri).
+as Nowruz's moment of تحویل سال must be (astro.calendars.solar_hijri).
 
 Full moon names follow the Old Farmer's Almanac: one traditional name
 per month, except that the full moon nearest the September equinox is

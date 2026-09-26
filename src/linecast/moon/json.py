@@ -11,7 +11,7 @@ strings and missing values become None rather than raising.
 from calendar import isleap
 from datetime import timedelta, timezone
 
-from linecast._seasons import full_moon_name, next_season_event
+from linecast.astro.seasons import full_moon_name, next_season_event
 from linecast.sunshine.json import _iso, _local_timezone_name, _location_label
 
 SCHEMA_VERSION = 1
@@ -27,7 +27,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     the saved setting and language the same way the panel resolves it.
     """
     from linecast.moon.i18n import _moon_name
-    from linecast._ephemeris import (
+    from linecast.astro.ephemeris import (
         _moon_altitude_deg, _moon_azimuth_deg, moon_age_days,
     )
     from linecast.moon.view import (
@@ -68,14 +68,14 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     # The traditional calendar, resolved exactly as the panel resolves
     # it, so the two agree; null when no calendar is in effect.
     from linecast._i18n import lang_of
-    from linecast._calendars.lunisolar import (
+    from linecast.astro.calendars.lunisolar import (
         CALENDAR_MERIDIAN_HOURS, calendar_is_native, current_term,
         lunisolar_date, next_lunar_event, next_term, resolve_calendar,
     )
     from linecast.moon.i18n import (
         festival_table, ja_night_name, lunar_date_label, term_label,
     )
-    from linecast._calendars.pacific import PACIFIC_CALENDARS
+    from linecast.astro.calendars.pacific import PACIFIC_CALENDARS
     lang = lang_of(runtime)
     cal = resolve_calendar(calendar, lang)
     calendar_block = None
@@ -87,7 +87,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         from linecast.moon.i18n import (
             anahulu_name, pacific_night_name, refaluwasch_name,
         )
-        from linecast._calendars.pacific import (
+        from linecast.astro.calendars.pacific import (
             ANAHULU_COUNSEL, COUNSEL_ATTRIBUTION, COUNSEL_URL,
             night_note, pacific_night,
         )
@@ -112,7 +112,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
     elif cal == "almanac":
         # The Old Farmer's reading: which half of the month it is, and
         # the day's solunar periods.
-        from linecast._ephemeris import (
+        from linecast.astro.ephemeris import (
             _moon_events_for_local_date, _moon_transits_for_local_date,
         )
         upper, lower = _moon_transits_for_local_date(
@@ -132,7 +132,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         # reader's sunset as the panel turns it, the month's length,
         # the coming month, and the next observance — today's, once
         # the evening that opens it has come.
-        from linecast._calendars.hijri import (
+        from linecast.astro.calendars.hijri import (
             after_sunset, days_in_month, hijri_date, next_month_start,
             next_observance,
         )
@@ -169,12 +169,12 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         # a JSON consumer can do better), the year's shape, the coming
         # month, the holiday in progress, and the next holiday, by
         # the scheme of the place (*israel*).
-        from linecast._calendars.hebrew import (
+        from linecast.astro.calendars.hebrew import (
             days_in_month, days_in_year, hebrew_date, holiday_key,
             is_leap_year, next_holiday,
         )
-        from linecast._calendars.hebrew import next_month_start as next_hebrew_month
-        from linecast._calendars.hijri import after_sunset
+        from linecast.astro.calendars.hebrew import next_month_start as next_hebrew_month
+        from linecast.astro.calendars.hijri import after_sunset
         from linecast.moon.i18n import (
             hebrew_date_hebrew, hebrew_date_label, hebrew_holiday_name,
             hebrew_month_name,
@@ -213,7 +213,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         from linecast.moon.i18n import (
             thai_festival_name, thai_lunar_label, thai_year_label,
         )
-        from linecast._calendars.thai_lunar import (
+        from linecast.astro.calendars.thai_lunar import (
             cs_year, is_wan_phra, next_thai_festival, next_wan_phra,
             thai_lunar_date, year_animal_index,
         )
