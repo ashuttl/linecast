@@ -44,18 +44,20 @@ from array import array
 from collections import namedtuple
 from operator import itemgetter
 
-from linecast import _cache, _live, _theme
+from linecast import _cache
+from linecast.terminal import live as _live
+from linecast.terminal import theme as _theme
 from linecast.maps import climate as _climate
 from linecast.maps import globe as _globe
 from linecast.maps import paint
 from linecast.maps import style
-from linecast._color import BG_PRIMARY, color_mode
-from linecast._live import nudge as _nudge_repaint
+from linecast.terminal.color import BG_PRIMARY, color_mode
+from linecast.terminal.live import nudge as _nudge_repaint
 from linecast._paths import cache_dir, data_path
 from linecast.radar.basemap import _BITS, DotLayer, _bresenham, _load_data
 from linecast.radar.tiles import _TILE_SIZE
 from linecast._runtime import log_failure
-from linecast._scenes import Memo
+from linecast.terminal.scenes import Memo
 
 # mask bits, one texel to a byte
 SAMPLED = 0x80   # on the planet at all, so padding is in neither mask
@@ -761,7 +763,7 @@ _texture_cache = Memo(keep=_TEXTURE_KEEP)
 # A bake fails on the network or on the disk, and neither is mended by
 # the next repaint: without the wait every frame would start a worker
 # to fail the same way, and a live view repaints many times a second.
-# `_scenes.FetchHold`'s bargain, with a failure in place of a gesture.
+# `terminal.scenes.FetchHold`'s bargain, with a failure in place of a gesture.
 _BAKE_HOLD_S = 30.0
 
 _pending = set()

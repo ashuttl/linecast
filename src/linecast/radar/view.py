@@ -29,13 +29,13 @@ Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--theme NAME]
 
 import time as _time
 
-from linecast._color import fg, RESET
-from linecast._framebuffer import get_terminal_size
-from linecast import _theme
+from linecast.terminal.color import fg, RESET
+from linecast.terminal.framebuffer import get_terminal_size
+from linecast.terminal import theme as _theme
 from linecast.radar import frames as _radar_frames
 from linecast.radar import layers as _radar_layers
 from linecast.radar import warnings as _radar_warnings
-from linecast._live import overlay
+from linecast.terminal.live import overlay
 from linecast.radar.basemap import DotLayer, _point_in_rings  # noqa: F401 — re-exported
 from linecast.radar.i18n import rs
 from linecast.radar.render import bbox_for, _bbox_key, compose
@@ -46,7 +46,7 @@ from linecast.radar.frames import (  # noqa: F401
     _nudge, _play_gate, _safe_load, _sat_timeline, _view_key,
 )
 from linecast.radar.sources import has_radar
-from linecast._scenes import Memo, SceneCache
+from linecast.terminal.scenes import Memo, SceneCache
 # the tests reach the view helpers through this module
 from linecast.radar.ui import (  # noqa: F401
     CROSSHAIR, DIM, MARKER, MUTED, _ShiftedBasemap, _build_warning_tooltip,
@@ -54,8 +54,8 @@ from linecast.radar.ui import (  # noqa: F401
     _theme_menu_overlay, _timeline_bar,
 )
 from linecast._runtime import log_failure, use_metric
-from linecast._graphics import visible_len
-from linecast._spinner import SPINNER_FRAMES
+from linecast.terminal.graphics import visible_len
+from linecast.terminal.spinner import SPINNER_FRAMES
 
 # display layers, toggled by the s key: precipitation (5-min frames) or
 # the satellite cloud mosaic alone (hourly, deeper timeline)
@@ -116,7 +116,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     use_24h = runtime.use_24h if runtime else False
     source = _radar_frames._source
     cols, rows = get_terminal_size()
-    from linecast import _help
+    from linecast.terminal import help as _help
     live = bool(getattr(runtime, 'live', False))
     foot_width = cols - visible_len(_help.hint(lang, cols)) - 2 if live else cols
     graph_w = max(20, cols)

@@ -32,7 +32,7 @@ from linecast.maps.mvt import (
 from linecast._png import DecodeMemo
 from linecast.radar.basemap import DotLayer, _bresenham, _edge_dots
 from linecast._runtime import debug_log, log_failure
-from linecast._theme import lerp_rgb
+from linecast.terminal.theme import lerp_rgb
 from linecast.maps.vtiles import (fetch_tiles, iter_layer, prefetch_tiles,
                               tile_info, tiles_for_bbox)
 

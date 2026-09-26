@@ -6,8 +6,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from linecast import _color, _theme
-from linecast._graphics import visible_len
+from linecast.terminal import color as _color
+from linecast.terminal import theme as _theme
+from linecast.terminal.graphics import visible_len
 from linecast._runtime import WeatherRuntime
 from linecast.weather.daily import render_daily_mapped
 from linecast.weather.hourly import (

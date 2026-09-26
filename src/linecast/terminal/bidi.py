@@ -187,7 +187,7 @@ def orders_text_itself(environ=None):
     decides; the variables it sets are asked only when it has not said,
     or a multiplexer answered for it, since a terminal started from a
     Konsole shell inherits KONSOLE_VERSION without being Konsole."""
-    from linecast import _term
+    from linecast.terminal import term as _term
     env = os.environ if environ is None else environ
     said = (_term.terminal_name or "").lower()
     for name, _variable, _value in _ORDERS_TEXT_ITSELF:
@@ -1268,7 +1268,7 @@ def _order_piece(tokens, state, mirror=None, col=None):
         # Laid out from the right: the segments trade sides, and a row
         # shorter than the screen is padded on the left
         seg_orders.reverse()
-        from linecast._textwidth import visible_len
+        from linecast.terminal.textwidth import visible_len
         widths = [0 if c[0][0] in _CONTROLS else visible_len(c[0]) for c in cells]
         cols = sum(widths)
         # The background is the picture's, not the text's: each column

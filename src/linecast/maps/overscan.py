@@ -32,7 +32,7 @@ from operator import itemgetter, or_
 from linecast.maps import globe as _globe
 from linecast.maps.hover import HoverIndex
 from linecast.radar.basemap import _BITS
-from linecast._scenes import Memo
+from linecast.terminal.scenes import Memo
 
 # The margin is a MARGIN'th of the window on each side.  Measured at
 # 160x45 with tiles on disk: an eighth each side (1.25x in each

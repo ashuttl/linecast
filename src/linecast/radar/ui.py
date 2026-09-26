@@ -12,10 +12,11 @@ is the picker's state; live routes the keys to it.
 import datetime as _dt
 import threading
 
-from linecast import _live, _theme
-from linecast._color import fg, bg, RESET
-from linecast._framebuffer import fmt_time_dt
-from linecast._theme import ensure_contrast
+from linecast.terminal import live as _live
+from linecast.terminal import theme as _theme
+from linecast.terminal.color import fg, bg, RESET
+from linecast.terminal.framebuffer import fmt_time_dt
+from linecast.terminal.theme import ensure_contrast
 from linecast.weather.style import TOOLTIP_BG_RGB
 from linecast.radar.basemap import (
     Basemap, _point_in_rings, marine_region, nearest_city,
@@ -24,7 +25,7 @@ from linecast.radar.i18n import rs
 from linecast.radar.render import _bbox_key
 from linecast.radar.sources import THEMES, is_local
 from linecast._runtime import log_failure, use_metric
-from linecast._scenes import Memo
+from linecast.terminal.scenes import Memo
 
 MUTED = _live.MUTED
 DIM = (110, 114, 130)

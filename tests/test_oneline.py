@@ -14,7 +14,7 @@ for _key in sorted(sys.modules):
     if _key == "linecast" or _key.startswith("linecast."):
         del sys.modules[_key]
 
-from linecast._oneline import (
+from linecast.terminal.oneline import (
     weather_oneline, sunshine_oneline, moon_oneline, tides_oneline,
 )
 from linecast._runtime import WeatherRuntime, TidesRuntime, RuntimeConfig

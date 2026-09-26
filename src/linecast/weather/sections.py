@@ -5,14 +5,14 @@ import functools
 import math
 from datetime import datetime, timedelta
 
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast._i18n import (
     base_language, fallbacks, fmt_decimal, fmt_percent, has_text, lang_of, sentence_24h,
     table_for,
 )
-from linecast._graphics import RESET, visible_len
+from linecast.terminal.graphics import RESET, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure, log_skipped
-from linecast._textwidth import wrap_display_width
+from linecast.terminal.textwidth import wrap_display_width
 from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import (
     fmt_wind, _precip_s,
@@ -27,7 +27,7 @@ from linecast.weather.sources import _local_now_for_data
 
 
 def location_control(name, width, runtime):
-    from linecast._help import fit
+    from linecast.terminal.help import fit
     from linecast.weather.locations_i18n import ls
     return fit(name or ls('locations', runtime.lang), max(0, min(width - 6, width // 2))) + ' ▼'
 
@@ -158,7 +158,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
     if location_menu:
         loc_part = location_chip(location_control(location_name, width, runtime))
     elif location_name:
-        from linecast._help import fit
+        from linecast.terminal.help import fit
         loc_part = location_chip(fit(location_name, max(0, min(width - 4, width // 2))))
 
     def _join_right(*parts):
@@ -215,7 +215,7 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
             result = _assemble(compact, loc_part)
             if result:
                 return result
-        from linecast._help import fit
+        from linecast.terminal.help import fit
         room = max(0, width - visible_len(loc_part) - 1)
         core = f"{icon} {name}" + (f" {temp:.0f}{deg}" if temp is not None else "")
         plain = fit(core, room)
@@ -580,7 +580,7 @@ def _time_phrase(dt, now, runtime, after=None, same_sentence=False):
     if dt.date() == now.date():
         if dt.hour == 12 and _has("around_noon", runtime):
             return _s("around_noon", runtime)
-        from linecast._framebuffer import fmt_hour_phrase
+        from linecast.terminal.framebuffer import fmt_hour_phrase
         return _s("around", runtime,
                   time=fmt_hour_phrase(dt.hour, sentence_24h(runtime), lang))
     tomorrow = (now + timedelta(days=1)).date()

@@ -77,7 +77,7 @@ class TestFormatting:
         assert solar_hijri_month_title(1405, 7, "fa") == "مهر 1405"
 
     def test_persian_digits_come_from_the_output_pass(self):
-        from linecast import _bidi
+        from linecast.terminal import bidi as _bidi
         _bidi.configure("fa", {})
         shown = _bidi.display(solar_hijri_date_label(date(2026, 9, 23), "fa"))
         assert "۱۴۰۵" in shown and "۱" in shown and "1" not in shown

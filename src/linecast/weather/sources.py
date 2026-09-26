@@ -93,7 +93,7 @@ def observed_credit(observed, lang="en", metric=False, use_24h=False, tz_name=""
     code where `named` is false or there is no name. None without a
     report. The place stays in English, as the reports write it."""
     from linecast.weather.i18n import _STRINGS
-    from linecast._framebuffer import fmt_time_dt
+    from linecast.terminal.framebuffer import fmt_time_dt
     from linecast._i18n import lookup
     if not observed or not observed.get("station"):
         return None

@@ -8,10 +8,11 @@ import math
 import threading
 import time
 
-from linecast import _live, _theme
-from linecast._graphics import lerp
+from linecast.terminal import live as _live
+from linecast.terminal import theme as _theme
+from linecast.terminal.graphics import lerp
 from linecast._runtime import log_failure
-from linecast._theme import darken
+from linecast.terminal.theme import darken
 from linecast.moon.palette import MOON_LIT_RGB, MOON_SHADOW_RGB
 
 _theme.track_imports(globals(), "linecast.moon.palette")

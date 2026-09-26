@@ -19,7 +19,7 @@ if _src not in sys.path:
 from linecast.maps import view as maps
 from linecast.maps import globe as _globe
 from linecast.maps import views
-from linecast._color import BG_PRIMARY
+from linecast.terminal.color import BG_PRIMARY
 from linecast.radar.basemap import _BITS
 from linecast.radar.i18n import rs
 from linecast.radar.render import bbox_for

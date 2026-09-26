@@ -9,8 +9,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _scenes
-from linecast._scenes import FetchHold, Memo, SceneCache
+from linecast.terminal import scenes as _scenes
+from linecast.terminal.scenes import FetchHold, Memo, SceneCache
 
 
 def _settle(cache, key, timeout=2.0):

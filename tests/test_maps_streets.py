@@ -25,7 +25,7 @@ if _src not in sys.path:
 
 from linecast.maps import streets as st
 from linecast.maps import style as _maps_style
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast.radar.basemap import DotLayer
 from linecast.maps.vtiles import projector
 

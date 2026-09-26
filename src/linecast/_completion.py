@@ -11,7 +11,7 @@ parsers accept free text.
 
 from __future__ import annotations
 
-from linecast._bidi import DIGITS_CHOICES
+from linecast.terminal.bidi import DIGITS_CHOICES
 from linecast.astro.calendars.civil import DATES_CHOICES
 from linecast._config import CALENDAR_CHOICES, CULTURE_CHOICES, HOURS_CHOICES
 from linecast._i18n import LANGUAGE_CODES, VARIANTS

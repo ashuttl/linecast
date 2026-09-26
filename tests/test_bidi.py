@@ -11,12 +11,12 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _bidi  # noqa: E402
-from linecast._bidi import (  # noqa: E402
+from linecast.terminal import bidi as _bidi  # noqa: E402
+from linecast.terminal.bidi import (  # noqa: E402
     FSI, LRI, PDI, RLI, bidi_class, bracket_info, display, joining_type,
     resolve_levels, visual_order,
 )
-from linecast._textwidth import visible_len  # noqa: E402
+from linecast.terminal.textwidth import visible_len  # noqa: E402
 
 FIXTURE = Path(__file__).parent / "fixtures" / "bidi_character_test.txt"
 
@@ -261,7 +261,7 @@ class TestPersian:
 
 class TestTerminal:
     def test_explicit_mode_is_asked_for_and_given_back(self, monkeypatch):
-        from linecast._live import bidi_modes
+        from linecast.terminal.live import bidi_modes
         assert bidi_modes() == ("\033[8l", "\033[8h")
         monkeypatch.setenv("TMUX", "/tmp/tmux-1000/default,1,0")
         on, off = bidi_modes()
@@ -269,7 +269,7 @@ class TestTerminal:
         assert off.startswith("\033[8h")
 
     def test_frame_paint_orders_the_body_and_the_overlay(self):
-        from linecast._live import frame_paint
+        from linecast.terminal.live import frame_paint
         out = frame_paint("שלום", "\033[2;1Hאב")
         assert "םולש" in out and "בא" in out
 
@@ -307,7 +307,7 @@ class TestMirroring:
         assert _plain(display("ab ▌")) == "ab ▌"
 
     def test_arrows_follow_the_mirrored_axis(self):
-        from linecast._live import _arrow
+        from linecast.terminal.live import _arrow
         # The _bidi _live reads: test_oneline re-imports linecast
         bidi = _arrow.__globals__["_bidi"]
         bidi.configure("fa", {})
@@ -388,15 +388,15 @@ class TestKnownTerminals:
 
     @pytest.fixture(autouse=True)
     def _no_name(self, monkeypatch):
-        from linecast import _term
+        from linecast.terminal import term as _term
         monkeypatch.setattr(_term, "terminal_name", None)
 
     def _named(self, monkeypatch, name):
-        from linecast import _term
+        from linecast.terminal import term as _term
         monkeypatch.setattr(_term, "terminal_name", name)
 
     def test_the_reply_names_the_terminal(self):
-        from linecast import _term
+        from linecast.terminal import term as _term
         reply = "\033P>|Konsole 26.08.1\033\\\033[1;2R"
         assert _term.note_terminal_name(reply) == "Konsole 26.08.1"
 

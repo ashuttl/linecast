@@ -8,9 +8,10 @@ from contextlib import redirect_stdout
 
 import pytest
 
-from linecast import _bidi, _config
+from linecast import _config
+from linecast.terminal import bidi as _bidi
 from linecast.settings import digits
-from linecast._bidi import digits_choice, resolve_digits
+from linecast.terminal.bidi import digits_choice, resolve_digits
 
 _SGR = re.compile(r"\x1b\[[0-9;]*m")
 

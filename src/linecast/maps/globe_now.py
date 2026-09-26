@@ -36,8 +36,8 @@ from linecast._geo import wrap_lon
 from linecast.maps.globe import _aspect, _source_zoom, bilinear_taps, geometry
 from linecast._png import decode_rgba
 from linecast._runtime import log_failure
-from linecast._scenes import Memo
-from linecast._theme import themed
+from linecast.terminal.scenes import Memo
+from linecast.terminal.theme import themed
 from linecast.sunshine.solar import _declination
 
 ATTRIBUTION = "Clouds: LibreWXR · CC BY 4.0"
@@ -150,7 +150,7 @@ def _noise_grid():
 # night floor per channel: dark enough to read as night, blue enough to
 # read as moonlight, bright enough to leave the geography legible.
 # The sky's inks pass through the theme's hue transfer like the ground's
-# (_theme.themed), so night on a green-monochrome terminal is green
+# (terminal.theme.themed), so night on a green-monochrome terminal is green
 # moonlight and its cities burn in the theme's own warm.
 #
 # The street register keeps a higher floor, in either projection,
@@ -168,7 +168,7 @@ def _rebuild():
 
 
 _rebuild()
-from linecast import _theme  # noqa: E402 — the hook needs the palette above
+from linecast.terminal import theme as _theme  # noqa: E402 — the hook needs the palette above
 _theme.on_reload(_rebuild)
 
 

@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._textwidth import char_width, visible_len
+from linecast.terminal.textwidth import char_width, visible_len
 
 
 class TestCharWidth:
@@ -50,20 +50,20 @@ class TestWrappingRespectsMarks:
     HINDI = "आपके क्षेत्र में बिजली गिरने की संभावना है। सुरक्षित भवनों में शरण लें।"
 
     def test_hindi_wrap_lines_fit(self):
-        from linecast._textwidth import wrap_display_width
+        from linecast.terminal.textwidth import wrap_display_width
         for width in (10, 24, 40):
             for line in wrap_display_width(self.HINDI, width):
                 assert visible_len(line) <= width
 
     def test_hindi_wrap_loses_nothing(self):
-        from linecast._textwidth import wrap_display_width
+        from linecast.terminal.textwidth import wrap_display_width
         lines = wrap_display_width(self.HINDI, 24)
         assert "".join(lines).replace(" ", "") == self.HINDI.replace(" ", "")
 
     def test_thai_sentence_space_never_opens_or_closes_a_line(self):
         # Thai sets its sentences apart with two spaces; a line break
         # falling on them takes both
-        from linecast._textwidth import wrap_display_width
+        from linecast.terminal.textwidth import wrap_display_width
         text = ("อุณหภูมิสูงสุดวันนี้จะใกล้เคียงกับเมื่อวาน  ความชื้นสูงทำให้รู้สึกอุ่นขึ้น  "
                 "จะมีฝนละอองราว 09.00 น. และเปลี่ยนเป็นฝนซู่เล็กน้อยราว 13.00 น.  "
                 "ในช่วง 24 ชั่วโมงที่ผ่านมามีฝนตก 11.6 มม.")
@@ -72,7 +72,7 @@ class TestWrappingRespectsMarks:
                 assert line == line.strip(" "), (width, line)
 
     def test_truncation_keeps_trailing_marks_with_their_base(self):
-        from linecast._textwidth import truncate_display_width, visible_len
+        from linecast.terminal.textwidth import truncate_display_width, visible_len
         out = truncate_display_width("वर्षा" * 4, 11)
         # The cut falls before a column-bearing character, so a virama
         # never strands: the tail keeps its consonant's marks.
@@ -84,11 +84,11 @@ class TestWrappingRespectsMarks:
 
 class TestClusterCappedModel:
     def setup_method(self):
-        from linecast import _textwidth
+        from linecast.terminal import textwidth as _textwidth
         _textwidth.set_cluster_capped(True)
 
     def teardown_method(self):
-        from linecast import _textwidth
+        from linecast.terminal import textwidth as _textwidth
         _textwidth.set_cluster_capped(False)
 
     def test_conjunct_with_matra_caps_at_two(self):
@@ -108,7 +108,7 @@ class TestClusterCappedModel:
         assert visible_len("\U0001f327") == 2
 
     def test_default_model_adds_characters_up(self):
-        from linecast import _textwidth
+        from linecast.terminal import textwidth as _textwidth
         _textwidth.set_cluster_capped(False)
         assert visible_len("वर्षा") == 4
         assert visible_len("क्षेत्र") == 4  # same either way: े is nonspacing
@@ -118,14 +118,14 @@ class TestMeasuredWidths:
     """What the terminal answers overrides what the table assumes."""
 
     def _measured(self, **widths):
-        from linecast import _textwidth
+        from linecast.terminal import textwidth as _textwidth
         before = dict(_textwidth._MEASURED)
         _textwidth._MEASURED.clear()
         _textwidth._MEASURED.update(widths)
         return before
 
     def _restore(self, before):
-        from linecast import _textwidth
+        from linecast.terminal import textwidth as _textwidth
         _textwidth._MEASURED.clear()
         _textwidth._MEASURED.update(before)
 
@@ -207,14 +207,14 @@ class TestProbeTimeout:
 
 class TestCalibration:
     def test_cpr_parsing(self):
-        from linecast._textwidth import _cpr_widths
+        from linecast.terminal.textwidth import _cpr_widths
         assert _cpr_widths("\033[12;3R") == [2]
         assert _cpr_widths("garbage\033[7;3Rtrailing\033[7;5R") == [2, 4]
         assert _cpr_widths("\033[12R") == []
         assert _cpr_widths("") == []
 
     def test_probe_is_a_noop_without_a_tty(self):
-        from linecast import _textwidth
+        from linecast.terminal import textwidth as _textwidth
         _textwidth.calibrate_from_terminal(timeout_s=0.01)
         assert _textwidth._CLUSTER_CAPPED is False
         assert _textwidth.measured_widths() == {}
@@ -228,7 +228,7 @@ class TestLineBreaksWithoutSpaces:
             "今夜氷点下となり、最低−2度の見込み。")
 
     def test_no_line_opens_on_closing_punctuation(self):
-        from linecast._textwidth import wrap_display_width
+        from linecast.terminal.textwidth import wrap_display_width
         for width in range(12, 80):
             rows = wrap_display_width(self.TEXT, width)
             assert "".join(rows) == self.TEXT
@@ -236,7 +236,7 @@ class TestLineBreaksWithoutSpaces:
             assert not any(row[0] in "、。" for row in rows[1:]), (width, rows)
 
     def test_a_number_keeps_its_unit_and_its_sign(self):
-        from linecast._textwidth import wrap_display_width
+        from linecast.terminal.textwidth import wrap_display_width
         for width in range(12, 80):
             rows = wrap_display_width(self.TEXT, width)
             for before, after in zip(rows, rows[1:]):
@@ -246,7 +246,7 @@ class TestLineBreaksWithoutSpaces:
 
 
 def test_a_hyphenated_word_is_not_broken_at_its_hyphen():
-    from linecast._textwidth import wrap_display_width
+    from linecast.terminal.textwidth import wrap_display_width
     text = "Из-за высокой влажности ощущается теплее"
     for width in range(6, len(text)):
         assert not any(row.endswith("-") for row in wrap_display_width(text, width)), width

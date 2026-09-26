@@ -26,7 +26,7 @@ if _src not in sys.path:
 
 from linecast.maps import streets as st
 from linecast.maps import style
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast.maps.views import _coast_dots
 
 from test_maps_streets import (  # the tile-fixture writer, reused wholesale

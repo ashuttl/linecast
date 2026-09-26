@@ -13,11 +13,11 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _help
+from linecast.terminal import help as _help
 
 from linecast.weather import view as weather
 from linecast.weather import sources as _weather_sources
-from linecast._graphics import visible_len
+from linecast.terminal.graphics import visible_len
 from linecast._runtime import WeatherRuntime
 from linecast.weather.json import build_payload
 from linecast._i18n import LANGUAGE_CODES
@@ -108,7 +108,7 @@ class TestCreditRow:
 
     def test_the_credit_is_fainter_than_the_prose(self):
         from linecast.weather.style import DIM_RGB, MUTED_RGB
-        from linecast import _theme
+        from linecast.terminal import theme as _theme
         assert (_theme.contrast_ratio(DIM_RGB, _theme.theme_bg)
                 <= _theme.contrast_ratio(MUTED_RGB, _theme.theme_bg))
         assert weather.DIM in weather.credit_row(120, 'en', 'IE')

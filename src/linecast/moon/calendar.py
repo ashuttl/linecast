@@ -23,10 +23,11 @@ the printed almanacs draw their tables this way.
 import calendar
 from datetime import date, datetime, time, timedelta, timezone
 
-from linecast import _live, _theme
+from linecast.terminal import live as _live
+from linecast.terminal import theme as _theme
 from linecast.astro.ephemeris import _moon_events_for_local_date, next_moon_phase_utc
-from linecast._framebuffer import fmt_time_dt
-from linecast._graphics import (
+from linecast.terminal.framebuffer import fmt_time_dt
+from linecast.terminal.graphics import (
     Framebuffer, bg, cell_aspect, fg, get_terminal_size, overlay, visible_len,
 )
 from linecast._i18n import base_language, lang_of, table_for
@@ -55,12 +56,12 @@ from linecast.astro.calendars.thai_lunar import (
     _festival_key as thai_festival_key, is_wan_phra, thai_lunar_date,
 )
 from linecast.astro.seasons import full_moon_name
-from linecast._textwidth import char_width
-from linecast._theme import darken, ensure_contrast, is_light_theme, surface_bg
+from linecast.terminal.textwidth import char_width
+from linecast.terminal.theme import darken, ensure_contrast, is_light_theme, surface_bg
 from linecast.tides.i18n import _ts
 from linecast.weather.i18n import DAY_NAMES
 
-_theme.track_imports(globals(), "linecast._color")
+_theme.track_imports(globals(), "linecast.terminal.color")
 
 
 def _rebuild():
@@ -327,7 +328,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                   first, civil)
 
     phase_days = _phase_days(first, days_in, tzinfo)
-    from linecast import _bidi
+    from linecast.terminal import bidi as _bidi
     mirrored = _bidi.mirrored()
 
     T, D, A, P = (moon_palette.PANEL_TEXT_RGB, moon_palette.PANEL_DIM_RGB,
@@ -476,7 +477,7 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
                 _put(overlays, x0 + 1, y0 + cell_h - 1, text, F, max_x=graph_w)
 
     if fullscreen:
-        from linecast._help import paint_hint
+        from linecast.terminal.help import paint_hint
         paint_hint(fb, overlays, lang)
     lines = fb.render(overlays=overlays)
     if hint:

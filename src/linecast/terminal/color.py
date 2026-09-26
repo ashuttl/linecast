@@ -11,8 +11,8 @@ Respects NO_COLOR (https://no-color.org/), CLICOLOR/CLICOLOR_FORCE
 import functools
 import os
 import sys
-from linecast import _theme
-from linecast._theme import _clamp_channel as _channel, ensure_theme_loaded
+from linecast.terminal import theme as _theme
+from linecast.terminal.theme import _clamp_channel as _channel, ensure_theme_loaded
 
 # ---------------------------------------------------------------------------
 # Color mode constants

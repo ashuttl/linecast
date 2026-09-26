@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._textwidth import visible_len  # noqa: E402
+from linecast.terminal.textwidth import visible_len  # noqa: E402
 
 # A fixed-offset zone keeps rise/set hermetic; 2026-03-05 is waning
 # full-ish, so every info line has content.

@@ -22,10 +22,10 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from linecast.maps import style as ms
-from linecast import _theme
-from linecast._color import _CUBE_LEVELS, _rgb_to_ansi16, _rgb_to_xterm256
-from linecast._framebuffer import visible_len
-from linecast._theme import luminance
+from linecast.terminal import theme as _theme
+from linecast.terminal.color import _CUBE_LEVELS, _rgb_to_ansi16, _rgb_to_xterm256
+from linecast.terminal.framebuffer import visible_len
+from linecast.terminal.theme import luminance
 
 DARK_BG = (14, 15, 18)
 LIGHT_BG = (253, 246, 227)      # solarized light, a real cream terminal

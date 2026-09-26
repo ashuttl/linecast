@@ -32,7 +32,7 @@ from linecast._i18n import LANGUAGE_CODES, VARIANTS, canonical_language
 from linecast._paths import cache_dir
 from linecast._commands import formatter_class
 from linecast._runtime import VersionAction, WeatherRuntime, resolve_lang
-from linecast._textwidth import wrap_display_width
+from linecast.terminal.textwidth import wrap_display_width
 
 # (name, latitude, longitude, units): a spread of climates and hemispheres,
 # with a few imperial places so the Fahrenheit paths get read too.
@@ -481,7 +481,7 @@ def main(argv=None):
     langs = languages(args.lang)
     width = args.width
     if width is None:
-        from linecast._graphics import get_terminal_size
+        from linecast.terminal.graphics import get_terminal_size
         width = min(100, get_terminal_size()[0])
 
     if args.diff:

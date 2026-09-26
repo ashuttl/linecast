@@ -6,8 +6,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from linecast import _framebuffer, _help, _help_i18n, _live
-from linecast._graphics import visible_len
+from linecast.terminal import framebuffer as _framebuffer
+from linecast.terminal import help as _help
+from linecast.terminal import help_i18n as _help_i18n
+from linecast.terminal import live as _live
+from linecast.terminal.graphics import visible_len
 from linecast._i18n import LANGUAGE_CODES
 
 
@@ -201,7 +204,7 @@ def test_wheel_hook_can_defer_to_forecast_and_alert_scrolling(monkeypatch):
 class TestRightToLeftPanel:
     def test_keys_go_on_the_right_in_persian(self):
         import re
-        from linecast._help import entries, panel
+        from linecast.terminal.help import entries, panel
         out, _pages = panel(entries("sky", "fa"), 100, 30, "fa")
         rows = [re.sub(r"\033\[[0-9;]*[mH]", "", row) for row in out.split("\033[")[1:]]
         row = next(r for r in (re.sub(r"\033\[[0-9;]*[mH]", "", "\033[" + x) for x in rows)
@@ -211,7 +214,7 @@ class TestRightToLeftPanel:
         assert row.index("خروج") < row.index("q")
 
     def test_key_digits_stay_as_printed(self):
-        from linecast._bidi import LRI
-        from linecast._help import _key_digits
+        from linecast.terminal.bidi import LRI
+        from linecast.terminal.help import _key_digits
         assert _key_digits("1–8", "fa").startswith(LRI)
         assert _key_digits("1–8", "en") == "1–8"

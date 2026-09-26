@@ -139,7 +139,7 @@ def _entries(name):
                 yield ch, key
 
 
-# The keys linecast's views answer to (_live._read_key).
+# The keys linecast's views answer to (terminal.live._read_key).
 _BOUND = frozenset("qQoOnN+=-_tTcCwasdWSDvVpPlLmMyYrR/?0123456789")
 
 

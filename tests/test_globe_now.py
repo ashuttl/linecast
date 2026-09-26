@@ -1,7 +1,7 @@
 """Tests for the sky overlays: subsolar point, daylight, clouds, lights."""
 
 from linecast.maps import globe_now
-from linecast._scenes import Memo
+from linecast.terminal.scenes import Memo
 
 
 class TestSubsolar:

@@ -24,9 +24,10 @@ import threading
 import time as _t
 from datetime import datetime
 
-from linecast import _live, _theme
+from linecast.terminal import live as _live
+from linecast.terminal import theme as _theme
 from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_percent, sentence_24h, setting, table_for
-from linecast._graphics import bg, fg, get_terminal_size, visible_len
+from linecast.terminal.graphics import bg, fg, get_terminal_size, visible_len
 from linecast._location import country_for_defaults, resolve_location
 from linecast._runtime import (
     WeatherRuntime, install_banner, log_failure, set_current, weather_parser,
@@ -131,8 +132,8 @@ def credit_row(cols, lang, country_code="", observed=None, runtime=None, tz_name
     fainter than the prose above it, and the help hint at the right.
     The longest credit that leaves the whole hint its room wins; a
     window too narrow for any shows the hint alone."""
-    from linecast import _help
-    from linecast._graphics import visible_len
+    from linecast.terminal import help as _help
+    from linecast.terminal.graphics import visible_len
     hint = _help.hint(lang)
     for credit in data_credits(country_code, lang, observed, runtime, tz_name):
         if visible_len(credit) + 2 + visible_len(hint) <= cols:
@@ -1021,7 +1022,7 @@ class WeatherApp(_live.LiveApp):
         return output, alert_rows
 
     def help_panel(self):
-        from linecast._help import HelpPanel, entries
+        from linecast.terminal.help import HelpPanel, entries
         from linecast.maps.search import ATTRIBUTION
         from linecast.weather.locations_i18n import ls
         observed = ((self.data or {}).get("current") or {}).get("observed")
@@ -1194,7 +1195,7 @@ def _main():
     set_current(runtime)
     # In a right-to-left language the whole dashboard reads from the
     # right, the hourly graph included: now is at the right edge
-    from linecast import _bidi
+    from linecast.terminal import bidi as _bidi
     _bidi.set_mirror(True)
 
     # --search: geocode cities and exit
@@ -1220,7 +1221,7 @@ def _main():
     # JSON stdout must contain only the payload; Spinner clears its line
     # on cancellation. gather bounds all providers with one deadline.
     from contextlib import nullcontext
-    from linecast._spinner import Spinner
+    from linecast.terminal.spinner import Spinner
     with nullcontext() if runtime.json_mode else Spinner():
         result = gather(lat, lng, country_code, runtime, geo_label)
 
@@ -1247,7 +1248,7 @@ def _main():
         return
 
     if runtime.oneline:
-        from linecast._oneline import emit, weather_oneline
+        from linecast.terminal.oneline import emit, weather_oneline
         emit(weather_oneline(data, location_name, runtime))
         return
 
@@ -1258,7 +1259,7 @@ def _main():
             country=final_country,
         ).run()
     else:
-        from linecast._textwidth import calibrate_from_terminal
+        from linecast.terminal.textwidth import calibrate_from_terminal
         calibrate_from_terminal()
         output, _alert_map = render_from_data(
             data,

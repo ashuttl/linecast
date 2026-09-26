@@ -470,7 +470,7 @@ class TestSwahili:
             assert precipitation_sentence(hourly, now, runtime) == expected
 
     def test_the_hour_is_told_in_swahili_time(self):
-        from linecast._framebuffer import fmt_hour_phrase
+        from linecast.terminal.framebuffer import fmt_hour_phrase
         assert fmt_hour_phrase(7, True, "sw") == "moja asubuhi"
         assert fmt_hour_phrase(13, True, "sw") == "saba mchana"
         assert fmt_hour_phrase(18, True, "sw") == "kumi na mbili jioni"
@@ -649,8 +649,8 @@ class TestPersianOrthography:
         import importlib
         import pkgutil
         import linecast
-        from linecast import _framebuffer
-        yield "linecast._framebuffer._HOUR_24['fa']", _framebuffer._HOUR_24.get("fa", "")
+        from linecast.terminal import framebuffer as _framebuffer
+        yield "linecast.terminal.framebuffer._HOUR_24['fa']", _framebuffer._HOUR_24.get("fa", "")
         for info in pkgutil.walk_packages(linecast.__path__, "linecast."):
             if "i18n" not in info.name:
                 continue
@@ -734,14 +734,14 @@ class TestRegionalVariants:
         assert ms("hov_river", "fr-CA") == "rivière"
 
     def test_hong_kong_tells_the_hour_as_the_observatory_does(self):
-        from linecast._framebuffer import fmt_hour_phrase
+        from linecast.terminal.framebuffer import fmt_hour_phrase
         assert [fmt_hour_phrase(h, True, "zh-HK") for h in (0, 2, 9, 12, 15, 18, 21)] == [
             "午夜12時", "凌晨2時", "上午9時", "中午12時", "下午3時", "傍晚6時", "晚上9時"]
         # Taiwan keeps the 24-hour hour
         assert fmt_hour_phrase(15, True, "zh-Hant") == "15時"
 
     def test_french_spaces_the_hour(self):
-        from linecast._framebuffer import fmt_hour_phrase
+        from linecast.terminal.framebuffer import fmt_hour_phrase
         assert fmt_hour_phrase(18, True, "fr") == "18\u00a0h"
         assert fmt_hour_phrase(18, True, "fr-CA") == "18\u00a0h"
         assert fmt_hour_phrase(18, True, "es-ES") == "18:00"
@@ -750,7 +750,7 @@ class TestRegionalVariants:
     def test_spanish_and_portuguese_hours(self):
         """No leading zero in running text, and one o'clock takes the
         singular article, as Greek's does."""
-        from linecast._framebuffer import fmt_hour_phrase
+        from linecast.terminal.framebuffer import fmt_hour_phrase
         from linecast.weather.i18n import _s
         from types import SimpleNamespace as runtime
         assert fmt_hour_phrase(9, True, "es") == "9:00"

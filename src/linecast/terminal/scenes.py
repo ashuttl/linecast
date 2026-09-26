@@ -21,7 +21,7 @@ is the one that reaches the network.
 import threading
 import time
 
-from linecast._live import nudge
+from linecast.terminal.live import nudge
 from linecast._runtime import log_failure
 
 

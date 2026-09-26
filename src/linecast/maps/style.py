@@ -24,10 +24,10 @@ either mode, not a mode — they live in _globe_now.
 
 import math
 
-from linecast._color import color_mode
-from linecast._textwidth import char_width
-from linecast import _theme
-from linecast._theme import is_light_theme, lerp_rgb, themed
+from linecast.terminal.color import color_mode
+from linecast.terminal.textwidth import char_width
+from linecast.terminal import theme as _theme
+from linecast.terminal.theme import is_light_theme, lerp_rgb, themed
 
 MODES = ("street", "terrain")
 
@@ -36,7 +36,7 @@ MODES = ("street", "terrain")
 # ---------------------------------------------------------------------------
 # The ground blends toward the user's terminal background; every other
 # value is an anchor calibrated against the anchor ground, then re-inked
-# in the theme's own hues by _theme.themed below — luminance ladder
+# in the theme's own hues by terminal.theme.themed below — luminance ladder
 # intact, hue family the terminal's, so a green-monochrome theme gets a
 # green-monochrome map.  14% of theme tint moves the ground by at most
 # ~4 units of luminance, which never breaks the ladder.
@@ -952,7 +952,7 @@ def max_instances(total_visible_cells):
 # ---------------------------------------------------------------------------
 # POI
 # ---------------------------------------------------------------------------
-# Eleven marks, all audited against the real _textwidth.visible_len:
+# Eleven marks, all audited against the real terminal.textwidth.visible_len:
 # each returns 1.  No emoji-presentation characters ever — visible_len
 # counts them as 2 and they break column alignment.
 GLYPH_AIRPORT = "✈"     # aerodrome_label layer

@@ -3,20 +3,20 @@
 This module is a backward-compatible facade. The implementation has been
 split into focused modules for maintainability:
 
-  _color.py        — ANSI color mode detection, escape code helpers, color math
-  _framebuffer.py  — Framebuffer class, half-block rendering, text utilities
-  _spinner.py      — Braille loading spinner for network waits
-  _live.py         — Live mode loop, mouse/keyboard input handling
+  terminal/color.py        — ANSI color mode detection, escape code helpers, color math
+  terminal/framebuffer.py  — Framebuffer class, half-block rendering, text utilities
+  terminal/spinner.py      — Braille loading spinner for network waits
+  terminal/live.py         — Live mode loop, mouse/keyboard input handling
 
 All public symbols are re-exported here so existing imports continue to work:
 
-    from linecast._graphics import fg, bg, Framebuffer, live_loop  # still works
+    from linecast.terminal.graphics import fg, bg, Framebuffer, live_loop  # still works
 """
 
-from linecast import _theme
+from linecast.terminal import theme as _theme
 
 # Color system
-from linecast._color import (  # noqa: F401
+from linecast.terminal.color import (  # noqa: F401
     _COLOR_TRUECOLOR,
     _COLOR_256,
     _COLOR_16,
@@ -42,7 +42,7 @@ from linecast._color import (  # noqa: F401
 )
 
 # Rendering utilities and Framebuffer
-from linecast._framebuffer import (  # noqa: F401
+from linecast.terminal.framebuffer import (  # noqa: F401
     HALF_BLOCK,
     halfblock,
     visible_len,
@@ -55,13 +55,13 @@ from linecast._framebuffer import (  # noqa: F401
 )
 
 # Loading spinner
-from linecast._spinner import (  # noqa: F401
+from linecast.terminal.spinner import (  # noqa: F401
     SPINNER_FRAMES,
     Spinner,
 )
 
 # Live mode and input handling
-from linecast._live import (  # noqa: F401
+from linecast.terminal.live import (  # noqa: F401
     LiveApp,
     _decode_sgr_mouse,
     _decode_legacy_mouse,
@@ -73,4 +73,4 @@ from linecast._live import (  # noqa: F401
     print_frame,
 )
 
-_theme.track_imports(globals(), "linecast._color")
+_theme.track_imports(globals(), "linecast.terminal.color")

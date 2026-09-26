@@ -37,10 +37,10 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from linecast import _theme  # noqa: E402
-from linecast._braille import build_braille_curve  # noqa: E402
-from linecast._color import RESET, fg  # noqa: E402
-from linecast._theme import ensure_contrast, neutral_tone  # noqa: E402
+from linecast.terminal import theme as _theme  # noqa: E402
+from linecast.terminal.braille import build_braille_curve  # noqa: E402
+from linecast.terminal.color import RESET, fg  # noqa: E402
+from linecast.terminal.theme import ensure_contrast, neutral_tone  # noqa: E402
 from linecast.weather.style import SPARKLINE  # noqa: E402
 
 DEFAULT_REPO = "ashuttl/linecast"

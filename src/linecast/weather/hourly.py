@@ -3,9 +3,9 @@
 import math
 from datetime import datetime, timedelta
 
-from linecast import _theme
-from linecast._braille import build_braille_curve, interpolate
-from linecast._graphics import bg, color_mode, fg, fmt_hour, fmt_time_dt, RESET, visible_len
+from linecast.terminal import theme as _theme
+from linecast.terminal.braille import build_braille_curve, interpolate
+from linecast.terminal.graphics import bg, color_mode, fg, fmt_hour, fmt_time_dt, RESET, visible_len
 from linecast._runtime import WeatherRuntime, current_runtime, log_skipped
 from linecast._i18n import is_rtl, lang_of, table_for
 from linecast.weather.historical import temperature_scale

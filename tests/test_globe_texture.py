@@ -22,7 +22,7 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast.maps import globe as _globe
 from linecast.maps import globe_texture
 from linecast.maps import paint

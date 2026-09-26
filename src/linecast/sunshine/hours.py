@@ -12,7 +12,7 @@ then those still to come, then the ones gone by, most recent first;
 sunrise and sunset go last, since the line above names them already.
 """
 
-from linecast._graphics import RESET, fg, fmt_time_dt, visible_len
+from linecast.terminal.graphics import RESET, fg, fmt_time_dt, visible_len
 from linecast._i18n import lang_of
 from linecast.astro.hours import elapsed, fmt_duration, last_mark, next_mark, reading, utc
 from linecast.astro.hours.i18n import hs, mark_name, reading_name, unit_name, variant_name

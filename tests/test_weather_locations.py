@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from linecast.weather import view as weather
-from linecast._graphics import visible_len
+from linecast.terminal.graphics import visible_len
 from linecast.maps.search import Result
 from linecast._runtime import WeatherRuntime
 from linecast.weather.locations import LocationPicker, LocationSearch, RecentLocations

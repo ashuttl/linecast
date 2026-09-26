@@ -90,7 +90,7 @@ class TestApply:
         assert pal._alpha(10) < 80
 
     def test_terminal_palette_is_dusk_through_themed(self):
-        from linecast import _theme
+        from linecast.terminal import theme as _theme
         seen = []
         def fake_themed(c):
             seen.append(c)
@@ -100,7 +100,7 @@ class TestApply:
         assert seen == [pal.PALETTES["dusk"].dark_rain(45)]
 
     def test_ink_flips_with_theme(self):
-        from linecast import _theme
+        from linecast.terminal import theme as _theme
         ink = pal.PALETTES["ink"]
         with patch.object(_theme, "is_light_theme", return_value=True):
             assert ink.colour(60, False) == ink.rain(60)

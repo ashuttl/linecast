@@ -13,7 +13,7 @@ Precedence: LINECAST_DIGITS env > saved digits (this command) > default
 import argparse
 import os
 
-from linecast._bidi import DIGITS_CHOICES, resolve_digits
+from linecast.terminal.bidi import DIGITS_CHOICES, resolve_digits
 from linecast._commands import formatter_class
 from linecast._config import read_config, save_config, saved_digits
 from linecast._runtime import VersionAction, resolve_lang

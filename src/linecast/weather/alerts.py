@@ -3,11 +3,11 @@
 import re
 from datetime import datetime, timezone
 
-from linecast import _theme
-from linecast._graphics import bg, fg, visible_len, RESET, BOLD
+from linecast.terminal import theme as _theme
+from linecast.terminal.graphics import bg, fg, visible_len, RESET, BOLD
 from linecast._i18n import lang_of, sentence_24h, table_for, tr_dative
 from linecast._runtime import log_failure
-from linecast._textwidth import truncate_display_width, wrap_display_width
+from linecast.terminal.textwidth import truncate_display_width, wrap_display_width
 from linecast.weather.i18n import DAY_NAMES, _s
 from linecast.weather.sources import ALERTS_OK, ALERTS_STALE, ALERTS_UNAVAILABLE
 from linecast.weather.style import (
@@ -46,7 +46,7 @@ def _parse_alert_time(iso_str, runtime=None, tz_name=""):
         day = day_names[dt.weekday()]
         if use_24h:
             return f"{day} {dt.strftime('%H:%M')}"
-        from linecast._framebuffer import fmt_hour_phrase
+        from linecast.terminal.framebuffer import fmt_hour_phrase
         return f"{day} {fmt_hour_phrase(dt.hour)}"
     except Exception as exc:
         log_failure("weather/alerts", "alert time", exc, fallback="time omitted")

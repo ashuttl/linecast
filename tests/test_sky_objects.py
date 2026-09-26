@@ -6,7 +6,7 @@ from unittest.mock import patch
 from test_sky import LAT, LNG, NIGHT, NOON, _frame, _runtime
 from linecast.sky import view as sky
 from linecast.sky import objects as _sky_objects
-from linecast._graphics import Framebuffer
+from linecast.terminal.graphics import Framebuffer
 from linecast.sky.search import search, targets
 
 

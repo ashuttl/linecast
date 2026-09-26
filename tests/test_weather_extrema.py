@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._braille import interpolate
+from linecast.terminal.braille import interpolate
 from linecast.weather.hourly import _find_temperature_extrema
 
 # A ~48h temperature curve shaped like a real two-day forecast:

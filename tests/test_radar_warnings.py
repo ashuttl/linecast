@@ -12,7 +12,7 @@ from linecast.radar.warnings import (
 )
 from linecast.radar.basemap import DotLayer
 from linecast.radar.render import compose
-from linecast._scenes import Memo
+from linecast.terminal.scenes import Memo
 
 
 def _feature(phenomena, significance="W", emergency=False, geom_type="Polygon",

@@ -22,12 +22,12 @@ cores.
 
 import math
 
-from linecast import _theme
-from linecast._color import fg, bg, lerp, RESET, BG_PRIMARY
-from linecast._framebuffer import halfblock
-from linecast._framebuffer import cell_aspect
+from linecast.terminal import theme as _theme
+from linecast.terminal.color import fg, bg, lerp, RESET, BG_PRIMARY
+from linecast.terminal.framebuffer import halfblock
+from linecast.terminal.framebuffer import cell_aspect
 from linecast.radar.basemap import COAST, SEA_FILL
-from linecast._theme import ensure_contrast
+from linecast.terminal.theme import ensure_contrast
 
 
 def _bbox_key(bbox):
@@ -158,4 +158,4 @@ def compose(basemap, radar, overlays, graph_w, height_cells, warnings=None,
     return lines
 
 _theme.track_imports(globals(), "linecast.radar.basemap")
-_theme.track_imports(globals(), "linecast._color")
+_theme.track_imports(globals(), "linecast.terminal.color")

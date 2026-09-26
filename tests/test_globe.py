@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.maps import globe as _globe
 from linecast.maps import places as _places
-from linecast._scenes import Memo
+from linecast.terminal.scenes import Memo
 
 
 class TestProjection:
@@ -728,7 +728,7 @@ class TestCities:
 def _place_cities_longhand(cities, lat0, lon0, zoom, gw, hc, lang,
                            band=0):
     from linecast.radar.basemap import _localized
-    from linecast._textwidth import char_width
+    from linecast.terminal.textwidth import char_width
     max_cities = _places.budget(gw, hc, band)
     r = _globe._radius(zoom, hc * 2)
     rx = r * _globe._aspect()

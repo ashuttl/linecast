@@ -18,8 +18,9 @@ import calendar
 from datetime import date as _date, datetime, timedelta
 
 from linecast._i18n import fmt_duration_parts, lang_of
-from linecast import _live, _theme
-from linecast._graphics import (
+from linecast.terminal import live as _live
+from linecast.terminal import theme as _theme
+from linecast.terminal.graphics import (
     fg, bg, interp_stops, lerp, fmt_time,
     get_terminal_size, Framebuffer, overlay,
 )
@@ -27,16 +28,16 @@ from linecast.sunshine.i18n import (
     _fmt_month_day, axis_month_labels, polar_name, relative_day, sky_event,
     sky_phase,
 )
-from linecast._glyphs import _icon_set
-from linecast._textwidth import char_width
-from linecast._theme import (
+from linecast.terminal.glyphs import _icon_set
+from linecast.terminal.textwidth import char_width
+from linecast.terminal.theme import (
     best_contrast, darken, ensure_contrast, is_light_theme, lerp_rgb,
     surface_bg,
 )
 from linecast.sunshine import palette as inks
 from linecast.sunshine import solar
 
-_theme.track_imports(globals(), "linecast._color")
+_theme.track_imports(globals(), "linecast.terminal.color")
 
 # The last sky field built, by the things that shape it. Everything the
 # mouse moves — the hover hairline, the tooltip — is drawn over the
@@ -327,7 +328,7 @@ def render_year(lat, lng, now, runtime, tz=None, fullscreen=False,
     sun_row = spy_now // 2
     overlays[(x_today, sun_row)] = (icons["sun_char"], inks.SUN_DOT_RGB)
     if fullscreen:
-        from linecast._help import paint_hint
+        from linecast.terminal.help import paint_hint
         paint_hint(fb, overlays, runtime.lang, rows=(0,))
 
     lines = fb.render(overlays)

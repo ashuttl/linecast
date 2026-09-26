@@ -1,7 +1,7 @@
 import sys
 import unittest
 
-from linecast import _graphics
+from linecast.terminal import graphics as _graphics
 
 
 class _TTY:
@@ -66,7 +66,7 @@ class ColorMappingTests(unittest.TestCase):
         self.assertTrue(seq.endswith("m"))
 
     def test_ansi16_keeps_muted_colors_neutral(self):
-        from linecast._color import _ANSI16_NEUTRALS, _rgb_to_ansi16
+        from linecast.terminal.color import _ANSI16_NEUTRALS, _rgb_to_ansi16
         # a soft gradient's blends must not gain saturation: dark
         # blue-slate used to land on navy, dusk blue-gray on teal
         self.assertIn(_rgb_to_ansi16(57, 64, 80), _ANSI16_NEUTRALS)
@@ -74,7 +74,7 @@ class ColorMappingTests(unittest.TestCase):
         self.assertIn(_rgb_to_ansi16(55, 87, 103), _ANSI16_NEUTRALS)
 
     def test_ansi16_keeps_saturated_colors_saturated(self):
-        from linecast._color import _rgb_to_ansi16
+        from linecast.terminal.color import _rgb_to_ansi16
         self.assertEqual(_rgb_to_ansi16(255, 0, 0), 9)     # bright red
         self.assertEqual(_rgb_to_ansi16(60, 80, 200), 12)  # bright blue
         self.assertEqual(_rgb_to_ansi16(30, 90, 40), 2)    # green
@@ -88,7 +88,7 @@ class ColorMemoTests(unittest.TestCase):
     """fg/bg memoize on the raw arguments; the escape codes must not change."""
 
     def setUp(self):
-        from linecast import _color
+        from linecast.terminal import color as _color
         self._color = _color
         _color._FG_MEMO.clear()
         _color._BG_MEMO.clear()

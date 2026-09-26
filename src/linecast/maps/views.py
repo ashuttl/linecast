@@ -21,7 +21,7 @@ import threading
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast.maps import builtup as _builtup
 from linecast.maps import climate as _climate
 from linecast.maps import globe as _globe
@@ -30,16 +30,16 @@ from linecast.maps import globe_texture
 from linecast.maps import streets
 from linecast.maps import style as _maps_style
 from linecast.maps.elevation import elevation_grid
-from linecast import _live
-from linecast._live import nudge as _nudge_repaint
-from linecast._color import BG_PRIMARY
+from linecast.terminal import live as _live
+from linecast.terminal.live import nudge as _nudge_repaint
+from linecast.terminal.color import BG_PRIMARY
 from linecast.maps.i18n import ms
 from linecast.maps.paint import (
     BORDER_STROKE, RIVER_STROKE, build_terrain_buffer,
 )
 from linecast.radar.basemap import _edge_dots
 from linecast._runtime import log_failure
-from linecast._scenes import FetchHold, Memo, SceneCache
+from linecast.terminal.scenes import FetchHold, Memo, SceneCache
 
 ZOOM_SETTLE = 0.3        # seconds of zoom quiet before a fetch may start
 

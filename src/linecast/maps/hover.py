@@ -56,7 +56,7 @@ from collections import namedtuple
 from linecast.maps import labels
 from linecast.maps import style
 from linecast.maps.i18n import ms
-from linecast._theme import shift_to_pole
+from linecast.terminal.theme import shift_to_pole
 
 # How far a hovered ink travels toward the pole.  Enough that a whole
 # road reads as lit at a glance, short of the ladder's top so a hovered

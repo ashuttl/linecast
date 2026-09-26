@@ -19,13 +19,13 @@ import math
 import threading
 import time
 
-from linecast import _live
-from linecast._live import LiveApp
+from linecast.terminal import live as _live
+from linecast.terminal.live import LiveApp
 from linecast.sky.view import (
     FIGURES_DEFAULT, FOV_DEFAULT, FOV_MAX, FOV_MIN, Scene, View, default_view,
     focal_length, render,
 )
-from linecast._framebuffer import cell_aspect, get_terminal_size
+from linecast.terminal.framebuffer import cell_aspect, get_terminal_size
 from linecast._i18n import GEOCODER_UNTRANSLATED, lang_of
 from linecast.sky.picker import CulturePicker, picker_overlay
 from linecast.sky.search import (

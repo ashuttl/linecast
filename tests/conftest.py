@@ -115,7 +115,7 @@ def _private_home(monkeypatch, tmp_path):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: HOME))
     # The right-to-left pass is set up per language by set_current; a
     # test that ran a Persian command must not leave it Persian.
-    from linecast import _bidi
+    from linecast.terminal import bidi as _bidi
     _bidi.configure("en", {})
     _bidi.set_mirror(False)
 

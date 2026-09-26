@@ -18,14 +18,14 @@ import json
 import math
 import os
 
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast._paths import data_path
 from linecast._runtime import log_failure
-from linecast._textwidth import char_width
-from linecast._theme import is_light_theme, lerp_rgb
+from linecast.terminal.textwidth import char_width
+from linecast.terminal.theme import is_light_theme, lerp_rgb
 from linecast._i18n import base_language
 
-# braille dot bit for (col, row) within a 2x4 cell — matches _braille.py
+# braille dot bit for (col, row) within a 2x4 cell — matches terminal/braille.py
 _BITS = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
 
 # geography palette (dim, so radar reads on top)

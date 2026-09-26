@@ -40,8 +40,8 @@ import threading
 from linecast.maps import globe as _globe
 from linecast.maps import style
 from linecast.radar.basemap import _load_data, _localized
-from linecast._scenes import Memo
-from linecast._textwidth import char_width
+from linecast.terminal.scenes import Memo
+from linecast.terminal.textwidth import char_width
 
 # The window a name is written into is this many columns wide and this
 # many rows tall: the planet's crowding rule, unchanged, and the reason

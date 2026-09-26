@@ -49,11 +49,11 @@ from linecast.maps import overscan as _maps_overscan
 from linecast.maps import places as _maps_places
 from linecast.maps import style
 from linecast.maps import ui
-from linecast._color import fg, RESET, color_mode, BG_PRIMARY
+from linecast.terminal.color import fg, RESET, color_mode, BG_PRIMARY
 from linecast.maps.elevation import ATTRIBUTION
-from linecast._framebuffer import cell_aspect, get_terminal_size
-from linecast._graphics import visible_len
-from linecast._live import overlay
+from linecast.terminal.framebuffer import cell_aspect, get_terminal_size
+from linecast.terminal.graphics import visible_len
+from linecast.terminal.live import overlay
 from linecast.maps.i18n import ms
 from linecast.maps.paint import (  # noqa: F401 — the inks and composers
     BATHY_STOPS, BORDER_STROKE, COAST_STROKE, HYPSO_FAMILIES, LABEL_DARK,
@@ -71,14 +71,14 @@ from linecast.maps.views import (  # noqa: F401 — the loaders and caches
 from linecast.radar.basemap import (  # noqa: F401 — _edge_dots is re-exported
     _BITS, BORDER, DotLayer, _edge_dots,
 )
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast.radar.i18n import rs
 from linecast.radar.render import bbox_for
 from linecast.radar.ui import (
     CROSSHAIR, DIM, MUTED, _panned_place, _shift_grid,
 )
 from linecast._runtime import log_failure
-from linecast._scenes import Memo
+from linecast.terminal.scenes import Memo
 
 # Zoom is degrees of latitude top to bottom.  The floor used to be 0.1
 # (about band 3); street mode's deepest classes — buildings, POI text —
@@ -1448,7 +1448,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
     if over > 0 and len(place) > over + 1:
         header = _header(place[:len(place) - over - 1] + "…")
     header += " " * max(0, cols - visible_len(header))
-    from linecast import _help
+    from linecast.terminal import help as _help
     live = bool(getattr(runtime, 'live', False))
     foot_width = cols - visible_len(_help.hint(lang, cols)) - 2 if live else cols
 
@@ -1549,6 +1549,6 @@ def main():
     live_main()
 
 
-_theme.track_imports(globals(), "linecast._color")
+_theme.track_imports(globals(), "linecast.terminal.color")
 _theme.track_imports(globals(), "linecast.maps.paint")
 

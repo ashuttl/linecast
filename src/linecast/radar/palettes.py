@@ -15,8 +15,8 @@ and a stock theme gets yellow where yellow belongs.  The other palettes
 are fixed ramps over dBZ, each with a light- and a dark-background form.
 """
 
-from linecast import _theme
-from linecast._color import interp_stops
+from linecast.terminal import theme as _theme
+from linecast.terminal.color import interp_stops
 
 GRAY_OFFSET = 32
 SNOW_FLAG = 128

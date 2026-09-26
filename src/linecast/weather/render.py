@@ -4,8 +4,8 @@ This module keeps historical imports stable while implementation lives in
 smaller focused modules.
 """
 
-from linecast import _theme
-from linecast._graphics import RESET
+from linecast.terminal import theme as _theme
+from linecast.terminal.graphics import RESET
 from linecast.weather.alerts import (
     _parse_alert_time,
     _render_single_alert,
@@ -16,8 +16,8 @@ from linecast.weather.alerts import (
     render_alerts_mapped,
 )
 from linecast.weather.daily import fmt_precip_amount, render_daily, render_daily_mapped
-from linecast._braille import build_braille_curve as _build_braille_curve
-from linecast._graphics import fmt_hour as _fmt_hour, fmt_time_dt as _fmt_time
+from linecast.terminal.braille import build_braille_curve as _build_braille_curve
+from linecast.terminal.graphics import fmt_hour as _fmt_hour, fmt_time_dt as _fmt_time
 from linecast.weather.hourly import (
     _build_precip_blocks,
     _compute_daylight_columns,

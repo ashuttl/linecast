@@ -7,8 +7,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _live
-from linecast._live import LiveApp, menu_box, overlay
+from linecast.terminal import live as _live
+from linecast.terminal.live import LiveApp, menu_box, overlay
 
 
 class TestOverlay:
@@ -158,7 +158,7 @@ class TestRun:
 class TestBusyToast:
     def test_animates_until_dismissed_and_keeps_one_repaint_pending(self, monkeypatch):
         from unittest.mock import Mock
-        from linecast._spinner import SPINNER_FRAMES
+        from linecast.terminal.spinner import SPINNER_FRAMES
         timer = Mock()
         make_timer = Mock(return_value=timer)
         monkeypatch.setattr(_live.threading, 'Timer', make_timer)
@@ -197,7 +197,7 @@ class TestBusyToast:
     @pytest.mark.parametrize('cols,rows', [(1, 1), (7, 3), (8, 4), (20, 8), (80, 24)])
     def test_toast_fits_small_screens_and_wide_place_names(self, cols, rows):
         import re
-        from linecast._graphics import visible_len
+        from linecast.terminal.graphics import visible_len
         output = _live.toast_box('Loading ' + '京都' * 50, cols, rows, icon='⠋')
         positions = re.findall(r'\033\[(\d+);(\d+)H(.*?)(?=\033\[\d+;\d+H|$)', output)
         assert positions

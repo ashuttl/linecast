@@ -17,9 +17,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _color
+from linecast.terminal import color as _color
 from linecast.maps import paint
-from linecast._live import frame_body, frame_paint
+from linecast.terminal.live import frame_body, frame_paint
 
 
 CSI = re.compile(r'\x1b\[([0-?]*)([ -/]*)([@-~])')

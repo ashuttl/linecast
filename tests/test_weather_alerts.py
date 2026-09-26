@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._graphics import visible_len
+from linecast.terminal.graphics import visible_len
 from linecast._runtime import WeatherRuntime
 from linecast.weather.alerts import render_alerts, render_alerts_mapped
 

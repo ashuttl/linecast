@@ -246,7 +246,7 @@ def themed(color: RGB) -> RGB:
     color = clamp_rgb(color)
     if not theme_available or theme_legacy_mode:
         return color
-    from linecast._color import color_mode
+    from linecast.terminal.color import color_mode
     if color_mode() not in ("truecolor", "256"):
         return color
     r, g, b = color
@@ -348,7 +348,7 @@ def _query_theme_via_osc(timeout_s: float):
     except Exception:
         return None
 
-    from linecast import _term
+    from linecast.terminal import term as _term
     query = _PROBE_QUERY + _term.CPR_QUERY
     fg_value = None
     bg_value = None

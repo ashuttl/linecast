@@ -3,7 +3,8 @@ probability faded toward the background."""
 import re
 from unittest.mock import patch
 
-from linecast import _color, _theme
+from linecast.terminal import color as _color
+from linecast.terminal import theme as _theme
 from linecast._runtime import WeatherRuntime
 from linecast.weather.hourly import _build_precip_blocks, _precip_bar_full
 from linecast.weather.style import PRECIP_RAIN_RGB

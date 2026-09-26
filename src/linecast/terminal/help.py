@@ -3,11 +3,11 @@
 import math
 import re
 
-from linecast import _theme
-from linecast._graphics import RESET, bg, fg, visible_len
-from linecast._help_i18n import hs
+from linecast.terminal import theme as _theme
+from linecast.terminal.graphics import RESET, bg, fg, visible_len
+from linecast.terminal.help_i18n import hs
 from linecast.maps.i18n import ms
-from linecast._textwidth import char_widths
+from linecast.terminal.textwidth import char_widths
 
 
 def hint(lang='en', width=80):
@@ -151,7 +151,7 @@ def wrap(text, width):
 def _key_digits(key, lang):
     """A key's label with its digits kept as printed on the keyboard, in
     a language with digits of its own: "1-8", "9"."""
-    from linecast._bidi import identifier
+    from linecast.terminal.bidi import identifier
     from linecast._i18n import is_rtl
     if not is_rtl(lang):
         return key
@@ -163,7 +163,7 @@ def panel(content, cols, rows, lang='en', page=0):
     if cols < 16 or rows < 5:
         note = fit('? / esc', cols)
         return f'\033[1;1H{RESET}{note}', 1
-    from linecast import _bidi
+    from linecast.terminal import bidi as _bidi
     from linecast._i18n import is_rtl
     # Read from the right: the keys go in a column on the right, the
     # descriptions against it. A view laid out from the right (weather,

@@ -16,10 +16,10 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast.radar import sources as _radar_sources
 from linecast.radar import warnings as _radar_warnings
-from linecast._live import nudge as _nudge  # a landed frame repaints the live view
+from linecast.terminal.live import nudge as _nudge  # a landed frame repaints the live view
 from linecast.radar.render import _bbox_key, build_radar_buffer
 from linecast.radar.ui import _get_basemap
 from linecast._runtime import debug_log, log_failure
@@ -59,7 +59,7 @@ _retry_at = 0.0
 
 def _view_key(bbox, gw, hc, src=None):
     # theme is part of the view: switching palettes must not serve old
-    # colours, and neither must a terminal theme change (_theme.generation).
+    # colours, and neither must a terminal theme change (terminal.theme.generation).
     # So is the source: two of them can be on the same theme and publish a
     # frame for the same minute, and falling from one to the other must not
     # serve the frame the first one drew.

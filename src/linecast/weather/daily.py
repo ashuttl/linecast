@@ -2,9 +2,9 @@
 
 from datetime import datetime
 
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast._i18n import fmt_decimal, fmt_percent, setting, table_for
-from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
+from linecast.terminal.graphics import bg, color_mode, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import (DAY_NAMES, FULL_DAY_NAMES, _s,

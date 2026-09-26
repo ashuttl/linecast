@@ -27,15 +27,15 @@ import threading
 import time as _t
 from datetime import datetime, timezone, timedelta
 
-from linecast._braille import build_braille_curve
-from linecast._graphics import (
+from linecast.terminal.braille import build_braille_curve
+from linecast.terminal.graphics import (
     bg, fg, RESET,
     visible_len, fmt_time_dt,
     get_terminal_size,
 )
-from linecast import _live
-from linecast import _theme
-from linecast._theme import (
+from linecast.terminal import live as _live
+from linecast.terminal import theme as _theme
+from linecast.terminal.theme import (
     best_contrast,
     ensure_contrast,
     is_light_theme,
@@ -51,7 +51,7 @@ from linecast._runtime import (
     TidesRuntime, current_runtime, install_banner, log_failure, set_current,
     tides_parser,
 )
-from linecast._spinner import Spinner
+from linecast.terminal.spinner import Spinner
 from linecast.tides.marine import fetch_marine, parse_marine_current, format_marine_line
 from linecast.tides.common import sweep_legacy_cache
 from linecast.tides.i18n import _moon_name, _ts
@@ -884,7 +884,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     # Footer: marine conditions on the left, the data source on the
     # right, one line.  Too narrow for both: marine wins.
     marine_str = ""
-    from linecast import _help
+    from linecast.terminal import help as _help
     from linecast._i18n import lang_of
     foot_width = cols - visible_len(_help.hint(lang_of(runtime), cols)) - 2 if fullscreen else cols
     if marine_data is not None:
@@ -1146,7 +1146,7 @@ class TidesApp(_live.LiveApp):
             self._generation += 1
 
     def help_panel(self):
-        from linecast._help import HelpPanel, entries
+        from linecast.terminal.help import HelpPanel, entries
         from linecast.weather.locations_i18n import ls
         lang = self.runtime.lang
         return HelpPanel('tides', lang, content=lambda cols, rows:
@@ -1253,7 +1253,7 @@ def main():
     set_current(runtime)
     # The tide curve is time, so in a right-to-left language the whole
     # view reads from the right, the next tide at the right edge
-    from linecast import _bidi
+    from linecast.terminal import bidi as _bidi
     _bidi.set_mirror(True)
     sweep_legacy_cache()
 
@@ -1269,7 +1269,7 @@ def main():
     # Ask the terminal how wide it draws things before the spinner has
     # the screen: the probe wants stdin and stdout to itself.
     if not runtime.json_mode:
-        from linecast._textwidth import calibrate_from_terminal
+        from linecast.terminal.textwidth import calibrate_from_terminal
         calibrate_from_terminal()
 
     # everything from here to the first paint may block on the network
@@ -1393,7 +1393,7 @@ def main():
             return
 
         if runtime.oneline:
-            from linecast._oneline import emit, tides_oneline
+            from linecast.terminal.oneline import emit, tides_oneline
             hilo_data = provider.hilo_range(
                 station_id, today - timedelta(days=1),
                 today + timedelta(days=1), station_tz)

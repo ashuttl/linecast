@@ -19,7 +19,9 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _color, _framebuffer, _theme
+from linecast.terminal import color as _color
+from linecast.terminal import framebuffer as _framebuffer
+from linecast.terminal import theme as _theme
 
 from linecast.tides import view as tides
 
@@ -33,7 +35,7 @@ from linecast.maps import style as _maps_style
 from linecast.weather import alerts
 from linecast.weather import render as _weather_render
 from linecast.weather import style
-from linecast._live import _read_key  # noqa: E402
+from linecast.terminal.live import _read_key  # noqa: E402
 
 
 def _ansi(fg, bg):
@@ -241,8 +243,8 @@ class TestProbe:
 
 CHILD = textwrap.dedent("""
     import sys
-    from linecast import _theme
-    from linecast._live import live_loop
+    from linecast.terminal import theme as _theme
+    from linecast.terminal.live import live_loop
     def render(offset_minutes=0, **kw):
         sys.stderr.write("BG %r\\n" % (_theme.theme_bg,))
         sys.stderr.flush()

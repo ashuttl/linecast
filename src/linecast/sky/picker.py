@@ -8,10 +8,10 @@ by _live.menu_box. The list is longer than a short terminal, so it
 scrolls, keeping the highlight in view.
 """
 
-from linecast import _live
+from linecast.terminal import live as _live
 from linecast._config import CULTURE_CHOICES
-from linecast._graphics import bg, fg
-from linecast._theme import surface_bg
+from linecast.terminal.graphics import bg, fg
+from linecast.terminal.theme import surface_bg
 
 IAU = None   # the culture value for the IAU sky
 

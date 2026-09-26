@@ -14,7 +14,7 @@ import threading
 
 from linecast._http import fetch_json
 from linecast._plaintext import plain_text
-from linecast._scenes import Memo
+from linecast.terminal.scenes import Memo
 
 _URL = "https://mesonet.agron.iastate.edu/geojson/sbw.geojson"
 
@@ -55,7 +55,7 @@ def _forget_colours():
         _cache.clear()
 
 
-from linecast import _theme  # noqa: E402 — the hook needs the cache above
+from linecast.terminal import theme as _theme  # noqa: E402 — the hook needs the cache above
 _theme.on_reload(_forget_colours)
 _lock = threading.Lock()
 

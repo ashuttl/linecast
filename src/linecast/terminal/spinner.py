@@ -23,7 +23,7 @@ class Spinner:
     def start(self):
         if self._thread is not None or not sys.stdout.isatty():
             return self
-        from linecast._color import fg, RESET
+        from linecast.terminal.color import fg, RESET
         self._stop = threading.Event()
         stop = self._stop
 

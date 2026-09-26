@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.weather import sources
 from linecast.weather import view as weather
-from linecast._oneline import weather_oneline
+from linecast.terminal.oneline import weather_oneline
 from linecast._runtime import WeatherRuntime, weather_parser
 from linecast.weather.alerts import build_alert_modal, render_alerts_mapped
 from linecast.weather.historical import HistoricalAverages

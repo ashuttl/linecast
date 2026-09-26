@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from linecast._cache import write_bytes_atomic, write_cache
-from linecast._framebuffer import get_terminal_size
+from linecast.terminal.framebuffer import get_terminal_size
 
 
 class AtomicWriteTests(unittest.TestCase):

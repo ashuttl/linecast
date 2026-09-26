@@ -23,15 +23,15 @@ from collections import namedtuple
 
 from linecast import _cache
 from linecast.maps.elevation import _fetch_tile, decode_meters
-from linecast._framebuffer import cell_aspect
+from linecast.terminal.framebuffer import cell_aspect
 from linecast._geo import wrap_lon
 from linecast._paths import cache_dir, data_path
 from linecast._png import decode_rgba
 from linecast.radar.basemap import DotLayer, _load_data
 from linecast.radar.tiles import _TILE_SIZE, stitch_xyz
 from linecast._runtime import log_failure
-from linecast._scenes import Memo
-from linecast._theme import themed
+from linecast.terminal.scenes import Memo
+from linecast.terminal.theme import themed
 
 # `zoom` (degrees of latitude the screen spans) at which the flat map
 # hands the view to the globe — at the equator.  See is_globe.
@@ -71,7 +71,7 @@ def _rebuild():
     _AIRGLOW = themed((96, 150, 116))
 
 
-from linecast import _theme  # noqa: E402 — the hook needs the palette above
+from linecast.terminal import theme as _theme  # noqa: E402 — the hook needs the palette above
 _theme.on_reload(_rebuild)
 
 # lls (the coarse per-sample lat/lon grid) and glow_lls (the limb

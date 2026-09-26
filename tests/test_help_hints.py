@@ -5,11 +5,12 @@ import re
 
 import pytest
 
-from linecast import _help, _theme
-from linecast._framebuffer import Framebuffer
+from linecast.terminal import help as _help
+from linecast.terminal import theme as _theme
+from linecast.terminal.framebuffer import Framebuffer
 from linecast._i18n import LANGUAGE_CODES
 from linecast._runtime import RuntimeConfig
-from linecast._textwidth import visible_len
+from linecast.terminal.textwidth import visible_len
 
 NOW = datetime(2026, 9, 6, 21, 15, tzinfo=timezone(timedelta(hours=-4)))
 

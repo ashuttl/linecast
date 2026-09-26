@@ -23,7 +23,7 @@ from linecast.maps import style
 from linecast.maps import ui
 from linecast.maps import views as _maps_views
 from linecast._geo import wrap_lon
-from linecast._live import LiveApp, nudge as _nudge_repaint, print_frame
+from linecast.terminal.live import LiveApp, nudge as _nudge_repaint, print_frame
 from linecast._location import country_for_defaults, resolve_location
 from linecast.maps.i18n import ms
 from linecast.maps.motion import Flight, ease_in_out, lon_delta, lon_span
@@ -701,7 +701,7 @@ class MapApp(LiveApp):
                       self.runtime.lang, marker=self.home)
 
     def help_panel(self):
-        from linecast._help import HelpPanel
+        from linecast.terminal.help import HelpPanel
         self._help = HelpPanel(
             'maps', self.runtime.lang, content=lambda cols, rows:
             ui.help_rows(cols, rows, self.runtime.lang,
@@ -964,7 +964,7 @@ def main():
         _search_locations(args.search, lang=runtime.lang)
         return
 
-    from linecast._textwidth import calibrate_from_terminal
+    from linecast.terminal.textwidth import calibrate_from_terminal
     calibrate_from_terminal()
 
     # Sweep the tile cache before this session adds to it: dead

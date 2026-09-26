@@ -571,7 +571,7 @@ class TestStrings:
         assert sky.culture_title("chinese", "xx") == "Chinese"
 
     def test_oneline(self):
-        from linecast._oneline import sky_oneline
+        from linecast.terminal.oneline import sky_oneline
         line = _strip(sky_oneline(NIGHT, LAT, LNG, _runtime()))
         assert "Saturn E" in line
         noon = _strip(sky_oneline(NOON, LAT, LNG, _runtime()))
@@ -1176,9 +1176,9 @@ class TestCultures:
         assert all(t.kind in ("deep_sky", "asterism") for t in search("orion", pool))
 
     def test_digits_reach_the_view(self):
-        from linecast._live import _read_key
+        from linecast.terminal.live import _read_key
         from unittest.mock import patch
-        with patch("linecast._term.read_byte", return_value=b"7"):
+        with patch("linecast.terminal.term.read_byte", return_value=b"7"):
             assert _read_key(0) == "key:7"
 
     def test_culture_command(self):

@@ -29,8 +29,8 @@ import sys
 import textwrap
 from datetime import datetime, timedelta, timezone
 
-from linecast._framebuffer import fmt_time_dt
-from linecast._graphics import (
+from linecast.terminal.framebuffer import fmt_time_dt
+from linecast.terminal.graphics import (
     lerp, visible_len, get_terminal_size, cell_aspect, Framebuffer, live_loop,
 )
 from linecast._i18n import fmt_decimal, fmt_duration_parts, lang_of
@@ -67,12 +67,12 @@ from linecast.astro.calendars.thai_lunar import (
     year_animal_index,
 )
 from linecast.astro.seasons import full_moon_name, next_season_event
-from linecast._textwidth import char_width
+from linecast.terminal.textwidth import char_width
 from linecast.tides.i18n import _ts  # shared "space to return to now" hint
 from linecast._runtime import (
     RuntimeConfig, install_banner, moon_parser, set_current,
 )
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast.radar.i18n import rs
 from linecast.astro.ephemeris import (
     _moon_altitude_deg, _moon_azimuth_deg, _moon_events_for_local_date,
@@ -1023,11 +1023,11 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
     paint_disc(fb, cx, cy, radius, aspect)
     if fullscreen:
-        from linecast._help import paint_hint
+        from linecast.terminal.help import paint_hint
         paint_hint(fb, overlays, lang_of(runtime))
     stars = _star_overlays(fb, cx, cy, radius, sky, taken=overlays.keys(),
                            turn=rotation, aspect=aspect)
-    from linecast import _bidi
+    from linecast.terminal import bidi as _bidi
     if _bidi.mirrored():
         # The view reads from the right, the panel on the left; the Moon
         # and its stars are a picture, drawn flipped about the disc's
@@ -1088,7 +1088,7 @@ def main():
         return
 
     if runtime.oneline:
-        from linecast._oneline import emit, moon_oneline
+        from linecast.terminal.oneline import emit, moon_oneline
         emit(moon_oneline(_now(), lat, lng, runtime, calendar=args.calendar))
         return
 
@@ -1106,7 +1106,7 @@ def main():
         # is handled here (per view) rather than by live_loop.
         # Both views read from the right in a right-to-left language;
         # the Moon itself, on the disc and in the grid, is never flipped.
-        from linecast import _bidi
+        from linecast.terminal import bidi as _bidi
         _bidi.set_mirror(True)
         if state["cal"]:
             from linecast.moon.calendar import render_calendar
@@ -1122,8 +1122,8 @@ def main():
                       calendar_name=args.calendar, israel=israel, turn=turn)
 
     if not live:
-        from linecast._live import print_frame
-        from linecast._textwidth import calibrate_from_terminal
+        from linecast.terminal.live import print_frame
+        from linecast.terminal.textwidth import calibrate_from_terminal
         calibrate_from_terminal()
         print_frame(_render())
         return
@@ -1164,7 +1164,7 @@ def main():
             return False
         # The disc is never mirrored, so a drag turns it the way the
         # hand moved even when the view reads from the right
-        from linecast import _bidi
+        from linecast.terminal import bidi as _bidi
         if _bidi.mirrored():
             dcol = -dcol
         return turn.release() if done else turn.drag(dcol, drow)
@@ -1194,7 +1194,7 @@ def main():
                 return 1
         return 60
 
-    from linecast._help import HelpPanel
+    from linecast.terminal.help import HelpPanel
     help_panel = HelpPanel(lambda: 'moon_calendar' if state['cal'] else 'moon',
                            runtime.lang)
     live_loop(_render, interval=interval, mouse=True, intercept=_intercept,

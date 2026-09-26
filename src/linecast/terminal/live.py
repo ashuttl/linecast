@@ -23,7 +23,8 @@ import sys
 import threading
 import time as _time
 
-from linecast import _bidi, _term
+from linecast.terminal import bidi as _bidi
+from linecast.terminal import term as _term
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +110,7 @@ def _mirror_width():
     right (a right-to-left language), for _bidi.display; else None."""
     if not _bidi.mirrored():
         return None
-    from linecast._framebuffer import get_terminal_size
+    from linecast.terminal.framebuffer import get_terminal_size
     return get_terminal_size()[0]
 
 
@@ -182,7 +183,7 @@ def pointer_chip(lines, col, mouse_row, cols, rows, pad_bg="", flip_at=None):
     """
     if not lines:
         return ""
-    from linecast._graphics import RESET, visible_len
+    from linecast.terminal.graphics import RESET, visible_len
     width = max(visible_len(line) for line in lines)
     padded = [f"{line}{pad_bg}{' ' * (width - visible_len(line))}{RESET}"
               for line in lines]
@@ -215,7 +216,7 @@ def menu_box(lines, cols, rows, title="", sel=None, border="", fill="",
     `more` says whether there is more above and below the rows shown,
     marked ▲ and ▼ in the borders.
     """
-    from linecast._graphics import RESET, visible_len
+    from linecast.terminal.graphics import RESET, visible_len
     widths = [visible_len(line) for line in lines if line is not None]
     inner = max(0, min(cols - 4, (max(widths) if widths else 0) + 1))
     top = max(1, (rows - (len(lines) + 2)) // 2)
@@ -246,9 +247,9 @@ def menu_box(lines, cols, rows, title="", sel=None, border="", fill="",
 
 def toast_box(text, cols, rows, icon=""):
     """A compact, rounded notification above the bottom-right of the view."""
-    from linecast import _theme
-    from linecast._graphics import RESET, bg, fg, visible_len
-    from linecast._help import fit
+    from linecast.terminal import theme as _theme
+    from linecast.terminal.graphics import RESET, bg, fg, visible_len
+    from linecast.terminal.help import fit
     if cols < 1 or rows < 1:
         return ""
     surface = _theme.surface_bg(0.10)
@@ -408,7 +409,7 @@ def _read_key(fd, text=False):
                 body.extend(c)
                 if len(body) > 256:
                     return None
-            from linecast import _theme
+            from linecast.terminal import theme as _theme
             return 'theme' if _theme.ingest_osc(bytes(body)) else None
 
         if b2 == b'[':
@@ -476,7 +477,7 @@ def _read_key(fd, text=False):
     if b[0] >= 0x80:
         # A letter from a non-Latin layout (ض, й, ㅂ): read it as the
         # Latin key it sits on, so q still quits under Persian or Russian.
-        from linecast._keylayouts import latin_key
+        from linecast.terminal.keylayouts import latin_key
         ch = _read_utf8(b)
         latin = latin_key(ch) if ch is not None else None
         if latin is None:
@@ -683,7 +684,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
     so switching the terminal theme re-inks the view in place.
     """
     global _running
-    from linecast import _theme
+    from linecast.terminal import theme as _theme
 
     # Cbreak input, the wakeup nudge() pulls, and resize notice — a self-pipe
     # and SIGWINCH on POSIX, console modes and a poll on Windows.
@@ -770,7 +771,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         if isinstance(action, tuple) and action[0] == 'mouse' and _bidi.mirrored():
             # The view laid this frame out from the left and the pass
             # drew it from the right: the pointer goes back the same way
-            from linecast._framebuffer import get_terminal_size
+            from linecast.terminal.framebuffer import get_terminal_size
             _, cb, cx, cy, is_rel = action
             action = ('mouse', cb, get_terminal_size()[0] + 1 - cx, cy, is_rel)
         if isinstance(action, tuple) and action[0] == 'mouse':
@@ -976,7 +977,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
             main_out = parts[0]
             overlay = parts[1] if len(parts) > 1 else ""
             if help_panel is not None and help_panel.open:
-                from linecast._framebuffer import get_terminal_size
+                from linecast.terminal.framebuffer import get_terminal_size
                 overlay = "\033[?1003l" + help_panel.render(*get_terminal_size())
             elif help_panel is not None and mouse:
                 # A search field may intentionally disable motion; only
@@ -1052,7 +1053,7 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
         # the shell.  A frame whose reply was still owed when the loop
         # ended is answered first, so the drain waits for one reply more
         # than that.  Then the terminal settings, the signal handlers and
-        # the wakeup channel go back, in that order (_term.LiveTerminal).
+        # the wakeup channel go back, in that order (terminal.term.LiveTerminal).
         # The drain waits on the terminal, and a second ctrl-C or SIGTERM
         # meanwhile raises through this block: close() runs regardless,
         # or the shell would inherit the tty in cbreak.
@@ -1186,15 +1187,15 @@ class LiveApp:
             return ""
         paragraphs, deadline, busy = self._flash
         if busy:
-            from linecast._spinner import SPINNER_FRAMES
+            from linecast.terminal.spinner import SPINNER_FRAMES
             spinner = SPINNER_FRAMES[int(_time.monotonic() / 0.08) % len(SPINNER_FRAMES)]
             self._flash_repaint(0.08)
             return toast_box(' '.join(paragraphs), cols, rows, icon=spinner)
         if _time.monotonic() >= deadline:
             self.clear_flash()
             return ""
-        from linecast._graphics import fg
-        from linecast._help import wrap
+        from linecast.terminal.graphics import fg
+        from linecast.terminal.help import wrap
         width = max(10, min(cols - 6, 64))
         lines = []
         for text in paragraphs:
@@ -1209,12 +1210,12 @@ class LiveApp:
     help_view = None
 
     def help_panel(self):
-        from linecast._help import HelpPanel
+        from linecast.terminal.help import HelpPanel
         return HelpPanel(self.help_view, self.runtime.lang) if self.help_view else None
 
     def run(self):
         """Run the app on the alternate screen until it quits."""
-        from linecast._textwidth import calibrate_from_terminal
+        from linecast.terminal.textwidth import calibrate_from_terminal
         calibrate_from_terminal()
         try:
             live_loop(self.render, interval=self.interval, mouse=self.mouse,

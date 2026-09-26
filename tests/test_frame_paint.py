@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._live import (_AUTOWRAP_OFF, _AUTOWRAP_ON, _SYNC_BEGIN, _SYNC_END,
+from linecast.terminal.live import (_AUTOWRAP_OFF, _AUTOWRAP_ON, _SYNC_BEGIN, _SYNC_END,
                             frame_body, frame_paint, print_frame)
 
 

@@ -241,7 +241,7 @@ class TestCityLocalization:
 
     def test_cjk_rows_stay_column_aligned(self):
         from linecast.radar.render import compose
-        from linecast._framebuffer import visible_len
+        from linecast.terminal.framebuffer import visible_len
         bm = self._build()
         ov = bm.city_overlays(max_cities=1, lang="zh")
         radar = [[None] * self.GRAPH_W for _ in range(self.HEIGHT_CELLS * 2)]

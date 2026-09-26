@@ -17,10 +17,10 @@ import threading
 import unicodedata
 from datetime import timedelta, timezone
 
-from linecast import _theme
-from linecast._graphics import RESET, bg, fg, visible_len
-from linecast._live import nudge
-from linecast._theme import ensure_contrast, surface_bg
+from linecast.terminal import theme as _theme
+from linecast.terminal.graphics import RESET, bg, fg, visible_len
+from linecast.terminal.live import nudge
+from linecast.terminal.theme import ensure_contrast, surface_bg
 
 PANEL_MIN, PANEL_MAX, MAX_ROWS = 28, 56, 8
 
@@ -456,7 +456,7 @@ def _wrap(text, width):
 
 def describe_rising(target, rising, runtime, culture=None):
     """'Orion rises at 02:14 in the E', or that it never rises here."""
-    from linecast._framebuffer import fmt_time_dt
+    from linecast.terminal.framebuffer import fmt_time_dt
     from linecast._i18n import sentence_24h
     from linecast.sky.i18n import _sk
     from linecast.sky.view import compass_point

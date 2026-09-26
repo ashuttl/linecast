@@ -10,17 +10,17 @@ layers into terminal lines, one composer per register.
 import math
 import re
 
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast.maps import climate as _climate
 from linecast.maps import globe_now
 from linecast.maps import hover
 from linecast.maps import style as _maps_style
-from linecast._color import (
+from linecast.terminal.color import (
     bg, fg, RESET, BOLD, color_mode, interp_stops, BG_PRIMARY,
 )
-from linecast._framebuffer import halfblock
+from linecast.terminal.framebuffer import halfblock
 from linecast.radar.basemap import BORDER
-from linecast._theme import lerp_rgb, themed
+from linecast.terminal.theme import lerp_rgb, themed
 from linecast.radar.ui import MARKER
 
 
@@ -76,7 +76,7 @@ def compact_colors(output):
 
 # geography over terrain: dark strokes cut into the colour fill (the
 # radar palette's dim-on-dark strokes vanish against light terrain).
-# Every terrain ink below passes through _theme.themed once, at import:
+# Every terrain ink below passes through terminal.theme.themed once, at import:
 # the calibrated luminance ladder stays, the hue family follows the
 # terminal's own theme.
 COAST_STROKE = themed((22, 32, 52))
@@ -526,4 +526,4 @@ def compose_map(fills, layer, overlays, graph_w, height_cells,
     return lines
 
 
-_theme.track_imports(globals(), "linecast._color")
+_theme.track_imports(globals(), "linecast.terminal.color")

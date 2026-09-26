@@ -2,9 +2,10 @@
 
 from datetime import timedelta, timezone
 
-from linecast._graphics import RESET, bg, fg, fmt_hour, fmt_time_dt, visible_len
-from linecast import _live, _theme
-from linecast._theme import (
+from linecast.terminal.graphics import RESET, bg, fg, fmt_hour, fmt_time_dt, visible_len
+from linecast.terminal import live as _live
+from linecast.terminal import theme as _theme
+from linecast.terminal.theme import (
     best_contrast,
     darken,
     ensure_contrast,

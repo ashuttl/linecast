@@ -17,7 +17,7 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast._live import _read_key
+from linecast.terminal.live import _read_key
 
 
 @pytest.fixture
@@ -206,7 +206,8 @@ class TestNudge:
 
     def test_wakes_the_terminal_only_while_a_loop_runs(self, monkeypatch):
         """nudge() reaches whichever wakeup the platform layer installed."""
-        from linecast import _live, _term
+        from linecast.terminal import live as _live
+        from linecast.terminal import term as _term
         woken = []
 
         class FakeTerminal:
@@ -225,7 +226,7 @@ class TestNudge:
     def test_sigwinch_still_feeds_the_posix_wakeup(self):
         """A resize signal reaches the loop's wait as a repaint."""
         import signal
-        from linecast import _term
+        from linecast.terminal import term as _term
         r, w = os.pipe()
         term = _term.LiveTerminal(r)
         term.install()
@@ -240,14 +241,14 @@ class TestNudge:
             os.close(w)
 
     def test_radar_frames_nudge_is_the_live_one(self):
-        from linecast import _live
+        from linecast.terminal import live as _live
         from linecast.radar import frames
         assert frames._nudge is _live.nudge
 
 
 _LOOP_EXIT_CHILD = """
 import json, os, signal, sys, tempfile
-from linecast import _live
+from linecast.terminal import live as _live
 hits = []
 def mine(*_):
     hits.append(1)

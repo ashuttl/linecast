@@ -10,9 +10,9 @@ import os
 import shutil
 import sys
 
-from linecast import _theme
-from linecast._color import RESET, BOLD, BG_PRIMARY, fg, bg, lerp
-from linecast._textwidth import char_width, visible_len  # noqa: F401
+from linecast.terminal import theme as _theme
+from linecast.terminal.color import RESET, BOLD, BG_PRIMARY, fg, bg, lerp
+from linecast.terminal.textwidth import char_width, visible_len  # noqa: F401
 from linecast._i18n import base_language
 
 
@@ -345,4 +345,4 @@ class Framebuffer:
             lines.append("".join(parts))
         return lines
 
-_theme.track_imports(globals(), "linecast._color")
+_theme.track_imports(globals(), "linecast.terminal.color")

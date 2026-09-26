@@ -89,7 +89,7 @@ def saved_dates() -> str | None:
 
 def saved_digits() -> str | None:
     """Return 'latin' or 'native' saved via `linecast digits`, or None."""
-    from linecast._bidi import digits_choice
+    from linecast.terminal.bidi import digits_choice
     return digits_choice(read_config().get("digits"))
 
 

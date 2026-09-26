@@ -7,15 +7,15 @@ these renderers instead of the full terminal UI.
 
 from linecast.weather.i18n import fmt_wind
 from linecast._i18n import fmt_decimal, fmt_duration_parts, fmt_percent, has_duration_words, lang_of
-from linecast._graphics import fg, RESET
-from linecast._framebuffer import fmt_time, fmt_time_dt
+from linecast.terminal.graphics import fg, RESET
+from linecast.terminal.framebuffer import fmt_time, fmt_time_dt
 
 
 def emit(line, stream=None):
     """Print a one-line summary: in display order on a terminal, in
     logical order for a status bar, which orders it itself."""
     import sys
-    from linecast._bidi import for_stream
+    from linecast.terminal.bidi import for_stream
     stream = sys.stdout if stream is None else stream
     print(for_stream(line, stream), file=stream)
 
@@ -206,8 +206,8 @@ def tides_oneline(station_name, hilo_data, now_local, runtime):
     *hilo_data* is a list of ``(datetime, height_ft, type_str)`` tuples where
     ``type_str`` is ``"H"`` or ``"L"``.
     """
-    from linecast._graphics import fg, RESET
-    from linecast._theme import theme_fg, ensure_contrast, theme_bg
+    from linecast.terminal.graphics import fg, RESET
+    from linecast.terminal.theme import theme_fg, ensure_contrast, theme_bg
 
     text_rgb = ensure_contrast(theme_fg, theme_bg, minimum=4.5)
     TEXT = fg(*text_rgb)

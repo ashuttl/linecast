@@ -5,9 +5,9 @@ same inks, so they take them from here rather than from the sunshine
 command.
 """
 
-from linecast import _theme
-from linecast._graphics import BG_PRIMARY, color_mode, lerp
-from linecast._theme import (
+from linecast.terminal import theme as _theme
+from linecast.terminal.graphics import BG_PRIMARY, color_mode, lerp
+from linecast.terminal.theme import (
     best_contrast,
     darken,
     ensure_contrast,
@@ -17,7 +17,7 @@ from linecast._theme import (
     theme_legacy_mode,
 )
 
-_theme.track_imports(globals(), "linecast._color")
+_theme.track_imports(globals(), "linecast.terminal.color")
 
 # The sun is drawn, not typeset: a white dot in a gold halo on every
 # theme. Theme-derived inks are contrast-checked against the page, which

@@ -19,9 +19,9 @@ never fight the radar echo colours for attention.
 import datetime
 import math
 
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast._cache import read_cache, read_stale, write_cache
-from linecast._color import lerp, interp_stops, BG_PRIMARY
+from linecast.terminal.color import lerp, interp_stops, BG_PRIMARY
 from linecast._http import fetch_json
 from linecast._paths import cache_dir
 from linecast._runtime import log_failure
@@ -226,4 +226,4 @@ def wind_overlays(field, t_idx, bbox, graph_w, height_cells,
             overlays[(col, row)] = (arrow, color)
     return overlays
 
-_theme.track_imports(globals(), "linecast._color")
+_theme.track_imports(globals(), "linecast.terminal.color")

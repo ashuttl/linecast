@@ -3,7 +3,8 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from linecast import _color, _theme
+from linecast.terminal import color as _color
+from linecast.terminal import theme as _theme
 
 
 class ThemeModeTests(unittest.TestCase):

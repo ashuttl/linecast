@@ -135,8 +135,8 @@ def install_banner():
     """A one-line install hint shown when running from a temporary venv (get.sh)."""
     if not os.environ.get("LINECAST_TEMP"):
         return ""
-    from linecast._color import fg, RESET
-    from linecast._theme import ensure_contrast, neutral_tone, theme_bg, theme_fg
+    from linecast.terminal.color import fg, RESET
+    from linecast.terminal.theme import ensure_contrast, neutral_tone, theme_bg, theme_fg
     text = fg(*ensure_contrast(theme_fg, theme_bg, minimum=4.5))
     muted = fg(*ensure_contrast(neutral_tone(0.48), theme_bg, minimum=2.5))
     sep = f"{muted} · "
@@ -988,7 +988,7 @@ def set_current(runtime):
     """Record the runtime main() resolved, for current_runtime()."""
     global _current
     _current = runtime
-    from linecast import _bidi
+    from linecast.terminal import bidi as _bidi
     _bidi.configure(getattr(runtime, "lang", "en"))
 
 

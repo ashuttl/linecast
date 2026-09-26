@@ -4,8 +4,8 @@ Rebuilt when the theme changes.  The month calendar and the sky view
 draw the same Moon, so they take its inks from here.
 """
 
-from linecast import _theme
-from linecast._theme import (
+from linecast.terminal import theme as _theme
+from linecast.terminal.theme import (
     best_contrast,
     darken,
     ensure_contrast,

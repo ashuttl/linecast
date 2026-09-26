@@ -105,7 +105,7 @@ class TestAutoTemperatureScale:
 
 class TestFlash:
     def test_a_note_comes_down_when_its_time_is_up(self, monkeypatch):
-        from linecast import _live
+        from linecast.terminal import live as _live
         from linecast.weather.view import WeatherApp
         view = WeatherApp({}, [], None, 43.7, -79.4, _runtime())
         view.flash(["hello"], seconds=0.0)

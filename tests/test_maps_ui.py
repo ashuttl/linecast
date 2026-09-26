@@ -20,10 +20,10 @@ if _src not in sys.path:
 
 from contextlib import contextmanager
 
-from linecast import _color
+from linecast.terminal import color as _color
 from linecast.maps import i18n
 from linecast.maps import ui as mu
-from linecast._framebuffer import visible_len
+from linecast.terminal.framebuffer import visible_len
 from linecast.maps.route import NoRoute, Route, RouteUnavailable
 from linecast.maps.search import Result, SearchUnavailable
 @contextmanager

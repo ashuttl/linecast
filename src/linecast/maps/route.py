@@ -25,7 +25,7 @@ from linecast._http import fetch_json
 from linecast._plaintext import plain_text
 from linecast.maps.rate_limit import RateLimit
 from linecast._runtime import debug_log, log_failure
-from linecast._scenes import Memo
+from linecast.terminal.scenes import Memo
 
 PROFILES = ("car", "bike", "foot")
 

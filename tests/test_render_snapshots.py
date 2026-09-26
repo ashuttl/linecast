@@ -272,7 +272,7 @@ class TestMoonSnapshot:
 
     def test_terminator_squares_up_to_the_bright_limb(self):
         """The lit half sits where the bright limb points."""
-        from linecast._framebuffer import Framebuffer
+        from linecast.terminal.framebuffer import Framebuffer
         from linecast.moon.disc import _draw_moon_disc
 
         def sides(limb_deg, axis_deg=0.0, illum=0.5):
@@ -290,7 +290,7 @@ class TestMoonSnapshot:
     def test_maria_turn_without_moving_the_terminator(self):
         """The two angles are independent: the Sun lights one side of the
         Moon whichever way the Moon's own pole happens to be leaning."""
-        from linecast._framebuffer import Framebuffer
+        from linecast.terminal.framebuffer import Framebuffer
         from linecast.moon.disc import _draw_moon_disc
 
         def render(axis_deg):
@@ -307,7 +307,7 @@ class TestMoonSnapshot:
 
     def test_lit_fraction_drives_the_terminator(self):
         """Full fills the disc, new empties it."""
-        from linecast._framebuffer import Framebuffer
+        from linecast.terminal.framebuffer import Framebuffer
         from linecast.moon.disc import _draw_moon_disc
 
         def brightness(illum):
@@ -373,7 +373,7 @@ class TestMoonSnapshot:
 
     def test_no_turn_is_the_identity(self):
         """A disc drawn through an identity turn is the disc drawn without."""
-        from linecast._framebuffer import Framebuffer
+        from linecast.terminal.framebuffer import Framebuffer
         from linecast.moon.disc import _IDENTITY, _draw_moon_disc
 
         plain = Framebuffer(40, 20)
@@ -384,7 +384,7 @@ class TestMoonSnapshot:
 
     def test_a_turn_carries_the_light_round_with_the_surface(self):
         """Dragging turns the whole Moon: the lit half goes with it."""
-        from linecast._framebuffer import Framebuffer
+        from linecast.terminal.framebuffer import Framebuffer
         from linecast.moon.disc import _draw_moon_disc, _rotation
 
         def render(turn, illum=0.5):
@@ -415,7 +415,7 @@ class TestMoonSnapshot:
     def test_earthshine_shows_the_maria_on_the_near_side_only(self):
         """A thin crescent's night carries a ghost of the surface; the far
         side's night, turned toward us, is flat shadow."""
-        from linecast._framebuffer import Framebuffer
+        from linecast.terminal.framebuffer import Framebuffer
         from linecast.moon.palette import MOON_SHADOW_RGB
         from linecast.moon.disc import _draw_moon_disc, _rotation
 
@@ -433,7 +433,7 @@ class TestMoonSnapshot:
         assert near_full[8] != crescent[8]               # fainter by the phase
 
     def test_the_disc_view_night_is_darker_than_the_sky(self):
-        from linecast._framebuffer import Framebuffer
+        from linecast.terminal.framebuffer import Framebuffer
         from linecast.moon.palette import MOON_NIGHT_RGB, MOON_SHADOW_RGB, SKY_RGB
         from linecast.moon.disc import _draw_moon_disc, _rotation
 
@@ -448,7 +448,7 @@ class TestMoonSnapshot:
         assert fb.fb[30][20] == MOON_SHADOW_RGB     # the calendar's default
 
     def test_stars_are_sown_evenly_and_keep_off_the_moon(self):
-        from linecast._framebuffer import Framebuffer
+        from linecast.terminal.framebuffer import Framebuffer
         from linecast.moon.view import _STAR_DENSITY, _star_overlays
 
         fb = Framebuffer(120, 40)
@@ -471,7 +471,7 @@ class TestMoonSnapshot:
     def test_the_sky_is_the_real_one(self):
         """Sirius sits where it should about the Moon, and turns with the
         parallactic angle as the night goes on."""
-        from linecast._framebuffer import Framebuffer
+        from linecast.terminal.framebuffer import Framebuffer
         from linecast.moon.view import _load_stars, _star_overlays
 
         stars = _load_stars()
@@ -678,7 +678,8 @@ class TestMapsSnapshot:
                              oneline=False)
 
     def _render(self, view, fetch_patch, zoom=0.02):
-        from linecast import _color, _theme
+        from linecast.terminal import color as _color
+        from linecast.terminal import theme as _theme
         from linecast.maps import view as maps
         from linecast.maps import style as _maps_style
         stack = [

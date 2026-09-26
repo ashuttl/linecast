@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from linecast.radar import warnings as _radar_warnings  # noqa: E402
-from linecast._color import BG_PRIMARY  # noqa: E402
+from linecast.terminal.color import BG_PRIMARY  # noqa: E402
 from linecast.radar.basemap import Basemap, DotLayer, _BITS, SEA  # noqa: E402
 from linecast.radar.render import bbox_for, build_radar_buffer  # noqa: E402
 from linecast.radar.sources import get_source  # noqa: E402

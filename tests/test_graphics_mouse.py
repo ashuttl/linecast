@@ -1,6 +1,6 @@
 import unittest
 
-from linecast import _graphics
+from linecast.terminal import graphics as _graphics
 
 
 class MouseDecodeTests(unittest.TestCase):

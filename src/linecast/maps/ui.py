@@ -25,9 +25,9 @@ Enter, when Photon has come back empty.
 import threading
 
 from linecast.maps import style
-from linecast._color import RESET, bg, fg
-from linecast._framebuffer import visible_len
-from linecast._live import nudge
+from linecast.terminal.color import RESET, bg, fg
+from linecast.terminal.framebuffer import visible_len
+from linecast.terminal.live import nudge
 from linecast.maps.i18n import ms
 from linecast.maps.route import (
     NoRoute, PROFILES, RouteUnavailable, maneuver_glyph,
@@ -38,8 +38,8 @@ from linecast.maps.search import (
 )
 from linecast.maps.elevation import ATTRIBUTION as ELEV_ATTRIBUTION
 from linecast.maps.route import ATTRIBUTION as ROUTE_ATTRIBUTION
-from linecast import _theme
-from linecast._theme import ensure_contrast, surface_bg
+from linecast.terminal import theme as _theme
+from linecast.terminal.theme import ensure_contrast, surface_bg
 from linecast.maps.vtiles import ATTRIBUTION as TILE_ATTRIBUTION
 from linecast.radar.ui import CROSSHAIR, DIM, MUTED
 from linecast._runtime import log_failure
@@ -630,5 +630,5 @@ def help_rows(cols, rows, lang="en", route=False):
 
 
 def help_overlay(cols, rows, lang="en", route=False):
-    from linecast._help import panel
+    from linecast.terminal.help import panel
     return panel(help_rows(cols, rows, lang, route), cols, rows, lang)[0]

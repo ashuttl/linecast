@@ -12,9 +12,9 @@ import sys
 
 from linecast.radar import frames as _radar_frames
 from linecast.radar import sources as _radar_sources
-from linecast._framebuffer import get_terminal_size
+from linecast.terminal.framebuffer import get_terminal_size
 from linecast._geo import wrap_lon
-from linecast._live import LiveApp
+from linecast.terminal.live import LiveApp
 from linecast._location import country_for_defaults, resolve_location
 from linecast.radar.frames import N_FRAMES, _nudge, _sat_timeline
 from linecast.radar.i18n import rs
@@ -25,7 +25,7 @@ from linecast.radar.sources import (
 )
 from linecast.radar.ui import ThemePicker
 from linecast._runtime import RuntimeConfig, radar_parser, set_current
-from linecast._spinner import Spinner
+from linecast.terminal.spinner import Spinner
 from linecast.radar.view import LAYERS, parse_layers, render_radar
 
 

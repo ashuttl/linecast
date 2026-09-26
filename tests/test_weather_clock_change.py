@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.weather import view as weather
-from linecast._graphics import fmt_hour
+from linecast.terminal.graphics import fmt_hour
 from linecast._runtime import WeatherRuntime
 from linecast.weather.historical import HistoricalAverages
 from linecast.weather.hourly import (

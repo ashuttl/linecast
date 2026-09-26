@@ -305,7 +305,7 @@ def calibrate_from_terminal(timeout_s=None):
         return
     if str(os.environ.get("TERM", "")).strip().lower() in ("", "dumb"):
         return
-    from linecast import _term
+    from linecast.terminal import term as _term
     if _term.answered is False:
         return   # the colour probe's cursor query went unanswered: a mute tty
     _CALIBRATED = True
@@ -317,7 +317,7 @@ def calibrate_from_terminal(timeout_s=None):
 
     # The terminal's name rides along: it answers before the first cursor
     # report, or not at all, and the right-to-left pass wants to know it
-    # (_bidi.orders_text_itself)
+    # (terminal.bidi.orders_text_itself)
     payload = _term.XTVERSION_QUERY + b"".join(
         b"\r" + text.encode() + b"\033[6n" for _name, text in _PROBES)
     widths = []
@@ -348,7 +348,7 @@ def calibrate_from_terminal(timeout_s=None):
         if widths:
             _term.mark_answered()
         if _term.note_terminal_name(buf):
-            from linecast import _bidi
+            from linecast.terminal import bidi as _bidi
             _bidi.refresh_mode()
         if len(widths) < len(_PROBES):
             # An answer that comes after this would reach the shell.

@@ -7,8 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._color import BG_PRIMARY, bg, lerp
-from linecast._framebuffer import HALF_BLOCK
+from linecast.terminal.color import BG_PRIMARY, bg, lerp
+from linecast.terminal.framebuffer import HALF_BLOCK
 from linecast.radar.basemap import SEA_FILL
 from linecast.radar.render import bbox_for, build_radar_buffer, compose
 

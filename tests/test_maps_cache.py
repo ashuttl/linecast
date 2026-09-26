@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.maps import view as maps
 from linecast.maps import views
-from linecast._scenes import FetchHold, SceneCache
+from linecast.terminal.scenes import FetchHold, SceneCache
 
 
 class TestMapScenes:

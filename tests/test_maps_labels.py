@@ -23,7 +23,7 @@ if _src not in sys.path:
 from linecast.maps import labels as lb
 from linecast.maps import streets as st
 from linecast.maps import style as _maps_style
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast.radar.basemap import _load_data
 
 from test_maps_streets import (

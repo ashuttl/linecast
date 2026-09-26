@@ -52,7 +52,7 @@ Unmarked text still gets the standard algorithm, so a lone Hebrew label in an En
 
 About 150 `visible_len` sites in 25 files lay out text, plus the overlay helpers (`menu_box`, `pointer_chip`, `toast_box`, the help panel) at 15 sites. Most of these do not need a change: the helpers and the text-drawing functions of each view are the places to mark.
 
-### One output pass: `_bidi.py`
+### One output pass: `terminal/bidi.py`
 
 A new stdlib-only module that turns a row of logical text with SGR escapes into a row of display-order cells:
 
@@ -129,7 +129,7 @@ Where it shows:
 
 ### Keys under a Persian layout
 
-With the Persian layout active, every single-letter key in the app types a Persian letter. On the standard ISIRI 9147 layout, `q` is ض, `l` is م, `v` is ر, `t` is ف. Map those characters back to the Latin keys they sit on, one table per layout, before key dispatch in `_live.py`. The same gap exists today for Russian, Ukrainian, Greek, and Korean users, so this is a fix for every non-Latin layout, and could go first. Terminals that speak the kitty keyboard protocol can report the base-layout key directly (progressive enhancement flag 4), which is exact where it is available. Check the table against the ISIRI 9147 standard, not memory.
+With the Persian layout active, every single-letter key in the app types a Persian letter. On the standard ISIRI 9147 layout, `q` is ض, `l` is م, `v` is ر, `t` is ف. Map those characters back to the Latin keys they sit on, one table per layout, before key dispatch in `terminal/live.py`. The same gap exists today for Russian, Ukrainian, Greek, and Korean users, so this is a fix for every non-Latin layout, and could go first. Terminals that speak the kitty keyboard protocol can report the base-layout key directly (progressive enhancement flag 4), which is exact where it is available. Check the table against the ISIRI 9147 standard, not memory.
 
 ## Toward Hebrew, Arabic, and Urdu
 
@@ -143,13 +143,13 @@ Each has its own questions:
 
 ## What was built
 
-All of Stages 0 to 6 are on `next`, each in its own commits: the output pass (`_bidi.py`), keys under non-Latin layouts (`_keylayouts.py`), the Solar Hijri calendar and the civil-date hook (`astro/calendars/solar_hijri.py`, `astro/calendars/civil.py`), the Persian strings and the sky names, the right-to-left layout, the Iranian prayer timetable, `linecast dates` and `linecast digits`, the doctor rows, and these docs.
+All of Stages 0 to 6 are on `next`, each in its own commits: the output pass (`terminal/bidi.py`), keys under non-Latin layouts (`terminal/keylayouts.py`), the Solar Hijri calendar and the civil-date hook (`astro/calendars/solar_hijri.py`, `astro/calendars/civil.py`), the Persian strings and the sky names, the right-to-left layout, the Iranian prayer timetable, `linecast dates` and `linecast digits`, the doctor rows, and these docs.
 
 Andrew's decisions: time charts are mirrored; Persian digits by default; Solar Hijri as the date throughout; لا in two joined cells; no native reader yet.
 
 Where the build differs from the plan above:
 
-- The layout is not mirrored view by view. A view says it reads from the right (`_bidi.set_mirror`) and the output pass lays each row out from the right: segments trade sides, box drawing, blocks, and braille are flipped, and the live loop mirrors the pointer and the arrow keys. A picture inside a mirrored view is drawn flipped for the row's flip to undo, as the Moon is on the disc and in the grid. Weather, tides, sunshine (both views), and the Moon (both views) are mirrored; maps, radar, and the sky are not, and their help panel lays itself out from the right instead.
+- The layout is not mirrored view by view. A view says it reads from the right (`terminal.bidi.set_mirror`) and the output pass lays each row out from the right: segments trade sides, box drawing, blocks, and braille are flipped, and the live loop mirrors the pointer and the arrow keys. A picture inside a mirrored view is drawn flipped for the row's flip to undo, as the Moon is on the disc and in the grid. Weather, tides, sunshine (both views), and the Moon (both views) are mirrored; maps, radar, and the sky are not, and their help panel lays itself out from the right instead.
 - The sunshine day's arc is plotted by the hour, midnight to midnight, and never flips by hemisphere, so it is a time chart and is mirrored; the plan had called it a picture of the sky.
 - Each gap-separated segment of a row is its own paragraph, right to left when the interface is and the segment holds right-to-left text, else by its first strong character, so the views needed no isolates around their text. The pass also keeps a minus sign and °C with their numbers, writes ، beside a Persian word, and draws the ezafe ـهٔ as ۀ, which has presentation forms of its own.
 - Durations are written in words in Persian (۶ ساعت و ۷ دقیقه), through `_i18n.fmt_duration_parts`.

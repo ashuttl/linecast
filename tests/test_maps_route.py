@@ -24,7 +24,7 @@ if _src not in sys.path:
 from linecast.maps import rate_limit as _rate_limit
 from linecast.maps import route as mr
 from linecast.maps.rate_limit import RateLimit
-from linecast._scenes import Memo
+from linecast.terminal.scenes import Memo
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 BODY = json.loads((FIXTURES / "osrm_route.json").read_text(encoding="utf-8"))

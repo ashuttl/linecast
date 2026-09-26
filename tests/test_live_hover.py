@@ -9,7 +9,8 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _framebuffer, _live
+from linecast.terminal import framebuffer as _framebuffer
+from linecast.terminal import live as _live
 
 
 def run_loop(monkeypatch, script, render_fn=None, coalesce=False, **hooks):

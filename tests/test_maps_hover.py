@@ -19,12 +19,12 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _color
+from linecast.terminal import color as _color
 from linecast.maps import hover as hv
 from linecast.maps import i18n
 from linecast.maps import style
 from linecast.maps import streets as st
-from linecast import _theme
+from linecast.terminal import theme as _theme
 from linecast.maps.view import compose_map
 
 from test_maps_streets import (  # the tile-fixture writer, reused wholesale

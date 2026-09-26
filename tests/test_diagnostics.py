@@ -294,7 +294,7 @@ class TestWorkerWatch:
     def test_one_line_after_the_loop_without_debug(self, quiet, capsys):
         import threading
         before = threading.excepthook
-        watch = _mod("_live").WorkerWatch()
+        watch = _mod("terminal.live").WorkerWatch()
         watch.install()
         _die_in_a_thread()
         watch.uninstall()
@@ -305,7 +305,7 @@ class TestWorkerWatch:
             "linecast: a background task failed; run with --debug for details\n")
 
     def test_debug_logs_at_once_and_prints_the_traceback_after(self, debug, capsys):
-        watch = _mod("_live").WorkerWatch()
+        watch = _mod("terminal.live").WorkerWatch()
         watch.install()
         _die_in_a_thread("tiles-3")
         watch.uninstall()
@@ -319,7 +319,7 @@ class TestWorkerWatch:
         assert watch.failures[0][:3] == ("tiles-3", "ZeroDivisionError", "division by zero")
 
     def test_nothing_to_report_when_nothing_died(self, quiet, capsys):
-        watch = _mod("_live").WorkerWatch()
+        watch = _mod("terminal.live").WorkerWatch()
         watch.install()
         watch.uninstall()
         watch.report()
@@ -356,7 +356,7 @@ class TestLiveLoopReportsDeadWorkers:
     def test_the_notice_lands_after_the_screen_is_restored(
             self, quiet, fake_tty, capsys, monkeypatch):
         import threading
-        live = _mod("_live")
+        live = _mod("terminal.live")
         before = threading.excepthook
         seen = []
         on_screen = []   # what stdout held at the moment the notice was written
@@ -383,7 +383,7 @@ class TestLiveLoopReportsDeadWorkers:
         assert err == "linecast: a background task failed; run with --debug for details\n"
 
     def test_a_clean_session_says_nothing(self, quiet, fake_tty, capsys):
-        live = _mod("_live")
+        live = _mod("terminal.live")
 
         def render(offset_minutes=0, **frame):
             raise KeyboardInterrupt

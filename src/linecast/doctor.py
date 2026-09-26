@@ -321,7 +321,8 @@ def _collect_paths():
 
 def _collect_terminal():
     import shutil
-    from linecast import _color, _theme
+    from linecast.terminal import color as _color
+    from linecast.terminal import theme as _theme
     from linecast._runtime import RuntimeConfig, resolve_icons
     env = os.environ
     _theme.ensure_theme_loaded()  # no OSC probe unless stdout is a tty
@@ -370,7 +371,7 @@ def _collect_terminal():
 def _collect_bidi(env):
     """Who puts right-to-left text in order, and what to change if it
     reads backwards in this terminal."""
-    from linecast import _bidi
+    from linecast.terminal import bidi as _bidi
     mode = _bidi.bidi_mode(env)
     if mode == "off":
         return "not ordered (LINECAST_BIDI=off)"
@@ -393,7 +394,7 @@ def _collect_bidi(env):
 
 def _collect_glyph_widths():
     """How wide the terminal draws the glyphs linecast lays its rows out from."""
-    from linecast._textwidth import (calibrate_from_terminal, measured_widths,
+    from linecast.terminal.textwidth import (calibrate_from_terminal, measured_widths,
                                      probe_glyphs, visible_len)
     calibrate_from_terminal()
     cells = "  ".join(f"{text} {visible_len(text)}" for _name, text in probe_glyphs())
@@ -463,7 +464,7 @@ def _collect_preferences():
         native = setting(language, "hours")
         hours = native or "none"
         hours_source = f"auto: {language}" if native else "auto"
-    from linecast._bidi import resolve_digits
+    from linecast.terminal.bidi import resolve_digits
     from linecast.astro.calendars.civil import SOLAR_HIJRI, resolve_dates
     dates, dates_source = resolve_dates(language, env)
     dates = "solar-hijri" if dates == SOLAR_HIJRI else "gregorian"
@@ -660,7 +661,7 @@ def main():
     if args.json_mode:
         print(json.dumps(report, ensure_ascii=False, indent=2))
     else:
-        from linecast._bidi import for_stream
+        from linecast.terminal.bidi import for_stream
         print(for_stream(render(report)))
 
 

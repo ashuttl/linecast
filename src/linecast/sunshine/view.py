@@ -19,13 +19,13 @@ import math
 import sys
 from datetime import datetime
 
-from linecast._braille import braille_rows_from_ys
-from linecast._graphics import (
+from linecast.terminal.braille import braille_rows_from_ys
+from linecast.terminal.graphics import (
     fg, RESET, lerp, interp_stops, visible_len,
     fmt_time, fmt_time_dt, get_terminal_size, Framebuffer, live_loop,
 )
-from linecast import _theme
-from linecast._theme import darken, lighten
+from linecast.terminal import theme as _theme
+from linecast.terminal.theme import darken, lighten
 from linecast._i18n import fmt_duration_parts, lang_of, table_for
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
@@ -33,7 +33,7 @@ from linecast._location import (
 from linecast._runtime import (
     RuntimeConfig, current_runtime, install_banner, set_current, sunshine_parser,
 )
-from linecast._glyphs import _icon_set
+from linecast.terminal.glyphs import _icon_set
 from linecast.sunshine import solar
 from linecast.sunshine.palette import (
     CURVE_COLOR, HORIZON_COLOR, INFO_AMBER_RGB, INFO_DIM_RGB, INFO_PURPLE_RGB,
@@ -42,7 +42,7 @@ from linecast.sunshine.palette import (
 )
 from linecast.sunshine.solar import polar_state, solar_times, sun_elevation
 
-_theme.track_imports(globals(), "linecast._color")
+_theme.track_imports(globals(), "linecast.terminal.color")
 _theme.track_imports(globals(), "linecast.sunshine.palette")
 
 
@@ -100,7 +100,7 @@ def corner_label_cells(label, graph_w, left=False):
     its own, and an empty one after it that the framebuffer skips.
     Truncated to half the chart.
     """
-    from linecast._textwidth import char_width
+    from linecast.terminal.textwidth import char_width
     cells = []
     used = 0
     last_base = None
@@ -315,7 +315,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
     # the info line stays balanced: sunrise at one end, sunset at the
     # other. With a tradition's reading in that corner, or the sun
     # itself, it falls back to the last line instead.
-    from linecast import _help
+    from linecast.terminal import help as _help
     from linecast._i18n import lang_of
     lang = lang_of(runtime)
     painted = fullscreen and _help.paint_hint(fb, overlays, lang, rows=(0,))
@@ -531,7 +531,7 @@ def main():
         return
 
     if runtime.oneline:
-        from linecast._oneline import emit, sunshine_oneline
+        from linecast.terminal.oneline import emit, sunshine_oneline
         now = _now()
         doy = now.timetuple().tm_yday
         now_hour = now.hour + now.minute / 60 + now.second / 3600
@@ -570,7 +570,7 @@ def main():
         # Both views read from the right in a right-to-left language:
         # the day's arc is plotted by the hour, midnight to midnight,
         # and the year by the date, so both are time running leftward.
-        from linecast import _bidi
+        from linecast.terminal import bidi as _bidi
         _bidi.set_mirror(True)
         if state["year"]:
             from linecast.sunshine.year import render_year
@@ -600,8 +600,8 @@ def main():
         )
 
     if not live:
-        from linecast._live import print_frame
-        from linecast._textwidth import calibrate_from_terminal
+        from linecast.terminal.live import print_frame
+        from linecast.terminal.textwidth import calibrate_from_terminal
         calibrate_from_terminal()
         print_frame(_render_view())
         return
@@ -633,7 +633,7 @@ def main():
             return True
         return False
 
-    from linecast._help import HelpPanel
+    from linecast.terminal.help import HelpPanel
     help_panel = HelpPanel(lambda: 'sunshine_year' if state['year'] else 'sunshine',
                            runtime.lang)
     live_loop(_render_view, mouse=True, intercept=_intercept, help_panel=help_panel,

@@ -663,7 +663,7 @@ class TestPainting:
             assert "iftar in" not in top or "iftar in 6h 26m" in top
 
     def test_the_oneline_keeps_the_reading_whole(self):
-        from linecast._oneline import sunshine_oneline
+        from linecast.terminal.oneline import sunshine_oneline
         tz = ZoneInfo("Asia/Riyadh")
         now = datetime(2026, 9, 16, 15, 0, tzinfo=tz)
         hours, now = hours_now("islamic", now, 21.4225, 39.8262, tz, None, "SA")

@@ -8,8 +8,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _color
-from linecast._color import BG_PRIMARY, lerp
+from linecast.terminal import color as _color
+from linecast.terminal.color import BG_PRIMARY, lerp
 from linecast.radar.layers import (
     Field, TEMP_STOPS, build_temp_buffer, field_key, wind_color,
     wind_overlays,
@@ -102,7 +102,7 @@ class TestTempBuffer:
         assert len(buf) == 8 and len(buf[0]) == 8
         # uniform 20°C field → every sub-pixel is the same tinted color,
         # blended halfway toward the terminal background
-        from linecast._color import interp_stops
+        from linecast.terminal.color import interp_stops
         expected = lerp(BG_PRIMARY, interp_stops(TEMP_STOPS, 20.0), 0.5)
         assert buf[0][0] == expected
         assert buf[7][7] == expected
@@ -122,7 +122,7 @@ class TestWindOverlays:
         assert ov == {}
 
     def test_speed_sets_contrast_not_hue(self):
-        from linecast._theme import contrast_ratio, theme_bg
+        from linecast.terminal.theme import contrast_ratio, theme_bg
         assert wind_color(0.0) is None
         assert wind_color(4.0) is None  # lightest breeze stays invisible
         breeze, gale = wind_color(12.0), wind_color(70.0)

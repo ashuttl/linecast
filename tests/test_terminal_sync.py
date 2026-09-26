@@ -27,8 +27,9 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _term, _theme  # noqa: E402
-from linecast._live import _read_key  # noqa: E402
+from linecast.terminal import theme as _theme  # noqa: E402
+from linecast.terminal import term as _term
+from linecast.terminal.live import _read_key  # noqa: E402
 
 needs_pty = pytest.mark.skipif(not hasattr(os, "openpty"), reason="needs a pty")
 
@@ -251,7 +252,7 @@ class TestColourProbe:
         assert _term.answered is False
 
     def test_the_width_probe_skips_a_mute_tty(self, pty, monkeypatch):
-        from linecast import _textwidth
+        from linecast.terminal import textwidth as _textwidth
         monkeypatch.setattr(_term, "answered", False)
         monkeypatch.setattr(_textwidth, "_CALIBRATED", False)
         terminal = Terminal(pty.attach(monkeypatch), lambda seen: None)
@@ -270,7 +271,7 @@ class TestColourProbe:
 # ---------------------------------------------------------------------------
 _CHILD = """
 import json, os, select, sys, termios, tty
-from linecast import _live
+from linecast.terminal import live as _live
 def render(offset_minutes=0, **kw):
     sys.stderr.write("FRAME %d\\n" % offset_minutes)
     sys.stderr.flush()
@@ -296,7 +297,7 @@ CPR_QUERY = _term.CPR_QUERY
 # ending the child, along with whether the tty came back as it was.
 _SIGNAL_CHILD = """
 import json, os, signal, sys, termios
-from linecast import _live
+from linecast.terminal import live as _live
 fd = sys.stdin.fileno()
 def settings():
     # BSD marks a tty put back into canonical mode with PENDIN until the

@@ -44,12 +44,13 @@ import sys
 from collections import namedtuple
 from datetime import datetime, timezone
 
-from linecast._graphics import (
+from linecast.terminal.graphics import (
     Framebuffer, RESET, bg, cell_aspect, fg, get_terminal_size, interp_stops, lerp,
     visible_len,
 )
-from linecast import _live, _theme
-from linecast._theme import (
+from linecast.terminal import live as _live
+from linecast.terminal import theme as _theme
+from linecast.terminal.theme import (
     best_contrast, darken, ensure_contrast, is_light_theme, lerp_rgb, lighten,
     neutral_tone, surface_bg, theme_legacy_mode,
 )
@@ -76,7 +77,7 @@ from linecast.sky import deep as _sky_deep
 from linecast.sky import objects as _sky_objects
 from linecast.sky.i18n import _sk, body_name
 from linecast.sunshine.i18n import sky_phase
-from linecast._textwidth import char_width
+from linecast.terminal.textwidth import char_width
 from linecast.tides.i18n import _ts  # shared "space to return to now" hint
 from linecast.moon.disc import _draw_moon_disc
 from linecast.sunshine.palette import (
@@ -797,7 +798,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
     taken = set()
     status_labels = []
     if fullscreen:
-        from linecast._help import hint as help_hint, paint_text
+        from linecast.terminal.help import hint as help_hint, paint_text
         help_label = help_hint(lang, graph_w)
         room = max(0, graph_w - visible_len(help_label) - 2)
         status_labels = _status_line(scene, now_local, runtime, view, room, location_label,
@@ -1305,7 +1306,7 @@ def main():
                                        fov=fov), ensure_ascii=False))
         return
     if runtime.oneline:
-        from linecast._oneline import emit, sky_oneline
+        from linecast.terminal.oneline import emit, sky_oneline
         emit(sky_oneline(_now(), lat, lng, runtime))
         return
 
@@ -1316,7 +1317,7 @@ def main():
         cols, rows = get_terminal_size()
         view = default_view(Scene(now.astimezone(timezone.utc), lat, lng),
                             cols, rows, facing, fov, aim=aim)._replace(culture=culture)
-        from linecast._live import print_frame
+        from linecast.terminal.live import print_frame
         print_frame(render(now, lat, lng, runtime, view, location_label=label))
         return
     SkyApp(_now, lat, lng, runtime, facing=facing, fov=fov, location_label=label,

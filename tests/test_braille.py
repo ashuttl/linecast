@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast._braille import build_braille_curve, interpolate
+from linecast.terminal.braille import build_braille_curve, interpolate
 
 
 class TestInterpolate:

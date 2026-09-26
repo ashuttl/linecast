@@ -19,7 +19,7 @@ if _src not in sys.path:
 
 from linecast.maps import i18n as _maps_i18n
 from linecast._completion import LANG_CODES
-from linecast._framebuffer import visible_len
+from linecast.terminal.framebuffer import visible_len
 from linecast._i18n import VARIANTS
 from linecast.maps.i18n import ms
 
