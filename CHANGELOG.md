@@ -12,7 +12,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: In Japanese, Korean, Finnish, and Turkish, an alert's end time now reads in the language's own word order: "日 20:00まで", "Paz 20:00'ye kadar".
 - Weather: Conditions are named in sentence case in English and Indonesian: "Light showers", not "Light Showers".
 - Weather: Fixed a bug that could drop the label from the week's lowest temperature in the daily forecast at some window widths.
-- Tides: Tide and wave heights use the decimal comma in the languages that write one: "9,8′" in Czech.
+- Tides: Fixed a bug that showed tide and wave heights with a decimal point in languages that write a decimal comma, such as "9.8′" for "9,8′" in Czech.
 - Languages: The translations are now in one file per language, with notes on what each string is for, so a translation is easier to correct or add. CONTRIBUTING.md explains how.
 
 ## 2.8.0 — 2026-09-25
