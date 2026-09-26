@@ -13,6 +13,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: Conditions are named in sentence case in English and Indonesian: "Light showers", not "Light Showers".
 - Weather: Fixed a bug that could drop the label from the week's lowest temperature in the daily forecast at some window widths.
 - Tides: Tide and wave heights use the decimal comma in the languages that write one: "9,8′" in Czech.
+- Languages: The translations are now in one file per language, with notes on what each string is for, so a translation is easier to correct or add. CONTRIBUTING.md explains how.
 
 ## 2.8.0 — 2026-09-25
 
