@@ -140,7 +140,7 @@ class TestDailyLabels:
         return [_strip(line).split()[0] for line in lines]
 
     def test_the_first_row_is_today_on_the_day_it_was_made(self):
-        assert self._rows(MADE)[:3] == ["Tod", "Fri", "Sat"]
+        assert self._rows(MADE)[:3] == ["Today", "Fri", "Sat"]
 
     def test_the_first_row_is_its_weekday_on_a_later_day(self):
         # The forecast's days keep their names; none of them is today.

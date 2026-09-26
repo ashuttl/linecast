@@ -282,9 +282,14 @@ def test_daily_rain_and_wind_keep_their_columns_when_a_day_has_both():
 
 
 def test_daily_words_go_before_the_bar_is_squeezed():
-    wide, _ = render_daily_mapped(_daily_data(True), 70, _runtime())
+    wide, _ = render_daily_mapped(_daily_data(True), 90, _runtime())
+    middle, _ = render_daily_mapped(_daily_data(True), 80, _runtime())
     tight, spans = render_daily_mapped(_daily_data(True), 62, _runtime())
-    assert "Rain" in _plain(wide[0]) and "Wind" in _plain(wide[0])
+    assert "Rain 0.22″" in _plain(wide[0]) and "Wind" in _plain(wide[0])
+    # "Rain" and "Wind" go before the condition does
+    assert "Light rain" in _plain(middle[0])
+    assert _plain(middle[0]).endswith("74%  0.22″  18mph")
+    assert "Light rain" not in _plain(tight[0])
     assert _plain(tight[0]).endswith("74%  0.22″  18mph")
     a, b = spans[0]["cols"]["bar"]
     assert b - a >= 30

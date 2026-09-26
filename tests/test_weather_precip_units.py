@@ -1,5 +1,6 @@
 """The rain thresholds are the same amount of rain in either unit."""
 
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -98,10 +99,11 @@ class TestPastSnow:
 class TestDailyPrecipThreshold:
     """The amount beside a day in the daily list, above and below 1 mm."""
 
+    # "Rain" with its amount: the condition beside the icon names it too
     def test_under_a_millimetre_is_unnamed_in_either_unit(self):
-        assert "Rain" not in _today_row(0.8, metric=True)
-        assert "Rain" not in _today_row(0.8, metric=False)
+        assert not re.search(r"Rain \d", _today_row(0.8, metric=True))
+        assert not re.search(r"Rain \d", _today_row(0.8, metric=False))
 
     def test_over_a_millimetre_is_named_in_either_unit(self):
-        assert "Rain" in _today_row(1.2, metric=True)
-        assert "Rain" in _today_row(1.2, metric=False)
+        assert re.search(r"Rain \d", _today_row(1.2, metric=True))
+        assert re.search(r"Rain \d", _today_row(1.2, metric=False))

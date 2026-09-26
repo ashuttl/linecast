@@ -8,7 +8,7 @@ from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import (DAY_NAMES, FULL_DAY_NAMES, LIST_FULL_DAY_NAMES, _s,
-                                   _wmo_icons, fmt_wind)
+                                   _wmo_icons, fmt_wind, wmo_label)
 from linecast.weather.sources import _local_now_for_data
 from linecast.weather.style import (
     DIM, TEXT, WIND_COLOR, _knockout_ink, _precip_color, _precip_type, _temp_color,
@@ -23,6 +23,9 @@ _USE_BG_FILL = color_mode() != "none"
 MIN_BAR_W = 10
 # A bar this wide has room to spell out "Rain" and "Wind" beside it.
 FULL_LABEL_BAR_W = 30
+# The day of the month after the day's name, as a language writes it
+# alone; "日 27" would read as "Sunday, day 27" twice over.
+_MONTH_DAY = {"ja": "{d}日", "zh": "{d}日", "ko": "{d}일"}
 
 
 def _lpad(s, w):
@@ -49,7 +52,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
 
     Returns (lines, spans): one dict per line, holding the day's index into
     the daily arrays and, under "cols", the 0-based [start, end) columns of
-    each part present: "day" (name and icon), "bar", "rain" (the odds and
+    each part present: "day" (name, icon, and condition), "bar", "rain" (the odds and
     the amount together), "wind".  The live view's hover chip reads them."""
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
@@ -103,6 +106,17 @@ def render_daily_mapped(data, width, runtime=None, now=None):
     # Compute per-day detail fields in full and compact (no type/wind label) forms.
     # At narrow widths, drop "Snow"/"Rain" prefix and "Wind" label — the
     # colored amount + unit are enough context.
+    # The condition in words beside its icon, named as the icon draws it.
+    # The words go first as the window narrows: the icon says the same.
+    conditions = [sky_condition((wmo_codes[i] if i < len(wmo_codes) else 0) or 0,
+                                cover_means[i] if i < len(cover_means) else None)
+                  for i in range(display_end)]
+    labels = [wmo_label(c, lang) for c in conditions]
+    label_w = max(visible_len(labels[i]) for i in range(1, display_end))
+    month_day = _MONTH_DAY.get(base_language(lang), "{d}")
+    dates = [""] + [month_day.format(d=times[i][8:].lstrip("0")) if len(times[i]) >= 10 else ""
+                    for i in range(1, display_end)]
+    date_w = max(visible_len(d) for d in dates)
     day_raw = []  # (precip_amt, prob_s, wind_amt, ptype, wmo_i) per day
     for i in range(1, display_end):
         # a null is a day the model has no figure for: nothing to show
@@ -169,14 +183,22 @@ def render_daily_mapped(data, width, runtime=None, now=None):
             right_w += 2 + mw
         return details, mp, mpr, mw, right_w
 
-    # The words "Rain" and "Wind" earn their place beside a bar with room
-    # to spare; when the bar would be squeezed under FULL_LABEL_BAR_W the
-    # colored amount and its unit carry the meaning on their own.
-    day_details, max_precip_w, max_prob_w, max_wind_w, max_right_w = _measure_details(False)
-    bar_w = max(MIN_BAR_W, width - left_prefix_w - max_right_w)
-    if bar_w < FULL_LABEL_BAR_W:
-        day_details, max_precip_w, max_prob_w, max_wind_w, max_right_w = _measure_details(True)
-        bar_w = max(MIN_BAR_W, width - left_prefix_w - max_right_w)
+    # What the bar can spare over FULL_LABEL_BAR_W goes to words, and as
+    # the window narrows they give way in turn: first "Rain" and "Wind",
+    # whose colored amounts and units carry the meaning on their own,
+    # then the condition, whose icon says the same, then the date.
+    for compact, with_label, with_date in ((False, True, True), (True, True, True),
+                                           (True, False, True), (True, False, False)):
+        day_details, max_precip_w, max_prob_w, max_wind_w, max_right_w = (
+            _measure_details(compact))
+        extra = (label_w + 2) * with_label + (date_w + 1) * with_date
+        if width - left_prefix_w - extra - max_right_w >= FULL_LABEL_BAR_W:
+            break
+    label_w *= with_label
+    date_w *= with_date
+    if date_w:
+        day_col_w += date_w + 1
+    left_prefix_w += (label_w + 2 if label_w else 0) + (date_w + 1 if date_w else 0)
 
     # Narrower still: the bar will not shrink past its floor, so the detail
     # columns go one at a time -- wind, then the odds, then the amount --
@@ -206,19 +228,28 @@ def render_daily_mapped(data, width, runtime=None, now=None):
 
     today = now.date().isoformat()
     for i in range(1, display_end):
-        if i == 1 and times[i] == today:
-            day_name = _s("today_short", runtime)
+        is_today = i == 1 and times[i] == today
+        if is_today:
+            # the word in full where the column has room, as the dates give it
+            day_name = _s("today", runtime)
+            if visible_len(day_name) > day_col_w:
+                day_name = _s("today_short", runtime)
         else:
             try:
                 dt = datetime.fromisoformat(times[i])
                 day_name = day_name_list[dt.weekday()]
             except Exception:
                 day_name = "???"
+        if date_w and not is_today:
+            day_name += " " * (day_col_w - date_w - visible_len(day_name)) + _rpad(dates[i], date_w)
         day_name = day_name + " " * (day_col_w - visible_len(day_name))
+        if is_today:
+            day_name = f"{BOLD}{day_name}{RESET}{TEXT}"
 
         wmo = (wmo_codes[i] if i < len(wmo_codes) else 0) or 0
-        icon = icons.get(sky_condition(wmo, cover_means[i] if i < len(cover_means) else None),
-                         icons[0])
+        icon = icons.get(conditions[i], icons[0])
+        if label_w:
+            icon += f"  {_lpad(labels[i], label_w)}"
         hi = hi_temps[i] if i < len(hi_temps) else None
         lo = lo_temps[i] if i < len(lo_temps) else None
         if hi is None or lo is None:
