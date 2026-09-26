@@ -173,7 +173,7 @@ Predictions come from the national tide services in the US, Canada, Queensland, 
 
 ### Radar
 
-`radar` animates the recent observations and an hour of forecast over a braille map, with US weather warnings drawn on top. Temperature and wind layers are there if you want them, and you can press `S` for satellite imagery.
+`radar` animates the recent observations and an hour of forecast over a braille map, with US weather warnings drawn on top; press `A` to hide them. Temperature and wind layers are there if you want them, and you can press `S` for satellite imagery.
 
 Real radar is only available where it is published openly: North America, Europe, and parts of East and Southeast Asia. Everywhere else, LibreWXR fills in with a precipitation model, and it looks like one.
 

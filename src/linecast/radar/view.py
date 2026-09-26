@@ -111,7 +111,7 @@ def _temp_buffer(field, t_idx, bbox, graph_w, height_cells):
 def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                  marker=None, runtime=None, block=True, pan_offset=(0, 0),
                  theme_menu=None, mouse_pos=None, layer="radar",
-                 layers=frozenset(), **_):
+                 layers=frozenset(), alerts=True, **_):
     lang = runtime.lang if runtime else "en"
     use_24h = runtime.use_24h if runtime else False
     source = _radar_frames._source
@@ -202,10 +202,11 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                     field, t_idx, bbox, graph_w, height_cells)
 
     # storm-based warning outlines valid at the displayed frame's time
-    # (live mode: cache-only, the prefetcher warms them alongside frames)
+    # (live mode: cache-only, the prefetcher warms them alongside frames;
+    # A hides them, and the prefetch goes on so they return at once)
     warn_layer = None
     warns = None
-    if _radar_warnings.covers(bbox) and not frame.future:
+    if alerts and _radar_warnings.covers(bbox) and not frame.future:
         if block:
             try:
                 warns = _radar_warnings.warnings_at(when)

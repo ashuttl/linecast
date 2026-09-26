@@ -65,6 +65,18 @@ class TestActions:
         assert app.on_action('c') is True
         assert app.layers == {"wind"}
 
+    def test_shift_a_toggles_the_warning_outlines(self, app, monkeypatch):
+        seen = []
+        monkeypatch.setattr(_radar_live, "render_radar",
+                            lambda *a, **k: seen.append(k["alerts"]))
+        app.render()
+        assert app.on_action('A') is True
+        app.render()
+        assert app.on_action('A') is True
+        app.render()
+        assert seen == [True, False, True]
+        assert app.layers == set()
+
     def test_shift_s_cycles_the_layer_only_with_a_satellite_timeline(
             self, app, monkeypatch):
         assert app.on_action('S') is False

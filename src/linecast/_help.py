@@ -98,7 +98,7 @@ CONTROLS = {
             ('p', 'play_time'), ('1–8', 'compass'), ('9', 'zenith'), ('m', 'moon')],
     'radar': [('drag / wasd', 'help_pan'), ('wheel / ←→', 'frames'), ('+ -', 'help_zoom'),
               ('space / n', 'play'), ('hover', 'alert'), ('c', 'temperature'),
-              ('W', 'wind'), ('t', 'theme'), ('S', 'satellite')],
+              ('W', 'wind'), ('A', 'alerts'), ('t', 'theme'), ('S', 'satellite')],
 }
 
 

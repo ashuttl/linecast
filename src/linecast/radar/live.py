@@ -44,8 +44,8 @@ class RadarApp(LiveApp):
     """The live radar's state and keys, run under live_loop.
 
     The centre pans while the marker stays at the true location; the
-    layer keys toggle the condition layers and cycle radar and
-    satellite; + and - zoom; t opens the theme picker, which takes
+    layer keys toggle the condition layers and the warning outlines and
+    cycle radar and satellite; + and - zoom; t opens the theme picker, which takes
     every key while open.  A theme change swaps the source for one
     with the same index, so nothing is fetched again.
     """
@@ -66,6 +66,7 @@ class RadarApp(LiveApp):
         self.lat, self.lon = view_lat(lat), lon  # the view centre; pans
         self.region = _in_conus(lat, lon)
         self.layers = set(layers)
+        self.alerts = True             # warning outlines; A toggles them
         self.layer = layer
         self.theme = theme             # active theme id (the picker updates it)
         self.pan_preview = (0, 0)      # live cell offset while a drag is in progress
@@ -81,6 +82,9 @@ class RadarApp(LiveApp):
         if key in ('c', 'W'):
             self.layers.symmetric_difference_update(
                 {'temp' if key == 'c' else 'wind'})
+            return True
+        if key == 'A':
+            self.alerts = not self.alerts
             return True
         if key == 'S':
             # cycle layers; a no-op on sources without a cloud mosaic
@@ -154,6 +158,7 @@ class RadarApp(LiveApp):
             runtime=self.runtime, block=False, mouse_pos=mouse_pos,
             pan_offset=self.pan_preview,
             layers=frozenset(self.layers),
+            alerts=self.alerts,
             layer=self.layer,
             theme_menu=((list(themes), self.picker.sel)
                         if self.picker.is_open and themes else None))

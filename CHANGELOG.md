@@ -35,6 +35,8 @@ New this version:
   - Frames sent to the terminal are about half the size, so panning and rotating are smoother on a slow terminal or over ssh.
   - City lights on the night side of the globe and the terrain map come from NASA's Black Marble image of the Earth at night, bundled with linecast. They fade out as you zoom in.
   - Only lakes at least a few cells across get a braille coastline, so lake country no longer looks like a field of little rings. Smaller ponds are still drawn as water.
+- Radar:
+  - Press `A` to hide or show the US warning outlines.
 - Language:
   - linecast speaks Persian (`fa`), used automatically by a Persian terminal locale. The forecast is written the way Iran's meteorological service writes it, numbers are in Persian digits (`linecast digits latin` for 0–9), dates are in the Solar Hijri calendar (`linecast dates gregorian` for the Gregorian), and the sky names its constellations and many of its stars in Persian. A native reader has not checked it yet; if something reads oddly, please open an [issue](https://github.com/ashuttl/linecast/issues).
   - In Persian, weather, tides, the Moon, and sunshine read from the right: text is anchored to the right edge, and the graphs run right to left, with now at the right. `←` moves forward in time. Maps, radar, the sky, and the Moon itself are not mirrored.
