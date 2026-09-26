@@ -5,11 +5,14 @@ A key left out here reads as in French, then English.
 
 
 HELP = {
+            "key_wheel": "roulette",
             "target": "aller à l’objet; puis à son lever",
 }
 
 
 WEATHER = {
+               "chance": "{p} de probabilité",
+               "chance_of": "{p} de probabilité de {what}",
                "alerts_stale": "Dernière mise à jour des alertes : {when}; impossible de vérifier s'il y en a de nouvelles.",
                "forecast_stale": "Cette prévision date de {day}; impossible d'en obtenir une plus récente.",
                "forecast_stale_at": "Cette prévision date de {day}; impossible d'en obtenir une plus récente à {time}.",
@@ -48,4 +51,11 @@ CONDITIONS = {
 MAPS = {
             "poi_ferry": "traversier · port",
             "hov_ferry": "traversier",
+}
+
+
+# In France pieds-noirs are the French of Algeria; in Canada the name is
+# the Blackfoot Confederacy's.
+SKY_CULTURES = {
+                    "blackfoot": "Pieds-Noirs",
 }
