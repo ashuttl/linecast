@@ -57,7 +57,7 @@ class TestWeatherOneline:
         plain = _strip_ansi(line)
         assert "Portland" in plain
         assert "58" in plain
-        assert "Partly Cloudy" in plain
+        assert "Partly cloudy" in plain
 
     def test_no_data(self):
         rt = self._runtime()

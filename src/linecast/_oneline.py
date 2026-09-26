@@ -27,7 +27,7 @@ def emit(line, stream=None):
 def weather_oneline(data, location_name, runtime):
     """Return a compact weather summary line.
 
-    Example: ``Portland 58°F Partly Cloudy Wind 8mph 💧32%``
+    Example: ``Portland 58°F Partly cloudy Wind 8mph 💧32%``
     """
     from linecast.weather.cover import sky_condition
     from linecast.weather.i18n import _wmo_icons, wmo_label
