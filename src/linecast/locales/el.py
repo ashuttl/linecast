@@ -88,7 +88,7 @@ WEATHER = {
     "uv": "UV",
     "aqi": "AQI",
     "precip_inch": "″",
-    "until": "έως",
+    "until": "έως {time}",
     "sentence_end": ".",
     "sentence_join": ". ",
     "feels_humid": "Η υψηλή υγρασία αυξάνει την αισθητή θερμοκρασία",

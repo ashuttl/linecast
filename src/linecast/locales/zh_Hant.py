@@ -87,7 +87,7 @@ WEATHER = {
     "dew_pt": "露點",
     "uv": "UV",
     "aqi": "AQI",
-    "until": "到",
+    "until": "到 {time}",
     # Sentence punctuation for the prose lines
     "sentence_end": "。",
     "sentence_join": "。",

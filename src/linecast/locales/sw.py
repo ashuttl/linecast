@@ -87,7 +87,7 @@ WEATHER = {
     "uv": "UV",
     "aqi": "AQI",
     "precip_inch": "″",
-    "until": "hadi",
+    "until": "hadi {time}",
     "sentence_end": ".",
     "sentence_join": ". ",
     "feels_humid": "Unyevunyevu mwingi unaongeza hisia ya joto",

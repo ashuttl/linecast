@@ -87,7 +87,7 @@ WEATHER = {
     "dew_pt": "이슬점",
     "uv": "UV",
     "aqi": "AQI",
-    "until": "까지",
+    "until": "{time}까지",
     # Sentence punctuation for the prose lines
     "sentence_end": ".",
     "sentence_join": ". ",

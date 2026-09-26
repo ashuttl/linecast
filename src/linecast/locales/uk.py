@@ -92,7 +92,7 @@ WEATHER = {
     "dew_pt": "Т. роси",
     "uv": "УФ",
     "aqi": "AQI",
-    "until": "до",
+    "until": "до {time}",
     "sentence_end": ".",
     "sentence_join": ". ",
     "feels_humid": "Через високу вологість відчувається тепліше",

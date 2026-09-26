@@ -88,7 +88,7 @@ WEATHER = {
     "dew_pt": "Pto rocío",
     "uv": "UV",
     "aqi": "ICA",
-    "until": "hasta",
+    "until": "hasta {time}",
     # Sentence punctuation for the prose lines
     "sentence_end": ".",
     "sentence_join": ". ",

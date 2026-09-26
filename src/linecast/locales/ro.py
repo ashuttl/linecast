@@ -88,7 +88,7 @@ WEATHER = {
     "dew_pt": "P. rouă",
     "uv": "UV",
     "aqi": "AQI",
-    "until": "până la",
+    "until": "până la {time}",
     "sentence_end": ".",
     "sentence_join": ". ",
     "feels_humid": "Umiditatea ridicată face să pară mai cald",

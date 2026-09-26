@@ -102,7 +102,7 @@ WEATHER = {
     # them: "12 mm of rain", "gusts to 30 mph", "3 inches of snow"
     "metric_unit_sep_prose": "\u00a0",
     "precip_inch_prose": "{n}\u00a0inches",
-    "until": "until",
+    "until": "until {time}",
     # Sentence punctuation for the prose lines
     "sentence_end": ".",
     "sentence_join": ". ",

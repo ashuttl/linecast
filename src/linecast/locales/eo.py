@@ -89,7 +89,7 @@ WEATHER = {
     "dew_pt": "Rosp.",
     "uv": "UV",
     "aqi": "AQI",
-    "until": "ĝis",
+    "until": "ĝis {time}",
     "sentence_end": ".",
     "sentence_join": ". ",
     "feels_humid": "Pro la alta humideco sentiĝas pli varme",

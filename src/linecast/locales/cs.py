@@ -95,7 +95,7 @@ WEATHER = {
     "dew_pt": "Rosný bod",
     "uv": "UV",
     "aqi": "AQI",
-    "until": "do",
+    "until": "do {time}",
     "sentence_end": ".",
     "sentence_join": ". ",
     "feels_humid": "Kvůli vysoké vlhkosti je pocitově tepleji",

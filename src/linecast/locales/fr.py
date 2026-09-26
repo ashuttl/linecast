@@ -89,7 +89,7 @@ WEATHER = {
     "uv": "UV",
     "aqi": "IQA",
     "aqhi": "CAS",
-    "until": "jusqu'à",
+    "until": "jusqu'à {time}",
     # Sentence punctuation for the prose lines
     "sentence_end": ".",
     "sentence_join": ". ",

@@ -91,7 +91,7 @@ WEATHER = {
     "dew_pt": "Taupkt",
     "uv": "UV",
     "aqi": "LQI",
-    "until": "bis",
+    "until": "bis {time}",
     # Sentence punctuation for the prose lines
     "sentence_end": ".",
     "sentence_join": ". ",

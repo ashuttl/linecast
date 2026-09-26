@@ -159,9 +159,9 @@ class TestTiming:
              "description": "Large breaking waves.",
              "effective": "2026-09-26T02:00:00-04:00", "expires": "2026-09-27T20:00:00-04:00"}
 
-    def _line(self, now):
+    def _line(self, now, **kw):
         from linecast.weather.alerts import _render_single_alert
-        line = _render_single_alert(self._SURF, 100, runtime=_runtime(),
+        line = _render_single_alert(self._SURF, 100, runtime=_runtime(**kw),
                                     tz_name="America/New_York", now=now)[0]
         return re.sub(r"\x1b\[[0-9;]*m", "", line)
 
@@ -169,6 +169,12 @@ class TestTiming:
         from datetime import timezone
         line = self._line(datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc))
         assert "until Sun 20:00" in line and "Sat" not in line
+
+    def test_until_follows_the_time_where_the_language_puts_it_after(self):
+        # Japanese まで, Korean 까지, and Finnish asti come after the time.
+        from datetime import timezone
+        line = self._line(datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc), lang="ja")
+        assert "日 20:00まで" in line
 
     def test_still_to_come_gives_the_span(self):
         from datetime import timezone

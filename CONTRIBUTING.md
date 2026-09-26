@@ -30,7 +30,7 @@ The render tests compare each view against a snapshot in `tests/snapshots`. If y
 
 The strings are in [src/linecast/locales](src/linecast/locales), one file per language. `en.py` is the reference: it has every key, with notes on what each one is for, and a key another language leaves out reads in English. To correct a translation, edit that language's file. The files hold data alone, names in capitals set to literals, with comments; keep them that way, and the tests will tell you if something slipped in.
 
-A text in braces, `{time}` or `{name}`, is filled in when it is shown. Keep the braces and the name inside them as they are, and move them to wherever your language puts that word: Japanese has `"in_days": "{days}日後"` where English has `"in {days}d"`.
+A text in braces, `{time}` or `{name}`, is filled in when it is shown. Keep the braces and the name inside them as they are, and move them to wherever your language puts that word: Japanese has `"until": "{time}まで"` where English has `"until {time}"`.
 
 A regional variant, such as `pt_PT.py` or `fr_CA.py`, holds only the words that differ from its base language's file.
 

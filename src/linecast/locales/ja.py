@@ -87,7 +87,7 @@ WEATHER = {
     "uv": "UV",
     "aqi": "AQI",
     "precip_inch": "インチ",
-    "until": "まで",
+    "until": "{time}まで",
     # Sentence punctuation for the prose lines
     "sentence_end": "。",
     "sentence_join": "。",

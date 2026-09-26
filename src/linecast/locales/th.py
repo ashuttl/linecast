@@ -92,7 +92,7 @@ WEATHER = {
     # Thai sets units off with a space: 0.3 mm, 0.12 นิ้ว.
     "metric_unit_sep": "\u00a0",
     "precip_inch": " นิ้ว",
-    "until": "จนถึง",
+    "until": "จนถึง {time}",
     # Sentence punctuation for the prose lines
     "sentence_end": "",
     "sentence_join": "  ",

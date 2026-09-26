@@ -102,7 +102,7 @@ WEATHER = {
     "dew_pt": "Đ. sương",
     "uv": "UV",
     "aqi": "AQI",
-    "until": "đến",
+    "until": "đến {time}",
     "sentence_end": ".",
     "sentence_join": ". ",
     "feels_humid": "Độ ẩm cao khiến trời có cảm giác nóng hơn",

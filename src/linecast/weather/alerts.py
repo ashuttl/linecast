@@ -174,8 +174,7 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name="", 
     if effective and expires:
         timing = f"{effective} – {expires}"
     elif expires:
-        until = _s("until", runtime) if runtime else "until"
-        timing = f"{until} {expires}"
+        timing = _s("until", runtime, time=expires) if runtime else f"until {expires}"
 
     pill = _alert_pill(alert, max_width=width)
 
@@ -287,8 +286,8 @@ def _build_modal_content(alert, inner_w, runtime=None, tz_name=""):
     if effective and expires:
         lines.append(f"{MBG}{WIND_COLOR}{effective} – {expires}{RESET}")
     elif expires:
-        until = _s("until", runtime) if runtime else "until"
-        lines.append(f"{MBG}{WIND_COLOR}{until} {expires}{RESET}")
+        until = _s("until", runtime, time=expires) if runtime else f"until {expires}"
+        lines.append(f"{MBG}{WIND_COLOR}{until}{RESET}")
 
     lines.append("")  # blank line
 

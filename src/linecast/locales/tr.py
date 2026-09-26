@@ -96,7 +96,7 @@ WEATHER = {
     # "until {time}" would put a suffix on the clock time ("15:00'e
     # kadar"), and which suffix depends on how the hour is read aloud;
     # the alert's end reads as a label instead.
-    "until": "bitiş",
+    "until": "bitiş {time}",
     "sentence_end": ".",
     "sentence_join": ". ",
     "feels_humid": "Yüksek nem nedeniyle hava olduğundan daha sıcak hissediliyor",

@@ -115,7 +115,7 @@ WEATHER = {
     "unit_kmh_prose": "کیلومتر بر ساعت",
     "unit_ms_prose": "متر بر ثانیه",
     "unit_mph_prose": "مایل بر ساعت",
-    "until": "تا",
+    "until": "تا {time}",
     "sentence_end": ".",
     "sentence_join": ". ",
     "feels_humid": "به دلیل رطوبت بالا، هوا گرم\u200cتر احساس می\u200cشود",
