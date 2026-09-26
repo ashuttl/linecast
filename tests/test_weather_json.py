@@ -22,9 +22,9 @@ FIXTURES = Path(__file__).parent / "fixtures"
 FIXED_NOW = datetime(2026, 3, 5, 14, 30)
 
 EXPECTED_TOP_KEYS = {
-    "schema", "location", "country_code", "timezone", "fetched_at", "summary",
-    "units", "current", "today", "hourly", "daily", "alerts", "alerts_status", "aqi",
-    "historical", "sources",
+    "schema", "location", "country_code", "timezone", "fetched_at", "stale",
+    "summary", "narrative", "units", "current", "today", "hourly", "daily",
+    "alerts", "alerts_status", "aqi", "historical", "sources",
 }
 
 
@@ -91,13 +91,55 @@ class TestPayloadShape:
     def test_units_imperial_default(self):
         assert _payload()["units"] == {
             "temperature": "°F", "wind": "mph", "precipitation": "″",
+            "snowfall": "″",
         }
 
     def test_units_metric(self):
         p = _payload(runtime=_runtime(celsius=True, metric=True))
         assert p["units"] == {
             "temperature": "°C", "wind": "km/h", "precipitation": "mm",
+            "snowfall": "cm",
         }
+
+    def test_narrative_is_the_paragraph_the_tui_reads(self):
+        import re
+        from linecast.weather.sections import narrative_lines
+        data = _load_fixture()
+        narrative = _payload(data=data)["narrative"]
+        assert isinstance(narrative, str) and narrative.endswith(".")
+        tui = narrative_lines(data, FIXED_NOW, 10_000, _runtime())
+        assert narrative == re.sub(r"\x1b\[[0-9;]*m", "", tui[0])
+
+    def test_narrative_is_punctuated_in_the_language(self):
+        assert _payload(runtime=_runtime(lang="ja"))["narrative"].endswith("。")
+
+    def test_nothing_to_say_is_null(self):
+        assert _payload(data={})["narrative"] is None
+
+    def test_todays_forecast_is_not_stale(self):
+        assert _payload()["stale"] is False
+
+    def test_forecast_from_an_earlier_day_is_stale(self):
+        # The fixture's today is Mar 5; read on the 7th, the cache stood in
+        assert _payload(now=FIXED_NOW.replace(day=7))["stale"] is True
+
+    def test_forecast_without_a_date_is_not_called_stale(self):
+        data = _load_fixture()
+        del data["daily"]["time"]
+        assert _payload(data=data)["stale"] is False
+
+
+class TestHourlyDetail:
+    def test_hourly_carries_what_the_hover_shows(self):
+        data = _load_fixture()
+        n = len(data["hourly"]["time"])
+        data["hourly"].update(relative_humidity_2m=[60] * n,
+                              dew_point_2m=[28.5] * n, snowfall=[0.2] * n)
+        entry = _payload(data=data)["hourly"][0]
+        assert entry["humidity"] == 60
+        assert entry["dew_point"] == 28.5
+        assert entry["snowfall"] == 0.2
+        assert entry["wind_gusts"] == data["hourly"]["wind_gusts_10m"][38]
 
 
 class TestCurrent:
@@ -145,8 +187,9 @@ class TestHourly:
         entry = _payload()["hourly"][0]
         assert set(entry.keys()) == {
             "time", "temperature", "feels_like", "precipitation_probability",
-            "precipitation", "weather_code", "icon", "condition",
-            "wind_speed", "wind_direction", "uv_index", "cloud_cover",
+            "precipitation", "snowfall", "weather_code", "icon", "condition",
+            "wind_speed", "wind_gusts", "wind_direction", "humidity", "dew_point",
+            "uv_index", "cloud_cover",
         }
         assert entry["condition"] is not None
         assert entry["icon"] is not None

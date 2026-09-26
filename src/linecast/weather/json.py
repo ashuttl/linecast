@@ -11,9 +11,9 @@ from datetime import datetime
 
 from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import _wmo_icons, wmo_label
-from linecast.weather.sections import comparative_sentence
+from linecast.weather.sections import comparative_sentence, narrative_text
 from linecast.weather.sources import (
-    FORECAST_SOURCE, _local_now_for_data, alert_source, alerts_status,
+    FORECAST_SOURCE, _local_now_for_data, alert_source, alerts_status, forecast_date,
 )
 
 SCHEMA_VERSION = 1
@@ -81,11 +81,15 @@ def build_payload(data, location_name, country_code, runtime,
             "feels_like": _at(hourly.get("apparent_temperature"), i),
             "precipitation_probability": _at(hourly.get("precipitation_probability"), i),
             "precipitation": _at(hourly.get("precipitation"), i),
+            "snowfall": _at(hourly.get("snowfall"), i),
             "weather_code": code,
             "icon": _icon(condition, runtime),
             "condition": _condition_name(condition, runtime),
             "wind_speed": _at(hourly.get("wind_speed_10m"), i),
+            "wind_gusts": _at(hourly.get("wind_gusts_10m"), i),
             "wind_direction": _at(hourly.get("wind_direction_10m"), i),
+            "humidity": _at(hourly.get("relative_humidity_2m"), i),
+            "dew_point": _at(hourly.get("dew_point_2m"), i),
             "uv_index": _at(hourly.get("uv_index"), i),
             "cloud_cover": _at(hourly.get("cloud_cover"), i),
         })
@@ -137,17 +141,27 @@ def build_payload(data, location_name, country_code, runtime,
             computed = aqi_current.get("aqhi_source") == "computed"
             aqi_out["aqhi_source"] = FORECAST_SOURCE if computed else alert_source("CA")
 
+    # A forecast from an earlier day means every fetch since has failed and
+    # the cache stood in; the TUI says so under the header.
+    made = forecast_date(data)
+    stale = made is not None and made != now.date()
+
     return {
         "schema": SCHEMA_VERSION,
         "location": location_name or "",
         "country_code": country_code or None,
         "timezone": data.get("timezone") or None,
         "fetched_at": current.get("time"),
+        "stale": stale,
         "summary": comparative_sentence(daily, now, runtime) or None,
+        # The paragraph under the TUI's graph, as it reads there
+        "narrative": narrative_text(data, now, runtime) or None,
         "units": {
             "temperature": runtime.temp_unit,
             "wind": runtime.wind_unit,
             "precipitation": runtime.precip_unit,
+            # Open-Meteo gives snowfall in cm, or inches with the rain
+            "snowfall": "cm" if runtime.metric else runtime.precip_unit,
         },
         "current": {
             "time": current.get("time"),

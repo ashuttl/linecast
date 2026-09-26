@@ -4,6 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: `--json` adds `narrative`, the paragraph under the graph as the view reads it, and marks a forecast from an earlier day as `stale`. Each hour now carries humidity, dew point, gusts and snowfall.
 - Weather: In imperial units, snow amounts in the forecast and in the last 24 hours read about two-fifths of the real amount. They now report the snow as forecast and as it fell.
 
 ## 2.8.0 — 2026-09-25

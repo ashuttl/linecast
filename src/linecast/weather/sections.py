@@ -348,7 +348,28 @@ _MAX_SENTENCES = 4
 
 
 def narrative_lines(data, now, width, runtime=None, trace=None):
-    """The prose under the graph, wrapped as one continuous paragraph.
+    """The prose under the graph, wrapped as one continuous paragraph."""
+    if runtime is None:
+        runtime = current_runtime(WeatherRuntime)
+    text = narrative_text(data, now, runtime, trace)
+    if not text:
+        return []
+    budget = max(1, width)
+    rows = wrap_display_width(text, budget)
+    # Give a lone final word some company when it fits, without adding a
+    # row or leaving another lone word behind.  Languages without spaces
+    # keep the display-width wrapper's natural breaks.
+    if len(rows) > 1 and len(rows[-1].split()) == 1:
+        before, space, word = rows[-2].rpartition(" ")
+        last = word + " " + rows[-1]
+        if space and len(before.split()) > 1 and visible_len(last) <= budget:
+            rows[-2:] = [before, last]
+    return [_prose(line) for line in rows]
+
+
+def narrative_text(data, now, runtime=None, trace=None):
+    """The prose under the graph as one paragraph of plain text, or ""
+    when there is nothing to say.
 
     `trace`, a list, collects every candidate sentence as a dict of its
     salience, hours from now, text, and whether it was chosen: how
@@ -448,7 +469,7 @@ def narrative_lines(data, now, width, runtime=None, trace=None):
     add(2, float("inf"), None, lambda after: past_precip_sentence(hourly, now, runtime))
 
     if not candidates:
-        return []
+        return ""
 
     chosen = sorted(candidates, key=lambda c: (-c[0], c[1], c[4]))[:_MAX_SENTENCES]
     chosen.sort(key=lambda c: (c[1], c[4]))
@@ -473,20 +494,7 @@ def narrative_lines(data, now, width, runtime=None, trace=None):
     # Read as prose, so the sentences are punctuated as prose: a full stop
     # between sentences and at the end of the paragraph.  Which mark
     # that is, and whether a space follows it, is the language's business.
-    join = _s("sentence_join", runtime)
-    end = _s("sentence_end", runtime)
-
-    budget = max(1, width)
-    rows = wrap_display_width(join.join(sentences) + end, budget)
-    # Give a lone final word some company when it fits, without adding a
-    # row or leaving another lone word behind.  Languages without spaces
-    # keep the display-width wrapper's natural breaks.
-    if len(rows) > 1 and len(rows[-1].split()) == 1:
-        before, space, word = rows[-2].rpartition(" ")
-        last = word + " " + rows[-1]
-        if space and len(before.split()) > 1 and visible_len(last) <= budget:
-            rows[-2:] = [before, last]
-    return [_prose(line) for line in rows]
+    return _s("sentence_join", runtime).join(sentences) + _s("sentence_end", runtime)
 
 
 def _said_in(build, before, sentences):
