@@ -25,7 +25,7 @@ import time as _t
 from datetime import datetime
 
 from linecast import _live, _theme
-from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_percent, sentence_24h, table_for
+from linecast._i18n import GEOCODER_UNTRANSLATED, SENTENCE_12H, fmt_percent, sentence_24h, table_for
 from linecast._graphics import bg, fg, get_terminal_size, visible_len
 from linecast._location import country_for_defaults, resolve_location
 from linecast._runtime import (
@@ -82,8 +82,9 @@ from linecast.weather.sources import (
     forecast_attribution,
     forecast_date,
     forecast_is_todays,
+    FORECAST_SOURCE,
     observation_attribution,
-    observation_source,
+    observed_credit,
     without_country,
 )
 from linecast.weather.cover import sky_condition
@@ -101,21 +102,20 @@ CURVE_ROWS_COMFORTABLE = 5     # the spacing rows stay while the curve keeps thi
 MAX_PRECIP_ROWS = 3            # the precipitation bar at its tallest
 
 
-def data_credits(country_code="", lang="en", observed=None):
-    """The data credits, longest first. The forecast's comes first,
-    then the current conditions' where a station's report was used,
-    then the alerts' where a service supplies them. Short of room, the
-    others give up saying what they are credited for, then the alerts
-    go, then the station; the forecast's stays whole, as its licence
-    asks, and last of all stands alone."""
-    forecast = forecast_attribution(lang)
-    alerts = alert_attribution(country_code, lang)
-    station = (observed or {}).get("station", "")
-    current = observation_attribution(lang, station) if observed else None
-    alerts_name = alert_source(country_code, lang)
-    full = [forecast, current, alerts]
-    named = [forecast, observation_source(station) if observed else None, alerts_name]
-    rungs = [full, named, named[:2], [forecast]]
+def data_credits(country_code="", lang="en", observed=None, runtime=None, tz_name=""):
+    """The data credits, longest first: where and when the current sky
+    was seen, where a station's report was used, then the sources by
+    name, the forecast's first and the alerts' where a service supplies
+    them. Short of room, the station gives its code for its name, then
+    goes, then the alerts go; the forecast's name stays, and last of all
+    stands alone. The help panel carries each in full."""
+    metric = bool(getattr(runtime, "metric", False))
+    use_24h = sentence_24h(runtime) if runtime else lang not in SENTENCE_12H
+    names = " & ".join(part for part in (FORECAST_SOURCE, alert_source(country_code, lang))
+                       if part)
+    seen = [observed_credit(observed, lang, metric, use_24h, tz_name, named=named)
+            for named in (True, False)]
+    rungs = [[seen[0], names], [seen[1], names], [names], [FORECAST_SOURCE]]
     credits = []
     for rung in rungs:
         credit = " · ".join(part for part in rung if part)
@@ -124,7 +124,7 @@ def data_credits(country_code="", lang="en", observed=None):
     return tuple(credits)
 
 
-def credit_row(cols, lang, country_code="", observed=None):
+def credit_row(cols, lang, country_code="", observed=None, runtime=None, tz_name=""):
     """The live view's last row: the data credit at the left, in ink
     fainter than the prose above it, and the help hint at the right.
     The longest credit that leaves the whole hint its room wins; a
@@ -132,7 +132,7 @@ def credit_row(cols, lang, country_code="", observed=None):
     from linecast import _help
     from linecast._graphics import visible_len
     hint = _help.hint(lang)
-    for credit in data_credits(country_code, lang, observed):
+    for credit in data_credits(country_code, lang, observed, runtime, tz_name):
         if visible_len(credit) + 2 + visible_len(hint) <= cols:
             return _help.footer(f"{DIM}{credit}{RESET}", cols, lang)
     return _help.footer("", cols, lang)
@@ -662,7 +662,8 @@ def render_from_data(data, alerts, runtime, location_name="", offset_minutes=0, 
         if blank_before_credit:
             lines.append("")
         observed = (data.get("current") or {}).get("observed")
-        lines.append(credit_row(cols, runtime.lang, country_code, observed))
+        lines.append(credit_row(cols, runtime.lang, country_code, observed, runtime,
+                                    data.get("timezone", "")))
 
     # Shorter still than the trimming above could reach: cut the bottom
     # rather than let the terminal scroll the header away.

@@ -1,5 +1,7 @@
 """The current sky from a nearby station's METAR."""
 
+from types import SimpleNamespace
+
 from linecast.weather.cover import MOSTLY_CLOUDY, sky_condition
 from linecast.weather.observed import (
     apply_observation,
@@ -138,18 +140,30 @@ class TestApply:
 
 
 class TestCredits:
-    def test_explanations_go_before_sources(self):
-        assert data_credits("US", "en", observed={"station": "KPWM"}) == (
-            "Weather data by Open-Meteo · Current conditions by Aviation Weather Center (KPWM)"
-            " · Alerts by US National Weather Service",
-            "Weather data by Open-Meteo · Aviation Weather Center (KPWM)"
-            " · US National Weather Service",
-            "Weather data by Open-Meteo · Aviation Weather Center (KPWM)",
-            "Weather data by Open-Meteo",
+    PWM = {"station": "KPWM", "name": "Portland Intl Jetport, ME, US",
+           "distance_km": 6.4, "time": 1790423460}  # 7:51 am in Maine
+
+    def test_station_by_name_then_by_code(self):
+        assert data_credits("US", "en", self.PWM, tz_name="America/New_York") == (
+            "Observed at 7:51a from Portland Intl Jetport, 4 mi away"
+            " · Open-Meteo & US National Weather Service",
+            "Observed at 7:51a from KPWM, 4 mi away · Open-Meteo & US National Weather Service",
+            "Open-Meteo & US National Weather Service",
+            "Open-Meteo",
         )
 
+    def test_distance_and_clock_follow_the_runtime(self):
+        runtime = SimpleNamespace(lang="en", metric=True, use_24h=True)
+        credit = data_credits("US", "en", self.PWM, runtime, "America/New_York")[0]
+        assert "at 07:51 from Portland Intl Jetport, 6 km away" in credit
+
+    def test_translated_around_the_english_name(self):
+        credit = data_credits("US", "fr", self.PWM, tz_name="America/New_York")[0]
+        assert credit.startswith("Observé à 07:51 à Portland Intl Jetport")
+
     def test_no_station_no_credit(self):
-        assert "Aviation" not in " ".join(data_credits("US", "en"))
+        assert data_credits("US", "en") == ("Open-Meteo & US National Weather Service",
+                                            "Open-Meteo")
 
 
 class TestFallback:

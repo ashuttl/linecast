@@ -85,6 +85,32 @@ def observation_attribution(lang: str = "en", station: str = "") -> str:
     return lookup(_STRINGS, "credit_current", lang, source=observation_source(station))
 
 
+def observed_credit(observed, lang="en", metric=False, use_24h=False, tz_name="",
+                    named=True):
+    """Where and when the current sky was seen: "Observed at 7:51a from
+    Portland Intl Jetport, 4 mi away". The station goes by the name its
+    report gives, clipped before the state and country, or by its ICAO
+    code where `named` is false or there is no name. None without a
+    report. The place stays in English, as the reports write it."""
+    from linecast.weather.i18n import _STRINGS
+    from linecast._framebuffer import fmt_time_dt
+    from linecast._i18n import lookup
+    if not observed or not observed.get("station"):
+        return None
+    name = (observed.get("name") or "").split(",")[0].strip()
+    km = observed.get("distance_km") or 0
+    place = name if named and name else observed["station"]
+    far = f"{max(1, round(km))} km" if metric else f"{max(1, round(km / 1.609344))} mi"
+    seen = datetime.fromtimestamp(observed.get("time") or 0, timezone.utc)
+    try:
+        from zoneinfo import ZoneInfo
+        seen = seen.astimezone(ZoneInfo(tz_name)) if tz_name else seen.astimezone()
+    except Exception:
+        seen = seen.astimezone()
+    return lookup(_STRINGS, "credit_observed", lang, time=fmt_time_dt(seen, use_24h),
+                  place=place, distance=far)
+
+
 def alert_attribution(country_code: str, lang: str = "en") -> str | None:
     """The alerts credit in the display language, or None where none
     are fetched."""

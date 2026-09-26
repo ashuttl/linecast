@@ -71,11 +71,21 @@ class TestSources:
         assert "Met Éireann" in alerts and "{" not in alerts
         if lang != "en":
             assert forecast != ATTRIBUTION
+
+    @pytest.mark.parametrize("lang", LANGUAGE_CODES)
+    def test_every_language_says_where_the_sky_was_seen(self, lang):
+        from linecast.weather.sources import observed_credit
+        observed = {"station": "KPWM", "name": "Portland Intl Jetport, ME, US",
+                    "distance_km": 6.4, "time": 1790423460}
+        seen = observed_credit(observed, lang, tz_name="America/New_York")
+        assert "Portland Intl Jetport" in seen and "4 mi" in seen and "{" not in seen
+        if lang not in ("en", "zh-HK"):
+            assert "Observed" not in seen
     assert forecast_attribution("en") == ATTRIBUTION
 
 
 class TestCreditRow:
-    LONG = 'Weather data by Open-Meteo · Alerts by Met Éireann'
+    LONG = 'Open-Meteo & Met Éireann'
 
     def test_credit_left_and_hint_right(self):
         out = plain(weather.credit_row(120, 'en', 'IE'))
@@ -83,17 +93,17 @@ class TestCreditRow:
         assert out.endswith('  ? help') and visible_len(out) == 120
 
     def test_a_narrower_window_keeps_the_short_credit(self):
-        out = plain(weather.credit_row(50, 'en', 'IE'))
-        assert out.startswith('Weather data by Open-Meteo') and 'Alerts' not in out
-        assert out.endswith('  ? help') and visible_len(out) == 50
+        out = plain(weather.credit_row(25, 'en', 'IE'))
+        assert out.startswith('Open-Meteo ') and 'Éireann' not in out
+        assert out.endswith('  ? help') and visible_len(out) == 25
 
     def test_a_narrow_window_keeps_the_hint_alone(self):
-        out = plain(weather.credit_row(30, 'en', 'IE'))
+        out = plain(weather.credit_row(16, 'en', 'IE'))
         assert 'Open-Meteo' not in out and out.strip() == '? help'
 
     def test_the_credit_never_shortens_the_hint(self):
         # room for the credit and a clipped hint, but not the whole one
-        out = plain(weather.credit_row(33, 'en', ''))
+        out = plain(weather.credit_row(17, 'en', ''))
         assert 'Open-Meteo' not in out and out.endswith('? help')
 
     def test_the_credit_is_fainter_than_the_prose(self):
@@ -165,20 +175,20 @@ def _render(cols, rows, live=True, country_code="IE"):
 class TestLiveView:
     def test_the_last_row_credits_the_data_and_offers_help(self):
         lines = _render(160, 40)
-        assert lines[-1].startswith('Weather data by Open-Meteo · Alerts by Met Éireann')
+        assert lines[-1].startswith('Open-Meteo & Met Éireann  ')
         assert lines[-1].endswith('  ? help') and visible_len(lines[-1]) == 160
         assert sum('? help' in line for line in lines) == 1
         assert len(lines) == 40
 
     def test_no_alerts_feed_credits_the_forecast_alone(self):
         lines = _render(160, 40, country_code="AR")
-        assert lines[-1].startswith('Weather data by Open-Meteo  ')
+        assert lines[-1].startswith('Open-Meteo  ')
         assert 'Alerts' not in lines[-1]
 
-    def test_a_narrow_window_keeps_only_the_hint(self):
+    def test_a_narrow_window_keeps_the_forecast_name(self):
         lines = _render(30, 24)
-        assert not any('Open-Meteo' in line for line in lines)
-        assert lines[-1].strip() == '? help' and len(lines) == 24
+        assert lines[-1].startswith('Open-Meteo  ') and 'Éireann' not in lines[-1]
+        assert lines[-1].endswith('? help') and len(lines) == 24
 
     def test_the_row_is_in_the_display_language(self):
         data = json.loads((FIXTURES / "open_meteo_forecast.json").read_text(encoding="utf-8"))
@@ -190,7 +200,7 @@ class TestLiveView:
             output, _ = weather.render_from_data(data, alerts=[], runtime=runtime,
                                                  location_name="新宿区", country_code="JP")
         last = plain(output).split("\n")[-1]
-        assert last.startswith('気象データ提供：Open-Meteo · 警報：気象庁')
+        assert last.startswith('Open-Meteo & 気象庁')
         assert last.endswith('  ? ヘルプ')
 
     def test_print_output_has_no_credit_row(self):

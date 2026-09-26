@@ -7,6 +7,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: `--json` adds `narrative`, the paragraph under the graph as the view reads it, and marks a forecast from an earlier day as `stale`. Each hour now carries humidity, dew point, gusts and snowfall.
 - Weather: In imperial units, snow amounts in the forecast and in the last 24 hours read about two-fifths of the real amount. They now report the snow as forecast and as it fell.
 - Weather: Where there is room, the daily forecast gives each day's date and names its weather beside the icon, and "Today" is spelled out.
+- Weather: The credit line is shorter, and says when and where the current conditions were observed: "Observed at 7:51a from Portland Intl Jetport, 4 mi away." The help panel keeps the full credits.
 - Weather: Conditions are named in sentence case in English and Indonesian: "Light showers", not "Light Showers".
 - Weather: Fixed a bug that could drop the label from the week's lowest temperature in the daily forecast at some window widths.
 
