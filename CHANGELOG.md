@@ -4,8 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: Fixed a unit-conversion bug that showed snow amounts in imperial units at about two-fifths of the real amount, both in the forecast and in the last 24 hours, and could leave light snow out of the forecast entirely.
 - Weather: `--json` adds `narrative`, the paragraph under the graph as the view reads it, and marks a forecast from an earlier day as `stale`. Each hour now carries humidity, dew point, gusts and snowfall.
-- Weather: In imperial units, snow amounts in the forecast and in the last 24 hours read about two-fifths of the real amount. They now report the snow as forecast and as it fell.
 - Weather: Where there is room, the daily forecast gives each day's date and names its weather beside the icon, and "Today" is spelled out.
 - Weather: The credit line is shorter, and says when and where the current conditions were observed: "Observed at 7:51a from Portland Intl Jetport, 4 mi away." The help panel keeps the full credits.
 - Weather: An alert already in effect gives only its end time.
