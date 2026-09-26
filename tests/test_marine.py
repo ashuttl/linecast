@@ -146,6 +146,12 @@ class FormatMarineLineTests(unittest.TestCase):
         self.assertIn("12s", line)
         self.assertIn("W", line)
 
+    def test_heights_take_the_languages_decimal_mark(self):
+        marine_info = {"wave_height": 1.5, "wave_period": 8, "wave_direction": 200,
+                       "swell_height": None, "swell_period": None, "swell_direction": None}
+        line = marine.format_marine_line(marine_info, self._runtime(metric=True, lang="cs"))
+        self.assertIn("1,5m", line)
+
     def test_format_waves_imperial(self):
         marine_info = {
             "wave_height": 1.0,

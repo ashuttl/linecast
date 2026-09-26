@@ -18,7 +18,7 @@ from linecast.weather.i18n import FULL_DAY_NAMES
 from linecast._ephemeris import _moon_events_for_local_date
 from linecast.sunshine.solar import daylight_factor as solar_daylight_factor
 from linecast.moon.phase import moon_phase
-from linecast._i18n import table_for
+from linecast._i18n import fmt_decimal, table_for
 
 def _rebuild():
     global DIM_RGB, MUTED_RGB, MOON_RISE_RGB, MOON_SET_RGB, TIP_BG_RGB
@@ -364,14 +364,14 @@ def build_now_tooltip(now_col, now_info, chart_start, cols, graph_w):
     if now_col is None or now_info is None:
         return ""
 
-    time_str, h_display, unit = now_info
+    time_str, height, unit = now_info
 
     tip_bg = bg(*TIP_BG_RGB)
     tip_fg = fg(*TIP_TEXT_RGB)
 
     tip_lines = [
         f"{tip_bg}{tip_fg} {time_str} ",
-        f"{tip_bg}{tip_fg} {h_display:.1f}{unit} ",
+        f"{tip_bg}{tip_fg} {height}{unit} ",
     ]
 
     max_w = max(visible_len(line) for line in tip_lines)
@@ -423,7 +423,7 @@ def build_tide_hover_tooltip(window, graph_col, mouse_row, chart_start, chart_en
 
     tip_lines = [
         f"{tip_bg}{tip_fg} {time_str} ",
-        f"{tip_bg}{tip_fg} {h_display:.1f}{runtime.height_unit} ",
+        f"{tip_bg}{tip_fg} {fmt_decimal(h_display, 1, runtime)}{runtime.height_unit} ",
     ]
 
     return _live.pointer_chip(tip_lines, graph_col + 1, mouse_row, cols, rows,

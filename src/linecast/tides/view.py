@@ -44,7 +44,7 @@ from linecast._theme import (
     surface_bg,
 )
 from linecast._geo import haversine_nm
-from linecast._i18n import GEOCODER_UNTRANSLATED
+from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_decimal
 from linecast._location import country_for_defaults, resolve_location
 from linecast._plaintext import plain_text
 from linecast._runtime import (
@@ -445,7 +445,7 @@ def _compute_tide_overlays(extrema, col_heights, n_rows, graph_w, runtime,
 
         label_row = max(0, curve_row - 1) if is_peak else min(n_rows - 1, curve_row + 1)
 
-        label = f"{height_display:.1f}{runtime.height_unit}"
+        label = f"{fmt_decimal(height_display, 1, runtime)}{runtime.height_unit}"
         start = max(0, min(graph_w - len(label), x - len(label) // 2))
 
         if label_row not in occupied_by_row:
@@ -675,9 +675,9 @@ def _info_line(window, now_height, now_dt, width, offset_minutes, rising, runtim
     # --- Current stat ---
     if offset_minutes:
         time_str = fmt_time_dt(now_dt, use_24h=runtime.use_24h)
-        now_content = f"{now_text}{arrow} {time_str} {h_display:.1f}{unit}"
+        now_content = f"{now_text}{arrow} {time_str} {fmt_decimal(h_display, 1, runtime)}{unit}"
     else:
-        now_content = f"{now_text}{arrow} {h_display:.1f}{unit}"
+        now_content = f"{now_text}{arrow} {fmt_decimal(h_display, 1, runtime)}{unit}"
 
     # --- High/low/range parts ---
     rest_parts = []
@@ -690,12 +690,12 @@ def _info_line(window, now_height, now_dt, width, offset_minutes, rising, runtim
             dt, v = highs[0]
             v_d = runtime.convert_height(v)
             t_str = fmt_time_dt(dt, use_24h=runtime.use_24h)
-            rest_parts.append(f"{text}{icon_hi}{v_d:.1f}{unit} {dim}{t_str}")
+            rest_parts.append(f"{text}{icon_hi}{fmt_decimal(v_d, 1, runtime)}{unit} {dim}{t_str}")
         if lows:
             dt, v = lows[0]
             v_d = runtime.convert_height(v)
             t_str = fmt_time_dt(dt, use_24h=runtime.use_24h)
-            rest_parts.append(f"{text}{icon_lo}{v_d:.1f}{unit} {dim}{t_str}")
+            rest_parts.append(f"{text}{icon_lo}{fmt_decimal(v_d, 1, runtime)}{unit} {dim}{t_str}")
 
         # The range is the highest high less the lowest low, so it needs
         # one of each.  A diurnal station's 24 hours can hold a single
@@ -705,7 +705,7 @@ def _info_line(window, now_height, now_dt, width, offset_minutes, rising, runtim
             h_max = max(v for _, v in highs)
             h_min = min(v for _, v in lows)
             tide_range = runtime.convert_height(h_max - h_min)
-            rest_parts.append(f"{text}Δ{tide_range:.1f}{unit}")
+            rest_parts.append(f"{text}Δ{fmt_decimal(tide_range, 1, runtime)}{unit}")
 
     # --- "Space to return" hint ---
     if offset_minutes:
@@ -855,7 +855,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         now_height = _interp_height(now_local, w_preds)
         h_display = runtime.convert_height(now_height)
         time_str = fmt_time_dt(now_local, use_24h=runtime.use_24h)
-        now_info = (time_str, h_display, runtime.height_unit)
+        now_info = (time_str, fmt_decimal(h_display, 1, runtime), runtime.height_unit)
 
     # --- assemble output ---
     lines = []

@@ -6,7 +6,7 @@ these renderers instead of the full terminal UI.
 """
 
 from linecast.weather.i18n import fmt_wind
-from linecast._i18n import fmt_duration_parts, fmt_percent, has_duration_words, lang_of
+from linecast._i18n import fmt_decimal, fmt_duration_parts, fmt_percent, has_duration_words, lang_of
 from linecast._graphics import fg, RESET
 from linecast._framebuffer import fmt_time, fmt_time_dt
 
@@ -246,7 +246,8 @@ def tides_oneline(station_name, hilo_data, now_local, runtime):
         arrow = "\u25b2" if is_high else "\u25bc"
         label = "High" if is_high else "Low"
         time_str = fmt_time_dt(dt, use_24h=use_24h)
-        parts.append(f"{TEXT}{arrow}{label} {time_str} {h_display:.1f}{runtime.height_unit}")
+        height = fmt_decimal(h_display, 1, runtime)
+        parts.append(f"{TEXT}{arrow}{label} {time_str} {height}{runtime.height_unit}")
 
     return " ".join(parts) + RESET
 

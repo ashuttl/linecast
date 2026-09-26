@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from linecast._cache import location_cache_key
+from linecast._i18n import fmt_decimal
 from linecast._http import fetch_json_cached
 from linecast._paths import cache_dir
 from linecast._runtime import TidesRuntime
@@ -191,7 +192,7 @@ def format_marine_line(marine: dict[str, Any] | None, runtime: TidesRuntime,
 def _format_height(meters, runtime):
     """Format a wave height value respecting metric/imperial setting."""
     if runtime.metric:
-        return f"{meters:.1f}m"
+        return f"{fmt_decimal(meters, 1, runtime)}m"
     else:
         feet = meters / 0.3048
-        return f"{feet:.1f}′"
+        return f"{fmt_decimal(feet, 1, runtime)}′"
