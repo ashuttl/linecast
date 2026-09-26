@@ -5,6 +5,14 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "decimal": ",",
+    "plural": "east_slavic",
+    "script": "CYRILLIC",
+    "metric_wind": "m/s",
+}
+
+
 DAY_NAMES = ["пн", "вт", "ср", "чт", "пт", "сб", "нд"]
 
 

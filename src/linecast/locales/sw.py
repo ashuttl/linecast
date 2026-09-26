@@ -5,6 +5,13 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "absolute_seasons": True,
+    # Swahili time: the hours counted from dawn, saa moja at seven.
+    "hours": "swahili",
+}
+
+
 # glibc sw_TZ (Kamusi): compact labels keep the Juma- days distinct.
 DAY_NAMES = ["J3", "J4", "J5", "Alh", "Ij", "J1", "J2"]
 

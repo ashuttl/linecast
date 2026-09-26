@@ -5,6 +5,14 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "script": "THAI",
+    "capitals": False,
+    "absolute_seasons": True,
+    "calendar": "thai",
+}
+
+
 DAY_NAMES = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."]
 
 

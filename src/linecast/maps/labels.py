@@ -47,7 +47,7 @@ from linecast.maps import places, style
 from linecast.radar.basemap import _bresenham, marine_region
 from linecast._textwidth import char_width, visible_len
 from linecast._vtiles import iter_layer
-from linecast._i18n import base_language
+from linecast._i18n import base_language, setting
 
 LABEL_LAYERS = ("place", "water_name", "park", "transportation_name",
                 "poi", "mountain_peak", "aerodrome_label")
@@ -455,12 +455,6 @@ _NAME_KEYS = {"zh-Hant": ("name:zh-Hant", "name:zh"),
               "zh-HK": ("name:zh-HK", "name:zh-Hant", "name:zh")}
 
 
-# The script each language that is not written in Latin letters reads,
-# as the first word of a letter's Unicode name.
-_SCRIPT_OF = {"fa": "ARABIC", "ru": "CYRILLIC", "uk": "CYRILLIC", "el": "GREEK",
-              "th": "THAI", "ko": "HANGUL", "ja": "CJK", "zh": "CJK", "zh-Hant": "CJK"}
-
-
 def _script_of(text):
     """The first word of the Unicode name of the first letter of
     `text`, which names its script: ARABIC, CYRILLIC, GREEK."""
@@ -483,7 +477,7 @@ def _name(props, lang):
         if value:
             return str(value)
     local = props.get("name")
-    script = _SCRIPT_OF.get(base_language(lang))
+    script = setting(lang, "script")
     if local and script and _script_of(str(local)) == script:
         return str(local)
     for key in ("name:latin", "name"):

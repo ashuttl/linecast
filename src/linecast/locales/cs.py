@@ -5,6 +5,15 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "decimal": ",",
+    # In Czech "40%" reads as the adjective, forty-percent.
+    "percent": "{n} %",
+    "plural": "czech",
+    "metric_wind": "m/s",
+}
+
+
 DAY_NAMES = ["po", "út", "st", "čt", "pá", "so", "ne"]
 
 

@@ -5,6 +5,14 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "decimal": ",",
+    "sentence_12h": True,
+    "script": "GREEK",
+    "numeric_month_axis": True,
+}
+
+
 DAY_NAMES = ["Δευ", "Τρί", "Τετ", "Πέμ", "Παρ", "Σάβ", "Κυρ"]
 
 

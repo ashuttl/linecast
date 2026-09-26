@@ -34,7 +34,9 @@ A text in braces, `{time}` or `{name}`, is filled in when it is shown. Keep the 
 
 A regional variant, such as `pt_PT.py` or `fr_CA.py`, holds only the words that differ from its base language's file.
 
-To add a language, start from a copy of `en.py`, add the code to `LANGUAGES` in `src/linecast/_i18n.py`, and say in the pull request what you are unsure of. Some grammar lives in code rather than in the files: plural forms (`plural_category`), the decimal comma, and the precipitation nouns' agreement in `weather/i18n.py`. If your language needs something there, describe it in the pull request and we can work it out together.
+Each file starts with `SETTINGS`: how the language writes numbers, percentages, and durations, which plural rule it follows, whether it reads right to left, and what else follows it, such as metres per second for the wind or a traditional calendar. `en.py` lists every setting with a note on each and its default, and another language's file lists only the ones where it differs.
+
+To add a language, start from a copy of `en.py`, go through its settings, add the code to `LANGUAGES` in `src/linecast/_i18n.py`, and say in the pull request what you are unsure of. Some grammar lives in code rather than in the files, such as the plural rules themselves and the precipitation nouns' agreement in `weather/i18n.py`. If your language needs something there, describe it in the pull request and we can work it out together.
 
 ## Changelog and commit messages
 

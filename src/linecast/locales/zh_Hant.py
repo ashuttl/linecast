@@ -5,6 +5,16 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "script": "CJK",
+    "capitals": False,
+    "numeric_month_axis": True,
+    "absolute_seasons": True,
+    "calendar": "chinese",
+    "sky_culture": "chinese",
+}
+
+
 DAY_NAMES = ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
 
 

@@ -5,9 +5,26 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "digits": "۰۱۲۳۴۵۶۷۸۹",
+    "rtl": True,
+    "duration": {"d": "{v} روز", "h": "{v} ساعت", "m": "{v} دقیقه", "s": "{v} ثانیه", "join": " و ", "pad": False},
+    "script": "ARABIC",
+    "capitals": False,
+    # The short day names (۲ش for دوشنبه) are a calendar grid's, not a
+    # list's, and the full names are at most eight cells.
+    "list_full_day_names": True,
+    "numeric_month_axis": True,
+    # Iran's calendars print the lunar Hijri date beside the solar one,
+    # whose dates are the civil ones, and its religious holidays fall by it.
+    "calendar": "islamic",
+    "civil_calendar": "solar_hijri",
+}
+
+
 # CLDR's short forms, as Iranian calendars head their columns: the
 # days counted from Saturday, "۲ش" the second after it.  A sentence
-# names the day in full, by ON_DAY_FORMS.
+# names the day in full, by ON_DAY.
 DAY_NAMES = ["۲ش", "۳ش", "۴ش", "۵ش", "ج", "ش", "۱ش"]
 
 

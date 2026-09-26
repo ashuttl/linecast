@@ -3,11 +3,11 @@
 from datetime import datetime
 
 from linecast import _theme
-from linecast._i18n import base_language, fmt_decimal, fmt_percent, table_for
+from linecast._i18n import fmt_decimal, fmt_percent, setting, table_for
 from linecast._graphics import bg, color_mode, fg, visible_len, RESET, BOLD
 from linecast._runtime import WeatherRuntime, current_runtime
 from linecast.weather.cover import sky_condition
-from linecast.weather.i18n import (DAY_NAMES, FULL_DAY_NAMES, LIST_FULL_DAY_NAMES, _s,
+from linecast.weather.i18n import (DAY_NAMES, FULL_DAY_NAMES, _s,
                                    _wmo_icons, fmt_wind, wmo_label)
 from linecast.weather.sources import _local_now_for_data
 from linecast.weather.style import (
@@ -23,9 +23,6 @@ _USE_BG_FILL = color_mode() != "none"
 MIN_BAR_W = 10
 # A bar this wide has room to spell out "Rain" and "Wind" beside it.
 FULL_LABEL_BAR_W = 30
-# The day of the month after the day's name, as a language writes it
-# alone; "日 27" would read as "Sunday, day 27" twice over.
-_MONTH_DAY = {"ja": "{d}日", "zh": "{d}日", "ko": "{d}일"}
 
 
 def _lpad(s, w):
@@ -95,7 +92,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
 
     # Measure widest right-side detail columns across all days for alignment
     lang = runtime.lang
-    day_name_list = table_for(FULL_DAY_NAMES if base_language(lang) in LIST_FULL_DAY_NAMES
+    day_name_list = table_for(FULL_DAY_NAMES if setting(lang, "list_full_day_names")
                               else DAY_NAMES, lang)
     day_col_w = max(visible_len(n) for n in day_name_list + [_s("today_short", runtime)])
     left_prefix_w = day_col_w + 2 + 2 + 2  # "day  ic  "
@@ -113,8 +110,8 @@ def render_daily_mapped(data, width, runtime=None, now=None):
                   for i in range(display_end)]
     labels = [wmo_label(c, lang) for c in conditions]
     label_w = max(visible_len(labels[i]) for i in range(1, display_end))
-    month_day = _MONTH_DAY.get(base_language(lang), "{d}")
-    dates = [""] + [month_day.format(d=times[i][8:].lstrip("0")) if len(times[i]) >= 10 else ""
+    dates = [""] + [_s("day_of_month", runtime, d=times[i][8:].lstrip("0"))
+                    if len(times[i]) >= 10 else ""
                     for i in range(1, display_end)]
     date_w = max(visible_len(d) for d in dates)
     day_raw = []  # (precip_amt, prob_s, wind_amt, ptype, wmo_i) per day

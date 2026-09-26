@@ -11,11 +11,6 @@ from linecast._i18n import LocaleTable, lang_of, lookup
 
 _SKY_STRINGS = LocaleTable("SKY")
 
-# The scripts whose constellation names are not set in capitals on the
-# chart: capitals are a Latin-alphabet convention, and the Arabic script
-# has none.
-NO_CAPITALS = frozenset({"ja", "ko", "zh", "zh-Hant", "th", "fa"})
-
 
 # The cultures' titles, for the status line, the culture command, and the
 # search panel, keyed by the short name `linecast culture` takes.

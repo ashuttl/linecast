@@ -5,7 +5,7 @@ module holds the year view's relative-day phrases and the numeric month
 labels for the languages whose month names don't abbreviate.
 """
 
-from linecast._i18n import LocaleTable, base_language, has_text, lang_of, lookup, plural_category, table_for
+from linecast._i18n import LocaleTable, base_language, has_text, lang_of, lookup, plural_category, setting, table_for
 from linecast.moon.i18n import MONTHS_I18N, _fmt_month_day  # noqa: F401 — re-export
 
 _SUNSHINE_STRINGS = LocaleTable("SUNSHINE")
@@ -16,7 +16,6 @@ _SUNSHINE_STRINGS = LocaleTable("SUNSHINE")
 # letters.
 # Everything else takes the first letters of the MONTHS_I18N name.
 _AXIS_MONTHS = LocaleTable("CHART_MONTHS")
-_NUMERIC_AXIS_LANGS = frozenset({"ja", "ko", "zh", "zh-Hant", "vi", "el", "fa"})
 
 
 def _axis_months(lang):
@@ -106,7 +105,7 @@ def axis_month_labels(runtime, narrow=False):
     """
     lang = lang_of(runtime)
     if narrow:
-        if base_language(lang) in _NUMERIC_AXIS_LANGS:
+        if setting(lang, "numeric_month_axis"):
             return [str(m) for m in range(1, 13)]
         names = _axis_months(lang)
         return [name[:1].upper() for name in names]

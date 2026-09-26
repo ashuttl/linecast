@@ -25,10 +25,11 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
 from linecast._ephemeris import _sun_ecliptic, next_moon_phase_utc
-from linecast._i18n import base_language
+from linecast._i18n import setting
 
 # The four calendars, each computed at its own meridian (hours east
-# of UTC), and the language each is native to. Any UI language can ask
+# of UTC). The language each is native to names it in its "calendar"
+# setting (linecast/locales). Any UI language can ask
 # for any of them with --calendar; these defaults just pick the natural
 # one for readers who already live on it. Vietnam has kept its
 # calendar at UTC+7 since 1968 (the whole country since 1975); the
@@ -37,12 +38,6 @@ from linecast._i18n import base_language
 # lives in thai_lunar and needs no meridian.
 CALENDAR_MERIDIAN_HOURS = {"chinese": 8, "japanese": 9, "korean": 9,
                            "vietnamese": 7}
-# Persian takes the Islamic calendar: Iran's calendars print the lunar
-# Hijri date beside the solar one, whose dates are the civil ones
-# (_calendars.civil), and its religious holidays fall by it.
-CALENDAR_OF_LANG = {"zh": "chinese", "zh-Hant": "chinese", "ja": "japanese",
-                    "ko": "korean", "vi": "vietnamese", "th": "thai",
-                    "fa": "islamic"}
 
 
 def calendar_is_native(cal, lang):
@@ -50,7 +45,7 @@ def calendar_is_native(cal, lang):
     festivals read in that language's own script rather than in the
     customary English. Chinese is two scripts, and the calendar is
     native to both."""
-    return CALENDAR_OF_LANG.get(base_language(lang)) == cal
+    return setting(lang, "calendar") == cal
 
 
 def resolve_calendar(flag, lang):
@@ -61,7 +56,7 @@ def resolve_calendar(flag, lang):
     that chain stops it.
     """
     from linecast._config import saved_calendar
-    choice = flag or saved_calendar() or CALENDAR_OF_LANG.get(base_language(lang))
+    choice = flag or saved_calendar() or setting(lang, "calendar")
     return None if choice in (None, "none") else choice
 
 _MEAN_DEG_PER_DAY = 360.0 / 365.2422

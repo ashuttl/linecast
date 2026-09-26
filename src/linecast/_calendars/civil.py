@@ -18,7 +18,7 @@ import os
 from datetime import datetime
 
 from linecast._calendars import solar_hijri
-from linecast._i18n import base_language
+from linecast._i18n import base_language, setting
 
 GREGORIAN = "gregorian"
 SOLAR_HIJRI = "solar_hijri"
@@ -27,9 +27,6 @@ SOLAR_HIJRI = "solar_hijri"
 # them, and the calendar each names.
 DATES_CHOICES = ("gregorian", "solar-hijri")
 _CHOICE_CALENDAR = {"gregorian": GREGORIAN, "solar-hijri": SOLAR_HIJRI}
-
-# The languages whose civil calendar is not the Gregorian.
-CIVIL_OF_LANG = {"fa": SOLAR_HIJRI}
 
 
 def dates_choice(value):
@@ -53,7 +50,7 @@ def resolve_dates(lang, environ=None):
     choice = saved_dates()
     if choice:
         return _CHOICE_CALENDAR[choice], "config"
-    return CIVIL_OF_LANG.get(base_language(lang or "en"), GREGORIAN), "auto"
+    return setting(lang or "en", "civil_calendar"), "auto"
 
 
 def civil_calendar(lang, environ=None):

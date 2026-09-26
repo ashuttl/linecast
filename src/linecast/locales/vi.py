@@ -5,6 +5,14 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "decimal": ",",
+    "numeric_month_axis": True,
+    "absolute_seasons": True,
+    "calendar": "vietnamese",
+}
+
+
 DAY_NAMES = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
 
 

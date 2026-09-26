@@ -30,10 +30,6 @@ from datetime import date, datetime, timedelta, timezone
 
 HOURS_SYSTEMS = ("halachic", "roman", "japanese", "islamic", "swahili")
 
-# The system a language tells the time in. Swahili says the hour in
-# its own count, so `auto` reads the day in it for a Swahili reader.
-HOURS_OF_LANG = {"sw": "swahili"}
-
 
 @dataclass(frozen=True)
 class Mark:
@@ -104,7 +100,10 @@ def resolve_hours(flag, lang=None):
         from linecast._config import saved_hours
         name = saved_hours()
     if name is None:
-        name = HOURS_OF_LANG.get(lang)
+        from linecast._i18n import setting
+        # The system the language tells the time in: Swahili says the
+        # hour in its own count, so `auto` reads the day in it.
+        name = setting(lang, "hours")
     if name is None or name == "none":
         return None, None
     system, _hyphen, variant = name.partition("-")

@@ -75,11 +75,6 @@ DAY_NAMES = LocaleTable("DAY_NAMES")
 
 FULL_DAY_NAMES = LocaleTable("FULL_DAY_NAMES")
 
-# Languages whose daily list names each day in full: Persian's short
-# forms (۲ش for دوشنبه) are a calendar grid's, not a list's, and the
-# full names are at most eight cells.
-LIST_FULL_DAY_NAMES = frozenset({"fa"})
-
 WMO_NAMES_I18N = LocaleTable("CONDITIONS")
 
 _PRECIP_DESCS_I18N = LocaleTable("PRECIP")

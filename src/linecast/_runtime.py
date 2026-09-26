@@ -928,8 +928,8 @@ class WeatherRuntime(RuntimeConfig):
         Ukrainian, Czech), else km/h."""
         if not self.metric:
             return "mph"
-        from linecast._i18n import WIND_MS_LANGUAGES, base_language
-        return "m/s" if base_language(self.lang) in WIND_MS_LANGUAGES else "km/h"
+        from linecast._i18n import setting
+        return setting(self.lang, "metric_wind")
 
     @property
     def wind_unit_param(self):

@@ -31,22 +31,9 @@ LANGUAGES = (
 LANGUAGE_CODES = tuple(code for code, _name in LANGUAGES)
 LANGUAGE_NAMES = dict(LANGUAGES)
 
-# The languages whose weather services and forecasts give wind speeds in
-# metres per second: Japan, Korea, the Nordic countries, Russia, Ukraine,
-# and the Czech Republic.  The rest of the metric world reads km/h.  The
-# Chinese, Greek, and Vietnamese services use the Beaufort scale, which
-# is a different thing altogether, so those stay on km/h.
-WIND_MS_LANGUAGES = frozenset({"ja", "ko", "da", "no", "sv", "is", "fi", "cs", "ru", "uk"})
-
-# Languages written right to left.  Their strings stay in logical order
-# in the tables; the output pass (_bidi) puts each row in display order,
-# and the views anchor text and run time charts from the right edge.
-RTL_LANGUAGES = frozenset({"fa"})
-
-
 def is_rtl(lang):
     """Whether `lang` is written right to left."""
-    return base_language(lang) in RTL_LANGUAGES
+    return setting(lang, "rtl")
 
 
 # Regional variants: a code whose strings are a base language's with the
@@ -140,6 +127,45 @@ class LocaleTable(MutableMapping):
 
 
 _MISSING = object()
+
+
+# What a language's SETTINGS leave out: the Latin script's point and
+# percent, the 24-hour clock in sentences, the unit letters for a
+# duration, one and many for plurals, km/h, the Gregorian calendar, and
+# no traditional calendar, hours, or sky of its own.  en.py lists every
+# setting with a note on each.
+_SETTING_DEFAULTS = {
+    "decimal": ".",
+    "percent": "{n}%",
+    "digits": None,
+    "rtl": False,
+    "sentence_12h": False,
+    "duration": {"d": "{v}d", "h": "{v}h", "m": "{v}m", "s": "{v}s", "join": " ", "pad": True},
+    "plural": "one_many",
+    "script": None,
+    "capitals": True,
+    "list_full_day_names": False,
+    "numeric_month_axis": False,
+    "absolute_seasons": False,
+    "metric_wind": "km/h",
+    "calendar": None,
+    "civil_calendar": "gregorian",
+    "hours": None,
+    "sky_culture": None,
+}
+_SETTINGS = LocaleTable("SETTINGS")
+
+
+def setting(lang, name):
+    """One of `lang`'s SETTINGS: its own, or its base's for a regional
+    variant, or the default.  English's are not a fallback here, since
+    several (the 12-hour clock in sentences) are English's alone."""
+    for code in (lang, VARIANTS.get(lang)):
+        if code is not None:
+            value = _SETTINGS.get(code, {}).get(name, _MISSING)
+            if value is not _MISSING:
+                return value
+    return _SETTING_DEFAULTS[name]
 
 
 # A language whose strings are another's in a different script: the moon's
@@ -252,73 +278,33 @@ def lang_of(runtime):
     return getattr(runtime, "lang", "en") if runtime else "en"
 
 
-# Languages whose sentences can carry a 12-hour time in their own words:
-# English's "6pm", Greek's "6 το απόγευμα".  Every other language writes
-# the 24-hour clock in running text whatever the country's habit -- a
-# French reader looking at Montréal gets "vers 18h", as Environment
-# Canada writes it, not an English "6pm".  Swahili has a further reason:
-# it counts the hours from dawn, so "saa 1pm" would read as seven in the
-# morning; its sentences tell the hour that way, "saa saba mchana".
-SENTENCE_12H = frozenset({"en", "el"})
-
-
 def sentence_24h(runtime):
     """Whether a time inside a sentence takes the 24-hour clock: the
-    user's choice in a language of SENTENCE_12H, and always elsewhere."""
-    if lang_of(runtime) not in SENTENCE_12H:
+    user's choice in a language whose sentence_12h setting allows the
+    12-hour clock, and always elsewhere."""
+    if not setting(lang_of(runtime), "sentence_12h"):
         return True
     return bool(getattr(runtime, "use_24h", False))
-
-
-# Languages that write the percent sign before the number: %40.
-PERCENT_FIRST = frozenset({"tr"})
-# Languages that set the sign off with a space: 40 %. In Czech "40%"
-# reads as the adjective, forty-percent.
-PERCENT_SPACED = frozenset({"cs"})
-
-
-# Languages that write a decimal comma: 11,3 mm.  Latin American Spanish,
-# the base "es", keeps the point, as Mexico and most of the region do;
-# Spain's variant takes the comma.
-DECIMAL_COMMA = frozenset({
-    "fr", "fr-CA", "es-ES", "pt", "pt-PT", "it", "ro", "de", "nl", "da", "no",
-    "sv", "is", "fi", "cs", "pl", "ru", "uk", "el", "tr", "id", "vi", "eo",
-})
 
 
 def fmt_decimal(value, places, runtime):
     """`value` to `places` decimals with the display language's decimal
     mark: "11.3", "11,3"."""
     text = f"{value:.{places}f}"
-    return text.replace(".", ",") if lang_of(runtime) in DECIMAL_COMMA else text
+    mark = setting(lang_of(runtime), "decimal")
+    return text if mark == "." else text.replace(".", mark)
 
 
 def fmt_percent(value, runtime):
     """`value` as a whole-number percentage the display language's way:
     "40%", "%40" in Turkish, "40 %" in Czech."""
-    text = f"{value:.0f}"
-    lang = lang_of(runtime)
-    if lang in PERCENT_FIRST:
-        return f"%{text}"
-    return f"{text} %" if lang in PERCENT_SPACED else f"{text}%"
-
-
-# How a language writes a duration from its parts. English keeps the
-# unit letters, which read as symbols and fit any layout ("6h 07m",
-# "2d 4h", "−2m 14s"); a language whose readers would not read h and m
-# as its own writes the words, joined as it joins them ("۶ ساعت و ۷
-# دقیقه"). "pad" zero-pads the minutes after an hour.
-# Each is (day, hour, minute, second, join, pad).
-_DURATION = {
-    "en": ("{v}d", "{v}h", "{v}m", "{v}s", " ", True),
-    "fa": ("{v} روز", "{v} ساعت", "{v} دقیقه", "{v} ثانیه", " و ", False),
-}
+    return setting(lang_of(runtime), "percent").format(n=f"{value:.0f}")
 
 
 def has_duration_words(lang):
     """Whether `lang` writes durations in words of its own rather than
-    English's unit letters."""
-    return base_language(lang) in _DURATION and base_language(lang) != "en"
+    the unit letters."""
+    return setting(lang, "duration") != _SETTING_DEFAULTS["duration"]
 
 
 def fmt_duration_parts(lang, *parts, sign=""):
@@ -326,15 +312,14 @@ def fmt_duration_parts(lang, *parts, sign=""):
     the order given: fmt_duration_parts("en", ("h", 6), ("m", 7)) is
     "6h 07m", and in Persian "۶ ساعت و ۷ دقیقه" once the digits are
     drawn.  `sign` goes in front."""
-    *forms, join, pad = table_for(_DURATION, lang)
-    forms = dict(zip("dhms", forms))
+    forms = setting(lang, "duration")
     out = []
     prev = None
     for unit, value in parts:
-        text = f"{value:02d}" if (pad and unit == "m" and prev == "h") else str(value)
+        text = f"{value:02d}" if (forms["pad"] and unit == "m" and prev == "h") else str(value)
         out.append(forms[unit].format(v=text))
         prev = unit
-    return sign + join.join(out)
+    return sign + forms["join"].join(out)
 
 
 def plural_category(lang, n):
@@ -345,10 +330,12 @@ def plural_category(lang, n):
     Romanian 1, then few to 19 and again from 101 to 119, with "de"
     before the noun beyond ("21 de zile", "101 zile"). A fraction is many in the
     Slavic languages and few in Romanian. Every other language has one
-    and many."""
+    and many. A language names its rule in its "plural" setting:
+    east_slavic, polish, czech, romanian, or the default one_many."""
     whole = float(n) == int(n)
     n = abs(int(n)) if whole else n
-    if lang in ("ru", "uk"):
+    rule = setting(lang, "plural")
+    if rule == "east_slavic":
         if not whole:
             return "many"
         if n % 10 == 1 and n % 100 != 11:
@@ -356,17 +343,17 @@ def plural_category(lang, n):
         if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
             return "few"
         return "many"
-    if lang == "pl":
+    if rule == "polish":
         if whole and n == 1:
             return "one"
         if whole and n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
             return "few"
         return "many"
-    if lang == "cs":
+    if rule == "czech":
         if not whole:
             return "many"
         return "one" if n == 1 else "few" if n in (2, 3, 4) else "many"
-    if lang == "ro":
+    if rule == "romanian":
         if whole and n == 1:
             return "one"
         if not whole or n == 0 or n % 100 in range(1, 20):

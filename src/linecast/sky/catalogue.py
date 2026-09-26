@@ -20,7 +20,7 @@ import math
 import struct
 from linecast._paths import data_path
 from linecast._runtime import log_failure
-from linecast._i18n import base_language
+from linecast._i18n import base_language, setting
 
 _DATA = data_path()
 
@@ -164,8 +164,6 @@ CULTURES = {
     "siberian": "siberian", "tongan": "tongan", "tukano": "tukano",
     "snt": "western_SnT", "rey": "western_rey",
 }
-# The culture a language brings with it, as the moon's calendars do.
-CULTURE_OF_LANG = {"zh": "chinese", "zh-Hant": "chinese"}
 
 
 def resolve_culture(flag, lang):
@@ -176,7 +174,8 @@ def resolve_culture(flag, lang):
     chain stops it.
     """
     from linecast._config import saved_culture
-    choice = flag or saved_culture() or CULTURE_OF_LANG.get(base_language(lang))
+    # The culture a language brings with it, as the moon's calendars do.
+    choice = flag or saved_culture() or setting(lang, "sky_culture")
     return None if choice in (None, "none", "iau") else choice
 
 

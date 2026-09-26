@@ -5,6 +5,11 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "decimal": ",",
+}
+
+
 DAY_NAMES = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
 

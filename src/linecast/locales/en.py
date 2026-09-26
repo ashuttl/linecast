@@ -5,6 +5,88 @@ for; a key another language leaves out reads in English.
 """
 
 
+# How the language writes numbers, times, and durations, and what else
+# follows it.  Another language's file lists only the settings where it
+# differs from the default each note gives; a regional variant's, only
+# where it differs from its base language's.
+SETTINGS = {
+    # The decimal mark: "11.3 mm", "11,3 mm".  Default ".".
+    "decimal": ".",
+    # A whole-number percentage, {n} the number: "40%", "%40", "40 %".
+    # Default "{n}%".
+    "percent": "{n}%",
+    # The language's own digits, zero to nine, where it writes numbers
+    # in them: "۰۱۲۳۴۵۶۷۸۹".  `linecast digits latin` keeps 0-9.
+    # Default None, 0-9.
+    "digits": None,
+    # True for a language written right to left.  Its strings stay in
+    # logical order here; linecast puts each row in display order, and
+    # the views run their charts from the right edge.  Default False.
+    "rtl": False,
+    # Whether a time inside a sentence can be a 12-hour time in the
+    # language's own words, as English's "6pm" and Greek's "6 το
+    # απόγευμα" are, when the user has chosen the 12-hour clock.  Other
+    # languages write the 24-hour clock in running text whatever the
+    # country's habit: a French reader looking at Montréal gets "vers
+    # 18h", as Environment Canada writes it.  Swahili has a further
+    # reason: it counts the hours from dawn, so "saa 1pm" would read as
+    # seven in the morning.  Default False.
+    "sentence_12h": True,
+    # How a duration is written from its parts: days, hours, minutes,
+    # and seconds, {v} the number; "join" goes between the parts, and
+    # "pad" zero-pads the minutes after an hour.  The default is the
+    # unit letters, which read as symbols in any layout ("6h 07m",
+    # "2d 4h"); a language whose readers would not read h and m as its
+    # own writes the words ("۶ ساعت و ۷ دقیقه").
+    "duration": {"d": "{v}d", "h": "{v}h", "m": "{v}m", "s": "{v}s", "join": " ", "pad": True},
+    # Which counts take which plural form, as CLDR draws the lines, for
+    # the keys with _one, _few, and _many forms: "east_slavic" (Russian,
+    # Ukrainian), "polish", "czech", "romanian".  A language that needs
+    # a rule of its own can ask for one.  Default "one_many": 1 is one,
+    # everything else many.
+    "plural": "one_many",
+    # The script the language is written in, as the first word of its
+    # letters' Unicode names: "CYRILLIC", "ARABIC", "CJK".  A map place
+    # with no name in the language shows its local name when that is in
+    # this script, before the Latin transliteration.  Default None, the
+    # Latin alphabet.
+    "script": None,
+    # Whether the sky chart sets constellation names in capitals, a
+    # convention of the alphabets that have them.  Default True.
+    "capitals": True,
+    # Whether the daily forecast lists days by their full names, where
+    # the short names would not read in a list.  Default False.
+    "list_full_day_names": False,
+    # Whether the sun's year chart labels a narrow month axis by number
+    # rather than by first letter, where the letters would repeat or
+    # mean nothing.  Default False.
+    "numeric_month_axis": False,
+    # Whether the equinoxes and solstices keep their northern names in
+    # the southern hemisphere, where the language names them for the
+    # month or the solar term rather than the season.  Default False.
+    "absolute_seasons": False,
+    # Metric wind speeds: "km/h", or "m/s" where the country's weather
+    # service gives them so (Japan, Korea, the Nordic countries, Russia,
+    # Ukraine, the Czech Republic).  The Chinese, Greek, and Vietnamese
+    # services use the Beaufort scale, which is another thing
+    # altogether, so those stay on km/h.  Default "km/h".
+    "metric_wind": "km/h",
+    # The traditional calendar the moon view shows beside the phase:
+    # "chinese", "japanese", "korean", "vietnamese", "thai", "islamic",
+    # "hebrew".  Default None.
+    "calendar": None,
+    # The calendar dates are written in: "gregorian" or "solar_hijri".
+    # Default "gregorian".
+    "civil_calendar": "gregorian",
+    # The traditional hours sunshine reads by default: "swahili".
+    # Default None.
+    "hours": None,
+    # The sky culture the sky chart draws by default: "chinese".
+    # Default None, the IAU constellations.
+    "sky_culture": None,
+}
+
+
 DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
@@ -63,6 +145,10 @@ HELP = {
 
 
 WEATHER = {
+    # The day of the month after the day's name in the daily forecast,
+    # as the language writes it alone; Japanese "日 27" would read as
+    # "Sunday, day 27" twice over, so it is "27日".
+    "day_of_month": "{d}",
     "today": "Today",
     "today_short": "Tod",
     "forecast_stale": "This forecast is from {day}; a newer one could not be fetched.",

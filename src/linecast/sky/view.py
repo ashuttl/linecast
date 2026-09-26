@@ -58,7 +58,7 @@ from linecast._ephemeris import (
     moon_axis_deg, moon_bright_limb_deg, moon_horizontal_parallax_deg,
     moon_illuminated_fraction, precession_at,
 )
-from linecast._i18n import base_language, fmt_percent, lang_of
+from linecast._i18n import fmt_percent, lang_of, setting
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
@@ -74,7 +74,7 @@ from linecast.sky.catalogue import (
 )
 from linecast.sky import deep as _sky_deep
 from linecast.sky import objects as _sky_objects
-from linecast.sky.i18n import NO_CAPITALS, _sk, body_name
+from linecast.sky.i18n import _sk, body_name
 from linecast.sunshine.i18n import sky_phase
 from linecast._textwidth import char_width
 from linecast.tides.i18n import _ts  # shared "space to return to now" hint
@@ -1009,7 +1009,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
             if spread < 10.0:
                 continue
             name = record["name"] if view.culture else constellation_name(record, lang)
-            if base_language(lang) not in NO_CAPITALS:
+            if setting(lang, "capitals"):
                 # Turkish capitalises i as İ; str.upper gives the dotless I.
                 name = (name.replace("i", "İ") if lang == "tr" else name).upper()
             col = int(round(px0 - visible_len(name) / 2.0))

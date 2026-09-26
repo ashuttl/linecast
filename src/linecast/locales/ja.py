@@ -5,6 +5,16 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "script": "CJK",
+    "capitals": False,
+    "numeric_month_axis": True,
+    "absolute_seasons": True,
+    "metric_wind": "m/s",
+    "calendar": "japanese",
+}
+
+
 DAY_NAMES = ["月", "火", "水", "木", "金", "土", "日"]
 
 
@@ -59,6 +69,7 @@ HELP = {
 
 
 WEATHER = {
+    "day_of_month": "{d}日",
     "today": "今日",
     "today_short": "今日",
     "forecast_stale": "この予報は{day}のものです。新しい予報を取得できませんでした。",

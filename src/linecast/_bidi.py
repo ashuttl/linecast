@@ -61,10 +61,9 @@ import unicodedata
 TERMINAL_EXPLICIT = "\033[8l"
 TERMINAL_IMPLICIT = "\033[8h"
 
-# The digit sets, by language.  Persian and Urdu write the extended
-# Arabic-Indic digits, U+06F0-06F9; the decimal separator is U+066B and
-# the percent sign U+066A.
-_DIGIT_SETS = {"fa": "۰۱۲۳۴۵۶۷۸۹"}
+# A language's own digits are its "digits" setting.  Persian and Urdu
+# write the extended Arabic-Indic digits, U+06F0-06F9; the decimal
+# separator is U+066B and the percent sign U+066A.
 _DECIMAL_MARK = "٫"
 _PERCENT_SIGN = "٪"
 
@@ -109,8 +108,8 @@ def resolve_digits(lang, environ=None):
         choice = None
     if choice:
         return choice, "config"
-    from linecast._i18n import base_language
-    native = base_language(lang or "en") in _DIGIT_SETS
+    from linecast._i18n import setting
+    native = setting(lang or "en", "digits") is not None
     return ("native" if native else "latin"), "auto"
 
 
@@ -122,12 +121,12 @@ def configure(lang="en", environ=None):
     to; LINECAST_DIGITS=latin, or `linecast digits latin`, keeps ASCII
     digits in a language that has its own."""
     global _ui_rtl, _digits, _to_latin, _reorder, _visual
-    from linecast._i18n import base_language, is_rtl
+    from linecast._i18n import base_language, is_rtl, setting
     env = os.environ if environ is None else environ
     lang = base_language(lang or "en")
     _ui_rtl = is_rtl(lang)
     choice, source = resolve_digits(lang, env)
-    native = _DIGIT_SETS.get(lang)
+    native = setting(lang, "digits")
     # Only a latin that was asked for writes other scripts' digits back
     # as ASCII; auto in a language without its own leaves them be.
     _to_latin = choice == "latin" and source != "auto"

@@ -9,9 +9,9 @@ these are end-to-end checks of the month, day, and leap arithmetic.
 from datetime import date, datetime, timedelta, timezone
 
 from linecast._ephemeris import next_moon_phase_utc
+from linecast._i18n import LOCALE_CODES, setting
 from linecast._calendars.lunisolar import (
     CALENDAR_MERIDIAN_HOURS,
-    CALENDAR_OF_LANG,
     calendar_is_native,
     _civil,
     current_term,
@@ -201,8 +201,9 @@ class TestLabels:
         # The Thai calendar is arithmetic (see _calendars.thai_lunar and
         # test_thai_lunar), and the Islamic one is lunar (Persian's; see
         # test_hijri), so neither carries a meridian or solar terms.
-        for lang, cal in CALENDAR_OF_LANG.items():
-            if cal in ("thai", "islamic"):
+        for lang in LOCALE_CODES:
+            cal = setting(lang, "calendar")
+            if cal in (None, "thai", "islamic"):
                 continue
             assert cal in CALENDAR_MERIDIAN_HOURS
             assert calendar_is_native(cal, lang)

@@ -5,7 +5,7 @@ chart's moon labels); this module holds the strings specific to the ``moon``
 command plus month names for the full/new moon dates.
 """
 
-from linecast._i18n import LocaleTable, base_language, has_text, lang_of, lookup, plural_category, table_for
+from linecast._i18n import LocaleTable, base_language, has_text, lang_of, lookup, plural_category, setting, table_for
 from linecast.tides.i18n import MOON_NAMES_I18N, _moon_name  # noqa: F401 — re-export
 from linecast.weather.i18n import DAY_NAMES  # re-export for convenience
 
@@ -45,13 +45,12 @@ _SEASON_KEYS_NORTH = ("spring_equinox", "summer_solstice",
                       "autumn_equinox", "winter_solstice")
 _SEASON_KEYS_SOUTH = ("autumn_equinox", "winter_solstice",
                       "spring_equinox", "summer_solstice")
-_SEASON_ABSOLUTE_LANGS = frozenset({"ja", "ko", "zh", "zh-Hant", "vi", "th", "sw"})
 
 
 def _season_label(event, lat, runtime):
     """Localized name for a season event index, seen from latitude *lat*."""
     south = lat is not None and lat < 0
-    if south and base_language(lang_of(runtime)) not in _SEASON_ABSOLUTE_LANGS:
+    if south and not setting(lang_of(runtime), "absolute_seasons"):
         return _ms(_SEASON_KEYS_SOUTH[event], runtime)
     return _ms(_SEASON_KEYS_NORTH[event], runtime)
 

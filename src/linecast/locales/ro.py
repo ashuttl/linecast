@@ -5,6 +5,12 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "decimal": ",",
+    "plural": "romanian",
+}
+
+
 DAY_NAMES = ["lun", "mar", "mie", "joi", "vin", "sâm", "dum"]
 
 

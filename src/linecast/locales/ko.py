@@ -5,6 +5,16 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "script": "HANGUL",
+    "capitals": False,
+    "numeric_month_axis": True,
+    "absolute_seasons": True,
+    "metric_wind": "m/s",
+    "calendar": "korean",
+}
+
+
 DAY_NAMES = ["월", "화", "수", "목", "금", "토", "일"]
 
 
@@ -59,6 +69,7 @@ HELP = {
 
 
 WEATHER = {
+    "day_of_month": "{d}일",
     "today": "오늘",
     "today_short": "오늘",
     "forecast_stale": "이 예보는 {day}의 예보입니다. 최신 예보를 가져오지 못했습니다.",

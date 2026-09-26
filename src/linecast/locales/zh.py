@@ -5,6 +5,16 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "script": "CJK",
+    "capitals": False,
+    "numeric_month_axis": True,
+    "absolute_seasons": True,
+    "calendar": "chinese",
+    "sky_culture": "chinese",
+}
+
+
 DAY_NAMES = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 
 
@@ -59,6 +69,7 @@ HELP = {
 
 
 WEATHER = {
+    "day_of_month": "{d}日",
     "today": "今天",
     "today_short": "今天",
     "forecast_stale": "此预报来自{day}，无法获取更新的预报。",

@@ -4,6 +4,13 @@ A key left out here reads as in Spanish, then English.
 """
 
 
+SETTINGS = {
+    # Latin American Spanish keeps the point, as Mexico and most of the
+    # region do; Spain takes the comma.
+    "decimal": ",",
+}
+
+
 HELP = {
             "key_enter": "intro",
             "forecast": "recorrer la previsión",

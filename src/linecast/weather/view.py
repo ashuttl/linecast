@@ -25,7 +25,7 @@ import time as _t
 from datetime import datetime
 
 from linecast import _live, _theme
-from linecast._i18n import GEOCODER_UNTRANSLATED, SENTENCE_12H, fmt_percent, sentence_24h, table_for
+from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_percent, sentence_24h, setting, table_for
 from linecast._graphics import bg, fg, get_terminal_size, visible_len
 from linecast._location import country_for_defaults, resolve_location
 from linecast._runtime import (
@@ -110,7 +110,7 @@ def data_credits(country_code="", lang="en", observed=None, runtime=None, tz_nam
     goes, then the alerts go; the forecast's name stays, and last of all
     stands alone. The help panel carries each in full."""
     metric = bool(getattr(runtime, "metric", False))
-    use_24h = sentence_24h(runtime) if runtime else lang not in SENTENCE_12H
+    use_24h = sentence_24h(runtime) if runtime else not setting(lang, "sentence_12h")
     names = " & ".join(part for part in (FORECAST_SOURCE, alert_source(country_code, lang))
                        if part)
     seen = [observed_credit(observed, lang, metric, use_24h, tz_name, named=named)

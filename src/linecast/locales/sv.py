@@ -5,6 +5,12 @@ left out here reads in English.
 """
 
 
+SETTINGS = {
+    "decimal": ",",
+    "metric_wind": "m/s",
+}
+
+
 DAY_NAMES = ["mån", "tis", "ons", "tor", "fre", "lör", "sön"]
 
 

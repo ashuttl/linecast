@@ -69,6 +69,20 @@ class TestLocaleFiles:
             names = {node.targets[0].id for node in tree.body[1:]}
             assert names <= read, (path.name, names - read)
 
+    def test_settings_are_ones_the_code_knows(self):
+        # A misspelled setting would read as the default, silently; en.py
+        # lists every one, with the default's type.
+        import linecast._i18n as i18n
+        known = i18n._SETTING_DEFAULTS
+        assert set(i18n._SETTINGS["en"]) == set(known)
+        for code in LOCALE_CODES:
+            for name, value in i18n._SETTINGS.get(code, {}).items():
+                assert name in known, (code, name)
+                default = known[name]
+                if default is not None:
+                    assert type(value) is type(default), (code, name)
+        assert set(i18n.setting("fa", "duration")) == set(known["duration"])
+
     def test_a_language_loads_only_its_own_files(self, monkeypatch):
         import linecast._i18n as i18n
         monkeypatch.setattr(i18n, "_locales", {})
