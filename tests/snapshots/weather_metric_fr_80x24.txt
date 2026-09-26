@@ -15,10 +15,10 @@ aujourd'hui ↓18:11 vendredi      ↑06:45                ↓18:12         31°
 Neige légère probable dans quelques heures. La maximale de demain sera proche de
 celle d'aujourd'hui.
 
-auj     🌨️  Neige légère        ──31°████39°───────────────────  69%            
-ven  6  🌧️  Pluie               ──31°███38°────────────────────  32%            
-sam  7  🌧️  Forte pluie         ──────────38°████████████64°───  55%  Pluie 2 mm
-dim  8  ☁️  Couvert             ─────────36°█████53°───────────                 
-lun  9  ☁️  Couvert             ─────────36°█████████59°───────                 
-mar 10  ☁️  Couvert             ─────31°██41°──────────────────  52%            
-mer 11  🌧️  Bruine verglaçante  26°███35°──────────────────────  71%            
+auj     🌨️  Neige légère        ──31°███39°───────────────────  69 %            
+ven  6  🌧️  Pluie               ──31°██38°────────────────────  32 %            
+sam  7  🌧️  Forte pluie         ──────────38°███████████64°───  55 %  Pluie 2 mm
+dim  8  ☁️  Couvert             ────────36°██████53°──────────                  
+lun  9  ☁️  Couvert             ─────────36°████████59°───────                  
+mar 10  ☁️  Couvert             ──31°████41°──────────────────  52 %            
+mer 11  🌧️  Bruine verglaçante  26°███35°─────────────────────  71 %            

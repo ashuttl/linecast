@@ -162,9 +162,9 @@ def _s(key, runtime, **kwargs):
 # Where a forecast template has to agree with its precipitation noun, the
 # codes that take a variant of the template, by the suffix of that variant.
 # Swahili manyunyu (drizzle) takes ma-class agreement and vipindi (showers)
-# ki-vi, where mvua and theluji take i-; French averses, orages and grains
-# de neige are plural, as are the Finnish and Czech showers and snow
-# grains, and the Polish showers and storms (opady, burze).  Chosen by
+# ki-vi, where mvua and theluji take i-; French averses and orages are
+# plural, as are the Finnish and Czech showers and snow grains, and the
+# Polish showers and storms (opady, burze).  Chosen by
 # weather code so editing a description does not change its grammar.
 _PRECIP_CLASSES = LocaleTable("PRECIP_CLASSES")
 

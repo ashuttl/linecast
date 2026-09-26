@@ -13,6 +13,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: Conditions are named in sentence case in English and Indonesian: "Light showers", not "Light Showers".
 - Weather: Fixed a bug that could drop the label from the week's lowest temperature in the daily forecast at some window widths.
 - Tides: Fixed a bug that showed tide and wave heights with a decimal point in languages that write a decimal comma, such as "9.8′" for "9,8′" in Czech.
+- Languages: French sets the percent sign off with a space ("40 %"), names the Moon's phases in sentence case, and uses the standard term for snow grains, "neige en grains".
 - Languages: The translations are now in one file per language, with notes on what each string is for, so a translation is easier to correct or add. CONTRIBUTING.md explains how.
 
 ## 2.8.0 — 2026-09-25

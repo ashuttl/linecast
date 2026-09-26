@@ -7,6 +7,8 @@ left out here reads in English.
 
 SETTINGS = {
     "decimal": ",",
+    # French sets the percent sign off with a space: "40 %".
+    "percent": "{n}\u00a0%",
 }
 
 
@@ -17,11 +19,11 @@ FULL_DAY_NAMES = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "
 
 
 MONTHS = ["janv", "févr", "mars", "avr", "mai", "juin",
-          "juil", "août", "sept", "oct", "nov", "déc"]
+          "juill", "août", "sept", "oct", "nov", "déc"]
 
 
-MOON_PHASES = ["Nouvelle Lune", "Premier Croissant", "Premier Quartier", "Gibbeuse Croissante",
-               "Pleine Lune", "Gibbeuse Décroissante", "Dernier Quartier", "Dernier Croissant"]
+MOON_PHASES = ["Nouvelle lune", "Premier croissant", "Premier quartier", "Gibbeuse croissante",
+               "Pleine lune", "Gibbeuse décroissante", "Dernier quartier", "Dernier croissant"]
 
 
 HELP = {
@@ -219,7 +221,7 @@ CONDITIONS = {
     56: "Bruine verglaçante", 57: "Bruine verglaçante",
     61: "Pluie légère", 63: "Pluie", 65: "Forte pluie",
     66: "Pluie verglaçante", 67: "Pluie verglaçante",
-    71: "Neige légère", 73: "Neige", 75: "Forte neige", 77: "Grains de neige",
+    71: "Neige légère", 73: "Neige", 75: "Forte neige", 77: "Neige en grains",
     80: "Averses légères", 81: "Averses", 82: "Fortes averses",
     85: "Averses de neige", 86: "Fortes averses de neige",
     95: "Orage", 96: "Orage", 99: "Orage",
@@ -232,14 +234,14 @@ PRECIP = {
     56: "bruine verglaçante", 57: "bruine verglaçante",
     61: "pluie légère", 63: "pluie", 65: "fortes pluies",
     66: "pluie verglaçante", 67: "pluie verglaçante",
-    71: "neige légère", 73: "neige", 75: "fortes chutes de neige", 77: "grains de neige",
+    71: "neige légère", 73: "neige", 75: "fortes chutes de neige", 77: "neige en grains",
     80: "averses légères", 81: "averses", 82: "fortes averses",
     85: "averses de neige", 86: "fortes averses de neige",
     95: "orages", 96: "orages", 99: "orages",
 }
 
 
-PRECIP_CLASSES = {"_pl": {65, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99}}
+PRECIP_CLASSES = {"_pl": {65, 75, 80, 81, 82, 85, 86, 95, 96, 99}}
 
 
 PRECIP_PARTITIVES = {
@@ -248,7 +250,7 @@ PRECIP_PARTITIVES = {
     61: "de faibles pluies", 63: "de la pluie", 65: "de fortes pluies",
     66: "de la pluie verglaçante", 67: "de la pluie verglaçante",
     71: "de faibles chutes de neige", 73: "de la neige",
-    75: "de fortes chutes de neige", 77: "des grains de neige",
+    75: "de fortes chutes de neige", 77: "de la neige en grains",
     80: "de faibles averses", 81: "des averses", 82: "de fortes averses",
     85: "des averses de neige", 86: "de fortes averses de neige",
     95: "des orages", 96: "des orages", 99: "des orages",
@@ -261,7 +263,7 @@ PRECIP_DEFINITES = {
     61: "la pluie légère", 63: "la pluie", 65: "les fortes pluies",
     66: "la pluie verglaçante", 67: "la pluie verglaçante",
     71: "la neige légère", 73: "la neige", 75: "les fortes chutes de neige",
-    77: "les grains de neige",
+    77: "la neige en grains",
     80: "les averses légères", 81: "les averses", 82: "les fortes averses",
     85: "les averses de neige", 86: "les fortes averses de neige",
     95: "les orages", 96: "les orages", 99: "les orages",
@@ -276,7 +278,7 @@ LOCATIONS = {
     "failed": "Impossible de charger la météo pour {name}. Réessayez.",
     "save": "Définir {name} par défaut",
     "saved": "{name} est le lieu par défaut de toutes les vues.",
-    "save_failed": "Impossible de sauvegarder le lieu par défaut. Réessayez.",
+    "save_failed": "Impossible d'enregistrer le lieu par défaut. Réessayez.",
 }
 
 
@@ -288,8 +290,8 @@ RADAR = {
     "near": "à {dist} {unit} au {dir} de {name}",
     "compass": "N NE E SE S SO O NO",
     "forecast": "prévision",
-    "echo_pct": "{pct}% écho",
-    "cloud_pct": "{pct}% nuages",
+    "echo_pct": "{pct} % écho",
+    "cloud_pct": "{pct} % nuages",
     "radar_unavailable": "radar indisponible ({err})",
     "no_frames": "aucune image radar disponible",
 }

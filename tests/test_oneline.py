@@ -182,7 +182,7 @@ class TestMoonOneline:
     def test_localized_phase_name(self):
         line = moon_oneline(self._now(), 43.66, -70.26, self._runtime(lang="fr"))
         plain = _strip_ansi(line)
-        assert "Pleine Lune" in plain
+        assert "Pleine lune" in plain
 
     def test_a_calendar_date_ends_the_line(self):
         # 21 January 2000 is 14 Shevat 5760, the eve of Tu BiShvat;
