@@ -72,9 +72,7 @@ Windows Terminalを使ってください。Git Bashとminttyは、linecastから
 
 ## 使い方
 
-どのコマンドも、[場所を保存する](#場所)までは、IPアドレスから推定した場所で開き、リアルタイムに更新されます。キー操作は `?` で表示されます。
-
-`weather` では、右上の地名をクリック（または `l`）すると、最近の場所を選んだり、**場所を追加**で検索したりできます。文字を打つと候補が出て、↑/↓ で選び、Enter かクリックで決めます。Escape で閉じます。`/` で検索を直接開きます。最近の場所は10件まで保存され、**最近の場所を消去**で空にできます。**［場所］を既定の場所に設定**を選ぶと、表示中の場所がすべてのビューの既定になります。すでに既定の場所を見ているときは表示されません。`tides` でも、左上の観測地点名をクリック（または `l`）すると同じメニューが開き、選んだ場所に最も近い観測地点に切り替わります。最近の場所は `weather` と共通です。
+どのコマンドも、[場所を保存する](#設定)までは、IPアドレスから推定した場所で開き、リアルタイムに更新されます。キー操作は `?` で表示されます。`weather` と `tides` では、地名をクリックするか `l` を押すと、最近の場所に切り替えたり、別の場所を検索したりできます。
 
 コマンドをそのまま、あるいはフラグ付きで試してみてください:
 
@@ -94,7 +92,7 @@ linecast maps --view now
 
 ![ヒーロー画像のアニメーション版。気象レーダーが動いている](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.gif)
 
-各アプリの詳しい説明とスクリーンショットは[英語版README](README.md#a-closer-look)に、それぞれのアプリのさまざまな状態は[docs/gallery.md](docs/gallery.md)にあります。
+各アプリのスクリーンショットは[英語版README](README.md#the-apps)に、それぞれのアプリのさまざまな状態は[docs/gallery.md](docs/gallery.md)にあります。
 
 ## 日本語で
 
@@ -115,91 +113,27 @@ export LINECAST_LANG=ja         # 環境変数で。保存した設定より優�
 
 ## 設定
 
-設定は `~/.config/linecast/config.json` に保存されます。コマンドラインのフラグが環境変数より優先され、環境変数が保存した設定より優先されます。以下の設定コマンドを引数なしで実行すると現在の値が表示され、`auto` を渡すと既定値に戻ります。
+設定コマンドは、引数なしで現在の値を表示し、値を渡すと保存し、`auto` で既定に戻します。
 
-### 場所
+| 設定 | 値 | 今回だけ |
+| --- | --- | --- |
+| `linecast location` | `set "Kyoto"`、`set 35.01,135.77`、`search 地名` | `--location` |
+| `linecast language` | [29の言語](docs/languages.md)のいずれか | `--lang` |
+| `linecast units` | `metric`、`imperial` | `--metric`、`--imperial` |
+| `linecast clock` | `12`、`24` | `--12h`、`--24h` |
+| `linecast week` | `monday`、`sunday`、`saturday` | `--week-start` |
+| `linecast calendar` | `japanese`、`chinese`、`hebrew`、… | `--calendar` |
+| `linecast culture` | `chinese`、`hawaiian`、`norse`、… | `--culture` |
+| `linecast hours` | `japanese`、`halachic`、`roman`、… | `--hours` |
+| `linecast icons` | `nerd`、`emoji`、`plain` | `--icons` |
+| `linecast dates` | `gregorian`、`solar-hijri` | |
+| `linecast digits` | `latin`、`native` | |
 
-場所を一度保存すれば、すべてのコマンドがそれを使います。一回だけなら、フラグで渡します:
+場所を保存しないと、linecastはIPアドレスから場所を推定します。VPNやSSH越しでは大きくずれることがあります。
 
-```sh
-linecast location set "Kyoto"             # 地名で
-linecast location set 35.01,135.77        # または 緯度,経度 で
-linecast location search fuchu            # その名前が指しうる場所を一覧する
-linecast location auto                    # IPアドレスからの推定に戻す
-linecast weather --location "Nara"        # 今回だけ
-```
+ペルシア語のサポートは試験的です。Ghostty、Alacritty、footでは動きますが、macOSのターミナルとiTerm2ではうまく表示されません。詳しくは[docs/languages.md](docs/languages.md#persian-and-right-to-left-text)をご覧ください。
 
-地名は一度だけ検索され、最初に一致した場所が保存されます。意図した場所でなかった場合は、`search` で他の候補を確認できます。
-
-場所を保存せず、フラグでも渡していない場合、linecastは[ipinfo.io](https://ipinfo.io/)にネットワーク接続の場所を尋ねます。たいていは正しい都市ですが、時には外れ、VPNや社内ネットワークでは大きくずれます。SSH越しではサーバーの場所が推定されるので、そこでは場所を保存してください。回答は1時間キャッシュされます。場所を保存すれば、この問い合わせは一切行われません。
-
-### 単位と時計
-
-既定では、linecastはアメリカ合衆国ではヤード・ポンド法、それ以外ではメートル法を使います。時刻は、6:50 pmと書く国では12時間制、それ以外では24時間制です。日本では、メートル法と24時間制になります。好みを記憶させるには、次のコマンドを一度実行します:
-
-```sh
-linecast units imperial
-linecast clock 12
-```
-
-表示系のコマンドはどれも、一回限りの `--metric` と `--imperial` を受け付けます。時刻を表示するものは `--12h` と `--24h` も受け付けます。`weather` には気温だけを切り替える `--celsius` と `--fahrenheit` もあり、マイルと摂氏の組み合わせもできます。
-
-月のカレンダーは週を月曜日から始めます。ただし、日本、韓国、アメリカ合衆国、カナダ、ブラジル、メキシコなど、印刷されたカレンダーが日曜日から始まる国では日曜日から、エジプトと湾岸諸国では土曜日からです。`linecast week monday` で固定でき（`sunday` と `saturday` も）、`moon --week-start monday` なら一回だけです。
-
-### 言語
-
-ターミナルの言語がlinecastの知っている言語なら、その言語で話します。そうでなければ英語です。自分で選ぶなら、既定値にも、その回だけにも指定できます:
-
-```sh
-linecast language ja        # 既定を日本語に
-linecast language auto      # ターミナルに従う
-linecast radar --lang en    # 今回だけ
-```
-
-言語は、英語（`en`）、フランス語（`fr`）、スペイン語（`es`）、ポルトガル語（`pt`）、イタリア語（`it`）、ルーマニア語（`ro`）、ドイツ語（`de`）、オランダ語（`nl`）、デンマーク語（`da`）、ノルウェー語（`no`）、スウェーデン語（`sv`）、アイスランド語（`is`）、フィンランド語（`fi`）、チェコ語（`cs`）、ポーランド語（`pl`）、ロシア語（`ru`）、ウクライナ語（`uk`）、ギリシャ語（`el`）、トルコ語（`tr`）、ペルシア語（`fa`）、スワヒリ語（`sw`）、中国語の簡体字（`zh`）と繁体字（`zh-Hant`）、日本語（`ja`）、韓国語（`ko`）、タイ語（`th`）、ベトナム語（`vi`）、インドネシア語（`id`）、エスペラント（`eo`）です。スワヒリ語の星空では、南十字座とさそり座に文献のある名前を使い、ほかの星座と星はカタログの名前のままです。中国語のターミナルロケールは地域で字体を選びます。`zh_TW`、`zh_HK`、`zh_MO` は繁体字、`zh_CN`、`zh_SG` は簡体字です。ノルウェー語のロケール `nb_NO` と `nn_NO` はノルウェー語になります。ポルトガル語はブラジル、スペイン語は中南米、フランス語はフランスの言葉づかいです。ポルトガル、スペイン、カナダで異なる語は `pt-PT`、`es-ES`、`fr-CA` で読めます。ターミナルロケールが `pt_PT`、`es_ES`、`fr_CA` なら、それを自動で選びます。
-
-ペルシア語は右から読みます。ダッシュボード、潮汐、月のカレンダー、日照の年表示は右端から並び、現在は右側にあります。日付はイラン暦（ヒジュラ太陽暦）です。`linecast dates gregorian` で暦を固定できます（`solar-hijri` も、どの言語でも）。数字はペルシア数字で書き、`linecast digits latin` なら 0–9 のままです（`native` でペルシア数字に戻ります）。多くのターミナルは右から左の文字を逆向きに描き、アラビア文字をつなげないので、linecast が自分で並べてつなげ、そのまま描くようターミナルに頼みます。アラビア文字を含む等幅フォント、たとえば [Vazir Code](https://github.com/rastikerdar/vazir-code-font) なら文字がきれいにつながります。Konsole は自分で文字を並べ替え、その頼みを聞かないので、そこでは linecast が行の配置だけを決め、並べ替えと文字の連結は Konsole に任せます。ほかの同じようなターミナルでは `LINECAST_BIDI=terminal` で同じことをします。Konsole の双方向テキスト表示を切っているなら `LINECAST_BIDI=linecast` です。
-
-インドでは、多くの警報が州の言語で発表されます。`weather` に `--lang hi`、`--lang te`、`--lang mr` などインドの言語コードを付けると、その言語の警報があればそれで読めます。アプリのほかの部分は英語のままです。
-
-### 暦
-
-`moon` を日本語、中国語、韓国語、ベトナム語、タイ語で実行すると、その言語の伝統暦を使います。日本語なら旧暦です。自分で選ぶなら、既定値にも、その回だけにも指定できます:
-
-```sh
-linecast calendar hebrew            # 既定をヘブライ暦に
-linecast calendar none              # 伝統暦なし
-linecast calendar auto              # 言語に従う
-linecast moon --calendar hawaiian   # 今回だけ
-```
-
-暦は `chinese`、`japanese`、`korean`、`vietnamese`、`thai`、`hawaiian`、`samoan`、`chamorro`、`refaluwasch`、`islamic`、`hebrew`、`almanac` です。それぞれの説明は[docs/calendars.md](docs/calendars.md)にあります。
-
-### 時刻法
-
-`sunshine` は、常用時のとなりに、ある伝統の時刻法で一日を読むことができます。選ぶなら、既定値にも、その回だけにも指定できます:
-
-```sh
-linecast hours japanese             # 江戸の不定時法。昼夜それぞれ六つの刻
-linecast hours halachic             # グラの方式によるゼマニーム
-linecast hours halachic-mga         # マゲン・アブラハムの方式
-linecast hours roman                # 十二のホラと四つのウィギリア
-linecast hours islamic              # 礼拝時刻。表示中の国の慣例で
-linecast hours islamic-isna         # または名前で指定した慣例で
-linecast hours swahili              # スワヒリ時間。朝七時が saa 1 asubuhi
-linecast hours none                 # 常用時のみ
-linecast sunshine --hours japanese  # 今回だけ
-```
-
-`auto` で設定を消します。スワヒリ語ではスワヒリ時間で読みます。それがこの言語の時刻の言い方だからです。ほかの言語では none と同じです。それぞれの説明は[docs/hours.md](docs/hours.md)にあります。
-
-### 星空の伝統
-
-`sky` は中国語では中国の星空を描き、他の言語ではIAUの星座を描きます。22の伝統から選ぶには `linecast culture` と `sky --culture` を使います。`sky` の中では `t` を押して一覧から選べます。名前と出典は[docs/cultures.md](docs/cultures.md)にまとめています。
-
-### そのほかの設定
-
-色とアイコン、短い名前とシェル補完、表示がおかしいときの対処、環境変数、データの出典と対象範囲は、[英語版README](README.md#settings)にあります。
+暦は[docs/calendars.md](docs/calendars.md)、時刻法は[docs/hours.md](docs/hours.md)、星空の伝統は[docs/cultures.md](docs/cultures.md)、環境変数は[docs/configuration.md](docs/configuration.md)、データの出典とクレジットは[docs/sources.md](docs/sources.md)にあります（いずれも英語）。
 
 ## 貢献するには
 
