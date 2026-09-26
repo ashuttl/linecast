@@ -9,7 +9,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: Where there is room, the daily forecast gives each day's date and names its weather beside the icon, and "Today" is spelled out.
 - Weather: The credit line is shorter, and says when and where the current conditions were observed: "Observed at 7:51a from Portland Intl Jetport, 4 mi away." The help panel keeps the full credits.
 - Weather: An alert already in effect gives only its end time.
-- Weather: In Japanese, Korean, Finnish, and Turkish, an alert's end time now reads in the language's own word order: "日 20:00まで", "Paz 20:00'ye kadar".
+- Weather: Fixed the word order of an alert's end time in Japanese, Korean, Finnish, and Turkish: "日 20:00まで", not "まで 日 20:00", and "Paz 20:00'ye kadar", with the dative ending that the time takes when it's read aloud.
 - Weather: Conditions are named in sentence case in English and Indonesian: "Light showers", not "Light Showers".
 - Weather: Fixed a bug that could drop the label from the week's lowest temperature in the daily forecast at some window widths.
 - Tides: Fixed a bug that showed tide and wave heights with a decimal point in languages that write a decimal comma, such as "9.8′" for "9,8′" in Czech.
