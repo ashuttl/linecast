@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: In imperial units, snow amounts in the forecast and in the last 24 hours read about two-fifths of the real amount. They now report the snow as forecast and as it fell.
+
 ## 2.8.0 — 2026-09-25
 
 linecast speaks Persian, its first right-to-left language, as an experiment. It also speaks Hong Kong Chinese, and has regional forms of Portuguese, Spanish, and French. The maps curve into the globe as you zoom out and glide as you move them. The forecast in words says more, and reads more naturally.

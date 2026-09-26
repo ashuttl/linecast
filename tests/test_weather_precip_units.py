@@ -11,6 +11,7 @@ from linecast.weather.daily import render_daily
 from linecast.weather.sections import _past_precip_line
 
 _MM_PER_INCH = 25.4
+_CM_PER_INCH = 2.54
 
 
 def _runtime(metric):
@@ -26,6 +27,19 @@ def _past_line(mm, metric):
         "precipitation": [mm if metric else mm / _MM_PER_INCH],
         "snowfall": [0],
         "weather_code": [61],
+    }
+    runtime = SimpleNamespace(lang="en", metric=metric)
+    return _past_precip_line(hourly, datetime(2026, 9, 6, 6), runtime)
+
+
+def _past_snow_line(cm, metric):
+    """The past-precipitation line for `cm` of snow an hour ago, in the
+    unit Open-Meteo sends it: cm, or inches alongside inches of rain."""
+    hourly = {
+        "time": ["2026-09-06T05:00"],
+        "precipitation": [0],
+        "snowfall": [cm if metric else cm / _CM_PER_INCH],
+        "weather_code": [73],
     }
     runtime = SimpleNamespace(lang="en", metric=metric)
     return _past_precip_line(hourly, datetime(2026, 9, 6, 6), runtime)
@@ -61,6 +75,24 @@ class TestPastPrecipThreshold:
     def test_an_amount_worth_a_sentence_is_reported_in_either_unit(self):
         assert _past_line(3.0, metric=True) != ""
         assert _past_line(3.0, metric=False) != ""
+
+
+class TestPastSnow:
+    """Snowfall arrives in the requested unit and is reported as it came."""
+
+    def test_ten_centimetres_read_as_ten_centimetres(self):
+        assert "10.0" in _past_snow_line(10, metric=True)
+
+    def test_ten_centimetres_read_as_their_inches(self):
+        assert "3.9" in _past_snow_line(10, metric=False)
+
+    def test_under_a_centimetre_goes_unreported_in_either_unit(self):
+        assert _past_snow_line(0.8, metric=True) == ""
+        assert _past_snow_line(0.8, metric=False) == ""
+
+    def test_a_centimetre_and_more_is_reported_in_either_unit(self):
+        assert _past_snow_line(1.2, metric=True) != ""
+        assert _past_snow_line(1.2, metric=False) != ""
 
 
 class TestDailyPrecipThreshold:

@@ -806,10 +806,13 @@ class TestMoreToSay:
         from linecast.weather.sections import snow_total_sentence
         evening = datetime(2026, 7, 15, 20, 0)
         codes = [0, 0, 71, 73, 73, 73, 71, 0, 0]
+        cm = [0, 0, 1.0, 2.0, 2.5, 1.5, 0.6, 0, 0]
         hourly = self._hourly(evening, len(codes), weather_code=codes,
                               precipitation_probability=[90 if c else 0 for c in codes],
-                              snowfall=[0, 0, 1.0, 2.0, 2.5, 1.5, 0.6, 0, 0])
-        assert snow_total_sentence(hourly, evening, _runtime()) == \
+                              snowfall=cm)
+        # Open-Meteo sends snowfall in inches when the rain is in inches
+        inches = dict(hourly, snowfall=[v / 2.54 for v in cm])
+        assert snow_total_sentence(inches, evening, _runtime()) == \
             "About 3\u00a0inches of snow by tomorrow morning"
         assert snow_total_sentence(hourly, evening, _runtime(metric=True, celsius=True)) == \
             "About 8\u00a0cm of snow by tomorrow morning"
@@ -825,7 +828,10 @@ class TestMoreToSay:
         codes = [71, 71, 0]
         hourly = self._hourly(NOON, 3, weather_code=codes,
                               precipitation_probability=[90, 90, 0], snowfall=[0.3, 0.4, 0])
-        assert snow_total_sentence(hourly, NOON, _runtime()) == ""
+        assert snow_total_sentence(hourly, NOON, _runtime(metric=True)) == ""
+        # The same dusting in inches, as an imperial fetch carries it
+        inches = dict(hourly, snowfall=[0.3 / 2.54, 0.4 / 2.54, 0])
+        assert snow_total_sentence(inches, NOON, _runtime()) == ""
 
     def test_the_sky_clears(self):
         from linecast.weather.sections import sky_sentence

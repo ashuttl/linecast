@@ -1388,6 +1388,12 @@ def snow_total_sentence(hourly, now, runtime=None, daily=None, current=None):
     return _snow_sentence(parts, hourly, now, runtime)[0]
 
 
+def _snow_cm(total, runtime):
+    """A snowfall total in centimetres.  Open-Meteo converts snowfall with
+    the rain: in cm, or in inches when the request asks for inches."""
+    return total if runtime.metric else total * 2.54
+
+
 def _snow_sentence(parts, hourly, now, runtime):
     run = parts["run"]
     if not run or not _has("snow_total", runtime):
@@ -1397,7 +1403,8 @@ def _snow_sentence(parts, hourly, now, runtime):
     snow_hours = sum(1 for i, _ in run if i < len(codes) and codes[i] in _SNOW_CODES)
     if snow_hours * 2 < len(run):
         return "", False
-    total_cm = sum((snowfall[i] if i < len(snowfall) else 0) or 0 for i, _ in run)
+    total_cm = _snow_cm(sum((snowfall[i] if i < len(snowfall) else 0) or 0 for i, _ in run),
+                        runtime)
     if total_cm < 1:
         return "", False
     if runtime.metric:
@@ -1427,7 +1434,7 @@ def past_precip_sentence(hourly, now, runtime):
     past_start = current_hour - timedelta(hours=24)
 
     total_precip = 0.0
-    total_snow_cm = 0.0
+    total_snow = 0.0
     snow_hours = 0
     rain_hours = 0
     mix_hours = 0
@@ -1451,7 +1458,7 @@ def past_precip_sentence(hourly, now, runtime):
         c = codes[i] if i < len(codes) else 0
         if p > 0 or s > 0:
             total_precip += p
-            total_snow_cm += s
+            total_snow += s
             if c in (71, 73, 75, 77, 85, 86):
                 snow_hours += 1
             elif c in (56, 57, 66, 67):
@@ -1459,6 +1466,7 @@ def past_precip_sentence(hourly, now, runtime):
             else:
                 rain_hours += 1
     log_skipped("weather/open-meteo", "hourly times", dropped, len(times), bad)
+    total_snow_cm = _snow_cm(total_snow, runtime)
 
     # A tenth of an inch, 2.5 mm, before it is worth a sentence: less
     # than that is a damp pavement, and nobody reports it.  Snow from a
@@ -1469,7 +1477,7 @@ def past_precip_sentence(hourly, now, runtime):
     # Determine dominant type and format amount
     metric_sep = _prose_sep(runtime)
     if snow_hours >= rain_hours and snow_hours >= mix_hours:
-        # Show snow accumulation (Open-Meteo snowfall is in cm)
+        # Show snow accumulation
         if runtime.metric:
             amt = f"{fmt_decimal(total_snow_cm, 1, runtime)}{metric_sep}{_s('unit_cm', runtime)}"
         else:
