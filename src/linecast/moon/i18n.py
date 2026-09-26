@@ -28,7 +28,9 @@ def _ms(key, runtime, **kwargs):
     (Romanian's "peste 1 zi", "peste 21 de zile")."""
     lang = lang_of(runtime)
     if key == "in_days" and "days" in kwargs:
-        variant = f"in_days_{plural_category(lang, float(kwargs['days']))}"
+        # The count arrives written with the language's decimal mark
+        count = float(str(kwargs["days"]).replace(",", "."))
+        variant = f"in_days_{plural_category(lang, count)}"
         if has_text(_MOON_STRINGS, variant, lang):
             key = variant
     return lookup(_MOON_STRINGS, key, lang, **kwargs)

@@ -33,7 +33,7 @@ from linecast._framebuffer import fmt_time_dt
 from linecast._graphics import (
     lerp, visible_len, get_terminal_size, cell_aspect, Framebuffer, live_loop,
 )
-from linecast._i18n import fmt_duration_parts, lang_of
+from linecast._i18n import fmt_decimal, fmt_duration_parts, lang_of
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
@@ -569,10 +569,11 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     # Text pieces shared by every layout.
     def in_days(days):
-        return _ms('in_days', runtime, days=f'{days:.1f}')
+        return _ms('in_days', runtime, days=fmt_decimal(days, 1, runtime))
 
     illum_txt = _ms('illuminated', runtime, pct=f'{illum * 100:.0f}')
-    age_txt = _ms('age', runtime, age=f'{age:.1f}', total=f'{SYNODIC_MONTH:.1f}')
+    age_txt = _ms('age', runtime, age=fmt_decimal(age, 1, runtime),
+                  total=fmt_decimal(SYNODIC_MONTH, 1, runtime))
     alt_txt = _ms('above_horizon', runtime, alt=f'{alt:.0f}')
     # After "Up now" the long phrase is redundant — being up is the whole
     # claim — so the altitude goes short and spends the room on where to
@@ -618,7 +619,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         # would read as a rival count; the age keeps its astronomical
         # name and shares a line with the illumination.
         night, _nights = pacific_night(cal, now_local.date())
-        age_txt = _ms('lunar_age', runtime, age=f'{age:.1f}')
+        age_txt = _ms('lunar_age', runtime, age=fmt_decimal(age, 1, runtime))
         if cal == "hawaiian":
             # The Kaulana Mahina adds the anahulu beside the name, and
             # the counsel lines below: the night's kapu or ʻole note

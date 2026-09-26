@@ -58,7 +58,7 @@ from linecast._ephemeris import (
     moon_axis_deg, moon_bright_limb_deg, moon_horizontal_parallax_deg,
     moon_illuminated_fraction, precession_at,
 )
-from linecast._i18n import fmt_percent, lang_of, setting
+from linecast._i18n import fmt_decimal, fmt_percent, lang_of, setting
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
 )
@@ -1177,10 +1177,12 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
         title = _sky_objects.object_name(record, lang_of(runtime))
         major, minor = record['size']
         size = f"{major:g}′" if major == minor else f"{major:g}′ × {minor:g}′"
-        detail = f"{record['id']} · mag {record['mag']:.1f} · {size}"
+        size = size.replace(".", setting(lang_of(runtime), "decimal"))
+        detail = f"{record['id']} · mag {fmt_decimal(record['mag'], 1, runtime)} · {size}"
     elif kind == "planet":
         key, alt, az, mag = payload
-        title, detail = body_name(key, runtime), f"mag {mag:+.1f}"
+        sign = "+" if mag >= 0 else ""
+        title, detail = body_name(key, runtime), f"mag {sign}{fmt_decimal(mag, 1, runtime)}"
     else:
         i, alt, mag = payload
         lang = lang_of(runtime)
@@ -1188,7 +1190,8 @@ def _chip(mouse_pos, hits, scene, runtime, cols, rows, graph_w, graph_h, view):
                          else star_names(lang)).get(i, ("", ""))
         iau_name = star_names().get(i, ("", ""))[0]
         title = proper or desig or _sk("star", runtime)
-        detail = f"{desig} · mag {mag:.1f}" if proper and desig else f"mag {mag:.1f}"
+        mag_txt = f"mag {fmt_decimal(mag, 1, runtime)}"
+        detail = f"{desig} · {mag_txt}" if proper and desig else mag_txt
         if iau_name and iau_name != proper:
             # A culture's name, or the language's own, with the IAU's beside it.
             detail = f"{iau_name} · {detail}"

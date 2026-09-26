@@ -858,9 +858,10 @@ class TestRouteSummary:
         with _units("--imperial"):
             assert mu.route_summary(route, "en") == "7.3 mi · 13m · driving"
         # units follow the setting, not the language; the duration's
-        # unit letters stay untranslated, the profile word does not.
+        # unit letters stay untranslated, the profile word and the decimal
+        # mark do not.
         with _units("--metric"):
-            assert mu.route_summary(route, "fr") == "11.7 km · 13m · en voiture"
+            assert mu.route_summary(route, "fr") == "11,7 km · 13m · en voiture"
 
     def test_hours_are_split_out(self):
         assert mu._fmt_duration(60) == "1m"

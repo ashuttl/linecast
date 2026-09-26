@@ -15,6 +15,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Tides: Fixed a bug that showed tide and wave heights with a decimal point in languages that write a decimal comma, such as "9.8′" for "9,8′" in Czech.
 - Languages: French sets the percent sign off with a space ("40 %"), names the Moon's phases in sentence case, and uses the standard term for snow grains, "neige en grains".
 - Languages: Canadian French calls the mouse wheel a "roulette", gives the chance of rain as a "probabilité", and names the Blackfoot sky culture "Pieds-Noirs".
+- Languages: Fixed a bug that showed the Moon's age and countdowns, route distances in the maps, and star magnitudes with a decimal point in languages that write a decimal comma.
 - Languages: The translations are now in one file per language, with notes on what each string is for, so a translation is easier to correct or add. CONTRIBUTING.md explains how.
 
 ## 2.8.0 — 2026-09-25
