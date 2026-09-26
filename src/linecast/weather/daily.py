@@ -225,8 +225,11 @@ def render_daily_mapped(data, width, runtime=None, now=None):
             continue
 
         # Temperature range bar with integrated labels
-        lo_pos = int((lo - scale_min) / scale_range * (bar_w - 1))
-        hi_pos = int((hi - scale_min) / scale_range * (bar_w - 1))
+        # The scale was padded so the week's lowest low sits exactly its
+        # label's width in; float error can land it at 2.9999…, and a
+        # plain int() would then push the label off the left edge.
+        lo_pos = int(round((lo - scale_min) / scale_range * (bar_w - 1), 9))
+        hi_pos = int(round((hi - scale_min) / scale_range * (bar_w - 1), 9))
         hi_pos = max(hi_pos, lo_pos + 1)  # at least 1 char wide
 
         lo_label = f"{lo:.0f}°"

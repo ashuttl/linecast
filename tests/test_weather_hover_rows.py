@@ -288,3 +288,21 @@ def test_daily_words_go_before_the_bar_is_squeezed():
     assert _plain(tight[0]).endswith("74%  0.22″  18mph")
     a, b = spans[0]["cols"]["bar"]
     assert b - a >= 30
+
+
+def test_the_weeks_lowest_low_keeps_its_label_at_every_width():
+    # Westbrook, Sep 26 2026: a 52-55° day beside a 77° one. The scale
+    # puts the 52 exactly three cells in, which float error once made
+    # 2.9999... and so dropped the label at about half of all widths.
+    data = {"daily": {
+        "time": [f"2026-09-{25 + i:02d}" for i in range(8)],
+        "temperature_2m_max": [66, 69, 58, 55, 58, 71, 77, 77],
+        "temperature_2m_min": [55, 57, 55, 52, 54, 54, 57, 58],
+        "precipitation_sum": [0] * 8,
+        "precipitation_probability_max": [0] * 8,
+        "weather_code": [3] * 8,
+        "wind_speed_10m_max": [5.0] * 8,
+    }}
+    for width in range(40, 140):
+        lines, _ = render_daily_mapped(data, width, _runtime())
+        assert "52°" in _plain(lines[2]), width
