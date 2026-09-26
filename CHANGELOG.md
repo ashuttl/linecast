@@ -4,71 +4,50 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-The street and terrain maps curve like the globe as you zoom out, and glide as you pan and zoom. The prose forecast says more, and should read more naturally in every language. linecast speaks Hong Kong Chinese, and has regional forms of Portuguese, Spanish, and French.
+linecast speaks Persian, its first right-to-left language, as an experiment. It also speaks Hong Kong Chinese, and has regional forms of Portuguese, Spanish, and French. The maps curve into the globe as you zoom out and glide as you move them. The forecast in words says more, and reads more naturally.
 
 New this version:
 
-- Weather:
-  - The prose forecast under the graph contains more detail about the weather, when it will change, and what's unusual about it, if anything.
-  - The prose forecast should read more naturally in every language. This is an improvement, but there is farther yet to go. If it reads oddly in yours, please open an [issue](https://github.com/ashuttl/linecast/issues) or start a [discussion](https://github.com/ashuttl/linecast/discussions).
-  - The prose forecast names a stretch of wet days together ("Rain likely from Saturday to Monday"), says which of them has thunder or turns to snow, and names a day of heavy rain later in the week at lower odds than a lighter one.
-  - Numbers in the prose forecast (such as 11,3 mm in French and German) are written as each language writes them.
-  - Current conditions come from the nearest airport's latest report when one is close and recent, so they should match what's outside more closely. The credit line names the station.
-  - Cloud cover is described on the National Weather Service's five-step scale, which adds Mostly Cloudy. Each day in the daily list is described by its average cloud cover, so one grey hour no longer makes a day overcast. Most languages use their national weather service's terms.
-  - In Canada, air quality is shown on Environment Canada's AQHI scale, with its risk level. The value is Environment Canada's own for the nearest community, or is calculated from pollutant levels where there isn't one nearby, including the AQHI-Plus rule for wildfire smoke. In French the label is CAS.
-  - In Japan, only the warnings for your own city, town, or ward are shown, not every warning in the prefecture. A reader in Shinagawa no longer sees a high-wave advisory for the Izu islands, which are also part of Tokyo.
-  - In Japan, warnings come from the forecast office for your own prefecture, not the nearest one, which near a border can be a neighbour's. When your town can't be matched, you see only your prefecture's warnings.
-  - In Ireland, a national warning is shown only in the counties it is for. Marine and environmental warnings are still shown everywhere.
-  - Wind speeds are in metres per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, and Czech, as local forecasts give them.
-  - The place name in the header sits in a chip, as it does in tides, and the rest of the header is spaced more evenly.
-  - When the alert service can't be reached, a line says the alerts could not be checked, instead of showing nothing as on a day without alerts. When an earlier copy stands in, the line says when it is from. `--json` reports the same as `alerts_status`.
-- Maps:
-  - Where a street or place has no name in the display language, its local name comes before the Latin transliteration when it is in the reader's script: خیابان فردوسی, not Ferdosi Street, for a Persian reader in Tehran; Хрещатик for a Russian reader in Kyiv.
-  - The street and terrain maps curve like the globe once a view is a few degrees wide, so zooming out to the planet is smooth instead of a sudden switch. Close street views are unchanged.
-  - City names stay the same when zooming out to the globe, and regional views name more towns.
-  - The view moves smoothly: zooming eases, a drag coasts to a stop, `w a s d` slide the view, and searching or following directions flies to the place. Terrain keeps the last map on screen while the next one loads.
-  - Dragging the street or terrain map shows the map at the new position right away, and a short pan doesn't need the network.
-  - A flicked map starts loading where it will stop as soon as you let go, so it fills in while still moving.
-  - While a street view loads, the previous one stays on screen, moved and scaled to fit, and nearby tiles are fetched ahead of time. Contributed by [@N30Yang](https://github.com/N30Yang) in [#117](https://github.com/ashuttl/linecast/pull/117).
-  - Zooming the globe no longer flashes a blank disk, and the sharper globe starts loading right away.
-  - The globe turns about twice as fast when dragged. Its shading is prepared once, in the background, the first time a globe opens, and kept after that. That first globe is drawn the slower way for a second or two while this happens.
-  - Frames sent to the terminal are about half the size, so panning and rotating are smoother on a slow terminal or over ssh.
-  - City lights on the night side of the globe and the terrain map come from NASA's Black Marble image of the Earth at night, bundled with linecast. They fade out as you zoom in.
-  - Only lakes at least a few cells across get a braille coastline, so lake country no longer looks like a field of little rings. Smaller ponds are still drawn as water.
-- Radar:
-  - Press `A` to hide or show the US warning outlines.
 - Language:
-  - linecast speaks Persian (`fa`), used automatically by a Persian terminal locale. The forecast is written the way Iran's meteorological service writes it, numbers are in Persian digits (`linecast digits latin` for 0–9), dates are in the Solar Hijri calendar (`linecast dates gregorian` for the Gregorian), and the sky names its constellations and many of its stars in Persian. A native reader has not checked it yet; if something reads oddly, please open an [issue](https://github.com/ashuttl/linecast/issues).
-  - In Persian, weather, tides, the Moon, and sunshine read from the right: text is anchored to the right edge, and the graphs run right to left, with now at the right. `←` moves forward in time. Maps, radar, the sky, and the Moon itself are not mirrored.
-  - In Persian, the Moon's panel counts down to the year's festivals, Chaharshanbe Suri, Sizdah Bedar, Tirgan, Mehregan, Yalda, and Sadeh, and in the month before Nowruz to the moment the year turns, to the second on its last day. The month grid shows Solar Hijri months, with the Gregorian and Islamic days in the corners of each day.
-  - In Persian, durations are written in words (۶ ساعت و ۷ دقیقه) rather than with English unit letters.
-  - linecast speaks Hong Kong Chinese (`zh-HK`), used automatically by a Hong Kong or Macau terminal locale. It uses the Hong Kong Observatory's words for the weather (天晴, 大致多雲, 密雲, 驟雨, 雷暴, 警告) and Hong Kong's everyday words. Traditional Chinese otherwise follows Taiwan, as before.
-  - Portuguese, Spanish, and French each have a regional variant, `pt-PT`, `es-ES`, and `fr-CA`, used automatically by a terminal locale in Portugal, Spain, or Canada. Spanish is now Latin American throughout; the maps had used Spain's words.
-- Tides: The location menu from weather is in tides too. Click the station name or press `l` to pick a recent place or search for one. Recent places are shared with weather.
-- Moon, sky, maps, radar: Circles look round and squares look square on both wide and narrow terminal fonts. linecast asks the terminal for the font's cell shape where it can; `LINECAST_CELL_ASPECT` overrides it.
-- Sunshine: With the `islamic` hours, a day read by the Tehran method (the default in Iran) lists the times Iranian timetables print: dawn prayer, sunrise, noon prayer, sunset, evening prayer, and the religious midnight. Other methods list the five prayers as before.
-- Live views: Single-letter keys work with a non-Latin keyboard layout switched on, such as Persian, Arabic, Russian, Ukrainian, Greek, Hebrew, Korean, or Thai. Pressing the key labelled q quits whatever letter the layout types there.
-- Help: `linecast --help` looks like each command's own help and fits the terminal's width. Each command's `--help` starts with a short usage line and groups its flags into sections.
-- Sunshine: The help hint is in the top-left corner of the graph, as in the year view, so the sunrise and sunset times sit at either end of the line below.
-- Docs: The pages on sources, calendars, hours, cultures, the gallery, and the architecture are in a `docs/` folder now. Old GitHub links to them no longer work.
+  - **Experimental:** Persian (`fa`). Weather, tides, sunshine, and the Moon read from the right, dates are in the Solar Hijri calendar, and numbers are in Persian digits. It works in Ghostty, Alacritty, and foot, but not well in the Mac's Terminal or iTerm2, and a native reader has not checked it yet. [docs/languages.md](https://github.com/ashuttl/linecast/blob/main/docs/languages.md) has the details.
+  - In Persian, the Moon counts down to Nowruz and the year's festivals, and sunshine lists the times Iranian prayer timetables print.
+  - Hong Kong Chinese (`zh-HK`), with the Hong Kong Observatory's words for the weather.
+  - Regional variants for Portugal, Spain, and Canada: `pt-PT`, `es-ES`, and `fr-CA`. Spanish is now Latin American throughout.
+  - Keys work with a non-Latin keyboard layout switched on, such as Persian, Russian, Greek, Hebrew, or Korean.
+- Weather:
+  - The forecast in words says more about what is coming and what is unusual, and should read more naturally in every language. If it reads oddly in yours, please open an [issue](https://github.com/ashuttl/linecast/issues).
+  - Current conditions come from the nearest airport's report when one is close and recent.
+  - Cloud cover is described on the National Weather Service's five-step scale, or the local weather service's terms.
+  - In Canada, air quality is on Environment Canada's AQHI scale.
+  - Wind is in metres per second in the languages whose forecasts give it that way.
+  - In Japan and Ireland, only the warnings for your own area are shown.
+  - When the alert service can't be reached, a line says so.
+- Maps:
+  - The street and terrain maps curve into the globe as you zoom out, and city names stay the same all the way.
+  - The view moves smoothly: zooms ease, drags coast, and `w a s d` pan.
+  - Panning and turning the globe are faster, especially over ssh.
+  - The previous street view stays on screen while the next loads. Contributed by [@N30Yang](https://github.com/N30Yang) in [#117](https://github.com/ashuttl/linecast/pull/117).
+  - City lights on the night side, from NASA's Black Marble.
+  - Where a place has no name in your language, a local name in your script comes before the Latin one.
+- Radar: Press `A` to hide or show the US warning outlines.
+- Tides: Click the station name or press `l` to change location, as in weather.
+- Moon, sky, maps, radar: Circles look round in wide and narrow fonts alike.
+- Help: `--help` fits the terminal and groups flags into sections.
+- Docs: The README is shorter, with the details in `docs/`. Old GitHub links to the pages that moved there no longer work.
 
 Fixes:
 
-- Maps, weather, sky, radar: Names in Hebrew, Arabic, Persian, and Urdu read right to left, with Arabic letters joined. They had been drawn backwards, each letter on its own. In Konsole, which orders text itself, linecast lays out the rows and leaves the ordering to Konsole; `LINECAST_BIDI=terminal` does the same in another such terminal.
-- Moon: Equinox and solstice times are given in UTC, as almanacs give them. They had been about a minute late.
-- Weather: The rain total for the last 24 hours no longer counts an extra hour.
-- Weather: In European Portuguese, European Spanish, and Canadian French, day names are no longer shown in English.
-- Weather: Fixed a bug in MeteoAlarm countries where warnings from elsewhere in the country could appear after the first refresh.
-- Weather: An alert's times are when the weather it warns of begins and ends. In the US they had been when the bulletin was issued and when it was due to be reissued, so a watch for the weekend could look as if it ended on Thursday morning. Alerts in Germany and MeteoAlarm countries, India, and New Zealand start when the weather does, not when the warning was issued.
-- Weather: The one-line preview of a US alert starts with what it says, without the "* WHAT..." label.
-- Weather: In Croatia, warnings filed by county are matched to your address by the county's boundary. They had been matched on the county's name.
-- Sky, moon: Stars, constellations, and the Milky Way line up with the Moon and planets. They were about a third of a degree off, which showed at the closest zoom.
-- Tides: With a free TideCheck key, linecast stays within the plan's fifty requests a day and shows cached tides until the next day, as the README said it did.
-- Radar: Cached NEXRAD frames are cleared after a day, like other sources' tiles, so the cache no longer grows without limit.
-- Install: The curl quick-start opens the sky with `sh -s sky`. It had turned the command away.
-- Maps, radar: A damaged or malformed map tile is skipped, as a missing one is, instead of using far more memory than its size.
-- Tides: A TideCheck API key is sent only to TideCheck. If a request were redirected to another server, the key would no longer go with it.
-- Maps, weather, tides, radar: Text from a map, search, route, or weather service is shown as text. A control sequence in a place name or an alert can no longer reach the terminal.
+- Maps, weather, sky, radar: Names in Hebrew, Arabic, Persian, and Urdu read right to left, with Arabic letters joined, instead of backwards.
+- Weather: An alert's times are when its weather begins and ends, not when the bulletin was issued.
+- Weather: Warnings are matched more precisely in MeteoAlarm countries, near Japan's prefecture borders, and in Croatia.
+- Weather: The 24-hour rain total no longer counts an extra hour.
+- Sky, moon: The stars line up with the Moon and planets. They had been about a third of a degree off.
+- Moon: Equinox and solstice times are no longer a minute late.
+- Maps: Zooming the globe no longer flashes a blank disk.
+- Tides: A free TideCheck key stays within its fifty requests a day.
+- Radar: The NEXRAD cache no longer grows without limit.
+- Install: The curl quick-start accepts `sky`.
+- Security: A TideCheck key is never sent to another server, text from a service can't send control sequences to the terminal, and a malformed map tile can't use excess memory.
 
 ## 2.7.0 — 2026-09-19
 
