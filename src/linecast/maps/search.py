@@ -26,7 +26,7 @@ from linecast._http import fetch_json
 from linecast._i18n import accept_language, base_language
 from linecast._paths import cache_dir
 from linecast._plaintext import plain_text
-from linecast._rate_limit import RateLimit
+from linecast.maps.rate_limit import RateLimit
 from linecast._runtime import debug_log, log_failure
 
 PHOTON_URL = "https://photon.komoot.io/api"

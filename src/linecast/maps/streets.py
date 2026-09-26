@@ -26,14 +26,14 @@ style; this module only asks it questions.
 from linecast.maps import hover as _maps_hover
 from linecast.maps import labels as _maps_labels
 from linecast.maps import style
-from linecast._mvt import (
+from linecast.maps.mvt import (
     LINESTRING, POLYGON, assemble_polygons, decode_tile,
 )
 from linecast._png import DecodeMemo
 from linecast.radar.basemap import DotLayer, _bresenham, _edge_dots
 from linecast._runtime import debug_log, log_failure
 from linecast._theme import lerp_rgb
-from linecast._vtiles import (fetch_tiles, iter_layer, prefetch_tiles,
+from linecast.maps.vtiles import (fetch_tiles, iter_layer, prefetch_tiles,
                               tile_info, tiles_for_bbox)
 
 # Fill ids double as indices into style.FILL_ORDER, so the id order *is*

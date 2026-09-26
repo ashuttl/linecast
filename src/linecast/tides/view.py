@@ -52,7 +52,7 @@ from linecast._runtime import (
     tides_parser,
 )
 from linecast._spinner import Spinner
-from linecast._marine import fetch_marine, parse_marine_current, format_marine_line
+from linecast.tides.marine import fetch_marine, parse_marine_current, format_marine_line
 from linecast.tides.common import sweep_legacy_cache
 from linecast.tides.i18n import _moon_name, _ts
 from linecast.tides.tidecheck import budget_line as tidecheck_budget_line

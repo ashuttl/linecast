@@ -24,9 +24,9 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _rate_limit
+from linecast.maps import rate_limit as _rate_limit
 from linecast.maps import search as ms
-from linecast._rate_limit import RateLimit
+from linecast.maps.rate_limit import RateLimit
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PHOTON = json.loads((FIXTURES / "photon_search.json").read_text(encoding="utf-8"))

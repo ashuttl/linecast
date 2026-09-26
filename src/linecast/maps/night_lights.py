@@ -6,14 +6,14 @@ The scene worker loads the immutable pyramid; motion only samples it.
 
 from functools import lru_cache
 import math
-from pathlib import Path
 import struct
 import zlib
 
+from linecast._paths import data_path
 from linecast._runtime import log_failure
 
 ATTRIBUTION = "Lights: NASA/GSFC (2016)"
-_PATH = Path(__file__).parent / "data/night_lights.bin"
+_PATH = data_path("night_lights.bin")
 
 # How many display sub-pixels one source texel may span. Regional lights
 # stay intact; local terrain takes over before the glow becomes a large blob.

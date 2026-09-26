@@ -1340,20 +1340,20 @@ class TestMeteoAlarmRegions:
     """An EMMA_ID names ground; the baked geometry says whose."""
 
     def setup_method(self):
-        from linecast import _meteoalarm_regions as mr
+        from linecast.weather import meteoalarm_regions as mr
         self._saved = (mr._REGIONS, mr._CODES)
         mr._REGIONS, mr._CODES = FAKE_REGIONS, None
 
     def teardown_method(self):
-        from linecast import _meteoalarm_regions as mr
+        from linecast.weather import meteoalarm_regions as mr
         mr._REGIONS, mr._CODES = self._saved
 
     def test_a_point_is_in_its_region_and_the_province_around_it(self):
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         assert regions_at(50.5, 10.5) == {"XX001", "XX100", "NUTS3/XX002", "CISORP/0001"}
 
     def test_a_hole_is_outside(self):
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         assert regions_at(49.3, 9.3) == set()
 
     def test_a_warning_for_the_users_county_reaches_them(self):
@@ -1413,7 +1413,7 @@ class TestMeteoAlarmRegions:
         assert _alerts(_feed(info), 52.5, 10.5, {"city": "Nowhere"}) == []
 
     def test_keys_are_spelled_by_type(self):
-        from linecast._meteoalarm_regions import key_for
+        from linecast.weather.meteoalarm_regions import key_for
         assert key_for("EMMA_ID", "PL3001") == "PL3001"
         assert key_for("NUTS3", "FR101") == "NUTS3/FR101"
         assert key_for("NUTS2", "HU10") == "NUTS2/HU10"
@@ -1424,25 +1424,25 @@ class TestMeteoAlarmRegionsData:
     """The shipped file answers for real places."""
 
     def setup_method(self):
-        from linecast import _meteoalarm_regions as mr
+        from linecast.weather import meteoalarm_regions as mr
         mr._REGIONS, mr._CODES = None, None
 
     def test_warsaw_is_in_one_polish_county(self):
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         assert regions_at(52.23, 21.01) == {"PL1465"}
 
     def test_issue_57s_county_is_where_the_feed_says(self):
-        from linecast._meteoalarm_regions import regions_at, known
+        from linecast.weather.meteoalarm_regions import regions_at, known
         assert known("PL3001")
         assert "PL3001" in regions_at(52.995, 16.92)  # Chodzież
         assert "PL3001" not in regions_at(52.23, 21.01)
 
     def test_a_district_sits_inside_its_state(self):
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         assert regions_at(48.209, 16.372) == {"AT901"}  # Vienna, its own district
 
     def test_the_atlantic_is_nowhere(self):
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         assert regions_at(43.66, -70.26) == set()
 
     # The NUTS-coded feeds (issue #59): each capital in its own region,
@@ -1451,55 +1451,55 @@ class TestMeteoAlarmRegionsData:
     def test_paris_is_in_its_departement_by_either_spelling(self):
         # FR101 is Paris both as an EMMA_ID and as a NUTS3 code; the two
         # are separate entries, and only the NUTS3 one answers for NUTS3.
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         got = regions_at(48.8566, 2.3522)
         assert "FR101" in got
         assert {k for k in got if k.startswith("NUTS")} == {"NUTS3/FR101"}
 
     def test_cayenne_is_in_overseas_france(self):
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         assert "NUTS3/FRA30" in regions_at(4.9224, -52.3135)
 
     def test_budapest_is_in_central_hungary_as_2013_spelled_it(self):
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         got = regions_at(47.4979, 19.0402)
         assert {k for k in got if k.startswith("NUTS")} == {"NUTS2/HU10"}
 
     def test_sofia_is_in_its_oblast(self):
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         got = regions_at(42.6977, 23.3219)
         assert {k for k in got if k.startswith("NUTS")} == {"NUTS3/BG411"}
 
     def test_bucharest_is_in_its_judet(self):
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         got = regions_at(44.4268, 26.1025)
         assert {k for k in got if k.startswith("NUTS")} == {"NUTS3/RO321"}
 
     def test_antwerp_is_in_its_province(self):
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         got = regions_at(51.2194, 4.4025)
         assert {k for k in got if k.startswith("NUTS")} == {"NUTS2/BE21"}
 
     def test_skopje_answers_under_the_label_its_feed_uses(self):
         # North Macedonia files its EMMA_IDs typed NUTS3.
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         assert regions_at(41.9973, 21.4280) == {"MK008", "NUTS3/MK008"}
 
     def test_split_is_in_its_county_beside_its_region(self):
         # Croatia files a county warning under an EMMA_ID no geocodes
         # edition carries, with the 2013 NUTS3 code beside it (#127).
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         assert regions_at(43.508, 16.44) == {"HR008", "NUTS3/HR035"}
 
     def test_prague_is_its_own_orp_by_both_spellings(self):
         # The statistical office codes Prague 1000; the feed files 1100.
-        from linecast._meteoalarm_regions import regions_at
+        from linecast.weather.meteoalarm_regions import regions_at
         got = regions_at(50.0755, 14.4378)
         assert {k for k in got if k.startswith("CISORP")} == {"CISORP/1000", "CISORP/1100"}
         assert "CZ01100" in got  # and the EMMA_ID the feed files beside it
 
     def test_brno_is_in_its_orp_and_not_the_next(self):
-        from linecast._meteoalarm_regions import regions_at, known
+        from linecast.weather.meteoalarm_regions import regions_at, known
         assert "CISORP/6203" in regions_at(49.1951, 16.6068)
         assert known("CISORP/6217")  # Tišnov, one ORP over
         assert "CISORP/6217" not in regions_at(49.1951, 16.6068)

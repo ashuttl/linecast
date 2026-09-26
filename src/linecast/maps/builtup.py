@@ -17,7 +17,7 @@ the sparse tileset is the compression.
 import os
 
 from linecast._cache import write_bytes_atomic
-from linecast._elevation import _mercator_table
+from linecast.maps.elevation import _mercator_table
 from linecast._http import fetch_bytes
 from linecast.maps.tile_cache import note_tile_use
 from linecast._paths import cache_dir

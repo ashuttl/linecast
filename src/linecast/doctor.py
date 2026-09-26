@@ -57,8 +57,8 @@ def providers():
     """(name, url) for every host a command may talk to, honouring the
     URL overrides.  TideCheck's url is None until a key is configured.
     A 4xx from a host root is still a host that answers."""
-    from linecast._builtup import DEFAULT_URL as BUILTUP_URL
-    from linecast._elevation import tile_url as elevation_tile_url
+    from linecast.maps.builtup import DEFAULT_URL as BUILTUP_URL
+    from linecast.maps.elevation import tile_url as elevation_tile_url
     from linecast.maps.route import _FALLBACK as OSRM_FALLBACK, _PRIMARY as OSRM_PRIMARY
     from linecast.maps.search import NOMINATIM_URL, PHOTON_URL
     from linecast.radar.tiles import LIBREWXR_DEFAULT_URL
@@ -66,7 +66,7 @@ def providers():
     from linecast.tides.hko import HKO_BASE
     from linecast.tides.qld import QLD_BASE
     from linecast.tides.tidecheck import TIDECHECK_BASE, is_available
-    from linecast._vtiles import DEFAULT_TILEJSON_URL, FALLBACK_TILEJSON_URL
+    from linecast.maps.vtiles import DEFAULT_TILEJSON_URL, FALLBACK_TILEJSON_URL
     env = os.environ
     return [
         ("Open-Meteo forecast", "https://api.open-meteo.com/"),

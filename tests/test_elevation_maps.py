@@ -14,9 +14,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from linecast import _color, _elevation
+from linecast import _color
+from linecast.maps import elevation as _elevation
 from linecast._color import BG_PRIMARY
-from linecast._elevation import decode_meters, elevation_grid
+from linecast.maps.elevation import decode_meters, elevation_grid
 from linecast.radar.basemap import BORDER, COAST
 from linecast.maps.view import (
     COAST_STROKE, BORDER_STROKE, LAKE_FILL,

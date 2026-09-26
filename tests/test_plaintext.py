@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from test_mvt import field, geom_ints, make_feature, make_layer, make_tile
 
 from linecast._live import frame_paint
-from linecast._mvt import decode_tile
+from linecast.maps.mvt import decode_tile
 from linecast._plaintext import plain_text
 from linecast.maps import route as mr
 from linecast.maps.labels import _name

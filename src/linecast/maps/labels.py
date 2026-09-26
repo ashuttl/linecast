@@ -46,7 +46,7 @@ from linecast.maps import globe as _globe
 from linecast.maps import places, style
 from linecast.radar.basemap import _bresenham, marine_region
 from linecast._textwidth import char_width, visible_len
-from linecast._vtiles import iter_layer
+from linecast.maps.vtiles import iter_layer
 from linecast._i18n import base_language, setting
 
 LABEL_LAYERS = ("place", "water_name", "park", "transportation_name",

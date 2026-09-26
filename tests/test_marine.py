@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch
 
-from linecast import _marine as marine
+from linecast.tides import marine
 from linecast._runtime import TidesRuntime
 
 

@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from linecast import _night_lights
+from linecast.maps import night_lights as _night_lights
 from linecast.maps import globe as _globe
 from linecast.maps import globe_now
 

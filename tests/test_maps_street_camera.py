@@ -725,7 +725,7 @@ class TestTheVectorTilesFollowTheFootprint:
         _views._get_street_tiles(frame.bbox, frame.gw, frame.hc, True, "en",
                                  (), over.window_hint(frame, GW, HC))
         assert asked == [cam.footprint]
-        from linecast._vtiles import tiles_for_bbox
+        from linecast.maps.vtiles import tiles_for_bbox
         assert len(tiles_for_bbox(cam.footprint, 13)) == 8
         assert len(tiles_for_bbox(cam.bounds, 13)) == 12
 

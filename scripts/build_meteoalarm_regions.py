@@ -3,7 +3,7 @@
 Most MeteoAlarm feeds carry no polygon on a warning, only a geocode
 naming a county, district, or province. This script turns the published
 geometry for those codes into a small binary that
-linecast._meteoalarm_regions reads at runtime to answer "which regions
+linecast.weather.meteoalarm_regions reads at runtime to answer "which regions
 is this point in?" -- and so which of a country's several hundred
 warnings apply here.
 
@@ -255,7 +255,7 @@ def check(args):
     file knows and as an EMMA_ID it does not; that area is placed.
     """
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-    from linecast._meteoalarm_regions import _parse, key_for
+    from linecast.weather.meteoalarm_regions import _parse, key_for
     from linecast.weather.sources import _METEOALARM_SLUGS
 
     with open(args.file, "rb") as fh:

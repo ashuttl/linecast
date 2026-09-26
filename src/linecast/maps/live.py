@@ -30,7 +30,7 @@ from linecast.maps.motion import Flight, ease_in_out, lon_delta, lon_span
 from linecast.maps.search import (
     SearchUnavailable, fly_to_zoom, resolve_place,
 )
-from linecast import _vtiles
+from linecast.maps import vtiles as _vtiles
 from linecast.maps.views import (
     _zoom_hold, globe_warm, recentres, warm_globe_texture,
 )

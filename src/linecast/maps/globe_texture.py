@@ -44,7 +44,8 @@ from array import array
 from collections import namedtuple
 from operator import itemgetter
 
-from linecast import _cache, _climate, _live, _theme
+from linecast import _cache, _live, _theme
+from linecast.maps import climate as _climate
 from linecast.maps import globe as _globe
 from linecast.maps import paint
 from linecast.maps import style

@@ -3,7 +3,7 @@
 Collapses the Beck et al. (2023) 1991-2020 Köppen-Geiger classification
 (30 classes at 0.1°) into the four hypsometric ramp families terrain
 mode blends by — 0 humid, 1 semiarid, 2 arid, 3 polar — and writes the
-result as a grayscale PNG the package ships and _climate.py samples.
+result as a grayscale PNG the package ships and maps/climate.py samples.
 Ocean cells flood-fill from the nearest land so a coastal sub-pixel
 never reads "no climate": the Sahara stays sand right up to the surf.
 

@@ -30,7 +30,7 @@ import math
 import threading
 import time
 
-from linecast import _night_lights
+from linecast.maps import night_lights as _night_lights
 from linecast.radar import tiles
 from linecast._geo import wrap_lon
 from linecast.maps.globe import _aspect, _source_zoom, bilinear_taps, geometry

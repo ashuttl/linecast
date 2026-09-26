@@ -27,7 +27,7 @@ from linecast.maps import streets as st
 from linecast.maps import style as _maps_style
 from linecast import _theme
 from linecast.radar.basemap import DotLayer
-from linecast._vtiles import projector
+from linecast.maps.vtiles import projector
 
 WORLD = (-180.0, -85.0511287798066, 180.0, 85.0511287798066)
 EXTENT = 4096

@@ -87,7 +87,7 @@ def test_open_meteo_air_quality(failures):
 
 
 def test_open_meteo_marine(failures):
-    from linecast._marine import fetch_marine, parse_marine_current
+    from linecast.tides.marine import fetch_marine, parse_marine_current
     data = fetch_marine(43.55, -70.05)   # a few miles off Cape Elizabeth
     assert failures() == []
     current = parse_marine_current(data)
@@ -346,7 +346,7 @@ def test_iem_warnings(failures):
 # Maps
 # ---------------------------------------------------------------------------
 def test_openfreemap_tiles(failures):
-    from linecast._vtiles import fetch_tile, tile_info, tiles_for_bbox
+    from linecast.maps.vtiles import fetch_tile, tile_info, tiles_for_bbox
     info = tile_info()
     assert failures() == []
     assert info is not None
@@ -363,8 +363,8 @@ def test_osmus_streets_fallback(failures):
     # the street tiles' second source, asked directly: fetch_tile would
     # only reach it with OpenFreeMap down
     from linecast._http import MAX_BODY_BYTES, fetch_bytes, fetch_json, gunzip_limited
-    from linecast._mvt import decode_tile
-    from linecast._vtiles import FALLBACK_TILEJSON_URL, tiles_for_bbox
+    from linecast.maps.mvt import decode_tile
+    from linecast.maps.vtiles import FALLBACK_TILEJSON_URL, tiles_for_bbox
     tj = fetch_json(FALLBACK_TILEJSON_URL, timeout=10)
     template = tj["tiles"][0]
     assert "{z}" in template
@@ -380,7 +380,7 @@ def test_osmus_streets_fallback(failures):
 
 
 def test_aws_terrain_tiles(failures):
-    from linecast._elevation import elevation_grid
+    from linecast.maps.elevation import elevation_grid
     grid = elevation_grid(PORTLAND_BBOX, 16, 8)
     assert failures() == []
     samples = [v for row in grid for v in row if v is not None]
@@ -389,7 +389,7 @@ def test_aws_terrain_tiles(failures):
 
 
 def test_builtup_raster(failures):
-    from linecast._builtup import builtup_grid
+    from linecast.maps.builtup import builtup_grid
     grid = builtup_grid(MANHATTAN_BBOX, 16, 8)
     assert failures() == []
     assert max(max(row) for row in grid) > 0, "Manhattan reads as unbuilt"

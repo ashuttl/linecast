@@ -660,7 +660,7 @@ def test_use_metric():
 
 
 def test_attribution_short_form_is_actually_shorter():
-    from linecast import _vtiles
+    from linecast.maps import vtiles as _vtiles
     from unittest.mock import patch
     with patch.object(_vtiles, "source_credit", return_value="OpenFreeMap"):
         long = _vtiles.attribution_long()

@@ -114,7 +114,7 @@ def targets(runtime, culture=None):
     the designation; with a culture set its constellations replace the
     IAU's and its star names join theirs."""
     from linecast._i18n import lang_of
-    from linecast._planets import PLANETS
+    from linecast.sky.planets import PLANETS
     from linecast.sky.catalogue import (
         constellation_name, constellations, figures_for, names_for, star_names, stars,
     )

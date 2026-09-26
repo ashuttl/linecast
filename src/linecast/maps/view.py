@@ -39,7 +39,9 @@ import functools
 import math
 import sys
 
-from linecast import _builtup, _climate, _night_lights
+from linecast.maps import builtup as _builtup
+from linecast.maps import climate as _climate
+from linecast.maps import night_lights as _night_lights
 from linecast.maps import globe as _globe
 from linecast.maps import globe_now
 from linecast.maps import hover as _maps_hover
@@ -48,7 +50,7 @@ from linecast.maps import places as _maps_places
 from linecast.maps import style
 from linecast.maps import ui
 from linecast._color import fg, RESET, color_mode, BG_PRIMARY
-from linecast._elevation import ATTRIBUTION
+from linecast.maps.elevation import ATTRIBUTION
 from linecast._framebuffer import cell_aspect, get_terminal_size
 from linecast._graphics import visible_len
 from linecast._live import overlay
@@ -1471,7 +1473,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
                         base, ATTRIBUTION) if clouds
                        else (base, ATTRIBUTION))
         elif view == "street":
-            from linecast._vtiles import attribution_long
+            from linecast.maps.vtiles import attribution_long
             tiles_long = attribution_long()
             if _builtup.enabled():
                 # the settlement raster tints street ground too, and its

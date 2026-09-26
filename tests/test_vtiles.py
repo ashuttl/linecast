@@ -18,7 +18,7 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast import _vtiles as vt
+from linecast.maps import vtiles as vt
 
 TEMPLATE = "https://tiles.example/planet/20260802_080001_pt/{z}/{x}/{y}.pbf"
 TILEJSON = {"tiles": [TEMPLATE], "maxzoom": 14}

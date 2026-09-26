@@ -24,8 +24,8 @@ if _src not in sys.path:
 # in the suite purges linecast from sys.modules as it loads, and a
 # later import would hand back a second copy of a module the objects
 # above already closed over
-from linecast import _climate
-from linecast import _elevation
+from linecast.maps import climate as _climate
+from linecast.maps import elevation as _elevation
 from linecast.maps import view as maps
 from linecast.maps import globe as _globe
 from linecast.maps import overscan as over

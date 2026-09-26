@@ -12,7 +12,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from linecast.sky import view as sky  # noqa: E402
-from linecast._planets import PLANETS, planet_position  # noqa: E402
+from linecast.sky.planets import PLANETS, planet_position  # noqa: E402
 from linecast._runtime import RuntimeConfig  # noqa: E402
 from linecast.sky.view import (  # noqa: E402
     Scene, View, alt_az_of, camera_matrix, default_view, focal_length,

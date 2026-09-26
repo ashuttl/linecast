@@ -10,7 +10,8 @@ layers into terminal lines, one composer per register.
 import math
 import re
 
-from linecast import _climate, _theme
+from linecast import _theme
+from linecast.maps import climate as _climate
 from linecast.maps import globe_now
 from linecast.maps import hover
 from linecast.maps import style as _maps_style

@@ -21,13 +21,15 @@ import threading
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 
-from linecast import _builtup, _climate, _theme
+from linecast import _theme
+from linecast.maps import builtup as _builtup
+from linecast.maps import climate as _climate
 from linecast.maps import globe as _globe
 from linecast.maps import globe_now
 from linecast.maps import globe_texture
 from linecast.maps import streets
 from linecast.maps import style as _maps_style
-from linecast._elevation import elevation_grid
+from linecast.maps.elevation import elevation_grid
 from linecast import _live
 from linecast._live import nudge as _nudge_repaint
 from linecast._color import BG_PRIMARY

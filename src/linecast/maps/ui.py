@@ -36,11 +36,11 @@ from linecast.maps.route import (
 from linecast.maps.search import (
     SearchUnavailable, nominatim_search, photon_search,
 )
-from linecast._elevation import ATTRIBUTION as ELEV_ATTRIBUTION
+from linecast.maps.elevation import ATTRIBUTION as ELEV_ATTRIBUTION
 from linecast.maps.route import ATTRIBUTION as ROUTE_ATTRIBUTION
 from linecast import _theme
 from linecast._theme import ensure_contrast, surface_bg
-from linecast._vtiles import ATTRIBUTION as TILE_ATTRIBUTION
+from linecast.maps.vtiles import ATTRIBUTION as TILE_ATTRIBUTION
 from linecast.radar.ui import CROSSHAIR, DIM, MUTED
 from linecast._runtime import log_failure
 

@@ -22,7 +22,7 @@ import zlib
 from collections import namedtuple
 
 from linecast import _cache
-from linecast._elevation import _fetch_tile, decode_meters
+from linecast.maps.elevation import _fetch_tile, decode_meters
 from linecast._framebuffer import cell_aspect
 from linecast._geo import wrap_lon
 from linecast._paths import cache_dir, data_path

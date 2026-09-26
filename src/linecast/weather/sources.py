@@ -1512,7 +1512,7 @@ def _region_keys(areas):
     NUTS3, NUTS2, or CISORP code under its type. France's FR101 is both
     a NUTS3 code and an EMMA_ID; the type keeps them from crossing.
     """
-    from linecast._meteoalarm_regions import key_for, known
+    from linecast.weather.meteoalarm_regions import key_for, known
     keys = set()
     for area in areas:
         for geocode in area.get("geocode") or []:
@@ -1524,7 +1524,7 @@ def _region_keys(areas):
 
 def _regions_here(lat, lng, warnings):
     """The region keys covering the point, looked up only if a warning could use them."""
-    from linecast._meteoalarm_regions import regions_at
+    from linecast.weather.meteoalarm_regions import regions_at
     for w in warnings:
         for info in (w.get("alert") or {}).get("info") or []:
             if _region_keys(info.get("area") or []):
@@ -1575,7 +1575,7 @@ def _cap_polygons(area):
 
 def _point_in_ring(lat, lng, ring):
     """True when (lat, lng) falls inside a closed ring. See _meteoalarm_regions."""
-    from linecast._meteoalarm_regions import point_in_ring
+    from linecast.weather.meteoalarm_regions import point_in_ring
     return point_in_ring(lat, lng, ring)
 
 

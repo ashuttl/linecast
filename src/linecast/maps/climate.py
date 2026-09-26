@@ -12,8 +12,7 @@ sampling never misses — a shoreline sub-pixel straddling the surf gets
 its coast's family, not a default.
 """
 
-from pathlib import Path
-
+from linecast._paths import data_path
 from linecast._runtime import log_failure
 
 HUMID, SEMIARID, ARID, POLAR = range(4)
@@ -34,7 +33,7 @@ def _load():
     _tried = True
     try:
         from linecast._png import decode_rgba
-        data = (Path(__file__).parent / "data" / "climate.png").read_bytes()
+        data = data_path("climate.png").read_bytes()
         w, h, rgba = decode_rgba(data)
         # grayscale decodes to RGBA; the family index is the R channel
         _grid = (w, h, bytes(rgba[::4]))

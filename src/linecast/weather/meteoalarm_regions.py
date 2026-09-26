@@ -22,13 +22,13 @@ call in a MeteoAlarm country.
 """
 
 import gzip
-import os
 import struct
 from array import array
 
+from linecast._paths import data_path
 from linecast._runtime import log_failure
 
-_PATH = os.path.join(os.path.dirname(__file__), "data", "meteoalarm_regions.bin.gz")
+_PATH = data_path("meteoalarm_regions.bin.gz")
 _SCALE = 1e-5
 
 # list of (key, (lat_min, lat_max, lng_min, lng_max), polygons), where a

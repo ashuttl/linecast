@@ -18,7 +18,7 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from linecast._mvt import (assemble_polygons, decode_tile, ring_sign,
+from linecast.maps.mvt import (assemble_polygons, decode_tile, ring_sign,
                            _unzigzag)
 
 

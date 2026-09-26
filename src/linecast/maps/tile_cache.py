@@ -103,7 +103,7 @@ def _current_vector_version():
     the lot and leaving the user with a blank map and no way to refill it.
     """
     try:
-        from linecast._vtiles import tile_info
+        from linecast.maps.vtiles import tile_info
         info = tile_info()
         return info[1] if info else ""
     except Exception:
