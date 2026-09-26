@@ -65,7 +65,7 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends zsh fish
-      - uses: hustcer/setup-nu@87630dca608250538b4b3df0c42f83f77b8531e7 # v3.27
+      - uses: hustcer/setup-nu@9215c80adb545a85c419d5085b76eb6d082f49e7 # v3.27
         if: runner.os == 'Linux'
 
       - name: Run tests
