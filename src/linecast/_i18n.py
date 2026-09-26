@@ -1,10 +1,14 @@
 """The lookup shared by the per-command string tables.
 
-Each command keeps its own table, {lang: {key: text}}; this module holds
-the one way of reading them, so the fallback order lives in one place.
+The strings live in linecast/locales, one file per language, and each
+command reads its own table from them as {lang: {key: text}}; this
+module holds the one way of reading them, so the fallback order lives
+in one place.
 """
 
+import importlib
 import re
+from collections.abc import MutableMapping
 
 # The display order shared by help, `linecast language`, and completions;
 # keep both READMEs in step. English first, then loose regional clusters:
@@ -77,6 +81,66 @@ LANGUAGE_ALIASES = {
     "zh-hans": "zh", "zh-cn": "zh", "zh-sg": "zh",
     "pt-pt": "pt-PT", "es-es": "es-ES", "fr-ca": "fr-CA",
 }
+
+# Every code with a file in linecast/locales.
+LOCALE_CODES = LANGUAGE_CODES + tuple(VARIANTS)
+_locales = {}
+
+
+def _locale(code):
+    """The locale module for `code`, imported the first time it is asked
+    for, or None for a code with no file."""
+    if code not in _locales:
+        if code not in LOCALE_CODES:
+            return None
+        _locales[code] = importlib.import_module(f"linecast.locales.{code.replace('-', '_')}")
+    return _locales[code]
+
+
+class LocaleTable(MutableMapping):
+    """One table across the locale files, read as {lang: table}: WEATHER
+    is en.py's WEATHER under "en", fr.py's under "fr", and so on.  A
+    language's file is imported only when the table is first read in
+    that language, so a run in French loads French and English alone.
+    A value set here (a test's stand-in) shadows the file's."""
+
+    def __init__(self, name):
+        self.name = name
+        self._set = {}
+
+    def get(self, code, default=None):
+        if code in self._set:
+            return self._set[code]
+        return getattr(_locale(code), self.name, default)
+
+    def __getitem__(self, code):
+        value = self.get(code, _MISSING)
+        if value is _MISSING:
+            raise KeyError(code)
+        return value
+
+    def __contains__(self, code):
+        return self.get(code, _MISSING) is not _MISSING
+
+    def __setitem__(self, code, value):
+        self._set[code] = value
+
+    def __delitem__(self, code):
+        del self._set[code]
+
+    def __iter__(self):
+        return (code for code in LOCALE_CODES + tuple(c for c in self._set if c not in LOCALE_CODES)
+                if code in self)
+
+    def __len__(self):
+        return sum(1 for _code in self)
+
+    def __repr__(self):
+        return f"LocaleTable({self.name!r})"
+
+
+_MISSING = object()
+
 
 # A language whose strings are another's in a different script: the moon's
 # Chinese calendar and the Chinese sky come with zh-Hant as they do with zh.

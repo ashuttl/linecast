@@ -89,3 +89,4 @@ ignore = [
 "src/linecast/_*_i18n.py" = ["E501"]
 "src/linecast/*/i18n.py" = ["E501"]
 "src/linecast/*/*_i18n.py" = ["E501"]
+"src/linecast/locales/*.py" = ["E501"]

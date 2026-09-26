@@ -1,9 +1,13 @@
 """The shared string-table lookup behind _s, _ts, _ms, rs and ms."""
 
+import ast
+import re
+import sys
 from datetime import datetime
+from pathlib import Path
 from types import SimpleNamespace
 
-from linecast._i18n import lang_of, lookup
+from linecast._i18n import LOCALE_CODES, LocaleTable, lang_of, lookup
 from linecast.maps.i18n import ms
 from linecast.moon.i18n import _ms
 from linecast.radar.i18n import rs
@@ -30,6 +34,57 @@ class TestLookup:
 
     def test_formats_only_when_given_kwargs(self):
         assert lookup(TABLE, "braces", "en") == "{literal}"
+
+
+class TestLocaleFiles:
+    """The files in linecast/locales are data a translator can edit
+    without reading code: a docstring, then NAME = literal and comments,
+    nothing else."""
+
+    SRC = Path(__file__).resolve().parent.parent / "src" / "linecast"
+
+    def locale_files(self):
+        return sorted((self.SRC / "locales").glob("[!_]*.py"))
+
+    def test_files_hold_only_literals(self):
+        for path in self.locale_files():
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            body = tree.body
+            assert ast.get_docstring(tree), path.name
+            for node in body[1:]:
+                assert isinstance(node, ast.Assign) and len(node.targets) == 1, \
+                    (path.name, node.lineno)
+                target = node.targets[0]
+                assert isinstance(target, ast.Name) and target.id.isupper(), \
+                    (path.name, node.lineno)
+                ast.literal_eval(node.value)
+
+    def test_every_section_is_one_the_code_reads(self):
+        # A misspelled section name would be read by nothing, silently.
+        read = set()
+        for path in self.SRC.rglob("*.py"):
+            read.update(re.findall(r'LocaleTable\("([A-Z_]+)"\)', path.read_text(encoding="utf-8")))
+        for path in self.locale_files():
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            names = {node.targets[0].id for node in tree.body[1:]}
+            assert names <= read, (path.name, names - read)
+
+    def test_a_language_loads_only_its_own_files(self, monkeypatch):
+        import linecast._i18n as i18n
+        monkeypatch.setattr(i18n, "_locales", {})
+        for code in LOCALE_CODES:
+            monkeypatch.delitem(sys.modules, f"linecast.locales.{code.replace('-', '_')}",
+                                raising=False)
+        table = i18n.LocaleTable("WEATHER")
+        assert i18n.lookup(table, "today", "pt-PT") == "hoje"
+        assert set(i18n._locales) == {"pt-PT", "pt"}
+
+    def test_a_set_value_shadows_the_file(self):
+        table = LocaleTable("WEATHER")
+        table["sw"] = {"today": "Leo!"}
+        assert lookup(table, "today", "sw") == "Leo!"
+        del table["sw"]
+        assert lookup(table, "today", "sw") == "Leo"
 
 
 class TestLangOf:

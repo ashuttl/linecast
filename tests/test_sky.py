@@ -549,7 +549,11 @@ class TestStrings:
     def test_every_culture_has_a_title_in_every_language(self):
         from linecast._i18n import LANGUAGE_CODES, VARIANTS
         from linecast.sky.catalogue import CULTURES
-        from linecast.sky.i18n import CULTURE_TITLES
+        from linecast.sky.i18n import _CULTURES
+        CULTURE_TITLES = {}
+        for code, names in _CULTURES.items():
+            for short, title in names.items():
+                CULTURE_TITLES.setdefault(short, {})[code] = title
         assert set(CULTURE_TITLES) == set(CULTURES)
         for short, titles in CULTURE_TITLES.items():
             # A regional variant names a culture only where its base does not

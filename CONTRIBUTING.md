@@ -26,6 +26,16 @@ uvx ruff check src tests scripts
 
 The render tests compare each view against a snapshot in `tests/snapshots`. If your change is meant to alter what a view draws, delete the affected snapshot and run the tests again to write a new one, then read the diff.
 
+## Translations
+
+The strings are in [src/linecast/locales](src/linecast/locales), one file per language. `en.py` is the reference: it has every key, with notes on what each one is for, and a key another language leaves out reads in English. To correct a translation, edit that language's file. The files hold data alone, names in capitals set to literals, with comments; keep them that way, and the tests will tell you if something slipped in.
+
+A text in braces, `{time}` or `{name}`, is filled in when it is shown. Keep the braces and the name inside them as they are, and move them to wherever your language puts that word: Japanese has `"in_days": "{days}日後"` where English has `"in {days}d"`.
+
+A regional variant, such as `pt_PT.py` or `fr_CA.py`, holds only the words that differ from its base language's file.
+
+To add a language, start from a copy of `en.py`, add the code to `LANGUAGES` in `src/linecast/_i18n.py`, and say in the pull request what you are unsure of. Some grammar lives in code rather than in the files: plural forms (`plural_category`), the decimal comma, and the precipitation nouns' agreement in `weather/i18n.py`. If your language needs something there, describe it in the pull request and we can work it out together.
+
 ## Changelog and commit messages
 
 If a user would notice the change, add a bullet under **Unreleased** in CHANGELOG.md, in the style of the ones around it: the area, a colon, and one or two sentences on what the user gets. Not how it was done. The mechanism belongs in the commit body. The notes get a final edit at release time, so a plain draft is fine.

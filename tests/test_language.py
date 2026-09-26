@@ -1,7 +1,6 @@
 import glob
 import io
 import os
-import re
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -260,21 +259,15 @@ class RuntimeLangTests(ConfigDirMixin):
 
 
 class LanguageListTests(unittest.TestCase):
-    def test_every_string_table_language_is_listed(self):
+    def test_every_locale_file_is_listed(self):
         # The list in _i18n is the one the command and the help page
-        # show, so a language with strings must not be missing from it.
+        # show, so a language with strings must not be missing from it,
+        # and a listed language must have its file.
         here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        found = set()
-        package = os.path.join(here, "src", "linecast")
-        tables = (glob.glob(os.path.join(package, "_*_i18n.py"))
-                  + glob.glob(os.path.join(package, "_*", "i18n.py"))
-                  + glob.glob(os.path.join(package, "_*", "*_i18n.py")))
-        for path in tables:
-            with open(path, encoding="utf-8") as f:
-                found.update(re.findall(r'^    "([a-z]{2}(?:-[A-Z][a-z]{3}|-[A-Z]{2})?)": \{',
-                                        f.read(), re.M))
+        found = {os.path.basename(path)[:-3].replace("_", "-")
+                 for path in glob.glob(os.path.join(here, "src", "linecast", "locales", "*.py"))}
+        found.discard("--init--")
         self.assertEqual(found, set(LANGUAGE_CODES) | set(VARIANTS))
-
 
 if __name__ == "__main__":
     unittest.main()
