@@ -1,7 +1,7 @@
 """Weather alert rendering."""
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 from linecast import _theme
 from linecast._graphics import bg, fg, visible_len, RESET, BOLD
@@ -152,10 +152,24 @@ def _preview_text(desc):
     return _NWS_WHAT.sub("", " ".join(desc.split()))
 
 
-def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name=""):
-    """Render one alert as a single compact line: pill + date range + truncated body."""
+def _has_begun(iso_str, now=None):
+    """Whether an alert's effective time has passed. A time without a
+    zone cannot be placed, and counts as not yet."""
+    try:
+        dt = datetime.fromisoformat(iso_str)
+    except (TypeError, ValueError):
+        return False
+    return dt.tzinfo is not None and dt <= (now or datetime.now(timezone.utc))
+
+
+def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name="", now=None):
+    """Render one alert as a single compact line: pill + date range +
+    truncated body. An alert already in force gives only its end: when
+    it began is past, and the modal still has it."""
     effective = _parse_alert_time(alert.get("effective", ""), runtime, tz_name)
     expires = _parse_alert_time(alert.get("expires", ""), runtime, tz_name)
+    if expires and _has_begun(alert.get("effective", ""), now):
+        effective = ""
     timing = ""
     if effective and expires:
         timing = f"{effective} – {expires}"

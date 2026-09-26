@@ -1,6 +1,7 @@
 """Alert banners: how the badges lay out, and what a click on one opens."""
 
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -149,3 +150,27 @@ class TestPreviewText:
 
         assert "WHAT" not in lines[-1]
         assert "North winds" in lines[-1]
+
+
+class TestTiming:
+    """An alert in force says when it ends; one still to come, its span."""
+
+    _SURF = {"event": "High Surf Advisory", "severity": "Moderate",
+             "description": "Large breaking waves.",
+             "effective": "2026-09-26T02:00:00-04:00", "expires": "2026-09-27T20:00:00-04:00"}
+
+    def _line(self, now):
+        from linecast.weather.alerts import _render_single_alert
+        line = _render_single_alert(self._SURF, 100, runtime=_runtime(),
+                                    tz_name="America/New_York", now=now)[0]
+        return re.sub(r"\x1b\[[0-9;]*m", "", line)
+
+    def test_in_force_gives_only_the_end(self):
+        from datetime import timezone
+        line = self._line(datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc))
+        assert "until Sun 20:00" in line and "Sat" not in line
+
+    def test_still_to_come_gives_the_span(self):
+        from datetime import timezone
+        line = self._line(datetime(2026, 9, 26, 1, 0, tzinfo=timezone.utc))
+        assert "Sat 02:00 – Sun 20:00" in line
