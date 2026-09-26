@@ -176,6 +176,11 @@ class TestTiming:
         line = self._line(datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc), lang="ja")
         assert "日 20:00まで" in line
 
+    def test_turkish_puts_the_dative_on_the_time(self):
+        from datetime import timezone
+        line = self._line(datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc), lang="tr")
+        assert "Paz 20:00'ye kadar" in line
+
     def test_still_to_come_gives_the_span(self):
         from datetime import timezone
         line = self._line(datetime(2026, 9, 26, 1, 0, tzinfo=timezone.utc))

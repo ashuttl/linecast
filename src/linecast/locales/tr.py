@@ -93,10 +93,9 @@ WEATHER = {
     "dew_pt": "Çiy n.",
     "uv": "UV",
     "aqi": "HKİ",
-    # "until {time}" would put a suffix on the clock time ("15:00'e
-    # kadar"), and which suffix depends on how the hour is read aloud;
-    # the alert's end reads as a label instead.
-    "until": "bitiş {time}",
+    # {time_dat} is the time in the dative, its suffix chosen by how the
+    # time is read aloud: "20:00'ye", "16:00'ya", "21:30'a".
+    "until": "{time_dat} kadar",
     "sentence_end": ".",
     "sentence_join": ". ",
     "feels_humid": "Yüksek nem nedeniyle hava olduğundan daha sıcak hissediliyor",

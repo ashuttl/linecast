@@ -375,6 +375,30 @@ def plural_category(lang, n):
     return "one" if whole and n == 1 else "many"
 
 
+# The last word of each number as Turkish reads it aloud, which picks a
+# numeral's suffix: 20 is yirmi, 21 yirmi bir, 16 on altı.
+_TR_UNITS = ("sıfır", "bir", "iki", "üç", "dört", "beş", "altı", "yedi", "sekiz", "dokuz")
+_TR_TENS = ("", "on", "yirmi", "otuz", "kırk", "elli")
+
+
+def tr_dative(text):
+    """`text` ending in a clock time, with the Turkish dative on it:
+    "Paz 20:00" is "Paz 20:00'ye", "16:00" "16:00'ya", "21:30" "21:30'a".
+    A time on the hour is read as its hour, yirmi; any other by its
+    minutes, otuz. The suffix follows the spoken word's last vowel, a
+    after a back vowel and e after a front one, with y between two
+    vowels. Text that does not end in a time comes back as it is."""
+    m = re.search(r"(\d{1,2})[:.](\d{2})$", text)
+    if not m:
+        return text
+    hour, minute = int(m.group(1)), int(m.group(2))
+    n = minute or hour
+    word = _TR_UNITS[n % 10] if n % 10 or n == 0 else _TR_TENS[n // 10]
+    vowel = [c for c in word if c in "aıoueiöü"][-1]
+    suffix = "a" if vowel in "aıou" else "e"
+    return f"{text}'{'y' if word[-1] in 'aıoueiöü' else ''}{suffix}"
+
+
 def lookup(table, key, lang, **kwargs):
     """The text for `key` in `lang`, falling back to the base language of
     a regional variant, then to English, then to the key itself.

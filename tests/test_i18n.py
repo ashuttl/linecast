@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
-from linecast._i18n import LOCALE_CODES, LocaleTable, lang_of, lookup
+from linecast._i18n import LOCALE_CODES, LocaleTable, lang_of, lookup, tr_dative
 from linecast.maps.i18n import ms
 from linecast.moon.i18n import _ms
 from linecast.radar.i18n import rs
@@ -85,6 +85,20 @@ class TestLocaleFiles:
         assert lookup(table, "today", "sw") == "Leo!"
         del table["sw"]
         assert lookup(table, "today", "sw") == "Leo"
+
+
+class TestTurkishDative:
+    def test_the_suffix_follows_the_time_as_it_is_read(self):
+        # On the hour, the hour: yirmi, on altı, on sekiz, sıfır.
+        # Otherwise the minutes: otuz, beş, elli.
+        cases = {"20:00": "'ye", "16:00": "'ya", "18:00": "'e", "17:00": "'ye",
+                 "10:00": "'a", "19:00": "'a", "00:00": "'a", "12:30": "'a",
+                 "08:05": "'e", "23:50": "'ye", "09:40": "'a"}
+        for clock, suffix in cases.items():
+            assert tr_dative(f"Paz {clock}") == f"Paz {clock}{suffix}", clock
+
+    def test_text_without_a_time_is_unchanged(self):
+        assert tr_dative("yarın") == "yarın"
 
 
 class TestLangOf:

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from linecast import _theme
 from linecast._graphics import bg, fg, visible_len, RESET, BOLD
-from linecast._i18n import lang_of, sentence_24h, table_for
+from linecast._i18n import lang_of, sentence_24h, table_for, tr_dative
 from linecast._runtime import log_failure
 from linecast._textwidth import truncate_display_width, wrap_display_width
 from linecast.weather.i18n import DAY_NAMES, _s
@@ -162,6 +162,15 @@ def _has_begun(iso_str, now=None):
     return dt.tzinfo is not None and dt <= (now or datetime.now(timezone.utc))
 
 
+def _until(expires, runtime):
+    """"until Sun 20:00" in the display language. The time is there as
+    {time}, and with the Turkish dative on it as {time_dat}, for
+    "Paz 20:00'ye kadar"."""
+    if not runtime:
+        return f"until {expires}"
+    return _s("until", runtime, time=expires, time_dat=tr_dative(expires))
+
+
 def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name="", now=None):
     """Render one alert as a single compact line: pill + date range +
     truncated body. An alert already in force gives only its end: when
@@ -174,7 +183,7 @@ def _render_single_alert(alert, width, max_lines=999, runtime=None, tz_name="", 
     if effective and expires:
         timing = f"{effective} – {expires}"
     elif expires:
-        timing = _s("until", runtime, time=expires) if runtime else f"until {expires}"
+        timing = _until(expires, runtime)
 
     pill = _alert_pill(alert, max_width=width)
 
@@ -286,7 +295,7 @@ def _build_modal_content(alert, inner_w, runtime=None, tz_name=""):
     if effective and expires:
         lines.append(f"{MBG}{WIND_COLOR}{effective} – {expires}{RESET}")
     elif expires:
-        until = _s("until", runtime, time=expires) if runtime else f"until {expires}"
+        until = _until(expires, runtime)
         lines.append(f"{MBG}{WIND_COLOR}{until}{RESET}")
 
     lines.append("")  # blank line
