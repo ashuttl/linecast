@@ -207,3 +207,24 @@ def _precip_s(key, code, runtime, **kwargs):
 def has_string(key):
     """Whether `key` is a string of the app's, in any language."""
     return key in _STRINGS["en"]
+
+
+def felt_index(record, runtime, i=None):
+    """Canada's humidex or wind chill where they stand in for feels-like:
+    ("humidex", 34), ("wind_chill", -25), or None when neither is
+    reported.  False when they do not stand in at all -- the place is
+    not in Canada, the reader is on Fahrenheit (weather.humidex), or
+    the language has no words of its own for them, which English and
+    French, the country's two, do.  `record` is the forecast's current
+    readings, or its hourly ones with `i` the hour."""
+    if "humidex" not in record or not has_text(_STRINGS, "humidex", lang_of(runtime)):
+        return False
+    for key in ("humidex", "wind_chill"):
+        value = record[key] if i is None else _at(record[key], i)
+        if value is not None:
+            return key, value
+    return None
+
+
+def _at(values, i):
+    return values[i] if values is not None and 0 <= i < len(values) else None

@@ -170,6 +170,11 @@ WEATHER = {
     "unit_mm": "mm",
     "unit_cm": "cm",
     "feels": "feels",
+    # Canada's own indices, which stand in for "feels" at a place in
+    # Canada: "humidex 34", "wind chill −25".  A language without them
+    # shows the feels-like temperature there, as everywhere else.
+    "humidex": "humidex",
+    "wind_chill": "wind chill",
     "wind": "Wind",
     "gusts": "gusts",
     "humidity": "Humidity",
@@ -322,6 +327,10 @@ WEATHER = {
     "feels_ahead_hot_sun": "The sun will make it feel as hot as {temp} {time}",
     "feels_ahead_cold": "It will feel as cold as {temp} {time}",
     "feels_ahead_cold_wind": "The wind will make it feel as cold as {temp} {time}",
+    # The same in Canada, as Environment Canada words it, {value} the
+    # index without a degree sign: "Humidex 38 this afternoon"
+    "humidex_ahead": "Humidex {value} {time}",
+    "wind_chill_ahead": "Wind chill {value} {time}",
     # Past precip
     "past_precip": "{amt} of {ptype} in the last 24 hours",
     "snow": "snow",

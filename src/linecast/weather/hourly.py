@@ -406,6 +406,9 @@ def _prepare_hourly_window(hourly, now, graph_w, offset_minutes=0):
         "winds": window_winds,
         "wind_dirs": window_wind_dirs,
         "apparent_temps": window_apparent,
+        # Canada's indices, where the forecast carries them (weather.humidex)
+        **{key: hourly[key][start_idx:end_idx + 1]
+           for key in ("humidex", "wind_chill") if key in hourly},
         "humidity": window_humidity,
         "dew_points": window_dew,
         "uv": window_uv,

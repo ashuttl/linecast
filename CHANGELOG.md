@@ -12,6 +12,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: Fixed the word order of an alert's end time in Japanese, Korean, Finnish, and Turkish: "日 20:00まで", not "まで 日 20:00", and "Paz 20:00'ye kadar", with the dative ending that the time takes when it's read aloud.
 - Weather: Conditions are named in sentence case in English and Indonesian: "Light showers", not "Light Showers".
 - Weather: Fixed a bug that could drop the label from the week's lowest temperature in the daily forecast at some window widths.
+- Weather: In Canada, the humidex and the wind chill take the place of the feels-like temperature, in English and French, as Environment Canada reports them.
 - Tides: Fixed a bug that showed tide and wave heights with a decimal point in languages that write a decimal comma, such as "9.8′" for "9,8′" in Czech.
 - Languages: French sets the percent sign off with a space ("40 %"), names the Moon's phases in sentence case, and uses the standard term for snow grains, "neige en grains".
 - Languages: Canadian French calls the mouse wheel a "roulette", gives the chance of rain as a "probabilité", and names the Blackfoot sky culture "Pieds-Noirs".

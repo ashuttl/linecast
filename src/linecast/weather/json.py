@@ -92,6 +92,7 @@ def build_payload(data, location_name, country_code, runtime,
             "dew_point": _at(hourly.get("dew_point_2m"), i),
             "uv_index": _at(hourly.get("uv_index"), i),
             "cloud_cover": _at(hourly.get("cloud_cover"), i),
+            **_canadian(hourly, i),
         })
 
     # A stale cache still carries useful predictions, but its index 1
@@ -175,6 +176,7 @@ def build_payload(data, location_name, country_code, runtime,
             "condition": _condition_name(cur_condition, runtime),
             "icon": _icon(cur_condition, runtime),
             "observed": current.get("observed"),
+            **_canadian(current),
         },
         "today": {
             "high": _at(daily.get("temperature_2m_max"), today_index),
@@ -201,3 +203,11 @@ def build_payload(data, location_name, country_code, runtime,
             "alerts": alert_source(country_code),
         },
     }
+
+
+def _canadian(record, i=None):
+    """Canada's humidex and wind chill, for a place that has them
+    (weather.humidex); null where Environment Canada would not report
+    one, and absent elsewhere."""
+    return {key: record[key] if i is None else _at(record[key], i)
+            for key in ("humidex", "wind_chill") if key in record}

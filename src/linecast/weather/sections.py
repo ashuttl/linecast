@@ -17,7 +17,7 @@ from linecast.weather.cover import sky_condition
 from linecast.weather.i18n import (
     fmt_wind, _precip_s,
     DAY_NAMES, DAY_SPAN_FORMS, FULL_DAY_NAMES, ON_DAY_FORMS, ON_FULL_DAY_FORMS,
-    PRECIP_RUN_DESCS_I18N, wmo_label,
+    PRECIP_RUN_DESCS_I18N, felt_index, wmo_label,
     _PRECIP_DESCS_I18N, _PRECIP_PARTITIVES_I18N, _STRINGS, _s, _wmo_icons,
 )
 from linecast.weather import style as _weather_style
@@ -65,8 +65,15 @@ def render_header(data, width, location_name="", runtime=None, aqi_data=None, hi
     left_core = f"{TEXT}{icon} {name}"
     if temp is not None:
         left_core += f" {_colored_temp(temp, runtime, deg)}"
+    # In Canada the humidex or the wind chill, as Environment Canada
+    # reports them, and nothing on a day that has neither.  They are
+    # indices, so they go without the degree sign: "humidex 34".
     left_feels = ""
-    if feels is not None:
+    index = felt_index(current, runtime)
+    if index:
+        key, value = index
+        left_feels = f" {MUTED}{_s(key, runtime)} {_colored_temp(value, runtime)}"
+    elif index is False and feels is not None:
         left_feels = f" {MUTED}{_s('feels', runtime)} {_colored_temp(feels, runtime, deg)}"
 
     # Historical comparison — subtle annotation after feels-like
@@ -772,6 +779,9 @@ _FEELS_COLD_C = 10
 
 def _feels(current, daily, now, runtime):
     """The feels-like sentence and the cause it names."""
+    if felt_index(current, runtime) is not False:
+        # The header's "humidex" or "wind chill" already names the cause
+        return "", None
     temp = current.get("temperature_2m")
     feels = current.get("apparent_temperature")
     humidity = current.get("relative_humidity_2m")
@@ -853,13 +863,27 @@ def feels_ahead_sentence(hourly, now, runtime=None, daily=None, current=None):
     return _feels_ahead(hourly, now, runtime, current=current)[0]
 
 
+def _felt(humidexes, wind_chills, k, temp):
+    """Hour `k`'s humidex, else its wind chill, else `temp`."""
+    for values in (humidexes, wind_chills):
+        if k < len(values) and values[k] is not None:
+            return values[k]
+    return temp
+
+
 def _feels_ahead(hourly, now, runtime, after=None, current=None):
     """The feels-ahead sentence, the hour it is about, and its cause."""
     nothing = ("", None, None)
-    if not _has("feels_ahead_hot", runtime):
+    canadian = felt_index(hourly, runtime, 0) is not False
+    if not _has("feels_ahead_hot", runtime) and not canadian:
         return nothing
     temps = hourly.get("temperature_2m") or []
     feels = hourly.get("apparent_temperature") or []
+    if canadian:
+        # Canada's indices stand in for the felt temperature, and an hour
+        # with neither is felt as the thermometer reads.
+        feels = [_felt(hourly["humidex"], hourly["wind_chill"], k, t)
+                 for k, t in enumerate(temps)]
     humidity = hourly.get("relative_humidity_2m") or []
     wind = hourly.get("wind_speed_10m") or []
     later = [(i, dt) for i, dt in _hours_ahead(hourly, now)
@@ -885,6 +909,9 @@ def _feels_ahead(hourly, now, runtime, after=None, current=None):
     # an extreme is for planning, and there is nothing to plan for in a
     # temperature it feels like right now.
     felt_now = (current or {}).get("apparent_temperature")
+    if canadian and current:
+        felt_now = _felt([current.get("humidex")], [current.get("wind_chill")], 0,
+                         current.get("temperature_2m"))
     if felt_now is not None:
         beyond = to_c(feels[i]) - to_c(felt_now)
         if (beyond if hot else -beyond) < _FEELS_AHEAD_BEYOND_NOW_C:
@@ -910,6 +937,14 @@ def _feels_ahead(hourly, now, runtime, after=None, current=None):
             if abs(gap - usual) < _FEELS_AHEAD_UNUSUAL_C:
                 return nothing
 
+    if canadian:
+        # "Humidex 38 this afternoon", as Environment Canada words it;
+        # the index names its own cause
+        key = "humidex_ahead" if hot else "wind_chill_ahead"
+        value = f"{round(feels[i])}".replace("-", "−")
+        return (_ucfirst(_s(key, runtime, value=value,
+                            time=_period_phrase(dt, now, runtime, after=after))),
+                dt, "humid" if hot else "wind")
     cause = None
     if i < len(humidity) and i < len(wind) and humidity[i] is not None and wind[i] is not None:
         terms = _feels_terms(to_c(temps[i]), humidity[i],

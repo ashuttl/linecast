@@ -34,6 +34,7 @@ from linecast._runtime import (
 from linecast.weather.i18n import (
     fmt_wind,
     FULL_DAY_NAMES,
+    felt_index,
     wmo_label,
     _s,
     _wmo_icons,
@@ -88,6 +89,7 @@ from linecast.weather.sources import (
     without_country,
 )
 from linecast.weather.cover import sky_condition
+from linecast.weather.humidex import apply_canadian_indices
 from linecast.weather.observed import apply_observation, fetch_observation
 
 # What the dashboard keeps when the window is too short for all of it:
@@ -194,7 +196,11 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     # Temperature + feels like
     deg = "°"
     temp_line = f"{TBG} {_colored_temp(temp, runtime, deg)}"
-    if apparent is not None and abs(apparent - temp) >= 3:
+    index = felt_index(window, runtime, idx)
+    if index:
+        key, value = index
+        temp_line += f" {TFG}{_s(key, runtime)} {_colored_temp(value, runtime)}"
+    elif index is False and apparent is not None and abs(apparent - temp) >= 3:
         temp_line += f" {TFG}{_s('feels', runtime)} {_colored_temp(apparent, runtime, deg)}"
     temp_line += " "
     lines.append(temp_line)
@@ -755,8 +761,10 @@ class WeatherApp(_live.LiveApp):
                         fallback="alerts matched on geometry alone")
             cc, addr = "", {}
         try:
-            data = apply_observation(fetch_forecast(lat, lng, self.runtime),
-                                     fetch_observation(lat, lng))
+            data = apply_canadian_indices(
+                apply_observation(fetch_forecast(lat, lng, self.runtime),
+                                  fetch_observation(lat, lng)),
+                cc or country, self.runtime)
             alerts = fetch_alerts(lat, lng, cc or country,
                                   lang=self.runtime.lang, address=addr)
             aqi = apply_national_index(fetch_aqi(lat, lng), country, lat, lng)
@@ -1134,9 +1142,11 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
     localized = _settle(fut_name, "place name", ("", "", {}))[0] if fut_name else ""
     result["name"] = localized or without_country(geo_label) or name
     result["country_code"] = cc or country_code
-    result["data"] = apply_observation(_settle(fut_forecast, "forecast", None),
-                                       _settle(fut_observed, "station observation", None,
-                                               _OBSERVATION_PATIENCE))
+    result["data"] = apply_canadian_indices(
+        apply_observation(_settle(fut_forecast, "forecast", None),
+                          _settle(fut_observed, "station observation", None,
+                                  _OBSERVATION_PATIENCE)),
+        result["country_code"], runtime)
     result["aqi"] = _settle(fut_aqi, "air quality", None)
     result["aqhi"] = _settle(fut_aqhi, "Canada's AQHI", None) if fut_aqhi else None
     # The live view can fill the climate scale in later, so it does not
