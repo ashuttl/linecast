@@ -37,21 +37,17 @@ COMMANDS = {
     "tides": "linecast.tides.view",
     "radar": "linecast.radar.view",
     "maps": "linecast.maps.view",
-    "location": "linecast.location",
-    "language": "linecast.language",
-    "units": "linecast.units",
-    "clock": "linecast.clock",
-    "week": "linecast.week",
-    "dates": "linecast.dates",
-    "digits": "linecast.digits",
-    "icons": "linecast.icons",
-    # calendar_cmd, not calendar: running any file in this package as a
-    # script (python src/linecast/__main__.py) puts the package directory
-    # first on sys.path, where a calendar.py would shadow the standard
-    # library module the rest of the code imports.
-    "calendar": "linecast.calendar_cmd",
-    "culture": "linecast.culture_cmd",
-    "hours": "linecast.hours",
+    "location": "linecast.settings.location",
+    "language": "linecast.settings.language",
+    "units": "linecast.settings.units",
+    "clock": "linecast.settings.clock",
+    "week": "linecast.settings.week",
+    "dates": "linecast.settings.dates",
+    "digits": "linecast.settings.digits",
+    "icons": "linecast.settings.icons",
+    "calendar": "linecast.settings.calendar",
+    "culture": "linecast.settings.culture",
+    "hours": "linecast.settings.hours",
     "link": "linecast.link",
     "doctor": "linecast.doctor",
 }

@@ -130,7 +130,8 @@ class SavedIconsTests(unittest.TestCase):
     def test_set_and_show(self):
         import io
         from contextlib import redirect_stdout
-        from linecast import _config, icons
+        from linecast import _config
+        from linecast.settings import icons
         with redirect_stdout(io.StringIO()):
             icons._cmd_set("nerd")
         self.assertEqual(_config.saved_icons(), "nerd")

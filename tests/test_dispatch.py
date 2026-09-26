@@ -64,7 +64,7 @@ class Argv0DispatchTests(unittest.TestCase):
 
     def test_clock_dispatches_and_is_listed_in_help(self):
         ran = self._dispatch("/usr/bin/linecast", "clock", "12")
-        self.assertEqual(ran["module"], "linecast.clock")
+        self.assertEqual(ran["module"], "linecast.settings.clock")
         self.assertEqual(ran["argv"], ["linecast clock", "12"])
         self.assertIn("linecast clock", self._help_output("/usr/bin/linecast"))
 

@@ -18,7 +18,8 @@ from conftest import SESSION_ROOT, readonly
 
 from linecast import _cache, _config, _http, _location, _paths, _runtime
 from linecast.weather import sources
-from linecast import location, units
+from linecast.settings import location
+from linecast.settings import units
 from linecast._paths import cache_dir, cache_root, config_root
 
 
@@ -248,7 +249,7 @@ class TestUnwritableConfig:
 
     def test_the_installed_command_prints_no_traceback(self, readonly_config):
         proc = subprocess.run(
-            [sys.executable, "-m", "linecast.units", "metric"],
+            [sys.executable, "-m", "linecast.settings.units", "metric"],
             capture_output=True, text=True, timeout=30,
         )
         assert proc.returncode == 1

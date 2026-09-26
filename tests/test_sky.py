@@ -1184,7 +1184,8 @@ class TestCultures:
     def test_culture_command(self):
         import io
         from contextlib import redirect_stdout
-        from linecast import _config, culture_cmd
+        from linecast import _config
+        from linecast.settings import culture as culture_cmd
         with redirect_stdout(io.StringIO()):
             culture_cmd._cmd_set("norse")
         assert _config.saved_culture() == "norse"

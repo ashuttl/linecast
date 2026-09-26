@@ -6,7 +6,8 @@ import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from linecast import _config, language
+from linecast import _config
+from linecast.settings import language
 from linecast._i18n import LANGUAGE_CODES, VARIANTS
 from linecast._runtime import RuntimeConfig, resolve_lang, weather_parser
 

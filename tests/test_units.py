@@ -5,7 +5,8 @@ import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from linecast import _config, units
+from linecast import _config
+from linecast.settings import units
 from linecast import _runtime
 from linecast._runtime import (
     RuntimeConfig, TidesRuntime, WeatherRuntime, current_runtime,

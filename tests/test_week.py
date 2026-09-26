@@ -5,7 +5,8 @@ import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from linecast import _config, week
+from linecast import _config
+from linecast.settings import week
 from linecast._runtime import (
     RuntimeConfig, default_week_start, moon_parser, resolve_week_start,
     sunshine_parser,

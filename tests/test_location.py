@@ -6,7 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from linecast import _config, _location, location
+from linecast import _config, _location
+from linecast.settings import location
 
 
 class GetLocationTests(unittest.TestCase):

@@ -548,7 +548,7 @@ class TestResolver:
 class TestCommand:
     def test_set_show_and_auto(self, tmp_path, monkeypatch):
         monkeypatch.setenv("LINECAST_CONFIG_DIR", str(tmp_path))
-        from linecast import hours
+        from linecast.settings import hours
         from linecast._config import saved_hours
         out = io.StringIO()
         with redirect_stdout(out):
@@ -569,7 +569,7 @@ class TestCommand:
 
     def test_every_choice_has_a_confirmation(self, tmp_path, monkeypatch):
         monkeypatch.setenv("LINECAST_CONFIG_DIR", str(tmp_path))
-        from linecast import hours
+        from linecast.settings import hours
         from linecast._runtime import HOURS_CHOICES
         for choice in HOURS_CHOICES:
             out = io.StringIO()

@@ -50,7 +50,8 @@ class TestHook:
         assert dates_choice(3) is None
 
     def test_dates_command_sets_and_clears(self, monkeypatch):
-        from linecast import _config, dates
+        from linecast import _config
+        from linecast.settings import dates
         with redirect_stdout(io.StringIO()):
             dates._cmd_set("gregorian")
         assert _config.saved_dates() == "gregorian"

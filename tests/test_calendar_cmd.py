@@ -2,7 +2,8 @@ import io
 import unittest
 from contextlib import redirect_stdout
 
-from linecast import _config, calendar_cmd
+from linecast import _config
+from linecast.settings import calendar as calendar_cmd
 from test_units import ConfigDirMixin
 
 
