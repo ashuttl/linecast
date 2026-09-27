@@ -4,27 +4,35 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+Weather can show the year so far: each day's high and low against the last ten years, and each month's precipitation against its average. The forecast in words says when snow, ice, and rain change over, and takes what is falling now from a nearby station.
+
+New this version:
+
+- Weather:
+  - `--year`, or `v` in the live view, shows the year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/): each day's high and low against the average and the extremes of the last ten years, and each month's precipitation as a running total against its average. The chart highlights where the temperature went above or below the average, and `c` switches it to the temperature colors from the main weather view or to plain.
+  - The forecast in words says when snow changes to rain, when rain or snow changes to freezing rain, and when freezing rain changes back, without calling an hour's flip between rain and snow a change. After snow changes to rain, the snow total is given for when the snow stops.
+  - The forecast in words says what is falling now before what it turns into, and no longer leaves out heavy drizzle turning to rain: "Heavy drizzle now, becoming rain soon, ending around 11:00."
+  - Where the current conditions come from a nearby weather station, the forecast in words takes what is falling now from the same report, so it agrees with the header.
+  - In the US, where a nearby airport station measures precipitation, the forecast in words gives what its rain gauge caught in the last 24 hours in place of the model's estimate.
+  - Where there is room, the daily forecast gives each day's date and names its weather beside the icon, and "Today" is spelled out.
+  - The daily forecast gives a snowy day's snowfall rather than the water it melts to: "Snow 3.5″", not "Snow 0.50″".
+  - In Canada, the humidex and the wind chill take the place of the feels-like temperature, in English and French, as Environment Canada reports them.
+  - The credit line is shorter, and says when and where the current conditions were observed: "Observed at 7:51a from Portland Intl Jetport, 4 mi away." The help panel keeps the full credits.
+  - An alert already in effect gives only its end time.
+  - Conditions are named in sentence case in English and Indonesian: "Light showers", not "Light Showers".
+  - `--json` adds `narrative`, the paragraph under the graph as the view reads it, and marks a forecast from an earlier day as `stale`. Each hour now carries humidity, dew point, gusts and snowfall.
+- Language:
+  - French sets the percent sign off with a space ("40 %"), names the Moon's phases in sentence case, and uses the standard term for snow grains, "neige en grains".
+  - Canadian French calls the mouse wheel a "roulette", gives the chance of rain as a "probabilité", and names the Blackfoot sky culture "Pieds-Noirs". French for France keeps "Blackfoot", because there "pieds-noirs" means the European settlers of colonial Algeria and their descendants.
+  - The maps give route distances in the language's own units in Persian, Russian, Ukrainian, and Thai: "۲۴۰ متر", not "۲۴۰ m".
+  - The translations are now in one file per language, with notes on what each string is for, so a translation is easier to correct or add. CONTRIBUTING.md explains how.
+
+Fixes:
+
 - Weather: Fixed a unit-conversion bug that showed snow amounts in imperial units at about two-fifths of the real amount, both in the forecast and in the last 24 hours, and could leave light snow out of the forecast entirely.
-- Weather: `--json` adds `narrative`, the paragraph under the graph as the view reads it, and marks a forecast from an earlier day as `stale`. Each hour now carries humidity, dew point, gusts and snowfall.
-- Weather: Where there is room, the daily forecast gives each day's date and names its weather beside the icon, and "Today" is spelled out.
-- Weather: The credit line is shorter, and says when and where the current conditions were observed: "Observed at 7:51a from Portland Intl Jetport, 4 mi away." The help panel keeps the full credits.
-- Weather: An alert already in effect gives only its end time.
 - Weather: Fixed the word order of an alert's end time in Japanese, Korean, Finnish, and Turkish: "日 20:00まで", not "まで 日 20:00", and "Paz 20:00'ye kadar", with the dative ending that the time takes when it's read aloud.
-- Weather: Conditions are named in sentence case in English and Indonesian: "Light showers", not "Light Showers".
 - Weather: Fixed a bug that could drop the label from the week's lowest temperature in the daily forecast at some window widths.
-- Weather: The daily forecast gives a snowy day's snowfall rather than the water it melts to: "Snow 3.5″", not "Snow 0.50″".
-- Weather: In Canada, the humidex and the wind chill take the place of the feels-like temperature, in English and French, as Environment Canada reports them.
-- Weather: `--year`, or `v` in the live view, shows the year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/): each day's high and low against the average and the extremes of the last ten years, and each month's precipitation as a running total against its average. The chart highlights where the temperature went above or below the average, and `c` switches it to the temperature colors from the main weather view or to plain.
-- Weather: The forecast in words says what is falling now before what it turns into, and no longer leaves out heavy drizzle turning to rain: "Heavy drizzle now, becoming rain soon, ending around 11:00."
-- Weather: The forecast in words says when snow changes to rain, when rain or snow changes to freezing rain, and when freezing rain changes back, without calling an hour's flip between rain and snow a change. After snow changes to rain, the snow total is given for when the snow stops.
-- Weather: Where the current conditions come from a nearby weather station, the forecast in words takes what is falling now from the same report, so it agrees with the header.
-- Weather: In the US, where a nearby airport station measures precipitation, the forecast in words gives what its rain gauge caught in the last 24 hours in place of the model's estimate.
-- Tides: Fixed a bug that showed tide and wave heights with a decimal point in languages that write a decimal comma, such as "9.8′" for "9,8′" in Czech.
-- Languages: French sets the percent sign off with a space ("40 %"), names the Moon's phases in sentence case, and uses the standard term for snow grains, "neige en grains".
-- Languages: Canadian French calls the mouse wheel a "roulette", gives the chance of rain as a "probabilité", and names the Blackfoot sky culture "Pieds-Noirs".
-- Languages: The maps give route distances in the language's own units in Persian, Russian, Ukrainian, and Thai: "۲۴۰ متر", not "۲۴۰ m".
-- Languages: Fixed a bug that showed the Moon's age and countdowns, route distances in the maps, and star magnitudes with a decimal point in languages that write a decimal comma.
-- Languages: The translations are now in one file per language, with notes on what each string is for, so a translation is easier to correct or add. CONTRIBUTING.md explains how.
+- Tides, moon, maps, sky: Fixed a bug that showed tide and wave heights, the Moon's age and countdowns, route distances, and star magnitudes with a decimal point in languages that write a decimal comma, such as "9.8′" for "9,8′" in Czech.
 
 ## 2.8.0 — 2026-09-25
 
