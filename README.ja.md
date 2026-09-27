@@ -63,6 +63,8 @@ curl -sL https://raw.githubusercontent.com/ashuttl/linecast/main/get.sh | sh
 
 これで `weather` が開きます。行末の `sh` を `sh -s sunshine` にすると別のツールが開き、`sh -s -- --metric` ならフラグを渡せます。
 
+パッケージマネージャーが使えないときや、linecastをファイルとして持ち歩きたいときのために、各[リリース](https://github.com/ashuttl/linecast/releases/latest)にはlinecast全体を1つにまとめたファイル `linecast.pyz` も付いています。ただ、パッケージマネージャーが使えるならそちらをおすすめします。linecastを自動で最新に保ってくれるからです。このファイルは、新しいリリースが出たことを週に1回知らせるだけです。`chmod +x linecast.pyz` で実行できるようにしてから `./linecast.pyz weather` のように実行するか、名前を `linecast` に変えてPATHの通ったディレクトリに置いてください。Python 3.10以降が必要です。
+
 <details>
 <summary><strong>Windowsでは</strong></summary>
 

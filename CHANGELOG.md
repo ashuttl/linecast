@@ -26,7 +26,7 @@ New this version:
   - Canadian French calls the mouse wheel a "roulette", gives the chance of rain as a "probabilité", and names the Blackfoot sky culture "Pieds-Noirs". French for France keeps "Blackfoot", because there "pieds-noirs" means the European settlers of colonial Algeria and their descendants.
   - The maps give route distances in the language's own units in Persian, Russian, Ukrainian, and Thai: "۲۴۰ متر", not "۲۴۰ m".
   - The translations are now in one file per language, with notes on what each string is for, so a translation is easier to correct or add. CONTRIBUTING.md explains how.
-- Install: Each release on GitHub has all of linecast in one file, `linecast.pyz`, which runs with Python 3.10 or newer without installing anything, and says when a newer release is out. Suggested by [@sobjey9](https://github.com/sobjey9) in [#89](https://github.com/ashuttl/linecast/issues/89).
+- Install: For machines without a package manager, each release on GitHub has all of linecast in one file, `linecast.pyz`. It runs with Python 3.10 or newer and says when a newer release is out. Suggested by [@sobjey9](https://github.com/sobjey9) in [#89](https://github.com/ashuttl/linecast/issues/89).
 
 Fixes:
 
