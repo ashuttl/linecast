@@ -12,6 +12,7 @@ import importlib.util
 import io
 import json
 import os
+import shlex
 import sys
 import threading
 import time
@@ -126,7 +127,7 @@ def test_a_file_the_user_cant_write_is_updated_with_sudo(
     pyz.touch()
     pyz.chmod(0o555)
     preamble.remind(tmp_path, pyz)
-    assert f"\n  sudo curl -fLo {pyz.resolve()} " in terminal.getvalue()
+    assert f"\n  sudo curl -fLo {shlex.quote(str(pyz.resolve()))} " in terminal.getvalue()
 
 
 def test_a_stalled_network_costs_at_most_the_budget(preamble, pypi, tmp_path, monkeypatch):
