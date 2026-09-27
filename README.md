@@ -62,7 +62,7 @@ The [gallery](https://github.com/ashuttl/linecast/blob/main/docs/gallery.md) sho
 
 ### Weather
 
-An hourly chart on the scale of a typical year where you are, so a mild day looks mild, with a forecast in words. Click an alert to read it. Press `v` for the year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/): each day's high and low against the last ten years, and each month's precipitation against its average.
+An hourly chart on the scale of a typical year where you are, so a mild day looks mild, with a forecast in words. Click an alert to read it. Press `v` for the year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/): each day's high and low against the last ten years, and each month's precipitation against its average. Press `c` to change the chart's colors. The first highlights where the temperature went above or below the average, the second uses the temperature colors from the main weather view, and the third is plain.
 
 ![weather dashboard](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather.png)
 
