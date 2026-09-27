@@ -4,7 +4,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-- Weather: Cold temperatures are colored in a deeper blue, then indigo and purple, down to -20°F (-29°C).
+- Weather: More colors at the ends of the temperature scale: a deeper blue, indigo, and purple down to -20°F (-29°C), and pink, then a pale white-hot, up to 115°F (46°C).
 
 ## 2.9.2 — 2026-09-27
 
