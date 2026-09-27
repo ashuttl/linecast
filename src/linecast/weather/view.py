@@ -752,7 +752,6 @@ class WeatherApp(_live.LiveApp):
         self.attempted = None   # local time the last refresh finished
         self.year_view = year_view
         self.year_colors = 0       # the year's bar coloring, an index into COLORS
-        self.year_braille = False  # b's trial: the bars in braille, not blocks
         # The year view's (generation, day, climate, archive), and when
         # its fetch last started for that generation and day and whether
         # it came back whole.
@@ -899,7 +898,7 @@ class WeatherApp(_live.LiveApp):
             location_name=self.location_name, location_menu=True,
             mouse_pos=mouse_pos, live=True, hint=install_banner(),
             footer=credit_row(cols, self.runtime.lang, runtime=self.runtime),
-            colors=COLORS[self.year_colors], braille=self.year_braille)
+            colors=COLORS[self.year_colors])
 
     def _refreshing(self):
         return bool(self._worker and self._worker.is_alive())
@@ -1067,12 +1066,6 @@ class WeatherApp(_live.LiveApp):
         if key == "c" and self.year_view:
             from linecast.weather.year import COLORS
             self.year_colors = (self.year_colors + 1) % len(COLORS)
-            return True
-        # b switches the year's bars between blocks and braille: a trial,
-        # unlisted, to be decided and removed
-        if key == "b" and self.year_view:
-            self.year_braille = not self.year_braille
-            self.flash(["bars: braille" if self.year_braille else "bars: blocks"], seconds=1.5)
             return True
         return False
 

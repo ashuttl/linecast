@@ -9,12 +9,14 @@ saw.  Under it, each month's precipitation as a running total against
 the month's average, starting over on the 1st.
 
 The bands are fields, drawn in half-block sub-pixels.  The days are
-solid bars of quadrant blocks, two to a cell, in one of three colorings
-(COLORS): a plain ink fringed warm above the average high and cool
-below the average low, deepening toward the ten years' extremes; each
-row in the dashboard's color for its temperature, as its daily bars
-run from the low's color to the high's; or the plain ink alone.  The
-running totals are braille lines.  The ten years are the
+braille bars, two dot columns to a cell, and the running totals braille
+lines: the dots leave the averages showing between them, as a
+seismograph's pen crosses its preprinted paper.  The bars take one of
+three colorings (COLORS): the text's ink fringed warm above the average
+high and cool below the average low, deepening toward the ten years'
+extremes; each row in the dashboard's color for its temperature, as its
+daily bars run from the low's color to the high's; or the text's ink
+alone.  The ten years are the
 dashboard's own archive download (historical.fetch_history), so the
 view costs one request more: this year so far.  Today and the days
 after it come from the forecast, the days after it in a lighter ink.
@@ -36,7 +38,7 @@ from linecast.terminal.graphics import (
     RESET, Framebuffer, bg, fg, get_terminal_size, overlay, visible_len,
 )
 from linecast.terminal.textwidth import char_width
-from linecast.terminal.theme import ensure_contrast, lerp_rgb, neutral_tone, surface_bg
+from linecast.terminal.theme import ensure_contrast, lerp_rgb, surface_bg
 from linecast.weather import style as _style
 from linecast.weather.i18n import _s, _wmo_icons
 
@@ -46,10 +48,6 @@ _SMOOTH_DAYS = 7
 _LEAP = 2000
 # Braille dot bits by [column][row] within a cell.
 _BITS = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
-# Quadrant blocks by their filled quarters: 8 upper left, 4 upper right,
-# 2 lower left, 1 lower right.
-_QUADRANTS = " ▗▖▄▝▐▞▟▘▚▌▙▀▜▛█"
-_QUARTER = ((8, 4), (2, 1))   # by [half row][column]
 # The share of the chart's rows the precipitation panel takes.
 _PRECIP_SHARE = 0.28
 # The bars' colorings, in the order c steps through them; the first is
@@ -64,7 +62,7 @@ _SNOW_PER_WATER = 7
 
 def _rebuild():
     global RANGE_RGB, NORMAL_RGB, RANGE_LABEL_RGB, NORMAL_LABEL_RGB, GRID_RGB
-    global PRECIP_RGB, PRECIP_NORMAL_RGB, NEUTRAL_BAR_RGB, NEUTRAL_MARK_RGB, SNOW_RGB
+    global PRECIP_RGB, PRECIP_NORMAL_RGB, PLAIN_RGB, SNOW_RGB
     global WARM_RGB, COOL_RGB
     # The two bands: the span's extremes barely off the page, the
     # average range a step further, as the paper's two tans.
@@ -76,12 +74,10 @@ def _rebuild():
     NORMAL_LABEL_RGB = ensure_contrast(lerp_rgb(NORMAL_RGB, _theme.theme_fg, 0.35),
                                        NORMAL_RGB, minimum=2.2)
     GRID_RGB = surface_bg(0.14)
-    # The plain inks, when the bars are not in the temperature colors.
-    # Solid blocks take a grey off the text, clear of the average band
-    # they cross; thin marks -- braille dots, the labels of the year's
-    # hottest and coldest days -- take the text itself.
-    NEUTRAL_BAR_RGB = ensure_contrast(neutral_tone(0.62), NORMAL_RGB, minimum=2.4)
-    NEUTRAL_MARK_RGB = _style.TEXT_RGB
+    # The bars' ink, and the labels of the year's hottest and coldest
+    # days, when they are not in the temperature colors: the text's own,
+    # at full strength, for dots as fine as braille's
+    PLAIN_RGB = _style.TEXT_RGB
     # The fringe's two ends: a plain bar's part above the average high
     # and below the average low
     WARM_RGB = _style.RED_RGB
@@ -319,22 +315,19 @@ class _Braille:
 
 
 class _Bars:
-    """A panel's bars, each cell two columns wide and `per` steps tall:
-    quadrant blocks (2), solid quarters, or braille (4), dots.  A cell
-    takes the ink of its row."""
+    """A panel's bars in braille: dot bits, and whether a cell holds a
+    day gone by.  A cell takes the ink of its column and row when drawn."""
 
-    def __init__(self, width, rows, braille=False):
+    def __init__(self, width, rows):
         self.width, self.rows = width, rows
-        self.per = 4 if braille else 2
         self.bits = [[0] * width for _ in range(rows)]
         self.observed = [[False] * width for _ in range(rows)]
 
-    def fill(self, i, q, observed):
-        """Step q from the top of column i, a day gone by or one forecast."""
-        cell, row = i // 2, q // self.per
+    def fill(self, i, y, observed):
+        """Dot row y of dot column i, for a day gone by or one forecast."""
+        cell, row = i // 2, y // 4
         if 0 <= cell < self.width and 0 <= row < self.rows:
-            self.bits[row][cell] |= (_BITS[i % 2][q % 4] if self.per == 4
-                                     else _QUARTER[q % 2][i % 2])
+            self.bits[row][cell] |= _BITS[i % 2][y % 4]
             self.observed[row][cell] |= observed
 
     def free(self, cell, row):
@@ -349,8 +342,8 @@ class _Bars:
                 bits = self.bits[row][cell]
                 if not bits or (cell, row) in out:
                     continue
-                glyph = chr(0x2800 + bits) if self.per == 4 else _QUADRANTS[bits]
-                out[(cell, row)] = (glyph, ink(cell, row, self.observed[row][cell]), False)
+                out[(cell, row)] = (chr(0x2800 + bits),
+                                    ink(cell, row, self.observed[row][cell]), False)
 
 
 def _fringed(rgb, y, edge):
@@ -458,8 +451,7 @@ def _normal_to_date(climate, today, starts, ends):
 
 
 def render_year(climate, days, runtime, *, location_name="", location_menu=False,
-                mouse_pos=None, live=False, footer="", hint="", colors=COLORS[0],
-                braille=False):
+                mouse_pos=None, live=False, footer="", hint="", colors=COLORS[0]):
     """The year view, sized to the terminal: a header, the temperature
     panel, the month axis, the precipitation panel, and in live mode
     `footer` (the dashboard's credit row).  Either of `climate` and
@@ -468,8 +460,6 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
     of the year's hottest and coldest days, in the temperature colors;
     "fringe" and "plain" in one plain ink, "fringe" tinting a bar's part
     above the average high warm and below the average low cool.
-    `braille` draws the bars in braille dots instead of quadrant blocks
-    (a trial, for comparing).
     """
     colored, fringe = colors == "colored", colors == "fringe"
     cols, rows = get_terminal_size()
@@ -541,26 +531,21 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
                     if cover > 0:
                         temp_fb.set_pixel(x, spy, ink, cover)
 
-    # --- the days: quadrant-block bars ---
-    bars = _Bars(width, n_temp, braille=braille)
-    steps = n_temp * bars.per
-
-    def tq(v):
-        """The bar step v falls in, from the top."""
-        return max(0, min(steps - 1, int(ty(v) * bars.per / 4)))
+    # --- the days: braille bars ---
+    bars = _Bars(width, n_temp)
 
     def bar_ink(cell, row, observed):
         if colored:
             # The row's own temperature, in the dashboard's colors
             rgb = _style._temp_color(hi - (row + 0.5) / n_temp * (hi - lo), runtime)
         else:
-            rgb = NEUTRAL_MARK_RGB if braille else NEUTRAL_BAR_RGB
+            rgb = PLAIN_RGB
             if fringe and edges[cell]:
                 rgb = _fringed(rgb, row * 4 + 2, edges[cell])
         return rgb if observed else lerp_rgb(rgb, _theme.theme_bg, _FORECAST_FADE)
 
     def extreme_ink(v):
-        return _style._temp_color(v, runtime) if colored else NEUTRAL_MARK_RGB
+        return _style._temp_color(v, runtime) if colored else PLAIN_RGB
 
     temp_dots = _Braille(width, n_temp)   # the grid lines under the bars
     hottest = coldest = None   # (value, day) of the year's extremes so far
@@ -571,8 +556,8 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
             los = [days.lows[k] for k in span if days.lows[k] is not None]
             if not his or not los:
                 continue
-            for q in range(tq(max(his)), tq(min(los)) + 1):
-                bars.fill(i, q, span.start <= days.today)
+            for y in range(ydot(max(his)), ydot(min(los)) + 1):
+                bars.fill(i, y, span.start <= days.today)
         for k in range(days.today + 1):
             if days.highs[k] is not None and (hottest is None or days.highs[k] > hottest[0]):
                 hottest = (days.highs[k], k)
@@ -670,12 +655,12 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
         v, k = hottest
         text = f"{round(v)}°"
         _place(temp_over, bars.free, n_temp, text, cell_of(k) - len(text) // 2,
-               tq(v) // bars.per - 1, extreme_ink(v), width)
+               ydot(v) // 4 - 1, extreme_ink(v), width)
     if coldest:
         v, k = coldest
         text = f"{round(v)}°"
         _place(temp_over, bars.free, n_temp, text, cell_of(k) - len(text) // 2,
-               tq(v) // bars.per + 1, extreme_ink(v), width)
+               ydot(v) // 4 + 1, extreme_ink(v), width)
     # The bands' names where this year has not reached, at the chart's
     # right end as the paper's legend is: the average in its band, the
     # span in the outer band above it.  Hovering says the rest.

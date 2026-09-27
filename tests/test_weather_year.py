@@ -153,6 +153,16 @@ class TestYearDays:
 # ---------------------------------------------------------------------------
 # The chart
 # ---------------------------------------------------------------------------
+def _bar_inks(out):
+    """The inks of the temperature panel's braille cells, the grid's left
+    out: the bars' inks."""
+    lines = out.split("\n")
+    axis = next(i for i, line in enumerate(lines) if _strip(line).lstrip().startswith("Jan"))
+    panel = "\n".join(lines[1:axis])
+    return {tuple(map(int, m)) for m in re.findall(
+        r"\x1b\[38;2;(\d+);(\d+);(\d+)m[\u2801-\u28ff]", panel)} - {year.GRID_RGB}
+
+
 def _render(climate=None, days=None, size=(120, 34), **kw):
     kw.setdefault("location_name", "Westbrook")
     with patch.object(year, "get_terminal_size", return_value=size):
@@ -204,10 +214,10 @@ class TestChart:
             low=lambda d: -12.0 if d == cold else 32.0), size=(140, 40)))
         assert "99°" in text and "-12°" in text
 
-    def test_the_bars_are_solid_blocks(self):
+    def test_the_bars_are_braille(self):
         body = _strip(_render(_climate(), _days())).split("\n")[1:]
-        assert any("█" in line for line in body)
-        assert not any(ch in line for line in body for ch in "⣿⡇⢸")
+        assert any("⣿" in line for line in body)
+        assert not any(ch in line for line in body for ch in "▗▖▝▐▞▟▘▚▌▙▀▜▛█")
 
     def test_a_bar_takes_the_dashboards_color_for_each_rows_temperature(self):
         from linecast.weather.style import _temp_color
@@ -217,9 +227,7 @@ class TestChart:
         with patch.object(_color, "_COLOR_MODE", "truecolor"):
             out = _render(_climate(), _days(high=lambda d: 90.0, low=lambda d: 20.0),
                           colors="colored")
-        # ▄ is left out: the bands' half-block field is drawn with it
-        inks = {tuple(map(int, m)) for m in
-                re.findall(r"\x1b\[38;2;(\d+);(\d+);(\d+)m[▗▖▝▐▞▟▘▚▌▙▀▜▛█]", out)}
+        inks = _bar_inks(out)
         rt = _runtime()
         scale = [_temp_color(t / 10, rt) for t in range(150, 951)]
         faded = [year.lerp_rgb(c, year._theme.theme_bg, year._FORECAST_FADE) for c in scale]
@@ -233,29 +241,14 @@ class TestChart:
         with patch.object(_color, "_COLOR_MODE", "truecolor"):
             out = _render(_climate(), _days(high=lambda d: 99.0 if d == hot else 90.0,
                                             low=lambda d: 20.0), colors="plain")
-        inks = {tuple(map(int, m)) for m in
-                re.findall(r"\x1b\[38;2;(\d+);(\d+);(\d+)m[▗▖▝▐▞▟▘▚▌▙▀▜▛█]", out)}
-        faded = year.lerp_rgb(year.NEUTRAL_BAR_RGB, year._theme.theme_bg, year._FORECAST_FADE)
-        assert inks <= {year.NEUTRAL_BAR_RGB, faded}
-        assert year.NEUTRAL_BAR_RGB in inks
+        inks = _bar_inks(out)
+        faded = year.lerp_rgb(year.PLAIN_RGB, year._theme.theme_bg, year._FORECAST_FADE)
+        assert inks <= {year.PLAIN_RGB, faded}
+        assert year.PLAIN_RGB in inks
         # the hottest day's label: each of its cells is drawn on its own
         label = re.search(r"\x1b\[38;2;(\d+);(\d+);(\d+)m9(?:\x1b\[[\d;]*m)+9"
                           r"(?:\x1b\[[\d;]*m)+°", out)
-        # the label, a thin mark, in the text itself
-        assert label and tuple(map(int, label.groups())) == year.NEUTRAL_MARK_RGB
-
-    def test_b_tries_the_bars_in_braille(self):
-        from linecast.terminal import color as _color
-        # The trial's other drawing: dots, plain ones in the text's ink,
-        # and a grid line never drawn in a bar's cell
-        with patch.object(_color, "_COLOR_MODE", "truecolor"):
-            out = _render(_climate(), _days(), braille=True, colors="plain")
-        body = _strip(out).split("\n")[1:]
-        assert not any(ch in line for line in body for ch in "▗▖▝▐▞▟▘▚▌▙▀▜▛█")
-        assert any("⣿" in line for line in body)
-        inks = {tuple(map(int, m)) for m in re.findall(
-            r"\x1b\[38;2;(\d+);(\d+);(\d+)m\u28ff", out)}
-        assert inks == {year.NEUTRAL_MARK_RGB}
+        assert label and tuple(map(int, label.groups())) == year.PLAIN_RGB
 
     def test_the_bands_are_named_where_the_year_has_not_reached(self):
         # Years that differ, so the extremes stand clear of the average
@@ -391,17 +384,18 @@ class TestChart:
             bare = _render(_climate(), _days(high=lambda d: 90.0, low=lambda d: 5.0),
                            colors="plain")
 
-        def inks(text):
-            return {tuple(map(int, m)) for m in re.findall(
-                r"\x1b\[38;2;(\d+);(\d+);(\d+)m[▗▖▝▐▞▟▘▚▌▙▀▜▛█]", text)}
+        def toward(ink, end):
+            return sum(abs(a - b) for a, b in zip(ink, end))
 
-        # by default the bars past the average are tinted, redder and
-        # bluer than the plain grey; without the fringe, all grey
-        grey = year.NEUTRAL_BAR_RGB
-        assert any(r > grey[0] and b <= grey[2] for r, g, b in inks(out))
-        assert any(b > grey[2] and r <= grey[0] for r, g, b in inks(out))
-        assert inks(bare) <= {grey, year.lerp_rgb(grey, year._theme.theme_bg,
-                                                   year._FORECAST_FADE)}
+        # by default the bars past the average lean toward the warm and
+        # the cool ink; without the fringe, all the text's
+        plain = year.PLAIN_RGB
+        assert any(toward(ink, year.WARM_RGB) < toward(plain, year.WARM_RGB)
+                   for ink in _bar_inks(out))
+        assert any(toward(ink, year.COOL_RGB) < toward(plain, year.COOL_RGB)
+                   for ink in _bar_inks(out))
+        assert _bar_inks(bare) <= {plain, year.lerp_rgb(plain, year._theme.theme_bg,
+                                                         year._FORECAST_FADE)}
 
     def test_data_meeting_data_keeps_both_dots(self):
         cells = year._Braille(1, 1)
@@ -526,23 +520,12 @@ class TestLive:
                 assert app.on_action("c")
         assert seen == ["fringe", "colored", "plain", "fringe"]
 
-    def test_b_switches_blocks_and_braille_in_the_year_alone(self):
-        app = _app()
-        assert not app.on_action("b") and not app.year_braille
-        app.year_view = True
-        with patch.object(year, "render_year", return_value="out") as render, \
-             patch.object(year, "year_days"):
-            assert app.on_action("b") and app.year_braille
-            app._render_year(None)
-            assert render.call_args.kwargs["braille"] is True
-            assert app.on_action("b") and not app.year_braille
-
     def test_every_key_the_view_takes_gets_past_the_decoder(self):
         # on_action only ever sees what _read_key lets through; a key the
         # decoder does not know never arrives (as b did not, at first)
         import os
         from linecast.terminal.live import _read_key
-        for key in "lrvycb/":
+        for key in "lrvyc/":
             r, w = os.pipe()
             try:
                 os.write(w, key.encode())
