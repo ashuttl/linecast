@@ -6,28 +6,26 @@ linecast speaks your terminal's language if it knows it, and English otherwise. 
 
 | Code | Language | Code | Language |
 | --- | --- | --- | --- |
-| `en` | English | `hu` | Hungarian |
-| `fr` | French | `ru` | Russian |
-| `es` | Spanish | `uk` | Ukrainian |
-| `pt` | Portuguese | `el` | Greek |
-| `it` | Italian | `tr` | Turkish |
-| `ro` | Romanian | `fa` | Persian (experimental) |
-| `de` | German | `sw` | Swahili |
-| `nl` | Dutch | `zh` | Chinese, simplified script |
-| `da` | Danish | `zh-Hant` | Chinese, traditional script |
-| `no` | Norwegian | `ja` | Japanese |
-| `sv` | Swedish | `ko` | Korean |
-| `is` | Icelandic | `th` | Thai |
-| `fi` | Finnish | `vi` | Vietnamese |
-| `cs` | Czech | `id` | Indonesian |
-| `sk` | Slovak | `eo` | Esperanto |
-| `pl` | Polish | | |
+| `en` | English | `pl` | Polish |
+| `fr` | French (France) | `hu` | Hungarian |
+| `fr-CA` | French (Canada) | `ru` | Russian |
+| `es` | Spanish (Latin America) | `uk` | Ukrainian |
+| `es-ES` | Spanish (Spain) | `el` | Greek |
+| `pt` | Portuguese (Brazil) | `tr` | Turkish |
+| `pt-PT` | Portuguese (Portugal) | `fa` | Persian (experimental) |
+| `it` | Italian | `sw` | Swahili |
+| `ro` | Romanian | `zh` | Chinese, simplified script |
+| `de` | German | `zh-Hant` | Chinese, traditional script (Taiwan) |
+| `nl` | Dutch | `zh-HK` | Chinese, traditional script (Hong Kong) |
+| `da` | Danish | `ja` | Japanese |
+| `no` | Norwegian | `ko` | Korean |
+| `sv` | Swedish | `th` | Thai |
+| `is` | Icelandic | `vi` | Vietnamese |
+| `fi` | Finnish | `id` | Indonesian |
+| `cs` | Czech | `eo` | Esperanto |
+| `sk` | Slovak | | |
 
-## Regional variants
-
-Portuguese is Brazilian, Spanish is Latin American, French is that of France, and Traditional Chinese follows Taiwan. `pt-PT`, `es-ES`, `fr-CA`, and `zh-HK` use the words that differ in Portugal, Spain, Canada, and Hong Kong. Hong Kong Chinese takes the Hong Kong Observatory's words for the weather.
-
-A terminal locale chooses the variant by itself: `pt_PT`, `es_ES`, and `fr_CA` read their variants, `zh_HK` and `zh_MO` read Hong Kong Chinese, `zh_TW` reads Traditional Chinese, and `zh_CN` and `zh_SG` read Simplified. `nb_NO` and `nn_NO` read Norwegian.
+A regional variant changes only the words that differ in its country, and Hong Kong Chinese also uses the Hong Kong Observatory's words for the weather. The terminal's locale chooses the variant, so `fr_CA` reads Canadian French and `pt_BR` reads Portuguese. Macau's `zh_MO` reads Hong Kong Chinese, Singapore's `zh_SG` reads simplified Chinese, and Norway's `nb_NO` and `nn_NO` both read Norwegian.
 
 ## What follows the language
 
