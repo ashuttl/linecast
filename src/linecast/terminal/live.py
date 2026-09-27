@@ -513,6 +513,9 @@ def _read_key(fd, text=False):
         return 'key:m'
     if b in (b'y', b'Y'):
         return 'key:y'
+    # The weather year view's braille trial; goes when the trial does
+    if b in (b'b', b'B'):
+        return 'key:b'
     if b in (b'r', b'R'):
         return 'key:r'
     if b == b'/':

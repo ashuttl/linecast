@@ -288,32 +288,44 @@ class _Braille:
                                         self.ink[row][cell], False)
 
 
-class _Quadrants:
-    """A panel's bars in quadrant blocks: each cell two columns by two
-    half rows of solid quarters, in the ink of its row."""
+class _Bars:
+    """A panel's bars, each cell two columns wide and `per` steps tall:
+    quadrant blocks (2), solid quarters, or braille (4), dots.  A cell
+    takes the ink of its row."""
 
-    def __init__(self, width, rows):
+    def __init__(self, width, rows, braille=False):
         self.width, self.rows = width, rows
+        self.per = 4 if braille else 2
         self.bits = [[0] * width for _ in range(rows)]
         self.observed = [[False] * width for _ in range(rows)]
 
     def fill(self, i, q, observed):
-        """Half row q of column i, a day gone by or one forecast."""
-        cell, row = i // 2, q // 2
+        """Step q from the top of column i, a day gone by or one forecast."""
+        cell, row = i // 2, q // self.per
         if 0 <= cell < self.width and 0 <= row < self.rows:
-            self.bits[row][cell] |= _QUARTER[q % 2][i % 2]
+            self.bits[row][cell] |= (_BITS[i % 2][q % 4] if self.per == 4
+                                     else _QUARTER[q % 2][i % 2])
             self.observed[row][cell] |= observed
 
     def free(self, cell, row):
         return not self.bits[row][cell]
 
-    def overlays(self, out, ink):
-        """The filled cells into `out`, inked by ink(row, observed)."""
+    def overlays(self, out, ink, under=None):
+        """The filled cells into `out`, inked by ink(row, observed).  In
+        braille, the dots of the `under` layer's guides in a bar's cell
+        join the bar's glyph, in its ink, rather than give way to it."""
         for row in range(self.rows):
             for cell in range(self.width):
-                if self.bits[row][cell] and (cell, row) not in out:
-                    out[(cell, row)] = (_QUADRANTS[self.bits[row][cell]],
-                                        ink(row, self.observed[row][cell]), False)
+                bits = self.bits[row][cell]
+                if not bits or (cell, row) in out:
+                    continue
+                if self.per == 4:
+                    if under is not None:
+                        bits |= under.bits[row][cell]
+                    glyph = chr(0x2800 + bits)
+                else:
+                    glyph = _QUADRANTS[bits]
+                out[(cell, row)] = (glyph, ink(row, self.observed[row][cell]), False)
 
 
 def _place(overlays, free, rows, text, x, row, ink, width):
@@ -404,13 +416,16 @@ def _normal_to_date(climate, today, starts, ends):
 
 
 def render_year(climate, days, runtime, *, location_name="", location_menu=False,
-                mouse_pos=None, live=False, footer="", hint="", colored=False):
+                mouse_pos=None, live=False, footer="", hint="", colored=False,
+                braille=False):
     """The year view, sized to the terminal: a header, the temperature
     panel, the month axis, the precipitation panel, and in live mode
     `footer` (the dashboard's credit row).  Either of `climate` and
     `days` may be None while it is fetched; the view draws what it has.
     `colored` draws the bars, and the labels of the year's hottest and
     coldest days, in the temperature colors instead of one plain ink.
+    `braille` draws the bars in braille dots instead of quadrant blocks
+    (a trial, for comparing the two).
     """
     cols, rows = get_terminal_size()
     year = days.year if days else date.today().year
@@ -482,10 +497,12 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
                         temp_fb.set_pixel(x, spy, ink, cover)
 
     # --- the days: quadrant-block bars ---
-    halves = n_temp * 2
+    bars = _Bars(width, n_temp, braille=braille)
+    steps = n_temp * bars.per
 
     def tq(v):
-        return max(0, min(halves - 1, int(ty(v) / 2)))
+        """The bar step v falls in, from the top."""
+        return max(0, min(steps - 1, int(ty(v) * bars.per / 4)))
 
     def bar_ink(row, observed):
         # The row's own temperature, in the dashboard's colors
@@ -496,7 +513,6 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
     def extreme_ink(v):
         return _style._temp_color(v, runtime) if colored else NEUTRAL_BAR_RGB
 
-    bars = _Quadrants(width, n_temp)
     temp_dots = _Braille(width, n_temp)   # the grid lines under the bars
     hottest = coldest = None   # (value, day) of the year's extremes so far
     if days:
@@ -588,12 +604,12 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
         v, k = hottest
         text = f"{round(v)}°"
         _place(temp_over, bars.free, n_temp, text, cell_of(k) - len(text) // 2,
-               tq(v) // 2 - 1, extreme_ink(v), width)
+               tq(v) // bars.per - 1, extreme_ink(v), width)
     if coldest:
         v, k = coldest
         text = f"{round(v)}°"
         _place(temp_over, bars.free, n_temp, text, cell_of(k) - len(text) // 2,
-               tq(v) // 2 + 1, extreme_ink(v), width)
+               tq(v) // bars.per + 1, extreme_ink(v), width)
     # The bands' names where this year has not reached, at the chart's
     # right end as the paper's legend is: the average in its band, the
     # span in the outer band above it.  Hovering says the rest.
@@ -641,7 +657,7 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
                 if free(x, row) and (x, row) not in over:
                     over[(x, row)] = ("│", ink, False)
 
-    bars.overlays(temp_over, bar_ink)
+    bars.overlays(temp_over, bar_ink, under=temp_dots)
     temp_dots.overlays(temp_over)
     precip_dots.overlays(precip_over)
     precip_fb = Framebuffer(width, n_precip)

@@ -234,6 +234,13 @@ class TestChart:
                           r"(?:\x1b\[[\d;]*m)+°", out)
         assert label and tuple(map(int, label.groups())) == year.NEUTRAL_BAR_RGB
 
+    def test_b_tries_the_bars_in_braille_with_the_guides_joined(self):
+        # The trial's other drawing: dots, and a grid line's dots in a
+        # bar's cell join its glyph rather than giving way
+        body = _strip(_render(_climate(), _days(), braille=True)).split("\n")[1:]
+        assert not any(ch in line for line in body for ch in "▗▖▝▐▞▟▘▚▌▙▀▜▛█")
+        assert any("⣿" in line for line in body)
+
     def test_the_bands_are_named_where_the_year_has_not_reached(self):
         # Years that differ, so the extremes stand clear of the average
         climate = year.climate_from_archive(
@@ -375,6 +382,31 @@ class TestLive:
             app._render_year(None)
             assert render.call_args.kwargs["colored"] is True
             assert app.on_action("c") and not app.year_colored
+
+    def test_b_switches_blocks_and_braille_in_the_year_alone(self):
+        app = _app()
+        assert not app.on_action("b") and not app.year_braille
+        app.year_view = True
+        with patch.object(year, "render_year", return_value="out") as render, \
+             patch.object(year, "year_days"):
+            assert app.on_action("b") and app.year_braille
+            app._render_year(None)
+            assert render.call_args.kwargs["braille"] is True
+            assert app.on_action("b") and not app.year_braille
+
+    def test_every_key_the_view_takes_gets_past_the_decoder(self):
+        # on_action only ever sees what _read_key lets through; a key the
+        # decoder does not know never arrives (as b did not, at first)
+        import os
+        from linecast.terminal.live import _read_key
+        for key in "lrvycb/":
+            r, w = os.pipe()
+            try:
+                os.write(w, key.encode())
+                assert _read_key(r) == f"key:{key}", key
+            finally:
+                os.close(r)
+                os.close(w)
 
     def test_the_help_lists_c_and_not_y(self):
         from linecast.terminal.help import entries
