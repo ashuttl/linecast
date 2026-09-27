@@ -3,6 +3,7 @@
 import ast
 import re
 import sys
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -542,9 +543,11 @@ class TestTablesComplete:
     # English, and only the languages that spell it differently carry it.
     # The Canadian index is named AQHI in English and CAS (cote air
     # santé) in French, and by its English name elsewhere.
+    # A day of the month alone is its bare number but where the language
+    # counts it: 27日, 27일.
     DEFAULTS = {
         "linecast.weather.i18n": {"unit_kmh", "unit_ms", "unit_mph", "unit_mm", "unit_cm",
-                                  "aqhi"},
+                                  "aqhi", "day_of_month"},
         "linecast.tides.i18n": {"period"},
         "linecast.radar.i18n": {"unit_km", "unit_mi"},
     }
@@ -577,16 +580,32 @@ class TestTablesComplete:
     OPTIONAL = {("linecast.weather.i18n", "th"): {"same_time"},
                 ("linecast.weather.i18n", "*"): {"same_part_later"}}
 
+    # Keys whose presence switches a feature on, and the languages it is
+    # on in: Canada's humidex and wind chill show in English and French,
+    # the country's two, because those languages carry the words
+    # (weather.i18n.felt_index), so no other language may.
+    ONLY_IN = {"linecast.weather.i18n": ({"humidex", "humidex_ahead",
+                                          "wind_chill", "wind_chill_ahead"},
+                                         {"en", "fr"})}
+
     def _tables(self):
         import importlib
         import pkgutil
         import linecast
+        from linecast._i18n import _SETTINGS
         for info in pkgutil.walk_packages(linecast.__path__, "linecast."):
             if "i18n" not in info.name:
                 continue
             module = importlib.import_module(info.name)
             for name, obj in vars(module).items():
-                if isinstance(obj, dict) and isinstance(obj.get("en"), dict):
+                # The settings are switches with defaults, not strings: a
+                # language sets only what differs, and
+                # test_settings_are_ones_the_code_knows reads them.
+                if obj is _SETTINGS:
+                    continue
+                # The tables are LocaleTables, which read the locale
+                # files; a plain dict still counts.
+                if isinstance(obj, Mapping) and isinstance(obj.get("en"), dict):
                     yield info.name, name, obj
 
     def test_every_language_has_every_english_key(self):
@@ -598,12 +617,18 @@ class TestTablesComplete:
             english = {key for key in table["en"]
                        if not any(key.endswith(end) and key[:-len(end)] in table["en"]
                                   for end in suffixes)} - self.DEFAULTS.get(module, set())
+            only, langs = self.ONLY_IN.get(module, (set(), set()))
             for lang in LANGUAGE_CODES:
-                missing = sorted(english - set(table.get(lang, {}))
+                carried = set(table.get(lang, {}))
+                missing = sorted(english - carried
                                  - self.OPTIONAL.get((module, lang), set())
-                                 - self.OPTIONAL.get((module, "*"), set()))
+                                 - self.OPTIONAL.get((module, "*"), set())
+                                 - (set() if lang in langs else only))
                 if missing:
                     gaps.append(f"{module}.{name} {lang}: {missing}")
+                stray = sorted(only & carried) if lang not in langs else []
+                if stray:
+                    gaps.append(f"{module}.{name} {lang} switches on {stray}")
         assert not gaps, "\n".join(gaps)
 
     def test_no_language_carries_a_key_english_does_not(self):
@@ -656,7 +681,7 @@ class TestPersianOrthography:
                 continue
             module = importlib.import_module(info.name)
             for name, obj in vars(module).items():
-                if isinstance(obj, dict) and "fa" in obj:
+                if isinstance(obj, Mapping) and "fa" in obj:
                     yield from self._strings(obj["fa"], f"{info.name}.{name}['fa']")
 
     def test_no_arabic_kaf_or_yeh_in_persian(self):
