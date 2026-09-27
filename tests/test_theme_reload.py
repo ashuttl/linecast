@@ -150,7 +150,7 @@ class TestLightThemeInk:
 
     def test_a_bar_label_takes_its_ink_from_the_bar(self, restore_theme):
         _theme._apply(*LIGHT)
-        cold = style.TEMP_COLORS[0][1]   # the coldest fill: purple
+        cold = style.TEMP_COLORS[0][1]   # the coldest fill: on a light page, a navy
         ink = style._knockout_ink(cold)
         assert _theme.luminance(ink) > 0.5        # white, not the page's ink
         assert _theme.contrast_ratio(ink, cold) >= 4.5
@@ -175,8 +175,8 @@ class TestLightThemeInk:
 @pytest.mark.skipif(_theme.theme_legacy_mode, reason="legacy palette is fixed")
 class TestExtremeColors:
     """Below freezing the temperature colors deepen from the theme's
-    blue and turn toward its magenta, through indigo to purple; past
-    red they turn pink, and then pale to white-hot."""
+    blue and then pale toward ice, staying blue; past red they turn
+    crimson and deepen toward a maroon."""
 
     ADWAITA_DARK = ((255, 255, 255), (28, 28, 31), (
         (36, 31, 49), (192, 28, 40), (46, 194, 126), (245, 194, 17),
@@ -184,39 +184,73 @@ class TestExtremeColors:
         (94, 92, 100), (237, 51, 59), (87, 227, 137), (248, 228, 92),
         (81, 161, 255), (192, 97, 203), (79, 210, 253), (246, 245, 244)))
 
+    # Gruvbox Dark's two blues are teals.
+    GRUVBOX_DARK = ((235, 219, 178), (40, 40, 40), (
+        (40, 40, 40), (204, 36, 29), (152, 151, 26), (215, 153, 33),
+        (69, 133, 136), (177, 98, 134), (104, 157, 106), (168, 153, 132),
+        (146, 131, 116), (251, 73, 52), (184, 187, 38), (250, 189, 47),
+        (131, 165, 152), (211, 134, 155), (142, 192, 124), (235, 219, 178)))
+
     @staticmethod
     def _hue(rgb):
         return colorsys.rgb_to_hls(*(c / 255 for c in rgb))[0] * 360
 
-    def test_colder_is_deeper_and_nearer_magenta(self, restore_theme):
+    def test_colder_deepens_and_then_pales_to_ice(self, restore_theme):
         _theme._apply(*self.ADWAITA_DARK)
         rt = SimpleNamespace(celsius=False)
-        freezing, deep, indigo, purple = (style._temp_color(t, rt) for t in (32, 15, 0, -20))
+        freezing, deep, cold, ice = (style._temp_color(t, rt) for t in (32, 15, -10, -40))
         assert _theme.luminance(deep) < _theme.luminance(freezing)
-        hues = [self._hue(c) for c in (deep, indigo, purple)]
-        assert hues == sorted(hues)
-        # short of the magenta, which on many themes is a pink
-        assert hues[-1] < self._hue(style.MAGENTA_RGB)
+        assert _theme.luminance(deep) < _theme.luminance(cold) < _theme.luminance(ice)
+        for color in (deep, cold, ice):
+            assert 190 <= self._hue(color) <= 240
 
-    def test_the_scale_runs_to_twenty_below(self, restore_theme):
+    def test_the_scale_runs_to_forty_below(self, restore_theme):
         _theme._apply(*self.ADWAITA_DARK)
         rt = SimpleNamespace(celsius=False)
-        assert style._temp_color(-20, rt) != style._temp_color(0, rt)
-        assert style._temp_color(-40, rt) == style._temp_color(-20, rt)
+        assert style._temp_color(-40, rt) != style._temp_color(-20, rt)
+        assert style._temp_color(-60, rt) == style._temp_color(-40, rt)
 
-    def test_hotter_is_pinker_and_then_paler(self, restore_theme):
+    def test_a_teal_blue_turns_toward_sky_blue_for_the_ice(self, restore_theme):
+        _theme._apply(*self.GRUVBOX_DARK)
+        rt = SimpleNamespace(celsius=False)
+        assert self._hue(_theme.theme_ansi[4]) < 185
+        assert 190 <= self._hue(style._temp_color(-40, rt)) <= 235
+
+    def test_hotter_turns_crimson_and_deepens(self, restore_theme):
         _theme._apply(*self.ADWAITA_DARK)
         rt = SimpleNamespace(celsius=False)
-        red, pink, white_hot = (style._temp_color(t, rt) for t in (95, 105, 115))
-        assert self._hue(style.MAGENTA_RGB) < self._hue(pink) < self._hue(red)
-        assert _theme.luminance(white_hot) > 2 * _theme.luminance(pink)
-        assert style._temp_color(130, rt) == white_hot
+        red, crimson, maroon = (style._temp_color(t, rt) for t in (95, 105, 115))
+        assert 332 <= self._hue(crimson) <= 348
+        assert _theme.luminance(maroon) < _theme.luminance(crimson) < _theme.luminance(red)
+        assert _theme.contrast_ratio(maroon, _theme.theme_bg) >= 2.1
+        assert style._temp_color(130, rt) == maroon
 
-    def test_on_a_light_theme_white_hot_darkens_instead(self, restore_theme):
+    def test_on_a_light_theme_the_ice_darkens_instead(self, restore_theme):
         _theme._apply(*LIGHT)
         rt = SimpleNamespace(celsius=False)
-        pink, white_hot = style._temp_color(105, rt), style._temp_color(115, rt)
-        assert _theme.luminance(white_hot) < _theme.luminance(pink)
+        deep, ice = style._temp_color(15, rt), style._temp_color(-40, rt)
+        assert _theme.luminance(ice) < _theme.luminance(deep)
+        crimson, maroon = style._temp_color(105, rt), style._temp_color(115, rt)
+        assert _theme.luminance(maroon) < _theme.luminance(crimson)
+
+
+class TestHueHelpers:
+    def test_clamp_hue_turns_only_a_hue_outside_the_window(self):
+        teal = (69, 133, 136)
+        turned = _theme.clamp_hue(teal, 215, 20)
+        assert round(_theme.hue_distance(turned, 215)) == 20
+        h1, l1, s1 = colorsys.rgb_to_hls(*(c / 255 for c in teal))
+        h2, l2, s2 = colorsys.rgb_to_hls(*(c / 255 for c in turned))
+        assert abs(l1 - l2) < 0.01 and abs(s1 - s2) < 0.02
+        sky = (30, 120, 228)
+        assert _theme.clamp_hue(sky, 215, 20) == sky
+
+    def test_hue_distance_goes_the_short_way_round(self):
+        red = (220, 60, 50)
+        assert _theme.hue_distance(red, 340) < 30
+        assert _theme.hue_distance(red, 340) == pytest.approx(
+            _theme.hue_distance(red, 340 - 360))
+
 
 @pytest.fixture
 def pipe():

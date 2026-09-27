@@ -106,17 +106,21 @@ def lerp_rgb(c1: RGB, c2: RGB, t: float) -> RGB:
     )
 
 
-def lerp_hue(c1: RGB, c2: RGB, t: float) -> RGB:
-    """Interpolate between two RGB tuples the short way round the hue
-    wheel, lightness and saturation moving in step.  Between blue and
-    magenta, lerp_rgb passes through a grey lavender; this passes
-    through indigo and violet."""
-    t = max(0.0, min(1.0, float(t)))
-    h1, l1, s1 = colorsys.rgb_to_hls(*(c / 255.0 for c in clamp_rgb(c1)))
-    h2, l2, s2 = colorsys.rgb_to_hls(*(c / 255.0 for c in clamp_rgb(c2)))
-    d = ((h2 - h1 + 0.5) % 1.0) - 0.5
-    r, g, b = colorsys.hls_to_rgb((h1 + d * t) % 1.0, l1 + (l2 - l1) * t,
-                                  s1 + (s2 - s1) * t)
+def hue_distance(color: RGB, center: float) -> float:
+    """Degrees round the hue wheel from color's hue to center, either way."""
+    h, _l, _s = colorsys.rgb_to_hls(*(c / 255.0 for c in clamp_rgb(color)))
+    return abs(((h * 360.0 - center + 180.0) % 360.0) - 180.0)
+
+
+def clamp_hue(color: RGB, center: float, within: float) -> RGB:
+    """Turn color's hue, if need be, to the nearest one within `within`
+    degrees of center, keeping its lightness and saturation."""
+    h, lum, s = colorsys.rgb_to_hls(*(c / 255.0 for c in clamp_rgb(color)))
+    d = ((h * 360.0 - center + 180.0) % 360.0) - 180.0
+    if abs(d) <= within:
+        return clamp_rgb(color)
+    h = ((center + max(-within, min(within, d))) % 360.0) / 360.0
+    r, g, b = colorsys.hls_to_rgb(h, lum, s)
     return clamp_rgb((r * 255.0, g * 255.0, b * 255.0))
 
 

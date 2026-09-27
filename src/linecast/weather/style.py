@@ -4,10 +4,12 @@ from linecast.terminal.graphics import bg, fg, interp_stops
 from linecast.terminal import theme as _theme
 from linecast.terminal.theme import (
     best_contrast,
+    clamp_hue,
+    contrast_ratio,
     darken,
     ensure_contrast,
+    hue_distance,
     is_light_theme,
-    lerp_hue,
     lerp_rgb,
     lighten,
     luminance,
@@ -18,6 +20,17 @@ from linecast.terminal.theme import (
 # ---------------------------------------------------------------------------
 # Palette
 # ---------------------------------------------------------------------------
+def _deepen(color, amount, minimum):
+    """Darken color by amount, but on a dark page no further than the
+    minimum contrast allows.  ensure_contrast would lift a color that went
+    too dark back toward white, which greys it."""
+    for step in range(round(amount * 100), -1, -1):
+        candidate = darken(color, step / 100)
+        if contrast_ratio(candidate, _theme.theme_bg) >= minimum:
+            return candidate
+    return ensure_contrast(color, _theme.theme_bg, minimum=minimum)
+
+
 def _rebuild():
     global TEXT_RGB, DIM_RGB, MUTED_RGB, WIND_RGB, BLUE_RGB, CYAN_RGB
     global GREEN_RGB, YELLOW_RGB, RED_RGB, MAGENTA_RGB, BRIGHT_YELLOW_RGB
@@ -47,21 +60,26 @@ def _rebuild():
     ALERT_BLUE_BASE_RGB = best_contrast(
         (_theme.theme_ansi[12], _theme.theme_ansi[14], _theme.theme_ansi[6]), minimum=2.1)
 
-    # Below freezing the blue deepens, then turns toward magenta: through
-    # indigo to purple, three quarters of the way there.  The deeper blue
-    # is the darker of the theme's two, or its blue darkened, whichever
-    # is deeper.
+    # Below freezing the blue deepens to 15°F, then pales toward ice at
+    # -40°, staying blue and away from the hot end's crimson.  The
+    # deeper blue is the darker of the theme's two, or its blue
+    # darkened, whichever is deeper.  The ice starts from the bluer of
+    # the two, its hue turned to within 20° of a sky blue, since on some
+    # themes the blue is a teal or a violet.  A light theme's page is
+    # already pale, so there the ice darkens to a navy instead.
     deep_blue = min((_theme.theme_ansi[4], _theme.theme_ansi[12], darken(BLUE_RGB, 0.2)),
                     key=luminance)
-    # Past red the heat turns pink, and then pales: white-hot.  A light
-    # theme's page is already white, so there the pink darkens instead.
-    hot_pink = lerp_hue(RED_RGB, MAGENTA_RGB, 0.5)
-    white_hot = darken(hot_pink, 0.45) if is_light_theme() else lighten(hot_pink, 0.55)
+    ice_blue = clamp_hue(min((_theme.theme_ansi[4], _theme.theme_ansi[12]),
+                             key=lambda c: hue_distance(c, 215)), 215, 20)
+    ice = darken(ice_blue, 0.55) if is_light_theme() else lighten(ice_blue, 0.6)
+    # Past red the heat turns crimson and deepens toward a maroon.  The
+    # crimson is the theme's red with its hue turned to within 8° of 340°;
+    # turning it toward the theme's magenta would give a plum on themes
+    # whose magenta is a lavender.  On a dark page the maroon stops at
+    # the contrast floor.
+    crimson = clamp_hue(RED_RGB, 340, 8)
     TEMP_COLORS = [
-        (-20, ensure_contrast(lerp_hue(deep_blue, MAGENTA_RGB, 0.75), _theme.theme_bg,
-                              minimum=2.1)),
-        (0, ensure_contrast(lerp_hue(deep_blue, MAGENTA_RGB, 0.35), _theme.theme_bg,
-                            minimum=2.1)),
+        (-40, ensure_contrast(ice, _theme.theme_bg, minimum=2.1)),
         (15, ensure_contrast(deep_blue, _theme.theme_bg, minimum=2.1)),
         (32, BLUE_RGB),
         (45, CYAN_RGB),
@@ -70,8 +88,8 @@ def _rebuild():
         (72, YELLOW_RGB),
         (82, ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.45), _theme.theme_bg, minimum=2.1)),
         (95, RED_RGB),
-        (105, ensure_contrast(hot_pink, _theme.theme_bg, minimum=2.1)),
-        (115, ensure_contrast(white_hot, _theme.theme_bg, minimum=2.1)),
+        (105, _deepen(crimson, 0.15, minimum=2.1)),
+        (115, _deepen(crimson, 0.45, minimum=2.1)),
     ]
 
     PRECIP_RAIN_RGB = BLUE_RGB
