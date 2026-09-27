@@ -240,12 +240,12 @@ WEATHER = {
     # Precipitation line
     "ending": "{desc} ending {time}",
     "continuing": "{desc} continuing through the day",
-    # A turn inside rain that is falling now is one clause with its
-    # end, "turning to showers around 9pm and ending overnight"; a
-    # turn in rain still to come is a second thing, "then", as a
-    # forecaster lists them.
-    "ending_becoming": "{desc} turning to {peak} {peak_time} and ending {time}",
-    "continuing_becoming": "{desc} turning to {peak} {peak_time} and lasting through the day",
+    # Rain that is falling now is said to be, and its turn and its end
+    # follow: "drizzle now, becoming showers around 9pm, ending
+    # overnight".  A turn in rain still to come is a second thing,
+    # "then", as a forecaster lists them.
+    "ending_becoming": "{desc} now, becoming {peak} {peak_time}, ending {time}",
+    "continuing_becoming": "{desc} now, becoming {peak} {peak_time} and lasting through the day",
     "starting": "{desc} likely starting {time}",
     "starting_becoming": "{desc} likely starting {time}, then {peak} {peak_time}",
     # Likely in a part of the day, where "starting" would be one word
@@ -260,11 +260,11 @@ WEATHER = {
     "starting_sure": "{desc} starting {time}",
     "starting_sure_becoming": "{desc} starting {time}, then {peak} {peak_time}",
     "continuing_night": "{desc} continuing through the night",
-    "continuing_night_becoming": "{desc} turning to {peak} {peak_time} and lasting through the night",
+    "continuing_night_becoming": "{desc} now, becoming {peak} {peak_time} and lasting through the night",
     # Rain that only turns heavy is the same rain, harder
-    "ending_heavier": "{desc} turning heavy {peak_time} and ending {time}",
-    "continuing_heavier": "{desc} turning heavy {peak_time} and lasting through the day",
-    "continuing_night_heavier": "{desc} turning heavy {peak_time} and lasting through the night",
+    "ending_heavier": "{desc} now, turning heavy {peak_time}, ending {time}",
+    "continuing_heavier": "{desc} now, turning heavy {peak_time} and lasting through the day",
+    "continuing_night_heavier": "{desc} now, turning heavy {peak_time} and lasting through the night",
     "starting_heavier": "{desc} likely starting {time}, turning heavy {peak_time}",
     "starting_chance_heavier": "A chance of {desc} {time}, turning heavy {peak_time}",
     "starting_sure_heavier": "{desc} starting {time}, turning heavy {peak_time}",

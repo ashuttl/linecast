@@ -312,9 +312,9 @@ class TestPrecipitationPeak:
         codes = [51, 51, 53, 61, 63, 65, 63, 61, 0, 0]
         amounts = [0.01, 0.01, 0.02, 0.1, 0.2, 0.34, 0.2, 0.05, 0, 0]
         assert self._sentence(self._hourly(codes, amounts)) == \
-            "Light drizzle turning to heavy rain around 23:00 and ending overnight"
+            "Light drizzle now, becoming heavy rain around 23:00, ending overnight"
         assert self._sentence(self._hourly(codes, amounts), use_24h=False) == \
-            "Light drizzle turning to heavy rain around 11pm and ending overnight"
+            "Light drizzle now, becoming heavy rain around 11pm, ending overnight"
 
     def test_a_turn_to_rain_is_when_the_rain_begins(self):
         # Kathmandu: light drizzle now, light rain from 21:00, and the
@@ -323,7 +323,7 @@ class TestPrecipitationPeak:
         codes = [51, 51, 53, 61, 61, 63, 63, 63, 63, 63]
         amounts = [0.01, 0.01, 0.02, 0.05, 0.06, 0.12, 0.14, 0.12, 0.1, 0.1]
         assert self._sentence(self._hourly(codes, amounts)) == \
-            "Light drizzle turning to rain in a couple hours and lasting through the day"
+            "Light drizzle now, becoming rain in a couple hours and lasting through the day"
 
     def test_a_turn_two_hours_off_is_not_what_is_falling_now(self):
         # Tokyo: drizzle now, rain from the hour after next.  The header
@@ -333,7 +333,8 @@ class TestPrecipitationPeak:
         hourly = self._hourly(codes, amounts)
         from linecast.weather.sections import precipitation_sentence
         now = datetime(2026, 9, 17, 18, 36)
-        assert precipitation_sentence(hourly, now, _runtime()).startswith("Light drizzle turning")
+        sentence = precipitation_sentence(hourly, now, _runtime())
+        assert sentence.startswith("Light drizzle now, becoming")
 
     def test_japanese_says_the_same_rain_gets_harder_and_another_kind_turns(self):
         # Rain at 18:00 turning heavy at 21:00 and over by 02:00 is the
@@ -352,7 +353,7 @@ class TestPrecipitationPeak:
         codes = [61, 61, 61, 67, 67, 67, 61, 61, 0, 0]
         amounts = [0.1, 0.1, 0.1, 0.3, 0.34, 0.3, 0.2, 0.05, 0, 0]
         assert self._sentence(self._hourly(codes, amounts)) == \
-            "Light rain turning to freezing rain in a couple hours and ending overnight"
+            "Light rain now, becoming freezing rain in a couple hours, ending overnight"
 
     def test_midday_is_noon(self):
         codes = [0, 0, 0, 0, 0, 61, 61, 61, 0]
@@ -372,7 +373,7 @@ class TestPrecipitationPeak:
         codes = [61, 61, 61, 61, 82, 65, 63, 0]
         amounts = [0.05, 0.05, 0.05, 0.05, 0.1, 0.4, 0.2, 0]
         assert self._sentence(self._hourly(codes, amounts)) == \
-            "Light rain turning heavy around 23:00 and ending overnight"
+            "Light rain now, turning heavy around 23:00, ending overnight"
 
     def test_a_shade_of_the_same_thing_is_not_a_turn(self):
         # Light rain to rain, light drizzle to drizzle: nobody says it
@@ -388,7 +389,7 @@ class TestPrecipitationPeak:
         # Drizzle to light rain is only one step up, but it is a change
         codes = [51, 51, 61, 61, 61, 0]
         assert self._sentence(self._hourly(codes)) == \
-            "Light drizzle turning to light rain in about an hour and ending around 23:00"
+            "Light drizzle now, becoming light rain in about an hour, ending around 23:00"
 
     def test_a_turn_the_language_cannot_name_is_not_said(self):
         # Japanese calls every drizzle 霧雨, and thunder is thunder
@@ -402,7 +403,7 @@ class TestPrecipitationPeak:
     def test_without_amounts_the_heaviest_code_is_the_peak(self):
         codes = [51, 53, 63, 65, 63, 0]
         assert self._sentence(self._hourly(codes)) == \
-            "Light drizzle turning to heavy rain in a couple hours and ending around 23:00"
+            "Light drizzle now, becoming heavy rain in a couple hours, ending around 23:00"
 
     def test_a_let_up_is_not_called_a_turn(self):
         # More water later, but a lighter code: the run stays "rain"
@@ -430,8 +431,8 @@ class TestPrecipitationPeak:
             "Light rain starting soon, then thunderstorms overnight"
 
     def test_drizzle_behind_showers_is_a_let_up_not_a_turn(self):
-        # Mumbai: showers now, heavy drizzle after them.  Drizzle ranks
-        # a step above a light shower and is still the weather easing.
+        # Mumbai: showers now, heavy drizzle after them.  Heavy drizzle ranks
+        # above a light shower and is still the weather easing.
         codes = [80, 81, 55, 53, 55, 51, 0, 0]
         amounts = [1.8, 2.5, 1.1, 0.7, 1.1, 0.1, 0, 0]
         assert self._sentence(self._hourly(codes, amounts)) == "Light showers ending overnight"
@@ -439,7 +440,7 @@ class TestPrecipitationPeak:
     def test_a_run_through_the_day_can_still_turn_heavy(self):
         codes = [61] * 10 + [65] * 10 + [61] * 6
         assert self._sentence(self._hourly(codes)) == \
-            "Light rain turning heavy overnight and lasting through the day"
+            "Light rain now, turning heavy overnight and lasting through the day"
 
     def test_swahili_drizzle_keeps_its_noun_class_when_it_turns_to_rain(self):
         codes = [51, 53, 63, 65, 63, 0]
@@ -474,12 +475,27 @@ class TestPrecipitationPeak:
         # ...unless the run only ends because the window does
         codes = [61] * 23 + [65]
         assert self._sentence(self._hourly(codes)) == \
-            "Light rain turning heavy tomorrow evening and lasting through the day"
+            "Light rain now, turning heavy tomorrow evening and lasting through the day"
 
-    def test_a_turn_already_here_is_what_is_falling(self):
+    def test_a_turn_in_the_next_hour_still_names_what_is_falling_now(self):
         # Santiago: drizzle now, showers from the next hour, dry by three
         codes = [53, 81, 81, 81, 0]
-        assert self._sentence(self._hourly(codes)) == "Showers ending in a couple hours"
+        assert self._sentence(self._hourly(codes)) == \
+            "Drizzle now, becoming showers soon, ending in a couple hours"
+
+    def test_heavy_drizzle_turning_to_rain_is_a_turn(self):
+        # Westbrook just after midnight: heavy drizzle now, light rain
+        # from one and the most of the water, plain rain, at two, then
+        # drizzle and showers of rain into the morning, dry from eleven.
+        # Heavy drizzle and rain are the same grade, and the rain is
+        # still the news.
+        codes = [55, 61, 63, 63, 61, 55, 61, 53, 53, 53, 61, 0]
+        amounts = [0.04, 0.09, 0.26, 0.15, 0.09, 0.04, 0.06, 0.04, 0.03, 0.02, 0.08, 0]
+        hourly = self._hourly(codes, amounts, start=24)
+        from linecast.weather.sections import precipitation_sentence
+        now = datetime(2026, 9, 18, 0, 3)
+        assert precipitation_sentence(hourly, now, _runtime()) == \
+            "Heavy drizzle now, becoming rain soon, ending around 11:00"
 
     def test_an_hour_of_drizzle_at_the_edge_of_a_storm_is_the_storm(self):
         # Lagos: drizzle at eleven, thunder from noon
@@ -668,7 +684,7 @@ class TestTheClockInTheSentence:
         hourly = self._hourly(codes, night)
         hourly["precipitation"] = [0.01] * 9 + [0.1, 0.15, 0.15, 0.1, 0, 0]
         assert precipitation_sentence(hourly, night, _runtime()) == \
-            "Light drizzle turning to rain early tomorrow morning and ending later in the morning"
+            "Light drizzle now, becoming rain early tomorrow morning, ending later in the morning"
         assert precipitation_sentence(hourly, night, _runtime(lang="ja")) == \
             "霧雨は明日の早朝に雨に変わり、午前中にやむでしょう"
 
@@ -1567,8 +1583,10 @@ class TestAgreementAndTheClock:
         assert ending([80, 80, 80, 0]) == "Leichte Schauer, in ein paar Stunden abklingend"
         assert ending([95, 95, 95, 0]) == "Gewitter, in ein paar Stunden abklingend"
         assert ending([63, 63, 63, 0]) == "Regen, in ein paar Stunden abklingend"
-        # Drizzle that is all but showers already is said as the showers
-        assert ending([51, 80, 80, 0]) == "Leichte Schauer, in ein paar Stunden abklingend"
+        # Drizzle that turns to showers in the next hour is still the
+        # drizzle falling now
+        assert ending([51, 80, 80, 0]) == (
+            "Leichter Nieselregen, in Kürze leichte Schauer, in ein paar Stunden abklingend")
         assert ending([51, 51, 51, 51, 95, 95, 0]) == (
             "Leichter Nieselregen, gegen 16\u00a0Uhr Gewitter, gegen 18\u00a0Uhr abklingend")
         # Rain that only turns heavier is the same rain, harder

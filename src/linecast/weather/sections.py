@@ -1069,8 +1069,10 @@ _PRECIP_DESCS = {
 
 # How hard each precipitation code falls, one step at a time, so a run
 # of rain can say when it turns heavy without calling a let-up a turn.
+# Drizzle sits half a step under the rain of its grade: heavy drizzle
+# turning to rain is the rain coming on, not the same weather renamed.
 _PRECIP_RANK = {
-    51: 1, 53: 2, 55: 3, 56: 2, 57: 3,
+    51: 0.5, 53: 1.5, 55: 2.5, 56: 1.5, 57: 2.5,
     61: 2, 63: 3, 65: 4, 66: 3, 67: 4,
     71: 2, 73: 3, 75: 4, 77: 1,
     80: 2, 81: 3, 82: 4, 85: 3, 86: 4,
@@ -1286,15 +1288,10 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None, current=None):
         The last hour named is left in parts["last_named"] for the
         sentence that follows."""
         peak = _peak_hour(run, amounts, codes, desc, open_ended)
-        # The hour whose noun the sentence opens with, for agreement
+        # The hour whose noun the sentence opens with, for agreement.
+        # What is falling now is named, however soon it turns: "heavy
+        # drizzle now, becoming rain soon".
         noun = run[0][0]
-        if peak and (peak[1] - now).total_seconds() <= 3600:
-            # A turn that is all but here is what is falling: "showers
-            # ending in a couple hours", not "drizzle becoming showers
-            # shortly"
-            words["desc"] = desc(peak[0])
-            noun = peak[0]
-            peak = None
         if peak and start is not None and (peak[1] - start).total_seconds() <= 2 * 3600:
             # An hour of drizzle at the edge of a storm is the storm:
             # "thunderstorms starting around noon", not "drizzle at
