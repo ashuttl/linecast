@@ -349,6 +349,8 @@ WEATHER = {
     "hist_near_avg": "near avg",
     "hist_above_avg": "{diff} above avg",
     "hist_below_avg": "{diff} below avg",
+    # The year view's label for the ten years' average: "avg 70° / 52°"
+    "avg": "avg",
 }
 
 

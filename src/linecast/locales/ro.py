@@ -148,6 +148,7 @@ WEATHER = {
     "hist_near_avg": "aproape de medie",
     "hist_above_avg": "cu {diff} peste medie",
     "hist_below_avg": "cu {diff} sub medie",
+    "avg": "medie",
     "degrees": "{n}\u00a0grade",
     "warmer_by": "cu {diff} mai ridicată decât cea de {ref_day}",
     "cooler_by": "cu {diff} mai scăzută decât cea de {ref_day}",

@@ -147,6 +147,7 @@ WEATHER = {
     "hist_near_avg": "ĉirkaŭ la mezumo",
     "hist_above_avg": "{diff} super la mezumo",
     "hist_below_avg": "{diff} sub la mezumo",
+    "avg": "mezumo",
     "degrees": "{n}\u00a0gradoj",
     "warmer_by": "je {diff} pli alta ol {ref_day}",
     "cooler_by": "je {diff} pli malalta ol {ref_day}",

@@ -29,6 +29,7 @@ from linecast._runtime import debug_log, log_skipped
 
 _HISTORY_YEARS = 10
 _CACHE_MAX_AGE = 7 * 86400  # 7 days — historical data doesn't change
+_YEAR_CACHE_MAX_AGE = 3 * 3600  # this year's days are still being revised
 # One archive request in flight per process: the server answers a burst
 # of them with "Too many concurrent requests".
 _ARCHIVE_LOCK = threading.Lock()
@@ -62,7 +63,8 @@ class Superseded(Exception):
 
 
 def _fetch_archive(url: str, timeout: float = 15,
-                   stale: "Callable[[], bool] | None" = None, cache_file=None):
+                   stale: "Callable[[], bool] | None" = None, cache_file=None,
+                   max_age=_CACHE_MAX_AGE):
     """One archive request, in its turn, retried when the server balks.
 
     Requests queue on _ARCHIVE_LOCK so that a run of location changes
@@ -79,7 +81,7 @@ def _fetch_archive(url: str, timeout: float = 15,
 
     with _ARCHIVE_LOCK:
         if cache_file is not None:
-            cached = read_cache(cache_file, _CACHE_MAX_AGE)
+            cached = read_cache(cache_file, max_age)
             if cached is not None:
                 return cached
         attempt = 0
@@ -113,39 +115,55 @@ def fetch_historical(lat: float, lng: float, target_date: date,
     tells the network step that the answer is no longer wanted (see
     _fetch_archive); a cached answer is returned regardless.
     """
-    # The archive request covers the last N complete years and depends only
-    # on that year span, the units, and the location -- not on the calendar
-    # day. Key the cache the same way so one download serves every day of
-    # the year; the target day is picked out client-side in _compute_averages.
-    # The span (and so the key) rolls over on 1 January, exactly when a new
-    # complete year becomes available and the request itself changes.
-    end_year = target_date.year - 1  # most recent complete year
-    start_year = end_year - _HISTORY_YEARS + 1
+    data = fetch_history(lat, lng, target_date.year, celsius, metric, stale)
+    if not data:
+        return None
 
-    temp_tag = "C" if celsius else "F"
-    precip_tag = "mm" if metric else "in"
-    cache_file = (
-        cache_dir("weather")
-        / f"hist_{location_cache_key(lat, lng)}_{start_year}-{end_year}_{temp_tag}{precip_tag}.json"
-    )
+    return _compute_averages(data, target_date.month, target_date.day)
 
-    start_date = f"{start_year}-01-01"
-    end_date = f"{end_year}-12-31"
 
+def history_span(year):
+    """(first, last) of the complete years the archive is asked for when
+    it is `year`: the ten before it."""
+    return year - _HISTORY_YEARS, year - 1
+
+
+def _archive_url(lat, lng, start_date, end_date, celsius, metric, extra=""):
     temp_unit = "celsius" if celsius else "fahrenheit"
     precip_unit = "mm" if metric else "inch"
-
-    url = (
+    return (
         "https://archive-api.open-meteo.com/v1/archive"
         f"?latitude={lat}&longitude={lng}"
         f"&start_date={start_date}&end_date={end_date}"
-        "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum"
+        f"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum{extra}"
         f"&temperature_unit={temp_unit}"
         f"&precipitation_unit={precip_unit}"
         "&timezone=auto"
     )
 
-    data = fetch_json_cached(
+
+def _units_tag(celsius, metric):
+    return ("C" if celsius else "F") + ("mm" if metric else "in")
+
+
+def fetch_history(lat, lng, year, celsius=False, metric=False, stale=None):
+    """The archive's daily highs, lows and precipitation for the ten
+    complete years before `year`, as it answered them, or None.
+
+    The request depends only on that span, the units, and the location --
+    not on the calendar day -- so one download serves every day of the
+    year, and the dashboard's scale and the year view share it.  The span
+    (and so the key) rolls over on 1 January, exactly when a new complete
+    year becomes available and the request itself changes."""
+    start_year, end_year = history_span(year)
+    cache_file = (
+        cache_dir("weather")
+        / f"hist_{location_cache_key(lat, lng)}_{start_year}-{end_year}"
+          f"_{_units_tag(celsius, metric)}.json"
+    )
+    url = _archive_url(lat, lng, f"{start_year}-01-01", f"{end_year}-12-31",
+                       celsius, metric)
+    return fetch_json_cached(
         cache_file,
         _CACHE_MAX_AGE,
         url,
@@ -154,10 +172,34 @@ def fetch_historical(lat: float, lng: float, target_date: date,
         fetch=lambda url, timeout: _fetch_archive(url, timeout, stale=stale,
                                                   cache_file=cache_file),
     )
-    if not data:
-        return None
 
-    return _compute_averages(data, target_date.month, target_date.day)
+
+def fetch_year_to_date(lat, lng, today, celsius=False, metric=False, stale=None):
+    """The archive's days from 1 January of `today`'s year through
+    `today`, or None.
+
+    The archive keeps up to the day now, but its latest days are revised
+    as the reanalysis catches up with them, so the answer is kept for a
+    few hours rather than a week."""
+    cache_file = (
+        cache_dir("weather")
+        / f"year_{location_cache_key(lat, lng)}_{today.year}"
+          f"_{_units_tag(celsius, metric)}.json"
+    )
+    # The day's weather code picks the precipitation's ink, as the
+    # dashboard's daily rows do: snow days in the snow color.
+    url = _archive_url(lat, lng, f"{today.year}-01-01", today.isoformat(),
+                       celsius, metric, extra=",weather_code")
+    return fetch_json_cached(
+        cache_file,
+        _YEAR_CACHE_MAX_AGE,
+        url,
+        timeout=15,
+        fallback=None,
+        fetch=lambda url, timeout: _fetch_archive(url, timeout, stale=stale,
+                                                  cache_file=cache_file,
+                                                  max_age=_YEAR_CACHE_MAX_AGE),
+    )
 
 
 def _compute_averages(data, month: int, day: int) -> Optional[HistoricalAverages]:

@@ -26,6 +26,7 @@ WEATHER = {
                "hist_near_avg": "cerca de la media",
                "hist_above_avg": "{diff} por encima de la media",
                "hist_below_avg": "{diff} por debajo de la media",
+               "avg": "media",
 }
 
 

@@ -142,6 +142,7 @@ WEATHER = {
     "hist_near_avg": "κοντά στον μέσο όρο",
     "hist_above_avg": "{diff} πάνω από τον μέσο όρο",
     "hist_below_avg": "{diff} κάτω από τον μέσο όρο",
+    "avg": "μέσος όρος",
     "degrees": "{n}\u00a0βαθμούς",
     "warmer_by": "κατά {diff} υψηλότερη από {ref_day}",
     "cooler_by": "κατά {diff} χαμηλότερη από {ref_day}",

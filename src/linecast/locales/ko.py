@@ -157,6 +157,7 @@ WEATHER = {
     "hist_near_avg": "평년과 비슷",
     "hist_above_avg": "평년보다 {diff} 높음",
     "hist_below_avg": "평년보다 {diff} 낮음",
+    "avg": "평년",
     "degrees": "{n}도",
     "warmer_by": "{ref_day}보다 {diff} 높겠습니다",
     "cooler_by": "{ref_day}보다 {diff} 낮겠습니다",

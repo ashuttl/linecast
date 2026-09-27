@@ -154,6 +154,7 @@ WEATHER = {
     "hist_near_avg": "nær gj.snitt",
     "hist_above_avg": "{diff} over gj.snitt",
     "hist_below_avg": "{diff} under gj.snitt",
+    "avg": "gj.snitt",
     "degrees": "{n}\u00a0grader",
     "warmer_by": "{diff} høyere enn {ref_day}",
     "cooler_by": "{diff} lavere enn {ref_day}",

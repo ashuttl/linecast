@@ -160,6 +160,7 @@ WEATHER = {
     "hist_near_avg": "ใกล้เคียงค่าปกติ",
     "hist_above_avg": "สูงกว่าค่าปกติ {diff}",
     "hist_below_avg": "ต่ำกว่าค่าปกติ {diff}",
+    "avg": "ค่าปกติ",
     "degrees": "{n}\u00a0องศา",
     "warmer_by": "สูงกว่า{ref_day} {diff}",
     "cooler_by": "ต่ำกว่า{ref_day} {diff}",

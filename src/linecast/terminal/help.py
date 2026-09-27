@@ -84,7 +84,8 @@ def mark(text, lang='en'):
 CONTROLS = {
     'weather': [('wheel / ←→', 'forecast'), ('space / n', 'now'),
                 ('hover', 'help_hover'), ('click', 'alert'), ('o', 'browser'),
-                ('r', 'refresh')],
+                ('r', 'refresh'), ('v', 'year')],
+    'weather_year': [('hover', 'help_hover'), ('v', 'year')],
     'tides': [('wheel / ←→', 'time30'), ('space / n', 'now'), ('hover', 'help_hover')],
     'sunshine': [('wheel / ←→', 'time15'), ('space / n', 'now'), ('v / y', 'year')],
     'sunshine_year': [('hover', 'sun_times'), ('v / y', 'year')],

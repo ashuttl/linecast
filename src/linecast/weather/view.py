@@ -727,7 +727,7 @@ class WeatherApp(_live.LiveApp):
     help_view = 'weather'
 
     def __init__(self, data, alerts, aqi, lat, lng, runtime,
-                 location_name="", historical=None, country=""):
+                 location_name="", historical=None, country="", year_view=False):
         self.data = data
         self.alerts = alerts
         self.aqi = aqi
@@ -750,7 +750,15 @@ class WeatherApp(_live.LiveApp):
         self._worker = None
         self._climate_worker = None
         self.attempted = None   # local time the last refresh finished
+        self.year_view = year_view
+        # The year view's (generation, day, climate, archive), and when
+        # its fetch last started for that generation and day and whether
+        # it came back whole.
+        self._year = None
+        self._year_asked = None
+        self._year_worker = None
         self._start_climate(delay=_CLIMATE_RETRY_DELAY)
+        self._start_year()
 
     def _refresh(self, generation, lat, lng, country):
         """Refresh a snapshot of the location; discard it if the user moved."""
@@ -835,6 +843,60 @@ class WeatherApp(_live.LiveApp):
             target=self._fetch_climate,
             args=(self._generation, self.lat, self.lng, delay), daemon=True)
         self._climate_worker.start()
+
+    def _fetch_year(self, generation, lat, lng, today):
+        """The ten years and this year so far, for the year view; kept
+        unless the user has moved on."""
+        from linecast.weather.year import fetch_year
+
+        def stale():
+            return generation != self._generation
+
+        climate, archive = fetch_year(lat, lng, today, self.runtime, stale=stale)
+        with self._state_lock:
+            if stale():
+                return
+            self._year = (generation, today, climate, archive)
+            self._year_asked = (generation, today, self._year_asked[2],
+                                climate is not None and archive is not None)
+        _live.nudge()
+
+    def _start_year(self):
+        """Fetch the year view's data while the view is showing: when it
+        opens, when the place or the day changes, again a little later
+        when a fetch came back short, and every few hours for the
+        archive's latest days.  Called with the state lock held."""
+        if not self.year_view or not self.data:
+            return
+        worker = self._year_worker
+        if worker and worker.is_alive():
+            return
+        today = _local_now_for_data(self.data).date()
+        asked = self._year_asked
+        if asked and asked[:2] == (self._generation, today):
+            wait = _YEAR_REFRESH if asked[3] else _CLIMATE_RETRY_DELAY
+            if _t.monotonic() - asked[2] < wait:
+                return
+        self._year_asked = (self._generation, today, _t.monotonic(), False)
+        self._year_worker = threading.Thread(
+            target=self._fetch_year,
+            args=(self._generation, self.lat, self.lng, today), daemon=True)
+        self._year_worker.start()
+
+    def _render_year(self, mouse_pos):
+        from linecast.weather.year import render_year, year_days
+        today = _local_now_for_data(self.data).date()
+        year = self._year if self._year and self._year[0] == self._generation else None
+        climate = year[2] if year else None
+        # Yesterday's archive answer is a day short; the forecast fills
+        # that day until the new one comes.
+        archive = year[3] if year and year[1].year == today.year else None
+        cols, _ = get_terminal_size()
+        return render_year(
+            climate, year_days(archive, self.data, today), self.runtime,
+            location_name=self.location_name, location_menu=True,
+            mouse_pos=mouse_pos, live=True, hint=install_banner(),
+            footer=credit_row(cols, self.runtime.lang, runtime=self.runtime))
 
     def _refreshing(self):
         return bool(self._worker and self._worker.is_alive())
@@ -931,6 +993,7 @@ class WeatherApp(_live.LiveApp):
         self.fetched, self.attempted = _t.monotonic(), None
         self.locations.recent.remember(place)
         self._start_climate(delay=_CLIMATE_RETRY_DELAY)
+        self._start_year()
 
     def text_mode(self):
         return self.locations.search.open
@@ -939,10 +1002,14 @@ class WeatherApp(_live.LiveApp):
         if self.locations.active:
             self._choose_location(self.locations.handle(action, self.lat, self.lng))
             return True
-        return False
+        # The year view scrubs nothing; the arrows would move the
+        # forecast behind it.
+        return self.year_view and action in ("fwd", "back")
 
     def on_wheel(self, direction, col, row):
         if not self.locations.active:
+            if self.year_view:
+                return True
             return NotImplemented  # keep the forecast and alert modal's usual scrolling
         self.locations.handle('fwd' if direction > 0 else 'back', self.lat, self.lng)
         return True
@@ -987,6 +1054,12 @@ class WeatherApp(_live.LiveApp):
         if key == "r":
             self._start_refresh()
             return True
+        # v flips the view; y does too, unlisted, as sunshine's year key
+        if key in ("v", "y"):
+            with self._state_lock:
+                self.year_view = not self.year_view
+                self._start_year()
+            return True
         return False
 
     def render(self, offset_minutes=0, mouse_pos=None, active_alert=None,
@@ -1001,17 +1074,21 @@ class WeatherApp(_live.LiveApp):
         notice = forecast_notice(self.data, self.runtime, live=True,
                                  fetching=self._refreshing(), failed_at=self.attempted)
         panel = self.locations.active
-        output, alert_rows = render_from_data(
-            self.data, self.alerts, self.runtime,
-            location_name=self.location_name,
-            offset_minutes=offset_minutes,
-            mouse_pos=None if panel else mouse_pos,
-            active_alert=None if panel else active_alert,
-            modal_scroll=modal_scroll,
-            aqi_data=self.aqi, historical=self.historical,
-            notice=notice, country_code=self.country,
-            location_menu=True,
-        )
+        if self.year_view:
+            self._start_year()
+            output, alert_rows = self._render_year(None if panel else mouse_pos), {}
+        else:
+            output, alert_rows = render_from_data(
+                self.data, self.alerts, self.runtime,
+                location_name=self.location_name,
+                offset_minutes=offset_minutes,
+                mouse_pos=None if panel else mouse_pos,
+                active_alert=None if panel else active_alert,
+                modal_scroll=modal_scroll,
+                aqi_data=self.aqi, historical=self.historical,
+                notice=notice, country_code=self.country,
+                location_menu=True,
+            )
         cols, rows = get_terminal_size()
         # The live header always reserves space for its location control.
         from linecast.weather.sections import location_chip, location_control
@@ -1034,7 +1111,8 @@ class WeatherApp(_live.LiveApp):
         return HelpPanel('weather', self.runtime.lang, content=lambda cols, rows:
                          [('l', ls('locations', self.runtime.lang)),
                           ('/', ls('add', self.runtime.lang))] +
-                         entries('weather', self.runtime.lang,
+                         entries('weather_year' if self.year_view else 'weather',
+                                 self.runtime.lang,
                                  credits=(forecast_attribution(self.runtime.lang),
                                           observation_attribution(self.runtime.lang,
                                                                   observed["station"])
@@ -1067,6 +1145,10 @@ _OBSERVATION_PATIENCE = 2
 # cache, and to spare an archive that is refusing requests a second
 # volley on its heels.
 _CLIMATE_RETRY_DELAY = 20
+# How often the year view asks the archive again: its latest days are
+# revised as the reanalysis catches up, and a fetch from the cache
+# costs nothing.
+_YEAR_REFRESH = 3 * 3600
 
 
 def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
@@ -1195,9 +1277,16 @@ def main():
 
 
 def _main():
-    args = weather_parser().parse_args()
+    parser = weather_parser()
+    args = parser.parse_args()
     runtime = WeatherRuntime.from_sources(args)
     set_current(runtime)
+    # --year picks a view. --json and --oneline describe today and have
+    # no year form, as in sunshine.
+    if args.year and (runtime.json_mode or runtime.oneline):
+        mode = "--json" if runtime.json_mode else "--oneline"
+        parser.error(f"--year has no {mode} output "
+                     f"(--year is a view; {mode} describes today)")
     # In a right-to-left language the whole dashboard reads from the
     # right, the hourly graph included: now is at the right edge
     from linecast.terminal import bidi as _bidi
@@ -1261,8 +1350,18 @@ def _main():
         WeatherApp(
             data, alerts, aqi_data, lat, lng, runtime,
             location_name=location_name, historical=historical,
-            country=final_country,
+            country=final_country, year_view=args.year,
         ).run()
+    elif args.year:
+        from linecast.terminal.textwidth import calibrate_from_terminal
+        from linecast.weather.year import fetch_year, render_year, year_days
+        today = _local_now_for_data(data).date()
+        with Spinner():
+            climate, archive = fetch_year(lat, lng, today, runtime)
+        calibrate_from_terminal()
+        _live.print_frame(render_year(
+            climate, year_days(archive, data, today), runtime,
+            location_name=location_name, hint=install_banner()))
     else:
         from linecast.terminal.textwidth import calibrate_from_terminal
         calibrate_from_terminal()

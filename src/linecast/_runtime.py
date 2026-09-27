@@ -523,6 +523,11 @@ def weather_parser():
                          "forecast, world spans -40 to 50°C")
     p.add_argument("--no-shading", action="store_true",
                     help="disable daylight shading on hourly chart")
+    p.add_argument("--year", action="store_true",
+                    help="year view: each day's high and low this year "
+                         "against the past ten years, and each month's "
+                         "precipitation against its average (v flips "
+                         "between the views)")
     return p
 
 

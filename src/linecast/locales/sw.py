@@ -150,6 +150,7 @@ WEATHER = {
     "hist_near_avg": "karibu na wastani",
     "hist_above_avg": "{diff} juu ya wastani",
     "hist_below_avg": "{diff} chini ya wastani",
+    "avg": "wastani",
     "degrees": "nyuzi\u00a0{n}",
     "warmer_by": "juu kwa {diff} kuliko cha {ref_day}",
     "cooler_by": "chini kwa {diff} kuliko cha {ref_day}",

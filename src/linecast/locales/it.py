@@ -152,6 +152,7 @@ WEATHER = {
     "hist_near_avg": "vicino alla media",
     "hist_above_avg": "{diff} sopra la media",
     "hist_below_avg": "{diff} sotto la media",
+    "avg": "media",
     "degrees": "{n}°",
     "warmer_by": "in aumento di {diff} rispetto a {ref_day}",
     "cooler_by": "in calo di {diff} rispetto a {ref_day}",

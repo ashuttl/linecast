@@ -158,6 +158,7 @@ WEATHER = {
     "hist_near_avg": "接近平均",
     "hist_above_avg": "比平均高{diff}",
     "hist_below_avg": "比平均低{diff}",
+    "avg": "平均",
     "degrees": "{n}度",
     "warmer_by": "比{ref_day}高{diff}",
     "cooler_by": "比{ref_day}低{diff}",

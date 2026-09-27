@@ -156,6 +156,7 @@ WEATHER = {
     "hist_near_avg": "ortalamaya yakın",
     "hist_above_avg": "ortalamanın {diff} üzerinde",
     "hist_below_avg": "ortalamanın {diff} altında",
+    "avg": "ortalama",
     "degrees": "{n}\u00a0derece",
     "warmer_by": "{ref_day}nden {diff} daha yüksek",
     "cooler_by": "{ref_day}nden {diff} daha düşük",

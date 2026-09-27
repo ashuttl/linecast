@@ -261,6 +261,7 @@ WEATHER = {
     "hist_near_avg": "نزدیک به میانگین",
     "hist_above_avg": "{diff} بالاتر از میانگین",
     "hist_below_avg": "{diff} پایین\u200cتر از میانگین",
+    "avg": "میانگین",
 }
 
 

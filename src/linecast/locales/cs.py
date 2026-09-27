@@ -155,6 +155,7 @@ WEATHER = {
     "hist_near_avg": "kolem průměru",
     "hist_above_avg": "o {diff} nad průměrem",
     "hist_below_avg": "o {diff} pod průměrem",
+    "avg": "průměr",
     "degrees": "{n}\u00a0stupňů",
     "warmer_by": "o {diff} vyšší než {ref_day}",
     "cooler_by": "o {diff} nižší než {ref_day}",

@@ -161,6 +161,7 @@ WEATHER = {
     "hist_near_avg": "gần trung bình",
     "hist_above_avg": "cao hơn trung bình {diff}",
     "hist_below_avg": "thấp hơn trung bình {diff}",
+    "avg": "trung bình",
     "degrees": "{n}\u00a0độ",
     "warmer_by": "cao hơn {ref_day} {diff}",
     "cooler_by": "thấp hơn {ref_day} {diff}",

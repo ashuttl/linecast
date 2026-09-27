@@ -153,6 +153,7 @@ WEATHER = {
     "hist_near_avg": "близько норми",
     "hist_above_avg": "{diff} вище норми",
     "hist_below_avg": "{diff} нижче норми",
+    "avg": "норма",
     "degrees": "{n}\u00a0градусів",
     "warmer_by": "на {diff} вищою, ніж {ref_day}",
     "cooler_by": "на {diff} нижчою, ніж {ref_day}",
