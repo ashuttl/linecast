@@ -736,22 +736,7 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
     if hovered is not None:
         tip = _tooltip(climate, days, hovered, jan1, slots, runtime, hover_x + gutter,
                        mouse_pos[1], cols, rows)
-    return overlay(_on_the_page(lines, cols), tip)
-
-
-def _on_the_page(lines, cols):
-    """The view's lines, joined, and painted to the margin in the
-    theme's background where that is not the terminal's own: in
-    linecast's palette (--classic-colors, or a terminal that did not say
-    what its colors are).  The panels paint every cell, and without this
-    the header, the degrees, the month axis and the footer would sit on
-    the terminal's background beside them."""
-    page = "" if _theme.theme_available else bg(*_theme.theme_bg)
-    if not (page and RESET):
-        return "\n".join(lines)
-    return "\n".join(
-        page + line.replace(RESET, RESET + page) + " " * max(0, cols - visible_len(line))
-        + RESET for line in lines)
+    return overlay("\n".join(lines), tip)
 
 
 def _month_axis(year, starts, n, width, runtime, this_month=None):

@@ -425,28 +425,6 @@ class TestChart:
         # English sets no space before mm; Sep 1-25 is 25/30 of its month
         assert "804mm · avg 537mm" in head
 
-    def _painted(self, theme_available):
-        from linecast.terminal import color as _color
-        with patch.object(_color, "_COLOR_MODE", "truecolor"), \
-             patch.object(year, "RESET", "\x1b[0m"), \
-             patch.object(year._theme, "theme_available", theme_available):
-            out = _render(_climate(), _days(), size=(120, 34), footer="Open-Meteo")
-        return out.split("\n"), "\x1b[48;2;{};{};{}m".format(*year._theme.theme_bg)
-
-    def test_in_linecasts_own_palette_the_page_is_painted_to_the_margin(self):
-        # --classic-colors, or a terminal that did not say: the panels'
-        # background is not the terminal's, so the text rows take it too
-        lines, page = self._painted(False)
-        for line in lines:
-            assert line.startswith(page)
-            assert len(_strip(line)) == 120
-            assert line.count("\x1b[0m") == line.count("\x1b[0m" + page) + 1
-
-    def test_on_the_terminals_own_background_the_text_rows_are_left_bare(self):
-        lines, page = self._painted(True)
-        assert not lines[0].startswith(page)
-        assert not lines[-1].startswith(page)
-
 
 # ---------------------------------------------------------------------------
 # The archive

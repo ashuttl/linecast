@@ -6,14 +6,12 @@ names out of them — all see the new theme.  The live loop learns of a
 change from OSC replies parsed out of its own input stream.
 """
 
-import colorsys
 import os
 import select
 import subprocess
 import sys
 import textwrap
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -150,7 +148,7 @@ class TestLightThemeInk:
 
     def test_a_bar_label_takes_its_ink_from_the_bar(self, restore_theme):
         _theme._apply(*LIGHT)
-        cold = style.TEMP_COLORS[0][1]   # the coldest fill: purple
+        cold = style.TEMP_COLORS[0][1]   # the coldest fill: deep blue
         ink = style._knockout_ink(cold)
         assert _theme.luminance(ink) > 0.5        # white, not the page's ink
         assert _theme.contrast_ratio(ink, cold) >= 4.5
@@ -170,53 +168,6 @@ class TestLightThemeInk:
         assert _theme.contrast_ratio(
             alerts.TEXT_RGB, alerts.MODAL_BG_RGB) >= 4.5
 
-
-
-@pytest.mark.skipif(_theme.theme_legacy_mode, reason="legacy palette is fixed")
-class TestExtremeColors:
-    """Below freezing the temperature colors deepen from the theme's
-    blue and turn toward its magenta, through indigo to purple; past
-    red they turn pink, and then pale to white-hot."""
-
-    ADWAITA_DARK = ((255, 255, 255), (28, 28, 31), (
-        (36, 31, 49), (192, 28, 40), (46, 194, 126), (245, 194, 17),
-        (30, 120, 228), (152, 65, 187), (10, 185, 220), (192, 191, 188),
-        (94, 92, 100), (237, 51, 59), (87, 227, 137), (248, 228, 92),
-        (81, 161, 255), (192, 97, 203), (79, 210, 253), (246, 245, 244)))
-
-    @staticmethod
-    def _hue(rgb):
-        return colorsys.rgb_to_hls(*(c / 255 for c in rgb))[0] * 360
-
-    def test_colder_is_deeper_and_nearer_magenta(self, restore_theme):
-        _theme._apply(*self.ADWAITA_DARK)
-        rt = SimpleNamespace(celsius=False)
-        freezing, deep, indigo, purple = (style._temp_color(t, rt) for t in (32, 15, 0, -20))
-        assert _theme.luminance(deep) < _theme.luminance(freezing)
-        hues = [self._hue(c) for c in (deep, indigo, purple)]
-        assert hues == sorted(hues)
-        # short of the magenta, which on many themes is a pink
-        assert hues[-1] < self._hue(style.MAGENTA_RGB)
-
-    def test_the_scale_runs_to_twenty_below(self, restore_theme):
-        _theme._apply(*self.ADWAITA_DARK)
-        rt = SimpleNamespace(celsius=False)
-        assert style._temp_color(-20, rt) != style._temp_color(0, rt)
-        assert style._temp_color(-40, rt) == style._temp_color(-20, rt)
-
-    def test_hotter_is_pinker_and_then_paler(self, restore_theme):
-        _theme._apply(*self.ADWAITA_DARK)
-        rt = SimpleNamespace(celsius=False)
-        red, pink, white_hot = (style._temp_color(t, rt) for t in (95, 105, 115))
-        assert self._hue(style.MAGENTA_RGB) < self._hue(pink) < self._hue(red)
-        assert _theme.luminance(white_hot) > 2 * _theme.luminance(pink)
-        assert style._temp_color(130, rt) == white_hot
-
-    def test_on_a_light_theme_white_hot_darkens_instead(self, restore_theme):
-        _theme._apply(*LIGHT)
-        rt = SimpleNamespace(celsius=False)
-        pink, white_hot = style._temp_color(105, rt), style._temp_color(115, rt)
-        assert _theme.luminance(white_hot) < _theme.luminance(pink)
 
 @pytest.fixture
 def pipe():

@@ -4,9 +4,6 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
-- Weather: More colors at the ends of the temperature scale: a deeper blue, indigo, and purple down to -20°F (-29°C), and pink, then a pale white-hot, up to 115°F (46°C).
-- Weather: With --classic-colors, and in terminals that do not report their colors, the year view's background fills the whole window.
-
 ## 2.9.2 — 2026-09-27
 
 - Weather: Fixed the year view showing only the last week for places ahead of UTC, such as Sydney, for part of each day.
