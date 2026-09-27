@@ -445,6 +445,8 @@ MOON = {
     "begins_at_sunset": "일몰에 시작",
     "in_time": "{dur} 후",
     "year_day": "올해 {n}일째 / {total}일",
+    "week_of_summer": "여름 {n}주째",
+    "week_of_winter": "겨울 {n}주째",
     "light_of_moon": "차오르는 달",
     "dark_of_moon": "기우는 달",
     "good_for": "{things}에 좋음",

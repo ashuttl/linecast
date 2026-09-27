@@ -523,6 +523,8 @@ MOON = {
     "begins_at_sunset": "begins at sunset",
     "in_time": "in {dur}",
     "year_day": "Day {n} of {total}",
+    "week_of_summer": "week {n} of summer",
+    "week_of_winter": "week {n} of winter",
     "light_of_moon": "light of the moon",
     "dark_of_moon": "dark of the moon",
     "good_for": "Good for {things}",

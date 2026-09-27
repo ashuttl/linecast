@@ -434,6 +434,8 @@ MOON = {
     "begins_at_sunset": "commence au coucher du soleil",
     "in_time": "dans {dur}",
     "year_day": "Jour {n} sur {total}",
+    "week_of_summer": "semaine {n} de l'été",
+    "week_of_winter": "semaine {n} de l'hiver",
     "light_of_moon": "lune croissante",
     "dark_of_moon": "lune décroissante",
     "good_for": "Bon pour {things}",

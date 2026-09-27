@@ -9,6 +9,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: More colors at the ends of the temperature scale: a deeper blue that pales toward ice down to -40°F (-40°C), and a crimson that deepens toward maroon up to 115°F (46°C).
 - Weather: With --classic-colors, and in terminals that do not report their colors, the year view's background fills the whole window.
 - Weather: In the daily forecast, the conditions for calm days are dimmed, so the days with rain, snow, or wind stand out.
+- Moon: `--calendar icelandic` follows the old Icelandic calendar: the week of summer or winter beside the phase, the month, and the next of the days the almanac names, such as the first day of winter and bóndadagur. In Icelandic it is the moon's calendar by default.
 
 ## 2.9.2 — 2026-09-27
 

@@ -623,3 +623,60 @@ def hebrew_date_hebrew(year, month, day):
 
 def rosh_chodesh_label(year, month):
     return f"Rosh Chodesh {hebrew_month_name(year, month)}"
+
+
+# ---------------------------------------------------------------------------
+# The old Icelandic calendar's names (see astro/calendars/icelandic.py).
+# The months and named days keep their Icelandic names in every
+# language, as the Pacific nights do: they have no English ones. The
+# week, which is how the calendar gives a date, reads in the UI
+# language: "week 23 of summer", "23. vika sumars".
+# ---------------------------------------------------------------------------
+
+_ICELANDIC_MONTHS = {
+    "harpa": "Harpa",
+    "skerpla": "Skerpla",
+    "solmanudur": "Sólmánuður",
+    "aukanaetur": "Aukanætur",
+    "sumarauki": "Sumarauki",
+    "heyannir": "Heyannir",
+    "tvimanudur": "Tvímánuður",
+    "haustmanudur": "Haustmánuður",
+    "gormanudur": "Gormánuður",
+    "ylir": "Ýlir",
+    "morsugur": "Mörsugur",
+    "thorri": "Þorri",
+    "goa": "Góa",
+    "einmanudur": "Einmánuður",
+}
+
+_ICELANDIC_DAYS = {
+    "sumardagurinn_fyrsti": "Sumardagurinn fyrsti",
+    "fardagar": "Fardagar",
+    "midsumar": "Miðsumar",
+    "veturnaetur": "Veturnætur",
+    "fyrsti_vetrardagur": "Fyrsti vetrardagur",
+    "bondadagur": "Bóndadagur",
+    "thorrathraell": "Þorraþræll",
+    "konudagur": "Konudagur",
+    "gouthraell": "Góuþræll",
+    "sumarmal": "Sumarmál",
+}
+
+
+def icelandic_month_name(key):
+    return _ICELANDIC_MONTHS[key]
+
+
+def icelandic_day_name(key):
+    return _ICELANDIC_DAYS[key]
+
+
+def icelandic_week_label(local_date, runtime):
+    """The date as the calendar gives it: the week of summer or winter,
+    or on summer's last two days, which no week counts, their name."""
+    from linecast.astro.calendars.icelandic import icelandic_week
+    misseri, week = icelandic_week(local_date)
+    if week is None:
+        return icelandic_day_name("veturnaetur")
+    return _ms(f"week_of_{misseri}", runtime, n=week)

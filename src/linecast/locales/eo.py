@@ -405,6 +405,8 @@ MOON = {
     "begins_at_sunset": "komenciĝas ĉe sunsubiro",
     "in_time": "post {dur}",
     "year_day": "Tago {n} el {total}",
+    "week_of_summer": "{n}-a semajno de la somero",
+    "week_of_winter": "{n}-a semajno de la vintro",
     "light_of_moon": "kreskanta luno",
     "dark_of_moon": "malkreskanta luno",
     "good_for": "Bona por {things}",

@@ -4,7 +4,7 @@
 
 ## Choosing one
 
-In Chinese, Japanese, Korean, Vietnamese, Thai, and Persian the calendar follows the language; Persian's is the Islamic. You can choose any calendar in any language: `linecast moon --calendar hebrew` for one run, or `linecast calendar hebrew` to save it for every run. `linecast calendar none` turns it off, and `linecast calendar auto` goes back to following the language. The names are `chinese`, `japanese`, `korean`, `vietnamese`, `thai`, `hawaiian`, `samoan`, `chamorro`, `refaluwasch`, `islamic`, `hebrew`, and `almanac`.
+In Chinese, Japanese, Korean, Vietnamese, Thai, Persian, and Icelandic the calendar follows the language; Persian's is the Islamic. You can choose any calendar in any language: `linecast moon --calendar hebrew` for one run, or `linecast calendar hebrew` to save it for every run. `linecast calendar none` turns it off, and `linecast calendar auto` goes back to following the language. The names are `chinese`, `japanese`, `korean`, `vietnamese`, `thai`, `hawaiian`, `samoan`, `chamorro`, `refaluwasch`, `islamic`, `hebrew`, `icelandic`, and `almanac`.
 
 Whichever calendar is active, the month grid (press `v`, or open on it with `linecast moon --grid`) uses it too: the calendar's months in the title, each day's date in the corner of its cell, the month starts and observances marked, and the full date in the hover chip. Click a day and the disc view opens on it.
 
@@ -51,6 +51,18 @@ The date is shown beside the phase (20 Elul 5786) and changes at sunset where yo
 The holidays follow the place shown, the way a calendar printed in Jerusalem differs from one printed in Brooklyn. Outside Israel there is a second day of Sukkot and Shavuot and of Pesach's first and last days, and Simchat Torah falls the day after Shemini Atzeret. In Israel each is one day, with Simchat Torah on Shemini Atzeret itself.
 
 Hebrew is not one of the app's languages, so the months and holidays are transliterated in every language. The month grid names each holiday's days, and the hover chip notes each Rosh Chodesh. `--json` adds the date in Hebrew letters as well, כ׳ אלול תשפ״ו, for a program that can display Hebrew.
+
+## Icelandic
+
+`icelandic` follows the old Icelandic calendar, the misseristal. Icelanders used it for everyday dates until the eighteenth century, and the University of Iceland's almanac, Almanak Háskóla Íslands, still prints it. The year has two halves, summer and winter, made of whole weeks: 52 of them, or 53 in a year that takes a leap week, the sumarauki. Summer begins on a Thursday between 19 and 25 April, the first day of summer (sumardagurinn fyrsti), which is still a public holiday in Iceland. Winter begins on a Saturday between 21 and 28 October, the first day of winter (fyrsti vetrardagur).
+
+Dates in this calendar were given by the week, never by month and day, so the panel shows the week beside the phase: week 23 of summer, or 23. vika sumars in Icelandic. Next comes the month and the one after it, from Harpa to Einmánuður, with the four extra nights (aukanætur), and the leap week in the years that have it, between Sólmánuður and Heyannir. Last is a countdown to the next of the days the almanac names: the first days of summer and winter; the fardagar, the old moving days; miðsumar; the veturnætur, the last two days of summer; bóndadagur and konudagur, which open Þorri and Góa; þorraþræll and góuþræll, which close them; and the sumarmál, the last days of winter. The names are Icelandic in every language. The month grid marks each named day and month start, and the title names the Icelandic months the civil month runs through.
+
+Everything is counted from the first day of summer, which has been the first Thursday after 18 April since Iceland changed to the Gregorian calendar in 1700. The leap week goes in whenever the next first day of summer would otherwise come before 19 April. About once in 28 years, when summer begins on 20 April and a Gregorian leap year follows, the year takes the leap week, and midsummer and the winter months fall a day later than they can in any other year, until the leap day. This is the rímspillir, most recently in 2023. Until 1928 the printed almanac put the leap week at the end of summer rather than before Heyannir, and linecast does the same for those years.
+
+**Checked against:** the dates the almanac lists for 2024 to 2027; each month's weekday, week, and range of dates, as the almanac's glossary gives them, for every year from 1929 to 2399; the leap weeks and rímspillir years named by the University's Science Web; and every year's month starts from 1929 to 2098 against the tables in Svante Janson's "The Icelandic calendar" (2010), whose arithmetic linecast follows.
+
+In Icelandic this is the moon's calendar by default.
 
 ## Solar Hijri, the civil date in Persian
 

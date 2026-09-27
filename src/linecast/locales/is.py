@@ -6,6 +6,7 @@ left out here reads in English.
 
 
 SETTINGS = {
+    "calendar": "icelandic",
     "decimal": ",",
     "metric_wind": "m/s",
 }
@@ -404,6 +405,8 @@ MOON = {
     "begins_at_sunset": "hefst við sólsetur",
     "in_time": "eftir {dur}",
     "year_day": "Dagur {n} af {total}",
+    "week_of_summer": "{n}. vika sumars",
+    "week_of_winter": "{n}. vika vetrar",
     "light_of_moon": "vaxandi tungl",
     "dark_of_moon": "minnkandi tungl",
     "good_for": "Gott fyrir {things}",

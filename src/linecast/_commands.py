@@ -31,8 +31,8 @@ SETTINGS = (
                "(Persian ۰-۹ in Persian, the default)"),
     ("icons", "nerd, emoji, or plain"),
     ("calendar", "Which calendar the moon follows: chinese, japanese, korean, vietnamese, "
-                 "thai, hawaiian, samoan, chamorro, refaluwasch, islamic, hebrew, almanac, "
-                 "or none"),
+                 "thai, hawaiian, samoan, chamorro, refaluwasch, islamic, hebrew, "
+                 "icelandic, almanac, or none"),
     ("culture", "Whose constellations the sky draws: chinese, hawaiian, norse, maori, "
                 "boorong, and seventeen more, or none for the IAU sky"),
     ("hours", "Which hours sunshine reads the day in: halachic, halachic-mga, roman, "

@@ -412,6 +412,8 @@ MOON = {
     "begins_at_sunset": "începe la apus",
     "in_time": "peste {dur}",
     "year_day": "Ziua {n} din {total}",
+    "week_of_summer": "săptămâna {n} a verii",
+    "week_of_winter": "săptămâna {n} a iernii",
     "light_of_moon": "Lună în creștere",
     "dark_of_moon": "Lună în descreștere",
     "good_for": "Prielnic: {things}",

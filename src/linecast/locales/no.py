@@ -395,6 +395,8 @@ MOON = {
     "begins_at_sunset": "begynner ved solnedgang",
     "in_time": "om {dur}",
     "year_day": "Dag {n} av {total}",
+    "week_of_summer": "uke {n} av sommeren",
+    "week_of_winter": "uke {n} av vinteren",
     "light_of_moon": "voksende måne",
     "dark_of_moon": "minkende måne",
     "good_for": "Godt for {things}",

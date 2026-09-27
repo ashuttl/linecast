@@ -4,12 +4,13 @@ Usage: linecast calendar [show]
        linecast calendar chinese | japanese | korean | vietnamese | thai
        linecast calendar almanac
        linecast calendar hawaiian | samoan | chamorro | refaluwasch
-       linecast calendar islamic | hebrew
+       linecast calendar islamic | hebrew | icelandic
        linecast calendar none
        linecast calendar auto
 
 Precedence: moon's --calendar flag > this setting > the calendar
-native to the UI language (--lang zh, ja, ko, vi, th, or fa) > none.
+native to the UI language (--lang zh, ja, ko, vi, th, fa, or is) >
+none.
 """
 
 import argparse
@@ -22,7 +23,7 @@ from linecast._runtime import VersionAction
 
 _NATURAL = ("chinese with --lang zh, japanese with ja, "
             "korean with ko, vietnamese with vi, thai with th, islamic "
-            "with fa; none otherwise")
+            "with fa, icelandic with is; none otherwise")
 
 
 def _cmd_show():
@@ -38,7 +39,7 @@ def _cmd_show():
         print("Run 'linecast calendar chinese', 'japanese', 'korean', "
               "'vietnamese', 'thai', 'hawaiian', 'samoan', 'chamorro', "
               "'refaluwasch', "
-              "'islamic', 'hebrew', or 'almanac' to fix one.")
+              "'islamic', 'hebrew', 'icelandic', or 'almanac' to fix one.")
 
 
 def _cmd_set(choice):
@@ -70,6 +71,10 @@ def _cmd_set(choice):
     elif choice == "hebrew":
         print("Calendar set to hebrew: the moon shows the Hebrew date, "
               "the coming month, and the next holiday in every language")
+    elif choice == "icelandic":
+        print("Calendar set to icelandic: the moon shows the week of "
+              "summer or winter, the month, and the next named day of "
+              "the old Icelandic calendar in every language")
     elif choice == "thai":
         print("Calendar set to thai: the moon shows its lunar date, "
               "the coming วันพระ, and the next festival in every "
@@ -126,6 +131,10 @@ def main():
     sub.add_parser("hebrew",
                    help="Hebrew — the date by the fixed calendar, with "
                         "Rosh Hashanah, Pesach, and the other holidays")
+    sub.add_parser("icelandic",
+                   help="Misseristal — the old Icelandic calendar's weeks "
+                        "of summer and winter, its months from Harpa to "
+                        "Einmánuður, and its named days")
     sub.add_parser("almanac",
                    help="Old Farmer's Almanac — gardening by the moon "
                         "and solunar periods")

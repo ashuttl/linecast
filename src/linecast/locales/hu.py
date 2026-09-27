@@ -552,6 +552,8 @@ MOON = {
     "begins_at_sunset": "napnyugtakor kezdődik",
     "in_time": "{dur} múlva",
     "year_day": "{n}. nap / {total}",
+    "week_of_summer": "a nyár {n}. hete",
+    "week_of_winter": "a tél {n}. hete",
     # The almanac's növő hold and fogyó hold
     "light_of_moon": "növő hold",
     "dark_of_moon": "fogyó hold",

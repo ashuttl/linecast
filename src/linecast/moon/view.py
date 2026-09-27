@@ -46,11 +46,18 @@ from linecast.astro.calendars.hebrew import next_month_start as next_hebrew_mont
 from linecast.astro.calendars.hijri import (
     after_sunset, hijri_date, next_month_start, next_observance,
 )
+from linecast.astro.calendars.icelandic import (
+    month_key as icelandic_month_key, next_named_day,
+)
+from linecast.astro.calendars.icelandic import (
+    next_month_start as next_icelandic_month,
+)
 from linecast.moon.i18n import (
     _day_abbrev, _fmt_month_day, _moon_name, _ms, _season_label,
     anahulu_name, festival_table, hebrew_date_label, hebrew_holiday_name,
     hebrew_month_name, hijri_date_label, hijri_month_name,
-    hijri_observance_name, ja_night_name, lunar_date_label,
+    hijri_observance_name, icelandic_day_name, icelandic_month_name,
+    icelandic_week_label, ja_night_name, lunar_date_label,
     pacific_night_label, solar_hijri_observance_name, term_label,
     thai_festival_name, thai_lunar_label, thai_year_label, wan_phra_label,
     year_turn_label,
@@ -442,8 +449,10 @@ def calendar_headline(cal, now_local, lat, lng, runtime, lang):
     calendar's 18th, whatever octant the phase rounds to). The aside is
     the lunar date — Chinese, Japanese, Korean, Thai, Hijri (turned at
     the reader's sunset), Hebrew (the same) — or the anahulu, or the
-    almanac's half of the month. A calendar shown in its own language
-    keeps its own script; any other language gets the English names.
+    almanac's half of the month, or the week of summer or winter, which
+    is how the old Icelandic calendar gives a date. A calendar shown in
+    its own language keeps its own script; any other language gets the
+    English names.
     """
     if cal is None:
         return None, None
@@ -462,6 +471,8 @@ def calendar_headline(cal, now_local, lat, lng, runtime, lang):
         if cal == "islamic":
             return None, hijri_date_label(*hijri_date(h_day), lang)
         return None, hebrew_date_label(*hebrew_date(h_day))
+    if cal == "icelandic":
+        return None, icelandic_week_label(now_local.date(), runtime)
     if cal == "thai":
         label_lang = "th" if lang == "th" else "en"
         t_month, t_day, t_doubled = thai_lunar_date(now_local.date())
@@ -709,6 +720,29 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                 if fest_gap == 1 else (
                     f"{fest_short} "
                     f"({_ms('in_days', runtime, days=str(fest_gap))})")
+    elif cal == "icelandic":
+        # The old Icelandic calendar gives the date by the week, which
+        # the headline carries. The month and the coming one take the
+        # terms' place, as the Hebrew and Hijri months do, and the
+        # named days are counted down as those calendars' holidays
+        # are, a span in progress named alone. The day turns at
+        # midnight: the almanac's calendar is a civil one.
+        today = now_local.date()
+        term_short = icelandic_month_name(icelandic_month_key(today))
+        nxt_day, nxt_key = next_icelandic_month(today)
+        nxt_gap = (nxt_day - today).days
+        term_txt = (f"{term_short} · {icelandic_month_name(nxt_key)} "
+                    f"{_fmt_month_day(nxt_day, runtime)} "
+                    f"({_ms('in_days', runtime, days=str(nxt_gap))})")
+        fest_day, fest_key = next_named_day(today)
+        fest_gap = (fest_day - today).days
+        if fest_gap <= 0:
+            fest_txt = fest_short = icelandic_day_name(fest_key)
+        else:
+            fest_short = (f"{icelandic_day_name(fest_key)} "
+                          f"{_fmt_month_day(fest_day, runtime)}")
+            fest_txt = (f"{fest_short} "
+                        f"({_ms('in_days', runtime, days=str(fest_gap))})")
     elif cal == "thai":
         # The Thai calendar reads the moon as a waxing or waning day —
         # ขึ้น/แรม … ค่ำ — in Thai numerals, as the printed calendars

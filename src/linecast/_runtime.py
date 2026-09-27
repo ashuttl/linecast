@@ -589,8 +589,8 @@ def moon_parser():
     p.add_argument("--calendar", metavar="NAME",
                     choices=("chinese", "japanese", "korean", "vietnamese",
                              "thai", "hawaiian", "samoan", "chamorro",
-                             "refaluwasch", "islamic", "hebrew", "almanac",
-                             "none"),
+                             "refaluwasch", "islamic", "hebrew",
+                             "icelandic", "almanac", "none"),
                     default=None,
                     help="read the moon by a traditional calendar: the "
                          "lunar date, solar term, and festival (chinese, "
@@ -601,11 +601,13 @@ def moon_parser():
                          "CHamoru and Refaluwasch names); the Hijri date, "
                          "coming month, and observance by the Umm al-Qura "
                          "calendar (islamic); the Hebrew date, coming "
-                         "month, and holiday (hebrew); or the Old Farmer's "
-                         "gardening rule and solunar periods (almanac). "
-                         "Default: the calendar native to "
-                         "--lang zh, zh-Hant, ja, ko, vi, th, or fa "
-                         "(islamic); none otherwise")
+                         "month, and holiday (hebrew); the week of summer "
+                         "or winter, the month, and the named days of the "
+                         "old Icelandic calendar (icelandic); or the Old "
+                         "Farmer's gardening rule and solunar periods "
+                         "(almanac). Default: the calendar native to "
+                         "--lang zh, zh-Hant, ja, ko, vi, th, fa "
+                         "(islamic), or is (icelandic); none otherwise")
     p.add_argument("--week-start", choices=WEEK_STARTS, default=None,
                     help="the day the calendar's week opens on (default: "
                          "sunday in the United States, Canada, Japan, "

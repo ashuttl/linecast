@@ -444,6 +444,8 @@ MOON = {
     "begins_at_sunset": "alkaa auringonlaskusta",
     "in_time": "{dur} kuluttua",
     "year_day": "Päivä {n} / {total}",
+    "week_of_summer": "kesän {n}. viikko",
+    "week_of_winter": "talven {n}. viikko",
     "light_of_moon": "kasvava kuu",
     "dark_of_moon": "vähenevä kuu",
     "good_for": "Hyvä aika: {things}",

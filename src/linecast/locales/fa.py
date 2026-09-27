@@ -477,6 +477,8 @@ MOON = {
     "begins_at_sunset": "از غروب آفتاب آغاز می\u200cشود",
     "in_time": "{dur} دیگر",
     "year_day": "روز {n} از {total}",
+    "week_of_summer": "هفتهٔ {n} تابستان",
+    "week_of_winter": "هفتهٔ {n} زمستان",
     "light_of_moon": "ماه افزاینده",
     "dark_of_moon": "ماه کاهنده",
     "good_for": "مناسب برای {things}",

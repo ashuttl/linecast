@@ -401,6 +401,8 @@ MOON = {
     "begins_at_sunset": "日落開始",
     "in_time": "{dur}後",
     "year_day": "今年第 {n} 天 / {total} 天",
+    "week_of_summer": "夏季第{n}週",
+    "week_of_winter": "冬季第{n}週",
     "light_of_moon": "月盈期",
     "dark_of_moon": "月虧期",
     "good_for": "宜{things}",

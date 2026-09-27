@@ -112,7 +112,7 @@ def saved_language() -> str | None:
 
 CALENDAR_CHOICES = ("chinese", "japanese", "korean", "vietnamese", "thai",
                     "hawaiian", "samoan", "chamorro", "refaluwasch",
-                    "islamic", "hebrew", "almanac", "none")
+                    "islamic", "hebrew", "icelandic", "almanac", "none")
 
 
 def saved_calendar() -> str | None:
@@ -120,7 +120,7 @@ def saved_calendar() -> str | None:
 
     A calendar name — 'chinese', 'japanese', 'korean', 'vietnamese',
     'thai', 'hawaiian', 'samoan', 'chamorro', 'refaluwasch',
-    'islamic', 'hebrew', or 'almanac' —
+    'islamic', 'hebrew', 'icelandic', or 'almanac' —
     pins that calendar in every language; 'none' turns the calendar
     lines off even where the language would show them.
     """

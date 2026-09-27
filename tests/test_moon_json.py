@@ -397,6 +397,51 @@ class TestHebrewCalendarBlock:
                                          "date": "2026-12-05"}
 
 
+class TestIcelandicCalendarBlock:
+    def test_the_block_reads_the_week(self):
+        # Sunday 27 September 2026 is in the 23rd week of summer, in
+        # Haustmánuður; the veturnætur come on 22 October and winter,
+        # with Gormánuður, on the 24th.
+        moment = datetime(2026, 9, 27, 12, 0, tzinfo=timezone.utc)
+        payload = _payload(now_local=moment, calendar="icelandic")
+        assert payload["calendar"] == {
+            "name": "icelandic",
+            "season": "summer",
+            "week": 23,
+            "label": "week 23 of summer",
+            "month_name": "Haustmánuður",
+            "sumarauki": False,
+            "named_day": None,
+            "next_month": {"name": "Gormánuður", "date": "2026-10-24"},
+            "next_named_day": {"name": "Veturnætur",
+                               "date": "2026-10-22"},
+        }
+
+    def test_the_veturnaetur_stand_outside_the_weeks(self):
+        moment = datetime(2026, 10, 23, 12, 0, tzinfo=timezone.utc)
+        block = _payload(now_local=moment, calendar="icelandic")["calendar"]
+        assert block["week"] is None
+        assert block["label"] == "Veturnætur"
+        assert block["named_day"] == "Veturnætur"
+        assert block["next_named_day"] == {"name": "Veturnætur",
+                                           "date": "2026-10-22"}
+
+    def test_the_leap_week(self):
+        moment = datetime(2023, 7, 25, 12, 0, tzinfo=timezone.utc)
+        block = _payload(now_local=moment, calendar="icelandic")["calendar"]
+        assert block["sumarauki"] is True
+        assert block["month_name"] == "Sumarauki"
+        assert block["next_month"] == {"name": "Heyannir",
+                                       "date": "2023-07-30"}
+
+    def test_in_icelandic(self):
+        moment = datetime(2027, 1, 22, 12, 0, tzinfo=timezone.utc)
+        block = _payload(now_local=moment, runtime=_runtime(lang="is"))["calendar"]
+        assert block["name"] == "icelandic"
+        assert block["label"] == "13. vika vetrar"
+        assert block["named_day"] == "Bóndadagur"
+
+
 class TestHawaiianCalendarBlock:
     def test_the_calendar_carries_the_councils_counsel(self):
         # The 20th night, Lāʻaupau, has no kapu note; the poepoe

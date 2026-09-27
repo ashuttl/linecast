@@ -412,6 +412,8 @@ MOON = {
     "begins_at_sunset": "เริ่มเมื่อพระอาทิตย์ตก",
     "in_time": "อีก {dur}",
     "year_day": "วันที่ {n} จาก {total} ของปี",
+    "week_of_summer": "สัปดาห์ที่ {n} ของฤดูร้อน",
+    "week_of_winter": "สัปดาห์ที่ {n} ของฤดูหนาว",
     "light_of_moon": "ข้างขึ้น",
     "dark_of_moon": "ข้างแรม",
     "good_for": "เหมาะสำหรับ{things}",

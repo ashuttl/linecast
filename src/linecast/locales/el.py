@@ -452,6 +452,8 @@ MOON = {
     "begins_at_sunset": "αρχίζει με τη δύση του ήλιου",
     "in_time": "σε {dur}",
     "year_day": "Ημέρα {n} από {total}",
+    "week_of_summer": "{n}η εβδομάδα του καλοκαιριού",
+    "week_of_winter": "{n}η εβδομάδα του χειμώνα",
     "light_of_moon": "γέμισμα του φεγγαριού",
     "dark_of_moon": "χάση του φεγγαριού",
     "good_for": "Ευνοούνται: {things}",

@@ -442,6 +442,8 @@ MOON = {
     "begins_at_sunset": "починається із заходом сонця",
     "in_time": "через {dur}",
     "year_day": "День {n} з {total}",
+    "week_of_summer": "{n}-й тиждень літа",
+    "week_of_winter": "{n}-й тиждень зими",
     "light_of_moon": "Місяць росте",
     "dark_of_moon": "Місяць спадає",
     "good_for": "Сприятливо: {things}",

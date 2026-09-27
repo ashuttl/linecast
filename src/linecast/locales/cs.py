@@ -458,6 +458,8 @@ MOON = {
     "begins_at_sunset": "začíná západem slunce",
     "in_time": "za {dur}",
     "year_day": "Den {n} z {total}",
+    "week_of_summer": "{n}. týden léta",
+    "week_of_winter": "{n}. týden zimy",
     "light_of_moon": "Měsíc dorůstá",
     "dark_of_moon": "Měsíc couvá",
     "good_for": "Vhodné: {things}",

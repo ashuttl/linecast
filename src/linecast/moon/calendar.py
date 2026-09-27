@@ -37,6 +37,11 @@ from linecast.astro.calendars.lunisolar import (
 )
 from linecast.astro.calendars.hebrew import hebrew_date, holiday_key, rosh_chodesh
 from linecast.astro.calendars.hijri import hijri_date, observance_key
+from linecast.astro.calendars.icelandic import month_key as icelandic_month_key
+from linecast.astro.calendars.icelandic import named_day_key
+from linecast.astro.calendars.icelandic import (
+    next_month_start as next_icelandic_month,
+)
 from linecast.astro.calendars import solar_hijri
 from linecast.astro.calendars.civil import (
     SOLAR_HIJRI, civil_calendar, shift_month, solar_hijri_month_title,
@@ -46,7 +51,9 @@ from linecast.moon.i18n import (
     anahulu_name, festival_table, gregorian_date_label, hebrew_date_label,
     hijri_sighting_note,
     hebrew_holiday_name, hebrew_month_name, hijri_date_label,
-    hijri_era, hijri_month_name, hijri_observance_name, ja_night_name, lunar_date_label,
+    hijri_era, hijri_month_name, hijri_observance_name,
+    icelandic_day_name, icelandic_month_name, icelandic_week_label,
+    ja_night_name, lunar_date_label,
     pacific_night_label, pacific_night_name, rosh_chodesh_label,
     thai_festival_name, thai_lunar_label, thai_month_label,
     vi_month_label, wan_phra_label, zh_month_label,
@@ -114,14 +121,21 @@ def _gregorian_span(first, last, lang):
 
 
 def _calendar_span(cal, first, last, lang):
-    """The Hebrew or Hijri months a civil month runs through, for the title.
+    """The Hebrew, Hijri, or Icelandic months a civil month runs
+    through, for the title.
 
     `Elul 5786 – Tishrei 5787`, `Tishrei – Cheshvan 5787`, or a lone
     `Shevat 5787` for the February that fits inside one month. The
     printed wall calendars set this under the civil month; here it also
     covers the month starts the cells cannot show, since Tishrei and
-    Muharram both open on a holiday that takes the cell.
+    Muharram both open on a holiday that takes the cell, as Harpa,
+    Heyannir, Gormánuður, Þorri, and Góa do. The Icelandic years have
+    no numbers: `Tvímánuður – Haustmánuður`.
     """
+    if cal == "icelandic":
+        n1 = icelandic_month_name(icelandic_month_key(first))
+        n2 = icelandic_month_name(icelandic_month_key(last))
+        return n1 if n1 == n2 else f"{n1} – {n2}"
     if cal == "hebrew":
         y1, m1, _ = hebrew_date(first)
         y2, m2, _ = hebrew_date(last)
@@ -195,6 +209,15 @@ def _cell_label(day, cal, native, fest, lang="en", israel=False):
         # The month starts ride in the corner with the Hebrew day.
         key = holiday_key(day, israel)
         return (hebrew_holiday_name(key), True) if key else None
+    if cal == "icelandic":
+        # The named days on every day they run, and each month's first
+        # day, as the almanac marks them. A month that opens on a named
+        # day gives the cell to the day; the title names the month.
+        key = named_day_key(day)
+        if key:
+            return icelandic_day_name(key), True
+        start, m_key = next_icelandic_month(day - timedelta(days=1))
+        return (icelandic_month_name(m_key), False) if start == day else None
     if cal == "thai":
         # Festivals and month starts as the other calendars have them,
         # plus the วันพระ — the printed Thai calendars mark all four
@@ -602,6 +625,12 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
             cal_line = f"{hebrew_holiday_name(key)} · {cal_line}"
         elif rosh_chodesh(d):
             cal_line = f"{rosh_chodesh_label(*rosh_chodesh(d))} · {cal_line}"
+    elif cal == "icelandic":
+        cal_line = (f"{icelandic_week_label(d, runtime)} · "
+                    f"{icelandic_month_name(icelandic_month_key(d))}")
+        key = named_day_key(d)
+        if key and key != "veturnaetur":
+            cal_line = f"{icelandic_day_name(key)} · {cal_line}"
     elif cal == "thai":
         m, day_n, doubled = thai_lunar_date(d)
         label_lang = "th" if native else "en"

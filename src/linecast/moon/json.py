@@ -207,6 +207,45 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
                 "date": hol_day.isoformat(),
             },
         }
+    elif cal == "icelandic":
+        # The old Icelandic calendar: the misseri and its week, which
+        # is how the calendar gives a date (the week is null on the
+        # veturnætur, which no week counts), the month, whether the
+        # year has its leap week, the named day in progress, and the
+        # coming month and named day. The names are Icelandic in every
+        # language; the label is the week in the UI language.
+        from linecast.astro.calendars.icelandic import (
+            has_sumarauki, icelandic_week, icelandic_year, month_key,
+            named_day_key, next_named_day,
+        )
+        from linecast.astro.calendars.icelandic import (
+            next_month_start as next_icelandic_month,
+        )
+        from linecast.moon.i18n import (
+            icelandic_day_name, icelandic_month_name, icelandic_week_label,
+        )
+        today = now_local.date()
+        misseri, week = icelandic_week(today)
+        nxt_day, nxt_key = next_icelandic_month(today)
+        day_start, day_key = next_named_day(today)
+        today_key = named_day_key(today)
+        calendar_block = {
+            "name": cal,
+            "season": misseri,
+            "week": week,
+            "label": icelandic_week_label(today, runtime),
+            "month_name": icelandic_month_name(month_key(today)),
+            "sumarauki": has_sumarauki(icelandic_year(today)),
+            "named_day": icelandic_day_name(today_key) if today_key else None,
+            "next_month": {
+                "name": icelandic_month_name(nxt_key),
+                "date": nxt_day.isoformat(),
+            },
+            "next_named_day": {
+                "name": icelandic_day_name(day_key),
+                "date": day_start.isoformat(),
+            },
+        }
     elif cal == "thai":
         # The Thai calendar: the waxing/waning day, the year's animal,
         # the วันพระ, and the coming festival. No solar terms.

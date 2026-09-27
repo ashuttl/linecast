@@ -455,6 +455,8 @@ MOON = {
     "begins_at_sunset": "huanza jua linapotua",
     "in_time": "baada ya {dur}",
     "year_day": "Siku ya {n} kati ya {total}",
+    "week_of_summer": "wiki ya {n} ya majira ya joto",
+    "week_of_winter": "wiki ya {n} ya majira ya baridi",
     "light_of_moon": "mwezi unaoongezeka",
     "dark_of_moon": "mwezi unaopungua",
     "good_for": "Wakati mzuri wa {things}",

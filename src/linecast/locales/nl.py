@@ -401,6 +401,8 @@ MOON = {
     "begins_at_sunset": "begint bij zonsondergang",
     "in_time": "over {dur}",
     "year_day": "Dag {n} van {total}",
+    "week_of_summer": "week {n} van de zomer",
+    "week_of_winter": "week {n} van de winter",
     "light_of_moon": "wassende maan",
     "dark_of_moon": "afnemende maan",
     "good_for": "Goed voor {things}",

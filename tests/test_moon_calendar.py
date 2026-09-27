@@ -208,6 +208,25 @@ class TestCalendars:
         assert "4 Simchat Tora" in text and "Cheshvan 1" in text
         assert "12 Cheshvan" not in text
 
+    def test_icelandic_named_days_and_month_starts(self):
+        # October 2026 ends summer: the veturnætur on the 22nd and 23rd,
+        # then the first day of winter, which is Gormánuður's first and
+        # gives the month's name to the title. July 2023, a year with
+        # the leap week and a rímspillir, marks the aukanætur, the
+        # sumarauki, and miðsumar on Heyannir's first day.
+        now = datetime(2026, 10, 2, 14, 30, tzinfo=ET)
+        body, _chip = _render(120, 34, calendar="icelandic", now=now)
+        text = "\n".join(body)
+        assert "Oct 2026 · Haustmánuður – Gormánuður" in body[0]
+        assert "22 Veturnætur" in text and "23 Veturnætur" in text
+        assert "24 Fyrsti vetra" in text
+        now = datetime(2023, 7, 2, 14, 30, tzinfo=ET)
+        body, _chip = _render(160, 34, calendar="icelandic", now=now)
+        text = "\n".join(body)
+        assert "Jul 2023 · Sólmánuður – Heyannir" in body[0]
+        assert "19 Aukanætur" in text and "23 Sumarauki" in text
+        assert "30 Miðsumar" in text
+
     def test_hebrew_holidays_in_israel(self):
         # Seen from Jerusalem, Simchat Torah shares Shemini Atzeret's
         # day and 4 October is an ordinary day.
@@ -351,6 +370,15 @@ class TestHoverChip:
         _body, chip = _render(100, 32, mouse_pos=pos, calendar="hebrew",
                               now=now, month_offset=1, week_start="sunday")
         assert "Rosh Chodesh Cheshvan · 30 Tishrei 5787" in chip
+
+    def test_icelandic_week_in_the_chip(self):
+        # Sunday first: July 2023 opens on a Saturday, so the 30th is
+        # week 5, column 0 — miðsumar, in the 15th week of a summer
+        # with the leap week.
+        now = datetime(2023, 7, 2, 14, 30, tzinfo=ET)
+        _body, chip = _render(100, 32, mouse_pos=(5, 29), calendar="icelandic",
+                              now=now, week_start="sunday")
+        assert "Miðsumar · week 15 of summer · Heyannir" in chip
 
     def test_off_grid_raises_nothing(self):
         _body, chip = _render(100, 32, mouse_pos=(1, 1))

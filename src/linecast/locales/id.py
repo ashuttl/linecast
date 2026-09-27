@@ -393,6 +393,8 @@ MOON = {
     "begins_at_sunset": "mulai saat matahari terbenam",
     "in_time": "dalam {dur}",
     "year_day": "Hari ke-{n} dari {total}",
+    "week_of_summer": "minggu ke-{n} musim panas",
+    "week_of_winter": "minggu ke-{n} musim dingin",
     "light_of_moon": "bulan membesar",
     "dark_of_moon": "bulan mengecil",
     "good_for": "Baik untuk {things}",

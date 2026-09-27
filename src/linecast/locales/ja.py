@@ -403,6 +403,8 @@ MOON = {
     "begins_at_sunset": "日没に始まる",
     "in_time": "{dur}後",
     "year_day": "今年 {n} 日目 / {total} 日",
+    "week_of_summer": "夏の第{n}週",
+    "week_of_winter": "冬の第{n}週",
     "light_of_moon": "満ちゆく月",
     "dark_of_moon": "欠けゆく月",
     "good_for": "{things}に向く",

@@ -430,6 +430,8 @@ MOON = {
     "begins_at_sunset": "gün batımında başlar",
     "in_time": "{dur} sonra",
     "year_day": "{n}. gün / {total}",
+    "week_of_summer": "yazın {n}. haftası",
+    "week_of_winter": "kışın {n}. haftası",
     "light_of_moon": "büyüyen ay",
     "dark_of_moon": "küçülen ay",
     "good_for": "{things} için uygun",

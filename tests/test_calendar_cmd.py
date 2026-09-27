@@ -18,6 +18,13 @@ class CalendarCommandTests(ConfigDirMixin):
             calendar_cmd._cmd_show()
         self.assertIn("hebrew  [fixed]", out.getvalue())
 
+    def test_icelandic_is_a_choice(self):
+        out = io.StringIO()
+        with redirect_stdout(out):
+            calendar_cmd._cmd_set("icelandic")
+        self.assertEqual(_config.saved_calendar(), "icelandic")
+        self.assertIn("week of summer or winter", out.getvalue())
+
     def test_none_is_saved_as_a_choice_of_its_own(self):
         """'none' pins the calendar off; it is not the same as auto."""
         with redirect_stdout(io.StringIO()):

@@ -405,6 +405,8 @@ MOON = {
     "begins_at_sunset": "bắt đầu lúc mặt trời lặn",
     "in_time": "còn {dur}",
     "year_day": "Ngày {n} trên {total}",
+    "week_of_summer": "tuần {n} của mùa hè",
+    "week_of_winter": "tuần {n} của mùa đông",
     "light_of_moon": "trăng tròn dần",
     "dark_of_moon": "trăng khuyết dần",
     "good_for": "Tốt cho {things}",

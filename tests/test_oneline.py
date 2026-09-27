@@ -195,6 +195,15 @@ class TestMoonOneline:
         assert " · " not in plain
         assert with_cal == f"{plain} · 14 Shevat 5760"
 
+    def test_the_icelandic_week_ends_the_line(self):
+        # 21 January 2000 was bóndadagur, the first day of Þorri, which
+        # opens on the Friday of the 13th week of winter.
+        plain = _strip_ansi(moon_oneline(self._now(), 64.1, -21.9,
+                                         self._runtime(), calendar="none"))
+        with_cal = _strip_ansi(moon_oneline(self._now(), 64.1, -21.9,
+                                            self._runtime(), calendar="icelandic"))
+        assert with_cal == f"{plain} · week 13 of winter"
+
     def test_a_calendar_that_names_nights_replaces_the_phase_name(self):
         plain = _strip_ansi(moon_oneline(self._now(), 19.7, -155.1,
                                          self._runtime(), calendar="hawaiian"))
