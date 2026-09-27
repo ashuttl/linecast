@@ -60,6 +60,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
     hi_temps = daily.get("temperature_2m_max", [])
     lo_temps = daily.get("temperature_2m_min", [])
     precip_sum = daily.get("precipitation_sum", [])
+    snowfall = daily.get("snowfall_sum") or []
     precip_prob = daily.get("precipitation_probability_max", [])
     wmo_codes = daily.get("weather_code", [])
     cover_means = daily.get("cloud_cover_mean") or []
@@ -126,9 +127,14 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         # 0.04" is 1 mm, so the same rain earns a row in either unit.  A
         # tenth of an inch is 2.5 mm, too coarse to name amounts that
         # small honestly, so inches take a second decimal under one.
+        snow_i = (snowfall[i] if i < len(snowfall) else 0) or 0
         if precip_i >= (1 if runtime.metric else 0.04):
             ptype = _s(_precip_type(wmo_i), runtime)
-            if runtime.metric:
+            if _precip_type(wmo_i) == "Snow" and snow_i > 0:
+                # A snowy day's amount is the snow, as it lies, not the
+                # water it melts to: "Snow 3.5″", not "Snow 0.50″"
+                precip_amt = fmt_snow_amount(snow_i, runtime)
+            elif runtime.metric:
                 sep = _s("metric_unit_sep", runtime)
                 precip_amt = f"{precip_i:.0f}{sep}{runtime.precip_unit_label}"
             else:
@@ -359,6 +365,16 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         spans.append({"index": i, "cols": cols})
 
     return lines, spans
+
+
+def fmt_snow_amount(amount, runtime):
+    """A depth of snow with its unit: centimetres, or inches where the
+    rain is in inches, as Open-Meteo gives snowfall.  A tenth under ten."""
+    places = 0 if amount >= 10 else 1
+    if runtime.metric:
+        return (f"{fmt_decimal(amount, places, runtime)}{_s('metric_unit_sep', runtime)}"
+                f"{_s('unit_cm', runtime)}")
+    return fmt_decimal(amount, places, runtime) + _s("precip_inch", runtime)
 
 
 def fmt_precip_amount(amount, runtime):

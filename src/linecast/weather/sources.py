@@ -299,7 +299,7 @@ def fetch_forecast(lat: float, lng: float,
         "&hourly=temperature_2m,apparent_temperature,precipitation,precipitation_probability,"
         "snowfall,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,"
         "relative_humidity_2m,dew_point_2m,uv_index,cloud_cover"
-        "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,"
+        "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,snowfall_sum,"
         "precipitation_probability_max,weather_code,wind_speed_10m_max,wind_gusts_10m_max,"
         "sunrise,sunset,cloud_cover_mean"
         f"&temperature_unit={'celsius' if runtime.celsius else 'fahrenheit'}"

@@ -15,7 +15,8 @@ from linecast.weather.alerts import (
     render_alerts,
     render_alerts_mapped,
 )
-from linecast.weather.daily import fmt_precip_amount, render_daily, render_daily_mapped
+from linecast.weather.daily import (fmt_precip_amount, fmt_snow_amount, render_daily,
+                                   render_daily_mapped)
 from linecast.terminal.braille import build_braille_curve as _build_braille_curve
 from linecast.terminal.graphics import fmt_hour as _fmt_hour, fmt_time_dt as _fmt_time
 from linecast.weather.hourly import (
@@ -91,6 +92,7 @@ __all__ = [
     "render_daily",
     "render_daily_mapped",
     "fmt_precip_amount",
+    "fmt_snow_amount",
     "_build_braille_curve",
     "_fmt_hour",
     "_fmt_time",

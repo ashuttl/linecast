@@ -234,6 +234,33 @@ def test_daily_rain_chip_says_through_the_day_for_all_day_rain():
     assert "between" not in text
 
 
+def test_daily_snow_chip_gives_the_snow_not_its_water():
+    data = _hourly_data()
+    times = data["hourly"]["time"]
+    date = times[30][:10]
+    data["hourly"]["precipitation"] = [0.02 if t.startswith(date) else 0.0 for t in times]
+    data["daily"] = {
+        "time": [times[0][:10], date, "2099-01-01"],
+        "temperature_2m_max": [30, 28, 30],
+        "temperature_2m_min": [20, 18, 20],
+        "precipitation_sum": [0, 0.48, 0],
+        "snowfall_sum": [0, 3.4, 0],
+        "precipitation_probability_max": [0, 90, 0],
+        "weather_code": [3, 73, 3],
+        "wind_speed_10m_max": [5, 5, 5],
+        "wind_gusts_10m_max": [8, 8, 8],
+        "sunrise": [], "sunset": [],
+    }
+    runtime = _runtime()
+    lines, spans = render_daily_mapped(data, 100, runtime)
+    k = next(k for k, s in enumerate(spans) if s["index"] == 1)
+    a = spans[k]["cols"]["rain"][0]
+    with patch.object(_color, "_COLOR_MODE", "truecolor"):
+        text = _plain(_build_daily_tooltip(data, a + 1, 21 + k, 20, spans, 100, 40, runtime))
+    assert "3.4″ through the day" in text
+    assert "0.48″" not in text
+
+
 def test_hourly_chip_leaves_off_a_slim_chance():
     data = _hourly_data()
     data["hourly"]["precipitation_probability"] = [15] * len(data["hourly"]["time"])

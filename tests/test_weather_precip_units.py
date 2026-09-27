@@ -107,3 +107,45 @@ class TestDailyPrecipThreshold:
     def test_over_a_millimetre_is_named_in_either_unit(self):
         assert re.search(r"Rain \d", _today_row(1.2, metric=True))
         assert re.search(r"Rain \d", _today_row(1.2, metric=False))
+
+
+def _snow_row(cm, mm, metric, with_snowfall=True):
+    """The daily row for a snowy today: `cm` of snow from `mm` of water,
+    each in the unit Open-Meteo sends it."""
+    daily = {
+        "time": ["2026-01-24", "2026-01-25", "2026-01-26"],
+        "temperature_2m_max": [20, 18, 22],
+        "temperature_2m_min": [5, 3, 8],
+        "precipitation_sum": [0, mm if metric else mm / _MM_PER_INCH, 0],
+        "precipitation_probability_max": [0, 90, 0],
+        "weather_code": [3, 75, 3],
+        "wind_speed_10m_max": [5, 5, 5],
+    }
+    if with_snowfall:
+        daily["snowfall_sum"] = [0, cm if metric else cm / _CM_PER_INCH, 0]
+    lines = render_daily({"daily": daily}, 100, _runtime(metric),
+                         now=datetime(2026, 1, 25, 12))
+    return lines[0]
+
+
+class TestDailySnow:
+    """A snowy day's amount is the snow, not the water it melts to."""
+
+    def test_a_snowy_day_gives_its_snow_in_inches(self):
+        # 8.9 cm of snow from 12.7 mm of water: 3.5 in, not 0.50 in
+        row = _snow_row(8.9, 12.7, metric=False)
+        assert re.search(r"Snow 3\.5″", row)
+        assert "0.50″" not in row
+
+    def test_a_snowy_day_gives_its_snow_in_centimetres(self):
+        row = _snow_row(8.9, 12.7, metric=True)
+        assert re.search(r"Snow 8\.9 ?cm", row)
+        assert "13" not in row.split("Snow")[1][:8]
+
+    def test_ten_and_more_go_without_their_tenth(self):
+        assert re.search(r"Snow 12″", _snow_row(30.5, 43.2, metric=False))
+
+    def test_a_forecast_without_snowfall_keeps_the_water(self):
+        # A forecast cached before the snowfall was asked for
+        assert re.search(r"Snow 0\.50″", _snow_row(8.9, 12.7, metric=False,
+                                                    with_snowfall=False))
