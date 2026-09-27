@@ -6,6 +6,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 - Language: linecast speaks Hungarian and Slovak. `linecast language hu` or `sk`, or a terminal locale in either, puts every view in that language, and the sky names its constellations in each, with some of the brightest stars.
 - Weather: Fixed the daily forecast's hover for a day of freezing rain, which read "40% chance of Mix"; it now reads "40% chance of mixed precipitation", in every language.
+- Weather: Cold temperatures are colored in a deeper blue, then indigo and purple, down to -20°F (-29°C).
 
 ## 2.9.2 — 2026-09-27
 
