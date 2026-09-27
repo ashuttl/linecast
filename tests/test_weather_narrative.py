@@ -350,6 +350,8 @@ class TestPrecipitationPeak:
             "霧雨は23時頃に強い雨に変わり、夜のうちにやむでしょう"
 
     def test_rain_that_freezes_has_not_just_turned_heavy(self):
+        # And three hours of ice are weather, not a flip near freezing,
+        # though the rain comes back after them
         codes = [61, 61, 61, 67, 67, 67, 61, 61, 0, 0]
         amounts = [0.1, 0.1, 0.1, 0.3, 0.34, 0.3, 0.2, 0.05, 0, 0]
         assert self._sentence(self._hourly(codes, amounts)) == \
@@ -502,6 +504,104 @@ class TestPrecipitationPeak:
         codes = [0, 0, 0, 0, 51, 95, 95, 95, 0]
         assert self._sentence(self._hourly(codes)) == "Thunderstorms starting around 23:00"
         assert self._sentence(self._hourly(codes), lang="ja") == "23時頃に雷雨になるでしょう"
+
+
+class TestWhatLands:
+    """Snow, ice or water: a change in what lands is named where it holds,
+    and a flip near freezing is not a turn."""
+
+    EVENING = TestPrecipitationPeak.EVENING
+    _hourly = staticmethod(TestPrecipitationPeak._hourly)
+
+    def _sentence(self, codes, amounts=None, **overrides):
+        from linecast.weather.sections import precipitation_sentence
+        return precipitation_sentence(self._hourly(codes, amounts), self.EVENING,
+                                      _runtime(**overrides))
+
+    def test_snow_turning_to_rain_is_a_turn_whatever_the_ranks(self):
+        # Heavy snow outranks rain, and the rain is still the news
+        codes = [75, 75, 75, 75, 63, 63, 63, 63, 0]
+        amounts = [0.12] * 8 + [0]
+        assert self._sentence(codes, amounts) == \
+            "Heavy snow now, becoming rain in a couple hours, ending overnight"
+        assert self._sentence(codes, amounts, lang="ja") == \
+            "強い雪は数時間後に雨に変わり、夜のうちにやむでしょう"
+        assert self._sentence(codes, amounts, lang="de", metric=True) == \
+            "Starker Schneefall, in ein paar Stunden Regen, in der Nacht abklingend"
+        codes = [73, 73, 73, 73, 63, 63, 63, 63, 0]
+        assert self._sentence(codes, [0.06] * 4 + [0.12] * 4 + [0]) == \
+            "Snow now, becoming rain in a couple hours, ending overnight"
+
+    def test_rain_turning_to_snow_at_the_same_grade(self):
+        codes = [63, 63, 63, 63, 73, 73, 73, 73, 0]
+        assert self._sentence(codes, [0.12] * 4 + [0.06] * 4 + [0]) == \
+            "Rain now, becoming snow in a couple hours, ending overnight"
+
+    def test_freezing_rain_turning_to_rain_is_the_ice_ending(self):
+        codes = [66, 66, 66, 66, 63, 63, 63, 63, 0]
+        assert self._sentence(codes, [0.06] * 4 + [0.12] * 4 + [0]) == \
+            "Freezing rain now, becoming rain in a couple hours, ending overnight"
+
+    def test_a_flip_near_freezing_is_not_a_turn(self):
+        # An hour of snow in the rain, rain and snow by turns, and two
+        # hours of snow at the front of a night of rain
+        assert self._sentence([63, 63, 73, 63, 63, 63, 0],
+                              [0.12, 0.12, 0.06, 0.12, 0.12, 0.12, 0]) == "Rain ending overnight"
+        assert self._sentence([63, 73, 73, 63, 73, 63, 73, 73, 63, 0]) == "Rain ending overnight"
+        assert self._sentence([61, 73, 73] + [61] * 8 + [0]) == \
+            "Light rain ending early tomorrow morning"
+
+    def test_the_turn_is_where_the_new_weather_holds(self):
+        # A flip to rain at seven, snow again, and rain from ten on
+        assert self._sentence([73, 63, 73, 73, 63, 63, 63, 63, 0]) == \
+            "Snow now, becoming rain in a couple hours, ending overnight"
+
+    def test_a_change_in_what_lands_comes_before_rain_turning_heavy(self):
+        codes = [61, 65, 65, 61, 73, 73, 73, 73, 0]
+        amounts = [0.05, 0.3, 0.3, 0.05, 0.06, 0.06, 0.06, 0.06, 0]
+        assert self._sentence(codes, amounts) == \
+            "Light rain now, becoming snow in a couple hours, ending overnight"
+
+    def test_of_two_turns_the_sooner(self):
+        # Snow, then freezing rain all evening, then two hours of rain
+        codes = [73, 66, 66, 66, 66, 66, 66, 63, 63, 0]
+        assert self._sentence(codes) == "Snow now, becoming freezing rain soon, ending overnight"
+
+    def test_portland_in_march_2024(self):
+        # Open-Meteo's hours for Portland, Maine, the afternoon the snow
+        # turned to freezing rain: an hour of heavy snow at ten in the
+        # middle of the ice, which is a flip
+        from linecast.weather.sections import precipitation_sentence
+        codes = [73, 73, 73, 67, 66, 66, 67, 67, 75, 66, 0, 0]
+        amounts = [0.055, 0.043, 0.071, 0.098, 0.055, 0.055, 0.24, 0.185, 0.157, 0.071, 0, 0]
+        times = ([f"2024-03-23T{h:02d}:00" for h in range(14, 24)]
+                 + ["2024-03-24T00:00", "2024-03-24T01:00"])
+        hourly = {"time": times, "weather_code": codes, "precipitation": amounts,
+                  "precipitation_probability": [90 if c else 5 for c in codes]}
+        assert precipitation_sentence(hourly, datetime(2024, 3, 23, 14, 10), _runtime()) == \
+            "Snow now, becoming freezing rain in a couple hours, ending overnight"
+
+    def test_at_the_edge_of_a_storm_the_storm_carries_the_water(self):
+        # Two hours of snow ahead of the rain are said
+        assert self._sentence([0, 0, 73, 73, 63, 63, 63, 0, 0],
+                              [0, 0, 0.06, 0.06, 0.12, 0.12, 0.12, 0, 0]) == \
+            "Snow starting in about an hour, then rain in a couple hours"
+        # One hour of it is the rain's edge...
+        assert self._sentence([0, 0, 0, 73, 63, 63, 63, 63, 0],
+                              [0, 0, 0, 0.06, 0.12, 0.12, 0.12, 0.12, 0]) == \
+            "Rain starting in a couple hours"
+        # ...unless it is wetter than what follows
+        assert self._sentence([0, 0, 0, 73, 53, 53, 0, 0],
+                              [0, 0, 0, 0.07, 0.03, 0.01, 0, 0]) == \
+            "Snow starting in a couple hours"
+
+    def test_snow_that_turns_to_rain_is_done_piling_up_when_it_turns(self):
+        from linecast.weather.sections import snow_total_sentence
+        codes = [73] * 4 + [63] * 4 + [0] * 4
+        hourly = self._hourly(codes, [0.06] * 4 + [0.12] * 4 + [0] * 4)
+        hourly["snowfall"] = [0.9] * 4 + [0] * 8
+        assert snow_total_sentence(hourly, self.EVENING, _runtime()) == \
+            "About 4 inches of snow by tonight"
 
 
 class TestHedges:

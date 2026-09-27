@@ -1094,6 +1094,18 @@ _HEAVY_RANK = 4
 _SNOW_CODES = {71, 73, 75, 77, 85, 86}
 _FREEZING_CODES = {56, 57, 66, 67}
 
+
+def _precip_phase(code):
+    """What an hour leaves on the ground: "snow", "ice" or "water", or
+    None for a dry hour.  A change from one to another is a change in
+    what a person has to do about it."""
+    if code not in _PRECIP_CODES:
+        return None
+    if code in _SNOW_CODES:
+        return "snow"
+    return "ice" if code in _FREEZING_CODES else "water"
+
+
 # Open-Meteo's hourly probability, and the hedge it earns: a chance below
 # sixty, likely below eighty, and no hedge at all from eighty up.
 _PRECIP_CHANCE_BELOW = 60
@@ -1133,9 +1145,14 @@ def _peak_hour(run, amounts, codes, desc=None, open_ended=False):
 
     A turn can be hiding behind the peak: the thunder at eight after a
     wetter hour of plain rain at seven.  When the peak is not a turn,
-    the run's first hour of thunder, snow or ice is named instead --
-    weather a person would change their plans for, rather than the same
-    water in another size, which the peak already speaks for.
+    the run's first hour of thunder is named instead -- weather a person
+    would change their plans for, rather than the same water in another
+    size, which the peak already speaks for.
+
+    Ahead of both comes a change in what lands: snow to rain, rain to
+    ice, ice to rain.  That is the news of a run whatever the ranks, but
+    only where it holds.  Near freezing the hours flip between rain and
+    snow, and a flip is not a turn.
     """
     def amount(idx):
         return (amounts[idx] if idx < len(amounts) else 0) or 0
@@ -1149,15 +1166,51 @@ def _peak_hour(run, amounts, codes, desc=None, open_ended=False):
     def kind(idx):
         return _PRECIP_KIND.get(code(idx))
 
+    def phase(idx):
+        return _precip_phase(code(idx))
+
     first = run[0][0]
     later = run[1:]
     if not later:
         return None
 
+    def changeover(to):
+        """Where the run turns to snow, ice or water: its place in the run
+        and the hour that names it, the wettest of the new weather, or
+        None.  The new weather comes as three wet hours running, or as two
+        the run ends on; a run cut off by the day's window may turn in its
+        last hour.  Two hours of snow and then rain all night are a
+        wobble near freezing, and three hours of ice between the rain are
+        the news."""
+        wet = [(n, j) for n, (j, _) in enumerate(run) if n and phase(j)]
+        for k, (n, _) in enumerate(wet):
+            stretch = []
+            for _, j in wet[k:]:
+                if phase(j) != to:
+                    break
+                stretch.append(j)
+            ends_run = k + len(stretch) == len(wet)
+            if len(stretch) >= 3 or (ends_run and (len(stretch) >= 2 or open_ended)):
+                return n, max(stretch, key=lambda j: (amount(j), rank(j)))
+        return None
+
+    turns = [t for t in (changeover(to) for to in ("snow", "ice", "water")
+                         if to != phase(first)) if t]
+    if turns:
+        # Where the run turns twice, the sooner: snow turning to ice for
+        # the evening and to rain for its last two hours is snow turning
+        # to ice
+        n, i = min(turns)
+        if desc is None or desc(i) != desc(first):
+            return i, run[n][1]
+
     def worth_naming(idx):
         """Whether an hour is a turn a person would mention: to another
         kind of precipitation, or to heavy, and one the language has a
-        separate word for."""
+        separate word for.  A change in what lands is named above where
+        it holds, and nowhere else."""
+        if phase(idx) != phase(first):
+            return False
         if rank(idx) <= rank(first):
             return False
         if kind(idx) == kind(first) and rank(idx) < _HEAVY_RANK:
@@ -1165,12 +1218,10 @@ def _peak_hour(run, amounts, codes, desc=None, open_ended=False):
         return desc is None or desc(idx) != desc(first)
 
     def another_thing(idx):
-        """Thunder, snow or ice where the run began as something else.
-        Drizzle after showers is the same water in another size, and a
-        let-up rather than a turn, whatever its rank."""
-        if code(idx) in _FREEZING_CODES and code(first) not in _FREEZING_CODES:
-            return True
-        return kind(idx) in ("snow", "thunder") and kind(idx) != kind(first)
+        """Thunder where the run began as something else.  Drizzle after
+        showers is the same water in another size, and a let-up rather
+        than a turn, whatever its rank."""
+        return kind(idx) == "thunder" and kind(first) != "thunder"
 
     peak = None
     if any(amount(i) for i, _ in run):
@@ -1280,6 +1331,12 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None, current=None):
                     or codes[i] in _FREEZING_CODES for i, _ in run if i < len(codes))
         return 5 if heavy else 4
 
+    def water(idx):
+        """What an hour brings, to weigh it against another: its forecast
+        amount, and the rank of its code between two the same."""
+        amount = (amounts[idx] if idx < len(amounts) else 0) or 0
+        return amount, _PRECIP_RANK.get(codes[idx] if idx < len(codes) else 0, 0)
+
     def sentence(key, run, end=None, start=None, open_ended=False, **words):
         """The template for `key`, or its "becoming" form when the run
         has an hour heavier than its first worth naming.  The hours are
@@ -1292,13 +1349,19 @@ def _precip_parts(hourly, now, runtime, daily=None, after=None, current=None):
         # What is falling now is named, however soon it turns: "heavy
         # drizzle now, becoming rain soon".
         noun = run[0][0]
-        if peak and start is not None and (peak[1] - start).total_seconds() <= 2 * 3600:
-            # An hour of drizzle at the edge of a storm is the storm:
-            # "thunderstorms starting around noon", not "drizzle at
-            # eleven becoming thunderstorms at noon"
-            words["desc"] = desc(peak[0])
-            noun = peak[0]
-            start = peak[1]
+        # An hour of drizzle at the edge of a storm is the storm:
+        # "thunderstorms starting around noon", not "drizzle at eleven
+        # becoming thunderstorms at noon".  Across a change in what lands
+        # the edge is an hour at most -- two hours of snow ahead of the
+        # rain are snow on the road -- and the storm is whichever carries
+        # more of the water: an hour of wet snow ahead of drizzle is snow.
+        changes = peak and _precip_phase(codes[peak[0]]) != _precip_phase(codes[noun])
+        edge = 3600 if changes else 2 * 3600
+        if peak and start is not None and (peak[1] - start).total_seconds() <= edge:
+            if not (changes and water(noun) >= water(peak[0])):
+                words["desc"] = desc(peak[0])
+                noun = peak[0]
+                start = peak[1]
             peak = None
         if start is not None:
             words["time"] = _time_phrase(start, now, runtime, after=after)
@@ -1454,7 +1517,11 @@ def _snow_sentence(parts, hourly, now, runtime):
         inches = total_cm / 2.54
         n = f"{inches:.0f}" if inches >= 2 else fmt_decimal(inches, 1, runtime)
         amt = _prose_inches(n, runtime)
-    end = parts["end"] or run[-1][1]
+    # Snow that turns to rain is done piling up when it turns: "about 3
+    # inches of snow by early afternoon", not by the evening the rain
+    # ends in
+    last = max(k for k, (i, _) in enumerate(run) if i < len(codes) and codes[i] in _SNOW_CODES)
+    end = run[last + 1][1] if last + 1 < len(run) else parts["end"] or run[-1][1]
     return (_ucfirst(_s("snow_total", runtime, amt=amt,
                         time=_period_phrase(end, now, runtime, by=True))),
             total_cm >= 10)
