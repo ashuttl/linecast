@@ -19,7 +19,7 @@ waiting for any more give up its place in the queue.
 import threading
 import time
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Callable, Optional
 
 from linecast._cache import location_cache_key, read_cache
@@ -175,12 +175,20 @@ def fetch_history(lat, lng, year, celsius=False, metric=False, stale=None):
 
 
 def fetch_year_to_date(lat, lng, today, celsius=False, metric=False, stale=None):
-    """The archive's days from 1 January of `today`'s year through
-    `today`, with their weather codes and snowfall, or None.
+    """The archive's days from 1 January of `today`'s year through the
+    day before, with their weather codes and snowfall, or None.
 
     The archive keeps up to the day now, but its latest days are revised
     as the reanalysis catches up with them, so the answer is kept for a
-    few hours rather than a week."""
+    few hours rather than a week.
+
+    The request stops at yesterday: the forecast has today, and the
+    archive refuses a day past today in UTC, which east of Greenwich is
+    often the place's today.  Its yesterday never is.  On 1 January
+    there is nothing to ask for."""
+    end = today - timedelta(days=1)
+    if end.year != today.year:
+        return {}
     cache_file = (
         cache_dir("weather")
         / f"year_{location_cache_key(lat, lng)}_{today.year}"
@@ -188,7 +196,7 @@ def fetch_year_to_date(lat, lng, today, celsius=False, metric=False, stale=None)
     )
     # The day's weather code picks the precipitation's ink, as the
     # dashboard's daily rows do, and its snowfall tells snow from rain.
-    url = _archive_url(lat, lng, f"{today.year}-01-01", today.isoformat(),
+    url = _archive_url(lat, lng, f"{today.year}-01-01", end.isoformat(),
                        celsius, metric, extra=",weather_code,snowfall_sum")
     return fetch_json_cached(
         cache_file,

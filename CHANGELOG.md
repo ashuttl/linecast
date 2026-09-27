@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: Fixed the year view showing only the last week for places ahead of UTC, such as Sydney, for part of each day.
+
 ## 2.9.1 — 2026-09-27
 
 - Weather: Fixed a bug that could leave the year view showing the previous place's year after changing location, most often after searching for a new place.

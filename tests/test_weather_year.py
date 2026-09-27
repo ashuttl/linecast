@@ -430,14 +430,21 @@ class TestChart:
 # The archive
 # ---------------------------------------------------------------------------
 class TestArchive:
-    def test_this_years_request_runs_to_today_with_weather_codes(self):
+    def test_this_years_request_runs_to_yesterday_with_weather_codes(self):
+        # The archive refuses a day past today in UTC, which in Sydney
+        # is often already the place's today.
         with patch.object(hist, "fetch_json_cached", return_value=None) as fetch:
             hist.fetch_year_to_date(43.68, -70.37, TODAY, celsius=True, metric=True)
         cache_file, max_age, url = fetch.call_args[0][:3]
-        assert "start_date=2026-01-01&end_date=2026-09-26" in url
+        assert "start_date=2026-01-01&end_date=2026-09-25" in url
         assert "weather_code" in url and "temperature_unit=celsius" in url
         assert cache_file.name.startswith("year_") and "_2026_Cmm" in cache_file.name
         assert max_age == 3 * 3600
+
+    def test_new_years_day_asks_for_nothing(self):
+        with patch.object(hist, "fetch_json_cached") as fetch:
+            assert hist.fetch_year_to_date(43.68, -70.37, date(2027, 1, 1)) == {}
+        fetch.assert_not_called()
 
     def test_the_ten_years_are_the_dashboards_download(self):
         with patch.object(hist, "fetch_json_cached", return_value=None) as fetch:
