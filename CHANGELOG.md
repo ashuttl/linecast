@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: Cold temperatures are colored in a deeper blue, then indigo and purple, down to -20°F (-29°C).
+
 ## 2.9.2 — 2026-09-27
 
 - Weather: Fixed the year view showing only the last week for places ahead of UTC, such as Sydney, for part of each day.

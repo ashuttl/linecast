@@ -7,8 +7,10 @@ from linecast.terminal.theme import (
     darken,
     ensure_contrast,
     is_light_theme,
+    lerp_hue,
     lerp_rgb,
     lighten,
+    luminance,
     neutral_tone,
     surface_bg,
 )
@@ -45,8 +47,18 @@ def _rebuild():
     ALERT_BLUE_BASE_RGB = best_contrast(
         (_theme.theme_ansi[12], _theme.theme_ansi[14], _theme.theme_ansi[6]), minimum=2.1)
 
+    # Below freezing the blue deepens, then turns toward the theme's
+    # magenta: through indigo to purple, stopping short of the magenta,
+    # which on many themes is a pink.  The deeper blue is the darker of
+    # the theme's two, or its blue darkened, whichever is deeper.
+    deep_blue = min((_theme.theme_ansi[4], _theme.theme_ansi[12], darken(BLUE_RGB, 0.2)),
+                    key=luminance)
     TEMP_COLORS = [
-        (0, ensure_contrast(lerp_rgb(BLUE_RGB, CYAN_RGB, 0.15), _theme.theme_bg, minimum=2.1)),
+        (-20, ensure_contrast(lerp_hue(deep_blue, MAGENTA_RGB, 0.75), _theme.theme_bg,
+                              minimum=2.1)),
+        (0, ensure_contrast(lerp_hue(deep_blue, MAGENTA_RGB, 0.35), _theme.theme_bg,
+                            minimum=2.1)),
+        (15, ensure_contrast(deep_blue, _theme.theme_bg, minimum=2.1)),
         (32, BLUE_RGB),
         (45, CYAN_RGB),
         (55, GREEN_RGB),
