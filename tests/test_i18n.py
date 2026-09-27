@@ -414,6 +414,22 @@ class TestCzechWeather:
         assert DAY_NAMES["cs"] == ["po", "út", "st", "čt", "pá", "so", "ne"]
 
 
+class TestMixedDays:
+    def test_a_freezing_day_s_chance_is_named_in_words(self):
+        """The hover names the kind as the past day's total does, not by
+        the row's label: "40% chance of mixed precipitation", not "of
+        Mix"; Czech in the genitive, not "Smíšené"."""
+        from linecast.weather.view import _precip_kind_lower
+        for lang, expected in (("en", "40% chance of mixed precipitation"),
+                               ("cs", "pravděpodobnost smíšených srážek 40%")):
+            runtime = SimpleNamespace(lang=lang)
+            assert _s("chance_of", runtime, p="40%",
+                      what=_precip_kind_lower(66, runtime)) == expected
+        runtime = SimpleNamespace(lang="en")
+        assert _precip_kind_lower(63, runtime) == "rain"
+        assert _precip_kind_lower(73, runtime) == "snow"
+
+
 class TestSwahili:
     def test_comparative_sentences_and_precipitation(self):
         runtime = SimpleNamespace(lang="sw", celsius=True, use_24h=True,

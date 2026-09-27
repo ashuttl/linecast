@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+- Weather: Fixed the daily forecast's hover for a day of freezing rain, which read "40% chance of Mix"; it now reads "40% chance of mixed precipitation", in every language.
+
 ## 2.9.2 — 2026-09-27
 
 - Weather: Fixed the year view showing only the last week for places ahead of UTC, such as Sydney, for part of each day.

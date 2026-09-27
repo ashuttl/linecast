@@ -39,7 +39,6 @@ from linecast.weather.i18n import (
     wmo_label,
     _s,
     _wmo_icons,
-    has_string,
 )
 from linecast.weather.hourly import _precip_bar_full, _present, label_rows
 from linecast.weather.render import (
@@ -277,13 +276,14 @@ def _cloud_shade(cover):
 
 
 def _precip_kind_lower(code, runtime):
-    """The precipitation type as a word mid-sentence: "rain", not "Rain",
-    where the language has the lowercase form, and the row label otherwise."""
+    """The precipitation type as a word mid-sentence: "rain", not "Rain".
+    The words are the past day's total's, "snow", "rain", "mixed
+    precipitation", in the case that sentence's "of" asks for, which is
+    the case the chance's "of" asks for too (Czech "deště", Greek
+    "μεικτών κατακρημνισμάτων").  The row's own label is a heading, and
+    abbreviated in some languages ("Bland.")."""
     kind = _precip_type(code)
-    if runtime.lang == "el" and kind == "Mix":
-        # The row is nominative; "probability of" needs the genitive.
-        return _s("mixed_precip", runtime)
-    return _s(kind.lower(), runtime) if has_string(kind.lower()) else _s(kind, runtime)
+    return _s({"Snow": "snow", "Rain": "rain", "Mix": "mixed_precip"}[kind], runtime)
 
 
 def _build_daily_tooltip(data, mouse_col, mouse_row, daily_start, daily_spans, cols, rows,
