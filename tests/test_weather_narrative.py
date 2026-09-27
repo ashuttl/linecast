@@ -1964,3 +1964,47 @@ class TestPastPrecipitation:
         runtime = _runtime(celsius=True, metric=True)
         assert past_precip_sentence(hourly, NOON + timedelta(minutes=26), runtime) == (
             "24.0\u00a0mm of rain in the last 24 hours")
+
+    # The Portland morning again: the model had 3.5 mm of drizzle in the
+    # last day, and the Jetport's gauge caught more than half an inch
+    MODEL_NIGHT = {"time": [(NOON - timedelta(hours=k)).isoformat(timespec="minutes")
+                            for k in range(6, -1, -1)],
+                   "precipitation": [0.4, 0.5, 0.9, 0.8, 0.3, 0.6, 0],
+                   "snowfall": [0] * 7, "weather_code": [51, 53, 53, 53, 51, 53, 3]}
+    JETPORT = {"station": "KPWM", "precip": 0.54,
+               "rain_hours": 7, "snow_hours": 0, "mix_hours": 0}
+
+    def _inches(self, hourly, station):
+        from linecast.weather.sections import past_precip_sentence
+        hourly = dict(hourly, precipitation=[p / 25.4 for p in hourly["precipitation"]])
+        return past_precip_sentence(hourly, NOON, _runtime(), station)
+
+    def test_the_stations_gauge_over_the_models_hours(self):
+        from linecast.weather.sections import past_precip_sentence
+        assert self._inches(self.MODEL_NIGHT, None) == \
+            "0.14 inches of rain in the last 24 hours"
+        assert self._inches(self.MODEL_NIGHT, self.JETPORT) == \
+            "0.54 inches of rain in the last 24 hours"
+        assert past_precip_sentence(self.MODEL_NIGHT, NOON, _runtime(metric=True),
+                                    self.JETPORT) == \
+            "13.7 mm of rain in the last 24 hours"
+
+    def test_a_dry_gauge_under_a_wet_model(self):
+        dry = dict(self.JETPORT, precip=0.0, rain_hours=0)
+        assert self._inches(self.MODEL_NIGHT, dry) == ""
+
+    def test_the_gauge_names_what_fell(self):
+        # Freezing rain the model had as drizzle
+        ice = dict(self.JETPORT, rain_hours=2, mix_hours=5)
+        assert self._inches(self.MODEL_NIGHT, ice) == \
+            "0.54 inches of mixed precipitation in the last 24 hours"
+
+    def test_snow_stays_the_models(self):
+        from linecast.weather.sections import past_precip_sentence
+        snowy = dict(self.MODEL_NIGHT, weather_code=[71, 73, 73, 73, 71, 73, 3],
+                     snowfall=[0.4, 0.6, 1.0, 0.8, 0.3, 0.6, 0])
+        gauge = dict(self.JETPORT, precip=0.21, rain_hours=0, snow_hours=6)
+        runtime = _runtime(metric=True)
+        assert past_precip_sentence(snowy, NOON, runtime, gauge) == \
+            past_precip_sentence(snowy, NOON, runtime) == \
+            "3.7 cm of snow in the last 24 hours"

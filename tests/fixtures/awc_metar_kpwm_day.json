@@ -1,0 +1,291 @@
+[
+ {
+  "icaoId": "KPWM",
+  "metarType": "SPECI",
+  "obsTime": 1790508000,
+  "reportTime": "2026-09-27T11:20:00.000Z",
+  "precip": 0.02,
+  "wxString": "-RA BR",
+  "rawOb": "SPECI KPWM 271120Z 03016G22KT 3SM -RA BR BKN008 OVC012 12/12 A2994 RMK AO2 CIG 005V012 P0002 T01220117 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "SPECI",
+  "obsTime": 1790507460,
+  "reportTime": "2026-09-27T11:11:00.000Z",
+  "precip": 0.02,
+  "wxString": "-RA BR",
+  "rawOb": "SPECI KPWM 271111Z 04014G20KT 1 1/2SM -RA BR OVC008 12/12 A2994 RMK AO2 VIS 1 1/4V2 1/2 CIG 005V010 P0002 T01220117 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790506260,
+  "reportTime": "2026-09-27T11:00:00.000Z",
+  "precip": 0.02,
+  "wxString": "-RA BR",
+  "rawOb": "METAR KPWM 271051Z 04012G21KT 2SM -RA BR OVC008 12/12 A2993 RMK AO2 RAB0957 CIG 005V012 SLP136 P0002 T01220117 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790502660,
+  "reportTime": "2026-09-27T10:00:00.000Z",
+  "wxString": "BR",
+  "rawOb": "METAR KPWM 270951Z 04012G20KT 2 1/2SM BR OVC008 12/12 A2992 RMK AO2 CIG 005V012 SLP132 T01220117 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "SPECI",
+  "obsTime": 1790500260,
+  "reportTime": "2026-09-27T09:11:00.000Z",
+  "wxString": "BR",
+  "rawOb": "SPECI KPWM 270911Z 04013G19KT 2 1/2SM BR OVC008 12/12 A2992 RMK AO2 CIG 005V009 T01220117 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790499060,
+  "reportTime": "2026-09-27T09:00:00.000Z",
+  "pcp3hr": 0.02,
+  "wxString": "BR",
+  "rawOb": "METAR KPWM 270851Z 03013G20KT 5SM BR OVC008 13/12 A2992 RMK AO2 CIG 006V011 SLP132 60002 T01280117 55006 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "SPECI",
+  "obsTime": 1790498400,
+  "reportTime": "2026-09-27T08:40:00.000Z",
+  "wxString": "BR",
+  "rawOb": "SPECI KPWM 270840Z 03012G24KT 6SM BR OVC008 13/12 A2992 RMK AO2 CIG 006V011 T01280117 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790495460,
+  "reportTime": "2026-09-27T08:00:00.000Z",
+  "precip": 0.005,
+  "rawOb": "METAR KPWM 270751Z 03012G21KT 10SM OVC012 13/12 A2991 RMK AO2 PK WND 02027/0707 RAE13 SLP128 P0000 T01280117 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790491860,
+  "reportTime": "2026-09-27T07:00:00.000Z",
+  "precip": 0.02,
+  "wxString": "-RA",
+  "rawOb": "METAR KPWM 270651Z 04015G24KT 9SM -RA BKN010 OVC015 13/12 A2992 RMK AO2 RAB10 CIG 007V013 SLP131 P0002 T01330122 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790488260,
+  "reportTime": "2026-09-27T06:00:00.000Z",
+  "precip": 0.02,
+  "pcp6hr": 0.48,
+  "rawOb": "METAR KPWM 270551Z 04013G19KT 9SM BKN012 OVC018 13/12 A2994 RMK AO2 RAE38 SLP138 P0002 60048 T01330122 10194 20133 58006 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "SPECI",
+  "obsTime": 1790487480,
+  "reportTime": "2026-09-27T05:38:00.000Z",
+  "precip": 0.02,
+  "wxString": "BR",
+  "rawOb": "SPECI KPWM 270538Z 03012G19KT 4SM BR FEW009 BKN015 OVC020 13/12 A2995 RMK AO2 RAE38 P0002 T01330122 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "SPECI",
+  "obsTime": 1790487060,
+  "reportTime": "2026-09-27T05:31:00.000Z",
+  "precip": 0.01,
+  "wxString": "-RA BR",
+  "rawOb": "SPECI KPWM 270531Z 03011KT 2 1/2SM -RA BR FEW008 BKN015 OVC024 13/12 A2994 RMK AO2 P0001 T01330122 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "SPECI",
+  "obsTime": 1790486400,
+  "reportTime": "2026-09-27T05:20:00.000Z",
+  "precip": 0.01,
+  "wxString": "-RA BR",
+  "rawOb": "SPECI KPWM 270520Z 04010G17KT 4SM -RA BR FEW008 BKN016 OVC034 13/12 A2995 RMK AO2 P0001 T01330122 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790484660,
+  "reportTime": "2026-09-27T05:00:00.000Z",
+  "precip": 0.08,
+  "wxString": "-RA",
+  "rawOb": "METAR KPWM 270451Z 03010KT 10SM -RA OVC014 13/12 A2995 RMK AO2 SLP141 P0008 T01330122 402170133 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "SPECI",
+  "obsTime": 1790484480,
+  "reportTime": "2026-09-27T04:48:00.000Z",
+  "precip": 0.07,
+  "wxString": "-RA",
+  "rawOb": "SPECI KPWM 270448Z 04012KT 9SM -RA OVC014 13/12 A2995 RMK AO2 P0007 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "SPECI",
+  "obsTime": 1790482020,
+  "reportTime": "2026-09-27T04:07:00.000Z",
+  "precip": 0.04,
+  "wxString": "-RA BR",
+  "rawOb": "SPECI KPWM 270407Z 03011KT 3SM -RA BR OVC018 13/13 A2995 RMK AO2 P0004 T01330128 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790481060,
+  "reportTime": "2026-09-27T04:00:00.000Z",
+  "precip": 0.26,
+  "wxString": "RA BR",
+  "rawOb": "METAR KPWM 270351Z 03008KT 2 1/2SM RA BR OVC020 14/13 A2996 RMK AO2 SLP144 LAST P0026 T01390128 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790477460,
+  "reportTime": "2026-09-27T03:00:00.000Z",
+  "precip": 0.12,
+  "pcp3hr": 0.12,
+  "wxString": "-RA BR",
+  "rawOb": "METAR KPWM 270251Z 06011G21KT 3SM -RA BR OVC028 14/12 A2997 RMK AO2 PK WND 07027/0155 RAB0153 SLP150 P0012 60012 T01440122 51006 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "SPECI",
+  "obsTime": 1790477340,
+  "reportTime": "2026-09-27T02:49:00.000Z",
+  "precip": 0.12,
+  "wxString": "-RA BR",
+  "rawOb": "SPECI KPWM 270249Z 06011G21KT 3SM -RA BR OVC028 14/12 A2998 RMK AO2 PK WND 07027/0155 RAB0153 P0012 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790473860,
+  "reportTime": "2026-09-27T02:00:00.000Z",
+  "precip": 0.005,
+  "rawOb": "METAR KPWM 270151Z 07018G28KT 10SM FEW036 OVC043 17/11 A2996 RMK AO2 PK WND 06034/0134 RAB40E50 SLP144 P0000 T01670106 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790470260,
+  "reportTime": "2026-09-27T01:00:00.000Z",
+  "rawOb": "METAR KPWM 270051Z 06009KT 10SM OVC050 19/09 A2996 RMK AO2 SLP144 T01890094 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790466660,
+  "reportTime": "2026-09-27T00:00:00.000Z",
+  "precip": 0.005,
+  "pcp6hr": 0.005,
+  "rawOb": "METAR KPWM 262351Z 03007KT 10SM BKN060 OVC085 17/11 A2995 RMK AO2 RAB09E51 SLP140 P0000 60000 T01670111 10217 20167 57003 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790463060,
+  "reportTime": "2026-09-26T23:00:00.000Z",
+  "precip": 0.005,
+  "rawOb": "METAR KPWM 262251Z 08010KT 10SM OVC050 17/11 A2995 RMK AO2 RAB2155E47 SLP143 P0000 T01720106 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790459460,
+  "reportTime": "2026-09-26T22:00:00.000Z",
+  "rawOb": "METAR KPWM 262151Z 06010G19KT 10SM BKN055 OVC070 20/09 A2995 RMK AO2 SLP140 T02000089 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790455860,
+  "reportTime": "2026-09-26T21:00:00.000Z",
+  "rawOb": "METAR KPWM 262051Z 06012G23KT 10SM BKN055 OVC070 21/08 A2995 RMK AO2 SLP143 T02110083 56004 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790452260,
+  "reportTime": "2026-09-26T20:00:00.000Z",
+  "rawOb": "METAR KPWM 261951Z 05006KT 10SM OVC055 22/08 A2996 RMK AO2 SLP143 T02170078 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790448660,
+  "reportTime": "2026-09-26T19:00:00.000Z",
+  "rawOb": "METAR KPWM 261851Z 05009KT 10SM OVC055 21/07 A2996 RMK AO2 PK WND 05026/1752 SLP146 T02060072 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790445060,
+  "reportTime": "2026-09-26T18:00:00.000Z",
+  "precip": 0.005,
+  "pcp6hr": 0.005,
+  "rawOb": "METAR KPWM 261751Z 05015G28KT 10SM BKN050 BKN075 21/07 A2997 RMK AO2 PK WND 03028/1749 RAE1653 SLP147 P0000 60000 T02060067 10206 20150 56025 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790441460,
+  "reportTime": "2026-09-26T17:00:00.000Z",
+  "precip": 0.005,
+  "wxString": "-RA",
+  "rawOb": "METAR KPWM 261651Z 05012KT 10SM -RA BKN055 BKN080 BKN100 19/09 A2999 RMK AO2 RAB05E25B41 SLP154 P0000 T01940089 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790437860,
+  "reportTime": "2026-09-26T16:00:00.000Z",
+  "rawOb": "METAR KPWM 261551Z 04013G21KT 10SM BKN080 BKN100 19/09 A3001 RMK AO2 SLP162 T01890089 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790434260,
+  "reportTime": "2026-09-26T15:00:00.000Z",
+  "rawOb": "METAR KPWM 261451Z 05013G23KT 10SM BKN075 BKN120 18/09 A3004 RMK AO2 SLP172 T01830089 53002 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790430660,
+  "reportTime": "2026-09-26T14:00:00.000Z",
+  "rawOb": "METAR KPWM 261351Z 02011G20KT 10SM BKN065 BKN120 17/08 A3004 RMK AO2 SLP173 T01720083 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790427060,
+  "reportTime": "2026-09-26T13:00:00.000Z",
+  "rawOb": "METAR KPWM 261251Z 03010KT 10SM BKN060 BKN120 16/08 A3003 RMK AO2 SLP169 T01560083 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790423460,
+  "reportTime": "2026-09-26T12:00:00.000Z",
+  "pcp6hr": 0.005,
+  "rawOb": "METAR KPWM 261151Z 02010KT 10SM BKN080 BKN140 15/08 A3004 RMK AO2 SLP170 60000 T01500083 10172 20144 51008 $"
+ },
+ {
+  "icaoId": "KPWM",
+  "metarType": "METAR",
+  "obsTime": 1790419860,
+  "reportTime": "2026-09-26T11:00:00.000Z",
+  "rawOb": "METAR KPWM 261051Z 02009KT 10SM BKN080 BKN150 14/08 A3003 RMK AO2 SLP170 T01440083 $"
+ }
+]

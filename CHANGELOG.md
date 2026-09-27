@@ -18,6 +18,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: The forecast in words says what is falling now before what it turns into, and no longer leaves out heavy drizzle turning to rain: "Heavy drizzle now, becoming rain soon, ending around 11:00."
 - Weather: The forecast in words says when snow changes to rain, when rain or snow changes to freezing rain, and when freezing rain changes back, without calling an hour's flip between rain and snow a change. After snow changes to rain, the snow total is given for when the snow stops.
 - Weather: Where the current conditions come from a nearby weather station, the forecast in words takes what is falling now from the same report, so it agrees with the header.
+- Weather: In the US, where a nearby airport station measures precipitation, the forecast in words gives what its rain gauge caught in the last 24 hours in place of the model's estimate.
 - Tides: Fixed a bug that showed tide and wave heights with a decimal point in languages that write a decimal comma, such as "9.8′" for "9,8′" in Czech.
 - Languages: French sets the percent sign off with a space ("40 %"), names the Moon's phases in sentence case, and uses the standard term for snow grains, "neige en grains".
 - Languages: Canadian French calls the mouse wheel a "roulette", gives the chance of rain as a "probabilité", and names the Blackfoot sky culture "Pieds-Noirs".

@@ -92,7 +92,11 @@ from linecast.weather.sources import (
 )
 from linecast.weather.cover import sky_condition
 from linecast.weather.humidex import apply_canadian_indices
-from linecast.weather.observed import apply_observation, fetch_observation
+from linecast.weather.observed import (
+    apply_observation,
+    fetch_observation,
+    fetch_station_precipitation,
+)
 
 # What the dashboard keeps when the window is too short for all of it:
 # the graph is the view -- its day line, its ticks and two rows of braille
@@ -776,9 +780,11 @@ class WeatherApp(_live.LiveApp):
                         fallback="alerts matched on geometry alone")
             cc, addr = "", {}
         try:
+            forecast = fetch_forecast(lat, lng, self.runtime)
+            observation = fetch_observation(lat, lng)
             data = apply_canadian_indices(
-                apply_observation(fetch_forecast(lat, lng, self.runtime),
-                                  fetch_observation(lat, lng)),
+                apply_observation(forecast, observation,
+                                  fetch_station_precipitation(observation)),
                 cc or country, self.runtime)
             alerts = fetch_alerts(lat, lng, cc or country,
                                   lang=self.runtime.lang, address=addr)
@@ -1212,6 +1218,8 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
     fut_forecast = _submit(fetch_forecast, lat, lng, runtime)
     fut_aqi = _submit(fetch_aqi, lat, lng)
     fut_observed = _submit(fetch_observation, lat, lng)
+    # The station's gauge, once the station is known
+    fut_gauge = _submit(lambda: fetch_station_precipitation(fut_observed.result()))
     today = date.today()
     fut_hist = _submit(fetch_historical, lat, lng, today,
                        celsius=runtime.celsius, metric=runtime.metric, stale=stale)
@@ -1237,11 +1245,12 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
     localized = _settle(fut_name, "place name", ("", "", {}))[0] if fut_name else ""
     result["name"] = localized or without_country(geo_label) or name
     result["country_code"] = cc or country_code
-    result["data"] = apply_canadian_indices(
-        apply_observation(_settle(fut_forecast, "forecast", None),
-                          _settle(fut_observed, "station observation", None,
-                                  _OBSERVATION_PATIENCE)),
-        result["country_code"], runtime)
+    forecast = _settle(fut_forecast, "forecast", None)
+    observation = _settle(fut_observed, "station observation", None, _OBSERVATION_PATIENCE)
+    gauge = (_settle(fut_gauge, "station precipitation", None, _OBSERVATION_PATIENCE)
+             if observation else None)
+    result["data"] = apply_canadian_indices(apply_observation(forecast, observation, gauge),
+                                            result["country_code"], runtime)
     result["aqi"] = _settle(fut_aqi, "air quality", None)
     result["aqhi"] = _settle(fut_aqhi, "Canada's AQHI", None) if fut_aqhi else None
     # The live view can fill the climate scale in later, so it does not

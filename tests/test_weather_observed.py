@@ -188,3 +188,119 @@ class TestFallback:
         from linecast.weather import observed as obs
         monkeypatch.setattr(obs, "fetch_metars", lambda lat, lng: ["junk", {"lat": "x"}, None])
         assert obs.fetch_observation(43.677, -70.371) is None
+
+
+class TestGauge:
+    """What the station's rain gauge caught in the last day."""
+
+    # The Portland Jetport's reports for the night of September 26, 2026:
+    # a trace in the afternoon, half an inch between eight and two, and
+    # light rain again at seven in the morning, when this was fetched
+    FETCHED = 1_790_508_420   # 11:27Z
+
+    @staticmethod
+    def day():
+        import json
+        from pathlib import Path
+        path = Path(__file__).parent / "fixtures" / "awc_metar_kpwm_day.json"
+        return json.loads(path.read_text())
+
+    def gauge(self, reports=None, now=FETCHED):
+        from linecast.weather.observed import station_precipitation
+        return station_precipitation(self.day() if reports is None else reports, now)
+
+    def test_the_jetports_night(self):
+        # 0.52″ in the hourly reports, and 0.02″ since the last of them;
+        # the hourly traces add nothing
+        assert self.gauge() == {"station": "KPWM", "precip": 0.54,
+                                "rain_hours": 7, "snow_hours": 0, "mix_hours": 0}
+
+    def test_the_hour_so_far_is_only_the_last_special_report(self):
+        # At eleven, before the specials at 11:11 and 11:20, the day ends
+        # with the 10:51 report
+        assert self.gauge(now=self.FETCHED - 27 * 60)["precip"] == 0.52
+
+    def test_a_correction_is_not_counted_twice(self):
+        day = self.day()
+        worst = max(day, key=lambda m: m.get("precip") or 0)
+        corrected = dict(worst, obsTime=worst["obsTime"] + 60,
+                         rawOb=worst["rawOb"].replace("METAR KPWM", "METAR KPWM COR"))
+        assert self.gauge(day + [corrected])["precip"] == 0.54
+
+    def test_missing_hours(self):
+        day = self.day()
+        routine = [m for m in day if m["metarType"] == "METAR"]
+        gone = {id(m) for m in routine[5:10]}
+        assert self.gauge([m for m in day if id(m) not in gone]) is None
+
+    def test_a_gauge_that_is_out(self):
+        day = self.day()
+        day[3] = dict(day[3], rawOb=day[3]["rawOb"].replace(" $", " PNO $"))
+        assert self.gauge(day) is None
+
+    def test_a_day_without_an_amount(self):
+        dry = [{k: v for k, v in m.items() if k not in ("precip", "pcp3hr", "pcp6hr")}
+               for m in self.day()]
+        # Rain named and not measured: a station without a gauge
+        assert self.gauge(dry) is None
+        # Nothing named all day by a station that tells rain from nothing
+        clear = [dict(m, wxString="", rawOb=m["rawOb"].split(" RMK ")[0] + " RMK AO2")
+                 for m in dry]
+        assert self.gauge(clear) == {"station": "KPWM", "precip": 0.0,
+                                     "rain_hours": 0, "snow_hours": 0, "mix_hours": 0}
+        # Nor by one that cannot
+        blind = [dict(m, rawOb=m["rawOb"].replace(" AO2", " AO1")) for m in clear]
+        assert self.gauge(blind) is None
+
+    def test_what_each_hour_fell_as(self):
+        from linecast.weather.observed import _hour_kind
+
+        def kind(wx, remarks="AO2"):
+            return _hour_kind({"wxString": wx, "rawOb": f"METAR KPWM 271051Z RMK {remarks}"})
+
+        assert kind("-RA BR") == "rain"
+        assert kind("", "AO2 RAE38 P0002") == "rain"
+        assert kind("") == "rain"
+        assert kind("-SN") == "snow"
+        assert kind("-SHSN", "AO2 SNB05") == "snow"
+        assert kind("-FZRA") == "mix"
+        assert kind("-RA", "AO2 SNE12RAB12") == "mix"
+        assert kind("BR", "AO2 FZDZB30") == "mix"
+
+    def test_only_an_automated_station_is_asked(self, monkeypatch):
+        from linecast.weather import observed as obs
+
+        def fetch(station):
+            raise AssertionError("asked for a station that reports no gauge")
+        monkeypatch.setattr(obs, "fetch_station_history", fetch)
+        station = {"station": "EGBB", "automated": False}
+        assert obs.fetch_station_precipitation(station) is None
+        assert obs.fetch_station_precipitation(None) is None
+
+    def test_the_station_is_automated(self):
+        near = nearest_observation(43.677, -70.371, [
+            metar("METAR KPWM 271051Z 04012G21KT 2SM -RA BR OVC008 12/12 A2993 RMK AO2 P0002",
+                  wx="-RA BR")], now=NOW)
+        assert near["automated"]
+        near = nearest_observation(43.677, -70.371, [
+            metar("METAR KPWM 271051Z 04012KT 9999 -RA OVC008 12/12 Q1013", wx="-RA")],
+            now=NOW)
+        assert not near["automated"]
+
+    def test_a_failed_fetch_leaves_the_model(self, monkeypatch):
+        from linecast.weather import observed as obs
+
+        def fail(station):
+            raise OSError("network down")
+        monkeypatch.setattr(obs, "fetch_station_history", fail)
+        assert obs.fetch_station_precipitation({"station": "KPWM", "automated": True}) is None
+
+    def test_a_strange_station_is_not_asked_for(self):
+        from linecast.weather.observed import fetch_station_history
+        assert fetch_station_history("../KPWM") == []
+
+    def test_the_forecast_carries_it(self):
+        gauge = self.gauge()
+        data = {"current": {"weather_code": 53}}
+        apply_observation(data, TestApply().observation(61), gauge)
+        assert data["observed_precipitation"] == gauge

@@ -12,6 +12,7 @@ the prose agree with.
 
 import json
 import math
+import re
 import time
 from typing import Any
 
@@ -24,6 +25,7 @@ from linecast.weather.cover import REPORT_COVER
 
 _METAR_URL = ("https://aviationweather.gov/api/data/metar"
               "?bbox={south:.3f},{west:.3f},{north:.3f},{east:.3f}&format=json")
+_HISTORY_URL = "https://aviationweather.gov/api/data/metar?ids={station}&hours=25&format=json"
 
 # A station farther than this is weather somewhere else: a sea breeze
 # or a valley fog can end within a few miles.
@@ -54,6 +56,13 @@ def _sees_high_cloud(metar):
         return False
     return not (_BLIND_ABOVE & {metar.get("cover"), *(
         layer.get("cover") for layer in metar.get("clouds") or [])})
+
+
+def _automated(metar):
+    """Whether a report is from an automated station in the US manner,
+    AO1 or AO2: the stations whose reports carry what their gauge caught."""
+    raw = f" {metar.get('rawOb') or ''} "
+    return " AO1 " in raw or " AO2 " in raw
 
 
 def _cover_code(percent):
@@ -156,8 +165,9 @@ def fetch_metars(lat: float, lng: float) -> list[dict[str, Any]]:
 def nearest_observation(lat: float, lng: float, reports: list[dict[str, Any]],
                         now: float | None = None) -> dict[str, Any] | None:
     """The closest recent report that says what the sky is doing, as
-    {code, cover, station, name, distance_km, time, sees_high_cloud}; None where there is none
-    within MAX_DISTANCE_KM and MAX_AGE_S."""
+    {code, cover, station, name, distance_km, time, sees_high_cloud,
+    automated}; None where there is none within MAX_DISTANCE_KM and
+    MAX_AGE_S."""
     now = time.time() if now is None else now
     best = None
     for metar in reports:
@@ -177,7 +187,8 @@ def nearest_observation(lat: float, lng: float, reports: list[dict[str, Any]],
                     "name": plain_text(metar.get("name") or ""),
                     "distance_km": round(distance, 1),
                     "time": int(metar["obsTime"]),
-                    "sees_high_cloud": _sees_high_cloud(metar)}
+                    "sees_high_cloud": _sees_high_cloud(metar),
+                    "automated": _automated(metar)}
     return best
 
 
@@ -192,11 +203,16 @@ def fetch_observation(lat: float, lng: float) -> dict[str, Any] | None:
 
 
 def apply_observation(data: dict[str, Any] | None,
-                      observation: dict[str, Any] | None) -> dict[str, Any] | None:
+                      observation: dict[str, Any] | None,
+                      precipitation: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """The forecast with a station's sky in place of the model's current
-    weather code and cloud cover, and the station noted beside it."""
+    weather code and cloud cover, and the station noted beside it; with
+    what its gauge caught in the last day, where it has one, for the
+    prose to give in place of the model's hours."""
     if not data or not observation:
         return data
+    if precipitation:
+        data["observed_precipitation"] = precipitation
     current = data.get("current")
     if not isinstance(current, dict):
         return data
@@ -213,3 +229,132 @@ def apply_observation(data: dict[str, Any] | None,
     current["observed"] = {k: observation[k]
                            for k in ("station", "name", "distance_km", "time")}
     return data
+
+
+# What a station's rain gauge caught.  US automated stations put it in
+# their remarks, and the Aviation Weather Center decodes it: `precip`,
+# the inches since the last routine report, in each report, and the
+# three- and six-hour totals in the reports that close those periods.
+
+# A trace, too little to measure, which the Aviation Weather Center gives
+# as half a hundredth.  It adds nothing to a total.
+_TRACE = 0.005
+# An hourly station sends 24 routine reports a day.  With fewer than this
+# it missed hours, and what fell in them; with more than a day and a bit
+# of them it reports more often than hourly, and each report's amount is
+# no longer the hour's.
+_MIN_ROUTINE = 20
+_MAX_ROUTINE = 26
+# The precipitation a report's remarks say began or ended during the
+# hour, as in RAB0957 or SNB12E40: the weather that fell and stopped
+# again between two reports.
+_BEGAN_OR_ENDED = re.compile(r"(?<![A-Z])((?:FZ|SH)?(?:RA|DZ|SN|SG|PL|GS|GR|IC|UP))(?=[BE]\d)")
+_SNOW_CODES = {71, 73, 75, 77, 85, 86}
+_FREEZING_CODES = {56, 57, 66, 67}
+_AMOUNTS = ("precip", "pcp3hr", "pcp6hr", "pcp24hr")
+
+
+def _precip_codes(metar):
+    """The weather codes of the precipitation a report names: falling at
+    the time of the report, or begun or ended in the hour before it."""
+    _, _, remarks = (metar.get("rawOb") or "").partition(" RMK ")
+    tokens = (metar.get("wxString") or "").split() + _BEGAN_OR_ENDED.findall(remarks)
+    return {c for c in map(_weather_token_code, tokens) if c is not None and c >= 51}
+
+
+def _hour_kind(metar):
+    """What a report's precipitation fell as: "snow", "mix" for anything
+    freezing or for snow with rain, or "rain", which is also what an
+    amount with no weather named is taken for."""
+    codes = _precip_codes(metar)
+    snow = codes & _SNOW_CODES
+    if codes & _FREEZING_CODES or (snow and codes - snow):
+        return "mix"
+    return "snow" if snow else "rain"
+
+
+def station_precipitation(reports: list[dict[str, Any]],
+                          now: float | None = None) -> dict[str, Any] | None:
+    """What a station's gauge caught in the last 24 hours, from its
+    reports as the Aviation Weather Center's JSON gives them, as
+    {station, precip, rain_hours, snow_hours, mix_hours}: the total in
+    inches, and the hours with a measurable amount by what it fell as.
+
+    None where the reports cannot say: hours are missing, the gauge is
+    out (PNO) or its amount could not be read (P////), or the station
+    gave no amount all day and either named rain it did not measure or
+    cannot tell rain from nothing (AO1).  A station that tells them
+    apart (AO2) and named no precipitation all day was dry."""
+    now = time.time() if now is None else now
+    day = []
+    for metar in reports:
+        try:
+            when = float(metar["obsTime"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if now - 24 * 3600 < when <= now + 600:
+            day.append((when, metar))
+    if not day:
+        return None
+    day.sort(key=lambda item: item[0])
+    # One routine report an hour: a correction replaces the report it corrects
+    routine = {}
+    for when, metar in day:
+        if metar.get("metarType") == "METAR":
+            routine[metar.get("reportTime") or when] = (when, metar)
+    if not _MIN_ROUTINE <= len(routine) <= _MAX_ROUTINE:
+        return None
+    raws = [f" {metar.get('rawOb') or ''} " for _, metar in day]
+    if any(" PNO " in raw or " P//// " in raw or " 6//// " in raw for raw in raws):
+        return None
+    station = plain_text(day[-1][1].get("icaoId") or "")
+    if not any(metar.get(k) is not None for _, metar in day for k in _AMOUNTS):
+        if all(" AO2 " in raw for raw in raws) and not any(_precip_codes(m) for _, m in day):
+            return {"station": station, "precip": 0.0,
+                    "rain_hours": 0, "snow_hours": 0, "mix_hours": 0}
+        return None
+    hours = [metar for _, metar in sorted(routine.values(), key=lambda item: item[0])]
+    # A special report since the last routine one carries what has fallen
+    # since that report, the hour so far
+    last_when, last = day[-1]
+    if last.get("metarType") == "SPECI" and last_when > max(routine.values(),
+                                                              key=lambda item: item[0])[0]:
+        hours.append(last)
+    total = 0.0
+    kinds = {"rain": 0, "snow": 0, "mix": 0}
+    for metar in hours:
+        try:
+            amount = float(metar.get("precip") or 0)
+        except (TypeError, ValueError):
+            return None
+        if amount > _TRACE:
+            total += amount
+            kinds[_hour_kind(metar)] += 1
+    return {"station": station, "precip": round(total, 2),
+            "rain_hours": kinds["rain"], "snow_hours": kinds["snow"],
+            "mix_hours": kinds["mix"]}
+
+
+def fetch_station_history(station: str) -> list[dict[str, Any]]:
+    """A station's reports, routine and special, over the last 25 hours.
+    Cached 10 min."""
+    if not re.fullmatch(r"[A-Z0-9]{3,5}", station or ""):
+        return []
+    cache_file = cache_dir("weather", f"metar_{station}_day.json")
+    reports = fetch_json_cached(cache_file, 600, _HISTORY_URL.format(station=station),
+                                timeout=6, fallback=[], fetch=_fetch_reports)
+    return reports if isinstance(reports, list) else []
+
+
+def fetch_station_precipitation(observation: dict[str, Any] | None) -> dict[str, Any] | None:
+    """What the station behind the current conditions caught in its gauge
+    over the last day, or None.  Only a US-style automated station
+    reports its gauge, so only one is asked for its day of reports."""
+    if not observation or not observation.get("automated"):
+        return None
+    try:
+        return station_precipitation(fetch_station_history(observation["station"]))
+    except Exception as exc:
+        log_failure("weather", "station precipitation", exc,
+                    fallback="the model's last 24 hours")
+        return None

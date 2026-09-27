@@ -473,10 +473,12 @@ def narrative_text(data, now, runtime=None, trace=None):
         if week:
             add(2, hours(week_at), week_at,
                 lambda after: _next_rain(daily, now, runtime, hourly, after)[0])
-    # The last day is the model's alone: this hour's stamp holds what fell
-    # in the hour before it, which the station's weather now does not name
+    # The last day is the station's gauge where it has one, else the
+    # model's hours as they came: this hour's stamp holds what fell in the
+    # hour before it, which the station's weather now does not name
     add(2, float("inf"), None,
-        lambda after: past_precip_sentence(data.get("hourly", {}), now, runtime))
+        lambda after: past_precip_sentence(data.get("hourly", {}), now, runtime,
+                                           data.get("observed_precipitation")))
 
     if not candidates:
         return ""
@@ -1551,8 +1553,14 @@ def _snow_sentence(parts, hourly, now, runtime):
             total_cm >= 10)
 
 
-def past_precip_sentence(hourly, now, runtime):
-    """Plain-text summary of precipitation in the last 24 hours."""
+def past_precip_sentence(hourly, now, runtime, station=None):
+    """Plain-text summary of precipitation in the last 24 hours: the
+    model's hours, or what a nearby station's gauge caught where it has
+    one (`station`, from observed.py).
+
+    Snow stays the model's.  A gauge gives snow as the water it melts
+    to, and a heated gauge in the wind catches little of it, so the
+    model's snowfall says more about what is on the ground."""
     times = hourly.get("time", [])
     precip = hourly.get("precipitation", [])
     snowfall = hourly.get("snowfall", [])
@@ -1597,6 +1605,14 @@ def past_precip_sentence(hourly, now, runtime):
             else:
                 rain_hours += 1
     log_skipped("weather/open-meteo", "hourly times", dropped, len(times), bad)
+    if station and not (station["snow_hours"]
+                        and station["snow_hours"] >= max(station["rain_hours"],
+                                                         station["mix_hours"])):
+        total_precip = station["precip"] * (25.4 if runtime.metric else 1)
+        total_snow = 0.0
+        snow_hours = station["snow_hours"]
+        rain_hours = station["rain_hours"]
+        mix_hours = station["mix_hours"]
     total_snow_cm = _snow_cm(total_snow, runtime)
 
     # A tenth of an inch, 2.5 mm, before it is worth a sentence: less
