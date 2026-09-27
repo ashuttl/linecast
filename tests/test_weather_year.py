@@ -4,6 +4,7 @@ chart drawn from them, and the live view's v."""
 import re
 import subprocess
 import sys
+import threading
 from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -490,6 +491,69 @@ class TestLive:
             app.on_action("v")
             app._year_worker.join(1.0)
         assert app._year is None
+
+    def _move(self, app, gathered):
+        """Choose London, and hand back the Event that lets it arrive."""
+        from linecast.maps.search import Result
+        from linecast.weather import view
+
+        def gather(lat, lng, cc, runtime, geo_label="", stale=None):
+            gathered.wait(2)
+            return {"data": {"timezone": "Europe/London"}, "name": geo_label}
+
+        with patch.object(view, "gather", side_effect=gather):
+            app._choose_location(Result("London", "", 51.5, -0.1, "point"))
+
+    def test_a_new_place_brings_its_own_year(self):
+        # A paint while the place loads (the loading flash, a mouse
+        # move) once fetched the old place's year for the new one, and
+        # the new one took it as its own for three hours.
+        def fetch(lat, lng, today, runtime, stale=None):
+            return (f"climate {lat}", f"archive {lat}")
+
+        gathered = threading.Event()
+        with patch.object(year, "fetch_year", side_effect=fetch) as fetched, \
+             patch.object(year, "render_year", return_value="out") as render, \
+             patch.object(year, "year_days"):
+            app = _app(year_view=True)
+            app._year_worker.join(1.0)
+            self._move(app, gathered)
+            with app._state_lock:
+                app._start_year()
+            app._render_year(None)
+            assert render.call_args.args[0] == "climate 43.0"   # Westbrook stays up
+            gathered.set()
+            app._location_worker.join(2.0)
+            with app._state_lock:
+                app._finish_location()
+            app._year_worker.join(1.0)
+            app._render_year(None)
+        assert [c.args[:2] for c in fetched.call_args_list] == [(43.0, -70.0), (51.5, -0.1)]
+        assert render.call_args.args[0] == "climate 51.5"
+
+    def test_a_fetch_for_the_place_left_behind_does_not_hold_up_the_next(self):
+        answered = threading.Event()
+
+        def fetch(lat, lng, today, runtime, stale=None):
+            if lat == 43.0:
+                answered.wait(2)
+            return (f"climate {lat}", f"archive {lat}")
+
+        app = _app()
+        gathered = threading.Event()
+        gathered.set()
+        with patch.object(year, "fetch_year", side_effect=fetch):
+            app.on_action("v")
+            westbrook = app._year_worker
+            self._move(app, gathered)
+            app._location_worker.join(2.0)
+            with app._state_lock:
+                app._finish_location()
+            assert app._year_worker is not westbrook
+            app._year_worker.join(1.0)
+            answered.set()
+            westbrook.join(1.0)
+        assert app._year[0] == (51.5, -0.1) and app._year[2] == "climate 51.5"
 
     def test_one_fetch_until_a_short_answer_is_old_enough_to_retry(self):
         app = _app()

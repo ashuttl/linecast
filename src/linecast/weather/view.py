@@ -756,9 +756,9 @@ class WeatherApp(_live.LiveApp):
         self.attempted = None   # local time the last refresh finished
         self.year_view = year_view
         self.year_colors = 0       # the year's bar coloring, an index into COLORS
-        # The year view's (generation, day, climate, archive), and when
-        # its fetch last started for that generation and day and whether
-        # it came back whole.
+        # The year view's ((lat, lng), day, climate, archive), and when
+        # its fetch last started for a generation and day and whether it
+        # came back whole.
         self._year = None
         self._year_asked = None
         self._year_worker = None
@@ -853,17 +853,18 @@ class WeatherApp(_live.LiveApp):
 
     def _fetch_year(self, generation, lat, lng, today):
         """The ten years and this year so far, for the year view; kept
-        unless the user has moved on."""
+        unless the user has moved on or a newer fetch has been asked for."""
         from linecast.weather.year import fetch_year
 
         def stale():
-            return generation != self._generation
+            return (generation != self._generation
+                    or self._year_asked[:2] != (generation, today))
 
         climate, archive = fetch_year(lat, lng, today, self.runtime, stale=stale)
         with self._state_lock:
             if stale():
                 return
-            self._year = (generation, today, climate, archive)
+            self._year = ((lat, lng), today, climate, archive)
             self._year_asked = (generation, today, self._year_asked[2],
                                 climate is not None and archive is not None)
         _live.nudge()
@@ -872,15 +873,19 @@ class WeatherApp(_live.LiveApp):
         """Fetch the year view's data while the view is showing: when it
         opens, when the place or the day changes, again a little later
         when a fetch came back short, and every few hours for the
-        archive's latest days.  Called with the state lock held."""
-        if not self.year_view or not self.data:
-            return
-        worker = self._year_worker
-        if worker and worker.is_alive():
+        archive's latest days.  Not while a new place loads: the
+        generation is already the new place's, but the coordinates are
+        still the old one's.  Called with the state lock held."""
+        if not self.year_view or not self.data or self._loading is not None:
             return
         today = _local_now_for_data(self.data).date()
         asked = self._year_asked
         if asked and asked[:2] == (self._generation, today):
+            # A fetch still out for another place or day is left to
+            # find itself stale; only this one's is waited for.
+            worker = self._year_worker
+            if worker and worker.is_alive():
+                return
             wait = _YEAR_REFRESH if asked[3] else _CLIMATE_RETRY_DELAY
             if _t.monotonic() - asked[2] < wait:
                 return
@@ -893,7 +898,9 @@ class WeatherApp(_live.LiveApp):
     def _render_year(self, mouse_pos):
         from linecast.weather.year import COLORS, render_year, year_days
         today = _local_now_for_data(self.data).date()
-        year = self._year if self._year and self._year[0] == self._generation else None
+        # The place's own year; while a new place loads, the old one's
+        # chart stays up, as the forecast does.
+        year = self._year if self._year and self._year[0] == (self.lat, self.lng) else None
         climate = year[2] if year else None
         # Yesterday's archive answer is a day short; the forecast fills
         # that day until the new one comes.
