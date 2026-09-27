@@ -41,7 +41,7 @@ HELP = {
     "time30": "sogeza muda kwa dakika 30",
     "time15": "sogeza muda kwa dakika 15",
     "year": "mwonekano wa siku / mwaka",
-    "bar_colors": "pau za kawaida / za rangi",
+    "bar_colors": "rangi za pau",
     "sun_times": "nyakati za jua kuchomoza na kutua",
     "turn_moon": "zungusha mwezi",
     "calendar": "mwonekano wa mwezi / kalenda",

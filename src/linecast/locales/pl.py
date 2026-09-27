@@ -41,7 +41,7 @@ HELP = {
     "time30": "przesuń czas o 30 minut",
     "time15": "przesuń czas o 15 minut",
     "year": "widok dnia / roku",
-    "bar_colors": "słupki jednolite / kolorowe",
+    "bar_colors": "kolory słupków",
     "sun_times": "wschód i zachód słońca",
     "turn_moon": "obróć Księżyc",
     "calendar": "tarcza / kalendarz",

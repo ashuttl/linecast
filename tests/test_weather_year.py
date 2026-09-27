@@ -216,7 +216,7 @@ class TestChart:
         from linecast.terminal import color as _color
         with patch.object(_color, "_COLOR_MODE", "truecolor"):
             out = _render(_climate(), _days(high=lambda d: 90.0, low=lambda d: 20.0),
-                          colored=True)
+                          colors="colored")
         # ▄ is left out: the bands' half-block field is drawn with it
         inks = {tuple(map(int, m)) for m in
                 re.findall(r"\x1b\[38;2;(\d+);(\d+);(\d+)m[▗▖▝▐▞▟▘▚▌▙▀▜▛█]", out)}
@@ -227,12 +227,12 @@ class TestChart:
         for ink in inks:
             assert min(max(abs(a - b) for a, b in zip(ink, c)) for c in scale + faded) <= 1
 
-    def test_plain_bars_are_one_ink_by_default(self):
+    def test_plain_bars_without_the_fringe_are_one_ink(self):
         from linecast.terminal import color as _color
         hot = date(2026, 7, 4)
         with patch.object(_color, "_COLOR_MODE", "truecolor"):
             out = _render(_climate(), _days(high=lambda d: 99.0 if d == hot else 90.0,
-                                            low=lambda d: 20.0))
+                                            low=lambda d: 20.0), colors="plain")
         inks = {tuple(map(int, m)) for m in
                 re.findall(r"\x1b\[38;2;(\d+);(\d+);(\d+)m[▗▖▝▐▞▟▘▚▌▙▀▜▛█]", out)}
         faded = year.lerp_rgb(year.NEUTRAL_BAR_RGB, year._theme.theme_bg, year._FORECAST_FADE)
@@ -249,7 +249,7 @@ class TestChart:
         # The trial's other drawing: dots, plain ones in the text's ink,
         # and a grid line never drawn in a bar's cell
         with patch.object(_color, "_COLOR_MODE", "truecolor"):
-            out = _render(_climate(), _days(), braille=True)
+            out = _render(_climate(), _days(), braille=True, colors="plain")
         body = _strip(out).split("\n")[1:]
         assert not any(ch in line for line in body for ch in "▗▖▝▐▞▟▘▚▌▙▀▜▛█")
         assert any("⣿" in line for line in body)
@@ -276,17 +276,47 @@ class TestChart:
         body = _strip(_render(climate, days)).split("\n")[1:]
         assert not any("2016–2025" in line for line in body)
 
-    def test_a_hover_names_the_day_and_its_climate(self):
-        # Early March: out of the synthetic summer
+    def _chip_dates(self, text):
+        found = re.search(r"\x00 (\w{3}) (\d+)(?: – (\w{3}) (\d+))?", text)
+        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+                  "Oct", "Nov", "Dec"]
+        a = date(2026, months.index(found[1]) + 1, int(found[2]))
+        b = date(2026, months.index(found[3]) + 1, int(found[4])) if found[3] else a
+        return a, b
+
+    def test_a_hover_names_the_week_and_its_climate(self):
+        # Early March, out of the synthetic summer: a column there is
+        # three days, so the chip speaks for the calendar week
         text = _strip(_render(_climate(), _days(), mouse_pos=(28, 10)))
-        assert "Mar" in text and "days ago" in text
+        a, b = self._chip_dates(text)
+        assert (b - a).days == 6 and a.weekday() == 0    # Monday to Sunday
+        assert "days ago" not in text
         assert "52° / 32°" in text
         assert "avg 50° / 30°" in text
         assert "2016–2025 50° / 30°" in text
 
-    def test_a_hover_on_a_day_to_come_has_its_climate_alone(self):
+    def test_the_week_opens_on_the_readers_day(self):
+        text = _strip(_render(_climate(), _days(), mouse_pos=(28, 10),
+                              runtime=_runtime(week_start="sunday")))
+        a, b = self._chip_dates(text)
+        assert (b - a).days == 6 and a.weekday() == 6
+
+    def test_a_week_is_cut_at_the_years_ends(self):
+        # 1 January 2026 is a Thursday: its week is cut to four days
+        days = _days()
+        text = _strip(_render(_climate(), days, mouse_pos=(self._column(days, 0), 10)))
+        a, b = self._chip_dates(text)
+        assert (a, b) == (date(2026, 1, 1), date(2026, 1, 4))
+
+    def test_a_window_with_a_column_a_day_hovers_the_day(self):
+        text = _strip(_render(_climate(), _days(), mouse_pos=(200, 10), size=(400, 34)))
+        a, b = self._chip_dates(text)
+        assert a == b and "days ago" in text
+
+    def test_a_hover_on_days_to_come_has_their_climate_alone(self):
         text = _strip(_render(_climate(), _days(), mouse_pos=(110, 10)))
-        assert "in " in text and "avg" in text and "2016–2025" in text
+        assert "avg" in text and "2016–2025" in text
+        assert "″" not in text.split("\x00")[1]
 
     def _snowy(self):
         # A storm of 3.5 in of snow a day on 8-14 January, from 0.5 in of
@@ -319,17 +349,59 @@ class TestChart:
         gutter = axis.index("Jan")
         return gutter + int((k + 0.5) / 365 * (120 - gutter)) + 1
 
-    def test_a_snowy_day_gives_its_snow_and_then_its_water(self):
+    def test_a_snowy_week_gives_its_snow_and_then_its_water(self):
         days = self._snowy()
         text = _strip(_render(_climate(), days, mouse_pos=(self._column(days, 10), 10)))
-        assert re.search(r"Jan (8|9|1[0-4]) ", text)
+        a, b = self._chip_dates(text)
+        stormy = sum(1 for d in range((b - a).days + 1)
+                     if 8 <= (a + timedelta(days=d)).day <= 14)
+        assert f"Snow {3.5 * stormy:.0f}″" in text
+        assert f"{0.5 * stormy + 0.5 * (a.day <= 10 <= b.day and stormy == 0):.2f}″ of water" \
+            in text or f"{0.5 * stormy:.1f}″ of water" in text
+
+    def test_a_snowy_day_gives_its_snow_where_days_have_columns(self):
+        days = self._snowy()
+        text = _strip(_render(_climate(), days, mouse_pos=(4 + 10 + 1, 10), size=(400, 34)))
+        a, _b = self._chip_dates(text)
+        assert 8 <= a.day <= 14
         assert "Snow 3.5″" in text and "0.50″ of water" in text
 
-    def test_a_rainy_day_gives_its_water_alone(self):
-        days = self._snowy()   # April 10th
+    def test_a_rainy_week_gives_its_water_alone(self):
+        days = self._snowy()   # the week of April 10th, its one rainy day
         text = _strip(_render(_climate(), days, mouse_pos=(self._column(days, 99), 10)))
-        assert "Apr 10" in text and "0.50″" in text
+        a, b = self._chip_dates(text)
+        assert a <= date(2026, 4, 10) <= b and "0.50″" in text
         assert "Snow" not in text and "of water" not in text
+
+    def test_the_fringe_warms_above_the_average_and_cools_below(self):
+        edge = (0.0, 40.0, 10.0, 30.0)   # outer top, outer bottom, avg high, avg low
+        plain = (100, 100, 100)
+        assert year._fringed(plain, 20, edge) == plain
+        # a tint just past the average, the full color at the ten years'
+        # extreme and beyond, warm above and cool below
+        near = year._fringed(plain, 9, edge)
+        assert near != plain and near != year.lerp_rgb(plain, year.WARM_RGB, 1)
+        assert year._fringed(plain, 0, edge) == year.lerp_rgb(plain, year.WARM_RGB, 1)
+        assert year._fringed(plain, 40, edge) == year.lerp_rgb(plain, year.COOL_RGB, 1)
+
+    def test_a_plain_bar_past_the_average_takes_the_fringe(self):
+        from linecast.terminal import color as _color
+        with patch.object(_color, "_COLOR_MODE", "truecolor"):
+            out = _render(_climate(), _days(high=lambda d: 90.0, low=lambda d: 5.0))
+            bare = _render(_climate(), _days(high=lambda d: 90.0, low=lambda d: 5.0),
+                           colors="plain")
+
+        def inks(text):
+            return {tuple(map(int, m)) for m in re.findall(
+                r"\x1b\[38;2;(\d+);(\d+);(\d+)m[▗▖▝▐▞▟▘▚▌▙▀▜▛█]", text)}
+
+        # by default the bars past the average are tinted, redder and
+        # bluer than the plain grey; without the fringe, all grey
+        grey = year.NEUTRAL_BAR_RGB
+        assert any(r > grey[0] and b <= grey[2] for r, g, b in inks(out))
+        assert any(b > grey[2] and r <= grey[0] for r, g, b in inks(out))
+        assert inks(bare) <= {grey, year.lerp_rgb(grey, year._theme.theme_bg,
+                                                   year._FORECAST_FADE)}
 
     def test_data_meeting_data_keeps_both_dots(self):
         cells = year._Braille(1, 1)
@@ -441,16 +513,18 @@ class TestLive:
             app._year_worker.join(1.0)
         assert fetch.call_count == 1
 
-    def test_c_turns_the_colors_on_and_off_in_the_year_alone(self):
+    def test_c_steps_the_colorings_in_the_year_alone(self):
         app = _app()
-        assert not app.on_action("c") and not app.year_colored
+        assert not app.on_action("c") and app.year_colors == 0
         app.year_view = True
+        seen = []
         with patch.object(year, "render_year", return_value="out") as render, \
              patch.object(year, "year_days"):
-            assert app.on_action("c") and app.year_colored
-            app._render_year(None)
-            assert render.call_args.kwargs["colored"] is True
-            assert app.on_action("c") and not app.year_colored
+            for _ in range(4):
+                app._render_year(None)
+                seen.append(render.call_args.kwargs["colors"])
+                assert app.on_action("c")
+        assert seen == ["fringe", "colored", "plain", "fringe"]
 
     def test_b_switches_blocks_and_braille_in_the_year_alone(self):
         app = _app()

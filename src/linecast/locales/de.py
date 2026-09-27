@@ -43,7 +43,7 @@ HELP = {
     "time30": "Zeit um 30 Minuten ändern",
     "time15": "Zeit um 15 Minuten ändern",
     "year": "Tages- / Jahresansicht",
-    "bar_colors": "Balken schlicht / farbig",
+    "bar_colors": "Balkenfarben",
     "sun_times": "Sonnenaufgang und -untergang",
     "turn_moon": "Mond drehen",
     "calendar": "Scheibe / Kalender",

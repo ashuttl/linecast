@@ -47,7 +47,7 @@ HELP = {
     "time30": "posunout čas o 30 minut",
     "time15": "posunout čas o 15 minut",
     "year": "zobrazení dne / roku",
-    "bar_colors": "jednobarevné / barevné sloupce",
+    "bar_colors": "barvy sloupců",
     "sun_times": "časy východu a západu slunce",
     "turn_moon": "otočit Měsíc",
     "calendar": "kotouč / kalendář",

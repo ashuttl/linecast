@@ -41,7 +41,7 @@ HELP = {
     "time30": "færa tímann um 30 mínútur",
     "time15": "færa tímann um 15 mínútur",
     "year": "dags- / árssýn",
-    "bar_colors": "einlitar / litaðar súlur",
+    "bar_colors": "litir súlna",
     "sun_times": "sólarupprás og sólsetur",
     "turn_moon": "snúa tunglinu",
     "calendar": "skífa / dagatal",

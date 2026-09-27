@@ -44,7 +44,7 @@ HELP = {
     "time30": "時間移動30分鐘",
     "time15": "時間移動15分鐘",
     "year": "日視圖 / 年視圖",
-    "bar_colors": "單色 / 彩色柱",
+    "bar_colors": "柱的顏色",
     "sun_times": "日出和日落時間",
     "turn_moon": "轉動月球",
     "calendar": "月面 / 月曆",

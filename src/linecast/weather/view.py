@@ -751,7 +751,7 @@ class WeatherApp(_live.LiveApp):
         self._climate_worker = None
         self.attempted = None   # local time the last refresh finished
         self.year_view = year_view
-        self.year_colored = False  # the year's bars in the temperature colors
+        self.year_colors = 0       # the year's bar coloring, an index into COLORS
         self.year_braille = False  # b's trial: the bars in braille, not blocks
         # The year view's (generation, day, climate, archive), and when
         # its fetch last started for that generation and day and whether
@@ -886,7 +886,7 @@ class WeatherApp(_live.LiveApp):
         self._year_worker.start()
 
     def _render_year(self, mouse_pos):
-        from linecast.weather.year import render_year, year_days
+        from linecast.weather.year import COLORS, render_year, year_days
         today = _local_now_for_data(self.data).date()
         year = self._year if self._year and self._year[0] == self._generation else None
         climate = year[2] if year else None
@@ -899,7 +899,7 @@ class WeatherApp(_live.LiveApp):
             location_name=self.location_name, location_menu=True,
             mouse_pos=mouse_pos, live=True, hint=install_banner(),
             footer=credit_row(cols, self.runtime.lang, runtime=self.runtime),
-            colored=self.year_colored, braille=self.year_braille)
+            colors=COLORS[self.year_colors], braille=self.year_braille)
 
     def _refreshing(self):
         return bool(self._worker and self._worker.is_alive())
@@ -1063,14 +1063,16 @@ class WeatherApp(_live.LiveApp):
                 self.year_view = not self.year_view
                 self._start_year()
             return True
-        # c turns the year's temperature colors on and off
+        # c steps the year's bars through their colorings
         if key == "c" and self.year_view:
-            self.year_colored = not self.year_colored
+            from linecast.weather.year import COLORS
+            self.year_colors = (self.year_colors + 1) % len(COLORS)
             return True
         # b switches the year's bars between blocks and braille: a trial,
         # unlisted, to be decided and removed
         if key == "b" and self.year_view:
             self.year_braille = not self.year_braille
+            self.flash(["bars: braille" if self.year_braille else "bars: blocks"], seconds=1.5)
             return True
         return False
 

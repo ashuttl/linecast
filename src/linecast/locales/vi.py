@@ -56,7 +56,7 @@ HELP = {
     "time30": "dịch thời gian 30 phút",
     "time15": "dịch thời gian 15 phút",
     "year": "xem theo ngày / năm",
-    "bar_colors": "cột đơn sắc / có màu",
+    "bar_colors": "màu cột",
     "sun_times": "giờ mặt trời mọc và lặn",
     "turn_moon": "xoay Mặt Trăng",
     "calendar": "xem đĩa / lịch",

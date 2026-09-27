@@ -9,10 +9,12 @@ saw.  Under it, each month's precipitation as a running total against
 the month's average, starting over on the 1st.
 
 The bands are fields, drawn in half-block sub-pixels.  The days are
-solid bars of quadrant blocks, two to a cell, in one plain ink, or with
-`colored` each row in the dashboard's color for its temperature, so a
-bar runs from its low's color to its high's as the daily forecast's do;
-the running totals are braille lines.  The ten years are the
+solid bars of quadrant blocks, two to a cell, in one of three colorings
+(COLORS): a plain ink fringed warm above the average high and cool
+below the average low, deepening toward the ten years' extremes; each
+row in the dashboard's color for its temperature, as its daily bars
+run from the low's color to the high's; or the plain ink alone.  The
+running totals are braille lines.  The ten years are the
 dashboard's own archive download (historical.fetch_history), so the
 view costs one request more: this year so far.  Today and the days
 after it come from the forecast, the days after it in a lighter ink.
@@ -50,6 +52,9 @@ _QUADRANTS = " ▗▖▄▝▐▞▟▘▚▌▙▀▜▛█"
 _QUARTER = ((8, 4), (2, 1))   # by [half row][column]
 # The share of the chart's rows the precipitation panel takes.
 _PRECIP_SHARE = 0.28
+# The bars' colorings, in the order c steps through them; the first is
+# the default.
+COLORS = ("fringe", "colored", "plain")
 # How far a forecast day's bar fades toward the page.
 _FORECAST_FADE = 0.5
 # Open-Meteo's snowfall is seven times the snow's water: 7 cm of snow to
@@ -60,6 +65,7 @@ _SNOW_PER_WATER = 7
 def _rebuild():
     global RANGE_RGB, NORMAL_RGB, RANGE_LABEL_RGB, NORMAL_LABEL_RGB, GRID_RGB
     global PRECIP_RGB, PRECIP_NORMAL_RGB, NEUTRAL_BAR_RGB, NEUTRAL_MARK_RGB, SNOW_RGB
+    global WARM_RGB, COOL_RGB
     # The two bands: the span's extremes barely off the page, the
     # average range a step further, as the paper's two tans.
     RANGE_RGB = surface_bg(0.07)
@@ -76,6 +82,10 @@ def _rebuild():
     # hottest and coldest days -- take the text itself.
     NEUTRAL_BAR_RGB = ensure_contrast(neutral_tone(0.62), NORMAL_RGB, minimum=2.4)
     NEUTRAL_MARK_RGB = _style.TEXT_RGB
+    # The fringe's two ends: a plain bar's part above the average high
+    # and below the average low
+    WARM_RGB = _style.RED_RGB
+    COOL_RGB = _style.BLUE_RGB
     PRECIP_RGB = _style.PRECIP_RAIN_RGB
     SNOW_RGB = _style.PRECIP_SNOW_RGB
     PRECIP_NORMAL_RGB = lerp_rgb(PRECIP_RGB, _theme.theme_bg, 0.55)
@@ -331,7 +341,7 @@ class _Bars:
         return not self.bits[row][cell]
 
     def overlays(self, out, ink):
-        """The filled cells into `out`, inked by ink(row, observed).  A
+        """The filled cells into `out`, inked by ink(cell, row, observed).  A
         grid line gives a bar's cell up: drawn in the bar's ink, its dots
         would read as the bar's own."""
         for row in range(self.rows):
@@ -340,7 +350,24 @@ class _Bars:
                 if not bits or (cell, row) in out:
                     continue
                 glyph = chr(0x2800 + bits) if self.per == 4 else _QUADRANTS[bits]
-                out[(cell, row)] = (glyph, ink(row, self.observed[row][cell]), False)
+                out[(cell, row)] = (glyph, ink(cell, row, self.observed[row][cell]), False)
+
+
+def _fringed(rgb, y, edge):
+    """A plain bar's ink at dot row y of a column whose bands are `edge`
+    (outer top, outer bottom, average high, average low, in dots): warm
+    above the average high, cool below the average low, deepening from a
+    tint just past the average to the full color at the ten years'
+    extreme.  A solid fringe drew the eye to every warm afternoon; the
+    gradient keeps it for the days that were far out."""
+    top, bottom, high, low = edge
+    if y < high:
+        toward, reach = WARM_RGB, (high - y) / max(1e-9, high - top)
+    elif y > low:
+        toward, reach = COOL_RGB, (y - low) / max(1e-9, bottom - low)
+    else:
+        return rgb
+    return lerp_rgb(rgb, toward, 0.3 + 0.7 * min(1.0, reach))
 
 
 def _place(overlays, free, rows, text, x, row, ink, width):
@@ -431,17 +458,20 @@ def _normal_to_date(climate, today, starts, ends):
 
 
 def render_year(climate, days, runtime, *, location_name="", location_menu=False,
-                mouse_pos=None, live=False, footer="", hint="", colored=False,
+                mouse_pos=None, live=False, footer="", hint="", colors=COLORS[0],
                 braille=False):
     """The year view, sized to the terminal: a header, the temperature
     panel, the month axis, the precipitation panel, and in live mode
     `footer` (the dashboard's credit row).  Either of `climate` and
     `days` may be None while it is fetched; the view draws what it has.
-    `colored` draws the bars, and the labels of the year's hottest and
-    coldest days, in the temperature colors instead of one plain ink.
+    `colors` is one of COLORS: "colored" draws the bars, and the labels
+    of the year's hottest and coldest days, in the temperature colors;
+    "fringe" and "plain" in one plain ink, "fringe" tinting a bar's part
+    above the average high warm and below the average low cool.
     `braille` draws the bars in braille dots instead of quadrant blocks
-    (a trial, for comparing the two).
+    (a trial, for comparing).
     """
+    colored, fringe = colors == "colored", colors == "fringe"
     cols, rows = get_terminal_size()
     year = days.year if days else date.today().year
     starts, n = _month_starts(year)
@@ -519,10 +549,14 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
         """The bar step v falls in, from the top."""
         return max(0, min(steps - 1, int(ty(v) * bars.per / 4)))
 
-    def bar_ink(row, observed):
-        # The row's own temperature, in the dashboard's colors
-        rgb = (_style._temp_color(hi - (row + 0.5) / n_temp * (hi - lo), runtime)
-               if colored else NEUTRAL_MARK_RGB if braille else NEUTRAL_BAR_RGB)
+    def bar_ink(cell, row, observed):
+        if colored:
+            # The row's own temperature, in the dashboard's colors
+            rgb = _style._temp_color(hi - (row + 0.5) / n_temp * (hi - lo), runtime)
+        else:
+            rgb = NEUTRAL_MARK_RGB if braille else NEUTRAL_BAR_RGB
+            if fringe and edges[cell]:
+                rgb = _fringed(rgb, row * 4 + 2, edges[cell])
         return rgb if observed else lerp_rgb(rgb, _theme.theme_bg, _FORECAST_FADE)
 
     def extreme_ink(v):
@@ -610,16 +644,25 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
             precip_dots.dot(i, y, GRID_RGB, guide=True)
 
     # --- hover ---
-    hover_x = None
+    # A window with a column for every day hovers a day.  Narrower, a
+    # column holds two or three, and the one in its middle would leave
+    # the others out of reach -- a storm on one of them, say -- so the
+    # hover takes the calendar week the column falls in, opening on the
+    # reader's first day of the week (`linecast week`).
+    hover_x = hovered = None
     x_today = cell_of(today) if today is not None else None
     if mouse_pos:
         gx, gy = mouse_pos[0] - 1 - gutter, mouse_pos[1] - 1
         if 0 <= gx < width and 1 <= gy <= n_temp + 1 + n_precip:
             hover_x = gx
-            # A column is two or three days wide; within a cell of today's,
-            # the hover is today.
-            if x_today is not None and abs(gx - x_today) <= 1:
-                hover_x = x_today
+            k = min(n - 1, int((gx + 0.5) / width * n))
+            if width >= n:
+                hovered = range(k, k + 1)
+            else:
+                from linecast._runtime import WEEK_START_WEEKDAY
+                opens = WEEK_START_WEEKDAY.get(getattr(runtime, "week_start", None), 0)
+                first = k - ((jan1 + timedelta(days=k)).weekday() - opens) % 7
+                hovered = range(max(0, first), min(n, first + 7))
 
     # --- overlays: labels, then hairlines where nothing else is ---
     temp_over, precip_over = {}, {}
@@ -705,9 +748,8 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
         lines.append(footer)
 
     tip = ""
-    if hover_x is not None and mouse_pos:
-        k = today if hover_x == x_today else min(n - 1, int((hover_x + 0.5) / width * n))
-        tip = _tooltip(climate, days, k, jan1, slots, runtime, hover_x + gutter,
+    if hovered is not None:
+        tip = _tooltip(climate, days, hovered, jan1, slots, runtime, hover_x + gutter,
                        mouse_pos[1], cols, rows)
     return overlay("\n".join(lines), tip)
 
@@ -736,9 +778,10 @@ def _month_axis(year, starts, n, width, runtime, this_month=None):
     return "".join(cells) + RESET
 
 
-def _tooltip(climate, days, k, jan1, slots, runtime, col, mouse_row, cols, rows):
-    """The chip for day k: its high and low, the ten years' average and
-    extremes for the date, and its precipitation."""
+def _tooltip(climate, days, span, jan1, slots, runtime, col, mouse_row, cols, rows):
+    """The chip for a span of days, a day or a calendar week: the highest
+    high and lowest low, the ten years' average and extremes for the
+    dates, and the precipitation of the days gone by."""
     from linecast.sunshine.i18n import _fmt_month_day, relative_day
     from linecast.weather.daily import fmt_precip_amount, fmt_snow_amount
     from linecast.weather.sections import _PRECIP_CODES
@@ -747,36 +790,52 @@ def _tooltip(climate, days, k, jan1, slots, runtime, col, mouse_row, cols, rows)
     tbg = bg(*_style.TOOLTIP_BG_RGB)
     tfg = fg(*_style.TOOLTIP_TEXT_RGB)
     tdim = _style.DIM
-    d = jan1 + timedelta(days=k)
-    when = _fmt_month_day(d, runtime)
-    if days:
-        when += f" · {relative_day(k - days.today, runtime)}"
+    first, last = span[0], span[-1]
+
+    def present(values):
+        return [v for v in (values[k] for k in span) if v is not None]
+
+    if first == last:
+        when = _fmt_month_day(jan1 + timedelta(days=first), runtime)
+        if days:
+            when += f" · {relative_day(first - days.today, runtime)}"
+    else:
+        when = (f"{_fmt_month_day(jan1 + timedelta(days=first), runtime)} – "
+                f"{_fmt_month_day(jan1 + timedelta(days=last), runtime)}")
     lines = [f"{tbg}{tdim} {when} "]
-    if days and days.highs[k] is not None and days.lows[k] is not None:
-        lines.append(f"{tbg} {_colored_temp(days.highs[k], runtime, '°')}{tfg} / "
-                     f"{_colored_temp(days.lows[k], runtime, '°')} ")
+    if days and present(days.highs) and present(days.lows):
+        lines.append(f"{tbg} {_colored_temp(max(present(days.highs)), runtime, '°')}{tfg} / "
+                     f"{_colored_temp(min(present(days.lows)), runtime, '°')} ")
     if climate:
-        s = slots[k]
-        nh, nl = climate.normal_high[s], climate.normal_low[s]
-        if nh is not None and nl is not None:
-            lines.append(f"{tbg}{tdim} {_s('avg', runtime)} {tfg}{nh:.0f}° / {nl:.0f}° ")
-        top, bottom = climate.top[s], climate.bottom[s]
-        if top is not None and bottom is not None:
-            first, last = climate.span
-            lines.append(f"{tbg}{tdim} {first}–{last} {tfg}{top:.0f}° / {bottom:.0f}° ")
-    snow = days.snow[k] if days and days.snow else None
-    if snow and snow >= (0.3 if runtime.metric else 0.1):
-        # A snowy day's snow as it lay, and under it the water it melted
-        # to, which is what the running total adds
+        dates = [slots[k] for k in span]
+        nhs = [climate.normal_high[d] for d in dates if climate.normal_high[d] is not None]
+        nls = [climate.normal_low[d] for d in dates if climate.normal_low[d] is not None]
+        if nhs and nls:
+            lines.append(f"{tbg}{tdim} {_s('avg', runtime)} {tfg}"
+                         f"{sum(nhs) / len(nhs):.0f}° / {sum(nls) / len(nls):.0f}° ")
+        tops = [climate.top[d] for d in dates if climate.top[d] is not None]
+        bottoms = [climate.bottom[d] for d in dates if climate.bottom[d] is not None]
+        if tops and bottoms:
+            y0, y1 = climate.span
+            lines.append(f"{tbg}{tdim} {y0}–{y1} {tfg}{max(tops):.0f}° / {min(bottoms):.0f}° ")
+    if not days:
+        return _live.pointer_chip(lines, col + 3, mouse_row, cols, rows,
+                                  pad_bg=tbg, flip_at=col + 2)
+    water = sum(present(days.precip))
+    snow = sum(present(days.snow)) if days.snow else 0
+    if snow >= (0.3 if runtime.metric else 0.1):
+        # The snow as it lay, and under it the water the days' snow and
+        # rain came to, which is what the running total adds
         lines.append(f"{tbg}{fg(*SNOW_RGB)} {_wmo_icons(runtime).get(73, '')} "
                      f"{_s('Snow', runtime)} {fmt_snow_amount(snow, runtime)} ")
-        if days.precip[k]:
-            water = fmt_precip_amount(days.precip[k], runtime)
-            lines.append(f"{tbg}{tdim} {_s('of_water', runtime, amt=water)} ")
-    elif days and days.precip[k]:
-        code = days.codes[k] if days.codes[k] in _PRECIP_CODES else 61
-        icon = _wmo_icons(runtime).get(code, "")
-        ink = fg(*_precip_rgb(code))
-        lines.append(f"{tbg}{ink} {icon} {fmt_precip_amount(days.precip[k], runtime)} ")
+        if water:
+            lines.append(f"{tbg}{tdim} "
+                         f"{_s('of_water', runtime, amt=fmt_precip_amount(water, runtime))} ")
+    elif water:
+        # The icon and ink of the wettest day
+        wettest = max((k for k in span if days.precip[k]), key=lambda k: days.precip[k])
+        code = days.codes[wettest] if days.codes[wettest] in _PRECIP_CODES else 61
+        lines.append(f"{tbg}{fg(*_precip_rgb(code))} {_wmo_icons(runtime).get(code, '')} "
+                     f"{fmt_precip_amount(water, runtime)} ")
     return _live.pointer_chip(lines, col + 3, mouse_row, cols, rows,
                               pad_bg=tbg, flip_at=col + 2)

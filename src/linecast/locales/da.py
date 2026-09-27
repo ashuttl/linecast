@@ -41,7 +41,7 @@ HELP = {
     "time30": "flyt tiden 30 minutter",
     "time15": "flyt tiden 15 minutter",
     "year": "dags- / årsvisning",
-    "bar_colors": "ensfarvede / farvede søjler",
+    "bar_colors": "søjlefarver",
     "sun_times": "solopgang og solnedgang",
     "turn_moon": "drej månen",
     "calendar": "skive / kalender",

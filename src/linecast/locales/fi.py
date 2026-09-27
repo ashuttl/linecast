@@ -40,7 +40,7 @@ HELP = {
     "time30": "siirrä aikaa 30 minuuttia",
     "time15": "siirrä aikaa 15 minuuttia",
     "year": "päivä- / vuosinäkymä",
-    "bar_colors": "yksiväriset / väritetyt palkit",
+    "bar_colors": "palkkien värit",
     "sun_times": "auringonnousu ja -lasku",
     "turn_moon": "käännä Kuuta",
     "calendar": "kiekko / kalenteri",
