@@ -37,3 +37,26 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: dist/
+
+  attach:
+    # linecast.pyz goes on the GitHub Release that release.sh made, once
+    # PyPI has the same version. Its name never changes, so
+    # releases/latest/download/linecast.pyz is always the newest, and
+    # the pyz points there when it finds PyPI ahead of it.
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pyz
+          path: pyz
+
+      - name: Attach linecast.pyz to the release
+        # --clobber, so re-running a failed job can replace a partial upload.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" pyz/linecast.pyz \
+            --repo "$GITHUB_REPOSITORY" --clobber

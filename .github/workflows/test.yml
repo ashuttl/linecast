@@ -126,6 +126,19 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+      # The single file for the GitHub release, from the same wheel. It
+      # is its own artifact: everything in dist goes to PyPI.
+      - name: Build linecast.pyz
+        run: |
+          pip install shiv==1.0.8
+          sh scripts/build_pyz.sh dist pyz
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pyz
+          path: pyz/linecast.pyz
+          if-no-files-found: error
+
   smoke:
     needs: build
     runs-on: ${{ matrix.os }}
@@ -167,6 +180,21 @@ jobs:
       - name: Smoke-test the installed commands
         run: |
           PATH="$RUNNER_TEMP/venv/bin:$PATH" \
+            sh scripts/smoke_wheel.sh "$WHEEL_VERSION"
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pyz
+          path: ${{ runner.temp }}/pyz
+
+      - name: Smoke-test linecast.pyz
+        # The same checks, with the pyz on PATH as linecast and run by
+        # this leg's python3. Artifacts lose the executable bit.
+        run: |
+          mkdir "$RUNNER_TEMP/pyzbin"
+          cp "$RUNNER_TEMP/pyz/linecast.pyz" "$RUNNER_TEMP/pyzbin/linecast"
+          chmod +x "$RUNNER_TEMP/pyzbin/linecast"
+          PATH="$RUNNER_TEMP/pyzbin:$PATH" \
             sh scripts/smoke_wheel.sh "$WHEEL_VERSION"
 
       - name: Run the installer against the wheel

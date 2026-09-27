@@ -42,6 +42,8 @@ curl -sL https://raw.githubusercontent.com/ashuttl/linecast/main/get.sh | sh   #
 
 `pipx` and `pip` work too, and there are community packages in the [AUR](https://aur.archlinux.org/packages/linecast) and [nixpkgs](https://search.nixos.org/packages?channel=unstable&show=linecast). linecast needs Python 3.10 or newer. On Windows, use Windows Terminal.
 
+Each [release](https://github.com/ashuttl/linecast/releases/latest) also carries all of linecast in one file, `linecast.pyz`, for when you'd rather keep a file than install a package. Make it executable with `chmod +x linecast.pyz` and run `./linecast.pyz weather`, or rename it `linecast` and put it on your PATH. It needs Python 3.10 or newer, and once a week it checks for a newer release and tells you how to get it.
+
 ## Using it
 
 Every command opens live. Press `?` for the keys. Add `--print` for one static frame, `--json` for raw data, or `--oneline` for a status bar.

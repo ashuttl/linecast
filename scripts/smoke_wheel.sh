@@ -5,13 +5,15 @@
 #   scripts/smoke_wheel.sh [<version>]
 #
 # Runs against whichever `linecast` is first on PATH, so put the venv
-# that holds the wheel there first. Every command must exit 0, print
+# that holds the wheel there first, or a linecast.pyz under the name
+# linecast (scripts/build_pyz.sh). Every command must exit 0, print
 # something on stdout, and print nothing on stderr; the --version
 # outputs must carry the version given (or, with no argument, the
 # version the installed package reports). The last check imports
 # linecast from that same install and reads each of the six data
-# files, which is what catches a wheel that installed but shipped
-# without them.
+# files the way linecast finds them, which is what catches a wheel
+# that installed but shipped without them, or a zip that runs without
+# being unpacked.
 #
 # Every command runs with stdin closed and with HOME and the XDG dirs
 # pointed at a scratch directory that is removed afterwards, so nothing
@@ -32,17 +34,6 @@ fail() {
 linecast=$(command -v linecast) \
     || { echo "smoke_wheel: linecast is not on PATH" >&2; exit 1; }
 bindir=$(dirname "$linecast")
-# The probe must import from the install that owns the linecast
-# command, so prefer the interpreter beside it.
-if [ -x "$bindir/python3" ]; then
-    python="$bindir/python3"
-else
-    python=python3
-fi
-
-version=${1:-$("$python" -c \
-    "import importlib.metadata as m; print(m.version('linecast'))")} \
-    || { echo "smoke_wheel: could not read the installed version" >&2; exit 1; }
 
 scratch=$(mktemp -d) || exit 1
 trap 'rm -rf "$scratch"' EXIT INT TERM
@@ -53,6 +44,23 @@ export XDG_STATE_HOME="$scratch/state"
 export XDG_DATA_HOME="$scratch/data"
 mkdir -p "$HOME"
 cd "$scratch" || exit 1
+
+# The probe must import from the install that owns the linecast
+# command: the interpreter beside it, or, for a pyz, the pyz itself,
+# which runs Python code in its own environment in shiv's interpreter
+# mode (and unpacks into the scratch HOME, now that it is set).
+if python3 -c 'import sys, zipfile; sys.exit(not zipfile.is_zipfile(sys.argv[1]))' \
+        "$linecast"; then
+    py() { SHIV_INTERPRETER=1 "$linecast" "$@"; }
+elif [ -x "$bindir/python3" ]; then
+    py() { "$bindir/python3" "$@"; }
+else
+    py() { python3 "$@"; }
+fi
+
+version=${1:-$(py -c \
+    "import importlib.metadata as m; print(m.version('linecast'))")} \
+    || { echo "smoke_wheel: could not read the installed version" >&2; exit 1; }
 
 # run <label> <command...>: exit 0, non-empty stdout, empty stderr.
 run() {
@@ -99,24 +107,23 @@ run "linecast units" linecast units
 
 # The probe script goes through a file because run() closes stdin.
 cat >"$scratch/probe.py" <<'PY'
-import importlib.resources as resources
 import sys
 
 import linecast
+from linecast._paths import data_path
 
 version, names = sys.argv[1], sys.argv[2:]
 print("linecast", linecast.__version__, "from", linecast.__file__)
 if linecast.__version__ != version:
     sys.exit(f"installed version is {linecast.__version__}, expected {version}")
-data = resources.files("linecast") / "data"
 for name in names:
-    size = len((data / name).read_bytes())
+    size = len(data_path(name).read_bytes())
     if size <= 0:
         sys.exit(f"{name} is empty")
     print(f"{name}: {size} bytes")
 PY
 # shellcheck disable=SC2086  # $data is a word list on purpose
-run "data probe" "$python" "$scratch/probe.py" "$version" $data
+run "data probe" py "$scratch/probe.py" "$version" $data
 
 if [ "$status" -eq 0 ]; then
     echo "smoke_wheel: ok: linecast $version from $bindir"

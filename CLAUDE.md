@@ -10,7 +10,7 @@ Andrew writes these himself, or edits them before they ship. When committing on 
 
 ## Releases
 
-Andrew runs `./release.sh [major|minor|patch]` himself — it opens his editor. It takes the Unreleased notes, gives them a final pass, bumps the version, moves them under a dated heading, commits, tags (the notes become the annotated tag message), pushes, and creates the GitHub Release. CI publishes to PyPI on the tag. That is the whole release: linecast is in homebrew/core, which BrewTestBot autobumps from PyPI, so there is no tap to push. `brew bump-formula-pr --version=X.Y.Z linecast` only if the bot is slow.
+Andrew runs `./release.sh [major|minor|patch]` himself — it opens his editor. It takes the Unreleased notes, gives them a final pass, bumps the version, moves them under a dated heading, commits, tags (the notes become the annotated tag message), pushes, and creates the GitHub Release. CI publishes to PyPI on the tag, then attaches the single-file `linecast.pyz` (scripts/build_pyz.sh) to the GitHub Release. That is the whole release: linecast is in homebrew/core, which BrewTestBot autobumps from PyPI, so there is no tap to push. `brew bump-formula-pr --version=X.Y.Z linecast` only if the bot is slow.
 
 ## Markdown
 
