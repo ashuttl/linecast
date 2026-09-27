@@ -47,12 +47,16 @@ def _rebuild():
     ALERT_BLUE_BASE_RGB = best_contrast(
         (_theme.theme_ansi[12], _theme.theme_ansi[14], _theme.theme_ansi[6]), minimum=2.1)
 
-    # Below freezing the blue deepens, then turns toward the theme's
-    # magenta: through indigo to purple, stopping short of the magenta,
-    # which on many themes is a pink.  The deeper blue is the darker of
-    # the theme's two, or its blue darkened, whichever is deeper.
+    # Below freezing the blue deepens, then turns toward magenta: through
+    # indigo to purple, three quarters of the way there.  The deeper blue
+    # is the darker of the theme's two, or its blue darkened, whichever
+    # is deeper.
     deep_blue = min((_theme.theme_ansi[4], _theme.theme_ansi[12], darken(BLUE_RGB, 0.2)),
                     key=luminance)
+    # Past red the heat turns pink, and then pales: white-hot.  A light
+    # theme's page is already white, so there the pink darkens instead.
+    hot_pink = lerp_hue(RED_RGB, MAGENTA_RGB, 0.5)
+    white_hot = darken(hot_pink, 0.45) if is_light_theme() else lighten(hot_pink, 0.55)
     TEMP_COLORS = [
         (-20, ensure_contrast(lerp_hue(deep_blue, MAGENTA_RGB, 0.75), _theme.theme_bg,
                               minimum=2.1)),
@@ -66,6 +70,8 @@ def _rebuild():
         (72, YELLOW_RGB),
         (82, ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.45), _theme.theme_bg, minimum=2.1)),
         (95, RED_RGB),
+        (105, ensure_contrast(hot_pink, _theme.theme_bg, minimum=2.1)),
+        (115, ensure_contrast(white_hot, _theme.theme_bg, minimum=2.1)),
     ]
 
     PRECIP_RAIN_RGB = BLUE_RGB

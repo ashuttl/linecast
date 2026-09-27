@@ -173,9 +173,10 @@ class TestLightThemeInk:
 
 
 @pytest.mark.skipif(_theme.theme_legacy_mode, reason="legacy palette is fixed")
-class TestColdColors:
+class TestExtremeColors:
     """Below freezing the temperature colors deepen from the theme's
-    blue and turn toward its magenta, through indigo to purple."""
+    blue and turn toward its magenta, through indigo to purple; past
+    red they turn pink, and then pale to white-hot."""
 
     ADWAITA_DARK = ((255, 255, 255), (28, 28, 31), (
         (36, 31, 49), (192, 28, 40), (46, 194, 126), (245, 194, 17),
@@ -202,6 +203,20 @@ class TestColdColors:
         rt = SimpleNamespace(celsius=False)
         assert style._temp_color(-20, rt) != style._temp_color(0, rt)
         assert style._temp_color(-40, rt) == style._temp_color(-20, rt)
+
+    def test_hotter_is_pinker_and_then_paler(self, restore_theme):
+        _theme._apply(*self.ADWAITA_DARK)
+        rt = SimpleNamespace(celsius=False)
+        red, pink, white_hot = (style._temp_color(t, rt) for t in (95, 105, 115))
+        assert self._hue(style.MAGENTA_RGB) < self._hue(pink) < self._hue(red)
+        assert _theme.luminance(white_hot) > 2 * _theme.luminance(pink)
+        assert style._temp_color(130, rt) == white_hot
+
+    def test_on_a_light_theme_white_hot_darkens_instead(self, restore_theme):
+        _theme._apply(*LIGHT)
+        rt = SimpleNamespace(celsius=False)
+        pink, white_hot = style._temp_color(105, rt), style._temp_color(115, rt)
+        assert _theme.luminance(white_hot) < _theme.luminance(pink)
 
 @pytest.fixture
 def pipe():
