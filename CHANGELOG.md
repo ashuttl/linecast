@@ -4,6 +4,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 
 ## Unreleased
 
+## 2.9.0 — 2026-09-27
+
 Weather can show the year so far: each day's high and low against the last ten years, and each month's precipitation against its average. The forecast in words says when snow, ice, and rain change over, and takes what is falling now from a nearby station.
 
 New this version:
