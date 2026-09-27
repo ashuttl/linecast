@@ -149,3 +149,34 @@ class TestDailySnow:
         # A forecast cached before the snowfall was asked for
         assert re.search(r"Snow 0\.50″", _snow_row(8.9, 12.7, metric=False,
                                                     with_snowfall=False))
+
+
+class TestDailyDates:
+    """The day of the month beside each day is in the reader's calendar."""
+
+    def _dates(self, lang):
+        from linecast._runtime import WeatherRuntime
+        daily = {
+            "time": ["2026-09-26", "2026-09-27", "2026-09-28", "2026-09-29"],
+            "temperature_2m_max": [80, 82, 84, 83],
+            "temperature_2m_min": [60, 62, 64, 63],
+            "precipitation_sum": [0, 0, 0, 0],
+            "precipitation_probability_max": [0, 0, 0, 0],
+            "weather_code": [1, 1, 1, 1],
+            "wind_speed_10m_max": [5, 5, 5, 5],
+        }
+        runtime = WeatherRuntime(live=False, icons="plain", lang=lang, oneline=False,
+                                 celsius=False, metric=False, shading=False)
+        lines = render_daily({"daily": daily}, 110, runtime, now=datetime(2026, 9, 27, 12))
+        # Persian digits read as their numbers
+        return "\n".join(lines).translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789"))
+
+    def test_persian_gives_the_solar_hijri_day(self):
+        # 28 and 29 September 2026 are 6 and 7 Mehr 1405
+        text = self._dates("fa")
+        assert re.search(r"\b6\b", text) and re.search(r"\b7\b", text)
+        assert not re.search(r"\b2[89]\b", text)
+
+    def test_english_gives_the_gregorian_day(self):
+        text = self._dates("en")
+        assert re.search(r"\b28\b", text) and re.search(r"\b29\b", text)

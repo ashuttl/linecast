@@ -44,6 +44,21 @@ def render_daily(data, width, runtime=None, now=None):
     return render_daily_mapped(data, width, runtime, now)[0]
 
 
+def _day_of_month(stamp, lang):
+    """The day of the month of an ISO date, as the reader's dates are
+    written: the Solar Hijri day where they are Solar Hijri (Persian, by
+    default), whose months begin around the Gregorian 21st, else the
+    Gregorian day."""
+    from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar
+    if civil_calendar(lang) == SOLAR_HIJRI:
+        from linecast.astro.calendars.solar_hijri import solar_hijri_date
+        try:
+            return str(solar_hijri_date(datetime.fromisoformat(stamp[:10]).date())[2])
+        except ValueError:
+            pass
+    return stamp[8:10].lstrip("0")
+
+
 def render_daily_mapped(data, width, runtime=None, now=None):
     """render_daily's lines, with where each row's parts sit.
 
@@ -111,7 +126,7 @@ def render_daily_mapped(data, width, runtime=None, now=None):
                   for i in range(display_end)]
     labels = [wmo_label(c, lang) for c in conditions]
     label_w = max(visible_len(labels[i]) for i in range(1, display_end))
-    dates = [""] + [_s("day_of_month", runtime, d=times[i][8:].lstrip("0"))
+    dates = [""] + [_s("day_of_month", runtime, d=_day_of_month(times[i], lang))
                     if len(times[i]) >= 10 else ""
                     for i in range(1, display_end)]
     date_w = max(visible_len(d) for d in dates)
