@@ -8,6 +8,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: Fixed the daily forecast's hover for a day of freezing rain, which read "40% chance of Mix"; it now reads "40% chance of mixed precipitation", in every language.
 - Weather: More colors at the ends of the temperature scale: a deeper blue that pales toward ice down to -40°F (-40°C), and a crimson that deepens toward maroon up to 115°F (46°C).
 - Weather: With --classic-colors, and in terminals that do not report their colors, the year view's background fills the whole window.
+- Weather: In the daily forecast, the conditions for calm days are dimmed, so the days with rain, snow, or wind stand out.
 
 ## 2.9.2 — 2026-09-27
 

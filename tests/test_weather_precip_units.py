@@ -180,3 +180,43 @@ class TestDailyDates:
     def test_english_gives_the_gregorian_day(self):
         text = self._dates("en")
         assert re.search(r"\b28\b", text) and re.search(r"\b29\b", text)
+
+
+class TestCalmDays:
+    """A day with nothing in its rain or wind columns has its condition
+    muted; a day with odds, an amount, or wind keeps it in full ink."""
+
+    MUTED = "\x1b[2m"
+
+    def _rows(self, width=110):
+        from unittest.mock import patch
+        from linecast.weather import daily as daily_mod
+        daily = {
+            "time": ["2026-09-26", "2026-09-27", "2026-09-28", "2026-09-29"],
+            "temperature_2m_max": [60, 59, 72, 80],
+            "temperature_2m_min": [50, 55, 57, 57],
+            "precipitation_sum": [0, 1.07, 0, 0],
+            "precipitation_probability_max": [0, 93, 2, 2],
+            "weather_code": [65, 65, 3, 3],
+            "wind_speed_10m_max": [5, 10, 5, 30],
+        }
+        # the tests run without color, where MUTED is empty
+        with patch.object(daily_mod, "MUTED", self.MUTED):
+            return render_daily({"daily": daily}, width, _runtime(False),
+                                now=datetime(2026, 9, 27, 12))
+
+    def test_calm_day_is_muted(self):
+        lines = self._rows()
+        assert re.search(re.escape(self.MUTED) + r"[^\x1b]*Overcast", lines[1])
+
+    def test_wet_and_windy_days_are_not(self):
+        lines = self._rows()
+        assert "Heavy rain" in lines[0] and self.MUTED not in lines[0]
+        assert "Wind" in lines[2] and self.MUTED not in lines[2]
+
+    def test_calm_is_the_day_not_the_width(self):
+        # narrow enough that the wind column is dropped: the windy day
+        # still is not calm
+        lines = self._rows(width=28)
+        assert "mph" not in lines[2]
+        assert self.MUTED in lines[1] and self.MUTED not in lines[2]

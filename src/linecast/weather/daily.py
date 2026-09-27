@@ -11,7 +11,7 @@ from linecast.weather.i18n import (DAY_NAMES, FULL_DAY_NAMES, _s,
                                    _wmo_icons, fmt_wind, wmo_label)
 from linecast.weather.sources import _local_now_for_data
 from linecast.weather.style import (
-    DIM, TEXT, WIND_COLOR, _knockout_ink, _precip_color, _precip_type, _temp_color,
+    DIM, MUTED, TEXT, WIND_COLOR, _knockout_ink, _precip_color, _precip_type, _temp_color,
 )
 
 
@@ -268,6 +268,12 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         icon = icons.get(conditions[i], icons[0])
         if label_w:
             icon += f"  {_lpad(labels[i], label_w)}"
+        # A calm day's condition recedes, so the days with weather in them
+        # stand out.  Calm is a day with nothing for the columns to the
+        # right: no odds, no amount, no wind, even where they have been
+        # dropped for width.
+        if not any(day_raw[i - 1][:3]):
+            icon = f"{MUTED}{icon}{TEXT}"
         hi = hi_temps[i] if i < len(hi_temps) else None
         lo = lo_temps[i] if i < len(lo_temps) else None
         if hi is None or lo is None:
