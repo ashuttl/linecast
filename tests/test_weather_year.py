@@ -232,14 +232,21 @@ class TestChart:
         # the hottest day's label: each of its cells is drawn on its own
         label = re.search(r"\x1b\[38;2;(\d+);(\d+);(\d+)m9(?:\x1b\[[\d;]*m)+9"
                           r"(?:\x1b\[[\d;]*m)+°", out)
-        assert label and tuple(map(int, label.groups())) == year.NEUTRAL_BAR_RGB
+        # the label, a thin mark, in the text itself
+        assert label and tuple(map(int, label.groups())) == year.NEUTRAL_MARK_RGB
 
-    def test_b_tries_the_bars_in_braille_with_the_guides_joined(self):
-        # The trial's other drawing: dots, and a grid line's dots in a
-        # bar's cell join its glyph rather than giving way
-        body = _strip(_render(_climate(), _days(), braille=True)).split("\n")[1:]
+    def test_b_tries_the_bars_in_braille(self):
+        from linecast.terminal import color as _color
+        # The trial's other drawing: dots, plain ones in the text's ink,
+        # and a grid line never drawn in a bar's cell
+        with patch.object(_color, "_COLOR_MODE", "truecolor"):
+            out = _render(_climate(), _days(), braille=True)
+        body = _strip(out).split("\n")[1:]
         assert not any(ch in line for line in body for ch in "▗▖▝▐▞▟▘▚▌▙▀▜▛█")
         assert any("⣿" in line for line in body)
+        inks = {tuple(map(int, m)) for m in re.findall(
+            r"\x1b\[38;2;(\d+);(\d+);(\d+)m\u28ff", out)}
+        assert inks == {year.NEUTRAL_MARK_RGB}
 
     def test_the_bands_are_named_where_the_year_has_not_reached(self):
         # Years that differ, so the extremes stand clear of the average

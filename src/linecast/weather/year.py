@@ -56,7 +56,7 @@ _FORECAST_FADE = 0.5
 
 def _rebuild():
     global RANGE_RGB, NORMAL_RGB, RANGE_LABEL_RGB, NORMAL_LABEL_RGB, GRID_RGB
-    global PRECIP_RGB, PRECIP_NORMAL_RGB, NEUTRAL_BAR_RGB
+    global PRECIP_RGB, PRECIP_NORMAL_RGB, NEUTRAL_BAR_RGB, NEUTRAL_MARK_RGB
     # The two bands: the span's extremes barely off the page, the
     # average range a step further, as the paper's two tans.
     RANGE_RGB = surface_bg(0.07)
@@ -67,9 +67,12 @@ def _rebuild():
     NORMAL_LABEL_RGB = ensure_contrast(lerp_rgb(NORMAL_RGB, _theme.theme_fg, 0.35),
                                        NORMAL_RGB, minimum=2.2)
     GRID_RGB = surface_bg(0.14)
-    # The bars' plain ink, when they are not in the temperature colors:
-    # a grey off the text, clear of the average band it crosses.
+    # The plain inks, when the bars are not in the temperature colors.
+    # Solid blocks take a grey off the text, clear of the average band
+    # they cross; thin marks -- braille dots, the labels of the year's
+    # hottest and coldest days -- take the text itself.
     NEUTRAL_BAR_RGB = ensure_contrast(neutral_tone(0.62), NORMAL_RGB, minimum=2.4)
+    NEUTRAL_MARK_RGB = _style.TEXT_RGB
     PRECIP_RGB = _style.PRECIP_RAIN_RGB
     PRECIP_NORMAL_RGB = lerp_rgb(PRECIP_RGB, _theme.theme_bg, 0.55)
 
@@ -311,21 +314,16 @@ class _Bars:
     def free(self, cell, row):
         return not self.bits[row][cell]
 
-    def overlays(self, out, ink, under=None):
-        """The filled cells into `out`, inked by ink(row, observed).  In
-        braille, the dots of the `under` layer's guides in a bar's cell
-        join the bar's glyph, in its ink, rather than give way to it."""
+    def overlays(self, out, ink):
+        """The filled cells into `out`, inked by ink(row, observed).  A
+        grid line gives a bar's cell up: drawn in the bar's ink, its dots
+        would read as the bar's own."""
         for row in range(self.rows):
             for cell in range(self.width):
                 bits = self.bits[row][cell]
                 if not bits or (cell, row) in out:
                     continue
-                if self.per == 4:
-                    if under is not None:
-                        bits |= under.bits[row][cell]
-                    glyph = chr(0x2800 + bits)
-                else:
-                    glyph = _QUADRANTS[bits]
+                glyph = chr(0x2800 + bits) if self.per == 4 else _QUADRANTS[bits]
                 out[(cell, row)] = (glyph, ink(row, self.observed[row][cell]), False)
 
 
@@ -508,11 +506,11 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
     def bar_ink(row, observed):
         # The row's own temperature, in the dashboard's colors
         rgb = (_style._temp_color(hi - (row + 0.5) / n_temp * (hi - lo), runtime)
-               if colored else NEUTRAL_BAR_RGB)
+               if colored else NEUTRAL_MARK_RGB if braille else NEUTRAL_BAR_RGB)
         return rgb if observed else lerp_rgb(rgb, _theme.theme_bg, _FORECAST_FADE)
 
     def extreme_ink(v):
-        return _style._temp_color(v, runtime) if colored else NEUTRAL_BAR_RGB
+        return _style._temp_color(v, runtime) if colored else NEUTRAL_MARK_RGB
 
     temp_dots = _Braille(width, n_temp)   # the grid lines under the bars
     hottest = coldest = None   # (value, day) of the year's extremes so far
@@ -658,7 +656,7 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
                 if free(x, row) and (x, row) not in over:
                     over[(x, row)] = ("│", ink, False)
 
-    bars.overlays(temp_over, bar_ink, under=temp_dots)
+    bars.overlays(temp_over, bar_ink)
     temp_dots.overlays(temp_over)
     precip_dots.overlays(precip_over)
     precip_fb = Framebuffer(width, n_precip)
