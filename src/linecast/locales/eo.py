@@ -40,6 +40,7 @@ HELP = {
     "time30": "movi la tempon je 30 minutoj",
     "time15": "movi la tempon je 15 minutoj",
     "year": "taga / jara vido",
+    "bar_colors": "unukoloraj / koloraj stangoj",
     "sun_times": "horoj de sunleviĝo kaj sunsubiro",
     "turn_moon": "turni la Lunon",
     "calendar": "disko / kalendaro",

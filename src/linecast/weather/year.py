@@ -8,10 +8,10 @@ saw.  Under it, each month's precipitation as a running total against
 the month's average, starting over on the 1st.
 
 The bands are fields, drawn in half-block sub-pixels.  The days are
-solid bars of quadrant blocks, two to a cell, each row in the
-dashboard's color for its temperature, so a bar runs from its low's
-color to its high's as the daily forecast's do; the running totals are
-braille lines.  The ten years are the
+solid bars of quadrant blocks, two to a cell, in one plain ink, or with
+`colored` each row in the dashboard's color for its temperature, so a
+bar runs from its low's color to its high's as the daily forecast's do;
+the running totals are braille lines.  The ten years are the
 dashboard's own archive download (historical.fetch_history), so the
 view costs one request more: this year so far.  Today and the days
 after it come from the forecast, the days after it in a lighter ink.
@@ -33,7 +33,7 @@ from linecast.terminal.graphics import (
     RESET, Framebuffer, bg, fg, get_terminal_size, overlay, visible_len,
 )
 from linecast.terminal.textwidth import char_width
-from linecast.terminal.theme import ensure_contrast, lerp_rgb, surface_bg
+from linecast.terminal.theme import ensure_contrast, lerp_rgb, neutral_tone, surface_bg
 from linecast.weather import style as _style
 from linecast.weather.i18n import _s, _wmo_icons
 
@@ -55,7 +55,7 @@ _FORECAST_FADE = 0.5
 
 def _rebuild():
     global RANGE_RGB, NORMAL_RGB, RANGE_LABEL_RGB, NORMAL_LABEL_RGB, GRID_RGB
-    global PRECIP_RGB, PRECIP_NORMAL_RGB
+    global PRECIP_RGB, PRECIP_NORMAL_RGB, NEUTRAL_BAR_RGB
     # The two bands: the span's extremes barely off the page, the
     # average range a step further, as the paper's two tans.
     RANGE_RGB = surface_bg(0.07)
@@ -66,6 +66,9 @@ def _rebuild():
     NORMAL_LABEL_RGB = ensure_contrast(lerp_rgb(NORMAL_RGB, _theme.theme_fg, 0.35),
                                        NORMAL_RGB, minimum=2.2)
     GRID_RGB = surface_bg(0.14)
+    # The bars' plain ink, when they are not in the temperature colors:
+    # a grey off the text, clear of the average band it crosses.
+    NEUTRAL_BAR_RGB = ensure_contrast(neutral_tone(0.62), NORMAL_RGB, minimum=2.4)
     PRECIP_RGB = _style.PRECIP_RAIN_RGB
     PRECIP_NORMAL_RGB = lerp_rgb(PRECIP_RGB, _theme.theme_bg, 0.55)
 
@@ -401,11 +404,13 @@ def _normal_to_date(climate, today, starts, ends):
 
 
 def render_year(climate, days, runtime, *, location_name="", location_menu=False,
-                mouse_pos=None, live=False, footer="", hint=""):
+                mouse_pos=None, live=False, footer="", hint="", colored=False):
     """The year view, sized to the terminal: a header, the temperature
     panel, the month axis, the precipitation panel, and in live mode
     `footer` (the dashboard's credit row).  Either of `climate` and
     `days` may be None while it is fetched; the view draws what it has.
+    `colored` draws the bars, and the labels of the year's hottest and
+    coldest days, in the temperature colors instead of one plain ink.
     """
     cols, rows = get_terminal_size()
     year = days.year if days else date.today().year
@@ -484,8 +489,12 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
 
     def bar_ink(row, observed):
         # The row's own temperature, in the dashboard's colors
-        rgb = _style._temp_color(hi - (row + 0.5) / n_temp * (hi - lo), runtime)
+        rgb = (_style._temp_color(hi - (row + 0.5) / n_temp * (hi - lo), runtime)
+               if colored else NEUTRAL_BAR_RGB)
         return rgb if observed else lerp_rgb(rgb, _theme.theme_bg, _FORECAST_FADE)
+
+    def extreme_ink(v):
+        return _style._temp_color(v, runtime) if colored else NEUTRAL_BAR_RGB
 
     bars = _Quadrants(width, n_temp)
     temp_dots = _Braille(width, n_temp)   # the grid lines under the bars
@@ -579,12 +588,12 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
         v, k = hottest
         text = f"{round(v)}°"
         _place(temp_over, bars.free, n_temp, text, cell_of(k) - len(text) // 2,
-               tq(v) // 2 - 1, _style._temp_color(v, runtime), width)
+               tq(v) // 2 - 1, extreme_ink(v), width)
     if coldest:
         v, k = coldest
         text = f"{round(v)}°"
         _place(temp_over, bars.free, n_temp, text, cell_of(k) - len(text) // 2,
-               tq(v) // 2 + 1, _style._temp_color(v, runtime), width)
+               tq(v) // 2 + 1, extreme_ink(v), width)
     # The bands' names where this year has not reached, at the chart's
     # right end as the paper's legend is: the average in its band, the
     # span in the outer band above it.  Hovering says the rest.

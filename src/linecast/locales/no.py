@@ -41,6 +41,7 @@ HELP = {
     "time30": "flytt tiden 30 minutter",
     "time15": "flytt tiden 15 minutter",
     "year": "dag- / årsvisning",
+    "bar_colors": "ensfargede / fargede søyler",
     "sun_times": "soloppgang og solnedgang",
     "turn_moon": "drei månen",
     "calendar": "skive / kalender",

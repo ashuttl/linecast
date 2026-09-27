@@ -751,6 +751,7 @@ class WeatherApp(_live.LiveApp):
         self._climate_worker = None
         self.attempted = None   # local time the last refresh finished
         self.year_view = year_view
+        self.year_colored = False  # the year's bars in the temperature colors
         # The year view's (generation, day, climate, archive), and when
         # its fetch last started for that generation and day and whether
         # it came back whole.
@@ -896,7 +897,8 @@ class WeatherApp(_live.LiveApp):
             climate, year_days(archive, self.data, today), self.runtime,
             location_name=self.location_name, location_menu=True,
             mouse_pos=mouse_pos, live=True, hint=install_banner(),
-            footer=credit_row(cols, self.runtime.lang, runtime=self.runtime))
+            footer=credit_row(cols, self.runtime.lang, runtime=self.runtime),
+            colored=self.year_colored)
 
     def _refreshing(self):
         return bool(self._worker and self._worker.is_alive())
@@ -1059,6 +1061,10 @@ class WeatherApp(_live.LiveApp):
             with self._state_lock:
                 self.year_view = not self.year_view
                 self._start_year()
+            return True
+        # c turns the year's temperature colors on and off
+        if key == "c" and self.year_view:
+            self.year_colored = not self.year_colored
             return True
         return False
 

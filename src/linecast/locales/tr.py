@@ -41,6 +41,7 @@ HELP = {
     "time30": "zamanı 30 dakika oynat",
     "time15": "zamanı 15 dakika oynat",
     "year": "gün / yıl görünümü",
+    "bar_colors": "düz / renkli çubuklar",
     "sun_times": "gün doğumu ve batımı saatleri",
     "turn_moon": "Ay'ı döndür",
     "calendar": "disk / takvim görünümü",

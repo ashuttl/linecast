@@ -206,7 +206,8 @@ class TestChart:
         # color for some temperature in that span, and a tall bar has many.
         from linecast.terminal import color as _color
         with patch.object(_color, "_COLOR_MODE", "truecolor"):
-            out = _render(_climate(), _days(high=lambda d: 90.0, low=lambda d: 20.0))
+            out = _render(_climate(), _days(high=lambda d: 90.0, low=lambda d: 20.0),
+                          colored=True)
         # ▄ is left out: the bands' half-block field is drawn with it
         inks = {tuple(map(int, m)) for m in
                 re.findall(r"\x1b\[38;2;(\d+);(\d+);(\d+)m[▗▖▝▐▞▟▘▚▌▙▀▜▛█]", out)}
@@ -216,6 +217,22 @@ class TestChart:
         assert len(inks) >= 6
         for ink in inks:
             assert min(max(abs(a - b) for a, b in zip(ink, c)) for c in scale + faded) <= 1
+
+    def test_plain_bars_are_one_ink_by_default(self):
+        from linecast.terminal import color as _color
+        hot = date(2026, 7, 4)
+        with patch.object(_color, "_COLOR_MODE", "truecolor"):
+            out = _render(_climate(), _days(high=lambda d: 99.0 if d == hot else 90.0,
+                                            low=lambda d: 20.0))
+        inks = {tuple(map(int, m)) for m in
+                re.findall(r"\x1b\[38;2;(\d+);(\d+);(\d+)m[▗▖▝▐▞▟▘▚▌▙▀▜▛█]", out)}
+        faded = year.lerp_rgb(year.NEUTRAL_BAR_RGB, year._theme.theme_bg, year._FORECAST_FADE)
+        assert inks <= {year.NEUTRAL_BAR_RGB, faded}
+        assert year.NEUTRAL_BAR_RGB in inks
+        # the hottest day's label: each of its cells is drawn on its own
+        label = re.search(r"\x1b\[38;2;(\d+);(\d+);(\d+)m9(?:\x1b\[[\d;]*m)+9"
+                          r"(?:\x1b\[[\d;]*m)+°", out)
+        assert label and tuple(map(int, label.groups())) == year.NEUTRAL_BAR_RGB
 
     def test_the_bands_are_named_where_the_year_has_not_reached(self):
         # Years that differ, so the extremes stand clear of the average
@@ -347,6 +364,22 @@ class TestLive:
                 app._start_year()
             app._year_worker.join(1.0)
         assert fetch.call_count == 1
+
+    def test_c_turns_the_colors_on_and_off_in_the_year_alone(self):
+        app = _app()
+        assert not app.on_action("c") and not app.year_colored
+        app.year_view = True
+        with patch.object(year, "render_year", return_value="out") as render, \
+             patch.object(year, "year_days"):
+            assert app.on_action("c") and app.year_colored
+            app._render_year(None)
+            assert render.call_args.kwargs["colored"] is True
+            assert app.on_action("c") and not app.year_colored
+
+    def test_the_help_lists_c_and_not_y(self):
+        from linecast.terminal.help import entries
+        keys = [row[0] for row in entries("weather_year", "en") if row]
+        assert "c" in keys and "v" in keys and "y" not in keys
 
     def test_the_year_view_scrubs_nothing(self):
         app = _app(year_view=False)

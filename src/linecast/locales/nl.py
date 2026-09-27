@@ -40,6 +40,7 @@ HELP = {
     "time30": "tijd met 30 minuten verschuiven",
     "time15": "tijd met 15 minuten verschuiven",
     "year": "dag- / jaarweergave",
+    "bar_colors": "effen / gekleurde balken",
     "sun_times": "zonsopkomst en zonsondergang",
     "turn_moon": "maan draaien",
     "calendar": "schijf / kalender",

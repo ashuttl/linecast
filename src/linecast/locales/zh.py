@@ -44,6 +44,7 @@ HELP = {
     "time30": "时间移动30分钟",
     "time15": "时间移动15分钟",
     "year": "日视图 / 年视图",
+    "bar_colors": "单色 / 彩色柱",
     "sun_times": "日出和日落时间",
     "turn_moon": "转动月球",
     "calendar": "月面 / 月历",

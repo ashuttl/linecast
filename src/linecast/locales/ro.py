@@ -41,6 +41,7 @@ HELP = {
     "time30": "mută timpul cu 30 de minute",
     "time15": "mută timpul cu 15 minute",
     "year": "vedere zi / an",
+    "bar_colors": "bare simple / colorate",
     "sun_times": "orele răsăritului și apusului",
     "turn_moon": "rotește Luna",
     "calendar": "vedere disc / calendar",

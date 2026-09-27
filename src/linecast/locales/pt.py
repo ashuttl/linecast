@@ -40,6 +40,7 @@ HELP = {
     "time30": "mover tempo em 30 minutos",
     "time15": "mover tempo em 15 minutos",
     "year": "vista dia / ano",
+    "bar_colors": "barras simples / coloridas",
     "sun_times": "horas do nascer e pôr do sol",
     "turn_moon": "girar a Lua",
     "calendar": "vista disco / calendário",

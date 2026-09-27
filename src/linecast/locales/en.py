@@ -120,6 +120,9 @@ HELP = {
     "time30": "move time by 30 minutes",
     "time15": "move time by 15 minutes",
     "year": "day / year view",
+    # The year view's c: the bars in one plain ink, or in the
+    # temperature colors; the default first, as in "day / year view"
+    "bar_colors": "plain / colored bars",
     "sun_times": "sunrise and sunset times",
     "turn_moon": "turn the Moon",
     "calendar": "disc / calendar view",

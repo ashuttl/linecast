@@ -44,6 +44,7 @@ HELP = {
     "time30": "시간을 30분 이동",
     "time15": "시간을 15분 이동",
     "year": "일간 / 연간 보기",
+    "bar_colors": "단색 / 컬러 막대",
     "sun_times": "일출과 일몰 시각",
     "turn_moon": "달 돌리기",
     "calendar": "달 표면 / 달력",

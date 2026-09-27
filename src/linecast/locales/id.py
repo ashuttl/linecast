@@ -40,6 +40,7 @@ HELP = {
     "time30": "geser waktu 30 menit",
     "time15": "geser waktu 15 menit",
     "year": "tampilan hari / tahun",
+    "bar_colors": "batang polos / berwarna",
     "sun_times": "waktu matahari terbit dan terbenam",
     "turn_moon": "putar Bulan",
     "calendar": "cakram / kalender",

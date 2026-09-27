@@ -42,6 +42,7 @@ HELP = {
     "time30": "avancer de 30 minutes",
     "time15": "avancer de 15 minutes",
     "year": "vue jour / année",
+    "bar_colors": "barres unies / en couleur",
     "sun_times": "heures de lever et coucher du soleil",
     "turn_moon": "tourner la Lune",
     "calendar": "vue disque / calendrier",
