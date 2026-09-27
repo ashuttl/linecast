@@ -156,6 +156,7 @@ WEATHER = {
     "hist_above_avg": "{diff} boven het gemiddelde",
     "hist_below_avg": "{diff} onder het gemiddelde",
     "avg": "gem.",
+    "of_water": "{amt} water",
     "degrees": "{n}\u00a0graden",
     "warmer_by": "{diff} hoger dan {ref_day}",
     "cooler_by": "{diff} lager dan {ref_day}",

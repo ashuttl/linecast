@@ -176,7 +176,7 @@ def fetch_history(lat, lng, year, celsius=False, metric=False, stale=None):
 
 def fetch_year_to_date(lat, lng, today, celsius=False, metric=False, stale=None):
     """The archive's days from 1 January of `today`'s year through
-    `today`, or None.
+    `today`, with their weather codes and snowfall, or None.
 
     The archive keeps up to the day now, but its latest days are revised
     as the reanalysis catches up with them, so the answer is kept for a
@@ -187,9 +187,9 @@ def fetch_year_to_date(lat, lng, today, celsius=False, metric=False, stale=None)
           f"_{_units_tag(celsius, metric)}.json"
     )
     # The day's weather code picks the precipitation's ink, as the
-    # dashboard's daily rows do: snow days in the snow color.
+    # dashboard's daily rows do, and its snowfall tells snow from rain.
     url = _archive_url(lat, lng, f"{today.year}-01-01", today.isoformat(),
-                       celsius, metric, extra=",weather_code")
+                       celsius, metric, extra=",weather_code,snowfall_sum")
     return fetch_json_cached(
         cache_file,
         _YEAR_CACHE_MAX_AGE,

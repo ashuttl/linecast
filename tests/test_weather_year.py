@@ -31,7 +31,7 @@ def _strip(text):
 
 
 def _archive(first, last, high=lambda d: 60.0, low=lambda d: 40.0,
-             precip=lambda d: 0.1, code=None):
+             precip=lambda d: 0.1, code=None, snow=None):
     days = [first + timedelta(days=k) for k in range((last - first).days + 1)]
     daily = {"time": [d.isoformat() for d in days],
              "temperature_2m_max": [high(d) for d in days],
@@ -39,6 +39,8 @@ def _archive(first, last, high=lambda d: 60.0, low=lambda d: 40.0,
              "precipitation_sum": [precip(d) for d in days]}
     if code is not None:
         daily["weather_code"] = [code(d) for d in days]
+    if snow is not None:
+        daily["snowfall_sum"] = [snow(d) for d in days]
     return {"daily": daily}
 
 
@@ -134,6 +136,13 @@ class TestYearDays:
         days = year.year_days(None, forecast, dec31)
         assert len(days.highs) == 365
         assert days.highs[-1] == 60.0
+
+    def test_the_archive_brings_its_snowfall(self):
+        storm = date(2026, 1, 25)
+        archive = _archive(date(2026, 1, 1), TODAY,
+                           snow=lambda d: 3.5 if d == storm else 0.0)
+        days = year.year_days(archive, None, TODAY)
+        assert days.snow[(storm - date(2026, 1, 1)).days] == 3.5
 
     def test_a_leap_year_has_its_extra_day(self):
         days = year.year_days(None, None, date(2028, 3, 1))
@@ -278,6 +287,59 @@ class TestChart:
     def test_a_hover_on_a_day_to_come_has_its_climate_alone(self):
         text = _strip(_render(_climate(), _days(), mouse_pos=(110, 10)))
         assert "in " in text and "avg" in text and "2016–2025" in text
+
+    def _snowy(self):
+        # A storm of 3.5 in of snow a day on 8-14 January, from 0.5 in of
+        # water a day, longer than a cell is wide; rain the rest of the year
+        def storm(d):
+            return d.month == 1 and 8 <= d.day <= 14
+
+        return _days(precip=lambda d: 0.5 if storm(d) or d.day in (10, 20, 30) else 0.0,
+                     snow=lambda d: 3.5 if storm(d) else 0.0,
+                     code=lambda d: 73 if storm(d) else 61)
+
+    def test_a_snowy_step_is_drawn_in_the_snows_ink(self):
+        from linecast.terminal import color as _color
+        with patch.object(_color, "_COLOR_MODE", "truecolor"):
+            out = _render(_climate(), self._snowy(), size=(120, 34))
+        lines = out.split("\n")
+        axis = next(i for i, line in enumerate(lines) if "Jan" in _strip(line)
+                    and "Dec" in _strip(line))
+        panel = "\n".join(lines[axis + 1:])
+        braille_inks = {tuple(map(int, m)) for m in re.findall(
+            r"\x1b\[38;2;(\d+);(\d+);(\d+)m[\u2801-\u28ff]", panel)}
+        assert year.SNOW_RGB in braille_inks
+        assert year.PRECIP_RGB in braille_inks
+
+    def _column(self, days, k):
+        """The 1-based terminal column over day k, found from the chart's
+        own month axis: January's label starts where the chart does."""
+        axis = next(line for line in _strip(_render(_climate(), days)).split("\n")
+                    if line.lstrip().startswith("Jan"))
+        gutter = axis.index("Jan")
+        return gutter + int((k + 0.5) / 365 * (120 - gutter)) + 1
+
+    def test_a_snowy_day_gives_its_snow_and_then_its_water(self):
+        days = self._snowy()
+        text = _strip(_render(_climate(), days, mouse_pos=(self._column(days, 10), 10)))
+        assert re.search(r"Jan (8|9|1[0-4]) ", text)
+        assert "Snow 3.5″" in text and "0.50″ of water" in text
+
+    def test_a_rainy_day_gives_its_water_alone(self):
+        days = self._snowy()   # April 10th
+        text = _strip(_render(_climate(), days, mouse_pos=(self._column(days, 99), 10)))
+        assert "Apr 10" in text and "0.50″" in text
+        assert "Snow" not in text and "of water" not in text
+
+    def test_data_meeting_data_keeps_both_dots(self):
+        cells = year._Braille(1, 1)
+        cells.dot(0, 3, (1, 1, 1))
+        cells.dot(1, 0, (2, 2, 2))                 # another ink: both dots, first ink
+        assert cells.bits[0][0] == 0x40 | 0x08 and cells.ink[0][0] == (1, 1, 1)
+        cells.dot(1, 1, (2, 2, 2), wins=True)     # a winning dot takes the ink
+        assert cells.bits[0][0] == 0x40 | 0x08 | 0x10 and cells.ink[0][0] == (2, 2, 2)
+        cells.dot(0, 0, (9, 9, 9), guide=True)    # a guide never takes data's cell
+        assert cells.bits[0][0] == 0x40 | 0x08 | 0x10
 
     def test_it_draws_before_the_archive_answers(self):
         forecast = _archive(TODAY, TODAY + timedelta(days=6))

@@ -263,6 +263,7 @@ WEATHER = {
     "hist_above_avg": "{diff} بالاتر از میانگین",
     "hist_below_avg": "{diff} پایین\u200cتر از میانگین",
     "avg": "میانگین",
+    "of_water": "{amt} آب",
 }
 
 

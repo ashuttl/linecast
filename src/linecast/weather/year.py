@@ -52,11 +52,14 @@ _QUARTER = ((8, 4), (2, 1))   # by [half row][column]
 _PRECIP_SHARE = 0.28
 # How far a forecast day's bar fades toward the page.
 _FORECAST_FADE = 0.5
+# Open-Meteo's snowfall is seven times the snow's water: 7 cm of snow to
+# 10 mm of water, 3.5 in to 0.5 in.
+_SNOW_PER_WATER = 7
 
 
 def _rebuild():
     global RANGE_RGB, NORMAL_RGB, RANGE_LABEL_RGB, NORMAL_LABEL_RGB, GRID_RGB
-    global PRECIP_RGB, PRECIP_NORMAL_RGB, NEUTRAL_BAR_RGB, NEUTRAL_MARK_RGB
+    global PRECIP_RGB, PRECIP_NORMAL_RGB, NEUTRAL_BAR_RGB, NEUTRAL_MARK_RGB, SNOW_RGB
     # The two bands: the span's extremes barely off the page, the
     # average range a step further, as the paper's two tans.
     RANGE_RGB = surface_bg(0.07)
@@ -74,6 +77,7 @@ def _rebuild():
     NEUTRAL_BAR_RGB = ensure_contrast(neutral_tone(0.62), NORMAL_RGB, minimum=2.4)
     NEUTRAL_MARK_RGB = _style.TEXT_RGB
     PRECIP_RGB = _style.PRECIP_RAIN_RGB
+    SNOW_RGB = _style.PRECIP_SNOW_RGB
     PRECIP_NORMAL_RGB = lerp_rgb(PRECIP_RGB, _theme.theme_bg, 0.55)
 
 
@@ -172,6 +176,7 @@ class YearDays:
     lows: tuple
     precip: tuple  # the days before today only: the running totals' days
     codes: tuple   # WMO weather code, for the precipitation's ink
+    snow: tuple = ()   # snowfall on the precipitation's days, cm or inches
 
 
 def _daily_rows(data, jan1, n):
@@ -185,7 +190,8 @@ def _daily_rows(data, jan1, n):
             yield (k, _at(daily.get("temperature_2m_max"), i),
                    _at(daily.get("temperature_2m_min"), i),
                    _at(daily.get("precipitation_sum"), i),
-                   _at(daily.get("weather_code"), i))
+                   _at(daily.get("weather_code"), i),
+                   _at(daily.get("snowfall_sum"), i))
 
 
 def year_days(archive, forecast, today):
@@ -196,17 +202,22 @@ def year_days(archive, forecast, today):
     jan1 = date(today.year, 1, 1)
     t = (today - jan1).days
     highs, lows = [None] * n, [None] * n
-    precip, codes = [None] * n, [None] * n
-    for k, hi, lo, pr, code in _daily_rows(archive, jan1, n):
+    precip, codes, snow = [None] * n, [None] * n, [None] * n
+    for k, hi, lo, pr, code, sn in _daily_rows(archive, jan1, n):
         if k < t:
-            highs[k], lows[k], precip[k], codes[k] = hi, lo, pr, code
-    for k, hi, lo, pr, code in _daily_rows(forecast, jan1, n):
+            highs[k], lows[k], precip[k], codes[k], snow[k] = hi, lo, pr, code, sn
+    for k, hi, lo, pr, code, sn in _daily_rows(forecast, jan1, n):
         if k >= t:
             highs[k], lows[k], codes[k] = hi, lo, code
         elif highs[k] is None and lows[k] is None:
-            highs[k], lows[k], precip[k], codes[k] = hi, lo, pr, code
+            highs[k], lows[k], precip[k], codes[k], snow[k] = hi, lo, pr, code, sn
     return YearDays(today.year, t, tuple(highs), tuple(lows), tuple(precip),
-                    tuple(codes))
+                    tuple(codes), tuple(snow))
+
+
+def _snow_water(snow, metric):
+    """The water in a snowfall, in the precipitation's unit (mm from cm)."""
+    return (snow or 0) / _SNOW_PER_WATER * (10 if metric else 1)
 
 
 def fetch_year(lat, lng, today, runtime, stale=None):
@@ -267,16 +278,21 @@ class _Braille:
         self.ink = [[None] * width for _ in range(rows)]
         self.guide = [[False] * width for _ in range(rows)]
 
-    def dot(self, i, y, ink, guide=False):
-        """Dot row y of dot column i."""
+    def dot(self, i, y, ink, guide=False, wins=False):
+        """Dot row y of dot column i.  Data meeting data of another ink
+        keeps both dots, in the cell's ink unless this dot `wins` it."""
         cell, row = i // 2, y // 4
         if not (0 <= cell < self.width and 0 <= row < self.rows):
             return
-        if self.bits[row][cell] and self.ink[row][cell] != ink:
-            if guide and not self.guide[row][cell]:
-                return
-            self.bits[row][cell] = 0
-        self.bits[row][cell] |= _BITS[i % 2][y % 4]
+        held = self.bits[row][cell]
+        if held and self.ink[row][cell] != ink:
+            if self.guide[row][cell]:
+                held = 0            # a guide gives its cell up to anything
+            elif guide:
+                return              # and never takes one from data
+            elif not wins:
+                ink = self.ink[row][cell]
+        self.bits[row][cell] = held | _BITS[i % 2][y % 4]
         self.ink[row][cell] = ink
         self.guide[row][cell] = guide
 
@@ -564,18 +580,26 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
                           int(ptop + (1 - v / pmax) * (pdots_n - 1 - ptop) + 0.5)))
 
     precip_dots = _Braille(width, n_precip)
-    prev = None   # (dot row, month) of the last column's running total
+    prev = None   # (dot row, month, day) of the last column's running total
     for i in range(width * 2):
         k = min(n - 1, _span(i, width * 2, n)[-1])
         if cum[k] is None:
             prev = None
             continue
         y = py(cum[k])
-        precip_dots.dot(i, y, PRECIP_RGB)
-        if prev and prev[1] == month_of[k]:
+        same_month = prev is not None and prev[1] == month_of[k]
+        # The days this column adds to the total; a step that is mostly
+        # snow's water is drawn in the snow's ink, and takes its cell
+        added = range(prev[2] + 1 if same_month else starts[month_of[k]], k + 1)
+        water = sum(days.precip[d] or 0 for d in added)
+        snowy = bool(water > 0 and days.snow and 2 * sum(
+            _snow_water(days.snow[d], runtime.metric) for d in added) >= water)
+        ink = SNOW_RGB if snowy else PRECIP_RGB
+        precip_dots.dot(i, y, ink, wins=snowy)
+        if same_month:
             for yy in range(min(prev[0], y), max(prev[0], y) + 1):
-                precip_dots.dot(i, yy, PRECIP_RGB)
-        prev = (y, month_of[k])
+                precip_dots.dot(i, yy, ink, wins=snowy)
+        prev = (y, month_of[k], k)
     for i in range(width * 2):
         span = _span(i, width * 2, n)
         normal = normals[month_of[min(n - 1, span[len(span) // 2])]]
@@ -716,7 +740,7 @@ def _tooltip(climate, days, k, jan1, slots, runtime, col, mouse_row, cols, rows)
     """The chip for day k: its high and low, the ten years' average and
     extremes for the date, and its precipitation."""
     from linecast.sunshine.i18n import _fmt_month_day, relative_day
-    from linecast.weather.daily import fmt_precip_amount
+    from linecast.weather.daily import fmt_precip_amount, fmt_snow_amount
     from linecast.weather.sections import _PRECIP_CODES
     from linecast.weather.style import _colored_temp, _precip_rgb
 
@@ -740,7 +764,16 @@ def _tooltip(climate, days, k, jan1, slots, runtime, col, mouse_row, cols, rows)
         if top is not None and bottom is not None:
             first, last = climate.span
             lines.append(f"{tbg}{tdim} {first}–{last} {tfg}{top:.0f}° / {bottom:.0f}° ")
-    if days and days.precip[k]:
+    snow = days.snow[k] if days and days.snow else None
+    if snow and snow >= (0.3 if runtime.metric else 0.1):
+        # A snowy day's snow as it lay, and under it the water it melted
+        # to, which is what the running total adds
+        lines.append(f"{tbg}{fg(*SNOW_RGB)} {_wmo_icons(runtime).get(73, '')} "
+                     f"{_s('Snow', runtime)} {fmt_snow_amount(snow, runtime)} ")
+        if days.precip[k]:
+            water = fmt_precip_amount(days.precip[k], runtime)
+            lines.append(f"{tbg}{tdim} {_s('of_water', runtime, amt=water)} ")
+    elif days and days.precip[k]:
         code = days.codes[k] if days.codes[k] in _PRECIP_CODES else 61
         icon = _wmo_icons(runtime).get(code, "")
         ink = fg(*_precip_rgb(code))

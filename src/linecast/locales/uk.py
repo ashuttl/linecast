@@ -155,6 +155,7 @@ WEATHER = {
     "hist_above_avg": "{diff} вище норми",
     "hist_below_avg": "{diff} нижче норми",
     "avg": "норма",
+    "of_water": "{amt} води",
     "degrees": "{n}\u00a0градусів",
     "warmer_by": "на {diff} вищою, ніж {ref_day}",
     "cooler_by": "на {diff} нижчою, ніж {ref_day}",

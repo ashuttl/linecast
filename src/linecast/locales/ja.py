@@ -219,6 +219,7 @@ WEATHER = {
     "hist_above_avg": "平年より{diff}高い",
     "hist_below_avg": "平年より{diff}低い",
     "avg": "平年",
+    "of_water": "水換算{amt}",
 }
 
 

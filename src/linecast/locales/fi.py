@@ -154,6 +154,7 @@ WEATHER = {
     "hist_above_avg": "{diff} keskimääräistä korkeampi",
     "hist_below_avg": "{diff} keskimääräistä alempi",
     "avg": "keskiarvo",
+    "of_water": "{amt} vetenä",
     "degrees": "{n}\u00a0astetta",
     "warmer_by": "{diff} korkeampi kuin {ref_day}",
     "cooler_by": "{diff} alempi kuin {ref_day}",

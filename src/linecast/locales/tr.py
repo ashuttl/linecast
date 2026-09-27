@@ -158,6 +158,7 @@ WEATHER = {
     "hist_above_avg": "ortalamanın {diff} üzerinde",
     "hist_below_avg": "ortalamanın {diff} altında",
     "avg": "ortalama",
+    "of_water": "{amt} su",
     "degrees": "{n}\u00a0derece",
     "warmer_by": "{ref_day}nden {diff} daha yüksek",
     "cooler_by": "{ref_day}nden {diff} daha düşük",

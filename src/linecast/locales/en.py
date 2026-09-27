@@ -354,6 +354,9 @@ WEATHER = {
     "hist_below_avg": "{diff} below avg",
     # The year view's label for the ten years' average: "avg 70° / 52°"
     "avg": "avg",
+    # Under a snowy day's snowfall in the year view's hover: the water
+    # it melted to, which the month's running total adds
+    "of_water": "{amt} of water",
 }
 
 
