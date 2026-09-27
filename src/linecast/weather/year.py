@@ -740,12 +740,25 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
 
 
 def _month_axis(year, starts, n, width, runtime, this_month=None):
-    """The month labels at their months' starts, the current one brighter."""
-    from linecast.sunshine.i18n import axis_month_labels
-    labels = axis_month_labels(runtime, narrow=width < 72)
+    """The month labels at their months' starts, the current one brighter.
+
+    The axis runs by the Gregorian months, as the running totals do.
+    Where dates are Solar Hijri, a month's number would read as a Solar
+    Hijri month -- 7 as Mehr, not July -- so the months are named, in
+    full, since Persian does not abbreviate its months; a month too
+    narrow for its name goes without a label rather than take a number."""
+    from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar
+    from linecast.sunshine.i18n import MONTHS_I18N, axis_month_labels
+    from linecast._i18n import table_for
+    named = civil_calendar(runtime.lang) == SOLAR_HIJRI
+    labels = (table_for(MONTHS_I18N, runtime.lang) if named
+              else axis_month_labels(runtime, narrow=width < 72))
     cells = [" "] * width
+    xs = [min(width - 1, int(s / n * width)) for s in starts] + [width]
     for m, label in enumerate(labels):
-        x = min(width - 1, int(starts[m] / n * width))
+        x = xs[m]
+        if named and visible_len(label) + 1 > xs[m + 1] - x:
+            continue
         ink = _style.TEXT if m == this_month else _style.DIM
         placed = []
         for ch in label:
@@ -767,6 +780,8 @@ def _tooltip(climate, days, span, jan1, slots, runtime, col, mouse_row, cols, ro
     """The chip for a span of days, a day or a calendar week: the highest
     high and lowest low, the ten years' average and extremes for the
     dates, and the precipitation of the days gone by."""
+    from linecast.astro.calendars.civil import SOLAR_HIJRI, civil_calendar
+    from linecast.moon.i18n import gregorian_month_day
     from linecast.sunshine.i18n import _fmt_month_day, relative_day
     from linecast.weather.daily import fmt_precip_amount, fmt_snow_amount
     from linecast.weather.sections import _PRECIP_CODES
@@ -780,13 +795,18 @@ def _tooltip(climate, days, span, jan1, slots, runtime, col, mouse_row, cols, ro
     def present(values):
         return [v for v in (values[k] for k in span) if v is not None]
 
-    if first == last:
-        when = _fmt_month_day(jan1 + timedelta(days=first), runtime)
-        if days:
-            when += f" · {relative_day(first - days.today, runtime)}"
-    else:
-        when = (f"{_fmt_month_day(jan1 + timedelta(days=first), runtime)} – "
-                f"{_fmt_month_day(jan1 + timedelta(days=last), runtime)}")
+    a, b = jan1 + timedelta(days=first), jan1 + timedelta(days=last)
+    when = _fmt_month_day(a, runtime)
+    if first != last:
+        when += f" – {_fmt_month_day(b, runtime)}"
+    # Where the dates are Solar Hijri, the Gregorian dates the axis runs by
+    # ride beside them, as in sunshine's year view.
+    if civil_calendar(runtime.lang) == SOLAR_HIJRI:
+        when += f" · {gregorian_month_day(a, runtime.lang)}"
+        if first != last:
+            when += f" – {gregorian_month_day(b, runtime.lang)}"
+    if days and first == last:
+        when += f" · {relative_day(first - days.today, runtime)}"
     lines = [f"{tbg}{tdim} {when} "]
     if days and present(days.highs) and present(days.lows):
         lines.append(f"{tbg} {_colored_temp(max(present(days.highs)), runtime, '°')}{tfg} / "
