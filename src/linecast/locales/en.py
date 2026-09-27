@@ -393,6 +393,11 @@ RADAR = {
 
 
 MAPS = {
+    # Route distances in the directions panel
+    "unit_m": "m",
+    "unit_km": "km",
+    "unit_ft": "ft",
+    "unit_mi": "mi",
     "hint": "wasd · v view · / search · ? help",
     "hint_route": "D directions · n clear",
     "unavailable": "terrain unavailable ({err})",

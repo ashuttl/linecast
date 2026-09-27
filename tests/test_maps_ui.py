@@ -876,7 +876,17 @@ class TestRouteSummary:
             assert mu._fmt_distance(240) == "787 ft"
             assert mu._fmt_distance(24000) == "14.9 mi"
 
-    def test_the_profile_word_is_localized_but_the_units_are_not(self):
+    def test_units_are_the_languages_own_where_it_spells_them(self):
+        # English's symbols are the default; Persian writes its own
+        with _units("--metric"):
+            assert mu._fmt_distance(240, "fa") == "240 متر"
+            assert mu._fmt_distance(2400, "fa") == "2.4 کیلومتر"
+            assert mu._fmt_distance(2400, "ru") == "2,4 км"
+            assert mu._fmt_distance(2400, "de") == "2,4 km"
+        with _units("--imperial"):
+            assert mu._fmt_distance(24000, "fa") == "14.9 مایل"
+
+    def test_the_profile_word_is_localized(self):
         with _units("--imperial"):
             for profile, word in (("car", "driving"), ("bike", "cycling"),
                                   ("foot", "walking")):

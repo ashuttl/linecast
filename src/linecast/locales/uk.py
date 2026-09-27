@@ -312,6 +312,9 @@ RADAR = {
 
 
 MAPS = {
+    "unit_m": "м",
+    "unit_km": "км",
+    "unit_ft": "фт",
     "hint": "wasd · v вигляд · / пошук · ? довідка",
     "hint_route": "D маршрут · n очистити",
     "unavailable": "рельєф недоступний ({err})",

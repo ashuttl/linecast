@@ -24,7 +24,11 @@ from linecast._i18n import VARIANTS
 from linecast.maps.i18n import ms
 
 TABLE = _maps_i18n._STRINGS
-KEYS = set(TABLE["en"])
+# The route's units read the same in most languages: written once, in
+# English, and carried only where a language spells them otherwise, as
+# the radar's and the weather's are.
+SHARED = {"unit_m", "unit_km", "unit_ft", "unit_mi"}
+KEYS = set(TABLE["en"]) - SHARED
 # A regional variant's block holds only the keys it changes from its base.
 LANGUAGES = sorted(set(TABLE) - set(VARIANTS))
 
@@ -35,7 +39,7 @@ def test_every_language_the_cli_offers_has_a_table():
 
 @pytest.mark.parametrize("lang", LANGUAGES)
 def test_every_language_carries_every_key(lang):
-    assert set(TABLE[lang]) == KEYS, sorted(set(TABLE[lang]) ^ KEYS)
+    assert set(TABLE[lang]) - SHARED == KEYS, sorted((set(TABLE[lang]) - SHARED) ^ KEYS)
 
 
 @pytest.mark.parametrize("lang", sorted(VARIANTS))

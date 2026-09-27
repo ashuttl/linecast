@@ -343,6 +343,10 @@ RADAR = {
 # راه فرعی, the ladder Iranian road law and signage use; OSM's
 # Persian wiki also gives آزادراه for a motorway.
 MAPS = {
+    "unit_m": "متر",
+    "unit_km": "کیلومتر",
+    "unit_ft": "فوت",
+    "unit_mi": "مایل",
     "hint": "wasd · v نما · / جستجو · ? راهنما",
     "hint_route": "D مسیریابی · n پاک کردن",
     "unavailable": "نقشهٔ عوارض زمین در دسترس نیست ({err})",

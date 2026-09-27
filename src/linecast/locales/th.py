@@ -280,6 +280,9 @@ RADAR = {
 
 
 MAPS = {
+    "unit_m": "ม.",
+    "unit_km": "กม.",
+    "unit_ft": "ฟุต",
     "hint": "wasd · v มุมมอง · / ค้นหา · ? วิธีใช้",
     "hint_route": "D เส้นทาง · n ล้าง",
     "unavailable": "ข้อมูลภูมิประเทศใช้งานไม่ได้ ({err})",

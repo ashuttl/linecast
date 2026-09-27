@@ -550,6 +550,7 @@ class TestTablesComplete:
                                   "unit_km", "unit_mi", "aqhi", "day_of_month"},
         "linecast.tides.i18n": {"period"},
         "linecast.radar.i18n": {"unit_km", "unit_mi"},
+        "linecast.maps.i18n": {"unit_m", "unit_km", "unit_ft", "unit_mi"},
     }
     # Keys a language needs that English does not: the Slavic few-form,
     # Romanian's one and its "de" form for a count of days, and a dawn

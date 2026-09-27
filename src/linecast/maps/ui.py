@@ -404,17 +404,18 @@ class RouteState:
 
 def _fmt_distance(metres, lang="en"):
     """Distance in the reader's units, with one decimal where it helps,
-    written with the language's decimal mark: "11.7 km", "11,7 km"."""
+    written with the language's decimal mark and units: "11.7 km",
+    "11,7 km", "۱۱٫۷ کیلومتر"."""
     from linecast._i18n import setting
     mark = setting(lang, "decimal")
     if style.use_metric():
         if metres < 1000:
-            return f"{round(metres):,} m"
-        return f"{metres / 1000:.1f} km".replace(".", mark)
+            return f"{round(metres):,} {ms('unit_m', lang)}"
+        return f"{metres / 1000:.1f}".replace(".", mark) + f" {ms('unit_km', lang)}"
     feet = metres * 3.28084
     if feet < 1000:
-        return f"{round(feet):,} ft"
-    return f"{feet / 5280:.1f} mi".replace(".", mark)
+        return f"{round(feet):,} {ms('unit_ft', lang)}"
+    return f"{feet / 5280:.1f}".replace(".", mark) + f" {ms('unit_mi', lang)}"
 
 
 def _fmt_duration(seconds, lang="en"):
