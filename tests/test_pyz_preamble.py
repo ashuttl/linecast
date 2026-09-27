@@ -3,8 +3,9 @@
 What it promises: a Python too old for linecast gets one plain line;
 old unpacked builds go, but not this one, the one before it, or one
 unpacking right now; and the weekly word about a newer release comes
-only to a terminal, only once a week, and never in place of linecast
-when PyPI can't be reached.
+only to a terminal, only once a week, with a command that works for
+the file where it is, and never holds linecast up for long when PyPI
+can't be reached.
 """
 
 import importlib.util
@@ -12,6 +13,7 @@ import io
 import json
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -70,6 +72,7 @@ def test_old_python_gets_one_plain_line(preamble):
         preamble.check_python((3, 9, 6, "final", 0))
     assert "needs Python 3.10 or newer" in str(exit_.value)
     assert "Python 3.9 " in str(exit_.value)
+    assert "linecast#install" in str(exit_.value)
     preamble.check_python((3, 10, 0, "final", 0))
     preamble.check_python(sys.version_info)
 
@@ -104,12 +107,44 @@ def test_tidy_never_raises(preamble, tmp_path):
 def test_newer_release_is_named_with_the_command_to_fetch_it(
         preamble, pypi, tmp_path, monkeypatch):
     terminal = _on_a_terminal(monkeypatch)
+    (tmp_path / "my apps").mkdir()
+    (tmp_path / "my apps" / "linecast").touch()
     preamble.remind(tmp_path, tmp_path / "my apps" / "linecast")
     said = terminal.getvalue()
     assert said.startswith("linecast: 2.9.0 is out, and this is 2.8.0. To update:\n")
     here = tmp_path.resolve() / "my apps" / "linecast"
-    assert f"curl -fLo '{here}' {preamble.LATEST}\n" in said
+    assert f"\n  curl -fLo '{here}' {preamble.LATEST}\n" in said
     assert (tmp_path / ".checked").exists()
+
+
+@pytest.mark.skipif(getattr(os, "geteuid", lambda: 1)() == 0,
+                    reason="root can write any file")
+def test_a_file_the_user_cant_write_is_updated_with_sudo(
+        preamble, pypi, tmp_path, monkeypatch):
+    terminal = _on_a_terminal(monkeypatch)
+    pyz = tmp_path / "linecast"
+    pyz.touch()
+    pyz.chmod(0o555)
+    preamble.remind(tmp_path, pyz)
+    assert f"\n  sudo curl -fLo {pyz.resolve()} " in terminal.getvalue()
+
+
+def test_a_stalled_network_costs_at_most_the_budget(preamble, pypi, tmp_path, monkeypatch):
+    terminal = _on_a_terminal(monkeypatch)
+    monkeypatch.setattr(preamble, "BUDGET", 0.1)
+    answer = threading.Event()
+
+    def stalled(request, timeout):
+        answer.wait(5)  # a name lookup that doesn't come back
+        raise OSError("timed out")
+
+    monkeypatch.setattr(preamble.urllib.request, "urlopen", stalled)
+    start = time.monotonic()
+    preamble.remind(tmp_path, "linecast.pyz")
+    assert time.monotonic() - start < 1
+    assert terminal.getvalue() == ""
+    assert (tmp_path / ".checked").exists()
+    answer.set()
 
 
 def test_asks_once_a_week(preamble, pypi, tmp_path, monkeypatch):

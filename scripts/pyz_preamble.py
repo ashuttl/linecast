@@ -17,9 +17,11 @@ gets to run.
 """
 
 import json
+import os
 import shlex
 import shutil
 import sys
+import threading
 import time
 import urllib.request
 from importlib.metadata import version
@@ -28,14 +30,18 @@ from pathlib import Path
 LATEST = "https://github.com/ashuttl/linecast/releases/latest/download/linecast.pyz"
 PYPI = "https://pypi.org/pypi/linecast/json"
 WEEK = 7 * 24 * 3600
+BUDGET = 2  # seconds the weekly check may add to a run, name lookup included
 
 
 def check_python(version_info=sys.version_info):
     """Exit with a plain line on a Python linecast can't run on, where
-    pip would have refused to install it."""
+    pip would have refused to install it, and point to the installs
+    that bring a newer one (the Mac's own python3 is still 3.9)."""
     if tuple(version_info[:2]) < (3, 10):
         sys.exit(f"linecast needs Python 3.10 or newer, and this is Python "
-                 f"{version_info[0]}.{version_info[1]} ({sys.executable}).")
+                 f"{version_info[0]}.{version_info[1]} ({sys.executable}).\n"
+                 f"Homebrew and uv can install linecast with a newer Python: "
+                 f"https://github.com/ashuttl/linecast#install")
 
 
 def tidy(build):
@@ -64,6 +70,18 @@ def _release(text):
     return tuple(int(part) for part in text.split("."))
 
 
+def _ask_pypi(mine, answer):
+    """Append PyPI's newest version to answer. Any failure leaves it
+    empty: offline, or PyPI answered oddly, and there is nothing to say."""
+    try:
+        request = urllib.request.Request(
+            PYPI, headers={"User-Agent": f"linecast/{mine} (pyz)"})
+        with urllib.request.urlopen(request, timeout=BUDGET) as response:
+            answer.append(json.load(response)["info"]["version"])
+    except Exception:
+        pass
+
+
 def remind(root, archive):
     """Once a week, when someone is there to read it, ask PyPI for the
     newest release and say so if it is newer than this one.
@@ -72,10 +90,16 @@ def remind(root, archive):
     asks nor starts the week. The stamp is touched before asking, so a
     request that fails waits a week like any other.
 
+    The request's timeout doesn't cover looking up the name, which a
+    broken network can stall for ten seconds, so it runs on a thread of
+    its own and linecast goes on without it after BUDGET.
+
     The command overwrites the file that was run, which keeps its
-    permissions. -f matters: for the minute between the PyPI upload and
-    the file reaching the release, the download is a 404, and without
-    -f curl would write the error page over a working linecast.
+    permissions, with sudo when the file isn't the user's to write, as
+    in /usr/local/bin. -f matters: for the minute between the PyPI
+    upload and the file reaching the release, the download is a 404,
+    and without -f curl would write the error page over a working
+    linecast.
     """
     if not sys.stderr.isatty():
         return
@@ -88,16 +112,21 @@ def remind(root, archive):
     try:
         stamp.touch()
         mine = version("linecast")
-        request = urllib.request.Request(
-            PYPI, headers={"User-Agent": f"linecast/{mine} (pyz)"})
-        with urllib.request.urlopen(request, timeout=2) as response:
-            newest = json.load(response)["info"]["version"]
-        if _release(newest) > _release(mine):
-            here = shlex.quote(str(Path(archive).resolve()))
-            print(f"linecast: {newest} is out, and this is {mine}. To update:\n"
-                  f"  curl -fLo {here} {LATEST}", file=sys.stderr)
     except Exception:
-        pass  # offline, or PyPI answered oddly: say nothing
+        return
+    answer = []
+    ask = threading.Thread(target=_ask_pypi, args=(mine, answer), daemon=True)
+    ask.start()
+    ask.join(BUDGET)
+    try:
+        newest = answer[0]
+        if _release(newest) > _release(mine):
+            here = Path(archive).resolve()
+            sudo = "" if os.access(here, os.W_OK) else "sudo "
+            print(f"linecast: {newest} is out, and this is {mine}. To update:\n"
+                  f"  {sudo}curl -fLo {shlex.quote(str(here))} {LATEST}", file=sys.stderr)
+    except Exception:
+        pass  # no answer in time, or not a version we can compare
 
 
 if __name__ == "__main__":
