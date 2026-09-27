@@ -1,4 +1,5 @@
-"""Weather year view — this year's days against the ten before it.
+"""Weather year view — this year's days against the ten before it,
+après Tufte (https://www.edwardtufte.com/notebook/new-york-city-weather-chart/).
 
 After the New York Times's yearly chart of the city's weather: a bar
 for each day from its low to its high, standing in two bands that say

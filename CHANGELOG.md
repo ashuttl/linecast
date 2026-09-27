@@ -14,7 +14,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: Fixed a bug that could drop the label from the week's lowest temperature in the daily forecast at some window widths.
 - Weather: The daily forecast gives a snowy day's snowfall rather than the water it melts to: "Snow 3.5″", not "Snow 0.50″".
 - Weather: In Canada, the humidex and the wind chill take the place of the feels-like temperature, in English and French, as Environment Canada reports them.
-- Weather: `--year`, or `v` in the live view, shows the year so far: each day's high and low against the average and the extremes of the last ten years, and each month's precipitation as a running total against its average. `c` colors the bars by temperature.
+- Weather: `--year`, or `v` in the live view, shows the year so far, [après Tufte](https://www.edwardtufte.com/notebook/new-york-city-weather-chart/): each day's high and low against the average and the extremes of the last ten years, and each month's precipitation as a running total against its average. `c` colors the bars by temperature.
 - Tides: Fixed a bug that showed tide and wave heights with a decimal point in languages that write a decimal comma, such as "9.8′" for "9,8′" in Czech.
 - Languages: French sets the percent sign off with a space ("40 %"), names the Moon's phases in sentence case, and uses the standard term for snow grains, "neige en grains".
 - Languages: Canadian French calls the mouse wheel a "roulette", gives the chance of rain as a "probabilité", and names the Blackfoot sky culture "Pieds-Noirs".
