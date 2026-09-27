@@ -84,6 +84,7 @@ WEATHER = {
     "credit_observed": "สังเกตเมื่อ {time} ที่ {place} ห่าง {distance}",
     "unit_kmh": "กม./ชม.",
     "unit_mm": "มม.",
+    "unit_km": "กม.",
     "unit_cm": "ซม.",
     "feels": "รู้สึกเหมือน",
     "wind": "ลม",

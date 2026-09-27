@@ -547,7 +547,7 @@ class TestTablesComplete:
     # counts it: 27日, 27일.
     DEFAULTS = {
         "linecast.weather.i18n": {"unit_kmh", "unit_ms", "unit_mph", "unit_mm", "unit_cm",
-                                  "aqhi", "day_of_month"},
+                                  "unit_km", "unit_mi", "aqhi", "day_of_month"},
         "linecast.tides.i18n": {"period"},
         "linecast.radar.i18n": {"unit_km", "unit_mi"},
     }

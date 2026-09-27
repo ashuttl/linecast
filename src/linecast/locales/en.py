@@ -171,6 +171,9 @@ WEATHER = {
     "unit_ms": "m/s",
     "unit_mph": "mph",
     "unit_mm": "mm",
+    # The distance to the reporting station, in the credit line
+    "unit_km": "km",
+    "unit_mi": "mi",
     "unit_cm": "cm",
     "feels": "feels",
     # Canada's own indices, which stand in for "feels" at a place in

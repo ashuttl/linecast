@@ -100,7 +100,8 @@ def observed_credit(observed, lang="en", metric=False, use_24h=False, tz_name=""
     name = (observed.get("name") or "").split(",")[0].strip()
     km = observed.get("distance_km") or 0
     place = name if named and name else observed["station"]
-    far = f"{max(1, round(km))} km" if metric else f"{max(1, round(km / 1.609344))} mi"
+    n = max(1, round(km)) if metric else max(1, round(km / 1.609344))
+    far = f"{n} {lookup(_STRINGS, 'unit_km' if metric else 'unit_mi', lang)}"
     seen = datetime.fromtimestamp(observed.get("time") or 0, timezone.utc)
     try:
         from zoneinfo import ZoneInfo

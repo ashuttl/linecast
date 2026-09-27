@@ -111,6 +111,8 @@ WEATHER = {
     # abbreviation.  A space sets each off.
     "metric_unit_sep": "\u00a0",
     "unit_mm": "میلی\u200cمتر",
+    "unit_km": "کیلومتر",
+    "unit_mi": "مایل",
     "unit_cm": "سانتی\u200cمتر",
     "feels": "دمای احساسی",
     "wind": "باد",

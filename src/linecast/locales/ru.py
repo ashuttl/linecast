@@ -87,6 +87,7 @@ WEATHER = {
     "unit_kmh": "км/ч",
     "unit_ms": "м/с",
     "unit_mm": "мм",
+    "unit_km": "км",
     "unit_cm": "см",
     "feels": "ощущ.",
     "wind": "Ветер",
