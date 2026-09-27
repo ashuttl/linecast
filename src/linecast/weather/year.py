@@ -7,8 +7,11 @@ and around it, fainter, the highest high and the lowest low any of them
 saw.  Under it, each month's precipitation as a running total against
 the month's average, starting over on the 1st.
 
-The bands are fields, drawn in half-block sub-pixels; the days and the
-running totals are the data, drawn in braille.  The ten years are the
+The bands are fields, drawn in half-block sub-pixels.  The days are
+solid bars of quadrant blocks, two to a cell, each row in the
+dashboard's color for its temperature, so a bar runs from its low's
+color to its high's as the daily forecast's do; the running totals are
+braille lines.  The ten years are the
 dashboard's own archive download (historical.fetch_history), so the
 view costs one request more: this year so far.  Today and the days
 after it come from the forecast, the days after it in a lighter ink.
@@ -40,21 +43,28 @@ _SMOOTH_DAYS = 7
 _LEAP = 2000
 # Braille dot bits by [column][row] within a cell.
 _BITS = ((0x01, 0x02, 0x04, 0x40), (0x08, 0x10, 0x20, 0x80))
+# Quadrant blocks by their filled quarters: 8 upper left, 4 upper right,
+# 2 lower left, 1 lower right.
+_QUADRANTS = " ▗▖▄▝▐▞▟▘▚▌▙▀▜▛█"
+_QUARTER = ((8, 4), (2, 1))   # by [half row][column]
 # The share of the chart's rows the precipitation panel takes.
 _PRECIP_SHARE = 0.28
+# How far a forecast day's bar fades toward the page.
+_FORECAST_FADE = 0.5
 
 
 def _rebuild():
-    global RANGE_RGB, NORMAL_RGB, BAR_RGB, FORECAST_RGB, GRID_RGB
+    global RANGE_RGB, NORMAL_RGB, RANGE_LABEL_RGB, NORMAL_LABEL_RGB, GRID_RGB
     global PRECIP_RGB, PRECIP_NORMAL_RGB
     # The two bands: the span's extremes barely off the page, the
     # average range a step further, as the paper's two tans.
     RANGE_RGB = surface_bg(0.07)
     NORMAL_RGB = surface_bg(0.17)
-    # The paper's maroon, in the theme's own red and magenta.
-    BAR_RGB = ensure_contrast(lerp_rgb(_style.RED_RGB, _style.MAGENTA_RGB, 0.35),
-                              NORMAL_RGB, minimum=2.4)
-    FORECAST_RGB = lerp_rgb(BAR_RGB, _theme.theme_bg, 0.5)
+    # Their names, a shade off the band each sits in.
+    RANGE_LABEL_RGB = ensure_contrast(lerp_rgb(RANGE_RGB, _theme.theme_fg, 0.30),
+                                      RANGE_RGB, minimum=2.0)
+    NORMAL_LABEL_RGB = ensure_contrast(lerp_rgb(NORMAL_RGB, _theme.theme_fg, 0.35),
+                                       NORMAL_RGB, minimum=2.2)
     GRID_RGB = surface_bg(0.14)
     PRECIP_RGB = _style.PRECIP_RAIN_RGB
     PRECIP_NORMAL_RGB = lerp_rgb(PRECIP_RGB, _theme.theme_bg, 0.55)
@@ -275,10 +285,38 @@ class _Braille:
                                         self.ink[row][cell], False)
 
 
-def _place(overlays, braille, text, x, row, ink, width):
+class _Quadrants:
+    """A panel's bars in quadrant blocks: each cell two columns by two
+    half rows of solid quarters, in the ink of its row."""
+
+    def __init__(self, width, rows):
+        self.width, self.rows = width, rows
+        self.bits = [[0] * width for _ in range(rows)]
+        self.observed = [[False] * width for _ in range(rows)]
+
+    def fill(self, i, q, observed):
+        """Half row q of column i, a day gone by or one forecast."""
+        cell, row = i // 2, q // 2
+        if 0 <= cell < self.width and 0 <= row < self.rows:
+            self.bits[row][cell] |= _QUARTER[q % 2][i % 2]
+            self.observed[row][cell] |= observed
+
+    def free(self, cell, row):
+        return not self.bits[row][cell]
+
+    def overlays(self, out, ink):
+        """The filled cells into `out`, inked by ink(row, observed)."""
+        for row in range(self.rows):
+            for cell in range(self.width):
+                if self.bits[row][cell] and (cell, row) not in out:
+                    out[(cell, row)] = (_QUADRANTS[self.bits[row][cell]],
+                                        ink(row, self.observed[row][cell]), False)
+
+
+def _place(overlays, free, rows, text, x, row, ink, width):
     """Text into a panel's overlays at cell x, if every cell it needs is
-    inside the panel and free of data, with a cell of air either side
-    between it and another label."""
+    inside the panel and free of data (free(cell, row)), with a cell of
+    air either side between it and another label."""
     cells = []
     for ch in text:
         w = char_width(ch)
@@ -286,9 +324,9 @@ def _place(overlays, braille, text, x, row, ink, width):
         cells.extend((x + k, "") for k in range(1, w))
         x += w
     first = cells[0][0]
-    if first < 0 or x > width or not 0 <= row < braille.rows:
+    if first < 0 or x > width or not 0 <= row < rows:
         return False
-    if any(not braille.free(c, row) for c, _ in cells):
+    if any(not free(c, row) for c, _ in cells):
         return False
     if any((c, row) in overlays for c in range(first - 1, x + 1)):
         return False
@@ -412,22 +450,25 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
         return min(width - 1, int((k + 0.5) / n * width))
 
     # --- the bands: half-block fields ---
+    # Each column's (outer top, outer bottom, average high, average low),
+    # in dots from the top; None where the ten years have nothing.
+    edges = [None] * width
     temp_fb = Framebuffer(width, n_temp)
     if climate:
+        def values(series, span):
+            return [series[slots[k]] for k in span if series[slots[k]] is not None]
+
         for x in range(width):
             span = _span(x, width, n)
-            tops = [climate.top[slots[k]] for k in span if climate.top[slots[k]] is not None]
-            bots = [climate.bottom[slots[k]] for k in span
-                    if climate.bottom[slots[k]] is not None]
-            nhs = [climate.normal_high[slots[k]] for k in span
-                   if climate.normal_high[slots[k]] is not None]
-            nls = [climate.normal_low[slots[k]] for k in span
-                   if climate.normal_low[slots[k]] is not None]
+            tops, bots = values(climate.top, span), values(climate.bottom, span)
+            nhs = values(climate.normal_high, span)
+            nls = values(climate.normal_low, span)
             bands = []
-            if tops and bots:
-                bands.append((ty(max(tops)), ty(min(bots)), RANGE_RGB))
-            if nhs and nls:
-                bands.append((ty(sum(nhs) / len(nhs)), ty(sum(nls) / len(nls)), NORMAL_RGB))
+            if tops and bots and nhs and nls:
+                edges[x] = (ty(max(tops)), ty(min(bots)),
+                            ty(sum(nhs) / len(nhs)), ty(sum(nls) / len(nls)))
+                bands = [(edges[x][0], edges[x][1], RANGE_RGB),
+                         (edges[x][2], edges[x][3], NORMAL_RGB)]
             for spy in range(n_temp * 2):
                 a, b = spy * 2, spy * 2 + 2   # the sub-pixel, in dots
                 for y0, y1, ink in bands:
@@ -435,8 +476,19 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
                     if cover > 0:
                         temp_fb.set_pixel(x, spy, ink, cover)
 
-    # --- the days: braille bars ---
-    temp_dots = _Braille(width, n_temp)
+    # --- the days: quadrant-block bars ---
+    halves = n_temp * 2
+
+    def tq(v):
+        return max(0, min(halves - 1, int(ty(v) / 2)))
+
+    def bar_ink(row, observed):
+        # The row's own temperature, in the dashboard's colors
+        rgb = _style._temp_color(hi - (row + 0.5) / n_temp * (hi - lo), runtime)
+        return rgb if observed else lerp_rgb(rgb, _theme.theme_bg, _FORECAST_FADE)
+
+    bars = _Quadrants(width, n_temp)
+    temp_dots = _Braille(width, n_temp)   # the grid lines under the bars
     hottest = coldest = None   # (value, day) of the year's extremes so far
     if days:
         for i in range(width * 2):
@@ -445,9 +497,8 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
             los = [days.lows[k] for k in span if days.lows[k] is not None]
             if not his or not los:
                 continue
-            ink = FORECAST_RGB if span.start > days.today else BAR_RGB
-            for y in range(ydot(max(his)), ydot(min(los)) + 1):
-                temp_dots.dot(i, y, ink)
+            for q in range(tq(max(his)), tq(min(los)) + 1):
+                bars.fill(i, q, span.start <= days.today)
         for k in range(days.today + 1):
             if days.highs[k] is not None and (hottest is None or days.highs[k] > hottest[0]):
                 hottest = (days.highs[k], k)
@@ -527,13 +578,32 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
     if hottest:
         v, k = hottest
         text = f"{round(v)}°"
-        _place(temp_over, temp_dots, text, cell_of(k) - len(text) // 2,
-               ydot(v) // 4 - 1, _style._temp_color(v, runtime), width)
+        _place(temp_over, bars.free, n_temp, text, cell_of(k) - len(text) // 2,
+               tq(v) // 2 - 1, _style._temp_color(v, runtime), width)
     if coldest:
         v, k = coldest
         text = f"{round(v)}°"
-        _place(temp_over, temp_dots, text, cell_of(k) - len(text) // 2,
-               ydot(v) // 4 + 1, _style._temp_color(v, runtime), width)
+        _place(temp_over, bars.free, n_temp, text, cell_of(k) - len(text) // 2,
+               tq(v) // 2 + 1, _style._temp_color(v, runtime), width)
+    # The bands' names where this year has not reached, at the chart's
+    # right end as the paper's legend is: the average in its band, the
+    # span in the outer band above it.  Hovering says the rest.
+    reached = max((c for c in range(width) for r in range(n_temp)
+                   if not bars.free(c, r)), default=-1)
+    if climate:
+        legend = ((_s("avg", runtime), 2, 3, NORMAL_LABEL_RGB),
+                  (f"{climate.span[0]}–{climate.span[1]}", 0, 2, RANGE_LABEL_RGB))
+        for text, upper, lower, ink in legend:
+            x = width - 1 - visible_len(text)
+            cols_under = [edges[c] for c in range(x, x + visible_len(text))]
+            if x <= reached + 1 or None in cols_under:
+                continue
+            top = max(e[upper] for e in cols_under)
+            bottom = min(e[lower] for e in cols_under)
+            inside = [r for r in range(n_temp) if top <= r * 4 + 2 <= bottom]
+            if inside:
+                _place(temp_over, bars.free, n_temp, text, x,
+                       inside[len(inside) // 2], ink, width)
     if ptop:
         for m in range(12):
             first, last = cell_of(starts[m]), cell_of(ends[m] - 1)
@@ -543,11 +613,11 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
                     text = _fmt_amount(cum[k_end], runtime)
                     end = cell_of(k_end)
                     x = max(first + 1, end - visible_len(text) + 1)
-                    _place(precip_over, precip_dots, text, x,
+                    _place(precip_over, precip_dots.free, n_precip, text, x,
                            py(cum[k_end]) // 4 - 1, PRECIP_RGB, last + 1)
             if normals[m] is not None:
                 text = _fmt_amount(normals[m], runtime)
-                _place(precip_over, precip_dots, text, first + 1,
+                _place(precip_over, precip_dots.free, n_precip, text, first + 1,
                        py(normals[m]) // 4 - 1, PRECIP_NORMAL_RGB, last + 1)
 
     hairlines = [(x_today, _style.CHART_NOW_RGB)]
@@ -556,11 +626,13 @@ def render_year(climate, days, runtime, *, location_name="", location_menu=False
     for x, ink in hairlines:
         if x is None:
             continue
-        for over, layer in ((temp_over, temp_dots), (precip_over, precip_dots)):
-            for row in range(layer.rows):
-                if layer.free(x, row) and (x, row) not in over:
+        for over, free, n_rows in ((temp_over, bars.free, n_temp),
+                                   (precip_over, precip_dots.free, n_precip)):
+            for row in range(n_rows):
+                if free(x, row) and (x, row) not in over:
                     over[(x, row)] = ("│", ink, False)
 
+    bars.overlays(temp_over, bar_ink)
     temp_dots.overlays(temp_over)
     precip_dots.overlays(precip_over)
     precip_fb = Framebuffer(width, n_precip)

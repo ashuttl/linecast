@@ -195,6 +195,47 @@ class TestChart:
             low=lambda d: -12.0 if d == cold else 32.0), size=(140, 40)))
         assert "99°" in text and "-12°" in text
 
+    def test_the_bars_are_solid_blocks(self):
+        body = _strip(_render(_climate(), _days())).split("\n")[1:]
+        assert any("█" in line for line in body)
+        assert not any(ch in line for line in body for ch in "⣿⡇⢸")
+
+    def test_a_bar_takes_the_dashboards_color_for_each_rows_temperature(self):
+        from linecast.weather.style import _temp_color
+        # Every day 20° to 90°: each cell of a bar is the dashboard's
+        # color for some temperature in that span, and a tall bar has many.
+        from linecast.terminal import color as _color
+        with patch.object(_color, "_COLOR_MODE", "truecolor"):
+            out = _render(_climate(), _days(high=lambda d: 90.0, low=lambda d: 20.0))
+        # ▄ is left out: the bands' half-block field is drawn with it
+        inks = {tuple(map(int, m)) for m in
+                re.findall(r"\x1b\[38;2;(\d+);(\d+);(\d+)m[▗▖▝▐▞▟▘▚▌▙▀▜▛█]", out)}
+        rt = _runtime()
+        scale = [_temp_color(t / 10, rt) for t in range(150, 951)]
+        faded = [year.lerp_rgb(c, year._theme.theme_bg, year._FORECAST_FADE) for c in scale]
+        assert len(inks) >= 6
+        for ink in inks:
+            assert min(max(abs(a - b) for a, b in zip(ink, c)) for c in scale + faded) <= 1
+
+    def test_the_bands_are_named_where_the_year_has_not_reached(self):
+        # Years that differ, so the extremes stand clear of the average
+        climate = year.climate_from_archive(
+            _ten_years(high=lambda d: 50.0 + 3 * (d.year % 5),
+                       low=lambda d: 30.0 - 3 * (d.year % 5)), SPAN)
+        body = _strip(_render(climate, _days())).split("\n")[1:]
+        assert any("2016–2025" in line for line in body)
+        assert any("avg" in line for line in body)
+
+    def test_a_full_year_leaves_no_room_to_name_them(self):
+        dec31 = date(2026, 12, 31)
+        days = year.year_days(_archive(date(2026, 1, 1), dec31 - timedelta(days=1)),
+                              _archive(dec31, dec31), dec31)
+        climate = year.climate_from_archive(
+            _ten_years(high=lambda d: 50.0 + 3 * (d.year % 5),
+                       low=lambda d: 30.0 - 3 * (d.year % 5)), SPAN)
+        body = _strip(_render(climate, days)).split("\n")[1:]
+        assert not any("2016–2025" in line for line in body)
+
     def test_a_hover_names_the_day_and_its_climate(self):
         # Early March: out of the synthetic summer
         text = _strip(_render(_climate(), _days(), mouse_pos=(28, 10)))
