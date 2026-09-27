@@ -24,9 +24,14 @@ REPO_DIR=$(cd -- "$SCRIPT_DIR/.." && pwd)
 SHOT_DIR="$REPO_DIR/screenshots"
 GALLERY_DIR="$SHOT_DIR/gallery"
 CAPTURE_TOOL=${LINECAST_CAPTURE_TOOL:-termshot}
-CAPTURE_FONT=${LINECAST_CAPTURE_FONT:-MonaspiceNe Nerd Font:size=11}
+# GitHub's own Nerd Font build of Monaspace Neon (otf-monaspace-nerdfonts);
+# the Nerd Fonts project's "MonaspiceNe" is the same face, but a name
+# fontconfig cannot find falls back to a proportional sans and spaces every
+# letter out.
+CAPTURE_FONT=${LINECAST_CAPTURE_FONT:-Monaspace Neon NF:size=11}
 
 WEATHER_PLACE=${LINECAST_CAPTURE_WEATHER_PLACE:-Dublin, Ireland}
+WEATHER_YEAR_PLACE=${LINECAST_CAPTURE_WEATHER_YEAR_PLACE:-Westbrook, Maine}
 YEAR_PLACE=${LINECAST_CAPTURE_YEAR_PLACE:-Reykjavík}
 RADAR_PLACE=${LINECAST_CAPTURE_RADAR_PLACE:-auto}
 RADAR_LANG=${LINECAST_CAPTURE_RADAR_LANG:-}
@@ -48,7 +53,8 @@ Usage: scripts/capture_screenshots.sh [TARGET...]
 Targets:
   all        capture every app (default; leaves the hand-made hero alone)
   weather    weather.png, plus weather-reykjavik.png in Icelandic and
-             weather-kyoto.png in Japanese, both metric
+             weather-kyoto.png in Japanese, both metric, and weather-year.png,
+             the year view for Westbrook with the pointer on a week in May
   sunshine   one June day in sunshine-night/dawn/day/golden/dusk.png, and
              sunshine-winter.png for a January noon
   year       sunshine-year.png for Reykjavík in Icelandic, plus -arctic and
@@ -75,6 +81,7 @@ Environment overrides:
   LINECAST_CAPTURE_TOOL
   LINECAST_CAPTURE_FONT      fontconfig pattern for every frame but the hero
   LINECAST_CAPTURE_WEATHER_PLACE
+  LINECAST_CAPTURE_WEATHER_YEAR_PLACE
   LINECAST_CAPTURE_YEAR_PLACE
   LINECAST_CAPTURE_RADAR_PLACE   a place, or "auto" to let scout_radar.py pick
   LINECAST_CAPTURE_RADAR_LANG    language for a named radar place (auto brings its own)
@@ -132,6 +139,22 @@ weather() {
         uv --directory "$REPO_DIR" run linecast weather --location "Reykjavík" --lang is --metric
     "$CAPTURE_TOOL" -s 100x30 -w 10 --font "$CAPTURE_FONT" -o "$SHOT_DIR/weather-kyoto.png" \
         uv --directory "$REPO_DIR" run linecast weather --location "Kyoto, Japan" --lang ja --metric
+    weather_year
+}
+
+weather_year() {
+    # The year view, with the pointer on the middle of May so the week's
+    # chip is in frame: on a 130x38 terminal, column 51, row 16.  The
+    # first hover only carries the pointer onto the window, as in year();
+    # here the view also answers that first move with a chip of its own,
+    # and a single jump from it to May can land before the next frame, so
+    # the pointer stops once on the way.  The archive answers in a few
+    # seconds; the wait covers it.
+    printf 'Capturing the weather year view…\n'
+    "$CAPTURE_TOOL" -s 130x38 -w 12 --font "$CAPTURE_FONT" \
+        --hover 100x12 --sleep 0.5 --hover 60x16 --sleep 0.7 --hover 51x16 --sleep 1.5 \
+        -o "$SHOT_DIR/weather-year.png" \
+        uv --directory "$REPO_DIR" run linecast weather --year --location "$WEATHER_YEAR_PLACE"
 }
 
 sunshine() {

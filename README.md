@@ -73,6 +73,10 @@ Reykjavík in Icelandic, and Kyoto in Japanese:
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather-kyoto.png" width="49%" alt="the weather in Kyoto, in Japanese">
 </p>
 
+The year view for Westbrook, Maine, with the pointer on a week in May:
+
+![the weather year view for Westbrook, Maine, with the chip for a week in May](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather-year.png)
+
 ### Sunshine
 
 The sun on its arc through dawn, day, and dusk. Press `v` for the whole year. `--hours` reads the day in [traditional hours](https://github.com/ashuttl/linecast/blob/main/docs/hours.md): halachic, Roman, Edo, Islamic, or Swahili.
