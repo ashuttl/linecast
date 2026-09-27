@@ -442,6 +442,14 @@ class TestCatalogue:
         assert sky.star_names("cs")[polaris] == ("Polárka", "α UMi")
         assert sky.star_names("ru")[0] == ("Сириус", "α CMa")
         assert sky.star_names("cs")[0] == ("Sirius", "α CMa")
+        # Hungarian and Slovak keep the IAU name where their Wikipedias
+        # title a star by an older one (Deneb Kaitos for Diphda).
+        assert sky.star_names("hu")[polaris] == ("Sarkcsillag", "α UMi")
+        assert sky.star_names("hu")[0] == ("Szíriusz", "α CMa")
+        assert sky.star_names("sk")[polaris] == ("Polárka", "α UMi")
+        assert sky.star_names("sk")[0] == ("Sírius", "α CMa")
+        diphda = next(i for i, (n, _d) in sky.star_names().items() if n == "Diphda")
+        assert sky.star_names("sk")[diphda] == ("Diphda", "β Cet")
         # Persian names the stars as fa.wikipedia titles them, and writes
         # the zero-width non-joiner the query service drops.
         assert sky.star_names("fa")[0] == ("شباهنگ", "α CMa")
@@ -493,6 +501,13 @@ class TestCatalogue:
         assert sky.constellation_name(ursa, "ru") == "Большая Медведица"
         assert sky.constellation_name(ursa, "ro") == "Ursa Mare"
         assert sky.constellation_name(ursa, "cs") == "Velká medvědice"
+        assert sky.constellation_name(ursa, "sk") == "Veľká medvedica"
+        # Hungarian takes off Wikidata's "csillagkép" and writes the
+        # figures from myth as its charts do.
+        assert sky.constellation_name(ursa, "hu") == "Nagy Medve"
+        perseus = next(r for r in sky.constellations() if r["id"] == "Per")
+        assert sky.constellation_name(perseus, "hu") == "Perszeusz"
+        assert sky.constellation_name(perseus, "sk") == "Perzeus"
         assert sky.constellation_name(ursa, "fa") == "دب اکبر"
         cassiopeia = next(r for r in sky.constellations() if r["id"] == "Cas")
         assert sky.constellation_name(cassiopeia, "fa") == "ذات\u200cالکرسی"
@@ -1135,6 +1150,17 @@ class TestCultures:
         assert search("polarka", pool)[0].label == "Polárka · α UMi"
         assert search("blíženci", pool)[0].label == "Blíženci · Gemini"
         assert search("velky vuz", pool)[0].kind == "asterism"
+        # Unaccented, Hungarian ö ő ű and Slovak ľ é fold to the plain letters.
+        pool = targets(_runtime(lang="hu"))
+        assert search("sarkcsillag", pool)[0].label == "Sarkcsillag · α UMi"
+        assert search("goncolszeker", pool)[0].kind == "asterism"
+        assert search("vizonto", pool)[0].label == "Vízöntő · Aquarius"
+        assert search("szuz", pool)[0].label == "Szűz · Virgo"
+        pool = targets(_runtime(lang="sk"))
+        assert search("polarka", pool)[0].label == "Polárka · α UMi"
+        assert search("velka medvedica", pool)[0].label == "Veľká medvedica · Ursa Major"
+        assert search("polovne psy", pool)[0].label == "Poľovné psy · Canes Venatici"
+        assert search("velky voz", pool)[0].kind == "asterism"
         pool = targets(_runtime(lang="sw"))
         assert search("msalaba wa kusini", pool)[0].label == "Msalaba wa Kusini · Crux"
         assert search("crux", pool)[0].label == "Msalaba wa Kusini · Crux"

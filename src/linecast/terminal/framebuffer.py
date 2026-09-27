@@ -60,7 +60,8 @@ _HOUR_24 = {
     "en": "{h:02d}:00", "nl": "{h}\u00a0uur", "eo": "{h:02d}:00",
     "tr": "{h:02d}:00", "sw": "{h:02d}:00",
     # Without the leading zero in running text: "около 9:00", "kolem 9:00"
-    "pl": "{h}:00", "cs": "{h}:00", "ru": "{h}:00", "uk": "{h}:00", "el": "{h}:00",
+    "pl": "{h}:00", "cs": "{h}:00", "sk": "{h}:00", "ru": "{h}:00", "uk": "{h}:00",
+    "el": "{h}:00",
     "ro": "{h}:00",
     "de": "{h}\u00a0Uhr", "it": "{h}", "da": "kl.\u00a0{h}", "no": "kl.\u00a0{h}",
     "sv": "kl.\u00a0{h}", "is": "kl.\u00a0{h}", "fi": "klo\u00a0{h}", "id": "pukul\u00a0{h}.00",
@@ -76,6 +77,9 @@ _HOUR_24 = {
     "es": "{h}:00", "pt": "{h}h",
     # Vietnamese writes the hour without a leading zero: "kho\u1ea3ng 9h".
     "vi": "{h}h",
+    # Hungarian says the hour with its word, as HungaroMet writes it, and
+    # the word takes the endings a sentence needs: "16 óra körül"
+    "hu": "{h}\u00a0óra",
     # Persian names the hour with its word, as IRIMO and the news do:
     # "حدود ساعت ۱۵", "از ساعت ۱۵"
     "fa": "ساعت\u00a0{h}",

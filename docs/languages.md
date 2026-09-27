@@ -6,20 +6,21 @@ linecast speaks your terminal's language if it knows it, and English otherwise. 
 
 | Code | Language | Code | Language |
 | --- | --- | --- | --- |
-| `en` | English | `ru` | Russian |
-| `fr` | French | `uk` | Ukrainian |
-| `es` | Spanish | `el` | Greek |
-| `pt` | Portuguese | `tr` | Turkish |
-| `it` | Italian | `fa` | Persian (experimental) |
-| `ro` | Romanian | `sw` | Swahili |
-| `de` | German | `zh` | Chinese, simplified script |
-| `nl` | Dutch | `zh-Hant` | Chinese, traditional script |
-| `da` | Danish | `ja` | Japanese |
-| `no` | Norwegian | `ko` | Korean |
-| `sv` | Swedish | `th` | Thai |
-| `is` | Icelandic | `vi` | Vietnamese |
-| `fi` | Finnish | `id` | Indonesian |
-| `cs` | Czech | `eo` | Esperanto |
+| `en` | English | `hu` | Hungarian |
+| `fr` | French | `ru` | Russian |
+| `es` | Spanish | `uk` | Ukrainian |
+| `pt` | Portuguese | `el` | Greek |
+| `it` | Italian | `tr` | Turkish |
+| `ro` | Romanian | `fa` | Persian (experimental) |
+| `de` | German | `sw` | Swahili |
+| `nl` | Dutch | `zh` | Chinese, simplified script |
+| `da` | Danish | `zh-Hant` | Chinese, traditional script |
+| `no` | Norwegian | `ja` | Japanese |
+| `sv` | Swedish | `ko` | Korean |
+| `is` | Icelandic | `th` | Thai |
+| `fi` | Finnish | `vi` | Vietnamese |
+| `cs` | Czech | `id` | Indonesian |
+| `sk` | Slovak | `eo` | Esperanto |
 | `pl` | Polish | | |
 
 ## Regional variants
@@ -30,7 +31,7 @@ A terminal locale chooses the variant by itself: `pt_PT`, `es_ES`, and `fr_CA` r
 
 ## What follows the language
 
-- **Units.** With metric units, wind speeds are in metres per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, and Czech, as those countries' forecasts give them, and in km/h elsewhere.
+- **Units.** With metric units, wind speeds are in metres per second in Japanese, Korean, Danish, Norwegian, Swedish, Icelandic, Finnish, Russian, Ukrainian, Czech, and Slovak, as those countries' forecasts give them, and in km/h elsewhere.
 - **The moon's calendar.** In Chinese, Japanese, Korean, Vietnamese, and Thai, `moon` shows that language's traditional calendar; in Persian, the Islamic. See [calendars.md](calendars.md).
 - **The sky.** In Chinese, `sky` draws the Chinese sky; in every other language, the IAU constellations. Star and constellation names come from Wikidata where the language has them. Swahili names Crux and Scorpius; other stars and constellations keep their catalogue names.
 - **The hours.** In Swahili, `sunshine` reads the day in Swahili time. See [hours.md](hours.md).

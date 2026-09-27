@@ -414,6 +414,56 @@ class TestCzechWeather:
         assert DAY_NAMES["cs"] == ["po", "út", "st", "čt", "pá", "so", "ne"]
 
 
+class TestSlovakWeather:
+    def test_comparative_sentences_are_idiomatic(self):
+        runtime = SimpleNamespace(lang="sk", celsius=True)
+        now = datetime(2026, 8, 24, 15)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 25]}, now, runtime)
+        same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
+        assert warmer == "Zajtrajšia najvyššia teplota bude o 4\u00a0stupne vyššia ako dnešná"
+        assert same == "Zajtrajšia najvyššia teplota bude približne rovnaká ako dnešná"
+
+    def test_what_sets_in_comes_last(self):
+        runtime = SimpleNamespace(lang="sk", use_24h=True)
+        now = datetime(2026, 8, 24, 12, 10)
+
+        def hourly(code):
+            return {"time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
+                    "precipitation_probability": [0, 0, 0, 0, 0, 70],
+                    "weather_code": [0, 0, 0, 0, 0, code]}
+        assert "Okolo 17:00 pravdepodobne začne dážď" in (
+            _precipitation_line(hourly(63), now, runtime))
+        assert "Okolo 17:00 pravdepodobne začnú búrky" in (
+            _precipitation_line(hourly(95), now, runtime))
+
+    def test_days_take_their_preposition_and_case(self):
+        from linecast.weather.sections import _day_span
+        from linecast.weather.i18n import ON_DAY_FORMS
+        runtime = SimpleNamespace(lang="sk")
+        assert [ON_DAY_FORMS["sk"][i] for i in range(7)] == [
+            "v pondelok", "v utorok", "v stredu", "vo štvrtok", "v piatok", "v sobotu",
+            "v nedeľu"]
+        now = datetime(2026, 8, 24, 12)     # a Monday
+        wednesday, thursday, friday, saturday = (now.date().replace(day=d)
+                                                 for d in (26, 27, 28, 29))
+        assert _day_span([wednesday, thursday], now, runtime) == "v stredu a vo štvrtok"
+        assert _day_span([thursday, friday, saturday], now, runtime) == "od štvrtka do soboty"
+
+    def test_past_precipitation_takes_the_genitive(self):
+        runtime = SimpleNamespace(lang="sk", metric=True, precip_unit="mm")
+        now = datetime(2026, 8, 24, 12)
+        hourly = {"time": ["2026-08-24T11:00"], "precipitation": [4.0],
+                  "snowfall": [0], "weather_code": [63]}
+        assert "spadlo 4,0\u00a0mm dažďa" in _past_precip_line(hourly, now, runtime)
+
+    def test_the_percent_sign_is_set_off_with_a_space(self):
+        from linecast._i18n import fmt_percent
+        assert fmt_percent(40, SimpleNamespace(lang="sk")) == "40\u00a0%"
+
+    def test_weekdays_use_standard_abbreviations(self):
+        assert DAY_NAMES["sk"] == ["po", "ut", "st", "št", "pi", "so", "ne"]
+
+
 class TestMixedDays:
     def test_a_freezing_day_s_chance_is_named_in_words(self):
         """The hover names the kind as the past day's total does, not by
@@ -428,6 +478,66 @@ class TestMixedDays:
         runtime = SimpleNamespace(lang="en")
         assert _precip_kind_lower(63, runtime) == "rain"
         assert _precip_kind_lower(73, runtime) == "snow"
+
+
+class TestHungarianWeather:
+    def test_comparative_sentences_are_idiomatic(self):
+        runtime = SimpleNamespace(lang="hu", celsius=True)
+        now = datetime(2026, 8, 24, 15)
+        warmer = comparative_sentence({"temperature_2m_max": [20, 21, 25]}, now, runtime)
+        same = comparative_sentence({"temperature_2m_max": [20, 21, 22]}, now, runtime)
+        assert warmer == ("A holnapi legmagasabb hőmérséklet 4\u00a0fokkal magasabb lesz, "
+                          "mint a mai")
+        assert same == "A holnapi legmagasabb hőmérséklet nagyjából ugyanannyi lesz, mint a mai"
+
+    def test_rain_begins_and_storms_form(self):
+        runtime = SimpleNamespace(lang="hu", use_24h=True)
+        now = datetime(2026, 8, 24, 12, 10)
+
+        def hourly(code):
+            return {"time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
+                    "precipitation_probability": [0, 0, 0, 0, 0, 70],
+                    "weather_code": [0, 0, 0, 0, 0, code]}
+        assert "17\u00a0óra körül valószínűleg eső kezdődik" in (
+            _precipitation_line(hourly(63), now, runtime))
+        assert "17\u00a0óra körül valószínűleg zivatar alakul ki" in (
+            _precipitation_line(hourly(95), now, runtime))
+
+    def test_rain_falling_now_takes_the_article(self):
+        runtime = SimpleNamespace(lang="hu", use_24h=True)
+        now = datetime(2026, 8, 24, 12, 10)
+        hourly = {"time": [f"2026-08-24T{h:02d}:00" for h in range(12, 18)],
+                  "precipitation_probability": [90, 90, 0, 0, 0, 0],
+                  "weather_code": [63, 63, 0, 0, 0, 0]}
+        assert "Az eső körülbelül egy óra múlva megszűnik" in (
+            _precipitation_line(hourly, now, runtime))
+
+    def test_a_run_of_days_takes_the_case_endings(self):
+        from linecast.weather.sections import _day_span
+        runtime = SimpleNamespace(lang="hu")
+        now = datetime(2026, 8, 24, 12)     # a Monday
+        thursday, friday, saturday, sunday = (now.date().replace(day=d)
+                                              for d in (27, 28, 29, 30))
+        monday = now.date().replace(day=31)
+        assert _day_span([thursday, friday], now, runtime) == "csütörtökön és pénteken"
+        assert _day_span([saturday, sunday, monday], now, runtime) == "szombattól hétfőig"
+
+    def test_past_precipitation(self):
+        runtime = SimpleNamespace(lang="hu", metric=True, precip_unit="mm")
+        now = datetime(2026, 8, 24, 12)
+        hourly = {"time": ["2026-08-24T11:00"], "precipitation": [4.0],
+                  "snowfall": [0], "weather_code": [63]}
+        assert "Az elmúlt 24\u00a0órában 4,0\u00a0mm eső hullott" in (
+            _past_precip_line(hourly, now, runtime))
+
+    def test_weekdays_use_standard_abbreviations(self):
+        assert DAY_NAMES["hu"] == ["H", "K", "Sze", "Cs", "P", "Szo", "V"]
+
+    def test_dates_run_from_the_year(self):
+        from linecast.moon.calendar import _month_title
+        from linecast.moon.i18n import gregorian_date_label
+        assert _month_title(2026, 9, "hu") == "2026. szept."
+        assert gregorian_date_label(datetime(2026, 9, 27), "hu") == "2026. szept. 27."
 
 
 class TestSwahili:
@@ -580,14 +690,15 @@ class TestTablesComplete:
     # reference day with Korean's "and" (어제와, 오늘과), the Korean
     # templates whose noun ends in a consonant (눈은, 눈이), midday by its
     # name, a unit spaced or spelled out in a sentence ("12 mm of
-    # rain", "3 inches of snow"), and rain likely in a part of the day
-    # rather than from an hour.
+    # rain", "3 inches of snow"), rain likely in a part of the day
+    # rather than from an hour, and Hungarian's showers and storms, which
+    # form rather than begin.
     VARIANTS = {"linecast.sunshine.i18n": ("_dawn", "_dusk"),
                 "linecast.weather.i18n": ("_one", "_ma", "_vi", "_pl", "_by", "_few", "_many",
                                            "_diff", "_diff_one", "_diff_few", "_then",
                                            "_heavier", "_with", "_noon", "_prose", "_span",
                                            "_span_becoming", "_span_heavier", "_heavier_pl",
-                                           "_batchim", "_heavier_batchim", "_cold")}
+                                           "_batchim", "_heavier_batchim", "_cold", "_zt")}
 
     # Keys a language may leave out, and goes without: Thai has no
     # "at that time" that sits in every slot a part of the day takes

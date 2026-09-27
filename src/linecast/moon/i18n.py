@@ -87,6 +87,8 @@ def gregorian_date_label(dt, lang):
         return f"{dt.year}년 {md}"
     if base == "en":
         return f"{md}, {dt.year}"
+    if base == "hu":
+        return f"{dt.year}. {md}"
     return f"{md} {dt.year}"
 
 

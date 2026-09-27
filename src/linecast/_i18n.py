@@ -12,8 +12,9 @@ from collections.abc import MutableMapping
 
 # The display order shared by help, `linecast language`, and completions;
 # keep both READMEs in step. English first, then loose regional clusters:
-# Romance, German/Dutch, Nordic, Slavic, Greek, Turkish, Persian, Swahili, East Asian,
-# Southeast Asian, and Esperanto last. Keep both Chinese scripts together.
+# Romance, German/Dutch, Nordic, Central European, East Slavic, Greek,
+# Turkish, Persian, Swahili, East Asian, Southeast Asian, and Esperanto
+# last. Keep both Chinese scripts together.
 LANGUAGES = (
     ("en", "English"),
     ("fr", "French"), ("es", "Spanish"), ("pt", "Portuguese"),
@@ -21,7 +22,8 @@ LANGUAGES = (
     ("de", "German"), ("nl", "Dutch"),
     ("da", "Danish"), ("no", "Norwegian"), ("sv", "Swedish"),
     ("is", "Icelandic"), ("fi", "Finnish"),
-    ("cs", "Czech"), ("pl", "Polish"), ("ru", "Russian"), ("uk", "Ukrainian"),
+    ("cs", "Czech"), ("sk", "Slovak"), ("pl", "Polish"), ("hu", "Hungarian"),
+    ("ru", "Russian"), ("uk", "Ukrainian"),
     ("el", "Greek"), ("tr", "Turkish"), ("fa", "Persian"), ("sw", "Swahili"),
     ("zh", "Simplified Chinese"), ("zh-Hant", "Traditional Chinese"),
     ("ja", "Japanese"), ("ko", "Korean"),

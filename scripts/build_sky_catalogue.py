@@ -103,7 +103,7 @@ WIKIDATA_LANG = {
     "pl": "pl", "no": "nb", "sv": "sv", "is": "is", "da": "da", "fi": "fi",
     "ja": "ja", "ko": "ko", "zh": "zh-hans", "th": "th", "id": "id", "uk": "uk",
     "vi": "vi", "eo": "eo", "tr": "tr", "ru": "ru", "ro": "ro", "cs": "cs", "el": "el",
-    "fa": "fa",
+    "fa": "fa", "hu": "hu", "sk": "sk",
 }
 
 # The traditional form of each simplified character the Chinese names use,
@@ -260,6 +260,11 @@ GREEK_WORDS = (
     # The Czech spellings ("Mý Cephei", "Éta Ursae Minoris", "Théta Pegasi").
     "zéta", "éta", "théta", "ióta", "mý", "ný", "ksí", "pí", "ró", "ypsilon", "fí",
     "chí", "psí",
+    # The Hungarian spellings ("Béta Centauri", "Epszilon Eridani", "Mű
+    # Cassiopeiae", "Dzéta Orionis").
+    "béta", "epszilon", "dzéta", "mű", "nű", "kszí", "szigma", "üpszilon", "khí", "pszí",
+    # The Slovak spelling of mu, where it differs from the Czech ("Mí Arae").
+    "mí",
     # The Romanian spellings ("Teta Scorpii", "Gama Boötis").
     "miu", "niu", "csi", "hi",
     # The Persian spellings ("آلفا طاووس", "لاندا کژدم", "امیکرون شیر"),
@@ -579,6 +584,38 @@ OVERRIDES = {
             "Almach": "", "Alphecca": "", "Diphda": "", "Meridiana": "", "Mimosa": "",
             "Ruchbah": "", "Tarf": "", "Tureis": "", "Zubeneschamali": "",
         },
+        # Hungarian Wikipedia titles most stars by the IAU name or the
+        # Bayer letter. Szíriusz is its title for Sirius, which Wikidata
+        # files under the A component; Betelgeuze and Sarkcsillag come
+        # through the labels. Adara and Alphekka are titles too, but older
+        # spellings rather than Hungarian ones, and Mérope has no article.
+        "hu": {
+            "Sirius": "Szíriusz", "Adhara": "", "Alphecca": "", "Merope": "",
+        },
+        # Slovak Wikipedia titles many stars by an older name or spelling
+        # (Deneb Kaitos, Murzim, Becrux, Wei, El Nath, Schedar), a few by
+        # a name the IAU gives another star (Girtab, Menkib, Talitha), and
+        # Wikidata labels Aljanah with Gienah. Those keep the IAU name.
+        # Kept are the Slovak words (Polárka, Levia hriva, Garnetová
+        # hviezda) and the names in Slovak spelling (Arktúr, Sírius,
+        # Kastor, Spika, Alfard, Diadém); Sirius, Castor, Algieba, and
+        # Diadem are titles Wikidata does not carry as labels.
+        "sk": {
+            "Sirius": "Sírius", "Castor": "Kastor", "Algieba": "Levia hriva",
+            "Diadem": "Diadém",
+            "Adhara": "", "Al Athfar": "", "Al Minlear al Asad": "", "Aldulfin": "",
+            "Algenubi": "", "Aljanah": "", "Alkaphrah": "", "Almach": "", "Alnair": "",
+            "Alphecca": "", "Alzirr": "", "Anser": "", "Atik": "", "Azmidi": "",
+            "Biham": "", "Chara": "", "Circitores": "", "Cujam": "", "Deneb Algedi": "",
+            "Deneb Kaitos Shemali": "", "Diphda": "", "Elnath": "", "Errai": "",
+            "Fumalsamakah": "", "Giausar": "", "Gienah": "", "Hatysa": "", "Imai": "",
+            "Kaffaljidhma": "", "Kaus Media": "", "Larawag": "", "Marfak": "",
+            "Menkib": "", "Meridiana": "", "Mimosa": "", "Minelauva": "", "Mirzam": "",
+            "Mizan": "", "Mothallah": "", "Mula": "", "Navi": "", "Phecda": "",
+            "Prima Hyadum": "", "Rasalhague": "", "Saclateni": "", "Secunda Hyadum": "",
+            "Shedar": "", "Talitha": "", "Tarazed": "", "Tarf": "", "Tejat": "",
+            "Tianguan": "", "Unukalhai": "", "Zuben Elakribi": "", "Zubeneschamali": "",
+        },
         "zh": {
             "Abt's Star": "阿布特星", "Aldhibah": "紫微左垣四", "Alhiba": "天潢五",
             "Almizan": "右旗三", "Alya": "天市左垣七", "Andrews' star": "",
@@ -668,6 +705,21 @@ OVERRIDES = {
         # Ursa Minor is Malý medvěd, as the article and the charts have it.
         "cs": {
             "Car": "Lodní kýl", "Cru": "Jižní kříž", "UMi": "Malý medvěd",
+        },
+        # Hungarian: the names in the Hungarian Astronomical Association's
+        # Meteor yearbook (csillagaszat.hu, "A csillagképek hivatalos
+        # elnevezésének magyar megfelelői", from Meteor csillagászati
+        # évkönyv 2003) and Hungarian Wikipedia's list by size. Wikidata
+        # labels the articles, which keep the Latin spelling for the
+        # figures from myth (Perseus, Cassiopeia); the charts write them
+        # in Hungarian. Perszeusz is the list's spelling, the yearbook's
+        # Perzeusz; Indián is the yearbook's, the list's Hindu. Hydra has
+        # no label but the article's "Hydra csillagkép".
+        "hu": {
+            "And": "Androméda", "Cas": "Kassziopeia", "Cep": "Cefeusz",
+            "Com": "Bereniké Haja", "Eri": "Eridánusz", "Her": "Herkules",
+            "Hya": "Északi Vízikígyó", "Ind": "Indián", "Peg": "Pegazus",
+            "Per": "Perszeusz",
         },
         "de": {
             "CMa": "Großer Hund", "CMi": "Kleiner Hund", "Car": "Kiel des Schiffs",
@@ -895,9 +947,12 @@ def constellation_label(label, latin):
     """A Wikidata constellation label as a chart would print it, or None:
     the Latin again, or a label that is a phrase about the constellation
     rather than its name (Polish files them all as "constellation of the
-    X" with X declined, which OVERRIDES puts right)."""
+    X" with X declined, which OVERRIDES puts right). Some Dutch labels
+    and every Hungarian one carry the word for constellation, which comes
+    off ("Hattyú csillagkép" is Hattyú)."""
     text = re.sub(r"\s*\(.*?\)\s*$", "", label).strip()
     text = re.sub(r"-sterrenbeeld$", "", text)
+    text = re.sub(r" csillagkép$", "", text)
     if not text or text == latin or text.lower().startswith("gwiazdozbiór "):
         return None
     return text

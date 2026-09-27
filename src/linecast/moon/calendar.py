@@ -91,6 +91,9 @@ def _month_title(year, month, lang):
         return f"{year}년 {month}월"
     if lang == "fi":
         return f"{month}/{year}"
+    if lang == "hu":
+        # Hungarian dates run from the year: "2026. szept."
+        return f"{year}. {table_for(MONTHS_I18N, lang)[month - 1]}"
     if lang == "vi":
         return f"Tháng {month} năm {year}"
     months = table_for(MONTHS_I18N, lang)

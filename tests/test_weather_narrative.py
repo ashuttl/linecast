@@ -1297,6 +1297,11 @@ class TestMoreToSay:
         hourly = self._hourly(NOON, len(gusts), wind_gusts_10m=[g * 1.6 / 3.6 for g in gusts])
         assert gusts_sentence(hourly, NOON, _runtime(lang="ja", metric=True)) == \
             "午後に最大20m/sの突風が吹くでしょう"
+        # Hungarian makes the speed an adjective of the gusts, its ending
+        # by how the unit is read
+        hourly = self._hourly(NOON, len(gusts), wind_gusts_10m=[g * 1.6 for g in gusts])
+        assert gusts_sentence(hourly, NOON, _runtime(lang="hu", metric=True)) == \
+            "Ma délután 72\u00a0km/h-s széllökések várhatók"
 
     def test_a_breeze_is_not_worth_a_sentence(self):
         from linecast.weather.sections import gusts_sentence
@@ -1342,6 +1347,10 @@ class TestMoreToSay:
         assert freeze_sentence(hourly, {"temperature_2m": 5}, now,
                                _runtime(lang="ja", celsius=True, metric=True)) == \
             "明日の早朝には氷点下まで冷え込み、最低−2度となるでしょう"
+        # Hungarian's -ig goes on "fok", which every temperature ends in
+        assert freeze_sentence(hourly, {"temperature_2m": 5}, now,
+                               _runtime(lang="hu", celsius=True, metric=True)) == \
+            "Holnap kora reggel fagypont alá, −2\u00a0fokig süllyed a hőmérséklet"
 
     def test_already_freezing_says_nothing(self):
         from linecast.weather.sections import freeze_sentence

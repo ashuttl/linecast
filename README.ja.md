@@ -120,7 +120,7 @@ export LINECAST_LANG=ja         # 環境変数で。保存した設定より優�
 | 設定 | 値 | 今回だけ |
 | --- | --- | --- |
 | `linecast location` | `set "Kyoto"`、`set 35.01,135.77`、`search 地名` | `--location` |
-| `linecast language` | [29の言語](docs/languages.md)のいずれか | `--lang` |
+| `linecast language` | [31の言語](docs/languages.md)のいずれか | `--lang` |
 | `linecast units` | `metric`、`imperial` | `--metric`、`--imperial` |
 | `linecast clock` | `12`、`24` | `--12h`、`--24h` |
 | `linecast week` | `monday`、`sunday`、`saturday` | `--week-start` |

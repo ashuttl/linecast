@@ -170,7 +170,7 @@ Run a setting alone to see it, with a value to save it, or with `auto` to reset 
 | Setting | Values | For one run |
 | --- | --- | --- |
 | `linecast location` | `set "Portland, Maine"`, `set 44.54,-68.42`, `search NAME` | `--location` |
-| `linecast language` | one of [29 languages](https://github.com/ashuttl/linecast/blob/main/docs/languages.md) | `--lang` |
+| `linecast language` | one of [31 languages](https://github.com/ashuttl/linecast/blob/main/docs/languages.md) | `--lang` |
 | `linecast units` | `metric`, `imperial` | `--metric`, `--imperial` |
 | `linecast clock` | `12`, `24` | `--12h`, `--24h` |
 | `linecast week` | `monday`, `sunday`, `saturday` | `--week-start` |
