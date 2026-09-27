@@ -384,8 +384,8 @@ def narrative_text(data, now, runtime=None, trace=None):
     if runtime is None:
         runtime = current_runtime(WeatherRuntime)
     daily = data.get("daily", {})
-    hourly = data.get("hourly", {})
     current = data.get("current", {})
+    hourly = _observed_hour(data.get("hourly", {}), current, now)
 
     # Each candidate is a sentence builder rather than a sentence, so a
     # sentence can be told what the one before it established: a
@@ -473,7 +473,10 @@ def narrative_text(data, now, runtime=None, trace=None):
         if week:
             add(2, hours(week_at), week_at,
                 lambda after: _next_rain(daily, now, runtime, hourly, after)[0])
-    add(2, float("inf"), None, lambda after: past_precip_sentence(hourly, now, runtime))
+    # The last day is the model's alone: this hour's stamp holds what fell
+    # in the hour before it, which the station's weather now does not name
+    add(2, float("inf"), None,
+        lambda after: past_precip_sentence(data.get("hourly", {}), now, runtime))
 
     if not candidates:
         return ""
@@ -537,6 +540,27 @@ def _hours_ahead(hourly, now, span=24):
             window.append((i, dt))
     log_skipped("weather/open-meteo", "hourly times", dropped, len(times), bad)
     return window
+
+
+def _observed_hour(hourly, current, now):
+    """The hours with the one we are in as a nearby station saw it.
+
+    Where a station's report stands in for the model's current weather
+    (observed.py), the header shows what the station saw, and the
+    paragraph under it starts from the same: the header's light rain is
+    not the prose's drizzle, and a station that sees nothing falling
+    means no rain now, whatever the model has for the hour.  The hours
+    after this one stay the model's."""
+    code = (current or {}).get("weather_code")
+    codes = hourly.get("weather_code")
+    if not (current or {}).get("observed") or code is None or not codes:
+        return hourly
+    window = _hours_ahead(hourly, now, span=0)
+    if not window or window[0][0] >= len(codes):
+        return hourly
+    codes = list(codes)
+    codes[window[0][0]] = code
+    return dict(hourly, weather_code=codes)
 
 
 def _names_the_day(dt, now):

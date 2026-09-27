@@ -739,6 +739,44 @@ class TestWhatIsFallingNow:
                          for row in narrative_lines(data, self.HONG_KONG, 200, _runtime()))
         assert prose == "Light drizzle ending around 17:00."
 
+    # Portland, Maine, on a September morning: rain from five, drizzle
+    # from six, rain again from two to four, and the Jetport reporting
+    PORTLAND = datetime(2026, 9, 27, 7, 14)
+    PWM = {"station": "KPWM", "name": "Portland Intl Jetport, ME, US",
+           "distance_km": 6.4, "time": 1790507460}
+
+    def _portland(self, code, observed=True):
+        import re
+        codes = [3, 3, 61] + [53] * 7 + [63, 63] + [3] * 16
+        hourly = self._hourly(codes, [90] * 12 + [10] * 16,
+                              start=self.PORTLAND.replace(hour=4, minute=0))
+        hourly["precipitation"] = [0, 0, 0.08, 0.03] + [0.01] * 6 + [0.08, 0.06] + [0] * 16
+        current = {"weather_code": code, "model_weather_code": 53}
+        if observed:
+            current["observed"] = self.PWM
+        data = {"hourly": hourly, "daily": DAILY, "current": current}
+        return " ".join(re.sub(r"\x1b\[[0-9;]*m", "", row)
+                        for row in narrative_lines(data, self.PORTLAND, 200, _runtime()))
+
+    def test_the_station_says_what_is_falling(self):
+        assert self._portland(53, observed=False) == (
+            "Drizzle now, becoming rain around 14:00, ending around 16:00. "
+            "0.11\u00a0inches of rain in the last 24 hours.")
+        assert self._portland(61) == (
+            "Light rain ending around 16:00. 0.11\u00a0inches of rain in the last 24 hours.")
+
+    def test_a_station_that_sees_nothing_falling(self):
+        assert self._portland(3) == (
+            "Drizzle starting soon, then rain around 14:00. "
+            "0.11\u00a0inches of rain in the last 24 hours.")
+
+    def test_the_last_day_stays_the_models(self):
+        # The hour's stamp holds what fell before it: the station's snow
+        # now is not the rain that fell overnight
+        assert self._portland(71) == (
+            "Light snow now, becoming rain soon, ending around 16:00. "
+            "0.11\u00a0inches of rain in the last 24 hours.")
+
 
 class TestTheClockInTheSentence:
     """Night is night, tomorrow is said once, and a lull is not an ending."""
