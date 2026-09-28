@@ -602,10 +602,10 @@ def moon_parser():
                          "coming month, and observance by the Umm al-Qura "
                          "calendar (islamic); the Hebrew date, coming "
                          "month, and holiday (hebrew); the week of summer "
-                         "or winter, the month, and the named days of the "
-                         "old Icelandic calendar (icelandic); or the Old "
-                         "Farmer's gardening rule and solunar periods "
-                         "(almanac). Default: the calendar native to "
+                         "or winter, the month, and the named days and "
+                         "moons of the old Icelandic calendar (icelandic); "
+                         "or the Old Farmer's gardening rule and solunar "
+                         "periods (almanac). Default: the calendar native to "
                          "--lang zh, zh-Hant, ja, ko, vi, th, fa "
                          "(islamic), or is (icelandic); none otherwise")
     p.add_argument("--week-start", choices=WEEK_STARTS, default=None,

@@ -412,10 +412,22 @@ class TestIcelandicCalendarBlock:
             "month_name": "Haustmánuður",
             "sumarauki": False,
             "named_day": None,
+            "named_moon": None,
             "next_month": {"name": "Gormánuður", "date": "2026-10-24"},
             "next_named_day": {"name": "Veturnætur",
                                "date": "2026-10-22"},
+            "next_named_moon": {"name": "Vetrartungl",
+                                "date": "2026-10-10"},
         }
+
+    def test_the_named_moons(self):
+        # Christmas Eve 2026 is under the jólatungl, lit on the 9th; the
+        # þorratungl follows on 7 January.
+        moment = datetime(2026, 12, 24, 12, 0, tzinfo=timezone.utc)
+        block = _payload(now_local=moment, calendar="icelandic")["calendar"]
+        assert block["named_moon"] == "Jólatungl"
+        assert block["next_named_moon"] == {"name": "Þorratungl",
+                                            "date": "2027-01-07"}
 
     def test_the_veturnaetur_stand_outside_the_weeks(self):
         moment = datetime(2026, 10, 23, 12, 0, tzinfo=timezone.utc)

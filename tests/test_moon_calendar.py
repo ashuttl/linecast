@@ -209,15 +209,17 @@ class TestCalendars:
         assert "12 Cheshvan" not in text
 
     def test_icelandic_named_days_and_month_starts(self):
-        # October 2026 ends summer: the veturnætur on the 22nd and 23rd,
-        # then the first day of winter, which is Gormánuður's first and
-        # gives the month's name to the title. July 2023, a year with
-        # the leap week and a rímspillir, marks the aukanætur, the
-        # sumarauki, and miðsumar on Heyannir's first day.
+        # October 2026 ends summer: the vetrartungl lit on the 10th, the
+        # veturnætur on the 22nd and 23rd, then the first day of winter,
+        # which is Gormánuður's first and gives the month's name to the
+        # title. July 2023, a year with the leap week and a rímspillir,
+        # marks the aukanætur, the sumarauki, and miðsumar on Heyannir's
+        # first day.
         now = datetime(2026, 10, 2, 14, 30, tzinfo=ET)
         body, _chip = _render(120, 34, calendar="icelandic", now=now)
         text = "\n".join(body)
         assert "Oct 2026 · Haustmánuður – Gormánuður" in body[0]
+        assert "10 Vetrartungl" in text
         assert "22 Veturnætur" in text and "23 Veturnætur" in text
         assert "24 Fyrsti vetra" in text
         now = datetime(2023, 7, 2, 14, 30, tzinfo=ET)
@@ -379,6 +381,14 @@ class TestHoverChip:
         _body, chip = _render(100, 32, mouse_pos=(5, 29), calendar="icelandic",
                               now=now, week_start="sunday")
         assert "Miðsumar · week 15 of summer · Heyannir" in chip
+
+    def test_icelandic_moon_in_the_chip(self):
+        # Monday first: October 2026 opens on a Thursday, so the 10th,
+        # when the vetrartungl is lit, is week 1, column 5.
+        now = datetime(2026, 10, 2, 14, 30, tzinfo=ET)
+        _body, chip = _render(100, 32, mouse_pos=(74, 11), calendar="icelandic",
+                              now=now)
+        assert "Vetrartungl · 11:50" in chip
 
     def test_off_grid_raises_nothing(self):
         _body, chip = _render(100, 32, mouse_pos=(1, 1))

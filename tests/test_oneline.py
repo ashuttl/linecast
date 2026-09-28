@@ -197,12 +197,14 @@ class TestMoonOneline:
 
     def test_the_icelandic_week_ends_the_line(self):
         # 21 January 2000 was bóndadagur, the first day of Þorri, which
-        # opens on the Friday of the 13th week of winter.
+        # opens on the Friday of the 13th week of winter. The moon was
+        # the aukatungl, new on 6 January, a day before the church's
+        # tables had it.
         plain = _strip_ansi(moon_oneline(self._now(), 64.1, -21.9,
                                          self._runtime(), calendar="none"))
         with_cal = _strip_ansi(moon_oneline(self._now(), 64.1, -21.9,
                                             self._runtime(), calendar="icelandic"))
-        assert with_cal == f"{plain} · week 13 of winter"
+        assert with_cal == f"{plain} · Aukatungl · week 13 of winter"
 
     def test_a_calendar_that_names_nights_replaces_the_phase_name(self):
         plain = _strip_ansi(moon_oneline(self._now(), 19.7, -155.1,

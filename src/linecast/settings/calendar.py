@@ -73,8 +73,8 @@ def _cmd_set(choice):
               "the coming month, and the next holiday in every language")
     elif choice == "icelandic":
         print("Calendar set to icelandic: the moon shows the week of "
-              "summer or winter, the month, and the next named day of "
-              "the old Icelandic calendar in every language")
+              "summer or winter, the month, and the named days and "
+              "moons of the old Icelandic calendar in every language")
     elif choice == "thai":
         print("Calendar set to thai: the moon shows its lunar date, "
               "the coming วันพระ, and the next festival in every "
@@ -134,7 +134,7 @@ def main():
     sub.add_parser("icelandic",
                    help="Misseristal — the old Icelandic calendar's weeks "
                         "of summer and winter, its months from Harpa to "
-                        "Einmánuður, and its named days")
+                        "Einmánuður, and its named days and moons")
     sub.add_parser("almanac",
                    help="Old Farmer's Almanac — gardening by the moon "
                         "and solunar periods")

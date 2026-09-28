@@ -8,9 +8,15 @@ rímspillir. The University's Science Web (Vísindavefurinn) names the
 last and next leap weeks and rímspillir years. Svante Janson's "The
 Icelandic calendar" (2010) tabulates every year's month starts in
 28 lines (table 7), and lists the rímspillir years since 1700.
+
+The named moons are checked against Þorsteinn Sæmundsson's "Þorratungl
+og páskatungl" (Almanak Þjóðvinafélagsins 1978, almanak.hi.is/thorra.html),
+which lists every year from 1878 to 2000 in which the old rhyme about
+the þorratungl fails, and against the new moons the almanac's readers
+have dated.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
@@ -18,15 +24,22 @@ from linecast.astro.calendars.icelandic import (
     NAMED_DAYS,
     SUMMER,
     WINTER,
+    _epact,
+    _tables_epiphany_moon,
+    easter,
     first_day_of_summer,
     first_day_of_winter,
     has_sumarauki,
     icelandic_week,
+    lit_moon_key,
     month_key,
     month_starts,
+    moon_key,
     named_day_key,
+    named_moons,
     next_month_start,
     next_named_day,
+    next_named_moon,
 )
 
 MON, TUE, WED, THU, FRI, SAT, SUN = range(7)
@@ -349,11 +362,197 @@ class TestBefore1929:
 
 
 class TestNames:
-    def test_every_month_and_named_day_has_a_name(self):
+    def test_every_month_named_day_and_moon_has_a_name(self):
         from linecast.moon.i18n import (
-            icelandic_day_name, icelandic_month_name,
+            icelandic_day_name, icelandic_month_name, icelandic_moon_name,
         )
         for key, _start in month_starts(2023):
             assert icelandic_month_name(key)
         for key, *_rest in NAMED_DAYS:
             assert icelandic_day_name(key)
+        for _new_moon, key in named_moons(2019):
+            assert icelandic_moon_name(key)
+
+
+def _moons(year):
+    return {key: new_moon for new_moon, key in named_moons(year)}
+
+
+def _almanac_clock(moment):
+    """*moment* as the almanac of its day kept time: Reykjavík mean time
+    until 1907, Icelandic mean time (an hour behind Greenwich) until
+    1968, and Greenwich since."""
+    if moment.year < 1908:
+        return moment - timedelta(hours=1, minutes=27, seconds=43)
+    if moment.year < 1969:
+        return moment - timedelta(hours=1)
+    return moment
+
+
+def _anonymous_easter(year):
+    """The anonymous Gregorian computus (Meeus, Astronomical Algorithms,
+    chapter 8), to check easter() by other arithmetic."""
+    a = year % 19
+    b, c = divmod(year, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    ell = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * ell) // 451
+    month, day = divmod(h + ell - 7 * m + 114, 31)
+    return date(year, month, day + 1)
+
+
+class TestMoons:
+    """Þá þorratunglið tínætt er / tel ég það lítinn háska: / næsta
+    sunnudag nefna ber / níu vikur til páska. When the þorratungl is ten
+    nights old, the next Sunday is nine weeks before Easter; Sæmundsson
+    counts the ten nights as ten days from the new moon the almanac
+    prints. The rhyme holds for the church's tables, which it was made
+    from, but the true moon runs ahead of them, and Sæmundsson lists
+    the years it fails: in all of them the ten nights end on the 11th
+    Saturday before Easter, but for 1896 and 1994, when they end on the
+    11th Friday."""
+
+    RHYME_FAILS = {1879: SAT, 1896: FRI, 1899: SAT, 1906: SAT, 1930: SAT,
+                   1933: SAT, 1950: SAT, 1957: SAT, 1970: SAT, 1974: SAT,
+                   1977: SAT, 1984: SAT, 1994: FRI}
+
+    def test_the_rhyme_fails_when_saemundsson_says(self):
+        fails = {}
+        for year in range(1878, 2001):
+            lit = _almanac_clock(_moons(year)["thorratungl"]).date()
+            tenth = lit + timedelta(days=10)
+            sunday = tenth + timedelta(days=(SUN - tenth.weekday()) % 7 or 7)
+            if (easter(year) - sunday).days != 63:
+                fails[year] = tenth.weekday()
+                assert (easter(year) - tenth).days == 71 + (tenth.weekday() == FRI)
+        assert fails == self.RHYME_FAILS
+
+    def test_the_new_moons_saemundsson_dates(self):
+        # 1977's þorratungl on 19 January; 1889's on the 31st, which
+        # the almanac misprinted as the 30th.
+        assert _moons(1977)["thorratungl"].date() == date(1977, 1, 19)
+        assert (_almanac_clock(_moons(1889)["thorratungl"]).date()
+                == date(1889, 1, 31))
+
+    def test_his_tables_for_1978(self):
+        # The epact is 21, the tables' paschal moon full on 23 March,
+        # and their þorratungl new on 10 January, ten nights old on the
+        # 19th.
+        assert _epact(1978) == 21
+        assert easter(1978) == date(1978, 3, 26)
+        assert _tables_epiphany_moon(1978) + timedelta(days=30) == date(1978, 1, 10)
+
+    def test_the_readers_dates(self):
+        # islensktalmanak.is, from the almanac: the vetrartungl lit on
+        # 25 October 2022 and 14 October 2023, the jólatungl on 26
+        # December 2019, and the þorratungl on bóndadagur 2020.
+        assert _moons(2023)["vetrartungl"].date() == date(2022, 10, 25)
+        assert _moons(2024)["vetrartungl"].date() == date(2023, 10, 14)
+        assert _moons(2020)["jolatungl"].date() == date(2019, 12, 26)
+        assert _moons(2020)["thorratungl"].date() == date(2020, 1, 24)
+
+    def test_a_moon_new_on_epiphany_is_not_the_jolatungl(self):
+        # The glossary: the moon is new a day or two before the tables
+        # have it, so one new on Epiphany itself is usually not new by
+        # the tables until after it. In 2019 the tables' January moon
+        # was new on the 7th and Easter was late, 21 April: the true new
+        # moon of 6 January was the aukatungl, and the jólatungl the
+        # moon of 7 December.
+        moons = _moons(2019)
+        assert moons["jolatungl"].date() == date(2018, 12, 7)
+        assert moons["aukatungl"].date() == date(2019, 1, 6)
+        assert moons["thorratungl"].date() == date(2019, 2, 4)
+        assert moons["paskatungl"].date() == date(2019, 4, 5)
+        assert easter(2019) == date(2019, 4, 21)
+
+    def test_easter(self):
+        for year in range(1583, 4100):
+            assert easter(year) == _anonymous_easter(year), year
+
+    def test_the_rules(self):
+        for year in range(2000, 2060):
+            moons = _moons(year)
+            keys = [key for _moon, key in named_moons(year)]
+            # Each is the new moon after the one before it, but for the
+            # unnamed moon between the vetrartungl and the jólatungl.
+            gaps = [(b - a).days for a, b in zip(moons.values(),
+                                                 list(moons.values())[1:])]
+            assert 58 <= gaps[0] <= 60 and all(29 <= g <= 30 for g in gaps[1:])
+            tables = _tables_epiphany_moon(year)
+            assert 0 <= (tables - moons["jolatungl"].date()).days <= 3
+            paska = moons["paskatungl"].date()
+            assert paska < easter(year) < moons["sumartungl"].date()
+            # The aukatungl in the years of epact 24, and only in them.
+            assert ("aukatungl" in keys) == (_epact(year) == 24)
+            assert keys[-4:] == ["thorratungl", "goutungl", "paskatungl",
+                                 "sumartungl"]
+
+    def test_the_aukatungl_years(self):
+        years = [y for y in range(1900, 2101) if "aukatungl" in _moons(y)]
+        assert years == [1905, 1924, 1943, 1962, 1981, 2000, 2019, 2038,
+                         2057, 2076, 2095]
+
+    def test_the_moon_in_progress(self):
+        utc = timezone.utc
+        lit = _moons(2027)["vetrartungl"]
+        assert moon_key(datetime(2026, 9, 27, 12, tzinfo=utc)) is None
+        assert moon_key(lit - timedelta(minutes=1)) is None
+        assert moon_key(lit + timedelta(minutes=1)) == "vetrartungl"
+        assert moon_key(datetime(2026, 11, 20, tzinfo=utc)) is None
+        assert moon_key(datetime(2026, 12, 24, 18, tzinfo=utc)) == "jolatungl"
+        assert moon_key(datetime(2027, 6, 1, tzinfo=utc)) is None
+
+    def test_the_next_named_moon(self):
+        utc = timezone.utc
+        lit, key = next_named_moon(datetime(2026, 9, 27, 12, tzinfo=utc))
+        assert (lit.date(), key) == (date(2026, 10, 10), "vetrartungl")
+        lit, key = next_named_moon(lit)
+        assert (lit.date(), key) == (date(2026, 12, 9), "jolatungl")
+        lit, key = next_named_moon(datetime(2027, 4, 7, tzinfo=utc))
+        assert (lit.date(), key) == (date(2027, 10, 29), "vetrartungl")
+
+    def test_a_new_moon_found_another_way(self):
+        # The grid finds its own new moons; a few seconds either way
+        # still names the moon.
+        lit = _moons(2027)["thorratungl"]
+        eastern = timezone(timedelta(hours=-5))
+        assert lit_moon_key((lit + timedelta(seconds=3)).astimezone(eastern)) == "thorratungl"
+        assert lit_moon_key(lit + timedelta(days=15)) is None
+
+
+class TestPanel:
+    """The named moon beside the week while it is up, and in place of
+    "New Moon" before it is lit."""
+
+    def _text(self, now):
+        import re
+        from unittest.mock import patch
+
+        from linecast._runtime import RuntimeConfig
+        from linecast.moon.view import render
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en",
+                                oneline=False)
+        with patch("linecast.moon.view.get_terminal_size",
+                   return_value=(100, 30)):
+            out = render(now, 64.15, -21.94, runtime, fullscreen=True,
+                         calendar_name="icelandic")
+        return re.sub(r"\x1b\[[0-9;]*m", "", out)
+
+    def test_a_named_moon_up_and_the_next_to_come(self):
+        # 24 December 2026: the jólatungl, lit on the 9th, is full; the
+        # þorratungl is lit on 7 January.
+        text = self._text(datetime(2026, 12, 24, 18, tzinfo=timezone.utc))
+        assert "Waning Gibbous · Jólatungl · week 9 of winter" in text
+        assert "Þorratungl Jan 7 (in 14.1d)" in text
+
+    def test_an_unnamed_moon(self):
+        # The moon between the vetrartungl and the jólatungl has no
+        # name; the jólatungl is the next new moon.
+        text = self._text(datetime(2026, 11, 20, 20, tzinfo=timezone.utc))
+        assert "Waxing Gibbous · week 4 of winter" in text
+        assert "Jólatungl Dec 9 (in 18.2d)" in text
+        assert "New Moon" not in text

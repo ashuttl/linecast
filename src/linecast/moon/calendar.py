@@ -37,6 +37,7 @@ from linecast.astro.calendars.lunisolar import (
 )
 from linecast.astro.calendars.hebrew import hebrew_date, holiday_key, rosh_chodesh
 from linecast.astro.calendars.hijri import hijri_date, observance_key
+from linecast.astro.calendars.icelandic import lit_moon_key
 from linecast.astro.calendars.icelandic import month_key as icelandic_month_key
 from linecast.astro.calendars.icelandic import named_day_key
 from linecast.astro.calendars.icelandic import (
@@ -52,8 +53,8 @@ from linecast.moon.i18n import (
     hijri_sighting_note,
     hebrew_holiday_name, hebrew_month_name, hijri_date_label,
     hijri_era, hijri_month_name, hijri_observance_name,
-    icelandic_day_name, icelandic_month_name, icelandic_week_label,
-    ja_night_name, lunar_date_label,
+    icelandic_day_name, icelandic_month_name, icelandic_moon_name,
+    icelandic_week_label, ja_night_name, lunar_date_label,
     pacific_night_label, pacific_night_name, rosh_chodesh_label,
     thai_festival_name, thai_lunar_label, thai_month_label,
     vi_month_label, wan_phra_label, zh_month_label,
@@ -186,7 +187,8 @@ def _phase_days(first, days_in, tzinfo):
     return out
 
 
-def _cell_label(day, cal, native, fest, lang="en", israel=False):
+def _cell_label(day, cal, native, fest, lang="en", israel=False,
+                new_moon=None):
     """(text, is_festival) for the calendar's line in a day cell, or None.
 
     A festival names its day in every script. Beyond that only the
@@ -194,7 +196,8 @@ def _cell_label(day, cal, native, fest, lang="en", israel=False):
     words, and each lunar month's opening day for Japanese and Korean.
     The Hijri and Hebrew calendars count their days in the cell's
     corner instead (render_calendar), and name the month there. The
-    full lunar date lives in the hover chip.
+    full lunar date lives in the hover chip. *new_moon* is the moment
+    of a new moon that falls on *day*, for the calendars that name it.
     """
     if cal in PACIFIC_CALENDARS:
         night, nights = pacific_night(cal, day)
@@ -210,12 +213,16 @@ def _cell_label(day, cal, native, fest, lang="en", israel=False):
         key = holiday_key(day, israel)
         return (hebrew_holiday_name(key), True) if key else None
     if cal == "icelandic":
-        # The named days on every day they run, and each month's first
-        # day, as the almanac marks them. A month that opens on a named
-        # day gives the cell to the day; the title names the month.
+        # The named days on every day they run, the named moons on the
+        # day they are lit, and each month's first day, as the almanac
+        # marks them. A month that opens on a named day or moon gives
+        # the cell to it; the title names the month.
         key = named_day_key(day)
         if key:
             return icelandic_day_name(key), True
+        moon = lit_moon_key(new_moon) if new_moon else None
+        if moon:
+            return icelandic_moon_name(moon), False
         start, m_key = next_icelandic_month(day - timedelta(days=1))
         return (icelandic_month_name(m_key), False) if start == day else None
     if cal == "thai":
@@ -455,7 +462,9 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
         # labels (month starts, festivals) ride just after the day
         # number instead, so they cannot read as another cell's.
         if cal and cell_h >= 3 and cell_w >= 6:
-            label = _cell_label(d, cal, native, fest, lang, israel)
+            label = _cell_label(
+                d, cal, native, fest, lang, israel,
+                principal[1] if principal and principal[0] == 0 else None)
             if label:
                 text, is_fest = label
                 ink = P if is_fest else F
@@ -588,6 +597,9 @@ def _hover_chip(d, now_local, lat, lng, runtime, cal, native, fest,
         if idx == 4 and lang == "en" and cal in (None, "almanac"):
             mn = full_moon_name(at, SYNODIC_MONTH)
             name = "Blue Moon" if mn == "Blue" else f"Full {mn} Moon"
+        lit_moon = lit_moon_key(at) if idx == 0 and cal == "icelandic" else None
+        if lit_moon:
+            name = icelandic_moon_name(lit_moon)
         icon = moon_phase(at, runtime)[2]
         phase_line = (f"{icon} {name} · "
                       f"{fmt_time_dt(at, use_24h=runtime.use_24h)}")

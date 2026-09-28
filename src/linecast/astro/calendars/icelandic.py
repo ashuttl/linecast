@@ -35,15 +35,37 @@ later than they fall in any other year, until the next leap day. This
 is the rímspillir, "the calendar spoiler": 1995, 2023, 2051, once in
 28 years, or 40 across a century year that is not a leap year.
 
+The almanac names six moons, the tunglheiti, each from the new moon
+that lights it to the next. The jólatungl is the moon Epiphany (6
+January) falls in, and the páskatungl the moon Easter falls in. The
+two before the páskatungl are the þorratungl and the góutungl, the
+second before the jólatungl is the vetrartungl, and the one after the
+páskatungl is the sumartungl. When Easter comes late and three moons
+fall between the jólatungl and the páskatungl, the first of them is
+the aukatungl, the extra moon. The rest of the moons, from early
+summer into autumn, and the one between the vetrartungl and the
+jólatungl, go unnamed. The almanac prints each name at the true new moon, but finds
+the jólatungl by the church's tables, the epacts Easter is reckoned
+by, which have the moon new a day or two after it truly is: a moon
+new on Epiphany itself is usually new by the tables only after it,
+so it is not the jólatungl. That is how the aukatungl comes about. In
+the years whose epact is 24 (2000, 2019, 2038) the tables put
+Epiphany in December's moon and Easter in April's, and the true moon
+new on 5 or 6 January is the aukatungl. For a time the almanac took
+the vetrartungl to be the moon in the sky on All Saints' Day; this
+module keeps the present rule throughout.
+
 The glossary of the University of Iceland's almanac (Almanak Háskóla
-Íslands) gives each month's rule and range of dates, and the named
-days in NAMED_DAYS. Svante Janson's "The Icelandic calendar" (2010)
-gives the arithmetic this module follows, and the tests check it
-against his table of every year's month starts.
+Íslands) gives each month's rule and range of dates, the named days
+in NAMED_DAYS, and the rules for the moons. Svante Janson's "The
+Icelandic calendar" (2010) gives the arithmetic this module follows,
+and the tests check it against his table of every year's month starts.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
+
+from linecast.astro.ephemeris import next_moon_phase_utc
 
 SUMMER, WINTER = "summer", "winter"
 
@@ -197,3 +219,108 @@ def next_named_day(local_date):
             if local_date <= last:
                 return first, key
     raise AssertionError("no named day within two years")
+
+
+def _epact(year):
+    """The Gregorian epact of *year*: the moon's age on 1 January by the
+    church's tables, 0 to 29, from the golden number and the solar and
+    lunar corrections."""
+    golden = year % 19 + 1
+    century = year // 100 + 1
+    solar = 3 * century // 4 - 12
+    lunar = (8 * century + 5) // 25 - 5
+    return (11 * golden + 20 + lunar - solar) % 30
+
+
+def easter(year):
+    """Easter Sunday: the first Sunday after the tables' full moon on or
+    after 21 March."""
+    epact = _epact(year)
+    # The tables' April moon has 29 days, so epacts 24 and 25 share its
+    # new moon, and 25 in the later years of the cycle takes 26's.
+    if epact == 24 or (epact == 25 and year % 19 > 10):
+        epact += 1
+    full = date(year, 3, 1) + timedelta(days=43 - epact)
+    if full < date(year, 3, 21):
+        full += timedelta(days=30)
+    return full + timedelta(days=7 - (full.weekday() + 1) % 7)
+
+
+def _tables_epiphany_moon(year):
+    """The day the tables' moon that Epiphany falls in is new: January's,
+    when the epact puts it on the 6th or before, otherwise December's.
+    January's is exact (its 30 days take the epacts in turn, from 29 on
+    the 2nd to 1 on the 30th); December's is to within a day, which is
+    near enough to find the true new moon by."""
+    epact = _epact(year)
+    new = date(year, 1, 31 - epact) if epact else date(year, 1, 1)
+    return new if new.day <= 6 else new - timedelta(days=30)
+
+
+def _utc(day):
+    return datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+
+
+def _next_new_moon(moment):
+    # A lunation is never shorter than 29.2 days, so the search can
+    # start 25 days on.
+    return next_moon_phase_utc(moment + timedelta(days=25), 0.0)
+
+
+def _previous_new_moon(moment):
+    return next_moon_phase_utc(moment - timedelta(days=25), 0.0, backwards=True)
+
+
+@lru_cache(maxsize=16)
+def named_moons(year):
+    """((new moon, key), ...) of the moons the almanac names around the
+    Easter of *year*, in order: the vetrartungl, lit in the autumn
+    before, to the sumartungl. The new moons are UTC datetimes."""
+    # The true new moon comes up to three days before the tables' one.
+    # Easter falls 15 to 21 days into the tables' moon, so the true new
+    # moon before it is at least 12 days back, and the one after it is
+    # later than Easter.
+    jol = next_moon_phase_utc(_utc(_tables_epiphany_moon(year))
+                              + timedelta(days=5), 0.0, backwards=True)
+    paska = next_moon_phase_utc(_utc(easter(year)) - timedelta(days=12),
+                                0.0, backwards=True)
+    between = []
+    moon = _next_new_moon(jol)
+    while moon < paska - timedelta(days=1):
+        between.append(moon)
+        moon = _next_new_moon(moon)
+    keys = ("aukatungl", "thorratungl", "goutungl")[-len(between):]
+    return ((_previous_new_moon(_previous_new_moon(jol)), "vetrartungl"),
+            (jol, "jolatungl"),
+            *zip(between, keys),
+            (paska, "paskatungl"),
+            (_next_new_moon(paska), "sumartungl"))
+
+
+def lit_moon_key(new_moon):
+    """The name of the moon *new_moon* lights, or None; *new_moon* is an
+    aware datetime of a new moon, however it was found."""
+    new_moon = new_moon.astimezone(timezone.utc)
+    for year in (new_moon.year, new_moon.year + 1):
+        for moment, key in named_moons(year):
+            if abs(moment - new_moon) < timedelta(days=1):
+                return key
+    return None
+
+
+def moon_key(moment):
+    """The name of the moon *moment* (an aware datetime) falls in, or
+    None: the moon lit at the last new moon, until the next."""
+    return lit_moon_key(next_moon_phase_utc(
+        moment.astimezone(timezone.utc), 0.0, backwards=True))
+
+
+def next_named_moon(moment):
+    """(new moon, key) of the next named moon lit after *moment*, an
+    aware datetime; the new moon is in UTC."""
+    moment = moment.astimezone(timezone.utc)
+    for year in (moment.year, moment.year + 1):
+        for new_moon, key in named_moons(year):
+            if new_moon > moment:
+                return new_moon, key
+    raise AssertionError("no named moon within a year")

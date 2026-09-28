@@ -47,7 +47,8 @@ from linecast.astro.calendars.hijri import (
     after_sunset, hijri_date, next_month_start, next_observance,
 )
 from linecast.astro.calendars.icelandic import (
-    month_key as icelandic_month_key, next_named_day,
+    lit_moon_key, month_key as icelandic_month_key,
+    moon_key as icelandic_moon_key, next_named_day,
 )
 from linecast.astro.calendars.icelandic import (
     next_month_start as next_icelandic_month,
@@ -57,7 +58,8 @@ from linecast.moon.i18n import (
     anahulu_name, festival_table, hebrew_date_label, hebrew_holiday_name,
     hebrew_month_name, hijri_date_label, hijri_month_name,
     hijri_observance_name, icelandic_day_name, icelandic_month_name,
-    icelandic_week_label, ja_night_name, lunar_date_label,
+    icelandic_moon_name, icelandic_week_label, ja_night_name,
+    lunar_date_label,
     pacific_night_label, solar_hijri_observance_name, term_label,
     thai_festival_name, thai_lunar_label, thai_year_label, wan_phra_label,
     year_turn_label,
@@ -450,9 +452,10 @@ def calendar_headline(cal, now_local, lat, lng, runtime, lang):
     the lunar date — Chinese, Japanese, Korean, Thai, Hijri (turned at
     the reader's sunset), Hebrew (the same) — or the anahulu, or the
     almanac's half of the month, or the week of summer or winter, which
-    is how the old Icelandic calendar gives a date. A calendar shown in
-    its own language keeps its own script; any other language gets the
-    English names.
+    is how the old Icelandic calendar gives a date, after the moon's
+    name in the months the almanac names it (Jólatungl · week 9 of
+    winter). A calendar shown in its own language keeps its own script;
+    any other language gets the English names.
     """
     if cal is None:
         return None, None
@@ -472,7 +475,9 @@ def calendar_headline(cal, now_local, lat, lng, runtime, lang):
             return None, hijri_date_label(*hijri_date(h_day), lang)
         return None, hebrew_date_label(*hebrew_date(h_day))
     if cal == "icelandic":
-        return None, icelandic_week_label(now_local.date(), runtime)
+        week = icelandic_week_label(now_local.date(), runtime)
+        key = icelandic_moon_key(now_local)
+        return None, f"{icelandic_moon_name(key)} · {week}" if key else week
     if cal == "thai":
         label_lang = "th" if lang == "th" else "en"
         t_month, t_day, t_doubled = thai_lunar_date(now_local.date())
@@ -598,6 +603,11 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     full_txt = (f"{full_label} {_fmt_month_day(full_dt, runtime)} "
                 f"({in_days(days_to_full)})")
     new_label = _moon_name(0, runtime)
+    # The almanac prints a named moon's name at the new moon that
+    # lights it, as the English almanacs name the full moons.
+    lit_moon = lit_moon_key(new_dt) if cal == "icelandic" else None
+    if lit_moon:
+        new_label = icelandic_moon_name(lit_moon)
     new_txt = (f"{new_label} {_fmt_month_day(new_dt, runtime)} "
                f"({in_days(days_to_new)})")
     year_txt = _ms('year_day', runtime, n=year_n, total=year_len)

@@ -211,24 +211,28 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
         # The old Icelandic calendar: the misseri and its week, which
         # is how the calendar gives a date (the week is null on the
         # veturnætur, which no week counts), the month, whether the
-        # year has its leap week, the named day in progress, and the
-        # coming month and named day. The names are Icelandic in every
-        # language; the label is the week in the UI language.
+        # year has its leap week, the named day and moon in progress,
+        # and the coming month, named day, and named moon, dated by the
+        # day it is lit. The names are Icelandic in every language; the
+        # label is the week in the UI language.
         from linecast.astro.calendars.icelandic import (
             has_sumarauki, icelandic_week, icelandic_year, month_key,
-            named_day_key, next_named_day,
+            moon_key, named_day_key, next_named_day, next_named_moon,
         )
         from linecast.astro.calendars.icelandic import (
             next_month_start as next_icelandic_month,
         )
         from linecast.moon.i18n import (
-            icelandic_day_name, icelandic_month_name, icelandic_week_label,
+            icelandic_day_name, icelandic_month_name, icelandic_moon_name,
+            icelandic_week_label,
         )
         today = now_local.date()
         misseri, week = icelandic_week(today)
         nxt_day, nxt_key = next_icelandic_month(today)
         day_start, day_key = next_named_day(today)
         today_key = named_day_key(today)
+        moon = moon_key(now_local)
+        moon_lit, next_moon = next_named_moon(now_local)
         calendar_block = {
             "name": cal,
             "season": misseri,
@@ -237,6 +241,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
             "month_name": icelandic_month_name(month_key(today)),
             "sumarauki": has_sumarauki(icelandic_year(today)),
             "named_day": icelandic_day_name(today_key) if today_key else None,
+            "named_moon": icelandic_moon_name(moon) if moon else None,
             "next_month": {
                 "name": icelandic_month_name(nxt_key),
                 "date": nxt_day.isoformat(),
@@ -244,6 +249,10 @@ def build_payload(now_local, lat, lng, runtime, location=None, calendar=None,
             "next_named_day": {
                 "name": icelandic_day_name(day_key),
                 "date": day_start.isoformat(),
+            },
+            "next_named_moon": {
+                "name": icelandic_moon_name(next_moon),
+                "date": moon_lit.astimezone(now_local.tzinfo).date().isoformat(),
             },
         }
     elif cal == "thai":

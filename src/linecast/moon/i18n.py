@@ -627,7 +627,7 @@ def rosh_chodesh_label(year, month):
 
 # ---------------------------------------------------------------------------
 # The old Icelandic calendar's names (see astro/calendars/icelandic.py).
-# The months and named days keep their Icelandic names in every
+# The months, named days, and moons keep their Icelandic names in every
 # language, as the Pacific nights do: they have no English ones. The
 # week, which is how the calendar gives a date, reads in the UI
 # language: "week 23 of summer", "23. vika sumars".
@@ -663,6 +663,16 @@ _ICELANDIC_DAYS = {
     "sumarmal": "Sumarmál",
 }
 
+_ICELANDIC_MOONS = {
+    "vetrartungl": "Vetrartungl",
+    "jolatungl": "Jólatungl",
+    "aukatungl": "Aukatungl",
+    "thorratungl": "Þorratungl",
+    "goutungl": "Góutungl",
+    "paskatungl": "Páskatungl",
+    "sumartungl": "Sumartungl",
+}
+
 
 def icelandic_month_name(key):
     return _ICELANDIC_MONTHS[key]
@@ -670,6 +680,10 @@ def icelandic_month_name(key):
 
 def icelandic_day_name(key):
     return _ICELANDIC_DAYS[key]
+
+
+def icelandic_moon_name(key):
+    return _ICELANDIC_MOONS[key]
 
 
 def icelandic_week_label(local_date, runtime):
