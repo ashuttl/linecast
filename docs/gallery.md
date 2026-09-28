@@ -1,6 +1,6 @@
 # Gallery
 
-The README shows each app once or twice. This page shows them in more of their states: other languages, other traditions, other layers, smaller windows. Every frame is a real terminal, captured by `scripts/capture_screenshots.sh`; the ones that depend on the weather or the hour are whatever the weather and the hour were.
+The README shows each app once or twice. This page shows them in more of their states: other languages, other traditions, other layers, smaller windows. Every frame is linecast's own output, captured by `scripts/capture_screenshots.sh`, which runs each app in a pseudo-terminal and draws what it writes the way foot would; the ones that depend on the weather or the hour are whatever the weather and the hour were.
 
 ## In motion
 
@@ -62,6 +62,13 @@ The year view for Reykjavík, in Icelandic, and for Longyearbyen and Vostok Stat
 <p>
   <img src="../screenshots/moon-okinawa.png" width="49%" alt="the moon over Okinawa in Japanese: 十六夜, the sixteenth night of the eighth month">
   <img src="../screenshots/moon-calendar.png" width="49%" alt="the month calendar for September 2026 in Japanese, with 十五夜 on the 25th and the pointer on it">
+</p>
+
+The Moon alone, with the text put away by `t`, and the same Moon dragged round and let go:
+
+<p>
+  <img src="../screenshots/moon-alone.png" width="49%" alt="the waxing gibbous Moon alone among the stars">
+  <img src="../screenshots/moon-spin.gif" width="49%" alt="the Moon dragged round by the pointer and let go, turning back">
 </p>
 
 ## Sky
@@ -145,4 +152,11 @@ The globe as it was when the gallery was refreshed, in daylight alone and with t
 <p>
   <img src="../screenshots/maps-globe.png" width="49%" alt="the globe with live daylight, the terminator, and city lights">
   <img src="../screenshots/maps-globe-clouds.png" width="49%" alt="the same globe with the hour's clouds">
+</p>
+
+The same two with the labels hidden by `l`.
+
+<p>
+  <img src="../screenshots/maps-globe-bare.png" width="49%" alt="the globe in daylight with no labels">
+  <img src="../screenshots/maps-globe-clouds-bare.png" width="49%" alt="the globe under the hour's clouds with no labels">
 </p>

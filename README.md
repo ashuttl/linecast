@@ -15,7 +15,7 @@ English | [日本語](https://github.com/ashuttl/linecast/blob/main/README.ja.md
 
 </div>
 
-![linecast weather, radar, the moon, the year, and sunshine at dusk tiled on an Omarchy desktop](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
+![linecast tiled on an Omarchy desktop: the weather in Westbrook, Maine, and its year so far, the radar over Portland, the Moon in Japanese, and a year of daylight in Reykjavík in Icelandic](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
 
 Seven live terminal apps built on free public data. Pure Python, no dependencies, no accounts or API keys. Colors come from your terminal theme, and the mouse works. Runs on macOS, Linux, and Windows, over SSH, and in tmux.
 
@@ -56,7 +56,9 @@ linecast maps --from "portland, maine" --to "portland head light" --profile bike
 linecast maps --view now
 ```
 
-![an animated version of the hero screenshot, showing the weather radar moving](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.gif)
+linecast takes its colors from your terminal's color scheme. If you change the scheme while an app is open, the app redraws itself in the new colors. This is the same desktop through ten Omarchy themes:
+
+![the same desktop through ten Omarchy themes, light and dark, each app taking up the new colors as the theme changes](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/themes.gif)
 
 ## The apps
 
@@ -113,6 +115,10 @@ Okinawa after the mid-autumn full moon, in Japanese, and the month around it:
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon-okinawa.png" width="49%" alt="the moon over Okinawa in Japanese: 十六夜, the sixteenth night of the eighth month">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon-calendar.png" width="49%" alt="the month calendar for September 2026 in Japanese, with 十五夜 on the 25th and the pointer on it">
 </p>
+
+Press `t` to hide the text and show only the Moon. You can drag the Moon to turn it, and when you let go, it turns back to how it looks from where you are:
+
+![the Moon alone among the stars, dragged round by the pointer until it is nearly dark, then let go, rolling back to a waxing gibbous](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon-spin.gif)
 
 ### Sky
 
@@ -180,6 +186,10 @@ Run a setting alone to see it, with a value to save it, or with `auto` to reset 
 | `linecast icons` | `nerd`, `emoji`, `plain` | `--icons` |
 | `linecast dates` | `gregorian`, `solar-hijri` | |
 | `linecast digits` | `latin`, `native` | |
+
+The same apps in other languages and traditions: the weather in Montréal in Canadian French, October in Reykjavík with the Icelandic calendar, the Moon over Hilo with the Hawaiian calendar and over Okinawa in Japanese, and the January sky with Hawaiian star names and the star compass along the horizon:
+
+![a second desktop: the weather in Montréal in Canadian French, October 2026 in Icelandic with the pointer on Fyrsti vetrardagur, the Moon over Hilo on the night of Akua, the Moon over Okinawa on 十六夜, and the sky facing south with the Hawaiian star compass along the horizon](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/languages.png)
 
 Without a saved location, linecast guesses from your IP address, which can be far off on a VPN or over SSH.
 
