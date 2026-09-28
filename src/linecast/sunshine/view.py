@@ -124,6 +124,15 @@ def corner_label_cells(label, graph_w, left=False):
     return [(x0 + off, ch) for off, ch in cells if 0 <= x0 + off < graph_w]
 
 
+def _solstice_range(lat, lng, tz_offset_h):
+    """The Sun's height at noon on the summer solstice and at midnight
+    on the winter one: the June solstice in the north, December's in
+    the south."""
+    days = (172, 355)
+    return (max(sun_elevation(lat, lng, 12, d, tz_offset_h) for d in days),
+            min(sun_elevation(lat, lng, 0, d, tz_offset_h) for d in days))
+
+
 def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=None,
            tz_offset_h=None, location_label="", now=None, hours=None):
     """Build the complete multi-line solar arc display.
@@ -153,8 +162,7 @@ def render(lat, lng, doy, now_hour, fullscreen=False, offset_minutes=0, runtime=
         elevations.append(sun_elevation(lat, lng, h, doy, tz_offset_h))
 
     # --- seasonal vertical scale ---
-    summer_peak = sun_elevation(lat, lng, 12, 172, tz_offset_h)
-    winter_trough = sun_elevation(lat, lng, 0, 355, tz_offset_h)
+    summer_peak, winter_trough = _solstice_range(lat, lng, tz_offset_h)
     annual_max = max(summer_peak, max(elevations), 5)
     annual_min = min(winter_trough, min(elevations), -5)
 
