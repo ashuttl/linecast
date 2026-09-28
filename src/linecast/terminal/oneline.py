@@ -84,7 +84,8 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None,
     *now* follows: ``4:20 · 1h=57m`` for the halachic hours, ``Dhuhr ·
     Asr in 41m`` for the prayer times.
     """
-    from linecast.sunshine.solar import solar_times
+    from linecast.sunshine.i18n import polar_name
+    from linecast.sunshine.solar import polar_state, solar_times
     from linecast.moon.phase import moon_phase
     from datetime import datetime
 
@@ -123,11 +124,15 @@ def sunshine_oneline(lat, lng, doy, now_hour, runtime, tz_offset_h=None,
     text = fg(*INFO_TEXT_RGB)
     dim = fg(*INFO_DIM_RGB)
 
+    # Through a polar season there is no sunrise or sunset: dashes, and
+    # the season's name in place of a delta that is zero every day of it,
+    # as in the day view.
+    polar = polar_state(day_len)
     line = (
-        f"{amber}↑{text}{_fmt(sunrise)} "
-        f"{purple}↓{text}{_fmt(sunset)} "
+        f"{amber}↑{text}{'—' if polar else _fmt(sunrise)} "
+        f"{purple}↓{text}{'—' if polar else _fmt(sunset)} "
         f"{text}{dl_h}h{dl_m:02d}m "
-        f"{dim}{delta_str} "
+        f"{dim}{polar_name(polar, runtime) if polar else delta_str} "
         f"{text}{moon_icon}"
     )
     if hours is not None and now is not None:

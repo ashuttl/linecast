@@ -31,7 +31,9 @@ def halfblock(top, bot):
 
 def fmt_time(hours, use_24h=False):
     """Format decimal hours as h:MMa/p, or HH:MM on a 24-hour clock."""
-    h = int(hours) % 24
+    # A sunrise the evening before, far enough north, is a negative hour
+    hours %= 24
+    h = int(hours)
     m = int((hours % 1) * 60)
     if use_24h:
         return f"{h:02d}:{m:02d}"

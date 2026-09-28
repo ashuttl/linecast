@@ -143,6 +143,20 @@ class TestSunshineOneline:
         # 24h format should have HH:MM without a/p
         assert "a" not in plain.split("h")[0] or ":" in plain
 
+    def test_a_polar_season_has_no_sunrise_or_sunset(self):
+        rt = self._runtime()
+        winter = _strip_ansi(sunshine_oneline(69.65, 18.96, 355, 12.0, rt, tz_offset_h=1))
+        summer = _strip_ansi(sunshine_oneline(69.65, 18.96, 172, 12.0, rt, tz_offset_h=2))
+        assert winter.startswith("↑— ↓— 0h00m polar night")
+        assert summer.startswith("↑— ↓— 24h00m midnight sun")
+
+    def test_a_sunrise_the_evening_before_keeps_its_hour(self):
+        # Vorkuta in mid-July: the Sun rises at 23:41 on the 16th, which
+        # comes back as a negative hour on the 17th
+        rt = self._runtime(use_24h=True)
+        line = _strip_ansi(sunshine_oneline(67.5, 64.05, 198, 12.0, rt, tz_offset_h=3))
+        assert line.startswith("↑23:")
+
 
 # ---------------------------------------------------------------------------
 # Moon oneline
