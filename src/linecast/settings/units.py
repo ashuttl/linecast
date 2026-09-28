@@ -70,7 +70,7 @@ def main():
     sub.add_parser("metric", help="celsius, km/h (m/s in some languages), mm, "
                                   "and metres everywhere")
     sub.add_parser("imperial", help="fahrenheit, mph, inches, and feet everywhere")
-    sub.add_parser("auto", help="clear the saved units and use the default")
+    sub.add_parser("auto", help="clear the saved units and use your country's")
     args = parser.parse_args()
 
     if args.action in ("metric", "imperial"):

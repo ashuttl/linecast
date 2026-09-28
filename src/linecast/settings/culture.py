@@ -73,7 +73,7 @@ def main():
         if choice != "none":
             sub.add_parser(choice, help=culture_title(choice, lang))
     sub.add_parser("none", help="the IAU sky, whatever the language")
-    sub.add_parser("auto", help="follow the language (the default)")
+    sub.add_parser("auto", help="clear the saved culture and follow the language")
     args = parser.parse_args()
     if args.action in (None, "show"):
         _cmd_show()

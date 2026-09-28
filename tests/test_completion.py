@@ -1,3 +1,4 @@
+import argparse
 import io
 import os
 import re
@@ -460,16 +461,23 @@ def _nu_flags(script, command):
 
 
 class CompletionTracksParserTests(unittest.TestCase):
-    """Every option a command's argparse parser defines is offered by
-    every shell's completion, with its choices."""
+    """Every option a command's --help offers is offered by every
+    shell's completion, with its choices; an old name kept out of the
+    help is kept out of completion too."""
 
     def _parser_options(self, command):
         parser = getattr(_runtime, f"{command}_parser")()
         options = {}
         for action in parser._actions:
+            if action.help == argparse.SUPPRESS:
+                continue
             for option in action.option_strings:
                 options[option] = action
         return options
+
+    def test_hidden_options_are_not_completed(self):
+        script = render_completion("bash")
+        self.assertNotIn("--legacy-colors", _bash_zsh_flags(script, "weather"))
 
     def test_every_parser_option_is_completed(self):
         extract = {

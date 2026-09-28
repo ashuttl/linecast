@@ -456,9 +456,9 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
         g.add_argument("--imperial", action="store_true", help=imperial_help)
     if temperature_scale:
         locale.add_argument("--celsius", action="store_true",
-                            help="celsius temperatures only")
+                            help="celsius temperatures, whatever the other units")
         locale.add_argument("--fahrenheit", action="store_true",
-                            help="fahrenheit temperatures")
+                            help="fahrenheit temperatures, whatever the other units")
     if clock:
         # explicit dest: "12h" is not a Python identifier
         g = locale.add_mutually_exclusive_group()
@@ -467,28 +467,30 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
         g.add_argument("--12h", dest="clock", action="store_const", const="12",
                        help="12-hour clock")
     locale.add_argument("--lang", metavar="CODE", default=None,
-                        help=f"language code ({', '.join(LANGUAGE_CODES)}; "
-                             f"{', '.join(VARIANTS)} for the regional variants); "
+                        help=f"{', '.join(LANGUAGE_CODES)}; or a regional "
+                             f"variant: {', '.join(VARIANTS)}\n"
+                             "The language linecast speaks. Default: the terminal's; "
                              "'linecast language' saves one")
     looks = p.add_argument_group("icons and colours")
     looks.add_argument("--icons", choices=("nerd", "emoji", "plain"), default=None,
-                       help="icon set: Nerd Font glyphs, standard emoji, or "
-                            "plain Unicode (default: nerd where the terminal "
-                            "bundles the glyphs, emoji on other interactive "
-                            "terminals, plain when piped or redirected)")
+                       help="Nerd Font glyphs, standard emoji, or plain "
+                            "Unicode. Default: what the terminal can show; "
+                            "'linecast icons' saves one")
     looks.add_argument("--emoji", action="store_true",
-                       help="use standard emoji icons (same as --icons emoji)")
+                       help="same as --icons emoji")
     looks.add_argument("--classic-colors", action="store_true",
-                       help="use pre-theme fixed color palette")
+                       help="a fixed palette, instead of one matched to the "
+                            "terminal's colours")
+    # the old name, still taken, not offered
     looks.add_argument("--legacy-colors", action="store_true",
-                       help="alias for --classic-colors")
+                       help=argparse.SUPPRESS)
     output = p.add_argument_group("output")
     output.add_argument("--print", dest="print_mode", action="store_true",
-                        help="single static snapshot (no live mode)")
-    output.add_argument("--live", action="store_true",
-                        help="force live mode (default when interactive)")
+                        help="print once, instead of the live view")
+    # live is the default in a terminal; the flag is still taken
+    output.add_argument("--live", action="store_true", help=argparse.SUPPRESS)
     output.add_argument("--oneline", action="store_true",
-                        help="compact single-line output")
+                        help="a single line, for a status bar or prompt")
     if json:
         output.add_argument("--json", dest="json_mode", action="store_true",
                             help="machine-readable JSON output (implies --print)")
@@ -517,17 +519,16 @@ def weather_parser():
                     help="search for a location and exit")
     p.add_argument("--temp-range", dest="temp_range",
                     choices=TEMP_RANGES, default=TEMP_RANGES[0],
-                    help="what the temperature graph spans: auto (default) uses "
-                         "climate unless it exceeds 5°C (9°F) per graph row; "
-                         "climate spans the past ten years, forecast fits this "
-                         "forecast, world spans -40 to 50°C")
+                    help="the temperature graph's scale: a typical year here "
+                         "(climate), this forecast alone (forecast), or -40 "
+                         "to 50°C (world). Default: auto, which is climate "
+                         "when the window is tall enough for it")
     p.add_argument("--no-shading", action="store_true",
-                    help="disable daylight shading on hourly chart")
+                    help="no day and night shading behind the hourly graph")
     p.add_argument("--year", action="store_true",
-                    help="year view: each day's high and low this year "
-                         "against the past ten years, and each month's "
-                         "precipitation against its average (v flips "
-                         "between the views)")
+                    help="open on the year view: this year's highs, lows, "
+                         "and precipitation against the past ten years "
+                         "(v flips between the views)")
     return p
 
 
@@ -553,29 +554,21 @@ def sunshine_parser():
     p.add_argument("--location", metavar="PLACE", default=None,
                     help="location as 'lat,lng' or place name")
     p.add_argument("--year", action="store_true",
-                    help="year view: a column of sky for each day, with "
-                         "sunrise and sunset as the day/night boundary")
+                    help="open on the year view: each day of the year as "
+                         "a column of day and night sky (v flips between "
+                         "the views)")
     p.add_argument("--dst", action="store_true",
-                    help="in the year view, plot each day in its own UTC "
-                         "offset so clock changes show as steps (default: "
-                         "the location's current offset all year)")
+                    help="in the year view, show clock changes as steps, "
+                         "each day in its own UTC offset (default: today's "
+                         "offset all year)")
     p.add_argument("--hours", metavar="SYSTEM", choices=HOURS_CHOICES, default=None,
-                    help="read the day in a tradition's hours: the zmanim "
-                         "by the Gr\"a (halachic) or the Magen Avraham "
-                         "(halachic-mga), the twelve horae and four "
-                         "vigiliae (roman), the Edo six koku of day and "
-                         "night (japanese), or the prayer times by the "
-                         "country's convention (islamic), by a named one "
-                         "(islamic-mwl, -isna, -egypt, -makkah, -karachi, "
-                         "-tehran, -turkey, -singapore, -jakim, -kemenag, "
-                         "-france, -russia, -kuwait, -qatar, -dubai, "
-                         "-jordan, -morocco, -algeria, -tunisia, -oman), or "
-                         "with "
-                         "a school's Asr "
-                         "(islamic-hanafi, -shafii), or Swahili time, "
-                         "saa 1 at seven (swahili). Default: the "
-                         "`linecast hours` setting, else swahili with "
-                         "--lang sw, else none")
+                    help="halachic, halachic-mga, roman, japanese, islamic, "
+                         "swahili, or none\n"
+                         "Reads the day in a tradition's hours. The prayer "
+                         "times by a named convention or school, such as "
+                         "islamic-mwl, are listed in 'linecast hours --help'. "
+                         "Default: your language's own, if any; 'linecast "
+                         "hours' saves one")
     return p
 
 
@@ -586,34 +579,16 @@ def moon_parser():
     p.add_argument("--grid", action="store_true",
                     help="open on the month view: a calendar of the "
                          "month's phases (v flips between the views)")
-    p.add_argument("--calendar", metavar="NAME",
-                    choices=("chinese", "japanese", "korean", "vietnamese",
-                             "thai", "hawaiian", "samoan", "chamorro",
-                             "refaluwasch", "islamic", "hebrew",
-                             "icelandic", "almanac", "none"),
-                    default=None,
-                    help="read the moon by a traditional calendar: the "
-                         "lunar date, solar term, and festival (chinese, "
-                         "japanese, korean, vietnamese); the waxing/waning "
-                         "day, wan phra, and festival (thai); the named night "
-                         "(hawaiian, with its anahulu and counsel; samoan; "
-                         "chamorro; refaluwasch, the CNMI calendar's "
-                         "CHamoru and Refaluwasch names); the Hijri date, "
-                         "coming month, and observance by the Umm al-Qura "
-                         "calendar (islamic); the Hebrew date, coming "
-                         "month, and holiday (hebrew); the week of summer "
-                         "or winter, the month, and the named days and "
-                         "moons of the old Icelandic calendar (icelandic); "
-                         "or the Old Farmer's gardening rule and solunar "
-                         "periods (almanac). Default: the calendar native to "
-                         "--lang zh, zh-Hant, ja, ko, vi, th, fa "
-                         "(islamic), or is (icelandic); none otherwise")
+    from linecast._config import CALENDAR_CHOICES as calendars
+    p.add_argument("--calendar", metavar="NAME", choices=calendars, default=None,
+                    help=f"{', '.join(calendars[:-1])}, or {calendars[-1]}\n"
+                         "Adds a traditional calendar and its festivals, or "
+                         "the Old Farmer's Almanac. Default: your language's "
+                         "own calendar, if any; 'linecast calendar' saves one")
     p.add_argument("--week-start", choices=WEEK_STARTS, default=None,
-                    help="the day the calendar's week opens on (default: "
-                         "sunday in the United States, Canada, Japan, "
-                         "Korea, and the other countries whose printed "
-                         "calendars do; saturday in Egypt and the Gulf; "
-                         "monday elsewhere)")
+                    help="the day the month view's week opens on. Default: "
+                         "whichever your country's calendars use; "
+                         "'linecast week' saves one")
     return p
 
 
@@ -633,10 +608,12 @@ def sky_parser():
                          "236 (default 110; zoom live with + and -)")
     from linecast._config import CULTURE_CHOICES
     p.add_argument("--culture", metavar="NAME", choices=CULTURE_CHOICES, default=None,
-                    help="draw another tradition's constellations and star "
-                         "names in place of the IAU's (t steps through them "
-                         "live; 'linecast culture' saves one). Default: "
-                         "chinese with --lang zh or zh-Hant; the IAU sky otherwise")
+                    help=f"{', '.join(CULTURE_CHOICES[:-1])}, or "
+                         f"{CULTURE_CHOICES[-1]}\n"
+                         "Draws another tradition's constellations and star "
+                         "names in place of the IAU's; t steps through them "
+                         "live. Default: your language's own sky, if any; "
+                         "'linecast culture' saves one")
     return p
 
 
@@ -651,27 +628,23 @@ def radar_parser():
                     help="search for a location and exit")
     p.add_argument("--zoom", metavar="DEGREES", type=float, default=6.0,
                     help="degrees of latitude shown top-to-bottom (default 6)")
+    from linecast.radar.sources import THEMES
+    themes = tuple(THEMES)
     p.add_argument("--theme", metavar="NAME", default=None,
-                    help="radar colour theme. Drawn in the terminal: "
-                         "terminal (default; your own palette), dusk, "
-                         "ember, ink, marangai. Rendered by LibreWXR: dark-sky, "
-                         "universal-blue, rainbow (classic radar look), "
-                         "nexrad, original, titan, twc, meteored, "
-                         "datameteo, viper, mrms, max-storm, black-white; "
-                         "press t in live mode to pick interactively")
+                    help=f"{', '.join(themes[:-1])}, or {themes[-1]}\n"
+                         "The radar's colours; t picks one live. Default: "
+                         "terminal, in your terminal's own palette")
     p.add_argument("--layer", default=None,
-                    help="display layer: radar (default) or satellite "
-                         "(hourly cloud mosaic); press s in live mode "
-                         "to toggle")
+                    help="radar or satellite, the hourly cloud mosaic; S "
+                         "switches between them live. Default: radar")
     p.add_argument("--layers", default=None,
-                    help="condition layers to show, comma-separated: "
-                         "temp (temperature tint), wind (speed/direction "
-                         "arrows); press c/w in live mode to toggle")
+                    help="temp, wind, or temp,wind: the temperature as a "
+                         "tint and the wind as arrows, over the radar; c "
+                         "and W toggle them live")
     p.add_argument("--source", metavar="NAME", default=None,
-                    help="pin the frame source instead of routing by "
-                         "location: librewxr, rainviewer, or iem "
-                         "(NEXRAD, US only); for comparing what each "
-                         "shows over the same spot")
+                    help="librewxr, rainviewer, or iem (NEXRAD, US only): "
+                         "one source for the frames, instead of the one "
+                         "chosen for the place, to compare what each shows")
     return p
 
 
@@ -690,16 +663,16 @@ def maps_parser():
                          "(default 0.05 in street view, 4 in terrain)")
     p.add_argument("--view", choices=("street", "terrain", "now"),
                     default="street",
-                    help="vector street map or terrain relief (default "
-                         "street); now opens the terrain planet with "
-                         "daylight and clouds switched on")
+                    help="a street map, terrain relief, or now: the terrain "
+                         "globe with daylight and clouds. Default: street")
     p.add_argument("--to", metavar="PLACE", default=None,
                     help="route to a place or 'lat,lng' from the origin")
     p.add_argument("--from", dest="from_", metavar="PLACE", default=None,
                     help="route from a place or 'lat,lng' "
                          "(default: your location)")
     p.add_argument("--profile", metavar="MODE", default="car",
-                    help="how to travel: car, bike or foot (default car)")
+                    help="car, bike, or foot: how to travel the route "
+                         "(default car)")
     return p
 
 

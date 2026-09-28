@@ -138,11 +138,13 @@ def command_flags(command, hints=None):
 
 def _parser_flags(parser, hints=None):
     """An argparse parser's options in the form the generators use."""
+    import argparse   # already loaded: the parser is argparse's
     hints = {} if hints is None else hints
     flags = []
     for action in parser._actions:
         options = tuple(action.option_strings)
-        if not options:
+        # an old name the help no longer offers is not offered here either
+        if not options or action.help == argparse.SUPPRESS:
             continue
         takes_value = action.nargs != 0
         values = None

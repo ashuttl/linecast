@@ -24,19 +24,20 @@ SETTINGS = (
     ("language", ", ".join(LANGUAGE_CODES)),
     ("units", "metric or imperial"),
     ("clock", "12-hour or 24-hour"),
-    ("week", "The day the moon calendar's week opens on: monday, sunday, or saturday"),
-    ("dates", "The calendar dates are written in: gregorian, or solar-hijri "
-              "(the default in Persian)"),
-    ("digits", "The digits numbers are written in: latin (0-9), or native "
-               "(Persian ۰-۹ in Persian, the default)"),
+    ("week", "monday, sunday, or saturday: where the week opens in the moon's "
+             "month view"),
+    ("dates", "gregorian or solar-hijri, for writing dates (solar-hijri is the "
+              "default in Persian)"),
+    ("digits", "latin (0-9) or native, for writing numbers (native, ۰-۹, is "
+               "the default in Persian)"),
     ("icons", "nerd, emoji, or plain"),
-    ("calendar", "Which calendar the moon follows: chinese, japanese, korean, vietnamese, "
-                 "thai, hawaiian, samoan, chamorro, refaluwasch, islamic, hebrew, "
-                 "icelandic, almanac, or none"),
-    ("culture", "Whose constellations the sky draws: chinese, hawaiian, norse, maori, "
-                "boorong, and seventeen more, or none for the IAU sky"),
-    ("hours", "Which hours sunshine reads the day in: halachic, halachic-mga, roman, "
-              "japanese, islamic, swahili, or none"),
+    ("calendar", "chinese, japanese, korean, vietnamese, thai, hawaiian, samoan, "
+                 "chamorro, refaluwasch, islamic, hebrew, icelandic, almanac, or "
+                 "none: the traditional calendar the moon follows"),
+    ("culture", "chinese, hawaiian, norse, maori, boorong, and seventeen more, or "
+                "none: whose constellations the sky draws"),
+    ("hours", "halachic, halachic-mga, roman, japanese, islamic, swahili, or "
+              "none: the hours sunshine reads the day in"),
 )
 
 HOUSEKEEPING = (
@@ -52,15 +53,27 @@ def formatter_class():
     """argparse's help formatter, keeping hyphenated words whole.
 
     The stock one wraps at hyphens, which cuts fr-CA and zh-Hant in two
-    at the end of a line.  It is fetched, not imported, so the modules
-    that only need a blurb do not pay for argparse.
+    at the end of a line.  A newline in a flag's help starts a new line,
+    so a long list of choices can stand apart from what they do.  A
+    command's subcommands are listed without argparse's {show,set,…}
+    line over them, which only repeats their names.  It is fetched, not
+    imported, so the modules that only need a blurb do not pay for
+    argparse.
     """
     import argparse
     import textwrap
 
     class Formatter(argparse.HelpFormatter):
+        def add_argument(self, action):
+            if isinstance(action, argparse._SubParsersAction):
+                for sub in action._get_subactions():
+                    super().add_argument(sub)
+            else:
+                super().add_argument(action)
+
         def _split_lines(self, text, width):
-            return textwrap.wrap(text, width, break_on_hyphens=False)
+            return [line for part in text.split("\n")
+                    for line in textwrap.wrap(part, width, break_on_hyphens=False)]
 
         def _fill_text(self, text, width, indent):
             return textwrap.fill(text, width, initial_indent=indent,

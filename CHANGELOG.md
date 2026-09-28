@@ -13,6 +13,8 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Moon: The Moon stays in the middle of the view at every size, with the phase, the day's rising and setting, the month's new and full moons, and the year's days in the four corners, each laid out as a small table of dates and countdowns.
 - Moon: The help panel names the place the Moon is seen from, with its coordinates.
 - Moon: `t` hides the text and leaves the Moon alone in its sky; press it again to bring the text back.
+- Help: The help pages list a flag's choices first and then say what it does, in a sentence or two.
+- Radar: Fixed `radar --help`, which named the wrong keys for the satellite and wind layers.
 - Moon: The month view's title sits at the left, over the first day of the week.
 
 ## 2.9.2 — 2026-09-27

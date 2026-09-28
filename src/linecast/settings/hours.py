@@ -104,16 +104,16 @@ def main():
     sub.add_parser("islamic",
                    help="the prayer times, Fajr to Isha, by the country's "
                         "convention, and the fast in Ramadan")
+    sub.add_parser("islamic-hanafi", help="the same, with the Hanafi Asr")
+    sub.add_parser("islamic-shafii", help="the same, with the Shafi'i Asr")
     from linecast.astro.hours.prayer_times import METHODS
     for key, (name, _fajr, _isha, _maghrib) in METHODS.items():
-        sub.add_parser(f"islamic-{key}", help=f"the prayer times by the {name} convention")
+        sub.add_parser(f"islamic-{key}", help=f"the {name} convention")
     sub.add_parser("swahili",
                    help="Swahili time: saa 1 asubuhi at seven, saa 1 usiku "
                         "at seven in the evening")
-    sub.add_parser("islamic-hanafi", help="the prayer times with the Hanafi Asr")
-    sub.add_parser("islamic-shafii", help="the prayer times with the Shafi'i Asr")
     sub.add_parser("none", help="no hours, whatever the language")
-    sub.add_parser("auto", help="clear the saved hours")
+    sub.add_parser("auto", help="clear the saved hours and follow the language")
     args = parser.parse_args()
 
     if args.action in HOURS_CHOICES:

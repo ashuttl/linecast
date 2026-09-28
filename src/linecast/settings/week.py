@@ -58,7 +58,7 @@ def main():
     parser = argparse.ArgumentParser(
         prog="linecast week",
         usage="%(prog)s [show | monday | sunday | saturday | auto]",
-        description="Show or set the day the moon calendar's week opens on",
+        description="Show or set the day the week opens on in the moon's month view",
         formatter_class=formatter_class(),
     )
     parser.add_argument("--version", action=VersionAction)
@@ -67,7 +67,7 @@ def main():
     sub.add_parser("monday", help="open the week on Monday everywhere")
     sub.add_parser("sunday", help="open the week on Sunday everywhere")
     sub.add_parser("saturday", help="open the week on Saturday everywhere")
-    sub.add_parser("auto", help="clear the saved week and use the default")
+    sub.add_parser("auto", help="clear the saved week and use your country's")
     args = parser.parse_args()
 
     if args.action in WEEK_STARTS:

@@ -64,7 +64,7 @@ def main():
     sub.add_parser("show", help="show the current clock setting (default)")
     sub.add_parser("12", help="12-hour clock everywhere")
     sub.add_parser("24", help="24-hour clock everywhere")
-    sub.add_parser("auto", help="clear the saved clock and use the default")
+    sub.add_parser("auto", help="clear the saved clock and use your country's")
     args = parser.parse_args()
 
     if args.action in ("12", "24"):
