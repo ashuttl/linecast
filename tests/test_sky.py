@@ -6,6 +6,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -289,6 +290,15 @@ class TestScene:
         noon = Scene(NOON.astimezone(timezone.utc), LAT, LNG)
         assert night.darkness == 1.0 and night.eye_limit == 6.5
         assert noon.darkness == 0.0 and noon.eye_limit < -3.0
+
+    def test_dawn_is_morning_on_both_sides_of_the_equator(self):
+        # 05:20 and 18:55 in Sydney and in Westbrook, the Sun below the
+        # horizon each time
+        for lat, lng, tz in ((-33.87, 151.21, ZoneInfo("Australia/Sydney")), (LAT, LNG, TZ)):
+            dawn, dusk = (Scene(datetime(2026, 9, 28, h, m, tzinfo=tz).astimezone(timezone.utc),
+                                lat, lng) for h, m in ((5, 20), (18, 55)))
+            assert dawn.sun_alt < 0 and dusk.sun_alt < 0
+            assert dawn.morning() and not dusk.morning(), lat
 
     def test_planets_are_sorted_brightest_first(self):
         scene = Scene(NIGHT.astimezone(timezone.utc), LAT, LNG)

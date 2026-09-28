@@ -373,8 +373,9 @@ class Scene:
         self.darkness = max(0.0, min(1.0, (-self.sun_alt - 12.0) / 6.0))
 
     def morning(self):
-        """Whether the shown moment is before local solar noon."""
-        return self.sun_az < 180.0 if self.lat >= 0 else self.sun_az >= 180.0
+        """Whether the shown moment is before local solar noon: the Sun
+        is in the east half of the sky, north or south of the equator."""
+        return self.sun_az < 180.0
 
 
 def _interp(stops, value):
