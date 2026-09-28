@@ -2,6 +2,20 @@
 
 The README shows each app once or twice. This page shows them in more of their states: other languages, other traditions, other layers, smaller windows. Every frame is linecast's own output, captured by `scripts/capture_screenshots.sh`, which runs each app in a pseudo-terminal and draws what it writes the way foot would; the ones that depend on the weather or the hour are whatever the weather and the hour were.
 
+## Desktops
+
+The apps side by side, tiled on an Omarchy desktop: the weather in Westbrook, Maine, over its year; the radar over Portland; the Moon in Japanese; and a year of daylight in Reykjavík, in Icelandic.
+
+![linecast tiled on an Omarchy desktop](../screenshots/hero.png)
+
+A second desktop in other languages and traditions: Montréal's weather in Canadian French, October in Reykjavík by the Icelandic calendar with the pointer on the first day of winter, the Moon over Hilo by the Hawaiian calendar and over Okinawa in Japanese, and the January sky with Hawaiian star names and the star compass along the horizon.
+
+![a second desktop, in Canadian French, Icelandic, Hawaiian, and Japanese](../screenshots/languages.png)
+
+The first desktop again, through ten Omarchy themes. Each app redraws itself in the new colours as the theme changes.
+
+![the same desktop through ten Omarchy themes](../screenshots/themes.gif)
+
 ## In motion
 
 Two recordings driven by the mouse: the globe tipped up to Antarctica and rolled round to Africa, and the January sky lifted to the zenith and brought back down to the southwest.
@@ -96,9 +110,12 @@ Zoomed all the way out while looking up, the horizon closes into a circle and th
 
 ## Radar
 
-The radar over Halifax, Nova Scotia, in the terminal's own colours and then in the four fixed themes: `dusk`, `ember`, `ink`, and `marangai`.
+The radar wherever the most weather was when the gallery was refreshed, in the terminal's own colours, still and then running through its frames, and then in the four fixed themes: `dusk`, `ember`, `ink`, and `marangai`.
 
-![the radar over Halifax](../screenshots/radar.png)
+<p>
+  <img src="../screenshots/radar.png" width="49%" alt="the radar in the terminal's own colours">
+  <img src="../screenshots/radar.gif" width="49%" alt="the same radar, animated">
+</p>
 
 <p>
   <img src="../screenshots/gallery/radar-dusk.png" width="49%" alt="the radar in the dusk theme">
@@ -112,7 +129,7 @@ The radar over Halifax, Nova Scotia, in the terminal's own colours and then in t
 The satellite layer, an hourly cloud mosaic, and the condition layers, a temperature tint with wind arrows over it.
 
 <p>
-  <img src="../screenshots/gallery/radar-satellite.png" width="49%" alt="the satellite cloud layer over Halifax">
+  <img src="../screenshots/gallery/radar-satellite.png" width="49%" alt="the satellite cloud layer">
   <img src="../screenshots/gallery/radar-layers.png" width="49%" alt="the radar with the temperature and wind layers">
 </p>
 

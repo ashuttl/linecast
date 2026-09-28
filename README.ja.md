@@ -17,7 +17,7 @@
 
 この日本語版は英語版READMEの要約です。全文と最新の内容は[英語版](README.md)にあります。
 
-![Omarchyのデスクトップに並んだlinecastの天気、レーダー、月、一年、そして夕暮れの太陽](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.png)
+![Omarchyのデスクトップに並んだlinecast。メイン州ウェストブルックの天気とその一年、ポートランドのレーダー、日本語で表示した月、アイスランド語で表示したレイキャビクの一年の日照](screenshots/hero.png)
 
 linecastは、無料で公開されているデータを、macOS・Linux・Windowsで動く7つのターミナルアプリで見せます。どれもリアルタイムに更新され、マウスでも操作できます。依存パッケージのない純粋なPythonで書かれ、色はターミナルのテーマに従い、アカウントもAPIキーも要りません。SSH越しでも、tmuxの中でも、ターミナルが動くところならどこでも動きます。
 
@@ -92,7 +92,9 @@ linecast maps --view now
 
 `--print` を付けると、更新し続ける表示の代わりに静止した1フレームを出力します。weather、sunshine、moon、sky、tidesには、生データを出す `--json` と、ステータスバー用の `--oneline` もあります。
 
-![ヒーロー画像のアニメーション版。気象レーダーが動いている](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/hero.gif)
+linecastは色をターミナルの配色から取ります。アプリを開いたまま配色を変えると、アプリは新しい色で描き直されます。これは同じデスクトップを、Omarchyの10のテーマで順に表示したものです:
+
+![同じデスクトップを、明るいものと暗いものを含むOmarchyの10のテーマで。テーマが変わるたびに、各アプリが新しい色で描き直される](screenshots/themes.gif)
 
 各アプリのスクリーンショットは[英語版README](README.md#the-apps)に、それぞれのアプリのさまざまな状態は[docs/gallery.md](docs/gallery.md)にあります。
 
@@ -109,9 +111,11 @@ export LINECAST_LANG=ja         # 環境変数で。保存した設定より優�
 `weather` の警報は日本では気象庁から届き、画面の下の行にその名が出ます。`moon` は月相のとなりに旧暦の日付を添え、旧暦の日付に応じて、その夜を十六夜、立待月、居待月、寝待月、更待月などの名で呼び、今の二十四節気と、次の節気を迎える日、次の十五夜までの日数を示します。`v` を押すか、`--month` を付けて開くと、ひと月の月相が暦になり、十五夜などの行事がその日に記されます。`sunshine --hours japanese` は、常用時のとなりに江戸の不定時法で一日を読みます。
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather-kyoto.png" width="49%" alt="京都の天気、日本語で">
-  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon-okinawa.png" width="49%" alt="沖縄の月、日本語で。十六夜、旧暦八月十六日">
+  <img src="screenshots/weather-kyoto.png" width="49%" alt="京都の天気、日本語で">
+  <img src="screenshots/moon-okinawa.png" width="49%" alt="沖縄の月、日本語で。十六夜、旧暦八月十六日">
 </p>
+
+![2026年9月の月の暦を日本語で。25日に十五夜があり、ポインタをその日に置いている](screenshots/moon-calendar.png)
 
 ## 設定
 
@@ -131,6 +135,10 @@ export LINECAST_LANG=ja         # 環境変数で。保存した設定より優�
 | `linecast dates` | `gregorian`、`solar-hijri` | |
 | `linecast digits` | `latin`、`native` | |
 
+ほかの言語や伝統で見たアプリ。モントリオールの天気はカナダのフランス語で、レイキャビクの10月はアイスランドの暦で、ヒロの月はハワイの暦で、沖縄の月は日本語で、1月の空はハワイの星の名前と、地平線に沿ったスター・コンパスで表示しています:
+
+![もう一つのデスクトップ。カナダのフランス語で表示したモントリオールの天気、ポインタをFyrsti vetrardagur（冬の最初の日）に置いたアイスランド語の2026年10月、アクアの夜のヒロの月、十六夜の沖縄の月、そして南を向き、地平線にハワイのスター・コンパスを並べた空](screenshots/languages.png)
+
 場所を保存しないと、linecastはIPアドレスから場所を推定します。VPNやSSH越しでは大きくずれることがあります。
 
 ペルシア語のサポートは試験的です。Ghostty、Alacritty、footでは動きますが、macOSのターミナルとiTerm2ではうまく表示されません。詳しくは[docs/languages.md](docs/languages.md#persian-and-right-to-left-text)をご覧ください。
@@ -144,7 +152,7 @@ export LINECAST_LANG=ja         # 環境変数で。保存した設定より優�
 ## 系譜
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/minitel-terminatel-258.jpg" width="380" alt="3615 LINECAST">
+  <img src="screenshots/minitel-terminatel-258.jpg" width="380" alt="3615 LINECAST">
 </p>
 
 <p align="center"><em>先行技術。</em></p>
