@@ -10,6 +10,8 @@ The script needs [uv](https://docs.astral.sh/uv/), fontconfig, ImageMagick, and 
 
 `LINECAST_CAPTURE_TOOL=termshot` photographs a real foot on an offscreen Hyprland output with [`termshot`](https://github.com/ashuttl/dotfiles-omarchy/tree/main/termshot) instead; the options are the same.
 
+The READMEs and the gallery page refer to these files by relative path, so on GitHub each branch shows its own: new frames can live on `next` for a while before they reach `main`. PyPI renders the README with no repository behind it, so the package build first runs `scripts/pin_readme.py`, which points the package's copy at the commit it was built from.
+
 From the repository root:
 
 ```sh

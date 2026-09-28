@@ -114,6 +114,12 @@ jobs:
 
       - run: pip install build
 
+      # The README refers to its screenshots and pages by relative path,
+      # so GitHub shows each branch its own. PyPI has nowhere to resolve
+      # them, so the package's copy points at this commit instead.
+      - name: Pin the README's links to this commit
+        run: python scripts/pin_readme.py README.md "$GITHUB_REPOSITORY" "$GITHUB_SHA"
+
       - name: Build the wheel and sdist
         run: python -m build
 
