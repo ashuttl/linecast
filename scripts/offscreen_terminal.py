@@ -32,6 +32,7 @@ import fcntl
 import functools
 import math
 import os
+import queue
 import re
 import select
 import signal
@@ -149,6 +150,7 @@ _SGR_OFF = {22: BOLD | DIM, 23: ITALIC, 24: UNDERLINE, 27: REVERSE, 28: INVISIBL
             29: STRIKE}
 PLAIN = (None, None, 0)
 _VS16 = "️"
+_width = functools.lru_cache(maxsize=8192)(char_width)
 
 
 @dataclass
@@ -173,8 +175,7 @@ class Screen:
         self.reply = reply
         self.on_frame = on_frame
         self._decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
-        self._state = "ground"
-        self._seq = []
+        self._pending = ""
         self.main = self._blank_grid()
         self.alt = self._blank_grid()
         self.grid = self.main
@@ -200,31 +201,49 @@ class Screen:
 
     # --- input ------------------------------------------------------------
 
-    _CONTROL = re.compile(r"[\x00-\x1f\x7f\x9b]")
+    # One token per match, a whole escape sequence at a time: a truecolor
+    # frame is mostly escapes, and reading them a character at a time was
+    # slow enough to hold linecast up on its writes.
+    _TOKEN = re.compile(r"""
+        (?P<text>[^\x00-\x1f\x7f]+)
+      | \x1b\[(?P<csi>[\x30-\x3f]*)[\x20-\x2f]*(?P<final>[\x40-\x7e])
+      | \x1b\](?P<osc>[^\x07\x1b]*)(?P<st>\x07|\x1b\\)
+      | \x1b[P_^X][^\x1b]*\x1b\\
+      | \x1b[()*+\-./\#%][\x20-\x7e]
+      | \x1b(?P<esc>[^\[\]P_^X()*+\-./\#%])
+      | (?P<ctl>[\x00-\x1a\x1c-\x1f\x7f])
+    """, re.X | re.S)
 
     def feed(self, data: bytes):
-        text = self._decoder.decode(data)
+        text = self._pending + self._decoder.decode(data)
+        self._pending = ""
         i, n = 0, len(text)
+        match = self._TOKEN.match
         while i < n:
-            if self._state == "ground":
-                m = self._CONTROL.search(text, i)
-                end = m.start() if m else n
-                if end > i:
-                    self._print(text[i:end])
-                    i = end
-                    continue
-                ch = text[i]
+            m = match(text, i)
+            if m is None:
+                # An escape cut off by the end of the read waits for the
+                # rest of it; anything else unreadable is dropped.
+                if text[i] == "\x1b" and n - i < 4096:
+                    self._pending = text[i:]
+                    return
                 i += 1
-                self._control(ch)
-            else:
-                ch = text[i]
-                i += 1
-                self._escape_char(ch)
+                continue
+            i = m.end()
+            kind = m.lastgroup
+            if kind == "text":
+                self._print(m.group("text"))
+            elif kind == "final":
+                self._csi(m.group("csi"), m.group("final"))
+            elif kind == "st":
+                self._osc(m.group("osc"), m.group("st"))
+            elif kind == "esc":
+                self._esc(m.group("esc"))
+            elif kind == "ctl":
+                self._control(m.group("ctl"))
 
     def _control(self, ch):
-        if ch == "\x1b":
-            self._state, self._seq = "esc", []
-        elif ch == "\r":
+        if ch == "\r":
             self.x, self.wrap_pending = 0, False
         elif ch in "\n\x0b\x0c":
             self._linefeed()
@@ -232,60 +251,13 @@ class Screen:
             self.x, self.wrap_pending = max(0, self.x - 1), False
         elif ch == "\t":
             self.x = min(self.cols - 1, (self.x // 8 + 1) * 8)
-        elif ch == "\x9b":
-            self._state, self._seq = "csi", []
-
-    def _escape_char(self, ch):
-        state = self._state
-        if state == "esc":
-            if ch == "[":
-                self._state, self._seq = "csi", []
-            elif ch == "]":
-                self._state, self._seq = "osc", []
-            elif ch in "P_^X":
-                self._state, self._seq = "string", []
-            elif ch in "()*+-./#%":
-                self._state = "charset"
-            else:
-                self._state = "ground"
-                self._esc(ch)
-        elif state == "charset":
-            self._state = "ground"
-        elif state == "csi":
-            if "\x40" <= ch <= "\x7e":
-                self._state = "ground"
-                self._csi("".join(self._seq), ch)
-            elif ch == "\x1b":           # a broken sequence; start again
-                self._state, self._seq = "esc", []
-            else:
-                self._seq.append(ch)
-        elif state in ("osc", "string"):
-            if ch == "\x07":
-                self._end_string("\x07")
-            elif ch == "\x1b":
-                self._state = state + "_esc"
-            else:
-                self._seq.append(ch)
-        elif state in ("osc_esc", "string_esc"):
-            if ch == "\\":
-                self._state = state[:-4]
-                self._end_string("\x1b\\")
-            else:
-                self._state = "esc"
-                self._escape_char(ch)
-
-    def _end_string(self, terminator):
-        kind, body = self._state, "".join(self._seq)
-        self._state = "ground"
-        if kind == "osc":
-            self._osc(body, terminator)
 
     # --- printing ---------------------------------------------------------
 
     def _print(self, run):
         cols = self.cols
         for ch in run:
-            w = 1 if " " <= ch < "\x7f" else char_width(ch)
+            w = 1 if " " <= ch < "\x7f" else _width(ch)
             if w == 0:
                 self._combine(ch)
                 continue
@@ -382,16 +354,20 @@ class Screen:
 
     def _csi(self, body, final):
         private = body[:1] if body[:1] in "?<>=" else ""
-        params_text = body[len(private):].rstrip(" !\"#$%&'*+,-./")
-        raw = params_text.replace(":", ";").split(";") if params_text else []
-        params = [int(p) if p.isdigit() else 0 for p in raw]
+        params_text = body[1:] if private else body
+        try:
+            params = [int(p) for p in params_text.split(";")] if params_text else []
+        except ValueError:          # empty or colon-separated parameters
+            raw = params_text.replace(":", ";").split(";")
+            params = [int(p) if p.isdigit() else 0 for p in raw]
+        if final == "m" and not private:     # most of any frame; first
+            self._sgr(params or [0])
+            return
 
         def arg(i=0, default=1):
             return params[i] if len(params) > i and params[i] else default
 
-        if final == "m" and not private:
-            self._sgr(params or [0])
-        elif final in "Hf":
+        if final in "Hf":
             self.y = min(self.rows - 1, arg(0) - 1)
             self.x = min(self.cols - 1, arg(1) - 1)
             self.wrap_pending = False
@@ -518,8 +494,20 @@ class Screen:
 
     def _sgr(self, params):
         fg, bg, attrs = self.pen
+        n = len(params)
+        # linecast's cells: a truecolor foreground, background, or both
+        if n in (5, 10) and params[1] == 2 and params[0] in (38, 48) \
+                and (n == 5 or (params[6] == 2 and params[5] in (38, 48))):
+            for k in range(0, n, 5):
+                color = (params[k + 2], params[k + 3], params[k + 4])
+                if params[k] == 38:
+                    fg = color
+                else:
+                    bg = color
+            self.pen = (fg, bg, attrs)
+            return
         i = 0
-        while i < len(params):
+        while i < n:
             p = params[i]
             i += 1
             if p == 0:
@@ -545,9 +533,8 @@ class Screen:
                 if i < len(params) and params[i] == 5 and i + 1 < len(params):
                     color, i = params[i + 1], i + 2
                 elif i < len(params) and params[i] == 2:     # 38;2;r;g;b
-                    rgb = params[i + 1:i + 4]
-                    if len(rgb) == 3:
-                        color = tuple(min(255, c) for c in rgb)
+                    if i + 3 < n:
+                        color = (params[i + 1], params[i + 2], params[i + 3])
                     i += 4
                 if p == 38:
                     fg = color
@@ -655,9 +642,54 @@ class Session:
         os.close(slave)
         self.fd = master
         self._alive = True
+        self._inbox = queue.SimpleQueue()   # (kind, arrival time, payload)
+        self._caught_up = threading.Condition()
+        self._queued = 0
+        self._now = time.monotonic()        # when the bytes being emulated came
         self._reader = threading.Thread(target=self._read, daemon=True)
+        self._emulator = threading.Thread(target=self._emulate, daemon=True)
         self._reader.start()
+        self._emulator.start()
         return self
+
+    # Two threads.  The reader only drains the pty, stamping each read with
+    # the time it came; the emulator works through the reads at its own
+    # pace.  So a slow emulator never holds linecast up on its writes, and
+    # each frame keeps the time linecast finished it.  Theme changes and
+    # the start and end of a recording go through the same queue, so they
+    # land at their place in the stream.
+
+    def _put(self, kind, payload=None):
+        with self._caught_up:
+            self._queued += 1
+        self._inbox.put((kind, time.monotonic(), payload))
+
+    def _emulate(self):
+        while True:
+            kind, t, payload = self._inbox.get()
+            with self.lock:
+                self._now = t
+                if kind == "data":
+                    self.screen.feed(payload)
+                elif kind == "theme":
+                    self.screen.theme = self.theme = payload
+                    if self.record:
+                        self.frames.append(Frame(t, self._rows(), payload))
+                elif kind == "record":
+                    self.frames = [Frame(t, self._rows(), self.screen.theme)]
+                    self.record = True
+                elif kind == "stop":
+                    self.record = False
+            with self._caught_up:
+                self._queued -= 1
+                self._caught_up.notify_all()
+            if kind == "quit":
+                return
+
+    def settle(self, timeout=10.0):
+        """Wait for the emulator to catch up with everything read so far."""
+        with self._caught_up:
+            self._caught_up.wait_for(lambda: self._queued == 0, timeout)
 
     def _reply(self, data: bytes):
         try:
@@ -668,7 +700,7 @@ class Session:
     def _frame_done(self):
         self.finished = self.screen.snapshot()
         if self.record:
-            self.frames.append(Frame(time.monotonic(), self.finished, self.screen.theme))
+            self.frames.append(Frame(self._now, self.finished, self.screen.theme))
 
     def _rows(self):
         """What a terminal would be showing: the last finished frame when
@@ -693,22 +725,20 @@ class Session:
                 break
             if not data:
                 break
-            with self.lock:
-                self.screen.feed(data)
+            self._put("data", data)
 
     def frame(self) -> Frame:
         """The screen as a terminal would show it now."""
+        self.settle()
         with self.lock:
             return Frame(time.monotonic(), self._rows(), self.screen.theme)
 
     def start_recording(self):
         """Keep every frame from now on, starting with the one on screen."""
-        with self.lock:
-            self.frames = [Frame(time.monotonic(), self._rows(), self.screen.theme)]
-            self.record = True
+        self._put("record")
 
     def stop_recording(self):
-        self.record = False
+        self._put("stop")
 
     def frame_at(self, t: float) -> Frame:
         """The last frame recorded at or before *t* (time.monotonic)."""
@@ -736,11 +766,7 @@ class Session:
     def set_theme(self, theme: Theme):
         """What omarchy-theme-set does to a running terminal: new colours
         at once, and the theme marker touched so linecast asks again."""
-        with self.lock:
-            self.screen.theme = theme
-            self.theme = theme
-            if self.record:
-                self.frames.append(Frame(time.monotonic(), self._rows(), theme))
+        self._put("theme", theme)
         self.watch.write_text(theme.name)
         now = time.time()
         os.utime(self.watch, (now, now))
@@ -757,6 +783,8 @@ class Session:
             except subprocess.TimeoutExpired:
                 os.killpg(self.proc.pid, signal.SIGKILL)
         self._reader.join(timeout=1)
+        self._put("quit")           # after everything read, in order
+        self._emulator.join()
         os.close(self.fd)
         self.watch.unlink(missing_ok=True)
 

@@ -74,7 +74,9 @@ Targets:
   maps       maps-street.png, maps-terrain.png over New Zealand, and the
              zoom series maps-zoom-blocks/streets/city/region/state.png
   globe      maps-globe.png, the planet in this hour's daylight, and
-             maps-globe-clouds.png with this hour's clouds (differ every run)
+             maps-globe-clouds.png with this hour's clouds (differ every run),
+             and both again without labels, maps-globe-bare.png and
+             maps-globe-clouds-bare.png
   gallery    the frames docs/gallery.md shows and the README does not, into
              screenshots/gallery: the radar in its fixed themes and its
              other layers, the sky in more traditions, the weather in a
@@ -407,6 +409,17 @@ print(f"20,{lon:.0f}")')
     "$CAPTURE_TOOL" -s 120x38 -w 25 --font "$CAPTURE_FONT" --key S --sleep 4 \
         -o "$SHOT_DIR/maps-globe.png" \
         uv --directory "$REPO_DIR" run linecast maps --view terrain --zoom 130 \
+        --location "$GLOBE_PLACE"
+    # The same two with the labels put away (l): the planet alone, in its
+    # daylight, and under its clouds.
+    printf 'Capturing the globe without labels…\n'
+    "$CAPTURE_TOOL" -s 120x38 -w 25 --font "$CAPTURE_FONT" --key S --sleep 2 --key l \
+        --sleep 3 -o "$SHOT_DIR/maps-globe-bare.png" \
+        uv --directory "$REPO_DIR" run linecast maps --view terrain --zoom 130 \
+        --location "$GLOBE_PLACE"
+    "$CAPTURE_TOOL" -s 120x38 -w 45 --font "$CAPTURE_FONT" --key l --sleep 3 \
+        -o "$SHOT_DIR/maps-globe-clouds-bare.png" \
+        uv --directory "$REPO_DIR" run linecast maps --view now --zoom 130 \
         --location "$GLOBE_PLACE"
 }
 
