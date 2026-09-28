@@ -43,6 +43,7 @@ HELP = {
     "bar_colors": "warna batang",
     "sun_times": "waktu matahari terbit dan terbenam",
     "turn_moon": "putar Bulan",
+    "hide_text": "sembunyikan / tampilkan teks",
     "calendar": "cakram / kalender",
     "months": "pindah bulan",
     "moon_times": "fase dan waktu terbit / terbenam",

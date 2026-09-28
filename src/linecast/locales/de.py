@@ -46,6 +46,7 @@ HELP = {
     "bar_colors": "Balkenfarben",
     "sun_times": "Sonnenaufgang und -untergang",
     "turn_moon": "Mond drehen",
+    "hide_text": "Text aus- / einblenden",
     "calendar": "Scheibe / Kalender",
     "months": "Monat wechseln",
     "moon_times": "Phase und Auf- / Untergang",

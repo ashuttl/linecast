@@ -90,7 +90,7 @@ CONTROLS = {
     'sunshine': [('wheel / ←→', 'time15'), ('space / n', 'now'), ('v / y', 'year')],
     'sunshine_year': [('hover', 'sun_times'), ('v / y', 'year')],
     'moon': [('wheel / ←→', 'time15'), ('space / n', 'now'),
-             ('drag', 'turn_moon'), ('v', 'calendar')],
+             ('drag', 'turn_moon'), ('v', 'calendar'), ('t', 'hide_text')],
     'moon_calendar': [('wheel / ←→', 'months'), ('space / n', 'now'),
                       ('hover', 'moon_times'), ('click', 'day'), ('v', 'calendar')],
     'sky': [('drag / wasd', 'look'), ('wheel / ←→', 'time15'), ('+ -', 'help_zoom'),

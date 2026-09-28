@@ -61,6 +61,7 @@ HELP = {
     "bar_colors": "farby stĺpcov",
     "sun_times": "časy východu a západu slnka",
     "turn_moon": "otočiť Mesiac",
+    "hide_text": "skryť / zobraziť text",
     "calendar": "kotúč / kalendár",
     "months": "o mesiac dopredu alebo dozadu",
     "moon_times": "fáza a časy východu / západu",

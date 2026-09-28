@@ -44,6 +44,7 @@ HELP = {
     "bar_colors": "çubuk renkleri",
     "sun_times": "gün doğumu ve batımı saatleri",
     "turn_moon": "Ay'ı döndür",
+    "hide_text": "metni gizle / göster",
     "calendar": "disk / takvim görünümü",
     "months": "bir ay kaydır",
     "moon_times": "evre ve doğuş / batış saatleri",

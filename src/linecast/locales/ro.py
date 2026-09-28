@@ -44,6 +44,7 @@ HELP = {
     "bar_colors": "culorile barelor",
     "sun_times": "orele răsăritului și apusului",
     "turn_moon": "rotește Luna",
+    "hide_text": "ascunde / arată textul",
     "calendar": "vedere disc / calendar",
     "months": "o lună înainte sau înapoi",
     "moon_times": "faza și orele de răsărit / apus",

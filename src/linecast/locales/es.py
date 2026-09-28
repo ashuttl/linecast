@@ -38,6 +38,7 @@ HELP = {
     "bar_colors": "colores de las barras",
     "sun_times": "horas de salida y puesta del sol",
     "turn_moon": "girar la Luna",
+    "hide_text": "ocultar / mostrar el texto",
     "calendar": "vista disco / calendario",
     "months": "cambiar de mes",
     "moon_times": "fase y horas de salida / puesta",

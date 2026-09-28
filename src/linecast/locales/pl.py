@@ -44,6 +44,7 @@ HELP = {
     "bar_colors": "kolory słupków",
     "sun_times": "wschód i zachód słońca",
     "turn_moon": "obróć Księżyc",
+    "hide_text": "ukryj / pokaż tekst",
     "calendar": "tarcza / kalendarz",
     "months": "zmień miesiąc",
     "moon_times": "faza oraz wschód / zachód",

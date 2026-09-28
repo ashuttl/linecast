@@ -43,6 +43,7 @@ HELP = {
     "bar_colors": "balkkleuren",
     "sun_times": "zonsopkomst en zonsondergang",
     "turn_moon": "maan draaien",
+    "hide_text": "tekst verbergen / tonen",
     "calendar": "schijf / kalender",
     "months": "maand verschuiven",
     "moon_times": "fase en opkomst / ondergang",

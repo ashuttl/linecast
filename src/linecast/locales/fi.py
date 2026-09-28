@@ -43,6 +43,7 @@ HELP = {
     "bar_colors": "palkkien värit",
     "sun_times": "auringonnousu ja -lasku",
     "turn_moon": "käännä Kuuta",
+    "hide_text": "piilota / näytä teksti",
     "calendar": "kiekko / kalenteri",
     "months": "vaihda kuukautta",
     "moon_times": "vaihe ja nousu- / laskuajat",

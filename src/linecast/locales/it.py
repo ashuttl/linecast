@@ -43,6 +43,7 @@ HELP = {
     "bar_colors": "colori delle barre",
     "sun_times": "orari di alba e tramonto",
     "turn_moon": "ruota la Luna",
+    "hide_text": "nascondi / mostra il testo",
     "calendar": "vista disco / calendario",
     "months": "cambia mese",
     "moon_times": "fase e orari di levata / tramonto",

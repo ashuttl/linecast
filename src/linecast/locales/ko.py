@@ -47,6 +47,7 @@ HELP = {
     "bar_colors": "막대 색",
     "sun_times": "일출과 일몰 시각",
     "turn_moon": "달 돌리기",
+    "hide_text": "글자 숨기기 / 보이기",
     "calendar": "달 표면 / 달력",
     "months": "월 이동",
     "moon_times": "달 위상과 뜨고 지는 시각",

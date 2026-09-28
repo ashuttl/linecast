@@ -47,6 +47,7 @@ HELP = {
     "bar_colors": "棒の色",
     "sun_times": "日の出・日の入り時刻",
     "turn_moon": "月を回す",
+    "hide_text": "文字を隠す / 表示",
     "calendar": "月面 / カレンダー",
     "months": "月を移動",
     "moon_times": "月相と月の出・月の入り",

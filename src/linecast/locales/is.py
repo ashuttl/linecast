@@ -45,6 +45,7 @@ HELP = {
     "bar_colors": "litir súlna",
     "sun_times": "sólarupprás og sólsetur",
     "turn_moon": "snúa tunglinu",
+    "hide_text": "fela / sýna textann",
     "calendar": "skífa / dagatal",
     "months": "skipta um mánuð",
     "moon_times": "kvartil og ris / set",

@@ -43,6 +43,7 @@ HELP = {
     "bar_colors": "cores das barras",
     "sun_times": "horas do nascer e pôr do sol",
     "turn_moon": "girar a Lua",
+    "hide_text": "ocultar / mostrar o texto",
     "calendar": "vista disco / calendário",
     "months": "mudar de mês",
     "moon_times": "fase e horas de nascer / pôr",

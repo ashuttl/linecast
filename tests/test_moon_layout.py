@@ -219,3 +219,47 @@ class TestPlaceCredit:
         from linecast.moon.view import place_credit
         assert (place_credit(45.5, -73.567, "Montréal", self._runtime("fr"))
                 == "Montréal · 45,50° N, 73,57° O")
+
+
+class TestMoonAlone:
+    """t puts the text away and leaves the Moon alone in its sky."""
+
+    def _render(self, show_text):
+        from linecast.moon import view
+        from linecast._runtime import RuntimeConfig
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
+        seen = {}
+        real = view._draw_moon_disc
+
+        def spy(fb, cx, cy, radius, *args, **kwargs):
+            seen["radius"] = radius
+            return real(fb, cx, cy, radius, *args, **kwargs)
+
+        with patch("linecast.moon.view.get_terminal_size", return_value=(80, 24)), \
+             patch("linecast.moon.view._draw_moon_disc", spy):
+            out = view.render(NOW, 43.7, -79.4, runtime, fullscreen=True,
+                              show_text=show_text)
+        return _strip_ansi(out), seen["radius"]
+
+    def test_no_text_and_the_bare_disc(self):
+        from linecast.terminal.graphics import cell_aspect
+        text, radius = self._render(show_text=False)
+        assert not re.search(r"[A-Za-z]", text)
+        bare = min(24 * 2 * 0.41 * cell_aspect() / 2.0, 80 * 0.5 - 3.0)
+        assert radius == bare
+        with_text, radius = self._render(show_text=True)
+        assert "Waning Gibbous" in with_text and "? help" in with_text
+
+    def test_t_gets_past_the_decoder_and_into_help(self):
+        import os
+        from linecast.terminal.help import entries
+        from linecast.terminal.live import _read_key
+        r, w = os.pipe()
+        try:
+            os.write(w, b"t")
+            assert _read_key(r) == "key:t"
+        finally:
+            os.close(r)
+            os.close(w)
+        assert ("t", "hide / show the text") in entries("moon", "en")
+        assert not any(mark == "t" for mark, _ in filter(None, entries("moon_calendar", "en")))

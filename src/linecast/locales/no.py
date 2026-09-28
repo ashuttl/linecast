@@ -44,6 +44,7 @@ HELP = {
     "bar_colors": "søylefarger",
     "sun_times": "soloppgang og solnedgang",
     "turn_moon": "drei månen",
+    "hide_text": "skjul / vis teksten",
     "calendar": "skive / kalender",
     "months": "bytt måned",
     "moon_times": "fase og oppgang / nedgang",

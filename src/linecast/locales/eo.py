@@ -43,6 +43,7 @@ HELP = {
     "bar_colors": "koloroj de stangoj",
     "sun_times": "horoj de sunleviĝo kaj sunsubiro",
     "turn_moon": "turni la Lunon",
+    "hide_text": "kaŝi / montri la tekston",
     "calendar": "disko / kalendaro",
     "months": "movi je unu monato",
     "moon_times": "fazo kaj horoj de leviĝo / subiro",

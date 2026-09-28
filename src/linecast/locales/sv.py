@@ -44,6 +44,7 @@ HELP = {
     "bar_colors": "stapelfärger",
     "sun_times": "soluppgång och solnedgång",
     "turn_moon": "vrid månen",
+    "hide_text": "dölj / visa texten",
     "calendar": "skiva / kalender",
     "months": "byt månad",
     "moon_times": "fas och uppgång / nedgång",

@@ -125,6 +125,7 @@ HELP = {
     "bar_colors": "bar colors",
     "sun_times": "sunrise and sunset times",
     "turn_moon": "turn the Moon",
+    "hide_text": "hide / show the text",
     "calendar": "disc / calendar view",
     "months": "move by one month",
     "moon_times": "phase and rise / set times",

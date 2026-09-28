@@ -47,6 +47,7 @@ HELP = {
     "bar_colors": "柱的顏色",
     "sun_times": "日出和日落時間",
     "turn_moon": "轉動月球",
+    "hide_text": "隱藏 / 顯示文字",
     "calendar": "月面 / 月曆",
     "months": "移動月份",
     "moon_times": "月相及月出月落時間",

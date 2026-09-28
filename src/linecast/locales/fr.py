@@ -45,6 +45,7 @@ HELP = {
     "bar_colors": "couleurs des barres",
     "sun_times": "heures de lever et coucher du soleil",
     "turn_moon": "tourner la Lune",
+    "hide_text": "masquer / afficher le texte",
     "calendar": "vue disque / calendrier",
     "months": "changer de mois",
     "moon_times": "phase et heures de lever / coucher",

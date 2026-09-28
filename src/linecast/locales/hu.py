@@ -65,6 +65,7 @@ HELP = {
     "bar_colors": "oszlopok színezése",
     "sun_times": "napkelte és napnyugta ideje",
     "turn_moon": "a Hold forgatása",
+    "hide_text": "szöveg elrejtése / megjelenítése",
     "calendar": "korong / naptár nézet",
     "months": "léptetés hónaponként",
     "moon_times": "holdfázis, kelte és nyugta",

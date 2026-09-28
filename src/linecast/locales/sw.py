@@ -44,6 +44,7 @@ HELP = {
     "bar_colors": "rangi za pau",
     "sun_times": "nyakati za jua kuchomoza na kutua",
     "turn_moon": "zungusha mwezi",
+    "hide_text": "ficha / onyesha maandishi",
     "calendar": "mwonekano wa mwezi / kalenda",
     "months": "sogeza kwa mwezi mmoja",
     "moon_times": "awamu na nyakati za kuchomoza / kutua",

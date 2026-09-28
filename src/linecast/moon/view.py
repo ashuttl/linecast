@@ -26,6 +26,8 @@ the published ones, which is the accuracy an almanac is read at.
 In live mode `v` flips to a month-calendar view of the phases (see
 `moon/calendar.py`); the wheel or arrows page months there, space
 returns to this month, and clicking a day opens it in the disc view.
+In the disc view `t` puts the text away, leaving the Moon alone in its
+sky, and brings it back.
 """
 
 import calendar
@@ -570,14 +572,15 @@ def keeps_israel_days(country, lat, lng):
 
 
 def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
-           calendar_name=None, israel=False, turn=None):
+           calendar_name=None, israel=False, turn=None, show_text=True):
     """Build the full-screen moon display: disc plus info lines.
 
     One layout at every size: the Moon in the middle of the sky, and the
     info in its four corners, the disc as large as it can be without
     touching them; a small terminal sheds detail from the corners
     rather than letting lines wrap. *turn* is the live view's Turn,
-    the way the user has dragged the disc round, or None.
+    the way the user has dragged the disc round, or None. *show_text*
+    False leaves the Moon alone in its sky, at its bare size.
     """
     idx, _name, icon = moon_phase(now_local, runtime)
     name = _moon_name(idx, runtime)
@@ -1003,7 +1006,10 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         return radius
 
     # The first form that leaves the Moon its share; if none does, the
-    # one that leaves it the most.
+    # one that leaves it the most. With the text put away, no corner
+    # has anything in it.
+    if not show_text:
+        forms = [(0.0, lambda: ([], [], [], []))]
     best = None
     for share, form in forms:
         overlays = place(*form())
@@ -1020,16 +1026,22 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
     paint_disc(fb, cx, cy, radius, aspect)
-    if fullscreen:
-        # Help goes under the Moon, between the month and the year,
-        # or in a free corner when they leave no room there.
-        from linecast.terminal.help import hint as help_label, paint_hint, paint_text
+    if fullscreen and show_text:
+        # Help goes under the Moon, between the month and the year, or
+        # in a free corner when they leave no room there, in the dim ink:
+        # it points at the information, so it must not outrank it. It
+        # sits on the plain sky, which needs no lift for contrast.
+        from linecast.terminal.help import hint as help_label
         label = help_label(lang, graph_w - 2)
-        x, row = (graph_w - visible_len(label)) // 2, graph_h - 1
-        if any((c, row) in overlays for c in range(x - 3, x + visible_len(label) + 3)):
-            paint_hint(fb, overlays, lang)
-        else:
-            paint_text(fb, overlays, f" {label} ", x - 1, row)
+        width = visible_len(label)
+        spots = [((graph_w - width) // 2, graph_h - 1, 3)] + [
+            (x, row, 1) for row in (graph_h - 1, 0, graph_h - 2, 1)
+            for x in (graph_w - width - 1, 1)]
+        for x, row, air in spots:
+            if x >= 1 and not any((c, row) in overlays
+                                  for c in range(x - air, x + width + air)):
+                overlays.update(_panel_overlays([[(label, D, False)]], x, row, graph_w))
+                break
     stars = _star_overlays(fb, cx, cy, radius, sky, taken=overlays.keys(),
                            turn=rotation, aspect=aspect)
     from linecast.terminal import bidi as _bidi
@@ -1104,7 +1116,7 @@ def main():
     # between them returns to where each was left: minutes through the
     # disc's time, whole months through the calendar. --grid opens on
     # the calendar; v flips either way.
-    state = {"cal": args.grid, "minutes": 0, "months": 0}
+    state = {"cal": args.grid, "minutes": 0, "months": 0, "text": True}
     turn = Turn()
 
     def _render(offset_minutes=0, mouse_pos=None, active_alert=None, modal_scroll=0):
@@ -1125,7 +1137,8 @@ def main():
             moment += timedelta(minutes=state["minutes"])
         return render(moment, lat, lng, runtime, fullscreen=live,
                       offset_minutes=state["minutes"],
-                      calendar_name=args.calendar, israel=israel, turn=turn)
+                      calendar_name=args.calendar, israel=israel, turn=turn,
+                      show_text=state["text"])
 
     if not live:
         from linecast.terminal.live import print_frame
@@ -1135,7 +1148,8 @@ def main():
         return
 
     # A wheel notch or arrow key scrubs 15 minutes of the disc view or a
-    # month of the calendar; space returns each to now. v flips views.
+    # month of the calendar; space returns each to now. v flips views,
+    # and t puts the disc view's text away and brings it back.
     def _step(n):
         if state["cal"]:
             state["months"] += n
@@ -1159,6 +1173,10 @@ def main():
     def _on_key(key):
         if key == "v":
             state["cal"] = not state["cal"]
+            return True
+        if key == "t" and not state["cal"]:
+            # Put the text away, and leave the Moon alone in its sky.
+            state["text"] = not state["text"]
             return True
         return False
 

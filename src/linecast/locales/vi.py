@@ -59,6 +59,7 @@ HELP = {
     "bar_colors": "màu cột",
     "sun_times": "giờ mặt trời mọc và lặn",
     "turn_moon": "xoay Mặt Trăng",
+    "hide_text": "ẩn / hiện chữ",
     "calendar": "xem đĩa / lịch",
     "months": "lùi hoặc tiến một tháng",
     "moon_times": "pha và giờ mọc / lặn",
