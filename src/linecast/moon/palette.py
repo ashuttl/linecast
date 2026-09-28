@@ -15,7 +15,9 @@ from linecast.terminal.theme import (
     surface_bg,
     theme_legacy_mode,
 )
-from linecast.sunshine.palette import INFO_AMBER_RGB, INFO_DIM_RGB, INFO_PURPLE_RGB, INFO_TEXT_RGB
+from linecast.sunshine.palette import (
+    INFO_AMBER_RGB, INFO_DIM_RGB, INFO_MUTED_RGB, INFO_PURPLE_RGB, INFO_TEXT_RGB,
+)
 
 _theme.track_imports(globals(), "linecast.sunshine.palette")
 
@@ -24,7 +26,7 @@ def _rebuild():
     global MOON_LIT_RGB, MOON_SHADOW_RGB, MOON_NIGHT_RGB, MOON_GLOW_RGB, SKY_RGB
     global STAR_BRIGHT_RGB, STAR_RGB, STAR_DIM_RGB
     global PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
-    global PANEL_FAINT_RGB
+    global PANEL_FAINT_RGB, PANEL_MUTED_RGB
     SKY_RGB = _theme.theme_bg
     if theme_legacy_mode:
         MOON_LIT_RGB = (228, 230, 238)
@@ -61,7 +63,11 @@ def _rebuild():
     MOON_NIGHT_RGB = darken(SKY_RGB, 0.5)
     # The info sits in the sky in every layout, so its inks contrast
     # with the sky rather than the page.
+    # Three steps, as the weather view has them: text; muted, for what
+    # is read but is not the point of the line; dim, for what is barely
+    # meant to be read at all.
     PANEL_TEXT_RGB = ensure_contrast(INFO_TEXT_RGB, SKY_RGB, minimum=4.5)
+    PANEL_MUTED_RGB = ensure_contrast(INFO_MUTED_RGB, SKY_RGB, minimum=2.5)
     PANEL_DIM_RGB = ensure_contrast(INFO_DIM_RGB, SKY_RGB, minimum=2.0)
     # A shade fainter than dim, for the counsel's source line.
     PANEL_FAINT_RGB = lerp_rgb(SKY_RGB, PANEL_DIM_RGB, 0.62)

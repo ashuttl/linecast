@@ -4,11 +4,16 @@ Usage: moon [--print] [--oneline] [--json] [--grid] [--location PLACE] [--icons 
             [--lang CODE]
 
 Renders the Moon itself — a shaded disc with the correct phase terminator,
-mare shading, and a soft halo over a star field — plus the current phase and
-illuminated fraction, whether the Moon is up right now, the next moonrise
-and moonset, and the dates of the next full and new moons. In English the
-full moon carries its traditional almanac name (Harvest Moon and the rest),
-and a final line gives the day of the year and the next equinox or solstice.
+mare shading, and a soft halo over a star field — in the middle of the sky,
+with the info in its four corners: the current phase and illuminated
+fraction, and a small table of what comes next for each of the Moon's
+cycles. The day's opens with whether the Moon is up right now and lists the
+next moonrise and moonset; the month's opens with the Moon's age and lists
+the next new and full moons; the year's opens with the day of the year and
+lists the next equinox or solstice. Each row gives the name, the time or
+date, and how long until then. In English the full moon carries its
+traditional almanac name (Harvest Moon and the rest), and a traditional
+calendar adds its months and festivals to the tables.
 The disc is drawn as the observer would see it. Its tilt in the sky is the
 Moon's parallactic angle — near pole-up from the north, close to "upside
 down" from the south, and turning steadily between moonrise and moonset —
@@ -28,6 +33,7 @@ import math
 import sys
 import textwrap
 from datetime import datetime, timedelta, timezone
+from typing import NamedTuple
 
 from linecast.terminal.framebuffer import fmt_time_dt
 from linecast.terminal.graphics import (
@@ -92,7 +98,7 @@ from linecast.astro.ephemeris import (
 )
 from linecast.moon.disc import Turn, _draw_moon_disc, _mat_apply
 from linecast.moon.palette import (
-    MOON_GLOW_RGB, MOON_NIGHT_RGB, PANEL_AMBER_RGB, PANEL_DIM_RGB, PANEL_FAINT_RGB,
+    MOON_GLOW_RGB, MOON_NIGHT_RGB, PANEL_AMBER_RGB, PANEL_DIM_RGB, PANEL_MUTED_RGB,
     PANEL_PURPLE_RGB, PANEL_TEXT_RGB, SKY_RGB, STAR_BRIGHT_RGB, STAR_DIM_RGB, STAR_RGB,
 )
 from linecast.moon.phase import SYNODIC_MONTH, moon_cycle_frac, moon_phase
@@ -132,19 +138,6 @@ def upcoming_moon_events(now_local, lat, lng):
     return next_rise, next_set
 
 
-def _fmt_event(dt, now_local, runtime):
-    """Format an event time, marking events that fall on a later day."""
-    if dt is None:
-        return "—"
-    time_str = fmt_time_dt(dt, use_24h=runtime.use_24h)
-    days_ahead = (dt.date() - now_local.date()).days
-    if days_ahead == 1:
-        return f"{time_str} ({_day_abbrev(dt, runtime)})"
-    if days_ahead > 1:
-        return f"{time_str} ({_day_abbrev(dt, runtime)}, +{days_ahead}d)"
-    return time_str
-
-
 def _fmt_countdown(delta, lang="en"):
     """`48m`, `6h 56m`, `2d 4h` — how long until an event, in the
     language's own form (_i18n.fmt_duration_parts)."""
@@ -181,21 +174,73 @@ def _fmt_clock(delta):
     return f"{seconds // 3600}:{seconds // 60 % 60:02d}:{seconds % 60:02d}"
 
 
-def solar_hijri_lines(now_local, runtime):
-    """(festival, festival short, year turn) for the panel where the
-    dates are Solar Hijri; any may be None.
+class _Row(NamedTuple):
+    """Something the panel counts down to: its name, when it falls, and
+    how long until then, in the row's ink. *at* orders a table's rows;
+    *mark* is a (glyph, rgb) hung just before the time."""
+    at: datetime
+    label: str
+    when: str
+    wait: str
+    ink: tuple
+    mark: tuple | None = None
 
-    The festival is the next of the year's observances — Mehregan,
-    Yalda, Sadeh, Chaharshanbe Suri, Sizdah Bedar, Tirgan — counted in
-    days like the other calendars' festivals, and named alone on its
-    day. Within YEAR_TURN_WINDOW of Nowruz the year's turn gets its own
-    line, counted down to the equinox itself, to the second on its last
-    day, and Nowruz's day-count line gives way to it.
+
+def _in_order(rows):
+    return sorted(rows, key=lambda row: row.at)
+
+
+def _sentence(text):
+    """*text* with its first letter capitalised, for a phrase that also
+    runs mid-line in lower case ("day 16.9 of 29.5") set as a heading."""
+    return text[:1].upper() + text[1:]
+
+
+def _pad(text, width):
+    return text + " " * (width - visible_len(text))
+
+
+def _table(head, rows, wait=True):
+    """Panel lines for one corner: its heading lines, then its rows as a
+    table, all flush left, the name, the date or time, and the wait each
+    in a column of its own. A row's mark (the rising and setting arrows)
+    hangs just before its time, as the weather view writes ↑06:40, in a
+    cell the unmarked rows leave empty so every date starts in the same
+    column. *wait* False drops the waits, for a small terminal.
+    """
+    label_w = max((visible_len(r.label) for r in rows), default=0)
+    when_w = max((visible_len(r.when) for r in rows), default=0)
+    gutter = any(r.mark for r in rows)
+    lines = list(head)
+    for row in rows:
+        line = [(_pad(row.label, label_w), row.ink, False), ("  ", row.ink, False)]
+        if gutter:
+            glyph, color = row.mark or (" ", row.ink)
+            line.append((glyph, color, False))
+        line.append((_pad(row.when, when_w), row.ink, False))
+        if wait and row.wait:
+            line.append((f"  {row.wait}", row.ink, False))
+        last, color, bold = line[-1]
+        line[-1] = (last.rstrip(), color, bold)
+        lines.append(line)
+    return lines
+
+
+def solar_hijri_rows(now_local, runtime):
+    """(observance kept today, rows) for the panel where the dates are
+    Solar Hijri; the first may be None.
+
+    The rows are the next of the year's observances — Mehregan, Yalda,
+    Sadeh, Chaharshanbe Suri, Sizdah Bedar, Tirgan — counted in days
+    like the other calendars' festivals, and within YEAR_TURN_WINDOW of
+    Nowruz the year's turn, counted down to the equinox itself, to the
+    second on its last day, for which Nowruz's own row gives way. An
+    observance on its day is named alone, as where the year stands.
     """
     from linecast.astro.calendars import solar_hijri
     lang = lang_of(runtime)
     today = now_local.date()
-    turn_txt = None
+    rows = []
     turn_year, turn_utc = next_year_turn(now_local)
     left = turn_utc - now_local.astimezone(timezone.utc)
     if left <= YEAR_TURN_WINDOW:
@@ -207,34 +252,20 @@ def solar_hijri_lines(now_local, runtime):
             wait = _ms('in_time', runtime, dur=_fmt_clock(left))
         else:
             wait = _ms('in_days', runtime, days=str((at.date() - today).days))
-        turn_txt = f"{year_turn_label(turn_year, lang)} · {when} ({wait})"
+        rows.append(_Row(at, year_turn_label(turn_year, lang), when, wait,
+                         PANEL_AMBER_RGB))
 
     day, key = solar_hijri.next_observance(today)
-    if key == "nowruz" and turn_txt:
-        return None, None, turn_txt
+    if key == "nowruz" and rows:
+        return None, rows
     name = solar_hijri_observance_name(key, lang)
     gap = (day - today).days
     if gap == 0:
-        return name, name, turn_txt
-    short = f"{name} {_fmt_month_day(day, runtime)}"
-    return f"{short} ({_ms('in_days', runtime, days=str(gap))})", short, turn_txt
-
-
-def _event_phrase(label, dt, now_local, runtime):
-    """`Moonrise in 6h 56m (19:48)` — the wait first, the clock time after.
-
-    The countdown is what the question "when does the Moon rise" usually
-    means; the absolute time is the check against it.  A later day is
-    named inside the parentheses rather than in a second pair.
-    """
-    if dt is None:
-        return f"{label} —"
-    when = fmt_time_dt(dt, use_24h=runtime.use_24h)
-    days_ahead = (dt.date() - now_local.date()).days
-    if days_ahead >= 1:
-        when = f"{when} {_day_abbrev(dt, runtime)}"
-    ahead = _ms('in_time', runtime, dur=_fmt_countdown(dt - now_local, lang_of(runtime)))
-    return f"{label} {ahead} ({when})"
+        return name, rows
+    rows.append(_Row(datetime.combine(day, datetime.min.time(), now_local.tzinfo),
+                     name, _fmt_month_day(day, runtime),
+                     _ms('in_days', runtime, days=str(gap)), PANEL_TEXT_RGB))
+    return None, rows
 
 
 def _compass_point(azimuth_deg, runtime):
@@ -339,7 +370,7 @@ def _star_overlays(fb, cx, cy, radius, sky, taken=(), turn=None, aspect=1.0):
 
     Returns {(col, row): (glyph, rgb, bold)}.  Stars are drawn as glyphs
     rather than sub-pixels, so each one claims a whole cell; *taken* is the
-    set of cells the info column already owns, which a star must not
+    set of cells the corners' text already owns, which a star must not
     displace. *sky* places the Moon among the stars (see _star_direction);
     *turn* is the disc's rotation, which carries the sky round.
     """
@@ -386,8 +417,17 @@ def _star_overlays(fb, cx, cy, radius, sky, taken=(), turn=None, aspect=1.0):
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
-def _wrap(text, width):
-    """textwrap.wrap without widows: no lone word on the last line."""
+def _wrap(text, width, least=None):
+    """textwrap.wrap without widows: no lone word on the last line.
+
+    With *least*, the text takes as few lines as *width* allows but is
+    set no wider than those lines need, and never narrower than *least*
+    — so a counsel that fits beside the table keeps to its edge.
+    """
+    if least is not None and least < width:
+        count = len(textwrap.wrap(text, width))
+        width = next(w for w in range(least, width + 1)
+                     if len(textwrap.wrap(text, w)) <= count)
     lines = textwrap.wrap(text, width)
     if len(lines) > 1 and " " not in lines[-1]:
         head, last = lines[-2].rsplit(" ", 1)
@@ -396,16 +436,26 @@ def _wrap(text, width):
 
 
 def _panel_overlays(panel, x0, row0, graph_w):
-    """Character overlays for the wide layout's info column.
+    """Character overlays for a block of the panel's lines.
 
     *panel* is a list of lines, each a list of (text, rgb, bold)
     segments.  A wide character claims a second, empty cell so the row
     keeps its width; a zero-width character (the emoji variation
     selector) rides along in the cell before it.  Each line also claims
-    a clear cell at either end, so no star touches the text.
+    a clear cell at either end, so no star touches the text, and a blank
+    line between two others keeps the sky clear as far as both reach,
+    so no star lands among the text as if it were part of it.
     """
+    def width(line):
+        return sum(visible_len(t) for t, _c, _b in line)
+
     overlays = {}
     for i, segments in enumerate(panel):
+        if not segments and 0 < i < len(panel) - 1:
+            reach = min(width(panel[i - 1]), width(panel[i + 1]))
+            for x in range(max(0, x0 - 1), min(graph_w, x0 + reach + 1)):
+                overlays[(x, row0 + i)] = (" ", PANEL_DIM_RGB, False)
+            continue
         x = x0
         prev = None
         if segments and x0 > 0:
@@ -509,12 +559,11 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
            calendar_name=None, israel=False, turn=None):
     """Build the full-screen moon display: disc plus info lines.
 
-    Three layouts, by terminal size: a wide terminal floats the info as
-    a left-aligned column in the sky beside a full-height disc; a normal
-    one puts the phase line and the status in the sky's top corners and
-    the rest along the bottom; a small one shortens or sheds lines
-    rather than letting them wrap. *turn* is the live view's
-    Turn, the way the user has dragged the disc round, or None.
+    One layout at every size: the Moon in the middle of the sky, and the
+    info in its four corners, the disc as large as it can be without
+    touching them; a small terminal sheds detail from the corners
+    rather than letting lines wrap. *turn* is the live view's Turn,
+    the way the user has dragged the disc round, or None.
     """
     idx, _name, icon = moon_phase(now_local, runtime)
     name = _moon_name(idx, runtime)
@@ -548,11 +597,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     full_dt = _next_phase_local(moment_utc, 0.5, now_local)
     new_dt = _next_phase_local(moment_utc, 0.0, now_local)
-    days_to_full = (full_dt - now_local).total_seconds() / 86400.0
-    days_to_new = (new_dt - now_local).total_seconds() / 86400.0
     event, event_utc = next_season_event(now_local)
     event_local = event_utc.astimezone(now_local.tzinfo)
-    days_to_event = (event_utc - now_local).total_seconds() / 86400.0
     year_len = 366 if calendar.isleap(now_local.year) else 365
     year_n = now_local.timetuple().tm_yday
 
@@ -563,13 +609,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # is the almanac's name, not the Kaulana Mahina's or the 农历's.
     lang = lang_of(runtime)
     cal = resolve_calendar(calendar_name, lang)
-    # Where the dates are Solar Hijri the day of the year is too, and the
-    # year's own observances get a line beside the moon's calendar.
-    civil_fest_txt = civil_fest_short = turn_txt = None
-    if civil_calendar(lang) == SOLAR_HIJRI:
-        year_n, year_len = solar_hijri_day_of_year(now_local)
-        civil_fest_txt, civil_fest_short, turn_txt = solar_hijri_lines(
-            now_local, runtime)
     # The headline is the calendar's: the night's name where the
     # calendar names nights, and the lunar date or the almanac's half
     # of the month as an aside. The one-line summary shows the same.
@@ -584,6 +623,10 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                       else f"Full {moon_name} Moon")
 
     # Text pieces shared by every layout.
+    T, M, D = PANEL_TEXT_RGB, PANEL_MUTED_RGB, PANEL_DIM_RGB
+    A, P = PANEL_AMBER_RGB, PANEL_PURPLE_RGB
+    today = now_local.date()
+
     def in_days(days):
         return _ms('in_days', runtime, days=fmt_decimal(days, 1, runtime))
 
@@ -596,27 +639,73 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # actually look.
     alt_dir_txt = f"{alt:.0f}° · {bearing}"
     below_txt = _ms('below_horizon', runtime)
-    rise_when = _fmt_event(rise, now_local, runtime)
-    set_when = _fmt_event(sset, now_local, runtime)
-    rise_txt = _event_phrase(_ms('moonrise', runtime), rise, now_local, runtime)
-    set_txt = _event_phrase(_ms('moonset', runtime), sset, now_local, runtime)
-    full_txt = (f"{full_label} {_fmt_month_day(full_dt, runtime)} "
-                f"({in_days(days_to_full)})")
     new_label = _moon_name(0, runtime)
     # The almanac prints a named moon's name at the new moon that
     # lights it, as the English almanacs name the full moons.
     lit_moon = lit_moon_key(new_dt) if cal == "icelandic" else None
     if lit_moon:
         new_label = icelandic_moon_name(lit_moon)
-    new_txt = (f"{new_label} {_fmt_month_day(new_dt, runtime)} "
-               f"({in_days(days_to_new)})")
     year_txt = _ms('year_day', runtime, n=year_n, total=year_len)
-    season_short = (f"{_season_label(event, lat, runtime)} "
-                    f"{_fmt_month_day(event_local, runtime)}")
-    season_txt = f"{season_short} ({in_days(days_to_event)})"
     when_txt = (f"{_day_abbrev(now_local, runtime)} "
                 f"{_fmt_month_day(now_local, runtime)} "
                 f"{fmt_time_dt(now_local, use_24h=runtime.use_24h)}")
+
+    # Everything the panel counts down to has one shape: a name, when it
+    # falls, and how long until then. Each is a _Row, and the rows are
+    # set as small tables (see _table), one in a corner for each of the
+    # Moon's cycles: the day (its rising and setting), the month (the
+    # principal phases), and the year (the season and the calendar's
+    # days). A table opens with where the present stands in its cycle;
+    # something a calendar keeps today joins that line rather than
+    # counting down to itself. The ink says how near a row is: the day's
+    # rows, and anything else due within a day, in full; the rest muted.
+    def at_day(day):
+        return datetime.combine(day, datetime.min.time(), now_local.tzinfo)
+
+    def ink_for(at):
+        return T if at - now_local < timedelta(days=1) else M
+
+    def timed_row(label, dt, mark):
+        """An instant within a day or two: the clock time, the weekday
+        once it is not today's, and the wait to the minute."""
+        if dt is None:
+            return _Row(now_local + timedelta(days=36500), label, "—", "", T, mark)
+        when = fmt_time_dt(dt, use_24h=runtime.use_24h)
+        if dt.date() != today:
+            when = f"{when} {_day_abbrev(dt, runtime)}"
+        wait = _ms('in_time', runtime, dur=_fmt_countdown(dt - now_local, lang))
+        return _Row(dt, label, when, wait, T, mark)
+
+    def instant_row(label, dt):
+        """An instant further off: the date, and the wait in days to a
+        tenth, which says roughly when in the day."""
+        days = (dt - now_local).total_seconds() / 86400.0
+        return _Row(dt, label, _fmt_month_day(dt, runtime), in_days(days),
+                    ink_for(dt))
+
+    def day_row(label, day, wait=None):
+        """Something kept on a day — a festival, a month's first day:
+        the date, and the wait in whole days."""
+        gap = (day - today).days
+        return _Row(at_day(day), label, _fmt_month_day(day, runtime),
+                    wait or _ms('in_days', runtime, days=str(gap)),
+                    ink_for(at_day(day)))
+
+    day_rows = [timed_row(_ms('moonrise', runtime), rise, ("↑", A)),
+                timed_row(_ms('moonset', runtime), sset, ("↓", P))]
+    month_rows = [instant_row(full_label, full_dt), instant_row(new_label, new_dt)]
+    year_rows = [instant_row(_season_label(event, lat, runtime), event_local)]
+    month_now, year_now = [], []    # (text, rgb): what the calendar keeps today
+
+    # Where the dates are Solar Hijri the day of the year is too, and the
+    # year's own observances join the calendar's rows.
+    if civil_calendar(lang) == SOLAR_HIJRI:
+        year_n, year_len = solar_hijri_day_of_year(now_local)
+        year_txt = _ms('year_day', runtime, n=year_n, total=year_len)
+        fest_now, rows = solar_hijri_rows(now_local, runtime)
+        if fest_now:
+            year_now.append((fest_now, T))
+        year_rows += rows
 
     # The traditional calendar: on by default for the languages whose
     # readers know the moon through it, and available to anyone with
@@ -629,7 +718,6 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # the solunar periods.
     # A calendar shown in its own language keeps its own script; any
     # other language gets the customary English names.
-    term_txt = term_short = fest_txt = fest_short = None
     good_txt = hold_txt = solunar_txt = attrib_txt = None
     if cal in PACIFIC_CALENDARS:
         # The Pacific calendars name every night, in their own
@@ -638,8 +726,8 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         # festivals: the headline is the night. The name already says
         # which night of the month this is, so "day 20.2 of 29.5"
         # would read as a rival count; the age keeps its astronomical
-        # name and shares a line with the illumination.
-        night, _nights = pacific_night(cal, now_local.date())
+        # name.
+        night, _nights = pacific_night(cal, today)
         age_txt = _ms('lunar_age', runtime, age=fmt_decimal(age, 1, runtime))
         if cal == "hawaiian":
             # The Kaulana Mahina adds the anahulu beside the name, and
@@ -662,9 +750,9 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         hold_txt = _ms('hold_off', runtime,
                        things=_ms(f'{half}_hold', runtime))
         upper, lower = _moon_transits_for_local_date(
-            now_local.date(), lng, now_local.tzinfo)
+            today, lng, now_local.tzinfo)
         day_rise, day_set = _moon_events_for_local_date(
-            now_local.date(), lat, lng, now_local.tzinfo)
+            today, lat, lng, now_local.tzinfo)
 
         def _times(moments):
             times = sorted(t for t in moments if t is not None)
@@ -675,400 +763,259 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
                        f"{_times((upper, lower))}  "
                        f"{_ms('solunar_minor', runtime)} "
                        f"{_times((day_rise, day_set))}")
-    elif cal == "islamic":
-        # The Hijri day begins at sunset, and the panel is read in the
-        # evening, so the date turns with the reader's own sunset. The
-        # calendar keeps no solar terms; the coming month takes the
-        # terms' place. The observances keep civil dates, except that
+    elif cal in ("islamic", "hebrew"):
+        # The Hijri and Hebrew days begin at sunset, and the panel is
+        # read in the evening, so the date turns with the reader's own
+        # sunset. Neither keeps solar terms; the coming month follows
+        # the Moon, so it joins the month's table, a day or two after
+        # the new moon. The observances keep civil dates, except that
         # one counts as begun once the evening that opens it has come,
-        # and the day before, the countdown says so instead of "in
-        # 1d" — the same rule as the Hebrew calendar's below.
-        h_day = now_local.date()
+        # and the day before, the wait says so instead of "in 1d".
+        h_day = today
         if after_sunset(now_local, lat, lng):
             h_day += timedelta(days=1)
-        h_year, h_month, h_dom = hijri_date(h_day)
-        term_short = hijri_month_name(h_month, lang)
-        nxt_day, (_nxt_year, nxt_month) = next_month_start(h_day)
-        nxt_gap = (nxt_day - now_local.date()).days
-        term_txt = (f"{term_short} · {hijri_month_name(nxt_month, lang)} "
-                    f"{_fmt_month_day(nxt_day, runtime)} "
-                    f"({_ms('in_days', runtime, days=str(nxt_gap))})")
-        fest_day, fest_key = next_observance(h_day)
-        fest_gap = (fest_day - now_local.date()).days
-        if fest_day <= h_day:
-            fest_txt = fest_short = hijri_observance_name(fest_key, lang)
+        if cal == "islamic":
+            nxt_day, (_nxt_year, nxt_month) = next_month_start(h_day)
+            month_rows.append(day_row(hijri_month_name(nxt_month, lang), nxt_day))
+            fest_day, fest_key = next_observance(h_day)
+            fest_name = hijri_observance_name(fest_key, lang)
         else:
-            fest_short = (f"{hijri_observance_name(fest_key, lang)} "
-                          f"{_fmt_month_day(fest_day, runtime)}")
-            fest_txt = f"{fest_short} ({_ms('begins_at_sunset', runtime)})" \
-                if fest_gap == 1 else (
-                    f"{fest_short} "
-                    f"({_ms('in_days', runtime, days=str(fest_gap))})")
-    elif cal == "hebrew":
-        # The Hebrew day begins at sunset too, and the date turns with
-        # the reader's own. The coming month takes the terms' place
-        # and the holidays are counted down as the observances are
-        # above, in progress from the evening that opens them.
-        h_day = now_local.date()
-        if after_sunset(now_local, lat, lng):
-            h_day += timedelta(days=1)
-        h_year, h_month, h_dom = hebrew_date(h_day)
-        term_short = hebrew_month_name(h_year, h_month)
-        nxt_day, (nxt_year, nxt_month) = next_hebrew_month(h_day)
-        nxt_gap = (nxt_day - now_local.date()).days
-        term_txt = (f"{term_short} · {hebrew_month_name(nxt_year, nxt_month)} "
-                    f"{_fmt_month_day(nxt_day, runtime)} "
-                    f"({_ms('in_days', runtime, days=str(nxt_gap))})")
-        fest_day, fest_key = next_holiday(h_day, israel)
-        fest_gap = (fest_day - now_local.date()).days
+            nxt_day, (nxt_year, nxt_month) = next_hebrew_month(h_day)
+            month_rows.append(day_row(hebrew_month_name(nxt_year, nxt_month),
+                                      nxt_day))
+            fest_day, fest_key = next_holiday(h_day, israel)
+            fest_name = hebrew_holiday_name(fest_key)
         if fest_day <= h_day:
-            fest_txt = fest_short = hebrew_holiday_name(fest_key)
+            year_now.append((fest_name, T))
         else:
-            fest_short = (f"{hebrew_holiday_name(fest_key)} "
-                          f"{_fmt_month_day(fest_day, runtime)}")
-            fest_txt = f"{fest_short} ({_ms('begins_at_sunset', runtime)})" \
-                if fest_gap == 1 else (
-                    f"{fest_short} "
-                    f"({_ms('in_days', runtime, days=str(fest_gap))})")
+            eve = (fest_day - today).days == 1
+            year_rows.append(day_row(
+                fest_name, fest_day,
+                _ms('begins_at_sunset', runtime) if eve else None))
     elif cal == "icelandic":
         # The old Icelandic calendar gives the date by the week, which
-        # the headline carries. The month and the coming one take the
-        # terms' place, as the Hebrew and Hijri months do, and the
-        # named days are counted down as those calendars' holidays
-        # are, a span in progress named alone. The day turns at
-        # midnight: the almanac's calendar is a civil one.
-        today = now_local.date()
-        term_short = icelandic_month_name(icelandic_month_key(today))
+        # the headline carries; the month is where the year stands,
+        # and the coming month and named day are its rows, a span in
+        # progress named with the month. The day turns at midnight:
+        # the almanac's calendar is a civil one.
+        year_now.append((icelandic_month_name(icelandic_month_key(today)), M))
         nxt_day, nxt_key = next_icelandic_month(today)
-        nxt_gap = (nxt_day - today).days
-        term_txt = (f"{term_short} · {icelandic_month_name(nxt_key)} "
-                    f"{_fmt_month_day(nxt_day, runtime)} "
-                    f"({_ms('in_days', runtime, days=str(nxt_gap))})")
+        year_rows.append(day_row(icelandic_month_name(nxt_key), nxt_day))
         fest_day, fest_key = next_named_day(today)
-        fest_gap = (fest_day - today).days
-        if fest_gap <= 0:
-            fest_txt = fest_short = icelandic_day_name(fest_key)
+        if fest_day <= today:
+            year_now.append((icelandic_day_name(fest_key), T))
         else:
-            fest_short = (f"{icelandic_day_name(fest_key)} "
-                          f"{_fmt_month_day(fest_day, runtime)}")
-            fest_txt = (f"{fest_short} "
-                        f"({_ms('in_days', runtime, days=str(fest_gap))})")
+            year_rows.append(day_row(icelandic_day_name(fest_key), fest_day))
     elif cal == "thai":
         # The Thai calendar reads the moon as a waxing or waning day —
         # ขึ้น/แรม … ค่ำ — in Thai numerals, as the printed calendars
-        # have it. It keeps no solar terms; the recurring observance is
-        # the วันพระ, the four holy days of each month, so that line
-        # takes the terms' place, led by the year's animal.
+        # have it. It keeps no solar terms: the year is named by its
+        # animal, and the recurring observance is the วันพระ, the four
+        # holy days of each month, which follow the phases.
         label_lang = "th" if lang == "th" else "en"
-        term_short = thai_year_label(year_animal_index(now_local.date()),
-                                     label_lang)
-        if is_wan_phra(now_local.date()):
-            term_txt = f"{term_short} · {wan_phra_label(True, label_lang)}"
+        year_now.append((thai_year_label(year_animal_index(today), label_lang), M))
+        if is_wan_phra(today):
+            month_now.append((wan_phra_label(True, label_lang), T))
         else:
-            wp = next_wan_phra(now_local.date())
-            wp_gap = (wp - now_local.date()).days
-            term_txt = (f"{term_short} · {wan_phra_label(False, label_lang)} "
-                        f"{_fmt_month_day(wp, runtime)} "
-                        f"({_ms('in_days', runtime, days=str(wp_gap))})")
-        fest_day, fest_key = next_thai_festival(now_local.date())
-        fest_short = (f"{thai_festival_name(fest_key, label_lang)} "
-                      f"{_fmt_month_day(fest_day, runtime)}")
-        fest_gap = (fest_day - now_local.date()).days
-        fest_txt = fest_short if fest_gap == 0 else (
-            f"{fest_short} "
-            f"({_ms('in_days', runtime, days=str(fest_gap))})")
+            month_rows.append(day_row(wan_phra_label(False, label_lang),
+                                      next_wan_phra(today)))
+        fest_day, fest_key = next_thai_festival(today)
+        fest_name = thai_festival_name(fest_key, label_lang)
+        if fest_day <= today:
+            year_now.append((fest_name, T))
+        else:
+            year_rows.append(day_row(fest_name, fest_day))
     elif cal is not None:
+        # The solar term in progress is where the year stands. The
+        # equinoxes and solstices are terms too, and when one is next
+        # the season's row already carries it.
         cal_tz = CALENDAR_MERIDIAN_HOURS[cal]
         label_lang = lang if calendar_is_native(cal, lang) else "en"
         cur_k, _cur_start = current_term(moment_utc)
         nxt_k, nxt_start = next_term(moment_utc)
-        nxt_local = nxt_start.astimezone(now_local.tzinfo)
-        days_to_term = (nxt_start - moment_utc).total_seconds() / 86400.0
-        term_short = term_label(cur_k, label_lang)
-        term_txt = (f"{term_short} · {term_label(nxt_k, label_lang)} "
-                    f"{_fmt_month_day(nxt_local, runtime)} "
-                    f"({in_days(days_to_term)})")
-        fest = next_lunar_event(now_local.date(), cal_tz,
-                                festival_table(cal, label_lang))
+        year_now.append((term_label(cur_k, label_lang), M))
+        if nxt_k % 6:
+            year_rows.append(instant_row(term_label(nxt_k, label_lang),
+                                         nxt_start.astimezone(now_local.tzinfo)))
+        fest = next_lunar_event(today, cal_tz, festival_table(cal, label_lang))
         if fest is not None:
             fest_day, fest_name = fest
-            fest_short = f"{fest_name} {_fmt_month_day(fest_day, runtime)}"
-            fest_gap = (fest_day - now_local.date()).days
-            fest_txt = fest_short if fest_gap == 0 else (
-                f"{fest_short} "
-                f"({_ms('in_days', runtime, days=str(fest_gap))})")
+            if fest_day <= today:
+                year_now.append((fest_name, T))
+            else:
+                year_rows.append(day_row(fest_name, fest_day))
 
     # The headline has room for one aside: the calendar's own — the
     # lunar date, the anahulu, or the almanac's half of the month.
     head_extra = lunar_txt
+
+    def heading(first, extras):
+        segments = [first]
+        for text, color in extras:
+            segments += [(" · ", M, False), (text, color, False)]
+        return segments
+
+    if offset_minutes:
+        # Scrubbed away from the present: lead with the simulated moment
+        # ("Up now" would lie), and show how to get back.
+        day_head = [[(when_txt, A, False)],
+                    [(f"{alt_txt} · {bearing}", T, False)] if up
+                    else [(below_txt, M, False)]]
+    elif up:
+        day_head = [[(_ms('up_now', runtime), A, False),
+                     (f" · {alt_dir_txt}", T, False)]]
+    else:
+        day_head = [[(below_txt, M, False)]]
+    month_head = [heading((_sentence(age_txt), M, False), month_now)]
+    year_head = [heading((year_txt, M, False), year_now)]
 
     cols, rows = get_terminal_size()
     hint = install_banner()
     # Track even a very narrow terminal rather than overflow it; the
     # floor only guards against a degenerate reported size.
     graph_w = max(16, cols)
-
-    # --- wide layout: the info as a column in the sky beside the disc ---
-    T, D, A, P = PANEL_TEXT_RGB, PANEL_DIM_RGB, PANEL_AMBER_RGB, PANEL_PURPLE_RGB
-    panel = [
-        [(f"{icon} {name}", T, True)] + (
-            [(f" · {head_extra}", T, False)] if head_extra else []),
-    ]
-    if cal in PACIFIC_CALENDARS:
-        panel.append([(f"{age_txt} · {illum_txt}", D, False)])
-    else:
-        panel += [[(age_txt, D, False)], [(illum_txt, D, False)]]
-    panel.append([])
-    # The counsel reads the night the headline names, so it goes right
-    # here — inserted once the rest of the panel has fixed the column,
-    # so it can wrap against that width instead of setting it.
-    counsel_at = len(panel)
-    if offset_minutes:
-        # Scrubbed away from the present: lead with the simulated moment
-        # ("Up now" would lie), and show how to get back.
-        panel.append([(when_txt, A, False)])
-        panel.append([(f"{alt_txt} · {bearing}", T, False)] if up
-                     else [(below_txt, D, False)])
-    elif up:
-        panel.append([(_ms('up_now', runtime), A, False),
-                      (f" · {alt_dir_txt}", T, False)])
-    else:
-        panel.append([(below_txt, D, False)])
-    panel += [
-        [("↑", A, False), (rise_txt, T, False)],
-        [("↓", P, False), (set_txt, T, False)],
-        [],
-    ]
-    panel += [
-        [(full_txt, D, False)],
-        [(new_txt, D, False)],
-        [],
-    ]
-    if turn_txt:
-        panel.append([(turn_txt, A, False)])
-    if civil_fest_txt:
-        panel.append([(civil_fest_txt, T, False)])
-    if turn_txt or civil_fest_txt:
-        panel.append([])
-    if term_txt:
-        panel.append([(term_txt, D, False)])
-    if fest_txt:
-        panel.append([(fest_txt, T, False)])
-    if term_txt or fest_txt:
-        panel.append([])
-    panel += [
-        [(year_txt, D, False)],
-        [(season_txt, D, False)],
-    ]
-    if offset_minutes:
-        panel += [[], [(_ts('space_to_now', runtime), D, False)]]
-
-    # A long counsel line breaks rather than dragging the whole column
-    # wide: it may run at most a third past the longest other line.
-    if good_txt:
-        base_w = max(visible_len("".join(t for t, _c, _b in line))
-                     for line in panel)
-        wrap_w = max(int(base_w * 1.3), 28)
-        block = [[(seg, D, False)]
-                 for txt in (good_txt, hold_txt, solunar_txt) if txt
-                 for seg in _wrap(txt, wrap_w)]
-        if attrib_txt:
-            # The source rides directly under the counsel it credits,
-            # a shade fainter.
-            block.append([(attrib_txt, PANEL_FAINT_RGB, False)])
-        panel[counsel_at:counsel_at] = block + [[]]
-
-    panel_w = max(visible_len("".join(t for t, _c, _b in line))
-                  for line in panel)
-    panel_h = len(panel)
-
-    # --- stacked layout: the info in the corners of the sky ---
-    # The phase line sits top left and the status top right; the rest
-    # runs along the bottom, centered, and the disc takes the sky
-    # between. Every line has renderings widest first: a small terminal
-    # takes the first that fits, and a line whose narrowest form still
-    # overflows is dropped rather than left to wrap.
-    def seg_w(segments):
-        return sum(visible_len(t) for t, _c, _b in segments)
-
-    def first_fit(width, *variants):
-        for variant in variants:
-            if seg_w(variant) <= width:
-                return variant
-        return None
-
-    if offset_minutes:
-        status = ([(f"{alt_txt} · {bearing}", T, False)] if up
-                  else [(below_txt, D, False)])
-        status_line = (
-            [(when_txt, A, False), (" · ", T, False)] + status
-            + [(" · ", T, False), (_ts('space_to_now', runtime), D, False)],
-            [(when_txt, A, False), (" · ", T, False)] + status,
-            [(when_txt, A, False)],
-        )
-    elif up:
-        status_line = (
-            [(_ms('up_now', runtime), A, False), (f" · {alt_dir_txt}", T, False)],
-            [(_ms('up_now', runtime), A, False), (f" · {alt:.0f}°", T, False)],
-            [(_ms('up_now', runtime), A, False)],
-        )
-    else:
-        status_line = ([(below_txt, D, False)],)
-
-    # The aside — the age and the illumination — rides on the phase
-    # line when the row has room, and otherwise takes the row beneath,
-    # where it is dim enough to sit against the sky without the disc
-    # making way for it.
-    head = f"{icon} {name}" + (f" · {head_extra}" if head_extra else "")
-    aside_line = (
-        [(f"{age_txt} · {illum_txt}", D, False)],
-        [(age_txt, D, False)],
-    )
-    head_line = (
-        [(head, T, True), (f"  {age_txt} · {illum_txt}", D, False)],
-        [(head, T, True)],
-    )
-    if head_extra:
-        head_line += ([(f"{icon} {name}", T, True)],)
-
-    candidates = []
-    if good_txt:
-        # The counsel leads the bottom lines, wrapped to the width
-        # rather than shed.
-        candidates += [([(seg, D, False)],)
-                       for txt in (good_txt, hold_txt) if txt
-                       for seg in _wrap(txt, graph_w)]
-        if solunar_txt:
-            candidates.append(([(solunar_txt, D, False)],))
-        if attrib_txt:
-            candidates.append(([(attrib_txt, PANEL_FAINT_RGB, False)],))
-    candidates.append((
-        # The countdown roughly doubles this line's width, so keep the
-        # plain labelled time between it and the bare clock times —
-        # otherwise a middle-width terminal drops the labels entirely.
-        [("↑", A, False), (f"{rise_txt}  ", T, False),
-         ("↓", P, False), (set_txt, T, False)],
-        [("↑", A, False), (f"{_ms('moonrise', runtime)} {rise_when}  ", T, False),
-         ("↓", P, False), (f"{_ms('moonset', runtime)} {set_when}", T, False)],
-        [("↑", A, False), (f"{rise_when}  ", T, False),
-         ("↓", P, False), (set_when, T, False)],
-    ))
-    if turn_txt:
-        candidates.append(([(turn_txt, A, False)],))
-    if civil_fest_txt:
-        candidates.append(([(civil_fest_txt, T, False)],
-                           [(civil_fest_short, T, False)]))
-    if term_txt:
-        # The calendar line, the festival leading since it is the one
-        # people wait for.
-        candidates.append(
-            ([(f"{term_txt} · ", D, False), (fest_txt, T, False)],
-             [(fest_txt, T, False), (f"  {term_short}", D, False)],
-             [(fest_short, T, False)])
-            if fest_txt else
-            ([(term_txt, D, False)],
-             [(term_short, D, False)]))
-    candidates += [
-        ([(f"{full_txt} · {new_txt}", D, False)],
-         [(f"{full_label} {_fmt_month_day(full_dt, runtime)} · "
-           f"{new_label} {_fmt_month_day(new_dt, runtime)}", D, False)],
-         [(f"{_moon_name(4, runtime)} {_fmt_month_day(full_dt, runtime)}",
-           D, False)]),
-        ([(f"{year_txt} · {season_txt}", D, False)],
-         [(f"{year_txt} · {season_short}", D, False)],
-         [(year_txt, D, False)]),
-    ]
-    bottom = [line for line in (first_fit(graph_w, *c) for c in candidates)
-              if line is not None]
-
-    # The top row holds the phase line and the status together, a
-    # column of air at each edge and two between. When both must give
-    # something up they give it up evenly, the status keeping a little
-    # more: scrubbed away from now it is the line that says when this
-    # is and how to get back. When no renderings of the two share the
-    # row, the status takes the row beneath.
-    room = graph_w - 2
-    pairs = sorted(((ih + i_s, i_s, ih) for ih in range(len(head_line))
-                    for i_s in range(len(status_line))))
-    fit = next(((head_line[ih], status_line[i_s]) for _n, i_s, ih in pairs
-                if seg_w(head_line[ih]) + 2 + seg_w(status_line[i_s]) <= room),
-               None)
-    if fit:
-        head_fit, status_fit = fit
-        top_rows = 1
-    else:
-        head_fit = first_fit(room, *head_line)
-        status_fit = first_fit(room, *status_line)
-        top_rows = 2 if status_fit else 1
-    aside_fit = aside_at = None
-    if head_fit is not head_line[0]:
-        # The aside goes under the name: on the row after the status
-        # when the status took the second row and will not share it.
-        aside_at = 1
-        if top_rows > 1:
-            aside_fit = first_fit(room - 2 - seg_w(status_fit), *aside_line)
-            if aside_fit is None:
-                aside_at = 2
-        if aside_fit is None:
-            aside_fit = first_fit(room, *aside_line)
-
     # Fullscreen fills the terminal exactly (plus the install banner,
     # when present); the plain print leaves two rows for the prompt.
     reserve = (1 if hint else 0) + (0 if fullscreen else 2)
     graph_h = max(6, rows - reserve)
-    region_w = graph_w - panel_w - 3   # sky left over for the disc
-    # Prefer the column: go wide whenever it fits and costs the disc
-    # nothing.  Stacking spends a row at the top and several at the
-    # bottom, so the sky beside a full-height disc wins well before
-    # the terminal is truly wide.
-    stacked_h = max(6, graph_h - top_rows - len(bottom))
+
+    # The Moon sits in the middle of the sky and what the panel says
+    # sits in its four corners, one piece to each, read in that order:
+    # what the Moon is, top left; the day, top right; the month, bottom
+    # left; the year, bottom right. The disc is as large as it can be
+    # without touching them. In a large terminal that costs it nothing;
+    # in a small one the corners give up detail — the waits, then the
+    # year, then the month — before the disc gives up much of its size.
+    def seg_w(segments):
+        return sum(visible_len(t) for t, _c, _b in segments)
+
+    def block_w(block):
+        return max(map(seg_w, block), default=0)
+
+    headline = [(f"{icon} {name}", T, True)] + (
+        [(f" · {head_extra}", T, False)] if head_extra else [])
+
+    def what_block(short):
+        """The phase line and the illumination, and the calendar's
+        counsel beneath, which reads the night the headline names: in
+        as few lines as a readable measure allows, and no wider than
+        those lines need."""
+        top = headline[:1] if short else headline
+        block = [top, [(illum_txt, M, False)]]
+        texts = [t for t in (good_txt, hold_txt, solunar_txt) if t]
+        if texts:
+            least = max(seg_w(top), 28)
+            block.append([])
+            block += [[(seg, M, False)] for txt in texts
+                      for seg in _wrap(txt, max(int(least * 1.3), 48), least)]
+            if attrib_txt:
+                # The source rides directly under the counsel it
+                # credits, a shade fainter.
+                block.append([(attrib_txt, D, False)])
+        return block
+
+    def day_block(wait):
+        block = _table(day_head, _in_order(day_rows), wait)
+        if offset_minutes:
+            block.append([(_ts('space_to_now', runtime), M, False)])
+        return block
+
+    def month_block(wait):
+        return _table(month_head, _in_order(month_rows), wait)
+
+    def year_block(wait):
+        return _table(year_head, _in_order(year_rows), wait)
+
+    # From the most said to the least: each form is the four corners,
+    # and the share of its bare size it must leave the Moon. The rising
+    # and setting are the last to go: they may take the disc down to
+    # half its size, where the rest must leave it seven tenths.
+    forms = [
+        (0.7, lambda: (what_block(False), day_block(True),
+                       month_block(True), year_block(True))),
+        (0.7, lambda: (what_block(False), day_block(False),
+                       month_block(False), year_block(False))),
+        (0.7, lambda: (what_block(False), day_block(False), month_block(False), [])),
+        (0.5, lambda: (what_block(True), day_block(False), [], [])),
+        (0.5, lambda: (what_block(True), day_head[:1], [], [])),
+        (0.0, lambda: ([headline[:1]], [], [], [])),
+    ]
+
+    def place(tl, tr, bl, br):
+        """Overlays for the four corners, or None if they will not fit:
+        each block against its corner, or, where a pair will not share
+        its rows, the right-hand one beneath the left, flush left."""
+        room = graph_w - 2
+        if max(map(block_w, (tl, tr, bl, br))) > room:
+            return None
+        spots = []
+        if block_w(tl) + 2 + block_w(tr) <= room:
+            spots += [(tl, 1, 0), (tr, graph_w - 1 - block_w(tr), 0)]
+            top_h = max(len(tl), len(tr))
+        else:
+            spots += [(tl, 1, 0), (tr, 1, len(tl))]
+            top_h = len(tl) + len(tr)
+        if block_w(bl) + 2 + block_w(br) <= room:
+            spots += [(bl, 1, graph_h - len(bl)),
+                      (br, graph_w - 1 - block_w(br), graph_h - len(br))]
+            bottom_h = max(len(bl), len(br))
+        else:
+            spots += [(bl, 1, graph_h - len(bl) - len(br)), (br, 1, graph_h - len(br))]
+            bottom_h = len(bl) + len(br)
+        if top_h + bottom_h > graph_h:
+            return None
+        overlays = {}
+        for block, x, row in spots:
+            if block:
+                overlays.update(_panel_overlays(block, x, row, graph_w))
+        return overlays
+
     # The disc's radius is measured in cells across.  A sub-pixel is
     # half a cell tall, which is a cell width only when the font's cell
     # is twice as tall as it is wide; on the cell it really has, a
     # sub-pixel stands *aspect* cell widths, and the disc's height in
-    # sub-pixels is its radius over that.
+    # sub-pixels is its radius over that. Bare, it takes ~82% of the
+    # sky's height, or its width less a margin; the corners' text keeps
+    # two cells of sky between it and the limb.
     aspect = cell_aspect() / 2.0
-    wide_radius = min(graph_h * 2 * 0.41 * aspect, region_w * 0.5 - 3.0)
-    stacked_radius = min(stacked_h * 2 * 0.41 * aspect, graph_w * 0.5 - 3.0)
-    if wide_radius >= stacked_radius and panel_h + 2 <= graph_h:
-        total_spy = graph_h * 2
-        radius = max(4.0, wide_radius)
-        cx = region_w // 2
-        cy = total_spy // 2
-        overlays = _panel_overlays(
-            panel, graph_w - panel_w - 2, (graph_h - panel_h) // 2, graph_w)
-    else:
-        # A short terminal gives up bottom lines (the least essential
-        # come last) before squeezing the disc below six rows of sky.
-        while bottom and graph_h - top_rows - len(bottom) < 6:
-            bottom.pop()
-        band_h = max(1, graph_h - top_rows - len(bottom))
-        band_spy = band_h * 2
-        # The vertical extent is what binds on normal terminals.  The
-        # disc takes ~82% of the band between the top row and the
-        # bottom lines, leaving sky above and below.
-        radius = max(4.0, min(band_spy * 0.41 * aspect, graph_w * 0.5 - 3.0))
-        cx = graph_w // 2
-        cy = top_rows * 2 + band_spy // 2
-        overlays = {}
-        if head_fit:
-            overlays.update(_panel_overlays([head_fit], 1, 0, graph_w))
-        if aside_fit:
-            overlays.update(_panel_overlays([aside_fit], 1, aside_at, graph_w))
-        if status_fit:
-            overlays.update(_panel_overlays(
-                [status_fit], graph_w - 1 - seg_w(status_fit), top_rows - 1,
-                graph_w))
-        for i, line in enumerate(bottom):
-            overlays.update(_panel_overlays(
-                [line], (graph_w - seg_w(line)) // 2,
-                graph_h - len(bottom) + i, graph_w))
+    cx, cy = graph_w // 2, graph_h
+    bare = min(graph_h * 2 * 0.41 * aspect, graph_w * 0.5 - 3.0)
+
+    def disc_room(overlays):
+        radius = bare
+        for x, row in overlays:
+            dy = min(abs(2 * row - cy), abs(2 * row + 1 - cy)) * aspect
+            radius = min(radius, math.hypot(x - cx, dy) - 2.0)
+        return radius
+
+    # The first form that leaves the Moon its share; if none does, the
+    # one that leaves it the most.
+    best = None
+    for share, form in forms:
+        overlays = place(*form())
+        if overlays is None:
+            continue
+        radius = disc_room(overlays)
+        if radius >= share * bare:
+            best = (radius, overlays)
+            break
+        if best is None or radius > best[0]:
+            best = (radius, overlays)
+    radius, overlays = best if best else (bare, {})
+    radius = max(4.0, radius)
 
     fb = Framebuffer(graph_w, graph_h, bg_color=SKY_RGB)
     paint_disc(fb, cx, cy, radius, aspect)
     if fullscreen:
-        from linecast.terminal.help import paint_hint
-        paint_hint(fb, overlays, lang_of(runtime))
+        # Help goes under the Moon, between the month and the year,
+        # or in a free corner when they leave no room there.
+        from linecast.terminal.help import hint as help_label, paint_hint, paint_text
+        label = help_label(lang, graph_w - 2)
+        x, row = (graph_w - visible_len(label)) // 2, graph_h - 1
+        if any((c, row) in overlays for c in range(x - 3, x + visible_len(label) + 3)):
+            paint_hint(fb, overlays, lang)
+        else:
+            paint_text(fb, overlays, f" {label} ", x - 1, row)
     stars = _star_overlays(fb, cx, cy, radius, sky, taken=overlays.keys(),
                            turn=rotation, aspect=aspect)
     from linecast.terminal import bidi as _bidi

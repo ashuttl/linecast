@@ -184,32 +184,36 @@ class TestMoonGrid:
 
 
 class TestMoonPanel:
-    def _lines(self, now):
-        from linecast.moon.view import solar_hijri_lines
-        return solar_hijri_lines(now, _runtime())
+    def _rows(self, now):
+        from linecast.moon.view import solar_hijri_rows
+        return solar_hijri_rows(now, _runtime())
 
     def test_the_next_observance(self):
-        fest, short, turn = self._lines(datetime(2026, 9, 23, 21, tzinfo=IRST))
-        assert fest == "جشن مهرگان 10 مهر (9 روز دیگر)"
-        assert short == "جشن مهرگان 10 مهر"
-        assert turn is None
+        today, rows = self._rows(datetime(2026, 9, 23, 21, tzinfo=IRST))
+        assert today is None
+        assert [(r.label, r.when, r.wait) for r in rows] == [
+            ("جشن مهرگان", "10 مهر", "9 روز دیگر")]
 
-    def test_on_the_day_the_name_stands_alone(self):
-        fest, _short, _turn = self._lines(datetime(2026, 12, 21, 20, tzinfo=IRST))
-        assert fest == "شب یلدا"
+    def test_on_the_day_it_is_kept_not_counted(self):
+        today, rows = self._rows(datetime(2026, 12, 21, 20, tzinfo=IRST))
+        assert today == "شب یلدا"
+        assert rows == []
 
     def test_nowruz_counts_down_in_days_then_to_the_second(self):
-        fest, _short, turn = self._lines(datetime(2027, 3, 1, 12, tzinfo=IRST))
-        assert fest == "چهارشنبه\u200cسوری 25 اسفند (15 روز دیگر)"
-        assert re.fullmatch(r"تحویل سال 1406 · 29 اسفند \d\d:\d\d:\d\d \(19 روز دیگر\)",
-                            turn)
-        fest, _short, turn = self._lines(datetime(2027, 3, 20, 20, tzinfo=IRST))
-        assert fest is None      # Nowruz's own line gives way to the countdown
-        assert re.fullmatch(r"تحویل سال 1406 · 23:5\d:\d\d \(3:5\d:\d\d دیگر\)", turn)
+        _today, (turn, fest) = self._rows(datetime(2027, 3, 1, 12, tzinfo=IRST))
+        assert (fest.label, fest.when, fest.wait) == (
+            "چهارشنبه\u200cسوری", "25 اسفند", "15 روز دیگر")
+        assert turn.label == "تحویل سال 1406"
+        assert re.fullmatch(r"29 اسفند \d\d:\d\d:\d\d", turn.when)
+        assert turn.wait == "19 روز دیگر"
+        # Nowruz's own row gives way to the countdown.
+        _today, (turn,) = self._rows(datetime(2027, 3, 20, 20, tzinfo=IRST))
+        assert re.fullmatch(r"23:5\d:\d\d", turn.when)
+        assert re.fullmatch(r"3:5\d:\d\d دیگر", turn.wait)
 
     def test_outside_the_window_there_is_no_countdown(self):
-        _fest, _short, turn = self._lines(datetime(2027, 2, 10, 12, tzinfo=IRST))
-        assert turn is None
+        _today, rows = self._rows(datetime(2027, 2, 10, 12, tzinfo=IRST))
+        assert not any(r.label.startswith("تحویل سال") for r in rows)
 
     def test_the_panel_shows_them_in_persian_only(self):
         from linecast.moon.view import render

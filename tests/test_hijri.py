@@ -12,6 +12,7 @@ printed table does. The one month the rule and the table disagree on
 is pinned as a departure.
 """
 
+import re
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
@@ -322,17 +323,18 @@ class TestPanel:
         eastern = timezone(timedelta(hours=-4))
         text = self._text(datetime(2026, 3, 19, 12, 0, tzinfo=eastern))
         assert "30 Ramadan 1447 AH" in text
-        assert "Ramadan · Shawwal Mar 20 (in 1d)" in text
-        assert "Eid al-Fitr Mar 20 (begins at sunset)" in text
+        assert re.search(r"Shawwal +Mar 20 +in 1d", text)
+        assert re.search(r"Eid al-Fitr +Mar 20 +begins at sunset", text)
 
     def test_the_evening_is_already_the_observance(self):
         eastern = timezone(timedelta(hours=-4))
         text = self._text(datetime(2026, 3, 19, 20, 30, tzinfo=eastern))
         assert "1 Shawwal 1447 AH" in text
-        assert "Eid al-Fitr" in text and "Eid al-Fitr Mar 20" not in text
+        assert re.search(r"Day \d+ of 365 · Eid al-Fitr", text)
+        assert not re.search(r"Eid al-Fitr +Mar 20", text)
 
     def test_the_next_evening_has_moved_on(self):
         eastern = timezone(timedelta(hours=-4))
         text = self._text(datetime(2026, 3, 20, 20, 30, tzinfo=eastern))
         assert "2 Shawwal 1447 AH" in text
-        assert "Day of Arafah May 26 (in 67d)" in text
+        assert re.search(r"Day of Arafah +May 26 +in 67d", text)

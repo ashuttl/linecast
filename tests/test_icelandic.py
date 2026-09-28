@@ -16,6 +16,7 @@ the þorratungl fails, and against the new moons the almanac's readers
 have dated.
 """
 
+import re
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
@@ -547,12 +548,12 @@ class TestPanel:
         # þorratungl is lit on 7 January.
         text = self._text(datetime(2026, 12, 24, 18, tzinfo=timezone.utc))
         assert "Waning Gibbous · Jólatungl · week 9 of winter" in text
-        assert "Þorratungl Jan 7 (in 14.1d)" in text
+        assert re.search(r"Þorratungl +Jan 7 +in 14\.1d", text)
 
     def test_an_unnamed_moon(self):
         # The moon between the vetrartungl and the jólatungl has no
         # name; the jólatungl is the next new moon.
         text = self._text(datetime(2026, 11, 20, 20, tzinfo=timezone.utc))
         assert "Waxing Gibbous · week 4 of winter" in text
-        assert "Jólatungl Dec 9 (in 18.2d)" in text
+        assert re.search(r"Jólatungl +Dec 9 +in 18\.2d", text)
         assert "New Moon" not in text

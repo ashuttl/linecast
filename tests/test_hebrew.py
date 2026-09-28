@@ -9,6 +9,7 @@ lengths come out where the reference does — each month's start in the
 table implies the length of the month before it.
 """
 
+import re
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
@@ -485,7 +486,7 @@ class TestAfterSunset:
 
 
 class TestPanel:
-    """The moon panel's three lines: date, coming month, next holiday."""
+    """The moon panel's Hebrew date, coming month, and next holiday."""
 
     def _lines(self, now):
         from unittest.mock import patch
@@ -505,18 +506,20 @@ class TestPanel:
         eastern = timezone(timedelta(hours=-4))
         text = self._lines(datetime(2026, 9, 11, 12, 0, tzinfo=eastern))
         assert "29 Elul 5786" in text
-        assert "Elul · Tishrei Sep 12 (in 1d)" in text
-        assert "Rosh Hashanah Sep 12 (begins at sunset)" in text
+        assert re.search(r"Tishrei +Sep 12 +in 1d", text)
+        assert re.search(r"Rosh Hashanah +Sep 12 +begins at sunset", text)
 
     def test_the_evening_is_already_the_holiday(self):
         eastern = timezone(timedelta(hours=-4))
         text = self._lines(datetime(2026, 9, 11, 20, 30, tzinfo=eastern))
         assert "1 Tishrei 5787" in text
-        assert "Tishrei · Cheshvan Oct 12 (in 31d)" in text
-        assert "Rosh Hashanah" in text and "Sep 12" not in text
+        assert re.search(r"Cheshvan +Oct 12 +in 31d", text)
+        # Kept today, the holiday joins the year's line.
+        assert re.search(r"Day \d+ of 365 · Rosh Hashanah", text)
+        assert "Sep 12" not in text
 
     def test_a_week_out_counts_the_days(self):
         eastern = timezone(timedelta(hours=-4))
         text = self._lines(datetime(2026, 9, 13, 20, 30, tzinfo=eastern))
         assert "3 Tishrei 5787" in text
-        assert "Yom Kippur Sep 21 (in 8d)" in text
+        assert re.search(r"Yom Kippur +Sep 21 +in 8d", text)

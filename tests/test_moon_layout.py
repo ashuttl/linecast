@@ -1,4 +1,5 @@
-"""The moon display's three layouts: wide, stacked, and compact.
+"""The moon display's layout: the Moon in the middle, the info in the
+four corners, and what a small terminal sheds.
 
 These assert structure — where the info lands, that nothing overflows —
 rather than exact text, so they hold regardless of clock or locale
@@ -38,6 +39,21 @@ def _render(cols, rows, lang="en", fullscreen=False, offset_minutes=0):
     return _strip_ansi(output).split("\n")
 
 
+def _disc(cols, rows, fullscreen=False):
+    """(cx, cy, radius) the view draws the disc at."""
+    from linecast.moon import view
+    seen = {}
+    real = view._draw_moon_disc
+
+    def spy(fb, cx, cy, radius, *args, **kwargs):
+        seen.update(cx=cx, cy=cy, radius=radius)
+        return real(fb, cx, cy, radius, *args, **kwargs)
+
+    with patch("linecast.moon.view._draw_moon_disc", spy):
+        _render(cols, rows, fullscreen=fullscreen)
+    return seen["cx"], seen["cy"], seen["radius"]
+
+
 def _info_row(lines, needle):
     for i, line in enumerate(lines):
         if needle in line:
@@ -45,27 +61,48 @@ def _info_row(lines, needle):
     raise AssertionError(f"{needle!r} not found")
 
 
-class TestWideLayout:
-    def test_fills_the_terminal_and_floats_the_info(self):
+class TestCorners:
+    def test_the_info_sits_in_the_four_corners(self):
         lines = _render(140, 40, fullscreen=True)
         assert len(lines) == 40
         assert all(visible_len(line) <= 140 for line in lines)
-        # The info column floats in the sky, well above the bottom rows,
-        # and keeps its stanza order.
-        phase_row = _info_row(lines, "Waning Gibbous")
-        assert phase_row < 40 - 8
-        assert phase_row < _info_row(lines, "Moonrise")
-        assert _info_row(lines, "Full Pink Moon") < _info_row(lines, "Day 64 of 365")
+        # What the Moon is, top left; the day, top right; the month,
+        # bottom left; the year, bottom right, against the corner.
+        assert lines[0].startswith(" 🌖 Waning Gibbous")
+        assert lines[1].startswith(" 94% illuminated")
+        assert lines[0].rstrip().endswith("Below the horizon")
+        assert _info_row(lines, "Moonrise") < 4
+        assert _info_row(lines, "Day 16.3 of 29.5") > 30
+        assert lines[_info_row(lines, "Full Pink Moon")].startswith(" Full Pink Moon")
+        assert lines[-1].rstrip().endswith("in 14.8d")
+        assert "Spring equinox" in lines[-1]
 
-    def test_column_is_left_aligned(self):
+    def test_the_moon_is_in_the_middle(self):
+        cx, cy, _radius = _disc(140, 40, fullscreen=True)
+        assert (cx, cy) == (70, 40)
+        cx, cy, _radius = _disc(60, 40, fullscreen=True)
+        assert (cx, cy) == (30, 40)
+
+    def test_the_moon_makes_room_for_the_corners(self):
+        # In a large terminal the corners cost the disc nothing; in a
+        # small one it shrinks clear of them, but keeps most of its size.
+        from linecast.terminal.graphics import cell_aspect
+        aspect = cell_aspect() / 2.0
+        _cx, _cy, radius = _disc(140, 40, fullscreen=True)
+        assert radius == min(40 * 2 * 0.41 * aspect, 140 * 0.5 - 3.0)
+        _cx, _cy, radius = _disc(80, 24)
+        bare = min(22 * 2 * 0.41 * aspect, 80 * 0.5 - 3.0)
+        assert 0.7 * bare <= radius < bare
+
+    def test_each_corner_is_a_table(self):
         lines = _render(140, 40, fullscreen=True)
-        starts = {line.index(needle) - visible_len(line[:line.index(needle)])
-                  for line in lines for needle in ("Full Pink Moon", "New Moon")
-                  if needle in line}
-        cols = [line.find("Full Pink Moon") for line in lines
-                if "Full Pink Moon" in line]
-        cols += [line.find("New Moon") for line in lines if "New Moon" in line]
-        assert len(set(cols)) == 1, starts
+        rows = [lines[_info_row(lines, name)] for name in ("New Moon", "Full Pink Moon")]
+        dates = {re.search(r"(Mar|Apr) \d", row).start() for row in rows}
+        waits = {row.find(" in ") for row in rows}
+        assert len(dates) == 1 and len(waits) == 1, (dates, waits)
+        # The rising and setting arrows hang just before their times.
+        rise = lines[_info_row(lines, "Moonrise")]
+        assert re.search(r"Moonrise +↑\d\d:\d\d", rise), rise
 
     def test_scrubbed_shows_the_way_back(self):
         lines = _render(140, 40, fullscreen=True, offset_minutes=2880)
@@ -73,35 +110,14 @@ class TestWideLayout:
         assert "space to return to now" in joined
         assert "Up now" not in joined
 
-
-class TestStackedLayout:
-    def test_info_sits_in_the_corners_of_the_sky(self):
-        lines = _render(60, 24)
+    def test_a_narrow_pair_stacks_rather_than_overlaps(self):
+        # Too narrow for the month and the year side by side, the year
+        # goes beneath the month, flush left.
+        lines = _render(60, 30)
         assert all(visible_len(line) <= 60 for line in lines)
-        # The phase line top left, the status top right, on the same row;
-        # the aside, with no room beside them, on the row beneath.
-        top = lines[0]
-        assert top.find("Waning Gibbous") < top.find("Below the horizon")
-        assert visible_len(top.rstrip()) >= 60 - 3
-        assert not top.startswith("   ")
-        assert "illuminated" not in top
-        assert re.match(r"\s{1,3}day 16\.3 of 29\.5 · 94% illuminated", lines[1])
-        # The rest along the bottom, in stanza order, the season line last.
-        assert _info_row(lines, "Moonrise") < _info_row(lines, "Full Pink Moon")
-        assert "Day 64 of 365" in lines[-1]
-        # The bottom lines are centered.
-        last = lines[-1]
-        left = len(last) - len(last.lstrip())
-        right = len(last) - len(last.rstrip())
-        assert abs(left - right) <= 2, (left, right)
-
-    def test_80x24_prefers_two_columns(self):
-        # Stacking spends a row at the top and several at the bottom;
-        # here the column beside a full-height disc gives a bigger
-        # moon, so the layout goes wide and the moons take separate
-        # lines.
-        lines = _render(80, 24)
-        assert _info_row(lines, "Full Pink Moon") != _info_row(lines, "New Moon")
+        month, year = _info_row(lines, "Full Pink Moon"), _info_row(lines, "Day 64 of 365")
+        assert year > month
+        assert lines[year].startswith(" Day 64 of 365")
 
 
 class TestCompactLayout:
@@ -115,12 +131,12 @@ class TestCompactLayout:
         assert "Waning Gibbous" in joined
         assert "↑" in joined and "↓" in joined
 
-    def test_short_terminal_sheds_trailing_lines(self):
+    def test_short_terminal_sheds_the_corners(self):
         lines = _render(40, 10)
         assert len(lines) <= 8  # graph plus info, prompt rows spared
         joined = "\n".join(lines)
         assert "Waning Gibbous" in joined       # the headline survives
-        assert "Day 64 of 365" not in joined    # the season line goes first
+        assert "Day 64 of 365" not in joined    # the year's corner goes first
 
     def test_tiny_terminal_still_renders(self):
         lines = _render(24, 8)
@@ -131,12 +147,12 @@ class TestCompactLayout:
 class TestCountdownAndCompass:
     """The rise/set countdown and the compass hint, added for issue #26."""
 
-    def test_rise_line_leads_with_the_wait(self):
+    def test_rise_row_reads_name_time_wait(self):
         lines = _render(140, 40, fullscreen=True)
         row = lines[_info_row(lines, "Moonrise")]
-        # "Moonrise in 6h 29m (20:59)": the countdown precedes the clock
-        # time, and the clock time is the parenthesised one.
-        assert re.search(r"Moonrise in \d+[dhm][^()]*\(\d", row), row
+        # "Moonrise  ↑20:59  in 6h 29m": the clock time in the dates'
+        # column, the countdown in the waits'.
+        assert re.search(r"Moonrise +↑\d\d:\d\d +in \d+h \d+m", row), row
 
     def test_countdown_formats_by_magnitude(self):
         from linecast.moon.view import _fmt_countdown
@@ -148,11 +164,10 @@ class TestCountdownAndCompass:
         # A past event clamps rather than showing a negative wait.
         assert _fmt_countdown(timedelta(minutes=-5)) == "0m"
 
-    def test_a_later_day_is_named_inside_the_parentheses(self):
+    def test_a_later_day_follows_the_time(self):
         lines = _render(140, 40, fullscreen=True)
         row = lines[_info_row(lines, "Moonset")]
-        assert re.search(r"\(\d[^()]*\)", row), row
-        assert "))" not in row and "((" not in row
+        assert re.search(r"Moonset +↓07:49 Fri +in 17h 19m", row), row
 
     def test_compass_point_appears_when_the_moon_is_up(self):
         # 2026-03-06 02:00 local: the Moon is up and near culmination.
