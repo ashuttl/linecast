@@ -32,6 +32,7 @@ import calendar
 import math
 import sys
 import textwrap
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
@@ -40,8 +41,10 @@ from linecast.terminal.graphics import (
     lerp, visible_len, get_terminal_size, cell_aspect, Framebuffer, live_loop,
 )
 from linecast._i18n import fmt_decimal, fmt_duration_parts, lang_of
+from linecast._config import saved_location
 from linecast._location import (
-    country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
+    country_for_defaults, location_is_pinned, location_overridden,
+    location_tzinfo, resolve_location,
 )
 from linecast.astro.calendars.lunisolar import (
     CALENDAR_MERIDIAN_HOURS, calendar_is_native, current_term,
@@ -272,6 +275,17 @@ def _compass_point(azimuth_deg, runtime):
     """The eight-point compass abbreviation, in the display language."""
     points = rs("compass", lang_of(runtime)).split()
     return points[round(azimuth_deg / 45.0) % 8]
+
+
+def place_credit(lat, lng, place, runtime):
+    """`Westbrook, Maine · 43.68° N, 70.37° W`: the place the sky is
+    computed for, as the help panel credits it — its name where there
+    is one, and always its coordinates, with the compass letters in the
+    display language."""
+    points = rs("compass", lang_of(runtime)).split()
+    coords = (f"{fmt_decimal(abs(lat), 2, runtime)}° {points[0 if lat >= 0 else 4]}, "
+              f"{fmt_decimal(abs(lng), 2, runtime)}° {points[2 if lng >= 0 else 6]}")
+    return f"{place} · {coords}" if place else coords
 
 
 # ---------------------------------------------------------------------------
@@ -1046,7 +1060,8 @@ def main():
         parser.error(f"--grid has no {mode} output "
                      f"(--grid is a view; {mode} describes now)")
 
-    lat, lng, country = resolve_location(args.location, lang=runtime.lang)
+    lat, lng, country, label = resolve_location(args.location, lang=runtime.lang,
+                                                return_label=True)
     if lat is None:
         print("Could not determine location.", file=sys.stderr)
         sys.exit(1)
@@ -1185,9 +1200,28 @@ def main():
                 return 1
         return 60
 
-    from linecast.terminal.help import HelpPanel
-    help_panel = HelpPanel(lambda: 'moon_calendar' if state['cal'] else 'moon',
-                           runtime.lang)
+    # Help names the place the Moon is seen from, where the weather's
+    # names its sources: a --location by the geocoder's label, a saved
+    # location by its own, and an IP location by the (cached) reverse
+    # geocoder, asked off the loop so opening help never waits on the
+    # network; until it answers, the coordinates stand alone.
+    place = {"name": label}
+    if not place["name"] and not location_overridden(args.location):
+        place["name"] = (saved_location() or {}).get("label", "")
+    if not place["name"]:
+        def _name_the_place():
+            try:
+                from linecast.weather.sources import _reverse_geocode
+                place["name"] = _reverse_geocode(lat, lng, lang=runtime.lang)[0] or ""
+            except Exception:
+                pass
+        threading.Thread(target=_name_the_place, daemon=True).start()
+
+    from linecast.terminal.help import HelpPanel, entries
+    help_panel = HelpPanel(
+        None, runtime.lang, content=lambda cols, rows: entries(
+            'moon_calendar' if state['cal'] else 'moon', runtime.lang,
+            credits=(place_credit(lat, lng, place["name"], runtime),)))
     live_loop(_render, interval=interval, mouse=True, intercept=_intercept,
               help_panel=help_panel, on_wheel=_on_wheel, on_action=_on_key,
               on_drag=_on_drag, on_click=_on_click)

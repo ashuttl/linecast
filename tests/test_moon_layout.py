@@ -197,3 +197,25 @@ class TestCountdownAndCompass:
         assert _compass_point(0.0, en) == "N"
         # Wraps rather than running off the end of the eight points.
         assert _compass_point(359.0, en) == "N"
+
+
+class TestPlaceCredit:
+    """The help panel names the place the sky is computed for."""
+
+    def _runtime(self, lang):
+        from linecast._runtime import RuntimeConfig
+        return RuntimeConfig(live=False, icons="emoji", lang=lang, oneline=False)
+
+    def test_the_place_and_its_coordinates(self):
+        from linecast.moon.view import place_credit
+        assert (place_credit(43.677, -70.371, "Westbrook, Maine", self._runtime("en"))
+                == "Westbrook, Maine · 43.68° N, 70.37° W")
+
+    def test_coordinates_alone_until_the_place_has_a_name(self):
+        from linecast.moon.view import place_credit
+        assert place_credit(-33.868, 151.209, "", self._runtime("en")) == "33.87° S, 151.21° E"
+
+    def test_in_the_display_language(self):
+        from linecast.moon.view import place_credit
+        assert (place_credit(45.5, -73.567, "Montréal", self._runtime("fr"))
+                == "Montréal · 45,50° N, 73,57° O")

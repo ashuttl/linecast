@@ -11,6 +11,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: In the daily forecast, the conditions for calm days are dimmed, so the days with rain, snow, or wind stand out.
 - Moon: `--calendar icelandic` follows the old Icelandic calendar: the week of summer or winter beside the phase, the month, the next of the days the almanac names, such as the first day of winter and bóndadagur, and the moons it names, such as the jólatungl. In Icelandic it is the moon's calendar by default.
 - Moon: The Moon stays in the middle of the view at every size, with the phase, the day's rising and setting, the month's new and full moons, and the year's days in the four corners, each laid out as a small table of dates and countdowns.
+- Moon: The help panel names the place the Moon is seen from, with its coordinates.
 
 ## 2.9.2 — 2026-09-27
 
