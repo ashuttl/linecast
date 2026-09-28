@@ -104,6 +104,10 @@ Zoomed all the way out while looking up, the horizon closes into a circle and th
 
 ![the whole August sky at once, the Milky Way across it](../screenshots/sky-allsky.png)
 
+The same view played forward with `p`, an hour a second, from an August afternoon into the night: the Sun and a half Moon cross and set, the sky turns pink and then dark, and the Milky Way comes out as the stars turn round the pole.
+
+![the whole sky from an August afternoon into the night](../screenshots/sky-time.gif)
+
 ## Tides
 
 ![the tide curve at Portland, Maine](../screenshots/tides.png)

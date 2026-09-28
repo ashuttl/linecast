@@ -133,6 +133,10 @@ The whole August sky, and a January evening drawn the Hawaiian way:
   <img src="screenshots/sky-hawaiian.png" width="49%" alt="the same January sky in the Hawaiian tradition, with the star compass along the horizon">
 </p>
 
+Press `-` a few times and the view lies back until the horizon closes into a circle overhead, with the whole sky inside it. Press `p` to play time forward. This is an August afternoon and night over Westbrook, Maine, at an hour a second:
+
+![the whole sky from an August afternoon into the night: the Sun and a half Moon crossing, the sunset turning the sky pink, the stars and the Milky Way coming out, and the sky turning](screenshots/sky-time.gif)
+
 ### Tides
 
 National tide services in the US, Canada, Queensland, and Hong Kong, and a global model elsewhere. `--nearby` lists stations.
