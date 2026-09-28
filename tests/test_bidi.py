@@ -163,6 +163,12 @@ class TestRows:
         out = display("\033[3;4Hאב\033[5;6Hגד")
         assert _plain(out.replace("\033[3;4H", "").replace("\033[5;6H", "|")) == "בא|דג"
 
+    def test_a_piece_of_digits_beside_a_hebrew_one_keeps_its_digits(self):
+        # a hover chip over Tel Aviv: the name on one row, its population
+        # on the next, in a language that writes its digits as they are
+        out = display("\033[3;4Hתל אביב\033[4;4HPop. 467,875")
+        assert out.endswith("\033[4;4HPop. 467,875")
+
     def test_isolates_take_no_cells_and_are_removed(self):
         out = display(f"x {FSI}שלום{PDI} y")
         assert not set(out) & {FSI, PDI, LRI, RLI}

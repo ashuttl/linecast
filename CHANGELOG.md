@@ -17,6 +17,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Radar: Fixed `radar --help`, which named the wrong keys for the satellite and wind layers.
 - Moon: The month view's title sits at the left, over the first day of the week.
 - Moon: `--month` opens on the month view, as `--year` does for weather and sunshine, and `moon --help` lists it. `--grid` still works.
+- Language: Fixed a crash in the live views when Hebrew or Arabic text, such as a place name in a hover chip, was drawn beside numbers, in every language but Persian.
 
 ## 2.9.2 — 2026-09-27
 

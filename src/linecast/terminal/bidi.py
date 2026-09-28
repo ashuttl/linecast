@@ -1020,7 +1020,9 @@ _TO_LATIN = {**{0x06F0 + d: 0x30 + d for d in range(10)},
 
 
 def _digit_text(s):
-    if not s or not _DIGIT.search(s):
+    # A row being reordered for its right-to-left text reaches here for
+    # its digits too, in a language that leaves them alone.
+    if not s or (_digits is None and not _to_latin) or not _DIGIT.search(s):
         return s
     if _to_latin:
         return s.translate(_TO_LATIN)
