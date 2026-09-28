@@ -103,7 +103,7 @@ Polar night and midnight sun, at 78° north and 78° south:
 
 ### Moon
 
-The phase as you see it, with the real stars behind. Drag to see the far side; press `v` for the month. `--calendar` adds a [traditional calendar](https://github.com/ashuttl/linecast/blob/main/docs/calendars.md) and its festivals.
+The phase as you see it, with the real stars behind. Drag to see the far side; press `v` for the month, or open on it with `--month`. `--calendar` adds a [traditional calendar](https://github.com/ashuttl/linecast/blob/main/docs/calendars.md) and its festivals.
 
 ![full Moon](https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/moon.png)
 

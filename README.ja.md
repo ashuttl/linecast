@@ -106,7 +106,7 @@ linecast weather --lang ja      # 今回だけ
 export LINECAST_LANG=ja         # 環境変数で。保存した設定より優先されます
 ```
 
-`weather` の警報は日本では気象庁から届き、画面の下の行にその名が出ます。`moon` は月相のとなりに旧暦の日付を添え、旧暦の日付に応じて、その夜を十六夜、立待月、居待月、寝待月、更待月などの名で呼び、今の二十四節気と、次の節気を迎える日、次の十五夜までの日数を示します。`sunshine --hours japanese` は、常用時のとなりに江戸の不定時法で一日を読みます。
+`weather` の警報は日本では気象庁から届き、画面の下の行にその名が出ます。`moon` は月相のとなりに旧暦の日付を添え、旧暦の日付に応じて、その夜を十六夜、立待月、居待月、寝待月、更待月などの名で呼び、今の二十四節気と、次の節気を迎える日、次の十五夜までの日数を示します。`v` を押すか、`--month` を付けて開くと、ひと月の月相が暦になり、十五夜などの行事がその日に記されます。`sunshine --hours japanese` は、常用時のとなりに江戸の不定時法で一日を読みます。
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ashuttl/linecast/main/screenshots/weather-kyoto.png" width="49%" alt="京都の天気、日本語で">
