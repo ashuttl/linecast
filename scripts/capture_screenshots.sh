@@ -68,7 +68,9 @@ Targets:
              moon-alone.png with the text put away, and moon-spin.gif (and
              .mp4), the Moon dragged round and let go
   sky        sky.png on Orion, sky-allsky.png the whole sky at once, and
-             sky-hawaiian.png the same winter sky in the Hawaiian tradition
+             sky-hawaiian.png the same winter sky in the Hawaiian tradition;
+             sky-time.gif (and .mp4), the whole sky through an August
+             afternoon and night
   tides      tides.png
   radar      radar.png and radar.gif, wherever the scout finds weather
   maps       maps-street.png, maps-terrain.png over New Zealand, and the
@@ -256,7 +258,6 @@ sky() {
     # location, so it gets --location on its side of the -- as well.
     local at name spec
     for spec in "2026-01-15T21:00|sky.png|--at Orion" \
-                "2026-08-15T22:30|sky-allsky.png|--facing S --fov 236" \
                 "2026-01-15T21:00|sky-hawaiian.png|--facing S --culture hawaiian"; do
         IFS='|' read -r at name extra <<<"$spec"
         printf 'Capturing sky %s…\n' "$name"
@@ -267,6 +268,18 @@ sky() {
             --at "$at" --location "$ASTRO_LOCATION" sky -- \
             --location "$ASTRO_LOCATION" $extra
     done
+    # The whole sky is zoomed out to by hand, with -, since only the
+    # zoom lies the view back until the horizon is a circle centred
+    # overhead; facing south first puts north at the top. Then the same
+    # view played through an August afternoon and night.
+    printf 'Capturing sky sky-allsky.png…\n'
+    "$CAPTURE_TOOL" -s 120x40 -w 6 --font "$CAPTURE_FONT" --key ---- --sleep 2.5 \
+        -o "$SHOT_DIR/sky-allsky.png" \
+        uv --directory "$REPO_DIR" run python \
+        "$REPO_DIR/scripts/capture_moment.py" \
+        --at 2026-08-15T22:30 --location "$ASTRO_LOCATION" sky -- \
+        --location "$ASTRO_LOCATION" --facing S
+    "$OFFSCREEN" --theme "$LINECAST_CAPTURE_THEME" --out "$SHOT_DIR" sky-time
 }
 
 tides() {

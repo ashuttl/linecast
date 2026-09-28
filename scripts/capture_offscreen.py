@@ -15,6 +15,8 @@ Targets:
     moon        moon-alone.png, the Moon with the text put away (t)
     moon-spin   moon-spin.gif and .mp4: the Moon dragged round and let go,
                 settling back to the face it really shows
+    sky-time    sky-time.gif and .mp4: the whole sky overhead, played
+                through an August afternoon and night at an hour a second
     themes      themes.gif and .mp4: the hero desktop through a run of
                 Omarchy themes, the apps taking each one up as it lands
     languages   languages.png: a second desktop, the apps in Canadian French,
@@ -345,6 +347,47 @@ def moon_spin(args, theme):
     report(args.out / "moon-spin.gif")
 
 
+def sky_time(args, theme):
+    """The whole sky, zoomed out with - until the horizon closes into a
+    circle overhead, then played forward (p) at an hour a second through
+    an August afternoon and night over Westbrook: the Sun and a waxing
+    Moon crossing, the sunset and its colours, the stars and then the
+    Milky Way coming out as the Moon goes down, the whole dome turning."""
+    cols, rows = 110, 36
+    face = Typeface(FAMILY, 11, 2)
+    # Facing south as it lies back, so north is at the top of the circle.
+    s = Session(moment("2026-08-18T15:00", WESTBROOK, "sky", "--location", WESTBROOK,
+                       "--facing", "S"),
+                cols, rows, theme, cell=(face.cell_w, face.cell_h)).start()
+    try:
+        time.sleep(4)
+        for _ in range(4):
+            s.send("-")
+            time.sleep(0.15)
+        time.sleep(2.5)
+        s.start_recording()
+        t0 = time.monotonic()
+        time.sleep(1.0)              # a moment of the afternoon first
+        s.send("p")
+        time.sleep(args.hours)
+        t1 = time.monotonic()
+        s.stop_recording()
+    finally:
+        s.stop()
+
+    def key_at(t):
+        return id(s.frame_at(t))
+
+    for scale, out, fps in ((1, "sky-time.gif", 15), (2, "sky-time.mp4", 30)):
+        face = Typeface(FAMILY, 11, scale)
+        look = Look(scale=scale)
+        stills = sample(lambda t, face=face, look=look: window_image(s.frame_at(t), face,
+                                                                     look=look),
+                        key_at, t0, t1, fps)
+        encode(stills, args.out / out, fps)
+    report(args.out / "sky-time.gif")
+
+
 THEME_RUN = ("tokyo-night", "catppuccin-latte", "gruvbox", "rose-pine", "everforest",
              "kanagawa", "flexoki-light", "osaka-jade", "ristretto", "nord")
 
@@ -404,7 +447,7 @@ def report(path):
 
 
 TARGETS = {"hero": hero, "moon": moon_alone, "moon-spin": moon_spin,
-           "themes": themes, "languages": languages}
+           "sky-time": sky_time, "themes": themes, "languages": languages}
 
 
 def main():
@@ -413,6 +456,8 @@ def main():
     parser.add_argument("--theme", default=None,
                         help="Omarchy theme for the still frames (default: the current one)")
     parser.add_argument("--themes", nargs="+", help="the run of themes for the themes target")
+    parser.add_argument("--hours", type=float, default=10.0,
+                        help="hours of the sky-time recording, played at an hour a second")
     parser.add_argument("--hold", type=float, default=2.0,
                         help="seconds on each theme in the themes target")
     parser.add_argument("--radar", default="Portland, Maine",
@@ -423,7 +468,8 @@ def main():
                         help="scale desktops down to this many pixels wide")
     parser.add_argument("--out", type=Path, default=SHOTS)
     args = parser.parse_args()
-    if shutil.which("ffmpeg") is None and {"moon-spin", "themes", "all"} & set(args.targets):
+    recordings = {"moon-spin", "sky-time", "themes", "all"}
+    if shutil.which("ffmpeg") is None and recordings & set(args.targets):
         raise SystemExit("capture_offscreen: the recordings need ffmpeg")
     args.out.mkdir(parents=True, exist_ok=True)
     theme = Theme.omarchy(args.theme) if args.theme else Theme.current()
