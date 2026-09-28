@@ -82,6 +82,26 @@ def formatter_class():
     return Formatter
 
 
+def parser_class():
+    """argparse's parser, taking "-33.87,151.21" for a value.
+
+    Before Python 3.14 argparse read anything that starts with a dash
+    and is not a plain number as an option, so a place south of the
+    equator or west of Greenwich, given as coordinates, was refused:
+    "--location: expected one argument".  This is the rule 3.14 uses.
+    Subcommands made from it are made from it too.
+    """
+    import argparse
+    import re
+
+    class Parser(argparse.ArgumentParser):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._negative_number_matcher = re.compile(r"-\.?\d")
+
+    return Parser
+
+
 def help_text(version):
     """The `linecast --help` page, formatted like every command's own."""
     import argparse

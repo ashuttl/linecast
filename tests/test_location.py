@@ -258,6 +258,16 @@ class LocationCommandTests(unittest.TestCase):
         location._cmd_auto()
         self.assertIsNone(_config.saved_location())
 
+    def test_set_takes_a_southern_latitude(self):
+        # argparse before 3.14 read "-33.87,151.21" as an option
+        with patch("linecast.weather.sources._reverse_geocode",
+                   return_value=("Sydney", "AU", {})), \
+             patch("sys.argv", ["linecast location", "set", "-33.87,151.21"]), \
+             patch("sys.stdout"):
+            location.main()
+        self.assertEqual(_config.saved_location()["lat"], -33.87)
+
+
     def test_corrupt_config_reads_as_empty(self):
         path = _config.config_file()
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -289,6 +299,15 @@ class LocationCommandTests(unittest.TestCase):
             self.assertIsNone(_config.saved_location(), loc)
         _config.write_config({"location": {"lat": 51, "lng": -0.1}})
         self.assertEqual(_config.saved_location()["lat"], 51)
+
+
+class NegativeCoordinateFlagTests(unittest.TestCase):
+    def test_the_view_flags_take_coordinates_that_start_with_a_minus(self):
+        from linecast._runtime import maps_parser, weather_parser
+        args = weather_parser().parse_args(["--location", "-33.87,151.21", "--imperial"])
+        self.assertEqual(args.location, "-33.87,151.21")
+        args = maps_parser().parse_args(["--to", "-.5,-70", "--from", "-33.87,151.21"])
+        self.assertEqual((args.to, args.from_), ("-.5,-70", "-33.87,151.21"))
 
 
 class ParseLatLngTests(unittest.TestCase):

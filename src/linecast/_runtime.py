@@ -6,7 +6,7 @@ import os
 import re
 import sys
 
-from linecast._commands import BLURB, formatter_class
+from linecast._commands import BLURB, formatter_class, parser_class
 from linecast._i18n import LANGUAGE_CODES, VARIANTS
 
 
@@ -440,10 +440,10 @@ def _base_parser(prog, description, units=None, clock=False, json=False,
     --celsius and --fahrenheit beside them; *clock* adds --24h and
     --12h; *json* adds --json to the output section.
     """
-    p = argparse.ArgumentParser(prog=prog, usage="%(prog)s [options]",
-                                description=description, add_help=False,
-                                formatter_class=formatter_class(),
-                                epilog="In a live view, press ? for controls; Esc closes help.")
+    p = parser_class()(prog=prog, usage="%(prog)s [options]",
+                       description=description, add_help=False,
+                       formatter_class=formatter_class(),
+                       epilog="In a live view, press ? for controls; Esc closes help.")
     title = {(True, True): "units, clock, and language",
              (True, False): "units and language",
              (False, True): "clock and language",

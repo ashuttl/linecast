@@ -9,10 +9,9 @@ Precedence for every command: --location flag > WEATHER_LOCATION env >
 saved location (this command) > IP geolocation.
 """
 
-import argparse
 import sys
 
-from linecast._commands import formatter_class
+from linecast._commands import formatter_class, parser_class
 from linecast._runtime import VersionAction
 from linecast._config import read_config, save_config, saved_location
 
@@ -76,7 +75,7 @@ def _cmd_search(query):
 
 
 def main():
-    parser = argparse.ArgumentParser(
+    parser = parser_class()(
         prog="linecast location",
         usage="%(prog)s [show | set PLACE | auto | search QUERY]",
         description="Show or set a fixed location that overrides IP geolocation",
