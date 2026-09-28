@@ -371,24 +371,22 @@ def render_calendar(now_local, lat, lng, runtime, month_offset=0,
     fb = Framebuffer(graph_w, graph_h, bg_color=moon_palette.SKY_RGB)
     overlays = {}
 
-    # Title, centred over the grid. A calendar with months of its own
-    # sets them beside the civil month, as the wall calendars do, in the
-    # text ink so they read as part of the title; paged away, the way
-    # back rides at the end, dim. The span is the first to go when the
-    # row runs short. A Solar Hijri month names the Gregorian months its
-    # corner days belong to first, and keeps them longest.
+    # Title, at the left, over the first weekday. A calendar with months
+    # of its own sets them beside the civil month, as the wall calendars
+    # do, in the text ink so they read as part of the title; paged away,
+    # the way back rides at the end, dim. The span is the first to go
+    # when the row runs short. A Solar Hijri month names the Gregorian
+    # months its corner days belong to first, and keeps them longest.
     spans = [_gregorian_span(first, last, lang)] if civil == SOLAR_HIJRI else []
     spans.append(_calendar_span(cal, first, last, lang))
     spans = [sp for sp in spans if sp]
     aside = f" · {_ts('space_to_now', runtime)}" if month_offset else ""
     t_w = visible_len(title)
     a_w = visible_len(aside)
-    while spans and t_w + visible_len(" · ".join(spans)) + 3 + a_w > grid_w:
+    while spans and t_w + visible_len(" · ".join(spans)) + 3 + a_w > grid_w - 1:
         spans.pop()
     span = "".join(f" · {sp}" for sp in spans)
-    s_w = visible_len(span)
-    tx = left + max(0, (grid_w - t_w - s_w - a_w) // 2)
-    tx = _put(overlays, tx, 0, title, A if month_offset else T, bold=True,
+    tx = _put(overlays, left + 1, 0, title, A if month_offset else T, bold=True,
               max_x=graph_w)
     if span:
         tx = _put(overlays, tx, 0, span, T, max_x=graph_w)
