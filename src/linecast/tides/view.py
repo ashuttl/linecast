@@ -249,6 +249,10 @@ def _station_tzinfo(meta):
         zone_name = "America/Anchorage"
     elif tz_abbr in ("HST", "HDT"):
         zone_name = "Pacific/Honolulu"
+    elif tz_abbr in ("HAST", "HADT"):
+        # NOAA's name for the Aleutians west of 169.5°W, which keep
+        # summer time; Hawaii does not
+        zone_name = "America/Adak" if observedst else "Pacific/Honolulu"
     elif tz_abbr in ("AST", "ADT"):
         zone_name = "America/Halifax" if observedst else "America/Puerto_Rico"
     elif tz_abbr == "CHST":

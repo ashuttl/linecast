@@ -20,6 +20,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Language: Fixed a crash in the live views when Hebrew or Arabic text, such as a place name in a hover chip, was drawn beside numbers, in every language but Persian.
 - Location: Fixed `--location`, `--to`, `--from`, and `linecast location set` refusing coordinates that start with a minus sign, such as `-33.87,151.21` for Sydney, with Python 3.13 and older.
 - Sky: Fixed dawn and dusk being named the wrong way round south of the equator, in the languages that name the morning and evening twilight apart, such as Polish and Swedish.
+- Tides: Fixed the chart's night shading, which began and ended an hour early during summer time. Tide times for Adak and the other western Aleutian stations are no longer an hour off in summer.
 
 ## 2.9.2 — 2026-09-27
 

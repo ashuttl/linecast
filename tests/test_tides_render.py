@@ -3,6 +3,7 @@ import re
 from types import SimpleNamespace
 
 from linecast.tides.render import (
+    compute_daylight_window,
     compute_moon_labels,
     render_day_label_line,
     render_tide_ticks,
@@ -55,6 +56,25 @@ def test_render_tide_ticks_anchor_to_clock_boundaries():
     first_tick = _first_tick_idx(canvas)
 
     assert canvas[first_tick:first_tick + 3] == "\u257503"
+
+
+def test_night_shading_follows_summer_time():
+    # Portland, Maine, on 28 September: sunrise 6:34 and sunset 18:27
+    # EDT. NOAA's metadata gives the standard offset, -5.
+    from zoneinfo import ZoneInfo
+    meta = {"lat": 43.658, "lng": -70.244, "timezonecorr": -5}
+    start = datetime(2026, 9, 28, tzinfo=ZoneInfo("America/New_York"))
+    daylight = compute_daylight_window(24 * 60, start, 24, meta)
+    lit = [minute for minute, factor in enumerate(daylight) if factor >= 0.5]
+    assert abs(lit[0] - (6 * 60 + 34)) < 25
+    assert abs(lit[-1] - (18 * 60 + 27)) < 25
+
+
+def test_aleutian_stations_keep_summer_time():
+    from zoneinfo import ZoneInfo
+    from linecast.tides.view import _station_tzinfo
+    adak = {"timezone_abbr": "HAST", "timezonecorr": -10, "observedst": True, "state": "AK"}
+    assert _station_tzinfo(adak) == ZoneInfo("America/Adak")
 
 
 def test_compute_moon_labels_contains_rise_and_set_over_two_days():

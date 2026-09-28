@@ -105,7 +105,11 @@ def compute_daylight_window(graph_w, window_start, total_hours, station_meta):
         col_dt = window_start + timedelta(hours=frac * total_hours)
         doy = col_dt.timetuple().tm_yday
         hour = col_dt.hour + col_dt.minute / 60
-        col_daylight.append(_solar_daylight_at(hour, doy, lat, lng, tz_offset_h))
+        # The clock the column is read on: summer time where the station
+        # keeps it, which the metadata's standard offset does not know.
+        offset = col_dt.utcoffset()
+        tz_h = tz_offset_h if offset is None else offset.total_seconds() / 3600
+        col_daylight.append(_solar_daylight_at(hour, doy, lat, lng, tz_h))
     return col_daylight
 
 
