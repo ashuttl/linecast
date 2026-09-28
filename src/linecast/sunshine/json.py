@@ -7,7 +7,7 @@ rather than raising.
 """
 
 import time as _time
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 SCHEMA_VERSION = 1
 
@@ -189,17 +189,24 @@ def build_payload(lat, lng, now=None, location=None, hours=None):
     hours_block = _hours_block(hours, now if now.tzinfo else now.astimezone())
     tz_name = None
     tz_offset_h = None
-    if now.tzinfo is not None:
-        tz_name = getattr(now.tzinfo, "key", None) or now.tzname()
+    tzinfo = now.tzinfo
+    if tzinfo is not None:
+        tz_name = getattr(tzinfo, "key", None) or now.tzname()
         tz_offset_h = now.utcoffset().total_seconds() / 3600
         now = now.replace(tzinfo=None)
     today = now.date()
     doy = now.timetuple().tm_yday
     now_hour = now.hour + now.minute / 60 + now.second / 3600
 
-    rise_h, set_h = solar_times(lat, lng, doy, tz_offset_h)
-    y_rise_h, y_set_h = solar_times(lat, lng, doy - 1, tz_offset_h)
-    t_rise_h, t_set_h = solar_times(lat, lng, doy + 1, tz_offset_h)
+    def day_offset(day):
+        """The UTC offset a day's rise and set are read on: its noon's,
+        so the eve of a clock change gives tomorrow's on the new clock."""
+        noon = datetime.combine(day, time(12), tzinfo=tzinfo)
+        return (noon if tzinfo else noon.astimezone()).utcoffset().total_seconds() / 3600
+
+    rise_h, set_h = solar_times(lat, lng, doy, day_offset(today))
+    y_rise_h, y_set_h = solar_times(lat, lng, doy - 1, day_offset(today - timedelta(days=1)))
+    t_rise_h, t_set_h = solar_times(lat, lng, doy + 1, day_offset(today + timedelta(days=1)))
 
     day_len_h = set_h - rise_h
     day_length_seconds = int(round(day_len_h * 3600))

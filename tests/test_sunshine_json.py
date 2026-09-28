@@ -35,6 +35,19 @@ class TestTzOffsetThreading:
         rise_hour = int(payload["sunrise"].split("T")[1].split(":")[0])
         assert rise_hour in (6, 7)
 
+    def test_the_eve_of_a_clock_change_reads_tomorrow_on_the_new_clock(self):
+        from zoneinfo import ZoneInfo
+        portland = ZoneInfo("America/New_York")
+        for eve, morning in ((datetime(2026, 10, 31, 20, 0), datetime(2026, 11, 1, 5, 0)),
+                             (datetime(2026, 3, 7, 20, 0), datetime(2026, 3, 8, 5, 0))):
+            before = build_payload(43.66, -70.26, now=eve.replace(tzinfo=portland),
+                                   location="Portland")
+            after = build_payload(43.66, -70.26, now=morning.replace(tzinfo=portland),
+                                  location="Portland")
+            assert before["tomorrow_sunrise"] == after["sunrise"]
+            assert before["next_event"]["time"] == after["sunrise"]
+
+
 # Solar math resolves local clock time through the machine's UTC offset, so
 # pin a longitude whose mean solar noon lands at 12:00 on any machine.
 LAT = 45.0

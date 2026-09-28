@@ -22,6 +22,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Sky: Fixed dawn and dusk being named the wrong way round south of the equator, in the languages that name the morning and evening twilight apart, such as Polish and Swedish.
 - Tides: Fixed the chart's night shading, which began and ended an hour early during summer time. Tide times for Adak and the other western Aleutian stations are no longer an hour off in summer.
 - Sunshine: Fixed the day view's scale south of the equator, which drew a winter day's arc as high as a summer day's.
+- Sunshine: Fixed `sunshine --json` giving tomorrow's sunrise and sunset an hour off on the evening before the clocks change.
 
 ## 2.9.2 — 2026-09-27
 
