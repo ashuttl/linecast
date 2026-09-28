@@ -1,21 +1,26 @@
 #!/usr/bin/env bash
-# Refresh linecast's README screenshots with Andrew's offscreen termshot tool.
+# Refresh linecast's README screenshots.
 #
 # Usage:
 #   scripts/capture_screenshots.sh all
 #   scripts/capture_screenshots.sh weather moon maps hero
 #
-# The individual targets are weather, sunshine, year, moon, sky, tides, radar,
-# maps, globe, and hero. "all" captures every app but NOT the hero: the shipped hero is a
-# hand-composed whole-screen screenshot, and the hero target — a live
-# auto-capture of four apps tiled on one offscreen desktop — would overwrite
-# it, so it only runs when named explicitly. The app captures use live
-# terminal mode so the header, footer, hidden cursor, and full-screen layout
-# match what users actually see.
+# The individual targets are listed by --help. "all" captures every app but
+# NOT the desktops (hero, languages, themes): those are composed from live
+# panes, and a hand-taken whole-screen screenshot may stand in for the hero,
+# so they only run when named. The app captures use live terminal mode so
+# the header, footer, hidden cursor, and full-screen layout match what users
+# actually see.
 #
-# termshot runs each shot in a private headless sway, so nothing here touches
-# the desktop it runs from. Every frame is set in LINECAST_CAPTURE_FONT so the
-# gallery stays in one typeface whatever the desktop terminal is using.
+# Each frame is drawn by scripts/offscreen_terminal.py, a terminal with no
+# window: the app runs in a pseudo-terminal, and the cells are drawn the way
+# foot draws them, in an Omarchy window frame, with an empty config
+# directory so nobody's saved settings leak into a frame. Nothing here
+# touches the desktop it runs from. LINECAST_CAPTURE_TOOL=termshot
+# photographs a real foot on an offscreen Hyprland output instead. Every
+# frame is set in LINECAST_CAPTURE_FONT and dressed in
+# LINECAST_CAPTURE_THEME, so the gallery keeps one look whatever the
+# desktop is wearing.
 
 set -euo pipefail
 
@@ -23,7 +28,9 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_DIR=$(cd -- "$SCRIPT_DIR/.." && pwd)
 SHOT_DIR="$REPO_DIR/screenshots"
 GALLERY_DIR="$SHOT_DIR/gallery"
-CAPTURE_TOOL=${LINECAST_CAPTURE_TOOL:-termshot}
+CAPTURE_TOOL=${LINECAST_CAPTURE_TOOL:-$SCRIPT_DIR/offscreen_terminal.py}
+OFFSCREEN="$SCRIPT_DIR/capture_offscreen.py"
+export LINECAST_CAPTURE_THEME=${LINECAST_CAPTURE_THEME:-tokyo-night}
 # GitHub's own Nerd Font build of Monaspace Neon (otf-monaspace-nerdfonts);
 # the Nerd Fonts project's "MonaspiceNe" is the same face, but a name
 # fontconfig cannot find falls back to a proportional sans and spaces every
@@ -43,8 +50,6 @@ ASTRO_LOCATION=${LINECAST_CAPTURE_ASTRO_LOCATION:-43.676,-70.371}
 ARCTIC_PLACE=${LINECAST_CAPTURE_ARCTIC_PLACE:-Longyearbyen}
 ANTARCTIC_PLACE=${LINECAST_CAPTURE_ANTARCTIC_PLACE:-Vostok Station}
 OKINAWA_LOCATION=${LINECAST_CAPTURE_OKINAWA_LOCATION:-26.2124,127.6809}
-HERO_PLACE=${LINECAST_CAPTURE_HERO_PLACE:-Juneau, Alaska}
-HERO_LOCATION=${LINECAST_CAPTURE_HERO_LOCATION:-58.302,-134.420}
 
 usage() {
     cat <<'EOF'
@@ -59,7 +64,9 @@ Targets:
              sunshine-winter.png for a January noon
   year       sunshine-year.png for Reykjavík in Icelandic, plus -arctic and
              -antarctic at 78° either side
-  moon       moon.png, plus moon-okinawa.png in Japanese and moon-calendar.png
+  moon       moon.png, plus moon-okinawa.png in Japanese, moon-calendar.png,
+             moon-alone.png with the text put away, and moon-spin.gif (and
+             .mp4), the Moon dragged round and let go
   sky        sky.png on Orion, sky-allsky.png the whole sky at once, and
              sky-hawaiian.png the same winter sky in the Hawaiian tradition
   tides      tides.png
@@ -74,12 +81,17 @@ Targets:
              short window, the moon's month grid, a walking route
   tours      globe-spin.gif and sky-pan.gif in screenshots/gallery, each
              a recording driven by a mouse script in scripts/tours
-  hero       hero.png — five apps tiled on a desktop the size of this
-             screen, with the real bar pasted along the top
+  hero       hero.png — five apps tiled on a 1920x1200 desktop, drawn at 2x,
+             in the arrangement of Andrew's desktop 2
+  languages  languages.png — a second desktop, the apps in Canadian French,
+             Hawaiian, Japanese, and Icelandic
+  themes     themes.gif (and .mp4) — the hero desktop through a run of
+             Omarchy themes, the apps taking each one up
 
 Environment overrides:
-  LINECAST_CAPTURE_TOOL
-  LINECAST_CAPTURE_FONT      fontconfig pattern for every frame but the hero
+  LINECAST_CAPTURE_TOOL      offscreen_terminal.py, or termshot
+  LINECAST_CAPTURE_THEME     the Omarchy theme every frame wears (tokyo-night)
+  LINECAST_CAPTURE_FONT      fontconfig pattern for every single-app frame
   LINECAST_CAPTURE_WEATHER_PLACE
   LINECAST_CAPTURE_WEATHER_YEAR_PLACE
   LINECAST_CAPTURE_YEAR_PLACE
@@ -93,8 +105,6 @@ Environment overrides:
   LINECAST_CAPTURE_ARCTIC_PLACE
   LINECAST_CAPTURE_ANTARCTIC_PLACE
   LINECAST_CAPTURE_OKINAWA_LOCATION
-  LINECAST_CAPTURE_HERO_PLACE      the weather and sunshine place in the hero
-  LINECAST_CAPTURE_HERO_LOCATION   its LAT,LNG, for the astronomy panes
 EOF
 }
 
@@ -122,6 +132,7 @@ require() {
 require "$CAPTURE_TOOL"
 require magick
 require uv
+require fc-match
 
 # Every app is run as "linecast weather" and so on rather than by its bare
 # name: the project declares only the linecast entry point, so a bare
@@ -131,14 +142,15 @@ require uv
 weather() {
     # The dashboard looks its best in a smallish window, where the chart
     # stays dense. The home frame is Dublin; two smaller ones show it in
-    # other languages, metric, without making a thing of it.
+    # other languages, metric and on the 24-hour clock, without making a
+    # thing of it.
     printf 'Capturing weather…\n'
     "$CAPTURE_TOOL" -s 110x34 -w 10 --font "$CAPTURE_FONT" -o "$SHOT_DIR/weather.png" \
         uv --directory "$REPO_DIR" run linecast weather --location "$WEATHER_PLACE"
     "$CAPTURE_TOOL" -s 100x30 -w 10 --font "$CAPTURE_FONT" -o "$SHOT_DIR/weather-reykjavik.png" \
-        uv --directory "$REPO_DIR" run linecast weather --location "Reykjavík" --lang is --metric
+        uv --directory "$REPO_DIR" run linecast weather --location "Reykjavík" --lang is --metric --24h
     "$CAPTURE_TOOL" -s 100x30 -w 10 --font "$CAPTURE_FONT" -o "$SHOT_DIR/weather-kyoto.png" \
-        uv --directory "$REPO_DIR" run linecast weather --location "Kyoto, Japan" --lang ja --metric
+        uv --directory "$REPO_DIR" run linecast weather --location "Kyoto, Japan" --lang ja --metric --24h
     weather_year
 }
 
@@ -215,20 +227,23 @@ moon() {
     # 2026, so the headline names the night 十六夜 and the calendar's
     # September carries 十五夜 on the 25th. capture_moment's --at lands as
     # the place's local time here. The calendar frame presses v and hovers
-    # the 25th (column 84, row 27 on 120x40; the first hover only carries
-    # the pointer onto the window, the second raises the chip).
+    # the 25th (column 94, row 27 on 120x40; the first hover only carries
+    # the pointer onto the window, the second raises the chip). Then the Moon
+    # alone, with its text put away, and the recording of it dragged round and
+    # let go, which capture_offscreen.py draws with the pointer doing it.
     "$CAPTURE_TOOL" -s 120x40 -w 6 --font "$CAPTURE_FONT" -o "$SHOT_DIR/moon-okinawa.png" \
         uv --directory "$REPO_DIR" run python \
         "$REPO_DIR/scripts/capture_moment.py" \
         --at 2026-09-26T21:30 --location "$OKINAWA_LOCATION" moon -- \
         --lang ja --24h
     "$CAPTURE_TOOL" -s 120x40 -w 6 --font "$CAPTURE_FONT" --press v --sleep 2 \
-        --hover 84x27 --sleep 1 --hover 85x27 --sleep 2 \
+        --hover 93x26 --sleep 1 --hover 94x27 --sleep 2 \
         -o "$SHOT_DIR/moon-calendar.png" \
         uv --directory "$REPO_DIR" run python \
         "$REPO_DIR/scripts/capture_moment.py" \
         --at 2026-09-26T21:30 --location "$OKINAWA_LOCATION" moon -- \
         --lang ja --24h
+    "$OFFSCREEN" --theme "$LINECAST_CAPTURE_THEME" --out "$SHOT_DIR" moon moon-spin
 }
 
 sky() {
@@ -275,6 +290,11 @@ resolve_radar_place() {
         RADAR_LANG_ARGS=(--lang "${pick##*$'\t'}")
         printf 'Radar over %s, in %s\n' "$RADAR_PLACE" "${RADAR_LANG_ARGS[1]}"
     fi
+    # A frame in another language reads the clock the way its readers do.
+    case "${RADAR_LANG_ARGS[1]:-en}" in
+        en*) ;;
+        *) RADAR_LANG_ARGS+=(--24h) ;;
+    esac
 }
 
 radar() {
@@ -470,25 +490,18 @@ print(f"30,{lon:.0f}")')
         --to "South Portland, Maine" --profile foot
 }
 
-hero() {
-    # One desktop the size of this screen: two panes above three, at two to
-    # one, with the real bar read off the real screen and pasted along the
-    # top, so the frame is the laptop as it looks. Weather and radar are
-    # live; the moon, the year, and the dusk are fixed moments, as in the
-    # single frames. The radar goes wherever the scout finds weather.
-    # capture_moment reads --at in this machine's zone, so these are
-    # Juneau's evening and its midday seen from US Eastern; moving the
-    # hero somewhere else means moving these too.
-    resolve_radar_place
-    printf 'Capturing hero…\n'
-    "$CAPTURE_TOOL" --bar --rows 2,3 --row-heights 2:1 --font "$CAPTURE_FONT" \
-        -w 90 -o "$SHOT_DIR/hero.png" \
-        --pane "uv --directory $REPO_DIR run linecast weather --location '$HERO_PLACE'" \
-        --pane "uv --directory $REPO_DIR run linecast radar --location '$RADAR_PLACE' ${RADAR_LANG_ARGS[*]}" \
-        --pane "uv --directory $REPO_DIR run python $REPO_DIR/scripts/capture_moment.py --at 2026-08-23T01:30 --location '$HERO_LOCATION' moon" \
-        --pane "uv --directory $REPO_DIR run python $REPO_DIR/scripts/capture_moment.py --at 2026-06-21T17:30 --location '$HERO_LOCATION' sunshine -- --year --location '$HERO_PLACE'" \
-        --pane "uv --directory $REPO_DIR run python $REPO_DIR/scripts/capture_moment.py --at 2026-06-22T02:00 --location '$HERO_LOCATION' sunshine -- --location '$HERO_PLACE'"
+# The desktops are composed by capture_offscreen.py, which runs every pane
+# at once on one clock. The hero's radar looks over Portland, beside the
+# Westbrook weather, unless LINECAST_CAPTURE_RADAR_PLACE names a place.
+desktop() {
+    local radar=${LINECAST_CAPTURE_RADAR_PLACE:-auto}
+    [ "$radar" = auto ] && radar="Portland, Maine"
+    "$OFFSCREEN" --theme "$LINECAST_CAPTURE_THEME" --radar "$radar" --out "$SHOT_DIR" "$@"
 }
+
+hero() { desktop hero; }
+languages() { desktop languages; }
+themes() { require ffmpeg; desktop themes; }
 
 tours() {
     # Recordings driven by the mouse, each scripted in scripts/tours.
@@ -512,7 +525,8 @@ tours() {
 
 run_target() {
     case "$1" in
-        weather|sunshine|year|moon|sky|tides|radar|maps|globe|gallery|tours|hero) "$1" ;;
+        weather|sunshine|year|moon|sky|tides|radar|maps|globe|gallery|tours|hero|languages|themes)
+            "$1" ;;
         all)
             weather
             sunshine

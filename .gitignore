@@ -8,3 +8,6 @@ build/
 .claude/worktrees/
 .DS_Store
 .obsidian/
+# The recordings' 2x videos, for editing and for uploading to GitHub; the
+# README shows the GIFs.
+screenshots/*.mp4
