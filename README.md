@@ -122,7 +122,7 @@ Press `t` to hide the text and show only the Moon. You can drag the Moon to turn
 
 ### Sky
 
-The sky over you, now or at any hour. Drag to look around, `/` to find a star or planet, `t` to choose among 22 [sky cultures](docs/cultures.md).
+The sky over you, now or at any hour: the 8,404 stars the naked eye can see, and nearly 117,000 as you zoom in. Drag to look around, `/` to find a star or planet, `t` to choose among 22 [sky cultures](docs/cultures.md).
 
 ![Orion on a January evening over Westbrook, Maine, with Jupiter in Gemini](screenshots/sky.png)
 
@@ -133,7 +133,7 @@ The whole August sky, and a January evening drawn the Hawaiian way:
   <img src="screenshots/sky-hawaiian.png" width="49%" alt="the same January sky in the Hawaiian tradition, with the star compass along the horizon">
 </p>
 
-Press `-` a few times and the view lies back until the horizon closes into a circle overhead, with the whole sky inside it. Press `p` to play time forward. This is an August afternoon and night over Westbrook, Maine, at an hour a second:
+Press `-` a few times and the view lies back until the horizon closes into a circle overhead, with the whole sky inside it, the way the almanacs print it. Press `p` to play time forward. This is an August afternoon and night over Westbrook, Maine, at an hour a second:
 
 ![the whole sky from an August afternoon into the night: the Sun and a half Moon crossing, the sunset turning the sky pink, the stars and the Milky Way coming out, and the sky turning](screenshots/sky-time.gif)
 
@@ -145,7 +145,7 @@ National tide services in the US, Canada, Queensland, and Hong Kong, and a globa
 
 ### Radar
 
-The last hour and the next, with US warnings on top. `S` switches to satellite, `t` changes the colors.
+The last hour and the next, with US warnings on top. `S` switches to satellite, `t` changes the colors. Real radar comes from wherever it is published openly: North America, Europe, and parts of East and Southeast Asia. Everywhere else a precipitation model fills in, and it looks like one.
 
 ![animated radar forecast](screenshots/radar.gif)
 
@@ -158,7 +158,7 @@ Streets or terrain; press `v` to switch, `/` to search, `D` for directions. Zoom
   <img src="screenshots/maps-terrain.png" width="49%" alt="terrain map of New Zealand, with the seafloor around it">
 </p>
 
-The labels change with the zoom:
+The map decides what to say at every zoom. At block level it names the shops; at city scale, the cove and the bridge; at the state, only the highways and the towns:
 
 <p>
   <img src="screenshots/maps-zoom-blocks.png" width="32%" alt="Portland, Maine, at block level">
