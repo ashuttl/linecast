@@ -436,18 +436,23 @@ class TestFlags:
             env={**os.environ, "PYTHONPATH": str(root / "src")},
         )
 
-    def test_grid_has_no_json_output(self):
-        done = self._run("--grid", "--json")
+    def test_month_has_no_json_output(self):
+        done = self._run("--month", "--json")
         assert done.returncode == 2
-        assert "--grid has no --json output" in done.stderr
+        assert "--month has no --json output" in done.stderr
 
-    def test_grid_has_no_oneline_output(self):
-        done = self._run("--grid", "--oneline")
+    def test_month_has_no_oneline_output(self):
+        done = self._run("--month", "--oneline")
         assert done.returncode == 2
-        assert "--grid has no --oneline output" in done.stderr
+        assert "--month has no --oneline output" in done.stderr
 
-    def test_grid_parses_with_a_calendar(self):
+    def test_month_parses_with_a_calendar(self):
         from linecast._runtime import moon_parser
-        args = moon_parser().parse_args(["--grid", "--calendar", "hebrew"])
-        assert args.grid and args.calendar == "hebrew"
-        assert not moon_parser().parse_args([]).grid
+        args = moon_parser().parse_args(["--month", "--calendar", "hebrew"])
+        assert args.month and args.calendar == "hebrew"
+        assert not moon_parser().parse_args([]).month
+
+    def test_grid_is_still_taken_for_month(self):
+        from linecast._runtime import moon_parser
+        assert moon_parser().parse_args(["--grid"]).month
+        assert "--grid" not in moon_parser().format_help()

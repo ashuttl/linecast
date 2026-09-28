@@ -478,6 +478,8 @@ class CompletionTracksParserTests(unittest.TestCase):
     def test_hidden_options_are_not_completed(self):
         script = render_completion("bash")
         self.assertNotIn("--legacy-colors", _bash_zsh_flags(script, "weather"))
+        self.assertNotIn("--grid", _bash_zsh_flags(script, "moon"))
+        self.assertIn("--month", _bash_zsh_flags(script, "moon"))
 
     def test_every_parser_option_is_completed(self):
         extract = {

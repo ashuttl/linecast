@@ -435,7 +435,7 @@ gallery() {
         -o "$GALLERY_DIR/moon-grid.png" \
         uv --directory "$REPO_DIR" run python \
         "$REPO_DIR/scripts/capture_moment.py" \
-        --at 2026-09-13T21:30 --location "$ASTRO_LOCATION" moon -- --grid
+        --at 2026-09-13T21:30 --location "$ASTRO_LOCATION" moon -- --month
 
     printf 'Capturing the Alps in terrain…\n'
     "$CAPTURE_TOOL" -s 120x38 -w 15 --font "$CAPTURE_FONT" \

@@ -576,9 +576,12 @@ def moon_parser():
     p = _base_parser("linecast moon", BLURB["moon"], clock=True, json=True)
     p.add_argument("--location", metavar="PLACE", default=None,
                     help="location as 'lat,lng' or place name")
-    p.add_argument("--grid", action="store_true",
+    p.add_argument("--month", action="store_true",
                     help="open on the month view: a calendar of the "
                          "month's phases (v flips between the views)")
+    # the old name, still taken, not offered
+    p.add_argument("--grid", dest="month", action="store_true",
+                    help=argparse.SUPPRESS)
     from linecast._config import CALENDAR_CHOICES as calendars
     p.add_argument("--calendar", metavar="NAME", choices=calendars, default=None,
                     help=f"{', '.join(calendars[:-1])}, or {calendars[-1]}\n"
