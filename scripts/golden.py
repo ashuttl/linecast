@@ -788,6 +788,44 @@ def _(ctx):
 
 
 # ---------------------------------------------------------------------------
+# The command line: help, the settings, the completions
+# ---------------------------------------------------------------------------
+SETTINGS = ("location", "language", "units", "clock", "week", "dates", "digits",
+            "icons", "calendar", "culture", "hours")
+
+
+@scene("cli", langs=("en",), themes=("stock",))
+def _(ctx):
+    """What `linecast` prints, run as a user runs it: every --help, each
+    setting's report of itself, and the four shells' completions."""
+    import contextlib
+    import io
+
+    from linecast import __main__ as cli
+    ctx.runtime()
+    runs = [["--help"], ["--version"], ["completion", "--help"], ["link", "--help"],
+            ["doctor", "--help"]]
+    runs += [[view, "--help"] for view in ("weather", "sunshine", "moon", "sky",
+                                            "tides", "radar", "maps")]
+    runs += [[name, *extra] for name in SETTINGS for extra in (["--help"], [])]
+    runs += [["completion", shell] for shell in ("bash", "zsh", "fish", "nu")]
+    out = []
+    for argv in runs:
+        buf = io.StringIO()
+        saved = sys.argv
+        sys.argv = ["linecast", *argv]
+        try:
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+                cli.main()
+        except SystemExit as exit_:
+            buf.write(f"[exit {exit_.code}]\n")
+        finally:
+            sys.argv = saved
+        out.append(f"$ linecast {' '.join(argv)}\n{buf.getvalue()}")
+    return "\n".join(out)
+
+
+# ---------------------------------------------------------------------------
 # Running them
 # ---------------------------------------------------------------------------
 def _set_theme(theme):
