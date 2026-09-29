@@ -280,26 +280,28 @@ def _alert_expiry(alert):
     return dt.astimezone(timezone.utc)
 
 
+def _expired(alert, now):
+    """Whether an alert has lapsed by `now` (UTC)."""
+    expiry = _alert_expiry(alert)
+    return expiry is not None and expiry < now
+
+
 def _drop_expired(alerts, now=None):
     """The alerts still in force at `now` (UTC), or that carry no expiry."""
     if now is None:
         now = datetime.now(timezone.utc)
-    kept = []
-    for alert in alerts:
-        expiry = _alert_expiry(alert)
-        if expiry is None or expiry >= now:
-            kept.append(alert)
-    return kept
+    return [alert for alert in alerts if not _expired(alert, now)]
+
+
+def _by_severity(alerts):
+    """The gravest first. The sort is stable, so a provider's own order
+    holds within a severity; an unknown severity sorts last."""
+    return sorted(alerts, key=lambda a: _SEVERITY_RANK.get(a.get("severity"), 9))
 
 
 def _trim_alerts(alerts):
-    """The gravest alerts first, at most MAX_ALERTS of them.
-
-    The sort is stable, so a provider's own order holds within a
-    severity; an unknown severity sorts last.
-    """
-    ranked = sorted(alerts, key=lambda a: _SEVERITY_RANK.get(a.get("severity"), 9))
-    return [_plain_alert(alert) for alert in ranked[:MAX_ALERTS]]
+    """The gravest alerts first, at most MAX_ALERTS of them."""
+    return [_plain_alert(alert) for alert in _by_severity(alerts)[:MAX_ALERTS]]
 
 
 def _plain_alert(alert):
@@ -1330,20 +1332,16 @@ def _parse_jma(data, office_code, area, lang):
     active_codes = set()
     for row in rows:
         for w in row.get("warnings") or []:
-            if w.get("status", "") in _JMA_ACTIVE:
-                active_codes.add(w.get("code", ""))
+            if w.get("status", "") in _JMA_ACTIVE and w.get("code") in _JMA_WARNING_NAMES:
+                active_codes.add(w["code"])
 
-    severity_order = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
     alerts = []
     seen = set()
     # The codes are a set; within a severity, JMA's own numbering orders
     # them, so the same warnings come out the same way every run.
-    for code in sorted(active_codes, key=lambda c: (severity_order.get(
-            _JMA_WARNING_NAMES.get(c, ("", "", "Minor"))[2], 3), c)):
-        info = _JMA_WARNING_NAMES.get(code)
-        if not info:
-            continue
-        en_name, ja_name, severity = info
+    for code in sorted(active_codes,
+                       key=lambda c: (_SEVERITY_RANK[_JMA_WARNING_NAMES[c][2]], c)):
+        en_name, ja_name, severity = _JMA_WARNING_NAMES[code]
         event = ja_name if use_ja else en_name
         dedup_key = (event, severity)
         if dedup_key in seen:
@@ -1421,9 +1419,6 @@ def _parse_hko_warnsum(data, lang="en"):
             "severity": severity,
             "url": f"https://www.hko.gov.hk/{site}/detail.htm",
         })
-
-    severity_order = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
-    alerts.sort(key=lambda a: severity_order.get(a["severity"], 3))
     return alerts
 
 
@@ -1626,9 +1621,6 @@ def _parse_cma_data(data, provinces, lang="en"):
             "severity": severity,
             "url": url,
         })
-
-    severity_order = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
-    alerts.sort(key=lambda a: severity_order.get(a["severity"], 3))
     return alerts
 
 
@@ -1721,17 +1713,16 @@ def _fetch_alerts_sachet(lat, lng, lang="en"):
                  or _sachet_alert_from_feed(entry))
         if alert is None:
             continue
-        expires = _parse_iso_aware(alert["expires"])
-        if expires is not None and expires < now:
-            continue  # the cached feed can outlive an alert by up to 15min
+        # The cached feed can outlive an alert by up to 15min. fetch_alerts
+        # drops a lapsed alert too, but here it comes before the dedup,
+        # where it could stand in for the live one issued in its place.
+        if _expired(alert, now):
+            continue
         dedup_key = (alert["event"], alert["severity"], alert["headline"])
         if dedup_key in seen:
             continue
         seen.add(dedup_key)
         alerts.append(alert)
-
-    severity_order = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
-    alerts.sort(key=lambda a: severity_order.get(a["severity"], 3))
 
     _sweep_sachet_cap_files(feed)
     return alerts
@@ -1964,17 +1955,14 @@ def _fetch_alerts_metservice(lat, lng):
         alert = _metservice_alert_from_cap(identifier, lat, lng)
         if alert is None:
             continue
-        expires = _parse_iso_aware(alert["expires"])
-        if expires is not None and expires < now:
-            continue  # the cached feed can outlive an alert by up to 15min
+        # before the dedup, as SACHET's are
+        if _expired(alert, now):
+            continue
         dedup_key = (alert["event"], alert["severity"], alert["headline"])
         if dedup_key in seen:
             continue
         seen.add(dedup_key)
         alerts.append(alert)
-
-    severity_order = {"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
-    alerts.sort(key=lambda a: severity_order.get(a["severity"], 3))
 
     _sweep_metservice_cap_files(identifiers)
     return alerts

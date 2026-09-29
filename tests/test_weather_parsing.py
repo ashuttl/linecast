@@ -457,6 +457,15 @@ class TestJMAAlerts:
         assert alerts[0]["headline"] == self.data["headlineText"]
         assert alerts[0]["description"] == self.data["headlineText"]
 
+    def test_a_code_the_table_does_not_know_is_passed_over(self):
+        from linecast.weather.sources import _fetch_alerts_jma
+        data = {"headlineText": "", "reportDatetime": "", "areaTypes": [{"areas": [
+            {"code": "130010", "warnings": [{"code": c, "status": "発表"}
+                                            for c in ("21", None, "99", "24")]}]}]}
+        with answering(data):
+            alerts = _fetch_alerts_jma(35.68, 139.76, lang="en")
+        assert [a["event"] for a in alerts] == ["Dry Air Watch", "Frost Watch"]
+
     def test_warnings_of_one_severity_keep_a_steady_order(self):
         # The active codes are gathered in a set, whose order follows the
         # process's hash seed; sorted by severity alone, a run and the
@@ -969,7 +978,7 @@ class TestHKOAlerts:
     def setup_method(self):
         self.data = _load("hko_warnsum.json")
 
-    def test_parse_orders_by_severity_and_drops_cancelled(self):
+    def test_parse_names_the_warnings_and_drops_cancelled(self):
         from linecast.weather.sources import _parse_hko_warnsum
         alerts = _parse_hko_warnsum(self.data)
         assert [a["event"] for a in alerts] == [
@@ -1633,7 +1642,11 @@ class TestSachetAlerts:
         assert len(alerts) == 3
 
     def test_most_severe_first(self):
-        alerts = self._alerts(28.61, 77.21)
+        # fetch_alerts orders every provider's alerts, gravest first
+        from linecast.weather.sources import fetch_alerts
+        with answering(self.feed), \
+             patch("linecast._http.fetch_bytes_cached", side_effect=_sachet_cap_from_fixtures):
+            alerts = fetch_alerts(28.61, 77.21, "IN")
         assert alerts[0]["severity"] == "Extreme"
         severities = [a["severity"] for a in alerts]
         assert severities == sorted(
