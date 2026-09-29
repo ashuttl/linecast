@@ -17,7 +17,7 @@ def sky_oneline(now_local, lat, lng, runtime, culture=None):
     """
     from datetime import timezone
     from linecast.sky.scene import Scene, compass_point, easily_seen
-    from linecast.sky.view import TEXT_RGB, DIM_RGB
+    from linecast.sky.palette import TEXT_RGB, DIM_RGB
     from linecast._i18n import lang_of
     from linecast.sky.catalogue import resolve_culture
     from linecast.sky.i18n import _sk, body_name
