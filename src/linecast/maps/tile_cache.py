@@ -101,11 +101,17 @@ def _current_vector_version():
     tilejson cache, say. Every version on disk is then one we might still
     be drawing from, so the stale pass stands down rather than deleting
     the lot and leaving the user with a blank map and no way to refill it.
+
+    "" too while the fallback source stands in: OpenFreeMap not answering
+    at startup is usually a blip, and its tiles are the ones the next
+    session draws from again.
     """
     try:
-        from linecast.maps.vtiles import tile_info
-        info = tile_info()
-        return info[1] if info else ""
+        from linecast.maps import vtiles
+        info = vtiles.tile_info()
+        if not info or vtiles.fallback_serving():
+            return ""
+        return info[1]
     except Exception:
         return ""
 

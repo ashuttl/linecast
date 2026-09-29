@@ -62,6 +62,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Maps: Names set in capitals follow Greek and Turkish spelling: Greek capitals drop their accents, "ΑΘΗΝΑ" rather than "ΑΘΉΝΑ", and in Turkish i becomes İ, "İZMİR" rather than "İZMIR".
 - Maps: Fixed `--print` with `--from` and `--to` drawing your location's marker in the middle of the route and naming the map after your location. The marker stays where you are, and the header names the place the map is centred on, as the live view does.
 - Maps: Fixed directions whose ends lie either side of the 180th meridian, as on Taveuni in Fiji, opening on the whole planet centred on Africa. On a street map that crosses the meridian, the route, your marker and the destination on its far side are drawn where they are.
+- Maps: Fixed the saved street tiles being deleted when OpenFreeMap did not answer as the map opened and OSM US stood in for it, so that the next map downloaded them all again.
 
 ## 2.9.2 — 2026-09-27
 

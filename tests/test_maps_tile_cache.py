@@ -59,6 +59,32 @@ class TestStaleVectorVersions:
         assert a.exists() and b.exists()
 
 
+    def test_stands_down_while_the_fallback_stands_in(self, cache,
+                                                     monkeypatch):
+        # OpenFreeMap not answering at startup is a blip, not a new
+        # planet: the tiles it served are the ones to draw from again
+        from linecast.maps import vtiles
+        monkeypatch.setattr(vtiles, "tile_info", lambda: (
+            "https://tiles.openstreetmap.us/{z}/{x}/{y}.mvt",
+            "tiles.openstreetmap.us_20260928", 14))
+        monkeypatch.setattr(vtiles, "_active_url",
+                            vtiles.FALLBACK_TILEJSON_URL)
+        ofm = write(cache / "vt" / "20260913_164504_pt" / "8_128_85.pbf",
+                    4 * MB)
+
+        assert prune_maps_cache() == 0
+        assert ofm.exists()
+
+    def test_the_first_choice_names_the_live_version(self, monkeypatch):
+        from linecast.maps import vtiles
+        monkeypatch.setattr(vtiles, "tile_info", lambda: (
+            "https://tiles.openfreemap.org/planet/20260913_164504_pt/"
+            "{z}/{x}/{y}.pbf", "20260913_164504_pt", 14))
+        monkeypatch.setattr(vtiles, "_active_url",
+                            vtiles.DEFAULT_TILEJSON_URL)
+        assert (_maps_tile_cache._current_vector_version()
+                == "20260913_164504_pt")
+
 class TestSizeCap:
     def test_leaves_a_cache_under_the_cap_alone(self, cache, monkeypatch):
         version_is(monkeypatch, "")

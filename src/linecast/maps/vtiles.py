@@ -79,6 +79,11 @@ def _sources() -> list[tuple[str, str]]:
             (FALLBACK_TILEJSON_URL, "tilejson_fallback.json")]
 
 
+def fallback_serving() -> bool:
+    """Whether OSM US is standing in for OpenFreeMap just now."""
+    return _active_url == FALLBACK_TILEJSON_URL
+
+
 def source_credit() -> str | None:
     """Who the attribution line names for the tiles now being served."""
     return _CREDITS.get(_active_url or tilejson_url())
@@ -406,7 +411,7 @@ def prefetch_tiles(keys: Iterable[tuple[int, int, int]]) -> None:
     nothing. Nothing is asked for at all while the fallback is serving.
     """
     global _prefetch_gen
-    if _active_url == FALLBACK_TILEJSON_URL:
+    if fallback_serving():
         return  # OSM US rate-limits anonymous use; don't spend it on guesses
     pool = _pool("prefetch", 2)
     if pool is None:
