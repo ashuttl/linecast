@@ -169,6 +169,19 @@ class TestCountdownAndCompass:
         row = lines[_info_row(lines, "Moonset")]
         assert re.search(r"Moonset +↓07:49 Fri +in 17h 19m", row), row
 
+    def test_the_last_hour_before_a_full_moon_counts_minutes(self):
+        # A tenth of a day is too coarse by then: "in 0.0d" said nothing
+        from linecast.astro.ephemeris import next_moon_phase_utc
+        from linecast.moon.view import render
+        from linecast._runtime import RuntimeConfig
+        full = next_moon_phase_utc(NOW.astimezone(timezone.utc), 0.5)
+        now = (full - timedelta(minutes=70)).astimezone(NOW.tzinfo)
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
+        with patch("linecast.moon.view.get_terminal_size", return_value=(140, 40)):
+            lines = _strip_ansi(render(now, 43.7, -79.4, runtime, fullscreen=True)).split("\n")
+        rows = [line for line in lines if re.search(r"Moon +\w+ \d+ +in ", line)]
+        assert any(re.search(r"Full .*Moon +\w+ \d+ +in 1h \d\dm", row) for row in rows), rows
+
     def test_compass_point_appears_when_the_moon_is_up(self):
         # 2026-03-06 02:00 local: the Moon is up and near culmination.
         from linecast.moon.view import render

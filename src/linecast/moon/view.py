@@ -695,10 +695,15 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
 
     def instant_row(label, dt):
         """An instant further off: the date, and the wait in days to a
-        tenth, which says roughly when in the day."""
-        days = (dt - now_local).total_seconds() / 86400.0
-        return _Row(dt, label, _fmt_month_day(dt, runtime), in_days(days),
-                    ink_for(dt))
+        tenth, which says roughly when in the day.  Within the day the
+        wait is to the minute, as the day's rows give it: the last hour
+        before a full moon is not "in 0.0d"."""
+        wait = dt - now_local
+        if wait < timedelta(days=1):
+            wait_txt = _ms('in_time', runtime, dur=_fmt_countdown(wait, lang))
+        else:
+            wait_txt = in_days(wait.total_seconds() / 86400.0)
+        return _Row(dt, label, _fmt_month_day(dt, runtime), wait_txt, ink_for(dt))
 
     def day_row(label, day, wait=None):
         """Something kept on a day — a festival, a month's first day:
