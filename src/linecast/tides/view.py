@@ -52,15 +52,15 @@ from linecast.tides.providers import (
     CHS, HKO, NOAA, OPENMETEO, PROVIDERS, QLD, TIDECHECK, provider_for_id,
 )
 from linecast.tides.render import (
-    build_now_tooltip as _build_now_tooltip,
-    build_tide_hover_tooltip as _build_tide_hover_tooltip,
-    compute_daylight_window as _compute_daylight_window,
-    compute_moon_labels as _compute_moon_labels,
-    compute_time_markers as _compute_time_markers,
-    interp_height as _interp_height,
-    prepare_tide_window as _prepare_tide_window,
-    render_day_label_line as _render_day_label_line,
-    render_tide_ticks as _render_tide_ticks,
+    build_now_tooltip,
+    build_tide_hover_tooltip,
+    compute_daylight_window,
+    compute_moon_labels,
+    compute_time_markers,
+    interp_height,
+    prepare_tide_window,
+    render_day_label_line,
+    render_tide_ticks,
 )
 from linecast.moon.phase import moon_phase
 
@@ -748,7 +748,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
             offset_minutes=offset_minutes,
             hours_shown=LIVE_WINDOW_HOURS,
         )
-        window = _prepare_tide_window(
+        window = prepare_tide_window(
             predictions, hilo or [], start_dt, hours_shown=LIVE_WINDOW_HOURS,
         )
     else:
@@ -762,7 +762,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         day_start = datetime(date.year, date.month, date.day)
         if station_tz is not None:
             day_start = day_start.replace(tzinfo=station_tz)
-        window = _prepare_tide_window(preds_dt, hilo_dt, day_start, hours_shown=LIVE_WINDOW_HOURS)
+        window = prepare_tide_window(preds_dt, hilo_dt, day_start, hours_shown=LIVE_WINDOW_HOURS)
 
     w_start = window["start"]
     w_total = window["total_hours"]
@@ -780,7 +780,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     for x in range(graph_w):
         frac = (x + 0.5) / graph_w
         dt = w_start + timedelta(hours=frac * w_total)
-        col_heights.append(_interp_height(dt, w_preds))
+        col_heights.append(interp_height(dt, w_preds))
 
     # --- now position ---
     now_offset = (now_local - w_start).total_seconds()
@@ -790,8 +790,8 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         now_col = None
 
     # --- day divisions ---
-    midnight_cols, midnight_day_names = _compute_time_markers(w_start, w_total, graph_w, runtime)
-    moon_labels = _compute_moon_labels(w_start, w_total, graph_w, station_meta, runtime)
+    midnight_cols, midnight_day_names = compute_time_markers(w_start, w_total, graph_w, runtime)
+    moon_labels = compute_moon_labels(w_start, w_total, graph_w, station_meta, runtime)
 
     # --- hover ---
     hover_graph_col = None
@@ -821,12 +821,12 @@ def render(station_id, station_name, station_meta=None, runtime=None,
         overlays.setdefault(row, []).extend(entries)
 
     # --- daylight dimming ---
-    col_daylight = _compute_daylight_window(graph_w, w_start, w_total, station_meta)
+    col_daylight = compute_daylight_window(graph_w, w_start, w_total, station_meta)
 
     # --- now info for header ---
     now_info = None
     if now_col is not None:
-        now_height = _interp_height(now_local, w_preds)
+        now_height = interp_height(now_local, w_preds)
         h_display = runtime.convert_height(now_height)
         time_str = fmt_time_dt(now_local, use_24h=runtime.use_24h)
         now_info = (time_str, fmt_decimal(h_display, 1, runtime), runtime.height_unit)
@@ -841,7 +841,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     ))
 
     # Day labels on their own row
-    lines.append(_render_day_label_line(midnight_day_names, graph_w, moon_labels=moon_labels))
+    lines.append(render_day_label_line(midnight_day_names, graph_w, moon_labels=moon_labels))
 
     # Braille chart
     lines.extend(_render_tide_braille_rows(
@@ -850,7 +850,7 @@ def render(station_id, station_name, station_meta=None, runtime=None,
     ))
 
     # Tick labels
-    lines.append(_render_tide_ticks(
+    lines.append(render_tide_ticks(
         w_start, w_total, graph_w, runtime,
         now_col=now_col, hover_col=hover_graph_col,
     ))
@@ -894,14 +894,14 @@ def render(station_id, station_name, station_meta=None, runtime=None,
 
         # Hover tooltip (takes priority over now tooltip)
         if mouse_pos and hover_graph_col is not None:
-            tooltip = _build_tide_hover_tooltip(
+            tooltip = build_tide_hover_tooltip(
                 window, hover_graph_col, mouse_pos[1],
                 chart_start, chart_end, cols, rows, graph_w, runtime,
             )
             if tooltip:
                 overlay_parts.append(tooltip)
         elif now_col is not None and now_info is not None:
-            now_tip = _build_now_tooltip(now_col, now_info, chart_start, cols)
+            now_tip = build_now_tooltip(now_col, now_info, chart_start, cols)
             if now_tip:
                 overlay_parts.append(now_tip)
 

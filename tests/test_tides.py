@@ -34,7 +34,7 @@ class RenderTests(unittest.TestCase):
 
         with patch.object(tides, "_station_now", return_value=now_local), \
              patch.object(tides, "get_terminal_size", return_value=(80, 24)), \
-             patch.object(tides, "_prepare_tide_window", side_effect=fake_prepare_tide_window), \
+             patch.object(tides, "prepare_tide_window", side_effect=fake_prepare_tide_window), \
              self.assertRaises(_StopRender):
             tides.render(
                 "123",
