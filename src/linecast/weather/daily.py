@@ -1,6 +1,7 @@
 """Daily weather row rendering."""
 
 from datetime import datetime
+from typing import NamedTuple
 
 from linecast.terminal import theme as _theme
 from linecast._i18n import fmt_decimal, fmt_percent, setting, table_for
@@ -65,12 +66,8 @@ def render_daily_mapped(data, width, runtime=None, now=None):
     times = daily.get("time", [])
     hi_temps = daily.get("temperature_2m_max", [])
     lo_temps = daily.get("temperature_2m_min", [])
-    precip_sum = daily.get("precipitation_sum", [])
-    snowfall = daily.get("snowfall_sum") or []
-    precip_prob = daily.get("precipitation_probability_max", [])
     wmo_codes = daily.get("weather_code", [])
     cover_means = daily.get("cloud_cover_mean") or []
-    wind_max = daily.get("wind_speed_10m_max", [])
 
     lines = []
     spans = []
@@ -107,9 +104,6 @@ def render_daily_mapped(data, width, runtime=None, now=None):
     # and a row wider than the window wraps and shifts the whole dashboard.
     if width < left_prefix_w + MIN_BAR_W:
         return lines, spans
-    # Compute per-day detail fields in full and compact (no type/wind label) forms.
-    # At narrow widths, drop "Snow"/"Rain" prefix and "Wind" label — the
-    # colored amount + unit are enough context.
     # The condition in words beside its icon, named as the icon draws it.
     # The words go first as the window narrows: the icon says the same.
     conditions = [sky_condition(_at(wmo_codes, i) or 0, _at(cover_means, i))
@@ -120,105 +114,13 @@ def render_daily_mapped(data, width, runtime=None, now=None):
                     if len(times[i]) >= 10 else ""
                     for i in range(1, display_end)]
     date_w = max(visible_len(d) for d in dates)
-    day_raw = []  # (precip_amt, prob_s, wind_amt, ptype, wmo_i) per day
-    for i in range(1, display_end):
-        # a null is a day the model has no figure for: nothing to show
-        precip_i = _at(precip_sum, i) or 0
-        prob_i = _at(precip_prob, i) or 0
-        wind_i = _at(wind_max, i) or 0
-        wmo_i = _at(wmo_codes, i) or 0
-        precip_amt = ""
-        ptype = ""
-        # 0.04" is 1 mm, so the same rain earns a row in either unit.  A
-        # tenth of an inch is 2.5 mm, too coarse to name amounts that
-        # small honestly, so inches take a second decimal under one.
-        snow_i = _at(snowfall, i) or 0
-        if precip_i >= (1 if runtime.metric else 0.04):
-            ptype = _s(_precip_type(wmo_i), runtime)
-            if _precip_type(wmo_i) == "Snow" and mostly_snow(snow_i, precip_i, runtime):
-                # A snowy day's amount is the snow, as it lies, not the
-                # water it melts to: "Snow 3.5″", not "Snow 0.50″"
-                precip_amt = fmt_snow_amount(snow_i, runtime)
-            elif runtime.metric:
-                sep = _s("metric_unit_sep", runtime)
-                precip_amt = f"{precip_i:.0f}{sep}{precip_unit_label(runtime)}"
-            else:
-                unit = _s('precip_inch', runtime)
-                precip_amt = fmt_decimal(precip_i, 1 if precip_i >= 1 else 2, runtime) + unit
-        prob_s = fmt_percent(prob_i, runtime) if prob_i > 25 else ""
-        wind_amt = (
-            fmt_wind(wind_i, runtime)
-            if runtime.wind_kmh(wind_i) > 25
-            else ""
-        )
-        day_raw.append((precip_amt, prob_s, wind_amt, ptype, wmo_i))
+    day_raw = [_day_details(daily, i, runtime) for i in range(1, display_end)]
 
-    # Rain and wind share a column when no day shows both: the amount then
-    # sits where the wind would, and the row has one fewer column to fit.
-    shared = not any(p and w for p, _prob, w, _t, _c in day_raw)
-
-    def _measure_details(compact, dropped=()):
-        details = []
-        mp, mpr, mw = 0, 0, 0
-        for precip_amt, prob_s, wind_amt, ptype, _wmo_i in day_raw:
-            if "precip" in dropped:
-                precip_amt = ""
-            if "prob" in dropped:
-                prob_s = ""
-            if "wind" in dropped:
-                wind_amt = ""
-            if compact:
-                precip_s = precip_amt
-                wind_s = wind_amt
-            else:
-                precip_s = f"{ptype} {precip_amt}" if precip_amt else ""
-                wind_s = f"{_s('wind', runtime)} {wind_amt}" if wind_amt else ""
-            details.append((precip_s, prob_s, wind_s))
-            if precip_s:
-                mp = max(mp, visible_len(precip_s))
-            if prob_s:
-                mpr = max(mpr, visible_len(prob_s))
-            if wind_s:
-                mw = max(mw, visible_len(wind_s))
-        if shared:
-            mp = mw = max(mp, mw)
-        right_w = 0
-        if mpr:
-            right_w += 2 + mpr
-        if mp:
-            right_w += 2 + mp
-        if mw and not shared:
-            right_w += 2 + mw
-        return details, mp, mpr, mw, right_w
-
-    # What the bar can spare over FULL_LABEL_BAR_W goes to words, and as
-    # the window narrows they give way in turn: first "Rain" and "Wind",
-    # whose colored amounts and units carry the meaning on their own,
-    # then the condition, whose icon says the same, then the date.
-    for compact, with_label, with_date in ((False, True, True), (True, True, True),
-                                           (True, False, True), (True, False, False)):
-        day_details, max_precip_w, max_prob_w, max_wind_w, max_right_w = (
-            _measure_details(compact))
-        extra = (label_w + 2) * with_label + (date_w + 1) * with_date
-        if width - left_prefix_w - extra - max_right_w >= FULL_LABEL_BAR_W:
-            break
-    label_w *= with_label
-    date_w *= with_date
+    columns, label_w, date_w, left_prefix_w = _fit_columns(
+        day_raw, width, left_prefix_w, label_w, date_w, runtime)
     if date_w:
         day_col_w += date_w + 1
-    left_prefix_w += (label_w + 2 if label_w else 0) + (date_w + 1 if date_w else 0)
-
-    # Narrower still: the bar will not shrink past its floor, so the detail
-    # columns go one at a time -- wind, then the odds, then the amount --
-    # rather than have the row run off the edge and wrap onto the next.
-    dropped = []
-    for field in ("wind", "prob", "precip"):
-        if left_prefix_w + MIN_BAR_W + max_right_w <= width:
-            break
-        dropped.append(field)
-        (day_details, max_precip_w, max_prob_w, max_wind_w,
-         max_right_w) = _measure_details(True, dropped)
-    bar_w = max(MIN_BAR_W, width - left_prefix_w - max_right_w)
+    bar_w = max(MIN_BAR_W, width - left_prefix_w - columns.right_w)
 
     # Ensure outside labels always fit
     max_lo_label = max(len(f"{round(lo)}°") for lo in all_lo)
@@ -263,82 +165,15 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         # stand out.  Calm is a day with nothing for the columns to the
         # right: no odds, no amount, no wind, even where they have been
         # dropped for width.
-        if not any(day_raw[i - 1][:3]):
+        raw = day_raw[i - 1]
+        if not (raw.amount or raw.odds or raw.wind):
             icon = f"{MUTED}{icon}{TEXT}"
         hi = _at(hi_temps, i)
         lo = _at(lo_temps, i)
         if hi is None or lo is None:
             continue
 
-        # Temperature range bar with integrated labels
-        # The scale was padded so the week's lowest low sits exactly its
-        # label's width in; float error can land it at 2.9999…, and a
-        # plain int() would then push the label off the left edge.
-        lo_pos = int(round((lo - scale_min) / scale_range * (bar_w - 1), 9))
-        hi_pos = int(round((hi - scale_min) / scale_range * (bar_w - 1), 9))
-        hi_pos = max(hi_pos, lo_pos + 1)  # at least 1 char wide
-
-        lo_label = f"{round(lo)}°"
-        hi_label = f"{round(hi)}°"
-        lo_len = len(lo_label)
-        hi_len = len(hi_label)
-        filled_w = hi_pos - lo_pos + 1
-
-        # Decide label placement: inside (knocked out) or outside
-        both_inside = filled_w >= lo_len + hi_len + 2
-        hi_inside = not both_inside and filled_w >= hi_len + 1
-        lo_inside = both_inside
-
-        lo_r, lo_g, lo_b = _temp_color(lo, runtime)
-        hi_r, hi_g, hi_b = _temp_color(hi, runtime)
-
-        # A label knocked out of the bar reads against the fill, not the
-        # page: dark over a warm bar, white over a cold one's deep blue.
-        # The ink is picked once per label, from the fill at the label's
-        # middle cell, so a number never changes color part-way through.
-        span = max(1, hi_pos - lo_pos)
-        lo_mid = lo + (hi - lo) * (lo_len / 2) / span
-        hi_mid = lo + (hi - lo) * (filled_w - hi_len / 2) / span
-        lo_ink = fg(*_knockout_ink(_temp_color(lo_mid, runtime)))
-        hi_ink = fg(*_knockout_ink(_temp_color(hi_mid, runtime)))
-
-        cells = []
-        for bx in range(bar_w):
-            if lo_pos <= bx <= hi_pos:
-                t_frac = (bx - lo_pos) / max(1, hi_pos - lo_pos)
-                temp_at = lo + (hi - lo) * t_frac
-                r, g, b = _temp_color(temp_at, runtime)
-                rel = bx - lo_pos
-                if lo_inside and rel < lo_len:
-                    cells.append((lo_label[rel], f"{bg(r, g, b)}{lo_ink}{BOLD}"))
-                elif both_inside and rel >= filled_w - hi_len:
-                    hi_idx = rel - (filled_w - hi_len)
-                    cells.append((hi_label[hi_idx], f"{bg(r, g, b)}{hi_ink}{BOLD}"))
-                elif hi_inside and not both_inside and rel >= filled_w - hi_len:
-                    hi_idx = rel - (filled_w - hi_len)
-                    cells.append((hi_label[hi_idx], f"{bg(r, g, b)}{hi_ink}{BOLD}"))
-                else:
-                    # Background-painted cells avoid seam artifacts between block glyphs.
-                    if _USE_BG_FILL:
-                        cells.append((" ", f"{bg(r, g, b)}"))
-                    else:
-                        cells.append(("\u2588", f"{fg(r, g, b)}"))
-            else:
-                cells.append(("\u2500", f"{DIM}"))
-
-        # Overlay outside labels adjacent to filled region
-        if not lo_inside:
-            label_start = lo_pos - lo_len
-            if label_start >= 0:
-                for j, ch in enumerate(lo_label):
-                    cells[label_start + j] = (ch, f"{fg(lo_r, lo_g, lo_b)}")
-        if not (both_inside or hi_inside):
-            label_start = hi_pos + 1
-            if label_start + hi_len <= bar_w:
-                for j, ch in enumerate(hi_label):
-                    cells[label_start + j] = (ch, f"{fg(hi_r, hi_g, hi_b)}")
-
-        bar = "".join(f"{prefix}{ch}{RESET}" for ch, prefix in cells)
+        bar = _temp_bar(lo, hi, scale_min, scale_range, bar_w, runtime)
 
         # Build the line with aligned right-side columns
         line = f"{TEXT}{day_name}  {icon}  {bar}"
@@ -346,37 +181,239 @@ def render_daily_mapped(data, width, runtime=None, now=None):
         cols = {"day": (0, bar_start), "bar": (bar_start, bar_start + bar_w)}
         cursor = bar_start + bar_w
 
-        precip_s, prob_s, wind_s = day_details[i - 1]
+        precip_s, prob_s, wind_s = columns.details[i - 1]
         pcolor = _precip_color(wmo)
         # Pad by terminal columns, not code points: CJK labels are double-width.
         # The odds and the amount are one part, "rain": they answer as one.
         rain = []
-        if max_prob_w:
-            line += f"  {pcolor}{pad(prob_s, max_prob_w, '>')}"
+        if columns.prob_w:
+            line += f"  {pcolor}{pad(prob_s, columns.prob_w, '>')}"
             if prob_s:
-                rain.append((cursor + 2, cursor + 2 + max_prob_w))
-            cursor += 2 + max_prob_w
-        if max_precip_w:
-            if shared and wind_s and not precip_s:
-                line += f"  {WIND_COLOR}{pad(wind_s, max_precip_w)}"
-                cols["wind"] = (cursor + 2, cursor + 2 + max_precip_w)
+                rain.append((cursor + 2, cursor + 2 + columns.prob_w))
+            cursor += 2 + columns.prob_w
+        if columns.precip_w:
+            if columns.shared and wind_s and not precip_s:
+                line += f"  {WIND_COLOR}{pad(wind_s, columns.precip_w)}"
+                cols["wind"] = (cursor + 2, cursor + 2 + columns.precip_w)
             else:
-                line += f"  {pcolor}{pad(precip_s, max_precip_w)}"
+                line += f"  {pcolor}{pad(precip_s, columns.precip_w)}"
                 if precip_s:
-                    rain.append((cursor + 2, cursor + 2 + max_precip_w))
-            cursor += 2 + max_precip_w
+                    rain.append((cursor + 2, cursor + 2 + columns.precip_w))
+            cursor += 2 + columns.precip_w
         if rain:
             cols["rain"] = (rain[0][0], rain[-1][1])
-        if max_wind_w and not shared:
-            line += f"  {WIND_COLOR}{pad(wind_s, max_wind_w)}"
+        if columns.wind_w and not columns.shared:
+            line += f"  {WIND_COLOR}{pad(wind_s, columns.wind_w)}"
             if wind_s:
-                cols["wind"] = (cursor + 2, cursor + 2 + max_wind_w)
-            cursor += 2 + max_wind_w
+                cols["wind"] = (cursor + 2, cursor + 2 + columns.wind_w)
+            cursor += 2 + columns.wind_w
 
         lines.append(f"{line}{RESET}")
         spans.append({"index": i, "cols": cols})
 
     return lines, spans
+
+
+class _Details(NamedTuple):
+    """A day's figures for the columns right of its bar, as text; each
+    is "" when the day has none worth showing."""
+    amount: str   # the precipitation: 0.25″, or a snowy day's snow
+    odds: str     # its chance, over 25%
+    wind: str     # the day's strongest wind, over 25 km/h
+    kind: str     # what falls: the word for rain, snow, or a mix
+
+
+def _day_details(daily, i, runtime):
+    """Day `i`'s _Details, from the daily series."""
+    # a null is a day the model has no figure for: nothing to show
+    precip_i = _at(daily.get("precipitation_sum"), i) or 0
+    prob_i = _at(daily.get("precipitation_probability_max"), i) or 0
+    wind_i = _at(daily.get("wind_speed_10m_max"), i) or 0
+    wmo_i = _at(daily.get("weather_code"), i) or 0
+    precip_amt = ""
+    ptype = ""
+    # 0.04" is 1 mm, so the same rain earns a row in either unit.  A
+    # tenth of an inch is 2.5 mm, too coarse to name amounts that
+    # small honestly, so inches take a second decimal under one.
+    snow_i = _at(daily.get("snowfall_sum"), i) or 0
+    if precip_i >= (1 if runtime.metric else 0.04):
+        ptype = _s(_precip_type(wmo_i), runtime)
+        if _precip_type(wmo_i) == "Snow" and mostly_snow(snow_i, precip_i, runtime):
+            # A snowy day's amount is the snow, as it lies, not the
+            # water it melts to: "Snow 3.5″", not "Snow 0.50″"
+            precip_amt = fmt_snow_amount(snow_i, runtime)
+        elif runtime.metric:
+            sep = _s("metric_unit_sep", runtime)
+            precip_amt = f"{precip_i:.0f}{sep}{precip_unit_label(runtime)}"
+        else:
+            unit = _s('precip_inch', runtime)
+            precip_amt = fmt_decimal(precip_i, 1 if precip_i >= 1 else 2, runtime) + unit
+    prob_s = fmt_percent(prob_i, runtime) if prob_i > 25 else ""
+    wind_amt = (
+        fmt_wind(wind_i, runtime)
+        if runtime.wind_kmh(wind_i) > 25
+        else ""
+    )
+    return _Details(precip_amt, prob_s, wind_amt, ptype)
+
+
+class _Columns(NamedTuple):
+    """The detail columns right of the bars: each day's text for them,
+    and each column's width, 0 where no day has anything in it."""
+    details: list     # (amount, odds, wind) per day, as the row prints them
+    precip_w: int
+    prob_w: int
+    wind_w: int
+    right_w: int      # all of them, with the gaps before them
+    shared: bool      # rain and wind in one column
+
+
+def _measure_details(days, shared, compact, runtime, dropped=()):
+    """The _Columns for `days` (their _Details).  Full, the amount is
+    named ("Rain 0.25″") and so is the wind; `compact` leaves the words
+    off, the colored amount and its unit being context enough.  The
+    fields in `dropped` are left empty."""
+    details = []
+    mp, mpr, mw = 0, 0, 0
+    for precip_amt, prob_s, wind_amt, ptype in days:
+        if "precip" in dropped:
+            precip_amt = ""
+        if "prob" in dropped:
+            prob_s = ""
+        if "wind" in dropped:
+            wind_amt = ""
+        if compact:
+            precip_s = precip_amt
+            wind_s = wind_amt
+        else:
+            precip_s = f"{ptype} {precip_amt}" if precip_amt else ""
+            wind_s = f"{_s('wind', runtime)} {wind_amt}" if wind_amt else ""
+        details.append((precip_s, prob_s, wind_s))
+        if precip_s:
+            mp = max(mp, visible_len(precip_s))
+        if prob_s:
+            mpr = max(mpr, visible_len(prob_s))
+        if wind_s:
+            mw = max(mw, visible_len(wind_s))
+    if shared:
+        mp = mw = max(mp, mw)
+    right_w = 0
+    if mpr:
+        right_w += 2 + mpr
+    if mp:
+        right_w += 2 + mp
+    if mw and not shared:
+        right_w += 2 + mw
+    return _Columns(details, mp, mpr, mw, right_w, shared)
+
+
+def _fit_columns(days, width, prefix_w, label_w, date_w, runtime):
+    """The rows' detail columns, and the widths of the condition and the
+    date beside the icon, as they fit `width`: (columns, label_w, date_w,
+    prefix_w), a width 0 where its part was given up, and prefix_w the
+    cells left of the bar with the parts kept."""
+    # Rain and wind share a column when no day shows both: the amount then
+    # sits where the wind would, and the row has one fewer column to fit.
+    shared = not any(day.amount and day.wind for day in days)
+
+    # What the bar can spare over FULL_LABEL_BAR_W goes to words, and as
+    # the window narrows they give way in turn: first "Rain" and "Wind",
+    # whose colored amounts and units carry the meaning on their own,
+    # then the condition, whose icon says the same, then the date.
+    for compact, with_label, with_date in ((False, True, True), (True, True, True),
+                                           (True, False, True), (True, False, False)):
+        columns = _measure_details(days, shared, compact, runtime)
+        extra = (label_w + 2) * with_label + (date_w + 1) * with_date
+        if width - prefix_w - extra - columns.right_w >= FULL_LABEL_BAR_W:
+            break
+    label_w *= with_label
+    date_w *= with_date
+    prefix_w += (label_w + 2 if label_w else 0) + (date_w + 1 if date_w else 0)
+
+    # Narrower still: the bar will not shrink past its floor, so the detail
+    # columns go one at a time -- wind, then the odds, then the amount --
+    # rather than have the row run off the edge and wrap onto the next.
+    dropped = []
+    for field in ("wind", "prob", "precip"):
+        if prefix_w + MIN_BAR_W + columns.right_w <= width:
+            break
+        dropped.append(field)
+        columns = _measure_details(days, shared, True, runtime, dropped)
+    return columns, label_w, date_w, prefix_w
+
+
+def _temp_bar(lo, hi, scale_min, scale_range, bar_w, runtime):
+    """A day's range from `lo` to `hi` as a bar `bar_w` cells wide on the
+    week's scale, filled in the temperatures' colors, with the low and
+    the high knocked out of it where they fit and beside it where not."""
+    # The scale was padded so the week's lowest low sits exactly its
+    # label's width in; float error can land it at 2.9999…, and a
+    # plain int() would then push the label off the left edge.
+    lo_pos = int(round((lo - scale_min) / scale_range * (bar_w - 1), 9))
+    hi_pos = int(round((hi - scale_min) / scale_range * (bar_w - 1), 9))
+    hi_pos = max(hi_pos, lo_pos + 1)  # at least 1 char wide
+
+    lo_label = f"{round(lo)}°"
+    hi_label = f"{round(hi)}°"
+    lo_len = len(lo_label)
+    hi_len = len(hi_label)
+    filled_w = hi_pos - lo_pos + 1
+
+    # Decide label placement: inside (knocked out) or outside
+    both_inside = filled_w >= lo_len + hi_len + 2
+    hi_inside = not both_inside and filled_w >= hi_len + 1
+    lo_inside = both_inside
+
+    lo_r, lo_g, lo_b = _temp_color(lo, runtime)
+    hi_r, hi_g, hi_b = _temp_color(hi, runtime)
+
+    # A label knocked out of the bar reads against the fill, not the
+    # page: dark over a warm bar, white over a cold one's deep blue.
+    # The ink is picked once per label, from the fill at the label's
+    # middle cell, so a number never changes color part-way through.
+    span = max(1, hi_pos - lo_pos)
+    lo_mid = lo + (hi - lo) * (lo_len / 2) / span
+    hi_mid = lo + (hi - lo) * (filled_w - hi_len / 2) / span
+    lo_ink = fg(*_knockout_ink(_temp_color(lo_mid, runtime)))
+    hi_ink = fg(*_knockout_ink(_temp_color(hi_mid, runtime)))
+
+    cells = []
+    for bx in range(bar_w):
+        if lo_pos <= bx <= hi_pos:
+            t_frac = (bx - lo_pos) / max(1, hi_pos - lo_pos)
+            temp_at = lo + (hi - lo) * t_frac
+            r, g, b = _temp_color(temp_at, runtime)
+            rel = bx - lo_pos
+            if lo_inside and rel < lo_len:
+                cells.append((lo_label[rel], f"{bg(r, g, b)}{lo_ink}{BOLD}"))
+            elif both_inside and rel >= filled_w - hi_len:
+                hi_idx = rel - (filled_w - hi_len)
+                cells.append((hi_label[hi_idx], f"{bg(r, g, b)}{hi_ink}{BOLD}"))
+            elif hi_inside and not both_inside and rel >= filled_w - hi_len:
+                hi_idx = rel - (filled_w - hi_len)
+                cells.append((hi_label[hi_idx], f"{bg(r, g, b)}{hi_ink}{BOLD}"))
+            else:
+                # Background-painted cells avoid seam artifacts between block glyphs.
+                if _USE_BG_FILL:
+                    cells.append((" ", f"{bg(r, g, b)}"))
+                else:
+                    cells.append(("\u2588", f"{fg(r, g, b)}"))
+        else:
+            cells.append(("\u2500", f"{DIM}"))
+
+    # Overlay outside labels adjacent to filled region
+    if not lo_inside:
+        label_start = lo_pos - lo_len
+        if label_start >= 0:
+            for j, ch in enumerate(lo_label):
+                cells[label_start + j] = (ch, f"{fg(lo_r, lo_g, lo_b)}")
+    if not (both_inside or hi_inside):
+        label_start = hi_pos + 1
+        if label_start + hi_len <= bar_w:
+            for j, ch in enumerate(hi_label):
+                cells[label_start + j] = (ch, f"{fg(hi_r, hi_g, hi_b)}")
+
+    return "".join(f"{prefix}{ch}{RESET}" for ch, prefix in cells)
 
 
 # Open-Meteo's snowfall is seven times the snow's water: 7 cm of snow to
