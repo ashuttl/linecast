@@ -33,10 +33,10 @@ def _compass_direction(degrees, lang="en"):
     """
     if degrees is None:
         return ""
-    from linecast.radar.i18n import rs
-    points = rs("compass", lang).split()
+    from linecast.radar.i18n import compass_point, rs
     if lang in _EIGHT_POINT_LANGS:
-        return points[int((degrees + 22.5) / 45) % 8]
+        return compass_point(degrees, lang)
+    points = rs("compass", lang).split()
     idx = int((degrees + 11.25) / 22.5) % 16
     if idx % 2 == 0:
         return points[idx // 2]

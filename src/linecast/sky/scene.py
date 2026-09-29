@@ -20,6 +20,7 @@ from linecast.astro.ephemeris import (
 )
 from linecast._geo import angle_delta
 from linecast._i18n import lang_of
+from linecast.radar.i18n import compass_point as _eight_point
 from linecast.radar.i18n import rs
 from linecast.sky.planets import planet_positions
 from linecast.terminal.framebuffer import cell_aspect
@@ -156,8 +157,7 @@ def compass_point(az_deg, runtime, culture=None, quadrant=False):
         az, name, quad, _cardinal = min(star_compass(),
                                         key=lambda h: abs(angle_delta(h[0], az_deg)))
         return f"{name} {quad}" if quadrant and quad else name
-    points = rs("compass", lang_of(runtime)).split()
-    return points[round(az_deg / 45.0) % 8]
+    return _eight_point(az_deg, lang_of(runtime))
 
 
 def compass_points(runtime):

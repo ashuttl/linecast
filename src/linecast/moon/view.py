@@ -91,7 +91,7 @@ from linecast.tides.i18n import _ts  # shared "space to return to now" hint
 from linecast._runtime import RuntimeConfig, install_banner, set_current
 from linecast._parsers import moon_parser
 from linecast.terminal import theme as _theme
-from linecast.radar.i18n import rs
+from linecast.radar.i18n import compass_point, rs
 from linecast.astro.ephemeris import (
     _moon_altitude_deg, _moon_azimuth_deg, _moon_events_for_local_date,
     _moon_parallactic_deg, _moon_ra_dec, _moon_transits_for_local_date,
@@ -239,12 +239,6 @@ def solar_hijri_rows(now_local, runtime):
                      name, _fmt_month_day(day, runtime),
                      _ms('in_days', runtime, days=str(gap)), PANEL_TEXT_RGB))
     return None, rows
-
-
-def _compass_point(azimuth_deg, runtime):
-    """The eight-point compass abbreviation, in the display language."""
-    points = rs("compass", lang_of(runtime)).split()
-    return points[round(azimuth_deg / 45.0) % 8]
 
 
 def place_credit(lat, lng, place, runtime):
@@ -543,7 +537,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     age = moon_age_days(moment_utc)
     alt = _moon_altitude_deg(moment_utc, lat, lng)
     up = alt > HORIZON_THRESHOLD_DEG
-    bearing = _compass_point(_moon_azimuth_deg(moment_utc, lat, lng), runtime)
+    bearing = compass_point(_moon_azimuth_deg(moment_utc, lat, lng), lang_of(runtime))
     # Where the bright limb and the Moon's north pole fall on screen.
     # Position angles run from celestial north through east, which is
     # anticlockwise with north up; the parallactic angle then says how

@@ -40,3 +40,9 @@ def haversine_nm(lat1, lon1, lat2, lon2):
         * math.sin(dlon / 2) ** 2
     )
     return earth_radius_nm * 2 * math.asin(math.sqrt(a))
+
+
+def octant(bearing):
+    """The nearest of the eight compass points to a bearing in degrees,
+    clockwise from north, as 0 (N) to 7 (NW)."""
+    return round(bearing / 45.0) % 8

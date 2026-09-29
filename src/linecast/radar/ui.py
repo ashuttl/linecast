@@ -20,7 +20,7 @@ from linecast.weather.style import TOOLTIP_BG_RGB
 from linecast.radar.basemap import (
     Basemap, _point_in_rings, marine_region, nearest_city,
 )
-from linecast.radar.i18n import rs
+from linecast.radar.i18n import compass_point, rs
 from linecast.radar.render import _bbox_key
 from linecast.radar.sources import THEMES, is_local
 from linecast._runtime import use_metric
@@ -74,10 +74,9 @@ def panned_place(lat, lon, lang):
         dist = km if metric else km * 0.621371
         if dist < 2:
             return name
-        compass = rs("compass", lang).split()
         return rs("near", lang, dist=round(dist),
                   unit=rs("unit_km" if metric else "unit_mi", lang),
-                  dir=compass[round(bearing / 45) % 8], name=name)
+                  dir=compass_point(bearing, lang), name=name)
 
     city = nearest_city(lat, lon, lang)
     if city and city[1] < 100:  # coastal waters still read by the city

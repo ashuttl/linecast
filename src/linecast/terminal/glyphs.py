@@ -1,4 +1,17 @@
-"""The sun and moon glyphs in each icon set: nerd, emoji, and plain."""
+"""The sun and moon glyphs in each icon set: nerd, emoji, and plain, and
+the arrows that point the eight ways."""
+
+from linecast._geo import octant
+
+# One arrow for each of the eight ways, from north clockwise.
+ARROWS = "↑↗→↘↓↙←↖"
+
+
+def arrow_toward(bearing):
+    """The arrow pointing the way of *bearing*, in degrees clockwise from
+    north. A wind is named for where it comes from, so it points toward
+    its direction and a half turn."""
+    return ARROWS[octant(bearing)]
 
 
 _EMOJI_ICONS = {

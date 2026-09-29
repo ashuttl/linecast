@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 from linecast._runtime import WeatherRuntime
 from linecast.weather.hourly import render_hourly
-from linecast.weather.style import WIND_ARROWS
+from linecast.terminal.glyphs import ARROWS as WIND_ARROWS
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 _WIND_LABEL = re.compile(f"[{WIND_ARROWS}]" + r"\d+")

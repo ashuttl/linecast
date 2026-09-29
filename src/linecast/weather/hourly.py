@@ -29,13 +29,13 @@ from linecast.weather.style import (
     SUNSET_LABEL_RGB,
     TEXT,
     UV_COLOR,
-    WIND_ARROWS,
     WIND_COLOR,
     PRECIP_BAR_FULL,
     _colored_temp,
     _precip_rgb,
     _temp_color,
 )
+from linecast.terminal.glyphs import arrow_toward
 
 # The UV index from which the WHO says to protect skin: "moderate" starts
 # at 3. The chart labels a reading once it rounds to this, so what is
@@ -1085,8 +1085,7 @@ def _place_wind_labels(winds, wind_dirs, total_hours, graph_w, runtime):
 
         dir_i = max(0, min(len(wind_dirs) - 1, int(round(t)))) if wind_dirs else 0
         deg = wind_dirs[dir_i] if wind_dirs else 0
-        sector = int((deg + 22.5) / 45) % 8
-        candidates.append((x, f"{WIND_ARROWS[sector]}{speed:.0f}"))
+        candidates.append((x, f"{arrow_toward(deg + 180)}{speed:.0f}"))
     return _place_labels(candidates, graph_w)
 
 

@@ -47,7 +47,7 @@ from linecast.weather.hourly import (
 from linecast.weather.sections import _PRECIP_CODES, narrative_lines, render_header
 from linecast.weather.style import (
     ALERT_AMBER, CLOUD_RGB, DIM, MUTED, TEXT, TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB,
-    WIND_ARROWS, _colored_temp, _precip_rgb, _precip_type,
+    _colored_temp, _precip_rgb, _precip_type,
 )
 from linecast.weather.historical import fetch_historical
 from linecast.weather.sources import (
@@ -64,6 +64,7 @@ from linecast.weather.observed import (
     fetch_observation,
     fetch_station_precipitation,
 )
+from linecast.terminal.glyphs import arrow_toward
 
 # What the dashboard keeps when the window is too short for all of it:
 # the graph is the view -- its day line, its ticks and two rows of braille
@@ -218,8 +219,7 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
 
     # Wind (if notable)
     if runtime.wind_kmh(wind) > 25:
-        sector = int((wind_dir + 22.5) / 45) % 8
-        arrow = WIND_ARROWS[sector]
+        arrow = arrow_toward(wind_dir + 180)
         lines.append(f"{TBG}{TFG} {arrow} {fmt_wind(wind, runtime)} ")
 
     if not lines:

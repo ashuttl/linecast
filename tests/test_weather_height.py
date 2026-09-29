@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from linecast.weather import view as weather
 from linecast._runtime import WeatherRuntime
-from linecast.weather.style import WIND_ARROWS
+from linecast.terminal.glyphs import ARROWS as WIND_ARROWS
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 FIXTURE = Path(__file__).parent / "fixtures" / "open_meteo_forecast.json"

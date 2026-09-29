@@ -41,7 +41,7 @@ def _rebuild():
     global SUNSET_LABEL_RGB, TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB, MODAL_BG_RGB
     global MODAL_BORDER_RGB, LINK_RGB, TEXT, DIM, MUTED, PRECIP, PRECIP_RAIN
     global PRECIP_SNOW, PRECIP_MIX, PRECIP_STORM, ALERT_RED, ALERT_AMBER
-    global ALERT_YELLOW, ALERT_BLUE, WIND_COLOR, WIND_ARROWS, SEP, CLOUD_RGB
+    global ALERT_YELLOW, ALERT_BLUE, WIND_COLOR, SEP, CLOUD_RGB
     global CHIP_BG_RGB, CHIP_FG_RGB, CHIP
     TEXT_RGB = ensure_contrast(_theme.theme_fg, _theme.theme_bg, minimum=4.5)
     DIM_RGB = ensure_contrast(neutral_tone(0.32), _theme.theme_bg, minimum=2.0)
@@ -145,10 +145,6 @@ def _rebuild():
     ALERT_YELLOW = fg(*ALERT_YELLOW_RGB)
     ALERT_BLUE = fg(*ALERT_BLUE_RGB)
     WIND_COLOR = fg(*WIND_RGB)
-
-    # Wind direction arrows: indexed by compass sector (N=0, NE=1, E=2, ... NW=7)
-    # Arrow points in the direction the wind is blowing FROM (meteorological convention)
-    WIND_ARROWS = "↓↙←↖↑↗→↘"  # N wind blows south, NE blows southwest, etc.
 
     SEP = f"{MUTED} · "
     CHIP = (fg(*CHIP_BG_RGB), bg(*CHIP_BG_RGB), fg(*CHIP_FG_RGB))

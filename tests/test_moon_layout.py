@@ -225,16 +225,13 @@ class TestCountdownAndCompass:
 
     def test_compass_point_is_localised(self):
         """French names the western points with O, not W."""
-        from linecast.moon.view import _compass_point
-        from linecast._runtime import RuntimeConfig
+        from linecast.radar.i18n import compass_point
 
-        fr = RuntimeConfig(live=False, icons="emoji", lang="fr", oneline=False)
-        en = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
-        assert _compass_point(270.0, en) == "W"
-        assert _compass_point(270.0, fr) == "O"
-        assert _compass_point(0.0, en) == "N"
+        assert compass_point(270.0, "en") == "W"
+        assert compass_point(270.0, "fr") == "O"
+        assert compass_point(0.0, "en") == "N"
         # Wraps rather than running off the end of the eight points.
-        assert _compass_point(359.0, en) == "N"
+        assert compass_point(359.0, "en") == "N"
 
 
 class TestPlaceCredit:

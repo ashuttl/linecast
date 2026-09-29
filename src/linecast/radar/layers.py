@@ -26,6 +26,7 @@ from linecast.terminal.color import lerp, interp_stops, BG_PRIMARY
 from linecast._http import fetch_json
 from linecast._paths import cache_dir
 from linecast._log import log_failure
+from linecast.terminal.glyphs import arrow_toward
 
 # lattice resolution: 10x6 keeps one fetch cheap while resolving synoptic
 # gradients (~0.6° spacing at the default 6° zoom)
@@ -53,8 +54,6 @@ CALM_KMH = 5.0
 _FULL_KMH = 80.0
 _MIN_LEVEL = 0.25  # faintest visible arrow's position on the bg→fg axis
 
-# arrow glyph per 45° sector of the direction the wind blows *toward*
-_ARROWS = "↑↗→↘↓↙←↖"
 
 
 def wind_color(speed_kmh):
@@ -225,7 +224,7 @@ def wind_overlays(field, t_idx, bbox, graph_w, height_cells,
             color = wind_color(speed)
             if color is None:
                 continue
-            arrow = _ARROWS[round(bearing / 45.0) % 8]
+            arrow = arrow_toward(bearing)  # the way the wind blows toward
             overlays[(col, row)] = (arrow, color)
     return overlays
 
