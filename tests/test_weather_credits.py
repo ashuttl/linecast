@@ -18,7 +18,7 @@ from linecast._runtime import WeatherRuntime
 from linecast.weather.json import build_payload
 from linecast._i18n import LANGUAGE_CODES
 from linecast.weather.alert_feeds import ALERT_FEEDS, alert_source, _METEOALARM_SLUGS
-from linecast.weather.sources import ATTRIBUTION, alert_attribution, forecast_attribution
+from linecast.weather.credits import ATTRIBUTION, alert_attribution, forecast_attribution
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXED_NOW = datetime(2026, 3, 5, 14, 30)
@@ -80,7 +80,7 @@ class TestSources:
 
     @pytest.mark.parametrize("lang", LANGUAGE_CODES)
     def test_every_language_says_where_the_sky_was_seen(self, lang):
-        from linecast.weather.sources import observed_credit
+        from linecast.weather.credits import observed_credit
         observed = {"station": "KPWM", "name": "Portland Intl Jetport, ME, US",
                     "distance_km": 6.4, "time": 1790423460}
         from linecast._i18n import lookup
@@ -230,7 +230,7 @@ class TestJson:
 
 
 def test_the_stations_distance_is_in_the_readers_words():
-    from linecast.weather.sources import observed_credit
+    from linecast.weather.credits import observed_credit
     obs = {"station": "OIII", "name": "Tehran/Mehrabad Intl, IR", "distance_km": 11.2,
            "time": 1790000000}
     assert "11 کیلومتر" in observed_credit(obs, "fa", True, True, "Asia/Tehran")

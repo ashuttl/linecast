@@ -23,6 +23,10 @@ from linecast._plaintext import plain_text
 from linecast._log import log_failure
 from linecast.weather.cover import REPORT_COVER
 
+# Whose the current sky is, where a nearby airport's report stands in
+# for the model's, for the credit line.
+OBSERVATION_SOURCE = "Aviation Weather Center"
+
 _METAR_URL = ("https://aviationweather.gov/api/data/metar"
               "?bbox={south:.3f},{west:.3f},{north:.3f},{east:.3f}&format=json")
 _HISTORY_URL = "https://aviationweather.gov/api/data/metar?ids={station}&hours=25&format=json"

@@ -5,15 +5,14 @@ from datetime import datetime, timezone
 
 from linecast.weather.alert_feeds import alert_source
 from linecast.weather.forecast import FORECAST_SOURCE
+from linecast.weather.observed import OBSERVATION_SOURCE
 
 # The forecast, the air quality, and the geocoder are Open-Meteo's, and
 # its CC BY 4.0 terms ask for a line on screen. The alerts are the
 # national services', and alert_feeds.ALERT_FEEDS says whose; the phrase
 # around a service's name is translated, and the name is its own.
 ATTRIBUTION = "Weather data by Open-Meteo"
-# The current sky, where a nearby airport's report stands in for the
-# model's (observed.py).
-OBSERVATION_SOURCE = "Aviation Weather Center"
+
 
 def forecast_attribution(lang: str = "en") -> str:
     """The forecast credit in the display language."""

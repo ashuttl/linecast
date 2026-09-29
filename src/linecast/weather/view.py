@@ -51,7 +51,7 @@ from linecast.weather.style import (
 )
 from linecast.weather.historical import fetch_historical
 from linecast.weather.alert_feeds import ALERTS_UNAVAILABLE, AlertList, alert_source, fetch_alerts
-from linecast.weather.sources import (
+from linecast.weather.credits import (
     alert_attribution, forecast_attribution, observation_attribution, observed_credit,
 )
 from linecast.weather.forecast import (
