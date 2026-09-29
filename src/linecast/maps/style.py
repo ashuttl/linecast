@@ -1105,12 +1105,21 @@ def use_metric():
     return _use_metric()
 
 
-def fmt_elev(meters):
+def fmt_whole(n, lang="en"):
+    """A whole number with its thousands grouped: "5,094" where the
+    decimal mark is a point, "5 094" (a no-break space, as the prose
+    writes "4 mm") where it is a comma, and "5,094" would read as five."""
+    from linecast._i18n import setting
+    text = f"{round(n):,}"
+    return text if setting(lang, "decimal") == "." else text.replace(",", "\u00a0")
+
+
+def fmt_elev(meters, lang="en"):
     """An elevation, in the reader's units.  Unit symbols are not
     translated — matching the rest of the house."""
     if use_metric():
-        return f"{round(meters):,} m"
-    return f"{round(meters * 3.28084):,} ft"
+        return f"{fmt_whole(meters, lang)} m"
+    return f"{fmt_whole(meters * 3.28084, lang)} ft"
 
 
 def scale_bar(bbox, gw, metric):

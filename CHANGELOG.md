@@ -42,6 +42,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Radar, maps: `--zoom` with zero, a negative number, or anything not a number of degrees now says so rather than ending in a Python traceback.
 - Maps: Fixed a search that found nothing as you typed, with Enter pressed before it answered, stopping at "no results" instead of looking the name up, as Enter pressed afterwards does.
 - Maps: In Japanese, a place whose name is written in kana, such as さいたま市 or ファミリーマート, is labelled with that name rather than its romanization, as names in kanji already were.
+- Maps: Fixed elevations in languages that write a decimal comma, where "5,094 m" read as five metres; they are grouped with a space, "5 094 m". A distance just short of a kilometre reads "1.0 km" rather than "1,000 m".
 
 ## 2.9.2 — 2026-09-27
 

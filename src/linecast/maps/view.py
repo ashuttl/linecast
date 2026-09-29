@@ -1261,7 +1261,7 @@ def _elev_readout(elev, mouse_pos, dx, dy, graph_w, height_cells, lang,
         probe = elev[height_cells][graph_w // 2]  # centre sub-pixel row
     if probe is None:
         return ""
-    return f" · {style.fmt_elev(probe)}"
+    return f" · {style.fmt_elev(probe, lang)}"
 
 
 def prefetch_view(lat, lon, zoom, view, graph_w, height_cells, lang,

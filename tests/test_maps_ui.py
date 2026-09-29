@@ -892,6 +892,19 @@ class TestRouteSummary:
             assert mu._fmt_distance(240) == "787 ft"
             assert mu._fmt_distance(24000) == "14.9 mi"
 
+    def test_a_distance_that_rounds_to_a_kilometre_is_one(self):
+        with _units("--metric"):
+            assert mu._fmt_distance(999.7) == "1.0 km"
+            assert mu._fmt_distance(999.7, "de") == "1,0 km"
+
+    def test_an_elevation_is_grouped_as_the_language_writes_numbers(self):
+        # "5,094 m" reads as five metres where the comma is the decimal mark
+        from linecast.maps import style
+        with _units("--metric"):
+            assert style.fmt_elev(5094.4) == "5,094 m"
+            assert style.fmt_elev(5094.4, "de") == "5\u00a0094 m"
+            assert style.fmt_elev(812, "fr") == "812 m"
+
     def test_units_are_the_languages_own_where_it_spells_them(self):
         # English's symbols are the default; Persian writes its own
         with _units("--metric"):

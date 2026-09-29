@@ -409,13 +409,14 @@ def _fmt_distance(metres, lang="en"):
     "11,7 km", "۱۱٫۷ کیلومتر"."""
     from linecast._i18n import setting
     mark = setting(lang, "decimal")
+    # Judged on the figure as written: 999.7 m is "1.0 km", not "1,000 m"
     if style.use_metric():
-        if metres < 1000:
-            return f"{round(metres):,} {ms('unit_m', lang)}"
+        if round(metres) < 1000:
+            return f"{round(metres)} {ms('unit_m', lang)}"
         return f"{metres / 1000:.1f}".replace(".", mark) + f" {ms('unit_km', lang)}"
     feet = metres * 3.28084
-    if feet < 1000:
-        return f"{round(feet):,} {ms('unit_ft', lang)}"
+    if round(feet) < 1000:
+        return f"{round(feet)} {ms('unit_ft', lang)}"
     return f"{feet / 5280:.1f}".replace(".", mark) + f" {ms('unit_mi', lang)}"
 
 
