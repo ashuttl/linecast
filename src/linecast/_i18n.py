@@ -295,6 +295,10 @@ def fmt_decimal(value, places, runtime):
     """`value` to `places` decimals with the display language's decimal
     mark: "11.3", "11,3"."""
     text = f"{value:.{places}f}"
+    # The format keeps the sign of anything that rounds to zero from
+    # below: a low tide of -0.01 ft would read "-0.0".
+    if text.startswith("-") and not text.strip("-0."):
+        text = text[1:]
     mark = setting(lang_of(runtime), "decimal")
     return text if mark == "." else text.replace(".", mark)
 

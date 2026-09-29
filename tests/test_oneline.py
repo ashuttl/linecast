@@ -323,6 +323,17 @@ class TestTidesOneline:
         assert _strip_ansi(de) == "Cuxhaven ▲Hochwasser 14:00 1,5m ▼Niedrigwasser 20:00 0,2m"
         assert _strip_ansi(ja) == "東京 ▲満潮 14:00 1.5m ▼干潮 20:00 0.2m"
 
+    def test_a_low_just_below_the_datum_is_not_negative_zero(self):
+        now = datetime(2026, 9, 28, 12, 0)
+        hilo = [
+            (datetime(2026, 9, 28, 14, 32), -0.01, "L"),
+            (datetime(2026, 9, 28, 20, 33), 2.95, "H"),
+        ]
+        line = _strip_ansi(tides_oneline("Pago Pago", hilo, now, self._runtime()))
+        assert line == "Pago Pago ▼Low 14:32 0.0′ ▲High 20:33 3.0′"
+        de = tides_oneline("Pago Pago", hilo, now, self._runtime(lang="de", metric=True))
+        assert "Niedrigwasser 14:32 0,0m" in _strip_ansi(de)
+
     def test_no_tide_data_in_the_display_language(self):
         now = datetime(2026, 3, 27, 12, 0)
         de = tides_oneline("Cuxhaven", [], now, self._runtime(lang="de"))
