@@ -218,6 +218,37 @@ def location_is_pinned(cli_location: str | None = None) -> bool:
                 or saved_location() is not None)
 
 
+def machine_tzinfo() -> tzinfo:
+    """The machine's time zone, with its clock changes.
+
+    datetime.now().astimezone() carries only today's offset, so a
+    moonrise or a new moon a month off, read on it, lands an hour out
+    across a change of clock, and near midnight on the wrong day.  The
+    zone is found by name, from TZ or /etc/localtime, and kept only if
+    it agrees with the machine's clock now; else the fixed offset.
+    """
+    from datetime import datetime
+    now = datetime.now().astimezone()
+    names = [os.environ.get("TZ", "").lstrip(":")]
+    try:
+        path = os.path.realpath("/etc/localtime")
+        if "/zoneinfo/" in path:
+            names.append(path.split("/zoneinfo/", 1)[1])
+    except OSError:
+        pass
+    for name in names:
+        if not name:
+            continue
+        try:
+            from zoneinfo import ZoneInfo
+            zone = ZoneInfo(name)
+        except Exception:
+            continue
+        if now.astimezone(zone).utcoffset() == now.utcoffset():
+            return zone
+    return now.tzinfo
+
+
 def location_tzinfo(lat: float | None, lng: float | None) -> tzinfo | None:
     """tzinfo for a location, via a cached Open-Meteo timezone lookup.
 
@@ -225,8 +256,7 @@ def location_tzinfo(lat: float | None, lng: float | None) -> tzinfo | None:
     (offline with a cold cache) or the zone database lacks the name.
     Cached for 30 days per location.
     """
-    from datetime import datetime
-    machine_tz = datetime.now().astimezone().tzinfo
+    machine_tz = machine_tzinfo()
     if lat is None or lng is None:
         return machine_tz
 

@@ -46,7 +46,7 @@ from linecast._i18n import fmt_decimal, fmt_duration_parts, lang_of
 from linecast._config import saved_location
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_overridden,
-    location_tzinfo, resolve_location,
+    location_tzinfo, machine_tzinfo, resolve_location,
 )
 from linecast.astro.calendars.lunisolar import (
     CALENDAR_MERIDIAN_HOURS, calendar_is_native, current_term,
@@ -1087,10 +1087,10 @@ def main():
 
     # A pinned location may sit in another time zone; resolve it so times
     # match the location instead of the machine.
-    tz = location_tzinfo(lat, lng) if location_is_pinned(args.location) else None
+    tz = location_tzinfo(lat, lng) if location_is_pinned(args.location) else machine_tzinfo()
 
     def _now():
-        return datetime.now(tz) if tz is not None else datetime.now().astimezone()
+        return datetime.now(tz)
 
     # The Hebrew holidays follow the place shown; the check costs a
     # reverse geocode for an override, so only that calendar pays it.

@@ -215,11 +215,24 @@ class LocationTzinfoTests(unittest.TestCase):
             self.assertEqual(_location.location_tzinfo(38.72, -9.14),
                              ZoneInfo("Europe/Lisbon"))
 
-    def test_falls_back_to_machine_tz_when_offline(self):
+    @unittest.skipUnless(hasattr(time, "tzset"), "POSIX time zones")
+    def test_the_machine_zone_keeps_its_clock_changes(self):
+        # A new moon in November, read in October on the machine's clock,
+        # must fall on standard time, not on October's offset
         from datetime import datetime
-        machine = datetime.now().astimezone().tzinfo
+        from zoneinfo import ZoneInfo
+        with patch.dict(os.environ, {"TZ": "America/Los_Angeles"}):
+            time.tzset()
+            zone = _location.machine_tzinfo()
+        time.tzset()
+        self.assertEqual(zone, ZoneInfo("America/Los_Angeles"))
+        self.assertEqual(datetime(2026, 11, 20, tzinfo=zone).utcoffset().total_seconds(),
+                         -8 * 3600)
+
+    def test_falls_back_to_machine_tz_when_offline(self):
         with patch.object(_location, "fetch_json_cached", return_value=None):
-            self.assertEqual(_location.location_tzinfo(38.72, -9.14), machine)
+            self.assertEqual(_location.location_tzinfo(38.72, -9.14),
+                             _location.machine_tzinfo())
 
 
 class LocationCommandTests(unittest.TestCase):

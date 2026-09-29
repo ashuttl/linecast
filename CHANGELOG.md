@@ -35,6 +35,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Weather: Fixed the forecast in words saying "Below freezing overnight, down to 32°" for a low that rounds to freezing itself.
 - Weather: Fixed the forecast in words leaving out the snow total when snow changes to rain and the rain lasts longer than the snow did.
 - Weather: Fixed the last 24 hours' precipitation naming a kind too slight to mention, such as "0.4 cm of snow" after a dusting that was followed by 15 mm of rain.
+- Moon, sky: Fixed times and dates past the next change of clock being an hour off where the location comes from the network rather than a setting, which could put a new or full moon on the wrong day.
 
 ## 2.9.2 — 2026-09-27
 

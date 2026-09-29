@@ -61,7 +61,8 @@ from linecast.astro.ephemeris import (
 )
 from linecast._i18n import fmt_decimal, fmt_percent, lang_of, setting
 from linecast._location import (
-    country_for_defaults, location_is_pinned, location_tzinfo, resolve_location,
+    country_for_defaults, location_is_pinned, location_tzinfo, machine_tzinfo,
+    resolve_location,
 )
 from linecast.sky.planets import planet_positions
 from linecast.radar.i18n import rs
@@ -1278,10 +1279,10 @@ def main():
         runtime = RuntimeConfig.from_sources(args, country=own)
         set_current(runtime)
 
-    tz = location_tzinfo(lat, lng) if location_is_pinned(args.location) else None
+    tz = location_tzinfo(lat, lng) if location_is_pinned(args.location) else machine_tzinfo()
 
     def _now():
-        return datetime.now(tz) if tz is not None else datetime.now().astimezone()
+        return datetime.now(tz)
 
     try:
         facing = parse_facing(args.facing, runtime)
