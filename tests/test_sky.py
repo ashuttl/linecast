@@ -315,9 +315,11 @@ class TestScene:
         assert abs(view.az - scene.moon_az) < 1e-6
 
     def test_default_view_faces_south_with_nothing_up(self):
-        scene = Scene(NOON.astimezone(timezone.utc), LAT, LNG)
-        if scene.moon_alt > 5.0:
-            pytest.skip("the Moon is up at this moment")
+        # A day before the full moon of 28 August 2026, the Moon is far
+        # below the horizon at midday, and by day no planet is looked for
+        noon = datetime(2026, 8, 27, 13, 0, tzinfo=TZ)
+        scene = Scene(noon.astimezone(timezone.utc), LAT, LNG)
+        assert scene.moon_alt < -50.0 and scene.darkness == 0.0
         assert default_view(scene, 100, 30).az == 180.0
 
     def test_facing_flag_wins(self):
