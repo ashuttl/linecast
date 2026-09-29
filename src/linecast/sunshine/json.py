@@ -64,12 +64,12 @@ def _location_label(lat, lng):
     """
     try:
         from linecast._config import saved_location
+        from linecast._location import same_place
         saved = saved_location()
         # Only trust the saved label when it describes these coordinates —
         # a --location/WEATHER_LOCATION override points somewhere else.
         if (saved and saved.get("label") and lat is not None
-                and abs(saved["lat"] - lat) < 1e-4
-                and abs(saved["lng"] - lng) < 1e-4):
+                and same_place((saved["lat"], saved["lng"]), (lat, lng))):
             return saved["label"]
     except Exception:
         pass

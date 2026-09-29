@@ -111,6 +111,30 @@ class TestPayloadShape:
             _dt(p[key])  # parseable
 
 
+class TestLocationLabel:
+    """The saved label names the saved place, and a --location near it
+    only when the two are the same place to four decimals, as weather's
+    location menu decides it (_location.same_place)."""
+
+    SAVED = {"lat": 43.6770356, "lng": -70.3711617, "label": "Westbrook", "country": "US"}
+
+    def _label(self, lat, lng):
+        from unittest.mock import patch
+        from linecast.sunshine.json import _location_label
+        with patch("linecast._config.saved_location", return_value=self.SAVED), \
+             patch("linecast._geocode.reverse_geocode",
+                   return_value=("Elsewhere", "US", {})):
+            return _location_label(lat, lng)
+
+    def test_the_saved_place_is_named_by_its_label(self):
+        assert self._label(43.6770356, -70.3711617) == "Westbrook"
+        assert self._label(43.677, -70.3712) == "Westbrook"
+
+    def test_a_place_across_the_fourth_decimal_is_geocoded(self):
+        # Within 1e-4 of the saved place, but -70.3711 is not -70.3712.
+        assert self._label(43.677, -70.3711) == "Elsewhere"
+
+
 class TestSolarValues:
     def test_rise_noon_set_ordered(self):
         p = _payload()
