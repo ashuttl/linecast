@@ -188,6 +188,34 @@ def _fetch_station(provider, station_id, station_meta, station_tz, live):
     return fetch_start, fetch_end, y_range, marine_data, preds, hilo
 
 
+# NOAA's zone abbreviations, standard and summer time alike, and the
+# zone each stands for; the four that turn on the state or on whether
+# the station keeps summer time are settled in _abbr_zone.
+_ABBR_ZONES = {
+    **dict.fromkeys(("CST", "CDT"), "America/Chicago"),
+    **dict.fromkeys(("PST", "PDT"), "America/Los_Angeles"),
+    **dict.fromkeys(("AKST", "AKDT"), "America/Anchorage"),
+    **dict.fromkeys(("HST", "HDT"), "Pacific/Honolulu"),
+    "CHST": "Pacific/Guam",
+    "SST": "Pacific/Pago_Pago",
+}
+
+
+def _abbr_zone(tz_abbr, state, observedst):
+    """The IANA zone for a NOAA station's abbreviation, or None."""
+    if tz_abbr in ("EST", "EDT"):
+        return "America/Puerto_Rico" if state in ("PR", "VI") else "America/New_York"
+    if tz_abbr in ("MST", "MDT"):
+        return "America/Phoenix" if not observedst or state == "AZ" else "America/Denver"
+    if tz_abbr in ("HAST", "HADT"):
+        # NOAA's name for the Aleutians west of 169.5°W, which keep
+        # summer time; Hawaii does not
+        return "America/Adak" if observedst else "Pacific/Honolulu"
+    if tz_abbr in ("AST", "ADT"):
+        return "America/Halifax" if observedst else "America/Puerto_Rico"
+    return _ABBR_ZONES.get(tz_abbr)
+
+
 def _station_tzinfo(meta):
     """Resolve a station timezone to tzinfo using metadata and safe fallbacks."""
     if not meta:
@@ -206,34 +234,9 @@ def _station_tzinfo(meta):
     state = str(meta.get("state", "")).upper()
     observedst = bool(meta.get("observedst", False))
 
-    zone_name = None
     if tz_abbr in ("UTC", "GMT", "Z"):
         return timezone.utc
-    elif tz_abbr in ("EST", "EDT"):
-        zone_name = "America/Puerto_Rico" if state in ("PR", "VI") else "America/New_York"
-    elif tz_abbr in ("CST", "CDT"):
-        zone_name = "America/Chicago"
-    elif tz_abbr in ("MST", "MDT"):
-        if not observedst or state == "AZ":
-            zone_name = "America/Phoenix"
-        else:
-            zone_name = "America/Denver"
-    elif tz_abbr in ("PST", "PDT"):
-        zone_name = "America/Los_Angeles"
-    elif tz_abbr in ("AKST", "AKDT"):
-        zone_name = "America/Anchorage"
-    elif tz_abbr in ("HST", "HDT"):
-        zone_name = "Pacific/Honolulu"
-    elif tz_abbr in ("HAST", "HADT"):
-        # NOAA's name for the Aleutians west of 169.5°W, which keep
-        # summer time; Hawaii does not
-        zone_name = "America/Adak" if observedst else "Pacific/Honolulu"
-    elif tz_abbr in ("AST", "ADT"):
-        zone_name = "America/Halifax" if observedst else "America/Puerto_Rico"
-    elif tz_abbr == "CHST":
-        zone_name = "Pacific/Guam"
-    elif tz_abbr == "SST":
-        zone_name = "Pacific/Pago_Pago"
+    zone_name = _abbr_zone(tz_abbr, state, observedst)
 
     if zone_name:
         try:
