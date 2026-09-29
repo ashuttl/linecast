@@ -186,6 +186,7 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     humidity = window["humidity"][idx] if idx < len(window.get("humidity", [])) else None
     dew = window["dew_points"][idx] if idx < len(window.get("dew_points", [])) else None
     amount = window["precip_amount"][idx] if idx < len(window.get("precip_amount", [])) else 0
+    snow = window["snowfall"][idx] if idx < len(window.get("snowfall", [])) else 0
     prob = window["precip"][idx] if idx < len(window.get("precip", [])) else 0
     cloud = window["cloud"][idx] if idx < len(window.get("cloud", [])) else None
 
@@ -229,7 +230,12 @@ def _build_hover_tooltip(data, mouse_col, mouse_row, hourly_start, hourly_end, c
     # the bar below is drawn in, so the chip teaches what the fade means.
     precip_parts = []
     if amount and amount > 0:
-        precip_parts.append(f"{fg(*_precip_rgb(code))}{fmt_precip_amount(amount, runtime)}{TFG}")
+        # A snowy hour's amount is its snow, as the daily rows give a
+        # snowy day's: "0.8″" of snow, not the 0.12″ of water it melts to
+        shown = (fmt_snow_amount(snow, runtime)
+                 if _precip_type(code) == "Snow" and mostly_snow(snow, amount, runtime)
+                 else fmt_precip_amount(amount, runtime))
+        precip_parts.append(f"{fg(*_precip_rgb(code))}{shown}{TFG}")
     # Under 20% the shaded figure is hard to read and says nothing worth
     # reading; the bar below is a ghost of one anyway.
     if prob and prob >= 20:

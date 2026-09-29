@@ -323,6 +323,7 @@ def _prepare_hourly_window(hourly, now, graph_w, offset_minutes=0):
     temps = _filled(hourly.get("temperature_2m", []))
     precip_prob = _filled(hourly.get("precipitation_probability", []), fill=0)
     precip_amount = _filled(hourly.get("precipitation", []), fill=0)
+    snowfall = _filled(hourly.get("snowfall", []), fill=0)
     weather_codes = _filled(hourly.get("weather_code", []), fill=0)
     wind_speeds = _filled(hourly.get("wind_speed_10m", []), fill=0)
     wind_directions = _filled(hourly.get("wind_direction_10m", []))
@@ -374,6 +375,7 @@ def _prepare_hourly_window(hourly, now, graph_w, offset_minutes=0):
 
     window_precip = precip_prob[start_idx:end_idx + 1] if precip_prob else []
     window_amount = precip_amount[start_idx:end_idx + 1] if precip_amount else []
+    window_snow = snowfall[start_idx:end_idx + 1] if snowfall else []
     window_codes = weather_codes[start_idx:end_idx + 1] if weather_codes else []
     window_winds = wind_speeds[start_idx:end_idx + 1] if wind_speeds else []
     window_wind_dirs = wind_directions[start_idx:end_idx + 1] if wind_directions else []
@@ -402,6 +404,7 @@ def _prepare_hourly_window(hourly, now, graph_w, offset_minutes=0):
         "temps": window_temps,
         "precip": window_precip,
         "precip_amount": window_amount,
+        "snowfall": window_snow,
         "codes": window_codes,
         "winds": window_winds,
         "wind_dirs": window_wind_dirs,

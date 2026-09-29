@@ -298,6 +298,29 @@ def test_hourly_chip_leaves_off_a_slim_chance():
     assert "chance" not in text
 
 
+def test_hourly_chip_gives_a_snowy_hours_snow_not_its_water():
+    data = _hourly_data()
+    n = len(data["hourly"]["time"])
+    data["hourly"]["weather_code"] = [75] * n
+    data["hourly"]["precipitation"] = [0.12] * n
+    data["hourly"]["snowfall"] = [0.84] * n
+    with patch.object(_color, "_COLOR_MODE", "truecolor"):
+        text = _plain(_build_hover_tooltip(data, 30, 5, 2, 12, 100, 40, _runtime()))
+    assert "0.8″" in text
+    assert "0.12″" not in text
+    # An hour of rain keeps its water, and so does one coded snow that
+    # the model has laying no snow
+    data["hourly"]["weather_code"] = [63] * n
+    with patch.object(_color, "_COLOR_MODE", "truecolor"):
+        text = _plain(_build_hover_tooltip(data, 30, 5, 2, 12, 100, 40, _runtime()))
+    assert "0.12″" in text
+    data["hourly"]["weather_code"] = [73] * n
+    data["hourly"]["snowfall"] = [0.0] * n
+    with patch.object(_color, "_COLOR_MODE", "truecolor"):
+        text = _plain(_build_hover_tooltip(data, 30, 5, 2, 12, 100, 40, _runtime()))
+    assert "0.12″" in text
+
+
 def test_prose_lines_are_in_the_text_color():
     assert _prose("Rain later.").startswith(TEXT)
     assert _prose("") == ""
