@@ -279,7 +279,10 @@ def decode_view(tiles):
             continue
         try:
             view.append((key, _decoded.get(key, data, decode_tile)))
-        except ValueError as exc:
+        except Exception as exc:
+            # A damaged tile fails the decoder in more ways than a
+            # ValueError (a flipped bit gave TypeError, AttributeError,
+            # struct.error); it costs its own square, never the view
             log_failure("mvt", f"street tile {key[0]}/{key[1]}/{key[2]} decode", exc,
                         fallback="tile skipped")
     return view

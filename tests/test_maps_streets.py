@@ -392,6 +392,17 @@ class TestDecodeMemo:
             assert st.decode_view({Z0: data}) == []
             assert Z0 not in st._decoded._hits
 
+    def test_a_flipped_bit_costs_only_its_own_tile(self):
+        # One bit in three places: a TypeError, an AttributeError and a
+        # struct.error from the decoder, each of which used to blank
+        # the whole street view
+        good = tile(classed("water", LEFT_HALF, "lake"))
+        for byte, bit in ((0, 1), (4, 1), (46, 4)):
+            damaged = bytearray(good)
+            damaged[byte] ^= 1 << bit
+            view = st.decode_view({(1, 0, 0): bytes(damaged), (1, 0, 1): good})
+            assert [key for key, _ in view] == [(1, 0, 1)]
+
 
 # ---------------------------------------------------------------------------
 # Terrain mode's half: inland water only
