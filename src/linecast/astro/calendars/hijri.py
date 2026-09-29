@@ -42,9 +42,9 @@ from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
 
 from linecast.astro.ephemeris import (
-    _moon_altitude_deg, next_moon_phase_utc, sun_depression_utc,
+    _moon_altitude_deg, next_moon_phase_utc, sun_alt_az_deg, sun_depression_utc,
 )
-from linecast.astro.calendars.pacific import _Observer, _setting_instant, _sun_alt_az_deg
+from linecast.astro.calendars.pacific import _Observer, _setting_instant
 
 _SYNODIC_DAYS = 29.530589
 # The Great Mosque, Mecca; UTC+3 is Saudi Arabia's one time zone.
@@ -78,7 +78,7 @@ def _sunset_utc(day):
     # in every season.
     noon = datetime(day.year, day.month, day.day, 12, tzinfo=timezone.utc)
     return _setting_instant(noon, noon + timedelta(hours=6),
-                            lambda t: _sun_alt_az_deg(t, _MECCA)[0],
+                            lambda t: sun_alt_az_deg(t, _MECCA.lat, _MECCA.lng)[0],
                             _SUNSET_DEG)
 
 

@@ -58,13 +58,12 @@ from typing import NamedTuple
 
 from linecast.astro.ephemeris import (
     _angular_separation,
-    _gmst_deg,
     _moon_altitude_deg,
     _moon_distance_er,
     _moon_ra_dec,
-    _norm_deg,
     _sun_ra_dec,
     next_moon_phase_utc,
+    sun_alt_az_deg,
 )
 from linecast.astro.calendars.lunisolar import _civil, _day_start_utc
 
@@ -90,22 +89,6 @@ CALENDARS["refaluwasch"] = CALENDARS["chamorro"]
 PACIFIC_CALENDARS = tuple(CALENDARS)
 
 
-def _sun_alt_az_deg(dt_utc, obs):
-    """Sun altitude and azimuth at the observer, by the Moon's formulas."""
-    ra, dec = _sun_ra_dec(dt_utc)
-    lst = _norm_deg(_gmst_deg(dt_utc) + obs.lng)
-    hour_angle = math.radians((lst - ra + 540.0) % 360.0 - 180.0)
-    lat, dec_r = math.radians(obs.lat), math.radians(dec)
-    sin_alt = (math.sin(lat) * math.sin(dec_r)
-               + math.cos(lat) * math.cos(dec_r) * math.cos(hour_angle))
-    alt = math.degrees(math.asin(max(-1.0, min(1.0, sin_alt))))
-    az = math.atan2(
-        math.sin(hour_angle),
-        math.cos(hour_angle) * math.sin(lat) - math.tan(dec_r) * math.cos(lat),
-    )
-    return alt, (math.degrees(az) + 180.0) % 360.0
-
-
 def _setting_instant(t_lo, t_hi, alt_of, horizon):
     """Where a sinking altitude crosses *horizon*, by bisection."""
     for _ in range(24):
@@ -127,7 +110,7 @@ def _crescent_q(evening, obs):
     """
     dusk = _day_start_utc(evening, obs.meridian_hours) + timedelta(hours=16)
     sunset = _setting_instant(dusk, dusk + timedelta(hours=5),
-                              lambda t: _sun_alt_az_deg(t, obs)[0], -0.833)
+                              lambda t: sun_alt_az_deg(t, obs.lat, obs.lng)[0], -0.833)
 
     def moon_alt(t):
         return _moon_altitude_deg(t, obs.lat, obs.lng)
@@ -142,7 +125,7 @@ def _crescent_q(evening, obs):
     parallax = math.degrees(math.asin(1.0 / _moon_distance_er(best)))
     alt = moon_alt(best)
     arcv = (alt - parallax * math.cos(math.radians(alt))
-            - _sun_alt_az_deg(best, obs)[0])
+            - sun_alt_az_deg(best, obs.lat, obs.lng)[0])
     moon_ra, moon_dec = _moon_ra_dec(best)
     arcl = _angular_separation(moon_ra, moon_dec, *_sun_ra_dec(best))
     width = 60.0 * 0.27245 * parallax * (1.0 - math.cos(math.radians(arcl)))

@@ -322,6 +322,17 @@ def _gmst_deg(dt_utc):
     return _norm_deg(gmst)
 
 
+def _lst_deg(dt_utc, lng_deg):
+    """Local mean sidereal time in degrees."""
+    return _norm_deg(_gmst_deg(dt_utc) + lng_deg)
+
+
+def _hour_angle(dt_utc, lng_deg, ra_deg):
+    """The hour angle of a point at *ra_deg* for the observer, in degrees
+    from -180 to 180, positive west of the meridian (Meeus, ch. 13)."""
+    return (_lst_deg(dt_utc, lng_deg) - ra_deg + 540.0) % 360.0 - 180.0
+
+
 def _moon_altitude_deg(dt_utc, lat_deg, lng_deg):
     """Approximate Moon altitude for a UTC datetime and observer lat/lng.
 
@@ -332,8 +343,7 @@ def _moon_altitude_deg(dt_utc, lat_deg, lng_deg):
     the pair of them.
     """
     ra_deg, dec_deg = _moon_ra_dec(dt_utc)
-    lst_deg = _norm_deg(_gmst_deg(dt_utc) + lng_deg)
-    hour_angle = math.radians((lst_deg - ra_deg + 540.0) % 360.0 - 180.0)
+    hour_angle = math.radians(_hour_angle(dt_utc, lng_deg, ra_deg))
 
     lat = math.radians(lat_deg)
     dec = math.radians(dec_deg)
@@ -354,8 +364,7 @@ def _moon_azimuth_deg(dt_utc, lat_deg, lng_deg):
     turns that into the compass bearing the rest of the app speaks.
     """
     ra_deg, dec_deg = _moon_ra_dec(dt_utc)
-    lst_deg = _norm_deg(_gmst_deg(dt_utc) + lng_deg)
-    hour_angle = math.radians((lst_deg - ra_deg + 540.0) % 360.0 - 180.0)
+    hour_angle = math.radians(_hour_angle(dt_utc, lng_deg, ra_deg))
 
     lat = math.radians(lat_deg)
     dec = math.radians(dec_deg)
@@ -378,8 +387,7 @@ def _moon_parallactic_deg(dt_utc, lat_deg, lng_deg):
     a northern observer.
     """
     ra_deg, dec_deg = _moon_ra_dec(dt_utc)
-    lst_deg = _norm_deg(_gmst_deg(dt_utc) + lng_deg)
-    hour_angle = math.radians((lst_deg - ra_deg + 540.0) % 360.0 - 180.0)
+    hour_angle = math.radians(_hour_angle(dt_utc, lng_deg, ra_deg))
 
     lat = math.radians(lat_deg)
     dec = math.radians(dec_deg)
@@ -659,15 +667,10 @@ def moon_age_days(dt_utc):
     return (dt_utc - last_new).total_seconds() / 86400.0
 
 
-def _lst_deg(dt_utc, lng_deg):
-    """Local mean sidereal time in degrees."""
-    return _norm_deg(_gmst_deg(dt_utc) + lng_deg)
-
-
 def _alt_az_deg(ra_deg, dec_deg, dt_utc, lat_deg, lng_deg):
     """Altitude and azimuth (degrees east of north) of a point at *ra_deg*,
     *dec_deg*, for the observer, geocentric (Meeus, ch. 13)."""
-    hour_angle = math.radians((_lst_deg(dt_utc, lng_deg) - ra_deg + 540.0) % 360.0 - 180.0)
+    hour_angle = math.radians(_hour_angle(dt_utc, lng_deg, ra_deg))
     lat = math.radians(lat_deg)
     dec = math.radians(dec_deg)
     sin_alt = (math.sin(lat) * math.sin(dec)
@@ -724,8 +727,7 @@ def sun_transit_utc(local_date, lng_deg, tzinfo=None):
     t = _to_utc(local_noon)
     for _ in range(3):
         ra, _dec = _sun_ra_dec(t)
-        hour_angle = (_lst_deg(t, lng_deg) - ra + 540.0) % 360.0 - 180.0
-        t -= timedelta(hours=hour_angle / 15.0 / 1.0027379)
+        t -= timedelta(hours=_hour_angle(t, lng_deg, ra) / 15.0 / 1.0027379)
     return t
 
 
