@@ -45,7 +45,6 @@ from linecast.moon.phase import (
 )
 from linecast.moon.readings import context, reading
 from linecast.terminal.textwidth import char_width
-from linecast.terminal.theme import darken, ensure_contrast, is_light_theme, surface_bg
 from linecast.tides.i18n import _ts
 from linecast._i18n import DAY_NAMES
 
@@ -53,11 +52,9 @@ _theme.track_imports(globals(), "linecast.terminal.color")
 
 
 def _rebuild():
-    # The hover chip, tides' recipe.
+    # The hover chip, in the inks every view's chip shares.
     global TIP_BG_RGB, TIP_TEXT_RGB, TIP_DIM_RGB
-    TIP_BG_RGB = darken(surface_bg(0.10), 0.45 if not is_light_theme() else 0.10)
-    TIP_TEXT_RGB = ensure_contrast(_theme.theme_fg, TIP_BG_RGB, minimum=4.5)
-    TIP_DIM_RGB = ensure_contrast(surface_bg(0.55), TIP_BG_RGB, minimum=2.2)
+    TIP_BG_RGB, TIP_TEXT_RGB, TIP_DIM_RGB = _theme.chip_inks()
 
 
 _rebuild()
