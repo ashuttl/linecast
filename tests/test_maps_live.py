@@ -1193,13 +1193,13 @@ class TestStartupPrune:
 
     def test_search_adds_no_tiles_so_it_does_not_wait(self, monkeypatch):
         from linecast.maps import tile_cache
-        from linecast.weather import sources
+        from linecast import _geocode
 
         calls = []
         self._argv(monkeypatch, "--search", "leith")
         monkeypatch.setattr(tile_cache, "prune_maps_cache",
                             lambda *a, **k: calls.append("prune"))
-        monkeypatch.setattr(sources, "_search_locations",
+        monkeypatch.setattr(_geocode, "print_search",
                             lambda *a, **k: calls.append("search"))
 
         _maps_live.main()

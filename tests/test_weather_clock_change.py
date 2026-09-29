@@ -218,7 +218,7 @@ class TestArchiveDay:
     """The climate archive is read for the day it is at the location."""
 
     def _gather(self, there):
-        with patch.object(weather, "_reverse_geocode", return_value=("Kiritimati", "KI", {})), \
+        with patch.object(weather, "reverse_geocode", return_value=("Kiritimati", "KI", {})), \
              patch.object(weather, "fetch_forecast",
                           return_value={"timezone": "Pacific/Kiritimati"}), \
              patch.object(weather, "fetch_aqi", return_value=None), \

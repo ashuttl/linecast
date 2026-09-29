@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from linecast.maps import rate_limit as _rate_limit
+from linecast import _rate_limit
 from linecast.maps import route as mr
-from linecast.maps.rate_limit import RateLimit
+from linecast._rate_limit import RateLimit
 from linecast.terminal.scenes import Memo
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"

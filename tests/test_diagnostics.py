@@ -240,8 +240,8 @@ class TestTheSweep:
         assert "; stale cache old.json" in capsys.readouterr().err
 
     def test_reverse_geocode_degrades_with_one_line(self, debug, capsys):
-        _reverse_geocode = _mod("weather.sources")._reverse_geocode
-        assert _reverse_geocode(12.3456, -65.4321, lang="xx") == ("", "", {})
+        reverse_geocode = _mod("_geocode").reverse_geocode
+        assert reverse_geocode(12.3456, -65.4321, lang="xx") == ("", "", {})
         err = capsys.readouterr().err
         assert ("[linecast] location/geocoder: reverse geocode failed "
                 "(nominatim.openstreetmap.org) -- OSError: ") in err
@@ -266,7 +266,7 @@ class TestTheSweep:
         assert capsys.readouterr().err == ""
 
     def test_quiet_without_debug(self, quiet, capsys, tmp_path):
-        _mod("weather.sources")._reverse_geocode(12.3456, -65.4321, lang="xx")
+        _mod("_geocode").reverse_geocode(12.3456, -65.4321, lang="xx")
         fetch_json_cached(tmp_path / "none.json", 60, "https://api.example/v1")
         assert capsys.readouterr() == ("", "")
 
@@ -400,7 +400,7 @@ class TestWeatherFetchThread:
     @pytest.fixture
     def stubs(self, monkeypatch):
         weather = _mod("weather.view")
-        monkeypatch.setattr(weather, "_reverse_geocode",
+        monkeypatch.setattr(weather, "reverse_geocode",
                             lambda lat, lng, lang=None: ("Here", "US", {}))
         monkeypatch.setattr(weather, "fetch_aqi", lambda lat, lng: None)
         monkeypatch.setattr(weather, "fetch_historical", lambda *a, **kw: None)

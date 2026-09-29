@@ -16,9 +16,9 @@ from pathlib import Path
 
 import pytest
 
-from linecast.maps import rate_limit as _rate_limit
+from linecast import _rate_limit
 from linecast.maps import search as ms
-from linecast.maps.rate_limit import RateLimit
+from linecast._rate_limit import RateLimit
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PHOTON = json.loads((FIXTURES / "photon_search.json").read_text(encoding="utf-8"))
@@ -55,7 +55,7 @@ def cache(tmp_path, monkeypatch):
 @pytest.fixture
 def no_throttle(monkeypatch):
     """Neutralize the rate-limit gate so tests never really sleep."""
-    monkeypatch.setattr(ms, "_throttle", lambda: None)
+    monkeypatch.setattr(ms, "nominatim_throttle", lambda: None)
 
 
 def _stub(monkeypatch, payload=None, error=None):
@@ -341,7 +341,7 @@ class TestNominatimThrottle:
         from types import SimpleNamespace
         monkeypatch.setattr(_rate_limit, "time", SimpleNamespace(
             monotonic=lambda: state["now"], sleep=sleep))
-        monkeypatch.setattr(ms, "_throttle", RateLimit(1.0, "nominatim"))
+        monkeypatch.setattr(ms, "nominatim_throttle", RateLimit(1.0, "nominatim"))
         return state
 
     def test_back_to_back_queries_sleep_the_remainder(self, cache, clock,

@@ -33,15 +33,18 @@ def _cmd_show():
 
 
 def _cmd_set(query):
-    from linecast.weather.sources import _geocode_query, _reverse_geocode
+    from linecast._geocode import GeocoderUnavailable, geocode, reverse_geocode
 
     latlng = _parse_latlng(query)
     if latlng is not None:
         lat, lng = latlng
-        name, country, _addr = _reverse_geocode(lat, lng)
+        name, country, _addr = reverse_geocode(lat, lng)
         label = name or f"{lat:.4f},{lng:.4f}"
     else:
-        results = _geocode_query(query)
+        try:
+            results = geocode(query)
+        except GeocoderUnavailable as exc:
+            sys.exit(f"Search failed: {exc}")
         if not results:
             print(f'No locations matching "{query}".', file=sys.stderr)
             sys.exit(1)
@@ -69,9 +72,9 @@ def _cmd_auto():
 
 
 def _cmd_search(query):
-    from linecast.weather.sources import _search_locations
+    from linecast._geocode import print_search
 
-    _search_locations(query)
+    print_search(query)
 
 
 def main():

@@ -6,14 +6,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from linecast.maps import rate_limit as _rate_limit
+from linecast import _geocode, _rate_limit
 from linecast.maps import route
-from linecast.maps import search
-from linecast.maps.rate_limit import RateLimit
+from linecast._rate_limit import RateLimit
 
 
-@pytest.mark.parametrize("module", [route, search])
-def test_delayed_wakeup_starts_a_full_interval(module, monkeypatch):
+@pytest.mark.parametrize("gate", [route._throttle, _geocode.nominatim_throttle],
+                         ids=["routing", "nominatim"])
+def test_delayed_wakeup_starts_a_full_interval(gate, monkeypatch):
     now = [1000.0]
     slept = []
 
@@ -23,10 +23,10 @@ def test_delayed_wakeup_starts_a_full_interval(module, monkeypatch):
 
     monkeypatch.setattr(_rate_limit, "time", SimpleNamespace(
         monotonic=lambda: now[0], sleep=sleep))
-    monkeypatch.setattr(module._throttle, "_last", None)
-    module._throttle()
-    module._throttle()
-    module._throttle()
+    monkeypatch.setattr(gate, "_last", None)
+    gate()
+    gate()
+    gate()
     assert slept == [1.0, 1.0]
 
 

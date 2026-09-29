@@ -256,7 +256,7 @@ class TestGather:
     """A provider that raises costs only its own entry."""
 
     def test_an_alert_parser_that_raises_keeps_the_air_quality_and_climate(self):
-        with patch.object(weather, "_reverse_geocode", return_value=("Westbrook", "US", {})), \
+        with patch.object(weather, "reverse_geocode", return_value=("Westbrook", "US", {})), \
              patch.object(weather, "fetch_forecast", return_value={"v": 1}), \
              patch.object(weather, "fetch_aqi", return_value={"aqi": 1}), \
              patch.object(weather, "fetch_historical", return_value=HIST), \
@@ -269,7 +269,7 @@ class TestGather:
         assert result["name"] == "Westbrook" and result["country_code"] == "US"
 
     def _gather(self, geocode, lang, geo_label=""):
-        with patch.object(weather, "_reverse_geocode", side_effect=geocode), \
+        with patch.object(weather, "reverse_geocode", side_effect=geocode), \
              patch.object(weather, "fetch_forecast", return_value={"v": 1}), \
              patch.object(weather, "fetch_aqi", return_value=None), \
              patch.object(weather, "fetch_historical", return_value=None), \
@@ -319,7 +319,7 @@ class TestGather:
         assert result["name"] == "Warsaw, Mazovia"
 
     def test_a_geocoder_that_raises_keeps_the_forecast_and_the_typed_name(self):
-        with patch.object(weather, "_reverse_geocode", side_effect=OSError("down")), \
+        with patch.object(weather, "reverse_geocode", side_effect=OSError("down")), \
              patch.object(weather, "fetch_forecast", return_value={"v": 1}), \
              patch.object(weather, "fetch_aqi", return_value=None), \
              patch.object(weather, "fetch_historical", return_value=None), \

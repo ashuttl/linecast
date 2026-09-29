@@ -71,7 +71,7 @@ def test_open_meteo_forecast(failures):
 
 
 def test_open_meteo_geocoder(failures):
-    from linecast.weather.sources import geocode_first
+    from linecast._geocode import geocode_first
     hit = geocode_first("Westbrook, Maine")
     assert failures() == []
     assert hit is not None
@@ -147,16 +147,16 @@ def test_geolocation_fallbacks(failures, provider):
 def test_photon_geocoder_fallback(failures):
     # the geocoder's second source, asked directly: _geocode_query would
     # only reach it with Open-Meteo down
-    from linecast.weather.sources import _photon_query
-    results = _photon_query("Westbrook, Maine")
+    from linecast._geocode import photon_query
+    results = photon_query("Westbrook, Maine")
     assert failures() == []
     assert any(r["admin1"] == "Maine" and r["country_code"] == "US"
                for r in results)
 
 
 def test_nominatim_reverse(failures):
-    from linecast.weather.sources import _reverse_geocode
-    name, country, address = _reverse_geocode(*PORTLAND)
+    from linecast._geocode import reverse_geocode
+    name, country, address = reverse_geocode(*PORTLAND)
     assert failures() == []
     assert country == "US"
     assert name

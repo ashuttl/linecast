@@ -52,7 +52,7 @@ class TestRender:
              patch.object(weather, "fetch_alerts",
                           return_value=[{"url": "u"}]) as alerts, \
              patch.object(weather, "fetch_aqi", return_value={"aqi": 2}) as aqi, \
-             patch.object(weather, "_reverse_geocode",
+             patch.object(weather, "reverse_geocode",
                           return_value=("Westbrook", "US", {"state": "Maine"})), \
              patch.object(weather, "render_from_data",
                           return_value=("out", {})) as render, \
@@ -83,7 +83,7 @@ class TestRender:
         with patch.object(weather, "fetch_forecast", side_effect=slow_forecast), \
              patch.object(weather, "fetch_alerts", return_value=[]), \
              patch.object(weather, "fetch_aqi", return_value=None), \
-             patch.object(weather, "_reverse_geocode", return_value=("", "US", {})), \
+             patch.object(weather, "reverse_geocode", return_value=("", "US", {})), \
              patch.object(weather, "render_from_data",
                           return_value=("out", {})), \
              patch("time.monotonic", return_value=1300.0):
@@ -100,7 +100,7 @@ class TestRender:
         with patch.object(weather, "fetch_forecast", return_value=None), \
              patch.object(weather, "fetch_alerts", return_value=[]), \
              patch.object(weather, "fetch_aqi", return_value=None), \
-             patch.object(weather, "_reverse_geocode", return_value=("", "US", {})), \
+             patch.object(weather, "reverse_geocode", return_value=("", "US", {})), \
              patch.object(weather, "render_from_data",
                           return_value=("out", {})) as render, \
              patch("time.monotonic", return_value=2000.0):
@@ -122,7 +122,7 @@ class TestRefreshAddress:
         with patch.object(weather, "fetch_forecast", return_value={"v": 2}), \
              patch.object(weather, "fetch_alerts", return_value=[]) as alerts, \
              patch.object(weather, "fetch_aqi", return_value=None), \
-             patch.object(weather, "_reverse_geocode", **geocode) as geocoded:
+             patch.object(weather, "reverse_geocode", **geocode) as geocoded:
             app._refresh(app._generation, app.lat, app.lng, app.country)
         return app, alerts, geocoded
 

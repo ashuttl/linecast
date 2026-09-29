@@ -81,8 +81,8 @@ def _location_label(lat, lng):
     try:
         from linecast._i18n import lang_of
         from linecast._runtime import current_runtime
-        from linecast.weather.sources import _reverse_geocode
-        name, _country, addr = _reverse_geocode(
+        from linecast._geocode import reverse_geocode
+        name, _country, addr = reverse_geocode(
             lat, lng, lang=lang_of(current_runtime()))
         if name:
             return name

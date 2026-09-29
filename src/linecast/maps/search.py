@@ -26,20 +26,14 @@ from linecast._http import fetch_json
 from linecast._i18n import accept_language, base_language
 from linecast._paths import cache_dir
 from linecast._plaintext import plain_text
-from linecast.maps.rate_limit import RateLimit
+from linecast._geocode import PHOTON_LANGS, PHOTON_URL, nominatim_throttle
 from linecast._log import debug_log, log_failure
 
-PHOTON_URL = "https://photon.komoot.io/api"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 
 ATTRIBUTION = "© OpenStreetMap contributors"
 
-# Photon translates place names into these three and nothing else;
-# asking for anything more gets an error instead of English.
-PHOTON_LANGS = ("en", "de", "fr")
-
 _SEARCH_TTL = 7 * 86400
-_throttle = RateLimit(1.0, "nominatim")
 
 # Fallback view heights (degrees of latitude) for results that arrive
 # without an extent — roughly "what you'd want to see" per feature class.
@@ -203,7 +197,7 @@ def nominatim_search(query: str, lang: str = "en", limit: int = 8,
               ("addressdetails", 1), ("accept-language", accept_language(lang))]
     url = f"{NOMINATIM_URL}?{urllib.parse.urlencode(params)}"
     headers = {"User-Agent": user_agent()}
-    _throttle()
+    nominatim_throttle()
     try:
         data = _get_json(url, headers=headers, timeout=timeout)
     except Exception as exc:

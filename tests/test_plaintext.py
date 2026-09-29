@@ -211,26 +211,26 @@ class TestAlerts:
 
 class TestLocations:
     def test_open_meteo_geocoder_results(self):
-        from linecast.weather import sources
+        from linecast import _geocode
         answer = {"results": [{"name": MARKER + "Portland", "admin1": "Maine\x1b[0m",
                                "country": "United States", "latitude": 43.6,
                                "longitude": -70.2}]}
-        with patch.object(sources, "fetch_json", return_value=answer):
-            hit = sources.geocode_first("Portland")
+        with patch.object(_geocode, "fetch_json", return_value=answer):
+            hit = _geocode.geocode_first("Portland")
         assert hit == (43.6, -70.2, "Portland, Maine, United States")
 
     def test_reverse_geocode(self):
-        from linecast.weather import sources
+        from linecast import _geocode
         answer = {"address": {"town": MARKER + "Fayette", "state": "Maine\x9b2J",
                               "country_code": "us"}}
-        with patch.object(sources, "fetch_json", return_value=answer), \
-                patch("linecast.maps.search._throttle", lambda: None):
-            name, country, addr = sources._reverse_geocode(44.41, -70.07, lang="en")
+        with patch.object(_geocode, "fetch_json", return_value=answer), \
+                patch("linecast._geocode.nominatim_throttle", lambda: None):
+            name, country, addr = _geocode.reverse_geocode(44.41, -70.07, lang="en")
         assert name == "Fayette, Maine"
         assert country == "US"
         assert addr["town"] == "Fayette"
         # and the cached copy it answers from next time
-        name, _country, _addr = sources._reverse_geocode(44.41, -70.07, lang="en")
+        name, _country, _addr = _geocode.reverse_geocode(44.41, -70.07, lang="en")
         assert name == "Fayette, Maine"
 
     def test_metar_station_name(self):

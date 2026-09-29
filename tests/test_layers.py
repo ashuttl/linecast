@@ -28,7 +28,7 @@ COMMANDS = {"weather", "sunshine", "moon", "sky", "tides", "radar", "maps"}
 LAYERS = {
     **dict.fromkeys(("__init__", "_paths", "_plaintext", "_geo", "_png", "_i18n", "_log",
                      "locales"), 0),
-    **dict.fromkeys(("_cache", "_http", "_config", "_location"), 1),
+    **dict.fromkeys(("_cache", "_http", "_rate_limit", "_config", "_location", "_geocode"), 1),
     **dict.fromkeys(("terminal", "astro", "_commands", "_parsers", "_runtime"), 2),
     **dict.fromkeys(COMMANDS, 3),
     **dict.fromkeys(("__main__", "_completion", "link", "doctor", "prose", "settings"), 4),
@@ -39,8 +39,6 @@ UPWARD = {
     # the unit labels' words, and radar's themes for its parser (kept)
     ("_runtime", "weather.i18n"): "2.4",
     ("_parsers", "radar.sources"): "kept: radar_parser's choices, asked for lazily",
-    # the geocoder leaves weather (2.2)
-    ("_location", "weather.sources"): "2.2",
     # shared words move to _i18n and HELP (2.4)
     ("astro.hours.i18n", "sunshine.i18n"): "2.4", ("terminal.help", "maps.i18n"): "2.4",
     # each command's one line moves to the command (2.6)

@@ -132,8 +132,8 @@ def country_for_defaults(
     if lat is None or lng is None:
         return None
     try:
-        from linecast.weather.sources import _reverse_geocode
-        _name, country, _addr = _reverse_geocode(lat, lng)
+        from linecast._geocode import reverse_geocode
+        _name, country, _addr = reverse_geocode(lat, lng)
     except Exception as exc:
         log_failure("location/geocoder", "country lookup", exc, fallback="no country")
         return None
@@ -177,8 +177,11 @@ def resolve_location(
     if latlng is not None:
         lat, lng = latlng
     else:
-        from linecast.weather.sources import geocode_first
-        hit = geocode_first(override, lang=lang)
+        from linecast._geocode import GeocoderUnavailable, geocode_first
+        try:
+            hit = geocode_first(override, lang=lang)
+        except GeocoderUnavailable as exc:
+            sys.exit(f"Search failed: {exc}")
         if hit is None:
             # sys.exit with a message prints it to stderr with status 1,
             # after the caller's finally blocks have run -- so a spinner
@@ -186,8 +189,8 @@ def resolve_location(
             sys.exit(f'No locations matching "{override}".')
         lat, lng, label = hit
     if need_country:
-        from linecast.weather.sources import _reverse_geocode
-        _name, country, _addr = _reverse_geocode(lat, lng)
+        from linecast._geocode import reverse_geocode
+        _name, country, _addr = reverse_geocode(lat, lng)
     return (lat, lng, country, label) if return_label else (lat, lng, country)
 
 

@@ -99,7 +99,7 @@ class GeolocationProviderChainTests(unittest.TestCase):
 
 class GeocoderFallbackTests(unittest.TestCase):
     def test_photon_answers_when_open_meteo_fails(self):
-        from linecast.weather import sources as _weather_sources
+        from linecast import _geocode
         feature = {"properties": {"name": "Westbrook", "state": "Maine",
                                   "country": "United States",
                                   "countrycode": "US"},
@@ -111,16 +111,23 @@ class GeocoderFallbackTests(unittest.TestCase):
                 raise OSError("down")
             return {"features": [feature]}
 
-        with patch.object(_weather_sources, "fetch_json", side_effect=fake):
-            hit = _weather_sources.geocode_first("Westbrook")
+        with patch.object(_geocode, "fetch_json", side_effect=fake):
+            hit = _geocode.geocode_first("Westbrook")
         self.assertEqual(hit, (43.68, -70.37, "Westbrook, Maine, United States"))
 
-    def test_both_geocoders_down_exits(self):
-        from linecast.weather import sources as _weather_sources
-        with patch.object(_weather_sources, "fetch_json",
+    def test_both_geocoders_down_is_unavailable(self):
+        from linecast import _geocode
+        with patch.object(_geocode, "fetch_json",
                           side_effect=OSError("down")):
-            with self.assertRaises(SystemExit):
-                _weather_sources._geocode_query("Westbrook")
+            with self.assertRaises(_geocode.GeocoderUnavailable):
+                _geocode.geocode("Westbrook")
+
+    def test_both_geocoders_down_ends_a_named_location_with_a_line(self):
+        from linecast import _geocode
+        with patch.object(_geocode, "fetch_json", side_effect=OSError("down")), \
+                self.assertRaises(SystemExit) as exit_:
+            _location.resolve_location("Westbrook")
+        self.assertEqual(exit_.exception.code, "Search failed: down")
 
 
 class ResolveLocationTests(unittest.TestCase):
@@ -145,13 +152,13 @@ class ResolveLocationTests(unittest.TestCase):
             self.assertEqual(_location.resolve_location(None), (3.0, 4.0, "US"))
 
     def test_place_name_geocodes(self):
-        with patch("linecast.weather.sources.geocode_first",
+        with patch("linecast._geocode.geocode_first",
                    return_value=(43.68, -70.35, "Westbrook, Maine")):
             self.assertEqual(
                 _location.resolve_location("Westbrook"), (43.68, -70.35, ""))
 
     def test_unmatched_place_name_exits(self):
-        with patch("linecast.weather.sources.geocode_first", return_value=None):
+        with patch("linecast._geocode.geocode_first", return_value=None):
             with self.assertRaises(SystemExit) as cm:
                 _location.resolve_location("Nowhereville Q")
         # a string code prints to stderr and exits 1, once the caller's
@@ -159,7 +166,7 @@ class ResolveLocationTests(unittest.TestCase):
         self.assertEqual(cm.exception.code, 'No locations matching "Nowhereville Q".')
 
     def test_return_label_carries_the_geocoder_hit(self):
-        with patch("linecast.weather.sources.geocode_first",
+        with patch("linecast._geocode.geocode_first",
                    return_value=(43.68, -70.35, "Westbrook, Maine")):
             self.assertEqual(
                 _location.resolve_location("Westbrook", return_label=True),
@@ -177,7 +184,7 @@ class ResolveLocationTests(unittest.TestCase):
             (43.68, -70.35, "", ""))
 
     def test_need_country_reverse_geocodes_override(self):
-        with patch("linecast.weather.sources._reverse_geocode",
+        with patch("linecast._geocode.reverse_geocode",
                    return_value=("Saint John", "CA", {})):
             self.assertEqual(
                 _location.resolve_location("45.25,-66.06", need_country=True),
@@ -193,7 +200,7 @@ class CountryForDefaultsTests(unittest.TestCase):
 
     def test_override_keeps_a_known_home_country(self):
         with patch.object(_location, "own_country", return_value="CA"), \
-             patch("linecast.weather.sources._reverse_geocode",
+             patch("linecast._geocode.reverse_geocode",
                    side_effect=AssertionError("home country already known")):
             self.assertIsNone(
                 _location.country_for_defaults("Portland", "", 43.68, -70.35)
@@ -201,7 +208,7 @@ class CountryForDefaultsTests(unittest.TestCase):
 
     def test_first_run_override_uses_the_viewed_country_as_a_fallback(self):
         with patch.object(_location, "own_country", return_value=None), \
-             patch("linecast.weather.sources._reverse_geocode",
+             patch("linecast._geocode.reverse_geocode",
                    return_value=("Portland, Maine", "US", {})):
             self.assertEqual(
                 _location.country_for_defaults("Portland", "", 43.68, -70.35),
@@ -264,7 +271,7 @@ class LocationCommandTests(unittest.TestCase):
             "latitude": 44.4293, "longitude": -70.0356, "name": "Fayette",
             "admin1": "Maine", "country": "United States", "country_code": "us",
         }
-        with patch("linecast.weather.sources._geocode_query", return_value=[result]):
+        with patch("linecast._geocode.geocode", return_value=[result]):
             location._cmd_set("Fayette, Maine")
 
         saved = _config.saved_location()
@@ -274,7 +281,7 @@ class LocationCommandTests(unittest.TestCase):
         self.assertEqual(saved["country"], "US")
 
     def test_set_latlng_reverse_geocodes_for_label(self):
-        with patch("linecast.weather.sources._reverse_geocode",
+        with patch("linecast._geocode.reverse_geocode",
                    return_value=("Fayette, Maine", "US", {})):
             location._cmd_set("44.4293,-70.0356")
 
@@ -289,7 +296,7 @@ class LocationCommandTests(unittest.TestCase):
 
     def test_set_takes_a_southern_latitude(self):
         # argparse before 3.14 read "-33.87,151.21" as an option
-        with patch("linecast.weather.sources._reverse_geocode",
+        with patch("linecast._geocode.reverse_geocode",
                    return_value=("Sydney", "AU", {})), \
              patch("sys.argv", ["linecast location", "set", "-33.87,151.21"]), \
              patch("sys.stdout"):
@@ -311,7 +318,7 @@ class LocationCommandTests(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         text = '{"units": "metric", "clock": "24",}'
         path.write_text(text)
-        with patch("linecast.weather.sources._reverse_geocode",
+        with patch("linecast._geocode.reverse_geocode",
                    return_value=("Fayette, Maine", "US", {})), \
              self.assertRaises(SystemExit):
             location._cmd_set("44.4293,-70.0356")
@@ -375,19 +382,19 @@ class ParseLatLngTests(unittest.TestCase):
             self.assertIsNone(_location.parse_latlng(text), text)
 
     def test_an_override_off_the_planet_goes_to_the_geocoder(self):
-        with patch("linecast.weather.sources.geocode_first", return_value=None):
+        with patch("linecast._geocode.geocode_first", return_value=None):
             with self.assertRaises(SystemExit):
                 _location.resolve_location("91,0")
 
     def test_a_third_number_is_not_dropped(self):
-        with patch("linecast.weather.sources.geocode_first",
+        with patch("linecast._geocode.geocode_first",
                    return_value=(1.0, 2.0, "Somewhere")) as geo:
             self.assertEqual(_location.resolve_location("1,2,3")[:2], (1.0, 2.0))
             geo.assert_called_once()
 
     def test_the_settings_command_refuses_coordinates_off_the_planet(self):
-        with patch("linecast.weather.sources._geocode_query", return_value=[]), \
-             patch("linecast.weather.sources._reverse_geocode",
+        with patch("linecast._geocode.geocode", return_value=[]), \
+             patch("linecast._geocode.reverse_geocode",
                    side_effect=AssertionError("not coordinates")):
             with self.assertRaises(SystemExit):
                 location._cmd_set("91,0")

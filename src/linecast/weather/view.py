@@ -56,26 +56,12 @@ from linecast.weather.style import (
 )
 from linecast.weather.historical import fetch_historical
 from linecast.weather.sources import (
-    ALERTS_UNAVAILABLE,
-    AlertList,
-    _local_now_for_data,
-    _reverse_geocode,
-    _search_locations,
-    alert_attribution,
-    alert_source,
-    apply_national_index,
-    fetch_canada_aqhi,
-    fetch_aqi,
-    fetch_alerts,
-    fetch_forecast,
-    forecast_attribution,
-    forecast_date,
-    forecast_is_todays,
-    FORECAST_SOURCE,
-    observation_attribution,
-    observed_credit,
-    without_country,
+    ALERTS_UNAVAILABLE, AlertList, _local_now_for_data, alert_attribution, alert_source,
+    apply_national_index, fetch_canada_aqhi, fetch_aqi, fetch_alerts, fetch_forecast,
+    forecast_attribution, forecast_date, forecast_is_todays, FORECAST_SOURCE,
+    observation_attribution, observed_credit,
 )
+from linecast._geocode import reverse_geocode, print_search, without_country
 from linecast.weather.cover import sky_condition
 from linecast.weather.humidex import apply_canadian_indices
 from linecast.weather.observed import (
@@ -772,7 +758,7 @@ class WeatherApp(_live.LiveApp):
         # for the call. Without it every text-only warning in the
         # country matches.
         try:
-            _name, cc, addr = _reverse_geocode(lat, lng)
+            _name, cc, addr = reverse_geocode(lat, lng)
         except Exception as exc:
             log_failure("weather", "live refresh address", exc,
                         fallback="alerts matched on geometry alone")
@@ -1219,7 +1205,7 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
             return fallback
 
     result = {}
-    fut_geocode = _submit(_reverse_geocode, lat, lng)
+    fut_geocode = _submit(reverse_geocode, lat, lng)
     fut_forecast = _submit(fetch_forecast, lat, lng, runtime)
     fut_aqi = _submit(fetch_aqi, lat, lng)
     fut_observed = _submit(fetch_observation, lat, lng)
@@ -1238,7 +1224,7 @@ def gather(lat, lng, country_code, runtime, geo_label="", stale=None):
     # is asked again for the name in the user's.
     fut_name = None
     if not geo_label or runtime.lang in GEOCODER_UNTRANSLATED:
-        fut_name = _submit(_reverse_geocode, lat, lng, lang=runtime.lang)
+        fut_name = _submit(reverse_geocode, lat, lng, lang=runtime.lang)
     fut_alerts = _submit(
         fetch_alerts, lat, lng, cc or country_code,
         lang=runtime.lang, address=addr,
@@ -1315,7 +1301,7 @@ def _main():
 
     # --search: geocode cities and exit
     if args.search:
-        _search_locations(args.search, lang=runtime.lang)
+        print_search(args.search, lang=runtime.lang)
         return
 
     # country_code is "" for an override; the reverse geocode fills it in

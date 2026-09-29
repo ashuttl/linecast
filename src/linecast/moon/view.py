@@ -568,8 +568,8 @@ def keeps_israel_days(country, lat, lng):
     a cold cache, stays diaspora.
     """
     if not country:
-        from linecast.weather.sources import _reverse_geocode
-        _name, country, _addr = _reverse_geocode(lat, lng)
+        from linecast._geocode import reverse_geocode
+        _name, country, _addr = reverse_geocode(lat, lng)
     return (country or "").upper() == "IL"
 
 
@@ -1248,8 +1248,8 @@ def main():
     if not place["name"]:
         def _name_the_place():
             try:
-                from linecast.weather.sources import _reverse_geocode
-                place["name"] = _reverse_geocode(lat, lng, lang=runtime.lang)[0] or ""
+                from linecast._geocode import reverse_geocode
+                place["name"] = reverse_geocode(lat, lng, lang=runtime.lang)[0] or ""
             except Exception:
                 pass
         threading.Thread(target=_name_the_place, daemon=True).start()

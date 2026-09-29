@@ -965,8 +965,8 @@ def main():
         sys.exit(2)
 
     if args.search:
-        from linecast.weather.sources import _search_locations
-        _search_locations(args.search, lang=runtime.lang)
+        from linecast._geocode import print_search
+        print_search(args.search, lang=runtime.lang)
         return
 
     from linecast.terminal.textwidth import calibrate_from_terminal
@@ -995,8 +995,8 @@ def main():
 
     if not location_name:
         try:
-            from linecast.weather.sources import _reverse_geocode
-            location_name = _reverse_geocode(lat, lon, lang=runtime.lang)[0] or ""
+            from linecast._geocode import reverse_geocode
+            location_name = reverse_geocode(lat, lon, lang=runtime.lang)[0] or ""
         except Exception:
             location_name = ""
 

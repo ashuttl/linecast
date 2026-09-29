@@ -1005,24 +1005,24 @@ class TestReverseGeocodeCountry:
     """Nominatim files Hong Kong and Macau under China."""
 
     def test_hong_kong_and_macau_get_their_own_codes(self):
-        from linecast.weather.sources import _country_code
-        assert _country_code({"country_code": "cn", "ISO3166-2-lvl3": "CN-HK"}) == "HK"
-        assert _country_code({"country_code": "cn", "ISO3166-2-lvl3": "CN-MO"}) == "MO"
-        assert _country_code({"country_code": "cn", "ISO3166-2-lvl3": "CN-GD"}) == "CN"
-        assert _country_code({"country_code": "us"}) == "US"
-        assert _country_code({}) == ""
+        from linecast._geocode import country_code
+        assert country_code({"country_code": "cn", "ISO3166-2-lvl3": "CN-HK"}) == "HK"
+        assert country_code({"country_code": "cn", "ISO3166-2-lvl3": "CN-MO"}) == "MO"
+        assert country_code({"country_code": "cn", "ISO3166-2-lvl3": "CN-GD"}) == "CN"
+        assert country_code({"country_code": "us"}) == "US"
+        assert country_code({}) == ""
 
 
 class TestReverseGeocodeName:
     """Nominatim names small places under keys down to hamlet (issue #50)."""
 
     def _name(self, address):
-        from linecast.weather import sources as ws
-        with patch.object(ws, "read_cache", return_value=None), \
-                patch.object(ws, "write_cache", lambda *a, **k: None), \
-                patch("linecast.maps.search._throttle", lambda: None), \
-                patch.object(ws, "fetch_json", return_value={"address": address}):
-            name, _cc, _addr = ws._reverse_geocode(44.4, -70.0)
+        from linecast import _geocode as geo
+        with patch.object(geo, "read_cache", return_value=None), \
+                patch.object(geo, "write_cache", lambda *a, **k: None), \
+                patch("linecast._geocode.nominatim_throttle", lambda: None), \
+                patch.object(geo, "fetch_json", return_value={"address": address}):
+            name, _cc, _addr = geo.reverse_geocode(44.4, -70.0)
         return name
 
     def test_hamlet_names_the_place(self):
@@ -1042,17 +1042,17 @@ class TestResultLabel:
     """A region named for its city is not repeated."""
 
     def test_name_admin1_country(self):
-        from linecast.weather.sources import result_label
+        from linecast._geocode import result_label
         assert result_label({"name": "Osaka", "admin1": "Osaka Prefecture",
                              "country": "Japan"}) == "Osaka, Osaka Prefecture, Japan"
 
     def test_a_region_named_for_its_city_is_left_out(self):
-        from linecast.weather.sources import result_label
+        from linecast._geocode import result_label
         assert result_label({"name": "Busan", "admin1": "Busan",
                              "country": "South Korea"}) == "Busan, South Korea"
 
     def test_missing_parts(self):
-        from linecast.weather.sources import result_label
+        from linecast._geocode import result_label
         assert result_label({"name": "Nuuk", "admin1": "Sermersooq"}) == "Nuuk, Sermersooq"
 
 
@@ -1062,18 +1062,18 @@ class TestReverseGeocodeLanguage:
     user's. A command may want both, so neither evicts the other."""
 
     def _ask(self, lang):
-        from linecast.weather import sources as ws
+        from linecast import _geocode as geo
         seen = {}
 
         def fetch(url, **_kw):
             seen["url"] = url
             return {"address": {"city": "Osaka", "country_code": "jp"}}
 
-        with patch.object(ws, "read_cache", return_value=None) as read, \
-                patch.object(ws, "write_cache", lambda *a, **k: None), \
-                patch("linecast.maps.search._throttle", lambda: None), \
-                patch.object(ws, "fetch_json", fetch):
-            ws._reverse_geocode(34.69, 135.50, lang=lang)
+        with patch.object(geo, "read_cache", return_value=None) as read, \
+                patch.object(geo, "write_cache", lambda *a, **k: None), \
+                patch("linecast._geocode.nominatim_throttle", lambda: None), \
+                patch.object(geo, "fetch_json", fetch):
+            geo.reverse_geocode(34.69, 135.50, lang=lang)
         return seen["url"], read.call_args[0][0].name
 
     def test_no_language_asks_for_the_local_names(self):
@@ -1118,7 +1118,7 @@ def _alerts(data, lat, lng, address):
     with patch.object(ws, "fetch_json_cached", return_value=data), \
             patch.object(ws, "write_cache", lambda *a, **k: None):
         return ws._fetch_alerts_meteoalarm(lat, lng, "united-kingdom",
-                                           address=address)
+                                          address=address)
 
 
 EDINBURGH = (55.95, -3.19, {"city": "City of Edinburgh",

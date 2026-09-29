@@ -24,7 +24,7 @@ from typing import Any
 from linecast import user_agent
 from linecast._http import fetch_json
 from linecast._plaintext import plain_text
-from linecast.maps.rate_limit import RateLimit
+from linecast._rate_limit import RateLimit
 from linecast._log import debug_log, log_failure
 from linecast.terminal.scenes import Memo
 

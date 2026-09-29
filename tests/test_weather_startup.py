@@ -15,7 +15,7 @@ from datetime import datetime
 from linecast.weather import view as weather
 
 weather._FETCH_CEILING = 0.2
-weather._reverse_geocode = lambda *a, **k: ("Delhi", "IN", {})
+weather.reverse_geocode = lambda *a, **k: ("Delhi", "IN", {})
 weather.fetch_forecast = lambda *a, **k: {"v": 1}
 weather.fetch_aqi = lambda *a, **k: {"aqi": 1}
 weather.fetch_historical = lambda *a, **k: "history"
@@ -44,7 +44,7 @@ def _run(code):
     ("fetch_aqi", "aqi"),
     ("fetch_historical", "historical"),
     ("fetch_forecast", "data"),
-    ("_reverse_geocode", "geocode"),
+    ("reverse_geocode", "geocode"),
 ])
 def test_deadline_preserves_completed_results_and_exits(provider, missing):
     proc = _run(f"""

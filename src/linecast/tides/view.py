@@ -1054,9 +1054,9 @@ class TidesApp(_live.LiveApp):
     def _load_place(self, place):
         """The nearest station to *place* and its data, as main() finds
         them: None when nothing covers it, "failed" when it would not load."""
-        from linecast.weather.sources import _reverse_geocode
+        from linecast._geocode import reverse_geocode
         try:
-            country = _reverse_geocode(place.lat, place.lon, lang=self.runtime.lang)[1]
+            country = reverse_geocode(place.lat, place.lon, lang=self.runtime.lang)[1]
         except Exception as exc:
             log_failure("tides", "place country", exc, fallback="no regional provider")
             country = ""
@@ -1330,8 +1330,8 @@ def main():
                 # The label is English there; Nominatim's name, when it
                 # has one, reads better.
                 try:
-                    from linecast.weather.sources import _reverse_geocode
-                    resolved_label = (_reverse_geocode(lat, lng, lang=runtime.lang)[0]
+                    from linecast._geocode import reverse_geocode
+                    resolved_label = (reverse_geocode(lat, lng, lang=runtime.lang)[0]
                                       or resolved_label)
                 except Exception as exc:
                     log_failure("location/geocoder", "place name", exc,

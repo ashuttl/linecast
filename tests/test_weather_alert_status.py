@@ -243,7 +243,7 @@ class TestGather:
         from linecast.weather import view as weather
         runtime = WeatherRuntime(live=False, icons="emoji", lang="en", oneline=False,
                                  celsius=False, metric=False, shading=False)
-        with patch.object(weather, "_reverse_geocode", return_value=("Portland", "US", {})), \
+        with patch.object(weather, "reverse_geocode", return_value=("Portland", "US", {})), \
              patch.object(weather, "fetch_forecast", return_value=None), \
              patch.object(weather, "fetch_aqi", return_value=None), \
              patch.object(weather, "fetch_observation", return_value=None), \

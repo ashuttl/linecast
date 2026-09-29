@@ -17,6 +17,7 @@ import pytest
 from conftest import SESSION_ROOT, readonly
 
 from linecast import _cache, _config, _http, _location, _paths, _runtime
+from linecast import _geocode
 from linecast.weather import sources
 from linecast.settings import location
 from linecast.settings import units
@@ -188,9 +189,9 @@ class TestUnwritableCache:
     def test_reverse_geocode_still_answers(self, readonly_cache, monkeypatch):
         payload = {"address": {"city": "Westbrook", "state": "Maine",
                                "country_code": "us"}}
-        monkeypatch.setattr(sources, "fetch_json",
+        monkeypatch.setattr(_geocode, "fetch_json",
                             lambda url, timeout=10: payload)
-        name, country, addr = sources._reverse_geocode(43.7, -70.3)
+        name, country, addr = _geocode.reverse_geocode(43.7, -70.3)
         assert (name, country) == ("Westbrook, Maine", "US")
         assert addr == payload["address"]
 
@@ -241,7 +242,7 @@ class TestUnwritableConfig:
         assert "\n" not in str(exc.value.code)
 
     def test_location_command_ends_with_one_line(self, readonly_config, monkeypatch):
-        monkeypatch.setattr(sources, "_reverse_geocode",
+        monkeypatch.setattr(_geocode, "reverse_geocode",
                             lambda lat, lng: ("Westbrook", "US", {}))
         with pytest.raises(SystemExit) as exc:
             location._cmd_set("43.7,-70.3")

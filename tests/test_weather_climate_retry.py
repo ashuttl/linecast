@@ -162,7 +162,7 @@ def test_a_missed_second_ask_keeps_the_first_answer():
     def fetch_historical(lat, lng, day, **kwargs):
         return "history" if day == date.today() else None
 
-    with patch.object(weather, "_reverse_geocode", return_value=("Tokyo", "JP", {})), \
+    with patch.object(weather, "reverse_geocode", return_value=("Tokyo", "JP", {})), \
          patch.object(weather, "fetch_forecast", return_value={"v": 1}), \
          patch.object(weather, "fetch_aqi", return_value=None), \
          patch.object(weather, "fetch_alerts", return_value=[]), \
@@ -182,7 +182,7 @@ def _gather_with_a_hung_archive(runtime):
         started.set()
         threading.Event().wait()
 
-    with patch.object(weather, "_reverse_geocode", return_value=("Tokyo", "JP", {})), \
+    with patch.object(weather, "reverse_geocode", return_value=("Tokyo", "JP", {})), \
          patch.object(weather, "fetch_forecast", return_value={"v": 1}), \
          patch.object(weather, "fetch_aqi", return_value=None), \
          patch.object(weather, "fetch_alerts", return_value=[]), \
@@ -280,7 +280,7 @@ def test_the_refresh_asks_again_until_the_climate_arrives(no_sleep):
     with patch.object(weather, "fetch_forecast", return_value={"v": 2}), \
          patch.object(weather, "fetch_alerts", return_value=[]), \
          patch.object(weather, "fetch_aqi", return_value=None), \
-         patch.object(weather, "_reverse_geocode", return_value=("", "US", {})), \
+         patch.object(weather, "reverse_geocode", return_value=("", "US", {})), \
          patch.object(weather, "forecast_is_todays", return_value=True), \
          patch.object(weather, "_local_now_for_data", return_value=datetime(2026, 9, 18)), \
          patch.object(weather, "fetch_historical", return_value="at last"):

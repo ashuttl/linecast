@@ -522,8 +522,8 @@ def main():
     hours_country = country
     if hours_system == "islamic" and not hours_country:
         try:
-            from linecast.weather.sources import _reverse_geocode
-            hours_country = _reverse_geocode(lat, lng)[1]
+            from linecast._geocode import reverse_geocode
+            hours_country = reverse_geocode(lat, lng)[1]
         except Exception:
             hours_country = None
 
@@ -560,8 +560,8 @@ def main():
     location_label = label
     if not location_label:
         try:
-            from linecast.weather.sources import _reverse_geocode
-            location_label = _reverse_geocode(
+            from linecast._geocode import reverse_geocode
+            location_label = reverse_geocode(
                 lat, lng, lang=runtime.lang)[0] or ""
         except Exception:
             location_label = ""
