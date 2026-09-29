@@ -648,7 +648,7 @@ class TestRadarSnapshot:
                             (230, 200, 40, 255) if d > 0.3 else (220, 40, 40, 255))
             return w, h, rgba
 
-    def test_radar_80x24(self, monkeypatch):
+    def test_radar_80x24(self, monkeypatch, keep_radar_source):
         import os
         import time
         from linecast._runtime import RuntimeConfig
@@ -656,7 +656,7 @@ class TestRadarSnapshot:
         from linecast.radar import view as radar
         from linecast.radar import warnings
 
-        monkeypatch.setattr(rf, "_source", self.Storm())
+        rf.use(self.Storm())
         monkeypatch.setattr(warnings, "covers", lambda bbox: False)
         monkeypatch.setattr(radar, "get_terminal_size", lambda: (80, 24))
         runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
@@ -665,8 +665,8 @@ class TestRadarSnapshot:
         os.environ["TZ"] = "America/Toronto"
         time.tzset()
         try:
-            output = radar.render_radar(43.7, -79.4, "Toronto", 6.0, play_frame=0,
-                                        playing=False, block=True, runtime=runtime)
+            output, _failed = radar.render_radar(43.7, -79.4, "Toronto", 6.0, play_frame=0,
+                                                 playing=False, block=True, runtime=runtime)
         finally:
             if machine is None:
                 del os.environ["TZ"]

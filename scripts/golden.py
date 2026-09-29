@@ -676,11 +676,12 @@ def _radar(ctx, **kw):
     from linecast.radar import view as radar
     from linecast.radar import warnings
     _mirror(False)
-    rf._source = _Storm()
+    rf.use(_Storm())
     warnings.covers = lambda bbox: False
-    return radar.render_radar(LAT, LNG, "Toronto", kw.pop("zoom", 6.0), play_frame=0,
-                              playing=False, block=True, runtime=ctx.runtime(**kw.pop(
-                                  "flags", {})), **kw)
+    text, _failed = radar.render_radar(
+        LAT, LNG, "Toronto", kw.pop("zoom", 6.0), play_frame=0, playing=False,
+        block=True, runtime=ctx.runtime(**kw.pop("flags", {})), **kw)
+    return text
 
 
 @scene("radar-print")

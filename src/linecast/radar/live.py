@@ -14,9 +14,9 @@ from linecast.radar import frames as _frames
 from linecast.radar import sources as _sources
 from linecast.terminal.framebuffer import get_terminal_size
 from linecast._geo import wrap_lon
-from linecast.terminal.live import LiveApp
+from linecast.terminal.live import LiveApp, nudge
 from linecast._location import country_for_defaults, resolve_location
-from linecast.radar.frames import N_FRAMES, _nudge, _sat_timeline
+from linecast.radar.frames import N_FRAMES, _sat_timeline
 from linecast.radar.i18n import rs
 from linecast._xyz import bbox_for
 from linecast.radar.iem import FRAME_STEP
@@ -107,7 +107,7 @@ class RadarApp(LiveApp):
 
     def intercept(self, action):
         """Route keys to the theme picker; everything else passes through."""
-        source = _frames._source
+        source = _frames.source()
         if not self.picker.handle(action, getattr(source, "themes", None),
                                   getattr(source, "theme", None)):
             return False
@@ -115,7 +115,7 @@ class RadarApp(LiveApp):
         if choice is not None:
             self.theme = choice
             # same index, no fetch
-            _frames._source = source.with_theme(choice)
+            _frames.use(source.with_theme(choice))
         return True
 
     def on_drag(self, dcol, drow, done):
@@ -142,17 +142,16 @@ class RadarApp(LiveApp):
         r = _in_conus(self.lat, self.lon)
         if r != self.region:
             self.region = r
-            if getattr(_frames._source, "kind", None) != "lwxr":
-                _frames._source = get_source(
-                    self.lat, self.lon, N_FRAMES, self.theme)
+            if getattr(_frames.source(), "kind", None) != "lwxr":
+                _frames.use(get_source(self.lat, self.lon, N_FRAMES, self.theme))
         return True
 
     def play_gate(self):
-        return not _frames._buffering
+        return not _frames.buffering()
 
     def render(self, play_frame=0, playing=True, mouse_pos=None, **_):
-        themes = getattr(_frames._source, "themes", None)
-        return render_radar(
+        themes = getattr(_frames.source(), "themes", None)
+        text, _failed = render_radar(
             self.lat, self.lon, self.location_name, self.zoom,
             play_frame=play_frame, playing=playing,
             marker=self.home,
@@ -163,6 +162,7 @@ class RadarApp(LiveApp):
             layer=self.layer,
             theme_menu=((list(themes), self.picker.sel)
                         if self.picker.is_open and themes else None))
+        return text
 
 
 def main():
@@ -237,7 +237,7 @@ def main():
         from linecast._geocode import place_label
         location_name = place_label(lat, lon, location_name, runtime.lang)
 
-        _frames._source = get_source(lat, lon, N_FRAMES, theme)
+        _frames.use(get_source(lat, lon, N_FRAMES, theme))
 
         if not runtime.live:
             # static: play_frame 0 is the present (newest observed) frame
@@ -247,13 +247,12 @@ def main():
                                     marker=(lat, lon), runtime=runtime,
                                     layers=layers, layer=layer)
 
-            static_out = render_once()
-            if _frames.frame_load_failed and _frames._fall_back():
+            static_out, failed = render_once()
+            if failed and _frames.fall_back():
                 # the source answered its index and then could not serve the
                 # tiles; the one we fall to keeps its own frame list, so the
                 # whole render goes again rather than the frame alone
-                _frames.frame_load_failed = False
-                static_out = render_once()
+                static_out, _failed = render_once()
     finally:
         spin.stop()
 
@@ -262,6 +261,6 @@ def main():
         return
 
     # a background index refresh that adds a frame repaints the timeline
-    _sources.on_index_refresh = _nudge
+    _sources.on_index_refresh = nudge
     RadarApp(runtime, lat, lon, location_name, args.zoom, layers, layer,
              theme).run()

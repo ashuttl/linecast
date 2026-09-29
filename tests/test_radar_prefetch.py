@@ -12,10 +12,15 @@ import sys
 import textwrap
 import time
 
+import pytest
+
 from linecast.radar import frames as rf
 from linecast.radar import tiles
 from linecast.radar.sources import Frame
 from conftest import SRC
+
+# a test's rf.use() lasts for that test
+pytestmark = pytest.mark.usefixtures("keep_radar_source")
 
 
 def _frames(n):
@@ -161,7 +166,7 @@ class TestStaticRender:
                 return 4, 4, bytearray(4 * 4 * 4)
 
         calls = []
-        monkeypatch.setattr(rf, "_source", Src())
+        rf.use(Src())
         monkeypatch.setattr(rf._warnings, "covers", lambda bbox: False)
         monkeypatch.setattr(radar, "_ensure_prefetch",
                             lambda *a, **k: calls.append(a))
@@ -172,6 +177,36 @@ class TestStaticRender:
         radar.render_radar(43.7, -70.3, "Westbrook", 10.0, play_frame=0,
                            playing=True, block=False)
         assert len(calls) == 1
+
+    def test_a_frame_that_did_not_load_is_reported(self, monkeypatch):
+        """--print falls down the source chain on it and renders again."""
+        from linecast.radar import view as radar
+
+        class Src:
+            theme = None
+            attribution = label = "stub"
+            fail = True
+
+            def current_frames(self):
+                return _frames(3)
+
+            def frame_rgba(self, bbox, gw, hc, frame):
+                if self.fail:
+                    raise tiles.IncompleteFrame(1, 4)
+                return 4, 4, bytearray(4 * 4 * 4)
+
+        src = Src()
+        rf.use(src)
+        monkeypatch.setattr(rf, "_frame_cache", {})
+        monkeypatch.setattr(rf._warnings, "covers", lambda bbox: False)
+        monkeypatch.setattr(radar, "get_terminal_size", lambda: (40, 12))
+        text, failed = radar.render_radar(43.7, -70.3, "Westbrook", 10.0,
+                                          play_frame=0, playing=False)
+        assert failed and "unavailable" in text
+        src.fail = False
+        text, failed = radar.render_radar(43.7, -70.3, "Westbrook", 10.0,
+                                          play_frame=0, playing=False)
+        assert not failed and "unavailable" not in text
 
 
 class TestIncompleteFrames:
@@ -199,7 +234,7 @@ class TestIncompleteFrames:
         return Src()
 
     def test_an_incomplete_frame_is_not_memoised(self, monkeypatch):
-        monkeypatch.setattr(rf, "_source", self._source({1}))
+        rf.use(self._source({1}))
         monkeypatch.setattr(rf, "_frame_cache", {})
         frames = _frames(3)
         bbox, gw, hc = (0, 0, 1, 1), 4, 2
@@ -214,7 +249,7 @@ class TestIncompleteFrames:
     def test_the_frame_is_fetched_again_next_time(self, monkeypatch):
         """Refusing it is only worth anything if it is retried."""
         fail = {1}
-        monkeypatch.setattr(rf, "_source", self._source(fail))
+        rf.use(self._source(fail))
         monkeypatch.setattr(rf, "_frame_cache", {})
         frames = _frames(3)
         bbox, gw, hc = (0, 0, 1, 1), 4, 2
@@ -229,26 +264,26 @@ class TestIncompleteFrames:
         stalled = self._source({0, 1, 2})
         healthy = self._source(set())
         healthy.kind = "rv"
-        monkeypatch.setattr(rf, "_source", stalled)
+        rf.use(stalled)
         monkeypatch.setattr(rf, "_fell_back", False)
         monkeypatch.setattr(rf._sources, "demote", lambda src: healthy)
 
-        assert rf._fall_back() is True
-        assert rf._source is healthy
+        assert rf.fall_back() is True
+        assert rf.source() is healthy
         # only once: a source having a bad minute is not abandoned twice
-        assert rf._fall_back() is False
+        assert rf.fall_back() is False
 
     def test_no_fall_back_when_the_chain_is_spent(self, monkeypatch):
-        monkeypatch.setattr(rf, "_source", self._source({0}))
+        rf.use(self._source({0}))
         monkeypatch.setattr(rf, "_fell_back", False)
         monkeypatch.setattr(rf._sources, "demote", lambda src: None)
-        assert rf._fall_back() is False
+        assert rf.fall_back() is False
 
     def test_frames_are_keyed_by_source(self, monkeypatch):
         """Two sources on one theme can publish a frame for the same
         minute; falling to the second must not serve the first's."""
         lwxr = self._source(set())
-        monkeypatch.setattr(rf, "_source", lwxr)
+        rf.use(lwxr)
         monkeypatch.setattr(rf, "_frame_cache", {})
         frames = _frames(1)
         bbox, gw, hc = (0, 0, 1, 1), 4, 2
@@ -257,5 +292,5 @@ class TestIncompleteFrames:
 
         rv = self._source(set())
         rv.kind = "rv"
-        monkeypatch.setattr(rf, "_source", rv)
+        rf.use(rv)
         assert rf._cached_frame(bbox, gw, hc, frames[0]) is None

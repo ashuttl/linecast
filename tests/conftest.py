@@ -192,6 +192,16 @@ def _blocked(*args, **kwargs):
                   "mark the test @pytest.mark.integration to allow it")
 
 
+@pytest.fixture
+def keep_radar_source():
+    """The radar source in use before the test is in use after it, so
+    a test can put its own in with radar.frames.use()."""
+    from linecast.radar import frames
+    before = frames.source()
+    yield
+    frames.use(before)
+
+
 @pytest.fixture(autouse=True)
 def _no_network(request, monkeypatch):
     """Refuse every outbound connection unless the test is marked."""

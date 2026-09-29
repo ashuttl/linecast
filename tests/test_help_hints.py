@@ -140,7 +140,8 @@ def test_static_sky_does_not_advertise_inactive_controls(monkeypatch):
 @pytest.mark.parametrize('view', ['maps', 'radar'])
 @pytest.mark.parametrize('lang', ['en', 'ja', 'th'])
 @pytest.mark.parametrize('cols', [40, 80, 140])
-def test_map_and_radar_footer_hints_reach_the_last_column(monkeypatch, view, lang, cols):
+def test_map_and_radar_footer_hints_reach_the_last_column(monkeypatch, keep_radar_source,
+                                                           view, lang, cols):
     from types import SimpleNamespace
     from linecast.maps import view as maps
     from linecast.radar import view as radar
@@ -154,14 +155,14 @@ def test_map_and_radar_footer_hints_reach_the_last_column(monkeypatch, view, lan
     else:
         source = SimpleNamespace(attribution='LibreWXR', current_frames=lambda: [
             SimpleNamespace(time=NOW, future=False)])
-        monkeypatch.setattr(radar._frames, '_source', source)
+        radar._frames.use(source)
         monkeypatch.setattr(radar, '_get_basemap', lambda *a: SimpleNamespace(
             city_overlays=lambda **kw: {}))
         monkeypatch.setattr(radar, '_load_frame', lambda *a: ([], 0))
         monkeypatch.setattr(radar._warnings, 'covers', lambda *a: False)
         monkeypatch.setattr(radar, 'compose', lambda *a, **kw: [''] * 22)
         monkeypatch.setattr(radar, 'has_radar', lambda *a: True)
-        output = radar.render_radar(43.68, -70.32, 'Westbrook', 1, runtime=runtime)
+        output, _failed = radar.render_radar(43.68, -70.32, 'Westbrook', 1, runtime=runtime)
     foot = plain(output).splitlines()[-1]
     assert foot.endswith(_help.hint(lang))
     assert visible_len(foot) == cols

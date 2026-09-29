@@ -8,6 +8,9 @@ from linecast.radar import live as _radar_live
 from linecast.radar.live import RadarApp
 from linecast.radar.ui import ThemePicker
 
+# a test's rf.use() lasts for that test
+pytestmark = pytest.mark.usefixtures("keep_radar_source")
+
 
 class FakeSource:
     """Enough of a RadarSource for the keys: a theme, a palette list, and
@@ -31,7 +34,7 @@ THEMES = {"Classic": "classic", "Rainbow": "rainbow", "Mono": "mono"}
 def app(monkeypatch):
     monkeypatch.setattr(_radar_live, "get_terminal_size", lambda: (80, 26))
     monkeypatch.setattr(_radar_live, "_sat_timeline", lambda: [])
-    monkeypatch.setattr(rf, "_source", FakeSource(THEMES, "classic"))
+    rf.use(FakeSource(THEMES, "classic"))
     monkeypatch.setattr(rf, "_buffering", False)
     return RadarApp(None, 43.7, -70.3, "Westbrook", 10.0, frozenset(),
                     "radar", "classic")
@@ -63,7 +66,7 @@ class TestActions:
     def test_shift_a_toggles_the_warning_outlines(self, app, monkeypatch):
         seen = []
         monkeypatch.setattr(_radar_live, "render_radar",
-                            lambda *a, **k: seen.append(k["alerts"]))
+                            lambda *a, **k: seen.append(k["alerts"]) or ("f", False))
         app.render()
         assert app.on_action('A') is True
         app.render()
@@ -100,10 +103,10 @@ class TestActions:
 
 class TestThemePicker:
     def test_t_opens_only_when_the_source_has_themes(self, app, monkeypatch):
-        monkeypatch.setattr(rf, "_source", FakeSource(None))
+        rf.use(FakeSource(None))
         assert app.intercept('key:t') is False
         assert not app.picker.is_open
-        monkeypatch.setattr(rf, "_source", FakeSource(THEMES, "rainbow"))
+        rf.use(FakeSource(THEMES, "rainbow"))
         assert app.intercept('key:t') is True
         assert app.picker.is_open and app.picker.sel == 1
 
@@ -120,22 +123,22 @@ class TestThemePicker:
         assert app.picker.sel == 0
 
     def test_enter_applies_a_different_theme_and_closes(self, app):
-        old = rf._source
+        old = rf.source()
         app.intercept('key:t')
         app.intercept('back')
         assert app.intercept('key:enter') is True
         assert not app.picker.is_open
         assert old.swapped == ["rainbow"]
-        assert rf._source.theme == "rainbow"
+        assert rf.source().theme == "rainbow"
         assert app.theme == "rainbow"
 
     def test_enter_on_the_current_theme_fetches_nothing(self, app):
-        old = rf._source
+        old = rf.source()
         app.intercept('key:t')
         assert app.intercept('key:enter') is True
         assert not app.picker.is_open
         assert old.swapped == []
-        assert rf._source is old
+        assert rf.source() is old
         assert app.theme == "classic"
 
     @pytest.mark.parametrize("action", ['escape', 'key:t', 'quit'])
@@ -152,7 +155,7 @@ class TestThemePicker:
 
     def test_a_source_that_lost_its_themes_closes_it(self, app, monkeypatch):
         app.intercept('key:t')
-        monkeypatch.setattr(rf, "_source", FakeSource(None))
+        rf.use(FakeSource(None))
         assert app.intercept('fwd') is True
         assert not app.picker.is_open
 
@@ -196,7 +199,7 @@ class TestDrag:
         picks = []
         monkeypatch.setattr(_radar_live, "get_source",
                             lambda *a: picks.append(a) or FakeSource(None))
-        monkeypatch.setattr(rf, "_source", FakeSource(None, kind="iem"))
+        rf.use(FakeSource(None, kind="iem"))
         monkeypatch.setattr(_radar_live, "_in_conus",
                             lambda lat, lon: lon < -60)
         app.region = True
@@ -222,8 +225,7 @@ class TestDrag:
         picks = []
         monkeypatch.setattr(_radar_live, "get_source",
                             lambda *a: picks.append(a) or FakeSource(None))
-        monkeypatch.setattr(rf, "_source", FakeSource({"terminal": "terminal"},
-                                                      "terminal", kind="rv"))
+        rf.use(FakeSource({"terminal": "terminal"}, "terminal", kind="rv"))
         monkeypatch.setattr(_radar_live, "_in_conus",
                             lambda lat, lon: lon < -60)
         app.region = True
@@ -243,7 +245,7 @@ class TestViewLatitude:
     the tiles do, as it does for a pan."""
 
     def test_a_polar_location_centres_the_view_at_the_edge(self, monkeypatch):
-        monkeypatch.setattr(rf, "_source", FakeSource(THEMES, "classic"))
+        rf.use(FakeSource(THEMES, "classic"))
         app = RadarApp(None, 89.0, 15.0, "Svalbard", 10.0, frozenset(),
                        "radar", "classic")
         assert app.lat == 80.0
@@ -258,7 +260,7 @@ class TestRender:
     def test_passes_the_state_through(self, app, monkeypatch):
         seen = {}
         monkeypatch.setattr(_radar_live, "render_radar",
-                            lambda *a, **k: seen.update(args=a, **k) or "f")
+                            lambda *a, **k: seen.update(args=a, **k) or ("f", False))
         app.layers.add("wind")
         app.pan_preview = (2, -1)
         assert app.render(play_frame=3, playing=False,
@@ -276,7 +278,7 @@ class TestRender:
             self, app, monkeypatch):
         seen = {}
         monkeypatch.setattr(_radar_live, "render_radar",
-                            lambda *a, **k: seen.update(k) or "f")
+                            lambda *a, **k: seen.update(k) or ("f", False))
         app.intercept('key:t')
         app.intercept('back')
         app.render()

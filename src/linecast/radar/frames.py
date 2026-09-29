@@ -7,7 +7,8 @@ auto-play gate waits on PLAY_READY of the window (or the worker
 finishing) before the animation starts. A frame that came back short of
 tiles is refused rather than memoised, and a source that cannot serve
 even the displayed frame is stepped over. The active RadarSource lives
-here too, since every fetch goes through it; radar.main() installs it.
+here too, since every fetch goes through it: use() puts one in, and
+source() reads it.
 """
 
 import atexit
@@ -32,9 +33,21 @@ PLAY_READY = 0.8  # fraction of the frame window that must be buffered
                   # the gate, so a few permanently failing frames can't
                   # stall playback forever)
 
-_source = None  # active RadarSource, chosen per location in main()
+_source = None  # the active RadarSource, put in by use()
 _fell_back = False  # the chain has been stepped down once already
-frame_load_failed = False  # a static render's frame did not arrive
+
+
+def source():
+    """The RadarSource every fetch goes through."""
+    return _source
+
+
+def use(src):
+    """Send every fetch through `src`: the source main() picked for the
+    location, the same index under another theme, or the one a pan
+    across the edge of the lower 48 picked."""
+    global _source
+    _source = src
 
 
 def source_tag():
@@ -148,7 +161,7 @@ def _play_gate(bbox, gw, hc, frames, layer, playing):
     enough of the window has buffered, so the loop plays smoothly instead
     of stuttering past frames that are still fetching. Returns the loaded
     mask and whether playback is held; live_loop consults the gate through
-    the _buffering global."""
+    buffering()."""
     global _buffering
     mask = _loaded_mask(bbox, gw, hc, frames, layer)
     n_loaded = sum(mask)
@@ -156,6 +169,11 @@ def _play_gate(bbox, gw, hc, frames, layer, playing):
                   and n_loaded < len(frames)
                   and n_loaded < math.ceil(len(frames) * PLAY_READY))
     return mask, _buffering
+
+
+def buffering():
+    """Whether auto-play is held while the frame window buffers."""
+    return _buffering
 
 
 def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
@@ -206,7 +224,7 @@ def _ensure_prefetch(bbox, gw, hc, frames, start_idx=0, layer="radar"):
         # connection to itself (and its warnings follow at once); the
         # rest of the window then fills in behind it (tile fetches share
         # one process-wide pool)
-        if not load(ordered[0]) and gen == _prefetch_gen and _fall_back():
+        if not load(ordered[0]) and gen == _prefetch_gen and fall_back():
             # the source changed under us: this window's frames belong to
             # the old one, so leave them and let the repaint start again
             # against the new source's own index
@@ -266,8 +284,8 @@ def stand_down():
 getattr(threading, "_register_atexit", atexit.register)(stand_down)
 
 
-def _fall_back():
-    """Swap _source for the next one down the chain.  True if it moved.
+def fall_back():
+    """Swap the source for the next one down the chain.  True if it moved.
 
     The displayed frame is the one the source gets every tile connection
     to itself; when even that comes back short, the host is not serving,

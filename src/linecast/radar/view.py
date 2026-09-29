@@ -109,9 +109,16 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                  marker=None, runtime=None, block=True, pan_offset=(0, 0),
                  theme_menu=None, mouse_pos=None, layer="radar",
                  layers=frozenset(), alerts=True, **_):
+    """One frame of the radar, and whether its image failed to load.
+
+    Returns (text, failed).  Only a blocking render (--print) fetches
+    the displayed frame itself, so only it can fail: main() then falls
+    down the source chain and renders once more.  A live render never
+    waits on the network; it shows the nearest frame it has.
+    """
     lang = runtime.lang if runtime else "en"
     use_24h = runtime.use_24h if runtime else False
-    source = _frames._source
+    source = _frames.source()
     cols, rows = get_terminal_size()
     from linecast.terminal import help as _help
     live = bool(getattr(runtime, 'live', False))
@@ -132,7 +139,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     if not frames:
         msg = f"{fg(*DIM)}{rs('no_frames', lang)}{RESET}"
         foot = _help.footer('', cols, lang) if live else ''
-        return "\n".join([msg] + [""] * height_cells + [foot])
+        return "\n".join([msg] + [""] * height_cells + [foot]), False
 
     # play_frame counts from the "home" frame — the present (newest observed):
     # 0 = now, so pausing (which homes the counter) always lands on now
@@ -167,9 +174,6 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
                         fallback="blank frame")
             radar = [[None] * graph_w for _ in range(height_cells * 2)]
             echo, err = 0.0, str(exc)
-            # main() reads this to decide whether to fall down the source
-            # chain and render once more
-            _frames.frame_load_failed = True
     else:
         # live mode: never block a render on the network — show the nearest
         # cached frame (radar pops in as the prefetcher lands frames)
@@ -332,7 +336,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
     elif mouse_pos and warns and pan_offset == (0, 0):
         floating = _build_warning_tooltip(
             warns, mouse_pos, bbox, graph_w, height_cells, cols, rows, use_24h)
-    return overlay(out, floating)
+    return overlay(out, floating), err is not None
 
 
 def main():

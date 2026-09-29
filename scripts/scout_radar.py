@@ -99,7 +99,7 @@ CANDIDATES = [
 def echo_at(lat: float, lon: float) -> float | None:
     """Echo coverage, in percent, of the newest observed frame over a place."""
     source = get_source(lat, lon, 1)
-    _radar_frames._source = source
+    _radar_frames.use(source)
     frames = [f for f in source.current_frames() if not f.future]
     if not frames:
         return None
