@@ -1,6 +1,6 @@
 """Moon command localization strings.
 
-Phase names live in MOON_NAMES_I18N (in _tides.i18n, shared with the tides
+Phase names live in MOON_NAMES_I18N (in tides.i18n, shared with the tides
 chart's moon labels); this module holds the strings specific to the ``moon``
 command plus month names for the full/new moon dates.
 """

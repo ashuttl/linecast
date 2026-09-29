@@ -4,7 +4,7 @@ main() settles the arguments, resolves the location and picks the
 source, then runs render_radar under live_loop as a RadarApp — the
 state that gives the view its hands: zoom, drag, the layer keys and
 the theme picker.  --print renders once and exits.  Everything drawn
-is in radar; the frames and their prefetcher are in _radar_frames.
+is in radar.view; the frames and their prefetcher are in radar.frames.
 """
 
 import os

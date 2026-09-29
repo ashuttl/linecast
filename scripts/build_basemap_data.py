@@ -279,7 +279,7 @@ def main():
     # named water bodies (gulfs, bays, seas, oceans) for the header's
     # "where am I" readout — naming only, never drawn.  Named inland lakes
     # join the list so the readout treats them as seas too ("Lake Superior");
-    # unnamed lakes are dropped by _marine.  Re-sort so smallest-area-first
+    # unnamed lakes are dropped by tides.marine.  Re-sort so smallest-area-first
     # (most specific name) holds across the merged set.
     marine = (_marine(_load("ne_10m_geography_marine_polys.geojson"), eps=EPS_MARINE)
               + _marine(_load("ne_50m_lakes.geojson"), eps=EPS_MARINE))

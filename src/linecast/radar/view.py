@@ -21,7 +21,7 @@ Condition layers from Open-Meteo.
 
 Everything drawn is here: render_radar composes one frame.  What runs
 when you type `radar` — the arguments, the source, the keys and the live
-loop — is in _radar_live.
+loop — is in radar.live.
 
 Usage: radar [--location LAT,LNG | PLACE] [--zoom DEG] [--theme NAME]
              [--layers temp,wind] [--source NAME] [--print] [--search CITY]
@@ -339,7 +339,7 @@ def render_radar(lat, lon, location_name, zoom, play_frame=0, playing=True,
 
 
 def main():
-    # the live loop draws through render_radar, so _radar.live imports this
+    # the live loop draws through render_radar, so radar.live imports this
     # module; importing it here, at the call, keeps that one-way at load
     from linecast.radar.live import main as live_main
     live_main()

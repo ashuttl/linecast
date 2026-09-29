@@ -85,12 +85,12 @@ def _scrubbed():
 
 
 # This runs before any test module imports linecast, and it matters for
-# LINECAST_THEME above all, which _theme reads once, at import. Unset,
-# with no terminal to probe, _theme settles on the fallback palette with
-# theme_legacy_mode False: the mode the stored snapshots were rendered
-# in and the one tests/test_theme_reload.py needs. A value inherited
-# from the shell (off, classic) would fix the other palette for the
-# whole session.
+# LINECAST_THEME above all, which terminal.theme reads once, at import.
+# Unset, with no terminal to probe, terminal.theme settles on the
+# fallback palette with theme_legacy_mode False: the mode the stored
+# snapshots were rendered in and the one tests/test_theme_reload.py
+# needs. A value inherited from the shell (off, classic) would fix the
+# other palette for the whole session.
 for _name in _scrubbed():
     os.environ.pop(_name, None)
 

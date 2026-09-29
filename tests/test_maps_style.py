@@ -1,7 +1,7 @@
 """Tests for the street-mode style tables.
 
-_maps.style is pure data plus pure functions, so everything here is
-exact: the colour assertions run the real _color ladder rather than
+maps.style is pure data plus pure functions, so everything here is
+exact: the colour assertions run the real terminal.color ladder rather than
 trusting the table comments, and the zoom/scale assertions carry their
 derivations.
 

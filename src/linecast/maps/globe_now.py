@@ -202,7 +202,7 @@ def daylight(lls, sun):
     degrees of morning, smoothstepped — the terminator is a band, not
     a line, and the band is what makes the sphere read as lit.
 
-    Written out like _globe.elevation's inner loop, for the same
+    Written out like maps.globe.elevation's inner loop, for the same
     reason: every sub-pixel of every repaint with the sun on comes
     through here, and the arithmetic was mostly call overhead.  The
     sun's trig is a constant per frame, a sample's latitude serves the

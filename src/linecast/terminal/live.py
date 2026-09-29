@@ -348,7 +348,7 @@ def _read_key(fd, text=False):
     exactly as before, so list navigation keeps working while typing.
 
     Without it, a letter typed under a non-Latin layout acts as the Latin
-    key it sits on (see _keylayouts): Persian ض and Russian й are q.
+    key it sits on (see terminal.keylayouts): Persian ض and Russian й are q.
     """
     def _read_byte():
         return _term.read_byte(fd)
@@ -685,9 +685,10 @@ def live_loop(render_fn, interval=60, mouse=False, on_open=None, scroll_step=15,
               truthy to re-render. Requires mouse and on_drag (the
               press is only tracked while a drag callback is set).
               Default None preserves existing behavior exactly.
-    help_panel: optional _help.HelpPanel for the view's controls. It owns
-                `?` and input while open, without changing the view's state.
-                Text fields still receive a literal question mark.
+    help_panel: optional terminal.help.HelpPanel for the view's controls.
+                It owns `?` and input while open, without changing the
+                view's state. Text fields still receive a literal
+                question mark.
     Re-renders immediately on terminal resize or input.  A mouse_pos
     with no mouse input for _HOVER_IDLE_S seconds goes back to None.
 

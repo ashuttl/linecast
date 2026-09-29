@@ -131,7 +131,7 @@ def locate(frame, bbox, gw, hc, inside=True, cap=None):
 
     Whole-cell to within SLACK, that is.  A flat window's columns are
     not quite the frame's: its longitude span follows the cosine of its
-    own centre latitude (_radar_render.bbox_for), so a window dragged
+    own centre latitude (radar.render.bbox_for), so a window dragged
     one row north is a hair narrower than the view it was cut from —
     at street zoom a few thousandths of a cell across the whole width,
     at a terrain zoom a few hundredths a row.  The offset is taken at
@@ -191,7 +191,7 @@ def window_hint(frame, gw, hc):
     that *is* the window.
 
     What the source zoom and the band are chosen for, whatever the
-    margin around them (_maps_streets.view_tiles): a crop has to be the
+    margin around them (maps.streets.view_tiles): a crop has to be the
     map the window itself would draw, and a wider bbox left to settle
     its own source zoom can land on a finer one.
 
@@ -412,7 +412,7 @@ class Resample:
         """One mask of a dot-pitch packed grid, gathered into the window.
 
         The land and the water the shoreline is cut from
-        (`_maps_views.shore_bits`), which are areas: nearest sampling
+        (`maps.views.shore_bits`), which are areas: nearest sampling
         moves an area only at its own edge, and cutting the stroke
         again from what comes back gives the shore the window would
         have drawn.

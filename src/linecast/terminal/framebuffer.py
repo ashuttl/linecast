@@ -234,7 +234,7 @@ class Framebuffer:
     def flip_columns(self, x0, x1, spy0, spy1):
         """Mirror the sub-pixels in columns x0..x1-1 of rows spy0..spy1-1
         left for right: a picture drawn ahead of a view that is laid
-        out from the right (_bidi), which flips it back."""
+        out from the right (terminal.bidi), which flips it back."""
         x0, x1 = max(0, x0), min(self.graph_w, x1)
         for spy in range(max(0, spy0), min(self.total_spy, spy1)):
             row = self.fb[spy]

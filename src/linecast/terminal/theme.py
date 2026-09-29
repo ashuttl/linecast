@@ -96,7 +96,7 @@ def clamp_rgb(color: RGB) -> RGB:
 
 def lerp_rgb(c1: RGB, c2: RGB, t: float) -> RGB:
     """Linear interpolate between two RGB tuples, rounding and clamping
-    each channel.  _color.lerp truncates instead; the two are not
+    each channel.  terminal.color.lerp truncates instead; the two are not
     interchangeable (see its docstring)."""
     t = max(0.0, min(1.0, float(t)))
     return (

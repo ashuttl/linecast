@@ -1576,7 +1576,7 @@ def _cap_polygons(area):
 
 
 def _point_in_ring(lat, lng, ring):
-    """True when (lat, lng) falls inside a closed ring. See _meteoalarm_regions."""
+    """True when (lat, lng) falls inside a closed ring. See weather.meteoalarm_regions."""
     from linecast.weather.meteoalarm_regions import point_in_ring
     return point_in_ring(lat, lng, ring)
 

@@ -1154,7 +1154,7 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     applied here, with the other fill debuts.
 
     `camera` is the window as a patch of the sphere, for a view the
-    bbox's box is no longer a picture of (`_maps.globe.affine_ok`).
+    bbox's box is no longer a picture of (`maps.globe.affine_ok`).
     Every layer this draws goes through it — the fills, the buildings,
     the roads and their casings, the aeroways, the urban density stamp,
     the water and the names — so the street picture curves with the
@@ -1166,7 +1166,7 @@ def build_street_view(bbox, graph_w, height_cells, tiles, band, lang="en",
     `window` is (gw, hc) of the window this build is the overscan of,
     sitting at its middle; the gazetteer's city names are laid out for
     that window first, so a crop of this view carries the set the
-    window would carry built alone (`_maps.places.layout`).
+    window would carry built alone (`maps.places.layout`).
 
     The layer comes back carrying `.hover`, the index that answers what
     is under a pointer.  It is built here rather than on demand because

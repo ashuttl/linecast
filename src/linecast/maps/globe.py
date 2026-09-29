@@ -313,7 +313,7 @@ def _unproject(ux, uy, sin0, cos0):
 def scale_bbox(lat0, lon0, zoom, gw, hc):
     """The window's bbox taken as a scale and nothing else.
 
-    `_radar_render.bbox_for`, with the one guard a camera needs: at the
+    `radar.render.bbox_for`, with the one guard a camera needs: at the
     pole itself the cosine is zero and the longitude span is infinite,
     and a source asked for its detail would divide by it.  Everywhere a
     view can actually sit this is bbox_for's own arithmetic, number for
@@ -512,7 +512,7 @@ def crop_dots(lat0, cap, gw, hc, dcol, drow):
     sphere in radians (`cap`/`cap_sine`) and its half-diagonal in dots
     follows from the window's own size.  This is what a slice is out
     by, which is what a frame in motion shows; a frame at rest
-    resamples instead and is out by nothing (`_maps_overscan.Resample`).
+    resamples instead and is out by nothing (`maps.overscan.Resample`).
     """
     aspect = _aspect()
     # the zoom that put this cap on screen, so a caller need only hand

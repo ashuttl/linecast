@@ -266,9 +266,9 @@ MARIANAS_MONTHS = [
 ]
 
 # Months whose printed start no visibility cutoff reproduces (the
-# module docstring in _pacific has the numbers): printed first night
-# -> the first night the engine finds, a day to either side. The
-# 2026 editions have none.
+# module docstring in astro.calendars.pacific has the numbers):
+# printed first night -> the first night the engine finds, a day to
+# either side. The 2026 editions have none.
 PRINT_DEPARTS = {
     "samoan": {
         date(2024, 3, 11): date(2024, 3, 10),

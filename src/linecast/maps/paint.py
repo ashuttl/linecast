@@ -51,7 +51,7 @@ def compact_colors(output):
     A newline is not a barrier: the live loop reaches the next row with
     a cursor address and an erase, neither of which resets the
     rendition, and it resets only after the last row.  Anything past a
-    NUL is the overlay channel (see _live.overlay), which is addressed
+    NUL is the overlay channel (see terminal.live.overlay), which is addressed
     over the body and is copied through as it stands.
     """
     body, sep, floating = output.partition('\x00')

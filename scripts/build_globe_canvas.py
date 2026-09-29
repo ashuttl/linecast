@@ -11,7 +11,7 @@ stitch and cache it locally on first use instead.
     uv run scripts/build_globe_canvas.py
 
 Writes src/linecast/data/globe_canvas_{1,2}.bin (the same format
-_globe._canvas_load reads from the user cache: zlib over a ">5I"
+maps.globe._canvas_load reads from the user cache: zlib over a ">5I"
 header — canvas w/h, world-pixel origin x/y, world size — followed
 by raw RGBA).  Both files are committed; this script reruns only if
 the terrarium source data ever does.

@@ -4,7 +4,7 @@ Every body of inland water is painted.  Only a body big enough on
 screen — style.SHORE_MIN_DOTS dots of it — is given a braille shore,
 because a ring round each of the thousand unnamed ponds in the Maine
 woods is a speckle and not a map.  The rule is one function,
-`_maps_streets.stroked_water`, and both flat registers ask it the same
+`maps.streets.stroked_water`, and both flat registers ask it the same
 question: street mode before it strokes its own water fill, terrain
 mode inside `_coast_dots`, where the tiles' lakes join the elevation's
 sea.  So these tests come in pairs — the mask, then each register.

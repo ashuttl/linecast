@@ -1,10 +1,11 @@
-"""Give the six commands their short names, as links to the linecast binary.
+"""Give the seven commands their short names, as links to the linecast binary.
 
 Usage: linecast link [--dir DIR]
        linecast link --remove [--dir DIR]
 
-2.0 installs only `linecast`; `weather`, `sunshine`, `moon`, `tides`,
-`radar` and `maps` are common words that other programs also claim.
+2.0 installs only `linecast`; `weather`, `sunshine`, `moon`, `sky`,
+`tides`, `radar` and `maps` are common words that other programs also
+claim.
 The binary runs as the command it is invoked by, so a link named
 `moon` beside it is the moon command.  This makes those links, next
 to the binary unless --dir says otherwise, and never touches a file

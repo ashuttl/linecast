@@ -7,8 +7,8 @@ centre, the zoom and whatever motion they are in — plus the mode, the
 toggles and the search and directions panels; its methods are the
 hooks live_loop calls — zoom, drag, wheel, the keys, the clicks — and
 render, which draws the frame through render_map.  Everything drawn is
-in maps; everything fetched is in views; the easing and the
-flight path are in _maps_motion.
+in maps.view; everything fetched is in maps.views; the easing and the
+flight path are in maps.motion.
 """
 
 import math
@@ -121,7 +121,7 @@ class Camera:
         Which side of the next view is built deep and which shallow: a
         view is built a margin wider than the window shows, and the
         margin is worth most where the reader is going
-        (_maps_overscan.plan).  A drag reads its own trail, a coast
+        (maps.overscan.plan).  A drag reads its own trail, a coast
         what is left of its velocity, a keyed pan the ground it has
         still to cover; a view at rest is going nowhere and takes its
         margin evenly.  Under a cell either way is a hand shaking

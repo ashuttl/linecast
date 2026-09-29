@@ -715,7 +715,7 @@ class TestCities:
 
 # The city placement as it stood before the trig hoist and the
 # biggest-first walk: the reference the fast path has to agree with,
-# exactly.  It moved from _maps.globe to _maps.places in the stage that
+# exactly.  It moved from maps.globe to maps.places in the stage that
 # made one label system of the two registers' city names; the arithmetic
 # did not, so this reference did not either.  The inks are the caller's
 # now — terrain's contrast pick — so the longhand writes the same.

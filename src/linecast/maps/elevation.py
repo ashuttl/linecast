@@ -225,7 +225,7 @@ def _mercator_table(minlat, maxlat, bins=_MERCATOR_BINS):
 def _resample_camera(stitched, base, lon0, coverage):
     """A stitched canvas sampled bilinearly through the camera's grid.
 
-    `base` is `_globe.relative`'s grid — each sample's latitude and its
+    `base` is `maps.globe.relative`'s grid — each sample's latitude and its
     longitude *east of the view centre* — rather than a grid of absolute
     (lat, lon).  Two reasons, and both are the difference between a
     camera a close view can afford and one it cannot: the grid is

@@ -59,7 +59,7 @@ def cmd(cid, count):
 
 def rect(x0, y0, x1, y1):
     """A closed exterior ring: clockwise on screen (y down) so the
-    shoelace sum is positive and _mvt reads it as an exterior."""
+    shoelace sum is positive and maps.mvt reads it as an exterior."""
     nums = [cmd(1, 1), zigzag(x0), zigzag(y0),
             cmd(2, 3),
             zigzag(x1 - x0), zigzag(0),

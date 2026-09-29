@@ -73,8 +73,9 @@ def available_shells():
 
 
 def completion_help():
-    """The --help page; argparse is imported here alone, so the script
-    a shell evaluates at startup is printed without it."""
+    """The --help page.  argparse is imported here, at the call, but every
+    run has loaded it already: this module imports _config, and _config
+    imports _runtime, which imports argparse."""
     import argparse
     from linecast._commands import formatter_class
     parser = argparse.ArgumentParser(

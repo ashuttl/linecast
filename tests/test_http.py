@@ -162,7 +162,7 @@ class TestFetchBytes:
 
     def test_undeclared_gzip_body_left_for_the_caller(self, conns):
         # static tile hosts serve pre-gzipped bodies with no
-        # Content-Encoding; _vtiles sniffs and inflates those itself
+        # Content-Encoding; maps.vtiles sniffs and inflates those itself
         raw = gzip.compress(b"tile")
         conns.script = [_Response(body=raw)]
         assert _http.fetch_bytes("https://h.example/") == raw

@@ -10,8 +10,8 @@ The choice is a setting like the others. Precedence: LINECAST_DATES >
 the `dates` key in config.json (`linecast dates gregorian|solar-hijri`)
 > the language. JSON output is never touched: it stays ISO Gregorian.
 
-The helpers here write ASCII digits; the output pass (_bidi) puts them
-in the reader's digits.
+The helpers here write ASCII digits; the output pass (terminal.bidi)
+puts them in the reader's digits.
 """
 
 import os

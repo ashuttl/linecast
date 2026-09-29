@@ -36,7 +36,7 @@ ATTRIBUTION = "GHSL © EC JRC"
 # empty to turn the layer off.
 DEFAULT_URL = "https://pub-18689fea99e6428ebbc5e51b36dc6d91.r2.dev"
 
-# decoded tiles, as _elevation keeps them: a pan decodes only what is new
+# decoded tiles, as maps.elevation keeps them: a pan decodes only what is new
 _decoded = DecodeMemo(cap=16)
 
 

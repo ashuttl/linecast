@@ -788,7 +788,7 @@ class TestTheRestingCropIsTheWindow:
         # The street register's names are built for the whole margin
         # and resampled into the window, and the run has to arrive
         # whole and on the ground it names.  Terrain places its own for
-        # the window and never cuts them (`_maps.places`), so this is
+        # the window and never cuts them (`maps.places`), so this is
         # the register that still asks the question.
         self._patch(monkeypatch)
         gw, hc = self.GW, self.HC

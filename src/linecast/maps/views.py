@@ -10,7 +10,7 @@ A view is one bbox at one terminal size.  Each register has a loader
 — _get_elevation, _get_street_tiles, _get_globe, and _get_clouds for the
 sky — that answers from a small cache and, live, fetches in the
 background and nudges a repaint when the data lands (the scaffold is
-_scenes.SceneCache).  A zoom run holds every fetch until the last tap
+terminal.scenes.SceneCache).  A zoom run holds every fetch until the last tap
 settles, and so does a camera in motion — but a flat view in motion
 still builds one window at a time behind the frames, so what the view
 has moved onto can be painted before it stops.
@@ -305,7 +305,7 @@ def shore_bits(fine, water=None, min_dots=None):
     water's edge.  Carry the land and the water instead — areas, which
     nearest sampling moves only at their own edge — and cutting the
     stroke again by the same rule gives a shore that is still on its
-    own shore (`_maps_overscan.Resample.bits`).
+    own shore (`maps.overscan.Resample.bits`).
 
     `bytes` rather than two grids of booleans: it is a sixth of the
     memory to carry with a view, and the masks come back out of it

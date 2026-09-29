@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Maps — a street map and a terrain map in the terminal.
 
-`--view street` (the default) is in _maps.streets and friends: vector
+`--view street` (the default) is in maps.streets and friends: vector
 tiles rasterised into fills, braille strokes and labels.  Only a handful
 of things on it can afford a label, so the pointer is the other half of
 reading it: hover names whatever owns the ink under it and lights that
-whole feature up (_maps.hover).
+whole feature up (maps.hover).
 
 `--view terrain` lives here, drawn in a schematic register: colour is
 categorical (flat land-cover fields, flat hypsometric bands climbing
@@ -22,11 +22,11 @@ sea-level contour of the elevation data itself (so it always matches
 the fill), borders are Natural Earth braille strokes, cities are
 labelled dots.  Drag to pan, +/- to zoom, and hover to read the
 elevation under the pointer.  The inks, the palette and the composers
-are in _maps.paint; the loaders and their caches are in _maps.views;
-the live loop and its keys are in _maps_live.
+are in maps.paint; the loaders and their caches are in maps.views;
+the live loop and its keys are in maps.live.
 
 Either flat view is built a margin wider than the window and the frame
-is a crop of it (_maps.overscan), so a pan inside that margin is the
+is a crop of it (maps.overscan), so a pan inside that margin is the
 real map at the new centre and costs nothing: no fetch, no reprojection,
 the same data cut at another offset.  `--print` builds the window's own
 bbox and nothing beyond it.
@@ -674,7 +674,7 @@ def _street_planet(view, cam, gw, hc, lang, band):
     lights, because those belong to terrain in either projection.  The
     names are the vendored gazetteer's, placed and inked by exactly the
     call the tiled view makes below `style.GAZETTEER_BAND`
-    (`_maps.places.street_overlays`) — so crossing the hand-off changes
+    (`maps.places.street_overlays`) — so crossing the hand-off changes
     what the ground is drawn from and leaves the cities where they
     were, spelled and emphasised as they were.  The tiles' own country
     and water names stop here, as the roads and the POIs do, because
@@ -823,7 +823,7 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
                 # the shore is cut again rather than carried: the flat
                 # rule, that the coastline is the boundary of the fill,
                 # holds for the window's fill as it did for the built
-                # view's (_maps_views.shore_bits)
+                # view's (maps.views.shore_bits)
                 coast = _edge_dots(exact.bits(shore, SHORE_LAND),
                                    exact.bits(shore, SHORE_WATER),
                                    graph_w, height_cells)
@@ -848,7 +848,7 @@ def _render_terrain(bbox, graph_w, height_cells, block, pan_offset,
         if stand_in is not None:
             terrain, coast, rivers, borders = stand_in
     # One list, one placement, at every zoom: the vendored gazetteer
-    # through the window's own camera (`_maps.places`).  It used to be
+    # through the window's own camera (`maps.places`).  It used to be
     # the flat basemap's rectangle of candidates below the hand-off and
     # the planet's walk of the world above it, which meant the set, the
     # count and even the language changed as a reader zoomed past a
@@ -1291,7 +1291,7 @@ def prefetch_view(lat, lon, zoom, view, graph_w, height_cells, lang,
     stand-in waiting to be replaced.  The keys are composed exactly as
     the renderer will compose them, or the work would warm a view
     nobody asks for.  While it runs, no window the view is merely
-    passing over is built (_maps_views.fetch_destination).
+    passing over is built (maps.views.fetch_destination).
     """
     def work():
         try:
@@ -1557,7 +1557,7 @@ def render_map(lat, lon, location_name, zoom, marker=None, runtime=None,
 
 
 def main():
-    # the live loop draws through render_map, so _maps.live imports this
+    # the live loop draws through render_map, so maps.live imports this
     # module; importing it here, at the call, keeps that one-way at load
     from linecast.maps.live import main as live_main
     live_main()

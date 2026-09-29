@@ -1,4 +1,11 @@
-"""Shared CLI/runtime option helpers."""
+"""What a command runs with: its flags, and the settings they resolve to.
+
+Each command's argparse parser is built here.  So are the resolvers that
+settle the units, the clock, the first day of the week, the language
+and the icons from the flags, the environment and the country; the
+RuntimeConfig a command's main() makes of them, and current_runtime()
+for the helpers called without one; and the debug and failure logging
+(log_failure) that every fallback goes through."""
 
 import argparse
 from dataclasses import dataclass

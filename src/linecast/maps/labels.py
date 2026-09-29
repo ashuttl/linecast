@@ -534,7 +534,7 @@ def place_candidates(view, bbox, graph_w, height_cells, band, lang,
     """Admin names, and settlements from `style.GAZETTEER_BAND` up.
 
     Below that band the settlements are not here at all: they come from
-    the bundled gazetteer through `_maps.places`, which is the one list
+    the bundled gazetteer through `maps.places`, which is the one list
     both registers name a city from out there and the only one that
     survives past the tiles (`label_overlays` places them first).  What
     this collects below the band is the admin names — the countries and

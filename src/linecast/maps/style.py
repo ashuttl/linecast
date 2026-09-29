@@ -2,9 +2,10 @@
 
 Pure data and pure functions: every colour, threshold, glyph, adapter
 and label rule that street mode needs, with no file or network access
-and no state.  Imports are limited to the stdlib plus ``_color``,
-``_theme`` and ``_textwidth`` so this module can be imported from
-anywhere (including a test) without dragging in the renderer.
+and no state.  Imports are limited to the stdlib plus ``_i18n``,
+``terminal.color``, ``terminal.theme`` and ``terminal.textwidth``, so
+this module can be imported from anywhere (including a test) without
+dragging in the renderer.
 
 The design intent, condensed: the terminal is not a small screen, it is
 a coarse one.  A braille cell holds exactly one ink, so hierarchy is
@@ -19,7 +20,7 @@ and the opening zooms beside them.  Terrain mode keeps its own palette
 and borrows exactly two things from this module: those zooms, and the
 waterway band gates it needs to draw a river at the same size street
 mode would.  The sky overlays (daylight, clouds) are toggles over
-either mode, not a mode — they live in _globe_now.
+either mode, not a mode — they live in maps.globe_now.
 """
 
 import math
@@ -79,7 +80,7 @@ PALETTE_DARK = {
     "aeroway":        (120, 118, 132),
     "waterway":       (78, 124, 160),   # rivers, streams, AND ferries
     "coast":          (104, 142, 176),
-    "border0":        (108, 110, 130),  # == _radar_basemap.BORDER
+    "border0":        (108, 110, 130),  # == radar.basemap.BORDER
     "border1":        (74, 76, 94),     # state / admin-1
     "route":          (120, 210, 255),  # UI, not cartography
     # --- label inks ---------------------------------------------------
@@ -744,7 +745,7 @@ CLASS_BANDS = {"country": (0, 2), "state": (1, 3),
                "suburb": (5, 7), "neighbourhood": (5, 7)}
 
 # Below this band the bundled Natural Earth gazetteer is the *only*
-# source of settlement names (`_maps.places`); from it up the tile's
+# source of settlement names (`maps.places`); from it up the tile's
 # place layer is, and the gazetteer is not consulted at all.  One
 # source per band rather than two stacked, because past
 # `globe.local_tiles` there are no tiles and the gazetteer is all there
