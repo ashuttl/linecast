@@ -7,7 +7,6 @@ from linecast.terminal import theme as _theme
 from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.help_i18n import hs
-from linecast.maps.i18n import ms
 from linecast.terminal.textwidth import char_widths
 
 
@@ -107,9 +106,8 @@ CONTROLS = {
 def entries(view, lang, credits=()):
     """The panel's rows: the controls, then any data credits after a
     spacer, as the maps panel lays its own out."""
-    rows = [(mark, ms(key, lang) if key.startswith('help_') else hs(key, lang))
-            for mark, key in CONTROLS[view]] + [
-                ('?', ms('help_keys', lang)), ('q', ms('help_quit', lang))]
+    rows = [(mark, hs(key, lang)) for mark, key in CONTROLS[view]] + [
+        ('?', hs('help_keys', lang)), ('q', hs('help_quit', lang))]
     credits = [credit for credit in credits if credit]
     if credits:
         rows.append(None)
@@ -211,7 +209,7 @@ def panel(content, cols, rows, lang='en', page=0):
         return (f'{bg(*surface)}{fg(*dim)}{left}' + '─' * (pad // 2) + text
                 + '─' * (pad - pad // 2) + right + RESET)
 
-    title = ms('help_title', lang)
+    title = hs('help_title', lang)
     if pages > 1:
         title += f'  ←→ {page + 1}/{pages}'
     lines = [border('╭', title, '╮')]
@@ -238,7 +236,7 @@ def panel(content, cols, rows, lang='en', page=0):
                 body = f' {fg(*dim)}{fit(text, width - 2)}'
             body += ' ' * (width - visible_len(body))
         lines.append(f'{bg(*surface)}{fg(*dim)}│{body}{fg(*dim)}│{RESET}')
-    lines.append(border('╰', ms('help_close', lang), '╯'))
+    lines.append(border('╰', hs('help_close', lang), '╯'))
     top = max(1, (rows - len(lines)) // 2 + 1)
     left = max(1, (cols - width - 2) // 2 + 1)
     return ''.join(f'\033[{top + i};{left}H{line}' for i, line in enumerate(lines)), pages

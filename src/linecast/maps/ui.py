@@ -29,6 +29,7 @@ from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.live import nudge
 from linecast.maps.i18n import ms
+from linecast.terminal.help_i18n import hs, is_help_word
 from linecast.maps.route import (
     NoRoute, PROFILES, RouteUnavailable, maneuver_glyph,
     route as route_client,
@@ -605,12 +606,17 @@ HELP_KEYS = (
 HELP_GLYPHS = tuple(style.GLYPH_LEGEND.items())
 
 
+def _help_word(key, lang):
+    """A control's description: the words every view's panel shares are
+    the HELP table's, and the ones only the map has are its own."""
+    return hs(key, lang) if is_help_word(key) else ms(key, lang)
+
+
 def _help_rows(lang, route, glyphs):
     """(mark, text) content rows; None is a blank spacer."""
     rows = []
     for entry in HELP_KEYS:
-        rows.append(None if entry is None
-                    else (entry[0], ms(entry[1], lang)))
+        rows.append(None if entry is None else (entry[0], _help_word(entry[1], lang)))
     if glyphs:
         rows.append(None)
         rows += [(g, ms(key, lang)) for g, key in HELP_GLYPHS]

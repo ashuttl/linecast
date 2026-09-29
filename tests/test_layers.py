@@ -41,7 +41,7 @@ UPWARD = {
     ("_runtime", "weather.i18n"): "2.4",
     ("_parsers", "radar.sources"): "kept: radar_parser's choices, asked for lazily",
     # shared words move to _i18n and HELP (2.4)
-    ("astro.hours.i18n", "sunshine.i18n"): "2.4", ("terminal.help", "maps.i18n"): "2.4",
+    ("astro.hours.i18n", "sunshine.i18n"): "2.4",
 }
 
 # (importer, imported module): a command reaching another's view or live.

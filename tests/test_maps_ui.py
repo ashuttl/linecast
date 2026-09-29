@@ -942,7 +942,7 @@ class TestHelpPanel:
         text = "".join(panel_lines(mu.help_overlay(80, 40, "en")))
         for mark, key in [e for e in mu.HELP_KEYS if e]:
             assert mark in text
-            assert i18n._STRINGS["en"][key] in text
+            assert mu._help_word(key, "en") in text
 
     def test_the_frame_carries_the_way_out(self):
         lines = panel_lines(mu.help_overlay(80, 40, "en"))

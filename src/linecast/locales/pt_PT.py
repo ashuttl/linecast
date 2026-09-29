@@ -9,6 +9,7 @@ HELP = {
             "look": "olhar em redor",
             "zenith": "olhar para o zénite",
             "frames": "avançar fotogramas e pausar",
+            "help_search": "pesquisar",
 }
 
 
@@ -82,7 +83,6 @@ MAPS = {
             "search_dest_prompt": "pesquisar destino",
             "search_origin_prompt": "pesquisar origem",
             "search_error": "pesquisa indisponível",
-            "help_search": "pesquisar",
             "help_spin": "rodar o globo",
             "poi_lodging": "alojamento",
             "poi_ferry": "ferry · marina",
