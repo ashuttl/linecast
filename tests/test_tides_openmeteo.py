@@ -63,6 +63,18 @@ class SeriesTests(unittest.TestCase):
         points = om._series(data, tz)
         self.assertEqual(points[0][0].tzinfo, tz)
 
+    def test_hours_past_a_clock_change_are_on_the_new_clock(self):
+        # fetched in AEST, before Sydney's clocks go forward on 4 October:
+        # every hour is stamped +10, the ones after 02:00 as well
+        tz = ZoneInfo("Australia/Sydney")
+        data = _payload(["2026-10-04T01:00", "2026-10-04T02:00",
+                         "2026-10-05T10:00"], [0.1, 0.2, 0.3],
+                        tz="Australia/Sydney")
+        data["utc_offset_seconds"] = 36000
+        points = om._series(data, tz)
+        self.assertEqual([p[0].strftime("%d %H:%M %Z") for p in points],
+                         ["04 01:00 AEST", "04 03:00 AEDT", "05 11:00 AEDT"])
+
     def test_empty_or_malformed(self):
         self.assertEqual(om._series(None, None), [])
         self.assertEqual(om._series({}, None), [])
@@ -155,6 +167,16 @@ class ExtremaTests(unittest.TestCase):
         self.assertLess(abs((dt - true_peak).total_seconds()), 15 * 60)
         self.assertNotEqual(dt.minute, 0)
         self.assertAlmostEqual(h, 1.0, delta=0.02)
+
+    def test_a_high_beside_a_clock_change_is_timed_on_the_instants(self):
+        # 01:00 AEST and 03:00 AEDT are an hour apart, not two
+        tz = ZoneInfo("Australia/Sydney")
+        points = [(datetime(2026, 10, 4, 1, tzinfo=tz), 1.0),
+                  (datetime(2026, 10, 4, 3, tzinfo=tz), 2.0),
+                  (datetime(2026, 10, 4, 4, tzinfo=tz), 0.0)]
+        [(dt, _h, typ)] = om._extrema(points)
+        self.assertEqual(typ, "H")
+        self.assertEqual(dt.strftime("%H:%M %Z"), "01:50 AEST")
 
     def test_flat_series_has_no_extrema(self):
         points = [(datetime(2026, 8, 16) + timedelta(hours=i), 1.0)

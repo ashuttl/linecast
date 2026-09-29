@@ -16,7 +16,7 @@ rendering pipeline.  High/low events are derived locally from the hourly
 series with parabolic refinement for sub-hour timing.
 """
 
-from datetime import date, datetime, tzinfo
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any
 
 from linecast._cache import location_cache_key
@@ -80,6 +80,12 @@ def _series(data, station_tz):
     hourly = data.get("hourly", {})
     times = hourly.get("time", [])
     heights = hourly.get("sea_level_height_msl", [])
+    # Open-Meteo stamps the whole response in the zone's offset at the
+    # moment of the request, so the hours past a clock change carry the
+    # wrong one: each is read as the instant it names, then put on the
+    # station's clock.
+    offset = data.get("utc_offset_seconds")
+    stamped = None if offset is None else timezone(timedelta(seconds=int(offset)))
     points = []
     dropped = 0
     bad = None
@@ -93,7 +99,8 @@ def _series(data, station_tz):
             bad = exc
             continue
         if station_tz is not None:
-            dt = dt.replace(tzinfo=station_tz)
+            dt = (dt.replace(tzinfo=station_tz) if stamped is None
+                  else dt.replace(tzinfo=stamped).astimezone(station_tz))
         points.append((dt, float(h) * M_TO_FT))
     log_skipped("tides/open-meteo", "marine hours", dropped, len(times), bad)
     points.sort(key=lambda p: p[0])
@@ -184,8 +191,16 @@ def _extrema(points):
         denom = a - 2 * b + c
         offset = 0.5 * (a - c) / denom if denom else 0.0
         offset = max(-1.0, min(1.0, offset))
+        zone = t1.tzinfo
+        if zone is not None:
+            # Measured on the instants: the hours either side of a clock
+            # change are an hour apart, not the two or none the wall
+            # clock counts.
+            t0, t1, t2 = (t.astimezone(timezone.utc) for t in (t0, t1, t2))
         step = ((t2 - t0) / 2)
         dt = t1 + step * offset
+        if zone is not None:
+            dt = dt.astimezone(zone)
         height = b - 0.25 * (a - c) * offset
         out.append((dt, height, typ))
     return out
