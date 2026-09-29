@@ -59,7 +59,7 @@ from linecast.astro.ephemeris import (
     moon_axis_deg, moon_bright_limb_deg, moon_horizontal_parallax_deg,
     moon_illuminated_fraction, precession_at,
 )
-from linecast._i18n import fmt_decimal, fmt_percent, lang_of, setting
+from linecast._i18n import fmt_decimal, fmt_percent, lang_of, setting, upper
 from linecast._location import (
     country_for_defaults, location_is_pinned, location_tzinfo, machine_tzinfo,
     resolve_location,
@@ -1022,8 +1022,7 @@ def render(now_local, lat, lng, runtime, view, fullscreen=False,
                 continue
             name = record["name"] if view.culture else constellation_name(record, lang)
             if setting(lang, "capitals"):
-                # Turkish capitalises i as İ; str.upper gives the dotless I.
-                name = (name.replace("i", "İ") if lang == "tr" else name).upper()
+                name = upper(name, lang)
             col = int(round(px0 - visible_len(name) / 2.0))
             row = int(py0) // 2
             cell = fb.cell_bg(max(0, min(graph_w - 1, col)), max(0, min(graph_h - 1, row)))

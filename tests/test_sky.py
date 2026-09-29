@@ -423,6 +423,13 @@ class TestFrame:
         out = _strip(_frame(NIGHT, 100, 30, lang="fr"))
         assert "Saturne" in out and "vers E" in out and "POISSONS" in out
 
+    def test_greek_capitals_drop_the_accent(self):
+        # Greek writes its capitals without the tonos: ΑΝΔΡΟΜΕΔΑ, where
+        # str.upper gives ΑΝΔΡΟΜΈΔΑ
+        out = _strip(_frame(NIGHT, 100, 30, lang="el"))
+        assert "ΑΝΔΡΟΜΕΔΑ" in out and "ΥΔΡΟΧΟΟΣ" in out
+        assert not any(ch in out for ch in "ΆΈΉΊΌΎΏ")
+
     def test_thai_labels_keep_their_marks(self):
         # Thai writes vowels and tone marks over and under their letters;
         # given cells of their own, they were written over by the next

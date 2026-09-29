@@ -86,6 +86,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Sky: Fixed the names on the chart in Thai, of the planets, the constellations and the points of the compass, losing their vowel and tone marks, so that "ตะวันออก" read "ตะวนออก".
 - Sunshine: Fixed the year view in Chinese, Japanese and Korean drawing a row a column too long or too short near midnight, when the sun sat on a month's or the place's name.
 - Sunshine: Fixed a change in the day's length under a minute reading "−0m 15s", as it does every day near the equator and for weeks around each solstice; it reads "−15s", and a change that rounds to nothing is never "−0m".
+- Sky: Constellation names in Greek are set in capitals without their accents, "ΑΝΔΡΟΜΕΔΑ" rather than "ΑΝΔΡΟΜΈΔΑ", as on the maps.
 
 ## 2.9.2 — 2026-09-27
 
