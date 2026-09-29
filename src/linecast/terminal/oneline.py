@@ -7,7 +7,7 @@ these renderers instead of the full terminal UI.
 
 from linecast.weather.i18n import fmt_wind
 from linecast._i18n import fmt_decimal, fmt_duration_parts, fmt_percent, has_duration_words, lang_of
-from linecast.terminal.graphics import fg, RESET
+from linecast.terminal.color import fg, RESET
 from linecast.terminal.framebuffer import fmt_time, fmt_time_dt
 
 
@@ -218,7 +218,7 @@ def tides_oneline(station_name, hilo_data, now_local, runtime):
     *hilo_data* is a list of ``(datetime, height_ft, type_str)`` tuples where
     ``type_str`` is ``"H"`` or ``"L"``.
     """
-    from linecast.terminal.graphics import fg, RESET
+    from linecast.terminal.color import fg, RESET
     from linecast.terminal.theme import theme_fg, ensure_contrast, theme_bg
     from linecast.tides.i18n import _ts
 

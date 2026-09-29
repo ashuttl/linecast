@@ -1,6 +1,6 @@
 """Shared weather rendering palette and low-level color/format helpers."""
 
-from linecast.terminal.graphics import bg, fg, interp_stops
+from linecast.terminal.color import bg, fg, interp_stops
 from linecast.terminal import theme as _theme
 from linecast.terminal.theme import (
     best_contrast,

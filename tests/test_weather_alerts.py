@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from linecast.terminal.graphics import visible_len
+from linecast.terminal.textwidth import visible_len
 from linecast._runtime import WeatherRuntime
 from linecast.weather.alerts import render_alerts, render_alerts_mapped
 

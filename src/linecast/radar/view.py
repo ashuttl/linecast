@@ -54,7 +54,7 @@ from linecast.radar.ui import (  # noqa: F401
     _theme_menu_overlay, _timeline_bar,
 )
 from linecast._runtime import log_failure, use_metric
-from linecast.terminal.graphics import visible_len
+from linecast.terminal.textwidth import visible_len
 from linecast.terminal.spinner import SPINNER_FRAMES
 
 # display layers, toggled by the s key: precipitation (5-min frames) or

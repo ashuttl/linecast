@@ -183,7 +183,8 @@ def pointer_chip(lines, col, mouse_row, cols, rows, pad_bg="", flip_at=None):
     """
     if not lines:
         return ""
-    from linecast.terminal.graphics import RESET, visible_len
+    from linecast.terminal.color import RESET
+    from linecast.terminal.textwidth import visible_len
     width = max(visible_len(line) for line in lines)
     padded = [f"{line}{pad_bg}{' ' * (width - visible_len(line))}{RESET}"
               for line in lines]
@@ -216,7 +217,8 @@ def menu_box(lines, cols, rows, title="", sel=None, border="", fill="",
     `more` says whether there is more above and below the rows shown,
     marked ▲ and ▼ in the borders.
     """
-    from linecast.terminal.graphics import RESET, visible_len
+    from linecast.terminal.color import RESET
+    from linecast.terminal.textwidth import visible_len
     widths = [visible_len(line) for line in lines if line is not None]
     inner = max(0, min(cols - 4, (max(widths) if widths else 0) + 1))
     top = max(1, (rows - (len(lines) + 2)) // 2)
@@ -248,7 +250,8 @@ def menu_box(lines, cols, rows, title="", sel=None, border="", fill="",
 def toast_box(text, cols, rows, icon=""):
     """A compact, rounded notification above the bottom-right of the view."""
     from linecast.terminal import theme as _theme
-    from linecast.terminal.graphics import RESET, bg, fg, visible_len
+    from linecast.terminal.color import RESET, bg, fg
+    from linecast.terminal.textwidth import visible_len
     from linecast.terminal.help import fit
     if cols < 1 or rows < 1:
         return ""
@@ -1234,7 +1237,7 @@ class LiveApp:
         if _time.monotonic() >= deadline:
             self.clear_flash()
             return ""
-        from linecast.terminal.graphics import fg
+        from linecast.terminal.color import fg
         from linecast.terminal.help import wrap
         width = max(10, min(cols - 6, 64))
         lines = []

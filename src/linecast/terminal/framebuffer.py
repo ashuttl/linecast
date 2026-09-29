@@ -12,7 +12,6 @@ import sys
 
 from linecast.terminal import theme as _theme
 from linecast.terminal.color import RESET, BOLD, BG_PRIMARY, fg, bg, lerp
-from linecast.terminal.textwidth import char_width, visible_len  # noqa: F401
 from linecast._i18n import base_language
 
 

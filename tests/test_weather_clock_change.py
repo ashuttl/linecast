@@ -14,7 +14,7 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from linecast.weather import view as weather
-from linecast.terminal.graphics import fmt_hour
+from linecast.terminal.framebuffer import fmt_hour
 from linecast._runtime import WeatherRuntime
 from linecast.weather.historical import HistoricalAverages
 from linecast.weather.hourly import (

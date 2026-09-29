@@ -20,10 +20,9 @@ from datetime import date as _date, datetime, timedelta
 from linecast._i18n import fmt_duration_parts, lang_of
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
-from linecast.terminal.graphics import (
-    fg, bg, interp_stops, lerp, fmt_time,
-    get_terminal_size, Framebuffer, overlay,
-)
+from linecast.terminal.color import fg, bg, interp_stops, lerp
+from linecast.terminal.framebuffer import fmt_time, get_terminal_size, Framebuffer
+from linecast.terminal.live import overlay
 from linecast.sunshine.i18n import (
     _fmt_month_day, axis_month_labels, polar_name, relative_day, sky_event,
     sky_phase,

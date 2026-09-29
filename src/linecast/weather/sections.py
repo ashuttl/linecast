@@ -10,7 +10,8 @@ from linecast._i18n import (
     base_language, fallbacks, fmt_decimal, fmt_percent, has_text, lang_of, sentence_24h,
     table_for,
 )
-from linecast.terminal.graphics import RESET, visible_len
+from linecast.terminal.color import RESET
+from linecast.terminal.textwidth import visible_len
 from linecast._runtime import WeatherRuntime, current_runtime, log_failure, log_skipped
 from linecast.terminal.textwidth import wrap_display_width
 from linecast.weather.cover import sky_condition

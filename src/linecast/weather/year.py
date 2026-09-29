@@ -34,9 +34,10 @@ from datetime import date, timedelta
 from linecast._i18n import fmt_decimal
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
-from linecast.terminal.graphics import (
-    RESET, Framebuffer, bg, fg, get_terminal_size, overlay, visible_len,
-)
+from linecast.terminal.color import RESET, bg, fg
+from linecast.terminal.textwidth import visible_len
+from linecast.terminal.framebuffer import Framebuffer, get_terminal_size
+from linecast.terminal.live import overlay
 from linecast.terminal.textwidth import char_width
 from linecast.terminal.theme import ensure_contrast, lerp_rgb, surface_bg
 from linecast.weather import style as _style

@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from linecast.terminal import color as _color
 from linecast.maps import i18n
 from linecast.maps import ui as mu
-from linecast.terminal.framebuffer import visible_len
+from linecast.terminal.textwidth import visible_len
 from linecast.maps.route import NoRoute, Route, RouteUnavailable
 from linecast.maps.search import Result, SearchUnavailable
 @contextmanager

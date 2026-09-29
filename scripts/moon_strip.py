@@ -197,7 +197,7 @@ def in_situ(now, rt, which, lat, lng):
     terminal shortened by exactly the rows the strip takes, so what the
     disc gives up is what you see.
     """
-    from linecast.terminal.graphics import get_terminal_size
+    from linecast.terminal.framebuffer import get_terminal_size
     from linecast.moon import view as moon_view
 
     fn = dict(CANDIDATES_BY_KEY)[which]

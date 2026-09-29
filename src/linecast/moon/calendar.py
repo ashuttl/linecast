@@ -27,9 +27,10 @@ from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.astro.ephemeris import _moon_events_for_local_date, next_moon_phase_utc
 from linecast.terminal.framebuffer import fmt_time_dt
-from linecast.terminal.graphics import (
-    Framebuffer, bg, cell_aspect, fg, get_terminal_size, overlay, visible_len,
-)
+from linecast.terminal.color import bg, fg
+from linecast.terminal.textwidth import visible_len
+from linecast.terminal.framebuffer import Framebuffer, cell_aspect, get_terminal_size
+from linecast.terminal.live import overlay
 from linecast._i18n import base_language, lang_of, table_for
 from linecast.astro.calendars.lunisolar import (
     CALENDAR_MERIDIAN_HOURS, calendar_is_native, lunisolar_date,

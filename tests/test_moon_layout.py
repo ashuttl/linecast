@@ -82,7 +82,7 @@ class TestCorners:
     def test_the_moon_makes_room_for_the_corners(self):
         # In a large terminal the corners cost the disc nothing; in a
         # small one it shrinks clear of them, but keeps most of its size.
-        from linecast.terminal.graphics import cell_aspect
+        from linecast.terminal.framebuffer import cell_aspect
         aspect = cell_aspect() / 2.0
         _cx, _cy, radius = _disc(140, 40, fullscreen=True)
         assert radius == min(40 * 2 * 0.41 * aspect, 140 * 0.5 - 3.0)
@@ -280,7 +280,7 @@ class TestMoonAlone:
         return _strip_ansi(out), seen["radius"]
 
     def test_no_text_and_the_bare_disc(self):
-        from linecast.terminal.graphics import cell_aspect
+        from linecast.terminal.framebuffer import cell_aspect
         text, radius = self._render(show_text=False)
         assert not re.search(r"[A-Za-z]", text)
         bare = min(24 * 2 * 0.41 * cell_aspect() / 2.0, 80 * 0.5 - 3.0)

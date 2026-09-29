@@ -44,10 +44,9 @@ import sys
 from collections import namedtuple
 from datetime import datetime, timezone
 
-from linecast.terminal.graphics import (
-    Framebuffer, RESET, bg, cell_aspect, fg, get_terminal_size, interp_stops, lerp,
-    visible_len,
-)
+from linecast.terminal.color import RESET, bg, fg, interp_stops, lerp
+from linecast.terminal.textwidth import visible_len
+from linecast.terminal.framebuffer import Framebuffer, cell_aspect, get_terminal_size
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.theme import (

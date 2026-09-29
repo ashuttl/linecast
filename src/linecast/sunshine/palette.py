@@ -6,7 +6,7 @@ command.
 """
 
 from linecast.terminal import theme as _theme
-from linecast.terminal.graphics import BG_PRIMARY, color_mode, lerp
+from linecast.terminal.color import BG_PRIMARY, color_mode, lerp
 from linecast.terminal.theme import (
     best_contrast,
     darken,

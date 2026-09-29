@@ -39,9 +39,10 @@ from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
 from linecast.terminal.framebuffer import fmt_time_dt
-from linecast.terminal.graphics import (
-    lerp, visible_len, get_terminal_size, cell_aspect, Framebuffer, live_loop,
-)
+from linecast.terminal.color import lerp
+from linecast.terminal.textwidth import visible_len
+from linecast.terminal.framebuffer import get_terminal_size, cell_aspect, Framebuffer
+from linecast.terminal.live import live_loop
 from linecast._i18n import fmt_decimal, fmt_duration_parts, lang_of
 from linecast._config import saved_location
 from linecast._location import (

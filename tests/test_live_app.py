@@ -192,7 +192,7 @@ class TestBusyToast:
     @pytest.mark.parametrize('cols,rows', [(1, 1), (7, 3), (8, 4), (20, 8), (80, 24)])
     def test_toast_fits_small_screens_and_wide_place_names(self, cols, rows):
         import re
-        from linecast.terminal.graphics import visible_len
+        from linecast.terminal.textwidth import visible_len
         output = _live.toast_box('Loading ' + '京都' * 50, cols, rows, icon='⠋')
         positions = re.findall(r'\033\[(\d+);(\d+)H(.*?)(?=\033\[\d+;\d+H|$)', output)
         assert positions

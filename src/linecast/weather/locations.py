@@ -4,7 +4,8 @@ import os
 
 from linecast.terminal import theme as _theme
 from linecast._cache import read_stale, write_cache
-from linecast.terminal.graphics import RESET, bg, fg, visible_len
+from linecast.terminal.color import RESET, bg, fg
+from linecast.terminal.textwidth import visible_len
 from linecast.terminal.help import fit
 from linecast.maps.i18n import ms
 from linecast.maps.search import ATTRIBUTION, Result

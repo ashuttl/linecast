@@ -2,7 +2,9 @@
 
 from datetime import timedelta, timezone
 
-from linecast.terminal.graphics import RESET, bg, fg, fmt_hour, fmt_time_dt, visible_len
+from linecast.terminal.color import RESET, bg, fg
+from linecast.terminal.textwidth import visible_len
+from linecast.terminal.framebuffer import fmt_hour, fmt_time_dt
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast.terminal.theme import (

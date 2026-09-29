@@ -26,7 +26,7 @@ import threading
 
 from linecast.maps import style
 from linecast.terminal.color import RESET, bg, fg
-from linecast.terminal.framebuffer import visible_len
+from linecast.terminal.textwidth import visible_len
 from linecast.terminal.live import nudge
 from linecast.maps.i18n import ms
 from linecast.maps.route import (

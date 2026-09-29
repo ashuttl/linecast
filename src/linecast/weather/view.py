@@ -27,9 +27,9 @@ from datetime import datetime
 from linecast.terminal import live as _live
 from linecast.terminal import theme as _theme
 from linecast._i18n import GEOCODER_UNTRANSLATED, fmt_percent, sentence_24h, setting, table_for
-from linecast.terminal.graphics import (
-    RESET, bg, fg, fmt_time_dt, get_terminal_size, visible_len,
-)
+from linecast.terminal.color import RESET, bg, fg
+from linecast.terminal.textwidth import visible_len
+from linecast.terminal.framebuffer import fmt_time_dt, get_terminal_size
 from linecast._location import country_for_defaults, resolve_location
 from linecast._runtime import (
     WeatherRuntime, install_banner, log_failure, set_current, weather_parser,
@@ -124,7 +124,7 @@ def credit_row(cols, lang, country_code="", observed=None, runtime=None, tz_name
     The longest credit that leaves the whole hint its room wins; a
     window too narrow for any shows the hint alone."""
     from linecast.terminal import help as _help
-    from linecast.terminal.graphics import visible_len
+    from linecast.terminal.textwidth import visible_len
     hint = _help.hint(lang)
     for credit in data_credits(country_code, lang, observed, runtime, tz_name):
         if visible_len(credit) + 2 + visible_len(hint) <= cols:

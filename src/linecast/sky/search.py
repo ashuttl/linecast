@@ -18,7 +18,8 @@ import unicodedata
 from datetime import timedelta, timezone
 
 from linecast.terminal import theme as _theme
-from linecast.terminal.graphics import RESET, bg, fg, visible_len
+from linecast.terminal.color import RESET, bg, fg
+from linecast.terminal.textwidth import visible_len
 from linecast.terminal.live import nudge
 from linecast.terminal.theme import ensure_contrast, surface_bg
 

@@ -17,7 +17,7 @@ import pytest
 from linecast.maps import style as ms
 from linecast.terminal import theme as _theme
 from linecast.terminal.color import _CUBE_LEVELS, _rgb_to_ansi16, _rgb_to_xterm256
-from linecast.terminal.framebuffer import visible_len
+from linecast.terminal.textwidth import visible_len
 from linecast.terminal.theme import luminance
 
 DARK_BG = (14, 15, 18)

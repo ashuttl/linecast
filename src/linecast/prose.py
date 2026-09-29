@@ -481,7 +481,7 @@ def main(argv=None):
     langs = languages(args.lang)
     width = args.width
     if width is None:
-        from linecast.terminal.graphics import get_terminal_size
+        from linecast.terminal.framebuffer import get_terminal_size
         width = min(100, get_terminal_size()[0])
 
     if args.diff:

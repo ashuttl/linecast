@@ -10,7 +10,7 @@ from linecast.terminal import framebuffer as _framebuffer
 from linecast.terminal import help as _help
 from linecast.terminal import help_i18n as _help_i18n
 from linecast.terminal import live as _live
-from linecast.terminal.graphics import visible_len
+from linecast.terminal.textwidth import visible_len
 from linecast._i18n import LANGUAGE_CODES
 
 

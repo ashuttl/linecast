@@ -52,7 +52,7 @@ from linecast.maps import ui
 from linecast.terminal.color import fg, RESET, color_mode, BG_PRIMARY
 from linecast.maps.elevation import ATTRIBUTION
 from linecast.terminal.framebuffer import cell_aspect, get_terminal_size
-from linecast.terminal.graphics import visible_len
+from linecast.terminal.textwidth import visible_len
 from linecast.terminal.live import overlay
 from linecast.maps.i18n import ms
 from linecast.maps.motion import lon_delta

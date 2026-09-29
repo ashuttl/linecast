@@ -14,7 +14,7 @@ from linecast.terminal import help as _help
 
 from linecast.weather import view as weather
 from linecast.weather import sources as _weather_sources
-from linecast.terminal.graphics import visible_len
+from linecast.terminal.textwidth import visible_len
 from linecast._runtime import WeatherRuntime
 from linecast.weather.json import build_payload
 from linecast._i18n import LANGUAGE_CODES

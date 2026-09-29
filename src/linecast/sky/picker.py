@@ -10,7 +10,7 @@ scrolls, keeping the highlight in view.
 
 from linecast.terminal import live as _live
 from linecast._config import CULTURE_CHOICES
-from linecast.terminal.graphics import bg, fg
+from linecast.terminal.color import bg, fg
 from linecast.terminal.theme import surface_bg
 
 IAU = None   # the culture value for the IAU sky

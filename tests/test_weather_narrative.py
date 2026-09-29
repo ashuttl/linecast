@@ -199,7 +199,7 @@ class TestNarrativePacking:
             assert prose.count(".") == 2, prose
 
     def test_no_line_ever_overruns_the_terminal(self):
-        from linecast.terminal.graphics import visible_len
+        from linecast.terminal.textwidth import visible_len
         # A sentence with no room to share a line, and none to sit on one
         # either, wraps here rather than being wrapped by the terminal --
         # which would push the header off the top of the screen.
@@ -211,7 +211,7 @@ class TestNarrativePacking:
         assert narrative_lines({}, NOON, 100, _runtime()) == []
 
     def test_swahili_prose_keeps_noun_agreement_and_punctuation_when_wrapped(self):
-        from linecast.terminal.graphics import visible_len
+        from linecast.terminal.textwidth import visible_len
         data = {
             "daily": {"temperature_2m_max": [77, 77, 77]},
             "hourly": {

@@ -4,7 +4,8 @@ import re
 from datetime import datetime, timezone
 
 from linecast.terminal import theme as _theme
-from linecast.terminal.graphics import bg, fg, visible_len, RESET, BOLD
+from linecast.terminal.color import bg, fg, RESET, BOLD
+from linecast.terminal.textwidth import visible_len
 from linecast._i18n import lang_of, sentence_24h, table_for, tr_dative
 from linecast._runtime import log_failure
 from linecast.terminal.textwidth import truncate_display_width, wrap_display_width

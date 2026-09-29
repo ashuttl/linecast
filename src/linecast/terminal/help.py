@@ -4,7 +4,8 @@ import math
 import re
 
 from linecast.terminal import theme as _theme
-from linecast.terminal.graphics import RESET, bg, fg, visible_len
+from linecast.terminal.color import RESET, bg, fg
+from linecast.terminal.textwidth import visible_len
 from linecast.terminal.help_i18n import hs
 from linecast.maps.i18n import ms
 from linecast.terminal.textwidth import char_widths
