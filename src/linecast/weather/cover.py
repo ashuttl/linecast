@@ -23,6 +23,11 @@ MOSTLY_CLOUDY = "mostly_cloudy"
 
 _SKY_CODES = (0, 1, 2, 3)
 
+# The codes for weather that falls: drizzle, rain, freezing rain, snow,
+# showers, and thunderstorms.
+_PRECIP_CODES = {51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86,
+                 95, 96, 99}
+
 # The upper edge of each step, in percent: 1/8, 3/8, 5/8, 7/8.
 _STEPS = ((12.5, 0), (37.5, 1), (62.5, 2), (87.5, MOSTLY_CLOUDY))
 

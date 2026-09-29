@@ -26,7 +26,7 @@ from linecast._parsers import weather_parser
 from linecast.weather.alerts import build_alert_modal, render_alerts_mapped
 from linecast.weather.historical import HistoricalAverages
 from linecast.weather.json import build_payload
-from linecast.weather.sections import comparative_sentence
+from linecast.weather.narrative import comparative_sentence
 
 FIXTURES = Path(__file__).parent / "fixtures"
 NOW = datetime(2026, 3, 5, 14, 30)

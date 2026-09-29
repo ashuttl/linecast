@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from linecast._i18n import VARIANTS
 from linecast._runtime import WeatherRuntime
 from linecast.weather.i18n import _STRINGS, _s
-from linecast.weather.sections import feels_sentence, narrative_lines
+from linecast.weather.narrative import feels_sentence, narrative_lines
 
 NOON = datetime(2026, 7, 15, 12, 0)
 
@@ -235,7 +235,7 @@ class TestNarrativePacking:
     def test_swahili_sentences_tell_the_hour_in_swahili_time(self):
         # "saa 5pm" would read as eleven in the morning in Swahili time;
         # five in the afternoon is the eleventh hour of the day.
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         hours = range(12, 19)
         hourly = {
             "time": [f"2026-07-15T{h:02d}:00" for h in hours],
@@ -300,7 +300,7 @@ class TestPrecipitationPeak:
         return hourly
 
     def _sentence(self, hourly, **overrides):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         return precipitation_sentence(hourly, self.EVENING, _runtime(**overrides))
 
     def test_drizzle_now_names_the_heavy_rain_to_come_and_when_it_ends(self):
@@ -327,7 +327,7 @@ class TestPrecipitationPeak:
         codes = [51, 53, 61, 63, 63, 63, 63, 63]
         amounts = [0.01, 0.03, 0.06, 0.15, 0.12, 0.12, 0.1, 0.1]
         hourly = self._hourly(codes, amounts)
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         now = datetime(2026, 9, 17, 18, 36)
         sentence = precipitation_sentence(hourly, now, _runtime())
         assert sentence.startswith("Light drizzle now, becoming")
@@ -356,7 +356,7 @@ class TestPrecipitationPeak:
     def test_midday_is_noon(self):
         codes = [0, 0, 0, 0, 0, 61, 61, 61, 0]
         hourly = self._hourly(codes, start=7)
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         assert precipitation_sentence(hourly, datetime(2026, 9, 17, 7, 10), _runtime()) == \
             "Light rain starting around noon"
 
@@ -490,7 +490,7 @@ class TestPrecipitationPeak:
         codes = [55, 61, 63, 63, 61, 55, 61, 53, 53, 53, 61, 0]
         amounts = [0.04, 0.09, 0.26, 0.15, 0.09, 0.04, 0.06, 0.04, 0.03, 0.02, 0.08, 0]
         hourly = self._hourly(codes, amounts, start=24)
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         now = datetime(2026, 9, 18, 0, 3)
         assert precipitation_sentence(hourly, now, _runtime()) == \
             "Heavy drizzle now, becoming rain soon, ending around 11:00"
@@ -510,7 +510,7 @@ class TestWhatLands:
     _hourly = staticmethod(TestPrecipitationPeak._hourly)
 
     def _sentence(self, codes, amounts=None, **overrides):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         return precipitation_sentence(self._hourly(codes, amounts), self.EVENING,
                                       _runtime(**overrides))
 
@@ -567,7 +567,7 @@ class TestWhatLands:
         # Open-Meteo's hours for Portland, Maine, the afternoon the snow
         # turned to freezing rain: an hour of heavy snow at ten in the
         # middle of the ice, which is a flip
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         codes = [73, 73, 73, 67, 66, 66, 67, 67, 75, 66, 0, 0]
         amounts = [0.055, 0.043, 0.071, 0.098, 0.055, 0.055, 0.24, 0.185, 0.157, 0.071, 0, 0]
         times = ([f"2024-03-23T{h:02d}:00" for h in range(14, 24)]
@@ -592,7 +592,7 @@ class TestWhatLands:
             "Snow starting in a couple hours"
 
     def test_snow_that_turns_to_rain_is_done_piling_up_when_it_turns(self):
-        from linecast.weather.sections import snow_total_sentence
+        from linecast.weather.narrative import snow_total_sentence
         codes = [73] * 4 + [63] * 4 + [0] * 4
         hourly = self._hourly(codes, [0.06] * 4 + [0.12] * 4 + [0] * 4)
         hourly["snowfall"] = [0.9] * 4 + [0] * 8
@@ -600,7 +600,7 @@ class TestWhatLands:
             "About 4 inches of snow by tonight"
 
     def test_the_snow_total_stands_however_long_the_rain_goes_on(self):
-        from linecast.weather.sections import snow_total_sentence
+        from linecast.weather.narrative import snow_total_sentence
         codes = [73] * 4 + [63] * 8
         hourly = self._hourly(codes, [0.06] * 4 + [0.12] * 8)
         hourly["snowfall"] = [0.9] * 4 + [0] * 8
@@ -619,7 +619,7 @@ class TestHedges:
     EVENING = datetime(2026, 9, 17, 18, 10)
 
     def _sentence(self, prob, **overrides):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         hours = range(18, 24)
         hourly = {
             "time": [f"2026-09-17T{h:02d}:00" for h in hours],
@@ -653,7 +653,7 @@ class TestHedges:
                 "Mvua nyepesi inatarajiwa kuanza baada ya muda wa saa mbili au tatu"
 
     def test_the_hedge_follows_the_best_hour_of_the_run(self):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         hourly = {
             "time": [f"2026-09-17T{h:02d}:00" for h in range(18, 24)],
             "weather_code": [0, 0, 0, 61, 61, 61],
@@ -674,7 +674,7 @@ class TestWhichRunLeads:
                          [10, 10, 44, 10, 10, 10, 10, 10, 84, 84, 82, 10])
 
     def _sentence(self, codes, probs, **overrides):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         hours = [self.MORNING.replace(minute=0) + timedelta(hours=k)
                  for k in range(len(codes))]
         hourly = {"time": [h.isoformat(timespec="minutes") for h in hours],
@@ -714,7 +714,7 @@ class TestWhatIsFallingNow:
                 "weather_code": codes, "precipitation_probability": probs}
 
     def _sentence(self, hourly, now=None, current=None, **overrides):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         return precipitation_sentence(hourly, now or self.HONG_KONG,
                                       _runtime(**overrides), current=current)
 
@@ -799,7 +799,7 @@ class TestTheClockInTheSentence:
         }
 
     def test_rain_at_night_continues_through_the_night(self):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         late = datetime(2026, 7, 15, 22, 5)
         hourly = self._hourly([63] * 26, late.replace(minute=0))
         assert precipitation_sentence(hourly, late, _runtime(), daily=DAILY) == \
@@ -811,7 +811,7 @@ class TestTheClockInTheSentence:
             "Rain continuing through the day"
 
     def test_tomorrow_is_said_once(self):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         late = datetime(2026, 7, 15, 21, 0)
         codes = [0] * 17 + [61, 61, 61, 61, 65, 65, 65, 0]
         hourly = self._hourly(codes, late)
@@ -825,7 +825,7 @@ class TestTheClockInTheSentence:
     def test_early_tomorrow_morning_is_followed_by_later_in_the_morning(self):
         # Chicago at nine at night: drizzle turning to rain before dawn,
         # over by mid-morning
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         night = datetime(2026, 7, 15, 21, 0)
         codes = [51, 51, 51, 51, 51, 51, 51, 51, 51, 63, 63, 63, 63, 0, 0]
         hourly = self._hourly(codes, night)
@@ -839,7 +839,7 @@ class TestTheClockInTheSentence:
         # Miami at half past ten at night: drizzle at eight tomorrow,
         # showers from eleven.  Both are before noon, so the turn is
         # later in that morning, not the morning over again.
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         night = datetime(2026, 7, 15, 22, 26)
         codes = [0] * 10 + [51, 51, 51, 80, 80, 80, 0]
         hourly = self._hourly(codes, night.replace(minute=0))
@@ -852,7 +852,7 @@ class TestTheClockInTheSentence:
     def test_a_turn_inside_the_afternoon_is_later_in_the_afternoon(self):
         # The same again after noon: drizzle at one tomorrow, rain from
         # four
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         night = datetime(2026, 7, 15, 22, 26)
         codes = [0] * 15 + [51, 51, 51, 63, 63, 0]
         hourly = self._hourly(codes, night.replace(minute=0))
@@ -867,7 +867,7 @@ class TestTheClockInTheSentence:
         # night.  A forecast read before dawn calls the night this
         # evening leads into "tonight", the way one issued at four does;
         # "tomorrow night" would be the night after it, a day late.
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         small = datetime(2026, 7, 15, 2, 30)
         codes = [0] * 23 + [51, 51]
         assert precipitation_sentence(self._hourly(codes, small), small, _runtime()) == \
@@ -936,7 +936,7 @@ class TestTheClockInTheSentence:
         assert prose("de").count("abei") == 1, prose("de")
 
     def test_a_dry_hour_inside_rain_is_a_lull(self):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         hourly = self._hourly([63, 0, 63, 63, 0, 0], NOON)
         assert precipitation_sentence(hourly, NOON, _runtime()) == \
             "Rain ending around 16:00"
@@ -966,7 +966,7 @@ class TestMoreToSay:
         return hourly
 
     def test_snow_on_the_ground_by_morning(self):
-        from linecast.weather.sections import snow_total_sentence
+        from linecast.weather.narrative import snow_total_sentence
         evening = datetime(2026, 7, 15, 20, 0)
         codes = [0, 0, 71, 73, 73, 73, 71, 0, 0]
         cm = [0, 0, 1.0, 2.0, 2.5, 1.5, 0.6, 0, 0]
@@ -987,7 +987,7 @@ class TestMoreToSay:
             "About 1\u00a0cm of snow by tomorrow morning"
 
     def test_a_dusting_is_not_worth_a_sentence(self):
-        from linecast.weather.sections import snow_total_sentence
+        from linecast.weather.narrative import snow_total_sentence
         codes = [71, 71, 0]
         hourly = self._hourly(NOON, 3, weather_code=codes,
                               precipitation_probability=[90, 90, 0], snowfall=[0.3, 0.4, 0])
@@ -997,7 +997,7 @@ class TestMoreToSay:
         assert snow_total_sentence(inches, NOON, _runtime()) == ""
 
     def test_the_sky_clears(self):
-        from linecast.weather.sections import sky_sentence
+        from linecast.weather.narrative import sky_sentence
         cover = [90, 90, 90, 90, 10, 10, 10, 10, 10, 10, 10, 10]
         hourly = self._hourly(NOON, len(cover), cloud_cover=cover)
         assert sky_sentence(hourly, NOON, _runtime()) == "Clearing around 16:00"
@@ -1007,20 +1007,20 @@ class TestMoreToSay:
     def test_a_brief_clearing_is_not_clearing(self):
         # Los Angeles: the marine layer lifts for the evening and rolls
         # back in at night
-        from linecast.weather.sections import sky_sentence
+        from linecast.weather.narrative import sky_sentence
         cover = [90, 90, 90, 90, 90, 90, 10, 10, 10, 90, 90, 90, 90, 90]
         hourly = self._hourly(NOON, len(cover), cloud_cover=cover)
         assert sky_sentence(hourly, NOON, _runtime()) == ""
 
     def test_the_sky_clouds_over_unless_rain_already_says_so(self):
-        from linecast.weather.sections import sky_sentence
+        from linecast.weather.narrative import sky_sentence
         cover = [10, 10, 10, 10, 90, 90, 90, 90, 90, 90, 90, 90]
         hourly = self._hourly(NOON, len(cover), cloud_cover=cover)
         assert sky_sentence(hourly, NOON, _runtime()) == "Clouding over around 16:00"
         assert sky_sentence(hourly, NOON, _runtime(), precip_kind="starting") == ""
 
     def test_a_mixed_sky_says_nothing(self):
-        from linecast.weather.sections import sky_sentence
+        from linecast.weather.narrative import sky_sentence
         cover = [50, 50, 50, 50, 90, 90, 90, 90, 90, 90, 90, 90]
         hourly = self._hourly(NOON, len(cover), cloud_cover=cover)
         assert sky_sentence(hourly, NOON, _runtime()) == ""
@@ -1028,7 +1028,7 @@ class TestMoreToSay:
     def test_a_change_after_dark_is_named_at_the_hour_it_happens(self):
         # Seattle at five: a clear evening, and the sky shuts at ten.
         # Someone hoping to see stars is owed that hour, not the morning.
-        from linecast.weather.sections import sky_sentence
+        from linecast.weather.narrative import sky_sentence
         evening = datetime(2026, 7, 15, 17, 0)
         cover = [0, 0, 0, 0, 20] + [100] * 20
         hourly = self._hourly(evening, len(cover), cloud_cover=cover)
@@ -1037,7 +1037,7 @@ class TestMoreToSay:
     def test_a_night_change_that_is_gone_by_morning_says_nothing(self):
         # Cloud that rolls in after dark and burns off at breakfast is
         # not clouding over: the lasting rule catches it.
-        from linecast.weather.sections import sky_sentence
+        from linecast.weather.narrative import sky_sentence
         evening = datetime(2026, 7, 15, 17, 0)
         cover = [0] * 5 + [100] * 8 + [0] * 12
         hourly = self._hourly(evening, len(cover), cloud_cover=cover)
@@ -1046,7 +1046,7 @@ class TestMoreToSay:
     def test_the_hour_named_is_the_hour_the_sky_turns(self):
         # Rome at dusk: half cloud at six, the sky properly open at
         # seven.  The three-hour mean has turned by six; the sky has not.
-        from linecast.weather.sections import sky_sentence
+        from linecast.weather.narrative import sky_sentence
         afternoon = datetime(2026, 7, 15, 14, 0)
         cover = [100, 100, 100, 100, 52, 11, 36, 13, 19] + [10] * 16
         hourly = self._hourly(afternoon, len(cover), cloud_cover=cover)
@@ -1055,7 +1055,7 @@ class TestMoreToSay:
     def test_noon_is_named_in_words(self):
         # London at eight: the sky shuts at twelve, which every language
         # says as noon rather than as a time on the clock
-        from linecast.weather.sections import sky_sentence
+        from linecast.weather.narrative import sky_sentence
         morning = datetime(2026, 7, 15, 8, 0)
         cover = [10] * 4 + [90] * 12
         hourly = self._hourly(morning, len(cover), cloud_cover=cover)
@@ -1083,7 +1083,7 @@ class TestMoreToSay:
 
     def test_rain_later_in_the_week_is_named_when_it_is_worth_it(self):
         # Istanbul on a Sunday: light rain most of Tuesday
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         sunday = datetime(2026, 9, 20, 5, 30)
         daily = self._week(sunday, [0, 0, 0, 3.6, 0, 0, 0, 0], [0, 0, 5, 74, 0, 0, 0, 0])
         hourly = self._day_of(sunday.date() + timedelta(days=2), [0] * 9 + [61] * 8 + [0] * 7, 74)
@@ -1093,7 +1093,7 @@ class TestMoreToSay:
                                   hourly) == "火曜日は弱い雨となる見込みです"
 
     def test_a_chance_of_rain_is_not_worth_the_week_sentence(self):
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         sunday = datetime(2026, 9, 20, 5, 30)
         daily = self._week(sunday, [0, 0, 0, 3.6, 0, 0, 0, 0], [0, 0, 5, 74, 0, 0, 0, 0])
         hourly = self._day_of(sunday.date() + timedelta(days=2), [0] * 9 + [61] * 8 + [0] * 7, 45)
@@ -1102,7 +1102,7 @@ class TestMoreToSay:
     def test_a_sliver_of_drizzle_is_not_a_wet_day(self):
         # Moscow on a Sunday: a 60% chance of a trace on Monday, real rain
         # on Tuesday
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         sunday = datetime(2026, 9, 20, 12, 0)
         daily = self._week(sunday, [0, 0, 0.01, 0.14, 0.26, 0.14, 0, 0],
                            [0, 0, 60, 74, 60, 75, 26, 0])
@@ -1113,7 +1113,7 @@ class TestMoreToSay:
     def test_the_day_is_named_by_the_hour_that_holds_most_of_its_rain(self):
         # Helsinki: Thursday opens with an hour of drizzle and holds
         # 12mm of rain
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         sunday = datetime(2026, 9, 20, 5, 30)
         daily = self._week(sunday, [0, 0, 0, 12.2, 0, 0, 0, 0], [0, 0, 5, 81, 0, 0, 0, 0])
         codes = [0] * 7 + [51, 53, 61, 61, 61, 61, 51] + [0] * 10
@@ -1125,7 +1125,7 @@ class TestMoreToSay:
                                   hourly) == "火曜日は弱い雨になるでしょう"
 
     def test_without_amounts_the_heaviest_hour_names_the_day(self):
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         sunday = datetime(2026, 9, 20, 5, 30)
         daily = self._week(sunday, [0, 0, 0, 12.2, 0, 0, 0, 0], [0, 0, 5, 81, 0, 0, 0, 0])
         codes = [0] * 7 + [51, 53, 61, 63, 61, 61, 51] + [0] * 10
@@ -1136,7 +1136,7 @@ class TestMoreToSay:
     def test_a_far_off_day_of_drizzle_is_not_news_whatever_it_opens_with(self):
         # An hour of light rain at dawn does not make a drizzly Sunday
         # worth a sentence four days out
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         daily = self._week(NOON, [0, 0, 0, 0, 0, 5.0, 0, 0], [0, 0, 0, 0, 0, 90, 0, 0])
         codes = [0] * 6 + [61] + [53] * 11 + [0] * 6
         hourly = self._day_of(NOON.date() + timedelta(days=4), codes, 90)
@@ -1145,7 +1145,7 @@ class TestMoreToSay:
 
     def test_the_further_off_the_surer_and_the_wetter_it_must_be(self):
         # Without the hours, the day's own code and odds name it
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         daily = self._week(NOON, [0, 0, 0, 0, 0, 0.12, 0, 0], [0, 0, 0, 0, 0, 85, 0, 0],
                            codes=[0, 0, 0, 0, 0, 63, 0, 0])
         assert next_rain_sentence(daily, NOON, _runtime()) == ""
@@ -1155,7 +1155,7 @@ class TestMoreToSay:
     def test_a_day_of_drizzle_is_not_graded(self):
         # Edinburgh: an hour of dense drizzle carries Friday's 3 mm, and
         # "heavy drizzle on Friday" would read as a wet day
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         daily = self._week(NOON, [0, 0, 0, 3.2, 0, 0, 0, 0], [0, 0, 0, 73, 0, 0, 0, 0])
         codes = [0] * 8 + [51, 53, 55, 55, 53, 51] + [0] * 10
         hourly = self._day_of(NOON.date() + timedelta(days=2), codes, 73)
@@ -1164,13 +1164,13 @@ class TestMoreToSay:
                                   hourly) == "Drizzle likely on Friday"
 
     def test_drizzle_far_off_is_not_news(self):
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         daily = self._week(NOON, [0, 0, 0, 0, 0, 0.3, 0, 0], [0, 0, 0, 0, 0, 90, 0, 0])
         hourly = self._day_of(NOON.date() + timedelta(days=4), [0] * 6 + [53] * 12 + [0] * 6, 90)
         assert next_rain_sentence(daily, NOON, _runtime(), hourly) == ""
 
     def test_dryness_goes_unremarked(self):
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         daily = self._week(NOON, [0] * 8, [0, 0, 0, 20, 0, 0, 0, 0])
         assert next_rain_sentence(daily, NOON, _runtime()) == ""
 
@@ -1189,7 +1189,7 @@ class TestMoreToSay:
     def test_a_wet_day_is_worth_a_word_at_lower_odds(self):
         # Westbrook, Maine, on a Wednesday: three inches of a nor'easter
         # on Saturday at 68%, light rain on Monday at 72%
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         wednesday = datetime(2026, 9, 23, 18, 30)
         daily = self._week(wednesday, [0, 0, 0, 0, 3.7, 0, 0.6, 0],
                            [0, 0, 0, 21, 68, 0, 72, 21])
@@ -1201,7 +1201,7 @@ class TestMoreToSay:
             "Heavy rain likely on Saturday"
 
     def test_an_inch_at_a_coin_toss_is_a_chance(self):
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         daily = self._week(NOON, [0, 0, 0, 0, 30.0, 0, 0, 0], [0, 0, 0, 0, 52, 0, 0, 0])
         hourly = self._day_of(NOON.date() + timedelta(days=3), [0] * 6 + [63] * 12 + [0] * 6, 52)
         assert next_rain_sentence(daily, NOON, _runtime(celsius=True, metric=True), hourly) == \
@@ -1209,7 +1209,7 @@ class TestMoreToSay:
 
     def test_wet_days_in_a_row_are_one_run(self):
         # Seattle: rain on Thursday, an inch of showers on Friday
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         tuesday = datetime(2026, 9, 22, 18, 30)
         daily = self._week(tuesday, [0, 0, 0, 0.3, 1.1, 0, 0, 0], [0, 0, 7, 72, 82, 7, 0, 0])
         hourly = self._days_of(tuesday.date() + timedelta(days=2),
@@ -1219,7 +1219,7 @@ class TestMoreToSay:
             "Rain likely on Thursday and Friday, heaviest on Friday"
 
     def test_three_days_and_more_are_a_span(self):
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         daily = self._week(NOON, [0, 0, 0, 8.0, 9.0, 8.5, 0, 0], [0, 0, 0, 85, 90, 88, 0, 0])
         rain = [0] * 6 + [63] * 12 + [0] * 6
         hourly = self._days_of(NOON.date() + timedelta(days=2),
@@ -1229,7 +1229,7 @@ class TestMoreToSay:
 
     def test_a_run_that_starts_tomorrow_says_tomorrow(self):
         # Vancouver on a Wednesday: rain on Thursday and Friday
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         rain = [0] * 6 + [63] * 12 + [0] * 6
         daily = self._week(NOON, [0, 0, 9.0, 8.0, 0, 0, 0, 0], [0, 0, 85, 88, 0, 0, 0, 0])
         hourly = self._days_of(NOON.date() + timedelta(days=1), [(rain, 85, 0.7), (rain, 88, 0.7)])
@@ -1247,7 +1247,7 @@ class TestMoreToSay:
             "Od jutra do soboty deszcz, najsilniej jutro"
 
     def test_thunder_in_a_run_of_rain_is_said_of_its_own_day(self):
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         rain = [0] * 6 + [63] * 12 + [0] * 6
         storm = [0] * 6 + [95] * 12 + [0] * 6
         metric = dict(celsius=True, metric=True)
@@ -1272,7 +1272,7 @@ class TestMoreToSay:
             "Od pátku do neděle bouřky"
 
     def test_a_run_that_turns_to_snow_says_so(self):
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         rain = [0] * 6 + [63] * 12 + [0] * 6
         snow = [0] * 6 + [73] * 12 + [0] * 6
         metric = dict(celsius=True, metric=True)
@@ -1286,7 +1286,7 @@ class TestMoreToSay:
 
     def test_thunder_names_the_day_though_a_shower_hour_is_wetter(self):
         # Buenos Aires: Sunday's wettest hours are showers, its midday thunder
-        from linecast.weather.sections import next_rain_sentence
+        from linecast.weather.narrative import next_rain_sentence
         codes = [0] * 7 + [81] * 5 + [95] * 4 + [0] * 8
         daily = self._week(NOON, [0, 0, 0, 0, 0, 39.0, 0, 0], [0, 0, 0, 0, 0, 68, 0, 0])
         hourly = self._days_of(NOON.date() + timedelta(days=4), [(codes, 68, 0)])
@@ -1295,7 +1295,7 @@ class TestMoreToSay:
             "Thunderstorms likely on Sunday"
 
     def test_gusts_this_afternoon(self):
-        from linecast.weather.sections import gusts_sentence
+        from linecast.weather.narrative import gusts_sentence
         gusts = [20, 25, 30, 45, 40, 30, 20, 15]
         hourly = self._hourly(NOON, len(gusts), wind_gusts_10m=gusts)
         assert gusts_sentence(hourly, NOON, _runtime()) == "Gusts to 45\u00a0mph this afternoon"
@@ -1313,13 +1313,13 @@ class TestMoreToSay:
             "Ma délután 72\u00a0km/h-s széllökések várhatók"
 
     def test_a_breeze_is_not_worth_a_sentence(self):
-        from linecast.weather.sections import gusts_sentence
+        from linecast.weather.narrative import gusts_sentence
         hourly = self._hourly(NOON, 6, wind_gusts_10m=[10, 12, 15, 20, 18, 10])
         assert gusts_sentence(hourly, NOON, _runtime()) == ""
 
     def test_gusts_the_place_is_used_to_are_not_worth_a_sentence(self):
         # Honolulu: the same afternoon trade wind every day of the week
-        from linecast.weather.sections import gusts_sentence
+        from linecast.weather.narrative import gusts_sentence
         hourly = self._hourly(NOON, 6, wind_gusts_10m=[20, 25, 30, 32, 28, 20])
         days = [(NOON.date() + timedelta(days=d)).isoformat() for d in range(-1, 7)]
 
@@ -1339,7 +1339,7 @@ class TestMoreToSay:
             "Gusts to 48 mph this afternoon"
 
     def test_below_freezing_tonight(self):
-        from linecast.weather.sections import freeze_sentence
+        from linecast.weather.narrative import freeze_sentence
         temps = [40, 38, 36, 35, 34, 33, 32, 31, 29, 28, 28, 30, 34, 38]
         hourly = self._hourly(datetime(2026, 7, 15, 20), len(temps), temperature_2m=temps)
         now = datetime(2026, 7, 15, 20, 10)
@@ -1363,7 +1363,7 @@ class TestMoreToSay:
 
     def test_a_low_that_rounds_to_freezing_is_not_below_it(self):
         # "Below freezing overnight, down to 32°" contradicts itself
-        from linecast.weather.sections import freeze_sentence
+        from linecast.weather.narrative import freeze_sentence
         now = datetime(2026, 7, 15, 20, 10)
         for low in (32.0, 31.6):
             temps = [40, 38, 36, 34, low, 33, 35]
@@ -1375,12 +1375,12 @@ class TestMoreToSay:
                                _runtime(celsius=True, metric=True)) == ""
 
     def test_already_freezing_says_nothing(self):
-        from linecast.weather.sections import freeze_sentence
+        from linecast.weather.narrative import freeze_sentence
         hourly = self._hourly(NOON, 6, temperature_2m=[30, 28, 26, 25, 25, 26])
         assert freeze_sentence(hourly, {"temperature_2m": 30}, NOON, _runtime()) == ""
 
     def test_the_heat_ahead_names_its_cause(self):
-        from linecast.weather.sections import feels_ahead_sentence
+        from linecast.weather.narrative import feels_ahead_sentence
         temps = [82, 85, 88, 90, 90, 88, 85]
         feels = [84, 89, 95, 98, 97, 93, 88]
         # 98°F feels like 36.7°C: past the mark; 89 and 95 are not
@@ -1400,7 +1400,7 @@ class TestMoreToSay:
             "湿度が高く、午後には体感温度が37度まで上がる見込みです"
 
     def test_the_cold_ahead_names_the_wind(self):
-        from linecast.weather.sections import feels_ahead_sentence
+        from linecast.weather.narrative import feels_ahead_sentence
         hourly = self._hourly(NOON, 6, temperature_2m=[-5, -6, -8, -9, -9, -8],
                               apparent_temperature=[-12, -14, -17, -19, -18, -16],
                               relative_humidity_2m=[70] * 6, wind_speed_10m=[35] * 6)
@@ -1409,7 +1409,7 @@ class TestMoreToSay:
 
     def test_what_the_place_is_used_to_is_not_news(self):
         # Hong Kong in September: every afternoon feels five degrees hotter
-        from linecast.weather.sections import feels_ahead_sentence
+        from linecast.weather.narrative import feels_ahead_sentence
         day = [28, 29, 31, 32, 32, 31, 29] + [28] * 17
         felt = [31, 33, 36, 37, 37, 36, 33] + [31] * 17
         hourly = self._hourly(NOON, 24 * 4, temperature_2m=day * 4, apparent_temperature=felt * 4)
@@ -1420,7 +1420,7 @@ class TestMoreToSay:
             "It will feel as hot as 40° this afternoon"
 
     def test_dangerous_heat_is_said_regardless(self):
-        from linecast.weather.sections import feels_ahead_sentence
+        from linecast.weather.narrative import feels_ahead_sentence
         day = [38, 40, 42, 43, 43, 42, 40] + [36] * 17
         felt = [42, 44, 46, 47, 47, 46, 44] + [39] * 17
         hourly = self._hourly(NOON, 24 * 4, temperature_2m=day * 4, apparent_temperature=felt * 4)
@@ -1428,7 +1428,7 @@ class TestMoreToSay:
             "It will feel as hot as 47° this afternoon"
 
     def test_warm_but_not_extreme_says_nothing(self):
-        from linecast.weather.sections import feels_ahead_sentence
+        from linecast.weather.narrative import feels_ahead_sentence
         hourly = self._hourly(NOON, 4, temperature_2m=[80, 82, 82, 80],
                               apparent_temperature=[84, 88, 88, 84])
         assert feels_ahead_sentence(hourly, NOON, _runtime()) == ""
@@ -1436,7 +1436,7 @@ class TestMoreToSay:
     def test_heat_that_is_already_here_is_not_news(self):
         # Singapore at half past ten: it feels 34° now and the hottest
         # hour ahead feels 34° too, so there is nothing to plan around
-        from linecast.weather.sections import feels_ahead_sentence
+        from linecast.weather.narrative import feels_ahead_sentence
         hourly = self._hourly(NOON, 6, temperature_2m=[29.5] * 6,
                               apparent_temperature=[33.5, 33.6, 34.1, 33.8, 33.6, 33.4],
                               relative_humidity_2m=[67] * 6, wind_speed_10m=[8] * 6)
@@ -1449,7 +1449,7 @@ class TestMoreToSay:
             "The humidity will make it feel as hot as 34° this afternoon"
 
     def test_a_wind_chill_no_worse_than_the_present_one_says_nothing(self):
-        from linecast.weather.sections import feels_ahead_sentence
+        from linecast.weather.narrative import feels_ahead_sentence
         hourly = self._hourly(NOON, 6, temperature_2m=[-5, -6, -8, -9, -9, -8],
                               apparent_temperature=[-12, -14, -17, -19, -18, -16],
                               relative_humidity_2m=[70] * 6, wind_speed_10m=[35] * 6)
@@ -1462,7 +1462,7 @@ class TestMoreToSay:
 
     def test_the_margin_over_the_present_follows_the_unit(self):
         # Three degrees Fahrenheit is not the two Celsius the sentence asks for
-        from linecast.weather.sections import feels_ahead_sentence
+        from linecast.weather.narrative import feels_ahead_sentence
         hourly = self._hourly(NOON, 6, temperature_2m=[85] * 6,
                               apparent_temperature=[92, 93, 95, 94, 93, 92])
         assert feels_ahead_sentence(hourly, NOON, _runtime(),
@@ -1472,7 +1472,7 @@ class TestMoreToSay:
             "It will feel as hot as 95° this afternoon"
 
     def test_the_comparison_carries_the_number(self):
-        from linecast.weather.sections import comparative_sentence
+        from linecast.weather.narrative import comparative_sentence
         daily = {"temperature_2m_max": [60, 68, 55]}
         assert comparative_sentence(daily, NOON, _runtime()) == \
             "Today's high will be 8° warmer than yesterday's"
@@ -1612,12 +1612,12 @@ class TestDegreesAsWords:
     with the number and the case."""
 
     def _diff(self, lang, diff):
-        from linecast.weather.sections import comparative_sentence
+        from linecast.weather.narrative import comparative_sentence
         rt = _runtime(lang=lang, celsius=True, metric=True)
         return comparative_sentence({"temperature_2m_max": [10, 10 + diff, 10]}, NOON, rt)
 
     def _low(self, lang, low):
-        from linecast.weather.sections import freeze_sentence
+        from linecast.weather.narrative import freeze_sentence
         rt = _runtime(lang=lang, celsius=True, metric=True)
         temps = [3, 2, 1, low, low, 1]
         hourly = {"time": [(NOON + timedelta(hours=k)).isoformat(timespec="minutes")
@@ -1672,7 +1672,7 @@ class TestAgreementAndTheClock:
     and only English and Greek carry a 12-hour time in a sentence."""
 
     def _later(self, lang, code, prob=70, **overrides):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         codes = [0, 0, 0, 0, code, code, code, 0]
         hourly = {"time": [(NOON + timedelta(hours=k)).isoformat(timespec="minutes")
                            for k in range(len(codes))],
@@ -1694,7 +1694,7 @@ class TestAgreementAndTheClock:
         assert self._later("ro", 63, 90) == "Ploaie în jurul orei 16:00"
 
     def test_french_takes_the_article_and_canada_elides_too(self):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         codes = [81, 81, 81, 0]
         hourly = {"time": [(NOON + timedelta(hours=k)).isoformat(timespec="minutes")
                            for k in range(len(codes))],
@@ -1710,7 +1710,7 @@ class TestAgreementAndTheClock:
         assert self._later("fr-CA", 81, 90) == "Averses débutant vers 16\u00a0h"
 
     def test_finnish_and_czech_plural_verbs(self):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         codes = [81, 81, 81, 0]
         hourly = {"time": [(NOON + timedelta(hours=k)).isoformat(timespec="minutes")
                            for k in range(len(codes))],
@@ -1727,7 +1727,7 @@ class TestAgreementAndTheClock:
         # Before an hour, "likely" keeps "starting", or the rain would seem
         # to fall in that hour alone; a part of the day needs no "starting"
         assert self._later("en", 63) == "Rain likely starting around 16:00"
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         evening = NOON.replace(hour=20)
         codes = [0] * 20 + [63] * 3 + [0]
         hourly = {"time": [(evening + timedelta(hours=k)).isoformat(timespec="minutes")
@@ -1738,7 +1738,7 @@ class TestAgreementAndTheClock:
             "Rain likely tomorrow afternoon")
 
     def test_german_rain_that_is_ending_dies_away(self):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
 
         def ending(codes):
             hourly = {"time": [(NOON + timedelta(hours=k)).isoformat(timespec="minutes")
@@ -1766,7 +1766,7 @@ class TestAgreementAndTheClock:
             "Leichter Regen, gegen 16\u00a0Uhr gefrierender Regen, gegen 18\u00a0Uhr abklingend")
 
     def test_french_turns_take_then_and_an_article(self):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
 
         def sentence(codes):
             hourly = {"time": [(NOON + timedelta(hours=k)).isoformat(timespec="minutes")
@@ -1852,7 +1852,7 @@ class TestFog:
                 "weather_code": codes}
 
     def _sentence(self, hourly, now=NOON, current=None, **overrides):
-        from linecast.weather.sections import fog_sentence
+        from linecast.weather.narrative import fog_sentence
         return fog_sentence(hourly, current or {}, now, _runtime(**overrides), daily=DAILY)
 
     def _prose(self, data, now=NOON, **overrides):
@@ -1954,7 +1954,7 @@ class TestFog:
         assert self._sentence(self._hourly(NOON, [3, 3, 45, 45, 3, 3]), lang="sw") == ""
 
     def test_the_sky_does_not_lift_the_fog_a_second_time(self):
-        from linecast.weather.sections import sky_sentence
+        from linecast.weather.narrative import sky_sentence
         codes = [45] * 5 + [0] * 20
         hourly = dict(self._hourly(NOON, codes), cloud_cover=[100] * 5 + [10] * 20)
         # The cloud clears when the fog does, and the sky sentence says
@@ -1970,7 +1970,7 @@ class TestPastPrecipitation:
     """What fell in the last day."""
 
     def test_the_decimal_mark_is_the_languages(self):
-        from linecast.weather.sections import past_precip_sentence
+        from linecast.weather.narrative import past_precip_sentence
         hourly = {"time": [(NOON - timedelta(hours=1)).isoformat(timespec="minutes")],
                   "precipitation": [4.0], "snowfall": [0], "weather_code": [63]}
 
@@ -1984,7 +1984,7 @@ class TestPastPrecipitation:
         assert said("ja") == "過去24時間の降水量は4.0mmでした"
 
     def test_the_last_day_is_twenty_four_hours(self):
-        from linecast.weather.sections import past_precip_sentence
+        from linecast.weather.narrative import past_precip_sentence
         # A millimetre stamped at every hour from a day ago to now.  Each
         # stamp holds the hour before it, so the one a day ago fell 25
         # hours back and is not part of the last day.
@@ -1997,7 +1997,7 @@ class TestPastPrecipitation:
             "24.0\u00a0mm of rain in the last 24 hours")
 
     def test_the_kind_named_is_one_that_came_to_enough_to_say(self):
-        from linecast.weather.sections import past_precip_sentence
+        from linecast.weather.narrative import past_precip_sentence
 
         def said(rows):
             hours = [NOON - timedelta(hours=k) for k in range(len(rows), 0, -1)]
@@ -2024,12 +2024,12 @@ class TestPastPrecipitation:
                "rain_hours": 7, "snow_hours": 0, "mix_hours": 0}
 
     def _inches(self, hourly, station):
-        from linecast.weather.sections import past_precip_sentence
+        from linecast.weather.narrative import past_precip_sentence
         hourly = dict(hourly, precipitation=[p / 25.4 for p in hourly["precipitation"]])
         return past_precip_sentence(hourly, NOON, _runtime(), station)
 
     def test_the_stations_gauge_over_the_models_hours(self):
-        from linecast.weather.sections import past_precip_sentence
+        from linecast.weather.narrative import past_precip_sentence
         assert self._inches(self.MODEL_NIGHT, None) == \
             "0.14 inches of rain in the last 24 hours"
         assert self._inches(self.MODEL_NIGHT, self.JETPORT) == \
@@ -2049,7 +2049,7 @@ class TestPastPrecipitation:
             "0.54 inches of mixed precipitation in the last 24 hours"
 
     def test_snow_stays_the_models(self):
-        from linecast.weather.sections import past_precip_sentence
+        from linecast.weather.narrative import past_precip_sentence
         snowy = dict(self.MODEL_NIGHT, weather_code=[71, 73, 73, 73, 71, 73, 3],
                      snowfall=[0.4, 0.6, 1.0, 0.8, 0.3, 0.6, 0])
         gauge = dict(self.JETPORT, precip=0.21, rain_hours=0, snow_hours=6)

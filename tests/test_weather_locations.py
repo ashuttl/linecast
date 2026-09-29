@@ -13,7 +13,7 @@ from linecast.terminal.textwidth import visible_len
 from linecast.maps.search import Result
 from linecast._runtime import WeatherRuntime
 from linecast.weather.locations import LocationPicker, LocationSearch, RecentLocations
-from linecast.weather.sections import render_header
+from linecast.weather.header import render_header
 
 
 def place(name='Paris', lat=48.85, lon=2.35):

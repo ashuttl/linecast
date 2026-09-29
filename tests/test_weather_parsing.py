@@ -1865,7 +1865,7 @@ class TestCanadaAqhi:
     def test_header_prints_the_index_with_its_words(self):
         import re
         from linecast._runtime import WeatherRuntime
-        from linecast.weather.sections import render_header
+        from linecast.weather.header import render_header
         data = _india_aqi_response(pm2_5=5.0)
         data["current"].update({"aqhi": 4, "aqhi_source": "observed"})
         forecast = {"current": {"temperature_2m": 20.0, "apparent_temperature": 20.0,
@@ -1940,7 +1940,7 @@ class TestIndiaAqi:
         assert india_aqi_category(450) == "Severe"
 
     def test_header_shows_cpcb_number(self):
-        from linecast.weather.sections import render_header
+        from linecast.weather.header import render_header
         forecast = _load("open_meteo_forecast.json")
         aqi_data = _india_aqi_response(pm2_5=300.0)
         from linecast.weather.air import apply_india_aqi

@@ -376,7 +376,7 @@ def _header(climate, days, runtime, cols, location_name, location_menu):
     """The year, how warm it has been against the ten years, and the
     precipitation so far against theirs to the date; the place at the
     right, as the dashboard's header has it."""
-    from linecast.weather.sections import location_chip, location_control
+    from linecast.weather.header import location_chip, location_control
     from linecast.terminal.textwidth import fit
 
     parts = [f"{_style.TEXT}{days.year if days else ''}"]
@@ -798,7 +798,7 @@ def _tooltip(climate, days, span, jan1, slots, runtime, col, mouse_row, cols, ro
     from linecast.moon.i18n import _fmt_month_day, gregorian_month_day
     from linecast.sunshine.i18n import relative_day
     from linecast.weather.daily import fmt_precip_amount, fmt_snow_amount
-    from linecast.weather.sections import _PRECIP_CODES
+    from linecast.weather.cover import _PRECIP_CODES
     from linecast.weather.style import _colored_temp, _precip_rgb
 
     tbg = bg(*_style.TOOLTIP_BG_RGB)

@@ -327,7 +327,7 @@ class TestHeaderIntegration:
     """Verify render_header doesn't crash when given historical data."""
 
     def test_render_header_with_historical(self):
-        from linecast.weather.sections import render_header
+        from linecast.weather.header import render_header
         data = {
             "current": {
                 "temperature_2m": 65.0,
@@ -357,7 +357,7 @@ class TestHeaderIntegration:
 
     def test_render_header_without_historical(self):
         """Header works fine with historical=None."""
-        from linecast.weather.sections import render_header
+        from linecast.weather.header import render_header
         data = {
             "current": {
                 "temperature_2m": 65.0,

@@ -14,7 +14,8 @@ import pytest
 from linecast.weather import view as weather
 from linecast.weather import forecast as _forecast
 from linecast.weather.forecast import forecast_date, forecast_is_todays
-from linecast.weather.sections import comparative_sentence, render_header
+from linecast.weather.header import render_header
+from linecast.weather.narrative import comparative_sentence
 from linecast.weather.historical import HistoricalAverages
 from linecast.weather.view import WeatherApp, forecast_notice
 

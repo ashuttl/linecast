@@ -44,7 +44,8 @@ from linecast.weather.daily import (
 from linecast.weather.hourly import (
     _precip_bar_full, _prepare_hourly_window, _present, label_rows, render_hourly,
 )
-from linecast.weather.sections import _PRECIP_CODES, narrative_lines, render_header
+from linecast.weather.header import render_header
+from linecast.weather.narrative import narrative_lines
 from linecast.weather.style import (
     ALERT_AMBER, CLOUD_RGB, DIM, MUTED, TEXT, TOOLTIP_BG_RGB, TOOLTIP_TEXT_RGB,
     _colored_temp, _precip_rgb, _precip_type, notable_moisture,
@@ -59,7 +60,7 @@ from linecast.weather.forecast import (
 )
 from linecast.weather.air import apply_national_index, fetch_canada_aqhi, fetch_aqi
 from linecast._geocode import reverse_geocode, print_search, without_country
-from linecast.weather.cover import sky_condition
+from linecast.weather.cover import _PRECIP_CODES, sky_condition
 from linecast.weather.location_menu import LocationMenu
 from linecast.weather.humidex import apply_canadian_indices
 from linecast.weather.observed import (
@@ -1017,7 +1018,7 @@ class WeatherApp(LocationMenu, _live.LiveApp):
             )
         cols, rows = get_terminal_size()
         # The live header always reserves space for its location control.
-        from linecast.weather.sections import location_chip, location_control
+        from linecast.weather.header import location_chip, location_control
         label = location_chip(location_control(self.location_name, cols, self.runtime))
         self._location_hit = (cols - visible_len(label) + 1, cols)
         floating = self.menu_overlay(cols, rows)

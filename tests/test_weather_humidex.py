@@ -77,7 +77,7 @@ class TestAttached:
 
 class TestHeader:
     def _header(self, forecast, lang="en"):
-        from linecast.weather.sections import render_header
+        from linecast.weather.header import render_header
         runtime = _runtime(lang)
         data = apply_canadian_indices(forecast, "CA", runtime)
         return _plain(render_header(data, 120, "Montréal", runtime))
@@ -107,7 +107,7 @@ class TestSentences:
         return apply_canadian_indices(_forecast(*hours[0], hours=hours), "CA", _runtime(lang))
 
     def test_the_heat_ahead_is_the_humidex(self):
-        from linecast.weather.sections import feels_ahead_sentence
+        from linecast.weather.narrative import feels_ahead_sentence
         # The afternoon peaks at 32 °C with a dew point of 22: humidex 41
         hours = [(26, 16, 5, 27), (28, 18, 5, 29), (30, 20, 5, 32), (32, 22, 5, 35),
                  (32, 22, 5, 35), (30, 20, 5, 32), (27, 17, 5, 28)]
@@ -122,7 +122,7 @@ class TestSentences:
             f"Humidex {expected} cet après-midi"
 
     def test_the_cold_ahead_is_the_wind_chill(self):
-        from linecast.weather.sections import feels_ahead_sentence
+        from linecast.weather.narrative import feels_ahead_sentence
         hours = [(-12, -18, 10, -18), (-15, -20, 20, -24), (-20, -25, 30, -31),
                  (-24, -28, 30, -36), (-24, -28, 30, -36), (-20, -25, 20, -29)]
         data = self._data(hours)
@@ -132,7 +132,7 @@ class TestSentences:
             f"Wind chill −{abs(expected)} this afternoon"
 
     def test_the_label_names_the_cause_so_no_sentence_does(self):
-        from linecast.weather.sections import feels_sentence
+        from linecast.weather.narrative import feels_sentence
         data = self._data([(30, 22, 5, 36)])
         assert feels_sentence(data["current"], {}, NOON, _runtime()) == ""
 

@@ -238,7 +238,7 @@ def wind_for(data, runtime):
 
 def paragraph(record, lang, trace=None):
     """The prose for one place in one language, as one string."""
-    from linecast.weather.sections import narrative_lines
+    from linecast.weather.narrative import narrative_lines
     runtime = runtime_for(lang, record["metric"])
     now = datetime.fromisoformat(record["now"])
     rows = narrative_lines(wind_for(record["data"], runtime), now, 10_000, runtime, trace=trace)

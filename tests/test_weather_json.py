@@ -96,7 +96,7 @@ class TestPayloadShape:
 
     def test_narrative_is_the_paragraph_the_tui_reads(self):
         import re
-        from linecast.weather.sections import narrative_lines
+        from linecast.weather.narrative import narrative_lines
         data = _load_fixture()
         narrative = _payload(data=data)["narrative"]
         assert isinstance(narrative, str) and narrative.endswith(".")

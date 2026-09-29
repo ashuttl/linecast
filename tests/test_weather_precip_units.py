@@ -5,7 +5,7 @@ from datetime import datetime
 from types import SimpleNamespace
 
 from linecast.weather.daily import render_daily
-from linecast.weather.sections import _past_precip_line
+from linecast.weather.narrative import _past_precip_line
 
 _MM_PER_INCH = 25.4
 _CM_PER_INCH = 2.54

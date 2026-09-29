@@ -14,7 +14,7 @@ from linecast.weather.daily import render_daily_mapped
 from linecast.weather.hourly import (
     _build_precip_blocks, _indicator_row, _render_cloud_row, render_hourly,
 )
-from linecast.weather.sections import _prose
+from linecast.weather.narrative import _prose
 from linecast.weather.style import CLOUD_RGB, PRECIP_RAIN_RGB, TEXT
 from linecast.weather.view import _build_daily_tooltip, _build_hover_tooltip
 

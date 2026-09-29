@@ -15,11 +15,7 @@ from linecast.radar.i18n import rs
 from linecast.tides.i18n import _ts
 from linecast.weather.i18n import WMO_NAMES_I18N, _s, precip_unit_label, wind_unit_label
 from linecast._i18n import DAY_NAMES
-from linecast.weather.sections import (
-    _past_precip_line,
-    _precipitation_line,
-    comparative_sentence,
-)
+from linecast.weather.narrative import _past_precip_line, _precipitation_line, comparative_sentence
 
 TABLE = {
     "en": {"hello": "Hello", "count": "{n} items", "braces": "{literal}"},
@@ -438,7 +434,7 @@ class TestSlovakWeather:
             _precipitation_line(hourly(95), now, runtime))
 
     def test_days_take_their_preposition_and_case(self):
-        from linecast.weather.sections import _day_span
+        from linecast.weather.narrative import _day_span
         from linecast.weather.i18n import ON_DAY_FORMS
         runtime = SimpleNamespace(lang="sk")
         assert [ON_DAY_FORMS["sk"][i] for i in range(7)] == [
@@ -514,7 +510,7 @@ class TestHungarianWeather:
             _precipitation_line(hourly, now, runtime))
 
     def test_a_run_of_days_takes_the_case_endings(self):
-        from linecast.weather.sections import _day_span
+        from linecast.weather.narrative import _day_span
         runtime = SimpleNamespace(lang="hu")
         now = datetime(2026, 8, 24, 12)     # a Monday
         thursday, friday, saturday, sunday = (now.date().replace(day=d)
@@ -566,7 +562,7 @@ class TestSwahili:
             hourly, now, runtime)
 
     def test_precipitation_verbs_agree_when_starting_ending_or_continuing(self):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         runtime = SimpleNamespace(lang="sw", use_24h=True)
         now = datetime(2026, 8, 24, 12, 10)
         times = [f"2026-08-24T{h:02d}:00" for h in range(12, 15)]
@@ -584,7 +580,7 @@ class TestSwahili:
                 assert precipitation_sentence(hourly, now, runtime) == f"{desc} {suffix} {when}"
 
     def test_showers_are_spells_of_rain_and_take_ki_vi_agreement(self):
-        from linecast.weather.sections import precipitation_sentence
+        from linecast.weather.narrative import precipitation_sentence
         runtime = SimpleNamespace(lang="sw", use_24h=True)
         now = datetime(2026, 8, 24, 12, 10)
         times = [f"2026-08-24T{h:02d}:00" for h in range(12, 15)]
@@ -867,7 +863,7 @@ class TestRegionalVariants:
     def test_the_words_that_differ(self):
         from linecast.weather.i18n import _s, wmo_label
         from linecast.maps.i18n import ms
-        from linecast.weather.sections import _precip_descs
+        from linecast.weather.narrative import _precip_descs
         from types import SimpleNamespace as runtime
         pt, pt_pt = runtime(lang="pt"), runtime(lang="pt-PT")
         assert _s("humidity", pt) == "Umidade" and _s("humidity", pt_pt) == "Humidade"
