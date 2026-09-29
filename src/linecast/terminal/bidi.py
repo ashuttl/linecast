@@ -231,11 +231,6 @@ def reorders():
     return _reorder and _visual
 
 
-def ui_rtl():
-    """Whether the interface language reads right to left."""
-    return _ui_rtl
-
-
 def active():
     """Whether display() can change anything at all."""
     return _reorder or _digits is not None or _to_latin
@@ -254,13 +249,6 @@ def isolate(text, direction="auto"):
         return text
     mark = {"rtl": RLI, "ltr": LRI}.get(direction, FSI)
     return f"{mark}{text}{PDI}"
-
-
-def ui_text(text):
-    """Interface text in the interface language's direction: a Persian
-    sentence that opens with a Latin place name still reads from the
-    right.  Unchanged in a left-to-right language."""
-    return isolate(text, "rtl") if _ui_rtl and text else text
 
 
 def identifier(text):

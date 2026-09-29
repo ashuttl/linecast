@@ -49,9 +49,6 @@ from linecast.terminal.textwidth import char_width, visible_len
 from linecast.maps.vtiles import iter_layer
 from linecast._i18n import base_language, setting
 
-LABEL_LAYERS = ("place", "water_name", "park", "transportation_name",
-                "poi", "mountain_peak", "aerodrome_label")
-
 # The tile place classes that are a settlement rather than an area: the
 # ones the gazetteer also knows about, and so the ones that change
 # hands at `style.GAZETTEER_BAND`.

@@ -28,8 +28,6 @@ language.
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 
-HOURS_SYSTEMS = ("halachic", "roman", "japanese", "islamic", "swahili")
-
 
 @dataclass(frozen=True)
 class Mark:

@@ -231,12 +231,6 @@ class Framebuffer:
         self.bg = bg_color
         self.fb = [[bg_color] * width for _ in range(self.total_spy)]
 
-    def fill_hline(self, spy, color):
-        """Draw a horizontal line at sub-pixel row spy."""
-        spy = max(0, min(self.total_spy - 1, int(round(spy))))
-        for x in range(self.graph_w):
-            self.fb[spy][x] = color
-
     def flip_columns(self, x0, x1, spy0, spy1):
         """Mirror the sub-pixels in columns x0..x1-1 of rows spy0..spy1-1
         left for right: a picture drawn ahead of a view that is laid
@@ -251,46 +245,6 @@ class Framebuffer:
         if x < 0 or x >= self.graph_w or spy < 0 or spy >= self.total_spy:
             return
         self.fb[spy][x] = lerp(self.fb[spy][x], color, alpha)
-
-    def draw_curve(self, curve_spy, color, sigma=0.8):
-        """Draw a Gaussian-antialiased curve.
-
-        curve_spy: list of float sub-pixel y-positions, one per column.
-        """
-        for x in range(self.graph_w):
-            cf = curve_spy[x]
-            lo = max(0, int(cf) - 3)
-            hi = min(self.total_spy, int(cf) + 4)
-            for spy in range(lo, hi):
-                dist = abs(spy - cf)
-                alpha = math.exp(-0.5 * (dist / sigma) ** 2)
-                if alpha > 0.02:
-                    self.fb[spy][x] = lerp(self.fb[spy][x], color, alpha)
-
-    def draw_fill(self, curve_spy, fill_to_spy, color_func, aspect=1.0):
-        """Fill between a curve and a boundary with a gradient.
-
-        curve_spy: list of float y-positions per column (the curve edge).
-        fill_to_spy: int sub-pixel row to fill toward (e.g. bottom of buffer).
-        color_func: callable(t) -> RGB tuple, where t=0.0 at curve, t=1.0 at boundary.
-        aspect: vertical stretch correction (>1 compresses gradient to compensate
-                for sub-pixels being taller than wide on screen).
-        """
-        for x in range(self.graph_w):
-            cf = curve_spy[x]
-            top_spy = int(round(cf))
-            if fill_to_spy > top_spy:
-                span = fill_to_spy - top_spy
-                for spy in range(max(0, top_spy), min(self.total_spy, fill_to_spy)):
-                    t = min(1.0, (spy - top_spy) * aspect / max(1, span))
-                    color = color_func(t)
-                    self.fb[spy][x] = lerp(self.fb[spy][x], color, 0.85)
-            else:
-                span = top_spy - fill_to_spy
-                for spy in range(max(0, fill_to_spy), min(self.total_spy, top_spy)):
-                    t = min(1.0, (top_spy - spy) * aspect / max(1, span))
-                    color = color_func(t)
-                    self.fb[spy][x] = lerp(self.fb[spy][x], color, 0.85)
 
     def cell_bg(self, x, cell_row):
         """Blended color of a cell — its two sub-pixels averaged."""

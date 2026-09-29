@@ -461,9 +461,10 @@ _PPB_PER_UGM3 = {"nitrogen_dioxide": 24.45 / 46.0055, "ozone": 24.45 / 48.0, "pm
 def canada_aqhi(no2_ppb, o3_ppb, pm25):
     """The unrounded AQHI for three-hour mean concentrations."""
     import math
-    return _AQHI_SCALE * ((math.exp(0.000871 * no2_ppb) - 1)
-                          + (math.exp(0.000537 * o3_ppb) - 1)
-                          + (math.exp(0.000487 * pm25) - 1))
+    w = _AQHI_WEIGHTS
+    return _AQHI_SCALE * ((math.exp(w["nitrogen_dioxide"] * no2_ppb) - 1)
+                          + (math.exp(w["ozone"] * o3_ppb) - 1)
+                          + (math.exp(w["pm2_5"] * pm25) - 1))
 
 
 def aqhi_published(value):

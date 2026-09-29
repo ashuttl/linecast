@@ -496,21 +496,6 @@ def _is_current(fg_value, bg_value, ansi_value):
             and tuple(clamp_rgb(c) for c in ansi_value) == theme_ansi)
 
 
-def reload(timeout_s=None):
-    """Re-probe the terminal synchronously.  True if the theme changed.
-
-    Only meaningful once a probe has succeeded: a terminal that never
-    answered is not asked again, and legacy mode is never re-themed.
-    """
-    if theme_legacy_mode or not theme_available:
-        return False
-    queried = _query_theme_via_osc(_theme_query_timeout() if timeout_s is None else timeout_s)
-    if queried is None or _is_current(*queried):
-        return False
-    _apply(*queried)
-    return True
-
-
 # The live loop's probe is asynchronous: the query goes out on stdout and
 # the terminal's replies come back interleaved with keystrokes, where the
 # key reader hands each OSC body to ingest_osc.  A probe is complete when

@@ -204,11 +204,6 @@ def _precip_s(key, code, runtime, **kwargs):
     return text
 
 
-def has_string(key):
-    """Whether `key` is a string of the app's, in any language."""
-    return key in _STRINGS["en"]
-
-
 def felt_index(record, runtime, i=None):
     """Canada's humidex or wind chill where they stand in for feels-like:
     ("humidex", 34), ("wind_chill", -25), or None when neither is

@@ -59,10 +59,6 @@ def civil_calendar(lang, environ=None):
     return resolve_dates(lang, environ)[0]
 
 
-def is_solar_hijri(lang):
-    return civil_calendar(lang) == SOLAR_HIJRI
-
-
 # ---------------------------------------------------------------------------
 # Writing a Solar Hijri date
 # ---------------------------------------------------------------------------

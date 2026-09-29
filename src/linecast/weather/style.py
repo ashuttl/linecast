@@ -192,15 +192,7 @@ def _precip_type(wmo_code):
 
 
 def _rebuild_scales():
-    global UV_COLORS, AQI_COLORS, INDIA_AQI_COLORS, AQHI_COLORS, UV_COLOR
-    UV_COLORS = [
-        (0, GREEN_RGB),
-        (3, YELLOW_RGB),
-        (6, ensure_contrast(lerp_rgb(YELLOW_RGB, RED_RGB, 0.45), _theme.theme_bg, minimum=2.1)),
-        (8, RED_RGB),
-        (11, MAGENTA_RGB),
-    ]
-
+    global AQI_COLORS, INDIA_AQI_COLORS, AQHI_COLORS, UV_COLOR
     AQI_COLORS = [
         (0, GREEN_RGB),
         (51, YELLOW_RGB),
@@ -232,11 +224,6 @@ def _rebuild_scales():
 
 _rebuild_scales()
 _theme.on_reload(_rebuild_scales)
-
-
-def _uv_color(uv):
-    """ANSI fg escape for a UV index value."""
-    return fg(*interp_stops(UV_COLORS, uv))
 
 
 def _aqi_color(aqi):

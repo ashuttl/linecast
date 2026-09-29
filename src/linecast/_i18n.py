@@ -171,11 +171,6 @@ def setting(lang, name):
     return _SETTING_DEFAULTS[name]
 
 
-# A language whose strings are another's in a different script: the moon's
-# Chinese calendar and the Chinese sky come with zh-Hant as they do with zh.
-SCRIPT_OF = {"zh-Hant": "zh"}
-
-
 def canonical_language(code):
     """`code` as the tables know it: "pt", "pt_BR", "pt-br", and
     "pt_BR.UTF-8" are "pt"; "pt-PT" and "pt_pt" are "pt-PT"; "zh_TW" is
@@ -269,13 +264,6 @@ def accept_language(lang):
     if lang in _ACCEPT_LANGUAGE:
         return _ACCEPT_LANGUAGE[lang]
     return f"{lang},{VARIANTS[lang]}" if lang in VARIANTS else lang
-
-
-def same_language(lang, other):
-    """Whether `lang` is `other` or `other` in another script: zh-Hant
-    reads as Chinese wherever the code, not the strings, decides."""
-    lang = base_language(lang)
-    return lang == other or SCRIPT_OF.get(lang) == other
 
 
 def lang_of(runtime):

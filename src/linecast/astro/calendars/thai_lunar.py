@@ -26,9 +26,6 @@ _EPOCH_OFFSET = 373       # of the Chulasakarat epoch, in 1/800-day units
 _CS_EPOCH_JDN = 1954167   # Julian day number of that epoch (638 CE)
 _ORDINAL_TO_JDN = 1721425
 
-# Buddhist Era years run 1181 ahead of Chulasakarat years.
-BE_OFFSET = 1181
-
 
 class _YearShape:
     """CS year *y* as seen on its solar new year's day."""
