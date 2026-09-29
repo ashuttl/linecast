@@ -56,6 +56,7 @@ Notable changes, by release. Notes for the next release collect under **Unreleas
 - Location: Fixed the moon, sunshine and sky views saying "Could not determine location" when offline, once an hour had passed since linecast last found where the machine is; with no location saved, they use the last place found.
 - Language: A list of languages in `LANGUAGE`, as some Linux desktops set it, is read as other programs read it, down to the first language linecast speaks: `ca:es` is Spanish rather than English.
 - Moon: Fixed the next moonrise or moonset in the far north on the few days a year when the Moon rises or sets twice on one date: the view, `--oneline`, and `--json` gave the next day's, or none at all, in place of the second.
+- Moon: Fixed the wait for a moonrise or moonset after the clocks change being an hour out, such as "in 15h 00m" for a moonset sixteen hours off the night the clocks go back.
 
 ## 2.9.2 — 2026-09-27
 

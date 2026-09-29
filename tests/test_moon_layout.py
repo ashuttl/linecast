@@ -183,6 +183,21 @@ class TestCountdownAndCompass:
         row = lines[_info_row(lines, "Moonset")]
         assert re.search(r"Moonset +↓07:49 Fri +in 17h 19m", row), row
 
+    def test_a_wait_across_a_change_of_clock_is_real_time(self):
+        # The evening before the clocks go back in Maine: the Moon sets
+        # at 13:00 on Sunday, sixteen hours on, though the wall clocks
+        # read fifteen apart.
+        from zoneinfo import ZoneInfo
+        from linecast.moon.view import render
+        from linecast._runtime import RuntimeConfig
+        runtime = RuntimeConfig(live=False, icons="emoji", lang="en", oneline=False)
+        now = datetime(2026, 10, 31, 22, 0, tzinfo=ZoneInfo("America/New_York"))
+        with patch("linecast.moon.view.get_terminal_size", return_value=(140, 40)):
+            lines = _strip_ansi(render(now, 43.68, -70.37, runtime,
+                                       fullscreen=True)).split("\n")
+        row = lines[_info_row(lines, "Moonset")]
+        assert re.search(r"Moonset +↓13:00 Sun +in 16h 00m", row), row
+
     def test_the_last_hour_before_a_full_moon_counts_minutes(self):
         # A tenth of a day is too coarse by then: "in 0.0d" said nothing
         from linecast.astro.ephemeris import next_moon_phase_utc

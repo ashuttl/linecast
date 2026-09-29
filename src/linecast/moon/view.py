@@ -653,7 +653,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # Out of this month's own length, from the new moon before to the one
     # after: months run 29.3 to 29.8 days, and a mean 29.5 under an age
     # of 29.8 is a day past the end
-    lunation = age + (new_dt - now_local).total_seconds() / 86400.0
+    lunation = age + (new_dt - moment_utc).total_seconds() / 86400.0
     age_txt = _ms('age', runtime, age=fmt_decimal(age, 1, runtime),
                   total=fmt_decimal(lunation, 1, runtime))
     alt_txt = _ms('above_horizon', runtime, alt=f'{alt:.0f}')
@@ -682,11 +682,13 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
     # something a calendar keeps today joins that line rather than
     # counting down to itself. The ink says how near a row is: the day's
     # rows, and anything else due within a day, in full; the rest muted.
+    # A wait is taken from the moment in UTC: two times in the one zone
+    # subtract as wall clocks, an hour out across a change of clock.
     def at_day(day):
         return datetime.combine(day, datetime.min.time(), now_local.tzinfo)
 
     def ink_for(at):
-        return T if at - now_local < timedelta(days=1) else M
+        return T if at - moment_utc < timedelta(days=1) else M
 
     def timed_row(label, dt, mark):
         """An instant within a day or two: the clock time, the weekday
@@ -696,7 +698,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         when = fmt_time_dt(dt, use_24h=runtime.use_24h)
         if dt.date() != today:
             when = f"{when} {_day_abbrev(dt, runtime)}"
-        wait = _ms('in_time', runtime, dur=_fmt_countdown(dt - now_local, lang))
+        wait = _ms('in_time', runtime, dur=_fmt_countdown(dt - moment_utc, lang))
         return _Row(dt, label, when, wait, T, mark)
 
     def instant_row(label, dt):
@@ -704,7 +706,7 @@ def render(now_local, lat, lng, runtime, fullscreen=False, offset_minutes=0,
         tenth, which says roughly when in the day.  Within the day the
         wait is to the minute, as the day's rows give it: the last hour
         before a full moon is not "in 0.0d"."""
-        wait = dt - now_local
+        wait = dt - moment_utc
         if wait < timedelta(days=1):
             wait_txt = _ms('in_time', runtime, dur=_fmt_countdown(wait, lang))
         else:
