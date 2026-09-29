@@ -468,7 +468,7 @@ def steps_text(route, lang="en", origin_label="", dest_label=""):
     """The maneuver list as plain printable lines, for --print."""
     lines = []
     for step in route.steps:
-        line = (f" {maneuver_glyph(step)} {_step_dist(step, lang):>8}  "
+        line = (f" {maneuver_glyph(step)} {pad(_step_dist(step, lang), 8, '>')}  "
                 f"{_step_text(step, lang, origin_label, dest_label)}")
         lines.append(line.rstrip())
     return lines
@@ -539,7 +539,7 @@ def directions_overlay(state, cols, rows, lang="en", home_label=""):
         for i in range(start, start + limit):
             s = steps[i]
             plain = " " + fit(f"  {maneuver_glyph(s)} "
-                               f"{_step_dist(s, lang):>8}  "
+                               f"{pad(_step_dist(s, lang), 8, '>')}  "
                                f"{_step_text(s, lang)}", width - 2)
             body = (f"{REVERSE}{plain} {REVERSE_OFF}" if i == step
                     else plain)

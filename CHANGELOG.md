@@ -105,6 +105,7 @@ Fixes:
   - Fixed the woods, fields, sand, ice, and towns on the terrain map and the globe keeping the old theme's colors after the terminal's theme changed.
   - Fixed the terrain map's credits leaving out the built-up areas' source, GHSL, while clouds are shown.
   - Fixed `--print` with directions writing the turn-by-turn list backwards in Persian, Arabic, and Hebrew, its letters unjoined and its distances in Latin digits; it reads as the map above it does.
+  - Fixed the directions' street names not lining up in Thai when some steps were in feet, which Thai writes ฟุต; the distances are aligned by what they take on the screen.
 - Radar, maps:
   - `--zoom` with zero, a negative number, or anything not a number of degrees now says so rather than ending in a Python traceback.
   - `--help` no longer offers `--oneline`, which printed the whole frame; neither view has a single line to give.

@@ -856,6 +856,17 @@ class TestStepsText:
         assert any("Spring Street" in line for line in lines)
         assert "\033[" not in "".join(lines)  # plain: it pipes
 
+    def test_the_names_line_up_whatever_marks_the_unit_carries(self):
+        # Thai writes feet ฟุต and miles ไมล์ with marks that take no
+        # cell of their own; the distances are right-aligned by cells
+        steps = [{"type": "turn", "modifier": "left", "name": "A", "distance_m": 100.0},
+                 {"type": "turn", "modifier": "right", "name": "B", "distance_m": 5000.0},
+                 {"type": "turn", "modifier": "left", "name": "C", "distance_m": 12.0}]
+        with _units("--imperial"):
+            lines = mu.steps_text(fake_route(steps=steps), "th")
+        starts = {visible_len(line[:line.rindex("  ") + 2]) for line in lines}
+        assert len(starts) == 1, lines
+
 
 class TestRouteSummary:
     def test_the_header_summary(self):
