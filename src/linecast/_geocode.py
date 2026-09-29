@@ -11,7 +11,7 @@ same server, which allows one request a second.
 
 import sys
 
-from linecast._cache import read_cache, write_cache
+from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
 from linecast._http import fetch_json
 from linecast._i18n import (
     GEOCODER_UNTRANSLATED, accept_language, base_language, geocoder_language,
@@ -55,16 +55,17 @@ def reverse_geocode(lat, lng, lang=None):
     Returns (display_name, country_code, address) tuple. `lang` localizes
     the returned names (Nominatim accept-language); without one they come
     in the country's own language, which is what the alert feeds' area
-    names are matched against. Each language keeps its own cache file, so
-    a command that asks both ways finds both the next time.
+    names are matched against. Each place and language keeps its own
+    cache file, so a command that asks both ways, or a reader who moves
+    between two places, finds each the next time; offline, an answer
+    older than a day is still given.
     """
-    cache_file = cache_dir("weather") / (f"location_{lang}.json" if lang else "location.json")
+    key = location_cache_key(lat, lng)
+    cache_file = cache_dir("weather") / (f"place_{key}_{lang}.json" if lang
+                                         else f"place_{key}.json")
     cached = read_cache(cache_file, 86400)  # 24h cache
-    if (cached and cached.get("lat") == round(lat, 4)
-            and cached.get("lng") == round(lng, 4)
-            and cached.get("lang", None) == lang):
-        return (plain_text(cached.get("name", "")), cached.get("country_code", ""),
-                plain_values(cached.get("address", {})))
+    if _same_place(cached, lat, lng, lang):
+        return _from_cache(cached)
 
     try:
         url = (
@@ -90,6 +91,14 @@ def reverse_geocode(lat, lng, lang=None):
         else:
             display = ""
     except Exception as exc:
+        # Offline, a name from yesterday is still the place's name, and
+        # its address still matches the alert feeds' areas.
+        stale = read_stale(cache_file)
+        if _same_place(stale, lat, lng, lang):
+            log_failure("location/geocoder", "reverse geocode", exc,
+                        url="nominatim.openstreetmap.org",
+                        fallback=f"stale cache {cache_file.name}")
+            return _from_cache(stale)
         log_failure("location/geocoder", "reverse geocode", exc,
                     url="nominatim.openstreetmap.org", fallback="unnamed location")
         return "", "", {}
@@ -101,6 +110,17 @@ def reverse_geocode(lat, lng, lang=None):
         "address": addr,
     })
     return display, country, addr
+
+
+def _same_place(cached, lat, lng, lang):
+    """Whether a cached answer is for this place in this language."""
+    return (isinstance(cached, dict) and cached.get("lat") == round(lat, 4)
+            and cached.get("lng") == round(lng, 4) and cached.get("lang", None) == lang)
+
+
+def _from_cache(cached):
+    return (plain_text(cached.get("name", "")), cached.get("country_code", ""),
+            plain_values(cached.get("address", {})))
 
 
 def place_label(lat, lng, label, lang):

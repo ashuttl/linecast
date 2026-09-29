@@ -1079,12 +1079,12 @@ class TestReverseGeocodeLanguage:
     def test_no_language_asks_for_the_local_names(self):
         url, cache_name = self._ask(None)
         assert "accept-language" not in url
-        assert cache_name == "location.json"
+        assert cache_name.startswith("place_") and cache_name.count("_") == 1
 
     def test_a_language_is_passed_on_and_cached_apart(self):
         url, cache_name = self._ask("fr")
         assert url.endswith("&accept-language=fr")
-        assert cache_name == "location_fr.json"
+        assert cache_name.startswith("place_") and cache_name.endswith("_fr.json")
 
 
 # ---------------------------------------------------------------------------

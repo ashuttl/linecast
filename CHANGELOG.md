@@ -104,6 +104,7 @@ Fixes:
 - Location:
   - Fixed `--location`, `--to`, `--from`, and `linecast location set` refusing coordinates that start with a minus sign, such as `-33.87,151.21` for Sydney, with Python 3.13 and older.
   - Fixed the moon, sunshine, and sky views saying "Could not determine location" when offline, once an hour had passed since linecast last found where the machine is; with no location saved, they use the last place found.
+  - Fixed place names, and the address that matches alerts to your area, going missing when offline for more than a day; the last name found for the place is used. Moving between two places no longer looks each one up again.
 - Settings:
   - Fixed a setting command, such as `linecast units imperial`, replacing a config.json that could not be read, and every setting in it, with the one setting. It now says what is wrong with the file and leaves it alone.
   - Fixed saving a setting replacing a config.json that is a symbolic link, as from a dotfiles repository, with a plain file; the setting is written to the file it points to.
