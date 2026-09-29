@@ -43,7 +43,7 @@ UPWARD = {
     ("astro.hours.i18n", "sunshine.i18n"): "2.4", ("terminal.help", "maps.i18n"): "2.4",
     # each command's one line moves to the command (2.6)
     **dict.fromkeys((("terminal.oneline", m) for m in (
-        "moon.phase", "moon.view", "sky.catalogue", "sky.i18n", "sky.view",
+        "moon.phase", "moon.view", "sky.catalogue", "sky.i18n", "sky.scene", "sky.view",
         "sunshine.hours", "sunshine.i18n", "sunshine.palette", "sunshine.solar",
         "tides.i18n", "weather.cover", "weather.i18n", "weather.style")), "2.6"),
 }

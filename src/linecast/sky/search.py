@@ -22,6 +22,8 @@ from linecast.terminal.color import RESET, bg, fg
 from linecast.terminal.textwidth import visible_len
 from linecast.terminal.live import nudge
 from linecast.terminal.theme import ensure_contrast, surface_bg
+from linecast.astro.ephemeris import mat_apply
+from linecast.sky.scene import alt_az_of, compass_point
 
 PANEL_MIN, PANEL_MAX, MAX_ROWS = 28, 56, 8
 
@@ -85,8 +87,6 @@ class Target:
         placed for the moment.
         """
         from linecast.sky.catalogue import star_vectors
-        from linecast.astro.ephemeris import mat_apply
-        from linecast.sky.view import alt_az_of
         if self.kind == "sun":
             return scene.sun_alt, scene.sun_az
         if self.kind == "moon":
@@ -461,7 +461,6 @@ def describe_rising(target, rising, runtime, culture=None):
     from linecast._timefmt import fmt_time_dt
     from linecast._i18n import sentence_24h
     from linecast.sky.i18n import _sk
-    from linecast.sky.view import compass_point
     if rising is None:
         return _sk("never_rises", runtime, name=target.label.split(" · ")[0])
     when, az = rising

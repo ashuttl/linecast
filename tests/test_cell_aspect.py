@@ -12,7 +12,7 @@ import math
 
 import pytest
 
-from linecast.sky import view as sky
+from linecast.sky.scene import focal_length, project, unproject
 from linecast.maps import globe
 from linecast.terminal.framebuffer import Framebuffer, cell_aspect
 from linecast.radar.render import bbox_for
@@ -76,17 +76,17 @@ class TestTheGlobe:
 
 class TestTheSky:
     def test_projection_scales_only_the_vertical(self):
-        f = sky.focal_length(100, 90.0)
+        f = focal_length(100, 90.0)
         v = (0.2, 0.3, 0.93)
-        x1, y1 = sky.project(v, f, 50.0, 50.0)
-        x2, y2 = sky.project(v, f, 50.0, 50.0, 1.2)
+        x1, y1 = project(v, f, 50.0, 50.0)
+        x2, y2 = project(v, f, 50.0, 50.0, 1.2)
         assert x1 == x2
         assert math.isclose((50.0 - y1) / (50.0 - y2), 1.2)
 
     def test_unproject_inverts_project_at_any_aspect(self):
-        f = sky.focal_length(100, 90.0)
+        f = focal_length(100, 90.0)
         v = (0.1, 0.3, 0.9486832980505138)
-        back = sky.unproject(*sky.project(v, f, 50.0, 50.0, 0.8), f, 50.0, 50.0, 0.8)
+        back = unproject(*project(v, f, 50.0, 50.0, 0.8), f, 50.0, 50.0, 0.8)
         assert all(math.isclose(a, b, abs_tol=1e-9) for a, b in zip(v, back))
 
 

@@ -12,13 +12,15 @@ from conftest import assert_snapshot
 
 from linecast.astro.ephemeris import mat_apply
 from linecast.sky import view as sky
-from linecast.sky.planets import PLANETS, planet_position
+from linecast.sky.planets import PLANETS, planet_position, planet_positions
 from linecast._runtime import RuntimeConfig
 from linecast.terminal.textwidth import visible_len
-from linecast.sky.view import (
-    Scene, View, alt_az_of, camera_matrix, default_view, focal_length,
-    horizontal_matrix, horizontal_vector, parse_facing, project, render, unproject,
+from linecast.sky.scene import (
+    FOV_MAX, FOV_MIN, Scene, View, alt_az_of, camera_matrix, compass_marks,
+    compass_point, default_view, focal_length, horizontal_matrix, horizontal_vector,
+    project, star_compass, unproject,
 )
+from linecast.sky.view import parse_facing, render
 
 TZ = timezone(timedelta(hours=-4))
 LAT, LNG = 43.68, -70.32   # Westbrook, Maine
@@ -85,7 +87,7 @@ class TestPlanets:
         assert mag < -4.0
 
     def test_every_planet_answers(self):
-        positions = sky.planet_positions(_utc(2026, 9, 5))
+        positions = planet_positions(_utc(2026, 9, 5))
         assert set(positions) == set(PLANETS)
         for ra, dec, mag, dist in positions.values():
             assert 0.0 <= ra < 360.0 and -30.0 < dec < 30.0
@@ -751,11 +753,11 @@ class TestCamera:
         for _ in range(30):
             cam.zoom(0.5)
         time.sleep(0.35)
-        assert cam.view().fov == sky.FOV_MIN
+        assert cam.view().fov == FOV_MIN
         for _ in range(60):
             cam.zoom(2.0)
         time.sleep(0.35)
-        assert cam.view().fov == sky.FOV_MAX
+        assert cam.view().fov == FOV_MAX
 
     def test_zooming_all_the_way_out_lies_back(self):
         import time
@@ -1250,7 +1252,7 @@ class TestCultures:
 # ---------------------------------------------------------------------------
 class TestStarCompass:
     def test_thirty_two_houses_of_eleven_and_a_quarter_degrees(self):
-        houses = sky.star_compass()
+        houses = star_compass()
         assert len(houses) == 32
         azimuths = [h[0] for h in houses]
         assert azimuths == sorted(azimuths)
@@ -1264,14 +1266,14 @@ class TestStarCompass:
         assert by_az[258.75] == ("Lā", "Kona")
 
     def test_directions_speak_the_compass_in_force(self):
-        assert sky.compass_point(45.0, _runtime()) == "NE"
-        assert sky.compass_point(45.0, _runtime(), "hawaiian") == "Manu"
-        assert sky.compass_point(47.0, _runtime(), "hawaiian", quadrant=True) == "Manu Koʻolau"
-        assert sky.compass_point(1.0, _runtime(), "hawaiian", quadrant=True) == "ʻĀkau"
-        assert sky.compass_point(45.0, _runtime(), "norse") == "NE"
-        marks = sky.compass_marks(_runtime(), "hawaiian")
+        assert compass_point(45.0, _runtime()) == "NE"
+        assert compass_point(45.0, _runtime(), "hawaiian") == "Manu"
+        assert compass_point(47.0, _runtime(), "hawaiian", quadrant=True) == "Manu Koʻolau"
+        assert compass_point(1.0, _runtime(), "hawaiian", quadrant=True) == "ʻĀkau"
+        assert compass_point(45.0, _runtime(), "norse") == "NE"
+        marks = compass_marks(_runtime(), "hawaiian")
         assert len(marks) == 32 and sum(1 for m in marks if m[2]) == 4
-        assert len(sky.compass_marks(_runtime())) == 8
+        assert len(compass_marks(_runtime())) == 8
 
     def test_the_horizon_wears_the_houses(self):
         scene = Scene(NIGHT.astimezone(timezone.utc), LAT, LNG)

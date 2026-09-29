@@ -10,6 +10,7 @@ import pytest
 from linecast.terminal import color as _color
 
 from linecast.sky import view as sky
+from linecast.sky.scene import View, camera_matrix, focal_length, unproject
 from linecast._runtime import RuntimeConfig
 
 
@@ -54,7 +55,7 @@ def _unit(vector):
 
 def _assert_same(a, b, cam, width, height, fov, f=None):
     if f is None:
-        f = sky.focal_length(width, fov)
+        f = focal_length(width, fov)
     args = a, b, cam, f, width / 2.0, float(height), width, height
     expected, actual = {}, {}
     _unculled_arc(expected, *args)
@@ -68,32 +69,32 @@ def test_invisible_arcs_stop_before_projection_or_sampling(kind):
     if kind == "outside_view":
         # Both points are above the horizon but far to the right of a 6° view.
         a, b = (_unit((1.0, 0.0, z)) for z in (0.4, 0.5))
-        cam = sky.camera_matrix(0, 90)
+        cam = camera_matrix(0, 90)
     else:
         # Both points project near the center but lie below its horizon.
         a, b = _unit((0.0, -0.2, 1.0)), _unit((0.2, -0.2, 1.0))
-        cam = sky.camera_matrix(0, 0)
+        cam = camera_matrix(0, 0)
     dots = {(0, 0): 1}
     with patch.object(sky, "project", side_effect=AssertionError("arc was not culled")):
-        sky._plot_arc(dots, a, b, cam, sky.focal_length(118, 6), 59, 40, 118, 40)
+        sky._plot_arc(dots, a, b, cam, focal_length(118, 6), 59, 40, 118, 40)
     assert dots == {(0, 0): 1}
 
 
 def test_arc_crossing_view_survives_with_both_endpoints_outside():
     width, height = 118, 40
-    f = sky.focal_length(width, 110)
-    a = sky.unproject(-5, height, f, width / 2, height)
-    b = sky.unproject(width + 5, height, f, width / 2, height)
-    dots = _assert_same(a, b, sky.camera_matrix(0, 90), width, height, 110)
+    f = focal_length(width, 110)
+    a = unproject(-5, height, f, width / 2, height)
+    b = unproject(width + 5, height, f, width / 2, height)
+    dots = _assert_same(a, b, camera_matrix(0, 90), width, height, 110)
     assert len(dots) == width
 
 
 def test_negative_corner_coordinates_still_round_into_the_first_cell():
     width, height = 118, 40
-    f = sky.focal_length(width, 6)
-    a = sky.unproject(-0.49, -0.49, f, width / 2, height)
-    b = sky.unproject(-0.48, -0.48, f, width / 2, height)
-    assert _assert_same(a, b, sky.camera_matrix(0, 90), width, height, 6) == {(0, 0): 1}
+    f = focal_length(width, 6)
+    a = unproject(-0.49, -0.49, f, width / 2, height)
+    b = unproject(-0.48, -0.48, f, width / 2, height)
+    assert _assert_same(a, b, camera_matrix(0, 90), width, height, 6) == {(0, 0): 1}
 
 
 def test_near_tangent_horizon_preserves_the_original_rounding():
@@ -122,7 +123,7 @@ def test_deterministic_arc_equivalence_across_shapes_and_zoom(width, height, fov
         return _unit(tuple(rng.gauss(0, 1) for _ in range(3)))
 
     for index in range(30):
-        cam = sky.camera_matrix(rng.uniform(-720, 720), rng.uniform(-12, 98))
+        cam = camera_matrix(rng.uniform(-720, 720), rng.uniform(-12, 98))
         a, b = direction(), direction()
         _assert_same(a, b, cam, width, height, fov)
         if index < 5:
@@ -136,9 +137,9 @@ def test_deterministic_arc_equivalence_across_shapes_and_zoom(width, height, fov
 
 
 @pytest.mark.parametrize("size,view", [
-    ((120, 40), sky.View(180, 30, 6, 2)),
-    ((80, 24), sky.View(359, 90, 110, 2, "chinese")),
-    ((80, 24), sky.View(0, 0, 236, 2, "hawaiian")),
+    ((120, 40), View(180, 30, 6, 2)),
+    ((80, 24), View(359, 90, 110, 2, "chinese")),
+    ((80, 24), View(0, 0, 236, 2, "hawaiian")),
 ])
 def test_complete_night_frames_keep_figures_labels_and_colors(size, view):
     runtime = RuntimeConfig(live=True, icons="plain", lang="en", oneline=False)

@@ -521,7 +521,8 @@ def _night():
 
 def _sky(ctx, live=False, mouse_pos=None):
     from datetime import timezone
-    from linecast.sky.view import Scene, default_view, render
+    from linecast.sky.scene import Scene, default_view
+    from linecast.sky.view import render
     _mirror(False)
     now = _night()
     scene_ = Scene(now.astimezone(timezone.utc), LAT, LNG)

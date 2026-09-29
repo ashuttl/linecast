@@ -10,6 +10,7 @@ import pytest
 
 from test_sky import LAT, LNG, NIGHT, NOON, _frame
 from linecast.sky import view as sky
+from linecast.sky.scene import Scene, View
 from linecast.sky import deep as _sky_deep
 from linecast.sky.catalogue import equatorial_vector
 
@@ -52,13 +53,13 @@ def test_spatial_query_matches_full_scan_across_wrap_and_poles(ra, dec):
 
 def test_wide_and_daylight_views_do_not_load_deep_stars():
     with patch.object(_sky_deep, '_load', side_effect=AssertionError('loaded deep sky')):
-        _frame(NIGHT, 100, 30, view=sky.View(100, 30, 110, 2))
-        _frame(NIGHT, 240, 80, view=sky.View(100, 30, 60, 2))
-        _frame(NOON, 100, 30, view=sky.View(100, 30, 6, 2))
+        _frame(NIGHT, 100, 30, view=View(100, 30, 110, 2))
+        _frame(NIGHT, 240, 80, view=View(100, 30, 60, 2))
+        _frame(NOON, 100, 30, view=View(100, 30, 6, 2))
 
 
 def test_zoom_in_adds_hoverable_stars():
-    view = sky.View(103, 45, 6, 0)
+    view = View(103, 45, 6, 0)
     with patch.object(sky, '_chip', return_value='') as chip:
         _frame(NIGHT, 160, 50, view=view, mouse_pos=(20, 20))
     args = chip.call_args.args
@@ -74,7 +75,7 @@ def test_zoom_in_adds_hoverable_stars():
 
 
 def test_zoom_limit_is_continuous_and_twilight_reduces_gain():
-    scene = sky.Scene(NIGHT, LAT, LNG)
+    scene = Scene(NIGHT, LAT, LNG)
     assert sky._view_eye_limit(scene, 110) == 6.5
     assert sky._view_eye_limit(scene, 60) == 6.5
     assert sky._view_eye_limit(scene, 6) == 11.5

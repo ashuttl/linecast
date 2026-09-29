@@ -21,10 +21,11 @@ import time
 
 from linecast.terminal import live as _live
 from linecast.terminal.live import LiveApp
-from linecast.sky.view import (
+from linecast.sky.scene import (
     FIGURES_DEFAULT, FOV_DEFAULT, FOV_MAX, FOV_MIN, Scene, View, default_view,
-    focal_length, render,
+    focal_length,
 )
+from linecast.sky.view import render
 from linecast.terminal.framebuffer import cell_aspect, get_terminal_size
 from linecast._i18n import lang_of
 from linecast.sky.picker import CulturePicker, picker_overlay

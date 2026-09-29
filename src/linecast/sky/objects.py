@@ -12,7 +12,9 @@ import math
 from functools import lru_cache
 
 from linecast._log import log_failure
+from linecast.astro.ephemeris import mat_apply
 from linecast.sky.catalogue import _DATA, equatorial_vector
+from linecast.sky.scene import alt_az_of, extinction, project, unproject
 
 
 @lru_cache(maxsize=1)
@@ -37,8 +39,6 @@ def paint(fb, scene, cam, frame, f, cx, cy, eye_limit, color, aspect=1.0):
     The catalogue positions are J2000, so they reach the horizon and the
     screen through the scene's precessed frames, as the stars do.
     """
-    from linecast.astro.ephemeris import mat_apply
-    from linecast.sky.view import _extinction, alt_az_of, project, unproject
     labels, hits = [], []
     if scene.darkness <= 0:
         return labels, hits
@@ -48,7 +48,7 @@ def paint(fb, scene, cam, frame, f, cx, cy, eye_limit, color, aspect=1.0):
         if alt <= 0:
             continue
         visibility = min(1.0, max(0.0, (eye_limit - record['mag']
-                                        - _extinction(alt) - 0.7) / 2.0))
+                                        - extinction(alt) - 0.7) / 2.0))
         strength = scene.darkness * visibility * min(1.0, alt / 12.0)
         if strength <= 0:
             continue

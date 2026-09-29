@@ -6,6 +6,9 @@ from unittest.mock import patch
 from test_sky import LAT, LNG, NIGHT, NOON, _frame, _runtime
 from linecast.astro.ephemeris import mat_apply, mat_mul, mat_transpose
 from linecast.sky import view as sky
+from linecast.sky.scene import (
+    Scene, View, alt_az_of, camera_matrix, focal_length, horizontal_vector,
+)
 from linecast.sky import objects as _sky_objects
 from linecast.terminal.framebuffer import Framebuffer
 from linecast.sky.search import search, targets
@@ -16,14 +19,14 @@ def _object(ident):
 
 
 def _paint(record, fov=6, moment=NIGHT, altitude=None):
-    scene = sky.Scene(moment, LAT, LNG)
-    alt, az = sky.alt_az_of(mat_apply(scene.horizontal, record['at']))
-    cam = sky.camera_matrix(az, alt if altitude is None else altitude)
+    scene = Scene(moment, LAT, LNG)
+    alt, az = alt_az_of(mat_apply(scene.horizontal, record['at']))
+    cam = camera_matrix(az, alt if altitude is None else altitude)
     frame = mat_mul(cam, scene.horizontal)
     fb = Framebuffer(160, 50, bg_color=(0, 0, 0))
     with patch.object(_sky_objects, 'objects', return_value=[record]):
         labels, hits = _sky_objects.paint(fb, scene, cam, frame,
-                                         sky.focal_length(160, fov), 80, 50, 12, (160, 160, 160))
+                                         focal_length(160, fov), 80, 50, 12, (160, 160, 160))
     return fb, labels, hits
 
 
@@ -45,7 +48,7 @@ def test_search_finds_objects_by_name_and_catalogue_and_frames_them():
         target = search(query, pool)[0]
         assert target.kind == 'deep_sky' and target.key['id'] == 'M31'
         assert 6 <= target.fov(110) <= 10
-        alt, az = target.place(sky.Scene(NIGHT, LAT, LNG))
+        alt, az = target.place(Scene(NIGHT, LAT, LNG))
         assert alt > 0 and 0 <= az < 360
     assert search("Galaxie d'Andromède", targets(_runtime(lang='fr')))[0].key['id'] == 'M31'
     assert search('Orion', pool)[0].kind == 'constellation'
@@ -83,10 +86,10 @@ def test_daylight_and_below_horizon_hide_extended_objects():
 
 def test_glow_is_clipped_at_horizon():
     record = dict(_object('M31'))
-    scene = sky.Scene(NIGHT, LAT, LNG)
+    scene = Scene(NIGHT, LAT, LNG)
     # Place a broad test object one degree above a level east horizon.
     record['at'] = mat_apply(mat_transpose(scene.horizontal),
-                             sky.horizontal_vector(90, 1))
+                             horizontal_vector(90, 1))
     record['size'] = [600, 600]
     record.pop('pa')
     fb, _, hits = _paint(record, fov=30, altitude=0)
@@ -96,10 +99,10 @@ def test_glow_is_clipped_at_horizon():
 
 
 def test_pointer_identifies_andromeda_with_extent():
-    scene = sky.Scene(NIGHT, LAT, LNG)
+    scene = Scene(NIGHT, LAT, LNG)
     record = _object('M31')
-    alt, az = sky.alt_az_of(mat_apply(scene.horizontal, record['at']))
-    view = sky.View(az, alt, 6, 2)
+    alt, az = alt_az_of(mat_apply(scene.horizontal, record['at']))
+    view = View(az, alt, 6, 2)
     with patch.object(sky, '_chip', return_value='') as chip:
         _frame(NIGHT, 160, 50, view=view, mouse_pos=(80, 25))
     args = chip.call_args.args

@@ -70,6 +70,7 @@ def test_live_image_views_offer_help_without_adding_rows(monkeypatch, view, lang
     from linecast.sunshine import view as sunshine
     from linecast.moon import view as moon
     from linecast.sky import view as sky
+    from linecast.sky.scene import View
     from linecast.moon import calendar
     from linecast.sunshine import year
     cols, rows = size
@@ -77,7 +78,7 @@ def test_live_image_views_offer_help_without_adding_rows(monkeypatch, view, lang
     for module in (sky, sunshine, moon, year, calendar):
         monkeypatch.setattr(module, 'get_terminal_size', lambda: size)
     if view == 'sky':
-        output = sky.render(NOW, 43.68, -70.32, runtime, sky.View(180, 90, 145, 2),
+        output = sky.render(NOW, 43.68, -70.32, runtime, View(180, 90, 145, 2),
                             fullscreen=True, location_label='Westbrook', today=NOW.date())
     elif view == 'sunshine':
         output = sunshine.render(43.68, -70.32, 249, 21.25, fullscreen=True, runtime=runtime)
@@ -96,6 +97,7 @@ def test_live_image_views_offer_help_without_adding_rows(monkeypatch, view, lang
 @pytest.mark.parametrize('hour', [1, 13, 21])
 def test_sky_status_uses_the_finished_image_background(monkeypatch, hour):
     from linecast.sky import view as sky
+    from linecast.sky.scene import View
     monkeypatch.setattr(sky, 'get_terminal_size', lambda: (100, 30))
     # Other tests reload linecast modules; patch the class this renderer
     # actually owns rather than a previous import's Framebuffer.
@@ -110,7 +112,7 @@ def test_sky_status_uses_the_finished_image_background(monkeypatch, hour):
     moment = NOW.replace(hour=hour)
     runtime = RuntimeConfig(live=True, icons='plain', lang='en', oneline=False)
     output = sky.render(moment, 43.68, -70.32, runtime,
-                        sky.View(180, 35, 110, 2), fullscreen=True,
+                        View(180, 35, 110, 2), fullscreen=True,
                         location_label='Westbrook', today=NOW.date())
     fb, overlays = captures[-1]
     row = fb.graph_h - 1
@@ -127,10 +129,11 @@ def test_sky_status_uses_the_finished_image_background(monkeypatch, hour):
 
 def test_static_sky_does_not_advertise_inactive_controls(monkeypatch):
     from linecast.sky import view as sky
+    from linecast.sky.scene import View
     monkeypatch.setattr(sky, 'get_terminal_size', lambda: (80, 24))
     runtime = RuntimeConfig(live=False, icons='plain', lang='en', oneline=False)
     output = sky.render(NOW, 43.68, -70.32, runtime,
-                        sky.View(180, 30, 110, 2), location_label='Westbrook')
+                        View(180, 30, 110, 2), location_label='Westbrook')
     assert '? help' not in plain(output)
 
 

@@ -21,7 +21,7 @@ def build_payload(now_local, lat, lng, runtime, location=None, facing=None,
     from linecast.sky.catalogue import star_names, star_vectors, stars
     from linecast.sunshine.i18n import sky_phase
     from linecast.astro.ephemeris import mat_apply
-    from linecast.sky.view import (
+    from linecast.sky.scene import (
         FOV_DEFAULT, Scene, alt_az_of, compass_point, default_view, easily_seen,
     )
     from linecast.moon.phase import moon_phase
