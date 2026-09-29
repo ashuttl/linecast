@@ -100,5 +100,33 @@ class TestOffline:
         assert chs._fetch_pred_chunk("X", date(2026, 9, 1), date(2026, 9, 2), timezone.utc) == []
 
 
+class TestFetchedAsCached:
+    """A run that fetches reads its points back from the rows it keeps,
+    as a run that finds them cached does: aware in a fixed offset, so a
+    time past a change of clock is placed by the hours that have passed."""
+
+    PAYLOAD = [{"eventDate": "2026-10-31T15:00:00Z", "value": "1.0"},
+               {"eventDate": "2026-11-01T18:00:00Z", "value": "0.2"}]
+
+    @pytest.fixture(autouse=True)
+    def cache(self, tmp_path):
+        with patch.dict(os.environ, {"LINECAST_CACHE_DIR": str(tmp_path)}):
+            yield tmp_path
+
+    @pytest.mark.parametrize("fetch", [chs._fetch_pred_chunk, chs.fetch_hilo_range_chs])
+    def test_the_same_points_either_way(self, fetch):
+        from zoneinfo import ZoneInfo
+        from linecast import _http
+        halifax = ZoneInfo("America/Halifax")
+        args = ("X", date(2026, 10, 31), date(2026, 11, 1), halifax)
+        with patch.object(_http, "fetch_json", return_value=self.PAYLOAD):
+            fetched = fetch(*args)
+        cached = fetch(*args)  # the network is off: this is the file
+        assert fetched == cached
+        # Halifax's clocks go back at 2am on 1 November: 27 hours pass
+        start = datetime(2026, 10, 31, 12, 0, tzinfo=halifax)
+        assert [(p[0] - start).total_seconds() / 3600 for p in fetched] == [0, 27]
+
+
 if __name__ == "__main__":
     unittest.main()

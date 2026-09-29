@@ -8,7 +8,7 @@ feet for compatibility with the NOAA-based rendering pipeline.
 from datetime import date, datetime, timezone, timedelta, tzinfo
 from typing import Any
 
-from linecast._cache import location_cache_key, read_cache, read_stale, write_cache
+from linecast._cache import location_cache_key
 from linecast._http import fetch_json, fetch_json_cached
 from linecast._log import log_failure, log_skipped
 from linecast.tides.common import (
@@ -31,14 +31,22 @@ def is_chs_station_id(station_id: str) -> bool:
 
 def fetch_all_stations_chs() -> list[dict[str, Any]]:
     """Fetch the full CHS tidal station list (cached 30 days)."""
-    cache_file = cache_dir() / "chs_all_stations.json"
-    url = f"{CHS_BASE}/stations?time-series-code=wlp-hilo"
-    data = fetch_json_cached(
-        cache_file, 30 * 86400, url,
-        timeout=15, fallback=None,
+    stations = fetch_json_cached(
+        cache_dir() / "chs_all_stations.json", 30 * 86400,
+        f"{CHS_BASE}/stations?time-series-code=wlp-hilo",
+        timeout=15, fallback=[], provider="tides/chs", transform=_station_list,
     )
+    # A file from before the list was checked on the way in can hold
+    # some other answer CHS gave.
+    return stations if isinstance(stations, list) else []
+
+
+def _station_list(data):
+    """The station list, which CHS sends as a bare list. Anything else,
+    or an empty one, is not the list, and raising keeps it out of the
+    cache, where it would say "no station anywhere" for a month."""
     if not data or not isinstance(data, list):
-        return []
+        raise ValueError("no stations in the answer")
     return data
 
 
@@ -77,25 +85,25 @@ def fetch_station_metadata_chs(station_id: str) -> dict[str, Any] | None:
     Returns dict with: id, name, state, lat, lng, timezone_abbr,
     timezonecorr, timeZoneCode, observedst, source.
     """
-    cache_file = cache_dir() / f"chs_meta_{station_id}.json"
-    cached = read_cache(cache_file, 30 * 86400)
-    if cached and cached.get("source") == "chs":
-        return cached
-
-    url = f"{CHS_BASE}/stations/{station_id}/metadata"
-    data = fetch_json_cached(
-        cache_file, 0, url,
-        timeout=10, fallback=None,
+    meta = fetch_json_cached(
+        cache_dir() / f"chs_meta_{station_id}.json", 30 * 86400,
+        f"{CHS_BASE}/stations/{station_id}/metadata",
+        timeout=10, fallback=None, provider="tides/chs",
+        transform=lambda data: _station_meta(data, station_id),
     )
-    if not data:
+    # A file from before the metadata was parsed on the way in can hold
+    # CHS's own answer.
+    if not meta or "timezone_abbr" not in meta:
         return None
+    return meta
 
-    if data.get("source") == "chs":
-        return data
 
+def _station_meta(data, station_id):
+    """CHS's metadata for a station, in the shape NOAA's has."""
+    if not data:
+        raise ValueError(f"no metadata for station {station_id}")
     tz_code = data.get("timeZoneCode", "")
-
-    meta = {
+    return {
         "id": str(data.get("id", station_id)),
         "name": data.get("officialName", ""),
         "state": data.get("provinceCode", ""),
@@ -107,8 +115,6 @@ def fetch_station_metadata_chs(station_id: str) -> dict[str, Any] | None:
         "observedst": tz_code not in ("UTC", "GMT", ""),
         "source": "chs",
     }
-    write_cache(cache_file, meta)
-    return meta
 
 
 # ---------------------------------------------------------------------------
@@ -124,18 +130,37 @@ def _utc_range_for_dates(start_date, end_date, station_tz):
 # ---------------------------------------------------------------------------
 # Prediction fetching
 # ---------------------------------------------------------------------------
-def _stale_rows(cache_file, operation, exc, url):
-    """The rows cached from an earlier answer, for when CHS cannot be reached.
+def _levels(data, station_tz, what):
+    """CHS's (eventDate, value) rows as (local datetime, feet).
 
-    The cache holds the rows parsed from CHS's answer, never the answer
-    itself, which is a list too; read as though it were, every row
-    would fail and the last good predictions be written over with none.
+    CHS answers with a bare list; an empty one, or anything else, is no
+    answer, and raising keeps it out of the cache.
     """
-    stale = read_stale(cache_file)
-    log_failure("tides/chs", operation, exc, url=url,
-                fallback=(f"stale cache {cache_file.name}"
-                          if stale is not None else "no data"))
-    return stale or []
+    if not data or not isinstance(data, list):
+        raise ValueError(f"no {what} in the answer")
+    levels = []
+    bad = None
+    for entry in data:
+        try:
+            levels.append((parse_utc_iso(entry["eventDate"], station_tz),
+                           float(entry["value"]) * M_TO_FT))
+        except (KeyError, ValueError, TypeError) as exc:
+            bad = exc
+    log_skipped("tides/chs", what, len(data) - len(levels), len(data), bad)
+    return levels
+
+
+def _level_rows(data, station_tz):
+    """The water levels as cache rows: {"dt": local ISO time, "v": feet}."""
+    return [{"dt": dt.isoformat(), "v": v}
+            for dt, v in _levels(data, station_tz, "water-level rows")]
+
+
+def _extreme_rows(data, station_tz):
+    """The extremes as cache rows, with "t" saying high or low, which
+    CHS's wlp-hilo series does not."""
+    return [{"dt": dt.isoformat(), "v": v, "t": t}
+            for dt, v, t in label_hilo(_levels(data, station_tz, "hilo rows"))]
 
 
 def fetch_tides_range_chs(station_id: str, start_date: date, end_date: date,
@@ -162,40 +187,16 @@ def _fetch_pred_chunk(station_id, start_date, end_date, station_tz):
     end_str = end_date.strftime("%Y%m%d")
     cache_file = cache_dir() / f"chs_pred_{station_id}_{start_str}_{end_str}.json"
 
-    cached = read_cache(cache_file, 86400)
-    if cached is not None:
-        return [(parse_cached_dt(r["dt"], station_tz), r["v"]) for r in cached]
-
     utc_from, utc_to = _utc_range_for_dates(start_date, end_date, station_tz)
     url = (
         f"{CHS_BASE}/stations/{station_id}/data"
         f"?time-series-code=wlp&from={utc_from}&to={utc_to}"
         f"&resolution=FIVE_MINUTES"
     )
-    try:
-        data = fetch_json(url, timeout=20)
-    except Exception as exc:
-        stale = _stale_rows(cache_file, "predictions fetch", exc, url)
-        return [(parse_cached_dt(r["dt"], station_tz), r["v"]) for r in stale]
-    if not data or not isinstance(data, list):
-        return []
-
-    rows = []
-    points = []
-    bad = None
-    for entry in data:
-        try:
-            dt_local = parse_utc_iso(entry["eventDate"], station_tz)
-            height_ft = float(entry["value"]) * M_TO_FT
-            rows.append({"dt": dt_local.isoformat(), "v": height_ft})
-            points.append((dt_local, height_ft))
-        except (KeyError, ValueError, TypeError) as exc:
-            bad = exc
-            continue
-    log_skipped("tides/chs", "water-level rows", len(data) - len(rows), len(data), bad)
-
-    write_cache(cache_file, rows)
-    return points
+    rows = fetch_json_cached(cache_file, 86400, url, timeout=20, fallback=[],
+                             provider="tides/chs",
+                             transform=lambda data: _level_rows(data, station_tz))
+    return [(parse_cached_dt(r["dt"], station_tz), r["v"]) for r in rows]
 
 
 def fetch_hilo_range_chs(station_id: str, start_date: date, end_date: date,
@@ -209,41 +210,15 @@ def fetch_hilo_range_chs(station_id: str, start_date: date, end_date: date,
     end_str = end_date.strftime("%Y%m%d")
     cache_file = cache_dir() / f"chs_hilo_{station_id}_{start_str}_{end_str}.json"
 
-    cached = read_cache(cache_file, 86400)
-    if cached is not None:
-        return [(parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in cached]
-
     utc_from, utc_to = _utc_range_for_dates(start_date, end_date, station_tz)
     url = (
         f"{CHS_BASE}/stations/{station_id}/data"
         f"?time-series-code=wlp-hilo&from={utc_from}&to={utc_to}"
     )
-    try:
-        data = fetch_json(url, timeout=15)
-    except Exception as exc:
-        stale = _stale_rows(cache_file, "hilo fetch", exc, url)
-        return [(parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in stale]
-    if not data or not isinstance(data, list):
-        return []
-
-    raw = []
-    bad = None
-    for entry in data:
-        try:
-            dt_local = parse_utc_iso(entry["eventDate"], station_tz)
-            height_ft = float(entry["value"]) * M_TO_FT
-            raw.append((dt_local, height_ft))
-        except (KeyError, ValueError, TypeError) as exc:
-            bad = exc
-            continue
-    log_skipped("tides/chs", "hilo rows", len(data) - len(raw), len(data), bad)
-
-    # CHS wlp-hilo does not label highs vs lows.
-    labeled = label_hilo(raw)
-
-    cache_rows = [{"dt": dt.isoformat(), "v": v, "t": t} for dt, v, t in labeled]
-    write_cache(cache_file, cache_rows)
-    return labeled
+    rows = fetch_json_cached(cache_file, 86400, url, timeout=15, fallback=[],
+                             provider="tides/chs",
+                             transform=lambda data: _extreme_rows(data, station_tz))
+    return [(parse_cached_dt(r["dt"], station_tz), r["v"], r["t"]) for r in rows]
 
 
 def fetch_y_range_chs(station_id: str, center_date: date,
